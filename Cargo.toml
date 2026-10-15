@@ -23,6 +23,16 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 getrandom = "0.4"
 parking_lot = "0.12"
+pdfcraft-engine = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+
+# PdfCraft's engine builds only against its own forks of these crates (same git rev).
+# The patch applies to the whole workspace, so our lopdf is PdfCraft's patched 0.45.0.
+[patch.crates-io]
+hayro = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+hayro-interpret = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+hayro-syntax = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+hayro-jbig2 = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+lopdf = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 
 [profile.release]
 lto = "thin"

@@ -12,6 +12,7 @@ thiserror.workspace = true
 tempfile.workspace = true
 getrandom.workspace = true
 parking_lot.workspace = true
+pdfcraft-engine.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
