@@ -64,6 +64,5 @@ pub fn to_pdfa(input: &Input, level: PdfALevel, out: &Path) -> Result<PdfAReport
 /// The rules of `level` that `input` breaks, as PdfCraft's preflight sees them.
 pub fn verify(input: &Input, level: PdfALevel) -> Result<Vec<PdfAIssue>> {
     let doc = Doc::open(input)?;
-    let d = doc.session().get(doc.id()).expect("a Doc's document stays open in its session");
-    Ok(d.pdfa_verify(level.engine()).into_iter().map(|i| PdfAIssue { clause: i.clause.to_string(), message: i.message }).collect())
+    Ok(doc.document().pdfa_verify(level.engine()).into_iter().map(|i| PdfAIssue { clause: i.clause.to_string(), message: i.message }).collect())
 }

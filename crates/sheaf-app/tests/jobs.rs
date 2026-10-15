@@ -336,3 +336,22 @@ fn ocr_job_reports_progress_and_a_cancel_inside_a_file_writes_nothing() {
     let names: Vec<_> = std::fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
     assert!(!names.iter().any(|n| n.contains("ocr (1)") || n.ends_with(".part")), "{names:?}");
 }
+
+#[test]
+fn export_jobs_write_office_files_and_never_warn() {
+    use sheaf_app::jobs::ExportKind;
+    use sheaf_core::{excel::SheetLayout, export::ExportOptions};
+    let dir = tempfile::tempdir().unwrap();
+    let text = helvetica_pdf(dir.path());
+    let prot = sheaf_core::security::protect(&Input::new(&text), "pw", None, &dir.path().join("p.pdf")).unwrap();
+    let locked = Input { path: prot, password: Some("pw".into()) };
+    let no = AtomicBool::new(false);
+    for (kind, ext) in [(ExportKind::Word, "docx"), (ExportKind::PowerPoint, "pptx"), (ExportKind::Excel(SheetLayout::OneSheet), "xlsx")] {
+        let out = dir.path().join(format!("p.{ext}"));
+        let o = run(&Job::Export { items: vec![(locked.clone(), out.clone())], kind, options: ExportOptions::default() }, &no, &|_| {}).unwrap();
+        assert_eq!(o.outputs, vec![out.clone()]);
+        assert!(!o.was_encrypted, "an Office file is not a PDF: no protection warning");
+        let z = std::process::Command::new("unzip").arg("-l").arg(&out).output().unwrap();
+        assert!(z.status.success(), "{ext} is a zip");
+    }
+}

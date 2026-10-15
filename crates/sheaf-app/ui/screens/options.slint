@@ -193,6 +193,7 @@ export component OptionsPanel inherits VerticalLayout {
         : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == ""))
         : root.tool == "watermark" ? (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "")
         : root.tool == "ocr" ? OcrInfo.available && root.ocr-languages != ","
+        : root.tool == "pdf_to_word" || root.tool == "pdf_to_powerpoint" || root.tool == "pdf_to_excel" ? !root.export-ocr || OcrInfo.available
         : root.tool == "crop" ? (root.crop-mode == 2 || ((root.crop-mode == 0 || root.pages != "")
             && Parse.mm(root.crop-top) + Parse.mm(root.crop-bottom) + Parse.mm(root.crop-left) + Parse.mm(root.crop-right) > 0))
         : true);
@@ -212,6 +213,7 @@ export component OptionsPanel inherits VerticalLayout {
         crop-left: root.crop-left, crop-right: root.crop-right,
         pdfa-level: root.pdfa-level,
         ocr-languages: root.ocr-languages, ocr-all-pages: root.ocr-all-pages,
+        export-ocr: root.export-ocr, excel-layout: root.excel-layout,
     };
     callback insert-blank();
     callback get-libreoffice();
@@ -259,6 +261,8 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> pdfa-level: 0;
     in-out property <string> ocr-languages: ",en,";
     in-out property <bool> ocr-all-pages;
+    in-out property <bool> export-ocr;
+    in-out property <int> excel-layout: 0;
 
     spacing: 10px;
     alignment: start;
@@ -596,6 +600,39 @@ export component OptionsPanel inherits VerticalLayout {
             icon: @image-url("../icons/triangle-alert.svg");
             text: "The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR.";
         }
+    }
+
+    if root.tool == "pdf_to_word" || root.tool == "pdf_to_powerpoint" || root.tool == "pdf_to_excel": VerticalLayout {
+        property <string> what: root.tool == "pdf_to_word" ? "Word" : root.tool == "pdf_to_powerpoint" ? "PowerPoint" : "Excel";
+        spacing: 10px;
+        RadioCard {
+            title: "No OCR (text PDFs)";
+            description: "Converts PDFs with selectable text to editable " + what + " files";
+            selected: !root.export-ocr;
+            clicked => { root.export-ocr = false; }
+        }
+        RadioCard {
+            title: "OCR (scanned PDFs)";
+            description: "Converts scanned PDFs with non-selectable text to editable " + what + " files";
+            selected: root.export-ocr;
+            clicked => { root.export-ocr = true; }
+        }
+        if root.export-ocr && !OcrInfo.available: InfoBox {
+            icon: @image-url("../icons/triangle-alert.svg");
+            text: "The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR.";
+        }
+        if root.tool == "pdf_to_excel": VerticalLayout {
+            spacing: 10px;
+            padding-top: 4px;
+            SectionLabel { text: "Layout:"; }
+            HorizontalLayout {
+                spacing: 8px;
+                Segment { text: "One sheet"; selected: root.excel-layout == 0; clicked => { root.excel-layout = 0; } }
+                Segment { text: "Multiple sheets"; selected: root.excel-layout == 1; clicked => { root.excel-layout = 1; } }
+            }
+            InfoBox { text: "Choose to place all tables on one sheet or create a new sheet for each table. Pages without a table keep their text in column A."; }
+        }
+        InfoBox { text: "Layout is approximate: text, paragraphs, tables and images are recovered; exact formatting may differ."; }
     }
 
     if root.tool == "pdf_to_pdfa": VerticalLayout {

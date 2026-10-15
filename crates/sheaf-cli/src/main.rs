@@ -9,6 +9,8 @@ use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_core::excel::{self, SheetLayout};
+use sheaf_core::export::{self, ExportOptions, Office};
 use sheaf_core::ocr::{self, OcrOptions};
 use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::watermark::{self, Mark, Placement, WatermarkOptions};
@@ -236,6 +238,35 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Export to an editable Word document (.docx); the layout is approximate
+    ToWord {
+        input: PathBuf,
+        /// Recognise the text of scanned pages first
+        #[arg(long)]
+        ocr: bool,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Export to PowerPoint (.pptx), one slide per page; the layout is approximate
+    ToPowerpoint {
+        input: PathBuf,
+        /// Recognise the text of scanned pages first
+        #[arg(long)]
+        ocr: bool,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Export the tables to Excel (.xlsx); pages without a table keep their text in column A
+    ToExcel {
+        input: PathBuf,
+        #[arg(long, value_enum, default_value_t = CliSheets::OneSheet)]
+        layout: CliSheets,
+        /// Recognise the text of scanned pages first
+        #[arg(long)]
+        ocr: bool,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Convert to PDF/A for archiving, then check the result
     Pdfa {
         input: PathBuf,
@@ -250,6 +281,14 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum CliSheets {
+    /// Every table on one sheet
+    OneSheet,
+    /// One sheet per table
+    SheetPerTable,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -367,6 +406,7 @@ impl Cmd {
             | Cmd::ToJpg { input, .. } => vec![input],
             // These report it themselves (from the engine), like Compress.
             Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } | Cmd::Ocr { .. } |
+            Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
         }
     }
@@ -391,6 +431,9 @@ impl Cmd {
             | Cmd::Crop { out, .. }
             | Cmd::Pdfa { out, .. }
             | Cmd::Ocr { out, .. }
+            | Cmd::ToWord { out, .. }
+            | Cmd::ToPowerpoint { out, .. }
+            | Cmd::ToExcel { out, .. }
             | Cmd::Office { out, .. } => out.parent().filter(|p| !p.as_os_str().is_empty()),
         }
     }
@@ -501,6 +544,17 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             eprintln!("{} {} read, {} skipped, {} words added", r.pages_read, page(r.pages_read), r.pages_skipped, r.words);
             warned(Ok((r.path, r.was_encrypted)))
         }
+        Cmd::ToWord { input: i, ocr, out } => office_export(&input(i), Office::Word, ocr, &out),
+        Cmd::ToPowerpoint { input: i, ocr, out } => office_export(&input(i), Office::PowerPoint, ocr, &out),
+        Cmd::ToExcel { input: i, layout, ocr, out } => {
+            let layout = match layout {
+                CliSheets::OneSheet => SheetLayout::OneSheet,
+                CliSheets::SheetPerTable => SheetLayout::SheetPerTable,
+            };
+            let r = excel::to_excel(&input(i), layout, &ExportOptions { ocr, ..Default::default() }, &out, &mut |_| true)?;
+            eprintln!("{} table{} found", r.tables, if r.tables == 1 { "" } else { "s" });
+            Ok(vec![r.path])
+        }
         Cmd::Pdfa { input: i, level, out } => {
             let level = match level {
                 CliPdfA::A2b => PdfALevel::A2b,
@@ -516,6 +570,11 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             warned(Ok((r.path, r.was_encrypted)))
         }
     }
+}
+
+/// Word or PowerPoint export (the output is not a PDF: no protection note).
+fn office_export(input: &Input, format: Office, ocr: bool, out: &Path) -> sheaf_core::Result<Vec<PathBuf>> {
+    Ok(vec![export::to_office(input, format, &ExportOptions { ocr, ..Default::default() }, out, &mut |_| true)?.path])
 }
 
 /// A PdfCraft tool's result: the path, with the note when the protected input lost protection.

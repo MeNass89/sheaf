@@ -16,9 +16,12 @@ pdfcraft-engine.workspace = true
 pdfcraft-render.workspace = true
 pdfcraft-fonts.workspace = true
 pdfcraft-edit.workspace = true
+pdfcraft-export.workspace = true
+rust_xlsxwriter.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
 pdfium-render.workspace = true
 lopdf.workspace = true
 image.workspace = true
+calamine.workspace = true

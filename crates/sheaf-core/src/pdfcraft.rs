@@ -54,17 +54,18 @@ impl Doc {
     /// The document's id within [`Self::session`].
     pub fn id(&self) -> DocId { self.id }
 
-    fn doc(&self) -> &engine::Document {
+    /// The engine's view of the open document (pages, text, export, preflight).
+    pub fn document(&self) -> &engine::Document {
         self.session.get(self.id).expect("a Doc's document stays open in its session")
     }
 
     /// Whether the input file was encrypted. That includes files with only an owner password,
     /// which open without one: they are encrypted all the same.
-    pub fn was_encrypted(&self) -> bool { self.doc().info.encrypted }
+    pub fn was_encrypted(&self) -> bool { self.document().info.encrypted }
 
     /// Renders page `page` (0-based) at `scale` device pixels per point, as premultiplied RGBA8.
     pub fn render(&self, page: usize, scale: f32) -> Result<render::RenderedPage> {
-        let doc = self.doc();
+        let doc = self.document();
         let config = render::RenderConfig { password: doc.password.as_deref().map(Arc::from), ..Default::default() };
         let mut r = render::PageRenderer::new(doc.display.clone(), config);
         let out = r.render(render::RenderRequest { page, scale, ..Default::default() });

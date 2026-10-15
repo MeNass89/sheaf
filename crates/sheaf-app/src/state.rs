@@ -159,6 +159,7 @@ fn verb(tool: ToolId) -> &'static str {
         ToolId::PageNumbers => "numbered",
         ToolId::Watermark => "watermarked",
         ToolId::Crop => "cropped",
+        ToolId::Ocr => "made searchable",
         _ => "converted",
     }
 }
@@ -172,6 +173,16 @@ fn grew_text(many: bool, before: u64, after: u64) -> String {
     let what = if many { "The unprotected copies are" } else { "The unprotected copy is" };
     let of = if many { "the protected originals" } else { "the protected original" };
     format!("{what} {pct}% larger than {of}.")
+}
+
+/// What PDF to Word / PowerPoint / Excel make, for the result title.
+fn exported_kind(tool: ToolId) -> Option<&'static str> {
+    match tool {
+        ToolId::PdfToWord => Some("Word document"),
+        ToolId::PdfToPowerPoint => Some("presentation"),
+        ToolId::PdfToExcel => Some("spreadsheet"),
+        _ => None,
+    }
 }
 
 /// Heading above the result notes.
@@ -243,6 +254,11 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
     let is_compress = t.tool == ToolId::Compress;
     tab.result_title = if t.tool == ToolId::PdfToJpg {
         "Your images have been created successfully.".into()
+    } else if let Some(what) = exported_kind(t.tool) {
+        let (it, have) = if many { (format!("{what}s"), "have") } else { (what.to_string(), "has") };
+        format!("Your {it} {have} been created successfully.").into()
+    } else if t.tool == ToolId::Compare {
+        "Your comparison report has been created successfully.".into()
     } else if many {
         format!("Your PDFs have been {} successfully.", verb(t.tool)).into()
     } else {
@@ -298,6 +314,10 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
                 info: files::caption(size, d.page_counts.get(i).copied().flatten()).into(),
                 note: note.into(),
                 is_pdf: files::kind_of(p) == Kind::Pdf,
+                kind: match files::ext(p).as_str() {
+                    e @ ("docx" | "pptx" | "xlsx") => e.into(),
+                    _ => "image".into(),
+                },
             }
         })
         .collect();
@@ -428,6 +448,23 @@ mod tests {
         let ok = JobOutcome { outputs: vec![PathBuf::from("/x/a-pdfa.pdf")], summary: "Conforms to PDF/A-2b".into(), ..Default::default() };
         let tab = done_tab(ToolId::PdfToPdfA, ok);
         assert_eq!((tab.result_sub.as_str(), tab.notes_title.as_str()), ("Conforms to PDF/A-2b", ""));
+    }
+
+    #[test]
+    fn office_exports_get_their_own_title_and_no_pdf_tools() {
+        let o = JobOutcome { outputs: vec![PathBuf::from("/x/a.docx")], ..Default::default() };
+        let tab = done_tab(ToolId::PdfToWord, o);
+        assert_eq!(tab.result_title, "Your Word document has been created successfully.");
+        assert!(!tab.outputs.row_data(0).unwrap().is_pdf);
+        assert_eq!(tab.outputs.row_data(0).unwrap().kind, "docx");
+        assert_eq!(tab.continue_tools.row_count(), 0);
+        let o = JobOutcome { outputs: vec![PathBuf::from("/x/a.xlsx"), PathBuf::from("/x/b.xlsx")], ..Default::default() };
+        assert_eq!(done_tab(ToolId::PdfToExcel, o).result_title, "Your spreadsheets have been created successfully.");
+        for out in ["a.docx", "a.pptx", "a.xlsx"] {
+            assert!(continue_tools(ToolId::PdfToWord, &[PathBuf::from(out)]).is_empty(), "{out}");
+        }
+        let ocr = continue_tools(ToolId::Ocr, &[PathBuf::from("a-ocr.pdf")]);
+        assert!(ocr.contains(&ToolId::PdfToWord) && ocr.contains(&ToolId::Compress) && !ocr.contains(&ToolId::Ocr));
     }
 
     #[test]

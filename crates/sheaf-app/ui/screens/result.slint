@@ -139,7 +139,11 @@ export component ResultScreen inherits Rectangle {
                                 Image {
                                     width: 18px;
                                     height: 18px;
-                                    source: o.is-pdf ? @image-url("../icons/file-text.svg") : @image-url("../icons/image.svg");
+                                    source: o.is-pdf ? @image-url("../icons/file-text.svg")
+                                        : o.kind == "docx" ? @image-url("../icons/file-type.svg")
+                                        : o.kind == "pptx" ? @image-url("../icons/presentation.svg")
+                                        : o.kind == "xlsx" ? @image-url("../icons/sheet.svg")
+                                        : @image-url("../icons/image.svg");
                                     colorize: root.tab.tile;
                                 }
                             }

@@ -1,6 +1,8 @@
 pub mod compress;
 pub mod engine;
+pub mod export;
 pub mod error;
+pub mod excel;
 pub mod crop;
 pub mod images;
 pub mod office;

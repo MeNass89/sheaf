@@ -8,6 +8,9 @@ use sheaf_app::{AppWindow, ToolOptions};
 use sheaf_core::compress::Level;
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_app::jobs::ExportKind;
+use sheaf_core::excel::SheetLayout;
+use sheaf_core::export::ExportOptions;
 use sheaf_core::ocr::OcrOptions;
 use sheaf_core::pdfa::PdfALevel;
 use sheaf_core::watermark::{Mark, Placement, WatermarkOptions};
@@ -224,6 +227,14 @@ fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptio
         ToolId::Ocr => {
             let options = ocr_options(opts)?;
             Job::Ocr { items: pairs(inputs), options }
+        }
+        ToolId::PdfToWord | ToolId::PdfToPowerPoint | ToolId::PdfToExcel => {
+            let kind = match tool {
+                ToolId::PdfToWord => ExportKind::Word,
+                ToolId::PdfToPowerPoint => ExportKind::PowerPoint,
+                _ => ExportKind::Excel(if opts.excel_layout == 1 { SheetLayout::SheetPerTable } else { SheetLayout::OneSheet }),
+            };
+            Job::Export { items: pairs(inputs), kind, options: ExportOptions { ocr: opts.export_ocr, ..Default::default() } }
         }
         ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
         other => return Err(OpdfError::Unsupported(format!("{} is not available yet", tools::find(other).name))),
@@ -501,6 +512,19 @@ mod tests {
         assert_eq!((options.language.as_str(), options.read_text_pages, items[0].1.clone()), ("fr", true, PathBuf::from("/s/o.pdf")));
         o.ocr_languages = ",,".into();
         assert!(build_job(ToolId::Ocr, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/o.pdf".into())).is_err());
+    }
+
+    #[test]
+    fn export_jobs() {
+        let mut o = opts();
+        let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
+        let Job::Export { items, kind, options } = build_job(ToolId::PdfToWord, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
+        assert_eq!((kind, options.ocr, items[1].1.clone()), (ExportKind::Word, false, PathBuf::from("/o/y.docx")));
+        o.export_ocr = true;
+        o.excel_layout = 1;
+        let Job::Export { kind, options, .. } = build_job(ToolId::PdfToExcel, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/t.xlsx".into())).unwrap() else { panic!() };
+        assert_eq!((kind, options.ocr), (ExportKind::Excel(SheetLayout::SheetPerTable), true));
+        assert_eq!(out_name(ToolId::PdfToPowerPoint, Path::new("/a/x.pdf"), &o), "x.pptx");
     }
 
     #[test]

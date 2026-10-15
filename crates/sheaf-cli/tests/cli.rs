@@ -234,3 +234,41 @@ fn ocr_subcommand_reports_what_it_read() {
     assert_eq!(bad.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&bad.stderr).contains("OCR language"));
 }
+
+fn unzip(file: &std::path::Path, member: &str) -> String {
+    let o = Command::new("unzip").arg("-p").arg(file).arg(member).output().unwrap();
+    assert!(o.status.success(), "{member}");
+    String::from_utf8_lossy(&o.stdout).into_owned()
+}
+
+/// A PDF made by the CLI itself whose page carries the text "Sheaf 2026" (page numbers).
+fn text_pdf(dir: &std::path::Path) -> std::path::PathBuf {
+    let png = dir.join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let a = dir.join("a.pdf");
+    assert!(bin().arg("from-images").arg(&png).arg("--a4").arg("-o").arg(&a).status().unwrap().success());
+    let n = dir.join("n.pdf");
+    let r = bin().arg("number").arg(&a).args(["--text", "custom", "--custom", "Sheaf 2026", "-o"]).arg(&n).output().unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    n
+}
+
+#[test]
+fn word_powerpoint_and_excel_subcommands() {
+    let t = tempfile::tempdir().unwrap();
+    let n = text_pdf(t.path());
+    let run = |args: &[&str], out: &std::path::Path| {
+        let r = bin().arg(args[0]).arg(&n).args(&args[1..]).arg("-o").arg(out).output().unwrap();
+        assert!(r.status.success(), "{args:?}: {}", String::from_utf8_lossy(&r.stderr));
+        assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
+        String::from_utf8_lossy(&r.stderr).into_owned()
+    };
+    run(&["to-word"], &t.path().join("n.docx"));
+    assert!(unzip(&t.path().join("n.docx"), "word/document.xml").contains("Sheaf 2026"));
+    run(&["to-powerpoint"], &t.path().join("n.pptx"));
+    assert!(unzip(&t.path().join("n.pptx"), "ppt/slides/slide1.xml").contains("Sheaf 2026"));
+    let err = run(&["to-excel", "--layout", "sheet-per-table"], &t.path().join("n.xlsx"));
+    assert!(err.contains("0 tables found"), "{err}");
+    assert!(unzip(&t.path().join("n.xlsx"), "xl/sharedStrings.xml").contains("Sheaf 2026"));
+    run(&["to-word", "--ocr"], &t.path().join("o.docx"));
+}

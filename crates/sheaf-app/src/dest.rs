@@ -25,7 +25,7 @@ fn always_many(tool: ToolId) -> bool {
 
 /// Tools that write one output from all their inputs.
 fn combines(tool: ToolId) -> bool {
-    matches!(tool, ToolId::Merge | ToolId::JpgToPdf)
+    matches!(tool, ToolId::Merge | ToolId::JpgToPdf | ToolId::Compare)
 }
 
 fn stem(p: &Path) -> String {
@@ -64,16 +64,27 @@ pub fn parent_dir(p: &Path) -> PathBuf {
     p.parent().filter(|d| !d.as_os_str().is_empty()).map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."))
 }
 
+/// The Save dialog's file type for `tool`'s output: (name, extension).
+pub fn save_filter(tool: ToolId) -> (&'static str, &'static str) {
+    match tool {
+        ToolId::PdfToWord => ("Word document", "docx"),
+        ToolId::PdfToPowerPoint => ("PowerPoint presentation", "pptx"),
+        ToolId::PdfToExcel => ("Excel workbook", "xlsx"),
+        _ => ("PDF", "pdf"),
+    }
+}
+
 pub fn ask_dest(tool: ToolId, inputs: &[PathBuf], opts: &ToolOptions) -> Option<Dest> {
     let first = inputs.first()?;
     let dir = parent_dir(first);
     if writes_folder(tool, inputs) {
         rfd::FileDialog::new().set_title("Choose a folder for the files").set_directory(&dir).pick_folder().map(Dest::Folder)
     } else {
+        let (name, ext) = save_filter(tool);
         rfd::FileDialog::new()
             .set_directory(&dir)
             .set_file_name(out_name(tool, first, opts))
-            .add_filter("PDF", &["pdf"])
+            .add_filter(name, &[ext])
             .save_file()
             .map(Dest::File)
     }
@@ -103,8 +114,10 @@ mod tests {
         p.output = OutputMode::Fixed;
         p.fixed_folder = Some(dir.path().to_path_buf());
         assert!(matches!(pref_dest(ToolId::Compress, &one, &opts(), &p), Some(Dest::File(f)) if f == dir.path().join("x-compressed.pdf")));
+        assert!(matches!(pref_dest(ToolId::PdfToExcel, &one, &opts(), &p), Some(Dest::File(f)) if f == dir.path().join("x.xlsx")));
         p.fixed_folder = Some(dir.path().join("gone"));
         assert!(pref_dest(ToolId::Compress, &one, &opts(), &p).is_none());
+        assert_eq!(save_filter(ToolId::PdfToWord), ("Word document", "docx"));
+        assert_eq!(save_filter(ToolId::Crop), ("PDF", "pdf"));
     }
-
 }

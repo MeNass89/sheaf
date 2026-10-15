@@ -8,6 +8,8 @@ use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions};
+use sheaf_core::excel::{self, SheetLayout};
+use sheaf_core::export::{self, ExportOptions, Office};
 use sheaf_core::ocr::{self, OcrOptions};
 use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::watermark::{self, WatermarkOptions};
@@ -22,6 +24,14 @@ pub enum SplitMode {
     Ranges(String),
     /// One output every N pages.
     Every(u32),
+}
+
+/// What PDF to Word / PowerPoint / Excel writes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ExportKind {
+    Word,
+    PowerPoint,
+    Excel(SheetLayout),
 }
 
 /// One run of a tool, with owned parameters. Batch tools carry `(input, output)` pairs:
@@ -49,6 +59,7 @@ pub enum Job {
     Crop { input: Input, pages: Option<String>, spec: CropSpec, out: PathBuf },
     PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel },
     Ocr { items: Vec<(Input, PathBuf)>, options: OcrOptions },
+    Export { items: Vec<(Input, PathBuf)>, kind: ExportKind, options: ExportOptions },
 }
 
 impl Job {
@@ -66,6 +77,7 @@ impl Job {
             | Job::Watermark { items, .. }
             | Job::PdfA { items, .. }
             | Job::Ocr { items, .. }
+            | Job::Export { items, .. }
             | Job::Compress { items, .. }
             | Job::Protect { items, .. }
             | Job::Unlock { items }
@@ -173,6 +185,7 @@ fn loses_protection(job: &Job) -> bool {
         | Job::Watermark { .. }
         | Job::PdfA { .. }
         | Job::Ocr { .. }
+        | Job::Export { .. }
         | Job::Crop { .. } => vec![],
     };
     pdfs.into_iter().any(Input::is_encrypted)
@@ -290,6 +303,38 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             }
             outs
         }
+        Job::Export { items, kind, options } => {
+            let n = items.len() as f32;
+            let started = std::cell::Cell::new(0usize);
+            let mut tables = 0;
+            let outs = batch(each(items, cancel, progress, pair, |(i, o)| {
+                let k = started.get() as f32;
+                started.set(started.get() + 1);
+                let mut step = |p: f32| {
+                    progress((k + p) / n);
+                    !cancel.load(Ordering::Relaxed)
+                };
+                // Office files are not PDFs: an encrypted input needs no protection warning.
+                let path = match kind {
+                    ExportKind::Word => export::to_office(i, Office::Word, options, o, &mut step)?.path,
+                    ExportKind::PowerPoint => export::to_office(i, Office::PowerPoint, options, o, &mut step)?.path,
+                    ExportKind::Excel(layout) => {
+                        let r = excel::to_excel(i, *layout, options, o, &mut step)?;
+                        tables += r.tables;
+                        r.path
+                    }
+                };
+                Ok(vec![path])
+            }))?;
+            if matches!(kind, ExportKind::Excel(_)) {
+                summary = match tables {
+                    0 => "No tables found: the text is in column A".into(),
+                    1 => "1 table found".into(),
+                    n => format!("{n} tables found"),
+                };
+            }
+            outs
+        }
         Job::PdfA { items, level } => {
             let many = items.len() > 1;
             let mut conforming = 0;
@@ -394,6 +439,10 @@ pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
         T::Crop => "-cropped",
         T::PdfToPdfA => "-pdfa",
         T::Ocr => "-ocr",
+        T::PdfToWord => return format!("{stem}.docx"),
+        T::PdfToPowerPoint => return format!("{stem}.pptx"),
+        T::PdfToExcel => return format!("{stem}.xlsx"),
+        T::Compare => "-comparison",
         _ => "",
     };
     format!("{stem}{suffix}.pdf")
@@ -425,6 +474,10 @@ mod tests {
         assert_eq!(default_name(ToolId::Crop, "a"), "a-cropped.pdf");
         assert_eq!(default_name(ToolId::PdfToPdfA, "a"), "a-pdfa.pdf");
         assert_eq!(default_name(ToolId::Ocr, "a"), "a-ocr.pdf");
+        assert_eq!(default_name(ToolId::PdfToWord, "a"), "a.docx");
+        assert_eq!(default_name(ToolId::PdfToPowerPoint, "a"), "a.pptx");
+        assert_eq!(default_name(ToolId::PdfToExcel, "a"), "a.xlsx");
+        assert_eq!(default_name(ToolId::Compare, "a"), "a-comparison.pdf");
         assert_eq!(default_name(ToolId::JpgToPdf, "photo"), "photo.pdf");
         assert_eq!(default_name(ToolId::WordToPdf, "letter"), "letter.pdf");
     }

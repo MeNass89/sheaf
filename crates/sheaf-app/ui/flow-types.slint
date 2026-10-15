@@ -27,6 +27,8 @@ export struct ResultFile {
     // Compress: "PDF compressed (-29%)"; empty otherwise.
     note: string,
     is-pdf: bool,
+    // Not a PDF: "image", "docx", "pptx" or "xlsx" (the card's icon).
+    kind: string,
 }
 
 export struct ContinueTool {
@@ -128,6 +130,9 @@ export struct ToolOptions {
     // OCR
     ocr-languages: string, // selected language codes, ",en,fr," (the first one is used)
     ocr-all-pages: bool,   // also read pages that already contain text
+    // PDF to Word / PowerPoint / Excel
+    export-ocr: bool,      // recognise scanned pages first
+    excel-layout: int,     // 0 one sheet, 1 one sheet per table
 }
 
 export struct OcrLanguage {
