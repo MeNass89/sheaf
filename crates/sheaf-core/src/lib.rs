@@ -1,3 +1,4 @@
+pub mod compare;
 pub mod compress;
 pub mod engine;
 pub mod export;

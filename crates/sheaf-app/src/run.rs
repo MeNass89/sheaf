@@ -9,6 +9,7 @@ use sheaf_core::compress::Level;
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions, NumberText};
 use sheaf_app::jobs::ExportKind;
+use sheaf_core::compare::CompareMode;
 use sheaf_core::excel::SheetLayout;
 use sheaf_core::export::ExportOptions;
 use sheaf_core::ocr::OcrOptions;
@@ -235,6 +236,13 @@ fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptio
                 _ => ExportKind::Excel(if opts.excel_layout == 1 { SheetLayout::SheetPerTable } else { SheetLayout::OneSheet }),
             };
             Job::Export { items: pairs(inputs), kind, options: ExportOptions { ocr: opts.export_ocr, ..Default::default() } }
+        }
+        ToolId::Compare => {
+            let mut it = inputs.into_iter();
+            let (Some(old), Some(new), None) = (it.next(), it.next(), it.next()) else {
+                return Err(OpdfError::Unsupported("Compare needs an original and a changed PDF".into()));
+            };
+            Job::Compare { old, new, mode: if opts.compare_mode == 1 { CompareMode::Overlay } else { CompareMode::Text }, out: single()? }
         }
         ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
         other => return Err(OpdfError::Unsupported(format!("{} is not available yet", tools::find(other).name))),
@@ -525,6 +533,17 @@ mod tests {
         let Job::Export { kind, options, .. } = build_job(ToolId::PdfToExcel, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/t.xlsx".into())).unwrap() else { panic!() };
         assert_eq!((kind, options.ocr), (ExportKind::Excel(SheetLayout::SheetPerTable), true));
         assert_eq!(out_name(ToolId::PdfToPowerPoint, Path::new("/a/x.pdf"), &o), "x.pptx");
+    }
+
+    #[test]
+    fn compare_job_takes_original_then_changed() {
+        let mut o = opts();
+        o.compare_mode = 1;
+        let two = vec![Input::new("/a/v1.pdf"), Input::new("/a/v2.pdf")];
+        let Job::Compare { old, new, mode, out } = build_job(ToolId::Compare, two, vec![], &o, Dest::File("/s/v1-comparison.pdf".into())).unwrap() else { panic!() };
+        assert_eq!((old.path, new.path, mode, out), (PathBuf::from("/a/v1.pdf"), PathBuf::from("/a/v2.pdf"), CompareMode::Overlay, PathBuf::from("/s/v1-comparison.pdf")));
+        assert!(build_job(ToolId::Compare, vec![Input::new("/a/v1.pdf")], vec![], &o, Dest::File("/s/c.pdf".into())).is_err());
+        assert_eq!(out_name(ToolId::Compare, Path::new("/a/v1.pdf"), &o), "v1-comparison.pdf");
     }
 
     #[test]

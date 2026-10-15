@@ -29,18 +29,15 @@ impl Doc {
     /// [`OpdfError::WrongPassword`], an engine limitation [`OpdfError::Unsupported`]; any other
     /// failure is [`OpdfError::Engine`].
     pub fn open(input: &Input) -> Result<Doc> {
-        let bytes = Arc::new(std::fs::read(&input.path)?);
-        let name = input.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "document.pdf".into());
         let mut session = Session::new();
-        let id = session.open(name, None, bytes, input.password.as_deref()).map_err(|e| match e {
-            OpenError::NeedsPassword | OpenError::WrongPassword if input.password.is_none() => {
-                OpdfError::PasswordRequired(input.path.clone())
-            }
-            OpenError::NeedsPassword | OpenError::WrongPassword => OpdfError::WrongPassword(input.path.clone()),
-            OpenError::Unsupported(m) => OpdfError::Unsupported(format!("{}: {m}", input.path.display())),
-            e => OpdfError::Engine(format!("{}: {e}", input.path.display())),
-        })?;
+        let id = open_in(&mut session, input)?;
         Ok(Doc { session, id })
+    }
+
+    /// Opens a second document in the same session (Compare needs both in one), as
+    /// [`Self::open`] does. The edits and saves of this `Doc` still apply to its first document.
+    pub fn open_also(&mut self, input: &Input) -> Result<DocId> {
+        open_in(&mut self.session, input)
     }
 
     /// Applies one edit to the document (in memory; nothing is written until a save).
@@ -100,6 +97,17 @@ impl Doc {
         let bytes = self.session.save_bytes(self.id).map_err(engine_err)?;
         write_verbatim(&bytes, out)
     }
+}
+
+fn open_in(session: &mut Session, input: &Input) -> Result<DocId> {
+    let bytes = Arc::new(std::fs::read(&input.path)?);
+    let name = input.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "document.pdf".into());
+    session.open(name, None, bytes, input.password.as_deref()).map_err(|e| match e {
+        OpenError::NeedsPassword | OpenError::WrongPassword if input.password.is_none() => OpdfError::PasswordRequired(input.path.clone()),
+        OpenError::NeedsPassword | OpenError::WrongPassword => OpdfError::WrongPassword(input.path.clone()),
+        OpenError::Unsupported(m) => OpdfError::Unsupported(format!("{}: {m}", input.path.display())),
+        e => OpdfError::Engine(format!("{}: {e}", input.path.display())),
+    })
 }
 
 fn engine_err(e: engine::EditError) -> OpdfError { OpdfError::Engine(e.to_string()) }

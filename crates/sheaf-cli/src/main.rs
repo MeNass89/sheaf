@@ -9,6 +9,7 @@ use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_core::compare::{self, CompareMode};
 use sheaf_core::excel::{self, SheetLayout};
 use sheaf_core::export::{self, ExportOptions, Office};
 use sheaf_core::ocr::{self, OcrOptions};
@@ -267,6 +268,17 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Compare an original and a changed PDF: a report (text) or the changes marked (overlay)
+    Compare {
+        /// The original version
+        old: PathBuf,
+        /// The changed version
+        new: PathBuf,
+        #[arg(long, value_enum, default_value_t = CliCompare::Text)]
+        mode: CliCompare,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Convert to PDF/A for archiving, then check the result
     Pdfa {
         input: PathBuf,
@@ -281,6 +293,14 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum CliCompare {
+    /// A report PDF listing the word changes
+    Text,
+    /// The changed PDF with the differences highlighted
+    Overlay,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -406,7 +426,7 @@ impl Cmd {
             | Cmd::ToJpg { input, .. } => vec![input],
             // These report it themselves (from the engine), like Compress.
             Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } | Cmd::Ocr { .. } |
-            Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } |
+            Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } | Cmd::Compare { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
         }
     }
@@ -434,6 +454,7 @@ impl Cmd {
             | Cmd::ToWord { out, .. }
             | Cmd::ToPowerpoint { out, .. }
             | Cmd::ToExcel { out, .. }
+            | Cmd::Compare { out, .. }
             | Cmd::Office { out, .. } => out.parent().filter(|p| !p.as_os_str().is_empty()),
         }
     }
@@ -554,6 +575,22 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             let r = excel::to_excel(&input(i), layout, &ExportOptions { ocr, ..Default::default() }, &out, &mut |_| true)?;
             eprintln!("{} table{} found", r.tables, if r.tables == 1 { "" } else { "s" });
             Ok(vec![r.path])
+        }
+        Cmd::Compare { old, new, mode, out } => {
+            let mode = match mode {
+                CliCompare::Text => CompareMode::Text,
+                CliCompare::Overlay => CompareMode::Overlay,
+            };
+            let r = compare::compare(&input(old), &input(new), mode, &out)?;
+            if r.identical() {
+                eprintln!("The documents' text is identical");
+            } else {
+                eprintln!("{}", r.counts());
+            }
+            if r.regions > 0 {
+                eprintln!("{} other changed area{} outlined", r.regions, if r.regions == 1 { "" } else { "s" });
+            }
+            warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::Pdfa { input: i, level, out } => {
             let level = match level {

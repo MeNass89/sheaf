@@ -8,6 +8,7 @@ use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions};
+use sheaf_core::compare::{self, CompareMode};
 use sheaf_core::excel::{self, SheetLayout};
 use sheaf_core::export::{self, ExportOptions, Office};
 use sheaf_core::ocr::{self, OcrOptions};
@@ -60,6 +61,7 @@ pub enum Job {
     PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel },
     Ocr { items: Vec<(Input, PathBuf)>, options: OcrOptions },
     Export { items: Vec<(Input, PathBuf)>, kind: ExportKind, options: ExportOptions },
+    Compare { old: Input, new: Input, mode: CompareMode, out: PathBuf },
 }
 
 impl Job {
@@ -72,6 +74,7 @@ impl Job {
             | Job::ExtractPages { input, .. }
             | Job::Organize { input, .. }
             | Job::Crop { input, .. } => vec![input.path.as_path()],
+            Job::Compare { old, new, .. } => vec![old.path.as_path(), new.path.as_path()],
             Job::Rotate { items, .. }
             | Job::PageNumbers { items, .. }
             | Job::Watermark { items, .. }
@@ -186,6 +189,7 @@ fn loses_protection(job: &Job) -> bool {
         | Job::PdfA { .. }
         | Job::Ocr { .. }
         | Job::Export { .. }
+        | Job::Compare { .. }
         | Job::Crop { .. } => vec![],
     };
     pdfs.into_iter().any(Input::is_encrypted)
@@ -334,6 +338,16 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 };
             }
             outs
+        }
+        Job::Compare { old, new, mode, out } => {
+            let r = compare::compare(old, new, *mode, out)?;
+            was_encrypted |= r.was_encrypted;
+            summary = if r.identical() { "The documents' text is identical".into() } else { r.counts() };
+            if r.regions > 0 {
+                summary += &format!("; {} other changed area{} outlined", r.regions, if r.regions == 1 { "" } else { "s" });
+            }
+            progress(1.0);
+            vec![r.path]
         }
         Job::PdfA { items, level } => {
             let many = items.len() > 1;

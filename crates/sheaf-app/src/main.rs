@@ -126,6 +126,8 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // Files
     wire!(ui, on_add_files, |ui, id| flow::pick_and_add(&ui, id));
+    wire!(ui, on_open_slot, |ui, id, slot| flow::pick_for_slot(&ui, id, slot));
+    ui.on_swap_slots(flow::swap_compare);
     wire!(ui, on_remove_file, |ui, id, uid| flow::remove_file(&ui, id, uid));
     ui.on_move_file(flow::move_file);
     ui.on_remove_page(|id, k| flow::edit_pages(id, |o| {

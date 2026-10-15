@@ -78,6 +78,32 @@ pub fn pick_and_add(ui: &AppWindow, tab_id: i32) {
 
 /// Adds files to a tab: rejected extensions get a toast; single-file tools keep the newest.
 pub fn add_paths(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>) {
+    add_paths_to(ui, tab_id, paths, None);
+}
+
+/// Compare's "Open file" on one slot (0 Original, 1 Changed).
+pub fn pick_for_slot(ui: &AppWindow, tab_id: i32, slot: i32) {
+    let dir = with(|a| a.tab(tab_id).and_then(|t| t.files.last()).and_then(|f| f.input.path.parent().map(|d| d.to_path_buf())));
+    let mut dlg = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_title(if slot == 0 { "Choose the original PDF" } else { "Choose the changed PDF" });
+    if let Some(dir) = dir {
+        dlg = dlg.set_directory(dir);
+    }
+    if let Some(p) = dlg.pick_file() {
+        add_paths_to(ui, tab_id, vec![p], Some(slot.clamp(0, 1) as usize));
+    }
+}
+
+/// Compare: Original and Changed trade places.
+pub fn swap_compare(tab_id: i32) {
+    with(|a| {
+        if let Some(t) = a.tab(tab_id) {
+            t.swap_compare();
+        }
+        refresh(a, tab_id);
+    });
+}
+
+fn add_paths_to(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>, slot: Option<usize>) {
     let Some(tool) = with(|a| a.tab(tab_id).filter(|t| matches!(t.phase, Phase::Edit)).map(|t| t.tool)) else { return };
     let multi = tools::find(tool).multi;
     let mut probes = Vec::new();
@@ -90,13 +116,21 @@ pub fn add_paths(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>) {
             a.next_uid += 1;
             let uid = a.next_uid;
             let Some(t) = a.tab(tab_id) else { return };
+            let kind = files::kind_of(&p);
+            let entry = FileEntry { uid, input: Input::new(&p), kind, size: files::file_size(&p), pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0 };
+            if tool == ToolId::Compare {
+                let taken: Vec<usize> = t.files.iter().map(|f| f.slot).collect();
+                // Several files at once fill the slots in order; one asked-for slot is used once.
+                t.put_compare(state::compare_slot(&taken, slot), entry);
+                probes.push((uid, Input::new(&p), kind));
+                return;
+            }
             if !multi {
                 t.files.clear();
                 t.order.clear();
                 t.page_thumbs.clear();
             }
-            let kind = files::kind_of(&p);
-            t.files.push(FileEntry { uid, input: Input::new(&p), kind, size: files::file_size(&p), pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false });
+            t.files.push(entry);
             probes.push((uid, Input::new(&p), kind));
         });
     }

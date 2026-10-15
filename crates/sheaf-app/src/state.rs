@@ -26,6 +26,8 @@ pub struct FileEntry {
     /// Repair: pdfium cannot open the file; the job will try lopdf's recovery.
     pub unreadable: bool,
     pub locked: bool,
+    /// Compare: 0 Original, 1 Changed (0 for every other tool).
+    pub slot: usize,
 }
 
 pub enum Phase {
@@ -82,7 +84,30 @@ impl TabState {
     }
 }
 
+/// Compare: the slot a new file goes in (0 Original, 1 Changed). `wanted` is the per-slot
+/// "Open file"; otherwise the first empty slot, and with both full the Changed one.
+pub fn compare_slot(taken: &[usize], wanted: Option<usize>) -> usize {
+    wanted.map(|s| s.min(1)).unwrap_or_else(|| if taken.contains(&0) { 1 } else { 0 })
+}
+
 impl TabState {
+    /// Puts `f` in Compare's slot `slot` (0 Original, 1 Changed), replacing what was there.
+    /// `files` stays ordered by slot.
+    pub fn put_compare(&mut self, slot: usize, mut f: FileEntry) {
+        f.slot = slot;
+        self.files.retain(|x| x.slot != slot);
+        self.files.push(f);
+        self.files.sort_by_key(|x| x.slot);
+    }
+
+    /// Compare: Original and Changed trade places.
+    pub fn swap_compare(&mut self) {
+        for f in &mut self.files {
+            f.slot = 1 - f.slot.min(1);
+        }
+        self.files.sort_by_key(|x| x.slot);
+    }
+
     /// The action button was pressed: a fresh run, never inheriting an earlier Cancel.
     pub fn start_job(&mut self) {
         self.phase = Phase::Running;
@@ -141,6 +166,7 @@ fn file_item(f: &FileEntry) -> FileItem {
         // A file pdfium cannot read gets the generic document icon.
         kind: if f.unreadable { Kind::Document.index() } else { f.kind.index() },
         locked: f.locked,
+        slot: f.slot as i32,
     }
 }
 
@@ -465,6 +491,34 @@ mod tests {
         }
         let ocr = continue_tools(ToolId::Ocr, &[PathBuf::from("a-ocr.pdf")]);
         assert!(ocr.contains(&ToolId::PdfToWord) && ocr.contains(&ToolId::Compress) && !ocr.contains(&ToolId::Ocr));
+    }
+
+    fn entry(uid: i32) -> FileEntry {
+        FileEntry { uid, input: Input::new(format!("/x/{uid}.pdf")), kind: Kind::Pdf, size: 0, pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0 }
+    }
+
+    #[test]
+    fn compare_keeps_an_original_and_a_changed_file() {
+        let mut t = TabState::new(1, ToolId::Compare);
+        let uids = |t: &TabState| t.files.iter().map(|f| (f.slot, f.uid)).collect::<Vec<_>>();
+        let taken = |t: &TabState| t.files.iter().map(|f| f.slot).collect::<Vec<_>>();
+        // Two files added at once: the first is the Original.
+        t.put_compare(compare_slot(&taken(&t), None), entry(1));
+        t.put_compare(compare_slot(&taken(&t), None), entry(2));
+        assert_eq!(uids(&t), [(0, 1), (1, 2)]);
+        // A third replaces the Changed one; a per-slot open replaces that slot.
+        t.put_compare(compare_slot(&taken(&t), None), entry(3));
+        assert_eq!(uids(&t), [(0, 1), (1, 3)]);
+        t.put_compare(compare_slot(&taken(&t), Some(0)), entry(4));
+        assert_eq!(uids(&t), [(0, 4), (1, 3)]);
+        t.swap_compare();
+        assert_eq!(uids(&t), [(0, 3), (1, 4)]);
+        // Changed chosen first: the Original slot stays empty until a file arrives.
+        let mut t = TabState::new(2, ToolId::Compare);
+        t.put_compare(compare_slot(&taken(&t), Some(1)), entry(7));
+        assert_eq!(uids(&t), [(1, 7)]);
+        t.put_compare(compare_slot(&taken(&t), None), entry(8));
+        assert_eq!(uids(&t), [(0, 8), (1, 7)]);
     }
 
     #[test]

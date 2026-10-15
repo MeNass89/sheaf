@@ -355,3 +355,18 @@ fn export_jobs_write_office_files_and_never_warn() {
         assert!(z.status.success(), "{ext} is a zip");
     }
 }
+
+#[test]
+fn compare_job_shows_the_counts() {
+    use sheaf_core::compare::CompareMode;
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let text = helvetica_pdf(dir.path());
+    let no = AtomicBool::new(false);
+    let o = run(&Job::Compare { old: Input::new(&text), new: Input::new(&text), mode: CompareMode::Text, out: dir.path().join("c.pdf") }, &no, &|_| {}).unwrap();
+    assert_eq!(o.summary, "The documents' text is identical");
+    assert_eq!(o.outputs.len(), 1);
+    let o = run(&Job::Compare { old: Input::new(&src), new: Input::new(&text), mode: CompareMode::Overlay, out: dir.path().join("o.pdf") }, &no, &|_| {}).unwrap();
+    // The page-number-free image PDF has no words: every word of the new one is added.
+    assert_eq!(o.summary, "1 added, 0 removed, 0 changed");
+}

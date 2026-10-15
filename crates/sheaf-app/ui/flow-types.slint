@@ -12,6 +12,8 @@ export struct FileItem {
     locked: bool,
     // The preview could not be rendered; the file is still processed.
     preview-failed: bool,
+    // Compare: 0 Original, 1 Changed.
+    slot: int,
 }
 
 // One page of the Organize grid. page 0 = inserted blank page.
@@ -133,6 +135,8 @@ export struct ToolOptions {
     // PDF to Word / PowerPoint / Excel
     export-ocr: bool,      // recognise scanned pages first
     excel-layout: int,     // 0 one sheet, 1 one sheet per table
+    // Compare
+    compare-mode: int,     // 0 semantic text (report), 1 content overlay
 }
 
 export struct OcrLanguage {

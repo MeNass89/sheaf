@@ -214,6 +214,7 @@ export component OptionsPanel inherits VerticalLayout {
         pdfa-level: root.pdfa-level,
         ocr-languages: root.ocr-languages, ocr-all-pages: root.ocr-all-pages,
         export-ocr: root.export-ocr, excel-layout: root.excel-layout,
+        compare-mode: root.compare-mode,
     };
     callback insert-blank();
     callback get-libreoffice();
@@ -263,6 +264,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <bool> ocr-all-pages;
     in-out property <bool> export-ocr;
     in-out property <int> excel-layout: 0;
+    in-out property <int> compare-mode: 0;
 
     spacing: 10px;
     alignment: start;
@@ -633,6 +635,27 @@ export component OptionsPanel inherits VerticalLayout {
             InfoBox { text: "Choose to place all tables on one sheet or create a new sheet for each table. Pages without a table keep their text in column A."; }
         }
         InfoBox { text: "Layout is approximate: text, paragraphs, tables and images are recovered; exact formatting may differ."; }
+    }
+
+    if root.tool == "compare": VerticalLayout {
+        spacing: 10px;
+        RadioCard {
+            title: "Semantic Text";
+            description: "A report listing every word added, removed or changed";
+            selected: root.compare-mode == 0;
+            clicked => { root.compare-mode = 0; }
+        }
+        RadioCard {
+            title: "Content Overlay";
+            description: "The changed PDF with the differences highlighted";
+            selected: root.compare-mode == 1;
+            clicked => { root.compare-mode = 1; }
+        }
+        InfoBox {
+            text: root.compare-mode == 0
+                ? "Words are compared in reading order. Layout and pictures are not part of the report."
+                : "Changed words are highlighted (blue changed, green added, a red note where words were removed); other changed areas, such as pictures, are outlined in red.";
+        }
     }
 
     if root.tool == "pdf_to_pdfa": VerticalLayout {

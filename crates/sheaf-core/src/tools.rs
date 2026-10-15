@@ -172,7 +172,7 @@ static CATALOGUE: &[ToolInfo] = &[
     tool!(Protect, "Protect PDF", "Lock a PDF behind a password.", Security, "lock", PDF, true, 1),
     tool!(Unlock, "Unlock PDF", "Remove the password from a PDF you can open.", Security, "lock-open", PDF, true, 1),
     tool!(Redact, "Redact PDF", "Permanently black out sensitive text and areas.", Security, "eraser", PDF, false, 3),
-    tool!(Compare, "Compare PDF", "Spot the differences between two versions of a document.", Security, "git-compare", PDF, false, 3),
+    tool!(Compare, "Compare PDF", "Spot the differences between two versions of a document.", Security, "git-compare", PDF, true, 1),
 ];
 
 /// All tools, in display order.

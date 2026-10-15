@@ -272,3 +272,29 @@ fn word_powerpoint_and_excel_subcommands() {
     assert!(unzip(&t.path().join("n.xlsx"), "xl/sharedStrings.xml").contains("Sheaf 2026"));
     run(&["to-word", "--ocr"], &t.path().join("o.docx"));
 }
+
+#[test]
+fn compare_subcommand_prints_the_counts() {
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let a = t.path().join("a.pdf");
+    assert!(bin().arg("from-images").arg(&png).arg("--a4").arg("-o").arg(&a).status().unwrap().success());
+    let v = |text: &str, name: &str| {
+        let out = t.path().join(name);
+        assert!(bin().arg("number").arg(&a).args(["--text", "custom", "--custom", text, "-o"]).arg(&out).status().unwrap().success());
+        out
+    };
+    let old = v("Draft one of the plan", "old.pdf");
+    let new = v("Draft two of the plan", "new.pdf");
+    for mode in ["text", "overlay"] {
+        let out = t.path().join(format!("{mode}.pdf"));
+        let r = bin().args(["compare"]).arg(&old).arg(&new).args(["--mode", mode, "-o"]).arg(&out).output().unwrap();
+        let err = String::from_utf8_lossy(&r.stderr);
+        assert!(r.status.success(), "{err}");
+        assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
+        assert!(err.contains("0 added, 0 removed, 1 changed"), "{mode}: {err}");
+    }
+    let r = bin().arg("compare").arg(&old).arg(&old).arg("-o").arg(t.path().join("same.pdf")).output().unwrap();
+    assert!(String::from_utf8_lossy(&r.stderr).contains("The documents' text is identical"));
+}
