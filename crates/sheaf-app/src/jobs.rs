@@ -8,6 +8,7 @@ use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions};
+use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::watermark::{self, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError, Result};
 use std::path::{Path, PathBuf};
@@ -45,6 +46,7 @@ pub enum Job {
     Watermark { items: Vec<(Input, PathBuf)>, options: WatermarkOptions },
     /// `pages`: "1-3,5", or `None` for every page.
     Crop { input: Input, pages: Option<String>, spec: CropSpec, out: PathBuf },
+    PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel },
 }
 
 impl Job {
@@ -60,6 +62,7 @@ impl Job {
             Job::Rotate { items, .. }
             | Job::PageNumbers { items, .. }
             | Job::Watermark { items, .. }
+            | Job::PdfA { items, .. }
             | Job::Compress { items, .. }
             | Job::Protect { items, .. }
             | Job::Unlock { items }
@@ -84,6 +87,10 @@ pub struct JobOutcome {
     pub grew: bool,
     /// Batch tools: inputs that failed, with the error, while the others were written.
     pub failures: Vec<(PathBuf, String)>,
+    /// One line about the result, shown under the title ("Conforms to PDF/A-2b").
+    pub summary: String,
+    /// Things the user should know about the outputs, one per line (PDF/A rules still broken).
+    pub notes: Vec<String>,
 }
 
 fn size(p: &Path) -> u64 {
@@ -161,6 +168,7 @@ fn loses_protection(job: &Job) -> bool {
         | Job::Office { .. }
         | Job::PageNumbers { .. }
         | Job::Watermark { .. }
+        | Job::PdfA { .. }
         | Job::Crop { .. } => vec![],
     };
     pdfs.into_iter().any(Input::is_encrypted)
@@ -172,6 +180,8 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
     let mut was_encrypted = loses_protection(job);
     let mut grew = false;
     let mut failures = Vec::new();
+    let mut summary = String::new();
+    let mut notes = Vec::new();
     let one = |r: Result<PathBuf>| r.map(|p| vec![p]);
     let mut batch = |r: BatchResult| -> Result<Vec<PathBuf>> {
         let (o, f) = r?;
@@ -252,10 +262,34 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             vec![p]
         }
+        Job::PdfA { items, level } => {
+            let many = items.len() > 1;
+            let mut conforming = 0;
+            let outs = batch(each(items, cancel, progress, pair, |(i, o)| {
+                let r = pdfa::to_pdfa(i, *level, o)?;
+                was_encrypted |= r.was_encrypted;
+                if r.issues.is_empty() {
+                    conforming += 1;
+                }
+                let name = r.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                notes.extend(r.issues.iter().map(|x| {
+                    let line = format!("{}: {}", x.clause, x.message);
+                    if many { format!("{name} — {line}") } else { line }
+                }));
+                Ok(vec![r.path])
+            }))?;
+            let left = outs.len() - conforming;
+            summary = match left {
+                0 => format!("Conforms to {}", level.label()),
+                1 => format!("1 file does not fully conform to {}", level.label()),
+                n => format!("{n} files do not fully conform to {}", level.label()),
+            };
+            outs
+        }
     };
     let after = outputs.iter().map(|p| size(p)).sum();
     let before = job.inputs().iter().map(|p| size(p)).sum();
-    Ok(JobOutcome { outputs, before, after, was_encrypted, grew, failures })
+    Ok(JobOutcome { outputs, before, after, was_encrypted, grew, failures, summary, notes })
 }
 
 /// `run`, with a panic anywhere in the engine turned into an error, so the tab never stays
@@ -330,6 +364,7 @@ pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
         T::PageNumbers => "-numbered",
         T::Watermark => "-watermarked",
         T::Crop => "-cropped",
+        T::PdfToPdfA => "-pdfa",
         _ => "",
     };
     format!("{stem}{suffix}.pdf")
@@ -359,6 +394,7 @@ mod tests {
         assert_eq!(default_name(ToolId::PageNumbers, "a"), "a-numbered.pdf");
         assert_eq!(default_name(ToolId::Watermark, "a"), "a-watermarked.pdf");
         assert_eq!(default_name(ToolId::Crop, "a"), "a-cropped.pdf");
+        assert_eq!(default_name(ToolId::PdfToPdfA, "a"), "a-pdfa.pdf");
         assert_eq!(default_name(ToolId::JpgToPdf, "photo"), "photo.pdf");
         assert_eq!(default_name(ToolId::WordToPdf, "letter"), "letter.pdf");
     }

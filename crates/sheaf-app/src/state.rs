@@ -174,6 +174,14 @@ fn grew_text(many: bool, before: u64, after: u64) -> String {
     format!("{what} {pct}% larger than {of}.")
 }
 
+/// Heading above the result notes.
+fn notes_title(tool: ToolId) -> &'static str {
+    match tool {
+        ToolId::PdfToPdfA => "Not fixed (clause of ISO 19005 and problem):",
+        _ => "Notes:",
+    }
+}
+
 fn percent_saved(before: u64, after: u64) -> i64 {
     if before == 0 { 0 } else { ((before as f64 - after as f64) / before as f64 * 100.0).round() as i64 }
 }
@@ -254,8 +262,16 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
         tab.size_before = files::human_size(o.before).into();
         tab.size_after = files::human_size(o.after).into();
     }
+    if !o.summary.is_empty() {
+        tab.result_sub = o.summary.clone().into();
+    }
     if o.was_encrypted {
         tab.warning = NOT_PROTECTED.into();
+    }
+    if !o.notes.is_empty() {
+        tab.notes_title = notes_title(t.tool).into();
+        let lines: Vec<slint::SharedString> = o.notes.iter().map(|n| n.as_str().into()).collect();
+        tab.notes = ModelRc::new(VecModel::from(lines));
     }
     if !o.failures.is_empty() {
         let n = o.failures.len();
@@ -395,6 +411,23 @@ mod tests {
         assert_eq!(tab.failure_title, "1 file failed:");
         assert_eq!(tab.failures.row_data(0).unwrap(), "b.docx — conversion failed: boom");
         assert_eq!(tab.outputs.row_count(), 1);
+    }
+
+    #[test]
+    fn pdfa_result_shows_the_summary_and_the_rules_left() {
+        let o = JobOutcome {
+            outputs: vec![PathBuf::from("/x/a-pdfa.pdf")],
+            summary: "1 file does not fully conform to PDF/A-2b".into(),
+            notes: vec!["6.2.11.4: The font Helvetica isn't embedded".into()],
+            ..Default::default()
+        };
+        let tab = done_tab(ToolId::PdfToPdfA, o);
+        assert_eq!(tab.result_sub, "1 file does not fully conform to PDF/A-2b");
+        assert_eq!(tab.notes.row_data(0).unwrap(), "6.2.11.4: The font Helvetica isn't embedded");
+        assert!(tab.notes_title.starts_with("Not fixed"));
+        let ok = JobOutcome { outputs: vec![PathBuf::from("/x/a-pdfa.pdf")], summary: "Conforms to PDF/A-2b".into(), ..Default::default() };
+        let tab = done_tab(ToolId::PdfToPdfA, ok);
+        assert_eq!((tab.result_sub.as_str(), tab.notes_title.as_str()), ("Conforms to PDF/A-2b", ""));
     }
 
     #[test]

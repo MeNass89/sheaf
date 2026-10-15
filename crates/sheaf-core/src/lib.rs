@@ -6,6 +6,7 @@ pub mod images;
 pub mod office;
 pub mod numbers;
 pub mod pages;
+pub mod pdfa;
 pub mod pdfcraft;
 pub mod paths;
 pub mod ranges;

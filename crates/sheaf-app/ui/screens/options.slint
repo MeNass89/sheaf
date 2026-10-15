@@ -205,6 +205,7 @@ export component OptionsPanel inherits VerticalLayout {
         wm-below: root.wm-below,
         crop-mode: root.crop-mode, crop-top: root.crop-top, crop-bottom: root.crop-bottom,
         crop-left: root.crop-left, crop-right: root.crop-right,
+        pdfa-level: root.pdfa-level,
     };
     callback insert-blank();
     callback get-libreoffice();
@@ -249,6 +250,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> crop-bottom: "10";
     in-out property <string> crop-left: "10";
     in-out property <string> crop-right: "10";
+    in-out property <int> pdfa-level: 0;
 
     spacing: 10px;
     alignment: start;
@@ -569,6 +571,24 @@ export component OptionsPanel inherits VerticalLayout {
                 right: Parse.mm(root.crop-right) * 72 / 25.4;
             }
         }
+    }
+
+    if root.tool == "pdf_to_pdfa": VerticalLayout {
+        spacing: 10px;
+        SectionLabel { text: "Set the PDF/A conformance level"; }
+        RadioCard {
+            title: "PDF/A-2b (recommended)";
+            description: "Long-term archiving; keeps transparency and layers";
+            selected: root.pdfa-level == 0;
+            clicked => { root.pdfa-level = 0; }
+        }
+        RadioCard {
+            title: "PDF/A-3b (allows attachments)";
+            description: "Like PDF/A-2b; files of any type may be attached";
+            selected: root.pdfa-level == 1;
+            clicked => { root.pdfa-level = 1; }
+        }
+        InfoBox { text: "Metadata, a colour profile and the other required parts are added, then the file is checked. Anything that cannot be fixed (a font that is not embedded, for example) is listed on the result page."; }
     }
 
     if !root.office-missing && (root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf"

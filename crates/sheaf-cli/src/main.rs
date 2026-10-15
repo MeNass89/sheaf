@@ -9,6 +9,7 @@ use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::watermark::{self, Mark, Placement, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError};
 use std::path::{Path, PathBuf};
@@ -222,12 +223,30 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Convert to PDF/A for archiving, then check the result
+    Pdfa {
+        input: PathBuf,
+        #[arg(long, value_enum, default_value_t = CliPdfA::A2b)]
+        level: CliPdfA,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Convert an Office or HTML document to PDF through LibreOffice
     Office {
         input: PathBuf,
         #[arg(short, long)]
         out: PathBuf,
     },
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum CliPdfA {
+    /// PDF/A-2b (recommended)
+    #[value(name = "2b")]
+    A2b,
+    /// PDF/A-3b (allows attachments)
+    #[value(name = "3b")]
+    A3b,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -334,7 +353,7 @@ impl Cmd {
             | Cmd::Repair { input, .. }
             | Cmd::ToJpg { input, .. } => vec![input],
             // These report it themselves (from the engine), like Compress.
-            Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } |
+            Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
         }
     }
@@ -357,6 +376,7 @@ impl Cmd {
             | Cmd::Number { out, .. }
             | Cmd::Watermark { out, .. }
             | Cmd::Crop { out, .. }
+            | Cmd::Pdfa { out, .. }
             | Cmd::Office { out, .. } => out.parent().filter(|p| !p.as_os_str().is_empty()),
         }
     }
@@ -459,6 +479,20 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 CropSpec::Margins { top: crop::mm(top), bottom: crop::mm(bottom), left: crop::mm(left), right: crop::mm(right) }
             };
             warned(crop::crop(&input(i), p.as_deref(), &spec, &out))
+        }
+        Cmd::Pdfa { input: i, level, out } => {
+            let level = match level {
+                CliPdfA::A2b => PdfALevel::A2b,
+                CliPdfA::A3b => PdfALevel::A3b,
+            };
+            let r = pdfa::to_pdfa(&input(i), level, &out)?;
+            if r.issues.is_empty() {
+                eprintln!("Conforms to {}", level.label());
+            }
+            for issue in &r.issues {
+                eprintln!("warning: {} ({}): {}", level.label(), issue.clause, issue.message);
+            }
+            warned(Ok((r.path, r.was_encrypted)))
         }
     }
 }

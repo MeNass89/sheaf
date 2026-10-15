@@ -102,6 +102,7 @@ fn tools_on_a_protected_input_note_that_the_output_is_not() {
         vec!["number".into(), p.clone().into(), "-o".into(), o("n.pdf").into()],
         vec!["watermark".into(), p.clone().into(), "--text".into(), "DRAFT".into(), "-o".into(), o("w.pdf").into()],
         vec!["crop".into(), p.clone().into(), "--top".into(), "1".into(), "-o".into(), o("k.pdf").into()],
+        vec!["pdfa".into(), p.clone().into(), "-o".into(), o("pa.pdf").into()],
     ];
     for args in runs {
         let r = bin().args(&args).args(["--password", "pw"]).output().unwrap();
@@ -193,4 +194,24 @@ fn bad_ranges_and_bounds_are_refused() {
     assert!(!out.exists());
     let r = bin().arg("watermark").arg(&a).args(["--text", "X", "--font-size", "auto", "-o"]).arg(&out).output().unwrap();
     assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+}
+
+#[test]
+fn pdfa_subcommand_reports_conformance() {
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let a = t.path().join("a.pdf");
+    assert!(bin().arg("from-images").arg(&png).arg("-o").arg(&a).status().unwrap().success());
+    for (level, label, part) in [("2b", "PDF/A-2b", "2"), ("3b", "PDF/A-3b", "3")] {
+        let out = t.path().join(format!("a-{level}.pdf"));
+        let r = bin().arg("pdfa").arg(&a).args(["--level", level, "-o"]).arg(&out).output().unwrap();
+        let err = String::from_utf8_lossy(&r.stderr);
+        assert!(r.status.success(), "{err}");
+        assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
+        assert!(err.contains(&format!("Conforms to {label}")), "{err}");
+        let bytes = std::fs::read(&out).unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains(&format!("pdfaid:part>{part}<")));
+    }
+    assert_eq!(bin().arg("pdfa").arg(&a).args(["--level", "1a", "-o"]).arg(t.path().join("x.pdf")).status().unwrap().code(), Some(1));
 }

@@ -90,6 +90,31 @@ export component ResultScreen inherits Rectangle {
                         }
                     }
                 }
+                if root.tab.notes-title != "": Rectangle {
+                    height: min(notes.preferred-height, 160px);
+                    ScrollView {
+                        content-width: self.visible-width;
+                        content-height: notes.preferred-height;
+                        notes := VerticalLayout {
+                            width: parent.visible-width;
+                            padding: 14px;
+                            padding-bottom: 0px;
+                            spacing: 4px;
+                            Text {
+                                text: root.tab.notes-title;
+                                font-size: Theme.fs-label;
+                                font-weight: Theme.weight-demibold;
+                                color: Theme.warning;
+                            }
+                            for n in root.tab.notes: Text {
+                                text: n;
+                                font-size: Theme.fs-caption;
+                                color: Theme.text-secondary;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
                 ScrollView {
                     vertical-stretch: 1;
                     content-width: self.visible-width;

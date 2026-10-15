@@ -8,6 +8,7 @@ use sheaf_app::{AppWindow, ToolOptions};
 use sheaf_core::compress::Level;
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_core::pdfa::PdfALevel;
 use sheaf_core::watermark::{Mark, Placement, WatermarkOptions};
 use sheaf_core::images::PageLayout;
 use sheaf_core::pages::Input;
@@ -197,6 +198,7 @@ fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptio
             spec: crop_spec(opts)?,
             out: single()?,
         },
+        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
         other => return Err(OpdfError::Unsupported(format!("{} is not available yet", tools::find(other).name))),
     })
 }
@@ -446,6 +448,17 @@ mod tests {
         let Job::Crop { pages, spec, .. } = build_job(ToolId::Crop, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/c.pdf".into())).unwrap() else { panic!() };
         assert_eq!((pages, spec), (None, CropSpec::Remove));
         assert_eq!(out_name(ToolId::Crop, Path::new("/a/x.pdf"), &o), "x-cropped.pdf");
+    }
+
+    #[test]
+    fn pdfa_job() {
+        let mut o = opts();
+        let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
+        let Job::PdfA { items, level } = build_job(ToolId::PdfToPdfA, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
+        assert_eq!((level, items[1].1.clone()), (PdfALevel::A2b, PathBuf::from("/o/y-pdfa.pdf")));
+        o.pdfa_level = 1;
+        let Job::PdfA { level, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
+        assert_eq!(level, PdfALevel::A3b);
     }
 
     #[test]

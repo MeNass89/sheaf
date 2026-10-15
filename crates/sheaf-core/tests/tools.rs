@@ -9,7 +9,7 @@ fn catalogue_is_complete_and_consistent() {
     ids.dedup();
     assert_eq!(ids.len(), 28);
     assert!(c.iter().all(|t| !t.accepts.is_empty() && !t.description.is_empty()));
-    assert_eq!(c.iter().filter(|t| t.wave == 1).count(), 19);
+    assert_eq!(c.iter().filter(|t| t.wave == 1).count(), 20);
     assert!(c.iter().all(|t| !t.name.to_lowercase().contains("ilove")));
 }
 

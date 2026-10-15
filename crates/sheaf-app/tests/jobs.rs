@@ -280,3 +280,35 @@ fn numbers_watermark_and_crop_jobs_warn_on_protected_input() {
     let plain = Job::Crop { input: Input::new(&src), pages: Some("1".into()), spec: CropSpec::Remove, out: dir.path().join("c2.pdf") };
     assert!(!run(&plain, &no, &|_| {}).unwrap().was_encrypted);
 }
+
+#[test]
+fn pdfa_job_reports_conformance_or_the_rules_still_broken() {
+    use sheaf_core::pdfa::PdfALevel;
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let no = AtomicBool::new(false);
+    let o = run(&Job::PdfA { items: vec![(Input::new(&src), dir.path().join("a-pdfa.pdf"))], level: PdfALevel::A2b }, &no, &|_| {}).unwrap();
+    assert_eq!(o.summary, "Conforms to PDF/A-2b");
+    assert!(o.notes.is_empty() && !o.was_encrypted);
+    // Text in a font that is not embedded cannot be fixed: the rule is listed.
+    let text = helvetica_pdf(dir.path());
+    let prot = sheaf_core::security::protect(&Input::new(&text), "pw", None, &dir.path().join("p.pdf")).unwrap();
+    let locked = Input { path: prot, password: Some("pw".into()) };
+    let o = run(&Job::PdfA { items: vec![(locked, dir.path().join("p-pdfa.pdf"))], level: PdfALevel::A3b }, &no, &|_| {}).unwrap();
+    assert!(o.was_encrypted);
+    assert_eq!(o.summary, "1 file does not fully conform to PDF/A-3b");
+    assert!(o.notes.iter().any(|n| n.starts_with("6.2.11.4: ")), "{:?}", o.notes);
+}
+
+/// One A4 page of text in Helvetica, not embedded.
+fn helvetica_pdf(dir: &Path) -> PathBuf {
+    use pdfium_render::prelude::*;
+    let _g = pdfium_lock();
+    let mut doc = sheaf_core::engine::new_document();
+    let font = doc.fonts_mut().helvetica();
+    let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+    page.objects_mut().create_text_object(PdfPoints::new(72.0), PdfPoints::new(720.0), "Hello", font, PdfPoints::new(24.0)).unwrap();
+    let path = dir.join("text.pdf");
+    doc.save_to_file(&path).unwrap();
+    path
+}

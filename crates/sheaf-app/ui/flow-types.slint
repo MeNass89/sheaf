@@ -67,6 +67,9 @@ export struct ToolTab {
     // Batch with some failed inputs: "1 file failed:" and one "name — error" line each.
     failure-title: string,
     failures: [string],
+    // Things to know about the outputs (PDF/A rules still broken): a heading and one line each.
+    notes-title: string,
+    notes: [string],
     outputs: [ResultFile],
     // Crop: page 1 of the file, and its displayed size in points.
     preview: image,
@@ -120,6 +123,8 @@ export struct ToolOptions {
     crop-bottom: string,
     crop-left: string,
     crop-right: string,
+    // PDF to PDF/A
+    pdfa-level: int,     // 0 PDF/A-2b, 1 PDF/A-3b
 }
 
 // Text parsing the options panels need and Slint lacks, answered by the Rust side.
