@@ -116,3 +116,17 @@ fn unknown_languages_are_refused() {
     assert!(matches!(r, Err(OpdfError::Unsupported(_))), "{r:?}");
     assert!(ocr::languages().iter().any(|(code, _)| *code == "en"));
 }
+
+/// Files encrypted by other producers (qpdf, MuPDF: owner ≠ user password, AES-256 R6).
+#[test]
+fn foreign_encrypted_scans_are_read() {
+    let t = tempfile::tempdir().unwrap();
+    let scan = scanned_pdf(t.path());
+    for (path, pw) in common::foreign_encrypted(&scan, t.path()) {
+        let input = Input { path: path.clone(), password: Some(pw.into()) };
+        let r = ocr::ocr(&input, &OcrOptions::default(), &t.path().join("f-ocr.pdf"), &mut no_cancel()).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        assert!(r.was_encrypted);
+        assert!(page_texts(&r.path).join(" ").contains("Sheaf"), "{}", path.display());
+        common::unprotected_and_clean(&r.path);
+    }
+}

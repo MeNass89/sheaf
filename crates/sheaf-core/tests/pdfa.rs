@@ -79,3 +79,18 @@ fn protected_input_gives_an_unprotected_pdfa() {
     assert!(String::from_utf8_lossy(&o.stdout).contains("File is not encrypted"));
     qpdf_clean(&r.path);
 }
+
+/// Files encrypted by other producers (qpdf, MuPDF: owner ≠ user password, AES-256 R6) used
+/// to fail with "the edited document could not be reopened".
+#[test]
+fn foreign_encrypted_inputs_convert() {
+    let t = tempfile::tempdir().unwrap();
+    let a = picture_pdf(t.path());
+    for (path, pw) in common::foreign_encrypted(&a, t.path()) {
+        let input = Input { path: path.clone(), password: Some(pw.into()) };
+        let r = to_pdfa(&input, PdfALevel::A2b, &t.path().join("f-pdfa.pdf")).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        assert!(r.was_encrypted);
+        assert!(r.issues.is_empty(), "{:?}", r.issues);
+        common::unprotected_and_clean(&r.path);
+    }
+}

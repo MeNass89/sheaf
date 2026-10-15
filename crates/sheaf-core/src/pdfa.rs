@@ -51,12 +51,10 @@ pub struct PdfAReport {
 /// written file and checks it against `level`.
 pub fn to_pdfa(input: &Input, level: PdfALevel, out: &Path) -> Result<PdfAReport> {
     let mut doc = Doc::open(input)?;
+    // Read before converting: PDF/A forbids encryption, so the conversion may drop it itself.
     let was_encrypted = doc.was_encrypted();
-    if was_encrypted {
-        doc.apply(Edit::RemoveProtection)?;
-    }
     doc.apply(Edit::ConvertPdfA { level: level.engine() })?;
-    let path = doc.save(out)?;
+    let (path, _) = doc.save_unprotected(out)?;
     let issues = verify(&Input::new(&path), level)?;
     Ok(PdfAReport { path, was_encrypted, issues })
 }

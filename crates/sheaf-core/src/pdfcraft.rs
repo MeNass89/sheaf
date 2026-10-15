@@ -79,13 +79,23 @@ impl Doc {
         write_verbatim(&bytes, out)
     }
 
-    /// [`Self::save`], with any encryption removed first (`Edit::RemoveProtection`), for tools
-    /// whose output is never protected. Returns the path written and whether the input was
-    /// encrypted, i.e. whether the user must be told the output is not password-protected.
+    /// [`Self::save`] with any encryption removed. Returns the path written and whether the input
+    /// was encrypted, i.e. whether the user must be told the output is not password-protected.
+    ///
+    /// Call it after every other edit: removing the protection first can leave a working file
+    /// the next edit cannot reopen. And the removal is always preceded by one real change (the
+    /// Info /Producer entry set to its own value, or to "Sheaf" when there is none): some
+    /// writers (MuPDF) store /Encrypt inline in the trailer, and dropping it alone changes no
+    /// object, so the engine would reopen the still-encrypted original without a password.
+    /// lopdf can't decrypt those files either (it does not see an inline /Encrypt).
     pub fn save_unprotected(&mut self, out: &Path) -> Result<(PathBuf, bool)> {
         let warned = self.was_encrypted();
         if warned {
-            self.apply(Edit::RemoveProtection)?;
+            let producer = self.document().info.producer.clone().filter(|p| !p.trim().is_empty()).unwrap_or_else(|| "Sheaf".into());
+            self.apply(Edit::Batch {
+                label: "Remove security".into(),
+                edits: vec![Edit::SetInfo { key: "Producer".into(), value: producer }, Edit::RemoveProtection],
+            })?;
         }
         Ok((self.save(out)?, warned))
     }

@@ -89,3 +89,16 @@ fn ocr_first_recovers_the_text_of_a_scan() {
     assert!(matches!(c, Err(sheaf_core::OpdfError::Cancelled)), "{c:?}");
     assert!(!out.exists());
 }
+
+/// Export with OCR of files encrypted by other producers (qpdf, MuPDF: owner ≠ user password).
+#[test]
+fn foreign_encrypted_scans_export_with_ocr() {
+    let t = tempfile::tempdir().unwrap();
+    let scan = scanned_pdf(t.path());
+    let opts = ExportOptions { ocr: true, ..Default::default() };
+    for (path, pw) in common::foreign_encrypted(&scan, t.path()) {
+        let input = Input { path: path.clone(), password: Some(pw.into()) };
+        let r = export::to_office(&input, Office::Word, &opts, &t.path().join("f.docx"), &mut no_cancel()).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        assert!(unzip(&r.path, "word/document.xml").contains("Invoice"), "{}", path.display());
+    }
+}

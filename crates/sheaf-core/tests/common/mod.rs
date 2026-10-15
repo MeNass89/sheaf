@@ -52,3 +52,30 @@ pub fn dark_in(img: &(u32, u32, Vec<u8>), x0: f32, x1: f32, y0: f32, y1: f32) ->
     }
     n
 }
+
+/// Copies of `src` encrypted the ways other producers do it, each with its password: qpdf
+/// AES-256 (R6, owner ≠ user password) always, and MuPDF AES-256 with restricted permissions and
+/// /Encrypt inline in the trailer when PyMuPDF is installed (skipped otherwise, with a note).
+pub fn foreign_encrypted(src: &Path, dir: &Path) -> Vec<(PathBuf, &'static str)> {
+    let stem = src.file_stem().unwrap().to_string_lossy().into_owned();
+    let qpdf = dir.join(format!("{stem}-qpdf-aes256.pdf"));
+    let o = std::process::Command::new("qpdf").args(["--encrypt", "user", "owner", "256", "--"]).arg(src).arg(&qpdf).output().unwrap();
+    assert!(o.status.success(), "qpdf --encrypt: {}", String::from_utf8_lossy(&o.stderr));
+    let mut out = vec![(qpdf, "user")];
+    let mupdf = dir.join(format!("{stem}-mupdf-aes256.pdf"));
+    let script = "import sys, fitz\n\
+        fitz.open(sys.argv[1]).save(sys.argv[2], encryption=fitz.PDF_ENCRYPT_AES_256, user_pw='user', owner_pw='owner', \
+        permissions=fitz.PDF_PERM_PRINT | fitz.PDF_PERM_COPY)\n";
+    match std::process::Command::new("python3").args(["-c", script]).arg(src).arg(&mupdf).output() {
+        Ok(o) if o.status.success() => out.push((mupdf, "owner")),
+        _ => eprintln!("PyMuPDF not importable: MuPDF-encrypted case skipped"),
+    }
+    out
+}
+
+/// Asserts `path` is not encrypted and passes `qpdf --check` cleanly.
+pub fn unprotected_and_clean(path: &Path) {
+    let o = std::process::Command::new("qpdf").arg("--show-encryption").arg(path).output().unwrap();
+    assert!(String::from_utf8_lossy(&o.stdout).contains("File is not encrypted"), "{} is still encrypted", path.display());
+    qpdf_clean(path);
+}

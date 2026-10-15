@@ -5,7 +5,6 @@
 //! in debug builds, in the source tree's `vendor/models/` (scripts/fetch-models.sh).
 
 use crate::pdfcraft::engine::ocr::{self as eng, Models, Ocr, OcrSettings};
-use crate::pdfcraft::engine::Edit;
 use crate::pdfcraft::Doc;
 use crate::{pages::Input, OpdfError, Result};
 use std::path::{Path, PathBuf};
@@ -82,21 +81,20 @@ pub fn ocr(input: &Input, opts: &OcrOptions, out: &Path, progress: &mut dyn FnMu
 
 /// What recognition found, before it is written.
 pub(crate) struct Recognized {
-    was_encrypted: bool,
     words: usize,
     pages_read: usize,
     pages_skipped: usize,
 }
 
 impl Recognized {
-    fn save(self, doc: Doc, out: &Path) -> Result<OcrReport> {
-        let path = doc.save(out)?;
-        Ok(OcrReport { path, was_encrypted: self.was_encrypted, words: self.words, pages_read: self.pages_read, pages_skipped: self.pages_skipped })
+    fn save(self, mut doc: Doc, out: &Path) -> Result<OcrReport> {
+        let (path, was_encrypted) = doc.save_unprotected(out)?;
+        Ok(OcrReport { path, was_encrypted, words: self.words, pages_read: self.pages_read, pages_skipped: self.pages_skipped })
     }
 }
 
 /// Adds the text layer to `doc` in memory (for exports that read the text afterwards). Any
-/// encryption is removed from `doc`; [`Recognized`] remembers whether there was some.
+/// encryption stays: [`Recognized::save`] removes it last, and exports never need it removed.
 pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnMut(f32) -> bool) -> Result<Recognized> {
     if !languages().iter().any(|(code, _)| *code == opts.language) {
         return Err(OpdfError::Unsupported(format!("OCR language \"{}\"", opts.language)));
@@ -120,12 +118,8 @@ pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnM
     if stopped {
         return Err(OpdfError::Cancelled);
     }
-    let was_encrypted = doc.was_encrypted();
-    if was_encrypted {
-        doc.apply(Edit::RemoveProtection)?;
-    }
     let id = doc.id();
     let words = doc.session_mut().apply_ocr(id, &pages).map_err(|e| OpdfError::Engine(e.to_string()))?;
     let skipped = pages.iter().filter(|p| p.skipped.is_some()).count();
-    Ok(Recognized { was_encrypted, words, pages_read: pages.len() - skipped, pages_skipped: skipped })
+    Ok(Recognized { words, pages_read: pages.len() - skipped, pages_skipped: skipped })
 }

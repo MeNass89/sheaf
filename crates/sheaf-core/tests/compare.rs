@@ -117,3 +117,20 @@ fn overlay_outlines_a_changed_picture() {
     assert!(r.regions >= 1, "{r:?}");
     qpdf_clean(&r.path);
 }
+
+/// Overlay of files encrypted by other producers (qpdf, MuPDF: owner ≠ user password), both
+/// with differences and identical (the protection is then the only thing removed).
+#[test]
+fn foreign_encrypted_inputs_compare() {
+    let t = tempfile::tempdir().unwrap();
+    let (old, new) = pair(t.path());
+    for (path, pw) in common::foreign_encrypted(&new, t.path()) {
+        let locked = Input { path: path.clone(), password: Some(pw.into()) };
+        for (other, changed) in [(&old, 1), (&new, 0)] {
+            let r = compare::compare(&Input::new(other), &locked, CompareMode::Overlay, &t.path().join("f.pdf")).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            assert_eq!(r.replaced, changed, "{}", path.display());
+            assert!(r.was_encrypted);
+            common::unprotected_and_clean(&r.path);
+        }
+    }
+}
