@@ -596,8 +596,8 @@ export component OptionsPanel inherits VerticalLayout {
             toggled => { root.ocr-languages = Parse.toggle-code(root.ocr-languages, l.code); }
         }
         InfoBox { text: "Recognises Latin-script text (English, French, Spanish, German, …). The accuracy of detection is increased by correctly selecting the document's languages."; }
-        Check { text: "Also read pages that already contain text"; checked <=> root.ocr-all-pages; }
-        InfoBox { text: "The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable."; }
+        Check { text: "Also read pages with text"; checked <=> root.ocr-all-pages; }
+        InfoBox { text: "The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable. Pages that already contain text are left alone unless you tick the box above; then only words not already there are added."; }
         if !OcrInfo.available: InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");
             text: "The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR.";
@@ -609,15 +609,20 @@ export component OptionsPanel inherits VerticalLayout {
         spacing: 10px;
         RadioCard {
             title: "No OCR (text PDFs)";
-            description: "Converts PDFs with selectable text to editable " + what + " files";
+            description: "OCR is not required";
             selected: !root.export-ocr;
             clicked => { root.export-ocr = false; }
         }
         RadioCard {
             title: "OCR (scanned PDFs)";
-            description: "Converts scanned PDFs with non-selectable text to editable " + what + " files";
+            description: "Reads the text of scanned pages";
             selected: root.export-ocr;
             clicked => { root.export-ocr = true; }
+        }
+        InfoBox {
+            text: root.export-ocr
+                ? "Converts scanned PDFs with non-selectable text to editable " + what + " files."
+                : "Converts PDFs with selectable text to editable " + what + " files.";
         }
         if root.export-ocr && !OcrInfo.available: InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");
@@ -641,13 +646,13 @@ export component OptionsPanel inherits VerticalLayout {
         spacing: 10px;
         RadioCard {
             title: "Semantic Text";
-            description: "A report listing every word added, removed or changed";
+            description: "A report of the words that changed";
             selected: root.compare-mode == 0;
             clicked => { root.compare-mode = 0; }
         }
         RadioCard {
             title: "Content Overlay";
-            description: "The changed PDF with the differences highlighted";
+            description: "Marks on the changed PDF";
             selected: root.compare-mode == 1;
             clicked => { root.compare-mode = 1; }
         }
@@ -663,13 +668,13 @@ export component OptionsPanel inherits VerticalLayout {
         SectionLabel { text: "Set the PDF/A conformance level"; }
         RadioCard {
             title: "PDF/A-2b (recommended)";
-            description: "Long-term archiving; keeps transparency and layers";
+            description: "For long-term archiving";
             selected: root.pdfa-level == 0;
             clicked => { root.pdfa-level = 0; }
         }
         RadioCard {
             title: "PDF/A-3b (allows attachments)";
-            description: "Like PDF/A-2b; files of any type may be attached";
+            description: "Also allows attached files";
             selected: root.pdfa-level == 1;
             clicked => { root.pdfa-level = 1; }
         }
