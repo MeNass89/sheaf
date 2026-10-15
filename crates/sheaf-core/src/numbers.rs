@@ -97,17 +97,24 @@ pub fn number_pages(input: &Input, o: &NumberOptions, out: &Path) -> Result<(Pat
     if template.trim().is_empty() {
         return Err(OpdfError::Unsupported("the page number text is empty".into()));
     }
-    // One edit per page: each page has its own number, and double-sided pages their own side.
-    let edits = span
-        .enumerate()
-        .map(|(k, page)| -> Result<Edit> {
-            let mut text: [String; 6] = Default::default();
-            text[slot(o.position, o.double_sided && (page + 1) % 2 == 0)?] = template.clone();
-            let start_number = o.start.checked_add(k as u32).ok_or_else(|| OpdfError::Unsupported("the page numbers are too large".into()))?;
-            let settings = HeaderFooter { text, font_size: o.font_size, color: o.color, underline: false, margins: [o.margin; 4], start_number };
-            Ok(Edit::AddHeaderFooter { pages: vec![page], settings, replace: false })
-        })
-        .collect::<Result<Vec<_>>>()?;
+    // PdfCraft numbers the pages of one edit start, start + 1, … in list order. Double-sided
+    // pages alternate sides, so each page gets its own edit; otherwise one edit covers the span.
+    let edit = |pages: Vec<usize>, start_number: u32, mirror: bool| -> Result<Edit> {
+        let mut text: [String; 6] = Default::default();
+        text[slot(o.position, mirror)?] = template.clone();
+        let settings = HeaderFooter { text, font_size: o.font_size, color: o.color, underline: false, margins: [o.margin; 4], start_number };
+        Ok(Edit::AddHeaderFooter { pages, settings, replace: false })
+    };
+    let edits = if o.double_sided {
+        span.enumerate()
+            .map(|(k, page)| {
+                let n = o.start.checked_add(k as u32).ok_or_else(|| OpdfError::Unsupported("the page numbers are too large".into()))?;
+                edit(vec![page], n, (page + 1) % 2 == 0)
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        vec![edit(span.collect(), o.start, false)?]
+    };
     doc.apply(Edit::Batch { label: "Page numbers".into(), edits })?;
     doc.save_unprotected(out)
 }
