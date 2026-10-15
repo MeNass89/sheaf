@@ -118,3 +118,46 @@ fn bad_edit_is_an_engine_error() {
     assert!(matches!(doc.apply(Edit::DeletePages { pages: vec![7] }), Err(OpdfError::Engine(_))));
 }
 
+
+fn encryption_of(path: &std::path::Path) -> String {
+    let o = Command::new("qpdf").arg("--show-encryption").arg(path).output().unwrap();
+    String::from_utf8_lossy(&o.stdout).into_owned()
+}
+
+#[test]
+fn save_unprotected_strips_a_user_password_and_warns() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 2);
+    let p = protect(&Input::new(&a), "user", None, &t.path().join("p.pdf")).unwrap();
+    let mut doc = Doc::open(&with_pw(&p, Some("user"))).unwrap();
+    let (out, warned) = doc.save_unprotected(&t.path().join("out.pdf")).unwrap();
+    assert!(warned);
+    assert!(encryption_of(&out).contains("File is not encrypted"), "{}", encryption_of(&out));
+    assert!(!qpdf_check(&out).contains("WARNING"));
+    assert_eq!(page_texts(&out), ["Page 1", "Page 2"]);
+}
+
+#[test]
+fn save_unprotected_of_a_plain_file_does_not_warn() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let mut doc = Doc::open(&Input::new(&a)).unwrap();
+    let (out, warned) = doc.save_unprotected(&t.path().join("out.pdf")).unwrap();
+    assert!(!warned);
+    assert!(encryption_of(&out).contains("File is not encrypted"));
+}
+
+#[test]
+fn owner_password_only_file_opens_without_password_and_comes_out_unencrypted() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let p = t.path().join("owner.pdf");
+    let st = Command::new("qpdf").args(["--encrypt", "", "owner", "256", "--"]).arg(&a).arg(&p).status().unwrap();
+    assert!(st.success());
+    let mut doc = Doc::open(&Input::new(&p)).unwrap();
+    assert!(doc.was_encrypted());
+    let (out, warned) = doc.save_unprotected(&t.path().join("out.pdf")).unwrap();
+    assert!(warned);
+    assert!(encryption_of(&out).contains("File is not encrypted"), "{}", encryption_of(&out));
+    assert!(!qpdf_check(&out).contains("WARNING"));
+}

@@ -26,7 +26,8 @@ pub struct Doc {
 impl Doc {
     /// Reads `input.path` and opens it with `input.password` (tried as user or owner password).
     /// A missing password is [`OpdfError::PasswordRequired`], a wrong one
-    /// [`OpdfError::WrongPassword`]; any other failure is [`OpdfError::Engine`].
+    /// [`OpdfError::WrongPassword`], an engine limitation [`OpdfError::Unsupported`]; any other
+    /// failure is [`OpdfError::Engine`].
     pub fn open(input: &Input) -> Result<Doc> {
         let bytes = Arc::new(std::fs::read(&input.path)?);
         let name = input.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "document.pdf".into());
@@ -36,6 +37,7 @@ impl Doc {
                 OpdfError::PasswordRequired(input.path.clone())
             }
             OpenError::NeedsPassword | OpenError::WrongPassword => OpdfError::WrongPassword(input.path.clone()),
+            OpenError::Unsupported(m) => OpdfError::Unsupported(format!("{}: {m}", input.path.display())),
             e => OpdfError::Engine(format!("{}: {e}", input.path.display())),
         })?;
         Ok(Doc { session, id })
@@ -56,7 +58,8 @@ impl Doc {
         self.session.get(self.id).expect("a Doc's document stays open in its session")
     }
 
-    /// Whether the input file was encrypted (it was opened with a password).
+    /// Whether the input file was encrypted. That includes files with only an owner password,
+    /// which open without one: they are encrypted all the same.
     pub fn was_encrypted(&self) -> bool { self.doc().info.encrypted }
 
     /// Renders page `page` (0-based) at `scale` device pixels per point, as premultiplied RGBA8.
@@ -76,6 +79,17 @@ impl Doc {
     pub fn save(&self, out: &Path) -> Result<PathBuf> {
         let bytes = self.session.save_full_bytes(self.id).map_err(engine_err)?;
         write_verbatim(&bytes, out)
+    }
+
+    /// [`Self::save`], with any encryption removed first (`Edit::RemoveProtection`), for tools
+    /// whose output is never protected. Returns the path written and whether the input was
+    /// encrypted, i.e. whether the user must be told the output is not password-protected.
+    pub fn save_unprotected(&mut self, out: &Path) -> Result<(PathBuf, bool)> {
+        let warned = self.was_encrypted();
+        if warned {
+            self.apply(Edit::RemoveProtection)?;
+        }
+        Ok((self.save(out)?, warned))
     }
 
     /// Writes the document as an incremental update of the file as opened (the original bytes
