@@ -9,6 +9,7 @@ use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_core::ocr::{self, OcrOptions};
 use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::watermark::{self, Mark, Placement, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError};
@@ -223,6 +224,18 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Recognise the text of scanned pages and add a searchable text layer
+    Ocr {
+        input: PathBuf,
+        /// Document language code (the models read Latin script)
+        #[arg(long, default_value = "en")]
+        language: String,
+        /// Also read pages that already contain text (only new words are added)
+        #[arg(long)]
+        all_pages: bool,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Convert to PDF/A for archiving, then check the result
     Pdfa {
         input: PathBuf,
@@ -353,7 +366,7 @@ impl Cmd {
             | Cmd::Repair { input, .. }
             | Cmd::ToJpg { input, .. } => vec![input],
             // These report it themselves (from the engine), like Compress.
-            Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } |
+            Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } | Cmd::Ocr { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
         }
     }
@@ -377,6 +390,7 @@ impl Cmd {
             | Cmd::Watermark { out, .. }
             | Cmd::Crop { out, .. }
             | Cmd::Pdfa { out, .. }
+            | Cmd::Ocr { out, .. }
             | Cmd::Office { out, .. } => out.parent().filter(|p| !p.as_os_str().is_empty()),
         }
     }
@@ -479,6 +493,13 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 CropSpec::Margins { top: crop::mm(top), bottom: crop::mm(bottom), left: crop::mm(left), right: crop::mm(right) }
             };
             warned(crop::crop(&input(i), p.as_deref(), &spec, &out))
+        }
+        Cmd::Ocr { input: i, language, all_pages, out } => {
+            let opts = OcrOptions { language, read_text_pages: all_pages, ..Default::default() };
+            let r = ocr::ocr(&input(i), &opts, &out, &mut |_| true)?;
+            let page = |n: usize| if n == 1 { "page" } else { "pages" };
+            eprintln!("{} {} read, {} skipped, {} words added", r.pages_read, page(r.pages_read), r.pages_skipped, r.words);
+            warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::Pdfa { input: i, level, out } => {
             let level = match level {

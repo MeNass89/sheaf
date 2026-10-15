@@ -1,5 +1,5 @@
 import { Theme } from "../theme.slint";
-import { ToolOptions, Parse } from "../flow-types.slint";
+import { ToolOptions, Parse, OcrInfo } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { RadioCard, Segment, InfoBox } from "../widgets/radio-card.slint";
 
@@ -42,6 +42,7 @@ component Stepper inherits HorizontalLayout {
 component Check inherits Rectangle {
     in property <string> text;
     in-out property <bool> checked;
+    callback toggled();
     height: 24px;
     HorizontalLayout {
         spacing: 8px;
@@ -69,7 +70,10 @@ component Check inherits Rectangle {
     }
     TouchArea {
         mouse-cursor: pointer;
-        clicked => { root.checked = !root.checked; }
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled();
+        }
     }
 }
 
@@ -188,6 +192,7 @@ export component OptionsPanel inherits VerticalLayout {
         : root.tool == "split" ? (root.split-mode == 0 ? root.ranges != "" : root.every >= 1)
         : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == ""))
         : root.tool == "watermark" ? (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "")
+        : root.tool == "ocr" ? OcrInfo.available && root.ocr-languages != ","
         : root.tool == "crop" ? (root.crop-mode == 2 || ((root.crop-mode == 0 || root.pages != "")
             && Parse.mm(root.crop-top) + Parse.mm(root.crop-bottom) + Parse.mm(root.crop-left) + Parse.mm(root.crop-right) > 0))
         : true);
@@ -206,6 +211,7 @@ export component OptionsPanel inherits VerticalLayout {
         crop-mode: root.crop-mode, crop-top: root.crop-top, crop-bottom: root.crop-bottom,
         crop-left: root.crop-left, crop-right: root.crop-right,
         pdfa-level: root.pdfa-level,
+        ocr-languages: root.ocr-languages, ocr-all-pages: root.ocr-all-pages,
     };
     callback insert-blank();
     callback get-libreoffice();
@@ -251,6 +257,8 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> crop-left: "10";
     in-out property <string> crop-right: "10";
     in-out property <int> pdfa-level: 0;
+    in-out property <string> ocr-languages: ",en,";
+    in-out property <bool> ocr-all-pages;
 
     spacing: 10px;
     alignment: start;
@@ -570,6 +578,23 @@ export component OptionsPanel inherits VerticalLayout {
                 left: Parse.mm(root.crop-left) * 72 / 25.4;
                 right: Parse.mm(root.crop-right) * 72 / 25.4;
             }
+        }
+    }
+
+    if root.tool == "ocr": VerticalLayout {
+        spacing: 10px;
+        SectionLabel { text: "Document languages"; }
+        for l in OcrInfo.languages: Check {
+            text: l.name;
+            checked: Parse.has-code(root.ocr-languages, l.code);
+            toggled => { root.ocr-languages = Parse.toggle-code(root.ocr-languages, l.code); }
+        }
+        InfoBox { text: "Recognises Latin-script text (English, French, Spanish, German, …). The accuracy of detection is increased by correctly selecting the document's languages."; }
+        Check { text: "Also read pages that already contain text"; checked <=> root.ocr-all-pages; }
+        InfoBox { text: "The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable."; }
+        if !OcrInfo.available: InfoBox {
+            icon: @image-url("../icons/triangle-alert.svg");
+            text: "The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR.";
         }
     }
 

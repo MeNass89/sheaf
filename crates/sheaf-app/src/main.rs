@@ -164,6 +164,13 @@ fn main() -> Result<(), slint::PlatformError> {
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);
     parse.on_custom_text_error(|s| sheaf_core::numbers::custom_text_error(&s).unwrap_or_default().into());
+    parse.on_has_code(|set, code| run::has_code(&set, &code));
+    parse.on_toggle_code(|set, code| run::toggle_code(&set, &code).into());
+    let ocr = ui.global::<sheaf_app::OcrInfo>();
+    let langs: Vec<sheaf_app::OcrLanguage> =
+        sheaf_core::ocr::languages().iter().map(|(code, name)| sheaf_app::OcrLanguage { code: (*code).into(), name: (*name).into() }).collect();
+    ocr.set_languages(ModelRc::new(VecModel::from(langs)));
+    ocr.set_available(sheaf_core::ocr::available());
     ui.on_pick_image(|| {
         rfd::FileDialog::new()
             .set_title("Choose the watermark image")

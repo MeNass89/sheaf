@@ -29,6 +29,10 @@ version="$(cargo metadata --no-deps --format-version 1 |
 
 sh scripts/fetch-pdfium.sh
 [ -f "$pdfium/lib/libpdfium.dylib" ] || { echo "error: $pdfium/lib/libpdfium.dylib missing" >&2; exit 1; }
+sh scripts/fetch-models.sh
+for m in text-detection text-recognition; do
+    [ -f "vendor/models/$m.rten" ] || { echo "error: vendor/models/$m.rten missing" >&2; exit 1; }
+done
 
 echo "==> cargo build --release"
 cargo build --release -p sheaf-app -p sheaf-cli
@@ -46,12 +50,16 @@ rm -rf "$iconset"
 
 echo "==> assemble $app"
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Helpers" "$app/Contents/Frameworks" "$app/Contents/Resources/licenses/pdfium"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Helpers" "$app/Contents/Frameworks" "$app/Contents/Resources/licenses/pdfium" \
+    "$app/Contents/Resources/models"
 cp target/release/sheaf-app "$app/Contents/MacOS/Sheaf"
 # The CLI lives in Helpers: MacOS/sheaf would collide with MacOS/Sheaf on a
 # case-insensitive volume. ../Frameworks resolves to the same folder from both.
 cp target/release/sheaf "$app/Contents/Helpers/sheaf"
 cp "$pdfium/lib/libpdfium.dylib" "$app/Contents/Frameworks/"
+# OCR models: PdfCraft looks in <exe>/../Resources/models (the CLI in Helpers finds them too).
+cp vendor/models/*.rten "$app/Contents/Resources/models/"
+cp "$mac/ocr-models-NOTICE.txt" "$app/Contents/Resources/licenses/ocr-models-NOTICE.txt"
 cp target/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 sed "s/@VERSION@/$version/g" "$mac/Info.plist" > "$app/Contents/Info.plist"
 plutil -lint "$app/Contents/Info.plist" >/dev/null

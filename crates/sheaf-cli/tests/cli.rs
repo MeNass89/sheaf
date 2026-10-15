@@ -103,6 +103,7 @@ fn tools_on_a_protected_input_note_that_the_output_is_not() {
         vec!["watermark".into(), p.clone().into(), "--text".into(), "DRAFT".into(), "-o".into(), o("w.pdf").into()],
         vec!["crop".into(), p.clone().into(), "--top".into(), "1".into(), "-o".into(), o("k.pdf").into()],
         vec!["pdfa".into(), p.clone().into(), "-o".into(), o("pa.pdf").into()],
+        vec!["ocr".into(), p.clone().into(), "-o".into(), o("oc.pdf").into()],
     ];
     for args in runs {
         let r = bin().args(&args).args(["--password", "pw"]).output().unwrap();
@@ -214,4 +215,22 @@ fn pdfa_subcommand_reports_conformance() {
         assert!(String::from_utf8_lossy(&bytes).contains(&format!("pdfaid:part>{part}<")));
     }
     assert_eq!(bin().arg("pdfa").arg(&a).args(["--level", "1a", "-o"]).arg(t.path().join("x.pdf")).status().unwrap().code(), Some(1));
+}
+
+#[test]
+fn ocr_subcommand_reports_what_it_read() {
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let a = t.path().join("a.pdf");
+    assert!(bin().arg("from-images").arg(&png).arg("-o").arg(&a).status().unwrap().success());
+    let out = t.path().join("a-ocr.pdf");
+    let r = bin().arg("ocr").arg(&a).args(["--language", "en", "-o"]).arg(&out).output().unwrap();
+    let err = String::from_utf8_lossy(&r.stderr);
+    assert!(r.status.success(), "{err}");
+    assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
+    assert!(err.contains("1 page read, 0 skipped"), "{err}");
+    let bad = bin().arg("ocr").arg(&a).args(["--language", "xx", "-o"]).arg(t.path().join("b.pdf")).output().unwrap();
+    assert_eq!(bad.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&bad.stderr).contains("OCR language"));
 }

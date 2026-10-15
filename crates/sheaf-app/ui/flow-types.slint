@@ -125,6 +125,21 @@ export struct ToolOptions {
     crop-right: string,
     // PDF to PDF/A
     pdfa-level: int,     // 0 PDF/A-2b, 1 PDF/A-3b
+    // OCR
+    ocr-languages: string, // selected language codes, ",en,fr," (the first one is used)
+    ocr-all-pages: bool,   // also read pages that already contain text
+}
+
+export struct OcrLanguage {
+    code: string,
+    name: string,
+}
+
+// What the OCR engine offers, set once at startup.
+export global OcrInfo {
+    in property <[OcrLanguage]> languages;
+    // The recognition models are installed.
+    in property <bool> available;
 }
 
 // Text parsing the options panels need and Slint lacks, answered by the Rust side.
@@ -133,4 +148,7 @@ export global Parse {
     pure callback mm(string) -> float;
     // Why a custom page-number text is refused ("" when it is fine).
     pure callback custom-text-error(string) -> string;
+    // A set of codes written ",a,b,": whether `code` is in it, and the set with `code` toggled.
+    pure callback has-code(string, string) -> bool;
+    pure callback toggle-code(string, string) -> string;
 }

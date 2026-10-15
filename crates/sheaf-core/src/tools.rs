@@ -153,7 +153,7 @@ static CATALOGUE: &[ToolInfo] = &[
     tool!(Rotate, "Rotate PDF", "Turn pages a quarter at a time without touching their content.", Organize, "rotate-cw", PDF, true, 1),
     tool!(Compress, "Compress PDF", "Shrink file size while keeping pages readable.", Optimize, "minimize-2", PDF, true, 1),
     tool!(Repair, "Repair PDF", "Rebuild a damaged PDF so it opens again.", Optimize, "wrench", PDF, true, 1),
-    tool!(Ocr, "OCR PDF", "Add a searchable text layer to scanned pages.", Optimize, "scan-text", PDF, false, 2),
+    tool!(Ocr, "OCR PDF", "Add a searchable text layer to scanned pages.", Optimize, "scan-text", PDF, true, 1),
     tool!(JpgToPdf, "JPG to PDF", "Turn photos and images into a single PDF.", ConvertToPdf, "image", &["jpg", "jpeg", "png", "webp", "tiff", "bmp"], true, 1),
     tool!(WordToPdf, "Word to PDF", "Convert text documents to PDF with their layout intact.", ConvertToPdf, "file-text", &["doc", "docx", "odt", "rtf"], true, 1),
     tool!(PowerPointToPdf, "PowerPoint to PDF", "Save slide decks as PDFs that look the same everywhere.", ConvertToPdf, "presentation", &["ppt", "pptx", "odp"], true, 1),

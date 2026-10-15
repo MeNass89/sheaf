@@ -312,3 +312,27 @@ fn helvetica_pdf(dir: &Path) -> PathBuf {
     doc.save_to_file(&path).unwrap();
     path
 }
+
+#[test]
+fn ocr_job_reports_progress_and_a_cancel_inside_a_file_writes_nothing() {
+    use sheaf_core::ocr::OcrOptions;
+    use std::sync::atomic::Ordering;
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let text = helvetica_pdf(dir.path());
+    let no = AtomicBool::new(false);
+    let seen = std::cell::RefCell::new(Vec::new());
+    let items = vec![(Input::new(&src), dir.path().join("a-ocr.pdf")), (Input::new(&text), dir.path().join("t-ocr.pdf"))];
+    let o = run(&Job::Ocr { items: items.clone(), options: OcrOptions::default() }, &no, &|p| seen.borrow_mut().push(p)).unwrap();
+    assert_eq!(o.outputs.len(), 2);
+    assert_eq!(o.summary, "2 pages read, 1 page already had text");
+    let seen = seen.into_inner();
+    assert!(seen.windows(2).all(|w| w[0] <= w[1]) && seen.last() == Some(&1.0), "{seen:?}");
+    assert!(seen.iter().any(|p| *p > 0.0 && *p < 0.5), "progress inside the first file: {seen:?}");
+    // Cancel pressed while the first file is being read.
+    let cancel = AtomicBool::new(false);
+    let r = run(&Job::Ocr { items, options: OcrOptions::default() }, &cancel, &|p| if p > 0.0 { cancel.store(true, Ordering::Relaxed) });
+    assert!(matches!(r, Err(OpdfError::Cancelled)), "{r:?}");
+    let names: Vec<_> = std::fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+    assert!(!names.iter().any(|n| n.contains("ocr (1)") || n.ends_with(".part")), "{names:?}");
+}

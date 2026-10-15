@@ -5,6 +5,7 @@ pub mod crop;
 pub mod images;
 pub mod office;
 pub mod numbers;
+pub mod ocr;
 pub mod pages;
 pub mod pdfa;
 pub mod pdfcraft;

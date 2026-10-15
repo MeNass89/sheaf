@@ -8,6 +8,7 @@ use sheaf_app::{AppWindow, ToolOptions};
 use sheaf_core::compress::Level;
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_core::ocr::OcrOptions;
 use sheaf_core::pdfa::PdfALevel;
 use sheaf_core::watermark::{Mark, Placement, WatermarkOptions};
 use sheaf_core::images::PageLayout;
@@ -53,6 +54,28 @@ pub fn parse_mm(s: &str) -> Option<f64> {
         return Some(0.0);
     }
     s.parse::<f64>().ok().filter(|v| v.is_finite() && *v >= 0.0)
+}
+
+/// Whether `code` is in the set `set` (",a,b,").
+pub fn has_code(set: &str, code: &str) -> bool {
+    set.split(',').any(|c| c == code)
+}
+
+/// The set `set` (",a,b,") with `code` added or removed; the order of the others is kept.
+pub fn toggle_code(set: &str, code: &str) -> String {
+    let mut codes: Vec<&str> = set.split(',').filter(|c| !c.is_empty()).collect();
+    match codes.iter().position(|c| *c == code) {
+        Some(i) => {
+            codes.remove(i);
+        }
+        None => codes.push(code),
+    }
+    format!(",{},", codes.join(","))
+}
+
+fn ocr_options(opts: &ToolOptions) -> Result<OcrOptions> {
+    let language = opts.ocr_languages.split(',').find(|c| !c.is_empty()).ok_or_else(|| OpdfError::Unsupported("choose a document language".into()))?;
+    Ok(OcrOptions { language: language.into(), read_text_pages: opts.ocr_all_pages, ..Default::default() })
 }
 
 /// A typed millimetre margin, in points.
@@ -198,6 +221,10 @@ fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptio
             spec: crop_spec(opts)?,
             out: single()?,
         },
+        ToolId::Ocr => {
+            let options = ocr_options(opts)?;
+            Job::Ocr { items: pairs(inputs), options }
+        }
         ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
         other => return Err(OpdfError::Unsupported(format!("{} is not available yet", tools::find(other).name))),
     })
@@ -459,6 +486,21 @@ mod tests {
         o.pdfa_level = 1;
         let Job::PdfA { level, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
         assert_eq!(level, PdfALevel::A3b);
+    }
+
+    #[test]
+    fn ocr_job_uses_the_first_selected_language() {
+        assert_eq!(toggle_code(",en,", "fr"), ",en,fr,");
+        assert_eq!(toggle_code(",en,fr,", "en"), ",fr,");
+        assert_eq!(toggle_code(",en,", "en"), ",,");
+        assert!(has_code(",en,fr,", "fr") && !has_code(",en,", "e"));
+        let mut o = opts();
+        o.ocr_languages = ",fr,en,".into();
+        o.ocr_all_pages = true;
+        let Job::Ocr { items, options } = build_job(ToolId::Ocr, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/o.pdf".into())).unwrap() else { panic!() };
+        assert_eq!((options.language.as_str(), options.read_text_pages, items[0].1.clone()), ("fr", true, PathBuf::from("/s/o.pdf")));
+        o.ocr_languages = ",,".into();
+        assert!(build_job(ToolId::Ocr, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/o.pdf".into())).is_err());
     }
 
     #[test]

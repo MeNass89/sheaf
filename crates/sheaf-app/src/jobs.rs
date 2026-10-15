@@ -8,6 +8,7 @@ use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
 use sheaf_core::crop::{self, CropSpec};
 use sheaf_core::numbers::{self, NumberOptions};
+use sheaf_core::ocr::{self, OcrOptions};
 use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::watermark::{self, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError, Result};
@@ -47,6 +48,7 @@ pub enum Job {
     /// `pages`: "1-3,5", or `None` for every page.
     Crop { input: Input, pages: Option<String>, spec: CropSpec, out: PathBuf },
     PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel },
+    Ocr { items: Vec<(Input, PathBuf)>, options: OcrOptions },
 }
 
 impl Job {
@@ -63,6 +65,7 @@ impl Job {
             | Job::PageNumbers { items, .. }
             | Job::Watermark { items, .. }
             | Job::PdfA { items, .. }
+            | Job::Ocr { items, .. }
             | Job::Compress { items, .. }
             | Job::Protect { items, .. }
             | Job::Unlock { items }
@@ -169,6 +172,7 @@ fn loses_protection(job: &Job) -> bool {
         | Job::PageNumbers { .. }
         | Job::Watermark { .. }
         | Job::PdfA { .. }
+        | Job::Ocr { .. }
         | Job::Crop { .. } => vec![],
     };
     pdfs.into_iter().any(Input::is_encrypted)
@@ -261,6 +265,30 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             was_encrypted |= w;
             progress(1.0);
             vec![p]
+        }
+        Job::Ocr { items, options } => {
+            let n = items.len() as f32;
+            let started = std::cell::Cell::new(0usize);
+            let (mut read, mut skipped) = (0, 0);
+            let outs = batch(each(items, cancel, progress, pair, |(i, o)| {
+                let k = started.get() as f32;
+                started.set(started.get() + 1);
+                // Progress within the file, and a cancel that stops between its pages.
+                let r = ocr::ocr(i, options, o, &mut |p| {
+                    progress((k + p) / n);
+                    !cancel.load(Ordering::Relaxed)
+                })?;
+                was_encrypted |= r.was_encrypted;
+                read += r.pages_read;
+                skipped += r.pages_skipped;
+                Ok(vec![r.path])
+            }))?;
+            let pages = |n: usize| if n == 1 { "page" } else { "pages" };
+            summary = format!("{read} {} read", pages(read));
+            if skipped > 0 {
+                summary += &format!(", {skipped} {} already had text", pages(skipped));
+            }
+            outs
         }
         Job::PdfA { items, level } => {
             let many = items.len() > 1;
@@ -365,6 +393,7 @@ pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
         T::Watermark => "-watermarked",
         T::Crop => "-cropped",
         T::PdfToPdfA => "-pdfa",
+        T::Ocr => "-ocr",
         _ => "",
     };
     format!("{stem}{suffix}.pdf")
@@ -395,6 +424,7 @@ mod tests {
         assert_eq!(default_name(ToolId::Watermark, "a"), "a-watermarked.pdf");
         assert_eq!(default_name(ToolId::Crop, "a"), "a-cropped.pdf");
         assert_eq!(default_name(ToolId::PdfToPdfA, "a"), "a-pdfa.pdf");
+        assert_eq!(default_name(ToolId::Ocr, "a"), "a-ocr.pdf");
         assert_eq!(default_name(ToolId::JpgToPdf, "photo"), "photo.pdf");
         assert_eq!(default_name(ToolId::WordToPdf, "letter"), "letter.pdf");
     }
