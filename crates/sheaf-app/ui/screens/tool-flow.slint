@@ -1,0 +1,172 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { ToolTab, ToolOptions } from "../flow-types.slint";
+import { DashedBox } from "../widgets/dashed-box.slint";
+import { DropZone, AddFab } from "../widgets/drop-zone.slint";
+import { FileCardView, PageCardView } from "../widgets/file-card.slint";
+import { OptionsPanel } from "options.slint";
+import { ProcessingOverlay } from "processing.slint";
+
+// Full-width accent button at the bottom of the options panel.
+component ActionButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled;
+    callback clicked();
+    height: Theme.action-height;
+    border-radius: Theme.radius-item;
+    background: touch.pressed && root.enabled ? Theme.accent-pressed
+        : touch.has-hover && root.enabled ? Theme.accent-hover : Theme.accent;
+    opacity: root.enabled ? 1 : 0.4;
+    HorizontalLayout {
+        alignment: center;
+        spacing: 10px;
+        Text {
+            text: root.text;
+            font-size: Theme.fs-body-large;
+            font-weight: Theme.weight-bold;
+            color: Theme.on-accent;
+            vertical-alignment: center;
+        }
+        Image {
+            y: (parent.height - self.height) / 2;
+            width: 20px;
+            height: 20px;
+            source: @image-url("../icons/circle-arrow-right.svg");
+            colorize: Theme.on-accent;
+        }
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+// A tool tab before its result: file area on the left, options panel on the right.
+export component ToolFlowScreen inherits Rectangle {
+    in property <ToolTab> tab;
+    callback open-files();
+    callback remove-file(int);
+    callback move-file(int, int);
+    callback remove-page(int);
+    callback move-page(int, int);
+    callback insert-blank();
+    callback run(ToolOptions);
+    callback cancel();
+    callback get-libreoffice();
+
+    property <bool> running: root.tab.phase == 1;
+    property <bool> organize: root.tab.tool == "organize";
+    property <int> need: root.tab.tool == "merge" ? 2 : 1;
+
+    background: Theme.bg;
+
+    // File area
+    area := Rectangle {
+        x: Theme.filearea-margin;
+        y: Theme.filearea-margin;
+        width: parent.width - Theme.panel-width - 2 * Theme.filearea-margin;
+        height: parent.height - 2 * Theme.filearea-margin;
+        DashedBox {
+            background: Theme.filearea-bg;
+            if root.tab.files.length == 0: DropZone {
+                open-file => { root.open-files(); }
+            }
+            if root.tab.files.length > 0: ScrollView {
+                x: 1px;
+                y: 1px;
+                width: parent.width - 2px;
+                height: parent.height - 2px;
+                content-width: self.visible-width;
+                content-height: grid.preferred-height;
+                grid := FlexboxLayout {
+                    width: parent.visible-width;
+                    padding: 20px;
+                    padding-right: Theme.fab-size + 36px;
+                    spacing: 16px;
+                    flex-wrap: wrap;
+                    for f[i] in (root.organize ? [] : root.tab.files): FileCardView {
+                        file: f;
+                        tile: root.tab.tile;
+                        reorder: root.tab.multi && root.tab.files.length > 1;
+                        first: i == 0;
+                        last: i == root.tab.files.length - 1;
+                        interactive: !root.running;
+                        remove => { root.remove-file(f.uid); }
+                        move(d) => { root.move-file(f.uid, d); }
+                    }
+                    for p[i] in (root.organize ? root.tab.pages : []): PageCardView {
+                        item: p;
+                        first: i == 0;
+                        last: i == root.tab.pages.length - 1;
+                        interactive: !root.running;
+                        remove => { root.remove-page(i); }
+                        move(d) => { root.move-page(i, d); }
+                    }
+                }
+            }
+            if root.organize && root.tab.preview-failed: Text {
+                x: 20px;
+                y: parent.height - self.height - 14px;
+                text: "⚠ Page previews unavailable";
+                font-size: Theme.fs-caption;
+                color: Theme.warning;
+            }
+            if root.tab.files.length > 0 && !root.running: AddFab {
+                x: parent.width - self.width - 20px;
+                y: 20px;
+                count: root.tab.files.length;
+                clicked => { root.open-files(); }
+            }
+            if root.running: ProcessingOverlay {
+                progress: root.tab.progress;
+                label: root.tab.progress-text;
+                cancelling: root.tab.cancelling;
+                cancel => { root.cancel(); }
+            }
+        }
+    }
+
+    // Options panel
+    Rectangle {
+        x: parent.width - Theme.panel-width;
+        width: Theme.panel-width;
+        background: Theme.panel-bg;
+        Rectangle {
+            x: 0;
+            width: 1px;
+            background: Theme.sidebar-border;
+        }
+        VerticalLayout {
+            padding: Theme.panel-padding;
+            padding-top: 20px;
+            spacing: 14px;
+            Text {
+                text: root.tab.name;
+                font-size: Theme.fs-panel-title;
+                font-weight: Theme.weight-demibold;
+                color: Theme.text;
+                horizontal-alignment: center;
+            }
+            Rectangle {
+                height: 1px;
+                background: Theme.separator;
+            }
+            opts := OptionsPanel {
+                vertical-stretch: 1;
+                tool: root.tab.tool;
+                file-count: root.tab.files.length;
+                default-out: root.tab.default-out;
+                office-missing: root.tab.office-missing;
+                insert-blank => { root.insert-blank(); }
+                get-libreoffice => { root.get-libreoffice(); }
+            }
+            ActionButton {
+                text: root.tab.name;
+                enabled: !root.running && opts.valid && root.tab.files-ready && root.tab.files.length >= root.need
+                    && (!root.organize || root.tab.pages.length > 0);
+                clicked => { root.run(opts.options); }
+            }
+        }
+    }
+}

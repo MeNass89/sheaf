@@ -1,0 +1,141 @@
+import { Theme } from "../theme.slint";
+import { PrimaryButton } from "../widgets/button.slint";
+import { TextField } from "../widgets/text-field.slint";
+
+export component SecondaryButton inherits Rectangle {
+    in property <string> text;
+    callback clicked();
+    height: Theme.button-height;
+    min-width: label.preferred-width + 32px;
+    border-radius: Theme.radius-button;
+    border-width: 1px;
+    border-color: Theme.input-border;
+    background: touch.has-hover ? Theme.popup-hover : Theme.card;
+    label := Text {
+        text: root.text;
+        font-size: Theme.fs-button;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Dimmed backdrop with a centred card.
+export component Modal inherits Rectangle {
+    in property <length> card-width: 380px;
+    in property <length> shake;
+    background: Theme.scrim;
+    TouchArea { }
+    Rectangle {
+        x: (parent.width - self.width) / 2 + root.shake;
+        y: (parent.height - self.height) / 2;
+        width: root.card-width;
+        height: body.preferred-height;
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000040;
+        body := VerticalLayout {
+            padding: 22px;
+            spacing: 14px;
+            @children
+        }
+    }
+}
+
+// "<file> is password protected": asked when a file is added.
+export component PasswordDialog inherits Modal {
+    in property <string> file-name;
+    in property <bool> wrong;
+    // Bumped by Rust on each wrong attempt to replay the shake.
+    in property <int> attempt;
+    callback unlock(string);
+    callback skip();
+
+    property <string> pw;
+    property <duration> since: animation-tick() - root.started;
+    property <duration> started;
+    changed attempt => { root.started = animation-tick(); root.pw = ""; }
+    shake: root.wrong && root.since < 400ms ? 8px * sin(root.since / 400ms * 6 * 360deg) : 0px;
+
+    Text {
+        text: root.file-name + " is password protected";
+        font-size: Theme.fs-body-large;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+        wrap: word-wrap;
+    }
+    field := TextField {
+        password: true;
+        placeholder: "Password";
+        text <=> root.pw;
+        error: root.wrong ? "Wrong password" : "";
+        accepted => { root.unlock(root.pw); }
+    }
+    HorizontalLayout {
+        alignment: end;
+        spacing: 10px;
+        SecondaryButton {
+            text: "Skip";
+            clicked => { root.skip(); }
+        }
+        PrimaryButton {
+            text: "Unlock";
+            enabled: root.pw != "";
+            clicked => { root.unlock(root.pw); }
+        }
+    }
+    init => { field.focus-input(); }
+}
+
+// Closing a tab whose job is still running.
+export component ConfirmCloseDialog inherits Modal {
+    callback cancel-job();
+    callback keep();
+    Text {
+        text: "A task is still running";
+        font-size: Theme.fs-body-large;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+    }
+    Text {
+        text: "Closing this tab cancels it. Files already written are kept.";
+        font-size: Theme.fs-label;
+        color: Theme.text-secondary;
+        wrap: word-wrap;
+    }
+    HorizontalLayout {
+        alignment: end;
+        spacing: 10px;
+        SecondaryButton {
+            text: "Keep";
+            clicked => { root.keep(); }
+        }
+        PrimaryButton {
+            text: "Cancel job";
+            clicked => { root.cancel-job(); }
+        }
+    }
+}
+
+// Bottom-centre message (rejected files, errors).
+export component Toast inherits Rectangle {
+    in property <string> text;
+    height: 36px;
+    width: min(label.preferred-width + 32px, 640px);
+    border-radius: 18px;
+    background: Theme.toast-bg;
+    drop-shadow-blur: 10px;
+    drop-shadow-color: #00000030;
+    label := Text {
+        width: parent.width - 32px;
+        text: root.text;
+        font-size: Theme.fs-label;
+        color: Theme.on-toast;
+        horizontal-alignment: center;
+        overflow: elide;
+    }
+}

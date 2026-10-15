@@ -1,0 +1,26 @@
+// Data the Rust side pushes into Recents and Tasks History.
+
+// One recent output file on the Recents page.
+export struct RecentFile {
+    name: string,
+    // "3.17 MB - 7 pages"
+    info: string,
+    // "2 min ago"
+    when: string,
+    thumb: image,
+    has-thumb: bool,
+    // 0 = PDF, 1 = image, 2 = other document
+    kind: int,
+}
+
+// One row of Tasks History.
+export struct HistoryRow {
+    tool-name: string,
+    icon: image,
+    tile: color,
+    // "a.pdf, b.pdf → a-merged.pdf"
+    files: string,
+    when: string,
+    // The first output still exists.
+    can-reveal: bool,
+}

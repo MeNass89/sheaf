@@ -1,0 +1,174 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Segment } from "../widgets/radio-card.slint";
+import { SecondaryButton } from "dialogs.slint";
+
+// White card with a section title.
+component Section inherits Rectangle {
+    in property <string> title;
+    border-radius: Theme.radius-card;
+    background: Theme.card;
+    height: lay.preferred-height;
+    lay := VerticalLayout {
+        padding: 18px;
+        spacing: 12px;
+        Text {
+            text: root.title;
+            font-size: Theme.fs-body-large;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text;
+        }
+        @children
+    }
+}
+
+component Radio inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked();
+    height: 26px;
+    HorizontalLayout {
+        spacing: 10px;
+        Rectangle {
+            y: (parent.height - self.height) / 2;
+            width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            border-width: root.selected ? 0 : 1.5px;
+            border-color: touch.has-hover ? Theme.text-secondary : Theme.option-border;
+            background: root.selected ? Theme.accent : transparent;
+            if root.selected: Rectangle {
+                width: 6px;
+                height: 6px;
+                border-radius: 3px;
+                background: Theme.on-accent;
+            }
+        }
+        Text {
+            text: root.text;
+            font-size: Theme.fs-body;
+            color: Theme.text;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component Switch inherits Rectangle {
+    in-out property <bool> on;
+    callback toggled(bool);
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: root.on ? Theme.accent : Theme.option-border;
+    animate background { duration: 120ms; }
+    Rectangle {
+        x: root.on ? parent.width - self.width - 2px : 2px;
+        animate x { duration: 120ms; }
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        background: white;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.on = !root.on;
+            root.toggled(root.on);
+        }
+    }
+}
+
+// Preferences page: appearance, output location, after processing.
+export component PreferencesScreen inherits Rectangle {
+    // 0 = System, 1 = Light, 2 = Dark
+    in property <int> theme-pref;
+    // 0 = Ask, 1 = Next to the original, 2 = Fixed folder
+    in property <int> output-mode;
+    in property <string> fixed-folder;
+    in property <bool> open-after;
+    callback set-theme(int);
+    callback set-output(int);
+    callback choose-folder();
+    callback set-open-after(bool);
+    background: Theme.content-bg;
+
+    scroll := ScrollView {
+        content-width: self.visible-width;
+        content-height: body.preferred-height;
+        body := VerticalLayout {
+            width: scroll.visible-width;
+            padding: Theme.content-padding;
+            spacing: 16px;
+            alignment: start;
+            Text {
+                height: 36px;
+                text: "Preferences";
+                font-size: Theme.fs-page-title;
+                font-weight: Theme.weight-bold;
+                color: Theme.text;
+                vertical-alignment: center;
+            }
+            Section {
+                title: "Appearance";
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    for label[i] in ["System", "Light", "Dark"]: Segment {
+                        width: 88px;
+                        text: label;
+                        selected: root.theme-pref == i;
+                        clicked => { root.set-theme(i); }
+                    }
+                }
+            }
+            Section {
+                title: "Output location";
+                Radio {
+                    text: "Ask every time";
+                    selected: root.output-mode == 0;
+                    clicked => { root.set-output(0); }
+                }
+                Radio {
+                    text: "Save next to the original file";
+                    selected: root.output-mode == 1;
+                    clicked => { root.set-output(1); }
+                }
+                HorizontalLayout {
+                    spacing: 12px;
+                    Radio {
+                        horizontal-stretch: 1;
+                        text: root.fixed-folder == "" ? "Always save to a folder" : "Always save to: " + root.fixed-folder;
+                        selected: root.output-mode == 2;
+                        clicked => { root.set-output(2); }
+                    }
+                    SecondaryButton {
+                        text: "Choose…";
+                        clicked => { root.choose-folder(); }
+                    }
+                }
+            }
+            Section {
+                title: "After processing";
+                HorizontalLayout {
+                    spacing: 12px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: "Open the output folder when done";
+                        font-size: Theme.fs-body;
+                        color: Theme.text;
+                        vertical-alignment: center;
+                    }
+                    Switch {
+                        on: root.open-after;
+                        toggled(v) => { root.set-open-after(v); }
+                    }
+                }
+            }
+        }
+    }
+}

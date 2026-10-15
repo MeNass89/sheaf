@@ -1,0 +1,246 @@
+import { Theme } from "theme.slint";
+import { ToolCard } from "widgets/tool-card.slint";
+import { MenuItem } from "widgets/menu-item.slint";
+import { TabBar } from "widgets/tab-bar.slint";
+import { RecentsScreen } from "screens/recents.slint";
+import { HistoryScreen, ClearHistoryDialog } from "screens/history.slint";
+import { PreferencesScreen } from "screens/preferences.slint";
+import { RecentFile, HistoryRow } from "history-types.slint";
+import { ToolsScreen, ToolSection } from "screens/tools.slint";
+import { ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool } from "flow-types.slint";
+import { ToolFlowScreen } from "screens/tool-flow.slint";
+import { ResultScreen } from "screens/result.slint";
+import { PasswordDialog, ConfirmCloseDialog, Toast } from "screens/dialogs.slint";
+
+export { Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow }
+
+export enum Page { recents, tools, history, preferences }
+
+component Sidebar inherits Rectangle {
+    in-out property <Page> page;
+    in property <bool> collapsed;
+
+    width: collapsed ? Theme.sidebar-collapsed-width : Theme.sidebar-width;
+    background: Theme.sidebar-bg;
+
+    VerticalLayout {
+        padding: Theme.sidebar-margin;
+        padding-top: 16px;
+        spacing: 2px;
+        alignment: start;
+        MenuItem {
+            icon: @image-url("icons/clock.svg");
+            text: "Recents";
+            collapsed: root.collapsed;
+            selected: root.page == Page.recents;
+            clicked => { root.page = Page.recents; }
+        }
+        MenuItem {
+            icon: @image-url("icons/wrench.svg");
+            text: "Tools";
+            collapsed: root.collapsed;
+            selected: root.page == Page.tools;
+            clicked => { root.page = Page.tools; }
+        }
+        MenuItem {
+            icon: @image-url("icons/clipboard-list.svg");
+            text: "Tasks History";
+            collapsed: root.collapsed;
+            selected: root.page == Page.history;
+            clicked => { root.page = Page.history; }
+        }
+        MenuItem {
+            icon: @image-url("icons/settings.svg");
+            text: "Preferences";
+            collapsed: root.collapsed;
+            selected: root.page == Page.preferences;
+            clicked => { root.page = Page.preferences; }
+        }
+    }
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Theme.sidebar-border;
+    }
+}
+
+export component AppWindow inherits Window {
+    in-out property <Page> page: Page.recents;
+    in-out property <[ToolSection]> sections;
+    in property <[ToolCard]> all-tools;
+    // Tools page sort: 0 = Categories, 1 = All. Kept here so it survives page switches.
+    in-out property <int> tools-sort: 0;
+
+    // Tool tabs; active-tab is an index into `tabs`, -1 = Home.
+    in property <[ToolTab]> tabs;
+    in-out property <int> active-tab: -1;
+
+    // Password dialog
+    in property <bool> pw-visible;
+    in property <string> pw-file;
+    in property <bool> pw-wrong;
+    in property <int> pw-attempt;
+    // Closing a tab with a running job
+    in property <bool> confirm-visible;
+    // Bottom-centre toast
+    in property <string> toast-text;
+    in property <bool> toast-visible;
+
+    // Recents, history, preferences
+    in property <[RecentFile]> recents;
+    in property <[HistoryRow]> history;
+    in property <int> theme-pref;
+    in property <int> output-mode;
+    in property <string> fixed-folder;
+    in property <bool> open-after;
+    property <bool> confirm-clear;
+
+    callback open-file();
+    callback open-tool(string);
+    callback close-tab(int);
+    callback add-files(int);
+    callback remove-file(int, int);
+    callback move-file(int, int, int);
+    callback remove-page(int, int);
+    callback move-page(int, int, int);
+    callback insert-blank(int);
+    callback run-tool(int, ToolOptions);
+    callback cancel-job(int);
+    callback open-output(int, int);
+    callback reveal-output(int, int);
+    callback open-folder(int);
+    callback start-over(int);
+    callback continue-to(int, string);
+    callback get-libreoffice();
+    callback pw-unlock(string);
+    callback pw-skip();
+    callback confirm-cancel-job();
+    callback confirm-keep();
+    callback open-recent(int);
+    callback reveal-recent(int);
+    callback reveal-history(int);
+    callback clear-history();
+    callback set-theme(int);
+    callback set-output(int);
+    callback choose-folder();
+    callback set-open-after(bool);
+    // Home page switched: refresh relative times and missing files.
+    callback page-shown();
+    changed page => { root.page-shown(); }
+
+    title: "Sheaf";
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    min-width: 900px;
+    min-height: 600px;
+    background: Theme.bg;
+    default-font-size: Theme.fs-body;
+
+    VerticalLayout {
+        TabBar {
+            tabs: root.tabs;
+            active <=> root.active-tab;
+            close-tab(id) => { root.close-tab(id); }
+            new-tab => {
+                root.active-tab = -1;
+                root.page = Page.tools;
+            }
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            // Home
+            Rectangle {
+                visible: root.active-tab == -1;
+                sidebar := Sidebar {
+                    x: 0;
+                    height: parent.height;
+                    page <=> root.page;
+                    collapsed: root.width < Theme.sidebar-collapse-below;
+                }
+                Rectangle {
+                    x: sidebar.width;
+                    width: parent.width - sidebar.width;
+                    height: parent.height;
+                    if root.page == Page.recents: RecentsScreen {
+                        recents: root.recents;
+                        open-file => { root.open-file(); }
+                        open-recent(i) => { root.open-recent(i); }
+                        reveal-recent(i) => { root.reveal-recent(i); }
+                    }
+                    if root.page == Page.tools: ToolsScreen {
+                        sections <=> root.sections;
+                        all-tools: root.all-tools;
+                        sort <=> root.tools-sort;
+                        chevron: @image-url("icons/chevron-down.svg");
+                        open-tool(id) => { root.open-tool(id); }
+                    }
+                    if root.page == Page.history: HistoryScreen {
+                        rows: root.history;
+                        reveal(i) => { root.reveal-history(i); }
+                        ask-clear => { root.confirm-clear = true; }
+                    }
+                    if root.page == Page.preferences: PreferencesScreen {
+                        theme-pref: root.theme-pref;
+                        output-mode: root.output-mode;
+                        fixed-folder: root.fixed-folder;
+                        open-after: root.open-after;
+                        set-theme(m) => { root.set-theme(m); }
+                        set-output(m) => { root.set-output(m); }
+                        choose-folder => { root.choose-folder(); }
+                        set-open-after(v) => { root.set-open-after(v); }
+                    }
+                }
+            }
+            // Tool tabs: one instance each, so their options survive tab switches.
+            for t[i] in root.tabs: Rectangle {
+                visible: root.active-tab == i;
+                ToolFlowScreen {
+                    visible: t.phase < 2;
+                    tab: t;
+                    open-files => { root.add-files(t.id); }
+                    remove-file(uid) => { root.remove-file(t.id, uid); }
+                    move-file(uid, d) => { root.move-file(t.id, uid, d); }
+                    remove-page(k) => { root.remove-page(t.id, k); }
+                    move-page(k, d) => { root.move-page(t.id, k, d); }
+                    insert-blank => { root.insert-blank(t.id); }
+                    run(o) => { root.run-tool(t.id, o); }
+                    cancel => { root.cancel-job(t.id); }
+                    get-libreoffice => { root.get-libreoffice(); }
+                }
+                if t.phase == 2: ResultScreen {
+                    tab: t;
+                    open-output(k) => { root.open-output(t.id, k); }
+                    reveal-output(k) => { root.reveal-output(t.id, k); }
+                    open-folder => { root.open-folder(t.id); }
+                    start-over => { root.start-over(t.id); }
+                    continue-to(tool) => { root.continue-to(t.id, tool); }
+                }
+            }
+        }
+    }
+
+    if root.toast-visible: Toast {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - 28px;
+        text: root.toast-text;
+    }
+    if root.pw-visible: PasswordDialog {
+        file-name: root.pw-file;
+        wrong: root.pw-wrong;
+        attempt: root.pw-attempt;
+        unlock(pw) => { root.pw-unlock(pw); }
+        skip => { root.pw-skip(); }
+    }
+    if root.confirm-clear: ClearHistoryDialog {
+        clear => {
+            root.confirm-clear = false;
+            root.clear-history();
+        }
+        cancel => { root.confirm-clear = false; }
+    }
+    if root.confirm-visible: ConfirmCloseDialog {
+        cancel-job => { root.confirm-cancel-job(); }
+        keep => { root.confirm-keep(); }
+    }
+}

@@ -1,0 +1,70 @@
+import { Theme } from "../theme.slint";
+
+// Covers the file area while a job runs: progress bar and Cancel.
+export component ProcessingOverlay inherits Rectangle {
+    in property <float> progress;
+    in property <string> label;
+    in property <bool> cancelling;
+    callback cancel();
+
+    background: Theme.filearea-bg.with-alpha(0.92);
+    border-radius: Theme.radius-small;
+    TouchArea { }   // swallow clicks on the cards underneath
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 14px;
+        Text {
+            text: root.cancelling ? "Cancelling…" : "Processing…";
+            font-size: Theme.fs-subtitle;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text;
+            horizontal-alignment: center;
+        }
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 320px;
+                height: 8px;
+                border-radius: 4px;
+                background: Theme.progress-track;
+                Rectangle {
+                    x: 0;
+                    width: parent.width * clamp(root.progress, 0, 1);
+                    border-radius: 4px;
+                    background: Theme.accent;
+                    animate width { duration: 150ms; }
+                }
+            }
+        }
+        Text {
+            text: root.label;
+            font-size: Theme.fs-label;
+            color: Theme.text-muted;
+            horizontal-alignment: center;
+        }
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 100px;
+                height: Theme.button-height;
+                border-radius: Theme.radius-button;
+                border-width: 1px;
+                border-color: Theme.input-border;
+                background: touch.has-hover && !root.cancelling ? Theme.popup-hover : Theme.card;
+                opacity: root.cancelling ? 0.4 : 1;
+                Text {
+                    text: "Cancel";
+                    font-size: Theme.fs-button;
+                    font-weight: Theme.weight-demibold;
+                    color: Theme.text;
+                }
+                touch := TouchArea {
+                    enabled: !root.cancelling;
+                    mouse-cursor: root.cancelling ? default : pointer;
+                    clicked => { root.cancel(); }
+                }
+            }
+        }
+    }
+}

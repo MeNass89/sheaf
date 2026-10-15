@@ -1,0 +1,263 @@
+import { Theme } from "../theme.slint";
+import { ToolOptions } from "../flow-types.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { RadioCard, Segment, InfoBox } from "../widgets/radio-card.slint";
+
+component SectionLabel inherits Text {
+    font-size: Theme.fs-label;
+    font-weight: Theme.weight-demibold;
+    color: Theme.text;
+}
+
+// -/+ number picker (Split "every N pages").
+component Stepper inherits HorizontalLayout {
+    in-out property <int> value: 1;
+    in property <int> minimum: 1;
+    spacing: 8px;
+    height: 32px;
+    Segment {
+        width: 32px;
+        text: "−";
+        clicked => { root.value = max(root.minimum, root.value - 1); }
+    }
+    Rectangle {
+        width: 56px;
+        border-radius: Theme.radius-button;
+        border-width: 1px;
+        border-color: Theme.option-border;
+        Text {
+            text: root.value;
+            font-size: Theme.fs-label;
+            color: Theme.text;
+        }
+    }
+    Segment {
+        width: 32px;
+        text: "+";
+        clicked => { root.value += 1; }
+    }
+}
+
+// The tool-specific options between the panel title and the action button.
+// Holds its own state; `options` exposes it, `valid` says whether the action may run.
+export component OptionsPanel inherits VerticalLayout {
+    in property <string> tool;
+    in property <int> file-count;
+    in property <string> default-out;
+    in property <bool> office-missing;
+    out property <bool> valid: !root.office-missing && (
+        root.tool == "protect" ? root.password != "" && root.password == root.confirm
+        : root.tool == "remove_pages" || root.tool == "extract_pages" ? root.pages != ""
+        : root.tool == "split" ? (root.split-mode == 0 ? root.ranges != "" : root.every >= 1)
+        : true);
+    out property <ToolOptions> options: {
+        level: root.level, password: root.password, confirm: root.confirm, owner: root.owner,
+        pages: root.pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every,
+        degrees: root.degrees, layout: root.layout, margin: root.margin, quality: root.quality,
+        out-name: root.out-name,
+    };
+    callback insert-blank();
+    callback get-libreoffice();
+
+    in-out property <int> level: 1;
+    in-out property <string> password;
+    in-out property <string> confirm;
+    in-out property <string> owner;
+    in-out property <string> pages;
+    in-out property <int> split-mode: 0;
+    in-out property <string> ranges;
+    in-out property <int> every: 1;
+    in-out property <int> degrees: 90;
+    in-out property <int> layout: 0;
+    in-out property <int> margin: 0;
+    in-out property <int> quality: 0;
+    in-out property <string> out-name;
+
+    spacing: 10px;
+    alignment: start;
+
+    if root.tool == "merge": TextField {
+        label: "Output file name";
+        placeholder: root.default-out;
+        text <=> root.out-name;
+    }
+
+    if root.tool == "split": VerticalLayout {
+        spacing: 10px;
+        RadioCard {
+            title: "Split by range";
+            description: "One file for each range you type";
+            selected: root.split-mode == 0;
+            clicked => { root.split-mode = 0; }
+        }
+        RadioCard {
+            title: "Split every N pages";
+            description: "Fixed-size chunks";
+            selected: root.split-mode == 1;
+            clicked => { root.split-mode = 1; }
+        }
+        Rectangle { height: 4px; }
+        if root.split-mode == 0: TextField {
+            label: "Ranges";
+            placeholder: "1-3,5,8-10";
+            text <=> root.ranges;
+        }
+        if root.split-mode == 1: VerticalLayout {
+            spacing: 6px;
+            SectionLabel { text: "Pages per file"; }
+            Stepper { value <=> root.every; }
+        }
+    }
+
+    if root.tool == "remove_pages" || root.tool == "extract_pages": VerticalLayout {
+        spacing: 10px;
+        TextField {
+            label: root.tool == "remove_pages" ? "Pages to remove" : "Pages to extract";
+            placeholder: "1-3,5";
+            text <=> root.pages;
+        }
+        InfoBox { text: "Use commas and dashes: 2,4-6 means pages 2, 4, 5 and 6."; }
+    }
+
+    if root.tool == "organize": VerticalLayout {
+        spacing: 10px;
+        Segment {
+            text: "Insert blank page";
+            clicked => { root.insert-blank(); }
+        }
+        InfoBox { text: "Hover a page to move it with the arrows or drop it with ×. The blank page is added at the end."; }
+    }
+
+    if root.tool == "rotate": VerticalLayout {
+        spacing: 10px;
+        SectionLabel { text: "Rotation (clockwise)"; }
+        HorizontalLayout {
+            spacing: 8px;
+            Segment { text: "90°"; selected: root.degrees == 90; clicked => { root.degrees = 90; } }
+            Segment { text: "180°"; selected: root.degrees == 180; clicked => { root.degrees = 180; } }
+            Segment { text: "270°"; selected: root.degrees == 270; clicked => { root.degrees = 270; } }
+        }
+        Rectangle { height: 4px; }
+        TextField {
+            label: "Pages (optional)";
+            placeholder: "All pages";
+            text <=> root.pages;
+        }
+    }
+
+    if root.tool == "compress": VerticalLayout {
+        spacing: 10px;
+        RadioCard {
+            title: "Extreme compression";
+            description: "Smallest file, softer images";
+            selected: root.level == 0;
+            clicked => { root.level = 0; }
+        }
+        RadioCard {
+            title: "Recommended compression";
+            description: "Small file, sharp enough to read";
+            selected: root.level == 1;
+            clicked => { root.level = 1; }
+        }
+        RadioCard {
+            title: "Low compression";
+            description: "Best image quality, modest saving";
+            selected: root.level == 2;
+            clicked => { root.level = 2; }
+        }
+        Rectangle { height: 4px; }
+        InfoBox { text: "Recommended and Extreme recompress images; text and vector graphics are never touched."; }
+    }
+
+    if root.tool == "protect": VerticalLayout {
+        spacing: 12px;
+        TextField {
+            label: "Password";
+            password: true;
+            placeholder: "Type a password";
+            text <=> root.password;
+        }
+        TextField {
+            label: "Repeat password";
+            password: true;
+            placeholder: "Type it again";
+            text <=> root.confirm;
+            error: root.confirm != "" && root.confirm != root.password ? "Passwords do not match" : "";
+        }
+        TextField {
+            label: "Owner password (optional)";
+            password: true;
+            placeholder: "Same as the password";
+            text <=> root.owner;
+        }
+    }
+
+    if root.tool == "unlock": InfoBox {
+        text: "Sheaf asks for each file's password when you add it. The copies are saved without one.";
+    }
+
+    if root.tool == "repair": InfoBox {
+        text: "The file is rebuilt from what can still be read. Keep the original until you have checked the copy.";
+    }
+
+    if root.tool == "jpg_to_pdf": VerticalLayout {
+        spacing: 10px;
+        SectionLabel { text: "Page size"; }
+        RadioCard { title: "Fit to image"; selected: root.layout == 0; clicked => { root.layout = 0; } }
+        RadioCard { title: "A4 portrait"; selected: root.layout == 1; clicked => { root.layout = 1; } }
+        RadioCard { title: "A4 landscape"; selected: root.layout == 2; clicked => { root.layout = 2; } }
+        if root.layout != 0: VerticalLayout {
+            spacing: 10px;
+            padding-top: 6px;
+            SectionLabel { text: "Margin"; }
+            HorizontalLayout {
+                spacing: 8px;
+                Segment { text: "None"; selected: root.margin == 0; clicked => { root.margin = 0; } }
+                Segment { text: "Small"; selected: root.margin == 1; clicked => { root.margin = 1; } }
+                Segment { text: "Big"; selected: root.margin == 2; clicked => { root.margin = 2; } }
+            }
+        }
+    }
+
+    if root.tool == "pdf_to_jpg": VerticalLayout {
+        spacing: 10px;
+        RadioCard {
+            title: "Normal quality";
+            description: "150 dpi, smaller images";
+            selected: root.quality == 0;
+            clicked => { root.quality = 0; }
+        }
+        RadioCard {
+            title: "High quality";
+            description: "300 dpi, for print";
+            selected: root.quality == 1;
+            clicked => { root.quality = 1; }
+        }
+    }
+
+    if !root.office-missing && (root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf"
+            || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): InfoBox {
+        text: "Converted with LibreOffice on this Mac. Nothing is uploaded.";
+    }
+
+    if root.office-missing: VerticalLayout {
+        spacing: 10px;
+        InfoBox {
+            icon: @image-url("../icons/triangle-alert.svg");
+            text: "Install LibreOffice to enable this tool. Sheaf uses it to read Office and HTML files.";
+        }
+        Segment {
+            text: "Get LibreOffice";
+            clicked => { root.get-libreoffice(); }
+        }
+    }
+
+    public function reset() {
+        root.password = "";
+        root.confirm = "";
+        root.owner = "";
+        root.pages = "";
+        root.ranges = "";
+        root.out-name = "";
+    }
+}

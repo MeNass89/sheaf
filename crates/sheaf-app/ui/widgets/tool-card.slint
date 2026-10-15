@@ -1,0 +1,75 @@
+import { Theme } from "../theme.slint";
+
+export struct ToolCard {
+    id: string,
+    name: string,
+    category: int,
+    icon: image,
+    tile: color,
+    enabled: bool,
+}
+
+// 132 x 136 card: coloured icon tile on top, name below.
+export component ToolCardView inherits Rectangle {
+    in property <ToolCard> tool;
+    callback clicked(string);
+
+    width: Theme.card-width;
+    height: Theme.card-height;
+    border-radius: Theme.radius-card;
+    background: Theme.card;
+    border-width: 1px;
+    border-color: tool.enabled && touch.has-hover ? Theme.card-border-hover : Theme.card;
+    opacity: tool.enabled ? 1.0 : 0.5;
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: Theme.card-tile-top;
+        width: Theme.card-tile;
+        height: Theme.card-tile;
+        border-radius: 8px;
+        background: root.tool.tile;
+        Image {
+            source: root.tool.icon;
+            width: Theme.card-icon;
+            height: Theme.card-icon;
+            colorize: white;
+        }
+    }
+
+    Text {
+        x: 6px;
+        y: Theme.card-tile-top + Theme.card-tile + Theme.card-label-gap;
+        width: parent.width - 12px;
+        height: 40px;
+        text: root.tool.name;
+        font-size: Theme.fs-card;
+        color: Theme.text;
+        horizontal-alignment: center;
+        vertical-alignment: top;
+        wrap: word-wrap;
+        overflow: elide;
+        line-height-factor: Theme.line-height;
+    }
+
+    if !root.tool.enabled: Rectangle {
+        x: parent.width - self.width - 6px;
+        y: 6px;
+        width: soon.preferred-width + 10px;
+        height: 16px;
+        border-radius: 8px;
+        background: Theme.pill-bg;
+        soon := Text {
+            text: "Soon";
+            font-size: Theme.fs-caption;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text-secondary;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.tool.enabled;
+        mouse-cursor: root.tool.enabled ? pointer : default;
+        clicked => { root.clicked(root.tool.id); }
+    }
+}

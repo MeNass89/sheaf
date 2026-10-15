@@ -1,0 +1,80 @@
+import { Theme } from "../theme.slint";
+import { Thumb } from "file-card.slint";
+import { IconButton } from "button.slint";
+import { RecentFile } from "../history-types.slint";
+
+// A recent output file: page-1 thumbnail, name, size and pages, age. Click opens it.
+export component RecentCard inherits Rectangle {
+    in property <RecentFile> file;
+    callback open();
+    callback reveal();
+
+    width: Theme.file-card-width + 20px;
+    height: Theme.file-card-height + 18px;
+    border-radius: Theme.radius-item;
+    background: Theme.card;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.dashed : Theme.card;
+
+    Rectangle {
+        y: 14px;
+        height: Theme.file-thumb-height;
+        if root.file.kind == 2: Image {
+            width: 48px;
+            height: 48px;
+            source: @image-url("../icons/file-text.svg");
+            colorize: Theme.text-muted;
+        }
+        if root.file.kind != 2: Thumb {
+            thumb: root.file.thumb;
+            has-thumb: root.file.has-thumb;
+            max-w: Theme.file-thumb-width + (root.file.kind == 1 ? 30px : 0);
+            max-h: Theme.file-thumb-height;
+        }
+    }
+    VerticalLayout {
+        x: 6px;
+        y: 14px + Theme.file-thumb-height + 8px;
+        width: parent.width - 12px;
+        height: self.preferred-height;
+        spacing: 2px;
+        Text {
+            text: root.file.name;
+            font-size: Theme.fs-label;
+            color: Theme.text;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+        Text {
+            text: root.file.info;
+            font-size: Theme.fs-caption;
+            color: Theme.text-muted;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+        Text {
+            text: root.file.when;
+            font-size: Theme.fs-caption;
+            color: Theme.text-muted;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.open(); }
+        // Inside the TouchArea so hovering it keeps the card hovered.
+        if touch.has-hover: Rectangle {
+            x: parent.width - self.width - 4px;
+            y: 4px;
+            width: 28px;
+            height: 28px;
+            border-radius: Theme.radius-small;
+            background: Theme.card;
+            IconButton {
+                icon: @image-url("../icons/folder-open.svg");
+                clicked => { root.reveal(); }
+            }
+        }
+    }
+}

@@ -1,0 +1,121 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { ToolCard, ToolCardView } from "../widgets/tool-card.slint";
+import { SortCombo } from "../widgets/sort-combo.slint";
+
+export struct ToolSection {
+    title: string,
+    collapsed: bool,
+    tools: [ToolCard],
+}
+
+component CardGrid inherits FlexboxLayout {
+    in property <[ToolCard]> tools;
+    callback open-tool(string);
+    spacing: Theme.grid-spacing;
+    flex-wrap: wrap;
+    for tool in root.tools: ToolCardView {
+        tool: tool;
+        clicked(id) => { root.open-tool(id); }
+    }
+}
+
+// Tools page: title, sort choice, and the card grid.
+export component ToolsScreen inherits Rectangle {
+    in-out property <[ToolSection]> sections;
+    in property <[ToolCard]> all-tools;
+    in property <image> chevron;
+    in-out property <int> sort: 0; // 0 = Categories, 1 = All
+    callback open-tool(string);
+
+    background: Theme.content-bg;
+
+    VerticalLayout {
+        padding-top: Theme.content-padding;
+        spacing: 4px;
+
+        HorizontalLayout {
+            padding-left: Theme.content-padding;
+            padding-right: Theme.content-padding;
+            height: 36px;
+            spacing: 12px;
+            Text {
+                text: "Tools";
+                font-size: Theme.fs-page-title;
+                font-weight: Theme.weight-bold;
+                color: Theme.text;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            Text {
+                text: "Sort";
+                font-size: Theme.fs-button;
+                color: Theme.text-secondary;
+                vertical-alignment: center;
+            }
+            SortCombo {
+                y: (parent.height - self.height) / 2;
+                options: ["Categories", "All"];
+                current-index <=> root.sort;
+                chevron: root.chevron;
+            }
+        }
+
+        scroll := ScrollView {
+            vertical-stretch: 1;
+            content-width: self.visible-width;
+            content-height: body.preferred-height;
+
+            body := VerticalLayout {
+                width: scroll.visible-width;
+                padding-left: Theme.content-padding;
+                padding-right: Theme.content-padding;
+                padding-bottom: Theme.content-padding;
+                alignment: start;
+
+                if root.sort == 0: VerticalLayout {
+                    for section in root.sections: VerticalLayout {
+                        Rectangle {
+                            height: Theme.section-header-height;
+                            HorizontalLayout {
+                                alignment: start;
+                                spacing: 6px;
+                                Text {
+                                    text: section.title;
+                                    font-size: Theme.fs-section;
+                                    font-weight: Theme.weight-demibold;
+                                    color: Theme.text-heading;
+                                    vertical-alignment: center;
+                                }
+                                Image {
+                                    source: root.chevron;
+                                    width: 12px;
+                                    height: 12px;
+                                    y: (parent.height - self.height) / 2 + 1px;
+                                    colorize: Theme.text-secondary;
+                                    transform-rotation: section.collapsed ? -90deg : 0deg;
+                                    animate transform-rotation { duration: 120ms; }
+                                }
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { section.collapsed = !section.collapsed; }
+                            }
+                        }
+                        if !section.collapsed: CardGrid {
+                            padding-bottom: 4px;
+                            tools: section.tools;
+                            open-tool(id) => { root.open-tool(id); }
+                        }
+                    }
+                }
+
+                if root.sort == 1: CardGrid {
+                    padding-top: 12px;
+                    tools: root.all-tools;
+                    open-tool(id) => { root.open-tool(id); }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,72 @@
+import { Theme } from "../theme.slint";
+
+// Small bordered drop-down used for the Tools "Sort" choice.
+export component SortCombo inherits Rectangle {
+    in property <[string]> options;
+    in-out property <int> current-index: 0;
+    in property <image> chevron;
+    callback selected(int);
+
+    width: Theme.combo-width;
+    height: Theme.combo-height;
+    border-radius: Theme.radius-small;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.text-secondary : Theme.input-border;
+    background: Theme.input-bg;
+
+    Text {
+        x: 10px;
+        text: root.options[root.current-index];
+        font-size: Theme.fs-button;
+        color: Theme.text;
+        vertical-alignment: center;
+    }
+    Image {
+        x: parent.width - self.width - 8px;
+        width: 13px;
+        height: 13px;
+        source: root.chevron;
+        colorize: Theme.text-secondary;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { popup.show(); }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: root.height + 4px;
+        width: root.width;
+        Rectangle {
+            background: Theme.input-bg;
+            border-radius: Theme.radius-small;
+            border-width: 1px;
+            border-color: Theme.input-border;
+            drop-shadow-blur: 8px;
+            drop-shadow-color: #00000022;
+            VerticalLayout {
+                padding: 4px;
+                for opt[i] in root.options: Rectangle {
+                    height: 30px;
+                    border-radius: 3px;
+                    background: ta.has-hover ? Theme.popup-hover : transparent;
+                    Text {
+                        x: 6px;
+                        text: opt;
+                        font-size: Theme.fs-button;
+                        font-weight: i == root.current-index ? Theme.weight-demibold : 400;
+                        color: i == root.current-index ? Theme.accent : Theme.text;
+                        vertical-alignment: center;
+                    }
+                    ta := TouchArea {
+                        clicked => {
+                            root.current-index = i;
+                            root.selected(i);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,89 @@
+// Data the Rust side pushes into the tool flow screens.
+
+export struct FileItem {
+    uid: int,
+    name: string,
+    // "3.17 MB - 7 pages"
+    info: string,
+    thumb: image,
+    has-thumb: bool,
+    // 0 = PDF, 1 = image, 2 = office / HTML document
+    kind: int,
+    locked: bool,
+    // The preview could not be rendered; the file is still processed.
+    preview-failed: bool,
+}
+
+// One page of the Organize grid. page 0 = inserted blank page.
+export struct PageItem {
+    page: int,
+    thumb: image,
+    has-thumb: bool,
+}
+
+export struct ResultFile {
+    name: string,
+    info: string,
+    // Compress: "PDF compressed (-29%)"; empty otherwise.
+    note: string,
+    is-pdf: bool,
+}
+
+export struct ContinueTool {
+    id: string,
+    name: string,
+    icon: image,
+    tile: color,
+}
+
+export struct ToolTab {
+    id: int,
+    tool: string,
+    name: string,
+    icon: image,
+    tile: color,
+    multi: bool,
+    // 0 = choosing files and options, 1 = running, 2 = result
+    phase: int,
+    progress: float,
+    progress-text: string,
+    // Cancel pressed, waiting for the job to stop.
+    cancelling: bool,
+    // Organize: page previews could not be rendered.
+    preview-failed: bool,
+    files: [FileItem],
+    pages: [PageItem],
+    office-missing: bool,
+    // Every file is probed (page count known, no password pending).
+    files-ready: bool,
+    default-out: string,
+    // Result page
+    result-title: string,
+    result-sub: string,
+    result-pct: string,
+    size-before: string,
+    size-after: string,
+    warning: string,
+    // Batch with some failed inputs: "1 file failed:" and one "name — error" line each.
+    failure-title: string,
+    failures: [string],
+    outputs: [ResultFile],
+    continue-tools: [ContinueTool],
+}
+
+// Everything the options panels collect, sent with the action button.
+export struct ToolOptions {
+    level: int,          // compress: 0 extreme, 1 recommended, 2 low
+    password: string,    // protect
+    confirm: string,
+    owner: string,
+    pages: string,       // remove / extract / rotate (optional)
+    split-mode: int,     // 0 ranges, 1 every N
+    ranges: string,
+    every: int,
+    degrees: int,        // 90 / 180 / 270
+    layout: int,         // jpg→pdf: 0 fit, 1 A4 portrait, 2 A4 landscape
+    margin: int,         // 0 none, 1 small, 2 big
+    quality: int,        // pdf→jpg: 0 normal, 1 high
+    out-name: string,    // merge
+}

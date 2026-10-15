@@ -1,0 +1,142 @@
+// Design tokens. Every colour and size the screens use lives here.
+import { Palette } from "std-widgets.slint";
+
+export global Theme {
+    // 0 = follow the OS, 1 = light, 2 = dark. Set from Rust (preference, SHEAF_THEME override).
+    in-out property <int> mode: 0;
+    out property <bool> dark: mode == 2 || (mode == 0 && Palette.color-scheme == ColorScheme.dark);
+
+    // Surfaces
+    out property <color> bg: dark ? #161616 : #ffffff;
+    out property <color> content-bg: dark ? #1E1E24 : #F5F5FA;
+    out property <color> tabbar-bg: dark ? #26262D : #EBEBF4;
+    out property <color> tab-bg: dark ? #161616 : #ffffff;
+    out property <color> sidebar-bg: dark ? #161616 : #ffffff;
+    out property <color> sidebar-border: dark ? #33333B : #EBEBF4;
+    out property <color> card: dark ? #292931 : #ffffff;
+    out property <color> card-border-hover: dark ? #ffffff : #161616;
+    out property <color> separator: dark ? #47474F : #EBEBF4;
+    out property <color> dashed: dark ? #47474F : #D6D6DF;
+    out property <color> pill-bg: dark ? #33333B : #EBEBF4;
+    out property <color> input-bg: dark ? #292931 : #ffffff;
+    out property <color> input-border: dark ? #5C5C64 : #ADADB6;
+    out property <color> popup-hover: dark ? #33333B : #F5F5FA;
+
+    // Tool flow
+    out property <color> panel-bg: dark ? #1E1E24 : #ffffff;
+    out property <color> filearea-bg: dark ? #1E1E24 : #F5F5FA;
+    out property <color> option-border: dark ? #5C5C64 : #ADADB6;
+    out property <color> option-selected-bg: dark ? #3A2422 : #FDE4DF;
+    out property <color> info-bg: dark ? #14304A : #DEF2FF;
+    out property <color> info: dark ? #4DB3F5 : #008EE9;
+    out property <color> success: #4ACD86;
+    out property <color> success-strong: dark ? #4ACD86 : #1D9D58;
+    out property <color> on-success: dark ? #161616 : #ffffff;
+    out property <color> warning: #EF9E02;
+    out property <color> danger: dark ? #FF6A58 : #E5322D;
+    out property <color> badge-bg: dark ? #EBEBF4 : #292931;
+    out property <color> on-badge: dark ? #161616 : #ffffff;
+    out property <color> thumb-placeholder: dark ? #33333B : #E4E4EC;
+    out property <color> thumb-shadow: #00000033;
+    out property <color> scrim: #00000066;
+    out property <color> toast-bg: dark ? #EBEBF4 : #292931;
+    out property <color> on-toast: dark ? #161616 : #ffffff;
+    out property <color> progress-track: dark ? #33333B : #EBEBF4;
+
+    // Menu
+    out property <color> menu-text: dark ? #ADADB6 : #5C5C64;
+    out property <color> menu-hover-bg: dark ? #232329 : #F5F5FA;
+    out property <color> menu-selected-bg: dark ? #292931 : #FDE4DF;
+    out property <color> menu-bar: dark ? #FF6A58 : #E42D28;
+
+    // Accent
+    out property <color> accent: dark ? #FF6A58 : #E5322D;
+    out property <color> accent-hover: dark ? #FFB6AD : #BD060A;
+    out property <color> accent-pressed: dark ? #ffffff : #161616;
+    out property <color> on-accent: dark ? #161616 : #ffffff;
+
+    // Text
+    out property <color> text: dark ? #ffffff : #292931;
+    out property <color> text-heading: dark ? #EBEBF4 : #47474F;
+    out property <color> text-secondary: dark ? #ADADB6 : #5C5C64;
+    out property <color> text-muted: dark ? #ADADB6 : #85858E;
+    out property <color> text-disabled: dark ? #5C5C64 : #ADADB6;
+
+    // Illustration
+    out property <color> art-circle: dark ? #292931 : #EBEBF4;
+    out property <color> art-stroke: dark ? #85858E : #ADADB6;
+    out property <color> art-page: dark ? #1E1E24 : #ffffff;
+
+    // Radii
+    out property <length> radius-card: 12px;
+    out property <length> radius-item: 8px;
+    out property <length> radius-button: 6px;
+    out property <length> radius-small: 4px;
+
+    // Type scale
+    out property <length> fs-caption: 11px;
+    out property <length> fs-label: 13px;
+    out property <length> fs-body: 14px;
+    out property <length> fs-body-large: 16px;
+    out property <length> fs-subtitle: 18px;
+    out property <length> fs-title: 24px;
+    out property <length> fs-title-large: 28px;
+    // Component text sizes (taste gate 15/10)
+    out property <length> fs-menu: 14px;
+    out property <length> fs-section: 17px;
+    out property <length> fs-card: 13.5px;
+    out property <length> fs-page-title: 26px;
+    out property <length> fs-button: 14px;
+    out property <length> fs-tab: 14px;
+    out property <int> weight-demibold: 600;
+    out property <int> weight-bold: 700;
+
+    // Layout
+    out property <length> tabbar-height: 38px;
+    out property <length> tab-width: 132px;
+    out property <length> tab-height: 32px;
+    out property <length> tab-icon: 14px;
+    out property <length> sidebar-width: 196px;
+    out property <length> sidebar-collapsed-width: 52px;
+    out property <length> sidebar-margin: 8px;
+    // Below this window width the task menu shows icons only.
+    out property <length> sidebar-collapse-below: 1000px;
+    out property <length> menu-item-height: 38px;
+    out property <length> menu-icon: 16px;
+    out property <length> menu-gap: 14px;
+    out property <length> content-padding: 20px;
+    out property <length> card-width: 112px;
+    out property <length> card-height: 112px;
+    out property <length> card-tile: 40px;
+    out property <length> card-tile-top: 14px;
+    out property <length> card-icon: 22px;
+    out property <length> card-label-gap: 12px;
+    out property <length> grid-spacing: 22px;
+    out property <length> section-header-height: 44px;
+    out property <length> button-height: 34px;
+    out property <length> dropzone-height: 120px;
+    out property <length> combo-width: 104px;
+    out property <length> combo-height: 32px;
+    // Tool flow
+    out property <length> panel-width: 280px;
+    out property <length> panel-padding: 16px;
+    out property <length> filearea-margin: 20px;
+    out property <length> file-card-width: 120px;
+    out property <length> file-card-height: 148px;
+    out property <length> file-thumb-width: 60px;
+    out property <length> file-thumb-height: 84px;
+    out property <length> fab-size: 40px;
+    out property <length> action-height: 56px;
+    out property <length> radio-card-height: 44px;
+    out property <length> field-height: 36px;
+    out property <length> tool-tab-width: 168px;
+    out property <length> continue-width: 200px;
+    out property <length> continue-row: 40px;
+    out property <length> result-bar-height: 80px;
+    out property <length> page-thumb-width: 84px;
+    out property <length> page-thumb-height: 118px;
+    out property <length> fs-panel-title: 16px;
+    out property <length> fs-result-title: 18px;
+    // Two-line labels need air between lines.
+    out property <float> line-height: 1.25;
+}

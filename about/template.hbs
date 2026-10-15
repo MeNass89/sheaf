@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sheaf: third-party licences</title>
+<style>
+body { font: 14px/1.5 -apple-system, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1em; }
+pre { white-space: pre-wrap; background: #f5f5f7; padding: 1em; border-radius: 6px; font-size: 12px; }
+h2 { border-top: 1px solid #ddd; padding-top: 1em; }
+</style>
+</head>
+<body>
+<h1>Sheaf: third-party licences</h1>
+<p>Sheaf is distributed as a whole under the GNU General Public License, version 3 or later
+(see <code>LICENSE</code>). Slint is used under its GPL-3.0 option. The Rust crates compiled into
+<code>Sheaf</code> and <code>sheaf</code> are listed below with their licence texts. PDFium and its
+bundled libraries are covered by the files in <code>licenses/pdfium/</code>; the Lucide icons by
+<code>licenses/lucide-ISC.txt</code>.</p>
+<h2>Overview</h2>
+<ul>
+{{#each overview}}
+  <li><a href="#{{id}}">{{name}}</a> ({{count}})</li>
+{{/each}}
+</ul>
+{{#each licenses}}
+<h2 id="{{id}}">{{name}}</h2>
+<p>Used by:</p>
+<ul>
+{{#each used_by}}
+  <li><a href="{{#if crate.repository}}{{crate.repository}}{{else}}https://crates.io/crates/{{crate.name}}{{/if}}">{{crate.name}} {{crate.version}}</a></li>
+{{/each}}
+</ul>
+<pre>{{text}}</pre>
+{{/each}}
+</body>
+</html>

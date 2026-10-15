@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sheaf app icon. Original artwork, GPL-3.0-or-later. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EE4A45"/>
+      <stop offset="1" stop-color="#E5322D"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <!-- macOS icon grid: 824 px body centred on the 1024 canvas -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" filter="url(#shadow)"/>
+  <!-- page with a folded top-right corner -->
+  <path d="M332 232 H600 L712 344 V748 a44 44 0 0 1 -44 44 H332 a44 44 0 0 1 -44 -44 V276 a44 44 0 0 1 44 -44 Z" fill="#FFFFFF"/>
+  <path d="M600 232 V312 a32 32 0 0 0 32 32 H712 Z" fill="#F6C7C5"/>
+  <!-- three text lines -->
+  <rect x="360" y="452" width="280" height="36" rx="18" fill="#E5322D"/>
+  <rect x="360" y="540" width="280" height="36" rx="18" fill="#E5322D"/>
+  <rect x="360" y="628" width="180" height="36" rx="18" fill="#E5322D"/>
+</svg>

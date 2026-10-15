@@ -1,0 +1,124 @@
+import { Theme } from "../theme.slint";
+import { PrimaryButton } from "../widgets/button.slint";
+import { ScrollView } from "std-widgets.slint";
+import { DashedBox } from "../widgets/dashed-box.slint";
+import { RecentCard } from "../widgets/recent-card.slint";
+import { RecentFile } from "../history-types.slint";
+
+// One tilted page outline of the empty-state illustration.
+component PageSketch inherits Rectangle {
+    in property <angle> tilt;
+    width: 92px;
+    height: 120px;
+    Rectangle {
+        transform-rotation: root.tilt;
+        border-radius: 6px;
+        border-width: 1.5px;
+        border-color: Theme.art-stroke;
+        background: Theme.art-page;
+        for i in 5: Rectangle {
+            x: 14px;
+            y: 22px + i * 16px;
+            width: i == 4 ? 36px : 64px;
+            height: 1.5px;
+            border-radius: 1px;
+            background: Theme.art-stroke;
+        }
+    }
+}
+
+// Recents page: drop zone, then the recent output files or the empty-state illustration.
+export component RecentsScreen inherits Rectangle {
+    in property <[RecentFile]> recents;
+    callback open-file();
+    callback open-recent(int);
+    callback reveal-recent(int);
+    background: Theme.content-bg;
+
+    scroll := ScrollView {
+      content-width: self.visible-width;
+      content-height: body.preferred-height;
+      body := VerticalLayout {
+        width: scroll.visible-width;
+        padding: Theme.content-padding;
+        spacing: 0;
+        alignment: start;
+
+        DashedBox {
+            height: Theme.dropzone-height;
+            background: Theme.card;
+            VerticalLayout {
+                alignment: center;
+                spacing: 8px;
+                HorizontalLayout {
+                    alignment: center;
+                    PrimaryButton {
+                        text: "Open file";
+                        width: 92px;
+                        clicked => { root.open-file(); }
+                    }
+                }
+                Text {
+                    text: "or drag & drop anywhere";
+                    font-size: Theme.fs-button;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        if root.recents.length > 0: VerticalLayout {
+            padding-top: 24px;
+            spacing: 14px;
+            Text {
+                text: "Recent files";
+                font-size: Theme.fs-subtitle;
+                font-weight: Theme.weight-demibold;
+                color: Theme.text-heading;
+            }
+            FlexboxLayout {
+                flex-wrap: wrap;
+                spacing: 14px;
+                for f[i] in root.recents: RecentCard {
+                    file: f;
+                    open => { root.open-recent(i); }
+                    reveal => { root.reveal-recent(i); }
+                }
+            }
+        }
+
+        if root.recents.length == 0: Rectangle { height: 80px; }
+
+        // Illustration
+        if root.recents.length == 0: Rectangle {
+            height: 232px;
+            clip: true;
+            Rectangle {
+                width: 320px;
+                height: 320px;
+                y: 0;
+                border-radius: self.width / 2;
+                background: @linear-gradient(180deg, Theme.art-circle 0%, Theme.art-circle 40%, Theme.content-bg 72%);
+            }
+            PageSketch { x: (parent.width - self.width) / 2 - 58px; y: 92px; tilt: -14deg; }
+            PageSketch { x: (parent.width - self.width) / 2 + 58px; y: 92px; tilt: 12deg; }
+            PageSketch { x: (parent.width - self.width) / 2; y: 72px; tilt: 0deg; }
+            Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: 222px;
+                width: 260px;
+                height: 1.5px;
+                background: Theme.art-stroke;
+            }
+        }
+
+        if root.recents.length == 0: Rectangle { height: 16px; }
+        if root.recents.length == 0: Text {
+            text: "Your recent files will appear here";
+            font-size: Theme.fs-button;
+            color: Theme.text-muted;
+            horizontal-alignment: center;
+        }
+      }
+    }
+}

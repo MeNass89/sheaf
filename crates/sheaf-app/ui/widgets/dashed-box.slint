@@ -1,0 +1,44 @@
+import { Theme } from "../theme.slint";
+
+// Rectangle with a 1 px dashed border (Slint has no dashed stroke).
+export component DashedBox inherits Rectangle {
+    in property <color> dash-color: Theme.dashed;
+    in property <length> dash: 5px;
+    in property <length> gap: 4px;
+    property <int> nx: floor((self.width - 2 * Theme.radius-small) / (dash + gap));
+    property <int> ny: floor((self.height - 2 * Theme.radius-small) / (dash + gap));
+    property <length> ox: (self.width - nx * (dash + gap) + gap) / 2;
+    property <length> oy: (self.height - ny * (dash + gap) + gap) / 2;
+
+    border-radius: Theme.radius-small;
+
+    for i in nx: Rectangle {
+        x: root.ox + i * (root.dash + root.gap);
+        y: 0;
+        width: root.dash;
+        height: 1px;
+        background: root.dash-color;
+    }
+    for i in nx: Rectangle {
+        x: root.ox + i * (root.dash + root.gap);
+        y: root.height - 1px;
+        width: root.dash;
+        height: 1px;
+        background: root.dash-color;
+    }
+    for i in ny: Rectangle {
+        x: 0;
+        y: root.oy + i * (root.dash + root.gap);
+        width: 1px;
+        height: root.dash;
+        background: root.dash-color;
+    }
+    for i in ny: Rectangle {
+        x: root.width - 1px;
+        y: root.oy + i * (root.dash + root.gap);
+        width: 1px;
+        height: root.dash;
+        background: root.dash-color;
+    }
+    @children
+}

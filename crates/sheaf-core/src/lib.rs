@@ -1,0 +1,13 @@
+pub mod compress;
+pub mod engine;
+pub mod error;
+pub mod images;
+pub mod office;
+pub mod pages;
+pub mod paths;
+pub mod ranges;
+pub mod repair;
+pub mod rotate;
+pub mod security;
+pub mod tools;
+pub use error::{OpdfError, Result};

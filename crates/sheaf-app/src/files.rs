@@ -1,0 +1,227 @@
+//! File helpers shared by the tool flow: what a tool accepts, where a dropped file goes,
+//! sizes and captions, and page-1 thumbnails. No UI types here, so it is unit-testable.
+
+use sheaf_core::pages::Input;
+use sheaf_core::tools::{self, ToolId};
+use sheaf_core::{OpdfError, Result};
+use std::path::Path;
+
+/// What kind of input a file is, for its card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    Pdf,
+    Image,
+    /// Office or HTML document: no thumbnail, size only.
+    Document,
+}
+
+impl Kind {
+    pub fn index(self) -> i32 {
+        match self {
+            Kind::Pdf => 0,
+            Kind::Image => 1,
+            Kind::Document => 2,
+        }
+    }
+}
+
+/// Lowercase extension without the dot ("" if none).
+pub fn ext(p: &Path) -> String {
+    p.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default()
+}
+
+pub fn kind_of(p: &Path) -> Kind {
+    match ext(p).as_str() {
+        "pdf" => Kind::Pdf,
+        "jpg" | "jpeg" | "png" | "webp" | "tiff" | "bmp" => Kind::Image,
+        _ => Kind::Document,
+    }
+}
+
+/// Whether `tool` takes `p`, judged by extension against the catalogue.
+pub fn accepts(tool: ToolId, p: &Path) -> bool {
+    let e = ext(p);
+    tools::find(tool).accepts.contains(&e.as_str())
+}
+
+/// The toast shown for a rejected file.
+pub fn rejection(tool: ToolId, p: &Path) -> String {
+    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    format!("Not supported by {}: {name}", tools::find(tool).name)
+}
+
+/// Where a file dropped on the window goes.
+#[derive(Debug, PartialEq, Eq)]
+pub enum DropAction {
+    /// Add it to the active tool tab.
+    AddToTab,
+    /// On Home with a PDF: keep it and show Tools so the user picks one.
+    PickTool,
+    /// Show this toast.
+    Reject(String),
+}
+
+/// Routes a dropped file. `active` is the active tool tab's tool, `None` on Home.
+pub fn route_drop(active: Option<ToolId>, p: &Path) -> DropAction {
+    if p.is_dir() {
+        let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        return DropAction::Reject(format!("Folders cannot be added: {name}"));
+    }
+    match active {
+        Some(t) if accepts(t, p) => DropAction::AddToTab,
+        Some(t) => DropAction::Reject(rejection(t, p)),
+        None if kind_of(p) == Kind::Pdf => DropAction::PickTool,
+        None => {
+            let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            DropAction::Reject(format!("Open a tool first to add {name}"))
+        }
+    }
+}
+
+/// "3.17 MB", "845 KB", "512 B" (binary units, as Finder's "MB" label is read by most users).
+pub fn human_size(bytes: u64) -> String {
+    const K: f64 = 1024.0;
+    let b = bytes as f64;
+    if b >= K * K * K {
+        format!("{:.2} GB", b / (K * K * K))
+    } else if b >= K * K {
+        format!("{:.2} MB", b / (K * K))
+    } else if b >= K {
+        format!("{:.0} KB", b / K)
+    } else {
+        format!("{bytes} B")
+    }
+}
+
+/// Card caption: "3.17 MB - 7 pages", or the size alone when the page count is unknown.
+pub fn caption(bytes: u64, pages: Option<u32>) -> String {
+    match pages {
+        Some(1) => format!("{} - 1 page", human_size(bytes)),
+        Some(n) => format!("{} - {n} pages", human_size(bytes)),
+        None => human_size(bytes),
+    }
+}
+
+pub fn file_size(p: &Path) -> u64 {
+    std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
+}
+
+/// RGBA pixels of a thumbnail.
+pub struct Thumb {
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+}
+
+/// Page count and page-1 thumbnail (`width` px wide) of a PDF. Takes the pdfium lock;
+/// call it from a worker thread. Errors include `PasswordRequired` / `WrongPassword`.
+pub fn probe_pdf(input: &Input, width: i32) -> Result<(u32, Thumb)> {
+    let _g = sheaf_core::engine::pdfium_lock();
+    let doc = input.open()?;
+    let pages = doc.pages().len() as u32;
+    let page = doc.pages().first().map_err(|e| OpdfError::Unsupported(format!("no pages: {e}")))?;
+    let bmp = page.render_with_config(
+        &pdfium_render::prelude::PdfRenderConfig::new().set_target_width(width),
+    )?;
+    Ok((pages, Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }))
+}
+
+/// What to do with a PDF whose probe (page count + thumbnail) failed.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ProbeFailure {
+    /// Show the password dialog (`wrong`: a password was tried).
+    AskPassword { wrong: bool },
+    /// Repair: keep the card ("Can't preview — will try to repair"); the job falls back to lopdf.
+    KeepForRepair,
+    /// The probe panicked: keep the card with "preview unavailable"; the job decides.
+    KeepUnpreviewed,
+    /// Toast the error and drop the file: the tool cannot use a PDF pdfium refuses.
+    Remove,
+}
+
+/// Routes a failed probe. `panicked`: the probe crashed rather than returning `err`.
+pub fn probe_failure(tool: ToolId, err: &OpdfError, panicked: bool) -> ProbeFailure {
+    match err {
+        OpdfError::PasswordRequired(_) => ProbeFailure::AskPassword { wrong: false },
+        OpdfError::WrongPassword(_) => ProbeFailure::AskPassword { wrong: true },
+        _ if tool == ToolId::Repair => ProbeFailure::KeepForRepair,
+        _ if panicked => ProbeFailure::KeepUnpreviewed,
+        _ => ProbeFailure::Remove,
+    }
+}
+
+/// Thumbnails of every page of a PDF (Organize grid), `width` px wide, in page order.
+pub fn page_thumbs(input: &Input, width: i32, mut each: impl FnMut(u32, Thumb)) -> Result<()> {
+    let _g = sheaf_core::engine::pdfium_lock();
+    let doc = input.open()?;
+    let cfg = pdfium_render::prelude::PdfRenderConfig::new().set_target_width(width);
+    for (i, page) in doc.pages().iter().enumerate() {
+        let bmp = page.render_with_config(&cfg)?;
+        each(i as u32 + 1, Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() });
+    }
+    Ok(())
+}
+
+/// Page count of a PDF, if it opens. Takes the pdfium lock.
+pub fn page_count(input: &Input) -> Option<u32> {
+    let _g = sheaf_core::engine::pdfium_lock();
+    input.open().ok().map(|d| d.pages().len() as u32)
+}
+
+/// Card thumbnail size for images, in pixels (long side).
+pub const IMAGE_THUMB_PX: u32 = 120;
+
+/// An image scaled to fit `max` px on its long side. The full-size decode is dropped as soon
+/// as the thumbnail exists, so only one full image per probe thread is ever in memory.
+pub fn image_thumb(p: &Path, max: u32) -> Result<Thumb> {
+    let full = image::ImageReader::open(p)?.with_guessed_format()?.decode()?;
+    let small = full.thumbnail(max, max);
+    drop(full);
+    let img = small.to_rgba8();
+    Ok(Thumb { width: img.width(), height: img.height(), rgba: img.into_raw() })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn drops_are_routed_by_tool_and_extension() {
+        let pdf = PathBuf::from("/x/a.PDF");
+        let docx = PathBuf::from("/x/letter.docx");
+        assert_eq!(route_drop(Some(ToolId::Merge), &pdf), DropAction::AddToTab);
+        assert_eq!(
+            route_drop(Some(ToolId::Merge), &docx),
+            DropAction::Reject("Not supported by Merge PDF: letter.docx".into())
+        );
+        assert_eq!(route_drop(Some(ToolId::WordToPdf), &docx), DropAction::AddToTab);
+        assert_eq!(route_drop(None, &pdf), DropAction::PickTool);
+        assert!(matches!(route_drop(None, &docx), DropAction::Reject(_)));
+        assert_eq!(route_drop(Some(ToolId::JpgToPdf), Path::new("/x/p.jpeg")), DropAction::AddToTab);
+    }
+
+    #[test]
+    fn probe_failures_are_routed_per_tool() {
+        let p = || PathBuf::from("/x/a.pdf");
+        let bad = || OpdfError::Conversion("bad xref".into());
+        assert_eq!(probe_failure(ToolId::Repair, &bad(), false), ProbeFailure::KeepForRepair);
+        assert_eq!(probe_failure(ToolId::Repair, &bad(), true), ProbeFailure::KeepForRepair);
+        assert_eq!(probe_failure(ToolId::Merge, &bad(), false), ProbeFailure::Remove);
+        assert_eq!(probe_failure(ToolId::Merge, &bad(), true), ProbeFailure::KeepUnpreviewed);
+        assert_eq!(probe_failure(ToolId::Compress, &OpdfError::Unsupported("no pages".into()), false), ProbeFailure::Remove);
+        for t in [ToolId::Repair, ToolId::Merge] {
+            assert_eq!(probe_failure(t, &OpdfError::PasswordRequired(p()), false), ProbeFailure::AskPassword { wrong: false });
+            assert_eq!(probe_failure(t, &OpdfError::WrongPassword(p()), false), ProbeFailure::AskPassword { wrong: true });
+        }
+    }
+
+    #[test]
+    fn sizes_and_captions() {
+        assert_eq!(human_size(3_322_740), "3.17 MB");
+        assert_eq!(human_size(2048), "2 KB");
+        assert_eq!(caption(3_322_740, Some(7)), "3.17 MB - 7 pages");
+        assert_eq!(caption(100, Some(1)), "100 B - 1 page");
+        assert_eq!(caption(100, None), "100 B");
+    }
+}

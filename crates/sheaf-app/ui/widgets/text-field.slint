@@ -1,0 +1,55 @@
+import { Theme } from "../theme.slint";
+
+// Single-line input with an optional label above and an error line below.
+export component TextField inherits VerticalLayout {
+    in property <string> label;
+    in property <string> placeholder;
+    in property <string> error;
+    in property <bool> password;
+    in-out property <string> text;
+    callback accepted();
+
+    spacing: 6px;
+
+    if root.label != "": Text {
+        text: root.label;
+        font-size: Theme.fs-label;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+    }
+    box := Rectangle {
+        height: Theme.field-height;
+        border-radius: Theme.radius-small;
+        border-width: 1px;
+        border-color: root.error != "" ? Theme.danger
+            : input.has-focus ? Theme.text-secondary : Theme.input-border;
+        background: Theme.input-bg;
+        clip: true;
+        Text {
+            x: 10px;
+            visible: input.text == "";
+            text: root.placeholder;
+            font-size: Theme.fs-label;
+            color: Theme.text-disabled;
+            vertical-alignment: center;
+        }
+        input := TextInput {
+            x: 10px;
+            width: parent.width - 20px;
+            text <=> root.text;
+            font-size: Theme.fs-label;
+            color: Theme.text;
+            vertical-alignment: center;
+            single-line: true;
+            input-type: root.password ? InputType.password : InputType.text;
+            accepted => { root.accepted(); }
+        }
+    }
+    if root.error != "": Text {
+        text: root.error;
+        font-size: Theme.fs-caption;
+        color: Theme.danger;
+    }
+
+    public function focus-input() { input.focus(); }
+}

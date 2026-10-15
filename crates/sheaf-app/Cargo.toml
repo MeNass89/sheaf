@@ -1,0 +1,24 @@
+[package]
+name = "sheaf-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sheaf desktop app"
+
+[[bin]]
+name = "sheaf-app"
+path = "src/main.rs"
+
+[dependencies]
+sheaf-core = { path = "../sheaf-core" }
+slint = { workspace = true, features = ["unstable-winit-030"] }
+rfd.workspace = true
+dirs.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+image.workspace = true
+pdfium-render.workspace = true
+tempfile.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true

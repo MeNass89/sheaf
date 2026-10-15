@@ -1,0 +1,105 @@
+import { Theme } from "../theme.slint";
+
+// Full-width choice card: radio circle, title, optional one-line description.
+export component RadioCard inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <bool> selected;
+    callback clicked();
+
+    height: root.description == "" ? 36px : Theme.radio-card-height;
+    border-radius: Theme.radius-button;
+    border-width: root.selected ? 0 : 1px;
+    border-color: touch.has-hover ? Theme.text-secondary : Theme.option-border;
+    background: root.selected ? Theme.option-selected-bg : Theme.panel-bg;
+
+    // Radio circle
+    Rectangle {
+        x: 12px;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        border-width: root.selected ? 0 : 1.5px;
+        border-color: Theme.option-border;
+        background: root.selected ? Theme.success-strong : transparent;
+        if root.selected: Rectangle {
+            width: 6px;
+            height: 6px;
+            border-radius: 3px;
+            background: Theme.on-success;
+        }
+    }
+    VerticalLayout {
+        x: 40px;
+        width: parent.width - 52px;
+        alignment: center;
+        spacing: 1px;
+        Text {
+            text: root.title;
+            font-size: Theme.fs-label;
+            font-weight: Theme.weight-demibold;
+            color: root.selected ? Theme.accent : Theme.text;
+            overflow: elide;
+        }
+        if root.description != "": Text {
+            text: root.description;
+            font-size: Theme.fs-caption;
+            color: root.selected ? Theme.accent : Theme.text-muted;
+            overflow: elide;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Small segmented choice ("90°", "180°", …).
+export component Segment inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked();
+
+    height: 32px;
+    border-radius: Theme.radius-button;
+    border-width: root.selected ? 0 : 1px;
+    border-color: touch.has-hover ? Theme.text-secondary : Theme.option-border;
+    background: root.selected ? Theme.option-selected-bg : Theme.panel-bg;
+    Text {
+        text: root.text;
+        font-size: Theme.fs-label;
+        font-weight: root.selected ? Theme.weight-demibold : 400;
+        color: root.selected ? Theme.accent : Theme.text;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Blue information box under the options.
+export component InfoBox inherits Rectangle {
+    in property <string> text;
+    in property <image> icon: @image-url("../icons/info.svg");
+    background: Theme.info-bg;
+    border-radius: Theme.radius-small;
+    height: lay.preferred-height;
+    lay := HorizontalLayout {
+        padding: 12px;
+        spacing: 10px;
+        Image {
+            width: 16px;
+            height: 16px;
+            source: root.icon;
+            colorize: Theme.info;
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: root.text;
+            font-size: 12px;
+            color: Theme.text;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-height;
+        }
+    }
+}

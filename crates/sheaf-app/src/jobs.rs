@@ -1,0 +1,396 @@
+//! Job runner: one `Job` per tool run, executed off the UI thread.
+//!
+//! `run` is pure (no UI) so it can be tested; `spawn` runs it on a worker thread and posts
+//! progress and the result back to the Slint event loop.
+
+use sheaf_core::compress::{self, Level};
+use sheaf_core::images::{self, PageLayout};
+use sheaf_core::pages::{self, Input};
+use sheaf_core::{office, repair, rotate, security, OpdfError, Result};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// How Split cuts the document.
+#[derive(Debug, Clone)]
+pub enum SplitMode {
+    /// Page ranges such as "1-3,5": one output per range.
+    Ranges(String),
+    /// One output every N pages.
+    Every(u32),
+}
+
+/// One run of a wave-1 tool, with owned parameters. Batch tools carry `(input, output)` pairs:
+/// the output path is the wanted name; the engine suffixes it if the name is taken.
+#[derive(Debug, Clone)]
+pub enum Job {
+    Merge { inputs: Vec<Input>, out: PathBuf },
+    Split { input: Input, mode: SplitMode, out_dir: PathBuf },
+    RemovePages { input: Input, pages: String, out: PathBuf },
+    ExtractPages { input: Input, pages: String, out: PathBuf },
+    /// 1-based page numbers in output order; 0 inserts a blank page.
+    Organize { input: Input, order: Vec<u32>, out: PathBuf },
+    Rotate { items: Vec<(Input, PathBuf)>, degrees: i64, pages: Option<String> },
+    Compress { items: Vec<(Input, PathBuf)>, level: Level },
+    Protect { items: Vec<(Input, PathBuf)>, password: String, owner: Option<String> },
+    Unlock { items: Vec<(Input, PathBuf)> },
+    Repair { items: Vec<(Input, PathBuf)> },
+    JpgToPdf { images: Vec<PathBuf>, layout: PageLayout, out: PathBuf },
+    PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: u8, out_dir: PathBuf },
+    /// Word / PowerPoint / Excel / HTML → PDF through LibreOffice.
+    Office { items: Vec<(PathBuf, PathBuf)> },
+}
+
+impl Job {
+    /// The files the job reads, in order.
+    pub fn inputs(&self) -> Vec<&Path> {
+        match self {
+            Job::Merge { inputs, .. } | Job::PdfToJpg { inputs, .. } => inputs.iter().map(|i| i.path.as_path()).collect(),
+            Job::Split { input, .. }
+            | Job::RemovePages { input, .. }
+            | Job::ExtractPages { input, .. }
+            | Job::Organize { input, .. } => vec![input.path.as_path()],
+            Job::Rotate { items, .. }
+            | Job::Compress { items, .. }
+            | Job::Protect { items, .. }
+            | Job::Unlock { items }
+            | Job::Repair { items } => items.iter().map(|(i, _)| i.path.as_path()).collect(),
+            Job::JpgToPdf { images, .. } => images.iter().map(|p| p.as_path()).collect(),
+            Job::Office { items } => items.iter().map(|(i, _)| i.as_path()).collect(),
+        }
+    }
+}
+
+/// What a finished job produced.
+#[derive(Debug, Clone, Default)]
+pub struct JobOutcome {
+    pub outputs: Vec<PathBuf>,
+    /// Total size of the inputs, in bytes.
+    pub before: u64,
+    /// Total size of the outputs, in bytes.
+    pub after: u64,
+    /// Some input was password-protected and the output is not (every tool but Protect and Unlock).
+    pub was_encrypted: bool,
+    /// Compress only: an unprotected copy came out larger than its protected original.
+    pub grew: bool,
+    /// Batch tools: inputs that failed, with the error, while the others were written.
+    pub failures: Vec<(PathBuf, String)>,
+}
+
+fn size(p: &Path) -> u64 {
+    std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
+}
+
+fn check(cancel: &AtomicBool) -> Result<()> {
+    if cancel.load(Ordering::Relaxed) { Err(OpdfError::Cancelled) } else { Ok(()) }
+}
+
+/// Outputs written, and the inputs that failed with their error message.
+type BatchResult = Result<(Vec<PathBuf>, Vec<(PathBuf, String)>)>;
+
+/// Runs `f` over each item, checking `cancel` before each one and reporting progress after.
+/// A cancel deletes the outputs already written: "Cancelled" always means nothing was written.
+/// Any other error is recorded against that item (`path` names it) and the batch goes on;
+/// only when every item failed is the first error returned.
+fn each<T>(
+    items: &[T],
+    cancel: &AtomicBool,
+    progress: &dyn Fn(f32),
+    path: fn(&T) -> &Path,
+    mut f: impl FnMut(&T) -> Result<Vec<PathBuf>>,
+) -> BatchResult {
+    let mut outs = Vec::new();
+    let mut failures = Vec::new();
+    let mut first_err = None;
+    for (i, it) in items.iter().enumerate() {
+        if let Err(e) = check(cancel) {
+            for p in &outs {
+                let _ = std::fs::remove_file(p);
+            }
+            return Err(e);
+        }
+        match f(it) {
+            Ok(o) => outs.extend(o),
+            Err(OpdfError::Cancelled) => {
+                for p in &outs {
+                    let _ = std::fs::remove_file(p);
+                }
+                return Err(OpdfError::Cancelled);
+            }
+            Err(e) => {
+                failures.push((path(it).to_path_buf(), e.to_string()));
+                first_err.get_or_insert(e);
+            }
+        }
+        progress((i + 1) as f32 / items.len() as f32);
+    }
+    match first_err {
+        Some(e) if outs.is_empty() => Err(e),
+        _ => Ok((outs, failures)),
+    }
+}
+
+/// Whether any PDF input of `job` is password-protected while its output will not be.
+/// Protect (output encrypted by design), Unlock (the point of the tool) and the
+/// image/Office converters (no PDF input) never warn.
+fn pair(it: &(Input, PathBuf)) -> &Path {
+    &it.0.path
+}
+
+fn loses_protection(job: &Job) -> bool {
+    let pdfs: Vec<&Input> = match job {
+        Job::Merge { inputs, .. } | Job::PdfToJpg { inputs, .. } => inputs.iter().collect(),
+        Job::Split { input, .. }
+        | Job::RemovePages { input, .. }
+        | Job::ExtractPages { input, .. }
+        | Job::Organize { input, .. } => vec![input],
+        Job::Rotate { items, .. } | Job::Compress { items, .. } | Job::Repair { items } => items.iter().map(|(i, _)| i).collect(),
+        Job::Protect { .. } | Job::Unlock { .. } | Job::JpgToPdf { .. } | Job::Office { .. } => vec![],
+    };
+    pdfs.into_iter().any(Input::is_encrypted)
+}
+
+/// Executes `job`. `cancel` is checked between files; `progress` receives 0..=1.
+pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<JobOutcome> {
+    check(cancel)?;
+    let mut was_encrypted = loses_protection(job);
+    let mut grew = false;
+    let mut failures = Vec::new();
+    let one = |r: Result<PathBuf>| r.map(|p| vec![p]);
+    let mut batch = |r: BatchResult| -> Result<Vec<PathBuf>> {
+        let (o, f) = r?;
+        failures = f;
+        Ok(o)
+    };
+    let outputs = match job {
+        Job::Merge { inputs, out } => {
+            let r = one(pages::merge(inputs, out))?;
+            progress(1.0);
+            r
+        }
+        Job::Split { input, mode, out_dir } => {
+            let r = match mode {
+                SplitMode::Ranges(s) => pages::split_ranges(input, s, out_dir)?,
+                SplitMode::Every(n) => pages::split_every(input, *n, out_dir)?,
+            };
+            progress(1.0);
+            r
+        }
+        Job::RemovePages { input, pages: spec, out } => {
+            let r = one(pages::remove(input, spec, out))?;
+            progress(1.0);
+            r
+        }
+        Job::ExtractPages { input, pages: spec, out } => {
+            let r = one(pages::extract(input, spec, out))?;
+            progress(1.0);
+            r
+        }
+        Job::Organize { input, order, out } => {
+            let r = one(pages::organize(input, order, out))?;
+            progress(1.0);
+            r
+        }
+        Job::Rotate { items, degrees, pages: spec } => {
+            batch(each(items, cancel, progress, pair, |(i, o)| one(rotate::rotate(i, spec.as_deref(), *degrees, o))))?
+        }
+        Job::Compress { items, level } => {
+            batch(each(items, cancel, progress, pair, |(i, o)| {
+                let rep = compress::compress(i, *level, o)?;
+                was_encrypted |= rep.was_encrypted;
+                grew |= rep.grew;
+                Ok(vec![rep.path])
+            }))?
+        }
+        Job::Protect { items, password, owner } => {
+            batch(each(items, cancel, progress, pair, |(i, o)| one(security::protect(i, password, owner.as_deref(), o))))?
+        }
+        Job::Unlock { items } => {
+            batch(each(items, cancel, progress, pair, |(i, o)| one(security::unlock(i, o))))?
+        }
+        Job::Repair { items } => {
+            batch(each(items, cancel, progress, pair, |(i, o)| one(repair::repair(i, o))))?
+        }
+        Job::JpgToPdf { images, layout, out } => {
+            jpg_to_pdf(images, *layout, out, cancel, progress)?
+        }
+        Job::PdfToJpg { inputs, dpi, quality, out_dir } => {
+            batch(each(inputs, cancel, progress, |i| i.path.as_path(), |i| images::pdf_to_jpg(i, *dpi, *quality, out_dir)))?
+        }
+        Job::Office { items } => {
+            batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(office::office_to_pdf(i, o))))?
+        }
+    };
+    let after = outputs.iter().map(|p| size(p)).sum();
+    let before = job.inputs().iter().map(|p| size(p)).sum();
+    Ok(JobOutcome { outputs, before, after, was_encrypted, grew, failures })
+}
+
+/// `run`, with a panic anywhere in the engine turned into an error, so the tab never stays
+/// stuck on "Processing…".
+pub fn run_catching(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<JobOutcome> {
+    catching(|| run(job, cancel, progress))
+}
+
+/// Runs `f`; a panic becomes `Conversion("internal error: <message>")`.
+pub fn catching<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or_else(|p| Err(OpdfError::Conversion(format!("internal error: {}", panic_message(&*p)))))
+}
+
+pub fn panic_message(p: &(dyn std::any::Any + Send)) -> String {
+    p.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| p.downcast_ref::<String>().cloned()).unwrap_or_else(|| "unknown panic".into())
+}
+
+/// Applies a cancel that arrived while a job could not be interrupted (one engine call:
+/// Merge, Split, a single-file batch…). If `cancelled`, the files the job just wrote are
+/// deleted and the result is `Cancelled`; otherwise the outcome passes through.
+pub fn finalize(outcome: JobOutcome, cancelled: bool) -> Result<JobOutcome> {
+    if !cancelled {
+        return Ok(outcome);
+    }
+    for p in &outcome.outputs {
+        let _ = std::fs::remove_file(p);
+    }
+    Err(OpdfError::Cancelled)
+}
+
+/// Images → one PDF, one image at a time so the job can report progress and be cancelled:
+/// each image becomes a one-page PDF in a temp dir, then the pages are merged into `out`.
+fn jpg_to_pdf(
+    images: &[PathBuf],
+    layout: PageLayout,
+    out: &Path,
+    cancel: &AtomicBool,
+    progress: &dyn Fn(f32),
+) -> Result<Vec<PathBuf>> {
+    if images.is_empty() {
+        return Err(OpdfError::Unsupported("no images".into()));
+    }
+    let tmp = tempfile::tempdir()?;
+    let n = images.len() as f32;
+    let mut parts = Vec::new();
+    for (k, img) in images.iter().enumerate() {
+        check(cancel)?;
+        let part = tmp.path().join(format!("{k:05}.pdf"));
+        parts.push(Input::new(images::images_to_pdf(std::slice::from_ref(img), layout, &part)?));
+        // The final merge counts as the last tenth of the work.
+        progress((k + 1) as f32 / n * 0.9);
+    }
+    check(cancel)?;
+    let r = pages::merge(&parts, out)?;
+    progress(1.0);
+    Ok(vec![r])
+}
+
+/// Default output file name for `stem` under `tool`.
+pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
+    use sheaf_core::tools::ToolId as T;
+    let suffix = match tool {
+        T::Merge => "-merged",
+        T::Compress => "-compressed",
+        T::Protect => "-protected",
+        T::Unlock => "-unlocked",
+        T::Rotate => "-rotated",
+        T::RemovePages => "-edited",
+        T::ExtractPages => "-extracted",
+        T::Organize => "-organized",
+        T::Repair => "-repaired",
+        _ => "",
+    };
+    format!("{stem}{suffix}.pdf")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sheaf_core::tools::ToolId;
+
+    #[test]
+    fn a_panicking_job_becomes_an_error() {
+        let r: Result<()> = catching(|| panic!("boom {}", 7));
+        match r {
+            Err(OpdfError::Conversion(m)) => assert_eq!(m, "internal error: boom 7"),
+            other => panic!("{other:?}"),
+        }
+        let r: Result<()> = catching(|| std::panic::panic_any(42u8));
+        assert!(matches!(r, Err(OpdfError::Conversion(m)) if m == "internal error: unknown panic"));
+        assert!(catching(|| Ok(JobOutcome::default())).is_ok());
+    }
+
+    #[test]
+    fn default_names() {
+        assert_eq!(default_name(ToolId::Merge, "a"), "a-merged.pdf");
+        assert_eq!(default_name(ToolId::RemovePages, "a"), "a-edited.pdf");
+        assert_eq!(default_name(ToolId::JpgToPdf, "photo"), "photo.pdf");
+        assert_eq!(default_name(ToolId::WordToPdf, "letter"), "letter.pdf");
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Background execution
+
+type ProgressFn = Box<dyn Fn(&crate::AppWindow, i32, f32)>;
+type DoneFn = Box<dyn Fn(&crate::AppWindow, i32, Result<JobOutcome>, Vec<Option<u32>>)>;
+
+thread_local! {
+    // Set once on the UI thread; called there from `upgrade_in_event_loop`.
+    static HANDLERS: std::cell::RefCell<Option<(ProgressFn, DoneFn)>> = const { std::cell::RefCell::new(None) };
+}
+
+static CANCELS: std::sync::Mutex<Vec<(i32, std::sync::Arc<AtomicBool>)>> = std::sync::Mutex::new(Vec::new());
+
+/// Registers, on the UI thread, what to do with progress (0..=1) and with a finished job
+/// (its outcome and the page count of each output, `None` for non-PDF outputs).
+pub fn set_handlers(
+    progress: impl Fn(&crate::AppWindow, i32, f32) + 'static,
+    done: impl Fn(&crate::AppWindow, i32, Result<JobOutcome>, Vec<Option<u32>>) + 'static,
+) {
+    HANDLERS.with(|h| *h.borrow_mut() = Some((Box::new(progress), Box::new(done))));
+}
+
+/// Asks the job of `tab_id` to stop at the next file boundary.
+pub fn cancel(tab_id: i32) {
+    if let Some((_, c)) = CANCELS.lock().unwrap().iter().find(|(t, _)| *t == tab_id) {
+        c.store(true, Ordering::Relaxed);
+    }
+}
+
+/// Runs `job` on a worker thread; progress and the result reach the handlers on the UI thread.
+pub fn spawn(ui: slint::Weak<crate::AppWindow>, tab_id: i32, job: Job) {
+    let flag = std::sync::Arc::new(AtomicBool::new(false));
+    {
+        let mut c = CANCELS.lock().unwrap();
+        c.retain(|(t, _)| *t != tab_id);
+        c.push((tab_id, flag.clone()));
+    }
+    std::thread::spawn(move || {
+        let post_progress = |p: f32| {
+            let _ = ui.upgrade_in_event_loop(move |w| {
+                HANDLERS.with(|h| if let Some((pf, _)) = &*h.borrow() { pf(&w, tab_id, p) });
+            });
+        };
+        let r = run_catching(&job, &flag, &post_progress);
+        // Debug builds: SHEAF_JOB_DELAY_MS holds the result back, so a cancel can be made to
+        // arrive after an uninterruptible call returned Ok (end-to-end check of `finalize`).
+        if cfg!(debug_assertions)
+            && let Some(ms) = std::env::var("SHEAF_JOB_DELAY_MS").ok().and_then(|v| v.parse().ok())
+        {
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+        }
+        let r = r.and_then(|o| finalize(o, flag.load(Ordering::Relaxed)));
+        let counts = match &r {
+            Ok(o) => o.outputs.iter().map(|p| page_count(p)).collect(),
+            Err(_) => Vec::new(),
+        };
+        CANCELS.lock().unwrap().retain(|(t, c)| !(*t == tab_id && std::sync::Arc::ptr_eq(c, &flag)));
+        let _ = ui.upgrade_in_event_loop(move |w| {
+            HANDLERS.with(|h| if let Some((_, df)) = &*h.borrow() { df(&w, tab_id, r, counts) });
+        });
+    });
+}
+
+fn page_count(p: &Path) -> Option<u32> {
+    if crate::files::kind_of(p) != crate::files::Kind::Pdf {
+        return None;
+    }
+    crate::files::page_count(&Input::new(p))
+}

@@ -1,0 +1,63 @@
+import { Theme } from "../theme.slint";
+import { PrimaryButton } from "button.slint";
+
+// Empty file area: "Open file" button and the drag-and-drop hint.
+export component DropZone inherits VerticalLayout {
+    in property <string> hint: "or drag & drop anywhere";
+    callback open-file();
+    alignment: center;
+    spacing: 10px;
+    HorizontalLayout {
+        alignment: center;
+        PrimaryButton {
+            text: "Open file";
+            width: 120px;
+            height: 40px;
+            clicked => { root.open-file(); }
+        }
+    }
+    Text {
+        text: root.hint;
+        font-size: Theme.fs-button;
+        color: Theme.text-muted;
+        horizontal-alignment: center;
+    }
+}
+
+// Round red "+" with the file count badge.
+export component AddFab inherits Rectangle {
+    in property <int> count;
+    callback clicked();
+    width: Theme.fab-size;
+    height: Theme.fab-size;
+    Rectangle {
+        border-radius: self.width / 2;
+        background: touch.pressed ? Theme.accent-pressed : touch.has-hover ? Theme.accent-hover : Theme.accent;
+        drop-shadow-blur: 6px;
+        drop-shadow-color: Theme.thumb-shadow;
+        Image {
+            width: 20px;
+            height: 20px;
+            source: @image-url("../icons/plus.svg");
+            colorize: Theme.on-accent;
+        }
+    }
+    if root.count > 0: Rectangle {
+        x: -4px;
+        y: -4px;
+        width: max(16px, badge.preferred-width + 8px);
+        height: 16px;
+        border-radius: 8px;
+        background: Theme.badge-bg;
+        badge := Text {
+            text: root.count;
+            font-size: 10px;
+            font-weight: Theme.weight-demibold;
+            color: Theme.on-badge;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}

@@ -1,0 +1,205 @@
+import { Theme } from "../theme.slint";
+import { FileItem, PageItem } from "../flow-types.slint";
+
+// Round hover button used on cards (×, ←, →).
+export component MiniButton inherits Rectangle {
+    in property <image> icon;
+    in property <bool> enabled: true;
+    callback clicked();
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background: touch.has-hover && root.enabled ? Theme.text : Theme.badge-bg;
+    opacity: root.enabled ? 1 : 0.3;
+    Image {
+        width: 12px;
+        height: 12px;
+        source: root.icon;
+        colorize: Theme.on-badge;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Page-1 thumbnail, or a grey placeholder until it is rendered.
+export component Thumb inherits Rectangle {
+    in property <image> thumb;
+    in property <bool> has-thumb;
+    in property <length> max-w;
+    in property <length> max-h;
+    property <float> ratio: root.has-thumb && root.thumb.height > 0
+        ? root.thumb.width / root.thumb.height : 0.707;
+    width: min(root.max-w, root.max-h * root.ratio);
+    height: min(root.max-h, root.max-w / root.ratio);
+    background: Theme.thumb-placeholder;
+    drop-shadow-blur: 6px;
+    drop-shadow-color: Theme.thumb-shadow;
+    drop-shadow-offset-y: 1px;
+    if root.has-thumb: Image {
+        width: parent.width;
+        height: parent.height;
+        source: root.thumb;
+        image-fit: fill;
+    }
+}
+
+// A file waiting to be processed.
+export component FileCardView inherits Rectangle {
+    in property <FileItem> file;
+    in property <color> tile;
+    in property <bool> reorder;
+    in property <bool> first;
+    in property <bool> last;
+    in property <bool> interactive: true;
+    callback remove();
+    callback move(int);
+
+    width: Theme.file-card-width;
+    height: Theme.file-card-height;
+    border-radius: Theme.radius-item;
+    background: Theme.card;
+    border-width: 1px;
+    border-color: touch.has-hover && root.interactive ? Theme.dashed : Theme.card;
+
+    Rectangle {
+        y: 14px;
+        height: Theme.file-thumb-height;
+        if root.file.kind == 2: Image {
+            width: 48px;
+            height: 48px;
+            source: @image-url("../icons/file-text.svg");
+            colorize: root.tile;
+        }
+        if root.file.kind != 2: Thumb {
+            thumb: root.file.thumb;
+            has-thumb: root.file.has-thumb;
+            max-w: Theme.file-thumb-width + (root.file.kind == 1 ? 30px : 0);
+            max-h: Theme.file-thumb-height;
+        }
+    }
+    if root.file.locked: Rectangle {
+        x: parent.width / 2 + 18px;
+        y: 10px;
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: Theme.badge-bg;
+        Image {
+            width: 11px;
+            height: 11px;
+            source: @image-url("../icons/lock.svg");
+            colorize: Theme.on-badge;
+        }
+    }
+    Text {
+        x: 6px;
+        y: 14px + Theme.file-thumb-height + 10px;
+        width: parent.width - 12px;
+        text: root.file.name;
+        font-size: Theme.fs-label;
+        color: Theme.text;
+        horizontal-alignment: center;
+        overflow: elide;
+    }
+    Text {
+        x: 4px;
+        y: 14px + Theme.file-thumb-height + 28px;
+        width: parent.width - 8px;
+        text: root.file.preview-failed ? "⚠ preview unavailable" : root.file.info;
+        font-size: Theme.fs-caption;
+        color: root.file.preview-failed ? Theme.warning : Theme.text-muted;
+        horizontal-alignment: center;
+        overflow: elide;
+    }
+
+    // Hover controls live inside the card's TouchArea so hovering them keeps the card hovered.
+    touch := TouchArea {
+        if touch.has-hover && root.interactive: MiniButton {
+            x: parent.width - self.width - 6px;
+            y: 6px;
+            icon: @image-url("../icons/x.svg");
+            clicked => { root.remove(); }
+        }
+        if touch.has-hover && root.interactive && root.reorder: HorizontalLayout {
+            x: 6px;
+            y: 50px;
+            width: parent.width - 12px;
+            height: 22px;
+            MiniButton {
+                icon: @image-url("../icons/arrow-left.svg");
+                enabled: !root.first;
+                clicked => { root.move(-1); }
+            }
+            Rectangle { }
+            MiniButton {
+                icon: @image-url("../icons/arrow-right.svg");
+                enabled: !root.last;
+                clicked => { root.move(1); }
+            }
+        }
+    }
+}
+
+// One page of the Organize grid.
+export component PageCardView inherits Rectangle {
+    in property <PageItem> item;
+    in property <bool> first;
+    in property <bool> last;
+    in property <bool> interactive: true;
+    callback remove();
+    callback move(int);
+
+    width: Theme.page-thumb-width + 24px;
+    height: Theme.page-thumb-height + 44px;
+    border-radius: Theme.radius-item;
+    background: Theme.card;
+    border-width: 1px;
+    border-color: touch.has-hover && root.interactive ? Theme.dashed : Theme.card;
+
+    Rectangle {
+        y: 10px;
+        height: Theme.page-thumb-height;
+        Thumb {
+            thumb: root.item.thumb;
+            has-thumb: root.item.has-thumb;
+            max-w: Theme.page-thumb-width;
+            max-h: Theme.page-thumb-height;
+            background: root.item.page == 0 ? Theme.art-page : Theme.thumb-placeholder;
+        }
+    }
+    Text {
+        y: Theme.page-thumb-height + 18px;
+        text: root.item.page == 0 ? "Blank" : "Page " + root.item.page;
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+    }
+    // Hover controls live inside the card's TouchArea so hovering them keeps the card hovered.
+    touch := TouchArea {
+        if touch.has-hover && root.interactive: MiniButton {
+            x: parent.width - self.width - 4px;
+            y: 4px;
+            icon: @image-url("../icons/x.svg");
+            clicked => { root.remove(); }
+        }
+        if touch.has-hover && root.interactive: HorizontalLayout {
+            x: 4px;
+            y: parent.height - 30px;
+            width: parent.width - 8px;
+            height: 22px;
+            MiniButton {
+                icon: @image-url("../icons/arrow-left.svg");
+                enabled: !root.first;
+                clicked => { root.move(-1); }
+            }
+            Rectangle { }
+            MiniButton {
+                icon: @image-url("../icons/arrow-right.svg");
+                enabled: !root.last;
+                clicked => { root.move(1); }
+            }
+        }
+    }
+}

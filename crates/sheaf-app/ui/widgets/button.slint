@@ -1,0 +1,56 @@
+import { Theme } from "../theme.slint";
+
+// Filled accent button ("Open file").
+export component PrimaryButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    height: Theme.button-height;
+    min-width: label.preferred-width + 32px;
+    border-radius: Theme.radius-button;
+    background: !enabled ? Theme.text-disabled
+        : touch.pressed ? Theme.accent-pressed
+        : touch.has-hover ? Theme.accent-hover : Theme.accent;
+    animate background { duration: 120ms; }
+
+    label := Text {
+        text: root.text;
+        color: Theme.on-accent;
+        font-size: Theme.fs-button;
+        font-weight: Theme.weight-demibold;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Square icon-only button (tab bar "+").
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <bool> enabled: true;
+    in property <length> icon-size: 16px;
+    callback clicked();
+
+    width: 28px;
+    height: 28px;
+    border-radius: Theme.radius-small;
+    background: enabled && touch.has-hover ? Theme.menu-hover-bg : transparent;
+
+    Image {
+        source: root.icon;
+        width: root.icon-size;
+        height: root.icon-size;
+        colorize: root.enabled ? Theme.text-secondary : Theme.text-disabled;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+}

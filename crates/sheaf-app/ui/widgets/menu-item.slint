@@ -1,0 +1,48 @@
+import { Theme } from "../theme.slint";
+
+// One entry of the left task menu. Collapsed = icon only.
+export component MenuItem inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> selected;
+    in property <bool> collapsed;
+    callback clicked();
+
+    height: Theme.menu-item-height;
+    border-radius: Theme.radius-item;
+    background: selected ? Theme.menu-selected-bg : touch.has-hover ? Theme.menu-hover-bg : transparent;
+    animate background { duration: 100ms; }
+
+    Image {
+        x: root.collapsed ? (root.width - self.width) / 2 : 12px;
+        source: root.icon;
+        width: Theme.menu-icon;
+        height: Theme.menu-icon;
+        colorize: root.selected ? Theme.accent : Theme.menu-text;
+    }
+    Text {
+        x: 12px + Theme.menu-icon + Theme.menu-gap;
+        width: root.width - self.x - 12px;
+        visible: !root.collapsed;
+        text: root.text;
+        font-size: Theme.fs-menu;
+        font-weight: root.selected ? Theme.weight-demibold : 400;
+        color: root.selected ? Theme.accent : Theme.menu-text;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    // Selection bar flush with the item's right edge.
+    if root.selected: Rectangle {
+        x: root.width - self.width;
+        width: 4px;
+        height: 18px;
+        border-radius: 2px;
+        background: Theme.menu-bar;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
