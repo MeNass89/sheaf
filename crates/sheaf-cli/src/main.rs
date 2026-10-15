@@ -7,6 +7,9 @@ use clap::{Parser, Subcommand, ValueEnum};
 use sheaf_core::compress::{self, Level};
 use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
+use sheaf_core::crop::{self, CropSpec};
+use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_core::watermark::{self, Mark, Placement, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError};
 use std::path::{Path, PathBuf};
 
@@ -130,6 +133,94 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Stamp page numbers
+    Number {
+        input: PathBuf,
+        #[arg(long, value_enum, default_value_t = Position::BottomCenter)]
+        position: Position,
+        /// Double-sided: even pages mirror the left/right position
+        #[arg(long)]
+        double_sided: bool,
+        /// First page is a cover page (not numbered)
+        #[arg(long)]
+        cover: bool,
+        #[arg(long, value_enum, default_value_t = Margin::Recommended)]
+        margin: Margin,
+        /// First page to number (default: 1)
+        #[arg(long)]
+        from: Option<u32>,
+        /// Last page to number (default: the last)
+        #[arg(long)]
+        to: Option<u32>,
+        /// Number shown on the first numbered page
+        #[arg(long, default_value_t = 1)]
+        start: u32,
+        #[arg(long, value_enum, default_value_t = NumberFormat::Number)]
+        text: NumberFormat,
+        /// With --text custom: text with {n} (page number) and {p} (page count)
+        #[arg(long, required_if_eq("text", "custom"))]
+        custom: Option<String>,
+        #[arg(long, default_value_t = 12.0)]
+        font_size: f64,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Stamp a text or image watermark
+    #[command(group = clap::ArgGroup::new("mark").required(true).args(["text", "image"]))]
+    Watermark {
+        input: PathBuf,
+        #[arg(long)]
+        text: Option<String>,
+        /// PNG or JPEG file
+        #[arg(long)]
+        image: Option<PathBuf>,
+        #[arg(long, default_value_t = 48.0)]
+        font_size: f64,
+        /// Text colour as RRGGBB
+        #[arg(long, default_value = "000000")]
+        color: String,
+        /// Image size relative to the page (1.0 fits the page)
+        #[arg(long, default_value_t = 0.5)]
+        scale: f64,
+        /// A grid position, or mosaic (repeated over the page)
+        #[arg(long, value_enum, default_value_t = WmPosition::Center)]
+        position: WmPosition,
+        /// Transparency in percent: 0, 25, 50 or 75
+        #[arg(long, default_value_t = 0, value_parser = parse_transparency)]
+        transparency: u8,
+        /// Rotation in degrees: 0, 45, 90, 180, 270 or -45
+        #[arg(long, default_value_t = 0, allow_hyphen_values = true, value_parser = parse_rotation)]
+        rotate: i32,
+        /// Draw below the page content
+        #[arg(long)]
+        below: bool,
+        #[arg(long)]
+        from: Option<u32>,
+        #[arg(long)]
+        to: Option<u32>,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Crop pages by margins in millimetres (as the page is displayed), or remove a crop
+    Crop {
+        input: PathBuf,
+        #[arg(long, default_value_t = 0.0)]
+        top: f64,
+        #[arg(long, default_value_t = 0.0)]
+        bottom: f64,
+        #[arg(long, default_value_t = 0.0)]
+        left: f64,
+        #[arg(long, default_value_t = 0.0)]
+        right: f64,
+        /// Remove the crop instead (back to the full page)
+        #[arg(long, conflicts_with_all = ["top", "bottom", "left", "right"])]
+        remove: bool,
+        /// Pages to crop (default: all)
+        #[arg(long)]
+        pages: Option<String>,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Convert an Office or HTML document to PDF through LibreOffice
     Office {
         input: PathBuf,
@@ -143,6 +234,70 @@ enum CliLevel {
     Low,
     Recommended,
     Extreme,
+}
+
+/// A cell of the 3×3 position grid.
+#[derive(Clone, Copy, ValueEnum)]
+enum Position {
+    TopLeft,
+    TopCenter,
+    TopRight,
+    MiddleLeft,
+    Center,
+    MiddleRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum WmPosition {
+    TopLeft,
+    TopCenter,
+    TopRight,
+    MiddleLeft,
+    Center,
+    MiddleRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+    Mosaic,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum Margin {
+    Small,
+    Recommended,
+    Big,
+}
+
+#[derive(Clone, Copy, PartialEq, ValueEnum)]
+enum NumberFormat {
+    /// "{n}"
+    Number,
+    /// "Page {n}"
+    Page,
+    /// "Page {n} of {p}"
+    PageOf,
+    /// --custom text
+    Custom,
+}
+
+fn parse_transparency(s: &str) -> Result<u8, String> {
+    s.parse().ok().filter(|v| [0, 25, 50, 75].contains(v)).ok_or_else(|| "use 0, 25, 50 or 75".into())
+}
+
+fn parse_rotation(s: &str) -> Result<i32, String> {
+    s.parse().ok().filter(|v| [0, 45, 90, 180, 270, -45].contains(v)).ok_or_else(|| "use 0, 45, 90, 180, 270 or -45".into())
+}
+
+/// "RRGGBB" → RGB in 0..=1.
+fn parse_color(s: &str) -> sheaf_core::Result<[f64; 3]> {
+    let s = s.trim_start_matches('#');
+    let bad = || OpdfError::Unsupported(format!("colour \"{s}\" (use RRGGBB)"));
+    if s.len() != 6 { return Err(bad()); }
+    let c = |i: usize| u8::from_str_radix(&s[i..i + 2], 16).map(|v| v as f64 / 255.0).map_err(|_| bad());
+    Ok([c(0)?, c(2)?, c(4)?])
 }
 
 impl From<CliLevel> for Level {
@@ -169,6 +324,8 @@ impl Cmd {
             | Cmd::Rotate { input, .. }
             | Cmd::Repair { input, .. }
             | Cmd::ToJpg { input, .. } => vec![input],
+            // These report it themselves (from the engine), like Compress.
+            Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
         }
     }
@@ -188,6 +345,9 @@ impl Cmd {
             | Cmd::Unlock { out, .. }
             | Cmd::Repair { out, .. }
             | Cmd::FromImages { out, .. }
+            | Cmd::Number { out, .. }
+            | Cmd::Watermark { out, .. }
+            | Cmd::Crop { out, .. }
             | Cmd::Office { out, .. } => out.parent().filter(|p| !p.as_os_str().is_empty()),
         }
     }
@@ -247,7 +407,60 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             one(images::images_to_pdf(&imgs, layout, &out))
         }
         Cmd::Office { input: i, out } => one(office::office_to_pdf(&i, &out)),
+        Cmd::Number { input: i, position, double_sided, cover, margin, from, to, start, text, custom, font_size, out } => {
+            let text = match text {
+                NumberFormat::Number => NumberText::Number,
+                NumberFormat::Page => NumberText::Page,
+                NumberFormat::PageOf => NumberText::PageOfTotal,
+                NumberFormat::Custom => NumberText::Custom(custom.unwrap_or_default()),
+            };
+            let o = NumberOptions {
+                position: position as u8,
+                double_sided,
+                cover,
+                margin: numbers::MARGINS[margin as usize],
+                from,
+                to,
+                start,
+                text,
+                font_size,
+                ..Default::default()
+            };
+            warned(numbers::number_pages(&input(i), &o, &out))
+        }
+        Cmd::Watermark { input: i, text, image, font_size, color, scale, position, transparency, rotate, below, from, to, out } => {
+            let mark = match (text, image) {
+                (_, Some(path)) => Mark::Image { path, scale },
+                (Some(text), None) => Mark::Text { text, font_size, color: parse_color(&color)? },
+                (None, None) => unreachable!("clap requires --text or --image"),
+            };
+            let placement = match position {
+                WmPosition::Mosaic => Placement::Mosaic,
+                p => Placement::Grid(p as u8),
+            };
+            let o = WatermarkOptions { mark, placement, opacity: 1.0 - transparency as f64 / 100.0, rotation: rotate as f64, behind: below, from, to };
+            warned(watermark::watermark(&input(i), &o, &out))
+        }
+        Cmd::Crop { input: i, top, bottom, left, right, remove, pages: p, out } => {
+            let spec = if remove {
+                CropSpec::Remove
+            } else if top == 0.0 && bottom == 0.0 && left == 0.0 && right == 0.0 {
+                return Err(OpdfError::Unsupported("give a margin (--top, --bottom, --left, --right) or --remove".into()));
+            } else {
+                CropSpec::Margins { top: crop::mm(top), bottom: crop::mm(bottom), left: crop::mm(left), right: crop::mm(right) }
+            };
+            warned(crop::crop(&input(i), p.as_deref(), &spec, &out))
+        }
     }
+}
+
+/// A PdfCraft tool's result: the path, with the note when the protected input lost protection.
+fn warned(r: sheaf_core::Result<(PathBuf, bool)>) -> sheaf_core::Result<Vec<PathBuf>> {
+    let (p, was_encrypted) = r?;
+    if was_encrypted {
+        eprintln!("{NOT_PROTECTED}");
+    }
+    Ok(vec![p])
 }
 
 /// How much larger `after` is than `before`, in whole percent (at least 1).

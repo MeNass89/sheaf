@@ -99,6 +99,9 @@ fn tools_on_a_protected_input_note_that_the_output_is_not() {
         vec!["repair".into(), p.clone().into(), "-o".into(), o("f.pdf").into()],
         vec!["compress".into(), p.clone().into(), "-o".into(), o("c.pdf").into()],
         vec!["to-jpg".into(), p.clone().into(), "-o".into(), o("jpgs").into()],
+        vec!["number".into(), p.clone().into(), "-o".into(), o("n.pdf").into()],
+        vec!["watermark".into(), p.clone().into(), "--text".into(), "DRAFT".into(), "-o".into(), o("w.pdf").into()],
+        vec!["crop".into(), p.clone().into(), "--top".into(), "1".into(), "-o".into(), o("k.pdf").into()],
     ];
     for args in runs {
         let r = bin().args(&args).args(["--password", "pw"]).output().unwrap();
@@ -127,4 +130,41 @@ fn protect_rejects_an_empty_password() {
     assert_eq!(r.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&r.stderr).contains("password must not be empty"));
     assert!(!t.path().join("p.pdf").exists());
+}
+
+fn text_of(p: &std::path::Path, page: u32) -> String {
+    lopdf::Document::load(p).unwrap().extract_text(&[page]).unwrap()
+}
+
+#[test]
+fn number_watermark_and_crop_subcommands() {
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let a = t.path().join("a.pdf");
+    assert!(bin().arg("from-images").arg(&png).arg(&png).arg(&png).arg("--a4").arg("-o").arg(&a).status().unwrap().success());
+    let o = |n: &str| t.path().join(n);
+    let run = |args: &[&str], out: &std::path::Path| {
+        let r = bin().arg(args[0]).arg(&a).args(&args[1..]).arg("-o").arg(out).output().unwrap();
+        assert!(r.status.success(), "{args:?}: {}", String::from_utf8_lossy(&r.stderr));
+        assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
+    };
+    run(&["number", "--cover", "--text", "custom", "--custom", "p{n}/{p}", "--position", "top-right", "--start", "5"], &o("n.pdf"));
+    assert!(!text_of(&o("n.pdf"), 1).contains("p5"));
+    assert!(text_of(&o("n.pdf"), 2).contains("p5/3") && text_of(&o("n.pdf"), 3).contains("p6/3"));
+    run(&["watermark", "--text", "SECRET", "--from", "2", "--transparency", "50", "--rotate", "-45", "--below", "--position", "mosaic"], &o("w.pdf"));
+    assert!(!text_of(&o("w.pdf"), 1).contains("SECRET") && text_of(&o("w.pdf"), 2).contains("SECRET"));
+    run(&["watermark", "--image", png.to_str().unwrap(), "--scale", "0.3"], &o("wi.pdf"));
+    run(&["crop", "--top", "20", "--pages", "2"], &o("c.pdf"));
+    let d = lopdf::Document::load(o("c.pdf")).unwrap();
+    let pages = d.get_pages();
+    assert!(d.get_dictionary(pages[&1]).unwrap().get(b"CropBox").is_err());
+    let b = d.get_dictionary(pages[&2]).unwrap().get(b"CropBox").unwrap().as_array().unwrap().clone();
+    let top = b[3].as_float().unwrap();
+    let media = d.get_dictionary(pages[&2]).unwrap().get(b"MediaBox").unwrap().as_array().unwrap()[3].as_float().unwrap();
+    assert!((media - top - 20.0 * 72.0 / 25.4).abs() < 0.1, "{media} {top}");
+    run(&["crop", "--remove"], &o("r.pdf"));
+    // A watermark needs text or an image; a number position must be in the top or bottom row.
+    assert_eq!(bin().arg("watermark").arg(&a).arg("-o").arg(o("bad.pdf")).status().unwrap().code(), Some(1));
+    assert_eq!(bin().arg("number").arg(&a).args(["--position", "middle-left", "-o"]).arg(o("bad.pdf")).status().unwrap().code(), Some(1));
 }
