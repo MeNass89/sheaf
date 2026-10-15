@@ -113,6 +113,7 @@ export component AppWindow inherits Window {
     callback start-over(int);
     callback continue-to(int, string);
     callback get-libreoffice();
+    callback pick-image() -> string;
     callback pw-unlock(string);
     callback pw-skip();
     callback confirm-cancel-job();
@@ -207,6 +208,7 @@ export component AppWindow inherits Window {
                     run(o) => { root.run-tool(t.id, o); }
                     cancel => { root.cancel-job(t.id); }
                     get-libreoffice => { root.get-libreoffice(); }
+                    pick-image => { return root.pick-image(); }
                 }
                 if t.phase == 2: ResultScreen {
                     tab: t;

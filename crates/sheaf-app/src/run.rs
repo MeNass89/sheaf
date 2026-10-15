@@ -6,6 +6,9 @@ use sheaf_app::jobs::{self, Job, JobOutcome, SplitMode};
 use sheaf_app::prefs::OutputMode;
 use sheaf_app::{AppWindow, ToolOptions};
 use sheaf_core::compress::Level;
+use sheaf_core::crop::{self, CropSpec};
+use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_core::watermark::{Mark, Placement, WatermarkOptions};
 use sheaf_core::images::PageLayout;
 use sheaf_core::pages::Input;
 use sheaf_core::tools::{self, ToolId};
@@ -31,6 +34,90 @@ fn layout(opts: &ToolOptions) -> PageLayout {
         2 => PageLayout::A4 { landscape: true, margin_pt },
         _ => PageLayout::FitImage,
     }
+}
+
+/// A typed page number ("" = none). Anything else is an error naming the field.
+fn page_field(s: &str, what: &str) -> Result<Option<u32>> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Ok(None);
+    }
+    s.parse().ok().filter(|n| *n > 0).map(Some).ok_or_else(|| OpdfError::Unsupported(format!("{what}: \"{s}\" is not a page number")))
+}
+
+/// A typed millimetre margin ("" = 0).
+fn mm_field(s: &str, what: &str) -> Result<f64> {
+    let s = s.trim().replace(',', ".");
+    if s.is_empty() {
+        return Ok(0.0);
+    }
+    s.parse::<f64>().ok().filter(|v| v.is_finite() && *v >= 0.0).map(crop::mm).ok_or_else(|| OpdfError::Unsupported(format!("{what} margin: \"{s}\" is not a number of millimetres")))
+}
+
+/// The page range typed in the panel; ignored for a batch (every page of every file).
+fn range(opts: &ToolOptions, batch: bool) -> Result<(Option<u32>, Option<u32>)> {
+    if batch {
+        return Ok((None, None));
+    }
+    Ok((page_field(&opts.from_page, "From page")?, page_field(&opts.to_page, "To page")?))
+}
+
+fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
+    let (from, to) = range(opts, batch)?;
+    let start = opts.num_start.trim();
+    let start = if start.is_empty() { 1 } else { start.parse().map_err(|_| OpdfError::Unsupported(format!("First number: \"{start}\" is not a number")))? };
+    Ok(NumberOptions {
+        position: opts.num_position.clamp(0, 8) as u8,
+        double_sided: opts.num_double,
+        cover: opts.num_cover,
+        margin: numbers::MARGINS[opts.num_margin.clamp(0, 2) as usize],
+        from,
+        to,
+        start,
+        text: match opts.num_text {
+            1 => NumberText::Page,
+            2 => NumberText::PageOfTotal,
+            3 => NumberText::Custom(opts.num_custom.to_string()),
+            _ => NumberText::Number,
+        },
+        ..Default::default()
+    })
+}
+
+/// Colours offered for watermark text.
+const WM_COLOURS: [[f64; 3]; 4] = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [0.85, 0.1, 0.1], [0.1, 0.3, 0.85]];
+const WM_ROTATIONS: [f64; 6] = [0.0, 45.0, 90.0, 180.0, 270.0, -45.0];
+
+fn watermark_options(opts: &ToolOptions, batch: bool) -> Result<WatermarkOptions> {
+    let (from, to) = range(opts, batch)?;
+    let mark = if opts.wm_image_mode {
+        Mark::Image { path: PathBuf::from(opts.wm_image.as_str()), scale: opts.wm_scale.clamp(5, 100) as f64 / 100.0 }
+    } else {
+        let fs = opts.wm_font_size.trim();
+        let font_size = if fs.is_empty() { 48.0 } else { fs.parse::<f64>().ok().filter(|v| (1.0..=500.0).contains(v)).ok_or_else(|| OpdfError::Unsupported(format!("Font size: \"{fs}\"")))? };
+        Mark::Text { text: opts.wm_text.to_string(), font_size, color: WM_COLOURS[opts.wm_color.clamp(0, 3) as usize] }
+    };
+    Ok(WatermarkOptions {
+        mark,
+        placement: if opts.wm_mosaic { Placement::Mosaic } else { Placement::Grid(opts.wm_position.clamp(0, 8) as u8) },
+        opacity: [1.0, 0.75, 0.5, 0.25][opts.wm_transparency.clamp(0, 3) as usize],
+        rotation: WM_ROTATIONS[opts.wm_rotation.clamp(0, 5) as usize],
+        behind: opts.wm_below,
+        from,
+        to,
+    })
+}
+
+fn crop_spec(opts: &ToolOptions) -> Result<CropSpec> {
+    if opts.crop_mode == 2 {
+        return Ok(CropSpec::Remove);
+    }
+    Ok(CropSpec::Margins {
+        top: mm_field(&opts.crop_top, "Top")?,
+        bottom: mm_field(&opts.crop_bottom, "Bottom")?,
+        left: mm_field(&opts.crop_left, "Left")?,
+        right: mm_field(&opts.crop_right, "Right")?,
+    })
 }
 
 /// Builds the job. `order` is the Organize grid (1-based pages, 0 = blank).
@@ -91,6 +178,20 @@ fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptio
         ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf => {
             Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect() }
         }
+        ToolId::PageNumbers => {
+            let options = number_options(opts, inputs.len() > 1)?;
+            Job::PageNumbers { items: pairs(inputs), options }
+        }
+        ToolId::Watermark => {
+            let options = watermark_options(opts, inputs.len() > 1)?;
+            Job::Watermark { items: pairs(inputs), options }
+        }
+        ToolId::Crop => Job::Crop {
+            input: one(inputs)?,
+            pages: (opts.crop_mode == 1 && !pages.is_empty()).then_some(pages),
+            spec: crop_spec(opts)?,
+            out: single()?,
+        },
         other => return Err(OpdfError::Unsupported(format!("{} is not available yet", tools::find(other).name))),
     })
 }
@@ -289,6 +390,57 @@ mod tests {
         assert_eq!(out_name(ToolId::Merge, Path::new("/a/x.pdf"), &opts()), "x-merged.pdf");
         let job = build_job(ToolId::Merge, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/r.pdf".into())).unwrap();
         assert!(matches!(job, Job::Merge { out, .. } if out == Path::new("/s/r.pdf")));
+    }
+
+    #[test]
+    fn page_numbers_watermark_and_crop_jobs() {
+        let mut o = opts();
+        o.num_position = 8;
+        o.num_margin = 2;
+        o.num_text = 3;
+        o.num_custom = "{n}/{p}".into();
+        o.num_start = "5".into();
+        o.from_page = "2".into();
+        let job = build_job(ToolId::PageNumbers, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/n.pdf".into())).unwrap();
+        let Job::PageNumbers { items, options } = job else { panic!() };
+        assert_eq!(items[0].1, PathBuf::from("/s/n.pdf"));
+        assert_eq!((options.position, options.margin, options.start, options.from, options.to), (8, 54.0, 5, Some(2), None));
+        assert_eq!(options.text, NumberText::Custom("{n}/{p}".into()));
+        // A batch numbers every page of every file, with default names.
+        let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
+        let Job::PageNumbers { items, options } = build_job(ToolId::PageNumbers, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
+        assert_eq!((options.from, items[1].1.clone()), (None, PathBuf::from("/o/y-numbered.pdf")));
+        o.from_page = "x".into();
+        assert!(build_job(ToolId::PageNumbers, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/n.pdf".into())).is_err());
+
+        let mut o = opts();
+        o.wm_text = "DRAFT".into();
+        o.wm_font_size = "30".into();
+        o.wm_transparency = 2;
+        o.wm_rotation = 5;
+        o.wm_mosaic = true;
+        o.wm_below = true;
+        let Job::Watermark { options, .. } = build_job(ToolId::Watermark, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/w.pdf".into())).unwrap() else { panic!() };
+        assert_eq!(options.mark, Mark::Text { text: "DRAFT".into(), font_size: 30.0, color: [0.0; 3] });
+        assert_eq!((options.placement, options.opacity, options.rotation, options.behind), (Placement::Mosaic, 0.5, -45.0, true));
+        o.wm_image_mode = true;
+        o.wm_image = "/i/logo.png".into();
+        o.wm_scale = 25;
+        let Job::Watermark { options, .. } = build_job(ToolId::Watermark, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/w.pdf".into())).unwrap() else { panic!() };
+        assert_eq!(options.mark, Mark::Image { path: "/i/logo.png".into(), scale: 0.25 });
+
+        let mut o = opts();
+        o.crop_mode = 1;
+        o.pages = "2-3".into();
+        o.crop_top = "10".into();
+        o.crop_left = "2,5".into();
+        let Job::Crop { pages, spec, out, .. } = build_job(ToolId::Crop, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/c.pdf".into())).unwrap() else { panic!() };
+        assert_eq!((pages.as_deref(), out), (Some("2-3"), PathBuf::from("/s/c.pdf")));
+        assert_eq!(spec, CropSpec::Margins { top: crop::mm(10.0), bottom: 0.0, left: crop::mm(2.5), right: 0.0 });
+        o.crop_mode = 2;
+        let Job::Crop { pages, spec, .. } = build_job(ToolId::Crop, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/c.pdf".into())).unwrap() else { panic!() };
+        assert_eq!((pages, spec), (None, CropSpec::Remove));
+        assert_eq!(out_name(ToolId::Crop, Path::new("/a/x.pdf"), &o), "x-cropped.pdf");
     }
 
     #[test]

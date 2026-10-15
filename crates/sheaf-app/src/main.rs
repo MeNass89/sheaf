@@ -161,6 +161,15 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_output, |ui, m| home::set_output(&ui, m));
     wire!(ui, on_choose_folder, |ui| home::choose_folder(&ui));
     wire!(ui, on_set_open_after, |ui, v| home::set_open_after(&ui, v));
+    ui.on_pick_image(|| {
+        rfd::FileDialog::new()
+            .set_title("Choose the watermark image")
+            .add_filter("Image", &["png", "jpg", "jpeg"])
+            .pick_file()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default()
+            .into()
+    });
     ui.on_get_libreoffice(|| {
         run::open_detached(&["https://www.libreoffice.org/download/"]);
     });

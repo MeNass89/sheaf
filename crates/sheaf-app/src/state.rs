@@ -57,6 +57,8 @@ pub struct TabState {
     /// Organize: page previews could not be rendered.
     pub pages_failed: bool,
     pub office_missing: bool,
+    /// Crop: page 1 of the file, and its displayed size in points.
+    pub preview: Option<(Image, f32, f32)>,
 }
 
 impl TabState {
@@ -74,6 +76,7 @@ impl TabState {
             progress: 0.0,
             cancelling: false,
             pages_failed: false,
+            preview: None,
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
         }
     }
@@ -153,6 +156,9 @@ fn verb(tool: ToolId) -> &'static str {
         ToolId::Protect => "protected",
         ToolId::Unlock => "unlocked",
         ToolId::Repair => "repaired",
+        ToolId::PageNumbers => "numbered",
+        ToolId::Watermark => "watermarked",
+        ToolId::Crop => "cropped",
         _ => "converted",
     }
 }
@@ -209,6 +215,10 @@ pub fn build(t: &TabState) -> ToolTab {
                 .collect::<Vec<_>>(),
         )),
         office_missing: t.office_missing,
+        has_preview: t.preview.is_some(),
+        preview: t.preview.as_ref().map(|p| p.0.clone()).unwrap_or_default(),
+        preview_w: t.preview.as_ref().map(|p| p.1).unwrap_or_default(),
+        preview_h: t.preview.as_ref().map(|p| p.2).unwrap_or_default(),
         files_ready: t.files.iter().all(|f| f.kind != Kind::Pdf || f.pages.is_some() || f.unreadable || f.thumb_failed),
         default_out: t.files.first().map(|f| sheaf_app::jobs::default_name(t.tool, &f.input.stem())).unwrap_or_default().into(),
         ..Default::default()

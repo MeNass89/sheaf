@@ -17,6 +17,8 @@ use crate::state::{self, refresh, tabs_model, with, FileEntry, Phase, TabState};
 /// Card thumbnail width in pixels (60 logical px on a Retina screen).
 const THUMB_PX: i32 = 120;
 const PAGE_THUMB_PX: i32 = 168;
+/// Crop preview width in pixels.
+const PREVIEW_PX: i32 = 300;
 
 pub fn tool_from_str(s: &str) -> Option<ToolId> {
     ToolId::from_str(s)
@@ -117,26 +119,34 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
             });
             let _ = weak.upgrade_in_event_loop(move |ui| match r {
                 Ok((pages, thumb)) => {
-                    let organize = with(|a| {
-                        let t = a.tab(tab_id)?;
-                        let f = t.files.iter_mut().find(|f| f.uid == uid)?;
+                    let (organize, crop) = with(|a| {
+                        let Some(t) = a.tab(tab_id) else { return (None, None) };
+                        let Some(f) = t.files.iter_mut().find(|f| f.uid == uid) else { return (None, None) };
                         f.pages = Some(pages);
                         f.thumb = Some(state::to_image(thumb));
                         f.locked = f.input.password.is_some();
                         let input = f.input.clone();
-                        if t.tool == ToolId::Organize {
+                        if t.tool == ToolId::Crop {
+                            t.preview = None;
+                            return (None, Some(input));
+                        }
+                        let organize = if t.tool == ToolId::Organize {
                             t.order = (1..=pages).collect();
                             t.page_thumbs.clear();
                             t.pages_failed = false;
                             Some(input)
                         } else {
                             None
-                        }
+                        };
+                        (organize, None)
                     });
                     with(|a| refresh(a, tab_id));
                     crate::password::done(&ui, tab_id, uid);
                     if let Some(input) = organize {
                         page_thumbs(&ui, tab_id, input);
+                    }
+                    if let Some(input) = crop {
+                        crop_preview(&ui, tab_id, uid, input);
                     }
                 }
                 Err(e) => {
@@ -208,6 +218,23 @@ fn page_thumbs(ui: &AppWindow, tab_id: i32, input: Input) {
     });
 }
 
+/// Crop: page 1 at `PREVIEW_PX` on the probe pool, shown under the margin fields. Dropped if
+/// the file was replaced meanwhile.
+fn crop_preview(ui: &AppWindow, tab_id: i32, uid: i32, input: Input) {
+    let weak = ui.as_weak();
+    sheaf_app::pool::probes().submit(move || {
+        let Ok((thumb, w, h)) = catching(|| files::first_page_preview(&input, PREVIEW_PX)) else { return };
+        let _ = weak.upgrade_in_event_loop(move |_| {
+            with(|a| {
+                if let Some(t) = a.tab(tab_id).filter(|t| t.files.first().is_some_and(|f| f.uid == uid)) {
+                    t.preview = Some((state::to_image(thumb), w, h));
+                }
+                refresh(a, tab_id);
+            });
+        });
+    });
+}
+
 // ---- file and page edits ----------------------------------------------------------------------
 
 pub fn remove_file(ui: &AppWindow, tab_id: i32, uid: i32) {
@@ -217,6 +244,7 @@ pub fn remove_file(ui: &AppWindow, tab_id: i32, uid: i32) {
             if t.files.is_empty() {
                 t.order.clear();
                 t.page_thumbs.clear();
+                t.preview = None;
             }
         }
         refresh(a, tab_id);

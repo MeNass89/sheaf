@@ -54,6 +54,7 @@ export component ToolFlowScreen inherits Rectangle {
     callback run(ToolOptions);
     callback cancel();
     callback get-libreoffice();
+    callback pick-image() -> string;
 
     property <bool> running: root.tab.phase == 1;
     property <bool> organize: root.tab.tool == "organize";
@@ -152,14 +153,25 @@ export component ToolFlowScreen inherits Rectangle {
                 height: 1px;
                 background: Theme.separator;
             }
-            opts := OptionsPanel {
+            // Long panels (page numbers, watermark) scroll above the action button.
+            ScrollView {
                 vertical-stretch: 1;
-                tool: root.tab.tool;
-                file-count: root.tab.files.length;
-                default-out: root.tab.default-out;
-                office-missing: root.tab.office-missing;
-                insert-blank => { root.insert-blank(); }
-                get-libreoffice => { root.get-libreoffice(); }
+                content-width: self.visible-width;
+                content-height: opts.preferred-height;
+                opts := OptionsPanel {
+                    width: parent.visible-width;
+                    tool: root.tab.tool;
+                    file-count: root.tab.files.length;
+                    default-out: root.tab.default-out;
+                    office-missing: root.tab.office-missing;
+                    preview: root.tab.preview;
+                    has-preview: root.tab.has-preview;
+                    preview-w: root.tab.preview-w;
+                    preview-h: root.tab.preview-h;
+                    insert-blank => { root.insert-blank(); }
+                    get-libreoffice => { root.get-libreoffice(); }
+                    pick-image => { return root.pick-image(); }
+                }
             }
             ActionButton {
                 text: root.tab.name;

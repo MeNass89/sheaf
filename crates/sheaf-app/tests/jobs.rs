@@ -257,3 +257,26 @@ fn office_batch_keeps_the_first_pdf_when_the_second_fails() {
     assert_eq!(out.outputs, vec![dir.path().join("a.pdf")]);
     assert_eq!(out.failures.iter().map(|f| f.0.clone()).collect::<Vec<_>>(), vec![missing]);
 }
+
+#[test]
+fn numbers_watermark_and_crop_jobs_warn_on_protected_input() {
+    use sheaf_core::{crop::CropSpec, numbers::NumberOptions, watermark::{Mark, WatermarkOptions}};
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let prot = sheaf_core::security::protect(&Input::new(&src), "pw", None, &dir.path().join("p.pdf")).unwrap();
+    let locked = Input { path: prot, password: Some("pw".into()) };
+    let no = AtomicBool::new(false);
+    let mark = Mark::Text { text: "DRAFT".into(), font_size: 30.0, color: [0.0; 3] };
+    let jobs = [
+        Job::PageNumbers { items: vec![(Input::new(&src), dir.path().join("n.pdf")), (locked.clone(), dir.path().join("n2.pdf"))], options: NumberOptions::default() },
+        Job::Watermark { items: vec![(locked.clone(), dir.path().join("w.pdf"))], options: WatermarkOptions { mark, ..Default::default() } },
+        Job::Crop { input: locked.clone(), pages: None, spec: CropSpec::Margins { top: 10.0, bottom: 10.0, left: 10.0, right: 10.0 }, out: dir.path().join("c.pdf") },
+    ];
+    for job in &jobs {
+        let o = run(job, &no, &|_| {}).unwrap();
+        assert!(o.was_encrypted, "{job:?}");
+        assert!(o.outputs.iter().all(|p| p.is_file()));
+    }
+    let plain = Job::Crop { input: Input::new(&src), pages: Some("1".into()), spec: CropSpec::Remove, out: dir.path().join("c2.pdf") };
+    assert!(!run(&plain, &no, &|_| {}).unwrap().was_encrypted);
+}

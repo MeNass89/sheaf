@@ -68,6 +68,11 @@ export struct ToolTab {
     failure-title: string,
     failures: [string],
     outputs: [ResultFile],
+    // Crop: page 1 of the file, and its displayed size in points.
+    preview: image,
+    has-preview: bool,
+    preview-w: float,
+    preview-h: float,
     continue-tools: [ContinueTool],
 }
 
@@ -86,4 +91,33 @@ export struct ToolOptions {
     margin: int,         // 0 none, 1 small, 2 big
     quality: int,        // pdf→jpg: 0 normal, 1 high
     out-name: string,    // merge
+    // Page numbers and watermark: page range ("" = first / last page).
+    from-page: string,
+    to-page: string,
+    // Page numbers
+    num-position: int,   // 3×3 grid cell, row by row from the top left (top and bottom rows only)
+    num-double: bool,    // double-sided
+    num-cover: bool,     // first page is a cover page
+    num-margin: int,     // 0 small, 1 recommended, 2 big
+    num-start: string,   // first number
+    num-text: int,       // 0 number only, 1 "Page {n}", 2 "Page {n} of {p}", 3 custom
+    num-custom: string,
+    // Watermark
+    wm-image-mode: bool,
+    wm-text: string,
+    wm-font-size: string,
+    wm-color: int,       // 0 black, 1 grey, 2 red, 3 blue
+    wm-image: string,    // picture file path
+    wm-scale: int,       // percent of the page
+    wm-position: int,    // 3×3 grid cell
+    wm-mosaic: bool,
+    wm-transparency: int, // 0 none, 1 25 %, 2 50 %, 3 75 %
+    wm-rotation: int,    // 0 none, 1 45°, 2 90°, 3 180°, 4 270°, 5 −45°
+    wm-below: bool,
+    // Crop
+    crop-mode: int,      // 0 all pages, 1 selected pages, 2 remove crop
+    crop-top: string,    // millimetres
+    crop-bottom: string,
+    crop-left: string,
+    crop-right: string,
 }

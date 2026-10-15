@@ -162,6 +162,16 @@ pub fn page_thumbs(input: &Input, width: i32, mut each: impl FnMut(u32, Thumb)) 
     Ok(())
 }
 
+/// Page 1 rendered `width` px wide, with its displayed size in points (Crop preview).
+pub fn first_page_preview(input: &Input, width: i32) -> Result<(Thumb, f32, f32)> {
+    let _g = sheaf_core::engine::pdfium_lock();
+    let doc = input.open()?;
+    let page = doc.pages().first().map_err(|e| OpdfError::Unsupported(format!("no pages: {e}")))?;
+    let (w, h) = (page.width().value, page.height().value);
+    let bmp = page.render_with_config(&pdfium_render::prelude::PdfRenderConfig::new().set_target_width(width))?;
+    Ok((Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }, w, h))
+}
+
 /// Page count of a PDF, if it opens. Takes the pdfium lock.
 pub fn page_count(input: &Input) -> Option<u32> {
     let _g = sheaf_core::engine::pdfium_lock();

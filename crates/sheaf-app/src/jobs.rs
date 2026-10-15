@@ -6,6 +6,9 @@
 use sheaf_core::compress::{self, Level};
 use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
+use sheaf_core::crop::{self, CropSpec};
+use sheaf_core::numbers::{self, NumberOptions};
+use sheaf_core::watermark::{self, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError, Result};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -19,7 +22,7 @@ pub enum SplitMode {
     Every(u32),
 }
 
-/// One run of a wave-1 tool, with owned parameters. Batch tools carry `(input, output)` pairs:
+/// One run of a tool, with owned parameters. Batch tools carry `(input, output)` pairs:
 /// the output path is the wanted name; the engine suffixes it if the name is taken.
 #[derive(Debug, Clone)]
 pub enum Job {
@@ -38,6 +41,10 @@ pub enum Job {
     PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: u8, out_dir: PathBuf },
     /// Word / PowerPoint / Excel / HTML → PDF through LibreOffice.
     Office { items: Vec<(PathBuf, PathBuf)> },
+    PageNumbers { items: Vec<(Input, PathBuf)>, options: NumberOptions },
+    Watermark { items: Vec<(Input, PathBuf)>, options: WatermarkOptions },
+    /// `pages`: "1-3,5", or `None` for every page.
+    Crop { input: Input, pages: Option<String>, spec: CropSpec, out: PathBuf },
 }
 
 impl Job {
@@ -48,8 +55,11 @@ impl Job {
             Job::Split { input, .. }
             | Job::RemovePages { input, .. }
             | Job::ExtractPages { input, .. }
-            | Job::Organize { input, .. } => vec![input.path.as_path()],
+            | Job::Organize { input, .. }
+            | Job::Crop { input, .. } => vec![input.path.as_path()],
             Job::Rotate { items, .. }
+            | Job::PageNumbers { items, .. }
+            | Job::Watermark { items, .. }
             | Job::Compress { items, .. }
             | Job::Protect { items, .. }
             | Job::Unlock { items }
@@ -144,7 +154,14 @@ fn loses_protection(job: &Job) -> bool {
         | Job::ExtractPages { input, .. }
         | Job::Organize { input, .. } => vec![input],
         Job::Rotate { items, .. } | Job::Compress { items, .. } | Job::Repair { items } => items.iter().map(|(i, _)| i).collect(),
-        Job::Protect { .. } | Job::Unlock { .. } | Job::JpgToPdf { .. } | Job::Office { .. } => vec![],
+        // The PdfCraft tools report it from the engine.
+        Job::Protect { .. }
+        | Job::Unlock { .. }
+        | Job::JpgToPdf { .. }
+        | Job::Office { .. }
+        | Job::PageNumbers { .. }
+        | Job::Watermark { .. }
+        | Job::Crop { .. } => vec![],
     };
     pdfs.into_iter().any(Input::is_encrypted)
 }
@@ -218,6 +235,22 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         }
         Job::Office { items } => {
             batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(office::office_to_pdf(i, o))))?
+        }
+        Job::PageNumbers { items, options } => batch(each(items, cancel, progress, pair, |(i, o)| {
+            let (p, w) = numbers::number_pages(i, options, o)?;
+            was_encrypted |= w;
+            Ok(vec![p])
+        }))?,
+        Job::Watermark { items, options } => batch(each(items, cancel, progress, pair, |(i, o)| {
+            let (p, w) = watermark::watermark(i, options, o)?;
+            was_encrypted |= w;
+            Ok(vec![p])
+        }))?,
+        Job::Crop { input, pages: spec_pages, spec, out } => {
+            let (p, w) = crop::crop(input, spec_pages.as_deref(), spec, out)?;
+            was_encrypted |= w;
+            progress(1.0);
+            vec![p]
         }
     };
     let after = outputs.iter().map(|p| size(p)).sum();
@@ -294,6 +327,9 @@ pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
         T::ExtractPages => "-extracted",
         T::Organize => "-organized",
         T::Repair => "-repaired",
+        T::PageNumbers => "-numbered",
+        T::Watermark => "-watermarked",
+        T::Crop => "-cropped",
         _ => "",
     };
     format!("{stem}{suffix}.pdf")
@@ -320,6 +356,9 @@ mod tests {
     fn default_names() {
         assert_eq!(default_name(ToolId::Merge, "a"), "a-merged.pdf");
         assert_eq!(default_name(ToolId::RemovePages, "a"), "a-edited.pdf");
+        assert_eq!(default_name(ToolId::PageNumbers, "a"), "a-numbered.pdf");
+        assert_eq!(default_name(ToolId::Watermark, "a"), "a-watermarked.pdf");
+        assert_eq!(default_name(ToolId::Crop, "a"), "a-cropped.pdf");
         assert_eq!(default_name(ToolId::JpgToPdf, "photo"), "photo.pdf");
         assert_eq!(default_name(ToolId::WordToPdf, "letter"), "letter.pdf");
     }
