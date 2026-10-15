@@ -98,3 +98,24 @@ fn grid_position_places_the_mark_in_its_corner() {
     assert!(dark_in(&img, 0.6, 1.0, 0.85, 1.0) > 50, "bottom-right corner");
     assert_eq!(dark_in(&img, 0.0, 1.0, 0.3, 0.85), 0, "nothing in the middle band");
 }
+
+#[test]
+fn out_of_range_scale_and_font_size_are_refused() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let png = t.path().join("logo.png");
+    image::RgbImage::from_pixel(4, 4, image::Rgb([0, 0, 0])).save(&png).unwrap();
+    let err = |mark: Mark| match watermark(&Input::new(&a), &WatermarkOptions { mark, ..Default::default() }, &t.path().join("w.pdf")) {
+        Err(sheaf_core::OpdfError::Unsupported(m)) => m,
+        other => panic!("{:?}", other.map(|_| ())),
+    };
+    for scale in [0.0, 0.01, 1.5, f64::NAN] {
+        assert!(err(Mark::Image { path: png.clone(), scale }).contains("0.05 to 1"), "{scale}");
+    }
+    for font_size in [0.5, 501.0, -3.0] {
+        assert!(err(Mark::Text { text: "X".into(), font_size, color: [0.0; 3] }).contains("1 to 500"), "{font_size}");
+    }
+    // 0 = automatic size.
+    let o = WatermarkOptions { mark: Mark::Text { text: "AUTO".into(), font_size: 0.0, color: [0.0; 3] }, ..Default::default() };
+    assert!(watermark(&Input::new(&a), &o, &t.path().join("w.pdf")).is_ok());
+}

@@ -168,3 +168,29 @@ fn number_watermark_and_crop_subcommands() {
     assert_eq!(bin().arg("watermark").arg(&a).arg("-o").arg(o("bad.pdf")).status().unwrap().code(), Some(1));
     assert_eq!(bin().arg("number").arg(&a).args(["--position", "middle-left", "-o"]).arg(o("bad.pdf")).status().unwrap().code(), Some(1));
 }
+
+#[test]
+fn bad_ranges_and_bounds_are_refused() {
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let a = t.path().join("a.pdf");
+    assert!(bin().arg("from-images").arg(&png).arg(&png).arg("-o").arg(&a).status().unwrap().success());
+    let out = t.path().join("o.pdf");
+    let fails = |args: &[&str], msg: &str| {
+        let r = bin().arg(args[0]).arg(&a).args(&args[1..]).arg("-o").arg(&out).output().unwrap();
+        let err = String::from_utf8_lossy(&r.stderr);
+        assert_eq!(r.status.code(), Some(1), "{args:?}: {err}");
+        assert!(err.contains(msg), "{args:?}: {err}");
+    };
+    fails(&["number", "--from", "0"], "invalid page range");
+    fails(&["watermark", "--text", "X", "--from", "0"], "invalid page range");
+    fails(&["number", "--text", "custom", "--custom", "<<m/d/yyyy>>"], "custom text cannot contain << or >>");
+    fails(&["watermark", "--image", png.to_str().unwrap(), "--scale", "1.5"], "0.05 to 1");
+    fails(&["watermark", "--image", png.to_str().unwrap(), "--scale", "0"], "0.05 to 1");
+    fails(&["watermark", "--text", "X", "--font-size", "900"], "1 to 500");
+    fails(&["watermark", "--text", "X", "--font-size", "big"], "font size");
+    assert!(!out.exists());
+    let r = bin().arg("watermark").arg(&a).args(["--text", "X", "--font-size", "auto", "-o"]).arg(&out).output().unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+}

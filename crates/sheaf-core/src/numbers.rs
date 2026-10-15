@@ -16,8 +16,14 @@ pub enum NumberText {
     Page,
     /// "Page {n} of {p}".
     PageOfTotal,
-    /// Any text with `{n}` and `{p}`.
+    /// Any text with `{n}` (page number) and `{p}` (the document's total page count).
+    /// `<<` and `>>` are refused: PdfCraft would expand them as its own tokens.
     Custom(String),
+}
+
+/// Why a custom page-number text is refused, if it is.
+pub fn custom_text_error(text: &str) -> Option<&'static str> {
+    (text.contains("<<") || text.contains(">>")).then_some("custom text cannot contain << or >>")
 }
 
 impl NumberText {
@@ -67,6 +73,9 @@ pub const MARGINS: [f64; 3] = [18.0, 36.0, 54.0];
 /// The pages numbered (0-based), from `from`/`to` (1-based, inclusive) and the cover option.
 pub(crate) fn page_span(from: Option<u32>, to: Option<u32>, skip_first: bool, count: usize) -> Result<std::ops::Range<usize>> {
     let total = count as u32;
+    if from == Some(0) {
+        return Err(OpdfError::InvalidRange { range: format!("0-{}", to.unwrap_or(total)), pages: total });
+    }
     let from = from.unwrap_or(1).max(if skip_first { 2 } else { 1 });
     let to = to.unwrap_or(total);
     if from == 0 || from > to || to > total {
@@ -89,6 +98,11 @@ fn slot(position: u8, mirror: bool) -> Result<usize> {
 /// Stamps page numbers on `input` and writes `out` (never overwriting). Returns the path written
 /// and whether the input was password-protected (the output never is).
 pub fn number_pages(input: &Input, o: &NumberOptions, out: &Path) -> Result<(PathBuf, bool)> {
+    if let NumberText::Custom(t) = &o.text
+        && let Some(e) = custom_text_error(t)
+    {
+        return Err(OpdfError::Unsupported(e.into()));
+    }
     let mut doc = Doc::open(input)?;
     let count = doc.session().get(doc.id()).map(|d| d.info.pages.len()).unwrap_or(0);
     let span = page_span(o.from, o.to, o.cover, count)?;
@@ -146,5 +160,9 @@ mod tests {
         assert_eq!(page_span(Some(2), Some(3), false, 5).unwrap(), 1..3);
         assert!(page_span(Some(4), Some(3), false, 5).is_err());
         assert!(page_span(None, None, true, 1).is_err());
+        assert!(page_span(Some(0), None, false, 5).is_err());
+        assert!(page_span(Some(0), None, true, 5).is_err());
+        assert_eq!(custom_text_error("{n} of {p}"), None);
+        assert!(custom_text_error("<<1>>").is_some());
     }
 }

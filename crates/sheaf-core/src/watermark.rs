@@ -12,8 +12,9 @@ use std::sync::Arc;
 /// What is stamped.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mark {
+    /// `font_size` 1–500 points, or 0 for an automatic size (about half the page diagonal).
     Text { text: String, font_size: f64, color: [f64; 3] },
-    /// A PNG or JPEG; `scale` is its size relative to the page (1.0 fits the page).
+    /// A PNG or JPEG; `scale` is its size relative to the page, 0.05–1.0 (1.0 fits the page).
     Image { path: PathBuf, scale: f64 },
 }
 
@@ -108,6 +109,15 @@ pub fn watermark(input: &Input, o: &WatermarkOptions, out: &Path) -> Result<(Pat
         && c > 8
     {
         return Err(OpdfError::Unsupported(format!("watermark position {c}")));
+    }
+    match &o.mark {
+        Mark::Text { font_size, .. } if !(*font_size == 0.0 || (1.0..=500.0).contains(font_size)) => {
+            return Err(OpdfError::Unsupported(format!("watermark font size {font_size} (use 1 to 500, or 0 for automatic)")));
+        }
+        Mark::Image { scale, .. } if !(0.05..=1.0).contains(scale) => {
+            return Err(OpdfError::Unsupported(format!("watermark image scale {scale} (use 0.05 to 1)")));
+        }
+        _ => {}
     }
     let mut doc = Doc::open(input)?;
     let sizes: Vec<(f64, f64)> =

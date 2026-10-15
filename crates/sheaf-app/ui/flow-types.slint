@@ -121,3 +121,11 @@ export struct ToolOptions {
     crop-left: string,
     crop-right: string,
 }
+
+// Text parsing the options panels need and Slint lacks, answered by the Rust side.
+export global Parse {
+    // A millimetre field: "2,5" and "2.5" are both 2.5; empty or invalid is 0.
+    pure callback mm(string) -> float;
+    // Why a custom page-number text is refused ("" when it is fine).
+    pure callback custom-text-error(string) -> string;
+}

@@ -174,12 +174,13 @@ enum Cmd {
         /// PNG or JPEG file
         #[arg(long)]
         image: Option<PathBuf>,
-        #[arg(long, default_value_t = 48.0)]
+        /// Text size in points (1 to 500), or "auto"
+        #[arg(long, default_value = "48", value_parser = parse_font_size)]
         font_size: f64,
         /// Text colour as RRGGBB
         #[arg(long, default_value = "000000")]
         color: String,
-        /// Image size relative to the page (1.0 fits the page)
+        /// Image size relative to the page, 0.05 to 1 (1 fits the page)
         #[arg(long, default_value_t = 0.5)]
         scale: f64,
         /// A grid position, or mosaic (repeated over the page)
@@ -281,6 +282,14 @@ enum NumberFormat {
     PageOf,
     /// --custom text
     Custom,
+}
+
+/// "auto" is 0 (automatic size); any other value is checked by the core (1 to 500).
+fn parse_font_size(s: &str) -> Result<f64, String> {
+    if s.eq_ignore_ascii_case("auto") {
+        return Ok(0.0);
+    }
+    s.parse().map_err(|_| "a font size in points, or auto".into())
 }
 
 fn parse_transparency(s: &str) -> Result<u8, String> {

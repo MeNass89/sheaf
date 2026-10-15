@@ -80,3 +80,27 @@ fn protected_input_gives_an_unprotected_output_and_warns() {
     qpdf_clean(&out);
     assert!(page_texts(&out)[0].contains('1'));
 }
+
+#[test]
+fn custom_text_cannot_smuggle_pdfcraft_tokens() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    for bad in ["<<m/d/yyyy>>", "Page {n} <<", ">> {n}"] {
+        let o = NumberOptions { text: NumberText::Custom(bad.into()), ..Default::default() };
+        match number_pages(&Input::new(&a), &o, &t.path().join("n.pdf")) {
+            Err(sheaf_core::OpdfError::Unsupported(m)) => assert_eq!(m, "custom text cannot contain << or >>"),
+            other => panic!("{bad}: {:?}", other.map(|_| ())),
+        }
+    }
+    assert!(!t.path().join("n.pdf").exists());
+}
+
+#[test]
+fn from_page_zero_is_an_invalid_range() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 2);
+    for cover in [false, true] {
+        let o = NumberOptions { from: Some(0), cover, ..Default::default() };
+        assert!(matches!(number_pages(&Input::new(&a), &o, &t.path().join("n.pdf")), Err(sheaf_core::OpdfError::InvalidRange { .. })));
+    }
+}

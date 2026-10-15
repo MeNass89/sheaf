@@ -45,13 +45,18 @@ fn page_field(s: &str, what: &str) -> Result<Option<u32>> {
     s.parse().ok().filter(|n| *n > 0).map(Some).ok_or_else(|| OpdfError::Unsupported(format!("{what}: \"{s}\" is not a page number")))
 }
 
-/// A typed millimetre margin ("" = 0).
-fn mm_field(s: &str, what: &str) -> Result<f64> {
+/// A typed millimetre value: decimal comma or point, "" = 0. `None` if it is not a number ≥ 0.
+pub fn parse_mm(s: &str) -> Option<f64> {
     let s = s.trim().replace(',', ".");
     if s.is_empty() {
-        return Ok(0.0);
+        return Some(0.0);
     }
-    s.parse::<f64>().ok().filter(|v| v.is_finite() && *v >= 0.0).map(crop::mm).ok_or_else(|| OpdfError::Unsupported(format!("{what} margin: \"{s}\" is not a number of millimetres")))
+    s.parse::<f64>().ok().filter(|v| v.is_finite() && *v >= 0.0)
+}
+
+/// A typed millimetre margin, in points.
+fn mm_field(s: &str, what: &str) -> Result<f64> {
+    parse_mm(s).map(crop::mm).ok_or_else(|| OpdfError::Unsupported(format!("{what} margin: \"{}\" is not a number of millimetres", s.trim())))
 }
 
 /// The page range typed in the panel; ignored for a batch (every page of every file).
@@ -441,6 +446,15 @@ mod tests {
         let Job::Crop { pages, spec, .. } = build_job(ToolId::Crop, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/c.pdf".into())).unwrap() else { panic!() };
         assert_eq!((pages, spec), (None, CropSpec::Remove));
         assert_eq!(out_name(ToolId::Crop, Path::new("/a/x.pdf"), &o), "x-cropped.pdf");
+    }
+
+    #[test]
+    fn millimetres_accept_a_decimal_comma() {
+        assert_eq!(parse_mm("2,5"), Some(2.5));
+        assert_eq!(parse_mm(" 2.5 "), Some(2.5));
+        assert_eq!(parse_mm(""), Some(0.0));
+        assert_eq!(parse_mm("-1"), None);
+        assert_eq!(parse_mm("x"), None);
     }
 
     #[test]

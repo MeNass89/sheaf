@@ -1,5 +1,5 @@
 import { Theme } from "../theme.slint";
-import { ToolOptions } from "../flow-types.slint";
+import { ToolOptions, Parse } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { RadioCard, Segment, InfoBox } from "../widgets/radio-card.slint";
 
@@ -114,7 +114,8 @@ component PageRange inherits HorizontalLayout {
     TextField { width: (parent.width - 10px) / 2; label: "To page"; placeholder: "Last"; text <=> root.to; }
 }
 
-// Crop: page 1 with the kept area outlined and the cut margins dimmed.
+// Crop: page 1 with the kept area outlined and the cut margins dimmed. Margins are drawn from the
+// page as rendered (its existing CropBox), while the crop measures them from the MediaBox.
 component CropPreview inherits Rectangle {
     in property <image> source;
     in property <bool> ready;
@@ -185,10 +186,10 @@ export component OptionsPanel inherits VerticalLayout {
         root.tool == "protect" ? root.password != "" && root.password == root.confirm
         : root.tool == "remove_pages" || root.tool == "extract_pages" ? root.pages != ""
         : root.tool == "split" ? (root.split-mode == 0 ? root.ranges != "" : root.every >= 1)
-        : root.tool == "page_numbers" ? (root.num-text != 3 || root.num-custom != "")
+        : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == ""))
         : root.tool == "watermark" ? (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "")
         : root.tool == "crop" ? (root.crop-mode == 2 || ((root.crop-mode == 0 || root.pages != "")
-            && root.crop-top.to-float() + root.crop-bottom.to-float() + root.crop-left.to-float() + root.crop-right.to-float() > 0))
+            && Parse.mm(root.crop-top) + Parse.mm(root.crop-bottom) + Parse.mm(root.crop-left) + Parse.mm(root.crop-right) > 0))
         : true);
     out property <ToolOptions> options: {
         level: root.level, password: root.password, confirm: root.confirm, owner: root.owner,
@@ -447,7 +448,9 @@ export component OptionsPanel inherits VerticalLayout {
         if root.num-text == 3: TextField {
             placeholder: "Sheet {n} of {p}";
             text <=> root.num-custom;
+            error: Parse.custom-text-error(root.num-custom);
         }
+        if root.num-text == 3: InfoBox { text: "{n} is the page number; {p} is the document's total page count."; }
     }
 
     if root.tool == "watermark": VerticalLayout {
@@ -560,10 +563,10 @@ export component OptionsPanel inherits VerticalLayout {
                 ready: root.has-preview;
                 page-w: root.preview-w;
                 page-h: root.preview-h;
-                top: root.crop-top.to-float() * 72 / 25.4;
-                bottom: root.crop-bottom.to-float() * 72 / 25.4;
-                left: root.crop-left.to-float() * 72 / 25.4;
-                right: root.crop-right.to-float() * 72 / 25.4;
+                top: Parse.mm(root.crop-top) * 72 / 25.4;
+                bottom: Parse.mm(root.crop-bottom) * 72 / 25.4;
+                left: Parse.mm(root.crop-left) * 72 / 25.4;
+                right: Parse.mm(root.crop-right) * 72 / 25.4;
             }
         }
     }
