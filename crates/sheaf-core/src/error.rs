@@ -16,6 +16,8 @@ pub enum OpdfError {
     Conversion(String),
     #[error("unsupported input: {0}")]
     Unsupported(String),
+    #[error("{0}")]
+    Engine(String),
     #[error("cancelled")]
     Cancelled,
     #[error("pdfium: {0}")]

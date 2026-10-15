@@ -6629,6 +6629,7 @@ dependencies = [
  "lopdf",
  "parking_lot",
  "pdfcraft-engine",
+ "pdfcraft-render",
  "pdfium-render",
  "tempfile",
  "thiserror 2.0.21",
