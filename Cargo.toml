@@ -24,6 +24,8 @@ serde_json = "1"
 getrandom = "0.4"
 parking_lot = "0.12"
 pdfcraft-engine = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-edit = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-fonts = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-render = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 
 # PdfCraft's engine builds only against its own forks of these crates (same git rev).

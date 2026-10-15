@@ -1,8 +1,10 @@
 pub mod compress;
 pub mod engine;
 pub mod error;
+pub mod crop;
 pub mod images;
 pub mod office;
+pub mod numbers;
 pub mod pages;
 pub mod pdfcraft;
 pub mod paths;
@@ -11,4 +13,5 @@ pub mod repair;
 pub mod rotate;
 pub mod security;
 pub mod tools;
+pub mod watermark;
 pub use error::{OpdfError, Result};

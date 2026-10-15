@@ -24,3 +24,31 @@ pub fn page_texts(path: &Path) -> Vec<String> {
     let d = lopdf::Document::load(path).unwrap();
     (1..=d.get_pages().len() as u32).map(|i| d.extract_text(&[i]).unwrap().trim().to_string()).collect()
 }
+
+/// Asserts `qpdf --check` passes with no WARNING.
+pub fn qpdf_clean(path: &Path) {
+    let o = std::process::Command::new("qpdf").arg("--check").arg(path).output().unwrap();
+    let s = format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr));
+    assert!(o.status.success() && !s.contains("WARNING"), "qpdf --check: {s}");
+}
+
+/// Page `page` (0-based) of `path` rendered by PdfCraft at 1 px per point: (width, height, rgba).
+pub fn render(path: &Path, page: usize) -> (u32, u32, Vec<u8>) {
+    let doc = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input::new(path)).unwrap();
+    let r = doc.render(page, 1.0).unwrap();
+    (r.width, r.height, r.rgba.to_vec())
+}
+
+/// Dark pixels (red channel < 100) inside the box x0..x1, y0..y1 (fractions of the page, y down).
+pub fn dark_in(img: &(u32, u32, Vec<u8>), x0: f32, x1: f32, y0: f32, y1: f32) -> usize {
+    let (w, h, px) = img;
+    let (w, h) = (*w as usize, *h as usize);
+    let mut n = 0;
+    for y in (y0 * h as f32) as usize..((y1 * h as f32) as usize).min(h) {
+        for x in (x0 * w as f32) as usize..((x1 * w as f32) as usize).min(w) {
+            let p = &px[(y * w + x) * 4..];
+            if p[3] > 0 && p[0] < 100 { n += 1; }
+        }
+    }
+    n
+}

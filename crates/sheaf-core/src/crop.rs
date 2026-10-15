@@ -1,0 +1,82 @@
+//! Crop PDF: a crop box set by margins (as the reader sees the page), or removed.
+
+use crate::pdfcraft::engine::{BoxSpec, Edit, PageBox};
+use crate::pdfcraft::Doc;
+use crate::{pages::Input, ranges::parse_ranges, Result};
+use std::path::{Path, PathBuf};
+
+/// What Crop does to the selected pages.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CropSpec {
+    /// Points cut from each edge of the page as displayed (after its rotation), measured from the
+    /// media box.
+    Margins { top: f64, bottom: f64, left: f64, right: f64 },
+    /// Back to the full page (no crop box).
+    Remove,
+}
+
+/// Millimetres to points.
+pub fn mm(v: f64) -> f64 {
+    v * 72.0 / 25.4
+}
+
+/// Displayed margins (top, right, bottom, left) → PdfCraft's user-space margins
+/// (left, bottom, right, top) for a page turned `rotation` degrees clockwise.
+fn user_margins(rotation: u16, [t, r, b, l]: [f64; 4]) -> [f64; 4] {
+    match rotation % 360 {
+        90 => [t, l, b, r],
+        180 => [r, t, l, b],
+        270 => [b, r, t, l],
+        _ => [l, b, r, t],
+    }
+}
+
+/// Crops `pages` ("1-3,5"; `None` = every page) of `input` and writes `out` (never
+/// overwriting). Returns the path written and whether the input was password-protected (the
+/// output never is).
+pub fn crop(input: &Input, pages: Option<&str>, spec: &CropSpec, out: &Path) -> Result<(PathBuf, bool)> {
+    let mut doc = Doc::open(input)?;
+    let rotations: Vec<u16> = doc.session().get(doc.id()).map(|d| d.info.pages.iter().map(|p| p.rotation).collect()).unwrap_or_default();
+    let total = rotations.len() as u32;
+    let selected: Vec<usize> = match pages.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(s) => {
+            let ranges = parse_ranges(s, total)?;
+            (1..=total).filter(|n| ranges.iter().any(|r| r.contains(n))).map(|n| n as usize - 1).collect()
+        }
+        None => (0..rotations.len()).collect(),
+    };
+    let edits = match *spec {
+        CropSpec::Remove => vec![Edit::SetPageBox { pages: selected, which: PageBox::Crop, spec: BoxSpec::Remove }],
+        CropSpec::Margins { top, bottom, left, right } => {
+            // One edit per rotation: the same visible margins land on different user-space edges.
+            [0u16, 90, 180, 270]
+                .into_iter()
+                .filter_map(|rot| {
+                    let group: Vec<usize> = selected.iter().copied().filter(|&p| rotations[p] % 360 == rot).collect();
+                    (!group.is_empty()).then(|| Edit::SetPageBox {
+                        pages: group,
+                        which: PageBox::Crop,
+                        spec: BoxSpec::Margins(user_margins(rot, [top, right, bottom, left])),
+                    })
+                })
+                .collect()
+        }
+    };
+    doc.apply(Edit::Batch { label: "Crop pages".into(), edits })?;
+    doc.save_unprotected(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rotated_margins() {
+        let m = [1.0, 2.0, 3.0, 4.0]; // top, right, bottom, left
+        assert_eq!(user_margins(0, m), [4.0, 3.0, 2.0, 1.0]);
+        assert_eq!(user_margins(90, m), [1.0, 4.0, 3.0, 2.0]);
+        assert_eq!(user_margins(180, m), [2.0, 1.0, 4.0, 3.0]);
+        assert_eq!(user_margins(270, m), [3.0, 2.0, 1.0, 4.0]);
+        assert!((mm(25.4) - 72.0).abs() < 1e-9);
+    }
+}
