@@ -45,13 +45,27 @@ pub fn languages() -> &'static [(&'static str, &'static str)] {
     eng::LANGUAGES
 }
 
-fn debug_models_dir() -> Option<PathBuf> {
-    cfg!(debug_assertions).then(|| PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vendor/models")))
+/// The source tree's models, for debug builds only: release builds carry no build path.
+#[cfg(debug_assertions)]
+fn debug_models() -> Option<Models> {
+    Models::in_dir(&PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vendor/models")))
+}
+
+#[cfg(not(debug_assertions))]
+fn debug_models() -> Option<Models> {
+    None
 }
 
 fn models() -> Option<Models> {
-    Models::find().or_else(|| debug_models_dir().and_then(|d| Models::in_dir(&d)))
+    Models::find().or_else(debug_models)
 }
+
+/// What to do when the models are missing: reinstall, or (in a debug build) fetch them.
+const MISSING_MODELS: &str = if cfg!(debug_assertions) {
+    "OCR models are missing: run scripts/fetch-models.sh"
+} else {
+    "OCR models are missing from this installation — reinstall Sheaf"
+};
 
 /// Whether the recognition models are installed.
 pub fn available() -> bool {
@@ -65,7 +79,7 @@ fn engine() -> Result<Arc<Ocr>> {
     if let Some(o) = slot.as_ref() {
         return Ok(o.clone());
     }
-    let m = models().ok_or_else(|| OpdfError::Unsupported("the OCR models are not installed (scripts/fetch-models.sh)".into()))?;
+    let m = models().ok_or_else(|| OpdfError::Engine(MISSING_MODELS.into()))?;
     let o = Arc::new(Ocr::load(&m).map_err(|e| OpdfError::Engine(format!("OCR models: {e}")))?);
     *slot = Some(o.clone());
     Ok(o)

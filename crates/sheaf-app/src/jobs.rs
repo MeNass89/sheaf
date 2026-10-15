@@ -342,7 +342,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::Compare { old, new, mode, out } => {
             let r = compare::compare(old, new, *mode, out)?;
             was_encrypted |= r.was_encrypted;
-            summary = if r.identical() { "The documents' text is identical".into() } else { r.counts() };
+            summary = if r.identical() { "No differences: the documents' text is identical.".into() } else { r.counts() };
             if r.regions > 0 {
                 summary += &format!("; {} other changed area{} outlined", r.regions, if r.regions == 1 { "" } else { "s" });
             }

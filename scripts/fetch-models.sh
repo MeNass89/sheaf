@@ -1,5 +1,6 @@
 #!/bin/sh
-# Downloads the OCR models (ocrs, Apache-2.0/MIT) into vendor/models/ and checks their SHA-256.
+# Downloads the OCR models (ocrs) into vendor/models/ and checks their SHA-256.
+# Licence: CC-BY-SA-4.0 (see crates/sheaf-app/macos/ocr-models-NOTICE.txt).
 # Idempotent: models already present with the right checksum are kept.
 set -eu
 dir="$(cd "$(dirname "$0")/.." && pwd)/vendor/models"
@@ -13,6 +14,7 @@ fetch() {
         return 0
     fi
     tmp="$(mktemp)"
+    trap 'rm -f "$tmp"' EXIT INT TERM
     curl -fsSL -o "$tmp" "https://ocrs-models.s3-accelerate.amazonaws.com/$name.rten"
     got="$(shasum -a 256 "$tmp" | cut -d' ' -f1)"
     if [ "$got" != "$sum" ]; then
@@ -22,6 +24,7 @@ fetch() {
     fi
     chmod 644 "$tmp"
     mv "$tmp" "$file"
+    trap - EXIT INT TERM
 }
 
 fetch text-detection f15cfb56bd02c4bf478a20343986504a1f01e1665c2b3a0ad66340f054b1b5ca

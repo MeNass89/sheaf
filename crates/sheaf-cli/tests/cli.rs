@@ -296,5 +296,5 @@ fn compare_subcommand_prints_the_counts() {
         assert!(err.contains("0 added, 0 removed, 1 changed"), "{mode}: {err}");
     }
     let r = bin().arg("compare").arg(&old).arg(&old).arg("-o").arg(t.path().join("same.pdf")).output().unwrap();
-    assert!(String::from_utf8_lossy(&r.stderr).contains("The documents' text is identical"));
+    assert!(String::from_utf8_lossy(&r.stderr).contains("No differences: the documents' text is identical."));
 }

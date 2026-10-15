@@ -583,7 +583,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             };
             let r = compare::compare(&input(old), &input(new), mode, &out)?;
             if r.identical() {
-                eprintln!("The documents' text is identical");
+                eprintln!("No differences: the documents' text is identical.");
             } else {
                 eprintln!("{}", r.counts());
             }
