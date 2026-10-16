@@ -298,3 +298,32 @@ fn compare_subcommand_prints_the_counts() {
     let r = bin().arg("compare").arg(&old).arg(&old).arg("-o").arg(t.path().join("same.pdf")).output().unwrap();
     assert!(String::from_utf8_lossy(&r.stderr).contains("No differences: the documents' text is identical."));
 }
+
+#[test]
+fn redact_subcommand_counts_the_areas_and_removes_the_text() {
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let a = t.path().join("a.pdf");
+    assert!(bin().arg("from-images").arg(&png).arg(&png).arg("--a4").arg("-o").arg(&a).status().unwrap().success());
+    let src = t.path().join("src.pdf");
+    let text = "Write to ada@example.com or call (555) 123-4567 about the secret";
+    assert!(bin().arg("number").arg(&a).args(["--text", "custom", "--custom", text, "-o"]).arg(&src).status().unwrap().success());
+    let out = t.path().join("out.pdf");
+    let r = bin().arg("redact").arg(&src).args(["--text", "secret", "--pattern", "email", "--pattern", "phone", "--pages", "2", "-o"]).arg(&out).output().unwrap();
+    let err = String::from_utf8_lossy(&r.stderr);
+    assert!(r.status.success(), "{err}");
+    assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
+    // 3 matches on each of the 2 pages; page 2 is also marked whole.
+    assert!(err.contains("7 areas redacted"), "{err}");
+    assert!(err.contains("Verified: no hidden text remains under the redactions"), "{err}");
+    let d = lopdf::Document::load(&out).unwrap();
+    let p1 = d.extract_text(&[1]).unwrap();
+    assert!(p1.contains("Write to") && !p1.contains("ada@") && !p1.contains("secret") && !p1.contains("4567"), "{p1}");
+    assert!(!d.extract_text(&[2]).unwrap().contains("Write"));
+    // Nothing found and nothing marked: an error, no file.
+    let none = t.path().join("none.pdf");
+    let r = bin().arg("redact").arg(&src).args(["--text", "absent", "-o"]).arg(&none).output().unwrap();
+    assert!(!r.status.success() && !none.exists());
+    assert!(String::from_utf8_lossy(&r.stderr).contains("nothing to redact"), "{}", String::from_utf8_lossy(&r.stderr));
+}

@@ -14,6 +14,7 @@ use sheaf_core::excel::{self, SheetLayout};
 use sheaf_core::export::{self, ExportOptions, Office};
 use sheaf_core::ocr::{self, OcrOptions};
 use sheaf_core::pdfa::{self, PdfALevel};
+use sheaf_core::redact::{self, Pattern, Query};
 use sheaf_core::watermark::{self, Mark, Placement, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError};
 use std::path::{Path, PathBuf};
@@ -279,6 +280,21 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Black out text, patterns or whole pages for good, then check no text remains under them
+    Redact {
+        input: PathBuf,
+        /// Text to redact wherever it appears (case-insensitive); repeat for several
+        #[arg(long)]
+        text: Vec<String>,
+        /// Kind of content to redact wherever it appears; repeat for several
+        #[arg(long, value_enum)]
+        pattern: Vec<CliPattern>,
+        /// Pages to redact entirely, e.g. "3" or "1-2,5"
+        #[arg(long)]
+        pages: Option<String>,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Convert to PDF/A for archiving, then check the result
     Pdfa {
         input: PathBuf,
@@ -293,6 +309,27 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum CliPattern {
+    Email,
+    Phone,
+    CreditCard,
+    Ssn,
+    Date,
+}
+
+impl From<CliPattern> for Pattern {
+    fn from(p: CliPattern) -> Self {
+        match p {
+            CliPattern::Email => Pattern::Email,
+            CliPattern::Phone => Pattern::Phone,
+            CliPattern::CreditCard => Pattern::CreditCard,
+            CliPattern::Ssn => Pattern::Ssn,
+            CliPattern::Date => Pattern::Date,
+        }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -426,7 +463,7 @@ impl Cmd {
             | Cmd::ToJpg { input, .. } => vec![input],
             // These report it themselves (from the engine), like Compress.
             Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } | Cmd::Ocr { .. } |
-            Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } | Cmd::Compare { .. } |
+            Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } | Cmd::Compare { .. } | Cmd::Redact { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
         }
     }
@@ -455,6 +492,7 @@ impl Cmd {
             | Cmd::ToPowerpoint { out, .. }
             | Cmd::ToExcel { out, .. }
             | Cmd::Compare { out, .. }
+            | Cmd::Redact { out, .. }
             | Cmd::Office { out, .. } => out.parent().filter(|p| !p.as_os_str().is_empty()),
         }
     }
@@ -590,6 +628,24 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             if r.regions > 0 {
                 eprintln!("{} other changed area{} outlined", r.regions, if r.regions == 1 { "" } else { "s" });
             }
+            warned(Ok((r.path, r.was_encrypted)))
+        }
+        Cmd::Redact { input: i, text, pattern, pages: whole, out } => {
+            let i = input(i);
+            let mut queries: Vec<Query> = text.into_iter().map(|t| Query::Literal { text: t, case_insensitive: true }).collect();
+            queries.extend(pattern.into_iter().map(|p| Query::Pattern(p.into())));
+            let mut marks = redact::mark_text(&redact::find_all(&i, &queries)?);
+            if let Some(spec) = whole {
+                let n = sheaf_core::pdfcraft::Doc::open(&i)?.document().info.pages.len() as u32;
+                let pages: Vec<usize> = sheaf_core::ranges::parse_ranges(&spec, n)?.into_iter().flatten().map(|p| p as usize - 1).collect();
+                marks.extend(redact::mark_pages(&i, &pages)?);
+            }
+            if marks.is_empty() {
+                return Err(OpdfError::Unsupported("nothing to redact: no match and no page given".into()));
+            }
+            let r = redact::apply(&i, &marks, &out)?;
+            eprintln!("{} area{} redacted", r.areas, if r.areas == 1 { "" } else { "s" });
+            eprintln!("Verified: no hidden text remains under the redactions");
             warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::Pdfa { input: i, level, out } => {
