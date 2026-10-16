@@ -35,7 +35,6 @@ pub struct ViewerUi {
     /// Load id: renders of an earlier document are told apart and dropped.
     pub load_id: u64,
     pub input: Input,
-    bytes: Arc<Vec<u8>>,
     pub viewer: Viewer,
     /// Device pixels per logical pixel (2 on Retina).
     scale: f64,
@@ -76,7 +75,7 @@ impl ViewerUi {
     }
 
     fn page_key(&self, page: usize) -> RenderKey {
-        RenderKey { doc: self.load_id, page, width: self.viewer.render_px(self.scale), thumb: false }
+        RenderKey { doc: self.load_id, page, width: self.viewer.render_px(page, self.scale), thumb: false }
     }
 
     fn thumb_key(&self, page: usize) -> RenderKey {
@@ -104,8 +103,11 @@ pub fn load(ui: &AppWindow, tab_id: i32, input: Input) {
     sheaf_app::pool::probes().submit(move || {
         let r = sheaf_app::jobs::catching(|| {
             let bytes = Arc::new(std::fs::read(&input.path)?);
-            let boxes = sheaf_app::viewer::page_boxes(&bytes, input.password.as_deref())?;
-            Ok((bytes, boxes))
+            let boxes = sheaf_app::viewer::page_boxes(&bytes, input.password.as_deref());
+            // The whole file was read to find the page boxes: give that memory back now.
+            drop(bytes);
+            viewer::release_free_memory();
+            boxes
         });
         let _ = weak.upgrade_in_event_loop(move |ui| {
             let ok = with(|a| {
@@ -114,18 +116,20 @@ pub fn load(ui: &AppWindow, tab_id: i32, input: Input) {
                 if t.files.first().map(|f| &f.input.path) != Some(&input.path) {
                     return false;
                 }
+                let ((w, top, h), (stop, sh)) = (t.viewport, t.strip);
                 let ok = match r {
-                    Ok((bytes, boxes)) => {
+                    Ok(boxes) => {
+                        let mut viewer = Viewer::new(boxes);
+                        viewer.set_width(w as f64);
                         t.viewer = Some(Box::new(ViewerUi {
                             load_id: next_load_id(),
                             input,
-                            bytes,
-                            viewer: Viewer::new(boxes),
+                            viewer,
                             scale,
-                            top: 0.0,
-                            height: 800.0,
-                            strip_top: 0.0,
-                            strip_height: 800.0,
+                            top: top as f64,
+                            height: h as f64,
+                            strip_top: stop as f64,
+                            strip_height: sh as f64,
                             pages: Lru::new(CACHE_CAP),
                             page_bytes: 0,
                             thumbs: Lru::new(THUMB_CAP),
@@ -181,18 +185,18 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
             keys.extend(v.wanted_pages().map(|p| v.page_key(p)).filter(|k| !v.pages.contains(k)));
         }
         keys.extend(v.wanted_thumbs().map(|p| v.thumb_key(p)).filter(|k| !v.thumbs.contains(k)));
-        Some((v.load_id, keys, v.bytes.clone(), v.input.password.clone(), v.viewer.boxes.clone()))
+        Some((v.load_id, keys, v.input.clone()))
     });
-    let Some((load_id, keys, bytes, password, boxes)) = todo else { return };
+    let Some((load_id, keys, input)) = todo else { return };
     let wanted: HashSet<RenderKey> = keys.iter().copied().collect();
     let q = viewer::renders();
     q.retain(|k| k.doc != load_id || wanted.contains(k));
     for key in keys {
-        let (weak, bytes, password, b) = (ui.as_weak(), bytes.clone(), password.clone(), boxes[key.page]);
+        let (weak, input) = (ui.as_weak(), input.clone());
         q.submit(key, move || {
-            let Ok(px) = viewer::render_page(key.doc, &bytes, password.as_deref(), &b, key.page, key.width) else { return };
+            let Ok(px) = viewer::render_page(&input, key.page, key.width) else { return };
             let _ = weak.upgrade_in_event_loop(move |_| {
-                let image = Image::from_rgba8_premultiplied(px);
+                let image = Image::from_rgba8(px);
                 update(tab_id, |v| {
                     if v.load_id != key.doc {
                         return;
@@ -201,12 +205,22 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
                         v.thumbs.put(key, image);
                         return;
                     }
+                    // The page's render at another zoom was only kept to show until this one came.
+                    let mut evicted = v.pages.retain(|k| k.page != key.page || k.width == key.width);
                     v.page_bytes += image_bytes(&image);
-                    let evicted = v.pages.put(key, image);
+                    evicted.extend(v.pages.put(key, image));
                     v.page_bytes -= evicted.iter().map(|(_, i)| image_bytes(i)).sum::<usize>();
+                    let mut freed = !evicted.is_empty();
                     while v.page_bytes > CACHE_BYTES && v.pages.len() > 1 {
                         let Some((_, i)) = v.pages.pop_oldest() else { break };
                         v.page_bytes -= image_bytes(&i);
+                        freed = true;
+                    }
+                    if freed {
+                        viewer::release_free_memory();
+                    }
+                    if std::env::var_os("SHEAF_VIEWER_DEBUG").is_some() {
+                        eprintln!("viewer cache: {} pages, {} MB, {} thumbs", v.pages.len(), v.page_bytes >> 20, v.thumbs.len());
                     }
                 });
             });
@@ -217,6 +231,11 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
 // ---- events from the widget ------------------------------------------------------------------
 
 pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) {
+    with(|a| {
+        if let Some(t) = a.tab(tab_id) {
+            t.viewport = (width, top, height);
+        }
+    });
     update(tab_id, |v| {
         v.viewer.set_width(width as f64);
         v.top = top as f64;
@@ -226,6 +245,11 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) 
 }
 
 pub fn strip_viewport(ui: &AppWindow, tab_id: i32, top: f32, height: f32) {
+    with(|a| {
+        if let Some(t) = a.tab(tab_id) {
+            t.strip = (top, height);
+        }
+    });
     update(tab_id, |v| {
         v.strip_top = top as f64;
         v.strip_height = height as f64;

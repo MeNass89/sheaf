@@ -213,9 +213,30 @@ impl<K: Hash + Eq + Clone, V> Lru<K, V> {
     }
 }
 
-/// Byte budget for page renders on top of the [`CACHE_CAP`] count: at 200 % zoom one page can
-/// weigh 30 MB, and 40 of those would not fit the memory a viewer may use.
-pub const CACHE_BYTES: usize = 256 << 20;
+/// Byte budget for page renders on top of the [`CACHE_CAP`] count. At fit width on a Retina
+/// screen one A4 page is about 15 MB (60 MB at 200 %), so 40 of them would not fit the memory a
+/// viewer may use; 160 MB still holds the pages within a screen of the viewport.
+pub const CACHE_BYTES: usize = 160 << 20;
+
+/// Gives memory freed by the allocator back to the system. A page render allocates and frees
+/// large buffers; macOS keeps freed large blocks mapped (and counted against the app) until
+/// asked, so after a few hundred pages the app would look like it holds a gigabyte.
+pub fn release_free_memory() {
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            fn malloc_zone_pressure_relief(zone: *mut std::ffi::c_void, goal: usize) -> usize;
+        }
+        // SAFETY: a null zone means every zone, and a goal of 0 means as much as possible;
+        // the call only returns free pages to the system.
+        unsafe {
+            malloc_zone_pressure_relief(std::ptr::null_mut(), 0);
+        }
+    }
+}
+
+/// Most pixels one page render may have: 4 M pixels (16 MB), an A4 page about 1680 × 2380.
+pub const MAX_RENDER_PIXELS: u64 = 4_000_000;
 
 /// A redaction mark, search match or other box drawn over a page, in PDF user space.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -298,9 +319,13 @@ impl Viewer {
         [((self.content_width() - self.page_width) / 2.0).round(), y, self.page_width, h]
     }
 
-    /// Device pixels a page is rendered wide at `scale` device pixels per logical pixel.
-    pub fn render_px(&self, scale: f64) -> u32 {
-        (self.page_width * scale).round() as u32
+    /// Device pixels page `i` is rendered wide at `scale` device pixels per logical pixel,
+    /// at most [`MAX_RENDER_PIXELS`] in all (a zoomed-in page is then drawn slightly enlarged).
+    pub fn render_px(&self, i: usize, scale: f64) -> u32 {
+        let want = self.page_width * scale;
+        let (w, h) = self.boxes.get(i).map(PageBox::view_size).unwrap_or((1.0, 1.0));
+        let cap = (MAX_RENDER_PIXELS as f64 * w / h.max(1e-9)).sqrt();
+        want.min(cap).round().max(1.0) as u32
     }
 
     /// The page under a content point and the point in its PDF user space.
@@ -401,7 +426,14 @@ impl RenderQueue {
                     };
                     // A crashing render must not kill the worker.
                     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(task));
-                    inner.0.lock().unwrap().running.remove(&key);
+                    let idle = {
+                        let mut st = inner.0.lock().unwrap();
+                        st.running.remove(&key);
+                        st.tasks.is_empty()
+                    };
+                    if idle {
+                        release_free_memory();
+                    }
                 })
                 .expect("spawn render worker");
         }
@@ -458,28 +490,21 @@ pub fn page_boxes(bytes: &Arc<Vec<u8>>, password: Option<&str>) -> sheaf_core::R
         .collect())
 }
 
-thread_local! {
-    /// The render worker's parsed document: parsing once per thread, not once per page.
-    static RENDERER: std::cell::RefCell<Option<(u64, render::PageRenderer)>> = const { std::cell::RefCell::new(None) };
-}
-
-/// Page `page` of document `doc` rendered `width` pixels wide, as premultiplied RGBA. Call it
-/// on a render worker: the parsed document stays in the thread for the next page.
-pub fn render_page(doc: u64, bytes: &Arc<Vec<u8>>, password: Option<&str>, b: &PageBox, page: usize, width: u32) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
-    RENDERER.with(|cell| {
-        let mut cell = cell.borrow_mut();
-        if cell.as_ref().is_none_or(|(d, _)| *d != doc) {
-            let config = render::RenderConfig { password: password.map(Arc::from), ..Default::default() };
-            *cell = Some((doc, render::PageRenderer::new(bytes.clone(), config)));
-        }
-        let (_, r) = cell.as_mut().expect("set above");
-        let scale = (width as f64 / b.view_size().0.max(1.0)) as f32;
-        let out = r.render(render::RenderRequest { page, scale, ..Default::default() });
-        if let Some(e) = out.error {
-            return Err(e);
-        }
-        Ok(slint::SharedPixelBuffer::clone_from_slice(&out.rgba, out.width, out.height))
-    })
+/// Page `page` of `input` rendered `width` pixels wide, as RGBA.
+///
+/// Rasters come from pdfium (under its lock), the document opened for each render and closed
+/// after. PdfCraft's renderer was measured first: on a picture-heavy 7-page guide it held
+/// 600–800 MB once a few pages were drawn (its decoded-image caches stay with the process),
+/// against about 200 MB for pdfium across all 301 pages of a 43-copy merge. The page boxes the
+/// overlays are mapped with still come from PdfCraft ([`page_boxes`]), as do the redactions.
+pub fn render_page(input: &sheaf_core::pages::Input, page: usize, width: u32) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
+    use pdfium_render::prelude::PdfRenderConfig;
+    let _g = sheaf_core::engine::pdfium_lock();
+    let doc = input.open().map_err(|e| e.to_string())?;
+    let p = doc.pages().get(page as i32).map_err(|e| e.to_string())?;
+    let bmp = p.render_with_config(&PdfRenderConfig::new().set_target_width(width as i32)).map_err(|e| e.to_string())?;
+    let (w, h) = (bmp.width() as u32, bmp.height() as u32);
+    Ok(slint::SharedPixelBuffer::clone_from_slice(&bmp.as_rgba_bytes(), w, h))
 }
 
 #[cfg(test)]
@@ -583,7 +608,7 @@ mod tests {
         assert_eq!(v.page_rect(0), [16.0, 16.0, 600.0, (600.0f64 * 842.0 / 595.0)]);
         // The turned landscape page shows upright, as tall as an A4 portrait one.
         assert!((v.page_rect(1)[3] - v.page_rect(0)[3]).abs() < 1e-9);
-        assert_eq!(v.render_px(2.0), 1200);
+        assert_eq!(v.render_px(0, 2.0), 1200);
         // A click in the middle of page 3 is the middle of its crop box.
         let [x, y, w, h] = v.page_rect(2);
         let (p, ux, uy) = v.hit(x + w / 2.0, y + h / 2.0).unwrap();
@@ -609,6 +634,10 @@ mod tests {
         v.set_width(632.0);
         assert!(v.set_zoom(200));
         assert_eq!(v.page_rect(0)[2], 1200.0);
+        // 2400 px wide at 2× would be 8 M pixels: held to 4 M, same proportions.
+        let px = v.render_px(0, 2.0) as u64;
+        let h = px * 842 / 595;
+        assert!(px < 2400 && px * h <= MAX_RENDER_PIXELS && px * h > MAX_RENDER_PIXELS * 99 / 100, "{px}");
         assert_eq!(v.content_width(), 1232.0);
         assert!(v.set_zoom(50));
         assert_eq!((v.page_rect(0)[2], v.content_width()), (300.0, 632.0));
@@ -648,14 +677,14 @@ mod tests {
     }
 
     #[test]
-    fn pages_render_at_the_asked_width_on_the_engine() {
+    fn pages_render_at_the_asked_width_with_their_rotation() {
         let t = tempfile::tempdir().unwrap();
         let path = t.path().join("a.pdf");
         std::fs::write(&path, crate::viewer::tests::tiny_pdf()).unwrap();
         let bytes = Arc::new(std::fs::read(&path).unwrap());
         let boxes = page_boxes(&bytes, None).unwrap();
         assert_eq!(boxes, vec![PageBox { crop: [0.0, 0.0, 200.0, 100.0], rotation: 90 }]);
-        let px = render_page(7, &bytes, None, &boxes[0], 0, 250).unwrap();
+        let px = render_page(&sheaf_core::pages::Input::new(&path), 0, 250).unwrap();
         // Turned a quarter: 100 × 200 pt shown, 250 px wide.
         assert_eq!((px.width(), px.height()), (250, 500));
     }

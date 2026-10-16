@@ -268,7 +268,7 @@ export component ResultScreen inherits Rectangle {
 
         // Summary bar
         Rectangle {
-            height: root.tab.warning != "" ? Theme.result-bar-height + 18px : Theme.result-bar-height;
+            height: Theme.result-bar-height + (root.tab.warning != "" ? 18px : 0) + (root.tab.result-verified != "" ? 18px : 0);
             background: Theme.content-bg;
             border-radius: Theme.radius-item;
             HorizontalLayout {
@@ -312,6 +312,12 @@ export component ResultScreen inherits Rectangle {
                             font-weight: Theme.weight-demibold;
                             color: Theme.success-strong;
                         }
+                    }
+                    if root.tab.result-verified != "": Text {
+                        text: root.tab.result-verified;
+                        font-size: Theme.fs-caption;
+                        font-weight: Theme.weight-demibold;
+                        color: Theme.success-strong;
                     }
                     if root.tab.warning != "": Text {
                         text: root.tab.warning;

@@ -61,12 +61,14 @@ export component PageViewer inherits Rectangle {
     property <length> x1;
     property <length> y1;
 
-    changed page-top => { root.viewport(sv.visible-width, root.page-top, sv.visible-height); }
-    changed width => { root.viewport(sv.visible-width, root.page-top, sv.visible-height); }
-    changed height => {
-        root.viewport(sv.visible-width, root.page-top, sv.visible-height);
-        root.strip-viewport(root.strip-top, strip.visible-height);
-    }
+    // The visible size of the page area and of the strip, once laid out.
+    property <length> page-w: sv.visible-width;
+    property <length> page-h: sv.visible-height;
+    property <length> strip-h: strip.visible-height;
+    changed page-top => { root.viewport(root.page-w, root.page-top, root.page-h); }
+    changed page-w => { root.viewport(root.page-w, root.page-top, root.page-h); }
+    changed page-h => { root.viewport(root.page-w, root.page-top, root.page-h); }
+    changed strip-h => { root.strip-viewport(root.strip-top, root.strip-h); }
     changed strip-top => { root.strip-viewport(root.strip-top, strip.visible-height); }
     changed scroll-seq => { sv.content-y = -root.scroll; }
     init => {

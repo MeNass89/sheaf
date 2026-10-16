@@ -65,6 +65,10 @@ pub struct TabState {
     pub viewer: Option<Box<crate::viewer_ui::ViewerUi>>,
     /// Redact: why the viewer could not open the file.
     pub viewer_error: Option<String>,
+    /// The viewer widget's last viewport (width, top, height) and strip (top, height), kept
+    /// for a document that finishes loading after the widget reported them.
+    pub viewport: (f32, f32, f32),
+    pub strip: (f32, f32),
 }
 
 impl TabState {
@@ -85,6 +89,8 @@ impl TabState {
             preview: None,
             viewer: None,
             viewer_error: None,
+            viewport: (600.0, 0.0, 800.0),
+            strip: (0.0, 800.0),
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
         }
     }
