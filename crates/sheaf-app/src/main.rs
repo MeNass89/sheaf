@@ -6,6 +6,7 @@ mod home;
 mod password;
 mod run;
 mod state;
+mod viewer_ui;
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -64,6 +65,33 @@ macro_rules! wire {
             }
         });
     }};
+}
+
+/// Page viewer and Redact panel events (the `ViewerBridge` global).
+fn wire_viewer(ui: &AppWindow) {
+    let vb = ui.global::<sheaf_app::ViewerBridge>();
+    macro_rules! with_ui {
+        ($on:ident, |$w:ident $(, $a:ident)*| $body:expr) => {{
+            let weak = ui.as_weak();
+            vb.$on(move |$($a),*| {
+                if let Some($w) = weak.upgrade() {
+                    $body
+                }
+            });
+        }};
+    }
+    with_ui!(on_viewport, |ui, id, w, top, h| viewer_ui::viewport(&ui, id, w, top, h));
+    with_ui!(on_strip_viewport, |ui, id, top, h| viewer_ui::strip_viewport(&ui, id, top, h));
+    vb.on_pressed(viewer_ui::pressed);
+    vb.on_released(viewer_ui::released);
+    vb.on_thumb_clicked(viewer_ui::thumb_clicked);
+    with_ui!(on_zoom_step, |ui, id, d| viewer_ui::zoom_step(&ui, id, d));
+    with_ui!(on_search, |ui, id, text, patterns| viewer_ui::search(&ui, id, &text, &patterns));
+    vb.on_toggle_result(viewer_ui::toggle_result);
+    vb.on_show_result(viewer_ui::show_result);
+    with_ui!(on_mark_page, |ui, id| viewer_ui::mark_page(&ui, id));
+    vb.on_remove_mark(viewer_ui::remove_mark);
+    vb.on_clear_marks(viewer_ui::clear_marks);
 }
 
 fn main() -> Result<(), slint::PlatformError> {
@@ -168,6 +196,7 @@ fn main() -> Result<(), slint::PlatformError> {
     parse.on_custom_text_error(|s| sheaf_core::numbers::custom_text_error(&s).unwrap_or_default().into());
     parse.on_has_code(|set, code| run::has_code(&set, &code));
     parse.on_toggle_code(|set, code| run::toggle_code(&set, &code).into());
+    wire_viewer(&ui);
     let ocr = ui.global::<sheaf_app::OcrInfo>();
     let langs: Vec<sheaf_app::OcrLanguage> =
         sheaf_core::ocr::languages().iter().map(|(code, name)| sheaf_app::OcrLanguage { code: (*code).into(), name: (*name).into() }).collect();

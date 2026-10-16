@@ -13,6 +13,7 @@ use sheaf_core::excel::{self, SheetLayout};
 use sheaf_core::export::{self, ExportOptions, Office};
 use sheaf_core::ocr::{self, OcrOptions};
 use sheaf_core::pdfa::{self, PdfALevel};
+use sheaf_core::redact::{self, Mark};
 use sheaf_core::watermark::{self, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError, Result};
 use std::path::{Path, PathBuf};
@@ -62,6 +63,8 @@ pub enum Job {
     Ocr { items: Vec<(Input, PathBuf)>, options: OcrOptions },
     Export { items: Vec<(Input, PathBuf)>, kind: ExportKind, options: ExportOptions },
     Compare { old: Input, new: Input, mode: CompareMode, out: PathBuf },
+    /// Areas to black out for good (search matches, rectangles, whole pages).
+    Redact { input: Input, marks: Vec<Mark>, out: PathBuf },
 }
 
 impl Job {
@@ -73,7 +76,8 @@ impl Job {
             | Job::RemovePages { input, .. }
             | Job::ExtractPages { input, .. }
             | Job::Organize { input, .. }
-            | Job::Crop { input, .. } => vec![input.path.as_path()],
+            | Job::Crop { input, .. }
+            | Job::Redact { input, .. } => vec![input.path.as_path()],
             Job::Compare { old, new, .. } => vec![old.path.as_path(), new.path.as_path()],
             Job::Rotate { items, .. }
             | Job::PageNumbers { items, .. }
@@ -190,6 +194,7 @@ fn loses_protection(job: &Job) -> bool {
         | Job::Ocr { .. }
         | Job::Export { .. }
         | Job::Compare { .. }
+        | Job::Redact { .. }
         | Job::Crop { .. } => vec![],
     };
     pdfs.into_iter().any(Input::is_encrypted)
@@ -349,6 +354,13 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             vec![r.path]
         }
+        Job::Redact { input, marks, out } => {
+            let r = redact::apply(input, marks, out)?;
+            was_encrypted |= r.was_encrypted;
+            summary = format!("{} area{} redacted", r.areas, if r.areas == 1 { "" } else { "s" });
+            progress(1.0);
+            vec![r.path]
+        }
         Job::PdfA { items, level } => {
             let many = items.len() > 1;
             let mut conforming = 0;
@@ -457,6 +469,7 @@ pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
         T::PdfToPowerPoint => return format!("{stem}.pptx"),
         T::PdfToExcel => return format!("{stem}.xlsx"),
         T::Compare => "-comparison",
+        T::Redact => "-redacted",
         _ => "",
     };
     format!("{stem}{suffix}.pdf")

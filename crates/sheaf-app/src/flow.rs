@@ -153,16 +153,21 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
             });
             let _ = weak.upgrade_in_event_loop(move |ui| match r {
                 Ok((pages, thumb)) => {
-                    let (organize, crop) = with(|a| {
-                        let Some(t) = a.tab(tab_id) else { return (None, None) };
-                        let Some(f) = t.files.iter_mut().find(|f| f.uid == uid) else { return (None, None) };
+                    let (organize, crop, view) = with(|a| {
+                        let Some(t) = a.tab(tab_id) else { return (None, None, None) };
+                        let Some(f) = t.files.iter_mut().find(|f| f.uid == uid) else { return (None, None, None) };
                         f.pages = Some(pages);
                         f.thumb = Some(state::to_image(thumb));
                         f.locked = f.input.password.is_some();
                         let input = f.input.clone();
                         if t.tool == ToolId::Crop {
                             t.preview = None;
-                            return (None, Some(input));
+                            return (None, Some(input), None);
+                        }
+                        if t.tool == ToolId::Redact {
+                            t.viewer = None;
+                            t.viewer_error = None;
+                            return (None, None, Some(input));
                         }
                         let organize = if t.tool == ToolId::Organize {
                             t.order = (1..=pages).collect();
@@ -172,7 +177,7 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                         } else {
                             None
                         };
-                        (organize, None)
+                        (organize, None, None)
                     });
                     with(|a| refresh(a, tab_id));
                     crate::password::done(&ui, tab_id, uid);
@@ -181,6 +186,9 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                     }
                     if let Some(input) = crop {
                         crop_preview(&ui, tab_id, uid, input);
+                    }
+                    if let Some(input) = view {
+                        crate::viewer_ui::load(&ui, tab_id, input);
                     }
                 }
                 Err(e) => {
@@ -279,6 +287,8 @@ pub fn remove_file(ui: &AppWindow, tab_id: i32, uid: i32) {
                 t.order.clear();
                 t.page_thumbs.clear();
                 t.preview = None;
+                t.viewer = None;
+                t.viewer_error = None;
             }
         }
         refresh(a, tab_id);

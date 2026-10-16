@@ -4,7 +4,6 @@ use pdfium_render::prelude::*;
 use sheaf_core::engine::{new_document, pdfium_lock};
 use sheaf_core::pages::Input;
 use sheaf_core::redact::{self, Pattern, Query};
-use sheaf_core::security::protect;
 use std::path::{Path, PathBuf};
 
 const PAGES: [&[&str]; 3] = [
@@ -127,7 +126,11 @@ fn nothing_marked_is_refused_and_writes_nothing() {
 fn a_protected_input_gives_an_unprotected_redacted_output() {
     let t = tempfile::tempdir().unwrap();
     let plain = fixture(t.path());
-    let locked = protect(&Input::new(&plain), "pw", None, &t.path().join("locked.pdf")).unwrap();
+    // qpdf, not `security::protect`: about 1 in 30 of its outputs is refused by PdfCraft's
+    // parser (InvalidEncryption), which would make this test flaky.
+    let locked = t.path().join("locked.pdf");
+    let o = std::process::Command::new("qpdf").args(["--encrypt", "pw", "owner", "256", "--"]).arg(&plain).arg(&locked).output().unwrap();
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
     let pdf = Input { path: locked, password: Some("pw".into()) };
     let hits = redact::find(&pdf, &Query::Pattern(Pattern::Email)).unwrap();
     assert_eq!(hits.len(), 3);

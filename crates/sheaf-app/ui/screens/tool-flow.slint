@@ -7,6 +7,9 @@ import { PrimaryButton } from "../widgets/button.slint";
 import { FileCardView, PageCardView } from "../widgets/file-card.slint";
 import { OptionsPanel } from "options.slint";
 import { ProcessingOverlay } from "processing.slint";
+import { PageViewer } from "../widgets/page-viewer.slint";
+import { RedactPanel } from "redact-panel.slint";
+import { ViewerBridge } from "../flow-types.slint";
 
 // Full-width accent button at the bottom of the options panel.
 component ActionButton inherits Rectangle {
@@ -128,6 +131,8 @@ export component ToolFlowScreen inherits Rectangle {
     property <bool> running: root.tab.phase == 1;
     property <bool> organize: root.tab.tool == "organize";
     property <bool> compare: root.tab.tool == "compare";
+    // Redact shows its one file in the page viewer instead of the file grid.
+    property <bool> redact: root.tab.tool == "redact";
     property <int> need: root.tab.tool == "merge" || root.compare ? 2 : 1;
     property <bool> has-original: root.tab.files.length > 0 && root.tab.files[0].slot == 0;
     property <bool> has-changed: root.tab.files.length > 0 && root.tab.files[root.tab.files.length - 1].slot == 1;
@@ -191,10 +196,34 @@ export component ToolFlowScreen inherits Rectangle {
                     remove => { root.remove-file(root.tab.files[root.tab.files.length - 1].uid); }
                 }
             }
+            if root.redact && root.tab.files.length > 0: PageViewer {
+                x: 1px;
+                y: 1px;
+                width: parent.width - 2px;
+                height: parent.height - 2px;
+                pages: root.tab.viewer-pages;
+                thumbs: root.tab.viewer-thumbs;
+                overlays: root.tab.viewer-overlays;
+                content-width: root.tab.viewer-width;
+                content-height: root.tab.viewer-height;
+                thumbs-height: root.tab.viewer-thumbs-height;
+                current: root.tab.viewer-current;
+                zoom: root.tab.viewer-zoom;
+                status: root.tab.viewer-status;
+                scroll: root.tab.viewer-scroll;
+                scroll-seq: root.tab.viewer-scroll-seq;
+                interactive: !root.running;
+                viewport(w, top, h) => { ViewerBridge.viewport(root.tab.id, w, top, h); }
+                strip-viewport(top, h) => { ViewerBridge.strip-viewport(root.tab.id, top, h); }
+                pressed(x, y) => { ViewerBridge.pressed(root.tab.id, x, y); }
+                released(x, y) => { ViewerBridge.released(root.tab.id, x, y); }
+                thumb-clicked(p) => { ViewerBridge.thumb-clicked(root.tab.id, p); }
+                zoom-step(d) => { ViewerBridge.zoom-step(root.tab.id, d); }
+            }
             if !root.compare && root.tab.files.length == 0: DropZone {
                 open-file => { root.open-files(); }
             }
-            if !root.compare && root.tab.files.length > 0: ScrollView {
+            if !root.compare && !root.redact && root.tab.files.length > 0: ScrollView {
                 x: 1px;
                 y: 1px;
                 width: parent.width - 2px;
@@ -234,7 +263,7 @@ export component ToolFlowScreen inherits Rectangle {
                 font-size: Theme.fs-caption;
                 color: Theme.warning;
             }
-            if !root.compare && root.tab.files.length > 0 && !root.running: AddFab {
+            if !root.compare && !root.redact && root.tab.files.length > 0 && !root.running: AddFab {
                 x: parent.width - self.width - 20px;
                 y: 20px;
                 count: root.tab.files.length;
@@ -278,8 +307,16 @@ export component ToolFlowScreen inherits Rectangle {
             ScrollView {
                 vertical-stretch: 1;
                 content-width: self.visible-width;
-                content-height: opts.preferred-height;
+                content-height: root.redact ? rp.preferred-height : opts.preferred-height;
+                rp := RedactPanel {
+                    width: parent.visible-width;
+                    visible: root.redact;
+                    height: root.redact ? self.preferred-height : 0;
+                    tab: root.tab;
+                    enabled: !root.running && root.tab.files.length > 0;
+                }
                 opts := OptionsPanel {
+                    visible: !root.redact;
                     width: parent.visible-width;
                     tool: root.tab.tool;
                     file-count: root.tab.files.length;
@@ -298,7 +335,8 @@ export component ToolFlowScreen inherits Rectangle {
                 text: root.tab.name;
                 enabled: !root.running && opts.valid && root.tab.files-ready && root.tab.files.length >= root.need
                     && (!root.compare || (root.has-original && root.has-changed))
-                    && (!root.organize || root.tab.pages.length > 0);
+                    && (!root.organize || root.tab.pages.length > 0)
+                    && (!root.redact || root.tab.redact-marks.length > 0);
                 clicked => { root.run(opts.options); }
             }
         }

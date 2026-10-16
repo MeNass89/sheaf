@@ -370,3 +370,24 @@ fn compare_job_shows_the_counts() {
     // The page-number-free image PDF has no words: every word of the new one is added.
     assert_eq!(o.summary, "1 added, 0 removed, 0 changed");
 }
+
+#[test]
+fn redact_job_counts_the_areas_and_warns_on_protected_input() {
+    use sheaf_core::redact::{self, Query};
+    let dir = tempfile::tempdir().unwrap();
+    let text = helvetica_pdf(dir.path());
+    // qpdf, not `security::protect`: about 1 in 30 of its outputs is refused by PdfCraft's
+    // parser (InvalidEncryption), which would make this test flaky.
+    let prot = dir.path().join("p.pdf");
+    protect_with_qpdf(&text, &prot, "pw", "owner");
+    let locked = Input { path: prot, password: Some("pw".into()) };
+    let hits = redact::find(&locked, &Query::Literal { text: "hello".into(), case_insensitive: true }).unwrap();
+    let mut marks = redact::mark_text(&hits);
+    marks.extend(redact::mark_rects(&[(0, [300.0, 300.0, 400.0, 400.0])]));
+    let no = AtomicBool::new(false);
+    let o = run(&Job::Redact { input: locked, marks, out: dir.path().join("r.pdf") }, &no, &|_| {}).unwrap();
+    assert_eq!(o.summary, "2 areas redacted");
+    assert!(o.was_encrypted);
+    let d = lopdf::Document::load(&o.outputs[0]).unwrap();
+    assert!(!d.extract_text(&[1]).unwrap().contains("Hello"));
+}

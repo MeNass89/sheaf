@@ -23,6 +23,48 @@ export struct PageItem {
     has-thumb: bool,
 }
 
+// Page viewer: one page in the scrolling content (logical pixels), its render when ready.
+export struct ViewerPage {
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    image: image,
+    ready: bool,
+}
+
+// A thumbnail in the viewer's strip.
+export struct ViewerThumb {
+    page: int,
+    y: length,
+    h: length,
+    image: image,
+    ready: bool,
+}
+
+// A box drawn over the pages, in content coordinates. kind: 0 marked for redaction,
+// 1 search match, 2 the search match being looked at.
+export struct ViewerOverlay {
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    kind: int,
+}
+
+// Redact: one search match ("alice@example.com", "Page 2").
+export struct RedactResult {
+    text: string,
+    page: string,
+    checked: bool,
+}
+
+// Redact: one area marked for redaction.
+export struct RedactMarkItem {
+    label: string,
+    page: string,
+}
+
 export struct ResultFile {
     name: string,
     info: string,
@@ -81,6 +123,28 @@ export struct ToolTab {
     preview-w: float,
     preview-h: float,
     continue-tools: [ContinueTool],
+    // Result page: a check that passed ("Verified: no hidden text remains under the redactions").
+    result-verified: string,
+    // Page viewer (Redact)
+    viewer-pages: [ViewerPage],
+    viewer-thumbs: [ViewerThumb],
+    viewer-overlays: [ViewerOverlay],
+    viewer-width: length,
+    viewer-height: length,
+    viewer-thumbs-height: length,
+    viewer-current: int,
+    viewer-zoom: int,
+    // "" when the pages are shown; otherwise why not ("Opening…", an error).
+    viewer-status: string,
+    // Rust asks the viewer to scroll: the position, and a counter bumped on each request.
+    viewer-scroll: length,
+    viewer-scroll-seq: int,
+    // Redact
+    redact-searched: bool,
+    redact-busy: bool,
+    redact-count: string,
+    redact-results: [RedactResult],
+    redact-marks: [RedactMarkItem],
 }
 
 // Everything the options panels collect, sent with the action button.
@@ -149,6 +213,25 @@ export global OcrInfo {
     in property <[OcrLanguage]> languages;
     // The recognition models are installed.
     in property <bool> available;
+}
+
+// Page viewer and Redact panel events, answered by the Rust side. The first argument is the tab id.
+export global ViewerBridge {
+    // The page area is `width` wide and shows [top, top + height) of its content.
+    callback viewport(int, length, length, length);
+    callback strip-viewport(int, length, length);
+    callback pressed(int, length, length);
+    callback released(int, length, length);
+    callback thumb-clicked(int, int);
+    // +1 / −1 one zoom step, 0 fit width.
+    callback zoom-step(int, int);
+    // Redact: search the text and the patterns (",email,phone,").
+    callback search(int, string, string);
+    callback toggle-result(int, int);
+    callback show-result(int, int);
+    callback mark-page(int);
+    callback remove-mark(int, int);
+    callback clear-marks(int);
 }
 
 // Text parsing the options panels need and Slint lacks, answered by the Rust side.

@@ -61,6 +61,10 @@ pub struct TabState {
     pub office_missing: bool,
     /// Crop: page 1 of the file, and its displayed size in points.
     pub preview: Option<(Image, f32, f32)>,
+    /// Redact: the page viewer of the file, with its marks.
+    pub viewer: Option<Box<crate::viewer_ui::ViewerUi>>,
+    /// Redact: why the viewer could not open the file.
+    pub viewer_error: Option<String>,
 }
 
 impl TabState {
@@ -79,6 +83,8 @@ impl TabState {
             cancelling: false,
             pages_failed: false,
             preview: None,
+            viewer: None,
+            viewer_error: None,
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
         }
     }
@@ -186,12 +192,16 @@ fn verb(tool: ToolId) -> &'static str {
         ToolId::Watermark => "watermarked",
         ToolId::Crop => "cropped",
         ToolId::Ocr => "made searchable",
+        ToolId::Redact => "redacted",
         _ => "converted",
     }
 }
 
 /// Result-page warning when a protected input gave an unprotected output.
 pub const NOT_PROTECTED: &str = "The output is not password-protected.";
+
+/// Redact: the written file was re-opened and audited (a failed audit is a failed job).
+pub const REDACTION_VERIFIED: &str = "Verified: no hidden text remains under the redactions";
 
 /// Compress of protected input whose unprotected copy came out larger.
 fn grew_text(many: bool, before: u64, after: u64) -> String {
@@ -268,6 +278,14 @@ pub fn build(t: &TabState) -> ToolTab {
         default_out: t.files.first().map(|f| sheaf_app::jobs::default_name(t.tool, &f.input.stem())).unwrap_or_default().into(),
         ..Default::default()
     };
+    if let Some(v) = &t.viewer {
+        crate::viewer_ui::fill(&mut tab, v);
+    }
+    tab.viewer_status = match (&t.viewer, &t.viewer_error, t.files.is_empty()) {
+        (Some(_), _, _) | (None, None, true) => "".into(),
+        (None, Some(e), _) => e.as_str().into(),
+        (None, None, false) => "Opening…".into(),
+    };
     if let Phase::Done(d) = &t.phase {
         fill_result(&mut tab, t, d);
     }
@@ -309,6 +327,9 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
     }
     if o.was_encrypted {
         tab.warning = NOT_PROTECTED.into();
+    }
+    if t.tool == ToolId::Redact && !o.outputs.is_empty() {
+        tab.result_verified = REDACTION_VERIFIED.into();
     }
     if !o.notes.is_empty() {
         tab.notes_title = notes_title(t.tool).into();
@@ -519,6 +540,15 @@ mod tests {
         assert_eq!(uids(&t), [(1, 7)]);
         t.put_compare(compare_slot(&taken(&t), None), entry(8));
         assert_eq!(uids(&t), [(0, 8), (1, 7)]);
+    }
+
+    #[test]
+    fn redact_result_says_how_many_areas_and_that_the_audit_passed() {
+        let o = JobOutcome { outputs: vec![PathBuf::from("/x/a-redacted.pdf")], summary: "3 areas redacted".into(), ..Default::default() };
+        let tab = done_tab(ToolId::Redact, o);
+        assert_eq!(tab.result_title, "Your PDF has been redacted successfully.");
+        assert_eq!((tab.result_sub.as_str(), tab.result_verified.as_str()), ("3 areas redacted", REDACTION_VERIFIED));
+        assert_eq!(done_tab(ToolId::Rotate, JobOutcome { outputs: vec![PathBuf::from("/x/a.pdf")], ..Default::default() }).result_verified, "");
     }
 
     #[test]

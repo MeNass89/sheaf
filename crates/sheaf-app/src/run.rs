@@ -154,7 +154,14 @@ fn crop_spec(opts: &ToolOptions) -> Result<CropSpec> {
 }
 
 /// Builds the job. `order` is the Organize grid (1-based pages, 0 = blank).
+#[cfg(test)]
 fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptions, dest: Dest) -> Result<Job> {
+    build_job_with(tool, inputs, order, Vec::new(), opts, dest)
+}
+
+/// Builds the job. `order` is the Organize grid (1-based pages, 0 = blank); `marks` are
+/// Redact's areas.
+fn build_job_with(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, opts: &ToolOptions, dest: Dest) -> Result<Job> {
     let each = matches!(dest, Dest::NextToEach);
     let (file, folder) = match dest {
         Dest::File(f) => {
@@ -244,6 +251,12 @@ fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptio
             };
             Job::Compare { old, new, mode: if opts.compare_mode == 1 { CompareMode::Overlay } else { CompareMode::Text }, out: single()? }
         }
+        ToolId::Redact => {
+            if marks.is_empty() {
+                return Err(OpdfError::Unsupported("Mark something for redaction first".into()));
+            }
+            Job::Redact { input: one(inputs)?, marks, out: single()? }
+        }
         ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
         other => return Err(OpdfError::Unsupported(format!("{} is not available yet", tools::find(other).name))),
     })
@@ -251,9 +264,10 @@ fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptio
 
 /// The action button of tab `tab_id`.
 pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
-    let Some((tool, inputs, order)) = with(|a| {
+    let Some((tool, inputs, order, marks)) = with(|a| {
         let t = a.tab(tab_id)?;
-        matches!(t.phase, Phase::Edit).then(|| (t.tool, t.files.iter().map(|f| f.input.clone()).collect::<Vec<_>>(), t.order.clone()))
+        let marks = t.viewer.as_ref().map(|v| v.marks()).unwrap_or_default();
+        matches!(t.phase, Phase::Edit).then(|| (t.tool, t.files.iter().map(|f| f.input.clone()).collect::<Vec<_>>(), t.order.clone(), marks))
     }) else {
         return;
     };
@@ -270,7 +284,7 @@ pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
         }
     };
     let Some(dest) = dest else { return };
-    let job = match build_job(tool, inputs, order, &opts, dest) {
+    let job = match build_job_with(tool, inputs, order, marks, &opts, dest) {
         Ok(j) => j,
         Err(e) => return toast(ui, &e.to_string()),
     };
@@ -394,6 +408,8 @@ pub fn start_over(tab_id: i32) {
             t.files.clear();
             t.order.clear();
             t.page_thumbs.clear();
+            t.viewer = None;
+            t.viewer_error = None;
         }
         refresh(a, tab_id);
     });
@@ -533,6 +549,18 @@ mod tests {
         let Job::Export { kind, options, .. } = build_job(ToolId::PdfToExcel, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/t.xlsx".into())).unwrap() else { panic!() };
         assert_eq!((kind, options.ocr), (ExportKind::Excel(SheetLayout::SheetPerTable), true));
         assert_eq!(out_name(ToolId::PdfToPowerPoint, Path::new("/a/x.pdf"), &o), "x.pptx");
+    }
+
+    #[test]
+    fn redact_job_needs_marks() {
+        let o = opts();
+        let one = || vec![Input::new("/a/v.pdf")];
+        let dest = || Dest::File("/s/v-redacted.pdf".into());
+        assert!(build_job_with(ToolId::Redact, one(), vec![], vec![], &o, dest()).is_err());
+        let marks = sheaf_core::redact::mark_rects(&[(0, [1.0, 2.0, 30.0, 40.0])]);
+        let Job::Redact { input, marks: m, out } = build_job_with(ToolId::Redact, one(), vec![], marks.clone(), &o, dest()).unwrap() else { panic!() };
+        assert_eq!((input.path, m, out), (PathBuf::from("/a/v.pdf"), marks, PathBuf::from("/s/v-redacted.pdf")));
+        assert_eq!(out_name(ToolId::Redact, Path::new("/a/v.pdf"), &o), "v-redacted.pdf");
     }
 
     #[test]

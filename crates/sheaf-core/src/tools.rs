@@ -171,7 +171,7 @@ static CATALOGUE: &[ToolInfo] = &[
     tool!(Sign, "Sign PDF", "Place your signature on a document.", Security, "signature", PDF, false, 3),
     tool!(Protect, "Protect PDF", "Lock a PDF behind a password.", Security, "lock", PDF, true, 1),
     tool!(Unlock, "Unlock PDF", "Remove the password from a PDF you can open.", Security, "lock-open", PDF, true, 1),
-    tool!(Redact, "Redact PDF", "Permanently black out sensitive text and areas.", Security, "eraser", PDF, false, 3),
+    tool!(Redact, "Redact PDF", "Permanently black out sensitive text and areas.", Security, "eraser", PDF, false, 1),
     tool!(Compare, "Compare PDF", "Spot the differences between two versions of a document.", Security, "git-compare", PDF, true, 1),
 ];
 

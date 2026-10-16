@@ -20,5 +20,8 @@ image.workspace = true
 pdfium-render.workspace = true
 tempfile.workspace = true
 
+[dev-dependencies]
+lopdf.workspace = true
+
 [build-dependencies]
 slint-build.workspace = true
