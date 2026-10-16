@@ -14,6 +14,7 @@ pub mod pdfa;
 pub mod pdfcraft;
 pub mod paths;
 pub mod ranges;
+pub mod redact;
 pub mod repair;
 pub mod rotate;
 pub mod security;
