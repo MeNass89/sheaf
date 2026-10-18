@@ -18,6 +18,7 @@ pub mod redact;
 pub mod repair;
 pub mod rotate;
 pub mod security;
+pub mod sign;
 pub mod tools;
 pub mod watermark;
 pub use error::{OpdfError, Result};
