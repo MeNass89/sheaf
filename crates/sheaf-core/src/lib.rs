@@ -1,5 +1,6 @@
 pub mod compare;
 pub mod compress;
+pub mod edit;
 pub mod engine;
 pub mod export;
 pub mod error;
