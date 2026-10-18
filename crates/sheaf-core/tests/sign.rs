@@ -37,11 +37,13 @@ fn spec(page: usize, rect: [f64; 4], graphic: Graphic, digital: Option<DigitalSp
     SignSpec { page, rect, graphic, digital }
 }
 
-/// The signatures of `path` as PdfCraft reads them: (signed, intact: not Invalid).
+/// The signatures of `path` as PdfCraft reads them: (signed, intact). A self-signed test ID is
+/// not in any trust store, so an intact signature reads `Unknown` (signer not trusted), never
+/// `Valid` or `Invalid`; anything else is not intact.
 fn signatures(path: &Path) -> Vec<(bool, bool)> {
     let doc = Doc::open(&Input::new(path)).unwrap();
     assert_eq!(doc.document().is_signed(), doc.document().signatures.iter().any(|s| s.signed));
-    doc.document().signatures.iter().map(|s| (s.signed, s.status != sheaf_core::pdfcraft::engine::SignatureStatus::Invalid)).collect()
+    doc.document().signatures.iter().map(|s| (s.signed, s.status == sheaf_core::pdfcraft::engine::SignatureStatus::Unknown)).collect()
 }
 
 /// `pdfsig` output, or `None` when poppler isn't installed.
@@ -250,4 +252,99 @@ fn bad_specs_are_refused() {
     assert!(sign::sign(&i, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Drawn(vec![vec![[f64::NAN, 0.0]]]), None), &out).is_err());
     assert!(sign::sign(&i, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Image(invoice()), None), &out).is_err());
     assert!(!out.exists());
+}
+
+#[test]
+fn a_digital_signature_draws_the_same_ink_as_a_visual_one() {
+    let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
+    let rect = [72.0, 72.0, 272.0, 132.0];
+    let strokes = vec![vec![[0.0, 0.0], [0.4, 0.3], [0.7, 0.05], [1.0, 0.3]]];
+    for (name, g) in [("typed", Graphic::Typed("Ada Lovelace".into())), ("drawn", Graphic::Drawn(strokes))] {
+        let visual = sign::sign(&Input::new(invoice()), &spec(0, rect, g.clone(), None), &t.path().join(format!("{name}-v.pdf"))).unwrap().path;
+        let digital = sign::sign(&Input::new(invoice()), &spec(0, rect, g, digital(&p12, "secret")), &t.path().join(format!("{name}-d.pdf"))).unwrap().path;
+        // Only the signature box: the invoice's own text is outside it.
+        let ink_in_box = |path: &Path| {
+            let img = render(path, 0);
+            let h = img.1 as f64;
+            let mut b: Option<[u32; 4]> = None;
+            for y in (h - rect[3]) as u32..(h - rect[1]) as u32 {
+                for x in rect[0] as u32..rect[2] as u32 {
+                    let p = &img.2[((y * img.0 + x) * 4) as usize..];
+                    if p[3] > 128 && p[0] < 128 {
+                        b = Some(b.map_or([x, y, x, y], |b| [b[0].min(x), b[1].min(y), b[2].max(x), b[3].max(y)]));
+                    }
+                }
+            }
+            b.expect("no ink in the box")
+        };
+        let (v, d) = (ink_in_box(&visual), ink_in_box(&digital));
+        assert!(v.iter().zip(d).all(|(a, b)| a.abs_diff(b) <= 2), "{name}: visual ink {v:?}, digital ink {d:?}");
+        assert_eq!(signatures(&digital), [(true, true)]);
+    }
+}
+
+/// One page, MediaBox [0 0 600 800] with CropBox [100 200 500 700], turned `rotation`.
+fn cropped_turned(dir: &Path, rotation: i64) -> PathBuf {
+    use lopdf::{Dictionary, Object};
+    let dict = |pairs: Vec<(&str, Object)>| {
+        let mut d = Dictionary::new();
+        for (k, v) in pairs {
+            d.set(k, v);
+        }
+        d
+    };
+    let nums = |v: [i64; 4]| Object::Array(v.iter().map(|n| Object::Integer(*n)).collect());
+    let mut doc = lopdf::Document::with_version("1.7");
+    let pages = doc.new_object_id();
+    let content = doc.add_object(lopdf::Stream::new(Dictionary::new(), Vec::new()));
+    let page = doc.add_object(dict(vec![
+        ("Type", Object::Name(b"Page".to_vec())),
+        ("Parent", Object::Reference(pages)),
+        ("Contents", Object::Reference(content)),
+        ("Resources", Object::Dictionary(Dictionary::new())),
+        ("MediaBox", nums([0, 0, 600, 800])),
+        ("CropBox", nums([100, 200, 500, 700])),
+        ("Rotate", Object::Integer(rotation)),
+    ]));
+    doc.objects.insert(
+        pages,
+        Object::Dictionary(dict(vec![("Type", Object::Name(b"Pages".to_vec())), ("Kids", Object::Array(vec![Object::Reference(page)])), ("Count", Object::Integer(1))])),
+    );
+    let catalog = doc.add_object(dict(vec![("Type", Object::Name(b"Catalog".to_vec())), ("Pages", Object::Reference(pages))]));
+    doc.trailer.set("Root", catalog);
+    let path = dir.join(format!("crop-{rotation}.pdf"));
+    doc.save(&path).unwrap();
+    path
+}
+
+#[test]
+fn visual_and_digital_signatures_land_where_placed_on_every_rotation_with_a_crop_offset() {
+    let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
+    for rotation in [0, 90, 180, 270] {
+        let src = Input::new(cropped_turned(t.path(), rotation));
+        let info = sign::page_info(&src, 0).unwrap();
+        let (w, h) = (info.width as f64, info.height as f64);
+        assert_eq!((w, h), if rotation % 180 == 0 { (400.0, 500.0) } else { (500.0, 400.0) }, "rot {rotation}");
+        // Centred a third across and a quarter down the page as displayed, 160 pt wide.
+        let center = [w / 3.0, h / 4.0];
+        let g = Graphic::Typed("Ada Lovelace".into());
+        let rect = sign::box_at(&info, center, 160.0, sign::aspect(&g).unwrap());
+        for (kind, d) in [("visual", None), ("digital", digital(&p12, "secret"))] {
+            let out = sign::sign(&src, &spec(0, rect, g.clone(), d.clone()), &t.path().join(format!("out-{rotation}-{kind}.pdf"))).unwrap().path;
+            if d.is_some() {
+                assert_eq!(signatures(&out), [(true, true)], "rot {rotation}");
+                qpdf_ok(&out);
+            } else {
+                qpdf_clean(&out);
+            }
+            let img = render(&out, 0);
+            assert!((img.0 as f64 - w).abs() <= 1.0 && (img.1 as f64 - h).abs() <= 1.0, "rot {rotation}: render {}x{}", img.0, img.1);
+            let [x0, y0, x1, y1] = ink(&img).unwrap_or_else(|| panic!("rot {rotation} {kind}: no ink"));
+            let (cx, cy) = ((x0 + x1) as f64 / 2.0, (y0 + y1) as f64 / 2.0);
+            assert!((cx - center[0]).abs() < 8.0 && (cy - center[1]).abs() < 8.0, "rot {rotation} {kind}: ink centred at ({cx}, {cy}), placed at {center:?}");
+            assert!(x1 - x0 > 2 * (y1 - y0) && (x1 - x0) as f64 > 140.0 && (x1 - x0) as f64 <= 162.0, "rot {rotation} {kind}: ink {:?} not upright", [x0, y0, x1, y1]);
+        }
+    }
 }

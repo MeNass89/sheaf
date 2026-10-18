@@ -88,11 +88,18 @@ impl Ready {
             }
             Graphic::Drawn(strokes) => {
                 let strokes: Vec<Vec<[f64; 2]>> = strokes.iter().filter(|s| !s.is_empty()).cloned().collect();
+                if strokes.iter().flatten().any(|p| !p.iter().all(|v| v.is_finite())) {
+                    return Err(OpdfError::Unsupported("the drawn signature has a point that isn't a number".into()));
+                }
+                // Ink is drawn as smooth curves, which stay within their points and control
+                // points: the bounds the signer fits by too, so both paths place it alike.
+                let controls: Vec<[f64; 2]> = strokes
+                    .iter()
+                    .flat_map(|s| engine::annot_text::smooth_segments(&s.iter().map(|p| (p[0], p[1])).collect::<Vec<_>>()))
+                    .flat_map(|[a, c, _]| [[a.0, a.1], [c.0, c.1]])
+                    .collect();
                 let mut b = [f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY];
-                for p in strokes.iter().flatten() {
-                    if !p.iter().all(|v| v.is_finite()) {
-                        return Err(OpdfError::Unsupported("the drawn signature has a point that isn't a number".into()));
-                    }
+                for p in strokes.iter().flatten().chain(&controls) {
                     b = [b[0].min(p[0]), b[1].min(p[1]), b[2].max(p[0]), b[3].max(p[1])];
                 }
                 if !b.iter().all(|v| v.is_finite()) {
@@ -227,12 +234,16 @@ pub fn sign(input: &Input, spec: &SignSpec, out: &Path) -> Result<SignReport> {
         None
     };
     let some = |s: &Option<String>| s.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+    let (reason, location) = (some(&d.reason), some(&d.location));
+    // No label in the box: the graphic alone, drawn as the preview and the visual-only path draw
+    // it. PdfCraft insets the graphic by a pad, so the widget is grown by that pad to keep the
+    // ink in the box asked for. Reason and location stay in the signature dictionary.
     let opts = SignOptions {
         page: spec.page,
-        rect: upright.then_some(r),
-        reason: some(&d.reason),
-        location: some(&d.location),
-        appearance: engine::sign::Appearance { reason: d.reason.is_some(), location: d.location.is_some(), ..Default::default() },
+        rect: upright.then(|| padded(r)),
+        reason,
+        location,
+        appearance: engine::sign::Appearance { name: false, date: false, reason: false, location: false, distinguished_name: false, labels: false },
         graphic,
         ..SignOptions::default()
     };
@@ -240,6 +251,15 @@ pub fn sign(input: &Input, spec: &SignSpec, out: &Path) -> Result<SignReport> {
     // Written exactly as PdfCraft produced them: any re-save would invalidate the signature.
     let path = atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?))?;
     Ok(SignReport { path, signer: Some(id.certificate.display_name()) })
+}
+
+/// The widget rectangle whose inner area, once PdfCraft insets its graphic by its pad
+/// (`clamp(0.06 × height, 1, 6)` on every side), is `r`.
+fn padded(r: [f64; 4]) -> [f64; 4] {
+    let h = r[3] - r[1];
+    let full = h / 0.88;
+    let pad = (0.06 * full).clamp(1.0, 6.0);
+    [r[0] - pad, r[1] - pad, r[2] + pad, r[3] + pad]
 }
 
 /// Reads and unlocks a digital ID.
@@ -253,6 +273,15 @@ fn digital_id(d: &DigitalSpec) -> Result<engine::sign::DigitalId> {
 
 /// The edit placing `ready` centred in `view` (view space of page `page`), upright as displayed.
 fn place(page: usize, info: &PageInfo, view: [f64; 4], ready: &Ready) -> Result<Edit> {
+    // Drawn ink spreads half its pen width beyond the stroke: keep it inside the box, as the
+    // signer does.
+    let view = match ready {
+        Ready::Drawn(..) => {
+            let half = Style::default_for(&Shape::Signature { strokes: Vec::new() }).width / 2.0;
+            [view[0] + half, view[1] + half, view[2] - half, view[3] - half]
+        }
+        _ => view,
+    };
     let (gw, gh) = ready.extent();
     let (vw, vh) = (view[2] - view[0], view[3] - view[1]);
     let k = (vw / gw).min(vh / gh);
