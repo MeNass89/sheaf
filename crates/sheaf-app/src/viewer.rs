@@ -215,8 +215,8 @@ impl<K: Hash + Eq + Clone, V> Lru<K, V> {
 
 /// Byte budget for page renders on top of the [`CACHE_CAP`] count. At fit width on a Retina
 /// screen one A4 page is about 15 MB (60 MB at 200 %), so 40 of them would not fit the memory a
-/// viewer may use; 160 MB still holds the pages within a screen of the viewport.
-pub const CACHE_BYTES: usize = 160 << 20;
+/// viewer may use; 96 MB still holds the 4–6 pages within a screen of the viewport.
+pub const CACHE_BYTES: usize = 96 << 20;
 
 /// Gives memory freed by the allocator back to the system. A page render allocates and frees
 /// large buffers; macOS keeps freed large blocks mapped (and counted against the app) until
