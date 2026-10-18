@@ -9,15 +9,46 @@ mod state;
 mod sign_ui;
 mod viewer_ui;
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use sheaf_app::icons::{icon_image, tile_colour};
+use sheaf_app::open_with::Inbox;
 use sheaf_app::prefs::ThemePref;
 use sheaf_app::{jobs, AppWindow, ToolCard, ToolSection};
 use sheaf_core::tools::{self, Category, ToolId, ToolInfo};
 use slint::winit_030::{winit, EventResult, WinitWindowAccessor};
 use slint::{ComponentHandle, ModelRc, VecModel};
+
+thread_local! {
+    /// Files received from outside the window, and the window they go to.
+    static INBOX: RefCell<(Inbox, Option<slint::Weak<AppWindow>>)> = RefCell::default();
+}
+
+/// Files handed to the app: opened now if the window is ready, after it otherwise.
+fn received(paths: Vec<PathBuf>) {
+    if paths.is_empty() {
+        return;
+    }
+    let now = INBOX.with(|i| i.borrow_mut().0.receive(paths));
+    if !now.is_empty() {
+        // Out of the AppKit callback: handled like any other event.
+        let _ = slint::invoke_from_event_loop(move || deliver(now));
+    }
+}
+
+/// One file or several: they wait on Home for a tool, like PDFs dropped there.
+fn deliver(paths: Vec<PathBuf>) {
+    let Some(ui) = INBOX.with(|i| i.borrow().1.as_ref().and_then(|w| w.upgrade())) else { return };
+    let plan = sheaf_app::open_with::plan(paths);
+    if !plan.open.is_empty() {
+        flow::home_files(&ui, plan.open);
+    }
+    if let Some(msg) = plan.notice {
+        flow::toast(&ui, &msg);
+    }
+}
 
 /// Called after each successful job: stores it in the task history.
 pub fn record_history(tool: ToolId, inputs: &[PathBuf], outputs: &[PathBuf]) {
@@ -241,15 +272,17 @@ fn main() -> Result<(), slint::PlatformError> {
         _ => EventResult::Propagate,
     });
 
-    // PDFs passed on the command line (`Sheaf file.pdf`) wait on Home for a tool.
-    let launch: Vec<PathBuf> = std::env::args_os()
-        .skip(1)
-        .map(PathBuf::from)
-        .filter(|p| p.is_file() && sheaf_app::files::ext(p) == "pdf")
-        .collect();
-    if !launch.is_empty() {
-        flow::home_files(&ui, launch);
-    }
+    // Files from Finder ("Open With", Dock icon) and the command line: queued until the event
+    // loop runs, then sent where a PDF dropped on Home goes.
+    received(sheaf_app::open_with::absolute(sheaf_app::open_with::launch_args(std::env::args_os().skip(1))));
+    #[cfg(target_os = "macos")]
+    sheaf_app::open_with::install_hook(|paths| received(sheaf_app::open_with::absolute(paths)));
+    let weak = ui.as_weak();
+    INBOX.with(|i| i.borrow_mut().1 = Some(weak));
+    let _ = slint::invoke_from_event_loop(|| {
+        let queued = INBOX.with(|i| i.borrow_mut().0.set_ready());
+        deliver(queued);
+    });
 
     ui.run()
 }

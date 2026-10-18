@@ -20,6 +20,12 @@ image.workspace = true
 pdfium-render.workspace = true
 tempfile.workspace = true
 
+# "Open With" from Finder (src/open_with.rs). Same versions winit and rfd already pull in.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSURL"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder"] }
+
 [dev-dependencies]
 lopdf.workspace = true
 
