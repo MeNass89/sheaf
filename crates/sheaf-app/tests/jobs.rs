@@ -391,3 +391,50 @@ fn redact_job_counts_the_areas_and_warns_on_protected_input() {
     let d = lopdf::Document::load(&o.outputs[0]).unwrap();
     assert!(!d.extract_text(&[1]).unwrap().contains("Hello"));
 }
+
+#[test]
+fn sign_job_places_the_signature_in_the_box_clicked_on_a_turned_page() {
+    let dir = tempfile::tempdir().unwrap();
+    // Page 2 of the fixture is landscape; turned a quarter it shows portrait.
+    let src = two_page_pdf(dir.path());
+    let turned = dir.path().join("turned.pdf");
+    assert!(std::process::Command::new("qpdf").arg(&src).arg("--rotate=+90:2").arg(&turned).status().unwrap().success());
+    let info = sheaf_core::sign::page_info(&Input::new(&turned), 1).unwrap();
+    assert_eq!(info.rotation, 90);
+    let (w, h) = (info.width as f64, info.height as f64);
+    assert!(h > w, "shown portrait: {w} x {h}");
+    // A box as displayed (points, y down): the middle 60 % across, around 40 % down.
+    let view_box = [0.2 * w, 0.35 * h, 0.8 * w, 0.45 * h];
+    let no_cancel = AtomicBool::new(false);
+    let job = Job::Sign {
+        input: Input::new(&turned),
+        page: 1,
+        view_box,
+        graphic: sheaf_core::sign::Graphic::Drawn(vec![vec![[0.0, 0.0], [1.0, 0.0]]]),
+        digital: None,
+        out: dir.path().join("signed.pdf"),
+    };
+    let o = run(&job, &no_cancel, &|_| {}).unwrap();
+    assert_eq!(o.summary, "Signed");
+    assert!(!o.was_encrypted);
+    // A horizontal line as displayed: rendered upright (2 px per point), the ink runs across
+    // the box at its middle height.
+    let doc = sheaf_core::pdfcraft::Doc::open(&Input::new(&o.outputs[0])).unwrap();
+    let r = doc.render(1, 2.0).unwrap();
+    let k = r.width as f64 / w;
+    assert!(r.height > r.width);
+    let dark: Vec<(u32, u32)> = (0..r.height)
+        .flat_map(|y| (0..r.width).map(move |x| (x, y)))
+        .filter(|&(x, y)| {
+            let p = &r.rgba[((y * r.width + x) * 4) as usize..];
+            p[3] > 128 && p[0] < 60 && p[1] < 60 && p[2] < 60
+        })
+        .collect();
+    assert!(!dark.is_empty(), "no ink");
+    let (xs, ys): (Vec<u32>, Vec<u32>) = dark.into_iter().unzip();
+    let px = |v: &[u32], max: bool| *if max { v.iter().max() } else { v.iter().min() }.unwrap() as f64 / k;
+    let (x0, x1, y0, y1) = (px(&xs, false), px(&xs, true), px(&ys, false), px(&ys, true));
+    let near = |a: f64, b: f64| (a - b).abs() < 0.04 * w + 3.0;
+    assert!(near(x0, view_box[0]) && near(x1, view_box[2]), "ink x {x0:.1}..{x1:.1}, box {view_box:?}");
+    assert!(near((y0 + y1) / 2.0, 0.4 * h) && y1 - y0 < 0.05 * h, "ink y {y0:.1}..{y1:.1}");
+}

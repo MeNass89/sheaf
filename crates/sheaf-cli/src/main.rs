@@ -15,6 +15,7 @@ use sheaf_core::export::{self, ExportOptions, Office};
 use sheaf_core::ocr::{self, OcrOptions};
 use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::redact::{self, Pattern, Query};
+use sheaf_core::sign::{self, DigitalSpec, Graphic, SignSpec};
 use sheaf_core::watermark::{self, Mark, Placement, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError};
 use std::path::{Path, PathBuf};
@@ -295,6 +296,43 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Place a signature (typed, drawn or an image) on a page, optionally signed with a certificate
+    #[command(group = clap::ArgGroup::new("graphic").required(true).args(["text", "image", "strokes"]))]
+    Sign {
+        input: PathBuf,
+        /// Page to sign (1-based)
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..))]
+        page: u32,
+        /// Top-left corner of the signature, in points from the top-left of the page as displayed
+        #[arg(long, value_parser = parse_point, allow_hyphen_values = true)]
+        at: (f64, f64),
+        /// Width of the signature in points (its height follows the graphic)
+        #[arg(long, default_value_t = sign::DEFAULT_WIDTH, value_parser = parse_width)]
+        width: f64,
+        /// The name to sign with, in a script font
+        #[arg(long)]
+        text: Option<String>,
+        /// A PNG or JPEG image of the signature
+        #[arg(long)]
+        image: Option<PathBuf>,
+        /// A drawn signature: JSON strokes [[[x, y], …], …], y up, where the pad is 1 wide
+        #[arg(long)]
+        strokes: Option<PathBuf>,
+        /// Also sign digitally with this certificate (a .p12 or .pfx digital ID)
+        #[arg(long)]
+        p12: Option<PathBuf>,
+        /// Password of the certificate
+        #[arg(long, requires = "p12")]
+        p12_password: Option<String>,
+        /// Reason for signing, shown in the certificate signature
+        #[arg(long, requires = "p12")]
+        reason: Option<String>,
+        /// Where it was signed, shown in the certificate signature
+        #[arg(long, requires = "p12")]
+        location: Option<String>,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Convert to PDF/A for archiving, then check the result
     Pdfa {
         input: PathBuf,
@@ -420,6 +458,26 @@ fn parse_font_size(s: &str) -> Result<f64, String> {
     s.parse().map_err(|_| "a font size in points, or auto".into())
 }
 
+fn parse_point(s: &str) -> Result<(f64, f64), String> {
+    let bad = || format!("expected X,Y in points (e.g. 72,600), got \"{s}\"");
+    let (x, y) = s.split_once(',').ok_or_else(bad)?;
+    let (x, y) = (x.trim().parse::<f64>().map_err(|_| bad())?, y.trim().parse::<f64>().map_err(|_| bad())?);
+    if x.is_finite() && y.is_finite() { Ok((x, y)) } else { Err(bad()) }
+}
+
+fn parse_width(s: &str) -> Result<f64, String> {
+    match s.parse::<f64>() {
+        Ok(w) if (10.0..=2000.0).contains(&w) => Ok(w),
+        _ => Err(format!("expected a width between 10 and 2000 points, got \"{s}\"")),
+    }
+}
+
+/// Drawn strokes from a JSON file: an array of strokes, each an array of [x, y] points.
+fn read_strokes(path: &Path) -> sheaf_core::Result<Vec<Vec<[f64; 2]>>> {
+    let text = std::fs::read_to_string(path)?;
+    serde_json::from_str(&text).map_err(|e| OpdfError::Unsupported(format!("{}: not a list of strokes ({e})", path.display())))
+}
+
 fn parse_transparency(s: &str) -> Result<u8, String> {
     s.parse().ok().filter(|v| [0, 25, 50, 75].contains(v)).ok_or_else(|| "use 0, 25, 50 or 75".into())
 }
@@ -464,6 +522,8 @@ impl Cmd {
             // These report it themselves (from the engine), like Compress.
             Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } | Cmd::Ocr { .. } |
             Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } | Cmd::Compare { .. } | Cmd::Redact { .. } |
+            // Sign refuses protected inputs.
+            Cmd::Sign { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
         }
     }
@@ -493,6 +553,7 @@ impl Cmd {
             | Cmd::ToExcel { out, .. }
             | Cmd::Compare { out, .. }
             | Cmd::Redact { out, .. }
+            | Cmd::Sign { out, .. }
             | Cmd::Office { out, .. } => out.parent().filter(|p| !p.as_os_str().is_empty()),
         }
     }
@@ -647,6 +708,27 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             eprintln!("{} area{} redacted", r.areas, if r.areas == 1 { "" } else { "s" });
             eprintln!("Verified: no hidden text remains under the redactions");
             warned(Ok((r.path, r.was_encrypted)))
+        }
+        Cmd::Sign { input: i, page, at, width, text, image, strokes, p12, p12_password, reason, location, out } => {
+            let i = input(i);
+            let graphic = match (text, image, strokes) {
+                (Some(t), _, _) => Graphic::Typed(t),
+                (_, Some(p), _) => Graphic::Image(p),
+                (_, _, Some(p)) => Graphic::Drawn(read_strokes(&p)?),
+                _ => unreachable!("clap requires one graphic"),
+            };
+            let page = page as usize - 1;
+            let info = sign::page_info(&i, page)?;
+            let aspect = sign::aspect(&graphic)?;
+            let center = [at.0 + width / 2.0, at.1 + width * aspect / 2.0];
+            let digital = p12.map(|p12| DigitalSpec { p12, password: p12_password.unwrap_or_default(), reason, location });
+            let spec = SignSpec { page, rect: sign::box_at(&info, center, width, aspect), graphic, digital };
+            let r = sign::sign(&i, &spec, &out)?;
+            match &r.signer {
+                Some(cn) => eprintln!("Signed digitally (certificate: {cn})"),
+                None => eprintln!("Signed"),
+            }
+            Ok(vec![r.path])
         }
         Cmd::Pdfa { input: i, level, out } => {
             let level = match level {

@@ -61,7 +61,9 @@ pub struct TabState {
     pub office_missing: bool,
     /// Crop: page 1 of the file, and its displayed size in points.
     pub preview: Option<(Image, f32, f32)>,
-    /// Redact: the page viewer of the file, with its marks.
+    /// Sign: the signature being made.
+    pub sign: crate::sign_ui::SignState,
+    /// Redact and Sign: the page viewer of the file, with its marks or the signature placed.
     pub viewer: Option<Box<crate::viewer_ui::ViewerUi>>,
     /// Redact: why the viewer could not open the file.
     pub viewer_error: Option<String>,
@@ -87,6 +89,7 @@ impl TabState {
             cancelling: false,
             pages_failed: false,
             preview: None,
+            sign: crate::sign_ui::SignState::new(),
             viewer: None,
             viewer_error: None,
             viewport: (600.0, 0.0, 800.0),
@@ -199,6 +202,7 @@ fn verb(tool: ToolId) -> &'static str {
         ToolId::Crop => "cropped",
         ToolId::Ocr => "made searchable",
         ToolId::Redact => "redacted",
+        ToolId::Sign => "signed",
         _ => "converted",
     }
 }
@@ -286,7 +290,11 @@ pub fn build(t: &TabState) -> ToolTab {
     };
     if let Some(v) = &t.viewer {
         crate::viewer_ui::fill(&mut tab, v);
+        if t.tool == ToolId::Sign {
+            crate::viewer_ui::fill_sign(&mut tab, v, t.sign.width(), t.sign.preview.as_ref().map(|p| p.1));
+        }
     }
+    crate::sign_ui::fill(&mut tab, &t.sign);
     tab.viewer_status = match (&t.viewer, &t.viewer_error, t.files.is_empty()) {
         (Some(_), _, _) | (None, None, true) => "".into(),
         (None, Some(e), _) => e.as_str().into(),

@@ -6,6 +6,9 @@ pub enum OpdfError {
     PasswordRequired(PathBuf),
     #[error("{0}: wrong password")]
     WrongPassword(PathBuf),
+    /// The password of a digital ID (`.p12`), not of a PDF.
+    #[error("{0}: wrong certificate password")]
+    CertificatePassword(PathBuf),
     #[error("invalid page range \"{range}\": the document has {pages} pages")]
     InvalidRange { range: String, pages: u32 },
     #[error("cannot remove every page (the document has {pages} pages)")]

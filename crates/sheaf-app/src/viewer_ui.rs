@@ -1,5 +1,5 @@
-//! The page viewer of a tab (Redact): its document, what is rendered, and the Redact marks and
-//! search results drawn over it. Lives on the UI thread; renders run on the viewer's own
+//! The page viewer of a tab (Redact, Sign): its document, what is rendered, and the Redact marks
+//! and search results, or the signature being placed, drawn over it. Lives on the UI thread; renders run on the viewer's own
 //! render queue and come back through the event loop.
 
 use std::collections::HashSet;
@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use sheaf_app::viewer::{self, Lru, RenderKey, Viewer, CACHE_BYTES, CACHE_CAP};
-use sheaf_app::{AppWindow, RedactMarkItem, RedactResult, ToolTab, ViewerOverlay, ViewerPage, ViewerThumb};
+use sheaf_app::{AppWindow, RedactMarkItem, RedactResult, SignOverlay, ToolTab, ViewerOverlay, ViewerPage, ViewerThumb};
 use sheaf_core::pages::Input;
 use sheaf_core::redact::{self, Mark, Pattern, Query, TextMatch};
 use slint::{ComponentHandle, Image, ModelRc, VecModel};
@@ -57,6 +57,9 @@ pub struct ViewerUi {
     pub focused: Option<usize>,
     pub searched: bool,
     pub busy: bool,
+    // Sign: where the signature is centred (page, view-space point of the displayed page, in
+    // points), and its height-to-width ratio once a graphic is made.
+    pub sign_at: Option<(usize, f64, f64)>,
 }
 
 impl ViewerUi {
@@ -143,6 +146,7 @@ pub fn load(ui: &AppWindow, tab_id: i32, input: Input) {
                             focused: None,
                             searched: false,
                             busy: false,
+                            sign_at: None,
                         }));
                         t.viewer_error = None;
                         true
@@ -304,8 +308,15 @@ pub fn pressed(tab_id: i32, x: f32, y: f32) {
 const MIN_DRAG: f64 = 4.0;
 
 pub fn released(tab_id: i32, x: f32, y: f32) {
+    let sign = with(|a| a.tab(tab_id).map(|t| t.tool == sheaf_core::tools::ToolId::Sign)).unwrap_or(false);
     update(tab_id, |v| {
         let Some((page, x0, y0)) = v.drag.take() else { return };
+        if sign {
+            // Click to place, drag to move: the signature is centred where the pointer is let go,
+            // on the page it went down on, kept on that page.
+            v.sign_at = Some(place_point(&v.viewer, page, x as f64, y as f64));
+            return;
+        }
         let (x1, y1) = (x as f64, y as f64);
         if (x1 - x0).abs() < MIN_DRAG || (y1 - y0).abs() < MIN_DRAG {
             return;
@@ -315,6 +326,25 @@ pub fn released(tab_id: i32, x: f32, y: f32) {
         let rect = [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)];
         v.manual.push(Manual { mark: redact::mark_rects(&[(page, rect)]).remove(0), label: "Selected area".into() });
     });
+}
+
+/// A content point as page `page`'s view-space point in points (y down, as displayed), held to
+/// the page.
+fn place_point(viewer: &Viewer, page: usize, x: f64, y: f64) -> (usize, f64, f64) {
+    let [px, py, w, h] = viewer.page_rect(page);
+    let (vw, vh) = viewer.boxes[page].view_size();
+    let k = vw / w.max(1e-9);
+    (page, ((x - px).clamp(0.0, w) * k).clamp(0.0, vw), ((y - py).clamp(0.0, h) * k).clamp(0.0, vh))
+}
+
+/// The signature's box in page `page`'s view space (points, `[x0, y0, x1, y1]`, y down): `width`
+/// wide, `width * aspect` tall, centred at `at` and kept on the page where it fits.
+pub fn sign_view_box(viewer: &Viewer, page: usize, at: (f64, f64), width: f64, aspect: f64) -> [f64; 4] {
+    let (vw, vh) = viewer.boxes[page].view_size();
+    let (w, h) = (width.min(vw), (width * aspect).min(vh));
+    let x0 = (at.0 - w / 2.0).clamp(0.0, (vw - w).max(0.0));
+    let y0 = (at.1 - h / 2.0).clamp(0.0, (vh - h).max(0.0));
+    [x0, y0, x0 + w, y0 + h]
 }
 
 // ---- Redact panel ----------------------------------------------------------------------------
@@ -518,9 +548,47 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     tab.redact_marks = ModelRc::new(VecModel::from(marks));
 }
 
+/// Sign: what the job needs from the viewer and the panel, once a signature is made and placed.
+pub fn placed(v: &ViewerUi, s: &crate::sign_ui::SignState) -> Option<crate::run::Placed> {
+    let (page, x, y) = v.sign_at?;
+    let graphic = s.graphic()?;
+    let aspect = s.preview.as_ref()?.1;
+    Some((graphic, page, sign_view_box(&v.viewer, page, (x, y), s.width(), aspect)))
+}
+
+/// Sign: the signature's box over the pages, `width` points wide with height `width * aspect`.
+pub fn fill_sign(tab: &mut ToolTab, v: &ViewerUi, width: f64, aspect: Option<f64>) {
+    tab.sign_placed = v.sign_at.is_some();
+    tab.sign_page = v.sign_at.map(|s| s.0 as i32).unwrap_or(0);
+    let (Some((page, x, y)), Some(aspect)) = (v.sign_at, aspect) else { return };
+    let [x0, y0, x1, y1] = sign_view_box(&v.viewer, page, (x, y), width, aspect);
+    let [px, py, w, _] = v.viewer.page_rect(page);
+    let k = w / v.viewer.boxes[page].view_size().0.max(1e-9);
+    tab.sign_overlay = SignOverlay { show: true, x: len(px + x0 * k), y: len(py + y0 * k), w: len((x1 - x0) * k), h: len((y1 - y0) * k) };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sheaf_app::viewer::PageBox;
+
+    #[test]
+    fn a_click_places_the_signature_centred_and_kept_on_the_page() {
+        // A4 portrait and the same page turned a quarter (shown landscape).
+        let mut v = Viewer::new(vec![PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0 }, PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 90 }]);
+        v.set_width(595.0 + 2.0 * viewer::PAGE_GAP);
+        let [px, py, w, _] = v.page_rect(0);
+        assert_eq!(w, 595.0);
+        let at = place_point(&v, 0, px + 100.0, py + 200.0);
+        assert_eq!(at, (0, 100.0, 200.0));
+        assert_eq!(sign_view_box(&v, 0, (at.1, at.2), 150.0, 0.4), [25.0, 170.0, 175.0, 230.0]);
+        // Near the edge it stays on the page.
+        assert_eq!(sign_view_box(&v, 0, (590.0, 5.0), 150.0, 0.4), [445.0, 0.0, 595.0, 60.0]);
+        // The turned page is 842 wide as shown; points are in its displayed space.
+        let [px, py, w, h] = v.page_rect(1);
+        let at = place_point(&v, 1, px + w, py + h);
+        assert!((at.1 - 842.0).abs() < 1e-6 && (at.2 - 595.0).abs() < 1e-6, "{at:?}");
+    }
 
     #[test]
     fn typed_text_and_chips_become_queries() {

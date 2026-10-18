@@ -1,0 +1,173 @@
+//! Sign panel: the signature being made (typed, drawn or an image), its size, its preview, and
+//! the job spec built from it and the place clicked in the page viewer.
+
+use std::path::PathBuf;
+
+use sheaf_app::sign_preview::{self, Picture};
+use sheaf_app::{AppWindow, ToolOptions, ToolTab};
+use sheaf_core::sign::{self, DigitalSpec, Graphic};
+use sheaf_core::{OpdfError, Result};
+use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
+
+use crate::state::{refresh, with};
+
+/// Signature width in points for Small, Medium and Large (Medium is PdfCraft's Fill & Sign size).
+pub const WIDTHS: [f64; 3] = [100.0, sign::DEFAULT_WIDTH, 220.0];
+/// Preview size in pixels (wide, as a signature is).
+const PREVIEW: (u32, u32) = (600, 160);
+
+#[derive(Default)]
+pub struct SignState {
+    /// 0 Type, 1 Draw, 2 Upload.
+    pub mode: i32,
+    pub name: String,
+    pub strokes: Vec<Vec<[f64; 2]>>,
+    pub image: Option<PathBuf>,
+    /// 0 small, 1 medium, 2 large.
+    pub size: i32,
+    /// The current graphic drawn, and its height-to-width ratio as placed.
+    pub preview: Option<(Image, f64)>,
+}
+
+impl SignState {
+    pub fn new() -> Self {
+        Self { size: 1, ..Default::default() }
+    }
+
+    /// The graphic of the chosen mode, if one is made.
+    pub fn graphic(&self) -> Option<Graphic> {
+        match self.mode {
+            0 => (!self.name.trim().is_empty()).then(|| Graphic::Typed(self.name.trim().to_string())),
+            1 => (!self.strokes.is_empty()).then(|| Graphic::Drawn(self.strokes.clone())),
+            _ => self.image.clone().map(Graphic::Image),
+        }
+    }
+
+    pub fn width(&self) -> f64 {
+        WIDTHS[self.size.clamp(0, 2) as usize]
+    }
+
+    /// Redraws the preview of the current graphic.
+    fn redraw(&mut self) {
+        self.preview = self.graphic().and_then(|g| {
+            let aspect = sign::aspect(&g).ok()?;
+            // Drawn at the aspect it is placed with, so the overlay matches the output.
+            let h = ((PREVIEW.0 as f64 * aspect).round() as u32).clamp(8, PREVIEW.0 * 4);
+            let pic = sign_preview::render(&g, PREVIEW.0, h)?;
+            Some((to_image(&pic), aspect))
+        });
+    }
+}
+
+fn to_image(p: &Picture) -> Image {
+    Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(&p.rgba, p.w, p.h))
+}
+
+/// The Sign fields of `tab` (the viewer's part is filled with the placement).
+pub fn fill(tab: &mut ToolTab, s: &SignState) {
+    tab.sign_mode = s.mode;
+    tab.sign_size = s.size;
+    tab.sign_has_graphic = s.preview.is_some();
+    tab.sign_preview = s.preview.as_ref().map(|p| p.0.clone()).unwrap_or_default();
+    tab.sign_image_name = s.image.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default().into();
+}
+
+fn edit(tab_id: i32, f: impl FnOnce(&mut SignState)) {
+    with(|a| {
+        if let Some(t) = a.tab(tab_id) {
+            f(&mut t.sign);
+            t.sign.redraw();
+        }
+        refresh(a, tab_id);
+    });
+}
+
+pub fn mode(tab_id: i32, mode: i32) {
+    edit(tab_id, |s| s.mode = mode.clamp(0, 2));
+}
+
+pub fn typed(tab_id: i32, name: &str) {
+    // The script font takes a bounded name; longer text is cut, not refused, as it is typed.
+    let name: String = name.chars().take(sign::MAX_TYPED_CHARS).collect();
+    edit(tab_id, |s| s.name = name);
+}
+
+pub fn drawn(tab_id: i32, commands: &str, w: f32, h: f32) {
+    let strokes = sign_preview::parse_pad(commands, w as f64, h as f64);
+    edit(tab_id, |s| s.strokes = strokes);
+}
+
+pub fn size(tab_id: i32, size: i32) {
+    edit(tab_id, |s| s.size = size.clamp(0, 2));
+}
+
+pub fn pick_image(ui: &AppWindow, tab_id: i32) {
+    let Some(p) = rfd::FileDialog::new().set_title("Choose your signature image").add_filter("Image", &["png", "jpg", "jpeg"]).pick_file() else {
+        return;
+    };
+    // Refused here (format, size), not at signing time.
+    if let Err(e) = sign::aspect(&Graphic::Image(p.clone())) {
+        return crate::flow::toast(ui, &e.to_string());
+    }
+    edit(tab_id, |s| s.image = Some(p));
+}
+
+pub fn pick_p12() -> slint::SharedString {
+    rfd::FileDialog::new()
+        .set_title("Choose your certificate")
+        .add_filter("Digital ID", &["p12", "pfx"])
+        .pick_file()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default()
+        .into()
+}
+
+/// The certificate to sign with, when the panel asks for one.
+pub fn digital(opts: &ToolOptions) -> Result<Option<DigitalSpec>> {
+    if !opts.sign_cert {
+        return Ok(None);
+    }
+    let p12 = opts.sign_p12.trim();
+    if p12.is_empty() {
+        return Err(OpdfError::Unsupported("Choose your certificate file first".into()));
+    }
+    let text = |s: &slint::SharedString| (!s.trim().is_empty()).then(|| s.trim().to_string());
+    Ok(Some(DigitalSpec { p12: p12.into(), password: opts.sign_p12_password.to_string(), reason: text(&opts.sign_reason), location: text(&opts.sign_location) }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_graphic_follows_the_mode() {
+        let mut s = SignState::new();
+        assert_eq!(s.width(), 150.0);
+        assert!(s.graphic().is_none());
+        s.name = "  Ada ".into();
+        assert_eq!(s.graphic(), Some(Graphic::Typed("Ada".into())));
+        s.mode = 1;
+        assert!(s.graphic().is_none(), "nothing drawn yet");
+        s.strokes = vec![vec![[0.0, 0.0], [1.0, 0.2]]];
+        s.redraw();
+        let (_, aspect) = s.preview.as_ref().unwrap();
+        assert!((aspect - 0.2).abs() < 1e-9, "{aspect}");
+        s.mode = 2;
+        s.redraw();
+        assert!(s.preview.is_none());
+    }
+
+    #[test]
+    fn a_certificate_needs_its_file() {
+        let mut o = ToolOptions::default();
+        assert_eq!(digital(&o).unwrap(), None);
+        o.sign_cert = true;
+        assert!(digital(&o).is_err());
+        o.sign_p12 = "/ids/me.p12".into();
+        o.sign_p12_password = "pw".into();
+        o.sign_reason = " ".into();
+        o.sign_location = "Paris".into();
+        let d = digital(&o).unwrap().unwrap();
+        assert_eq!((d.p12, d.password.as_str(), d.reason, d.location.as_deref()), (PathBuf::from("/ids/me.p12"), "pw", None, Some("Paris")));
+    }
+}

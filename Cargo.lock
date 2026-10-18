@@ -6698,6 +6698,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "lopdf",
+ "serde_json",
  "sheaf-core",
  "tempfile",
 ]

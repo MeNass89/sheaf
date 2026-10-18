@@ -52,6 +52,15 @@ export struct ViewerOverlay {
     kind: int,
 }
 
+// Sign: the signature as placed on a page, in content coordinates, drawn upright in its box.
+export struct SignOverlay {
+    show: bool,
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+}
+
 // Redact: one search match ("alice@example.com", "Page 2").
 export struct RedactResult {
     text: string,
@@ -145,6 +154,16 @@ export struct ToolTab {
     redact-count: string,
     redact-results: [RedactResult],
     redact-marks: [RedactMarkItem],
+    // Sign: 0 Type, 1 Draw, 2 Upload; the signature as ink on transparent (black, tinted in the
+    // panel); one is made; the uploaded image's name; 0 small, 1 medium, 2 large; where it is.
+    sign-mode: int,
+    sign-preview: image,
+    sign-has-graphic: bool,
+    sign-image-name: string,
+    sign-size: int,
+    sign-placed: bool,
+    sign-page: int,
+    sign-overlay: SignOverlay,
 }
 
 // Everything the options panels collect, sent with the action button.
@@ -201,6 +220,12 @@ export struct ToolOptions {
     excel-layout: int,     // 0 one sheet, 1 one sheet per table
     // Compare
     compare-mode: int,     // 0 semantic text (report), 1 content overlay
+    // Sign: the optional certificate
+    sign-cert: bool,
+    sign-p12: string,      // .p12 / .pfx path
+    sign-p12-password: string,
+    sign-reason: string,
+    sign-location: string,
 }
 
 export struct OcrLanguage {
@@ -232,6 +257,20 @@ export global ViewerBridge {
     callback mark-page(int);
     callback remove-mark(int, int);
     callback clear-marks(int);
+}
+
+// Sign panel events, answered by the Rust side. The first argument is the tab id.
+export global SignBridge {
+    // 0 Type, 1 Draw, 2 Upload.
+    callback mode(int, int);
+    callback typed(int, string);
+    // The pad's strokes as "M x y L x y … M …" in pad pixels, and the pad's width and height.
+    callback drawn(int, string, length, length);
+    callback pick-image(int);
+    // 0 small, 1 medium, 2 large.
+    callback size(int, int);
+    // A certificate file chosen in a dialog ("" when cancelled).
+    callback pick-p12() -> string;
 }
 
 // Text parsing the options panels need and Slint lacks, answered by the Rust side.
