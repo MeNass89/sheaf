@@ -6,6 +6,7 @@ mod home;
 mod password;
 mod run;
 mod state;
+mod sign_ui;
 mod viewer_ui;
 
 use std::path::PathBuf;
@@ -92,6 +93,19 @@ fn wire_viewer(ui: &AppWindow) {
     with_ui!(on_mark_page, |ui, id| viewer_ui::mark_page(&ui, id));
     vb.on_remove_mark(viewer_ui::remove_mark);
     vb.on_clear_marks(viewer_ui::clear_marks);
+
+    let sb = ui.global::<sheaf_app::SignBridge>();
+    sb.on_mode(sign_ui::mode);
+    sb.on_typed(|id, name| sign_ui::typed(id, &name));
+    sb.on_drawn(|id, c, w, h| sign_ui::drawn(id, &c, w, h));
+    sb.on_size(sign_ui::size);
+    sb.on_pick_p12(sign_ui::pick_p12);
+    let weak = ui.as_weak();
+    sb.on_pick_image(move |id| {
+        if let Some(ui) = weak.upgrade() {
+            sign_ui::pick_image(&ui, id);
+        }
+    });
 }
 
 fn main() -> Result<(), slint::PlatformError> {

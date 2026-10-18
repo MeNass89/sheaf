@@ -9,4 +9,5 @@ pub mod jobs;
 pub mod pool;
 pub mod prefs;
 pub mod store_file;
+pub mod sign_preview;
 pub mod viewer;

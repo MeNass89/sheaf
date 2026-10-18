@@ -168,7 +168,7 @@ static CATALOGUE: &[ToolInfo] = &[
     tool!(PageNumbers, "Page numbers", "Stamp page numbers where you want them.", Edit, "list-ordered", PDF, true, 1),
     tool!(Watermark, "Add watermark", "Overlay text or an image across your pages.", Edit, "stamp", PDF, true, 1),
     tool!(Crop, "Crop PDF", "Trim the margins or keep only part of each page.", Edit, "crop", PDF, false, 1),
-    tool!(Sign, "Sign PDF", "Place your signature on a document.", Security, "signature", PDF, false, 3),
+    tool!(Sign, "Sign PDF", "Place your signature on a document.", Security, "signature", PDF, false, 1),
     tool!(Protect, "Protect PDF", "Lock a PDF behind a password.", Security, "lock", PDF, true, 1),
     tool!(Unlock, "Unlock PDF", "Remove the password from a PDF you can open.", Security, "lock-open", PDF, true, 1),
     tool!(Redact, "Redact PDF", "Permanently black out sensitive text and areas.", Security, "eraser", PDF, false, 1),

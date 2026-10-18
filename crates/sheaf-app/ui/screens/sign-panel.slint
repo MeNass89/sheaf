@@ -1,0 +1,199 @@
+// Sign PDF: the signature editor (the original's "Customize your signature": Type, Draw, Upload)
+// and where the signature sits. Clicking a page places it; the certificate options are in the
+// options panel below. Events go to the Rust side through SignBridge.
+import { Theme } from "../theme.slint";
+import { ToolTab, SignBridge } from "../flow-types.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Segment } from "../widgets/radio-card.slint";
+
+component SectionLabel inherits Text {
+    font-size: Theme.fs-label;
+    font-weight: Theme.weight-demibold;
+    color: Theme.text;
+}
+
+// The drawing pad: strokes follow the pointer; each finished stroke is sent as
+// "M x y L x y …" in pad pixels.
+component Pad inherits Rectangle {
+    in property <bool> enabled: true;
+    in-out property <string> commands;
+    callback stroke-done(string, length, length);
+    property <bool> down;
+
+    height: 120px;
+    border-radius: Theme.radius-small;
+    border-width: 1px;
+    border-color: Theme.input-border;
+    background: Theme.input-bg;
+    clip: true;
+    if root.commands == "": Text {
+        text: "Draw your signature here";
+        font-size: Theme.fs-label;
+        color: Theme.text-disabled;
+    }
+    if root.commands != "": Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: parent.width / 1px;
+        viewbox-height: parent.height / 1px;
+        commands: root.commands;
+        stroke: Theme.text;
+        stroke-width: 2.5px;
+    }
+    // The signing line.
+    Rectangle {
+        x: 16px;
+        y: parent.height - 28px;
+        width: parent.width - 32px;
+        height: 1px;
+        background: Theme.separator;
+    }
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: crosshair;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                root.down = true;
+                root.commands += " M " + round(self.mouse-x / 1px) + " " + round(self.mouse-y / 1px);
+            } else if e.kind == PointerEventKind.up && root.down {
+                root.down = false;
+                root.stroke-done(root.commands, root.width, root.height);
+            }
+        }
+        moved => {
+            if root.down {
+                root.commands += " L " + round(self.mouse-x / 1px) + " " + round(self.mouse-y / 1px);
+            }
+        }
+    }
+}
+
+export component SignPanel inherits VerticalLayout {
+    in property <ToolTab> tab;
+    in property <bool> enabled: true;
+    in-out property <string> name;
+    in-out property <string> strokes;
+
+    changed name => { SignBridge.typed(root.tab.id, root.name); }
+
+    spacing: 10px;
+    alignment: start;
+
+    Text {
+        text: "Create your signature, then click on a page to place it. Click elsewhere or drag it to move it.";
+        font-size: Theme.fs-label;
+        color: Theme.text-secondary;
+        wrap: word-wrap;
+        line-height-factor: Theme.line-height;
+    }
+
+    SectionLabel { text: "Customize your signature"; }
+    HorizontalLayout {
+        spacing: 6px;
+        Segment {
+            horizontal-stretch: 1;
+            text: "Type";
+            selected: root.tab.sign-mode == 0;
+            clicked => { SignBridge.mode(root.tab.id, 0); }
+        }
+        Segment {
+            horizontal-stretch: 1;
+            text: "Draw";
+            selected: root.tab.sign-mode == 1;
+            clicked => { SignBridge.mode(root.tab.id, 1); }
+        }
+        Segment {
+            horizontal-stretch: 1;
+            text: "Upload";
+            selected: root.tab.sign-mode == 2;
+            clicked => { SignBridge.mode(root.tab.id, 2); }
+        }
+    }
+
+    if root.tab.sign-mode == 0: TextField {
+        label: "Full name";
+        placeholder: "Your name";
+        text <=> root.name;
+    }
+    if root.tab.sign-mode == 1: VerticalLayout {
+        spacing: 6px;
+        Pad {
+            enabled: root.enabled;
+            commands <=> root.strokes;
+            stroke-done(c, w, h) => { SignBridge.drawn(root.tab.id, c, w, h); }
+        }
+        if root.strokes != "": Text {
+            text: "Clear";
+            font-size: Theme.fs-label;
+            color: Theme.accent;
+            horizontal-alignment: right;
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    root.strokes = "";
+                    SignBridge.drawn(root.tab.id, "", 1px, 1px);
+                }
+            }
+        }
+    }
+    if root.tab.sign-mode == 2: VerticalLayout {
+        spacing: 6px;
+        Segment {
+            text: root.tab.sign-image-name == "" ? "Upload image" : "Change image";
+            clicked => {
+                if root.enabled {
+                    SignBridge.pick-image(root.tab.id);
+                }
+            }
+        }
+        Text {
+            text: root.tab.sign-image-name == "" ? "PNG or JPEG, on a white or transparent background" : root.tab.sign-image-name;
+            font-size: Theme.fs-caption;
+            color: Theme.text-muted;
+            overflow: elide;
+        }
+    }
+
+    // Preview (the pad is its own preview).
+    if root.tab.sign-mode != 1: Rectangle {
+        height: 72px;
+        border-radius: Theme.radius-small;
+        border-width: 1px;
+        border-color: Theme.separator;
+        if root.tab.sign-has-graphic: Image {
+            x: 10px;
+            y: 8px;
+            width: parent.width - 20px;
+            height: parent.height - 16px;
+            source: root.tab.sign-preview;
+            image-fit: contain;
+            // Typed ink follows the theme; an uploaded picture keeps its colours.
+            colorize: root.tab.sign-mode == 0 ? Theme.text : transparent;
+        }
+        if !root.tab.sign-has-graphic: Text {
+            text: "Preview";
+            font-size: Theme.fs-label;
+            color: Theme.text-disabled;
+        }
+    }
+
+    SectionLabel { text: "Size"; }
+    HorizontalLayout {
+        spacing: 6px;
+        for s[i] in ["Small", "Medium", "Large"]: Segment {
+            horizontal-stretch: 1;
+            text: s;
+            selected: root.tab.sign-size == i;
+            clicked => { SignBridge.size(root.tab.id, i); }
+        }
+    }
+
+    Text {
+        text: root.tab.sign-placed ? "Placed on page " + (root.tab.sign-page + 1) : "Click on a page to place your signature.";
+        font-size: Theme.fs-caption;
+        color: root.tab.sign-placed ? Theme.text-muted : Theme.warning;
+        wrap: word-wrap;
+    }
+}

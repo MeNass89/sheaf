@@ -5,7 +5,7 @@
 // Rust side maps them to a page and its PDF user space).
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { ViewerPage, ViewerThumb, ViewerOverlay } from "../flow-types.slint";
+import { ViewerPage, ViewerThumb, ViewerOverlay, SignOverlay } from "../flow-types.slint";
 
 component ZoomButton inherits Rectangle {
     in property <string> text;
@@ -41,6 +41,10 @@ export component PageViewer inherits Rectangle {
     in property <int> scroll-seq;
     // Drawing rectangles with the mouse (off while a job runs).
     in property <bool> interactive: true;
+    // Redact draws the dragged rectangle; Sign places on release and shows its signature.
+    in property <bool> drag-box: true;
+    in property <SignOverlay> sign;
+    in property <image> sign-image;
 
     // The page area is `width` wide and shows [top, top + height) of the content.
     callback viewport(length, length, length);
@@ -152,7 +156,21 @@ export component PageViewer inherits Rectangle {
             border-color: o.kind == 1 ? Theme.info : Theme.danger;
             background: o.kind == 0 ? Theme.option-selected-bg.with-alpha(0.35) : transparent;
         }
-        if root.dragging: Rectangle {
+        if root.sign.show: Rectangle {
+            x: root.sign.x;
+            y: root.sign.y;
+            width: root.sign.w;
+            height: root.sign.h;
+            border-width: 1.5px;
+            border-color: Theme.info;
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: root.sign-image;
+                image-fit: fill;
+            }
+        }
+        if root.dragging && root.drag-box: Rectangle {
             x: min(root.x0, root.x1);
             y: min(root.y0, root.y1);
             width: abs(root.x1 - root.x0);

@@ -1,5 +1,5 @@
 import { Theme } from "../theme.slint";
-import { ToolOptions, Parse, OcrInfo } from "../flow-types.slint";
+import { ToolOptions, Parse, OcrInfo, SignBridge } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { RadioCard, Segment, InfoBox } from "../widgets/radio-card.slint";
 
@@ -196,6 +196,7 @@ export component OptionsPanel inherits VerticalLayout {
         : root.tool == "pdf_to_word" || root.tool == "pdf_to_powerpoint" || root.tool == "pdf_to_excel" ? !root.export-ocr || OcrInfo.available
         : root.tool == "crop" ? (root.crop-mode == 2 || ((root.crop-mode == 0 || root.pages != "")
             && Parse.mm(root.crop-top) + Parse.mm(root.crop-bottom) + Parse.mm(root.crop-left) + Parse.mm(root.crop-right) > 0))
+        : root.tool == "sign" ? !root.sign-cert || root.sign-p12 != ""
         : true);
     out property <ToolOptions> options: {
         level: root.level, password: root.password, confirm: root.confirm, owner: root.owner,
@@ -215,12 +216,19 @@ export component OptionsPanel inherits VerticalLayout {
         ocr-languages: root.ocr-languages, ocr-all-pages: root.ocr-all-pages,
         export-ocr: root.export-ocr, excel-layout: root.excel-layout,
         compare-mode: root.compare-mode,
+        sign-cert: root.sign-cert, sign-p12: root.sign-p12, sign-p12-password: root.sign-p12-password,
+        sign-reason: root.sign-reason, sign-location: root.sign-location,
     };
     callback insert-blank();
     callback get-libreoffice();
     // Watermark: a picture file chosen in a dialog ("" when cancelled).
     callback pick-image() -> string;
 
+    in-out property <bool> sign-cert;
+    in-out property <string> sign-p12;
+    in-out property <string> sign-p12-password;
+    in-out property <string> sign-reason;
+    in-out property <string> sign-location;
     in-out property <int> level: 1;
     in-out property <string> password;
     in-out property <string> confirm;
@@ -681,6 +689,56 @@ export component OptionsPanel inherits VerticalLayout {
         InfoBox { text: "Metadata, a colour profile and the other required parts are added, then the file is checked. Anything that cannot be fixed (a font that is not embedded, for example) is listed on the result page."; }
     }
 
+    if root.tool == "sign": VerticalLayout {
+        spacing: 10px;
+        Rectangle { height: 1px; background: Theme.separator; }
+        Check {
+            text: "Use a certificate (.p12)";
+            checked: root.sign-cert;
+            toggled => { root.sign-cert = !root.sign-cert; }
+        }
+        if root.sign-cert: VerticalLayout {
+            spacing: 10px;
+            Text {
+                text: "Signs the document digitally with your digital ID, so changes made after signing can be detected.";
+                font-size: Theme.fs-caption;
+                color: Theme.text-muted;
+                wrap: word-wrap;
+            }
+            Segment {
+                text: root.sign-p12 == "" ? "Choose certificate file" : "Change certificate file";
+                clicked => {
+                    let p = SignBridge.pick-p12();
+                    if p != "" {
+                        root.sign-p12 = p;
+                    }
+                }
+            }
+            if root.sign-p12 != "": Text {
+                text: root.sign-p12;
+                font-size: Theme.fs-caption;
+                color: Theme.text-muted;
+                overflow: elide;
+            }
+            TextField {
+                label: "Certificate password";
+                password: true;
+                placeholder: "Password of the .p12 file";
+                text <=> root.sign-p12-password;
+            }
+            TextField {
+                label: "Reason (optional)";
+                placeholder: "I approve this document";
+                text <=> root.sign-reason;
+            }
+            TextField {
+                label: "Location (optional)";
+                placeholder: "City";
+                text <=> root.sign-location;
+            }
+        }
+    }
+
     if !root.office-missing && (root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf"
             || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): InfoBox {
         text: "Converted with LibreOffice on this Mac. Nothing is uploaded.";
@@ -699,6 +757,7 @@ export component OptionsPanel inherits VerticalLayout {
     }
 
     public function reset() {
+        root.sign-p12-password = "";
         root.password = "";
         root.confirm = "";
         root.owner = "";

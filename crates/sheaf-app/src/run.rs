@@ -161,7 +161,16 @@ fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptio
 
 /// Builds the job. `order` is the Organize grid (1-based pages, 0 = blank); `marks` are
 /// Redact's areas.
+#[cfg(test)]
 fn build_job_with(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, opts: &ToolOptions, dest: Dest) -> Result<Job> {
+    build_job_full(tool, inputs, order, marks, None, opts, dest)
+}
+
+/// Sign: the graphic, the page and the box (view space, points) placed in the viewer.
+pub type Placed = (sheaf_core::sign::Graphic, usize, [f64; 4]);
+
+/// [`build_job_with`], with Sign's placed signature.
+fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, placed: Option<Placed>, opts: &ToolOptions, dest: Dest) -> Result<Job> {
     let each = matches!(dest, Dest::NextToEach);
     let (file, folder) = match dest {
         Dest::File(f) => {
@@ -257,6 +266,12 @@ fn build_job_with(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             }
             Job::Redact { input: one(inputs)?, marks, out: single()? }
         }
+        ToolId::Sign => {
+            let Some((graphic, page, view_box)) = placed else {
+                return Err(OpdfError::Unsupported("Create your signature and click on a page to place it".into()));
+            };
+            Job::Sign { input: one(inputs)?, page, view_box, graphic, digital: crate::sign_ui::digital(opts)?, out: single()? }
+        }
         ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
         other => return Err(OpdfError::Unsupported(format!("{} is not available yet", tools::find(other).name))),
     })
@@ -264,10 +279,11 @@ fn build_job_with(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
 
 /// The action button of tab `tab_id`.
 pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
-    let Some((tool, inputs, order, marks)) = with(|a| {
+    let Some((tool, inputs, order, marks, placed)) = with(|a| {
         let t = a.tab(tab_id)?;
         let marks = t.viewer.as_ref().map(|v| v.marks()).unwrap_or_default();
-        matches!(t.phase, Phase::Edit).then(|| (t.tool, t.files.iter().map(|f| f.input.clone()).collect::<Vec<_>>(), t.order.clone(), marks))
+        let placed = t.viewer.as_ref().and_then(|v| crate::viewer_ui::placed(v, &t.sign));
+        matches!(t.phase, Phase::Edit).then(|| (t.tool, t.files.iter().map(|f| f.input.clone()).collect::<Vec<_>>(), t.order.clone(), marks, placed))
     }) else {
         return;
     };
@@ -284,7 +300,7 @@ pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
         }
     };
     let Some(dest) = dest else { return };
-    let job = match build_job_with(tool, inputs, order, marks, &opts, dest) {
+    let job = match build_job_full(tool, inputs, order, marks, placed, &opts, dest) {
         Ok(j) => j,
         Err(e) => return toast(ui, &e.to_string()),
     };
@@ -410,6 +426,7 @@ pub fn start_over(tab_id: i32) {
             t.page_thumbs.clear();
             t.viewer = None;
             t.viewer_error = None;
+            t.sign = crate::sign_ui::SignState::new();
         }
         refresh(a, tab_id);
     });
@@ -549,6 +566,21 @@ mod tests {
         let Job::Export { kind, options, .. } = build_job(ToolId::PdfToExcel, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/t.xlsx".into())).unwrap() else { panic!() };
         assert_eq!((kind, options.ocr), (ExportKind::Excel(SheetLayout::SheetPerTable), true));
         assert_eq!(out_name(ToolId::PdfToPowerPoint, Path::new("/a/x.pdf"), &o), "x.pptx");
+    }
+
+    #[test]
+    fn sign_job_needs_a_placed_signature_and_names_the_output_signed() {
+        let one = || vec![Input::new("/a/v.pdf")];
+        let o = ToolOptions::default();
+        let dest = || Dest::File("/s/v-signed.pdf".into());
+        assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], None, &o, dest()).is_err());
+        let placed = (sheaf_core::sign::Graphic::Typed("Ada".into()), 2, [10.0, 20.0, 160.0, 60.0]);
+        let Job::Sign { input, page, view_box, digital, out, .. } = build_job_full(ToolId::Sign, one(), vec![], vec![], Some(placed.clone()), &o, dest()).unwrap() else { panic!() };
+        assert_eq!((input.path, page, view_box, digital, out), (PathBuf::from("/a/v.pdf"), 2, [10.0, 20.0, 160.0, 60.0], None, PathBuf::from("/s/v-signed.pdf")));
+        assert_eq!(out_name(ToolId::Sign, Path::new("/a/v.pdf"), &o), "v-signed.pdf");
+        // A certificate asked for but not chosen: refused before anything runs.
+        let o = ToolOptions { sign_cert: true, ..Default::default() };
+        assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], Some(placed), &o, dest()).is_err());
     }
 
     #[test]
