@@ -3,7 +3,7 @@
 //! Every subcommand prints the path or paths it wrote, one per line, on stdout.
 //! Exit codes: 0 success, 1 any error, 2 password required or wrong.
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use sheaf_core::compress::{self, Level};
 use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
@@ -15,6 +15,7 @@ use sheaf_core::export::{self, ExportOptions, Office};
 use sheaf_core::ocr::{self, OcrOptions};
 use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::redact::{self, Pattern, Query};
+use sheaf_core::edit::{self, EditSpec, Item};
 use sheaf_core::sign::{self, DigitalSpec, Graphic, SignSpec};
 use sheaf_core::watermark::{self, Mark, Placement, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError};
@@ -333,6 +334,38 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Add text and images on top of pages. Each --text or --image starts an item; the --page,
+    /// --at, --size, --color and --width after it apply to that item
+    #[command(after_help = "Example: sheaf edit in.pdf --text \"Approved\" --page 1 --at 72,72 --size 18 --color #c00000 \\\n    --image logo.png --page 2 --at 400,40 --width 120 -o out.pdf")]
+    Edit {
+        input: PathBuf,
+        /// Text to add (\n starts a new line)
+        #[arg(long)]
+        text: Vec<String>,
+        /// A PNG or JPEG image to add
+        #[arg(long)]
+        image: Vec<PathBuf>,
+        /// Page of the item (1-based, default 1)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+        page: Vec<u32>,
+        /// Top-left corner of the item, in points from the top-left of the page as displayed
+        #[arg(long, value_parser = parse_point, allow_hyphen_values = true)]
+        at: Vec<(f64, f64)>,
+        /// Font size of a text item in points (default 12)
+        #[arg(long)]
+        size: Vec<f64>,
+        /// Colour of a text item, #RRGGBB (default black)
+        #[arg(long, value_parser = parse_rgb)]
+        color: Vec<[u8; 3]>,
+        /// Width of an image item in points (its height follows the image)
+        #[arg(long, value_parser = parse_width)]
+        width: Vec<f64>,
+        #[arg(short, long)]
+        out: PathBuf,
+        /// The items in command-line order (filled from the argument positions).
+        #[arg(skip)]
+        items: Vec<CliItem>,
+    },
     /// Convert to PDF/A for archiving, then check the result
     Pdfa {
         input: PathBuf,
@@ -465,6 +498,69 @@ fn parse_point(s: &str) -> Result<(f64, f64), String> {
     if x.is_finite() && y.is_finite() { Ok((x, y)) } else { Err(bad()) }
 }
 
+fn parse_rgb(s: &str) -> Result<[u8; 3], String> {
+    let h = s.trim().trim_start_matches('#');
+    let bad = || format!("expected a colour as #RRGGBB, got \"{s}\"");
+    if h.len() != 6 || !h.is_ascii() {
+        return Err(bad());
+    }
+    let c = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).map_err(|_| bad());
+    Ok([c(0)?, c(2)?, c(4)?])
+}
+
+/// One `sheaf edit` item as given on the command line.
+#[derive(Clone, Debug, Default)]
+struct CliItem {
+    /// The text, or the image path.
+    text: Option<String>,
+    image: Option<PathBuf>,
+    page: Option<u32>,
+    at: Option<(f64, f64)>,
+    size: Option<f64>,
+    color: Option<[u8; 3]>,
+    width: Option<f64>,
+}
+
+/// Groups `sheaf edit`'s options into items by their positions: each --text or --image starts
+/// an item, and the options after it (up to the next one) belong to it.
+fn edit_items(m: &ArgMatches) -> Result<Vec<CliItem>, String> {
+    fn at<T: Clone + Send + Sync + 'static>(m: &ArgMatches, id: &str) -> Vec<(usize, T)> {
+        match (m.indices_of(id), m.get_many::<T>(id)) {
+            (Some(i), Some(v)) => i.zip(v.cloned()).collect(),
+            _ => Vec::new(),
+        }
+    }
+    let mut starts: Vec<(usize, CliItem)> = at::<String>(m, "text").into_iter().map(|(i, t)| (i, CliItem { text: Some(t), ..Default::default() })).collect();
+    starts.extend(at::<PathBuf>(m, "image").into_iter().map(|(i, p)| (i, CliItem { image: Some(p), ..Default::default() })));
+    starts.sort_by_key(|(i, _)| *i);
+    if starts.is_empty() {
+        return Err("nothing to add: give at least one --text or --image".into());
+    }
+    let mut set = |id: &str, i: usize, f: &mut dyn FnMut(&mut CliItem) -> bool| -> Result<(), String> {
+        let item = starts.iter_mut().rev().find(|(s, _)| *s < i).map(|(_, it)| it).ok_or_else(|| format!("--{id} must come after the --text or --image it applies to"))?;
+        if f(item) { Ok(()) } else { Err(format!("--{id} is given twice for one item")) }
+    };
+    fn put<T>(slot: &mut Option<T>, v: T) -> bool {
+        slot.replace(v).is_none()
+    }
+    for (i, v) in at::<u32>(m, "page") {
+        set("page", i, &mut |it| put(&mut it.page, v))?;
+    }
+    for (i, v) in at::<(f64, f64)>(m, "at") {
+        set("at", i, &mut |it| put(&mut it.at, v))?;
+    }
+    for (i, v) in at::<f64>(m, "size") {
+        set("size", i, &mut |it| put(&mut it.size, v))?;
+    }
+    for (i, v) in at::<[u8; 3]>(m, "color") {
+        set("color", i, &mut |it| put(&mut it.color, v))?;
+    }
+    for (i, v) in at::<f64>(m, "width") {
+        set("width", i, &mut |it| put(&mut it.width, v))?;
+    }
+    Ok(starts.into_iter().map(|(_, it)| it).collect())
+}
+
 fn parse_width(s: &str) -> Result<f64, String> {
     match s.parse::<f64>() {
         Ok(w) if (10.0..=2000.0).contains(&w) => Ok(w),
@@ -524,6 +620,7 @@ impl Cmd {
             Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } | Cmd::Compare { .. } | Cmd::Redact { .. } |
             // Sign refuses protected inputs.
             Cmd::Sign { .. } |
+            Cmd::Edit { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
         }
     }
@@ -554,6 +651,7 @@ impl Cmd {
             | Cmd::Compare { out, .. }
             | Cmd::Redact { out, .. }
             | Cmd::Sign { out, .. }
+            | Cmd::Edit { out, .. }
             | Cmd::Office { out, .. } => out.parent().filter(|p| !p.as_os_str().is_empty()),
         }
     }
@@ -730,6 +828,41 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             }
             Ok(vec![r.path])
         }
+        Cmd::Edit { input: i, items, out, .. } => {
+            let i = input(i);
+            let mut spec = EditSpec::default();
+            let mut infos = std::collections::HashMap::new();
+            for it in items {
+                let page = it.page.unwrap_or(1) as usize - 1;
+                let what = it.text.as_deref().map(|t| format!("--text \"{t}\"")).unwrap_or_else(|| format!("--image {}", it.image.as_ref().map(|p| p.display().to_string()).unwrap_or_default()));
+                let (x, y) = it.at.ok_or_else(|| OpdfError::Unsupported(format!("{what}: --at X,Y is missing")))?;
+                let info = match infos.entry(page) {
+                    std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+                    std::collections::hash_map::Entry::Vacant(e) => e.insert(edit::page_info(&i, page)?),
+                };
+                spec.items.push(match (it.text, it.image) {
+                    (Some(text), _) => {
+                        if it.width.is_some() {
+                            return Err(OpdfError::Unsupported(format!("{what}: --width is for images (a text's width follows its size)")));
+                        }
+                        let text = text.replace("\\n", "\n");
+                        Item::Text { page, at: edit::view_to_user(info, [x, y]), text, font_size: it.size.unwrap_or(edit::DEFAULT_FONT_SIZE), color: it.color.unwrap_or([0; 3]) }
+                    }
+                    (None, Some(path)) => {
+                        if it.size.is_some() || it.color.is_some() {
+                            return Err(OpdfError::Unsupported(format!("{what}: --size and --color are for text")));
+                        }
+                        let width = it.width.ok_or_else(|| OpdfError::Unsupported(format!("{what}: --width is missing")))?;
+                        let aspect = edit::Picture::read(&path)?.aspect();
+                        Item::Image { page, rect: edit::image_rect(info, [x, y], width, aspect), path }
+                    }
+                    (None, None) => unreachable!("an item starts at --text or --image"),
+                });
+            }
+            let r = edit::edit(&i, &spec, &out)?;
+            eprintln!("{} item{} added", r.added, if r.added == 1 { "" } else { "s" });
+            warned(Ok((r.path, r.was_encrypted)))
+        }
         Cmd::Pdfa { input: i, level, out } => {
             let level = match level {
                 CliPdfA::A2b => PdfALevel::A2b,
@@ -769,11 +902,16 @@ fn grew_pct(before: u64, after: u64) -> u64 {
 
 fn main() {
     // clap exits 2 on usage errors; keep 2 reserved for password errors.
-    let cli = Cli::try_parse().unwrap_or_else(|e| {
+    let fail = |e: clap::Error| -> ! {
         let code = if e.use_stderr() { 1 } else { 0 };
         let _ = e.print();
         std::process::exit(code);
-    });
+    };
+    let matches = Cli::command().try_get_matches().unwrap_or_else(|e| fail(e));
+    let mut cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| fail(e));
+    if let (Cmd::Edit { items, .. }, Some(("edit", m))) = (&mut cli.cmd, matches.subcommand()) {
+        *items = edit_items(m).unwrap_or_else(|e| fail(Cli::command().error(clap::error::ErrorKind::ArgumentConflict, e)));
+    }
     match run(cli) {
         Ok(paths) => {
             for p in paths {

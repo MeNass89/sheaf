@@ -1,5 +1,5 @@
-//! The page viewer of a tab (Redact, Sign): its document, what is rendered, and the Redact marks
-//! and search results, or the signature being placed, drawn over it. Lives on the UI thread; renders run on the viewer's own
+//! The page viewer of a tab (Redact, Sign, Edit): its document, what is rendered, and the Redact
+//! marks and search results, or what Sign and Edit place, drawn over it. Lives on the UI thread; renders run on the viewer's own
 //! render queue and come back through the event loop.
 
 use std::collections::HashSet;
@@ -298,8 +298,14 @@ pub fn zoom_step(ui: &AppWindow, tab_id: i32, dir: i32) {
 
 pub fn pressed(tab_id: i32, x: f32, y: f32) {
     with(|a| {
-        if let Some(v) = a.tab(tab_id).and_then(|t| t.viewer.as_deref_mut()) {
-            v.drag = v.viewer.hit(x as f64, y as f64).map(|(p, _, _)| (p, x as f64, y as f64));
+        let Some(t) = a.tab(tab_id) else { return };
+        let Some(v) = t.viewer.as_deref_mut() else { return };
+        v.drag = v.viewer.hit(x as f64, y as f64).map(|(p, _, _)| (p, x as f64, y as f64));
+        // Edit: a press on an item grabs it, to move it on release.
+        if t.tool == sheaf_core::tools::ToolId::Edit
+            && let Some((page, ..)) = v.drag
+        {
+            t.edit.press(page, crate::edit_ui::view_point(&v.viewer, page, x as f64, y as f64));
         }
     });
 }
@@ -308,7 +314,21 @@ pub fn pressed(tab_id: i32, x: f32, y: f32) {
 const MIN_DRAG: f64 = 4.0;
 
 pub fn released(tab_id: i32, x: f32, y: f32) {
-    let sign = with(|a| a.tab(tab_id).map(|t| t.tool == sheaf_core::tools::ToolId::Sign)).unwrap_or(false);
+    let tool = with(|a| a.tab(tab_id).map(|t| t.tool));
+    if tool == Some(sheaf_core::tools::ToolId::Edit) {
+        // Click to place, drag an item to move it, on the page the pointer went down on.
+        return with(|a| {
+            let Some(t) = a.tab(tab_id) else { return };
+            if let Some(v) = t.viewer.as_deref_mut()
+                && let Some((page, ..)) = v.drag.take()
+            {
+                let p = crate::edit_ui::view_point(&v.viewer, page, x as f64, y as f64);
+                t.edit.release(page, p, v.viewer.boxes[page].view_size());
+            }
+            refresh(a, tab_id);
+        });
+    }
+    let sign = tool == Some(sheaf_core::tools::ToolId::Sign);
     update(tab_id, |v| {
         let Some((page, x0, y0)) = v.drag.take() else { return };
         if sign {

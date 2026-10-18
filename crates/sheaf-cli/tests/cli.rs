@@ -367,3 +367,65 @@ fn sign_subcommand_visual_and_digital() {
     assert!(!r.status.success() && !bad.exists());
     assert!(String::from_utf8_lossy(&r.stderr).contains("unlock the PDF first"), "{}", String::from_utf8_lossy(&r.stderr));
 }
+
+#[test]
+fn edit_subcommand_adds_text_and_images_in_order() {
+    let t = tempfile::tempdir().unwrap();
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../sheaf-core/tests/fixtures/invoice.pdf");
+    let png = t.path().join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let out = t.path().join("edited.pdf");
+    let r = bin()
+        .arg("edit")
+        .arg(&src)
+        .args(["--text", "Approved", "--page", "1", "--at", "72,40", "--size", "18", "--color", "#C00000"])
+        .args(["--text", "Second", "--at", "72,90"])
+        .arg("--image")
+        .arg(&png)
+        .args(["--at", "400,40", "--width", "60", "-o"])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    assert_eq!(String::from_utf8_lossy(&r.stderr).trim(), "3 items added");
+    assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
+    let bbox = Command::new("pdftotext").args(["-cropbox", "-bbox"]).arg(&out).arg("-").output().unwrap();
+    let s = String::from_utf8_lossy(&bbox.stdout);
+    let word = |w: &str| s.lines().find(|l| l.ends_with(&format!(">{w}</word>"))).unwrap_or_else(|| panic!("{w} missing"));
+    assert!(word("Approved").contains("xMin=\"72.000000\""), "{}", word("Approved"));
+    assert!(word("Second").contains("xMin=\"72.000000\""), "{}", word("Second"));
+    let page = lopdf::Document::load(&out).unwrap();
+    let content = String::from_utf8_lossy(&page.get_page_content(page.get_pages()[&1])).into_owned();
+    assert!(content.contains(" 18 Tf 0.752941 0 0 rg") || content.contains(" 18 Tf 0.75"), "{content}");
+    assert!(content.contains(" 12 Tf 0 0 0 rg"));
+
+    // Usage errors: an option before any item, an item without --at, a bad colour, an image as text.
+    let bad = t.path().join("bad.pdf");
+    for args in [
+        vec!["--page", "1", "--text", "x", "--at", "1,1"],
+        vec!["--text", "x"],
+        vec!["--text", "x", "--at", "1,1", "--color", "red"],
+        vec!["--text", "x", "--at", "1,1", "--width", "50"],
+        vec!["--at", "1,1"],
+    ] {
+        let r = bin().arg("edit").arg(&src).args(&args).arg("-o").arg(&bad).output().unwrap();
+        assert_eq!(r.status.code(), Some(1), "{args:?}: {}", String::from_utf8_lossy(&r.stderr));
+        assert!(!bad.exists(), "{args:?}");
+    }
+    // Off the page: the core's error, exit 1, nothing written.
+    let r = bin().arg("edit").arg(&src).args(["--text", "x", "--at", "5000,10", "-o"]).arg(&bad).output().unwrap();
+    assert_eq!(r.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&r.stderr).contains("outside the page"), "{}", String::from_utf8_lossy(&r.stderr));
+    assert!(!bad.exists());
+    // Not an image: refused, nothing written.
+    let r = bin().arg("edit").arg(&src).arg("--image").arg(&src).args(["--at", "1,1", "--width", "50", "-o"]).arg(&bad).output().unwrap();
+    assert_eq!(r.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&r.stderr).contains("not a PNG or JPEG"), "{}", String::from_utf8_lossy(&r.stderr));
+    assert!(!bad.exists());
+    // Protected input: edited, with the note.
+    let locked = t.path().join("locked.pdf");
+    assert!(Command::new("qpdf").args(["--encrypt", "u", "o", "256", "--"]).arg(&src).arg(&locked).status().unwrap().success());
+    let r = bin().arg("edit").arg(&locked).args(["--password", "u", "--text", "x", "--at", "10,10", "-o"]).arg(&bad).output().unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    assert!(String::from_utf8_lossy(&r.stderr).contains("note: the output is not password-protected"), "{}", String::from_utf8_lossy(&r.stderr));
+}

@@ -5,7 +5,7 @@
 // Rust side maps them to a page and its PDF user space).
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { ViewerPage, ViewerThumb, ViewerOverlay, SignOverlay } from "../flow-types.slint";
+import { ViewerPage, ViewerThumb, ViewerOverlay, SignOverlay, EditOverlay } from "../flow-types.slint";
 
 component ZoomButton inherits Rectangle {
     in property <string> text;
@@ -45,6 +45,8 @@ export component PageViewer inherits Rectangle {
     in property <bool> drag-box: true;
     in property <SignOverlay> sign;
     in property <image> sign-image;
+    // Edit: the text and images placed.
+    in property <[EditOverlay]> edits;
 
     // The page area is `width` wide and shows [top, top + height) of the content.
     callback viewport(length, length, length);
@@ -167,6 +169,31 @@ export component PageViewer inherits Rectangle {
                 width: parent.width;
                 height: parent.height;
                 source: root.sign-image;
+                image-fit: fill;
+            }
+        }
+        for e in root.edits: Rectangle {
+            x: e.x;
+            y: e.y;
+            width: e.w;
+            height: e.h;
+            border-width: e.selected ? 1.5px : 1px;
+            border-color: e.selected ? Theme.info : Theme.info.with-alpha(0.35);
+            if e.is-text: Text {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: parent.height;
+                text: e.text == "" ? "Your text" : e.text;
+                font-family: "Helvetica";
+                font-size: e.font-size;
+                color: e.text == "" ? Theme.text-disabled : e.color;
+                vertical-alignment: top;
+            }
+            if !e.is-text: Image {
+                width: parent.width;
+                height: parent.height;
+                source: e.image;
                 image-fit: fill;
             }
         }

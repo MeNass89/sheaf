@@ -169,8 +169,15 @@ fn build_job_with(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
 /// Sign: the graphic, the page and the box (view space, points) placed in the viewer.
 pub type Placed = (sheaf_core::sign::Graphic, usize, [f64; 4]);
 
-/// [`build_job_with`], with Sign's placed signature.
-fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, placed: Option<Placed>, opts: &ToolOptions, dest: Dest) -> Result<Job> {
+/// What was placed on the pages in the viewer.
+#[derive(Debug, Clone, PartialEq)]
+pub enum OnPages {
+    Sign(Placed),
+    Edit(Vec<sheaf_app::jobs::EditPlaced>),
+}
+
+/// [`build_job_with`], with what was placed in the page viewer (Sign, Edit).
+fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, placed: Option<OnPages>, opts: &ToolOptions, dest: Dest) -> Result<Job> {
     let each = matches!(dest, Dest::NextToEach);
     let (file, folder) = match dest {
         Dest::File(f) => {
@@ -267,13 +274,18 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             Job::Redact { input: one(inputs)?, marks, out: single()? }
         }
         ToolId::Sign => {
-            let Some((graphic, page, view_box)) = placed else {
+            let Some(OnPages::Sign((graphic, page, view_box))) = placed else {
                 return Err(OpdfError::Unsupported("Create your signature and click on a page to place it".into()));
             };
             Job::Sign { input: one(inputs)?, page, view_box, graphic, digital: crate::sign_ui::digital(opts)?, out: single()? }
         }
+        ToolId::Edit => {
+            let Some(OnPages::Edit(items)) = placed.filter(|p| !matches!(p, OnPages::Edit(v) if v.is_empty())) else {
+                return Err(OpdfError::Unsupported("Click on a page to add text or an image".into()));
+            };
+            Job::Edit { input: one(inputs)?, items, out: single()? }
+        }
         ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
-        other => return Err(OpdfError::Unsupported(format!("{} is not available yet", tools::find(other).name))),
     })
 }
 
@@ -282,10 +294,18 @@ pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
     let Some((tool, inputs, order, marks, placed)) = with(|a| {
         let t = a.tab(tab_id)?;
         let marks = t.viewer.as_ref().map(|v| v.marks()).unwrap_or_default();
-        let placed = t.viewer.as_ref().and_then(|v| crate::viewer_ui::placed(v, &t.sign));
+        let placed = match t.tool {
+            ToolId::Edit => Some(t.edit.placed().map(OnPages::Edit)),
+            _ => t.viewer.as_ref().and_then(|v| crate::viewer_ui::placed(v, &t.sign)).map(|p| Ok(OnPages::Sign(p))),
+        };
         matches!(t.phase, Phase::Edit).then(|| (t.tool, t.files.iter().map(|f| f.input.clone()).collect::<Vec<_>>(), t.order.clone(), marks, placed))
     }) else {
         return;
+    };
+    // An item not ready (an empty text box) is said before the save dialog opens.
+    let placed = match placed.transpose() {
+        Ok(p) => p,
+        Err(e) => return toast(ui, &e),
     };
     let paths: Vec<PathBuf> = inputs.iter().map(|i| i.path.clone()).collect();
     let prefs = crate::home::prefs();
@@ -427,6 +447,7 @@ pub fn start_over(tab_id: i32) {
             t.viewer = None;
             t.viewer_error = None;
             t.sign = crate::sign_ui::SignState::new();
+            t.edit = crate::edit_ui::EditState::new();
         }
         refresh(a, tab_id);
     });
@@ -575,12 +596,26 @@ mod tests {
         let dest = || Dest::File("/s/v-signed.pdf".into());
         assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], None, &o, dest()).is_err());
         let placed = (sheaf_core::sign::Graphic::Typed("Ada".into()), 2, [10.0, 20.0, 160.0, 60.0]);
-        let Job::Sign { input, page, view_box, digital, out, .. } = build_job_full(ToolId::Sign, one(), vec![], vec![], Some(placed.clone()), &o, dest()).unwrap() else { panic!() };
+        let Job::Sign { input, page, view_box, digital, out, .. } = build_job_full(ToolId::Sign, one(), vec![], vec![], Some(OnPages::Sign(placed.clone())), &o, dest()).unwrap() else { panic!() };
         assert_eq!((input.path, page, view_box, digital, out), (PathBuf::from("/a/v.pdf"), 2, [10.0, 20.0, 160.0, 60.0], None, PathBuf::from("/s/v-signed.pdf")));
         assert_eq!(out_name(ToolId::Sign, Path::new("/a/v.pdf"), &o), "v-signed.pdf");
         // A certificate asked for but not chosen: refused before anything runs.
         let o = ToolOptions { sign_cert: true, ..Default::default() };
-        assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], Some(placed), &o, dest()).is_err());
+        assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], Some(OnPages::Sign(placed)), &o, dest()).is_err());
+    }
+
+    #[test]
+    fn edit_job_needs_items_and_names_the_output_edited() {
+        use sheaf_app::jobs::EditPlaced;
+        let one = || vec![Input::new("/a/v.pdf")];
+        let o = ToolOptions::default();
+        let dest = || Dest::File("/s/v-edited.pdf".into());
+        assert!(build_job_full(ToolId::Edit, one(), vec![], vec![], None, &o, dest()).is_err());
+        assert!(build_job_full(ToolId::Edit, one(), vec![], vec![], Some(OnPages::Edit(vec![])), &o, dest()).is_err());
+        let items = vec![EditPlaced::Text { page: 1, at: [10.0, 20.0], text: "Hi".into(), size: 12.0, color: [0; 3] }];
+        let Job::Edit { input, items: got, out } = build_job_full(ToolId::Edit, one(), vec![], vec![], Some(OnPages::Edit(items.clone())), &o, dest()).unwrap() else { panic!() };
+        assert_eq!((input.path, got, out), (PathBuf::from("/a/v.pdf"), items, PathBuf::from("/s/v-edited.pdf")));
+        assert_eq!(out_name(ToolId::Edit, Path::new("/a/v.pdf"), &o), "v-edited.pdf");
     }
 
     #[test]

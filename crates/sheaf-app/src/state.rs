@@ -61,9 +61,11 @@ pub struct TabState {
     pub office_missing: bool,
     /// Crop: page 1 of the file, and its displayed size in points.
     pub preview: Option<(Image, f32, f32)>,
+    /// Edit: the text and images placed.
+    pub edit: crate::edit_ui::EditState,
     /// Sign: the signature being made.
     pub sign: crate::sign_ui::SignState,
-    /// Redact and Sign: the page viewer of the file, with its marks or the signature placed.
+    /// Redact, Sign and Edit: the page viewer of the file, with its marks or the signature placed.
     pub viewer: Option<Box<crate::viewer_ui::ViewerUi>>,
     /// Redact: why the viewer could not open the file.
     pub viewer_error: Option<String>,
@@ -89,12 +91,32 @@ impl TabState {
             cancelling: false,
             pages_failed: false,
             preview: None,
+            edit: crate::edit_ui::EditState::new(),
             sign: crate::sign_ui::SignState::new(),
             viewer: None,
             viewer_error: None,
             viewport: (600.0, 0.0, 800.0),
             strip: (0.0, 800.0),
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
+        }
+    }
+
+    /// The viewer's file changed (Redact, Sign, Edit): the viewer reloads, and items placed on
+    /// the old file's pages are dropped, so they never go into the new file's job.
+    pub fn new_viewer_file(&mut self) {
+        self.viewer = None;
+        self.viewer_error = None;
+        self.edit = crate::edit_ui::EditState::new();
+    }
+
+    /// Removes file `uid`; with no file left, everything made for it goes too.
+    pub fn remove_file(&mut self, uid: i32) {
+        self.files.retain(|f| f.uid != uid);
+        if self.files.is_empty() {
+            self.order.clear();
+            self.page_thumbs.clear();
+            self.preview = None;
+            self.new_viewer_file();
         }
     }
 }
@@ -203,6 +225,7 @@ fn verb(tool: ToolId) -> &'static str {
         ToolId::Ocr => "made searchable",
         ToolId::Redact => "redacted",
         ToolId::Sign => "signed",
+        ToolId::Edit => "edited",
         _ => "converted",
     }
 }
@@ -295,6 +318,9 @@ pub fn build(t: &TabState) -> ToolTab {
         }
     }
     crate::sign_ui::fill(&mut tab, &t.sign);
+    if t.tool == ToolId::Edit {
+        crate::edit_ui::fill(&mut tab, &t.edit, t.viewer.as_ref().map(|v| &v.viewer));
+    }
     tab.viewer_status = match (&t.viewer, &t.viewer_error, t.files.is_empty()) {
         (Some(_), _, _) | (None, None, true) => "".into(),
         (None, Some(e), _) => e.as_str().into(),
@@ -432,6 +458,20 @@ pub fn refresh(app: &App, id: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn edit_items_are_dropped_when_the_file_changes_or_is_removed() {
+        let mut t = TabState::new(1, ToolId::Edit);
+        let place = |t: &mut TabState| t.edit.release(0, (10.0, 10.0), (400.0, 500.0));
+        place(&mut t);
+        assert_eq!(t.edit.items.len(), 1);
+        t.new_viewer_file();
+        assert!(t.edit.items.is_empty() && t.edit.selected.is_none());
+        place(&mut t);
+        // No file: removing an unknown one still leaves none, so the items go.
+        t.remove_file(42);
+        assert!(t.edit.items.is_empty());
+    }
 
     #[test]
     fn continue_to_offers_pdf_tools_for_pdfs_and_jpg_to_pdf_for_images() {

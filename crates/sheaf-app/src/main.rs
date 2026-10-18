@@ -6,6 +6,7 @@ mod home;
 mod password;
 mod run;
 mod state;
+mod edit_ui;
 mod sign_ui;
 mod viewer_ui;
 
@@ -135,6 +136,20 @@ fn wire_viewer(ui: &AppWindow) {
     sb.on_pick_image(move |id| {
         if let Some(ui) = weak.upgrade() {
             sign_ui::pick_image(&ui, id);
+        }
+    });
+
+    let eb = ui.global::<sheaf_app::EditBridge>();
+    eb.on_mode(edit_ui::mode);
+    eb.on_text(|id, t| edit_ui::text(id, &t));
+    eb.on_size_step(edit_ui::size_step);
+    eb.on_colour(edit_ui::colour_pick);
+    eb.on_width(edit_ui::width);
+    eb.on_remove(edit_ui::remove);
+    let weak = ui.as_weak();
+    eb.on_pick_image(move |id| {
+        if let Some(ui) = weak.upgrade() {
+            edit_ui::pick_image(&ui, id);
         }
     });
 }

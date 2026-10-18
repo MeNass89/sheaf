@@ -14,6 +14,7 @@ use sheaf_core::export::{self, ExportOptions, Office};
 use sheaf_core::ocr::{self, OcrOptions};
 use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::redact::{self, Mark};
+use sheaf_core::edit::{self, EditSpec, Item};
 use sheaf_core::sign::{self, DigitalSpec, Graphic, SignSpec};
 use sheaf_core::watermark::{self, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError, Result};
@@ -69,6 +70,18 @@ pub enum Job {
     /// A signature in `view_box` (points, y down, on page `page` as displayed), optionally
     /// signed with a certificate.
     Sign { input: Input, page: usize, view_box: [f64; 4], graphic: Graphic, digital: Option<DigitalSpec>, out: PathBuf },
+    /// Text and images placed on the pages (view space: points, y down, as displayed).
+    Edit { input: Input, items: Vec<EditPlaced>, out: PathBuf },
+}
+
+/// Edit PDF: one item placed in the page viewer, in view space (points from the top-left of
+/// page `page` as displayed, y down).
+#[derive(Debug, Clone, PartialEq)]
+pub enum EditPlaced {
+    /// `at`: the text's top-left corner; `size` in points.
+    Text { page: usize, at: [f64; 2], text: String, size: f64, color: [u8; 3] },
+    /// `rect`: `[x0, y0, x1, y1]`.
+    Image { page: usize, rect: [f64; 4], path: PathBuf },
 }
 
 impl Job {
@@ -82,7 +95,8 @@ impl Job {
             | Job::Organize { input, .. }
             | Job::Crop { input, .. }
             | Job::Redact { input, .. }
-            | Job::Sign { input, .. } => vec![input.path.as_path()],
+            | Job::Sign { input, .. }
+            | Job::Edit { input, .. } => vec![input.path.as_path()],
             Job::Compare { old, new, .. } => vec![old.path.as_path(), new.path.as_path()],
             Job::Rotate { items, .. }
             | Job::PageNumbers { items, .. }
@@ -201,6 +215,7 @@ fn loses_protection(job: &Job) -> bool {
         | Job::Compare { .. }
         | Job::Redact { .. }
         | Job::Sign { .. }
+        | Job::Edit { .. }
         | Job::Crop { .. } => vec![],
     };
     pdfs.into_iter().any(Input::is_encrypted)
@@ -378,6 +393,30 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             vec![r.path]
         }
+        Job::Edit { input, items, out } => {
+            let mut infos = std::collections::HashMap::new();
+            let mut spec = EditSpec::default();
+            for it in items {
+                let page = match it {
+                    EditPlaced::Text { page, .. } | EditPlaced::Image { page, .. } => *page,
+                };
+                let info = match infos.entry(page) {
+                    std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+                    std::collections::hash_map::Entry::Vacant(e) => e.insert(edit::page_info(input, page)?),
+                };
+                spec.items.push(match it {
+                    EditPlaced::Text { at, text, size, color, .. } => {
+                        Item::Text { page, at: edit::view_to_user(info, *at), text: text.clone(), font_size: *size, color: *color }
+                    }
+                    EditPlaced::Image { rect, path, .. } => Item::Image { page, rect: sign::view_rect_to_user(info, *rect), path: path.clone() },
+                });
+            }
+            let r = edit::edit(input, &spec, out)?;
+            was_encrypted |= r.was_encrypted;
+            summary = format!("{} item{} added", r.added, if r.added == 1 { "" } else { "s" });
+            progress(1.0);
+            vec![r.path]
+        }
         Job::PdfA { items, level } => {
             let many = items.len() > 1;
             let mut conforming = 0;
@@ -488,6 +527,7 @@ pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
         T::Compare => "-comparison",
         T::Redact => "-redacted",
         T::Sign => "-signed",
+        T::Edit => "-edited",
         _ => "",
     };
     format!("{stem}{suffix}.pdf")

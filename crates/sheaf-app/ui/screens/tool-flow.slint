@@ -10,6 +10,7 @@ import { ProcessingOverlay } from "processing.slint";
 import { PageViewer } from "../widgets/page-viewer.slint";
 import { RedactPanel } from "redact-panel.slint";
 import { SignPanel } from "sign-panel.slint";
+import { EditPanel } from "edit-panel.slint";
 import { ViewerBridge } from "../flow-types.slint";
 
 // Full-width accent button at the bottom of the options panel.
@@ -136,7 +137,9 @@ export component ToolFlowScreen inherits Rectangle {
     property <bool> redact: root.tab.tool == "redact";
     // Sign places its signature on the same page viewer.
     property <bool> sign: root.tab.tool == "sign";
-    property <bool> viewer: root.redact || root.sign;
+    // Edit places text and images on it too.
+    property <bool> edit: root.tab.tool == "edit";
+    property <bool> viewer: root.redact || root.sign || root.edit;
     property <int> need: root.tab.tool == "merge" || root.compare ? 2 : 1;
     property <bool> has-original: root.tab.files.length > 0 && root.tab.files[0].slot == 0;
     property <bool> has-changed: root.tab.files.length > 0 && root.tab.files[root.tab.files.length - 1].slot == 1;
@@ -220,6 +223,7 @@ export component ToolFlowScreen inherits Rectangle {
                 drag-box: root.redact;
                 sign: root.tab.sign-overlay;
                 sign-image: root.tab.sign-preview;
+                edits: root.tab.edit-overlays;
                 viewport(w, top, h) => { ViewerBridge.viewport(root.tab.id, w, top, h); }
                 strip-viewport(top, h) => { ViewerBridge.strip-viewport(root.tab.id, top, h); }
                 pressed(x, y) => { ViewerBridge.pressed(root.tab.id, x, y); }
@@ -315,7 +319,8 @@ export component ToolFlowScreen inherits Rectangle {
                 vertical-stretch: 1;
                 content-width: self.visible-width;
                 content-height: root.redact ? rp.preferred-height
-                    : root.sign ? sp.preferred-height + 14px + opts.preferred-height : opts.preferred-height;
+                    : root.sign ? sp.preferred-height + 14px + opts.preferred-height
+                    : root.edit ? ep.preferred-height : opts.preferred-height;
                 rp := RedactPanel {
                     width: parent.visible-width;
                     visible: root.redact;
@@ -330,9 +335,16 @@ export component ToolFlowScreen inherits Rectangle {
                     tab: root.tab;
                     enabled: !root.running && root.tab.files.length > 0;
                 }
+                ep := EditPanel {
+                    width: parent.visible-width;
+                    visible: root.edit;
+                    height: root.edit ? self.preferred-height : 0;
+                    tab: root.tab;
+                    enabled: !root.running && root.tab.files.length > 0;
+                }
                 opts := OptionsPanel {
                     y: root.sign ? sp.preferred-height + 14px : 0;
-                    visible: !root.redact;
+                    visible: !root.redact && !root.edit;
                     width: parent.visible-width;
                     tool: root.tab.tool;
                     file-count: root.tab.files.length;
@@ -353,7 +365,8 @@ export component ToolFlowScreen inherits Rectangle {
                     && (!root.compare || (root.has-original && root.has-changed))
                     && (!root.organize || root.tab.pages.length > 0)
                     && (!root.redact || root.tab.redact-marks.length > 0)
-                    && (!root.sign || (root.tab.sign-has-graphic && root.tab.sign-placed));
+                    && (!root.sign || (root.tab.sign-has-graphic && root.tab.sign-placed))
+                    && (!root.edit || root.tab.edit-ready);
                 clicked => { root.run(opts.options); }
             }
         }
