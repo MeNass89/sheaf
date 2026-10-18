@@ -412,6 +412,11 @@ fn edit_subcommand_adds_text_and_images_in_order() {
         assert_eq!(r.status.code(), Some(1), "{args:?}: {}", String::from_utf8_lossy(&r.stderr));
         assert!(!bad.exists(), "{args:?}");
     }
+    // Off the page: the core's error, exit 1, nothing written.
+    let r = bin().arg("edit").arg(&src).args(["--text", "x", "--at", "5000,10", "-o"]).arg(&bad).output().unwrap();
+    assert_eq!(r.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&r.stderr).contains("outside the page"), "{}", String::from_utf8_lossy(&r.stderr));
+    assert!(!bad.exists());
     // Not an image: refused, nothing written.
     let r = bin().arg("edit").arg(&src).arg("--image").arg(&src).args(["--at", "1,1", "--width", "50", "-o"]).arg(&bad).output().unwrap();
     assert_eq!(r.status.code(), Some(1));

@@ -100,6 +100,25 @@ impl TabState {
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
         }
     }
+
+    /// The viewer's file changed (Redact, Sign, Edit): the viewer reloads, and items placed on
+    /// the old file's pages are dropped, so they never go into the new file's job.
+    pub fn new_viewer_file(&mut self) {
+        self.viewer = None;
+        self.viewer_error = None;
+        self.edit = crate::edit_ui::EditState::new();
+    }
+
+    /// Removes file `uid`; with no file left, everything made for it goes too.
+    pub fn remove_file(&mut self, uid: i32) {
+        self.files.retain(|f| f.uid != uid);
+        if self.files.is_empty() {
+            self.order.clear();
+            self.page_thumbs.clear();
+            self.preview = None;
+            self.new_viewer_file();
+        }
+    }
 }
 
 /// Compare: the slot a new file goes in (0 Original, 1 Changed). `wanted` is the per-slot
@@ -439,6 +458,20 @@ pub fn refresh(app: &App, id: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn edit_items_are_dropped_when_the_file_changes_or_is_removed() {
+        let mut t = TabState::new(1, ToolId::Edit);
+        let place = |t: &mut TabState| t.edit.release(0, (10.0, 10.0), (400.0, 500.0));
+        place(&mut t);
+        assert_eq!(t.edit.items.len(), 1);
+        t.new_viewer_file();
+        assert!(t.edit.items.is_empty() && t.edit.selected.is_none());
+        place(&mut t);
+        // No file: removing an unknown one still leaves none, so the items go.
+        t.remove_file(42);
+        assert!(t.edit.items.is_empty());
+    }
 
     #[test]
     fn continue_to_offers_pdf_tools_for_pdfs_and_jpg_to_pdf_for_images() {

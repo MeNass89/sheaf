@@ -194,6 +194,8 @@ export struct ToolTab {
     edit-width: int,
     edit-image-name: string,
     edit-ready: bool,
+    // Why the action can't run yet (an empty or undrawable text), "" when it can.
+    edit-problem: string,
     edit-overlays: [EditOverlay],
 }
 

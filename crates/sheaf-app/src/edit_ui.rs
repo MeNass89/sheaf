@@ -8,7 +8,7 @@ use sheaf_app::jobs::EditPlaced;
 use sheaf_app::viewer::Viewer;
 use sheaf_app::{EditOverlay, ToolTab};
 use sheaf_core::edit::{self, Picture};
-use slint::{Color, Image, ModelRc, VecModel};
+use slint::{Color, ComponentHandle, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel};
 
 use crate::state::{refresh, with};
 
@@ -32,6 +32,8 @@ pub enum Kind {
 #[derive(Clone)]
 pub struct Item {
     pub page: usize,
+    /// The page's size as displayed, in points: the item is kept on it.
+    pub page_size: (f64, f64),
     /// Top-left corner, view space.
     pub at: (f64, f64),
     pub kind: Kind,
@@ -122,13 +124,14 @@ impl EditState {
     /// the drag (a click just selects it), or places a new item at a click on empty page.
     pub fn release(&mut self, page: usize, p: (f64, f64), page_size: (f64, f64)) {
         if let Some(Grab { item: i, from, at }) = self.grab.take() {
+            self.items[i].page_size = page_size;
             self.items[i].at = (at.0 + p.0 - from.0, at.1 + p.1 - from.1);
-            self.keep_on_page(i, page_size);
+            self.keep_on_page(i);
             self.select(Some(i));
             return;
         }
         let item = match self.mode {
-            0 => Item { page, at: p, kind: Kind::Text { text: String::new(), size: self.size, colour: self.colour } },
+            0 => Item { page, page_size, at: p, kind: Kind::Text { text: String::new(), size: self.size, colour: self.colour } },
             _ => {
                 let Some(c) = &self.image else {
                     // Nothing to place yet: a click only clears the selection.
@@ -138,20 +141,26 @@ impl EditState {
                 let (w, h) = (WIDTHS[self.width], WIDTHS[self.width] * c.aspect);
                 // Centred on the click, as Sign places its signature.
                 let kind = Kind::Image { path: c.path.clone(), aspect: c.aspect, width: self.width, image: c.image.clone() };
-                Item { page, at: (p.0 - w / 2.0, p.1 - h / 2.0), kind }
+                Item { page, page_size, at: (p.0 - w / 2.0, p.1 - h / 2.0), kind }
             }
         };
         self.items.push(item);
         let i = self.items.len() - 1;
-        self.keep_on_page(i, page_size);
+        self.keep_on_page(i);
         self.select(Some(i));
     }
 
     /// Moves item `i` back onto its page where it fits.
-    fn keep_on_page(&mut self, i: usize, (pw, ph): (f64, f64)) {
+    fn keep_on_page(&mut self, i: usize) {
+        let (pw, ph) = self.items[i].page_size;
         let (w, h) = self.items[i].size();
         let at = &mut self.items[i].at;
         *at = (at.0.clamp(0.0, (pw - w).max(0.0)), at.1.clamp(0.0, (ph - h).max(0.0)));
+    }
+
+    /// Why the job can't run yet, if it can't.
+    pub fn problem(&self) -> Option<String> {
+        self.placed().err()
     }
 
     /// The job's items. Refused with a message the user can act on when one is not ready.
@@ -165,6 +174,9 @@ impl EditState {
                 Kind::Text { text, size, colour } => {
                     if text.trim().is_empty() {
                         return Err(format!("A text box on page {} is empty: type its text or remove it", it.page + 1));
+                    }
+                    if let Some(why) = edit::text_problem(text) {
+                        return Err(format!("A text box on page {}: {why}", it.page + 1));
                     }
                     Ok(EditPlaced::Text { page: it.page, at: [it.at.0, it.at.1], text: text.clone(), size: SIZES[*size], color: COLOURS[*colour] })
                 }
@@ -205,7 +217,10 @@ pub fn fill(tab: &mut ToolTab, s: &EditState, viewer: Option<&Viewer>) {
     tab.edit_colour = s.colour as i32;
     tab.edit_width = s.width as i32;
     tab.edit_image_name = s.image.as_ref().and_then(|c| c.path.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default().into();
-    tab.edit_ready = s.placed().is_ok();
+    let problem = s.problem();
+    tab.edit_ready = problem.is_none();
+    // Shown once something is placed: "nothing added yet" says the rest.
+    tab.edit_problem = problem.filter(|_| !s.items.is_empty()).unwrap_or_default().into();
     let Some(v) = viewer else { return };
     let overlays: Vec<EditOverlay> = s
         .items
@@ -243,6 +258,10 @@ fn update(tab_id: i32, f: impl FnOnce(&mut EditState)) {
     with(|a| {
         if let Some(t) = a.tab(tab_id) {
             f(&mut t.edit);
+            // A longer text or a bigger size can push the item past the page edge.
+            if let Some(i) = t.edit.selected {
+                t.edit.keep_on_page(i);
+            }
         }
         refresh(a, tab_id);
     });
@@ -311,17 +330,23 @@ pub fn pick_image(ui: &sheaf_app::AppWindow, tab_id: i32) {
     let Some(path) = rfd::FileDialog::new().set_title("Choose an image").add_filter("Image", &["png", "jpg", "jpeg"]).pick_file() else {
         return;
     };
-    // Refused here, not when the PDF is written.
-    let pic = match Picture::read(&path) {
-        Ok(p) => p,
-        Err(e) => return crate::flow::toast(ui, &e.to_string()),
-    };
-    let Ok(image) = Image::load_from_path(&path) else {
-        return crate::flow::toast(ui, "This image can't be shown");
-    };
-    update(tab_id, |s| {
-        s.image = Some(Chosen { path, aspect: pic.aspect(), image });
-        s.mode = 1;
+    // Checked and decoded once, off the UI thread; refused here, not when the PDF is written.
+    // The preview is those pixels, upright as they will be embedded.
+    let weak = ui.as_weak();
+    sheaf_app::pool::probes().submit(move || {
+        let r = sheaf_app::jobs::catching(|| Picture::read(&path));
+        let _ = weak.upgrade_in_event_loop(move |ui| match r {
+            Ok(pic) => {
+                let aspect = pic.aspect();
+                let (w, h) = pic.rgba.dimensions();
+                let image = Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(pic.rgba.as_raw(), w, h));
+                update(tab_id, |s| {
+                    s.image = Some(Chosen { path, aspect, image });
+                    s.mode = 1;
+                });
+            }
+            Err(e) => crate::flow::toast(&ui, &e.to_string()),
+        });
     });
 }
 
@@ -384,6 +409,27 @@ mod tests {
         if let Kind::Text { size, colour, .. } = &mut s.items[i].kind {
             (*size, *colour) = (6, 2);
         }
+    }
+
+    #[test]
+    fn a_longer_text_or_bigger_size_stays_on_the_page_and_undrawable_text_blocks_the_job() {
+        let mut s = EditState::new();
+        s.release(0, (380.0, 10.0), (400.0, 500.0));
+        text_item(&mut s, "A much longer line of text than fits");
+        s.keep_on_page(0);
+        let (w, _) = s.items[0].size();
+        assert!((s.items[0].at.0 + w - 400.0).abs() < 1e-9, "held at the right edge: {:?}", s.items[0].at);
+        s.size = SIZES.len() - 1;
+        if let Kind::Text { size, .. } = &mut s.items[0].kind {
+            *size = SIZES.len() - 1;
+        }
+        s.keep_on_page(0);
+        assert!(s.items[0].at.0 >= 0.0 && s.items[0].at.1 >= 0.0);
+        text_item(&mut s, "Snowman \u{2603}");
+        let why = s.problem().unwrap();
+        assert!(why.contains('\u{2603}') && why.contains("Helvetica"), "{why}");
+        text_item(&mut s, "Café — 5€");
+        assert!(s.problem().is_none());
     }
 
     #[test]

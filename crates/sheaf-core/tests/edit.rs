@@ -47,6 +47,13 @@ fn picture(dir: &Path, name: &str, rgb: [u8; 3]) -> PathBuf {
     p
 }
 
+/// A 40 x 20 px PNG: left half red, right half blue, so its orientation shows.
+fn two_colour(dir: &Path) -> PathBuf {
+    let p = dir.join("halves.png");
+    image::RgbImage::from_fn(40, 20, |x, _| if x < 20 { image::Rgb([220, 20, 20]) } else { image::Rgb([20, 40, 220]) }).save(&p).unwrap();
+    p
+}
+
 /// Words and their boxes as `pdftotext -cropbox -bbox` reads them (y down, in the frame of the
 /// page as displayed), with the page size it reports, which is the CropBox's, unturned:
 /// (width, height, [(word, [x0, y0, x1, y1])]).
@@ -98,18 +105,19 @@ fn files_in(dir: &Path) -> Vec<String> {
 #[test]
 fn text_and_image_land_where_placed_on_every_rotation_with_a_crop_offset() {
     let t = tempfile::tempdir().unwrap();
-    let png = picture(t.path(), "red.png", [220, 20, 20]);
+    let png = two_colour(t.path());
     for rotation in [0, 90, 180, 270] {
         let src = Input::new(cropped_turned(t.path(), rotation));
         let info = edit::page_info(&src, 0).unwrap();
         let (w, h) = (info.width as f64, info.height as f64);
         assert_eq!((w, h), if rotation % 180 == 0 { (400.0, 500.0) } else { (500.0, 400.0) }, "rot {rotation}");
-        // Text with its top-left at (60, 80) as displayed, 20 pt, blue; an image 120 x 60 at (150, 250).
+        // Text with its top-left at (60, 80) as displayed, 20 pt, green; an image 120 x 60 at
+        // (150, 250), red on its left half and blue on its right half as displayed.
         let at = edit::view_to_user(&info, [60.0, 80.0]);
         let rect = edit::image_rect(&info, [150.0, 250.0], 120.0, 0.5);
         let spec = EditSpec {
             items: vec![
-                Item::Text { page: 0, at, text: "Hello Sheaf".into(), font_size: 20.0, color: [20, 40, 220] },
+                Item::Text { page: 0, at, text: "Hello Sheaf".into(), font_size: 20.0, color: [20, 160, 40] },
                 Item::Image { page: 0, rect, path: png.clone() },
             ],
         };
@@ -128,16 +136,19 @@ fn text_and_image_land_where_placed_on_every_rotation_with_a_crop_offset() {
         assert!((80.0..90.0).contains(&y0), "rot {rotation}: text top at y {y0}");
         assert!(x1 - x0 > 40.0 && (y1 - y0 - 20.0).abs() < 4.0, "rot {rotation}: word box {:?} (not upright or wrong size)", hello.1);
 
-        // Rendered: the blue text and the red image in their boxes.
+        // Rendered: the green text in its box, and the image upright: red fills the left half of
+        // its box (150..210), blue the right half (210..270), both the full height (250..310).
         let img = render(&r.path, 0);
         assert!((img.0 as f64 - w).abs() <= 1.0, "rot {rotation}: render {}x{}", img.0, img.1);
-        let (n, b) = coloured(&img, [20, 40, 220]);
-        let b = b.unwrap_or_else(|| panic!("rot {rotation}: no blue text"));
-        assert!(n > 100 && b[0] >= 59 && b[0] <= 64 && b[1] >= 80 && b[3] <= 105, "rot {rotation}: blue ink {b:?}");
-        let (n, b) = coloured(&img, [220, 20, 20]);
-        let b = b.unwrap_or_else(|| panic!("rot {rotation}: no image"));
-        assert!(b.iter().zip([150, 250, 269, 309]).all(|(a, e)| a.abs_diff(e) <= 1), "rot {rotation}: image at {b:?}");
-        assert!(n > 118 * 58, "rot {rotation}: image not filled ({n} px)");
+        let (n, b) = coloured(&img, [20, 160, 40]);
+        let b = b.unwrap_or_else(|| panic!("rot {rotation}: no green text"));
+        assert!(n > 100 && b[0] >= 59 && b[0] <= 64 && b[1] >= 80 && b[3] <= 105, "rot {rotation}: text ink {b:?}");
+        for (rgb, want, side) in [([220, 20, 20], [150, 250, 209, 309], "red (left)"), ([20, 40, 220], [210, 250, 269, 309], "blue (right)")] {
+            let (n, b) = coloured(&img, rgb);
+            let b = b.unwrap_or_else(|| panic!("rot {rotation}: no {side} half"));
+            assert!(b.iter().zip(want).all(|(a, e)| a.abs_diff(e) <= 1), "rot {rotation}: {side} half at {b:?}, want {want:?}");
+            assert!(n > 58 * 58, "rot {rotation}: {side} half not filled ({n} px)");
+        }
     }
 }
 
@@ -215,7 +226,10 @@ fn bad_items_are_refused() {
         (text("  ", 12.0, 0), "empty"),
         (text("Hi", 0.5, 0), "font size"),
         (text("Hi", 12.0, 3), "page 4 does not exist"),
-        (text("Snowman \u{2603}", 12.0, 0), "\u{2603}"),
+        (text("Snowman \u{2603}", 12.0, 0), "can't be drawn in Helvetica"),
+        // Wholly outside the displayed page (CropBox [100 200 500 700]): above and to the left.
+        (EditSpec { items: vec![Item::Text { page: 0, at: [10.0, 900.0], text: "Lost".into(), font_size: 12.0, color: [0; 3] }] }, "outside the page"),
+        (EditSpec { items: vec![Item::Image { page: 0, rect: [0.0, 0.0, 90.0, 150.0], path: PathBuf::from("/none.png") }] }, "outside the page"),
     ] {
         match edit::edit(&src, &spec, &t.path().join("o.pdf")) {
             Err(OpdfError::Unsupported(m)) => assert!(m.contains(why), "expected {why:?}, got {m:?}"),

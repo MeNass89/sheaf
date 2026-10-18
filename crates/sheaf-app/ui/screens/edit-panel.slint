@@ -159,5 +159,12 @@ export component EditPanel inherits VerticalLayout {
         color: root.tab.edit-count == 0 ? Theme.warning : Theme.text-muted;
     }
 
+    if root.tab.edit-problem != "": Text {
+        text: root.tab.edit-problem;
+        font-size: Theme.fs-caption;
+        color: Theme.warning;
+        wrap: word-wrap;
+    }
+
     InfoBox { text: "Text and images become part of the page: every PDF reader shows them."; }
 }

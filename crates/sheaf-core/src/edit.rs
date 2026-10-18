@@ -94,10 +94,12 @@ pub fn item_view_rect(page: &PageInfo, item: &Item) -> [f64; 4] {
     }
 }
 
-/// A checked PNG or JPEG: its bytes and its upright size in pixels.
+/// A checked PNG or JPEG: its bytes, its upright size in pixels and its upright pixels (EXIF
+/// orientation applied, as PdfCraft embeds it), decoded once.
 pub struct Picture {
     pub bytes: Arc<Vec<u8>>,
     pub size: (u32, u32),
+    pub rgba: image::RgbaImage,
 }
 
 impl Picture {
@@ -113,24 +115,20 @@ impl Picture {
         } else {
             return Err(bad("not a PNG or JPEG image"));
         };
-        let ((w, h), turned) = {
-            let mut dec = image::ImageReader::with_format(std::io::Cursor::new(&bytes), format).into_decoder().map_err(|_| bad("the image is damaged"))?;
-            let turned = matches!(
-                dec.orientation().unwrap_or(image::metadata::Orientation::NoTransforms),
-                image::metadata::Orientation::Rotate90
-                    | image::metadata::Orientation::Rotate270
-                    | image::metadata::Orientation::Rotate90FlipH
-                    | image::metadata::Orientation::Rotate270FlipH
-            );
-            (dec.dimensions(), turned)
-        };
-        // Decode it whole: a file whose header is fine but whose pixels are not is refused here,
+        // Decoded whole: a file whose header is fine but whose pixels are not is refused here,
         // before anything is written.
-        image::load_from_memory_with_format(&bytes, format).map_err(|_| bad("the image is damaged"))?;
-        if w == 0 || h == 0 {
+        let mut img = {
+            let mut dec = image::ImageReader::with_format(std::io::Cursor::new(&bytes), format).into_decoder().map_err(|_| bad("the image is damaged"))?;
+            let orientation = dec.orientation().unwrap_or(image::metadata::Orientation::NoTransforms);
+            let mut img = image::DynamicImage::from_decoder(dec).map_err(|_| bad("the image is damaged"))?;
+            img.apply_orientation(orientation);
+            img
+        };
+        if img.width() == 0 || img.height() == 0 {
             return Err(bad("the image is empty"));
         }
-        Ok(Picture { bytes: Arc::new(bytes), size: if turned { (h, w) } else { (w, h) } })
+        let rgba = std::mem::take(&mut img).into_rgba8();
+        Ok(Picture { bytes: Arc::new(bytes), size: rgba.dimensions(), rgba })
     }
 
     /// Height over width, as displayed.
@@ -139,11 +137,38 @@ impl Picture {
     }
 }
 
+/// The first character of `text` that Helvetica can't draw (outside WinAnsiEncoding), if any.
+pub fn undrawable(text: &str) -> Option<char> {
+    pdfcraft_fonts::first_non_win_ansi(&text.replace('\n', ""))
+}
+
+/// Why `text` can't be added, if it can't: a message the user can act on.
+pub fn text_problem(text: &str) -> Option<String> {
+    if text.trim().is_empty() {
+        return Some("the text is empty: type some text first".into());
+    }
+    undrawable(text).map(|c| format!("\"{c}\" can't be drawn in Helvetica: use Latin letters, digits and common punctuation"))
+}
+
 /// Page `page` (0-based) of `input`, as displayed.
 pub fn page_info(input: &Input, page: usize) -> Result<PageInfo> {
     let doc = Doc::open(input)?;
     let pages = &doc.document().info.pages;
     pages.get(page).cloned().ok_or_else(|| no_page(page, pages.len()))
+}
+
+/// Refuses an item whose view-space box `v` lies wholly outside the displayed page.
+fn on_page(info: &PageInfo, page: usize, v: [f64; 4]) -> Result<()> {
+    let (w, h) = (info.width as f64, info.height as f64);
+    if v[2] <= 0.0 || v[3] <= 0.0 || v[0] >= w || v[1] >= h {
+        return Err(OpdfError::Unsupported(format!(
+            "an item on page {} is outside the page (the page is {} x {} points as displayed)",
+            page + 1,
+            w.round(),
+            h.round()
+        )));
+    }
+    Ok(())
 }
 
 fn no_page(page: usize, n: usize) -> OpdfError {
@@ -165,8 +190,8 @@ pub fn edit(input: &Input, spec: &EditSpec, out: &Path) -> Result<EditReport> {
         let display = |v: [f64; 4]| [v[0], info.height as f64 - v[3], v[2], info.height as f64 - v[1]];
         edits.push(match item {
             Item::Text { page, at, text, font_size, color } => {
-                if text.trim().is_empty() {
-                    return Err(OpdfError::Unsupported("a text item is empty: type some text first".into()));
+                if let Some(why) = text_problem(text) {
+                    return Err(OpdfError::Unsupported(format!("a text item on page {}: {why}", page + 1)));
                 }
                 if !(font_size.is_finite() && (1.0..=500.0).contains(font_size)) {
                     return Err(OpdfError::Unsupported(format!("font size {font_size} (use 1 to 500 points)")));
@@ -177,6 +202,7 @@ pub fn edit(input: &Input, spec: &EditSpec, out: &Path) -> Result<EditReport> {
                 let [x, y] = user_to_view(info, *at);
                 let (w, h) = text_extent(text, *font_size);
                 // A little wider than the widest line, so PdfCraft never wraps it.
+                on_page(info, *page, [x, y, x + w, y + h])?;
                 let rect = display([x, y, x + w + font_size, y + h]);
                 Edit::AddText {
                     page: *page,
@@ -188,6 +214,7 @@ pub fn edit(input: &Input, spec: &EditSpec, out: &Path) -> Result<EditReport> {
                 if !(r.iter().all(|v| v.is_finite()) && r[2] - r[0] >= 1.0 && r[3] - r[1] >= 1.0) {
                     return Err(OpdfError::Unsupported("an image box is empty".into()));
                 }
+                on_page(info, *page, user_rect_to_view(info, r))?;
                 let pic = Picture::read(path)?;
                 let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "image".into());
                 Edit::AddImage { page: *page, rect: Some(display(user_rect_to_view(info, r))), name, bytes: pic.bytes }

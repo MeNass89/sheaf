@@ -165,8 +165,7 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                             return (None, Some(input), None);
                         }
                         if matches!(t.tool, ToolId::Redact | ToolId::Sign | ToolId::Edit) {
-                            t.viewer = None;
-                            t.viewer_error = None;
+                            t.new_viewer_file();
                             return (None, None, Some(input));
                         }
                         let organize = if t.tool == ToolId::Organize {
@@ -282,14 +281,7 @@ fn crop_preview(ui: &AppWindow, tab_id: i32, uid: i32, input: Input) {
 pub fn remove_file(ui: &AppWindow, tab_id: i32, uid: i32) {
     with(|a| {
         if let Some(t) = a.tab(tab_id) {
-            t.files.retain(|f| f.uid != uid);
-            if t.files.is_empty() {
-                t.order.clear();
-                t.page_thumbs.clear();
-                t.preview = None;
-                t.viewer = None;
-                t.viewer_error = None;
-            }
+            t.remove_file(uid);
         }
         refresh(a, tab_id);
     });
