@@ -1407,7 +1407,7 @@ pub fn verify(path: &Path, marks: &[Mark]) -> Result<()> {
         };
         let info = d.info.pages.get(f.page).ok_or_else(|| fail(format!("page {} is missing", f.page + 1)))?;
         let b = f.rect;
-        let hidden: Vec<(f64, f64)> = text
+        let hidden: Vec<((f64, f64), &str)> = text
             .glyphs
             .iter()
             .filter(|g| !g.text.trim().is_empty())
@@ -1415,11 +1415,16 @@ pub fn verify(path: &Path, marks: &[Mark]) -> Result<()> {
                 let [x0, y0, x1, y1] = info.view_rect_to_user(g.rect).map(f64::from);
                 let area = (x1 - x0) * (y1 - y0);
                 let inter = (x1.min(b[2]) - x0.max(b[0])).max(0.0) * (y1.min(b[3]) - y0.max(b[1])).max(0.0);
-                (area > 0.0 && inter >= 0.2 * area).then_some(((x0 + x1) / 2.0, (y0 + y1) / 2.0))
+                (area > 0.0 && inter >= 0.2 * area).then_some((((x0 + x1) / 2.0, (y0 + y1) / 2.0), g.text.as_str()))
             })
             .collect();
-        if !hidden.is_empty() {
-            let under_mark = hidden.iter().any(|c| marks.iter().any(|m| m.page == f.page && (m.whole_page || m.quads.iter().any(|q| in_quad(q, *c)))));
+        if hidden.is_empty() {
+            continue;
+        }
+        let under_mark = hidden.iter().any(|(c, _)| marks.iter().any(|m| m.page == f.page && (m.whole_page || m.quads.iter().any(|q| in_quad(q, *c)))));
+        // A box the input already had hides text only over a letter or digit: a frame over
+        // private-use glyphs, spaces or punctuation is decoration.
+        if under_mark || hidden.iter().any(|(_, t)| hides_text(t)) {
             theirs.push(!under_mark);
             real.push(f);
         }
@@ -1447,6 +1452,11 @@ pub fn verify(path: &Path, marks: &[Mark]) -> Result<()> {
         OpdfError::Conversion(_) => e,
         e => fail(format!("the output can't be read by pdfium ({e})")),
     })
+}
+
+/// Whether covered text `t` is text a box can hide: it has a Unicode letter or digit.
+fn hides_text(t: &str) -> bool {
+    t.chars().any(char::is_alphanumeric)
 }
 
 /// Whether point `p` lies inside quadrilateral `q` (PDF /QuadPoints order: top-left,
@@ -1530,6 +1540,12 @@ mod tests {
     fn xmp_text_keeps_values_and_drops_markup() {
         let t = xmp_text(b"<a b=\"x&amp;y\" xmlns:q=\"secret\"><!-- c -->v&lt;1<![CDATA[&#115;]]>&#115;</a>");
         assert_eq!(t.split('\n').filter(|l| !l.is_empty()).collect::<Vec<_>>(), ["x&y", "v<1&#115;s"]);
+    }
+
+    #[test]
+    fn only_letters_and_digits_count_as_hidden_text() {
+        assert!(!hides_text("\u{f001}") && !hides_text(" ") && !hides_text("•–.") && !hides_text(""));
+        assert!(hides_text("ab") && hides_text("7") && hides_text("é"));
     }
 
     #[test]

@@ -836,3 +836,39 @@ fn the_audit_refuses_text_anywhere_it_does_not_exempt() {
     let e = redact_secret(t.path(), &Input::new(&packed), "packed").unwrap_err();
     assert!(e.contains("redaction audit failed"), "{e}");
 }
+
+/// A page with a dark frame painted over one glyph whose /ToUnicode text is `shown` (code
+/// 0x41 maps to its first character, 0x42 to its second if any), plus "Other secretword".
+fn framed_glyph(dir: &Path, name: &str, shown: &str) -> Input {
+    let map: String = shown.chars().enumerate().map(|(i, c)| format!("<{:02X}> <{:04X}>\n", 0x41 + i, c as u32)).collect();
+    let cmap = format!(
+        "/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /X def 1 begincodespacerange <00> <FF> endcodespacerange {} beginbfchar\n{map}endbfchar endcmap CMapName currentdict /CMap defineresource pop end end",
+        shown.chars().count()
+    );
+    let codes: String = (0..shown.chars().count()).map(|i| char::from(0x41 + i as u8)).collect();
+    let body = format!("BT /F2 14 Tf 200 500 Td ({codes}) Tj ET 0 0 0 rg 190 495 60 24 re f BT /F1 14 Tf 72 760 Td (Other secretword) Tj ET");
+    Input::new(raw_pdf(
+        &dir.join(name),
+        &[
+            ("<< /Type /Catalog /Pages 2 0 R >>", None),
+            ("<< /Type /Pages /Kids [3 0 R] /Count 1 >>", None),
+            ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>", None),
+            ("<< >>", Some(body.as_bytes())),
+            (HELV, None),
+            ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /ToUnicode 7 0 R >>", None),
+            ("<< >>", Some(cmap.as_bytes())),
+        ],
+        None,
+    ))
+}
+
+#[test]
+fn a_frame_the_input_draws_over_a_private_use_glyph_is_decoration() {
+    let t = tempfile::tempdir().unwrap();
+    let deco = framed_glyph(t.path(), "deco.pdf", "\u{f001}");
+    let (p, _) = redact_secret(t.path(), &deco, "deco").expect("a frame over a lone U+F001 is not hidden text");
+    assert!(!pdfium_text(&p).contains("secretword"));
+    let real = framed_glyph(t.path(), "real.pdf", "ab");
+    let e = redact_secret(t.path(), &real, "real").unwrap_err();
+    assert_eq!(e, "This PDF already hides text under a box on page 1. Mark that area too to remove it.");
+}
