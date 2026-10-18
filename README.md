@@ -11,11 +11,13 @@ Sheaf is a native macOS app (Rust + [Slint](https://slint.dev)) for everyday PDF
 
 ## Tools
 
-| Organize | Optimize | Convert to PDF | Convert from PDF | Security |
-|---|---|---|---|---|
-| Merge · Split · Remove pages · Extract pages · Organize · Rotate | Compress (3 levels) · Repair | JPG/PNG/WebP/TIFF → PDF · Word · PowerPoint · Excel · HTML | PDF → JPG | Protect (AES-256) · Unlock |
+All 28 tools run on your machine:
 
-Coming next: OCR, page numbers, watermark, crop, PDF/A, editing, signing, redaction, compare, PDF → Office.
+| Organize | Optimize | Convert to PDF | Convert from PDF | Edit | Security |
+|---|---|---|---|---|---|
+| Merge · Split · Remove pages · Extract pages · Organize · Rotate | Compress (3 levels) · Repair · OCR | JPG/PNG/WebP/TIFF → PDF · Word · PowerPoint · Excel · HTML | PDF → JPG · Word · PowerPoint · Excel · PDF/A | Add text and images · Page numbers · Watermark · Crop | Sign (drawn, typed or image; optional .p12 certificate) · Protect (AES-256) · Unlock · Redact (verified) · Compare |
+
+PDF → Office keeps the text and an approximate layout. Redact checks the written file and refuses to finish if any searched text is left in it.
 
 Office and HTML conversion use [LibreOffice](https://www.libreoffice.org/download/) if it is installed; every other tool is self-contained.
 
@@ -48,6 +50,10 @@ sheaf compress big.pdf --level extreme -o small.pdf
 sheaf split book.pdf --every 10 -o chapters/
 sheaf protect report.pdf --user-password s3cret -o locked.pdf
 sheaf office letter.docx -o letter.pdf
+sheaf ocr scan.pdf -o searchable.pdf
+sheaf redact contract.pdf --text "Jane Doe" --pattern email -o redacted.pdf
+sheaf sign form.pdf --page 1 --at 400,700 --text "J. Doe" -o signed.pdf
+sheaf edit form.pdf --text "Approved" --page 1 --at 72,72 -o edited.pdf
 ```
 
 `sheaf --help` lists every subcommand. Exit code 2 means a password is missing or wrong.

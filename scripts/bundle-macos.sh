@@ -35,6 +35,11 @@ for m in text-detection text-recognition; do
 done
 
 echo "==> cargo build --release"
+# Panic locations embed source paths: map the builder's home and the checkout to neutral
+# prefixes so no local path ships in the binaries (checked after assembly).
+cargo_home="${CARGO_HOME:-$HOME/.cargo}"
+RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$cargo_home=/cargo --remap-path-prefix=$root=/sheaf --remap-path-prefix=$HOME=/home"
+export RUSTFLAGS
 cargo build --release -p sheaf-app -p sheaf-cli
 
 echo "==> icon"
@@ -72,6 +77,10 @@ cp "$pdfium/LICENSE" "$app/Contents/Resources/licenses/pdfium/pdfium-binaries-MI
 echo "==> third-party licences (cargo-about)"
 cargo about generate --workspace -c about.toml about/template.hbs \
     -o "$app/Contents/Resources/licenses/THIRD_PARTY_LICENSES.html"
+
+echo "==> no local paths in the bundle"
+leaks=$(for f in "$app/Contents/MacOS/Sheaf" "$app/Contents/Helpers/sheaf"; do strings "$f" | grep -c -F "$HOME" || true; done | paste -sd+ - | bc)
+[ "$leaks" = 0 ] || { echo "error: $leaks occurrences of the builder's home path in the binaries" >&2; exit 1; }
 
 echo "==> rpath + sign"
 for bin in "$app/Contents/MacOS/Sheaf" "$app/Contents/Helpers/sheaf"; do
