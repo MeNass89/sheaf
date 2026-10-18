@@ -327,3 +327,43 @@ fn redact_subcommand_counts_the_areas_and_removes_the_text() {
     assert!(!r.status.success() && !none.exists());
     assert!(String::from_utf8_lossy(&r.stderr).contains("nothing to redact"), "{}", String::from_utf8_lossy(&r.stderr));
 }
+
+#[test]
+fn sign_subcommand_visual_and_digital() {
+    let t = tempfile::tempdir().unwrap();
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../sheaf-core/tests/fixtures/invoice.pdf");
+    // Visual, typed.
+    let out = t.path().join("typed.pdf");
+    let r = bin().arg("sign").arg(&src).args(["--at", "72,600", "--text", "Ada Lovelace", "-o"]).arg(&out).output().unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    assert_eq!(String::from_utf8_lossy(&r.stderr).trim(), "Signed");
+    assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
+    // Visual, drawn from a JSON file.
+    let strokes = t.path().join("s.json");
+    std::fs::write(&strokes, "[[[0,0],[0.5,0.3],[1,0]]]").unwrap();
+    let out = t.path().join("drawn.pdf");
+    assert!(bin().arg("sign").arg(&src).args(["--page", "1", "--at", "300,100", "--width", "120", "--strokes"]).arg(&strokes).arg("-o").arg(&out).status().unwrap().success());
+    // Digital, with a throwaway openssl identity.
+    let (key, cert, p12) = (t.path().join("k.pem"), t.path().join("c.pem"), t.path().join("id.p12"));
+    assert!(Command::new("openssl").args(["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj", "/CN=Sheaf CLI Test", "-keyout"]).arg(&key).arg("-out").arg(&cert).output().unwrap().status.success());
+    assert!(Command::new("openssl").args(["pkcs12", "-export", "-passout", "pass:pw", "-inkey"]).arg(&key).arg("-in").arg(&cert).arg("-out").arg(&p12).output().unwrap().status.success());
+    let out = t.path().join("digital.pdf");
+    let r = bin().arg("sign").arg(&src).args(["--at", "72,600", "--text", "Ada", "--p12"]).arg(&p12).args(["--p12-password", "pw", "--reason", "OK", "-o"]).arg(&out).output().unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    assert_eq!(String::from_utf8_lossy(&r.stderr).trim(), "Signed digitally (certificate: Sheaf CLI Test)");
+    // Wrong certificate password: exit 1 (2 is for PDF passwords), its own message, no file.
+    let bad = t.path().join("bad.pdf");
+    let r = bin().arg("sign").arg(&src).args(["--at", "72,600", "--text", "Ada", "--p12"]).arg(&p12).args(["--p12-password", "nope", "-o"]).arg(&bad).output().unwrap();
+    assert_eq!(r.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&r.stderr).contains("wrong certificate password"), "{}", String::from_utf8_lossy(&r.stderr));
+    assert!(!bad.exists());
+    // No graphic: a usage error.
+    let r = bin().arg("sign").arg(&src).args(["--at", "72,600", "-o"]).arg(&bad).output().unwrap();
+    assert_eq!(r.status.code(), Some(1));
+    // Protected input: refused.
+    let locked = t.path().join("locked.pdf");
+    assert!(Command::new("qpdf").args(["--encrypt", "u", "o", "256", "--"]).arg(&src).arg(&locked).status().unwrap().success());
+    let r = bin().arg("sign").arg(&locked).args(["--password", "u", "--at", "72,600", "--text", "Ada", "-o"]).arg(&bad).output().unwrap();
+    assert!(!r.status.success() && !bad.exists());
+    assert!(String::from_utf8_lossy(&r.stderr).contains("unlock the PDF first"), "{}", String::from_utf8_lossy(&r.stderr));
+}
