@@ -3,7 +3,7 @@
 <h1 align="center">Sheaf</h1>
 
 <p align="center"><b>A fast, private, open-source PDF toolbox for the Mac.</b><br>
-Merge, split, compress, protect and convert PDFs — offline, in a 29 MB native app.</p>
+Merge, compress, convert, OCR, sign and redact PDFs — offline, in a native app.</p>
 
 ---
 
@@ -29,6 +29,8 @@ Office and HTML conversion use [LibreOffice](https://www.libreoffice.org/downloa
 | Launch to first window | **0.35 s** | 1.12 s |
 | Idle memory | **115 MB** | 617 MB |
 | Compress (sample 3.2 MB guide, "Recommended") | **−42 %** | −29 % |
+
+Sheaf 0.2 adds the PdfCraft engine and the OCR models: the app is 92 MB (50 MB download). Launch and memory figures for 0.2 are still to be measured.
 
 Measured on an Apple Silicon Mac — method and raw numbers in [docs/BENCH.md](docs/BENCH.md).
 
