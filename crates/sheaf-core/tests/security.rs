@@ -17,6 +17,12 @@ fn protect_writes_aes256_r6() {
     let all = format!("{}{}", String::from_utf8_lossy(&check.stdout), String::from_utf8_lossy(&check.stderr));
     assert_eq!(check.status.code(), Some(0), "{all}");
     assert!(!all.contains("WARNING"), "{all}");
+    // The random key strings are hex strings, never literal ones (see the loop test below).
+    let bytes = std::fs::read(&out).unwrap();
+    for key in ["/O", "/U", "/OE", "/UE", "/Perms"] {
+        let lit = format!("{key}(");
+        assert!(!bytes.windows(lit.len()).any(|w| w == lit.as_bytes()), "{key} written as a literal string");
+    }
     let _g = sheaf_core::engine::pdfium_lock();
     assert!(matches!(sheaf_core::engine::open_pdf(&out, None), Err(OpdfError::PasswordRequired(_))));
 }
@@ -69,4 +75,26 @@ fn repair_of_protected_file_is_unencrypted() {
     assert_eq!(page_texts(&out), ["Page 1", "Page 2"]);
     let c = Command::new("qpdf").arg("--check").arg(&out).output().unwrap();
     assert_eq!(c.status.code(), Some(0), "{c:?}");
+}
+/// Protect's random salts, keys and AES ciphertext sometimes contain two end-of-line bytes in a
+/// row. Written raw inside a literal string, PdfCraft's reader folded the run into one byte and
+/// refused the file ("InvalidEncryption"); every output must open in PdfCraft and pdfium.
+#[test]
+fn protect_outputs_always_open_in_pdfcraft_and_pdfium() {
+    let t = tempfile::tempdir().unwrap();
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/invoice.pdf");
+    let mut failures = Vec::new();
+    for i in 0..200 {
+        let out = protect(&Input::new(&src), "pw", None, &t.path().join(format!("p{i}.pdf"))).unwrap();
+        let input = Input { path: out.clone(), password: Some("pw".into()) };
+        if let Err(e) = sheaf_core::pdfcraft::Doc::open(&input) {
+            failures.push(format!("{i}: pdfcraft: {e}"));
+        }
+        let _g = sheaf_core::engine::pdfium_lock();
+        if let Err(e) = sheaf_core::engine::open_pdf(&out, Some("pw")) {
+            failures.push(format!("{i}: pdfium: {e}"));
+        }
+        std::fs::remove_file(&out).unwrap();
+    }
+    assert!(failures.is_empty(), "{} of 200 outputs failed to open:\n{}", failures.len(), failures.join("\n"));
 }

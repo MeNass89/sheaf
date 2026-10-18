@@ -22,6 +22,7 @@ pub fn protect(input: &Input, user_pw: &str, owner_pw: Option<&str>, out: &Path)
     let state = EncryptionState::try_from(version)?;
     doc.encrypt(&state)?;
     set_aes256_key_length(&mut doc)?;
+    for obj in doc.objects.values_mut() { hex_strings(obj); }
     atomic_write(out, |part| { doc.save(part)?; Ok(()) })
 }
 
@@ -29,6 +30,22 @@ pub fn unlock(input: &Input, out: &Path) -> Result<PathBuf> {
     let mut doc = input.load_lopdf()?; // already decrypted in memory when a password is given
     doc.trailer.remove(b"Encrypt");
     atomic_write(out, |part| { doc.save(part)?; Ok(()) })
+}
+
+/// Encryption fills strings with random bytes (the Encrypt dictionary's /O /U /OE /UE /Perms, and
+/// every encrypted string), which lopdf writes as literal strings with line feeds unescaped. That
+/// is valid (ISO 32000-2 §7.3.4.2: each end-of-line marker reads as one LF), but PdfCraft's reader
+/// folds a run of end-of-line bytes into a single LF, so a key string holding two line feeds in a
+/// row came back one byte short and the file was refused ("InvalidEncryption"). Hex strings read
+/// the same in every reader.
+fn hex_strings(obj: &mut lopdf::Object) {
+    match obj {
+        lopdf::Object::String(_, format) => *format = lopdf::StringFormat::Hexadecimal,
+        lopdf::Object::Array(items) => items.iter_mut().for_each(hex_strings),
+        lopdf::Object::Dictionary(dict) => dict.iter_mut().for_each(|(_, v)| hex_strings(v)),
+        lopdf::Object::Stream(stream) => stream.dict.iter_mut().for_each(|(_, v)| hex_strings(v)),
+        _ => {}
+    }
 }
 
 /// lopdf 0.45 omits `/Length` from a V5 (AES-256) Encrypt dictionary; qpdf then warns on every
