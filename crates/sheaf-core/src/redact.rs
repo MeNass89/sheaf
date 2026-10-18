@@ -733,9 +733,10 @@ fn embedded_and_scripts(d: &lopdf::Document) -> (Named, Named) {
 }
 
 /// Removes from the form every field whose widget was dropped (with a parent left without
-/// kids), so a blacked-out page keeps no field values.
+/// kids), so a blacked-out page keeps no field values. A field met twice (a malformed form
+/// whose /Kids loop back) is kept as it is the second time.
 fn prune_fields(d: &mut lopdf::Document, dropped: &HashSet<ObjectId>) -> Result<()> {
-    fn keep(d: &mut lopdf::Document, list: Vec<Object>, dropped: &HashSet<ObjectId>) -> Vec<Object> {
+    fn keep(d: &mut lopdf::Document, list: Vec<Object>, dropped: &HashSet<ObjectId>, seen: &mut HashSet<ObjectId>) -> Vec<Object> {
         let mut out = Vec::new();
         for o in list {
             let Ok(id) = o.as_reference() else {
@@ -745,10 +746,14 @@ fn prune_fields(d: &mut lopdf::Document, dropped: &HashSet<ObjectId>) -> Result<
             if dropped.contains(&id) {
                 continue;
             }
+            if !seen.insert(id) {
+                out.push(o);
+                continue;
+            }
             let kids = d.get_dictionary(id).ok().and_then(|f| f.get(b"Kids").ok()).and_then(|k| k.as_array().ok()).cloned();
             if let Some(kids) = kids {
                 let had = !kids.is_empty();
-                let left = keep(d, kids, dropped);
+                let left = keep(d, kids, dropped, seen);
                 if had && left.is_empty() {
                     continue;
                 }
@@ -767,7 +772,7 @@ fn prune_fields(d: &mut lopdf::Document, dropped: &HashSet<ObjectId>) -> Result<
         None => af.as_dict()?.clone(),
     };
     let Ok(fields) = af_dict.get(b"Fields").and_then(|f| d.dereference(f)).map(|(_, f)| f.as_array().cloned().unwrap_or_default()) else { return Ok(()) };
-    let fields = keep(d, fields, dropped);
+    let fields = keep(d, fields, dropped, &mut HashSet::new());
     let mut af_dict = af_dict;
     af_dict.set("Fields", fields);
     match af_id {
@@ -1143,16 +1148,26 @@ struct Span {
     op: String,
     /// Inline image: where its `ID` keyword starts (its dictionary is `start + 2 .. id_at`).
     id_at: usize,
+    /// Comments inside an operation (between its operands, or in an inline image dictionary),
+    /// as byte ranges from their `%`. Comments outside operations are spans of their own, so
+    /// spans never overlap.
+    comments: Vec<(usize, usize)>,
 }
 
 /// Splits content `raw` into operations and comments by byte range, skipping strings, arrays,
-/// dictionaries and inline image data, so each can be read or rewritten on its own.
+/// dictionaries and inline image data, so each can be read or rewritten on its own. The spans
+/// are in order and never overlap: a comment inside an operation belongs to that operation.
 fn scan_content(raw: &[u8]) -> Vec<Span> {
     let ws = |c: u8| b" \t\r\n\x0c\0".contains(&c);
     let delim = |c: u8| b"()<>[]{}/%".contains(&c);
     let n = raw.len();
     let (mut out, mut i, mut depth) = (Vec::new(), 0usize, 0usize);
     let (mut op_start, mut bi): (Option<usize>, Option<usize>) = (None, None);
+    // Comments met since the current operation (or inline image) started.
+    let mut inner: Vec<(usize, usize)> = Vec::new();
+    let flush = |inner: &mut Vec<(usize, usize)>, out: &mut Vec<Span>| {
+        out.extend(inner.drain(..).map(|(start, end)| Span { start, end, op: "%".into(), id_at: 0, comments: Vec::new() }));
+    };
     while i < n {
         let c = raw[i];
         if ws(c) {
@@ -1165,7 +1180,11 @@ fn scan_content(raw: &[u8]) -> Vec<Span> {
                 while i < n && raw[i] != b'\n' && raw[i] != b'\r' {
                     i += 1;
                 }
-                out.push(Span { start, end: i, op: "%".into(), id_at: 0 });
+                if op_start.is_some() || bi.is_some() {
+                    inner.push((start, i));
+                } else {
+                    out.push(Span { start, end: i, op: "%".into(), id_at: 0, comments: Vec::new() });
+                }
                 continue;
             }
             b'(' => {
@@ -1226,6 +1245,8 @@ fn scan_content(raw: &[u8]) -> Vec<Span> {
                 let keyword = tok[0].is_ascii_alphabetic() || tok[0] == b'\'' || tok[0] == b'"';
                 if keyword && depth == 0 && !matches!(tok, b"true" | b"false" | b"null") {
                     if tok == b"BI" {
+                        // Stray operands before BI are dropped; their comments stand alone.
+                        flush(&mut inner, &mut out);
                         bi = Some(start);
                         op_start = None;
                         continue;
@@ -1244,13 +1265,13 @@ fn scan_content(raw: &[u8]) -> Vec<Span> {
                             }
                             j += 1;
                         }
-                        out.push(Span { start: b0, end, op: "BI".into(), id_at: start });
+                        out.push(Span { start: b0, end, op: "BI".into(), id_at: start, comments: std::mem::take(&mut inner) });
                         i = end;
                         op_start = None;
                         continue;
                     }
                     if bi.is_none() {
-                        out.push(Span { start: op_start.unwrap_or(start), end: i, op: String::from_utf8_lossy(tok).into_owned(), id_at: 0 });
+                        out.push(Span { start: op_start.unwrap_or(start), end: i, op: String::from_utf8_lossy(tok).into_owned(), id_at: 0, comments: std::mem::take(&mut inner) });
                         op_start = None;
                     }
                     continue;
@@ -1261,21 +1282,39 @@ fn scan_content(raw: &[u8]) -> Vec<Span> {
             op_start = Some(start);
         }
     }
+    // Operands with no operator: their comments stand alone, after every span.
+    flush(&mut inner, &mut out);
     out
 }
 
-/// The dictionary of the inline image `raw[s.start..s.end]`.
+/// `raw[from..to]` without the comments of `s` that `drop` selects (their line ends stay, so
+/// the tokens around them stay apart).
+fn uncommented(raw: &[u8], s: &Span, from: usize, to: usize, drop: impl Fn(&[u8]) -> bool) -> Vec<u8> {
+    let mut b = Vec::with_capacity(to.saturating_sub(from));
+    let mut at = from;
+    for &(cs, ce) in &s.comments {
+        if cs >= at && ce <= to && drop(&raw[cs..ce]) {
+            b.extend_from_slice(&raw[at..cs]);
+            at = ce;
+        }
+    }
+    b.extend_from_slice(raw.get(at..to).unwrap_or_default());
+    b
+}
+
+/// The dictionary of the inline image `raw[s.start..s.end]` (its comments left out).
 fn inline_dict(raw: &[u8], s: &Span) -> Option<Dictionary> {
     let mut b = b"<<".to_vec();
-    b.extend_from_slice(raw.get(s.start + 2..s.id_at)?);
+    b.extend_from_slice(&uncommented(raw, s, s.start + 2, s.id_at, |_| true));
     b.extend_from_slice(b">> Zz");
     let c = lopdf::content::Content::decode(&b).ok()?;
     c.operations.into_iter().next()?.operands.into_iter().next()?.as_dict().ok().cloned()
 }
 
-/// A marked-content or marked-point operation (`BMC`, `BDC`, `MP`, `DP`) of `raw`, decoded.
+/// A marked-content or marked-point operation (`BMC`, `BDC`, `MP`, `DP`) of `raw`, decoded
+/// (its comments left out).
 fn marked_op(raw: &[u8], s: &Span) -> Option<lopdf::content::Operation> {
-    lopdf::content::Content::decode(raw.get(s.start..s.end)?).ok()?.operations.into_iter().next()
+    lopdf::content::Content::decode(&uncommented(raw, s, s.start, s.end, |_| true)).ok()?.operations.into_iter().next()
 }
 
 /// The text a ToUnicode CMap maps codes to (its UTF-16BE hex strings, decoded).
@@ -1457,6 +1496,9 @@ impl Audit<'_> {
     /// tags and property lists, and inline image dictionaries.
     fn painted(&mut self, raw: &[u8]) {
         for s in scan_content(raw) {
+            if s.comments.iter().any(|&(cs, ce)| self.has(&String::from_utf8_lossy(&raw[cs + 1..ce]))) {
+                self.hit("a comment in page content".into());
+            }
             match s.op.as_str() {
                 "%" => {
                     if self.has(&String::from_utf8_lossy(&raw[s.start + 1..s.end])) {
@@ -1761,6 +1803,9 @@ fn scrub_painted(raw: &[u8], needles: &[String]) -> Option<Vec<u8>> {
             }),
             _ => None,
         };
+        // A comment inside an operation left as it was: dropped on its own.
+        let comment_hit = |c: &[u8]| contains_any(&String::from_utf8_lossy(&c[1..]), needles);
+        let replacement = replacement.or_else(|| s.comments.iter().any(|&(cs, ce)| comment_hit(&raw[cs..ce])).then(|| uncommented(raw, &s, s.start, s.end, comment_hit)));
         if let Some(r) = replacement {
             out.extend_from_slice(&raw[at..s.start]);
             out.extend_from_slice(&r);
@@ -2230,6 +2275,69 @@ mod tests {
         let before_bi = &out[..t.find("BI ").unwrap()];
         assert!(lopdf::content::Content::decode(before_bi).is_ok(), "still valid content: {t}");
         assert!(scrub_painted(SHOWN, &n).is_none());
+    }
+
+    #[test]
+    fn comments_next_to_and_inside_operations_never_overlap_and_are_scrubbed() {
+        let n = ["secretword".to_string()];
+        // Every pairing of a comment with operands, operators and inline image dictionaries,
+        // with and without white space around it.
+        let parts: [&[u8]; 12] = [
+            b"/secretword",
+            b"% secretword\n",
+            b"%secretword\r",
+            b"% keep\n",
+            b"BMC",
+            b"EMC",
+            b"<< /A (secretword) >>",
+            b"BDC",
+            b"BT (x) Tj ET",
+            b"BI /W 1 /H 1 /CS /G /BPC 8",
+            b"ID \x00 EI",
+            b"/Note (secretword)",
+        ];
+        let mut runs = 0;
+        for a in parts {
+            for b in parts {
+                for c in parts {
+                    for sep in [&b" "[..], b""] {
+                        let raw = [a, sep, b, sep, c, b" % secretword\n BMC EMC"].concat();
+                        let spans = scan_content(&raw);
+                        let mut end = 0;
+                        for s in &spans {
+                            let mut all = vec![(s.start, s.end)];
+                            all.extend(s.comments.iter().copied());
+                            for &(x, y) in &all {
+                                assert!(x <= y && y <= raw.len(), "{}", String::from_utf8_lossy(&raw));
+                            }
+                            assert!(s.start >= end, "spans overlap: {}", String::from_utf8_lossy(&raw));
+                            end = s.end;
+                        }
+                        let out = scrub_painted(&raw, &n).unwrap_or_else(|| raw.clone());
+                        // No comment of the result holds the word.
+                        for s in scan_content(&out) {
+                            let mut cs = s.comments.clone();
+                            if s.op == "%" {
+                                cs.push((s.start, s.end));
+                            }
+                            for (x, y) in cs {
+                                assert!(!String::from_utf8_lossy(&out[x..y]).contains("secretword"), "{} -> {}", String::from_utf8_lossy(&raw), String::from_utf8_lossy(&out));
+                            }
+                        }
+                        runs += 1;
+                    }
+                }
+            }
+        }
+        assert_eq!(runs, 12 * 12 * 12 * 2);
+        // A comment inside an inline image dictionary (once an overlapping span and a panic).
+        let raw = b"q BI /W 1 /H 1 /CS /G /BPC 8 %secretword\n/Note (secretword) ID \x00 EI Q";
+        let out = scrub_painted(raw, &n).unwrap();
+        let t = String::from_utf8_lossy(&out);
+        assert!(!t.contains("secretword") && t.contains("ID \x00 EI Q"), "{t}");
+        // A comment between a tag and its operator: the tag is still read and replaced.
+        let out = scrub_painted(b"/secretword % secretword\n BMC EMC", &n).unwrap();
+        assert_eq!(String::from_utf8_lossy(&out), "/Span BMC EMC");
     }
 
     #[test]

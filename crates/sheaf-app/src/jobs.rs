@@ -324,6 +324,10 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 was_encrypted |= r.was_encrypted;
                 read += r.pages_read;
                 skipped += r.pages_skipped;
+                if let Some(w) = r.failure_warning() {
+                    let name = r.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    notes.push(if n > 1.0 { format!("{name} — {w}") } else { w });
+                }
                 Ok(vec![r.path])
             }))?;
             let pages = |n: usize| if n == 1 { "page" } else { "pages" };

@@ -119,3 +119,17 @@ fn out_of_range_scale_and_font_size_are_refused() {
     let o = WatermarkOptions { mark: Mark::Text { text: "AUTO".into(), font_size: 0.0, color: [0.0; 3] }, ..Default::default() };
     assert!(watermark(&Input::new(&a), &o, &t.path().join("w.pdf")).is_ok());
 }
+
+#[test]
+fn an_automatic_size_at_the_top_left_stays_inside_the_page() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let o = WatermarkOptions { mark: Mark::Text { text: "DRAFT".into(), font_size: 0.0, color: [0.0; 3] }, placement: Placement::Grid(0), ..Default::default() };
+    let (out, _) = watermark(&Input::new(&a), &o, &t.path().join("w.pdf")).unwrap();
+    let img = render(&out, 0);
+    // Ink near the top left, and none in the outer margin strips (the mark is not cut).
+    assert!(dark_in(&img, 0.0, 0.5, 0.0, 0.3) > 50, "top-left");
+    for (name, x0, x1, y0, y1) in [("left", 0.0, 0.03, 0.0, 1.0), ("top", 0.0, 1.0, 0.0, 0.02), ("right", 0.97, 1.0, 0.0, 1.0)] {
+        assert_eq!(dark_in(&img, x0, x1, y0, y1), 0, "{name} edge");
+    }
+}

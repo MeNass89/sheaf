@@ -367,6 +367,7 @@ enum Cmd {
         items: Vec<CliItem>,
     },
     /// Convert to PDF/A for archiving, then check the result
+    #[command(after_help = "Exit status: 0 when the output conforms. When rules of the standard are still broken, each is\nprinted and the file is still written (everything fixable was fixed), but the exit status is 1.")]
     Pdfa {
         input: PathBuf,
         #[arg(long, value_enum, default_value_t = CliPdfA::A2b)]
@@ -673,6 +674,9 @@ fn run(cli: Cli) -> sheaf_core::Result<Vec<PathBuf>> {
 
 const NOT_PROTECTED: &str = "note: the output is not password-protected";
 
+/// `sheaf pdfa` wrote a file that still breaks rules of the standard: exit 1 after printing it.
+static NOT_CONFORMING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Vec<PathBuf>> {
     let one = |r: sheaf_core::Result<PathBuf>| r.map(|p| vec![p]);
     match cmd {
@@ -760,6 +764,9 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             let r = ocr::ocr(&input(i), &opts, &out, &mut |_| true)?;
             let page = |n: usize| if n == 1 { "page" } else { "pages" };
             eprintln!("{} {} read, {} skipped, {} words added", r.pages_read, page(r.pages_read), r.pages_skipped, r.words);
+            if let Some(w) = r.failure_warning() {
+                eprintln!("warning: {w}");
+            }
             warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::ToWord { input: i, ocr, out } => office_export(&input(i), Office::Word, ocr, &out),
@@ -879,6 +886,10 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             for issue in &r.issues {
                 eprintln!("warning: {} ({}): {}", level.label(), issue.clause, issue.message);
             }
+            if !r.issues.is_empty() {
+                eprintln!("error: the output does not fully conform to {}", level.label());
+                NOT_CONFORMING.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
             warned(Ok((r.path, r.was_encrypted)))
         }
     }
@@ -920,6 +931,9 @@ fn main() {
         Ok(paths) => {
             for p in paths {
                 println!("{}", p.display());
+            }
+            if NOT_CONFORMING.load(std::sync::atomic::Ordering::Relaxed) {
+                std::process::exit(1);
             }
         }
         Err(e) => {
