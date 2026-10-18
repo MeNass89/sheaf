@@ -6,6 +6,7 @@ pub mod files;
 pub mod history;
 pub mod icons;
 pub mod jobs;
+pub mod open_with;
 pub mod pool;
 pub mod prefs;
 pub mod store_file;
