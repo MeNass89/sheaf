@@ -438,3 +438,45 @@ fn sign_job_places_the_signature_in_the_box_clicked_on_a_turned_page() {
     assert!(near(x0, view_box[0]) && near(x1, view_box[2]), "ink x {x0:.1}..{x1:.1}, box {view_box:?}");
     assert!(near((y0 + y1) / 2.0, 0.4 * h) && y1 - y0 < 0.05 * h, "ink y {y0:.1}..{y1:.1}");
 }
+
+#[test]
+fn edit_job_puts_text_and_image_where_placed_in_the_viewer_on_a_turned_page() {
+    use sheaf_app::jobs::EditPlaced;
+    let dir = tempfile::tempdir().unwrap();
+    // A blank A4 page shown turned a quarter (landscape as displayed).
+    let blank = dir.path().join("blank.png");
+    image::RgbImage::from_pixel(595, 842, image::Rgb([255, 255, 255])).save(&blank).unwrap();
+    let src = images_to_pdf(&[blank], PageLayout::FitImage, &dir.path().join("blank.pdf")).unwrap();
+    let turned = dir.path().join("turned.pdf");
+    assert!(std::process::Command::new("qpdf").arg(&src).arg("--rotate=+90:1").arg(&turned).status().unwrap().success());
+    let green = dir.path().join("g.png");
+    image::RgbImage::from_pixel(20, 10, image::Rgb([20, 170, 40])).save(&green).unwrap();
+    let job = Job::Edit {
+        input: Input::new(&turned),
+        items: vec![
+            EditPlaced::Text { page: 0, at: [100.0, 50.0], text: "Placed".into(), size: 24.0, color: [26, 77, 217] },
+            EditPlaced::Image { page: 0, rect: [500.0, 300.0, 600.0, 350.0], path: green },
+        ],
+        out: dir.path().join("edited.pdf"),
+    };
+    let o = run(&job, &AtomicBool::new(false), &|_| {}).unwrap();
+    assert_eq!((o.summary.as_str(), o.was_encrypted), ("2 items added", false));
+    let doc = sheaf_core::pdfcraft::Doc::open(&Input::new(&o.outputs[0])).unwrap();
+    let r = doc.render(0, 1.0).unwrap();
+    assert!(r.width > r.height, "shown landscape: {}x{}", r.width, r.height);
+    let boxed = |f: &dyn Fn(&[u8]) -> bool| {
+        let mut b: Option<[u32; 4]> = None;
+        for y in 0..r.height {
+            for x in 0..r.width {
+                if f(&r.rgba[((y * r.width + x) * 4) as usize..][..4]) {
+                    b = Some(b.map_or([x, y, x, y], |b| [b[0].min(x), b[1].min(y), b[2].max(x), b[3].max(y)]));
+                }
+            }
+        }
+        b
+    };
+    let blue = boxed(&|p| p[2] > 150 && p[0] < 100 && p[1] < 130).expect("no text");
+    assert!(blue[0] >= 100 && blue[0] <= 104 && blue[1] >= 50 && blue[3] < 80 && blue[2] - blue[0] > 50, "text ink {blue:?}");
+    let g = boxed(&|p| p[1] > 140 && p[0] < 60 && p[2] < 80).expect("no image");
+    assert!(g.iter().zip([500, 300, 599, 349]).all(|(a, e)| a.abs_diff(e) <= 1), "image at {g:?}");
+}

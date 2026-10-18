@@ -1,0 +1,163 @@
+// Edit PDF: the original's Add text and Add image tools on the page viewer. A click on a page
+// places a text box (or the chosen image); a click on an item selects it, a drag moves it. The
+// selected text is typed here, with its size and colour. Events go to the Rust side through
+// EditBridge.
+import { Theme } from "../theme.slint";
+import { ToolTab, EditBridge } from "../flow-types.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Segment, InfoBox } from "../widgets/radio-card.slint";
+
+component SectionLabel inherits Text {
+    font-size: Theme.fs-label;
+    font-weight: Theme.weight-demibold;
+    color: Theme.text;
+}
+
+// A colour choice: a filled circle, ringed when selected.
+component Swatch inherits Rectangle {
+    in property <color> fill;
+    in property <bool> selected;
+    callback clicked();
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    border-width: root.selected ? 2px : 1px;
+    border-color: root.selected ? Theme.accent : t.has-hover ? Theme.text-secondary : Theme.option-border;
+    Rectangle {
+        width: 18px;
+        height: 18px;
+        border-radius: 9px;
+        background: root.fill;
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component EditPanel inherits VerticalLayout {
+    in property <ToolTab> tab;
+    in property <bool> enabled: true;
+    // The selected text, loaded when the selection changes.
+    in-out property <string> text;
+    property <int> seq: root.tab.edit-selected-seq;
+
+    changed seq => { root.text = root.tab.edit-text; }
+    changed text => {
+        if root.tab.edit-selected == 1 && root.text != root.tab.edit-text {
+            EditBridge.text(root.tab.id, root.text);
+        }
+    }
+
+    spacing: 10px;
+    alignment: start;
+
+    Text {
+        text: root.tab.edit-mode == 0
+            ? "Click on a page to add a text box, then type your text below. Click a box to select it, drag it to move it."
+            : "Choose an image, then click on a page to place it. Click an image to select it, drag it to move it.";
+        font-size: Theme.fs-label;
+        color: Theme.text-secondary;
+        wrap: word-wrap;
+        line-height-factor: Theme.line-height;
+    }
+
+    HorizontalLayout {
+        spacing: 6px;
+        Segment {
+            horizontal-stretch: 1;
+            text: "Add text";
+            selected: root.tab.edit-mode == 0;
+            clicked => { EditBridge.mode(root.tab.id, 0); }
+        }
+        Segment {
+            horizontal-stretch: 1;
+            text: "Add image";
+            selected: root.tab.edit-mode == 1;
+            clicked => { EditBridge.mode(root.tab.id, 1); }
+        }
+    }
+
+    if root.tab.edit-mode == 0: VerticalLayout {
+        spacing: 10px;
+        if root.tab.edit-selected == 1: TextField {
+            label: "Text (page " + root.tab.edit-selected-page + ")";
+            placeholder: "Type your text";
+            text <=> root.text;
+        }
+        SectionLabel { text: "Text size"; }
+        HorizontalLayout {
+            spacing: 6px;
+            Segment {
+                width: 40px;
+                text: "−";
+                clicked => { EditBridge.size-step(root.tab.id, -1); }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.tab.edit-size + " pt";
+                font-size: Theme.fs-label;
+                color: Theme.text;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            Segment {
+                width: 40px;
+                text: "+";
+                clicked => { EditBridge.size-step(root.tab.id, 1); }
+            }
+        }
+        SectionLabel { text: "Text color"; }
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            for c[i] in [#000000, #808080, #D91A1A, #1A4DD9]: Swatch {
+                fill: c;
+                selected: root.tab.edit-colour == i;
+                clicked => { EditBridge.colour(root.tab.id, i); }
+            }
+        }
+    }
+
+    if root.tab.edit-mode == 1: VerticalLayout {
+        spacing: 10px;
+        Segment {
+            text: root.tab.edit-image-name == "" ? "Choose an image…" : "Change image…";
+            clicked => {
+                if root.enabled {
+                    EditBridge.pick-image(root.tab.id);
+                }
+            }
+        }
+        Text {
+            text: root.tab.edit-image-name == "" ? "PNG or JPEG" : root.tab.edit-image-name;
+            font-size: Theme.fs-caption;
+            color: Theme.text-muted;
+            overflow: elide;
+        }
+        SectionLabel { text: "Size"; }
+        HorizontalLayout {
+            spacing: 6px;
+            for s[i] in ["Small", "Medium", "Large"]: Segment {
+                horizontal-stretch: 1;
+                text: s;
+                selected: root.tab.edit-width == i;
+                clicked => { EditBridge.width(root.tab.id, i); }
+            }
+        }
+    }
+
+    if root.tab.edit-selected != 0: Segment {
+        text: root.tab.edit-selected == 1 ? "Remove text" : "Remove image";
+        clicked => { EditBridge.remove(root.tab.id); }
+    }
+
+    Text {
+        text: root.tab.edit-count == 0 ? "Nothing added yet."
+            : root.tab.edit-count == 1 ? "1 item added" : root.tab.edit-count + " items added";
+        font-size: Theme.fs-caption;
+        color: root.tab.edit-count == 0 ? Theme.warning : Theme.text-muted;
+    }
+
+    InfoBox { text: "Text and images become part of the page: every PDF reader shows them."; }
+}

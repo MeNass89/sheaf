@@ -164,7 +164,7 @@ static CATALOGUE: &[ToolInfo] = &[
     tool!(PdfToPowerPoint, "PDF to PowerPoint", "Rebuild a PDF as slides you can edit.", ConvertFromPdf, "presentation", PDF, true, 1),
     tool!(PdfToExcel, "PDF to Excel", "Recover tables from a PDF into a spreadsheet.", ConvertFromPdf, "sheet", PDF, true, 1),
     tool!(PdfToPdfA, "PDF to PDF/A", "Save a PDF in the archival format meant to last.", ConvertFromPdf, "archive", PDF, true, 1),
-    tool!(Edit, "Edit PDF", "Add text, shapes and images on top of your pages.", Edit, "pen-line", PDF, false, 3),
+    tool!(Edit, "Edit PDF", "Add text and images on top of your pages.", Edit, "pen-line", PDF, false, 1),
     tool!(PageNumbers, "Page numbers", "Stamp page numbers where you want them.", Edit, "list-ordered", PDF, true, 1),
     tool!(Watermark, "Add watermark", "Overlay text or an image across your pages.", Edit, "stamp", PDF, true, 1),
     tool!(Crop, "Crop PDF", "Trim the margins or keep only part of each page.", Edit, "crop", PDF, false, 1),

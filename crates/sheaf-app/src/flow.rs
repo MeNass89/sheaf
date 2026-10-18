@@ -164,7 +164,7 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                             t.preview = None;
                             return (None, Some(input), None);
                         }
-                        if matches!(t.tool, ToolId::Redact | ToolId::Sign) {
+                        if matches!(t.tool, ToolId::Redact | ToolId::Sign | ToolId::Edit) {
                             t.viewer = None;
                             t.viewer_error = None;
                             return (None, None, Some(input));

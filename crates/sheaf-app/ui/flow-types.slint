@@ -61,6 +61,21 @@ export struct SignOverlay {
     h: length,
 }
 
+// Edit: one placed item in content coordinates; text is drawn at `font-size` in `color`, an
+// image fills its box.
+export struct EditOverlay {
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    selected: bool,
+    is-text: bool,
+    text: string,
+    font-size: length,
+    color: color,
+    image: image,
+}
+
 // Redact: one search match ("alice@example.com", "Page 2").
 export struct RedactResult {
     text: string,
@@ -164,6 +179,22 @@ export struct ToolTab {
     sign-placed: bool,
     sign-page: int,
     sign-overlay: SignOverlay,
+    // Edit: 0 Add text, 1 Add image; items placed; the selection (0 none, 1 text, 2 image), its
+    // page (1-based) and a counter bumped when it changes; the selected text; text size in
+    // points and colour (0 black, 1 grey, 2 red, 3 blue) for the selection and the next text;
+    // image width (0 small, 1 medium, 2 large); the image chosen; every item is ready.
+    edit-mode: int,
+    edit-count: int,
+    edit-selected: int,
+    edit-selected-page: int,
+    edit-selected-seq: int,
+    edit-text: string,
+    edit-size: int,
+    edit-colour: int,
+    edit-width: int,
+    edit-image-name: string,
+    edit-ready: bool,
+    edit-overlays: [EditOverlay],
 }
 
 // Everything the options panels collect, sent with the action button.
@@ -271,6 +302,21 @@ export global SignBridge {
     callback size(int, int);
     // A certificate file chosen in a dialog ("" when cancelled).
     callback pick-p12() -> string;
+}
+
+// Edit panel events, answered by the Rust side. The first argument is the tab id.
+export global EditBridge {
+    // 0 Add text, 1 Add image.
+    callback mode(int, int);
+    // The selected text box's text.
+    callback text(int, string);
+    // +1 / −1: the next or previous text size.
+    callback size-step(int, int);
+    callback colour(int, int);
+    callback width(int, int);
+    callback pick-image(int);
+    // Remove the selected item.
+    callback remove(int);
 }
 
 // Text parsing the options panels need and Slint lacks, answered by the Rust side.
