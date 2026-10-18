@@ -47,6 +47,15 @@ impl CompareReport {
     pub fn counts(&self) -> String {
         format!("{} added, {} removed, {} changed", self.added, self.removed, self.replaced)
     }
+
+    /// The result line, in Sheaf's CLI and app alike.
+    pub fn summary(&self) -> String {
+        let mut s = if self.identical() { "No differences: the documents' text is identical.".to_string() } else { self.counts() };
+        if self.regions > 0 {
+            s += &format!("; {} outlined", crate::tools::count(self.regions, "other changed area"));
+        }
+        s
+    }
 }
 
 /// Resolution the pages are rendered at for the visual comparison.

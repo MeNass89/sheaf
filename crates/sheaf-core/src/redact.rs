@@ -54,6 +54,12 @@ pub struct Mark {
 /// The line shown when [`apply`] succeeds (its audit passed).
 pub const VERIFIED: &str = "No text remains under the black boxes. Matches also removed from metadata, bookmarks and comments.";
 
+/// The result line for `areas` areas redacted (followed by [`VERIFIED`]), in Sheaf's CLI and
+/// app alike.
+pub fn summary(areas: usize) -> String {
+    format!("{} redacted", crate::tools::count(areas, "area"))
+}
+
 /// What [`apply`] wrote.
 #[derive(Debug, Clone)]
 pub struct RedactReport {

@@ -325,7 +325,7 @@ fn ocr_job_reports_progress_and_a_cancel_inside_a_file_writes_nothing() {
     let items = vec![(Input::new(&src), dir.path().join("a-ocr.pdf")), (Input::new(&text), dir.path().join("t-ocr.pdf"))];
     let o = run(&Job::Ocr { items: items.clone(), options: OcrOptions::default() }, &no, &|p| seen.borrow_mut().push(p)).unwrap();
     assert_eq!(o.outputs.len(), 2);
-    assert_eq!(o.summary, "2 pages read, 1 page already had text");
+    assert_eq!(o.summary, "2 pages read, 0 words added, 1 page already had text");
     let seen = seen.into_inner();
     assert!(seen.windows(2).all(|w| w[0] <= w[1]) && seen.last() == Some(&1.0), "{seen:?}");
     assert!(seen.iter().any(|p| *p > 0.0 && *p < 0.5), "progress inside the first file: {seen:?}");

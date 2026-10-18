@@ -147,12 +147,17 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
     sheaf_app::pool::probes().submit(move || match kind {
         Kind::Pdf => {
             let mut panicked = false;
-            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| files::probe_pdf(&input, THUMB_PX))).unwrap_or_else(|p| {
+            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| files::probe_pdf_full(&input, THUMB_PX))).unwrap_or_else(|p| {
                 panicked = true;
                 Err(OpdfError::Conversion(format!("internal error: {}", sheaf_app::jobs::panic_message(&*p))))
             });
             let _ = weak.upgrade_in_event_loop(move |ui| match r {
-                Ok((pages, thumb)) => {
+                Ok((_, _, true)) if with(|a| a.tab(tab_id).is_some_and(|t| files::refuses_protected(t.tool))) => {
+                    toast(&ui, files::SIGN_PROTECTED);
+                    remove_file(&ui, tab_id, uid);
+                    crate::password::done(&ui, tab_id, uid);
+                }
+                Ok((pages, thumb, _)) => {
                     let (organize, crop, view) = with(|a| {
                         let Some(t) = a.tab(tab_id) else { return (None, None, None) };
                         let Some(f) = t.files.iter_mut().find(|f| f.uid == uid) else { return (None, None, None) };
@@ -204,6 +209,10 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                                 refresh(a, tab_id);
                             });
                             crate::password::done(&ui, tab_id, uid);
+                        }
+                        ProbeFailure::RefuseProtected => {
+                            toast(&ui, files::SIGN_PROTECTED);
+                            remove_file(&ui, tab_id, uid);
                         }
                         ProbeFailure::Remove => {
                             toast(&ui, &format!("Cannot open {}: {e}", input.path.file_name().unwrap_or_default().to_string_lossy()));

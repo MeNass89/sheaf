@@ -116,14 +116,29 @@ pub struct Thumb {
 /// Page count and page-1 thumbnail (`width` px wide) of a PDF. Takes the pdfium lock;
 /// call it from a worker thread. Errors include `PasswordRequired` / `WrongPassword`.
 pub fn probe_pdf(input: &Input, width: i32) -> Result<(u32, Thumb)> {
+    probe_pdf_full(input, width).map(|(n, t, _)| (n, t))
+}
+
+/// [`probe_pdf`], and whether the file is password-protected (user or owner password).
+pub fn probe_pdf_full(input: &Input, width: i32) -> Result<(u32, Thumb, bool)> {
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = input.open()?;
+    let protected = sheaf_core::engine::is_protected(&doc);
     let pages = doc.pages().len() as u32;
     let page = doc.pages().first().map_err(|e| OpdfError::Unsupported(format!("no pages: {e}")))?;
     let bmp = page.render_with_config(
         &pdfium_render::prelude::PdfRenderConfig::new().set_target_width(width),
     )?;
-    Ok((pages, Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }))
+    Ok((pages, Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }, protected))
+}
+
+/// Sign never asks for a password: a signature must not silently remove protection, so a
+/// protected file is refused as soon as it is added.
+pub const SIGN_PROTECTED: &str = "Unlock the PDF first, then sign it";
+
+/// Whether `tool` refuses a password-protected file at once (no password dialog).
+pub fn refuses_protected(tool: ToolId) -> bool {
+    tool == ToolId::Sign
 }
 
 /// What to do with a PDF whose probe (page count + thumbnail) failed.
@@ -137,11 +152,14 @@ pub enum ProbeFailure {
     KeepUnpreviewed,
     /// Toast the error and drop the file: the tool cannot use a PDF pdfium refuses.
     Remove,
+    /// Toast [`SIGN_PROTECTED`] and drop the file: the tool does not take protected files.
+    RefuseProtected,
 }
 
 /// Routes a failed probe. `panicked`: the probe crashed rather than returning `err`.
 pub fn probe_failure(tool: ToolId, err: &OpdfError, panicked: bool) -> ProbeFailure {
     match err {
+        OpdfError::PasswordRequired(_) | OpdfError::WrongPassword(_) if refuses_protected(tool) => ProbeFailure::RefuseProtected,
         OpdfError::PasswordRequired(_) => ProbeFailure::AskPassword { wrong: false },
         OpdfError::WrongPassword(_) => ProbeFailure::AskPassword { wrong: true },
         _ if tool == ToolId::Repair => ProbeFailure::KeepForRepair,
@@ -224,6 +242,25 @@ mod tests {
             assert_eq!(probe_failure(t, &OpdfError::PasswordRequired(p()), false), ProbeFailure::AskPassword { wrong: false });
             assert_eq!(probe_failure(t, &OpdfError::WrongPassword(p()), false), ProbeFailure::AskPassword { wrong: true });
         }
+        // Sign refuses a protected file outright: no password dialog.
+        assert_eq!(probe_failure(ToolId::Sign, &OpdfError::PasswordRequired(p()), false), ProbeFailure::RefuseProtected);
+        assert_eq!(probe_failure(ToolId::Sign, &OpdfError::WrongPassword(p()), false), ProbeFailure::RefuseProtected);
+        assert_eq!(probe_failure(ToolId::Sign, &bad(), false), ProbeFailure::Remove);
+    }
+
+    #[test]
+    fn a_file_with_only_an_owner_password_is_seen_as_protected() {
+        let t = tempfile::tempdir().unwrap();
+        let png = t.path().join("x.png");
+        image::RgbImage::from_pixel(8, 8, image::Rgb([0, 0, 0])).save(&png).unwrap();
+        let a = sheaf_core::images::images_to_pdf(&[png], sheaf_core::images::PageLayout::FitImage, &t.path().join("a.pdf")).unwrap();
+        assert!(!probe_pdf_full(&Input::new(&a), 40).unwrap().2);
+        // Opens without a password (no dialog would be shown), yet is protected.
+        let p = t.path().join("p.pdf");
+        let st = std::process::Command::new("qpdf").args(["--encrypt", "", "owner", "256", "--"]).arg(&a).arg(&p).status().unwrap();
+        assert!(st.success());
+        assert!(probe_pdf_full(&Input::new(&p), 40).unwrap().2);
+        assert!(refuses_protected(ToolId::Sign) && !refuses_protected(ToolId::Edit));
     }
 
     #[test]

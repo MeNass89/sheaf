@@ -29,6 +29,16 @@ impl PdfALevel {
     }
 }
 
+/// The result line for a batch at `level` where `not_conforming` outputs still break rules, in
+/// Sheaf's CLI and app alike.
+pub fn summary(level: PdfALevel, not_conforming: usize) -> String {
+    match not_conforming {
+        0 => format!("Conforms to {}", level.label()),
+        1 => format!("1 file does not fully conform to {}", level.label()),
+        n => format!("{n} files do not fully conform to {}", level.label()),
+    }
+}
+
 /// A rule of the standard the output still breaks.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PdfAIssue {

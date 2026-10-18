@@ -74,6 +74,20 @@ cp "$mac/THIRD_PARTY.md" "$app/Contents/Resources/THIRD_PARTY.md"
 cp crates/sheaf-app/ui/icons/LICENSE "$app/Contents/Resources/licenses/lucide-ISC.txt"
 cp "$pdfium"/licenses/* "$app/Contents/Resources/licenses/pdfium/"
 cp "$pdfium/LICENSE" "$app/Contents/Resources/licenses/pdfium/pdfium-binaries-MIT.txt"
+# PdfCraft's licences and the OFL texts of the fonts it embeds, from the pinned git checkout.
+pdfcraft_rev="$(sed -n 's/^pdfcraft-engine = .*rev = "\([0-9a-f]*\)".*/\1/p' Cargo.toml)"
+pdfcraft_src=""
+for d in "$cargo_home"/git/checkouts/pdfcraft-*/"$(printf %.7s "$pdfcraft_rev")"; do
+    [ -f "$d/NOTICE" ] && pdfcraft_src="$d"
+done
+[ -n "$pdfcraft_src" ] || { echo "error: PdfCraft checkout for rev $pdfcraft_rev not found under $cargo_home/git/checkouts" >&2; exit 1; }
+mkdir -p "$app/Contents/Resources/licenses/pdfcraft" "$app/Contents/Resources/licenses/fonts"
+for f in LICENSE-MIT LICENSE-APACHE NOTICE; do
+    cp "$pdfcraft_src/$f" "$app/Contents/Resources/licenses/pdfcraft/$f"
+done
+for f in OFL-DancingScript.txt OFL-Inter.txt; do
+    cp "$pdfcraft_src/assets/fonts/$f" "$app/Contents/Resources/licenses/fonts/$f"
+done
 echo "==> third-party licences (cargo-about)"
 cargo about generate --workspace -c about.toml about/template.hbs \
     -o "$app/Contents/Resources/licenses/THIRD_PARTY_LICENSES.html"

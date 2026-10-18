@@ -43,6 +43,17 @@ pub struct OcrReport {
     pub pages_failed: Vec<(usize, String)>,
 }
 
+/// The result line for pages read and words added (summed over a batch), in Sheaf's CLI and app
+/// alike: "2 pages read, 14 words added, 1 page already had text".
+pub fn summary(read: usize, words: usize, skipped: usize) -> String {
+    use crate::tools::count;
+    let mut s = format!("{} read, {} added", count(read, "page"), count(words, "word"));
+    if skipped > 0 {
+        s += &format!(", {} already had text", count(skipped, "page"));
+    }
+    s
+}
+
 impl OcrReport {
     /// The warning about [`Self::pages_failed`], if any.
     pub fn failure_warning(&self) -> Option<String> {

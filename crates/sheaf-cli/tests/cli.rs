@@ -247,7 +247,8 @@ fn ocr_subcommand_reports_what_it_read() {
     let err = String::from_utf8_lossy(&r.stderr);
     assert!(r.status.success(), "{err}");
     assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
-    assert!(err.contains("1 page read, 0 skipped"), "{err}");
+    // The same line the app shows (sheaf_core::ocr::summary).
+    assert!(err.contains("1 page read, 0 words added"), "{err}");
     let bad = bin().arg("ocr").arg(&a).args(["--language", "xx", "-o"]).arg(t.path().join("b.pdf")).output().unwrap();
     assert_eq!(bad.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&bad.stderr).contains("OCR language"));
@@ -286,7 +287,7 @@ fn word_powerpoint_and_excel_subcommands() {
     run(&["to-powerpoint"], &t.path().join("n.pptx"));
     assert!(unzip(&t.path().join("n.pptx"), "ppt/slides/slide1.xml").contains("Sheaf 2026"));
     let err = run(&["to-excel", "--layout", "sheet-per-table"], &t.path().join("n.xlsx"));
-    assert!(err.contains("0 tables found"), "{err}");
+    assert!(err.contains("No tables found: the text is in column A"), "{err}");
     assert!(unzip(&t.path().join("n.xlsx"), "xl/sharedStrings.xml").contains("Sheaf 2026"));
     run(&["to-word", "--ocr"], &t.path().join("o.docx"));
 }

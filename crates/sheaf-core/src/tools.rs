@@ -207,3 +207,32 @@ mod tests {
         assert_eq!(catalogue().len(), 28);
     }
 }
+
+/// `n` and `word`, with an "s" unless `n` is 1 ("1 page", "3 pages").
+pub fn count(n: usize, word: &str) -> String {
+    format!("{n} {word}{}", if n == 1 { "" } else { "s" })
+}
+
+#[cfg(test)]
+mod summary_tests {
+    use crate::pdfa::PdfALevel;
+
+    #[test]
+    fn result_lines_are_one_wording_for_cli_and_app() {
+        assert_eq!((super::count(1, "page"), super::count(0, "page"), super::count(3, "page")), ("1 page".into(), "0 pages".into(), "3 pages".into()));
+        assert_eq!(crate::excel::summary(0), "No tables found: the text is in column A");
+        assert_eq!(crate::excel::summary(1), "1 table found");
+        assert_eq!(crate::excel::summary(4), "4 tables found");
+        assert_eq!(crate::ocr::summary(1, 12, 0), "1 page read, 12 words added");
+        assert_eq!(crate::ocr::summary(2, 1, 1), "2 pages read, 1 word added, 1 page already had text");
+        assert_eq!(crate::redact::summary(1), "1 area redacted");
+        assert_eq!(crate::pdfa::summary(PdfALevel::A2b, 0), "Conforms to PDF/A-2b");
+        assert_eq!(crate::pdfa::summary(PdfALevel::A3b, 2), "2 files do not fully conform to PDF/A-3b");
+        let c = crate::compare::CompareReport { path: Default::default(), added: 1, removed: 0, replaced: 2, regions: 1, was_encrypted: false };
+        assert_eq!(c.summary(), "1 added, 0 removed, 2 changed; 1 other changed area outlined");
+        let e = crate::edit::EditReport { path: Default::default(), added: 1, was_encrypted: false };
+        assert_eq!(e.summary(), "1 item added");
+        let s = crate::sign::SignReport { path: Default::default(), signer: Some("A".into()) };
+        assert_eq!(s.summary(), "Signed digitally (certificate: A)");
+    }
+}
