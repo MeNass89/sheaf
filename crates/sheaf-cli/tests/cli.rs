@@ -218,6 +218,24 @@ fn pdfa_subcommand_reports_conformance() {
 }
 
 #[test]
+fn pdfa_exits_1_when_rules_are_still_broken_but_writes_the_file() {
+    // Helvetica, not embedded: the converter cannot fix it (clause 6.2.11.4).
+    let t = tempfile::tempdir().unwrap();
+    let a = t.path().join("text.pdf");
+    let body = "%PDF-1.7\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n4 0 obj << /Length 37 >>\nstream\nBT /F1 12 Tf 20 100 Td (Hello) Tj ET\nendstream endobj\n5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n";
+    std::fs::write(&a, body).unwrap();
+    let out = t.path().join("text-pdfa.pdf");
+    let r = bin().arg("pdfa").arg(&a).arg("-o").arg(&out).output().unwrap();
+    let err = String::from_utf8_lossy(&r.stderr);
+    assert_eq!(r.status.code(), Some(1), "{err}");
+    assert!(err.contains("warning: PDF/A-2b (6.2.11.4)") && err.contains("does not fully conform"), "{err}");
+    assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
+    assert!(out.exists());
+    let help = bin().args(["pdfa", "--help"]).output().unwrap();
+    assert!(String::from_utf8_lossy(&help.stdout).contains("the exit status is 1"));
+}
+
+#[test]
 fn ocr_subcommand_reports_what_it_read() {
     let t = tempfile::tempdir().unwrap();
     let png = t.path().join("x.png");
@@ -229,7 +247,8 @@ fn ocr_subcommand_reports_what_it_read() {
     let err = String::from_utf8_lossy(&r.stderr);
     assert!(r.status.success(), "{err}");
     assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
-    assert!(err.contains("1 page read, 0 skipped"), "{err}");
+    // The same line the app shows (sheaf_core::ocr::summary).
+    assert!(err.contains("1 page read, 0 words added"), "{err}");
     let bad = bin().arg("ocr").arg(&a).args(["--language", "xx", "-o"]).arg(t.path().join("b.pdf")).output().unwrap();
     assert_eq!(bad.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&bad.stderr).contains("OCR language"));
@@ -268,7 +287,7 @@ fn word_powerpoint_and_excel_subcommands() {
     run(&["to-powerpoint"], &t.path().join("n.pptx"));
     assert!(unzip(&t.path().join("n.pptx"), "ppt/slides/slide1.xml").contains("Sheaf 2026"));
     let err = run(&["to-excel", "--layout", "sheet-per-table"], &t.path().join("n.xlsx"));
-    assert!(err.contains("0 tables found"), "{err}");
+    assert!(err.contains("No tables found: the text is in column A"), "{err}");
     assert!(unzip(&t.path().join("n.xlsx"), "xl/sharedStrings.xml").contains("Sheaf 2026"));
     run(&["to-word", "--ocr"], &t.path().join("o.docx"));
 }

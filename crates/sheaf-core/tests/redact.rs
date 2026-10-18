@@ -939,3 +939,46 @@ fn common_words_on_the_invoice_are_not_refused() {
         assert!(r.is_ok(), "{w:?} refused: {r:?}");
     }
 }
+
+// ---- Final fixes: comments next to operations, form field cycles -------------------------------
+
+#[test]
+fn a_comment_next_to_an_operation_on_another_page_is_removed_without_a_panic() {
+    let t = tempfile::tempdir().unwrap();
+    let p2 = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 7 0 R /Resources << /Font << /F1 5 0 R >> >> >>";
+    let pdf = probe(
+        t.path(),
+        "comment.pdf",
+        "",
+        "",
+        &[
+            (p2, None),
+            ("<< >>", Some(b"/secretword % secretword\n BMC EMC q BI /W 1 /H 1 /CS /G /BPC 8 %secretword\n/Note (secretword) ID \x00 EI Q BT /F1 14 Tf 72 700 Td (other) Tj ET")),
+        ],
+        None,
+    );
+    // The probe's page tree lists one page; point it at both.
+    let mut d = lopdf::Document::load(&pdf.path).unwrap();
+    d.get_object_mut((2, 0)).unwrap().as_dict_mut().unwrap().set("Kids", vec![lopdf::Object::Reference((3, 0)), lopdf::Object::Reference((6, 0))]);
+    d.get_object_mut((2, 0)).unwrap().as_dict_mut().unwrap().set("Count", 2);
+    d.save(&pdf.path).unwrap();
+    let r = std::panic::catch_unwind(|| redact_secret(t.path(), &pdf, "comment"));
+    let (out, _) = r.expect("no panic").expect("redacted");
+    assert!(!everything(&out).to_lowercase().contains("secretword"));
+}
+
+#[test]
+fn a_form_field_listing_itself_as_its_own_kid_does_not_overflow_the_stack() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = probe(
+        t.path(),
+        "cycle.pdf",
+        "/AcroForm << /Fields [6 0 R] >>",
+        "/Annots [7 0 R]",
+        &[("<< /T (f) /FT /Tx /Kids [6 0 R 7 0 R] >>", None), ("<< /Type /Annot /Subtype /Widget /Parent 6 0 R /Rect [10 10 50 30] /P 3 0 R >>", None)],
+        None,
+    );
+    let out = t.path().join("cycle-out.pdf");
+    redact::apply(&pdf, &redact::mark_pages(&pdf, &[0]).unwrap(), &[], &out).unwrap();
+    assert!(out.exists());
+}

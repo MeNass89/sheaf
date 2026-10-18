@@ -312,7 +312,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::Ocr { items, options } => {
             let n = items.len() as f32;
             let started = std::cell::Cell::new(0usize);
-            let (mut read, mut skipped) = (0, 0);
+            let (mut read, mut skipped, mut words) = (0, 0, 0);
             let outs = batch(each(items, cancel, progress, pair, |(i, o)| {
                 let k = started.get() as f32;
                 started.set(started.get() + 1);
@@ -324,13 +324,14 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 was_encrypted |= r.was_encrypted;
                 read += r.pages_read;
                 skipped += r.pages_skipped;
+                words += r.words;
+                if let Some(w) = r.failure_warning() {
+                    let name = r.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    notes.push(if n > 1.0 { format!("{name} — {w}") } else { w });
+                }
                 Ok(vec![r.path])
             }))?;
-            let pages = |n: usize| if n == 1 { "page" } else { "pages" };
-            summary = format!("{read} {} read", pages(read));
-            if skipped > 0 {
-                summary += &format!(", {skipped} {} already had text", pages(skipped));
-            }
+            summary = ocr::summary(read, words, skipped);
             outs
         }
         Job::Export { items, kind, options } => {
@@ -357,21 +358,14 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 Ok(vec![path])
             }))?;
             if matches!(kind, ExportKind::Excel(_)) {
-                summary = match tables {
-                    0 => "No tables found: the text is in column A".into(),
-                    1 => "1 table found".into(),
-                    n => format!("{n} tables found"),
-                };
+                summary = excel::summary(tables);
             }
             outs
         }
         Job::Compare { old, new, mode, out } => {
             let r = compare::compare(old, new, *mode, out)?;
             was_encrypted |= r.was_encrypted;
-            summary = if r.identical() { "No differences: the documents' text is identical.".into() } else { r.counts() };
-            if r.regions > 0 {
-                summary += &format!("; {} other changed area{} outlined", r.regions, if r.regions == 1 { "" } else { "s" });
-            }
+            summary = r.summary();
             progress(1.0);
             vec![r.path]
         }
@@ -380,7 +374,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             let r = redact::apply(input, marks, &[], out)?;
             notes.extend(r.warnings.iter().cloned());
             was_encrypted |= r.was_encrypted;
-            summary = format!("{} area{} redacted", r.areas, if r.areas == 1 { "" } else { "s" });
+            summary = redact::summary(r.areas);
             progress(1.0);
             vec![r.path]
         }
@@ -388,10 +382,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             let info = sign::page_info(input, *page)?;
             let spec = SignSpec { page: *page, rect: sign::view_rect_to_user(&info, *view_box), graphic: graphic.clone(), digital: digital.clone() };
             let r = sign::sign(input, &spec, out)?;
-            summary = match &r.signer {
-                Some(cn) => format!("Signed digitally (certificate: {cn})"),
-                None => "Signed".into(),
-            };
+            summary = r.summary();
             progress(1.0);
             vec![r.path]
         }
@@ -415,7 +406,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             }
             let r = edit::edit(input, &spec, out)?;
             was_encrypted |= r.was_encrypted;
-            summary = format!("{} item{} added", r.added, if r.added == 1 { "" } else { "s" });
+            summary = r.summary();
             progress(1.0);
             vec![r.path]
         }
@@ -435,12 +426,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 }));
                 Ok(vec![r.path])
             }))?;
-            let left = outs.len() - conforming;
-            summary = match left {
-                0 => format!("Conforms to {}", level.label()),
-                1 => format!("1 file does not fully conform to {}", level.label()),
-                n => format!("{n} files do not fully conform to {}", level.label()),
-            };
+            summary = pdfa::summary(*level, outs.len() - conforming);
             outs
         }
     };

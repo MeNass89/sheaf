@@ -50,6 +50,13 @@ pub struct EditReport {
     pub was_encrypted: bool,
 }
 
+impl EditReport {
+    /// The result line, in Sheaf's CLI and app alike.
+    pub fn summary(&self) -> String {
+        format!("{} added", crate::tools::count(self.added, "item"))
+    }
+}
+
 /// The default font size, in points.
 pub const DEFAULT_FONT_SIZE: f64 = 12.0;
 

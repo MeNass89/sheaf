@@ -56,6 +56,16 @@ pub struct SignReport {
     pub signer: Option<String>,
 }
 
+impl SignReport {
+    /// The result line, in Sheaf's CLI and app alike.
+    pub fn summary(&self) -> String {
+        match &self.signer {
+            Some(cn) => format!("Signed digitally (certificate: {cn})"),
+            None => "Signed".into(),
+        }
+    }
+}
+
 /// The default width of a placed signature, in points (PdfCraft's Fill & Sign uses the same).
 pub const DEFAULT_WIDTH: f64 = 150.0;
 

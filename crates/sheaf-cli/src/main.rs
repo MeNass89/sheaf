@@ -367,6 +367,7 @@ enum Cmd {
         items: Vec<CliItem>,
     },
     /// Convert to PDF/A for archiving, then check the result
+    #[command(after_help = "Exit status: 0 when the output conforms. When rules of the standard are still broken, each is\nprinted and the file is still written (everything fixable was fixed), but the exit status is 1.")]
     Pdfa {
         input: PathBuf,
         #[arg(long, value_enum, default_value_t = CliPdfA::A2b)]
@@ -673,6 +674,9 @@ fn run(cli: Cli) -> sheaf_core::Result<Vec<PathBuf>> {
 
 const NOT_PROTECTED: &str = "note: the output is not password-protected";
 
+/// `sheaf pdfa` wrote a file that still breaks rules of the standard: exit 1 after printing it.
+static NOT_CONFORMING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Vec<PathBuf>> {
     let one = |r: sheaf_core::Result<PathBuf>| r.map(|p| vec![p]);
     match cmd {
@@ -758,8 +762,10 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         Cmd::Ocr { input: i, language, all_pages, out } => {
             let opts = OcrOptions { language, read_text_pages: all_pages, ..Default::default() };
             let r = ocr::ocr(&input(i), &opts, &out, &mut |_| true)?;
-            let page = |n: usize| if n == 1 { "page" } else { "pages" };
-            eprintln!("{} {} read, {} skipped, {} words added", r.pages_read, page(r.pages_read), r.pages_skipped, r.words);
+            eprintln!("{}", ocr::summary(r.pages_read, r.words, r.pages_skipped));
+            if let Some(w) = r.failure_warning() {
+                eprintln!("warning: {w}");
+            }
             warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::ToWord { input: i, ocr, out } => office_export(&input(i), Office::Word, ocr, &out),
@@ -770,7 +776,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 CliSheets::SheetPerTable => SheetLayout::SheetPerTable,
             };
             let r = excel::to_excel(&input(i), layout, &ExportOptions { ocr, ..Default::default() }, &out, &mut |_| true)?;
-            eprintln!("{} table{} found", r.tables, if r.tables == 1 { "" } else { "s" });
+            eprintln!("{}", excel::summary(r.tables));
             Ok(vec![r.path])
         }
         Cmd::Compare { old, new, mode, out } => {
@@ -779,14 +785,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 CliCompare::Overlay => CompareMode::Overlay,
             };
             let r = compare::compare(&input(old), &input(new), mode, &out)?;
-            if r.identical() {
-                eprintln!("No differences: the documents' text is identical.");
-            } else {
-                eprintln!("{}", r.counts());
-            }
-            if r.regions > 0 {
-                eprintln!("{} other changed area{} outlined", r.regions, if r.regions == 1 { "" } else { "s" });
-            }
+            eprintln!("{}", r.summary());
             warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::Redact { input: i, text, pattern, pages: whole, out } => {
@@ -804,7 +803,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 return Err(OpdfError::Unsupported("nothing to redact: no match and no page given".into()));
             }
             let r = redact::apply(&i, &marks, &searched, &out)?;
-            eprintln!("{} area{} redacted", r.areas, if r.areas == 1 { "" } else { "s" });
+            eprintln!("{}", redact::summary(r.areas));
             eprintln!("{}", redact::VERIFIED);
             for w in &r.warnings {
                 eprintln!("warning: {w}");
@@ -826,10 +825,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             let digital = p12.map(|p12| DigitalSpec { p12, password: p12_password.unwrap_or_default(), reason, location });
             let spec = SignSpec { page, rect: sign::box_at(&info, center, width, aspect), graphic, digital };
             let r = sign::sign(&i, &spec, &out)?;
-            match &r.signer {
-                Some(cn) => eprintln!("Signed digitally (certificate: {cn})"),
-                None => eprintln!("Signed"),
-            }
+            eprintln!("{}", r.summary());
             Ok(vec![r.path])
         }
         Cmd::Edit { input: i, items, out, .. } => {
@@ -864,7 +860,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 });
             }
             let r = edit::edit(&i, &spec, &out)?;
-            eprintln!("{} item{} added", r.added, if r.added == 1 { "" } else { "s" });
+            eprintln!("{}", r.summary());
             warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::Pdfa { input: i, level, out } => {
@@ -874,10 +870,14 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             };
             let r = pdfa::to_pdfa(&input(i), level, &out)?;
             if r.issues.is_empty() {
-                eprintln!("Conforms to {}", level.label());
+                eprintln!("{}", pdfa::summary(level, 0));
             }
             for issue in &r.issues {
                 eprintln!("warning: {} ({}): {}", level.label(), issue.clause, issue.message);
+            }
+            if !r.issues.is_empty() {
+                eprintln!("error: the output does not fully conform to {}", level.label());
+                NOT_CONFORMING.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             warned(Ok((r.path, r.was_encrypted)))
         }
@@ -920,6 +920,9 @@ fn main() {
         Ok(paths) => {
             for p in paths {
                 println!("{}", p.display());
+            }
+            if NOT_CONFORMING.load(std::sync::atomic::Ordering::Relaxed) {
+                std::process::exit(1);
             }
         }
         Err(e) => {

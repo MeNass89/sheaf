@@ -59,13 +59,24 @@ impl Default for WatermarkOptions {
 /// Distance kept between a mark placed at an edge and the page edge, in points.
 const EDGE: f64 = 36.0;
 
+/// The font size text is drawn at on a `page` (w, h): `font_size`, or for 0 PdfCraft's
+/// automatic size (its rule: the widest line spans half the page diagonal, 6 to 300 points).
+fn text_size(lines: &[&str], font_size: f64, page: (f64, f64)) -> f64 {
+    if font_size > 0.0 {
+        return font_size;
+    }
+    let widest = lines.iter().map(|l| pdfcraft_fonts::helvetica_width(l, 1.0)).fold(0.0, f64::max).max(0.01);
+    ((page.0 * page.0 + page.1 * page.1).sqrt() * 0.5 / widest).clamp(6.0, 300.0)
+}
+
 /// The mark's size in points on a `page` (w, h) before rotation.
 fn mark_size(mark: &Mark, picture: Option<(f64, f64)>, page: (f64, f64)) -> (f64, f64) {
     match (mark, picture) {
         (Mark::Text { text, font_size, .. }, _) => {
             let lines: Vec<&str> = text.trim().lines().collect();
-            let w = lines.iter().map(|l| pdfcraft_fonts::helvetica_width(l, *font_size)).fold(0.0, f64::max);
-            (w, font_size * (0.8 + 1.15 * (lines.len().max(1) - 1) as f64))
+            let size = text_size(&lines, *font_size, page);
+            let w = lines.iter().map(|l| pdfcraft_fonts::helvetica_width(l, size)).fold(0.0, f64::max);
+            (w, size * (0.8 + 1.15 * (lines.len().max(1) - 1) as f64))
         }
         (Mark::Image { scale, .. }, Some((sw, sh))) => {
             let k = (page.0 / sw).min(page.1 / sh) * scale;
@@ -225,5 +236,18 @@ mod tests {
         assert_eq!(offsets(Placement::Grid(0), page, (100.0, 20.0), 0.0), [[-(300.0 - 36.0 - 50.0), 400.0 - 36.0 - 10.0]]);
         assert_eq!(offsets(Placement::Grid(8), page, (100.0, 20.0), 90.0)[0].map(f64::round), [300.0 - 36.0 - 10.0, -(400.0 - 36.0 - 50.0)]);
         assert_eq!(offsets(Placement::Mosaic, page, (1.0, 1.0), 0.0).len(), 9);
+    }
+
+    #[test]
+    fn an_automatic_size_is_measured_at_the_size_drawn() {
+        let a4 = (595.0, 842.0);
+        let auto = Mark::Text { text: "DRAFT".into(), font_size: 0.0, color: [0.0; 3] };
+        let (w, h) = mark_size(&auto, None, a4);
+        // The widest line spans half the page diagonal (PdfCraft's rule).
+        assert!((w - (595.0f64.hypot(842.0) * 0.5)).abs() < 0.01, "{w}");
+        assert!(h > 50.0, "{h}");
+        // A size given is used as it is.
+        let fixed = Mark::Text { text: "DRAFT".into(), font_size: 40.0, color: [0.0; 3] };
+        assert_eq!(mark_size(&fixed, None, a4).1, 40.0 * 0.8);
     }
 }

@@ -35,10 +35,44 @@ pub struct OcrReport {
     pub was_encrypted: bool,
     /// Words added to the text layer.
     pub words: usize,
-    /// Pages read, and pages left alone (they already had text, or could not be read).
+    /// Pages read, and pages left alone because they already had text.
     pub pages_read: usize,
     pub pages_skipped: usize,
+    /// Pages that could not be rendered or recognised (1-based), with why. Written only when
+    /// some other page was read; otherwise [`ocr`] fails.
+    pub pages_failed: Vec<(usize, String)>,
 }
+
+/// The result line for pages read and words added (summed over a batch), in Sheaf's CLI and app
+/// alike: "2 pages read, 14 words added, 1 page already had text".
+pub fn summary(read: usize, words: usize, skipped: usize) -> String {
+    use crate::tools::count;
+    let mut s = format!("{} read, {} added", count(read, "page"), count(words, "word"));
+    if skipped > 0 {
+        s += &format!(", {} already had text", count(skipped, "page"));
+    }
+    s
+}
+
+impl OcrReport {
+    /// The warning about [`Self::pages_failed`], if any.
+    pub fn failure_warning(&self) -> Option<String> {
+        failure_warning(&self.pages_failed)
+    }
+}
+
+fn failure_warning(failed: &[(usize, String)]) -> Option<String> {
+    let list = failed.iter().map(|(p, _)| p.to_string()).collect::<Vec<_>>().join(", ");
+    match failed.len() {
+        0 => None,
+        1 => Some(format!("1 page could not be read (page {list}): it has no text layer")),
+        n => Some(format!("{n} pages could not be read (pages {list}): they have no text layer")),
+    }
+}
+
+/// The engine's reason for a page left alone because it already has text (any other reason is
+/// a failure to render or recognise it).
+const HAS_TEXT: &str = "the page already contains text";
 
 /// The languages offered: (code, name).
 pub fn languages() -> &'static [(&'static str, &'static str)] {
@@ -98,17 +132,20 @@ pub(crate) struct Recognized {
     words: usize,
     pages_read: usize,
     pages_skipped: usize,
+    pages_failed: Vec<(usize, String)>,
 }
 
 impl Recognized {
     fn save(self, mut doc: Doc, out: &Path) -> Result<OcrReport> {
         let (path, was_encrypted) = doc.save_unprotected(out)?;
-        Ok(OcrReport { path, was_encrypted, words: self.words, pages_read: self.pages_read, pages_skipped: self.pages_skipped })
+        Ok(OcrReport { path, was_encrypted, words: self.words, pages_read: self.pages_read, pages_skipped: self.pages_skipped, pages_failed: self.pages_failed })
     }
 }
 
 /// Adds the text layer to `doc` in memory (for exports that read the text afterwards). Any
 /// encryption stays: [`Recognized::save`] removes it last, and exports never need it removed.
+/// Pages that could not be read fail the whole job ("OCR failed on page N: …") unless some
+/// other page was read.
 pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnMut(f32) -> bool) -> Result<Recognized> {
     if !languages().iter().any(|(code, _)| *code == opts.language) {
         return Err(OpdfError::Unsupported(format!("OCR language \"{}\"", opts.language)));
@@ -132,8 +169,48 @@ pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnM
     if stopped {
         return Err(OpdfError::Cancelled);
     }
+    let (read, skipped, failed) = tally(&pages)?;
     let id = doc.id();
     let words = doc.session_mut().apply_ocr(id, &pages).map_err(|e| OpdfError::Engine(e.to_string()))?;
-    let skipped = pages.iter().filter(|p| p.skipped.is_some()).count();
-    Ok(Recognized { words, pages_read: pages.len() - skipped, pages_skipped: skipped })
+    Ok(Recognized { words, pages_read: read, pages_skipped: skipped, pages_failed: failed })
+}
+
+/// Pages that could not be read: 1-based page, and why.
+type Failed = Vec<(usize, String)>;
+
+/// Pages read, pages left alone because they had text, and pages that could not be read
+/// (1-based, with why). An error when no page was read and one failed.
+fn tally(pages: &[eng::OcrPage]) -> Result<(usize, usize, Failed)> {
+    let skipped = pages.iter().filter(|p| p.skipped.as_deref() == Some(HAS_TEXT)).count();
+    let failed: Vec<(usize, String)> = pages.iter().filter_map(|p| p.skipped.as_ref().filter(|w| *w != HAS_TEXT).map(|w| (p.page + 1, w.clone()))).collect();
+    let read = pages.len() - skipped - failed.len();
+    if read == 0
+        && let Some((page, why)) = failed.first()
+    {
+        return Err(OpdfError::Engine(format!("OCR failed on page {page}: {why}")));
+    }
+    Ok((read, skipped, failed))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn page(page: usize, skipped: Option<&str>) -> eng::OcrPage {
+        eng::OcrPage { page, words: Vec::new(), already_on_page: 0, skipped: skipped.map(str::to_string) }
+    }
+
+    #[test]
+    fn a_page_that_could_not_be_read_is_a_failure_not_a_skip() {
+        let crash = "renderer crashed on page 2: boom";
+        // Nothing else read: the job fails, naming the page.
+        let e = tally(&[page(0, Some(HAS_TEXT)), page(1, Some(crash))]).unwrap_err().to_string();
+        assert!(e.contains("OCR failed on page 2: renderer crashed"), "{e}");
+        // Another page read: written, the failure reported apart from the pages with text.
+        let (read, skipped, failed) = tally(&[page(0, None), page(1, Some(crash)), page(2, Some(HAS_TEXT))]).unwrap();
+        assert_eq!((read, skipped, &failed), (1, 1, &vec![(2, crash.to_string())]));
+        assert_eq!(failure_warning(&failed).unwrap(), "1 page could not be read (page 2): it has no text layer");
+        // Pages that already had text are not failures.
+        assert_eq!(tally(&[page(0, Some(HAS_TEXT))]).unwrap(), (0, 1, vec![]));
+    }
 }

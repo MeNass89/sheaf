@@ -92,13 +92,13 @@ fn range(opts: &ToolOptions, batch: bool) -> Result<(Option<u32>, Option<u32>)> 
     if batch {
         return Ok((None, None));
     }
-    Ok((page_field(&opts.from_page, "From page")?, page_field(&opts.to_page, "To page")?))
+    Ok((page_field(&opts.from_page, "from page")?, page_field(&opts.to_page, "to page")?))
 }
 
 fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
     let (from, to) = range(opts, batch)?;
     let start = opts.num_start.trim();
-    let start = if start.is_empty() { 1 } else { start.parse().map_err(|_| OpdfError::Unsupported(format!("First number: \"{start}\" is not a number")))? };
+    let start = if start.is_empty() { 1 } else { start.parse().map_err(|_| OpdfError::Unsupported(format!("first number: \"{start}\" is not a number")))? };
     Ok(NumberOptions {
         position: opts.num_position.clamp(0, 8) as u8,
         double_sided: opts.num_double,
@@ -127,7 +127,7 @@ fn watermark_options(opts: &ToolOptions, batch: bool) -> Result<WatermarkOptions
         Mark::Image { path: PathBuf::from(opts.wm_image.as_str()), scale: opts.wm_scale.clamp(5, 100) as f64 / 100.0 }
     } else {
         let fs = opts.wm_font_size.trim();
-        let font_size = if fs.is_empty() { 48.0 } else { fs.parse::<f64>().ok().filter(|v| (1.0..=500.0).contains(v)).ok_or_else(|| OpdfError::Unsupported(format!("Font size: \"{fs}\"")))? };
+        let font_size = if fs.is_empty() { 48.0 } else { fs.parse::<f64>().ok().filter(|v| (1.0..=500.0).contains(v)).ok_or_else(|| OpdfError::Unsupported(format!("font size: \"{fs}\" (use 1 to 500 points)")))? };
         Mark::Text { text: opts.wm_text.to_string(), font_size, color: WM_COLOURS[opts.wm_color.clamp(0, 3) as usize] }
     };
     Ok(WatermarkOptions {
@@ -146,10 +146,10 @@ fn crop_spec(opts: &ToolOptions) -> Result<CropSpec> {
         return Ok(CropSpec::Remove);
     }
     Ok(CropSpec::Margins {
-        top: mm_field(&opts.crop_top, "Top")?,
-        bottom: mm_field(&opts.crop_bottom, "Bottom")?,
-        left: mm_field(&opts.crop_left, "Left")?,
-        right: mm_field(&opts.crop_right, "Right")?,
+        top: mm_field(&opts.crop_top, "top")?,
+        bottom: mm_field(&opts.crop_bottom, "bottom")?,
+        left: mm_field(&opts.crop_left, "left")?,
+        right: mm_field(&opts.crop_right, "right")?,
     })
 }
 
@@ -518,7 +518,9 @@ mod tests {
         let Job::PageNumbers { items, options } = build_job(ToolId::PageNumbers, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
         assert_eq!((options.from, items[1].1.clone()), (None, PathBuf::from("/o/y-numbered.pdf")));
         o.from_page = "x".into();
-        assert!(build_job(ToolId::PageNumbers, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/n.pdf".into())).is_err());
+        let e = build_job(ToolId::PageNumbers, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/n.pdf".into())).unwrap_err().to_string();
+        // Lowercase after the prefix, like the core's messages.
+        assert_eq!(e, "unsupported input: from page: \"x\" is not a page number");
 
         let mut o = opts();
         o.wm_text = "DRAFT".into();

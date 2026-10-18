@@ -134,3 +134,41 @@ fn foreign_encrypted_inputs_compare() {
         }
     }
 }
+
+/// One page: a filled square of colour `rgb` with the caption `caption` just under it.
+fn picture_with_caption(dir: &Path, name: &str, rgb: &str, caption: &str) -> PathBuf {
+    let content = format!("{rgb} rg 100 500 200 150 re f BT /F1 14 Tf 100 486 Td ({caption}) Tj ET");
+    let objs = [
+        "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>".to_string(),
+        format!("<< /Length {} >>\nstream\n{content}\nendstream", content.len()),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string(),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offs = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offs.push(out.len());
+        out.extend(format!("{} 0 obj {o} endobj\n", i + 1).bytes());
+    }
+    let x = out.len();
+    out.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).bytes());
+    for o in offs {
+        out.extend(format!("{o:010} 00000 n \n").bytes());
+    }
+    out.extend(format!("trailer << /Size {} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n", objs.len() + 1).bytes());
+    let path = dir.join(name);
+    std::fs::write(&path, out).unwrap();
+    path
+}
+
+#[test]
+fn a_changed_picture_touching_a_changed_caption_is_still_outlined() {
+    let t = tempfile::tempdir().unwrap();
+    let old = picture_with_caption(t.path(), "old.pdf", "0 0 1", "Figure one");
+    let new = picture_with_caption(t.path(), "new.pdf", "1 0 0", "Figure two");
+    let r = compare::compare(&Input::new(&old), &Input::new(&new), CompareMode::Overlay, &t.path().join("o.pdf")).unwrap();
+    assert_eq!(r.replaced, 1, "{r:?}");
+    assert_eq!(r.regions, 1, "the picture's change is not hidden by the caption's: {r:?}");
+    qpdf_clean(&r.path);
+}

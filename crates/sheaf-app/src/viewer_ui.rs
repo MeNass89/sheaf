@@ -604,7 +604,7 @@ mod tests {
     #[test]
     fn a_click_places_the_signature_centred_and_kept_on_the_page() {
         // A4 portrait and the same page turned a quarter (shown landscape).
-        let mut v = Viewer::new(vec![PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0 }, PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 90 }]);
+        let mut v = Viewer::new(vec![PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }, PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 90, unit: 1.0 }]);
         v.set_width(595.0 + 2.0 * viewer::PAGE_GAP);
         let [px, py, w, _] = v.page_rect(0);
         assert_eq!(w, 595.0);

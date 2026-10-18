@@ -47,14 +47,47 @@ impl CompareReport {
     pub fn counts(&self) -> String {
         format!("{} added, {} removed, {} changed", self.added, self.removed, self.replaced)
     }
+
+    /// The result line, in Sheaf's CLI and app alike.
+    pub fn summary(&self) -> String {
+        let mut s = if self.identical() { "No differences: the documents' text is identical.".to_string() } else { self.counts() };
+        if self.regions > 0 {
+            s += &format!("; {} outlined", crate::tools::count(self.regions, "other changed area"));
+        }
+        s
+    }
 }
 
 /// Resolution the pages are rendered at for the visual comparison.
 const VISUAL_DPI: f32 = 72.0;
 
-/// Whether box `a` overlaps any of `bs` (all `[x0, y0, x1, y1]`).
-fn overlaps_any(a: [f64; 4], bs: &[[f64; 4]]) -> bool {
-    bs.iter().any(|b| a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3])
+/// How far (points) a visual region may reach past the word boxes that explain it: the regions
+/// are built from cells 8 pixels wide at [`VISUAL_DPI`], so they overshoot the glyphs they
+/// enclose by up to a cell, plus anti-aliasing.
+const WORD_SLACK: f64 = 10.0;
+
+/// Whether box `a` lies entirely within the union of `bs` grown by [`WORD_SLACK`] (all
+/// `[x0, y0, x1, y1]`): a region that only shows changed words. Checked on a grid of points.
+fn explained_by(a: [f64; 4], bs: &[[f64; 4]]) -> bool {
+    let grown: Vec<[f64; 4]> = bs.iter().map(|b| [b[0] - WORD_SLACK, b[1] - WORD_SLACK, b[2] + WORD_SLACK, b[3] + WORD_SLACK]).collect();
+    let inside = |x: f64, y: f64| grown.iter().any(|b| b[0] <= x && x <= b[2] && b[1] <= y && y <= b[3]);
+    // About one point apart, at most 200 steps a side.
+    let steps = |d: f64| (d.ceil() as usize).clamp(1, 200);
+    let (nx, ny) = (steps(a[2] - a[0]), steps(a[3] - a[1]));
+    (0..=nx).all(|i| (0..=ny).all(|j| inside(a[0] + (a[2] - a[0]) * i as f64 / nx as f64, a[1] + (a[3] - a[1]) * j as f64 / ny as f64)))
+}
+
+/// A word: its text, page and box.
+type Placed = (String, usize, [f64; 4]);
+
+/// The boxes of words found in one document and not at the same place in the other (in
+/// either document), by page.
+fn moved(old: &[Placed], new: &[Placed]) -> Vec<(usize, [f64; 4])> {
+    let same = |a: &Placed, b: &Placed| a.1 == b.1 && a.0 == b.0 && a.2.iter().zip(b.2).all(|(x, y)| (x - y).abs() < 0.5);
+    let lone = |a: &[Placed], b: &[Placed]| a.iter().filter(|w| !b.iter().any(|v| same(w, v))).map(|w| (w.1, w.2)).collect::<Vec<_>>();
+    let mut out = lone(old, new);
+    out.extend(lone(new, old));
+    out
 }
 
 /// Compares `old` (the original) with `new` (the changed version) and writes `out` (never
@@ -80,12 +113,21 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
             report.path = atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?))?;
         }
         CompareMode::Overlay => {
-            // Regions that look different, less those the word highlights already cover.
+            // Regions that look different, less those that text changes entirely account for:
+            // the changed words, as they are now and as they were, and the words a change moved
+            // along the line. A region that also holds another change (a picture next to a
+            // changed caption) is kept whole.
             let visual = session.compare_visual(old_id, new_id, VISUAL_DPI).map_err(|e| OpdfError::Engine(e.to_string()))?;
-            let words: Vec<(usize, [f64; 4])> = c.changes.iter().flat_map(|ch| ch.new.rects.iter().map(move |r| (ch.new.page, *r))).collect();
+            let doc_words = |id| -> Vec<Placed> { session.get(id).map(|d| d.words().into_iter().map(|w| (w.text, w.page, w.rect)).collect()).unwrap_or_default() };
+            let mut words: Vec<(usize, [f64; 4])> = c
+                .changes
+                .iter()
+                .flat_map(|ch| ch.new.rects.iter().map(move |r| (ch.new.page, *r)).chain(ch.old.rects.iter().map(move |r| (ch.old.page, *r))))
+                .collect();
+            words.extend(moved(&doc_words(old_id), &doc_words(new_id)));
             let edits: Vec<Edit> = visual
                 .into_iter()
-                .filter(|(page, r)| !overlaps_any(*r, &words.iter().filter(|(p, _)| p == page).map(|(_, w)| *w).collect::<Vec<_>>()))
+                .filter(|(page, r)| !explained_by(*r, &words.iter().filter(|(p, _)| p == page).map(|(_, w)| *w).collect::<Vec<_>>()))
                 .map(|(page, rect)| {
                     let shape = Shape::Rectangle { rect };
                     let mut style = Style::default_for(&shape);
@@ -103,4 +145,21 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
         }
     }
     Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_region_is_explained_only_when_the_words_cover_it_whole() {
+        let word = [100.0, 500.0, 140.0, 512.0];
+        // The word's own region, a cell larger on every side: explained.
+        assert!(explained_by([92.0, 492.0, 148.0, 520.0], &[word]));
+        // A picture above it that the region also takes in: not explained, though it touches.
+        assert!(!explained_by([92.0, 492.0, 300.0, 700.0], &[word]));
+        // Two words side by side cover their joint region.
+        assert!(explained_by([92.0, 492.0, 208.0, 520.0], &[word, [150.0, 500.0, 200.0, 512.0]]));
+        assert!(!explained_by([0.0, 0.0, 10.0, 10.0], &[]));
+    }
 }

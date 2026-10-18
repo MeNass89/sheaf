@@ -19,12 +19,16 @@ pub struct PageBox {
     pub crop: [f64; 4],
     /// Clockwise `/Rotate`: 0, 90, 180 or 270.
     pub rotation: u16,
+    /// `/UserUnit`: points per user-space unit (1 on almost every page).
+    pub unit: f64,
 }
 
 impl PageBox {
-    /// Displayed size in points (width and height swap on quarter turns).
+    /// Displayed size in points, after `/Rotate` and `/UserUnit` (width and height swap on
+    /// quarter turns): the view space Sign and Edit placements are given in, as PdfCraft's
+    /// page info reads it.
     pub fn view_size(&self) -> (f64, f64) {
-        let (w, h) = (self.crop[2] - self.crop[0], self.crop[3] - self.crop[1]);
+        let (w, h) = ((self.crop[2] - self.crop[0]) * self.unit, (self.crop[3] - self.crop[1]) * self.unit);
         if self.rotation % 180 == 90 { (h, w) } else { (w, h) }
     }
 }
@@ -487,7 +491,15 @@ pub fn page_boxes(bytes: &Arc<Vec<u8>>, password: Option<&str>) -> sheaf_core::R
     Ok(info
         .pages
         .iter()
-        .map(|p| PageBox { crop: p.crop.map(f64::from), rotation: p.rotation % 360 })
+        .map(|p| {
+            let crop = p.crop.map(f64::from);
+            let rotation = p.rotation % 360;
+            // PdfCraft gives the displayed size with /UserUnit applied; the unit is its ratio
+            // to the crop box.
+            let across = if rotation % 180 == 90 { crop[3] - crop[1] } else { crop[2] - crop[0] };
+            let unit = if across > 1e-9 && p.width > 0.0 { f64::from(p.width) / across } else { 1.0 };
+            PageBox { crop, rotation, unit }
+        })
         .collect())
 }
 
@@ -525,7 +537,7 @@ mod tests {
         // The view's top-left corner, for each rotation (rendered at 2 px per point).
         let cases = [(0u16, (10.0, 220.0)), (90, (10.0, 20.0)), (180, (110.0, 20.0)), (270, (110.0, 220.0))];
         for (rotation, top_left) in cases {
-            let p = PageBox { crop, rotation };
+            let p = PageBox { crop, rotation, unit: 1.0 };
             let (vw, vh) = p.view_size();
             let render = (vw * 2.0, vh * 2.0);
             assert!(close(view_to_pdf(&p, render, 0.0, 0.0), top_left), "rot {rotation}: top-left");
@@ -536,15 +548,15 @@ mod tests {
             assert!(close(pdf_to_view(&p, render, x, y), (37.0, 91.0)), "rot {rotation}: inverse");
         }
         // Quarter turns swap the displayed size.
-        assert_eq!(PageBox { crop, rotation: 90 }.view_size(), (200.0, 100.0));
-        assert_eq!(PageBox { crop, rotation: 180 }.view_size(), (100.0, 200.0));
+        assert_eq!(PageBox { crop, rotation: 90, unit: 1.0 }.view_size(), (200.0, 100.0));
+        assert_eq!(PageBox { crop, rotation: 180, unit: 1.0 }.view_size(), (100.0, 200.0));
     }
 
     #[test]
     fn a_point_one_step_right_on_screen_moves_the_right_way_in_user_space() {
         let render = (100.0, 100.0);
         let step = |rotation| {
-            let p = PageBox { crop: [0.0, 0.0, 100.0, 100.0], rotation };
+            let p = PageBox { crop: [0.0, 0.0, 100.0, 100.0], rotation, unit: 1.0 };
             let a = view_to_pdf(&p, render, 50.0, 50.0);
             let b = view_to_pdf(&p, render, 60.0, 50.0);
             (b.0 - a.0, b.1 - a.1)
@@ -560,7 +572,7 @@ mod tests {
     #[test]
     fn rectangles_round_trip() {
         for rotation in [0, 90, 180, 270] {
-            let p = PageBox { crop: A4, rotation };
+            let p = PageBox { crop: A4, rotation, unit: 1.0 };
             let (vw, vh) = p.view_size();
             let r = view_rect_to_pdf(&p, (vw, vh), (100.0, 40.0), (20.0, 300.0));
             let v = pdf_rect_to_view(&p, (vw, vh), r);
@@ -596,9 +608,9 @@ mod tests {
     fn mixed() -> Viewer {
         // A4 portrait, a landscape page turned upright by /Rotate 90, a cropped page.
         Viewer::new(vec![
-            PageBox { crop: A4, rotation: 0 },
-            PageBox { crop: [0.0, 0.0, 842.0, 595.0], rotation: 90 },
-            PageBox { crop: [50.0, 50.0, 350.0, 450.0], rotation: 180 },
+            PageBox { crop: A4, rotation: 0, unit: 1.0 },
+            PageBox { crop: [0.0, 0.0, 842.0, 595.0], rotation: 90, unit: 1.0 },
+            PageBox { crop: [50.0, 50.0, 350.0, 450.0], rotation: 180, unit: 1.0 },
         ])
     }
 
@@ -678,13 +690,33 @@ mod tests {
     }
 
     #[test]
+    fn a_user_unit_page_maps_view_points_as_sign_and_edit_do() {
+        let t = tempfile::tempdir().unwrap();
+        let path = t.path().join("u.pdf");
+        std::fs::write(&path, crate::viewer::tests::pdf_with_page("/MediaBox [0 0 200 100] /UserUnit 2 /Rotate 90")).unwrap();
+        let boxes = page_boxes(&Arc::new(std::fs::read(&path).unwrap()), None).unwrap();
+        let b = boxes[0];
+        // Shown 100 × 200 units turned a quarter, 2 points each.
+        assert_eq!((b.unit, b.view_size()), (2.0, (200.0, 400.0)));
+        // The view space placements are given in is the one core maps back to user space.
+        let info = sheaf_core::sign::page_info(&sheaf_core::pages::Input::new(&path), 0).unwrap();
+        assert_eq!((info.width, info.height), (200.0, 400.0));
+        let (vw, vh) = b.view_size();
+        for (x, y) in [(0.0, 0.0), (vw, vh), (0.3 * vw, 0.7 * vh), (vw / 2.0, 0.1 * vh)] {
+            let ours = view_to_pdf(&b, (vw, vh), x, y);
+            let core = sheaf_core::edit::view_to_user(&info, [x, y]);
+            assert!((ours.0 - core[0]).abs() < 1e-3 && (ours.1 - core[1]).abs() < 1e-3, "({x}, {y}): {ours:?} vs {core:?}");
+        }
+    }
+
+    #[test]
     fn pages_render_at_the_asked_width_with_their_rotation() {
         let t = tempfile::tempdir().unwrap();
         let path = t.path().join("a.pdf");
         std::fs::write(&path, crate::viewer::tests::tiny_pdf()).unwrap();
         let bytes = Arc::new(std::fs::read(&path).unwrap());
         let boxes = page_boxes(&bytes, None).unwrap();
-        assert_eq!(boxes, vec![PageBox { crop: [0.0, 0.0, 200.0, 100.0], rotation: 90 }]);
+        assert_eq!(boxes, vec![PageBox { crop: [0.0, 0.0, 200.0, 100.0], rotation: 90, unit: 1.0 }]);
         let px = render_page(&sheaf_core::pages::Input::new(&path), 0, 250).unwrap();
         // Turned a quarter: 100 × 200 pt shown, 250 px wide.
         assert_eq!((px.width(), px.height()), (250, 500));
@@ -692,11 +724,13 @@ mod tests {
 
     /// One 200 × 100 pt page with /Rotate 90, written by hand.
     pub(crate) fn tiny_pdf() -> Vec<u8> {
-        let objs = [
-            "<< /Type /Catalog /Pages 2 0 R >>",
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Rotate 90 >>",
-        ];
+        pdf_with_page("/MediaBox [0 0 200 100] /Rotate 90")
+    }
+
+    /// A one-page PDF whose page dictionary holds `page`.
+    pub(crate) fn pdf_with_page(page: &str) -> Vec<u8> {
+        let page = format!("<< /Type /Page /Parent 2 0 R {page} >>");
+        let objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", page.as_str()];
         let mut out = b"%PDF-1.7\n".to_vec();
         let mut offs = Vec::new();
         for (i, o) in objs.iter().enumerate() {

@@ -130,3 +130,4 @@ fn foreign_encrypted_scans_are_read() {
         common::unprotected_and_clean(&r.path);
     }
 }
+

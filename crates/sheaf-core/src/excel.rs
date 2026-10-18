@@ -516,6 +516,14 @@ fn sheets(pages: &[Vec<Part>]) -> Vec<(String, Vec<&Part>)> {
 
 /// Exports the tables of `input` to an Excel workbook at `out` (never overwriting).
 /// `progress` works as for [`crate::export::to_office`].
+/// The result line for `tables` tables found, in Sheaf's CLI and app alike.
+pub fn summary(tables: usize) -> String {
+    match tables {
+        0 => "No tables found: the text is in column A".into(),
+        n => format!("{} found", crate::tools::count(n, "table")),
+    }
+}
+
 pub fn to_excel(input: &Input, layout: SheetLayout, opts: &ExportOptions, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<ExcelReport> {
     let doc = open_for_export(input, opts, progress)?;
     let d = doc.document();

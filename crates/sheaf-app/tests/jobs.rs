@@ -325,7 +325,7 @@ fn ocr_job_reports_progress_and_a_cancel_inside_a_file_writes_nothing() {
     let items = vec![(Input::new(&src), dir.path().join("a-ocr.pdf")), (Input::new(&text), dir.path().join("t-ocr.pdf"))];
     let o = run(&Job::Ocr { items: items.clone(), options: OcrOptions::default() }, &no, &|p| seen.borrow_mut().push(p)).unwrap();
     assert_eq!(o.outputs.len(), 2);
-    assert_eq!(o.summary, "2 pages read, 1 page already had text");
+    assert_eq!(o.summary, "2 pages read, 0 words added, 1 page already had text");
     let seen = seen.into_inner();
     assert!(seen.windows(2).all(|w| w[0] <= w[1]) && seen.last() == Some(&1.0), "{seen:?}");
     assert!(seen.iter().any(|p| *p > 0.0 && *p < 0.5), "progress inside the first file: {seen:?}");
@@ -367,8 +367,9 @@ fn compare_job_shows_the_counts() {
     assert_eq!(o.summary, "No differences: the documents' text is identical.");
     assert_eq!(o.outputs.len(), 1);
     let o = run(&Job::Compare { old: Input::new(&src), new: Input::new(&text), mode: CompareMode::Overlay, out: dir.path().join("o.pdf") }, &no, &|_| {}).unwrap();
-    // The page-number-free image PDF has no words: every word of the new one is added.
-    assert_eq!(o.summary, "1 added, 0 removed, 0 changed");
+    // The page-number-free image PDF has no words: every word of the new one is added. Its red
+    // picture is gone too, a change no word accounts for: outlined.
+    assert_eq!(o.summary, "1 added, 0 removed, 0 changed; 1 other changed area outlined");
 }
 
 #[test]
