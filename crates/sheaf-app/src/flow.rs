@@ -376,7 +376,11 @@ pub fn dropped(ui: &AppWindow, path: PathBuf) {
 /// PDFs opened from Home: kept for the next tool opened; Tools is shown to pick one.
 pub fn home_files(ui: &AppWindow, paths: Vec<PathBuf>) {
     let n = with(|a| {
-        a.home_files.extend(paths);
+        for p in paths {
+            if !a.home_files.contains(&p) {
+                a.home_files.push(p);
+            }
+        }
         a.home_files.len()
     });
     ui.set_active_tab(-1);

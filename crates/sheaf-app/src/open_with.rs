@@ -122,6 +122,7 @@ mod macos {
     /// Adds `application:openURLs:` to the delegate winit installed. Call after the Slint winit
     /// backend is selected (the delegate exists) and before the event loop runs (AppKit delivers
     /// launch files from `-[NSApplication finishLaunching]`). `handler` runs on the main thread.
+    /// Call once: a second call keeps the first handler.
     pub fn install_hook(handler: fn(Vec<PathBuf>)) {
         let Some(mtm) = MainThreadMarker::new() else {
             eprintln!("sheaf: Open With hook must be installed on the main thread");
@@ -156,8 +157,8 @@ mod macos {
             eprintln!("sheaf: the application delegate already handles openURLs; Open With unchanged");
             return;
         }
-        // NSApplication may cache which optional methods its delegate implements when the
-        // delegate is set; setting the same object again refreshes that.
+        // Defensive: in case NSApplication caches which optional methods its delegate
+        // implements when the delegate is set, setting the same object again refreshes that.
         app.setDelegate(Some(&delegate));
     }
 }

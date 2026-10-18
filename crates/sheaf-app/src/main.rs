@@ -274,7 +274,11 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // Files from Finder ("Open With", Dock icon) and the command line: queued until the event
     // loop runs, then sent where a PDF dropped on Home goes.
-    received(sheaf_app::open_with::absolute(sheaf_app::open_with::launch_args(std::env::args_os().skip(1))));
+    // Command-line entries that are not existing files are dropped silently: AppKit-style
+    // switches (`-AppleLanguages (fr)`) carry values that are not files.
+    let mut args = sheaf_app::open_with::launch_args(std::env::args_os().skip(1));
+    args.retain(|p| p.is_file());
+    received(sheaf_app::open_with::absolute(args));
     #[cfg(target_os = "macos")]
     sheaf_app::open_with::install_hook(|paths| received(sheaf_app::open_with::absolute(paths)));
     let weak = ui.as_weak();
