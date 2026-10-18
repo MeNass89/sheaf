@@ -207,7 +207,7 @@ fn verb(tool: ToolId) -> &'static str {
 pub const NOT_PROTECTED: &str = "The output is not password-protected.";
 
 /// Redact: the written file was re-opened and audited (a failed audit is a failed job).
-pub const REDACTION_VERIFIED: &str = "Verified: no hidden text remains under the redactions";
+pub const REDACTION_VERIFIED: &str = sheaf_core::redact::VERIFIED;
 
 /// Compress of protected input whose unprotected copy came out larger.
 fn grew_text(many: bool, before: u64, after: u64) -> String {

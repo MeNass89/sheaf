@@ -75,8 +75,12 @@ impl Doc {
     /// Writes a full, compacted rewrite of the document to `unique_path(out)`. An encrypted
     /// input stays encrypted: apply `Edit::RemoveProtection` first for an unprotected output.
     pub fn save(&self, out: &Path) -> Result<PathBuf> {
-        let bytes = self.session.save_full_bytes(self.id).map_err(engine_err)?;
-        write_verbatim(&bytes, out)
+        write_verbatim(&self.full_bytes()?, out)
+    }
+
+    /// The bytes [`Self::save`] would write.
+    pub fn full_bytes(&self) -> Result<Arc<Vec<u8>>> {
+        self.session.save_full_bytes(self.id).map_err(engine_err)
     }
 
     /// [`Self::save`] with any encryption removed. Returns the path written and whether the input
@@ -89,6 +93,12 @@ impl Doc {
     /// object, so the engine would reopen the still-encrypted original without a password.
     /// lopdf can't decrypt those files either (it does not see an inline /Encrypt).
     pub fn save_unprotected(&mut self, out: &Path) -> Result<(PathBuf, bool)> {
+        let (bytes, warned) = self.unprotected_bytes()?;
+        Ok((write_verbatim(&bytes, out)?, warned))
+    }
+
+    /// The bytes [`Self::save_unprotected`] would write, and whether the input was encrypted.
+    pub fn unprotected_bytes(&mut self) -> Result<(Arc<Vec<u8>>, bool)> {
         let warned = self.was_encrypted();
         if warned {
             let producer = self.document().info.producer.clone().filter(|p| !p.trim().is_empty()).unwrap_or_else(|| "Sheaf".into());
@@ -97,7 +107,7 @@ impl Doc {
                 edits: vec![Edit::SetInfo { key: "Producer".into(), value: producer }, Edit::RemoveProtection],
             })?;
         }
-        Ok((self.save(out)?, warned))
+        Ok((self.full_bytes()?, warned))
     }
 
     /// Writes the document as an incremental update of the file as opened (the original bytes

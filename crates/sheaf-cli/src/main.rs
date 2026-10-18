@@ -632,6 +632,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         }
         Cmd::Redact { input: i, text, pattern, pages: whole, out } => {
             let i = input(i);
+            let searched = text.clone();
             let mut queries: Vec<Query> = text.into_iter().map(|t| Query::Literal { text: t, case_insensitive: true }).collect();
             queries.extend(pattern.into_iter().map(|p| Query::Pattern(p.into())));
             let mut marks = redact::mark_text(&redact::find_all(&i, &queries)?);
@@ -643,9 +644,9 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             if marks.is_empty() {
                 return Err(OpdfError::Unsupported("nothing to redact: no match and no page given".into()));
             }
-            let r = redact::apply(&i, &marks, &out)?;
+            let r = redact::apply(&i, &marks, &searched, &out)?;
             eprintln!("{} area{} redacted", r.areas, if r.areas == 1 { "" } else { "s" });
-            eprintln!("Verified: no hidden text remains under the redactions");
+            eprintln!("{}", redact::VERIFIED);
             warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::Pdfa { input: i, level, out } => {

@@ -316,7 +316,7 @@ fn redact_subcommand_counts_the_areas_and_removes_the_text() {
     assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
     // 3 matches on each of the 2 pages; page 2 is also marked whole.
     assert!(err.contains("7 areas redacted"), "{err}");
-    assert!(err.contains("Verified: no hidden text remains under the redactions"), "{err}");
+    assert!(err.contains("No text remains under the black boxes. Matches also removed from metadata, bookmarks and comments."), "{err}");
     let d = lopdf::Document::load(&out).unwrap();
     let p1 = d.extract_text(&[1]).unwrap();
     assert!(p1.contains("Write to") && !p1.contains("ada@") && !p1.contains("secret") && !p1.contains("4567"), "{p1}");

@@ -62,7 +62,7 @@ pub struct ViewerUi {
 impl ViewerUi {
     /// Every mark to apply: the checked search matches, then the hand-made ones.
     pub fn marks(&self) -> Vec<Mark> {
-        let found = self.found.iter().filter(|f| f.checked).map(|f| Mark { page: f.m.page, quads: f.m.quads.clone() });
+        let found = self.found.iter().filter(|f| f.checked).map(|f| redact::mark_text(std::slice::from_ref(&f.m)).remove(0));
         found.chain(self.manual.iter().map(|m| m.mark.clone())).collect()
     }
 
@@ -345,7 +345,7 @@ pub fn search(ui: &AppWindow, tab_id: i32, text: &str, patterns: &str) {
     let Some((load_id, input)) = update(tab_id, |v| {
         // Matches still checked from an earlier search stay marked.
         for f in v.found.drain(..).filter(|f| f.checked) {
-            v.manual.push(Manual { label: f.m.text.clone(), mark: Mark { page: f.m.page, quads: f.m.quads } });
+            v.manual.push(Manual { label: f.m.text.clone(), mark: redact::mark_text(std::slice::from_ref(&f.m)).remove(0) });
         }
         v.focused = None;
         v.searched = !queries.is_empty();
