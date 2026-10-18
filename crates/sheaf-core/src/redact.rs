@@ -62,6 +62,9 @@ pub struct RedactReport {
     pub areas: usize,
     /// The input was password-protected; the output is not.
     pub was_encrypted: bool,
+    /// What was removed whole besides the marks, one line each ("XMP metadata removed: it
+    /// contained the redacted text", "Attachment a.txt removed: …").
+    pub warnings: Vec<String>,
 }
 
 /// The bounding box `[x0, y0, x1, y1]` of quadrilaterals.
@@ -98,7 +101,21 @@ pub fn find_all(input: &Input, queries: &[Query]) -> Result<Vec<TextMatch>> {
         };
         for q in queries {
             let ranges = match q {
-                Query::Literal { text: needle, case_insensitive } => text.find_opts(needle, !case_insensitive, false),
+                // Typed text in either Unicode form ("É" as one character or "E" + accent) finds
+                // the page's text in either.
+                Query::Literal { text: needle, case_insensitive } => {
+                    use unicode_normalization::UnicodeNormalization;
+                    let (c, dcomp): (String, String) = (needle.nfc().collect(), needle.nfd().collect());
+                    let mut r = text.find_opts(&c, !case_insensitive, false);
+                    if dcomp != c {
+                        for g in text.find_opts(&dcomp, !case_insensitive, false) {
+                            if !r.contains(&g) {
+                                r.push(g);
+                            }
+                        }
+                    }
+                    r
+                }
                 Query::Pattern(p) => text.find_with(|chars| crate::pdfcraft::engine::find_pattern(*p, chars)),
             };
             for g in ranges {
@@ -167,30 +184,38 @@ pub fn apply(input: &Input, marks: &[Mark], searched: &[String], out: &Path) -> 
     let (bytes, was_encrypted) = doc.unprotected_bytes()?;
     drop(doc);
     let needles = needles(marks, searched);
-    let bytes = post_pass(&bytes, marks, &needles)?;
+    let (bytes, warnings) = post_pass(&bytes, marks, &needles)?;
     let path = atomic_write(out, |part| {
         std::fs::write(part, &bytes)?;
         verify(part, marks)?;
         check_scrubbed(&bytes, &needles)
     })?;
-    Ok(RedactReport { path, areas: marks.len(), was_encrypted })
+    Ok(RedactReport { path, areas: marks.len(), was_encrypted, warnings })
 }
 
 /// The texts to remove outside the page content: the typed searches and every match's text.
 fn needles(marks: &[Mark], searched: &[String]) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for t in searched.iter().chain(marks.iter().map(|m| &m.text)) {
-        let t = t.split_whitespace().collect::<Vec<_>>().join(" ");
-        if !t.is_empty() && !out.iter().any(|o| o.eq_ignore_ascii_case(&t)) {
+        let t = nfc(&t.split_whitespace().collect::<Vec<_>>().join(" "));
+        if !t.is_empty() && !out.iter().any(|o| o.to_lowercase() == t.to_lowercase()) {
             out.push(t);
         }
     }
     out
 }
 
-/// Where `needle` occurs in `hay` (byte range): case-insensitive, any run of white space in
-/// `needle` matching any run in `hay`.
+/// `s` in Unicode normalisation form C ("E" + combining acute becomes "É").
+fn nfc(s: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    s.nfc().collect()
+}
+
+/// Where `needle` occurs in `hay` (byte range of `hay`): case-insensitive, any run of white
+/// space in `needle` matching any run in `hay`, both compared in Unicode form C. `hay` must
+/// already be in form C (see [`nfc`]) for the range to be meaningful.
 fn find_loose(hay: &str, needle: &str) -> Option<(usize, usize)> {
+    let needle = nfc(needle);
     let words: Vec<Vec<char>> = needle.split_whitespace().map(|w| w.chars().collect()).collect();
     if words.is_empty() {
         return None;
@@ -222,9 +247,14 @@ fn find_loose(hay: &str, needle: &str) -> Option<(usize, usize)> {
     None
 }
 
-/// `text` without any of `needles` (removed until none is left: each removal shortens it).
+fn contains_any(hay: &str, needles: &[String]) -> bool {
+    let hay = nfc(hay);
+    needles.iter().any(|n| find_loose(&hay, n).is_some())
+}
+
+/// `text` (in form C) without any of `needles`, or `None` when none occurs.
 fn scrub(text: &str, needles: &[String]) -> Option<String> {
-    let mut t = text.to_string();
+    let mut t = nfc(text);
     let mut changed = false;
     while let Some((a, b)) = needles.iter().find_map(|n| find_loose(&t, n)) {
         t.replace_range(a..b, "");
@@ -233,46 +263,210 @@ fn scrub(text: &str, needles: &[String]) -> Option<String> {
     changed.then_some(t)
 }
 
+/// A PDF text string decoded (UTF-16BE or UTF-8 with their BOM, else PDFDocEncoding).
 fn decode(s: &Object) -> String {
-    lopdf::decode_text_string(s).unwrap_or_else(|_| s.as_str().map(|b| String::from_utf8_lossy(b).into_owned()).unwrap_or_default())
+    let t = lopdf::decode_text_string(s).unwrap_or_else(|_| s.as_str().map(|b| String::from_utf8_lossy(b).into_owned()).unwrap_or_default());
+    // lopdf keeps the UTF-8 byte-order mark as U+FEFF.
+    t.strip_prefix('\u{feff}').map(str::to_string).unwrap_or(t)
 }
 
-/// XMP text with the five XML entities decoded, as a reader of the metadata sees it.
+/// XMP as a reader of its values sees it: the text of its elements and the values of its
+/// attributes (never element or attribute names, namespace declarations, comments or
+/// processing instructions), with CDATA sections joined to the text around them and
+/// character references (`&#115;`, `&#x73;`) and the named XML entities decoded. Each tag
+/// separates text with a line break; a comment does not.
 fn xmp_text(bytes: &[u8]) -> String {
-    String::from_utf8_lossy(bytes).replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&")
+    let s = String::from_utf8_lossy(bytes);
+    let mut out = String::with_capacity(s.len());
+    let mut rest: &str = &s;
+    while !rest.is_empty() {
+        if let Some(r) = rest.strip_prefix("<!--") {
+            rest = r.find("-->").map_or("", |e| &r[e + 3..]);
+        } else if let Some(r) = rest.strip_prefix("<![CDATA[") {
+            let e = r.find("]]>").unwrap_or(r.len());
+            out.push_str(&r[..e]);
+            rest = r.get(e + 3..).unwrap_or("");
+        } else if let Some(r) = rest.strip_prefix("<?") {
+            rest = r.find("?>").map_or("", |e| &r[e + 2..]);
+        } else if let Some(r) = rest.strip_prefix('<') {
+            let e = r.find('>').unwrap_or(r.len());
+            out.push('\n');
+            for v in attribute_values(&r[..e]) {
+                out.push_str(&decode_entities(v));
+                out.push('\n');
+            }
+            rest = r.get(e + 1..).unwrap_or("");
+        } else {
+            let n = rest.find('<').unwrap_or(rest.len());
+            out.push_str(&decode_entities(&rest[..n]));
+            rest = &rest[n..];
+        }
+    }
+    out
+}
+
+/// The quoted attribute values of a tag's inside (`rdf:Description rdf:about="" dc:x='v'`),
+/// namespace declarations (`xmlns…`) excepted.
+fn attribute_values(tag: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut rest = tag;
+    while let Some(eq) = rest.find('=') {
+        let name = rest[..eq].split_whitespace().last().unwrap_or("");
+        let after = rest[eq + 1..].trim_start();
+        let Some(q) = after.chars().next().filter(|c| *c == '"' || *c == '\'') else { break };
+        let body = &after[1..];
+        let end = body.find(q).unwrap_or(body.len());
+        if !name.starts_with("xmlns") {
+            out.push(&body[..end]);
+        }
+        rest = body.get(end + 1..).unwrap_or("");
+    }
+    out
+}
+
+/// `s` with character references and the five named XML entities decoded.
+fn decode_entities(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(a) = rest.find('&') {
+        out.push_str(&rest[..a]);
+        rest = &rest[a..];
+        let end = rest.find(';').filter(|e| *e <= 12);
+        let ch = end.map(|e| &rest[1..e]).and_then(|e| match e {
+            "lt" => Some('<'),
+            "gt" => Some('>'),
+            "amp" => Some('&'),
+            "quot" => Some('"'),
+            "apos" => Some('\''),
+            _ => e
+                .strip_prefix("#x")
+                .or_else(|| e.strip_prefix("#X"))
+                .and_then(|h| u32::from_str_radix(h, 16).ok())
+                .or_else(|| e.strip_prefix('#').and_then(|d| d.parse().ok()))
+                .and_then(char::from_u32),
+        });
+        match (ch, end) {
+            (Some(c), Some(e)) => {
+                out.push(c);
+                rest = &rest[e + 1..];
+            }
+            _ => {
+                out.push('&');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 fn is_xmp(s: &lopdf::Stream) -> bool {
     s.dict.get(b"Type").and_then(Object::as_name).ok() == Some(b"Metadata".as_slice())
 }
 
-/// Removes `needles` from every string outside page content; returns whether one changed.
-fn scrub_object(o: &mut Object, needles: &[String]) -> bool {
-    match o {
-        Object::String(..) => match scrub(&decode(o), needles) {
-            Some(t) => {
-                *o = lopdf::text_string(&t);
-                true
-            }
-            None => false,
-        },
-        Object::Array(a) => a.iter_mut().fold(false, |c, x| scrub_object(x, needles) | c),
-        Object::Dictionary(d) => scrub_dict(d, needles),
-        Object::Stream(s) => scrub_dict(&mut s.dict, needles),
-        _ => false,
+fn stream_text(s: &lopdf::Stream) -> String {
+    String::from_utf8_lossy(&s.decompressed_content().unwrap_or_else(|_| s.content.clone())).into_owned()
+}
+
+/// What a dictionary is, for the scrub's allow-list.
+#[derive(Clone, Copy, PartialEq)]
+enum Kind {
+    Info,
+    Outline,
+    Annot,
+    Field,
+}
+
+/// The keys whose text values are scrubbed, by kind: what a reader shows as text. Names-tree
+/// keys, destinations, URIs, default appearances, field names and anything else are left alone.
+fn scrub_keys(k: Kind) -> &'static [&'static [u8]] {
+    match k {
+        Kind::Info => &[],
+        Kind::Outline => &[b"Title"],
+        Kind::Annot => &[b"Contents", b"T", b"Subj", b"RC"],
+        Kind::Field => &[b"V", b"DV", b"TU"],
     }
 }
 
-fn scrub_dict(d: &mut Dictionary, needles: &[String]) -> bool {
-    d.iter_mut().fold(false, |c, (_, v)| scrub_object(v, needles) | c)
+/// The kinds of `d` (an annotation widget can be its own field, so possibly two).
+fn kinds(d: &Dictionary, outline_items: &HashSet<ObjectId>, id: ObjectId) -> Vec<Kind> {
+    let name = |k: &[u8]| d.get(k).and_then(Object::as_name).ok();
+    let mut out = Vec::new();
+    if outline_items.contains(&id) {
+        out.push(Kind::Outline);
+    }
+    let annot = name(b"Type") == Some(b"Annot".as_slice()) || (d.has(b"Subtype") && d.has(b"Rect") && name(b"Type").is_none_or(|t| t == b"Annot"));
+    // A widget's /T is its field's name: a widget is only scrubbed as a field.
+    if annot && name(b"Subtype") != Some(b"Widget".as_slice()) {
+        out.push(Kind::Annot);
+    }
+    if d.has(b"FT") || (d.has(b"T") && (d.has(b"V") || d.has(b"Kids")) && name(b"Subtype") != Some(b"Text".as_slice())) {
+        out.push(Kind::Field);
+    }
+    out
 }
 
-/// The written bytes, after PdfCraft: whole-page marks emptied, `needles` removed from
-/// metadata, bookmarks, comments and form fields. Unchanged bytes are returned as they are.
-fn post_pass(bytes: &[u8], marks: &[Mark], needles: &[String]) -> Result<Vec<u8>> {
+/// The outline items reachable from the catalog's /Outlines (by /First and /Next).
+fn outline_items(d: &lopdf::Document) -> HashSet<ObjectId> {
+    let mut out = HashSet::new();
+    let first = |id: ObjectId| d.get_dictionary(id).ok().and_then(|x| x.get(b"First").and_then(Object::as_reference).ok());
+    let Some(root) = d.catalog().ok().and_then(|c| c.get(b"Outlines").and_then(Object::as_reference).ok()) else { return out };
+    let mut todo: Vec<ObjectId> = first(root).into_iter().collect();
+    while let Some(id) = todo.pop() {
+        if !out.insert(id) || out.len() > 100_000 {
+            continue;
+        }
+        if let Some(c) = first(id) {
+            todo.push(c);
+        }
+        if let Some(n) = d.get_dictionary(id).ok().and_then(|x| x.get(b"Next").and_then(Object::as_reference).ok()) {
+            todo.push(n);
+        }
+    }
+    out
+}
+
+/// Scrubs one text value: `Some(None)` means "remove the key" (nothing is left of it).
+fn scrub_value(v: &Object, needles: &[String]) -> Option<Option<Object>> {
+    match v {
+        Object::String(..) => scrub(&decode(v), needles).map(|t| (!t.trim().is_empty()).then(|| lopdf::text_string(&t))),
+        _ => None,
+    }
+}
+
+/// Scrubs the allow-listed keys of `d` (every text value for the document information).
+fn scrub_dict(d: &mut Dictionary, kinds: &[Kind], needles: &[String]) -> bool {
+    let keys: Vec<Vec<u8>> = d
+        .iter()
+        .filter(|(k, _)| kinds.iter().any(|kd| *kd == Kind::Info || scrub_keys(*kd).contains(&k.as_slice())))
+        .map(|(k, _)| k.clone())
+        .collect();
+    let mut changed = false;
+    for k in keys {
+        let Some(v) = d.get(&k).ok().and_then(|v| scrub_value(v, needles)) else { continue };
+        changed = true;
+        match v {
+            Some(v) => d.set(k, v),
+            None => {
+                d.remove(&k);
+            }
+        }
+    }
+    changed
+}
+
+/// What the post-pass did that the user must be told.
+type Warnings = Vec<String>;
+
+/// The written bytes, after PdfCraft: whole-page marks emptied; `needles` removed from the
+/// document information, bookmark titles, comments and form field values; XMP metadata,
+/// attachments and JavaScript that contain one removed whole (each named in the warnings).
+/// Unchanged bytes are returned as they are.
+fn post_pass(bytes: &[u8], marks: &[Mark], needles: &[String]) -> Result<(Vec<u8>, Warnings)> {
     let whole: BTreeSet<usize> = marks.iter().filter(|m| m.whole_page).map(|m| m.page).collect();
+    let mut warnings = Vec::new();
     if whole.is_empty() && needles.is_empty() {
-        return Ok(bytes.to_vec());
+        return Ok((bytes.to_vec(), warnings));
     }
     let mut d = lopdf::Document::load_mem(bytes)?;
     let mut changed = false;
@@ -301,36 +495,50 @@ fn post_pass(bytes: &[u8], marks: &[Mark], needles: &[String]) -> Result<Vec<u8>
     if !dropped.is_empty() {
         prune_fields(&mut d, &dropped)?;
     }
-    // Every string outside page content (document information, bookmarks, annotations, form
-    // fields, structure), then XMP streams.
+    if needles.is_empty() {
+        d.prune_objects();
+        let mut out = Vec::new();
+        d.save_to(&mut out)?;
+        return Ok((out, warnings));
+    }
+    // Text values under the allow-list.
+    let outlines = outline_items(&d);
     let ids: Vec<ObjectId> = d.objects.keys().copied().collect();
     let mut fields_changed = false;
     for id in ids {
-        let Some(o) = d.objects.get_mut(&id) else { continue };
-        if !scrub_object(o, needles) {
+        let Some(Object::Dictionary(dict)) = d.objects.get_mut(&id) else { continue };
+        let ks = kinds(dict, &outlines, id);
+        if ks.is_empty() || !scrub_dict(dict, &ks, needles) {
             continue;
         }
         changed = true;
-        // An annotation or a field whose text changed loses its appearance (it still shows the
-        // old text); viewers draw it again from the new value.
-        if let Ok(dict) = o.as_dict_mut() {
-            let field = dict.has(b"FT") || dict.has(b"V");
-            if dict.has(b"Rect") || field {
-                dict.remove(b"AP");
-            }
-            if field {
-                fields_changed = true;
-                let kids: Vec<ObjectId> = dict.get(b"Kids").and_then(Object::as_array).map(|a| a.iter().filter_map(|x| x.as_reference().ok()).collect()).unwrap_or_default();
-                for k in kids {
-                    if let Ok(kd) = d.get_object_mut(k).and_then(Object::as_dict_mut) {
-                        kd.remove(b"AP");
-                    }
+        // An annotation or a field whose text changed loses its appearance (it still shows
+        // the old text); viewers draw it again from the new value.
+        dict.remove(b"AP");
+        if ks.contains(&Kind::Field) {
+            fields_changed = true;
+            let kids: Vec<ObjectId> = dict.get(b"Kids").and_then(Object::as_array).map(|a| a.iter().filter_map(|x| x.as_reference().ok()).collect()).unwrap_or_default();
+            for k in kids {
+                if let Ok(kd) = d.get_object_mut(k).and_then(Object::as_dict_mut) {
+                    kd.remove(b"AP");
                 }
             }
         }
     }
-    if let Ok(v) = d.trailer.get_mut(b"Info") {
-        changed |= scrub_object(v, needles);
+    // The document information, direct or not.
+    match d.trailer.get(b"Info").ok().cloned() {
+        Some(Object::Reference(r)) => {
+            if let Ok(info) = d.get_object_mut(r).and_then(Object::as_dict_mut) {
+                changed |= scrub_dict(info, &[Kind::Info], needles);
+            }
+        }
+        Some(Object::Dictionary(mut info)) => {
+            if scrub_dict(&mut info, &[Kind::Info], needles) {
+                d.trailer.set("Info", info);
+                changed = true;
+            }
+        }
+        _ => {}
     }
     if fields_changed
         && let Ok(af) = d.catalog().and_then(|c| c.get(b"AcroForm")).cloned()
@@ -349,44 +557,123 @@ fn post_pass(bytes: &[u8], marks: &[Mark], needles: &[String]) -> Result<Vec<u8>
             _ => {}
         }
     }
-    let mut gone_xmp: Vec<ObjectId> = Vec::new();
-    for (id, o) in d.objects.iter_mut() {
+    // Streams with a match outside page content: XMP, attachments and JavaScript go whole.
+    let mut gone: HashSet<ObjectId> = HashSet::new();
+    let mut xmp_gone = false;
+    for (id, o) in &d.objects {
         let Object::Stream(s) = o else { continue };
-        if !is_xmp(s) {
-            continue;
-        }
-        let raw = s.decompressed_content().unwrap_or_else(|_| s.content.clone());
-        let text = String::from_utf8_lossy(&raw).into_owned();
-        if let Some(t) = scrub(&text, needles) {
-            s.set_plain_content(t.into_bytes());
-            changed = true;
-        }
-        let now = s.decompressed_content().unwrap_or_else(|_| s.content.clone());
-        // An occurrence written with XML entities: the stream goes.
-        if needles.iter().any(|n| find_loose(&xmp_text(&now), n).is_some()) {
-            gone_xmp.push(*id);
+        if is_xmp(s) && contains_any(&xmp_text(&s.decompressed_content().unwrap_or_else(|_| s.content.clone())), needles) {
+            gone.insert(*id);
+            xmp_gone = true;
         }
     }
-    if !gone_xmp.is_empty() {
+    if xmp_gone {
+        warnings.push("XMP metadata removed: it contained the redacted text".into());
+    }
+    let (attachments, scripts) = embedded_and_scripts(&d);
+    for (name, file) in attachments {
+        if d.get_object(file).ok().and_then(|o| o.as_stream().ok()).is_some_and(|s| contains_any(&stream_text(s), needles)) {
+            gone.insert(file);
+            warnings.push(format!("Attachment {name} removed: it contained the redacted text"));
+        }
+    }
+    for (name, js) in scripts {
+        let text = match d.get_object(js) {
+            Ok(Object::Stream(s)) => stream_text(s),
+            Ok(o @ Object::String(..)) => decode(o),
+            _ => continue,
+        };
+        if contains_any(&text, needles) {
+            gone.insert(js);
+            warnings.push(format!("JavaScript {name} removed: it contained the redacted text"));
+        }
+    }
+    // A JavaScript action written inline (`/JS (…)`) is a string: dropped with its key.
+    for o in d.objects.values_mut() {
+        if let Object::Dictionary(dict) = o
+            && dict.get(b"S").and_then(Object::as_name).ok() == Some(b"JavaScript".as_slice())
+            && dict.get(b"JS").ok().is_some_and(|j| matches!(j, Object::String(..)) && contains_any(&decode(j), needles))
+        {
+            dict.remove(b"JS");
+            warnings.push("JavaScript removed: it contained the redacted text".into());
+            changed = true;
+        }
+    }
+    if !gone.is_empty() {
+        changed = true;
+        for id in &gone {
+            d.objects.remove(id);
+        }
+        // Every reference to a removed stream goes too (dangling ones would be null anyway):
+        // /Metadata keys, /EF entries, /JS keys.
         for o in d.objects.values_mut() {
             let dict = match o {
                 Object::Dictionary(x) => x,
                 Object::Stream(s) => &mut s.dict,
                 _ => continue,
             };
-            if dict.get(b"Metadata").and_then(Object::as_reference).is_ok_and(|r| gone_xmp.contains(&r)) {
-                dict.remove(b"Metadata");
+            let keys: Vec<Vec<u8>> = dict.iter().filter(|(_, v)| v.as_reference().is_ok_and(|r| gone.contains(&r))).map(|(k, _)| k.clone()).collect();
+            for k in keys {
+                dict.remove(&k);
+            }
+            if let Ok(Object::Dictionary(ef)) = dict.get_mut(b"EF") {
+                let keys: Vec<Vec<u8>> = ef.iter().filter(|(_, v)| v.as_reference().is_ok_and(|r| gone.contains(&r))).map(|(k, _)| k.clone()).collect();
+                for k in keys {
+                    ef.remove(&k);
+                }
             }
         }
-        changed = true;
     }
     if !changed {
-        return Ok(bytes.to_vec());
+        return Ok((bytes.to_vec(), warnings));
     }
     d.prune_objects();
     let mut out = Vec::new();
     d.save_to(&mut out)?;
-    Ok(out)
+    Ok((out, warnings))
+}
+
+/// Streams named for the user: ("a.txt", its object).
+type Named = Vec<(String, ObjectId)>;
+
+/// The embedded files (`/EmbeddedFile` streams, with the file name of their file
+/// specification) and the JavaScript held in streams (`/JS` of every JavaScript action).
+fn embedded_and_scripts(d: &lopdf::Document) -> (Named, Named) {
+    let mut files = Vec::new();
+    let mut seen = HashSet::new();
+    let mut scripts = Vec::new();
+    for o in d.objects.values() {
+        let dict = match o {
+            Object::Dictionary(x) => x,
+            Object::Stream(s) => &s.dict,
+            _ => continue,
+        };
+        if let Ok(Object::Dictionary(ef)) = dict.get(b"EF") {
+            let name = [&b"UF"[..], b"F"].iter().find_map(|k| dict.get(k).ok().map(decode)).unwrap_or_else(|| "(unnamed)".into());
+            for (_, v) in ef.iter() {
+                if let Ok(r) = v.as_reference()
+                    && seen.insert(r)
+                {
+                    files.push((name.clone(), r));
+                }
+            }
+        }
+        if dict.get(b"S").and_then(Object::as_name).ok() == Some(b"JavaScript".as_slice())
+            && let Ok(r) = dict.get(b"JS").and_then(Object::as_reference)
+        {
+            scripts.push(("in an action".to_string(), r));
+        }
+    }
+    // Streams typed /EmbeddedFile that no file specification names.
+    for (id, o) in &d.objects {
+        if let Object::Stream(s) = o
+            && s.dict.get(b"Type").and_then(Object::as_name).ok() == Some(b"EmbeddedFile".as_slice())
+            && seen.insert(*id)
+        {
+            files.push(("(unnamed)".into(), *id));
+        }
+    }
+    (files, scripts)
 }
 
 /// Removes from the form every field whose widget was dropped (with a parent left without
@@ -437,38 +724,102 @@ fn prune_fields(d: &mut lopdf::Document, dropped: &HashSet<ObjectId>) -> Result<
     Ok(())
 }
 
-/// Fails when a searched text is still in a string outside page content (document
-/// information, bookmarks, comments, form fields: PDFDocEncoding or UTF-16BE, decoded) or in
-/// XMP metadata (UTF-8, entities decoded).
+/// Fails when a searched text is still where [`post_pass`] removes it: a scrubbed text value
+/// (document information, bookmark titles, comments, form field values: decoded from
+/// PDFDocEncoding, UTF-16BE or UTF-8), XMP metadata (read as [`xmp_text`] does), or any
+/// other stream that is not page content, a form, an image or a font program (attachments,
+/// JavaScript, …). Comparison is in Unicode form C, case-insensitive.
 fn check_scrubbed(bytes: &[u8], needles: &[String]) -> Result<()> {
     if needles.is_empty() {
         return Ok(());
     }
-    fn found(o: &Object, needles: &[String]) -> bool {
-        match o {
-            Object::String(..) => {
-                let t = decode(o);
-                needles.iter().any(|n| find_loose(&t, n).is_some())
+    let fail = |what: &str| OpdfError::Conversion(format!("redaction audit failed: a redacted text is still in the document's {what}"));
+    let d = lopdf::Document::load_mem(bytes).map_err(|e| OpdfError::Conversion(format!("redaction audit failed: the output can't be re-read ({e})")))?;
+    let hit = |o: &Object| matches!(o, Object::String(..)) && contains_any(&decode(o), needles);
+    // Document information.
+    let info = d.trailer.get(b"Info").ok().and_then(|i| d.dereference(i).ok()).and_then(|(_, i)| i.as_dict().ok().cloned());
+    if info.is_some_and(|i| i.iter().any(|(_, v)| hit(v))) {
+        return Err(fail("information (title, author, subject, keywords)"));
+    }
+    // Allow-listed values of bookmarks, comments and fields.
+    let outlines = outline_items(&d);
+    for (id, o) in &d.objects {
+        let Object::Dictionary(dict) = o else { continue };
+        for k in kinds(dict, &outlines, *id) {
+            if scrub_keys(k).iter().any(|key| dict.get(key).is_ok_and(hit)) {
+                return Err(fail(match k {
+                    Kind::Outline => "bookmarks",
+                    Kind::Annot => "comments",
+                    _ => "form fields",
+                }));
             }
-            Object::Array(a) => a.iter().any(|x| found(x, needles)),
-            Object::Dictionary(d) => d.iter().any(|(_, v)| found(v, needles)),
-            Object::Stream(s) => {
-                s.dict.iter().any(|(_, v)| found(v, needles))
-                    || (is_xmp(s) && {
-                        let raw = s.decompressed_content().unwrap_or_else(|_| s.content.clone());
-                        let t = xmp_text(&raw);
-                        needles.iter().any(|n| find_loose(&t, n).is_some())
-                    })
-            }
-            _ => false,
+        }
+        if dict.get(b"S").and_then(Object::as_name).ok() == Some(b"JavaScript".as_slice()) && dict.get(b"JS").is_ok_and(hit) {
+            return Err(fail("JavaScript"));
         }
     }
-    let d = lopdf::Document::load_mem(bytes).map_err(|e| OpdfError::Conversion(format!("redaction audit failed: the output can't be re-read ({e})")))?;
-    let info = d.trailer.get(b"Info").ok().map(|i| d.dereference(i).map(|x| x.1.clone()).unwrap_or(Object::Null));
-    if d.objects.values().any(|o| found(o, needles)) || info.is_some_and(|i| found(&i, needles)) {
-        return Err(OpdfError::Conversion("redaction audit failed: a redacted text is still in the document's metadata, bookmarks, comments or form fields".into()));
+    // Streams that are not drawn: XMP, attachments, scripts and anything else.
+    let drawn = drawn_streams(&d);
+    for (id, o) in &d.objects {
+        let Object::Stream(s) = o else { continue };
+        // Object and cross-reference streams hold the objects checked one by one above.
+        let ty = s.dict.get(b"Type").and_then(Object::as_name).ok();
+        if drawn.contains(id) || matches!(ty, Some(b"ObjStm" | b"XRef")) {
+            continue;
+        }
+        let raw = s.decompressed_content().unwrap_or_else(|_| s.content.clone());
+        let text = if is_xmp(s) { xmp_text(&raw) } else { String::from_utf8_lossy(&raw).into_owned() };
+        if contains_any(&text, needles) {
+            return Err(fail(if is_xmp(s) { "XMP metadata" } else { "attachments or other embedded data" }));
+        }
     }
     Ok(())
+}
+
+/// Streams that draw: page contents, form and image XObjects, font programs (their text is
+/// checked on the page by [`verify`], or is out of reach: see its blind spots).
+fn drawn_streams(d: &lopdf::Document) -> HashSet<ObjectId> {
+    let mut out = HashSet::new();
+    let refs = |o: &Object| -> Vec<ObjectId> {
+        match o {
+            Object::Reference(r) => vec![*r],
+            Object::Array(a) => a.iter().filter_map(|x| x.as_reference().ok()).collect(),
+            _ => Vec::new(),
+        }
+    };
+    for (id, o) in &d.objects {
+        let dict = match o {
+            Object::Dictionary(x) => x,
+            Object::Stream(s) => {
+                let sub = s.dict.get(b"Subtype").and_then(Object::as_name).ok();
+                // Forms, images, font programs (Length1, or a FontFile3 /Subtype), ICC profiles.
+                let font3 = matches!(sub, Some(b"Type1C" | b"CIDFontType0C" | b"OpenType"));
+                if matches!(sub, Some(b"Form" | b"Image")) || font3 || s.dict.has(b"Length1") || (s.dict.has(b"N") && s.dict.has(b"Alternate")) || (s.dict.has(b"N") && !s.dict.has(b"Type")) {
+                    out.insert(*id);
+                }
+                &s.dict
+            }
+            _ => continue,
+        };
+        if dict.get(b"Type").and_then(Object::as_name).ok() == Some(b"Page".as_slice())
+            && let Ok(c) = dict.get(b"Contents")
+        {
+            out.extend(refs(c));
+            if let Ok(Object::Reference(r)) = dict.get(b"Contents")
+                && let Ok(Object::Array(a)) = d.get_object(*r)
+            {
+                out.extend(a.iter().filter_map(|x| x.as_reference().ok()));
+            }
+        }
+        for k in [&b"FontFile"[..], b"FontFile2", b"FontFile3", b"CharProcs"] {
+            match dict.get(k) {
+                Ok(Object::Dictionary(cp)) => out.extend(cp.iter().filter_map(|(_, v)| v.as_reference().ok())),
+                Ok(o) => out.extend(refs(o)),
+                Err(_) => {}
+            }
+        }
+    }
+    out
 }
 
 /// Checks a written PDF for redactions that only look done. Fails when:
@@ -489,7 +840,11 @@ fn check_scrubbed(bytes: &[u8], needles: &[String]) -> Result<()> {
 /// annotation (/Square, a stamp) is not seen, nor is text no reader can decode (a Type3 or
 /// other font without /ToUnicode or a known encoding). Inside `marks` those cases are caught
 /// when pdfium can decode the text. Text in a page's structure tree (/ActualText, /Alt) is not
-/// checked. Anything that can't be read fails.
+/// checked. Outside the pages, [`apply`] also checks that no searched text is left in metadata,
+/// bookmarks, comments, form values, attachments or scripts, but not inside font programs
+/// (compressed or not: glyph names, a subset's name), images (text drawn as pixels), ICC
+/// profiles, or text values under keys it does not scrub (names-tree keys, destinations,
+/// URIs, field names). Anything that can't be read fails.
 pub fn verify(path: &Path, marks: &[Mark]) -> Result<()> {
     let fail = |why: String| OpdfError::Conversion(format!("redaction audit failed: {why}"));
     let doc = Doc::open(&Input::new(path)).map_err(|e| fail(format!("the output can't be re-opened ({e})")))?;
@@ -600,4 +955,54 @@ fn text_under_marks(path: &Path, marks: &[Mark]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One page, `/Metadata` → an XMP stream holding `inner`.
+    fn with_xmp(inner: &str) -> Vec<u8> {
+        let mut d = lopdf::Document::with_version("1.7");
+        let xmp = format!("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF><rdf:Description rdf:about=\"\">{inner}</rdf:Description></rdf:RDF></x:xmpmeta>");
+        let mut dict = Dictionary::new();
+        dict.set("Type", Object::Name(b"Metadata".to_vec()));
+        dict.set("Subtype", Object::Name(b"XML".to_vec()));
+        let m = d.add_object(lopdf::Stream::new(dict, xmp.into_bytes()));
+        let mut cat = Dictionary::new();
+        cat.set("Type", Object::Name(b"Catalog".to_vec()));
+        cat.set("Metadata", m);
+        let root = d.add_object(cat);
+        d.trailer.set("Root", root);
+        let mut out = Vec::new();
+        d.save_to(&mut out).unwrap();
+        out
+    }
+
+    #[test]
+    fn the_check_reads_xmp_through_references_comments_and_cdata() {
+        let n = ["secretword".to_string()];
+        for inner in ["<dc:title>&#115;ecretword</dc:title>", "<dc:title>s&#x65;cretword</dc:title>", "<dc:title>secret<!-- x -->word</dc:title>", "<dc:title>secret<![CDATA[word]]></dc:title>", "<dc:title>SECRETWORD</dc:title>"] {
+            let e = check_scrubbed(&with_xmp(inner), &n).unwrap_err().to_string();
+            assert!(e.contains("XMP metadata"), "{inner}: {e}");
+        }
+        // The word in a tag or attribute name, or split by a tag, is not the text.
+        for inner in ["<secretword:x/>", "<dc:title>secret</dc:title><dc:x>word</dc:x>", "<dc:title>Report</dc:title>"] {
+            check_scrubbed(&with_xmp(inner), &n).unwrap_or_else(|e| panic!("{inner}: {e}"));
+        }
+    }
+
+    #[test]
+    fn xmp_text_keeps_values_and_drops_markup() {
+        let t = xmp_text(b"<a b=\"x&amp;y\" xmlns:q=\"secret\"><!-- c -->v&lt;1<![CDATA[&#115;]]>&#115;</a>");
+        assert_eq!(t.split('\n').filter(|l| !l.is_empty()).collect::<Vec<_>>(), ["x&y", "v<1&#115;s"]);
+    }
+
+    #[test]
+    fn matching_ignores_case_spacing_and_unicode_form() {
+        let hay = nfc("Mme E\u{301}LODIE  Martin");
+        assert!(find_loose(&hay, "élodie martin").is_some());
+        assert_eq!(scrub("Doc secretword", &["secretword".into()]).as_deref(), Some("Doc "));
+        assert_eq!(scrub("nothing", &["secretword".into()]), None);
+    }
 }

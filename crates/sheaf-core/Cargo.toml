@@ -18,6 +18,7 @@ pdfcraft-fonts.workspace = true
 pdfcraft-edit.workspace = true
 pdfcraft-export.workspace = true
 rust_xlsxwriter.workspace = true
+unicode-normalization.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -647,6 +647,9 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             let r = redact::apply(&i, &marks, &searched, &out)?;
             eprintln!("{} area{} redacted", r.areas, if r.areas == 1 { "" } else { "s" });
             eprintln!("{}", redact::VERIFIED);
+            for w in &r.warnings {
+                eprintln!("warning: {w}");
+            }
             warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::Pdfa { input: i, level, out } => {

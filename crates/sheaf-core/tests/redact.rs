@@ -414,3 +414,206 @@ fn a_failed_audit_writes_nothing_not_even_for_a_moment_under_the_final_name() {
     assert!(!pdfium_text(&r.path).contains("secret"));
 }
 
+
+// ---- Fix round 2 -------------------------------------------------------------------------------
+
+/// A page "Name secretword here about" / "Other text" (object 4, font object 5); `extra` goes
+/// into the page dictionary (object 3). Objects from 6 on are `more`.
+fn probe(dir: &Path, name: &str, catalog: &str, page_extra: &str, more: &[(&str, Option<&[u8]>)], info: Option<usize>) -> Input {
+    let cat = format!("<< /Type /Catalog /Pages 2 0 R {catalog} >>");
+    let page = format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> {page_extra} >>");
+    let mut objs: Vec<(&str, Option<&[u8]>)> = vec![
+        (&cat, None),
+        ("<< /Type /Pages /Kids [3 0 R] /Count 1 >>", None),
+        (&page, None),
+        ("<< >>", Some(b"BT /F1 14 Tf 72 760 Td (Name secretword here about) Tj ET BT /F1 14 Tf 72 600 Td (Other text) Tj ET")),
+        (HELV, None),
+    ];
+    objs.extend_from_slice(more);
+    Input::new(raw_pdf(&dir.join(name), &objs, info))
+}
+
+fn xmp_packet(inner: &str) -> Vec<u8> {
+    format!("<?xpacket begin=\"\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"><rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\">{inner}</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end=\"w\"?>").into_bytes()
+}
+
+fn secret_marks(pdf: &Input, word: &str) -> Vec<redact::Mark> {
+    redact::mark_text(&redact::find(pdf, &Query::Literal { text: word.into(), case_insensitive: true }).unwrap())
+}
+
+#[test]
+fn xmp_holding_the_text_in_any_spelling_is_removed_whole_with_a_warning() {
+    let t = tempfile::tempdir().unwrap();
+    let cases: [(&str, &str); 4] = [
+        ("ncr", "<dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">&#115;ecret&#x77;ord</rdf:li></rdf:Alt></dc:title>"),
+        ("comment", "<dc:description>secret<!-- x -->word</dc:description>"),
+        ("cdata", "<dc:description>secret<![CDATA[word]]></dc:description>"),
+        ("plain", "<dc:title>About secretword</dc:title>"),
+    ];
+    for (name, inner) in cases {
+        let xmp = xmp_packet(inner);
+        let pdf = probe(t.path(), &format!("{name}.pdf"), "/Metadata 6 0 R", "", &[("<< /Type /Metadata /Subtype /XML >>", Some(&xmp))], None);
+        let r = redact::apply(&pdf, &secret_marks(&pdf, "secretword"), &[], &t.path().join(format!("{name}-out.pdf"))).unwrap();
+        assert_eq!(r.warnings, ["XMP metadata removed: it contained the redacted text"], "{name}");
+        let d = lopdf::Document::load(&r.path).unwrap();
+        assert!(!d.catalog().unwrap().has(b"Metadata"), "{name}");
+        assert!(!d.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.has_type(b"Metadata"))), "{name}");
+        qpdf_clean(&r.path);
+    }
+    // XMP without the text stays as it is.
+    let xmp = xmp_packet("<dc:title>Report</dc:title>");
+    let pdf = probe(t.path(), "keep.pdf", "/Metadata 6 0 R", "", &[("<< /Type /Metadata /Subtype /XML >>", Some(&xmp))], None);
+    let r = redact::apply(&pdf, &secret_marks(&pdf, "secretword"), &[], &t.path().join("keep-out.pdf")).unwrap();
+    assert!(r.warnings.is_empty());
+    assert!(strings_and_xmp(&r.path).contains("<dc:title>Report</dc:title>"));
+}
+
+#[test]
+fn only_displayed_text_values_are_scrubbed_names_links_and_field_names_survive() {
+    let t = tempfile::tempdir().unwrap();
+    let xmp = xmp_packet("<dc:title>Report</dc:title>");
+    let pdf = probe(
+        t.path(),
+        "corrupt.pdf",
+        "/Metadata 6 0 R /Names << /Dests 7 0 R >> /AcroForm << /Fields [9 0 R] /DA (/Helv 0 Tf 0 g) >>",
+        "/Annots [8 0 R 9 0 R 10 0 R]",
+        &[
+            ("<< /Type /Metadata /Subtype /XML >>", Some(&xmp)),
+            ("<< /Names [(aboutpage) [3 0 R /Fit]] >>", None),
+            ("<< /Type /Annot /Subtype /Link /Rect [72 500 200 520] /A << /S /URI /URI (https://example.org/about) >> >>", None),
+            ("<< /Type /Annot /Subtype /Widget /FT /Tx /T (about_field) /Rect [72 400 200 420] /V (keep about) /TU (Tell about) /DA (/Helv 0 Tf 0 g) /P 3 0 R >>", None),
+            ("<< /Type /Annot /Subtype /Link /Rect [72 300 200 320] /Dest (aboutpage) >>", None),
+        ],
+        None,
+    );
+    let r = redact::apply(&pdf, &secret_marks(&pdf, "about"), &[], &t.path().join("out.pdf")).unwrap();
+    qpdf_clean(&r.path);
+    // Written with object streams too (as PdfCraft or another tool may), the check reads
+    // their objects one by one, not the packed bytes where names and URIs sit side by side.
+    let packed = t.path().join("packed.pdf");
+    let o = std::process::Command::new("qpdf").args(["--object-streams=generate"]).arg(&r.path).arg(&packed).output().unwrap();
+    assert!(o.status.success());
+    let again = redact::apply(&Input::new(&packed), &redact::mark_rects(&[(0, [300.0, 100.0, 310.0, 110.0])]), &["about".into()], &t.path().join("again.pdf"));
+    assert!(again.is_ok(), "{again:?}");
+    let d = lopdf::Document::load(&r.path).unwrap();
+    let all = strings_and_xmp(&r.path);
+    for kept in ["rdf:about=\"\"", "aboutpage", "https://example.org/about", "about_field", "/Helv 0 Tf 0 g"] {
+        assert!(all.contains(kept), "{kept:?} lost: {all}");
+    }
+    assert!(!all.contains("keep about") && all.contains("keep") && !all.contains("Tell about"), "field value and tooltip scrubbed: {all}");
+    // The links still resolve: pdfium follows the named destination and the URI.
+    let _g = pdfium_lock();
+    let doc = sheaf_core::engine::open_pdf(&r.path, None).unwrap();
+    let page = doc.pages().get(0).unwrap();
+    let mut uri = None;
+    let mut dest_page = None;
+    for l in page.links().iter() {
+        if let Some(a) = l.action()
+            && let Some(u) = a.as_uri_action()
+        {
+            uri = u.uri().ok();
+        }
+        if let Some(dst) = l.destination() {
+            dest_page = dst.page_index().ok();
+        }
+    }
+    assert_eq!(uri.as_deref(), Some("https://example.org/about"));
+    assert_eq!(dest_page, Some(0), "the named destination aboutpage resolves to page 1");
+    assert!(d.catalog().unwrap().has(b"Names"));
+}
+
+#[test]
+fn attachments_and_scripts_with_the_text_are_removed_and_named() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = probe(
+        t.path(),
+        "embed.pdf",
+        "/Names << /EmbeddedFiles << /Names [(a.txt) 6 0 R (b.txt) 8 0 R] >> /JavaScript << /Names [(init) 10 0 R] >> >>",
+        "",
+        &[
+            ("<< /Type /Filespec /F (a.txt) /UF (a.txt) /EF << /F 7 0 R >> >>", None),
+            ("<< /Type /EmbeddedFile >>", Some(b"the secretword is here")),
+            ("<< /Type /Filespec /F (b.txt) /EF << /F 9 0 R >> >>", None),
+            ("<< /Type /EmbeddedFile >>", Some(b"nothing to see")),
+            ("<< /S /JavaScript /JS 11 0 R >>", None),
+            ("<< >>", Some(b"app.alert('secretword');")),
+        ],
+        None,
+    );
+    let r = redact::apply(&pdf, &secret_marks(&pdf, "secretword"), &[], &t.path().join("out.pdf")).unwrap();
+    assert_eq!(
+        r.warnings,
+        ["Attachment a.txt removed: it contained the redacted text", "JavaScript in an action removed: it contained the redacted text"],
+    );
+    qpdf_clean(&r.path);
+    let d = lopdf::Document::load(&r.path).unwrap();
+    let streams: Vec<String> = d.objects.values().filter_map(|o| o.as_stream().ok()).map(|s| String::from_utf8_lossy(&s.decompressed_content().unwrap_or_else(|_| s.content.clone())).into_owned()).collect();
+    assert!(!streams.iter().any(|s| s.to_lowercase().contains("secretword")), "{streams:?}");
+    assert!(streams.iter().any(|s| s == "nothing to see"), "the other attachment stays");
+}
+
+#[test]
+fn an_emptied_value_loses_its_key_and_every_encoding_is_read() {
+    let t = tempfile::tempdir().unwrap();
+    let u16: String = "Doc SecretWord".encode_utf16().map(|u| format!("{u:04X}")).collect();
+    let u8b: String = "secretword".bytes().map(|b| format!("{b:02X}")).collect();
+    let info = format!("<< /Title <FEFF{u16}> /Subject <EFBBBF{u8b}> /Keywords (secr\\145tword) /Author (secret\nword) /Creator (Writer) >>");
+    let pdf = probe(t.path(), "info.pdf", "", "", &[(&info, None)], Some(6));
+    let r = redact::apply(&pdf, &secret_marks(&pdf, "secretword"), &[], &t.path().join("out.pdf")).unwrap();
+    qpdf_clean(&r.path);
+    let d = lopdf::Document::load(&r.path).unwrap();
+    let info = d.get_dictionary(d.trailer.get(b"Info").unwrap().as_reference().unwrap()).unwrap();
+    let keys: Vec<String> = info.iter().map(|(k, _)| String::from_utf8_lossy(k).into_owned()).collect();
+    for gone in ["Subject", "Keywords", "Author"] {
+        assert!(!keys.iter().any(|k| k == gone), "emptied {gone} is removed, not left as () or a bare BOM: {keys:?}");
+    }
+    assert!(keys.iter().any(|k| k == "Creator"), "{keys:?}");
+    assert_eq!(lopdf::decode_text_string(info.get(b"Title").unwrap()).unwrap(), "Doc ");
+}
+
+#[test]
+fn decomposed_and_composed_accents_match_each_other() {
+    let t = tempfile::tempdir().unwrap();
+    // The page draws "Élodie" in WinAnsi (one character); the title holds "E" + U+0301.
+    let title: String = "E\u{301}lodie Secretword".encode_utf16().map(|u| format!("{u:04X}")).collect();
+    let info = format!("<< /Title <FEFF{title}> >>");
+    let objs: Vec<(&str, Option<&[u8]>)> = vec![
+        ("<< /Type /Catalog /Pages 2 0 R >>", None),
+        ("<< /Type /Pages /Kids [3 0 R] /Count 1 >>", None),
+        ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>", None),
+        ("<< >>", Some(b"BT /F1 14 Tf 72 760 Td (Name \xc9lodie here) Tj ET")),
+        ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", None),
+        (&info, None),
+    ];
+    let pdf = Input::new(raw_pdf(&t.path().join("nfd.pdf"), &objs, Some(6)));
+    // Typed decomposed, as some keyboards and pastes give it.
+    let typed = "E\u{301}lodie".to_string();
+    let hits = redact::find(&pdf, &Query::Literal { text: typed.clone(), case_insensitive: true }).unwrap();
+    assert_eq!(hits.len(), 1, "the decomposed search finds the composed page text");
+    let r = redact::apply(&pdf, &redact::mark_text(&hits), &[typed], &t.path().join("out.pdf")).unwrap();
+    let all = strings_and_xmp(&r.path);
+    assert!(!all.contains("lodie"), "{all}");
+    assert!(all.contains("Secretword"), "only the match goes: {all}");
+    assert!(!pdfium_text(&r.path).contains("lodie"));
+}
+
+#[test]
+fn outline_children_are_scrubbed_too() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = probe(
+        t.path(),
+        "outline.pdf",
+        "/Outlines 6 0 R",
+        "",
+        &[
+            ("<< /Type /Outlines /First 7 0 R /Last 7 0 R /Count 3 >>", None),
+            ("<< /Title (Parent secretword) /Parent 6 0 R /First 8 0 R /Last 9 0 R /Count 2 /Dest [3 0 R /Fit] >>", None),
+            ("<< /Title (Child one secretword) /Parent 7 0 R /Next 9 0 R /Dest [3 0 R /Fit] >>", None),
+            ("<< /Title <FEFF00630068006900200053004500430052004500540057004F00520044> /Parent 7 0 R /Prev 8 0 R /Dest [3 0 R /Fit] >>", None),
+        ],
+        None,
+    );
+    let r = redact::apply(&pdf, &secret_marks(&pdf, "secretword"), &[], &t.path().join("out.pdf")).unwrap();
+    let all = strings_and_xmp(&r.path);
+    assert!(!all.to_lowercase().contains("secretword") && all.contains("Parent") && all.contains("Child one") && all.contains("chi"), "{all}");
+}

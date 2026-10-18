@@ -357,6 +357,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::Redact { input, marks, out } => {
             // The marks carry their matched texts: unchecked matches are not removed anywhere.
             let r = redact::apply(input, marks, &[], out)?;
+            notes.extend(r.warnings.iter().cloned());
             was_encrypted |= r.was_encrypted;
             summary = format!("{} area{} redacted", r.areas, if r.areas == 1 { "" } else { "s" });
             progress(1.0);
