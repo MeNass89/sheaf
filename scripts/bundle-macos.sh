@@ -37,10 +37,14 @@ done
 echo "==> cargo build --release"
 # Panic locations embed source paths: map the builder's home and the checkout to neutral
 # prefixes so no local path ships in the binaries (checked after assembly).
+# env!("CARGO_MANIFEST_DIR") in dependencies is not remapped, so cargo also builds through a
+# neutral CARGO_HOME link.
 cargo_home="${CARGO_HOME:-$HOME/.cargo}"
-RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$cargo_home=/cargo --remap-path-prefix=$root=/sheaf --remap-path-prefix=$HOME=/home"
+neutral="/tmp/sheaf-cargo"
+ln -sfn "$cargo_home" "$neutral"
+RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$neutral=/cargo --remap-path-prefix=$cargo_home=/cargo --remap-path-prefix=$root=/sheaf --remap-path-prefix=$HOME=/home"
 export RUSTFLAGS
-cargo build --release -p sheaf-app -p sheaf-cli
+CARGO_HOME="$neutral" cargo build --release -p sheaf-app -p sheaf-cli
 
 echo "==> icon"
 iconset="target/AppIcon.iconset"
