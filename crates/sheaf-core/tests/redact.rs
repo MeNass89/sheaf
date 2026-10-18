@@ -617,3 +617,222 @@ fn outline_children_are_scrubbed_too() {
     let all = strings_and_xmp(&r.path);
     assert!(!all.to_lowercase().contains("secretword") && all.contains("Parent") && all.contains("Child one") && all.contains("chi"), "{all}");
 }
+
+// ---- Fix round 3: deny-by-default audit ---------------------------------------------------------
+
+/// Redacts "secretword" on the probe page; Ok with the warnings, or the error text.
+fn redact_secret(t: &Path, pdf: &Input, name: &str) -> std::result::Result<(PathBuf, Vec<String>), String> {
+    let out = t.join(format!("{name}-out.pdf"));
+    match redact::apply(pdf, &secret_marks(pdf, "secretword"), &[], &out) {
+        Ok(r) => Ok((r.path, r.warnings)),
+        Err(e) => {
+            assert!(!out.exists(), "{name}: a refused run wrote its output");
+            Err(e.to_string())
+        }
+    }
+}
+
+/// Every string, name and decoded stream of the file, object streams opened, as one text.
+fn everything(path: &Path) -> String {
+    fn walk(o: &lopdf::Object, out: &mut String) {
+        match o {
+            lopdf::Object::String(..) => out.push_str(&lopdf::decode_text_string(o).unwrap_or_else(|_| String::from_utf8_lossy(o.as_str().unwrap()).into_owned())),
+            lopdf::Object::Name(n) => out.push_str(&String::from_utf8_lossy(n)),
+            lopdf::Object::Array(a) => a.iter().for_each(|x| walk(x, out)),
+            lopdf::Object::Dictionary(d) => d.iter().for_each(|(_, v)| walk(v, out)),
+            lopdf::Object::Stream(s) => {
+                s.dict.iter().for_each(|(_, v)| walk(v, out));
+                out.push_str(&String::from_utf8_lossy(&s.decompressed_content().unwrap_or_else(|_| s.content.clone())));
+            }
+            _ => {}
+        }
+        out.push('\n');
+    }
+    let d = lopdf::Document::load(path).unwrap();
+    let mut out = String::new();
+    d.objects.values().for_each(|o| walk(o, &mut out));
+    out
+}
+
+/// A probe either removes the text (with `warning` when given) or is refused with nothing
+/// written; it never ships the text.
+fn removed_or_refused(t: &Path, pdf: &Input, name: &str, warning: Option<&str>) -> Option<Vec<String>> {
+    match redact_secret(t, pdf, name) {
+        Ok((p, w)) => {
+            let all = everything(&p).to_lowercase();
+            assert!(!all.contains("secretword"), "{name}: text shipped: {all}");
+            if let Some(x) = warning {
+                assert!(w.iter().any(|y| y == x), "{name}: {w:?}");
+            }
+            qpdf_clean(&p);
+            Some(w)
+        }
+        Err(e) => {
+            assert!(e.contains("redaction audit failed"), "{name}: {e}");
+            None
+        }
+    }
+}
+
+#[test]
+fn a_form_hung_off_catalog_piece_info_is_removed() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = probe(
+        t.path(),
+        "piece.pdf",
+        "/PieceInfo << /App << /Private 6 0 R /LastModified (D:2026) >> >>",
+        "",
+        &[("<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Resources << /Font << /F1 5 0 R >> >> >>", Some(b"BT /F1 9 Tf (old secretword) Tj ET"))],
+        None,
+    );
+    let w = removed_or_refused(t.path(), &pdf, "piece", None).expect("removed, not refused");
+    assert_eq!(w, ["Private application data removed: it contained the redacted text"]);
+}
+
+#[test]
+fn streams_shaped_like_fonts_or_icc_are_checked_unless_a_page_uses_them() {
+    let t = tempfile::tempdir().unwrap();
+    // Unreached streams that only look like a font program (/Length1) or an ICC profile (/N),
+    // hung off the catalog.
+    for (name, dict) in [("length1", "<< /Length1 22 >>"), ("icc", "<< /N 3 >>")] {
+        let pdf = probe(t.path(), &format!("{name}.pdf"), "/Extra 6 0 R", "", &[(dict, Some(b"stash: secretword here."))], None);
+        let e = redact_secret(t.path(), &pdf, name).unwrap_err();
+        assert!(e.contains("redaction audit failed: a redacted text is still in the document (stream content"), "{name}: {e}");
+    }
+    // A real ICC stream a page draws with is exempt (its bytes are a profile).
+    let pdf = probe(
+        t.path(),
+        "used-icc.pdf",
+        "",
+        "",
+        &[("<< /N 1 /Alternate /DeviceGray >>", Some(b"profile desc secretword")), ("<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /BitsPerComponent 8 /ColorSpace [/ICCBased 6 0 R] >>", Some(b"\x00"))],
+        None,
+    );
+    // The page paints the image.
+    let mut d = lopdf::Document::load(&pdf.path).unwrap();
+    let page = d.get_pages()[&1];
+    d.get_object_mut(page).unwrap().as_dict_mut().unwrap().get_mut(b"Resources").unwrap().as_dict_mut().unwrap().set("XObject", lopdf::dictionary! { "Im" => (7, 0) });
+    let c = d.get_dictionary(page).unwrap().get(b"Contents").unwrap().as_reference().unwrap();
+    let s = d.get_object_mut(c).unwrap().as_stream_mut().unwrap();
+    let mut body = s.content.clone();
+    body.extend(b" q 10 0 0 10 300 300 cm /Im Do Q");
+    s.set_plain_content(body);
+    d.save(&pdf.path).unwrap();
+    redact_secret(t.path(), &pdf, "used-icc").unwrap();
+}
+
+#[test]
+fn an_unpainted_form_in_the_resources_is_removed() {
+    let t = tempfile::tempdir().unwrap();
+    let objs_page = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> /XObject << /Unused 6 0 R >> >> >>";
+    let pdf = Input::new(raw_pdf(
+        &t.path().join("unpainted.pdf"),
+        &[
+            ("<< /Type /Catalog /Pages 2 0 R >>", None),
+            ("<< /Type /Pages /Kids [3 0 R] /Count 1 >>", None),
+            (objs_page, None),
+            ("<< >>", Some(b"BT /F1 14 Tf 72 760 Td (Name secretword here about) Tj ET")),
+            (HELV, None),
+            ("<< /Type /XObject /Subtype /Form /BBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> >>", Some(b"BT /F1 14 Tf 72 300 Td (never shown secretword) Tj ET")),
+        ],
+        None,
+    ));
+    let w = removed_or_refused(t.path(), &pdf, "unpainted", None).expect("removed, not refused");
+    assert_eq!(w, ["Hidden content removed: it contained the redacted text"]);
+    // A form the page does paint is left to the redaction itself.
+    let painted = Input::new(raw_pdf(
+        &t.path().join("painted.pdf"),
+        &[
+            ("<< /Type /Catalog /Pages 2 0 R >>", None),
+            ("<< /Type /Pages /Kids [3 0 R] /Count 1 >>", None),
+            ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> /XObject << /X 6 0 R >> >> >>", None),
+            ("<< >>", Some(b"q /X Do Q")),
+            (HELV, None),
+            ("<< /Type /XObject /Subtype /Form /BBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> >>", Some(b"BT /F1 14 Tf 72 300 Td (shown secretword) Tj ET")),
+        ],
+        None,
+    ));
+    let (p, w) = redact_secret(t.path(), &painted, "painted").unwrap();
+    assert!(w.is_empty() && pdfium_text(&p).contains("shown") && !everything(&p).contains("secretword"), "{w:?}");
+}
+
+#[test]
+fn metadata_typed_only_as_xml_is_xmp() {
+    let t = tempfile::tempdir().unwrap();
+    let xmp = xmp_packet("<dc:title>secret<!-- -->word</dc:title>");
+    let pdf = probe(t.path(), "xml.pdf", "/Metadata 6 0 R", "", &[("<< /Subtype /XML >>", Some(&xmp))], None);
+    let w = removed_or_refused(t.path(), &pdf, "xml", None).expect("removed, not refused");
+    assert_eq!(w, ["XMP metadata removed: it contained the redacted text"]);
+    // A stream that is only the target of a /Metadata key (no /Type, no /Subtype).
+    let pdf = probe(t.path(), "bare.pdf", "/Metadata 6 0 R", "", &[("<< >>", Some(&xmp))], None);
+    let w = removed_or_refused(t.path(), &pdf, "bare", None).expect("removed, not refused");
+    assert_eq!(w, ["XMP metadata removed: it contained the redacted text"]);
+}
+
+#[test]
+fn info_values_nested_in_arrays_and_names_are_scrubbed() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = probe(t.path(), "info.pdf", "", "", &[("<< /Title (Kept) /Arr [(secretword) (other)] /Tag /secretword /Deep << /X (a secretword b) >> >>", None)], Some(6));
+    let (p, _) = redact_secret(t.path(), &pdf, "info").unwrap();
+    let d = lopdf::Document::load(&p).unwrap();
+    let info = d.get_dictionary(d.trailer.get(b"Info").unwrap().as_reference().unwrap()).unwrap();
+    assert!(!info.has(b"Tag"), "a name holding the text loses its key");
+    assert_eq!(info.get(b"Arr").unwrap().as_array().unwrap().len(), 2, "array positions kept");
+    assert!(!everything(&p).to_lowercase().contains("secretword"));
+    assert!(everything(&p).contains("other") && everything(&p).contains("Kept"));
+}
+
+#[test]
+fn choice_options_and_widget_captions_are_scrubbed() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = probe(
+        t.path(),
+        "opt.pdf",
+        "/AcroForm << /Fields [6 0 R 7 0 R] >>",
+        "/Annots [6 0 R 7 0 R]",
+        &[
+            ("<< /Type /Annot /Subtype /Widget /FT /Ch /T (pick) /Rect [72 400 200 420] /Opt [[(e1) (secretword)] (plain) (x secretword)] /V (plain) /P 3 0 R >>", None),
+            ("<< /Type /Annot /Subtype /Widget /FT /Btn /T (go) /Rect [72 300 200 320] /MK << /CA (Send secretword) /RC (secretword) /AC (Up) >> /P 3 0 R >>", None),
+        ],
+        None,
+    );
+    let (p, _) = redact_secret(t.path(), &pdf, "opt").unwrap();
+    let all = everything(&p);
+    assert!(!all.to_lowercase().contains("secretword"), "{all}");
+    for kept in ["e1", "plain", "Send", "Up", "pick", "go"] {
+        assert!(all.contains(kept), "{kept} lost");
+    }
+    let d = lopdf::Document::load(&p).unwrap();
+    let opt = d.objects.values().filter_map(|o| o.as_dict().ok()).find_map(|x| x.get(b"Opt").ok()).unwrap().as_array().unwrap().clone();
+    assert_eq!(opt.len(), 3, "option positions kept");
+}
+
+#[test]
+fn page_piece_info_holding_the_text_is_removed() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = probe(t.path(), "pagepiece.pdf", "", "/PieceInfo << /App << /Private (draft secretword) /LastModified (D:2026) >> >>", &[], None);
+    let w = removed_or_refused(t.path(), &pdf, "pagepiece", None).expect("removed, not refused");
+    assert_eq!(w, ["Private application data removed: it contained the redacted text"]);
+    // Private data without the text stays.
+    let pdf = probe(t.path(), "pagepiece2.pdf", "", "/PieceInfo << /App << /Private (draft) >> >>", &[], None);
+    let (p, w) = redact_secret(t.path(), &pdf, "pagepiece2").unwrap();
+    assert!(w.is_empty() && everything(&p).contains("draft"));
+}
+
+#[test]
+fn the_audit_refuses_text_anywhere_it_does_not_exempt() {
+    // Deny by default: a stash under an unknown key of the catalog, as a string, a name, or
+    // inside a packed object stream, fails with nothing written.
+    let t = tempfile::tempdir().unwrap();
+    for (name, cat) in [("string", "/Extra (stash secretword)"), ("name", "/Extra /secretword"), ("nested", "/Extra [<< /Y [(x) (secretword)] >>]")] {
+        let pdf = probe(t.path(), &format!("deny-{name}.pdf"), cat, "", &[], None);
+        let e = redact_secret(t.path(), &pdf, name).unwrap_err();
+        assert!(e.contains("redaction audit failed: a redacted text is still in the document"), "{name}: {e}");
+    }
+    let pdf = probe(t.path(), "deny-packed.pdf", "/Extra 6 0 R", "", &[("<< /Note (stash secretword) >>", None)], None);
+    let packed = t.path().join("packed-in.pdf");
+    let o = std::process::Command::new("qpdf").args(["--object-streams=generate"]).arg(&pdf.path).arg(&packed).output().unwrap();
+    assert!(o.status.success());
+    let e = redact_secret(t.path(), &Input::new(&packed), "packed").unwrap_err();
+    assert!(e.contains("redaction audit failed"), "{e}");
+}
