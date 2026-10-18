@@ -65,7 +65,7 @@ pub struct ViewerUi {
 impl ViewerUi {
     /// Every mark to apply: the checked search matches, then the hand-made ones.
     pub fn marks(&self) -> Vec<Mark> {
-        let found = self.found.iter().filter(|f| f.checked).map(|f| Mark { page: f.m.page, quads: f.m.quads.clone() });
+        let found = self.found.iter().filter(|f| f.checked).map(|f| redact::mark_text(std::slice::from_ref(&f.m)).remove(0));
         found.chain(self.manual.iter().map(|m| m.mark.clone())).collect()
     }
 
@@ -392,15 +392,15 @@ pub fn queries(text: &str, patterns: &str) -> Vec<Query> {
 
 pub fn search(ui: &AppWindow, tab_id: i32, text: &str, patterns: &str) {
     let queries = queries(text, patterns);
-    let Some(input) = update(tab_id, |v| {
+    let Some((load_id, input)) = update(tab_id, |v| {
         // Matches still checked from an earlier search stay marked.
         for f in v.found.drain(..).filter(|f| f.checked) {
-            v.manual.push(Manual { label: f.m.text.clone(), mark: Mark { page: f.m.page, quads: f.m.quads } });
+            v.manual.push(Manual { label: f.m.text.clone(), mark: redact::mark_text(std::slice::from_ref(&f.m)).remove(0) });
         }
         v.focused = None;
         v.searched = !queries.is_empty();
         v.busy = !queries.is_empty();
-        v.input.clone()
+        (v.load_id, v.input.clone())
     }) else {
         return;
     };
@@ -412,6 +412,10 @@ pub fn search(ui: &AppWindow, tab_id: i32, text: &str, patterns: &str) {
         let r = sheaf_app::jobs::catching(|| redact::find_all(&input, &queries));
         let _ = weak.upgrade_in_event_loop(move |ui| {
             let err = update(tab_id, |v| {
+                // The file was swapped meanwhile: these matches belong to the old one.
+                if v.load_id != load_id {
+                    return None;
+                }
                 v.busy = false;
                 match r {
                     Ok(found) => {
@@ -453,15 +457,20 @@ pub fn show_result(tab_id: i32, k: i32) {
 }
 
 pub fn mark_page(ui: &AppWindow, tab_id: i32) {
-    let Some((input, page)) = update(tab_id, |v| (v.input.clone(), v.viewer.current(v.top, v.height))) else { return };
+    let Some((load_id, input, page)) = update(tab_id, |v| (v.load_id, v.input.clone(), v.viewer.current(v.top, v.height))) else { return };
     let weak = ui.as_weak();
     sheaf_app::pool::probes().submit(move || {
         let r = sheaf_app::jobs::catching(|| redact::mark_pages(&input, &[page]));
-        let _ = weak.upgrade_in_event_loop(move |ui| match r {
-            Ok(mut m) => {
-                update(tab_id, |v| v.manual.push(Manual { mark: m.remove(0), label: "Whole page".into() }));
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            // A mark of the file shown when the button was pressed, never of a file swapped in since.
+            let current = update(tab_id, |v| v.load_id == load_id).unwrap_or(false);
+            match r {
+                Ok(mut m) if current => {
+                    update(tab_id, |v| v.manual.push(Manual { mark: m.remove(0), label: "Whole page".into() }));
+                }
+                Err(e) if current => crate::flow::toast(&ui, &e.to_string()),
+                _ => {}
             }
-            Err(e) => crate::flow::toast(&ui, &e.to_string()),
         });
     });
 }

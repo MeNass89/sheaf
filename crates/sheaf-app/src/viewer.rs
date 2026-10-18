@@ -123,8 +123,9 @@ pub fn step_zoom(zoom: u32, dir: i32) -> u32 {
     }
 }
 
-/// Most page renders kept at once. At 2× on a 1280 px window an A4 page is about 1.4 M
-/// pixels (5.6 MB), so 40 of them stay under about 230 MB however long the document is.
+/// Most page renders kept at once, whatever their size. Memory is bounded by [`CACHE_BYTES`]
+/// (96 MB), which in practice evicts long before this count is reached; the cap only matters
+/// for small renders (low zoom, small pages). Thumbnails have their own cap.
 pub const CACHE_CAP: usize = 40;
 
 /// A least-recently-used cache capped at `cap` entries.

@@ -6724,6 +6724,7 @@ dependencies = [
  "rust_xlsxwriter",
  "tempfile",
  "thiserror 2.0.21",
+ "unicode-normalization",
 ]
 
 [[package]]
