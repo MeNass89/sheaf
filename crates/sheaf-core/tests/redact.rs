@@ -872,3 +872,70 @@ fn a_frame_the_input_draws_over_a_private_use_glyph_is_decoration() {
     let e = redact_secret(t.path(), &real, "real").unwrap_err();
     assert_eq!(e, "This PDF already hides text under a box on page 1. Mark that area too to remove it.");
 }
+
+// ---- Fix round 4 --------------------------------------------------------------------------------
+
+#[test]
+fn a_comment_or_property_in_page_content_is_scrubbed() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = Input::new(raw_pdf(
+        &t.path().join("marked.pdf"),
+        &[
+            ("<< /Type /Catalog /Pages 2 0 R >>", None),
+            ("<< /Type /Pages /Kids [3 0 R] /Count 1 >>", None),
+            ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>", None),
+            ("<< >>", Some(b"% author note: secretword\n/Span << /ActualText (Name secretword) >> BDC BT /F1 14 Tf 72 760 Td (Name secretword here) Tj ET EMC BT /F1 14 Tf 72 600 Td (Other text) Tj ET")),
+            (HELV, None),
+        ],
+        None,
+    ));
+    let (p, _) = redact_secret(t.path(), &pdf, "marked").unwrap();
+    assert!(!everything(&p).to_lowercase().contains("secretword"), "{}", everything(&p));
+    assert!(pdfium_text(&p).contains("Other text"));
+    qpdf_clean(&p);
+}
+
+#[test]
+fn an_unused_font_holding_the_text_is_removed_with_a_warning() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = Input::new(raw_pdf(
+        &t.path().join("unused-font.pdf"),
+        &[
+            ("<< /Type /Catalog /Pages 2 0 R >>", None),
+            ("<< /Type /Pages /Kids [3 0 R] /Count 1 >>", None),
+            ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F9 6 0 R >> >> >>", None),
+            ("<< >>", Some(b"BT /F1 14 Tf 72 760 Td (Name secretword here) Tj ET")),
+            (HELV, None),
+            ("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /ToUnicode 7 0 R >>", None),
+            ("<< >>", Some(b"1 begincodespacerange <00> <FF> endcodespacerange 1 beginbfchar <41> <0073006500630072006500740077006F00720064> endbfchar")),
+        ],
+        None,
+    ));
+    let (p, w) = redact_secret(t.path(), &pdf, "unused-font").expect("removed, not refused");
+    assert!(w.iter().any(|x| x == "Unused font F9 removed: it contained the redacted text"), "{w:?}");
+    assert!(!everything(&p).contains("0073006500630072006500740077006F00720064"));
+    qpdf_clean(&p);
+}
+
+#[test]
+fn a_searched_text_left_in_a_link_address_is_named_in_a_warning() {
+    let t = tempfile::tempdir().unwrap();
+    let pdf = probe(t.path(), "uri.pdf", "", "/Annots [6 0 R]", &[("<< /Type /Annot /Subtype /Link /Rect [72 500 200 520] /A << /S /URI /URI (https://example.org/secretword) >> >>", None)], None);
+    let (_, w) = redact_secret(t.path(), &pdf, "uri").unwrap();
+    assert!(w.iter().any(|x| x == "Link address still contains the searched text"), "{w:?}");
+}
+
+#[test]
+fn common_words_on_the_invoice_are_not_refused() {
+    let t = tempfile::tempdir().unwrap();
+    let invoice = Input::new(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/invoice.pdf"));
+    for w in ["a", "red", "e", "the", "Invoice"] {
+        let hits = redact::find(&invoice, &Query::Literal { text: w.into(), case_insensitive: true }).unwrap();
+        if hits.is_empty() {
+            continue;
+        }
+        let out = t.path().join(format!("inv-{w}.pdf"));
+        let r = redact::apply(&invoice, &redact::mark_text(&hits), &[w.to_string()], &out);
+        assert!(r.is_ok(), "{w:?} refused: {r:?}");
+    }
+}
