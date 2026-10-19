@@ -25,6 +25,8 @@
 	<string>Sheaf</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>app.sheaf.Sheaf</string>
 	<key>CFBundleInfoDictionaryVersion</key>

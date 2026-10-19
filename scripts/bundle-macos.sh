@@ -56,6 +56,19 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns "$iconset" -o "target/AppIcon.icns"
 rm -rf "$iconset"
+# macOS 26+ reads Assets.car, whose icon follows the light or dark appearance;
+# older systems fall back to AppIcon.icns. actool ships with full Xcode only and
+# resolves relative paths against its own daemon, hence the absolute paths.
+rm -rf target/icon-car
+if xcrun --find actool >/dev/null 2>&1; then
+    mkdir -p target/icon-car
+    xcrun actool "$root/$mac/AppIcon.icon" --compile "$root/target/icon-car" --platform macosx \
+        --minimum-deployment-target 11.0 --app-icon AppIcon --include-all-app-icons \
+        --output-partial-info-plist "$root/target/icon-car/partial.plist" >/dev/null
+    [ -f target/icon-car/Assets.car ] || { echo "error: actool produced no Assets.car" >&2; exit 1; }
+else
+    echo "warning: actool not found (needs Xcode): the icon will not follow dark mode" >&2
+fi
 
 echo "==> assemble $app"
 rm -rf "$app"
@@ -70,6 +83,7 @@ cp "$pdfium/lib/libpdfium.dylib" "$app/Contents/Frameworks/"
 cp vendor/models/*.rten "$app/Contents/Resources/models/"
 cp "$mac/ocr-models-NOTICE.txt" "$app/Contents/Resources/licenses/ocr-models-NOTICE.txt"
 cp target/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
+[ -f target/icon-car/Assets.car ] && cp target/icon-car/Assets.car "$app/Contents/Resources/Assets.car"
 sed "s/@VERSION@/$version/g" "$mac/Info.plist" > "$app/Contents/Info.plist"
 plutil -lint "$app/Contents/Info.plist" >/dev/null
 printf 'APPL????' > "$app/Contents/PkgInfo"

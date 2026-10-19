@@ -1,4 +1,4 @@
-<p align="center"><img src="crates/sheaf-app/macos/icon.svg" width="96" alt="Sheaf icon"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="crates/sheaf-app/macos/icon-dark.svg"><img src="crates/sheaf-app/macos/icon.svg" width="96" alt="Sheaf icon"></picture></p>
 
 <h1 align="center">Sheaf</h1>
 
