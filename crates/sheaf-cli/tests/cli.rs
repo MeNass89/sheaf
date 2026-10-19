@@ -448,3 +448,131 @@ fn edit_subcommand_adds_text_and_images_in_order() {
     assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
     assert!(String::from_utf8_lossy(&r.stderr).contains("note: the output is not password-protected"), "{}", String::from_utf8_lossy(&r.stderr));
 }
+
+/// A one-page PDF from the PNG fixture, in `dir`.
+fn one_page(dir: &std::path::Path) -> std::path::PathBuf {
+    let png = dir.join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let a = dir.join("a.pdf");
+    assert!(bin().arg("from-images").arg(&png).arg("--a4").arg("-o").arg(&a).status().unwrap().success());
+    a
+}
+
+fn json_of(out: &std::process::Output) -> serde_json::Value {
+    serde_json::from_slice(&out.stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {}", String::from_utf8_lossy(&out.stdout)))
+}
+
+#[test]
+fn json_success_and_errors() {
+    let t = tempfile::tempdir().unwrap();
+    let a = one_page(t.path());
+    let out = bin().arg("--json").arg("compress").arg(&a).arg("-o").arg(t.path().join("c.pdf")).output().unwrap();
+    let v = json_of(&out);
+    assert_eq!(v["ok"], true);
+    assert!(v["outputs"][0].as_str().unwrap().ends_with("c.pdf"));
+    assert!(v["notes"][0].as_str().unwrap().contains("bytes"), "{v}");
+    assert!(out.stderr.is_empty(), "notes go to the JSON, not stderr");
+
+    let p = t.path().join("p.pdf");
+    assert!(bin().arg("protect").arg(&a).args(["--user-password", "pw", "-o"]).arg(&p).status().unwrap().success());
+    let out = bin().arg("unlock").arg(&p).args(["--json", "-o"]).arg(t.path().join("u.pdf")).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(json_of(&out)["code"], "password_required");
+
+    let out = bin().args(["--json", "organize", "x.pdf", "--order", "3,a", "-o", "o.pdf"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(json_of(&out)["code"], "usage");
+}
+
+#[test]
+fn info_text_and_render() {
+    let t = tempfile::tempdir().unwrap();
+    let a = one_page(t.path());
+    let m = t.path().join("m.pdf");
+    assert!(bin().arg("merge").arg(&a).arg(&a).arg("-o").arg(&m).status().unwrap().success());
+    let v = json_of(&bin().arg("--json").arg("info").arg(&m).output().unwrap());
+    assert_eq!(v["data"]["page_count"], 2);
+    assert_eq!(v["data"]["encrypted"], false);
+    assert!((v["data"]["pages"][0]["width"].as_f64().unwrap() - 595.0).abs() < 1.0);
+
+    let v = json_of(&bin().arg("--json").arg("text").arg(&m).args(["--pages", "2"]).output().unwrap());
+    assert_eq!(v["data"].as_array().unwrap().len(), 1);
+
+    let out = bin().arg("--json").arg("render").arg(&m).args(["--page", "2", "--dpi", "36", "-o"]).arg(t.path().join("p.png")).output().unwrap();
+    let png = json_of(&out)["outputs"][0].as_str().unwrap().to_string();
+    let img = image::open(&png).unwrap();
+    assert_eq!(img.width(), 298); // 595 pt at 36 dpi
+    let out = bin().arg("--json").arg("render").arg(&m).args(["--page", "3", "-o"]).arg(t.path().join("q.png")).output().unwrap();
+    assert_eq!(json_of(&out)["code"], "unsupported");
+}
+
+/// One MCP session: requests in, one reply per request out.
+fn mcp(requests: &[serde_json::Value], dir: &std::path::Path) -> Vec<serde_json::Value> {
+    use std::io::Write;
+    let mut child = bin().arg("mcp").current_dir(dir).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).spawn().unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    for r in requests {
+        writeln!(stdin, "{r}").unwrap();
+    }
+    drop(stdin);
+    let out = child.wait_with_output().unwrap();
+    String::from_utf8_lossy(&out.stdout).lines().map(|l| serde_json::from_str(l).unwrap()).collect()
+}
+
+#[test]
+fn mcp_lists_and_calls_tools() {
+    use serde_json::json;
+    let t = tempfile::tempdir().unwrap();
+    one_page(t.path());
+    let replies = mcp(
+        &[
+            json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "0"}}}),
+            json!({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+            json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}),
+            json!({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "rotate", "arguments": {"input": "a.pdf", "degrees": -90, "out": "r.pdf"}}}),
+            json!({"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "edit", "arguments": {"input": "a.pdf", "items": [{"text": "Approved", "at": "72,72", "color": "#c00000"}, {"image": "x.png", "page": 1, "at": "300,300", "width": 50}], "out": "e.pdf"}}}),
+            json!({"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "render", "arguments": {"input": "e.pdf", "dpi": 30, "out": "e.png"}}}),
+            json!({"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "merge", "arguments": {"inputs": ["a.pdf", "r.pdf"], "out": "m.pdf"}}}),
+            json!({"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "compress", "arguments": {"input": "a.pdf", "out": "c.pdf", "nope": 1}}}),
+            json!({"jsonrpc": "2.0", "id": 8, "method": "nope"}),
+        ],
+        t.path(),
+    );
+    assert_eq!(replies.len(), 8, "no reply to a notification");
+    assert_eq!(replies[0]["result"]["serverInfo"]["name"], "sheaf");
+    let tools = replies[1]["result"]["tools"].as_array().unwrap();
+    let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+    for n in ["merge", "split", "redact", "sign", "edit", "to_word", "info", "text", "render"] {
+        assert!(names.contains(&n), "{n} missing from {names:?}");
+    }
+    assert!(!names.contains(&"mcp") && !names.contains(&"tools"));
+    let ok = |i: usize| {
+        let r = &replies[i]["result"];
+        assert_eq!(r["isError"], false, "{r}");
+        r["structuredContent"].clone()
+    };
+    assert!(ok(2)["outputs"][0].as_str().unwrap().ends_with("r.pdf"));
+    assert_eq!(ok(3)["notes"][0], "2 items added");
+    ok(4);
+    assert_eq!(replies[4]["result"]["content"][1]["mimeType"], "image/png");
+    ok(5);
+    let v = json_of(&bin().arg("--json").arg("info").arg(t.path().join("m.pdf")).output().unwrap());
+    assert_eq!(v["data"]["pages"][1]["rotation"], 270);
+    assert_eq!(replies[6]["result"]["isError"], true);
+    assert_eq!(replies[7]["error"]["code"], -32601);
+}
+
+/// Every tool's schema turns back into a command line clap accepts (no drift between the two).
+#[test]
+fn every_tool_schema_parses() {
+    let v = json_of(&bin().arg("--json").arg("tools").output().unwrap());
+    let tools = v["data"]["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 28);
+    for t in tools {
+        let s = &t["inputSchema"];
+        assert_eq!(s["type"], "object");
+        for r in s["required"].as_array().unwrap() {
+            assert!(s["properties"].get(r.as_str().unwrap()).is_some(), "{}: required {r} not in properties", t["name"]);
+        }
+    }
+}

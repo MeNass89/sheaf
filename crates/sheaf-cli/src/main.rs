@@ -2,6 +2,12 @@
 //!
 //! Every subcommand prints the path or paths it wrote, one per line, on stdout.
 //! Exit codes: 0 success, 1 any error, 2 password required or wrong.
+//!
+//! For agents: `--json` turns the output into one JSON object (see [`agent`]), `sheaf tools`
+//! describes every command as a JSON schema, and `sheaf mcp` serves them over MCP.
+
+mod agent;
+mod mcp;
 
 use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use sheaf_core::compress::{self, Level};
@@ -21,12 +27,20 @@ use sheaf_core::watermark::{self, Mark, Placement, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError};
 use std::path::{Path, PathBuf};
 
+/// A summary, note or warning for the user: on stderr, or in the JSON result with `--json`.
+macro_rules! note {
+    ($($t:tt)*) => { crate::agent::note(format!($($t)*)) };
+}
+
 #[derive(Parser)]
 #[command(name = "sheaf", version, about = "Sheaf: merge, split, compress, protect and convert PDF files")]
 struct Cli {
     /// Password used to open every input PDF
     #[arg(long, global = true)]
     password: Option<String>,
+    /// Print one JSON object instead of text: {"ok", "outputs", "notes", "data"} or {"ok": false, "error", "code"}
+    #[arg(long, global = true)]
+    json: bool,
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -381,6 +395,33 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Describe a PDF: page count and sizes, encryption, metadata, forms, bookmarks (JSON)
+    Info {
+        input: PathBuf,
+    },
+    /// Print the text of pages as Sheaf's tools read it (what redact searches)
+    Text {
+        input: PathBuf,
+        /// Pages to read, e.g. "1-3,5" (default: all); pages are separated by a form feed
+        #[arg(long)]
+        pages: Option<String>,
+    },
+    /// Render one page to a PNG, to look at a result
+    Render {
+        input: PathBuf,
+        /// Page to render (1-based)
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..))]
+        page: u32,
+        /// Resolution in dots per inch (72 is one pixel per point)
+        #[arg(long, default_value_t = 110, value_parser = clap::value_parser!(u32).range(18..=600))]
+        dpi: u32,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Describe every command as a JSON schema, for agents
+    Tools,
+    /// Serve every command as a tool over the Model Context Protocol (JSON-RPC on stdio)
+    Mcp,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -623,6 +664,8 @@ impl Cmd {
             Cmd::Sign { .. } |
             Cmd::Edit { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
+            // They write no PDF.
+            Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
         }
     }
 
@@ -631,7 +674,9 @@ impl Cmd {
     fn out_dir(&self) -> Option<&Path> {
         match self {
             Cmd::Split { out, .. } | Cmd::ToJpg { out, .. } => Some(out),
+            Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Tools | Cmd::Mcp => None,
             Cmd::Merge { out, .. }
+            | Cmd::Render { out, .. }
             | Cmd::Extract { out, .. }
             | Cmd::Remove { out, .. }
             | Cmd::Organize { out, .. }
@@ -667,7 +712,7 @@ fn run(cli: Cli) -> sheaf_core::Result<Vec<PathBuf>> {
     let unprotects = cli.cmd.unprotecting_inputs().into_iter().any(|p| input(p.to_path_buf()).is_encrypted());
     let r = dispatch(cli.cmd, &input);
     if unprotects && r.is_ok() {
-        eprintln!("{NOT_PROTECTED}");
+        note!("{NOT_PROTECTED}");
     }
     r
 }
@@ -695,12 +740,12 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         Cmd::Rotate { input: i, degrees, pages: p, out } => one(rotate::rotate(&input(i), p.as_deref(), degrees.rem_euclid(360), &out)),
         Cmd::Compress { input: i, level, out } => {
             let r = compress::compress(&input(i), level.into(), &out)?;
-            eprintln!("{} -> {} bytes", r.before, r.after);
+            note!("{} -> {} bytes", r.before, r.after);
             if r.was_encrypted {
-                eprintln!("{NOT_PROTECTED}");
+                note!("{NOT_PROTECTED}");
             }
             if r.grew {
-                eprintln!("note: the unprotected copy is {}% larger than the protected original", grew_pct(r.before, r.after));
+                note!("note: the unprotected copy is {}% larger than the protected original", grew_pct(r.before, r.after));
             }
             Ok(vec![r.path])
         }
@@ -762,9 +807,9 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         Cmd::Ocr { input: i, language, all_pages, out } => {
             let opts = OcrOptions { language, read_text_pages: all_pages, ..Default::default() };
             let r = ocr::ocr(&input(i), &opts, &out, &mut |_| true)?;
-            eprintln!("{}", ocr::summary(r.pages_read, r.words, r.pages_skipped));
+            note!("{}", ocr::summary(r.pages_read, r.words, r.pages_skipped));
             if let Some(w) = r.failure_warning() {
-                eprintln!("warning: {w}");
+                note!("warning: {w}");
             }
             warned(Ok((r.path, r.was_encrypted)))
         }
@@ -776,7 +821,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 CliSheets::SheetPerTable => SheetLayout::SheetPerTable,
             };
             let r = excel::to_excel(&input(i), layout, &ExportOptions { ocr, ..Default::default() }, &out, &mut |_| true)?;
-            eprintln!("{}", excel::summary(r.tables));
+            note!("{}", excel::summary(r.tables));
             Ok(vec![r.path])
         }
         Cmd::Compare { old, new, mode, out } => {
@@ -785,7 +830,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 CliCompare::Overlay => CompareMode::Overlay,
             };
             let r = compare::compare(&input(old), &input(new), mode, &out)?;
-            eprintln!("{}", r.summary());
+            note!("{}", r.summary());
             warned(Ok((r.path, r.was_encrypted)))
         }
         Cmd::Redact { input: i, text, pattern, pages: whole, out } => {
@@ -803,10 +848,10 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 return Err(OpdfError::Unsupported("nothing to redact: no match and no page given".into()));
             }
             let r = redact::apply(&i, &marks, &searched, &out)?;
-            eprintln!("{}", redact::summary(r.areas));
-            eprintln!("{}", redact::VERIFIED);
+            note!("{}", redact::summary(r.areas));
+            note!("{}", redact::VERIFIED);
             for w in &r.warnings {
-                eprintln!("warning: {w}");
+                note!("warning: {w}");
             }
             warned(Ok((r.path, r.was_encrypted)))
         }
@@ -825,7 +870,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             let digital = p12.map(|p12| DigitalSpec { p12, password: p12_password.unwrap_or_default(), reason, location });
             let spec = SignSpec { page, rect: sign::box_at(&info, center, width, aspect), graphic, digital };
             let r = sign::sign(&i, &spec, &out)?;
-            eprintln!("{}", r.summary());
+            note!("{}", r.summary());
             Ok(vec![r.path])
         }
         Cmd::Edit { input: i, items, out, .. } => {
@@ -860,8 +905,33 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 });
             }
             let r = edit::edit(&i, &spec, &out)?;
-            eprintln!("{}", r.summary());
+            note!("{}", r.summary());
             warned(Ok((r.path, r.was_encrypted)))
+        }
+        Cmd::Info { input: i } => {
+            agent::set_data(agent::info(&input(i))?);
+            Ok(vec![])
+        }
+        Cmd::Text { input: i, pages: spec } => {
+            let i = input(i);
+            let pages = match spec {
+                Some(spec) => {
+                    let n = sheaf_core::pdfcraft::Doc::open(&i)?.document().info.pages.len() as u32;
+                    sheaf_core::ranges::parse_ranges(&spec, n)?.into_iter().flatten().map(|p| p as usize - 1).collect()
+                }
+                None => vec![],
+            };
+            agent::set_text(sheaf_core::text::page_texts(&i, &pages)?);
+            Ok(vec![])
+        }
+        Cmd::Render { input: i, page, dpi, out } => one(images::render_png(&input(i), page as usize - 1, dpi, &out)),
+        Cmd::Tools => {
+            agent::set_data(serde_json::json!({ "tools": mcp::tools() }));
+            Ok(vec![])
+        }
+        Cmd::Mcp => {
+            mcp::serve()?;
+            Ok(vec![])
         }
         Cmd::Pdfa { input: i, level, out } => {
             let level = match level {
@@ -870,13 +940,13 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             };
             let r = pdfa::to_pdfa(&input(i), level, &out)?;
             if r.issues.is_empty() {
-                eprintln!("{}", pdfa::summary(level, 0));
+                note!("{}", pdfa::summary(level, 0));
             }
             for issue in &r.issues {
-                eprintln!("warning: {} ({}): {}", level.label(), issue.clause, issue.message);
+                note!("warning: {} ({}): {}", level.label(), issue.clause, issue.message);
             }
             if !r.issues.is_empty() {
-                eprintln!("error: the output does not fully conform to {}", level.label());
+                note!("error: the output does not fully conform to {}", level.label());
                 NOT_CONFORMING.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             warned(Ok((r.path, r.was_encrypted)))
@@ -893,7 +963,7 @@ fn office_export(input: &Input, format: Office, ocr: bool, out: &Path) -> sheaf_
 fn warned(r: sheaf_core::Result<(PathBuf, bool)>) -> sheaf_core::Result<Vec<PathBuf>> {
     let (p, was_encrypted) = r?;
     if was_encrypted {
-        eprintln!("{NOT_PROTECTED}");
+        note!("{NOT_PROTECTED}");
     }
     Ok(vec![p])
 }
@@ -905,10 +975,16 @@ fn grew_pct(before: u64, after: u64) -> u64 {
 }
 
 fn main() {
+    let json = std::env::args().skip(1).any(|a| a == "--json");
+    agent::set_json(json);
     // clap exits 2 on usage errors; keep 2 reserved for password errors.
     let fail = |e: clap::Error| -> ! {
         let code = if e.use_stderr() { 1 } else { 0 };
-        let _ = e.print();
+        if json && code == 1 {
+            agent::print_error(&e.render().to_string(), "usage");
+        } else {
+            let _ = e.print();
+        }
         std::process::exit(code);
     };
     let matches = Cli::command().try_get_matches().unwrap_or_else(|e| fail(e));
@@ -916,21 +992,33 @@ fn main() {
     if let (Cmd::Edit { items, .. }, Some(("edit", m))) = (&mut cli.cmd, matches.subcommand()) {
         *items = edit_items(m).unwrap_or_else(|e| fail(Cli::command().error(clap::error::ErrorKind::ArgumentConflict, e)));
     }
+    let not_conforming = || NOT_CONFORMING.load(std::sync::atomic::Ordering::Relaxed);
     match run(cli) {
+        Ok(paths) if json => {
+            agent::print_ok(&paths, not_conforming());
+            if not_conforming() {
+                std::process::exit(1);
+            }
+        }
         Ok(paths) => {
+            agent::print_plain();
             for p in paths {
                 println!("{}", p.display());
             }
-            if NOT_CONFORMING.load(std::sync::atomic::Ordering::Relaxed) {
+            if not_conforming() {
                 std::process::exit(1);
             }
         }
         Err(e) => {
-            eprintln!("error: {e}");
             let code = match e {
                 OpdfError::PasswordRequired(_) | OpdfError::WrongPassword(_) => 2,
                 _ => 1,
             };
+            if json {
+                agent::print_error(&e.to_string(), agent::error_code(&e));
+            } else {
+                eprintln!("error: {e}");
+            }
             std::process::exit(code);
         }
     }

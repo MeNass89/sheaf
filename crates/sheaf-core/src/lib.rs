@@ -20,6 +20,7 @@ pub mod repair;
 pub mod rotate;
 pub mod security;
 pub mod sign;
+pub mod text;
 pub mod tools;
 pub mod watermark;
 pub use error::{OpdfError, Result};

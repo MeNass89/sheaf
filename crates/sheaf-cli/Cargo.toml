@@ -12,7 +12,10 @@ path = "src/main.rs"
 sheaf-core = { path = "../sheaf-core" }
 clap.workspace = true
 serde_json.workspace = true
+base64 = "0.22"
 
 [dev-dependencies]
 tempfile.workspace = true
 lopdf.workspace = true
+serde_json.workspace = true
+image.workspace = true

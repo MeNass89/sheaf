@@ -60,6 +60,27 @@ sheaf edit form.pdf --text "Approved" --page 1 --at 72,72 -o edited.pdf
 
 `sheaf --help` lists every subcommand. Exit code 2 means a password is missing or wrong.
 
+### For agents and scripts
+
+```sh
+sheaf info doc.pdf                  # pages, sizes, encryption, metadata, form fields, bookmarks (JSON)
+sheaf text doc.pdf --pages 1-2      # the text the tools read, pages separated by a form feed
+sheaf render out.pdf --page 1 -o p1.png   # look at a result
+sheaf --json compress big.pdf -o small.pdf
+# {"ok":true,"outputs":["small.pdf"],"notes":["412345 -> 120456 bytes"]}
+# on failure: {"ok":false,"error":"…","code":"password_required"} (codes: password_required,
+# wrong_password, invalid_range, office_missing, unsupported, usage, io, engine)
+sheaf tools                         # every command as a JSON schema
+```
+
+`sheaf mcp` serves every command as a [Model Context Protocol](https://modelcontextprotocol.io) tool over stdio, so an agent (Claude Code, Codex, Cursor…) can merge, redact, sign or edit PDFs directly. `render` also returns the page as an image, so the agent can check its own work. With Claude Code:
+
+```sh
+claude mcp add sheaf -- /Applications/Sheaf.app/Contents/Helpers/sheaf mcp
+```
+
+Tools never overwrite a file: when the output name is taken they write `name (1).pdf`, and the path actually written is in `outputs`.
+
 ## Build from source
 
 ```sh

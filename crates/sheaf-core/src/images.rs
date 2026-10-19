@@ -24,6 +24,21 @@ pub fn pdf_to_jpg(input: &Input, dpi: u32, quality: u8, out_dir: &Path) -> Resul
     })
 }
 
+/// Renders page `page` (0-based) to a PNG at `dpi`, written to `unique_path(out)`: a look at
+/// the page as displayed, for checking a result.
+pub fn render_png(input: &Input, page: usize, dpi: u32, out: &Path) -> Result<PathBuf> {
+    let _g = pdfium_lock();
+    let doc = input.open()?;
+    let n = doc.pages().len() as usize;
+    let p = doc.pages().get(page as i32).map_err(|_| OpdfError::Unsupported(format!("page {} does not exist (the document has {n} pages)", page + 1)))?;
+    let px = (p.width().value * dpi as f32 / 72.0).round() as i32;
+    let img = p.render_with_config(&PdfRenderConfig::new().set_target_width(px))?.as_image()?;
+    atomic_write(out, |part| {
+        img.to_rgba8().save_with_format(part, ImageFormat::Png)?;
+        Ok(())
+    })
+}
+
 /// An input image: an untouched JPEG file (embedded as-is) or decoded, EXIF-oriented pixels.
 enum Source { Jpeg { w: u32, h: u32 }, Pixels(DynamicImage) }
 

@@ -6699,7 +6699,9 @@ dependencies = [
 name = "sheaf-cli"
 version = "0.2.0"
 dependencies = [
+ "base64 0.22.1",
  "clap",
+ "image",
  "lopdf",
  "serde_json",
  "sheaf-core",
