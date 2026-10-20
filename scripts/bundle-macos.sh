@@ -29,9 +29,22 @@ version="$(cargo metadata --no-deps --format-version 1 |
 
 sh scripts/fetch-pdfium.sh
 [ -f "$pdfium/lib/libpdfium.dylib" ] || { echo "error: $pdfium/lib/libpdfium.dylib missing" >&2; exit 1; }
+sh scripts/fetch-models.sh
+for m in text-detection text-recognition; do
+    [ -f "vendor/models/$m.rten" ] || { echo "error: vendor/models/$m.rten missing" >&2; exit 1; }
+done
 
 echo "==> cargo build --release"
-cargo build --release -p sheaf-app -p sheaf-cli
+# Panic locations embed source paths: map the builder's home and the checkout to neutral
+# prefixes so no local path ships in the binaries (checked after assembly).
+# env!("CARGO_MANIFEST_DIR") in dependencies is not remapped, so cargo also builds through a
+# neutral CARGO_HOME link.
+cargo_home="${CARGO_HOME:-$HOME/.cargo}"
+neutral="/tmp/sheaf-cargo"
+ln -sfn "$cargo_home" "$neutral"
+RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$neutral=/cargo --remap-path-prefix=$cargo_home=/cargo --remap-path-prefix=$root=/sheaf --remap-path-prefix=$HOME=/home"
+export RUSTFLAGS
+CARGO_HOME="$neutral" cargo build --release -p sheaf-app -p sheaf-cli
 
 echo "==> icon"
 iconset="target/AppIcon.iconset"
@@ -43,16 +56,34 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns "$iconset" -o "target/AppIcon.icns"
 rm -rf "$iconset"
+# macOS 26+ reads Assets.car, whose icon follows the light or dark appearance;
+# older systems fall back to AppIcon.icns. actool ships with full Xcode only and
+# resolves relative paths against its own daemon, hence the absolute paths.
+rm -rf target/icon-car
+if xcrun --find actool >/dev/null 2>&1; then
+    mkdir -p target/icon-car
+    xcrun actool "$root/$mac/AppIcon.icon" --compile "$root/target/icon-car" --platform macosx \
+        --minimum-deployment-target 11.0 --app-icon AppIcon --include-all-app-icons \
+        --output-partial-info-plist "$root/target/icon-car/partial.plist" >/dev/null
+    [ -f target/icon-car/Assets.car ] || { echo "error: actool produced no Assets.car" >&2; exit 1; }
+else
+    echo "warning: actool not found (needs Xcode): the icon will not follow dark mode" >&2
+fi
 
 echo "==> assemble $app"
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Helpers" "$app/Contents/Frameworks" "$app/Contents/Resources/licenses/pdfium"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Helpers" "$app/Contents/Frameworks" "$app/Contents/Resources/licenses/pdfium" \
+    "$app/Contents/Resources/models"
 cp target/release/sheaf-app "$app/Contents/MacOS/Sheaf"
 # The CLI lives in Helpers: MacOS/sheaf would collide with MacOS/Sheaf on a
 # case-insensitive volume. ../Frameworks resolves to the same folder from both.
 cp target/release/sheaf "$app/Contents/Helpers/sheaf"
 cp "$pdfium/lib/libpdfium.dylib" "$app/Contents/Frameworks/"
+# OCR models: PdfCraft looks in <exe>/../Resources/models (the CLI in Helpers finds them too).
+cp vendor/models/*.rten "$app/Contents/Resources/models/"
+cp "$mac/ocr-models-NOTICE.txt" "$app/Contents/Resources/licenses/ocr-models-NOTICE.txt"
 cp target/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
+[ -f target/icon-car/Assets.car ] && cp target/icon-car/Assets.car "$app/Contents/Resources/Assets.car"
 sed "s/@VERSION@/$version/g" "$mac/Info.plist" > "$app/Contents/Info.plist"
 plutil -lint "$app/Contents/Info.plist" >/dev/null
 printf 'APPL????' > "$app/Contents/PkgInfo"
@@ -61,9 +92,27 @@ cp "$mac/THIRD_PARTY.md" "$app/Contents/Resources/THIRD_PARTY.md"
 cp crates/sheaf-app/ui/icons/LICENSE "$app/Contents/Resources/licenses/lucide-ISC.txt"
 cp "$pdfium"/licenses/* "$app/Contents/Resources/licenses/pdfium/"
 cp "$pdfium/LICENSE" "$app/Contents/Resources/licenses/pdfium/pdfium-binaries-MIT.txt"
+# PdfCraft's licences and the OFL texts of the fonts it embeds, from the pinned git checkout.
+pdfcraft_rev="$(sed -n 's/^pdfcraft-engine = .*rev = "\([0-9a-f]*\)".*/\1/p' Cargo.toml)"
+pdfcraft_src=""
+for d in "$cargo_home"/git/checkouts/pdfcraft-*/"$(printf %.7s "$pdfcraft_rev")"; do
+    [ -f "$d/NOTICE" ] && pdfcraft_src="$d"
+done
+[ -n "$pdfcraft_src" ] || { echo "error: PdfCraft checkout for rev $pdfcraft_rev not found under $cargo_home/git/checkouts" >&2; exit 1; }
+mkdir -p "$app/Contents/Resources/licenses/pdfcraft" "$app/Contents/Resources/licenses/fonts"
+for f in LICENSE-MIT LICENSE-APACHE NOTICE; do
+    cp "$pdfcraft_src/$f" "$app/Contents/Resources/licenses/pdfcraft/$f"
+done
+for f in OFL-DancingScript.txt OFL-Inter.txt; do
+    cp "$pdfcraft_src/assets/fonts/$f" "$app/Contents/Resources/licenses/fonts/$f"
+done
 echo "==> third-party licences (cargo-about)"
 cargo about generate --workspace -c about.toml about/template.hbs \
     -o "$app/Contents/Resources/licenses/THIRD_PARTY_LICENSES.html"
+
+echo "==> no local paths in the bundle"
+leaks=$(for f in "$app/Contents/MacOS/Sheaf" "$app/Contents/Helpers/sheaf"; do strings "$f" | grep -c -F "$HOME" || true; done | paste -sd+ - | bc)
+[ "$leaks" = 0 ] || { echo "error: $leaks occurrences of the builder's home path in the binaries" >&2; exit 1; }
 
 echo "==> rpath + sign"
 for bin in "$app/Contents/MacOS/Sheaf" "$app/Contents/Helpers/sheaf"; do

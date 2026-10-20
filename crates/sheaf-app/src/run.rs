@@ -6,6 +6,15 @@ use sheaf_app::jobs::{self, Job, JobOutcome, SplitMode};
 use sheaf_app::prefs::OutputMode;
 use sheaf_app::{AppWindow, ToolOptions};
 use sheaf_core::compress::Level;
+use sheaf_core::crop::{self, CropSpec};
+use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_app::jobs::ExportKind;
+use sheaf_core::compare::CompareMode;
+use sheaf_core::excel::SheetLayout;
+use sheaf_core::export::ExportOptions;
+use sheaf_core::ocr::OcrOptions;
+use sheaf_core::pdfa::PdfALevel;
+use sheaf_core::watermark::{Mark, Placement, WatermarkOptions};
 use sheaf_core::images::PageLayout;
 use sheaf_core::pages::Input;
 use sheaf_core::tools::{self, ToolId};
@@ -33,8 +42,142 @@ fn layout(opts: &ToolOptions) -> PageLayout {
     }
 }
 
+/// A typed page number ("" = none). Anything else is an error naming the field.
+fn page_field(s: &str, what: &str) -> Result<Option<u32>> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Ok(None);
+    }
+    s.parse().ok().filter(|n| *n > 0).map(Some).ok_or_else(|| OpdfError::Unsupported(format!("{what}: \"{s}\" is not a page number")))
+}
+
+/// A typed millimetre value: decimal comma or point, "" = 0. `None` if it is not a number ≥ 0.
+pub fn parse_mm(s: &str) -> Option<f64> {
+    let s = s.trim().replace(',', ".");
+    if s.is_empty() {
+        return Some(0.0);
+    }
+    s.parse::<f64>().ok().filter(|v| v.is_finite() && *v >= 0.0)
+}
+
+/// Whether `code` is in the set `set` (",a,b,").
+pub fn has_code(set: &str, code: &str) -> bool {
+    set.split(',').any(|c| c == code)
+}
+
+/// The set `set` (",a,b,") with `code` added or removed; the order of the others is kept.
+pub fn toggle_code(set: &str, code: &str) -> String {
+    let mut codes: Vec<&str> = set.split(',').filter(|c| !c.is_empty()).collect();
+    match codes.iter().position(|c| *c == code) {
+        Some(i) => {
+            codes.remove(i);
+        }
+        None => codes.push(code),
+    }
+    format!(",{},", codes.join(","))
+}
+
+fn ocr_options(opts: &ToolOptions) -> Result<OcrOptions> {
+    let language = opts.ocr_languages.split(',').find(|c| !c.is_empty()).ok_or_else(|| OpdfError::Unsupported("choose a document language".into()))?;
+    Ok(OcrOptions { language: language.into(), read_text_pages: opts.ocr_all_pages, ..Default::default() })
+}
+
+/// A typed millimetre margin, in points.
+fn mm_field(s: &str, what: &str) -> Result<f64> {
+    parse_mm(s).map(crop::mm).ok_or_else(|| OpdfError::Unsupported(format!("{what} margin: \"{}\" is not a number of millimetres", s.trim())))
+}
+
+/// The page range typed in the panel; ignored for a batch (every page of every file).
+fn range(opts: &ToolOptions, batch: bool) -> Result<(Option<u32>, Option<u32>)> {
+    if batch {
+        return Ok((None, None));
+    }
+    Ok((page_field(&opts.from_page, "from page")?, page_field(&opts.to_page, "to page")?))
+}
+
+fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
+    let (from, to) = range(opts, batch)?;
+    let start = opts.num_start.trim();
+    let start = if start.is_empty() { 1 } else { start.parse().map_err(|_| OpdfError::Unsupported(format!("first number: \"{start}\" is not a number")))? };
+    Ok(NumberOptions {
+        position: opts.num_position.clamp(0, 8) as u8,
+        double_sided: opts.num_double,
+        cover: opts.num_cover,
+        margin: numbers::MARGINS[opts.num_margin.clamp(0, 2) as usize],
+        from,
+        to,
+        start,
+        text: match opts.num_text {
+            1 => NumberText::Page,
+            2 => NumberText::PageOfTotal,
+            3 => NumberText::Custom(opts.num_custom.to_string()),
+            _ => NumberText::Number,
+        },
+        ..Default::default()
+    })
+}
+
+/// Colours offered for watermark text.
+const WM_COLOURS: [[f64; 3]; 4] = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [0.85, 0.1, 0.1], [0.1, 0.3, 0.85]];
+const WM_ROTATIONS: [f64; 6] = [0.0, 45.0, 90.0, 180.0, 270.0, -45.0];
+
+fn watermark_options(opts: &ToolOptions, batch: bool) -> Result<WatermarkOptions> {
+    let (from, to) = range(opts, batch)?;
+    let mark = if opts.wm_image_mode {
+        Mark::Image { path: PathBuf::from(opts.wm_image.as_str()), scale: opts.wm_scale.clamp(5, 100) as f64 / 100.0 }
+    } else {
+        let fs = opts.wm_font_size.trim();
+        let font_size = if fs.is_empty() { 48.0 } else { fs.parse::<f64>().ok().filter(|v| (1.0..=500.0).contains(v)).ok_or_else(|| OpdfError::Unsupported(format!("font size: \"{fs}\" (use 1 to 500 points)")))? };
+        Mark::Text { text: opts.wm_text.to_string(), font_size, color: WM_COLOURS[opts.wm_color.clamp(0, 3) as usize] }
+    };
+    Ok(WatermarkOptions {
+        mark,
+        placement: if opts.wm_mosaic { Placement::Mosaic } else { Placement::Grid(opts.wm_position.clamp(0, 8) as u8) },
+        opacity: [1.0, 0.75, 0.5, 0.25][opts.wm_transparency.clamp(0, 3) as usize],
+        rotation: WM_ROTATIONS[opts.wm_rotation.clamp(0, 5) as usize],
+        behind: opts.wm_below,
+        from,
+        to,
+    })
+}
+
+fn crop_spec(opts: &ToolOptions) -> Result<CropSpec> {
+    if opts.crop_mode == 2 {
+        return Ok(CropSpec::Remove);
+    }
+    Ok(CropSpec::Margins {
+        top: mm_field(&opts.crop_top, "top")?,
+        bottom: mm_field(&opts.crop_bottom, "bottom")?,
+        left: mm_field(&opts.crop_left, "left")?,
+        right: mm_field(&opts.crop_right, "right")?,
+    })
+}
+
 /// Builds the job. `order` is the Organize grid (1-based pages, 0 = blank).
+#[cfg(test)]
 fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptions, dest: Dest) -> Result<Job> {
+    build_job_with(tool, inputs, order, Vec::new(), opts, dest)
+}
+
+/// Builds the job. `order` is the Organize grid (1-based pages, 0 = blank); `marks` are
+/// Redact's areas.
+#[cfg(test)]
+fn build_job_with(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, opts: &ToolOptions, dest: Dest) -> Result<Job> {
+    build_job_full(tool, inputs, order, marks, None, opts, dest)
+}
+
+/// Sign: the graphic, the page and the box (view space, points) placed in the viewer.
+pub type Placed = (sheaf_core::sign::Graphic, usize, [f64; 4]);
+
+/// What was placed on the pages in the viewer.
+#[derive(Debug, Clone, PartialEq)]
+pub enum OnPages {
+    Sign(Placed),
+    Edit(Vec<sheaf_app::jobs::EditPlaced>),
+}
+
+/// [`build_job_with`], with what was placed in the page viewer (Sign, Edit).
+fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, placed: Option<OnPages>, opts: &ToolOptions, dest: Dest) -> Result<Job> {
     let each = matches!(dest, Dest::NextToEach);
     let (file, folder) = match dest {
         Dest::File(f) => {
@@ -91,17 +234,78 @@ fn build_job(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, opts: &ToolOptio
         ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf => {
             Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect() }
         }
-        other => return Err(OpdfError::Unsupported(format!("{} is not available yet", tools::find(other).name))),
+        ToolId::PageNumbers => {
+            let options = number_options(opts, inputs.len() > 1)?;
+            Job::PageNumbers { items: pairs(inputs), options }
+        }
+        ToolId::Watermark => {
+            let options = watermark_options(opts, inputs.len() > 1)?;
+            Job::Watermark { items: pairs(inputs), options }
+        }
+        ToolId::Crop => Job::Crop {
+            input: one(inputs)?,
+            pages: (opts.crop_mode == 1 && !pages.is_empty()).then_some(pages),
+            spec: crop_spec(opts)?,
+            out: single()?,
+        },
+        ToolId::Ocr => {
+            let options = ocr_options(opts)?;
+            Job::Ocr { items: pairs(inputs), options }
+        }
+        ToolId::PdfToWord | ToolId::PdfToPowerPoint | ToolId::PdfToExcel => {
+            let kind = match tool {
+                ToolId::PdfToWord => ExportKind::Word,
+                ToolId::PdfToPowerPoint => ExportKind::PowerPoint,
+                _ => ExportKind::Excel(if opts.excel_layout == 1 { SheetLayout::SheetPerTable } else { SheetLayout::OneSheet }),
+            };
+            Job::Export { items: pairs(inputs), kind, options: ExportOptions { ocr: opts.export_ocr, ..Default::default() } }
+        }
+        ToolId::Compare => {
+            let mut it = inputs.into_iter();
+            let (Some(old), Some(new), None) = (it.next(), it.next(), it.next()) else {
+                return Err(OpdfError::Unsupported("Compare needs an original and a changed PDF".into()));
+            };
+            Job::Compare { old, new, mode: if opts.compare_mode == 1 { CompareMode::Overlay } else { CompareMode::Text }, out: single()? }
+        }
+        ToolId::Redact => {
+            if marks.is_empty() {
+                return Err(OpdfError::Unsupported("Mark something for redaction first".into()));
+            }
+            Job::Redact { input: one(inputs)?, marks, out: single()? }
+        }
+        ToolId::Sign => {
+            let Some(OnPages::Sign((graphic, page, view_box))) = placed else {
+                return Err(OpdfError::Unsupported("Create your signature and click on a page to place it".into()));
+            };
+            Job::Sign { input: one(inputs)?, page, view_box, graphic, digital: crate::sign_ui::digital(opts)?, out: single()? }
+        }
+        ToolId::Edit => {
+            let Some(OnPages::Edit(items)) = placed.filter(|p| !matches!(p, OnPages::Edit(v) if v.is_empty())) else {
+                return Err(OpdfError::Unsupported("Click on a page to add text or an image".into()));
+            };
+            Job::Edit { input: one(inputs)?, items, out: single()? }
+        }
+        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
     })
 }
 
 /// The action button of tab `tab_id`.
 pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
-    let Some((tool, inputs, order)) = with(|a| {
+    let Some((tool, inputs, order, marks, placed)) = with(|a| {
         let t = a.tab(tab_id)?;
-        matches!(t.phase, Phase::Edit).then(|| (t.tool, t.files.iter().map(|f| f.input.clone()).collect::<Vec<_>>(), t.order.clone()))
+        let marks = t.viewer.as_ref().map(|v| v.marks()).unwrap_or_default();
+        let placed = match t.tool {
+            ToolId::Edit => Some(t.edit.placed().map(OnPages::Edit)),
+            _ => t.viewer.as_ref().and_then(|v| crate::viewer_ui::placed(v, &t.sign)).map(|p| Ok(OnPages::Sign(p))),
+        };
+        matches!(t.phase, Phase::Edit).then(|| (t.tool, t.files.iter().map(|f| f.input.clone()).collect::<Vec<_>>(), t.order.clone(), marks, placed))
     }) else {
         return;
+    };
+    // An item not ready (an empty text box) is said before the save dialog opens.
+    let placed = match placed.transpose() {
+        Ok(p) => p,
+        Err(e) => return toast(ui, &e),
     };
     let paths: Vec<PathBuf> = inputs.iter().map(|i| i.path.clone()).collect();
     let prefs = crate::home::prefs();
@@ -116,7 +320,7 @@ pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
         }
     };
     let Some(dest) = dest else { return };
-    let job = match build_job(tool, inputs, order, &opts, dest) {
+    let job = match build_job_full(tool, inputs, order, marks, placed, &opts, dest) {
         Ok(j) => j,
         Err(e) => return toast(ui, &e.to_string()),
     };
@@ -201,34 +405,57 @@ fn outputs(tab_id: i32) -> Vec<PathBuf> {
     })
 }
 
-/// Runs `open` with `args` and reaps it on a background thread (no zombie processes).
-pub fn open_detached<S: AsRef<std::ffi::OsStr>>(args: &[S]) {
-    if let Ok(mut child) = std::process::Command::new("open").args(args).spawn() {
+/// Spawns `cmd` and reaps it on a background thread (no zombie processes).
+fn spawn_detached(cmd: &str, args: &[&std::ffi::OsStr]) {
+    if let Ok(mut child) = std::process::Command::new(cmd).args(args).spawn() {
         std::thread::spawn(move || {
             let _ = child.wait();
         });
     }
 }
 
-fn open_cmd(args: &[&std::ffi::OsStr]) {
-    open_detached(args);
+/// Opens a file or URL in its default app.
+pub fn open_detached(target: impl AsRef<std::ffi::OsStr>) {
+    let t = target.as_ref();
+    #[cfg(target_os = "macos")]
+    spawn_detached("open", &[t]);
+    #[cfg(windows)]
+    spawn_detached("explorer", &[t]);
+    #[cfg(not(any(target_os = "macos", windows)))]
+    spawn_detached("xdg-open", &[t]);
+}
+
+/// Shows a file selected in its folder (Linux: opens the folder).
+pub fn reveal(p: &std::path::Path) {
+    #[cfg(target_os = "macos")]
+    spawn_detached("open", &["-R".as_ref(), p.as_os_str()]);
+    #[cfg(windows)]
+    {
+        let mut arg = std::ffi::OsString::from("/select,");
+        arg.push(p.as_os_str());
+        spawn_detached("explorer", &[&arg]);
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    if let Some(dir) = p.parent() {
+        spawn_detached("xdg-open", &[dir.as_os_str()]);
+    }
 }
 
 pub fn open_output(tab_id: i32, k: i32) {
     if let Some(p) = outputs(tab_id).get(k as usize) {
-        open_cmd(&[p.as_os_str()]);
+        open_detached(p);
     }
 }
 
 pub fn reveal_output(tab_id: i32, k: i32) {
     if let Some(p) = outputs(tab_id).get(k as usize) {
-        open_cmd(&["-R".as_ref(), p.as_os_str()]);
+        reveal(p);
     }
 }
 
 pub fn open_folder(tab_id: i32) {
     if let Some(p) = outputs(tab_id).first() {
-        open_cmd(&["-R".as_ref(), p.as_os_str()]);
+        reveal(p);
     }
 }
 
@@ -240,6 +467,10 @@ pub fn start_over(tab_id: i32) {
             t.files.clear();
             t.order.clear();
             t.page_thumbs.clear();
+            t.viewer = None;
+            t.viewer_error = None;
+            t.sign = crate::sign_ui::SignState::new();
+            t.edit = crate::edit_ui::EditState::new();
         }
         refresh(a, tab_id);
     });
@@ -289,6 +520,159 @@ mod tests {
         assert_eq!(out_name(ToolId::Merge, Path::new("/a/x.pdf"), &opts()), "x-merged.pdf");
         let job = build_job(ToolId::Merge, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/r.pdf".into())).unwrap();
         assert!(matches!(job, Job::Merge { out, .. } if out == Path::new("/s/r.pdf")));
+    }
+
+    #[test]
+    fn page_numbers_watermark_and_crop_jobs() {
+        let mut o = opts();
+        o.num_position = 8;
+        o.num_margin = 2;
+        o.num_text = 3;
+        o.num_custom = "{n}/{p}".into();
+        o.num_start = "5".into();
+        o.from_page = "2".into();
+        let job = build_job(ToolId::PageNumbers, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/n.pdf".into())).unwrap();
+        let Job::PageNumbers { items, options } = job else { panic!() };
+        assert_eq!(items[0].1, PathBuf::from("/s/n.pdf"));
+        assert_eq!((options.position, options.margin, options.start, options.from, options.to), (8, 54.0, 5, Some(2), None));
+        assert_eq!(options.text, NumberText::Custom("{n}/{p}".into()));
+        // A batch numbers every page of every file, with default names.
+        let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
+        let Job::PageNumbers { items, options } = build_job(ToolId::PageNumbers, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
+        assert_eq!((options.from, items[1].1.clone()), (None, PathBuf::from("/o/y-numbered.pdf")));
+        o.from_page = "x".into();
+        let e = build_job(ToolId::PageNumbers, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/n.pdf".into())).unwrap_err().to_string();
+        // Lowercase after the prefix, like the core's messages.
+        assert_eq!(e, "unsupported input: from page: \"x\" is not a page number");
+
+        let mut o = opts();
+        o.wm_text = "DRAFT".into();
+        o.wm_font_size = "30".into();
+        o.wm_transparency = 2;
+        o.wm_rotation = 5;
+        o.wm_mosaic = true;
+        o.wm_below = true;
+        let Job::Watermark { options, .. } = build_job(ToolId::Watermark, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/w.pdf".into())).unwrap() else { panic!() };
+        assert_eq!(options.mark, Mark::Text { text: "DRAFT".into(), font_size: 30.0, color: [0.0; 3] });
+        assert_eq!((options.placement, options.opacity, options.rotation, options.behind), (Placement::Mosaic, 0.5, -45.0, true));
+        o.wm_image_mode = true;
+        o.wm_image = "/i/logo.png".into();
+        o.wm_scale = 25;
+        let Job::Watermark { options, .. } = build_job(ToolId::Watermark, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/w.pdf".into())).unwrap() else { panic!() };
+        assert_eq!(options.mark, Mark::Image { path: "/i/logo.png".into(), scale: 0.25 });
+
+        let mut o = opts();
+        o.crop_mode = 1;
+        o.pages = "2-3".into();
+        o.crop_top = "10".into();
+        o.crop_left = "2,5".into();
+        let Job::Crop { pages, spec, out, .. } = build_job(ToolId::Crop, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/c.pdf".into())).unwrap() else { panic!() };
+        assert_eq!((pages.as_deref(), out), (Some("2-3"), PathBuf::from("/s/c.pdf")));
+        assert_eq!(spec, CropSpec::Margins { top: crop::mm(10.0), bottom: 0.0, left: crop::mm(2.5), right: 0.0 });
+        o.crop_mode = 2;
+        let Job::Crop { pages, spec, .. } = build_job(ToolId::Crop, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/c.pdf".into())).unwrap() else { panic!() };
+        assert_eq!((pages, spec), (None, CropSpec::Remove));
+        assert_eq!(out_name(ToolId::Crop, Path::new("/a/x.pdf"), &o), "x-cropped.pdf");
+    }
+
+    #[test]
+    fn pdfa_job() {
+        let mut o = opts();
+        let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
+        let Job::PdfA { items, level } = build_job(ToolId::PdfToPdfA, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
+        assert_eq!((level, items[1].1.clone()), (PdfALevel::A2b, PathBuf::from("/o/y-pdfa.pdf")));
+        o.pdfa_level = 1;
+        let Job::PdfA { level, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
+        assert_eq!(level, PdfALevel::A3b);
+    }
+
+    #[test]
+    fn ocr_job_uses_the_first_selected_language() {
+        assert_eq!(toggle_code(",en,", "fr"), ",en,fr,");
+        assert_eq!(toggle_code(",en,fr,", "en"), ",fr,");
+        assert_eq!(toggle_code(",en,", "en"), ",,");
+        assert!(has_code(",en,fr,", "fr") && !has_code(",en,", "e"));
+        let mut o = opts();
+        o.ocr_languages = ",fr,en,".into();
+        o.ocr_all_pages = true;
+        let Job::Ocr { items, options } = build_job(ToolId::Ocr, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/o.pdf".into())).unwrap() else { panic!() };
+        assert_eq!((options.language.as_str(), options.read_text_pages, items[0].1.clone()), ("fr", true, PathBuf::from("/s/o.pdf")));
+        o.ocr_languages = ",,".into();
+        assert!(build_job(ToolId::Ocr, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/o.pdf".into())).is_err());
+    }
+
+    #[test]
+    fn export_jobs() {
+        let mut o = opts();
+        let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
+        let Job::Export { items, kind, options } = build_job(ToolId::PdfToWord, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
+        assert_eq!((kind, options.ocr, items[1].1.clone()), (ExportKind::Word, false, PathBuf::from("/o/y.docx")));
+        o.export_ocr = true;
+        o.excel_layout = 1;
+        let Job::Export { kind, options, .. } = build_job(ToolId::PdfToExcel, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/t.xlsx".into())).unwrap() else { panic!() };
+        assert_eq!((kind, options.ocr), (ExportKind::Excel(SheetLayout::SheetPerTable), true));
+        assert_eq!(out_name(ToolId::PdfToPowerPoint, Path::new("/a/x.pdf"), &o), "x.pptx");
+    }
+
+    #[test]
+    fn sign_job_needs_a_placed_signature_and_names_the_output_signed() {
+        let one = || vec![Input::new("/a/v.pdf")];
+        let o = ToolOptions::default();
+        let dest = || Dest::File("/s/v-signed.pdf".into());
+        assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], None, &o, dest()).is_err());
+        let placed = (sheaf_core::sign::Graphic::Typed("Ada".into()), 2, [10.0, 20.0, 160.0, 60.0]);
+        let Job::Sign { input, page, view_box, digital, out, .. } = build_job_full(ToolId::Sign, one(), vec![], vec![], Some(OnPages::Sign(placed.clone())), &o, dest()).unwrap() else { panic!() };
+        assert_eq!((input.path, page, view_box, digital, out), (PathBuf::from("/a/v.pdf"), 2, [10.0, 20.0, 160.0, 60.0], None, PathBuf::from("/s/v-signed.pdf")));
+        assert_eq!(out_name(ToolId::Sign, Path::new("/a/v.pdf"), &o), "v-signed.pdf");
+        // A certificate asked for but not chosen: refused before anything runs.
+        let o = ToolOptions { sign_cert: true, ..Default::default() };
+        assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], Some(OnPages::Sign(placed)), &o, dest()).is_err());
+    }
+
+    #[test]
+    fn edit_job_needs_items_and_names_the_output_edited() {
+        use sheaf_app::jobs::EditPlaced;
+        let one = || vec![Input::new("/a/v.pdf")];
+        let o = ToolOptions::default();
+        let dest = || Dest::File("/s/v-edited.pdf".into());
+        assert!(build_job_full(ToolId::Edit, one(), vec![], vec![], None, &o, dest()).is_err());
+        assert!(build_job_full(ToolId::Edit, one(), vec![], vec![], Some(OnPages::Edit(vec![])), &o, dest()).is_err());
+        let items = vec![EditPlaced::Text { page: 1, at: [10.0, 20.0], text: "Hi".into(), size: 12.0, color: [0; 3] }];
+        let Job::Edit { input, items: got, out } = build_job_full(ToolId::Edit, one(), vec![], vec![], Some(OnPages::Edit(items.clone())), &o, dest()).unwrap() else { panic!() };
+        assert_eq!((input.path, got, out), (PathBuf::from("/a/v.pdf"), items, PathBuf::from("/s/v-edited.pdf")));
+        assert_eq!(out_name(ToolId::Edit, Path::new("/a/v.pdf"), &o), "v-edited.pdf");
+    }
+
+    #[test]
+    fn redact_job_needs_marks() {
+        let o = opts();
+        let one = || vec![Input::new("/a/v.pdf")];
+        let dest = || Dest::File("/s/v-redacted.pdf".into());
+        assert!(build_job_with(ToolId::Redact, one(), vec![], vec![], &o, dest()).is_err());
+        let marks = sheaf_core::redact::mark_rects(&[(0, [1.0, 2.0, 30.0, 40.0])]);
+        let Job::Redact { input, marks: m, out } = build_job_with(ToolId::Redact, one(), vec![], marks.clone(), &o, dest()).unwrap() else { panic!() };
+        assert_eq!((input.path, m, out), (PathBuf::from("/a/v.pdf"), marks, PathBuf::from("/s/v-redacted.pdf")));
+        assert_eq!(out_name(ToolId::Redact, Path::new("/a/v.pdf"), &o), "v-redacted.pdf");
+    }
+
+    #[test]
+    fn compare_job_takes_original_then_changed() {
+        let mut o = opts();
+        o.compare_mode = 1;
+        let two = vec![Input::new("/a/v1.pdf"), Input::new("/a/v2.pdf")];
+        let Job::Compare { old, new, mode, out } = build_job(ToolId::Compare, two, vec![], &o, Dest::File("/s/v1-comparison.pdf".into())).unwrap() else { panic!() };
+        assert_eq!((old.path, new.path, mode, out), (PathBuf::from("/a/v1.pdf"), PathBuf::from("/a/v2.pdf"), CompareMode::Overlay, PathBuf::from("/s/v1-comparison.pdf")));
+        assert!(build_job(ToolId::Compare, vec![Input::new("/a/v1.pdf")], vec![], &o, Dest::File("/s/c.pdf".into())).is_err());
+        assert_eq!(out_name(ToolId::Compare, Path::new("/a/v1.pdf"), &o), "v1-comparison.pdf");
+    }
+
+    #[test]
+    fn millimetres_accept_a_decimal_comma() {
+        assert_eq!(parse_mm("2,5"), Some(2.5));
+        assert_eq!(parse_mm(" 2.5 "), Some(2.5));
+        assert_eq!(parse_mm(""), Some(0.0));
+        assert_eq!(parse_mm("-1"), None);
+        assert_eq!(parse_mm("x"), None);
     }
 
     #[test]

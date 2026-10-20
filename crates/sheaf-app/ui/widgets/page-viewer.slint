@@ -1,0 +1,298 @@
+// Page viewer: every page of one document in a vertical scroll, a thumbnail strip on the left,
+// boxes drawn over the pages, and a small zoom control. The Rust side (src/viewer.rs) lays the
+// pages out and renders them; the models only hold the pages near the viewport, so a long
+// document never has hundreds of items here. Pointer callbacks give content coordinates (the
+// Rust side maps them to a page and its PDF user space).
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { ViewerPage, ViewerThumb, ViewerOverlay, SignOverlay, EditOverlay } from "../flow-types.slint";
+
+component ZoomButton inherits Rectangle {
+    in property <string> text;
+    callback clicked();
+    width: 28px;
+    height: 28px;
+    border-radius: Theme.radius-small;
+    background: t.has-hover ? Theme.popup-hover : transparent;
+    Text {
+        text: root.text;
+        font-size: Theme.fs-body;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component PageViewer inherits Rectangle {
+    in property <[ViewerPage]> pages;
+    in property <[ViewerThumb]> thumbs;
+    in property <[ViewerOverlay]> overlays;
+    in property <length> content-width;
+    in property <length> content-height;
+    in property <length> thumbs-height;
+    in property <int> current;
+    in property <int> zoom: 100;
+    in property <string> status;
+    // Scroll requests from Rust: applied when `scroll-seq` changes.
+    in property <length> scroll;
+    in property <int> scroll-seq;
+    // Drawing rectangles with the mouse (off while a job runs).
+    in property <bool> interactive: true;
+    // Redact draws the dragged rectangle; Sign places on release and shows its signature.
+    in property <bool> drag-box: true;
+    in property <SignOverlay> sign;
+    in property <image> sign-image;
+    // Edit: the text and images placed.
+    in property <[EditOverlay]> edits;
+
+    // The page area is `width` wide and shows [top, top + height) of the content.
+    callback viewport(length, length, length);
+    // The strip shows [top, top + height) of its content.
+    callback strip-viewport(length, length);
+    callback pressed(length, length);
+    callback released(length, length);
+    callback thumb-clicked(int);
+    // +1 / −1 one zoom step, 0 fit width.
+    callback zoom-step(int);
+
+    property <length> strip-width: 120px;
+    property <length> page-top: -sv.content-y;
+    property <length> strip-top: -strip.content-y;
+    property <bool> dragging;
+    property <length> x0;
+    property <length> y0;
+    property <length> x1;
+    property <length> y1;
+
+    // The visible size of the page area and of the strip, once laid out.
+    property <length> page-w: sv.visible-width;
+    property <length> page-h: sv.visible-height;
+    property <length> strip-h: strip.visible-height;
+    changed page-top => { root.viewport(root.page-w, root.page-top, root.page-h); }
+    changed page-w => { root.viewport(root.page-w, root.page-top, root.page-h); }
+    changed page-h => { root.viewport(root.page-w, root.page-top, root.page-h); }
+    changed strip-h => { root.strip-viewport(root.strip-top, root.strip-h); }
+    changed strip-top => { root.strip-viewport(root.strip-top, strip.visible-height); }
+    changed scroll-seq => { sv.content-y = -root.scroll; }
+    init => {
+        root.viewport(sv.visible-width, root.page-top, sv.visible-height);
+        root.strip-viewport(root.strip-top, strip.visible-height);
+    }
+
+    background: Theme.filearea-bg;
+    clip: true;
+
+    // Thumbnail strip
+    Rectangle {
+        x: 0;
+        width: root.strip-width;
+        height: parent.height;
+        background: Theme.panel-bg;
+        strip := ScrollView {
+            content-width: self.visible-width;
+            content-height: root.thumbs-height;
+            for t in root.thumbs: Rectangle {
+                x: (root.strip-width - Theme.page-thumb-width) / 2;
+                y: t.y;
+                width: Theme.page-thumb-width;
+                height: t.h;
+                background: Theme.thumb-placeholder;
+                border-width: 2px;
+                border-color: t.page == root.current ? Theme.accent : transparent;
+                drop-shadow-blur: 6px;
+                drop-shadow-color: Theme.thumb-shadow;
+                drop-shadow-offset-y: 1px;
+                if t.ready: Image {
+                    x: 2px;
+                    y: 2px;
+                    width: parent.width - 4px;
+                    height: parent.height - 4px;
+                    source: t.image;
+                    image-fit: fill;
+                }
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.thumb-clicked(t.page); }
+                }
+            }
+        }
+        Rectangle {
+            x: parent.width - 1px;
+            width: 1px;
+            background: Theme.sidebar-border;
+        }
+    }
+
+    // Pages
+    sv := ScrollView {
+        x: root.strip-width;
+        width: root.width - root.strip-width;
+        height: root.height;
+        content-width: max(root.content-width, self.visible-width);
+        content-height: root.content-height;
+        for p in root.pages: Rectangle {
+            x: p.x;
+            y: p.y;
+            width: p.w;
+            height: p.h;
+            background: Theme.thumb-placeholder;
+            drop-shadow-blur: 6px;
+            drop-shadow-color: Theme.thumb-shadow;
+            drop-shadow-offset-y: 1px;
+            if p.ready: Image {
+                width: parent.width;
+                height: parent.height;
+                source: p.image;
+                image-fit: fill;
+            }
+        }
+        for o in root.overlays: Rectangle {
+            x: o.x;
+            y: o.y;
+            width: o.w;
+            height: o.h;
+            border-width: o.kind == 2 ? 3px : 2px;
+            border-color: o.kind == 1 ? Theme.info : Theme.danger;
+            background: o.kind == 0 ? Theme.option-selected-bg.with-alpha(0.35) : transparent;
+        }
+        if root.sign.show: Rectangle {
+            x: root.sign.x;
+            y: root.sign.y;
+            width: root.sign.w;
+            height: root.sign.h;
+            border-width: 1.5px;
+            border-color: Theme.info;
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: root.sign-image;
+                image-fit: fill;
+            }
+        }
+        for e in root.edits: Rectangle {
+            x: e.x;
+            y: e.y;
+            width: e.w;
+            height: e.h;
+            border-width: e.selected ? 1.5px : 1px;
+            border-color: e.selected ? Theme.info : Theme.info.with-alpha(0.35);
+            if e.is-text: Text {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: parent.height;
+                text: e.text == "" ? "Your text" : e.text;
+                font-family: "Helvetica";
+                font-size: e.font-size;
+                color: e.text == "" ? Theme.text-disabled : e.color;
+                vertical-alignment: top;
+            }
+            if !e.is-text: Image {
+                width: parent.width;
+                height: parent.height;
+                source: e.image;
+                image-fit: fill;
+            }
+        }
+        if root.dragging && root.drag-box: Rectangle {
+            x: min(root.x0, root.x1);
+            y: min(root.y0, root.y1);
+            width: abs(root.x1 - root.x0);
+            height: abs(root.y1 - root.y0);
+            border-width: 2px;
+            border-color: Theme.danger;
+        }
+        TouchArea {
+            width: max(root.content-width, sv.visible-width);
+            height: root.content-height;
+            enabled: root.interactive;
+            mouse-cursor: crosshair;
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                    focus.focus();
+                    root.dragging = true;
+                    root.x0 = self.mouse-x;
+                    root.y0 = self.mouse-y;
+                    root.x1 = self.mouse-x;
+                    root.y1 = self.mouse-y;
+                    root.pressed(self.mouse-x, self.mouse-y);
+                } else if e.kind == PointerEventKind.up && root.dragging {
+                    root.dragging = false;
+                    root.released(self.mouse-x, self.mouse-y);
+                }
+            }
+            moved => {
+                if root.dragging {
+                    root.x1 = self.mouse-x;
+                    root.y1 = self.mouse-y;
+                }
+            }
+        }
+    }
+
+    if root.status != "": Text {
+        x: root.strip-width;
+        width: root.width - root.strip-width;
+        text: root.status;
+        font-size: Theme.fs-label;
+        color: Theme.text-muted;
+        horizontal-alignment: center;
+    }
+
+    // Zoom control, bottom right of the pages.
+    Rectangle {
+        x: root.width - self.width - 20px;
+        y: root.height - self.height - 16px;
+        width: zl.preferred-width;
+        height: 36px;
+        border-radius: Theme.radius-item;
+        background: Theme.card;
+        drop-shadow-blur: 6px;
+        drop-shadow-color: Theme.thumb-shadow;
+        zl := HorizontalLayout {
+            padding: 4px;
+            spacing: 2px;
+            ZoomButton { text: "−"; clicked => { root.zoom-step(-1); } }
+            Text {
+                width: 44px;
+                text: root.zoom + "%";
+                font-size: Theme.fs-label;
+                color: Theme.text;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            ZoomButton { text: "+"; clicked => { root.zoom-step(1); } }
+            ZoomButton {
+                width: 36px;
+                text: "Fit";
+                clicked => { root.zoom-step(0); }
+            }
+        }
+    }
+
+    // ⌘+ / ⌘− / ⌘0 (Slint reports ⌘ as `control` on macOS).
+    focus := FocusScope {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+        key-pressed(e) => {
+            if e.modifiers.control && (e.text == "+" || e.text == "=") {
+                root.zoom-step(1);
+                return accept;
+            }
+            if e.modifiers.control && e.text == "-" {
+                root.zoom-step(-1);
+                return accept;
+            }
+            if e.modifiers.control && e.text == "0" {
+                root.zoom-step(0);
+                return accept;
+            }
+            reject
+        }
+    }
+}

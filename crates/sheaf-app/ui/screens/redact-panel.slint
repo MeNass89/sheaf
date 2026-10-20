@@ -1,0 +1,252 @@
+// Redact PDF: the options panel (the original's RedactToolPanel and RedactSearchPanel).
+// Search fills a list of matches with checkboxes; checked matches, dragged areas and whole pages
+// make the "Marked for redaction" list. Events go to the Rust side through ViewerBridge.
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { ToolTab, ViewerBridge, Parse } from "../flow-types.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Segment, InfoBox } from "../widgets/radio-card.slint";
+
+component SectionLabel inherits Text {
+    font-size: Theme.fs-label;
+    font-weight: Theme.weight-demibold;
+    color: Theme.text;
+}
+
+// A pattern chip: toggled on and off.
+component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked();
+    height: 28px;
+    width: label.preferred-width + 20px;
+    border-radius: 14px;
+    border-width: root.selected ? 0 : 1px;
+    border-color: t.has-hover ? Theme.text-secondary : Theme.option-border;
+    background: root.selected ? Theme.option-selected-bg : Theme.panel-bg;
+    label := Text {
+        text: root.text;
+        font-size: Theme.fs-label;
+        font-weight: root.selected ? Theme.weight-demibold : 400;
+        color: root.selected ? Theme.accent : Theme.text;
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// A tick box in a list row.
+component Tick inherits Rectangle {
+    in property <bool> checked;
+    width: 16px;
+    height: 16px;
+    border-radius: Theme.radius-small;
+    border-width: root.checked ? 0 : 1.5px;
+    border-color: Theme.option-border;
+    background: root.checked ? Theme.success-strong : Theme.panel-bg;
+    if root.checked: Image {
+        width: 12px;
+        height: 12px;
+        source: @image-url("../icons/check.svg");
+        colorize: Theme.on-success;
+    }
+}
+
+export component RedactPanel inherits VerticalLayout {
+    in property <ToolTab> tab;
+    in property <bool> enabled: true;
+    in-out property <string> query;
+    in-out property <string> patterns: ",";
+
+    spacing: 10px;
+    alignment: start;
+
+    Text {
+        text: "Select text or pages to mark for redaction. Use search to quickly find sensitive content.";
+        font-size: Theme.fs-label;
+        color: Theme.text-secondary;
+        wrap: word-wrap;
+        line-height-factor: Theme.line-height;
+    }
+
+    SectionLabel { text: "Search"; }
+    TextField {
+        placeholder: "Text to find";
+        text <=> root.query;
+        accepted => { ViewerBridge.search(root.tab.id, root.query, root.patterns); }
+    }
+    // Patterns: the original's three, then the two more PdfCraft finds.
+    FlexboxLayout {
+        flex-wrap: wrap;
+        spacing: 6px;
+        for c in [
+            { code: "email", name: "Email" },
+            { code: "phone", name: "Phone number" },
+            { code: "card", name: "Credit card" },
+            { code: "date", name: "Date" },
+            { code: "ssn", name: "SSN" },
+        ]: Chip {
+            text: c.name;
+            selected: Parse.has-code(root.patterns, c.code);
+            clicked => { root.patterns = Parse.toggle-code(root.patterns, c.code); }
+        }
+    }
+    Segment {
+        text: root.tab.redact-busy ? "Searching…" : "Search";
+        clicked => {
+            if root.enabled && !root.tab.redact-busy {
+                ViewerBridge.search(root.tab.id, root.query, root.patterns);
+            }
+        }
+    }
+
+    if root.tab.redact-searched: VerticalLayout {
+        spacing: 4px;
+        SectionLabel { text: root.tab.redact-count; }
+        if root.tab.redact-results.length > 0: Rectangle {
+            height: min(results.preferred-height, 168px);
+            border-radius: Theme.radius-small;
+            border-width: 1px;
+            border-color: Theme.separator;
+            ScrollView {
+                content-width: self.visible-width;
+                content-height: results.preferred-height;
+                results := VerticalLayout {
+                    width: parent.visible-width;
+                    padding: 4px;
+                    for r[i] in root.tab.redact-results: Rectangle {
+                        height: 28px;
+                        border-radius: Theme.radius-small;
+                        background: row.has-hover ? Theme.popup-hover : transparent;
+                        row := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { ViewerBridge.show-result(root.tab.id, i); }
+                        }
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            spacing: 8px;
+                            Rectangle {
+                                width: 16px;
+                                Tick { checked: r.checked; }
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { ViewerBridge.toggle-result(root.tab.id, i); }
+                                }
+                            }
+                            Text {
+                                horizontal-stretch: 1;
+                                text: r.text;
+                                font-size: Theme.fs-label;
+                                color: Theme.text;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: r.page;
+                                font-size: Theme.fs-caption;
+                                color: Theme.text-muted;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle { height: 1px; background: Theme.separator; }
+
+    Text {
+        text: "Drag on a page to mark an area.";
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+    }
+    Segment {
+        text: "Mark whole page " + (root.tab.viewer-current + 1);
+        clicked => {
+            if root.enabled {
+                ViewerBridge.mark-page(root.tab.id);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        SectionLabel {
+            horizontal-stretch: 1;
+            text: "Marked for redaction";
+        }
+        if root.tab.redact-marks.length > 0: Text {
+            text: "Clear all";
+            font-size: Theme.fs-label;
+            color: Theme.accent;
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { ViewerBridge.clear-marks(root.tab.id); }
+            }
+        }
+    }
+    if root.tab.redact-marks.length == 0: Text {
+        text: "Nothing marked yet";
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+    }
+    if root.tab.redact-marks.length > 0: Rectangle {
+        height: min(marks.preferred-height, 168px);
+        ScrollView {
+            content-width: self.visible-width;
+            content-height: marks.preferred-height;
+            marks := VerticalLayout {
+                width: parent.visible-width;
+                spacing: 2px;
+                for m[i] in root.tab.redact-marks: Rectangle {
+                    height: 26px;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle {
+                            width: 10px;
+                            Rectangle {
+                                width: 10px;
+                                height: 10px;
+                                border-width: 2px;
+                                border-color: Theme.danger;
+                            }
+                        }
+                        Text {
+                            horizontal-stretch: 1;
+                            text: m.label;
+                            font-size: Theme.fs-label;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: m.page;
+                            font-size: Theme.fs-caption;
+                            color: Theme.text-muted;
+                            vertical-alignment: center;
+                        }
+                        Rectangle {
+                            width: 22px;
+                            border-radius: Theme.radius-small;
+                            background: x.has-hover ? Theme.popup-hover : transparent;
+                            Image {
+                                width: 12px;
+                                height: 12px;
+                                source: @image-url("../icons/x.svg");
+                                colorize: Theme.text-secondary;
+                            }
+                            x := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { ViewerBridge.remove-mark(root.tab.id, i); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    InfoBox { text: "Remember to review the results of your document before sending private information."; }
+}

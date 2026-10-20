@@ -6,6 +6,17 @@
 use sheaf_core::compress::{self, Level};
 use sheaf_core::images::{self, PageLayout};
 use sheaf_core::pages::{self, Input};
+use sheaf_core::crop::{self, CropSpec};
+use sheaf_core::numbers::{self, NumberOptions};
+use sheaf_core::compare::{self, CompareMode};
+use sheaf_core::excel::{self, SheetLayout};
+use sheaf_core::export::{self, ExportOptions, Office};
+use sheaf_core::ocr::{self, OcrOptions};
+use sheaf_core::pdfa::{self, PdfALevel};
+use sheaf_core::redact::{self, Mark};
+use sheaf_core::edit::{self, EditSpec, Item};
+use sheaf_core::sign::{self, DigitalSpec, Graphic, SignSpec};
+use sheaf_core::watermark::{self, WatermarkOptions};
 use sheaf_core::{office, repair, rotate, security, OpdfError, Result};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -19,7 +30,15 @@ pub enum SplitMode {
     Every(u32),
 }
 
-/// One run of a wave-1 tool, with owned parameters. Batch tools carry `(input, output)` pairs:
+/// What PDF to Word / PowerPoint / Excel writes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ExportKind {
+    Word,
+    PowerPoint,
+    Excel(SheetLayout),
+}
+
+/// One run of a tool, with owned parameters. Batch tools carry `(input, output)` pairs:
 /// the output path is the wanted name; the engine suffixes it if the name is taken.
 #[derive(Debug, Clone)]
 pub enum Job {
@@ -38,6 +57,31 @@ pub enum Job {
     PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: u8, out_dir: PathBuf },
     /// Word / PowerPoint / Excel / HTML → PDF through LibreOffice.
     Office { items: Vec<(PathBuf, PathBuf)> },
+    PageNumbers { items: Vec<(Input, PathBuf)>, options: NumberOptions },
+    Watermark { items: Vec<(Input, PathBuf)>, options: WatermarkOptions },
+    /// `pages`: "1-3,5", or `None` for every page.
+    Crop { input: Input, pages: Option<String>, spec: CropSpec, out: PathBuf },
+    PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel },
+    Ocr { items: Vec<(Input, PathBuf)>, options: OcrOptions },
+    Export { items: Vec<(Input, PathBuf)>, kind: ExportKind, options: ExportOptions },
+    Compare { old: Input, new: Input, mode: CompareMode, out: PathBuf },
+    /// Areas to black out for good (search matches, rectangles, whole pages).
+    Redact { input: Input, marks: Vec<Mark>, out: PathBuf },
+    /// A signature in `view_box` (points, y down, on page `page` as displayed), optionally
+    /// signed with a certificate.
+    Sign { input: Input, page: usize, view_box: [f64; 4], graphic: Graphic, digital: Option<DigitalSpec>, out: PathBuf },
+    /// Text and images placed on the pages (view space: points, y down, as displayed).
+    Edit { input: Input, items: Vec<EditPlaced>, out: PathBuf },
+}
+
+/// Edit PDF: one item placed in the page viewer, in view space (points from the top-left of
+/// page `page` as displayed, y down).
+#[derive(Debug, Clone, PartialEq)]
+pub enum EditPlaced {
+    /// `at`: the text's top-left corner; `size` in points.
+    Text { page: usize, at: [f64; 2], text: String, size: f64, color: [u8; 3] },
+    /// `rect`: `[x0, y0, x1, y1]`.
+    Image { page: usize, rect: [f64; 4], path: PathBuf },
 }
 
 impl Job {
@@ -48,8 +92,18 @@ impl Job {
             Job::Split { input, .. }
             | Job::RemovePages { input, .. }
             | Job::ExtractPages { input, .. }
-            | Job::Organize { input, .. } => vec![input.path.as_path()],
+            | Job::Organize { input, .. }
+            | Job::Crop { input, .. }
+            | Job::Redact { input, .. }
+            | Job::Sign { input, .. }
+            | Job::Edit { input, .. } => vec![input.path.as_path()],
+            Job::Compare { old, new, .. } => vec![old.path.as_path(), new.path.as_path()],
             Job::Rotate { items, .. }
+            | Job::PageNumbers { items, .. }
+            | Job::Watermark { items, .. }
+            | Job::PdfA { items, .. }
+            | Job::Ocr { items, .. }
+            | Job::Export { items, .. }
             | Job::Compress { items, .. }
             | Job::Protect { items, .. }
             | Job::Unlock { items }
@@ -74,6 +128,10 @@ pub struct JobOutcome {
     pub grew: bool,
     /// Batch tools: inputs that failed, with the error, while the others were written.
     pub failures: Vec<(PathBuf, String)>,
+    /// One line about the result, shown under the title ("Conforms to PDF/A-2b").
+    pub summary: String,
+    /// Things the user should know about the outputs, one per line (PDF/A rules still broken).
+    pub notes: Vec<String>,
 }
 
 fn size(p: &Path) -> u64 {
@@ -144,7 +202,21 @@ fn loses_protection(job: &Job) -> bool {
         | Job::ExtractPages { input, .. }
         | Job::Organize { input, .. } => vec![input],
         Job::Rotate { items, .. } | Job::Compress { items, .. } | Job::Repair { items } => items.iter().map(|(i, _)| i).collect(),
-        Job::Protect { .. } | Job::Unlock { .. } | Job::JpgToPdf { .. } | Job::Office { .. } => vec![],
+        // The PdfCraft tools report it from the engine.
+        Job::Protect { .. }
+        | Job::Unlock { .. }
+        | Job::JpgToPdf { .. }
+        | Job::Office { .. }
+        | Job::PageNumbers { .. }
+        | Job::Watermark { .. }
+        | Job::PdfA { .. }
+        | Job::Ocr { .. }
+        | Job::Export { .. }
+        | Job::Compare { .. }
+        | Job::Redact { .. }
+        | Job::Sign { .. }
+        | Job::Edit { .. }
+        | Job::Crop { .. } => vec![],
     };
     pdfs.into_iter().any(Input::is_encrypted)
 }
@@ -155,6 +227,8 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
     let mut was_encrypted = loses_protection(job);
     let mut grew = false;
     let mut failures = Vec::new();
+    let mut summary = String::new();
+    let mut notes = Vec::new();
     let one = |r: Result<PathBuf>| r.map(|p| vec![p]);
     let mut batch = |r: BatchResult| -> Result<Vec<PathBuf>> {
         let (o, f) = r?;
@@ -219,10 +293,146 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::Office { items } => {
             batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(office::office_to_pdf(i, o))))?
         }
+        Job::PageNumbers { items, options } => batch(each(items, cancel, progress, pair, |(i, o)| {
+            let (p, w) = numbers::number_pages(i, options, o)?;
+            was_encrypted |= w;
+            Ok(vec![p])
+        }))?,
+        Job::Watermark { items, options } => batch(each(items, cancel, progress, pair, |(i, o)| {
+            let (p, w) = watermark::watermark(i, options, o)?;
+            was_encrypted |= w;
+            Ok(vec![p])
+        }))?,
+        Job::Crop { input, pages: spec_pages, spec, out } => {
+            let (p, w) = crop::crop(input, spec_pages.as_deref(), spec, out)?;
+            was_encrypted |= w;
+            progress(1.0);
+            vec![p]
+        }
+        Job::Ocr { items, options } => {
+            let n = items.len() as f32;
+            let started = std::cell::Cell::new(0usize);
+            let (mut read, mut skipped, mut words) = (0, 0, 0);
+            let outs = batch(each(items, cancel, progress, pair, |(i, o)| {
+                let k = started.get() as f32;
+                started.set(started.get() + 1);
+                // Progress within the file, and a cancel that stops between its pages.
+                let r = ocr::ocr(i, options, o, &mut |p| {
+                    progress((k + p) / n);
+                    !cancel.load(Ordering::Relaxed)
+                })?;
+                was_encrypted |= r.was_encrypted;
+                read += r.pages_read;
+                skipped += r.pages_skipped;
+                words += r.words;
+                if let Some(w) = r.failure_warning() {
+                    let name = r.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    notes.push(if n > 1.0 { format!("{name} — {w}") } else { w });
+                }
+                Ok(vec![r.path])
+            }))?;
+            summary = ocr::summary(read, words, skipped);
+            outs
+        }
+        Job::Export { items, kind, options } => {
+            let n = items.len() as f32;
+            let started = std::cell::Cell::new(0usize);
+            let mut tables = 0;
+            let outs = batch(each(items, cancel, progress, pair, |(i, o)| {
+                let k = started.get() as f32;
+                started.set(started.get() + 1);
+                let mut step = |p: f32| {
+                    progress((k + p) / n);
+                    !cancel.load(Ordering::Relaxed)
+                };
+                // Office files are not PDFs: an encrypted input needs no protection warning.
+                let path = match kind {
+                    ExportKind::Word => export::to_office(i, Office::Word, options, o, &mut step)?.path,
+                    ExportKind::PowerPoint => export::to_office(i, Office::PowerPoint, options, o, &mut step)?.path,
+                    ExportKind::Excel(layout) => {
+                        let r = excel::to_excel(i, *layout, options, o, &mut step)?;
+                        tables += r.tables;
+                        r.path
+                    }
+                };
+                Ok(vec![path])
+            }))?;
+            if matches!(kind, ExportKind::Excel(_)) {
+                summary = excel::summary(tables);
+            }
+            outs
+        }
+        Job::Compare { old, new, mode, out } => {
+            let r = compare::compare(old, new, *mode, out)?;
+            was_encrypted |= r.was_encrypted;
+            summary = r.summary();
+            progress(1.0);
+            vec![r.path]
+        }
+        Job::Redact { input, marks, out } => {
+            // The marks carry their matched texts: unchecked matches are not removed anywhere.
+            let r = redact::apply(input, marks, &[], out)?;
+            notes.extend(r.warnings.iter().cloned());
+            was_encrypted |= r.was_encrypted;
+            summary = redact::summary(r.areas);
+            progress(1.0);
+            vec![r.path]
+        }
+        Job::Sign { input, page, view_box, graphic, digital, out } => {
+            let info = sign::page_info(input, *page)?;
+            let spec = SignSpec { page: *page, rect: sign::view_rect_to_user(&info, *view_box), graphic: graphic.clone(), digital: digital.clone() };
+            let r = sign::sign(input, &spec, out)?;
+            summary = r.summary();
+            progress(1.0);
+            vec![r.path]
+        }
+        Job::Edit { input, items, out } => {
+            let mut infos = std::collections::HashMap::new();
+            let mut spec = EditSpec::default();
+            for it in items {
+                let page = match it {
+                    EditPlaced::Text { page, .. } | EditPlaced::Image { page, .. } => *page,
+                };
+                let info = match infos.entry(page) {
+                    std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+                    std::collections::hash_map::Entry::Vacant(e) => e.insert(edit::page_info(input, page)?),
+                };
+                spec.items.push(match it {
+                    EditPlaced::Text { at, text, size, color, .. } => {
+                        Item::Text { page, at: edit::view_to_user(info, *at), text: text.clone(), font_size: *size, color: *color }
+                    }
+                    EditPlaced::Image { rect, path, .. } => Item::Image { page, rect: sign::view_rect_to_user(info, *rect), path: path.clone() },
+                });
+            }
+            let r = edit::edit(input, &spec, out)?;
+            was_encrypted |= r.was_encrypted;
+            summary = r.summary();
+            progress(1.0);
+            vec![r.path]
+        }
+        Job::PdfA { items, level } => {
+            let many = items.len() > 1;
+            let mut conforming = 0;
+            let outs = batch(each(items, cancel, progress, pair, |(i, o)| {
+                let r = pdfa::to_pdfa(i, *level, o)?;
+                was_encrypted |= r.was_encrypted;
+                if r.issues.is_empty() {
+                    conforming += 1;
+                }
+                let name = r.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                notes.extend(r.issues.iter().map(|x| {
+                    let line = format!("{}: {}", x.clause, x.message);
+                    if many { format!("{name} — {line}") } else { line }
+                }));
+                Ok(vec![r.path])
+            }))?;
+            summary = pdfa::summary(*level, outs.len() - conforming);
+            outs
+        }
     };
     let after = outputs.iter().map(|p| size(p)).sum();
     let before = job.inputs().iter().map(|p| size(p)).sum();
-    Ok(JobOutcome { outputs, before, after, was_encrypted, grew, failures })
+    Ok(JobOutcome { outputs, before, after, was_encrypted, grew, failures, summary, notes })
 }
 
 /// `run`, with a panic anywhere in the engine turned into an error, so the tab never stays
@@ -294,6 +504,18 @@ pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
         T::ExtractPages => "-extracted",
         T::Organize => "-organized",
         T::Repair => "-repaired",
+        T::PageNumbers => "-numbered",
+        T::Watermark => "-watermarked",
+        T::Crop => "-cropped",
+        T::PdfToPdfA => "-pdfa",
+        T::Ocr => "-ocr",
+        T::PdfToWord => return format!("{stem}.docx"),
+        T::PdfToPowerPoint => return format!("{stem}.pptx"),
+        T::PdfToExcel => return format!("{stem}.xlsx"),
+        T::Compare => "-comparison",
+        T::Redact => "-redacted",
+        T::Sign => "-signed",
+        T::Edit => "-edited",
         _ => "",
     };
     format!("{stem}{suffix}.pdf")
@@ -320,6 +542,15 @@ mod tests {
     fn default_names() {
         assert_eq!(default_name(ToolId::Merge, "a"), "a-merged.pdf");
         assert_eq!(default_name(ToolId::RemovePages, "a"), "a-edited.pdf");
+        assert_eq!(default_name(ToolId::PageNumbers, "a"), "a-numbered.pdf");
+        assert_eq!(default_name(ToolId::Watermark, "a"), "a-watermarked.pdf");
+        assert_eq!(default_name(ToolId::Crop, "a"), "a-cropped.pdf");
+        assert_eq!(default_name(ToolId::PdfToPdfA, "a"), "a-pdfa.pdf");
+        assert_eq!(default_name(ToolId::Ocr, "a"), "a-ocr.pdf");
+        assert_eq!(default_name(ToolId::PdfToWord, "a"), "a.docx");
+        assert_eq!(default_name(ToolId::PdfToPowerPoint, "a"), "a.pptx");
+        assert_eq!(default_name(ToolId::PdfToExcel, "a"), "a.xlsx");
+        assert_eq!(default_name(ToolId::Compare, "a"), "a-comparison.pdf");
         assert_eq!(default_name(ToolId::JpgToPdf, "photo"), "photo.pdf");
         assert_eq!(default_name(ToolId::WordToPdf, "letter"), "letter.pdf");
     }

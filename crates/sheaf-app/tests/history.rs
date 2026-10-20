@@ -108,6 +108,7 @@ fn relative_times() {
 }
 
 #[test]
+#[cfg(unix)]
 fn an_unsavable_entry_is_rejected_and_later_pushes_still_save() {
     use std::os::unix::ffi::OsStrExt;
     let dir = tempfile::tempdir().unwrap();

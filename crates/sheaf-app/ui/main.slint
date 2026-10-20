@@ -7,12 +7,12 @@ import { HistoryScreen, ClearHistoryDialog } from "screens/history.slint";
 import { PreferencesScreen } from "screens/preferences.slint";
 import { RecentFile, HistoryRow } from "history-types.slint";
 import { ToolsScreen, ToolSection } from "screens/tools.slint";
-import { ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool } from "flow-types.slint";
+import { ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, Parse, OcrInfo, OcrLanguage, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay } from "flow-types.slint";
 import { ToolFlowScreen } from "screens/tool-flow.slint";
 import { ResultScreen } from "screens/result.slint";
 import { PasswordDialog, ConfirmCloseDialog, Toast } from "screens/dialogs.slint";
 
-export { Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow }
+export { Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
 export enum Page { recents, tools, history, preferences }
 
@@ -100,6 +100,8 @@ export component AppWindow inherits Window {
     callback open-tool(string);
     callback close-tab(int);
     callback add-files(int);
+    callback open-slot(int, int);
+    callback swap-slots(int);
     callback remove-file(int, int);
     callback move-file(int, int, int);
     callback remove-page(int, int);
@@ -113,6 +115,7 @@ export component AppWindow inherits Window {
     callback start-over(int);
     callback continue-to(int, string);
     callback get-libreoffice();
+    callback pick-image() -> string;
     callback pw-unlock(string);
     callback pw-skip();
     callback confirm-cancel-job();
@@ -130,6 +133,8 @@ export component AppWindow inherits Window {
     changed page => { root.page-shown(); }
 
     title: "Sheaf";
+    // Windows and Linux taskbars (macOS takes the bundle's icon).
+    icon: @image-url("../macos/icon.svg");
     preferred-width: 1280px;
     preferred-height: 800px;
     min-width: 900px;
@@ -207,6 +212,9 @@ export component AppWindow inherits Window {
                     run(o) => { root.run-tool(t.id, o); }
                     cancel => { root.cancel-job(t.id); }
                     get-libreoffice => { root.get-libreoffice(); }
+                    pick-image => { return root.pick-image(); }
+                    open-slot(k) => { root.open-slot(t.id, k); }
+                    swap-slots => { root.swap-slots(t.id); }
                 }
                 if t.phase == 2: ResultScreen {
                     tab: t;

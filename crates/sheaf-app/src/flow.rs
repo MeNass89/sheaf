@@ -17,6 +17,8 @@ use crate::state::{self, refresh, tabs_model, with, FileEntry, Phase, TabState};
 /// Card thumbnail width in pixels (60 logical px on a Retina screen).
 const THUMB_PX: i32 = 120;
 const PAGE_THUMB_PX: i32 = 168;
+/// Crop preview width in pixels.
+const PREVIEW_PX: i32 = 300;
 
 pub fn tool_from_str(s: &str) -> Option<ToolId> {
     ToolId::from_str(s)
@@ -76,6 +78,32 @@ pub fn pick_and_add(ui: &AppWindow, tab_id: i32) {
 
 /// Adds files to a tab: rejected extensions get a toast; single-file tools keep the newest.
 pub fn add_paths(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>) {
+    add_paths_to(ui, tab_id, paths, None);
+}
+
+/// Compare's "Open file" on one slot (0 Original, 1 Changed).
+pub fn pick_for_slot(ui: &AppWindow, tab_id: i32, slot: i32) {
+    let dir = with(|a| a.tab(tab_id).and_then(|t| t.files.last()).and_then(|f| f.input.path.parent().map(|d| d.to_path_buf())));
+    let mut dlg = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_title(if slot == 0 { "Choose the original PDF" } else { "Choose the changed PDF" });
+    if let Some(dir) = dir {
+        dlg = dlg.set_directory(dir);
+    }
+    if let Some(p) = dlg.pick_file() {
+        add_paths_to(ui, tab_id, vec![p], Some(slot.clamp(0, 1) as usize));
+    }
+}
+
+/// Compare: Original and Changed trade places.
+pub fn swap_compare(tab_id: i32) {
+    with(|a| {
+        if let Some(t) = a.tab(tab_id) {
+            t.swap_compare();
+        }
+        refresh(a, tab_id);
+    });
+}
+
+fn add_paths_to(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>, slot: Option<usize>) {
     let Some(tool) = with(|a| a.tab(tab_id).filter(|t| matches!(t.phase, Phase::Edit)).map(|t| t.tool)) else { return };
     let multi = tools::find(tool).multi;
     let mut probes = Vec::new();
@@ -88,13 +116,21 @@ pub fn add_paths(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>) {
             a.next_uid += 1;
             let uid = a.next_uid;
             let Some(t) = a.tab(tab_id) else { return };
+            let kind = files::kind_of(&p);
+            let entry = FileEntry { uid, input: Input::new(&p), kind, size: files::file_size(&p), pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0 };
+            if tool == ToolId::Compare {
+                let taken: Vec<usize> = t.files.iter().map(|f| f.slot).collect();
+                // Several files at once fill the slots in order; one asked-for slot is used once.
+                t.put_compare(state::compare_slot(&taken, slot), entry);
+                probes.push((uid, Input::new(&p), kind));
+                return;
+            }
             if !multi {
                 t.files.clear();
                 t.order.clear();
                 t.page_thumbs.clear();
             }
-            let kind = files::kind_of(&p);
-            t.files.push(FileEntry { uid, input: Input::new(&p), kind, size: files::file_size(&p), pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false });
+            t.files.push(entry);
             probes.push((uid, Input::new(&p), kind));
         });
     }
@@ -111,32 +147,52 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
     sheaf_app::pool::probes().submit(move || match kind {
         Kind::Pdf => {
             let mut panicked = false;
-            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| files::probe_pdf(&input, THUMB_PX))).unwrap_or_else(|p| {
+            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| files::probe_pdf_full(&input, THUMB_PX))).unwrap_or_else(|p| {
                 panicked = true;
                 Err(OpdfError::Conversion(format!("internal error: {}", sheaf_app::jobs::panic_message(&*p))))
             });
             let _ = weak.upgrade_in_event_loop(move |ui| match r {
-                Ok((pages, thumb)) => {
-                    let organize = with(|a| {
-                        let t = a.tab(tab_id)?;
-                        let f = t.files.iter_mut().find(|f| f.uid == uid)?;
+                Ok((_, _, true)) if with(|a| a.tab(tab_id).is_some_and(|t| files::refuses_protected(t.tool))) => {
+                    toast(&ui, files::SIGN_PROTECTED);
+                    remove_file(&ui, tab_id, uid);
+                    crate::password::done(&ui, tab_id, uid);
+                }
+                Ok((pages, thumb, _)) => {
+                    let (organize, crop, view) = with(|a| {
+                        let Some(t) = a.tab(tab_id) else { return (None, None, None) };
+                        let Some(f) = t.files.iter_mut().find(|f| f.uid == uid) else { return (None, None, None) };
                         f.pages = Some(pages);
                         f.thumb = Some(state::to_image(thumb));
                         f.locked = f.input.password.is_some();
                         let input = f.input.clone();
-                        if t.tool == ToolId::Organize {
+                        if t.tool == ToolId::Crop {
+                            t.preview = None;
+                            return (None, Some(input), None);
+                        }
+                        if matches!(t.tool, ToolId::Redact | ToolId::Sign | ToolId::Edit) {
+                            t.new_viewer_file();
+                            return (None, None, Some(input));
+                        }
+                        let organize = if t.tool == ToolId::Organize {
                             t.order = (1..=pages).collect();
                             t.page_thumbs.clear();
                             t.pages_failed = false;
                             Some(input)
                         } else {
                             None
-                        }
+                        };
+                        (organize, None, None)
                     });
                     with(|a| refresh(a, tab_id));
                     crate::password::done(&ui, tab_id, uid);
                     if let Some(input) = organize {
                         page_thumbs(&ui, tab_id, input);
+                    }
+                    if let Some(input) = crop {
+                        crop_preview(&ui, tab_id, uid, input);
+                    }
+                    if let Some(input) = view {
+                        crate::viewer_ui::load(&ui, tab_id, input);
                     }
                 }
                 Err(e) => {
@@ -153,6 +209,10 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                                 refresh(a, tab_id);
                             });
                             crate::password::done(&ui, tab_id, uid);
+                        }
+                        ProbeFailure::RefuseProtected => {
+                            toast(&ui, files::SIGN_PROTECTED);
+                            remove_file(&ui, tab_id, uid);
                         }
                         ProbeFailure::Remove => {
                             toast(&ui, &format!("Cannot open {}: {e}", input.path.file_name().unwrap_or_default().to_string_lossy()));
@@ -208,16 +268,29 @@ fn page_thumbs(ui: &AppWindow, tab_id: i32, input: Input) {
     });
 }
 
+/// Crop: page 1 at `PREVIEW_PX` on the probe pool, shown under the margin fields. Dropped if
+/// the file was replaced meanwhile.
+fn crop_preview(ui: &AppWindow, tab_id: i32, uid: i32, input: Input) {
+    let weak = ui.as_weak();
+    sheaf_app::pool::probes().submit(move || {
+        let Ok((thumb, w, h)) = catching(|| files::first_page_preview(&input, PREVIEW_PX)) else { return };
+        let _ = weak.upgrade_in_event_loop(move |_| {
+            with(|a| {
+                if let Some(t) = a.tab(tab_id).filter(|t| t.files.first().is_some_and(|f| f.uid == uid)) {
+                    t.preview = Some((state::to_image(thumb), w, h));
+                }
+                refresh(a, tab_id);
+            });
+        });
+    });
+}
+
 // ---- file and page edits ----------------------------------------------------------------------
 
 pub fn remove_file(ui: &AppWindow, tab_id: i32, uid: i32) {
     with(|a| {
         if let Some(t) = a.tab(tab_id) {
-            t.files.retain(|f| f.uid != uid);
-            if t.files.is_empty() {
-                t.order.clear();
-                t.page_thumbs.clear();
-            }
+            t.remove_file(uid);
         }
         refresh(a, tab_id);
     });
@@ -304,7 +377,11 @@ pub fn dropped(ui: &AppWindow, path: PathBuf) {
 /// PDFs opened from Home: kept for the next tool opened; Tools is shown to pick one.
 pub fn home_files(ui: &AppWindow, paths: Vec<PathBuf>) {
     let n = with(|a| {
-        a.home_files.extend(paths);
+        for p in paths {
+            if !a.home_files.contains(&p) {
+                a.home_files.push(p);
+            }
+        }
         a.home_files.len()
     });
     ui.set_active_tab(-1);

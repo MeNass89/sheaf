@@ -26,6 +26,8 @@ pub struct FileEntry {
     /// Repair: pdfium cannot open the file; the job will try lopdf's recovery.
     pub unreadable: bool,
     pub locked: bool,
+    /// Compare: 0 Original, 1 Changed (0 for every other tool).
+    pub slot: usize,
 }
 
 pub enum Phase {
@@ -57,6 +59,20 @@ pub struct TabState {
     /// Organize: page previews could not be rendered.
     pub pages_failed: bool,
     pub office_missing: bool,
+    /// Crop: page 1 of the file, and its displayed size in points.
+    pub preview: Option<(Image, f32, f32)>,
+    /// Edit: the text and images placed.
+    pub edit: crate::edit_ui::EditState,
+    /// Sign: the signature being made.
+    pub sign: crate::sign_ui::SignState,
+    /// Redact, Sign and Edit: the page viewer of the file, with its marks or the signature placed.
+    pub viewer: Option<Box<crate::viewer_ui::ViewerUi>>,
+    /// Redact: why the viewer could not open the file.
+    pub viewer_error: Option<String>,
+    /// The viewer widget's last viewport (width, top, height) and strip (top, height), kept
+    /// for a document that finishes loading after the widget reported them.
+    pub viewport: (f32, f32, f32),
+    pub strip: (f32, f32),
 }
 
 impl TabState {
@@ -74,12 +90,61 @@ impl TabState {
             progress: 0.0,
             cancelling: false,
             pages_failed: false,
+            preview: None,
+            edit: crate::edit_ui::EditState::new(),
+            sign: crate::sign_ui::SignState::new(),
+            viewer: None,
+            viewer_error: None,
+            viewport: (600.0, 0.0, 800.0),
+            strip: (0.0, 800.0),
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
+        }
+    }
+
+    /// The viewer's file changed (Redact, Sign, Edit): the viewer reloads, and items placed on
+    /// the old file's pages are dropped, so they never go into the new file's job.
+    pub fn new_viewer_file(&mut self) {
+        self.viewer = None;
+        self.viewer_error = None;
+        self.edit = crate::edit_ui::EditState::new();
+    }
+
+    /// Removes file `uid`; with no file left, everything made for it goes too.
+    pub fn remove_file(&mut self, uid: i32) {
+        self.files.retain(|f| f.uid != uid);
+        if self.files.is_empty() {
+            self.order.clear();
+            self.page_thumbs.clear();
+            self.preview = None;
+            self.new_viewer_file();
         }
     }
 }
 
+/// Compare: the slot a new file goes in (0 Original, 1 Changed). `wanted` is the per-slot
+/// "Open file"; otherwise the first empty slot, and with both full the Changed one.
+pub fn compare_slot(taken: &[usize], wanted: Option<usize>) -> usize {
+    wanted.map(|s| s.min(1)).unwrap_or_else(|| if taken.contains(&0) { 1 } else { 0 })
+}
+
 impl TabState {
+    /// Puts `f` in Compare's slot `slot` (0 Original, 1 Changed), replacing what was there.
+    /// `files` stays ordered by slot.
+    pub fn put_compare(&mut self, slot: usize, mut f: FileEntry) {
+        f.slot = slot;
+        self.files.retain(|x| x.slot != slot);
+        self.files.push(f);
+        self.files.sort_by_key(|x| x.slot);
+    }
+
+    /// Compare: Original and Changed trade places.
+    pub fn swap_compare(&mut self) {
+        for f in &mut self.files {
+            f.slot = 1 - f.slot.min(1);
+        }
+        self.files.sort_by_key(|x| x.slot);
+    }
+
     /// The action button was pressed: a fresh run, never inheriting an earlier Cancel.
     pub fn start_job(&mut self) {
         self.phase = Phase::Running;
@@ -138,6 +203,7 @@ fn file_item(f: &FileEntry) -> FileItem {
         // A file pdfium cannot read gets the generic document icon.
         kind: if f.unreadable { Kind::Document.index() } else { f.kind.index() },
         locked: f.locked,
+        slot: f.slot as i32,
     }
 }
 
@@ -153,6 +219,13 @@ fn verb(tool: ToolId) -> &'static str {
         ToolId::Protect => "protected",
         ToolId::Unlock => "unlocked",
         ToolId::Repair => "repaired",
+        ToolId::PageNumbers => "numbered",
+        ToolId::Watermark => "watermarked",
+        ToolId::Crop => "cropped",
+        ToolId::Ocr => "made searchable",
+        ToolId::Redact => "redacted",
+        ToolId::Sign => "signed",
+        ToolId::Edit => "edited",
         _ => "converted",
     }
 }
@@ -160,12 +233,33 @@ fn verb(tool: ToolId) -> &'static str {
 /// Result-page warning when a protected input gave an unprotected output.
 pub const NOT_PROTECTED: &str = "The output is not password-protected.";
 
+/// Redact: the written file was re-opened and audited (a failed audit is a failed job).
+pub const REDACTION_VERIFIED: &str = sheaf_core::redact::VERIFIED;
+
 /// Compress of protected input whose unprotected copy came out larger.
 fn grew_text(many: bool, before: u64, after: u64) -> String {
     let pct = (-percent_saved(before, after)).max(1);
     let what = if many { "The unprotected copies are" } else { "The unprotected copy is" };
     let of = if many { "the protected originals" } else { "the protected original" };
     format!("{what} {pct}% larger than {of}.")
+}
+
+/// What PDF to Word / PowerPoint / Excel make, for the result title.
+fn exported_kind(tool: ToolId) -> Option<&'static str> {
+    match tool {
+        ToolId::PdfToWord => Some("Word document"),
+        ToolId::PdfToPowerPoint => Some("presentation"),
+        ToolId::PdfToExcel => Some("spreadsheet"),
+        _ => None,
+    }
+}
+
+/// Heading above the result notes.
+fn notes_title(tool: ToolId) -> &'static str {
+    match tool {
+        ToolId::PdfToPdfA => "Not fixed (clause of ISO 19005 and problem):",
+        _ => "Notes:",
+    }
 }
 
 fn percent_saved(before: u64, after: u64) -> i64 {
@@ -209,9 +303,28 @@ pub fn build(t: &TabState) -> ToolTab {
                 .collect::<Vec<_>>(),
         )),
         office_missing: t.office_missing,
+        has_preview: t.preview.is_some(),
+        preview: t.preview.as_ref().map(|p| p.0.clone()).unwrap_or_default(),
+        preview_w: t.preview.as_ref().map(|p| p.1).unwrap_or_default(),
+        preview_h: t.preview.as_ref().map(|p| p.2).unwrap_or_default(),
         files_ready: t.files.iter().all(|f| f.kind != Kind::Pdf || f.pages.is_some() || f.unreadable || f.thumb_failed),
         default_out: t.files.first().map(|f| sheaf_app::jobs::default_name(t.tool, &f.input.stem())).unwrap_or_default().into(),
         ..Default::default()
+    };
+    if let Some(v) = &t.viewer {
+        crate::viewer_ui::fill(&mut tab, v);
+        if t.tool == ToolId::Sign {
+            crate::viewer_ui::fill_sign(&mut tab, v, t.sign.width(), t.sign.preview.as_ref().map(|p| p.1));
+        }
+    }
+    crate::sign_ui::fill(&mut tab, &t.sign);
+    if t.tool == ToolId::Edit {
+        crate::edit_ui::fill(&mut tab, &t.edit, t.viewer.as_ref().map(|v| &v.viewer));
+    }
+    tab.viewer_status = match (&t.viewer, &t.viewer_error, t.files.is_empty()) {
+        (Some(_), _, _) | (None, None, true) => "".into(),
+        (None, Some(e), _) => e.as_str().into(),
+        (None, None, false) => "Opening…".into(),
     };
     if let Phase::Done(d) = &t.phase {
         fill_result(&mut tab, t, d);
@@ -225,6 +338,11 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
     let is_compress = t.tool == ToolId::Compress;
     tab.result_title = if t.tool == ToolId::PdfToJpg {
         "Your images have been created successfully.".into()
+    } else if let Some(what) = exported_kind(t.tool) {
+        let (it, have) = if many { (format!("{what}s"), "have") } else { (what.to_string(), "has") };
+        format!("Your {it} {have} been created successfully.").into()
+    } else if t.tool == ToolId::Compare {
+        "Your comparison report has been created successfully.".into()
     } else if many {
         format!("Your PDFs have been {} successfully.", verb(t.tool)).into()
     } else {
@@ -244,8 +362,19 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
         tab.size_before = files::human_size(o.before).into();
         tab.size_after = files::human_size(o.after).into();
     }
+    if !o.summary.is_empty() {
+        tab.result_sub = o.summary.clone().into();
+    }
     if o.was_encrypted {
         tab.warning = NOT_PROTECTED.into();
+    }
+    if t.tool == ToolId::Redact && !o.outputs.is_empty() {
+        tab.result_verified = REDACTION_VERIFIED.into();
+    }
+    if !o.notes.is_empty() {
+        tab.notes_title = notes_title(t.tool).into();
+        let lines: Vec<slint::SharedString> = o.notes.iter().map(|n| n.as_str().into()).collect();
+        tab.notes = ModelRc::new(VecModel::from(lines));
     }
     if !o.failures.is_empty() {
         let n = o.failures.len();
@@ -272,6 +401,10 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
                 info: files::caption(size, d.page_counts.get(i).copied().flatten()).into(),
                 note: note.into(),
                 is_pdf: files::kind_of(p) == Kind::Pdf,
+                kind: match files::ext(p).as_str() {
+                    e @ ("docx" | "pptx" | "xlsx") => e.into(),
+                    _ => "image".into(),
+                },
             }
         })
         .collect();
@@ -325,6 +458,20 @@ pub fn refresh(app: &App, id: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn edit_items_are_dropped_when_the_file_changes_or_is_removed() {
+        let mut t = TabState::new(1, ToolId::Edit);
+        let place = |t: &mut TabState| t.edit.release(0, (10.0, 10.0), (400.0, 500.0));
+        place(&mut t);
+        assert_eq!(t.edit.items.len(), 1);
+        t.new_viewer_file();
+        assert!(t.edit.items.is_empty() && t.edit.selected.is_none());
+        place(&mut t);
+        // No file: removing an unknown one still leaves none, so the items go.
+        t.remove_file(42);
+        assert!(t.edit.items.is_empty());
+    }
 
     #[test]
     fn continue_to_offers_pdf_tools_for_pdfs_and_jpg_to_pdf_for_images() {
@@ -385,6 +532,77 @@ mod tests {
         assert_eq!(tab.failure_title, "1 file failed:");
         assert_eq!(tab.failures.row_data(0).unwrap(), "b.docx — conversion failed: boom");
         assert_eq!(tab.outputs.row_count(), 1);
+    }
+
+    #[test]
+    fn pdfa_result_shows_the_summary_and_the_rules_left() {
+        let o = JobOutcome {
+            outputs: vec![PathBuf::from("/x/a-pdfa.pdf")],
+            summary: "1 file does not fully conform to PDF/A-2b".into(),
+            notes: vec!["6.2.11.4: The font Helvetica isn't embedded".into()],
+            ..Default::default()
+        };
+        let tab = done_tab(ToolId::PdfToPdfA, o);
+        assert_eq!(tab.result_sub, "1 file does not fully conform to PDF/A-2b");
+        assert_eq!(tab.notes.row_data(0).unwrap(), "6.2.11.4: The font Helvetica isn't embedded");
+        assert!(tab.notes_title.starts_with("Not fixed"));
+        let ok = JobOutcome { outputs: vec![PathBuf::from("/x/a-pdfa.pdf")], summary: "Conforms to PDF/A-2b".into(), ..Default::default() };
+        let tab = done_tab(ToolId::PdfToPdfA, ok);
+        assert_eq!((tab.result_sub.as_str(), tab.notes_title.as_str()), ("Conforms to PDF/A-2b", ""));
+    }
+
+    #[test]
+    fn office_exports_get_their_own_title_and_no_pdf_tools() {
+        let o = JobOutcome { outputs: vec![PathBuf::from("/x/a.docx")], ..Default::default() };
+        let tab = done_tab(ToolId::PdfToWord, o);
+        assert_eq!(tab.result_title, "Your Word document has been created successfully.");
+        assert!(!tab.outputs.row_data(0).unwrap().is_pdf);
+        assert_eq!(tab.outputs.row_data(0).unwrap().kind, "docx");
+        assert_eq!(tab.continue_tools.row_count(), 0);
+        let o = JobOutcome { outputs: vec![PathBuf::from("/x/a.xlsx"), PathBuf::from("/x/b.xlsx")], ..Default::default() };
+        assert_eq!(done_tab(ToolId::PdfToExcel, o).result_title, "Your spreadsheets have been created successfully.");
+        for out in ["a.docx", "a.pptx", "a.xlsx"] {
+            assert!(continue_tools(ToolId::PdfToWord, &[PathBuf::from(out)]).is_empty(), "{out}");
+        }
+        let ocr = continue_tools(ToolId::Ocr, &[PathBuf::from("a-ocr.pdf")]);
+        assert!(ocr.contains(&ToolId::PdfToWord) && ocr.contains(&ToolId::Compress) && !ocr.contains(&ToolId::Ocr));
+    }
+
+    fn entry(uid: i32) -> FileEntry {
+        FileEntry { uid, input: Input::new(format!("/x/{uid}.pdf")), kind: Kind::Pdf, size: 0, pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0 }
+    }
+
+    #[test]
+    fn compare_keeps_an_original_and_a_changed_file() {
+        let mut t = TabState::new(1, ToolId::Compare);
+        let uids = |t: &TabState| t.files.iter().map(|f| (f.slot, f.uid)).collect::<Vec<_>>();
+        let taken = |t: &TabState| t.files.iter().map(|f| f.slot).collect::<Vec<_>>();
+        // Two files added at once: the first is the Original.
+        t.put_compare(compare_slot(&taken(&t), None), entry(1));
+        t.put_compare(compare_slot(&taken(&t), None), entry(2));
+        assert_eq!(uids(&t), [(0, 1), (1, 2)]);
+        // A third replaces the Changed one; a per-slot open replaces that slot.
+        t.put_compare(compare_slot(&taken(&t), None), entry(3));
+        assert_eq!(uids(&t), [(0, 1), (1, 3)]);
+        t.put_compare(compare_slot(&taken(&t), Some(0)), entry(4));
+        assert_eq!(uids(&t), [(0, 4), (1, 3)]);
+        t.swap_compare();
+        assert_eq!(uids(&t), [(0, 3), (1, 4)]);
+        // Changed chosen first: the Original slot stays empty until a file arrives.
+        let mut t = TabState::new(2, ToolId::Compare);
+        t.put_compare(compare_slot(&taken(&t), Some(1)), entry(7));
+        assert_eq!(uids(&t), [(1, 7)]);
+        t.put_compare(compare_slot(&taken(&t), None), entry(8));
+        assert_eq!(uids(&t), [(0, 8), (1, 7)]);
+    }
+
+    #[test]
+    fn redact_result_says_how_many_areas_and_that_the_audit_passed() {
+        let o = JobOutcome { outputs: vec![PathBuf::from("/x/a-redacted.pdf")], summary: "3 areas redacted".into(), ..Default::default() };
+        let tab = done_tab(ToolId::Redact, o);
+        assert_eq!(tab.result_title, "Your PDF has been redacted successfully.");
+        assert_eq!((tab.result_sub.as_str(), tab.result_verified.as_str()), ("3 areas redacted", REDACTION_VERIFIED));
+        assert_eq!(done_tab(ToolId::Rotate, JobOutcome { outputs: vec![PathBuf::from("/x/a.pdf")], ..Default::default() }).result_verified, "");
     }
 
     #[test]

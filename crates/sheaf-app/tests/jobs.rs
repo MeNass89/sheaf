@@ -257,3 +257,227 @@ fn office_batch_keeps_the_first_pdf_when_the_second_fails() {
     assert_eq!(out.outputs, vec![dir.path().join("a.pdf")]);
     assert_eq!(out.failures.iter().map(|f| f.0.clone()).collect::<Vec<_>>(), vec![missing]);
 }
+
+#[test]
+fn numbers_watermark_and_crop_jobs_warn_on_protected_input() {
+    use sheaf_core::{crop::CropSpec, numbers::NumberOptions, watermark::{Mark, WatermarkOptions}};
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let prot = sheaf_core::security::protect(&Input::new(&src), "pw", None, &dir.path().join("p.pdf")).unwrap();
+    let locked = Input { path: prot, password: Some("pw".into()) };
+    let no = AtomicBool::new(false);
+    let mark = Mark::Text { text: "DRAFT".into(), font_size: 30.0, color: [0.0; 3] };
+    let jobs = [
+        Job::PageNumbers { items: vec![(Input::new(&src), dir.path().join("n.pdf")), (locked.clone(), dir.path().join("n2.pdf"))], options: NumberOptions::default() },
+        Job::Watermark { items: vec![(locked.clone(), dir.path().join("w.pdf"))], options: WatermarkOptions { mark, ..Default::default() } },
+        Job::Crop { input: locked.clone(), pages: None, spec: CropSpec::Margins { top: 10.0, bottom: 10.0, left: 10.0, right: 10.0 }, out: dir.path().join("c.pdf") },
+    ];
+    for job in &jobs {
+        let o = run(job, &no, &|_| {}).unwrap();
+        assert!(o.was_encrypted, "{job:?}");
+        assert!(o.outputs.iter().all(|p| p.is_file()));
+    }
+    let plain = Job::Crop { input: Input::new(&src), pages: Some("1".into()), spec: CropSpec::Remove, out: dir.path().join("c2.pdf") };
+    assert!(!run(&plain, &no, &|_| {}).unwrap().was_encrypted);
+}
+
+#[test]
+fn pdfa_job_reports_conformance_or_the_rules_still_broken() {
+    use sheaf_core::pdfa::PdfALevel;
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let no = AtomicBool::new(false);
+    let o = run(&Job::PdfA { items: vec![(Input::new(&src), dir.path().join("a-pdfa.pdf"))], level: PdfALevel::A2b }, &no, &|_| {}).unwrap();
+    assert_eq!(o.summary, "Conforms to PDF/A-2b");
+    assert!(o.notes.is_empty() && !o.was_encrypted);
+    // Text in a font that is not embedded cannot be fixed: the rule is listed.
+    let text = helvetica_pdf(dir.path());
+    let prot = sheaf_core::security::protect(&Input::new(&text), "pw", None, &dir.path().join("p.pdf")).unwrap();
+    let locked = Input { path: prot, password: Some("pw".into()) };
+    let o = run(&Job::PdfA { items: vec![(locked, dir.path().join("p-pdfa.pdf"))], level: PdfALevel::A3b }, &no, &|_| {}).unwrap();
+    assert!(o.was_encrypted);
+    assert_eq!(o.summary, "1 file does not fully conform to PDF/A-3b");
+    assert!(o.notes.iter().any(|n| n.starts_with("6.2.11.4: ")), "{:?}", o.notes);
+}
+
+/// One A4 page of text in Helvetica, not embedded.
+fn helvetica_pdf(dir: &Path) -> PathBuf {
+    use pdfium_render::prelude::*;
+    let _g = pdfium_lock();
+    let mut doc = sheaf_core::engine::new_document();
+    let font = doc.fonts_mut().helvetica();
+    let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+    page.objects_mut().create_text_object(PdfPoints::new(72.0), PdfPoints::new(720.0), "Hello", font, PdfPoints::new(24.0)).unwrap();
+    let path = dir.join("text.pdf");
+    doc.save_to_file(&path).unwrap();
+    path
+}
+
+#[test]
+fn ocr_job_reports_progress_and_a_cancel_inside_a_file_writes_nothing() {
+    use sheaf_core::ocr::OcrOptions;
+    use std::sync::atomic::Ordering;
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let text = helvetica_pdf(dir.path());
+    let no = AtomicBool::new(false);
+    let seen = std::cell::RefCell::new(Vec::new());
+    let items = vec![(Input::new(&src), dir.path().join("a-ocr.pdf")), (Input::new(&text), dir.path().join("t-ocr.pdf"))];
+    let o = run(&Job::Ocr { items: items.clone(), options: OcrOptions::default() }, &no, &|p| seen.borrow_mut().push(p)).unwrap();
+    assert_eq!(o.outputs.len(), 2);
+    assert_eq!(o.summary, "2 pages read, 0 words added, 1 page already had text");
+    let seen = seen.into_inner();
+    assert!(seen.windows(2).all(|w| w[0] <= w[1]) && seen.last() == Some(&1.0), "{seen:?}");
+    assert!(seen.iter().any(|p| *p > 0.0 && *p < 0.5), "progress inside the first file: {seen:?}");
+    // Cancel pressed while the first file is being read.
+    let cancel = AtomicBool::new(false);
+    let r = run(&Job::Ocr { items, options: OcrOptions::default() }, &cancel, &|p| if p > 0.0 { cancel.store(true, Ordering::Relaxed) });
+    assert!(matches!(r, Err(OpdfError::Cancelled)), "{r:?}");
+    let names: Vec<_> = std::fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+    assert!(!names.iter().any(|n| n.contains("ocr (1)") || n.ends_with(".part")), "{names:?}");
+}
+
+#[test]
+fn export_jobs_write_office_files_and_never_warn() {
+    use sheaf_app::jobs::ExportKind;
+    use sheaf_core::{excel::SheetLayout, export::ExportOptions};
+    let dir = tempfile::tempdir().unwrap();
+    let text = helvetica_pdf(dir.path());
+    let prot = sheaf_core::security::protect(&Input::new(&text), "pw", None, &dir.path().join("p.pdf")).unwrap();
+    let locked = Input { path: prot, password: Some("pw".into()) };
+    let no = AtomicBool::new(false);
+    for (kind, ext) in [(ExportKind::Word, "docx"), (ExportKind::PowerPoint, "pptx"), (ExportKind::Excel(SheetLayout::OneSheet), "xlsx")] {
+        let out = dir.path().join(format!("p.{ext}"));
+        let o = run(&Job::Export { items: vec![(locked.clone(), out.clone())], kind, options: ExportOptions::default() }, &no, &|_| {}).unwrap();
+        assert_eq!(o.outputs, vec![out.clone()]);
+        assert!(!o.was_encrypted, "an Office file is not a PDF: no protection warning");
+        let z = std::process::Command::new("unzip").arg("-l").arg(&out).output().unwrap();
+        assert!(z.status.success(), "{ext} is a zip");
+    }
+}
+
+#[test]
+fn compare_job_shows_the_counts() {
+    use sheaf_core::compare::CompareMode;
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let text = helvetica_pdf(dir.path());
+    let no = AtomicBool::new(false);
+    let o = run(&Job::Compare { old: Input::new(&text), new: Input::new(&text), mode: CompareMode::Text, out: dir.path().join("c.pdf") }, &no, &|_| {}).unwrap();
+    assert_eq!(o.summary, "No differences: the documents' text is identical.");
+    assert_eq!(o.outputs.len(), 1);
+    let o = run(&Job::Compare { old: Input::new(&src), new: Input::new(&text), mode: CompareMode::Overlay, out: dir.path().join("o.pdf") }, &no, &|_| {}).unwrap();
+    // The page-number-free image PDF has no words: every word of the new one is added. Its red
+    // picture is gone too, a change no word accounts for: outlined.
+    assert_eq!(o.summary, "1 added, 0 removed, 0 changed; 1 other changed area outlined");
+}
+
+#[test]
+fn redact_job_counts_the_areas_and_warns_on_protected_input() {
+    use sheaf_core::redact::{self, Query};
+    let dir = tempfile::tempdir().unwrap();
+    let text = helvetica_pdf(dir.path());
+    // qpdf, not `security::protect`: about 1 in 30 of its outputs is refused by PdfCraft's
+    // parser (InvalidEncryption), which would make this test flaky.
+    let prot = dir.path().join("p.pdf");
+    protect_with_qpdf(&text, &prot, "pw", "owner");
+    let locked = Input { path: prot, password: Some("pw".into()) };
+    let hits = redact::find(&locked, &Query::Literal { text: "hello".into(), case_insensitive: true }).unwrap();
+    let mut marks = redact::mark_text(&hits);
+    marks.extend(redact::mark_rects(&[(0, [300.0, 300.0, 400.0, 400.0])]));
+    let no = AtomicBool::new(false);
+    let o = run(&Job::Redact { input: locked, marks, out: dir.path().join("r.pdf") }, &no, &|_| {}).unwrap();
+    assert_eq!(o.summary, "2 areas redacted");
+    assert!(o.was_encrypted);
+    let d = lopdf::Document::load(&o.outputs[0]).unwrap();
+    assert!(!d.extract_text(&[1]).unwrap().contains("Hello"));
+}
+
+#[test]
+fn sign_job_places_the_signature_in_the_box_clicked_on_a_turned_page() {
+    let dir = tempfile::tempdir().unwrap();
+    // Page 2 of the fixture is landscape; turned a quarter it shows portrait.
+    let src = two_page_pdf(dir.path());
+    let turned = dir.path().join("turned.pdf");
+    assert!(std::process::Command::new("qpdf").arg(&src).arg("--rotate=+90:2").arg(&turned).status().unwrap().success());
+    let info = sheaf_core::sign::page_info(&Input::new(&turned), 1).unwrap();
+    assert_eq!(info.rotation, 90);
+    let (w, h) = (info.width as f64, info.height as f64);
+    assert!(h > w, "shown portrait: {w} x {h}");
+    // A box as displayed (points, y down): the middle 60 % across, around 40 % down.
+    let view_box = [0.2 * w, 0.35 * h, 0.8 * w, 0.45 * h];
+    let no_cancel = AtomicBool::new(false);
+    let job = Job::Sign {
+        input: Input::new(&turned),
+        page: 1,
+        view_box,
+        graphic: sheaf_core::sign::Graphic::Drawn(vec![vec![[0.0, 0.0], [1.0, 0.0]]]),
+        digital: None,
+        out: dir.path().join("signed.pdf"),
+    };
+    let o = run(&job, &no_cancel, &|_| {}).unwrap();
+    assert_eq!(o.summary, "Signed");
+    assert!(!o.was_encrypted);
+    // A horizontal line as displayed: rendered upright (2 px per point), the ink runs across
+    // the box at its middle height.
+    let doc = sheaf_core::pdfcraft::Doc::open(&Input::new(&o.outputs[0])).unwrap();
+    let r = doc.render(1, 2.0).unwrap();
+    let k = r.width as f64 / w;
+    assert!(r.height > r.width);
+    let dark: Vec<(u32, u32)> = (0..r.height)
+        .flat_map(|y| (0..r.width).map(move |x| (x, y)))
+        .filter(|&(x, y)| {
+            let p = &r.rgba[((y * r.width + x) * 4) as usize..];
+            p[3] > 128 && p[0] < 60 && p[1] < 60 && p[2] < 60
+        })
+        .collect();
+    assert!(!dark.is_empty(), "no ink");
+    let (xs, ys): (Vec<u32>, Vec<u32>) = dark.into_iter().unzip();
+    let px = |v: &[u32], max: bool| *if max { v.iter().max() } else { v.iter().min() }.unwrap() as f64 / k;
+    let (x0, x1, y0, y1) = (px(&xs, false), px(&xs, true), px(&ys, false), px(&ys, true));
+    let near = |a: f64, b: f64| (a - b).abs() < 0.04 * w + 3.0;
+    assert!(near(x0, view_box[0]) && near(x1, view_box[2]), "ink x {x0:.1}..{x1:.1}, box {view_box:?}");
+    assert!(near((y0 + y1) / 2.0, 0.4 * h) && y1 - y0 < 0.05 * h, "ink y {y0:.1}..{y1:.1}");
+}
+
+#[test]
+fn edit_job_puts_text_and_image_where_placed_in_the_viewer_on_a_turned_page() {
+    use sheaf_app::jobs::EditPlaced;
+    let dir = tempfile::tempdir().unwrap();
+    // A blank A4 page shown turned a quarter (landscape as displayed).
+    let blank = dir.path().join("blank.png");
+    image::RgbImage::from_pixel(595, 842, image::Rgb([255, 255, 255])).save(&blank).unwrap();
+    let src = images_to_pdf(&[blank], PageLayout::FitImage, &dir.path().join("blank.pdf")).unwrap();
+    let turned = dir.path().join("turned.pdf");
+    assert!(std::process::Command::new("qpdf").arg(&src).arg("--rotate=+90:1").arg(&turned).status().unwrap().success());
+    let green = dir.path().join("g.png");
+    image::RgbImage::from_pixel(20, 10, image::Rgb([20, 170, 40])).save(&green).unwrap();
+    let job = Job::Edit {
+        input: Input::new(&turned),
+        items: vec![
+            EditPlaced::Text { page: 0, at: [100.0, 50.0], text: "Placed".into(), size: 24.0, color: [26, 77, 217] },
+            EditPlaced::Image { page: 0, rect: [500.0, 300.0, 600.0, 350.0], path: green },
+        ],
+        out: dir.path().join("edited.pdf"),
+    };
+    let o = run(&job, &AtomicBool::new(false), &|_| {}).unwrap();
+    assert_eq!((o.summary.as_str(), o.was_encrypted), ("2 items added", false));
+    let doc = sheaf_core::pdfcraft::Doc::open(&Input::new(&o.outputs[0])).unwrap();
+    let r = doc.render(0, 1.0).unwrap();
+    assert!(r.width > r.height, "shown landscape: {}x{}", r.width, r.height);
+    let boxed = |f: &dyn Fn(&[u8]) -> bool| {
+        let mut b: Option<[u32; 4]> = None;
+        for y in 0..r.height {
+            for x in 0..r.width {
+                if f(&r.rgba[((y * r.width + x) * 4) as usize..][..4]) {
+                    b = Some(b.map_or([x, y, x, y], |b| [b[0].min(x), b[1].min(y), b[2].max(x), b[3].max(y)]));
+                }
+            }
+        }
+        b
+    };
+    let blue = boxed(&|p| p[2] > 150 && p[0] < 100 && p[1] < 130).expect("no text");
+    assert!(blue[0] >= 100 && blue[0] <= 104 && blue[1] >= 50 && blue[3] < 80 && blue[2] - blue[0] > 50, "text ink {blue:?}");
+    let g = boxed(&|p| p[1] > 140 && p[0] < 60 && p[2] < 80).expect("no image");
+    assert!(g.iter().zip([500, 300, 599, 349]).all(|(a, e)| a.abs_diff(e) <= 1), "image at {g:?}");
+}

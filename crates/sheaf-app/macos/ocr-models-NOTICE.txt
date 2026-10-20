@@ -1,0 +1,11 @@
+OCR models: text-detection.rten and text-recognition.rten
+
+Pre-trained models for the ocrs OCR engine, by Robert Knight.
+Source: https://huggingface.co/robertknight/ocrs
+Training code: https://github.com/robertknight/ocrs-models
+Trained on HierText (Google Research, CC-BY-SA 4.0) and synthetic data.
+
+Licence: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+Sheaf ships these files unmodified in Contents/Resources/models/.

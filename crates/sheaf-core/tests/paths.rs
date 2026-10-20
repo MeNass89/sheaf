@@ -64,6 +64,7 @@ fn atomic_write_concurrent_same_target() {
     assert_eq!(std::fs::read_dir(t.path()).unwrap().count(), 2);
 }
 #[test]
+#[cfg(unix)]
 fn unique_path_treats_dangling_symlink_as_taken() {
     let t = tempfile::tempdir().unwrap();
     let p = t.path().join("out.pdf");

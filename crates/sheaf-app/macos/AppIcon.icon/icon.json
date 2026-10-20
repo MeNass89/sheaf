@@ -1,0 +1,16 @@
+{
+  "fill-specializations" : [
+    { "value" : { "linear-gradient" : [ "srgb:0.96471,0.93725,0.88627,1.00000", "srgb:0.91373,0.86667,0.78039,1.00000" ] } },
+    { "appearance" : "dark", "value" : { "linear-gradient" : [ "srgb:0.16471,0.18431,0.21176,1.00000", "srgb:0.09020,0.10588,0.12549,1.00000" ] } }
+  ],
+  "groups" : [
+    {
+      "layers" : [
+        { "image-name" : "books.svg", "name" : "books", "glass" : false }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "translucency" : { "enabled" : false, "value" : 0.5 }
+    }
+  ],
+  "supported-platforms" : { "squares" : [ "macOS" ] }
+}

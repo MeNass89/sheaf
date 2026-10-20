@@ -1,11 +1,17 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { ToolTab, ToolOptions } from "../flow-types.slint";
+import { ToolTab, ToolOptions, FileItem } from "../flow-types.slint";
 import { DashedBox } from "../widgets/dashed-box.slint";
 import { DropZone, AddFab } from "../widgets/drop-zone.slint";
+import { PrimaryButton } from "../widgets/button.slint";
 import { FileCardView, PageCardView } from "../widgets/file-card.slint";
 import { OptionsPanel } from "options.slint";
 import { ProcessingOverlay } from "processing.slint";
+import { PageViewer } from "../widgets/page-viewer.slint";
+import { RedactPanel } from "redact-panel.slint";
+import { SignPanel } from "sign-panel.slint";
+import { EditPanel } from "edit-panel.slint";
+import { ViewerBridge } from "../flow-types.slint";
 
 // Full-width accent button at the bottom of the options panel.
 component ActionButton inherits Rectangle {
@@ -42,6 +48,71 @@ component ActionButton inherits Rectangle {
     }
 }
 
+// Compare: one of the two file slots ("Original" / "Changed").
+component CompareSlot inherits VerticalLayout {
+    in property <string> label;
+    in property <bool> filled;
+    in property <FileItem> file;
+    in property <color> tile;
+    in property <bool> interactive;
+    callback open();
+    callback remove();
+    spacing: 10px;
+    alignment: center;
+    Text {
+        text: root.label;
+        font-size: Theme.fs-body-large;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+        horizontal-alignment: center;
+    }
+    HorizontalLayout {
+        alignment: center;
+        if root.filled: FileCardView {
+            file: root.file;
+            tile: root.tile;
+            interactive: root.interactive;
+            remove => { root.remove(); }
+        }
+        if !root.filled: DashedBox {
+            width: Theme.file-card-width;
+            height: Theme.file-card-height;
+            background: Theme.card;
+            VerticalLayout {
+                alignment: center;
+                spacing: 8px;
+                HorizontalLayout {
+                    alignment: center;
+                    PrimaryButton {
+                        text: "Open file";
+                        width: 96px;
+                        height: 32px;
+                        clicked => { root.open(); }
+                    }
+                }
+                Text {
+                    text: "or drop it here";
+                    font-size: Theme.fs-caption;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+    if root.filled && root.interactive: HorizontalLayout {
+        alignment: center;
+        Text {
+            text: "Replace…";
+            font-size: Theme.fs-caption;
+            color: Theme.text-secondary;
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.open(); }
+            }
+        }
+    }
+}
+
 // A tool tab before its result: file area on the left, options panel on the right.
 export component ToolFlowScreen inherits Rectangle {
     in property <ToolTab> tab;
@@ -54,10 +125,24 @@ export component ToolFlowScreen inherits Rectangle {
     callback run(ToolOptions);
     callback cancel();
     callback get-libreoffice();
+    callback pick-image() -> string;
+    // Compare: "Open file" on a slot (0 Original, 1 Changed), and swapping the two.
+    callback open-slot(int);
+    callback swap-slots();
 
     property <bool> running: root.tab.phase == 1;
     property <bool> organize: root.tab.tool == "organize";
-    property <int> need: root.tab.tool == "merge" ? 2 : 1;
+    property <bool> compare: root.tab.tool == "compare";
+    // Redact shows its one file in the page viewer instead of the file grid.
+    property <bool> redact: root.tab.tool == "redact";
+    // Sign places its signature on the same page viewer.
+    property <bool> sign: root.tab.tool == "sign";
+    // Edit places text and images on it too.
+    property <bool> edit: root.tab.tool == "edit";
+    property <bool> viewer: root.redact || root.sign || root.edit;
+    property <int> need: root.tab.tool == "merge" || root.compare ? 2 : 1;
+    property <bool> has-original: root.tab.files.length > 0 && root.tab.files[0].slot == 0;
+    property <bool> has-changed: root.tab.files.length > 0 && root.tab.files[root.tab.files.length - 1].slot == 1;
 
     background: Theme.bg;
 
@@ -69,10 +154,87 @@ export component ToolFlowScreen inherits Rectangle {
         height: parent.height - 2 * Theme.filearea-margin;
         DashedBox {
             background: Theme.filearea-bg;
-            if root.tab.files.length == 0: DropZone {
+            if root.compare: HorizontalLayout {
+                alignment: center;
+                spacing: 28px;
+                CompareSlot {
+                    label: "Original";
+                    filled: root.has-original;
+                    file: root.tab.files[0];
+                    tile: root.tab.tile;
+                    interactive: !root.running;
+                    open => { root.open-slot(0); }
+                    remove => { root.remove-file(root.tab.files[0].uid); }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 18px;
+                        background: sw.has-hover && sw.enabled ? Theme.popup-hover : Theme.card;
+                        opacity: sw.enabled ? 1 : 0.4;
+                        Image {
+                            width: 16px;
+                            height: 16px;
+                            source: @image-url("../icons/git-compare.svg");
+                            colorize: Theme.text;
+                        }
+                        sw := TouchArea {
+                            enabled: root.tab.files.length == 2 && !root.running;
+                            mouse-cursor: self.enabled ? pointer : default;
+                            clicked => { root.swap-slots(); }
+                        }
+                    }
+                    Text {
+                        text: "Swap";
+                        font-size: Theme.fs-caption;
+                        color: Theme.text-muted;
+                        horizontal-alignment: center;
+                    }
+                }
+                CompareSlot {
+                    label: "Changed";
+                    filled: root.has-changed;
+                    file: root.tab.files[root.tab.files.length - 1];
+                    tile: root.tab.tile;
+                    interactive: !root.running;
+                    open => { root.open-slot(1); }
+                    remove => { root.remove-file(root.tab.files[root.tab.files.length - 1].uid); }
+                }
+            }
+            if root.viewer && root.tab.files.length > 0: PageViewer {
+                x: 1px;
+                y: 1px;
+                width: parent.width - 2px;
+                height: parent.height - 2px;
+                pages: root.tab.viewer-pages;
+                thumbs: root.tab.viewer-thumbs;
+                overlays: root.tab.viewer-overlays;
+                content-width: root.tab.viewer-width;
+                content-height: root.tab.viewer-height;
+                thumbs-height: root.tab.viewer-thumbs-height;
+                current: root.tab.viewer-current;
+                zoom: root.tab.viewer-zoom;
+                status: root.tab.viewer-status;
+                scroll: root.tab.viewer-scroll;
+                scroll-seq: root.tab.viewer-scroll-seq;
+                interactive: !root.running;
+                drag-box: root.redact;
+                sign: root.tab.sign-overlay;
+                sign-image: root.tab.sign-preview;
+                edits: root.tab.edit-overlays;
+                viewport(w, top, h) => { ViewerBridge.viewport(root.tab.id, w, top, h); }
+                strip-viewport(top, h) => { ViewerBridge.strip-viewport(root.tab.id, top, h); }
+                pressed(x, y) => { ViewerBridge.pressed(root.tab.id, x, y); }
+                released(x, y) => { ViewerBridge.released(root.tab.id, x, y); }
+                thumb-clicked(p) => { ViewerBridge.thumb-clicked(root.tab.id, p); }
+                zoom-step(d) => { ViewerBridge.zoom-step(root.tab.id, d); }
+            }
+            if !root.compare && root.tab.files.length == 0: DropZone {
                 open-file => { root.open-files(); }
             }
-            if root.tab.files.length > 0: ScrollView {
+            if !root.compare && !root.viewer && root.tab.files.length > 0: ScrollView {
                 x: 1px;
                 y: 1px;
                 width: parent.width - 2px;
@@ -112,7 +274,7 @@ export component ToolFlowScreen inherits Rectangle {
                 font-size: Theme.fs-caption;
                 color: Theme.warning;
             }
-            if root.tab.files.length > 0 && !root.running: AddFab {
+            if !root.compare && !root.viewer && root.tab.files.length > 0 && !root.running: AddFab {
                 x: parent.width - self.width - 20px;
                 y: 20px;
                 count: root.tab.files.length;
@@ -152,19 +314,59 @@ export component ToolFlowScreen inherits Rectangle {
                 height: 1px;
                 background: Theme.separator;
             }
-            opts := OptionsPanel {
+            // Long panels (page numbers, watermark) scroll above the action button.
+            ScrollView {
                 vertical-stretch: 1;
-                tool: root.tab.tool;
-                file-count: root.tab.files.length;
-                default-out: root.tab.default-out;
-                office-missing: root.tab.office-missing;
-                insert-blank => { root.insert-blank(); }
-                get-libreoffice => { root.get-libreoffice(); }
+                content-width: self.visible-width;
+                content-height: root.redact ? rp.preferred-height
+                    : root.sign ? sp.preferred-height + 14px + opts.preferred-height
+                    : root.edit ? ep.preferred-height : opts.preferred-height;
+                rp := RedactPanel {
+                    width: parent.visible-width;
+                    visible: root.redact;
+                    height: root.redact ? self.preferred-height : 0;
+                    tab: root.tab;
+                    enabled: !root.running && root.tab.files.length > 0;
+                }
+                sp := SignPanel {
+                    width: parent.visible-width;
+                    visible: root.sign;
+                    height: root.sign ? self.preferred-height : 0;
+                    tab: root.tab;
+                    enabled: !root.running && root.tab.files.length > 0;
+                }
+                ep := EditPanel {
+                    width: parent.visible-width;
+                    visible: root.edit;
+                    height: root.edit ? self.preferred-height : 0;
+                    tab: root.tab;
+                    enabled: !root.running && root.tab.files.length > 0;
+                }
+                opts := OptionsPanel {
+                    y: root.sign ? sp.preferred-height + 14px : 0;
+                    visible: !root.redact && !root.edit;
+                    width: parent.visible-width;
+                    tool: root.tab.tool;
+                    file-count: root.tab.files.length;
+                    default-out: root.tab.default-out;
+                    office-missing: root.tab.office-missing;
+                    preview: root.tab.preview;
+                    has-preview: root.tab.has-preview;
+                    preview-w: root.tab.preview-w;
+                    preview-h: root.tab.preview-h;
+                    insert-blank => { root.insert-blank(); }
+                    get-libreoffice => { root.get-libreoffice(); }
+                    pick-image => { return root.pick-image(); }
+                }
             }
             ActionButton {
                 text: root.tab.name;
                 enabled: !root.running && opts.valid && root.tab.files-ready && root.tab.files.length >= root.need
-                    && (!root.organize || root.tab.pages.length > 0);
+                    && (!root.compare || (root.has-original && root.has-changed))
+                    && (!root.organize || root.tab.pages.length > 0)
+                    && (!root.redact || root.tab.redact-marks.length > 0)
+                    && (!root.sign || (root.tab.sign-has-graphic && root.tab.sign-placed))
+                    && (!root.edit || root.tab.edit-ready);
                 clicked => { root.run(opts.options); }
             }
         }
