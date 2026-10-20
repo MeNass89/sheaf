@@ -5,3 +5,8 @@ vendor/
 .DS_Store
 .superpowers/
 scripts/bench/coldstart
+dev/re/sources/
+dev/re/unpacked/
+dev/re/downloads/
+dev/re/archive/
+dev/.tmp/

@@ -1,0 +1,57 @@
+[
+ {
+  "app": "stirling",
+  "version": "2fe512a (after v3.2.0)",
+  "source": "https://github.com/Stirling-Tools/Stirling-PDF",
+  "installer_sha256": "",
+  "archive": "dev/re/archive/stirling.tar.zst",
+  "archive_sha256": "6e30c1b63521d15fa4124c37d34ebcfcccc9a535267a02ec189c59bbdb4f163e",
+  "files": 7757,
+  "bytes": 12655602,
+  "date": "2026-10-21"
+ },
+ {
+  "app": "acrobat",
+  "version": "26.001.21662 (Reader DC, MUI)",
+  "source": "brew cask adobe-acrobat-reader",
+  "installer_sha256": "21821609bea4210e54b1844a1129cdafccea21f6d6d3d0797808f92e357d5705",
+  "archive": "dev/re/archive/acrobat.tar.zst",
+  "archive_sha256": "e888563f2a1dee9d1cb395b4099fa1859128262f07e8b2f47b47f46a8f661b45",
+  "files": 411,
+  "bytes": 813635,
+  "date": "2026-10-21"
+ },
+ {
+  "app": "pdfexpert",
+  "version": "3.13.4 (1177)",
+  "source": "brew cask pdf-expert",
+  "installer_sha256": "f257b76b3124c05b767262fbc78ba12f2ea850b26adfd28480774a1ba65c59b5",
+  "archive": "dev/re/archive/pdfexpert.tar.zst",
+  "archive_sha256": "8df134cd22410b070c5abaac8f68109229acd66ce751056f58ff0dbf2b738be2",
+  "files": 171,
+  "bytes": 481114,
+  "date": "2026-10-21"
+ },
+ {
+  "app": "preview",
+  "version": "11.0 (macOS 27.2)",
+  "source": "/System/Applications/Preview.app",
+  "installer_sha256": "",
+  "archive": "dev/re/archive/preview.tar.zst",
+  "archive_sha256": "ad843473e95999a1b25dd09a0ec58903b6adf3321be136c9eb677486651cceb1",
+  "files": 141,
+  "bytes": 126832,
+  "date": "2026-10-21"
+ },
+ {
+  "app": "ilovepdf",
+  "version": "2.3.0",
+  "source": "/Applications/iLovePDF.app (installed)",
+  "installer_sha256": "",
+  "archive": "dev/re/archive/ilovepdf.tar.zst",
+  "archive_sha256": "11dcf7daef1179884e8a9e1e6be33d5d5231db04d643625104e026b84179f2cb",
+  "files": 892,
+  "bytes": 646533,
+  "date": "2026-10-21"
+ }
+]

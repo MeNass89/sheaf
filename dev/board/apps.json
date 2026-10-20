@@ -1,0 +1,7 @@
+[
+ {"id": "acrobat", "name": "Adobe Acrobat (Reader + Pro tools)", "version": "", "platform": "macOS, native (C++)", "role": "incumbent: the full tool list users expect", "code": "native binary: strings, plists, localisation, menus via REA"},
+ {"id": "pdfexpert", "name": "PDF Expert (Readdle)", "version": "", "platform": "macOS, native (Swift/ObjC)", "role": "aesthetic and performance bar; reading, annotating and editing hub", "code": "native binary: nibs/storyboards, strings, Swift symbols via REA; UI evidence captures"},
+ {"id": "ilovepdf", "name": "iLovePDF Desktop", "version": "2.3.0", "platform": "macOS, Qt/QML + Apryse PDFNet", "role": "same toolbox model as Sheaf: one task per screen, batch, history", "code": "QML pack (data_01.ilp) via REA, strings, translations"},
+ {"id": "stirling", "name": "Stirling-PDF", "version": "", "platform": "web/desktop (Tauri + Java PDFBox, React)", "role": "open-source breadth reference (50+ tools, pipelines)", "code": "git clone at latest tag (MIT parts only for translation)"},
+ {"id": "preview", "name": "macOS Preview", "version": "", "platform": "macOS, native (PDFKit)", "role": "performance floor and reading/annotation UI reference", "code": "system app: nib/strings/menus via REA; behaviour and captures"}
+]

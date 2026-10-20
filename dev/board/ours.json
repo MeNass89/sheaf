@@ -1,0 +1,2594 @@
+[
+ {
+  "area": "Home & files",
+  "feature": "Open file button on Recents",
+  "behavior": "Click 'Open file' on the Recents page to pick one or more PDFs; they are held and the Tools page opens with a 'Choose a tool for your file' toast.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/recents.slint:55",
+   "crates/sheaf-app/src/main.rs:192",
+   "crates/sheaf-app/src/flow.rs:378"
+  ],
+  "limits": "Only PDFs are offered by the dialog; images or Office files cannot be opened from Home."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Drop files on the window (Home)",
+  "behavior": "Drop a PDF anywhere on the window while on Home; it is kept and the Tools page opens so you pick a tool.",
+  "evidence": [
+   "crates/sheaf-app/src/main.rs:283",
+   "crates/sheaf-app/src/files.rs:65",
+   "crates/sheaf-app/src/flow.rs:364"
+  ],
+  "limits": "Non-PDFs dropped on Home are refused with 'Open a tool first to add …'."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Drop files on a tool tab",
+  "behavior": "Drop a file on the window while a tool tab is active; it is added to that tool if the extension is accepted.",
+  "evidence": [
+   "crates/sheaf-app/src/files.rs:65",
+   "crates/sheaf-app/src/flow.rs:364"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Drop rejection toast",
+  "behavior": "Dropping a file a tool does not accept shows 'Not supported by <tool>: <name>'.",
+  "evidence": [
+   "crates/sheaf-app/src/files.rs:48"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Folder drop refused",
+  "behavior": "Dropping a folder shows 'Folders cannot be added: <name>' instead of adding its contents.",
+  "evidence": [
+   "crates/sheaf-app/src/files.rs:66"
+  ],
+  "limits": "No recursive folder import."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Home files carried into the tool",
+  "behavior": "After opening PDFs from Home, clicking a tool opens it preloaded with the held files it accepts.",
+  "evidence": [
+   "crates/sheaf-app/src/main.rs:197",
+   "crates/sheaf-app/src/flow.rs:50"
+  ],
+  "limits": "Held files the tool does not accept are dropped silently."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Open a tool's file picker",
+  "behavior": "Click 'Open file' in an empty tool tab to get a file dialog filtered to that tool's extensions; multi-file tools allow several.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/drop-zone.slint:12",
+   "crates/sheaf-app/src/flow.rs:66"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Add more files with + button",
+  "behavior": "Click the round red '+' (with file count badge) in a tool tab to add more files.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/drop-zone.slint:28",
+   "crates/sheaf-app/ui/screens/tool-flow.slint:277"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "File dialog remembers folder",
+  "behavior": "The add-files dialog opens in the folder of the last file added to the tab.",
+  "evidence": [
+   "crates/sheaf-app/src/flow.rs:70"
+  ],
+  "limits": "Not remembered across tabs or sessions."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Single-file tools replace the file",
+  "behavior": "On a single-file tool, adding a new file replaces the current one.",
+  "evidence": [
+   "crates/sheaf-app/src/flow.rs:127"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Remove a file from the grid",
+  "behavior": "Hover a file card and click × to remove it from the tool.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:120",
+   "crates/sheaf-app/src/flow.rs:290"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Reorder files with arrows",
+  "behavior": "Hover a file card in a multi-file tool and click ← or → to move it one place.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:126",
+   "crates/sheaf-app/src/flow.rs:304"
+  ],
+  "limits": "No drag-and-drop reordering of file cards; one step at a time."
+ },
+ {
+  "area": "Home & files",
+  "feature": "File card thumbnail and caption",
+  "behavior": "Each added file shows a page-1 thumbnail with size and page count ('3.17 MB - 7 pages').",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:76",
+   "crates/sheaf-app/src/files.rs:97"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Locked badge on file cards",
+  "behavior": "A protected file shows a lock badge on its card.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:83"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Preview unavailable notice",
+  "behavior": "A file whose preview crashed stays with '⚠ preview unavailable'.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:111",
+   "crates/sheaf-app/src/files.rs:160"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Password prompt on add",
+  "behavior": "Adding a protected PDF opens a '<file> is password protected' dialog; type the password and press Enter or Unlock.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/dialogs.slint:50",
+   "crates/sheaf-app/src/password.rs:9"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Wrong password shake",
+  "behavior": "A wrong password shakes the dialog, clears the field and shows 'Wrong password'.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/dialogs.slint:61"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Skip password",
+  "behavior": "Click Skip in the password dialog to leave that file out.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/dialogs.slint:82",
+   "crates/sheaf-app/src/password.rs:82"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Password queue",
+  "behavior": "Several protected files queue; the dialog asks for each in turn.",
+  "evidence": [
+   "crates/sheaf-app/src/password.rs:1"
+  ],
+  "limits": "No 'use this password for all' option."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Unreadable file toast",
+  "behavior": "A PDF that cannot be opened is removed with a 'Cannot open <name>: <error>' toast.",
+  "evidence": [
+   "crates/sheaf-app/src/flow.rs:218"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Repair keeps broken files",
+  "behavior": "In Repair, a file that cannot be previewed stays with 'Can't preview — will try to repair'.",
+  "evidence": [
+   "crates/sheaf-app/src/files.rs:160",
+   "crates/sheaf-app/src/state.rs:199"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Toast messages",
+  "behavior": "Errors, rejections and hints appear as a bottom-centre toast for 3 seconds.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/dialogs.slint:125",
+   "crates/sheaf-app/src/flow.rs:27"
+  ],
+  "limits": "No toast history; messages disappear after 3 s."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Tabs per tool",
+  "behavior": "Each opened tool gets its own tab with icon and name; click a tab to switch, its options survive switching.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/tab-bar.slint:6",
+   "crates/sheaf-app/ui/main.slint:201"
+  ],
+  "limits": "No keyboard shortcut to switch or close tabs."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Home tab",
+  "behavior": "Click the Home tab to go back to Recents/Tools/History/Preferences.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/tab-bar.slint:67"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "New tab (+)",
+  "behavior": "Click + in the tab bar to return to the Tools page and pick another tool.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/tab-bar.slint:101",
+   "crates/sheaf-app/ui/main.slint:150"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Close a tab",
+  "behavior": "Click × on a tab to close it.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/tab-bar.slint:42",
+   "crates/sheaf-app/src/flow.rs:351"
+  ],
+  "limits": "No Cmd+W."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Close tab with running job",
+  "behavior": "Closing a tab with a running job asks 'A task is still running' with Keep or Cancel job.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/dialogs.slint:95",
+   "crates/sheaf-app/src/main.rs:206"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Background job finishes after close",
+  "behavior": "If the tab was closed while a job ran on, the result is still recorded and a '<tool> finished: <file>' toast appears.",
+  "evidence": [
+   "crates/sheaf-app/src/run.rs:382"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Sidebar navigation",
+  "behavior": "Click Recents, Tools, Tasks History or Preferences in the left sidebar.",
+  "evidence": [
+   "crates/sheaf-app/ui/main.slint:19"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Sidebar collapses on narrow windows",
+  "behavior": "Below 1000 px wide the sidebar shows icons only.",
+  "evidence": [
+   "crates/sheaf-app/ui/main.slint:164",
+   "crates/sheaf-app/ui/theme.slint:103"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Recent files grid",
+  "behavior": "Recents lists up to 12 recent output files with thumbnail, size, pages and age.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/recents.slint:70",
+   "crates/sheaf-app/src/home.rs:20"
+  ],
+  "limits": "Recents are outputs of Sheaf jobs only, not files merely opened."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Open a recent file",
+  "behavior": "Click a recent card to open the file in the default app.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/recent-card.slint:63",
+   "crates/sheaf-app/src/home.rs:256"
+  ],
+  "limits": "Opens externally; Sheaf has no reader view of its own."
+ },
+ {
+  "area": "Home & files",
+  "feature": "Reveal a recent file",
+  "behavior": "Hover a recent card and click the folder icon to show it in Finder/Explorer.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/recent-card.slint:74",
+   "crates/sheaf-app/src/home.rs:262"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Recents empty state",
+  "behavior": "With no recents, an illustration and 'Your recent files will appear here' show.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/recents.slint:93"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Missing recents dropped",
+  "behavior": "Recents whose file no longer exists are hidden on refresh.",
+  "evidence": [
+   "crates/sheaf-app/src/home.rs:180"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Home & files",
+  "feature": "Window size",
+  "behavior": "Window opens at 1280×800 with a 900×600 minimum.",
+  "evidence": [
+   "crates/sheaf-app/ui/main.slint:138"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Tools grid",
+  "feature": "Tools grid by category",
+  "behavior": "The Tools page shows 28 tool cards under six collapsible categories.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tools.slint:81",
+   "crates/sheaf-core/src/tools.rs:147"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Tools grid",
+  "feature": "Collapse a category",
+  "behavior": "Click a category heading to collapse or expand its tools.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tools.slint:105"
+  ],
+  "limits": "Collapse state is not saved between launches."
+ },
+ {
+  "area": "Tools grid",
+  "feature": "Sort: Categories or All",
+  "behavior": "Use the Sort dropdown to switch between grouped categories and one flat grid.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tools.slint:61",
+   "crates/sheaf-app/ui/widgets/sort-combo.slint:4"
+  ],
+  "limits": "No alphabetical sort, no favourites."
+ },
+ {
+  "area": "Tools grid",
+  "feature": "Open a tool",
+  "behavior": "Click a tool card to open it in a new tab.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/tool-card.slint:9",
+   "crates/sheaf-app/src/flow.rs:50"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Tools grid",
+  "feature": "Tool search",
+  "behavior": "(Not implemented) there is no search box to filter tools.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tools.slint:28"
+  ],
+  "limits": "No tool search field."
+ },
+ {
+  "area": "Tools grid",
+  "feature": "Tile colour and icon",
+  "behavior": "Each tool has a coloured tile with a Lucide icon, reused on its tab.",
+  "evidence": [
+   "crates/sheaf-app/src/icons.rs:1",
+   "crates/sheaf-app/src/main.rs:66"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Merge PDFs",
+  "behavior": "Add two or more PDFs and click Merge PDF to combine them in the shown order.",
+  "evidence": [
+   "crates/sheaf-core/src/pages.rs:58",
+   "crates/sheaf-app/ui/screens/tool-flow.slint:143"
+  ],
+  "limits": "Needs at least 2 files; no per-file page ranges."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Reorder files for merge",
+  "behavior": "Hover a file and use ← / → to set the merge order.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:126"
+  ],
+  "limits": "No drag reordering."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Name the merged file",
+  "behavior": "Type an 'Output file name'; .pdf is added if missing.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:280",
+   "crates/sheaf-app/src/dest.rs:36"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Split by range",
+  "behavior": "Choose 'Split by range' and type ranges like 1-3,5,8-10 to get one file per range.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:289",
+   "crates/sheaf-core/src/pages.rs:74"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Split every N pages",
+  "behavior": "Choose 'Split every N pages' and set pages per file with the −/+ stepper.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:295",
+   "crates/sheaf-app/ui/screens/options.slint:13",
+   "crates/sheaf-core/src/pages.rs:85"
+  ],
+  "limits": "Stepper has no typed entry; no split by size or bookmarks."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Split output folder",
+  "behavior": "Split asks for a folder and writes the parts there.",
+  "evidence": [
+   "crates/sheaf-app/src/dest.rs:22",
+   "crates/sheaf-app/src/dest.rs:77"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Remove pages",
+  "behavior": "Type pages to remove ('1-3,5') and run Remove pages.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:313",
+   "crates/sheaf-core/src/pages.rs:93"
+  ],
+  "limits": "Pages are typed, not picked visually."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Extract pages",
+  "behavior": "Type pages to extract and run Extract pages to get a new PDF.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:313",
+   "crates/sheaf-core/src/pages.rs:65"
+  ],
+  "limits": "One output only; no 'each page a separate file' option."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Page range syntax help",
+  "behavior": "An info box explains '2,4-6 means pages 2, 4, 5 and 6'.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:320"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Organize page grid",
+  "behavior": "Open Organize to see every page as a thumbnail card.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tool-flow.slint:260",
+   "crates/sheaf-app/src/flow.rs:244"
+  ],
+  "limits": "Single PDF only; cannot combine pages from several files."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Reorder pages with arrows in Organize",
+  "behavior": "Hover a page and click ← / → to move it one place.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:187",
+   "crates/sheaf-app/src/main.rs:229"
+  ],
+  "limits": "No drag-and-drop of thumbnails despite the catalogue description; no multi-select."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Delete a page in Organize",
+  "behavior": "Hover a page and click × to drop it.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:181",
+   "crates/sheaf-app/src/main.rs:224"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Insert blank page",
+  "behavior": "Click 'Insert blank page' to append a blank page at the end.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:323",
+   "crates/sheaf-app/src/main.rs:235"
+  ],
+  "limits": "Blank page is always added at the end, then moved with arrows."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Duplicate a page",
+  "behavior": "(Not implemented) the catalogue says 'duplicate' but there is no duplicate control.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:152",
+   "crates/sheaf-app/ui/widgets/file-card.slint:147"
+  ],
+  "limits": "No duplicate action in the UI; only CLI --order can repeat a page."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Rotate one page in Organize",
+  "behavior": "(Not implemented) Organize has no per-page rotate.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:147"
+  ],
+  "limits": "Per-page rotation only through Rotate's page field."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Preview failure warning",
+  "behavior": "If page thumbnails fail, '⚠ Page previews unavailable' shows.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tool-flow.slint:270"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Rotate pages",
+  "behavior": "Choose 90°, 180° or 270° clockwise and run Rotate PDF on one or more PDFs.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:332",
+   "crates/sheaf-core/src/rotate.rs:6"
+  ],
+  "limits": "No counter-clockwise button (CLI only via negative degrees); no visual preview."
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Rotate selected pages only",
+  "behavior": "Type pages in 'Pages (optional)' to rotate only those.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:343"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Organize pages",
+  "feature": "Batch rotate",
+  "behavior": "Add several PDFs to Rotate to process them all at once.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:153",
+   "crates/sheaf-app/src/run.rs:180"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "Choose compression level",
+  "behavior": "Pick Extreme, Recommended or Low compression and run Compress.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:349",
+   "crates/sheaf-core/src/compress.rs:8"
+  ],
+  "limits": "Only image recompression; fonts and vectors untouched."
+ },
+ {
+  "area": "Optimize",
+  "feature": "Extreme compression",
+  "behavior": "Extreme downsizes images to 1000 px long side at JPEG quality 50.",
+  "evidence": [
+   "crates/sheaf-core/src/compress.rs:13"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "Recommended compression",
+  "behavior": "Recommended downsizes to 1600 px at quality 70 (default).",
+  "evidence": [
+   "crates/sheaf-core/src/compress.rs:13"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "Low compression",
+  "behavior": "Low downsizes to 2400 px at quality 85.",
+  "evidence": [
+   "crates/sheaf-core/src/compress.rs:13"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "Batch compress",
+  "behavior": "Add several PDFs to compress them all.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:154"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "Never larger guarantee",
+  "behavior": "If compressing does not help, the original bytes are copied and the result says it is already as small as it gets.",
+  "evidence": [
+   "crates/sheaf-core/src/compress.rs:29",
+   "crates/sheaf-app/src/state.rs:360"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "Compression savings shown",
+  "behavior": "The result shows size before → after and '% smaller!'.",
+  "evidence": [
+   "crates/sheaf-app/src/state.rs:353",
+   "crates/sheaf-app/ui/screens/result.slint:329"
+  ],
+  "limits": "No target size or custom DPI/quality."
+ },
+ {
+  "area": "Optimize",
+  "feature": "Protected input warning (compress)",
+  "behavior": "Compressing a protected PDF warns the output is not password-protected, and says if the copy grew.",
+  "evidence": [
+   "crates/sheaf-app/src/state.rs:233",
+   "crates/sheaf-app/src/state.rs:239"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "Repair PDF",
+  "behavior": "Add damaged PDFs and run Repair to rebuild them.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:400",
+   "crates/sheaf-core/src/repair.rs:1"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "OCR PDF",
+  "behavior": "Run OCR to add an invisible searchable text layer to scanned pages.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:598",
+   "crates/sheaf-core/src/ocr.rs:1"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "Choose OCR language",
+  "behavior": "Tick document languages in the OCR panel.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:600",
+   "crates/sheaf-app/src/main.rs:263"
+  ],
+  "limits": "Only English is listed (pdfcraft LANGUAGES = [en]); the job uses only the first ticked language; Latin script only."
+ },
+ {
+  "area": "Optimize",
+  "feature": "Also read pages with text",
+  "behavior": "Tick 'Also read pages with text' to OCR pages that already have text, adding only new words.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:607",
+   "crates/sheaf-core/src/ocr.rs:1"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "OCR models missing notice",
+  "behavior": "If the models are missing, the panel warns and the button stays disabled.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:611",
+   "crates/sheaf-app/ui/screens/options.slint:195"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Optimize",
+  "feature": "OCR result summary",
+  "behavior": "The result reports pages read, words added and pages that already had text.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:226"
+  ],
+  "limits": "No deskew, no output as image-only PDF."
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Images to PDF",
+  "behavior": "Add JPG, PNG, WebP, TIFF or BMP images and run JPG to PDF to get one PDF.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:157",
+   "crates/sheaf-core/src/images.rs:62"
+  ],
+  "limits": "One combined PDF only; no one-PDF-per-image option."
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Image order",
+  "behavior": "Use ← / → on image cards to set page order.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/file-card.slint:126"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Page size: Fit to image",
+  "behavior": "Choose 'Fit to image' so each page matches its image.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:407",
+   "crates/sheaf-app/src/run.rs:36"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Page size: A4 portrait",
+  "behavior": "Choose 'A4 portrait' to centre each image on an A4 page.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:408"
+  ],
+  "limits": "No Letter or other paper sizes."
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Page size: A4 landscape",
+  "behavior": "Choose 'A4 landscape'.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:409"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Image margin",
+  "behavior": "For A4, pick margin None, Small (18 pt) or Big (36 pt).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:413",
+   "crates/sheaf-app/src/run.rs:37"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Word to PDF",
+  "behavior": "Add .doc/.docx/.odt/.rtf and convert to PDF through LibreOffice.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:158",
+   "crates/sheaf-core/src/office.rs:1"
+  ],
+  "limits": "Requires a separately installed LibreOffice."
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "PowerPoint to PDF",
+  "behavior": "Add .ppt/.pptx/.odp and convert through LibreOffice.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:159"
+  ],
+  "limits": "Requires LibreOffice."
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Excel to PDF",
+  "behavior": "Add .xls/.xlsx/.ods/.csv and convert through LibreOffice.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:160"
+  ],
+  "limits": "Requires LibreOffice; no sheet or print-area choice."
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "HTML to PDF",
+  "behavior": "Add .html/.htm files and render them as PDF through LibreOffice.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:161"
+  ],
+  "limits": "Local files only, no URL input; requires LibreOffice."
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "LibreOffice missing prompt",
+  "behavior": "Without LibreOffice the panel says to install it and offers 'Get LibreOffice' opening the download page.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:742",
+   "crates/sheaf-app/src/main.rs:277"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Offline conversion note",
+  "behavior": "Info box: 'Converted with LibreOffice on this computer. Nothing is uploaded.'",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:744"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Conversion timeout",
+  "behavior": "Each Office conversion times out after 120 s.",
+  "evidence": [
+   "crates/sheaf-core/src/office.rs:15"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert to PDF",
+  "feature": "Batch office conversion",
+  "behavior": "Several documents convert in one run; failed ones are listed on the result page.",
+  "evidence": [
+   "crates/sheaf-app/src/run.rs:180",
+   "crates/sheaf-app/src/state.rs:381"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "PDF to JPG",
+  "behavior": "Export every page as JPEG into a chosen folder.",
+  "evidence": [
+   "crates/sheaf-core/src/images.rs:11",
+   "crates/sheaf-app/ui/screens/options.slint:423"
+  ],
+  "limits": "JPEG only (no PNG/TIFF output in the app); all pages, no range."
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "JPG quality: Normal",
+  "behavior": "Normal quality = 150 dpi, JPEG 85.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:426",
+   "crates/sheaf-app/src/run.rs:226"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "JPG quality: High",
+  "behavior": "High quality = 300 dpi, JPEG 92.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:432"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "PDF to Word",
+  "behavior": "Export a PDF to an editable .docx.",
+  "evidence": [
+   "crates/sheaf-core/src/export.rs:1"
+  ],
+  "limits": "Layout is approximate."
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "PDF to PowerPoint",
+  "behavior": "Export a PDF to .pptx, one slide per page.",
+  "evidence": [
+   "crates/sheaf-core/src/export.rs:1",
+   "crates/sheaf-cli/src/main.rs:268"
+  ],
+  "limits": "Layout is approximate."
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "PDF to Excel",
+  "behavior": "Recover tables from a PDF into .xlsx.",
+  "evidence": [
+   "crates/sheaf-core/src/excel.rs:1"
+  ],
+  "limits": "Table detection is heuristic; text outside tables goes in column A."
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "Excel layout: one sheet",
+  "behavior": "Choose 'One sheet' to put all tables on one sheet.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:645"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "Excel layout: multiple sheets",
+  "behavior": "Choose 'Multiple sheets' for one sheet per table.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:646"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "OCR for scanned exports",
+  "behavior": "Choose 'OCR (scanned PDFs)' to read scanned pages before export to Word/PowerPoint/Excel.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:625"
+  ],
+  "limits": "Same English/Latin-only OCR."
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "No OCR for text PDFs",
+  "behavior": "Choose 'No OCR (text PDFs)' (default).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:619"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "Approximate layout warning",
+  "behavior": "Info box warns that exact formatting may differ.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:650"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "PDF to PDF/A",
+  "behavior": "Convert to the archival PDF/A format and check the result.",
+  "evidence": [
+   "crates/sheaf-core/src/pdfa.rs:1"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "PDF/A level 2b",
+  "behavior": "Choose PDF/A-2b (recommended).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:678"
+  ],
+  "limits": "No PDF/A-1b or -a (accessible) levels."
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "PDF/A level 3b",
+  "behavior": "Choose PDF/A-3b (allows attachments).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:684"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Convert from PDF",
+  "feature": "PDF/A preflight report",
+  "behavior": "The result lists rules not fixed, with ISO 19005 clause.",
+  "evidence": [
+   "crates/sheaf-app/src/state.rs:258",
+   "crates/sheaf-core/src/pdfa.rs:84"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Add text mode",
+  "behavior": "Choose 'Add text' and click on a page to place a text box.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/edit-panel.slint:67",
+   "crates/sheaf-app/src/edit_ui.rs:125"
+  ],
+  "limits": "Only adds new text; cannot edit existing PDF text."
+ },
+ {
+  "area": "Edit",
+  "feature": "Type text for selected box",
+  "behavior": "Type the selected box's text in the panel field; it updates on the page.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/edit-panel.slint:83",
+   "crates/sheaf-app/src/edit_ui.rs:281"
+  ],
+  "limits": "Single-line field in the app (CLI supports \\n)."
+ },
+ {
+  "area": "Edit",
+  "feature": "Text size −/+",
+  "behavior": "Step text size through 4–200 pt with − / +.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/edit-panel.slint:88",
+   "crates/sheaf-app/src/edit_ui.rs:16"
+  ],
+  "limits": "Helvetica only; no font choice, bold or italic."
+ },
+ {
+  "area": "Edit",
+  "feature": "Text colour",
+  "behavior": "Pick black, grey, red or blue swatch.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/edit-panel.slint:114",
+   "crates/sheaf-app/src/edit_ui.rs:20"
+  ],
+  "limits": "Four colours only; no picker."
+ },
+ {
+  "area": "Edit",
+  "feature": "Add image mode",
+  "behavior": "Choose 'Add image', pick a PNG/JPEG, then click a page to place it centred.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/edit-panel.slint:73",
+   "crates/sheaf-app/src/edit_ui.rs:329"
+  ],
+  "limits": "PNG/JPEG only."
+ },
+ {
+  "area": "Edit",
+  "feature": "Image size",
+  "behavior": "Choose Small (100 pt), Medium (150 pt) or Large (250 pt) image width.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/edit-panel.slint:138",
+   "crates/sheaf-app/src/edit_ui.rs:22"
+  ],
+  "limits": "No free resize handles."
+ },
+ {
+  "area": "Edit",
+  "feature": "Select an item",
+  "behavior": "Click a placed text or image to select it.",
+  "evidence": [
+   "crates/sheaf-app/src/edit_ui.rs:119"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Move an item by drag",
+  "behavior": "Drag a placed item to move it; it stays on its page.",
+  "evidence": [
+   "crates/sheaf-app/src/edit_ui.rs:125",
+   "crates/sheaf-app/src/viewer_ui.rs:316"
+  ],
+  "limits": "Cannot drag an item to another page."
+ },
+ {
+  "area": "Edit",
+  "feature": "Remove an item",
+  "behavior": "Click 'Remove text' / 'Remove image' to delete the selected item.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/edit-panel.slint:150",
+   "crates/sheaf-app/src/edit_ui.rs:320"
+  ],
+  "limits": "No undo."
+ },
+ {
+  "area": "Edit",
+  "feature": "Edit readiness message",
+  "behavior": "Panel shows item count and why it cannot run (empty box, undrawable character).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/edit-panel.slint:155",
+   "crates/sheaf-app/src/edit_ui.rs:162",
+   "crates/sheaf-core/src/edit.rs:153"
+  ],
+  "limits": "Non-Latin characters refused (Helvetica)."
+ },
+ {
+  "area": "Edit",
+  "feature": "Edit annotations / shapes",
+  "behavior": "(Not implemented) no highlight, shapes, comments, whiteout or editing existing content.",
+  "evidence": [
+   "crates/sheaf-core/src/edit.rs:1"
+  ],
+  "limits": "Edit: only text and images, no annotations."
+ },
+ {
+  "area": "Edit",
+  "feature": "Page numbers",
+  "behavior": "Stamp page numbers on one or more PDFs.",
+  "evidence": [
+   "crates/sheaf-core/src/numbers.rs:1",
+   "crates/sheaf-app/ui/screens/options.slint:439"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Page numbers: single or double-sided",
+  "behavior": "Choose Single page or Double-sided (mirrored on even pages).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:444"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Page numbers: cover page",
+  "behavior": "Tick 'First page is cover page' to skip numbering it.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:447"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Page numbers: position",
+  "behavior": "Pick one of six top/bottom positions on the page grid.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:452",
+   "crates/sheaf-app/ui/screens/options.slint:82"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Page numbers: margin",
+  "behavior": "Choose Small, Recommended or Big margin.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:458"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Page numbers: page range",
+  "behavior": "Type From page / To page to number only part of a single PDF.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:464"
+  ],
+  "limits": "Ignored with several PDFs (all pages numbered)."
+ },
+ {
+  "area": "Edit",
+  "feature": "Page numbers: first number",
+  "behavior": "Type the first number shown.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:466"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Page numbers: text format",
+  "behavior": "Choose number only, 'Page {n}', 'Page {n} of {p}' or Custom.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:468"
+  ],
+  "limits": "No font, size or colour choice in the app (CLI has --font-size)."
+ },
+ {
+  "area": "Edit",
+  "feature": "Page numbers: custom text",
+  "behavior": "Type a custom template with {n} and {p}; errors are validated live.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:473",
+   "crates/sheaf-app/src/main.rs:259"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark text",
+  "behavior": "Choose 'Place Text', type the text and font size.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:484",
+   "crates/sheaf-app/ui/screens/options.slint:489"
+  ],
+  "limits": "Font fixed; no bold/italic."
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark colour",
+  "behavior": "Pick Black, Grey, Red or Blue.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:491",
+   "crates/sheaf-app/src/run.rs:119"
+  ],
+  "limits": "Four colours (CLI accepts any RRGGBB)."
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark image",
+  "behavior": "Choose 'Place Image' and pick a PNG/JPEG.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:498",
+   "crates/sheaf-app/src/main.rs:268"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark image size",
+  "behavior": "Pick 25, 50, 75 or 100%.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:515"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark position",
+  "behavior": "Pick one of nine positions on the grid.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:528"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark layer",
+  "behavior": "Choose Over the content or Below the content.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:534"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark mosaic",
+  "behavior": "Tick Mosaic to tile the mark across the page.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:537",
+   "crates/sheaf-core/src/watermark.rs:93"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark transparency",
+  "behavior": "Choose No, 25%, 50% or 75% transparency.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:540"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark rotation",
+  "behavior": "Choose None, 45°, 90°, 180°, 270° or −45°.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:548"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Watermark page range",
+  "behavior": "Type From/To page on a single PDF.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:561"
+  ],
+  "limits": "Ignored for several PDFs; no live preview of the watermark."
+ },
+ {
+  "area": "Edit",
+  "feature": "Crop all pages",
+  "behavior": "Choose 'All pages' and type margins to cut in mm.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:568",
+   "crates/sheaf-core/src/crop.rs:37"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Crop selected pages",
+  "behavior": "Choose 'Selected pages' and type which pages.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:569"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Remove crop",
+  "behavior": "Choose 'Remove crop' to show full pages again.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:570"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Edit",
+  "feature": "Crop margins in mm",
+  "behavior": "Type top, bottom, left, right margins (decimal comma accepted).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:574",
+   "crates/sheaf-app/src/run.rs:55"
+  ],
+  "limits": "No drag-a-box crop on the page."
+ },
+ {
+  "area": "Edit",
+  "feature": "Crop live preview",
+  "behavior": "Page 1 previews with cut margins dimmed and kept area outlined.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:585",
+   "crates/sheaf-app/ui/screens/options.slint:123"
+  ],
+  "limits": "Preview shows page 1 only."
+ },
+ {
+  "area": "Sign",
+  "feature": "Type a signature",
+  "behavior": "Choose Type and enter your full name; it is drawn in a script font.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/sign-panel.slint:115",
+   "crates/sheaf-app/src/sign_ui.rs:89"
+  ],
+  "limits": "One script font; character limit MAX_SIGNATURE_CHARS."
+ },
+ {
+  "area": "Sign",
+  "feature": "Draw a signature",
+  "behavior": "Choose Draw and draw with the mouse on the pad.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/sign-panel.slint:17",
+   "crates/sheaf-app/src/sign_ui.rs:95"
+  ],
+  "limits": "No pen colour or thickness choice."
+ },
+ {
+  "area": "Sign",
+  "feature": "Clear drawn signature",
+  "behavior": "Click Clear under the pad.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/sign-panel.slint:127"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Sign",
+  "feature": "Upload signature image",
+  "behavior": "Choose Upload and pick a PNG/JPEG signature; bad images are refused at once.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/sign-panel.slint:141",
+   "crates/sheaf-app/src/sign_ui.rs:104"
+  ],
+  "limits": "No background removal."
+ },
+ {
+  "area": "Sign",
+  "feature": "Signature preview",
+  "behavior": "The panel previews the typed or uploaded signature.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/sign-panel.slint:160"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Sign",
+  "feature": "Signature size",
+  "behavior": "Choose Small (100 pt), Medium (150 pt) or Large (220 pt).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/sign-panel.slint:182",
+   "crates/sheaf-app/src/sign_ui.rs:15"
+  ],
+  "limits": "No free resize."
+ },
+ {
+  "area": "Sign",
+  "feature": "Place signature by click",
+  "behavior": "Click on a page to place the signature centred there.",
+  "evidence": [
+   "crates/sheaf-app/src/viewer_ui.rs:316"
+  ],
+  "limits": "One signature per run; cannot place on several pages."
+ },
+ {
+  "area": "Sign",
+  "feature": "Move signature",
+  "behavior": "Click elsewhere or drag to move it.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/sign-panel.slint:84",
+   "crates/sheaf-app/src/viewer_ui.rs:331"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Sign",
+  "feature": "Placed-on-page indicator",
+  "behavior": "Panel shows 'Placed on page N'.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/sign-panel.slint:193"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Sign",
+  "feature": "Digital signature with .p12",
+  "behavior": "Tick 'Use a certificate (.p12)', choose the file and password to sign digitally.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:692",
+   "crates/sheaf-app/src/sign_ui.rs:115",
+   "crates/sheaf-core/src/sign.rs:1"
+  ],
+  "limits": "No timestamp server, no signature validation view."
+ },
+ {
+  "area": "Sign",
+  "feature": "Signature reason and location",
+  "behavior": "Type optional Reason and Location for the certificate signature.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:730"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Sign",
+  "feature": "Protected PDFs refused",
+  "behavior": "A protected PDF added to Sign is refused: 'Unlock the PDF first, then sign it'.",
+  "evidence": [
+   "crates/sheaf-app/src/files.rs:136"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Sign",
+  "feature": "Request signatures / initials / date fields",
+  "behavior": "(Not implemented) no initials, date or form fill.",
+  "evidence": [
+   "crates/sheaf-core/src/sign.rs:1"
+  ],
+  "limits": "No fill-in of form fields, no request-signature flow."
+ },
+ {
+  "area": "Security",
+  "feature": "Protect with password",
+  "behavior": "Type and repeat a password and run Protect (AES-256).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:373",
+   "crates/sheaf-core/src/security.rs:6"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Security",
+  "feature": "Owner password",
+  "behavior": "Optionally type a separate owner password.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:389"
+  ],
+  "limits": "Permissions are always 'all'; no print/copy restrictions."
+ },
+ {
+  "area": "Security",
+  "feature": "Password match check",
+  "behavior": "Button stays disabled until both passwords match.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:190"
+  ],
+  "limits": "No strength meter or show-password toggle."
+ },
+ {
+  "area": "Security",
+  "feature": "Batch protect",
+  "behavior": "Protect several PDFs with the same password.",
+  "evidence": [
+   "crates/sheaf-core/src/tools.rs:172"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Security",
+  "feature": "Unlock PDF",
+  "behavior": "Add protected PDFs, type each password when asked, and save unprotected copies.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:396",
+   "crates/sheaf-core/src/security.rs:29"
+  ],
+  "limits": "Only for PDFs you know the password of."
+ },
+ {
+  "area": "Security",
+  "feature": "Unprotected-output warning",
+  "behavior": "Tools that drop protection say 'The output is not password-protected.'",
+  "evidence": [
+   "crates/sheaf-app/src/state.rs:234"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Redact",
+  "feature": "Search text to redact",
+  "behavior": "Type text and press Enter or Search to find all matches (case-insensitive).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:74",
+   "crates/sheaf-app/src/viewer_ui.rs:393"
+  ],
+  "limits": "No regex or whole-word option."
+ },
+ {
+  "area": "Redact",
+  "feature": "Redact patterns",
+  "behavior": "Toggle Email, Phone number, Credit card, Date and SSN chips to search for them.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:83",
+   "crates/sheaf-app/src/viewer_ui.rs:372"
+  ],
+  "limits": "Fixed set; no IBAN or custom patterns."
+ },
+ {
+  "area": "Redact",
+  "feature": "Search results list",
+  "behavior": "Matches list with checkbox, text and page; all checked by default.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:104",
+   "crates/sheaf-app/src/viewer_ui.rs:423"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Redact",
+  "feature": "Untick a match",
+  "behavior": "Click a match's checkbox to keep it out of redaction.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:133",
+   "crates/sheaf-app/src/viewer_ui.rs:441"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Redact",
+  "feature": "Jump to a match",
+  "behavior": "Click a result row to scroll the viewer to that match.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:122",
+   "crates/sheaf-app/src/viewer_ui.rs:449"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Redact",
+  "feature": "Drag to mark an area",
+  "behavior": "Drag on a page to mark a rectangle for redaction.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:200",
+   "crates/sheaf-app/src/viewer_ui.rs:339"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Redact",
+  "feature": "Mark whole page",
+  "behavior": "Click 'Mark whole page N' to redact the current page.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:166",
+   "crates/sheaf-app/src/viewer_ui.rs:459"
+  ],
+  "limits": "Only the current page; no page range in the app (CLI has --pages)."
+ },
+ {
+  "area": "Redact",
+  "feature": "Marked for redaction list",
+  "behavior": "All marks list with label and page.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:175"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Redact",
+  "feature": "Remove a mark",
+  "behavior": "Click × on a marked item.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:240",
+   "crates/sheaf-app/src/viewer_ui.rs:479"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Redact",
+  "feature": "Clear all marks",
+  "behavior": "Click 'Clear all'.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:181",
+   "crates/sheaf-app/src/viewer_ui.rs:493"
+  ],
+  "limits": "No undo."
+ },
+ {
+  "area": "Redact",
+  "feature": "Verified redaction",
+  "behavior": "After writing, Sheaf checks no searched text remains and reports it verified (also metadata, bookmarks, comments).",
+  "evidence": [
+   "crates/sheaf-core/src/redact.rs:55",
+   "crates/sheaf-core/src/redact.rs:2049",
+   "crates/sheaf-app/src/state.rs:372"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Redact",
+  "feature": "Redaction leftover notes",
+  "behavior": "Notes list places where searched text remains (links, field names, fonts).",
+  "evidence": [
+   "crates/sheaf-core/src/redact.rs:1088"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Redact",
+  "feature": "Redaction review reminder",
+  "behavior": "Info box reminds to review results before sending.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/redact-panel.slint:251"
+  ],
+  "limits": "No preview of the redacted output before saving; box colour fixed black."
+ },
+ {
+  "area": "Compare",
+  "feature": "Original and Changed slots",
+  "behavior": "Open a file into the Original slot and one into the Changed slot.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tool-flow.slint:52",
+   "crates/sheaf-app/src/flow.rs:85"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Compare",
+  "feature": "Drop into compare slots",
+  "behavior": "Dropped or multi-picked files fill empty slots in order.",
+  "evidence": [
+   "crates/sheaf-app/src/flow.rs:115",
+   "crates/sheaf-app/src/state.rs:125"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Compare",
+  "feature": "Replace a compare file",
+  "behavior": "Click 'Replace…' under a filled slot.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tool-flow.slint:102"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Compare",
+  "feature": "Swap original and changed",
+  "behavior": "Click Swap between the slots.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tool-flow.slint:183",
+   "crates/sheaf-app/src/flow.rs:97"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Compare",
+  "feature": "Semantic Text compare",
+  "behavior": "Choose 'Semantic Text' to get a report PDF of word changes.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:656",
+   "crates/sheaf-core/src/compare.rs:1"
+  ],
+  "limits": "Report is a new PDF; no in-app side-by-side view."
+ },
+ {
+  "area": "Compare",
+  "feature": "Content Overlay compare",
+  "behavior": "Choose 'Content Overlay' to get the changed PDF with changes highlighted.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/options.slint:662",
+   "crates/sheaf-core/src/compare.rs:1"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Compare",
+  "feature": "Compare summary",
+  "behavior": "Result counts added, removed, changed words and changed areas.",
+  "evidence": [
+   "crates/sheaf-core/src/compare.rs:52"
+  ],
+  "limits": "No synchronized scrolling viewer."
+ },
+ {
+  "area": "Viewer",
+  "feature": "Continuous page scroll",
+  "behavior": "In Redact, Sign and Edit, all pages show in a vertical scroll.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:130",
+   "crates/sheaf-app/src/viewer.rs:85"
+  ],
+  "limits": "Viewer only exists inside Redact, Sign and Edit; no standalone reader."
+ },
+ {
+  "area": "Viewer",
+  "feature": "Thumbnail strip",
+  "behavior": "A left strip shows page thumbnails; the current page is outlined.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:89",
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:104"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Viewer",
+  "feature": "Click thumbnail to jump",
+  "behavior": "Click a thumbnail to scroll to that page.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:116",
+   "crates/sheaf-app/src/viewer_ui.rs:264"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Viewer",
+  "feature": "Zoom in button",
+  "behavior": "Click + to step zoom (50,67,80,100,125,150,200%).",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:267",
+   "crates/sheaf-app/src/viewer.rs:119"
+  ],
+  "limits": "Max 200%."
+ },
+ {
+  "area": "Viewer",
+  "feature": "Zoom out button",
+  "behavior": "Click − to step zoom down.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:258"
+  ],
+  "limits": "Min 50%."
+ },
+ {
+  "area": "Viewer",
+  "feature": "Fit width button",
+  "behavior": "Click Fit to return to 100% (fit width).",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:268",
+   "crates/sheaf-app/src/viewer_ui.rs:271"
+  ],
+  "limits": "No fit-page mode."
+ },
+ {
+  "area": "Viewer",
+  "feature": "Zoom in the page viewer with Cmd+",
+  "behavior": "Press Cmd+ (or Cmd=) to zoom in.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:283"
+  ],
+  "limits": "Only after clicking into the viewer (focus)."
+ },
+ {
+  "area": "Viewer",
+  "feature": "Zoom out with Cmd−",
+  "behavior": "Press Cmd− to zoom out.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:287"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Viewer",
+  "feature": "Reset zoom with Cmd0",
+  "behavior": "Press Cmd0 to fit width.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:291"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Viewer",
+  "feature": "Zoom keeps place",
+  "behavior": "Zooming keeps the same part of the document in view.",
+  "evidence": [
+   "crates/sheaf-app/src/viewer_ui.rs:279"
+  ],
+  "limits": "No pinch or Ctrl+scroll zoom."
+ },
+ {
+  "area": "Viewer",
+  "feature": "Zoom percentage label",
+  "behavior": "Current zoom shows between − and +.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:261"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Viewer",
+  "feature": "Lazy page rendering",
+  "behavior": "Only pages near the viewport render; cache limited to 96 MB.",
+  "evidence": [
+   "crates/sheaf-app/src/viewer.rs:226",
+   "crates/sheaf-app/src/viewer_ui.rs:184"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Viewer",
+  "feature": "Viewer status",
+  "behavior": "'Opening…' or an error shows while loading.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:236",
+   "crates/sheaf-app/src/state.rs:324"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Viewer",
+  "feature": "Outline / search / page nav",
+  "behavior": "(Not implemented) no outline/TOC panel, no find-in-document, no page number entry.",
+  "evidence": [
+   "crates/sheaf-app/ui/widgets/page-viewer.slint:29"
+  ],
+  "limits": "Viewer has no outline/TOC panel, no Ctrl+F, no go-to-page, no keyboard page navigation."
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Ask where to save",
+  "behavior": "With 'Ask every time', a Save dialog with the default name opens for one output.",
+  "evidence": [
+   "crates/sheaf-app/src/dest.rs:77"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Choose folder for many outputs",
+  "behavior": "Multiple outputs (Split, PDF to JPG, batches) ask for a folder.",
+  "evidence": [
+   "crates/sheaf-app/src/dest.rs:45",
+   "crates/sheaf-app/src/dest.rs:80"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Default output names",
+  "behavior": "Outputs get suffixes like -merged, -compressed, -signed, -redacted.",
+  "evidence": [
+   "crates/sheaf-app/src/jobs.rs:495"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Never overwrite",
+  "behavior": "An existing name gets ' (1)' instead of being overwritten.",
+  "evidence": [
+   "crates/sheaf-core/src/paths.rs:15",
+   "crates/sheaf-core/src/paths.rs:43"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Cancel save dialog",
+  "behavior": "Cancelling the Save dialog aborts the run silently.",
+  "evidence": [
+   "crates/sheaf-app/src/run.rs:322"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Run button enabled only when ready",
+  "behavior": "The action button enables only when options are valid and files are ready.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/tool-flow.slint:362",
+   "crates/sheaf-app/ui/screens/options.slint:189"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Progress overlay",
+  "behavior": "While running, a progress bar with percentage covers the file area.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/processing.slint:4",
+   "crates/sheaf-app/src/run.rs:336"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Cancel a job",
+  "behavior": "Click Cancel; 'Cancelling…' shows and written outputs are removed.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/processing.slint:62",
+   "crates/sheaf-app/src/run.rs:391",
+   "crates/sheaf-app/src/jobs.rs:148"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Result page",
+  "behavior": "After a run, the tab shows output cards, a summary bar and 'Continue to…'.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/result.slint:41"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Open an output",
+  "behavior": "Click the file icon on an output card to open it.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/result.slint:195",
+   "crates/sheaf-app/src/run.rs:444"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Reveal an output",
+  "behavior": "Click the folder icon on an output card to show it in Finder.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/result.slint:199",
+   "crates/sheaf-app/src/run.rs:450"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Open folder",
+  "behavior": "Click 'Open folder' to reveal the first output.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/result.slint:361",
+   "crates/sheaf-app/src/run.rs:456"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Start over",
+  "behavior": "Click the start-over control to clear files and run the same tool again.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/result.slint:356",
+   "crates/sheaf-app/src/run.rs:462"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Continue to another tool",
+  "behavior": "Click a tool under 'Continue to…' to open it with these outputs.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/result.slint:210",
+   "crates/sheaf-app/src/run.rs:479",
+   "crates/sheaf-app/src/state.rs:270"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Failure list",
+  "behavior": "Files that failed in a batch are listed with their error.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/result.slint:73",
+   "crates/sheaf-app/src/state.rs:381"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Notes list",
+  "behavior": "Tool notes (PDF/A issues, redaction notes) show on the result page.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/result.slint:93",
+   "crates/sheaf-app/src/state.rs:375"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Job failure toast",
+  "behavior": "A failed job shows '<tool> failed: <error>' and the tab returns to editing.",
+  "evidence": [
+   "crates/sheaf-app/src/run.rs:374"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Output fixed folder missing",
+  "behavior": "If the fixed folder no longer exists, a toast says so and the Save dialog opens.",
+  "evidence": [
+   "crates/sheaf-app/src/run.rs:316"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Results & saving",
+  "feature": "Print / share / email",
+  "behavior": "(Not implemented) no print or share actions.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/result.slint:41"
+  ],
+  "limits": "No print, share sheet or drag-out of results."
+ },
+ {
+  "area": "History & recents",
+  "feature": "Tasks History list",
+  "behavior": "Tasks History lists every finished job (tool, files, when), newest first.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/history.slint:94",
+   "crates/sheaf-app/src/home.rs:128"
+  ],
+  "limits": "Capped at 200 entries."
+ },
+ {
+  "area": "History & recents",
+  "feature": "Reveal a history output",
+  "behavior": "Click the folder icon on a row to show the output (disabled if missing).",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/history.slint:55",
+   "crates/sheaf-app/src/home.rs:268"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "History & recents",
+  "feature": "Clear history",
+  "behavior": "Click 'Clear all' then confirm 'Clear the whole history?'.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/history.slint:116",
+   "crates/sheaf-app/ui/screens/history.slint:65",
+   "crates/sheaf-app/src/home.rs:149"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "History & recents",
+  "feature": "Relative times",
+  "behavior": "Times show relatively and refresh when a Home page is shown.",
+  "evidence": [
+   "crates/sheaf-app/src/history.rs:84",
+   "crates/sheaf-app/ui/main.slint:133"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "History & recents",
+  "feature": "Rerun from history",
+  "behavior": "(Not implemented) history rows cannot be re-run or filtered.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/history.slint:8"
+  ],
+  "limits": "No search, filter or re-run."
+ },
+ {
+  "area": "Preferences",
+  "feature": "Appearance",
+  "behavior": "Choose System, Light or Dark.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/preferences.slint:116",
+   "crates/sheaf-app/src/home.rs:100"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Preferences",
+  "feature": "Theme env override",
+  "behavior": "SHEAF_THEME=dark|light forces appearance.",
+  "evidence": [
+   "crates/sheaf-app/src/main.rs:163"
+  ],
+  "limits": "Debug only."
+ },
+ {
+  "area": "Preferences",
+  "feature": "Output: ask every time",
+  "behavior": "Choose 'Ask every time' for a Save dialog each run.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/preferences.slint:131"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Preferences",
+  "feature": "Output: next to original",
+  "behavior": "Choose 'Save next to the original file'.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/preferences.slint:136",
+   "crates/sheaf-app/src/dest.rs:51"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Preferences",
+  "feature": "Output: fixed folder",
+  "behavior": "Choose 'Always save to a folder' and pick it with Choose….",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/preferences.slint:143",
+   "crates/sheaf-app/src/home.rs:113"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Preferences",
+  "feature": "Open output folder when done",
+  "behavior": "Toggle the switch to reveal outputs after each job.",
+  "evidence": [
+   "crates/sheaf-app/ui/screens/preferences.slint:166",
+   "crates/sheaf-app/src/home.rs:143"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Preferences",
+  "feature": "Preferences saved",
+  "behavior": "Preferences persist in prefs.json.",
+  "evidence": [
+   "crates/sheaf-app/src/prefs.rs:77"
+  ],
+  "limits": "No language, default compression or naming preferences."
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI merge",
+  "behavior": "sheaf merge a.pdf b.pdf -o out.pdf merges in order.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:51"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI split --ranges",
+  "behavior": "sheaf split --ranges 1-3,5 -o dir/ writes one file per range.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:59"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI split --every",
+  "behavior": "sheaf split --every N -o dir/ splits every N pages.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:65"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI extract",
+  "behavior": "sheaf extract --ranges … -o out.pdf.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:71"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI remove",
+  "behavior": "sheaf remove --pages … -o out.pdf.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:79"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI organize --order",
+  "behavior": "sheaf organize --order 3,0,1 reorders, 0 inserts a blank page, repeats duplicate.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:87"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI rotate",
+  "behavior": "sheaf rotate --degrees 90|180|270|-90 [--pages] rotates.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:95"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI compress --level",
+  "behavior": "sheaf compress --level low|recommended|extreme.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:106"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI protect",
+  "behavior": "sheaf protect --user-password [--owner-password].",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:114"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI unlock",
+  "behavior": "sheaf unlock with global --password.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:124"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI repair",
+  "behavior": "sheaf repair rebuilds a damaged PDF.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:130"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI to-jpg",
+  "behavior": "sheaf to-jpg --dpi --quality 1-100 -o dir/.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:136"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI from-images",
+  "behavior": "sheaf from-images [--a4 [--landscape]] builds a PDF from images.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:146"
+  ],
+  "limits": "Fixed 0.5 in margin with --a4."
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI number",
+  "behavior": "sheaf number with --position, --double-sided, --cover, --margin, --from/--to, --start, --text, --custom, --font-size.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:159"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI watermark",
+  "behavior": "sheaf watermark --text|--image with font size/auto, RRGGBB colour, scale, position/mosaic, transparency, rotate, --below, range.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:192"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI crop",
+  "behavior": "sheaf crop --top/--bottom/--left/--right mm, --pages, or --remove.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:228"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI ocr",
+  "behavior": "sheaf ocr [--language en] [--all-pages].",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:248"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI to-word",
+  "behavior": "sheaf to-word [--ocr].",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:260"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI to-powerpoint",
+  "behavior": "sheaf to-powerpoint [--ocr].",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:269"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI to-excel",
+  "behavior": "sheaf to-excel --layout one-sheet|sheet-per-table [--ocr].",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:278"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI compare",
+  "behavior": "sheaf compare old new --mode text|overlay.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:289"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI redact",
+  "behavior": "sheaf redact --text (repeatable) --pattern email|phone|credit-card|ssn|date --pages.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:300"
+  ],
+  "limits": "No rectangle areas by coordinates."
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI sign",
+  "behavior": "sheaf sign --page --at X,Y --width with --text|--image|--strokes JSON, optional --p12 --p12-password --reason --location.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:316"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI edit",
+  "behavior": "sheaf edit with repeated --text/--image items each with --page --at --size --color --width.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:354"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI pdfa",
+  "behavior": "sheaf pdfa --level 2b|3b; exit 1 if not conforming.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:385"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI office",
+  "behavior": "sheaf office converts Office/HTML via LibreOffice.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:393"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI info",
+  "behavior": "sheaf info prints pages, sizes, encryption, metadata, forms, bookmarks as JSON.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:399"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI text",
+  "behavior": "sheaf text [--pages] prints page text separated by form feeds.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:403"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI render",
+  "behavior": "sheaf render --page --dpi 18-600 -o page.png.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:410"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI tools",
+  "behavior": "sheaf tools prints every command as JSON schema.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:422"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "--password global flag",
+  "behavior": "--password opens every protected input.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:38"
+  ],
+  "limits": "One password for all inputs."
+ },
+ {
+  "area": "CLI",
+  "feature": "--json output",
+  "behavior": "--json prints {ok, outputs, notes, data} or {ok:false,error,code}.",
+  "evidence": [
+   "crates/sheaf-cli/src/main.rs:41",
+   "crates/sheaf-cli/src/agent.rs:1"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "Exit code 2 on password",
+  "behavior": "Exit code 2 when a password is missing or wrong.",
+  "evidence": [
+   "crates/sheaf-cli/src/agent.rs:1",
+   "README.md:59"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "CLI",
+  "feature": "CLI bundled with app",
+  "behavior": "The CLI ships inside the app bundle (Helpers/sheaf, sheaf-cli.exe, bin/sheaf).",
+  "evidence": [
+   "README.md:46"
+  ],
+  "limits": "Not added to PATH automatically."
+ },
+ {
+  "area": "MCP",
+  "feature": "sheaf mcp server",
+  "behavior": "sheaf mcp serves every command as an MCP tool over stdio.",
+  "evidence": [
+   "crates/sheaf-cli/src/mcp.rs:279",
+   "crates/sheaf-cli/src/main.rs:424"
+  ],
+  "limits": "stdio only; no resources or prompts."
+ },
+ {
+  "area": "MCP",
+  "feature": "MCP tools/list",
+  "behavior": "Tools are generated from the CLI with JSON schemas (tools/mcp/help skipped).",
+  "evidence": [
+   "crates/sheaf-cli/src/mcp.rs:14",
+   "crates/sheaf-cli/src/mcp.rs:83"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "MCP",
+  "feature": "MCP edit items schema",
+  "behavior": "The edit tool takes an items array of text/image objects.",
+  "evidence": [
+   "crates/sheaf-cli/src/mcp.rs:126"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "MCP",
+  "feature": "MCP render returns image",
+  "behavior": "render returns the page PNG as image content so agents can look.",
+  "evidence": [
+   "crates/sheaf-cli/src/mcp.rs:248"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "MCP",
+  "feature": "MCP password per call",
+  "behavior": "Each tool accepts a password argument (except from-images and office).",
+  "evidence": [
+   "crates/sheaf-cli/src/mcp.rs:106"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "MCP",
+  "feature": "MCP initialize instructions",
+  "behavior": "initialize returns instructions: never overwrites, read outputs, use info/text/render.",
+  "evidence": [
+   "crates/sheaf-cli/src/mcp.rs:258"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "MCP",
+  "feature": "Add to Claude Code",
+  "behavior": "README shows 'claude mcp add sheaf -- …/sheaf mcp'.",
+  "evidence": [
+   "README.md:72"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Platform",
+  "feature": "Open a file from Finder Open With",
+  "behavior": "Choose Sheaf in Finder's Open With (or drop on Dock icon); PDFs go to Home to pick a tool.",
+  "evidence": [
+   "crates/sheaf-app/src/open_with.rs:112",
+   "crates/sheaf-app/src/main.rs:293",
+   "crates/sheaf-app/macos/Info.plist:7"
+  ],
+  "limits": "Registered as Alternate viewer; non-PDFs skipped with a toast."
+ },
+ {
+  "area": "Platform",
+  "feature": "Open files from command line",
+  "behavior": "Passing file paths to the app opens them like Open With.",
+  "evidence": [
+   "crates/sheaf-app/src/main.rs:297",
+   "crates/sheaf-app/src/open_with.rs:79"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Platform",
+  "feature": "Queued launch files",
+  "behavior": "Files arriving before the window is ready are queued and delivered in order.",
+  "evidence": [
+   "crates/sheaf-app/src/open_with.rs:21"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Platform",
+  "feature": "Open With skipped files notice",
+  "behavior": "Non-PDF or missing files show 'Not a PDF' / 'File not found' or a count.",
+  "evidence": [
+   "crates/sheaf-app/src/open_with.rs:58"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Platform",
+  "feature": "macOS / Windows / Linux builds",
+  "behavior": "Native builds for macOS arm64, Windows x64, Linux x64.",
+  "evidence": [
+   "README.md:36"
+  ],
+  "limits": "macOS ad-hoc signed, not notarized; Windows unsigned; no Intel Mac build."
+ },
+ {
+  "area": "Platform",
+  "feature": "Offline, no account",
+  "behavior": "Everything runs locally, no upload or telemetry.",
+  "evidence": [
+   "README.md:13"
+  ],
+  "limits": ""
+ },
+ {
+  "area": "Platform",
+  "feature": "Native menu bar / shortcuts",
+  "behavior": "(Not implemented) no app menu commands or global shortcuts (Cmd+O, Cmd+W).",
+  "evidence": [
+   "crates/sheaf-app/ui/main.slint:68"
+  ],
+  "limits": "Only viewer zoom shortcuts exist."
+ },
+ {
+  "area": "Platform",
+  "feature": "Window icon",
+  "behavior": "Window uses the app icon on Windows and Linux.",
+  "evidence": [
+   "crates/sheaf-app/ui/main.slint:137"
+  ],
+  "limits": ""
+ }
+]
