@@ -1,0 +1,2703 @@
+[
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Open the Edit PDF tool",
+  "behavior": "Tools > Edit PDF opens the editing toolbar and right-hand panel to edit text and images in place.",
+  "evidence": [
+   "EditPDFView",
+   "Edit PDF",
+   "avTouchUpEditDocumentMenu = Ed&it PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Edit existing text in place",
+  "behavior": "Click a text block in Edit mode and type; text reflows within the box.",
+  "evidence": [
+   "avTouchUpEditTextMenu = Edit Te&xt",
+   "avToolsSearchHintText_6 = Edit Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Edit selected text via context menu",
+  "behavior": "Select text then choose Edit Text from the context menu to jump into editing.",
+  "evidence": [
+   "avTouchUpEditTextSelectionMenu = Ed&it Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Edit an existing image",
+  "behavior": "Select an image in Edit mode to move, resize or change it.",
+  "evidence": [
+   "avTouchUpEditImageMenu = Edit Ima&ge",
+   "TouchUpEditImageRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Add a new text box",
+  "behavior": "Add Text tool: click the page to place a new text box and type.",
+  "evidence": [
+   "avTouchUpAddTextbox = Add Text",
+   "TouchUpAddTextboxRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Add an image to a page",
+  "behavior": "Add Image tool: pick an image file and click or drag to place it.",
+  "evidence": [
+   "avTouchUpAddImage = Add Image",
+   "TouchUpAddImageRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Replace an image",
+  "behavior": "Replace the selected image with another file, keeping position.",
+  "evidence": [
+   "avEditTextandImagesKeywordReplaceImage = Replace Image"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Rotate image clockwise",
+  "behavior": "Rotate the selected image clockwise in 90-degree increments.",
+  "evidence": [
+   "avImageRotate270Tooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Rotate image counterclockwise",
+  "behavior": "Rotate the selected image counterclockwise in 90-degree increments.",
+  "evidence": [
+   "avImageRotate90Tooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Format text font size",
+  "behavior": "Format panel: increase or decrease font size of selected text.",
+  "evidence": [
+   "avAIEditTooltipIncreaseFontSize",
+   "avAIEditTooltipDecreaseFontSize"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Change text colour",
+  "behavior": "Format panel colour picker applies a colour to selected text.",
+  "evidence": [
+   "avPropertyTextColorLabel = Text Color"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Open Format properties panel",
+  "behavior": "Format panel shows font, size, colour and paragraph options for selection.",
+  "evidence": [
+   "avTouchUpProperties = Format"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Create a bulleted list",
+  "behavior": "Turn selected paragraphs into a bulleted list.",
+  "evidence": [
+   "avTouchUpBulletedListToolTip = Create a bulleted list"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Create a numbered list",
+  "behavior": "Turn selected paragraphs into a numbered list.",
+  "evidence": [
+   "avTouchUpNumberedListToolTip = Create a numbered list"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Align objects left",
+  "behavior": "Align selected objects on their left edges.",
+  "evidence": [
+   "avTouchUpLabelLeftAlign = Align Left"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Align objects right",
+  "behavior": "Align selected objects on their right edges.",
+  "evidence": [
+   "avTouchUpLabelRightAlign = Align Right"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Align objects top",
+  "behavior": "Align selected objects on their top edges.",
+  "evidence": [
+   "avTouchUpLabelTopAlign = Align Top"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Align objects bottom",
+  "behavior": "Align selected objects on their bottom edges.",
+  "evidence": [
+   "avTouchUpLabelBottomAlign = Align Bottom"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Center objects vertically",
+  "behavior": "Align selected objects on a vertical center line.",
+  "evidence": [
+   "avTouchUpLabelVerticalAlign = Align Vertical Center"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Center objects horizontally",
+  "behavior": "Align selected objects on a horizontal center line.",
+  "evidence": [
+   "avTouchUpLabelHorizonatalAlign = Align Horizontal Center"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Bring object to front",
+  "behavior": "Arrange: move the selected object to the top of the stacking order.",
+  "evidence": [
+   "avTouchUpLabelBringToFront = &Bring to Front"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Bring object forward",
+  "behavior": "Arrange: move the selected object one level up.",
+  "evidence": [
+   "avTouchUpLabelBringForward = Bring &Forward"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Send object to back",
+  "behavior": "Arrange: move the selected object to the bottom.",
+  "evidence": [
+   "avTouchUpLabelSendToBack = &Send to Back"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Send object backward",
+  "behavior": "Arrange: move the selected object one level down.",
+  "evidence": [
+   "avTouchUpLableSendBackward = Send Ba&ckward"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Toggle bounding boxes",
+  "behavior": "Show or hide outlines around editable text and image blocks.",
+  "evidence": [
+   "avTouchUpOutlineTextImages = Show bounding boxes"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Toggle comments while editing",
+  "behavior": "Show or hide comments while in Edit mode.",
+  "evidence": [
+   "avTouchUpShowComments = Show Comments"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Restrict editing from Edit tool",
+  "behavior": "Shortcut to protect the document against editing by others.",
+  "evidence": [
+   "avTouchUpRestrictEditing = Restrict editing"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Edit object in external app",
+  "behavior": "Edit Using / Open with sends the selected image or object to an external editor and updates on save.",
+  "evidence": [
+   "avTouchUpEditUsing = Edit Using...",
+   "avTouchUpEditUsingOpen = Open with..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Edit scanned document text",
+  "behavior": "Scanned Document settings: OCR scanned pages to make them editable in Edit mode.",
+  "evidence": [
+   "avTouchUpScannedDocEditingTools = Scanned Document"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Spell check document",
+  "behavior": "Check spelling in comments and form fields; Spelling panel lists issues.",
+  "evidence": [
+   "avCheckSpelling = Chec&k Spelling",
+   "AvSpellingPanelName = Spelling"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Find and replace text",
+  "behavior": "Find bar with Replace with field replaces matched text while editing.",
+  "evidence": [
+   "avReplaceEditBoxText = Replace with"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Edit Object",
+  "feature": "Edit object with Edit Object tool",
+  "behavior": "Print Production Edit Object tool selects and modifies any page object.",
+  "evidence": [
+   "avTaskPanelEditObject = Edit Object",
+   "TouchUpObjectToolRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Header & Footer",
+  "feature": "Add header and footer",
+  "behavior": "Dialog with six text boxes (left/centre/right, top/bottom), font, margins, page range; insert page number and date tokens.",
+  "evidence": [
+   "avAddHeaderFooterWorkflowTitle = Add Header & Footer",
+   "HeaderFooterRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Header & Footer",
+  "feature": "Update header and footer",
+  "behavior": "Edit an existing header/footer set and reapply.",
+  "evidence": [
+   "avUpdateHeaderFooter = Update Header and Footer"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Header & Footer",
+  "feature": "Remove header and footer",
+  "behavior": "Remove headers and footers added by Acrobat, from one or multiple files.",
+  "evidence": [
+   "avRemoveHeadFootCmdWorkflowTitle = Remove Header & Footer"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Header & Footer",
+  "feature": "Insert page number token",
+  "behavior": "Inserts the page number placeholder into a header/footer box, formats like 1 or 1 of n.",
+  "evidence": [
+   "admHF_InsertPageNum = &Insert Page Number"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Header & Footer",
+  "feature": "Insert date token",
+  "behavior": "Inserts a date placeholder with formats such as mm/dd/yyyy.",
+  "evidence": [
+   "admHF_DATE = Date",
+   "admHF_YEAR4 = yyyy"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Header & Footer",
+  "feature": "Insert Bates number token",
+  "behavior": "Inserts a Bates number into a header/footer box.",
+  "evidence": [
+   "admHF_InsertBates = Insert Bates N&umber..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Watermark",
+  "feature": "Add watermark",
+  "behavior": "Text or image (from file) watermark with rotation, opacity, position, page range.",
+  "evidence": [
+   "avAddWatermarkWorkflowTitle = Add Watermark",
+   "WatermarkRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Watermark",
+  "feature": "Update watermark",
+  "behavior": "Change an existing watermark's settings.",
+  "evidence": [
+   "avUpdateWatermark = Update Watermark"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Watermark",
+  "feature": "Remove watermark",
+  "behavior": "Delete the Acrobat-added watermark from the document.",
+  "evidence": [
+   "avRemoveWatermarkWorkflowTitle = Remove Watermark"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Background",
+  "feature": "Add background",
+  "behavior": "Background from a colour or an image/PDF file, with scale, opacity and page range.",
+  "evidence": [
+   "avAddBackgroundWorkflowTitle = Add Background",
+   "DocBackgroundRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Background",
+  "feature": "Update background",
+  "behavior": "Edit the existing background settings.",
+  "evidence": [
+   "avWaterBackCmd_UPDATE_BACKGROUND_TITLE = Update Background"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Background",
+  "feature": "Remove background",
+  "behavior": "Remove the added background.",
+  "evidence": [
+   "avRemoveBackgroundWorkflowTitle = Remove Background"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Bates",
+  "feature": "Add Bates numbering",
+  "behavior": "Add Bates numbers across one or more files in chosen order; prefix/suffix, start number; optional log file.",
+  "evidence": [
+   "avBatesCmdWorkflowTitle = Add Bates Numbering",
+   "BatesNumberingRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Bates",
+  "feature": "Remove Bates numbering",
+  "behavior": "Remove Bates numbers from a list of PDFs.",
+  "evidence": [
+   "avRemoveBatesCmdWorkflowTitle = Remove Bates Numbering"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Links",
+  "feature": "Add or edit a link",
+  "behavior": "Draw a link rectangle; set action to go to page view, open file or web page.",
+  "evidence": [
+   "avTaskPanelAddLink = Add/Edit Web or Document Link",
+   "LinkRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Links",
+  "feature": "Create link from selection",
+  "behavior": "Select text and create a link from it.",
+  "evidence": [
+   "/Dialogs/CreateLinkFromSelection = Create Link from Selection"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Links",
+  "feature": "Set link appearance",
+  "behavior": "Link properties: visible/invisible rectangle, colour, line style, highlight.",
+  "evidence": [
+   "avLinkToolProperties = Link Tool Properties",
+   "avLinkColorBlue = Blue"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Links",
+  "feature": "Create links from URLs",
+  "behavior": "Scan text for URLs and turn them into web links on a page range.",
+  "evidence": [
+   "avWebLinkCreateURLs = &Create Links from URLs..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Links",
+  "feature": "Remove all web links",
+  "behavior": "Removes web links from the document.",
+  "evidence": [
+   "avTaskPanelRemoveAllLinks = Remove Web Links..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Attachments",
+  "feature": "Attach a file",
+  "behavior": "Embed a file as a document-level attachment.",
+  "evidence": [
+   "avTaskPanelAttachFile = Attach File",
+   "AddFileAttachmentRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Bookmarks",
+  "feature": "Add a bookmark from Edit tool",
+  "behavior": "Create a new bookmark pointing to the current view.",
+  "evidence": [
+   "avTaskPanelAddBookmark = Add Bookmark",
+   "NewBookmarkRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Articles",
+  "feature": "Create an article thread",
+  "behavior": "Article tool: drag boxes to chain a reading thread across columns/pages.",
+  "evidence": [
+   "avDragToCreateThread",
+   "ThreadRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Articles",
+  "feature": "Delete article box or article",
+  "behavior": "Delete one box or the whole article thread.",
+  "evidence": [
+   "avConfirmDeleteThread"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "edit",
+  "area": "Page Numbers",
+  "feature": "Edit page labels",
+  "behavior": "Number Pages: set page label style, prefix and start for a page range.",
+  "evidence": [
+   "avNumberPagesCmdTitle = Number Pages",
+   "/Dialogs/PageNumbering = Page labels",
+   "NumberPagesRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Organize Pages",
+  "feature": "Open Organize Pages",
+  "behavior": "Thumbnail grid of pages to move, rotate, delete, insert.",
+  "evidence": [
+   "Organize Pages",
+   "PagesAppRHPView",
+   "avHomeFirstMileOrganizePagesCardContent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Organize Pages",
+  "feature": "Reorder pages by dragging",
+  "behavior": "Drag thumbnails in Organize Pages to change page order.",
+  "evidence": [
+   "avOrganizePagesNotificationMessage = Move, rotate, delete, or insert pages in your PDF."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Rotate pages clockwise",
+  "behavior": "Rotate selected pages 90 degrees clockwise.",
+  "evidence": [
+   "avRotatePagesCWMenuItem = Ro&tate Pages clockwise",
+   "RotatePagesCWRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Rotate pages counterclockwise",
+  "behavior": "Rotate selected pages 90 degrees counterclockwise.",
+  "evidence": [
+   "avRotatePagesCCWMenuItem = Rotate Pages &counterclockwise",
+   "RotatePagesCCWRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Rotate pages by dialog",
+  "behavior": "Rotate Pages dialog: direction, page range, even/odd, landscape/portrait/any orientation filter.",
+  "evidence": [
+   "avRotatePagesMenuItem = Ro&tate Pages...",
+   "avRotateLandscapePages = Landscape Pages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Delete",
+  "feature": "Delete pages",
+  "behavior": "Delete selected pages or a range after confirmation.",
+  "evidence": [
+   "avDeletePagesCmdTitle = Delete Pages",
+   "DeleteSelectedPagesRdr",
+   "avConfirmDeleteRange"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Insert",
+  "feature": "Insert pages from file",
+  "behavior": "Insert pages from another file before/after a chosen page.",
+  "evidence": [
+   "avInsertPagesFromFile = From &File...",
+   "InsertPagesCmdForPagesAppRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Insert",
+  "feature": "Insert blank page",
+  "behavior": "Insert a blank page at a chosen location.",
+  "evidence": [
+   "avInsertBlankPageCmdTitle = Insert Blank Page",
+   "avInsertBlankPage = A &Blank Page..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Insert",
+  "feature": "Insert pages from clipboard",
+  "behavior": "Insert clipboard content as new page(s).",
+  "evidence": [
+   "avInsertPagesFromSelection = From &Clipboard..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Insert",
+  "feature": "Insert pages from scanner",
+  "behavior": "Scan pages directly into the document.",
+  "evidence": [
+   "avInsertPagesFromScanner = From &Scanner..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Replace",
+  "feature": "Replace pages",
+  "behavior": "Replace a page range with pages from another PDF.",
+  "evidence": [
+   "avReplacePagesCmdTitle = Replace Pages",
+   "ReplacePagesRdr",
+   "avConfirmReplaceRange"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Extract",
+  "feature": "Extract pages",
+  "behavior": "Extract selected pages into a new PDF named 'Pages from ...'.",
+  "evidence": [
+   "ExtractSelectedPagesRdr",
+   "avUntitledExtractPagesFile = Untitled Extract Pages.pdf"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Extract",
+  "feature": "Extract pages as separate files",
+  "behavior": "Option to write each extracted page to its own file in a destination folder.",
+  "evidence": [
+   "avExtractSelectedExtractAsSeparateFiles = Extract pages as separate files"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Extract",
+  "feature": "Delete pages after extracting",
+  "behavior": "Option removes the extracted pages from the source.",
+  "evidence": [
+   "avExtractSelectedDelPages = Delete Pages after extracting"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split document",
+  "behavior": "Split by number of pages, file size (MB) or top-level bookmarks; output options for names/folder.",
+  "evidence": [
+   "avSplitDocumentCmdTitle = Split Document",
+   "avSplitDocumentOptionSplitByBookmarks = Top level bookmarks",
+   "SplitDocumentCmdForPagesAppRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split multiple files",
+  "behavior": "Apply the same split settings to a list of documents.",
+  "evidence": [
+   "avSplitDocumentOptionSplitMultipleFiles = Split Multiple Files"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Crop pages",
+  "behavior": "Crop Pages dialog: margins, page boxes (crop/trim/bleed/art), remove white margins, page range, even/odd.",
+  "evidence": [
+   "avCropPagesCmdTitle = Crop Pages",
+   "CropPagesRdr",
+   "avCropBoundingBox = Bounding Box"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Draw crop rectangle",
+  "behavior": "Drag a rectangle on the page with the Crop tool, double-click to open settings.",
+  "evidence": [
+   "CropRdr",
+   "avCropPagesWorkflowToolTip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Page Transitions",
+  "feature": "Set page transitions",
+  "behavior": "Choose transition effect and auto-flip delay for full-screen display.",
+  "evidence": [
+   "avSetTransitionsCmdTitle = Page Transitions",
+   "SetTransitionsRdr",
+   "avTransitionAutoFlipFmtString"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Page Properties",
+  "feature": "Edit page properties",
+  "behavior": "Page Properties: tab order, page actions.",
+  "evidence": [
+   "PagePropertiesRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Page Templates",
+  "feature": "Manage page templates",
+  "behavior": "Define named page templates usable from scripts/forms.",
+  "evidence": [
+   "PageTemplatesRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Combine",
+  "feature": "Combine files into one PDF",
+  "behavior": "Combine Files: add files, reorder, combine into a single PDF.",
+  "evidence": [
+   "CombinePDFRdrApp",
+   "avActionsCombineMultipleFiles = Combine Files into a Single PDF",
+   "Combine files"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Combine",
+  "feature": "Add files to combine",
+  "behavior": "Select files or drag and drop PDFs and other formats.",
+  "evidence": [
+   "CombineAddFilesExecute",
+   "Drag and drop your files",
+   "Select PDFs or a mix of PDF documents and other files."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Combine",
+  "feature": "Add open files to combine",
+  "behavior": "Add documents already open in Acrobat.",
+  "evidence": [
+   "CombineAddOpenFilesExecute",
+   "Add open files"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Combine",
+  "feature": "Move file up or down in list",
+  "behavior": "Reorder files in the Combine list.",
+  "evidence": [
+   "MultiFileViewDocMoveUp",
+   "MultiFileViewDocMoveDown"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Combine",
+  "feature": "Remove file from combine list",
+  "behavior": "Delete selected nodes from the combine list.",
+  "evidence": [
+   "DeleteCombineNodes"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Combine",
+  "feature": "Switch combine list or thumbnail view",
+  "behavior": "Toggle list view and thumbnail view of files to combine.",
+  "evidence": [
+   "MultiFileListViewSelector",
+   "MultiFileThumbnailViewSelector"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Combine",
+  "feature": "Rearrange pages before combining",
+  "behavior": "Expand files to rearrange individual pages.",
+  "evidence": [
+   "Rearrange pages",
+   "MultiFileViewInsertPages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Combine",
+  "feature": "Insert template into combine",
+  "behavior": "Insert a template page into the combine list.",
+  "evidence": [
+   "InsertFromTemplate",
+   "avCCXCombineFileName"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "organize",
+  "area": "Combine",
+  "feature": "Create a PDF Portfolio",
+  "behavior": "Bundle files as a PDF Portfolio instead of merging.",
+  "evidence": [
+   "avCollectionCreateWizard = Create PDF Portfolio"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Prepare Form",
+  "feature": "Open Prepare Form",
+  "behavior": "Prepare Form tool: create a fillable form from a PDF or scan, entering field editing mode.",
+  "evidence": [
+   "Prepare Form",
+   "FormsAppRHPView",
+   "AcroForm:Forms_CreateNewFormRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Prepare Form",
+  "feature": "Edit existing form fields",
+  "behavior": "Enter form editing to add or edit fields.",
+  "evidence": [
+   "IDS_FORM_MENU_EDIT_FORM = &Add or Edit Fields...",
+   "AcroForm:Forms_EditFormInAcrobatRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Prepare Form",
+  "feature": "Close form editing",
+  "behavior": "Exit field editing mode.",
+  "evidence": [
+   "IDS_FORM_MENU_EXIT_FORM_MODE = C&lose Form Editing"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Prepare Form",
+  "feature": "Preview form",
+  "behavior": "Toggle between Edit Layout and Preview to test fields.",
+  "evidence": [
+   "IDS_TOOL_PREVIEW_LABEL = Preview",
+   "IDS_TOOL_EDIT_LAYOUT_LABEL = Edit Layout"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a text field",
+  "behavior": "Pick the text field tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_TEXT_LABEL = &Text Field"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a check box",
+  "behavior": "Pick the check box tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_CHECKBOX_LABEL = Chec&k Box"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a radio button",
+  "behavior": "Pick the radio button tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_RADIO_LABEL = &Radio Button"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a dropdown",
+  "behavior": "Pick the dropdown tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_COMBO_LABEL = Dr&opdown"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a list box",
+  "behavior": "Pick the list box tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_LIST_BOX_LABEL = &List Box"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a button",
+  "behavior": "Pick the button tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_BUTTON_LABEL = B&utton"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a date field",
+  "behavior": "Pick the date field tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_DATE_LABEL = &Date Field"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a image field",
+  "behavior": "Pick the image field tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_IMAGE_LABEL = &Image Field"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a barcode field",
+  "behavior": "Pick the barcode field tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_BARCODE_LABEL = &Barcode"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field tools",
+  "feature": "Add a digital signature field",
+  "behavior": "Pick the digital signature field tool and drag on the page to place it; a name is assigned and properties are editable.",
+  "evidence": [
+   "IDS_TOOL_SIGNATURE_LABEL = &Digital Signature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field properties",
+  "feature": "Edit field properties",
+  "behavior": "Properties dialog with General, Appearance, Options, Actions, Format, Validate, Calculate tabs.",
+  "evidence": [
+   "IDS_CAPTION_MULTIPLE = Field Properties",
+   "IDS_TAB_FORMAT = Format"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field properties",
+  "feature": "Set field format",
+  "behavior": "Format tab: number, percentage, date, time, special, custom script.",
+  "evidence": [
+   "IDS_TRIGGER_FORMAT = Format Field"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field properties",
+  "feature": "Set field validation",
+  "behavior": "Validate tab: none, value in range, or custom validation script.",
+  "evidence": [
+   "/Dialogs/FieldProps/Validate/Yes/Part1 = Field value is in &range:",
+   "/Dialogs/FieldProps/Validate/Script"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field properties",
+  "feature": "Set field calculation",
+  "behavior": "Calculate tab: sum/product/etc. of chosen fields, simplified notation or script.",
+  "evidence": [
+   "IDS_TAB_CALCULATE = Calculate",
+   "IDS_SELECT_CALC = Select Fields for Calculation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field properties",
+  "feature": "Set field calculation order",
+  "behavior": "Define order in which calculated fields are evaluated.",
+  "evidence": [
+   "IDS_MENU_JS_CALCORDER = Set Field &Calculation Order..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field properties",
+  "feature": "Set field tooltip",
+  "behavior": "Tooltip text shown on hover over the field.",
+  "evidence": [
+   "/Dialogs/FieldProps/ToolTip = &Tooltip:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field properties",
+  "feature": "Allow rich text in field",
+  "behavior": "Text field option enabling rich text formatting.",
+  "evidence": [
+   "/Dialogs/FieldProps/Text/RichText = Allow &Rich Text Formatting"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field properties",
+  "feature": "Set auto font size",
+  "behavior": "Font size Auto to fit text into the field.",
+  "evidence": [
+   "/Dialogs/FieldProps/FontSize/AUTO = Auto"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Field properties",
+  "feature": "Align field text",
+  "behavior": "Align left, center, right or justified within field.",
+  "evidence": [
+   "IDS_PROPERTYALIGNCENTER_TOOLTIP = Align Center",
+   "IDS_PROPERTYALIGNJUSTIFIED_TOOLTIP = Align Justified"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Fields panel",
+  "feature": "Rename a field",
+  "behavior": "Context menu Rename Field.",
+  "evidence": [
+   "IDS_MENU_RENAME = &Rename Field..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Fields panel",
+  "feature": "Set field as required",
+  "behavior": "Mark field required before submission.",
+  "evidence": [
+   "IDS_MENU_REQUIRED = Set as Re&quired Field"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Fields panel",
+  "feature": "Duplicate field across pages",
+  "behavior": "Duplicate a field onto chosen pages.",
+  "evidence": [
+   "/Dialogs/DupField = Duplicate Field",
+   "/Dialogs/DupField/Quest"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Fields panel",
+  "feature": "Create multiple copies of fields",
+  "behavior": "Generate a grid of copies with counts and spacing.",
+  "evidence": [
+   "/Dialogs/CreateTable = Create Multiple Copies of Fields"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Fields panel",
+  "feature": "Browse fields list",
+  "behavior": "Fields panel lists all fields; select to locate.",
+  "evidence": [
+   "IDS_TREEVIEW_TABTOOLTIP = Fields: Work with form fields"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Tab order",
+  "feature": "Change tab order",
+  "behavior": "Move field up/down in tab order from Fields panel.",
+  "evidence": [
+   "IDS_MENU_TAB_MOVE_UP = Mo&ve Up in Tab Order",
+   "IDS_MENU_TAB_MOVE_DOWN = Move Do&wn in Tab Order"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Fill",
+  "feature": "Highlight existing fields",
+  "behavior": "Toggle highlight colour on fillable fields.",
+  "evidence": [
+   "IDS_TOOL_HIGHLIGHT_FIELDS_LABEL = Highlight Existing Fields",
+   "AcroForm:Forms_HighlightRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Fill",
+  "feature": "Clear form",
+  "behavior": "Reset all field values.",
+  "evidence": [
+   "IDS_MENU_CLEAR_FORM = Clea&r Form",
+   "AcroForm:Forms_ClearFormRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Fill",
+  "feature": "Auto-complete form entries",
+  "behavior": "Preference: Off, Basic, Advanced suggestions from previous entries.",
+  "evidence": [
+   "/Dialogs/AFPrefs/AutoComplete = Auto-Complete",
+   "/Dialogs/AFPrefs/AutoCompleteAdvanced = Advanced"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Data",
+  "feature": "Import form data",
+  "behavior": "Load values from an FDF/XFDF/XML/TXT data file.",
+  "evidence": [
+   "IDS_MENU_IMPORT_FDF = Import &Data...",
+   "AcroForm:Forms_ImportDataRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Data",
+  "feature": "Export form data",
+  "behavior": "Save field values as a form data file.",
+  "evidence": [
+   "IDS_EXPORT_FILE = Export Form Data As",
+   "AcroForm:FormData_ExportDataRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Data",
+  "feature": "Merge data files into spreadsheet",
+  "behavior": "Combine returned form data files into a CSV spreadsheet.",
+  "evidence": [
+   "IDS_FORM_MENU_SPREADSHEET = Merge Data Files into &Spreadsheet...",
+   "AcroForm:Advanced_CreateSpreadsheetRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Distribute",
+  "feature": "Distribute form",
+  "behavior": "Send form to recipients to fill and return.",
+  "evidence": [
+   "IDS_TOOL_DISTRIBUTE = Distribute this form to other people for fill in",
+   "AcroForm:Forms_DistributeFormRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Distribute",
+  "feature": "Track returned forms",
+  "behavior": "Tracker lists distributed forms and responses.",
+  "evidence": [
+   "IDS_MENU_TRACK = &Track",
+   "AcroForm:Forms_TrackReturnedFormsRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Submit",
+  "feature": "Submit completed form",
+  "behavior": "Submit button sends filled data.",
+  "evidence": [
+   "IDS_TOOL_SEND_COMPLETED_FORM_LABEL = Submit Form"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Barcode",
+  "feature": "Export/import barcode parameters",
+  "behavior": "Save or load barcode encoding parameters.",
+  "evidence": [
+   "IDS_EXPORT_PARAMS_TITLE = Export Barcode Parameters As...",
+   "IDS_IMPORT_PARAMS_TITLE = Import Barcode Parameters From..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "E-sign fields",
+  "feature": "Add e-sign signature field",
+  "behavior": "Add signature/initials/name/email/date fields for e-signature workflows.",
+  "evidence": [
+   "IDS_TOOL_ESSIG_LABEL = Add a Signature field",
+   "IDS_TOOL_ESINITIAL_LABEL = Add an Initial field"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "forms",
+  "area": "Flatten",
+  "feature": "Flatten form fields",
+  "behavior": "Flattening form fields during optimization makes them static page content.",
+  "evidence": [
+   "avDocOptFlattenForms = Flattening form fields."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Protect",
+  "feature": "Open Protect tool",
+  "behavior": "Protect panel: restrict with password, encrypt, remove hidden info, more options.",
+  "evidence": [
+   "ProtectAppRHPView",
+   "Protect"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Restrict editing with password",
+  "behavior": "Set a permissions password restricting printing/editing.",
+  "evidence": [
+   "avTaskPanelRestrictWithPassword = Restrict Editing",
+   "RestrictWithPasswordRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Encrypt with password",
+  "behavior": "Require a Document Open password and/or permissions password; passwords must differ, at least six characters.",
+  "evidence": [
+   "avSecurityFavoritePolicy_Password = Encrypt with Password",
+   "avSecurityWantUniquePasswords"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Set permissions password restrictions",
+  "behavior": "Choose allowed printing, changes, copying with permissions password.",
+  "evidence": [
+   "avSecurityRequireMasterPassword",
+   "/Dialogs/Security/Permissions/SecurityExplanation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Open password-protected file",
+  "behavior": "Prompt for password on open; incorrect password alert.",
+  "evidence": [
+   "avSecurityGetPassword = '%s' is protected.",
+   "avNoteBadPassword"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Encryption",
+  "feature": "Encrypt with certificate",
+  "behavior": "Encrypt for recipients' certificates; choose components to encrypt.",
+  "evidence": [
+   "avSecurityFavoritePolicy_Certificate = Encrypt with Certificate",
+   "IDS_SP_DEF_PKI_POLICY_NAME = Encrypt with Certificate"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Encryption",
+  "feature": "Choose components to encrypt",
+  "behavior": "All contents, all except metadata, or only file attachments.",
+  "evidence": [
+   "IDS_SP_EDC_ENCRYPT_DOC = Encrypt &all document contents",
+   "IDS_SP_EDC_ENCRYPT_ONLY_ATTACH = Encrypt only &file attachments"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Encryption",
+  "feature": "Remove security",
+  "behavior": "Remove password or certificate security from the document.",
+  "evidence": [
+   "avDSRemoveSecurityMenuItem = &Remove Security"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Encryption",
+  "feature": "Manage security policies",
+  "behavior": "Apply or manage saved security policies.",
+  "evidence": [
+   "SecurityPolicyFavoritesRdr",
+   "IDS_CertificateSecurityPolicies = Certificate Policies"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Open Redact tool",
+  "behavior": "Redact panel: mark, apply, redact pages, find text, sanitize.",
+  "evidence": [
+   "RedactAppRHPView",
+   "Redact"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Mark text and images for redaction",
+  "behavior": "Drag/select content to mark for redaction (shortcut Y).",
+  "evidence": [
+   "IDS_REDACT_TOOL = Mark for Redaction (Y)|y",
+   "MarkForRedactionDropDownRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Redact whole pages",
+  "behavior": "Mark entire pages or ranges for redaction.",
+  "evidence": [
+   "avRedactPagesToolButtonLabel = Redact Pages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Find text and redact",
+  "behavior": "Search words, phrases or patterns, check results and mark them.",
+  "evidence": [
+   "avRedactSearchToolButtonLabellatest = Find Text && Redact",
+   "avSearchAndRedactCandidates = Mark Checked Results for Redaction"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Choose pattern locale",
+  "behavior": "Pick locale for patterns (phone, SSN, email...).",
+  "evidence": [
+   "avRedactSwitchLocale = Choose different locale for patterns"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Apply redactions",
+  "behavior": "Permanently remove marked content; warns on close if marks are unapplied.",
+  "evidence": [
+   "IDS_REDACTAPPLY_TOOL = Apply Redactions",
+   "AnnotsApplyRedactionsRdr",
+   "avAnnotsRedactionConfirmDialogString"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Set redaction properties",
+  "behavior": "Fill colour, overlay text and codes for redaction marks.",
+  "evidence": [
+   "avTaskPanelRedactionProperties = Redaction Properties",
+   "AnnotsRedactToolPropsRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Sanitize",
+  "feature": "Sanitize document",
+  "behavior": "One-click removal of metadata, comments, links, attachments, hidden content.",
+  "evidence": [
+   "avRedactRemoveAllToolButtonLabel = Sanitize Document",
+   "SanitizeDocumentRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Hidden info",
+  "feature": "Remove hidden information",
+  "behavior": "Scan for metadata, hidden text, layers etc.; check items and remove.",
+  "evidence": [
+   "avRmInfoTitle = Remove Hidden Information",
+   "RemoveHiddenInfoRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Hidden info",
+  "feature": "Remove hidden text",
+  "behavior": "Option to delete text invisible on the page.",
+  "evidence": [
+   "avRmInfoPanelOptionsRemoveHiddenText = Remove hidden &text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Hidden info",
+  "feature": "Remove hidden layers",
+  "behavior": "Option to delete hidden layers.",
+  "evidence": [
+   "avRmInfoPanelOptionsRemoveHiddenLayers = Remove hidden &layers"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "security",
+  "area": "Security settings",
+  "feature": "Import or export security settings",
+  "behavior": "Exchange security settings via data exchange file.",
+  "evidence": [
+   "IDS_IMPORT_SETTINGS_DMB_BUTTON_PROPS = Import Security Settings",
+   "IDS_EXPORT_SETTINGS_DMB_BUTTON_PROPS = Export Security Settings"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Digitally sign with certificate",
+  "behavior": "Draw signature field, choose digital ID and appearance, save signed file.",
+  "evidence": [
+   "avTaskPanelSignWithCertificate = Digitally Sign",
+   "IDS_DIGSIG_SIGNSIG = &Sign Document"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Certify with visible signature",
+  "behavior": "Certify document and choose allowed changes, visible signature.",
+  "evidence": [
+   "IDS_DIGSIG_SIGNSIGCERTIFIED = Certi&fy with Visible Signature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Certify without visible signature",
+  "behavior": "Invisible certification signature.",
+  "evidence": [
+   "IDS_DIGSIG_AUTHDOCINVISTASK = Certify without V&isible Signature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Time stamp document",
+  "behavior": "Apply a document timestamp from a time stamp server.",
+  "evidence": [
+   "avTaskPanelTimestampDocument = Time Stamp",
+   "IDS_ServerConnectionTimeStamp = Time Stamp Server"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Validate all signatures",
+  "behavior": "Re-validate all signatures in the Signatures panel.",
+  "evidence": [
+   "IDS_DIGSIG_VALIDALL = Validate &All Signatures"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Validate a signature",
+  "behavior": "Check signature status: valid, invalid, unknown identity, modified since signing.",
+  "evidence": [
+   "IDS_DIGSIG_VALIDSIG = &Validate Signature",
+   "IDS_STATUS_VALIDMODS"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Show signature properties",
+  "behavior": "Open details of signer, certificate and validity.",
+  "evidence": [
+   "IDS_DIGSIG_PROPERTIES = Show Signature &Properties..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "View signed version",
+  "behavior": "Roll back to the revision as signed.",
+  "evidence": [
+   "IDS_DIGSIG_ROLLBACK = View Signed Ve&rsion"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Clear signature",
+  "behavior": "Clear a signature field (required before re-signing).",
+  "evidence": [
+   "IDS_DIGSIG_CLEAR = &Clear Signature",
+   "IDS_DIGSIG_CLEARALL = Cl&ear All Signature Fields"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Open Signatures panel",
+  "behavior": "Panel lists signatures, revisions and unsigned fields.",
+  "evidence": [
+   "IDS_DIGSIGPANEL_MENUTITLE = &Signatures",
+   "IDS_DIGSIGPANEL_BLANKSIGLISTHEADER = Unsigned Signature Fields"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Create signature appearance",
+  "behavior": "Define a custom appearance for digital signatures.",
+  "evidence": [
+   "IDS_GSP_CreateNewAppearance = Create New Appearance ..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Import digital ID",
+  "behavior": "Import a digital ID file into the keychain list.",
+  "evidence": [
+   "IDS_DigitalIDImportTitle = Digital ID Import"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Manage trusted identities",
+  "behavior": "Address book of trusted certificates.",
+  "evidence": [
+   "IDS_PUBSEC_ADDRESSBOOK = Manage Trusted &Identities..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Configure signature validation",
+  "behavior": "When to validate, time used, revocation checking, archived info.",
+  "evidence": [
+   "IDS_SigValidationGeneralOnOpen = Validate signatures when document is opened",
+   "IDS_SigValidationGeneralRevokeChecking = Certificate Revocation Checking"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Certificates",
+  "feature": "Load trusted roots from Adobe",
+  "behavior": "Auto-update trusted root certificates.",
+  "evidence": [
+   "IDS_AutoUpdateLoadTrustedRootsFromAdobe = Load Trusted Root Certificates from Adobe"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Open Convert PDF hub",
+  "behavior": "Choose to convert other formats to PDF or PDF to other formats.",
+  "evidence": [
+   "ConvertPDFView",
+   "Convert PDF to other formats",
+   "Convert other formats to PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Create PDF",
+  "feature": "Create PDF from a file",
+  "behavior": "Select Word, Excel, PowerPoint, images etc.; converts to PDF.",
+  "evidence": [
+   "CreatePDFView",
+   "Convert Word, Excel and PowerPoint into high-quality PDFs."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Create PDF",
+  "feature": "Create PDF from clipboard",
+  "behavior": "New PDF from clipboard contents.",
+  "evidence": [
+   "avNewFromCBMenuItem = PDF from &Clipboard"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Create PDF",
+  "feature": "Create PDF from scanner",
+  "behavior": "Scan paper to PDF with OCR option.",
+  "evidence": [
+   "avCreateNewFromScannerTaskToolTip = Create PDF from scanner"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Create PDF",
+  "feature": "Create PDF from web page",
+  "behavior": "Convert or append a web page URL to PDF.",
+  "evidence": [
+   "avCreateAppendFromWebpageMenuItem = Create PDF From/&Append Web Page..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Create PDF",
+  "feature": "Create PDF from screen capture",
+  "behavior": "Capture screen, window or selection as PDF.",
+  "evidence": [
+   "avNewFromScreenCaptureScreenToolTip",
+   "avNewFromScreenCaptureSelectionToolTip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Open Export PDF",
+  "behavior": "Pick target format and convert the PDF.",
+  "evidence": [
+   "ExportPDFView",
+   "avAppHomeRhpActionExport = Export PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export to Word",
+  "behavior": "Export as Word Document (.docx) or Word 97-2003.",
+  "evidence": [
+   "avExportFormat_MSWORD_07 = &Word Document",
+   "EXFT_MSWordRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export to Excel",
+  "behavior": "Export tables to Excel workbook or XML Spreadsheet 2003.",
+  "evidence": [
+   "avExportFormat_Excel = Microsoft &Excel Workbook",
+   "EXFT_MSExcelRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export to PowerPoint",
+  "behavior": "Export as PowerPoint presentation.",
+  "evidence": [
+   "avExportFormat_PowerPoint = Microsoft PowerPoin&t Presentation",
+   "EXFT_MSPowerPointRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export to Rich Text Format",
+  "behavior": "Export as RTF.",
+  "evidence": [
+   "avExportFormat_RTF = &Rich Text Format"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export to HTML",
+  "behavior": "Export as HTML web page.",
+  "evidence": [
+   "avExportFormat_HTML = &HTML Web Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export to XML",
+  "behavior": "Export as XML 1.0.",
+  "evidence": [
+   "avExportFormat_XML = X&ML 1.0"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export to plain or accessible text",
+  "behavior": "Text (Plain) or Text (Accessible).",
+  "evidence": [
+   "avExportFormat_TEXT = Text (P&lain)",
+   "avExportFormat_ACCTEXT = Text (A&ccessible)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export pages as images",
+  "behavior": "Export pages as JPEG, JPEG2000, PNG or TIFF.",
+  "evidence": [
+   "avExportFormat_JPEG = &JPEG",
+   "avExportFormat_PNG = PN&G",
+   "avExportFormat_TIFF = TI&FF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export all embedded images",
+  "behavior": "Extract every image as JPEG/PNG/TIFF/JPEG2000.",
+  "evidence": [
+   "avExtractAsPngWorkflowToolTip = Export All Images as PNG"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export PDF",
+  "feature": "Export to PostScript or EPS",
+  "behavior": "PostScript or Encapsulated PostScript output.",
+  "evidence": [
+   "avExportFormat_PS = &PostScript",
+   "avExportFormat_EPS = E&ncapsulated PostScript"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export settings",
+  "feature": "Choose flowing text or retain layout",
+  "behavior": "Word/RTF settings: Retain Page Layout or Flowing Text.",
+  "evidence": [
+   "IDS_LAYOUT_FLOW = Flowing Text",
+   "IDS_LAYOUT_RETAIN = Retain Page Layout"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export settings",
+  "feature": "Include comments, images, bookmarks",
+  "behavior": "Toggles for what to carry into the exported document.",
+  "evidence": [
+   "IDS_INCLUDE_COMMENTS = Include comments",
+   "IDS_INCLUDE_IMAGES = Include images",
+   "IDS_INCLUDE_BOOKMARKS = Include bookmarks"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export settings",
+  "feature": "Run OCR during export",
+  "behavior": "Run OCR if needed on image-only pages.",
+  "evidence": [
+   "IDS_RUNOCR_ONIMAGEONLYPAGE = Run OCR if needed"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Export settings",
+  "feature": "Edit DOCX/XLSX/PPTX settings",
+  "behavior": "Per-format settings dialogs.",
+  "evidence": [
+   "DOCX_SETTINGS_DLG_TITLE = Save As DOCX Settings",
+   "XLSX_SETTINGS_DLG_TITLE = Save As XLSX Settings"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Standards",
+  "feature": "Save as PDF/A",
+  "behavior": "Convert to archivable PDF/A.",
+  "evidence": [
+   "avSaveAsFormatPDFAToolTip = Save as PDF/A",
+   "SaveAsPDFARdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Standards",
+  "feature": "Save as PDF/X",
+  "behavior": "Convert to press-ready PDF/X.",
+  "evidence": [
+   "avSaveAsFormatPDFXToolTip = Save as PDF/X",
+   "SaveAsPDFXRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Standards",
+  "feature": "Save as PDF/E",
+  "behavior": "Convert to engineering PDF/E.",
+  "evidence": [
+   "avSaveAsFormatPDFEToolTip = Save as PDF/E",
+   "SaveAsPDFERdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "convert",
+  "area": "Standards",
+  "feature": "Open PDF Standards tool",
+  "behavior": "Panel with PDF/A, PDF/X, PDF/E and preflight.",
+  "evidence": [
+   "PDF Standards",
+   "StandardsAppRHPView"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Compress",
+  "feature": "Reduce file size",
+  "behavior": "Reduce File Size with compatibility version; also for multiple files.",
+  "evidence": [
+   "avReduceFileSizeWorkflowTitle = Reduce File Size",
+   "ReduceFileSizeRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Compress",
+  "feature": "Open Compress PDF tool",
+  "behavior": "Compress PDF panel with reduce size, advanced optimization, scanned PDF.",
+  "evidence": [
+   "Compress PDF",
+   "OptimizePDFAppRHPView"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "PDF Optimizer",
+  "feature": "Advanced optimization",
+  "behavior": "PDF Optimizer: images downsampling, fonts unembed, transparency, discard objects, clean up; audit space usage.",
+  "evidence": [
+   "avPDFOptimizerMenuItem = &PDF Optimizer...",
+   "PDFOptimizerRdr",
+   "avSaveAsOptimizedTaskPanelItem = Advanced Optimization"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "PDF Optimizer",
+  "feature": "Discard objects and metadata",
+  "behavior": "Discard thumbnails, layers, private data, tags, metadata, attachments.",
+  "evidence": [
+   "avDocOptDiscardThumbnails = Discarding thumbnails.",
+   "avDocOptDiscardMetadata"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "PDF Optimizer",
+  "feature": "Unembed fonts",
+  "behavior": "Remove embedded fonts to save space.",
+  "evidence": [
+   "avDocOptProcessFontsUnembed = Processing fonts for unembedding."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "PDF Optimizer",
+  "feature": "Flatten transparency",
+  "behavior": "Flatten transparent objects.",
+  "evidence": [
+   "avDocOptFlattenTrans = Flattening transparent objects."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "OCR",
+  "feature": "Recognize text in this file",
+  "behavior": "OCR the current file to make text searchable/selectable.",
+  "evidence": [
+   "avUICustomizationLabelRecognizeTextInThisFile = Recognize Text in This File",
+   "CapturePagesRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "OCR",
+  "feature": "Recognize text in multiple files",
+  "behavior": "Batch OCR across files.",
+  "evidence": [
+   "avPaperCaptureMultipleFiles",
+   "CaptureMultipleFilesRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "OCR",
+  "feature": "Correct recognized text",
+  "behavior": "Highlight OCR suspects; accept or edit each, or mark 'This is not text'.",
+  "evidence": [
+   "avTaskPanelOCRSuspects = Correct Recognized Text",
+   "ShowCaptureSuspectsRdr",
+   "avTaskPanelOCRNotText = This is not text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Scan",
+  "feature": "Open Scan & OCR tool",
+  "behavior": "Panel with insert, OCR, optimize, enhance tools.",
+  "evidence": [
+   "ScanPDFAppRHPView",
+   "Scan &amp; OCR"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Scan",
+  "feature": "Optimize scanned PDF",
+  "behavior": "Correct, recognize text and reduce scanned document size.",
+  "evidence": [
+   "avOptimizeScannedPdfMenuItem = &Optimize Scanned PDF",
+   "OptimizeScannedPdfRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Scan",
+  "feature": "Enhance camera images",
+  "behavior": "Clean up and perspective-correct phone photos of documents.",
+  "evidence": [
+   "avTaskPanelMagicClean = Enhance Camera Images",
+   "MagicCleanPerspectiveCorrectionRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Preflight",
+  "feature": "Run preflight",
+  "behavior": "Detect and fix problems with profiles; report, audit trail.",
+  "evidence": [
+   "avPreflightMenuItem = Prefli&ght...",
+   "PreflightRdr",
+   "avPreflightWorkflowToolTip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Print Production",
+  "feature": "Open Output Preview",
+  "behavior": "Simulate separations and output conditions.",
+  "evidence": [
+   "avTaskPanelOutputPreview = Output Preview",
+   "BigPreviewRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Print Production",
+  "feature": "Convert colors",
+  "behavior": "Convert colour spaces to an output profile.",
+  "evidence": [
+   "avColorConvertFullMenuItem = &Convert Colors...",
+   "ColorConversionMenuItemRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Print Production",
+  "feature": "Fix hairlines",
+  "behavior": "Find thin lines and replace with heavier weights.",
+  "evidence": [
+   "avFixHairlinesFullMenuItem = Fix &Hairlines...",
+   "HairlinesMenuItemRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Print Production",
+  "feature": "Add printer marks",
+  "behavior": "Add trim, bleed, registration marks.",
+  "evidence": [
+   "avAddMarksCmdTitle = Add Printer Marks",
+   "AddMarksMenuItemRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Print Production",
+  "feature": "Manage inks",
+  "behavior": "Ink Manager to alias/convert spot colours.",
+  "evidence": [
+   "avTaskPanelInkManager = Ink Manager",
+   "InkManagerMenuItemRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Print Production",
+  "feature": "Flattener preview",
+  "behavior": "Preview and control transparency flattening.",
+  "evidence": [
+   "avPrintPanelTransparencyAmp = &Flattener Preview",
+   "FlattenerMenuItemRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Print Production",
+  "feature": "Set trap presets",
+  "behavior": "Define trapping presets.",
+  "evidence": [
+   "avTrapPresetsFullMenuItem = &Trap Presets...",
+   "TrapPresetsMenuItemRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Print Production",
+  "feature": "Set page boxes for print",
+  "behavior": "Crop pages with trim/bleed boxes from Print Production.",
+  "evidence": [
+   "CropPagesPPRdr",
+   "avCropToolPPMenuItem = C&rop Pages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Index",
+  "feature": "Create full-text index with catalog",
+  "behavior": "Build a catalog index for a set of PDFs.",
+  "evidence": [
+   "avCatalog = Full Text Index with Ca&talog...",
+   "ADBE:CatalogRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "optimize",
+  "area": "Index",
+  "feature": "Manage embedded index",
+  "behavior": "Embed a search index in the document for faster search.",
+  "evidence": [
+   "avTaskPanelManageEmbeddedIndex = Manage Embedded Index",
+   "ADBE:EmbedIndexRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "compare",
+  "area": "Compare Files",
+  "feature": "Compare two files",
+  "behavior": "Pick old and new versions; Acrobat shows differences side by side with a summary report.",
+  "evidence": [
+   "avCompareDocumentsTaskPanelButton = Compare Files",
+   "DIGSIG:CompareDocumentsRdr",
+   "CompareAppRhpView"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "compare",
+  "area": "Compare Files",
+  "feature": "Open compare results panel",
+  "behavior": "Compare panel shows report of differences.",
+  "evidence": [
+   "avCompareDocumentsPanelToolTip = Compare: View Compare Documents report"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "compare",
+  "area": "Compare Files",
+  "feature": "Compare signed to current version",
+  "behavior": "Diff the signed revision against current.",
+  "evidence": [
+   "avTaskPanelCompareSignedToCurrent = Compare Signed to Current Version"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "compare",
+  "area": "Compare Files",
+  "feature": "Choose comparison depth",
+  "behavior": "Detailed, normal or coarse analysis.",
+  "evidence": [
+   "IDS_COMPARE_MOREVIS_DIFFS = Detailed analysis (very slow)",
+   "IDS_COMPARE_LARGE_DIFFS = Coarse analysis (faster)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "compare",
+  "area": "Compare Files",
+  "feature": "Compare pages or text only",
+  "behavior": "Page by page or text (and font) comparison report.",
+  "evidence": [
+   "IDS_COMPARE_REPORT_PAGES = Compare Pages",
+   "IDS_COMPARE_REPORT_TEXT = Compare Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "compare",
+  "area": "Compare Files",
+  "feature": "Read compare summary",
+  "behavior": "Summary of pages differing, added, deleted, rearranged.",
+  "evidence": [
+   "IDS_COMPARE_REPORT_SUMMARY = Summary",
+   "IDS_COMPARE_PAGESA"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "compare",
+  "area": "Compare Files",
+  "feature": "Get compare suggestion for similar file",
+  "behavior": "Prompt to compare when a similarly named file is open.",
+  "evidence": [
+   "avCompareSuggestActionLinkText = Compare now"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Open Action Wizard",
+  "behavior": "Panel listing actions with create, manage, find more.",
+  "evidence": [
+   "Action Wizard",
+   "ActionAppRhpView"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Create a new action",
+  "behavior": "Build an action: choose files to process, add steps, set output.",
+  "evidence": [
+   "avWorkflowCreateNew = &New Action",
+   "CreateWorkflowRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Edit an action",
+  "behavior": "Modify steps of an existing action.",
+  "evidence": [
+   "avWorkflowEdit = &Edit Action"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Manage actions",
+  "behavior": "Copy, rename, delete, import/export actions.",
+  "evidence": [
+   "avWorkflowManage = &Manage Actions",
+   "ManageWorkflowsRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Import an action",
+  "behavior": "Import an action file, including Acrobat X-era ones.",
+  "evidence": [
+   "avWorkflowImportSucceeded",
+   "avWorkflowConfirmImportPre11ActionMsg"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Prompt user during a step",
+  "behavior": "Per step Prompt User checkbox to show the dialog at runtime.",
+  "evidence": [
+   "avActionsPromptUser = Prompt User"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Add instructions to action",
+  "behavior": "Add instruction steps shown when running.",
+  "evidence": [
+   "avActionsInstructionsButton = Add instructions for this task"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Choose files when action starts",
+  "behavior": "Source and destination 'Ask When Action is Started'.",
+  "evidence": [
+   "avBatchExecuteSourceAskWhenRun = Ask When Action is Started"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Add files from combine or clipboard",
+  "behavior": "Action file sources from Combine Files or clipboard.",
+  "evidence": [
+   "avWorkflowPlaybackAddFromCombine = From Co&mbine Files...",
+   "avWorkflowPlaybackAddFromClipboard = From Clip&board..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Action Wizard",
+  "feature": "Find more actions",
+  "behavior": "Browse online actions.",
+  "evidence": [
+   "FindMoreWorkflowsRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Custom Tool",
+  "feature": "Create a custom tool",
+  "behavior": "Bundle commands into a custom tool set.",
+  "evidence": [
+   "avUICustomizationAuthoringCreateTitle = Create Custom Tool",
+   "CreateNewCustomToolRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Custom Tool",
+  "feature": "Manage custom tools",
+  "behavior": "Edit, duplicate, delete custom tool sets.",
+  "evidence": [
+   "avUICustomizationManageDialogTitle = Manage Tool Sets",
+   "ManageCustomToolsRdr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Batch",
+  "feature": "Batch Bates numbering of many files",
+  "behavior": "Bates dialog adds multiple files ordered for numbering.",
+  "evidence": [
+   "avDocAssemblyDialog_BATES_ADD_TEXT"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "batch",
+  "area": "Batch",
+  "feature": "Batch OCR via action",
+  "behavior": "Recognize Text in Multiple Files as a batch step.",
+  "evidence": [
+   "avUICustomizationLabelRecognizeTextInMultipleFiles = Recognize Text in Multiple Files"
+  ],
+  "source": "code"
+ }
+]

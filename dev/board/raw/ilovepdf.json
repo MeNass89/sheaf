@@ -1,0 +1,2356 @@
+[
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Home",
+  "feature": "Open the home screen with recent documents",
+  "behavior": "Home page lists recent files with an Open file drop zone and recent tools.",
+  "evidence": [
+   "New Home page to easily manage your recent documents",
+   "Recent Files",
+   "Home"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Open",
+  "feature": "Open a PDF from the file picker",
+  "behavior": "Open file button or Ctrl/Cmd+O opens a picker filtered to PDF and supported files.",
+  "evidence": [
+   "Open file",
+   "Select PDF Files to Open",
+   "StandardKey.Open"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Open",
+  "feature": "Drag and drop files onto the window",
+  "behavior": "Drop files anywhere on the home screen or a tool to add them.",
+  "evidence": [
+   "or drag & drop anywhere",
+   "or drop files here"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Recents",
+  "feature": "Clear the recent files list",
+  "behavior": "Clear all empties the Recent files list.",
+  "evidence": [
+   "Clear recent files list",
+   "Added the option “Clear all” in the “Recent files” list"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Recents",
+  "feature": "Remove one file from recents",
+  "behavior": "Context action removes a single entry from the recent list.",
+  "evidence": [
+   "Remove from recent files list"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Recents",
+  "feature": "Show a recent file in its folder",
+  "behavior": "Opens the system file browser at the file location.",
+  "evidence": [
+   "Open file location",
+   "Show in folder"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Recents",
+  "feature": "Copy a file path",
+  "behavior": "Copies the file's full path to the clipboard.",
+  "evidence": [
+   "Copy File Path"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tools grid",
+  "feature": "Browse tools by category",
+  "behavior": "Tools grid grouped by category (Organize, Optimize, Convert to PDF, Convert from PDF, Edit, Security); new tools carry a New badge.",
+  "evidence": [
+   "Categories",
+   "Meet your tools",
+   "New!"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tools grid",
+  "feature": "Filter tools by category",
+  "behavior": "Filter by selector narrows the tools grid.",
+  "evidence": [
+   "Filter by",
+   "Most used"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tools grid",
+  "feature": "Mark a tool as favourite",
+  "behavior": "Save as a favourite pins a tool; Remove favourite unpins it.",
+  "evidence": [
+   "Save as a favourite",
+   "Remove favourite"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tools grid",
+  "feature": "Create a custom tool category",
+  "behavior": "User creates named categories for tools; duplicate names are rejected.",
+  "evidence": [
+   "Create new category",
+   "Enter category name",
+   "Category already exists"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Recent tools",
+  "feature": "Reopen a recently used tool",
+  "behavior": "Recent Tools row on Home lists last tools (e.g. Compress, Merge).",
+  "evidence": [
+   "Recent Tools"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tabs",
+  "feature": "Open a document in a new tab",
+  "behavior": "Each document opens as a tab; limited to 30 open tabs.",
+  "evidence": [
+   "Open in a new tab...",
+   "Cannot open more than 30 tabs."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tabs",
+  "feature": "Open a document in a new window",
+  "behavior": "Opens the file in a separate application window.",
+  "evidence": [
+   "Open in a new window...",
+   "New window"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tabs",
+  "feature": "Close tabs in bulk",
+  "behavior": "Tab context menu: Close other tabs, Close all left/right tabs, Close all tabs.",
+  "evidence": [
+   "Close other tabs",
+   "Close all left tabs",
+   "Close all right tabs",
+   "Close All Tabs"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tabs",
+  "feature": "Switch tabs with keyboard",
+  "behavior": "Ctrl+Tab / Ctrl+Shift+Tab cycle tabs; Ctrl+W closes, Ctrl+Shift+W closes all.",
+  "evidence": [
+   "Ctrl+Tab or Ctrl+Shift+Tab",
+   "Ctrl+Shift+W"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Network",
+  "feature": "Open files from local network shares",
+  "behavior": "Browse and open documents on local network folders.",
+  "evidence": [
+   "Option to open and manage document files from local networks"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Context menu",
+  "feature": "Run tools from the OS right-click menu",
+  "behavior": "Windows Explorer / macOS context menu integration runs a tool without opening the app; output saved next to the original.",
+  "evidence": [
+   "Integrate with Windows context menu",
+   "Processed files with right button will be saved to the same folder as the original file."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Default app",
+  "feature": "Set iLovePDF as default PDF reader",
+  "behavior": "First-launch prompt and Preferences offer to make iLovePDF the default PDF app, with OS instructions.",
+  "evidence": [
+   "Make iLovePDF Desktop my default PDF application.",
+   "Set iLovePDF as default PDF Reader"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Default app",
+  "feature": "Answer the default-app prompt",
+  "behavior": "First-launch prompt: Confirm or Later.",
+  "evidence": [
+   "Make iLovePDF Desktop my default PDF application"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Scan",
+  "feature": "Scan documents from a phone",
+  "behavior": "Scan to PDF shows a QR code; the iLovePDF mobile app sends scans to the desktop.",
+  "evidence": [
+   "Scan to PDF",
+   "Use your smartphone's camera to scan this QR code",
+   "Show QR"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Scan",
+  "feature": "Set page options for scanned pages",
+  "behavior": "Scan PDF options: Page size, Orientation (Portrait/Landscape), Margin (No margin/Small/Big), merge all images into one PDF; Re-scan, Reset all.",
+  "evidence": [
+   "Merge all images into one PDF file",
+   "Re-scan",
+   "Reset all"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tool input",
+  "feature": "Add more files to a tool",
+  "behavior": "Add more files appends files to the tool work area; thumbnails show page count and size.",
+  "evidence": [
+   "Add more files",
+   "Add file"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tool input",
+  "feature": "Preview a thumbnail inside a tool",
+  "behavior": "Preview icon on tool thumbnails opens the content; long click zooms thumbnail.",
+  "evidence": [
+   "All tools: Added a preview icon to the thumbnails inside tools work area"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tool input",
+  "feature": "Order input files by name",
+  "behavior": "Sort button orders files alphabetically.",
+  "evidence": [
+   "Order files by name",
+   "Sort"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tool input",
+  "feature": "Reorder input files by drag",
+  "behavior": "Drag and drop files to reorder before processing.",
+  "evidence": [
+   "Drag and drop files to reorder them",
+   "Drag and drop PDFs to reorder them"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tool input",
+  "feature": "Remove a file from a tool",
+  "behavior": "Remove / Remove all clears inputs.",
+  "evidence": [
+   "Remove all",
+   "Remove"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tool input",
+  "feature": "Enter password for locked input",
+  "behavior": "Locked inputs prompt for the password before processing.",
+  "evidence": [
+   "This file is password protected.",
+   "Enter Password",
+   "Some files require a password"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tool input",
+  "feature": "Apply a tool to all open tabs",
+  "behavior": "Checkbox processes every open PDF/image tab at once.",
+  "evidence": [
+   "Apply to all open tabs",
+   "Enabling this allows you to process all files from open tabs simultaneously"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "files",
+  "area": "Tool input",
+  "feature": "Open the tools panel from the reader",
+  "behavior": "Open PDF Tools / Show tools... reveals the tools sidebar from a document.",
+  "evidence": [
+   "Open PDF Tools",
+   "Close PDF Tools",
+   "Show tools..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Viewer",
+  "feature": "Read PDFs in the built-in reader",
+  "behavior": "Desktop Reader renders PDFs, images (incl. WebP, animated GIF, SVG).",
+  "evidence": [
+   "PDF Reader",
+   "Reader now accepts WebP image files.",
+   "Now the app Viewer can reproduce animated GIF files"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom in and out",
+  "behavior": "Toolbar buttons, Ctrl+/- and pinch gesture (macOS).",
+  "evidence": [
+   "Zoom In",
+   "Zoom Out",
+   "StandardKey.ZoomIn"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Set an exact zoom value",
+  "behavior": "Zoom field with presets 25%, 50%, 75%, Zoom to 100%.",
+  "evidence": [
+   "Set zoom",
+   "Zoom to 100%",
+   "75%"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Fit page to window",
+  "behavior": "Fit one full page in the window.",
+  "evidence": [
+   "Fit page",
+   "Fit one full page to window"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Fit page width",
+  "behavior": "Fit to window width and enable scrolling.",
+  "evidence": [
+   "Fit width",
+   "Fit to window width and enable scrolling"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Show real size",
+  "behavior": "Displays page at actual size.",
+  "evidence": [
+   "Real Size"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Gestures",
+  "feature": "Pinch to zoom and rotate on trackpad",
+  "behavior": "macOS trackpad pinch zoom and rotate gestures.",
+  "evidence": [
+   "Added zoom and rotate gestures to the PDF Reader (macOS)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to next or previous page",
+  "behavior": "Buttons and arrow keys.",
+  "evidence": [
+   "Next page",
+   "Previous page",
+   "Show next page (Right Arrow)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Jump to a page number",
+  "behavior": "Go to page field accepts a page number.",
+  "evidence": [
+   "Go to page",
+   "Current page:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Page mode",
+  "feature": "Switch single or two-page view",
+  "behavior": "One page view / Two page view.",
+  "evidence": [
+   "One page view",
+   "Two page view"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Page mode",
+  "feature": "Treat first page as cover",
+  "behavior": "In two-page mode, first page shown alone.",
+  "evidence": [
+   "First page is cover page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Page mode",
+  "feature": "Toggle right-to-left reading in two-page mode",
+  "behavior": "Switch reading direction for spreads.",
+  "evidence": [
+   "Change to right to left mode",
+   "Change to left to right mode"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Page mode",
+  "feature": "Choose vertical or horizontal scrolling",
+  "behavior": "Vertical View / Horizontal View layouts.",
+  "evidence": [
+   "Vertical View",
+   "Horizontal View"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Presentation",
+  "feature": "Enter presentation full screen",
+  "behavior": "Presentation mode switches the reader to full screen; Esc exits.",
+  "evidence": [
+   "New Presentation mode to change reader view to full-screen.",
+   "Full screen"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Rotate view",
+  "feature": "Rotate page view",
+  "behavior": "Rotate left / Rotate right in the reader.",
+  "evidence": [
+   "Rotate left",
+   "Rotate right"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Search text in the document",
+  "behavior": "Ctrl/Cmd+F opens Find; results highlighted; F3 / Shift+F3 next/previous.",
+  "evidence": [
+   "Find text",
+   "Find Next",
+   "Find Previous",
+   "F3"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Select and copy text",
+  "behavior": "Drag to select text, Ctrl/Cmd+C copies.",
+  "evidence": [
+   "Copy",
+   "StandardKey.Copy"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Select all page text",
+  "behavior": "Right-click menu Select All selects the page text.",
+  "evidence": [
+   "Now is possible to select all page text from the right click menu in reader."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Thumbnails",
+  "feature": "Show page thumbnails panel",
+  "behavior": "Left panel thumbnails navigate pages.",
+  "evidence": [
+   "Page Thumbnails: Go to specific pages using thumbnail images",
+   "Show thumbnails..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Browse bookmarks outline",
+  "behavior": "Bookmarks panel; Expand all / Collapse all.",
+  "evidence": [
+   "Bookmarks: Go to specific points of interest using bookmark links",
+   "Expand all",
+   "Collapse all"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Attachments",
+  "feature": "View file attachments",
+  "behavior": "Attachments panel lists embedded files; empty-state message.",
+  "evidence": [
+   "Attachments: View file attachments",
+   "No attachments found. Attached files will appear here."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Attachments",
+  "feature": "Add an attachment from the sidebar",
+  "behavior": "Add new attachment from the thumbnails sidebar (max 4 MB).",
+  "evidence": [
+   "Add new attachment",
+   "Attach file (max. 4MB)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Attachments",
+  "feature": "Save an attached file",
+  "behavior": "Saves an embedded attachment to disk.",
+  "evidence": [
+   "Cannot save attachment file %1"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Layers",
+  "feature": "Show or hide PDF layers",
+  "behavior": "Layers panel toggles optional content; Enable all / Disable all / Reset.",
+  "evidence": [
+   "Layers: View layers and show/hide their contents",
+   "Reset to initial visibility",
+   "Enable all"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Info",
+  "feature": "View document information",
+  "behavior": "Info panel: title, author, creator, producer, dates, PDF version, size, page size.",
+  "evidence": [
+   "File information",
+   "PDF version:",
+   "Creation date:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Info",
+  "feature": "Check PDF/A compliance",
+  "behavior": "Click to check; reports compliant or not.",
+  "evidence": [
+   "Click to check PDF/A compliance.",
+   "This PDF is PDF/A compliant.",
+   "This PDF is NOT PDF/A compliant."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Panel",
+  "feature": "Show, hide or resize the left panel",
+  "behavior": "Hide panel / Show panel; panel width resizable.",
+  "evidence": [
+   "Hide panel",
+   "Show panel",
+   "Resize the left navigation panel in the PDF Reader"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Memory",
+  "feature": "Remember zoom and last page per document",
+  "behavior": "Reopened documents restore zoom and last visited page.",
+  "evidence": [
+   "PDF Reader: Now document properties like zoom value or last page visited will be remembered"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Images",
+  "feature": "Select, save or remove images in a PDF",
+  "behavior": "Highlight images inside the PDF to select, save or remove.",
+  "evidence": [
+   "Highlight images: Select, save, or remove images inside of PDFs."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Image viewer",
+  "feature": "Center an image in view",
+  "behavior": "Image viewer centering.",
+  "evidence": [
+   "Center image in view.",
+   "Center view"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Theme",
+  "feature": "Toggle dark mode",
+  "behavior": "Dark mode for the app UI.",
+  "evidence": [
+   "Dark Mode",
+   "Choose your color theme"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "reader",
+  "area": "Compare viewer",
+  "feature": "Sync scroll in comparison view",
+  "behavior": "Sync scroll links both documents.",
+  "evidence": [
+   "Sync scroll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "annotate",
+  "area": "Highlight",
+  "feature": "Highlight text",
+  "behavior": "Edit PDF: Highlight text tool marks selected text; colour changeable.",
+  "evidence": [
+   "Highlight text",
+   "New Highlight %1"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "annotate",
+  "area": "Underline",
+  "feature": "Underline text",
+  "behavior": "Underline text annotation.",
+  "evidence": [
+   "Underline text",
+   "New Underline %1"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "annotate",
+  "area": "Strike",
+  "feature": "Strike through text",
+  "behavior": "Strike text annotation.",
+  "evidence": [
+   "Strike text",
+   "New Strike %1"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "annotate",
+  "area": "Draw",
+  "feature": "Draw freehand ink",
+  "behavior": "Draw tool; Apply draw commits; colour changeable after drawing.",
+  "evidence": [
+   "Draw",
+   "Apply draw",
+   "New Drawing %1"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "annotate",
+  "area": "Draw",
+  "feature": "Recolour freehand drawing",
+  "behavior": "Change colours of free draw after drawing.",
+  "evidence": [
+   "Edit PDF: Added the ability to change the colors of free draw annotations after drawing"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add a shape",
+  "behavior": "Add shape: Rectangle, Ellipse, Line; fill colour, border colour, stroke, opacity.",
+  "evidence": [
+   "Add shape",
+   "Rectangle",
+   "Ellipse",
+   "Line"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Set shape fill and border",
+  "behavior": "Fill color, Border color, Stroke, Opacity.",
+  "evidence": [
+   "Fill color",
+   "Border color",
+   "Stroke",
+   "Opacity"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "annotate",
+  "area": "Stickers",
+  "feature": "Add a sticker symbol",
+  "behavior": "Sticker / symbol icons: Check, Cross, Heart, Smiley, Exclamation, Question.",
+  "evidence": [
+   "Sticker",
+   "New Sticker %1",
+   "Smiley",
+   "Exclamation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "annotate",
+  "area": "Annotations",
+  "feature": "Delete an annotation",
+  "behavior": "Remove any element from the page view; Delete key.",
+  "evidence": [
+   "Edit PDF: Users can now remove any element from the page view",
+   "Delete"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Open the Edit PDF tool",
+  "behavior": "Add text, images, shapes and highlights.",
+  "evidence": [
+   "Edit PDF",
+   "New PDF Editor: Add text, images, shapes, and highlights directly to your PDFs."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Add text",
+  "feature": "Add a text box",
+  "behavior": "Add text; font, size, bold, italic, underline, text colour, alignment.",
+  "evidence": [
+   "Add text",
+   "New Text %1",
+   "Type your text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Add text",
+  "feature": "Format added text",
+  "behavior": "Font, Font size, Bold, Italic, Underline, Text color, Align.",
+  "evidence": [
+   "Font size",
+   "Bold",
+   "Italic",
+   "Text color"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Add image",
+  "feature": "Add images to a page",
+  "behavior": "Add image (up to 15 at once).",
+  "evidence": [
+   "Add image",
+   "Maximum 15 images per upload.",
+   "New Image %1"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Elements",
+  "feature": "Move and resize elements",
+  "behavior": "Drag handles; arrow keys nudge pixel-by-pixel.",
+  "evidence": [
+   "Edit PDF: You can now nudge objects pixel-by-pixel using the arrow keys"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Elements",
+  "feature": "Multi-select elements",
+  "behavior": "Ctrl/Cmd click to select several elements to cut, copy, paste, move, delete.",
+  "evidence": [
+   "(Edit Pdf) User can now select multiple elements in edit pdf using ctrl/cmd key"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Elements",
+  "feature": "Cut, copy and paste elements",
+  "behavior": "Keyboard or right-click.",
+  "evidence": [
+   "Cut",
+   "Paste",
+   "Edit PDF: Copy/Paste functions have been added to the Edit PDF tool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Elements",
+  "feature": "List page elements",
+  "behavior": "Elements panel lists objects on the page.",
+  "evidence": [
+   "Elements"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Pages",
+  "feature": "Insert a blank page while editing",
+  "behavior": "Left panel of Edit tool inserts blank pages.",
+  "evidence": [
+   "Add a blank page",
+   "Edit PDF: You can now insert blank pages directly into your PDFs"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Attachments",
+  "feature": "Add attachments in Edit PDF",
+  "behavior": "Add PDF attachments from the Edit PDF tool.",
+  "evidence": [
+   "Add PDF Attachments: Now it is possible to add PDF attachments from the Edit PDF tool."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Content editor",
+  "feature": "Edit existing text in place",
+  "behavior": "Content Editor toggle in Edit PDF: select text to edit, move or delete.",
+  "evidence": [
+   "Select text to edit, move, or delete the existing content.",
+   "LoveTypes.TrueEditPdf"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Content editor",
+  "feature": "Toggle content editor mode",
+  "behavior": "Edit PDF tool toggle switches to Content Editor.",
+  "evidence": [
+   "Content Editor is now accessible via the Edit PDF tool toggle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Save edited PDF",
+  "behavior": "Applies edits and writes output.",
+  "evidence": [
+   "PDF edited",
+   "Your PDF has been edited successfully"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Edit PDF",
+  "feature": "Need larger window for edit",
+  "behavior": "Warns when window too small.",
+  "evidence": [
+   "Edit mode requires a larger window."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Page numbers",
+  "feature": "Add page numbers",
+  "behavior": "Page Numbers: page mode (single/facing), position grid, margin (small/recommended/big), first number, pages range, text format ({n}, Page {n}, Page {n} of {p}), font, size, colour.",
+  "evidence": [
+   "Add page numbers",
+   "Page {n} of {p}",
+   "First number"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Page numbers",
+  "feature": "Choose which pages to number",
+  "behavior": "From/to page, exclude first/last pages options.",
+  "evidence": [
+   "Which pages do you want to number?",
+   "Exclude the first page",
+   "Exclude the last page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Page numbers",
+  "feature": "Set facing pages mode",
+  "behavior": "Single page vs Facing pages layout.",
+  "evidence": [
+   "Facing pages",
+   "Single page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Watermark",
+  "feature": "Stamp a text watermark",
+  "behavior": "Place text: text, font, size, bold/italic/underline, colour, position mosaic, transparency (No/25/50/75%), rotation (0/45/90/180/270/-45), over/below content, pages.",
+  "evidence": [
+   "Place text",
+   "Type your watermark text",
+   "Mosaic"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Watermark",
+  "feature": "Stamp an image watermark",
+  "behavior": "Place image; same position, transparency, rotation and layer options.",
+  "evidence": [
+   "Place image",
+   "Transparency:",
+   "-45 degrees"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "edit",
+  "area": "Watermark",
+  "feature": "Place watermark over or below content",
+  "behavior": "Layer option.",
+  "evidence": [
+   "Over the PDF content",
+   "Below the PDF content"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Merge",
+  "feature": "Merge PDFs",
+  "behavior": "Merge PDF; drag to reorder; needs 2+ files; mixed file types allowed.",
+  "evidence": [
+   "Merge PDF",
+   "At least two files must be selected for Merge PDF Tool."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Merge",
+  "feature": "Name the merged output",
+  "behavior": "Custom name before saving.",
+  "evidence": [
+   "Name your output file: Choose a custom name before saving your merged document.",
+   "Output file name"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Merge",
+  "feature": "Merge different file types",
+  "behavior": "Merge combines different file types.",
+  "evidence": [
+   "Merge more file types: Merge PDF now lets you combine different file types into a single PDF."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split by ranges",
+  "behavior": "Custom ranges or fixed ranges; option to merge all ranges into one PDF.",
+  "evidence": [
+   "Split by range",
+   "Custom ranges",
+   "Fixed ranges",
+   "Merge all ranges in one PDF file"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Add a split range",
+  "behavior": "Add Range adds another from/to pair.",
+  "evidence": [
+   "Add Range",
+   "Range %1"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split into fixed page ranges",
+  "behavior": "Split in page ranges of N pages.",
+  "evidence": [
+   "Split into page ranges of",
+   "This PDF will be split into files of %1 page."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split by file size",
+  "behavior": "Choose a maximum size per file.",
+  "evidence": [
+   "Split by size",
+   "Choose a maximum size per file"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Extract",
+  "feature": "Extract pages",
+  "behavior": "Extract all pages or selected pages (example: 1,5-8); merge extracted into one PDF.",
+  "evidence": [
+   "Extract pages",
+   "Extract all pages",
+   "Pages to extract:",
+   "example: 1,5-8"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Remove pages",
+  "feature": "Remove pages",
+  "behavior": "Click pages to remove, shift for ranges, or type pages.",
+  "evidence": [
+   "Remove PDF Pages",
+   "Select pages to be removed from the document. Use <b><i>shift</i></b> to set ranges."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Organize",
+  "feature": "Reorder pages",
+  "behavior": "Organize PDF: drag page thumbnails; long click zooms.",
+  "evidence": [
+   "Organize PDF",
+   "Order pages by number"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Organize",
+  "feature": "Rotate individual pages in Organize",
+  "behavior": "Rotate page thumbnails.",
+  "evidence": [
+   "Fixed a bug for what page rotation in Organize PDF wasn't processed in the resulting PDF."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Organize",
+  "feature": "Insert blank page in Organize",
+  "behavior": "Add blank pages after a page.",
+  "evidence": [
+   "Add blank pages",
+   "Insert after page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Organize",
+  "feature": "Delete pages in Organize",
+  "behavior": "Delete page thumbnails.",
+  "evidence": [
+   "Organize PDF",
+   "Delete"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Organize",
+  "feature": "Invert or mix page order",
+  "behavior": "Invert Pages and Mix PDF pages options.",
+  "evidence": [
+   "Invert Pages",
+   "Mix PDF pages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Rotate PDFs",
+  "behavior": "Rotate PDF: hover a file, click rotate icon; rotate left/right; all files at once.",
+  "evidence": [
+   "Rotate PDF",
+   "Mouse over PDF file below and a rotate icon will appear, click on it to rotate your PDFs."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Crop page area",
+  "behavior": "Crop PDF: drag area to keep, resize; several independent crop areas.",
+  "evidence": [
+   "Crop PDF",
+   "Click and drag to select the area you want to keep. Resize if needed."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Apply same crop to every page",
+  "behavior": "Option or choose pages.",
+  "evidence": [
+   "Apply the same crop to every page",
+   "Choose which pages to crop"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Remove a crop area",
+  "behavior": "Deletes a crop rectangle.",
+  "evidence": [
+   "Remove crop"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "optimize",
+  "area": "Compress",
+  "feature": "Compress a PDF",
+  "behavior": "Compress PDF levels: Extreme (less quality, high compression), Recommended (good quality, good compression), Low/Less (high quality, less compression); Extreme/Recommended remove accessibility tags.",
+  "evidence": [
+   "Compress PDF",
+   "Extreme Compression",
+   "Recommended Compression",
+   "Less Compression"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "optimize",
+  "area": "Compress",
+  "feature": "See compression savings",
+  "behavior": "Result shows old vs new size and percent.",
+  "evidence": [
+   "PDF compressed (-%1%)",
+   "You saved %1%",
+   "The file was already compressed enough."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "optimize",
+  "area": "Compress",
+  "feature": "Select compression level",
+  "behavior": "Options panel Extreme / Recommended (default) / Low, accessibility-tags note.",
+  "evidence": [
+   "Extreme / Recommended (default) / Low"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "optimize",
+  "area": "OCR",
+  "feature": "OCR a scanned PDF",
+  "behavior": "OCR PDF: choose document languages; makes text selectable and searchable.",
+  "evidence": [
+   "OCR PDF",
+   "Your PDF is now selectable and searchable",
+   "Document languages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "optimize",
+  "area": "OCR",
+  "feature": "Pick OCR languages",
+  "behavior": "Select language from ~100 Tesseract languages incl. vertical CJK.",
+  "evidence": [
+   "Select language",
+   "Chinese - Simplified (vertical)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "optimize",
+  "area": "Repair",
+  "feature": "Repair a damaged PDF",
+  "behavior": "Repair PDF recovers data.",
+  "evidence": [
+   "Repair PDF",
+   "We will try to repair your PDFs."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "optimize",
+  "area": "Repair",
+  "feature": "Suggest repair on damaged file",
+  "behavior": "Damaged file prompt offers Repair tool.",
+  "evidence": [
+   "Damaged file?",
+   "Improved the UX in the 'Try the Repair Tool' dialog"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "PDF to Word",
+  "feature": "Convert PDF to Word",
+  "behavior": "PDF to Word: No OCR / OCR, online/offline conversion.",
+  "evidence": [
+   "PDF to Word",
+   "Convert to Word",
+   "No OCR"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "PDF to Excel",
+  "feature": "Convert PDF to Excel",
+  "behavior": "One sheet or multiple sheets; OCR option.",
+  "evidence": [
+   "PDF to Excel",
+   "One Sheet",
+   "Multiple Sheets"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "PDF to PowerPoint",
+  "feature": "Convert PDF to PowerPoint",
+  "behavior": "PPTX output.",
+  "evidence": [
+   "PDF to PowerPoint",
+   "Convert to PPTX"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "PDF to JPG",
+  "feature": "Convert pages to JPG",
+  "behavior": "Page to JPG or Extract images; quality levels up to 600 DPI.",
+  "evidence": [
+   "PDF to JPG",
+   "Page to JPG",
+   "Image quality"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "PDF to JPG",
+  "feature": "Extract all embedded images",
+  "behavior": "All embedded images extracted as JPG.",
+  "evidence": [
+   "Extract images",
+   "All embedded images will be extracted as JPG"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "PDF/A",
+  "feature": "Convert PDF to PDF/A",
+  "behavior": "Conformance levels PDF/A-1a/1b/2a/2b/2u/3a/3b/3u; allow downgrade.",
+  "evidence": [
+   "PDF to PDF/A",
+   "PDF/A-2b",
+   "Allow Downgrade of PDF/A Compliance Level"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "Word to PDF",
+  "feature": "Convert Word to PDF",
+  "behavior": "DOC/DOCX etc. offline or online.",
+  "evidence": [
+   "Word to PDF",
+   "Offline conversion supports DOC, DOCX, DOT, DOTM, DOTX, DOCM formats"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "Excel to PDF",
+  "feature": "Convert Excel to PDF",
+  "behavior": "XLS family.",
+  "evidence": [
+   "Excel to PDF",
+   "Offline conversion supports XLS, XLSX, XLSM, XLT, XLTM and XLTX formats"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "PowerPoint to PDF",
+  "feature": "Convert PowerPoint to PDF",
+  "behavior": "PPT family.",
+  "evidence": [
+   "PowerPoint to PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "Image to PDF",
+  "feature": "Convert images to PDF",
+  "behavior": "Orientation, page size (Fit/A4/US Letter), margin, merge into one PDF.",
+  "evidence": [
+   "Image to PDF",
+   "Merge all images into one PDF file",
+   "Fit (Same page size as image)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "HTML to PDF",
+  "feature": "Convert a web page to PDF",
+  "behavior": "Enter URL; HTML settings page size, orientation, margin.",
+  "evidence": [
+   "HTML to PDF",
+   "Write the website URL",
+   "HTML Settings"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "Online mode",
+  "feature": "Choose online or offline conversion",
+  "behavior": "Convert online toggle for more file types.",
+  "evidence": [
+   "Convert online",
+   "Online conversion supports more file types"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "convert",
+  "area": "Text",
+  "feature": "Save PDF as plain text",
+  "behavior": "File menu Save As Text.",
+  "evidence": [
+   "Save As Text",
+   "TXT files"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "security",
+  "area": "Protect",
+  "feature": "Password-protect a PDF",
+  "behavior": "Protect PDF: password + repeat, show passwords.",
+  "evidence": [
+   "Protect PDF",
+   "Set a password to protect your PDF file",
+   "Repeat password"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "security",
+  "area": "Unlock",
+  "feature": "Remove PDF password",
+  "behavior": "Unlock PDF.",
+  "evidence": [
+   "Unlock PDF",
+   "PDF unlocked"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Redact text",
+  "behavior": "Select text to mark for redaction.",
+  "evidence": [
+   "Redact text",
+   "Marked for redaction"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Redact whole pages",
+  "behavior": "Select pages for redaction.",
+  "evidence": [
+   "Redact page",
+   "Select Pages for Redaction"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Redact an area",
+  "behavior": "Draw an area to redact.",
+  "evidence": [
+   "Redact PDF: You can now redact any content from a selected area"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Apply redactions",
+  "behavior": "Apply Redaction burns in marks.",
+  "evidence": [
+   "Apply Redaction",
+   "Your PDF has been redacted successfully"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Use search to find sensitive text",
+  "behavior": "Search inside redact.",
+  "evidence": [
+   "Select text or pages to mark for redaction. Use search to quickly find sensitive content."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "security",
+  "area": "Metadata",
+  "feature": "Edit document metadata",
+  "behavior": "Title, author, subject, keywords, creator, producer from reader left panel.",
+  "evidence": [
+   "Edit metadata",
+   "Change document metadata",
+   "Keywords:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "security",
+  "area": "Metadata",
+  "feature": "Keep original metadata",
+  "behavior": "Option to keep original metadata.",
+  "evidence": [
+   "Keep the original files metadata information"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Sign",
+  "feature": "Sign a PDF with e-signature",
+  "behavior": "Sign PDF: create signature, drag it onto the document.",
+  "evidence": [
+   "Sign PDF",
+   "<b>Click</b> the field to create your signature, then <b>drag and drop</b> it onto the document"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Draw, type or upload signature",
+  "behavior": "Customize your signature; upload PNG/JPG/BMP.",
+  "evidence": [
+   "Customize your signature",
+   "Upload signature",
+   "Accepted formats: <b>PNG, JPG</b> and <b>BMP</b>"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Duplicate signature on multiple pages",
+  "behavior": "Linked copies on all pages / all but last / range.",
+  "evidence": [
+   "Create a linked copy on every page of the document.",
+   "Add a linked copy of this field to a selected page range."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Remove linked signature copies",
+  "behavior": "Remove linked copies.",
+  "evidence": [
+   "Remove linked copies"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Digital ID",
+  "feature": "Sign with a digital certificate",
+  "behavior": "Use a Digital ID from file or signature device.",
+  "evidence": [
+   "You can now sign PDFs using your own digital certificate.",
+   "Use a Digital ID from a file"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Digital ID",
+  "feature": "Create a self-signed Digital ID",
+  "behavior": "Generate on device.",
+  "evidence": [
+   "Create a self-signed Digital ID",
+   "Generate a Digital ID directly on your device"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Digital ID",
+  "feature": "Use a smart card or token",
+  "behavior": "Signature creation device.",
+  "evidence": [
+   "Use a Signature Creation Device",
+   "Set up a smart card or token connected to your computer"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Certified",
+  "feature": "Set certification permissions",
+  "behavior": "Certified signature: no changes / forms+sign / comments.",
+  "evidence": [
+   "Certified Signature Setup",
+   "Only filling out forms, signing, and adding pages are permitted actions"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Certified",
+  "feature": "Show certificate details on signature",
+  "behavior": "Shows cert properties in signature stamp.",
+  "evidence": [
+   "Show certificate details"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Validation",
+  "feature": "Validate signatures in panel",
+  "behavior": "Left panel lists signatures valid/invalid.",
+  "evidence": [
+   "Validate signed documents in the left panel:",
+   "All signatures are valid."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Validation",
+  "feature": "Check certificate revocation",
+  "behavior": "Check Revocation.",
+  "evidence": [
+   "Check Revocation",
+   "Check certificate revocation status."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "sign",
+  "area": "Validation",
+  "feature": "View certificate properties",
+  "behavior": "Certificate Details; export certificate.",
+  "evidence": [
+   "Certificate Details",
+   "Export Certificate"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Compare two PDFs side by side",
+  "behavior": "Highlights text changes; Change List.",
+  "evidence": [
+   "Compare PDF",
+   "Show a side-by-side document comparison and easily spot changes between different file versions."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Overlay two PDFs",
+  "behavior": "Content Overlay shows differences in separate colour.",
+  "evidence": [
+   "Content Overlay",
+   "Overlay content from two files and display any changes in a separate color."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Download change report",
+  "behavior": "Change Report export.",
+  "evidence": [
+   "Download Report",
+   "<b>Change Report</b> (%1)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Swap compared files",
+  "behavior": "Swap files.",
+  "evidence": [
+   "Swap files"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "ai",
+  "area": "Summarize",
+  "feature": "Summarize a PDF",
+  "behavior": "Summarize tool.",
+  "evidence": [
+   "LoveTypes.SummarizePdf",
+   "Summary"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "batch",
+  "area": "Chained",
+  "feature": "Chain another tool from results",
+  "behavior": "Continue to... runs another tool on the output.",
+  "evidence": [
+   "Continue to...",
+   "Chained tasks: Now it is possible to chain a new tool modification directly"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "batch",
+  "area": "Multiple files",
+  "feature": "Process many files in one task",
+  "behavior": "Unlimited files per task (premium); progress per file.",
+  "evidence": [
+   "Compressing PDF file %1 of %2",
+   "Unlimited files per task"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "batch",
+  "area": "Tasks",
+  "feature": "Minimize a running task",
+  "behavior": "Minimize task; background tasks.",
+  "evidence": [
+   "Minimize task",
+   "Are you sure you want to cancel all minimized tasks?"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "batch",
+  "area": "Tasks",
+  "feature": "Cancel a running task",
+  "behavior": "Cancel with confirmation.",
+  "evidence": [
+   "Are you sure you want to cancel the task?",
+   "Canceling..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "Results",
+  "feature": "View results screen",
+  "behavior": "Task finished screen with size info, open folder, continue.",
+  "evidence": [
+   "This task has been processed successfully",
+   "Open folder"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "Results",
+  "feature": "Open output folder automatically",
+  "behavior": "Preference.",
+  "evidence": [
+   "Open output folder automatically on task finish"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "Save",
+  "feature": "Choose destination folder",
+  "behavior": "Select destination folder picker on process.",
+  "evidence": [
+   "Select destination folder",
+   "Please choose a folder"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "Save",
+  "feature": "Save and Save As",
+  "behavior": "Ctrl/Cmd+S; Save As.",
+  "evidence": [
+   "Save As...",
+   "StandardKey.Save"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print a PDF",
+  "behavior": "Print dialog: printer, copies, pages, collate, duplex, colour/greyscale, quality, paper size, tray.",
+  "evidence": [
+   "Print...",
+   "Duplex printing",
+   "Print quality:",
+   "Collate"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print in greyscale",
+  "behavior": "Grayscale mode.",
+  "evidence": [
+   "Print in greyscale now available in macOS.",
+   "Grayscale"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "Share",
+  "feature": "Email file as attachment",
+  "behavior": "Send file as email attachment.",
+  "evidence": [
+   "Send file as email attachment"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "History",
+  "feature": "View tasks history",
+  "behavior": "Tasks History lists past tasks with tool and date.",
+  "evidence": [
+   "Tasks History",
+   "New Tasks history section to check how and when you edited your files"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "History",
+  "feature": "Clear task history",
+  "behavior": "Clear All / clear task.",
+  "evidence": [
+   "Clear task",
+   "Clear All"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "History",
+  "feature": "Clear all history from the UI",
+  "behavior": "Tasks History: Clear All button.",
+  "evidence": [
+   "Clear All"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "Notifications",
+  "feature": "Get notified when task finishes",
+  "behavior": "System notifications.",
+  "evidence": [
+   "App notifications: Now macOS system can show notifications when a tool task has finished. "
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "output",
+  "area": "Results",
+  "feature": "Free task counter on results",
+  "behavior": "Result shows remaining free tasks.",
+  "evidence": [
+   "1 of 2 free tasks left"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "General",
+  "feature": "Open Preferences",
+  "behavior": "Settings window: General, Tools, Metadata, Security, Network, Printer.",
+  "evidence": [
+   "Preferences",
+   "Settings..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "General",
+  "feature": "Choose app language",
+  "behavior": "~30 UI languages incl. RTL Arabic.",
+  "evidence": [
+   "Choose your language",
+   "Full Arabic localization with Right-To-Left reading UI"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "General",
+  "feature": "Set default output folder",
+  "behavior": "Default Output Folder; Change folder.",
+  "evidence": [
+   "Default Output Folder",
+   "Choose default output folder",
+   "Change folder"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "General",
+  "feature": "Toggle processing exit warning",
+  "behavior": "Warning when exiting a processing task.",
+  "evidence": [
+   "Show a warning message when exiting a task that is still processing"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "General",
+  "feature": "Start at login",
+  "behavior": "Open iLovePDF on login.",
+  "evidence": [
+   "Open iLovePDF automatically after you log into the computer"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "General",
+  "feature": "Check for updates on start",
+  "behavior": "Toggle.",
+  "evidence": [
+   "Check for updates when starting the application."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Tools",
+  "feature": "Set default compression level",
+  "behavior": "Default compression level.",
+  "evidence": [
+   "Compress Default Settings",
+   "Default compression level"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Tools",
+  "feature": "Set default PDF/A level",
+  "behavior": "PDF/A default.",
+  "evidence": [
+   "PDF to PDF/A Default Settings",
+   "Set the PDF/A conformance level"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Tools",
+  "feature": "Set default watermark text and image",
+  "behavior": "Defaults.",
+  "evidence": [
+   "Default watermark text",
+   "Default watermark image"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Tools",
+  "feature": "Set OCR languages folder",
+  "behavior": "OCR Languages Folder.",
+  "evidence": [
+   "OCR Languages Folder"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Tools",
+  "feature": "Disable right-click results popup",
+  "behavior": "Toggle.",
+  "evidence": [
+   "Show a message to confirm task completion after using the right-click menu"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Metadata",
+  "feature": "Set default output metadata",
+  "behavior": "Output PDF metadata title, subject, etc.",
+  "evidence": [
+   "Output PDF Metadata",
+   "You can now edit “Title” and “Subject” under metadata settings in Preferences "
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Security",
+  "feature": "Set default output password",
+  "behavior": "All processed PDFs auto-protected.",
+  "evidence": [
+   "Generated Files Password",
+   "PDFs processed with iLovePDF Desktop will be automatically protected with this password."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Security",
+  "feature": "Set default open password",
+  "behavior": "Default open password for locked PDFs.",
+  "evidence": [
+   "Default Open PDF Password",
+   "Set default password to open PDF."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Security",
+  "feature": "Always apply a digital certificate",
+  "behavior": "Option.",
+  "evidence": [
+   "Always apply a digital certificate",
+   "Signature Certificate Settings"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Network",
+  "feature": "Configure proxy",
+  "behavior": "No proxy / system proxy.",
+  "evidence": [
+   "Proxy",
+   "Use system proxy settings",
+   "No proxy"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "preferences",
+  "area": "Printer",
+  "feature": "Set default print settings",
+  "behavior": "Paper size, quality, greyscale default.",
+  "evidence": [
+   "Set default paper size",
+   "Set default print quality",
+   "Set the color mode to grayscale by default"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "platform",
+  "area": "Updates",
+  "feature": "Check for updates",
+  "behavior": "Help menu check.",
+  "evidence": [
+   "Check for Updates",
+   "iLovePDF Desktop is up to date"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "platform",
+  "area": "Help",
+  "feature": "Show walkthrough",
+  "behavior": "Onboarding.",
+  "evidence": [
+   "Show Walkthrough..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "platform",
+  "area": "Help",
+  "feature": "Report an issue",
+  "behavior": "Send report with diagnostics.",
+  "evidence": [
+   "Report an issue...",
+   "I agree to share the diagnostic information attached in this message."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "platform",
+  "area": "Help",
+  "feature": "Suggest a feature",
+  "behavior": "Feedback form.",
+  "evidence": [
+   "Suggest a feature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "platform",
+  "area": "Help",
+  "feature": "View changelog",
+  "behavior": "Release notes.",
+  "evidence": [
+   "Release notes",
+   "Changelog"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "platform",
+  "area": "Accessibility",
+  "feature": "Use RTL interface",
+  "behavior": "Right-to-left UI.",
+  "evidence": [
+   "Right-to-Left (RtL) Language Compatibility:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "ilovepdf",
+  "domain": "platform",
+  "area": "Account",
+  "feature": "Login with SSO / Google",
+  "behavior": "Login options.",
+  "evidence": [
+   "Added Single Sign On as a new login option.",
+   "Login with Google"
+  ],
+  "source": "code"
+ }
+]

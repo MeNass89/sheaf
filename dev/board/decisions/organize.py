@@ -1,0 +1,32 @@
+# Phase 4 decisions, domain organize (2026-10-20).
+PE = "pdfexpert"
+Z = (0, 0, 0)
+D = {
+ "001": (PE, "page grid with an ops strip (insert, rotate, copy, extract, split, delete), evidence 08", {"stirling": "page editor multi-select toolbar"}, (5, 6, 7), "grid in the reader; multi-select; several files"),
+ "002": (PE, "drag thumbnails, multi-select, drop indicator", {"preview": "drag between documents"}, (3, 5, 7), "drag-and-drop with multi-select"),
+ "003": (PE, "rotate buttons on hover and in the strip, both directions", {}, (3, 5, 8), "per-page rotate left/right in the grid"),
+ "004": ("ilovepdf", "rotate tool with angle and page selection", {"acrobat": "even/odd/landscape page filters"}, (7, 6, 8), "counter-clockwise; visual preview"),
+ "005": ("stirling", "auto-rotate by text orientation", {}, Z, "light"),
+ "006": ("preview", "flip pages", {}, Z, "light"),
+ "007": (PE, "select pages in the grid, ⌫", {"ilovepdf": "remove pages by visual pick"}, (6, 6, 8), "pick pages visually in Remove"),
+ "008": ("stirling", "remove blank pages with threshold", {}, Z, "after core"),
+ "009": (PE, "insert blank at any position with size", {}, (5, 6, 8), "insert at position, page size choice"),
+ "010": (PE, "insert from file at position", {"acrobat": "before/after page N"}, Z, "insert pages from another PDF"),
+ "011": ("preview", "insert from scanner/clipboard", {}, Z, "light"),
+ "012": ("acrobat", "replace pages", {}, Z, "engine ReplacePages; after core"),
+ "013": (PE, "copy/paste pages, duplicate", {}, (2, 4, 8), "duplicate action in the grid (engine DuplicatePages)"),
+ "014": (PE, "extract selected pages; option each page a separate file", {"ilovepdf": "extract by ranges tool"}, (7, 6, 8), "each page as its own file"),
+ "015": ("ilovepdf", "split by ranges with custom/fixed modes, merge ranges option", {"pdfexpert": "split point in the grid"}, (8, 7, 8), "split points chosen visually"),
+ "016": ("acrobat", "split by page count, file size, top-level bookmarks", {"stirling": "split by chapters"}, (5, 6, 8), "by size and by bookmarks; typed stepper"),
+ "017": ("stirling", "split a page into parts", {}, Z, "light"),
+ "018": ("acrobat", "crop tool: drag a box on the page, apply to range, remove white margins", {"ilovepdf": "crop margins in mm"}, (6, 6, 8), "drag-a-box crop; preview every page"),
+ "019": ("stirling", "scale page size", {"pdfexpert": "page resize in Edit menu"}, Z, "after core"),
+ "020": ("stirling", "reverse/odd-even reorder", {}, Z, "light; CLI --order covers custom"),
+ "021": ("ilovepdf", "drop files, reorder cards, merge; same toolbox model as Sheaf", {"acrobat": "page ranges per file"}, (7, 7, 8), "per-file page ranges"),
+ "022": ("acrobat", "expand files to pages before combining, drag to reorder", {}, (4, 6, 8), "drag reorder of files"),
+ "023": ("ilovepdf", "name the merged output", {}, (9, 8, 9), "—"),
+ "024": ("acrobat", "portfolios", {}, Z, "light"),
+ "025": ("stirling", "N-up / booklet", {}, Z, "after core"),
+ "026": ("acrobat", "page transitions", {}, Z, "light"),
+ "027": ("stirling", "undo/redo in the page editor", {}, Z, "engine undo"),
+}

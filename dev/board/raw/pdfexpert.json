@@ -1,0 +1,2350 @@
+[
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Page layout",
+  "feature": "Show single page view",
+  "behavior": "View > Single Page shows one page at a time.",
+  "evidence": [
+   "Single Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Page layout",
+  "feature": "Show two pages side by side",
+  "behavior": "View > Two Pages shows a two-page spread.",
+  "evidence": [
+   "Two Pages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Page layout",
+  "feature": "Show two pages with single cover",
+  "behavior": "View > Two Pages but First Single keeps page 1 alone like a book cover.",
+  "evidence": [
+   "Two Pages but First Single"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Scroll",
+  "feature": "Scroll pages vertically",
+  "behavior": "View option for vertical continuous scrolling.",
+  "evidence": [
+   "Vertical"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Scroll",
+  "feature": "Scroll pages horizontally",
+  "behavior": "View option for horizontal scrolling.",
+  "evidence": [
+   "Horizontal"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom in",
+  "behavior": "View > Zoom > Zoom In enlarges the page.",
+  "evidence": [
+   "Zoom In"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom out",
+  "behavior": "View > Zoom > Zoom Out shrinks the page.",
+  "evidence": [
+   "Zoom Out"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom to actual size",
+  "behavior": "View > Zoom > Zoom to 100%.",
+  "evidence": [
+   "Zoom to 100%"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Fit page in window",
+  "behavior": "View > Zoom > Zoom to Fit Page.",
+  "evidence": [
+   "Zoom to Fit Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Fit page width",
+  "behavior": "View > Zoom > Zoom to Fit Width.",
+  "evidence": [
+   "Zoom to Fit Width"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Pan and zoom with hand tool",
+  "behavior": "Pan & Zoom tool drags the page and zooms.",
+  "evidence": [
+   "Pan & Zoom"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to next page",
+  "behavior": "Go > Next Page.",
+  "evidence": [
+   "Next Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to previous page",
+  "behavior": "Go > Previous Page.",
+  "evidence": [
+   "Previous Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to first page",
+  "behavior": "Go > First Page.",
+  "evidence": [
+   "First Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to last page",
+  "behavior": "Go > Last Page.",
+  "evidence": [
+   "Last Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Jump to page number",
+  "behavior": "Go > Go to Page... asks for a page number.",
+  "evidence": [
+   "Go to Page..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go back in history",
+  "behavior": "Go > Go Back returns to previous view location.",
+  "evidence": [
+   "Go Back"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go forward in history",
+  "behavior": "Go > Go Forward.",
+  "evidence": [
+   "Go Forward"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Sidebar",
+  "feature": "Show thumbnails panel",
+  "behavior": "Left panel Thumbnails tab lists page thumbnails.",
+  "evidence": [
+   "Thumbnails Panel",
+   "Thumbnails"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Sidebar",
+  "feature": "Hide left panel",
+  "behavior": "View > Hide Left Panel toggles the sidebar.",
+  "evidence": [
+   "Hide Left Panel"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Outline",
+  "feature": "View document outline",
+  "behavior": "Left panel Outline tab; empty state tells to right-click text and pick Add Outline Item.",
+  "evidence": [
+   "Outline"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Outline",
+  "feature": "Add outline item from selection",
+  "behavior": "Right-click selected text > Add Outline Item, or Edit menu.",
+  "evidence": [
+   "Add Outline Item"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Bookmark current page",
+  "behavior": "Edit > Add Bookmark to Current Page, or click bookmark ribbon on page corner.",
+  "evidence": [
+   "Add Bookmark to Current Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "View bookmarks list",
+  "behavior": "Left panel Bookmarks tab lists bookmarked pages.",
+  "evidence": [
+   "Bookmarks"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Find text in document",
+  "behavior": "Edit > Find > Find… opens search; results panel grouped by page with hit count (\"Found: 108\").",
+  "evidence": [
+   "Find…",
+   "Find"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Go to next search result",
+  "behavior": "Find Next.",
+  "evidence": [
+   "Find Next"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Go to previous search result",
+  "behavior": "Find Previous.",
+  "evidence": [
+   "Find Previous"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Search using selected text",
+  "behavior": "Use Selection for Find fills the search field.",
+  "evidence": [
+   "Use Selection for Find"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Toggle precise search",
+  "behavior": "Results panel tip offers Use Precise Search for exact matching.",
+  "evidence": [
+   "Use Precise Search"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Theme",
+  "feature": "Use day theme",
+  "behavior": "View > Theme > Day, normal page colours.",
+  "evidence": [
+   "Day"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Theme",
+  "feature": "Use night theme",
+  "behavior": "View > Theme > Night inverts pages; app UI unchanged.",
+  "evidence": [
+   "Night"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Theme",
+  "feature": "Use sepia theme",
+  "behavior": "View > Theme > Sepia tints pages.",
+  "evidence": [
+   "Sepia"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Full screen",
+  "feature": "Enter full screen",
+  "behavior": "View > Enter Full Screen.",
+  "evidence": [
+   "Enter Full Screen"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Full screen",
+  "feature": "Keep tools visible in full screen",
+  "behavior": "Option keeps toolbars shown in full-screen window.",
+  "evidence": [
+   "Keep tools visible in a full-screen window"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Toolbar",
+  "feature": "Always show toolbar",
+  "behavior": "View > Always Show Toolbar.",
+  "evidence": [
+   "Always Show Toolbar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Toolbar",
+  "feature": "Hide tools strip",
+  "behavior": "View > Hide Tools hides the mode tool strip.",
+  "evidence": [
+   "Hide Tools"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Open new tab",
+  "behavior": "Window/File > New Tab.",
+  "evidence": [
+   "New Tab"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Close current tab",
+  "behavior": "Close Tab.",
+  "evidence": [
+   "Close Tab"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Close other tabs",
+  "behavior": "Close Other Tabs keeps the current one.",
+  "evidence": [
+   "Close Other Tabs"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Switch to next tab",
+  "behavior": "Window > Go to Next Tab.",
+  "evidence": [
+   "Go to Next Tab"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Switch to previous tab",
+  "behavior": "Window > Go to Previous Tab.",
+  "evidence": [
+   "Go to Previous Tab"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Move tab to new window",
+  "behavior": "Window > Move Tab to New Window.",
+  "evidence": [
+   "Move Tab to New Window"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Merge all windows into tabs",
+  "behavior": "Window > Merge All Windows.",
+  "evidence": [
+   "Merge All Windows"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Split view",
+  "feature": "Open split view",
+  "behavior": "View > Split View shows two documents side by side.",
+  "evidence": [
+   "Split View"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Split view",
+  "feature": "Disable split view",
+  "behavior": "Disable Split View returns to single document.",
+  "evidence": [
+   "Disable Split View"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Split view",
+  "feature": "Sync scroll and zoom in split view",
+  "behavior": "Sync Scroll and Zoom links both panes.",
+  "evidence": [
+   "Sync Scroll and Zoom"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Split view",
+  "feature": "Swap split view sides",
+  "behavior": "Swap Sides exchanges left and right documents.",
+  "evidence": [
+   "Swap Sides"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Split view",
+  "feature": "Change one split document",
+  "behavior": "Change Top/Left Document or Change Bottom/Right Document replaces a pane.",
+  "evidence": [
+   "Change Top/Left Document",
+   "Change Bottom/Right Document"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Display",
+  "feature": "Highlight links on page",
+  "behavior": "Display setting outlines link areas.",
+  "evidence": [
+   "Highlight links"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Display",
+  "feature": "Highlight form fields",
+  "behavior": "Display setting tints form fields.",
+  "evidence": [
+   "Highlight form fields"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Copy selected text",
+  "behavior": "Right-click selection > Copy, or Edit > Copy.",
+  "evidence": [
+   "Copy"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Look up selected word",
+  "behavior": "Context menu Look Up shows dictionary.",
+  "evidence": [
+   "Look Up"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Select all",
+  "behavior": "Edit > Select All.",
+  "evidence": [
+   "Select All"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Select page content area",
+  "behavior": "Content Selection tool selects text/images by area.",
+  "evidence": [
+   "Content Selection",
+   "ContentSelectionTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Page labels",
+  "feature": "Label page as cover",
+  "behavior": "Edit > Page Labels > Label as Cover.",
+  "evidence": [
+   "Label as Cover"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Page labels",
+  "feature": "Label pages with arabic numbers",
+  "behavior": "Label This Page Forward as 1,2,3,4,…",
+  "evidence": [
+   "Label This Page Forward as 1,2,3,4,…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Page labels",
+  "feature": "Label pages with roman numerals",
+  "behavior": "Label This Page Forward as i, ii, iii, iv,…",
+  "evidence": [
+   "Label This Page Forward as i, ii, iii, iv,…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "reader",
+  "area": "Document",
+  "feature": "View document properties",
+  "behavior": "File > Properties... shows title, author and file info.",
+  "evidence": [
+   "Properties...",
+   "Author:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Mode",
+  "feature": "Enter annotate mode",
+  "behavior": "Toolbar/menu Annotate shows vertical tool strip.",
+  "evidence": [
+   "Annotate"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Highlight",
+  "feature": "Highlight selected text",
+  "behavior": "Highlight tool or context menu Highlight with 5 colours.",
+  "evidence": [
+   "Highlight",
+   "HighlightTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Highlight",
+  "feature": "Choose highlight colour",
+  "behavior": "Color 1–4 presets plus Custom in the colour menu.",
+  "evidence": [
+   "Color 1",
+   "Color 4",
+   "Custom"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Underline",
+  "feature": "Underline selected text",
+  "behavior": "Underline tool or context menu.",
+  "evidence": [
+   "Underline",
+   "UnderlineTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Strikeout",
+  "feature": "Strike out selected text",
+  "behavior": "Strikeout tool or context menu.",
+  "evidence": [
+   "Strikeout",
+   "StrikeoutTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Squiggly",
+  "feature": "Add squiggly underline",
+  "behavior": "Context menu Squiggly or Squiggly Tool.",
+  "evidence": [
+   "Squiggly",
+   "SquigglyTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Ink",
+  "feature": "Draw freehand with pen",
+  "behavior": "Pen tool draws ink.",
+  "evidence": [
+   "Pen",
+   "DrawInkTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Ink",
+  "feature": "Erase ink strokes",
+  "behavior": "Eraser tool removes ink.",
+  "evidence": [
+   "Eraser",
+   "EraseInkTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Text box",
+  "feature": "Add text box",
+  "behavior": "Text tool places free text on the page.",
+  "evidence": [
+   "Text",
+   "FreeTextTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Text box",
+  "feature": "Add callout",
+  "behavior": "Callout tool adds text box with leader line.",
+  "evidence": [
+   "Callout",
+   "CalloutTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Note",
+  "feature": "Add sticky note",
+  "behavior": "Note tool or context menu Note.",
+  "evidence": [
+   "Note",
+   "NoteTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw rectangle",
+  "behavior": "Rectangle shape.",
+  "evidence": [
+   "Rectangle",
+   "DrawRectTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw oval",
+  "behavior": "Oval shape.",
+  "evidence": [
+   "Oval",
+   "DrawEllipseTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw line",
+  "behavior": "Line shape.",
+  "evidence": [
+   "Line",
+   "DrawLineTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw arrow",
+  "behavior": "Arrow shape.",
+  "evidence": [
+   "Arrow",
+   "DrawArrowTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw double arrow",
+  "behavior": "Double Arrow shape.",
+  "evidence": [
+   "Double Arrow",
+   "DrawDoubleArrowTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw polygon",
+  "behavior": "Polygon tool.",
+  "evidence": [
+   "Polygon",
+   "DrawPolygonTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw polyline",
+  "behavior": "Polyline tool.",
+  "evidence": [
+   "Polyline",
+   "DrawPolylineTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw cloud shape",
+  "behavior": "Cloud tool draws revision cloud.",
+  "evidence": [
+   "Cloud",
+   "CloudTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Style",
+  "feature": "Set stroke thickness",
+  "behavior": "Inspector Thickness control.",
+  "evidence": [
+   "Thickness"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Style",
+  "feature": "Set opacity",
+  "behavior": "Inspector Opacity control.",
+  "evidence": [
+   "Opacity"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Style",
+  "feature": "Set fill and border colours",
+  "behavior": "Fill Color / Border Color in inspector.",
+  "evidence": [
+   "Fill Color",
+   "Border Color"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Style",
+  "feature": "Restore default colours",
+  "behavior": "Resets tool colour presets.",
+  "evidence": [
+   "Restore Default Colors"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Style",
+  "feature": "Change text box font",
+  "behavior": "Font settings: family, typeface, size.",
+  "evidence": [
+   "Font Family",
+   "Font Size",
+   "Font Typeface"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Stamp",
+  "feature": "Add stamp",
+  "behavior": "Stamp tool places a stamp.",
+  "evidence": [
+   "Stamp",
+   "StampTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Stamp",
+  "feature": "Create custom text stamp",
+  "behavior": "Create new stamp; Text Stamps list.",
+  "evidence": [
+   "Create new stamp",
+   "Text Stamps"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Stamp",
+  "feature": "Create image stamp",
+  "behavior": "Drag and drop an image to create a new stamp.",
+  "evidence": [
+   "Drag and drop image to create a new stamp",
+   "Image Stamps"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Marks",
+  "feature": "Add checkmark",
+  "behavior": "Checkmark tool.",
+  "evidence": [
+   "Checkmark",
+   "CheckmarkTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Marks",
+  "feature": "Add cross mark",
+  "behavior": "Cross tool.",
+  "evidence": [
+   "Cross",
+   "CrossTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Marks",
+  "feature": "Add date",
+  "behavior": "Date tool inserts a date; Date Format option.",
+  "evidence": [
+   "Date",
+   "DateTool",
+   "Date Format"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Measure",
+  "feature": "Measure distance",
+  "behavior": "Distance tool measures between two points.",
+  "evidence": [
+   "Distance",
+   "DistanceTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Measure",
+  "feature": "Measure perimeter",
+  "behavior": "Perimeter tool.",
+  "evidence": [
+   "Perimeter",
+   "DrawPerimeterTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Measure",
+  "feature": "Measure area",
+  "behavior": "Area tool.",
+  "evidence": [
+   "Area",
+   "DrawAreaTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Measure",
+  "feature": "Calibrate drawing scale",
+  "behavior": "Calibrate tool sets or recognizes scale; foot and inch format.",
+  "evidence": [
+   "Calibrate",
+   "Follow the instructions to set or recognize the scale"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Arrange",
+  "feature": "Rotate annotation 90° right",
+  "behavior": "Edit > Rotate Annotation 90° Right.",
+  "evidence": [
+   "Rotate Annotation 90° Right"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Arrange",
+  "feature": "Rotate annotation 90° left",
+  "behavior": "Edit > Rotate Annotation 90° Left.",
+  "evidence": [
+   "Rotate Annotation 90° Left"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Arrange",
+  "feature": "Rotate annotation 180°",
+  "behavior": "Edit > Rotate Annotation 180°.",
+  "evidence": [
+   "Rotate Annotation 180°"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Arrange",
+  "feature": "Align annotations left/right",
+  "behavior": "Align Annotations > Left / Right.",
+  "evidence": [
+   "Align Annotations",
+   "Left",
+   "Right"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Arrange",
+  "feature": "Align annotations top/bottom",
+  "behavior": "Align Annotations > Top / Bottom.",
+  "evidence": [
+   "Top",
+   "Bottom"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Arrange",
+  "feature": "Center annotations",
+  "behavior": "Center Horizontally / Center Vertically.",
+  "evidence": [
+   "Center Horizontally",
+   "Center Vertically"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Arrange",
+  "feature": "Snap annotations",
+  "behavior": "Snap toggles alignment snapping.",
+  "evidence": [
+   "Snap"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Remove",
+  "feature": "Remove all annotations",
+  "behavior": "Remove All Annotations clears every markup.",
+  "evidence": [
+   "Remove All Annotations"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Summary",
+  "feature": "View annotation summary",
+  "behavior": "Left panel Annotations tab; works with Highlight, Underline, Text, Note.",
+  "evidence": [
+   "Annotation Summary"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "annotate",
+  "area": "Summary",
+  "feature": "Export annotation summary",
+  "behavior": "Export Annotation Summary as... Markdown, HTML, Text, RTF.",
+  "evidence": [
+   "Export Annotation Summary as...",
+   "Markdown"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Mode",
+  "feature": "Enter Edit PDF mode",
+  "behavior": "Edit PDF mode shows Text, Image, Link, Redact tools.",
+  "evidence": [
+   "Edit PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Text",
+  "feature": "Edit existing text",
+  "behavior": "Edit Text tool/context menu edits text in place.",
+  "evidence": [
+   "Edit Text",
+   "ContentTextTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Text",
+  "feature": "Add new text",
+  "behavior": "Add Text... places a new text block.",
+  "evidence": [
+   "Add Text..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Text",
+  "feature": "Remove all text",
+  "behavior": "Remove All Text deletes page text.",
+  "evidence": [
+   "Remove All Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Image",
+  "feature": "Add image",
+  "behavior": "Image tool or Add Image inserts a picture.",
+  "evidence": [
+   "Add Image",
+   "ContentImageTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Image",
+  "feature": "Copy image",
+  "behavior": "Copy Image from image context menu.",
+  "evidence": [
+   "Copy Image"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Link",
+  "feature": "Add link",
+  "behavior": "Link tool draws link area to URL or page.",
+  "evidence": [
+   "Link",
+   "LinkTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Header/footer",
+  "feature": "Add header and footer",
+  "behavior": "Header and Footer dialog.",
+  "evidence": [
+   "Header and Footer"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Page numbers",
+  "feature": "Add page numbers",
+  "behavior": "Add Page Numbers... dialog.",
+  "evidence": [
+   "Add Page Numbers..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Page numbers",
+  "feature": "Remove page numbers",
+  "behavior": "Remove Page Numbers.",
+  "evidence": [
+   "Remove Page Numbers"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Bates",
+  "feature": "Add Bates numbers",
+  "behavior": "Add Bates Numbers... stamps legal numbering.",
+  "evidence": [
+   "Add Bates Numbers..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Background",
+  "feature": "Set background colour",
+  "behavior": "Background Color option.",
+  "evidence": [
+   "Background Color"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Clipboard",
+  "feature": "Undo last action",
+  "behavior": "Edit > Undo.",
+  "evidence": [
+   "Undo"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Clipboard",
+  "feature": "Redo action",
+  "behavior": "Edit > Redo.",
+  "evidence": [
+   "Redo"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Clipboard",
+  "feature": "Cut selection",
+  "behavior": "Edit > Cut.",
+  "evidence": [
+   "Cut"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "edit",
+  "area": "Clipboard",
+  "feature": "Paste",
+  "behavior": "Edit > Paste / Paste & Match Style.",
+  "evidence": [
+   "Paste",
+   "Paste & Match Style"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Organizer",
+  "feature": "Open page organizer grid",
+  "behavior": "Thumbnails grid with page-ops strip (insert, rotate, copy, extract, split, delete).",
+  "evidence": [
+   "page-ops strip"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Insert",
+  "feature": "Insert blank page",
+  "behavior": "Edit > Insert Blank Page.",
+  "evidence": [
+   "Insert Blank Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Insert",
+  "feature": "Insert pages from file",
+  "behavior": "Insert From File... adds pages from another PDF.",
+  "evidence": [
+   "From File..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Rotate current page left",
+  "behavior": "Rotate Current Page Left.",
+  "evidence": [
+   "Rotate Current Page Left"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Rotate current page right",
+  "behavior": "Rotate Current Page Right.",
+  "evidence": [
+   "Rotate Current Page Right"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Extract",
+  "feature": "Extract pages",
+  "behavior": "Organizer Extract saves selected pages as new file.",
+  "evidence": [
+   "Extract"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split document",
+  "behavior": "Split... / Split Manually.",
+  "evidence": [
+   "Split...",
+   "Split Manually"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Delete",
+  "feature": "Delete pages",
+  "behavior": "Organizer page-ops strip delete.",
+  "evidence": [
+   "delete"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Copy",
+  "feature": "Copy pages",
+  "behavior": "Organizer page-ops strip copy.",
+  "evidence": [
+   "copy"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Reorder",
+  "feature": "Reorder pages by drag",
+  "behavior": "unknown: drag thumbnails in organizer grid to reorder.",
+  "evidence": [
+   "Thumbnails"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Merge",
+  "feature": "Merge files",
+  "behavior": "File > Merge Files... combines PDFs.",
+  "evidence": [
+   "Merge Files..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Crop single page",
+  "behavior": "Crop > Crop Single Page.",
+  "evidence": [
+   "Crop Single Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Crop all pages",
+  "behavior": "Crop > Crop All Pages.",
+  "evidence": [
+   "Crop All Pages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Clear crop margins",
+  "behavior": "Clear Margins.",
+  "evidence": [
+   "Clear Margins"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Resize",
+  "feature": "Resize pages uniformly",
+  "behavior": "Page Resize sets custom page size, uniform page sizing.",
+  "evidence": [
+   "Page Resize",
+   "Uniform page sizing"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "organize",
+  "area": "Scan",
+  "feature": "Split double-page scans",
+  "behavior": "Split Pages splits double-page scans in two.",
+  "evidence": [
+   "Split Pages",
+   "Splits double-page scans in two separate pages."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Fill",
+  "feature": "Fill interactive forms",
+  "behavior": "Click fields to type; Fill & Sign tool strip.",
+  "evidence": [
+   "Fill & Sign interactive and regular forms"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Fill",
+  "feature": "Clear form",
+  "behavior": "Clear Form resets all fields after confirm.",
+  "evidence": [
+   "Clear Form",
+   "Do you really want to reset the form?"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Create",
+  "feature": "Add checkbox field",
+  "behavior": "Checkbox field type.",
+  "evidence": [
+   "Checkbox"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Create",
+  "feature": "Add radio button field",
+  "behavior": "Radio Button field type.",
+  "evidence": [
+   "Radio Button"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Create",
+  "feature": "Add list box field",
+  "behavior": "Listbox field type.",
+  "evidence": [
+   "Listbox"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Create",
+  "feature": "Add combo box field",
+  "behavior": "Combobox field type.",
+  "evidence": [
+   "Combobox"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Create",
+  "feature": "Add push button field",
+  "behavior": "Push Button field type.",
+  "evidence": [
+   "Push Button"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Create",
+  "feature": "Auto-detect form fields",
+  "behavior": "Recognize Fields detects fields (vector and raster).",
+  "evidence": [
+   "Recognize Fields",
+   "RDPDFFormFieldAutocreator"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Assist",
+  "feature": "Use form assistant",
+  "behavior": "Form Assistant suggests field values.",
+  "evidence": [
+   "Form Assistant"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Validate",
+  "feature": "Warn on required fields",
+  "behavior": "Field %@ is required. / Some required fields are not filled.",
+  "evidence": [
+   "Some required fields are not filled."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Submit",
+  "feature": "Submit form",
+  "behavior": "Submit button sends form; success/failure messages.",
+  "evidence": [
+   "Submitting form...",
+   "Form Successfully Submitted"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "forms",
+  "area": "Flatten",
+  "feature": "Save as flattened",
+  "behavior": "File > Save as Flattened… merges annotations and fields into page.",
+  "evidence": [
+   "Save as Flattened…",
+   "Flattening Document..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Add signature",
+  "behavior": "Signature tool places saved signature.",
+  "evidence": [
+   "Signature",
+   "SignatureTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Create new signature",
+  "behavior": "Create new signature by drawing, typing or image.",
+  "evidence": [
+   "Create new signature",
+   "New Signature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Create signature from image",
+  "behavior": "Drag and drop image to create a new signature.",
+  "evidence": [
+   "Drag and drop image to create a new signature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Edit saved signature",
+  "behavior": "Edit Signature.",
+  "evidence": [
+   "Edit Signature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Manage signature list",
+  "behavior": "My Signatures / Customer Signature groups.",
+  "evidence": [
+   "My Signatures",
+   "Customer Signature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "sign",
+  "area": "Digital",
+  "feature": "Detect digitally signed file",
+  "behavior": "Warns: This file is protected with digital signature.",
+  "evidence": [
+   "This file is protected with digital signature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "sign",
+  "area": "Workflow",
+  "feature": "Open Sign PDF tool",
+  "behavior": "Home Tools for You > Sign PDF.",
+  "evidence": [
+   "Sign PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Set password",
+  "behavior": "File > Set Password...",
+  "evidence": [
+   "Set Password..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Change password",
+  "behavior": "Change Password...",
+  "evidence": [
+   "Change Password..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Remove password",
+  "behavior": "Remove Password.",
+  "evidence": [
+   "Remove Password"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Unlock protected PDF",
+  "behavior": "Enter password prompt on open.",
+  "evidence": [
+   "Enter password to unlock it."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Redact area",
+  "behavior": "Redact tool blacks out content.",
+  "evidence": [
+   "Redact",
+   "RedactTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Find and redact text",
+  "behavior": "Find and Redact... searches and redacts all hits.",
+  "evidence": [
+   "Find and Redact..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export to Word",
+  "behavior": "Export To > Word Document...",
+  "evidence": [
+   "Word Document..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export to Excel",
+  "behavior": "Export To > Excel Spreadsheet...",
+  "evidence": [
+   "Excel Spreadsheet..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export to PowerPoint",
+  "behavior": "Export To > PowerPoint Presentation...",
+  "evidence": [
+   "PowerPoint Presentation..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export to image",
+  "behavior": "Export To > Image...",
+  "evidence": [
+   "Image..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export to text",
+  "behavior": "Export To > Text...",
+  "evidence": [
+   "Text..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export to HTML",
+  "behavior": "Export To > HTML...",
+  "evidence": [
+   "HTML..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export to RTF",
+  "behavior": "Export To > Rich Text Format...",
+  "evidence": [
+   "Rich Text Format..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Create",
+  "feature": "Create PDF from images",
+  "behavior": "New > From Images...",
+  "evidence": [
+   "From Images..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Create",
+  "feature": "Create PDF from clipboard",
+  "behavior": "New > From Clipboard.",
+  "evidence": [
+   "From Clipboard"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Create",
+  "feature": "Create empty document",
+  "behavior": "New > Empty Document.",
+  "evidence": [
+   "Empty Document"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "convert",
+  "area": "Create",
+  "feature": "Convert other files to PDF",
+  "behavior": "Home tool Other Files to PDF.",
+  "evidence": [
+   "Other Files to PDF"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "optimize",
+  "area": "Compress",
+  "feature": "Reduce file size",
+  "behavior": "File > Reduce File Size... with High/Medium/Low levels.",
+  "evidence": [
+   "Reduce File Size...",
+   "Compress PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "optimize",
+  "area": "OCR",
+  "feature": "Recognize text",
+  "behavior": "Recognize Text runs OCR; choose language and recognize again.",
+  "evidence": [
+   "Recognize Text",
+   "Recognize Text (OCR)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "optimize",
+  "area": "OCR",
+  "feature": "Set OCR level",
+  "behavior": "Text Recognition (OCR) Level option.",
+  "evidence": [
+   "Text Recognition (OCR) Level"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "optimize",
+  "area": "OCR",
+  "feature": "Flag OCR typos",
+  "behavior": "Highlights possible OCR typos in the text.",
+  "evidence": [
+   "Highlights possible OCR typos in the text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "optimize",
+  "area": "Scan",
+  "feature": "Open Scan & OCR mode",
+  "behavior": "Scan & OCR mode for scanned documents.",
+  "evidence": [
+   "Scan & OCR"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "optimize",
+  "area": "Scan",
+  "feature": "Enhance scan",
+  "behavior": "Enhance Scan cleans scanned pages.",
+  "evidence": [
+   "Enhance Scan",
+   "ScanEnhanceTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "optimize",
+  "area": "Scan",
+  "feature": "Fill scan margins",
+  "behavior": "ScanFillMarginsTool fills dark margins.",
+  "evidence": [
+   "ScanFillMarginsTool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "optimize",
+  "area": "Scan",
+  "feature": "Set scan page size",
+  "behavior": "Select the detected page size or other formats.",
+  "evidence": [
+   "ScanPageSizeTool",
+   "Select the detected page size or other formats."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "output",
+  "area": "Save",
+  "feature": "Save document",
+  "behavior": "File > Save.",
+  "evidence": [
+   "Save"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "output",
+  "area": "Save",
+  "feature": "Save as copy",
+  "behavior": "File > Save As…",
+  "evidence": [
+   "Save As…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print document",
+  "behavior": "File > Print… with scale options.",
+  "evidence": [
+   "Print…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "output",
+  "area": "Share",
+  "feature": "Share document",
+  "behavior": "File > Share / toolbar Share.",
+  "evidence": [
+   "Share"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "output",
+  "area": "Share",
+  "feature": "Mail as flattened",
+  "behavior": "Share via Mail as Flattened.",
+  "evidence": [
+   "Mail as Flattened"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "output",
+  "area": "Export",
+  "feature": "Export as flattened",
+  "behavior": "Export as Flattened.",
+  "evidence": [
+   "Export as Flattened"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "output",
+  "area": "Files",
+  "feature": "Show in Finder",
+  "behavior": "File > Show in Finder.",
+  "evidence": [
+   "Show in Finder"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "files",
+  "area": "Home",
+  "feature": "Open home screen",
+  "behavior": "Home with Open Files drop zone, Tools for You grid, Recents.",
+  "evidence": [
+   "Open Files",
+   "Tools for You"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "files",
+  "area": "Open",
+  "feature": "Open file",
+  "behavior": "File > Open…",
+  "evidence": [
+   "Open…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "files",
+  "area": "Open",
+  "feature": "Open recent file",
+  "behavior": "File > Open Recent; Clear Menu.",
+  "evidence": [
+   "Open Recent",
+   "Clear Menu"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "files",
+  "area": "Recents",
+  "feature": "Browse recent files",
+  "behavior": "Home Recents list.",
+  "evidence": [
+   "Recents"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "files",
+  "area": "Recents",
+  "feature": "Clear recents",
+  "behavior": "Clear Recents.",
+  "evidence": [
+   "Clear Recents"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "files",
+  "area": "Favorites",
+  "feature": "Add file to favorites",
+  "behavior": "Add to Favorites.",
+  "evidence": [
+   "Add to Favorites"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "files",
+  "area": "Favorites",
+  "feature": "Browse favorites",
+  "behavior": "Favorites list.",
+  "evidence": [
+   "Favorites"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "files",
+  "area": "Windows",
+  "feature": "Close window",
+  "behavior": "Close Window / Close All Windows.",
+  "evidence": [
+   "Close Window",
+   "Close All Windows"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "preferences",
+  "area": "Settings",
+  "feature": "Open settings",
+  "behavior": "PDF Expert > Settings…",
+  "evidence": [
+   "Settings…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "preferences",
+  "area": "Default app",
+  "feature": "Set as default PDF viewer",
+  "behavior": "Set as Default in settings or prompt.",
+  "evidence": [
+   "Set as Default",
+   "Default PDF Reader:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "preferences",
+  "area": "Viewer",
+  "feature": "Configure viewer settings",
+  "behavior": "ViewerSettingsViewController, advanced settings.",
+  "evidence": [
+   "ViewerSettingsViewController",
+   "ViewerAdvancedSettingsViewController"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "preferences",
+  "area": "Display",
+  "feature": "Configure display options",
+  "behavior": "Display Options panel.",
+  "evidence": [
+   "Display Options",
+   "DocumentDisplaySettingsPanelViewController"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "preferences",
+  "area": "Layout",
+  "feature": "Reset to default layout",
+  "behavior": "Reset to default layout.",
+  "evidence": [
+   "Reset to default layout"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "ai",
+  "area": "Copilot",
+  "feature": "Open PDF Copilot chat",
+  "behavior": "Edit > PDF Copilot / Chat... opens assistant panel.",
+  "evidence": [
+   "PDF Copilot",
+   "Chat..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "ai",
+  "area": "Copilot",
+  "feature": "Ask Copilot a question",
+  "behavior": "Prompt field Ask PDF Copilot...",
+  "evidence": [
+   "Ask PDF Copilot..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "ai",
+  "area": "Copilot",
+  "feature": "Summarize selection",
+  "behavior": "Context menu Summarize.",
+  "evidence": [
+   "Summarize"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "ai",
+  "area": "Copilot",
+  "feature": "Explain selection",
+  "behavior": "Context menu Explain.",
+  "evidence": [
+   "Explain"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "ai",
+  "area": "Copilot",
+  "feature": "Translate selection",
+  "behavior": "Translate to <language>; Copy Translation.",
+  "evidence": [
+   "Translate to",
+   "Copy Translation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "ai",
+  "area": "Copilot",
+  "feature": "Summarize whole PDF",
+  "behavior": "Summarize PDF / Document Summary.",
+  "evidence": [
+   "Summarize PDF",
+   "Document Summary"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "ai",
+  "area": "Copilot",
+  "feature": "Highlight main points",
+  "behavior": "Copilot highlights key points in the PDF.",
+  "evidence": [
+   "Highlight main points"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "ai",
+  "area": "Translate",
+  "feature": "Translate entire PDF",
+  "behavior": "File > Translate PDF saves translation as PDF, on-device Apple ML.",
+  "evidence": [
+   "Translate PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "pdfexpert",
+  "domain": "ai",
+  "area": "Copilot",
+  "feature": "Toggle Copilot auto-open",
+  "behavior": "Don't open PDF Copilot every session.",
+  "evidence": [
+   "Don't open PDF Copilot every session"
+  ],
+  "source": "code"
+ }
+]

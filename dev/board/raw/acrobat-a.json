@@ -1,0 +1,2481 @@
+[
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom in",
+  "behavior": "Increase the magnification of the whole page from toolbar or View menu.",
+  "evidence": [
+   "avZoomInToolItemLabel",
+   "avZoomInMenuItemHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom out",
+  "behavior": "Decrease the magnification of the whole page.",
+  "evidence": [
+   "avZoomOutToolItemLabel",
+   "avZoomOutMenuItemHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Type a zoom percentage",
+  "behavior": "Type a percentage in the zoom box or open its menu for preset magnifications.",
+  "evidence": [
+   "avZoomSubMenu",
+   "avZoomPopupLabel"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Fit page to window",
+  "behavior": "Zoom preset that shows the whole page.",
+  "evidence": [
+   "avZoomMenuFitPage"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Fit page width",
+  "behavior": "Zoom preset that fits the page width to the window.",
+  "evidence": [
+   "avZoomMenuFitWidth"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Fit page height",
+  "behavior": "Zoom preset that fits the page height to the window.",
+  "evidence": [
+   "avZoomMenuFitHeight"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Fit visible content",
+  "behavior": "Zoom preset that fits the visible content area (margins trimmed).",
+  "evidence": [
+   "avZoomMenuFitVisible"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Show actual size",
+  "behavior": "Zoom to 100% actual size.",
+  "evidence": [
+   "avZoomMenuActualSize"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Use automatic zoom",
+  "behavior": "Automatic zoom preset picks a magnification.",
+  "evidence": [
+   "avZoomMenuAutomatic"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Marquee zoom to area",
+  "behavior": "Drag a rectangle with the Marquee Zoom tool to enlarge that area; click to enlarge the page.",
+  "evidence": [
+   "avMarqueeZoomMenuItem",
+   "avZoomInToolHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Dynamic zoom with mouse",
+  "behavior": "Click with the Dynamic Zoom tool and move the mouse or wheel to change magnification.",
+  "evidence": [
+   "avZoomDragToolHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Magnify area with loupe",
+  "behavior": "Loupe Tool opens a window magnifying a dragged rectangle of the page.",
+  "evidence": [
+   "avLoupeToolMenuItem",
+   "avLoupeWindowTitle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Page Display",
+  "feature": "Show single page view",
+  "behavior": "Display one page at a time.",
+  "evidence": [
+   "avSinglePageMenuItem",
+   "avSinglePage"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Page Display",
+  "feature": "Enable single page scrolling",
+  "behavior": "Show pages in one continuous scrolling column.",
+  "evidence": [
+   "avOneColumn",
+   "avViewMenu__ScrollingPages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Page Display",
+  "feature": "Show two page view",
+  "behavior": "Display two pages side by side.",
+  "evidence": [
+   "av2TwoPageScrollingMenu",
+   "avTwoColumnsMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Page Display",
+  "feature": "Show cover page in two-up",
+  "behavior": "Treat the first page as a cover in two-page views.",
+  "evidence": [
+   "avShowCoverPageDuringTwoUp",
+   "avViewMenu__TwoPagesWithCover"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Page Display",
+  "feature": "Use fit-to-width scrolling",
+  "behavior": "Fill the window width with each page and scroll continuously.",
+  "evidence": [
+   "avScrollingMode",
+   "avScrollingModeHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Page Display",
+  "feature": "Enable or disable scrolling",
+  "behavior": "Toggle continuous scrolling in the page display menu.",
+  "evidence": [
+   "avEnableScrollingMenu"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Page Display",
+  "feature": "Auto-scroll the document",
+  "behavior": "Automatic Scrolling scrolls the page at a steady pace.",
+  "evidence": [
+   "avViewMenu__AutomaticScrolling"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Page Display",
+  "feature": "Open page display menu",
+  "behavior": "Page Display submenu groups layout, scrolling and rotation options.",
+  "evidence": [
+   "avPageLayoutSubMenu",
+   "av2PageDisplayMenu"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Rotate",
+  "feature": "Rotate view clockwise",
+  "behavior": "Rotate the displayed pages right (view only, not saved).",
+  "evidence": [
+   "av2RotateViewClockwiseMenu",
+   "av2RotateViewClockwise"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Rotate",
+  "feature": "Rotate view counter-clockwise",
+  "behavior": "Rotate the displayed pages left (view only).",
+  "evidence": [
+   "av2RotateViewCounterClockwiseMenu"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to next page",
+  "behavior": "Move to the next page.",
+  "evidence": [
+   "avNextPageMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to page number",
+  "behavior": "Go To Page dialog jumps to a typed page number.",
+  "evidence": [
+   "avGoToPageMenuItem",
+   "/Dialogs/GoToPage = Go To Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Return to previous view",
+  "behavior": "Go back to the previous view position.",
+  "evidence": [
+   "avGoBackMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Step through remembered views",
+  "behavior": "Go to next or previous remembered view.",
+  "evidence": [
+   "avRememberedViewsNextMenuItem",
+   "avRememberedViewsPreviousMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Navigation Pane",
+  "feature": "Show or hide navigation pane",
+  "behavior": "Toggle the left navigation pane and its buttons.",
+  "evidence": [
+   "avOpenNavigationPanelMenuItem",
+   "avCloseNavigationPanelMenuItem",
+   "avOpenNavigationTabsMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Thumbnails",
+  "feature": "Browse page thumbnails",
+  "behavior": "Page Thumbnails panel lets you go to pages via thumbnail images.",
+  "evidence": [
+   "avThumbsTabMenu",
+   "avThumbsTabTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Thumbnails",
+  "feature": "Enlarge or reduce thumbnails",
+  "behavior": "Change the size of page thumbnails in the panel.",
+  "evidence": [
+   "avLargeThumbsMenuItem",
+   "avSmallThumbsMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Open bookmarks panel",
+  "behavior": "Bookmarks panel lists points of interest; click to jump.",
+  "evidence": [
+   "avBookmarksTabMenu",
+   "avBookmarksTabTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Add bookmark",
+  "behavior": "Add a bookmark at the current view.",
+  "evidence": [
+   "avNewBookmarkMenuItem",
+   "av2NewBookmarkMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Create bookmarks from structure",
+  "behavior": "Generate bookmarks from tagged document structure.",
+  "evidence": [
+   "avNewBookmarksFromStructureMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Reset bookmark destination",
+  "behavior": "Set the selected bookmark destination to the current location, with confirmation.",
+  "evidence": [
+   "avConfirmResetBookmarkDest"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Paste bookmark under or after",
+  "behavior": "Paste a cut bookmark as child of or after the selected bookmark.",
+  "evidence": [
+   "avBookmarkPasteChildMenuItem",
+   "avBookmarkPasteNextMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Set default bookmark zoom",
+  "behavior": "Choose the zoom used by bookmarks: current page, fit page, etc.",
+  "evidence": [
+   "avBookmarkDefaultZoomlevel",
+   "avBookmarkDefaultZoomlevelFitPage"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Highlight current bookmark",
+  "behavior": "Reveal the bookmark matching the current page.",
+  "evidence": [
+   "avBookmarkShowLocationMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Change bookmark colour",
+  "behavior": "Set a bookmark's text colour.",
+  "evidence": [
+   "avBookmarkColor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Layers",
+  "feature": "View and toggle layers",
+  "behavior": "Layers panel shows optional content layers and toggles visibility.",
+  "evidence": [
+   "avOptContTabMenu",
+   "avOptContTabTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Layers",
+  "feature": "List layers for all or visible pages",
+  "behavior": "Choose whether the layer list covers all pages or visible pages.",
+  "evidence": [
+   "avOptContListAll",
+   "avOptContListCurrent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Layers",
+  "feature": "Apply layer overrides",
+  "behavior": "Apply layer visibility overrides.",
+  "evidence": [
+   "avOptContLayersOverride"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Attachments",
+  "feature": "View file attachments",
+  "behavior": "Attachments panel lists embedded files; add, delete, edit or search them.",
+  "evidence": [
+   "avAttachmentsTabMenu",
+   "av2AttachmentsTabTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Attachments",
+  "feature": "Search inside attachments",
+  "behavior": "Search the attached files.",
+  "evidence": [
+   "avSearchAttachmentMenuItem",
+   "avSearchAttachmentsPushButton"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Find text in document",
+  "behavior": "Find box searches the current PDF; Next and Previous step through hits.",
+  "evidence": [
+   "avFindMenuItem",
+   "avFindEditBoxText"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Go to next search result",
+  "behavior": "Step to the next hit.",
+  "evidence": [
+   "avFindAgainMenuItem",
+   "avFindToolNextLabel"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Go to previous search result",
+  "behavior": "Step to the previous hit.",
+  "evidence": [
+   "avFindPreviousMenuItem",
+   "av2UnifiedFindPreviousTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Find and replace text",
+  "behavior": "Replace with field next to Find.",
+  "evidence": [
+   "avReplaceEditBoxText"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Match whole words only",
+  "behavior": "Restrict search to whole words.",
+  "evidence": [
+   "avSearchMatchWholeWordsMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Search case-sensitively",
+  "behavior": "Case-sensitive search option.",
+  "evidence": [
+   "avSearchCaseSensitiveMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Include bookmarks in search",
+  "behavior": "Also search bookmark titles.",
+  "evidence": [
+   "avSearchBookmarksMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Include comments and attachments",
+  "behavior": "Also search inside comments and attachments.",
+  "evidence": [
+   "avSearchAttachments"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Open advanced search",
+  "behavior": "Advanced Search window searches across one or more PDF files and indexes.",
+  "evidence": [
+   "avFindSearchMenuItem",
+   "avFindSearchMenuItemHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Search multiple PDFs in folder",
+  "behavior": "Advanced search over a directory of PDFs, reporting documents and hits found.",
+  "evidence": [
+   "avFindDirectory1",
+   "avFindHitSummary"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Use stemming and proximity",
+  "behavior": "Advanced options: stemming and proximity range of words.",
+  "evidence": [
+   "avStemming",
+   "avProximity"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Search catalog indexes",
+  "behavior": "Select which indexes are searched; add or remove indexes.",
+  "evidence": [
+   "/Dialogs/SearchFind/AvailableIndexes",
+   "IDS_MULTIPLEINDEXES"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Arrange search and document windows",
+  "behavior": "Place the search window left or right of the document.",
+  "evidence": [
+   "avSearchArrangeWindows",
+   "avSearchArrangeWindowLeft"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Read Mode",
+  "feature": "Enter Read Mode",
+  "behavior": "Hide toolbars and panes to view only the document.",
+  "evidence": [
+   "avReadMode",
+   "avAXTopbarTooltip_HUD"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Full Screen",
+  "feature": "Enter full screen mode",
+  "behavior": "Show pages full screen with no UI; Esc exits.",
+  "evidence": [
+   "avFullScreenMenuItem",
+   "avAXTopbarTooltip_PageDisplay_FullScreenMode"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Full Screen",
+  "feature": "Open document in full screen",
+  "behavior": "Document setting to open in full screen mode.",
+  "evidence": [
+   "/Dialogs/OpenInfo/WindowOptions/OpenFullScr"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Reflow",
+  "feature": "Reflow page text",
+  "behavior": "Reflow text to fit the window width for small screens.",
+  "evidence": [
+   "avReflowMenuItem",
+   "avZoomMenuReflow"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Theme",
+  "feature": "Choose display theme",
+  "behavior": "Light grey, dark grey or system theme for the app UI.",
+  "evidence": [
+   "avDisplayThemeMenuItem",
+   "avLightThemeMenuItem",
+   "avDarkThemeMenuItem",
+   "avMatchOSThemeMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Accessibility View",
+  "feature": "Replace document colours",
+  "behavior": "Accessibility preference to render document with custom text and page background colours.",
+  "evidence": [
+   "/Prefs/Access/DocColors/Set",
+   "avAccPrefsColorsAreSame"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Accessibility View",
+  "feature": "Change text size for reading",
+  "behavior": "Text Size submenu in reading views.",
+  "evidence": [
+   "avViewMenu__TextSize",
+   "/Prefs/Access/TextSize"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Rulers",
+  "feature": "Show rulers",
+  "behavior": "Toggle rulers along the page.",
+  "evidence": [
+   "avShowRulers",
+   "avRulersAndGridsSubMenu"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Rulers",
+  "feature": "Show grid",
+  "behavior": "Toggle a grid over pages; snap to grid.",
+  "evidence": [
+   "avShowGrid",
+   "avSnapToGrid"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Rulers",
+  "feature": "Show and clear guides",
+  "behavior": "Show guides; clear guides on page or all.",
+  "evidence": [
+   "avRulerShowGuides",
+   "avRulerClearPageGuides",
+   "avRulerClearDocGuides"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Split View",
+  "feature": "Split document window",
+  "behavior": "Split the window horizontally, vertically or spreadsheet style.",
+  "evidence": [
+   "avReadingSplit",
+   "avHorizontalSplit",
+   "avSpreadsheetSplit"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Split View",
+  "feature": "Remove split",
+  "behavior": "Return to one pane.",
+  "evidence": [
+   "avRemoveSplit"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Windows",
+  "feature": "Open new window",
+  "behavior": "Open the document in a new window.",
+  "evidence": [
+   "avNewWindowMenuItem",
+   "avWindowMenu"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Close tab",
+  "behavior": "Close the current document tab.",
+  "evidence": [
+   "avCloseTabMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Reopen closed tab",
+  "behavior": "Reopen the last closed tab.",
+  "evidence": [
+   "avReopenTabMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Reveal file in Finder",
+  "behavior": "Tab context menu shows the file in Finder/Explorer.",
+  "evidence": [
+   "avRevealInFinderTabMenu"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Take a snapshot of area",
+  "behavior": "Marquee-select a screen area with the Snapshot tool to copy it as image.",
+  "evidence": [
+   "avTakeSnapshotMenuItem",
+   "avSelectGraphicsToolHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Copy selection",
+  "behavior": "Copy selected text or objects.",
+  "evidence": [
+   "avCopyMenuItemHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Undo last action",
+  "behavior": "Undo/redo.",
+  "evidence": [
+   "avUndoMenuItem",
+   "avUndoMenuItemHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Toolbar",
+  "feature": "Show or hide toolbars",
+  "behavior": "Show/Hide submenu toggles toolbars, menu bar and button labels.",
+  "evidence": [
+   "avShowHideToolBars",
+   "avShowHideMenuBarMenuItem",
+   "avShowHideButtonLabelsMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Properties",
+  "feature": "View document properties",
+  "behavior": "Document Properties dialog: description, security, fonts, initial view.",
+  "evidence": [
+   "avDocumentPropertiesMenuItem",
+   "avDocPropertiesCmdTitle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Measure distance",
+  "behavior": "Measuring tool measures a distance between points.",
+  "evidence": [
+   "avDistanceMeasurement",
+   "avMeasureToolHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Measure perimeter",
+  "behavior": "Measure a multi-segment perimeter.",
+  "evidence": [
+   "avCompoundDistanceMeasurement"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Measure area",
+  "behavior": "Area tool measures a polygon area.",
+  "evidence": [
+   "avAreaMeasurement",
+   "avMeasurePolygonToolTip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Change scale ratio and precision",
+  "behavior": "Set the drawing scale and precision for measurements.",
+  "evidence": [
+   "avMeasureScaleMenuItem",
+   "avMeasureScaleTitle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Change measurement label",
+  "behavior": "Edit the markup label of a measurement.",
+  "evidence": [
+   "avMeasureLabelMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Measure geospatial area",
+  "behavior": "Geospatial Area Tool on geo-enabled PDFs.",
+  "evidence": [
+   "avMeasurePolygonGeoToolButtonLabel",
+   "GeoLocation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Read Aloud",
+  "feature": "Activate read out loud",
+  "behavior": "Turn on text-to-speech for the document.",
+  "evidence": [
+   "IDS_ROL_TURNON",
+   "avActivateROL"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Read Aloud",
+  "feature": "Read this page only",
+  "behavior": "Read the current page aloud.",
+  "evidence": [
+   "IDS_ROL_READPAGE"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Read Aloud",
+  "feature": "Deactivate read out loud",
+  "behavior": "Turn speech off.",
+  "evidence": [
+   "IDS_ROL_TURNOFF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Read Aloud",
+  "feature": "Play or pause read aloud",
+  "behavior": "Read aloud bar play/pause control.",
+  "evidence": [
+   "AV2ReadAloudPlayPause",
+   "av2ReadAloud"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Read Aloud",
+  "feature": "Read next or previous page",
+  "behavior": "Read aloud bar skips pages.",
+  "evidence": [
+   "av2ReadAloudReadNextPage",
+   "av2ReadAloudReadPreviousPage"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Read Aloud",
+  "feature": "Change reading speed",
+  "behavior": "Speed control in the read aloud bar.",
+  "evidence": [
+   "av2ReadAloudSpeed",
+   "AV2ReadAloudSpeed"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "reader",
+  "area": "Read Aloud",
+  "feature": "Choose voice options",
+  "behavior": "Pick the voice used.",
+  "evidence": [
+   "av2ReadAloudVoiceOptions"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Sticky Note",
+  "feature": "Add sticky note",
+  "behavior": "Click the page with the Sticky Note tool to add a note (S).",
+  "evidence": [
+   "IDS_NOTE_TOOL",
+   "avStickyNote"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Highlight",
+  "feature": "Highlight text",
+  "behavior": "Select text with the Highlight Text tool (U).",
+  "evidence": [
+   "IDS_HIGHLIGHT_TOOL",
+   "HighlightPdfnext"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Highlight",
+  "feature": "Highlight selected text from menu",
+  "behavior": "Context menu on a text selection: Highlight Selected Text.",
+  "evidence": [
+   "IDS_HIGHLIGHTSEL_SHOW_LABEL_TEXT"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Underline",
+  "feature": "Underline text",
+  "behavior": "Select text with the Underline Text tool.",
+  "evidence": [
+   "IDS_UNDERLINE_TOOL",
+   "UnderlinePdfnext"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Underline",
+  "feature": "Underline selected text from menu",
+  "behavior": "Context menu: Underline Selected Text.",
+  "evidence": [
+   "IDS_UNDERLINESEL_SHOW_LABEL_TEXT"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Strikethrough",
+  "feature": "Strike through text",
+  "behavior": "Strikethrough text markup.",
+  "evidence": [
+   "StrikeOutPdfnext",
+   "commentTypeStrikethroughText"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Text Edits",
+  "feature": "Insert text at cursor",
+  "behavior": "Caret comment proposes inserted text; Enter at cursor.",
+  "evidence": [
+   "IDS_CARET_SHOW_LABEL_TEXT",
+   "avInsertTextAtCursor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Text Edits",
+  "feature": "Propose text replacement",
+  "behavior": "Strike selection and attach replacement note.",
+  "evidence": [
+   "avReplaceSelectedText",
+   "IDS_TITLE_SEL_OP_REPLACE"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Text Box",
+  "feature": "Add text box",
+  "behavior": "Click with the Text Box tool and type (X).",
+  "evidence": [
+   "IDS_FREETEXT_TOOL",
+   "IDS_FREETEXT_UINAME"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Text Box",
+  "feature": "Add typewriter text",
+  "behavior": "Typewriter free text annotation.",
+  "evidence": [
+   "FreeTextTypewriter"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Callout",
+  "feature": "Add text callout",
+  "behavior": "Text box with leader line pointing to content.",
+  "evidence": [
+   "av2TextCallout",
+   "av2TextCalloutToolTip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Ink",
+  "feature": "Draw freehand with pencil",
+  "behavior": "Drag with the Pencil tool to draw freeform (D).",
+  "evidence": [
+   "IDS_INK_TOOL",
+   "IDS_PENCIL_SHOW_LABEL_TEXT"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Ink",
+  "feature": "Erase pencil marks",
+  "behavior": "Drag over pencil marks with the Pencil Eraser.",
+  "evidence": [
+   "IDS_ERASE_INK_TOOL",
+   "avAnnotsToolBarPencilEraser"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw rectangle",
+  "behavior": "Rectangle; hold Shift for a square.",
+  "evidence": [
+   "IDS_SQUARE_TOOL",
+   "avAnnotsToolBarRectangle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw oval",
+  "behavior": "Oval; hold Shift for a circle.",
+  "evidence": [
+   "IDS_CIRCLE_TOOL",
+   "avAnnotsToolBarOval"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw line",
+  "behavior": "Line; Shift constrains straight.",
+  "evidence": [
+   "IDS_LINE_TOOL"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw arrow",
+  "behavior": "Arrow line; Shift constrains straight.",
+  "evidence": [
+   "IDS_LINE_ARROW_TOOL",
+   "avAnnotsToolBarArrow"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw polygon",
+  "behavior": "Click points; click start point to close.",
+  "evidence": [
+   "IDS_POLYGON_TOOL",
+   "avAnnotsToolBarPolygon"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw connected lines",
+  "behavior": "Polyline; double-click last point to finish.",
+  "evidence": [
+   "IDS_POLYLINE_TOOL",
+   "avAnnotsToolBarPolygonLine"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw cloud",
+  "behavior": "Click around content to draw a cloud shape.",
+  "evidence": [
+   "IDS_CLOUDY_POLYGON_TOOL",
+   "IDS_CLOUD_UINAME"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Expand drawing tools",
+  "behavior": "Toggle the drawing markup tool group.",
+  "evidence": [
+   "CommentAppMenuExpandDrawingTools",
+   "avAdvCommentingToolbar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Stamps",
+  "feature": "Add stamp",
+  "behavior": "Pick a stamp from the palette and click to place.",
+  "evidence": [
+   "AddStamp",
+   "IDS_STAMP_UINAME"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Stamps",
+  "feature": "Show stamps palette",
+  "behavior": "Open the stamps palette.",
+  "evidence": [
+   "ShowStampsPalette",
+   "IDS_PANEL_SHOW_STAMP"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Stamps",
+  "feature": "Create custom stamp",
+  "behavior": "Select an image to make a custom stamp.",
+  "evidence": [
+   "IDS_STAMPCREATE_SELECT",
+   "IDS_STAMP_CUSTOM_STAMPS"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Stamps",
+  "feature": "Remove stamp from favourites",
+  "behavior": "Remove current stamp from favourites.",
+  "evidence": [
+   "IDS_REMOVE_FAVE_STAMP"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Attachment",
+  "feature": "Attach file as comment",
+  "behavior": "Place a file attachment annotation.",
+  "evidence": [
+   "avAnnotsToolBarAttachFileAsComment",
+   "FileAttachment"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Attachment",
+  "feature": "Record audio comment",
+  "behavior": "Click the page and record or choose a sound.",
+  "evidence": [
+   "IDS_SOUND_TOOL",
+   "avAnnotsToolBarRecordAudioComment"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Properties",
+  "feature": "Change annotation colour",
+  "behavior": "Colour picker in the comment toolbar.",
+  "evidence": [
+   "ColorPickerCmd"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Properties",
+  "feature": "Change line thickness",
+  "behavior": "Line thickness control.",
+  "evidence": [
+   "LineThicknessCmd"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Properties",
+  "feature": "Change text properties",
+  "behavior": "Font and text properties for text comments.",
+  "evidence": [
+   "TextPropertyMenuCmd",
+   "IDS_TEXT_BOX_PROPERTY_TITLE"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Properties",
+  "feature": "Edit comment properties",
+  "behavior": "Comment Properties dialog: appearance, author, subject.",
+  "evidence": [
+   "avAnnotPropTitle",
+   "IDS_PROPS_TITLE_HIGHLIGHT"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Properties",
+  "feature": "Set tool default properties",
+  "behavior": "Tool Properties dialogs set defaults per tool.",
+  "evidence": [
+   "IDS_PROPS_TITLE_NOTE_TOOL",
+   "IDS_PROPS_TITLE_INK_TOOL"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Tools",
+  "feature": "Keep tool selected",
+  "behavior": "Keep the current comment tool active after use.",
+  "evidence": [
+   "CommentAppKeepToolSticky"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Show comments list",
+  "behavior": "Right panel lists all comments.",
+  "evidence": [
+   "IDS_COMMENTS_MENU_SHOW_COMMENT_PANEL",
+   "CommentList"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Reply to comment",
+  "behavior": "Reply to the selected comment.",
+  "evidence": [
+   "IDS_PANEL_REPLY_HELPTEXT",
+   "IDS_MENU_REPLY"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Delete reply",
+  "behavior": "Delete a reply.",
+  "evidence": [
+   "IDS_MENU_DELETE_REPLY"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Set comment status",
+  "behavior": "Set Status (accepted, rejected...) on a comment.",
+  "evidence": [
+   "IDS_PANEL_STATUS_BUTTON"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Mark comment with checkmark",
+  "behavior": "Personal checkmark on a comment.",
+  "evidence": [
+   "IDS_MENU_MARK_WITH_CHECKMARK",
+   "avCommentAddCheckMark"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Sort comments",
+  "behavior": "Sort by page, author, date, type, status, checkmark.",
+  "evidence": [
+   "SortCommentsMenu",
+   "IDS_PANEL_SORT_MARKED"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Filter comments",
+  "behavior": "Filter by type, status, reviewer.",
+  "evidence": [
+   "FilterCommentsMenu",
+   "IDS_PANEL_SHOW_STATUS"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Hide all comments",
+  "behavior": "Hide all comments on the page.",
+  "evidence": [
+   "IDS_PANEL_SHOW_HIDE_ALL_COMMENTS",
+   "avCommentFilterHideAll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Navigate comments",
+  "behavior": "Next/previous comment buttons.",
+  "evidence": [
+   "CommentAppNextTouchMac",
+   "CommentAppPreviousTouchMac"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Delete comment",
+  "behavior": "Delete selected comment.",
+  "evidence": [
+   "CommentAppDeleteTouchMac"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Summarize comments",
+  "behavior": "Create a comment summary document.",
+  "evidence": [
+   "IDS_PANEL_SUMMARIZE",
+   "avAnnotsSummarizeCommentsWorkflowToolTip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Import comments",
+  "behavior": "Import comments from a data file.",
+  "evidence": [
+   "IDS_PANEL_IMPORT",
+   "avAnnotsImportComments"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Export comments to data file",
+  "behavior": "Export comments to FDF data file.",
+  "evidence": [
+   "avAnnotsExportCommentsToDataFile"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Export comments to Word",
+  "behavior": "Export comments into the source Word document.",
+  "evidence": [
+   "avAnnotsExportCommentsToWord"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Comments List",
+  "feature": "Export comments to AutoCAD",
+  "behavior": "Export comments to AutoCAD.",
+  "evidence": [
+   "avAnnotsExportCommentsToAutoCad"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Review",
+  "feature": "Send for comments",
+  "behavior": "Invite people to comment on a shared file and track.",
+  "evidence": [
+   "av2ToolCenterReview",
+   "ReviewPDFRdrApp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "annotate",
+  "area": "Preferences",
+  "feature": "Enable text selection for markup",
+  "behavior": "Pref: text selection for highlight, strikethrough, underline.",
+  "evidence": [
+   "/Prefs/Annotations/EnableTextSelection"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Fill & Sign",
+  "feature": "Open Fill & Sign",
+  "behavior": "Fill form fields, add text, draw or type signature.",
+  "evidence": [
+   "av2AppHomeRhpActionFillSign",
+   "FillSignApp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Fill & Sign",
+  "feature": "Choose who signs",
+  "behavior": "Intent dialog: You or Others.",
+  "evidence": [
+   "Who needs to fill and sign?",
+   "FSSIntentDialog"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Fill & Sign",
+  "feature": "Add text to form",
+  "behavior": "Click anywhere and type text.",
+  "evidence": [
+   "FSS:Tool:Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Fill & Sign",
+  "feature": "Add checkmark",
+  "behavior": "Place a check mark.",
+  "evidence": [
+   "avFillSignToolCheckmark",
+   "avFillSignToolCheckmarkTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Fill & Sign",
+  "feature": "Add cross mark",
+  "behavior": "Place a cross.",
+  "evidence": [
+   "FSS:Tool:Crosscheck"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Fill & Sign",
+  "feature": "Add dot",
+  "behavior": "Place a dot.",
+  "evidence": [
+   "FSS:Tool:Dot"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Fill & Sign",
+  "feature": "Add circle",
+  "behavior": "Place a circle.",
+  "evidence": [
+   "FSS:Tool:Circle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Fill & Sign",
+  "feature": "Add line",
+  "behavior": "Place a line.",
+  "evidence": [
+   "FSS:Tool:Line"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Fill & Sign",
+  "feature": "Change fill & sign colour",
+  "behavior": "Colour picker for Fill & Sign content.",
+  "evidence": [
+   "avColorPickerFillandSign",
+   "FSS:ColorPicker"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Add signature",
+  "behavior": "Draw, type or image signature; saved for reuse.",
+  "evidence": [
+   "avFillSignToolAddSignature",
+   "FSS:Tool:SigNative"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Add initials",
+  "behavior": "Create initials; saved for reuse.",
+  "evidence": [
+   "avFillSignToolAddInitials",
+   "avFSSInitialsMSGuide"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Delete saved initials",
+  "behavior": "Remove stored initials.",
+  "evidence": [
+   "avFillSignToolDeleteInitialToolTip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Detect signature fields",
+  "behavior": "Banner when signature fields detected; opens Sign pane.",
+  "evidence": [
+   "avDetectSignFields_StartSigning",
+   "avFillSignDetectActionText"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "E-sign",
+  "feature": "Request e-signatures",
+  "behavior": "Send to others for signing.",
+  "evidence": [
+   "avFillSignToolInviteOthers",
+   "avRequestSignTopMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "E-sign",
+  "feature": "Sign in app",
+  "behavior": "In-app signing view.",
+  "evidence": [
+   "InAppSigningView"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Digital ID",
+  "feature": "Digitally sign with certificate",
+  "behavior": "Sign with a digital ID.",
+  "evidence": [
+   "avTaskPanelSignWithCertificate",
+   "FSS:DigSig"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Digital ID",
+  "feature": "Validate all signatures",
+  "behavior": "Validate all digital signatures.",
+  "evidence": [
+   "avDSValidateSignaturesMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "sign",
+  "area": "Digital ID",
+  "feature": "Open certificates panel",
+  "behavior": "Work with Certificates.",
+  "evidence": [
+   "avGoToTaskPanelWorkWithCertificates"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Save",
+  "feature": "Save as",
+  "behavior": "Save to a new file.",
+  "evidence": [
+   "avSaveAsPDFTaskPanelItem",
+   "avSaveAsMenuItemHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Save",
+  "feature": "Save a copy",
+  "behavior": "Save a copy for restricted docs.",
+  "evidence": [
+   "avSaveACopyBannerAction"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print document",
+  "behavior": "Print with page range.",
+  "evidence": [
+   "avPrintMenuItem",
+   "avPrintMenuItemHelp",
+   "avPrintInvalidRange"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print selection",
+  "behavior": "Print selected area.",
+  "evidence": [
+   "avPrintSelectionMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print as booklet",
+  "behavior": "Booklet page handling with binding and sheets.",
+  "evidence": [
+   "/Dialogs/MainPrintDialog/Strings/ScaleBooklet",
+   "/Dialogs/MainPrintDialog/BookletBinding"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print with comments summary",
+  "behavior": "Print pages with comment summary.",
+  "evidence": [
+   "avAnnotsPrintWithCommentsSummary"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Preview flattener",
+  "behavior": "Inspect transparency flattening.",
+  "evidence": [
+   "avPrintPanelTransparencyAmp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Share",
+  "feature": "Share file",
+  "behavior": "Send a link or attach to email.",
+  "evidence": [
+   "av2ShareFileMenu",
+   "av2ShareTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Share",
+  "feature": "Share with specific people",
+  "behavior": "Share to view or comment.",
+  "evidence": [
+   "av2ShareWithSpecificPeopleTooltip",
+   "UnifiedShareModal"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Share",
+  "feature": "Share multiple files",
+  "behavior": "Share pane lists multiple or non-PDF files.",
+  "evidence": [
+   "avUSMultipleFilesMessageMultiple"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "output",
+  "area": "Share",
+  "feature": "Email file",
+  "behavior": "Send as email attachment.",
+  "evidence": [
+   "AvBUTTONLABEL_SENDMAIL"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "files",
+  "area": "Open",
+  "feature": "Open file",
+  "behavior": "Open a PDF.",
+  "evidence": [
+   "avOpenMenuItem",
+   "avOpenMenuItemHelp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "files",
+  "area": "Close",
+  "feature": "Close document",
+  "behavior": "Close current or all.",
+  "evidence": [
+   "avCloseMenuItem",
+   "avCloseAllMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "files",
+  "area": "Home",
+  "feature": "View recent files",
+  "behavior": "Recent list with name, last opened, size.",
+  "evidence": [
+   "avHomeRecent",
+   "avHomeRecentOpened",
+   "avHomeRecentSize"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "files",
+  "area": "Home",
+  "feature": "Select files in list",
+  "behavior": "Select one or all files.",
+  "evidence": [
+   "avHomeRecentSelectAllCheckBoxIconTooltip",
+   "avHomeRecentSelectSingleFileCheckBoxIconTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "files",
+  "area": "Home",
+  "feature": "Star a file",
+  "behavior": "Star to add to Starred.",
+  "evidence": [
+   "avFileAddToStarredTooltip",
+   "avHomeStarred"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "files",
+  "area": "Home",
+  "feature": "Search home files",
+  "behavior": "Search on home.",
+  "evidence": [
+   "AV2HomeSearchButton",
+   "HomeTopbarSearch"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "files",
+  "area": "Home",
+  "feature": "View shared files",
+  "behavior": "Shared files list.",
+  "evidence": [
+   "avActivitySharedFiles"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "files",
+  "area": "Cloud",
+  "feature": "Connect cloud storage",
+  "behavior": "Dropbox, OneDrive, Google Drive.",
+  "evidence": [
+   "avODSPConnectorDropboxKey",
+   "avODSPConnectorGDriveKey",
+   "avODSPConnectorOneDrivePersonalDriveKey"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "files",
+  "area": "Tools",
+  "feature": "View recently used tools",
+  "behavior": "Recently Used Tools panel.",
+  "evidence": [
+   "avRecentToolsPanelName"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Preferences",
+  "feature": "Open preferences",
+  "behavior": "Preferences dialog.",
+  "evidence": [
+   "avPreferencesPVMenuItem"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Page Display",
+  "feature": "Set default layout and zoom",
+  "behavior": "Default page layout and zoom.",
+  "evidence": [
+   "/Prefs/Display/DefaultPageLayout",
+   "/Prefs/Display/DefaultZoomType"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Page Display",
+  "feature": "Set text smoothing",
+  "behavior": "None, monitor, LCD.",
+  "evidence": [
+   "/Prefs/Display/TextSmoothingLabel",
+   "/Prefs/Display/SmoothForLCD"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Page Display",
+  "feature": "Smooth line art and images",
+  "behavior": "Toggle smoothing.",
+  "evidence": [
+   "/Prefs/Display/SmoothGraphics",
+   "/Prefs/Display/SmoothImages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Page Display",
+  "feature": "Show transparency grid",
+  "behavior": "Display transparency grid, art/trim/bleed boxes.",
+  "evidence": [
+   "/Prefs/Display/TransparencyGrid",
+   "/Prefs/Display/DisplayAreaBoxes"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Page Display",
+  "feature": "Use GPU acceleration",
+  "behavior": "2D graphics acceleration and page cache.",
+  "evidence": [
+   "/Prefs/Display/UseGPU",
+   "/Prefs/Display/UsePageCache"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Full Screen",
+  "feature": "Configure full screen",
+  "behavior": "Full Screen Setup.",
+  "evidence": [
+   "/Prefs/FullScreen/Setup",
+   "avPrefsPanelFullScreen"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Accessibility",
+  "feature": "Override page display",
+  "behavior": "Accessibility override of page display.",
+  "evidence": [
+   "/Prefs/Access/PageDisplay",
+   "avPrefsPanelAccess"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Language",
+  "feature": "Choose app language",
+  "behavior": "Same as OS or at startup.",
+  "evidence": [
+   "avPrefsAppLanguageFollowOS",
+   "avPrefsChooseAppLanguage"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Units",
+  "feature": "Set units and guides",
+  "behavior": "Units & Guides with guide colour.",
+  "evidence": [
+   "avPrefsPanelGrid",
+   "/Prefs/Grid/GuidesColor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Measuring",
+  "feature": "Set measuring preferences",
+  "behavior": "Measuring 2D and Geo panels.",
+  "evidence": [
+   "avPrefsPanelMeasuring",
+   "avPrefsPanelMeasuringGeo"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Identity",
+  "feature": "Set identity",
+  "behavior": "Identity panel for author name.",
+  "evidence": [
+   "avPrefsPanelIdentity"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Documents",
+  "feature": "Set document preferences",
+  "behavior": "Documents panel.",
+  "evidence": [
+   "avPrefsPanelDocuments"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "General",
+  "feature": "Set general preferences",
+  "behavior": "General panel.",
+  "evidence": [
+   "avPrefsPanelOptions"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Generative AI",
+  "feature": "Toggle generative AI",
+  "behavior": "Generative AI panel.",
+  "evidence": [
+   "avPrefsPanelGenAI"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Reading",
+  "feature": "Set reading preferences",
+  "behavior": "Read Out Loud panel.",
+  "evidence": [
+   "IDS_READING_PREFS_TITLE"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Browser",
+  "feature": "Display in Read Mode by default",
+  "behavior": "Browser integration default.",
+  "evidence": [
+   "/Prefs/Options/BrowserIntegration/ReadMode"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Color",
+  "feature": "Set color management",
+  "behavior": "Color Management panel.",
+  "evidence": [
+   "avPrefsPanelColor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "preferences",
+  "area": "Security",
+  "feature": "Enhanced security",
+  "behavior": "Security (Enhanced) panel.",
+  "evidence": [
+   "avPrefsPanelTrustManagerFFS"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "Assistant",
+  "feature": "Open AI Assistant",
+  "behavior": "Chat with the document.",
+  "evidence": [
+   "av2GenAIAssistantRCMMenuItemLabel",
+   "GenAIAssistantApp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "Assistant",
+  "feature": "Ask AI about selected text",
+  "behavior": "Explain, summarize or rephrase selection.",
+  "evidence": [
+   "av2AcrobatInplaceToolsTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "Summary",
+  "feature": "Generate document summary",
+  "behavior": "Generative summary of sections or document.",
+  "evidence": [
+   "av2SmartOutlineTitle",
+   "av2DocSumIconTooltip",
+   "GenAISummaryApp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "Summary",
+  "feature": "Summarize a section",
+  "behavior": "Sectional summaries.",
+  "evidence": [
+   "av2SectionalSummariesQuestion"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "Translate",
+  "feature": "Translate PDF",
+  "behavior": "Translate the document.",
+  "evidence": [
+   "av2IntentBarToolTranslate"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "Podcast",
+  "feature": "Generate podcast",
+  "behavior": "Audio overview of docs.",
+  "evidence": [
+   "av2GeneratePodcastWhatsNewCardShortTitle",
+   "AIPodcast"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "Presentation",
+  "feature": "Generate presentation",
+  "behavior": "Remix docs into slides.",
+  "evidence": [
+   "av2GeneratePresentationWhatsNewCardShortTitle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "PDF Spaces",
+  "feature": "Create PDF Space",
+  "behavior": "Knowledge hub with AI assistant.",
+  "evidence": [
+   "av2PDFSpaceWhatsNewCardShortTitle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "PDF Spaces",
+  "feature": "Share PDF Space",
+  "behavior": "Collaborate in shared spaces.",
+  "evidence": [
+   "av2PDFSpacesCollabWhatsNewCardShortTitle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "Projects",
+  "feature": "Add to AI projects",
+  "behavior": "Context menu adds file to AI projects.",
+  "evidence": [
+   "av2GenAIAddProjectsRCMMenuItemLabel"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "ai",
+  "area": "Suggestions",
+  "feature": "Show AI suggested actions banner",
+  "behavior": "Viewer banner with suggestions.",
+  "evidence": [
+   "av2SummaryDMBExperimentPrefCheckbox"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "platform",
+  "area": "Updates",
+  "feature": "Check for updates",
+  "behavior": "Manual check and frequency.",
+  "evidence": [
+   "avUpdatesMenuItem",
+   "/Prefs/Update/Frequency"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "platform",
+  "area": "Accessibility",
+  "feature": "Run accessibility full check",
+  "behavior": "Full accessibility check.",
+  "evidence": [
+   "avFullCheckWorkflowTitle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "platform",
+  "area": "Accessibility",
+  "feature": "Set reading language",
+  "behavior": "Set reading language.",
+  "evidence": [
+   "avSetReadingLanguageWorkflowTitle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "platform",
+  "area": "Scripting",
+  "feature": "Open JavaScript panel",
+  "behavior": "JavaScript tools.",
+  "evidence": [
+   "avGoToTaskPanelJavaScript"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "platform",
+  "area": "Scripting",
+  "feature": "Execute JavaScript",
+  "behavior": "Run JS step.",
+  "evidence": [
+   "avExecuteJavaScriptWorkflowToolTip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "acrobat",
+  "domain": "platform",
+  "area": "Plugins",
+  "feature": "Manage plugins",
+  "behavior": "Plugins panel.",
+  "evidence": [
+   "avPrefsPanelPlugins"
+  ],
+  "source": "code"
+ }
+]

@@ -1,0 +1,2760 @@
+[
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Viewer",
+  "feature": "Open PDF in reader view",
+  "behavior": "The Read tool opens the active PDF in the embedded viewer (EmbedPDF).",
+  "evidence": [
+   "home.read.title",
+   "EmbedPdfViewer"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom in",
+  "behavior": "Toolbar button increases zoom.",
+  "evidence": [
+   "viewer.zoomIn",
+   "ZoomAPIBridge"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom out",
+  "behavior": "Toolbar button decreases zoom.",
+  "evidence": [
+   "viewer.zoomOut"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Set default reader zoom",
+  "behavior": "Preference sets the zoom used when opening PDFs.",
+  "evidence": [
+   "defaultViewerZoom",
+   "Default reader zoom"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to first page",
+  "behavior": "Page navigation button jumps to first page.",
+  "evidence": [
+   "viewer.firstPage"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to last page",
+  "behavior": "Jumps to last page.",
+  "evidence": [
+   "viewer.lastPage"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to next page",
+  "behavior": "Advances one page.",
+  "evidence": [
+   "viewer.nextPage"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to previous page",
+  "behavior": "Goes back one page.",
+  "evidence": [
+   "viewer.previousPage"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Page modes",
+  "feature": "Show single page view",
+  "behavior": "View menu switches to single-page layout.",
+  "evidence": [
+   "viewer.singlePageView",
+   "SpreadAPIBridge"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Page modes",
+  "feature": "Show dual page view",
+  "behavior": "View menu shows two pages side by side.",
+  "evidence": [
+   "viewer.dualPageView"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Page modes",
+  "feature": "Show cover page separately",
+  "behavior": "Dual view with first page alone.",
+  "evidence": [
+   "viewer.coverPageView"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Themes",
+  "feature": "Enable dark colour filter",
+  "behavior": "Viewer renders pages with a dark filter.",
+  "evidence": [
+   "viewer.enableDarkFilter"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Themes",
+  "feature": "Enable sepia colour filter",
+  "behavior": "Viewer renders pages in sepia.",
+  "evidence": [
+   "viewer.enableSepiaFilter"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Themes",
+  "feature": "Disable colour filter",
+  "behavior": "Restores normal page colours.",
+  "evidence": [
+   "viewer.disableColorFilter"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Thumbnails",
+  "feature": "Show page thumbnails sidebar",
+  "behavior": "Reader rail 'Pages' opens thumbnail sidebar; click to jump.",
+  "evidence": [
+   "reader.rail.thumbnails",
+   "ThumbnailSidebar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Find text in document",
+  "behavior": "Reader rail search opens a search bar; type term, results count shown 'of N'.",
+  "evidence": [
+   "reader.rail.search",
+   "Search PDF",
+   "SearchInterface"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Go to next search result",
+  "behavior": "Steps to next hit.",
+  "evidence": [
+   "viewer.search.next"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Go to previous search result",
+  "behavior": "Steps to previous hit.",
+  "evidence": [
+   "viewer.search.previous"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Clear search",
+  "behavior": "Clears term and highlights.",
+  "evidence": [
+   "viewer.search.clear"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Show bookmarks sidebar",
+  "behavior": "Lists document outline; click to navigate.",
+  "evidence": [
+   "viewer.bookmarks.title",
+   "BookmarkSidebar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Add bookmark from viewer",
+  "behavior": "Adds a bookmark with title and page.",
+  "evidence": [
+   "viewer.bookmarks.addBookmark"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Expand all bookmarks",
+  "behavior": "Expands outline tree.",
+  "evidence": [
+   "viewer.bookmarks.expandAll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Collapse all bookmarks",
+  "behavior": "Collapses outline tree.",
+  "evidence": [
+   "viewer.bookmarks.collapseAll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Layers",
+  "feature": "Show layers sidebar",
+  "behavior": "Lists optional content layers (OCG).",
+  "evidence": [
+   "viewer.layers.title",
+   "LayerSidebar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Layers",
+  "feature": "Toggle all layers visibility",
+  "behavior": "Show all / hide all layers.",
+  "evidence": [
+   "viewer.layers.showAll",
+   "viewer.layers.hideAll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Attachments",
+  "feature": "Show attachments sidebar",
+  "behavior": "Lists embedded files with search.",
+  "evidence": [
+   "viewer.attachments.title",
+   "AttachmentSidebar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Attachments",
+  "feature": "Download embedded attachment",
+  "behavior": "Downloads one attachment.",
+  "evidence": [
+   "viewer.attachments.download"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Attachments",
+  "feature": "Add attachment from viewer",
+  "behavior": "Embeds a new file into the PDF.",
+  "evidence": [
+   "viewer.attachments.addAttachment"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Rotate",
+  "feature": "Rotate view left",
+  "behavior": "Reader rail rotates page view counter-clockwise.",
+  "evidence": [
+   "reader.rail.rotateLeft",
+   "RotateAPIBridge"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Rotate",
+  "feature": "Rotate view right",
+  "behavior": "Rotates clockwise.",
+  "evidence": [
+   "reader.rail.rotateRight"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Read aloud",
+  "feature": "Read document aloud",
+  "behavior": "Reader rail text-to-speech with word highlighting.",
+  "evidence": [
+   "reader.rail.readAloud",
+   "useViewerReadAloud"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Read aloud",
+  "feature": "Read aloud from selection",
+  "behavior": "Context menu starts reading from selected text.",
+  "evidence": [
+   "viewer.readAloudFromHere"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Text selection",
+  "feature": "Copy selected text",
+  "behavior": "Selection menu copies text to clipboard.",
+  "evidence": [
+   "viewer.copyText",
+   "TextSelectionMenu"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Switch between open documents",
+  "behavior": "Reader rail switches active document.",
+  "evidence": [
+   "reader.rail.switchDocument"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Tabs",
+  "feature": "Close document",
+  "behavior": "Closes current document.",
+  "evidence": [
+   "reader.rail.close"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Measure distances with ruler",
+  "behavior": "Ruler overlay measures between points; labels physical or scaled.",
+  "evidence": [
+   "RulerOverlay",
+   "ruler.physicalValues",
+   "ruler.scaled"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Calibrate measurement scale",
+  "behavior": "Draw a known distance, enter real-world distance and unit.",
+  "evidence": [
+   "scaleSettings.calibrationTitle",
+   "Real-world distance"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Choose preset or custom scale",
+  "behavior": "Preset scales or custom ratio and unit.",
+  "evidence": [
+   "scaleSettings.presets",
+   "scaleSettings.customScale"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Measure",
+  "feature": "Clear all measurements",
+  "behavior": "Removes ruler marks.",
+  "evidence": [
+   "ruler.clearAll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Password",
+  "feature": "Unlock protected PDF to view",
+  "behavior": "Enter password to open; shows permissions status.",
+  "evidence": [
+   "encryptedPdfUnlock.viewerUnlock",
+   "PdfPreviewUnlockGate"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Password",
+  "feature": "View document protection status",
+  "behavior": "Shows printing/editing/copying allowed or restricted.",
+  "evidence": [
+   "encryptedPdfUnlock.protectedPdf",
+   "PdfProtectionStatus"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Links",
+  "feature": "Follow links in page",
+  "behavior": "Link layer makes PDF links clickable.",
+  "evidence": [
+   "LinkLayer"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Non-PDF",
+  "feature": "Preview non-PDF file",
+  "behavior": "Non-PDF viewer shows file and offers Convert to PDF.",
+  "evidence": [
+   "NonPdfViewer",
+   "viewer.nonPdf.convertToPdf"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Portfolio",
+  "feature": "Browse PDF portfolio",
+  "behavior": "Portfolio view lists contained files, preview, import.",
+  "evidence": [
+   "viewer.portfolio.title",
+   "viewer.portfolio.import"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "reader",
+  "area": "Fullscreen",
+  "feature": "Open tool picker fullscreen",
+  "behavior": "Tool picker can open fullscreen or as sidebar.",
+  "evidence": [
+   "defaultToolPickerMode"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Highlight",
+  "feature": "Highlight selected text",
+  "behavior": "Select text, choose Highlight in selection menu or annotate toolbar.",
+  "evidence": [
+   "annotation.highlight"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Underline",
+  "feature": "Underline selected text",
+  "behavior": "Select text, choose Underline in selection menu or annotate toolbar.",
+  "evidence": [
+   "annotation.underline"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Strikeout",
+  "feature": "Strike out selected text",
+  "behavior": "Select text, choose Strikeout in selection menu or annotate toolbar.",
+  "evidence": [
+   "annotation.strikeout"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Squiggly",
+  "feature": "Squiggly-underline selected text",
+  "behavior": "Select text, choose Squiggly in selection menu or annotate toolbar.",
+  "evidence": [
+   "annotation.squiggly"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Ink",
+  "feature": "Draw freehand with pen",
+  "behavior": "Pen tool draws ink strokes.",
+  "evidence": [
+   "annotation.pen"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Ink",
+  "feature": "Draw freehand highlighter",
+  "behavior": "Semi-transparent ink highlighter.",
+  "evidence": [
+   "annotation.freehandHighlighter",
+   "inkHighlighter"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw rectangle",
+  "behavior": "Square tool draws rectangles.",
+  "evidence": [
+   "annotation.square"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw circle",
+  "behavior": "Circle tool draws ellipses.",
+  "evidence": [
+   "annotation.circle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw line",
+  "behavior": "Line tool.",
+  "evidence": [
+   "annotation.line"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw arrow",
+  "behavior": "Line with arrow head.",
+  "evidence": [
+   "annotation.lineArrow"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw polygon",
+  "behavior": "Closed polygon.",
+  "evidence": [
+   "annotation.polygon"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Draw polyline",
+  "behavior": "Open polyline.",
+  "evidence": [
+   "annotation.polyline"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Text box",
+  "feature": "Add text box",
+  "behavior": "Free text annotation.",
+  "evidence": [
+   "annotation.text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Notes",
+  "feature": "Add sticky note",
+  "behavior": "Note annotation on page.",
+  "evidence": [
+   "annotation.note"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Stamp",
+  "feature": "Place stamp annotation",
+  "behavior": "Stamp tool places image/stamp.",
+  "evidence": [
+   "annotation.stamp",
+   "StampPlacementOverlay"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Style",
+  "feature": "Change annotation colour",
+  "behavior": "Selection menu colour picker.",
+  "evidence": [
+   "annotation.changeColor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Style",
+  "feature": "Set stroke and fill colours",
+  "behavior": "Separate stroke/fill/background colours.",
+  "evidence": [
+   "annotation.strokeColor",
+   "annotation.fillColor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Style",
+  "feature": "Open annotation style panel",
+  "behavior": "Edit opacity, width, colours.",
+  "evidence": [
+   "annotation.annotationStyle",
+   "useAnnotationStyleState"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Edit",
+  "feature": "Edit annotation text",
+  "behavior": "Selection menu edits text of note/text box.",
+  "evidence": [
+   "annotation.editText"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Edit",
+  "feature": "Delete annotation",
+  "behavior": "Delete from selection menu, with Undo toast.",
+  "evidence": [
+   "annotation.delete",
+   "annotation.deleted"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Edit",
+  "feature": "Undo annotation deletion",
+  "behavior": "Toast Undo restores deleted annotation.",
+  "evidence": [
+   "annotation.undoDelete"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Comments",
+  "feature": "Show comments sidebar",
+  "behavior": "Lists comments by page with count.",
+  "evidence": [
+   "viewer.comments.title",
+   "CommentsSidebar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Comments",
+  "feature": "Add comment",
+  "behavior": "Place comment on page by clicking.",
+  "evidence": [
+   "viewer.comments.addComment",
+   "viewer.comments.placingHint"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Comments",
+  "feature": "Reply to comment",
+  "behavior": "Threaded replies.",
+  "evidence": [
+   "viewer.comments.addReplyPlaceholder",
+   "viewer.comments.saveReply"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Comments",
+  "feature": "Locate comment in document",
+  "behavior": "Jumps to annotation.",
+  "evidence": [
+   "viewer.comments.locateAnnotation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Comments",
+  "feature": "Export comments as CSV",
+  "behavior": "CSV with page, author, comment, thread, reply, modified UTC.",
+  "evidence": [
+   "viewer.comments.exportCsv"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Comments",
+  "feature": "Clear all comments",
+  "behavior": "Confirm dialog removes all comments.",
+  "evidence": [
+   "viewer.comments.clearAll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Comments",
+  "feature": "Remove comment keeping markup",
+  "behavior": "Removes comment text only.",
+  "evidence": [
+   "viewer.comments.removeCommentOnly"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Comments",
+  "feature": "Add insert/replace text markup",
+  "behavior": "Comment types Insert Text and Replace Text.",
+  "evidence": [
+   "viewer.comments.typeInsertText",
+   "viewer.comments.typeReplaceText"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Links",
+  "feature": "Add link annotation",
+  "behavior": "Selection menu adds link.",
+  "evidence": [
+   "viewer.comments.addLink"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Annotate tool",
+  "feature": "Open Annotate tool",
+  "behavior": "Tool with annotation panel.",
+  "evidence": [
+   "home.annotate.title",
+   "AnnotationPanel"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Stamp tool",
+  "feature": "Add stamp to PDF",
+  "behavior": "Add Stamp tool: text or image stamp, position, size, preview.",
+  "evidence": [
+   "home.addStamp.title",
+   "Preview stamp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "annotate",
+  "area": "Remove",
+  "feature": "Remove all annotations",
+  "behavior": "Remove Annotations tool strips annotations client-side.",
+  "evidence": [
+   "home.removeAnnotations.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Text editor",
+  "feature": "Edit page text in place",
+  "behavior": "PDF Text Editor edits existing text runs.",
+  "evidence": [
+   "home.pdfTextEditor.title",
+   "PdfTextEditor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Text editor",
+  "feature": "Find text in editor",
+  "behavior": "Find bar with match case, whole word, ignore accents.",
+  "evidence": [
+   "pdfTextEditor.find",
+   "Match case",
+   "Ignore accents"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Text editor",
+  "feature": "Replace text",
+  "behavior": "Replace / Replace all with count.",
+  "evidence": [
+   "Replace all",
+   "Replace with"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Text editor",
+  "feature": "Insert image in editor",
+  "behavior": "Inserts an image onto page.",
+  "evidence": [
+   "pdfTextEditor.error",
+   "Could not insert the selected image."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Text editor",
+  "feature": "Save edited PDF",
+  "behavior": "Save PDF to workspace (shortcut) or Download.",
+  "evidence": [
+   "Save PDF",
+   "Save and download the edited PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Text editor",
+  "feature": "Pick font for edited text",
+  "behavior": "Font picker.",
+  "evidence": [
+   "pdfTextEditor.fontPicker"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Add text",
+  "feature": "Add text to PDF",
+  "behavior": "Type text, choose font, size 8-200, colour, click to place; move/pause placement.",
+  "evidence": [
+   "home.addText.title",
+   "Text content",
+   "Place Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Add image",
+  "feature": "Add image to PDF",
+  "behavior": "Upload image and place anywhere.",
+  "evidence": [
+   "home.addImage.title",
+   "Add images anywhere in your PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Watermark",
+  "feature": "Add text watermark",
+  "behavior": "Text, font size, rotation, opacity, spacing, colour, alphabet; optional flatten to image.",
+  "evidence": [
+   "home.watermark.title",
+   "watermarkText",
+   "widthSpacer"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Watermark",
+  "feature": "Add image watermark",
+  "behavior": "Watermark type image.",
+  "evidence": [
+   "watermarkType"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Page numbers",
+  "feature": "Add page numbers",
+  "behavior": "Add Page Numbers tool with position, start, custom text, pages.",
+  "evidence": [
+   "home.addPageNumbers.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Colours",
+  "feature": "Adjust colours and contrast",
+  "behavior": "Contrast, brightness, saturation, RGB sliders.",
+  "evidence": [
+   "home.adjustContrast.title",
+   "saturation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Colours",
+  "feature": "Replace or invert colours",
+  "behavior": "High-contrast presets (e.g. WHITE_TEXT_ON_BLACK), full invert or custom text/background.",
+  "evidence": [
+   "home.replaceColor.title",
+   "WHITE_TEXT_ON_BLACK"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Remove",
+  "feature": "Remove images from PDF",
+  "behavior": "Strips all images.",
+  "evidence": [
+   "home.removeImage.title",
+   "remove-image-pdf"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Overlay",
+  "feature": "Overlay PDFs",
+  "behavior": "Overlay files sequentially, interleaved or fixed; foreground/background position.",
+  "evidence": [
+   "home.overlay-pdfs.title",
+   "SequentialOverlay"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Table of contents",
+  "feature": "Edit table of contents",
+  "behavior": "Add/edit bookmarks tree; replace existing toggle.",
+  "evidence": [
+   "home.editTableOfContents.title",
+   "replaceExisting"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "edit",
+  "area": "Attachments",
+  "feature": "Manage attachments",
+  "behavior": "Add/remove embedded files.",
+  "evidence": [
+   "home.addAttachments.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Merge",
+  "feature": "Merge PDFs",
+  "behavior": "Merge files in order; options remove digital signature, generate table of contents.",
+  "evidence": [
+   "home.merge.title",
+   "generateTableOfContents",
+   "removeDigitalSignature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split by page numbers",
+  "behavior": "Split at listed pages.",
+  "evidence": [
+   "split.methods.byPages",
+   "byPages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split by sections",
+  "behavior": "Divide pages into h x v sections; optional merge.",
+  "evidence": [
+   "split.methods.bySections",
+   "hDiv"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split by file size",
+  "behavior": "Chunks under a size.",
+  "evidence": [
+   "split.methods.bySize"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split by page count",
+  "behavior": "Every N pages.",
+  "evidence": [
+   "split.methods.byPageCount"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split by document count",
+  "behavior": "Into N documents.",
+  "evidence": [
+   "split.methods.byDocCount"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split by chapters",
+  "behavior": "By bookmark level, include metadata, allow duplicates.",
+  "evidence": [
+   "split.methods.byChapters",
+   "bookmarkLevel"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split by page divider",
+  "behavior": "Splits at divider pages; duplex mode.",
+  "evidence": [
+   "split.methods.byPageDivider",
+   "duplexMode"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Split",
+  "feature": "Split into printable chunks",
+  "behavior": "Poster split to page size A4 with x/y factor, right-to-left.",
+  "evidence": [
+   "split.methods.byPoster",
+   "rightToLeft"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Rotate PDF pages",
+  "behavior": "Rotate by angle 90 increments.",
+  "evidence": [
+   "home.rotate.title",
+   "Easily rotate your PDFs."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Auto rotate pages",
+  "behavior": "Detect orientation; confidence threshold, infer undetected.",
+  "evidence": [
+   "home.autoRotate.title",
+   "confidenceThreshold"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Crop pages",
+  "behavior": "Draw crop area, pages selection, auto crop.",
+  "evidence": [
+   "home.crop.title",
+   "autoCrop"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Reorder",
+  "feature": "Reorganize pages",
+  "behavior": "Custom order or modes (reverse, duplex, odd-even...).",
+  "evidence": [
+   "home.reorganizePages.title",
+   "customMode"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Extract",
+  "feature": "Extract pages",
+  "behavior": "Extract page ranges into new PDF.",
+  "evidence": [
+   "home.extractPages.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Delete",
+  "feature": "Remove pages",
+  "behavior": "Delete pages by number list.",
+  "evidence": [
+   "home.removePages.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Delete",
+  "feature": "Remove blank pages",
+  "behavior": "Threshold and white percent; optionally keep blanks.",
+  "evidence": [
+   "home.removeBlanks.title",
+   "whitePercent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Scale",
+  "feature": "Adjust page size or scale",
+  "behavior": "Scale factor, target page size, orientation.",
+  "evidence": [
+   "home.scalePages.title",
+   "scaleFactor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Layout",
+  "feature": "Multi-page layout (N-up)",
+  "behavior": "Pages per sheet or grid rows/cols, margins, borders, reading direction.",
+  "evidence": [
+   "home.pageLayout.title",
+   "Pages per sheet:",
+   "readingDirection"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Booklet",
+  "feature": "Booklet imposition",
+  "behavior": "2 or 4 per sheet, spine location, gutter, double sided, duplex pass, short-edge flip.",
+  "evidence": [
+   "home.bookletImposition.title",
+   "spineLocation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Single page",
+  "feature": "Convert to single large page",
+  "behavior": "Combine all pages into one tall page.",
+  "evidence": [
+   "home.pdfToSinglePage.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Scanner",
+  "feature": "Split scanned photos",
+  "behavior": "Detect and split multiple photos on scan; tolerance.",
+  "evidence": [
+   "ScannerImageSplit",
+   "tolerance"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Page editor",
+  "feature": "Open page editor",
+  "behavior": "Grid of page thumbnails across files.",
+  "evidence": [
+   "PageEditor",
+   "Page Editor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Page editor",
+  "feature": "Drag pages to reorder",
+  "behavior": "Drag thumbnails; move left/right actions.",
+  "evidence": [
+   "pageEditor.actions",
+   "Move left",
+   "Move right"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Page editor",
+  "feature": "Rotate single page",
+  "behavior": "Per-page rotate left/right.",
+  "evidence": [
+   "Rotate left",
+   "Rotate right"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Page editor",
+  "feature": "Delete single page",
+  "behavior": "Per-page delete.",
+  "evidence": [
+   "Delete page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Page editor",
+  "feature": "Split after page",
+  "behavior": "Mark split point after a page.",
+  "evidence": [
+   "Split after"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Page editor",
+  "feature": "Insert file after page",
+  "behavior": "Insert another file after page.",
+  "evidence": [
+   "Insert file after"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Page editor",
+  "feature": "Rotate selected pages",
+  "behavior": "Toolbar rotates selection.",
+  "evidence": [
+   "Rotate Selected Left",
+   "Rotate Selected Right"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Page editor",
+  "feature": "Delete selected pages",
+  "behavior": "Toolbar deletes selection.",
+  "evidence": [
+   "Delete Selected"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Page editor",
+  "feature": "Undo/redo page edits",
+  "behavior": "Toolbar undo/redo.",
+  "evidence": [
+   "pageEditor.toolbar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Multi-Tool",
+  "feature": "Open Multi-Tool",
+  "behavior": "Combined page editing workspace.",
+  "evidence": [
+   "home.multiTool.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "organize",
+  "area": "Portfolio",
+  "feature": "Create PDF portfolio",
+  "behavior": "Bundle files into portfolio with cover title.",
+  "evidence": [
+   "home.createPortfolio.title",
+   "coverTitle"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Fill",
+  "feature": "Fill form fields",
+  "behavior": "Form Editor Fill mode lists fields in sidebar; required check; Ctrl+S to save.",
+  "evidence": [
+   "formFill.mode",
+   "Ctrl+S to save",
+   "home.formFill.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Fill",
+  "feature": "Flatten after filling",
+  "behavior": "Option to flatten on save.",
+  "evidence": [
+   "Flatten after filling"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Fill",
+  "feature": "Re-scan form fields",
+  "behavior": "Re-detects fields.",
+  "evidence": [
+   "Re-scan form fields"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Data export",
+  "feature": "Extract form data to CSV/XLSX",
+  "behavior": "Exports field values.",
+  "evidence": [
+   "extractCsvError",
+   "extractXlsxError"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Create",
+  "feature": "Draw new form field",
+  "behavior": "Create mode: pick type (text, checkbox, dropdown, list box, radio, button, signature), draw on page; Esc stops.",
+  "evidence": [
+   "formFill.create",
+   "Pick a field type, then draw it on the page."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Create",
+  "feature": "Preview fields before commit",
+  "behavior": "Hold to preview without outlines.",
+  "evidence": [
+   "Hold to preview"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Create",
+  "feature": "Commit drawn fields",
+  "behavior": "Add N fields to PDF.",
+  "evidence": [
+   "Add {{count}} field(s) to PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Modify",
+  "feature": "Edit field properties",
+  "behavior": "Name, label, tooltip, default, font size, required, read-only, multiline, max length, options.",
+  "evidence": [
+   "formFill.editor",
+   "FormFieldPropertyEditor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Modify",
+  "feature": "Set button action",
+  "behavior": "None, print, reset, submit URL, open URL.",
+  "evidence": [
+   "Button action",
+   "Submit to URL"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Modify",
+  "feature": "Move or delete field",
+  "behavior": "Drag field or delete; snap guides.",
+  "evidence": [
+   "formFill.modify",
+   "SnapGuides"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Auto detect",
+  "feature": "Auto-detect form fields",
+  "behavior": "Detects fields with sensitivity setting.",
+  "evidence": [
+   "home.autoFormDetection.title",
+   "sensitivity"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Unlock",
+  "feature": "Unlock read-only form fields",
+  "behavior": "Removes read-only flags.",
+  "evidence": [
+   "home.unlockPDFForms.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "forms",
+  "area": "Flatten",
+  "feature": "Flatten PDF",
+  "behavior": "Flatten forms only or full page to image at DPI.",
+  "evidence": [
+   "home.flatten.title",
+   "flattenOnlyForms"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Sign",
+  "feature": "Draw signature",
+  "behavior": "Canvas with pen size and colour.",
+  "evidence": [
+   "Draw your signature",
+   "Pen size"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Sign",
+  "feature": "Type text signature",
+  "behavior": "Typed signature with font.",
+  "evidence": [
+   "Typed signature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Sign",
+  "feature": "Upload signature image",
+  "behavior": "Upload image signature.",
+  "evidence": [
+   "Upload Image"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Sign",
+  "feature": "Place signature on page",
+  "behavior": "Activate placement, click to place, resize keeping ratio.",
+  "evidence": [
+   "Activate Signature Placement",
+   "Toggle maintain aspect ratio"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Sign",
+  "feature": "Add signature to all pages",
+  "behavior": "Replicates signature.",
+  "evidence": [
+   "Add to all pages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Sign",
+  "feature": "Save signature for reuse",
+  "behavior": "Personal or shared saved signatures.",
+  "evidence": [
+   "Save Signature",
+   "Personal Signatures",
+   "Shared Signatures"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Sign",
+  "feature": "Apply signatures",
+  "behavior": "Burns signatures into PDF.",
+  "evidence": [
+   "Apply Signatures"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Sign",
+  "feature": "Delete placed signature",
+  "behavior": "Remove placed signature.",
+  "evidence": [
+   "viewer.signature.delete"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Shared signing",
+  "feature": "Request signatures from others",
+  "behavior": "Send document to participants to sign.",
+  "evidence": [
+   "Request signatures",
+   "certSign.collab.addParticipants"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Certificate",
+  "feature": "Sign with digital certificate",
+  "behavior": "Manual/auto mode, cert type (PKCS12, PEM, JKS...), password, visible signature with reason/location/name/page/logo.",
+  "evidence": [
+   "home.certSign.title",
+   "certSign.signMode.tooltip.manual",
+   "showSignature"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Certificate",
+  "feature": "Remove certificate signature",
+  "behavior": "Strips digital signatures.",
+  "evidence": [
+   "home.removeCertSign.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Certificate",
+  "feature": "Validate PDF signature",
+  "behavior": "Checks signatures, optional cert file.",
+  "evidence": [
+   "home.validateSignature.title",
+   "certFile"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Timestamp",
+  "feature": "Timestamp PDF",
+  "behavior": "RFC3161 timestamp via TSA URL presets.",
+  "evidence": [
+   "home.timestampPdf.title",
+   "tsaUrl"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "sign",
+  "area": "Fields",
+  "feature": "View signed signature field",
+  "behavior": "Overlay shows Signed badge with reason/time.",
+  "evidence": [
+   "viewer.signatureField.signed",
+   "SignatureFieldOverlay"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Add password",
+  "behavior": "User/owner password, key length 128/256.",
+  "evidence": [
+   "home.addPassword.title",
+   "ownerPassword",
+   "keyLength"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Remove password",
+  "behavior": "Enter password to decrypt.",
+  "evidence": [
+   "Remove Password"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Create unprotected copy",
+  "behavior": "From viewer protection panel.",
+  "evidence": [
+   "Create an unprotected copy"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Permissions",
+  "feature": "Change permissions",
+  "behavior": "Prevent assembly, extract, fill, modify, annotations, printing.",
+  "evidence": [
+   "home.changePermissions.title",
+   "preventPrinting",
+   "preventModifyAnnotations"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Auto redact words",
+  "behavior": "List words; regex, whole word, case; box colour, padding, convert to image.",
+  "evidence": [
+   "home.redact.title",
+   "wordsToRedact",
+   "Use Regex"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Manually redact areas",
+  "behavior": "Select text or draw areas, then Apply permanently.",
+  "evidence": [
+   "Manual Redaction Controls",
+   "Select text or draw areas on the PDF to mark content for redaction."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Remove pending redaction mark",
+  "behavior": "Remove a mark before applying.",
+  "evidence": [
+   "viewer.redaction.removeMark",
+   "RedactionPendingTracker"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Exit redaction mode",
+  "behavior": "Leaves redaction mode.",
+  "evidence": [
+   "workbenchBar.exitRedaction"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Sanitize",
+  "feature": "Sanitize PDF",
+  "behavior": "Remove JavaScript, embedded files, XMP, metadata, links, fonts.",
+  "evidence": [
+   "home.sanitize.title",
+   "removeJavaScript",
+   "removeEmbeddedFiles"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Metadata",
+  "feature": "Change metadata",
+  "behavior": "Title, author, subject, keywords, creator, producer, dates, trapped, custom, delete all.",
+  "evidence": [
+   "home.changeMetadata.title",
+   "customMetadata",
+   "deleteAll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "JavaScript",
+  "feature": "Show JavaScript",
+  "behavior": "Displays embedded JS.",
+  "evidence": [
+   "home.showJS.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "security",
+  "area": "Info",
+  "feature": "Get all info on PDF",
+  "behavior": "Report with index; download JSON.",
+  "evidence": [
+   "home.getPdfInfo.title",
+   "Download JSON"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert PDF to images",
+  "behavior": "PNG/JPG/GIF/TIFF/BMP/WEBP; colour type, DPI 300, single or multiple.",
+  "evidence": [
+   "home.convert.title",
+   "CONVERSION_MATRIX",
+   "singleOrMultiple"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert PDF to Word/ODT",
+  "behavior": "docx, odt.",
+  "evidence": [
+   "docx"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert PDF to PowerPoint/ODP",
+  "behavior": "pptx, odp.",
+  "evidence": [
+   "pptx"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert PDF to Excel/CSV",
+  "behavior": "xlsx, csv.",
+  "evidence": [
+   "xlsx"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert PDF to text/RTF/Markdown",
+  "behavior": "txt, rtf, md.",
+  "evidence": [
+   "rtf"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert PDF to HTML/XML",
+  "behavior": "html, xml.",
+  "evidence": [
+   "xml"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert PDF to PDF/A, PDF/X, PDF/UA",
+  "behavior": "PDF/A output format e.g. pdfa-2b.",
+  "evidence": [
+   "pdfaOptions",
+   "pdfua"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert PDF to ebook/comic",
+  "behavior": "epub, azw3, cbz, cbr.",
+  "evidence": [
+   "azw3"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert images to PDF",
+  "behavior": "Fit option, auto rotate, combine images.",
+  "evidence": [
+   "combineImages",
+   "fitOption"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert Office documents to PDF",
+  "behavior": "doc/docx/xls/ppt/odt etc to PDF.",
+  "evidence": [
+   "odp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert HTML or ZIP to PDF",
+  "behavior": "With zoom level.",
+  "evidence": [
+   "htmlOptions",
+   "zoomLevel"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert email to PDF",
+  "behavior": "eml/msg with attachments, size limit, recipients.",
+  "evidence": [
+   "emailOptions",
+   "maxAttachmentSizeMB"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Convert",
+  "feature": "Convert Markdown/ebook to PDF",
+  "behavior": "md, epub, mobi, fb2 to PDF.",
+  "evidence": [
+   "fb2"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Extract",
+  "feature": "Extract images from PDF",
+  "behavior": "Format png/jpg/gif.",
+  "evidence": [
+   "home.extractImages.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "convert",
+  "area": "Preferences",
+  "feature": "Hide unavailable conversions",
+  "behavior": "Hide disabled options.",
+  "evidence": [
+   "hideUnavailableConversions"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "optimize",
+  "area": "Compress",
+  "feature": "Compress PDF",
+  "behavior": "Quality level 1-9 or target file size; grayscale, line art, linearize.",
+  "evidence": [
+   "home.compress.title",
+   "compressionLevel",
+   "lineArtThreshold"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "optimize",
+  "area": "Compress",
+  "feature": "Compress to target size",
+  "behavior": "Method file size with value+unit.",
+  "evidence": [
+   "fileSizeUnit"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "optimize",
+  "area": "Linearize",
+  "feature": "Linearize for fast web view",
+  "behavior": "Compress option.",
+  "evidence": [
+   "linearize"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "optimize",
+  "area": "Grayscale",
+  "feature": "Convert to grayscale",
+  "behavior": "Compress option.",
+  "evidence": [
+   "grayscale"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "optimize",
+  "area": "OCR",
+  "feature": "OCR scanned PDF",
+  "behavior": "Languages, mode skip-text/force, render hocr/sandwich, options.",
+  "evidence": [
+   "home.ocr.title",
+   "ocrRenderType",
+   "skip-text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "optimize",
+  "area": "Repair",
+  "feature": "Repair PDF",
+  "behavior": "Rebuilds corrupt files.",
+  "evidence": [
+   "home.repair.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Compare two PDFs",
+  "behavior": "Pick original and edited; text or pixel mode.",
+  "evidence": [
+   "home.compare.title",
+   "Select the edited PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Compare visually by pixels",
+  "behavior": "Pixel mode with DPI and threshold.",
+  "evidence": [
+   "pixelThreshold",
+   "compare.pixel"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Browse additions and deletions",
+  "behavior": "Dropdown lists changes with search.",
+  "evidence": [
+   "Additions",
+   "Deletions",
+   "Search changes..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Link scroll between documents",
+  "behavior": "Toggle linked scroll.",
+  "evidence": [
+   "Link scroll",
+   "Unlink scroll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Place side by side or stack",
+  "behavior": "Layout toggle.",
+  "evidence": [
+   "Place side by side",
+   "Stack vertically"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Swap compared files",
+  "behavior": "Swap original/edited.",
+  "evidence": [
+   "compare.swap"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "compare",
+  "area": "Compare",
+  "feature": "Stop dissimilar comparison",
+  "behavior": "Early warning lets stop.",
+  "evidence": [
+   "Stop comparison"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Automate",
+  "feature": "Create automation",
+  "behavior": "Name, description, icon, add tools in order, configure each.",
+  "evidence": [
+   "Create Automation",
+   "Add Tool",
+   "Configure {{toolName}}"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Automate",
+  "feature": "Run automation",
+  "behavior": "Runs steps sequentially with progress.",
+  "evidence": [
+   "Run Automation",
+   "Progress: {{current}}/{{total}}"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Automate",
+  "feature": "Edit saved automation",
+  "behavior": "Edit existing.",
+  "evidence": [
+   "Edit Automation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Automate",
+  "feature": "Use suggested automation",
+  "behavior": "Suggested presets.",
+  "evidence": [
+   "automate.selection.suggested"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Automate",
+  "feature": "Import automation JSON",
+  "behavior": "Drop or paste Automate/Folder Scanning JSON.",
+  "evidence": [
+   "Import automation",
+   "Or paste JSON"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Automate",
+  "feature": "Export automation",
+  "behavior": "Export JSON or for folder scanning.",
+  "evidence": [
+   "Export for Folder Scanning"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Automate",
+  "feature": "Copy suggested to saved",
+  "behavior": "Copy to Saved.",
+  "evidence": [
+   "Copy to Saved"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Folder scanning",
+  "feature": "Automated folder scanning",
+  "behavior": "Server watches folder and runs pipeline.",
+  "evidence": [
+   "home.devFolderScanning.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Auto rename",
+  "feature": "Auto rename PDF file",
+  "behavior": "Rename from title text, fallback first text.",
+  "evidence": [
+   "home.autoRename.title",
+   "useFirstTextAsFallback"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "batch",
+  "area": "Redact",
+  "feature": "Batch auto redact multiple files",
+  "behavior": "Automatic mode redacts many files.",
+  "evidence": [
+   "automaticDisabledTooltip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File manager",
+  "feature": "Upload PDF files",
+  "behavior": "File manager stores files locally.",
+  "evidence": [
+   "Upload PDF Files",
+   "fileManager"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File manager",
+  "feature": "Search stored files",
+  "behavior": "Search box.",
+  "evidence": [
+   "Search files..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File manager",
+  "feature": "Sort files",
+  "behavior": "By date, name, size.",
+  "evidence": [
+   "Sort by Date",
+   "Sort by Name",
+   "Sort by Size"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File manager",
+  "feature": "Delete stored files",
+  "behavior": "Delete or delete all.",
+  "evidence": [
+   "Delete All"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File manager",
+  "feature": "Download selected files",
+  "behavior": "Download Files.",
+  "evidence": [
+   "Download Files"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File manager",
+  "feature": "Unzip uploaded ZIP",
+  "behavior": "Extract files from zip.",
+  "evidence": [
+   "Unzip",
+   "fileEditor.unzip"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File manager",
+  "feature": "Open in page editor",
+  "behavior": "From file manager.",
+  "evidence": [
+   "Open in Page Editor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File manager",
+  "feature": "View version history",
+  "behavior": "Per-file versions.",
+  "evidence": [
+   "Version history"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "Picker",
+  "feature": "Drop or browse to add files",
+  "behavior": "Drop zone or click; from computer or phone.",
+  "evidence": [
+   "Drop files here, or click to browse",
+   "From your phone"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File editor",
+  "feature": "Reorder files in workbench",
+  "behavior": "Drag file cards.",
+  "evidence": [
+   "filesReordered_one"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File editor",
+  "feature": "Pin file",
+  "behavior": "Pin/unpin files.",
+  "evidence": [
+   "Pinned {{name}}"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "File editor",
+  "feature": "Close file",
+  "behavior": "Closes file card.",
+  "evidence": [
+   "Closed {{name}}"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "Tools grid",
+  "feature": "Browse tools by category",
+  "behavior": "Recommended, standard, advanced with subcategories.",
+  "evidence": [
+   "RECOMMENDED_TOOLS",
+   "ADVANCED_TOOLS"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "Tools grid",
+  "feature": "Search tools",
+  "behavior": "Tool search.",
+  "evidence": [
+   "Search tools..."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "Navigation",
+  "feature": "Switch reader/editor/processor",
+  "behavior": "Quick nav.",
+  "evidence": [
+   "quickNav",
+   "Processor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "Cloud",
+  "feature": "Upload file to server",
+  "behavior": "Server storage.",
+  "evidence": [
+   "Upload to Server",
+   "Update on Server"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "files",
+  "area": "Cloud",
+  "feature": "Share file",
+  "behavior": "Save to server and share.",
+  "evidence": [
+   "Save to server & share",
+   "Shared with you"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print document",
+  "behavior": "Print from viewer.",
+  "evidence": [
+   "PrintAPIBridge"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "output",
+  "area": "Export",
+  "feature": "Download/export document",
+  "behavior": "Export bridge downloads PDF.",
+  "evidence": [
+   "ExportAPIBridge"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "output",
+  "area": "History",
+  "feature": "Undo/redo history",
+  "behavior": "History bridge.",
+  "evidence": [
+   "HistoryAPIBridge"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "output",
+  "area": "Results",
+  "feature": "Review automation results",
+  "behavior": "Results screen.",
+  "evidence": [
+   "Automation Results"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "output",
+  "area": "Results",
+  "feature": "Review tool results",
+  "behavior": "Per-tool results.",
+  "evidence": [
+   "Add Text Results"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "preferences",
+  "area": "Theme",
+  "feature": "Switch light/dark/system theme",
+  "behavior": "Theme setting.",
+  "evidence": [
+   "themeSystem",
+   "Switch between light and dark mode"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "preferences",
+  "area": "Theme",
+  "feature": "Set accent colour",
+  "behavior": "Default or custom accent per mode.",
+  "evidence": [
+   "Accent colour",
+   "themeAccentCustom"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "preferences",
+  "area": "Language",
+  "feature": "Change language",
+  "behavior": "Display language.",
+  "evidence": [
+   "languageDescription"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "preferences",
+  "area": "Startup",
+  "feature": "Choose default startup view",
+  "behavior": "View on launch.",
+  "evidence": [
+   "defaultStartupView"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "preferences",
+  "area": "Hotkeys",
+  "feature": "Customize tool shortcuts",
+  "behavior": "Search tools, change/reset shortcut.",
+  "evidence": [
+   "Change shortcut",
+   "HotkeysCard"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "preferences",
+  "area": "Tools",
+  "feature": "Hide unavailable tools",
+  "behavior": "Hide server-disabled tools.",
+  "evidence": [
+   "hideUnavailableTools"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "preferences",
+  "area": "Unzip",
+  "feature": "Auto-unzip API responses",
+  "behavior": "With file limit.",
+  "evidence": [
+   "Auto-unzip API responses",
+   "autoUnzipFileLimit"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "preferences",
+  "area": "Desktop",
+  "feature": "Set as default PDF editor",
+  "behavior": "Desktop app default handler.",
+  "evidence": [
+   "Set as Default",
+   "defaultPdfEditor"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "ai",
+  "area": "Classify",
+  "feature": "Classify documents with AI",
+  "behavior": "AI subcategory tool.",
+  "evidence": [
+   "home.classify.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "platform",
+  "area": "API",
+  "feature": "Open API documentation",
+  "behavior": "Swagger UI link.",
+  "evidence": [
+   "home.devApi.title",
+   "SwaggerUI"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "platform",
+  "area": "SSO",
+  "feature": "Open SSO guide",
+  "behavior": "Link.",
+  "evidence": [
+   "home.devSsoGuide.title"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "stirling",
+  "domain": "platform",
+  "area": "Air-gapped",
+  "feature": "Air-gapped setup guide",
+  "behavior": "Link.",
+  "evidence": [
+   "home.devAirgapped.title"
+  ],
+  "source": "code"
+ }
+]

@@ -1,0 +1,1929 @@
+[
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Sidebar",
+  "feature": "Hide the sidebar",
+  "behavior": "View > Hide Sidebar (Opt-Cmd-1) closes the sidebar.",
+  "evidence": [
+   "Hide Sidebar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Thumbnails",
+  "feature": "Show page thumbnails sidebar",
+  "behavior": "View > Thumbnails (Opt-Cmd-2) shows page thumbnails in the sidebar.",
+  "evidence": [
+   "Thumbnails"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Thumbnails",
+  "feature": "View thumbnails sidebar with document open",
+  "behavior": "Thumbnails sidebar visible beside the open PDF.",
+  "evidence": [
+   "View > Thumbnails sidebar"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Outline",
+  "feature": "Show table of contents sidebar",
+  "behavior": "View > Table of Contents (Opt-Cmd-3) shows the PDF outline in the sidebar.",
+  "evidence": [
+   "Table of Contents",
+   "outline view"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Outline",
+  "feature": "See empty table of contents",
+  "behavior": "With no embedded outline the sidebar shows only the file name.",
+  "evidence": [
+   "View > Table of Contents: shows only \"study.pdf\" because the file has no outline"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Highlights and Notes",
+  "feature": "Show highlights and notes sidebar",
+  "behavior": "View > Highlights and Notes (Opt-Cmd-4) lists annotations with author, page and highlighted content.",
+  "evidence": [
+   "Highlights and Notes",
+   "Highlight Content"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Highlights and Notes",
+  "feature": "See empty highlights list",
+  "behavior": "Shows 'No Highlights or Notes Found' when the document has none.",
+  "evidence": [
+   "No Highlights or Notes Found"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Highlights and Notes",
+  "feature": "Set note lines shown in sidebar",
+  "behavior": "Annotations sidebar options set how many lines of note content are shown, or all content.",
+  "evidence": [
+   "Show Annotations Sidebar Options",
+   "lines of note content",
+   "Showing all note content"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Show bookmarks sidebar",
+  "behavior": "View > Bookmarks (Opt-Cmd-5) lists bookmarked pages.",
+  "evidence": [
+   "Bookmarks"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Contact Sheet",
+  "feature": "Show contact sheet",
+  "behavior": "View > Contact Sheet (Opt-Cmd-6) shows all pages in a grid.",
+  "evidence": [
+   "Contact Sheet"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Contact Sheet",
+  "feature": "View all pages in grid",
+  "behavior": "All pages shown in a grid with annotations visible.",
+  "evidence": [
+   "View > Contact Sheet: all 7 pages in a grid, highlight visible on p.1"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Sidebar",
+  "feature": "Always show the sidebar",
+  "behavior": "Sidebar display option keeps the sidebar open.",
+  "evidence": [
+   "Always Show Sidebar",
+   "Choose sidebar display"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Sidebar",
+  "feature": "Sort sidebar documents",
+  "behavior": "Sidebar context menu Sort By: None, Name, Path, Date, Size, Kind.",
+  "evidence": [
+   "Sort By"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Sidebar",
+  "feature": "Open sidebar item in new window",
+  "behavior": "Sidebar context menu opens the selected document in a new window.",
+  "evidence": [
+   "Open in New Window"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Sidebar",
+  "feature": "Close selected sidebar documents",
+  "behavior": "File > Close Selected (Shift-Cmd-W) closes documents selected in the sidebar.",
+  "evidence": [
+   "Close Selected"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Page Modes",
+  "feature": "Use continuous scroll",
+  "behavior": "View > Continuous Scroll (Cmd-1).",
+  "evidence": [
+   "Continuous Scroll"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Page Modes",
+  "feature": "Show single page",
+  "behavior": "View > Single Page (Cmd-2).",
+  "evidence": [
+   "Single Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Page Modes",
+  "feature": "Show two pages side by side",
+  "behavior": "View > Two Pages (Cmd-3).",
+  "evidence": [
+   "Two Pages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom to actual size",
+  "behavior": "View > Actual Size (Cmd-0); Actual Size on All (Opt-Cmd-0) applies to all documents.",
+  "evidence": [
+   "Actual Size",
+   "Actual Size on All"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom to fit",
+  "behavior": "View > Zoom to Fit (Cmd-9); Zoom All to Fit (Opt-Cmd-9).",
+  "evidence": [
+   "Zoom to Fit",
+   "Zoom All to Fit"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom in",
+  "behavior": "View > Zoom In (Cmd-+); Zoom All In (Opt-Cmd-+).",
+  "evidence": [
+   "Zoom In",
+   "Zoom All In"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom out",
+  "behavior": "View > Zoom Out (Cmd--); Zoom All Out (Opt-Cmd--).",
+  "evidence": [
+   "Zoom Out",
+   "Zoom All Out"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Zoom",
+  "feature": "Zoom to selection",
+  "behavior": "View > Zoom to Selection (Cmd-*).",
+  "evidence": [
+   "Zoom to Selection"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Magnifier",
+  "feature": "Toggle the magnifier",
+  "behavior": "Tools > Show Magnifier (`) shows a loupe under the pointer.",
+  "evidence": [
+   "Show Magnifier",
+   "Toggle Magnifier"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Full Screen",
+  "feature": "Enter full screen",
+  "behavior": "View > Enter Full Screen (Ctrl-Cmd-F).",
+  "evidence": [
+   "Enter Full Screen"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Slideshow",
+  "feature": "Start a slideshow",
+  "behavior": "View > Slideshow (Shift-Cmd-F) presents pages full screen with slideshow controls.",
+  "evidence": [
+   "Slideshow",
+   "Slideshow Controls"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Toolbar",
+  "feature": "Hide or show the toolbar",
+  "behavior": "View > Hide Toolbar (Opt-Cmd-T).",
+  "evidence": [
+   "Hide Toolbar",
+   "Always Show Toolbar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Toolbar",
+  "feature": "Customise the toolbar",
+  "behavior": "View > Customise Toolbar… opens the toolbar editor.",
+  "evidence": [
+   "Customise Toolbar…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Appearance",
+  "feature": "Use dark appearance for PDF",
+  "behavior": "View > Use Dark Appearance for PDF renders pages in dark mode.",
+  "evidence": [
+   "Use Dark Appearance for PDF"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to next or previous page",
+  "behavior": "Go > Up/Down (arrow keys) moves between pages.",
+  "evidence": [
+   "Previous Page",
+   "Next Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to first or last page",
+  "behavior": "Go menu jumps to the first or last page.",
+  "evidence": [
+   "First Page",
+   "Last Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to a page number",
+  "behavior": "Go > Go to Page… (Opt-Cmd-G) opens a 'Go to page:' panel.",
+  "evidence": [
+   "Go to Page…",
+   "Go to page:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go back in page history",
+  "behavior": "Go > Back (Cmd-[).",
+  "evidence": [
+   "Back",
+   "Go back in page history"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go forward in page history",
+  "behavior": "Go > Forward (Cmd-]).",
+  "evidence": [
+   "Forward",
+   "Go forward in page history"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to next or previous document",
+  "behavior": "Go > Next Document / Previous Document (Opt-Down/Up).",
+  "evidence": [
+   "Next Document",
+   "Previous Document"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Navigation",
+  "feature": "Go to next or previous item",
+  "behavior": "Go > Next Item / Previous Item (Opt-Right/Left).",
+  "evidence": [
+   "Next Item",
+   "Previous Item"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Links",
+  "feature": "Follow a link to another app",
+  "behavior": "Clicking an external link warns that Preview will open it in another app.",
+  "evidence": [
+   "Preview will open this link in another app.",
+   "Cannot Open Link"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Find text in document",
+  "behavior": "Edit > Find > Find… (Cmd-F) searches the document; results list in the sidebar.",
+  "evidence": [
+   "Find…",
+   "Search"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "See per-page search results",
+  "behavior": "Results grouped per page with match counts and 'Found on N pages'.",
+  "evidence": [
+   "Search \"preload\": results sidebar per page (16 matches each, 12 on p.7), \"Found on 7 pages\", Search Rank / Page Order sort"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Sort search results",
+  "behavior": "Sort By: Search Rank or Page Order.",
+  "evidence": [
+   "Search Rank",
+   "Page Order"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Find next or previous match",
+  "behavior": "Find Next (Cmd-G), Find Previous (Shift-Cmd-G).",
+  "evidence": [
+   "Find Next",
+   "Find Previous"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Use selection for find",
+  "behavior": "Use Selection for Find (Cmd-E), Jump to Selection (Cmd-J).",
+  "evidence": [
+   "Use Selection for Find",
+   "Jump to Selection"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Set search options",
+  "behavior": "Options: Ignore Case, Whole Words Only, Exact Phrase, Any Match.",
+  "evidence": [
+   "Ignore Case",
+   "Whole Words Only",
+   "Exact Phrase"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Reuse recent searches",
+  "behavior": "Recent Searches menu; Clear Recent Searches.",
+  "evidence": [
+   "Recent Searches",
+   "Clear Recent Searches"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Search",
+  "feature": "Group results by page or section",
+  "behavior": "Results grouped by page or by section.",
+  "evidence": [
+   "Group by page",
+   "Group by section"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Select text",
+  "behavior": "Tools > Text Selection selects PDF text.",
+  "evidence": [
+   "Text Selection"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Select a rectangular area",
+  "behavior": "Tools > Rectangular Selection selects a region.",
+  "evidence": [
+   "Rectangular Selection"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Copy selected text",
+  "behavior": "Edit > Copy (Cmd-C).",
+  "evidence": [
+   "Copy"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Select all",
+  "behavior": "Edit > Select All (Cmd-A).",
+  "evidence": [
+   "Select All"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Selection",
+  "feature": "Invert selection",
+  "behavior": "Edit > Invert Selection (Shift-Cmd-I).",
+  "evidence": [
+   "Invert Selection"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Speech",
+  "feature": "Read text aloud",
+  "behavior": "Edit > Speech > Start Speaking / Stop Speaking.",
+  "evidence": [
+   "Start Speaking",
+   "Stop Speaking"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Inspector",
+  "feature": "Show the inspector",
+  "behavior": "Tools > Show Inspector (Cmd-I).",
+  "evidence": [
+   "Show Inspector",
+   "Inspector"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Inspector",
+  "feature": "View PDF document info",
+  "behavior": "General Info inspector: file name, size, title, author, subject, creator, producer, PDF version, page count, page size, dates.",
+  "evidence": [
+   "PDF Producer:",
+   "PDF version:",
+   "Page count:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Inspector",
+  "feature": "View page crop and media box",
+  "behavior": "Metrics inspector shows Crop Box, Media Box and selection size in chosen units.",
+  "evidence": [
+   "Crop Box:",
+   "Media Box:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Window",
+  "feature": "Open multiple documents in one window",
+  "behavior": "Groups of files open in one window with a sidebar listing them.",
+  "evidence": [
+   "Open groups of files in the same window"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Markup Toolbar",
+  "feature": "Show markup toolbar",
+  "behavior": "View > Show Markup Toolbar (Shift-Cmd-A).",
+  "evidence": [
+   "Show Markup Toolbar",
+   "Toggle Markup Toolbar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Markup Toolbar",
+  "feature": "View markup toolbar under main toolbar",
+  "behavior": "Markup toolbar shown under the main toolbar.",
+  "evidence": [
+   "Markup toolbar shown under the main toolbar"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Highlight",
+  "feature": "Highlight selected text",
+  "behavior": "Tools > Annotate > Highlight Text (Ctrl-Cmd-H).",
+  "evidence": [
+   "Highlight Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Highlight",
+  "feature": "See highlight applied",
+  "behavior": "Selecting text then Highlight Text gives an orange highlight; title shows 'Edited'.",
+  "evidence": [
+   "Tools > Annotate > Highlight Text: orange highlight, title shows \"Edited\""
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Highlight",
+  "feature": "Change highlight colour",
+  "behavior": "Highlight colours: Yellow, Green, Blue, Pink, Purple; Underline and Strikethrough styles in the same menu.",
+  "evidence": [
+   "Yellow",
+   "Purple",
+   "Highlight"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Underline",
+  "feature": "Underline selected text",
+  "behavior": "Tools > Annotate > Underline Text (Ctrl-Cmd-U).",
+  "evidence": [
+   "Underline Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Strike",
+  "feature": "Strike through selected text",
+  "behavior": "Tools > Annotate > Strike Through Text (Ctrl-Cmd-S).",
+  "evidence": [
+   "Strike Through Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add a rectangle",
+  "behavior": "Tools > Annotate > Rectangle (Ctrl-Cmd-R).",
+  "evidence": [
+   "Rectangle",
+   "Rectangle Tool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add an oval",
+  "behavior": "Tools > Annotate > Oval (Ctrl-Cmd-O).",
+  "evidence": [
+   "Oval",
+   "Oval Tool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add a line",
+  "behavior": "Tools > Annotate > Line (Ctrl-Cmd-I).",
+  "evidence": [
+   "Line",
+   "Line Tool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add an arrow",
+  "behavior": "Tools > Annotate > Arrow (Ctrl-Cmd-A).",
+  "evidence": [
+   "Arrow",
+   "Arrow Tool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add a polygon",
+  "behavior": "Tools > Annotate > Polygon.",
+  "evidence": [
+   "Polygon"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add a star",
+  "behavior": "Tools > Annotate > Star.",
+  "evidence": [
+   "Star"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add a speech bubble",
+  "behavior": "Tools > Annotate > Speech Bubble.",
+  "evidence": [
+   "Speech Bubble",
+   "Speech Bubble Tool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add a thought bubble",
+  "behavior": "Thought bubble shape tool.",
+  "evidence": [
+   "Thought Bubble",
+   "Thought Bubble Tool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add a loupe",
+  "behavior": "Tools > Annotate > Loupe (Ctrl-Cmd-L) magnifies a circular region.",
+  "evidence": [
+   "Loupe"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shapes",
+  "feature": "Add a mask",
+  "behavior": "Tools > Annotate > Mask dims everything outside a shape.",
+  "evidence": [
+   "Mask"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shape Style",
+  "feature": "Set line thickness",
+  "behavior": "Thickness 1, 2, 3, 4, 5, 10, 15 points; dashed line option.",
+  "evidence": [
+   "Thickness",
+   "Dashed Line"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shape Style",
+  "feature": "Set arrowheads",
+  "behavior": "Arrowhead at Start, End, or Both Ends.",
+  "evidence": [
+   "Arrowhead at Start",
+   "Arrowheads at Both Ends"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shape Style",
+  "feature": "Set line colour",
+  "behavior": "Line colour picker.",
+  "evidence": [
+   "Line Color"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shape Style",
+  "feature": "Set fill colour",
+  "behavior": "Fill colour picker or No Fill.",
+  "evidence": [
+   "Fill Color",
+   "No Fill"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Shape Style",
+  "feature": "Add shadow to shape",
+  "behavior": "Shadow toggle in shape attributes.",
+  "evidence": [
+   "Shadow",
+   "Shape Attributes"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Text Box",
+  "feature": "Add a text box",
+  "behavior": "Tools > Annotate > Text (Ctrl-Cmd-T); double-click anywhere in the PDF to add a text box.",
+  "evidence": [
+   "Text Tool",
+   "Double Click anywhere in the PDF to add a text box."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Text Box",
+  "feature": "Change text font",
+  "behavior": "Show Fonts opens the font panel for text annotations.",
+  "evidence": [
+   "Show Fonts"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Text Box",
+  "feature": "Add outlined text",
+  "behavior": "Outline Text Tool.",
+  "evidence": [
+   "Outline Text Tool",
+   "Outlined Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Notes",
+  "feature": "Add a note",
+  "behavior": "Tools > Annotate > Note (Ctrl-Cmd-N).",
+  "evidence": [
+   "Note",
+   "Note Tool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Notes",
+  "feature": "Change note colour",
+  "behavior": "Note colours menu.",
+  "evidence": [
+   "Note Colors"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Notes",
+  "feature": "Show or hide notes",
+  "behavior": "Show Notes / Hide Notes.",
+  "evidence": [
+   "Show Notes",
+   "Hide Notes"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Sketch",
+  "feature": "Draw freehand",
+  "behavior": "unknown: Shape Tools group in Markup toolbar; freehand sketch not confirmed in strings.",
+  "evidence": [
+   "Shape Tools"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Links",
+  "feature": "Add links",
+  "behavior": "Link annotation tool adds links to pages or URLs.",
+  "evidence": [
+   "Add Links",
+   "Link Annotation"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Inspector",
+  "feature": "List annotations in inspector",
+  "behavior": "Annotations inspector lists type, author, date, page.",
+  "evidence": [
+   "Annotations Inspector",
+   "Author",
+   "Type"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Author",
+  "feature": "Add name to annotations",
+  "behavior": "Preference adds user name to annotations.",
+  "evidence": [
+   "Add name to annotations"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Selection",
+  "feature": "Delete annotation",
+  "behavior": "Edit > Delete removes the selected annotation.",
+  "evidence": [
+   "Delete"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Edit",
+  "feature": "Undo or redo",
+  "behavior": "Edit > Undo (Cmd-Z) / Redo (Shift-Cmd-Z).",
+  "evidence": [
+   "Undo",
+   "Redo"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Edit",
+  "feature": "Cut and paste annotation",
+  "behavior": "Edit > Cut (Cmd-X), Paste (Cmd-V).",
+  "evidence": [
+   "Cut",
+   "Paste"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "annotate",
+  "area": "Stamp",
+  "feature": "Add stamp",
+  "behavior": "unknown: stamp annotation type exists.",
+  "evidence": [
+   "Stamp"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "edit",
+  "area": "Adjust Colour",
+  "feature": "Adjust colour",
+  "behavior": "Tools > Adjust Colour… (Opt-Cmd-C): exposure, gamma etc.",
+  "evidence": [
+   "Adjust Colour…",
+   "Exposure:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "edit",
+  "area": "Remove Background",
+  "feature": "Remove background",
+  "behavior": "Tools > Remove Background (Shift-Cmd-K).",
+  "evidence": [
+   "Remove Background"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "edit",
+  "area": "Instant Alpha",
+  "feature": "Remove area with Instant Alpha",
+  "behavior": "Instant Alpha selection tool.",
+  "evidence": [
+   "Instant Alpha"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "edit",
+  "area": "Selection",
+  "feature": "Use lasso selection",
+  "behavior": "Lasso and Smart Lasso selection.",
+  "evidence": [
+   "Lasso Selection",
+   "Smart Lasso"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "edit",
+  "area": "Selection",
+  "feature": "Use elliptical selection",
+  "behavior": "Elliptical Selection tool.",
+  "evidence": [
+   "Elliptical Selection"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "edit",
+  "area": "Quick Text",
+  "feature": "Quickly add text",
+  "behavior": "Quickly Add Text action.",
+  "evidence": [
+   "Quickly Add Text"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Rotate left",
+  "behavior": "Tools > Rotate Left (Cmd-L); asks current page or entire document.",
+  "evidence": [
+   "Rotate Left",
+   "Do you want to rotate only the current page or the entire document?"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Rotate right",
+  "behavior": "Tools > Rotate Right (Cmd-R).",
+  "evidence": [
+   "Rotate Right"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Flip horizontal",
+  "behavior": "Tools > Flip Horizontal.",
+  "evidence": [
+   "Flip Horizontal"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Flip vertical",
+  "behavior": "Tools > Flip Vertical.",
+  "evidence": [
+   "Flip Vertical"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Crop to selection",
+  "behavior": "Tools > Crop (Cmd-K); crop hides content outside selection without deleting it.",
+  "evidence": [
+   "Crop",
+   "Cropping a PDF document doesn’t delete the content outside the selection."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Crop",
+  "feature": "Crop current page or all",
+  "behavior": "Prompt to crop only the current page or the whole document.",
+  "evidence": [
+   "Do you want to crop only the current page or the entire document?"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Insert",
+  "feature": "Insert page from file",
+  "behavior": "Edit > Insert > Page from File….",
+  "evidence": [
+   "Page from File…",
+   "Insert Page from File…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Insert",
+  "feature": "Insert page from scanner",
+  "behavior": "Edit > Insert > Page from Scanner….",
+  "evidence": [
+   "Page from Scanner…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Insert",
+  "feature": "Insert blank page",
+  "behavior": "Edit > Insert > Blank Page.",
+  "evidence": [
+   "Blank Page",
+   "Insert Blank Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Delete",
+  "feature": "Delete selected pages",
+  "behavior": "Delete in Thumbnails sidebar removes pages.",
+  "evidence": [
+   "Delete Selected Pages",
+   "Delete Pages"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Reorder",
+  "feature": "Drag pages to reorder",
+  "behavior": "Drag thumbnails in sidebar; dragged pages labelled.",
+  "evidence": [
+   "%@ (dragged)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Merge",
+  "feature": "Drag pages between documents",
+  "behavior": "unknown: dragging thumbnails between documents.",
+  "evidence": [
+   "%@-%@ (dragged)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Thumbnails",
+  "feature": "Delete page from thumbnails",
+  "behavior": "Delete Selected Page.",
+  "evidence": [
+   "Delete Selected Page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Page Size",
+  "feature": "Adjust size",
+  "behavior": "Tools > Adjust Size… resizes width/height.",
+  "evidence": [
+   "Adjust Size…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Duplicate",
+  "feature": "Duplicate document",
+  "behavior": "File > Duplicate.",
+  "evidence": [
+   "Duplicate"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "forms",
+  "area": "Form Filling",
+  "feature": "Show form filling toolbar",
+  "behavior": "Toggle Form Filling Toolbar.",
+  "evidence": [
+   "Show Form Filling Toolbar",
+   "Toggle Form Filling Toolbar"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "forms",
+  "area": "Form Filling",
+  "feature": "Fill form fields",
+  "behavior": "Type to enter text in form fields; AutoFill can help.",
+  "evidence": [
+   "Form Filling",
+   "AutoFill can assist with converting to PDF and filling out this form."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "forms",
+  "area": "Form Filling",
+  "feature": "Add checkbox",
+  "behavior": "Checkbox form tool.",
+  "evidence": [
+   "Checkbox"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Add signature",
+  "behavior": "Tools > Annotate > Signature places a saved signature.",
+  "evidence": [
+   "Signature",
+   "Signature Tool"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Create signature from camera",
+  "behavior": "Capture a signature with the camera.",
+  "evidence": [
+   "An iSight or other camera is required to capture a signature."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Create signature from device",
+  "behavior": "Create Signature from iPhone/iPad.",
+  "evidence": [
+   "Create Signature from %@…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Manage signatures",
+  "behavior": "Manage Signatures… lists saved signatures.",
+  "evidence": [
+   "Manage Signatures…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Remove signature",
+  "behavior": "Remove Signature with confirmation.",
+  "evidence": [
+   "Remove Signature",
+   "Remove Signatures"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Use temporary signature",
+  "behavior": "Temporary signatures are discarded after quit.",
+  "evidence": [
+   "Temporary",
+   "This signature will be discarded after Preview quits."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "sign",
+  "area": "Signature",
+  "feature": "Store signatures encrypted",
+  "behavior": "Signatures saved encrypted in keychain.",
+  "evidence": [
+   "This signature has been saved and encrypted for security."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "security",
+  "area": "Password",
+  "feature": "Enter password to unlock",
+  "behavior": "File > Enter Password… unlocks protected PDFs.",
+  "evidence": [
+   "Enter Password…",
+   "Password…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "security",
+  "area": "Permissions",
+  "feature": "Edit permissions",
+  "behavior": "File > Edit Permissions… sets print/copy permissions and owner password.",
+  "evidence": [
+   "Edit Permissions…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "security",
+  "area": "Permissions",
+  "feature": "View permissions in inspector",
+  "behavior": "Encryption inspector shows print, copy, view permissions.",
+  "evidence": [
+   "Encryption Inspector",
+   "You may print this PDF."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "security",
+  "area": "Encryption",
+  "feature": "Encrypt PDF on export",
+  "behavior": "Export option Encrypt with password.",
+  "evidence": [
+   "Encrypt"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "security",
+  "area": "Redact",
+  "feature": "Redact content",
+  "behavior": "Tools > Redact; content permanently removed when closed.",
+  "evidence": [
+   "Redact",
+   "Redacted content is permanently removed."
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "security",
+  "area": "Keywords",
+  "feature": "Edit document keywords",
+  "behavior": "Keywords inspector adds or removes keywords.",
+  "evidence": [
+   "Keywords Inspector",
+   "New keyword"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export as PDF",
+  "behavior": "File > Export as PDF….",
+  "evidence": [
+   "Export as PDF…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export to image format",
+  "behavior": "File > Export… choose JPEG, PNG, TIFF, HEIC etc.",
+  "evidence": [
+   "Export…",
+   "JPEG Image",
+   "TIFF Document"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "convert",
+  "area": "Export",
+  "feature": "Export with format options",
+  "behavior": "Export sheet: Format PDF, Quartz Filter, PDF/A, Linearized, Optimize images, JPEG, Permissions.",
+  "evidence": [
+   "File > Export… sheet: Format PDF, Quartz Filter, PDF/A, Linearized, Optimize images, JPEG, Permissions; a tag-suggestion popover covers the \"Where\" row"
+  ],
+  "source": "ui"
+ },
+ {
+  "app": "preview",
+  "domain": "convert",
+  "area": "PostScript",
+  "feature": "Open PostScript as PDF",
+  "behavior": "Converts PostScript files to PDF on open.",
+  "evidence": [
+   "Converting PostScript file…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "convert",
+  "area": "Image to PDF",
+  "feature": "Convert image document to PDF",
+  "behavior": "Prompt to convert image to PDF for form filling.",
+  "evidence": [
+   "Convert this image document to PDF?"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "convert",
+  "area": "Clipboard",
+  "feature": "New from clipboard",
+  "behavior": "File > New from Clipboard (Cmd-N).",
+  "evidence": [
+   "New from Clipboard"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "optimize",
+  "area": "Compress",
+  "feature": "Choose compression on export",
+  "behavior": "Compressed (Smaller File Size) or Uncompressed.",
+  "evidence": [
+   "Choose your compression setting",
+   "Compressed (Smaller File Size)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "output",
+  "area": "Save",
+  "feature": "Save document",
+  "behavior": "File > Save (Cmd-S).",
+  "evidence": [
+   "Save"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "output",
+  "area": "Revert",
+  "feature": "Revert to saved",
+  "behavior": "File > Revert to Saved… browses versions.",
+  "evidence": [
+   "Revert to Saved…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print document",
+  "behavior": "File > Print… (Cmd-P).",
+  "evidence": [
+   "Print…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Set pages per sheet",
+  "behavior": "Copies per page: 1, 2, 4, 6, 9, 16.",
+  "evidence": [
+   "Copies per page:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Scale to fit page",
+  "behavior": "Scale or Scale to Fit; Fill Entire Paper; Auto Rotate.",
+  "evidence": [
+   "Scale to Fit:",
+   "Fill Entire Paper",
+   "Auto Rotate"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "output",
+  "area": "Print",
+  "feature": "Print notes",
+  "behavior": "Show Notes in print panel.",
+  "evidence": [
+   "Show Notes"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "output",
+  "area": "Share",
+  "feature": "Share document",
+  "behavior": "Share… menu.",
+  "evidence": [
+   "Share…",
+   "Share the document"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "output",
+  "area": "Rename",
+  "feature": "Rename document",
+  "behavior": "unknown: Rename command for the document.",
+  "evidence": [
+   "Rename"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "output",
+  "area": "Move",
+  "feature": "Move to trash",
+  "behavior": "File > Move to Bin.",
+  "evidence": [
+   "Move to Bin"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "files",
+  "area": "Open",
+  "feature": "Open file",
+  "behavior": "File > Open… (Cmd-O).",
+  "evidence": [
+   "Open…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "files",
+  "area": "Open",
+  "feature": "Open recent",
+  "behavior": "File > Open Recent.",
+  "evidence": [
+   "Open Recent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "files",
+  "area": "Import",
+  "feature": "Import from scanner",
+  "behavior": "File > Import from Scanner….",
+  "evidence": [
+   "Import from Scanner…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "files",
+  "area": "Import",
+  "feature": "Import from camera",
+  "behavior": "File > Import from Camera….",
+  "evidence": [
+   "Import from Camera…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "files",
+  "area": "Screenshot",
+  "feature": "Take screenshot",
+  "behavior": "File > Take Screenshot: selection, window, entire screen.",
+  "evidence": [
+   "Take Screenshot",
+   "From Selection…"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "preferences",
+  "area": "General",
+  "feature": "Choose window background",
+  "behavior": "General: window background colour.",
+  "evidence": [
+   "Window background:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "preferences",
+  "area": "General",
+  "feature": "Open files in one or separate windows",
+  "behavior": "When opening files: own window or same window.",
+  "evidence": [
+   "Open each file in its own window"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "preferences",
+  "area": "PDF",
+  "feature": "Set default PDF view",
+  "behavior": "When opening PDFs: Default View.",
+  "evidence": [
+   "Default View:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "preferences",
+  "area": "PDF",
+  "feature": "Start on last viewed page",
+  "behavior": "Start on the last viewed page.",
+  "evidence": [
+   "Start on the last viewed page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "preferences",
+  "area": "PDF",
+  "feature": "Use logical page numbers",
+  "behavior": "Use logical page numbers (e.g. “iv”).",
+  "evidence": [
+   "Use logical page numbers (e.g. “iv”)"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "preferences",
+  "area": "PDF",
+  "feature": "Define 100% scale",
+  "behavior": "1 point equals 1 screen pixel, or size on screen equals printout.",
+  "evidence": [
+   "Define 100% scale as:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "preferences",
+  "area": "PDF",
+  "feature": "Set annotation author name",
+  "behavior": "Annotations: Add name to annotations, Name:.",
+  "evidence": [
+   "Annotations:"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "platform",
+  "area": "Shortcuts",
+  "feature": "Rotate pages via shortcut",
+  "behavior": "App Intent Rotate Pages.",
+  "evidence": [
+   "RotatePageIntent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "platform",
+  "area": "Shortcuts",
+  "feature": "Insert pages via shortcut",
+  "behavior": "App Intent Insert Pages From Files.",
+  "evidence": [
+   "InsertPageIntent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "platform",
+  "area": "Shortcuts",
+  "feature": "Delete pages via shortcut",
+  "behavior": "App Intent Delete Pages.",
+  "evidence": [
+   "DeletePageIntent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "platform",
+  "area": "Shortcuts",
+  "feature": "Export documents via shortcut",
+  "behavior": "App Intent Export Documents.",
+  "evidence": [
+   "ExportIntent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "platform",
+  "area": "Shortcuts",
+  "feature": "Search documents via shortcut",
+  "behavior": "App Intent Search in Documents.",
+  "evidence": [
+   "SearchIntent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "platform",
+  "area": "Shortcuts",
+  "feature": "Bookmark pages via shortcut",
+  "behavior": "App Intent Bookmark Pages.",
+  "evidence": [
+   "BookmarkIntent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "platform",
+  "area": "Shortcuts",
+  "feature": "Get pages via shortcut",
+  "behavior": "App Intent Get Pages in Documents.",
+  "evidence": [
+   "GetPagesIntent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "platform",
+  "area": "Shortcuts",
+  "feature": "Save documents via shortcut",
+  "behavior": "App Intent Save Documents.",
+  "evidence": [
+   "SaveIntent"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Add bookmark",
+  "behavior": "Go > Add Bookmark (Cmd-D).",
+  "evidence": [
+   "Add Bookmark"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Bookmarks",
+  "feature": "Remove bookmark",
+  "behavior": "Remove bookmark from current page.",
+  "evidence": [
+   "Remove bookmark from current page"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "reader",
+  "area": "Spelling",
+  "feature": "Check spelling",
+  "behavior": "Edit > Spelling and Grammar.",
+  "evidence": [
+   "Show Spelling and Grammar",
+   "Check Document Now"
+  ],
+  "source": "code"
+ },
+ {
+  "app": "preview",
+  "domain": "organize",
+  "area": "Rotate",
+  "feature": "Auto rotate pages",
+  "behavior": "Page Auto Rotation.",
+  "evidence": [
+   "Page Auto Rotation"
+  ],
+  "source": "code"
+ }
+]
