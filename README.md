@@ -5,6 +5,8 @@
 <p align="center"><b>A fast, private, open-source PDF toolbox for Mac, Windows and Linux.</b><br>
 Merge, compress, convert, OCR, sign and redact PDFs — offline, in a native app.</p>
 
+<p align="center"><a href="https://ko-fi.com/MeNass89"><img src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white" alt="Support on Ko-fi"></a> <a href="https://github.com/sponsors/MeNass89"><img src="https://img.shields.io/badge/GitHub-sponsor-EA4AAA?logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub"></a></p>
+
 ---
 
 Sheaf is a native desktop app (Rust + [Slint](https://slint.dev)) for everyday PDF work. Everything runs on your machine: no account, no upload, no paywall, no telemetry.
@@ -100,6 +102,10 @@ Workspace layout:
 - `crates/sheaf-core` — the engine: pdfium (rendering, page copy), lopdf (structure, AES-256, rotation, image recompression), LibreOffice headless (Office → PDF). Every write goes through a temp file and never overwrites an existing file.
 - `crates/sheaf-cli` — the `sheaf` command.
 - `crates/sheaf-app` — the Slint GUI.
+
+## Support
+
+Sheaf is free and stays free. If it saves you a subscription, you can [buy me a coffee on Ko-fi](https://ko-fi.com/MeNass89) or [sponsor on GitHub](https://github.com/sponsors/MeNass89).
 
 ## License
 
