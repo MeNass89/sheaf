@@ -741,7 +741,7 @@ export component OptionsPanel inherits VerticalLayout {
 
     if !root.office-missing && (root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf"
             || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): InfoBox {
-        text: "Converted with LibreOffice on this Mac. Nothing is uploaded.";
+        text: "Converted with LibreOffice on this computer. Nothing is uploaded.";
     }
 
     if root.office-missing: VerticalLayout {

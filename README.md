@@ -2,12 +2,12 @@
 
 <h1 align="center">Sheaf</h1>
 
-<p align="center"><b>A fast, private, open-source PDF toolbox for the Mac.</b><br>
+<p align="center"><b>A fast, private, open-source PDF toolbox for Mac, Windows and Linux.</b><br>
 Merge, compress, convert, OCR, sign and redact PDFs — offline, in a native app.</p>
 
 ---
 
-Sheaf is a native macOS app (Rust + [Slint](https://slint.dev)) for everyday PDF work. Everything runs on your machine: no account, no upload, no paywall, no telemetry.
+Sheaf is a native desktop app (Rust + [Slint](https://slint.dev)) for everyday PDF work. Everything runs on your machine: no account, no upload, no paywall, no telemetry.
 
 ## Tools
 
@@ -36,15 +36,17 @@ Measured on an Apple Silicon Mac — method and raw numbers in [docs/BENCH.md](d
 
 ## Install
 
-Download the latest `Sheaf-x.y.z-arm64.dmg` from [Releases](../../releases), open it and drag **Sheaf** to Applications.
+Download from [Releases](../../releases):
 
-The build is ad-hoc signed (not notarized), so on first launch macOS will refuse to open it: right-click **Sheaf → Open**, or run `xattr -dr com.apple.quarantine /Applications/Sheaf.app`.
+- **macOS** (12+, Apple Silicon): `Sheaf-x.y.z-arm64.dmg`. Open it and drag **Sheaf** to Applications. The build is ad-hoc signed (not notarized), so on first launch macOS will refuse to open it: right-click **Sheaf → Open**, or run `xattr -dr com.apple.quarantine /Applications/Sheaf.app`.
+- **Windows** (10+, x64): `Sheaf-x.y.z-windows-x64.zip`. Unzip it anywhere and run `Sheaf.exe`. The build is not code-signed, so SmartScreen may warn on first launch: **More info → Run anyway**.
+- **Linux** (x64, glibc 2.35+): `Sheaf-x.y.z-linux-x64.tar.gz`. Unpack it anywhere and run `bin/sheaf-app`. `share/applications/sheaf.desktop` adds it to the app menu if copied to `~/.local/share/applications/` (adjust its `Exec=` to the full path).
 
-Requires macOS 12+ on Apple Silicon.
+The Windows and Linux builds are compiled and smoke-tested by CI on every release; day-to-day testing happens on macOS.
 
 ## Command line
 
-The app ships a CLI at `Sheaf.app/Contents/Helpers/sheaf`:
+The app ships a CLI: `Sheaf.app/Contents/Helpers/sheaf` on macOS, `sheaf-cli.exe` on Windows, `bin/sheaf` on Linux.
 
 ```sh
 sheaf merge a.pdf b.pdf -o merged.pdf
@@ -84,10 +86,13 @@ Tools never overwrite a file: when the output name is taken they write `name (1)
 ## Build from source
 
 ```sh
-sh scripts/fetch-pdfium.sh          # downloads the pdfium library (arm64)
-cargo test --workspace
+sh scripts/fetch-pdfium.sh          # downloads the pdfium library for this platform
+sh scripts/fetch-models.sh          # the OCR models
+cargo test --workspace              # needs qpdf and poppler (pdftotext)
 cargo run -p sheaf-app              # the GUI
 sh scripts/bundle-macos.sh          # → target/Sheaf.app (needs: brew install librsvg; cargo install cargo-about --features cli)
+sh scripts/package-linux.sh         # → target/Sheaf-x.y.z-linux-x64.tar.gz
+sh scripts/package-windows.sh       # → target/Sheaf-x.y.z-windows-x64.zip (Git Bash)
 ```
 
 Workspace layout:
@@ -98,6 +103,6 @@ Workspace layout:
 
 ## License
 
-Sheaf's own source code is GPL-3.0-or-later. The distributed app links Slint under GPL-3.0-only and is therefore distributed under GPL-3.0. Third-party notices ship inside the app (`Contents/Resources/licenses/`). Icons: [Lucide](https://lucide.dev) (ISC). PDF engine: [pdfium](https://pdfium.googlesource.com/pdfium/) (BSD-3-Clause) via [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries). Built on [PdfCraft](https://github.com/storytold/pdfcraft) (MIT OR Apache-2.0), which embeds the Dancing Script and Inter fonts (SIL OFL 1.1).
+Sheaf's own source code is GPL-3.0-or-later. The distributed app links Slint under GPL-3.0-only and is therefore distributed under GPL-3.0. Third-party notices ship inside the app (`Contents/Resources/licenses/` on macOS, `licenses/` in the Windows zip, `share/doc/sheaf/` in the Linux package). Icons: [Lucide](https://lucide.dev) (ISC). PDF engine: [pdfium](https://pdfium.googlesource.com/pdfium/) (BSD-3-Clause) via [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries). Built on [PdfCraft](https://github.com/storytold/pdfcraft) (MIT OR Apache-2.0), which embeds the Dancing Script and Inter fonts (SIL OFL 1.1).
 
 Sheaf is an independent project, not affiliated with any other PDF vendor.

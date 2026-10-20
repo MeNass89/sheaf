@@ -1,0 +1,59 @@
+name: Release
+
+# On a version tag: builds the Linux and Windows packages, smoke-tests them, and attaches
+# them to the GitHub release of that tag (created if needed). The macOS DMG is built and
+# attached separately (scripts/bundle-macos.sh, scripts/make-dmg.sh).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            script: package-linux.sh
+            artifact: linux-x64.tar.gz
+            cli: bin/sheaf
+          - os: windows-2022
+            script: package-windows.sh
+            artifact: windows-x64.zip
+            cli: sheaf-cli.exe
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev libudev-dev
+      - run: sh scripts/${{ matrix.script }}
+      - name: Smoke test
+        run: sh scripts/smoke.sh target/Sheaf-*-${{ matrix.artifact == 'linux-x64.tar.gz' && 'linux-x64' || 'windows-x64' }}/${{ matrix.cli }}
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Sheaf ${TAG#v}" --notes "" --draft
+          gh release upload "$TAG" target/Sheaf-*-${{ matrix.artifact }} --clobber

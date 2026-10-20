@@ -133,6 +133,8 @@ export component AppWindow inherits Window {
     changed page => { root.page-shown(); }
 
     title: "Sheaf";
+    // Windows and Linux taskbars (macOS takes the bundle's icon).
+    icon: @image-url("../macos/icon.svg");
     preferred-width: 1280px;
     preferred-height: 800px;
     min-width: 900px;

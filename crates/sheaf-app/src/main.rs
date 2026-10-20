@@ -1,5 +1,8 @@
 //! Sheaf desktop app entry point: builds the window and wires its callbacks.
 
+// Windows: a GUI app, no console window behind it.
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 mod dest;
 mod flow;
 mod home;
@@ -272,7 +275,7 @@ fn main() -> Result<(), slint::PlatformError> {
             .into()
     });
     ui.on_get_libreoffice(|| {
-        run::open_detached(&["https://www.libreoffice.org/download/"]);
+        run::open_detached("https://www.libreoffice.org/download/");
     });
 
     // Drag and drop from Finder.

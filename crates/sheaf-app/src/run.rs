@@ -405,34 +405,57 @@ fn outputs(tab_id: i32) -> Vec<PathBuf> {
     })
 }
 
-/// Runs `open` with `args` and reaps it on a background thread (no zombie processes).
-pub fn open_detached<S: AsRef<std::ffi::OsStr>>(args: &[S]) {
-    if let Ok(mut child) = std::process::Command::new("open").args(args).spawn() {
+/// Spawns `cmd` and reaps it on a background thread (no zombie processes).
+fn spawn_detached(cmd: &str, args: &[&std::ffi::OsStr]) {
+    if let Ok(mut child) = std::process::Command::new(cmd).args(args).spawn() {
         std::thread::spawn(move || {
             let _ = child.wait();
         });
     }
 }
 
-fn open_cmd(args: &[&std::ffi::OsStr]) {
-    open_detached(args);
+/// Opens a file or URL in its default app.
+pub fn open_detached(target: impl AsRef<std::ffi::OsStr>) {
+    let t = target.as_ref();
+    #[cfg(target_os = "macos")]
+    spawn_detached("open", &[t]);
+    #[cfg(windows)]
+    spawn_detached("explorer", &[t]);
+    #[cfg(not(any(target_os = "macos", windows)))]
+    spawn_detached("xdg-open", &[t]);
+}
+
+/// Shows a file selected in its folder (Linux: opens the folder).
+pub fn reveal(p: &std::path::Path) {
+    #[cfg(target_os = "macos")]
+    spawn_detached("open", &["-R".as_ref(), p.as_os_str()]);
+    #[cfg(windows)]
+    {
+        let mut arg = std::ffi::OsString::from("/select,");
+        arg.push(p.as_os_str());
+        spawn_detached("explorer", &[&arg]);
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    if let Some(dir) = p.parent() {
+        spawn_detached("xdg-open", &[dir.as_os_str()]);
+    }
 }
 
 pub fn open_output(tab_id: i32, k: i32) {
     if let Some(p) = outputs(tab_id).get(k as usize) {
-        open_cmd(&[p.as_os_str()]);
+        open_detached(p);
     }
 }
 
 pub fn reveal_output(tab_id: i32, k: i32) {
     if let Some(p) = outputs(tab_id).get(k as usize) {
-        open_cmd(&["-R".as_ref(), p.as_os_str()]);
+        reveal(p);
     }
 }
 
 pub fn open_folder(tab_id: i32) {
     if let Some(p) = outputs(tab_id).first() {
-        open_cmd(&["-R".as_ref(), p.as_os_str()]);
+        reveal(p);
     }
 }
 

@@ -19,10 +19,16 @@ fn candidate_dirs() -> Vec<PathBuf> {
     if let Ok(exe) = std::env::current_exe()
         && let Some(dir) = exe.parent()
     {
+        // macOS bundle (Contents/MacOS → Contents/Frameworks), Windows (beside the .exe),
+        // Linux tree (bin/ → lib/).
         v.push(dir.join("../Frameworks"));
+        v.push(dir.to_path_buf());
+        v.push(dir.join("../lib"));
     }
     if cfg!(debug_assertions) {
+        // pdfium-binaries puts the library in lib/ (macOS, Linux) or bin/ (Windows).
         v.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vendor/pdfium/lib")));
+        v.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vendor/pdfium/bin")));
     }
     v
 }
@@ -42,10 +48,10 @@ pub(crate) fn pdfium() -> &'static Pdfium {
         }
         match last_err {
             Some((lib, e)) => panic!(
-                "libpdfium.dylib could not be loaded: {}: {e}; run scripts/fetch-pdfium.sh or set SHEAF_PDFIUM_DIR",
+                "pdfium could not be loaded: {}: {e}; run scripts/fetch-pdfium.sh or set SHEAF_PDFIUM_DIR",
                 lib.display()
             ),
-            None => panic!("libpdfium.dylib not found; run scripts/fetch-pdfium.sh or set SHEAF_PDFIUM_DIR"),
+            None => panic!("the pdfium library was not found; run scripts/fetch-pdfium.sh or set SHEAF_PDFIUM_DIR"),
         }
     })
 }

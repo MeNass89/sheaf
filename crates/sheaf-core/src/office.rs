@@ -15,7 +15,8 @@ use std::time::{Duration, Instant};
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 const POLL: Duration = Duration::from_millis(100);
 
-/// Locates `soffice`: `$SHEAF_SOFFICE`, then the standard macOS bundle, then `PATH`.
+/// Locates `soffice`: `$SHEAF_SOFFICE`, then the standard install location (macOS, Windows),
+/// then `PATH`.
 pub fn find_soffice() -> Option<PathBuf> {
     if let Some(p) = std::env::var_os("SHEAF_SOFFICE").map(PathBuf::from).filter(|p| p.is_file()) {
         return Some(p);
@@ -27,8 +28,19 @@ pub fn find_soffice() -> Option<PathBuf> {
             return Some(p.to_path_buf());
         }
     }
+    #[cfg(windows)]
+    for var in ["ProgramFiles", "ProgramFiles(x86)"] {
+        if let Some(d) = std::env::var_os(var) {
+            // soffice.com is the console entry point: it waits for the conversion to finish.
+            let p = Path::new(&d).join("LibreOffice/program/soffice.com");
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+    }
+    let name = if cfg!(windows) { "soffice.com" } else { "soffice" };
     std::env::split_paths(&std::env::var_os("PATH")?)
-        .map(|d| d.join("soffice"))
+        .map(|d| d.join(name))
         .find(|p| p.is_file())
 }
 
@@ -47,7 +59,8 @@ pub fn office_to_pdf_with(soffice: Option<&Path>, input: &Path, out: &Path, time
         Some(_) => return Err(OpdfError::OfficeMissing),
         None => find_soffice().ok_or(OpdfError::OfficeMissing)?,
     };
-    let input = std::fs::canonicalize(input)?;
+    // Windows: canonicalize gives a `\\?\` path LibreOffice does not read.
+    let input = if cfg!(windows) { std::path::absolute(input)? } else { std::fs::canonicalize(input)? };
 
     let tmp = tempfile::tempdir()?;
     let outdir = tmp.path().join("out");
@@ -138,12 +151,15 @@ fn produced_pdf(outdir: &Path, input: &Path) -> Option<PathBuf> {
 }
 
 /// `file://` URL for an absolute path, percent-encoding every byte outside
-/// RFC 3986 unreserved characters and `/`.
+/// RFC 3986 unreserved characters and `/` (Windows: `file:///C:/…`).
 fn file_url(path: &Path) -> String {
-    use std::os::unix::ffi::OsStrExt;
+    #[cfg(unix)]
+    let bytes = std::os::unix::ffi::OsStrExt::as_bytes(path.as_os_str()).to_vec();
+    #[cfg(not(unix))]
+    let bytes = format!("/{}", path.to_string_lossy().replace('\\', "/")).into_bytes();
     let mut url = String::from("file://");
-    for &b in path.as_os_str().as_bytes() {
-        if b.is_ascii_alphanumeric() || b"-._~/".contains(&b) {
+    for &b in &bytes {
+        if b.is_ascii_alphanumeric() || b"-._~/".contains(&b) || (cfg!(windows) && b == b':') {
             url.push(b as char);
         } else {
             url.push_str(&format!("%{b:02X}"));
@@ -157,6 +173,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(unix)]
     fn file_url_encodes_spaces_and_non_ascii() {
         assert_eq!(file_url(Path::new("/tmp/a b/é")), "file:///tmp/a%20b/%C3%A9");
         assert_eq!(file_url(Path::new("/var/folders/x_y/T/.tmp1-2~")), "file:///var/folders/x_y/T/.tmp1-2~");

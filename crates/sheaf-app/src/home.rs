@@ -142,7 +142,7 @@ pub fn record(tool: ToolId, inputs: &[PathBuf], outputs: &[PathBuf]) {
 /// "Open the output folder when done".
 fn after_processing(outputs: &[PathBuf]) {
     if let Some(first) = outputs.first().filter(|_| prefs().open_folder_after) {
-        crate::run::open_detached(&["-R".as_ref(), first.as_os_str()]);
+        crate::run::reveal(first);
     }
 }
 
@@ -255,19 +255,19 @@ fn recent(i: i32) -> Option<PathBuf> {
 
 pub fn open_recent(i: i32) {
     if let Some(p) = recent(i) {
-        crate::run::open_detached(&[p.as_os_str()]);
+        crate::run::open_detached(&p);
     }
 }
 
 pub fn reveal_recent(i: i32) {
     if let Some(p) = recent(i) {
-        crate::run::open_detached(&["-R".as_ref(), p.as_os_str()]);
+        crate::run::reveal(&p);
     }
 }
 
 pub fn reveal_history(i: i32) {
     let first = with(|h| h.store.list().get(i as usize).and_then(|e| e.outputs.first().cloned()));
     if let Some(p) = first.filter(|p| p.exists()) {
-        crate::run::open_detached(&["-R".as_ref(), p.as_os_str()]);
+        crate::run::reveal(&p);
     }
 }

@@ -6,17 +6,21 @@ set -eu
 dir="$(cd "$(dirname "$0")/.." && pwd)/vendor/models"
 mkdir -p "$dir"
 
+sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1
+}
+
 fetch() {
     name="$1"
     sum="$2"
     file="$dir/$name.rten"
-    if [ -f "$file" ] && [ "$(shasum -a 256 "$file" | cut -d' ' -f1)" = "$sum" ]; then
+    if [ -f "$file" ] && [ "$(sha256 "$file")" = "$sum" ]; then
         return 0
     fi
     tmp="$(mktemp)"
     trap 'rm -f "$tmp"' EXIT INT TERM
     curl -fsSL -o "$tmp" "https://ocrs-models.s3-accelerate.amazonaws.com/$name.rten"
-    got="$(shasum -a 256 "$tmp" | cut -d' ' -f1)"
+    got="$(sha256 "$tmp")"
     if [ "$got" != "$sum" ]; then
         rm -f "$tmp"
         echo "error: $name.rten: checksum $got, expected $sum" >&2

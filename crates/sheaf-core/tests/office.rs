@@ -72,6 +72,7 @@ fn converts_real_docx() {
 }
 
 #[test]
+#[cfg(unix)]
 fn timeout_kills_and_reports() {
     // A fake "soffice" that sleeps forever: the conversion must time out, not hang.
     let t = tempfile::tempdir().unwrap();
@@ -89,6 +90,7 @@ fn timeout_kills_and_reports() {
 }
 
 #[test]
+#[cfg(unix)]
 fn failing_soffice_reports_last_stderr_line() {
     let t = tempfile::tempdir().unwrap();
     let fake = t.path().join("fake-soffice");
@@ -116,6 +118,7 @@ fn converts_leading_dash_unicode_space_name() {
 }
 
 #[test]
+#[cfg(unix)]
 fn exit_zero_without_pdf_is_reported() {
     use std::os::unix::fs::PermissionsExt;
     let t = tempfile::tempdir().unwrap();

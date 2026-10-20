@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Tools the tests compare against
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            brew install qpdf poppler
+          else
+            sudo apt-get update
+            sudo apt-get install -y qpdf poppler-utils libfontconfig1-dev libxkbcommon-dev libudev-dev
+          fi
+      - run: sh scripts/fetch-pdfium.sh && sh scripts/fetch-models.sh
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  windows:
+    # The test suite shells out to qpdf, poppler and a POSIX shell: on Windows, the release
+    # build is packaged and the command line run on a real PDF.
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about
+      - run: sh scripts/package-windows.sh
+      - name: Smoke test
+        run: sh scripts/smoke.sh target/Sheaf-*-windows-x64/sheaf-cli.exe

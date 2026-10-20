@@ -2,6 +2,7 @@
 use sheaf_core::paths::atomic_write;
 
 #[test]
+#[cfg(unix)]
 fn atomic_write_never_follows_a_planted_part_symlink() {
     let t = tempfile::tempdir().unwrap();
     let victim = t.path().join("victim.pdf");
