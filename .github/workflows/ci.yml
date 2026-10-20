@@ -19,9 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+      # rust-toolchain.toml pins the version and its clippy; rustup installs both on first use.
       - uses: Swatinem/rust-cache@v2
       - name: Tools the tests compare against
         run: |
@@ -44,7 +42,6 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with:
