@@ -182,14 +182,16 @@ impl<K: Hash + Eq + Clone, V> Lru<K, V> {
         self.order.iter()
     }
 
-    /// Inserts `v` as the most recently used and returns what was evicted to stay at the cap.
+    /// Inserts `v` as the most recently used and returns what it replaced or evicted to stay at
+    /// the cap.
     pub fn put(&mut self, k: K, v: V) -> Vec<(K, V)> {
-        if self.map.insert(k.clone(), v).is_some() {
+        let mut evicted = Vec::new();
+        if let Some(old) = self.map.insert(k.clone(), v) {
             self.touch(&k);
+            evicted.push((k, old));
         } else {
             self.order.push_back(k);
         }
-        let mut evicted = Vec::new();
         while self.map.len() > self.cap {
             let Some(old) = self.order.pop_front() else { break };
             if let Some(v) = self.map.remove(&old) {
@@ -775,8 +777,9 @@ mod tests {
         c.put((5, 1000), 5);
         let dropped = c.retain(|(_, w)| *w == 1000);
         assert_eq!((dropped.len(), c.len()), (39, 1));
-        // Replacing a value does not grow the cache.
-        assert!(c.put((5, 1000), 6).is_empty());
+        // Replacing a value does not grow the cache, and hands the old value back so the
+        // viewer's byte count drops it (it once grew without bound and evicted the visible page).
+        assert_eq!(c.put((5, 1000), 6), vec![((5, 1000), 5)]);
         assert_eq!((c.len(), c.get(&(5, 1000)).copied()), (1, Some(6)));
     }
 }
