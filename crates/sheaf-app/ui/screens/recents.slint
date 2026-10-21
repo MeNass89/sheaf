@@ -2,6 +2,7 @@ import { Theme } from "../theme.slint";
 import { PrimaryButton } from "../widgets/button.slint";
 import { ScrollView } from "std-widgets.slint";
 import { DashedBox } from "../widgets/dashed-box.slint";
+import { SecondaryButton } from "dialogs.slint";
 import { RecentCard } from "../widgets/recent-card.slint";
 import { RecentFile } from "../history-types.slint";
 
@@ -33,6 +34,8 @@ export component RecentsScreen inherits Rectangle {
     callback open-file();
     callback open-recent(int);
     callback reveal-recent(int);
+    callback remove-recent(int);
+    callback clear-recents();
     background: Theme.content-bg;
 
     scroll := ScrollView {
@@ -70,11 +73,33 @@ export component RecentsScreen inherits Rectangle {
         if root.recents.length > 0: VerticalLayout {
             padding-top: 24px;
             spacing: 14px;
-            Text {
-                text: "Recent files";
-                font-size: Theme.fs-subtitle;
-                font-weight: Theme.weight-demibold;
-                color: Theme.text-heading;
+            HorizontalLayout {
+                height: Theme.button-height;
+                Text {
+                    text: "Recent files";
+                    font-size: Theme.fs-subtitle;
+                    font-weight: Theme.weight-demibold;
+                    color: Theme.text-heading;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                SecondaryButton {
+                    text: "Clear recents";
+                    accessible-role: button;
+                    accessible-label: "Clear recents";
+                    accessible-action-default => { root.clear-recents(); }
+                    border-color: clear-focus.has-focus ? Theme.text-secondary : Theme.input-border;
+                    clicked => { root.clear-recents(); }
+                    clear-focus := FocusScope {
+                        key-pressed(e) => {
+                            if e.text == Key.Return || e.text == " " {
+                                root.clear-recents();
+                                return accept;
+                            }
+                            reject
+                        }
+                    }
+                }
             }
             FlexboxLayout {
                 flex-wrap: wrap;
@@ -83,6 +108,7 @@ export component RecentsScreen inherits Rectangle {
                     file: f;
                     open => { root.open-recent(i); }
                     reveal => { root.reveal-recent(i); }
+                    remove => { root.remove-recent(i); }
                 }
             }
         }

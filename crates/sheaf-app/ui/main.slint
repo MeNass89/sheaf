@@ -126,6 +126,8 @@ export component AppWindow inherits Window {
     callback confirm-keep();
     callback open-recent(int);
     callback reveal-recent(int);
+    callback remove-recent(int);
+    callback clear-recents();
     callback reveal-history(int);
     callback clear-history();
     callback set-theme(int);
@@ -177,6 +179,8 @@ export component AppWindow inherits Window {
                         open-file => { root.open-file(); }
                         open-recent(i) => { root.open-recent(i); }
                         reveal-recent(i) => { root.reveal-recent(i); }
+                        remove-recent(i) => { root.remove-recent(i); }
+                        clear-recents => { root.clear-recents(); }
                     }
                     if root.page == Page.tools: ToolsScreen {
                         sections <=> root.sections;

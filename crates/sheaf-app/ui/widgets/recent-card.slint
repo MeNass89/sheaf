@@ -8,13 +8,24 @@ export component RecentCard inherits Rectangle {
     in property <RecentFile> file;
     callback open();
     callback reveal();
+    callback remove();
+    accessible-role: button;
+    accessible-label: root.file.name;
+    accessible-action-default => { root.open(); }
+    focus := FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Return { root.open(); return accept; }
+            if e.text == Key.Delete || e.text == Key.Backspace { root.remove(); return accept; }
+            reject
+        }
+    }
 
     width: Theme.file-card-width + 20px;
     height: Theme.file-card-height + 18px;
     border-radius: Theme.radius-item;
     background: Theme.card;
     border-width: 1px;
-    border-color: touch.has-hover ? Theme.dashed : Theme.card;
+    border-color: touch.has-hover || focus.has-focus ? Theme.dashed : Theme.card;
 
     Rectangle {
         y: 14px;
@@ -64,8 +75,8 @@ export component RecentCard inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { root.open(); }
         // Inside the TouchArea so hovering it keeps the card hovered.
-        if touch.has-hover: Rectangle {
-            x: parent.width - self.width - 4px;
+        if touch.has-hover || focus.has-focus: Rectangle {
+            x: 4px;
             y: 4px;
             width: 28px;
             height: 28px;
@@ -73,7 +84,25 @@ export component RecentCard inherits Rectangle {
             background: Theme.card;
             IconButton {
                 icon: @image-url("../icons/folder-open.svg");
+                accessible-role: button;
+                accessible-label: "Show in folder";
+                accessible-action-default => { root.reveal(); }
                 clicked => { root.reveal(); }
+            }
+        }
+        if touch.has-hover || focus.has-focus: Rectangle {
+            x: parent.width - self.width - 4px;
+            y: 4px;
+            width: 28px;
+            height: 28px;
+            border-radius: Theme.radius-small;
+            background: Theme.card;
+            IconButton {
+                icon: @image-url("../icons/x.svg");
+                accessible-role: button;
+                accessible-label: "Remove from recents";
+                accessible-action-default => { root.remove(); }
+                clicked => { root.remove(); }
             }
         }
     }
