@@ -35,7 +35,8 @@ skip() { wanted "$1" || return 0; echo "SKIP $1: $2"; skipped+=("$1"); }
 mem_gb=$(awk '/MemTotal/{print int($2/1048576)}' /proc/meminfo 2>/dev/null || echo 99)
 if [ -z "${CI:-}" ] && command -v systemd-run >/dev/null && [ "$mem_gb" -lt 10 ]; then
     cargo_() { sh dev/scripts/build-safe.sh "$@"; }
-    export SHEAF_APP="$HOME/.cache/cargo-target/sheaf/debug/sheaf-app"   # dev/scripts/cargo.sh's target dir
+    # The target dir is shared by every worktree: the GUI layer runs its own copy of this build.
+    export SHEAF_APP="$PWD/dev/.tmp/sheaf-app-under-test" SHEAF_COPY_APP="$PWD/dev/.tmp/sheaf-app-under-test"
 else
     cargo_() { cargo "$@"; }
     export SHEAF_APP="${CARGO_TARGET_DIR:-target}/debug/sheaf-app"

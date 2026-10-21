@@ -24,15 +24,22 @@ pub fn remember_position(tab_id: i32) {
 }
 
 /// Whether the content point (`x`, `y`) is over a link (the hand cursor).
-pub fn over_link(tab_id: i32, x: f32, y: f32) -> bool {
+/// Where the link under the content point (`x`, `y`) goes ("Page 12", the web address), as the
+/// tooltip PDF Expert shows; empty when there is none.
+pub fn over_link(tab_id: i32, x: f32, y: f32) -> slint::SharedString {
     with(|a| {
         let t = a.tab(tab_id)?;
         let (r, v) = (t.reader.as_ref()?, t.viewer.as_ref()?);
         let page = v.viewer.hit(x as f64, y as f64)?.0;
         let p = to_view(&v.viewer, page, x as f64, y as f64);
-        link_at(r, &v.viewer, page, p).map(|_| ())
+        Some(match link_at(r, &v.viewer, page, p)? {
+            render::LinkTarget::Page(p, _) => format!("Page {}", label(r, p)),
+            render::LinkTarget::Uri(u) => u,
+            _ => "Link".into(),
+        })
     })
-    .is_some()
+    .unwrap_or_default()
+    .into()
 }
 
 /// Goes to `page`, remembering where the reader was for ⌘[.

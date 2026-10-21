@@ -55,6 +55,15 @@ write("text.pdf", objs, 2)
 # labels.pdf: text.pdf's pages numbered i, ii, then 1, 2 (/PageLabels)
 objs[1] = "<< /Type /Catalog /Pages 3 0 R /PageLabels << /Nums [0 << /S /r >> 2 << /S /D >>] >> >>"
 write("labels.pdf", objs, 2)
+# links.pdf: a link to page 2 and a web link on page 1
+c = "BT /F1 24 Tf 72 700 Td (Go to page 2) Tj 0 -60 Td (Visit example.org) Tj ET"
+objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", "<< /Type /Catalog /Pages 3 0 R >>",
+        "<< /Type /Pages /Kids [5 0 R 7 0 R] /Count 2 >>", f"<< /Length {len(c)} >>\nstream\n{c}\nendstream",
+        "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 1 0 R >> >> /Annots [8 0 R 9 0 R] >>",
+        "<< /Length 0 >>\nstream\n\nendstream", "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Contents 6 0 R >>",
+        "<< /Type /Annot /Subtype /Link /Rect [72 695 260 725] /Border [0 0 0] /Dest [7 0 R /XYZ 0 792 0] >>",
+        "<< /Type /Annot /Subtype /Link /Rect [72 635 300 665] /Border [0 0 0] /A << /S /URI /URI (https://example.org/) >> >>"]
+write("links.pdf", objs, 2)
 # form.pdf: a text field "name" over the page, Helvetica
 c = "BT /F1 18 Tf 72 720 Td (Name:) Tj ET"
 objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
@@ -65,7 +74,7 @@ objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
         "<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /Rect [72 400 540 700] /P 5 0 R /DA (/Helv 12 Tf 0 g) /F 4 >>"]
 write("form.pdf", objs, 2)
 PY
-for f in text form labels; do qpdf "$OUT/$f.pdf" "$OUT/$f.fixed.pdf" && mv "$OUT/$f.fixed.pdf" "$OUT/$f.pdf"; done
+for f in text form labels links; do qpdf "$OUT/$f.pdf" "$OUT/$f.fixed.pdf" && mv "$OUT/$f.fixed.pdf" "$OUT/$f.pdf"; done
 cp "$OUT/text.pdf" "$OUT/shapes.pdf"
 
 # The user's own Sheaf data, as it is before the run (the check at the end compares).
@@ -286,6 +295,7 @@ click 376 109; drag 900 300 150 -100
 key ctrl+s; sleep 1.5; shot 06c-shapes
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a rectangle, a filled oval at 75 % and an arrow are saved" "echo \"\$SH\" | grep -aq '/Subtype /Square' && echo \"\$SH\" | grep -aq '/Subtype /Circle' && echo \"\$SH\" | grep -aq '/IC \\[' && echo \"\$SH\" | grep -aq '/CA 0.75' && echo \"\$SH\" | grep -aq '/OpenArrow'"
+check "the Shapes tool keeps its style for next time (opacity 75 % in the preferences)" "python3 -c 'import json, glob, sys; p = json.load(open(glob.glob(\"$PWD/$OUT/profile/data/Sheaf/prefs.json\")[0])); sys.exit(0 if any(t[0] == 10 and t[3] == 1 for t in p.get(\"tool_styles\", [])) else 1)'"
 # 6c'. The eraser (X) along a short pen stroke rubs it out entirely.
 ninks() { inks "$1" | tr ';' '\n' | grep -c .; }
 key p; drag 600 720 40 0; key ctrl+s; sleep 1.5; N1=$(ninks "$OUT/shapes.pdf")
@@ -371,6 +381,13 @@ quit
 launch "$OUT/labels.pdf"; key ctrl+9; sleep 0.5
 key ctrl+alt+g; xdotool type --delay 20 "1"; key Return; sleep 1.2; PL=$(inview)
 check "a page label typed in the page field goes to that page ($PL)" "[ \"$PL\" = 'Page 3' ]"
+quit
+
+# 6i. A link says where it goes under the pointer (a dark tooltip below it); away from it, nothing.
+launch "$OUT/links.pdf"; key ctrl+9; sleep 0.5
+under() { import -window root -crop 120x20+490+250 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
+xdotool mousemove 900 600; sleep 0.6; U0=$(under); xdotool mousemove 480 235; sleep 0.2; xdotool mousemove 485 238; sleep 0.8; U1=$(under)
+check "a link shows where it goes on hover ($U0 → $U1)" "python3 -c 'import sys; sys.exit(0 if $U0 - $U1 > 0.1 else 1)'"
 quit
 
 # 7. A password-protected PDF asks for its password, then opens in the reader.

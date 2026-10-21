@@ -23,7 +23,8 @@ export component ReaderScreen inherits Rectangle {
     callback switch-tab(int);
     // The reading view alone, toolbar and panel hidden (View ▸ Hide Toolbar).
     in-out property <bool> bare;
-    property <bool> over-link;
+    property <string> link-tip;
+    property <bool> over-link: root.link-tip != "";
     // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
     property <bool> narrow: root.width < 1150px;
     // Pages panel drag: where the press was, and the drop line (−1: no drag).
@@ -387,9 +388,19 @@ export component ReaderScreen inherits Rectangle {
                         width: max(root.tab.viewer-width, sv.visible-width);
                         height: root.tab.viewer-height;
                         mouse-cursor: root.over-link && root.tab.reader.tool == 0 ? pointer : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
+                        // Where a link goes, beside the pointer.
+                        if root.over-link && root.tab.reader.tool == 0: Rectangle {
+                            x: pages-ta.mouse-x + 14px;
+                            y: pages-ta.mouse-y + 18px;
+                            width: min(lt.preferred-width + 14px, 420px);
+                            height: 22px;
+                            border-radius: Theme.radius-small;
+                            background: Theme.toast-bg;
+                            lt := Text { x: 7px; width: parent.width - 14px; text: root.link-tip; font-size: Theme.fs-caption; color: Theme.on-toast; overflow: elide; vertical-alignment: center; }
+                        }
                         pointer-event(e) => {
                             if e.kind == PointerEventKind.move && !root.pressing {
-                                root.over-link = ReaderBridge.over-link(root.id, self.mouse-x, self.mouse-y);
+                                root.link-tip = ReaderBridge.over-link(root.id, self.mouse-x, self.mouse-y);
                             }
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                                 keys.focus();

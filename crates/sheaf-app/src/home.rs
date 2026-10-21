@@ -110,6 +110,28 @@ pub fn last_view(path: &Path) -> Option<(i32, u32, u8)> {
     with(|h| h.prefs.last_views.iter().find(|(q, ..)| q == &p).map(|(_, f, z, s)| (*f, *z, *s)))
 }
 
+/// The style last used with reader tool `tool` (colour, width, opacity), if any.
+pub fn tool_style(tool: i32) -> Option<(u8, u8, u8)> {
+    with(|h| tool_style_of(&h.prefs, tool))
+}
+
+pub fn set_tool_style(tool: i32, style: (u8, u8, u8)) {
+    with(|h| {
+        if tool_style_of(&h.prefs, tool) == Some(style) {
+            return;
+        }
+        h.prefs.tool_styles.retain(|s| s.0 != tool);
+        h.prefs.tool_styles.push((tool, style.0, style.1, style.2));
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
+fn tool_style_of(p: &Prefs, tool: i32) -> Option<(u8, u8, u8)> {
+    p.tool_styles.iter().find(|s| s.0 == tool).map(|s| (s.1, s.2, s.3))
+}
+
 /// The page `path` was left on, if any.
 pub fn last_page(path: &Path) -> Option<usize> {
     let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());

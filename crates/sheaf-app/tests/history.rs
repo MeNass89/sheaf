@@ -90,6 +90,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         reader_theme: 2,
         last_pages: vec![(PathBuf::from("/tmp/a.pdf"), 12)],
         last_views: vec![(PathBuf::from("/tmp/a.pdf"), 2, 150, 1)],
+        tool_styles: vec![(5, 2, 1, 0)],
         signature_strokes: vec![vec![[0.0, 0.0], [1.0, 0.5]]],
         signature_name: None,
     };

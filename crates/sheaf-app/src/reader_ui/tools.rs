@@ -5,6 +5,16 @@ use super::*;
 pub fn set_tool(tab_id: i32, tool: i32) {
     update(tab_id, |r, v| {
         r.tool = tool.clamp(SELECT, STAMP);
+        // Each tool comes back with the style it was last used with, as PDF Expert's tools do.
+        if let Some((c, w, o)) = crate::home::tool_style(r.tool) {
+            if uses_light(r.tool) {
+                r.light = (c as usize).min(COLOURS.len() - 1);
+            } else {
+                r.ink_colour = (c as usize).min(INK.len() - 1);
+            }
+            r.pen_width = (w as i32).clamp(0, 2);
+            r.opacity = (o as usize).min(reader::OPACITIES.len() - 1);
+        }
         r.draft = None;
         r.stroke = None;
         load_blocks(r, v);
@@ -52,6 +62,7 @@ pub fn set_colour(ui: &AppWindow, tab_id: i32, k: i32) {
         } else {
             r.ink_colour = k;
         }
+        remember_style(r);
         None
     })
     .flatten();
@@ -76,13 +87,25 @@ pub fn shape_option(tab_id: i32, what: i32, value: i32) {
         0 => r.shape_kind = value.clamp(0, 3),
         1 => r.shape_fill = !r.shape_fill,
         3 => r.stamp = (value.max(0) as usize).min(MARKS.len() + StampKind::ALL.len() - 1),
-        _ => r.opacity = (r.opacity + 1) % reader::OPACITIES.len(),
+        _ => {
+            r.opacity = (r.opacity + 1) % reader::OPACITIES.len();
+            remember_style(r);
+        }
     });
 }
 
 /// Pen thickness in points: 0 fine, 1 medium, 2 thick.
 pub fn set_pen_width(tab_id: i32, k: i32) {
-    update(tab_id, |r, _| r.pen_width = k.clamp(0, 2));
+    update(tab_id, |r, _| {
+        r.pen_width = k.clamp(0, 2);
+        remember_style(r);
+    });
+}
+
+/// The current tool's style, kept for the next time it is picked (and the next session).
+fn remember_style(r: &ReaderUi) {
+    let colour = if uses_light(r.tool) { r.light } else { r.ink_colour };
+    crate::home::set_tool_style(r.tool, (colour as u8, r.pen_width as u8, r.opacity as u8));
 }
 
 pub(super) fn pen_points(k: i32) -> f64 {

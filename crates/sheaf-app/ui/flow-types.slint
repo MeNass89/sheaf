@@ -512,7 +512,8 @@ export global ReaderBridge {
     // ⌘W: close the document (asks first when there are unsaved edits).
     callback close(int);
     // Whether a content point is over a link (the hand cursor).
-    callback over-link(int, length, length) -> bool;
+    // Where the link under the point goes ("" when none).
+    callback over-link(int, length, length) -> string;
     // Pages panel: a thumbnail clicked (`extend` ⇧, `toggle` ⌘), an operation on the selected
     // pages (0 rotate left, 1 rotate right, 2 delete, 3 duplicate, 4 extract, 5 insert a blank page
     // after), a drag over the thumbnails (content y; returns the drop line's y, −1 for none) and

@@ -31,6 +31,11 @@ systemd-run --user --unit=heavy-build --collect -q --wait --working-directory="$
     -- sh -c "sh dev/scripts/cargo.sh $* > dev/.tmp/build.log 2>&1; echo EXIT \$? >> dev/.tmp/build.log"
 # The build's own exit status is this script's: a layer of scripts/test.sh trusts it.
 code=$(tail -1 dev/.tmp/build.log | sed -n 's/^EXIT //p')
+# SHEAF_COPY_APP=path: the app just built is copied there before the lock is released, so a test
+# runs this build and not one another worktree builds right after (they share the target dir).
+if [ "${code:-1}" -eq 0 ] && [ -n "${SHEAF_COPY_APP:-}" ]; then
+    cp "${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target/sheaf}/debug/sheaf-app" "$SHEAF_COPY_APP"
+fi
 if [ "${code:-1}" -eq 0 ]; then
     grep -E '^(warning|error)' dev/.tmp/build.log | grep -v 'generated [0-9]* warning' || true
     rm -f dev/.tmp/build.log
