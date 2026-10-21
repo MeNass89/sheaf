@@ -68,7 +68,10 @@ export component ReaderScreen inherits Rectangle {
 
     // Presentation (⇧⌘P): full screen, no toolbar or panel, a whole page in view; arrows and Space
     // turn pages, Escape ends it.
+    // Presenting (not only full screen): Space and the arrows show whole pages; Escape ends it.
+    property <bool> presenting;
     function present() {
+        root.presenting = true;
         root.full-screen(true);
         root.bare = true;
         ReaderBridge.zoom-fit(root.id, 1);
@@ -348,7 +351,7 @@ export component ReaderScreen inherits Rectangle {
                                         vt := TouchArea {
                                             clicked => {
                                                 if k == 0 { root.present(); }
-                                                if k == 1 { root.full-screen(!root.is-full-screen); }
+                                                if k == 1 { root.full-screen(!root.is-full-screen); root.presenting = false; }
                                                 if k == 2 { root.bare = !root.bare; }
                                                 if k == 3 { ReaderBridge.toggle-links(root.id); }
                                                 if k == 4 { ReaderBridge.cycle-spread(root.id); }
@@ -1016,7 +1019,14 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
                 return reject;
             }
-            if e.text == Key.Escape && root.is-full-screen { root.full-screen(false); root.bare = false; return accept; }
+            // Presentation ends with its toolbar back; plain full screen keeps a hidden toolbar hidden.
+            if e.text == Key.Escape && root.is-full-screen {
+                root.full-screen(false);
+                if root.presenting { root.bare = false; root.presenting = false; }
+                return accept;
+            }
+            if root.presenting && (e.text == " " || e.text == Key.RightArrow || e.text == Key.DownArrow || e.text == Key.PageDown) { ReaderBridge.page-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
+            if root.presenting && (e.text == Key.LeftArrow || e.text == Key.UpArrow || e.text == Key.PageUp) { ReaderBridge.page-step(root.id, -1); return accept; }
             if e.text == Key.Escape && root.bare { root.bare = false; return accept; }
             if e.text == Key.Escape { ReaderBridge.escape(root.id); return accept; }
             // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).
