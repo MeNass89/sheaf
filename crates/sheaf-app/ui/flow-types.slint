@@ -131,6 +131,8 @@ export struct ReaderState {
     has-selection: bool,
     selected-text: string,
     selected-annot: bool,
+    // The selected annotation's colour as an index of its palette (−1: none of the five).
+    annot-colour: int,
     // The stroke being drawn with the pen, as SVG path commands in content coordinates.
     ink: string,
     ink-colour: color,
@@ -417,6 +419,8 @@ export global ReaderBridge {
     callback history(int, int);
     // Tools page with this document ready for the tool picked.
     callback to-tools(int);
+    // ⌘W: close the document (asks first when there are unsaved edits).
+    callback close(int);
 }
 
 export global ViewerBridge {

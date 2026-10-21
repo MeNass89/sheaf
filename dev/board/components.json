@@ -8832,14 +8832,14 @@
    27
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 6
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "⌘W, unsaved-changes prompt for documents",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -8851,6 +8851,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [25, 26, 27]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘W closes the document tab; with unsaved edits Save / Don't Save / Cancel (dev/re/evidence/F-002/16, dev/re/evidence/F-002/17); window close asks for each dirty document"
    }
   ]
  },
@@ -16762,10 +16773,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -16781,6 +16792,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "⌘9 / toolbar fits the page (42 % on the book, dev/re/evidence/F-002/25); not kept on window resize yet"
    }
   ]
  },
@@ -17644,14 +17666,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "keyboard and toolbar paging",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17663,6 +17685,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "← → page, PgUp/PgDn/space screen, scroll by arrows (GUI 21/10)"
    }
   ]
  },
@@ -17726,14 +17759,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "Home/End",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17745,6 +17778,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Home/End and ⌘↑/⌘↓ to first/last page (End → 1982/1982, dev/re/evidence/F-002/25)"
    }
   ]
  },
@@ -17816,14 +17860,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "editable page field in the toolbar",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17846,6 +17890,17 @@
      "overall": 8
     },
     "proof": "GUI: page field 420 ↵ jumps, outline section follows (dev/re/evidence/F-002/05); field keeps typed text when the jump fails"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Page field: number or label ↵ jumps (420), field returns to the page shown; history recorded (dev/re/evidence/F-002/22)"
    }
   ]
  },
@@ -17910,14 +17965,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "navigation history",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17929,6 +17984,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘[ / ⌘] after a page jump, link or outline: 27 → 420 → 27 → 420 (dev/re/evidence/F-002/22)"
    }
   ]
  },
@@ -18864,7 +18930,7 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 8,
    "overall": 8
   },
@@ -18904,6 +18970,17 @@
      "overall": 8
     },
     "proof": "Search: streamed count, Enter/⇧Enter/⌘G, hits highlighted, results panel with context, options case/whole words (dev/re/evidence/F-002/02, dev/re/evidence/F-002/12); hit not bold in the snippet"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Search streams results on 1,982 pages (757 hits), count, Enter/⇧Enter/⌘G, hits highlighted, bold context in the panel (dev/re/evidence/F-002/02, dev/re/evidence/F-002/20); streaming the whole book takes ~25 s (debug build)"
    }
   ]
  },
@@ -19056,13 +19133,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "match case and whole words",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19085,6 +19162,17 @@
      "overall": 8
     },
     "proof": "Aa and Whole words toggles re-run the search (dev/re/evidence/F-002/12)"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Aa / Whole words toggles re-run the search (dev/re/evidence/F-002/12)"
    }
   ]
  },
@@ -19126,13 +19214,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "results list (Redact has one, not in a reader)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19155,6 +19243,17 @@
      "overall": 8
     },
     "proof": "Results list with page and context, click jumps, current result marked (dev/re/evidence/F-002/12)"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Results panel: page, context with the match in bold, wraps, click jumps even while the search streams (dev/re/evidence/F-002/20, dev/re/evidence/F-002/21)"
    }
   ]
  },
@@ -20825,10 +20924,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -20844,6 +20943,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Internal link followed to page 3 (dev/re/evidence/F-002/23, dev/re/evidence/F-002/24); no hand cursor over links; web links open in the browser (code, not driven)"
    }
   ]
  },

@@ -17,7 +17,9 @@ use sheaf_app::{AppWindow, ReaderMark, ReaderResultRow, ReaderAnnotRow, ReaderNo
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, Markup, NewAnnotation, NoteIcon, Shape, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
-use slint::{Color, ComponentHandle, ModelRc, VecModel};
+use std::rc::Rc;
+
+use slint::{Color, ComponentHandle, Model, ModelRc, VecModel};
 
 use crate::state::{refresh, tabs_model, with, TabState};
 use crate::viewer_ui::ViewerUi;
@@ -108,7 +110,7 @@ pub struct ReaderUi {
     annot_candidate: Option<usize>,
     /// The panel shown before a search took it over (results, panel 3).
     panel_before_search: Option<i32>,
-    results_cache: std::cell::RefCell<Option<((u64, Option<usize>), ModelRc<ReaderResultRow>)>>,
+    results_cache: std::cell::RefCell<Option<(Rc<VecModel<ReaderResultRow>>, Option<usize>)>>,
     /// 0 fit width, 1 fit page, 2 a zoom the user chose.
     zoom_mode: i32,
     /// Pages left by following a link or the outline (⌘[ goes back), and those gone back from.
@@ -1244,6 +1246,12 @@ pub fn search_clear(tab_id: i32) {
 
 // ---- into the tab model ------------------------------------------------------------------------
 
+/// The palette entry (light or ink) closest to `c`, if one is close.
+fn palette_index(c: [f32; 3]) -> i32 {
+    let d = |p: &[f64; 3]| (0..3).map(|i| (p[i] - c[i] as f64).powi(2)).sum::<f64>();
+    COLOURS.iter().chain(INK.iter()).enumerate().map(|(i, p)| (i % 5, d(p))).filter(|(_, d)| *d < 0.01).min_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, _)| i as i32).unwrap_or(-1)
+}
+
 fn colour_of(c: [f64; 3]) -> Color {
     Color::from_rgb_u8((c[0] * 255.0) as u8, (c[1] * 255.0) as u8, (c[2] * 255.0) as u8)
 }
@@ -1350,32 +1358,38 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             }
         }
     };
+    // One model for the whole search: rows are appended as batches arrive and the current one is
+    // updated in place, so a click on a result is never lost to a model replaced under it.
     let results = {
-        let key = (r.version, r.search.current);
         let mut c = r.results_cache.borrow_mut();
-        match c.as_ref() {
-            Some((k, m)) if *k == key => m.clone(),
-            _ => {
-                let rows: Vec<ReaderResultRow> = r
-                    .search
-                    .hits
-                    .iter()
-                    .zip(&r.search.snippets)
-                    .enumerate()
-                    .take(2000)
-                    .map(|(i, ((page, _), (b, m, a)))| ReaderResultRow {
-                        before: b.clone().into(),
-                        hit: m.clone().into(),
-                        after: a.clone().into(),
-                        page_label: format!("Page {}", label(r, *page)).into(),
-                        current: r.search.current == Some(i),
-                    })
-                    .collect();
-                let m = ModelRc::new(VecModel::from(rows));
-                *c = Some((key, m.clone()));
-                m
-            }
+        let (model, shown_current) = c.get_or_insert_with(|| (Rc::new(VecModel::default()), None));
+        let have = model.row_count();
+        if have > r.search.hits.len() {
+            *model = Rc::new(VecModel::default());
+            *shown_current = None;
         }
+        let have = model.row_count();
+        for (i, ((page, _), (b, m, a))) in r.search.hits.iter().zip(&r.search.snippets).enumerate().skip(have).take(2000usize.saturating_sub(have)) {
+            model.push(ReaderResultRow {
+                before: b.clone().into(),
+                hit: m.clone().into(),
+                after: a.clone().into(),
+                page_label: format!("Page {}", label(r, *page)).into(),
+                current: r.search.current == Some(i),
+            });
+        }
+        if *shown_current != r.search.current {
+            for (i, on) in [(*shown_current, false), (r.search.current, true)] {
+                if let Some(i) = i.filter(|i| *i < model.row_count())
+                    && let Some(mut row) = model.row_data(i)
+                {
+                    row.current = on;
+                    model.set_row_data(i, row);
+                }
+            }
+            *shown_current = r.search.current;
+        }
+        ModelRc::from(model.clone())
     };
     let note = match &r.draft {
         Some(d) => {
@@ -1424,6 +1438,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         has_selection: r.sel.is_some(),
         selected_text: r.sel.as_ref().and_then(|(p, range)| r.texts.get(p).map(|t| reader::selected_text(t, range.clone()))).unwrap_or_default().into(),
         selected_annot: r.selected_annot.is_some(),
+        annot_colour: r.selected_annot.and_then(|i| r.annots().get(i)).and_then(|a| a.color).map(palette_index).unwrap_or(-1),
         ink: ink.into(),
         ink_colour: colour_of(INK[r.ink_colour]),
         note,

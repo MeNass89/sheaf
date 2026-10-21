@@ -221,7 +221,7 @@ export component ReaderScreen inherits Rectangle {
                         for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {
                             y: 4px;
                             colour: c;
-                            selected: root.tab.reader.colour == k;
+                            selected: root.tab.reader.selected-annot ? root.tab.reader.annot-colour == k : root.tab.reader.colour == k;
                             clicked => { ReaderBridge.set-colour(root.id, k); keys.focus(); }
                         }
                     }
@@ -417,10 +417,6 @@ export component ReaderScreen inherits Rectangle {
                                         height: hl.preferred-height;
                                         border-radius: Theme.radius-button;
                                         background: h.current ? Theme.menu-selected-bg : ht.has-hover ? Theme.popup-hover : transparent;
-                                        ht := TouchArea {
-                                            mouse-cursor: pointer;
-                                            clicked => { ReaderBridge.result-clicked(root.id, i); }
-                                        }
                                         hl := VerticalLayout {
                                             padding: 8px;
                                             spacing: 2px;
@@ -429,12 +425,20 @@ export component ReaderScreen inherits Rectangle {
                                                 font-size: Theme.fs-caption;
                                                 color: Theme.text-muted;
                                             }
-                                            Text {
-                                                text: h.before + "«" + h.hit + "»" + h.after;
-                                                font-size: Theme.fs-label;
-                                                color: Theme.text;
-                                                wrap: word-wrap;
+                                            // The match in bold inside its context, as PDF Expert lists results.
+                                            StyledText {
+                                                text: @markdown("\{h.before}**\{h.hit}**\{h.after}");
+                                                default-font-size: Theme.fs-label;
+                                                default-color: Theme.text;
+                                                // A fixed width makes it wrap; three lines at most.
+                                                width: root.panel-width - 28px;
+                                                max-lines: 3;
                                             }
+                                        }
+                                        // Above the text: StyledText takes clicks for its links.
+                                        ht := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { ReaderBridge.result-clicked(root.id, i); }
                                         }
                                     }
                                 }
@@ -848,6 +852,7 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == "z" { ReaderBridge.undo(root.id); return accept; }
                 if e.text == "y" { ReaderBridge.redo(root.id); return accept; }
                 if e.text == "s" && e.modifiers.shift { ReaderBridge.save-as(root.id); return accept; }
+                if e.text == "w" { ReaderBridge.close(root.id); return accept; }
                 if e.text == "s" { ReaderBridge.save(root.id); return accept; }
                 if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
