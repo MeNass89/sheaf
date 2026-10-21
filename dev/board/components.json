@@ -1567,14 +1567,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "eraser via engine EraseInk",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -1586,6 +1586,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Eraser (X, toolbar): drag across drawings, rubbed out along the path (PdfCraft EraseInk; a stroke split or removed), three sizes, one undo step, signatures left alone; gui-smoke erases a pen stroke entirely"
    }
   ]
  },

@@ -4,7 +4,7 @@ use super::*;
 
 pub fn set_tool(tab_id: i32, tool: i32) {
     update(tab_id, |r, v| {
-        r.tool = tool.clamp(SELECT, SHAPE);
+        r.tool = tool.clamp(SELECT, ERASER);
         r.draft = None;
         r.stroke = None;
         load_blocks(r, v);

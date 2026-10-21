@@ -187,6 +187,34 @@ pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64),
     }
 }
 
+/// The eraser went along `pts` (view points of `page`): every drawing it crossed is rubbed out
+/// along the path (PdfCraft's EraseInk), as one undo step. Signatures are left alone.
+pub(super) fn erase(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f64)>) {
+    let edit = update(tab_id, |r, v| {
+        // The three widths of the pen are the eraser's sizes too.
+        let radius = [3.0, 6.0, 12.0][r.pen_width.clamp(0, 2) as usize];
+        let bx = &v.viewer.boxes[page];
+        let size = bx.view_size();
+        let path: Vec<[f64; 2]> = pts.iter().map(|p| { let (x, y) = viewer::view_to_pdf(bx, size, p.0, p.1); [x, y] }).collect();
+        let (lo, hi) = path.iter().fold(([f64::MAX; 2], [f64::MIN; 2]), |(lo, hi), p| ([lo[0].min(p[0]), lo[1].min(p[1])], [hi[0].max(p[0]), hi[1].max(p[1])]));
+        let crosses = |rc: [f64; 4]| rc[0] <= hi[0] + radius && rc[2] >= lo[0] - radius && rc[1] <= hi[1] + radius && rc[3] >= lo[1] - radius;
+        // Highest index first: a drawing rubbed out entirely is removed, which would shift the
+        // indices after it.
+        let mut hit: Vec<usize> = r.annots().iter().filter(|a| a.page == page && a.subtype == "Ink" && !a.fill_sign && crosses(a.rect)).map(|a| a.index).collect();
+        hit.sort_unstable_by(|a, b| b.cmp(a));
+        let mut edits: Vec<Edit> = hit.into_iter().map(|index| Edit::EraseInk { page, index, path: path.clone(), radius }).collect();
+        match edits.len() {
+            0 => None,
+            1 => edits.pop(),
+            _ => Some(Edit::Batch { label: "Erase".into(), edits }),
+        }
+    })
+    .flatten();
+    if let Some(e) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
 pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
     let text = text.trim().to_string();
     let edit = update(tab_id, |r, v| {

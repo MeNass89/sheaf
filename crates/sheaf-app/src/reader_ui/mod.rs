@@ -42,6 +42,8 @@ pub const TEXT_SIZES: [f64; 6] = [9.0, 10.0, 12.0, 14.0, 18.0, 24.0];
 pub const SIGN: i32 = 9;
 /// Shapes: drag a rectangle, oval, line or arrow (`ReaderUi::shape_kind`).
 pub const SHAPE: i32 = 10;
+/// Eraser: drag across drawings to rub them out where the path goes.
+pub const ERASER: i32 = 11;
 
 use crate::reader_doc::{self, AnnotEntry, Block, Op, Reply, Snap};
 

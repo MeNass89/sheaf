@@ -18,6 +18,10 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 r.shape_end = None;
                 false
             }
+            ERASER => {
+                r.stroke = Some((page, vec![p]));
+                false
+            }
             NOTE | TEXTBOX => {
                 r.draft = Some(Draft { page, at: p, kind: if r.tool == NOTE { 0 } else { 1 }, block: None, field: None });
                 r.note_seq += 1;
@@ -152,7 +156,7 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             r.stroke = Some((page, reader::shape_outline(r.shape_kind, a, b)));
             return;
         }
-        if r.tool == PEN {
+        if r.tool == PEN || r.tool == ERASER {
             if let Some((_, pts)) = r.stroke.as_mut() {
                 let last = *pts.last().unwrap_or(&b);
                 if (last.0 - b.0).hypot(last.1 - b.1) >= 0.75 {
@@ -271,6 +275,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         }
         match r.tool {
             PEN => r.stroke.take().filter(|(_, pts)| pts.len() >= 2).map(|(page, pts)| Pending::Ink(page, pts)),
+            ERASER => r.stroke.take().map(|(page, pts)| Pending::Erase(page, pts)),
             SHAPE => {
                 r.stroke = None;
                 // A click without a drag draws nothing.
@@ -284,6 +289,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     match action {
         Some(Pending::Ink(page, pts)) => add_ink(ui, tab_id, page, pts),
         Some(Pending::Shape(page, a, b)) => add_shape(ui, tab_id, page, a, b),
+        Some(Pending::Erase(page, pts)) => erase(ui, tab_id, page, pts),
         Some(Pending::Markup(kind)) => markup(ui, tab_id, kind),
         Some(Pending::Move(page, e)) => apply(ui, tab_id, *e, &[page], None),
         Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
@@ -311,6 +317,8 @@ pub(super) fn resizable(a: &AnnotEntry) -> bool {
 
 pub(super) enum Pending {
     Ink(usize, Vec<(f64, f64)>),
+    /// The eraser's path on a page (view points).
+    Erase(usize, Vec<(f64, f64)>),
     /// A shape dragged on a page, from and to (view points).
     Shape(usize, (f64, f64), (f64, f64)),
     Markup(i32),

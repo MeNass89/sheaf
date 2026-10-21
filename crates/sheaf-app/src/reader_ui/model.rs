@@ -262,7 +262,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         selected_annot: r.selected_annot.is_some(),
         annot_colour: r.selected_annot.and_then(|i| r.annots().get(i)).and_then(|a| a.color).map(palette_index).unwrap_or(-1),
         ink: ink.into(),
-        ink_colour: colour_of(INK[r.ink_colour]),
+        // The eraser leaves a grey trail.
+        ink_colour: if r.tool == ERASER { Color::from_argb_u8(140, 128, 128, 128) } else { colour_of(INK[r.ink_colour]) },
         note,
         search_count: search_count.into(),
         search_busy: r.search.busy,

@@ -277,6 +277,13 @@ click 376 109; drag 900 300 150 -100
 key ctrl+s; sleep 1.5; shot 06c-shapes
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a rectangle, a filled oval at 75 % and an arrow are saved" "echo \"\$SH\" | grep -aq '/Subtype /Square' && echo \"\$SH\" | grep -aq '/Subtype /Circle' && echo \"\$SH\" | grep -aq '/IC \\[' && echo \"\$SH\" | grep -aq '/CA 0.75' && echo \"\$SH\" | grep -aq '/OpenArrow'"
+# 6c'. The eraser (X) along a short pen stroke rubs it out entirely.
+ninks() { inks "$1" | tr ';' '\n' | grep -c .; }
+key p; drag 600 720 40 0; key ctrl+s; sleep 1.5; N1=$(ninks "$OUT/shapes.pdf")
+key x; drag 585 720 70 0; key ctrl+s; sleep 1.5; N2=$(ninks "$OUT/shapes.pdf")
+check "the eraser rubs out a drawing it goes along ($N1 → $N2)" "[ $N1 -ge 1 ] && [ $N2 -eq \$(( N1 - 1 )) ]"
+key v
+
 # 6d. Two pages side by side (toolbar, 721,61): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.
 mid() { import -window root -crop 6x200+761+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
