@@ -233,6 +233,13 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             items: pairs(inputs),
             password: opts.password.to_string(),
             owner: (!opts.owner.is_empty()).then(|| opts.owner.to_string()),
+            permissions: sheaf_core::security::ProtectPermissions {
+                printing: opts.allow_printing,
+                copying: opts.allow_copying,
+                editing: opts.allow_editing,
+                commenting: opts.allow_commenting,
+                filling_forms: opts.allow_filling_forms,
+            },
         },
         ToolId::Unlock => Job::Unlock { items: pairs(inputs) },
         ToolId::Repair => Job::Repair { items: pairs(inputs) },

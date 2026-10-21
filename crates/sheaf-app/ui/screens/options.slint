@@ -200,6 +200,9 @@ export component OptionsPanel inherits VerticalLayout {
         : true);
     out property <ToolOptions> options: {
         level: root.level, password: root.password, confirm: root.confirm, owner: root.owner,
+        allow-printing: root.allow-printing, allow-copying: root.allow-copying,
+        allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
+        allow-filling-forms: root.allow-filling-forms,
         pages: root.pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every,
         degrees: root.degrees, layout: root.layout, margin: root.margin, quality: root.quality,
         out-name: root.out-name,
@@ -237,6 +240,11 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> password;
     in-out property <string> confirm;
     in-out property <string> owner;
+    in-out property <bool> allow-printing: true;
+    in-out property <bool> allow-copying: true;
+    in-out property <bool> allow-editing: true;
+    in-out property <bool> allow-commenting: true;
+    in-out property <bool> allow-filling-forms: true;
     in-out property <string> pages;
     in-out property <int> split-mode: 0;
     in-out property <string> ranges;
@@ -417,6 +425,12 @@ export component OptionsPanel inherits VerticalLayout {
             placeholder: "Same as the password";
             text <=> root.owner;
         }
+        SectionLabel { text: "Allow"; }
+        Check { text: "Printing"; checked <=> root.allow-printing; }
+        Check { text: "Copying text and images"; checked <=> root.allow-copying; }
+        Check { text: "Editing"; checked <=> root.allow-editing; }
+        Check { text: "Commenting"; checked <=> root.allow-commenting; }
+        Check { text: "Filling forms"; checked <=> root.allow-filling-forms; }
     }
 
     if root.tool == "unlock": InfoBox {
