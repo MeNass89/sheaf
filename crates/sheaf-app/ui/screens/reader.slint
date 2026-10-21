@@ -66,6 +66,15 @@ export component ReaderScreen inherits Rectangle {
 
     public function focus-pages() { keys.focus(); }
 
+    // Presentation (⇧⌘P): full screen, no toolbar or panel, a whole page in view; arrows and Space
+    // turn pages, Escape ends it.
+    function present() {
+        root.full-screen(true);
+        root.bare = true;
+        ReaderBridge.zoom-fit(root.id, 1);
+        keys.focus();
+    }
+
     background: Theme.filearea-bg;
 
     VerticalLayout {
@@ -304,11 +313,58 @@ export component ReaderScreen inherits Rectangle {
                         }
                     }
                     Rectangle { width: 6px; }
+                    // More: how the window shows the document (PDF Expert's View menu), print, properties.
+                    ToolButton {
+                        icon: @image-url("../icons/ellipsis.svg");
+                        tip: "More";
+                        clicked => { view-menu.show(); }
+                        view-menu := PopupWindow {
+                            x: parent.width - 240px;
+                            y: parent.height + 6px;
+                            width: 240px;
+                            Rectangle {
+                                background: Theme.card;
+                                border-radius: Theme.radius-small;
+                                border-width: 1px;
+                                border-color: Theme.input-border;
+                                drop-shadow-blur: 8px;
+                                drop-shadow-color: #00000033;
+                                VerticalLayout {
+                                    padding: 4px;
+                                    for item[k] in [
+                                        { text: "Presentation", keys: "⇧⌘P", on: false },
+                                        { text: "Full screen", keys: "⌃⌘F", on: root.is-full-screen },
+                                        { text: "Hide toolbar", keys: "⇧T", on: root.bare },
+                                        { text: "Highlight links", keys: "⇧⌘L", on: root.tab.reader.show-links },
+                                        { text: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide", keys: "⌥⌘2", on: false },
+                                        { text: "Print…", keys: "⌘P", on: false },
+                                        { text: "Document properties…", keys: "⌘D", on: false },
+                                    ]: Rectangle {
+                                        height: 28px;
+                                        border-radius: Theme.radius-small;
+                                        background: vt.has-hover ? Theme.popup-hover : transparent;
+                                        Text { x: 10px; text: (item.on ? "✓ " : "") + item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                        Text { x: parent.width - self.width - 10px; text: item.keys; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                                        vt := TouchArea {
+                                            clicked => {
+                                                if k == 0 { root.present(); }
+                                                if k == 1 { root.full-screen(!root.is-full-screen); }
+                                                if k == 2 { root.bare = !root.bare; }
+                                                if k == 3 { ReaderBridge.toggle-links(root.id); }
+                                                if k == 4 { ReaderBridge.cycle-spread(root.id); }
+                                                if k == 5 { ReaderBridge.print-open(root.id); }
+                                                if k == 6 { ReaderBridge.props-open(root.id); }
+                                                keys.focus();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: "Undo (⌘Z)"; enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
                     ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
                     ToolButton { icon: @image-url("../icons/wrench.svg"); tip: "Use a tool on this PDF"; clicked => { ReaderBridge.to-tools(root.id); } }
-                    ToolButton { icon: @image-url("../icons/printer.svg"); tip: "Print (⌘P)"; clicked => { ReaderBridge.print-open(root.id); } }
-                    ToolButton { icon: @image-url("../icons/info.svg"); tip: "Document properties (⌘D)"; clicked => { ReaderBridge.props-open(root.id); } }
                     ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? "Save (⌘S)" : "Saved"; enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
                 }
             }
@@ -945,6 +1001,8 @@ export component ReaderScreen inherits Rectangle {
                 if (e.text == "s" || e.text == "S") && e.modifiers.shift { ReaderBridge.save-as(root.id); return accept; }
                 if e.text == "w" { ReaderBridge.close(root.id); return accept; }
                 if e.text == "s" { ReaderBridge.save(root.id); return accept; }
+                if e.text == "P" || (e.text == "p" && e.modifiers.shift) { root.present(); return accept; }
+                if e.text == "L" || (e.text == "l" && e.modifiers.shift) { ReaderBridge.toggle-links(root.id); return accept; }
                 if e.text == "p" { ReaderBridge.print-open(root.id); return accept; }
                 if (e.text == "e" || e.text == "E") && e.modifiers.shift && root.tab.reader.has-selection {
                     // The field and the results show again if the toolbar was hidden (⇧T).
@@ -958,7 +1016,7 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
                 return reject;
             }
-            if e.text == Key.Escape && root.is-full-screen { root.full-screen(false); return accept; }
+            if e.text == Key.Escape && root.is-full-screen { root.full-screen(false); root.bare = false; return accept; }
             if e.text == Key.Escape && root.bare { root.bare = false; return accept; }
             if e.text == Key.Escape { ReaderBridge.escape(root.id); return accept; }
             // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).

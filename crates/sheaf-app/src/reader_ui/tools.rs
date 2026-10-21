@@ -233,6 +233,11 @@ pub fn annot_reply(tab_id: i32, k: i32) {
     });
 }
 
+/// View ▸ Highlight links (⇧⌘L): links tinted on the pages, or not.
+pub fn toggle_links(tab_id: i32) {
+    update(tab_id, |r, _| r.show_links = !r.show_links);
+}
+
 pub fn annot_clicked(tab_id: i32, k: i32) {
     update(tab_id, |r, v| {
         let k = k.max(0) as usize;

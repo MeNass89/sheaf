@@ -166,6 +166,8 @@ pub struct ReaderUi {
     notes_sort: i32,
     /// Outline panel: the row being renamed.
     outline_edit: Option<usize>,
+    /// View ▸ Highlight links: every link tinted, as fields are.
+    show_links: bool,
     /// The Document Properties sheet is open.
     props_open: bool,
     /// Hide all comments: not drawn, not selectable.
@@ -279,6 +281,7 @@ impl ReaderUi {
             opacity: 0,
             comments_hidden: false,
             props_open: false,
+            show_links: false,
             outline_edit: None,
             notes_filter: 0,
             notes_sort: 0,

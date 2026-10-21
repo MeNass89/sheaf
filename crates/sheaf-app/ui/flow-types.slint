@@ -189,6 +189,8 @@ export struct ReaderState {
     notes-sort: int,
     // Files attached to the document or its pages: name, size.
     attachments: [ReaderProp],
+    // View ▸ Highlight links is on.
+    show-links: bool,
     // Hide all comments is on.
     comments-hidden: bool,
     // Stamp tool: the stamps offered (labels) and the chosen one.
@@ -451,6 +453,8 @@ export global ReaderBridge {
     callback notes-action(int, int);
     // Notes panel: what (0 filter, 1 order), value.
     callback notes-view(int, int, int);
+    // View ▸ Highlight links on or off.
+    callback toggle-links(int);
     // Reply to a comment of the Notes panel (its index).
     callback annot-reply(int, int);
     // Files panel: save attachment (its index); attach a file to the page in view.

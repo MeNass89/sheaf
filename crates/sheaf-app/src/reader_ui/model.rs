@@ -63,6 +63,11 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             });
         }
     }
+    if r.show_links {
+        for l in r.snap.links.iter().filter(|l| wanted.contains(&l.page)) {
+            marks.push(overlay(v.viewer.overlay(l.page, l.rect.map(f64::from)), 10));
+        }
+    }
     if r.tool == SELECT {
         // Fillable fields, tinted as PDF Expert and Acrobat highlight them.
         for f in r.snap.fields.iter().filter(|f| !f.read_only && f.kind < 4) {
@@ -290,6 +295,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         )),
         stamp: r.stamp as i32,
         comments_hidden: r.comments_hidden,
+        show_links: r.show_links,
         attachments: ModelRc::new(VecModel::from(
             r.snap
                 .attachments

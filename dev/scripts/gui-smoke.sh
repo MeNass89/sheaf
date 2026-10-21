@@ -81,6 +81,10 @@ cp "$OUT/text.pdf" "$OUT/shapes.pdf"
 real_profile() { ls -la --time-style=full-iso "${XDG_DATA_HOME:-$HOME/.local/share}/Sheaf" 2>/dev/null | md5sum; }
 REAL0=$(real_profile)
 
+# Toolbar controls reached by position (1280×800 window), kept here: update them when the toolbar
+# changes (a capture of the toolbar shows where they went).
+ZOOM_X=652; ZOOM_MENU_X=681; WRENCH_X=1222
+
 launch() {
     # A fresh profile: no kept signature, history or preferences from earlier runs.
     # Absolute paths: the dirs crate ignores relative XDG paths and would fall back to the real
@@ -370,11 +374,11 @@ check "searching the selected text finds its page ($SE)" "[ \"$SE\" = 'Page 4' ]
 key End; sleep 0.8; key ctrl+a; shifted t; sleep 0.5; key ctrl+shift+e; sleep 1.5; BE=$(bar)
 check "searching the selection with the toolbar hidden shows it again ($BE)" "python3 -c 'import sys; sys.exit(0 if abs($BE - $B0) < 0.03 else 1)'"
 key Escape
-# 6g. The zoom field (630,61): 200 typed and ↩ covers the view's left edge with the page; Fit page
-# from its list (chevron 669,61 ▸ 640,330) shows the background there again.
+# 6g. The zoom field (ZOOM_X,61): 200 typed and ↩ covers the view's left edge with the page; Fit page
+# from its list (ZOOM_MENU_X,61 ▸ 640,330) shows the background there again.
 leftedge() { import -window root -crop 6x200+300+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
-click 630 61 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "200"; key Return; sleep 2; Z1=$(leftedge)
-click 669 61 0.6; click 640 330 2; Z2=$(leftedge)
+click $ZOOM_X 61 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "200"; key Return; sleep 2; Z1=$(leftedge)
+click $ZOOM_MENU_X 61 0.6; click 640 330 2; Z2=$(leftedge)
 check "zoom typed (200 %) and Fit page from the list ($Z1 → $Z2)" "python3 -c 'import sys; sys.exit(0 if $Z1 - $Z2 > 0.02 else 1)'"
 key ctrl+9; sleep 1
 
@@ -398,6 +402,14 @@ check "a link shows where it goes on hover ($U0 → $U1)" "python3 -c 'import sy
 # Scrolling under a still pointer takes the tooltip away (it would name a link no longer there).
 key Down; key Down; sleep 0.8; U2=$(under)
 check "the link tooltip goes when the page scrolls ($U1 → $U2)" "python3 -c 'import sys; sys.exit(0 if $U2 - $U1 > 0.1 else 1)'"
+# ⇧⌘L tints every link (the first one, under 480,235 once back at the top); ⇧⌘P presents (no
+# toolbar), Escape ends it.
+key Home; sleep 0.6; xdotool mousemove 900 700; sleep 0.3
+link() { import -window root -crop 80x16+400+228 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
+L0=$(link); key ctrl+shift+l; sleep 0.6; L1=$(link); key ctrl+shift+l; sleep 0.4
+check "Highlight links tints the links ($L0 → $L1)" "python3 -c 'import sys; sys.exit(0 if $L0 - $L1 > 0.005 else 1)'"
+P0=$(bar); key ctrl+shift+p; sleep 1.2; P1=$(bar); key Escape; sleep 1; P2=$(bar); shot 06i-present
+check "Presentation hides the toolbar, Escape brings it back ($P0 → $P1 → $P2)" "python3 -c 'import sys; a, b, c = $P0, $P1, $P2; sys.exit(0 if abs(a - b) > 0.01 and abs(a - c) < 0.005 else 1)'"
 quit
 
 # 7. A password-protected PDF asks for its password, then opens in the reader.
@@ -421,7 +433,6 @@ quit
 
 # 10. A tool from the reader: the wrench (WRENCH_X,61) → Tools → Compress (270,350) → Compress PDF
 # (1140,755); outputs go next to the original (set in the profile), the result screen shows.
-WRENCH_X=1161   # moves when toolbar buttons are added
 cp "$OUT/form.pdf" "$OUT/tool.pdf"
 mkdir -p "$PWD/$OUT/profile/data/Sheaf"
 python3 -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)) if __import__("os").path.exists(p) else {}; d["output"] = "next_to_original"; json.dump(d, open(p, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
