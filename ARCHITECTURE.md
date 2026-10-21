@@ -51,7 +51,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 |---|---|
 | A new tool | engine in `sheaf-core/src/<tool>.rs` + `tools.rs`; options in `sheaf-app/ui/screens/options.slint` and `run.rs`; a CLI subcommand in `sheaf-cli/src/main.rs` |
 | A reader tool, shortcut or panel | `ui/screens/reader.slint` (toolbar, pages, sheets, keys), `reader-panel.slint` (side panel), `reader-parts.slint` (small controls) + `src/reader_ui/<part>.rs` (behaviour); state fields in `ui/flow-types.slint` (`ReaderState`, `ReaderBridge`) |
-| An edit to the open document | `Op` in `reader_doc.rs`, sent from `reader_ui.rs` |
+| An edit to the open document | `Op` in `reader_doc.rs`, sent from `reader_ui/edits.rs` |
 | Colours, sizes, fonts | `ui/theme.slint` |
 | A preference | `prefs.rs` + `ui/screens/preferences.slint` |
 | A test | a layer already exists for it in `scripts/test.sh`: unit tests next to the code or in `crates/*/tests/`, GUI checks in `dev/scripts/gui-smoke.sh` |

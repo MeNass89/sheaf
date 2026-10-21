@@ -24,7 +24,7 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 
 - **F-001** every file dialog async and attached to the window (`src/dialog.rs`); Compress → Save → mouse click
   proved on Linux; **the Mac click is still to prove**.
-- **F-002 reader** (`src/reader.rs`, `src/reader_ui.rs`, `src/reader_doc.rs`, `ui/screens/reader.slint`): PDFs open
+- **F-002 reader** (`src/reader.rs`, `src/reader_ui/`, `src/reader_doc.rs`, `ui/screens/reader.slint`): PDFs open
   in document tabs (pages shown 1.3 s into a 1,982-page book, rest parsed on the document's own thread), outline,
   thumbnails, search with results panel, select/copy, highlight/underline/strike/note/pen/text box, recolour,
   delete, undo/redo, ⌘S incremental, Save As, unsaved prompt, Day/Sepia/Night, links and ⌘[ ⌘], PDF Expert's
