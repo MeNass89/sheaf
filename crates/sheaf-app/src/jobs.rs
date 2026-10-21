@@ -50,7 +50,7 @@ pub enum Job {
     Organize { input: Input, order: Vec<u32>, out: PathBuf },
     Rotate { items: Vec<(Input, PathBuf)>, degrees: i64, pages: Option<String> },
     Compress { items: Vec<(Input, PathBuf)>, level: Level },
-    Protect { items: Vec<(Input, PathBuf)>, password: String, owner: Option<String> },
+    Protect { items: Vec<(Input, PathBuf)>, password: String, owner: Option<String>, permissions: security::ProtectPermissions },
     Unlock { items: Vec<(Input, PathBuf)> },
     Repair { items: Vec<(Input, PathBuf)> },
     JpgToPdf { images: Vec<PathBuf>, layout: PageLayout, out: PathBuf },
@@ -275,8 +275,8 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 Ok(vec![rep.path])
             }))?
         }
-        Job::Protect { items, password, owner } => {
-            batch(each(items, cancel, progress, pair, |(i, o)| one(security::protect(i, password, owner.as_deref(), o))))?
+        Job::Protect { items, password, owner, permissions } => {
+            batch(each(items, cancel, progress, pair, |(i, o)| one(security::protect_with_permissions(i, password, owner.as_deref(), *permissions, o))))?
         }
         Job::Unlock { items } => {
             batch(each(items, cancel, progress, pair, |(i, o)| one(security::unlock(i, o))))?

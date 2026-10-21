@@ -16,6 +16,11 @@ commit as any file added, moved, renamed or deleted.
 | `dev/` | How the app is built: brief, decisions, parity board, features, handoff, dev scripts (`dev/HANDOFF.md` first). |
 | `docs/` | Benchmarks and plans. |
 
+Password fields can opt into the reveal control in `ui/widgets/text-field.slint` (the authored
+`icons/eye.svg` and `eye-slash.svg`); Protect uses the strength rule in core `security.rs`.
+Recents exclusions are saved separately from task history by `history.rs` (`hidden-recents.json`).
+The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
+
 ## Entry points
 
 - GUI: `crates/sheaf-app/src/main.rs` builds the window from `ui/main.slint` and wires every callback.

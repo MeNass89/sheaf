@@ -25,6 +25,16 @@ use crate::flow::toast;
 use crate::dest::{ask_dest, out_name, parent_dir, pref_dest, Dest};
 use crate::state::{refresh, with, Done, Phase};
 
+/// Strength levels used by the Protect panel's three-segment meter.
+pub fn password_strength(password: &str) -> i32 {
+    use sheaf_core::security::PasswordStrength;
+    match sheaf_core::security::password_strength(password) {
+        PasswordStrength::Weak => 0,
+        PasswordStrength::Fair => 1,
+        PasswordStrength::Strong => 2,
+    }
+}
+
 fn parse_level(i: i32) -> Level {
     match i {
         0 => Level::Extreme,
@@ -223,6 +233,13 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             items: pairs(inputs),
             password: opts.password.to_string(),
             owner: (!opts.owner.is_empty()).then(|| opts.owner.to_string()),
+            permissions: sheaf_core::security::ProtectPermissions {
+                printing: opts.allow_printing,
+                copying: opts.allow_copying,
+                editing: opts.allow_editing,
+                commenting: opts.allow_commenting,
+                filling_forms: opts.allow_filling_forms,
+            },
         },
         ToolId::Unlock => Job::Unlock { items: pairs(inputs) },
         ToolId::Repair => Job::Repair { items: pairs(inputs) },

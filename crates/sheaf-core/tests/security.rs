@@ -98,3 +98,53 @@ fn protect_outputs_always_open_in_pdfcraft_and_pdfium() {
     }
     assert!(failures.is_empty(), "{} of 200 outputs failed to open:\n{}", failures.len(), failures.join("\n"));
 }
+
+#[test]
+fn permissions_are_independent_and_default_to_allowed() {
+    let t = tempfile::tempdir().unwrap();
+    let input = Input::new(fixture_pdf(t.path(), "source.pdf", 1));
+    let default = ProtectPermissions::default();
+    let cases = [
+        default,
+        ProtectPermissions { printing: false, ..default },
+        ProtectPermissions { copying: false, ..default },
+        ProtectPermissions { editing: false, ..default },
+        ProtectPermissions { commenting: false, ..default },
+        ProtectPermissions { filling_forms: false, ..default },
+        ProtectPermissions { printing: false, copying: false, editing: false, commenting: false, filling_forms: false },
+    ];
+    for (i, permissions) in cases.into_iter().enumerate() {
+        let out = protect_with_permissions(&input, "user", Some("owner"), permissions, &t.path().join(format!("p{i}.pdf"))).unwrap();
+        let result = Command::new("qpdf").args(["--show-encryption", "--password=user"]).arg(&out).output().unwrap();
+        assert!(result.status.success(), "{result:?}");
+        let info = String::from_utf8(result.stdout).unwrap();
+        for (label, allowed) in [
+            ("print low resolution", permissions.printing),
+            ("print high resolution", permissions.printing),
+            ("extract for any purpose", permissions.copying),
+            ("modify other", permissions.editing),
+            ("modify document assembly", permissions.editing),
+            ("modify annotations", permissions.commenting),
+            ("modify forms", permissions.filling_forms),
+            ("extract for accessibility", true),
+        ] {
+            let expected = format!("{label}: {}", if allowed { "allowed" } else { "not allowed" });
+            assert!(info.lines().any(|line| line == expected), "expected {expected}:\n{info}");
+        }
+        assert!(qpdf(&["--show-encryption", "--password=owner", out.to_str().unwrap()]).contains("Supplied password is owner password"));
+    }
+}
+
+#[test]
+fn restrictions_use_the_open_password_when_no_owner_password_is_given() {
+    let t = tempfile::tempdir().unwrap();
+    let input = Input::new(fixture_pdf(t.path(), "source.pdf", 1));
+    for (i, owner) in [None, Some("")].into_iter().enumerate() {
+        let out = protect_with_permissions(&input, "user", owner,
+            ProtectPermissions { printing: false, ..Default::default() }, &t.path().join(format!("p{i}.pdf"))).unwrap();
+        let info = qpdf(&["--show-encryption", "--password=user", out.to_str().unwrap()]);
+        assert!(info.contains("Supplied password is owner password"), "{info}");
+        assert!(info.contains("print low resolution: not allowed"), "{info}");
+        assert!(info.contains("print high resolution: not allowed"), "{info}");
+    }
+}

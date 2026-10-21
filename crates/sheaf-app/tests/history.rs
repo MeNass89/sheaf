@@ -128,3 +128,83 @@ fn an_unsavable_entry_is_rejected_and_later_pushes_still_save() {
     s.push(entry(3)).unwrap();
     assert_eq!(ats(&Store::open(dir.path())), vec![3, 1]);
 }
+
+#[test]
+fn removing_a_recent_survives_reopen_without_changing_history() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path());
+    let e = entry(1);
+    let path = e.outputs[0].clone();
+    s.push(e.clone()).unwrap();
+    s.push(Entry { tool: "read".into(), ..e.clone() }).unwrap();
+    let history = std::fs::read(dir.path().join("history.json")).unwrap();
+    s.remove_recent(&path).unwrap();
+    s.remove_recent(&path).unwrap();
+    assert!(!s.visible_in_recents(&path));
+    let again = Store::open(dir.path());
+    assert!(!again.visible_in_recents(&path));
+    assert_eq!(again.list().len(), 2);
+    assert_eq!(std::fs::read(dir.path().join("history.json")).unwrap(), history);
+    assert!(again.visible_in_recents(&PathBuf::from("/out/other.pdf")));
+    s.push(e).unwrap();
+    assert!(s.visible_in_recents(&path));
+    assert!(Store::open(dir.path()).visible_in_recents(&path));
+}
+
+#[test]
+fn clearing_recents_hides_the_whole_history_but_new_activity_returns() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path());
+    for n in 0..20 { s.push(entry(n)).unwrap(); }
+    let history = std::fs::read(dir.path().join("history.json")).unwrap();
+    s.clear_recents().unwrap();
+    let mut again = Store::open(dir.path());
+    assert_eq!(again.list().len(), 20);
+    for e in again.list() {
+        for path in &e.outputs { assert!(!again.visible_in_recents(path)); }
+    }
+    assert_eq!(std::fs::read(dir.path().join("history.json")).unwrap(), history);
+    let reopened = entry(3);
+    again.push(reopened.clone()).unwrap();
+    assert!(again.visible_in_recents(&reopened.outputs[0]));
+    assert!(!again.visible_in_recents(&entry(4).outputs[0]));
+    let new = entry(99);
+    again.push(new.clone()).unwrap();
+    assert!(again.visible_in_recents(&new.outputs[0]));
+    let disk = Store::open(dir.path());
+    assert!(disk.visible_in_recents(&new.outputs[0]));
+    assert!(disk.visible_in_recents(&reopened.outputs[0]));
+    assert!(!disk.visible_in_recents(&entry(4).outputs[0]));
+}
+
+#[test]
+fn recent_store_write_failure_does_not_hide_a_file_in_memory() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path());
+    let e = entry(1);
+    s.push(e.clone()).unwrap();
+    std::fs::create_dir(dir.path().join("hidden-recents.json")).unwrap();
+    assert!(s.remove_recent(&e.outputs[0]).is_err());
+    assert!(s.visible_in_recents(&e.outputs[0]));
+    assert!(s.clear_recents().is_err());
+    assert!(s.visible_in_recents(&e.outputs[0]));
+    assert_eq!(s.list(), &[e]);
+}
+
+#[test]
+fn expired_recent_exclusions_are_pruned_and_corrupt_state_is_recoverable() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path());
+    let e = entry(0);
+    s.push(e.clone()).unwrap();
+    s.remove_recent(&e.outputs[0]).unwrap();
+    for n in 1..=MAX_ENTRIES { s.push(entry(n as u64)).unwrap(); }
+    let hidden: Vec<PathBuf> = serde_json::from_slice(&std::fs::read(dir.path().join("hidden-recents.json")).unwrap()).unwrap();
+    assert!(hidden.is_empty());
+    std::fs::write(dir.path().join("hidden-recents.json"), b"{broken").unwrap();
+    let mut again = Store::open(dir.path());
+    assert_eq!(again.list().len(), MAX_ENTRIES);
+    assert!(again.visible_in_recents(&entry(1).outputs[0]));
+    again.clear_recents().unwrap();
+    assert!(!Store::open(dir.path()).visible_in_recents(&entry(1).outputs[0]));
+}

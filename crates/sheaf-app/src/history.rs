@@ -1,5 +1,6 @@
-//! The task history (`history.json`): one entry per successful job, newest first.
+//! Task history (`history.json`) and separate Recents exclusions (`hidden-recents.json`).
 
+use std::collections::BTreeSet;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -22,6 +23,8 @@ pub struct Entry {
 pub struct Store {
     path: PathBuf,
     entries: Vec<Entry>,
+    hidden_path: PathBuf,
+    hidden_recents: BTreeSet<PathBuf>,
 }
 
 impl Store {
@@ -31,13 +34,16 @@ impl Store {
         let path = dir.join("history.json");
         let mut entries: Vec<Entry> = store_file::read(&path).unwrap_or_default();
         entries.truncate(MAX_ENTRIES);
-        Store { path, entries }
+        let hidden_path = dir.join("hidden-recents.json");
+        let hidden_recents = store_file::read(&hidden_path).unwrap_or_default();
+        Store { path, entries, hidden_path, hidden_recents }
     }
 
     /// Adds `e` at the top and saves. An entry JSON cannot hold (a non-UTF-8 path) is
     /// rejected and not kept, so it never blocks later saves. A disk error keeps it in
     /// memory; the next save retries.
     pub fn push(&mut self, e: Entry) -> io::Result<()> {
+        let outputs = e.outputs.clone();
         self.entries.insert(0, e);
         let keep = self.entries.len().min(MAX_ENTRIES);
         let json = match serde_json::to_vec_pretty(&self.entries[..keep]) {
@@ -48,7 +54,42 @@ impl Store {
             }
         };
         self.entries.truncate(MAX_ENTRIES);
-        store_file::replace(&self.path, &json)
+        store_file::replace(&self.path, &json)?;
+        let hidden = {
+            let current: BTreeSet<_> = self.entries.iter().flat_map(|e| &e.outputs).collect();
+            let reopened: BTreeSet<_> = outputs.iter().collect();
+            let mut hidden = self.hidden_recents.clone();
+            // Opening or producing a file again restores it; expired history needs no tombstone.
+            hidden.retain(|p| current.contains(p) && !reopened.contains(p));
+            hidden
+        };
+        self.set_hidden_recents(hidden)
+    }
+
+    /// Whether a history output may appear in Recents; the task entry itself is unchanged.
+    pub fn visible_in_recents(&self, path: &Path) -> bool {
+        !self.hidden_recents.contains(path)
+    }
+
+    pub fn remove_recent(&mut self, path: &Path) -> io::Result<()> {
+        let mut hidden = self.hidden_recents.clone();
+        hidden.insert(path.to_path_buf());
+        self.set_hidden_recents(hidden)
+    }
+
+    /// Hide all recorded outputs, including those beyond the visible card limit.
+    pub fn clear_recents(&mut self) -> io::Result<()> {
+        let hidden = self.entries.iter().flat_map(|e| e.outputs.iter().cloned()).collect();
+        self.set_hidden_recents(hidden)
+    }
+
+    fn set_hidden_recents(&mut self, hidden: BTreeSet<PathBuf>) -> io::Result<()> {
+        if hidden == self.hidden_recents { return Ok(()); }
+        let json = serde_json::to_vec_pretty(&hidden).map_err(io::Error::other)?;
+        // Save independently so a Recents action never rewrites or deletes task history.
+        store_file::replace(&self.hidden_path, &json)?;
+        self.hidden_recents = hidden;
+        Ok(())
     }
 
     /// Newest first.

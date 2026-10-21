@@ -329,6 +329,8 @@ fn main() -> Result<(), slint::PlatformError> {
     // Recents, history, preferences
     wire!(ui, on_open_recent, |ui, i| home::open_recent(&ui, i));
     ui.on_reveal_recent(home::reveal_recent);
+    wire!(ui, on_remove_recent, |ui, i| home::remove_recent(&ui, i));
+    wire!(ui, on_clear_recents, |ui| home::clear_recents(&ui));
     ui.on_reveal_history(home::reveal_history);
     wire!(ui, on_clear_history, |ui| home::clear(&ui));
     wire!(ui, on_page_shown, |ui| home::refresh(&ui));
@@ -338,6 +340,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_open_after, |ui, v| home::set_open_after(&ui, v));
     wire!(ui, on_set_author, |ui, v| home::set_author(&ui, &v));
     let parse = ui.global::<sheaf_app::Parse>();
+    parse.on_password_strength(|s| run::password_strength(&s));
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);
     parse.on_custom_text_error(|s| sheaf_core::numbers::custom_text_error(&s).unwrap_or_default().into());
     parse.on_has_code(|set, code| run::has_code(&set, &code));

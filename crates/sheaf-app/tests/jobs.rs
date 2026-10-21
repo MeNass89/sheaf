@@ -37,6 +37,7 @@ fn merge_then_protect_and_unlock_without_password() {
             items: vec![(Input::new(&src), dir.path().join("p.pdf"))],
             password: "secret".into(),
             owner: None,
+            permissions: Default::default(),
         },
         &no_cancel,
         &progress,
@@ -220,7 +221,7 @@ fn every_tool_but_protect_and_unlock_reports_an_encrypted_input() {
     assert!(go(Job::Repair { items: vec![(enc.clone(), o("f.pdf"))] }).was_encrypted);
     assert!(go(Job::ExtractPages { input: enc.clone(), pages: "1".into(), out: o("e.pdf") }).was_encrypted);
     assert!(!go(Job::Unlock { items: vec![(enc.clone(), o("u.pdf"))] }).was_encrypted);
-    assert!(!go(Job::Protect { items: vec![(enc, o("pp.pdf"))], password: "x".into(), owner: None }).was_encrypted);
+    assert!(!go(Job::Protect { items: vec![(enc, o("pp.pdf"))], password: "x".into(), owner: None, permissions: Default::default() }).was_encrypted);
 }
 
 #[test]
@@ -480,4 +481,23 @@ fn edit_job_puts_text_and_image_where_placed_in_the_viewer_on_a_turned_page() {
     assert!(blue[0] >= 100 && blue[0] <= 104 && blue[1] >= 50 && blue[3] < 80 && blue[2] - blue[0] > 50, "text ink {blue:?}");
     let g = boxed(&|p| p[1] > 140 && p[0] < 60 && p[2] < 80).expect("no image");
     assert!(g.iter().zip([500, 300, 599, 349]).all(|(a, e)| a.abs_diff(e) <= 1), "image at {g:?}");
+}
+
+#[test]
+fn protect_job_applies_permission_restrictions() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let out = dir.path().join("restricted.pdf");
+    run(&Job::Protect {
+        items: vec![(Input::new(&src), out.clone())],
+        password: "user".into(),
+        owner: Some("owner".into()),
+        permissions: sheaf_core::security::ProtectPermissions { printing: false, ..Default::default() },
+    }, &AtomicBool::new(false), &|_| {}).unwrap();
+    let result = std::process::Command::new("qpdf")
+        .args(["--show-encryption", "--password=user"]).arg(&out).output().unwrap();
+    assert!(result.status.success(), "{result:?}");
+    let info = String::from_utf8(result.stdout).unwrap();
+    assert!(info.contains("print low resolution: not allowed"), "{info}");
+    assert!(info.contains("print high resolution: not allowed"), "{info}");
 }

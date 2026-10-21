@@ -6,6 +6,9 @@ export component TextField inherits VerticalLayout {
     in property <string> placeholder;
     in property <string> error;
     in property <bool> password;
+    in property <bool> allow-reveal;
+    property <bool> revealed;
+    changed text => { if root.text == "" { root.revealed = false; } }
     in-out property <string> text;
     callback accepted();
 
@@ -35,14 +38,50 @@ export component TextField inherits VerticalLayout {
         }
         input := TextInput {
             x: 10px;
-            width: parent.width - 20px;
+            width: parent.width - (root.password && root.allow-reveal ? 52px : 20px);
             text <=> root.text;
             font-size: Theme.fs-label;
             color: Theme.text;
             vertical-alignment: center;
             single-line: true;
-            input-type: root.password ? InputType.password : InputType.text;
+            input-type: root.password && !root.revealed ? InputType.password : InputType.text;
             accepted => { root.accepted(); }
+        }
+        if root.password && root.allow-reveal: Rectangle {
+            x: parent.width - self.width - 2px;
+            y: 2px;
+            width: 32px;
+            height: parent.height - 4px;
+            border-radius: Theme.radius-small;
+            background: eye.has-hover || focus.has-focus ? Theme.menu-hover-bg : transparent;
+            accessible-role: button;
+            accessible-label: root.revealed ? "Hide password" : "Show password";
+            accessible-action-default => { root.revealed = !root.revealed; }
+            Image {
+                width: 16px;
+                height: 16px;
+                source: @image-url("../icons/eye.svg");
+                colorize: Theme.text-secondary;
+            }
+            if root.revealed: Image {
+                width: 16px;
+                height: 16px;
+                source: @image-url("../icons/eye-slash.svg");
+                colorize: Theme.text-secondary;
+            }
+            focus := FocusScope {
+                key-pressed(e) => {
+                    if e.text == " " || e.text == Key.Return {
+                        root.revealed = !root.revealed;
+                        return accept;
+                    }
+                    reject
+                }
+            }
+            eye := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.revealed = !root.revealed; }
+            }
         }
     }
     if root.error != "": Text {

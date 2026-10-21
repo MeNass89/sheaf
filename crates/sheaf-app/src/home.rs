@@ -297,11 +297,11 @@ fn row(e: &Entry, now: u64) -> HistoryRow {
 }
 
 /// The newest existing output files, without duplicates, with their entry time.
-fn recent_outputs(list: &[Entry]) -> Vec<(PathBuf, u64)> {
+fn recent_outputs(store: &Store) -> Vec<(PathBuf, u64)> {
     let mut out: Vec<(PathBuf, u64)> = Vec::new();
-    for e in list {
+    for e in store.list() {
         for p in &e.outputs {
-            if out.len() < MAX_RECENTS && !out.iter().any(|(q, _)| q == p) && p.is_file() {
+            if store.visible_in_recents(p) && out.len() < MAX_RECENTS && !out.iter().any(|(q, _)| q == p) && p.is_file() {
                 out.push((p.clone(), e.at_unix));
             }
         }
@@ -319,7 +319,7 @@ pub fn refresh(ui: &AppWindow) {
     let now = history::now_unix();
     let (rows, recents, missing) = with(|h| {
         let rows: Vec<HistoryRow> = h.store.list().iter().filter(|e| e.tool != READ).map(|e| row(e, now)).collect();
-        let outs = recent_outputs(h.store.list());
+        let outs = recent_outputs(&h.store);
         let mut missing = Vec::new();
         let recents: Vec<RecentFile> = outs
             .iter()
@@ -382,6 +382,26 @@ pub fn open_recent(ui: &AppWindow, i: i32) {
             crate::run::open_detached(&p);
         }
     }
+}
+
+pub fn remove_recent(ui: &AppWindow, i: i32) {
+    if let Some(p) = recent(i) {
+        let result = with(|h| h.store.remove_recent(&p));
+        if let Err(e) = result {
+            eprintln!("sheaf: cannot remove recent file: {e}");
+            crate::flow::toast(ui, "Could not remove the recent file. Please try again.");
+        }
+        refresh(ui);
+    }
+}
+
+pub fn clear_recents(ui: &AppWindow) {
+    let result = with(|h| h.store.clear_recents());
+    if let Err(e) = result {
+        eprintln!("sheaf: cannot clear recents: {e}");
+        crate::flow::toast(ui, "Could not clear recent files. Please try again.");
+    }
+    refresh(ui);
 }
 
 pub fn reveal_recent(i: i32) {
