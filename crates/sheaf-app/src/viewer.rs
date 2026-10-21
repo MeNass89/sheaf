@@ -112,7 +112,11 @@ pub fn wanted(layout: &[(f64, f64)], top: f64, height: f64) -> Range<usize> {
 /// The page under the middle of the viewport (the one the strip highlights).
 pub fn current(layout: &[(f64, f64)], top: f64, height: f64) -> usize {
     let mid = top + height / 2.0;
-    layout.iter().rposition(|(y, _)| *y <= mid).unwrap_or(0)
+    let Some(i) = layout.iter().rposition(|(y, _)| *y <= mid) else { return 0 };
+    // With two pages side by side, the row's first (left) page: page operations, printing the
+    // current page and the page field all mean the pair's first page.
+    let row = layout[i].0;
+    (0..=i).rev().take_while(|&j| layout[j].0 == row).last().unwrap_or(i)
 }
 
 /// Zoom steps offered by ⌘+ / ⌘− (percent of the fit width), PDF Expert's range.
@@ -669,6 +673,8 @@ mod tests {
         assert!(p1[0] > p0[0] + p0[2] && p2[1] > p0[1] + p0[3], "page 2 right of 1, page 3 below");
         assert!(p0[2] < single[2] / 1.5, "each page about half as wide at fit width");
         assert!(v.content_height() > p2[1] + p2[3]);
+        // The page in view is the pair's first page.
+        assert_eq!(v.current(p0[1], 100.0), 0);
         // Hit the right-hand page.
         assert_eq!(v.hit(p1[0] + 5.0, p1[1] + 5.0).map(|h| h.0), Some(1));
         // With the cover: page 1 alone on the right, then 2-3, 4-5.

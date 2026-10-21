@@ -80,8 +80,8 @@ struct Draft {
 enum EditTarget {
     /// A paragraph: index, text, box (user space), its top-left (view).
     Block(usize, String, [f64; 4], (f64, f64)),
-    /// An image: index among the page's images, box (user space).
-    Image(usize, [f64; 4]),
+    /// An image: index among the page's images, visible box and full box (user space).
+    Image(usize, [f64; 4], [f64; 4]),
     Empty,
 }
 
@@ -108,6 +108,8 @@ pub struct ReaderUi {
     snap: Snap,
     /// Operations sent and not answered yet.
     in_flight: usize,
+    /// Of those, edits, undos and redos: what can change the indices of comments and objects.
+    edits_in_flight: usize,
     provisional: Vec<Provisional>,
     pub path: PathBuf,
     pub name: String,
@@ -116,7 +118,7 @@ pub struct ReaderUi {
     text_renderer: Option<(Arc<Vec<u8>>, render::PageRenderer)>,
     blocks: HashMap<usize, Arc<Vec<Block>>>,
     /// The boxes of each page's images (user space), read with its paragraphs.
-    images: HashMap<usize, Arc<Vec<[f64; 4]>>>,
+    images: HashMap<usize, Arc<Vec<ImageBoxes>>>,
     /// Edit tool: what the press is on, where it started and where the pointer is (view).
     edit_press: Option<EditPress>,
     blocks_asked: HashSet<usize>,
@@ -208,6 +210,8 @@ pub struct ReaderUi {
 
 /// An annotation pulled by the pointer: its index, where the pull started, where it is (view).
 type AnnotPull = (usize, (f64, f64), (f64, f64));
+/// An image on a page: its visible box and its full box (user space).
+type ImageBoxes = ([f64; 4], [f64; 4]);
 /// A panel model kept until what it shows changes.
 type Cache<T> = std::cell::RefCell<Option<T>>;
 /// What the outline rows depend on: the version and the current section.
@@ -223,6 +227,7 @@ impl ReaderUi {
             ops,
             snap,
             in_flight: 0,
+            edits_in_flight: 0,
             provisional: Vec::new(),
             path,
             name,
@@ -308,8 +313,10 @@ impl ReaderUi {
     }
 
     fn send(&mut self, op: Op) {
+        let edit = matches!(op, Op::Apply { .. } | Op::Undo { .. } | Op::Redo { .. });
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
+            self.edits_in_flight += usize::from(edit);
         }
     }
 
@@ -422,6 +429,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Changed { snap, pages, error, applied } => {
             update(id, |r, v| {
                 r.in_flight = r.in_flight.saturating_sub(1);
+                r.edits_in_flight = r.edits_in_flight.saturating_sub(1);
                 // A refused edit added no undo step: its pages leave the stack too.
                 if applied && error.is_some() {
                     r.undo_pages.pop();

@@ -27,7 +27,9 @@ jobs:
             brew install qpdf poppler
           else
             sudo apt-get update
-            sudo apt-get install -y qpdf poppler-utils libfontconfig1-dev libxkbcommon-dev libudev-dev
+            # The GUI layer of scripts/test.sh drives the app on Xvfb with xdotool.
+            sudo apt-get install -y qpdf poppler-utils libfontconfig1-dev libxkbcommon-dev libudev-dev \
+              xvfb xdotool xclip imagemagick x11-utils libxkbcommon-x11-0
           fi
       - run: sh scripts/fetch-pdfium.sh && sh scripts/fetch-models.sh
       - run: bash scripts/test.sh

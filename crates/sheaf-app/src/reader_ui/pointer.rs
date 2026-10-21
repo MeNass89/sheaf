@@ -39,7 +39,7 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                     (p.0 >= x - 2.0 && p.0 <= x + w + 2.0 && p.1 >= y - 2.0 && p.1 <= y + h + 2.0).then_some((x, y))
                 };
                 let block = blocks.iter().enumerate().find_map(|(i, b)| inside(b.rect).map(|at| EditTarget::Block(i, b.text.clone(), b.rect, at)));
-                let image = || r.images.get(&page).and_then(|im| im.iter().enumerate().rev().find_map(|(i, rc)| inside(*rc).map(|_| EditTarget::Image(i, *rc))));
+                let image = || r.images.get(&page).and_then(|im| im.iter().enumerate().rev().find_map(|(i, (vis, full))| inside(*vis).map(|_| EditTarget::Image(i, *vis, *full))));
                 let target = block.or_else(image).unwrap_or(EditTarget::Empty);
                 r.edit_press = Some(EditPress { page, target, from: p, to: p, dragging: false });
                 false
@@ -200,15 +200,8 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                 (w2, h2) = (w * k, h * k);
             }
             let user = viewer::view_rect_to_pdf(b, size, (x, y), (x + w2, y + h2));
-            let edit = if a.fill_sign {
-                // A signature is drawn again at the new size, centred where it was.
-                let graphic = saved_signature()?;
-                let info = render::PageInfo { width: size.0 as f32, height: size.1 as f32, label: String::new(), crop: b.crop.map(|c| c as f32), rotation: b.rotation };
-                let placed = sheaf_core::sign::signature_edit(&info, a.page, [x + w2 / 2.0, y + h2 / 2.0], w2, &graphic).ok()?;
-                Edit::Batch { label: "Resize signature".into(), edits: vec![Edit::DeleteAnnotation { page: a.page, index: a.index }, placed] }
-            } else {
-                Edit::ResizeAnnotation { page: a.page, index: a.index, rect: user }
-            };
+            // PdfCraft scales a drawing's strokes (a signature is one) as it scales a box.
+            let edit = Edit::ResizeAnnotation { page: a.page, index: a.index, rect: user };
             r.selected_annot = None;
             return Some(Pending::Move(a.page, Box::new(edit)));
         }
@@ -223,7 +216,8 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                     let style = sheaf_core::pdfcraft::edit::BlockStyle { offset: Some([dx, dy]), ..Default::default() };
                     return Some(Pending::Move(e.page, Box::new(Edit::EditTextBlock { page: e.page, block: i, text, style })));
                 }
-                (EditTarget::Image(i, rc), true) => {
+                (EditTarget::Image(i, _, rc), true) => {
+                    // The full box moves (a cropped image keeps its crop and its size).
                     let to = [rc[0] + dx, rc[1] + dy, rc[2] + dx, rc[3] + dy];
                     return Some(Pending::Move(e.page, Box::new(Edit::EditPageImage { page: e.page, index: i, change: sheaf_core::pdfcraft::engine::ImageEdit::Move(to) })));
                 }

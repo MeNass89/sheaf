@@ -701,7 +701,10 @@ impl Document {
         // Fast path: the full fold is O(cache) per insert, so skip it for a small newcomer
         // below the count cap. `len` is copied out first; nothing here holds the lock.
         let len = self.cache.lock().map_err(|_| CosError::Poisoned)?.len();
-        if len <= Self::EDITOR_CACHE_OBJECTS && owned_bytes(fresh, &self.data, 0) <= Self::EDITOR_LARGE_OBJECT {
+        // Sheaf: with room for 65,536 objects, small newcomers alone could pass the byte budget
+        // many times over (decrypted strings and streams): a full pass every 1,024 inserts keeps
+        // it, at an amortised cost of one fold per 1,024.
+        if len <= Self::EDITOR_CACHE_OBJECTS && len % 1024 != 0 && owned_bytes(fresh, &self.data, 0) <= Self::EDITOR_LARGE_OBJECT {
             return Ok(());
         }
         // Walk a snapshot off-lock; re-lock only to evict.

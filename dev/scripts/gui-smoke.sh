@@ -72,7 +72,7 @@ launch() {
     # Absolute paths: the dirs crate ignores relative XDG paths and would fall back to the real
     # profile (it did until 21/10: smoke runs wrote into ~/.local/share/Sheaf).
     local p="$PWD/$OUT/profile"
-    XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" "$APP" "$@" >"$OUT/app.log" 2>&1 &
+    XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" SHEAF_READER_DEBUG=1 "$APP" "$@" >>"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done
     [ -n "$W" ] || { echo "FAIL the app opened no window:"; tail -5 "$OUT/app.log"; exit 1; }
@@ -233,9 +233,12 @@ B0=$(bar); shifted t; B1=$(bar_until "abs(float(sys.argv[1]) - $B0) > 0.01"); sh
 check "⇧T hides the toolbar and brings it back ($B0 → $B1 → $B2)" "python3 -c 'import sys; a, b, c = $B0, $B1, $B2; sys.exit(0 if abs(a - b) > 0.01 and abs(a - c) < 0.005 else 1)'"
 shot 03-pages
 
-# 4. Search runs (results panel in the screenshot).
-click 1030 61; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "fox"; key Return; sleep 1.5; shot 04-search
-check "search does not crash" "kill -0 $APP_PID 2>/dev/null"
+# 4. Search (⌘F): "Page 3" is only on page 3; its first result is brought into view, which ⌘A ⌘C
+# then reads back.
+key Home; sleep 0.5; key ctrl+f; xdotool type --delay 10 "Page 3"; key Return; sleep 2; shot 04-search
+echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3
+SR=$(xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6)
+check "search finds the text and shows its page ($SR)" "[ \"$SR\" = 'Page 3' ]"
 key Escape
 
 # 5. Closing with unsaved edits asks; Don't Save leaves the file as it was.
@@ -253,11 +256,12 @@ click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --d
 # 6b. Print before saving (⌘P, Return): the printed copy has the unsaved value. Needs a CUPS
 # printer named PDF (printer-driver-cups-pdf, output in ~/PDF); skipped without one.
 if lpstat -e 2>/dev/null | grep -qx PDF && lpstat -d 2>/dev/null | grep -q ': PDF$'; then
-    N0=$(ls ~/PDF/*.pdf 2>/dev/null | wc -l)
+    BEFORE_PDF=$(ls ~/PDF/*.pdf 2>/dev/null); N0=$(echo -n "$BEFORE_PDF" | grep -c .)
     key ctrl+p; sleep 0.8; shot 06b-print-sheet; key Return
     for _ in $(seq 1 20); do [ "$(ls ~/PDF/*.pdf 2>/dev/null | wc -l)" -gt "$N0" ] && break; sleep 0.5; done; sleep 0.5
-    P=$(ls -t ~/PDF/*.pdf 2>/dev/null | head -1)
-    check "printing sends the document with its unsaved edits" "[ -n \"$P\" ] && [ \"\$(ls ~/PDF/*.pdf | wc -l)\" -gt $N0 ] && pdftotext \"$P\" - | grep -q 'Smoke Test'"
+    # The file this run printed: in ~/PDF now and not before (never one that was already there).
+    P=$(comm -13 <(echo "$BEFORE_PDF" | sort) <(ls ~/PDF/*.pdf 2>/dev/null | sort) | head -1)
+    check "printing sends the document with its unsaved edits" "[ -n \"$P\" ] && pdftotext \"$P\" - | grep -q 'Smoke Test'"
     [ -n "$P" ] && rm -f "$P"
 else
     echo "SKIP printing (no default CUPS printer named PDF)"
@@ -297,7 +301,9 @@ stampshade() { import -window root -crop 200x40+800+280 png:- 2>/dev/null | conv
 H0=$(stampshade); click 45 149 1.2; H1=$(stampshade); click 45 149 1.2; H2=$(stampshade)
 check "Hide all comments hides them and Show all brings them back ($H0 → $H1 → $H2)" "python3 -c 'import sys; a, b, c = $H0, $H1, $H2; sys.exit(0 if b - a > 0.05 and abs(a - c) < 0.005 else 1)'"
 click 226 152 1.5; key ctrl+s; sleep 1.5
-check "Remove all comments leaves none in the file" "! qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aqE '/Subtype /(Square|Circle|Line|Ink|Stamp|Text|FreeText|Highlight)\$'"
+# The file must be read for the absence to mean anything.
+QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
+check "Remove all comments leaves none in the file" "[ -n \"\$QD\" ] && ! echo \"\$QD\" | grep -aqE '/Subtype /(Square|Circle|Line|Ink|Stamp|Text|FreeText|Highlight)\$'"
 key ctrl+z; key ctrl+s; sleep 1.5
 check "⌘Z brings them all back" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Subtype /Stamp'"
 click 30 106 0.8   # back to the Pages panel

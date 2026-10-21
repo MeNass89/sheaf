@@ -12,6 +12,11 @@ pub(super) fn apply(ui: &AppWindow, tab_id: i32, edit: Edit, pages: &[usize], pr
         if r.structure_pending {
             return Some("One moment: the pages are being rearranged".into());
         }
+        // An edit naming a comment, paragraph or image by its index means the index in the last
+        // snapshot: with an edit still on its way, it could name another one.
+        if r.edits_in_flight > 0 && by_index(&edit) {
+            return Some("One moment: the last change is still being applied".into());
+        }
         r.send(Op::Apply { edit: Box::new(edit), pages: pages.to_vec() });
         r.undo_pages.push(pages.to_vec());
         r.redo_pages.clear();
@@ -21,6 +26,22 @@ pub(super) fn apply(ui: &AppWindow, tab_id: i32, edit: Edit, pages: &[usize], pr
     .flatten();
     if let Some(e) = err {
         crate::flow::toast(ui, &e);
+    }
+}
+
+/// Whether `edit` names something on a page by its index (comments, paragraphs, images).
+fn by_index(edit: &Edit) -> bool {
+    match edit {
+        Edit::Batch { edits, .. } => edits.iter().any(by_index),
+        Edit::MoveAnnotation { .. }
+        | Edit::ResizeAnnotation { .. }
+        | Edit::DeleteAnnotation { .. }
+        | Edit::EraseInk { .. }
+        | Edit::StyleAnnotation { .. }
+        | Edit::SetAnnotationContents { .. }
+        | Edit::EditTextBlock { .. }
+        | Edit::EditPageImage { .. } => true,
+        _ => false,
     }
 }
 
@@ -80,15 +101,13 @@ pub(super) fn after_change(r: &mut ReaderUi, v: &mut ViewerUi, pages: Option<&[u
             r.blocks_asked.clear();
         }
     }
-    // Annotations don't change the text layer; edits of the page content do.
-    let stale_text = r.text_renderer.as_ref().is_some_and(|(b, _)| !Arc::ptr_eq(b, &r.snap.bytes));
-    if stale_text {
-        match pages {
-            Some(ps) => ps.iter().for_each(|p| {
-                r.texts.remove(p);
-            }),
-            None => r.texts.clear(),
-        }
+    // The text of the pages changed is read again when needed (edits of the page content change
+    // it; whoever filled the cache, a selection or a search, it must not outlive them).
+    match pages {
+        Some(ps) => ps.iter().for_each(|p| {
+            r.texts.remove(p);
+        }),
+        None => r.texts.clear(),
     }
     r.version += 1;
     if r.selected_annot.is_some_and(|i| i >= r.snap.annots.len()) {
@@ -227,7 +246,8 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
         let rect = viewer::view_rect_to_pdf(bx, size, (x, y), (x + w, y + h));
         let stamp = StampKind::ALL[r.stamp.min(StampKind::ALL.len() - 1)];
         let dynamic = matches!(stamp.group(), sheaf_core::pdfcraft::engine::StampGroup::Dynamic);
-        let by = dynamic.then(|| chrono::Local::now().format(&format!("By {} at %-I:%M %P, %b %d, %Y", author())).to_string());
+        // The time is formatted alone: the author's name may hold a % (a format directive).
+        let by = dynamic.then(|| format!("By {} at {}", author(), chrono::Local::now().format("%-I:%M %P, %b %d, %Y")));
         let shape = Shape::Stamp { rect, stamp, by };
         let style = Style::default_for(&shape);
         Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: stamp.label().into(), author: author() })

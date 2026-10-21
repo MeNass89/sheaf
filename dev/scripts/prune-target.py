@@ -12,7 +12,8 @@ build, the workspace tests, clippy — and deletes every other file in deps/, bu
 import json, os, re, shutil, subprocess, sys
 
 root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-target = os.environ.get("CARGO_TARGET_DIR") or os.path.expanduser("~/.cache/cargo-target/sheaf")
+# Relative to the project, as Cargo reads it (its runs below start in the project).
+target = os.path.join(root, os.path.expanduser(os.environ.get("CARGO_TARGET_DIR") or "~/.cache/cargo-target/sheaf"))
 debug = os.path.join(target, "debug")
 HASH = re.compile(r"-([0-9a-f]{16})(?:\.|$|/)")
 

@@ -529,3 +529,12 @@ the cost is inside `Session::apply` and `mark_saved`. **Would change it.** Upstr
 **Decision.** Save and Save As both write the file as opened plus an appended update. A full rewrite took 13 s on a
 large book and PdfCraft refuses it for signed files (Save As of a signed PDF failed). **Alternative.** Full rewrite
 (compact, history dropped): that is what Compress does. **Would change it.** Nassim wanting Save As to compact.
+
+## 2026-10-21 · Sol's review of 7a246b0..e5c0fc3: 13 defects, all fixed
+Signature resize recreated the kept signature (now PdfCraft's ResizeAnnotation scales the strokes); index-naming
+edits refused while another edit is on its way (`edits_in_flight`); cropped image moves pass the full box;
+two-page "current page" is the row's first page; a % in the author no longer reaches chrono's format; the cos
+cache keeps its byte budget (full pass every 1,024 inserts); the text cache is dropped for every changed page;
+printing refuses user-password PDFs with a reason; prune-target resolves a relative target dir from the project;
+gui-smoke: the print check deletes only the file it made, "remove all" requires the file to be read, search now
+checks its result; CI installs the GUI tools (unverified until the first CI run on main or a PR).

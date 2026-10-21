@@ -191,7 +191,9 @@ pub enum Reply {
     Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool },
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
     /// A page's paragraphs and its images' boxes (user space).
-    Blocks(usize, Vec<Block>, Vec<[f64; 4]>),
+    /// A page's paragraphs and its images: (visible box, full box), user space; a cropped image
+    /// shows less than its full box, which is what a move translates.
+    Blocks(usize, Vec<Block>, Vec<([f64; 4], [f64; 4])>),
     Extracted { to: PathBuf, error: Option<String> },
 }
 
@@ -256,7 +258,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             .filter(|b| !b.text.trim().is_empty())
                             .map(|b| Block { rect: b.rect, text: b.editor_text })
                             .collect();
-                        let images = doc.document().page_images(page).iter().map(|i| i.visible_rect.unwrap_or(i.rect)).collect();
+                        let images = doc.document().page_images(page).iter().map(|i| (i.visible_rect.unwrap_or(i.rect), i.rect)).collect();
                         reply(Reply::Blocks(page, b, images));
                     }
                 }

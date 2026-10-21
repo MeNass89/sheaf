@@ -24,6 +24,10 @@ pub fn print(ui: &AppWindow, tab_id: i32, printer: i32, copies: i32, pages: i32,
         if r.in_flight > 0 {
             return Err("Still applying your last change: print again in a moment".to_string());
         }
+        // The print service gets the file's bytes: an encrypted file would reach it unreadable.
+        if r.snap.password.is_some() {
+            return Err("This PDF is password-protected: remove its password (Tools ▸ Unlock) to print it".to_string());
+        }
         let count = r.snap.boxes.len();
         let pages = match pages {
             1 => Some((v.current() + 1).to_string()),

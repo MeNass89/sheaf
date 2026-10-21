@@ -7,7 +7,7 @@ make large documents fast; measured on a 1,982-page, 70 MB book (`reader_doc::te
 
 | Crate | Change | Before → after |
 |---|---|---|
-| `pdfcraft-cos` | `EDITOR_CACHE_OBJECTS` (src/document.rs) 1,024 → 65,536. After each edit the engine walks every page twice (comment list, missing appearances); a 1,024-object cache was emptied on every walk and the file parsed and inflated again. The 32 MB byte budget is unchanged. | annotation 2.13 → 0.20 s, undo 2.0 → 0.19 s, open 8.6 → 4.5 s; peak memory 370 → 465 MB |
+| `pdfcraft-cos` | `EDITOR_CACHE_OBJECTS` (src/document.rs) 1,024 → 65,536. After each edit the engine walks every page twice (comment list, missing appearances); a 1,024-object cache was emptied on every walk and the file parsed and inflated again. The 32 MB byte budget is kept by a full accounting pass every 1,024 inserts (the fast path skipped it for small objects). | annotation 2.13 → 0.20 s, undo 2.0 → 0.19 s, open 8.6 → 4.5 s; peak memory 370 → 465 MB |
 | `pdfcraft-engine` | `Session::mark_saved` (src/lib.rs): after an incremental save (old file + appended update, objects keep their numbers) the light refresh of a comment edit instead of the full re-inspection. A full rewrite (Save As) keeps the full refresh. `src/tests.rs` (upstream's tests, 250 KB) is left out. | ⌘S 4.6 s → see DECISIONS |
 
 **To update PdfCraft:** bump the rev in the workspace `Cargo.toml` and in both `Cargo.toml` here, copy

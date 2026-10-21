@@ -16,23 +16,20 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 65 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
-security 1/18, platform 1/14; edit, convert, optimize, output, sign, compare, batch, preferences, ai at 0.
+**331 components, 65 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 14/38, batch 0/9, compare 0/7, convert 0/20, edit 4/29, files 3/19, forms 4/17, optimize 0/15, organize 6/27, output 0/15, platform 1/14, preferences 1/14, reader 26/64, security 2/18, sign 4/18.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
-## What exists now (branch `dev/phase-4-5`, pushed; tests: 333 passed on Linux)
+## What exists now (branch `dev/phase-4-5`, pushed)
 
-- **F-001** every file dialog async and attached to the window (`src/dialog.rs`); Compress → Save → mouse click
-  proved on Linux; **the Mac click is still to prove**.
-- **F-002 reader** (`src/reader.rs`, `src/reader_ui/`, `src/reader_doc.rs`, `ui/screens/reader.slint`): PDFs open
-  in document tabs (pages shown 1.3 s into a 1,982-page book, rest parsed on the document's own thread), outline,
-  thumbnails, search with results panel, select/copy, highlight/underline/strike/note/pen/text box, recolour,
-  delete, undo/redo, ⌘S incremental, Save As, unsaved prompt, Day/Sepia/Night, links and ⌘[ ⌘], PDF Expert's
-  zoom shortcuts (⌘0 100 %, ⌘9 width, ⌘8 page), tabs ⇧⌘[ ⇧⌘], reopen at the last page, password prompt.
-- **F-003 pages panel**: select, drag to reorder, rotate, insert blank, duplicate, extract, delete.
-- **F-004 forms**: fill text/check/radio/choice fields, Tab order, clear, flatten.
-- Edit text in place (E tool) works but glyphs missing from embedded subsets draw wrong (C-edit-002 at 5);
-  a standard-font fallback made PdfCraft overprint rows and was reverted.
+- **F-001** every file dialog async and attached to the window (`src/dialog.rs`); the Mac click is still to prove.
+- **F-002 reader** (`src/reader_ui/`, `src/reader_doc.rs`, `src/reader.rs`, `ui/screens/reader*.slint`): document
+  tabs; outline, thumbnails, notes (author, date; hide all, summary, remove all), search (parallel, texts kept);
+  highlight/underline/strike, note, pen, eraser, text box (size), shapes (rectangle, oval, line, arrow; fill,
+  opacity), stamps (dated too), signature (place, resize), edit text and images, forms; undo/redo; ⌘S and Save As
+  (incremental); print (CUPS); Document properties (⌘D); Day/Sepia/Night; two pages / cover; reopen as left;
+  links and history; PDF Expert's shortcuts.
+- **F-003 pages panel**, **F-004 forms** as before.
+- PdfCraft patched for large files in `third_party/` (a 1,982-page book: annotation 0.19 s, save 1.1 s).
 
 ## Tests: one suite
 
@@ -74,6 +71,9 @@ Next, by components lifted:
 - Print: preview, paper size, Windows (C-output-007 at 8); toolbox tools' remaining gaps (convert, optimize).
 
 ## Building on the VPS (7.9 GB RAM, no swap, 2 vCPU) — read before any build
+
+- `dev/scripts/cargo.sh` waits while class-recorder records a lecture (`join_teams.py` running): never build over
+  it. A suite started then simply waits.
 
 - **Only** `sh dev/scripts/build-safe.sh build -p sheaf-app` (or `test --workspace --no-fail-fast`): it stops
   the test app and the ChatGPT desktop app (Nassim: it stays closed), waits for ≥ 3 GB free, caps the build at
