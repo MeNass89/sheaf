@@ -2,11 +2,11 @@
 # GUI smoke test of the reader on Linux (Xvfb + xdotool), checked on the files it writes, not on
 # screenshots: open, highlight, note, save, page operations, form filling, close prompt.
 # Prints one PASS/FAIL line per check and exits non-zero on any failure. Screenshots of each step
-# go to dev/.tmp/smoke/ for a look when something fails.
-#   sh dev/scripts/build-safe.sh build -p sheaf-app && bash dev/scripts/gui-smoke.sh
+# go to dev/.tmp/smoke/, kept only when something fails. It is the `gui` layer of the one suite:
+#   bash scripts/test.sh gui
 set -u
 cd "$(dirname "$0")/../.."
-APP="$HOME/.cache/cargo-target/sheaf/debug/sheaf-app"
+APP="${SHEAF_APP:-$HOME/.cache/cargo-target/sheaf/debug/sheaf-app}"   # set by scripts/test.sh
 OUT=dev/.tmp/smoke
 rm -rf "$OUT"; mkdir -p "$OUT"
 export DISPLAY=:98
@@ -226,5 +226,6 @@ check "a form field is filled and saved ($V)" "echo \"$V\" | grep -q 'Smoke Test
 quit
 
 echo "---"
-[ $fails -eq 0 ] && echo "ALL PASS" || echo "$fails FAILED (screenshots in $OUT)"
+# Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).
+if [ $fails -eq 0 ]; then echo "ALL PASS"; [ -n "${SMOKE_KEEP:-}" ] || rm -rf "$OUT"; else echo "$fails FAILED (screenshots in $OUT)"; fi
 exit $fails

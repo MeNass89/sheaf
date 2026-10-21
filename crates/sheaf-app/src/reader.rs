@@ -69,7 +69,7 @@ pub fn tint(rgba: &mut [u8], theme: PageTheme) {
             *out = (ink[c] + (paper[c] - ink[c]) * t).round() as i32;
         }
     }
-    for px in rgba.chunks_exact_mut(4) {
+    for px in rgba.as_chunks_mut::<4>().0 {
         let (r, g, b) = (px[0] as i32, px[1] as i32, px[2] as i32);
         let l = (r.max(g).max(b) + r.min(g).min(b)) / 2;
         let off = [r - l, g - l, b - l];
@@ -177,10 +177,11 @@ fn clean_title(s: &str) -> String {
 pub fn current_section(rows: &[OutlineRow], page: usize) -> Option<usize> {
     let mut best: Option<(usize, usize)> = None;
     for (i, r) in rows.iter().enumerate() {
-        if let Some(p) = r.page {
-            if p <= page && best.is_none_or(|(bp, _)| p >= bp) {
-                best = Some((p, i));
-            }
+        if let Some(p) = r.page
+            && p <= page
+            && best.is_none_or(|(bp, _)| p >= bp)
+        {
+            best = Some((p, i));
         }
     }
     best.map(|(_, i)| i)

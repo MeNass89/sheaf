@@ -45,7 +45,6 @@ pub struct FieldEntry {
     /// Choice: (export value, display text).
     pub options: Vec<(String, String)>,
     pub read_only: bool,
-    pub multiline: bool,
     /// (page, rect in user space, the widget's "on" state for check boxes and radios, tab order).
     pub widgets: Vec<(usize, [f64; 4], Option<String>, usize)>,
 }
@@ -121,7 +120,6 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
             value: f.value.clone(),
             options: f.options.clone(),
             read_only: f.flags & field_flags::READ_ONLY != 0,
-            multiline: f.flags & field_flags::MULTILINE != 0,
             widgets: f.widgets.iter().filter_map(|w| Some((w.page?, w.rect, w.on_state.clone(), w.tab))).collect(),
         })
         .collect()
@@ -129,7 +127,7 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
 
 pub enum Op {
     /// An edit; `pages` are the pages it changes (rendered again).
-    Apply { edit: Edit, pages: Vec<usize> },
+    Apply { edit: Box<Edit>, pages: Vec<usize> },
     /// `pages`: the pages the edit undone touched (`None`: unknown, all render again).
     Undo { pages: Option<Vec<usize>> },
     Redo { pages: Option<Vec<usize>> },
@@ -173,7 +171,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                 let t0 = std::time::Instant::now();
                 match op {
                     Op::Apply { edit, pages } => {
-                        let error = doc.apply(edit).err().map(|e| e.to_string());
+                        let error = doc.apply(*edit).err().map(|e| e.to_string());
                         let t1 = std::time::Instant::now();
                         let s = snap(&doc);
                         debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
@@ -332,7 +330,7 @@ mod tests {
         let before = std::fs::metadata(&path).unwrap().len();
         let (ops, rx, snap) = started(&path);
         assert!(snap.annots.is_empty() && !snap.dirty && snap.boxes.len() == 2);
-        ops.send(Op::Apply { edit: highlight(0), pages: vec![0] }).unwrap();
+        ops.send(Op::Apply { edit: Box::new(highlight(0)), pages: vec![0] }).unwrap();
         let (snap, err) = next(&rx);
         assert!(err.is_none(), "{err:?}");
         assert!(snap.dirty && snap.can_undo);
@@ -360,7 +358,7 @@ mod tests {
             contents: "Check".into(),
             author: String::new(),
         });
-        ops.send(Op::Apply { edit: note, pages: vec![0] }).unwrap();
+        ops.send(Op::Apply { edit: Box::new(note), pages: vec![0] }).unwrap();
         assert_eq!(next(&rx).0.annots.len(), 1);
         ops.send(Op::Undo { pages: Some(vec![0]) }).unwrap();
         let (s, _) = next(&rx);
@@ -377,12 +375,12 @@ mod tests {
         let path = fixture(dir.path(), 4);
         let (ops, rx, _) = started(&path);
         // Page 1 moved after page 3: 2 3 1 4.
-        ops.send(Op::Apply { edit: Edit::MovePages { pages: vec![0], to: 2 }, pages: vec![] }).unwrap();
+        ops.send(Op::Apply { edit: Box::new(Edit::MovePages { pages: vec![0], to: 2 }), pages: vec![] }).unwrap();
         assert!(next(&rx).1.is_none());
-        ops.send(Op::Apply { edit: Edit::RotatePages { pages: vec![0], degrees: 90 }, pages: vec![] }).unwrap();
+        ops.send(Op::Apply { edit: Box::new(Edit::RotatePages { pages: vec![0], degrees: 90 }), pages: vec![] }).unwrap();
         let (s, _) = next(&rx);
         assert_eq!(s.boxes[0].rotation, 90);
-        ops.send(Op::Apply { edit: Edit::DeletePages { pages: vec![3] }, pages: vec![] }).unwrap();
+        ops.send(Op::Apply { edit: Box::new(Edit::DeletePages { pages: vec![3] }), pages: vec![] }).unwrap();
         assert_eq!(next(&rx).0.boxes.len(), 3);
         ops.send(Op::Save { to: None }).unwrap();
         assert!(next(&rx).1.is_none());
@@ -412,7 +410,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = fixture(dir.path(), 1);
         let (ops, rx, _) = started(&path);
-        ops.send(Op::Apply { edit: highlight(0), pages: vec![0] }).unwrap();
+        ops.send(Op::Apply { edit: Box::new(highlight(0)), pages: vec![0] }).unwrap();
         next(&rx);
         let copy = dir.path().join("copy.pdf");
         ops.send(Op::Save { to: Some(copy.clone()) }).unwrap();

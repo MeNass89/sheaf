@@ -25,4 +25,13 @@ systemd-run --user --unit=heavy-build --collect -q --wait --working-directory="$
     -p MemoryMax="${cap}M" -p MemorySwapMax=0 -p OOMScoreAdjust=1000 \
     --setenv=JOBS=1 --setenv=PATH="$PATH" --setenv=HOME="$HOME" \
     -- sh -c "sh dev/scripts/cargo.sh $* > dev/.tmp/build.log 2>&1; echo EXIT \$? >> dev/.tmp/build.log"
-tail -1 dev/.tmp/build.log
+# The build's own exit status is this script's: a layer of scripts/test.sh trusts it.
+code=$(tail -1 dev/.tmp/build.log | sed -n 's/^EXIT //p')
+if [ "${code:-1}" -eq 0 ]; then
+    grep -E '^(warning|error)' dev/.tmp/build.log | grep -v 'generated [0-9]* warning' || true
+    rm -f dev/.tmp/build.log
+    echo "EXIT 0"
+    exit 0
+fi
+tail -n 30 dev/.tmp/build.log    # kept until the failure is fixed
+exit "${code:-1}"

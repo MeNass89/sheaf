@@ -34,14 +34,17 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 - Edit text in place (E tool) works but glyphs missing from embedded subsets draw wrong (C-edit-002 at 5);
   a standard-font fallback made PdfCraft overprint rows and was reverted.
 
-## Tests (run them after every change)
+## Tests: one suite
 
-- `sh dev/scripts/build-safe.sh test -p sheaf-app --bin sheaf-app`: the reader's unit tests, including
-  `reader_doc::tests` (document thread: annotate → save → reopen, undo/redo, page edits checked with lopdf,
-  extract, Save As, atomic replace). Whole workspace: `… test --workspace --no-fail-fast` (333+ tests).
-- `bash dev/scripts/gui-smoke.sh` (after a build): drives the real app on Xvfb :98 with xdotool and checks the
-  files it writes (qpdf, pdftotext): highlight, note, undo/redo, duplicate/delete pages, search, unsaved prompt,
-  form filling. Prints PASS/FAIL per check; screenshots in `dev/.tmp/smoke/`.
+- `bash scripts/test.sh` runs every layer and ends on one verdict line: `lint` (clippy `-D warnings`), `unit`
+  (`cargo test --workspace`), `gui` (`dev/scripts/gui-smoke.sh`: the real app on Xvfb :98 driven with
+  xdotool, checked on the files it writes with qpdf/pdftotext; needs a CUPS printer named PDF from
+  `printer-driver-cups-pdf` for the print check). On this VM Cargo goes through `build-safe.sh` (memory cap).
+  `bash scripts/test.sh gui` runs one layer while iterating; a unit closes on a full run. CI runs the same script.
+- Outputs go to `dev/.tmp/` and are deleted on green (`SMOKE_KEEP=1` keeps the smoke screenshots to file a proof).
+- After a green suite: `python3 dev/scripts/prune-target.py --fix` deletes the Cargo builds the suite no longer
+  uses (stale profiles filled 7 GB on 21/10), then `python3 dev/scripts/hygiene.py --fix`.
+- Every new component, bug or manual check adds its test to the existing layer (dev skill, house rule 1).
 - Code review by Sol (Codex) before merging broad changes: write the diff to a file and run `codex exec … -s
   danger-full-access` with a "do not modify any file" prompt (Codex's bwrap sandbox cannot start on this VM).
   Check the Codex weekly quota first (newest `~/.codex/sessions` rollout with `rate_limits`); stop at 90 %.
@@ -52,7 +55,7 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
   (shown at once provisionally). Fixing it means patching `comment_list` / `with_missing_appearances_cached` to
   the edited page (vendor `pdfcraft-engine`).
 - Edit mode (C-edit-001…014): move/resize existing objects, font choice, the glyph problem above.
-- Sign from the reader (C-sign-*), print (C-output-007), toolbox tools' remaining gaps (convert, optimize).
+- Print: preview, paper size, Windows (C-output-007 at 8); toolbox tools' remaining gaps (convert, optimize).
 
 ## Building on the VPS (7.9 GB RAM, no swap, 2 vCPU) — read before any build
 
@@ -60,7 +63,7 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
   the test app and the ChatGPT desktop app (Nassim: it stays closed), waits for ≥ 3 GB free, caps the build at
   free − 700 MB and gives it OOMScoreAdjust=1000 so a shortage kills the build, not the session. rustc on
   sheaf-app peaks at ~2.4 GB (Slint's generated module). Twice on 21/10 the global OOM killer took the session.
-- `dev/scripts/cargo.sh`: one target dir, opt-level 2 dependencies, light debug info, no incremental.
+- `dev/scripts/cargo.sh`: one target dir (`~/.cache/cargo-target/sheaf`), opt-level 2 dependencies, light debug info, no incremental.
 - GUI tests: `systemd-run --user --unit=sheaf-gui -p MemoryMax=900M -p OOMScoreAdjust=1000 … bash
   dev/.tmp/run-app.sh <pdf>` on Xvfb :99, driven with xdotool (`windowfocus --sync` first; hold clicks ~0.1 s);
   dialogs need the XFCE desktop `:1` (GTK portal; `systemctl --user set-environment DISPLAY=:1` was needed).

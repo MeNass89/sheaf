@@ -90,18 +90,14 @@ Tools never overwrite a file: when the output name is taken they write `name (1)
 ```sh
 sh scripts/fetch-pdfium.sh          # downloads the pdfium library for this platform
 sh scripts/fetch-models.sh          # the OCR models
-cargo test --workspace              # needs qpdf and poppler (pdftotext)
+bash scripts/test.sh                # every test, one verdict (needs qpdf and poppler; Xvfb + xdotool for the GUI layer)
 cargo run -p sheaf-app              # the GUI
 sh scripts/bundle-macos.sh          # → target/Sheaf.app (needs: brew install librsvg; cargo install cargo-about --features cli)
 sh scripts/package-linux.sh         # → target/Sheaf-x.y.z-linux-x64.tar.gz
 sh scripts/package-windows.sh       # → target/Sheaf-x.y.z-windows-x64.zip (Git Bash)
 ```
 
-Workspace layout:
-
-- `crates/sheaf-core` — the engine: pdfium (rendering, page copy), lopdf (structure, AES-256, rotation, image recompression), LibreOffice headless (Office → PDF). Every write goes through a temp file and never overwrites an existing file.
-- `crates/sheaf-cli` — the `sheaf` command.
-- `crates/sheaf-app` — the Slint GUI.
+The map of the code (layout, entry points, where to change what): [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Support
 

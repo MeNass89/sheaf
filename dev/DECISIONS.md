@@ -500,3 +500,18 @@ name pages wait while a page edit is in flight, and page edits drop search resul
 refused edits leave the undo stack; form changes re-render every page; searches stop when replaced or the tab
 closes; editing the search field drops old results; a plain press on a selected thumbnail keeps the selection for
 a drag. **Reason.** Nassim: faster and safer than checking screenshots by hand.
+
+## 2026-10-21 · One test suite, the code map, storage (dev skill v3)
+**Decision.** `scripts/test.sh` is the only test entry point (layers lint, unit, gui); README, HANDOFF and CI call
+only it. `build-safe.sh` now exits with the build's status (it always exited 0, so a failed build looked green).
+The code map is `ARCHITECTURE.md`, linked from the README. `dev/scripts/prune-target.py` keeps only the Cargo
+artifacts the suite uses. **Alternatives.** Keep three commands (unit via build-safe, gui-smoke, CI's cargo
+calls): rejected, the skill's house rule 1. A format layer: rejected for now, the code base was never
+rustfmt-formatted (lines past 100 columns) and reformatting everything would bury the history.
+**Would change it.** A decision to adopt rustfmt with a project `rustfmt.toml`.
+
+## 2026-10-21 · Printing through CUPS `lp`
+**Decision.** The reader prints through `lp` (CUPS, present on macOS and Linux) from an in-app sheet: printer,
+copies, pages, fit or actual size, two-sided. **Alternatives.** macOS's native print panel through
+NSPrintOperation (PDF Expert's way, with preview): unverifiable here, the Mac is reserved; GTK's print dialog:
+Linux only. **Would change it.** A Mac to verify on: then the native panel on macOS, the sheet elsewhere.

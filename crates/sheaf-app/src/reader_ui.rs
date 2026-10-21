@@ -168,14 +168,14 @@ pub struct ReaderUi {
     /// A check box or radio button clicked: its edit, sent once the click is handled.
     pending_field: Option<Edit>,
     /// An annotation being dragged: its index, where the drag started and where it is (view).
-    annot_drag: Option<(usize, (f64, f64), (f64, f64))>,
+    annot_drag: Option<AnnotPull>,
     /// An annotation being resized by its corner handle, the same way.
-    annot_resize: Option<(usize, (f64, f64), (f64, f64))>,
+    annot_resize: Option<AnnotPull>,
     /// The annotation under the press, selected if the press ends without a drag.
     annot_candidate: Option<usize>,
     /// The panel shown before a search took it over (results, panel 3).
     panel_before_search: Option<i32>,
-    results_cache: std::cell::RefCell<Option<(Rc<VecModel<ReaderResultRow>>, Option<usize>)>>,
+    results_cache: Cache<(Rc<VecModel<ReaderResultRow>>, Option<usize>)>,
     /// 0 fit width, 1 fit page, 2 a zoom the user chose.
     zoom_mode: i32,
     /// Pages left by following a link or the outline (⌘[ goes back), and those gone back from.
@@ -184,9 +184,18 @@ pub struct ReaderUi {
     /// Bumped when the outline rows or the annotation list change: the panel models are rebuilt
     /// only then, not on every scroll.
     version: u64,
-    outline_cache: std::cell::RefCell<Option<((u64, Option<usize>), ModelRc<ReaderOutlineRow>)>>,
-    annots_cache: std::cell::RefCell<Option<((u64, Option<usize>, usize), ModelRc<ReaderAnnotRow>)>>,
+    outline_cache: Cache<(OutlineKey, ModelRc<ReaderOutlineRow>)>,
+    annots_cache: Cache<(AnnotsKey, ModelRc<ReaderAnnotRow>)>,
 }
+
+/// An annotation pulled by the pointer: its index, where the pull started, where it is (view).
+type AnnotPull = (usize, (f64, f64), (f64, f64));
+/// A panel model kept until what it shows changes.
+type Cache<T> = std::cell::RefCell<Option<T>>;
+/// What the outline rows depend on: the version and the current section.
+type OutlineKey = (u64, Option<usize>);
+/// What the annotation rows depend on: the version, the selected one, how many pages have text read.
+type AnnotsKey = (u64, Option<usize>, usize);
 
 impl ReaderUi {
     fn new(ops: std::sync::mpsc::Sender<Op>, snap: Snap, path: PathBuf) -> Self {
@@ -789,7 +798,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                 Edit::ResizeAnnotation { page: a.page, index: a.index, rect: user }
             };
             r.selected_annot = None;
-            return Some(Pending::Move(a.page, edit));
+            return Some(Pending::Move(a.page, Box::new(edit)));
         }
         if let Some(e) = r.edit_press.take() {
             let b = &v.viewer.boxes[e.page];
@@ -799,13 +808,12 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             let (dx, dy) = (p1.0 - p0.0, p1.1 - p0.1);
             match (e.target, e.dragging) {
                 (EditTarget::Block(i, text, _, _), true) => {
-                    let mut style = sheaf_core::pdfcraft::edit::BlockStyle::default();
-                    style.offset = Some([dx, dy]);
-                    return Some(Pending::Move(e.page, Edit::EditTextBlock { page: e.page, block: i, text, style }));
+                    let style = sheaf_core::pdfcraft::edit::BlockStyle { offset: Some([dx, dy]), ..Default::default() };
+                    return Some(Pending::Move(e.page, Box::new(Edit::EditTextBlock { page: e.page, block: i, text, style })));
                 }
                 (EditTarget::Image(i, rc), true) => {
                     let to = [rc[0] + dx, rc[1] + dy, rc[2] + dx, rc[3] + dy];
-                    return Some(Pending::Move(e.page, Edit::EditPageImage { page: e.page, index: i, change: sheaf_core::pdfcraft::engine::ImageEdit::Move(to) }));
+                    return Some(Pending::Move(e.page, Box::new(Edit::EditPageImage { page: e.page, index: i, change: sheaf_core::pdfcraft::engine::ImageEdit::Move(to) })));
                 }
                 (EditTarget::Block(i, text, rect, at), false) => {
                     r.draft = Some(Draft { page: e.page, at, kind: 2, block: Some((i, text, rect)), field: None });
@@ -826,7 +834,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             let size = b.view_size();
             let p0 = viewer::view_to_pdf(b, size, from.0, from.1);
             let p1 = viewer::view_to_pdf(b, size, to.0, to.1);
-            return Some(Pending::Move(a.page, Edit::MoveAnnotation { page: a.page, index: a.index, dx: p1.0 - p0.0, dy: p1.1 - p0.1 }));
+            return Some(Pending::Move(a.page, Box::new(Edit::MoveAnnotation { page: a.page, index: a.index, dx: p1.0 - p0.0, dy: p1.1 - p0.1 })));
         }
         if let Some(i) = r.annot_candidate.take()
             && r.sel.is_none()
@@ -863,7 +871,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     match action {
         Some(Pending::Ink(page, pts)) => add_ink(ui, tab_id, page, pts),
         Some(Pending::Markup(kind)) => markup(ui, tab_id, kind),
-        Some(Pending::Move(page, e)) => apply(ui, tab_id, e, &[page], None),
+        Some(Pending::Move(page, e)) => apply(ui, tab_id, *e, &[page], None),
         Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
             update(tab_id, |r, v| {
                 // An /XYZ destination's top edge, when it has one, is brought near the top.
@@ -1106,7 +1114,7 @@ fn resizable(a: &AnnotEntry) -> bool {
 enum Pending {
     Ink(usize, Vec<(f64, f64)>),
     Markup(i32),
-    Move(usize, Edit),
+    Move(usize, Box<Edit>),
     Link(render::LinkTarget),
 }
 
@@ -1184,7 +1192,7 @@ fn apply(ui: &AppWindow, tab_id: i32, edit: Edit, pages: &[usize], provisional: 
         if r.structure_pending {
             return Some("One moment: the pages are being rearranged".into());
         }
-        r.send(Op::Apply { edit, pages: pages.to_vec() });
+        r.send(Op::Apply { edit: Box::new(edit), pages: pages.to_vec() });
         r.undo_pages.push(pages.to_vec());
         r.redo_pages.clear();
         r.provisional.extend(provisional);
@@ -1585,7 +1593,7 @@ fn apply_structure(ui: &AppWindow, tab_id: i32, edit: Edit) {
         if r.structure_pending {
             return Some("One moment: the pages are being rearranged".into());
         }
-        r.send(Op::Apply { edit, pages: Vec::new() });
+        r.send(Op::Apply { edit: Box::new(edit), pages: Vec::new() });
         r.undo_pages.push(Vec::new());
         r.redo_pages.clear();
         r.structure_pending = true;

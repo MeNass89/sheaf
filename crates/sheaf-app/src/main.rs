@@ -160,7 +160,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_over_link(reader_ui::over_link);
     rb.on_thumb_pressed(reader_ui::thumb_pressed);
     wire_global!(ui, rb, on_page_op, |ui, id, op| reader_ui::page_op(&ui, id, op));
-    rb.on_thumb_drag(|id, p, y| reader_ui::thumb_drag(id, p, y));
+    rb.on_thumb_drag(reader_ui::thumb_drag);
     rb.on_thumb_at(reader_ui::thumb_at);
     rb.on_thumb_released(reader_ui::thumb_released);
     wire_global!(ui, rb, on_field_tab, |ui, id, t, back| reader_ui::field_tab(&ui, id, &t, back));
@@ -261,7 +261,7 @@ fn main() -> Result<(), slint::PlatformError> {
     // Home
     wire!(ui, on_open_file, |ui| {
         let d = dialog::new(&ui).add_filter("PDF", &["pdf"]);
-        dialog::pick_files(&ui, d, |ui, paths| flow::home_files(ui, paths));
+        dialog::pick_files(&ui, d, flow::home_files);
     });
     wire!(ui, on_open_tool, |ui, id| {
         if let Some(tool) = flow::tool_from_str(&id) {
