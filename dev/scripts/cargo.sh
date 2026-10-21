@@ -11,6 +11,12 @@ set -eu
 export CARGO_INCREMENTAL=0
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target/sheaf}"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+# Nassim 21/10/2026: nothing else runs on this VPS while a class is being recorded
+# (7 GB RAM; a cargo test left 184 MB free mid-class). Wait, never build over it.
+while pgrep -f join_teams.py >/dev/null 2>&1; do
+    echo "cargo.sh: class-recorder is recording, waiting 60 s" >&2
+    sleep 60
+done
 cmd=$1; shift
 exec cargo "$cmd" -j "${JOBS:-2}" \
     --config 'profile.dev.debug="line-tables-only"' \
