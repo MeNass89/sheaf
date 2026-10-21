@@ -8,6 +8,10 @@
 set -eu
 cd "$(dirname "$0")/../.."
 mkdir -p dev/.tmp
+# One build at a time on the machine, whichever worktree or agent starts it (two rustc on sheaf-app
+# need ~5 GB): wait for the lock.
+exec 9>/tmp/sheaf-build.lock
+flock 9
 systemctl --user stop sheaf-gui 2>/dev/null || true
 # On the VPS the ChatGPT desktop app takes ~1.9 GB and stays closed (Nassim, 21/10/2026).
 systemctl --user stop chatgpt-desktop 2>/dev/null || true

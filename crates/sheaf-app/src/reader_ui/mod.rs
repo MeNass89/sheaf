@@ -46,6 +46,13 @@ pub const SHAPE: i32 = 10;
 pub const ERASER: i32 = 11;
 /// Stamp: click to place the stamp chosen in the options bar (`ReaderUi::stamp`).
 pub const STAMP: i32 = 12;
+/// Fill & Sign marks offered first in the stamp list (Acrobat's ✓ ✗ • —), with their label.
+pub const MARKS: [(sheaf_core::pdfcraft::engine::FillMark, &str); 4] = [
+    (sheaf_core::pdfcraft::engine::FillMark::Check, "✓ Checkmark"),
+    (sheaf_core::pdfcraft::engine::FillMark::Cross, "✗ Cross"),
+    (sheaf_core::pdfcraft::engine::FillMark::Dot, "• Dot"),
+    (sheaf_core::pdfcraft::engine::FillMark::Line, "— Line"),
+];
 
 use crate::reader_doc::{self, AnnotEntry, Block, Op, Reply, Snap};
 
@@ -163,7 +170,7 @@ pub struct ReaderUi {
     props_open: bool,
     /// Hide all comments: not drawn, not selectable.
     comments_hidden: bool,
-    /// Stamp tool: index in `StampKind::ALL`.
+    /// Stamp tool: one of `MARKS`, then `StampKind::ALL` (index past the marks).
     stamp: usize,
     /// Shapes and pen: index in `reader::OPACITIES`.
     opacity: usize,
@@ -275,7 +282,7 @@ impl ReaderUi {
             outline_edit: None,
             notes_filter: 0,
             notes_sort: 0,
-            stamp: StampKind::ALL.iter().position(|k| *k == StampKind::Approved).unwrap_or(0),
+            stamp: MARKS.len() + StampKind::ALL.iter().position(|k| *k == StampKind::Approved).unwrap_or(0),
             text_size: 2,
             text_family: 0,
             text_bold: false,

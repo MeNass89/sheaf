@@ -75,7 +75,7 @@ pub fn shape_option(tab_id: i32, what: i32, value: i32) {
     update(tab_id, |r, _| match what {
         0 => r.shape_kind = value.clamp(0, 3),
         1 => r.shape_fill = !r.shape_fill,
-        3 => r.stamp = (value.max(0) as usize).min(StampKind::ALL.len() - 1),
+        3 => r.stamp = (value.max(0) as usize).min(MARKS.len() + StampKind::ALL.len() - 1),
         _ => r.opacity = (r.opacity + 1) % reader::OPACITIES.len(),
     });
 }

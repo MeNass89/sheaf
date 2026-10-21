@@ -279,12 +279,13 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         opacity: (reader::OPACITIES[r.opacity] * 100.0).round() as i32,
         // Dynamic stamps share their names with standard ones: they say they are dated.
         stamps: ModelRc::new(VecModel::from(
-            StampKind::ALL
+            MARKS
                 .iter()
-                .map(|k| match k.group() {
+                .map(|(_, l)| slint::SharedString::from(*l))
+                .chain(StampKind::ALL.iter().map(|k| match k.group() {
                     sheaf_core::pdfcraft::engine::StampGroup::Dynamic => slint::SharedString::from(format!("{} · DATED", k.label())),
                     _ => slint::SharedString::from(k.label()),
-                })
+                }))
                 .collect::<Vec<_>>(),
         )),
         stamp: r.stamp as i32,

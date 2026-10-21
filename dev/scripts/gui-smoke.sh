@@ -293,11 +293,14 @@ key x; drag 585 720 70 0; key ctrl+s; sleep 1.5; N2=$(ninks "$OUT/shapes.pdf")
 check "the eraser rubs out a drawing it goes along ($N1 → $N2)" "[ $N1 -ge 1 ] && [ $N2 -eq \$(( N1 - 1 )) ]"
 key v
 
-# 6c''. Stamps (M): the default (Approved) with a click; a dated one (Received, third in the list at
-# 317,210 once the list at 350,109 is open) says who and when.
-key m; click 900 300 1.2; click 350 109 0.8; click 317 210 0.8; click 700 600 1.2; key ctrl+s; sleep 1.5; key v
+# 6c''. Stamps (M): the default (Approved) with a click; a dated one (Received, seventh in the list at
+# 317,330 once the list at 350,109 is open, after the four marks) says who and when.
+key m; click 900 300 1.2; click 350 109 0.8; click 317 330 0.8; click 700 600 1.2
+# A checkmark (first in the list, 317,150) placed beside them.
+click 350 109 0.8; click 317 150 0.8; click 400 650 1.2; key ctrl+s; sleep 1.5; key v
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "stamps: Approved, and Received dated by the author" "echo \"\$SH\" | grep -aq '/Name /Approved' && echo \"\$SH\" | grep -aq '/PCByLine (By $USER at '"
+check "a checkmark is placed (Fill & Sign mark)" "echo \"\$SH\" | grep -aq 'PCFillSign' && echo \"\$SH\" | grep -aq '(Checkmark)'"
 
 # 6c-notes. Notes panel (153,106): Hide all (45,149) hides the stamp at 900,300 and shows it again;
 # the trash (226,152) removes every comment, in the saved file too.

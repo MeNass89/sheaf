@@ -246,11 +246,19 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
     let edit = update(tab_id, |r, v| {
         let bx = &v.viewer.boxes[page];
         let size = bx.view_size();
+        // A mark (✓ ✗ • —): small, centred on the click, as Fill & Sign places it.
+        if let Some((mark, label)) = MARKS.get(r.stamp).copied() {
+            let (w, h) = (18.0, 18.0);
+            let rect = viewer::view_rect_to_pdf(bx, size, (at.0 - w / 2.0, at.1 - h / 2.0), (at.0 + w / 2.0, at.1 + h / 2.0));
+            let shape = Shape::Mark { rect, mark };
+            let style = Style::default_for(&shape);
+            return Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: label.trim_start_matches(|c: char| !c.is_alphabetic()).into(), author: author() });
+        }
         let (w, h) = (160.0_f64.min(size.0), 42.0_f64.min(size.1));
         let x = (at.0 - w / 2.0).clamp(0.0, size.0 - w);
         let y = (at.1 - h / 2.0).clamp(0.0, size.1 - h);
         let rect = viewer::view_rect_to_pdf(bx, size, (x, y), (x + w, y + h));
-        let stamp = StampKind::ALL[r.stamp.min(StampKind::ALL.len() - 1)];
+        let stamp = StampKind::ALL[(r.stamp - MARKS.len()).min(StampKind::ALL.len() - 1)];
         let dynamic = matches!(stamp.group(), sheaf_core::pdfcraft::engine::StampGroup::Dynamic);
         // The time is formatted alone: the author's name may hold a % (a format directive).
         let by = dynamic.then(|| format!("By {} at {}", author(), chrono::Local::now().format("%-I:%M %P, %b %d, %Y")));
