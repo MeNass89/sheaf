@@ -17381,14 +17381,14 @@
    188
   ],
   "grade": {
-   "function": 2,
-   "aesthetics": 5,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 2
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "editable zoom field with presets",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17400,6 +17400,17 @@
      "overall": 2
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [188]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Zoom field in the toolbar: type a percentage (↩), or pick 50–400 %, Fit width, Fit page from its list, as PDF Expert's zoom menu; actual-size percentages (reader::tests::zoom_typed_by_the_user; gui-smoke types 200 then picks Fit page)"
    }
   ]
  },

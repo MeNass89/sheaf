@@ -339,6 +339,14 @@ check "two pages side by side, then back to one column ($M1 → $M2 → $M3)" "p
 inview() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6; }
 key End; sleep 1; P4=$(inview); key Home; sleep 1; P1=$(inview); key Right; sleep 1; P2=$(inview); key space; key space; sleep 1; P3=$(inview)
 check "End, Home, → and Space move through the pages ($P4, $P1, $P2, $P3)" "[ \"$P4\" = 'Page 4' ] && [ \"$P1\" = 'Page 1' ] && [ \"$P2\" = 'Page 2' ] && [ \"$P3\" != 'Page 2' ]"
+# 6g. The zoom field (630,61): 200 typed and ↩ covers the view's left edge with the page; Fit page
+# from its list (chevron 669,61 ▸ 640,330) shows the background there again.
+leftedge() { import -window root -crop 6x200+300+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
+click 630 61 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "200"; key Return; sleep 2; Z1=$(leftedge)
+click 669 61 0.6; click 640 330 2; Z2=$(leftedge)
+check "zoom typed (200 %) and Fit page from the list ($Z1 → $Z2)" "python3 -c 'import sys; sys.exit(0 if $Z1 - $Z2 > 0.02 else 1)'"
+key ctrl+9; sleep 1
+
 # 6f. Closed in two pages, it reopens in two pages (and on the same page).
 key ctrl+alt+2; sleep 2.5; key ctrl+w; sleep 1; quit
 launch "$OUT/shapes.pdf"; sleep 2; M4=$(mid)

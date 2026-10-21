@@ -302,6 +302,13 @@ pub fn notes_filter(filter: i32, subtype: &str, fill_sign: bool) -> bool {
     filter == 0 || filter == group
 }
 
+/// A zoom typed by the user ("150", "150%", " 75 % "), as a percentage of actual size, held to
+/// the viewer's range (10 … 1600 %).
+pub fn parse_zoom(text: &str) -> Option<u32> {
+    let n: f64 = text.trim().trim_end_matches('%').trim().replace(',', ".").parse().ok()?;
+    (n.is_finite() && n > 0.0).then(|| n.round().clamp(10.0, 1600.0) as u32)
+}
+
 /// Opacities offered for shapes and drawings.
 pub const OPACITIES: [f64; 4] = [1.0, 0.75, 0.5, 0.25];
 
@@ -414,6 +421,16 @@ mod tests {
         assert_eq!(text_under(&t, &[[9.0, 9.0, 41.0, 21.0]]), "ab cd");
         assert_eq!(kind_label("StrikeOut"), "Strikethrough");
         assert!(!listed("Link") && listed("Highlight"));
+    }
+
+    #[test]
+    fn zoom_typed_by_the_user() {
+        assert_eq!(parse_zoom("150"), Some(150));
+        assert_eq!(parse_zoom(" 75 % "), Some(75));
+        assert_eq!(parse_zoom("12,5%"), Some(13));
+        assert_eq!(parse_zoom("5000"), Some(1600));
+        assert_eq!(parse_zoom("abc"), None);
+        assert_eq!(parse_zoom("0"), None);
     }
 
     #[test]

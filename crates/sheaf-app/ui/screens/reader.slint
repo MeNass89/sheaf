@@ -140,13 +140,72 @@ export component ReaderScreen inherits Rectangle {
                     }
                     Rectangle { width: 8px; }
                     if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-out.svg"); tip: "Zoom out (⌘−)"; clicked => { ViewerBridge.zoom-step(root.id, -1); } }
-                    Text {
-                        width: 44px;
-                        text: root.tab.viewer-zoom + "%";
-                        font-size: Theme.fs-label;
-                        color: Theme.text;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
+                    // The zoom: type a percentage (↩), or pick one from the list (PDF Expert's zoom menu).
+                    Rectangle {
+                        property <int> shown: root.tab.viewer-zoom;
+                        changed shown => { if !zoom-field.has-focus { zoom-field.text = self.shown + "%"; } }
+                        init => { zoom-field.text = self.shown + "%"; }
+                        width: 62px;
+                        height: 26px;
+                        border-radius: Theme.radius-small;
+                        border-width: zoom-field.has-focus || zoom-hover.has-hover ? 1px : 0px;
+                        border-color: Theme.input-border;
+                        background: zoom-field.has-focus ? Theme.input-bg : transparent;
+                        zoom-hover := TouchArea { }
+                        zoom-field := TextInput {
+                            x: 4px;
+                            width: 40px;
+                            font-size: Theme.fs-label;
+                            color: Theme.text;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            single-line: true;
+                            accepted => { ReaderBridge.zoom-typed(root.id, self.text); keys.focus(); }
+                        }
+                        Image {
+                            x: parent.width - 16px;
+                            width: 11px;
+                            height: 11px;
+                            source: @image-url("../icons/chevron-down.svg");
+                            colorize: Theme.text-secondary;
+                        }
+                        TouchArea {
+                            x: parent.width - 18px;
+                            width: 18px;
+                            mouse-cursor: pointer;
+                            clicked => { zoom-menu.show(); }
+                        }
+                        zoom-menu := PopupWindow {
+                            x: 0;
+                            y: parent.height + 4px;
+                            width: 120px;
+                            Rectangle {
+                                background: Theme.card;
+                                border-radius: Theme.radius-small;
+                                border-width: 1px;
+                                border-color: Theme.input-border;
+                                drop-shadow-blur: 8px;
+                                drop-shadow-color: #00000033;
+                                VerticalLayout {
+                                    padding: 4px;
+                                    for z in ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%"]: Rectangle {
+                                        height: 26px;
+                                        background: zt.has-hover ? Theme.popup-hover : transparent;
+                                        border-radius: Theme.radius-small;
+                                        Text { x: 10px; text: z; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                        zt := TouchArea { clicked => { ReaderBridge.zoom-typed(root.id, z); keys.focus(); } }
+                                    }
+                                    Rectangle { height: 1px; background: Theme.sidebar-border; }
+                                    for f[k] in ["Fit width", "Fit page"]: Rectangle {
+                                        height: 26px;
+                                        background: ft.has-hover ? Theme.popup-hover : transparent;
+                                        border-radius: Theme.radius-small;
+                                        Text { x: 10px; text: f; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                        ft := TouchArea { clicked => { ReaderBridge.zoom-fit(root.id, k); keys.focus(); } }
+                                    }
+                                }
+                            }
+                        }
                     }
                     if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-in.svg"); tip: "Zoom in (⌘+)"; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
                     ToolButton {

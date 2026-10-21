@@ -149,6 +149,20 @@ pub fn cycle_spread(ui: &AppWindow, tab_id: i32) {
     }
 }
 
+/// A zoom typed in the zoom field ("150", "150 %") or picked from its list: percent of actual size,
+/// as PDF Expert shows it; anything else leaves the zoom as it is.
+pub fn zoom_typed(ui: &AppWindow, tab_id: i32, text: &str) {
+    let Some(pct) = reader::parse_zoom(text) else { return };
+    let z = with(|a| {
+        let v = a.tab(tab_id)?.viewer.as_deref()?;
+        Some(v.viewer.zoom_for_actual(v.current(), pct as f64))
+    });
+    if let Some(z) = z {
+        crate::viewer_ui::zoom_to(ui, tab_id, z);
+        zoom_changed(tab_id);
+    }
+}
+
 /// A zoom chosen with + / − or the wheel: the view no longer follows the window's size.
 pub fn zoom_changed(tab_id: i32) {
     update(tab_id, |r, _| r.zoom_mode = 2);

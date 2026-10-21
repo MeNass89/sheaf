@@ -175,6 +175,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_props_open(reader_ui::props_open);
     rb.on_notes_view(reader_ui::notes_view);
     rb.on_annot_reply(reader_ui::annot_reply);
+    wire_global!(ui, rb, on_zoom_typed, |ui, id, t| reader_ui::zoom_typed(&ui, id, &t));
     wire_global!(ui, rb, on_annot_status, |ui, id, k, s| reader_ui::annot_status(&ui, id, k, s));
     rb.on_props_cancel(reader_ui::props_cancel);
     wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k| reader_ui::props_save(&ui, id, &t, &a, &s, &k));
