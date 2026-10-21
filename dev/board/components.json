@@ -8035,14 +8035,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "Sheaf inserts blanks in Organize",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -8065,6 +8065,17 @@
      "overall": 8
     },
     "proof": "Insert blank page after, from the Pages panel. Missing for 9: a gui-smoke check"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Pages panel: Insert blank page after the selection; gui-smoke checks an empty page 2 in the saved file and that ⌘Z removes it"
    }
   ]
  },
@@ -9005,7 +9016,7 @@
   ],
   "grade": {
    "function": 8,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
    "overall": 8
   },
@@ -9034,6 +9045,17 @@
      "overall": 8
     },
     "proof": "One reader tab per file, an open file refocused, ⇧⌘[ ⇧⌘] switch. Missing for 9: separate windows, a tab-switch test"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Two files given at launch open in two tabs; ⇧⌘[ switches and the new tab takes the keyboard (bug fixed, gui-smoke red→green). Missing for 9: separate windows (PDF Expert offers both)"
    }
   ]
  },
@@ -21862,7 +21884,7 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 8,
    "performance": 9,
    "overall": 8
@@ -21892,6 +21914,17 @@
      "overall": 8
     },
     "proof": "Encrypted PDFs ask for the password and open in the reader. Missing for 9: permissions shown, a test"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "A PDF encrypted with qpdf (AES-256) asks for its password and opens in the reader (gui-smoke). Missing for 9: its restrictions shown (lock badge, what is not allowed)"
    }
   ]
  },

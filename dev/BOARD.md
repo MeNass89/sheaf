@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 48 · open 284, closed 47
+331 components · at parity (≥9): 49 · open 283, closed 48
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -35,7 +35,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 26 | C-annotate-007 | strong | Add text box | pdfexpert | 8 · 8 · 9 → **8** | FreeText box |
 | 27 | C-annotate-030 | strong | List comments in a panel | pdfexpert | 9 · 8 · 9 → **8** | annotations panel |
 | 28 | C-files-002 | strong | Drag and drop files to open | ilovepdf | 8 · 8 · 9 → **8** | drop on the reader opens the document |
-| 29 | C-files-010 | strong | Documents in tabs or windows | ilovepdf | 8 · 8 · 9 → **8** | document tabs |
+| 29 | C-files-010 | strong | Documents in tabs or windows | ilovepdf | 8 · 9 · 9 → **8** | document tabs |
 | 30 | C-files-012 | strong | Browse and open tools | ilovepdf | 8 · 8 · 9 → **8** | — |
 | 31 | C-optimize-001 | strong | Compress a PDF (levels) | ilovepdf | 8 · 8 · 8 → **8** | seed bug: Save after Compress needs Enter; fonts/vector recompression |
 | 32 | C-organize-001 | strong | Open page organizer grid | pdfexpert | 8 · 8 · 9 → **8** | grid in the reader; multi-select; several files |
@@ -76,7 +76,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | batch | 9 | 2.3 | 0 |
 | compare | 7 | 5.4 | 0 |
 | convert | 20 | 3.3 | 0 |
-| edit | 29 | 3.3 | 3 |
+| edit | 29 | 3.4 | 4 |
 | files | 19 | 4.9 | 3 |
 | forms | 17 | 2.1 | 4 |
 | optimize | 15 | 2.9 | 0 |
@@ -101,6 +101,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-edit-003 | Add a new text box | 9 | E on empty space adds text with the format row (Sans/Serif/Mono, bold, 9–24 pt, 5 ink colours); gui-smoke checks the text (pdftotext) and the font (pdffonts: Times-Bold) |
 | C-edit-011 | Undo and redo edits | 9 | Undo/redo ⌘Z ⇧⌘Z: 0.19 s on the 1,982-page book (was 2.0 s); gui-smoke: undo then redo restores a note, undo brings a deleted page back |
 | C-edit-014 | Save edited PDF | 9 | ⌘S saves edits in place (incremental, validated by check_save), Save As copies; gui-smoke checks every saved file with qpdf/pdftotext |
+| C-edit-026 | Insert a blank page while editing | 9 | Pages panel: Insert blank page after the selection; gui-smoke checks an empty page 2 in the saved file and that ⌘Z removes it |
 | C-files-001 | Open a PDF from a file picker | 9 | Home ▸ Open file: system dialog (GTK portal on Linux) → the PDF opens in a reader tab (dev/re/evidence/F-002/29, dev/re/evidence/F-002/30) |
 | C-files-004 | Reopen a recent file | 9 | Recents with thumbnails reopen a PDF in the reader at the page it was left on (777, dev/re/evidence/F-002/34) |
 | C-files-011 | Close documents, tabs and windows | 9 | ⌘W closes the document tab; with unsaved edits Save / Don't Save / Cancel (dev/re/evidence/F-002/16, dev/re/evidence/F-002/17); window close asks for each dirty document |

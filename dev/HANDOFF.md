@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 48 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
+**331 components, 49 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
 security 1/18, platform 1/14; edit, convert, optimize, output, sign, compare, batch, preferences, ai at 0.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
@@ -53,7 +53,7 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 
 Done 21/10: engine speed (`third_party/`, +8 components at 9), stale grades audited (+11 regraded).
 Next, by components lifted:
-1. **One test each** for components at 8 only for want of proof: C-edit-026 (insert blank), C-reader-063 (password
+1. Done: tests for C-edit-026 (now 9), C-reader-063 and C-files-010 (8: lock badge, separate windows). Was: (password
    open), C-files-010 (tab switch).
 2. **Comment rows with author and date + author in Preferences**: C-annotate-030, C-reader-028, C-preferences-008.
 3. **Shapes and a style panel** (rectangle, oval, line, arrow; stroke, fill, opacity; text box font): C-annotate-009,

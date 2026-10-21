@@ -15,6 +15,9 @@ import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 export component ReaderScreen inherits Rectangle {
     in property <ToolTab> tab;
     in property <bool> is-full-screen;
+    // The tab shown: it takes the keyboard when it becomes so (a tab switched to by ⇧⌘[ ⇧⌘] or a click).
+    in property <bool> active;
+    changed active => { if self.active { keys.focus(); } }
     // Full screen on or off; −1 / +1 the previous / next tab.
     callback full-screen(bool);
     callback switch-tab(int);

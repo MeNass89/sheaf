@@ -204,12 +204,17 @@ check "duplicate adds a page" "[ \"\$(npages $OUT/text.pdf)\" = 5 ]"
 click 120 230; click 203 778 1.2      # Delete
 key ctrl+s; sleep 1.5
 check "delete removes it" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
+click 120 230; click 108 778 1.2      # Insert blank page after page 1
+key ctrl+s; sleep 1.5
+check "insert blank adds an empty page 2" "[ \"\$(npages $OUT/text.pdf)\" = 5 ] && [ -z \"\$(pdftotext -f 2 -l 2 $OUT/text.pdf - | tr -d '[:space:]')\" ]"
+key ctrl+z; key ctrl+s; sleep 1.5
+check "undo removes the blank page" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
 key ctrl+z; key ctrl+s; sleep 1.5
 check "undo brings the deleted page back" "[ \"\$(npages $OUT/text.pdf)\" = 5 ]"
 key ctrl+z; key ctrl+s; sleep 1.5
 check "undo again removes the duplicate" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
 # ⌘A selects the page's text, ⌘C copies it.
-key Escape; key v; echo -n | xclip -selection clipboard; key ctrl+a; key ctrl+c; sleep 0.3
+key Escape; key v; echo -n | xclip -selection clipboard >/dev/null 2>&1; key ctrl+a; key ctrl+c; sleep 0.3
 check "⌘A then ⌘C copies the page's text" "xclip -o -selection clipboard 2>/dev/null | grep -q 'the quick brown fox'"
 # ⇧T hides the toolbar for reading and shows it again.
 bar() { import -window root -crop 1280x36+0+44 png:- 2>/dev/null | convert - -format "%[fx:standard_deviation]" info:; }
@@ -251,6 +256,21 @@ fi
 key ctrl+s; sleep 1.5; shot 06-form
 V=$(qpdf --json=2 --json-key=acroform "$OUT/form.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
 check "a form field is filled and saved ($V)" "echo \"$V\" | grep -q 'Smoke Test'"
+quit
+
+# 7. A password-protected PDF asks for its password, then opens in the reader.
+qpdf --encrypt sesame sesame 256 -- "$OUT/text.pdf" "$OUT/locked.pdf"
+launch "$OUT/locked.pdf"; sleep 1; shot 07-password
+xdotool type --delay 20 "sesame"; xdotool key Return; sleep 2
+key Escape; key v; echo -n | xclip -selection clipboard >/dev/null 2>&1; key ctrl+a; key ctrl+c; sleep 0.3
+check "a protected PDF opens after its password" "xclip -o -selection clipboard 2>/dev/null | grep -q 'the quick brown fox'"
+quit
+
+# 8. Two documents open in two tabs; ⇧⌘[ switches to the other one.
+launch "$OUT/text.pdf" "$OUT/form.pdf"; sleep 1
+copied() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null; }
+T1=$(copied); key ctrl+shift+bracketleft; sleep 0.8; T2=$(copied); shot 08-tabs
+check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})" "[ -n \"$T1\" ] && [ -n \"$T2\" ] && [ \"$T1\" != \"$T2\" ]"
 quit
 
 echo "---"

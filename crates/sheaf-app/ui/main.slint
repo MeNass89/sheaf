@@ -204,6 +204,7 @@ export component AppWindow inherits Window {
                 visible: root.active-tab == i;
                 if t.is-reader: ReaderScreen {
                     tab: t;
+                    active: root.active-tab == i;
                     is-full-screen: root.full-screen;
                     full-screen(on) => { root.full-screen = on; }
                     switch-tab(d) => {
