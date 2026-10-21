@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 70 · open 262, closed 69
+331 components · at parity (≥9): 71 · open 261, closed 70
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -72,7 +72,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | domain | components | avg overall | at ≥9 |
 |---|---|---|---|
 | ai | 7 | 0.0 | 0 |
-| annotate | 38 | 5.2 | 16 |
+| annotate | 38 | 5.5 | 17 |
 | batch | 9 | 2.6 | 1 |
 | compare | 7 | 5.4 | 0 |
 | convert | 20 | 3.3 | 0 |
@@ -107,6 +107,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-annotate-031 | Sort and filter comments | 9 | Notes panel: Show (All, Markup, Notes, Drawings, Stamps) and Sort (page, newest, author, type), rows keep their comment's identity (gui-smoke: the first row of Stamps deletes a stamp, shapes kept; reader::tests::notes_filter_groups) |
 | C-annotate-032 | Hide or show all comments | 9 | Notes panel Hide all / Show all: pages render without comments (form fields still drawn), hidden comments not selectable; gui-smoke samples a stamp hidden and shown |
 | C-annotate-033 | Reply to a comment | 9 | Notes panel: Reply on the selected comment opens the editor (↩ sends, ⇧↩ new line); replies listed under their comment and saved as /IRT replies (reader_doc::tests::a_reply_is_listed_under_its_comment; gui-smoke saves one); review status shown when present |
+| C-annotate-034 | Set comment review status | 9 | Selected comment in Notes: status list (No status, Accepted, Rejected, Cancelled, Completed) as Acrobat's Set Status; shown after the author and date; saved as a status reply (reader_doc::tests::a_review_status_shows_on_its_comment; gui-smoke saves Accepted) |
 | C-batch-007 | Chain another tool from results | 9 | Continue to… on the result screen chains any tool with the outputs, as iLovePDF; dev/re/evidence/F-001/sheaf-compress-result.png beside dev/re/evidence/ilovepdf/05c-compress-result.png |
 | C-edit-003 | Add a new text box | 9 | E on empty space adds text with the format row (Sans/Serif/Mono, bold, 9–24 pt, 5 ink colours); gui-smoke checks the text (pdftotext) and the font (pdffonts: Times-Bold) |
 | C-edit-011 | Undo and redo edits | 9 | Undo/redo ⌘Z ⇧⌘Z: 0.19 s on the 1,982-page book (was 2.0 s); gui-smoke: undo then redo restores a note, undo brings a deleted page back |

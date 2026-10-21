@@ -39,6 +39,8 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::EraseInk { .. }
         | Edit::StyleAnnotation { .. }
         | Edit::SetAnnotationContents { .. }
+        | Edit::SetAnnotationStatus { .. }
+        | Edit::ReplyToAnnotation { .. }
         | Edit::EditTextBlock { .. }
         | Edit::EditPageImage { .. } => true,
         _ => false,
@@ -292,6 +294,17 @@ pub fn notes_action(ui: &AppWindow, tab_id: i32, what: i32) {
                 apply(ui, tab_id, e, &pages, None);
             }
         }
+    }
+}
+
+/// Review status of comment `k` (Notes panel): 0 none, 1 accepted, 2 rejected, 3 cancelled,
+/// 4 completed; a status reply by the author, as Acrobat's Set Status.
+pub fn annot_status(ui: &AppWindow, tab_id: i32, k: i32, state: i32) {
+    use sheaf_core::pdfcraft::engine::ReviewState as S;
+    let state = [S::None, S::Accepted, S::Rejected, S::Cancelled, S::Completed][state.clamp(0, 4) as usize];
+    let edit = update(tab_id, |r, _| r.annots().get(k.max(0) as usize).map(|a| (a.page, Edit::SetAnnotationStatus { page: a.page, index: a.index, state, author: author() }))).flatten();
+    if let Some((page, e)) = edit {
+        apply(ui, tab_id, e, &[page], None);
     }
 }
 

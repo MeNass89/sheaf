@@ -319,6 +319,10 @@ click 64 186 0.8; click 40 230 1
 click 120 240 1; click 52 270 1; xdotool windowfocus --sync "$W" 2>/dev/null; sleep 0.3; xdotool type --delay 20 "Smoke reply"; key Return; sleep 1; key ctrl+s; sleep 1.5
 QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a reply to a comment is saved as a reply" "echo \"\$QD\" | grep -aq '/IRT' && echo \"\$QD\" | grep -aq '(Smoke reply)'"
+# Status (the list right of Reply, 150,292 once the reply shows ▸ Accepted, the second entry):
+# saved as a status reply.
+click 120 240 1; click 150 292 0.8; shot 06c-status; click 150 358 1; key ctrl+s; sleep 1.5
+check "a review status is saved (Accepted)" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/State (Accepted)'"
 key Escape
 click 30 106 0.8   # back to the Pages panel
 

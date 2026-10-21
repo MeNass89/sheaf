@@ -488,6 +488,21 @@ mod tests {
         assert_eq!(snap.annots[0].replies, ["Ada: Agreed"]);
     }
 
+    #[test]
+    fn a_review_status_shows_on_its_comment() {
+        use sheaf_core::pdfcraft::engine::ReviewState;
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 1);
+        let (ops, rx, _) = started(&path);
+        ops.send(Op::Apply { edit: Box::new(highlight(0)), pages: vec![0] }).unwrap();
+        let (snap, _) = next(&rx);
+        let index = snap.annots[0].index;
+        ops.send(Op::Apply { edit: Box::new(Edit::SetAnnotationStatus { page: 0, index, state: ReviewState::Accepted, author: "Ada".into() }), pages: vec![0] }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        assert_eq!((snap.annots.len(), snap.annots[0].status.as_str()), (1, "Accepted"));
+    }
+
     /// ⌘S twice with an edit between: each save appends, and the light refresh after an
     /// appended save (patched engine) keeps the comment list and undo in step with the file.
     #[test]

@@ -258,7 +258,16 @@ export component ReaderPanel inherits Rectangle {
                                     }
                                     if a.selected: HorizontalLayout {
                                         alignment: start;
+                                        spacing: 6px;
                                         SmallButton { text: "Reply"; clicked => { ReaderBridge.annot-reply(root.id, a.index); } }
+                                        // Acrobat's Set Status.
+                                        SortCombo {
+                                            width: 120px;
+                                            options: ["No status", "Accepted", "Rejected", "Cancelled", "Completed"];
+                                            current-index: a.status == "Accepted" ? 1 : a.status == "Rejected" ? 2 : a.status == "Cancelled" ? 3 : a.status == "Completed" ? 4 : 0;
+                                            chevron: @image-url("../icons/chevron-down.svg");
+                                            selected(i) => { ReaderBridge.annot-status(root.id, a.index, i); }
+                                        }
                                     }
                                 }
                                 if at.has-hover || a.selected: Rectangle {

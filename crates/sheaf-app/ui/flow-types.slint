@@ -442,6 +442,8 @@ export global ReaderBridge {
     callback notes-view(int, int, int);
     // Reply to a comment of the Notes panel (its index).
     callback annot-reply(int, int);
+    // Review status of a comment (its index): 0 none, 1 accepted, 2 rejected, 3 cancelled, 4 completed.
+    callback annot-status(int, int, int);
     // Document Properties: open; save title, author, subject, keywords; cancel.
     callback props-open(int);
     callback props-save(int, string, string, string, string);
