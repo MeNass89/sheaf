@@ -33,6 +33,7 @@ export component ReaderPanel inherits Rectangle {
                 PanelTab { text: "Pages"; icon: @image-url("../icons/layout-grid.svg"); selected: root.tab.reader.panel == 0; clicked => { ReaderBridge.set-panel(root.id, 0); } }
                 PanelTab { text: "Outline"; icon: @image-url("../icons/list-tree.svg"); selected: root.tab.reader.panel == 1; clicked => { ReaderBridge.set-panel(root.id, 1); } }
                 PanelTab { text: "Notes"; icon: @image-url("../icons/message-square.svg"); selected: root.tab.reader.panel == 2; clicked => { ReaderBridge.set-panel(root.id, 2); } }
+                PanelTab { text: "Files"; icon: @image-url("../icons/paperclip.svg"); selected: root.tab.reader.panel == 4; clicked => { ReaderBridge.set-panel(root.id, 4); } }
             }
             Rectangle { height: 1px; background: Theme.sidebar-border; }
             Rectangle {
@@ -194,6 +195,38 @@ export component ReaderPanel inherits Rectangle {
                         }
                     }
                 }
+                }
+                // Attached files (Acrobat's Attachments pane): a click saves one; Attach… adds one.
+                if root.tab.reader.panel == 4: VerticalLayout {
+                    padding: 8px;
+                    spacing: 4px;
+                    HorizontalLayout {
+                        alignment: start;
+                        SmallButton { text: "Attach…"; clicked => { ReaderBridge.attachment-add(root.id); } }
+                    }
+                    if root.tab.reader.attachments.length == 0: Text {
+                        text: "No attached files.";
+                        font-size: Theme.fs-label;
+                        color: Theme.text-muted;
+                    }
+                    for f[i] in root.tab.reader.attachments: Rectangle {
+                        height: 34px;
+                        border-radius: Theme.radius-item;
+                        background: fa.has-hover ? Theme.popup-hover : transparent;
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 8px;
+                            Image { y: 10px; width: 14px; height: 14px; source: @image-url("../icons/paperclip.svg"); colorize: Theme.text-secondary; }
+                            Text { text: f.name; font-size: Theme.fs-label; color: Theme.text; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+                            Text { text: f.value; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                        }
+                        fa := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { ReaderBridge.attachment-save(root.id, i); }
+                        }
+                    }
+                    Rectangle { vertical-stretch: 1; }
                 }
                 if root.tab.reader.panel == 2 && root.tab.reader.annots.length == 0: Text {
                     x: 16px;

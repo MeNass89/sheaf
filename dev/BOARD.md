@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 75 · open 257, closed 74
+331 components · at parity (≥9): 77 · open 255, closed 76
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -76,7 +76,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | batch | 9 | 2.6 | 1 |
 | compare | 7 | 5.4 | 0 |
 | convert | 20 | 3.3 | 0 |
-| edit | 29 | 3.7 | 4 |
+| edit | 29 | 3.9 | 4 |
 | files | 19 | 4.9 | 3 |
 | forms | 17 | 2.1 | 4 |
 | optimize | 15 | 2.9 | 0 |
@@ -84,7 +84,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | output | 15 | 4.2 | 2 |
 | platform | 14 | 3.4 | 1 |
 | preferences | 14 | 2.4 | 1 |
-| reader | 64 | 5.0 | 30 |
+| reader | 64 | 5.2 | 32 |
 | security | 18 | 4.8 | 2 |
 | sign | 18 | 3.8 | 4 |
 
@@ -147,6 +147,8 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-reader-026 | Add and edit outline entries | 9 | Outline panel: + Bookmark (the page in view, in page order), rename in place (double-click or pencil; ↩ / Escape), delete (with what is under it); PdfCraft Add/Rename/DeleteBookmark (reader_doc::tests::bookmarks_are_added_renamed_and_deleted; gui-smoke adds and renames one) |
 | C-reader-027 | Bookmark pages for yourself | 9 | Bookmark the page in view with + Bookmark; stored in the PDF's outline, so other readers see it; Outline panel: + Bookmark (the page in view, in page order), rename in place (double-click or pencil; ↩ / Escape), delete (with what is under it); PdfCraft Add/Rename/DeleteBookmark (reader_doc::tests::bookmarks_are_added_renamed_and_deleted; gui-smoke adds and renames one) |
 | C-reader-028 | Highlights and notes sidebar | 9 | Same Notes panel (C-annotate-030): highlights, notes, ink, signatures with author and date; click jumps |
+| C-reader-030 | View and save attachments | 9 | Files panel (paperclip): every attached file (document and page level) with its size; a click saves it under its name (reader_doc::tests::a_file_is_attached_listed_and_saved_back reads the bytes back). Save dialog not automatable here (xdg portal on another display) |
+| C-reader-031 | Add an attachment | 9 | Files panel ▸ Attach…: a file attached to the page in view (Acrobat's Attach File comment), listed at once; unit-tested |
 | C-reader-032 | Find text in the document | 9 | Search on the 1,982-page book (reader_doc::tests::search_cost_on_a_big_file): results stream from the first pages within 0.5 s; the whole book in 12.6 s on 2 vCPUs (was 15.8 s; one reader per core, up to 4); every later search 1.5 ms (texts kept). gui-smoke runs a search |
 | C-reader-033 | Next and previous search match | 9 | Enter / ⇧Enter / ⌘G / ⇧⌘G step through matches: 1/9 → 2/9 → 3/9 → 2/9 → 3/9 (dev/re/evidence/F-002/31) |
 | C-reader-034 | Search options | 9 | Aa / Whole words toggles re-run the search (dev/re/evidence/F-002/12) |

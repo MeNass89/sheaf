@@ -87,17 +87,25 @@ export component PanelTab inherits Rectangle {
             source: root.icon;
             colorize: root.selected ? Theme.text : Theme.text-muted;
         }
-        Text {
-            text: root.text;
-            font-size: Theme.fs-caption;
-            font-weight: root.selected ? Theme.weight-demibold : 400;
-            color: root.selected ? Theme.text : Theme.text-muted;
-            vertical-alignment: center;
-        }
     }
     t := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
+    }
+    // Icons of equal width that never move, named on hover (PDF Expert's sidebar).
+    horizontal-stretch: 1;
+    if t.has-hover: Rectangle {
+        y: parent.height + 6px;
+        x: (parent.width - self.width) / 2;
+        width: tipt.preferred-width + 14px;
+        height: 22px;
+        border-radius: Theme.radius-small;
+        background: Theme.toast-bg;
+        tipt := Text {
+            text: root.text;
+            font-size: Theme.fs-caption;
+            color: Theme.on-toast;
+        }
     }
 }
 

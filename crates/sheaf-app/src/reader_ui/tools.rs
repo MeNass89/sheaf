@@ -108,7 +108,7 @@ pub fn set_theme(ui: &AppWindow, tab_id: i32, theme: i32) {
 
 pub fn set_panel(tab_id: i32, panel: i32) {
     update(tab_id, |r, _| {
-        r.panel = panel.clamp(0, 3);
+        r.panel = panel.clamp(0, 4);
         r.panel_open = true;
     });
 }

@@ -187,6 +187,8 @@ export struct ReaderState {
     // 1 newest, 2 author, 3 type).
     notes-filter: int,
     notes-sort: int,
+    // Files attached to the document or its pages: name, size.
+    attachments: [ReaderProp],
     // Hide all comments is on.
     comments-hidden: bool,
     // Stamp tool: the stamps offered (labels) and the chosen one.
@@ -446,6 +448,9 @@ export global ReaderBridge {
     callback notes-view(int, int, int);
     // Reply to a comment of the Notes panel (its index).
     callback annot-reply(int, int);
+    // Files panel: save attachment (its index); attach a file to the page in view.
+    callback attachment-save(int, int);
+    callback attachment-add(int);
     // Outline panel: row, op (0 bookmark this page, 1 rename, 2 renamed to text, 3 stop, 4 delete), text.
     callback outline-op(int, int, int, string);
     // A zoom typed in the zoom field or picked from its list ("150", "150 %").

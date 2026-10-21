@@ -74,6 +74,14 @@ pub struct Snap {
     pub read_only: String,
     pub fields: Arc<Vec<FieldEntry>>,
     pub props: Arc<Props>,
+    /// Files attached to the document or to its pages.
+    pub attachments: Arc<Vec<sheaf_core::pdfcraft::render::Attachment>>,
+}
+
+/// Writes attachment `att` of the PDF `bytes` (opened with `password`) to `to`.
+pub fn save_attachment(bytes: &[u8], password: Option<&str>, att: &sheaf_core::pdfcraft::render::Attachment, to: &std::path::Path) -> Result<(), String> {
+    let data = sheaf_core::pdfcraft::render::attachment_data(bytes, password, att)?;
+    replace(to, &data).map_err(|e| e.to_string())
 }
 
 /// Document Properties: the four entries one can edit, and what is only shown (name, value).
@@ -159,6 +167,7 @@ fn snap(doc: &Doc) -> Snap {
         read_only: d.read_only_reason.as_ref().map(|r| format!("Read only: {r}")).unwrap_or_default(),
         fields: Arc::new(fields(d)),
         props: Arc::new(props(d)),
+        attachments: Arc::new(d.info.attachments.clone()),
     }
 }
 
@@ -520,6 +529,24 @@ mod tests {
         send(Edit::DeleteBookmark { path: vec![0] });
         let (snap, _) = next(&rx);
         assert!(snap.outline.is_empty());
+    }
+
+    #[test]
+    fn a_file_is_attached_listed_and_saved_back() {
+        use sheaf_core::pdfcraft::engine::AttachIcon;
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 1);
+        let (ops, rx, snap) = started(&path);
+        assert!(snap.attachments.is_empty());
+        let shape = Shape::Attachment { at: [72.0, 700.0], icon: AttachIcon::Paperclip, file: "notes.txt".into(), data: b"hello attachment".to_vec() };
+        let style = Style::default_for(&shape);
+        ops.send(Op::Apply { edit: Box::new(Edit::AddAnnotation(NewAnnotation { page: 0, shape, style, contents: String::new(), author: String::new() })), pages: vec![0] }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        assert_eq!(snap.attachments.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(), ["notes.txt"]);
+        let out = dir.path().join("out.txt");
+        save_attachment(&snap.bytes, None, &snap.attachments[0], &out).unwrap();
+        assert_eq!(std::fs::read(&out).unwrap(), b"hello attachment");
     }
 
     /// ⌘S twice with an edit between: each save appends, and the light refresh after an

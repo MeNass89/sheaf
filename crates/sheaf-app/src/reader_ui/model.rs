@@ -289,6 +289,13 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         )),
         stamp: r.stamp as i32,
         comments_hidden: r.comments_hidden,
+        attachments: ModelRc::new(VecModel::from(
+            r.snap
+                .attachments
+                .iter()
+                .map(|a| ReaderProp { name: a.name.clone().into(), value: a.size.map(|n| if n >= 1 << 20 { format!("{:.1} MB", n as f64 / 1_048_576.0) } else { format!("{:.0} KB", (n as f64 / 1024.0).max(1.0)) }).unwrap_or_default().into() })
+                .collect::<Vec<_>>(),
+        )),
         notes_filter: r.notes_filter,
         notes_sort: r.notes_sort,
         props_open: r.props_open,

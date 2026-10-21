@@ -299,9 +299,9 @@ key m; click 900 300 1.2; click 350 109 0.8; click 317 210 0.8; click 700 600 1.
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "stamps: Approved, and Received dated by the author" "echo \"\$SH\" | grep -aq '/Name /Approved' && echo \"\$SH\" | grep -aq '/PCByLine (By $USER at '"
 
-# 6c-notes. Notes panel (205,106): Hide all (45,149) hides the stamp at 900,300 and shows it again;
+# 6c-notes. Notes panel (153,106): Hide all (45,149) hides the stamp at 900,300 and shows it again;
 # the trash (226,152) removes every comment, in the saved file too.
-click 205 106 0.8
+click 153 106 0.8
 stampshade() { import -window root -crop 200x40+800+280 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
 H0=$(stampshade); click 45 149 1.2; H1=$(stampshade); click 45 149 1.2; H2=$(stampshade)
 check "Hide all comments hides them and Show all brings them back ($H0 → $H1 → $H2)" "python3 -c 'import sys; a, b, c = $H0, $H1, $H2; sys.exit(0 if b - a > 0.05 and abs(a - c) < 0.005 else 1)'"
@@ -327,19 +327,19 @@ check "a reply to a comment is saved as a reply" "echo \"\$QD\" | grep -aq '/IRT
 click 120 240 1; click 150 292 0.8; shot 06c-status; click 150 358 1; key ctrl+s; sleep 1.5
 check "a review status is saved (Accepted)" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/State (Accepted)'"
 key Escape
-click 30 106 0.8   # back to the Pages panel
+click 37 106 0.8   # back to the Pages panel
 
 # 6c-props. ⌘D: Document Properties; a title typed and Return is saved into the file's Info.
 key ctrl+d; sleep 0.5; xdotool key ctrl+a; xdotool type --delay 10 "Smoke Title"; key Return; sleep 1; key ctrl+s; sleep 1.5
 check "Document Properties: the title typed is saved" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Smoke Title)'"
 
-# 6c-outline. Outline panel (127,106): + Bookmark (55,149) bookmarks the page in view; saved.
-click 127 106 0.8; click 55 149 1.2; key ctrl+s; sleep 1.5; shot 06c-outline
+# 6c-outline. Outline panel (95,106): + Bookmark (55,149) bookmarks the page in view; saved.
+click 95 106 0.8; click 55 149 1.2; key ctrl+s; sleep 1.5; shot 06c-outline
 check "+ Bookmark adds the page in view to the outline" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Page 1)'"
 # Double-click the bookmark (120,190) to rename it in place; ↩ keeps the new title.
 xdotool mousemove 120 190 click --repeat 2 --delay 80 1; sleep 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "Renamed"; key Return; sleep 1; key ctrl+s; sleep 1.5; shot 06c-outline-renamed
 check "a bookmark is renamed in place" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Renamed)'"
-click 30 106 0.8
+click 37 106 0.8
 
 # 6d. Two pages side by side (⌥⌘2): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.

@@ -59,3 +59,45 @@ pub(super) fn hand_to_tools(ui: &AppWindow, tab_id: i32) {
     ui.set_page(sheaf_app::Page::Tools);
     crate::flow::toast(ui, "Choose a tool for your file");
 }
+
+/// Files panel: save attachment `i` where the user says (its own name proposed).
+pub fn attachment_save(ui: &AppWindow, tab_id: i32, i: i32) {
+    let Some((att, bytes, password, dir)) = update(tab_id, |r, _| {
+        let a = r.snap.attachments.get(i.max(0) as usize)?.clone();
+        Some((a, r.snap.bytes.clone(), r.password(), crate::dest::parent_dir(&r.path)))
+    })
+    .flatten() else {
+        return;
+    };
+    let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(&att.name);
+    crate::dialog::save_file(ui, d, move |ui, to| {
+        let msg = match reader_doc::save_attachment(&bytes, password.as_deref(), &att, &to) {
+            Ok(()) => format!("Saved {}", file_name(&to)),
+            Err(e) => format!("Not saved: {e}"),
+        };
+        crate::flow::toast(ui, &msg);
+    });
+}
+
+/// Files panel: attach a file to the page in view (a file attachment comment at its top left, as
+/// Acrobat's Attach File).
+pub fn attachment_add(ui: &AppWindow, tab_id: i32) {
+    let d = crate::dialog::new(ui);
+    crate::dialog::pick_file(ui, d, move |ui, path| {
+        let Ok(data) = std::fs::read(&path) else {
+            return crate::flow::toast(ui, "That file could not be read");
+        };
+        let file = file_name(&path);
+        let edit = update(tab_id, |_, v| {
+            let page = v.current();
+            let b = &v.viewer.boxes[page];
+            let at = viewer::view_to_pdf(b, b.view_size(), 24.0, 24.0);
+            let shape = Shape::Attachment { at: [at.0, at.1], icon: sheaf_core::pdfcraft::engine::AttachIcon::Paperclip, file, data };
+            let style = Style::default_for(&shape);
+            (page, Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() }))
+        });
+        if let Some((page, e)) = edit {
+            apply(ui, tab_id, e, &[page], None);
+        }
+    });
+}
