@@ -3403,14 +3403,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "engine ReplyToAnnotation",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -3422,6 +3422,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Notes panel: Reply on the selected comment opens the editor (↩ sends, ⇧↩ new line); replies listed under their comment and saved as /IRT replies (reader_doc::tests::a_reply_is_listed_under_its_comment; gui-smoke saves one); review status shown when present"
    }
   ]
  },

@@ -145,6 +145,20 @@ pub fn notes_view(tab_id: i32, what: i32, value: i32) {
     });
 }
 
+/// Reply to comment `k` (Notes panel): the note editor opens under it; ↩ sends the reply.
+pub fn annot_reply(tab_id: i32, k: i32) {
+    update(tab_id, |r, v| {
+        let Some(a) = r.annots().get(k.max(0) as usize) else { return };
+        let (page, index, rect) = (a.page, a.index, a.rect);
+        let size = v.viewer.boxes[page].view_size();
+        let [x, y, _, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, rect);
+        r.selected_annot = Some(k as usize);
+        r.draft = Some(Draft { page, at: (x, y + h + 4.0), kind: 7, block: Some((index, String::new(), rect)), field: None });
+        r.note_seq += 1;
+        v.show_page(page, Some(rect));
+    });
+}
+
 pub fn annot_clicked(tab_id: i32, k: i32) {
     update(tab_id, |r, v| {
         let k = k.max(0) as usize;

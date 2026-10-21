@@ -374,6 +374,8 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
                 colour: a.color.map(|c| colour_of([c[0] as f64, c[1] as f64, c[2] as f64])).unwrap_or(Color::from_rgb_u8(255, 214, 10)),
                 selected: r.selected_annot == Some(i),
                 index: i as i32,
+                replies: a.replies.join("\n").into(),
+                status: a.status.clone().into(),
             };
             (a, row)
         })

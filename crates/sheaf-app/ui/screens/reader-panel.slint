@@ -220,6 +220,8 @@ export component ReaderPanel inherits Rectangle {
                                     padding-left: 14px;
                                     spacing: 4px;
                                     HorizontalLayout {
+                                        // Room for the delete button that shows on hover.
+                                        padding-right: 22px;
                                         Text {
                                             text: a.kind;
                                             font-size: Theme.fs-caption;
@@ -242,10 +244,21 @@ export component ReaderPanel inherits Rectangle {
                                         max-height: 60px;
                                     }
                                     if a.meta != "": Text {
-                                        text: a.meta;
+                                        text: a.meta + (a.status != "" ? " · " + a.status : "");
                                         font-size: Theme.fs-caption;
                                         color: Theme.text-muted;
                                         overflow: elide;
+                                    }
+                                    // Replies, under the comment (Acrobat's and PDF Expert's threads).
+                                    if a.replies != "": Text {
+                                        text: a.replies;
+                                        font-size: Theme.fs-caption;
+                                        color: Theme.text-secondary;
+                                        wrap: word-wrap;
+                                    }
+                                    if a.selected: HorizontalLayout {
+                                        alignment: start;
+                                        SmallButton { text: "Reply"; clicked => { ReaderBridge.annot-reply(root.id, a.index); } }
                                     }
                                 }
                                 if at.has-hover || a.selected: Rectangle {

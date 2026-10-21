@@ -301,6 +301,14 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let d = r.draft.take()?;
         let b = &v.viewer.boxes[d.page];
         let size = b.view_size();
+        if d.kind == 7 {
+            // A reply to an existing comment (PdfCraft's ReplyToAnnotation: /IRT, the author's name).
+            let (index, _, _) = d.block?;
+            if text.is_empty() {
+                return None;
+            }
+            return Some((d.page, Edit::ReplyToAnnotation { page: d.page, index, text: text.clone(), author: author() }));
+        }
         if d.kind == 6 {
             // An existing note or text box: its new text.
             let (index, old, _) = d.block?;

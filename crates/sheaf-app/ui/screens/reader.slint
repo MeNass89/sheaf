@@ -424,7 +424,7 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : "Add text";
+                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : "Add text";
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;
@@ -468,7 +468,8 @@ export component ReaderScreen inherits Rectangle {
                                         return accept;
                                     }
                                     // A form field: Return fills it, Tab / ⇧Tab moves to the next / previous one.
-                                    if root.tab.reader.note.kind == 4 && e.text == Key.Return && !e.modifiers.shift {
+                                    // A reply: Return sends it, ⇧Return starts a new line (as in a chat).
+                                    if (root.tab.reader.note.kind == 4 || root.tab.reader.note.kind == 7) && e.text == Key.Return && !e.modifiers.shift {
                                         ReaderBridge.note-commit(root.id, self.text);
                                         keys.focus();
                                         return accept;

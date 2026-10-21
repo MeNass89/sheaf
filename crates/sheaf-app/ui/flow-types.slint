@@ -96,6 +96,9 @@ export struct ReaderAnnotRow {
     meta: string,
     // Its place in the document's comment list (rows can be filtered and sorted).
     index: int,
+    // Replies, one per line ("author: text"), and its review status.
+    replies: string,
+    status: string,
     page-label: string,
     colour: color,
     selected: bool,
@@ -437,6 +440,8 @@ export global ReaderBridge {
     callback notes-action(int, int);
     // Notes panel: what (0 filter, 1 order), value.
     callback notes-view(int, int, int);
+    // Reply to a comment of the Notes panel (its index).
+    callback annot-reply(int, int);
     // Document Properties: open; save title, author, subject, keywords; cancel.
     callback props-open(int);
     callback props-save(int, string, string, string, string);

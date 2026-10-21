@@ -29,6 +29,9 @@ pub struct AnnotEntry {
     /// Who made it and when it last changed, as shown ("" when the file does not say).
     pub author: String,
     pub modified: String,
+    /// Replies to it, oldest first: "author: text"; and its latest review status ("Accepted").
+    pub replies: Vec<String>,
+    pub status: String,
 }
 
 /// A paragraph of a page as the edit tool shows it (from PdfCraft's `text_blocks`).
@@ -108,6 +111,18 @@ fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
 
 fn snap(doc: &Doc) -> Snap {
     let d = doc.document();
+    // Replies and status replies point at their comment's name (/IRT → /NM).
+    let mut replies: std::collections::HashMap<&str, Vec<String>> = std::collections::HashMap::new();
+    let mut status: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
+    for a in &d.info.annotations {
+        let Some(parent) = a.in_reply_to.as_deref() else { continue };
+        match a.state.as_deref() {
+            Some(s) => {
+                status.insert(parent, s.to_string());
+            }
+            None => replies.entry(parent).or_default().push(format!("{}: {}", a.author.as_deref().unwrap_or("—"), a.contents.as_deref().unwrap_or("").trim())),
+        }
+    }
     let mut annots: Vec<AnnotEntry> = d
         .info
         .annotations
@@ -124,6 +139,8 @@ fn snap(doc: &Doc) -> Snap {
             fill_sign: a.fill_sign,
             author: a.author.clone().unwrap_or_default(),
             modified: a.modified.clone().unwrap_or_default(),
+            replies: a.name.as_deref().and_then(|n| replies.get(n)).cloned().unwrap_or_default(),
+            status: a.name.as_deref().and_then(|n| status.get(n)).cloned().unwrap_or_default(),
         })
         .collect();
     annots.sort_by_key(|a| (a.page, a.index));
@@ -454,6 +471,21 @@ mod tests {
         }
         let text = texts(&out).join("\n");
         assert!(text.contains("Summary of Comments") && text.contains("Highlight"), "{text}");
+    }
+
+    #[test]
+    fn a_reply_is_listed_under_its_comment() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 1);
+        let (ops, rx, _) = started(&path);
+        ops.send(Op::Apply { edit: Box::new(highlight(0)), pages: vec![0] }).unwrap();
+        let (snap, _) = next(&rx);
+        let index = snap.annots[0].index;
+        ops.send(Op::Apply { edit: Box::new(Edit::ReplyToAnnotation { page: 0, index, text: "Agreed".into(), author: "Ada".into() }), pages: vec![0] }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        assert_eq!(snap.annots.len(), 1, "a reply is not a comment of its own");
+        assert_eq!(snap.annots[0].replies, ["Ada: Agreed"]);
     }
 
     /// ⌘S twice with an edit between: each save appends, and the light refresh after an
