@@ -75,6 +75,8 @@ pub struct Prefs {
     pub author: Option<String>,
     /// The reader's page theme (0 day, 1 night, 2 sepia), kept for the next document.
     pub reader_theme: i32,
+    /// The page each document was left on (newest first, at most 200): reopening goes back to it.
+    pub last_pages: Vec<(PathBuf, u32)>,
 }
 
 impl Prefs {

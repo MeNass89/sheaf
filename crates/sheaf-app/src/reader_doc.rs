@@ -88,8 +88,9 @@ fn snap(doc: &Doc) -> Snap {
 pub enum Op {
     /// An edit; `pages` are the pages it changes (rendered again).
     Apply { edit: Edit, pages: Vec<usize> },
-    Undo,
-    Redo,
+    /// `pages`: the pages the edit undone touched (`None`: unknown, all render again).
+    Undo { pages: Option<Vec<usize>> },
+    Redo { pages: Option<Vec<usize>> },
     /// Writes the edits: into the file itself as an incremental update, or (`to`) a full copy
     /// that becomes the document's file.
     Save { to: Option<PathBuf> },
@@ -131,10 +132,15 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
                         reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error });
                     }
-                    Op::Undo | Op::Redo => {
+                    op @ (Op::Undo { .. } | Op::Redo { .. }) => {
+                        let (redo, pages) = match op {
+                            Op::Redo { pages } => (true, pages),
+                            Op::Undo { pages } => (false, pages),
+                            _ => unreachable!(),
+                        };
                         let id = doc.id();
-                        let r = if matches!(op, Op::Redo) { doc.session_mut().redo(id) } else { doc.session_mut().undo(id) };
-                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error: r.err().map(|e| e.to_string()) });
+                        let r = if redo { doc.session_mut().redo(id) } else { doc.session_mut().undo(id) };
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()) });
                     }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());

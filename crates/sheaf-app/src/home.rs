@@ -79,6 +79,25 @@ pub fn set_reader_theme(theme: i32) {
     });
 }
 
+/// Remembers that `path` was left on `page` (0-based).
+pub fn remember_page(path: &Path, page: usize) {
+    let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    with(|h| {
+        h.prefs.last_pages.retain(|(q, _)| q != &p);
+        h.prefs.last_pages.insert(0, (p, page as u32));
+        h.prefs.last_pages.truncate(200);
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
+/// The page `path` was left on, if any.
+pub fn last_page(path: &Path) -> Option<usize> {
+    let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    with(|h| h.prefs.last_pages.iter().find(|(q, _)| q == &p).map(|(_, n)| *n as usize))
+}
+
 /// Key of history entries that only record a document opened in the reader (for Recents):
 /// they are not tasks and stay out of Tasks History.
 pub const READ: &str = "read";

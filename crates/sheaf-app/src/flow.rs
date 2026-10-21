@@ -328,6 +328,7 @@ pub fn edit_pages(tab_id: i32, f: impl FnOnce(&mut Vec<u32>)) {
 /// Removes a tab and returns to the one before it.
 pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
     let Some(i) = with(|a| a.tab_index(tab_id)) else { return };
+    crate::reader_ui::remember_position(tab_id);
     with(|a| {
         let t = &a.tabs[i];
         if matches!(t.phase, Phase::Running) {
@@ -399,6 +400,9 @@ pub fn quit_or_ask(ui: &AppWindow) -> slint::CloseRequestResponse {
             slint::CloseRequestResponse::KeepWindowShown
         }
         None => {
+            for id in with(|a| a.tabs.iter().map(|t| t.id).collect::<Vec<_>>()) {
+                crate::reader_ui::remember_position(id);
+            }
             let _ = slint::quit_event_loop();
             slint::CloseRequestResponse::HideWindow
         }

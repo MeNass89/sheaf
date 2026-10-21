@@ -106,6 +106,9 @@ pub struct ReaderUi {
     image_at: Option<(usize, (f64, f64))>,
     note_seq: i32,
     pen_width: i32,
+    /// Pages of each edit sent, for undo and redo.
+    undo_pages: Vec<Vec<usize>>,
+    redo_pages: Vec<Vec<usize>>,
     /// The annotation under the press, selected if the press ends without a drag.
     annot_candidate: Option<usize>,
     /// The panel shown before a search took it over (results, panel 3).
@@ -157,6 +160,8 @@ impl ReaderUi {
             note_seq: 0,
             pen_width: 1,
             annot_candidate: None,
+            undo_pages: Vec::new(),
+            redo_pages: Vec::new(),
             panel_before_search: None,
             results_cache: Default::default(),
             zoom_mode: 0,
@@ -258,9 +263,14 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
                 if t.viewer.is_some() {
                     return false;
                 }
+                let last = crate::home::last_page(&fast.path);
                 let mut v = ViewerUi::new(fast, reader_viewer(boxes), scale, t.viewport, t.strip);
                 v.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
                 v.viewer.set_width(t.viewport.0 as f64);
+                // Back where the document was left, as PDF Expert reopens it.
+                if let Some(p) = last.filter(|p| *p > 0) {
+                    v.show_page(p, None);
+                }
                 t.viewer = Some(Box::new(v));
                 refresh(a, id);
                 true
@@ -640,6 +650,16 @@ fn link_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<rende
     })
 }
 
+/// Keeps the page a document tab shows, for its next opening.
+pub fn remember_position(tab_id: i32) {
+    if let Some((path, page)) = with(|a| {
+        let t = a.tab(tab_id)?;
+        Some((t.reader.as_ref()?.path.clone(), t.viewer.as_ref()?.current()))
+    }) {
+        crate::home::remember_page(&path, page);
+    }
+}
+
 /// Whether the content point (`x`, `y`) is over a link (the hand cursor).
 pub fn over_link(tab_id: i32, x: f32, y: f32) -> bool {
     with(|a| {
@@ -684,6 +704,8 @@ fn apply(ui: &AppWindow, tab_id: i32, edit: Edit, pages: &[usize], provisional: 
             return Some(r.snap.read_only.clone());
         }
         r.send(Op::Apply { edit, pages: pages.to_vec() });
+        r.undo_pages.push(pages.to_vec());
+        r.redo_pages.clear();
         r.provisional.extend(provisional);
         None
     })
@@ -843,7 +865,13 @@ pub fn annot_delete(ui: &AppWindow, tab_id: i32, k: i32) {
 pub fn undo(_ui: &AppWindow, tab_id: i32, redo: bool) {
     update(tab_id, |r, _| {
         r.selected_annot = None;
-        r.send(if redo { Op::Redo } else { Op::Undo });
+        // The pages the undone edit touched, so only they render again.
+        let (from, to) = if redo { (&mut r.redo_pages, &mut r.undo_pages) } else { (&mut r.undo_pages, &mut r.redo_pages) };
+        let pages = from.pop();
+        if let Some(p) = &pages {
+            to.push(p.clone());
+        }
+        r.send(if redo { Op::Redo { pages } } else { Op::Undo { pages } });
     });
 }
 
