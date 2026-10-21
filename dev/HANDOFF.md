@@ -1,68 +1,62 @@
-# Sheaf — handoff (Linux VPS → MacBook Pro, 2026-10-21)
+# Sheaf — handoff (VPS, 2026-10-21 ~05:30)
 
-Building and testing now go back to the **MacBook Pro**; the Linux VPS only wrote code (2 cores, 7 GB RAM: a full
-build takes ~50 min and twice ran out of memory). Method: the **`dev` skill** (brain: `claude-code/skills/dev/`).
-Read its SKILL.md, then this file, then `dev/DECISIONS.md`.
+Sheaf is built and tested on the **Linux VPS** (the MacBook Pro is for another project). Method: the **`dev`
+skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, then `dev/DECISIONS.md`.
 
 ## Where things are
 
 | What | Where |
 |---|---|
 | Brief, decisions | `dev/BRIEF.md`, `dev/DECISIONS.md` (append every decision) |
-| The board | `dev/board/components.json` (331 components), rendered `dev/BOARD.md`; decisions per domain in `dev/board/decisions/<domain>.py` → `python3 dev/scripts/merge_prep.py decide` regenerates the table in DECISIONS.md |
-| Raw features | `dev/board/raw/<app>.json` (1,254 gestures) merged in `dev/board/features.json`; instructions `EXTRACT.md`, `MERGE.md` |
-| Inspiration code | `dev/re/archive/*.tar.zst` (git-ignored, on the VPS and on the Mac where they were made) → `python3 dev/scripts/archive.py extract <app>` |
-| UI references | `dev/re/evidence/{pdfexpert,preview,ilovepdf}/` + README |
-| Features in progress | `dev/features/F-001-save-dialog-click.md`, `F-002-reader.md` |
+| The board | `dev/board/components.json` (331 components), rendered `dev/BOARD.md`; per-domain decisions in `dev/board/decisions/<domain>.py` (`python3 dev/scripts/merge_prep.py decide` regenerates the table in DECISIONS.md — it resets grades, use only for new components) |
+| Raw features | `dev/board/raw/<app>.json` → `dev/board/features.json`; instructions `EXTRACT.md`, `MERGE.md` |
+| Inspiration code | `dev/re/archive/*.tar.zst` (git-ignored) → `python3 dev/scripts/archive.py extract <app>` |
+| UI references | `dev/re/evidence/{pdfexpert,preview,ilovepdf}/`; Sheaf proofs in `dev/re/evidence/F-00N/` |
+| Features | `dev/features/F-001…F-004` |
 
 ## Board status
 
-`board.py status`: **331 components, 1 at ≥ 9** (offline, no account). Grades are still Sheaf 0.2.1's: nothing written
-since has been built, tested and graded. Strong components: 68; normal 137; light 126. Order of work (Nassim):
-(a) Save button after Compress, (b) reader/annotator at PDF Expert's level, (c) editing, (d) polish; then `board.py next`.
+**331 components, 35 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
+security 1/18, platform 1/14; edit, convert, optimize, output, sign, compare, batch, preferences, ai at 0.
+Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
-## Branch `dev/phase-4-5` (pushed), last commit = WIP
+## What exists now (branch `dev/phase-4-5`, pushed; tests: 333 passed on Linux)
 
-**The last commit does not compile yet.** The last successful build was before `src/reader_doc.rs`; expect a short
-round of compile errors (types moved from `reader_ui.rs` to `reader_doc.rs`, `Provisional`, `ReaderMark`).
+- **F-001** every file dialog async and attached to the window (`src/dialog.rs`); Compress → Save → mouse click
+  proved on Linux; **the Mac click is still to prove**.
+- **F-002 reader** (`src/reader.rs`, `src/reader_ui.rs`, `src/reader_doc.rs`, `ui/screens/reader.slint`): PDFs open
+  in document tabs (pages shown 1.3 s into a 1,982-page book, rest parsed on the document's own thread), outline,
+  thumbnails, search with results panel, select/copy, highlight/underline/strike/note/pen/text box, recolour,
+  delete, undo/redo, ⌘S incremental, Save As, unsaved prompt, Day/Sepia/Night, links and ⌘[ ⌘], PDF Expert's
+  zoom shortcuts (⌘0 100 %, ⌘9 width, ⌘8 page), tabs ⇧⌘[ ⇧⌘], reopen at the last page, password prompt.
+- **F-003 pages panel**: select, drag to reorder, rotate, insert blank, duplicate, extract, delete.
+- **F-004 forms**: fill text/check/radio/choice fields, Tab order, clear, flatten.
+- Edit text in place (E tool) works but glyphs missing from embedded subsets draw wrong (C-edit-002 at 5);
+  a standard-font fallback made PdfCraft overprint rows and was reverted.
 
-- **F-001 Save dialog** (`src/dialog.rs`): every `rfd` call is now an `AsyncFileDialog` with the window as parent
-  (a sheet on macOS), polled by `slint::spawn_local`. Cause found: rfd's blocking `run_modal` nested in winit's mouse
-  dispatch. Watermark image and certificate pickers go through the `Picked` global. **To prove on the Mac:** Compress →
-  Save sheet → click Save writes the file; every other dialog (Open, folder, image, .p12) answers clicks.
-- **F-002 Reader** (`src/reader.rs` pure logic + tests, `src/reader_ui.rs`, `src/reader_doc.rs`, `ui/screens/reader.slint`):
-  PDFs opened from Home, drop, Recents or Open With get a document tab: toolbar (panel, select/highlight/underline/
-  strike/note/pen/text box/edit text/add image, 5 colours, page field, zoom 25–400 %, fit width/page, Day/Sepia/Night,
-  search, undo/redo, tools, save), side panel (Pages, Outline, Notes), continuous scroll, floating bar on a selection,
-  links and ⌘[ ⌘], ⌘S incremental save, Save As, unsaved prompt on tab and window close. The PdfCraft document lives on
-  its own thread (an annotation on a 70 MB book took 1.5 s on the UI thread); highlights and pen strokes are drawn
-  provisionally until the page re-renders. **Seen working on Linux before the thread move:** opening a 1,982-page
-  book with its outline, outline jump, streamed search ("1/188+"), selection + floating bar, a highlight rendered.
-- **Edit text in place** (tool 7): click a paragraph → its text in an editor → `Edit::EditTextBlock`; empty space →
-  `Edit::AddText`; tool 8 places an image. Not yet run.
+## Known limits worth the next session
 
-## Next, in order
+- PdfCraft re-reads every page's objects after each edit: on a 70 MB book an annotation takes 2.4 s in the engine
+  (shown at once provisionally). Fixing it means patching `comment_list` / `with_missing_appearances_cached` to
+  the edited page (vendor `pdfcraft-engine`).
+- Edit mode (C-edit-001…014): move/resize existing objects, font choice, the glyph problem above.
+- Sign from the reader (C-sign-*), print (C-output-007), toolbox tools' remaining gaps (convert, optimize).
 
-1. Build (`cargo build`), fix the compile errors, `cargo test --workspace`, `cargo clippy -- -D warnings`.
-2. Drive F-001 on macOS; capture; tick its criteria.
-3. Drive F-002 through every criterion of its feature file (open, scroll keys, zoom, outline, search, select/copy,
-   each annotation tool, delete, undo/redo, ⌘S then reopen, Save As, unsaved prompt, themes, links); capture each state
-   next to PDF Expert's evidence; measure open time, annotation latency, RSS on the 1,982-page book. Then
-   `board.py grade` every component F-002 lists.
-4. Then edit (c), polish (d), then `board.py next`.
+## Building on the VPS (7.9 GB RAM, no swap, 2 vCPU) — read before any build
 
-## Linux notes (for later Linux work)
-
-- The app needs `libxkbcommon-x11-0` at run time (missing on a bare Ubuntu: winit panics).
-- Without a window manager (Xvfb), keyboard input needs `xdotool windowfocus --sync` first.
-- Build only through `dev/scripts/cargo.sh` (light debug info, optimised dependencies, two jobs): full debug info made
-  the target dir 16 GB; unoptimised PdfCraft took 30 s to open the big book (7 s optimised, debug build).
-- Never run the app and a build at the same time on a 7 GB machine.
+- **Only** `sh dev/scripts/build-safe.sh build -p sheaf-app` (or `test --workspace --no-fail-fast`): it stops
+  the test app and the ChatGPT desktop app (Nassim: it stays closed), waits for ≥ 3 GB free, caps the build at
+  free − 700 MB and gives it OOMScoreAdjust=1000 so a shortage kills the build, not the session. rustc on
+  sheaf-app peaks at ~2.4 GB (Slint's generated module). Twice on 21/10 the global OOM killer took the session.
+- `dev/scripts/cargo.sh`: one target dir, opt-level 2 dependencies, light debug info, no incremental.
+- GUI tests: `systemd-run --user --unit=sheaf-gui -p MemoryMax=900M -p OOMScoreAdjust=1000 … bash
+  dev/.tmp/run-app.sh <pdf>` on Xvfb :99, driven with xdotool (`windowfocus --sync` first; hold clicks ~0.1 s);
+  dialogs need the XFCE desktop `:1` (GTK portal; `systemctl --user set-environment DISPLAY=:1` was needed).
+- The app needs `libxkbcommon-x11-0` at run time on Linux.
 
 ## Rules carried over
 
 - Commits: `git -c user.name="Sheaf contributors" -c user.email="267055942+MeNass89@users.noreply.github.com" commit`,
   message ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. No personal names, emails, home
   paths or machine details in tracked files. Merge PRs locally. Push freely; tags and releases: ask Nassim.
-- Third-party code stays out of git (archives are ignored); the board stores paths and line numbers only.
 - Talk to Nassim in French, vouvoiement, Alfred; 🦇 only emoji; short.
