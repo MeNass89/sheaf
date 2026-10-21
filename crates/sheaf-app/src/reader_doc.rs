@@ -207,6 +207,8 @@ pub enum Op {
     Extract { pages: Vec<usize>, to: PathBuf },
     /// Acrobat's Summarize Comments: a PDF listing every comment, by page, written to `to`.
     Summary { to: PathBuf },
+    /// Every comment exported to `to`: XFDF, or FDF when `to` ends in .fdf.
+    ExportComments { to: PathBuf },
 }
 
 pub enum Reply {
@@ -216,6 +218,8 @@ pub enum Reply {
     /// `applied`: the answer to an `Apply` (an undo step was added unless `error`).
     Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool },
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
+    /// Comments exported to `to` (or why not).
+    Exported { to: PathBuf, error: Option<String> },
     /// A page's paragraphs and its images' boxes (user space).
     /// A page's paragraphs and its images: (visible box, full box), user space; a cropped image
     /// shows less than its full box, which is what a move translates.
@@ -270,6 +274,13 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let id = doc.id();
                         let r = doc.session().extract(id, &pages).map_err(|e| e.to_string()).and_then(|bytes| replace(&to, &bytes).map_err(|e| e.to_string()));
                         reply(Reply::Extracted { to, error: r.err() });
+                    }
+                    Op::ExportComments { to } => {
+                        let id = doc.id();
+                        let fdf = to.extension().is_some_and(|e| e.eq_ignore_ascii_case("fdf"));
+                        let format = if fdf { sheaf_core::pdfcraft::engine::DataFormat::Fdf } else { sheaf_core::pdfcraft::engine::DataFormat::Xfdf };
+                        let r = doc.session().export_data(id, format, true, false).map_err(|e| e.to_string()).and_then(|bytes| replace(&to, &bytes).map_err(|e| e.to_string()));
+                        reply(Reply::Exported { to, error: r.err() });
                     }
                     Op::Summary { to } => {
                         let id = doc.id();
@@ -547,6 +558,33 @@ mod tests {
         let out = dir.path().join("out.txt");
         save_attachment(&snap.bytes, None, &snap.attachments[0], &out).unwrap();
         assert_eq!(std::fs::read(&out).unwrap(), b"hello attachment");
+    }
+
+    #[test]
+    fn comments_are_exported_and_imported() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 1);
+        let (ops, rx, _) = started(&path);
+        ops.send(Op::Apply { edit: Box::new(highlight(0)), pages: vec![0] }).unwrap();
+        next(&rx);
+        let xfdf = dir.path().join("c.xfdf");
+        ops.send(Op::ExportComments { to: xfdf.clone() }).unwrap();
+        match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+            Reply::Exported { error, .. } => assert!(error.is_none(), "{error:?}"),
+            _ => panic!("expected Exported"),
+        }
+        let text = std::fs::read_to_string(&xfdf).unwrap();
+        assert!(text.contains("<xfdf") && text.contains("highlight"), "{text}");
+        // Into another copy of the document, without comments: the highlight comes in.
+        let other = dir.path().join("other");
+        std::fs::create_dir(&other).unwrap();
+        let path2 = fixture(&other, 1);
+        let (ops2, rx2, snap2) = started(&path2);
+        assert!(snap2.annots.is_empty());
+        ops2.send(Op::Apply { edit: Box::new(Edit::ImportData { name: "c.xfdf".into(), bytes: Arc::new(std::fs::read(&xfdf).unwrap()) }), pages: vec![0] }).unwrap();
+        let (snap2, err) = next(&rx2);
+        assert!(err.is_none(), "{err:?}");
+        assert_eq!(snap2.annots.iter().map(|a| a.subtype.as_str()).collect::<Vec<_>>(), ["Highlight"]);
     }
 
     /// ⌘S twice with an edit between: each save appends, and the light refresh after an

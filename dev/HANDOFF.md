@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 77 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 14/38, batch 0/9, compare 0/7, convert 0/20, edit 4/29, files 3/19, forms 4/17, optimize 0/15, organize 6/27, output 0/15, platform 1/14, preferences 1/14, reader 26/64, security 2/18, sign 4/18.
+**331 components, 79 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 14/38, batch 0/9, compare 0/7, convert 0/20, edit 4/29, files 3/19, forms 4/17, optimize 0/15, organize 6/27, output 0/15, platform 1/14, preferences 1/14, reader 26/64, security 2/18, sign 4/18.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
@@ -58,7 +58,7 @@ Next, by components lifted:
    dictionary in PdfCraft (no duplicate edit), or XFDF export/import.
 3. **Menu bar** with every reader command (C-platform-014; menu entries of C-reader-039/040).
 4. Single page mode (C-reader-014), horizontal scroll (003), rotate view (017: text layer is in page view space).
-5. Bookmarks by drag (MoveBookmark; C-edit-023), attachment delete/rename (C-edit-022), comment export (C-annotate-035).
+5. Bookmarks by drag (MoveBookmark; C-edit-023), attachment delete/rename (C-edit-022). 
 
 ## Known limits worth the next session
 

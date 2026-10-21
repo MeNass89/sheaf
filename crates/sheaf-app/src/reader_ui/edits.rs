@@ -264,7 +264,8 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
 }
 
 /// The Notes panel's actions: 0 hide or show every comment, 1 a summary of the comments (a PDF,
-/// saved then opened), 2 remove every comment (one undo step).
+/// saved then opened), 2 remove every comment (one undo step), 3 export the comments (XFDF or
+/// FDF), 4 import comments from an XFDF or FDF file (one undo step).
 pub fn notes_action(ui: &AppWindow, tab_id: i32, what: i32) {
     match what {
         0 => {
@@ -281,6 +282,24 @@ pub fn notes_action(ui: &AppWindow, tab_id: i32, what: i32) {
             let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(format!("{stem} - comments.pdf")).add_filter("PDF", &["pdf"]);
             crate::dialog::save_file(ui, d, move |_, target| {
                 update(tab_id, |r, _| r.send(Op::Summary { to: target }));
+            });
+        }
+        3 => {
+            let Some((dir, stem)) = update(tab_id, |r, _| (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())) else { return };
+            let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(format!("{stem}.xfdf")).add_filter("XFDF", &["xfdf"]).add_filter("FDF", &["fdf"]);
+            crate::dialog::save_file(ui, d, move |_, target| {
+                update(tab_id, |r, _| r.send(Op::ExportComments { to: target }));
+            });
+        }
+        4 => {
+            let d = crate::dialog::new(ui).add_filter("Comments", &["xfdf", "fdf"]);
+            crate::dialog::pick_file(ui, d, move |ui, path| {
+                let Ok(bytes) = std::fs::read(&path) else {
+                    return crate::flow::toast(ui, "That file could not be read");
+                };
+                // The comments may land on any page: every page renders again once they are in.
+                let all: Vec<usize> = update(tab_id, |_, v| (0..v.viewer.page_count()).collect()).unwrap_or_default();
+                apply(ui, tab_id, Edit::ImportData { name: file_name(&path), bytes: Arc::new(bytes) }, &all, None);
             });
         }
         _ => {

@@ -499,6 +499,13 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 _ => {}
             }
         }
+        Reply::Exported { to, error } => {
+            update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
+            match error {
+                None => crate::flow::toast(ui, &format!("Comments exported to {}", file_name(&to))),
+                Some(e) => crate::flow::toast(ui, &format!("Not exported: {e}")),
+            }
+        }
         Reply::Extracted { to, error } => {
             update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
             match error {
