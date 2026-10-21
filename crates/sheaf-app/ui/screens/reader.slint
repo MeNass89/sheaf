@@ -90,6 +90,7 @@ export component ReaderScreen inherits Rectangle {
                     ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough (K)"; active: root.tab.reader.tool == 3; clicked => { ReaderBridge.set-tool(root.id, 3); keys.focus(); } }
                     ToolButton { icon: @image-url("../icons/sticky-note.svg"); tip: "Note (N)"; active: root.tab.reader.tool == 4; clicked => { ReaderBridge.set-tool(root.id, 4); keys.focus(); } }
                     ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Pen (P)"; active: root.tab.reader.tool == 5; clicked => { ReaderBridge.set-tool(root.id, 5); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/shapes.svg"); tip: "Shapes (R)"; active: root.tab.reader.tool == 10; clicked => { ReaderBridge.set-tool(root.id, 10); keys.focus(); } }
                     ToolButton { icon: @image-url("../icons/type.svg"); tip: "Text box (T)"; active: root.tab.reader.tool == 6; clicked => { ReaderBridge.set-tool(root.id, 6); keys.focus(); } }
                     Rectangle { width: 6px; }
                     Divider { y: 5px; }
@@ -497,7 +498,16 @@ export component ReaderScreen inherits Rectangle {
                         padding-top: 3px;
                         padding-bottom: 3px;
                         spacing: 4px;
-                            if root.tab.reader.tool == 5: HorizontalLayout {
+                            // Shapes: which one, filled or not.
+                            if root.tab.reader.tool == 10: HorizontalLayout {
+                                spacing: 0px;
+                                ToolButton { icon: @image-url("../icons/square.svg"); tip: "Rectangle"; active: root.tab.reader.shape-kind == 0; clicked => { ReaderBridge.shape-option(root.id, 0, 0); keys.focus(); } }
+                                ToolButton { icon: @image-url("../icons/circle.svg"); tip: "Oval"; active: root.tab.reader.shape-kind == 1; clicked => { ReaderBridge.shape-option(root.id, 0, 1); keys.focus(); } }
+                                ToolButton { icon: @image-url("../icons/slash.svg"); tip: "Line"; active: root.tab.reader.shape-kind == 2; clicked => { ReaderBridge.shape-option(root.id, 0, 2); keys.focus(); } }
+                                ToolButton { icon: @image-url("../icons/move-up-right.svg"); tip: "Arrow"; active: root.tab.reader.shape-kind == 3; clicked => { ReaderBridge.shape-option(root.id, 0, 3); keys.focus(); } }
+                                if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Fill"; primary: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); keys.focus(); } }
+                            }
+                            if root.tab.reader.tool == 5 || root.tab.reader.tool == 10: HorizontalLayout {
                                 spacing: 2px;
                                 padding-left: 6px;
                                 for w[k] in [2px, 4px, 7px]: Rectangle {
@@ -518,6 +528,18 @@ export component ReaderScreen inherits Rectangle {
                                         clicked => { ReaderBridge.set-pen-width(root.id, k); keys.focus(); }
                                     }
                                 }
+                            }
+                            if root.tab.reader.tool == 5 || root.tab.reader.tool == 10: SmallButton {
+                                y: 2px;
+                                text: root.tab.reader.opacity + " %";
+                                clicked => { ReaderBridge.shape-option(root.id, 2, 0); keys.focus(); }
+                            }
+                            // Text box: its text size.
+                            if root.tab.reader.tool == 6: HorizontalLayout {
+                                spacing: 4px;
+                                SmallButton { y: 2px; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
+                                Text { text: root.tab.reader.text-size + " pt"; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                SmallButton { y: 2px; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
                             }
                             // Edit text: the format of text added on the page.
                             if root.tab.reader.tool == 7: HorizontalLayout {
@@ -793,6 +815,7 @@ export component ReaderScreen inherits Rectangle {
             if e.text == "k" { ReaderBridge.set-tool(root.id, 3); return accept; }
             if e.text == "n" { ReaderBridge.set-tool(root.id, 4); return accept; }
             if e.text == "p" { ReaderBridge.set-tool(root.id, 5); return accept; }
+            if e.text == "r" { ReaderBridge.set-tool(root.id, 10); return accept; }
             if e.text == "t" { ReaderBridge.set-tool(root.id, 6); return accept; }
             if e.text == "e" { ReaderBridge.set-tool(root.id, 7); return accept; }
             if e.text == "i" { ReaderBridge.set-tool(root.id, 8); return accept; }

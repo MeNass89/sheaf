@@ -1366,10 +1366,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 7,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -1385,6 +1385,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Text box: size 9–24 pt and colour. Missing: font family (PdfCraft's TextBox shape takes a size only), bold"
    }
   ]
  },
@@ -1672,14 +1683,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "rectangle/oval",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -1691,6 +1702,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Shapes tool (R): drag a rectangle or oval with a live outline; colour, width, fill, opacity; moved by drag, resized by the corner handle; gui-smoke saves a rectangle and a filled oval at 75 %"
    }
   ]
  },
@@ -1772,10 +1794,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -1791,6 +1813,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Shapes tool: line and arrow (open arrowhead) dragged with a live preview; saved as Line with /LE (gui-smoke). Missing for 9: dragging an end of an existing line"
    }
   ]
  },
@@ -2584,10 +2617,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -2603,6 +2636,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Pen and shapes: 5 colours, 3 widths, fill on/off (a tint of the stroke), opacity 100/75/50/25 %; gui-smoke checks /IC and /CA. Missing for 9: free colour picker, fill colour of its own, dashed lines"
    }
   ]
  },

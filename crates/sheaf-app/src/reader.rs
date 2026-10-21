@@ -248,6 +248,39 @@ pub const INK: [[f64; 3]; 5] = [
     [0.6, 0.25, 0.85], // purple
 ];
 
+/// Opacities offered for shapes and drawings.
+pub const OPACITIES: [f64; 4] = [1.0, 0.75, 0.5, 0.25];
+
+/// Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow. The outline shown while a shape is dragged
+/// from `a` to `b` (view points), as one path.
+pub fn shape_outline(kind: i32, a: (f64, f64), b: (f64, f64)) -> Vec<(f64, f64)> {
+    let (x0, y0, x1, y1) = (a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1));
+    match kind {
+        0 => vec![(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)],
+        1 => {
+            let (cx, cy, rx, ry) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0, (x1 - x0) / 2.0, (y1 - y0) / 2.0);
+            (0..=48).map(|i| i as f64 / 48.0 * std::f64::consts::TAU).map(|t| (cx + rx * t.cos(), cy + ry * t.sin())).collect()
+        }
+        2 => vec![a, b],
+        _ => {
+            let [h1, h2] = arrow_head(a, b, 10.0);
+            vec![a, b, h1, b, h2]
+        }
+    }
+}
+
+/// The two ends of an open arrowhead at `b`, `len` long, 30° either side of the line from `a`.
+pub fn arrow_head(a: (f64, f64), b: (f64, f64), len: f64) -> [(f64, f64); 2] {
+    let angle = (b.1 - a.1).atan2(b.0 - a.0);
+    let side = |s: f64| (b.0 - len * (angle + s).cos(), b.1 - len * (angle + s).sin());
+    [side(-std::f64::consts::FRAC_PI_6), side(std::f64::consts::FRAC_PI_6)]
+}
+
+/// A shape's fill: its stroke colour mixed with 75 % white.
+pub fn fill_tint(c: [f64; 3]) -> [f64; 3] {
+    c.map(|v| v + (1.0 - v) * 0.75)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,4 +361,19 @@ mod tests {
         assert_eq!(kind_label("StrikeOut"), "Strikethrough");
         assert!(!listed("Link") && listed("Highlight"));
     }
+
+    #[test]
+    fn shape_outlines() {
+        let r = shape_outline(0, (30.0, 40.0), (10.0, 20.0));
+        assert_eq!(r, vec![(10.0, 20.0), (30.0, 20.0), (30.0, 40.0), (10.0, 40.0), (10.0, 20.0)]);
+        let o = shape_outline(1, (0.0, 0.0), (20.0, 10.0));
+        assert!(o.iter().all(|p| ((p.0 - 10.0) / 10.0).powi(2) + ((p.1 - 5.0) / 5.0).powi(2) < 1.0001));
+        assert_eq!(shape_outline(2, (1.0, 2.0), (3.0, 4.0)), vec![(1.0, 2.0), (3.0, 4.0)]);
+        // An arrow pointing right: its head's ends are behind the tip, one above, one below.
+        let [h1, h2] = arrow_head((0.0, 0.0), (100.0, 0.0), 10.0);
+        assert!(h1.0 < 100.0 && h2.0 < 100.0 && (h1.1 + h2.1).abs() < 1e-9 && h1.1 != 0.0);
+        assert!(((100.0 - h1.0).hypot(h1.1) - 10.0).abs() < 1e-9);
+        assert_eq!(fill_tint([0.0, 1.0, 0.2]), [0.75, 1.0, 0.8]);
+    }
+
 }

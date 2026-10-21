@@ -59,7 +59,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 ## Vocabulary
 
 - **Tool tab**: a tab running one tool (Compress, Merge…) on files. **Document tab** / **reader**: a PDF open to read and annotate.
-- **Annotation** (comment): highlight, note, ink, text box, shape; stored in the PDF. **Signature**: ink annotation flagged `fill_sign`.
+- **Annotation** (comment): highlight, note, ink, text box, shape (rectangle, oval, line, arrow); stored in the PDF. **Signature**: ink annotation flagged `fill_sign`.
 - **Snapshot** (`Snap`): what the document thread reports after each change; the UI draws from it.
 - **Provisional**: drawn at once by the UI before the engine confirms an edit.
 - **Job**: one tool run off the UI thread.

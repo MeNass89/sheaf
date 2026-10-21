@@ -155,7 +155,32 @@ pub(super) fn add_ink(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f
         let size = b.view_size();
         let stroke: Vec<[f64; 2]> = pts.iter().map(|p| { let (x, y) = viewer::view_to_pdf(b, size, p.0, p.1); [x, y] }).collect();
         let prov = Provisional { page, rects: Vec::new(), stroke: pts.clone(), colour: INK[r.ink_colour], kind: PEN };
-        (Edit::AddAnnotation(NewAnnotation { page, shape: Shape::Ink { strokes: vec![stroke] }, style: style(INK[r.ink_colour], pen_points(r.pen_width)), contents: String::new(), author: author() }), prov)
+        let style = Style { opacity: reader::OPACITIES[r.opacity], ..style(INK[r.ink_colour], pen_points(r.pen_width)) };
+        (Edit::AddAnnotation(NewAnnotation { page, shape: Shape::Ink { strokes: vec![stroke] }, style, contents: String::new(), author: author() }), prov)
+    });
+    if let Some((e, prov)) = edit {
+        apply(ui, tab_id, e, &[page], Some(prov));
+    }
+}
+
+/// A rectangle, oval, line or arrow dragged from `a` to `b` (view points of `page`), in the pen's
+/// colour, width and opacity.
+pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64), b: (f64, f64)) {
+    let edit = update(tab_id, |r, v| {
+        let bx = &v.viewer.boxes[page];
+        let size = bx.view_size();
+        let (pa, pb) = (viewer::view_to_pdf(bx, size, a.0, a.1), viewer::view_to_pdf(bx, size, b.0, b.1));
+        let rect = [pa.0.min(pb.0), pa.1.min(pb.1), pa.0.max(pb.0), pa.1.max(pb.1)];
+        let shape = match r.shape_kind {
+            0 => Shape::Rectangle { rect },
+            1 => Shape::Oval { rect },
+            k => Shape::Line { from: [pa.0, pa.1], to: [pb.0, pb.1], start: LineEnding::None, end: if k == 3 { LineEnding::OpenArrow } else { LineEnding::None } },
+        };
+        let colour = INK[r.ink_colour];
+        let fill = (r.shape_fill && r.shape_kind < 2).then(|| reader::fill_tint(colour));
+        let style = Style { color: colour, opacity: reader::OPACITIES[r.opacity], width: pen_points(r.pen_width), fill };
+        let prov = Provisional { page, rects: Vec::new(), stroke: reader::shape_outline(r.shape_kind, a, b), colour, kind: PEN };
+        (Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() }), prov)
     });
     if let Some((e, prov)) = edit {
         apply(ui, tab_id, e, &[page], Some(prov));
@@ -220,13 +245,14 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let shape = if d.kind == 0 {
             Shape::Note { at: [x, y], icon: NoteIcon::Comment }
         } else {
-            // A box 200 pt wide, tall enough for the lines typed (12 pt text), kept on the page.
-            let lines = text.lines().count().max(1) as f64 + (text.len() as f64 / 38.0).floor();
+            // A box 200 pt wide, tall enough for the lines typed at the chosen size, kept on the page.
+            let pt = TEXT_SIZES[r.text_size as usize];
+            let lines = text.lines().count().max(1) as f64 + (text.len() as f64 / (38.0 * 12.0 / pt)).floor();
             // 200 pt wide, moved left or up so the whole box is on the page (PDF Expert does the same).
-            let (w, h) = (200.0_f64.min(size.0), (lines * 15.0 + 8.0).min(size.1));
+            let (w, h) = (200.0_f64.min(size.0), (lines * pt * 1.25 + 8.0).min(size.1));
             let at = (d.at.0.min(size.0 - w).max(0.0), d.at.1.min(size.1 - h).max(0.0));
             let r = viewer::view_rect_to_pdf(b, size, at, (at.0 + w, at.1 + h));
-            Shape::TextBox { rect: r, font_size: 12.0 }
+            Shape::TextBox { rect: r, font_size: pt }
         };
         let colour = if d.kind == 0 { COLOURS[r.light] } else { INK[r.ink_colour] };
         Some((d.page, Edit::AddAnnotation(NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 { 1.0 } else { 0.0 }), contents: text, author: author() })))

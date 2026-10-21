@@ -15,7 +15,7 @@ use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
 use sheaf_app::{AppWindow, ReaderMark, ReaderResultRow, ReaderAnnotRow, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
-use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, Markup, NewAnnotation, NoteIcon, Shape, Style};
+use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
 use std::rc::Rc;
 
@@ -40,6 +40,8 @@ pub const TEXT_SIZES: [f64; 6] = [9.0, 10.0, 12.0, 14.0, 18.0, 24.0];
 
 /// Fill & Sign: click to place the signature (made once, kept for every document).
 pub const SIGN: i32 = 9;
+/// Shapes: drag a rectangle, oval, line or arrow (`ReaderUi::shape_kind`).
+pub const SHAPE: i32 = 10;
 
 use crate::reader_doc::{self, AnnotEntry, Block, Op, Reply, Snap};
 
@@ -142,6 +144,12 @@ pub struct ReaderUi {
     printer: usize,
     note_seq: i32,
     pen_width: i32,
+    /// Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled (rectangle, oval); where the drag is.
+    shape_kind: i32,
+    shape_fill: bool,
+    shape_end: Option<(f64, f64)>,
+    /// Shapes and pen: index in `reader::OPACITIES`.
+    opacity: usize,
     /// Added text: index in TEXT_SIZES, 0 Helvetica / 1 Times / 2 Courier, bold.
     text_size: i32,
     text_family: i32,
@@ -237,6 +245,10 @@ impl ReaderUi {
             printer: 0,
             note_seq: 0,
             pen_width: 1,
+            shape_kind: 0,
+            shape_fill: false,
+            shape_end: None,
+            opacity: 0,
             text_size: 2,
             text_family: 0,
             text_bold: false,

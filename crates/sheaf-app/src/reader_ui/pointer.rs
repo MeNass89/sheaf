@@ -13,6 +13,11 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 r.stroke = Some((page, vec![p]));
                 false
             }
+            SHAPE => {
+                r.stroke = Some((page, vec![p]));
+                r.shape_end = None;
+                false
+            }
             NOTE | TEXTBOX => {
                 r.draft = Some(Draft { page, at: p, kind: if r.tool == NOTE { 0 } else { 1 }, block: None, field: None });
                 r.note_seq += 1;
@@ -142,6 +147,11 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             }
             return;
         }
+        if r.tool == SHAPE {
+            r.shape_end = Some(b);
+            r.stroke = Some((page, reader::shape_outline(r.shape_kind, a, b)));
+            return;
+        }
         if r.tool == PEN {
             if let Some((_, pts)) = r.stroke.as_mut() {
                 let last = *pts.last().unwrap_or(&b);
@@ -261,6 +271,11 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         }
         match r.tool {
             PEN => r.stroke.take().filter(|(_, pts)| pts.len() >= 2).map(|(page, pts)| Pending::Ink(page, pts)),
+            SHAPE => {
+                r.stroke = None;
+                // A click without a drag draws nothing.
+                press.zip(r.shape_end.take()).filter(|((_, a), b)| (a.0 - b.0).hypot(a.1 - b.1) >= 4.0).map(|((page, a), b)| Pending::Shape(page, a, b))
+            }
             HIGHLIGHT | UNDERLINE | STRIKE if press.is_some() && r.sel.is_some() => Some(Pending::Markup(r.tool)),
             _ => None,
         }
@@ -268,6 +283,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     .flatten();
     match action {
         Some(Pending::Ink(page, pts)) => add_ink(ui, tab_id, page, pts),
+        Some(Pending::Shape(page, a, b)) => add_shape(ui, tab_id, page, a, b),
         Some(Pending::Markup(kind)) => markup(ui, tab_id, kind),
         Some(Pending::Move(page, e)) => apply(ui, tab_id, *e, &[page], None),
         Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
@@ -295,6 +311,8 @@ pub(super) fn resizable(a: &AnnotEntry) -> bool {
 
 pub(super) enum Pending {
     Ink(usize, Vec<(f64, f64)>),
+    /// A shape dragged on a page, from and to (view points).
+    Shape(usize, (f64, f64), (f64, f64)),
     Markup(i32),
     Move(usize, Box<Edit>),
     Link(render::LinkTarget),

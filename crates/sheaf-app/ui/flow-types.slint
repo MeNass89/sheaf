@@ -161,6 +161,10 @@ export struct ReaderState {
     // Signature tool: the pad is open to make one; one is kept.
     sign-open: bool,
     has-signature: bool,
+    // Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled; opacity of shapes and pen (%).
+    shape-kind: int,
+    shape-fill: bool,
+    opacity: int,
     // Print sheet: open, the system's printers, the chosen one.
     print-open: bool,
     printers: [string],
@@ -401,6 +405,8 @@ export global ReaderBridge {
     // Print: open the sheet; print with printer, copies, pages (0 all, 1 current, 2 range),
     // the range typed, fit to paper, two-sided; cancel.
     callback print-open(int);
+    // Shapes and pen: what (0 shape kind, 1 fill toggle, 2 next opacity), value.
+    callback shape-option(int, int, int);
     callback print(int, int, int, int, string, bool, bool);
     callback print-cancel(int);
     // Pointer on the pages, content coordinates; `clicks` 2 on a double-click.

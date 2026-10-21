@@ -61,6 +61,7 @@ objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
 write("form.pdf", objs, 2)
 PY
 for f in text form; do qpdf "$OUT/$f.pdf" "$OUT/$f.fixed.pdf" && mv "$OUT/$f.fixed.pdf" "$OUT/$f.pdf"; done
+cp "$OUT/text.pdf" "$OUT/shapes.pdf"
 
 # The user's own Sheaf data, as it is before the run (the check at the end compares).
 real_profile() { ls -la --time-style=full-iso "${XDG_DATA_HOME:-$HOME/.local/share}/Sheaf" 2>/dev/null | md5sum; }
@@ -264,6 +265,18 @@ fi
 key ctrl+s; sleep 1.5; shot 06-form
 V=$(qpdf --json=2 --json-key=acroform "$OUT/form.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
 check "a form field is filled and saved ($V)" "echo \"$V\" | grep -q 'Smoke Test'"
+quit
+
+# 6c. Shapes (R): a rectangle; an oval, filled, at 75 %; an arrow. Options bar at 1280×800:
+# oval (317,109), arrow (376,109), Fill (413,109), opacity (550,109).
+launch "$OUT/shapes.pdf"; key ctrl+9
+drag() { xdotool mousemove $1 $2 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(($1 + i * $3 / 5)) $(($2 + i * $4 / 5)); sleep 0.05; done; xdotool mouseup 1; sleep 1.2; }
+key r; drag 500 300 180 120
+click 317 109; click 413 109; click 550 109; drag 500 600 200 100
+click 376 109; drag 900 300 150 -100
+key ctrl+s; sleep 1.5; shot 06c-shapes
+SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
+check "a rectangle, a filled oval at 75 % and an arrow are saved" "echo \"\$SH\" | grep -aq '/Subtype /Square' && echo \"\$SH\" | grep -aq '/Subtype /Circle' && echo \"\$SH\" | grep -aq '/IC \\[' && echo \"\$SH\" | grep -aq '/CA 0.75' && echo \"\$SH\" | grep -aq '/OpenArrow'"
 quit
 
 # 7. A password-protected PDF asks for its password, then opens in the reader.
