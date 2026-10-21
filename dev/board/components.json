@@ -6381,14 +6381,14 @@
    110
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "multi-line text, fonts, undo",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -6411,6 +6411,17 @@
      "overall": 8
     },
     "proof": "E on empty space adds text to the page content, found by pdftotext in the saved file (gui-smoke PASS); 12 pt Helvetica, no font or size choice yet"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "E on empty space adds text with the format row (Sans/Serif/Mono, bold, 9–24 pt, 5 ink colours); gui-smoke checks the text (pdftotext) and the font (pdffonts: Times-Bold)"
    }
   ]
  },
@@ -6478,10 +6489,10 @@
    106
   ],
   "grade": {
-   "function": 3,
-   "aesthetics": 4,
-   "performance": 7,
-   "overall": 3
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -6497,6 +6508,17 @@
      "overall": 3
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [106]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "New text: family, bold, size, colour (gui-smoke Times-Bold PASS); existing paragraphs keep their font (no restyle yet), no italic or alignment"
    }
   ]
  },
@@ -6527,10 +6549,10 @@
    107
   ],
   "grade": {
-   "function": 4,
-   "aesthetics": 5,
-   "performance": 8,
-   "overall": 4
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -6546,6 +6568,17 @@
      "overall": 4
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [107]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "New text in 5 ink colours from the options bar; no free colour picker"
    }
   ]
  },

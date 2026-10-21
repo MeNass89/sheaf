@@ -138,6 +138,11 @@ key e; sleep 0.8; click 640 600 0.8
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Added by smoke"; key ctrl+Return; sleep 1.2
 key Escape; key v; key ctrl+s; sleep 1.5
 check "text added with the Edit tool is in the page content" "pdftotext -f 1 -l 1 $OUT/text.pdf - | grep -q 'Added by smoke'"
+# The format row: Serif, bold, two sizes up → the page gains Times-Bold.
+key e; sleep 0.8; click 360 110 0.3; click 470 110 0.3; click 578 110 0.3; click 578 110 0.3
+click 640 680 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Serif bold"; key ctrl+Return; sleep 1.2
+key Escape; key v; key ctrl+s; sleep 1.5; shot 02c-text-format
+check "added text takes the chosen font (Times-Bold)" "pdffonts -f 1 -l 1 $OUT/text.pdf 2>/dev/null | grep -q 'Times-Bold'"
 
 # 3. Page operations from the Pages panel: duplicate page 1, delete it again, rotate.
 click 120 230; click 142 778 1.2      # select page 1, Duplicate

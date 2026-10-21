@@ -932,6 +932,17 @@ export component ReaderScreen inherits Rectangle {
                                     }
                                 }
                             }
+                            // Edit text: the format of text added on the page.
+                            if root.tab.reader.tool == 7: HorizontalLayout {
+                                spacing: 4px;
+                                SmallButton { y: 2px; text: "Sans"; primary: root.tab.reader.text-family == 0; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
+                                SmallButton { y: 2px; text: "Serif"; primary: root.tab.reader.text-family == 1; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
+                                SmallButton { y: 2px; text: "Mono"; primary: root.tab.reader.text-family == 2; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
+                                SmallButton { y: 2px; text: "B"; primary: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
+                                SmallButton { y: 2px; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
+                                Text { text: root.tab.reader.text-size + " pt"; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                SmallButton { y: 2px; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
+                            }
                             if root.tab.reader.has-signature: HorizontalLayout {
                                 spacing: 6px;
                                 Text { text: "Click where the signature goes."; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }

@@ -35,6 +35,9 @@ pub const TEXTBOX: i32 = 6;
 pub const EDIT_TEXT: i32 = 7;
 /// Edit mode: click to place an image.
 pub const ADD_IMAGE: i32 = 8;
+/// Text sizes offered for added text, in points.
+pub const TEXT_SIZES: [f64; 6] = [9.0, 10.0, 12.0, 14.0, 18.0, 24.0];
+
 /// Fill & Sign: click to place the signature (made once, kept for every document).
 pub const SIGN: i32 = 9;
 
@@ -113,6 +116,10 @@ pub struct ReaderUi {
     sign_open: bool,
     note_seq: i32,
     pen_width: i32,
+    /// Added text: index in TEXT_SIZES, 0 Helvetica / 1 Times / 2 Courier, bold.
+    text_size: i32,
+    text_family: i32,
+    text_bold: bool,
     /// Pages selected in the Pages panel (empty: the current page is meant).
     page_sel: std::collections::BTreeSet<usize>,
     /// The last page clicked in the panel, the anchor of a ⇧-click range.
@@ -188,6 +195,9 @@ impl ReaderUi {
             sign_open: false,
             note_seq: 0,
             pen_width: 1,
+            text_size: 2,
+            text_family: 0,
+            text_bold: false,
             annot_candidate: None,
             annot_drag: None,
             pending_field: None,
@@ -1184,10 +1194,21 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             return None;
         }
         if d.kind == 3 {
-            let (w, h) = sheaf_core::edit::text_extent(&text, 12.0);
-            let x0 = d.at.0.min((size.0 - w - 12.0).max(0.0));
-            let rect = [x0, size.1 - (d.at.1 + h), x0 + w + 12.0, size.1 - d.at.1];
-            return Some((d.page, Edit::AddText { page: d.page, text: AddedText { rect, text: text.clone(), size: 12.0, color: INK[r.ink_colour], ..Default::default() } }));
+            // The font, size and weight chosen in the options bar (PDF Expert's text format row).
+            let pt = TEXT_SIZES[r.text_size.clamp(0, TEXT_SIZES.len() as i32 - 1) as usize];
+            let family = match r.text_family {
+                1 => sheaf_core::pdfcraft::engine::FontFamily::Times,
+                2 => sheaf_core::pdfcraft::engine::FontFamily::Courier,
+                _ => sheaf_core::pdfcraft::engine::FontFamily::Helvetica,
+            };
+            let (w, h) = sheaf_core::edit::text_extent(&text, pt);
+            let w = w * if r.text_bold { 1.1 } else { 1.0 };
+            let x0 = d.at.0.min((size.0 - w - pt).max(0.0));
+            let rect = [x0, size.1 - (d.at.1 + h), x0 + w + pt, size.1 - d.at.1];
+            return Some((
+                d.page,
+                Edit::AddText { page: d.page, text: AddedText { rect, text: text.clone(), size: pt, color: INK[r.ink_colour], family, bold: r.text_bold, ..Default::default() } },
+            ));
         }
         let (x, y) = viewer::view_to_pdf(b, size, d.at.0, d.at.1);
         let shape = if d.kind == 0 {
@@ -1537,6 +1558,15 @@ pub fn set_colour(ui: &AppWindow, tab_id: i32, k: i32) {
     if let Some((page, e)) = restyle {
         apply(ui, tab_id, e, &[page], None);
     }
+}
+
+/// Added text's format: `what` 0 size step (±1 in `v`), 1 family (`v`), 2 bold toggle.
+pub fn text_format(tab_id: i32, what: i32, v: i32) {
+    update(tab_id, |r, _| match what {
+        0 => r.text_size = (r.text_size + v).clamp(0, TEXT_SIZES.len() as i32 - 1),
+        1 => r.text_family = v.clamp(0, 2),
+        _ => r.text_bold = !r.text_bold,
+    });
 }
 
 /// Pen thickness in points: 0 fine, 1 medium, 2 thick.
@@ -2110,6 +2140,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         can_redo: r.snap.can_redo && r.in_flight == 0,
         zoom_mode: r.zoom_mode,
         pen_width: r.pen_width,
+        text_size: TEXT_SIZES[r.text_size as usize] as i32,
+        text_family: r.text_family,
+        text_bold: r.text_bold,
         pages_selected: r.page_sel.len() as i32,
         sign_open: r.sign_open,
         has_signature: r.tool == SIGN && saved_signature().is_some(),
