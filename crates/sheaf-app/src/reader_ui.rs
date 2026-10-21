@@ -134,6 +134,8 @@ pub struct ReaderUi {
     redo_pages: Vec<Vec<usize>>,
     /// A check box or radio button clicked: its edit, sent once the click is handled.
     pending_field: Option<Edit>,
+    /// An annotation being dragged: its index, where the drag started and where it is (view).
+    annot_drag: Option<(usize, (f64, f64), (f64, f64))>,
     /// The annotation under the press, selected if the press ends without a drag.
     annot_candidate: Option<usize>,
     /// The panel shown before a search took it over (results, panel 3).
@@ -187,6 +189,7 @@ impl ReaderUi {
             note_seq: 0,
             pen_width: 1,
             annot_candidate: None,
+            annot_drag: None,
             pending_field: None,
             page_sel: Default::default(),
             page_anchor: None,
@@ -661,6 +664,10 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
     update(tab_id, |r, v| {
         let Some((page, a)) = r.press else { return };
         let b = to_view(&v.viewer, page, x, y);
+        if let Some(d) = r.annot_drag.as_mut() {
+            d.2 = b;
+            return;
+        }
         if r.tool == PEN {
             if let Some((_, pts)) = r.stroke.as_mut() {
                 let last = *pts.last().unwrap_or(&b);
@@ -673,6 +680,15 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
         if (a.0 - b.0).hypot(a.1 - b.1) < 1.5 {
             return;
         }
+        // A drag that starts on a note, drawing, text box, shape or signature moves it; on text
+        // markup it selects the text under it (PDF Expert does both the same way).
+        if let Some(i) = r.annot_candidate
+            && r.annots().get(i).is_some_and(|x| !matches!(x.subtype.as_str(), "Highlight" | "Underline" | "StrikeOut" | "Squiggly"))
+        {
+            r.annot_drag = Some((i, a, b));
+            r.selected_annot = Some(i);
+            return;
+        }
         r.annot_candidate = None;
         r.sel = r.text(page).and_then(|t| reader::selection(&t, (a.0 as f32, a.1 as f32), (b.0 as f32, b.1 as f32))).map(|s| (page, s));
     });
@@ -682,6 +698,15 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     moved(tab_id, x, y);
     let action = update(tab_id, |r, v| {
         let press = r.press.take();
+        if let Some((i, from, to)) = r.annot_drag.take() {
+            r.annot_candidate = None;
+            let a = r.annots().get(i)?;
+            let b = &v.viewer.boxes[a.page];
+            let size = b.view_size();
+            let p0 = viewer::view_to_pdf(b, size, from.0, from.1);
+            let p1 = viewer::view_to_pdf(b, size, to.0, to.1);
+            return Some(Pending::Move(a.page, Edit::MoveAnnotation { page: a.page, index: a.index, dx: p1.0 - p0.0, dy: p1.1 - p0.1 }));
+        }
         if let Some(i) = r.annot_candidate.take()
             && r.sel.is_none()
         {
@@ -717,6 +742,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     match action {
         Some(Pending::Ink(page, pts)) => add_ink(ui, tab_id, page, pts),
         Some(Pending::Markup(kind)) => markup(ui, tab_id, kind),
+        Some(Pending::Move(page, e)) => apply(ui, tab_id, e, &[page], None),
         Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
             update(tab_id, |r, v| {
                 // An /XYZ destination's top edge, when it has one, is brought near the top.
@@ -897,6 +923,7 @@ pub fn signature_reset(tab_id: i32) {
 enum Pending {
     Ink(usize, Vec<(f64, f64)>),
     Markup(i32),
+    Move(usize, Edit),
     Link(render::LinkTarget),
 }
 
@@ -1010,6 +1037,8 @@ fn forget_page_state(r: &mut ReaderUi) {
     r.forward.clear();
     r.page_drag = None;
     r.pending_reduce = None;
+    r.annot_drag = None;
+    r.annot_candidate = None;
     let n = r.snap.boxes.len();
     r.page_sel.retain(|p| *p < n);
 }
@@ -1928,7 +1957,15 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     }
     if let Some(a) = r.selected_annot.and_then(|i| r.annots().get(i)) {
         let c = v.viewer.overlay(a.page, a.rect);
-        marks.push(overlay([c[0] - 2.0, c[1] - 2.0, c[2] + 4.0, c[3] + 4.0], 6));
+        // While dragged, the outline follows the pointer (content pixels).
+        let (dx, dy) = match r.annot_drag {
+            Some((_, from, to)) => {
+                let s = 1.0 / k(&v.viewer, a.page);
+                ((to.0 - from.0) * s, (to.1 - from.1) * s)
+            }
+            None => (0.0, 0.0),
+        };
+        marks.push(overlay([c[0] - 2.0 + dx, c[1] - 2.0 + dy, c[2] + 4.0, c[3] + 4.0], 6));
     }
     let ink = match &r.stroke {
         Some((page, pts)) if pts.len() >= 2 => {

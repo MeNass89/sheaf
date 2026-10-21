@@ -356,69 +356,6 @@ export component ReaderScreen inherits Rectangle {
                 background: Theme.sidebar-border;
             }
         }
-        // Options of the tool in use and the form's actions, a thin bar under the toolbar as in
-        // PDF Expert, so the toolbar fits a small window.
-        if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): Rectangle {
-            height: 36px;
-            background: Theme.panel-bg;
-            HorizontalLayout {
-                padding-left: 12px;
-                padding-right: 12px;
-                padding-top: 3px;
-                padding-bottom: 3px;
-                spacing: 4px;
-                    if root.tab.reader.tool == 5: HorizontalLayout {
-                        spacing: 2px;
-                        padding-left: 6px;
-                        for w[k] in [2px, 4px, 7px]: Rectangle {
-                            y: 4px;
-                            width: 22px;
-                            height: 22px;
-                            border-radius: 11px;
-                            border-width: root.tab.reader.pen-width == k ? 2px : 0px;
-                            border-color: Theme.text;
-                            Rectangle {
-                                width: w;
-                                height: w;
-                                border-radius: w / 2;
-                                background: Theme.text-secondary;
-                            }
-                            TouchArea {
-                                mouse-cursor: pointer;
-                                clicked => { ReaderBridge.set-pen-width(root.id, k); keys.focus(); }
-                            }
-                        }
-                    }
-                    if root.tab.reader.has-signature: HorizontalLayout {
-                        spacing: 6px;
-                        Text { text: "Click where the signature goes."; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                        SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
-                    }
-                    if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot: HorizontalLayout {
-                        spacing: 2px;
-                        padding-left: 6px;
-                        for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {
-                            y: 4px;
-                            colour: c;
-                            selected: root.tab.reader.selected-annot ? root.tab.reader.annot-colour == k : root.tab.reader.colour == k;
-                            clicked => { ReaderBridge.set-colour(root.id, k); keys.focus(); }
-                        }
-                    }
-                Rectangle { horizontal-stretch: 1; }
-                    if root.tab.reader.has-form: HorizontalLayout {
-                        spacing: 4px;
-                        padding-right: 6px;
-                        SmallButton { y: 2px; text: "Clear form"; clicked => { ReaderBridge.form-op(root.id, 0); } }
-                        SmallButton { y: 2px; text: "Flatten"; clicked => { ReaderBridge.form-op(root.id, 1); } }
-                    }
-            }
-            Rectangle {
-                y: parent.height - 1px;
-                height: 1px;
-                background: Theme.sidebar-border;
-            }
-        }
-
         HorizontalLayout {
             vertical-stretch: 1;
             // ---- side panel -------------------------------------------------------------------
@@ -952,6 +889,71 @@ export component ReaderScreen inherits Rectangle {
                                 SmallButton { text: "Done"; primary: true; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
                             }
                         }
+                    }
+                }
+                        // Options of the tool in use and the form's actions: a bar floating over the top of
+                        // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
+                        // pages never move when a tool is picked.
+                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): Rectangle {
+                    x: 12px;
+                    y: 8px;
+                    width: min(parent.width - 24px, optbar.preferred-width);
+                    height: 36px;
+                    border-radius: Theme.radius-item;
+                    background: Theme.card;
+                    drop-shadow-blur: 10px;
+                    drop-shadow-color: #00000030;
+                    drop-shadow-offset-y: 2px;
+                    optbar := HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        padding-top: 3px;
+                        padding-bottom: 3px;
+                        spacing: 4px;
+                            if root.tab.reader.tool == 5: HorizontalLayout {
+                                spacing: 2px;
+                                padding-left: 6px;
+                                for w[k] in [2px, 4px, 7px]: Rectangle {
+                                    y: 4px;
+                                    width: 22px;
+                                    height: 22px;
+                                    border-radius: 11px;
+                                    border-width: root.tab.reader.pen-width == k ? 2px : 0px;
+                                    border-color: Theme.text;
+                                    Rectangle {
+                                        width: w;
+                                        height: w;
+                                        border-radius: w / 2;
+                                        background: Theme.text-secondary;
+                                    }
+                                    TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { ReaderBridge.set-pen-width(root.id, k); keys.focus(); }
+                                    }
+                                }
+                            }
+                            if root.tab.reader.has-signature: HorizontalLayout {
+                                spacing: 6px;
+                                Text { text: "Click where the signature goes."; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                                SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
+                            }
+                            if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot: HorizontalLayout {
+                                spacing: 2px;
+                                padding-left: 6px;
+                                for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {
+                                    y: 4px;
+                                    colour: c;
+                                    selected: root.tab.reader.selected-annot ? root.tab.reader.annot-colour == k : root.tab.reader.colour == k;
+                                    clicked => { ReaderBridge.set-colour(root.id, k); keys.focus(); }
+                                }
+                            }
+                        Rectangle { horizontal-stretch: 1; }
+                            if root.tab.reader.has-form: HorizontalLayout {
+                                spacing: 4px;
+                                padding-right: 6px;
+                                SmallButton { y: 2px; text: "Clear form"; clicked => { ReaderBridge.form-op(root.id, 0); } }
+                                SmallButton { y: 2px; text: "Flatten"; clicked => { ReaderBridge.form-op(root.id, 1); } }
+                            }
                     }
                 }
                 if root.tab.viewer-status != "": Text {

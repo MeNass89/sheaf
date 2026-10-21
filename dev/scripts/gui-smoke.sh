@@ -96,6 +96,19 @@ key ctrl+shift+z; sleep 0.8; key ctrl+s; sleep 1.5
 A_REDO=$(annots "$OUT/text.pdf")
 check "undo then redo restores the note ($A_UNDO → $A_REDO)" "[ $A_REDO -gt $A_UNDO ]"
 
+# 2a. Drag the note down 100 px: its /Rect moves in the saved file.
+note_y() { qpdf --qdf --object-streams=disable "$1" - 2>/dev/null | python3 -c "
+import re,sys
+t=sys.stdin.buffer.read().decode('latin-1')
+m=[x for x in re.finditer(r'/Rect \[\s*([0-9.-]+)\s+([0-9.-]+)', t) if '/Subtype /Text\n' in t[x.end():x.end()+200]]
+print(m[0].group(2) if m else '')"; }
+Y0=$(note_y "$OUT/text.pdf")
+key Escape; key v
+xdotool mousemove 1006 406 mousedown 1; sleep 0.1; for y in 420 450 480 506; do xdotool mousemove 1006 $y; sleep 0.05; done; xdotool mouseup 1; sleep 1
+key ctrl+s; sleep 1.5
+Y1=$(note_y "$OUT/text.pdf")
+check "dragging a note moves it ($Y0 → $Y1)" "[ -n \"$Y1\" ] && python3 -c 'import sys; sys.exit(0 if float(\"$Y0\") - float(\"$Y1\") > 30 else 1)'"
+
 # 2b. Signature: S, click → the pad opens; draw, Use → placed; the next click places it again.
 key Escape; key s; click 700 500 1
 xdotool mousemove 520 420 mousedown 1; for i in $(seq 0 20); do xdotool mousemove $((520 + i * 12)) $((420 + (i % 3) * 8)); done; xdotool mouseup 1; sleep 0.3
