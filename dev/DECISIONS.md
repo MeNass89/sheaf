@@ -515,3 +515,17 @@ rustfmt-formatted (lines past 100 columns) and reformatting everything would bur
 copies, pages, fit or actual size, two-sided. **Alternatives.** macOS's native print panel through
 NSPrintOperation (PDF Expert's way, with preview): unverifiable here, the Mac is reserved; GTK's print dialog:
 Linux only. **Would change it.** A Mac to verify on: then the native panel on macOS, the sheet elsewhere.
+
+## 2026-10-21 · Two PdfCraft crates vendored and patched for large files (lever: engine speed)
+**Decision.** `third_party/pdfcraft-cos` (editing cache 1,024 → 65,536 objects) and `third_party/pdfcraft-engine`
+(`mark_saved`: light refresh after an incremental save), used through `[patch]`; every other PdfCraft crate stays
+on git at the same rev. Measured on a 1,982-page, 70 MB book (`reader_doc::tests::edit_cost_on_a_big_file`):
+annotation 2.13 → 0.19 s, undo 2.0 → 0.19 s, open 8.6 → 4.5 s, ⌘S 4.6 → 1.2 s, Save As 13 → ~1.2 s; peak memory over ten
+annotations 370 → 465 MB. **Alternatives.** Fork PdfCraft on GitHub, or a PR upstream: both publish under
+Nassim's name, asked before doing (an upstream PR would let both folders go). Patch only Sheaf's side: impossible,
+the cost is inside `Session::apply` and `mark_saved`. **Would change it.** Upstream taking the changes.
+
+## 2026-10-21 · Save As writes an incremental update
+**Decision.** Save and Save As both write the file as opened plus an appended update. A full rewrite took 13 s on a
+large book and PdfCraft refuses it for signed files (Save As of a signed PDF failed). **Alternative.** Full rewrite
+(compact, history dropped): that is what Compress does. **Would change it.** Nassim wanting Save As to compact.

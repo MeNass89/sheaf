@@ -1,0 +1,44 @@
+# PdfCraft's engine (https://github.com/storytold/pdfcraft, crates/engine, MIT OR Apache-2.0) at rev
+# d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24, with one change: see ../README.md. Its siblings come from the same git rev, except
+# pdfcraft-cos, patched in third_party/pdfcraft-cos (the workspace [patch] covers both).
+[package]
+name = "pdfcraft-engine"
+version = "0.8.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "PdfCraft engine façade: session, documents, command/tool catalogue"
+
+[dependencies]
+pdfcraft-cos = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-measure = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-render = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-organize = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-annot = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-forms = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-xfa = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-edit = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-audit = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-redact = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-print = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-xfdf = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-sign = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-optimize = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-a11y = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-ocr = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-js = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-compare = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-preflight = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-export = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-fonts = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-create = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-model = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-geom = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "tiff"] }
+thiserror = "2"
+png = "0.18"
+url = "2.5"
+idna = "1.1"
+icu_properties = "2.3"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }

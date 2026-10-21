@@ -1169,6 +1169,8 @@ export component ReaderScreen inherits Rectangle {
                     clip.text = root.tab.reader.selected-text;
                     clip.select-all();
                     clip.copy();
+                    // Copying went through the hidden field: the keyboard comes back here.
+                    keys.focus();
                     return accept;
                 }
                 if e.text == "a" { ReaderBridge.select-all(root.id); return accept; }
@@ -1190,7 +1192,7 @@ export component ReaderScreen inherits Rectangle {
             if e.text == Key.Escape && root.bare { root.bare = false; return accept; }
             if e.text == Key.Escape { ReaderBridge.escape(root.id); return accept; }
             // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).
-            if e.text == "T" && e.modifiers.shift { root.bare = !root.bare; return accept; }
+            if e.text == "T" || (e.text == "t" && e.modifiers.shift) { root.bare = !root.bare; return accept; }
             if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
             if e.text == Key.RightArrow { ReaderBridge.page-step(root.id, 1); return accept; }
             if e.text == Key.LeftArrow { ReaderBridge.page-step(root.id, -1); return accept; }

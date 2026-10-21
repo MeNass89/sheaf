@@ -18,12 +18,15 @@ shot() { import -window root "$OUT/$1.png" 2>/dev/null; }
 
 # A display left by an interrupted run is stopped first.
 [ -f /tmp/.X98-lock ] && kill "$(tr -d ' ' </tmp/.X98-lock)" 2>/dev/null && sleep 0.5
+rm -f /tmp/.X98-lock /tmp/.X11-unix/X98
 Xvfb :98 -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &
 XVFB=$!
 APP_PID=
 cleanup() { [ -n "$APP_PID" ] && kill "$APP_PID" 2>/dev/null; kill "$XVFB" 2>/dev/null; }
 trap cleanup EXIT
-sleep 1
+# The checks mean nothing without a display: wait for it, or stop here.
+for _ in $(seq 1 40); do xdpyinfo >/dev/null 2>&1 && break; sleep 0.25; done
+xdpyinfo >/dev/null 2>&1 || { echo "FAIL no X display :98 (Xvfb did not start)"; exit 1; }
 
 # Fixtures: a 4-page text PDF ("Page 1" … "Page 4") and a one-page form.
 python3 - "$OUT" <<'PY'
@@ -64,6 +67,7 @@ launch() {
     XDG_CONFIG_HOME="$OUT/profile/config" XDG_DATA_HOME="$OUT/profile/data" XDG_CACHE_HOME="$OUT/profile/cache" "$APP" "$@" >"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done
+    [ -n "$W" ] || { echo "FAIL the app opened no window:"; tail -5 "$OUT/app.log"; exit 1; }
     xdotool windowsize "$W" 1280 800
     # Drawn and loaded: wait until the screen is no longer black, then a moment for the pages.
     for _ in $(seq 1 40); do
@@ -79,6 +83,9 @@ quit() { kill "$APP_PID" 2>/dev/null; wait "$APP_PID" 2>/dev/null; APP_PID=; }
 click() { xdotool mousemove "$1" "$2" mousedown 1; sleep 0.08; xdotool mouseup 1; sleep "${3:-0.5}"; }
 # Keys go to the app window: focus it first (Xvfb has no window manager to keep it).
 key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4; }
+# ⇧ + a letter, ⇧ held first: xdotool's "shift+t" can deliver the letter before the app has seen ⇧
+# (flaky ⇧T on 21/10); a hand on a keyboard never does.
+shifted() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool keydown shift; sleep 0.1; xdotool key "$1"; xdotool keyup shift; sleep 0.4; }
 # Markup, notes, ink and text boxes in the file as it is now (qdf rewrites only live objects).
 annots() { qpdf --qdf --object-streams=disable "$1" - 2>/dev/null | grep -ac '/Subtype /\(Highlight\|Underline\|StrikeOut\|Text\|Ink\|FreeText\)$'; }
 npages() { qpdf --show-npages "$1"; }
@@ -160,6 +167,14 @@ wa, wb, ha, hb = a[2] - a[0], b[2] - b[0], a[3] - a[1], b[3] - b[1]
 # The ink scales; its pen width does not, so the height grows a little less than the width.
 ok = wb > wa * 1.2 and 1.1 < hb / ha <= wb / wa + 0.01 and abs(a[0] - b[0]) < 3 and abs(a[3] - b[3]) < 3
 raise SystemExit(0 if ok else 1)'"
+# 2b''. Click that signature again, Delete: it is gone from the saved file.
+set -- $(python3 -c '
+new = set("'"$R1"'".split(";")) - set("'"$R0"'".split(";"))
+r = list(map(float, new.pop().split()))
+print(round(258.5 + 1.651 * (r[0] + 12)), round(1401 - 1.651 * (r[1] + r[3]) / 2))')
+key Escape; click $1 $2 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
+R2=$(inks "$OUT/text.pdf")
+check "a selected signature is deleted with the Delete key" "[ \$(echo \"$R2\" | tr ';' '\\n' | grep -c .) -eq \$(( \$(echo \"$R1\" | tr ';' '\\n' | grep -c .) - 1 )) ]"
 key Escape
 
 # 2c. Edit text: E, click empty space, type, ⌘↩ → new text in the page content.
@@ -189,6 +204,19 @@ check "duplicate adds a page" "[ \"\$(npages $OUT/text.pdf)\" = 5 ]"
 click 120 230; click 203 778 1.2      # Delete
 key ctrl+s; sleep 1.5
 check "delete removes it" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
+key ctrl+z; key ctrl+s; sleep 1.5
+check "undo brings the deleted page back" "[ \"\$(npages $OUT/text.pdf)\" = 5 ]"
+key ctrl+z; key ctrl+s; sleep 1.5
+check "undo again removes the duplicate" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
+# ⌘A selects the page's text, ⌘C copies it.
+key Escape; key v; echo -n | xclip -selection clipboard; key ctrl+a; key ctrl+c; sleep 0.3
+check "⌘A then ⌘C copies the page's text" "xclip -o -selection clipboard 2>/dev/null | grep -q 'the quick brown fox'"
+# ⇧T hides the toolbar for reading and shows it again.
+bar() { import -window root -crop 1280x36+0+44 png:- 2>/dev/null | convert - -format "%[fx:standard_deviation]" info:; }
+# The redraw can lag behind renders still running: wait for the bar to change (or come back), up to 3 s.
+bar_until() { local v; for _ in $(seq 1 12); do v=$(bar); python3 -c "import sys; sys.exit(0 if ($1) else 1)" "$v" 2>/dev/null && break; sleep 0.25; done; echo "$v"; }
+B0=$(bar); shifted t; B1=$(bar_until "abs(float(sys.argv[1]) - $B0) > 0.01"); shifted t; B2=$(bar_until "abs(float(sys.argv[1]) - $B0) < 0.005")
+check "⇧T hides the toolbar and brings it back ($B0 → $B1 → $B2)" "python3 -c 'import sys; a, b, c = $B0, $B1, $B2; sys.exit(0 if abs(a - b) > 0.01 and abs(a - c) < 0.005 else 1)'"
 shot 03-pages
 
 # 4. Search runs (results panel in the screenshot).

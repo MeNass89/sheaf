@@ -1,5 +1,6 @@
-//! The reader's document lives on a thread of its own: PdfCraft's edits on a large file take
-//! seconds (an annotation on a 70 MB book: 1.5 s), and the window must never wait for them.
+//! The reader's document lives on a thread of its own: PdfCraft's work on a large file is
+//! noticeable (a 70 MB book: 0.2 s per annotation, 1.2 s per save, 4.5 s to open), and the
+//! window must never wait for it.
 //! The UI sends operations in order and reads a snapshot of what it needs, refreshed after each.
 
 use std::path::PathBuf;
@@ -189,7 +190,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                     }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());
-                        let error = save(&mut doc, &target, to.is_none()).err();
+                        let error = save(&mut doc, &target).err();
                         if error.is_none() {
                             path = target.clone();
                         }
@@ -219,14 +220,23 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
     tx
 }
 
-fn save(doc: &mut Doc, target: &std::path::Path, incremental: bool) -> Result<(), String> {
+/// Save and Save As both write an incremental update (the file as opened or last saved, then the
+/// changes): it keeps signatures valid, and on a 1,982-page book Save As takes 1 s instead of 13 s
+/// for a full rewrite (which also refuses signed files). A compact rewrite is Compress's job.
+fn save(doc: &mut Doc, target: &std::path::Path) -> Result<(), String> {
     let id = doc.id();
-    let bytes = if incremental { doc.session().save_bytes(id) } else { doc.session().save_full_bytes(id) }.map_err(|e| e.to_string())?;
-    // The bytes must reopen with every page before they replace a file (a recovered PDF can
-    // lose pages in a full rewrite); otherwise the file on disk stays as it was.
+    let t = std::time::Instant::now();
+    let bytes = doc.session().save_bytes(id).map_err(|e| e.to_string())?;
+    let t1 = std::time::Instant::now();
+    // The bytes must reopen with every page before they replace a file; otherwise the file on
+    // disk stays as it was.
     doc.session().check_save(id, &bytes).map_err(|e| e.to_string())?;
+    let t2 = std::time::Instant::now();
     replace(target, &bytes).map_err(|e| e.to_string())?;
-    doc.session_mut().mark_saved(id, bytes, Some(target.to_string_lossy().into_owned())).map_err(|e| e.to_string())
+    let t3 = std::time::Instant::now();
+    let r = doc.session_mut().mark_saved(id, bytes, Some(target.to_string_lossy().into_owned())).map_err(|e| e.to_string());
+    debug(format_args!("save: bytes {:?}, check {:?}, write {:?}, mark saved {:?}", t1 - t, t2 - t1, t3 - t2, t3.elapsed()));
+    r
 }
 
 /// Writes `bytes` to `target` in place: a temporary file next to it, flushed, then renamed over
@@ -321,6 +331,69 @@ mod tests {
     fn texts(path: &Path) -> Vec<String> {
         let d = lopdf::Document::load(path).unwrap();
         (1..=d.get_pages().len() as u32).map(|i| d.extract_text(&[i]).unwrap().trim().to_string()).collect()
+    }
+
+    /// What an edit costs on a large file (`SHEAF_BENCH_PDF`): run with --ignored --nocapture,
+    /// and SHEAF_READER_DEBUG=1 for the engine / snapshot split.
+    #[test]
+    #[ignore]
+    fn edit_cost_on_a_big_file() {
+        let Some(path) = std::env::var_os("SHEAF_BENCH_PDF") else { return };
+        let t = std::time::Instant::now();
+        let (ops, rx, snap) = started(Path::new(&path));
+        println!("open: {:?} ({} pages)", t.elapsed(), snap.boxes.len());
+        let edits = std::env::var("SHEAF_BENCH_EDITS").ok().and_then(|n| n.parse().ok()).unwrap_or(3);
+        for i in 0..edits {
+            let t = std::time::Instant::now();
+            ops.send(Op::Apply { edit: Box::new(highlight(i)), pages: vec![i] }).unwrap();
+            let (_, err) = next(&rx);
+            println!("highlight {i}: {:?} {err:?}", t.elapsed());
+        }
+        let t = std::time::Instant::now();
+        ops.send(Op::Undo { pages: Some(vec![2]) }).unwrap();
+        next(&rx);
+        println!("undo: {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        let copy = std::env::temp_dir().join("sheaf-bench-save.pdf");
+        ops.send(Op::Save { to: Some(copy.clone()) }).unwrap();
+        let (_, err) = next(&rx);
+        println!("save as: {:?} {err:?}", t.elapsed());
+        ops.send(Op::Apply { edit: Box::new(highlight(0)), pages: vec![0] }).unwrap();
+        next(&rx);
+        let t = std::time::Instant::now();
+        ops.send(Op::Save { to: None }).unwrap();
+        let (_, err) = next(&rx);
+        println!("save (incremental): {:?} {err:?}", t.elapsed());
+        let _ = std::fs::remove_file(copy);
+    }
+
+    /// ⌘S twice with an edit between: each save appends, and the light refresh after an
+    /// appended save (patched engine) keeps the comment list and undo in step with the file.
+    #[test]
+    fn incremental_saves_in_a_row_keep_every_edit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 3);
+        let (ops, rx, _) = started(&path);
+        ops.send(Op::Apply { edit: Box::new(highlight(0)), pages: vec![0] }).unwrap();
+        next(&rx);
+        ops.send(Op::Save { to: None }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none() && !snap.dirty, "{err:?}");
+        let first = std::fs::metadata(&path).unwrap().len();
+        ops.send(Op::Apply { edit: Box::new(highlight(2)), pages: vec![2] }).unwrap();
+        let (snap, _) = next(&rx);
+        assert_eq!(snap.annots.iter().map(|a| a.page).collect::<Vec<_>>(), [0, 2]);
+        ops.send(Op::Save { to: None }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none() && !snap.dirty && snap.annots.len() == 2, "{err:?}");
+        assert!(std::fs::metadata(&path).unwrap().len() > first);
+        // Undo after the save still works on the saved state.
+        ops.send(Op::Undo { pages: Some(vec![2]) }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none() && snap.dirty && snap.annots.len() == 1, "{err:?}");
+        qpdf_clean(&path);
+        let (_, _, reopened) = started(&path);
+        assert_eq!(reopened.annots.iter().map(|a| a.page).collect::<Vec<_>>(), [0, 2]);
     }
 
     #[test]

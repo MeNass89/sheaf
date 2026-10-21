@@ -4897,7 +4897,6 @@ dependencies = [
 [[package]]
 name = "pdfcraft-cos"
 version = "0.8.0"
-source = "git+https://github.com/storytold/pdfcraft?rev=d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24#d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24"
 dependencies = [
  "pdfcraft-crypt",
  "pdfcraft-filters",
@@ -4950,7 +4949,6 @@ dependencies = [
 [[package]]
 name = "pdfcraft-engine"
 version = "0.8.0"
-source = "git+https://github.com/storytold/pdfcraft?rev=d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24#d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24"
 dependencies = [
  "chrono",
  "icu_properties",
@@ -7476,7 +7474,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.5",
  "windows-sys 0.61.2",

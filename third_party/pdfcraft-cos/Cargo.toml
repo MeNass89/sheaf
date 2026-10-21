@@ -1,0 +1,13 @@
+# PdfCraft's object layer (https://github.com/storytold/pdfcraft, crates/cos, MIT OR Apache-2.0) at
+# rev d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24, with one change: see ../README.md. Its siblings come from the same git rev.
+[package]
+name = "pdfcraft-cos"
+version = "0.8.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "PDF object layer: lazy tolerant parsing, copy-on-write edits, incremental and full saving"
+
+[dependencies]
+pdfcraft-crypt = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-filters = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+thiserror = "2"

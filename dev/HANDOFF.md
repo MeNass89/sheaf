@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 35 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
+**331 components, 48 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
 security 1/18, platform 1/14; edit, convert, optimize, output, sign, compare, batch, preferences, ai at 0.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
@@ -49,11 +49,24 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
   danger-full-access` with a "do not modify any file" prompt (Codex's bwrap sandbox cannot start on this VM).
   Check the Codex weekly quota first (newest `~/.codex/sessions` rollout with `rate_limits`); stop at 90 %.
 
+## Levers (dev skill step 5.0): shared blockers first, then `board.py next`
+
+Done 21/10: engine speed (`third_party/`, +8 components at 9), stale grades audited (+11 regraded).
+Next, by components lifted:
+1. **One test each** for components at 8 only for want of proof: C-edit-026 (insert blank), C-reader-063 (password
+   open), C-files-010 (tab switch).
+2. **Comment rows with author and date + author in Preferences**: C-annotate-030, C-reader-028, C-preferences-008.
+3. **Shapes and a style panel** (rectangle, oval, line, arrow; stroke, fill, opacity; text box font): C-annotate-009,
+   012, 013, 023, 024, 007.
+4. **View modes** (single page, two-page spread, cover alone, horizontal scroll, rotate view): C-reader-003, 014, 015,
+   016, 017.
+5. **Menu bar** with every reader command: C-platform-014, and the menu entries C-reader-039 / 040 lack.
+6. **Copy / paste / Delete of objects**: C-edit-010, C-annotate-026.
+
 ## Known limits worth the next session
 
-- PdfCraft re-reads every page's objects after each edit: on a 70 MB book an annotation takes 2.4 s in the engine
-  (shown at once provisionally). Fixing it means patching `comment_list` / `with_missing_appearances_cached` to
-  the edited page (vendor `pdfcraft-engine`).
+- PdfCraft is patched in `third_party/` (README there): on a PdfCraft rev bump, re-apply the two changes. Asked
+  Nassim whether to send them upstream.
 - Edit mode (C-edit-001…014): move/resize existing objects, font choice, the glyph problem above.
 - Print: preview, paper size, Windows (C-output-007 at 8); toolbox tools' remaining gaps (convert, optimize).
 

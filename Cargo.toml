@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
 members = ["crates/sheaf-core", "crates/sheaf-cli", "crates/sheaf-app"]
+# Patched third-party code, built as a dependency only (not linted or tested as ours).
+exclude = ["third_party/pdfcraft-cos", "third_party/pdfcraft-engine"]
 
 [workspace.package]
 version = "0.2.1"
@@ -45,3 +47,8 @@ lopdf = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd
 lto = "thin"
 codegen-units = 1
 strip = true
+
+# PdfCraft patched for speed on large files (third_party/README.md).
+[patch."https://github.com/storytold/pdfcraft"]
+pdfcraft-cos = { path = "third_party/pdfcraft-cos" }
+pdfcraft-engine = { path = "third_party/pdfcraft-engine" }

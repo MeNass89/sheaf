@@ -619,12 +619,12 @@
   "grade": {
    "function": 9,
    "aesthetics": 9,
-   "performance": 8,
-   "overall": 8
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "highlight via engine TextMarkup over PageText line rects",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -658,6 +658,17 @@
      "overall": 8
     },
     "proof": "Highlight from the bar in 5 colours, the H tool or H on a selection; recolour; saved and reopened (dev/re/evidence/F-002/13, dev/re/evidence/F-002/18); 1.2 ms on a 4-page PDF, 2.7–10 s engine time on a 70 MB book (shown at once provisionally)"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Highlight: 1,982-page 70 MB book (reader_doc::tests::edit_cost_on_a_big_file): engine 0.19 s per edit (was 2.1 s), drawn at once provisionally; gui-smoke saves and checks the file"
    }
   ]
  },
@@ -756,12 +767,12 @@
   "grade": {
    "function": 9,
    "aesthetics": 9,
-   "performance": 8,
-   "overall": 8
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "underline",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -784,6 +795,17 @@
      "overall": 8
     },
     "proof": "Underline the selection (U, bar, tool), ink colours, saved like highlights (dev/re/evidence/F-002/27); engine time on huge files as C-annotate-002"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Underline: 1,982-page 70 MB book (reader_doc::tests::edit_cost_on_a_big_file): engine 0.19 s per edit (was 2.1 s), drawn at once provisionally; gui-smoke saves and checks the file"
    }
   ]
  },
@@ -872,12 +894,12 @@
   "grade": {
    "function": 9,
    "aesthetics": 9,
-   "performance": 8,
-   "overall": 8
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "strikeout",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -900,6 +922,17 @@
      "overall": 8
     },
     "proof": "Strike through the selection (K, bar, tool) (dev/re/evidence/F-002/27); engine time as C-annotate-002"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Strikethrough: 1,982-page 70 MB book (reader_doc::tests::edit_cost_on_a_big_file): engine 0.19 s per edit (was 2.1 s), drawn at once provisionally; gui-smoke saves and checks the file"
    }
   ]
  },
@@ -6986,12 +7019,12 @@
   "grade": {
    "function": 9,
    "aesthetics": 9,
-   "performance": 8,
-   "overall": 8
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "engine undo/redo",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -7014,6 +7047,17 @@
      "overall": 8
     },
     "proof": "⌘Z / ⇧⌘Z undo and redo every reader edit (dev/re/evidence/F-002/33); only the edited page re-renders"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Undo/redo ⌘Z ⇧⌘Z: 0.19 s on the 1,982-page book (was 2.0 s); gui-smoke: undo then redo restores a note, undo brings a deleted page back"
    }
   ]
  },
@@ -7991,10 +8035,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 6
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -8010,6 +8054,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Insert blank page after, from the Pages panel. Missing for 9: a gui-smoke check"
    }
   ]
  },
@@ -8348,10 +8403,10 @@
    4
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -8367,6 +8422,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [1, 2, 3, 4]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "A PDF dropped on the window opens in a reader tab (flow.rs). Missing for 9: proof — not automatable with xdotool (no XDND)"
    }
   ]
  },
@@ -8938,10 +9004,10 @@
    24
   ],
   "grade": {
-   "function": 5,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 5
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -8957,6 +9023,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [22, 24]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "One reader tab per file, an open file refocused, ⇧⌘[ ⇧⌘] switch. Missing for 9: separate windows, a tab-switch test"
    }
   ]
  },
@@ -13825,14 +13902,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "engine undo",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -13844,6 +13921,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Page edits (duplicate, delete, rotate, move) are undo steps in the reader's Pages panel; gui-smoke: undo brings the deleted page back, undo again removes the duplicate"
    }
   ]
  },
@@ -13903,8 +13991,8 @@
   "grade": {
    "function": 9,
    "aesthetics": 8,
-   "performance": 7,
-   "overall": 7
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -13931,6 +14019,17 @@
      "overall": 7
     },
     "proof": "GUI: ⌘S writes an incremental update in place (70,737,427 → 70,740,589 bytes), qpdf --check clean, annotations present; 6.4 s on the 70 MB book"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "⌘S incremental save 1.1 s on the 70 MB book (was 4.6 s), atomic replace, checked to reopen first; reader_doc::tests incremental_saves_in_a_row_keep_every_edit"
    }
   ]
  },
@@ -19016,10 +19115,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -19035,6 +19134,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Notes panel lists highlights, notes, ink, signatures; click jumps. Missing for 9: author and date per row (as C-annotate-030)"
    }
   ]
  },
@@ -19929,10 +20039,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -19948,6 +20058,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "⇧T hides toolbar and panel, Esc restores (gui-smoke). Missing for 9: a View menu entry, PDF Expert's ⌃⌘T"
    }
   ]
  },
@@ -20016,10 +20137,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -20035,6 +20156,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "⌃⌘F / Esc toggle the window's full screen. Missing for 9: not verifiable here (no window manager on Xvfb), menu entry"
    }
   ]
  },
@@ -20810,14 +20942,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "select all",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20829,6 +20961,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘A selects the page's text (PDF Expert: same), ⌘C copies; gui-smoke checks the clipboard"
    }
   ]
  },
@@ -20934,14 +21077,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "engine undo/redo wired to ⌘Z",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20953,6 +21096,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘Z / toolbar undo for every reader edit (markup, notes, pages, forms); gui-smoke undo/redo checks; 0.19 s on 1,982 pages"
    }
   ]
  },
@@ -21708,10 +21862,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 6
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -21727,6 +21881,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Encrypted PDFs ask for the password and open in the reader. Missing for 9: permissions shown, a test"
    }
   ]
  },
@@ -23672,14 +23837,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 5,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 5
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "Delete key",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -23691,6 +23856,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Click a placed signature, Delete (or the Notes panel's delete): gone from the saved file (gui-smoke)"
    }
   ]
  },

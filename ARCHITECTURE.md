@@ -11,7 +11,8 @@ commit as any file added, moved, renamed or deleted.
 | `crates/sheaf-cli` | The `sheaf` command (`main.rs`), its `--json` output (`agent.rs`) and the MCP server (`mcp.rs`). |
 | `crates/sheaf-app` | The Slint GUI: Rust in `src/`, the interface in `ui/` (`main.slint` root, `screens/`, `widgets/`, `icons/` Lucide, `theme.slint`). |
 | `scripts/` | `test.sh` (the one test suite), packaging (`bundle-macos.sh`, `package-linux.sh`, `package-windows.sh`, `make-dmg.sh`), downloads (`fetch-pdfium.sh`, `fetch-models.sh`), `smoke.sh` (a packaged CLI, release only). |
-| `vendor/` | pdfium and the OCR models, fetched by the scripts above. |
+| `vendor/` | pdfium and the OCR models, fetched by the scripts above (git-ignored). |
+| `third_party/` | Two PdfCraft crates patched for speed on large files, used through `[patch]` (its README says what and how to update). |
 | `dev/` | How the app is built: brief, decisions, parity board, features, handoff, dev scripts (`dev/HANDOFF.md` first). |
 | `docs/` | Benchmarks and plans. |
 
