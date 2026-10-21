@@ -48,20 +48,17 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 
 ## Levers (dev skill step 5.0): shared blockers first, then `board.py next`
 
-Done 21/10: engine speed (`third_party/`, +8 components at 9), stale grades audited (+11 regraded).
+Done 21/10: engine speed (`third_party/`), stale grades audited, shapes/eraser/stamps, notes panel (author, date,
+filter, sort, replies, status, hide, summary, remove all), two pages, properties, zoom field, page labels, bookmarks,
+attachments, toolbox Compress flow audited against iLovePDF (`dev/re/evidence/F-001/sheaf-compress-*`).
 Next, by components lifted:
-1. Done: tests for C-edit-026 (now 9), C-reader-063 and C-files-010 (8: lock badge, separate windows). Was: (password
-   open), C-files-010 (tab switch).
-2. Done: author and date in the Notes panel, author in Preferences (C-annotate-030, C-reader-028, C-preferences-008 at 9).
-3. Done: Shapes tool (R) with fill and opacity (C-annotate-012 at 9; 013, 023 at 8; 009 at 7). Left: drag a line's
-   ends, a free colour picker and fill colour, text box font family (needs PdfCraft), style remembered per tool (024).
-4. View modes: done two pages and cover alone (C-reader-015, 016 at 9; `Viewer::spread`). Left: single page (014),
-   horizontal scroll (003), rotate the view (017).
-5. **Menu bar** with every reader command: C-platform-014, and the menu entries C-reader-039 / 040 lack.
-6. **Copy / paste of annotations and objects** (C-edit-010, C-annotate-026): PdfCraft has no duplicate edit and the
-   snapshot lacks strokes, fill and line ends; needs reading the annotation's dictionary (or XFDF export/import).
-7. Single page mode (C-reader-014), horizontal scroll (003), rotate view (017: the text layer is in page view space,
-   so a view rotation must go through PDF space everywhere).
+1. **Toolbox audit per tool** against iLovePDF/PDF Expert (only Compress has reference captures; others need the
+   apps, on a Mac): C-output-003/004, C-security-*, C-optimize-*, C-organize-015/021, C-files-012/015.
+2. **Copy / paste of annotations and objects** (C-edit-010, C-annotate-026): needs reading the annotation's
+   dictionary in PdfCraft (no duplicate edit), or XFDF export/import.
+3. **Menu bar** with every reader command (C-platform-014; menu entries of C-reader-039/040).
+4. Single page mode (C-reader-014), horizontal scroll (003), rotate view (017: text layer is in page view space).
+5. Bookmarks by drag (MoveBookmark; C-edit-023), attachment delete/rename (C-edit-022), comment export (C-annotate-035).
 
 ## Known limits worth the next session
 
