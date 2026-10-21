@@ -410,9 +410,12 @@ L0=$(link); key ctrl+shift+l; sleep 0.6; L1=$(link); key ctrl+shift+l; sleep 0.4
 check "Highlight links tints the links ($L0 → $L1)" "python3 -c 'import sys; sys.exit(0 if $L0 - $L1 > 0.005 else 1)'"
 P0=$(bar); key ctrl+shift+p; sleep 1.2; P1=$(bar); key Escape; sleep 1; P2=$(bar); shot 06i-present
 check "Presentation hides the toolbar, Escape brings it back ($P0 → $P1 → $P2)" "python3 -c 'import sys; a, b, c = $P0, $P1, $P2; sys.exit(0 if abs(a - b) > 0.01 and abs(a - c) < 0.005 else 1)'"
-# Presenting, Space shows the next whole page (links.pdf: page 2 is blank); hidden toolbar kept
+# Presenting from two pages, Space shows the next single page (links.pdf: page 2 is blank); hidden toolbar kept
 # after plain full screen.
-key ctrl+shift+p; sleep 1.2; key space; sleep 1; PS=$(inview); key Escape; sleep 0.8
+key ctrl+alt+2; sleep 1.5; key ctrl+shift+p; sleep 1.2; key space; sleep 1
+# Read while still presenting (inview presses Escape, which would end it).
+echo -n | xclip -selection clipboard >/dev/null 2>&1; key ctrl+a; key ctrl+c; sleep 0.3; PS=$(xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6)
+key Escape; sleep 0.8; key ctrl+alt+2; key ctrl+alt+2; sleep 1
 check "Space in a presentation turns to the next page ($PS)" "[ -z \"$PS\" ]"
 shifted t; sleep 0.5; key ctrl+super+f; sleep 0.5; key Escape; sleep 0.8; PH=$(bar); shifted t; sleep 0.5
 check "leaving full screen keeps the toolbar hidden ($PH)" "python3 -c 'import sys; sys.exit(0 if abs($PH - $P0) > 0.01 else 1)'"

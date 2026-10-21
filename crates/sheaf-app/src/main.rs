@@ -171,6 +171,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_print_open(reader_ui::print_open);
     rb.on_shape_option(reader_ui::shape_option);
     wire_global!(ui, rb, on_cycle_spread, |ui, id| reader_ui::cycle_spread(&ui, id));
+    wire_global!(ui, rb, on_set_spread, |ui, id, m| reader_ui::set_spread(&ui, id, m));
     wire_global!(ui, rb, on_notes_action, |ui, id, w| reader_ui::notes_action(&ui, id, w));
     rb.on_props_open(reader_ui::props_open);
     rb.on_notes_view(reader_ui::notes_view);

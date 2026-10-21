@@ -20468,14 +20468,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "reading mode",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20498,6 +20498,17 @@
      "overall": 8
     },
     "proof": "⇧T hides toolbar and panel, Esc restores (gui-smoke). Missing for 9: a View menu entry, PDF Expert's ⌃⌘T"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⇧T or More ▸ Hide toolbar: toolbar and panel hidden for reading, kept hidden through full screen; Escape restores. Joint 9/10: Sol agreed (round 5); gui-smoke checks hide, restore, and full screen keeping it hidden"
    }
   ]
  },

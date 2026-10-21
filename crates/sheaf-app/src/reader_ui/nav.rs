@@ -140,10 +140,18 @@ pub fn zoom_fit(ui: &AppWindow, tab_id: i32, mode: i32) {
 /// Pages side by side, in turn: one column, two pages, two pages with the cover alone (PDF
 /// Expert's Two Pages and Book mode). The page in view stays in view.
 pub fn cycle_spread(ui: &AppWindow, tab_id: i32) {
+    let next = with(|a| a.tab(tab_id)?.viewer.as_ref().map(|v| (v.viewer.spread() + 1) % 3));
+    if let Some(next) = next {
+        set_spread(ui, tab_id, next as i32);
+    }
+}
+
+/// Pages side by side as `mode` (0 one column, 1 two pages, 2 cover alone); a presentation shows one
+/// page at a time and puts the mode back when it ends.
+pub fn set_spread(ui: &AppWindow, tab_id: i32, mode: i32) {
     let done = update(tab_id, |r, v| {
         let cur = v.current();
-        let next = (v.viewer.spread() + 1) % 3;
-        v.viewer.set_spread(next);
+        v.viewer.set_spread(mode.clamp(0, 2) as u8);
         // Fit page keeps fitting: the pages are narrower now.
         if r.zoom_mode == 1 {
             let z = v.viewer.fit_page_zoom(v.height, cur..cur + 1);

@@ -70,8 +70,12 @@ export component ReaderScreen inherits Rectangle {
     // turn pages, Escape ends it.
     // Presenting (not only full screen): Space and the arrows show whole pages; Escape ends it.
     property <bool> presenting;
+    // The two-page mode a presentation put aside (it shows one page at a time).
+    property <int> spread-before;
     function present() {
         root.presenting = true;
+        root.spread-before = root.tab.reader.spread;
+        ReaderBridge.set-spread(root.id, 0);
         root.full-screen(true);
         root.bare = true;
         ReaderBridge.zoom-fit(root.id, 1);
@@ -1022,7 +1026,11 @@ export component ReaderScreen inherits Rectangle {
             // Presentation ends with its toolbar back; plain full screen keeps a hidden toolbar hidden.
             if e.text == Key.Escape && root.is-full-screen {
                 root.full-screen(false);
-                if root.presenting { root.bare = false; root.presenting = false; }
+                if root.presenting {
+                    root.bare = false;
+                    root.presenting = false;
+                    ReaderBridge.set-spread(root.id, root.spread-before);
+                }
                 return accept;
             }
             if root.presenting && (e.text == " " || e.text == Key.RightArrow || e.text == Key.DownArrow || e.text == Key.PageDown) { ReaderBridge.page-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }

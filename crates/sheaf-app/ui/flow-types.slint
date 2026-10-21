@@ -449,6 +449,8 @@ export global ReaderBridge {
     callback print-open(int);
     // One column → two pages → two pages with the cover alone.
     callback cycle-spread(int);
+    // Pages side by side as given (0 one column, 1 two pages, 2 cover alone).
+    callback set-spread(int, int);
     // The Notes panel: 0 hide or show all comments, 1 summary of comments, 2 remove all.
     callback notes-action(int, int);
     // Notes panel: what (0 filter, 1 order), value.
