@@ -135,15 +135,16 @@ fn permissions_are_independent_and_default_to_allowed() {
     }
 }
 
+/// Without an owner password, the open password must not grant every right: the restrictions hold.
 #[test]
-fn restrictions_use_the_open_password_when_no_owner_password_is_given() {
+fn restrictions_hold_when_no_owner_password_is_given() {
     let t = tempfile::tempdir().unwrap();
     let input = Input::new(fixture_pdf(t.path(), "source.pdf", 1));
     for (i, owner) in [None, Some("")].into_iter().enumerate() {
         let out = protect_with_permissions(&input, "user", owner,
             ProtectPermissions { printing: false, ..Default::default() }, &t.path().join(format!("p{i}.pdf"))).unwrap();
         let info = qpdf(&["--show-encryption", "--password=user", out.to_str().unwrap()]);
-        assert!(info.contains("Supplied password is owner password"), "{info}");
+        assert!(info.contains("Supplied password is user password"), "{info}");
         assert!(info.contains("print low resolution: not allowed"), "{info}");
         assert!(info.contains("print high resolution: not allowed"), "{info}");
     }

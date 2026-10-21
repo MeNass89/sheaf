@@ -419,10 +419,10 @@ export component OptionsPanel inherits VerticalLayout {
             error: root.confirm != "" && root.confirm != root.password ? "Passwords do not match" : "";
         }
         TextField {
-            label: "Owner password (optional)";
+            label: "Permissions password (optional)";
             password: true;
             allow-reveal: true;
-            placeholder: "Same as the password";
+            placeholder: "Needed to lift the restrictions";
             text <=> root.owner;
         }
         SectionLabel { text: "Allow"; }

@@ -8886,14 +8886,14 @@
    32
   ],
   "grade": {
-   "function": 5,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 5
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "remove one / clear recents",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -8905,6 +8905,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [32]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Recents: × on hover removes one, Clear recents removes all, Tasks History untouched (hidden-recents.json; unit tests). Joint 9/10: Sol built it and set on-screen validation as its condition; Claude reviewed, validated on screen and fixed (removal checked on screen)"
    }
   ]
  },
@@ -22518,14 +22529,14 @@
    155
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "strength meter, show-password toggle",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -22537,6 +22548,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [152, 154, 155]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Protect: strength meter (weak/fair/strong from length and character classes, unit-tested) and show/hide on every password field. Joint 9/10: Sol built it and set on-screen validation as its condition; Claude reviewed, validated on screen and fixed (eye-off icon was a bare slash)"
    }
   ]
  },
@@ -22652,14 +22674,14 @@
    153
   ],
   "grade": {
-   "function": 3,
-   "aesthetics": 5,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 3
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "permission toggles",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -22671,6 +22693,17 @@
      "overall": 3
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [153]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Protect: allow printing, copying, editing, commenting, filling forms; qpdf-checked per permission. Joint 9/10: Sol built it and set on-screen validation as its condition; Claude reviewed, validated on screen and fixed: with restrictions and no permissions password a random one is set, so the open password no longer grants every right (test inverted to check it)"
    }
   ]
  },

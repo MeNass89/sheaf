@@ -57,7 +57,7 @@ export component TextField inherits VerticalLayout {
             accessible-role: button;
             accessible-label: root.revealed ? "Hide password" : "Show password";
             accessible-action-default => { root.revealed = !root.revealed; }
-            Image {
+            if !root.revealed: Image {
                 width: 16px;
                 height: 16px;
                 source: @image-url("../icons/eye.svg");

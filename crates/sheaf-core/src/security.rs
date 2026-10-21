@@ -64,6 +64,20 @@ pub fn protect_with_permissions(input: &Input, user_pw: &str, owner_pw: Option<&
     let mut doc = input.load_lopdf()?;
     let mut key = [0u8; 32];
     getrandom::fill(&mut key).map_err(|e| crate::OpdfError::Conversion(format!("rng: {e}")))?;
+    // Restrictions bind only whoever opens the file without the owner password: when none is given
+    // and something is restricted, a random one is set (the open password must not be it, or
+    // opening the file would grant every right). Acrobat asks for a separate one for this reason.
+    let generated: String;
+    let owner = match owner_pw.filter(|pw| !pw.is_empty()) {
+        Some(pw) => pw,
+        None if permissions != ProtectPermissions::default() => {
+            let mut b = [0u8; 24];
+            getrandom::fill(&mut b).map_err(|e| crate::OpdfError::Conversion(format!("rng: {e}")))?;
+            generated = b.iter().map(|x| format!("{x:02x}")).collect();
+            &generated
+        }
+        None => user_pw,
+    };
     let cf: Arc<dyn CryptFilter> = Arc::new(Aes256CryptFilter);
     let version = EncryptionVersion::V5 {
         encrypt_metadata: true,
@@ -71,7 +85,7 @@ pub fn protect_with_permissions(input: &Input, user_pw: &str, owner_pw: Option<&
         file_encryption_key: &key,
         stream_filter: b"StdCF".to_vec(),
         string_filter: b"StdCF".to_vec(),
-        owner_password: owner_pw.filter(|pw| !pw.is_empty()).unwrap_or(user_pw),
+        owner_password: owner,
         user_password: user_pw,
         permissions: permissions.flags(),
     };
