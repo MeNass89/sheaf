@@ -48,6 +48,8 @@ export component ReaderScreen inherits Rectangle {
 
     // Scrolling moves the pages under a still pointer: a link's tooltip no longer applies.
     changed page-top => { root.link-tip = ""; ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
+    property <length> page-left: -sv.content-x;
+    changed page-left => { root.link-tip = ""; }
     changed page-w => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     changed page-h => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     changed strip-h => { ViewerBridge.strip-viewport(root.id, root.strip-top, root.strip-h); }

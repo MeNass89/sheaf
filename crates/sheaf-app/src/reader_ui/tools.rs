@@ -72,6 +72,12 @@ pub fn set_colour(ui: &AppWindow, tab_id: i32, k: i32) {
             r.ink_colour = k;
         }
         remember_style(r);
+        // Picked in the selection bar: it is the colour its Highlight button uses, so the
+        // highlighter keeps it (the bar takes the highlighter's saved colour).
+        if r.tool == SELECT && r.sel.is_some() {
+            let (_, w, o) = crate::home::tool_style(HIGHLIGHT).unwrap_or((0, 1, 0));
+            crate::home::set_tool_style(HIGHLIGHT, (k as u8, w, o));
+        }
         None
     })
     .flatten();
