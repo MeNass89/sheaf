@@ -19,7 +19,9 @@ shot() { import -window root "$OUT/$1.png" 2>/dev/null; }
 # A display left by an interrupted run is stopped first.
 [ -f /tmp/.X98-lock ] && kill "$(tr -d ' ' </tmp/.X98-lock)" 2>/dev/null && sleep 0.5
 rm -f /tmp/.X98-lock /tmp/.X11-unix/X98
-Xvfb :98 -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &
+# -noreset: an X server resets when its last client leaves; an app launched during the reset
+# cannot connect (intermittent "opened no window" after a quit, 21/10).
+Xvfb :98 -screen 0 1280x800x24 -nolisten tcp -noreset >"$OUT/xvfb.log" 2>&1 &
 XVFB=$!
 APP_PID=
 cleanup() { [ -n "$APP_PID" ] && kill "$APP_PID" 2>/dev/null; kill "$XVFB" 2>/dev/null; }
@@ -75,7 +77,7 @@ launch() {
     XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" SHEAF_READER_DEBUG=1 "$APP" "$@" >>"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done
-    [ -n "$W" ] || { echo "FAIL the app opened no window:"; tail -5 "$OUT/app.log"; exit 1; }
+    [ -n "$W" ] || { echo "FAIL the app opened no window (Xvfb $(kill -0 $XVFB 2>/dev/null && echo alive || echo gone), socket $(ls /tmp/.X11-unix/X98 2>/dev/null || echo missing), $(ls /proc/$XVFB/fd 2>/dev/null | wc -l) fds, $(pgrep -c xclip) xclip):"; tail -3 "$OUT/app.log"; tail -5 "$OUT/xvfb.log"; exit 1; }
     xdotool windowsize "$W" 1280 800
     # Drawn and loaded: wait until the screen is no longer black, then a moment for the pages.
     for _ in $(seq 1 40); do
