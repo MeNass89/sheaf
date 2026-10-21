@@ -635,6 +635,17 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             && r.sel.is_none()
         {
             r.selected_annot = Some(i);
+            // A note or text box opens to read and edit its text, as PDF Expert's pop-ups do.
+            if let Some(a) = r.annots().get(i)
+                && matches!(a.subtype.as_str(), "Text" | "FreeText")
+            {
+                let (page, index, contents, rect) = (a.page, a.index, a.contents.clone(), a.rect);
+                let size = v.viewer.boxes[page].view_size();
+                let [x, y, _, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, rect);
+                reader_doc::debug(format_args!("open comment {index}: {contents:?}"));
+                r.draft = Some(Draft { page, at: (x, y + h + 4.0), kind: 6, block: Some((index, contents, rect)), field: None });
+                r.note_seq += 1;
+            }
             return None;
         }
         // A click (no drag) on a link with the select tool follows it.
@@ -931,7 +942,28 @@ fn author() -> String {
     crate::home::prefs().author.unwrap_or_default()
 }
 
+/// Chaikin corner cutting, twice: a hand-drawn stroke loses the jitter of the pointer (PDF Expert
+/// smooths its pen the same way). The end points stay where they were.
+pub fn smooth(pts: &[(f64, f64)]) -> Vec<(f64, f64)> {
+    let mut cur = pts.to_vec();
+    for _ in 0..2 {
+        if cur.len() < 3 {
+            break;
+        }
+        let mut next = vec![cur[0]];
+        for w in cur.windows(2) {
+            let (a, b) = (w[0], w[1]);
+            next.push((0.75 * a.0 + 0.25 * b.0, 0.75 * a.1 + 0.25 * b.1));
+            next.push((0.25 * a.0 + 0.75 * b.0, 0.25 * a.1 + 0.75 * b.1));
+        }
+        next.push(*cur.last().expect("at least 3 points"));
+        cur = next;
+    }
+    cur
+}
+
 fn add_ink(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f64)>) {
+    let pts = smooth(&pts);
     let edit = update(tab_id, |r, v| {
         let b = &v.viewer.boxes[page];
         let size = b.view_size();
@@ -950,6 +982,14 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let d = r.draft.take()?;
         let b = &v.viewer.boxes[d.page];
         let size = b.view_size();
+        if d.kind == 6 {
+            // An existing note or text box: its new text.
+            let (index, old, _) = d.block?;
+            if text == old.trim() {
+                return None;
+            }
+            return Some((d.page, Edit::SetAnnotationContents { page: d.page, index, text: text.clone() }));
+        }
         if d.kind == 4 {
             // A form text field: its new value (empty clears it).
             let (fi, _) = d.field?;

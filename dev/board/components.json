@@ -1047,14 +1047,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "sticky note with popup",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -1077,6 +1077,17 @@
      "overall": 7
     },
     "proof": "GUI: note tool, click, type, ⌘↩: Note annotation + popup saved (dev/re/evidence/F-002/06)"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "N, click, type: Note with popup; a click on it opens its text to read and edit (SetAnnotationContents), Notes panel follows (dev/re/evidence/F-002/06, dev/re/evidence/F-002/36)"
    }
   ]
  },
@@ -1425,14 +1436,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "ink tool",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -1455,6 +1466,17 @@
      "overall": 7
     },
     "proof": "GUI: pen stroke saved as Ink; no thickness choice yet"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Pen with 5 colours and 3 widths, strokes smoothed (Chaikin ×2) as PDF Expert's pen (dev/re/evidence/F-002/37)"
    }
   ]
  },
@@ -2388,14 +2410,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "recolour selected annotation",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -2418,6 +2440,17 @@
      "overall": 8
     },
     "proof": "Select an annotation, pick a colour: restyled in 2.5 ms (dev/re/evidence/F-002/14); toolbar dot doesn't show the annotation's colour"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Selected annotation recoloured from the colour row, whose dot shows its current colour (dev/re/evidence/F-002/14)"
    }
   ]
  },
@@ -17015,14 +17048,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "fit-page mode",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17045,6 +17078,17 @@
      "overall": 8
     },
     "proof": "⌘9 / toolbar fits the page (42 % on the book, dev/re/evidence/F-002/25); not kept on window resize yet"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘8 / toolbar fit page; kept when the window is resized (80 % → 63 %, dev/re/evidence/F-002/38)"
    }
   ]
  },
@@ -21986,14 +22030,14 @@
    156
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 6
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "prompt in the reader",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -22005,6 +22049,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [156]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "A protected PDF asks for its password in the reader; a wrong one says so, the right one opens it (dev/re/evidence/F-002/35)"
    }
   ]
  },

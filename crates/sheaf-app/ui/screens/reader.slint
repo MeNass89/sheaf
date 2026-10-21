@@ -300,7 +300,9 @@ export component ReaderScreen inherits Rectangle {
                     Rectangle { width: 6px; }
                     // Search
                     Rectangle {
-                        width: 210px;
+                        // Narrower in a small window, so the toolbar always fits (the window's
+                        // minimum is 900 px).
+                        width: clamp(root.width - 1090px, 110px, 210px);
                         border-radius: Theme.radius-button;
                         border-width: 1px;
                         border-color: search-in.has-focus ? Theme.text-secondary : Theme.input-border;
@@ -818,13 +820,27 @@ export component ReaderScreen inherits Rectangle {
                             note-edit.text = root.tab.reader.note.text;
                             note-edit.focus();
                         }
+                        // Created inside a pointer event, the editor can lose the text set in init:
+                        // set it again on the next turn of the event loop.
+                        Timer {
+                            interval: 1ms;
+                            running: true;
+                            triggered => {
+                                note-edit.text = root.tab.reader.note.text;
+                                note-edit.focus();
+                                // The caret at the end, ready to add to the text.
+                                note-edit.set-selection-offsets(note-edit.text.character-count * 4, note-edit.text.character-count * 4);
+                                self.running = false;
+                            }
+                        }
                         // Tab to the next form field reuses this editor: new text, focus kept.
                         property <int> seq: root.tab.reader.note.seq;
                         changed seq => {
                             note-edit.text = root.tab.reader.note.text;
                             note-edit.focus();
                         }
-                        x: root.tab.reader.note.x;
+                        // Kept inside the visible part of the pages.
+                        x: min(root.tab.reader.note.x, -sv.viewport-x + sv.visible-width - self.width - 8px);
                         y: root.tab.reader.note.y;
                         width: root.tab.reader.note.w;
                         height: root.tab.reader.note.h;
@@ -837,7 +853,7 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : "Add text";
+                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : "Add text";
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;
@@ -862,9 +878,11 @@ export component ReaderScreen inherits Rectangle {
                                 }
                             }
                             note-edit := TextEdit {
+                                // Hidden for a choice list; otherwise it takes the room left.
                                 visible: root.tab.reader.note.kind != 5;
-                                height: root.tab.reader.note.kind == 5 ? 0px : self.preferred-height;
-                                vertical-stretch: root.tab.reader.note.kind == 5 ? 0 : 1;
+                                min-height: root.tab.reader.note.kind == 5 ? 0px : 28px;
+                                max-height: root.tab.reader.note.kind == 5 ? 0px : 2000px;
+                                vertical-stretch: 1;
                                 font-size: Theme.fs-label;
                                 wrap: word-wrap;
                                 key-pressed(e) => {
@@ -891,7 +909,7 @@ export component ReaderScreen inherits Rectangle {
                                     reject
                                 }
                             }
-                            if root.tab.reader.note.kind < 4: HorizontalLayout {
+                            if root.tab.reader.note.kind < 4 || root.tab.reader.note.kind == 6: HorizontalLayout {
                                 spacing: 6px;
                                 alignment: end;
                                 SmallButton { text: "Cancel"; clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }
