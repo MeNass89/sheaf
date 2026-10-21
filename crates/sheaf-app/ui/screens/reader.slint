@@ -153,7 +153,7 @@ export component ReaderScreen inherits Rectangle {
                         y: -2px;
                         icon: @image-url("../icons/columns-2.svg");
                         active: root.tab.reader.spread > 0;
-                        tip: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide";
+                        tip: (root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide") + " (⌥⌘2)";
                         clicked => { ReaderBridge.cycle-spread(root.id); keys.focus(); }
                     }
                     ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
@@ -245,6 +245,7 @@ export component ReaderScreen inherits Rectangle {
                     ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
                     ToolButton { icon: @image-url("../icons/wrench.svg"); tip: "Use a tool on this PDF"; clicked => { ReaderBridge.to-tools(root.id); } }
                     ToolButton { icon: @image-url("../icons/printer.svg"); tip: "Print (⌘P)"; clicked => { ReaderBridge.print-open(root.id); } }
+                    ToolButton { icon: @image-url("../icons/info.svg"); tip: "Document properties (⌘D)"; clicked => { ReaderBridge.props-open(root.id); } }
                     ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? "Save (⌘S)" : "Saved"; enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
                 }
             }
@@ -759,6 +760,56 @@ export component ReaderScreen inherits Rectangle {
         }
     }
 
+    // Document Properties (Acrobat's ⌘D): the four entries to edit, then what the file is.
+    if root.tab.reader.props-open: Rectangle {
+        background: #00000044;
+        TouchArea { }
+        // Escape from any field cancels (keys bubble up from the fields inside).
+        FocusScope {
+            init => { title-in.focus-input(); }
+            key-pressed(e) => {
+                if e.text == Key.Escape { ReaderBridge.props-cancel(root.id); keys.focus(); return accept; }
+                reject
+            }
+            Rectangle {
+                width: 460px;
+                height: ppl.preferred-height;
+                border-radius: Theme.radius-card;
+                background: Theme.card;
+                drop-shadow-blur: 24px;
+                drop-shadow-color: #00000055;
+                ppl := VerticalLayout {
+                    padding: 18px;
+                    spacing: 10px;
+                    Text { text: "Document properties"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    title-in := TextField { label: "Title"; text: root.tab.reader.props-title; accepted => { save.clicked(); } }
+                    author-in := TextField { label: "Author"; text: root.tab.reader.props-author; accepted => { save.clicked(); } }
+                    subject-in := TextField { label: "Subject"; text: root.tab.reader.props-subject; accepted => { save.clicked(); } }
+                    keywords-in := TextField { label: "Keywords"; text: root.tab.reader.props-keywords; accepted => { save.clicked(); } }
+                    Rectangle { height: 1px; background: Theme.sidebar-border; }
+                    for p in root.tab.reader.props-about: HorizontalLayout {
+                        spacing: 10px;
+                        Text { text: p.name; width: 150px; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                        Text { text: p.value; font-size: Theme.fs-label; color: Theme.text; overflow: elide; horizontal-stretch: 1; }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle { horizontal-stretch: 1; }
+                        SmallButton { text: "Cancel"; clicked => { ReaderBridge.props-cancel(root.id); keys.focus(); } }
+                        save := SmallButton {
+                            text: "Save";
+                            primary: true;
+                            clicked => {
+                                ReaderBridge.props-save(root.id, title-in.text, author-in.text, subject-in.text, keywords-in.text);
+                                keys.focus();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Copy goes through a hidden text field: Slint's clipboard is a text input's.
     clip := TextInput {
         x: -1000px;
@@ -781,6 +832,8 @@ export component ReaderScreen inherits Rectangle {
                 // PDF Expert's shortcuts: ⌘0 100 %, ⌘9 fit width, ⌘8 fit page, ⌃⌘F full screen,
                 // ⇧⌘[ ⇧⌘] previous / next tab, ⌥⌘G go to page, ⌥⌘0 left panel.
                 if e.text == "0" && e.modifiers.alt { ReaderBridge.toggle-panel(root.id); return accept; }
+                // ⌥⌘2: one column → two pages → cover alone (⌥2 types ™ on a Mac keyboard).
+                if (e.text == "2" || e.text == "™") && e.modifiers.alt { ReaderBridge.cycle-spread(root.id); return accept; }
                 if e.text == "0" { ReaderBridge.zoom-fit(root.id, 2); return accept; }
                 if e.text == "9" { ReaderBridge.zoom-fit(root.id, 0); return accept; }
                 if e.text == "8" { ReaderBridge.zoom-fit(root.id, 1); return accept; }
@@ -809,6 +862,7 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == "w" { ReaderBridge.close(root.id); return accept; }
                 if e.text == "s" { ReaderBridge.save(root.id); return accept; }
                 if e.text == "p" { ReaderBridge.print-open(root.id); return accept; }
+                if e.text == "d" { ReaderBridge.props-open(root.id); return accept; }
                 if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
                 return reject;

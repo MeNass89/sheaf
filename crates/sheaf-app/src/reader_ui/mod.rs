@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
-use sheaf_app::{AppWindow, ReaderMark, ReaderResultRow, ReaderAnnotRow, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
+use sheaf_app::{AppWindow, ReaderMark, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, StampKind, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
@@ -152,6 +152,8 @@ pub struct ReaderUi {
     shape_kind: i32,
     shape_fill: bool,
     shape_end: Option<(f64, f64)>,
+    /// The Document Properties sheet is open.
+    props_open: bool,
     /// Hide all comments: not drawn, not selectable.
     comments_hidden: bool,
     /// Stamp tool: index in `StampKind::ALL`.
@@ -258,6 +260,7 @@ impl ReaderUi {
             shape_end: None,
             opacity: 0,
             comments_hidden: false,
+            props_open: false,
             stamp: StampKind::ALL.iter().position(|k| *k == StampKind::Approved).unwrap_or(0),
             text_size: 2,
             text_family: 0,
@@ -646,6 +649,7 @@ mod pointer;
 mod forms;
 mod sign;
 mod print_sheet;
+mod properties;
 mod nav;
 mod edits;
 mod saving;
@@ -657,6 +661,7 @@ pub use pointer::*;
 pub use forms::*;
 pub use sign::*;
 pub use print_sheet::*;
+pub use properties::*;
 pub use nav::*;
 pub use edits::*;
 pub use saving::*;

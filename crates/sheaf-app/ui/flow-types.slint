@@ -83,6 +83,12 @@ export struct ReaderOutlineRow {
 }
 
 // Reader: one row of the annotations panel.
+// Reader: a line of Document Properties shown as is.
+export struct ReaderProp {
+    name: string,
+    value: string,
+}
+
 export struct ReaderAnnotRow {
     kind: string,
     text: string,
@@ -161,6 +167,13 @@ export struct ReaderState {
     // Signature tool: the pad is open to make one; one is kept.
     sign-open: bool,
     has-signature: bool,
+    // Document Properties: open, the four entries one can edit, what is only shown.
+    props-open: bool,
+    props-title: string,
+    props-author: string,
+    props-subject: string,
+    props-keywords: string,
+    props-about: [ReaderProp],
     // Hide all comments is on.
     comments-hidden: bool,
     // Stamp tool: the stamps offered (labels) and the chosen one.
@@ -416,6 +429,10 @@ export global ReaderBridge {
     callback cycle-spread(int);
     // The Notes panel: 0 hide or show all comments, 1 summary of comments, 2 remove all.
     callback notes-action(int, int);
+    // Document Properties: open; save title, author, subject, keywords; cancel.
+    callback props-open(int);
+    callback props-save(int, string, string, string, string);
+    callback props-cancel(int);
     // Shapes and pen: what (0 shape kind, 1 fill toggle, 2 next opacity), value.
     callback shape-option(int, int, int);
     callback print(int, int, int, int, string, bool, bool);

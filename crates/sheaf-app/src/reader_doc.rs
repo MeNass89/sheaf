@@ -70,6 +70,40 @@ pub struct Snap {
     pub can_redo: bool,
     pub read_only: String,
     pub fields: Arc<Vec<FieldEntry>>,
+    pub props: Arc<Props>,
+}
+
+/// Document Properties: the four entries one can edit, and what is only shown (name, value).
+#[derive(Clone, Default, Debug)]
+pub struct Props {
+    pub title: String,
+    pub author: String,
+    pub subject: String,
+    pub keywords: String,
+    pub about: Vec<(String, String)>,
+}
+
+fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
+    let i = &d.info;
+    let or_none = |v: &Option<String>| v.clone().filter(|s| !s.trim().is_empty()).unwrap_or_else(|| "—".into());
+    let page = i.pages.first().map(|p| {
+        let (w, h) = (p.width as f64 / 72.0 * 25.4, p.height as f64 / 72.0 * 25.4);
+        format!("{w:.0} × {h:.0} mm")
+    });
+    let mb = i.file_size as f64 / 1_048_576.0;
+    let about = vec![
+        ("Pages".into(), i.pages.len().to_string()),
+        ("Page size".into(), page.unwrap_or_else(|| "—".into())),
+        ("File size".into(), if mb >= 1.0 { format!("{mb:.1} MB") } else { format!("{:.0} KB", i.file_size as f64 / 1024.0) }),
+        ("PDF version".into(), i.pdf_version.clone()),
+        ("Created with".into(), or_none(&i.creator)),
+        ("PDF producer".into(), or_none(&i.producer)),
+        ("Security".into(), if i.encrypted { "Encrypted".into() } else { "None".into() }),
+        ("Tagged (accessible)".into(), if i.tagged { "Yes".into() } else { "No".into() }),
+        ("Fonts".into(), i.fonts.len().to_string()),
+    ];
+    let get = |v: &Option<String>| v.clone().unwrap_or_default();
+    Props { title: get(&i.title), author: get(&i.author), subject: get(&i.subject), keywords: get(&i.keywords), about }
 }
 
 fn snap(doc: &Doc) -> Snap {
@@ -107,6 +141,7 @@ fn snap(doc: &Doc) -> Snap {
         can_redo: d.can_redo().is_some(),
         read_only: d.read_only_reason.as_ref().map(|r| format!("Read only: {r}")).unwrap_or_default(),
         fields: Arc::new(fields(d)),
+        props: Arc::new(props(d)),
     }
 }
 

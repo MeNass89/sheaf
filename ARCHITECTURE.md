@@ -37,7 +37,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | `state.rs` | Tabs (tool tabs and document tabs) and how they reach the Slint model. |
 | `flow.rs`, `run.rs`, `jobs.rs`, `dest.rs`, `files.rs`, `pool.rs` | A tool tab: adding files, options → job, running off the UI thread, where outputs go. |
 | `home.rs`, `history.rs`, `prefs.rs`, `store_file.rs` | Recents, task history, preferences, their JSON files. |
-| `reader_ui/` | The reader (a PDF open in its own tab): `mod.rs` state and opening; `pointer`, `edits`, `forms`, `sign`, `pages`, `search`, `nav`, `tools`, `saving`, `print_sheet`; `model.rs` pushes the state to Slint. |
+| `reader_ui/` | The reader (a PDF open in its own tab): `mod.rs` state and opening; `pointer`, `edits`, `forms`, `sign`, `pages`, `search`, `nav`, `tools`, `saving`, `print_sheet`, `properties`; `model.rs` pushes the state to Slint. |
 | `reader_doc.rs` | The reader's document on its own thread: edits (`Op`) in, snapshots (`Reply`) out, saving. |
 | `reader.rs` | Reader logic without UI types: themes, text selection, outline. |
 | `print.rs` | Printing through CUPS `lp`: printers, page ranges, `lp` options. |
