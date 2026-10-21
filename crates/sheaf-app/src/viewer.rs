@@ -269,11 +269,13 @@ pub struct Viewer {
     zoom: u32,
     layout: Vec<(f64, f64)>,
     page_width: f64,
+    /// Width of a thumbnail in the strip or panel.
+    pub thumb_width: f64,
 }
 
 impl Viewer {
     pub fn new(boxes: Vec<PageBox>) -> Self {
-        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), page_width: 0.0 };
+        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), page_width: 0.0, thumb_width: THUMB_WIDTH };
         v.relayout();
         v
     }
@@ -395,7 +397,7 @@ impl Viewer {
 
     /// The thumbnail strip's layout ([`THUMB_WIDTH`] wide pages).
     pub fn thumb_layout(&self) -> Vec<(f64, f64)> {
-        layout(&self.boxes.iter().map(PageBox::view_size).collect::<Vec<_>>(), THUMB_WIDTH)
+        layout(&self.boxes.iter().map(PageBox::view_size).collect::<Vec<_>>(), self.thumb_width)
     }
 }
 
@@ -507,6 +509,16 @@ pub fn renders() -> &'static RenderQueue {
 pub fn page_boxes(bytes: &Arc<Vec<u8>>, password: Option<&str>) -> sheaf_core::Result<Vec<PageBox>> {
     let info = render::inspect(bytes.clone(), password).map_err(|e| sheaf_core::OpdfError::Engine(e.to_string()))?;
     Ok(boxes_of(&info.pages))
+}
+
+/// The displayed page sizes read by pdfium without loading any page (`FPDF_GetPageSizeByIndexF`,
+/// rotation applied), as boxes at the origin: enough to lay the pages out and render them while
+/// PdfCraft parses the document; the real boxes (crop origin, rotation) replace them then.
+pub fn fast_boxes(input: &sheaf_core::pages::Input) -> Result<Vec<PageBox>, String> {
+    let _g = sheaf_core::engine::pdfium_lock();
+    let doc = input.open().map_err(|e| e.to_string())?;
+    let sizes = doc.pages().page_sizes().map_err(|e| e.to_string())?;
+    Ok(sizes.iter().map(|r| PageBox { crop: [0.0, 0.0, r.width().value as f64, r.height().value as f64], rotation: 0, unit: 1.0 }).collect())
 }
 
 /// The viewer's page boxes from PdfCraft's page list (a document already inspected).

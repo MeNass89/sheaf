@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
-use sheaf_app::{AppWindow, ReaderMark, ReaderAnnotRow, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
+use sheaf_app::{AppWindow, ReaderMark, ReaderResultRow, ReaderAnnotRow, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, Markup, NewAnnotation, NoteIcon, Shape, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
@@ -40,6 +40,10 @@ struct Search {
     query: String,
     /// (page, rects in view points) per match, in reading order.
     hits: Vec<(usize, Vec<[f32; 4]>)>,
+    /// The text around each hit, for the results list: before, the match, after.
+    snippets: Vec<(String, String, String)>,
+    case_sensitive: bool,
+    whole_words: bool,
     current: Option<usize>,
     busy: bool,
     /// Bumped by every new search: late results of an old one are dropped.
@@ -99,6 +103,12 @@ pub struct ReaderUi {
     /// Add image: where the click was, while the file is chosen.
     image_at: Option<(usize, (f64, f64))>,
     note_seq: i32,
+    pen_width: i32,
+    /// The annotation under the press, selected if the press ends without a drag.
+    annot_candidate: Option<usize>,
+    /// The panel shown before a search took it over (results, panel 3).
+    panel_before_search: Option<i32>,
+    results_cache: std::cell::RefCell<Option<((u64, Option<usize>), ModelRc<ReaderResultRow>)>>,
     /// 0 fit width, 1 fit page, 2 a zoom the user chose.
     zoom_mode: i32,
     /// Pages left by following a link or the outline (⌘[ goes back), and those gone back from.
@@ -138,11 +148,15 @@ impl ReaderUi {
             toggled: HashSet::new(),
             rows: Vec::new(),
             selected_annot: None,
-            search: Search { query: String::new(), hits: Vec::new(), current: None, busy: false, generation: 0 },
+            search: Search { query: String::new(), hits: Vec::new(), snippets: Vec::new(), case_sensitive: false, whole_words: false, current: None, busy: false, generation: 0 },
             stroke: None,
             draft: None,
             image_at: None,
             note_seq: 0,
+            pen_width: 1,
+            annot_candidate: None,
+            panel_before_search: None,
+            results_cache: Default::default(),
             zoom_mode: 0,
             back: Vec::new(),
             forward: Vec::new(),
@@ -227,6 +241,33 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
     });
     ui.set_active_tab(slint::Model::row_count(&*tabs_model()) as i32 - 1);
     let input = Input { path: path.clone(), password };
+    // Pages first: pdfium reads the page boxes fast and the pages render from the file while
+    // PdfCraft parses the document (outline, annotations, edits) on the document thread.
+    let weak = ui.as_weak();
+    let fast = input.clone();
+    sheaf_app::pool::probes().submit(move || {
+        let t0 = std::time::Instant::now();
+        let Ok(boxes) = viewer::fast_boxes(&fast) else { return };
+        reader_doc::debug(format_args!("pages shown after {:?}", t0.elapsed()));
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            let scale = ui.window().scale_factor() as f64;
+            let shown = with(|a| {
+                let Some(t) = a.tab(id) else { return false };
+                if t.viewer.is_some() {
+                    return false;
+                }
+                let mut v = ViewerUi::new(fast, reader_viewer(boxes), scale, t.viewport, t.strip);
+                v.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
+                v.viewer.set_width(t.viewport.0 as f64);
+                t.viewer = Some(Box::new(v));
+                refresh(a, id);
+                true
+            });
+            if shown {
+                crate::viewer_ui::request(&ui, id);
+            }
+        });
+    });
     let weak = ui.as_weak();
     let ops = reader_doc::start(input.clone(), move |reply| {
         let _ = weak.upgrade_in_event_loop(move |ui| on_reply(&ui, id, reply));
@@ -309,13 +350,25 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     let scale = ui.window().scale_factor() as f64;
     let ok = with(|a| {
         let Some(t) = a.tab(id) else { return false };
-        let mut v = ViewerUi::new(input, Viewer::new(snap.boxes.clone()), scale, t.viewport, t.strip);
+        // The pages may already be on screen (fast path): keep the viewer, its scroll and renders.
+        let mut v = match t.viewer.take() {
+            Some(mut v) if v.viewer.boxes.len() == snap.boxes.len() => {
+                // Same displayed sizes, now with their real crop boxes and rotations.
+                v.viewer.boxes = snap.boxes.clone();
+                v
+            }
+            _ => {
+                let mut v = Box::new(ViewerUi::new(input, reader_viewer(snap.boxes.clone()), scale, t.viewport, t.strip));
+                v.viewer.set_width(t.viewport.0 as f64);
+                v
+            }
+        };
         let mut r = ReaderUi::new(ops, snap, path);
         r.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
         v.theme = r.theme;
+        // Same file, same pixels: what is rendered stays; later renders come from the working copy.
         v.source = Some(r.bytes());
-        v.viewer.set_width(t.viewport.0 as f64);
-        t.viewer = Some(Box::new(v));
+        t.viewer = Some(v);
         t.reader = Some(Box::new(r));
         t.reader_loading = None;
         refresh(a, id);
@@ -324,6 +377,15 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     if ok {
         crate::viewer_ui::request(ui, id);
     }
+}
+
+/// Thumbnails in the reader's side panel, PDF Expert's size (the tools' strip uses 84 px).
+pub const READER_THUMB: f64 = 150.0;
+
+fn reader_viewer(boxes: Vec<viewer::PageBox>) -> Viewer {
+    let mut v = Viewer::new(boxes);
+    v.thumb_width = READER_THUMB;
+    v
 }
 
 fn file_name(p: &std::path::Path) -> String {
@@ -452,13 +514,9 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                     r.press = None;
                     return false;
                 }
-                // A click on an annotation with the select tool selects it.
-                if r.tool == SELECT && let Some(i) = annot_at(r, &v.viewer, page, p) {
-                    r.selected_annot = Some(i);
-                    r.sel = None;
-                    r.press = None;
-                    return false;
-                }
+                // A click (no drag) on an annotation with the select tool selects it on release;
+                // a drag that starts on one selects the text under it, as in PDF Expert.
+                r.annot_candidate = if r.tool == SELECT { annot_at(r, &v.viewer, page, p) } else { None };
                 r.selected_annot = None;
                 r.sel = None;
                 false
@@ -514,6 +572,7 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
         if (a.0 - b.0).hypot(a.1 - b.1) < 1.5 {
             return;
         }
+        r.annot_candidate = None;
         r.sel = r.text(page).and_then(|t| reader::selection(&t, (a.0 as f32, a.1 as f32), (b.0 as f32, b.1 as f32))).map(|s| (page, s));
     });
 }
@@ -522,6 +581,12 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     moved(tab_id, x, y);
     let action = update(tab_id, |r, v| {
         let press = r.press.take();
+        if let Some(i) = r.annot_candidate.take()
+            && r.sel.is_none()
+        {
+            r.selected_annot = Some(i);
+            return None;
+        }
         // A click (no drag) on a link with the select tool follows it.
         if r.tool == SELECT
             && r.sel.is_none()
@@ -620,7 +685,7 @@ fn after_change(r: &mut ReaderUi, v: &mut ViewerUi, pages: Option<&[usize]>) {
     if v.viewer.boxes != r.snap.boxes {
         // A page was added, removed or turned.
         let width = v.viewer.content_width();
-        v.viewer = Viewer::new(r.snap.boxes.clone());
+        v.viewer = reader_viewer(r.snap.boxes.clone());
         v.viewer.set_width(width);
     }
     match pages {
@@ -689,7 +754,7 @@ fn add_ink(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f64)>) {
         let size = b.view_size();
         let stroke: Vec<[f64; 2]> = pts.iter().map(|p| { let (x, y) = viewer::view_to_pdf(b, size, p.0, p.1); [x, y] }).collect();
         let prov = Provisional { page, rects: Vec::new(), stroke: pts.clone(), colour: INK[r.ink_colour], kind: PEN };
-        (Edit::AddAnnotation(NewAnnotation { page, shape: Shape::Ink { strokes: vec![stroke] }, style: style(INK[r.ink_colour], 2.0), contents: String::new(), author: author() }), prov)
+        (Edit::AddAnnotation(NewAnnotation { page, shape: Shape::Ink { strokes: vec![stroke] }, style: style(INK[r.ink_colour], pen_points(r.pen_width)), contents: String::new(), author: author() }), prov)
     });
     if let Some((e, prov)) = edit {
         apply(ui, tab_id, e, &[page], Some(prov));
@@ -843,15 +908,35 @@ pub fn set_tool_and_mark(ui: &AppWindow, tab_id: i32, tool: i32) {
 }
 
 /// The colour of the current tool: highlights and notes take the light palette, strokes the ink one.
-pub fn set_colour(tab_id: i32, k: i32) {
+/// With an annotation selected, it is recoloured (PDF Expert's colour row does the same).
+pub fn set_colour(ui: &AppWindow, tab_id: i32, k: i32) {
     let k = k.clamp(0, 4) as usize;
-    update(tab_id, |r, _| {
+    let restyle = update(tab_id, |r, _| {
+        if let Some(a) = r.selected_annot.and_then(|i| r.annots().get(i)) {
+            let light = matches!(a.subtype.as_str(), "Highlight" | "Text");
+            let colour = if light { COLOURS[k] } else { INK[k] };
+            return Some((a.page, Edit::StyleAnnotation { page: a.page, index: a.index, color: Some(colour), opacity: None, width: None, endings: None }));
+        }
         if uses_light(r.tool) {
             r.light = k;
         } else {
             r.ink_colour = k;
         }
-    });
+        None
+    })
+    .flatten();
+    if let Some((page, e)) = restyle {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
+/// Pen thickness in points: 0 fine, 1 medium, 2 thick.
+pub fn set_pen_width(tab_id: i32, k: i32) {
+    update(tab_id, |r, _| r.pen_width = k.clamp(0, 2));
+}
+
+fn pen_points(k: i32) -> f64 {
+    [1.0, 2.0, 4.0][k.clamp(0, 2) as usize]
 }
 
 fn uses_light(tool: i32) -> bool {
@@ -873,7 +958,7 @@ pub fn set_theme(ui: &AppWindow, tab_id: i32, theme: i32) {
 
 pub fn set_panel(tab_id: i32, panel: i32) {
     update(tab_id, |r, _| {
-        r.panel = panel.clamp(0, 2);
+        r.panel = panel.clamp(0, 3);
         r.panel_open = true;
     });
 }
@@ -1012,13 +1097,20 @@ pub fn select_all(tab_id: i32) {
 
 pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
     let q = query.trim().to_string();
-    let Some((bytes, password, n, generation)) = update(tab_id, |r, v| {
+    let Some((bytes, password, n, generation, case, whole)) = update(tab_id, |r, v| {
         r.search.generation += 1;
         r.search.query = q.clone();
         r.search.hits.clear();
+        r.search.snippets.clear();
         r.search.current = None;
         r.search.busy = !q.is_empty();
-        (r.snap.bytes.clone(), r.password(), v.viewer.page_count(), r.search.generation)
+        if !q.is_empty() {
+            // The results show in the side panel, as in PDF Expert (evidence 09).
+            r.panel_before_search = Some(r.panel);
+            r.panel = 3;
+            r.panel_open = true;
+        }
+        (r.snap.bytes.clone(), r.password(), v.viewer.page_count(), r.search.generation, r.search.case_sensitive, r.search.whole_words)
     }) else {
         return;
     };
@@ -1031,12 +1123,14 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
         let mut rr = render::PageRenderer::new(bytes, config);
         let mut texts = Vec::new();
         let mut hits = Vec::new();
+        let mut snippets = Vec::new();
         // Results come back in batches so the first pages show while the rest are read.
         let mut sent = 0;
         for page in 0..n {
             let res = rr.render(render::RenderRequest { page, kind: render::RequestKind::Text, scale: 1.0, ..Default::default() });
             if let Some(t) = res.text {
-                for m in t.find(&q) {
+                for m in t.find_opts(&q, case, whole) {
+                    snippets.push(snippet(&t, m.clone()));
                     hits.push((page, t.line_rects(m)));
                 }
                 texts.push((page, t));
@@ -1044,6 +1138,7 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
             let last = page + 1 == n;
             if last || (hits.len() > sent && (page % 16 == 15)) {
                 let batch: Vec<_> = hits[sent..].to_vec();
+                let snips: Vec<_> = snippets[sent..].to_vec();
                 sent = hits.len();
                 let tx = std::mem::take(&mut texts);
                 let w = weak.clone();
@@ -1057,6 +1152,8 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
                         }
                         let first = r.search.hits.is_empty() && !batch.is_empty();
                         r.search.hits.extend(batch);
+                        r.search.snippets.extend(snips);
+                        r.version += 1;
                         r.search.busy = !last;
                         if first {
                             r.search.current = Some(0);
@@ -1073,6 +1170,37 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
 
 fn union(rects: &[[f32; 4]]) -> [f32; 4] {
     rects.iter().fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |a, r| [a[0].min(r[0]), a[1].min(r[1]), a[2].max(r[2]), a[3].max(r[3])])
+}
+
+/// Up to 40 characters of context on each side of a match, on one line.
+fn snippet(t: &PageText, m: Range<usize>) -> (String, String, String) {
+    let n = t.glyphs.len();
+    let flat = |s: String| s.replace('\n', " ");
+    let before = flat(t.text_of(m.start.saturating_sub(40)..m.start));
+    let after = flat(t.text_of(m.end..(m.end + 40).min(n)));
+    let before = if m.start > 40 { format!("…{}", before.trim_start()) } else { before };
+    let after = if m.end + 40 < n { format!("{}…", after.trim_end()) } else { after };
+    (before, flat(t.text_of(m)), after)
+}
+
+pub fn search_options(ui: &AppWindow, tab_id: i32, case: bool, whole: bool, query: &str) {
+    update(tab_id, |r, _| {
+        r.search.case_sensitive = case;
+        r.search.whole_words = whole;
+    });
+    if !query.trim().is_empty() {
+        search(ui, tab_id, query);
+    }
+}
+
+pub fn result_clicked(tab_id: i32, k: i32) {
+    update(tab_id, |r, v| {
+        let k = k.max(0) as usize;
+        let Some((page, rects)) = r.search.hits.get(k) else { return };
+        let (page, rect) = (*page, union(rects));
+        r.search.current = Some(k);
+        show_view_rect(v, page, rect);
+    });
 }
 
 /// Scrolls so the view rectangle `r` of `page` is a third down the viewport.
@@ -1104,8 +1232,13 @@ pub fn search_clear(tab_id: i32) {
         r.search.generation += 1;
         r.search.query.clear();
         r.search.hits.clear();
+        r.search.snippets.clear();
         r.search.current = None;
         r.search.busy = false;
+        r.version += 1;
+        if r.panel == 3 {
+            r.panel = r.panel_before_search.take().unwrap_or(0);
+        }
     });
 }
 
@@ -1217,6 +1350,33 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             }
         }
     };
+    let results = {
+        let key = (r.version, r.search.current);
+        let mut c = r.results_cache.borrow_mut();
+        match c.as_ref() {
+            Some((k, m)) if *k == key => m.clone(),
+            _ => {
+                let rows: Vec<ReaderResultRow> = r
+                    .search
+                    .hits
+                    .iter()
+                    .zip(&r.search.snippets)
+                    .enumerate()
+                    .take(2000)
+                    .map(|(i, ((page, _), (b, m, a)))| ReaderResultRow {
+                        before: b.clone().into(),
+                        hit: m.clone().into(),
+                        after: a.clone().into(),
+                        page_label: format!("Page {}", label(r, *page)).into(),
+                        current: r.search.current == Some(i),
+                    })
+                    .collect();
+                let m = ModelRc::new(VecModel::from(rows));
+                *c = Some((key, m.clone()));
+                m
+            }
+        }
+    };
     let note = match &r.draft {
         Some(d) => {
             let (x, y) = view_to_content(&v.viewer, d.page, d.at);
@@ -1272,6 +1432,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         can_undo: r.snap.can_undo && r.in_flight == 0,
         can_redo: r.snap.can_redo && r.in_flight == 0,
         zoom_mode: r.zoom_mode,
+        pen_width: r.pen_width,
+        results,
+        case_sensitive: r.search.case_sensitive,
+        whole_words: r.search.whole_words,
     };
     if reader::backdrop(r.theme).is_none() {
         tab.reader.backdrop = Color::from_argb_u8(0, 0, 0, 0);

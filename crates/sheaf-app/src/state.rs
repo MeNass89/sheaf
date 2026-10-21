@@ -335,8 +335,18 @@ pub fn build(t: &TabState) -> ToolTab {
         tab.name = name.as_str().into();
         tab.tool = "read".into();
         tab.icon = crate::state::reader_icon();
-        tab.viewer_status = "Opening…".into();
         tab.reader.title = name.as_str().into();
+        tab.reader.panel_open = true;
+        match &t.viewer {
+            // Pages on screen, the rest of the document still being read.
+            Some(v) => {
+                crate::viewer_ui::fill(&mut tab, v);
+                tab.reader.page_count = v.viewer.page_count() as i32;
+                tab.reader.page_text = (v.current() + 1).to_string().into();
+                tab.reader.read_only = "Loading the document…".into();
+            }
+            None => tab.viewer_status = "Opening…".into(),
+        }
         return tab;
     }
     if let (Some(r), Some(v)) = (&t.reader, &t.viewer) {

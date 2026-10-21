@@ -150,7 +150,7 @@ impl ViewerUi {
     }
 
     fn thumb_key(&self, page: usize) -> RenderKey {
-        RenderKey { doc: self.load_id, page, width: (viewer::THUMB_WIDTH * THUMB_SCALE) as u32, thumb: true, rev: self.rev(page) }
+        RenderKey { doc: self.load_id, page, width: (self.viewer.thumb_width * THUMB_SCALE) as u32, thumb: true, rev: self.rev(page) }
     }
 
     /// The render of `page` at the current width, else the newest at another width or revision
@@ -250,7 +250,10 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
         q.submit(key, move || {
             let px = match &source {
                 Some(bytes) => viewer::render_bytes(bytes, input.password.as_deref(), key.page, key.width, theme),
-                None => viewer::render_page(&input, key.page, key.width),
+                None => viewer::render_page(&input, key.page, key.width).map(|mut px| {
+                    sheaf_app::reader::tint(px.make_mut_bytes(), theme);
+                    px
+                }),
             };
             let Ok(px) = px else { return };
             let _ = weak.upgrade_in_event_loop(move |_| {

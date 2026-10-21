@@ -5,7 +5,7 @@
 // ReaderBridge. Coordinates given to Rust are content coordinates of the page scroll.
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { ToolTab, ViewerBridge, ReaderBridge, ReaderOutlineRow, ReaderAnnotRow } from "../flow-types.slint";
+import { ToolTab, ViewerBridge, ReaderBridge, ReaderOutlineRow, ReaderAnnotRow, ReaderResultRow } from "../flow-types.slint";
 
 component ToolButton inherits Rectangle {
     in property <image> icon;
@@ -151,6 +151,8 @@ export component ReaderScreen inherits Rectangle {
     property <int> scroll-seq: root.tab.viewer-scroll-seq;
     changed scroll-seq => { sv.content-y = -root.tab.viewer-scroll; }
 
+    property <string> page-text: root.tab.reader.page-text;
+    changed page-text => { if !page-in.has-focus { page-in.text = root.page-text; } }
     init => {
         ViewerBridge.viewport(root.id, sv.visible-width, root.page-top, sv.visible-height);
         keys.focus();
@@ -191,7 +193,29 @@ export component ReaderScreen inherits Rectangle {
                     Rectangle { width: 6px; }
                     ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text (E)"; active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); keys.focus(); } }
                     ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image (I)"; active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); keys.focus(); } }
-                    if root.tab.reader.tool != 0 && root.tab.reader.tool != 8: HorizontalLayout {
+                    if root.tab.reader.tool == 5: HorizontalLayout {
+                        spacing: 2px;
+                        padding-left: 6px;
+                        for w[k] in [2px, 4px, 7px]: Rectangle {
+                            y: 4px;
+                            width: 22px;
+                            height: 22px;
+                            border-radius: 11px;
+                            border-width: root.tab.reader.pen-width == k ? 2px : 0px;
+                            border-color: Theme.text;
+                            Rectangle {
+                                width: w;
+                                height: w;
+                                border-radius: w / 2;
+                                background: Theme.text-secondary;
+                            }
+                            TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { ReaderBridge.set-pen-width(root.id, k); keys.focus(); }
+                            }
+                        }
+                    }
+                    if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8) || root.tab.reader.selected-annot: HorizontalLayout {
                         spacing: 2px;
                         padding-left: 6px;
                         for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {
@@ -216,6 +240,8 @@ export component ReaderScreen inherits Rectangle {
                         border-color: page-in.has-focus ? Theme.text-secondary : Theme.input-border;
                         background: Theme.input-bg;
                         page-in := TextInput {
+                            // Back to the page shown once the field is left or a jump is done.
+                            changed has-focus => { if !self.has-focus { self.text = root.tab.reader.page-text; } }
                             x: 6px;
                             width: parent.width - 12px;
                             text: root.tab.reader.page-text;
@@ -227,6 +253,7 @@ export component ReaderScreen inherits Rectangle {
                             accepted => {
                                 ReaderBridge.go-to-page(root.id, self.text);
                                 keys.focus();
+                                self.text = root.tab.reader.page-text;
                             }
                         }
                     }
@@ -356,6 +383,63 @@ export component ReaderScreen inherits Rectangle {
                     Rectangle { height: 1px; background: Theme.sidebar-border; }
                     Rectangle {
                         vertical-stretch: 1;
+                        if root.tab.reader.panel == 3: VerticalLayout {
+                            HorizontalLayout {
+                                padding: 10px;
+                                padding-bottom: 6px;
+                                spacing: 6px;
+                                Text {
+                                    text: root.tab.reader.search-count == "None" ? "No results" : root.tab.reader.results.length + (root.tab.reader.search-busy ? "+ results" : root.tab.reader.results.length == 1 ? " result" : " results");
+                                    font-size: Theme.fs-caption;
+                                    font-weight: Theme.weight-demibold;
+                                    color: Theme.text-secondary;
+                                    vertical-alignment: center;
+                                }
+                                Rectangle { horizontal-stretch: 1; }
+                                SmallButton {
+                                    text: "Aa";
+                                    primary: root.tab.reader.case-sensitive;
+                                    clicked => { ReaderBridge.search-options(root.id, !root.tab.reader.case-sensitive, root.tab.reader.whole-words, search-in.text); }
+                                }
+                                SmallButton {
+                                    text: "Whole words";
+                                    primary: root.tab.reader.whole-words;
+                                    clicked => { ReaderBridge.search-options(root.id, root.tab.reader.case-sensitive, !root.tab.reader.whole-words, search-in.text); }
+                                }
+                            }
+                            ScrollView {
+                                vertical-stretch: 1;
+                                VerticalLayout {
+                                    padding: 6px;
+                                    padding-top: 0px;
+                                    spacing: 2px;
+                                    for h[i] in root.tab.reader.results: Rectangle {
+                                        height: hl.preferred-height;
+                                        border-radius: Theme.radius-button;
+                                        background: h.current ? Theme.menu-selected-bg : ht.has-hover ? Theme.popup-hover : transparent;
+                                        ht := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { ReaderBridge.result-clicked(root.id, i); }
+                                        }
+                                        hl := VerticalLayout {
+                                            padding: 8px;
+                                            spacing: 2px;
+                                            Text {
+                                                text: h.page-label;
+                                                font-size: Theme.fs-caption;
+                                                color: Theme.text-muted;
+                                            }
+                                            Text {
+                                                text: h.before + "«" + h.hit + "»" + h.after;
+                                                font-size: Theme.fs-label;
+                                                color: Theme.text;
+                                                wrap: word-wrap;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         if root.tab.reader.panel == 1 && root.tab.reader.outline-empty: Text {
                             x: 16px;
                             y: 16px;
@@ -495,9 +579,9 @@ export component ReaderScreen inherits Rectangle {
                             content-width: self.visible-width;
                             content-height: root.tab.viewer-thumbs-height + 20px;
                             for t in root.tab.viewer-thumbs: Rectangle {
-                                x: (strip.visible-width - Theme.page-thumb-width) / 2;
+                                x: (strip.visible-width - 150px) / 2;
                                 y: t.y;
-                                width: Theme.page-thumb-width;
+                                width: 150px;
                                 height: t.h + 18px;
                                 Rectangle {
                                     height: t.h;
@@ -639,6 +723,17 @@ export component ReaderScreen inherits Rectangle {
                             ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight"; clicked => { ReaderBridge.markup(root.id, 1); } }
                             ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline"; clicked => { ReaderBridge.markup(root.id, 2); } }
                             ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough"; clicked => { ReaderBridge.markup(root.id, 3); } }
+                            Divider { y: 7px; }
+                            // Highlight in one of the five colours straight from the selection.
+                            for c[k] in root.light-colours: ColourDot {
+                                y: 6px;
+                                colour: c;
+                                selected: false;
+                                clicked => {
+                                    ReaderBridge.set-colour(root.id, k);
+                                    ReaderBridge.markup(root.id, 1);
+                                }
+                            }
                         }
                     }
                     // A note or text box being typed.

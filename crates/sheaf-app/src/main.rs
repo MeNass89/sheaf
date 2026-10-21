@@ -125,7 +125,8 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_moved(reader_ui::moved);
     wire_global!(ui, rb, on_released, |ui, id, x, y| reader_ui::released(&ui, id, x, y));
     wire_global!(ui, rb, on_set_tool, |ui, id, t| reader_ui::set_tool_and_mark(&ui, id, t));
-    rb.on_set_colour(reader_ui::set_colour);
+    wire_global!(ui, rb, on_set_colour, |ui, id, c| reader_ui::set_colour(&ui, id, c));
+    rb.on_set_pen_width(reader_ui::set_pen_width);
     wire_global!(ui, rb, on_set_theme, |ui, id, t| reader_ui::set_theme(&ui, id, t));
     rb.on_set_panel(reader_ui::set_panel);
     rb.on_toggle_panel(reader_ui::toggle_panel);
@@ -140,6 +141,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_search, |ui, id, q| reader_ui::search(&ui, id, &q));
     rb.on_search_step(reader_ui::search_step);
     rb.on_search_clear(reader_ui::search_clear);
+    wire_global!(ui, rb, on_search_options, |ui, id, c, w, q| reader_ui::search_options(&ui, id, c, w, &q));
+    rb.on_result_clicked(reader_ui::result_clicked);
     wire_global!(ui, rb, on_markup, |ui, id, k| reader_ui::markup(&ui, id, k));
     wire_global!(ui, rb, on_note_commit, |ui, id, t| reader_ui::note_commit(&ui, id, &t));
     rb.on_note_cancel(reader_ui::note_cancel);

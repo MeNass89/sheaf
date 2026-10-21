@@ -61,6 +61,15 @@ export struct ReaderMark {
     colour: color,
 }
 
+// Reader: one search result in the side panel.
+export struct ReaderResultRow {
+    before: string,
+    hit: string,
+    after: string,
+    page-label: string,
+    current: bool,
+}
+
 // Reader: one row of the outline panel.
 export struct ReaderOutlineRow {
     title: string,
@@ -103,7 +112,7 @@ export struct ReaderState {
     page-text: string,
     page-label: string,
     panel-open: bool,
-    // 0 thumbnails, 1 outline, 2 annotations
+    // 0 thumbnails, 1 outline, 2 annotations, 3 search results
     panel: int,
     outline: [ReaderOutlineRow],
     outline-empty: bool,
@@ -131,6 +140,11 @@ export struct ReaderState {
     can-undo: bool,
     can-redo: bool,
     zoom-mode: int,
+    // Pen: 0 fine, 1 medium, 2 thick.
+    pen-width: int,
+    results: [ReaderResultRow],
+    case-sensitive: bool,
+    whole-words: bool,
 }
 
 // Sign: the signature as placed on a page, in content coordinates, drawn upright in its box.
@@ -367,6 +381,7 @@ export global ReaderBridge {
     callback released(int, length, length);
     callback set-tool(int, int);
     callback set-colour(int, int);
+    callback set-pen-width(int, int);
     callback set-theme(int, int);
     callback set-panel(int, int);
     callback toggle-panel(int);
@@ -384,6 +399,9 @@ export global ReaderBridge {
     // +1 next match, −1 previous.
     callback search-step(int, int);
     callback search-clear(int);
+    // Match case, whole words, and the query to search again with them.
+    callback search-options(int, bool, bool, string);
+    callback result-clicked(int, int);
     // Markup the selection: 1 highlight, 2 underline, 3 strikethrough.
     callback markup(int, int);
     callback note-commit(int, string);
