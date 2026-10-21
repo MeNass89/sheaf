@@ -624,19 +624,22 @@ pub fn render_page(input: &sheaf_core::pages::Input, page: usize, width: u32) ->
 }
 
 /// Page `page` of a PDF held in memory (`bytes`, opened with `password`) rendered `width` pixels
-/// wide, as RGBA, then recoloured for `theme`: the reader's pages, which show edits not saved yet.
+/// wide, as RGBA, then recoloured for `theme`: the reader's pages, which show edits not saved yet;
+/// `comments` false leaves annotations out.
 pub fn render_bytes(
     bytes: &[u8],
     password: Option<&str>,
     page: usize,
     width: u32,
     theme: crate::reader::PageTheme,
+    comments: bool,
 ) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
     use pdfium_render::prelude::PdfRenderConfig;
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = sheaf_core::engine::open_pdf_bytes(bytes, password).map_err(|e| e.to_string())?;
     let p = doc.pages().get(page as i32).map_err(|e| e.to_string())?;
-    let config = PdfRenderConfig::new().set_target_width(width as i32).render_form_data(true).render_annotations(true);
+    // Without comments (Hide all comments), form fields still draw.
+    let config = PdfRenderConfig::new().set_target_width(width as i32).render_form_data(true).render_annotations(comments);
     let bmp = p.render_with_config(&config).map_err(|e| e.to_string())?;
     let (w, h) = (bmp.width() as u32, bmp.height() as u32);
     let mut rgba = bmp.as_rgba_bytes();

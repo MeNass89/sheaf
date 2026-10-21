@@ -152,6 +152,8 @@ pub struct ReaderUi {
     shape_kind: i32,
     shape_fill: bool,
     shape_end: Option<(f64, f64)>,
+    /// Hide all comments: not drawn, not selectable.
+    comments_hidden: bool,
     /// Stamp tool: index in `StampKind::ALL`.
     stamp: usize,
     /// Shapes and pen: index in `reader::OPACITIES`.
@@ -255,6 +257,7 @@ impl ReaderUi {
             shape_fill: false,
             shape_end: None,
             opacity: 0,
+            comments_hidden: false,
             stamp: StampKind::ALL.iter().position(|k| *k == StampKind::Approved).unwrap_or(0),
             text_size: 2,
             text_family: 0,
@@ -618,6 +621,9 @@ fn page_at(v: &Viewer, x: f64, y: f64) -> Option<usize> {
 
 /// The annotation under view point `p` of `page`, topmost first.
 fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usize> {
+    if r.comments_hidden {
+        return None;
+    }
     let size = v.boxes[page].view_size();
     r.annots().iter().enumerate().rev().find_map(|(i, a)| {
         if a.page != page {

@@ -54,6 +54,8 @@ pub struct ViewerUi {
     /// The reader renders its working copy (edits not saved yet) from memory; tools read the file.
     pub source: Option<Arc<Vec<u8>>>,
     pub theme: sheaf_app::reader::PageTheme,
+    /// The reader's Hide all comments: pages render without annotations.
+    pub hide_comments: bool,
     /// Revision of each page's look: bumped by an edit of the page; `base_rev` by a change of
     /// every page (theme, undo). Renders of an older revision stay on screen until replaced.
     revs: std::collections::HashMap<usize, u64>,
@@ -106,6 +108,7 @@ impl ViewerUi {
             drag: None,
             source: None,
             theme: Default::default(),
+            hide_comments: false,
             revs: Default::default(),
             base_rev: 0,
             next_rev: 1,
@@ -239,9 +242,9 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
             keys.extend(v.wanted_pages().map(|p| v.page_key(p)).filter(|k| !v.pages.contains(k)));
         }
         keys.extend(v.wanted_thumbs().map(|p| v.thumb_key(p)).filter(|k| !v.thumbs.contains(k)));
-        Some((v.load_id, keys, v.input.clone(), v.source.clone(), v.theme))
+        Some((v.load_id, keys, v.input.clone(), v.source.clone(), v.theme, !v.hide_comments))
     });
-    let Some((load_id, keys, input, source, theme)) = todo else { return };
+    let Some((load_id, keys, input, source, theme, comments)) = todo else { return };
     let wanted: HashSet<RenderKey> = keys.iter().copied().collect();
     let q = viewer::renders();
     q.retain(|k| k.doc != load_id || wanted.contains(k));
@@ -249,7 +252,7 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
         let (weak, input, source) = (ui.as_weak(), input.clone(), source.clone());
         q.submit(key, move || {
             let px = match &source {
-                Some(bytes) => viewer::render_bytes(bytes, input.password.as_deref(), key.page, key.width, theme),
+                Some(bytes) => viewer::render_bytes(bytes, input.password.as_deref(), key.page, key.width, theme, comments),
                 None => viewer::render_page(&input, key.page, key.width).map(|mut px| {
                     sheaf_app::reader::tint(px.make_mut_bytes(), theme);
                     px

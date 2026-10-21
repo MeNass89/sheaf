@@ -293,6 +293,18 @@ key m; click 900 300 1.2; click 350 109 0.8; click 317 210 0.8; click 700 600 1.
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "stamps: Approved, and Received dated by the author" "echo \"\$SH\" | grep -aq '/Name /Approved' && echo \"\$SH\" | grep -aq '/PCByLine (By $USER at '"
 
+# 6c-notes. Notes panel (205,106): Hide all (45,149) hides the stamp at 900,300 and shows it again;
+# the trash (226,152) removes every comment, in the saved file too.
+click 205 106 0.8
+stampshade() { import -window root -crop 200x40+800+280 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
+H0=$(stampshade); click 45 149 1.2; H1=$(stampshade); click 45 149 1.2; H2=$(stampshade)
+check "Hide all comments hides them and Show all brings them back ($H0 → $H1 → $H2)" "python3 -c 'import sys; a, b, c = $H0, $H1, $H2; sys.exit(0 if b - a > 0.05 and abs(a - c) < 0.005 else 1)'"
+click 226 152 1.5; key ctrl+s; sleep 1.5
+check "Remove all comments leaves none in the file" "! qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aqE '/Subtype /(Square|Circle|Line|Ink|Stamp|Text|FreeText|Highlight)\$'"
+key ctrl+z; key ctrl+s; sleep 1.5
+check "⌘Z brings them all back" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Subtype /Stamp'"
+click 30 106 0.8   # back to the Pages panel
+
 # 6d. Two pages side by side (toolbar button at SPREAD_X,61): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.
 mid() { import -window root -crop 6x200+761+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }

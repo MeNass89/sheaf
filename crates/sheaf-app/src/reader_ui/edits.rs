@@ -237,6 +237,44 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
     }
 }
 
+/// The Notes panel's actions: 0 hide or show every comment, 1 a summary of the comments (a PDF,
+/// saved then opened), 2 remove every comment (one undo step).
+pub fn notes_action(ui: &AppWindow, tab_id: i32, what: i32) {
+    match what {
+        0 => {
+            update(tab_id, |r, v| {
+                r.comments_hidden = !r.comments_hidden;
+                v.hide_comments = r.comments_hidden;
+                r.selected_annot = None;
+                v.all_changed();
+            });
+            crate::viewer_ui::request(ui, tab_id);
+        }
+        1 => {
+            let Some((dir, stem)) = update(tab_id, |r, _| (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())) else { return };
+            let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(format!("{stem} - comments.pdf")).add_filter("PDF", &["pdf"]);
+            crate::dialog::save_file(ui, d, move |_, target| {
+                update(tab_id, |r, _| r.send(Op::Summary { to: target }));
+            });
+        }
+        _ => {
+            let edit = update(tab_id, |r, _| {
+                // Highest index first on each page: deleting shifts the indices after it.
+                let mut all: Vec<(usize, usize)> = r.annots().iter().map(|a| (a.page, a.index)).collect();
+                all.sort_unstable_by(|a, b| b.cmp(a));
+                let mut pages: Vec<usize> = all.iter().map(|a| a.0).collect();
+                pages.dedup();
+                let edits: Vec<Edit> = all.into_iter().map(|(page, index)| Edit::DeleteAnnotation { page, index }).collect();
+                (!edits.is_empty()).then(|| (Edit::Batch { label: "Remove all comments".into(), edits }, pages))
+            })
+            .flatten();
+            if let Some((e, pages)) = edit {
+                apply(ui, tab_id, e, &pages, None);
+            }
+        }
+    }
+}
+
 pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
     let text = text.trim().to_string();
     let edit = update(tab_id, |r, v| {

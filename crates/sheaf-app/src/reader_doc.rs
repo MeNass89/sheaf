@@ -144,6 +144,8 @@ pub enum Op {
     Blocks(usize),
     /// `pages` written to a new PDF at `to`.
     Extract { pages: Vec<usize>, to: PathBuf },
+    /// Acrobat's Summarize Comments: a PDF listing every comment, by page, written to `to`.
+    Summary { to: PathBuf },
 }
 
 pub enum Reply {
@@ -204,6 +206,11 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                     Op::Extract { pages, to } => {
                         let id = doc.id();
                         let r = doc.session().extract(id, &pages).map_err(|e| e.to_string()).and_then(|bytes| replace(&to, &bytes).map_err(|e| e.to_string()));
+                        reply(Reply::Extracted { to, error: r.err() });
+                    }
+                    Op::Summary { to } => {
+                        let id = doc.id();
+                        let r = doc.session().summarize_comments(id, Default::default()).map_err(|e| e.to_string()).and_then(|bytes| replace(&to, &bytes).map_err(|e| e.to_string()));
                         reply(Reply::Extracted { to, error: r.err() });
                     }
                     Op::Blocks(page) => {
@@ -393,6 +400,23 @@ mod tests {
         let t = std::time::Instant::now();
         sheaf_app::reader::read_texts(&bytes, &render::RenderConfig::default(), n, &known, &|| false, |_, _| true);
         println!("{n} pages, {hits} hits: first search {first:?}, again {:?}", t.elapsed());
+    }
+
+    #[test]
+    fn a_summary_of_comments_is_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 2);
+        let (ops, rx, _) = started(&path);
+        ops.send(Op::Apply { edit: Box::new(highlight(1)), pages: vec![1] }).unwrap();
+        next(&rx);
+        let out = dir.path().join("summary.pdf");
+        ops.send(Op::Summary { to: out.clone() }).unwrap();
+        match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+            Reply::Extracted { to, error } => assert!(error.is_none() && to == out, "{error:?}"),
+            _ => panic!("expected Extracted"),
+        }
+        let text = texts(&out).join("\n");
+        assert!(text.contains("Summary of Comments") && text.contains("Highlight"), "{text}");
     }
 
     /// ⌘S twice with an edit between: each save appends, and the light refresh after an

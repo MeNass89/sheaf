@@ -286,6 +286,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 .collect::<Vec<_>>(),
         )),
         stamp: r.stamp as i32,
+        comments_hidden: r.comments_hidden,
         text_size: TEXT_SIZES[r.text_size as usize] as i32,
         text_family: r.text_family,
         text_bold: r.text_bold,

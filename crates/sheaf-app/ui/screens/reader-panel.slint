@@ -156,82 +156,94 @@ export component ReaderPanel inherits Rectangle {
                 }
                 if root.tab.reader.panel == 2 && root.tab.reader.annots.length == 0: Text {
                     x: 16px;
-                    y: 16px;
+                    y: 50px;
                     width: parent.width - 32px;
                     text: "No annotations yet. Select text and pick Highlight, or choose a tool above.";
                     font-size: Theme.fs-label;
                     color: Theme.text-muted;
                     wrap: word-wrap;
                 }
-                if root.tab.reader.panel == 2: ScrollView {
-                    VerticalLayout {
+                if root.tab.reader.panel == 2: VerticalLayout {
+                    // Acrobat's comment list actions: hide all, a summary, remove all (⌘Z undoes it).
+                    HorizontalLayout {
                         padding: 8px;
+                        padding-bottom: 0px;
                         spacing: 6px;
-                        for a[i] in root.tab.reader.annots: Rectangle {
-                            height: al.preferred-height;
-                            border-radius: Theme.radius-item;
-                            background: a.selected ? Theme.menu-selected-bg : at.has-hover ? Theme.popup-hover : Theme.card;
-                            border-width: 1px;
-                            border-color: Theme.sidebar-border;
-                            at := TouchArea {
-                                mouse-cursor: pointer;
-                                clicked => { ReaderBridge.annot-clicked(root.id, i); root.focus-pages(); }
-                            }
-                            Rectangle {
-                                x: 0;
-                                width: 4px;
-                                border-radius: 2px;
-                                background: a.colour;
-                            }
-                            al := VerticalLayout {
-                                padding: 10px;
-                                padding-left: 14px;
-                                spacing: 4px;
-                                HorizontalLayout {
-                                    Text {
-                                        text: a.kind;
-                                        font-size: Theme.fs-caption;
-                                        font-weight: Theme.weight-demibold;
-                                        color: Theme.text-secondary;
+                        SmallButton { text: root.tab.reader.comments-hidden ? "Show all" : "Hide all"; clicked => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
+                        SmallButton { text: "Summary…"; clicked => { ReaderBridge.notes-action(root.id, 1); } }
+                        Rectangle { horizontal-stretch: 1; }
+                        if root.tab.reader.annots.length > 0: ToolButton { y: -2px; icon: @image-url("../icons/trash-2.svg"); tip: "Remove all comments"; clicked => { ReaderBridge.notes-action(root.id, 2); root.focus-pages(); } }
+                    }
+                    ScrollView {
+                        VerticalLayout {
+                            padding: 8px;
+                            spacing: 6px;
+                            for a[i] in root.tab.reader.annots: Rectangle {
+                                height: al.preferred-height;
+                                border-radius: Theme.radius-item;
+                                background: a.selected ? Theme.menu-selected-bg : at.has-hover ? Theme.popup-hover : Theme.card;
+                                border-width: 1px;
+                                border-color: Theme.sidebar-border;
+                                at := TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { ReaderBridge.annot-clicked(root.id, i); root.focus-pages(); }
+                                }
+                                Rectangle {
+                                    x: 0;
+                                    width: 4px;
+                                    border-radius: 2px;
+                                    background: a.colour;
+                                }
+                                al := VerticalLayout {
+                                    padding: 10px;
+                                    padding-left: 14px;
+                                    spacing: 4px;
+                                    HorizontalLayout {
+                                        Text {
+                                            text: a.kind;
+                                            font-size: Theme.fs-caption;
+                                            font-weight: Theme.weight-demibold;
+                                            color: Theme.text-secondary;
+                                        }
+                                        Rectangle { horizontal-stretch: 1; }
+                                        Text {
+                                            text: a.page-label;
+                                            font-size: Theme.fs-caption;
+                                            color: Theme.text-muted;
+                                        }
                                     }
-                                    Rectangle { horizontal-stretch: 1; }
-                                    Text {
-                                        text: a.page-label;
+                                    if a.text != "": Text {
+                                        text: a.text;
+                                        font-size: Theme.fs-label;
+                                        color: Theme.text;
+                                        wrap: word-wrap;
+                                        overflow: elide;
+                                        max-height: 60px;
+                                    }
+                                    if a.meta != "": Text {
+                                        text: a.meta;
                                         font-size: Theme.fs-caption;
                                         color: Theme.text-muted;
+                                        overflow: elide;
                                     }
                                 }
-                                if a.text != "": Text {
-                                    text: a.text;
-                                    font-size: Theme.fs-label;
-                                    color: Theme.text;
-                                    wrap: word-wrap;
-                                    overflow: elide;
-                                    max-height: 60px;
-                                }
-                                if a.meta != "": Text {
-                                    text: a.meta;
-                                    font-size: Theme.fs-caption;
-                                    color: Theme.text-muted;
-                                    overflow: elide;
-                                }
-                            }
-                            if at.has-hover || a.selected: Rectangle {
-                                x: parent.width - 28px;
-                                y: 6px;
-                                width: 22px;
-                                height: 22px;
-                                border-radius: Theme.radius-small;
-                                background: dt.has-hover ? Theme.pill-bg : transparent;
-                                Image {
-                                    width: 13px;
-                                    height: 13px;
-                                    source: @image-url("../icons/trash-2.svg");
-                                    colorize: Theme.text-muted;
-                                }
-                                dt := TouchArea {
-                                    mouse-cursor: pointer;
-                                    clicked => { ReaderBridge.annot-delete(root.id, i); }
+                                if at.has-hover || a.selected: Rectangle {
+                                    x: parent.width - 28px;
+                                    y: 6px;
+                                    width: 22px;
+                                    height: 22px;
+                                    border-radius: Theme.radius-small;
+                                    background: dt.has-hover ? Theme.pill-bg : transparent;
+                                    Image {
+                                        width: 13px;
+                                        height: 13px;
+                                        source: @image-url("../icons/trash-2.svg");
+                                        colorize: Theme.text-muted;
+                                    }
+                                    dt := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { ReaderBridge.annot-delete(root.id, i); }
+                                    }
                                 }
                             }
                         }

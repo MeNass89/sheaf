@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 61 · open 271, closed 60
+331 components · at parity (≥9): 63 · open 269, closed 62
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -49,30 +49,30 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 40 | C-annotate-008 | normal | Add callout or speech bubble | acrobat | 0 · 0 · 0 → **0** | after core |
 | 41 | C-annotate-018 | normal | Add check, cross or symbol | pdfexpert | 0 · 0 · 0 → **0** | with forms |
 | 42 | C-annotate-021 | normal | Add link annotation | preview | 0 · 0 · 0 → **0** | with edit links |
-| 43 | C-annotate-029 | normal | Remove all annotations | pdfexpert | 0 · 0 · 0 → **0** | remove-annotations tool |
-| 44 | C-annotate-031 | normal | Sort and filter comments | acrobat | 0 · 0 · 0 → **0** | filter by type/colour |
-| 45 | C-annotate-032 | normal | Hide or show all comments | acrobat | 0 · 0 · 0 → **0** | engine set_hide_comments |
-| 46 | C-annotate-033 | normal | Reply to a comment | acrobat | 0 · 0 · 0 → **0** | engine ReplyToAnnotation |
-| 47 | C-annotate-035 | normal | Export or summarise comments | acrobat | 0 · 0 · 0 → **0** | engine summarize_comments |
-| 48 | C-compare-005 | normal | View documents side by side, synced | stirling | 0 · 0 · 0 → **0** | synced side-by-side view |
-| 49 | C-convert-004 | normal | Create PDF from clipboard | preview | 0 · 0 · 0 → **0** | light |
-| 50 | C-convert-006 | normal | Create PDF from scanner or screenshot | acrobat | 0 · 0 · 0 → **0** | light |
-| 51 | C-convert-008 | normal | Create an empty document | pdfexpert | 0 · 0 · 0 → **0** | engine create_blank |
-| 52 | C-convert-013 | normal | Extract embedded images | ilovepdf | 0 · 0 · 0 → **0** | after core |
-| 53 | C-convert-014 | normal | Export PDF as text or RTF | acrobat | 0 · 0 · 0 → **0** | export text (engine text layer) |
-| 54 | C-edit-008 | normal | Replace, rotate or edit an image | acrobat | 0 · 0 · 0 → **0** | engine EditPageImage |
-| 55 | C-edit-012 | normal | Find and replace text | acrobat | 0 · 0 · 0 → **0** | engine ReplaceText |
-| 56 | C-edit-015 | normal | Add header and footer | acrobat | 0 · 0 · 0 → **0** | engine has page marks; add header/footer tool |
-| 57 | C-edit-021 | normal | Add and edit links | acrobat | 0 · 0 · 0 → **0** | engine links |
-| 58 | C-edit-023 | normal | Edit bookmarks and table of contents | acrobat | 0 · 0 · 0 → **0** | with outline editing (reader) |
-| 59 | C-files-006 | normal | Star or pin favourite files | pdfexpert | 0 · 0 · 0 → **0** | light |
-| 60 | C-files-007 | normal | Search, sort and select listed files | stirling | 0 · 0 · 0 → **0** | light |
+| 43 | C-annotate-031 | normal | Sort and filter comments | acrobat | 0 · 0 · 0 → **0** | filter by type/colour |
+| 44 | C-annotate-033 | normal | Reply to a comment | acrobat | 0 · 0 · 0 → **0** | engine ReplyToAnnotation |
+| 45 | C-compare-005 | normal | View documents side by side, synced | stirling | 0 · 0 · 0 → **0** | synced side-by-side view |
+| 46 | C-convert-004 | normal | Create PDF from clipboard | preview | 0 · 0 · 0 → **0** | light |
+| 47 | C-convert-006 | normal | Create PDF from scanner or screenshot | acrobat | 0 · 0 · 0 → **0** | light |
+| 48 | C-convert-008 | normal | Create an empty document | pdfexpert | 0 · 0 · 0 → **0** | engine create_blank |
+| 49 | C-convert-013 | normal | Extract embedded images | ilovepdf | 0 · 0 · 0 → **0** | after core |
+| 50 | C-convert-014 | normal | Export PDF as text or RTF | acrobat | 0 · 0 · 0 → **0** | export text (engine text layer) |
+| 51 | C-edit-008 | normal | Replace, rotate or edit an image | acrobat | 0 · 0 · 0 → **0** | engine EditPageImage |
+| 52 | C-edit-012 | normal | Find and replace text | acrobat | 0 · 0 · 0 → **0** | engine ReplaceText |
+| 53 | C-edit-015 | normal | Add header and footer | acrobat | 0 · 0 · 0 → **0** | engine has page marks; add header/footer tool |
+| 54 | C-edit-021 | normal | Add and edit links | acrobat | 0 · 0 · 0 → **0** | engine links |
+| 55 | C-edit-023 | normal | Edit bookmarks and table of contents | acrobat | 0 · 0 · 0 → **0** | with outline editing (reader) |
+| 56 | C-files-006 | normal | Star or pin favourite files | pdfexpert | 0 · 0 · 0 → **0** | light |
+| 57 | C-files-007 | normal | Search, sort and select listed files | stirling | 0 · 0 · 0 → **0** | light |
+| 58 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
+| 59 | C-files-014 | normal | Favourite and recent tools | ilovepdf | 0 · 0 · 0 → **0** | light |
+| 60 | C-forms-003 | normal | Required field warnings | acrobat | 0 · 0 · 0 → **0** | after fill |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
 |---|---|---|---|
 | ai | 7 | 0.0 | 0 |
-| annotate | 38 | 4.1 | 12 |
+| annotate | 38 | 4.8 | 14 |
 | batch | 9 | 2.3 | 0 |
 | compare | 7 | 5.4 | 0 |
 | convert | 20 | 3.3 | 0 |
@@ -102,7 +102,9 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-annotate-019 | Add date stamp | 9 | Dated stamps (Approved, Confidential, Received, Reviewed, Revised · DATED): 'By <author> at 11:32 am, Oct 21, 2026' in the stamp and /PCByLine (gui-smoke checks it) |
 | C-annotate-022 | Change annotation colour | 9 | Selected annotation recoloured from the colour row, whose dot shows its current colour (dev/re/evidence/F-002/14) |
 | C-annotate-025 | Delete an annotation | 9 | Click selects (blue outline), Delete or the panel's trash removes, ⌘Z restores (dev/re/evidence/F-002/15) |
+| C-annotate-029 | Remove all annotations | 9 | Notes panel trash: Remove all comments in one step, ⌘Z brings them back (gui-smoke checks the saved file both ways) |
 | C-annotate-030 | List comments in a panel | 9 | Notes panel: kind, page, text, then 'author · date' as the file records them (PDF Expert's comment list); click jumps, delete button. Author/date row checked by screenshot (not automatable: reading text off the panel); author written into new annotations checked by gui-smoke |
+| C-annotate-032 | Hide or show all comments | 9 | Notes panel Hide all / Show all: pages render without comments (form fields still drawn), hidden comments not selectable; gui-smoke samples a stamp hidden and shown |
 | C-edit-003 | Add a new text box | 9 | E on empty space adds text with the format row (Sans/Serif/Mono, bold, 9–24 pt, 5 ink colours); gui-smoke checks the text (pdftotext) and the font (pdffonts: Times-Bold) |
 | C-edit-011 | Undo and redo edits | 9 | Undo/redo ⌘Z ⇧⌘Z: 0.19 s on the 1,982-page book (was 2.0 s); gui-smoke: undo then redo restores a note, undo brings a deleted page back |
 | C-edit-014 | Save edited PDF | 9 | ⌘S saves edits in place (incremental, validated by check_save), Save As copies; gui-smoke checks every saved file with qpdf/pdftotext |
