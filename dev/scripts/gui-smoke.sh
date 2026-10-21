@@ -16,6 +16,8 @@ fail() { echo "FAIL $1"; fails=$((fails + 1)); }
 check() { if eval "$2"; then pass "$1"; else fail "$1"; fi; }
 shot() { import -window root "$OUT/$1.png" 2>/dev/null; }
 
+# A display left by an interrupted run is stopped first.
+[ -f /tmp/.X98-lock ] && kill "$(tr -d ' ' </tmp/.X98-lock)" 2>/dev/null && sleep 0.5
 Xvfb :98 -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &
 XVFB=$!
 APP_PID=
@@ -62,8 +64,15 @@ launch() {
     XDG_CONFIG_HOME="$OUT/profile/config" XDG_DATA_HOME="$OUT/profile/data" XDG_CACHE_HOME="$OUT/profile/cache" "$APP" "$@" >"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done
-    sleep 2.5
-    xdotool windowsize "$W" 1280 800; xdotool windowfocus --sync "$W" 2>/dev/null
+    xdotool windowsize "$W" 1280 800
+    # Drawn and loaded: wait until the screen is no longer black, then a moment for the pages.
+    for _ in $(seq 1 40); do
+        m=$(import -window root -crop 600x300+400+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info: 2>/dev/null)
+        python3 -c "import sys; sys.exit(0 if float('${m:-0}') > 0.2 else 1)" && break
+        sleep 0.5
+    done
+    sleep 1
+    xdotool windowfocus --sync "$W" 2>/dev/null
 }
 quit() { kill "$APP_PID" 2>/dev/null; wait "$APP_PID" 2>/dev/null; APP_PID=; }
 # A held click (Slint misses instantaneous ones under Xvfb).
@@ -123,6 +132,12 @@ click 700 650 1.2; key ctrl+s; sleep 1.5
 A2=$(annots "$OUT/text.pdf")
 check "the kept signature is placed again with one click ($A1 → $A2)" "[ $A2 -gt $A1 ]"
 key Escape; key v
+
+# 2c. Edit text: E, click empty space, type, ⌘↩ → new text in the page content.
+key e; sleep 0.8; click 640 600 0.8
+xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Added by smoke"; key ctrl+Return; sleep 1.2
+key Escape; key v; key ctrl+s; sleep 1.5
+check "text added with the Edit tool is in the page content" "pdftotext -f 1 -l 1 $OUT/text.pdf - | grep -q 'Added by smoke'"
 
 # 3. Page operations from the Pages panel: duplicate page 1, delete it again, rotate.
 click 120 230; click 142 778 1.2      # select page 1, Duplicate

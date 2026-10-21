@@ -6146,10 +6146,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 3,
-   "aesthetics": 4,
-   "performance": 6,
-   "overall": 3
+   "function": 7,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -6165,6 +6165,17 @@
      "overall": 3
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Edit text (E) and Add image (I) are tools of the reader, paragraphs outlined (dev/re/evidence/F-002/09); glyphs missing from embedded subsets draw wrong (C-edit-002)"
    }
   ]
  },
@@ -6370,10 +6381,10 @@
    110
   ],
   "grade": {
-   "function": 4,
-   "aesthetics": 5,
-   "performance": 7,
-   "overall": 4
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -6389,6 +6400,17 @@
      "overall": 4
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [104, 105, 110]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "E on empty space adds text to the page content, found by pdftotext in the saved file (gui-smoke PASS); 12 pt Helvetica, no font or size choice yet"
    }
   ]
  },
@@ -7113,14 +7135,14 @@
    113
   ],
   "grade": {
-   "function": 4,
-   "aesthetics": 5,
-   "performance": 7,
-   "overall": 4
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "⌘S saves in place; Save dialog click bug (seed)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -7132,6 +7154,17 @@
      "overall": 4
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [113]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘S saves edits in place (incremental, validated by check_save), Save As copies; gui-smoke checks every saved file with qpdf/pdftotext"
    }
   ]
  },
