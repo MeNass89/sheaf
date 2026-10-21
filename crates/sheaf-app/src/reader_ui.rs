@@ -35,6 +35,8 @@ pub const TEXTBOX: i32 = 6;
 pub const EDIT_TEXT: i32 = 7;
 /// Edit mode: click to place an image.
 pub const ADD_IMAGE: i32 = 8;
+/// Fill & Sign: click to place the signature (made once, kept for every document).
+pub const SIGN: i32 = 9;
 
 use crate::reader_doc::{self, AnnotEntry, Block, Op, Reply, Snap};
 
@@ -106,6 +108,9 @@ pub struct ReaderUi {
     draft: Option<Draft>,
     /// Add image: where the click was, while the file is chosen.
     image_at: Option<(usize, (f64, f64))>,
+    /// Signature: where the click was, and whether the pad is open to make one.
+    sign_at: Option<(usize, (f64, f64))>,
+    sign_open: bool,
     note_seq: i32,
     pen_width: i32,
     /// Pages selected in the Pages panel (empty: the current page is meant).
@@ -169,6 +174,8 @@ impl ReaderUi {
             stroke: None,
             draft: None,
             image_at: None,
+            sign_at: None,
+            sign_open: false,
             note_seq: 0,
             pen_width: 1,
             annot_candidate: None,
@@ -547,6 +554,15 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 r.image_at = Some((page, p));
                 true
             }
+            SIGN => {
+                // Placed at once when a signature exists; otherwise it is made first.
+                r.press = None;
+                r.sign_at = Some((page, p));
+                if saved_signature().is_none() {
+                    r.sign_open = true;
+                }
+                false
+            }
             _ => {
                 if clicks == 2 {
                     // Double-click: the word.
@@ -572,6 +588,9 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
             }
         }
     });
+    if with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).is_some_and(|r| r.sign_at.is_some() && !r.sign_open)) {
+        place_signature(ui, tab_id);
+    }
     if opened == Some(true) && with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).is_some_and(|r| r.image_at.is_some())) {
         pick_image(ui, tab_id);
     }
@@ -791,6 +810,53 @@ fn apply_pending_field(ui: &AppWindow, tab_id: i32) {
     if let Some((page, e)) = update(tab_id, |r, _| r.pending_field.take()).flatten() {
         apply(ui, tab_id, e, &[page], None);
     }
+}
+
+/// The signature kept in the preferences.
+fn saved_signature() -> Option<sheaf_core::sign::Graphic> {
+    let p = crate::home::prefs();
+    if !p.signature_strokes.is_empty() {
+        return Some(sheaf_core::sign::Graphic::Drawn(p.signature_strokes));
+    }
+    p.signature_name.filter(|n| !n.trim().is_empty()).map(sheaf_core::sign::Graphic::Typed)
+}
+
+/// Places the signature where the Signature tool was clicked, 150 pt wide as PDF Expert's default.
+fn place_signature(ui: &AppWindow, tab_id: i32) {
+    let Some(graphic) = saved_signature() else { return };
+    let made = update(tab_id, |r, v| {
+        let (page, at) = r.sign_at.take()?;
+        let b = &v.viewer.boxes[page];
+        let (w, h) = b.view_size();
+        let info = render::PageInfo { width: w as f32, height: h as f32, label: String::new(), crop: b.crop.map(|c| c as f32), rotation: b.rotation };
+        Some((page, sheaf_core::sign::signature_edit(&info, page, [at.0, at.1], 150.0_f64.min(w * 0.6), &graphic)))
+    })
+    .flatten();
+    match made {
+        Some((page, Ok(e))) => apply(ui, tab_id, e, &[page], None),
+        Some((_, Err(e))) => crate::flow::toast(ui, &e.to_string()),
+        None => {}
+    }
+}
+
+/// The signature pad's answer: strokes drawn (pad commands and size) or a name typed; empty
+/// cancels. The signature is kept and placed where the tool was clicked.
+pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, w: f32, h: f32, name: &str) {
+    let strokes = crate::sign_ui::pad_strokes(commands, w, h);
+    let name = name.trim().to_string();
+    update(tab_id, |r, _| r.sign_open = false);
+    if strokes.is_empty() && name.is_empty() {
+        update(tab_id, |r, _| r.sign_at = None);
+        return;
+    }
+    crate::home::set_signature(strokes, (!name.is_empty()).then_some(name));
+    place_signature(ui, tab_id);
+}
+
+/// Forget the kept signature and draw a new one at the next click.
+pub fn signature_reset(tab_id: i32) {
+    crate::home::set_signature(Vec::new(), None);
+    update(tab_id, |r, _| r.sign_open = r.sign_at.is_some());
 }
 
 enum Pending {
@@ -1274,7 +1340,7 @@ pub fn thumb_drop(ui: &AppWindow, tab_id: i32, y: f32) {
 
 pub fn set_tool(tab_id: i32, tool: i32) {
     update(tab_id, |r, v| {
-        r.tool = tool.clamp(SELECT, ADD_IMAGE);
+        r.tool = tool.clamp(SELECT, SIGN);
         r.draft = None;
         r.stroke = None;
         load_blocks(r, v);
@@ -1884,6 +1950,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         zoom_mode: r.zoom_mode,
         pen_width: r.pen_width,
         pages_selected: r.page_sel.len() as i32,
+        sign_open: r.sign_open,
+        has_signature: r.tool == SIGN && saved_signature().is_some(),
         has_form: r.snap.fields.iter().any(|f| f.kind < 4),
         choices: ModelRc::new(VecModel::from(
             r.draft

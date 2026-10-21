@@ -14,7 +14,7 @@ component SectionLabel inherits Text {
 
 // The drawing pad: strokes follow the pointer; each finished stroke is sent as
 // "M x y L x y …" in pad pixels.
-component Pad inherits Rectangle {
+export component Pad inherits Rectangle {
     in property <bool> enabled: true;
     in-out property <string> commands;
     callback stroke-done(string, length, length);

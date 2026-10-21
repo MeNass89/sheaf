@@ -64,7 +64,7 @@ impl OutputMode {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct Prefs {
     pub theme: ThemePref,
@@ -77,6 +77,10 @@ pub struct Prefs {
     pub reader_theme: i32,
     /// The page each document was left on (newest first, at most 200): reopening goes back to it.
     pub last_pages: Vec<(PathBuf, u32)>,
+    /// The signature made in the reader, reused on every document (PDF Expert keeps it too):
+    /// drawn strokes (pad units, y up) or a typed name.
+    pub signature_strokes: Vec<Vec<[f64; 2]>>,
+    pub signature_name: Option<String>,
 }
 
 impl Prefs {

@@ -89,6 +89,8 @@ fn prefs_round_trip_and_corrupt_means_default() {
         author: Some("Ada".into()),
         reader_theme: 2,
         last_pages: vec![(PathBuf::from("/tmp/a.pdf"), 12)],
+        signature_strokes: vec![vec![[0.0, 0.0], [1.0, 0.5]]],
+        signature_name: None,
     };
     p.save(dir.path()).unwrap();
     assert_eq!(Prefs::load(dir.path()), p);

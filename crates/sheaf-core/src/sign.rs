@@ -281,6 +281,16 @@ fn digital_id(d: &DigitalSpec) -> Result<engine::sign::DigitalId> {
     })
 }
 
+/// The edit placing a visible signature (no certificate) `width` points wide, centred on `center`
+/// of page `page` (view space), as a Fill & Sign annotation: what the reader's Signature tool
+/// adds. Undoable, and saved like any annotation.
+pub fn signature_edit(info: &PageInfo, page: usize, center: [f64; 2], width: f64, graphic: &Graphic) -> Result<Edit> {
+    let ready = Ready::new(graphic)?;
+    let (w, h) = ready.extent();
+    let user = box_at(info, center, width, h / w.max(1e-9));
+    place(page, info, user_rect_to_view(info, user), &ready)
+}
+
 /// The edit placing `ready` centred in `view` (view space of page `page`), upright as displayed.
 fn place(page: usize, info: &PageInfo, view: [f64; 4], ready: &Ready) -> Result<Edit> {
     // Drawn ink spreads half its pen width beyond the stroke: keep it inside the box, as the

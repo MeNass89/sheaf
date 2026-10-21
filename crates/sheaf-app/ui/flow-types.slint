@@ -152,6 +152,9 @@ export struct ReaderState {
     // A form choice field being filled: its options.
     choices: [string],
     has-form: bool,
+    // Signature tool: the pad is open to make one; one is kept.
+    sign-open: bool,
+    has-signature: bool,
     results: [ReaderResultRow],
     case-sensitive: bool,
     whole-words: bool,
@@ -446,6 +449,9 @@ export global ReaderBridge {
     callback choice-picked(int, int);
     // 0 clear the form, 1 flatten the form fields, 2 flatten fields and comments.
     callback form-op(int, int);
+    // The signature pad: commands and pad size, or a typed name; reset forgets the kept one.
+    callback signature-made(int, string, length, length, string);
+    callback signature-reset(int);
 }
 
 export global ViewerBridge {

@@ -92,6 +92,11 @@ pub fn typed(tab_id: i32, name: &str) {
     edit(tab_id, |s| s.name = name);
 }
 
+/// Pad commands ("M x y L x y …", pad pixels) as strokes in pad units.
+pub fn pad_strokes(commands: &str, w: f32, h: f32) -> Vec<Vec<[f64; 2]>> {
+    sign_preview::parse_pad(commands, w as f64, h as f64)
+}
+
 pub fn drawn(tab_id: i32, commands: &str, w: f32, h: f32) {
     let strokes = sign_preview::parse_pad(commands, w as f64, h as f64);
     edit(tab_id, |s| s.strokes = strokes);

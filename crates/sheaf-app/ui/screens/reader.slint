@@ -5,6 +5,8 @@
 // ReaderBridge. Coordinates given to Rust are content coordinates of the page scroll.
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
+import { Pad } from "sign-panel.slint";
+import { TextField } from "../widgets/text-field.slint";
 import { ToolTab, ViewerBridge, ReaderBridge, ReaderOutlineRow, ReaderAnnotRow, ReaderResultRow } from "../flow-types.slint";
 
 component ToolButton inherits Rectangle {
@@ -207,6 +209,7 @@ export component ReaderScreen inherits Rectangle {
                     Rectangle { width: 6px; }
                     ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text (E)"; active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); keys.focus(); } }
                     ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image (I)"; active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/signature.svg"); tip: "Sign (S)"; active: root.tab.reader.tool == 9; clicked => { ReaderBridge.set-tool(root.id, 9); keys.focus(); } }
                 }
                 Rectangle { horizontal-stretch: 1; }
                 // Page field and zoom
@@ -356,7 +359,7 @@ export component ReaderScreen inherits Rectangle {
         }
         // Options of the tool in use and the form's actions, a thin bar under the toolbar as in
         // PDF Expert, so the toolbar fits a small window.
-        if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8) || root.tab.reader.selected-annot || root.tab.reader.has-form): Rectangle {
+        if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): Rectangle {
             height: 36px;
             background: Theme.panel-bg;
             HorizontalLayout {
@@ -387,7 +390,12 @@ export component ReaderScreen inherits Rectangle {
                             }
                         }
                     }
-                    if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8) || root.tab.reader.selected-annot: HorizontalLayout {
+                    if root.tab.reader.has-signature: HorizontalLayout {
+                        spacing: 6px;
+                        Text { text: "Click where the signature goes."; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                        SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
+                    }
+                    if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot: HorizontalLayout {
                         spacing: 2px;
                         padding-left: 6px;
                         for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {
@@ -970,6 +978,35 @@ export component ReaderScreen inherits Rectangle {
         }
     }
 
+    // The signature pad (PDF Expert's "Create signature"): draw it, or type a name.
+    if root.tab.reader.sign-open: Rectangle {
+        background: #00000044;
+        TouchArea { }
+        Rectangle {
+            width: 440px;
+            height: sl.preferred-height;
+            border-radius: Theme.radius-card;
+            background: Theme.card;
+            drop-shadow-blur: 24px;
+            drop-shadow-color: #00000055;
+            sl := VerticalLayout {
+                padding: 18px;
+                spacing: 12px;
+                Text { text: "Create your signature"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+                pad := Pad { }
+                Text { text: "or type your name"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                typed := TextField { placeholder: "Your name"; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    SmallButton { text: "Clear"; clicked => { pad.commands = ""; typed.text = ""; } }
+                    Rectangle { horizontal-stretch: 1; }
+                    SmallButton { text: "Cancel"; clicked => { ReaderBridge.signature-made(root.id, "", 1px, 1px, ""); keys.focus(); } }
+                    SmallButton { text: "Use"; primary: true; clicked => { ReaderBridge.signature-made(root.id, pad.commands, pad.width, pad.height, typed.text); keys.focus(); } }
+                }
+            }
+        }
+    }
+
     // Copy goes through a hidden text field: Slint's clipboard is a text input's.
     clip := TextInput {
         x: -1000px;
@@ -1044,6 +1081,7 @@ export component ReaderScreen inherits Rectangle {
             if e.text == "t" { ReaderBridge.set-tool(root.id, 6); return accept; }
             if e.text == "e" { ReaderBridge.set-tool(root.id, 7); return accept; }
             if e.text == "i" { ReaderBridge.set-tool(root.id, 8); return accept; }
+            if e.text == "s" { ReaderBridge.set-tool(root.id, 9); return accept; }
             reject
         }
     }

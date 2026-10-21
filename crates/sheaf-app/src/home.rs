@@ -98,6 +98,17 @@ pub fn last_page(path: &Path) -> Option<usize> {
     with(|h| h.prefs.last_pages.iter().find(|(q, _)| q == &p).map(|(_, n)| *n as usize))
 }
 
+/// The reader's signature, kept for every document: drawn strokes, or a typed name.
+pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>) {
+    with(|h| {
+        h.prefs.signature_strokes = strokes;
+        h.prefs.signature_name = name;
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
 /// Key of history entries that only record a document opened in the reader (for Recents):
 /// they are not tasks and stay out of Tasks History.
 pub const READ: &str = "read";

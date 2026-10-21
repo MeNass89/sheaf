@@ -164,6 +164,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_field_tab, |ui, id, t, back| reader_ui::field_tab(&ui, id, &t, back));
     wire_global!(ui, rb, on_choice_picked, |ui, id, k| reader_ui::choice_picked(&ui, id, k));
     wire_global!(ui, rb, on_form_op, |ui, id, op| reader_ui::form_op(&ui, id, op));
+    wire_global!(ui, rb, on_signature_made, |ui, id, c, w, h, n| reader_ui::signature_made(&ui, id, &c, w, h, &n));
+    rb.on_signature_reset(reader_ui::signature_reset);
     wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));
 }
 
