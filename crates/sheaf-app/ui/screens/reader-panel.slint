@@ -1,0 +1,335 @@
+// The reader's side panel: Pages (thumbnails, drag to reorder, page operations), Outline, Notes
+// and search Results.
+
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
+import { ToolButton, PanelTab, SmallButton } from "reader-parts.slint";
+
+export component ReaderPanel inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    in property <bool> bare;
+    in property <length> panel-width;
+    // The search field's text (the options re-run the search with it).
+    in property <string> search-text;
+    // Pages drag: where the press was, and the drop line (−1: no drag); shared with the reader.
+    in-out property <length> thumb-down-y;
+    in-out property <length> drop-line;
+    in-out property <int> thumb-down-page;
+    // The thumbnail strip's scroll, for rendering what it shows.
+    out property <length> strip-top: -strip.content-y;
+    out property <length> strip-h: strip.visible-height;
+    // The keyboard goes back to the pages.
+    callback focus-pages();
+        visible: root.tab.reader.panel-open && !root.bare;
+        width: root.tab.reader.panel-open && !root.bare ? root.panel-width : 0px;
+        background: Theme.panel-bg;
+        VerticalLayout {
+            HorizontalLayout {
+                padding: 8px;
+                spacing: 2px;
+                PanelTab { text: "Pages"; icon: @image-url("../icons/layout-grid.svg"); selected: root.tab.reader.panel == 0; clicked => { ReaderBridge.set-panel(root.id, 0); } }
+                PanelTab { text: "Outline"; icon: @image-url("../icons/list-tree.svg"); selected: root.tab.reader.panel == 1; clicked => { ReaderBridge.set-panel(root.id, 1); } }
+                PanelTab { text: "Notes"; icon: @image-url("../icons/message-square.svg"); selected: root.tab.reader.panel == 2; clicked => { ReaderBridge.set-panel(root.id, 2); } }
+            }
+            Rectangle { height: 1px; background: Theme.sidebar-border; }
+            Rectangle {
+                vertical-stretch: 1;
+                if root.tab.reader.panel == 3: VerticalLayout {
+                    HorizontalLayout {
+                        padding: 10px;
+                        padding-bottom: 6px;
+                        spacing: 6px;
+                        Text {
+                            text: root.tab.reader.search-count == "None" ? "No results" : root.tab.reader.results.length + (root.tab.reader.search-busy ? "+ results" : root.tab.reader.results.length == 1 ? " result" : " results");
+                            font-size: Theme.fs-caption;
+                            font-weight: Theme.weight-demibold;
+                            color: Theme.text-secondary;
+                            vertical-alignment: center;
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        SmallButton {
+                            text: "Aa";
+                            primary: root.tab.reader.case-sensitive;
+                            clicked => { ReaderBridge.search-options(root.id, !root.tab.reader.case-sensitive, root.tab.reader.whole-words, root.search-text); }
+                        }
+                        SmallButton {
+                            text: "Whole words";
+                            primary: root.tab.reader.whole-words;
+                            clicked => { ReaderBridge.search-options(root.id, root.tab.reader.case-sensitive, !root.tab.reader.whole-words, root.search-text); }
+                        }
+                    }
+                    ScrollView {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            padding: 6px;
+                            padding-top: 0px;
+                            spacing: 2px;
+                            for h[i] in root.tab.reader.results: Rectangle {
+                                height: hl.preferred-height;
+                                border-radius: Theme.radius-button;
+                                background: h.current ? Theme.menu-selected-bg : ht.has-hover ? Theme.popup-hover : transparent;
+                                hl := VerticalLayout {
+                                    padding: 8px;
+                                    spacing: 2px;
+                                    Text {
+                                        text: h.page-label;
+                                        font-size: Theme.fs-caption;
+                                        color: Theme.text-muted;
+                                    }
+                                    // The match in bold inside its context, as PDF Expert lists results.
+                                    StyledText {
+                                        text: @markdown("\{h.before}**\{h.hit}**\{h.after}");
+                                        default-font-size: Theme.fs-label;
+                                        default-color: Theme.text;
+                                        // A fixed width makes it wrap; three lines at most.
+                                        width: root.panel-width - 28px;
+                                        max-lines: 3;
+                                    }
+                                }
+                                // Above the text: StyledText takes clicks for its links.
+                                ht := TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { ReaderBridge.result-clicked(root.id, i); }
+                                }
+                            }
+                        }
+                    }
+                }
+                if root.tab.reader.panel == 1 && root.tab.reader.outline-empty: Text {
+                    x: 16px;
+                    y: 16px;
+                    width: parent.width - 32px;
+                    text: "This document has no outline.";
+                    font-size: Theme.fs-label;
+                    color: Theme.text-muted;
+                    wrap: word-wrap;
+                }
+                if root.tab.reader.panel == 1: ScrollView {
+                    VerticalLayout {
+                        padding-top: 4px;
+                        padding-bottom: 8px;
+                        for r[i] in root.tab.reader.outline: Rectangle {
+                            height: 30px;
+                            background: r.current ? Theme.menu-selected-bg : ot.has-hover ? Theme.popup-hover : transparent;
+                            ot := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { ReaderBridge.outline-clicked(root.id, i); root.focus-pages(); }
+                            }
+                            if r.has-children: Rectangle {
+                                x: 6px + r.depth * 14px;
+                                width: 18px;
+                                Image {
+                                    width: 12px;
+                                    height: 12px;
+                                    source: @image-url("../icons/chevron-right.svg");
+                                    colorize: Theme.text-muted;
+                                    transform-rotation: r.expanded ? 90deg : 0deg;
+                                }
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { ReaderBridge.outline-toggled(root.id, i); }
+                                }
+                            }
+                            Text {
+                                x: 26px + r.depth * 14px;
+                                width: parent.width - self.x - 40px;
+                                text: r.title;
+                                font-size: Theme.fs-label;
+                                font-weight: r.depth == 0 ? Theme.weight-demibold : 400;
+                                color: Theme.text;
+                                overflow: elide;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                x: parent.width - 34px;
+                                width: 26px;
+                                text: r.page-label;
+                                font-size: Theme.fs-caption;
+                                color: Theme.text-muted;
+                                horizontal-alignment: right;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+                if root.tab.reader.panel == 2 && root.tab.reader.annots.length == 0: Text {
+                    x: 16px;
+                    y: 16px;
+                    width: parent.width - 32px;
+                    text: "No annotations yet. Select text and pick Highlight, or choose a tool above.";
+                    font-size: Theme.fs-label;
+                    color: Theme.text-muted;
+                    wrap: word-wrap;
+                }
+                if root.tab.reader.panel == 2: ScrollView {
+                    VerticalLayout {
+                        padding: 8px;
+                        spacing: 6px;
+                        for a[i] in root.tab.reader.annots: Rectangle {
+                            height: al.preferred-height;
+                            border-radius: Theme.radius-item;
+                            background: a.selected ? Theme.menu-selected-bg : at.has-hover ? Theme.popup-hover : Theme.card;
+                            border-width: 1px;
+                            border-color: Theme.sidebar-border;
+                            at := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { ReaderBridge.annot-clicked(root.id, i); root.focus-pages(); }
+                            }
+                            Rectangle {
+                                x: 0;
+                                width: 4px;
+                                border-radius: 2px;
+                                background: a.colour;
+                            }
+                            al := VerticalLayout {
+                                padding: 10px;
+                                padding-left: 14px;
+                                spacing: 4px;
+                                HorizontalLayout {
+                                    Text {
+                                        text: a.kind;
+                                        font-size: Theme.fs-caption;
+                                        font-weight: Theme.weight-demibold;
+                                        color: Theme.text-secondary;
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    Text {
+                                        text: a.page-label;
+                                        font-size: Theme.fs-caption;
+                                        color: Theme.text-muted;
+                                    }
+                                }
+                                if a.text != "": Text {
+                                    text: a.text;
+                                    font-size: Theme.fs-label;
+                                    color: Theme.text;
+                                    wrap: word-wrap;
+                                    overflow: elide;
+                                    max-height: 60px;
+                                }
+                            }
+                            if at.has-hover || a.selected: Rectangle {
+                                x: parent.width - 28px;
+                                y: 6px;
+                                width: 22px;
+                                height: 22px;
+                                border-radius: Theme.radius-small;
+                                background: dt.has-hover ? Theme.pill-bg : transparent;
+                                Image {
+                                    width: 13px;
+                                    height: 13px;
+                                    source: @image-url("../icons/trash-2.svg");
+                                    colorize: Theme.text-muted;
+                                }
+                                dt := TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { ReaderBridge.annot-delete(root.id, i); }
+                                }
+                            }
+                        }
+                    }
+                }
+                strip := ScrollView {
+                    visible: root.tab.reader.panel == 0;
+                    height: parent.height - (root.tab.reader.panel == 0 ? 44px : 0px);
+                    content-width: self.visible-width;
+                    content-height: root.tab.viewer-thumbs-height + 20px;
+                    for t in root.tab.viewer-thumbs: Rectangle {
+                        x: (strip.visible-width - 150px) / 2;
+                        y: t.y;
+                        width: 150px;
+                        height: t.h + 18px;
+                        Rectangle {
+                            height: t.h;
+                            y: 0;
+                            background: Theme.thumb-placeholder;
+                            border-width: t.selected || t.page == root.tab.viewer-current ? 2px : 0px;
+                            border-color: t.selected ? Theme.info : Theme.accent;
+                            drop-shadow-blur: 5px;
+                            drop-shadow-color: Theme.thumb-shadow;
+                            drop-shadow-offset-y: 1px;
+                            if t.ready: Image {
+                                x: 2px;
+                                y: 2px;
+                                width: parent.width - 4px;
+                                height: parent.height - 4px;
+                                source: t.image;
+                                image-fit: fill;
+                            }
+                            if t.selected: Rectangle {
+                                background: Theme.info.with-alpha(0.12);
+                            }
+                        }
+                        Text {
+                            y: t.h + 3px;
+                            width: parent.width;
+                            text: t.page + 1;
+                            font-size: Theme.fs-caption;
+                            color: t.page == root.tab.viewer-current ? Theme.accent : Theme.text-muted;
+                            horizontal-alignment: center;
+                        }
+                    }
+                    // One area over the whole strip: the thumbnails' model is replaced on
+                    // every refresh, which would drop a press held on one of them.
+                    TouchArea {
+                        width: strip.visible-width;
+                        height: root.tab.viewer-thumbs-height + 20px;
+                        mouse-cursor: root.drop-line >= 0 ? move : pointer;
+                        pointer-event(e) => {
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                                root.thumb-down-y = self.mouse-y;
+                                root.thumb-down-page = ReaderBridge.thumb-at(root.id, self.mouse-y);
+                                if root.thumb-down-page >= 0 {
+                                    ReaderBridge.thumb-pressed(root.id, root.thumb-down-page, e.modifiers.shift, e.modifiers.control || e.modifiers.meta);
+                                }
+                                root.focus-pages();
+                            } else if e.kind == PointerEventKind.up && root.drop-line >= 0 {
+                                ReaderBridge.thumb-drop(root.id, self.mouse-y);
+                                root.drop-line = -1px;
+                            } else if e.kind == PointerEventKind.up {
+                                ReaderBridge.thumb-released(root.id);
+                            }
+                        }
+                        moved => {
+                            if self.pressed && root.thumb-down-page >= 0 && abs(self.mouse-y - root.thumb-down-y) > 8px {
+                                root.drop-line = ReaderBridge.thumb-drag(root.id, root.thumb-down-page, self.mouse-y);
+                            }
+                        }
+                    }
+                    if root.drop-line >= 0: Rectangle {
+                        x: 12px;
+                        y: root.drop-line - 1.5px;
+                        width: strip.visible-width - 24px;
+                        height: 3px;
+                        border-radius: 1.5px;
+                        background: Theme.info;
+                    }
+                }
+                // Page actions on the selection (or the page shown), PDF Expert's page strip.
+                if root.tab.reader.panel == 0: Rectangle {
+                    y: parent.height - 44px;
+                    height: 44px;
+                    background: Theme.panel-bg;
+                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
+                    HorizontalLayout {
+                        padding: 7px;
+                        spacing: 2px;
+                        alignment: center;
+                        ToolButton { icon: @image-url("../icons/rotate-ccw.svg"); tip: "Rotate left"; clicked => { ReaderBridge.page-op(root.id, 0); } }
+                        ToolButton { icon: @image-url("../icons/rotate-cw.svg"); tip: "Rotate right"; clicked => { ReaderBridge.page-op(root.id, 1); } }
+                        ToolButton { icon: @image-url("../icons/plus.svg"); tip: "Insert blank page after"; clicked => { ReaderBridge.page-op(root.id, 5); } }
+                        ToolButton { icon: @image-url("../icons/copy.svg"); tip: "Duplicate"; clicked => { ReaderBridge.page-op(root.id, 3); } }
+                        ToolButton { icon: @image-url("../icons/file-output.svg"); tip: "Extract…"; clicked => { ReaderBridge.page-op(root.id, 4); } }
+                        ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete"; clicked => { ReaderBridge.page-op(root.id, 2); } }
+                    }
+                }
+            }
+        }
+        Rectangle {
+            x: parent.width - 1px;
+            width: 1px;
+            background: Theme.sidebar-border;
+        }
+}

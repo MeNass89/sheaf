@@ -37,7 +37,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | `state.rs` | Tabs (tool tabs and document tabs) and how they reach the Slint model. |
 | `flow.rs`, `run.rs`, `jobs.rs`, `dest.rs`, `files.rs`, `pool.rs` | A tool tab: adding files, options → job, running off the UI thread, where outputs go. |
 | `home.rs`, `history.rs`, `prefs.rs`, `store_file.rs` | Recents, task history, preferences, their JSON files. |
-| `reader_ui.rs` | The reader (a PDF open in its own tab): tools, pointer, panels, search, pages, forms, signature, print sheet. |
+| `reader_ui/` | The reader (a PDF open in its own tab): `mod.rs` state and opening; `pointer`, `edits`, `forms`, `sign`, `pages`, `search`, `nav`, `tools`, `saving`, `print_sheet`; `model.rs` pushes the state to Slint. |
 | `reader_doc.rs` | The reader's document on its own thread: edits (`Op`) in, snapshots (`Reply`) out, saving. |
 | `reader.rs` | Reader logic without UI types: themes, text selection, outline. |
 | `print.rs` | Printing through CUPS `lp`: printers, page ranges, `lp` options. |
@@ -50,7 +50,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | Change | Where |
 |---|---|
 | A new tool | engine in `sheaf-core/src/<tool>.rs` + `tools.rs`; options in `sheaf-app/ui/screens/options.slint` and `run.rs`; a CLI subcommand in `sheaf-cli/src/main.rs` |
-| A reader tool, shortcut or panel | `ui/screens/reader.slint` (UI, keys) + `src/reader_ui.rs` (behaviour); state fields in `ui/flow-types.slint` (`ReaderState`, `ReaderBridge`) |
+| A reader tool, shortcut or panel | `ui/screens/reader.slint` (toolbar, pages, sheets, keys), `reader-panel.slint` (side panel), `reader-parts.slint` (small controls) + `src/reader_ui/<part>.rs` (behaviour); state fields in `ui/flow-types.slint` (`ReaderState`, `ReaderBridge`) |
 | An edit to the open document | `Op` in `reader_doc.rs`, sent from `reader_ui.rs` |
 | Colours, sizes, fonts | `ui/theme.slint` |
 | A preference | `prefs.rs` + `ui/screens/preferences.slint` |

@@ -1,0 +1,122 @@
+// Small controls shared by the reader screen and its side panel.
+
+import { Theme } from "../theme.slint";
+
+export component ToolButton inherits Rectangle {
+    in property <image> icon;
+    in property <bool> active;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    callback clicked();
+    width: 30px;
+    height: 30px;
+    border-radius: Theme.radius-button;
+    background: root.active ? Theme.pill-bg : ta.has-hover && root.enabled ? Theme.popup-hover : transparent;
+    Image {
+        width: 17px;
+        height: 17px;
+        source: root.icon;
+        colorize: !root.enabled ? Theme.text-disabled : root.active ? Theme.accent : Theme.text-secondary;
+    }
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    if ta.has-hover && root.tip != "": Rectangle {
+        y: parent.height + 6px;
+        x: (parent.width - self.width) / 2;
+        width: tipt.preferred-width + 14px;
+        height: 22px;
+        border-radius: Theme.radius-small;
+        background: Theme.toast-bg;
+        tipt := Text {
+            text: root.tip;
+            font-size: Theme.fs-caption;
+            color: Theme.on-toast;
+        }
+    }
+}
+
+export component Divider inherits Rectangle {
+    width: 1px;
+    height: 20px;
+    background: Theme.separator;
+}
+
+export component ColourDot inherits Rectangle {
+    in property <color> colour;
+    in property <bool> selected;
+    callback clicked();
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    border-width: root.selected ? 2px : 0px;
+    border-color: Theme.text;
+    Rectangle {
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: root.colour;
+        border-width: 1px;
+        border-color: #00000022;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component PanelTab inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked();
+    height: 28px;
+    border-radius: Theme.radius-button;
+    background: root.selected ? Theme.pill-bg : t.has-hover ? Theme.popup-hover : transparent;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 6px;
+        alignment: center;
+        Image {
+            width: 14px;
+            height: 14px;
+            y: (parent.height - self.height) / 2;
+            source: root.icon;
+            colorize: root.selected ? Theme.text : Theme.text-muted;
+        }
+        Text {
+            text: root.text;
+            font-size: Theme.fs-caption;
+            font-weight: root.selected ? Theme.weight-demibold : 400;
+            color: root.selected ? Theme.text : Theme.text-muted;
+            vertical-alignment: center;
+        }
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component SmallButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary;
+    callback clicked();
+    height: 26px;
+    width: lbl.preferred-width + 20px;
+    border-radius: Theme.radius-button;
+    background: root.primary ? (t.has-hover ? Theme.accent-hover : Theme.accent) : (t.has-hover ? Theme.popup-hover : Theme.pill-bg);
+    lbl := Text {
+        text: root.text;
+        font-size: Theme.fs-label;
+        font-weight: Theme.weight-demibold;
+        color: root.primary ? Theme.on-accent : Theme.text;
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
