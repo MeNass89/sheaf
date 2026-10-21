@@ -115,15 +115,17 @@ pub fn current(layout: &[(f64, f64)], top: f64, height: f64) -> usize {
     layout.iter().rposition(|(y, _)| *y <= mid).unwrap_or(0)
 }
 
-/// Zoom steps offered by ⌘+ / ⌘− (percent of the fit width).
-pub const ZOOMS: [u32; 7] = [50, 67, 80, 100, 125, 150, 200];
+/// Zoom steps offered by ⌘+ / ⌘− (percent of the fit width), PDF Expert's range.
+pub const ZOOMS: [u32; 12] = [25, 33, 50, 67, 80, 100, 125, 150, 200, 250, 300, 400];
+pub const MIN_ZOOM: u32 = 25;
+pub const MAX_ZOOM: u32 = 400;
 
-/// The next zoom step up (`dir` > 0) or down from `zoom`, within 50–200 %.
+/// The next zoom step up (`dir` > 0) or down from `zoom`, within 25–400 %.
 pub fn step_zoom(zoom: u32, dir: i32) -> u32 {
     if dir > 0 {
-        ZOOMS.iter().copied().find(|z| *z > zoom).unwrap_or(200)
+        ZOOMS.iter().copied().find(|z| *z > zoom).unwrap_or(MAX_ZOOM)
     } else {
-        ZOOMS.iter().rev().copied().find(|z| *z < zoom).unwrap_or(50)
+        ZOOMS.iter().rev().copied().find(|z| *z < zoom).unwrap_or(MIN_ZOOM)
     }
 }
 
@@ -292,7 +294,7 @@ impl Viewer {
     }
 
     pub fn set_zoom(&mut self, zoom: u32) -> bool {
-        let zoom = zoom.clamp(50, 200);
+        let zoom = zoom.clamp(MIN_ZOOM, MAX_ZOOM);
         let changed = zoom != self.zoom;
         self.zoom = zoom;
         self.relayout();
@@ -301,6 +303,18 @@ impl Viewer {
 
     pub fn zoom(&self) -> u32 {
         self.zoom
+    }
+
+    /// The zoom (percent of the fit width) at which the tallest page of `pages` fits a viewport
+    /// `height` high: the reader's Fit page.
+    pub fn fit_page_zoom(&self, height: f64, pages: Range<usize>) -> u32 {
+        let fit_w = (self.fit_width - 2.0 * PAGE_GAP).max(1.0);
+        let ratio = pages.filter_map(|i| self.boxes.get(i)).map(|b| { let (w, h) = b.view_size(); h / w.max(1e-9) }).fold(0.0, f64::max);
+        if ratio <= 0.0 {
+            return 100;
+        }
+        let want_w = (height - 2.0 * PAGE_GAP).max(1.0) / ratio;
+        ((want_w / fit_w * 100.0).floor() as u32).clamp(MIN_ZOOM, 100)
     }
 
     pub fn page_count(&self) -> usize {
@@ -392,6 +406,8 @@ pub struct RenderKey {
     pub page: usize,
     pub width: u32,
     pub thumb: bool,
+    /// Revision of the page's look (an edit, a page theme): a newer one replaces older renders.
+    pub rev: u64,
 }
 
 type Task = Box<dyn FnOnce() + Send>;
@@ -490,8 +506,12 @@ pub fn renders() -> &'static RenderQueue {
 /// the file's structure only (no page is drawn).
 pub fn page_boxes(bytes: &Arc<Vec<u8>>, password: Option<&str>) -> sheaf_core::Result<Vec<PageBox>> {
     let info = render::inspect(bytes.clone(), password).map_err(|e| sheaf_core::OpdfError::Engine(e.to_string()))?;
-    Ok(info
-        .pages
+    Ok(boxes_of(&info.pages))
+}
+
+/// The viewer's page boxes from PdfCraft's page list (a document already inspected).
+pub fn boxes_of(pages: &[render::PageInfo]) -> Vec<PageBox> {
+    pages
         .iter()
         .map(|p| {
             let crop = p.crop.map(f64::from);
@@ -502,7 +522,7 @@ pub fn page_boxes(bytes: &Arc<Vec<u8>>, password: Option<&str>) -> sheaf_core::R
             let unit = if across > 1e-9 && p.width > 0.0 { f64::from(p.width) / across } else { 1.0 };
             PageBox { crop, rotation, unit }
         })
-        .collect())
+        .collect()
 }
 
 /// Page `page` of `input` rendered `width` pixels wide, as RGBA.
@@ -520,6 +540,27 @@ pub fn render_page(input: &sheaf_core::pages::Input, page: usize, width: u32) ->
     let bmp = p.render_with_config(&PdfRenderConfig::new().set_target_width(width as i32)).map_err(|e| e.to_string())?;
     let (w, h) = (bmp.width() as u32, bmp.height() as u32);
     Ok(slint::SharedPixelBuffer::clone_from_slice(&bmp.as_rgba_bytes(), w, h))
+}
+
+/// Page `page` of a PDF held in memory (`bytes`, opened with `password`) rendered `width` pixels
+/// wide, as RGBA, then recoloured for `theme`: the reader's pages, which show edits not saved yet.
+pub fn render_bytes(
+    bytes: &[u8],
+    password: Option<&str>,
+    page: usize,
+    width: u32,
+    theme: crate::reader::PageTheme,
+) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
+    use pdfium_render::prelude::PdfRenderConfig;
+    let _g = sheaf_core::engine::pdfium_lock();
+    let doc = sheaf_core::engine::open_pdf_bytes(bytes, password).map_err(|e| e.to_string())?;
+    let p = doc.pages().get(page as i32).map_err(|e| e.to_string())?;
+    let config = PdfRenderConfig::new().set_target_width(width as i32).render_form_data(true).render_annotations(true);
+    let bmp = p.render_with_config(&config).map_err(|e| e.to_string())?;
+    let (w, h) = (bmp.width() as u32, bmp.height() as u32);
+    let mut rgba = bmp.as_rgba_bytes();
+    crate::reader::tint(&mut rgba, theme);
+    Ok(slint::SharedPixelBuffer::clone_from_slice(&rgba, w, h))
 }
 
 #[cfg(test)]
@@ -603,8 +644,9 @@ mod tests {
     fn zoom_steps_stay_within_50_and_200() {
         assert_eq!(step_zoom(100, 1), 125);
         assert_eq!(step_zoom(100, -1), 80);
-        assert_eq!(step_zoom(200, 1), 200);
-        assert_eq!(step_zoom(50, -1), 50);
+        assert_eq!(step_zoom(400, 1), 400);
+        assert_eq!(step_zoom(25, -1), 25);
+        assert_eq!(step_zoom(200, 1), 250);
     }
 
     fn mixed() -> Viewer {
@@ -670,7 +712,7 @@ mod tests {
         use std::sync::atomic::{AtomicUsize, Ordering};
         let q = RenderQueue::new(3);
         let done = Arc::new(AtomicUsize::new(0));
-        let key = |page| RenderKey { doc: 1, page, width: 100, thumb: false };
+        let key = |page| RenderKey { doc: 1, page, width: 100, thumb: false, rev: 0 };
         for page in 0..12 {
             let done = done.clone();
             assert!(q.submit(key(page), move || {

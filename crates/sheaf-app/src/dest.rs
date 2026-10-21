@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 
 use sheaf_app::jobs;
 use sheaf_app::prefs::{OutputMode, Prefs};
-use sheaf_app::ToolOptions;
+use sheaf_app::{AppWindow, ToolOptions};
+
+use crate::dialog;
 use sheaf_core::tools::ToolId;
 
 /// Where the outputs go.
@@ -74,19 +76,17 @@ pub fn save_filter(tool: ToolId) -> (&'static str, &'static str) {
     }
 }
 
-pub fn ask_dest(tool: ToolId, inputs: &[PathBuf], opts: &ToolOptions) -> Option<Dest> {
-    let first = inputs.first()?;
+/// Asks where the outputs go (Save sheet or folder picker); `then` runs once the user confirms.
+pub fn ask_dest(ui: &AppWindow, tool: ToolId, inputs: &[PathBuf], opts: &ToolOptions, then: impl FnOnce(&AppWindow, Dest) + 'static) {
+    let Some(first) = inputs.first() else { return };
     let dir = parent_dir(first);
     if writes_folder(tool, inputs) {
-        rfd::FileDialog::new().set_title("Choose a folder for the files").set_directory(&dir).pick_folder().map(Dest::Folder)
+        let d = dialog::new(ui).set_title("Choose a folder for the files").set_directory(&dir);
+        dialog::pick_folder(ui, d, move |ui, p| then(ui, Dest::Folder(p)));
     } else {
         let (name, ext) = save_filter(tool);
-        rfd::FileDialog::new()
-            .set_directory(&dir)
-            .set_file_name(out_name(tool, first, opts))
-            .add_filter(name, &[ext])
-            .save_file()
-            .map(Dest::File)
+        let d = dialog::new(ui).set_directory(&dir).set_file_name(out_name(tool, first, opts)).add_filter(name, &[ext]);
+        dialog::save_file(ui, d, move |ui, p| then(ui, Dest::File(p)));
     }
 }
 

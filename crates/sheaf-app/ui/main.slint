@@ -7,12 +7,13 @@ import { HistoryScreen, ClearHistoryDialog } from "screens/history.slint";
 import { PreferencesScreen } from "screens/preferences.slint";
 import { RecentFile, HistoryRow } from "history-types.slint";
 import { ToolsScreen, ToolSection } from "screens/tools.slint";
-import { ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, Parse, OcrInfo, OcrLanguage, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay } from "flow-types.slint";
+import { ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderNote, ReaderMark, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay } from "flow-types.slint";
 import { ToolFlowScreen } from "screens/tool-flow.slint";
+import { ReaderScreen } from "screens/reader.slint";
 import { ResultScreen } from "screens/result.slint";
-import { PasswordDialog, ConfirmCloseDialog, Toast } from "screens/dialogs.slint";
+import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, Toast } from "screens/dialogs.slint";
 
-export { Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
+export { Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderNote, ReaderMark, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
 export enum Page { recents, tools, history, preferences }
 
@@ -83,6 +84,8 @@ export component AppWindow inherits Window {
     in property <int> pw-attempt;
     // Closing a tab with a running job
     in property <bool> confirm-visible;
+    in property <string> unsaved-file;
+    callback unsaved-answer(int);
     // Bottom-centre toast
     in property <string> toast-text;
     in property <bool> toast-visible;
@@ -115,7 +118,6 @@ export component AppWindow inherits Window {
     callback start-over(int);
     callback continue-to(int, string);
     callback get-libreoffice();
-    callback pick-image() -> string;
     callback pw-unlock(string);
     callback pw-skip();
     callback confirm-cancel-job();
@@ -200,7 +202,10 @@ export component AppWindow inherits Window {
             // Tool tabs: one instance each, so their options survive tab switches.
             for t[i] in root.tabs: Rectangle {
                 visible: root.active-tab == i;
-                ToolFlowScreen {
+                if t.is-reader: ReaderScreen {
+                    tab: t;
+                }
+                if !t.is-reader: ToolFlowScreen {
                     visible: t.phase < 2;
                     tab: t;
                     open-files => { root.add-files(t.id); }
@@ -212,7 +217,6 @@ export component AppWindow inherits Window {
                     run(o) => { root.run-tool(t.id, o); }
                     cancel => { root.cancel-job(t.id); }
                     get-libreoffice => { root.get-libreoffice(); }
-                    pick-image => { return root.pick-image(); }
                     open-slot(k) => { root.open-slot(t.id, k); }
                     swap-slots => { root.swap-slots(t.id); }
                 }
@@ -246,6 +250,12 @@ export component AppWindow inherits Window {
             root.clear-history();
         }
         cancel => { root.confirm-clear = false; }
+    }
+    if root.unsaved-file != "": UnsavedDialog {
+        file-name: root.unsaved-file;
+        save => { root.unsaved-answer(1); }
+        discard => { root.unsaved-answer(2); }
+        cancel => { root.unsaved-answer(0); }
     }
     if root.confirm-visible: ConfirmCloseDialog {
         cancel-job => { root.confirm-cancel-job(); }

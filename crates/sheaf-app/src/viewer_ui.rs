@@ -38,8 +38,8 @@ pub struct ViewerUi {
     pub viewer: Viewer,
     /// Device pixels per logical pixel (2 on Retina).
     scale: f64,
-    top: f64,
-    height: f64,
+    pub top: f64,
+    pub height: f64,
     strip_top: f64,
     strip_height: f64,
     pages: Lru<RenderKey, Image>,
@@ -48,9 +48,17 @@ pub struct ViewerUi {
     /// A zoom change waits this timer (150 ms) before pages are rendered at the new size.
     zoom_timer: Option<slint::Timer>,
     zoom_settling: bool,
-    scroll: f64,
-    scroll_seq: i32,
+    pub scroll: f64,
+    pub scroll_seq: i32,
     drag: Option<(usize, f64, f64)>,
+    /// The reader renders its working copy (edits not saved yet) from memory; tools read the file.
+    pub source: Option<Arc<Vec<u8>>>,
+    pub theme: sheaf_app::reader::PageTheme,
+    /// Revision of each page's look: bumped by an edit of the page; `base_rev` by a change of
+    /// every page (theme, undo). Renders of an older revision stay on screen until replaced.
+    revs: std::collections::HashMap<usize, u64>,
+    base_rev: u64,
+    next_rev: u64,
     // Redact
     pub found: Vec<Found>,
     pub manual: Vec<Manual>,
@@ -77,19 +85,84 @@ impl ViewerUi {
         viewer::wanted(&self.viewer.thumb_layout(), self.strip_top, self.strip_height)
     }
 
+    pub fn new(input: Input, viewer: Viewer, scale: f64, viewport: (f32, f32, f32), strip: (f32, f32)) -> Self {
+        let ((_, top, h), (stop, sh)) = (viewport, strip);
+        ViewerUi {
+            load_id: next_load_id(),
+            input,
+            viewer,
+            scale,
+            top: top as f64,
+            height: h as f64,
+            strip_top: stop as f64,
+            strip_height: sh as f64,
+            pages: Lru::new(CACHE_CAP),
+            page_bytes: 0,
+            thumbs: Lru::new(THUMB_CAP),
+            zoom_timer: None,
+            zoom_settling: false,
+            scroll: 0.0,
+            scroll_seq: 0,
+            drag: None,
+            source: None,
+            theme: Default::default(),
+            revs: Default::default(),
+            base_rev: 0,
+            next_rev: 1,
+            found: Vec::new(),
+            manual: Vec::new(),
+            focused: None,
+            searched: false,
+            busy: false,
+            sign_at: None,
+        }
+    }
+
+    fn rev(&self, page: usize) -> u64 {
+        self.revs.get(&page).copied().unwrap_or(0).max(self.base_rev)
+    }
+
+    /// Page `page` looks different now: render it again (the old render stays until then).
+    pub fn page_changed(&mut self, page: usize) {
+        self.revs.insert(page, self.next_rev);
+        self.next_rev += 1;
+    }
+
+    /// Every page looks different now (a theme, an undo).
+    pub fn all_changed(&mut self) {
+        self.base_rev = self.next_rev;
+        self.next_rev += 1;
+    }
+
+    /// Scrolls so page `page` (and the point `at` of it, in view points) is in view.
+    pub fn show_page(&mut self, page: usize, focus: Option<[f64; 4]>) {
+        self.scroll = self.viewer.scroll_to(page.min(self.viewer.page_count().saturating_sub(1)), focus, self.height);
+        self.scroll_seq += 1;
+    }
+
+    /// The page under the middle of the viewport.
+    pub fn current(&self) -> usize {
+        self.viewer.current(self.top, self.height)
+    }
+
     fn page_key(&self, page: usize) -> RenderKey {
-        RenderKey { doc: self.load_id, page, width: self.viewer.render_px(page, self.scale), thumb: false }
+        RenderKey { doc: self.load_id, page, width: self.viewer.render_px(page, self.scale), thumb: false, rev: self.rev(page) }
     }
 
     fn thumb_key(&self, page: usize) -> RenderKey {
-        RenderKey { doc: self.load_id, page, width: (viewer::THUMB_WIDTH * THUMB_SCALE) as u32, thumb: true }
+        RenderKey { doc: self.load_id, page, width: (viewer::THUMB_WIDTH * THUMB_SCALE) as u32, thumb: true, rev: self.rev(page) }
     }
 
-    /// The render of `page` at the current width, else the newest at another width (shown
-    /// stretched while the right one is made).
+    /// The render of `page` at the current width, else the newest at another width or revision
+    /// (shown stretched or stale while the right one is made).
     fn any_page_image(&self, page: usize) -> Option<&Image> {
         let exact = self.page_key(page);
         self.pages.peek(&exact).or_else(|| self.pages.keys().rev().find(|k| k.page == page).and_then(|k| self.pages.peek(k)))
+    }
+
+    fn any_thumb(&self, page: usize) -> Option<&Image> {
+        let exact = self.thumb_key(page);
+        self.thumbs.peek(&exact).or_else(|| self.thumbs.keys().rev().find(|k| k.page == page).and_then(|k| self.thumbs.peek(k)))
     }
 }
 
@@ -124,30 +197,7 @@ pub fn load(ui: &AppWindow, tab_id: i32, input: Input) {
                     Ok(boxes) => {
                         let mut viewer = Viewer::new(boxes);
                         viewer.set_width(w as f64);
-                        t.viewer = Some(Box::new(ViewerUi {
-                            load_id: next_load_id(),
-                            input,
-                            viewer,
-                            scale,
-                            top: top as f64,
-                            height: h as f64,
-                            strip_top: stop as f64,
-                            strip_height: sh as f64,
-                            pages: Lru::new(CACHE_CAP),
-                            page_bytes: 0,
-                            thumbs: Lru::new(THUMB_CAP),
-                            zoom_timer: None,
-                            zoom_settling: false,
-                            scroll: 0.0,
-                            scroll_seq: 0,
-                            drag: None,
-                            found: Vec::new(),
-                            manual: Vec::new(),
-                            focused: None,
-                            searched: false,
-                            busy: false,
-                            sign_at: None,
-                        }));
+                        t.viewer = Some(Box::new(ViewerUi::new(input, viewer, scale, (w, top, h), (stop, sh))));
                         t.viewer_error = None;
                         true
                     }
@@ -189,16 +239,20 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
             keys.extend(v.wanted_pages().map(|p| v.page_key(p)).filter(|k| !v.pages.contains(k)));
         }
         keys.extend(v.wanted_thumbs().map(|p| v.thumb_key(p)).filter(|k| !v.thumbs.contains(k)));
-        Some((v.load_id, keys, v.input.clone()))
+        Some((v.load_id, keys, v.input.clone(), v.source.clone(), v.theme))
     });
-    let Some((load_id, keys, input)) = todo else { return };
+    let Some((load_id, keys, input, source, theme)) = todo else { return };
     let wanted: HashSet<RenderKey> = keys.iter().copied().collect();
     let q = viewer::renders();
     q.retain(|k| k.doc != load_id || wanted.contains(k));
     for key in keys {
-        let (weak, input) = (ui.as_weak(), input.clone());
+        let (weak, input, source) = (ui.as_weak(), input.clone(), source.clone());
         q.submit(key, move || {
-            let Ok(px) = viewer::render_page(&input, key.page, key.width) else { return };
+            let px = match &source {
+                Some(bytes) => viewer::render_bytes(bytes, input.password.as_deref(), key.page, key.width, theme),
+                None => viewer::render_page(&input, key.page, key.width),
+            };
+            let Ok(px) = px else { return };
             let _ = weak.upgrade_in_event_loop(move |_| {
                 let image = Image::from_rgba8(px);
                 update(tab_id, |v| {
@@ -206,11 +260,13 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
                         return;
                     }
                     if key.thumb {
+                        v.thumbs.retain(|k| k.page != key.page || k.rev >= key.rev);
                         v.thumbs.put(key, image);
                         return;
                     }
-                    // The page's render at another zoom was only kept to show until this one came.
-                    let mut evicted = v.pages.retain(|k| k.page != key.page || k.width == key.width);
+                    // The page's render at another zoom or of an older revision was only kept to
+                    // show until this one came.
+                    let mut evicted = v.pages.retain(|k| k.page != key.page || (k.width == key.width && k.rev >= key.rev));
                     v.page_bytes += image_bytes(&image);
                     evicted.extend(v.pages.put(key, image));
                     v.page_bytes -= evicted.iter().map(|(_, i)| image_bytes(i)).sum::<usize>();
@@ -245,6 +301,7 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) 
         v.top = top as f64;
         v.height = height as f64;
     });
+    crate::reader_ui::viewport_changed(tab_id);
     request(ui, tab_id);
 }
 
@@ -269,8 +326,15 @@ pub fn thumb_clicked(tab_id: i32, page: i32) {
 }
 
 pub fn zoom_step(ui: &AppWindow, tab_id: i32, dir: i32) {
+    let Some(z) = with(|a| a.tab(tab_id)?.viewer.as_deref().map(|v| if dir == 0 { 100 } else { viewer::step_zoom(v.viewer.zoom(), dir) })) else { return };
+    zoom_to(ui, tab_id, z);
+    crate::reader_ui::zoom_changed(tab_id);
+}
+
+/// Sets the zoom to `z` percent of the fit width, keeping the same part of the document in view;
+/// pages render at the new size once the zoom has settled.
+pub fn zoom_to(ui: &AppWindow, tab_id: i32, z: u32) {
     let changed = update(tab_id, |v| {
-        let z = if dir == 0 { 100 } else { viewer::step_zoom(v.viewer.zoom(), dir) };
         let old_h = v.viewer.content_height();
         if !v.viewer.set_zoom(z) {
             return false;
@@ -524,7 +588,7 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     let thumbs: Vec<ViewerThumb> = v
         .wanted_thumbs()
         .map(|i| {
-            let image = v.thumbs.peek(&v.thumb_key(i)).cloned();
+            let image = v.any_thumb(i).cloned();
             ViewerThumb { page: i as i32, y: len(tl[i].0), h: len(tl[i].1), ready: image.is_some(), image: image.unwrap_or_default() }
         })
         .collect();

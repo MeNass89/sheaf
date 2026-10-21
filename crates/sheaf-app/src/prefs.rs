@@ -71,6 +71,10 @@ pub struct Prefs {
     pub output: OutputMode,
     pub fixed_folder: Option<PathBuf>,
     pub open_folder_after: bool,
+    /// Name written as the author of annotations made in the reader.
+    pub author: Option<String>,
+    /// The reader's page theme (0 day, 1 night, 2 sepia), kept for the next document.
+    pub reader_theme: i32,
 }
 
 impl Prefs {

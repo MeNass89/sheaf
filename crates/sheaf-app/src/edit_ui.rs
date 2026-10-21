@@ -327,9 +327,11 @@ pub fn remove(tab_id: i32) {
 }
 
 pub fn pick_image(ui: &sheaf_app::AppWindow, tab_id: i32) {
-    let Some(path) = rfd::FileDialog::new().set_title("Choose an image").add_filter("Image", &["png", "jpg", "jpeg"]).pick_file() else {
-        return;
-    };
+    let d = crate::dialog::new(ui).set_title("Choose an image").add_filter("Image", &["png", "jpg", "jpeg"]);
+    crate::dialog::pick_file(ui, d, move |ui, path| picked_image(ui, tab_id, path));
+}
+
+fn picked_image(ui: &sheaf_app::AppWindow, tab_id: i32, path: std::path::PathBuf) {
     // Checked and decoded once, off the UI thread; refused here, not when the PDF is written.
     // The preview is those pixels, upright as they will be embedded.
     let weak = ui.as_weak();

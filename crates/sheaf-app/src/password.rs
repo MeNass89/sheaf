@@ -20,6 +20,18 @@ pub fn ask(ui: &AppWindow, tab_id: i32, uid: i32, wrong: bool) {
     show_head(ui);
 }
 
+/// The reader needs the password of `path` (`wrong`: the last one typed was refused).
+pub fn ask_reader(ui: &AppWindow, path: std::path::PathBuf, wrong: bool) {
+    let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+    with(|a| a.reader_pw = Some(path));
+    ui.set_pw_wrong(wrong);
+    if wrong {
+        ui.set_pw_attempt(ui.get_pw_attempt() + 1);
+    }
+    ui.set_pw_file(name.into());
+    ui.set_pw_visible(true);
+}
+
 pub fn show_head(ui: &AppWindow) {
     let head = with(|a| {
         let (tab_id, uid) = *a.pw_queue.front()?;
@@ -68,6 +80,11 @@ pub fn done(ui: &AppWindow, tab_id: i32, uid: i32) {
 }
 
 pub fn entered(ui: &AppWindow, pw: String) {
+    if let Some(path) = with(|a| a.reader_pw.take()) {
+        ui.set_pw_visible(false);
+        crate::reader_ui::open(ui, path, Some(pw));
+        return;
+    }
     let Some((tab_id, uid, input)) = with(|a| {
         let (tab_id, uid) = *a.pw_queue.front()?;
         let f = a.tab(tab_id)?.files.iter_mut().find(|f| f.uid == uid)?;
@@ -80,6 +97,11 @@ pub fn entered(ui: &AppWindow, pw: String) {
 }
 
 pub fn skipped(ui: &AppWindow) {
+    if with(|a| a.reader_pw.take()).is_some() {
+        ui.set_pw_visible(false);
+        ui.set_pw_wrong(false);
+        return show_head(ui);
+    }
     if let Some((tab_id, uid)) = with(|a| a.pw_queue.pop_front()) {
         crate::flow::remove_file(ui, tab_id, uid);
     }

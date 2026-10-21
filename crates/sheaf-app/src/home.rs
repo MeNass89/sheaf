@@ -67,6 +67,37 @@ pub fn prefs() -> Prefs {
     with(|h| h.prefs.clone())
 }
 
+/// The reader's page theme, remembered for the next document opened.
+pub fn set_reader_theme(theme: i32) {
+    with(|h| {
+        if h.prefs.reader_theme != theme {
+            h.prefs.reader_theme = theme;
+            if let Err(e) = h.prefs.save(&h.dir) {
+                eprintln!("sheaf: cannot save preferences: {e}");
+            }
+        }
+    });
+}
+
+/// Key of history entries that only record a document opened in the reader (for Recents):
+/// they are not tasks and stay out of Tasks History.
+pub const READ: &str = "read";
+
+/// A document opened in the reader joins Recents.
+pub fn record_open(path: &Path) {
+    let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let e = Entry { tool: READ.into(), inputs: vec![], outputs: vec![p], at_unix: history::now_unix() };
+    let ui = with(|h| {
+        if let Err(err) = h.store.push(e) {
+            eprintln!("sheaf: cannot save history: {err}");
+        }
+        h.ui.upgrade()
+    });
+    if let Some(ui) = ui {
+        refresh(&ui);
+    }
+}
+
 fn update_prefs(ui: &AppWindow, f: impl FnOnce(&mut Prefs)) {
     with(|h| {
         f(&mut h.prefs);
@@ -111,13 +142,13 @@ pub fn set_output(ui: &AppWindow, m: i32) {
 }
 
 pub fn choose_folder(ui: &AppWindow) {
-    // Modal dialog: no state borrow is held here.
-    if let Some(dir) = rfd::FileDialog::new().set_title("Always save to").pick_folder() {
+    let d = crate::dialog::new(ui).set_title("Always save to");
+    crate::dialog::pick_folder(ui, d, |ui, dir| {
         update_prefs(ui, |p| {
             p.fixed_folder = Some(dir);
             p.output = OutputMode::Fixed;
         });
-    }
+    });
 }
 
 pub fn set_open_after(ui: &AppWindow, v: bool) {
@@ -198,7 +229,7 @@ fn thumb_key(p: &Path) -> ThumbKey {
 pub fn refresh(ui: &AppWindow) {
     let now = history::now_unix();
     let (rows, recents, missing) = with(|h| {
-        let rows: Vec<HistoryRow> = h.store.list().iter().map(|e| row(e, now)).collect();
+        let rows: Vec<HistoryRow> = h.store.list().iter().filter(|e| e.tool != READ).map(|e| row(e, now)).collect();
         let outs = recent_outputs(h.store.list());
         let mut missing = Vec::new();
         let recents: Vec<RecentFile> = outs
@@ -253,9 +284,14 @@ fn recent(i: i32) -> Option<PathBuf> {
     with(|h| h.recents.get(i as usize).cloned())
 }
 
-pub fn open_recent(i: i32) {
+/// A recent PDF opens in the reader; other files in the app the system picks for them.
+pub fn open_recent(ui: &AppWindow, i: i32) {
     if let Some(p) = recent(i) {
-        crate::run::open_detached(&p);
+        if files::kind_of(&p) == Kind::Pdf {
+            crate::reader_ui::open(ui, p, None);
+        } else {
+            crate::run::open_detached(&p);
+        }
     }
 }
 
@@ -266,7 +302,7 @@ pub fn reveal_recent(i: i32) {
 }
 
 pub fn reveal_history(i: i32) {
-    let first = with(|h| h.store.list().get(i as usize).and_then(|e| e.outputs.first().cloned()));
+    let first = with(|h| h.store.list().iter().filter(|e| e.tool != READ).nth(i.max(0) as usize).and_then(|e| e.outputs.first().cloned()));
     if let Some(p) = first.filter(|p| p.exists()) {
         crate::run::reveal(&p);
     }

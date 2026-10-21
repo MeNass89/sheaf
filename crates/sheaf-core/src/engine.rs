@@ -70,6 +70,11 @@ pub fn is_protected(doc: &PdfDocument) -> bool {
 
 /// Opens a PDF and maps pdfium's password error to our variants.
 /// The caller must hold `pdfium_lock()` for the document's whole lifetime.
+/// Opens a PDF held in memory (the reader's working copy). Hold [`pdfium_lock`] while using it.
+pub fn open_pdf_bytes<'a>(bytes: &'a [u8], password: Option<&str>) -> Result<PdfDocument<'a>> {
+    pdfium().load_pdf_from_byte_slice(bytes, password).map_err(Into::into)
+}
+
 pub fn open_pdf(path: &Path, password: Option<&str>) -> Result<PdfDocument<'static>> {
     match pdfium().load_pdf_from_file(path, password) {
         Ok(d) => Ok(d),

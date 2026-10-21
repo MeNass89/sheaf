@@ -66,13 +66,14 @@ pub fn open_tool(ui: &AppWindow, tool: ToolId, preload: Vec<PathBuf>) {
 pub fn pick_and_add(ui: &AppWindow, tab_id: i32) {
     let Some(tool) = with(|a| a.tab(tab_id).map(|t| t.tool)) else { return };
     let info = tools::find(tool);
-    let mut dlg = rfd::FileDialog::new().add_filter(info.name, info.accepts);
+    let mut dlg = crate::dialog::new(ui).add_filter(info.name, info.accepts);
     if let Some(dir) = with(|a| a.tab(tab_id).and_then(|t| t.files.last()).and_then(|f| f.input.path.parent().map(|d| d.to_path_buf()))) {
         dlg = dlg.set_directory(dir);
     }
-    let picked = if info.multi { dlg.pick_files() } else { dlg.pick_file().map(|p| vec![p]) };
-    if let Some(paths) = picked {
-        add_paths(ui, tab_id, paths);
+    if info.multi {
+        crate::dialog::pick_files(ui, dlg, move |ui, paths| add_paths(ui, tab_id, paths));
+    } else {
+        crate::dialog::pick_file(ui, dlg, move |ui, p| add_paths(ui, tab_id, vec![p]));
     }
 }
 
@@ -84,13 +85,11 @@ pub fn add_paths(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>) {
 /// Compare's "Open file" on one slot (0 Original, 1 Changed).
 pub fn pick_for_slot(ui: &AppWindow, tab_id: i32, slot: i32) {
     let dir = with(|a| a.tab(tab_id).and_then(|t| t.files.last()).and_then(|f| f.input.path.parent().map(|d| d.to_path_buf())));
-    let mut dlg = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).set_title(if slot == 0 { "Choose the original PDF" } else { "Choose the changed PDF" });
+    let mut dlg = crate::dialog::new(ui).add_filter("PDF", &["pdf"]).set_title(if slot == 0 { "Choose the original PDF" } else { "Choose the changed PDF" });
     if let Some(dir) = dir {
         dlg = dlg.set_directory(dir);
     }
-    if let Some(p) = dlg.pick_file() {
-        add_paths_to(ui, tab_id, vec![p], Some(slot.clamp(0, 1) as usize));
-    }
+    crate::dialog::pick_file(ui, dlg, move |ui, p| add_paths_to(ui, tab_id, vec![p], Some(slot.clamp(0, 1) as usize)));
 }
 
 /// Compare: Original and Changed trade places.
@@ -349,6 +348,12 @@ pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
 }
 
 pub fn close_tab(ui: &AppWindow, tab_id: i32) {
+    // A document with unsaved annotations asks first.
+    if let Some(name) = crate::reader_ui::unsaved_name(tab_id) {
+        with(|a| a.pending_close = Some(tab_id));
+        ui.set_unsaved_file(name.into());
+        return;
+    }
     let running = with(|a| a.tab(tab_id).is_some_and(|t| matches!(t.phase, Phase::Running)));
     if running {
         with(|a| a.pending_close = Some(tab_id));
@@ -358,10 +363,58 @@ pub fn close_tab(ui: &AppWindow, tab_id: i32) {
     }
 }
 
+/// The Save / Don't Save / Cancel answer for the document being closed (1, 2, 0).
+pub fn unsaved_answer(ui: &AppWindow, answer: i32) {
+    ui.set_unsaved_file("".into());
+    let Some(id) = with(|a| a.pending_close.take()) else { return };
+    match answer {
+        1 => {
+            // The tab closes when the document thread says the file is written.
+            with(|a| a.closing_after_save.insert(id));
+            crate::reader_ui::save(ui, id);
+            return;
+        }
+        2 => remove_tab(ui, id),
+        _ => with(|a| a.quitting = false),
+    }
+    if with(|a| a.quitting) {
+        quit_or_ask(ui);
+    }
+}
+
+/// The window's close button: documents with unsaved edits are asked about first.
+pub fn close_requested(ui: &AppWindow) -> slint::CloseRequestResponse {
+    with(|a| a.quitting = true);
+    quit_or_ask(ui)
+}
+
+pub fn quit_or_ask(ui: &AppWindow) -> slint::CloseRequestResponse {
+    let dirty = with(|a| a.tabs.iter().map(|t| t.id).collect::<Vec<_>>()).into_iter().find(|id| crate::reader_ui::unsaved_name(*id).is_some());
+    match dirty {
+        Some(id) => {
+            if let Some(i) = with(|a| a.tab_index(id)) {
+                ui.set_active_tab(i as i32);
+            }
+            close_tab(ui, id);
+            slint::CloseRequestResponse::KeepWindowShown
+        }
+        None => {
+            let _ = slint::quit_event_loop();
+            slint::CloseRequestResponse::HideWindow
+        }
+    }
+}
+
 // ---- drops and Home ---------------------------------------------------------------------------
 
 /// A file dropped anywhere on the window.
 pub fn dropped(ui: &AppWindow, path: PathBuf) {
+    // On a document tab, a PDF dropped opens in its own tab.
+    if let Some((id, _)) = active_tool(ui)
+        && crate::reader_ui::is_reader(id)
+    {
+        return home_files(ui, vec![path]);
+    }
     let active = active_tool(ui);
     match files::route_drop(active.map(|(_, t)| t), &path) {
         DropAction::AddToTab => {
@@ -376,6 +429,14 @@ pub fn dropped(ui: &AppWindow, path: PathBuf) {
 
 /// PDFs opened from Home: kept for the next tool opened; Tools is shown to pick one.
 pub fn home_files(ui: &AppWindow, paths: Vec<PathBuf>) {
+    // PDFs open in the reader, as a double-click does in PDF Expert; other files wait for a tool.
+    let (pdfs, paths): (Vec<PathBuf>, Vec<PathBuf>) = paths.into_iter().partition(|p| files::kind_of(p) == Kind::Pdf);
+    for p in pdfs {
+        crate::reader_ui::open(ui, p, None);
+    }
+    if paths.is_empty() {
+        return;
+    }
     let n = with(|a| {
         for p in paths {
             if !a.home_files.contains(&p) {

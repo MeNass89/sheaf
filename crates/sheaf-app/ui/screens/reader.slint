@@ -1,0 +1,783 @@
+// Reader: one document open to read and annotate, PDF Expert's reading window as the model.
+// Toolbar on top (panel, annotation tools and colours, page field, zoom, page theme, search,
+// undo/redo/save), a side panel (thumbnails, outline, annotations), the pages in a continuous
+// scroll. Pages, thumbnails and zoom are the tab's viewer (ViewerBridge); everything else is
+// ReaderBridge. Coordinates given to Rust are content coordinates of the page scroll.
+import { ScrollView, TextEdit } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { ToolTab, ViewerBridge, ReaderBridge, ReaderOutlineRow, ReaderAnnotRow } from "../flow-types.slint";
+
+component ToolButton inherits Rectangle {
+    in property <image> icon;
+    in property <bool> active;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    callback clicked();
+    width: 30px;
+    height: 30px;
+    border-radius: Theme.radius-button;
+    background: root.active ? Theme.pill-bg : ta.has-hover && root.enabled ? Theme.popup-hover : transparent;
+    Image {
+        width: 17px;
+        height: 17px;
+        source: root.icon;
+        colorize: !root.enabled ? Theme.text-disabled : root.active ? Theme.accent : Theme.text-secondary;
+    }
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    if ta.has-hover && root.tip != "": Rectangle {
+        y: parent.height + 6px;
+        x: (parent.width - self.width) / 2;
+        width: tipt.preferred-width + 14px;
+        height: 22px;
+        border-radius: Theme.radius-small;
+        background: Theme.toast-bg;
+        tipt := Text {
+            text: root.tip;
+            font-size: Theme.fs-caption;
+            color: Theme.on-toast;
+        }
+    }
+}
+
+component Divider inherits Rectangle {
+    width: 1px;
+    height: 20px;
+    background: Theme.separator;
+}
+
+component ColourDot inherits Rectangle {
+    in property <color> colour;
+    in property <bool> selected;
+    callback clicked();
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    border-width: root.selected ? 2px : 0px;
+    border-color: Theme.text;
+    Rectangle {
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: root.colour;
+        border-width: 1px;
+        border-color: #00000022;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component PanelTab inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked();
+    height: 28px;
+    border-radius: Theme.radius-button;
+    background: root.selected ? Theme.pill-bg : t.has-hover ? Theme.popup-hover : transparent;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 6px;
+        alignment: center;
+        Image {
+            width: 14px;
+            height: 14px;
+            y: (parent.height - self.height) / 2;
+            source: root.icon;
+            colorize: root.selected ? Theme.text : Theme.text-muted;
+        }
+        Text {
+            text: root.text;
+            font-size: Theme.fs-caption;
+            font-weight: root.selected ? Theme.weight-demibold : 400;
+            color: root.selected ? Theme.text : Theme.text-muted;
+            vertical-alignment: center;
+        }
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component SmallButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary;
+    callback clicked();
+    height: 26px;
+    width: lbl.preferred-width + 20px;
+    border-radius: Theme.radius-button;
+    background: root.primary ? (t.has-hover ? Theme.accent-hover : Theme.accent) : (t.has-hover ? Theme.popup-hover : Theme.pill-bg);
+    lbl := Text {
+        text: root.text;
+        font-size: Theme.fs-label;
+        font-weight: Theme.weight-demibold;
+        color: root.primary ? Theme.on-accent : Theme.text;
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component ReaderScreen inherits Rectangle {
+    in property <ToolTab> tab;
+    property <int> id: root.tab.id;
+    property <length> panel-width: 248px;
+    property <length> page-top: -sv.content-y;
+    property <length> strip-top: -strip.content-y;
+    property <length> page-w: sv.visible-width;
+    property <length> page-h: sv.visible-height;
+    property <length> strip-h: strip.visible-height;
+    property <bool> pressing;
+    // Colours offered per tool: highlights are light, strokes dark (same order as reader.rs).
+    property <[color]> light-colours: [#FFDB40, #6BD96B, #61B8FF, #FF7399, #BF80FF];
+    property <[color]> ink-colours: [#D93326, #1A1A1F, #1A66E6, #1A994D, #9940D9];
+    property <bool> markup-tool: root.tab.reader.tool >= 1 && root.tab.reader.tool <= 3;
+    property <bool> light-tool: root.tab.reader.tool == 0 || root.tab.reader.tool == 1 || root.tab.reader.tool == 4;
+    property <bool> ink-tool: root.tab.reader.tool >= 4;
+
+    changed page-top => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
+    changed page-w => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
+    changed page-h => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
+    changed strip-h => { ViewerBridge.strip-viewport(root.id, root.strip-top, root.strip-h); }
+    changed strip-top => { ViewerBridge.strip-viewport(root.id, root.strip-top, strip.visible-height); }
+    property <int> scroll-seq: root.tab.viewer-scroll-seq;
+    changed scroll-seq => { sv.content-y = -root.tab.viewer-scroll; }
+
+    init => {
+        ViewerBridge.viewport(root.id, sv.visible-width, root.page-top, sv.visible-height);
+        keys.focus();
+    }
+
+    public function focus-pages() { keys.focus(); }
+
+    background: Theme.filearea-bg;
+
+    VerticalLayout {
+        // ---- toolbar ----------------------------------------------------------------------
+        Rectangle {
+            height: 46px;
+            background: Theme.panel-bg;
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 10px;
+                spacing: 4px;
+                alignment: stretch;
+                HorizontalLayout {
+                    spacing: 2px;
+                    alignment: start;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
+                    ToolButton { icon: @image-url("../icons/panel-left.svg"); tip: "Side panel"; active: root.tab.reader.panel-open; clicked => { ReaderBridge.toggle-panel(root.id); } }
+                    Rectangle { width: 6px; }
+                    Divider { y: 5px; }
+                    Rectangle { width: 6px; }
+                    ToolButton { icon: @image-url("../icons/mouse-pointer-2.svg"); tip: "Select text (V)"; active: root.tab.reader.tool == 0; clicked => { ReaderBridge.set-tool(root.id, 0); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight (H)"; active: root.tab.reader.tool == 1; clicked => { ReaderBridge.set-tool(root.id, 1); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline (U)"; active: root.tab.reader.tool == 2; clicked => { ReaderBridge.set-tool(root.id, 2); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough (K)"; active: root.tab.reader.tool == 3; clicked => { ReaderBridge.set-tool(root.id, 3); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/sticky-note.svg"); tip: "Note (N)"; active: root.tab.reader.tool == 4; clicked => { ReaderBridge.set-tool(root.id, 4); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Pen (P)"; active: root.tab.reader.tool == 5; clicked => { ReaderBridge.set-tool(root.id, 5); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/type.svg"); tip: "Text box (T)"; active: root.tab.reader.tool == 6; clicked => { ReaderBridge.set-tool(root.id, 6); keys.focus(); } }
+                    Rectangle { width: 6px; }
+                    Divider { y: 5px; }
+                    Rectangle { width: 6px; }
+                    ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text (E)"; active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image (I)"; active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); keys.focus(); } }
+                    if root.tab.reader.tool != 0 && root.tab.reader.tool != 8: HorizontalLayout {
+                        spacing: 2px;
+                        padding-left: 6px;
+                        for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {
+                            y: 4px;
+                            colour: c;
+                            selected: root.tab.reader.colour == k;
+                            clicked => { ReaderBridge.set-colour(root.id, k); keys.focus(); }
+                        }
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                // Page field and zoom
+                HorizontalLayout {
+                    spacing: 4px;
+                    alignment: center;
+                    padding-top: 9px;
+                    padding-bottom: 9px;
+                    Rectangle {
+                        width: 46px;
+                        border-radius: Theme.radius-small;
+                        border-width: 1px;
+                        border-color: page-in.has-focus ? Theme.text-secondary : Theme.input-border;
+                        background: Theme.input-bg;
+                        page-in := TextInput {
+                            x: 6px;
+                            width: parent.width - 12px;
+                            text: root.tab.reader.page-text;
+                            font-size: Theme.fs-label;
+                            color: Theme.text;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            single-line: true;
+                            accepted => {
+                                ReaderBridge.go-to-page(root.id, self.text);
+                                keys.focus();
+                            }
+                        }
+                    }
+                    Text {
+                        text: "/ " + root.tab.reader.page-count;
+                        font-size: Theme.fs-label;
+                        color: Theme.text-muted;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { width: 8px; }
+                    ToolButton { y: -2px; icon: @image-url("../icons/zoom-out.svg"); tip: "Zoom out (⌘−)"; clicked => { ViewerBridge.zoom-step(root.id, -1); } }
+                    Text {
+                        width: 44px;
+                        text: root.tab.viewer-zoom + "%";
+                        font-size: Theme.fs-label;
+                        color: Theme.text;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                    ToolButton { y: -2px; icon: @image-url("../icons/zoom-in.svg"); tip: "Zoom in (⌘+)"; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
+                    ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘0)" : "Fit page (⌘9)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                HorizontalLayout {
+                    spacing: 2px;
+                    alignment: end;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
+                    ToolButton { icon: @image-url("../icons/sun.svg"); tip: "Day"; active: root.tab.reader.theme == 0; clicked => { ReaderBridge.set-theme(root.id, 0); } }
+                    ToolButton { icon: @image-url("../icons/book-open.svg"); tip: "Sepia"; active: root.tab.reader.theme == 2; clicked => { ReaderBridge.set-theme(root.id, 2); } }
+                    ToolButton { icon: @image-url("../icons/moon.svg"); tip: "Night"; active: root.tab.reader.theme == 1; clicked => { ReaderBridge.set-theme(root.id, 1); } }
+                    Rectangle { width: 6px; }
+                    // Search
+                    Rectangle {
+                        width: 210px;
+                        border-radius: Theme.radius-button;
+                        border-width: 1px;
+                        border-color: search-in.has-focus ? Theme.text-secondary : Theme.input-border;
+                        background: Theme.input-bg;
+                        Image {
+                            x: 8px;
+                            width: 14px;
+                            height: 14px;
+                            source: @image-url("../icons/search.svg");
+                            colorize: Theme.text-muted;
+                        }
+                        Text {
+                            x: 28px;
+                            visible: search-in.text == "";
+                            text: "Search";
+                            font-size: Theme.fs-label;
+                            color: Theme.text-disabled;
+                            vertical-alignment: center;
+                        }
+                        search-in := TextInput {
+                            x: 28px;
+                            width: parent.width - 28px - count.width - 8px;
+                            font-size: Theme.fs-label;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            single-line: true;
+                            accepted => {
+                                if root.tab.reader.search-count != "" && !root.tab.reader.search-busy {
+                                    ReaderBridge.search-step(root.id, 1);
+                                } else {
+                                    ReaderBridge.search(root.id, self.text);
+                                }
+                            }
+                            edited => {
+                                if self.text == "" { ReaderBridge.search-clear(root.id); }
+                            }
+                            key-pressed(e) => {
+                                if e.text == Key.Escape {
+                                    self.text = "";
+                                    ReaderBridge.search-clear(root.id);
+                                    keys.focus();
+                                    return accept;
+                                }
+                                if e.text == Key.Return && e.modifiers.shift {
+                                    ReaderBridge.search-step(root.id, -1);
+                                    return accept;
+                                }
+                                if e.modifiers.control && e.text == "g" {
+                                    ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1);
+                                    return accept;
+                                }
+                                reject
+                            }
+                        }
+                        count := Text {
+                            x: parent.width - self.width - 8px;
+                            text: root.tab.reader.search-count;
+                            font-size: Theme.fs-caption;
+                            color: Theme.text-muted;
+                            vertical-alignment: center;
+                        }
+                    }
+                    Rectangle { width: 6px; }
+                    ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: "Undo (⌘Z)"; enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
+                    ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
+                    ToolButton { icon: @image-url("../icons/wrench.svg"); tip: "Use a tool on this PDF"; clicked => { ReaderBridge.to-tools(root.id); } }
+                    ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? "Save (⌘S)" : "Saved"; enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
+                }
+            }
+            Rectangle {
+                y: parent.height - 1px;
+                height: 1px;
+                background: Theme.sidebar-border;
+            }
+        }
+
+        HorizontalLayout {
+            vertical-stretch: 1;
+            // ---- side panel -------------------------------------------------------------------
+            Rectangle {
+                visible: root.tab.reader.panel-open;
+                width: root.tab.reader.panel-open ? root.panel-width : 0px;
+                background: Theme.panel-bg;
+                VerticalLayout {
+                    HorizontalLayout {
+                        padding: 8px;
+                        spacing: 2px;
+                        PanelTab { text: "Pages"; icon: @image-url("../icons/layout-grid.svg"); selected: root.tab.reader.panel == 0; clicked => { ReaderBridge.set-panel(root.id, 0); } }
+                        PanelTab { text: "Outline"; icon: @image-url("../icons/list-tree.svg"); selected: root.tab.reader.panel == 1; clicked => { ReaderBridge.set-panel(root.id, 1); } }
+                        PanelTab { text: "Notes"; icon: @image-url("../icons/message-square.svg"); selected: root.tab.reader.panel == 2; clicked => { ReaderBridge.set-panel(root.id, 2); } }
+                    }
+                    Rectangle { height: 1px; background: Theme.sidebar-border; }
+                    Rectangle {
+                        vertical-stretch: 1;
+                        if root.tab.reader.panel == 1 && root.tab.reader.outline-empty: Text {
+                            x: 16px;
+                            y: 16px;
+                            width: parent.width - 32px;
+                            text: "This document has no outline.";
+                            font-size: Theme.fs-label;
+                            color: Theme.text-muted;
+                            wrap: word-wrap;
+                        }
+                        if root.tab.reader.panel == 1: ScrollView {
+                            VerticalLayout {
+                                padding-top: 4px;
+                                padding-bottom: 8px;
+                                for r[i] in root.tab.reader.outline: Rectangle {
+                                    height: 30px;
+                                    background: r.current ? Theme.menu-selected-bg : ot.has-hover ? Theme.popup-hover : transparent;
+                                    ot := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { ReaderBridge.outline-clicked(root.id, i); keys.focus(); }
+                                    }
+                                    if r.has-children: Rectangle {
+                                        x: 6px + r.depth * 14px;
+                                        width: 18px;
+                                        Image {
+                                            width: 12px;
+                                            height: 12px;
+                                            source: @image-url("../icons/chevron-right.svg");
+                                            colorize: Theme.text-muted;
+                                            transform-rotation: r.expanded ? 90deg : 0deg;
+                                        }
+                                        TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { ReaderBridge.outline-toggled(root.id, i); }
+                                        }
+                                    }
+                                    Text {
+                                        x: 26px + r.depth * 14px;
+                                        width: parent.width - self.x - 40px;
+                                        text: r.title;
+                                        font-size: Theme.fs-label;
+                                        font-weight: r.depth == 0 ? Theme.weight-demibold : 400;
+                                        color: Theme.text;
+                                        overflow: elide;
+                                        vertical-alignment: center;
+                                    }
+                                    Text {
+                                        x: parent.width - 34px;
+                                        width: 26px;
+                                        text: r.page-label;
+                                        font-size: Theme.fs-caption;
+                                        color: Theme.text-muted;
+                                        horizontal-alignment: right;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                        if root.tab.reader.panel == 2 && root.tab.reader.annots.length == 0: Text {
+                            x: 16px;
+                            y: 16px;
+                            width: parent.width - 32px;
+                            text: "No annotations yet. Select text and pick Highlight, or choose a tool above.";
+                            font-size: Theme.fs-label;
+                            color: Theme.text-muted;
+                            wrap: word-wrap;
+                        }
+                        if root.tab.reader.panel == 2: ScrollView {
+                            VerticalLayout {
+                                padding: 8px;
+                                spacing: 6px;
+                                for a[i] in root.tab.reader.annots: Rectangle {
+                                    height: al.preferred-height;
+                                    border-radius: Theme.radius-item;
+                                    background: a.selected ? Theme.menu-selected-bg : at.has-hover ? Theme.popup-hover : Theme.card;
+                                    border-width: 1px;
+                                    border-color: Theme.sidebar-border;
+                                    at := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { ReaderBridge.annot-clicked(root.id, i); keys.focus(); }
+                                    }
+                                    Rectangle {
+                                        x: 0;
+                                        width: 4px;
+                                        border-radius: 2px;
+                                        background: a.colour;
+                                    }
+                                    al := VerticalLayout {
+                                        padding: 10px;
+                                        padding-left: 14px;
+                                        spacing: 4px;
+                                        HorizontalLayout {
+                                            Text {
+                                                text: a.kind;
+                                                font-size: Theme.fs-caption;
+                                                font-weight: Theme.weight-demibold;
+                                                color: Theme.text-secondary;
+                                            }
+                                            Rectangle { horizontal-stretch: 1; }
+                                            Text {
+                                                text: a.page-label;
+                                                font-size: Theme.fs-caption;
+                                                color: Theme.text-muted;
+                                            }
+                                        }
+                                        if a.text != "": Text {
+                                            text: a.text;
+                                            font-size: Theme.fs-label;
+                                            color: Theme.text;
+                                            wrap: word-wrap;
+                                            overflow: elide;
+                                            max-height: 60px;
+                                        }
+                                    }
+                                    if at.has-hover || a.selected: Rectangle {
+                                        x: parent.width - 28px;
+                                        y: 6px;
+                                        width: 22px;
+                                        height: 22px;
+                                        border-radius: Theme.radius-small;
+                                        background: dt.has-hover ? Theme.pill-bg : transparent;
+                                        Image {
+                                            width: 13px;
+                                            height: 13px;
+                                            source: @image-url("../icons/trash-2.svg");
+                                            colorize: Theme.text-muted;
+                                        }
+                                        dt := TouchArea {
+                                            mouse-cursor: pointer;
+                                            clicked => { ReaderBridge.annot-delete(root.id, i); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        strip := ScrollView {
+                            visible: root.tab.reader.panel == 0;
+                            content-width: self.visible-width;
+                            content-height: root.tab.viewer-thumbs-height + 20px;
+                            for t in root.tab.viewer-thumbs: Rectangle {
+                                x: (strip.visible-width - Theme.page-thumb-width) / 2;
+                                y: t.y;
+                                width: Theme.page-thumb-width;
+                                height: t.h + 18px;
+                                Rectangle {
+                                    height: t.h;
+                                    y: 0;
+                                    background: Theme.thumb-placeholder;
+                                    border-width: t.page == root.tab.viewer-current ? 2px : 0px;
+                                    border-color: Theme.accent;
+                                    drop-shadow-blur: 5px;
+                                    drop-shadow-color: Theme.thumb-shadow;
+                                    drop-shadow-offset-y: 1px;
+                                    if t.ready: Image {
+                                        x: 2px;
+                                        y: 2px;
+                                        width: parent.width - 4px;
+                                        height: parent.height - 4px;
+                                        source: t.image;
+                                        image-fit: fill;
+                                    }
+                                }
+                                Text {
+                                    y: t.h + 3px;
+                                    width: parent.width;
+                                    text: t.page + 1;
+                                    font-size: Theme.fs-caption;
+                                    color: t.page == root.tab.viewer-current ? Theme.accent : Theme.text-muted;
+                                    horizontal-alignment: center;
+                                }
+                                TouchArea {
+                                    mouse-cursor: pointer;
+                                    clicked => { ViewerBridge.thumb-clicked(root.id, t.page); keys.focus(); }
+                                }
+                            }
+                        }
+                    }
+                }
+                Rectangle {
+                    x: parent.width - 1px;
+                    width: 1px;
+                    background: Theme.sidebar-border;
+                }
+            }
+
+            // ---- pages ------------------------------------------------------------------------
+            Rectangle {
+                horizontal-stretch: 1;
+                background: root.tab.reader.backdrop;
+                clip: true;
+                sv := ScrollView {
+                    content-width: max(root.tab.viewer-width, self.visible-width);
+                    content-height: root.tab.viewer-height;
+                    for p in root.tab.viewer-pages: Rectangle {
+                        x: p.x;
+                        y: p.y;
+                        width: p.w;
+                        height: p.h;
+                        background: root.tab.reader.theme == 1 ? #1E1E20 : root.tab.reader.theme == 2 ? #F4ECD8 : white;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: Theme.thumb-shadow;
+                        drop-shadow-offset-y: 1px;
+                        if p.ready: Image {
+                            width: parent.width;
+                            height: parent.height;
+                            source: p.image;
+                            image-fit: fill;
+                        }
+                    }
+                    for m in root.tab.reader.provisional: Rectangle {
+                        x: m.x;
+                        y: m.y;
+                        width: m.w;
+                        height: m.h;
+                        background: m.colour;
+                    }
+                    for m in root.tab.reader.marks: Rectangle {
+                        x: m.x;
+                        y: m.y;
+                        width: m.w;
+                        height: m.h;
+                        border-radius: m.kind == 6 || m.kind == 7 ? 2px : 1px;
+                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : transparent;
+                        border-width: m.kind == 6 ? 1.5px : m.kind == 5 || m.kind == 7 ? 1px : 0px;
+                        border-color: m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : #FF9F0A;
+                    }
+                    if root.tab.reader.ink != "": Path {
+                        x: 0;
+                        y: 0;
+                        width: max(root.tab.viewer-width, sv.visible-width);
+                        height: root.tab.viewer-height;
+                        viewbox-x: 0;
+                        viewbox-y: 0;
+                        viewbox-width: self.width / 1px;
+                        viewbox-height: self.height / 1px;
+                        commands: root.tab.reader.ink;
+                        stroke: root.tab.reader.ink-colour;
+                        stroke-width: 2px;
+                    }
+                    pages-ta := TouchArea {
+                        width: max(root.tab.viewer-width, sv.visible-width);
+                        height: root.tab.viewer-height;
+                        mouse-cursor: root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
+                        pointer-event(e) => {
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                                keys.focus();
+                                root.pressing = true;
+                                ReaderBridge.pressed(root.id, self.mouse-x, self.mouse-y, 1);
+                            } else if e.kind == PointerEventKind.up && root.pressing {
+                                root.pressing = false;
+                                ReaderBridge.released(root.id, self.mouse-x, self.mouse-y);
+                            }
+                        }
+                        double-clicked => { ReaderBridge.pressed(root.id, self.mouse-x, self.mouse-y, 2); }
+                        moved => {
+                            if root.pressing { ReaderBridge.moved(root.id, self.mouse-x, self.mouse-y); }
+                        }
+                        scroll-event(e) => {
+                            // ⌘ + wheel zooms, as in every reader.
+                            if e.modifiers.control && e.delta-y != 0 {
+                                ViewerBridge.zoom-step(root.id, e.delta-y > 0 ? 1 : -1);
+                                return accept;
+                            }
+                            reject
+                        }
+                    }
+                    // Floating bar over a text selection: Copy, Highlight, Underline, Strikethrough.
+                    if root.tab.reader.has-selection && root.tab.reader.tool == 0 && !root.pressing && root.tab.reader.marks.length > 0: Rectangle {
+                        x: max(4px, root.tab.reader.marks[0].x);
+                        y: max(4px, root.tab.reader.marks[0].y - self.height - 8px);
+                        width: bar.preferred-width;
+                        height: 34px;
+                        border-radius: Theme.radius-item;
+                        background: Theme.card;
+                        drop-shadow-blur: 10px;
+                        drop-shadow-color: #00000040;
+                        drop-shadow-offset-y: 2px;
+                        bar := HorizontalLayout {
+                            padding: 2px;
+                            spacing: 0px;
+                            ToolButton { icon: @image-url("../icons/copy.svg"); tip: "Copy (⌘C)"; clicked => { clip.text = root.tab.reader.selected-text; clip.select-all(); clip.copy(); keys.focus(); } }
+                            ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight"; clicked => { ReaderBridge.markup(root.id, 1); } }
+                            ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline"; clicked => { ReaderBridge.markup(root.id, 2); } }
+                            ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough"; clicked => { ReaderBridge.markup(root.id, 3); } }
+                        }
+                    }
+                    // A note or text box being typed.
+                    if root.tab.reader.note.show: Rectangle {
+                        init => {
+                            note-edit.text = root.tab.reader.note.text;
+                            note-edit.focus();
+                        }
+                        x: root.tab.reader.note.x;
+                        y: root.tab.reader.note.y;
+                        width: root.tab.reader.note.w;
+                        height: root.tab.reader.note.h;
+                        border-radius: Theme.radius-item;
+                        background: Theme.card;
+                        drop-shadow-blur: 12px;
+                        drop-shadow-color: #00000044;
+                        drop-shadow-offset-y: 2px;
+                        VerticalLayout {
+                            padding: 8px;
+                            spacing: 6px;
+                            Text {
+                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : "Add text";
+                                font-size: Theme.fs-caption;
+                                font-weight: Theme.weight-demibold;
+                                color: Theme.text-secondary;
+                            }
+                            note-edit := TextEdit {
+                                vertical-stretch: 1;
+                                font-size: Theme.fs-label;
+                                wrap: word-wrap;
+                                key-pressed(e) => {
+                                    if e.text == Key.Escape {
+                                        ReaderBridge.note-cancel(root.id);
+                                        keys.focus();
+                                        return accept;
+                                    }
+                                    if e.text == Key.Return && e.modifiers.control {
+                                        ReaderBridge.note-commit(root.id, self.text);
+                                        keys.focus();
+                                        return accept;
+                                    }
+                                    reject
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                alignment: end;
+                                SmallButton { text: "Cancel"; clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }
+                                SmallButton { text: "Done"; primary: true; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
+                            }
+                        }
+                    }
+                }
+                if root.tab.viewer-status != "": Text {
+                    y: 40px;
+                    width: parent.width;
+                    text: root.tab.viewer-status;
+                    font-size: Theme.fs-body;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+                if root.tab.reader.read-only != "": Rectangle {
+                    y: 10px;
+                    x: (parent.width - self.width) / 2;
+                    width: ro.preferred-width + 24px;
+                    height: 28px;
+                    border-radius: 14px;
+                    background: Theme.info-bg;
+                    ro := Text {
+                        text: root.tab.reader.read-only;
+                        font-size: Theme.fs-caption;
+                        color: Theme.info;
+                    }
+                }
+            }
+        }
+    }
+
+    // Copy goes through a hidden text field: Slint's clipboard is a text input's.
+    clip := TextInput {
+        x: -1000px;
+        width: 10px;
+        height: 10px;
+        visible: false;
+        read-only: true;
+    }
+
+    // Keyboard of the reading view (Slint reports ⌘ as `control` on macOS).
+    keys := FocusScope {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+        key-pressed(e) => {
+            if e.modifiers.control {
+                if e.text == "+" || e.text == "=" { ViewerBridge.zoom-step(root.id, 1); return accept; }
+                if e.text == "-" { ViewerBridge.zoom-step(root.id, -1); return accept; }
+                if e.text == "0" { ReaderBridge.zoom-fit(root.id, 0); return accept; }
+                if e.text == "9" { ReaderBridge.zoom-fit(root.id, 1); return accept; }
+                if e.text == "f" { search-in.focus(); search-in.select-all(); return accept; }
+                if e.text == "g" { ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
+                if e.text == "c" && root.tab.reader.has-selection {
+                    clip.text = root.tab.reader.selected-text;
+                    clip.select-all();
+                    clip.copy();
+                    return accept;
+                }
+                if e.text == "a" { ReaderBridge.select-all(root.id); return accept; }
+                if e.text == "[" { ReaderBridge.history(root.id, -1); return accept; }
+                if e.text == "]" { ReaderBridge.history(root.id, 1); return accept; }
+                if e.text == "z" && e.modifiers.shift { ReaderBridge.redo(root.id); return accept; }
+                if e.text == "z" { ReaderBridge.undo(root.id); return accept; }
+                if e.text == "y" { ReaderBridge.redo(root.id); return accept; }
+                if e.text == "s" && e.modifiers.shift { ReaderBridge.save-as(root.id); return accept; }
+                if e.text == "s" { ReaderBridge.save(root.id); return accept; }
+                if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
+                if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
+                return reject;
+            }
+            if e.text == Key.Escape { ReaderBridge.escape(root.id); return accept; }
+            if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
+            if e.text == Key.RightArrow { ReaderBridge.page-step(root.id, 1); return accept; }
+            if e.text == Key.LeftArrow { ReaderBridge.page-step(root.id, -1); return accept; }
+            if e.text == Key.PageDown || (e.text == " " && !e.modifiers.shift) { ReaderBridge.page-step(root.id, 2); return accept; }
+            if e.text == Key.PageUp || (e.text == " " && e.modifiers.shift) { ReaderBridge.page-step(root.id, -2); return accept; }
+            if e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
+            if e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
+            if e.text == Key.DownArrow { ReaderBridge.scroll-by(root.id, 48px); return accept; }
+            if e.text == Key.UpArrow { ReaderBridge.scroll-by(root.id, -48px); return accept; }
+            if e.text == "v" { ReaderBridge.set-tool(root.id, 0); return accept; }
+            if e.text == "h" { ReaderBridge.set-tool(root.id, 1); return accept; }
+            if e.text == "u" { ReaderBridge.set-tool(root.id, 2); return accept; }
+            if e.text == "k" { ReaderBridge.set-tool(root.id, 3); return accept; }
+            if e.text == "n" { ReaderBridge.set-tool(root.id, 4); return accept; }
+            if e.text == "p" { ReaderBridge.set-tool(root.id, 5); return accept; }
+            if e.text == "t" { ReaderBridge.set-tool(root.id, 6); return accept; }
+            if e.text == "e" { ReaderBridge.set-tool(root.id, 7); return accept; }
+            if e.text == "i" { ReaderBridge.set-tool(root.id, 8); return accept; }
+            reject
+        }
+    }
+}

@@ -121,6 +121,43 @@ export component ConfirmCloseDialog inherits Modal {
     }
 }
 
+// A document with unsaved annotations is being closed (PDF Expert asks the same three ways).
+export component UnsavedDialog inherits Modal {
+    in property <string> file-name;
+    callback save();
+    callback discard();
+    callback cancel();
+    Text {
+        text: "Save changes to “" + root.file-name + "”?";
+        font-size: Theme.fs-body-large;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+        wrap: word-wrap;
+    }
+    Text {
+        text: "Your annotations will be lost if you don’t save them.";
+        font-size: Theme.fs-label;
+        color: Theme.text-secondary;
+        wrap: word-wrap;
+    }
+    HorizontalLayout {
+        spacing: 10px;
+        SecondaryButton {
+            text: "Don’t Save";
+            clicked => { root.discard(); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        SecondaryButton {
+            text: "Cancel";
+            clicked => { root.cancel(); }
+        }
+        PrimaryButton {
+            text: "Save";
+            clicked => { root.save(); }
+        }
+    }
+}
+
 // Bottom-centre message (rejected files, errors).
 export component Toast inherits Rectangle {
     in property <string> text;

@@ -102,24 +102,14 @@ pub fn size(tab_id: i32, size: i32) {
 }
 
 pub fn pick_image(ui: &AppWindow, tab_id: i32) {
-    let Some(p) = rfd::FileDialog::new().set_title("Choose your signature image").add_filter("Image", &["png", "jpg", "jpeg"]).pick_file() else {
-        return;
-    };
-    // Refused here (format, size), not at signing time.
-    if let Err(e) = sign::aspect(&Graphic::Image(p.clone())) {
-        return crate::flow::toast(ui, &e.to_string());
-    }
-    edit(tab_id, |s| s.image = Some(p));
-}
-
-pub fn pick_p12() -> slint::SharedString {
-    rfd::FileDialog::new()
-        .set_title("Choose your certificate")
-        .add_filter("Digital ID", &["p12", "pfx"])
-        .pick_file()
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_default()
-        .into()
+    let d = crate::dialog::new(ui).set_title("Choose your signature image").add_filter("Image", &["png", "jpg", "jpeg"]);
+    crate::dialog::pick_file(ui, d, move |ui, p| {
+        // Refused here (format, size), not at signing time.
+        if let Err(e) = sign::aspect(&Graphic::Image(p.clone())) {
+            return crate::flow::toast(ui, &e.to_string());
+        }
+        edit(tab_id, |s| s.image = Some(p));
+    });
 }
 
 /// The certificate to sign with, when the panel asks for one.

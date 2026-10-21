@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 sheaf-core = { path = "../sheaf-core" }
-slint = { workspace = true, features = ["unstable-winit-030"] }
+slint = { workspace = true, features = ["unstable-winit-030", "raw-window-handle-06"] }
 rfd.workspace = true
 dirs.workspace = true
 serde.workspace = true

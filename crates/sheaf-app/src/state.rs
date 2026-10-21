@@ -73,6 +73,12 @@ pub struct TabState {
     /// for a document that finishes loading after the widget reported them.
     pub viewport: (f32, f32, f32),
     pub strip: (f32, f32),
+    /// A document tab (the reader) instead of a tool.
+    pub reader: Option<Box<crate::reader_ui::ReaderUi>>,
+    /// A document tab whose file is still being read: its name.
+    pub reader_loading: Option<String>,
+    /// While the document opens: the channel to its thread and the file.
+    pub reader_ops: Option<(std::sync::mpsc::Sender<crate::reader_doc::Op>, sheaf_core::pages::Input)>,
 }
 
 impl TabState {
@@ -97,6 +103,9 @@ impl TabState {
             viewer_error: None,
             viewport: (600.0, 0.0, 800.0),
             strip: (0.0, 800.0),
+            reader: None,
+            reader_loading: None,
+            reader_ops: None,
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
         }
     }
@@ -177,6 +186,12 @@ pub struct App {
     pub toast_timer: Option<slint::Timer>,
     /// Tabs closed while their job ran: tab id → (tool, inputs), for the history and toast.
     pub closed_jobs: HashMap<i32, (ToolId, Vec<PathBuf>)>,
+    /// A document the reader is opening, waiting for its password.
+    pub reader_pw: Option<PathBuf>,
+    /// The window is closing: each document with unsaved edits is asked about in turn.
+    pub quitting: bool,
+    /// Documents to close once their save is done (Save in the unsaved-changes dialog).
+    pub closing_after_save: std::collections::HashSet<i32>,
 }
 
 impl App {
@@ -186,6 +201,10 @@ impl App {
     pub fn tab(&mut self, id: i32) -> Option<&mut TabState> {
         self.tabs.iter_mut().find(|t| t.id == id)
     }
+}
+
+pub fn reader_icon() -> Image {
+    icon_image("file-text")
 }
 
 pub fn to_image(t: Thumb) -> Image {
@@ -311,6 +330,22 @@ pub fn build(t: &TabState) -> ToolTab {
         default_out: t.files.first().map(|f| sheaf_app::jobs::default_name(t.tool, &f.input.stem())).unwrap_or_default().into(),
         ..Default::default()
     };
+    if let Some(name) = &t.reader_loading {
+        tab.is_reader = true;
+        tab.name = name.as_str().into();
+        tab.tool = "read".into();
+        tab.icon = crate::state::reader_icon();
+        tab.viewer_status = "Opening…".into();
+        tab.reader.title = name.as_str().into();
+        return tab;
+    }
+    if let (Some(r), Some(v)) = (&t.reader, &t.viewer) {
+        crate::viewer_ui::fill(&mut tab, v);
+        crate::reader_ui::fill(&mut tab, r, v);
+        tab.tool = "read".into();
+        tab.icon = crate::state::reader_icon();
+        return tab;
+    }
     if let Some(v) = &t.viewer {
         crate::viewer_ui::fill(&mut tab, v);
         if t.tool == ToolId::Sign {

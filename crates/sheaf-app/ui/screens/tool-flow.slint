@@ -125,7 +125,6 @@ export component ToolFlowScreen inherits Rectangle {
     callback run(ToolOptions);
     callback cancel();
     callback get-libreoffice();
-    callback pick-image() -> string;
     // Compare: "Open file" on a slot (0 Original, 1 Changed), and swapping the two.
     callback open-slot(int);
     callback swap-slots();
@@ -356,7 +355,7 @@ export component ToolFlowScreen inherits Rectangle {
                     preview-h: root.tab.preview-h;
                     insert-blank => { root.insert-blank(); }
                     get-libreoffice => { root.get-libreoffice(); }
-                    pick-image => { return root.pick-image(); }
+                    tab-id: root.tab.id;
                 }
             }
             ActionButton {

@@ -1,0 +1,1337 @@
+//! The reader: one document open in its own tab to read and annotate, PDF Expert's reading
+//! window as the model. The pages are the tab's viewer (`viewer_ui`), rendered from the working
+//! copy held by a PdfCraft session, so an annotation shows the moment it is made; ⌘S writes it
+//! back to the file as an incremental update.
+//!
+//! Points called "view" are a page's view space (points, y down, as displayed): the space of
+//! PdfCraft's text layer. "Content" coordinates are the page scroll's.
+
+use std::collections::{HashMap, HashSet};
+use std::ops::Range;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
+use sheaf_app::viewer::{self, Viewer};
+use sheaf_app::{AppWindow, ReaderMark, ReaderAnnotRow, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
+use sheaf_core::pages::Input;
+use sheaf_core::pdfcraft::engine::{AddedText, Edit, Markup, NewAnnotation, NoteIcon, Shape, Style};
+use sheaf_core::pdfcraft::render::{self, PageText};
+use sheaf_core::pdfcraft::Doc;
+use slint::{Color, ComponentHandle, ModelRc, VecModel};
+
+use crate::state::{refresh, tabs_model, with, TabState};
+use crate::viewer_ui::ViewerUi;
+
+pub const SELECT: i32 = 0;
+pub const HIGHLIGHT: i32 = 1;
+pub const UNDERLINE: i32 = 2;
+pub const STRIKE: i32 = 3;
+pub const NOTE: i32 = 4;
+pub const PEN: i32 = 5;
+pub const TEXTBOX: i32 = 6;
+/// Edit mode: click a paragraph to edit its text, or empty space to add text to the page.
+pub const EDIT_TEXT: i32 = 7;
+/// Edit mode: click to place an image.
+pub const ADD_IMAGE: i32 = 8;
+
+use crate::reader_doc::{self, AnnotEntry, Block, Op, Reply, Snap};
+
+struct Search {
+    query: String,
+    /// (page, rects in view points) per match, in reading order.
+    hits: Vec<(usize, Vec<[f32; 4]>)>,
+    current: Option<usize>,
+    busy: bool,
+    /// Bumped by every new search: late results of an old one are dropped.
+    generation: u64,
+}
+
+/// What is being typed: 0 a note, 1 a text box (annotation), 2 an existing paragraph, 3 new
+/// text on the page.
+struct Draft {
+    page: usize,
+    at: (f64, f64),
+    kind: i32,
+    /// Kind 2: the paragraph's index, its text and its box (user space).
+    block: Option<(usize, String, [f64; 4])>,
+}
+
+/// An annotation sent to the document thread, drawn at once until the page renders with it.
+struct Provisional {
+    page: usize,
+    /// Content rectangles of a markup, or the points of a pen stroke (view points).
+    rects: Vec<[f32; 4]>,
+    stroke: Vec<(f64, f64)>,
+    colour: [f64; 3],
+    kind: i32,
+}
+
+pub struct ReaderUi {
+    ops: std::sync::mpsc::Sender<Op>,
+    snap: Snap,
+    /// Operations sent and not answered yet.
+    in_flight: usize,
+    provisional: Vec<Provisional>,
+    pub path: PathBuf,
+    pub name: String,
+    texts: HashMap<usize, Arc<PageText>>,
+    /// The text layer's renderer, kept for the working file it was made from.
+    text_renderer: Option<(Arc<Vec<u8>>, render::PageRenderer)>,
+    blocks: HashMap<usize, Arc<Vec<Block>>>,
+    blocks_asked: HashSet<usize>,
+    /// Text selection: page and glyph range.
+    sel: Option<(usize, Range<usize>)>,
+    /// The press of a drag: page and view point.
+    press: Option<(usize, (f64, f64))>,
+    pub tool: i32,
+    /// Colour index per palette: highlights (light) and strokes (ink).
+    light: usize,
+    ink_colour: usize,
+    pub theme: PageTheme,
+    panel_open: bool,
+    panel: i32,
+    toggled: HashSet<Vec<usize>>,
+    rows: Vec<reader::OutlineRow>,
+    selected_annot: Option<usize>,
+    search: Search,
+    stroke: Option<(usize, Vec<(f64, f64)>)>,
+    draft: Option<Draft>,
+    /// Add image: where the click was, while the file is chosen.
+    image_at: Option<(usize, (f64, f64))>,
+    note_seq: i32,
+    /// 0 fit width, 1 fit page, 2 a zoom the user chose.
+    zoom_mode: i32,
+    /// Pages left by following a link or the outline (⌘[ goes back), and those gone back from.
+    back: Vec<usize>,
+    forward: Vec<usize>,
+    /// Bumped when the outline rows or the annotation list change: the panel models are rebuilt
+    /// only then, not on every scroll.
+    version: u64,
+    outline_cache: std::cell::RefCell<Option<((u64, Option<usize>), ModelRc<ReaderOutlineRow>)>>,
+    annots_cache: std::cell::RefCell<Option<((u64, Option<usize>, usize), ModelRc<ReaderAnnotRow>)>>,
+}
+
+impl ReaderUi {
+    fn new(ops: std::sync::mpsc::Sender<Op>, snap: Snap, path: PathBuf) -> Self {
+        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "Document".into());
+        let has_outline = !snap.outline.is_empty();
+        let mut r = ReaderUi {
+            ops,
+            snap,
+            in_flight: 0,
+            provisional: Vec::new(),
+            path,
+            name,
+            texts: HashMap::new(),
+            text_renderer: None,
+            blocks: HashMap::new(),
+            blocks_asked: HashSet::new(),
+            sel: None,
+            press: None,
+            tool: SELECT,
+            light: 0,
+            ink_colour: 0,
+            theme: PageTheme::Day,
+            // The outline is open on documents that have one, as PDF Expert does for books.
+            panel_open: true,
+            panel: if has_outline { 1 } else { 0 },
+            toggled: HashSet::new(),
+            rows: Vec::new(),
+            selected_annot: None,
+            search: Search { query: String::new(), hits: Vec::new(), current: None, busy: false, generation: 0 },
+            stroke: None,
+            draft: None,
+            image_at: None,
+            note_seq: 0,
+            zoom_mode: 0,
+            back: Vec::new(),
+            forward: Vec::new(),
+            version: 0,
+            outline_cache: Default::default(),
+            annots_cache: Default::default(),
+        };
+        r.rows = reader::outline_rows(&r.snap.outline, &r.toggled);
+        r
+    }
+
+    fn annots(&self) -> &[AnnotEntry] {
+        &self.snap.annots
+    }
+
+    fn bytes(&self) -> Arc<Vec<u8>> {
+        self.snap.display.clone()
+    }
+
+    fn password(&self) -> Option<String> {
+        self.snap.password.clone()
+    }
+
+    fn dirty(&self) -> bool {
+        self.snap.dirty || self.in_flight > 0
+    }
+
+    fn send(&mut self, op: Op) {
+        if self.ops.send(op).is_ok() {
+            self.in_flight += 1;
+        }
+    }
+
+    /// The paragraphs of `page`, asked of the document thread once per change of the page
+    /// (`None` until they arrive).
+    fn blocks(&mut self, page: usize) -> Option<Arc<Vec<Block>>> {
+        if let Some(b) = self.blocks.get(&page) {
+            return Some(b.clone());
+        }
+        if self.blocks_asked.insert(page) {
+            let _ = self.ops.send(Op::Blocks(page));
+        }
+        None
+    }
+
+    /// The text layer of `page`, read once.
+    fn text(&mut self, page: usize) -> Option<Arc<PageText>> {
+        if let Some(t) = self.texts.get(&page) {
+            return Some(t.clone());
+        }
+        let bytes = self.snap.bytes.clone();
+        if !self.text_renderer.as_ref().is_some_and(|(b, _)| Arc::ptr_eq(b, &bytes)) {
+            let config = render::RenderConfig { password: self.snap.password.as_deref().map(Arc::from), ..Default::default() };
+            self.text_renderer = Some((bytes.clone(), render::PageRenderer::new(bytes, config)));
+        }
+        let (_, r) = self.text_renderer.as_mut()?;
+        let res = r.render(render::RenderRequest { page, kind: render::RequestKind::Text, scale: 1.0, ..Default::default() });
+        let t = res.text?;
+        self.texts.insert(page, t.clone());
+        Some(t)
+    }
+}
+
+// ---- opening ---------------------------------------------------------------------------------
+
+/// Opens `path` in a new reader tab and shows it. A file already open is brought forward.
+pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
+    let canon = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+    let existing = with(|a| a.tabs.iter().position(|t| t.reader.as_ref().is_some_and(|r| std::fs::canonicalize(&r.path).unwrap_or_else(|_| r.path.clone()) == canon)));
+    if let Some(i) = existing {
+        ui.set_active_tab(i as i32);
+        return;
+    }
+    // The tab shows at once ("Opening…"); the document is read and parsed on a worker.
+    let id = with(|a| {
+        a.next_id += 1;
+        let mut t = TabState::new(a.next_id, sheaf_core::tools::ToolId::Edit);
+        t.reader_loading = Some(file_name(&path));
+        tabs_model().push(crate::state::build(&t));
+        a.tabs.push(t);
+        a.next_id
+    });
+    ui.set_active_tab(slint::Model::row_count(&*tabs_model()) as i32 - 1);
+    let input = Input { path: path.clone(), password };
+    let weak = ui.as_weak();
+    let ops = reader_doc::start(input.clone(), move |reply| {
+        let _ = weak.upgrade_in_event_loop(move |ui| on_reply(&ui, id, reply));
+    });
+    with(|a| {
+        if let Some(t) = a.tab(id) {
+            t.reader_ops = Some((ops, input));
+        }
+    });
+}
+
+/// An answer of tab `id`'s document thread.
+fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
+    match reply {
+        Reply::Opened(snap) => opened(ui, id, *snap),
+        Reply::OpenFailed(e) => {
+            let Some((_, input)) = with(|a| a.tab(id).and_then(|t| t.reader_ops.take())) else { return };
+            crate::flow::remove_tab(ui, id);
+            match e {
+                sheaf_core::OpdfError::PasswordRequired(_) | sheaf_core::OpdfError::WrongPassword(_) => crate::password::ask_reader(ui, input.path, input.password.is_some()),
+                e => crate::flow::toast(ui, &format!("Can't open {}: {e}", file_name(&input.path))),
+            }
+        }
+        Reply::Changed { snap, pages, error } => {
+            update(id, |r, v| {
+                r.in_flight = r.in_flight.saturating_sub(1);
+                r.snap = *snap;
+                after_change(r, v, pages.as_deref());
+                if r.in_flight == 0 {
+                    r.provisional.clear();
+                }
+            });
+            if let Some(e) = error {
+                crate::flow::toast(ui, &e);
+            }
+            crate::viewer_ui::request(ui, id);
+        }
+        Reply::Saved { snap, to, error } => {
+            let name = update(id, |r, _| {
+                r.in_flight = r.in_flight.saturating_sub(1);
+                r.snap = *snap;
+                if error.is_none() {
+                    r.path = to.clone();
+                    r.name = file_name(&to);
+                }
+                r.name.clone()
+            });
+            match (error, name) {
+                (None, Some(n)) => {
+                    crate::flow::toast(ui, &format!("Saved {n}"));
+                    if with(|a| a.closing_after_save.remove(&id)) {
+                        crate::flow::remove_tab(ui, id);
+                        if with(|a| a.quitting) {
+                            crate::flow::quit_or_ask(ui);
+                        }
+                    }
+                }
+                (Some(e), _) => {
+                    with(|a| {
+                        a.closing_after_save.remove(&id);
+                        a.quitting = false;
+                    });
+                    crate::flow::toast(ui, &format!("Not saved: {e}"));
+                }
+                _ => {}
+            }
+        }
+        Reply::Blocks(page, b) => {
+            update(id, |r, _| {
+                r.blocks.insert(page, Arc::new(b));
+            });
+        }
+    }
+}
+
+fn opened(ui: &AppWindow, id: i32, snap: Snap) {
+    let Some((ops, input)) = with(|a| a.tab(id).and_then(|t| t.reader_ops.take())) else { return };
+    let path = input.path.clone();
+    crate::home::record_open(&path);
+    let scale = ui.window().scale_factor() as f64;
+    let ok = with(|a| {
+        let Some(t) = a.tab(id) else { return false };
+        let mut v = ViewerUi::new(input, Viewer::new(snap.boxes.clone()), scale, t.viewport, t.strip);
+        let mut r = ReaderUi::new(ops, snap, path);
+        r.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
+        v.theme = r.theme;
+        v.source = Some(r.bytes());
+        v.viewer.set_width(t.viewport.0 as f64);
+        t.viewer = Some(Box::new(v));
+        t.reader = Some(Box::new(r));
+        t.reader_loading = None;
+        refresh(a, id);
+        true
+    });
+    if ok {
+        crate::viewer_ui::request(ui, id);
+    }
+}
+
+fn file_name(p: &std::path::Path) -> String {
+    p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+}
+
+/// Runs `f` on the reader and viewer of tab `tab_id`, then pushes the tab to the UI.
+fn update<R>(tab_id: i32, f: impl FnOnce(&mut ReaderUi, &mut ViewerUi) -> R) -> Option<R> {
+    with(|a| {
+        let t = a.tab(tab_id)?;
+        let (Some(r), Some(v)) = (t.reader.as_deref_mut(), t.viewer.as_deref_mut()) else { return None };
+        let out = f(r, v);
+        refresh(a, tab_id);
+        Some(out)
+    })
+}
+
+pub fn is_reader(tab_id: i32) -> bool {
+    with(|a| a.tab(tab_id).is_some_and(|t| t.reader.is_some()))
+}
+
+// ---- geometry ----------------------------------------------------------------------------------
+
+/// Page `page`'s view points per content pixel.
+fn k(v: &Viewer, page: usize) -> f64 {
+    v.boxes[page].view_size().0 / v.page_rect(page)[2].max(1e-9)
+}
+
+/// A content point as page `page`'s view point, held to the page.
+fn to_view(v: &Viewer, page: usize, x: f64, y: f64) -> (f64, f64) {
+    let [px, py, w, h] = v.page_rect(page);
+    let s = k(v, page);
+    ((x - px).clamp(0.0, w) * s, (y - py).clamp(0.0, h) * s)
+}
+
+/// A view rectangle of `page` as content `[x, y, w, h]`.
+fn view_rect_to_content(v: &Viewer, page: usize, r: [f32; 4]) -> [f64; 4] {
+    let [px, py, _, _] = v.page_rect(page);
+    let s = 1.0 / k(v, page);
+    [px + r[0] as f64 * s, py + r[1] as f64 * s, (r[2] - r[0]) as f64 * s, (r[3] - r[1]) as f64 * s]
+}
+
+fn view_to_content(v: &Viewer, page: usize, p: (f64, f64)) -> (f64, f64) {
+    let [px, py, _, _] = v.page_rect(page);
+    let s = 1.0 / k(v, page);
+    (px + p.0 * s, py + p.1 * s)
+}
+
+/// The page under a content point, or the nearest one vertically (a press in a gap).
+fn page_at(v: &Viewer, x: f64, y: f64) -> Option<usize> {
+    if let Some((p, ..)) = v.hit(x, y) {
+        return Some(p);
+    }
+    (0..v.page_count()).min_by(|&a, &b| {
+        let d = |i: usize| {
+            let [_, py, _, h] = v.page_rect(i);
+            if y < py { py - y } else if y > py + h { y - py - h } else { 0.0 }
+        };
+        d(a).total_cmp(&d(b))
+    })
+}
+
+/// The annotation under view point `p` of `page`, topmost first.
+fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usize> {
+    let size = v.boxes[page].view_size();
+    r.annots().iter().enumerate().rev().find_map(|(i, a)| {
+        if a.page != page {
+            return None;
+        }
+        let boxes: Vec<[f64; 4]> = if a.quads.is_empty() { vec![a.rect] } else { a.quads.iter().map(|q| sheaf_core::redact::bounds(std::slice::from_ref(q))).collect() };
+        boxes
+            .iter()
+            .any(|b| {
+                let [x, y, w, h] = viewer::pdf_rect_to_view(&v.boxes[page], size, *b);
+                p.0 >= x - 2.0 && p.0 <= x + w + 2.0 && p.1 >= y - 2.0 && p.1 <= y + h + 2.0
+            })
+            .then_some(i)
+    })
+}
+
+// ---- pointer -----------------------------------------------------------------------------------
+
+pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
+    let (x, y) = (x as f64, y as f64);
+    let opened = update(tab_id, |r, v| {
+        let Some(page) = page_at(&v.viewer, x, y) else { return false };
+        let p = to_view(&v.viewer, page, x, y);
+        r.press = Some((page, p));
+        match r.tool {
+            PEN => {
+                r.stroke = Some((page, vec![p]));
+                false
+            }
+            NOTE | TEXTBOX => {
+                r.draft = Some(Draft { page, at: p, kind: if r.tool == NOTE { 0 } else { 1 }, block: None });
+                r.note_seq += 1;
+                r.press = None;
+                true
+            }
+            EDIT_TEXT => {
+                // A paragraph under the pointer is edited in place; elsewhere new text is added.
+                let size = v.viewer.boxes[page].view_size();
+                let hit = r.blocks(page).iter().enumerate().find_map(|(i, b)| {
+                    let [x, y, w, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, b.rect);
+                    (p.0 >= x - 2.0 && p.0 <= x + w + 2.0 && p.1 >= y - 2.0 && p.1 <= y + h + 2.0).then(|| (i, b.text.clone(), b.rect, (x, y)))
+                });
+                r.draft = Some(match hit {
+                    Some((i, text, rect, at)) => Draft { page, at, kind: 2, block: Some((i, text, rect)) },
+                    None => Draft { page, at: p, kind: 3, block: None },
+                });
+                r.note_seq += 1;
+                r.press = None;
+                true
+            }
+            ADD_IMAGE => {
+                r.press = None;
+                r.image_at = Some((page, p));
+                true
+            }
+            _ => {
+                if clicks == 2 {
+                    // Double-click: the word.
+                    r.sel = r.text(page).and_then(|t| reader::word(&t, (p.0 as f32, p.1 as f32))).map(|w| (page, w));
+                    r.press = None;
+                    return false;
+                }
+                // A click on an annotation with the select tool selects it.
+                if r.tool == SELECT && let Some(i) = annot_at(r, &v.viewer, page, p) {
+                    r.selected_annot = Some(i);
+                    r.sel = None;
+                    r.press = None;
+                    return false;
+                }
+                r.selected_annot = None;
+                r.sel = None;
+                false
+            }
+        }
+    });
+    if opened == Some(true) && with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).is_some_and(|r| r.image_at.is_some())) {
+        pick_image(ui, tab_id);
+    }
+}
+
+/// Add image: the file is chosen, then placed 200 pt wide (less on a small page) at the click.
+fn pick_image(ui: &AppWindow, tab_id: i32) {
+    let d = crate::dialog::new(ui).set_title("Choose an image").add_filter("Image", &["png", "jpg", "jpeg"]);
+    crate::dialog::pick_file(ui, d, move |ui, path| {
+        let pic = match sheaf_core::edit::Picture::read(&path) {
+            Ok(p) => p,
+            Err(e) => return crate::flow::toast(ui, &e.to_string()),
+        };
+        let edit = update(tab_id, |r, v| {
+            let (page, at) = r.image_at.take()?;
+            let size = v.viewer.boxes[page].view_size();
+            let w = 200.0_f64.min(size.0 * 0.8);
+            let h = w * pic.aspect();
+            let x0 = at.0.clamp(0.0, (size.0 - w).max(0.0));
+            let y0 = at.1.clamp(0.0, (size.1 - h).max(0.0));
+            // Display space: points from the displayed page's bottom-left, y up.
+            let rect = [x0, size.1 - (y0 + h), x0 + w, size.1 - y0];
+            let name = file_name(&path);
+            Some((page, Edit::AddImage { page, rect: Some(rect), name, bytes: pic.bytes.clone() }))
+        })
+        .flatten();
+        if let Some((page, e)) = edit {
+            apply(ui, tab_id, e, &[page], None);
+        }
+    });
+}
+
+pub fn moved(tab_id: i32, x: f32, y: f32) {
+    let (x, y) = (x as f64, y as f64);
+    update(tab_id, |r, v| {
+        let Some((page, a)) = r.press else { return };
+        let b = to_view(&v.viewer, page, x, y);
+        if r.tool == PEN {
+            if let Some((_, pts)) = r.stroke.as_mut() {
+                let last = *pts.last().unwrap_or(&b);
+                if (last.0 - b.0).hypot(last.1 - b.1) >= 0.75 {
+                    pts.push(b);
+                }
+            }
+            return;
+        }
+        if (a.0 - b.0).hypot(a.1 - b.1) < 1.5 {
+            return;
+        }
+        r.sel = r.text(page).and_then(|t| reader::selection(&t, (a.0 as f32, a.1 as f32), (b.0 as f32, b.1 as f32))).map(|s| (page, s));
+    });
+}
+
+pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
+    moved(tab_id, x, y);
+    let action = update(tab_id, |r, v| {
+        let press = r.press.take();
+        // A click (no drag) on a link with the select tool follows it.
+        if r.tool == SELECT
+            && r.sel.is_none()
+            && let Some((page, p)) = press
+            && let Some(target) = link_at(r, &v.viewer, page, p)
+        {
+            return Some(Pending::Link(target));
+        }
+        match r.tool {
+            PEN => r.stroke.take().filter(|(_, pts)| pts.len() >= 2).map(|(page, pts)| Pending::Ink(page, pts)),
+            HIGHLIGHT | UNDERLINE | STRIKE if press.is_some() && r.sel.is_some() => Some(Pending::Markup(r.tool)),
+            _ => None,
+        }
+    })
+    .flatten();
+    match action {
+        Some(Pending::Ink(page, pts)) => add_ink(ui, tab_id, page, pts),
+        Some(Pending::Markup(kind)) => markup(ui, tab_id, kind),
+        Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
+            update(tab_id, |r, v| {
+                // An /XYZ destination's top edge, when it has one, is brought near the top.
+                let focus = match view {
+                    render::DestView::Xyz { top: Some(t), .. } => {
+                        let b = &v.viewer.boxes[page.min(v.viewer.page_count().saturating_sub(1))];
+                        Some([b.crop[0], t as f64 - 1.0, b.crop[2], t as f64])
+                    }
+                    _ => None,
+                };
+                jump(r, v, page, focus);
+            });
+        }
+        Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("http://") || u.starts_with("https://") || u.starts_with("mailto:") => crate::run::open_detached(&u),
+        Some(Pending::Link(_)) | None => {}
+    }
+}
+
+enum Pending {
+    Ink(usize, Vec<(f64, f64)>),
+    Markup(i32),
+    Link(render::LinkTarget),
+}
+
+/// The link under view point `p` of `page`.
+fn link_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<render::LinkTarget> {
+    let size = v.boxes[page].view_size();
+    r.snap.links.iter().filter(|l| l.page == page).find_map(|l| {
+        let [x, y, w, h] = viewer::pdf_rect_to_view(&v.boxes[page], size, l.rect.map(f64::from));
+        (p.0 >= x && p.0 <= x + w && p.1 >= y && p.1 <= y + h).then(|| l.target.clone())
+    })
+}
+
+/// Goes to `page`, remembering where the reader was for ⌘[.
+fn jump(r: &mut ReaderUi, v: &mut ViewerUi, page: usize, focus: Option<[f64; 4]>) {
+    let cur = v.current();
+    if r.back.last() != Some(&cur) {
+        r.back.push(cur);
+    }
+    r.forward.clear();
+    v.show_page(page, focus);
+}
+
+/// ⌘[ (back, `dir` −1) and ⌘] (forward, +1).
+pub fn history(tab_id: i32, dir: i32) {
+    update(tab_id, |r, v| {
+        let cur = v.current();
+        let to = if dir < 0 { r.back.pop() } else { r.forward.pop() };
+        if let Some(p) = to {
+            if dir < 0 { r.forward.push(cur) } else { r.back.push(cur) }
+            v.show_page(p, None);
+        }
+    });
+}
+
+// ---- edits -------------------------------------------------------------------------------------
+
+/// Sends `edit` to the document thread; the pages it touches render again when it is done.
+/// `provisional` is drawn meanwhile.
+fn apply(ui: &AppWindow, tab_id: i32, edit: Edit, pages: &[usize], provisional: Option<Provisional>) {
+    let err = update(tab_id, |r, _| {
+        if !r.snap.read_only.is_empty() {
+            return Some(r.snap.read_only.clone());
+        }
+        r.send(Op::Apply { edit, pages: pages.to_vec() });
+        r.provisional.extend(provisional);
+        None
+    })
+    .flatten();
+    if let Some(e) = err {
+        crate::flow::toast(ui, &e);
+    }
+}
+
+/// The working copy changed: new bytes to render, annotations to list.
+fn after_change(r: &mut ReaderUi, v: &mut ViewerUi, pages: Option<&[usize]>) {
+    v.source = Some(r.bytes());
+    if v.viewer.boxes != r.snap.boxes {
+        // A page was added, removed or turned.
+        let width = v.viewer.content_width();
+        v.viewer = Viewer::new(r.snap.boxes.clone());
+        v.viewer.set_width(width);
+    }
+    match pages {
+        Some(ps) => ps.iter().for_each(|&p| {
+            v.page_changed(p);
+            r.blocks.remove(&p);
+            r.blocks_asked.remove(&p);
+        }),
+        None => {
+            v.all_changed();
+            r.blocks.clear();
+            r.blocks_asked.clear();
+        }
+    }
+    // Annotations don't change the text layer; edits of the page content do.
+    let stale_text = r.text_renderer.as_ref().is_some_and(|(b, _)| !Arc::ptr_eq(b, &r.snap.bytes));
+    if stale_text {
+        match pages {
+            Some(ps) => ps.iter().for_each(|p| {
+                r.texts.remove(p);
+            }),
+            None => r.texts.clear(),
+        }
+    }
+    r.version += 1;
+    if r.selected_annot.is_some_and(|i| i >= r.snap.annots.len()) {
+        r.selected_annot = None;
+    }
+    r.rows = reader::outline_rows(&r.snap.outline, &r.toggled);
+}
+
+fn style(colour: [f64; 3], width: f64) -> Style {
+    Style { color: colour, opacity: 1.0, width, fill: None }
+}
+
+/// Highlight, underline or strike the selection (`kind` 1, 2, 3).
+pub fn markup(ui: &AppWindow, tab_id: i32, kind: i32) {
+    let made = update(tab_id, |r, v| {
+        let (page, range) = r.sel.clone()?;
+        let text = r.text(page)?;
+        let rects = text.line_rects(range.clone());
+        let quads = reader::quads(&v.viewer.boxes[page], &rects);
+        let contents = reader::selected_text(&text, range);
+        let (m, colour) = match kind {
+            UNDERLINE => (Markup::Underline, INK[r.ink_colour]),
+            STRIKE => (Markup::StrikeOut, INK[r.ink_colour]),
+            _ => (Markup::Highlight, COLOURS[r.light]),
+        };
+        r.sel = None;
+        let prov = Provisional { page, rects, stroke: Vec::new(), colour, kind };
+        Some((page, Edit::AddAnnotation(NewAnnotation { page, shape: Shape::TextMarkup { kind: m, quads }, style: style(colour, 1.0), contents, author: author() }), prov))
+    })
+    .flatten();
+    if let Some((page, edit, prov)) = made {
+        apply(ui, tab_id, edit, &[page], Some(prov));
+    }
+}
+
+fn author() -> String {
+    crate::home::prefs().author.unwrap_or_default()
+}
+
+fn add_ink(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f64)>) {
+    let edit = update(tab_id, |r, v| {
+        let b = &v.viewer.boxes[page];
+        let size = b.view_size();
+        let stroke: Vec<[f64; 2]> = pts.iter().map(|p| { let (x, y) = viewer::view_to_pdf(b, size, p.0, p.1); [x, y] }).collect();
+        let prov = Provisional { page, rects: Vec::new(), stroke: pts.clone(), colour: INK[r.ink_colour], kind: PEN };
+        (Edit::AddAnnotation(NewAnnotation { page, shape: Shape::Ink { strokes: vec![stroke] }, style: style(INK[r.ink_colour], 2.0), contents: String::new(), author: author() }), prov)
+    });
+    if let Some((e, prov)) = edit {
+        apply(ui, tab_id, e, &[page], Some(prov));
+    }
+}
+
+pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
+    let text = text.trim().to_string();
+    let edit = update(tab_id, |r, v| {
+        let d = r.draft.take()?;
+        let b = &v.viewer.boxes[d.page];
+        let size = b.view_size();
+        if d.kind == 2 {
+            // The paragraph's new text (empty deletes it), rewrapped to its box by PdfCraft.
+            let (block, old, _) = d.block?;
+            if text == old.trim() {
+                return None;
+            }
+            return Some((d.page, Edit::EditTextBlock { page: d.page, block, text: text.clone(), style: Default::default() }));
+        }
+        if text.is_empty() {
+            return None;
+        }
+        if d.kind == 3 {
+            let (w, h) = sheaf_core::edit::text_extent(&text, 12.0);
+            let x0 = d.at.0.min((size.0 - w - 12.0).max(0.0));
+            let rect = [x0, size.1 - (d.at.1 + h), x0 + w + 12.0, size.1 - d.at.1];
+            return Some((d.page, Edit::AddText { page: d.page, text: AddedText { rect, text: text.clone(), size: 12.0, color: INK[r.ink_colour], ..Default::default() } }));
+        }
+        let (x, y) = viewer::view_to_pdf(b, size, d.at.0, d.at.1);
+        let shape = if d.kind == 0 {
+            Shape::Note { at: [x, y], icon: NoteIcon::Comment }
+        } else {
+            // A box 200 pt wide, tall enough for the lines typed (12 pt text), kept on the page.
+            let lines = text.lines().count().max(1) as f64 + (text.len() as f64 / 38.0).floor();
+            let (w, h) = (200.0_f64.min(size.0 - d.at.0).max(40.0), (lines * 15.0 + 8.0).min(size.1));
+            let r = viewer::view_rect_to_pdf(b, size, d.at, (d.at.0 + w, d.at.1 + h));
+            Shape::TextBox { rect: r, font_size: 12.0 }
+        };
+        let colour = if d.kind == 0 { COLOURS[r.light] } else { INK[r.ink_colour] };
+        Some((d.page, Edit::AddAnnotation(NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 { 1.0 } else { 0.0 }), contents: text, author: author() })))
+    })
+    .flatten();
+    if let Some((page, e)) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
+pub fn note_cancel(tab_id: i32) {
+    update(tab_id, |r, _| r.draft = None);
+}
+
+pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
+    let edit = update(tab_id, |r, _| {
+        let i = r.selected_annot.take()?;
+        let a = r.annots().get(i)?;
+        Some((a.page, Edit::DeleteAnnotation { page: a.page, index: a.index }))
+    })
+    .flatten();
+    if let Some((page, e)) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
+pub fn annot_delete(ui: &AppWindow, tab_id: i32, k: i32) {
+    update(tab_id, |r, _| r.selected_annot = Some(k.max(0) as usize));
+    delete_selected(ui, tab_id);
+}
+
+pub fn undo(_ui: &AppWindow, tab_id: i32, redo: bool) {
+    update(tab_id, |r, _| {
+        r.selected_annot = None;
+        r.send(if redo { Op::Redo } else { Op::Undo });
+    });
+}
+
+// ---- saving ------------------------------------------------------------------------------------
+
+/// ⌘S: the edits are written into the file itself, as an incremental update.
+pub fn save(_ui: &AppWindow, tab_id: i32) {
+    update(tab_id, |r, _| {
+        if r.dirty() {
+            r.send(Op::Save { to: None });
+        }
+    });
+}
+
+/// ⇧⌘S: a full copy with the edits, under a new name; the tab then shows that file.
+pub fn save_as(ui: &AppWindow, tab_id: i32) {
+    let Some((dir, name)) = update(tab_id, |r, _| (crate::dest::parent_dir(&r.path), r.name.clone())) else { return };
+    let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(name).add_filter("PDF", &["pdf"]);
+    crate::dialog::save_file(ui, d, move |_, target| {
+        update(tab_id, |r, _| r.send(Op::Save { to: Some(target) }));
+    });
+}
+
+/// The file name of tab `tab_id` when closing it would lose edits.
+pub fn unsaved_name(tab_id: i32) -> Option<String> {
+    with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).filter(|r| r.dirty()).map(|r| r.name.clone()))
+}
+
+/// The document goes to the Tools page, ready for the tool picked (unsaved edits are saved first).
+pub fn to_tools(ui: &AppWindow, tab_id: i32) {
+    if unsaved_name(tab_id).is_some() {
+        save(ui, tab_id);
+    }
+    let Some(path) = with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).map(|r| r.path.clone())) else { return };
+    with(|a| {
+        a.home_files.retain(|p| p != &path);
+        a.home_files.push(path);
+    });
+    ui.set_active_tab(-1);
+    ui.set_page(sheaf_app::Page::Tools);
+    crate::flow::toast(ui, "Choose a tool for your file");
+}
+
+// ---- tools, panel, theme -----------------------------------------------------------------------
+
+pub fn set_tool(tab_id: i32, tool: i32) {
+    update(tab_id, |r, v| {
+        r.tool = tool.clamp(SELECT, ADD_IMAGE);
+        r.draft = None;
+        r.stroke = None;
+        load_blocks(r, v);
+    });
+}
+
+/// Edit text: the paragraphs of the pages in view are read so they can be outlined.
+fn load_blocks(r: &mut ReaderUi, v: &ViewerUi) {
+    if r.tool == EDIT_TEXT {
+        for p in v.viewer.wanted(v.top, v.height) {
+            r.blocks(p);
+        }
+    }
+}
+
+/// The view scrolled or resized.
+pub fn viewport_changed(tab_id: i32) {
+    let editing = with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).is_some_and(|r| r.tool == EDIT_TEXT));
+    if editing {
+        update(tab_id, |r, v| load_blocks(r, v));
+    }
+}
+
+pub fn set_tool_and_mark(ui: &AppWindow, tab_id: i32, tool: i32) {
+    let has_sel = update(tab_id, |r, _| r.sel.is_some()).unwrap_or(false);
+    set_tool(tab_id, tool);
+    if has_sel && (HIGHLIGHT..=STRIKE).contains(&tool) {
+        markup(ui, tab_id, tool);
+    }
+}
+
+/// The colour of the current tool: highlights and notes take the light palette, strokes the ink one.
+pub fn set_colour(tab_id: i32, k: i32) {
+    let k = k.clamp(0, 4) as usize;
+    update(tab_id, |r, _| {
+        if uses_light(r.tool) {
+            r.light = k;
+        } else {
+            r.ink_colour = k;
+        }
+    });
+}
+
+fn uses_light(tool: i32) -> bool {
+    matches!(tool, SELECT | HIGHLIGHT | NOTE)
+}
+
+pub fn set_theme(ui: &AppWindow, tab_id: i32, theme: i32) {
+    update(tab_id, |r, v| {
+        let t = PageTheme::from_index(theme);
+        if t != r.theme {
+            r.theme = t;
+            v.theme = t;
+            v.all_changed();
+        }
+    });
+    crate::home::set_reader_theme(theme);
+    crate::viewer_ui::request(ui, tab_id);
+}
+
+pub fn set_panel(tab_id: i32, panel: i32) {
+    update(tab_id, |r, _| {
+        r.panel = panel.clamp(0, 2);
+        r.panel_open = true;
+    });
+}
+
+pub fn toggle_panel(tab_id: i32) {
+    update(tab_id, |r, _| r.panel_open = !r.panel_open);
+}
+
+pub fn outline_clicked(tab_id: i32, row: i32) {
+    update(tab_id, |r, v| {
+        if let Some(p) = r.rows.get(row.max(0) as usize).and_then(|x| x.page) {
+            jump(r, v, p, None);
+        }
+    });
+}
+
+pub fn outline_toggled(tab_id: i32, row: i32) {
+    update(tab_id, |r, _| {
+        if let Some(path) = r.rows.get(row.max(0) as usize).map(|x| x.path.clone()) {
+            if !r.toggled.remove(&path) {
+                r.toggled.insert(path);
+            }
+            r.rows = reader::outline_rows(&r.snap.outline, &r.toggled);
+            r.version += 1;
+        }
+    });
+}
+
+pub fn annot_clicked(tab_id: i32, k: i32) {
+    update(tab_id, |r, v| {
+        let k = k.max(0) as usize;
+        let Some(a) = r.annots().get(k) else { return };
+        let (page, rect) = (a.page, a.rect);
+        r.selected_annot = Some(k);
+        r.sel = None;
+        v.show_page(page, Some(rect));
+    });
+}
+
+// ---- navigation --------------------------------------------------------------------------------
+
+pub fn go_to_page(tab_id: i32, text: &str) {
+    update(tab_id, |r, v| {
+        let t = text.trim();
+        let n = v.viewer.page_count();
+        // A number, or a page label ("iv", "A-3").
+        let page = t.parse::<usize>().ok().filter(|p| (1..=n).contains(p)).map(|p| p - 1).or_else(|| r.snap.labels.iter().position(|l| l.eq_ignore_ascii_case(t)));
+        if let Some(p) = page {
+            jump(r, v, p, None);
+        }
+    });
+}
+
+pub fn page_step(tab_id: i32, step: i32) {
+    update(tab_id, |_, v| {
+        let n = v.viewer.page_count();
+        if n == 0 {
+            return;
+        }
+        let cur = v.current();
+        match step {
+            10 => v.show_page(n - 1, None),
+            -10 => v.show_page(0, None),
+            2 | -2 => {
+                let h = v.height * 0.9;
+                v.scroll = (v.top + if step > 0 { h } else { -h }).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
+                v.scroll_seq += 1;
+            }
+            s => {
+                // From the top of the current page: ← goes to its start when it is scrolled into.
+                let top_of = v.viewer.page_rect(cur)[1] - viewer::PAGE_GAP;
+                let target = if s < 0 && v.top > top_of + 4.0 { cur } else { (cur as i64 + s as i64).clamp(0, n as i64 - 1) as usize };
+                v.show_page(target, None);
+            }
+        }
+    });
+}
+
+pub fn scroll_by(tab_id: i32, dy: f32) {
+    update(tab_id, |_, v| {
+        v.scroll = (v.top + dy as f64).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
+        v.scroll_seq += 1;
+    });
+}
+
+/// Fit width (0) or fit page (1).
+pub fn zoom_fit(ui: &AppWindow, tab_id: i32, mode: i32) {
+    let z = update(tab_id, |r, v| {
+        r.zoom_mode = mode.clamp(0, 1);
+        if mode == 1 {
+            let cur = v.current();
+            v.viewer.fit_page_zoom(v.height, cur..cur + 1)
+        } else {
+            100
+        }
+    });
+    if let Some(z) = z {
+        crate::viewer_ui::zoom_to(ui, tab_id, z);
+        if z == 100 || mode == 1 {
+            update(tab_id, |_, v| {
+                let cur = v.current();
+                v.show_page(cur, None);
+            });
+        }
+    }
+}
+
+pub fn zoom_changed(tab_id: i32) {
+    update(tab_id, |r, v| {
+        if v.viewer.zoom() != 100 && r.zoom_mode == 0 {
+            r.zoom_mode = 2;
+        }
+    });
+}
+
+pub fn escape(tab_id: i32) {
+    update(tab_id, |r, _| {
+        if r.draft.take().is_some() {
+            return;
+        }
+        if r.sel.take().is_some() || r.selected_annot.take().is_some() {
+            return;
+        }
+        r.tool = SELECT;
+    });
+}
+
+pub fn select_all(tab_id: i32) {
+    update(tab_id, |r, v| {
+        let page = v.current();
+        r.sel = r.text(page).filter(|t| !t.glyphs.is_empty()).map(|t| (page, 0..t.glyphs.len()));
+    });
+}
+
+// ---- search ------------------------------------------------------------------------------------
+
+pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
+    let q = query.trim().to_string();
+    let Some((bytes, password, n, generation)) = update(tab_id, |r, v| {
+        r.search.generation += 1;
+        r.search.query = q.clone();
+        r.search.hits.clear();
+        r.search.current = None;
+        r.search.busy = !q.is_empty();
+        (r.snap.bytes.clone(), r.password(), v.viewer.page_count(), r.search.generation)
+    }) else {
+        return;
+    };
+    if q.is_empty() {
+        return;
+    }
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let config = render::RenderConfig { password: password.as_deref().map(Arc::from), ..Default::default() };
+        let mut rr = render::PageRenderer::new(bytes, config);
+        let mut texts = Vec::new();
+        let mut hits = Vec::new();
+        // Results come back in batches so the first pages show while the rest are read.
+        let mut sent = 0;
+        for page in 0..n {
+            let res = rr.render(render::RenderRequest { page, kind: render::RequestKind::Text, scale: 1.0, ..Default::default() });
+            if let Some(t) = res.text {
+                for m in t.find(&q) {
+                    hits.push((page, t.line_rects(m)));
+                }
+                texts.push((page, t));
+            }
+            let last = page + 1 == n;
+            if last || (hits.len() > sent && (page % 16 == 15)) {
+                let batch: Vec<_> = hits[sent..].to_vec();
+                sent = hits.len();
+                let tx = std::mem::take(&mut texts);
+                let w = weak.clone();
+                let _ = w.upgrade_in_event_loop(move |_| {
+                    update(tab_id, |r, v| {
+                        if r.search.generation != generation {
+                            return;
+                        }
+                        for (p, t) in tx {
+                            r.texts.entry(p).or_insert(t);
+                        }
+                        let first = r.search.hits.is_empty() && !batch.is_empty();
+                        r.search.hits.extend(batch);
+                        r.search.busy = !last;
+                        if first {
+                            r.search.current = Some(0);
+                            let (page, rects) = &r.search.hits[0];
+                            let rect = union(rects);
+                            show_view_rect(v, *page, rect);
+                        }
+                    });
+                });
+            }
+        }
+    });
+}
+
+fn union(rects: &[[f32; 4]]) -> [f32; 4] {
+    rects.iter().fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |a, r| [a[0].min(r[0]), a[1].min(r[1]), a[2].max(r[2]), a[3].max(r[3])])
+}
+
+/// Scrolls so the view rectangle `r` of `page` is a third down the viewport.
+fn show_view_rect(v: &mut ViewerUi, page: usize, r: [f32; 4]) {
+    let c = view_rect_to_content(&v.viewer, page, r);
+    v.scroll = (c[1] - v.height / 3.0).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
+    v.scroll_seq += 1;
+}
+
+pub fn search_step(tab_id: i32, dir: i32) {
+    update(tab_id, |r, v| {
+        let n = r.search.hits.len();
+        if n == 0 {
+            return;
+        }
+        let next = match r.search.current {
+            None => 0,
+            Some(c) => ((c as i64 + dir.signum() as i64).rem_euclid(n as i64)) as usize,
+        };
+        r.search.current = Some(next);
+        let (page, rects) = &r.search.hits[next];
+        let rect = union(rects);
+        show_view_rect(v, *page, rect);
+    });
+}
+
+pub fn search_clear(tab_id: i32) {
+    update(tab_id, |r, _| {
+        r.search.generation += 1;
+        r.search.query.clear();
+        r.search.hits.clear();
+        r.search.current = None;
+        r.search.busy = false;
+    });
+}
+
+// ---- into the tab model ------------------------------------------------------------------------
+
+fn colour_of(c: [f64; 3]) -> Color {
+    Color::from_rgb_u8((c[0] * 255.0) as u8, (c[1] * 255.0) as u8, (c[2] * 255.0) as u8)
+}
+
+fn overlay(r: [f64; 4], kind: i32) -> ViewerOverlay {
+    ViewerOverlay { x: r[0] as f32, y: r[1] as f32, w: r[2] as f32, h: r[3] as f32, kind }
+}
+
+pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
+    let wanted = v.viewer.wanted(v.top, v.height);
+    let cur = v.current();
+    let mut marks = Vec::new();
+    if let Some((page, range)) = &r.sel
+        && let Some(t) = r.texts.get(page)
+    {
+        for rect in t.line_rects(range.clone()) {
+            marks.push(overlay(view_rect_to_content(&v.viewer, *page, rect), 3));
+        }
+    }
+    for (i, (page, rects)) in r.search.hits.iter().enumerate() {
+        if wanted.contains(page) {
+            let kind = if r.search.current == Some(i) { 5 } else { 4 };
+            for rect in rects {
+                marks.push(overlay(view_rect_to_content(&v.viewer, *page, *rect), kind));
+            }
+        }
+    }
+    // Annotations on their way to the document thread, drawn as they will look.
+    let mut prov_ink = String::new();
+    let mut provisional = Vec::new();
+    for p in &r.provisional {
+        if p.kind == PEN {
+            for (i, pt) in p.stroke.iter().enumerate() {
+                let (x, y) = view_to_content(&v.viewer, p.page, *pt);
+                prov_ink.push_str(&format!("{}{x:.1} {y:.1} ", if i == 0 { "M" } else { "L" }));
+            }
+            continue;
+        }
+        for rect in &p.rects {
+            let c = view_rect_to_content(&v.viewer, p.page, *rect);
+            let c = match p.kind {
+                UNDERLINE => [c[0], c[1] + c[3] - 1.5, c[2], 1.5],
+                STRIKE => [c[0], c[1] + c[3] * 0.55, c[2], 1.5],
+                _ => c,
+            };
+            let (col, alpha) = (p.colour, if p.kind == HIGHLIGHT { 110 } else { 255 });
+            provisional.push(ReaderMark {
+                x: c[0] as f32,
+                y: c[1] as f32,
+                w: c[2] as f32,
+                h: c[3] as f32,
+                colour: Color::from_argb_u8(alpha, (col[0] * 255.0) as u8, (col[1] * 255.0) as u8, (col[2] * 255.0) as u8),
+            });
+        }
+    }
+    if r.tool == EDIT_TEXT {
+        // The paragraphs that can be edited, outlined on the pages in view (read when first shown).
+        for page in wanted.clone() {
+            if let Some(blocks) = r.blocks.get(&page) {
+                for b in blocks.iter() {
+                    let c = v.viewer.overlay(page, b.rect);
+                    marks.push(overlay([c[0] - 2.0, c[1] - 1.0, c[2] + 4.0, c[3] + 2.0], 7));
+                }
+            }
+        }
+    }
+    if let Some(a) = r.selected_annot.and_then(|i| r.annots().get(i)) {
+        let c = v.viewer.overlay(a.page, a.rect);
+        marks.push(overlay([c[0] - 2.0, c[1] - 2.0, c[2] + 4.0, c[3] + 4.0], 6));
+    }
+    let ink = match &r.stroke {
+        Some((page, pts)) if pts.len() >= 2 => {
+            let mut s = String::new();
+            for (i, p) in pts.iter().enumerate() {
+                let (x, y) = view_to_content(&v.viewer, *page, *p);
+                s.push_str(&format!("{}{x:.1} {y:.1} ", if i == 0 { "M" } else { "L" }));
+            }
+            s
+        }
+        _ => prov_ink,
+    };
+    let current_row = reader::current_section(&r.rows, cur);
+    let outline = {
+        let key = (r.version, current_row);
+        let mut c = r.outline_cache.borrow_mut();
+        match c.as_ref() {
+            Some((k, m)) if *k == key => m.clone(),
+            _ => {
+                let m = ModelRc::new(VecModel::from(outline_model(r, current_row)));
+                *c = Some((key, m.clone()));
+                m
+            }
+        }
+    };
+    let annots = {
+        let key = (r.version, r.selected_annot, r.texts.len());
+        let mut c = r.annots_cache.borrow_mut();
+        match c.as_ref() {
+            Some((k, m)) if *k == key => m.clone(),
+            _ => {
+                let m = ModelRc::new(VecModel::from(annots_model(r, v)));
+                *c = Some((key, m.clone()));
+                m
+            }
+        }
+    };
+    let note = match &r.draft {
+        Some(d) => {
+            let (x, y) = view_to_content(&v.viewer, d.page, d.at);
+            let (text, w, h) = match &d.block {
+                Some((_, t, rect)) => {
+                    let c = v.viewer.overlay(d.page, *rect);
+                    (t.clone(), c[2].max(260.0), c[3].max(60.0) + 70.0)
+                }
+                None => (String::new(), 260.0, 150.0),
+            };
+            ReaderNote { show: true, x: x as f32, y: y as f32, w: w as f32, h: h as f32, text: text.into(), kind: d.kind, seq: r.note_seq }
+        }
+        None => ReaderNote { seq: r.note_seq, ..Default::default() },
+    };
+    let n = r.search.hits.len();
+    let search_count = if r.search.query.is_empty() {
+        String::new()
+    } else if n == 0 && r.search.busy {
+        "…".into()
+    } else if n == 0 {
+        "None".into()
+    } else {
+        format!("{}/{}{}", r.search.current.map(|c| c + 1).unwrap_or(0), n, if r.search.busy { "+" } else { "" })
+    };
+    tab.name = r.name.clone().into();
+    tab.is_reader = true;
+    tab.reader = ReaderState {
+        title: r.name.clone().into(),
+        dirty: r.dirty(),
+        read_only: r.snap.read_only.clone().into(),
+        page_count: v.viewer.page_count() as i32,
+        page_text: (cur + 1).to_string().into(),
+        page_label: label(r, cur).into(),
+        panel_open: r.panel_open,
+        panel: r.panel,
+        outline_empty: r.rows.is_empty(),
+        outline,
+        annots,
+        tool: r.tool,
+        colour: if uses_light(r.tool) { r.light as i32 } else { r.ink_colour as i32 },
+        theme: r.theme.index(),
+        backdrop: reader::backdrop(r.theme).map(|c| Color::from_rgb_u8(c[0], c[1], c[2])).unwrap_or_default(),
+        marks: ModelRc::new(VecModel::from(marks)),
+        provisional: ModelRc::new(VecModel::from(provisional)),
+        has_selection: r.sel.is_some(),
+        selected_text: r.sel.as_ref().and_then(|(p, range)| r.texts.get(p).map(|t| reader::selected_text(t, range.clone()))).unwrap_or_default().into(),
+        selected_annot: r.selected_annot.is_some(),
+        ink: ink.into(),
+        ink_colour: colour_of(INK[r.ink_colour]),
+        note,
+        search_count: search_count.into(),
+        search_busy: r.search.busy,
+        can_undo: r.snap.can_undo && r.in_flight == 0,
+        can_redo: r.snap.can_redo && r.in_flight == 0,
+        zoom_mode: r.zoom_mode,
+    };
+    if reader::backdrop(r.theme).is_none() {
+        tab.reader.backdrop = Color::from_argb_u8(0, 0, 0, 0);
+    }
+}
+
+fn outline_model(r: &ReaderUi, current_row: Option<usize>) -> Vec<ReaderOutlineRow> {
+    let outline: Vec<ReaderOutlineRow> = r
+        .rows
+        .iter()
+        .enumerate()
+        .map(|(i, x)| ReaderOutlineRow {
+            title: x.title.clone().into(),
+            depth: x.depth as i32,
+            page_label: x.page.map(|p| label(r, p)).unwrap_or_default().into(),
+            has_children: x.has_children,
+            expanded: x.expanded,
+            current: current_row == Some(i),
+        })
+        .collect();
+    outline
+}
+
+fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
+    let annots: Vec<ReaderAnnotRow> = r
+        .annots()
+        .iter()
+        .enumerate()
+        .map(|(i, a)| {
+            let text = if a.quads.is_empty() || !a.contents.is_empty() {
+                a.contents.clone()
+            } else {
+                r.texts
+                    .get(&a.page)
+                    .map(|t| {
+                        let size = v.viewer.boxes[a.page].view_size();
+                        let rects: Vec<[f32; 4]> = a
+                            .quads
+                            .iter()
+                            .map(|q| {
+                                let [x, y, w, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[a.page], size, sheaf_core::redact::bounds(std::slice::from_ref(q)));
+                                [x as f32, y as f32, (x + w) as f32, (y + h) as f32]
+                            })
+                            .collect();
+                        reader::text_under(t, &rects)
+                    })
+                    .unwrap_or_default()
+            };
+            ReaderAnnotRow {
+                kind: reader::kind_label(&a.subtype).into(),
+                text: text.chars().take(300).collect::<String>().into(),
+                page_label: format!("Page {}", label(r, a.page)).into(),
+                colour: a.color.map(|c| colour_of([c[0] as f64, c[1] as f64, c[2] as f64])).unwrap_or(Color::from_rgb_u8(255, 214, 10)),
+                selected: r.selected_annot == Some(i),
+            }
+        })
+        .collect();
+    annots
+}
+
+/// The page's label ("iv") or number, 1-based.
+fn label(r: &ReaderUi, p: usize) -> String {
+    r.snap.labels.get(p).cloned().filter(|l| !l.is_empty()).unwrap_or_else(|| (p + 1).to_string())
+}

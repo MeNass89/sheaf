@@ -309,18 +309,27 @@ pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
     };
     let paths: Vec<PathBuf> = inputs.iter().map(|i| i.path.clone()).collect();
     let prefs = crate::home::prefs();
-    let dest = match pref_dest(tool, &paths, &opts, &prefs) {
-        Some(d) => Some(d),
+    match pref_dest(tool, &paths, &opts, &prefs) {
+        Some(dest) => start(ui, tab_id, tool, inputs, order, marks, placed, &opts, dest),
         None => {
             if prefs.output == OutputMode::Fixed {
                 toast(ui, "Output folder not found");
             }
-            // Modal dialog: no state borrow is held here.
-            ask_dest(tool, &paths, &opts)
+            // The dialog answers later, on the UI thread; the tab is checked again then.
+            let o = opts.clone();
+            ask_dest(ui, tool, &paths, &opts, move |ui, dest| {
+                let still = with(|a| a.tab(tab_id).map(|t| matches!(t.phase, Phase::Edit))).unwrap_or(false);
+                if still {
+                    start(ui, tab_id, tool, inputs, order, marks, placed, &o, dest);
+                }
+            });
         }
-    };
-    let Some(dest) = dest else { return };
-    let job = match build_job_full(tool, inputs, order, marks, placed, &opts, dest) {
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn start(ui: &AppWindow, tab_id: i32, tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, placed: Option<OnPages>, opts: &ToolOptions, dest: Dest) {
+    let job = match build_job_full(tool, inputs, order, marks, placed, opts, dest) {
         Ok(j) => j,
         Err(e) => return toast(ui, &e.to_string()),
     };

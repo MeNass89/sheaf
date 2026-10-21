@@ -1,5 +1,5 @@
 import { Theme } from "../theme.slint";
-import { ToolOptions, Parse, OcrInfo, SignBridge } from "../flow-types.slint";
+import { ToolOptions, Parse, OcrInfo, SignBridge, Picked } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { RadioCard, Segment, InfoBox } from "../widgets/radio-card.slint";
 
@@ -222,7 +222,11 @@ export component OptionsPanel inherits VerticalLayout {
     callback insert-blank();
     callback get-libreoffice();
     // Watermark: a picture file chosen in a dialog ("" when cancelled).
-    callback pick-image() -> string;
+    in property <int> tab-id;
+    property <int> watermark-seq: Picked.watermark-seq;
+    property <int> p12-seq: Picked.p12-seq;
+    changed watermark-seq => { if Picked.tab == root.tab-id { root.wm-image = Picked.watermark; } }
+    changed p12-seq => { if Picked.tab == root.tab-id { root.sign-p12 = Picked.p12; } }
 
     in-out property <bool> sign-cert;
     in-out property <string> sign-p12;
@@ -502,8 +506,7 @@ export component OptionsPanel inherits VerticalLayout {
             Segment {
                 text: root.wm-image == "" ? "Choose an image…" : "Change image…";
                 clicked => {
-                    let p = root.pick-image();
-                    if p != "" { root.wm-image = p; }
+                    Picked.pick-watermark(root.tab-id);
                 }
             }
             if root.wm-image != "": Text {
@@ -708,10 +711,7 @@ export component OptionsPanel inherits VerticalLayout {
             Segment {
                 text: root.sign-p12 == "" ? "Choose certificate file" : "Change certificate file";
                 clicked => {
-                    let p = SignBridge.pick-p12();
-                    if p != "" {
-                        root.sign-p12 = p;
-                    }
+                    Picked.pick-p12(root.tab-id);
                 }
             }
             if root.sign-p12 != "": Text {

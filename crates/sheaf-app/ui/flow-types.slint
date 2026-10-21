@@ -52,6 +52,87 @@ export struct ViewerOverlay {
     kind: int,
 }
 
+// Reader: an annotation drawn before the page renders with it (a highlight, an underline).
+export struct ReaderMark {
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    colour: color,
+}
+
+// Reader: one row of the outline panel.
+export struct ReaderOutlineRow {
+    title: string,
+    depth: int,
+    page-label: string,
+    has-children: bool,
+    expanded: bool,
+    current: bool,
+}
+
+// Reader: one row of the annotations panel.
+export struct ReaderAnnotRow {
+    kind: string,
+    text: string,
+    page-label: string,
+    colour: color,
+    selected: bool,
+}
+
+// Reader: the note or text box being typed, in content coordinates.
+export struct ReaderNote {
+    show: bool,
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    text: string,
+    // 0 note, 1 text box, 2 a paragraph of the page, 3 new text on the page
+    kind: int,
+    seq: int,
+}
+
+// Reader: everything a document tab shows besides the pages (ToolTab.viewer-*).
+export struct ReaderState {
+    title: string,
+    dirty: bool,
+    read-only: string,
+    page-count: int,
+    // 1-based page under the middle of the view, as typed in the page field.
+    page-text: string,
+    page-label: string,
+    panel-open: bool,
+    // 0 thumbnails, 1 outline, 2 annotations
+    panel: int,
+    outline: [ReaderOutlineRow],
+    outline-empty: bool,
+    annots: [ReaderAnnotRow],
+    // 0 select, 1 highlight, 2 underline, 3 strikethrough, 4 note, 5 pen, 6 text box,
+    // 7 edit text, 8 add image
+    tool: int,
+    colour: int,
+    // 0 day, 1 night, 2 sepia
+    theme: int,
+    backdrop: color,
+    // Text selection, search hits and the selected annotation, in content coordinates;
+    // kind 3 selection, 4 search hit, 5 current hit, 6 selected annotation.
+    marks: [ViewerOverlay],
+    provisional: [ReaderMark],
+    has-selection: bool,
+    selected-text: string,
+    selected-annot: bool,
+    // The stroke being drawn with the pen, as SVG path commands in content coordinates.
+    ink: string,
+    ink-colour: color,
+    note: ReaderNote,
+    search-count: string,
+    search-busy: bool,
+    can-undo: bool,
+    can-redo: bool,
+    zoom-mode: int,
+}
+
 // Sign: the signature as placed on a page, in content coordinates, drawn upright in its box.
 export struct SignOverlay {
     show: bool,
@@ -197,6 +278,9 @@ export struct ToolTab {
     // Why the action can't run yet (an empty or undrawable text), "" when it can.
     edit-problem: string,
     edit-overlays: [EditOverlay],
+    // Reader (a document tab): see screens/reader.slint.
+    is-reader: bool,
+    reader: ReaderState,
 }
 
 // Everything the options panels collect, sent with the action button.
@@ -274,6 +358,49 @@ export global OcrInfo {
 }
 
 // Page viewer and Redact panel events, answered by the Rust side. The first argument is the tab id.
+// Reader events, answered by the Rust side (src/reader_ui.rs). The first argument is the tab id.
+// Pages, thumbnails, viewport and zoom go through ViewerBridge like the tools' viewers.
+export global ReaderBridge {
+    // Pointer on the pages, content coordinates; `clicks` 2 on a double-click.
+    callback pressed(int, length, length, int);
+    callback moved(int, length, length);
+    callback released(int, length, length);
+    callback set-tool(int, int);
+    callback set-colour(int, int);
+    callback set-theme(int, int);
+    callback set-panel(int, int);
+    callback toggle-panel(int);
+    callback outline-clicked(int, int);
+    callback outline-toggled(int, int);
+    callback annot-clicked(int, int);
+    callback annot-delete(int, int);
+    callback go-to-page(int, string);
+    // +1 / −1 a page, +2 / −2 a screen, 10 / −10 the last / first page.
+    callback page-step(int, int);
+    // Scroll by a number of logical pixels (arrow keys).
+    callback scroll-by(int, length);
+    callback zoom-fit(int, int);
+    callback search(int, string);
+    // +1 next match, −1 previous.
+    callback search-step(int, int);
+    callback search-clear(int);
+    // Markup the selection: 1 highlight, 2 underline, 3 strikethrough.
+    callback markup(int, int);
+    callback note-commit(int, string);
+    callback note-cancel(int);
+    callback save(int);
+    callback save-as(int);
+    callback undo(int);
+    callback redo(int);
+    callback delete-selected(int);
+    callback escape(int);
+    callback select-all(int);
+    // ⌘[ back (−1), ⌘] forward (+1) after a link or an outline jump.
+    callback history(int, int);
+    // Tools page with this document ready for the tool picked.
+    callback to-tools(int);
+}
+
 export global ViewerBridge {
     // The page area is `width` wide and shows [top, top + height) of its content.
     callback viewport(int, length, length, length);
@@ -293,6 +420,18 @@ export global ViewerBridge {
 }
 
 // Sign panel events, answered by the Rust side. The first argument is the tab id.
+// Files chosen in the Options panel's dialogs. The dialogs answer after the click returns: the Rust
+// side sets the path and bumps the counter; the panel of tab `tab` takes it.
+export global Picked {
+    callback pick-watermark(int);
+    callback pick-p12(int);
+    in property <int> tab: -1;
+    in property <string> watermark;
+    in property <int> watermark-seq;
+    in property <string> p12;
+    in property <int> p12-seq;
+}
+
 export global SignBridge {
     // 0 Type, 1 Draw, 2 Upload.
     callback mode(int, int);
@@ -302,8 +441,6 @@ export global SignBridge {
     callback pick-image(int);
     // 0 small, 1 medium, 2 large.
     callback size(int, int);
-    // A certificate file chosen in a dialog ("" when cancelled).
-    callback pick-p12() -> string;
 }
 
 // Edit panel events, answered by the Rust side. The first argument is the tab id.

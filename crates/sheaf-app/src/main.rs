@@ -4,6 +4,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod dest;
+mod dialog;
 mod flow;
 mod home;
 mod password;
@@ -12,6 +13,8 @@ mod state;
 mod edit_ui;
 mod sign_ui;
 mod viewer_ui;
+mod reader_ui;
+mod reader_doc;
 
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -42,7 +45,7 @@ fn received(paths: Vec<PathBuf>) {
     }
 }
 
-/// One file or several: they wait on Home for a tool, like PDFs dropped there.
+/// One file or several: PDFs open in the reader, other files wait on Home for a tool.
 fn deliver(paths: Vec<PathBuf>) {
     let Some(ui) = INBOX.with(|i| i.borrow().1.as_ref().and_then(|w| w.upgrade())) else { return };
     let plan = sheaf_app::open_with::plan(paths);
@@ -103,6 +106,54 @@ macro_rules! wire {
     }};
 }
 
+/// Wires a callback of a global that needs the window: `wire_global!(ui, global, on_x, |ui, args..| body)`.
+macro_rules! wire_global {
+    ($ui:ident, $g:ident, $on:ident, |$w:ident $(, $a:ident)*| $body:expr) => {{
+        let weak = $ui.as_weak();
+        $g.$on(move |$($a),*| {
+            if let Some($w) = weak.upgrade() {
+                $body
+            }
+        });
+    }};
+}
+
+/// Reader events (the `ReaderBridge` global).
+fn wire_reader(ui: &AppWindow) {
+    let rb = ui.global::<sheaf_app::ReaderBridge>();
+    wire_global!(ui, rb, on_pressed, |ui, id, x, y, n| reader_ui::pressed(&ui, id, x, y, n));
+    rb.on_moved(reader_ui::moved);
+    wire_global!(ui, rb, on_released, |ui, id, x, y| reader_ui::released(&ui, id, x, y));
+    wire_global!(ui, rb, on_set_tool, |ui, id, t| reader_ui::set_tool_and_mark(&ui, id, t));
+    rb.on_set_colour(reader_ui::set_colour);
+    wire_global!(ui, rb, on_set_theme, |ui, id, t| reader_ui::set_theme(&ui, id, t));
+    rb.on_set_panel(reader_ui::set_panel);
+    rb.on_toggle_panel(reader_ui::toggle_panel);
+    rb.on_outline_clicked(reader_ui::outline_clicked);
+    rb.on_outline_toggled(reader_ui::outline_toggled);
+    rb.on_annot_clicked(reader_ui::annot_clicked);
+    wire_global!(ui, rb, on_annot_delete, |ui, id, k| reader_ui::annot_delete(&ui, id, k));
+    rb.on_go_to_page(|id, t| reader_ui::go_to_page(id, &t));
+    rb.on_page_step(reader_ui::page_step);
+    rb.on_scroll_by(reader_ui::scroll_by);
+    wire_global!(ui, rb, on_zoom_fit, |ui, id, m| reader_ui::zoom_fit(&ui, id, m));
+    wire_global!(ui, rb, on_search, |ui, id, q| reader_ui::search(&ui, id, &q));
+    rb.on_search_step(reader_ui::search_step);
+    rb.on_search_clear(reader_ui::search_clear);
+    wire_global!(ui, rb, on_markup, |ui, id, k| reader_ui::markup(&ui, id, k));
+    wire_global!(ui, rb, on_note_commit, |ui, id, t| reader_ui::note_commit(&ui, id, &t));
+    rb.on_note_cancel(reader_ui::note_cancel);
+    wire_global!(ui, rb, on_save, |ui, id| reader_ui::save(&ui, id));
+    wire_global!(ui, rb, on_save_as, |ui, id| reader_ui::save_as(&ui, id));
+    wire_global!(ui, rb, on_undo, |ui, id| reader_ui::undo(&ui, id, false));
+    wire_global!(ui, rb, on_redo, |ui, id| reader_ui::undo(&ui, id, true));
+    wire_global!(ui, rb, on_delete_selected, |ui, id| reader_ui::delete_selected(&ui, id));
+    rb.on_escape(reader_ui::escape);
+    rb.on_select_all(reader_ui::select_all);
+    rb.on_history(reader_ui::history);
+    wire_global!(ui, rb, on_to_tools, |ui, id| reader_ui::to_tools(&ui, id));
+}
+
 /// Page viewer and Redact panel events (the `ViewerBridge` global).
 fn wire_viewer(ui: &AppWindow) {
     let vb = ui.global::<sheaf_app::ViewerBridge>();
@@ -134,7 +185,6 @@ fn wire_viewer(ui: &AppWindow) {
     sb.on_typed(|id, name| sign_ui::typed(id, &name));
     sb.on_drawn(|id, c, w, h| sign_ui::drawn(id, &c, w, h));
     sb.on_size(sign_ui::size);
-    sb.on_pick_p12(sign_ui::pick_p12);
     let weak = ui.as_weak();
     sb.on_pick_image(move |id| {
         if let Some(ui) = weak.upgrade() {
@@ -190,9 +240,8 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // Home
     wire!(ui, on_open_file, |ui| {
-        if let Some(paths) = rfd::FileDialog::new().add_filter("PDF", &["pdf"]).pick_files() {
-            flow::home_files(&ui, paths);
-        }
+        let d = dialog::new(&ui).add_filter("PDF", &["pdf"]);
+        dialog::pick_files(&ui, d, |ui, paths| flow::home_files(ui, paths));
     });
     wire!(ui, on_open_tool, |ui, id| {
         if let Some(tool) = flow::tool_from_str(&id) {
@@ -245,7 +294,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_start_over(run::start_over);
     wire!(ui, on_continue_to, |ui, id, tool| run::continue_to(&ui, id, &tool));
     // Recents, history, preferences
-    ui.on_open_recent(home::open_recent);
+    wire!(ui, on_open_recent, |ui, i| home::open_recent(&ui, i));
     ui.on_reveal_recent(home::reveal_recent);
     ui.on_reveal_history(home::reveal_history);
     wire!(ui, on_clear_history, |ui| home::clear(&ui));
@@ -265,14 +314,31 @@ fn main() -> Result<(), slint::PlatformError> {
         sheaf_core::ocr::languages().iter().map(|(code, name)| sheaf_app::OcrLanguage { code: (*code).into(), name: (*name).into() }).collect();
     ocr.set_languages(ModelRc::new(VecModel::from(langs)));
     ocr.set_available(sheaf_core::ocr::available());
-    ui.on_pick_image(|| {
-        rfd::FileDialog::new()
-            .set_title("Choose the watermark image")
-            .add_filter("Image", &["png", "jpg", "jpeg"])
-            .pick_file()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_default()
-            .into()
+    wire_reader(&ui);
+    wire!(ui, on_unsaved_answer, |ui, a| flow::unsaved_answer(&ui, a));
+    let weak = ui.as_weak();
+    ui.window().on_close_requested(move || match weak.upgrade() {
+        Some(ui) => flow::close_requested(&ui),
+        None => slint::CloseRequestResponse::HideWindow,
+    });
+    let picked = ui.global::<sheaf_app::Picked>();
+    wire_global!(ui, picked, on_pick_watermark, |ui, tab| {
+        let d = dialog::new(&ui).set_title("Choose the watermark image").add_filter("Image", &["png", "jpg", "jpeg"]);
+        dialog::pick_file(&ui, d, move |ui, p| {
+            let g = ui.global::<sheaf_app::Picked>();
+            g.set_tab(tab);
+            g.set_watermark(p.to_string_lossy().into_owned().into());
+            g.set_watermark_seq(g.get_watermark_seq() + 1);
+        });
+    });
+    wire_global!(ui, picked, on_pick_p12, |ui, tab| {
+        let d = dialog::new(&ui).set_title("Choose your certificate").add_filter("Digital ID", &["p12", "pfx"]);
+        dialog::pick_file(&ui, d, move |ui, p| {
+            let g = ui.global::<sheaf_app::Picked>();
+            g.set_tab(tab);
+            g.set_p12(p.to_string_lossy().into_owned().into());
+            g.set_p12_seq(g.get_p12_seq() + 1);
+        });
     });
     ui.on_get_libreoffice(|| {
         run::open_detached("https://www.libreoffice.org/download/");
