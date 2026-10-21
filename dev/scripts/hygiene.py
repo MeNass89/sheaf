@@ -153,8 +153,17 @@ else:
 # ---------- temp, test outputs, logs, caches ----------
 print("== temp and test outputs (0 after a green run)")
 tmp = DEV / ".tmp"
+# A red run's logs (scripts/test.sh keeps dev/.tmp/test only when red) live until it is fixed:
+# --fix never deletes them (Sheaf, 21/10/2026: --fix erased the logs of a red run).
+red = tmp / "test"
 if tmp.exists() and any(tmp.iterdir()):
-    if FIX:
+    if red.exists():
+        issue(f"dev/.tmp/test holds a red run's logs: fix it, then run the suite again (kept by --fix)")
+        if FIX:
+            for p in tmp.iterdir():
+                if p != red and p.name not in ("smoke",):
+                    rm(p, "dev/.tmp outside a red run's logs")
+    elif FIX:
         rm(tmp, "dev/.tmp is emptied at the end of every unit")
     else:
         issue(f"dev/.tmp holds {size(tmp)//1024} KB: delete once its failure is fixed")
