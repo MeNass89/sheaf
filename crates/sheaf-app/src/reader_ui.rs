@@ -165,6 +165,8 @@ pub struct ReaderUi {
     pending_field: Option<Edit>,
     /// An annotation being dragged: its index, where the drag started and where it is (view).
     annot_drag: Option<(usize, (f64, f64), (f64, f64))>,
+    /// An annotation being resized by its corner handle, the same way.
+    annot_resize: Option<(usize, (f64, f64), (f64, f64))>,
     /// The annotation under the press, selected if the press ends without a drag.
     annot_candidate: Option<usize>,
     /// The panel shown before a search took it over (results, panel 3).
@@ -224,6 +226,7 @@ impl ReaderUi {
             text_bold: false,
             annot_candidate: None,
             annot_drag: None,
+            annot_resize: None,
             pending_field: None,
             page_sel: Default::default(),
             page_anchor: None,
@@ -648,6 +651,18 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                     r.sel = None;
                     return open_field(r, v, page, fi, rect);
                 }
+                // The handle at the bottom-right corner of the selected comment resizes it.
+                if r.tool == SELECT
+                    && let Some(i) = r.selected_annot
+                    && let Some(a) = r.annots().get(i).filter(|a| a.page == page && resizable(a))
+                {
+                    let size = v.viewer.boxes[page].view_size();
+                    let [x, y, w, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, a.rect);
+                    if (p.0 - (x + w)).abs() <= 8.0 && (p.1 - (y + h)).abs() <= 8.0 {
+                        r.annot_resize = Some((i, p, p));
+                        return false;
+                    }
+                }
                 // A click (no drag) on an annotation with the select tool selects it on release;
                 // a drag that starts on one selects the text under it, as in PDF Expert.
                 r.annot_candidate = if r.tool == SELECT { annot_at(r, &v.viewer, page, p) } else { None };
@@ -702,6 +717,10 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             d.2 = b;
             return;
         }
+        if let Some(d) = r.annot_resize.as_mut() {
+            d.2 = b;
+            return;
+        }
         if let Some(e) = r.edit_press.as_mut() {
             e.to = b;
             if (e.from.0 - b.0).hypot(e.from.1 - b.1) > 4.0 && !matches!(e.target, EditTarget::Empty) {
@@ -739,6 +758,32 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     moved(tab_id, x, y);
     let action = update(tab_id, |r, v| {
         let press = r.press.take();
+        if let Some((i, from, to)) = r.annot_resize.take() {
+            let a = r.annots().get(i)?.clone();
+            let b = &v.viewer.boxes[a.page];
+            let size = b.view_size();
+            let [x, y, w, h] = viewer::pdf_rect_to_view(b, size, a.rect);
+            // The bottom-right corner follows the pointer; a box never gets smaller than 8 pt.
+            let (mut w2, mut h2) = ((w + to.0 - from.0).max(8.0), (h + to.1 - from.1).max(8.0));
+            if a.fill_sign && w > 0.0 && h > 0.0 {
+                // A signature keeps its proportions and its top-left corner: the pull is projected
+                // on the box's diagonal, so a thin signature does not jump with a small vertical move.
+                let k = (1.0 + ((to.0 - from.0) * w + (to.1 - from.1) * h) / (w * w + h * h)).max(8.0 / w);
+                (w2, h2) = (w * k, h * k);
+            }
+            let user = viewer::view_rect_to_pdf(b, size, (x, y), (x + w2, y + h2));
+            let edit = if a.fill_sign {
+                // A signature is drawn again at the new size, centred where it was.
+                let graphic = saved_signature()?;
+                let info = render::PageInfo { width: size.0 as f32, height: size.1 as f32, label: String::new(), crop: b.crop.map(|c| c as f32), rotation: b.rotation };
+                let placed = sheaf_core::sign::signature_edit(&info, a.page, [x + w2 / 2.0, y + h2 / 2.0], w2, &graphic).ok()?;
+                Edit::Batch { label: "Resize signature".into(), edits: vec![Edit::DeleteAnnotation { page: a.page, index: a.index }, placed] }
+            } else {
+                Edit::ResizeAnnotation { page: a.page, index: a.index, rect: user }
+            };
+            r.selected_annot = None;
+            return Some(Pending::Move(a.page, edit));
+        }
         if let Some(e) = r.edit_press.take() {
             let b = &v.viewer.boxes[e.page];
             let size = b.view_size();
@@ -989,6 +1034,11 @@ pub fn signature_reset(tab_id: i32) {
     update(tab_id, |r, _| r.sign_open = r.sign_at.is_some());
 }
 
+/// Comments with a size handle: text boxes, rectangles, ovals and placed signatures.
+fn resizable(a: &AnnotEntry) -> bool {
+    a.fill_sign || matches!(a.subtype.as_str(), "FreeText" | "Square" | "Circle")
+}
+
 enum Pending {
     Ink(usize, Vec<(f64, f64)>),
     Markup(i32),
@@ -1109,6 +1159,7 @@ fn forget_page_state(r: &mut ReaderUi) {
     r.page_drag = None;
     r.pending_reduce = None;
     r.annot_drag = None;
+    r.annot_resize = None;
     r.annot_candidate = None;
     let n = r.snap.boxes.len();
     r.page_sel.retain(|p| *p < n);
@@ -2076,7 +2127,22 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             }
             None => (0.0, 0.0),
         };
-        marks.push(overlay([c[0] - 2.0 + dx, c[1] - 2.0 + dy, c[2] + 4.0, c[3] + 4.0], 6));
+        let (dw, dh) = match r.annot_resize {
+            Some((_, from, to)) => {
+                let s = 1.0 / k(&v.viewer, a.page);
+                ((to.0 - from.0) * s, (to.1 - from.1) * s)
+            }
+            None => (0.0, 0.0),
+        };
+        let (mut w, mut h) = ((c[2] + dw).max(8.0), (c[3] + dh).max(8.0));
+        if a.fill_sign && c[2] > 0.0 && c[3] > 0.0 {
+            let g = (1.0 + (dw * c[2] + dh * c[3]) / (c[2] * c[2] + c[3] * c[3])).max(8.0 / c[2]);
+            (w, h) = (c[2] * g, c[3] * g);
+        }
+        marks.push(overlay([c[0] - 2.0 + dx, c[1] - 2.0 + dy, w + 4.0, h + 4.0], 6));
+        if resizable(a) {
+            marks.push(overlay([c[0] + dx + w - 4.0, c[1] + dy + h - 4.0, 9.0, 9.0], 11));
+        }
     }
     let ink = match &r.stroke {
         Some((page, pts)) if pts.len() >= 2 => {
@@ -2289,7 +2355,7 @@ fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
                     .unwrap_or_default()
             };
             ReaderAnnotRow {
-                kind: reader::kind_label(&a.subtype).into(),
+                kind: if a.fill_sign { "Signature".into() } else { reader::kind_label(&a.subtype).into() },
                 text: text.chars().take(300).collect::<String>().into(),
                 page_label: format!("Page {}", label(r, a.page)).into(),
                 colour: a.color.map(|c| colour_of([c[0] as f64, c[1] as f64, c[2] as f64])).unwrap_or(Color::from_rgb_u8(255, 214, 10)),

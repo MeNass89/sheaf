@@ -287,7 +287,17 @@ fn digital_id(d: &DigitalSpec) -> Result<engine::sign::DigitalId> {
 pub fn signature_edit(info: &PageInfo, page: usize, center: [f64; 2], width: f64, graphic: &Graphic) -> Result<Edit> {
     let ready = Ready::new(graphic)?;
     let (w, h) = ready.extent();
-    let user = box_at(info, center, width, h / w.max(1e-9));
+    let aspect = h / w.max(1e-9);
+    // Drawn ink is inset by half its pen width (see `place`): size the box so the ink still spans
+    // the whole width, else a thin signature is fitted by its height and comes out narrower.
+    let height = match ready {
+        Ready::Drawn(..) => {
+            let pen = Style::default_for(&Shape::Signature { strokes: Vec::new() }).width;
+            (width - pen).max(0.0) * aspect + pen
+        }
+        _ => width * aspect,
+    };
+    let user = box_at(info, center, width, height / width.max(1e-9));
     place(page, info, user_rect_to_view(info, user), &ready)
 }
 

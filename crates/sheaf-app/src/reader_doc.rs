@@ -23,6 +23,8 @@ pub struct AnnotEntry {
     /// Bounds in user space, and the markup quads (user space) if any.
     pub rect: [f64; 4],
     pub quads: Vec<[f64; 8]>,
+    /// A Fill & Sign mark: a placed signature, initials, a typed text or a check.
+    pub fill_sign: bool,
 }
 
 /// A paragraph of a page as the edit tool shows it (from PdfCraft's `text_blocks`).
@@ -73,7 +75,7 @@ fn snap(doc: &Doc) -> Snap {
         .info
         .annotations
         .iter()
-        .filter(|a| sheaf_app::reader::listed(&a.subtype) && a.in_reply_to.is_none() && !a.fill_sign)
+        .filter(|a| sheaf_app::reader::listed(&a.subtype) && a.in_reply_to.is_none())
         .map(|a| AnnotEntry {
             page: a.page,
             index: a.index,
@@ -82,6 +84,7 @@ fn snap(doc: &Doc) -> Snap {
             contents: a.contents.clone().unwrap_or_default(),
             rect: a.rect.map(f64::from),
             quads: a.quads.iter().map(|q| q.map(f64::from)).collect(),
+            fill_sign: a.fill_sign,
         })
         .collect();
     annots.sort_by_key(|a| (a.page, a.index));

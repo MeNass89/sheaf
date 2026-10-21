@@ -709,7 +709,7 @@ export component ReaderScreen inherits Rectangle {
                         width: m.w;
                         height: m.h;
                         border-radius: m.kind == 6 || m.kind == 7 ? 2px : 1px;
-                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : transparent;
+                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : m.kind == 11 ? Theme.info : transparent;
                         border-width: m.kind == 6 ? 1.5px : m.kind == 5 || m.kind == 7 ? 1px : 0px;
                         border-color: m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : #FF9F0A;
                     }

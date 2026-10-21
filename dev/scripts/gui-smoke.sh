@@ -82,6 +82,11 @@ key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4
 # Markup, notes, ink and text boxes in the file as it is now (qdf rewrites only live objects).
 annots() { qpdf --qdf --object-streams=disable "$1" - 2>/dev/null | grep -ac '/Subtype /\(Highlight\|Underline\|StrikeOut\|Text\|Ink\|FreeText\)$'; }
 npages() { qpdf --show-npages "$1"; }
+# The Rects of the ink annotations (signatures are drawn as ink), "x0 y0 x1 y1" joined by ";".
+inks() { qpdf --qdf --object-streams=disable "$1" - 2>/dev/null | python3 -c '
+import re, sys
+d = sys.stdin.buffer.read().decode("latin1")
+print(";".join(" ".join(m.group(1).split()) for m in re.finditer(r"/Rect \[([-\d.\s]+)\][^>]*?/Subtype /Ink", d)))'; }
 first_text() { pdftotext -f "$2" -l "$2" "$1" - 2>/dev/null | head -1 | cut -d' ' -f1-2; }
 
 # 1. Open, highlight the first line with H, save, check the file.
@@ -132,6 +137,30 @@ click 700 650 1.2; key ctrl+s; sleep 1.5
 A2=$(annots "$OUT/text.pdf")
 check "the kept signature is placed again with one click ($A1 → $A2)" "[ $A2 -gt $A1 ]"
 key Escape; key v
+
+# 2b'. Select that signature, pull its corner handle: it grows, keeping its proportions and top-left.
+# Page 1 at ⌘9 in the 1280×800 window: screen = (258.5 + 1.651·x, 1401 − 1.651·y) for PDF (x, y).
+R0=$(inks "$OUT/text.pdf"); click 700 651 0.8
+set -- $(python3 -c '
+rs = [list(map(float, r.split())) for r in "'"$R0"'".split(";")]
+sx = lambda x: 258.5 + 1.651 * x; sy = lambda y: 1401 - 1.651 * y
+r = min(rs, key=lambda r: abs(sx((r[0] + r[2]) / 2) - 700) + abs(sy((r[1] + r[3]) / 2) - 651))
+print(round(sx(r[2])), round(sy(r[1])))')
+HX=$1; HY=$2
+xdotool mousemove $HX $HY mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $((HX + i * 20)) $((HY + i * 8)); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+key ctrl+s; sleep 1.5; shot 02c-signature-resized
+R1=$(inks "$OUT/text.pdf")
+check "resizing a signature scales it from its top-left" "python3 -c '
+before, after = [set(s.split(\";\")) for s in (\"$R0\", \"$R1\")]
+gone, new = before - after, after - before
+assert len(gone) == 1 and len(new) == 1, (gone, new)
+a, b = [list(map(float, r.pop().split())) for r in (gone, new)]
+print(\"   \", a, \"→\", b)
+wa, wb, ha, hb = a[2] - a[0], b[2] - b[0], a[3] - a[1], b[3] - b[1]
+# The ink scales; its pen width does not, so the height grows a little less than the width.
+ok = wb > wa * 1.2 and 1.1 < hb / ha <= wb / wa + 0.01 and abs(a[0] - b[0]) < 3 and abs(a[3] - b[3]) < 3
+raise SystemExit(0 if ok else 1)'"
+key Escape
 
 # 2c. Edit text: E, click empty space, type, ⌘↩ → new text in the page content.
 key e; sleep 0.8; click 640 600 0.8
