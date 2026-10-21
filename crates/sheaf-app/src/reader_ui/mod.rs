@@ -157,6 +157,8 @@ pub struct ReaderUi {
     /// Notes panel: filter (`reader::notes_filter`) and order (0 page, 1 newest, 2 author, 3 type).
     notes_filter: i32,
     notes_sort: i32,
+    /// Outline panel: the row being renamed.
+    outline_edit: Option<usize>,
     /// The Document Properties sheet is open.
     props_open: bool,
     /// Hide all comments: not drawn, not selectable.
@@ -217,8 +219,8 @@ type AnnotPull = (usize, (f64, f64), (f64, f64));
 type ImageBoxes = ([f64; 4], [f64; 4]);
 /// A panel model kept until what it shows changes.
 type Cache<T> = std::cell::RefCell<Option<T>>;
-/// What the outline rows depend on: the version and the current section.
-type OutlineKey = (u64, Option<usize>);
+/// What the outline rows depend on: the version, the current section, the row being renamed.
+type OutlineKey = (u64, Option<usize>, Option<usize>);
 /// What the annotation rows depend on: the version, the selected one, how many pages have text read,
 /// the filter and the order.
 type AnnotsKey = (u64, Option<usize>, usize, i32, i32);
@@ -270,6 +272,7 @@ impl ReaderUi {
             opacity: 0,
             comments_hidden: false,
             props_open: false,
+            outline_edit: None,
             notes_filter: 0,
             notes_sort: 0,
             stamp: StampKind::ALL.iter().position(|k| *k == StampKind::Approved).unwrap_or(0),

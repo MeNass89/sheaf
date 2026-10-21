@@ -42,7 +42,11 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::SetAnnotationStatus { .. }
         | Edit::ReplyToAnnotation { .. }
         | Edit::EditTextBlock { .. }
-        | Edit::EditPageImage { .. } => true,
+        | Edit::EditPageImage { .. }
+        | Edit::RenameBookmark { .. }
+        | Edit::DeleteBookmark { .. }
+        | Edit::MoveBookmark { .. }
+        | Edit::SetBookmarkPage { .. } => true,
         _ => false,
     }
 }

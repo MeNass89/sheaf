@@ -503,6 +503,25 @@ mod tests {
         assert_eq!((snap.annots.len(), snap.annots[0].status.as_str()), (1, "Accepted"));
     }
 
+    #[test]
+    fn bookmarks_are_added_renamed_and_deleted() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 3);
+        let (ops, rx, snap) = started(&path);
+        assert!(snap.outline.is_empty());
+        let send = |e: Edit| ops.send(Op::Apply { edit: Box::new(e), pages: vec![] }).unwrap();
+        send(Edit::AddBookmark { parent: vec![], index: 0, title: "Page 2".into(), page: 1 });
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        assert_eq!((snap.outline[0].title.as_str(), snap.outline[0].page), ("Page 2", Some(1)));
+        send(Edit::RenameBookmark { path: vec![0], title: "Methods".into() });
+        let (snap, _) = next(&rx);
+        assert_eq!(snap.outline[0].title, "Methods");
+        send(Edit::DeleteBookmark { path: vec![0] });
+        let (snap, _) = next(&rx);
+        assert!(snap.outline.is_empty());
+    }
+
     /// ⌘S twice with an edit between: each save appends, and the light refresh after an
     /// appended save (patched engine) keeps the comment list and undo in step with the file.
     #[test]

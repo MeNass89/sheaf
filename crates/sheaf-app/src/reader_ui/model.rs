@@ -140,7 +140,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     };
     let current_row = reader::current_section(&r.rows, cur);
     let outline = {
-        let key = (r.version, current_row);
+        let key = (r.version, current_row, r.outline_edit);
         let mut c = r.outline_cache.borrow_mut();
         match c.as_ref() {
             Some((k, m)) if *k == key => m.clone(),
@@ -337,6 +337,7 @@ pub(super) fn outline_model(r: &ReaderUi, current_row: Option<usize>) -> Vec<Rea
             has_children: x.has_children,
             expanded: x.expanded,
             current: current_row == Some(i),
+            editing: r.outline_edit == Some(i),
         })
         .collect();
     outline

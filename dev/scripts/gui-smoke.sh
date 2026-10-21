@@ -333,6 +333,14 @@ click 30 106 0.8   # back to the Pages panel
 key ctrl+d; sleep 0.5; xdotool key ctrl+a; xdotool type --delay 10 "Smoke Title"; key Return; sleep 1; key ctrl+s; sleep 1.5
 check "Document Properties: the title typed is saved" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Smoke Title)'"
 
+# 6c-outline. Outline panel (127,106): + Bookmark (55,149) bookmarks the page in view; saved.
+click 127 106 0.8; click 55 149 1.2; key ctrl+s; sleep 1.5; shot 06c-outline
+check "+ Bookmark adds the page in view to the outline" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Page 1)'"
+# Double-click the bookmark (120,190) to rename it in place; ↩ keeps the new title.
+xdotool mousemove 120 190 click --repeat 2 --delay 80 1; sleep 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "Renamed"; key Return; sleep 1; key ctrl+s; sleep 1.5; shot 06c-outline-renamed
+check "a bookmark is renamed in place" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Renamed)'"
+click 30 106 0.8
+
 # 6d. Two pages side by side (⌥⌘2): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.
 mid() { import -window root -crop 6x200+761+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }

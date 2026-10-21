@@ -100,14 +100,21 @@ export component ReaderPanel inherits Rectangle {
                 }
                 if root.tab.reader.panel == 1 && root.tab.reader.outline-empty: Text {
                     x: 16px;
-                    y: 16px;
+                    y: 50px;
                     width: parent.width - 32px;
-                    text: "This document has no outline.";
+                    text: "No bookmarks yet: + Bookmark adds the page in view.";
                     font-size: Theme.fs-label;
                     color: Theme.text-muted;
                     wrap: word-wrap;
                 }
-                if root.tab.reader.panel == 1: ScrollView {
+                if root.tab.reader.panel == 1: VerticalLayout {
+                    HorizontalLayout {
+                        padding: 8px;
+                        padding-bottom: 0px;
+                        alignment: start;
+                        SmallButton { text: "+ Bookmark"; clicked => { ReaderBridge.outline-op(root.id, -1, 0, ""); root.focus-pages(); } }
+                    }
+                ScrollView {
                     VerticalLayout {
                         padding-top: 4px;
                         padding-bottom: 8px;
@@ -117,6 +124,7 @@ export component ReaderPanel inherits Rectangle {
                             ot := TouchArea {
                                 mouse-cursor: pointer;
                                 clicked => { ReaderBridge.outline-clicked(root.id, i); root.focus-pages(); }
+                                double-clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); }
                             }
                             if r.has-children: Rectangle {
                                 x: 6px + r.depth * 14px;
@@ -133,15 +141,46 @@ export component ReaderPanel inherits Rectangle {
                                     clicked => { ReaderBridge.outline-toggled(root.id, i); }
                                 }
                             }
-                            Text {
+                            if !r.editing: Text {
                                 x: 26px + r.depth * 14px;
-                                width: parent.width - self.x - 40px;
+                                width: parent.width - self.x - (ot.has-hover ? 84px : 40px);
                                 text: r.title;
                                 font-size: Theme.fs-label;
                                 font-weight: r.depth == 0 ? Theme.weight-demibold : 400;
                                 color: Theme.text;
                                 overflow: elide;
                                 vertical-alignment: center;
+                            }
+                            // Renamed in place: ↩ keeps the new title, Escape the old one.
+                            if r.editing: Rectangle {
+                                x: 22px + r.depth * 14px;
+                                width: parent.width - self.x - 40px;
+                                height: 24px;
+                                border-radius: Theme.radius-small;
+                                border-width: 1px;
+                                border-color: Theme.text-secondary;
+                                background: Theme.input-bg;
+                                rename := TextInput {
+                                    x: 4px;
+                                    width: parent.width - 8px;
+                                    text: r.title;
+                                    font-size: Theme.fs-label;
+                                    color: Theme.text;
+                                    vertical-alignment: center;
+                                    single-line: true;
+                                    init => { self.focus(); self.select-all(); }
+                                    accepted => { ReaderBridge.outline-op(root.id, i, 2, self.text); root.focus-pages(); }
+                                    key-pressed(e) => {
+                                        if e.text == Key.Escape { ReaderBridge.outline-op(root.id, i, 3, ""); root.focus-pages(); return accept; }
+                                        reject
+                                    }
+                                }
+                            }
+                            if ot.has-hover && !r.editing: HorizontalLayout {
+                                x: parent.width - 84px;
+                                width: 46px;
+                                ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Rename"; clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); } }
+                                ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete bookmark"; clicked => { ReaderBridge.outline-op(root.id, i, 4, ""); root.focus-pages(); } }
                             }
                             Text {
                                 x: parent.width - 34px;
@@ -154,6 +193,7 @@ export component ReaderPanel inherits Rectangle {
                             }
                         }
                     }
+                }
                 }
                 if root.tab.reader.panel == 2 && root.tab.reader.annots.length == 0: Text {
                     x: 16px;

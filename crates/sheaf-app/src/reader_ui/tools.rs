@@ -117,6 +117,42 @@ pub fn toggle_panel(tab_id: i32) {
     update(tab_id, |r, _| r.panel_open = !r.panel_open);
 }
 
+/// Outline panel edits (PDF Expert's and Acrobat's bookmarks): `op` 0 bookmark the page in view,
+/// 1 start renaming `row`, 2 rename it to `text`, 3 stop renaming, 4 delete `row` and what is under it.
+pub fn outline_op(ui: &AppWindow, tab_id: i32, row: i32, op: i32, text: &str) {
+    let edit = update(tab_id, |r, v| {
+        let path = usize::try_from(row).ok().and_then(|i| r.rows.get(i)).map(|x| x.path.clone());
+        match op {
+            0 => {
+                // At the top level, in page order.
+                let page = v.current();
+                let index = r.snap.outline.iter().filter(|o| o.page.is_some_and(|p| p <= page)).count();
+                Some(Edit::AddBookmark { parent: Vec::new(), index, title: format!("Page {}", label(r, page)), page })
+            }
+            1 => {
+                r.outline_edit = usize::try_from(row).ok();
+                None
+            }
+            2 => {
+                r.outline_edit = None;
+                let title = text.trim();
+                let old = usize::try_from(row).ok().and_then(|i| r.rows.get(i)).map(|x| x.title.clone()).unwrap_or_default();
+                let path = path?;
+                (!title.is_empty() && title != old).then(|| Edit::RenameBookmark { path, title: title.into() })
+            }
+            3 => {
+                r.outline_edit = None;
+                None
+            }
+            _ => Some(Edit::DeleteBookmark { path: path? }),
+        }
+    })
+    .flatten();
+    if let Some(e) = edit {
+        apply(ui, tab_id, e, &[], None);
+    }
+}
+
 pub fn outline_clicked(tab_id: i32, row: i32) {
     update(tab_id, |r, v| {
         if let Some(p) = r.rows.get(row.max(0) as usize).and_then(|x| x.page) {
