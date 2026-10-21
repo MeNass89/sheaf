@@ -124,6 +124,8 @@ export struct ReaderState {
     dirty: bool,
     read-only: string,
     page-count: int,
+    // "/ 12", or "(4 / 12)" when the page field shows a label ("iv").
+    page-counter: string,
     // 1-based page under the middle of the view, as typed in the page field.
     page-text: string,
     page-label: string,

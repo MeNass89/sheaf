@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 72 · open 260, closed 71
+331 components · at parity (≥9): 73 · open 259, closed 72
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -84,7 +84,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | output | 15 | 4.2 | 2 |
 | platform | 14 | 3.4 | 1 |
 | preferences | 14 | 2.4 | 1 |
-| reader | 64 | 4.5 | 27 |
+| reader | 64 | 4.7 | 28 |
 | security | 18 | 4.8 | 2 |
 | sign | 18 | 3.8 | 4 |
 
@@ -156,6 +156,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-reader-049 | Select all text | 9 | ⌘A selects the page's text (PDF Expert: same), ⌘C copies; gui-smoke checks the clipboard |
 | C-reader-051 | Undo the last action | 9 | ⌘Z / toolbar undo for every reader edit (markup, notes, pages, forms); gui-smoke undo/redo checks; 0.19 s on 1,982 pages |
 | C-reader-052 | View document properties | 9 | ⌘D or the info button: Document properties (Acrobat's sheet) — title, author, subject, keywords editable; pages, page size, file size, PDF version, creator, producer, security, tagged, fonts shown; Return saves, Escape cancels; gui-smoke saves a title |
+| C-reader-061 | Page labels | 9 | Page field shows the page label (iv) with '(4 / 12)' beside it, as Acrobat; a typed label goes to its page before a page number (gui-smoke: '1' in a book labelled i, ii, 1, 2 goes to the third page); labels in outline, notes and results rows |
 | C-security-005 | Open a password-protected PDF | 9 | A protected PDF asks for its password in the reader; a wrong one says so, the right one opens it (dev/re/evidence/F-002/35) |
 | C-security-017 | Edit document metadata | 9 | Metadata edited in Document properties (PdfCraft SetInfo, one undo step); gui-smoke checks /Title in the saved file |
 | C-sign-001 | Open the sign tool | 9 | Sign tool (S) in the reader toolbar, PDF Expert's Fill & Sign place; gui-smoke.sh 'a drawn signature is placed and saved' PASS |

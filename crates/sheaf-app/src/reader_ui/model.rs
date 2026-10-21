@@ -244,7 +244,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         dirty: r.dirty(),
         read_only: r.snap.read_only.clone().into(),
         page_count: v.viewer.page_count() as i32,
-        page_text: (cur + 1).to_string().into(),
+        // The page's label when it has one ("iv"), as Acrobat and PDF Expert show it.
+        page_text: label(r, cur).into(),
+        page_counter: if label(r, cur) == (cur + 1).to_string() { format!("/ {}", v.viewer.page_count()) } else { format!("({} / {})", cur + 1, v.viewer.page_count()) }.into(),
         page_label: label(r, cur).into(),
         panel_open: r.panel_open,
         panel: r.panel,

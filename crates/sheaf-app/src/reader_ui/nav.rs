@@ -62,8 +62,8 @@ pub fn go_to_page(tab_id: i32, text: &str) {
     update(tab_id, |r, v| {
         let t = text.trim();
         let n = v.viewer.page_count();
-        // A number, or a page label ("iv", "A-3").
-        let page = t.parse::<usize>().ok().filter(|p| (1..=n).contains(p)).map(|p| p - 1).or_else(|| r.snap.labels.iter().position(|l| l.eq_ignore_ascii_case(t)));
+        // A page label ("iv", "A-3", or "1" where the book's page 1 is the 13th), else a number.
+        let page = r.snap.labels.iter().position(|l| !l.is_empty() && l.eq_ignore_ascii_case(t)).or_else(|| t.parse::<usize>().ok().filter(|p| (1..=n).contains(p)).map(|p| p - 1));
         if let Some(p) = page {
             jump(r, v, p, None);
         }

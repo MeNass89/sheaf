@@ -52,6 +52,9 @@ for i in range(1, 5):
     kids.append(len(objs))
 objs[2] = f"<< /Type /Pages /Kids [{' '.join(f'{k} 0 R' for k in kids)}] /Count 4 >>"
 write("text.pdf", objs, 2)
+# labels.pdf: text.pdf's pages numbered i, ii, then 1, 2 (/PageLabels)
+objs[1] = "<< /Type /Catalog /Pages 3 0 R /PageLabels << /Nums [0 << /S /r >> 2 << /S /D >>] >> >>"
+write("labels.pdf", objs, 2)
 # form.pdf: a text field "name" over the page, Helvetica
 c = "BT /F1 18 Tf 72 720 Td (Name:) Tj ET"
 objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
@@ -62,7 +65,7 @@ objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
         "<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /Rect [72 400 540 700] /P 5 0 R /DA (/Helv 12 Tf 0 g) /F 4 >>"]
 write("form.pdf", objs, 2)
 PY
-for f in text form; do qpdf "$OUT/$f.pdf" "$OUT/$f.fixed.pdf" && mv "$OUT/$f.fixed.pdf" "$OUT/$f.pdf"; done
+for f in text form labels; do qpdf "$OUT/$f.pdf" "$OUT/$f.fixed.pdf" && mv "$OUT/$f.fixed.pdf" "$OUT/$f.pdf"; done
 cp "$OUT/text.pdf" "$OUT/shapes.pdf"
 
 # The user's own Sheaf data, as it is before the run (the check at the end compares).
@@ -351,6 +354,12 @@ key ctrl+9; sleep 1
 key ctrl+alt+2; sleep 2.5; key ctrl+w; sleep 1; quit
 launch "$OUT/shapes.pdf"; sleep 2; M4=$(mid)
 check "a document reopens as it was left: two pages ($M4)" "python3 -c 'import sys; sys.exit(0 if abs($M4 - $M2) < 0.005 else 1)'"
+quit
+
+# 6h. Page labels: "1" typed in the page field (⌥⌘G) is the page labelled 1, the third.
+launch "$OUT/labels.pdf"; key ctrl+9; sleep 0.5
+key ctrl+alt+g; xdotool type --delay 20 "1"; key Return; sleep 1.2; PL=$(inview)
+check "a page label typed in the page field goes to that page ($PL)" "[ \"$PL\" = 'Page 3' ]"
 quit
 
 # 7. A password-protected PDF asks for its password, then opens in the reader.

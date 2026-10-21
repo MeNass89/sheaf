@@ -22065,14 +22065,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "use PageInfo.label in the counter",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -22084,6 +22084,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Page field shows the page label (iv) with '(4 / 12)' beside it, as Acrobat; a typed label goes to its page before a page number (gui-smoke: '1' in a book labelled i, ii, 1, 2 goes to the third page); labels in outline, notes and results rows"
    }
   ]
  },
