@@ -366,6 +366,10 @@ check "End, Home, → and Space move through the pages ($P4, $P1, $P2, $P3)" "[ 
 # Search for the selection (⇧⌘E): page 4's text selected, back to page 1, the search brings page 4 back.
 key End; sleep 0.8; key ctrl+a; key Home; sleep 0.8; key ctrl+shift+e; sleep 2.5; SE=$(inview)
 check "searching the selected text finds its page ($SE)" "[ \"$SE\" = 'Page 4' ]"
+# With the toolbar hidden (⇧T), ⇧⌘E brings it back so the search field and results show.
+key End; sleep 0.8; key ctrl+a; shifted t; sleep 0.5; key ctrl+shift+e; sleep 1.5; BE=$(bar)
+check "searching the selection with the toolbar hidden shows it again ($BE)" "python3 -c 'import sys; sys.exit(0 if abs($BE - $B0) < 0.03 else 1)'"
+key Escape
 # 6g. The zoom field (630,61): 200 typed and ↩ covers the view's left edge with the page; Fit page
 # from its list (chevron 669,61 ▸ 640,330) shows the background there again.
 leftedge() { import -window root -crop 6x200+300+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
@@ -391,6 +395,9 @@ launch "$OUT/links.pdf"; key ctrl+9; sleep 0.5
 under() { import -window root -crop 120x20+490+250 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
 xdotool mousemove 900 600; sleep 0.6; U0=$(under); xdotool mousemove 480 235; sleep 0.2; xdotool mousemove 485 238; sleep 0.8; U1=$(under)
 check "a link shows where it goes on hover ($U0 → $U1)" "python3 -c 'import sys; sys.exit(0 if $U0 - $U1 > 0.1 else 1)'"
+# Scrolling under a still pointer takes the tooltip away (it would name a link no longer there).
+key Down; key Down; sleep 0.8; U2=$(under)
+check "the link tooltip goes when the page scrolls ($U1 → $U2)" "python3 -c 'import sys; sys.exit(0 if $U2 - $U1 > 0.1 else 1)'"
 quit
 
 # 7. A password-protected PDF asks for its password, then opens in the reader.

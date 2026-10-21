@@ -14,6 +14,15 @@ pub fn set_tool(tab_id: i32, tool: i32) {
             }
             r.pen_width = (w as i32).clamp(0, 2);
             r.opacity = (o as usize).min(reader::OPACITIES.len() - 1);
+        } else {
+            // A tool not styled yet starts from its defaults, not from the previous tool's style.
+            if uses_light(r.tool) {
+                r.light = 0;
+            } else {
+                r.ink_colour = 0;
+            }
+            r.pen_width = 1;
+            r.opacity = 0;
         }
         r.draft = None;
         r.stroke = None;

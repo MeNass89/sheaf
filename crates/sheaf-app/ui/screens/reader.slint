@@ -46,7 +46,8 @@ export component ReaderScreen inherits Rectangle {
     property <bool> light-tool: root.tab.reader.tool == 0 || root.tab.reader.tool == 1 || root.tab.reader.tool == 4;
     property <bool> ink-tool: root.tab.reader.tool >= 4;
 
-    changed page-top => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
+    // Scrolling moves the pages under a still pointer: a link's tooltip no longer applies.
+    changed page-top => { root.link-tip = ""; ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     changed page-w => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     changed page-h => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     changed strip-h => { ViewerBridge.strip-viewport(root.id, root.strip-top, root.strip-h); }
@@ -385,13 +386,16 @@ export component ReaderScreen inherits Rectangle {
                         stroke-width: 2px;
                     }
                     pages-ta := TouchArea {
+                        // A link's tooltip goes when the pointer leaves the pages.
+                        changed has-hover => { if !self.has-hover { root.link-tip = ""; } }
                         width: max(root.tab.viewer-width, sv.visible-width);
                         height: root.tab.viewer-height;
                         mouse-cursor: root.over-link && root.tab.reader.tool == 0 ? pointer : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
                         // Where a link goes, beside the pointer.
                         if root.over-link && root.tab.reader.tool == 0: Rectangle {
-                            x: pages-ta.mouse-x + 14px;
-                            y: pages-ta.mouse-y + 18px;
+                            // Beside the pointer, flipped above or to the left near the edges of the view.
+                            x: min(pages-ta.mouse-x + 14px, -sv.content-x + sv.visible-width - self.width - 4px);
+                            y: pages-ta.mouse-y + 48px > -sv.content-y + sv.visible-height ? pages-ta.mouse-y - 30px : pages-ta.mouse-y + 18px;
                             width: min(lt.preferred-width + 14px, 420px);
                             height: 22px;
                             border-radius: Theme.radius-small;
@@ -426,8 +430,9 @@ export component ReaderScreen inherits Rectangle {
                     }
                     // Floating bar over a text selection: Copy, Highlight, Underline, Strikethrough.
                     if root.tab.reader.has-selection && root.tab.reader.tool == 0 && !root.pressing && root.tab.reader.marks.length > 0: Rectangle {
-                        x: max(4px, root.tab.reader.marks[0].x);
-                        y: max(4px, root.tab.reader.marks[0].y - self.height - 8px);
+                        // Kept inside the visible part of the pages, whatever the zoom and the scroll.
+                        x: max(-sv.content-x + 4px, min(root.tab.reader.marks[0].x, -sv.content-x + sv.visible-width - self.width - 4px));
+                        y: max(-sv.content-y + 4px, root.tab.reader.marks[0].y - self.height - 8px);
                         width: bar.preferred-width;
                         height: 34px;
                         border-radius: Theme.radius-item;
@@ -443,7 +448,7 @@ export component ReaderScreen inherits Rectangle {
                             ToolButton {
                                 icon: @image-url("../icons/search.svg");
                                 tip: "Search for this (⇧⌘E)";
-                                clicked => { search-in.text = root.tab.reader.selected-text; ReaderBridge.search(root.id, search-in.text); keys.focus(); }
+                                clicked => { root.bare = false; search-in.text = root.tab.reader.selected-text; ReaderBridge.search(root.id, search-in.text); keys.focus(); }
                             }
                             ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight"; clicked => { ReaderBridge.markup(root.id, 1); } }
                             ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline"; clicked => { ReaderBridge.markup(root.id, 2); } }
@@ -940,6 +945,8 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == "s" { ReaderBridge.save(root.id); return accept; }
                 if e.text == "p" { ReaderBridge.print-open(root.id); return accept; }
                 if (e.text == "e" || e.text == "E") && e.modifiers.shift && root.tab.reader.has-selection {
+                    // The field and the results show again if the toolbar was hidden (⇧T).
+                    root.bare = false;
                     search-in.text = root.tab.reader.selected-text;
                     ReaderBridge.search(root.id, search-in.text);
                     return accept;

@@ -134,10 +134,12 @@ pub fn markup(ui: &AppWindow, tab_id: i32, kind: i32) {
         let rects = text.line_rects(range.clone());
         let quads = reader::quads(&v.viewer.boxes[page], &rects);
         let contents = reader::selected_text(&text, range);
+        // From the selection bar (another tool active), the markup tool's own saved colour.
+        let saved = (r.tool != kind).then(|| crate::home::tool_style(kind)).flatten().map(|(c, ..)| c as usize);
         let (m, colour) = match kind {
-            UNDERLINE => (Markup::Underline, INK[r.ink_colour]),
-            STRIKE => (Markup::StrikeOut, INK[r.ink_colour]),
-            _ => (Markup::Highlight, COLOURS[r.light]),
+            UNDERLINE => (Markup::Underline, INK[saved.unwrap_or(r.ink_colour).min(INK.len() - 1)]),
+            STRIKE => (Markup::StrikeOut, INK[saved.unwrap_or(r.ink_colour).min(INK.len() - 1)]),
+            _ => (Markup::Highlight, COLOURS[saved.unwrap_or(r.light).min(COLOURS.len() - 1)]),
         };
         r.sel = None;
         let prov = Provisional { page, rects, stroke: Vec::new(), colour, kind };
