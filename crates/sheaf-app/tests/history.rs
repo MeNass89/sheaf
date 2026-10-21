@@ -86,6 +86,9 @@ fn prefs_round_trip_and_corrupt_means_default() {
         output: OutputMode::Fixed,
         fixed_folder: Some(PathBuf::from("/tmp/out")),
         open_folder_after: true,
+        author: Some("Ada".into()),
+        reader_theme: 2,
+        last_pages: vec![(PathBuf::from("/tmp/a.pdf"), 12)],
     };
     p.save(dir.path()).unwrap();
     assert_eq!(Prefs::load(dir.path()), p);

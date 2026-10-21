@@ -13,6 +13,8 @@ use std::sync::Arc;
 pub use pdfcraft_engine as engine;
 /// PdfCraft's renderer crate (render requests, rendered pages, open errors).
 pub use pdfcraft_render as render;
+/// PdfCraft's page-content editing crate (paragraph styles for in-place text edits).
+pub use pdfcraft_edit as edit;
 
 use engine::{DocId, Edit, Session};
 use render::OpenError;

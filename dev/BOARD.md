@@ -13,7 +13,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 4 | C-edit-003 | strong | Add a new text box | pdfexpert | 4 · 5 · 7 → **4** | multi-line text, fonts, undo |
 | 5 | C-edit-007 | strong | Move, resize and select page objects | acrobat | 4 · 5 · 7 → **4** | resize handles, move existing page objects (engine MoveObjects) |
 | 6 | C-edit-014 | strong | Save edited PDF | ilovepdf | 4 · 5 · 7 → **4** | ⌘S saves in place; Save dialog click bug (seed) |
-| 7 | C-edit-002 | strong | Edit existing text in place | pdfexpert | 5 · 5 · 9 → **5** | engine EditTextBlock/EditTextLine wired to an in-place editor |
+| 7 | C-edit-002 | strong | Edit existing text in place | pdfexpert | 5 · 6 · 9 → **5** | engine EditTextBlock/EditTextLine wired to an in-place editor |
 | 8 | C-edit-006 | strong | Add an image to a page | pdfexpert | 5 · 5 · 7 → **5** | free resize handles, more formats |
 | 9 | C-files-010 | strong | Documents in tabs or windows | ilovepdf | 5 · 6 · 8 → **5** | document tabs |
 | 10 | C-sign-001 | strong | Open the sign tool | pdfexpert | 5 · 6 · 8 → **5** | sign from the reader, not only a tool tab |

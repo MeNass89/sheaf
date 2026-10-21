@@ -6243,7 +6243,7 @@
   "ours": [],
   "grade": {
    "function": 5,
-   "aesthetics": 5,
+   "aesthetics": 6,
    "performance": 9,
    "overall": 5
   },
@@ -6272,6 +6272,17 @@
      "overall": 5
     },
     "proof": "GUI: click a paragraph, edit, ⌘↩: EditTextBlock in 28 ms (dev/re/evidence/F-002/09); glyphs missing from the embedded subset render wrong (dev/re/evidence/F-002/10)"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 5,
+     "aesthetics": 6,
+     "performance": 9,
+     "overall": 5
+    },
+    "proof": "Click a paragraph, edit, ⌘↩ rewraps it in 28 ms, undoable; characters missing from the embedded font subset still draw wrong; switching to a standard font made PdfCraft overprint every row (tried 21/10, reverted)"
    }
   ]
  },

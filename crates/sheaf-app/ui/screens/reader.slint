@@ -867,7 +867,7 @@ export component ReaderScreen inherits Rectangle {
                             note-edit.focus();
                         }
                         // Kept inside the visible part of the pages.
-                        x: min(root.tab.reader.note.x, -sv.viewport-x + sv.visible-width - self.width - 8px);
+                        x: min(root.tab.reader.note.x, -sv.content-x + sv.visible-width - self.width - 8px);
                         y: root.tab.reader.note.y;
                         width: root.tab.reader.note.w;
                         height: root.tab.reader.note.h;

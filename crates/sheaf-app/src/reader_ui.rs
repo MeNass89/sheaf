@@ -1005,7 +1005,10 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             if text == old.trim() {
                 return None;
             }
-            return Some((d.page, Edit::EditTextBlock { page: d.page, block, text: text.clone(), style: Default::default() }));
+            // A standard font in place of the embedded one (for characters its subset lacks) was
+            // tried: PdfCraft then draws every row of the paragraph on one line. Kept as it is.
+            let style = sheaf_core::pdfcraft::edit::BlockStyle::default();
+            return Some((d.page, Edit::EditTextBlock { page: d.page, block, text: text.clone(), style }));
         }
         if text.is_empty() {
             return None;

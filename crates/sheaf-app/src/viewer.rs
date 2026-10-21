@@ -726,7 +726,11 @@ mod tests {
         assert_eq!((v.page_rect(0)[2], v.content_width()), (300.0, 632.0));
         assert_eq!(v.page_rect(0)[0], 166.0, "centred");
         assert!(!v.set_zoom(50));
-        assert!(!v.set_zoom(10), "clamped to 50");
+        // The internal zoom (relative to the fit width) is held to 5–1600 %; the steps shown are
+        // actual sizes, 25–400 %.
+        assert!(v.set_zoom(5));
+        assert!(!v.set_zoom(1), "clamped to 5");
+        assert!(v.set_zoom(50));
         // Jumping to a page puts it at the top, never past the end.
         let top = v.scroll_to(1, None, 400.0);
         assert_eq!(top, v.page_rect(1)[1] - PAGE_GAP);
