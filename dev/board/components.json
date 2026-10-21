@@ -23029,14 +23029,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 5,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 5
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "sign from the reader, not only a tool tab",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -23048,6 +23048,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Sign tool (S) in the reader toolbar, PDF Expert's Fill & Sign place; gui-smoke.sh 'a drawn signature is placed and saved' PASS"
    }
   ]
  },
@@ -23122,10 +23133,10 @@
    141
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 6
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -23141,6 +23152,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [140, 141]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Draw on the pad, Use → placed and saved (dev/re/evidence/F-002/40, gui-smoke PASS); one pen colour and width on the pad"
    }
   ]
  },
@@ -23176,10 +23198,10 @@
    139
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 6
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -23195,6 +23217,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [139]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Type a name instead of drawing: typed signature outlines (sheaf_core::sign); one script font"
    }
   ]
  },
@@ -23360,10 +23393,10 @@
    147
   ],
   "grade": {
-   "function": 5,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 5
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -23379,6 +23412,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [143, 144, 145, 146, 147]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Click places the signature 150 pt wide centred on the click, saved (gui-smoke PASS); no move/resize after placing yet"
    }
   ]
  },
@@ -23621,14 +23665,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "remember signatures",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -23640,6 +23684,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "The signature is kept in the preferences and placed again with one click on any document (gui-smoke 'kept signature' PASS); New signature replaces it"
    }
   ]
  },

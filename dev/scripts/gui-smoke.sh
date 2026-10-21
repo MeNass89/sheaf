@@ -58,7 +58,8 @@ PY
 for f in text form; do qpdf "$OUT/$f.pdf" "$OUT/$f.fixed.pdf" && mv "$OUT/$f.fixed.pdf" "$OUT/$f.pdf"; done
 
 launch() {
-    HOME="$HOME" "$APP" "$@" >"$OUT/app.log" 2>&1 &
+    # A fresh profile: no kept signature, history or preferences from earlier runs.
+    XDG_CONFIG_HOME="$OUT/profile/config" XDG_DATA_HOME="$OUT/profile/data" XDG_CACHE_HOME="$OUT/profile/cache" "$APP" "$@" >"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done
     sleep 2.5
@@ -67,7 +68,8 @@ launch() {
 quit() { kill "$APP_PID" 2>/dev/null; wait "$APP_PID" 2>/dev/null; APP_PID=; }
 # A held click (Slint misses instantaneous ones under Xvfb).
 click() { xdotool mousemove "$1" "$2" mousedown 1; sleep 0.08; xdotool mouseup 1; sleep "${3:-0.5}"; }
-key() { xdotool key "$@"; sleep 0.4; }
+# Keys go to the app window: focus it first (Xvfb has no window manager to keep it).
+key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4; }
 # Markup, notes, ink and text boxes in the file as it is now (qdf rewrites only live objects).
 annots() { qpdf --qdf --object-streams=disable "$1" - 2>/dev/null | grep -ac '/Subtype /\(Highlight\|Underline\|StrikeOut\|Text\|Ink\|FreeText\)$'; }
 npages() { qpdf --show-npages "$1"; }
@@ -85,7 +87,7 @@ check "a highlight is saved into the file" "[ \"\$(annots $OUT/text.pdf)\" -ge 1
 check "the saved file passes qpdf --check" "qpdf --check $OUT/text.pdf >/dev/null 2>&1"
 
 # 2. A note, then undo / redo.
-key n; click 1000 400 0.8; xdotool type --delay 10 "smoke note"; key ctrl+Return; sleep 1
+key n; click 1000 400 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "smoke note"; key ctrl+Return; sleep 1
 key v; key ctrl+s; sleep 1.5
 check "a note is saved" "[ \"\$(annots $OUT/text.pdf)\" -ge 2 ]"
 key ctrl+z; sleep 0.8; key ctrl+s; sleep 1.5
@@ -93,6 +95,21 @@ A_UNDO=$(annots "$OUT/text.pdf")
 key ctrl+shift+z; sleep 0.8; key ctrl+s; sleep 1.5
 A_REDO=$(annots "$OUT/text.pdf")
 check "undo then redo restores the note ($A_UNDO → $A_REDO)" "[ $A_REDO -gt $A_UNDO ]"
+
+# 2b. Signature: S, click → the pad opens; draw, Use → placed; the next click places it again.
+key Escape; key s; click 700 500 1
+xdotool mousemove 520 420 mousedown 1; for i in $(seq 0 20); do xdotool mousemove $((520 + i * 12)) $((420 + (i % 3) * 8)); done; xdotool mouseup 1; sleep 0.3
+shot 02b-signature-pad
+A0=$(annots "$OUT/text.pdf")
+# The pad's Use button: bottom right of the centred dialog.
+click 818 536 1.2
+key ctrl+s; sleep 1.5
+A1=$(annots "$OUT/text.pdf")
+check "a drawn signature is placed and saved ($A0 → $A1)" "[ $A1 -gt $A0 ]"
+click 700 650 1.2; key ctrl+s; sleep 1.5
+A2=$(annots "$OUT/text.pdf")
+check "the kept signature is placed again with one click ($A1 → $A2)" "[ $A2 -gt $A1 ]"
+key Escape; key v
 
 # 3. Page operations from the Pages panel: duplicate page 1, delete it again, rotate.
 click 120 230; click 142 778 1.2      # select page 1, Duplicate
@@ -104,7 +121,7 @@ check "delete removes it" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
 shot 03-pages
 
 # 4. Search runs (results panel in the screenshot).
-click 1030 61; xdotool type --delay 10 "fox"; key Return; sleep 1.5; shot 04-search
+click 1030 61; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "fox"; key Return; sleep 1.5; shot 04-search
 check "search does not crash" "kill -0 $APP_PID 2>/dev/null"
 key Escape
 
@@ -119,7 +136,7 @@ check "Don't Save / quit leaves the file unchanged" "[ \"\$(annots $OUT/text.pdf
 # 6. Fill a form field and save.
 launch "$OUT/form.pdf"
 key ctrl+9
-click 640 300 0.8; xdotool type --delay 10 "Smoke Test"; key Return; sleep 1
+click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Test"; key Return; sleep 1
 key ctrl+s; sleep 1.5; shot 06-form
 V=$(qpdf --json=2 --json-key=acroform "$OUT/form.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
 check "a form field is filled and saved ($V)" "echo \"$V\" | grep -q 'Smoke Test'"
