@@ -3099,13 +3099,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "annotations panel",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -3139,6 +3139,17 @@
      "overall": 8
     },
     "proof": "Notes tab lists each annotation with its kind, text, page and colour; click jumps and selects (dev/re/evidence/F-002/05, dev/re/evidence/F-002/06)"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Notes panel: kind, page, text, then 'author · date' as the file records them (PDF Expert's comment list); click jumps, delete button. Author/date row checked by screenshot (not automatable: reading text off the panel); author written into new annotations checked by gui-smoke"
    }
   ]
  },
@@ -16309,14 +16320,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "with annotations",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -16328,6 +16339,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Preferences ▸ Annotations ▸ Author name (placeholder: the login name, used when empty, as Acrobat/PDF Expert); gui-smoke: typed name kept in prefs.json, default author written into a saved note"
    }
   ]
  },
@@ -19137,14 +19159,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "annotations list panel",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19167,6 +19189,17 @@
      "overall": 8
     },
     "proof": "Notes panel lists highlights, notes, ink, signatures; click jumps. Missing for 9: author and date per row (as C-annotate-030)"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Same Notes panel (C-annotate-030): highlights, notes, ink, signatures with author and date; click jumps"
    }
   ]
  },

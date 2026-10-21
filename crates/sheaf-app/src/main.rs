@@ -323,6 +323,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_output, |ui, m| home::set_output(&ui, m));
     wire!(ui, on_choose_folder, |ui| home::choose_folder(&ui));
     wire!(ui, on_set_open_after, |ui, v| home::set_open_after(&ui, v));
+    wire!(ui, on_set_author, |ui, v| home::set_author(&ui, &v));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);
     parse.on_custom_text_error(|s| sheaf_core::numbers::custom_text_error(&s).unwrap_or_default().into());

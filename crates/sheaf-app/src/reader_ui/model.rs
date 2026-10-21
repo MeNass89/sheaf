@@ -343,6 +343,7 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
             ReaderAnnotRow {
                 kind: if a.fill_sign { "Signature".into() } else { reader::kind_label(&a.subtype).into() },
                 text: text.chars().take(300).collect::<String>().into(),
+                meta: [a.author.trim(), a.modified.trim()].iter().filter(|s| !s.is_empty()).copied().collect::<Vec<_>>().join(" · ").into(),
                 page_label: format!("Page {}", label(r, a.page)).into(),
                 colour: a.color.map(|c| colour_of([c[0] as f64, c[1] as f64, c[2] as f64])).unwrap_or(Color::from_rgb_u8(255, 214, 10)),
                 selected: r.selected_annot == Some(i),

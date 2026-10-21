@@ -62,9 +62,16 @@ write("form.pdf", objs, 2)
 PY
 for f in text form; do qpdf "$OUT/$f.pdf" "$OUT/$f.fixed.pdf" && mv "$OUT/$f.fixed.pdf" "$OUT/$f.pdf"; done
 
+# The user's own Sheaf data, as it is before the run (the check at the end compares).
+real_profile() { ls -la --time-style=full-iso "${XDG_DATA_HOME:-$HOME/.local/share}/Sheaf" 2>/dev/null | md5sum; }
+REAL0=$(real_profile)
+
 launch() {
     # A fresh profile: no kept signature, history or preferences from earlier runs.
-    XDG_CONFIG_HOME="$OUT/profile/config" XDG_DATA_HOME="$OUT/profile/data" XDG_CACHE_HOME="$OUT/profile/cache" "$APP" "$@" >"$OUT/app.log" 2>&1 &
+    # Absolute paths: the dirs crate ignores relative XDG paths and would fall back to the real
+    # profile (it did until 21/10: smoke runs wrote into ~/.local/share/Sheaf).
+    local p="$PWD/$OUT/profile"
+    XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" "$APP" "$@" >"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done
     [ -n "$W" ] || { echo "FAIL the app opened no window:"; tail -5 "$OUT/app.log"; exit 1; }
@@ -111,6 +118,7 @@ check "the saved file passes qpdf --check" "qpdf --check $OUT/text.pdf >/dev/nul
 key n; click 1000 400 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "smoke note"; key ctrl+Return; sleep 1
 key v; key ctrl+s; sleep 1.5
 check "a note is saved" "[ \"\$(annots $OUT/text.pdf)\" -ge 2 ]"
+check "annotations carry the author (login name by default)" "qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -aq \"/T ($USER)\""
 key ctrl+z; sleep 0.8; key ctrl+s; sleep 1.5
 A_UNDO=$(annots "$OUT/text.pdf")
 key ctrl+shift+z; sleep 0.8; key ctrl+s; sleep 1.5
@@ -271,8 +279,13 @@ launch "$OUT/text.pdf" "$OUT/form.pdf"; sleep 1
 copied() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null; }
 T1=$(copied); key ctrl+shift+bracketleft; sleep 0.8; T2=$(copied); shot 08-tabs
 check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})" "[ -n \"$T1\" ] && [ -n \"$T2\" ] && [ \"$T1\" != \"$T2\" ]"
+# 9. Home ▸ Preferences ▸ Author name: what is typed is kept.
+click 50 21 0.8; click 90 192 0.8; click 700 610 0.5
+xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Author"; sleep 0.8; shot 09-preferences
+check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 quit
 
+check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).
 if [ $fails -eq 0 ]; then echo "ALL PASS"; [ -n "${SMOKE_KEEP:-}" ] || rm -rf "$OUT"; else echo "$fails FAILED (screenshots in $OUT)"; fi

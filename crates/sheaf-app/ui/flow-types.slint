@@ -86,6 +86,8 @@ export struct ReaderOutlineRow {
 export struct ReaderAnnotRow {
     kind: string,
     text: string,
+    // "Author · date", as the file records them.
+    meta: string,
     page-label: string,
     colour: color,
     selected: bool,

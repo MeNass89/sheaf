@@ -209,6 +209,12 @@ export component ReaderPanel inherits Rectangle {
                                     overflow: elide;
                                     max-height: 60px;
                                 }
+                                if a.meta != "": Text {
+                                    text: a.meta;
+                                    font-size: Theme.fs-caption;
+                                    color: Theme.text-muted;
+                                    overflow: elide;
+                                }
                             }
                             if at.has-hover || a.selected: Rectangle {
                                 x: parent.width - 28px;

@@ -97,6 +97,8 @@ export component AppWindow inherits Window {
     in property <int> output-mode;
     in property <string> fixed-folder;
     in property <bool> open-after;
+    in property <string> author-name;
+    in property <string> author-default;
     property <bool> confirm-clear;
 
     callback open-file();
@@ -130,6 +132,7 @@ export component AppWindow inherits Window {
     callback set-output(int);
     callback choose-folder();
     callback set-open-after(bool);
+    callback set-author(string);
     // Home page switched: refresh relative times and missing files.
     callback page-shown();
     changed page => { root.page-shown(); }
@@ -192,10 +195,13 @@ export component AppWindow inherits Window {
                         output-mode: root.output-mode;
                         fixed-folder: root.fixed-folder;
                         open-after: root.open-after;
+                        author-name: root.author-name;
+                        author-default: root.author-default;
                         set-theme(m) => { root.set-theme(m); }
                         set-output(m) => { root.set-output(m); }
                         choose-folder => { root.choose-folder(); }
                         set-open-after(v) => { root.set-open-after(v); }
+                        set-author(n) => { root.set-author(n); }
                     }
                 }
             }

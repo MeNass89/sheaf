@@ -125,7 +125,7 @@ pub fn markup(ui: &AppWindow, tab_id: i32, kind: i32) {
 }
 
 pub(super) fn author() -> String {
-    crate::home::prefs().author.unwrap_or_default()
+    crate::home::author()
 }
 
 /// Chaikin corner cutting, twice: a hand-drawn stroke loses the jitter of the pointer (PDF Expert

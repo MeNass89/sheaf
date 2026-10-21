@@ -144,6 +144,8 @@ fn push_prefs(ui: &AppWindow) {
     ui.set_output_mode(p.output.index());
     ui.set_fixed_folder(p.fixed_folder.map(|f| f.display().to_string()).unwrap_or_default().into());
     ui.set_open_after(p.open_folder_after);
+    ui.set_author_name(p.author.clone().unwrap_or_default().into());
+    ui.set_author_default(login_name().into());
 }
 
 /// Theme.mode and the window's own appearance (title bar, scroll bars).
@@ -183,6 +185,23 @@ pub fn choose_folder(ui: &AppWindow) {
 
 pub fn set_open_after(ui: &AppWindow, v: bool) {
     update_prefs(ui, |p| p.open_folder_after = v);
+}
+
+pub fn set_author(ui: &AppWindow, name: &str) {
+    let name = Some(name.trim().to_string()).filter(|n| !n.is_empty());
+    if prefs().author != name {
+        update_prefs(ui, |p| p.author = name);
+    }
+}
+
+/// The author written on annotations: the name set in Preferences, else the login name (as
+/// Acrobat and PDF Expert do).
+pub fn author() -> String {
+    prefs().author.unwrap_or_else(login_name)
+}
+
+fn login_name() -> String {
+    std::env::var("USER").or_else(|_| std::env::var("USERNAME")).unwrap_or_default()
 }
 
 /// A job succeeded: store it, refresh Recents and History, then "open the output folder".

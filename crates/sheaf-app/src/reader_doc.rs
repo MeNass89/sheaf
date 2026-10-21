@@ -26,6 +26,9 @@ pub struct AnnotEntry {
     pub quads: Vec<[f64; 8]>,
     /// A Fill & Sign mark: a placed signature, initials, a typed text or a check.
     pub fill_sign: bool,
+    /// Who made it and when it last changed, as shown ("" when the file does not say).
+    pub author: String,
+    pub modified: String,
 }
 
 /// A paragraph of a page as the edit tool shows it (from PdfCraft's `text_blocks`).
@@ -85,6 +88,8 @@ fn snap(doc: &Doc) -> Snap {
             rect: a.rect.map(f64::from),
             quads: a.quads.iter().map(|q| q.map(f64::from)).collect(),
             fill_sign: a.fill_sign,
+            author: a.author.clone().unwrap_or_default(),
+            modified: a.modified.clone().unwrap_or_default(),
         })
         .collect();
     annots.sort_by_key(|a| (a.page, a.index));

@@ -2,6 +2,7 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Segment } from "../widgets/radio-card.slint";
 import { SecondaryButton } from "dialogs.slint";
+import { TextField } from "../widgets/text-field.slint";
 
 // White card with a section title.
 component Section inherits Rectangle {
@@ -95,6 +96,10 @@ export component PreferencesScreen inherits Rectangle {
     callback set-output(int);
     callback choose-folder();
     callback set-open-after(bool);
+    // Author written on annotations; empty: the login name (shown as the placeholder).
+    in property <string> author-name;
+    in property <string> author-default;
+    callback set-author(string);
     background: Theme.content-bg;
 
     scroll := ScrollView {
@@ -167,6 +172,15 @@ export component PreferencesScreen inherits Rectangle {
                         on: root.open-after;
                         toggled(v) => { root.set-open-after(v); }
                     }
+                }
+            }
+            Section {
+                title: "Annotations";
+                TextField {
+                    label: "Author name";
+                    text: root.author-name;
+                    placeholder: root.author-default;
+                    changed text => { root.set-author(self.text); }
                 }
             }
         }
