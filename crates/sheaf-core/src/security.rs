@@ -3,6 +3,29 @@ use lopdf::encryption::crypt_filters::{Aes256CryptFilter, CryptFilter};
 use lopdf::{EncryptionState, EncryptionVersion, Permissions};
 use std::{collections::BTreeMap, path::{Path, PathBuf}, sync::Arc};
 
+/// A length-and-character-class hint, not an estimate of cracking time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasswordStrength { Weak, Fair, Strong }
+
+/// Strong: at least 16 characters with a non-space class, or 12 with three classes. Fair: at least eight
+/// with two classes. Classes are lowercase, uppercase, numeric and non-space symbols.
+pub fn password_strength(password: &str) -> PasswordStrength {
+    let length = password.chars().count();
+    let classes = [
+        password.chars().any(char::is_lowercase),
+        password.chars().any(char::is_uppercase),
+        password.chars().any(char::is_numeric),
+        password.chars().any(|c| !c.is_alphanumeric() && !c.is_whitespace()),
+    ].into_iter().filter(|v| *v).count();
+    if (length >= 16 && classes > 0) || (length >= 12 && classes >= 3) {
+        PasswordStrength::Strong
+    } else if length >= 8 && classes >= 2 {
+        PasswordStrength::Fair
+    } else {
+        PasswordStrength::Weak
+    }
+}
+
 pub fn protect(input: &Input, user_pw: &str, owner_pw: Option<&str>, out: &Path) -> Result<PathBuf> {
     if user_pw.is_empty() { return Err(crate::OpdfError::Unsupported("password must not be empty".into())); }
     let mut doc = input.load_lopdf()?;
@@ -58,4 +81,23 @@ fn set_aes256_key_length(doc: &mut lopdf::Document) -> Result<()> {
     };
     dict.set("Length", 256);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{password_strength, PasswordStrength::*};
+
+    #[test]
+    fn strength_uses_length_and_character_classes() {
+        for (password, expected) in [
+            ("", Weak), ("                ", Weak), ("aB1!", Weak), ("Abcdef1", Weak),
+            ("abcdefgh", Weak), ("Abcdefgh", Fair), ("abcdefg!", Fair),
+            ("Abcdefghij1", Fair), ("Abcdefghijk1", Strong),
+            ("abcdefghijkL", Fair), ("abcdefghijklmno", Weak),
+            ("abcdefghijklmnop", Strong), ("abcd efgh", Weak),
+            ("éééé", Weak), ("Éééééééé", Fair),
+        ] {
+            assert_eq!(password_strength(password), expected, "{password:?}");
+        }
+    }
 }

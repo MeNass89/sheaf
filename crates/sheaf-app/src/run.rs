@@ -25,6 +25,16 @@ use crate::flow::toast;
 use crate::dest::{ask_dest, out_name, parent_dir, pref_dest, Dest};
 use crate::state::{refresh, with, Done, Phase};
 
+/// Strength levels used by the Protect panel's three-segment meter.
+pub fn password_strength(password: &str) -> i32 {
+    use sheaf_core::security::PasswordStrength;
+    match sheaf_core::security::password_strength(password) {
+        PasswordStrength::Weak => 0,
+        PasswordStrength::Fair => 1,
+        PasswordStrength::Strong => 2,
+    }
+}
+
 fn parse_level(i: i32) -> Level {
     match i {
         0 => Level::Extreme,

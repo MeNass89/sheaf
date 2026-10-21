@@ -379,12 +379,33 @@ export component OptionsPanel inherits VerticalLayout {
         TextField {
             label: "Password";
             password: true;
+            allow-reveal: true;
             placeholder: "Type a password";
             text <=> root.password;
+        }
+        if root.password != "": meter := VerticalLayout {
+            spacing: 4px;
+            property <int> strength: Parse.password-strength(root.password);
+            HorizontalLayout {
+                spacing: 4px;
+                for i in 3: Rectangle {
+                    height: 4px;
+                    border-radius: 2px;
+                    background: i > meter.strength ? Theme.progress-track
+                        : meter.strength == 0 ? Theme.danger
+                        : meter.strength == 1 ? Theme.warning : Theme.success-strong;
+                }
+            }
+            Text {
+                text: meter.strength == 0 ? "Weak" : meter.strength == 1 ? "Fair" : "Strong";
+                font-size: Theme.fs-caption;
+                color: Theme.text-secondary;
+            }
         }
         TextField {
             label: "Repeat password";
             password: true;
+            allow-reveal: true;
             placeholder: "Type it again";
             text <=> root.confirm;
             error: root.confirm != "" && root.confirm != root.password ? "Passwords do not match" : "";
@@ -392,6 +413,7 @@ export component OptionsPanel inherits VerticalLayout {
         TextField {
             label: "Owner password (optional)";
             password: true;
+            allow-reveal: true;
             placeholder: "Same as the password";
             text <=> root.owner;
         }
