@@ -146,7 +146,8 @@ pub enum Reply {
     /// `applied`: the answer to an `Apply` (an undo step was added unless `error`).
     Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool },
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
-    Blocks(usize, Vec<Block>),
+    /// A page's paragraphs and its images' boxes (user space).
+    Blocks(usize, Vec<Block>, Vec<[f64; 4]>),
     Extracted { to: PathBuf, error: Option<String> },
 }
 
@@ -206,7 +207,8 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             .filter(|b| !b.text.trim().is_empty())
                             .map(|b| Block { rect: b.rect, text: b.editor_text })
                             .collect();
-                        reply(Reply::Blocks(page, b));
+                        let images = doc.document().page_images(page).iter().map(|i| i.visible_rect.unwrap_or(i.rect)).collect();
+                        reply(Reply::Blocks(page, b, images));
                     }
                 }
                 debug(format_args!("operation done in {:?}", t0.elapsed()));

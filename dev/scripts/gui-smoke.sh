@@ -144,6 +144,15 @@ click 640 680 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --d
 key Escape; key v; key ctrl+s; sleep 1.5; shot 02c-text-format
 check "added text takes the chosen font (Times-Bold)" "pdffonts -f 1 -l 1 $OUT/text.pdf 2>/dev/null | grep -q 'Times-Bold'"
 
+# 2d. Edit tool: drag the first paragraph of page 1 down; its words move down in the saved file.
+word_y() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/'; }
+QY0=$(word_y "$OUT/text.pdf")
+key e; sleep 1.2
+xdotool mousemove 500 200 mousedown 1; sleep 0.1; for y in 220 260 300 340; do xdotool mousemove 500 $y; sleep 0.05; done; xdotool mouseup 1; sleep 1.2
+key Escape; key v; key ctrl+s; sleep 1.5; shot 02d-paragraph-moved
+QY1=$(word_y "$OUT/text.pdf")
+check "dragging a paragraph with the Edit tool moves it ($QY0 → $QY1)" "[ -n \"$QY1\" ] && python3 -c 'import sys; sys.exit(0 if float(\"$QY1\") - float(\"$QY0\") > 30 else 1)'"
+
 # 3. Page operations from the Pages panel: duplicate page 1, delete it again, rotate.
 click 120 230; click 142 778 1.2      # select page 1, Duplicate
 key ctrl+s; sleep 1.5

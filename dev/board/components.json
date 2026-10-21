@@ -6729,10 +6729,10 @@
    111
   ],
   "grade": {
-   "function": 4,
-   "aesthetics": 5,
-   "performance": 7,
-   "overall": 4
+   "function": 7,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -6748,6 +6748,17 @@
      "overall": 4
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [109, 110, 111]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Edit tool: drag a paragraph to move it (gui-smoke: 'quick' 72 → 158 pt), images outlined and draggable (EditPageImage Move, not yet in the smoke suite); no resize handles yet"
    }
   ]
  },

@@ -69,6 +69,24 @@ struct Draft {
     field: Option<(usize, [f64; 4])>,
 }
 
+/// What the Edit tool's press is on.
+#[derive(Clone)]
+enum EditTarget {
+    /// A paragraph: index, text, box (user space), its top-left (view).
+    Block(usize, String, [f64; 4], (f64, f64)),
+    /// An image: index among the page's images, box (user space).
+    Image(usize, [f64; 4]),
+    Empty,
+}
+
+struct EditPress {
+    page: usize,
+    target: EditTarget,
+    from: (f64, f64),
+    to: (f64, f64),
+    dragging: bool,
+}
+
 /// An annotation sent to the document thread, drawn at once until the page renders with it.
 struct Provisional {
     page: usize,
@@ -91,6 +109,10 @@ pub struct ReaderUi {
     /// The text layer's renderer, kept for the working file it was made from.
     text_renderer: Option<(Arc<Vec<u8>>, render::PageRenderer)>,
     blocks: HashMap<usize, Arc<Vec<Block>>>,
+    /// The boxes of each page's images (user space), read with its paragraphs.
+    images: HashMap<usize, Arc<Vec<[f64; 4]>>>,
+    /// Edit tool: what the press is on, where it started and where the pointer is (view).
+    edit_press: Option<EditPress>,
     blocks_asked: HashSet<usize>,
     /// Text selection: page and glyph range.
     sel: Option<(usize, Range<usize>)>,
@@ -174,6 +196,8 @@ impl ReaderUi {
             texts: HashMap::new(),
             text_renderer: None,
             blocks: HashMap::new(),
+            images: HashMap::new(),
+            edit_press: None,
             blocks_asked: HashSet::new(),
             sel: None,
             press: None,
@@ -427,9 +451,10 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 Some(e) => crate::flow::toast(ui, &format!("Not extracted: {e}")),
             }
         }
-        Reply::Blocks(page, b) => {
+        Reply::Blocks(page, b, images) => {
             update(id, |r, _| {
                 r.blocks.insert(page, Arc::new(b));
+                r.images.insert(page, Arc::new(images));
             });
         }
     }
@@ -578,21 +603,20 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 true
             }
             EDIT_TEXT => {
-                // A paragraph under the pointer is edited in place; elsewhere new text is added.
+                // A click on a paragraph edits it, a drag moves it; a drag on an image moves the
+                // image; a click on empty space adds text (decided on release).
                 let size = v.viewer.boxes[page].view_size();
                 // Paragraphs not read yet (just switched tool): the click adds text instead.
                 let blocks = r.blocks(page).unwrap_or_default();
-                let hit = blocks.iter().enumerate().find_map(|(i, b)| {
-                    let [x, y, w, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, b.rect);
-                    (p.0 >= x - 2.0 && p.0 <= x + w + 2.0 && p.1 >= y - 2.0 && p.1 <= y + h + 2.0).then(|| (i, b.text.clone(), b.rect, (x, y)))
-                });
-                r.draft = Some(match hit {
-                    Some((i, text, rect, at)) => Draft { page, at, kind: 2, block: Some((i, text, rect)), field: None },
-                    None => Draft { page, at: p, kind: 3, block: None, field: None },
-                });
-                r.note_seq += 1;
-                r.press = None;
-                true
+                let inside = |rect: [f64; 4]| {
+                    let [x, y, w, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, rect);
+                    (p.0 >= x - 2.0 && p.0 <= x + w + 2.0 && p.1 >= y - 2.0 && p.1 <= y + h + 2.0).then_some((x, y))
+                };
+                let block = blocks.iter().enumerate().find_map(|(i, b)| inside(b.rect).map(|at| EditTarget::Block(i, b.text.clone(), b.rect, at)));
+                let image = || r.images.get(&page).and_then(|im| im.iter().enumerate().rev().find_map(|(i, rc)| inside(*rc).map(|_| EditTarget::Image(i, *rc))));
+                let target = block.or_else(image).unwrap_or(EditTarget::Empty);
+                r.edit_press = Some(EditPress { page, target, from: p, to: p, dragging: false });
+                false
             }
             ADD_IMAGE => {
                 r.press = None;
@@ -678,6 +702,13 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             d.2 = b;
             return;
         }
+        if let Some(e) = r.edit_press.as_mut() {
+            e.to = b;
+            if (e.from.0 - b.0).hypot(e.from.1 - b.1) > 4.0 && !matches!(e.target, EditTarget::Empty) {
+                e.dragging = true;
+            }
+            return;
+        }
         if r.tool == PEN {
             if let Some((_, pts)) = r.stroke.as_mut() {
                 let last = *pts.last().unwrap_or(&b);
@@ -708,6 +739,34 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     moved(tab_id, x, y);
     let action = update(tab_id, |r, v| {
         let press = r.press.take();
+        if let Some(e) = r.edit_press.take() {
+            let b = &v.viewer.boxes[e.page];
+            let size = b.view_size();
+            let p0 = viewer::view_to_pdf(b, size, e.from.0, e.from.1);
+            let p1 = viewer::view_to_pdf(b, size, e.to.0, e.to.1);
+            let (dx, dy) = (p1.0 - p0.0, p1.1 - p0.1);
+            match (e.target, e.dragging) {
+                (EditTarget::Block(i, text, _, _), true) => {
+                    let mut style = sheaf_core::pdfcraft::edit::BlockStyle::default();
+                    style.offset = Some([dx, dy]);
+                    return Some(Pending::Move(e.page, Edit::EditTextBlock { page: e.page, block: i, text, style }));
+                }
+                (EditTarget::Image(i, rc), true) => {
+                    let to = [rc[0] + dx, rc[1] + dy, rc[2] + dx, rc[3] + dy];
+                    return Some(Pending::Move(e.page, Edit::EditPageImage { page: e.page, index: i, change: sheaf_core::pdfcraft::engine::ImageEdit::Move(to) }));
+                }
+                (EditTarget::Block(i, text, rect, at), false) => {
+                    r.draft = Some(Draft { page: e.page, at, kind: 2, block: Some((i, text, rect)), field: None });
+                    r.note_seq += 1;
+                }
+                (EditTarget::Empty, _) => {
+                    r.draft = Some(Draft { page: e.page, at: e.from, kind: 3, block: None, field: None });
+                    r.note_seq += 1;
+                }
+                (EditTarget::Image(..), false) => {}
+            }
+            return None;
+        }
         if let Some((i, from, to)) = r.annot_drag.take() {
             r.annot_candidate = None;
             let a = r.annots().get(i)?;
@@ -1042,6 +1101,8 @@ fn forget_page_state(r: &mut ReaderUi) {
     r.provisional.clear();
     r.texts.clear();
     r.blocks.clear();
+    r.images.clear();
+    r.edit_press = None;
     r.blocks_asked.clear();
     r.back.clear();
     r.forward.clear();
@@ -1066,11 +1127,13 @@ fn after_change(r: &mut ReaderUi, v: &mut ViewerUi, pages: Option<&[usize]>) {
         Some(ps) => ps.iter().for_each(|&p| {
             v.page_changed(p);
             r.blocks.remove(&p);
+            r.images.remove(&p);
             r.blocks_asked.remove(&p);
         }),
         None => {
             v.all_changed();
             r.blocks.clear();
+            r.images.clear();
             r.blocks_asked.clear();
         }
     }
@@ -1983,6 +2046,24 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                     marks.push(overlay([c[0] - 2.0, c[1] - 1.0, c[2] + 4.0, c[3] + 2.0], 7));
                 }
             }
+            if let Some(images) = r.images.get(&page) {
+                for rc in images.iter() {
+                    marks.push(overlay(v.viewer.overlay(page, *rc), 7));
+                }
+            }
+        }
+    }
+    // A paragraph or image being dragged: its outline follows the pointer.
+    if let Some(e) = r.edit_press.as_ref().filter(|e| e.dragging) {
+        let rect = match &e.target {
+            EditTarget::Block(_, _, rc, _) | EditTarget::Image(_, rc) => Some(*rc),
+            EditTarget::Empty => None,
+        };
+        if let Some(rc) = rect {
+            let c = v.viewer.overlay(e.page, rc);
+            let s = 1.0 / k(&v.viewer, e.page);
+            let (dx, dy) = ((e.to.0 - e.from.0) * s, (e.to.1 - e.from.1) * s);
+            marks.push(overlay([c[0] + dx, c[1] + dy, c[2], c[3]], 6));
         }
     }
     if let Some(a) = r.selected_annot.and_then(|i| r.annots().get(i)) {
