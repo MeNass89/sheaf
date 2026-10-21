@@ -4,7 +4,7 @@ use super::*;
 
 pub fn set_tool(tab_id: i32, tool: i32) {
     update(tab_id, |r, v| {
-        r.tool = tool.clamp(SELECT, ERASER);
+        r.tool = tool.clamp(SELECT, STAMP);
         r.draft = None;
         r.stroke = None;
         load_blocks(r, v);
@@ -69,12 +69,13 @@ pub fn text_format(tab_id: i32, what: i32, v: i32) {
     });
 }
 
-/// Shapes and pen options: `what` 0 the shape (0 rectangle, 1 oval, 2 line, 3 arrow), 1 fill on
-/// or off, 2 the next opacity.
+/// Shapes, pen and stamp options: `what` 0 the shape (0 rectangle, 1 oval, 2 line, 3 arrow), 1
+/// fill on or off, 2 the next opacity, 3 the stamp (index in `StampKind::ALL`).
 pub fn shape_option(tab_id: i32, what: i32, value: i32) {
     update(tab_id, |r, _| match what {
         0 => r.shape_kind = value.clamp(0, 3),
         1 => r.shape_fill = !r.shape_fill,
+        3 => r.stamp = (value.max(0) as usize).min(StampKind::ALL.len() - 1),
         _ => r.opacity = (r.opacity + 1) % reader::OPACITIES.len(),
     });
 }

@@ -67,6 +67,9 @@ cp "$OUT/text.pdf" "$OUT/shapes.pdf"
 real_profile() { ls -la --time-style=full-iso "${XDG_DATA_HOME:-$HOME/.local/share}/Sheaf" 2>/dev/null | md5sum; }
 REAL0=$(real_profile)
 
+# Toolbar buttons reached by coordinates (1280×800 window): they move when tools are added.
+SPREAD_X=736   # Two pages
+
 launch() {
     # A fresh profile: no kept signature, history or preferences from earlier runs.
     # Absolute paths: the dirs crate ignores relative XDG paths and would fall back to the real
@@ -284,17 +287,23 @@ key x; drag 585 720 70 0; key ctrl+s; sleep 1.5; N2=$(ninks "$OUT/shapes.pdf")
 check "the eraser rubs out a drawing it goes along ($N1 → $N2)" "[ $N1 -ge 1 ] && [ $N2 -eq \$(( N1 - 1 )) ]"
 key v
 
-# 6d. Two pages side by side (toolbar, 721,61): the middle of the pages area shows the gap between
+# 6c''. Stamps (M): the default (Approved) with a click; a dated one (Received, third in the list at
+# 317,210 once the list at 350,109 is open) says who and when.
+key m; click 900 300 1.2; click 350 109 0.8; click 317 210 0.8; click 700 600 1.2; key ctrl+s; sleep 1.5; key v
+SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
+check "stamps: Approved, and Received dated by the author" "echo \"\$SH\" | grep -aq '/Name /Approved' && echo \"\$SH\" | grep -aq '/PCByLine (By $USER at '"
+
+# 6d. Two pages side by side (toolbar button at SPREAD_X,61): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.
 mid() { import -window root -crop 6x200+761+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
-M1=$(mid); click 721 61 2.5; M2=$(mid); click 721 61 2.5; click 721 61 2.5; M3=$(mid); shot 06d-spread
+M1=$(mid); click $SPREAD_X 61 2.5; M2=$(mid); click $SPREAD_X 61 2.5; click $SPREAD_X 61 2.5; M3=$(mid); shot 06d-spread
 check "two pages side by side, then back to one column ($M1 → $M2 → $M3)" "python3 -c 'import sys; a, b, c = $M1, $M2, $M3; sys.exit(0 if abs(a - b) > 0.02 and abs(a - c) < 0.005 else 1)'"
 # 6e. Keyboard paging: End, Home, → and Space; ⌘A ⌘C copies the page in view, which tells which it is.
 inview() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6; }
 key End; sleep 1; P4=$(inview); key Home; sleep 1; P1=$(inview); key Right; sleep 1; P2=$(inview); key space; key space; sleep 1; P3=$(inview)
 check "End, Home, → and Space move through the pages ($P4, $P1, $P2, $P3)" "[ \"$P4\" = 'Page 4' ] && [ \"$P1\" = 'Page 1' ] && [ \"$P2\" = 'Page 2' ] && [ \"$P3\" != 'Page 2' ]"
 # 6f. Closed in two pages, it reopens in two pages (and on the same page).
-click 721 61 2.5; key ctrl+w; sleep 1; quit
+click $SPREAD_X 61 2.5; key ctrl+w; sleep 1; quit
 launch "$OUT/shapes.pdf"; sleep 2; M4=$(mid)
 check "a document reopens as it was left: two pages ($M4)" "python3 -c 'import sys; sys.exit(0 if abs($M4 - $M2) < 0.005 else 1)'"
 quit

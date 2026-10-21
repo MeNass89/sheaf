@@ -161,6 +161,9 @@ export struct ReaderState {
     // Signature tool: the pad is open to make one; one is kept.
     sign-open: bool,
     has-signature: bool,
+    // Stamp tool: the stamps offered (labels) and the chosen one.
+    stamps: [string],
+    stamp: int,
     // Pages side by side: 0 one column, 1 two pages, 2 two pages with the cover alone.
     spread: int,
     // Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled; opacity of shapes and pen (%).

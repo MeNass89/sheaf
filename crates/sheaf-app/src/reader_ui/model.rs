@@ -275,6 +275,17 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         shape_kind: r.shape_kind,
         shape_fill: r.shape_fill,
         opacity: (reader::OPACITIES[r.opacity] * 100.0).round() as i32,
+        // Dynamic stamps share their names with standard ones: they say they are dated.
+        stamps: ModelRc::new(VecModel::from(
+            StampKind::ALL
+                .iter()
+                .map(|k| match k.group() {
+                    sheaf_core::pdfcraft::engine::StampGroup::Dynamic => slint::SharedString::from(format!("{} · DATED", k.label())),
+                    _ => slint::SharedString::from(k.label()),
+                })
+                .collect::<Vec<_>>(),
+        )),
+        stamp: r.stamp as i32,
         text_size: TEXT_SIZES[r.text_size as usize] as i32,
         text_family: r.text_family,
         text_bold: r.text_bold,

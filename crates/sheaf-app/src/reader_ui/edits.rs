@@ -215,6 +215,28 @@ pub(super) fn erase(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f64
     }
 }
 
+/// The chosen stamp, 160 × 42 pt centred on `at` (view point of `page`), as Acrobat sizes them;
+/// a dynamic stamp says who and when ("By Ada at 2:14 pm, Oct 02, 2026").
+pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)) {
+    let edit = update(tab_id, |r, v| {
+        let bx = &v.viewer.boxes[page];
+        let size = bx.view_size();
+        let (w, h) = (160.0_f64.min(size.0), 42.0_f64.min(size.1));
+        let x = (at.0 - w / 2.0).clamp(0.0, size.0 - w);
+        let y = (at.1 - h / 2.0).clamp(0.0, size.1 - h);
+        let rect = viewer::view_rect_to_pdf(bx, size, (x, y), (x + w, y + h));
+        let stamp = StampKind::ALL[r.stamp.min(StampKind::ALL.len() - 1)];
+        let dynamic = matches!(stamp.group(), sheaf_core::pdfcraft::engine::StampGroup::Dynamic);
+        let by = dynamic.then(|| chrono::Local::now().format(&format!("By {} at %-I:%M %P, %b %d, %Y", author())).to_string());
+        let shape = Shape::Stamp { rect, stamp, by };
+        let style = Style::default_for(&shape);
+        Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: stamp.label().into(), author: author() })
+    });
+    if let Some(e) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
 pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
     let text = text.trim().to_string();
     let edit = update(tab_id, |r, v| {

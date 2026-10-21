@@ -276,6 +276,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         match r.tool {
             PEN => r.stroke.take().filter(|(_, pts)| pts.len() >= 2).map(|(page, pts)| Pending::Ink(page, pts)),
             ERASER => r.stroke.take().map(|(page, pts)| Pending::Erase(page, pts)),
+            STAMP => press.map(|(page, p)| Pending::Stamp(page, p)),
             SHAPE => {
                 r.stroke = None;
                 // A click without a drag draws nothing.
@@ -290,6 +291,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         Some(Pending::Ink(page, pts)) => add_ink(ui, tab_id, page, pts),
         Some(Pending::Shape(page, a, b)) => add_shape(ui, tab_id, page, a, b),
         Some(Pending::Erase(page, pts)) => erase(ui, tab_id, page, pts),
+        Some(Pending::Stamp(page, at)) => add_stamp(ui, tab_id, page, at),
         Some(Pending::Markup(kind)) => markup(ui, tab_id, kind),
         Some(Pending::Move(page, e)) => apply(ui, tab_id, *e, &[page], None),
         Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
@@ -317,6 +319,8 @@ pub(super) fn resizable(a: &AnnotEntry) -> bool {
 
 pub(super) enum Pending {
     Ink(usize, Vec<(f64, f64)>),
+    /// A stamp placed with a click (view point).
+    Stamp(usize, (f64, f64)),
     /// The eraser's path on a page (view points).
     Erase(usize, Vec<(f64, f64)>),
     /// A shape dragged on a page, from and to (view points).

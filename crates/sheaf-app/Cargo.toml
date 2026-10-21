@@ -10,6 +10,8 @@ name = "sheaf-app"
 path = "src/main.rs"
 
 [dependencies]
+# Local time for dynamic stamps ("By … at 2:14 pm, Oct 02, 2026"); already in the graph through PdfCraft.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 sheaf-core = { path = "../sheaf-core" }
 slint = { workspace = true, features = ["unstable-winit-030", "raw-window-handle-06"] }
 rfd.workspace = true

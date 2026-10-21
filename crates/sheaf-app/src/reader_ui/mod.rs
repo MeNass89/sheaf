@@ -15,7 +15,7 @@ use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
 use sheaf_app::{AppWindow, ReaderMark, ReaderResultRow, ReaderAnnotRow, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
-use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, Style};
+use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, StampKind, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
 use std::rc::Rc;
 
@@ -44,6 +44,8 @@ pub const SIGN: i32 = 9;
 pub const SHAPE: i32 = 10;
 /// Eraser: drag across drawings to rub them out where the path goes.
 pub const ERASER: i32 = 11;
+/// Stamp: click to place the stamp chosen in the options bar (`ReaderUi::stamp`).
+pub const STAMP: i32 = 12;
 
 use crate::reader_doc::{self, AnnotEntry, Block, Op, Reply, Snap};
 
@@ -150,6 +152,8 @@ pub struct ReaderUi {
     shape_kind: i32,
     shape_fill: bool,
     shape_end: Option<(f64, f64)>,
+    /// Stamp tool: index in `StampKind::ALL`.
+    stamp: usize,
     /// Shapes and pen: index in `reader::OPACITIES`.
     opacity: usize,
     /// Added text: index in TEXT_SIZES, 0 Helvetica / 1 Times / 2 Courier, bold.
@@ -251,6 +255,7 @@ impl ReaderUi {
             shape_fill: false,
             shape_end: None,
             opacity: 0,
+            stamp: StampKind::ALL.iter().position(|k| *k == StampKind::Approved).unwrap_or(0),
             text_size: 2,
             text_family: 0,
             text_bold: false,

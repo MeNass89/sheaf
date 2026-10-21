@@ -92,6 +92,7 @@ export component ReaderScreen inherits Rectangle {
                     ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Pen (P)"; active: root.tab.reader.tool == 5; clicked => { ReaderBridge.set-tool(root.id, 5); keys.focus(); } }
                     ToolButton { icon: @image-url("../icons/shapes.svg"); tip: "Shapes (R)"; active: root.tab.reader.tool == 10; clicked => { ReaderBridge.set-tool(root.id, 10); keys.focus(); } }
                     ToolButton { icon: @image-url("../icons/eraser.svg"); tip: "Eraser (X)"; active: root.tab.reader.tool == 11; clicked => { ReaderBridge.set-tool(root.id, 11); keys.focus(); } }
+                    ToolButton { icon: @image-url("../icons/stamp.svg"); tip: "Stamp (M)"; active: root.tab.reader.tool == 12; clicked => { ReaderBridge.set-tool(root.id, 12); keys.focus(); } }
                     ToolButton { icon: @image-url("../icons/type.svg"); tip: "Text box (T)"; active: root.tab.reader.tool == 6; clicked => { ReaderBridge.set-tool(root.id, 6); keys.focus(); } }
                     Rectangle { width: 6px; }
                     Divider { y: 5px; }
@@ -506,6 +507,15 @@ export component ReaderScreen inherits Rectangle {
                         padding-top: 3px;
                         padding-bottom: 3px;
                         spacing: 4px;
+                            // Stamp: which one (a click on the page places it).
+                            if root.tab.reader.tool == 12: SortCombo {
+                                y: 2px;
+                                width: 200px;
+                                options: root.tab.reader.stamps;
+                                current-index: root.tab.reader.stamp;
+                                chevron: @image-url("../icons/chevron-down.svg");
+                                selected(i) => { ReaderBridge.shape-option(root.id, 3, i); keys.focus(); }
+                            }
                             // Shapes: which one, filled or not.
                             if root.tab.reader.tool == 10: HorizontalLayout {
                                 spacing: 0px;
@@ -565,7 +575,7 @@ export component ReaderScreen inherits Rectangle {
                                 Text { text: "Click where the signature goes."; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                                 SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
                             }
-                            if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11) || root.tab.reader.selected-annot: HorizontalLayout {
+                            if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && root.tab.reader.tool != 12) || root.tab.reader.selected-annot: HorizontalLayout {
                                 spacing: 2px;
                                 padding-left: 6px;
                                 for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {
@@ -825,6 +835,7 @@ export component ReaderScreen inherits Rectangle {
             if e.text == "p" { ReaderBridge.set-tool(root.id, 5); return accept; }
             if e.text == "r" { ReaderBridge.set-tool(root.id, 10); return accept; }
             if e.text == "x" { ReaderBridge.set-tool(root.id, 11); return accept; }
+            if e.text == "m" { ReaderBridge.set-tool(root.id, 12); return accept; }
             if e.text == "t" { ReaderBridge.set-tool(root.id, 6); return accept; }
             if e.text == "e" { ReaderBridge.set-tool(root.id, 7); return accept; }
             if e.text == "i" { ReaderBridge.set-tool(root.id, 8); return accept; }
