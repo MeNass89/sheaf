@@ -3270,14 +3270,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "filter by type/colour",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -3289,6 +3289,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Notes panel: Show (All, Markup, Notes, Drawings, Stamps) and Sort (page, newest, author, type), rows keep their comment's identity (gui-smoke: the first row of Stamps deletes a stamp, shapes kept; reader::tests::notes_filter_groups)"
    }
   ]
  },

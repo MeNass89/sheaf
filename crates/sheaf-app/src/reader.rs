@@ -289,6 +289,19 @@ pub fn read_texts(
     });
 }
 
+/// The Notes panel's filter: 0 everything, 1 text markup, 2 notes and text boxes, 3 drawings and
+/// shapes, 4 stamps and signatures. Whether a comment of `subtype` (a signature: `fill_sign`) shows.
+pub fn notes_filter(filter: i32, subtype: &str, fill_sign: bool) -> bool {
+    let group = match subtype {
+        _ if fill_sign => 4,
+        "Highlight" | "Underline" | "StrikeOut" | "Squiggly" => 1,
+        "Text" | "FreeText" => 2,
+        "Stamp" => 4,
+        _ => 3,
+    };
+    filter == 0 || filter == group
+}
+
 /// Opacities offered for shapes and drawings.
 pub const OPACITIES: [f64; 4] = [1.0, 0.75, 0.5, 0.25];
 
@@ -401,6 +414,13 @@ mod tests {
         assert_eq!(text_under(&t, &[[9.0, 9.0, 41.0, 21.0]]), "ab cd");
         assert_eq!(kind_label("StrikeOut"), "Strikethrough");
         assert!(!listed("Link") && listed("Highlight"));
+    }
+
+    #[test]
+    fn notes_filter_groups() {
+        assert!(notes_filter(0, "Ink", false) && notes_filter(1, "Underline", false) && notes_filter(2, "FreeText", false));
+        assert!(notes_filter(3, "Square", false) && notes_filter(3, "Ink", false) && notes_filter(4, "Ink", true) && notes_filter(4, "Stamp", false));
+        assert!(!notes_filter(1, "Text", false) && !notes_filter(3, "Ink", true));
     }
 
     #[test]

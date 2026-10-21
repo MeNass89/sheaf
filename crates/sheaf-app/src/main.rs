@@ -173,6 +173,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_cycle_spread, |ui, id| reader_ui::cycle_spread(&ui, id));
     wire_global!(ui, rb, on_notes_action, |ui, id, w| reader_ui::notes_action(&ui, id, w));
     rb.on_props_open(reader_ui::props_open);
+    rb.on_notes_view(reader_ui::notes_view);
     rb.on_props_cancel(reader_ui::props_cancel);
     wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k| reader_ui::props_save(&ui, id, &t, &a, &s, &k));
     rb.on_print_cancel(reader_ui::print_cancel);

@@ -308,6 +308,13 @@ QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "Remove all comments leaves none in the file" "[ -n \"\$QD\" ] && ! echo \"\$QD\" | grep -aqE '/Subtype /(Square|Circle|Line|Ink|Stamp|Text|FreeText|Highlight)\$'"
 key ctrl+z; key ctrl+s; sleep 1.5
 check "⌘Z brings them all back" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Subtype /Stamp'"
+# The filter (64,186 ▸ Stamps at 40,350) lists only stamps; deleting the first row deletes a stamp,
+# not what sat at that row's place in the full list; back to All (40,230).
+NST=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null | grep -ac '/Subtype /Stamp$')
+click 64 186 0.8; click 40 350 1; click 120 240 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
+QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
+check "Notes filter: the first row of Stamps deletes a stamp ($NST → one less), shapes kept" "[ \$(echo \"\$QD\" | grep -ac '/Subtype /Stamp\$') -eq \$(( NST - 1 )) ] && echo \"\$QD\" | grep -aq '/Subtype /Square\$'"
+click 64 186 0.8; click 40 230 1
 click 30 106 0.8   # back to the Pages panel
 
 # 6c-props. ⌘D: Document Properties; a title typed and Return is saved into the file's Info.

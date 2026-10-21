@@ -5,6 +5,7 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolTab, ReaderBridge } from "../flow-types.slint";
 import { ToolButton, PanelTab, SmallButton } from "reader-parts.slint";
+import { SortCombo } from "../widgets/sort-combo.slint";
 
 export component ReaderPanel inherits Rectangle {
     in property <ToolTab> tab;
@@ -156,7 +157,7 @@ export component ReaderPanel inherits Rectangle {
                 }
                 if root.tab.reader.panel == 2 && root.tab.reader.annots.length == 0: Text {
                     x: 16px;
-                    y: 50px;
+                    y: 86px;
                     width: parent.width - 32px;
                     text: "No annotations yet. Select text and pick Highlight, or choose a tool above.";
                     font-size: Theme.fs-label;
@@ -174,6 +175,26 @@ export component ReaderPanel inherits Rectangle {
                         Rectangle { horizontal-stretch: 1; }
                         if root.tab.reader.annots.length > 0: ToolButton { y: -2px; icon: @image-url("../icons/trash-2.svg"); tip: "Remove all comments"; clicked => { ReaderBridge.notes-action(root.id, 2); root.focus-pages(); } }
                     }
+                    // Which comments, in which order (Acrobat's comment list filter and sort).
+                    HorizontalLayout {
+                        padding: 8px;
+                        padding-bottom: 0px;
+                        spacing: 6px;
+                        SortCombo {
+                            width: 112px;
+                            options: ["All", "Markup", "Notes", "Drawings", "Stamps"];
+                            current-index: root.tab.reader.notes-filter;
+                            chevron: @image-url("../icons/chevron-down.svg");
+                            selected(i) => { ReaderBridge.notes-view(root.id, 0, i); }
+                        }
+                        SortCombo {
+                            width: 112px;
+                            options: ["By page", "Newest", "By author", "By type"];
+                            current-index: root.tab.reader.notes-sort;
+                            chevron: @image-url("../icons/chevron-down.svg");
+                            selected(i) => { ReaderBridge.notes-view(root.id, 1, i); }
+                        }
+                    }
                     ScrollView {
                         VerticalLayout {
                             padding: 8px;
@@ -186,7 +207,7 @@ export component ReaderPanel inherits Rectangle {
                                 border-color: Theme.sidebar-border;
                                 at := TouchArea {
                                     mouse-cursor: pointer;
-                                    clicked => { ReaderBridge.annot-clicked(root.id, i); root.focus-pages(); }
+                                    clicked => { ReaderBridge.annot-clicked(root.id, a.index); root.focus-pages(); }
                                 }
                                 Rectangle {
                                     x: 0;
@@ -242,7 +263,7 @@ export component ReaderPanel inherits Rectangle {
                                     }
                                     dt := TouchArea {
                                         mouse-cursor: pointer;
-                                        clicked => { ReaderBridge.annot-delete(root.id, i); }
+                                        clicked => { ReaderBridge.annot-delete(root.id, a.index); }
                                     }
                                 }
                             }

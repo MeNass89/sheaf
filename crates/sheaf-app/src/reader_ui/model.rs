@@ -152,7 +152,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         }
     };
     let annots = {
-        let key = (r.version, r.selected_annot, r.texts.len());
+        let key = (r.version, r.selected_annot, r.texts.len(), r.notes_filter, r.notes_sort);
         let mut c = r.annots_cache.borrow_mut();
         match c.as_ref() {
             Some((k, m)) if *k == key => m.clone(),
@@ -287,6 +287,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         )),
         stamp: r.stamp as i32,
         comments_hidden: r.comments_hidden,
+        notes_filter: r.notes_filter,
+        notes_sort: r.notes_sort,
         props_open: r.props_open,
         props_title: r.snap.props.title.clone().into(),
         props_author: r.snap.props.author.clone().into(),
@@ -339,10 +341,11 @@ pub(super) fn outline_model(r: &ReaderUi, current_row: Option<usize>) -> Vec<Rea
 }
 
 pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
-    let annots: Vec<ReaderAnnotRow> = r
+    let mut rows: Vec<(&AnnotEntry, ReaderAnnotRow)> = r
         .annots()
         .iter()
         .enumerate()
+        .filter(|(_, a)| reader::notes_filter(r.notes_filter, &a.subtype, a.fill_sign))
         .map(|(i, a)| {
             let text = if a.quads.is_empty() || !a.contents.is_empty() {
                 a.contents.clone()
@@ -363,17 +366,26 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
                     })
                     .unwrap_or_default()
             };
-            ReaderAnnotRow {
+            let row = ReaderAnnotRow {
                 kind: if a.fill_sign { "Signature".into() } else { reader::kind_label(&a.subtype).into() },
                 text: text.chars().take(300).collect::<String>().into(),
                 meta: [a.author.trim(), a.modified.trim()].iter().filter(|s| !s.is_empty()).copied().collect::<Vec<_>>().join(" · ").into(),
                 page_label: format!("Page {}", label(r, a.page)).into(),
                 colour: a.color.map(|c| colour_of([c[0] as f64, c[1] as f64, c[2] as f64])).unwrap_or(Color::from_rgb_u8(255, 214, 10)),
                 selected: r.selected_annot == Some(i),
-            }
+                index: i as i32,
+            };
+            (a, row)
         })
         .collect();
-    annots
+    // In page order as listed; else newest first, by author, by kind (page order within each).
+    match r.notes_sort {
+        1 => rows.sort_by(|x, y| y.0.modified.cmp(&x.0.modified)),
+        2 => rows.sort_by_key(|x| x.0.author.to_lowercase()),
+        3 => rows.sort_by(|x, y| x.1.kind.cmp(&y.1.kind)),
+        _ => {}
+    }
+    rows.into_iter().map(|(_, row)| row).collect()
 }
 
 /// The page's label ("iv") or number, 1-based.

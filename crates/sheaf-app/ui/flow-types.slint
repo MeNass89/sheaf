@@ -94,6 +94,8 @@ export struct ReaderAnnotRow {
     text: string,
     // "Author · date", as the file records them.
     meta: string,
+    // Its place in the document's comment list (rows can be filtered and sorted).
+    index: int,
     page-label: string,
     colour: color,
     selected: bool,
@@ -174,6 +176,10 @@ export struct ReaderState {
     props-subject: string,
     props-keywords: string,
     props-about: [ReaderProp],
+    // Notes panel: filter (0 all, 1 markup, 2 notes, 3 drawings, 4 stamps) and order (0 page,
+    // 1 newest, 2 author, 3 type).
+    notes-filter: int,
+    notes-sort: int,
     // Hide all comments is on.
     comments-hidden: bool,
     // Stamp tool: the stamps offered (labels) and the chosen one.
@@ -429,6 +435,8 @@ export global ReaderBridge {
     callback cycle-spread(int);
     // The Notes panel: 0 hide or show all comments, 1 summary of comments, 2 remove all.
     callback notes-action(int, int);
+    // Notes panel: what (0 filter, 1 order), value.
+    callback notes-view(int, int, int);
     // Document Properties: open; save title, author, subject, keywords; cancel.
     callback props-open(int);
     callback props-save(int, string, string, string, string);
