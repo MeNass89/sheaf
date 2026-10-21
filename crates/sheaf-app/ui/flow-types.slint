@@ -99,7 +99,8 @@ export struct ReaderNote {
     w: length,
     h: length,
     text: string,
-    // 0 note, 1 text box, 2 a paragraph of the page, 3 new text on the page
+    // 0 note, 1 text box, 2 a paragraph of the page, 3 new text on the page, 4 a form text field,
+    // 5 a form choice
     kind: int,
     seq: int,
 }
@@ -148,6 +149,9 @@ export struct ReaderState {
     pen-width: int,
     // Pages selected in the Pages panel.
     pages-selected: int,
+    // A form choice field being filled: its options.
+    choices: [string],
+    has-form: bool,
     results: [ReaderResultRow],
     case-sensitive: bool,
     whole-words: bool,
@@ -437,6 +441,11 @@ export global ReaderBridge {
     callback thumb-drop(int, length);
     // The page whose thumbnail is at content y of the Pages panel (−1: none).
     callback thumb-at(int, length) -> int;
+    // Form fields: Tab / ⇧Tab in a field editor (its text), a choice picked.
+    callback field-tab(int, string, bool);
+    callback choice-picked(int, int);
+    // 0 clear the form, 1 flatten the form fields, 2 flatten fields and comments.
+    callback form-op(int, int);
 }
 
 export global ViewerBridge {

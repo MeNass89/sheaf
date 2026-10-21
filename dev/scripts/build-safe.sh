@@ -8,14 +8,8 @@
 set -eu
 cd "$(dirname "$0")/../.."
 systemctl --user stop sheaf-gui 2>/dev/null || true
-# On the VPS the ChatGPT desktop app takes ~1.9 GB: stopped for the build, restarted after
-# (Nassim's agreement, 21/10/2026).
-restart_chatgpt=0
-if systemctl --user is-active -q chatgpt-desktop 2>/dev/null; then
-    systemctl --user stop chatgpt-desktop && restart_chatgpt=1
-    sleep 3
-fi
-trap '[ "$restart_chatgpt" = 1 ] && systemctl --user start chatgpt-desktop' EXIT
+# On the VPS the ChatGPT desktop app takes ~1.9 GB and stays closed (Nassim, 21/10/2026).
+systemctl --user stop chatgpt-desktop 2>/dev/null || true
 for _ in $(seq 1 60); do
     avail=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo)
     [ "$avail" -ge 3000 ] && break

@@ -366,6 +366,12 @@ export component ReaderScreen inherits Rectangle {
                     Rectangle { width: 6px; }
                     ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: "Undo (⌘Z)"; enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
                     ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
+                    if root.tab.reader.has-form: HorizontalLayout {
+                        spacing: 4px;
+                        padding-right: 6px;
+                        SmallButton { y: 2px; text: "Clear form"; clicked => { ReaderBridge.form-op(root.id, 0); } }
+                        SmallButton { y: 2px; text: "Flatten"; clicked => { ReaderBridge.form-op(root.id, 1); } }
+                    }
                     ToolButton { icon: @image-url("../icons/wrench.svg"); tip: "Use a tool on this PDF"; clicked => { ReaderBridge.to-tools(root.id); } }
                     ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? "Save (⌘S)" : "Saved"; enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
                 }
@@ -728,7 +734,7 @@ export component ReaderScreen inherits Rectangle {
                         width: m.w;
                         height: m.h;
                         border-radius: m.kind == 6 || m.kind == 7 ? 2px : 1px;
-                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : transparent;
+                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : transparent;
                         border-width: m.kind == 6 ? 1.5px : m.kind == 5 || m.kind == 7 ? 1px : 0px;
                         border-color: m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : #FF9F0A;
                     }
@@ -812,6 +818,12 @@ export component ReaderScreen inherits Rectangle {
                             note-edit.text = root.tab.reader.note.text;
                             note-edit.focus();
                         }
+                        // Tab to the next form field reuses this editor: new text, focus kept.
+                        property <int> seq: root.tab.reader.note.seq;
+                        changed seq => {
+                            note-edit.text = root.tab.reader.note.text;
+                            note-edit.focus();
+                        }
                         x: root.tab.reader.note.x;
                         y: root.tab.reader.note.y;
                         width: root.tab.reader.note.w;
@@ -825,13 +837,34 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : "Add text";
+                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : "Add text";
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;
                             }
+                            if root.tab.reader.note.kind == 5: VerticalLayout {
+                                spacing: 2px;
+                                for c[k] in root.tab.reader.choices: Rectangle {
+                                    height: 26px;
+                                    border-radius: Theme.radius-small;
+                                    background: ct.has-hover ? Theme.popup-hover : transparent;
+                                    Text {
+                                        x: 8px;
+                                        text: c;
+                                        font-size: Theme.fs-label;
+                                        color: Theme.text;
+                                        vertical-alignment: center;
+                                    }
+                                    ct := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { ReaderBridge.choice-picked(root.id, k); keys.focus(); }
+                                    }
+                                }
+                            }
                             note-edit := TextEdit {
-                                vertical-stretch: 1;
+                                visible: root.tab.reader.note.kind != 5;
+                                height: root.tab.reader.note.kind == 5 ? 0px : self.preferred-height;
+                                vertical-stretch: root.tab.reader.note.kind == 5 ? 0 : 1;
                                 font-size: Theme.fs-label;
                                 wrap: word-wrap;
                                 key-pressed(e) => {
@@ -845,10 +878,20 @@ export component ReaderScreen inherits Rectangle {
                                         keys.focus();
                                         return accept;
                                     }
+                                    // A form field: Return fills it, Tab / ⇧Tab moves to the next / previous one.
+                                    if root.tab.reader.note.kind == 4 && e.text == Key.Return && !e.modifiers.shift {
+                                        ReaderBridge.note-commit(root.id, self.text);
+                                        keys.focus();
+                                        return accept;
+                                    }
+                                    if root.tab.reader.note.kind == 4 && (e.text == Key.Tab || e.text == Key.Backtab) {
+                                        ReaderBridge.field-tab(root.id, self.text, e.text == Key.Backtab || e.modifiers.shift);
+                                        return accept;
+                                    }
                                     reject
                                 }
                             }
-                            HorizontalLayout {
+                            if root.tab.reader.note.kind < 4: HorizontalLayout {
                                 spacing: 6px;
                                 alignment: end;
                                 SmallButton { text: "Cancel"; clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }

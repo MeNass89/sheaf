@@ -15,7 +15,7 @@ use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
 use sheaf_app::{AppWindow, ReaderMark, ReaderResultRow, ReaderAnnotRow, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
-use sheaf_core::pdfcraft::engine::{AddedText, Edit, Markup, NewAnnotation, NoteIcon, Shape, Style};
+use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, Markup, NewAnnotation, NoteIcon, Shape, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
 use std::rc::Rc;
 
@@ -53,13 +53,15 @@ struct Search {
 }
 
 /// What is being typed: 0 a note, 1 a text box (annotation), 2 an existing paragraph, 3 new
-/// text on the page.
+/// text on the page, 4 a form text field, 5 a form choice field (a list to pick from).
 struct Draft {
     page: usize,
     at: (f64, f64),
     kind: i32,
     /// Kind 2: the paragraph's index, its text and its box (user space).
     block: Option<(usize, String, [f64; 4])>,
+    /// Kinds 4 and 5: the field's index in the snapshot and its widget's box (user space).
+    field: Option<(usize, [f64; 4])>,
 }
 
 /// An annotation sent to the document thread, drawn at once until the page renders with it.
@@ -117,6 +119,8 @@ pub struct ReaderUi {
     /// Pages of each edit sent, for undo and redo.
     undo_pages: Vec<Vec<usize>>,
     redo_pages: Vec<Vec<usize>>,
+    /// A check box or radio button clicked: its edit, sent once the click is handled.
+    pending_field: Option<(usize, Edit)>,
     /// The annotation under the press, selected if the press ends without a drag.
     annot_candidate: Option<usize>,
     /// The panel shown before a search took it over (results, panel 3).
@@ -168,6 +172,7 @@ impl ReaderUi {
             note_seq: 0,
             pen_width: 1,
             annot_candidate: None,
+            pending_field: None,
             page_sel: Default::default(),
             page_anchor: None,
             page_drag: None,
@@ -515,7 +520,7 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 false
             }
             NOTE | TEXTBOX => {
-                r.draft = Some(Draft { page, at: p, kind: if r.tool == NOTE { 0 } else { 1 }, block: None });
+                r.draft = Some(Draft { page, at: p, kind: if r.tool == NOTE { 0 } else { 1 }, block: None, field: None });
                 r.note_seq += 1;
                 r.press = None;
                 true
@@ -530,8 +535,8 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                     (p.0 >= x - 2.0 && p.0 <= x + w + 2.0 && p.1 >= y - 2.0 && p.1 <= y + h + 2.0).then(|| (i, b.text.clone(), b.rect, (x, y)))
                 });
                 r.draft = Some(match hit {
-                    Some((i, text, rect, at)) => Draft { page, at, kind: 2, block: Some((i, text, rect)) },
-                    None => Draft { page, at: p, kind: 3, block: None },
+                    Some((i, text, rect, at)) => Draft { page, at, kind: 2, block: Some((i, text, rect)), field: None },
+                    None => Draft { page, at: p, kind: 3, block: None, field: None },
                 });
                 r.note_seq += 1;
                 r.press = None;
@@ -549,6 +554,15 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                     r.press = None;
                     return false;
                 }
+                // A form field under the pointer is filled: text and choices open an editor,
+                // check boxes and radio buttons change at once.
+                if r.tool == SELECT
+                    && let Some((fi, rect)) = field_at(r, &v.viewer, page, p)
+                {
+                    r.press = None;
+                    r.sel = None;
+                    return open_field(r, v, page, fi, rect);
+                }
                 // A click (no drag) on an annotation with the select tool selects it on release;
                 // a drag that starts on one selects the text under it, as in PDF Expert.
                 r.annot_candidate = if r.tool == SELECT { annot_at(r, &v.viewer, page, p) } else { None };
@@ -561,6 +575,7 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
     if opened == Some(true) && with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).is_some_and(|r| r.image_at.is_some())) {
         pick_image(ui, tab_id);
     }
+    apply_pending_field(ui, tab_id);
 }
 
 /// Add image: the file is chosen, then placed 200 pt wide (less on a small page) at the click.
@@ -655,6 +670,115 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         }
         Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("http://") || u.starts_with("https://") || u.starts_with("mailto:") => crate::run::open_detached(&u),
         Some(Pending::Link(_)) | None => {}
+    }
+}
+
+/// The fillable form field under view point `p` of `page`, with its widget's box.
+fn field_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<(usize, [f64; 4])> {
+    let size = v.boxes[page].view_size();
+    r.snap.fields.iter().enumerate().filter(|(_, f)| !f.read_only && f.kind < 4).find_map(|(i, f)| {
+        f.widgets.iter().filter(|w| w.0 == page).find_map(|w| {
+            let [x, y, ww, hh] = viewer::pdf_rect_to_view(&v.boxes[page], size, w.1);
+            (p.0 >= x && p.0 <= x + ww && p.1 >= y && p.1 <= y + hh).then_some((i, w.1))
+        })
+    })
+}
+
+/// Opens field `fi` (its widget at `rect` on `page`): an editor for text and choices; a check
+/// box or radio button is set at once. Returns whether an editor opened.
+fn open_field(r: &mut ReaderUi, v: &ViewerUi, page: usize, fi: usize, rect: [f64; 4]) -> bool {
+    let f = &r.snap.fields[fi];
+    match f.kind {
+        1 => {
+            let on = f.value.first().is_some_and(|x| x != "Off");
+            let edit = Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Check(!on) };
+            r.pending_field = Some((page, edit));
+            false
+        }
+        2 => {
+            let state = f.widgets.iter().find(|w| w.0 == page && w.1 == rect).and_then(|w| w.2.clone());
+            let edit = Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Radio(state) };
+            r.pending_field = Some((page, edit));
+            false
+        }
+        0 | 3 => {
+            let size = v.viewer.boxes[page].view_size();
+            let [x, y, _, _] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, rect);
+            let text = if f.kind == 0 { f.value.join("") } else { String::new() };
+            r.draft = Some(Draft { page, at: (x, y), kind: if f.kind == 0 { 4 } else { 5 }, block: Some((0, text, rect)), field: Some((fi, rect)) });
+            r.note_seq += 1;
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Field editor: Tab saves the field and opens the next one in the form's tab order.
+pub fn field_tab(ui: &AppWindow, tab_id: i32, text: &str, back: bool) {
+    let next = with(|a| {
+        let t = a.tab(tab_id)?;
+        let r = t.reader.as_ref()?;
+        let (fi, rect) = r.draft.as_ref()?.field?;
+        let order = |i: usize, rc: [f64; 4]| r.snap.fields[i].widgets.iter().find(|w| w.1 == rc).map(|w| w.3).unwrap_or(usize::MAX);
+        let here = order(fi, rect);
+        let mut all: Vec<(usize, usize, usize, [f64; 4])> = r
+            .snap
+            .fields
+            .iter()
+            .enumerate()
+            // Text fields only: a check box reached by Tab must not change.
+            .filter(|(_, f)| !f.read_only && f.kind == 0)
+            .flat_map(|(i, f)| f.widgets.iter().map(move |w| (w.3, i, w.0, w.1)))
+            .collect();
+        all.sort_by_key(|w| w.0);
+        let pos = all.iter().position(|w| w.0 == here && w.1 == fi)?;
+        let n = all.len();
+        let k = if back { (pos + n - 1) % n } else { (pos + 1) % n };
+        Some((all[k].1, all[k].2, all[k].3))
+    });
+    note_commit(ui, tab_id, text);
+    if let Some((fi, page, rect)) = next {
+        update(tab_id, |r, v| {
+            let size = v.viewer.boxes[page].view_size();
+            let [_, y, _, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, rect);
+            let top = v.viewer.page_rect(page)[1] + y / k(&v.viewer, page);
+            if top < v.top || top + h > v.top + v.height {
+                v.show_page(page, Some(rect));
+            }
+            open_field(r, v, page, fi, rect);
+        });
+        apply_pending_field(ui, tab_id);
+    }
+}
+
+/// Clear the form (back to its defaults) or flatten it into the pages.
+pub fn form_op(ui: &AppWindow, tab_id: i32, op: i32) {
+    let edit = match op {
+        0 => Edit::ResetForm { names: None },
+        1 => Edit::Flatten { comments: false, fields: true },
+        _ => Edit::Flatten { comments: true, fields: true },
+    };
+    apply_structure(ui, tab_id, edit);
+}
+
+/// A choice picked in a field's list.
+pub fn choice_picked(ui: &AppWindow, tab_id: i32, k: i32) {
+    let edit = update(tab_id, |r, _| {
+        let d = r.draft.take()?;
+        let (fi, _) = d.field?;
+        let f = r.snap.fields.get(fi)?;
+        let (export, _) = f.options.get(k.max(0) as usize)?;
+        Some((d.page, Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Choice(vec![export.clone()]) }))
+    })
+    .flatten();
+    if let Some((page, e)) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
+fn apply_pending_field(ui: &AppWindow, tab_id: i32) {
+    if let Some((page, e)) = update(tab_id, |r, _| r.pending_field.take()).flatten() {
+        apply(ui, tab_id, e, &[page], None);
     }
 }
 
@@ -826,6 +950,15 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let d = r.draft.take()?;
         let b = &v.viewer.boxes[d.page];
         let size = b.view_size();
+        if d.kind == 4 {
+            // A form text field: its new value (empty clears it).
+            let (fi, _) = d.field?;
+            let f = r.snap.fields.get(fi)?;
+            if text == f.value.join("") {
+                return None;
+            }
+            return Some((d.page, Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Text(text.clone()) }));
+        }
         if d.kind == 2 {
             // The paragraph's new text (empty deletes it), rewrapped to its box by PdfCraft.
             let (block, old, _) = d.block?;
@@ -1541,6 +1674,14 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             });
         }
     }
+    if r.tool == SELECT {
+        // Fillable fields, tinted as PDF Expert and Acrobat highlight them.
+        for f in r.snap.fields.iter().filter(|f| !f.read_only && f.kind < 4) {
+            for (page, rect, _, _) in f.widgets.iter().filter(|w| wanted.contains(&w.0)) {
+                marks.push(overlay(v.viewer.overlay(*page, *rect), 10));
+            }
+        }
+    }
     if r.tool == EDIT_TEXT {
         // The paragraphs that can be edited, outlined on the pages in view (read when first shown).
         for page in wanted.clone() {
@@ -1629,6 +1770,14 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         Some(d) => {
             let (x, y) = view_to_content(&v.viewer, d.page, d.at);
             let (text, w, h) = match &d.block {
+                // A form field: the editor sits on the field, its size.
+                Some((_, t, rect)) if d.field.is_some() => {
+                    let c = v.viewer.overlay(d.page, *rect);
+                    {
+                    let n = d.field.and_then(|(fi, _)| r.snap.fields.get(fi)).map(|f| f.options.len()).unwrap_or(0) as f64;
+                    (t.clone(), c[2].max(160.0), if d.kind == 5 { 34.0 + 28.0 * n } else { c[3].max(28.0) + 34.0 })
+                }
+                }
                 Some((_, t, rect)) => {
                     let c = v.viewer.overlay(d.page, *rect);
                     (t.clone(), c[2].max(260.0), c[3].max(60.0) + 70.0)
@@ -1692,6 +1841,16 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         zoom_mode: r.zoom_mode,
         pen_width: r.pen_width,
         pages_selected: r.page_sel.len() as i32,
+        has_form: r.snap.fields.iter().any(|f| f.kind < 4),
+        choices: ModelRc::new(VecModel::from(
+            r.draft
+                .as_ref()
+                .filter(|d| d.kind == 5)
+                .and_then(|d| d.field)
+                .and_then(|(fi, _)| r.snap.fields.get(fi))
+                .map(|f| f.options.iter().map(|(e, t)| slint::SharedString::from(if t.is_empty() { e } else { t })).collect::<Vec<_>>())
+                .unwrap_or_default(),
+        )),
         results,
         case_sensitive: r.search.case_sensitive,
         whole_words: r.search.whole_words,

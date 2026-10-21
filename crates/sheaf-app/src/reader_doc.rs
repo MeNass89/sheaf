@@ -33,6 +33,21 @@ pub struct Block {
     pub text: String,
 }
 
+/// A form field as the reader fills it.
+#[derive(Clone)]
+pub struct FieldEntry {
+    pub name: String,
+    /// 0 text, 1 check box, 2 radio, 3 choice (combo or list), 4 other (button, signature).
+    pub kind: i32,
+    pub value: Vec<String>,
+    /// Choice: (export value, display text).
+    pub options: Vec<(String, String)>,
+    pub read_only: bool,
+    pub multiline: bool,
+    /// (page, rect in user space, the widget's "on" state for check boxes and radios, tab order).
+    pub widgets: Vec<(usize, [f64; 4], Option<String>, usize)>,
+}
+
 /// What the window knows of the document, as of the last operation.
 #[derive(Clone)]
 pub struct Snap {
@@ -49,6 +64,7 @@ pub struct Snap {
     pub can_undo: bool,
     pub can_redo: bool,
     pub read_only: String,
+    pub fields: Arc<Vec<FieldEntry>>,
 }
 
 fn snap(doc: &Doc) -> Snap {
@@ -82,7 +98,30 @@ fn snap(doc: &Doc) -> Snap {
         can_undo: d.can_undo().is_some(),
         can_redo: d.can_redo().is_some(),
         read_only: d.read_only_reason.as_ref().map(|r| format!("Read only: {r}")).unwrap_or_default(),
+        fields: Arc::new(fields(d)),
     }
+}
+
+fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
+    use sheaf_core::pdfcraft::engine::{field_flags, FormFieldKind as K};
+    d.form
+        .iter()
+        .map(|f| FieldEntry {
+            name: f.name.clone(),
+            kind: match f.kind {
+                K::Text => 0,
+                K::CheckBox => 1,
+                K::Radio => 2,
+                K::Combo | K::List => 3,
+                _ => 4,
+            },
+            value: f.value.clone(),
+            options: f.options.clone(),
+            read_only: f.flags & field_flags::READ_ONLY != 0,
+            multiline: f.flags & field_flags::MULTILINE != 0,
+            widgets: f.widgets.iter().filter_map(|w| Some((w.page?, w.rect, w.on_state.clone(), w.tab))).collect(),
+        })
+        .collect()
 }
 
 pub enum Op {
