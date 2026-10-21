@@ -18001,14 +18001,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "two-page spread mode",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -18020,6 +18020,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Toolbar: Two pages — pages in pairs, the page in view kept in view, Fit width / Fit page per page, hit testing, edits and search unchanged (viewer::tests two_pages_side_by_side_and_the_cover_alone; gui-smoke samples the gap between the pages). On the 1,982-page book: instant"
    }
   ]
  },
@@ -18082,14 +18093,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "cover page option",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -18101,6 +18112,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Two pages with the cover alone in the right column, then pairs (Acrobat's and PDF Expert's book mode); unit-tested layout, gui-smoke cycles through it"
    }
   ]
  },

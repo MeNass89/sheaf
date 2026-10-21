@@ -269,6 +269,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         can_undo: r.snap.can_undo && r.in_flight == 0,
         can_redo: r.snap.can_redo && r.in_flight == 0,
         zoom_mode: r.zoom_mode,
+        spread: v.viewer.spread() as i32,
         pen_width: r.pen_width,
         shape_kind: r.shape_kind,
         shape_fill: r.shape_fill,

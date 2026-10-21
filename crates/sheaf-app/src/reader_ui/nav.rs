@@ -120,6 +120,25 @@ pub fn zoom_fit(ui: &AppWindow, tab_id: i32, mode: i32) {
     }
 }
 
+/// Pages side by side, in turn: one column, two pages, two pages with the cover alone (PDF
+/// Expert's Two Pages and Book mode). The page in view stays in view.
+pub fn cycle_spread(ui: &AppWindow, tab_id: i32) {
+    let done = update(tab_id, |r, v| {
+        let cur = v.current();
+        let next = (v.viewer.spread() + 1) % 3;
+        v.viewer.set_spread(next);
+        // Fit page keeps fitting: the pages are narrower now.
+        if r.zoom_mode == 1 {
+            let z = v.viewer.fit_page_zoom(v.height, cur..cur + 1);
+            v.viewer.set_zoom(z);
+        }
+        v.show_page(cur, None);
+    });
+    if done.is_some() {
+        crate::viewer_ui::request(ui, tab_id);
+    }
+}
+
 /// A zoom chosen with + / − or the wheel: the view no longer follows the window's size.
 pub fn zoom_changed(tab_id: i32) {
     update(tab_id, |r, _| r.zoom_mode = 2);

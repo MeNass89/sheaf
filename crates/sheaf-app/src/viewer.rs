@@ -268,22 +268,77 @@ pub struct Viewer {
     fit_width: f64,
     zoom: u32,
     layout: Vec<(f64, f64)>,
+    /// Each page in the content: `[x, y, width, height]`.
+    rects: Vec<[f64; 4]>,
+    content_h: f64,
     page_width: f64,
+    /// Pages side by side: 0 one column, 1 two per row, 2 two per row with the first page alone
+    /// on the right (a book's cover, as Acrobat and PDF Expert show it).
+    spread: u8,
     /// Width of a thumbnail in the strip or panel.
     pub thumb_width: f64,
 }
 
 impl Viewer {
     pub fn new(boxes: Vec<PageBox>) -> Self {
-        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), page_width: 0.0, thumb_width: THUMB_WIDTH };
+        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, thumb_width: THUMB_WIDTH };
         v.relayout();
         v
     }
 
+    fn columns(&self) -> f64 {
+        if self.spread == 0 { 1.0 } else { 2.0 }
+    }
+
+    /// The width one page has at 100 % (fit width): the viewport's, shared by the columns.
+    fn fit_page_width(&self) -> f64 {
+        let cols = self.columns();
+        ((self.fit_width - (cols + 1.0) * PAGE_GAP) / cols).max(1.0)
+    }
+
     fn relayout(&mut self) {
-        self.page_width = ((self.fit_width - 2.0 * PAGE_GAP) * self.zoom as f64 / 100.0).max(MIN_PAGE_WIDTH).round();
-        let sizes: Vec<(f64, f64)> = self.boxes.iter().map(PageBox::view_size).collect();
-        self.layout = layout(&sizes, self.page_width);
+        self.page_width = (self.fit_page_width() * self.zoom as f64 / 100.0).max(MIN_PAGE_WIDTH).round();
+        let w = self.page_width;
+        let heights: Vec<f64> = self.boxes.iter().map(|b| { let (bw, bh) = b.view_size(); w * bh / bw.max(1e-9) }).collect();
+        let n = heights.len();
+        // Rows of pages: one each, pairs, or the cover alone then pairs.
+        let rows: Vec<Vec<usize>> = match self.spread {
+            0 => (0..n).map(|i| vec![i]).collect(),
+            1 => (0..n).collect::<Vec<_>>().chunks(2).map(<[usize]>::to_vec).collect(),
+            _ => std::iter::once(vec![0]).take(n.min(1)).chain((1..n).collect::<Vec<_>>().chunks(2).map(<[usize]>::to_vec)).collect(),
+        };
+        let cols = self.columns();
+        let row_w = cols * w + (cols - 1.0) * PAGE_GAP;
+        let left = ((self.content_width_for(row_w) - row_w) / 2.0).round();
+        let mut rects = vec![[0.0; 4]; n];
+        let mut y = PAGE_GAP;
+        for row in rows {
+            for (k, &i) in row.iter().enumerate() {
+                let col = if self.spread == 2 && i == 0 { 1.0 } else { k as f64 };
+                rects[i] = [left + col * (w + PAGE_GAP), y, w, heights[i]];
+            }
+            y += row.iter().map(|&i| heights[i]).fold(0.0, f64::max) + PAGE_GAP;
+        }
+        self.layout = rects.iter().map(|r| (r[1], r[3])).collect();
+        self.rects = rects;
+        self.content_h = y;
+    }
+
+    fn content_width_for(&self, row_w: f64) -> f64 {
+        self.fit_width.max(row_w + 2.0 * PAGE_GAP)
+    }
+
+    /// Pages side by side (see `spread`); returns whether the layout changed.
+    pub fn set_spread(&mut self, spread: u8) -> bool {
+        let spread = spread.min(2);
+        let changed = spread != self.spread;
+        self.spread = spread;
+        self.relayout();
+        changed
+    }
+
+    pub fn spread(&self) -> u8 {
+        self.spread
     }
 
     /// The viewport is `width` logical pixels wide; returns whether the layout changed.
@@ -324,7 +379,7 @@ impl Viewer {
     /// The zoom (percent of the fit width) at which the tallest page of `pages` fits a viewport
     /// `height` high: the reader's Fit page.
     pub fn fit_page_zoom(&self, height: f64, pages: Range<usize>) -> u32 {
-        let fit_w = (self.fit_width - 2.0 * PAGE_GAP).max(1.0);
+        let fit_w = self.fit_page_width();
         let ratio = pages.filter_map(|i| self.boxes.get(i)).map(|b| { let (w, h) = b.view_size(); h / w.max(1e-9) }).fold(0.0, f64::max);
         if ratio <= 0.0 {
             return 100;
@@ -343,17 +398,17 @@ impl Viewer {
 
     /// Width of the scrolling content: wider than the viewport when zoomed in.
     pub fn content_width(&self) -> f64 {
-        self.fit_width.max(self.page_width + 2.0 * PAGE_GAP)
+        let cols = self.columns();
+        self.content_width_for(cols * self.page_width + (cols - 1.0) * PAGE_GAP)
     }
 
     pub fn content_height(&self) -> f64 {
-        content_height(&self.layout)
+        self.content_h
     }
 
-    /// Page `i` in content coordinates: `[x, y, width, height]`, centred.
+    /// Page `i` in content coordinates: `[x, y, width, height]`, its row centred.
     pub fn page_rect(&self, i: usize) -> [f64; 4] {
-        let (y, h) = self.layout.get(i).copied().unwrap_or((0.0, 0.0));
-        [((self.content_width() - self.page_width) / 2.0).round(), y, self.page_width, h]
+        self.rects.get(i).copied().unwrap_or([0.0; 4])
     }
 
     /// Device pixels page `i` is rendered wide at `scale` device pixels per logical pixel,
@@ -597,6 +652,30 @@ mod tests {
 
     fn close(a: (f64, f64), b: (f64, f64)) -> bool {
         (a.0 - b.0).abs() < 1e-6 && (a.1 - b.1).abs() < 1e-6
+    }
+
+    #[test]
+    fn two_pages_side_by_side_and_the_cover_alone() {
+        let pages = |n| (0..n).map(|_| PageBox { crop: A4, rotation: 0, unit: 1.0 }).collect::<Vec<_>>();
+        let mut v = Viewer::new(pages(5));
+        v.set_width(1000.0);
+        let single = v.page_rect(1);
+        assert!(v.set_spread(1));
+        let (p0, p1, p2) = (v.page_rect(0), v.page_rect(1), v.page_rect(2));
+        assert_eq!(p0[1], p1[1], "pages 1 and 2 share a row");
+        assert!(p1[0] > p0[0] + p0[2] && p2[1] > p0[1] + p0[3], "page 2 right of 1, page 3 below");
+        assert!(p0[2] < single[2] / 1.5, "each page about half as wide at fit width");
+        assert!(v.content_height() > p2[1] + p2[3]);
+        // Hit the right-hand page.
+        assert_eq!(v.hit(p1[0] + 5.0, p1[1] + 5.0).map(|h| h.0), Some(1));
+        // With the cover: page 1 alone on the right, then 2-3, 4-5.
+        v.set_spread(2);
+        let (c0, c1, c2) = (v.page_rect(0), v.page_rect(1), v.page_rect(2));
+        assert!(c0[0] > c1[0] && c1[1] > c0[1] && c1[1] == c2[1] && c2[0] > c1[0]);
+        assert_eq!(c0[0], c2[0], "the cover sits in the right column");
+        // Back to one column: as before.
+        v.set_spread(0);
+        assert_eq!(v.page_rect(1), single);
     }
 
     #[test]

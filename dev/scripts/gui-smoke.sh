@@ -277,6 +277,11 @@ click 376 109; drag 900 300 150 -100
 key ctrl+s; sleep 1.5; shot 06c-shapes
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a rectangle, a filled oval at 75 % and an arrow are saved" "echo \"\$SH\" | grep -aq '/Subtype /Square' && echo \"\$SH\" | grep -aq '/Subtype /Circle' && echo \"\$SH\" | grep -aq '/IC \\[' && echo \"\$SH\" | grep -aq '/CA 0.75' && echo \"\$SH\" | grep -aq '/OpenArrow'"
+# 6d. Two pages side by side (toolbar, 721,61): the middle of the pages area shows the gap between
+# the two pages instead of one page; two more clicks (cover alone, then one column) come back.
+mid() { import -window root -crop 6x200+761+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
+M1=$(mid); click 721 61 2.5; M2=$(mid); click 721 61 2.5; click 721 61 2.5; M3=$(mid); shot 06d-spread
+check "two pages side by side, then back to one column ($M1 → $M2 → $M3)" "python3 -c 'import sys; a, b, c = $M1, $M2, $M3; sys.exit(0 if abs(a - b) > 0.02 and abs(a - c) < 0.005 else 1)'"
 quit
 
 # 7. A password-protected PDF asks for its password, then opens in the reader.

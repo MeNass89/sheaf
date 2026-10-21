@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 53 · open 279, closed 52
+331 components · at parity (≥9): 55 · open 277, closed 54
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -84,7 +84,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | output | 15 | 3.9 | 0 |
 | platform | 14 | 3.4 | 1 |
 | preferences | 14 | 2.4 | 1 |
-| reader | 64 | 4.0 | 20 |
+| reader | 64 | 4.2 | 22 |
 | security | 18 | 4.3 | 1 |
 | sign | 18 | 3.8 | 4 |
 
@@ -122,6 +122,8 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-reader-007 | Fit whole page to window | 9 | ⌘8 / toolbar fit page; kept when the window is resized (80 % → 63 %, dev/re/evidence/F-002/38) |
 | C-reader-008 | Fit page width | 9 | ⌘9 / toolbar fit width (168 %), kept when the window or panel changes size (dev/re/evidence/F-002/26, dev/re/evidence/F-002/28) |
 | C-reader-009 | Zoom to actual size | 9 | ⌘0 zoom to 100 % actual size, PDF Expert's shortcut (dev/re/evidence/F-002/26) |
+| C-reader-015 | Two-page spread view | 9 | Toolbar: Two pages — pages in pairs, the page in view kept in view, Fit width / Fit page per page, hit testing, edits and search unchanged (viewer::tests two_pages_side_by_side_and_the_cover_alone; gui-smoke samples the gap between the pages). On the 1,982-page book: instant |
+| C-reader-016 | Cover page alone in spreads | 9 | Two pages with the cover alone in the right column, then pairs (Acrobat's and PDF Expert's book mode); unit-tested layout, gui-smoke cycles through it |
 | C-reader-018 | Next and previous page | 9 | ← → page, PgUp/PgDn/space screen, scroll by arrows (GUI 21/10) |
 | C-reader-019 | First and last page | 9 | Home/End and ⌘↑/⌘↓ to first/last page (End → 1982/1982, dev/re/evidence/F-002/25) |
 | C-reader-020 | Go to a page by number | 9 | Page field: number or label ↵ jumps (420), field returns to the page shown; history recorded (dev/re/evidence/F-002/22) |

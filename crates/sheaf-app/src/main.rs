@@ -170,6 +170,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_signature_reset(reader_ui::signature_reset);
     rb.on_print_open(reader_ui::print_open);
     rb.on_shape_option(reader_ui::shape_option);
+    wire_global!(ui, rb, on_cycle_spread, |ui, id| reader_ui::cycle_spread(&ui, id));
     rb.on_print_cancel(reader_ui::print_cancel);
     wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t| reader_ui::print(&ui, id, p, c, m, &r, f, t));
     wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));

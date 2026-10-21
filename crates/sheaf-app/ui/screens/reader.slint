@@ -147,6 +147,13 @@ export component ReaderScreen inherits Rectangle {
                         vertical-alignment: center;
                     }
                     if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-in.svg"); tip: "Zoom in (⌘+)"; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
+                    ToolButton {
+                        y: -2px;
+                        icon: @image-url("../icons/columns-2.svg");
+                        active: root.tab.reader.spread > 0;
+                        tip: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide";
+                        clicked => { ReaderBridge.cycle-spread(root.id); keys.focus(); }
+                    }
                     ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
                 }
                 Rectangle { horizontal-stretch: 1; }

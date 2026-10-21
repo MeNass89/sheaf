@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 53 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
+**331 components, 55 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
 security 1/18, platform 1/14; edit, convert, optimize, output, sign, compare, batch, preferences, ai at 0.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
@@ -58,8 +58,8 @@ Next, by components lifted:
 2. Done: author and date in the Notes panel, author in Preferences (C-annotate-030, C-reader-028, C-preferences-008 at 9).
 3. Done: Shapes tool (R) with fill and opacity (C-annotate-012 at 9; 013, 023 at 8; 009 at 7). Left: drag a line's
    ends, a free colour picker and fill colour, text box font family (needs PdfCraft), style remembered per tool (024).
-4. **View modes** (single page, two-page spread, cover alone, horizontal scroll, rotate view): C-reader-003, 014, 015,
-   016, 017.
+4. View modes: done two pages and cover alone (C-reader-015, 016 at 9; `Viewer::spread`). Left: single page (014),
+   horizontal scroll (003), rotate the view (017).
 5. **Menu bar** with every reader command: C-platform-014, and the menu entries C-reader-039 / 040 lack.
 6. **Copy / paste / Delete of objects**: C-edit-010, C-annotate-026.
 
