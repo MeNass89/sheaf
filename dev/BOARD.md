@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 39 · open 293, closed 38
+331 components · at parity (≥9): 40 · open 292, closed 39
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -51,22 +51,22 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 42 | C-reader-032 | strong | Find text in the document | pdfexpert | 9 · 9 · 8 → **8** | reader search: field, count, highlights, results panel (search exists only inside Redact) |
 | 43 | C-sign-002 | strong | Draw a signature | pdfexpert | 8 · 8 · 9 → **8** | pen colour and thickness |
 | 44 | C-sign-003 | strong | Type a signature | stirling | 8 · 8 · 9 → **8** | several script fonts |
-| 45 | C-sign-005 | strong | Place a signature on the page | pdfexpert | 8 · 8 · 9 → **8** | free resize; several placements per run |
-| 46 | C-annotate-008 | normal | Add callout or speech bubble | acrobat | 0 · 0 · 0 → **0** | after core |
-| 47 | C-annotate-009 | normal | Change text annotation font | pdfexpert | 0 · 0 · 0 → **0** | font size, colour for text boxes |
-| 48 | C-annotate-011 | normal | Erase ink strokes | pdfexpert | 0 · 0 · 0 → **0** | eraser via engine EraseInk |
-| 49 | C-annotate-012 | normal | Draw rectangle or oval | pdfexpert | 0 · 0 · 0 → **0** | rectangle/oval |
-| 50 | C-annotate-013 | normal | Draw line or arrow | pdfexpert | 0 · 0 · 0 → **0** | line/arrow |
-| 51 | C-annotate-016 | normal | Place a stamp | pdfexpert | 0 · 0 · 0 → **0** | standard stamps |
-| 52 | C-annotate-018 | normal | Add check, cross or symbol | pdfexpert | 0 · 0 · 0 → **0** | with forms |
-| 53 | C-annotate-021 | normal | Add link annotation | preview | 0 · 0 · 0 → **0** | with edit links |
-| 54 | C-annotate-023 | normal | Set stroke, fill and opacity | pdfexpert | 0 · 0 · 0 → **0** | style panel |
-| 55 | C-annotate-029 | normal | Remove all annotations | pdfexpert | 0 · 0 · 0 → **0** | remove-annotations tool |
-| 56 | C-annotate-031 | normal | Sort and filter comments | acrobat | 0 · 0 · 0 → **0** | filter by type/colour |
-| 57 | C-annotate-032 | normal | Hide or show all comments | acrobat | 0 · 0 · 0 → **0** | engine set_hide_comments |
-| 58 | C-annotate-033 | normal | Reply to a comment | acrobat | 0 · 0 · 0 → **0** | engine ReplyToAnnotation |
-| 59 | C-annotate-035 | normal | Export or summarise comments | acrobat | 0 · 0 · 0 → **0** | engine summarize_comments |
-| 60 | C-compare-005 | normal | View documents side by side, synced | stirling | 0 · 0 · 0 → **0** | synced side-by-side view |
+| 45 | C-annotate-008 | normal | Add callout or speech bubble | acrobat | 0 · 0 · 0 → **0** | after core |
+| 46 | C-annotate-009 | normal | Change text annotation font | pdfexpert | 0 · 0 · 0 → **0** | font size, colour for text boxes |
+| 47 | C-annotate-011 | normal | Erase ink strokes | pdfexpert | 0 · 0 · 0 → **0** | eraser via engine EraseInk |
+| 48 | C-annotate-012 | normal | Draw rectangle or oval | pdfexpert | 0 · 0 · 0 → **0** | rectangle/oval |
+| 49 | C-annotate-013 | normal | Draw line or arrow | pdfexpert | 0 · 0 · 0 → **0** | line/arrow |
+| 50 | C-annotate-016 | normal | Place a stamp | pdfexpert | 0 · 0 · 0 → **0** | standard stamps |
+| 51 | C-annotate-018 | normal | Add check, cross or symbol | pdfexpert | 0 · 0 · 0 → **0** | with forms |
+| 52 | C-annotate-021 | normal | Add link annotation | preview | 0 · 0 · 0 → **0** | with edit links |
+| 53 | C-annotate-023 | normal | Set stroke, fill and opacity | pdfexpert | 0 · 0 · 0 → **0** | style panel |
+| 54 | C-annotate-029 | normal | Remove all annotations | pdfexpert | 0 · 0 · 0 → **0** | remove-annotations tool |
+| 55 | C-annotate-031 | normal | Sort and filter comments | acrobat | 0 · 0 · 0 → **0** | filter by type/colour |
+| 56 | C-annotate-032 | normal | Hide or show all comments | acrobat | 0 · 0 · 0 → **0** | engine set_hide_comments |
+| 57 | C-annotate-033 | normal | Reply to a comment | acrobat | 0 · 0 · 0 → **0** | engine ReplyToAnnotation |
+| 58 | C-annotate-035 | normal | Export or summarise comments | acrobat | 0 · 0 · 0 → **0** | engine summarize_comments |
+| 59 | C-compare-005 | normal | View documents side by side, synced | stirling | 0 · 0 · 0 → **0** | synced side-by-side view |
+| 60 | C-convert-004 | normal | Create PDF from clipboard | preview | 0 · 0 · 0 → **0** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
@@ -86,7 +86,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | preferences | 14 | 1.8 | 0 |
 | reader | 64 | 3.3 | 17 |
 | security | 18 | 4.3 | 1 |
-| sign | 18 | 3.5 | 2 |
+| sign | 18 | 3.6 | 3 |
 
 ## Closed
 | id | component | overall | last proof |
@@ -128,4 +128,5 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-reader-048 | Select and copy text | 9 | Drag selects in reading order (also over a highlight), double-click word, ⌘A page, ⌘C → clipboard verified with xclip (dev/re/evidence/F-002/03, dev/re/evidence/F-002/19); test a_drag_selects_* |
 | C-security-005 | Open a password-protected PDF | 9 | A protected PDF asks for its password in the reader; a wrong one says so, the right one opens it (dev/re/evidence/F-002/35) |
 | C-sign-001 | Open the sign tool | 9 | Sign tool (S) in the reader toolbar, PDF Expert's Fill & Sign place; gui-smoke.sh 'a drawn signature is placed and saved' PASS |
+| C-sign-005 | Place a signature on the page | 9 | Select a placed signature, drag its corner handle: scales from its top-left with proportions kept (pull projected on the diagonal); several placements per run with the kept signature. gui-smoke checks the saved Ink Rect; dev/re/evidence/F-002/41-signature-resized.png |
 | C-sign-009 | Save and manage signatures | 9 | The signature is kept in the preferences and placed again with one click on any document (gui-smoke 'kept signature' PASS); New signature replaces it |

@@ -23470,14 +23470,14 @@
    147
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "free resize; several placements per run",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -23500,6 +23500,17 @@
      "overall": 8
     },
     "proof": "Click places the signature 150 pt wide centred on the click, saved (gui-smoke PASS); no move/resize after placing yet"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Select a placed signature, drag its corner handle: scales from its top-left with proportions kept (pull projected on the diagonal); several placements per run with the kept signature. gui-smoke checks the saved Ink Rect; dev/re/evidence/F-002/41-signature-resized.png"
    }
   ]
  },
