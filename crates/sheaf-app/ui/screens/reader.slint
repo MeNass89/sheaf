@@ -439,6 +439,12 @@ export component ReaderScreen inherits Rectangle {
                             padding: 2px;
                             spacing: 0px;
                             ToolButton { icon: @image-url("../icons/copy.svg"); tip: "Copy (⌘C)"; clicked => { clip.text = root.tab.reader.selected-text; clip.select-all(); clip.copy(); keys.focus(); } }
+                            // PDF Expert's "Search": the selected words in the search field, results listed.
+                            ToolButton {
+                                icon: @image-url("../icons/search.svg");
+                                tip: "Search for this (⇧⌘E)";
+                                clicked => { search-in.text = root.tab.reader.selected-text; ReaderBridge.search(root.id, search-in.text); keys.focus(); }
+                            }
                             ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight"; clicked => { ReaderBridge.markup(root.id, 1); } }
                             ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline"; clicked => { ReaderBridge.markup(root.id, 2); } }
                             ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough"; clicked => { ReaderBridge.markup(root.id, 3); } }
@@ -933,6 +939,11 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == "w" { ReaderBridge.close(root.id); return accept; }
                 if e.text == "s" { ReaderBridge.save(root.id); return accept; }
                 if e.text == "p" { ReaderBridge.print-open(root.id); return accept; }
+                if (e.text == "e" || e.text == "E") && e.modifiers.shift && root.tab.reader.has-selection {
+                    search-in.text = root.tab.reader.selected-text;
+                    ReaderBridge.search(root.id, search-in.text);
+                    return accept;
+                }
                 if e.text == "d" { ReaderBridge.props-open(root.id); return accept; }
                 if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }

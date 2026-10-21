@@ -25,7 +25,7 @@ avail=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo)
 [ "$avail" -ge 3000 ] || { echo "not enough memory (${avail} MB free); build not started" >&2; exit 3; }
 cap=$((avail - 700))
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-systemd-run --user --unit=heavy-build --collect -q --wait --working-directory="$PWD" \
+systemd-run --user --unit=heavy-build-$$ --collect -q --wait --working-directory="$PWD" \
     -p MemoryMax="${cap}M" -p MemorySwapMax=0 -p OOMScoreAdjust=1000 \
     --setenv=JOBS=1 --setenv=PATH="$PATH" --setenv=HOME="$HOME" \
     -- sh -c "sh dev/scripts/cargo.sh $* > dev/.tmp/build.log 2>&1; echo EXIT \$? >> dev/.tmp/build.log"

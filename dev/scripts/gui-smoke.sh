@@ -363,6 +363,9 @@ check "two pages side by side, then back to one column ($M1 → $M2 → $M3)" "p
 inview() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6; }
 key End; sleep 1; P4=$(inview); key Home; sleep 1; P1=$(inview); key Right; sleep 1; P2=$(inview); key space; key space; sleep 1; P3=$(inview)
 check "End, Home, → and Space move through the pages ($P4, $P1, $P2, $P3)" "[ \"$P4\" = 'Page 4' ] && [ \"$P1\" = 'Page 1' ] && [ \"$P2\" = 'Page 2' ] && [ \"$P3\" != 'Page 2' ]"
+# Search for the selection (⇧⌘E): page 4's text selected, back to page 1, the search brings page 4 back.
+key End; sleep 0.8; key ctrl+a; key Home; sleep 0.8; key ctrl+shift+e; sleep 2.5; SE=$(inview)
+check "searching the selected text finds its page ($SE)" "[ \"$SE\" = 'Page 4' ]"
 # 6g. The zoom field (630,61): 200 typed and ↩ covers the view's left edge with the page; Fit page
 # from its list (chevron 669,61 ▸ 640,330) shows the background there again.
 leftedge() { import -window root -crop 6x200+300+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
