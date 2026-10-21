@@ -9,6 +9,7 @@ pub mod jobs;
 pub mod open_with;
 pub mod pool;
 pub mod prefs;
+pub mod print;
 pub mod reader;
 pub mod store_file;
 pub mod sign_preview;

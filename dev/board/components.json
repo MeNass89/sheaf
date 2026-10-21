@@ -14347,10 +14347,10 @@
    210
   ],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -14366,6 +14366,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [210]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "⌘P / toolbar: print sheet (printer, copies, pages all/current/range, fit or actual size, two-sided; Return prints) → CUPS lp on macOS and Linux, unsaved edits included. gui-smoke prints a filled-but-unsaved form to cups-pdf and finds the value; range 2-3 printed 2 pages. Missing for 9: print preview, paper size/orientation, Windows, Mac run unverified. dev/re/evidence/F-002/42-print-sheet.png"
    }
   ]
  },

@@ -168,6 +168,9 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_form_op, |ui, id, op| reader_ui::form_op(&ui, id, op));
     wire_global!(ui, rb, on_signature_made, |ui, id, c, w, h, n| reader_ui::signature_made(&ui, id, &c, w, h, &n));
     rb.on_signature_reset(reader_ui::signature_reset);
+    rb.on_print_open(reader_ui::print_open);
+    rb.on_print_cancel(reader_ui::print_cancel);
+    wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t| reader_ui::print(&ui, id, p, c, m, &r, f, t));
     wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));
 }
 

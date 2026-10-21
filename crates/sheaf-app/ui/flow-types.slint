@@ -159,6 +159,10 @@ export struct ReaderState {
     // Signature tool: the pad is open to make one; one is kept.
     sign-open: bool,
     has-signature: bool,
+    // Print sheet: open, the system's printers, the chosen one.
+    print-open: bool,
+    printers: [string],
+    printer: int,
     results: [ReaderResultRow],
     case-sensitive: bool,
     whole-words: bool,
@@ -392,6 +396,11 @@ export global OcrInfo {
 // Reader events, answered by the Rust side (src/reader_ui.rs). The first argument is the tab id.
 // Pages, thumbnails, viewport and zoom go through ViewerBridge like the tools' viewers.
 export global ReaderBridge {
+    // Print: open the sheet; print with printer, copies, pages (0 all, 1 current, 2 range),
+    // the range typed, fit to paper, two-sided; cancel.
+    callback print-open(int);
+    callback print(int, int, int, int, string, bool, bool);
+    callback print-cancel(int);
     // Pointer on the pages, content coordinates; `clicks` 2 on a double-click.
     callback pressed(int, length, length, int);
     callback moved(int, length, length);

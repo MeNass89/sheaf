@@ -136,6 +136,10 @@ pub struct ReaderUi {
     /// Signature: where the click was, and whether the pad is open to make one.
     sign_at: Option<(usize, (f64, f64))>,
     sign_open: bool,
+    /// Print sheet: open, the system's printers and the chosen one.
+    print_open: bool,
+    printers: Vec<String>,
+    printer: usize,
     note_seq: i32,
     pen_width: i32,
     /// Added text: index in TEXT_SIZES, 0 Helvetica / 1 Times / 2 Courier, bold.
@@ -219,6 +223,9 @@ impl ReaderUi {
             image_at: None,
             sign_at: None,
             sign_open: false,
+            print_open: false,
+            printers: Vec::new(),
+            printer: 0,
             note_seq: 0,
             pen_width: 1,
             text_size: 2,
@@ -1032,6 +1039,63 @@ pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, w: f32, h: f3
 pub fn signature_reset(tab_id: i32) {
     crate::home::set_signature(Vec::new(), None);
     update(tab_id, |r, _| r.sign_open = r.sign_at.is_some());
+}
+
+// ---- print ------------------------------------------------------------------------------------
+
+/// ⌘P: the print sheet, with the system's printers and its default one chosen.
+pub fn print_open(tab_id: i32) {
+    let (list, default) = sheaf_app::print::printers();
+    update(tab_id, |r, _| {
+        r.printer = default.and_then(|d| list.iter().position(|p| *p == d)).unwrap_or(0);
+        r.printers = list;
+        r.print_open = true;
+    });
+}
+
+pub fn print_cancel(tab_id: i32) {
+    update(tab_id, |r, _| r.print_open = false);
+}
+
+/// Prints the document as it is now (unsaved edits included). `pages`: 0 all, 1 the current page,
+/// 2 the typed `range`.
+#[allow(clippy::too_many_arguments)]
+pub fn print(ui: &AppWindow, tab_id: i32, printer: i32, copies: i32, pages: i32, range: &str, fit: bool, two_sided: bool) {
+    let Some(prepared) = update(tab_id, |r, v| {
+        if r.in_flight > 0 {
+            return Err("Still applying your last change: print again in a moment".to_string());
+        }
+        let count = r.snap.boxes.len();
+        let pages = match pages {
+            1 => Some((v.current() + 1).to_string()),
+            2 => Some(sheaf_app::print::page_range(range, count)?),
+            _ => None,
+        };
+        let printer = r.printers.get(printer.max(0) as usize).cloned().ok_or("No printer is set up")?;
+        r.printer = r.printers.iter().position(|p| *p == printer).unwrap_or(0);
+        r.print_open = false;
+        let job = sheaf_app::print::Job { printer, copies: copies.clamp(1, 999) as u32, pages, fit, two_sided };
+        let title = r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Document".into());
+        Ok((job, title, r.snap.bytes.clone()))
+    }) else {
+        return;
+    };
+    let (job, title, bytes) = match prepared {
+        Ok(p) => p,
+        Err(e) => return crate::flow::toast(ui, &e),
+    };
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let msg = match sheaf_app::print::submit(&job, &title, &bytes) {
+            Ok(_) => format!("Sent to {}", job.printer),
+            Err(e) => format!("Not printed: {e}"),
+        };
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(ui) = weak.upgrade() {
+                crate::flow::toast(&ui, &msg);
+            }
+        });
+    });
 }
 
 /// Comments with a size handle: text boxes, rectangles, ovals and placed signatures.
@@ -2292,6 +2356,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         text_bold: r.text_bold,
         pages_selected: r.page_sel.len() as i32,
         sign_open: r.sign_open,
+        print_open: r.print_open,
+        printers: ModelRc::new(VecModel::from(r.printers.iter().map(slint::SharedString::from).collect::<Vec<_>>())),
+        printer: r.printer as i32,
         has_signature: r.tool == SIGN && saved_signature().is_some(),
         has_form: r.snap.fields.iter().any(|f| f.kind < 4),
         choices: ModelRc::new(VecModel::from(

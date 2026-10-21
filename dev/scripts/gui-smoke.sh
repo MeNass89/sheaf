@@ -208,6 +208,18 @@ check "Don't Save / quit leaves the file unchanged" "[ \"\$(annots $OUT/text.pdf
 launch "$OUT/form.pdf"
 key ctrl+9
 click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Test"; key Return; sleep 1
+# 6b. Print before saving (⌘P, Return): the printed copy has the unsaved value. Needs a CUPS
+# printer named PDF (printer-driver-cups-pdf, output in ~/PDF); skipped without one.
+if lpstat -e 2>/dev/null | grep -qx PDF && lpstat -d 2>/dev/null | grep -q ': PDF$'; then
+    N0=$(ls ~/PDF/*.pdf 2>/dev/null | wc -l)
+    key ctrl+p; sleep 0.8; shot 06b-print-sheet; key Return
+    for _ in $(seq 1 20); do [ "$(ls ~/PDF/*.pdf 2>/dev/null | wc -l)" -gt "$N0" ] && break; sleep 0.5; done; sleep 0.5
+    P=$(ls -t ~/PDF/*.pdf 2>/dev/null | head -1)
+    check "printing sends the document with its unsaved edits" "[ -n \"$P\" ] && [ \"\$(ls ~/PDF/*.pdf | wc -l)\" -gt $N0 ] && pdftotext \"$P\" - | grep -q 'Smoke Test'"
+    [ -n "$P" ] && rm -f "$P"
+else
+    echo "SKIP printing (no default CUPS printer named PDF)"
+fi
 key ctrl+s; sleep 1.5; shot 06-form
 V=$(qpdf --json=2 --json-key=acroform "$OUT/form.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
 check "a form field is filled and saved ($V)" "echo \"$V\" | grep -q 'Smoke Test'"

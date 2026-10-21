@@ -6,6 +6,7 @@
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Pad } from "sign-panel.slint";
+import { SortCombo } from "../widgets/sort-combo.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { ToolTab, ViewerBridge, ReaderBridge, ReaderOutlineRow, ReaderAnnotRow, ReaderResultRow } from "../flow-types.slint";
 
@@ -347,6 +348,7 @@ export component ReaderScreen inherits Rectangle {
                     ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: "Undo (⌘Z)"; enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
                     ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
                     ToolButton { icon: @image-url("../icons/wrench.svg"); tip: "Use a tool on this PDF"; clicked => { ReaderBridge.to-tools(root.id); } }
+                    ToolButton { icon: @image-url("../icons/printer.svg"); tip: "Print (⌘P)"; clicked => { ReaderBridge.print-open(root.id); } }
                     ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? "Save (⌘S)" : "Saved"; enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
                 }
             }
@@ -1021,6 +1023,117 @@ export component ReaderScreen inherits Rectangle {
         }
     }
 
+    // The print sheet (PDF Expert's print panel, reduced to what matters): printer, copies, pages,
+    // scale, two-sided. Choices stay local until Print.
+    if root.tab.reader.print-open: Rectangle {
+        property <int> copies: 1;
+        property <int> pages: 0;
+        property <bool> fit: true;
+        property <bool> two-sided: false;
+        property <bool> ready: root.tab.reader.printers.length > 0;
+        property <int> printer: root.tab.reader.printer;
+        background: #00000044;
+        TouchArea { }
+        // Return prints, Escape cancels (the sheet takes the keyboard when it opens).
+        sheet-keys := FocusScope {
+            init => { self.focus(); }
+            key-pressed(e) => {
+                if e.text == Key.Return { ok.clicked(); return accept; }
+                if e.text == Key.Escape { ReaderBridge.print-cancel(root.id); keys.focus(); return accept; }
+                reject
+            }
+        }
+        Rectangle {
+            width: 420px;
+            height: pl.preferred-height;
+            border-radius: Theme.radius-card;
+            background: Theme.card;
+            drop-shadow-blur: 24px;
+            drop-shadow-color: #00000055;
+            pl := VerticalLayout {
+                padding: 18px;
+                spacing: 12px;
+                Text { text: "Print"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+                HorizontalLayout {
+                    spacing: 10px;
+                    Text { text: "Printer"; width: 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                    if ready: SortCombo {
+                        width: 250px;
+                        options: root.tab.reader.printers;
+                        current-index: root.tab.reader.printer;
+                        chevron: @image-url("../icons/chevron-down.svg");
+                        selected(i) => { printer = i; }
+                    }
+                    if !ready: Text { text: "No printer is set up"; font-size: Theme.fs-label; color: Theme.text-muted; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "Copies"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                    SmallButton { text: "−"; clicked => { copies = max(1, copies - 1); } }
+                    Text { text: copies; width: 30px; horizontal-alignment: center; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                    SmallButton { text: "+"; clicked => { copies = min(999, copies + 1); } }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "Pages"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                    SmallButton { text: "All"; primary: pages == 0; clicked => { pages = 0; } }
+                    SmallButton { text: "Current"; primary: pages == 1; clicked => { pages = 1; } }
+                    SmallButton { text: "Range"; primary: pages == 2; clicked => { pages = 2; } }
+                    Rectangle {
+                        width: 110px;
+                        height: 26px;
+                        border-radius: Theme.radius-small;
+                        border-width: 1px;
+                        border-color: range.has-focus ? Theme.text-secondary : Theme.input-border;
+                        background: Theme.input-bg;
+                        if range.text == "": Text { x: 8px; text: "1-3, 5"; font-size: Theme.fs-label; color: Theme.text-muted; }
+                        range := TextInput {
+                            x: 8px;
+                            width: parent.width - 16px;
+                            font-size: Theme.fs-label;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            single-line: true;
+                            changed text => { if self.text != "" { pages = 2; } }
+                            accepted => { ok.clicked(); }
+                        }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "Scale"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                    SmallButton { text: "Fit to paper"; primary: fit; clicked => { fit = true; } }
+                    SmallButton { text: "Actual size"; primary: !fit; clicked => { fit = false; } }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "Two-sided"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                    SmallButton { text: "Off"; primary: !two-sided; clicked => { two-sided = false; } }
+                    SmallButton { text: "On"; primary: two-sided; clicked => { two-sided = true; } }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Rectangle { horizontal-stretch: 1; }
+                    SmallButton { text: "Cancel"; clicked => { ReaderBridge.print-cancel(root.id); keys.focus(); } }
+                    ok := SmallButton {
+                        text: "Print";
+                        primary: ready;
+                        clicked => {
+                            if ready {
+                                ReaderBridge.print(root.id, printer, copies, pages, range.text, fit, two-sided);
+                                keys.focus();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Copy goes through a hidden text field: Slint's clipboard is a text input's.
     clip := TextInput {
         x: -1000px;
@@ -1068,6 +1181,7 @@ export component ReaderScreen inherits Rectangle {
                 if (e.text == "s" || e.text == "S") && e.modifiers.shift { ReaderBridge.save-as(root.id); return accept; }
                 if e.text == "w" { ReaderBridge.close(root.id); return accept; }
                 if e.text == "s" { ReaderBridge.save(root.id); return accept; }
+                if e.text == "p" { ReaderBridge.print-open(root.id); return accept; }
                 if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
                 return reject;
