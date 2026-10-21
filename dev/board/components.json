@@ -4131,12 +4131,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -4150,6 +4150,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Continue to… on the result screen chains any tool with the outputs, as iLovePDF; dev/re/evidence/F-001/sheaf-compress-result.png beside dev/re/evidence/ilovepdf/05c-compress-result.png"
    }
   ]
  },
@@ -14421,12 +14432,12 @@
    208
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -14440,6 +14451,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [200, 201, 204, 205, 206, 207, 208]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Result screen at parity with iLovePDF's: output card (name, size, pages, '-17 %'), Continue to… list, size before → after, restart, Open folder; dev/re/evidence/F-001/sheaf-compress-result.png beside dev/re/evidence/ilovepdf/05c-compress-result.png"
    }
   ]
  },
@@ -14484,12 +14506,12 @@
    203
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -14503,6 +14525,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [202, 203]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Open folder on the result screen and per-output file/folder buttons, as iLovePDF; dev/re/evidence/F-001/sheaf-compress-result.png beside dev/re/evidence/ilovepdf/05c-compress-result.png"
    }
   ]
  },

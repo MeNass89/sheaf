@@ -346,6 +346,17 @@ xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Auth
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 quit
 
+# 10. A tool from the reader: the wrench (WRENCH_X,61) → Tools → Compress (270,350) → Compress PDF
+# (1140,755); outputs go next to the original (set in the profile), the result screen shows.
+WRENCH_X=1161   # moves when toolbar buttons are added
+cp "$OUT/form.pdf" "$OUT/tool.pdf"
+mkdir -p "$PWD/$OUT/profile/data/Sheaf"
+python3 -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)) if __import__("os").path.exists(p) else {}; d["output"] = "next_to_original"; json.dump(d, open(p, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+launch "$OUT/tool.pdf"; sleep 1
+click $WRENCH_X 61 1.5; click 270 350 2; click 1140 755 4; shot 10-tool-result
+check "a tool run from the reader writes its output (Compress)" "qpdf --check $OUT/tool-compressed.pdf >/dev/null 2>&1"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).
