@@ -96,6 +96,8 @@ pub enum Op {
     Save { to: Option<PathBuf> },
     /// The paragraphs of a page (Edit text).
     Blocks(usize),
+    /// `pages` written to a new PDF at `to`.
+    Extract { pages: Vec<usize>, to: PathBuf },
 }
 
 pub enum Reply {
@@ -105,6 +107,7 @@ pub enum Reply {
     Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String> },
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
     Blocks(usize, Vec<Block>),
+    Extracted { to: PathBuf, error: Option<String> },
 }
 
 /// Starts the document's thread: it opens `input`, then runs the operations sent on the
@@ -149,6 +152,11 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             path = target.clone();
                         }
                         reply(Reply::Saved { snap: Box::new(snap(&doc)), to: target, error });
+                    }
+                    Op::Extract { pages, to } => {
+                        let id = doc.id();
+                        let r = doc.session().extract(id, &pages).map_err(|e| e.to_string()).and_then(|bytes| replace(&to, &bytes).map_err(|e| e.to_string()));
+                        reply(Reply::Extracted { to, error: r.err() });
                     }
                     Op::Blocks(page) => {
                         let b = doc

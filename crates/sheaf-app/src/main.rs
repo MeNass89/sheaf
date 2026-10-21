@@ -157,6 +157,11 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_to_tools, |ui, id| reader_ui::to_tools(&ui, id));
     wire_global!(ui, rb, on_close, |ui, id| flow::close_tab(&ui, id));
     rb.on_over_link(reader_ui::over_link);
+    rb.on_thumb_pressed(reader_ui::thumb_pressed);
+    wire_global!(ui, rb, on_page_op, |ui, id, op| reader_ui::page_op(&ui, id, op));
+    rb.on_thumb_drag(|id, p, y| reader_ui::thumb_drag(id, p, y));
+    rb.on_thumb_at(reader_ui::thumb_at);
+    wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));
 }
 
 /// Page viewer and Redact panel events (the `ViewerBridge` global).

@@ -106,6 +106,14 @@ pub struct ReaderUi {
     image_at: Option<(usize, (f64, f64))>,
     note_seq: i32,
     pen_width: i32,
+    /// Pages selected in the Pages panel (empty: the current page is meant).
+    page_sel: std::collections::BTreeSet<usize>,
+    /// The last page clicked in the panel, the anchor of a ⇧-click range.
+    page_anchor: Option<usize>,
+    /// Pages being dragged in the panel.
+    page_drag: Option<Vec<usize>>,
+    /// A page edit is on its way: the outline and the thumbnails follow when it is done.
+    structure_pending: bool,
     /// Pages of each edit sent, for undo and redo.
     undo_pages: Vec<Vec<usize>>,
     redo_pages: Vec<Vec<usize>>,
@@ -160,6 +168,10 @@ impl ReaderUi {
             note_seq: 0,
             pen_width: 1,
             annot_candidate: None,
+            page_sel: Default::default(),
+            page_anchor: None,
+            page_drag: None,
+            structure_pending: false,
             undo_pages: Vec::new(),
             redo_pages: Vec::new(),
             panel_before_search: None,
@@ -307,7 +319,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             update(id, |r, v| {
                 r.in_flight = r.in_flight.saturating_sub(1);
                 r.snap = *snap;
-                after_change(r, v, pages.as_deref());
+                r.structure_pending = false;
+                after_change(r, v, pages.as_deref().filter(|p| !p.is_empty()));
                 if r.in_flight == 0 {
                     r.provisional.clear();
                 }
@@ -345,6 +358,16 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                     crate::flow::toast(ui, &format!("Not saved: {e}"));
                 }
                 _ => {}
+            }
+        }
+        Reply::Extracted { to, error } => {
+            update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
+            match error {
+                None => {
+                    crate::flow::toast(ui, &format!("Extracted to {}", file_name(&to)));
+                    open(ui, to, None);
+                }
+                Some(e) => crate::flow::toast(ui, &format!("Not extracted: {e}")),
             }
         }
         Reply::Blocks(page, b) => {
@@ -871,6 +894,8 @@ pub fn undo(_ui: &AppWindow, tab_id: i32, redo: bool) {
         if let Some(p) = &pages {
             to.push(p.clone());
         }
+        // A page edit (no pages listed) changes them all.
+        let pages = pages.filter(|p| !p.is_empty());
         r.send(if redo { Op::Redo { pages } } else { Op::Undo { pages } });
     });
 }
@@ -913,6 +938,160 @@ pub fn to_tools(ui: &AppWindow, tab_id: i32) {
     ui.set_active_tab(-1);
     ui.set_page(sheaf_app::Page::Tools);
     crate::flow::toast(ui, "Choose a tool for your file");
+}
+
+// ---- pages (the Pages panel) --------------------------------------------------------------------
+
+/// A thumbnail clicked: it is shown; ⇧ extends the selection from the last one clicked, ⌘ adds or
+/// removes it, a plain click selects it alone (PDF Expert's thumbnails).
+pub fn thumb_pressed(tab_id: i32, page: i32, extend: bool, toggle: bool) {
+    update(tab_id, |r, v| {
+        let p = page.max(0) as usize;
+        match (extend, toggle, r.page_anchor) {
+            (true, _, Some(a)) => {
+                let (lo, hi) = (a.min(p), a.max(p));
+                r.page_sel = (lo..=hi).collect();
+            }
+            (_, true, _) => {
+                if !r.page_sel.remove(&p) {
+                    r.page_sel.insert(p);
+                }
+                r.page_anchor = Some(p);
+            }
+            _ => {
+                r.page_sel = [p].into_iter().collect();
+                r.page_anchor = Some(p);
+            }
+        }
+        v.show_page(p, None);
+    });
+}
+
+/// The pages an operation acts on: the selection, else the page shown.
+fn op_pages(r: &ReaderUi, v: &ViewerUi) -> Vec<usize> {
+    if r.page_sel.is_empty() { vec![v.current()] } else { r.page_sel.iter().copied().collect() }
+}
+
+pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
+    if op == 4 {
+        return extract(ui, tab_id);
+    }
+    let made = update(tab_id, |r, v| {
+        let pages = op_pages(r, v);
+        let n = v.viewer.page_count();
+        let edit = match op {
+            0 | 1 => Edit::RotatePages { pages: pages.clone(), degrees: if op == 0 { -90 } else { 90 } },
+            2 => {
+                if pages.len() >= n {
+                    return Err("A PDF needs at least one page".to_string());
+                }
+                Edit::DeletePages { pages: pages.clone() }
+            }
+            3 => Edit::DuplicatePages { pages: pages.clone() },
+            5 => {
+                let after = *pages.last().unwrap_or(&0);
+                let (w, h) = v.viewer.boxes[after].view_size();
+                Edit::InsertBlankPage { at: after + 1, width: w, height: h }
+            }
+            _ => return Err(String::new()),
+        };
+        // Page numbers shift: the selection follows what is left.
+        r.page_sel.clear();
+        Ok(edit)
+    });
+    match made {
+        Some(Ok(e)) => apply_structure(ui, tab_id, e),
+        Some(Err(m)) if !m.is_empty() => crate::flow::toast(ui, &m),
+        _ => {}
+    }
+}
+
+/// An edit that adds, removes, moves or turns pages: every page renders again.
+fn apply_structure(ui: &AppWindow, tab_id: i32, edit: Edit) {
+    let err = update(tab_id, |r, _| {
+        if !r.snap.read_only.is_empty() {
+            return Some(r.snap.read_only.clone());
+        }
+        r.send(Op::Apply { edit, pages: Vec::new() });
+        r.undo_pages.push(Vec::new());
+        r.redo_pages.clear();
+        r.structure_pending = true;
+        None
+    })
+    .flatten();
+    if let Some(e) = err {
+        crate::flow::toast(ui, &e);
+    }
+}
+
+/// The selected pages (or the one shown) written to a new PDF chosen in a Save dialog, which then
+/// opens in its own tab.
+fn extract(ui: &AppWindow, tab_id: i32) {
+    let Some((pages, dir, stem)) = update(tab_id, |r, v| {
+        (op_pages(r, v), crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())
+    }) else {
+        return;
+    };
+    let name = if pages.len() == 1 { format!("{stem} - page {}.pdf", pages[0] + 1) } else { format!("{stem} - {} pages.pdf", pages.len()) };
+    let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(name).add_filter("PDF", &["pdf"]);
+    crate::dialog::save_file(ui, d, move |_, target| {
+        update(tab_id, |r, _| r.send(Op::Extract { pages, to: target }));
+    });
+}
+
+/// A thumbnail dragged to content y `y` of the panel: the drop line's y (−1: none).
+pub fn thumb_drag(tab_id: i32, page: i32, y: f32) -> f32 {
+    update(tab_id, |r, v| {
+        if r.page_drag.is_none() {
+            let p = page.max(0) as usize;
+            if !r.page_sel.contains(&p) {
+                r.page_sel = [p].into_iter().collect();
+            }
+            r.page_drag = Some(r.page_sel.iter().copied().collect());
+        }
+        let (_, line) = drop_gap(&v.viewer, y as f64);
+        line as f32
+    })
+    .unwrap_or(-1.0)
+}
+
+/// The page whose thumbnail is at content y of the panel (−1: a gap).
+pub fn thumb_at(tab_id: i32, y: f32) -> i32 {
+    with(|a| {
+        let v = a.tab(tab_id)?.viewer.as_ref()?;
+        let y = y as f64;
+        v.viewer.thumb_layout().iter().position(|(t, h)| y >= *t && y <= t + h + 18.0).map(|p| p as i32)
+    })
+    .unwrap_or(-1)
+}
+
+/// The gap a drop at content y lands in (0 = before the first page) and the y of its line.
+fn drop_gap(v: &Viewer, y: f64) -> (usize, f64) {
+    let tl = v.thumb_layout();
+    let gap = tl.iter().position(|(top, h)| y < top + h / 2.0).unwrap_or(tl.len());
+    let line = match tl.get(gap) {
+        Some((top, _)) => top - viewer::PAGE_GAP / 2.0,
+        None => tl.last().map(|(t, h)| t + h + viewer::PAGE_GAP / 2.0).unwrap_or(0.0),
+    };
+    (gap, line)
+}
+
+pub fn thumb_drop(ui: &AppWindow, tab_id: i32, y: f32) {
+    let edit = update(tab_id, |r, v| {
+        let pages = r.page_drag.take()?;
+        let (gap, _) = drop_gap(&v.viewer, y as f64);
+        // `to` is the position in the result: the gap less the moved pages before it.
+        let to = gap - pages.iter().filter(|p| **p < gap).count();
+        if pages.iter().enumerate().all(|(k, p)| *p == to + k) {
+            return None;
+        }
+        r.page_sel = (to..to + pages.len()).collect();
+        Some(Edit::MovePages { pages, to })
+    })
+    .flatten();
+    if let Some(e) = edit {
+        apply_structure(ui, tab_id, e);
+    }
 }
 
 // ---- tools, panel, theme -----------------------------------------------------------------------
@@ -1470,6 +1649,15 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     } else {
         format!("{}/{}{}", r.search.current.map(|c| c + 1).unwrap_or(0), n, if r.search.busy { "+" } else { "" })
     };
+    if !r.page_sel.is_empty() {
+        let thumbs: Vec<sheaf_app::ViewerThumb> = slint::Model::iter(&tab.viewer_thumbs)
+            .map(|mut t| {
+                t.selected = r.page_sel.contains(&(t.page as usize));
+                t
+            })
+            .collect();
+        tab.viewer_thumbs = ModelRc::new(VecModel::from(thumbs));
+    }
     tab.name = r.name.clone().into();
     tab.is_reader = true;
     tab.reader = ReaderState {
@@ -1503,6 +1691,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         can_redo: r.snap.can_redo && r.in_flight == 0,
         zoom_mode: r.zoom_mode,
         pen_width: r.pen_width,
+        pages_selected: r.page_sel.len() as i32,
         results,
         case_sensitive: r.search.case_sensitive,
         whole_words: r.search.whole_words,

@@ -135,6 +135,10 @@ export component ReaderScreen inherits Rectangle {
     // The reading view alone, toolbar and panel hidden (View ▸ Hide Toolbar).
     in-out property <bool> bare;
     property <bool> over-link;
+    // Pages panel drag: where the press was, and the drop line (−1: no drag).
+    property <length> thumb-down-y;
+    property <length> drop-line: -1px;
+    property <int> thumb-down-page: -1;
     property <int> id: root.tab.id;
     property <length> panel-width: 248px;
     property <length> page-top: -sv.content-y;
@@ -588,6 +592,7 @@ export component ReaderScreen inherits Rectangle {
                         }
                         strip := ScrollView {
                             visible: root.tab.reader.panel == 0;
+                            height: parent.height - (root.tab.reader.panel == 0 ? 44px : 0px);
                             content-width: self.visible-width;
                             content-height: root.tab.viewer-thumbs-height + 20px;
                             for t in root.tab.viewer-thumbs: Rectangle {
@@ -599,8 +604,8 @@ export component ReaderScreen inherits Rectangle {
                                     height: t.h;
                                     y: 0;
                                     background: Theme.thumb-placeholder;
-                                    border-width: t.page == root.tab.viewer-current ? 2px : 0px;
-                                    border-color: Theme.accent;
+                                    border-width: t.selected || t.page == root.tab.viewer-current ? 2px : 0px;
+                                    border-color: t.selected ? Theme.info : Theme.accent;
                                     drop-shadow-blur: 5px;
                                     drop-shadow-color: Theme.thumb-shadow;
                                     drop-shadow-offset-y: 1px;
@@ -612,6 +617,9 @@ export component ReaderScreen inherits Rectangle {
                                         source: t.image;
                                         image-fit: fill;
                                     }
+                                    if t.selected: Rectangle {
+                                        background: Theme.info.with-alpha(0.12);
+                                    }
                                 }
                                 Text {
                                     y: t.h + 3px;
@@ -621,10 +629,57 @@ export component ReaderScreen inherits Rectangle {
                                     color: t.page == root.tab.viewer-current ? Theme.accent : Theme.text-muted;
                                     horizontal-alignment: center;
                                 }
-                                TouchArea {
-                                    mouse-cursor: pointer;
-                                    clicked => { ViewerBridge.thumb-clicked(root.id, t.page); keys.focus(); }
+                            }
+                            // One area over the whole strip: the thumbnails' model is replaced on
+                            // every refresh, which would drop a press held on one of them.
+                            TouchArea {
+                                width: strip.visible-width;
+                                height: root.tab.viewer-thumbs-height + 20px;
+                                mouse-cursor: root.drop-line >= 0 ? move : pointer;
+                                pointer-event(e) => {
+                                    if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                                        root.thumb-down-y = self.mouse-y;
+                                        root.thumb-down-page = ReaderBridge.thumb-at(root.id, self.mouse-y);
+                                        if root.thumb-down-page >= 0 {
+                                            ReaderBridge.thumb-pressed(root.id, root.thumb-down-page, e.modifiers.shift, e.modifiers.control || e.modifiers.meta);
+                                        }
+                                        keys.focus();
+                                    } else if e.kind == PointerEventKind.up && root.drop-line >= 0 {
+                                        ReaderBridge.thumb-drop(root.id, self.mouse-y);
+                                        root.drop-line = -1px;
+                                    }
                                 }
+                                moved => {
+                                    if self.pressed && root.thumb-down-page >= 0 && abs(self.mouse-y - root.thumb-down-y) > 8px {
+                                        root.drop-line = ReaderBridge.thumb-drag(root.id, root.thumb-down-page, self.mouse-y);
+                                    }
+                                }
+                            }
+                            if root.drop-line >= 0: Rectangle {
+                                x: 12px;
+                                y: root.drop-line - 1.5px;
+                                width: strip.visible-width - 24px;
+                                height: 3px;
+                                border-radius: 1.5px;
+                                background: Theme.info;
+                            }
+                        }
+                        // Page actions on the selection (or the page shown), PDF Expert's page strip.
+                        if root.tab.reader.panel == 0: Rectangle {
+                            y: parent.height - 44px;
+                            height: 44px;
+                            background: Theme.panel-bg;
+                            Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
+                            HorizontalLayout {
+                                padding: 7px;
+                                spacing: 2px;
+                                alignment: center;
+                                ToolButton { icon: @image-url("../icons/rotate-ccw.svg"); tip: "Rotate left"; clicked => { ReaderBridge.page-op(root.id, 0); } }
+                                ToolButton { icon: @image-url("../icons/rotate-cw.svg"); tip: "Rotate right"; clicked => { ReaderBridge.page-op(root.id, 1); } }
+                                ToolButton { icon: @image-url("../icons/plus.svg"); tip: "Insert blank page after"; clicked => { ReaderBridge.page-op(root.id, 5); } }
+                                ToolButton { icon: @image-url("../icons/copy.svg"); tip: "Duplicate"; clicked => { ReaderBridge.page-op(root.id, 3); } }
+                                ToolButton { icon: @image-url("../icons/file-output.svg"); tip: "Extract…"; clicked => { ReaderBridge.page-op(root.id, 4); } }
+                                ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete"; clicked => { ReaderBridge.page-op(root.id, 2); } }
                             }
                         }
                     }

@@ -604,7 +604,7 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
         .wanted_thumbs()
         .map(|i| {
             let image = v.any_thumb(i).cloned();
-            ViewerThumb { page: i as i32, y: len(tl[i].0), h: len(tl[i].1), ready: image.is_some(), image: image.unwrap_or_default() }
+            ViewerThumb { page: i as i32, y: len(tl[i].0), h: len(tl[i].1), ready: image.is_some(), image: image.unwrap_or_default(), selected: false }
         })
         .collect();
     let mut overlays = Vec::new();

@@ -11611,10 +11611,10 @@
    57
   ],
   "grade": {
-   "function": 5,
-   "aesthetics": 6,
-   "performance": 7,
-   "overall": 5
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -11630,6 +11630,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [51, 57]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Pages panel with an ops strip (rotate, insert blank, duplicate, extract, delete) on the selection (dev/re/evidence/F-003/01); no full-window page grid like PDF Expert's yet"
    }
   ]
  },
@@ -11713,10 +11724,10 @@
    52
   ],
   "grade": {
-   "function": 3,
-   "aesthetics": 5,
-   "performance": 7,
-   "overall": 3
+   "function": 9,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -11732,6 +11743,17 @@
      "overall": 3
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [52]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Drag thumbnails with a drop line, ⇧/⌘ multi-select; page order checked in the saved file with pdftotext (dev/re/evidence/F-003/02); no drag ghost image"
    }
   ]
  },
@@ -11826,14 +11848,14 @@
    58
   ],
   "grade": {
-   "function": 3,
-   "aesthetics": 5,
-   "performance": 8,
-   "overall": 3
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "per-page rotate left/right in the grid",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -11845,6 +11867,17 @@
      "overall": 3
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [56, 58]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Rotate left/right from the strip on the selection or the page shown; thumbnail and page follow (dev/re/evidence/F-003/01)"
    }
   ]
  },
@@ -12134,14 +12167,14 @@
    53
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 6
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "pick pages visually in Remove",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -12153,6 +12186,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [48, 53]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Delete the selected pages (strip, refused for every page), undoable; 6 → 5 pages checked with qpdf"
    }
   ]
  },
@@ -12273,14 +12317,14 @@
    54
   ],
   "grade": {
-   "function": 5,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 5
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "insert at position, page size choice",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -12292,6 +12336,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [54]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Insert a blank page of the same size after the selection; 4 → 5 pages checked with qpdf"
    }
   ]
  },
@@ -12529,14 +12584,14 @@
    55
   ],
   "grade": {
-   "function": 2,
-   "aesthetics": 4,
-   "performance": 8,
-   "overall": 2
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "duplicate action in the grid (engine DuplicatePages)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -12548,6 +12603,17 @@
      "overall": 2
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [55]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Duplicate the selected pages after them; page count checked with qpdf"
    }
   ]
  },
@@ -12623,14 +12689,14 @@
    50
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 6
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "each page as its own file",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -12642,6 +12708,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [49, 50]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-003",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Extract the selection to a new PDF named 'name - page 3.pdf' in a Save dialog; it opens in its own tab (dev/re/evidence/F-003/03, dev/re/evidence/F-003/04)"
    }
   ]
  },
