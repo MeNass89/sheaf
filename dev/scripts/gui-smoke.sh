@@ -282,6 +282,14 @@ check "a rectangle, a filled oval at 75 % and an arrow are saved" "echo \"\$SH\"
 mid() { import -window root -crop 6x200+761+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
 M1=$(mid); click 721 61 2.5; M2=$(mid); click 721 61 2.5; click 721 61 2.5; M3=$(mid); shot 06d-spread
 check "two pages side by side, then back to one column ($M1 → $M2 → $M3)" "python3 -c 'import sys; a, b, c = $M1, $M2, $M3; sys.exit(0 if abs(a - b) > 0.02 and abs(a - c) < 0.005 else 1)'"
+# 6e. Keyboard paging: End, Home, → and Space; ⌘A ⌘C copies the page in view, which tells which it is.
+inview() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6; }
+key End; sleep 1; P4=$(inview); key Home; sleep 1; P1=$(inview); key Right; sleep 1; P2=$(inview); key space; key space; sleep 1; P3=$(inview)
+check "End, Home, → and Space move through the pages ($P4, $P1, $P2, $P3)" "[ \"$P4\" = 'Page 4' ] && [ \"$P1\" = 'Page 1' ] && [ \"$P2\" = 'Page 2' ] && [ \"$P3\" != 'Page 2' ]"
+# 6f. Closed in two pages, it reopens in two pages (and on the same page).
+click 721 61 2.5; key ctrl+w; sleep 1; quit
+launch "$OUT/shapes.pdf"; sleep 2; M4=$(mid)
+check "a document reopens as it was left: two pages ($M4)" "python3 -c 'import sys; sys.exit(0 if abs($M4 - $M2) < 0.005 else 1)'"
 quit
 
 # 7. A password-protected PDF asks for its password, then opens in the reader.

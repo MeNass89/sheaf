@@ -77,6 +77,9 @@ pub struct Prefs {
     pub reader_theme: i32,
     /// The page each document was left on (newest first, at most 200): reopening goes back to it.
     pub last_pages: Vec<(PathBuf, u32)>,
+    /// How each document was viewed when left: fit mode (0 width, 1 page, 2 a chosen zoom), the
+    /// zoom, pages side by side (newest first, as `last_pages`).
+    pub last_views: Vec<(PathBuf, i32, u32, u8)>,
     /// The signature made in the reader, reused on every document (PDF Expert keeps it too):
     /// drawn strokes (pad units, y up) or a typed name.
     pub signature_strokes: Vec<Vec<[f64; 2]>>,

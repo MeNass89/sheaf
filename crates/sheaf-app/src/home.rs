@@ -92,6 +92,24 @@ pub fn remember_page(path: &Path, page: usize) {
     });
 }
 
+/// How `path` was viewed when left (see `Prefs::last_views`).
+pub fn remember_view(path: &Path, fit: i32, zoom: u32, spread: u8) {
+    let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    with(|h| {
+        h.prefs.last_views.retain(|(q, ..)| q != &p);
+        h.prefs.last_views.insert(0, (p, fit, zoom, spread));
+        h.prefs.last_views.truncate(200);
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
+pub fn last_view(path: &Path) -> Option<(i32, u32, u8)> {
+    let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    with(|h| h.prefs.last_views.iter().find(|(q, ..)| q == &p).map(|(_, f, z, s)| (*f, *z, *s)))
+}
+
 /// The page `path` was left on, if any.
 pub fn last_page(path: &Path) -> Option<usize> {
     let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());

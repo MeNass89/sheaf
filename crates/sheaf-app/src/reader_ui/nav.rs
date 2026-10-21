@@ -13,11 +13,13 @@ pub fn stop_work(tab_id: i32) {
 
 /// Keeps the page a document tab shows, for its next opening.
 pub fn remember_position(tab_id: i32) {
-    if let Some((path, page)) = with(|a| {
+    if let Some((path, page, fit, zoom, spread)) = with(|a| {
         let t = a.tab(tab_id)?;
-        Some((t.reader.as_ref()?.path.clone(), t.viewer.as_ref()?.current()))
+        let (r, v) = (t.reader.as_ref()?, t.viewer.as_ref()?);
+        Some((r.path.clone(), v.current(), r.zoom_mode, v.viewer.zoom(), v.viewer.spread()))
     }) {
         crate::home::remember_page(&path, page);
+        crate::home::remember_view(&path, fit, zoom, spread);
     }
 }
 
@@ -85,8 +87,16 @@ pub fn page_step(tab_id: i32, step: i32) {
             }
             s => {
                 // From the top of the current page: ← goes to its start when it is scrolled into.
-                let top_of = v.viewer.page_rect(cur)[1] - viewer::PAGE_GAP;
-                let target = if s < 0 && v.top > top_of + 4.0 { cur } else { (cur as i64 + s as i64).clamp(0, n as i64 - 1) as usize };
+                // A step is a row: with two pages side by side, → goes to the next pair.
+                let row_y = |i: usize| v.viewer.page_rect(i)[1];
+                let top_of = row_y(cur) - viewer::PAGE_GAP;
+                let target = if s < 0 && v.top > top_of + 4.0 {
+                    cur
+                } else if s > 0 {
+                    (cur + 1..n).find(|&i| row_y(i) > row_y(cur)).unwrap_or(n - 1)
+                } else {
+                    (0..cur).rev().find(|&i| row_y(i) < row_y(cur)).map(|i| (0..=i).find(|&j| row_y(j) == row_y(i)).unwrap_or(i)).unwrap_or(0)
+                };
                 v.show_page(target, None);
             }
         }

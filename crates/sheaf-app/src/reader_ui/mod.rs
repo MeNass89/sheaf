@@ -369,14 +369,11 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
                 if t.viewer.is_some() {
                     return false;
                 }
-                let last = crate::home::last_page(&fast.path);
+                let path = fast.path.clone();
                 let mut v = ViewerUi::new(fast, reader_viewer(boxes), scale, t.viewport, t.strip);
                 v.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
                 v.viewer.set_width(t.viewport.0 as f64);
-                // Back where the document was left, as PDF Expert reopens it.
-                if let Some(p) = last.filter(|p| *p > 0) {
-                    v.show_page(p, None);
-                }
+                restore_view(&mut v, &path);
                 t.viewer = Some(Box::new(v));
                 refresh(a, id);
                 true
@@ -491,6 +488,20 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     }
 }
 
+/// The document is shown as it was left, as PDF Expert reopens it: pages side by side, the zoom
+/// when one was chosen (Fit width and Fit page refit to the window), the page.
+fn restore_view(v: &mut ViewerUi, path: &std::path::Path) {
+    if let Some((fit, zoom, spread)) = crate::home::last_view(path) {
+        v.viewer.set_spread(spread);
+        if fit == 2 {
+            v.viewer.set_zoom(zoom);
+        }
+    }
+    if let Some(p) = crate::home::last_page(path).filter(|p| *p > 0) {
+        v.show_page(p, None);
+    }
+}
+
 fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     let Some((ops, input)) = with(|a| a.tab(id).and_then(|t| t.reader_ops.take())) else { return };
     let path = input.path.clone();
@@ -508,10 +519,12 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
             _ => {
                 let mut v = Box::new(ViewerUi::new(input, reader_viewer(snap.boxes.clone()), scale, t.viewport, t.strip));
                 v.viewer.set_width(t.viewport.0 as f64);
+                restore_view(&mut v, &path);
                 v
             }
         };
-        let mut r = ReaderUi::new(ops, snap, path);
+        let mut r = ReaderUi::new(ops, snap, path.clone());
+        r.zoom_mode = crate::home::last_view(&path).map_or(0, |(fit, ..)| fit.clamp(0, 2));
         r.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
         v.theme = r.theme;
         // Same file, same pixels: what is rendered stays; later renders come from the working copy.

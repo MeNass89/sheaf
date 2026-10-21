@@ -16912,14 +16912,14 @@
    189
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "standalone reader, keyboard scrolling (arrows, space, PgUp/PgDn)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -16942,6 +16942,17 @@
      "overall": 8
     },
     "proof": "GUI: continuous scroll, PgDn/arrow keys move by screen/page (dev/re/evidence/F-002/01, run 21/10)"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Continuous scroll; keyboard: arrows (row by row with two pages), Space / ⇧Space, PgUp/PgDn, Home/End (gui-smoke reads the page in view after each); 1,982-page book scrolls with renders on demand"
    }
   ]
  },
@@ -17797,14 +17808,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "remember page and zoom per file",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17827,6 +17838,17 @@
      "overall": 8
     },
     "proof": "Reopens at the last page read (dev/re/evidence/F-002/34); the zoom is not remembered yet"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Reopens on the page, zoom (a chosen zoom; Fit width/page refit) and two-page mode it was left in, as PDF Expert (gui-smoke: closed in two pages, reopens in two pages); fixed: small files lost the page (document thread answered first)"
    }
   ]
  },
