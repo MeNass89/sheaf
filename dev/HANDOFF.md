@@ -1,71 +1,68 @@
-# Sheaf — handoff (MacBook Pro → VPS vpsn, 2026-10-21 00:30)
+# Sheaf — handoff (Linux VPS → MacBook Pro, 2026-10-21)
 
-From now on Sheaf lives on **vpsn** (`/home/nassim/Projects/sheaf`). The MacBook Pro belongs to the game-porting
-project; do not plan work that needs it. Method: the **`dev` skill** (brain: `claude-code/skills/dev/`). Read its
-SKILL.md first, then this file, then `dev/DECISIONS.md`.
+Building and testing now go back to the **MacBook Pro**; the Linux VPS only wrote code (2 cores, 7 GB RAM: a full
+build takes ~50 min and twice ran out of memory). Method: the **`dev` skill** (brain: `claude-code/skills/dev/`).
+Read its SKILL.md, then this file, then `dev/DECISIONS.md`.
 
 ## Where things are
 
 | What | Where |
 |---|---|
-| Brief, decisions | `dev/BRIEF.md`, `dev/DECISIONS.md` (append every decision you make) |
-| Inspiration apps | `dev/board/apps.json`: Acrobat, PDF Expert, iLovePDF Desktop, Stirling-PDF, macOS Preview |
-| Their code (archives) | `dev/re/archive/*.tar.zst` (git-ignored, 14 MB, copied to vpsn, sha256 in `dev/re/inventory.json`). `python3 dev/scripts/archive.py extract <app>` → `dev/re/sources/pretty/<app>/` |
-| UI reference screenshots | `dev/re/evidence/{pdfexpert,preview,ilovepdf}/` + `README.md` (states captured, walls hit) |
-| Sheaf's own feature inventory | `dev/board/ours.json` (272 gestures, `file:line`, honest limits) |
-| RE helper tools | `dev/scripts/re-tools/` (zbin decoder for Acrobat, NIBArchive decoder, Qt rcc reader, Swift type extractor) |
-| Board tooling | `dev/scripts/board.py`, `locate.py`, `archive.py`, `hygiene.py` |
+| Brief, decisions | `dev/BRIEF.md`, `dev/DECISIONS.md` (append every decision) |
+| The board | `dev/board/components.json` (331 components), rendered `dev/BOARD.md`; decisions per domain in `dev/board/decisions/<domain>.py` → `python3 dev/scripts/merge_prep.py decide` regenerates the table in DECISIONS.md |
+| Raw features | `dev/board/raw/<app>.json` (1,254 gestures) merged in `dev/board/features.json`; instructions `EXTRACT.md`, `MERGE.md` |
+| Inspiration code | `dev/re/archive/*.tar.zst` (git-ignored, on the VPS and on the Mac where they were made) → `python3 dev/scripts/archive.py extract <app>` |
+| UI references | `dev/re/evidence/{pdfexpert,preview,ilovepdf}/` + README |
+| Features in progress | `dev/features/F-001-save-dialog-click.md`, `F-002-reader.md` |
 
-What each archive holds (richest files first):
-- **acrobat** (Reader 26.001): `strings/Primary.txt` (19,013 UI strings), plugin tables (PPKLite security, AcroForm forms, Comments, DigSig, Checkers accessibility), `aapp/` (50 tool definitions, XML), `resources/eve|exv` (dialog layouts), `Reader.sdef`.
-- **pdfexpert** (3.13.4): `strings/…/Localizable.strings.txt`, `MainMenu.strings.txt`, `nibs/…/MainMenu.nib.txt` (menus + shortcuts), `symbols/*.types.txt` (class names: HighlightTool, AnnotationToolbarPanelViewController…), App Intents actions.
-- **preview** (11.0): `Localizable.loctable.en_GB`, decoded nibs (menus with shortcuts, annotation inspector, preferences), symbol types.
-- **ilovepdf** (2.3.0): `code/rcc/iLovePDF/**.qml` (448 real QML files: tools, parameters, reader/PdfViewer, signature, edit), `strings/iLovePdfDesktop.en.po.txt` (1,933 entries), C++ method names, 49 changelogs.
-- **stirling** (2fe512a, after v3.2.0): full repo minus binaries. **MIT except `app/proprietary/`, `app/saas/`, `engine/`** — translate only from MIT parts.
+## Board status
 
-## State of the dev phases
+`board.py status`: **331 components, 1 at ≥ 9** (offline, no account). Grades are still Sheaf 0.2.1's: nothing written
+since has been built, tested and graded. Strong components: 68; normal 137; light 126. Order of work (Nassim):
+(a) Save button after Compress, (b) reader/annotator at PDF Expert's level, (c) editing, (d) polish; then `board.py next`.
 
-1. Brief — done (`BRIEF.md`).
-2. Inspirations — done (Nassim approved the four, added Preview).
-3. Acquire + RE + archive + delete — **done on the Mac**; installers deleted after archiving.
-4. **Build the board — START HERE.** `features.json` and `components.json` are empty.
-   - Extract raw features per app with cheap agents (Haiku/Luna), one per app area, from the archives
-     (schema: `references/board-schema.md`). Include `ours.json` as our side.
-   - Merge into components per domain; run `locate.py`; then **you** decide main app, `main_why`, `take`,
-     weight, and grade Sheaf honestly on function / aesthetics / performance.
-   - Domains to expect: reader (scroll, zoom, outline, thumbnails, search, night/sepia themes, tabs),
-     annotate (highlight, underline, strike, notes, ink, shapes, stamps), edit (text in place, images, links,
-     whiteout), organise pages, forms, sign, security/redact, convert, compress/OCR, compare, batch/pipelines,
-     share/print/save, preferences, CLI/MCP.
-5. Loop — after `board.py check` passes.
+## Branch `dev/phase-4-5` (pushed), last commit = WIP
 
-## Seeds from Nassim (put them on the board as strong components)
+**The last commit does not compile yet.** The last successful build was before `src/reader_doc.rs`; expect a short
+round of compile errors (types moved from `reader_ui.rs` to `reader_doc.rs`, `Provisional`, `ReaderMark`).
 
-- **Save dialog after Compress: clicking "Save" does nothing; only Enter works.** Function bug, fix first.
-- **Edit PDF has too few functions** → parity with PDF Expert's edit and annotate modes.
-- **Sheaf must become a reader**: open any PDF to read and study (outline, thumbnails, continuous scroll,
-  highlights, notes, night/sepia), not only a toolbox. PDF Expert is the main app for reading/annotating;
-  Preview is the performance floor and a reading-UI reference.
-- **General polish and responsiveness**: drive every interaction (mouse, keyboard, Enter/Escape, drag) and fix
-  every rough edge. A button that needs Enter instead of a click is a function bug.
+- **F-001 Save dialog** (`src/dialog.rs`): every `rfd` call is now an `AsyncFileDialog` with the window as parent
+  (a sheet on macOS), polled by `slint::spawn_local`. Cause found: rfd's blocking `run_modal` nested in winit's mouse
+  dispatch. Watermark image and certificate pickers go through the `Picked` global. **To prove on the Mac:** Compress →
+  Save sheet → click Save writes the file; every other dialog (Open, folder, image, .p12) answers clicks.
+- **F-002 Reader** (`src/reader.rs` pure logic + tests, `src/reader_ui.rs`, `src/reader_doc.rs`, `ui/screens/reader.slint`):
+  PDFs opened from Home, drop, Recents or Open With get a document tab: toolbar (panel, select/highlight/underline/
+  strike/note/pen/text box/edit text/add image, 5 colours, page field, zoom 25–400 %, fit width/page, Day/Sepia/Night,
+  search, undo/redo, tools, save), side panel (Pages, Outline, Notes), continuous scroll, floating bar on a selection,
+  links and ⌘[ ⌘], ⌘S incremental save, Save As, unsaved prompt on tab and window close. The PdfCraft document lives on
+  its own thread (an annotation on a 70 MB book took 1.5 s on the UI thread); highlights and pen strokes are drawn
+  provisionally until the page re-renders. **Seen working on Linux before the thread move:** opening a 1,982-page
+  book with its outline, outline jump, streamed search ("1/188+"), selection + floating bar, a highlight rendered.
+- **Edit text in place** (tool 7): click a paragraph → its text in an editor → `Edit::EditTextBlock`; empty space →
+  `Edit::AddText`; tool 8 places an image. Not yet run.
 
-## Building and testing on vpsn (Linux x86_64, 2 vCPU, 7 GB RAM)
+## Next, in order
 
-- Installed: Rust 1.99.1 (minimal), qpdf, poppler-utils, ripgrep, zstd, Xvfb, libfontconfig1-dev,
-  libxkbcommon-dev, libudev-dev. `sh scripts/fetch-pdfium.sh && sh scripts/fetch-models.sh` before the first build.
-- RAM is tight: build with `cargo build -j 2`; set one `CARGO_TARGET_DIR=$HOME/.cache/cargo-target/sheaf`
-  for every worktree; keep ≤ 2 worktrees; `cargo clean -p sheaf-app` after release builds.
-- GUI on Linux: `xvfb-run -s "-screen 0 1920x1080x24" target/debug/sheaf-app` and capture with
-  `import -window root` (ImageMagick) or `xwd`; compare with `dev/re/evidence/` screenshots.
-- macOS-only checks (Finder Open With, the DMG, Gatekeeper) cannot be done here; note them as pending for a
-  Mac session rather than blocking on them.
-- Disk: 18 GB free after cleanup. Run `python3 dev/scripts/hygiene.py --fix` at the end of every session.
+1. Build (`cargo build`), fix the compile errors, `cargo test --workspace`, `cargo clippy -- -D warnings`.
+2. Drive F-001 on macOS; capture; tick its criteria.
+3. Drive F-002 through every criterion of its feature file (open, scroll keys, zoom, outline, search, select/copy,
+   each annotation tool, delete, undo/redo, ⌘S then reopen, Save As, unsaved prompt, themes, links); capture each state
+   next to PDF Expert's evidence; measure open time, annotation latency, RSS on the 1,982-page book. Then
+   `board.py grade` every component F-002 lists.
+4. Then edit (c), polish (d), then `board.py next`.
+
+## Linux notes (for later Linux work)
+
+- The app needs `libxkbcommon-x11-0` at run time (missing on a bare Ubuntu: winit panics).
+- Without a window manager (Xvfb), keyboard input needs `xdotool windowfocus --sync` first.
+- Build only through `dev/scripts/cargo.sh` (light debug info, optimised dependencies, two jobs): full debug info made
+  the target dir 16 GB; unoptimised PdfCraft took 30 s to open the big book (7 s optimised, debug build).
+- Never run the app and a build at the same time on a 7 GB machine.
 
 ## Rules carried over
 
 - Commits: `git -c user.name="Sheaf contributors" -c user.email="267055942+MeNass89@users.noreply.github.com" commit`,
-  message ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. No personal names, emails,
-  home paths or machine details in tracked files. Merge PRs locally (GitHub's merge button stamps his
-  personal email). Push freely; releases/tags are outward-facing: ask Nassim.
+  message ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. No personal names, emails, home
+  paths or machine details in tracked files. Merge PRs locally. Push freely; tags and releases: ask Nassim.
 - Third-party code stays out of git (archives are ignored); the board stores paths and line numbers only.
 - Talk to Nassim in French, vouvoiement, Alfred; 🦇 only emoji; short.
