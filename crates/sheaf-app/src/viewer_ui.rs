@@ -304,7 +304,7 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) 
         v.top = top as f64;
         v.height = height as f64;
     });
-    crate::reader_ui::viewport_changed(tab_id);
+    crate::reader_ui::viewport_changed(ui, tab_id);
     request(ui, tab_id);
 }
 
@@ -329,7 +329,19 @@ pub fn thumb_clicked(tab_id: i32, page: i32) {
 }
 
 pub fn zoom_step(ui: &AppWindow, tab_id: i32, dir: i32) {
-    let Some(z) = with(|a| a.tab(tab_id)?.viewer.as_deref().map(|v| if dir == 0 { 100 } else { viewer::step_zoom(v.viewer.zoom(), dir) })) else { return };
+    // Steps of actual size (25 … 400 %), as PDF Expert; 0 is fit width.
+    let Some(z) = with(|a| {
+        a.tab(tab_id)?.viewer.as_deref().map(|v| {
+            if dir == 0 {
+                return 100;
+            }
+            let cur = v.current();
+            let actual = v.viewer.actual_percent(cur).round() as u32;
+            v.viewer.zoom_for_actual(cur, viewer::step_zoom(actual, dir) as f64)
+        })
+    }) else {
+        return;
+    };
     zoom_to(ui, tab_id, z);
     crate::reader_ui::zoom_changed(tab_id);
 }
@@ -628,7 +640,10 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     tab.viewer_height = len(v.viewer.content_height());
     tab.viewer_thumbs_height = len(viewer::content_height(&tl));
     tab.viewer_current = v.viewer.current(v.top, v.height) as i32;
-    tab.viewer_zoom = v.viewer.zoom() as i32;
+    // Shown as the step it is (100 %, 200 %) when the integer zoom lands a hair off it.
+    let actual = v.viewer.actual_percent(v.current());
+    let step = viewer::ZOOMS.iter().copied().find(|z| (*z as f64 - actual).abs() <= (*z as f64) * 0.015);
+    tab.viewer_zoom = step.map(|z| z as f64).unwrap_or(actual).round() as i32;
     tab.viewer_scroll = len(v.scroll);
     tab.viewer_scroll_seq = v.scroll_seq;
     tab.redact_searched = v.searched;

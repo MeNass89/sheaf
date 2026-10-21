@@ -296,7 +296,9 @@ impl Viewer {
     }
 
     pub fn set_zoom(&mut self, zoom: u32) -> bool {
-        let zoom = zoom.clamp(MIN_ZOOM, MAX_ZOOM);
+        // The internal zoom is relative to the fit width; the steps the user sees are actual sizes
+        // (`actual_percent`), so this range is wider than theirs.
+        let zoom = zoom.clamp(5, 1600);
         let changed = zoom != self.zoom;
         self.zoom = zoom;
         self.relayout();
@@ -305,6 +307,18 @@ impl Viewer {
 
     pub fn zoom(&self) -> u32 {
         self.zoom
+    }
+
+    /// The zoom as PDF Expert and Preview show it: 100 % draws one point of page `i` as one logical
+    /// pixel.
+    pub fn actual_percent(&self, i: usize) -> f64 {
+        let w = self.boxes.get(i).map(|b| b.view_size().0).unwrap_or(1.0).max(1e-9);
+        self.page_width / w * 100.0
+    }
+
+    /// The internal zoom that shows page `i` at `pct` percent actual size.
+    pub fn zoom_for_actual(&self, i: usize, pct: f64) -> u32 {
+        (self.zoom as f64 * pct / self.actual_percent(i).max(1e-9)).round().max(1.0) as u32
     }
 
     /// The zoom (percent of the fit width) at which the tallest page of `pages` fits a viewport

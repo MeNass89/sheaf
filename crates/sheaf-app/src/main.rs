@@ -156,6 +156,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_history(reader_ui::history);
     wire_global!(ui, rb, on_to_tools, |ui, id| reader_ui::to_tools(&ui, id));
     wire_global!(ui, rb, on_close, |ui, id| flow::close_tab(&ui, id));
+    rb.on_over_link(reader_ui::over_link);
 }
 
 /// Page viewer and Redact panel events (the `ViewerBridge` global).

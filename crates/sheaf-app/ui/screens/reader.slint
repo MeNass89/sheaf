@@ -128,6 +128,13 @@ component SmallButton inherits Rectangle {
 
 export component ReaderScreen inherits Rectangle {
     in property <ToolTab> tab;
+    in property <bool> is-full-screen;
+    // Full screen on or off; −1 / +1 the previous / next tab.
+    callback full-screen(bool);
+    callback switch-tab(int);
+    // The reading view alone, toolbar and panel hidden (View ▸ Hide Toolbar).
+    in-out property <bool> bare;
+    property <bool> over-link;
     property <int> id: root.tab.id;
     property <length> panel-width: 248px;
     property <length> page-top: -sv.content-y;
@@ -165,7 +172,8 @@ export component ReaderScreen inherits Rectangle {
     VerticalLayout {
         // ---- toolbar ----------------------------------------------------------------------
         Rectangle {
-            height: 46px;
+            height: root.bare ? 0px : 46px;
+            visible: !root.bare;
             background: Theme.panel-bg;
             HorizontalLayout {
                 padding-left: 8px;
@@ -274,7 +282,7 @@ export component ReaderScreen inherits Rectangle {
                         vertical-alignment: center;
                     }
                     ToolButton { y: -2px; icon: @image-url("../icons/zoom-in.svg"); tip: "Zoom in (⌘+)"; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
-                    ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘0)" : "Fit page (⌘9)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
+                    ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
                 }
                 Rectangle { horizontal-stretch: 1; }
                 HorizontalLayout {
@@ -336,7 +344,7 @@ export component ReaderScreen inherits Rectangle {
                                     ReaderBridge.search-step(root.id, -1);
                                     return accept;
                                 }
-                                if e.modifiers.control && e.text == "g" {
+                                if e.modifiers.control && (e.text == "g" || e.text == "G") {
                                     ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1);
                                     return accept;
                                 }
@@ -369,8 +377,8 @@ export component ReaderScreen inherits Rectangle {
             vertical-stretch: 1;
             // ---- side panel -------------------------------------------------------------------
             Rectangle {
-                visible: root.tab.reader.panel-open;
-                width: root.tab.reader.panel-open ? root.panel-width : 0px;
+                visible: root.tab.reader.panel-open && !root.bare;
+                width: root.tab.reader.panel-open && !root.bare ? root.panel-width : 0px;
                 background: Theme.panel-bg;
                 VerticalLayout {
                     HorizontalLayout {
@@ -685,8 +693,11 @@ export component ReaderScreen inherits Rectangle {
                     pages-ta := TouchArea {
                         width: max(root.tab.viewer-width, sv.visible-width);
                         height: root.tab.viewer-height;
-                        mouse-cursor: root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
+                        mouse-cursor: root.over-link && root.tab.reader.tool == 0 ? pointer : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
                         pointer-event(e) => {
+                            if e.kind == PointerEventKind.move && !root.pressing {
+                                root.over-link = ReaderBridge.over-link(root.id, self.mouse-x, self.mouse-y);
+                            }
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                                 keys.focus();
                                 root.pressing = true;
@@ -835,10 +846,18 @@ export component ReaderScreen inherits Rectangle {
             if e.modifiers.control {
                 if e.text == "+" || e.text == "=" { ViewerBridge.zoom-step(root.id, 1); return accept; }
                 if e.text == "-" { ViewerBridge.zoom-step(root.id, -1); return accept; }
-                if e.text == "0" { ReaderBridge.zoom-fit(root.id, 0); return accept; }
-                if e.text == "9" { ReaderBridge.zoom-fit(root.id, 1); return accept; }
+                // PDF Expert's shortcuts: ⌘0 100 %, ⌘9 fit width, ⌘8 fit page, ⌃⌘F full screen,
+                // ⇧⌘[ ⇧⌘] previous / next tab, ⌥⌘G go to page, ⌥⌘0 left panel.
+                if e.text == "0" && e.modifiers.alt { ReaderBridge.toggle-panel(root.id); return accept; }
+                if e.text == "0" { ReaderBridge.zoom-fit(root.id, 2); return accept; }
+                if e.text == "9" { ReaderBridge.zoom-fit(root.id, 0); return accept; }
+                if e.text == "8" { ReaderBridge.zoom-fit(root.id, 1); return accept; }
+                if (e.text == "f" || e.text == "F") && e.modifiers.meta { root.full-screen(!root.is-full-screen); return accept; }
+                if (e.text == "g" || e.text == "©") && e.modifiers.alt { page-in.focus(); page-in.select-all(); return accept; }
+                if (e.text == "[" || e.text == "{") && e.modifiers.shift { root.switch-tab(-1); return accept; }
+                if (e.text == "]" || e.text == "}") && e.modifiers.shift { root.switch-tab(1); return accept; }
                 if e.text == "f" { search-in.focus(); search-in.select-all(); return accept; }
-                if e.text == "g" { ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
+                if e.text == "g" || e.text == "G" { ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
                 if e.text == "c" && root.tab.reader.has-selection {
                     clip.text = root.tab.reader.selected-text;
                     clip.select-all();
@@ -848,17 +867,22 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == "a" { ReaderBridge.select-all(root.id); return accept; }
                 if e.text == "[" { ReaderBridge.history(root.id, -1); return accept; }
                 if e.text == "]" { ReaderBridge.history(root.id, 1); return accept; }
-                if e.text == "z" && e.modifiers.shift { ReaderBridge.redo(root.id); return accept; }
+                // With ⇧ the letter comes upper case.
+                if (e.text == "z" || e.text == "Z") && e.modifiers.shift { ReaderBridge.redo(root.id); return accept; }
                 if e.text == "z" { ReaderBridge.undo(root.id); return accept; }
                 if e.text == "y" { ReaderBridge.redo(root.id); return accept; }
-                if e.text == "s" && e.modifiers.shift { ReaderBridge.save-as(root.id); return accept; }
+                if (e.text == "s" || e.text == "S") && e.modifiers.shift { ReaderBridge.save-as(root.id); return accept; }
                 if e.text == "w" { ReaderBridge.close(root.id); return accept; }
                 if e.text == "s" { ReaderBridge.save(root.id); return accept; }
                 if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
                 return reject;
             }
+            if e.text == Key.Escape && root.is-full-screen { root.full-screen(false); return accept; }
+            if e.text == Key.Escape && root.bare { root.bare = false; return accept; }
             if e.text == Key.Escape { ReaderBridge.escape(root.id); return accept; }
+            // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).
+            if e.text == "T" && e.modifiers.shift { root.bare = !root.bare; return accept; }
             if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
             if e.text == Key.RightArrow { ReaderBridge.page-step(root.id, 1); return accept; }
             if e.text == Key.LeftArrow { ReaderBridge.page-step(root.id, -1); return accept; }

@@ -421,6 +421,8 @@ export global ReaderBridge {
     callback to-tools(int);
     // ⌘W: close the document (asks first when there are unsaved edits).
     callback close(int);
+    // Whether a content point is over a link (the hand cursor).
+    callback over-link(int, length, length) -> bool;
 }
 
 export global ViewerBridge {

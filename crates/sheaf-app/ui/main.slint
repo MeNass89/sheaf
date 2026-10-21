@@ -204,6 +204,12 @@ export component AppWindow inherits Window {
                 visible: root.active-tab == i;
                 if t.is-reader: ReaderScreen {
                     tab: t;
+                    is-full-screen: root.full-screen;
+                    full-screen(on) => { root.full-screen = on; }
+                    switch-tab(d) => {
+                        // Tabs wrap around, Home not included.
+                        root.active-tab = Math.mod(root.active-tab + d + root.tabs.length, root.tabs.length);
+                    }
                 }
                 if !t.is-reader: ToolFlowScreen {
                     visible: t.phase < 2;

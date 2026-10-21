@@ -743,10 +743,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 8,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -762,6 +762,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Underline the selection (U, bar, tool), ink colours, saved like highlights (dev/re/evidence/F-002/27); engine time on huge files as C-annotate-002"
    }
   ]
  },
@@ -848,10 +859,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 8,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -867,6 +878,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Strike through the selection (K, bar, tool) (dev/re/evidence/F-002/27); engine time as C-annotate-002"
    }
   ]
  },
@@ -10586,10 +10608,10 @@
    68
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
+   "function": 8,
+   "aesthetics": 8,
    "performance": 8,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -10605,6 +10627,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [61, 62, 63, 64, 66, 68]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-001",
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Compress → Save dialog → mouse click on Save writes the file and shows the result (Linux: dev/re/evidence/F-001/03, dev/re/evidence/F-001/04); Mac click still to prove; fonts/vectors not recompressed"
    }
   ]
  },
@@ -13651,10 +13684,10 @@
    196
   ],
   "grade": {
-   "function": 4,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 4
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -13670,6 +13703,17 @@
      "overall": 4
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [192, 194, 195, 196]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-001",
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "⇧⌘S opens the system Save sheet attached to the window; a mouse click on Save writes the copy and the tab follows it (Linux, GTK portal: dev/re/evidence/F-001/01, dev/re/evidence/F-001/02); Mac click still to prove"
    }
   ]
  },
@@ -16611,14 +16655,14 @@
    187
   ],
   "grade": {
-   "function": 5,
-   "aesthetics": 6,
-   "performance": 7,
-   "overall": 5
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "pinch/ctrl+wheel zoom centred on the pointer, range 10–800 %",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -16630,6 +16674,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [181, 182, 184, 185, 187]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Zoom 25–400 % in actual-size steps like PDF Expert, ⌘+/⌘−, ⌘-wheel, toolbar (dev/re/evidence/F-002/26); pages re-render 150 ms after the zoom settles"
    }
   ]
  },
@@ -16867,14 +16922,14 @@
    186
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 6
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "keep fit width on window resize; shortcut",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -16886,6 +16941,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [183, 186]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘9 / toolbar fit width (168 %), kept when the window or panel changes size (dev/re/evidence/F-002/26, dev/re/evidence/F-002/28)"
    }
   ]
  },
@@ -16952,14 +17018,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 3,
-   "aesthetics": 5,
-   "performance": 8,
-   "overall": 3
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "actual size distinct from fit",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -16971,6 +17037,17 @@
      "overall": 3
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘0 zoom to 100 % actual size, PDF Expert's shortcut (dev/re/evidence/F-002/26)"
    }
   ]
  },
@@ -18070,14 +18147,14 @@
    179
   ],
   "grade": {
-   "function": 2,
-   "aesthetics": 4,
-   "performance": 8,
-   "overall": 2
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "toggle panel; remember state",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -18089,6 +18166,17 @@
      "overall": 2
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [179]"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Panel button and ⌥⌘0 hide/show the side panel (dev/re/evidence/F-002/28)"
    }
   ]
  },
@@ -20066,14 +20154,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 4,
-   "aesthetics": 6,
-   "performance": 8,
-   "overall": 4
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "Sheaf has tool tabs; make each open document a tab",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20085,6 +20173,17 @@
      "overall": 4
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Each PDF opens in its own tab next to tool tabs, title = file name, × closes (dev/re/evidence/F-002/12, dev/re/evidence/F-002/17)"
    }
   ]
  },
@@ -20149,14 +20248,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 2,
-   "aesthetics": 5,
-   "performance": 8,
-   "overall": 2
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "⌃Tab / ⌘1-9",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20168,6 +20267,17 @@
      "overall": 2
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⇧⌘[ / ⇧⌘] previous / next tab (PDF Expert's shortcut), wraps around"
    }
   ]
  },

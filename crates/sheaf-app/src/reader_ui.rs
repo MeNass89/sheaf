@@ -640,6 +640,18 @@ fn link_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<rende
     })
 }
 
+/// Whether the content point (`x`, `y`) is over a link (the hand cursor).
+pub fn over_link(tab_id: i32, x: f32, y: f32) -> bool {
+    with(|a| {
+        let t = a.tab(tab_id)?;
+        let (r, v) = (t.reader.as_ref()?, t.viewer.as_ref()?);
+        let page = v.viewer.hit(x as f64, y as f64)?.0;
+        let p = to_view(&v.viewer, page, x as f64, y as f64);
+        link_at(r, &v.viewer, page, p).map(|_| ())
+    })
+    .is_some()
+}
+
 /// Goes to `page`, remembering where the reader was for ⌘[.
 fn jump(r: &mut ReaderUi, v: &mut ViewerUi, page: usize, focus: Option<[f64; 4]>) {
     let cur = v.current();
@@ -792,8 +804,10 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         } else {
             // A box 200 pt wide, tall enough for the lines typed (12 pt text), kept on the page.
             let lines = text.lines().count().max(1) as f64 + (text.len() as f64 / 38.0).floor();
-            let (w, h) = (200.0_f64.min(size.0 - d.at.0).max(40.0), (lines * 15.0 + 8.0).min(size.1));
-            let r = viewer::view_rect_to_pdf(b, size, d.at, (d.at.0 + w, d.at.1 + h));
+            // 200 pt wide, moved left or up so the whole box is on the page (PDF Expert does the same).
+            let (w, h) = (200.0_f64.min(size.0), (lines * 15.0 + 8.0).min(size.1));
+            let at = (d.at.0.min(size.0 - w).max(0.0), d.at.1.min(size.1 - h).max(0.0));
+            let r = viewer::view_rect_to_pdf(b, size, at, (at.0 + w, at.1 + h));
             Shape::TextBox { rect: r, font_size: 12.0 }
         };
         let colour = if d.kind == 0 { COLOURS[r.light] } else { INK[r.ink_colour] };
@@ -894,7 +908,8 @@ fn load_blocks(r: &mut ReaderUi, v: &ViewerUi) {
 }
 
 /// The view scrolled or resized.
-pub fn viewport_changed(tab_id: i32) {
+pub fn viewport_changed(ui: &AppWindow, tab_id: i32) {
+    keep_fit(ui, tab_id);
     let editing = with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).is_some_and(|r| r.tool == EDIT_TEXT));
     if editing {
         update(tab_id, |r, v| load_blocks(r, v));
@@ -1046,34 +1061,46 @@ pub fn scroll_by(tab_id: i32, dy: f32) {
     });
 }
 
-/// Fit width (0) or fit page (1).
+/// PDF Expert's View menu: fit width (0, ⌘9), fit page (1, ⌘8), 100 % actual size (2, ⌘0).
 pub fn zoom_fit(ui: &AppWindow, tab_id: i32, mode: i32) {
     let z = update(tab_id, |r, v| {
-        r.zoom_mode = mode.clamp(0, 1);
-        if mode == 1 {
-            let cur = v.current();
-            v.viewer.fit_page_zoom(v.height, cur..cur + 1)
-        } else {
-            100
+        let cur = v.current();
+        r.zoom_mode = if mode == 2 { 2 } else { mode.clamp(0, 1) };
+        match mode {
+            1 => v.viewer.fit_page_zoom(v.height, cur..cur + 1),
+            2 => v.viewer.zoom_for_actual(cur, 100.0),
+            _ => 100,
         }
     });
     if let Some(z) = z {
         crate::viewer_ui::zoom_to(ui, tab_id, z);
-        if z == 100 || mode == 1 {
-            update(tab_id, |_, v| {
-                let cur = v.current();
-                v.show_page(cur, None);
-            });
-        }
+        update(tab_id, |_, v| {
+            let cur = v.current();
+            v.show_page(cur, None);
+        });
     }
 }
 
+/// A zoom chosen with + / − or the wheel: the view no longer follows the window's size.
 pub fn zoom_changed(tab_id: i32) {
-    update(tab_id, |r, v| {
-        if v.viewer.zoom() != 100 && r.zoom_mode == 0 {
-            r.zoom_mode = 2;
+    update(tab_id, |r, _| r.zoom_mode = 2);
+}
+
+/// Fit page is kept when the window or the panel changes size, as in PDF Expert.
+fn keep_fit(ui: &AppWindow, tab_id: i32) {
+    let z = with(|a| {
+        let t = a.tab(tab_id)?;
+        let (r, v) = (t.reader.as_ref()?, t.viewer.as_ref()?);
+        if r.zoom_mode != 1 {
+            return None;
         }
+        let cur = v.current();
+        let z = v.viewer.fit_page_zoom(v.height, cur..cur + 1);
+        (z != v.viewer.zoom()).then_some(z)
     });
+    if let Some(z) = z {
+        crate::viewer_ui::zoom_to(ui, tab_id, z);
+    }
 }
 
 pub fn escape(tab_id: i32) {
