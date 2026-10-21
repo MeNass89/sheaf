@@ -17,7 +17,6 @@ use sheaf_app::{AppWindow, ReaderMark, ReaderAnnotRow, ReaderNote, ReaderOutline
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, Markup, NewAnnotation, NoteIcon, Shape, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
-use sheaf_core::pdfcraft::Doc;
 use slint::{Color, ComponentHandle, ModelRc, VecModel};
 
 use crate::state::{refresh, tabs_model, with, TabState};
@@ -427,7 +426,9 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
             EDIT_TEXT => {
                 // A paragraph under the pointer is edited in place; elsewhere new text is added.
                 let size = v.viewer.boxes[page].view_size();
-                let hit = r.blocks(page).iter().enumerate().find_map(|(i, b)| {
+                // Paragraphs not read yet (just switched tool): the click adds text instead.
+                let blocks = r.blocks(page).unwrap_or_default();
+                let hit = blocks.iter().enumerate().find_map(|(i, b)| {
                     let [x, y, w, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, b.rect);
                     (p.0 >= x - 2.0 && p.0 <= x + w + 2.0 && p.1 >= y - 2.0 && p.1 <= y + h + 2.0).then(|| (i, b.text.clone(), b.rect, (x, y)))
                 });

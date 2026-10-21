@@ -126,7 +126,10 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                 match op {
                     Op::Apply { edit, pages } => {
                         let error = doc.apply(edit).err().map(|e| e.to_string());
-                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error });
+                        let t1 = std::time::Instant::now();
+                        let s = snap(&doc);
+                        debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
+                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error });
                     }
                     Op::Undo | Op::Redo => {
                         let id = doc.id();

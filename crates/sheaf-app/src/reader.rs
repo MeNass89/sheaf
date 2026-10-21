@@ -49,27 +49,33 @@ const SEPIA_PAPER: [f32; 3] = [244.0, 236.0, 216.0];
 const SEPIA_INK: [f32; 3] = [91.0, 70.0, 54.0];
 
 /// Recolours an RGBA render in place for `theme`.
+///
+/// Night inverts the lightness only (HSL: hue and saturation kept): each pixel's lightness
+/// `l = (max + min) / 2` goes to the other end of the paper–ink line and its offset from that grey
+/// (`c - l`) is kept, so a yellow highlight stays yellow and a teal heading stays teal (a plain
+/// inversion turns them blue and red). Sepia maps the grey scale onto warm paper and brown ink.
 pub fn tint(rgba: &mut [u8], theme: PageTheme) {
-    let (paper, ink, invert) = match theme {
+    let (paper, ink) = match theme {
         PageTheme::Day => return,
-        PageTheme::Night => (NIGHT_PAPER, NIGHT_INK, true),
-        PageTheme::Sepia => (SEPIA_PAPER, SEPIA_INK, false),
+        PageTheme::Night => (NIGHT_PAPER, NIGHT_INK),
+        PageTheme::Sepia => (SEPIA_PAPER, SEPIA_INK),
     };
-    // One lookup table per channel: value 255 (white) → paper, 0 → ink (inverted: the other way
-    // round for Night, where white paper must go dark).
-    let mut lut = [[0u8; 256]; 3];
-    for (c, table) in lut.iter_mut().enumerate() {
-        for (v, out) in table.iter_mut().enumerate() {
-            let t = v as f32 / 255.0;
-            let t = if invert { 1.0 - t } else { t };
-            let (lo, hi) = if invert { (paper[c], ink[c]) } else { (ink[c], paper[c]) };
-            *out = (lo + (hi - lo) * t).round().clamp(0.0, 255.0) as u8;
+    // Per channel, the grey for each lightness: 255 (white) → paper, 0 (black) → ink. Night's paper
+    // is dark and its ink light, which is the inversion.
+    let mut grey = [[0i32; 256]; 3];
+    for (c, table) in grey.iter_mut().enumerate() {
+        for (y, out) in table.iter_mut().enumerate() {
+            let t = y as f32 / 255.0;
+            *out = (ink[c] + (paper[c] - ink[c]) * t).round() as i32;
         }
     }
     for px in rgba.chunks_exact_mut(4) {
-        px[0] = lut[0][px[0] as usize];
-        px[1] = lut[1][px[1] as usize];
-        px[2] = lut[2][px[2] as usize];
+        let (r, g, b) = (px[0] as i32, px[1] as i32, px[2] as i32);
+        let l = (r.max(g).max(b) + r.min(g).min(b)) / 2;
+        let off = [r - l, g - l, b - l];
+        for c in 0..3 {
+            px[c] = (grey[c][l as usize] + off[c]).clamp(0, 255) as u8;
+        }
     }
 }
 
@@ -290,6 +296,10 @@ mod tests {
         let mut px = [12, 34, 56, 255];
         tint(&mut px, PageTheme::Day);
         assert_eq!(px, [12, 34, 56, 255]);
+        // A yellow highlight stays yellow at night: red and green above blue.
+        let mut px = [255, 219, 64, 255];
+        tint(&mut px, PageTheme::Night);
+        assert!(px[0] > px[2] + 100 && px[1] > px[2] + 100, "{px:?}");
     }
 
     fn item(title: &str, page: usize, open: bool, children: Vec<OutlineItem>) -> OutlineItem {

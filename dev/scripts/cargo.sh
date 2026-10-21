@@ -6,6 +6,9 @@
 #   sh dev/scripts/cargo.sh build --workspace
 #   sh dev/scripts/cargo.sh test --workspace
 set -eu
+# No incremental cache, and no debug info for the app (Slint generates one huge module): rustc on
+# sheaf-app otherwise needs more than 2.5 GB.
+export CARGO_INCREMENTAL=0
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target/sheaf}"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 cmd=$1; shift
@@ -13,4 +16,5 @@ exec cargo "$cmd" -j "${JOBS:-2}" \
     --config 'profile.dev.debug="line-tables-only"' \
     --config 'profile.dev.package."*".debug=false' \
     --config 'profile.dev.package."*".opt-level=2' \
+    --config 'profile.dev.package.sheaf-app.debug=false' \
     "$@"
