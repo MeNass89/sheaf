@@ -73,6 +73,8 @@ export component ReaderScreen inherits Rectangle {
     // The two-page mode a presentation put aside (it shows one page at a time).
     property <int> spread-before;
     function present() {
+        // Already presenting: the mode to restore is kept.
+        if root.presenting { return; }
         root.presenting = true;
         root.spread-before = root.tab.reader.spread;
         ReaderBridge.set-spread(root.id, 0);
