@@ -19613,12 +19613,12 @@
   "grade": {
    "function": 9,
    "aesthetics": 9,
-   "performance": 8,
-   "overall": 8
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "reader search: field, count, highlights, results panel (search exists only inside Redact)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19663,6 +19663,17 @@
      "overall": 8
     },
     "proof": "Search streams results on 1,982 pages (757 hits), count, Enter/⇧Enter/⌘G, hits highlighted, bold context in the panel (dev/re/evidence/F-002/02, dev/re/evidence/F-002/20); streaming the whole book takes ~25 s (debug build)"
+   },
+   {
+    "date": "2026-10-21",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Search on the 1,982-page book (reader_doc::tests::search_cost_on_a_big_file): results stream from the first pages within 0.5 s; the whole book in 12.6 s on 2 vCPUs (was 15.8 s; one reader per core, up to 4); every later search 1.5 ms (texts kept). gui-smoke runs a search"
    }
   ]
  },

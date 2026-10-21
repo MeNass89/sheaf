@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 57 · open 275, closed 56
+331 components · at parity (≥9): 58 · open 274, closed 57
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -44,29 +44,29 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 35 | C-output-007 | strong | Print a document | pdfexpert | 8 · 8 · 9 → **8** | print via the OS |
 | 36 | C-reader-001 | strong | Open a PDF in the reader | pdfexpert | 8 · 8 · 8 → **8** | a Reader tab opened by Open, drop and recents; tools act on the open document |
 | 37 | C-reader-025 | strong | Browse the document outline | pdfexpert | 9 · 8 · 9 → **8** | outline panel from the PDF's bookmarks |
-| 38 | C-reader-032 | strong | Find text in the document | pdfexpert | 9 · 9 · 8 → **8** | reader search: field, count, highlights, results panel (search exists only inside Redact) |
-| 39 | C-sign-002 | strong | Draw a signature | pdfexpert | 8 · 8 · 9 → **8** | pen colour and thickness |
-| 40 | C-sign-003 | strong | Type a signature | stirling | 8 · 8 · 9 → **8** | several script fonts |
-| 41 | C-annotate-008 | normal | Add callout or speech bubble | acrobat | 0 · 0 · 0 → **0** | after core |
-| 42 | C-annotate-011 | normal | Erase ink strokes | pdfexpert | 0 · 0 · 0 → **0** | eraser via engine EraseInk |
-| 43 | C-annotate-016 | normal | Place a stamp | pdfexpert | 0 · 0 · 0 → **0** | standard stamps |
-| 44 | C-annotate-018 | normal | Add check, cross or symbol | pdfexpert | 0 · 0 · 0 → **0** | with forms |
-| 45 | C-annotate-021 | normal | Add link annotation | preview | 0 · 0 · 0 → **0** | with edit links |
-| 46 | C-annotate-029 | normal | Remove all annotations | pdfexpert | 0 · 0 · 0 → **0** | remove-annotations tool |
-| 47 | C-annotate-031 | normal | Sort and filter comments | acrobat | 0 · 0 · 0 → **0** | filter by type/colour |
-| 48 | C-annotate-032 | normal | Hide or show all comments | acrobat | 0 · 0 · 0 → **0** | engine set_hide_comments |
-| 49 | C-annotate-033 | normal | Reply to a comment | acrobat | 0 · 0 · 0 → **0** | engine ReplyToAnnotation |
-| 50 | C-annotate-035 | normal | Export or summarise comments | acrobat | 0 · 0 · 0 → **0** | engine summarize_comments |
-| 51 | C-compare-005 | normal | View documents side by side, synced | stirling | 0 · 0 · 0 → **0** | synced side-by-side view |
-| 52 | C-convert-004 | normal | Create PDF from clipboard | preview | 0 · 0 · 0 → **0** | light |
-| 53 | C-convert-006 | normal | Create PDF from scanner or screenshot | acrobat | 0 · 0 · 0 → **0** | light |
-| 54 | C-convert-008 | normal | Create an empty document | pdfexpert | 0 · 0 · 0 → **0** | engine create_blank |
-| 55 | C-convert-013 | normal | Extract embedded images | ilovepdf | 0 · 0 · 0 → **0** | after core |
-| 56 | C-convert-014 | normal | Export PDF as text or RTF | acrobat | 0 · 0 · 0 → **0** | export text (engine text layer) |
-| 57 | C-edit-008 | normal | Replace, rotate or edit an image | acrobat | 0 · 0 · 0 → **0** | engine EditPageImage |
-| 58 | C-edit-012 | normal | Find and replace text | acrobat | 0 · 0 · 0 → **0** | engine ReplaceText |
-| 59 | C-edit-015 | normal | Add header and footer | acrobat | 0 · 0 · 0 → **0** | engine has page marks; add header/footer tool |
-| 60 | C-edit-021 | normal | Add and edit links | acrobat | 0 · 0 · 0 → **0** | engine links |
+| 38 | C-sign-002 | strong | Draw a signature | pdfexpert | 8 · 8 · 9 → **8** | pen colour and thickness |
+| 39 | C-sign-003 | strong | Type a signature | stirling | 8 · 8 · 9 → **8** | several script fonts |
+| 40 | C-annotate-008 | normal | Add callout or speech bubble | acrobat | 0 · 0 · 0 → **0** | after core |
+| 41 | C-annotate-011 | normal | Erase ink strokes | pdfexpert | 0 · 0 · 0 → **0** | eraser via engine EraseInk |
+| 42 | C-annotate-016 | normal | Place a stamp | pdfexpert | 0 · 0 · 0 → **0** | standard stamps |
+| 43 | C-annotate-018 | normal | Add check, cross or symbol | pdfexpert | 0 · 0 · 0 → **0** | with forms |
+| 44 | C-annotate-021 | normal | Add link annotation | preview | 0 · 0 · 0 → **0** | with edit links |
+| 45 | C-annotate-029 | normal | Remove all annotations | pdfexpert | 0 · 0 · 0 → **0** | remove-annotations tool |
+| 46 | C-annotate-031 | normal | Sort and filter comments | acrobat | 0 · 0 · 0 → **0** | filter by type/colour |
+| 47 | C-annotate-032 | normal | Hide or show all comments | acrobat | 0 · 0 · 0 → **0** | engine set_hide_comments |
+| 48 | C-annotate-033 | normal | Reply to a comment | acrobat | 0 · 0 · 0 → **0** | engine ReplyToAnnotation |
+| 49 | C-annotate-035 | normal | Export or summarise comments | acrobat | 0 · 0 · 0 → **0** | engine summarize_comments |
+| 50 | C-compare-005 | normal | View documents side by side, synced | stirling | 0 · 0 · 0 → **0** | synced side-by-side view |
+| 51 | C-convert-004 | normal | Create PDF from clipboard | preview | 0 · 0 · 0 → **0** | light |
+| 52 | C-convert-006 | normal | Create PDF from scanner or screenshot | acrobat | 0 · 0 · 0 → **0** | light |
+| 53 | C-convert-008 | normal | Create an empty document | pdfexpert | 0 · 0 · 0 → **0** | engine create_blank |
+| 54 | C-convert-013 | normal | Extract embedded images | ilovepdf | 0 · 0 · 0 → **0** | after core |
+| 55 | C-convert-014 | normal | Export PDF as text or RTF | acrobat | 0 · 0 · 0 → **0** | export text (engine text layer) |
+| 56 | C-edit-008 | normal | Replace, rotate or edit an image | acrobat | 0 · 0 · 0 → **0** | engine EditPageImage |
+| 57 | C-edit-012 | normal | Find and replace text | acrobat | 0 · 0 · 0 → **0** | engine ReplaceText |
+| 58 | C-edit-015 | normal | Add header and footer | acrobat | 0 · 0 · 0 → **0** | engine has page marks; add header/footer tool |
+| 59 | C-edit-021 | normal | Add and edit links | acrobat | 0 · 0 · 0 → **0** | engine links |
+| 60 | C-edit-023 | normal | Edit bookmarks and table of contents | acrobat | 0 · 0 · 0 → **0** | with outline editing (reader) |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
@@ -84,7 +84,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | output | 15 | 3.9 | 0 |
 | platform | 14 | 3.4 | 1 |
 | preferences | 14 | 2.4 | 1 |
-| reader | 64 | 4.3 | 24 |
+| reader | 64 | 4.3 | 25 |
 | security | 18 | 4.3 | 1 |
 | sign | 18 | 3.8 | 4 |
 
@@ -133,6 +133,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-reader-022 | Show or hide the side panel | 9 | Panel button and ⌥⌘0 hide/show the side panel (dev/re/evidence/F-002/28) |
 | C-reader-023 | Page thumbnails panel | 9 | Pages tab: 150 px thumbnails like PDF Expert's, page number, current ringed, click jumps, lazy renders (dev/re/evidence/F-002/11, dev/re/evidence/F-002/18) |
 | C-reader-028 | Highlights and notes sidebar | 9 | Same Notes panel (C-annotate-030): highlights, notes, ink, signatures with author and date; click jumps |
+| C-reader-032 | Find text in the document | 9 | Search on the 1,982-page book (reader_doc::tests::search_cost_on_a_big_file): results stream from the first pages within 0.5 s; the whole book in 12.6 s on 2 vCPUs (was 15.8 s; one reader per core, up to 4); every later search 1.5 ms (texts kept). gui-smoke runs a search |
 | C-reader-033 | Next and previous search match | 9 | Enter / ⇧Enter / ⌘G / ⇧⌘G step through matches: 1/9 → 2/9 → 3/9 → 2/9 → 3/9 (dev/re/evidence/F-002/31) |
 | C-reader-034 | Search options | 9 | Aa / Whole words toggles re-run the search (dev/re/evidence/F-002/12) |
 | C-reader-035 | Search results list | 9 | Results panel: page, context with the match in bold, wraps, click jumps even while the search streams (dev/re/evidence/F-002/20, dev/re/evidence/F-002/21) |

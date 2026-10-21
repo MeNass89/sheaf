@@ -7,6 +7,7 @@
 
 use std::collections::HashSet;
 use std::ops::Range;
+use std::sync::Arc;
 
 use sheaf_core::pdfcraft::render::{self, PageText};
 
@@ -247,6 +248,46 @@ pub const INK: [[f64; 3]; 5] = [
     [0.1, 0.6, 0.3],   // green
     [0.6, 0.25, 0.85], // purple
 ];
+
+/// The text layer of pages `0..n` of `bytes`: `known` pages as they are, the others read on every
+/// core (one PdfCraft renderer each, at most four). `found(page, text)` gets each page in no
+/// particular order and returns false to stop; `stale()` true stops reading too.
+pub fn read_texts(
+    bytes: &Arc<Vec<u8>>,
+    config: &render::RenderConfig,
+    n: usize,
+    known: &std::collections::HashMap<usize, Arc<PageText>>,
+    stale: &(dyn Fn() -> bool + Sync),
+    found: impl Fn(usize, Option<Arc<PageText>>) -> bool + Sync,
+) {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let readers = std::thread::available_parallelism().map_or(2, |k| k.get()).clamp(1, 4);
+    let next = AtomicUsize::new(0);
+    std::thread::scope(|scope| {
+        for _ in 0..readers {
+            let (next, found) = (&next, &found);
+            scope.spawn(move || {
+                let mut rr: Option<render::PageRenderer> = None;
+                loop {
+                    let page = next.fetch_add(1, Ordering::Relaxed);
+                    if page >= n || stale() {
+                        return;
+                    }
+                    let text = match known.get(&page) {
+                        Some(t) => Some(t.clone()),
+                        None => {
+                            let rr = rr.get_or_insert_with(|| render::PageRenderer::new(bytes.clone(), config.clone()));
+                            rr.render(render::RenderRequest { page, kind: render::RequestKind::Text, scale: 1.0, ..Default::default() }).text
+                        }
+                    };
+                    if !found(page, text) {
+                        return;
+                    }
+                }
+            });
+        }
+    });
+}
 
 /// Opacities offered for shapes and drawings.
 pub const OPACITIES: [f64; 4] = [1.0, 0.75, 0.5, 0.25];

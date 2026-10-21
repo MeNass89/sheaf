@@ -4,7 +4,7 @@ use super::*;
 
 pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
     let q = query.trim().to_string();
-    let Some((bytes, password, n, generation, case, whole, live)) = update(tab_id, |r, v| {
+    let Some((bytes, password, n, generation, case, whole, live, known)) = update(tab_id, |r, v| {
         r.search.generation += 1;
         r.search.query = q.clone();
         r.search.hits.clear();
@@ -18,7 +18,9 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
             r.panel_open = true;
         }
         r.search_live.store(r.search.generation, std::sync::atomic::Ordering::Relaxed);
-        (r.snap.bytes.clone(), r.password(), v.viewer.page_count(), r.search.generation, r.search.case_sensitive, r.search.whole_words, r.search_live.clone())
+        // Pages read before (an earlier search, selection) are not read again.
+        let known = r.texts.clone();
+        (r.snap.bytes.clone(), r.password(), v.viewer.page_count(), r.search.generation, r.search.case_sensitive, r.search.whole_words, r.search_live.clone(), known)
     }) else {
         return;
     };
@@ -29,55 +31,66 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
     std::thread::spawn(move || {
         let stale = || live.load(std::sync::atomic::Ordering::Relaxed) != generation;
         let config = render::RenderConfig { password: password.as_deref().map(Arc::from), ..Default::default() };
-        let mut rr = render::PageRenderer::new(bytes, config);
-        let mut texts = Vec::new();
-        let mut hits = Vec::new();
-        let mut snippets = Vec::new();
-        // Results come back in batches so the first pages show while the rest are read.
-        let mut sent = 0;
-        for page in 0..n {
-            // A newer search, a cleared field, a page edit or a closed tab: stop reading.
-            if stale() {
-                return;
-            }
-            let res = rr.render(render::RenderRequest { page, kind: render::RequestKind::Text, scale: 1.0, ..Default::default() });
-            if let Some(t) = res.text {
-                for m in t.find_opts(&q, case, whole) {
-                    snippets.push(snippet(&t, m.clone()));
-                    hits.push((page, t.line_rects(m)));
+        let (tx, rx) = std::sync::mpsc::channel::<(usize, Option<Arc<PageText>>)>();
+        std::thread::scope(|scope| {
+            // The sender goes with the readers: when they are done, the loop below ends.
+            let (b, c, k, st) = (&bytes, &config, &known, &stale);
+            scope.spawn(move || reader::read_texts(b, c, n, k, st, |p, t| tx.send((p, t)).is_ok()));
+            // Texts come back in any order; they are taken in page order, so results stay in order.
+            let mut waiting = std::collections::BTreeMap::new();
+            let mut page = 0;
+            let mut texts = Vec::new();
+            let mut hits = Vec::new();
+            let mut snippets = Vec::new();
+            // Results come back in batches so the first pages show while the rest are read.
+            let mut sent = 0;
+            for (p, t) in rx {
+                waiting.insert(p, t);
+                while let Some(t) = waiting.remove(&page) {
+                    if stale() {
+                        return;
+                    }
+                    if let Some(t) = t {
+                        for m in t.find_opts(&q, case, whole) {
+                            snippets.push(snippet(&t, m.clone()));
+                            hits.push((page, t.line_rects(m)));
+                        }
+                        if !known.contains_key(&page) {
+                            texts.push((page, t));
+                        }
+                    }
+                    let last = page + 1 == n;
+                    if last || (hits.len() > sent && (page % 16 == 15)) {
+                        let batch: Vec<_> = hits[sent..].to_vec();
+                        let snips: Vec<_> = snippets[sent..].to_vec();
+                        sent = hits.len();
+                        let tx = std::mem::take(&mut texts);
+                        let _ = weak.upgrade_in_event_loop(move |_| {
+                            update(tab_id, |r, v| {
+                                if r.search.generation != generation {
+                                    return;
+                                }
+                                for (p, t) in tx {
+                                    r.texts.entry(p).or_insert(t);
+                                }
+                                let first = r.search.hits.is_empty() && !batch.is_empty();
+                                r.search.hits.extend(batch);
+                                r.search.snippets.extend(snips);
+                                r.version += 1;
+                                r.search.busy = !last;
+                                if first {
+                                    r.search.current = Some(0);
+                                    let (page, rects) = &r.search.hits[0];
+                                    let rect = union(rects);
+                                    show_view_rect(v, *page, rect);
+                                }
+                            });
+                        });
+                    }
+                    page += 1;
                 }
-                texts.push((page, t));
             }
-            let last = page + 1 == n;
-            if last || (hits.len() > sent && (page % 16 == 15)) {
-                let batch: Vec<_> = hits[sent..].to_vec();
-                let snips: Vec<_> = snippets[sent..].to_vec();
-                sent = hits.len();
-                let tx = std::mem::take(&mut texts);
-                let w = weak.clone();
-                let _ = w.upgrade_in_event_loop(move |_| {
-                    update(tab_id, |r, v| {
-                        if r.search.generation != generation {
-                            return;
-                        }
-                        for (p, t) in tx {
-                            r.texts.entry(p).or_insert(t);
-                        }
-                        let first = r.search.hits.is_empty() && !batch.is_empty();
-                        r.search.hits.extend(batch);
-                        r.search.snippets.extend(snips);
-                        r.version += 1;
-                        r.search.busy = !last;
-                        if first {
-                            r.search.current = Some(0);
-                            let (page, rects) = &r.search.hits[0];
-                            let rect = union(rects);
-                            show_view_rect(v, *page, rect);
-                        }
-                    });
-                });
-            }
-        }
+        });
     });
 }
 

@@ -372,6 +372,29 @@ mod tests {
         let _ = std::fs::remove_file(copy);
     }
 
+    /// What a search reads on a large file (`SHEAF_BENCH_PDF`): the text layer of every page,
+    /// as the reader's search thread does. Run with --ignored --nocapture.
+    #[test]
+    #[ignore]
+    fn search_cost_on_a_big_file() {
+        use sheaf_core::pdfcraft::render;
+        let Some(path) = std::env::var_os("SHEAF_BENCH_PDF") else { return };
+        let bytes = Arc::new(std::fs::read(path).unwrap());
+        let n = render::PageRenderer::new(bytes.clone(), render::RenderConfig::default()).page_count();
+        let texts = std::sync::Mutex::new(std::collections::HashMap::new());
+        let t = std::time::Instant::now();
+        sheaf_app::reader::read_texts(&bytes, &render::RenderConfig::default(), n, &Default::default(), &|| false, |p, x| {
+            texts.lock().unwrap().insert(p, x);
+            true
+        });
+        let first = t.elapsed();
+        let known: std::collections::HashMap<usize, Arc<render::PageText>> = texts.into_inner().unwrap().into_iter().filter_map(|(p, x)| Some((p, x?))).collect();
+        let hits: usize = known.values().map(|x| x.find_opts("tumor", false, false).len()).sum();
+        let t = std::time::Instant::now();
+        sheaf_app::reader::read_texts(&bytes, &render::RenderConfig::default(), n, &known, &|| false, |_, _| true);
+        println!("{n} pages, {hits} hits: first search {first:?}, again {:?}", t.elapsed());
+    }
+
     /// ⌘S twice with an edit between: each save appends, and the light refresh after an
     /// appended save (patched engine) keeps the comment list and undo in step with the file.
     #[test]

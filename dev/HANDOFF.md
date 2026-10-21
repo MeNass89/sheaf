@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 57 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
+**331 components, 58 at ≥ 9.** Domains: reader 17/64, organize 5/27, annotate 4/38, forms 4/17, files 3/19,
 security 1/18, platform 1/14; edit, convert, optimize, output, sign, compare, batch, preferences, ai at 0.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
@@ -61,7 +61,10 @@ Next, by components lifted:
 4. View modes: done two pages and cover alone (C-reader-015, 016 at 9; `Viewer::spread`). Left: single page (014),
    horizontal scroll (003), rotate the view (017).
 5. **Menu bar** with every reader command: C-platform-014, and the menu entries C-reader-039 / 040 lack.
-6. **Copy / paste / Delete of objects**: C-edit-010, C-annotate-026.
+6. **Copy / paste of annotations and objects** (C-edit-010, C-annotate-026): PdfCraft has no duplicate edit and the
+   snapshot lacks strokes, fill and line ends; needs reading the annotation's dictionary (or XFDF export/import).
+7. Single page mode (C-reader-014), horizontal scroll (003), rotate view (017: the text layer is in page view space,
+   so a view rotation must go through PDF space everywhere).
 
 ## Known limits worth the next session
 
