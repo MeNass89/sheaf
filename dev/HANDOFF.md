@@ -34,6 +34,18 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 - Edit text in place (E tool) works but glyphs missing from embedded subsets draw wrong (C-edit-002 at 5);
   a standard-font fallback made PdfCraft overprint rows and was reverted.
 
+## Tests (run them after every change)
+
+- `sh dev/scripts/build-safe.sh test -p sheaf-app --bin sheaf-app`: the reader's unit tests, including
+  `reader_doc::tests` (document thread: annotate → save → reopen, undo/redo, page edits checked with lopdf,
+  extract, Save As, atomic replace). Whole workspace: `… test --workspace --no-fail-fast` (333+ tests).
+- `bash dev/scripts/gui-smoke.sh` (after a build): drives the real app on Xvfb :98 with xdotool and checks the
+  files it writes (qpdf, pdftotext): highlight, note, undo/redo, duplicate/delete pages, search, unsaved prompt,
+  form filling. Prints PASS/FAIL per check; screenshots in `dev/.tmp/smoke/`.
+- Code review by Sol (Codex) before merging broad changes: write the diff to a file and run `codex exec … -s
+  danger-full-access` with a "do not modify any file" prompt (Codex's bwrap sandbox cannot start on this VM).
+  Check the Codex weekly quota first (newest `~/.codex/sessions` rollout with `rate_limits`); stop at 90 %.
+
 ## Known limits worth the next session
 
 - PdfCraft re-reads every page's objects after each edit: on a 70 MB book an annotation takes 2.4 s in the engine

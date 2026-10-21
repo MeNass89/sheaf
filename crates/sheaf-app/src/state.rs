@@ -77,6 +77,8 @@ pub struct TabState {
     pub reader: Option<Box<crate::reader_ui::ReaderUi>>,
     /// A document tab whose file is still being read: its name.
     pub reader_loading: Option<String>,
+    /// A document tab's file, canonical: one tab per file.
+    pub reader_file: Option<PathBuf>,
     /// While the document opens: the channel to its thread and the file.
     pub reader_ops: Option<(std::sync::mpsc::Sender<crate::reader_doc::Op>, sheaf_core::pages::Input)>,
 }
@@ -105,6 +107,7 @@ impl TabState {
             strip: (0.0, 800.0),
             reader: None,
             reader_loading: None,
+            reader_file: None,
             reader_ops: None,
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
         }

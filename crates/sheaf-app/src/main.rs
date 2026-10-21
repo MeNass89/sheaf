@@ -161,6 +161,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_page_op, |ui, id, op| reader_ui::page_op(&ui, id, op));
     rb.on_thumb_drag(|id, p, y| reader_ui::thumb_drag(id, p, y));
     rb.on_thumb_at(reader_ui::thumb_at);
+    rb.on_thumb_released(reader_ui::thumb_released);
     wire_global!(ui, rb, on_field_tab, |ui, id, t, back| reader_ui::field_tab(&ui, id, &t, back));
     wire_global!(ui, rb, on_choice_picked, |ui, id, k| reader_ui::choice_picked(&ui, id, k));
     wire_global!(ui, rb, on_form_op, |ui, id, op| reader_ui::form_op(&ui, id, op));

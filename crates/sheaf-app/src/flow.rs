@@ -329,6 +329,7 @@ pub fn edit_pages(tab_id: i32, f: impl FnOnce(&mut Vec<u32>)) {
 pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
     let Some(i) = with(|a| a.tab_index(tab_id)) else { return };
     crate::reader_ui::remember_position(tab_id);
+    crate::reader_ui::stop_work(tab_id);
     with(|a| {
         let t = &a.tabs[i];
         if matches!(t.phase, Phase::Running) {

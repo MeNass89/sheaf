@@ -489,3 +489,14 @@ not pdfium's path). **Would change it.** Users wanting photos left untouched in 
 | C-sign-018 | Clear a certificate signature | light | acrobat | clear signature |  | 0·0·0 |
 
 <!-- end board decisions -->
+
+## 2026-10-21 · Automated tests and Sol's review (Nassim's request)
+**Decision.** Every change is checked by (1) unit tests of the reader's document thread (`reader_doc::tests`),
+(2) `dev/scripts/gui-smoke.sh`, which drives the real app under Xvfb and checks the PDFs it writes, and (3) a
+review of broad changes by Sol (Codex). Sol's first review found 11 defects, all fixed the same day: save checked
+with `check_save` before a file is replaced; one tab per file (loading tabs included) and Save As refused onto a
+file open elsewhere; close-after-save and Tools-after-save wait for a save that includes every edit; edits that
+name pages wait while a page edit is in flight, and page edits drop search results, selections and drafts;
+refused edits leave the undo stack; form changes re-render every page; searches stop when replaced or the tab
+closes; editing the search field drops old results; a plain press on a selected thumbnail keeps the selection for
+a drag. **Reason.** Nassim: faster and safer than checking screenshots by hand.

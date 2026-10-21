@@ -444,6 +444,7 @@ export global ReaderBridge {
     callback thumb-drop(int, length);
     // The page whose thumbnail is at content y of the Pages panel (−1: none).
     callback thumb-at(int, length) -> int;
+    callback thumb-released(int);
     // Form fields: Tab / ⇧Tab in a field editor (its text), a choice picked.
     callback field-tab(int, string, bool);
     callback choice-picked(int, int);

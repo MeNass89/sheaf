@@ -315,9 +315,8 @@ export component ReaderScreen inherits Rectangle {
                                     ReaderBridge.search(root.id, self.text);
                                 }
                             }
-                            edited => {
-                                if self.text == "" { ReaderBridge.search-clear(root.id); }
-                            }
+                            // Any change drops the results of the old text: Enter then searches the new one.
+                            edited => { ReaderBridge.search-clear(root.id); }
                             key-pressed(e) => {
                                 if e.text == Key.Escape {
                                     self.text = "";
@@ -690,6 +689,8 @@ export component ReaderScreen inherits Rectangle {
                                     } else if e.kind == PointerEventKind.up && root.drop-line >= 0 {
                                         ReaderBridge.thumb-drop(root.id, self.mouse-y);
                                         root.drop-line = -1px;
+                                    } else if e.kind == PointerEventKind.up {
+                                        ReaderBridge.thumb-released(root.id);
                                     }
                                 }
                                 moved => {

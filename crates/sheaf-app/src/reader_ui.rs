@@ -119,13 +119,21 @@ pub struct ReaderUi {
     page_anchor: Option<usize>,
     /// Pages being dragged in the panel.
     page_drag: Option<Vec<usize>>,
-    /// A page edit is on its way: the outline and the thumbnails follow when it is done.
+    /// A page edit is on its way: edits that name pages wait until it is done (their page
+    /// numbers may be about to change).
     structure_pending: bool,
+    /// The Tools button saved first: the file goes to the tools when that save succeeds.
+    tools_after_save: bool,
+    /// Generation of the running search, shared with its thread so it stops when replaced.
+    search_live: Arc<std::sync::atomic::AtomicU64>,
+    /// A plain press on a page already selected: the selection shrinks to it only if no drag
+    /// follows.
+    pending_reduce: Option<usize>,
     /// Pages of each edit sent, for undo and redo.
     undo_pages: Vec<Vec<usize>>,
     redo_pages: Vec<Vec<usize>>,
     /// A check box or radio button clicked: its edit, sent once the click is handled.
-    pending_field: Option<(usize, Edit)>,
+    pending_field: Option<Edit>,
     /// The annotation under the press, selected if the press ends without a drag.
     annot_candidate: Option<usize>,
     /// The panel shown before a search took it over (results, panel 3).
@@ -184,6 +192,9 @@ impl ReaderUi {
             page_anchor: None,
             page_drag: None,
             structure_pending: false,
+            tools_after_save: false,
+            search_live: Default::default(),
+            pending_reduce: None,
             undo_pages: Vec::new(),
             redo_pages: Vec::new(),
             panel_before_search: None,
@@ -256,7 +267,9 @@ impl ReaderUi {
 /// Opens `path` in a new reader tab and shows it. A file already open is brought forward.
 pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
     let canon = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
-    let existing = with(|a| a.tabs.iter().position(|t| t.reader.as_ref().is_some_and(|r| std::fs::canonicalize(&r.path).unwrap_or_else(|_| r.path.clone()) == canon)));
+    // One tab per file, a tab still loading included: two tabs saving one file would overwrite
+    // each other's edits.
+    let existing = with(|a| a.tabs.iter().position(|t| t.reader_file.as_ref() == Some(&canon)));
     if let Some(i) = existing {
         ui.set_active_tab(i as i32);
         return;
@@ -266,6 +279,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
         a.next_id += 1;
         let mut t = TabState::new(a.next_id, sheaf_core::tools::ToolId::Edit);
         t.reader_loading = Some(file_name(&path));
+        t.reader_file = Some(canon.clone());
         tabs_model().push(crate::state::build(&t));
         a.tabs.push(t);
         a.next_id
@@ -327,11 +341,19 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 e => crate::flow::toast(ui, &format!("Can't open {}: {e}", file_name(&input.path))),
             }
         }
-        Reply::Changed { snap, pages, error } => {
+        Reply::Changed { snap, pages, error, applied } => {
             update(id, |r, v| {
                 r.in_flight = r.in_flight.saturating_sub(1);
+                // A refused edit added no undo step: its pages leave the stack too.
+                if applied && error.is_some() {
+                    r.undo_pages.pop();
+                }
+                let structural = r.snap.boxes.len() != snap.boxes.len() || r.structure_pending;
                 r.snap = *snap;
                 r.structure_pending = false;
+                if structural {
+                    forget_page_state(r);
+                }
                 after_change(r, v, pages.as_deref().filter(|p| !p.is_empty()));
                 if r.in_flight == 0 {
                     r.provisional.clear();
@@ -354,7 +376,16 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             });
             match (error, name) {
                 (None, Some(n)) => {
+                    // Edits made while this save ran are not in it: save again before closing or
+                    // handing the file to a tool.
+                    if unsaved_name(id).is_some() && (with(|a| a.closing_after_save.contains(&id)) || tools_waiting(id)) {
+                        save(ui, id);
+                        return;
+                    }
                     crate::flow::toast(ui, &format!("Saved {n}"));
+                    if update(id, |r, _| std::mem::take(&mut r.tools_after_save)).unwrap_or(false) {
+                        hand_to_tools(ui, id);
+                    }
                     if with(|a| a.closing_after_save.remove(&id)) {
                         crate::flow::remove_tab(ui, id);
                         if with(|a| a.quitting) {
@@ -367,6 +398,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                         a.closing_after_save.remove(&id);
                         a.quitting = false;
                     });
+                    update(id, |r, _| r.tools_after_save = false);
                     crate::flow::toast(ui, &format!("Not saved: {e}"));
                 }
                 _ => {}
@@ -722,13 +754,14 @@ fn open_field(r: &mut ReaderUi, v: &ViewerUi, page: usize, fi: usize, rect: [f64
         1 => {
             let on = f.value.first().is_some_and(|x| x != "Off");
             let edit = Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Check(!on) };
-            r.pending_field = Some((page, edit));
+            let _ = page;
+            r.pending_field = Some(edit);
             false
         }
         2 => {
             let state = f.widgets.iter().find(|w| w.0 == page && w.1 == rect).and_then(|w| w.2.clone());
             let edit = Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Radio(state) };
-            r.pending_field = Some((page, edit));
+            r.pending_field = Some(edit);
             false
         }
         0 | 3 => {
@@ -798,17 +831,19 @@ pub fn choice_picked(ui: &AppWindow, tab_id: i32, k: i32) {
         let (fi, _) = d.field?;
         let f = r.snap.fields.get(fi)?;
         let (export, _) = f.options.get(k.max(0) as usize)?;
-        Some((d.page, Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Choice(vec![export.clone()]) }))
+        Some(Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Choice(vec![export.clone()]) })
     })
     .flatten();
-    if let Some((page, e)) = edit {
-        apply(ui, tab_id, e, &[page], None);
+    if let Some(e) = edit {
+        apply(ui, tab_id, e, &[], None);
     }
 }
 
+/// Form edits re-render every page: a field's widgets (a radio group) and its scripts can reach
+/// other pages.
 fn apply_pending_field(ui: &AppWindow, tab_id: i32) {
-    if let Some((page, e)) = update(tab_id, |r, _| r.pending_field.take()).flatten() {
-        apply(ui, tab_id, e, &[page], None);
+    if let Some(e) = update(tab_id, |r, _| r.pending_field.take()).flatten() {
+        apply(ui, tab_id, e, &[], None);
     }
 }
 
@@ -874,6 +909,15 @@ fn link_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<rende
     })
 }
 
+/// The tab closes: a running search stops.
+pub fn stop_work(tab_id: i32) {
+    with(|a| {
+        if let Some(r) = a.tab(tab_id).and_then(|t| t.reader.as_ref()) {
+            r.search_live.store(u64::MAX, std::sync::atomic::Ordering::Relaxed);
+        }
+    });
+}
+
 /// Keeps the page a document tab shows, for its next opening.
 pub fn remember_position(tab_id: i32) {
     if let Some((path, page)) = with(|a| {
@@ -927,6 +971,9 @@ fn apply(ui: &AppWindow, tab_id: i32, edit: Edit, pages: &[usize], provisional: 
         if !r.snap.read_only.is_empty() {
             return Some(r.snap.read_only.clone());
         }
+        if r.structure_pending {
+            return Some("One moment: the pages are being rearranged".into());
+        }
         r.send(Op::Apply { edit, pages: pages.to_vec() });
         r.undo_pages.push(pages.to_vec());
         r.redo_pages.clear();
@@ -937,6 +984,34 @@ fn apply(ui: &AppWindow, tab_id: i32, edit: Edit, pages: &[usize], provisional: 
     if let Some(e) = err {
         crate::flow::toast(ui, &e);
     }
+}
+
+/// Pages were added, removed, moved or turned: everything held by page number is dropped
+/// (search results, selections, drafts, marks on their way) rather than shown on the wrong page.
+fn forget_page_state(r: &mut ReaderUi) {
+    r.search.generation += 1;
+    r.search_live.store(r.search.generation, std::sync::atomic::Ordering::Relaxed);
+    r.search.hits.clear();
+    r.search.snippets.clear();
+    r.search.current = None;
+    r.search.busy = false;
+    r.sel = None;
+    r.draft = None;
+    r.selected_annot = None;
+    r.press = None;
+    r.stroke = None;
+    r.image_at = None;
+    r.sign_at = None;
+    r.provisional.clear();
+    r.texts.clear();
+    r.blocks.clear();
+    r.blocks_asked.clear();
+    r.back.clear();
+    r.forward.clear();
+    r.page_drag = None;
+    r.pending_reduce = None;
+    let n = r.snap.boxes.len();
+    r.page_sel.retain(|p| *p < n);
 }
 
 /// The working copy changed: new bytes to render, annotations to list.
@@ -1102,7 +1177,9 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
     })
     .flatten();
     if let Some((page, e)) = edit {
-        apply(ui, tab_id, e, &[page], None);
+        // A form value can change other pages (widgets, scripts): all render again.
+        let pages = if matches!(e, Edit::SetFieldValue { .. }) { vec![] } else { vec![page] };
+        apply(ui, tab_id, e, &pages, None);
     }
 }
 
@@ -1157,7 +1234,16 @@ pub fn save(_ui: &AppWindow, tab_id: i32) {
 pub fn save_as(ui: &AppWindow, tab_id: i32) {
     let Some((dir, name)) = update(tab_id, |r, _| (crate::dest::parent_dir(&r.path), r.name.clone())) else { return };
     let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(name).add_filter("PDF", &["pdf"]);
-    crate::dialog::save_file(ui, d, move |_, target| {
+    crate::dialog::save_file(ui, d, move |ui, target| {
+        let canon = std::fs::canonicalize(&target).unwrap_or_else(|_| target.clone());
+        if with(|a| a.tabs.iter().any(|t| t.id != tab_id && t.reader_file.as_ref() == Some(&canon))) {
+            return crate::flow::toast(ui, "That file is open in another tab: close it first");
+        }
+        with(|a| {
+            if let Some(t) = a.tab(tab_id) {
+                t.reader_file = Some(canon);
+            }
+        });
         update(tab_id, |r, _| r.send(Op::Save { to: Some(target) }));
     });
 }
@@ -1167,11 +1253,22 @@ pub fn unsaved_name(tab_id: i32) -> Option<String> {
     with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).filter(|r| r.dirty()).map(|r| r.name.clone()))
 }
 
-/// The document goes to the Tools page, ready for the tool picked (unsaved edits are saved first).
+/// The document goes to the Tools page, ready for the tool picked. Unsaved edits are saved first,
+/// and the file goes to the tools only once that save has succeeded.
 pub fn to_tools(ui: &AppWindow, tab_id: i32) {
     if unsaved_name(tab_id).is_some() {
+        update(tab_id, |r, _| r.tools_after_save = true);
         save(ui, tab_id);
+        return;
     }
+    hand_to_tools(ui, tab_id);
+}
+
+fn tools_waiting(tab_id: i32) -> bool {
+    with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).is_some_and(|r| r.tools_after_save))
+}
+
+fn hand_to_tools(ui: &AppWindow, tab_id: i32) {
     let Some(path) = with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).map(|r| r.path.clone())) else { return };
     with(|a| {
         a.home_files.retain(|p| p != &path);
@@ -1200,6 +1297,9 @@ pub fn thumb_pressed(tab_id: i32, page: i32, extend: bool, toggle: bool) {
                 }
                 r.page_anchor = Some(p);
             }
+            // A plain press on a page already selected keeps the selection, so it can be dragged
+            // whole; it shrinks to this page if the press ends without a drag.
+            _ if r.page_sel.contains(&p) => r.pending_reduce = Some(p),
             _ => {
                 r.page_sel = [p].into_iter().collect();
                 r.page_anchor = Some(p);
@@ -1253,6 +1353,9 @@ fn apply_structure(ui: &AppWindow, tab_id: i32, edit: Edit) {
     let err = update(tab_id, |r, _| {
         if !r.snap.read_only.is_empty() {
             return Some(r.snap.read_only.clone());
+        }
+        if r.structure_pending {
+            return Some("One moment: the pages are being rearranged".into());
         }
         r.send(Op::Apply { edit, pages: Vec::new() });
         r.undo_pages.push(Vec::new());
@@ -1318,8 +1421,19 @@ fn drop_gap(v: &Viewer, y: f64) -> (usize, f64) {
     (gap, line)
 }
 
+/// A press on a thumbnail ended without a drag.
+pub fn thumb_released(tab_id: i32) {
+    update(tab_id, |r, _| {
+        if let Some(p) = r.pending_reduce.take() {
+            r.page_sel = [p].into_iter().collect();
+            r.page_anchor = Some(p);
+        }
+    });
+}
+
 pub fn thumb_drop(ui: &AppWindow, tab_id: i32, y: f32) {
     let edit = update(tab_id, |r, v| {
+        r.pending_reduce = None;
         let pages = r.page_drag.take()?;
         let (gap, _) = drop_gap(&v.viewer, y as f64);
         // `to` is the position in the result: the gap less the moved pages before it.
@@ -1575,7 +1689,7 @@ pub fn select_all(tab_id: i32) {
 
 pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
     let q = query.trim().to_string();
-    let Some((bytes, password, n, generation, case, whole)) = update(tab_id, |r, v| {
+    let Some((bytes, password, n, generation, case, whole, live)) = update(tab_id, |r, v| {
         r.search.generation += 1;
         r.search.query = q.clone();
         r.search.hits.clear();
@@ -1588,7 +1702,8 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
             r.panel = 3;
             r.panel_open = true;
         }
-        (r.snap.bytes.clone(), r.password(), v.viewer.page_count(), r.search.generation, r.search.case_sensitive, r.search.whole_words)
+        r.search_live.store(r.search.generation, std::sync::atomic::Ordering::Relaxed);
+        (r.snap.bytes.clone(), r.password(), v.viewer.page_count(), r.search.generation, r.search.case_sensitive, r.search.whole_words, r.search_live.clone())
     }) else {
         return;
     };
@@ -1597,6 +1712,7 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
     }
     let weak = ui.as_weak();
     std::thread::spawn(move || {
+        let stale = || live.load(std::sync::atomic::Ordering::Relaxed) != generation;
         let config = render::RenderConfig { password: password.as_deref().map(Arc::from), ..Default::default() };
         let mut rr = render::PageRenderer::new(bytes, config);
         let mut texts = Vec::new();
@@ -1605,6 +1721,10 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
         // Results come back in batches so the first pages show while the rest are read.
         let mut sent = 0;
         for page in 0..n {
+            // A newer search, a cleared field, a page edit or a closed tab: stop reading.
+            if stale() {
+                return;
+            }
             let res = rr.render(render::RenderRequest { page, kind: render::RequestKind::Text, scale: 1.0, ..Default::default() });
             if let Some(t) = res.text {
                 for m in t.find_opts(&q, case, whole) {
@@ -1683,6 +1803,9 @@ pub fn result_clicked(tab_id: i32, k: i32) {
 
 /// Scrolls so the view rectangle `r` of `page` is a third down the viewport.
 fn show_view_rect(v: &mut ViewerUi, page: usize, r: [f32; 4]) {
+    if page >= v.viewer.page_count() {
+        return;
+    }
     let c = view_rect_to_content(&v.viewer, page, r);
     v.scroll = (c[1] - v.height / 3.0).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
     v.scroll_seq += 1;
@@ -1708,6 +1831,7 @@ pub fn search_step(tab_id: i32, dir: i32) {
 pub fn search_clear(tab_id: i32) {
     update(tab_id, |r, _| {
         r.search.generation += 1;
+        r.search_live.store(r.search.generation, std::sync::atomic::Ordering::Relaxed);
         r.search.query.clear();
         r.search.hits.clear();
         r.search.snippets.clear();

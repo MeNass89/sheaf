@@ -143,7 +143,8 @@ pub enum Reply {
     Opened(Box<Snap>),
     OpenFailed(sheaf_core::OpdfError),
     /// An edit, undo or redo is done (or failed): the pages to render again (`None`: all).
-    Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String> },
+    /// `applied`: the answer to an `Apply` (an undo step was added unless `error`).
+    Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool },
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
     Blocks(usize, Vec<Block>),
     Extracted { to: PathBuf, error: Option<String> },
@@ -172,7 +173,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let t1 = std::time::Instant::now();
                         let s = snap(&doc);
                         debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
-                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error });
+                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: true });
                     }
                     op @ (Op::Undo { .. } | Op::Redo { .. }) => {
                         let (redo, pages) = match op {
@@ -182,7 +183,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         };
                         let id = doc.id();
                         let r = if redo { doc.session_mut().redo(id) } else { doc.session_mut().undo(id) };
-                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()) });
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()), applied: false });
                     }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());
@@ -218,6 +219,9 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
 fn save(doc: &mut Doc, target: &std::path::Path, incremental: bool) -> Result<(), String> {
     let id = doc.id();
     let bytes = if incremental { doc.session().save_bytes(id) } else { doc.session().save_full_bytes(id) }.map_err(|e| e.to_string())?;
+    // The bytes must reopen with every page before they replace a file (a recovered PDF can
+    // lose pages in a full rewrite); otherwise the file on disk stays as it was.
+    doc.session().check_save(id, &bytes).map_err(|e| e.to_string())?;
     replace(target, &bytes).map_err(|e| e.to_string())?;
     doc.session_mut().mark_saved(id, bytes, Some(target.to_string_lossy().into_owned())).map_err(|e| e.to_string())
 }
@@ -248,5 +252,185 @@ pub fn replace(target: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
 pub fn debug(args: std::fmt::Arguments) {
     if std::env::var_os("SHEAF_READER_DEBUG").is_some() {
         eprintln!("reader: {args}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pdfium_render::prelude::*;
+    use sheaf_core::pdfcraft::engine::{Markup, NewAnnotation, NoteIcon, Shape, Style};
+    use std::path::Path;
+    use std::sync::mpsc::{channel, Receiver};
+    use std::time::Duration;
+
+    /// A PDF whose page i (1-based) says "Page i".
+    fn fixture(dir: &Path, pages: u32) -> PathBuf {
+        let _g = sheaf_core::engine::pdfium_lock();
+        let mut doc = sheaf_core::engine::new_document();
+        let font = doc.fonts_mut().helvetica();
+        for i in 1..=pages {
+            let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+            page.objects_mut().create_text_object(PdfPoints::new(72.0), PdfPoints::new(720.0), format!("Page {i}"), font, PdfPoints::new(24.0)).unwrap();
+        }
+        let path = dir.join("doc.pdf");
+        doc.save_to_file(&path).unwrap();
+        path
+    }
+
+    fn started(path: &Path) -> (Sender<Op>, Receiver<Reply>, Snap) {
+        let (tx, rx) = channel();
+        let ops = start(Input::new(path), move |r| {
+            let _ = tx.send(r);
+        });
+        let snap = match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+            Reply::Opened(s) => *s,
+            _ => panic!("expected Opened"),
+        };
+        (ops, rx, snap)
+    }
+
+    /// The next Changed or Saved reply: its snapshot and error.
+    fn next(rx: &Receiver<Reply>) -> (Snap, Option<String>) {
+        match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+            Reply::Changed { snap, error, .. } | Reply::Saved { snap, error, .. } => (*snap, error),
+            Reply::Extracted { error, .. } => panic!("unexpected Extracted ({error:?})"),
+            _ => panic!("unexpected reply"),
+        }
+    }
+
+    fn highlight(page: usize) -> Edit {
+        Edit::AddAnnotation(NewAnnotation {
+            page,
+            shape: Shape::TextMarkup { kind: Markup::Highlight, quads: vec![[72.0, 744.0, 160.0, 744.0, 72.0, 718.0, 160.0, 718.0]] },
+            style: Style::default(),
+            contents: "Page 1".into(),
+            author: String::new(),
+        })
+    }
+
+    fn qpdf_clean(path: &Path) {
+        let o = std::process::Command::new("qpdf").arg("--check").arg(path).output().unwrap();
+        let s = format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr));
+        assert!(o.status.success() && !s.contains("WARNING"), "qpdf --check: {s}");
+    }
+
+    fn texts(path: &Path) -> Vec<String> {
+        let d = lopdf::Document::load(path).unwrap();
+        (1..=d.get_pages().len() as u32).map(|i| d.extract_text(&[i]).unwrap().trim().to_string()).collect()
+    }
+
+    #[test]
+    fn an_annotation_is_saved_into_the_file_and_reads_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 2);
+        let before = std::fs::metadata(&path).unwrap().len();
+        let (ops, rx, snap) = started(&path);
+        assert!(snap.annots.is_empty() && !snap.dirty && snap.boxes.len() == 2);
+        ops.send(Op::Apply { edit: highlight(0), pages: vec![0] }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        assert!(snap.dirty && snap.can_undo);
+        assert_eq!(snap.annots.iter().map(|a| a.subtype.as_str()).collect::<Vec<_>>(), ["Highlight"]);
+        ops.send(Op::Save { to: None }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none() && !snap.dirty, "{err:?}");
+        // An incremental update: the original bytes, then the change.
+        assert!(std::fs::metadata(&path).unwrap().len() > before);
+        qpdf_clean(&path);
+        let (_, _, again) = started(&path);
+        assert_eq!(again.annots.len(), 1);
+        assert_eq!(again.annots[0].subtype, "Highlight");
+    }
+
+    #[test]
+    fn undo_and_redo_take_the_edit_away_and_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 1);
+        let (ops, rx, _) = started(&path);
+        let note = Edit::AddAnnotation(NewAnnotation {
+            page: 0,
+            shape: Shape::Note { at: [100.0, 500.0], icon: NoteIcon::Comment },
+            style: Style::default(),
+            contents: "Check".into(),
+            author: String::new(),
+        });
+        ops.send(Op::Apply { edit: note, pages: vec![0] }).unwrap();
+        assert_eq!(next(&rx).0.annots.len(), 1);
+        ops.send(Op::Undo { pages: Some(vec![0]) }).unwrap();
+        let (s, _) = next(&rx);
+        assert!(s.annots.is_empty() && s.can_redo);
+        ops.send(Op::Redo { pages: Some(vec![0]) }).unwrap();
+        let (s, _) = next(&rx);
+        assert_eq!(s.annots.len(), 1);
+        assert_eq!(s.annots[0].contents, "Check");
+    }
+
+    #[test]
+    fn page_edits_reorder_turn_and_delete_pages_in_the_saved_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 4);
+        let (ops, rx, _) = started(&path);
+        // Page 1 moved after page 3: 2 3 1 4.
+        ops.send(Op::Apply { edit: Edit::MovePages { pages: vec![0], to: 2 }, pages: vec![] }).unwrap();
+        assert!(next(&rx).1.is_none());
+        ops.send(Op::Apply { edit: Edit::RotatePages { pages: vec![0], degrees: 90 }, pages: vec![] }).unwrap();
+        let (s, _) = next(&rx);
+        assert_eq!(s.boxes[0].rotation, 90);
+        ops.send(Op::Apply { edit: Edit::DeletePages { pages: vec![3] }, pages: vec![] }).unwrap();
+        assert_eq!(next(&rx).0.boxes.len(), 3);
+        ops.send(Op::Save { to: None }).unwrap();
+        assert!(next(&rx).1.is_none());
+        qpdf_clean(&path);
+        assert_eq!(texts(&path), ["Page 2", "Page 3", "Page 1"]);
+    }
+
+    #[test]
+    fn extract_writes_the_chosen_pages_to_a_new_pdf() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 3);
+        let (ops, rx, _) = started(&path);
+        let out = dir.path().join("extract.pdf");
+        ops.send(Op::Extract { pages: vec![1, 2], to: out.clone() }).unwrap();
+        match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+            Reply::Extracted { to, error } => assert!(error.is_none() && to == out, "{error:?}"),
+            _ => panic!("expected Extracted"),
+        }
+        qpdf_clean(&out);
+        assert_eq!(texts(&out), ["Page 2", "Page 3"]);
+        // The document itself is untouched.
+        assert_eq!(texts(&path).len(), 3);
+    }
+
+    #[test]
+    fn save_as_writes_a_full_copy_and_follows_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 1);
+        let (ops, rx, _) = started(&path);
+        ops.send(Op::Apply { edit: highlight(0), pages: vec![0] }).unwrap();
+        next(&rx);
+        let copy = dir.path().join("copy.pdf");
+        ops.send(Op::Save { to: Some(copy.clone()) }).unwrap();
+        match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+            Reply::Saved { to, error, snap } => assert!(error.is_none() && to == copy && !snap.dirty, "{error:?}"),
+            _ => panic!("expected Saved"),
+        }
+        qpdf_clean(&copy);
+        let (_, _, s) = started(&copy);
+        assert_eq!(s.annots.len(), 1);
+        // The original keeps no annotation.
+        let (_, _, orig) = started(&path);
+        assert!(orig.annots.is_empty());
+    }
+
+    #[test]
+    fn replace_keeps_the_old_file_until_the_new_one_is_complete() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("x.pdf");
+        std::fs::write(&p, b"old").unwrap();
+        replace(&p, b"new bytes").unwrap();
+        assert_eq!(std::fs::read(&p).unwrap(), b"new bytes");
+        // No temporary file left behind.
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
     }
 }
