@@ -397,6 +397,7 @@ export component ReaderScreen inherits Rectangle {
                                 vertical-stretch: 1;
                                 font-size: Theme.fs-label;
                                 wrap: word-wrap;
+                                edited(text) => { ReaderBridge.note-edited(root.id, text); }
                                 key-pressed(e) => {
                                     if e.text == Key.Escape {
                                         ReaderBridge.note-cancel(root.id);

@@ -113,6 +113,8 @@ key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4
 # The screen centre "x y" of the first word starting with $1 (OCR at 200 %, its box halved; OCR may glue
 # punctuation to it) in the area $2 (WxH+X+Y, default the whole screen), empty when not seen.
 at() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" 'index($12, w) == 1 { printf "%d %d\n", ox + ($7 + $9 / 2) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
+# Text on screen, read by tesseract (the tab bar and page titles have no other handle under Xvfb).
+ocr() { import -window root -crop "$1" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '; }
 # ⇧ + a letter, ⇧ held first: xdotool's "shift+t" can deliver the letter before the app has seen ⇧
 # (flaky ⇧T on 21/10); a hand on a keyboard never does.
 shifted() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool keydown shift; sleep 0.1; xdotool key "$1"; xdotool keyup shift; sleep 0.4; }
@@ -268,6 +270,12 @@ xdotool mousemove 500 200 mousedown 1; sleep 0.1; for y in 220 260 300 340; do x
 key Escape; key v; key ctrl+s; sleep 1.5; shot 02d-paragraph-moved
 QY1=$(word_y "$OUT/text.pdf")
 check "dragging a paragraph with the Edit tool moves it ($QY0 → $QY1)" "[ -n \"$QY1\" ] && python3 -c 'import sys; sys.exit(0 if float(\"$QY1\") - float(\"$QY0\") > 30 else 1)'"
+# 2e. Editing that paragraph shows it on the page as typed, before ⌘↩; Escape puts it back and
+# leaves the file as it was.
+key e; sleep 1; QK=$(at quick); [ -n "$QK" ] && click $QK 1.2
+xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 10 " zebra"; sleep 1.5
+PV1=$(ocr 1000x500+260+90); shot 02e-preview; key Escape; sleep 1.2; PV2=$(ocr 1000x500+260+90); key Escape; key v
+check "an edited paragraph shows on the page before ⌘↩, Escape takes it back" "echo \"$PV1\" | grep -q zebra && ! echo \"$PV2\" | grep -q zebra && ! pdftotext $OUT/text.pdf - | grep -q zebra"
 
 # 3. Page operations from the Pages panel: duplicate page 1, delete it again, rotate.
 click 120 230; click 142 778 1.2      # select page 1, Duplicate
@@ -513,8 +521,6 @@ check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})"
 click 50 21 0.8; click 90 192 0.8; click 700 610 0.5
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Author"; sleep 0.8; shot 09-preferences
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
-# Text on screen, read by tesseract (the tab bar and page titles have no other handle under Xvfb).
-ocr() { import -window root -crop "$1" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '; }
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.
 
 # + opens Home ▸ Tools with the search taking the keyboard: typed without clicking the field.

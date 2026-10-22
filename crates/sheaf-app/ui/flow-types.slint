@@ -537,6 +537,8 @@ export global ReaderBridge {
     // Markup the selection: 1 highlight, 2 underline, 3 strikethrough.
     callback markup(int, int);
     callback note-commit(int, string);
+    // The editor's text changed (Edit text previews the paragraph on its page).
+    callback note-edited(int, string);
     callback note-cancel(int);
     callback save(int);
     callback save-as(int);

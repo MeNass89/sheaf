@@ -378,15 +378,10 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             return Some((d.page, Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Text(text.clone()) }));
         }
         if d.kind == 2 {
-            // The paragraph's new text (empty deletes it), rewrapped to its box by PdfCraft.
-            let (block, old, _) = d.block?;
-            if text == old.trim() {
-                return None;
-            }
-            // A standard font in place of the embedded one (for characters its subset lacks) was
-            // tried: PdfCraft then draws every row of the paragraph on one line. Kept as it is.
-            let style = sheaf_core::pdfcraft::edit::BlockStyle::default();
-            return Some((d.page, Edit::EditTextBlock { page: d.page, block, text: text.clone(), style }));
+            // The preview, if any, is taken back by the edit itself (the document thread).
+            r.preview = None;
+            r.preview_timer = None;
+            return paragraph_edit(&d, &text);
         }
         if text.is_empty() {
             return None;
@@ -436,6 +431,58 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
 
 pub fn note_cancel(tab_id: i32) {
     update(tab_id, |r, _| r.draft = None);
+}
+
+/// Edit text: the paragraph's new text (empty deletes it), rewrapped to its box by PdfCraft;
+/// `None` when unchanged.
+fn paragraph_edit(d: &Draft, text: &str) -> Option<(usize, Edit)> {
+    let (block, old, _) = d.block.as_ref()?;
+    if text == old.trim() {
+        return None;
+    }
+    let style = sheaf_core::pdfcraft::edit::BlockStyle::default();
+    Some((d.page, Edit::EditTextBlock { page: d.page, block: *block, text: text.to_string(), style }))
+}
+
+/// How long typing pauses before the paragraph is shown on its page as typed.
+const PREVIEW_PAUSE: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// Edit text: the paragraph's editor changed. After a pause, the page shows the paragraph as
+/// typed (PDF Expert edits on the page; the result, and anything it now covers, is seen before
+/// ⌘↩). Other editors (notes, fields) do nothing here.
+pub fn note_edited(ui: &AppWindow, tab_id: i32, text: &str) {
+    let weak = ui.as_weak();
+    update(tab_id, |r, _| {
+        if r.draft.as_ref().is_none_or(|d| d.kind != 2) {
+            return;
+        }
+        r.preview_text = text.trim().to_string();
+        let timer = slint::Timer::default();
+        timer.start(slint::TimerMode::SingleShot, PREVIEW_PAUSE, move || {
+            if weak.upgrade().is_some() {
+                show_preview(tab_id);
+            }
+        });
+        r.preview_timer = Some(timer);
+    });
+}
+
+fn show_preview(tab_id: i32) {
+    update(tab_id, |r, _| {
+        r.preview_timer = None;
+        let Some(d) = r.draft.as_ref().filter(|d| d.kind == 2) else { return };
+        let Some(&(block, ..)) = d.block.as_ref() else { return };
+        let page = d.page;
+        match paragraph_edit(d, &r.preview_text) {
+            Some((_, edit)) => {
+                r.preview = Some((page, block));
+                r.send(Op::Preview { edit: Some(Box::new(edit)), pages: vec![page] });
+            }
+            // Back to the text as it was: the page too.
+            None if r.preview.take().is_some() => r.send(Op::Preview { edit: None, pages: vec![page] }),
+            None => {}
+        }
+    });
 }
 
 pub fn delete_selected(ui: &AppWindow, tab_id: i32) {

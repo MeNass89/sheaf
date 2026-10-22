@@ -153,6 +153,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_result_clicked(reader_ui::result_clicked);
     wire_global!(ui, rb, on_markup, |ui, id, k| reader_ui::markup(&ui, id, k));
     wire_global!(ui, rb, on_note_commit, |ui, id, t| reader_ui::note_commit(&ui, id, &t));
+    wire_global!(ui, rb, on_note_edited, |ui, id, t| reader_ui::note_edited(&ui, id, &t));
     rb.on_note_cancel(reader_ui::note_cancel);
     wire_global!(ui, rb, on_save, |ui, id| reader_ui::save(&ui, id));
     wire_global!(ui, rb, on_save_as, |ui, id| reader_ui::save_as(&ui, id));

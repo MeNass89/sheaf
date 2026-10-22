@@ -3537,6 +3537,18 @@ impl Session {
         Ok(label)
     }
 
+    /// Sheaf: takes back the last edit as if it had never been made (a preview): undone, kept
+    /// off the redo list, and the document as clean or dirty as it was before it (`dirty`).
+    pub fn withdraw(&mut self, id: DocId, dirty: bool) -> Result<(), EditError> {
+        self.undo(id)?;
+        let doc = self.doc_mut(id)?;
+        if let Some(e) = doc.editor.as_mut() {
+            e.redo.pop();
+        }
+        doc.dirty = dirty;
+        Ok(())
+    }
+
     pub fn redo(&mut self, id: DocId) -> Result<Label, EditError> {
         let doc = self.doc_mut(id)?;
         doc.edit_notices.clear();

@@ -254,6 +254,10 @@ pub enum Op {
     Summary { to: PathBuf },
     /// Every comment exported to `to`: XFDF, or FDF when `to` ends in .fdf.
     ExportComments { to: PathBuf },
+    /// A paragraph being edited, shown on its page as typed: the last preview is taken back,
+    /// then `edit` (if any) applied in its place, on `pages`. A preview is not an undo step; any
+    /// other edit, undo, redo or save takes it back first. Answered by `Changed`, not applied.
+    Preview { edit: Option<Box<Edit>>, pages: Vec<usize> },
 }
 
 pub enum Reply {
@@ -261,8 +265,8 @@ pub enum Reply {
     OpenFailed(sheaf_core::OpdfError),
     /// An edit, undo or redo is done (or failed): the pages to render again (`None`: all).
     /// `applied`: the answer to an `Apply` (an undo step was added unless `error`); `note`: what
-    /// the edit could not draw as typed ([`edit_note`]).
-    Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool, note: Option<String> },
+    /// the edit could not draw as typed ([`edit_note`]); `preview`: the answer to a `Preview`.
+    Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool, note: Option<String>, preview: bool },
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
     /// Comments exported to `to` (or why not).
     Exported { to: PathBuf, error: Option<String> },
@@ -288,16 +292,43 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
             debug(format_args!("document opened in {:?}", t0.elapsed()));
             reply(Reply::Opened(Box::new(snap(&doc))));
             let mut path = input.path.clone();
+            // A preview on the document: whether the document was dirty before it.
+            let mut preview: Option<bool> = None;
             for op in rx {
                 let t0 = std::time::Instant::now();
+                // Reading the paragraphs (asked after each change, the preview's too) keeps it.
+                if !matches!(op, Op::Blocks(_))
+                    && let Some(dirty) = preview.take()
+                {
+                    let id = doc.id();
+                    let _ = doc.session_mut().withdraw(id, dirty);
+                    if !matches!(op, Op::Preview { .. }) {
+                        debug(format_args!("a preview was left on the document: taken back"));
+                    }
+                }
                 match op {
+                    Op::Preview { edit, pages } => {
+                        let dirty = doc.document().dirty;
+                        let error = match edit {
+                            Some(e) => {
+                                let r = doc.apply(*e).err().map(|e| e.to_string());
+                                if r.is_none() {
+                                    preview = Some(dirty);
+                                }
+                                r
+                            }
+                            None => None,
+                        };
+                        let note = if preview.is_some() { edit_note(doc.document()) } else { None };
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: false, note, preview: true });
+                    }
                     Op::Apply { edit, pages } => {
                         let error = doc.apply(*edit).err().map(|e| e.to_string());
                         let note = if error.is_none() { edit_note(doc.document()) } else { None };
                         let t1 = std::time::Instant::now();
                         let s = snap(&doc);
                         debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
-                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: true, note });
+                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: true, note, preview: false });
                     }
                     op @ (Op::Undo { .. } | Op::Redo { .. }) => {
                         let (redo, pages) = match op {
@@ -307,7 +338,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         };
                         let id = doc.id();
                         let r = if redo { doc.session_mut().redo(id) } else { doc.session_mut().undo(id) };
-                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()), applied: false, note: None });
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()), applied: false, note: None, preview: false });
                     }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());
@@ -752,6 +783,31 @@ mod tests {
         ops.send(Op::Apply { edit: Box::new(boxed("Ωmega")), pages: vec![0] }).unwrap();
         let Reply::Changed { note, .. } = rx.recv_timeout(Duration::from_secs(30)).unwrap() else { panic!("expected Changed") };
         assert!(note.as_deref().is_some_and(|n| n.starts_with("A comment on page 1 has \"Ω\"")), "{note:?}");
+    }
+
+    #[test]
+    fn a_preview_is_taken_back_without_a_trace_and_a_commit_after_it_is_one_undo_step() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 1);
+        let (ops, rx, _) = started(&path);
+        let edit = |text: &str| Box::new(Edit::EditTextBlock { page: 0, block: 0, text: text.into(), style: Default::default() });
+        ops.send(Op::Preview { edit: Some(edit("Page one draft")), pages: vec![0] }).unwrap();
+        let (s, e) = next(&rx);
+        assert!(e.is_none() && s.dirty && s.can_undo, "the preview is on the document");
+        ops.send(Op::Preview { edit: Some(edit("Page one, second draft")), pages: vec![0] }).unwrap();
+        next(&rx);
+        ops.send(Op::Preview { edit: None, pages: vec![0] }).unwrap();
+        let (s, _) = next(&rx);
+        assert!(!s.dirty && !s.can_undo && !s.can_redo, "taken back: clean, nothing to undo or redo");
+        // Previewed, then committed: the commit takes the preview back first, one undo step.
+        ops.send(Op::Preview { edit: Some(edit("Page one draft")), pages: vec![0] }).unwrap();
+        next(&rx);
+        ops.send(Op::Apply { edit: edit("Page one final"), pages: vec![0] }).unwrap();
+        let (s, e) = next(&rx);
+        assert!(e.is_none() && s.dirty && s.can_undo && !s.can_redo);
+        ops.send(Op::Undo { pages: Some(vec![0]) }).unwrap();
+        let (s, _) = next(&rx);
+        assert!(!s.can_undo, "one step: the preview left none");
     }
 
     #[test]

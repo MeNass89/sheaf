@@ -150,6 +150,11 @@ pub struct ReaderUi {
     search: Search,
     stroke: Option<(usize, Vec<(f64, f64)>)>,
     draft: Option<Draft>,
+    /// The paragraph shown on its page as typed (Edit text): its page and index, while previewed.
+    preview: Option<(usize, usize)>,
+    /// The text typed last and the pause after which it is previewed.
+    preview_text: String,
+    preview_timer: Option<slint::Timer>,
     /// Add image: where the click was, while the file is chosen.
     image_at: Option<(usize, (f64, f64))>,
     /// Signature: where the click was, and whether the pad is open to make one.
@@ -274,6 +279,9 @@ impl ReaderUi {
             search: Search { query: String::new(), hits: Vec::new(), snippets: Vec::new(), case_sensitive: false, whole_words: false, current: None, busy: false, generation: 0 },
             stroke: None,
             draft: None,
+            preview: None,
+            preview_text: String::new(),
+            preview_timer: None,
             image_at: None,
             sign_at: None,
             sign_open: false,
@@ -341,6 +349,7 @@ impl ReaderUi {
     }
 
     fn send(&mut self, op: Op) {
+        // A preview is not counted: it never names something another edit is waiting on.
         let edit = matches!(op, Op::Apply { .. } | Op::Undo { .. } | Op::Redo { .. });
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
@@ -454,10 +463,12 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 e => crate::flow::toast(ui, &sheaf_app::files::open_error(&file_name(&input.path), &e)),
             }
         }
-        Reply::Changed { snap, pages, error, applied, note } => {
+        Reply::Changed { snap, pages, error, applied, note, preview } => {
             update(id, |r, v| {
                 r.in_flight = r.in_flight.saturating_sub(1);
-                r.edits_in_flight = r.edits_in_flight.saturating_sub(1);
+                if !preview {
+                    r.edits_in_flight = r.edits_in_flight.saturating_sub(1);
+                }
                 // A refused edit added no undo step: its pages leave the stack too.
                 if applied && error.is_some() {
                     r.undo_pages.pop();
@@ -617,6 +628,15 @@ fn update<R>(tab_id: i32, f: impl FnOnce(&mut ReaderUi, &mut ViewerUi) -> R) -> 
         let t = a.tab(tab_id)?;
         let (Some(r), Some(v)) = (t.reader.as_deref_mut(), t.viewer.as_deref_mut()) else { return None };
         let out = f(r, v);
+        // A paragraph previewed whose editor has gone (closed, another paragraph, another tool):
+        // the page shows it as it was.
+        if let Some((page, block)) = r.preview
+            && !r.draft.as_ref().is_some_and(|d| d.kind == 2 && d.page == page && d.block.as_ref().is_some_and(|b| b.0 == block))
+        {
+            r.preview = None;
+            r.preview_timer = None;
+            r.send(reader_doc::Op::Preview { edit: None, pages: vec![page] });
+        }
         refresh(a, tab_id);
         Some(out)
     })

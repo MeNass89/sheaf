@@ -203,7 +203,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     };
     let note = match &r.draft {
         Some(d) => {
-            let (x, y) = view_to_content(&v.viewer, d.page, d.at);
+            let (mut x, mut y) = view_to_content(&v.viewer, d.page, d.at);
             let (text, w, h) = match &d.block {
                 // A form field: the editor sits on the field, its size.
                 Some((_, t, rect)) if d.field.is_some() => {
@@ -212,6 +212,15 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                     let n = d.field.and_then(|(fi, _)| r.snap.fields.get(fi)).map(|f| f.options.len()).unwrap_or(0) as f64;
                     (t.clone(), c[2].max(160.0), if d.kind == 5 { 34.0 + 28.0 * n } else { c[3].max(28.0) + 34.0 })
                 }
+                }
+                // Edit text: the paragraph shows on its page as typed, and what it grows over
+                // below it; the editor goes above it when the page has room there, else below.
+                Some((_, t, rect)) if d.kind == 2 => {
+                    let c = v.viewer.overlay(d.page, *rect);
+                    let h = (c[3] * 0.5).clamp(60.0, 160.0) + 70.0;
+                    let above = c[1] - h - 6.0;
+                    (x, y) = (c[0], if above >= v.viewer.page_rect(d.page)[1] { above } else { c[1] + c[3] + 6.0 });
+                    (t.clone(), c[2].max(260.0), h)
                 }
                 Some((_, t, rect)) => {
                     let c = v.viewer.overlay(d.page, *rect);
