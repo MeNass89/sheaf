@@ -95,6 +95,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         signature_strokes: vec![vec![[0.0, 0.0], [1.0, 0.5]]],
         signature_name: None,
         signature_pen: (1, 2),
+        signatures: vec![(vec![vec![[0.0, 0.0], [1.0, 0.5]]], None)],
     };
     p.save(dir.path()).unwrap();
     assert_eq!(Prefs::load(dir.path()), p);

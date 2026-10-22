@@ -64,6 +64,9 @@ impl OutputMode {
     }
 }
 
+/// A kept signature: drawn strokes (y up, the pad 1 wide), or a typed name when there are none.
+pub type KeptSignature = (Vec<Vec<[f64; 2]>>, Option<String>);
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct Prefs {
@@ -91,6 +94,9 @@ pub struct Prefs {
     pub signature_name: Option<String>,
     /// The signature's pen: colour (index in `reader::SIGNATURE_INKS`) and width (0 fine, 1 medium, 2 bold).
     pub signature_pen: (u8, u8),
+    /// Signatures made before, newest first (at most four): strokes or a typed name each. The
+    /// first is `signature_strokes` / `signature_name`.
+    pub signatures: Vec<KeptSignature>,
 }
 
 impl Prefs {

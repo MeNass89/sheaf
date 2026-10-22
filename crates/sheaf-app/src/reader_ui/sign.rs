@@ -67,3 +67,34 @@ pub fn signature_reset(tab_id: i32) {
     crate::home::set_signature(Vec::new(), None);
     update(tab_id, |r, _| r.sign_open = r.sign_at.is_some());
 }
+
+/// Signature tool's options bar: kept signature `i` chosen (`remove`: forgotten).
+pub fn signature_pick(tab_id: i32, i: i32, remove: bool) {
+    crate::home::pick_signature(i.max(0) as usize, remove);
+    update(tab_id, |r, _| r.version += 1);
+}
+
+thread_local! {
+    /// Thumbnails of the kept signatures, built again only when the list changes.
+    static THUMBS: std::cell::RefCell<(Vec<sheaf_app::prefs::KeptSignature>, Vec<slint::Image>)> = Default::default();
+}
+
+/// The kept signatures as small pictures (ink on transparent), newest first.
+pub(super) fn signature_thumbs() -> Vec<slint::Image> {
+    let list = crate::home::signatures();
+    THUMBS.with(|t| {
+        let mut t = t.borrow_mut();
+        if t.0 != list {
+            let images = list
+                .iter()
+                .filter_map(|(strokes, name)| {
+                    let g = if strokes.is_empty() { sheaf_core::sign::Graphic::Typed(name.clone()?) } else { sheaf_core::sign::Graphic::Drawn(strokes.clone()) };
+                    let p = sheaf_app::sign_preview::render(&g, 120, 40)?;
+                    Some(slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&p.rgba, p.w, p.h)))
+                })
+                .collect();
+            *t = (list, images);
+        }
+        t.1.clone()
+    })
+}

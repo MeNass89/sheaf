@@ -171,11 +171,52 @@ pub fn set_signature_pen(pen: (u8, u8)) {
     });
 }
 
-/// The reader's signature, kept for every document: drawn strokes, or a typed name.
+/// The reader's signature, kept for every document: drawn strokes, or a typed name. A new one goes
+/// first in the list of kept signatures (four at most, as PDF Expert's); none clears the current one only.
 pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>) {
     with(|h| {
+        if !strokes.is_empty() || name.is_some() {
+            let sig = (strokes.clone(), name.clone());
+            h.prefs.signatures.retain(|s| *s != sig);
+            h.prefs.signatures.insert(0, sig);
+            h.prefs.signatures.truncate(4);
+        }
         h.prefs.signature_strokes = strokes;
         h.prefs.signature_name = name;
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
+/// Kept signatures, newest first (an older profile's single signature counts as one).
+pub fn signatures() -> Vec<sheaf_app::prefs::KeptSignature> {
+    with(|h| {
+        if h.prefs.signatures.is_empty() && (!h.prefs.signature_strokes.is_empty() || h.prefs.signature_name.is_some()) {
+            return vec![(h.prefs.signature_strokes.clone(), h.prefs.signature_name.clone())];
+        }
+        h.prefs.signatures.clone()
+    })
+}
+
+/// Kept signature `i` becomes the one placed (`remove`: it is forgotten instead).
+pub fn pick_signature(i: usize, remove: bool) {
+    let list = signatures();
+    let Some(sig) = list.get(i).cloned() else { return };
+    with(|h| {
+        h.prefs.signatures = list;
+        h.prefs.signatures.remove(i);
+        if remove {
+            if (h.prefs.signature_strokes.clone(), h.prefs.signature_name.clone()) == sig {
+                let next = h.prefs.signatures.first().cloned().unwrap_or_default();
+                h.prefs.signature_strokes = next.0;
+                h.prefs.signature_name = next.1;
+            }
+        } else {
+            h.prefs.signatures.insert(0, sig.clone());
+            h.prefs.signature_strokes = sig.0;
+            h.prefs.signature_name = sig.1;
+        }
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");
         }

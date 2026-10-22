@@ -172,6 +172,14 @@ check "the signature is in the ink and pen chosen on the pad (blue, bold)" "qpdf
 click 700 650 1.2; key ctrl+s; sleep 1.5
 A2=$(annots "$OUT/text.pdf")
 check "the kept signature is placed again with one click ($A1 → $A2)" "[ $A2 -gt $A1 ]"
+# New signature (412,109 in the Signature tool's bar) keeps the first: two in the list, the new one
+# first; a click on the second thumbnail (382,109) brings the first back.
+sigs() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(len(p.get("signatures", [])), len(p.get("signature_strokes", [[]])[0]))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"; }
+S1=$(sigs); click 412 109 0.8; click 700 620 1
+xdotool mousemove 520 400 mousedown 1; for i in $(seq 0 10); do xdotool mousemove $((520 + i * 10)) $((380 + i * 6)); done; xdotool mouseup 1; sleep 0.3
+click 818 555 1.2; S2=$(sigs); click 382 109 0.8; S3=$(sigs)
+check "a second signature is kept beside the first, and the first can be picked again ($S1 / $S2 / $S3)" "[ \"${S2%% *}\" = 2 ] && [ \"${S3#* }\" = \"${S1#* }\" ] && [ \"${S2#* }\" != \"${S1#* }\" ]"
+key ctrl+z; key ctrl+s; sleep 1.5
 key Escape; key v
 
 # 2b'. Select that signature, pull its corner handle: it grows, keeping its proportions and top-left.

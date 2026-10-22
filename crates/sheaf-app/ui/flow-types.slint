@@ -176,6 +176,8 @@ export struct ReaderState {
     // Signature tool: the pad is open to make one; one is kept.
     sign-open: bool,
     has-signature: bool,
+    // Kept signatures, newest first (the first is placed).
+    signatures: [image],
     // Document Properties: open, the four entries one can edit, what is only shown.
     props-open: bool,
     props-title: string,
@@ -547,6 +549,8 @@ export global ReaderBridge {
     // The pad's answer: strokes (commands, pad width, height), typed name, ink (0 black, 1 blue,
     // 2 dark blue) and pen (0 fine, 1 medium, 2 bold).
     callback signature-made(int, string, length, length, string, int, int);
+    // A kept signature chosen (its index) or, with true, forgotten.
+    callback signature-pick(int, int, bool);
     callback signature-reset(int);
 }
 

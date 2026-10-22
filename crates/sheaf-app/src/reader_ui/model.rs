@@ -320,6 +320,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         printers: ModelRc::new(VecModel::from(r.printers.iter().map(slint::SharedString::from).collect::<Vec<_>>())),
         printer: r.printer as i32,
         has_signature: r.tool == SIGN && saved_signature().is_some(),
+        signatures: ModelRc::new(VecModel::from(if r.tool == SIGN { signature_thumbs() } else { Vec::new() })),
         has_form: r.snap.fields.iter().any(|f| f.kind < 4),
         choices: ModelRc::new(VecModel::from(
             r.draft
