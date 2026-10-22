@@ -311,6 +311,8 @@ export struct ToolTab {
     // Crop: page 1 of the file, and its displayed size in points.
     preview: image,
     has-preview: bool,
+    // Add watermark: why its preview shows no mark ("" when it does).
+    preview-note: string,
     preview-w: float,
     preview-h: float,
     continue-tools: [ContinueTool],

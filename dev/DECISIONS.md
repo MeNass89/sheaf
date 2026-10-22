@@ -553,3 +553,10 @@ each page (`page_list(doc)[i]`, O(n²)); pdfcraft-cos's ObjectReader summed its 
 (debug build of our crates, opt-level 2 dependencies; open + save alone 3.7 s). **Alternatives.** Batch the per-page
 writes into one pass (bigger change upstream). **Would change it.** A release-build profile showing the editor
 cache's periodic full pass (~15 %) worth an incremental total too.
+
+## 2026-10-22 · Watermark preview: decrypted one-page copies in temporary folders
+**What.** The preview copies the first marked page into a one-page PDF in a private temporary folder (0700),
+deleted when the tab closes or the file changes. For a protected input the copy is decrypted. **Why.** Opening a
+large file for each change would take seconds; one copy makes each redraw a one-page mark and render. **Risk.** A
+crash leaves the copy in the temp folder until the system cleans it. **Would change it.** A startup sweep of
+`sheaf-wm-*` folders if crashes prove common.

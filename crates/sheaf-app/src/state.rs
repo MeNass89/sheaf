@@ -59,8 +59,11 @@ pub struct TabState {
     /// Organize: page previews could not be rendered.
     pub pages_failed: bool,
     pub office_missing: bool,
-    /// Crop: page 1 of the file, and its displayed size in points.
+    /// Crop: page 1 of the file; Add watermark: the first page it marks, marked (wm_preview);
+    /// with its displayed size in points.
     pub preview: Option<(Image, f32, f32)>,
+    /// Add watermark: why the preview shows no mark ("" when it does, or nothing is asked yet).
+    pub preview_note: String,
     /// Edit: the text and images placed.
     pub edit: crate::edit_ui::EditState,
     /// Sign: the signature being made.
@@ -99,6 +102,7 @@ impl TabState {
             cancelling: false,
             pages_failed: false,
             preview: None,
+            preview_note: String::new(),
             edit: crate::edit_ui::EditState::new(),
             sign: crate::sign_ui::SignState::new(),
             viewer: None,
@@ -326,6 +330,7 @@ pub fn build(t: &TabState) -> ToolTab {
         )),
         office_missing: t.office_missing,
         has_preview: t.preview.is_some(),
+        preview_note: t.preview_note.clone().into(),
         preview: t.preview.as_ref().map(|p| p.0.clone()).unwrap_or_default(),
         preview_w: t.preview.as_ref().map(|p| p.1).unwrap_or_default(),
         preview_h: t.preview.as_ref().map(|p| p.2).unwrap_or_default(),

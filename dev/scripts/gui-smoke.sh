@@ -511,12 +511,14 @@ check "unstarring from Home's Recent tools takes it out of the favourites" "! gr
 H=$(at History); [ -n "$H" ] && click $H 1; RA=$(at again); [ -n "$RA" ] && click $RA 1.5; shot 10b-rerun
 RR=$(ocr 960x700+20+60); RP=$(ocr 280x300+1000+40)   # the file area (below the tab bar, which names tool.pdf too), the options
 check "Run again from Tasks History reopens Compress with its file ($H / $RA)" "[ -n \"$RA\" ] && echo \"$RR\" | grep -q 'tool.pdf' && echo \"$RP\" | grep -qi 'Recommended'"
-# Add watermark from the reader tab (tool.pdf, 230,21): the panel's preview of page 1 (1004–1252 × 106–306)
-# turns red once "DRAFT" is typed (text field 1130,395) in red (1165,581).
-red() { import -window root -crop 248x200+1004+106 png:- 2>/dev/null | convert - -fx '(r>0.6&&g<0.4&&b<0.4)?1:0' -format '%[fx:mean*10000]' info: | cut -d. -f1; }
+# Add watermark from the reader tab (tool.pdf, 230,21): the preview of page 1, pinned above the options
+# (1004–1252 × 106–336), turns red once "DRAFT" is typed (text field 1130,432) at 120 pt (size 1060,546) in red
+# (1165,615).
+red() { import -window root -crop 248x230+1004+106 png:- 2>/dev/null | convert - -fx '(r>0.6&&g<0.4&&b<0.4)?1:0' -format '%[fx:mean*10000]' info: | cut -d. -f1; }
 click 230 21 1; click $WRENCH_X 61 1.5; xdotool type --delay 20 "watermark"; key Return; sleep 2.5; R0=$(red)
-click 1130 395 0.4; xdotool type --delay 30 "DRAFT"; click 1165 581 0.3; sleep 2.5; shot 10c-watermark-preview; R1=$(red)
-check "the watermark preview shows the mark as typed, in its colour ($R0 → $R1)" "[ \"\${R1:-0}\" -gt \$(( \${R0:-0} + 5 )) ]"
+click 1130 432 0.4; xdotool type --delay 30 "DRAFT"; click 1060 546 0.4; xdotool type --delay 30 "120"; click 1165 615 0.3; sleep 2.5
+shot 10c-watermark-preview; R1=$(red)
+check "the watermark preview shows the mark as typed, in its colour ($R0 → $R1)" "[ \"\${R1:-0}\" -gt \$(( \${R0:-0} + 50 )) ]"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

@@ -316,6 +316,36 @@ export component ToolFlowScreen inherits Rectangle {
                 height: 1px;
                 background: Theme.separator;
             }
+            // Add watermark: the first page it marks, as it will look, kept in view while the
+            // options below scroll (redrawn as they change, see wm_preview.rs).
+            if root.tab.tool == "watermark": VerticalLayout {
+                spacing: 6px;
+                Rectangle {
+                    height: 230px;
+                    background: Theme.filearea-bg;
+                    border-radius: Theme.radius-small;
+                    if !root.tab.has-preview: Text {
+                        text: root.tab.preview-note != "" ? root.tab.preview-note : root.tab.files.length > 0 ? "Preview…" : "Add a file to see the watermark";
+                        width: parent.width - 24px;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                        font-size: Theme.fs-caption;
+                        color: Theme.text-muted;
+                    }
+                    if root.tab.has-preview: Image {
+                        width: parent.width - 12px;
+                        height: parent.height - 12px;
+                        source: root.tab.preview;
+                        image-fit: contain;
+                    }
+                }
+                if root.tab.has-preview && root.tab.preview-note != "": Text {
+                    text: root.tab.preview-note;
+                    wrap: word-wrap;
+                    font-size: Theme.fs-caption;
+                    color: Theme.danger;
+                }
+            }
             // Long panels (page numbers, watermark, crop) scroll above the action button. The
             // style's scrollbar draws over the content, so it gets a 12 px gutter, always (measuring
             // the overflow instead would make the width depend on the height: a binding loop).

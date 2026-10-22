@@ -21,7 +21,6 @@ What each toolbox component below 9 still lacks. Delete a line when its componen
 - C-convert-018 PDF/A: 1b/1a/2u/2a/3u/3a and Allow Downgrade (the PdfCraft preflight has only 2b and 3b).
 - C-edit-001/002/004/005/006/007/010 Edit tool: inside the reader; edit text in place; family/bold/align; colour
   picker; resize handles; move existing objects; copy/paste/Delete.
-- C-edit-018 Watermark: live preview (decides function and aesthetics); time a mosaic on the big book; a batch file shorter than "from" fails (say why, or skip it).
 - C-edit-027 / C-security-001 Protect: restrictions with only a permissions password; hidden-info/sanitize entry.
 - C-security-003 a Change password action.
 - C-security-009..015 Redact (012 at 9): mode bar and fill colour; mark by text selection; page range/odd/even dialog; regex;
