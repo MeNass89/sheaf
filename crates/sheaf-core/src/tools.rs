@@ -175,7 +175,6 @@ static CATALOGUE: &[ToolInfo] = &[
     tool!(Compare, "Compare PDF", "Spot the differences between two versions of a document.", Security, "git-compare", PDF, true, 1),
 ];
 
-/// All tools, in display order.
 /// Tools matching what is typed in the Tools search, best first: a name starting with it, a name
 /// containing it, a word of the description starting with it, then the letters in order in the
 /// name ("cmprs" finds Compress, as Stirling's tool search). Nothing typed: nothing found.
@@ -207,6 +206,7 @@ pub fn search(query: &str) -> Vec<&'static ToolInfo> {
     found.into_iter().map(|(.., t)| t).collect()
 }
 
+/// All tools, in display order.
 pub fn catalogue() -> &'static [ToolInfo] {
     CATALOGUE
 }

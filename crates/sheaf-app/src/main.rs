@@ -66,7 +66,8 @@ fn category_index(c: Category) -> i32 {
     Category::ALL.iter().position(|x| *x == c).unwrap_or(0) as i32
 }
 
-fn card(t: &ToolInfo) -> ToolCard {
+/// A tool as a card of the Tools page (and of Home's Recent tools).
+pub(crate) fn tool_card(t: &ToolInfo) -> ToolCard {
     ToolCard {
         id: t.id.as_str().into(),
         name: t.name.into(),
@@ -79,14 +80,14 @@ fn card(t: &ToolInfo) -> ToolCard {
 
 fn install_catalogue(ui: &AppWindow) {
     let catalogue = tools::catalogue();
-    let all: Vec<ToolCard> = catalogue.iter().map(card).collect();
+    let all: Vec<ToolCard> = catalogue.iter().map(tool_card).collect();
     let sections: Vec<ToolSection> = Category::ALL
         .iter()
         .map(|c| ToolSection {
             title: c.label().into(),
             collapsed: false,
             tools: ModelRc::new(VecModel::from(
-                catalogue.iter().filter(|t| t.category == *c).map(card).collect::<Vec<_>>(),
+                catalogue.iter().filter(|t| t.category == *c).map(tool_card).collect::<Vec<_>>(),
             )),
         })
         .collect();
@@ -279,9 +280,13 @@ fn main() -> Result<(), slint::PlatformError> {
         dialog::pick_files(&ui, d, flow::home_files);
     });
     // Tools search: found tools, best first (sheaf_core::tools::search).
-    wire!(ui, on_tool_query, |ui, q| {
-        let found: Vec<ToolCard> = tools::search(&q).into_iter().map(card).collect();
-        ui.set_tool_results(ModelRc::new(VecModel::from(found)));
+    let weak = ui.as_weak();
+    ui.on_tool_query(move |q| {
+        if let Some(ui) = weak.upgrade() {
+            let found: Vec<ToolCard> = tools::search(&q).into_iter().map(tool_card).collect();
+            ui.set_tool_results(ModelRc::new(VecModel::from(found)));
+        }
+        q.trim().into()
     });
     wire!(ui, on_open_tool, |ui, id| {
         if let Some(tool) = flow::tool_from_str(&id) {

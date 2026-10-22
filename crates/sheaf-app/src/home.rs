@@ -10,7 +10,7 @@ use sheaf_app::files::{self, Kind};
 use sheaf_app::history::{self, Entry, Store};
 use sheaf_app::icons::{icon_image, tile_colour};
 use sheaf_app::prefs::{OutputMode, Prefs, ThemePref};
-use sheaf_app::{store_file, AppWindow, HistoryRow, RecentFile, Theme};
+use sheaf_app::{store_file, AppWindow, HistoryRow, RecentFile, Theme, ToolCard};
 use sheaf_core::pages::Input;
 use sheaf_core::tools::{self, ToolId};
 use slint::winit_030::{winit, WinitWindowAccessor};
@@ -347,6 +347,10 @@ pub fn refresh(ui: &AppWindow) {
     });
     ui.set_history(ModelRc::new(VecModel::from(rows)));
     ui.set_recents(ModelRc::new(VecModel::from(recents)));
+    let tools: Vec<ToolCard> = with(|h| {
+        history::recent_tools(h.store.list(), READ, 6).into_iter().filter_map(sheaf_core::tools::ToolId::from_str).filter_map(|id| sheaf_core::tools::catalogue().iter().find(|t| t.id == id)).map(crate::tool_card).collect()
+    });
+    ui.set_recent_tools(ModelRc::new(VecModel::from(tools)));
     for (p, kind) in missing {
         render_thumb(ui, p, kind);
     }

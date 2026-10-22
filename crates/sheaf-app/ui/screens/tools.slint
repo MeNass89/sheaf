@@ -35,8 +35,19 @@ export component ToolsScreen inherits Rectangle {
     in property <[ToolCard]> results;
     property <string> typed;
     property <int> chosen;
-    callback query(string);
+    // What is typed, trimmed and lower-cased by Rust: "" shows the grid (spaces alone search nothing).
+    callback query(string) -> string;
     callback open-tool(string);
+    // The field takes the keyboard when the page opens (and on ⌘F), as a search should.
+    in property <int> focus-seq;
+    changed focus-seq => { search.focus(); }
+    init => { search.focus(); }
+    // Rows are 52 px with 4 px between, under 12 px of padding and the page's header.
+    function keep-chosen-in-view() {
+        let top = 12px + root.chosen * 56px;
+        if top < -scroll.content-y { scroll.content-y = -top; }
+        if top + 52px > -scroll.content-y + scroll.visible-height { scroll.content-y = -(top + 52px - scroll.visible-height); }
+    }
 
     background: Theme.content-bg;
 
@@ -74,12 +85,12 @@ export component ToolsScreen inherits Rectangle {
                     color: Theme.text;
                     vertical-alignment: center;
                     single-line: true;
-                    edited => { root.typed = self.text; root.chosen = 0; root.query(self.text); }
+                    edited => { root.typed = root.query(self.text); root.chosen = 0; }
                     accepted => { if root.results.length > 0 { root.open-tool(root.results[root.chosen].id); } }
                     key-pressed(e) => {
-                        if e.text == Key.DownArrow { root.chosen = min(root.chosen + 1, root.results.length - 1); return accept; }
-                        if e.text == Key.UpArrow { root.chosen = max(root.chosen - 1, 0); return accept; }
-                        if e.text == Key.Escape { self.text = ""; root.typed = ""; root.query(""); return accept; }
+                        if e.text == Key.DownArrow { root.chosen = max(0, min(root.chosen + 1, root.results.length - 1)); root.keep-chosen-in-view(); return accept; }
+                        if e.text == Key.UpArrow { root.chosen = max(root.chosen - 1, 0); root.keep-chosen-in-view(); return accept; }
+                        if e.text == Key.Escape { self.text = ""; root.typed = root.query(""); return accept; }
                         reject
                     }
                 }
@@ -110,8 +121,11 @@ export component ToolsScreen inherits Rectangle {
                 padding-bottom: Theme.content-padding;
                 alignment: start;
 
-                // Search results replace the grid while something is typed.
+                // Search results replace the grid while something is typed: a list, as Stirling's
+                // tool search, so ↑↓ read naturally; the chosen row stays in view.
                 if root.typed != "": VerticalLayout {
+                    padding-top: 12px;
+                    spacing: 4px;
                     if root.results.length == 0: Text {
                         height: 60px;
                         text: "No tool matches \"" + root.typed + "\".";
@@ -119,14 +133,26 @@ export component ToolsScreen inherits Rectangle {
                         color: Theme.text-muted;
                         vertical-alignment: center;
                     }
-                    FlexboxLayout {
-                        spacing: Theme.grid-spacing;
-                        flex-wrap: wrap;
-                        padding-top: 12px;
-                        for tool[i] in root.results: ToolCardView {
-                            tool: tool;
-                            highlighted: i == root.chosen;
-                            clicked(id) => { root.open-tool(id); }
+                    for tool[i] in root.results: Rectangle {
+                        height: 52px;
+                        border-radius: Theme.radius-item;
+                        background: i == root.chosen ? Theme.menu-selected-bg : rt.has-hover ? Theme.popup-hover : transparent;
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            spacing: 12px;
+                            Rectangle {
+                                y: 10px;
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 6px;
+                                background: tool.tile;
+                                Image { source: tool.icon; width: 18px; height: 18px; colorize: white; }
+                            }
+                            Text { text: tool.name; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; }
+                        }
+                        rt := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.open-tool(tool.id); }
                         }
                     }
                 }

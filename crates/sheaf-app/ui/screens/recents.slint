@@ -1,4 +1,5 @@
 import { Theme } from "../theme.slint";
+import { ToolCard, ToolCardView } from "../widgets/tool-card.slint";
 import { PrimaryButton } from "../widgets/button.slint";
 import { ScrollView } from "std-widgets.slint";
 import { DashedBox } from "../widgets/dashed-box.slint";
@@ -31,6 +32,9 @@ component PageSketch inherits Rectangle {
 // Recents page: drop zone, then the recent output files or the empty-state illustration.
 export component RecentsScreen inherits Rectangle {
     in property <[RecentFile]> recents;
+    // The tools of the latest runs (iLovePDF's Recent Tools): one click opens one.
+    in property <[ToolCard]> recent-tools;
+    callback open-tool(string);
     callback open-file();
     callback open-recent(int);
     callback reveal-recent(int);
@@ -66,6 +70,27 @@ export component RecentsScreen inherits Rectangle {
                     font-size: Theme.fs-button;
                     color: Theme.text-muted;
                     horizontal-alignment: center;
+                }
+            }
+        }
+
+        if root.recent-tools.length > 0: VerticalLayout {
+            padding-top: 24px;
+            spacing: 14px;
+            Text {
+                height: Theme.button-height;
+                text: "Recent tools";
+                font-size: Theme.fs-subtitle;
+                font-weight: Theme.weight-demibold;
+                color: Theme.text-heading;
+                vertical-alignment: center;
+            }
+            HorizontalLayout {
+                alignment: start;
+                spacing: Theme.grid-spacing;
+                for t in root.recent-tools: ToolCardView {
+                    tool: t;
+                    clicked(id) => { root.open-tool(id); }
                 }
             }
         }

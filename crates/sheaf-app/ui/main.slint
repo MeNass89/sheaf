@@ -72,7 +72,9 @@ export component AppWindow inherits Window {
     in property <[ToolCard]> all-tools;
     // Tools page search: the tools found for what is typed, best first.
     in property <[ToolCard]> tool-results;
-    callback tool-query(string);
+    // Home: the tools of the latest runs, newest first.
+    in property <[ToolCard]> recent-tools;
+    callback tool-query(string) -> string;
     // Tools page sort: 0 = Categories, 1 = All. Kept here so it survives page switches.
     in-out property <int> tools-sort: 0;
 
@@ -138,6 +140,19 @@ export component AppWindow inherits Window {
     callback choose-folder();
     callback set-open-after(bool);
     callback set-author(string);
+    // ⌘, from anywhere: Home ▸ Preferences, out of full screen (a presentation ends with it).
+    // A tool tab or Home shown: the app scope takes the keyboard (a reader tab takes it itself), so
+    // ⌘, reaches it wherever the user is.
+    changed active-tab => {
+        if !self.pw-visible && (self.active-tab == -1 || !self.tabs[self.active-tab].is-reader) { app-keys.focus(); }
+    }
+    // Bumped to give the Tools search the keyboard (+ tab, ⌘F).
+    property <int> search-seq;
+    function show-preferences() {
+        root.full-screen = false;
+        root.active-tab = -1;
+        root.page = Page.preferences;
+    }
     // Home page switched: refresh relative times and missing files.
     callback page-shown();
     changed page => { root.page-shown(); }
@@ -152,104 +167,117 @@ export component AppWindow inherits Window {
     background: Theme.bg;
     default-font-size: Theme.fs-body;
 
-    VerticalLayout {
-        TabBar {
-            tabs: root.tabs;
-            active <=> root.active-tab;
-            close-tab(id) => { root.close-tab(id); }
-            new-tab => {
-                root.active-tab = -1;
-                root.page = Page.tools;
-            }
+    // App-wide keys (macOS conventions), reached from anywhere a focused control does not take them:
+    // ⌘, Preferences.
+    app-keys := FocusScope {
+        key-pressed(e) => {
+            if e.modifiers.control && e.text == "," { root.show-preferences(); return accept; }
+            // ⌘F on the Tools page: its search.
+            if e.modifiers.control && e.text == "f" && root.active-tab == -1 && root.page == Page.tools { root.search-seq += 1; return accept; }
+            reject
         }
-        Rectangle {
-            vertical-stretch: 1;
-            // Home
-            Rectangle {
-                visible: root.active-tab == -1;
-                sidebar := Sidebar {
-                    x: 0;
-                    height: parent.height;
-                    page <=> root.page;
-                    collapsed: root.width < Theme.sidebar-collapse-below;
-                }
-                Rectangle {
-                    x: sidebar.width;
-                    width: parent.width - sidebar.width;
-                    height: parent.height;
-                    if root.page == Page.recents: RecentsScreen {
-                        recents: root.recents;
-                        open-file => { root.open-file(); }
-                        open-recent(i) => { root.open-recent(i); }
-                        reveal-recent(i) => { root.reveal-recent(i); }
-                        remove-recent(i) => { root.remove-recent(i); }
-                        clear-recents => { root.clear-recents(); }
-                    }
-                    if root.page == Page.tools: ToolsScreen {
-                        sections <=> root.sections;
-                        all-tools: root.all-tools;
-                        sort <=> root.tools-sort;
-                        chevron: @image-url("icons/chevron-down.svg");
-                        open-tool(id) => { root.open-tool(id); }
-                        results: root.tool-results;
-                        query(q) => { root.tool-query(q); }
-                    }
-                    if root.page == Page.history: HistoryScreen {
-                        rows: root.history;
-                        reveal(i) => { root.reveal-history(i); }
-                        ask-clear => { root.confirm-clear = true; }
-                    }
-                    if root.page == Page.preferences: PreferencesScreen {
-                        theme-pref: root.theme-pref;
-                        output-mode: root.output-mode;
-                        fixed-folder: root.fixed-folder;
-                        open-after: root.open-after;
-                        author-name: root.author-name;
-                        author-default: root.author-default;
-                        set-theme(m) => { root.set-theme(m); }
-                        set-output(m) => { root.set-output(m); }
-                        choose-folder => { root.choose-folder(); }
-                        set-open-after(v) => { root.set-open-after(v); }
-                        set-author(n) => { root.set-author(n); }
-                    }
+        VerticalLayout {
+            TabBar {
+                tabs: root.tabs;
+                active <=> root.active-tab;
+                close-tab(id) => { root.close-tab(id); }
+                new-tab => {
+                    root.active-tab = -1;
+                    root.page = Page.tools;
                 }
             }
-            // Tool tabs: one instance each, so their options survive tab switches.
-            for t[i] in root.tabs: Rectangle {
-                visible: root.active-tab == i;
-                if t.is-reader: ReaderScreen {
-                    tab: t;
-                    active: root.active-tab == i;
-                    is-full-screen: root.full-screen;
-                    full-screen(on) => { root.full-screen = on; }
-                    open-preferences => { root.active-tab = -1; root.page = Page.preferences; }
-                    switch-tab(d) => {
-                        // Tabs wrap around, Home not included.
-                        root.active-tab = Math.mod(root.active-tab + d + root.tabs.length, root.tabs.length);
+            Rectangle {
+                vertical-stretch: 1;
+                // Home
+                Rectangle {
+                    visible: root.active-tab == -1;
+                    sidebar := Sidebar {
+                        x: 0;
+                        height: parent.height;
+                        page <=> root.page;
+                        collapsed: root.width < Theme.sidebar-collapse-below;
+                    }
+                    Rectangle {
+                        x: sidebar.width;
+                        width: parent.width - sidebar.width;
+                        height: parent.height;
+                        if root.page == Page.recents: RecentsScreen {
+                            recents: root.recents;
+                            recent-tools: root.recent-tools;
+                            open-tool(id) => { root.open-tool(id); }
+                            open-file => { root.open-file(); }
+                            open-recent(i) => { root.open-recent(i); }
+                            reveal-recent(i) => { root.reveal-recent(i); }
+                            remove-recent(i) => { root.remove-recent(i); }
+                            clear-recents => { root.clear-recents(); }
+                        }
+                        if root.page == Page.tools: ToolsScreen {
+                        focus-seq: root.search-seq;
+                            sections <=> root.sections;
+                            all-tools: root.all-tools;
+                            sort <=> root.tools-sort;
+                            chevron: @image-url("icons/chevron-down.svg");
+                            open-tool(id) => { root.open-tool(id); }
+                            results: root.tool-results;
+                            query(q) => { return root.tool-query(q); }
+                        }
+                        if root.page == Page.history: HistoryScreen {
+                            rows: root.history;
+                            reveal(i) => { root.reveal-history(i); }
+                            ask-clear => { root.confirm-clear = true; }
+                        }
+                        if root.page == Page.preferences: PreferencesScreen {
+                            theme-pref: root.theme-pref;
+                            output-mode: root.output-mode;
+                            fixed-folder: root.fixed-folder;
+                            open-after: root.open-after;
+                            author-name: root.author-name;
+                            author-default: root.author-default;
+                            set-theme(m) => { root.set-theme(m); }
+                            set-output(m) => { root.set-output(m); }
+                            choose-folder => { root.choose-folder(); }
+                            set-open-after(v) => { root.set-open-after(v); }
+                            set-author(n) => { root.set-author(n); }
+                        }
                     }
                 }
-                if !t.is-reader: ToolFlowScreen {
-                    visible: t.phase < 2;
-                    tab: t;
-                    open-files => { root.add-files(t.id); }
-                    remove-file(uid) => { root.remove-file(t.id, uid); }
-                    move-file(uid, d) => { root.move-file(t.id, uid, d); }
-                    remove-page(k) => { root.remove-page(t.id, k); }
-                    move-page(k, d) => { root.move-page(t.id, k, d); }
-                    insert-blank => { root.insert-blank(t.id); }
-                    run(o) => { root.run-tool(t.id, o); }
-                    cancel => { root.cancel-job(t.id); }
-                    get-libreoffice => { root.get-libreoffice(); }
-                    open-slot(k) => { root.open-slot(t.id, k); }
-                    swap-slots => { root.swap-slots(t.id); }
-                }
-                if t.phase == 2: ResultScreen {
-                    tab: t;
-                    open-output(k) => { root.open-output(t.id, k); }
-                    reveal-output(k) => { root.reveal-output(t.id, k); }
-                    open-folder => { root.open-folder(t.id); }
-                    start-over => { root.start-over(t.id); }
-                    continue-to(tool) => { root.continue-to(t.id, tool); }
+                // Tool tabs: one instance each, so their options survive tab switches.
+                for t[i] in root.tabs: Rectangle {
+                    visible: root.active-tab == i;
+                    if t.is-reader: ReaderScreen {
+                        tab: t;
+                        active: root.active-tab == i;
+                        is-full-screen: root.full-screen;
+                        full-screen(on) => { root.full-screen = on; }
+                        open-preferences => { root.show-preferences(); }
+                        switch-tab(d) => {
+                            // Tabs wrap around, Home not included.
+                            root.active-tab = Math.mod(root.active-tab + d + root.tabs.length, root.tabs.length);
+                        }
+                    }
+                    if !t.is-reader: ToolFlowScreen {
+                        visible: t.phase < 2;
+                        tab: t;
+                        open-files => { root.add-files(t.id); }
+                        remove-file(uid) => { root.remove-file(t.id, uid); }
+                        move-file(uid, d) => { root.move-file(t.id, uid, d); }
+                        remove-page(k) => { root.remove-page(t.id, k); }
+                        move-page(k, d) => { root.move-page(t.id, k, d); }
+                        insert-blank => { root.insert-blank(t.id); }
+                        run(o) => { root.run-tool(t.id, o); }
+                        cancel => { root.cancel-job(t.id); }
+                        get-libreoffice => { root.get-libreoffice(); }
+                        open-slot(k) => { root.open-slot(t.id, k); }
+                        swap-slots => { root.swap-slots(t.id); }
+                    }
+                    if t.phase == 2: ResultScreen {
+                        tab: t;
+                        open-output(k) => { root.open-output(t.id, k); }
+                        reveal-output(k) => { root.reveal-output(t.id, k); }
+                        open-folder => { root.open-folder(t.id); }
+                        start-over => { root.start-over(t.id); }
+                        continue-to(tool) => { root.continue-to(t.id, tool); }
+                    }
                 }
             }
         }
