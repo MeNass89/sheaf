@@ -7077,14 +7077,14 @@
    108
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "free resize handles, more formats",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -7107,6 +7107,17 @@
      "overall": 8
     },
     "proof": "Edit tool: a page image is selected on press (outline, 4 corner handles), corners resize it keeping proportions about the fixed corner (pulled_box/resized_image, cropped images keep their crop), options bar Rotate/Flip/Replace/Delete, Delete key; Add image selects the new one; WebP/TIFF/BMP/GIF placed as PNG. Tests: pulled_corner unit, formats test, gui-smoke 14 (resize then Delete measured in the saved file). Reviewer (Opus) 8/8/9: rotate/flip and Add unproven, image does not scale live while pulled."
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Edit tool: select a page image, corners resize it live keeping proportions (the picture itself follows, one preview in flight), drag moves it live, bar rotates/flips/replaces/deletes, Delete key; Add image and ⌘V paste place it (80 % cap each way) selected; WebP/TIFF/BMP/GIF. gui-smoke 14 on the saved file: resize ratio, flip (red right), rotate right (red down), Delete takes only the selected of two, ⌘V 120×60 then Delete. Reviewer (Opus) agreed 9/9/9 (dev: /tmp/rv/edit006-live.png)."
    }
   ]
  },

@@ -163,7 +163,8 @@ pub fn paste_image(ui: &AppWindow, tab_id: i32) {
 fn place_image(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64), w: f64, aspect: f64, name: String, bytes: std::sync::Arc<Vec<u8>>) {
     let edit = update(tab_id, |r, v| {
         let size = v.viewer.boxes[page].view_size();
-        let w = w.min(size.0 * 0.8);
+        // At most 80 % of the page each way (a tall image placed 200 pt wide could run off it).
+        let w = w.min(size.0 * 0.8).min(size.1 * 0.8 / aspect.max(1e-9));
         let h = w * aspect;
         let x0 = at.0.clamp(0.0, (size.0 - w).max(0.0));
         let y0 = at.1.clamp(0.0, (size.1 - h).max(0.0));
