@@ -174,6 +174,8 @@ export struct ReaderState {
     text-align: int,
     // The selected annotation is a text box: the text format row restyles it.
     selected-text-box: bool,
+    // Edit tool: a page image is selected (the options bar turns, flips, replaces, deletes it).
+    selected-image: bool,
     // Pages selected in the Pages panel.
     pages-selected: int,
     // A form choice field being filled: its options.
@@ -539,6 +541,8 @@ export global ReaderBridge {
     callback note-commit(int, string);
     // The editor's text changed (Edit text previews the paragraph on its page).
     callback note-edited(int, string);
+    // The selected page image: 0 turn left, 1 turn right, 2 flip, 3 replace, 4 delete.
+    callback image-action(int, int);
     callback note-cancel(int);
     callback save(int);
     callback save-as(int);

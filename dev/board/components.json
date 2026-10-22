@@ -7077,10 +7077,10 @@
    108
   ],
   "grade": {
-   "function": 5,
-   "aesthetics": 5,
-   "performance": 7,
-   "overall": 5
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -7096,6 +7096,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [108]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Edit tool: a page image is selected on press (outline, 4 corner handles), corners resize it keeping proportions about the fixed corner (pulled_box/resized_image, cropped images keep their crop), options bar Rotate/Flip/Replace/Delete, Delete key; Add image selects the new one; WebP/TIFF/BMP/GIF placed as PNG. Tests: pulled_corner unit, formats test, gui-smoke 14 (resize then Delete measured in the saved file). Reviewer (Opus) 8/8/9: rotate/flip and Add unproven, image does not scale live while pulled."
    }
   ]
  },

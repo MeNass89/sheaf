@@ -132,6 +132,22 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             marks.push(overlay([c[0] + dx + w - 4.0, c[1] + dy + h - 4.0, 9.0, 9.0], 11));
         }
     }
+    // Edit tool: the selected image, its four corners to pull (the box follows a pull).
+    if let Some((page, i)) = r.selected_image
+        && let Some(&(vis, _)) = r.images.get(&page).and_then(|im| im.get(i))
+        && !r.edit_press.as_ref().is_some_and(|e| e.dragging)
+    {
+        let b = &v.viewer.boxes[page];
+        let mut bx = viewer::pdf_rect_to_view(b, b.view_size(), vis);
+        if let Some((corner, from, to)) = r.image_resize {
+            bx = super::pointer::pulled_box(bx, corner, (to.0 - from.0, to.1 - from.1));
+        }
+        let c = v.viewer.overlay(page, viewer::view_rect_to_pdf(b, b.view_size(), (bx[0], bx[1]), (bx[0] + bx[2], bx[1] + bx[3])));
+        marks.push(overlay([c[0] - 2.0, c[1] - 2.0, c[2] + 4.0, c[3] + 4.0], 6));
+        for (cx, cy) in [(c[0], c[1]), (c[0] + c[2], c[1]), (c[0], c[1] + c[3]), (c[0] + c[2], c[1] + c[3])] {
+            marks.push(overlay([cx - 4.5, cy - 4.5, 9.0, 9.0], 11));
+        }
+    }
     let ink = match &r.stroke {
         Some((page, pts)) if pts.len() >= 2 => {
             let mut s = String::new();
@@ -326,6 +342,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         text_bold: r.text_bold,
         text_italic: r.text_italic,
         text_align: r.text_align,
+        selected_image: r.selected_image.is_some(),
         selected_text_box: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(|a| a.subtype == "FreeText" && !a.fill_sign),
         pages_selected: r.page_sel.len() as i32,
         sign_open: r.sign_open,

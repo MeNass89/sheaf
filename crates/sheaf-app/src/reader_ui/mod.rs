@@ -157,6 +157,14 @@ pub struct ReaderUi {
     preview_timer: Option<slint::Timer>,
     /// Add image: where the click was, while the file is chosen.
     image_at: Option<(usize, (f64, f64))>,
+    /// Edit tool: the page image selected (page, index among the page's images); its corners
+    /// resize it, the options bar turns, flips, replaces or deletes it.
+    selected_image: Option<(usize, usize)>,
+    /// A corner of the selected image being pulled: which (0 top-left, 1 top-right, 2 bottom-left,
+    /// 3 bottom-right), where the pull started and where it is (view points).
+    image_resize: Option<ImagePull>,
+    /// An image just added to a page and how many the page had: it is selected once listed.
+    select_added: Option<(usize, usize)>,
     /// Signature: where the click was, and whether the pad is open to make one.
     sign_at: Option<(usize, (f64, f64))>,
     sign_open: bool,
@@ -238,6 +246,8 @@ pub struct ReaderUi {
 type AnnotPull = (usize, (f64, f64), (f64, f64));
 /// An image on a page: its visible box and its full box (user space).
 type ImageBoxes = ([f64; 4], [f64; 4]);
+/// A corner of an image pulled: which, from where, to where (view points).
+type ImagePull = (u8, (f64, f64), (f64, f64));
 /// A panel model kept until what it shows changes.
 type Cache<T> = std::cell::RefCell<Option<T>>;
 /// What the outline rows depend on: the version, the current section, the row being renamed.
@@ -283,6 +293,9 @@ impl ReaderUi {
             preview_text: String::new(),
             preview_timer: None,
             image_at: None,
+            selected_image: None,
+            image_resize: None,
+            select_added: None,
             sign_at: None,
             sign_open: false,
             print_open: false,
@@ -487,6 +500,12 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                     Vec::new()
                 };
                 after_change(r, v, pages.as_deref().filter(|p| !p.is_empty()));
+                // The Edit tool's outlines (paragraphs, images, the selected one) are read again at
+                // once for the pages in view; an image just added is selected then.
+                tools::load_blocks(r, v);
+                if let Some((p, _)) = r.select_added {
+                    r.blocks(p);
+                }
                 for (p, b, i) in kept {
                     r.blocks.insert(p, b);
                     if let Some(i) = i {
@@ -565,6 +584,13 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Blocks(page, b, images) => {
             update(id, |r, _| {
                 r.blocks.insert(page, Arc::new(b));
+                if let Some((p, before)) = r.select_added
+                    && p == page
+                    && images.len() > before
+                {
+                    r.selected_image = Some((page, images.len() - 1));
+                    r.select_added = None;
+                }
                 r.images.insert(page, Arc::new(images));
             });
         }

@@ -101,8 +101,9 @@ pub fn item_view_rect(page: &PageInfo, item: &Item) -> [f64; 4] {
     }
 }
 
-/// A checked PNG or JPEG: its bytes, its upright size in pixels and its upright pixels (EXIF
-/// orientation applied, as PdfCraft embeds it), decoded once.
+/// A checked image: its bytes (PNG or JPEG as read; WebP, TIFF, BMP and GIF as a PNG of their
+/// first frame), its upright size in pixels and its upright pixels (EXIF orientation applied, as
+/// PdfCraft embeds it), decoded once.
 pub struct Picture {
     pub bytes: Arc<Vec<u8>>,
     pub size: (u32, u32),
@@ -110,17 +111,15 @@ pub struct Picture {
 }
 
 impl Picture {
-    /// Reads `path`, refusing anything but a PNG or JPEG that decodes.
+    /// Reads `path`, refusing anything but a PNG, JPEG, WebP, TIFF, BMP or GIF that decodes.
     pub fn read(path: &Path) -> Result<Picture> {
         use image::ImageDecoder;
         let bad = |why: &str| OpdfError::Unsupported(format!("{}: {why}", path.display()));
         let bytes = std::fs::read(path).map_err(|e| bad(&e.to_string()))?;
-        let format = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
-            image::ImageFormat::Png
-        } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
-            image::ImageFormat::Jpeg
-        } else {
-            return Err(bad("not a PNG or JPEG image"));
+        use image::ImageFormat as F;
+        let format = match image::guess_format(&bytes) {
+            Ok(f @ (F::Png | F::Jpeg | F::WebP | F::Tiff | F::Bmp | F::Gif)) => f,
+            _ => return Err(bad("not a PNG, JPEG, WebP, TIFF, BMP or GIF image")),
         };
         // Decoded whole: a file whose header is fine but whose pixels are not is refused here,
         // before anything is written.
@@ -135,6 +134,14 @@ impl Picture {
             return Err(bad("the image is empty"));
         }
         let rgba = std::mem::take(&mut img).into_rgba8();
+        // PdfCraft embeds PNG and JPEG as they are; the others go in as a PNG of their pixels.
+        let bytes = if matches!(format, F::Png | F::Jpeg) {
+            bytes
+        } else {
+            let mut png = Vec::new();
+            rgba.write_to(&mut std::io::Cursor::new(&mut png), F::Png).map_err(|_| bad("the image could not be converted"))?;
+            png
+        };
         Ok(Picture { bytes: Arc::new(bytes), size: rgba.dimensions(), rgba })
     }
 

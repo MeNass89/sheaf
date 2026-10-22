@@ -74,9 +74,19 @@ export component ReaderOptionsBar inherits Rectangle {
             text: root.tab.reader.opacity + " %";
             clicked => { ReaderBridge.shape-option(root.id, 2, 0); root.focus-pages(); }
         }
+        // A page image selected with the Edit tool: turn, flip, replace or delete it (its
+        // corners on the page resize it).
+        if root.tab.reader.selected-image: HorizontalLayout {
+            spacing: 4px;
+            ToolButton { y: 0px; icon: @image-url("../icons/rotate-ccw.svg"); tip: "Rotate left"; clicked => { ReaderBridge.image-action(root.id, 0); root.focus-pages(); } }
+            ToolButton { y: 0px; icon: @image-url("../icons/rotate-cw.svg"); tip: "Rotate right"; clicked => { ReaderBridge.image-action(root.id, 1); root.focus-pages(); } }
+            ToolButton { y: 0px; icon: @image-url("../icons/flip-horizontal-2.svg"); tip: "Flip"; clicked => { ReaderBridge.image-action(root.id, 2); root.focus-pages(); } }
+            ToolButton { y: 0px; icon: @image-url("../icons/replace.svg"); tip: "Replace…"; clicked => { ReaderBridge.image-action(root.id, 3); root.focus-pages(); } }
+            ToolButton { y: 0px; icon: @image-url("../icons/trash-2.svg"); tip: "Delete"; clicked => { ReaderBridge.image-action(root.id, 4); root.focus-pages(); } }
+        }
         // The text format: of text boxes (also the selected one) and of text added on
         // the page (Edit text).
-        if root.tab.reader.tool == 6 || root.tab.reader.tool == 7 || root.tab.reader.selected-text-box: HorizontalLayout {
+        if !root.tab.reader.selected-image && (root.tab.reader.tool == 6 || root.tab.reader.tool == 7 || root.tab.reader.selected-text-box): HorizontalLayout {
             spacing: 4px;
             SmallButton { y: 2px; text: "Sans"; primary: root.tab.reader.text-family == 0; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
             SmallButton { y: 2px; text: "Serif"; primary: root.tab.reader.text-family == 1; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
@@ -146,7 +156,7 @@ export component ReaderOptionsBar inherits Rectangle {
             }
             SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
         }
-        if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && root.tab.reader.tool != 12) || root.tab.reader.selected-annot: HorizontalLayout {
+        if !root.tab.reader.selected-image && ((root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && root.tab.reader.tool != 12) || root.tab.reader.selected-annot): HorizontalLayout {
             spacing: 2px;
             padding-left: 6px;
             for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {

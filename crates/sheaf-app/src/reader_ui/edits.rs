@@ -67,6 +67,8 @@ pub(super) fn forget_page_state(r: &mut ReaderUi) {
     r.press = None;
     r.stroke = None;
     r.image_at = None;
+    r.selected_image = None;
+    r.image_resize = None;
     r.sign_at = None;
     r.provisional.clear();
     r.texts.clear();
@@ -487,6 +489,9 @@ fn show_preview(tab_id: i32, (page, block): (usize, usize)) {
 }
 
 pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
+    if update(tab_id, |r, _| r.selected_image.is_some()) == Some(true) {
+        return image_action(ui, tab_id, 4);
+    }
     let edit = update(tab_id, |r, _| {
         let i = r.selected_annot.take()?;
         let a = r.annots().get(i)?;
@@ -496,6 +501,34 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     if let Some((page, e)) = edit {
         apply(ui, tab_id, e, &[page], None);
     }
+}
+
+/// The selected page image (Edit tool): 0 turned left, 1 right, 2 flipped, 3 replaced by a file
+/// chosen, 4 deleted. It stays selected, except deleted.
+pub fn image_action(ui: &AppWindow, tab_id: i32, action: i32) {
+    use sheaf_core::pdfcraft::engine::ImageEdit;
+    let Some((page, index)) = update(tab_id, |r, _| r.selected_image).flatten() else { return };
+    let change = match action {
+        0 => ImageEdit::Rotate(-1),
+        1 => ImageEdit::Rotate(1),
+        2 => ImageEdit::Flip { horizontal: true },
+        3 => {
+            let d = crate::dialog::new(ui).set_title("Replace the image").add_filter("Image", super::pointer::IMAGE_TYPES);
+            return crate::dialog::pick_file(ui, d, move |ui, path| {
+                let pic = match sheaf_core::edit::Picture::read(&path) {
+                    Ok(p) => p,
+                    Err(e) => return crate::flow::toast(ui, &e.to_string()),
+                };
+                let change = ImageEdit::Replace { name: file_name(&path), bytes: pic.bytes.clone() };
+                apply(ui, tab_id, Edit::EditPageImage { page, index, change }, &[page], None);
+            });
+        }
+        _ => {
+            update(tab_id, |r, _| r.selected_image = None);
+            ImageEdit::Delete
+        }
+    };
+    apply(ui, tab_id, Edit::EditPageImage { page, index, change }, &[page], None);
 }
 
 pub fn annot_delete(ui: &AppWindow, tab_id: i32, k: i32) {

@@ -197,11 +197,12 @@ fn an_invalid_image_is_refused_and_nothing_is_written() {
     broken.truncate(60);
     let broken_path = t.path().join("broken.png");
     std::fs::write(&broken_path, broken).unwrap();
-    let gif = t.path().join("x.gif");
-    image::RgbImage::from_pixel(4, 4, image::Rgb([0, 0, 0])).save(&gif).unwrap();
+    // An icon: an image format, but not one placed.
+    let ico = t.path().join("x.ico");
+    std::fs::write(&ico, [0u8, 0, 1, 0, 1, 0, 16, 16, 0, 0, 1, 0, 32, 0]).unwrap();
     let out_dir = t.path().join("out");
     std::fs::create_dir(&out_dir).unwrap();
-    for (path, why) in [(&fake, "not a PNG or JPEG"), (&broken_path, "damaged"), (&gif, "not a PNG or JPEG")] {
+    for (path, why) in [(&fake, "not a PNG, JPEG"), (&broken_path, "damaged"), (&ico, "not a PNG, JPEG")] {
         let spec = EditSpec {
             items: vec![
                 Item::Text { page: 0, at: [150.0, 650.0], text: "Kept?".into(), font_size: 12.0, color: [0, 0, 0] },
@@ -269,5 +270,18 @@ fn view_and_user_space_round_trip() {
         assert!(v.iter().zip([30.0, 40.0, 130.0, 65.0]).all(|(a, e)| (a - e).abs() < 1e-3), "rot {rotation}: {v:?}");
         let p = edit::user_to_view(&info, edit::view_to_user(&info, [12.5, 99.0]));
         assert!((p[0] - 12.5).abs() < 1e-3 && (p[1] - 99.0).abs() < 1e-3);
+    }
+}
+
+#[test]
+fn webp_tiff_bmp_and_gif_are_placed_as_png() {
+    let t = tempfile::tempdir().unwrap();
+    for ext in ["webp", "tiff", "bmp", "gif"] {
+        let path = t.path().join(format!("x.{ext}"));
+        image::RgbaImage::from_pixel(6, 3, image::Rgba([200, 30, 30, 255])).save(&path).unwrap();
+        let pic = edit::Picture::read(&path).unwrap_or_else(|e| panic!("{ext}: {e}"));
+        assert!(pic.bytes.starts_with(b"\x89PNG"), "{ext} stored as PNG");
+        assert_eq!(pic.size, (6, 3));
+        assert!((pic.aspect() - 0.5).abs() < 1e-9);
     }
 }

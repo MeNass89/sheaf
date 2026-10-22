@@ -439,7 +439,7 @@ fn edit_subcommand_adds_text_and_images_in_order() {
     // Not an image: refused, nothing written.
     let r = bin().arg("edit").arg(&src).arg("--image").arg(&src).args(["--at", "1,1", "--width", "50", "-o"]).arg(&bad).output().unwrap();
     assert_eq!(r.status.code(), Some(1));
-    assert!(String::from_utf8_lossy(&r.stderr).contains("not a PNG or JPEG"), "{}", String::from_utf8_lossy(&r.stderr));
+    assert!(String::from_utf8_lossy(&r.stderr).contains("not a PNG, JPEG"), "{}", String::from_utf8_lossy(&r.stderr));
     assert!(!bad.exists());
     // Protected input: edited, with the note.
     let locked = t.path().join("locked.pdf");

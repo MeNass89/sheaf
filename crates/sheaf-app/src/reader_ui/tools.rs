@@ -26,6 +26,8 @@ pub fn set_tool(tab_id: i32, tool: i32) {
         }
         r.draft = None;
         r.stroke = None;
+        r.selected_image = None;
+        r.image_resize = None;
         load_blocks(r, v);
     });
 }

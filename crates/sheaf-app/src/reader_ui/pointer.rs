@@ -32,6 +32,11 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 // A click on a paragraph edits it, a drag moves it; a drag on an image moves the
                 // image; a click on empty space adds text (decided on release).
                 let size = v.viewer.boxes[page].view_size();
+                // A corner of the selected image resizes it.
+                if let Some(corner) = image_corner_at(r, v, page, p) {
+                    r.image_resize = Some((corner, p, p));
+                    return false;
+                }
                 // Paragraphs not read yet (just switched tool): the click adds text instead.
                 let blocks = r.blocks(page).unwrap_or_default();
                 let inside = |rect: [f64; 4]| {
@@ -41,6 +46,11 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 let block = blocks.iter().enumerate().find_map(|(i, b)| inside(b.rect).map(|at| EditTarget::Block(i, b.text.clone(), b.drawn.clone(), b.rect, at)));
                 let image = || r.images.get(&page).and_then(|im| im.iter().enumerate().rev().find_map(|(i, (vis, full))| inside(*vis).map(|_| EditTarget::Image(i, *vis, *full))));
                 let target = block.or_else(image).unwrap_or(EditTarget::Empty);
+                // An image is selected as soon as it is pressed (PDF Expert), to drag or resize.
+                r.selected_image = match target {
+                    EditTarget::Image(i, ..) => Some((page, i)),
+                    _ => None,
+                };
                 r.edit_press = Some(EditPress { page, target, from: p, to: p, dragging: false });
                 false
             }
@@ -104,9 +114,12 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
     apply_pending_field(ui, tab_id);
 }
 
+/// The image files Add image and Replace take (others than PNG and JPEG are stored as PNG).
+pub(super) const IMAGE_TYPES: &[&str] = &["png", "jpg", "jpeg", "webp", "tif", "tiff", "bmp", "gif"];
+
 /// Add image: the file is chosen, then placed 200 pt wide (less on a small page) at the click.
 pub(super) fn pick_image(ui: &AppWindow, tab_id: i32) {
-    let d = crate::dialog::new(ui).set_title("Choose an image").add_filter("Image", &["png", "jpg", "jpeg"]);
+    let d = crate::dialog::new(ui).set_title("Choose an image").add_filter("Image", IMAGE_TYPES);
     crate::dialog::pick_file(ui, d, move |ui, path| {
         let pic = match sheaf_core::edit::Picture::read(&path) {
             Ok(p) => p,
@@ -122,6 +135,10 @@ pub(super) fn pick_image(ui: &AppWindow, tab_id: i32) {
             // Display space: points from the displayed page's bottom-left, y up.
             let rect = [x0, size.1 - (y0 + h), x0 + w, size.1 - y0];
             let name = file_name(&path);
+            // Then the Edit tool, the new image selected once the page's images are listed again
+            // (it is the last): its corners resize it at once, as in PDF Expert.
+            r.select_added = Some((page, r.images.get(&page).map_or(0, |im| im.len())));
+            r.tool = EDIT_TEXT;
             Some((page, Edit::AddImage { page, rect: Some(rect), name, bytes: pic.bytes.clone() }))
         })
         .flatten();
@@ -141,6 +158,10 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             return;
         }
         if let Some(d) = r.annot_resize.as_mut() {
+            d.2 = b;
+            return;
+        }
+        if let Some(d) = r.image_resize.as_mut() {
             d.2 = b;
             return;
         }
@@ -204,6 +225,12 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             let edit = Edit::ResizeAnnotation { page: a.page, index: a.index, rect: user };
             r.selected_annot = None;
             return Some(Pending::Move(a.page, Box::new(edit)));
+        }
+        if let Some((corner, from, to)) = r.image_resize.take() {
+            let (page, i) = r.selected_image?;
+            let (vis, full) = *r.images.get(&page)?.get(i)?;
+            let to = resized_image(&v.viewer.boxes[page], vis, full, corner, (to.0 - from.0, to.1 - from.1));
+            return Some(Pending::Move(page, Box::new(Edit::EditPageImage { page, index: i, change: sheaf_core::pdfcraft::engine::ImageEdit::Move(to) })));
         }
         if let Some(e) = r.edit_press.take() {
             let b = &v.viewer.boxes[e.page];
@@ -332,4 +359,64 @@ pub(super) fn link_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> O
         let [x, y, w, h] = viewer::pdf_rect_to_view(&v.boxes[page], size, l.rect.map(f64::from));
         (p.0 >= x && p.0 <= x + w && p.1 >= y && p.1 <= y + h).then(|| l.target.clone())
     })
+}
+
+/// The corner of the selected image (Edit tool) at view point `p` of `page`, within 8 points:
+/// 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right.
+fn image_corner_at(r: &ReaderUi, v: &ViewerUi, page: usize, p: (f64, f64)) -> Option<u8> {
+    let (sp, i) = r.selected_image?;
+    if sp != page {
+        return None;
+    }
+    let (vis, _) = *r.images.get(&page)?.get(i)?;
+    let b = &v.viewer.boxes[page];
+    let [x, y, w, h] = viewer::pdf_rect_to_view(b, b.view_size(), vis);
+    [(x, y), (x + w, y), (x, y + h), (x + w, y + h)].iter().position(|c| (p.0 - c.0).abs() <= 8.0 && (p.1 - c.1).abs() <= 8.0).map(|c| c as u8)
+}
+
+/// The view box `[x, y, w, h]` of an image whose `corner` is pulled by `pull` (view points): the
+/// opposite corner stays, the proportions too (PDF Expert's corners), the pull projected on the
+/// diagonal; never under 8 points.
+pub(super) fn pulled_box([x, y, w, h]: [f64; 4], corner: u8, pull: (f64, f64)) -> [f64; 4] {
+    let (sx, sy) = (if corner % 2 == 1 { 1.0 } else { -1.0 }, if corner >= 2 { 1.0 } else { -1.0 });
+    let d2 = (w * w + h * h).max(1e-9);
+    let k = (1.0 + (sx * pull.0 * w + sy * pull.1 * h) / d2).max(8.0 / w.min(h).max(1e-9));
+    let (w2, h2) = (w * k, h * k);
+    let x2 = if sx > 0.0 { x } else { x + w - w2 };
+    let y2 = if sy > 0.0 { y } else { y + h - h2 };
+    [x2, y2, w2, h2]
+}
+
+/// The full box (user space) of an image whose visible box `vis` has had `corner` pulled by
+/// `pull`: a cropped image's full box scales with it about the same fixed corner.
+fn resized_image(b: &viewer::PageBox, vis: [f64; 4], full: [f64; 4], corner: u8, pull: (f64, f64)) -> [f64; 4] {
+    let size = b.view_size();
+    let v = viewer::pdf_rect_to_view(b, size, vis);
+    let n = pulled_box(v, corner, pull);
+    let k = n[2] / v[2].max(1e-9);
+    // The fixed corner, the same point before and after.
+    let (ax, ay) = (if corner % 2 == 1 { v[0] } else { v[0] + v[2] }, if corner >= 2 { v[1] } else { v[1] + v[3] });
+    let [fx, fy, fw, fh] = viewer::pdf_rect_to_view(b, size, full);
+    let (x0, y0) = (ax + (fx - ax) * k, ay + (fy - ay) * k);
+    viewer::view_rect_to_pdf(b, size, (x0, y0), (x0 + fw * k, y0 + fh * k))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pulled_box;
+
+    #[test]
+    fn a_pulled_corner_keeps_the_proportions_and_the_opposite_corner() {
+        let b = [100.0, 100.0, 200.0, 100.0];
+        // Bottom-right pulled out along the diagonal: twice the size, top-left fixed.
+        assert_eq!(pulled_box(b, 3, (200.0, 100.0)), [100.0, 100.0, 400.0, 200.0]);
+        // Top-left pulled the same way in: half the size, bottom-right fixed (300, 200).
+        assert_eq!(pulled_box(b, 0, (100.0, 50.0)), [200.0, 150.0, 100.0, 50.0]);
+        // A sideways pull scales by its share of the diagonal; the ratio stays 2:1.
+        let r = pulled_box(b, 1, (50.0, 0.0));
+        assert!((r[2] / r[3] - 2.0).abs() < 1e-9 && r[0] == 100.0 && (r[1] + r[3] - 200.0).abs() < 1e-9, "{r:?}");
+        // Never under 8 points.
+        let r = pulled_box(b, 3, (-1000.0, -1000.0));
+        assert!((r[3] - 8.0).abs() < 1e-9 && (r[2] - 16.0).abs() < 1e-9, "{r:?}");
+    }
 }
