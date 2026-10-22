@@ -92,7 +92,9 @@ fn draw(ui: &AppWindow, tab_id: i32, opts: &ToolOptions) {
     };
     // The first page the mark goes on; the options of a single file (no batch clamp).
     let page = crate::run::page_number(&opts.from_page).unwrap_or(1);
-    let options = crate::run::preview_watermark_options(opts);
+    // No text or image yet: the page as it is, nothing to explain.
+    let blank = if opts.wm_image_mode { opts.wm_image.is_empty() } else { opts.wm_text.trim().is_empty() };
+    let options = if blank { None } else { Some(crate::run::preview_watermark_options(opts).map_err(|e| e.to_string())) };
     let (generation, copy, busy) = PENDING.with(|p| {
         let p = p.borrow();
         let copy = p.pages.get(&tab_id).filter(|c| c.0 == uid && c.1 == page).map(|c| c.2.clone());
@@ -116,13 +118,17 @@ fn draw(ui: &AppWindow, tab_id: i32, opts: &ToolOptions) {
                 Ok(Arc::new(dir))
             }),
         };
-        // Options that cannot make a mark yet (no text, no image) show the page as it is.
+        // A panic in the mark or the render becomes a note too, so the result always comes back
+        // (and a copy in progress is never left marked as such).
         let shown = copy.as_ref().map_err(|e| e.to_string()).and_then(|c| {
             let page_pdf = Input::new(c.path().join("page.pdf"));
-            let marked = options.as_ref().map_err(|e| e.to_string()).and_then(|o| marked_page(&page_pdf, o).map_err(|e| e.to_string()));
+            let marked = match &options {
+                None => Err(String::new()),
+                Some(o) => o.clone().and_then(|o| catching(|| marked_page(&page_pdf, &o)).map_err(|e| e.to_string())),
+            };
             match marked {
                 Ok(m) => Ok((m, String::new())),
-                Err(why) => files::first_page_preview(&page_pdf, PREVIEW_PX).map(|p| (p, why)).map_err(|e| e.to_string()),
+                Err(why) => catching(|| files::first_page_preview(&page_pdf, PREVIEW_PX)).map(|p| (p, why)).map_err(|e| e.to_string()),
             }
         });
         let _ = weak.upgrade_in_event_loop(move |ui| {
@@ -152,10 +158,9 @@ fn draw(ui: &AppWindow, tab_id: i32, opts: &ToolOptions) {
     });
 }
 
-/// Why there is no mark on the preview, as the panel says it ("" when nothing is wrong: the
-/// text or the image is simply not there yet).
+/// Why there is no mark on the preview, as the panel says it ("" when nothing is wrong).
 fn note(why: &str) -> String {
-    if why.is_empty() || why.contains("text is empty") || why.contains("os error 2") {
+    if why.is_empty() {
         return String::new();
     }
     format!("No preview: {}", why.strip_prefix("unsupported input: ").unwrap_or(why))
@@ -175,7 +180,7 @@ mod tests {
     #[test]
     fn notes_say_why_only_when_something_is_wrong() {
         assert_eq!(note(""), "");
-        assert_eq!(note("unsupported input: the watermark text is empty"), "");
+        assert_eq!(note("No such file or directory (os error 2)"), "No preview: No such file or directory (os error 2)");
         assert_eq!(note("unsupported input: font size: \"900\" (use 1 to 500 points)"), "No preview: font size: \"900\" (use 1 to 500 points)");
     }
 }
