@@ -62,10 +62,11 @@ export component ReaderScreen inherits Rectangle {
     property <PointerEventButton> pan-button;
     // Pinch: the zoom when the gesture began.
     property <float> pinch-zoom0;
-    // Where the pointer is in the view (not the pages: they move under a still pointer as a zoom
-    // goes on), for ⌘ + wheel.
+    // ⌘ + wheel: where the pointer is in the view, taken from the first wheel event (the pages then
+    // move under the still pointer, so later events reuse it) until the pointer moves.
     property <length> pointer-vx;
     property <length> pointer-vy;
+    property <bool> wheel-anchored;
 
     // Zooms to `pct` percent actual size, the view point (ax, ay) staying on the same point of
     // its page under the pointer or the pinch (Rust works it out; the vertical scroll comes with
@@ -254,10 +255,7 @@ export component ReaderScreen inherits Rectangle {
                                 }
                                 return;
                             }
-                            if e.kind == PointerEventKind.move {
-                                root.pointer-vx = self.mouse-x + sv.content-x;
-                                root.pointer-vy = self.mouse-y + sv.content-y;
-                            }
+                            if e.kind == PointerEventKind.move { root.wheel-anchored = false; }
                             if e.kind == PointerEventKind.move && !root.pressing {
                                 root.link-tip = ReaderBridge.over-link(root.id, self.mouse-x, self.mouse-y);
                             }
@@ -279,6 +277,11 @@ export component ReaderScreen inherits Rectangle {
                             if e.modifiers.control && e.delta-y != 0 {
                                 // In proportion to the scroll: a wheel notch is about ×1.25, a trackpad's
                                 // many small steps add up smoothly.
+                                if !root.wheel-anchored {
+                                    root.pointer-vx = self.mouse-x + sv.content-x;
+                                    root.pointer-vy = self.mouse-y + sv.content-y;
+                                    root.wheel-anchored = true;
+                                }
                                 ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), root.pointer-vx / 1px, root.pointer-vy / 1px, -sv.content-x / 1px);
                                 return accept;
                             }

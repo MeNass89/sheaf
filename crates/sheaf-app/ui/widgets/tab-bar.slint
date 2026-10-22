@@ -2,12 +2,14 @@ import { Theme } from "../theme.slint";
 import { IconButton } from "button.slint";
 import { ToolTab } from "../flow-types.slint";
 
-// One tool tab: tile-colour icon, name (elided), ×.
+// One tool tab: tile-colour icon, name (elided), ×. Narrow (many tabs open), the × shows on the
+// active and the hovered tab only, as in a browser; a middle click closes it.
 component TabItem inherits Rectangle {
     in property <ToolTab> tab;
     in property <bool> active;
     callback select();
     callback close();
+    property <bool> narrow: root.width < 110px;
     width: Theme.tool-tab-width;
     height: Theme.tab-height;
     background: root.active ? Theme.tab-bg : touch.has-hover ? Theme.menu-hover-bg : transparent;
@@ -15,6 +17,9 @@ component TabItem inherits Rectangle {
     border-top-right-radius: Theme.radius-small;
     touch := TouchArea {
         clicked => { root.select(); }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.up && e.button == PointerEventButton.middle { root.close(); }
+        }
     }
     Rectangle {
         x: 12px;
@@ -32,7 +37,7 @@ component TabItem inherits Rectangle {
     Text {
         x: 12px + Theme.tab-icon + 10px;
         // Up to the close button (24 px from the right edge), elided before it.
-        width: parent.width - self.x - 30px;
+        width: parent.width - self.x - (close.visible ? 30px : 8px);
         text: root.tab.name;
         font-size: Theme.fs-tab;
         font-weight: root.active ? Theme.weight-demibold : 400;
@@ -40,7 +45,8 @@ component TabItem inherits Rectangle {
         vertical-alignment: center;
         overflow: elide;
     }
-    IconButton {
+    close := IconButton {
+        visible: !root.narrow || root.active || touch.has-hover;
         x: parent.width - self.width - 4px;
         width: 20px;
         height: 20px;
@@ -57,10 +63,31 @@ export component TabBar inherits Rectangle {
     callback new-tab();
     height: Theme.tabbar-height;
     background: Theme.tabbar-bg;
+    // Tabs share the bar: full width while they fit, narrower down to 72 px as more open (a
+    // browser's), then the row scrolls (wheel or trackpad) and the active tab is kept in view.
+    property <length> room: root.width - 8px - Theme.tab-width - 34px - 12px;
+    property <length> each: root.tabs.length == 0 ? Theme.tool-tab-width
+        : clamp((root.room - 2px * root.tabs.length) / root.tabs.length, 72px, Theme.tool-tab-width);
+    // The active tab keeps room for its name (140 px); the others share what is left.
+    property <length> active-w: min(Theme.tool-tab-width, max(root.each, 140px));
+    property <length> other-w: root.active < 0 || root.tabs.length < 2 ? root.each
+        : clamp((root.room - root.active-w - 2px * root.tabs.length) / (root.tabs.length - 1), 72px, Theme.tool-tab-width);
+    property <length> row-width: 8px + Theme.tab-width + (root.tabs.length - 1) * (root.other-w + 2px) + root.active-w + 38px;
+    changed active => {
+        if root.active >= 0 {
+            let left = 8px + Theme.tab-width + 2px + root.active * (root.other-w + 2px);
+            if left + root.active-w > -strip.content-x + strip.width { strip.content-x = -(left + root.active-w - strip.width + 4px); }
+            if left < -strip.content-x { strip.content-x = min(0px, -(left - 8px)); }
+        }
+    }
 
+    strip := Flickable {
+        y: parent.height - Theme.tab-height;
+        height: Theme.tab-height;
+        content-width: max(root.row-width, self.width);
+        content-height: self.height;
     HorizontalLayout {
         x: 8px;
-        y: parent.height - Theme.tab-height;
         height: Theme.tab-height;
         alignment: start;
         spacing: 2px;
@@ -94,6 +121,7 @@ export component TabBar inherits Rectangle {
             }
         }
         for t[i] in root.tabs: TabItem {
+            width: root.active == i ? root.active-w : root.other-w;
             tab: t;
             active: root.active == i;
             select => { root.active = i; }
@@ -106,6 +134,7 @@ export component TabBar inherits Rectangle {
                 clicked => { root.new-tab(); }
             }
         }
+    }
     }
     Rectangle {
         y: parent.height - 1px;

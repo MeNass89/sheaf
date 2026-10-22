@@ -9529,6 +9529,17 @@
      "overall": 8
     },
     "proof": "Audit 22/10: smoke 'two files open in two tabs'; gap: tabs don't shrink/scroll past ~6, no drag reorder"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Tabs share the bar (72–168 px, active 140), scroll past that, × on active/hovered when narrow, middle click closes; gui-smoke twelve tabs; joint review: drag reorder, right-click menu, dividers needed for 9 (iLovePDF)"
    }
   ]
  },

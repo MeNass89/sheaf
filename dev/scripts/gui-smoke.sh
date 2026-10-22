@@ -560,14 +560,34 @@ quit
 # 11. A damaged file says so in one line and the app stays up; Preferences ▸ Dark and Light switch the window.
 printf '%%PDF-1.7\nnot really a pdf\n' > "$OUT/broken.pdf"
 # The toast (white on dark, bottom centre, 3 s) read inverted until it is seen (up to 8 s: opening may be slow).
-toastText() { import -window root -crop 700x60+290+722 png:- 2>/dev/null | convert - -negate -resize 200% png:- | tesseract stdin stdout --psm 7 2>/dev/null; }
-launch "$OUT/broken.pdf"; BR=""; for i in $(seq 1 16); do sleep 0.5; BR="$BR $(toastText)"; echo "$BR" | grep -qi 'damaged' && break; done; shot 11-broken
+# Only the inside of the pill (dark, whatever is behind it), inverted to black on white.
+toastText() { import -window root -crop 380x26+450+742 png:- 2>/dev/null | convert - -negate -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null; }
+launch "$OUT/broken.pdf"; BR=""; for i in $(seq 1 32); do sleep 0.25; BR="$BR $(toastText)"; echo "$BR" | grep -qi 'damaged' && break; done; shot 11-broken
 check "a damaged PDF is refused in one line, the app stays open" "kill -0 $APP_PID 2>/dev/null && echo \"$BR\" | grep -qi 'damaged or not a PDF'"
 lum() { import -window root -crop 40x40+600+700 png:- 2>/dev/null | convert - -colorspace Gray -format '%[fx:mean]' info:; }
 PR=$(at Preferences 250x300+0+40); [ -n "$PR" ] && click $PR 1
 DK=$(at Dark); [ -n "$DK" ] && click $DK 1.2; L1=$(lum); shot 11-dark
 LT=$(at Light); [ -n "$LT" ] && click $LT 1.2; L2=$(lum)
 check "Preferences ▸ Dark then Light switch the window ($L1 → $L2)" "python3 -c 'import sys; sys.exit(0 if $L1 < 0.3 and $L2 > 0.7 else 1)'"
+quit
+
+# 12. Twelve documents: the tabs narrow to share the bar, the active one keeps its name readable and
+# its ×; a middle click on it closes it.
+for i in $(seq -w 1 12); do cp "$OUT/form.pdf" "$OUT/m$i.pdf"; done
+launch $(for i in $(seq -w 1 12); do echo "$OUT/m$i.pdf"; done); sleep 4; shot 12-many-tabs
+# Tabs counted by their purple document icons along the bar (y = 15); the active tab, last opened, is the
+# one before the + (1160,21), its name in full.
+ntabs() { import -window root -crop 1280x1+0+15 png:- 2>/dev/null | convert - txt:- | python3 -c '
+import re, sys
+runs, inside = 0, False
+for line in sys.stdin:
+    m = re.search(r"\((\d+),(\d+),(\d+)", line)
+    if m:
+        r, g, b = map(int, m.groups()); p = r > 120 and b > 140 and g < 110
+        runs += p and not inside; inside = p
+print(runs)'; }
+N0=$(ntabs); NM=$(ocr 150x36+1095+4 | tr -d ' '); xdotool mousemove 1160 21 click 2; sleep 1; N1=$(ntabs)
+check "twelve tabs share the bar, the active keeps its name, a middle click closes it ($N0 → $N1, $NM)" "[ \"$N0\" = 12 ] && [ \"$N1\" = 11 ] && echo \"$NM\" | grep -q '12'"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
