@@ -137,3 +137,109 @@ fn a_character_the_subset_lacks_is_drawn_in_a_standard_font_and_said() {
     assert_eq!(doc.document().font_substituted.as_deref(), Some("Helvetica"));
     assert!(block_with(&doc, "café").2.contains("Plain café menu"));
 }
+
+/// A Courier paragraph (6 pt a character) wrapped at 40 characters, then a two-item list.
+fn wrapped_paragraph(dir: &Path) -> PathBuf {
+    use lopdf::{Dictionary, Object, Stream};
+    let rows = ["The quick brown fox jumps over the lazy", "dog and then runs far away into the deep", "forest."];
+    let mut content = String::new();
+    for (i, row) in rows.iter().enumerate() {
+        content += &format!("BT /F1 10 Tf 72 {} Td ({row}) Tj ET\n", 700 - 12 * i);
+    }
+    content += "BT /F1 10 Tf 72 600 Td (- first item) Tj ET\nBT /F1 10 Tf 72 588 Td (- second item) Tj ET\n";
+    let mut doc = lopdf::Document::with_version("1.7");
+    let pages = doc.new_object_id();
+    let stream = doc.add_object(Stream::new(Dictionary::new(), content.into_bytes()));
+    let mut font = Dictionary::new();
+    font.set("Type", Object::Name(b"Font".to_vec()));
+    font.set("Subtype", Object::Name(b"Type1".to_vec()));
+    font.set("BaseFont", Object::Name(b"Courier".to_vec()));
+    font.set("Encoding", Object::Name(b"WinAnsiEncoding".to_vec()));
+    let mut fonts = Dictionary::new();
+    fonts.set("F1", Object::Dictionary(font));
+    let mut res = Dictionary::new();
+    res.set("Font", Object::Dictionary(fonts));
+    let mut page = Dictionary::new();
+    page.set("Type", Object::Name(b"Page".to_vec()));
+    page.set("Parent", Object::Reference(pages));
+    page.set("Contents", Object::Reference(stream));
+    page.set("Resources", Object::Dictionary(res));
+    page.set("MediaBox", Object::Array([0, 0, 612, 792].iter().map(|n| Object::Integer(*n)).collect()));
+    let page = doc.add_object(page);
+    let mut kids = Dictionary::new();
+    kids.set("Type", Object::Name(b"Pages".to_vec()));
+    kids.set("Kids", Object::Array(vec![Object::Reference(page)]));
+    kids.set("Count", Object::Integer(1));
+    doc.objects.insert(pages, Object::Dictionary(kids));
+    let mut catalog = Dictionary::new();
+    catalog.set("Type", Object::Name(b"Catalog".to_vec()));
+    catalog.set("Pages", Object::Reference(pages));
+    let catalog = doc.add_object(catalog);
+    doc.trailer.set("Root", Object::Reference(catalog));
+    let path = dir.join("wrapped.pdf");
+    doc.save(&path).unwrap();
+    path
+}
+
+#[test]
+fn wraps_are_told_from_typed_breaks_and_an_edit_rewraps_the_whole_paragraph() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut doc = Doc::open(&Input::new(wrapped_paragraph(dir.path()))).unwrap();
+    let blocks = doc.session().get(doc.id()).unwrap().text_blocks(0);
+    let para = blocks.iter().position(|b| b.text.contains("quick")).unwrap();
+    assert_eq!(blocks[para].soft_breaks, [true, true], "the paragraph's rows were wrapped");
+    let list = blocks.iter().find(|b| b.text.contains("first item")).unwrap();
+    assert!(list.soft_breaks.iter().all(|s| !s), "list items start their own lines: {:?}", list.soft_breaks);
+    // "very " typed into the first row: the words flow on through the rows below, as the editor
+    // sends it (wraps as spaces).
+    let text = "The very quick brown fox jumps over the lazy dog and then runs far away into the deep forest.";
+    doc.apply(Edit::EditTextBlock { page: 0, block: para, text: text.into(), style: BlockStyle::default() }).unwrap();
+    let (_, editor, _) = block_with(&doc, "quick");
+    let rows: Vec<&str> = editor.lines().map(str::trim).collect();
+    assert_eq!(rows, ["The very quick brown fox jumps over the", "lazy dog and then runs far away into the", "deep forest."], "{editor:?}");
+}
+
+/// The font resource each word of page 1 is shown in (from the saved file's content).
+fn word_fonts(bytes: &[u8]) -> Vec<(String, String)> {
+    let doc = lopdf::Document::load_mem(bytes).unwrap();
+    let page = *doc.get_pages().get(&1).unwrap();
+    let content = lopdf::content::Content::decode(&doc.get_page_content(page)).unwrap();
+    let mut font = String::new();
+    let mut out = Vec::new();
+    for op in content.operations {
+        match op.operator.as_str() {
+            "Tf" => font = op.operands[0].as_name().map(|n| String::from_utf8_lossy(n).into_owned()).unwrap_or_default(),
+            "Tj" | "TJ" => {
+                let strings: Vec<&lopdf::Object> = match &op.operands[0] {
+                    lopdf::Object::Array(a) => a.iter().collect(),
+                    o => vec![o],
+                };
+                for s in strings {
+                    if let lopdf::Object::String(b, _) = s {
+                        for w in String::from_utf8_lossy(b).split_whitespace() {
+                            out.push((w.to_string(), font.clone()));
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+#[test]
+fn two_edits_apart_keep_the_styles_between_them() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut doc = Doc::open(&Input::new(mixed_paragraph(dir.path()))).unwrap();
+    let (i, editor, _) = block_with(&doc, "Sympto");
+    // One word changed in the first row, one in the last: "signs" (bold) lies between them.
+    let text = editor.replace("pain, diar", "ache, diar").replace("fossa", "fossae");
+    doc.apply(Edit::EditTextBlock { page: 0, block: i, text, style: BlockStyle::default() }).unwrap();
+    let words = word_fonts(&doc.session().save_full_bytes(doc.id()).unwrap());
+    let font_of = |w: &str| words.iter().find(|(x, _)| x.starts_with(w)).map(|(_, f)| f.clone()).unwrap_or_else(|| panic!("{w} not drawn: {words:?}"));
+    assert_eq!(font_of("signs"), "F2", "{words:?}");
+    assert_eq!(font_of("General"), "F1");
+    assert_eq!(font_of("ache"), "F1");
+}
+

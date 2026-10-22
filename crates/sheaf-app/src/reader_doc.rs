@@ -42,7 +42,41 @@ pub struct AnnotEntry {
 pub struct Block {
     /// User space.
     pub rect: [f64; 4],
+    /// The text to edit: wraps as spaces ([`reflowed`]).
     pub text: String,
+    /// The text as drawn, a newline between rows.
+    pub drawn: String,
+}
+
+/// A paragraph's editor text with its wraps as spaces (a hyphen at a wrap is kept, joined), so
+/// an edit rewraps the whole paragraph as PDF Expert's does; line breaks the author typed stay.
+/// `soft` has one entry per row break; a text that does not match it is left as it is.
+fn reflowed(editor_text: &str, soft: &[bool]) -> String {
+    let rows: Vec<&str> = editor_text.split('\n').collect();
+    if rows.len() != soft.len() + 1 {
+        return editor_text.to_string();
+    }
+    let mut out = String::from(rows[0]);
+    for (row, wrap) in rows[1..].iter().zip(soft) {
+        if !wrap {
+            out.push('\n');
+        } else if !out.ends_with(char::is_whitespace) && !out.ends_with('-') {
+            out.push(' ');
+        }
+        out.push_str(row);
+    }
+    out
+}
+
+/// What the last edit drew otherwise than typed, as Acrobat says it: characters the paragraph's
+/// font lacks drawn in another, or characters no font has drawn as `?` (a comment, a field).
+fn edit_note(d: &sheaf_core::pdfcraft::engine::Document) -> Option<String> {
+    if let Some(font) = &d.font_substituted {
+        return Some(format!("Some characters aren't in this document's font: shown in {font}"));
+    }
+    let n = d.edit_notices.first()?.to_string();
+    let mut c = n.chars();
+    c.next().map(|f| f.to_uppercase().chain(c).collect())
 }
 
 /// A form field as the reader fills it.
@@ -226,9 +260,9 @@ pub enum Reply {
     Opened(Box<Snap>),
     OpenFailed(sheaf_core::OpdfError),
     /// An edit, undo or redo is done (or failed): the pages to render again (`None`: all).
-    /// `applied`: the answer to an `Apply` (an undo step was added unless `error`); `substituted`:
-    /// the font it drew characters in that the document's own font lacks.
-    Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool, substituted: Option<String> },
+    /// `applied`: the answer to an `Apply` (an undo step was added unless `error`); `note`: what
+    /// the edit could not draw as typed ([`edit_note`]).
+    Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool, note: Option<String> },
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
     /// Comments exported to `to` (or why not).
     Exported { to: PathBuf, error: Option<String> },
@@ -259,11 +293,11 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                 match op {
                     Op::Apply { edit, pages } => {
                         let error = doc.apply(*edit).err().map(|e| e.to_string());
-                        let substituted = if error.is_none() { doc.document().font_substituted.clone() } else { None };
+                        let note = if error.is_none() { edit_note(doc.document()) } else { None };
                         let t1 = std::time::Instant::now();
                         let s = snap(&doc);
                         debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
-                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: true, substituted });
+                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: true, note });
                     }
                     op @ (Op::Undo { .. } | Op::Redo { .. }) => {
                         let (redo, pages) = match op {
@@ -273,7 +307,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         };
                         let id = doc.id();
                         let r = if redo { doc.session_mut().redo(id) } else { doc.session_mut().undo(id) };
-                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()), applied: false, substituted: None });
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()), applied: false, note: None });
                     }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());
@@ -306,7 +340,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             .text_blocks(page)
                             .into_iter()
                             .filter(|b| !b.text.trim().is_empty())
-                            .map(|b| Block { rect: b.rect, text: b.editor_text })
+                            .map(|b| Block { rect: b.rect, text: reflowed(&b.editor_text, &b.soft_breaks), drawn: b.editor_text })
                             .collect();
                         let images = doc.document().page_images(page).iter().map(|i| (i.visible_rect.unwrap_or(i.rect), i.rect)).collect();
                         reply(Reply::Blocks(page, b, images));
@@ -369,6 +403,15 @@ pub fn debug(args: std::fmt::Arguments) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn wraps_become_spaces_and_typed_breaks_stay() {
+        let soft = [true, false, true];
+        assert_eq!(super::reflowed("one two\nthree\n- item pseudo-\nmarisques", &soft), "one two three\n- item pseudo-marisques");
+        assert_eq!(super::reflowed("ends with space \nnext", &[true]), "ends with space next");
+        // Rows and flags that disagree: left as drawn.
+        assert_eq!(super::reflowed("a\nb", &[]), "a\nb");
+    }
+
     use super::*;
     use pdfium_render::prelude::*;
     use sheaf_core::pdfcraft::engine::{Markup, NewAnnotation, NoteIcon, Shape, Style};
@@ -687,6 +730,28 @@ mod tests {
         let (_, _, again) = started(&path);
         assert_eq!(again.annots.len(), 1);
         assert_eq!(again.annots[0].subtype, "Highlight");
+    }
+
+    #[test]
+    fn an_edit_that_draws_a_character_as_a_question_mark_says_so() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 1);
+        let (ops, rx, _) = started(&path);
+        let boxed = |contents: &str| {
+            Edit::AddAnnotation(NewAnnotation {
+                page: 0,
+                shape: Shape::TextBox { rect: [100.0, 400.0, 300.0, 440.0], font_size: 12.0 },
+                style: Style::default(),
+                contents: contents.into(),
+                author: String::new(),
+            })
+        };
+        ops.send(Op::Apply { edit: Box::new(boxed("Plain")), pages: vec![0] }).unwrap();
+        let Reply::Changed { note, .. } = rx.recv_timeout(Duration::from_secs(30)).unwrap() else { panic!("expected Changed") };
+        assert_eq!(note, None);
+        ops.send(Op::Apply { edit: Box::new(boxed("Ωmega")), pages: vec![0] }).unwrap();
+        let Reply::Changed { note, .. } = rx.recv_timeout(Duration::from_secs(30)).unwrap() else { panic!("expected Changed") };
+        assert!(note.as_deref().is_some_and(|n| n.starts_with("A comment on page 1 has \"Ω\"")), "{note:?}");
     }
 
     #[test]

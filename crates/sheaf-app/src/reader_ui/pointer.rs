@@ -38,7 +38,7 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                     let [x, y, w, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, rect);
                     (p.0 >= x - 2.0 && p.0 <= x + w + 2.0 && p.1 >= y - 2.0 && p.1 <= y + h + 2.0).then_some((x, y))
                 };
-                let block = blocks.iter().enumerate().find_map(|(i, b)| inside(b.rect).map(|at| EditTarget::Block(i, b.text.clone(), b.rect, at)));
+                let block = blocks.iter().enumerate().find_map(|(i, b)| inside(b.rect).map(|at| EditTarget::Block(i, b.text.clone(), b.drawn.clone(), b.rect, at)));
                 let image = || r.images.get(&page).and_then(|im| im.iter().enumerate().rev().find_map(|(i, (vis, full))| inside(*vis).map(|_| EditTarget::Image(i, *vis, *full))));
                 let target = block.or_else(image).unwrap_or(EditTarget::Empty);
                 r.edit_press = Some(EditPress { page, target, from: p, to: p, dragging: false });
@@ -212,7 +212,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             let p1 = viewer::view_to_pdf(b, size, e.to.0, e.to.1);
             let (dx, dy) = (p1.0 - p0.0, p1.1 - p0.1);
             match (e.target, e.dragging) {
-                (EditTarget::Block(i, text, _, _), true) => {
+                (EditTarget::Block(i, _, text, _, _), true) => {
                     let style = sheaf_core::pdfcraft::edit::BlockStyle { offset: Some([dx, dy]), ..Default::default() };
                     return Some(Pending::Move(e.page, Box::new(Edit::EditTextBlock { page: e.page, block: i, text, style })));
                 }
@@ -221,7 +221,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                     let to = [rc[0] + dx, rc[1] + dy, rc[2] + dx, rc[3] + dy];
                     return Some(Pending::Move(e.page, Box::new(Edit::EditPageImage { page: e.page, index: i, change: sheaf_core::pdfcraft::engine::ImageEdit::Move(to) })));
                 }
-                (EditTarget::Block(i, text, rect, at), false) => {
+                (EditTarget::Block(i, text, _, rect, at), false) => {
                     r.draft = Some(Draft { page: e.page, at, kind: 2, block: Some((i, text, rect)), field: None });
                     r.note_seq += 1;
                 }

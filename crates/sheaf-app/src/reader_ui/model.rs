@@ -95,7 +95,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     // A paragraph or image being dragged: its outline follows the pointer.
     if let Some(e) = r.edit_press.as_ref().filter(|e| e.dragging) {
         let rect = match &e.target {
-            EditTarget::Block(_, _, rc, _) | EditTarget::Image(_, rc, _) => Some(*rc),
+            EditTarget::Block(_, _, _, rc, _) | EditTarget::Image(_, rc, _) => Some(*rc),
             EditTarget::Empty => None,
         };
         if let Some(rc) = rect {

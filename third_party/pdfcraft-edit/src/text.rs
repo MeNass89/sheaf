@@ -260,6 +260,10 @@ pub struct TextBlock {
     /// Every line is invisible text (rendering mode 3): an OCR layer over a scanned image, whose
     /// pixels show the words. A rewrite draws the new text visibly (see [`BlockStyle::cover`]).
     pub invisible: bool,
+    /// Sheaf: for each break between rows, whether it is a wrap (the row was full: the next row's
+    /// first word would not have fitted, and the next row is not a list item) rather than a line
+    /// break the author typed. An editor can show wraps as spaces, so the paragraph rewraps.
+    pub soft_breaks: Vec<bool>,
 }
 
 impl TextBlock {
@@ -282,7 +286,13 @@ impl TextBlock {
             }
             original.push(self.spans.get(span).or_else(|| self.spans.last()).map_or(0, |(_, i)| *i));
         }
+        // Sheaf: each character of the draft takes the run of the old character it matches; one
+        // typed takes the run before it. Upstream matched only the common start and end, so two
+        // edits apart (or wraps turned into spaces by the editor) styled all between them alike.
+        let middle: Vec<char> = new[prefix..new.len() - suffix].iter().map(|(_, c)| *c).collect();
+        let matched = myers(&old[prefix..old.len() - suffix], &middle, MAX_DIFF);
         let inherited = original.get(prefix.saturating_sub(1)).or_else(|| original.get(prefix)).copied().unwrap_or(0);
+        let mut last = inherited;
         let mut result: Vec<(std::ops::Range<usize>, usize)> = Vec::new();
         for (i, (byte, ch)) in new.iter().enumerate() {
             let source = if i < prefix {
@@ -290,9 +300,13 @@ impl TextBlock {
             } else if i >= new.len().saturating_sub(suffix) {
                 original.get(old.len().saturating_sub(new.len() - i)).copied()
             } else {
-                Some(inherited)
+                match &matched {
+                    Some(m) => m.get(i - prefix).copied().flatten().and_then(|o| original.get(prefix + o).copied()).or(Some(last)),
+                    None => Some(inherited),
+                }
             }
             .unwrap_or(inherited);
+            last = source;
             let end = byte.saturating_add(ch.len_utf8());
             if let Some((range, _)) = result.last_mut().filter(|(_, prev)| *prev == source) {
                 range.end = end;
@@ -302,6 +316,57 @@ impl TextBlock {
         }
         result
     }
+}
+
+/// Sheaf: the most edits [`myers`] looks for before giving up (its memory grows with their square).
+const MAX_DIFF: usize = 512;
+
+/// Sheaf: for each character of `new`, the index of the character of `old` it is kept from
+/// (`None`: typed), by Myers' shortest edit script; `None` when more than `max` edits apart.
+fn myers(old: &[char], new: &[char], max: usize) -> Option<Vec<Option<usize>>> {
+    let (n, m) = (old.len() as isize, new.len() as isize);
+    let off = max as isize + 1;
+    let mut v = vec![0isize; 2 * off as usize + 1];
+    let mut trace: Vec<Vec<isize>> = Vec::new();
+    for d in 0..=max as isize {
+        trace.push(v.clone());
+        let mut k = -d;
+        while k <= d {
+            let i = (k + off) as usize;
+            let mut x = if k == -d || (k != d && v[i - 1] < v[i + 1]) { v[i + 1] } else { v[i - 1] + 1 };
+            let mut y = x - k;
+            while x < n && y < m && old[x as usize] == new[y as usize] {
+                x += 1;
+                y += 1;
+            }
+            v[i] = x;
+            if x >= n && y >= m {
+                // Walk back through the trace, keeping the diagonal (kept) characters.
+                let mut kept = vec![None; new.len()];
+                let (mut x, mut y) = (n, m);
+                for d in (0..=d).rev() {
+                    let v = &trace[d as usize];
+                    let k = x - y;
+                    let i = (k + off) as usize;
+                    let prev_k = if d == 0 { k } else if k == -d || (k != d && v[i - 1] < v[i + 1]) { k + 1 } else { k - 1 };
+                    let prev_x = if d == 0 { 0 } else { v[(prev_k + off) as usize] };
+                    let prev_y = prev_x - prev_k;
+                    while x > prev_x.max(0) && y > prev_y.max(0) && x - y == k {
+                        x -= 1;
+                        y -= 1;
+                        kept[y as usize] = Some(x as usize);
+                    }
+                    if d > 0 {
+                        x = prev_x;
+                        y = prev_y;
+                    }
+                }
+                return Some(kept);
+            }
+            k += 2;
+        }
+    }
+    None
 }
 
 impl TextLine {

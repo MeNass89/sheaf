@@ -6627,10 +6627,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
+   "function": 8,
+   "aesthetics": 7,
    "performance": 9,
-   "overall": 6
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -6679,6 +6679,17 @@
      "overall": 6
     },
     "proof": "A paragraph edited twice stays one: rewritten rows share one text object (PdfCraft #594 rule split runs touching mid-word, e.g. Word's 'doul'+'eurs', leftover overprinted the edit); edit_text.rs red→green; real Word fiche checked. Characters the subset lacks drawn in a standard face with Acrobat's notice toast. Reviewer (Opus) 6/6/9: still a separate plain-text box (not on page), original line breaks kept hard (no rewrap), growth overlap seen only after ⌘↩, edit_notices ('?') not surfaced."
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 7,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Whole paragraph rewraps to its width (TextBlock::soft_breaks: wraps vs typed breaks/list items; editor shows wraps as spaces, a move keeps rows); styles kept across distant edits (edited_spans Myers diff, was prefix/suffix only: red→green test); '?' and substitute-font notices toasted. Tests edit_text.rs, reader_doc tests. Reviewer (Opus) 8/7/9: still a separate plain-text box, result and overlap seen only after ⌘↩; 9 needs on-page preview or on-page editing."
    }
   ]
  },

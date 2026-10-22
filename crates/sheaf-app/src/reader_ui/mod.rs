@@ -88,8 +88,9 @@ struct Draft {
 /// What the Edit tool's press is on.
 #[derive(Clone)]
 enum EditTarget {
-    /// A paragraph: index, text, box (user space), its top-left (view).
-    Block(usize, String, [f64; 4], (f64, f64)),
+    /// A paragraph: index, text to edit (wraps as spaces), text as drawn (a move keeps its rows),
+    /// box (user space), its top-left (view).
+    Block(usize, String, String, [f64; 4], (f64, f64)),
     /// An image: index among the page's images, visible box and full box (user space).
     Image(usize, [f64; 4], [f64; 4]),
     Empty,
@@ -453,7 +454,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 e => crate::flow::toast(ui, &sheaf_app::files::open_error(&file_name(&input.path), &e)),
             }
         }
-        Reply::Changed { snap, pages, error, applied, substituted } => {
+        Reply::Changed { snap, pages, error, applied, note } => {
             update(id, |r, v| {
                 r.in_flight = r.in_flight.saturating_sub(1);
                 r.edits_in_flight = r.edits_in_flight.saturating_sub(1);
@@ -474,9 +475,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             });
             if let Some(e) = error {
                 crate::flow::toast(ui, &e);
-            } else if let Some(font) = substituted {
-                // Acrobat's notice: the embedded font lacks some characters typed.
-                crate::flow::toast(ui, &format!("Some characters aren't in this document's font: shown in {font}"));
+            } else if let Some(note) = note {
+                crate::flow::toast(ui, &note);
             }
             crate::viewer_ui::request(ui, id);
         }

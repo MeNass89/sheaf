@@ -122,6 +122,7 @@ fn group_layout(lines: &[TextLine], mixed: bool) -> Vec<TextBlock> {
                 lines: Vec::new(),
                 rows: Vec::new(),
                 invisible: true,
+                soft_breaks: Vec::new(),
             });
         }
         let Some(block) = blocks.last_mut() else { continue };
@@ -158,7 +159,28 @@ fn group_layout(lines: &[TextLine], mixed: bool) -> Vec<TextBlock> {
         block.rect = union(block.rect, rect);
         block.rows.push(row);
     }
+    for block in &mut blocks {
+        block.soft_breaks = block.rows.windows(2).map(|pair| wrapped(&pair[0], &pair[1], block.rect, lines)).collect();
+    }
     blocks
+}
+
+/// Sheaf: whether `row` ended where it did because `next`'s first word would not fit on it in a
+/// paragraph whose box is `rect` (see [`TextBlock::soft_breaks`]).
+fn wrapped(row: &[usize], next: &[usize], rect: [f64; 4], lines: &[TextLine]) -> bool {
+    let (Some(r), Some(first)) = (row_rect(row, lines), next.first().and_then(|i| lines.get(*i))) else { return false };
+    let text = first.text.trim_start();
+    // A list item, a bullet or a numbered line starts on its own line.
+    let marker = text.starts_with(['-', '–', '—', '•', '·', '*', '.', '\u{f0b7}', '\u{f092}', '\u{2192}'])
+        || text.split_once([')', '.']).is_some_and(|(n, _)| !n.is_empty() && n.len() <= 3 && n.chars().all(|c| c.is_ascii_alphanumeric()));
+    if marker {
+        return false;
+    }
+    // The first word's width, from the run's own width per character.
+    let chars = first.text.chars().count().max(1) as f64;
+    let word = text.split(char::is_whitespace).next().unwrap_or_default().chars().count() as f64;
+    let word_width = (first.rect[2] - first.rect[0]) / chars * (word + 1.0);
+    r[2] + word_width > rect[2] - first.size * 0.25
 }
 
 /// Shape in the source or an explicitly registered matching full face. Never use interface fonts.

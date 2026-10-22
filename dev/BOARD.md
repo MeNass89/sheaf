@@ -11,10 +11,10 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 2 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 6 · 6 · 6 → **6** | needs LibreOffice installed; no sheet/print-area options |
 | 3 | C-convert-003 | strong | Convert images to PDF | ilovepdf | 6 · 7 · 8 → **6** | one PDF per image; Letter and other sizes |
 | 4 | C-convert-009 | strong | Convert PDF to Word | ilovepdf | 6 · 6 · 7 → **6** | layout fidelity |
-| 5 | C-edit-002 | strong | Edit existing text in place | pdfexpert | 6 · 6 · 9 → **6** | engine EditTextBlock/EditTextLine wired to an in-place editor |
-| 6 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 7 · 6 · 6 → **6** | speed on big scans; deskew |
-| 7 | C-security-010 | strong | Mark an area or text for redaction | acrobat | 6 · 7 · 8 → **6** | mark by text selection |
-| 8 | C-edit-001 | strong | Enter edit mode | pdfexpert | 7 · 8 · 9 → **7** | edit mode inside the reader, not a separate tool flow |
+| 5 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 7 · 6 · 6 → **6** | speed on big scans; deskew |
+| 6 | C-security-010 | strong | Mark an area or text for redaction | acrobat | 6 · 7 · 8 → **6** | mark by text selection |
+| 7 | C-edit-001 | strong | Enter edit mode | pdfexpert | 7 · 8 · 9 → **7** | edit mode inside the reader, not a separate tool flow |
+| 8 | C-edit-002 | strong | Edit existing text in place | pdfexpert | 8 · 7 · 9 → **7** | engine EditTextBlock/EditTextLine wired to an in-place editor |
 | 9 | C-edit-007 | strong | Move, resize and select page objects | acrobat | 7 · 8 · 9 → **7** | resize handles, move existing page objects (engine MoveObjects) |
 | 10 | C-files-015 | strong | Manage a tool's input files | ilovepdf | 7 · 7 · 8 → **7** | drag reorder |
 | 11 | C-organize-015 | strong | Split by page ranges or split points | ilovepdf | 8 · 7 · 8 → **7** | split points chosen visually |
@@ -76,7 +76,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | batch | 9 | 2.6 | 1 |
 | compare | 7 | 6.0 | 2 |
 | convert | 20 | 3.5 | 2 |
-| edit | 29 | 4.1 | 6 |
+| edit | 29 | 4.2 | 6 |
 | files | 19 | 6.2 | 11 |
 | forms | 17 | 2.1 | 4 |
 | optimize | 15 | 3.3 | 2 |
