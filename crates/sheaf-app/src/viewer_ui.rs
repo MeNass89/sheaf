@@ -48,6 +48,9 @@ pub struct ViewerUi {
     /// A zoom change waits this timer (150 ms) before pages are rendered at the new size.
     zoom_timer: Option<slint::Timer>,
     zoom_settling: bool,
+    /// ⌘ + wheel: the zoom asked for (actual percent, unrounded) until it settles, so small trackpad
+    /// steps add up instead of rounding away.
+    zoom_target: Option<f64>,
     pub scroll: f64,
     pub scroll_seq: i32,
     drag: Option<(usize, f64, f64)>,
@@ -103,6 +106,7 @@ impl ViewerUi {
             thumbs: Lru::new(THUMB_CAP),
             zoom_timer: None,
             zoom_settling: false,
+            zoom_target: None,
             scroll: 0.0,
             scroll_seq: 0,
             drag: None,
@@ -349,48 +353,72 @@ pub fn zoom_step(ui: &AppWindow, tab_id: i32, dir: i32) {
     crate::reader_ui::zoom_changed(tab_id);
 }
 
-/// Pinch and ⌘ + wheel: `pct` percent of actual size (10–800), the point `anchor` px below the
-/// top of the view staying where it is.
-pub fn zoom_at(ui: &AppWindow, tab_id: i32, pct: f32, anchor: f32) {
+/// Pinch and ⌘ + wheel: `pct` percent of actual size (10–800), the point of the view (ax, ay)
+/// staying on the same point of its page; `sx` is the horizontal scroll. Returns the new
+/// horizontal scroll (the view sets it; the vertical one comes with the tab).
+pub fn zoom_at(ui: &AppWindow, tab_id: i32, pct: f32, ax: f32, ay: f32, sx: f32) -> f32 {
     let z = with(|a| a.tab(tab_id)?.viewer.as_deref().map(|v| v.viewer.zoom_for_actual(v.current(), (pct as f64).clamp(10.0, 800.0))));
-    if let Some(z) = z {
-        zoom_to_at(ui, tab_id, z, anchor as f64);
-        crate::reader_ui::zoom_changed(tab_id);
+    let Some(z) = z else { return sx };
+    let sx = zoom_to_at(ui, tab_id, z, (ax as f64, ay as f64, sx as f64)).unwrap_or(sx as f64);
+    crate::reader_ui::zoom_changed(tab_id);
+    sx as f32
+}
+
+/// The zoom asked for after a wheel step of `factor`: from the last one asked for while the zoom
+/// settles (unrounded), else from the zoom shown; 10–800 %.
+fn next_zoom_target(target: Option<f64>, shown: f64, factor: f64) -> f64 {
+    (target.unwrap_or(shown) * factor).clamp(10.0, 800.0)
+}
+
+/// ⌘ + wheel: the zoom asked for so far times `factor`, around (ax, ay) as [`zoom_at`].
+pub fn zoom_by(ui: &AppWindow, tab_id: i32, factor: f32, ax: f32, ay: f32, sx: f32) -> f32 {
+    let pct = update(tab_id, |v| {
+        let target = next_zoom_target(v.zoom_target, v.viewer.actual_percent(v.current()), factor as f64);
+        v.zoom_target = Some(target);
+        target
+    });
+    match pct {
+        Some(p) => zoom_at(ui, tab_id, p as f32, ax, ay, sx),
+        None => sx,
     }
 }
 
 /// Sets the zoom to `z` percent of the fit width, keeping the same part of the document in view;
 /// pages render at the new size once the zoom has settled.
 pub fn zoom_to(ui: &AppWindow, tab_id: i32, z: u32) {
-    zoom_to_at(ui, tab_id, z, 0.0);
+    zoom_to_at(ui, tab_id, z, (0.0, 0.0, 0.0));
 }
 
-/// [`zoom_to`], keeping the point `anchor` px below the top of the view where it is.
-fn zoom_to_at(ui: &AppWindow, tab_id: i32, z: u32, anchor: f64) {
-    let changed = update(tab_id, |v| {
-        let old_h = v.viewer.content_height();
-        if !v.viewer.set_zoom(z) {
-            return false;
-        }
-        // Keep the same part of the document in view, at the same height in it.
-        v.scroll = ((v.top + anchor) * v.viewer.content_height() / old_h.max(1.0) - anchor).max(0.0);
-        v.top = v.scroll;
-        v.scroll_seq += 1;
-        v.zoom_settling = true;
-        true
-    });
-    if changed != Some(true) {
-        return;
-    }
+/// [`zoom_to`], keeping the point (ax, ay) of the view, scrolled `sx` across, on the same point
+/// of its page (page gaps do not scale with the zoom). Returns the new horizontal scroll.
+fn zoom_to_at(ui: &AppWindow, tab_id: i32, z: u32, (ax, ay, sx): (f64, f64, f64)) -> Option<f64> {
+    // Pages render at the new size once the zoom has settled (a pinch sends many changes); the
+    // timer goes in with the zoom, so each change refreshes the tab once.
     let timer = slint::Timer::default();
     let weak = ui.as_weak();
     timer.start(slint::TimerMode::SingleShot, Duration::from_millis(150), move || {
         if let Some(ui) = weak.upgrade() {
-            update(tab_id, |v| v.zoom_settling = false);
+            update(tab_id, |v| {
+                v.zoom_settling = false;
+                v.zoom_target = None;
+            });
             request(&ui, tab_id);
         }
     });
-    update(tab_id, |v| v.zoom_timer = Some(timer));
+    update(tab_id, move |v| {
+        let anchor = v.viewer.anchor_of(sx + ax, v.top + ay);
+        if !v.viewer.set_zoom(z) {
+            return None;
+        }
+        let (x, y) = v.viewer.point_of(anchor);
+        v.scroll = (y - ay).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
+        v.top = v.scroll;
+        v.scroll_seq += 1;
+        v.zoom_settling = true;
+        v.zoom_timer = Some(timer);
+        Some((x - ax).clamp(0.0, v.viewer.max_scroll_x()))
+    })
+    .flatten()
 }
 
 pub fn pressed(tab_id: i32, x: f32, y: f32) {
@@ -701,6 +729,18 @@ pub fn fill_sign(tab: &mut ToolTab, v: &ViewerUi, width: f64, aspect: Option<f64
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn small_wheel_steps_add_up_while_the_zoom_settles() {
+        // Fifty trackpad steps of ×1.002 from 100 %: each alone would round away.
+        let mut t = None;
+        for _ in 0..50 {
+            t = Some(next_zoom_target(t, 100.0, 1.002));
+        }
+        assert!((t.unwrap() - 100.0 * 1.002f64.powi(50)).abs() < 1e-9, "{t:?}");
+        assert_eq!(next_zoom_target(None, 700.0, 1.25), 800.0);
+        assert_eq!(next_zoom_target(Some(12.0), 500.0, 0.8), 10.0);
+    }
     use sheaf_app::viewer::PageBox;
 
     #[test]

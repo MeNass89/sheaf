@@ -109,8 +109,9 @@ quit() { kill "$APP_PID" 2>/dev/null; wait "$APP_PID" 2>/dev/null; APP_PID=; }
 click() { xdotool mousemove "$1" "$2" mousedown 1; sleep 0.08; xdotool mouseup 1; sleep "${3:-0.5}"; }
 # Keys go to the app window: focus it first (Xvfb has no window manager to keep it).
 key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4; }
-# The screen centre "x y" of the first word $1 (OCR at 200 %, its box halved), empty when not seen.
-at() { import -window root png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '$12 == w { printf "%d %d\n", ($7 + $9 / 2) / 2, ($8 + $10 / 2) / 2; exit }'; }
+# The screen centre "x y" of the first word starting with $1 (OCR at 200 %, its box halved; OCR may glue
+# punctuation to it) in the area $2 (WxH+X+Y, default the whole screen), empty when not seen.
+at() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" 'index($12, w) == 1 { printf "%d %d\n", ox + ($7 + $9 / 2) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
 # ⇧ + a letter, ⇧ held first: xdotool's "shift+t" can deliver the letter before the app has seen ⇧
 # (flaky ⇧T on 21/10); a hand on a keyboard never does.
 shifted() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool keydown shift; sleep 0.1; xdotool key "$1"; xdotool keyup shift; sleep 0.4; }
@@ -425,8 +426,10 @@ key ctrl+9; sleep 1
 pagesig() { import -window root -crop 1000x690+260+90 png:- 2>/dev/null | md5sum | cut -c1-8; }
 # The zoom field read alone (a single line at 300 %: the default OCR misses it).
 zoomval() { import -window root -crop 70x26+$((ZOOM_X - 32))+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
-key Home; sleep 1; ZA=$(zoomval); xdotool mousemove 700 300; xdotool keydown ctrl click 4 click 4 keyup ctrl; sleep 2; ZB=$(zoomval)
+key Home; sleep 1; ZA=$(zoomval); QK=$(at fox 1020x700+255+90); [ -n "$QK" ] && xdotool mousemove $QK; xdotool keydown ctrl click 4 click 4 keyup ctrl; sleep 2; ZB=$(zoomval); QK2=$(at fox 1020x700+255+90)
 check "⌘ + wheel zooms in ($ZA → $ZB %)" "[ -n \"$ZA\" ] && [ -n \"$ZB\" ] && [ $ZB -gt $ZA ]"
+# The word under the pointer stays under it (OCR centres within 60 px).
+check "⌘ + wheel zooms around the pointer ($QK → $QK2)" "[ -n \"$QK\" ] && [ -n \"$QK2\" ] && python3 -c 'import sys; a, b = [list(map(int, v.split())) for v in sys.argv[1:]]; sys.exit(0 if abs(a[0] - b[0]) < 60 and abs(a[1] - b[1]) < 60 else 1)' \"$QK\" \"$QK2\""
 PG0=$(pagesig); xdotool mousemove 700 520; sleep 0.4; xdotool mousedown 2; for i in $(seq 1 8); do xdotool mousemove $((700 - i * 8)) $((520 - i * 25)); sleep 0.03; done; xdotool mouseup 2; sleep 1; PG1=$(pagesig); shot 06h-pan
 check "a middle-button drag moves the pages" "[ \"$PG0\" != \"$PG1\" ]"
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool keydown space; sleep 0.2; xdotool mousemove 700 300 mousedown 1; for i in $(seq 1 8); do xdotool mousemove 700 $((300 + i * 25)); sleep 0.03; done; xdotool mouseup 1; xdotool keyup space; sleep 1; PG2=$(pagesig)

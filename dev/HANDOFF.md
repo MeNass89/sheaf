@@ -65,6 +65,11 @@ Next (audits of 22/10 by the interim reviewer; joint 9/10 rule, see DECISIONS):
   `dev/.tmp/capture-tools.sh` (not kept: it is a dev aid; rewrite from the HANDOFF note if needed).
 - Copy/paste of annotations; menu bar.
 
+## Waiting on Nassim
+- C-reader-010 (pinch / trackpad zoom) is at 8 until a real macOS trackpad session: pinch on page 30+ of a long
+  file (the point under the fingers stays put), slow and fast ⌘ + trackpad scroll, Magic Mouse. Not doable on the
+  Linux VM; the MacBook Pro is reserved for another project.
+
 ## How components reach 9 now
 Author proposes, a second agent reviews (Sol when Codex is under 90 %, else an independent Opus agent, logged in
 DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and gui-smoke screenshots

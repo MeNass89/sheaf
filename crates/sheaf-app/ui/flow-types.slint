@@ -586,9 +586,11 @@ export global ViewerBridge {
     callback thumb-clicked(int, int);
     // +1 / −1 one zoom step, 0 fit width.
     callback zoom-step(int, int);
-    // Pinch and ⌘ + wheel: a zoom in percent of actual size, keeping the point this many pixels
-    // below the top of the view where it is.
-    callback zoom-at(int, float, float);
+    // Pinch and ⌘ + wheel: a zoom in percent of actual size, keeping the view point (x, y) on the
+    // same point of its page; the last value is the horizontal scroll, the new one is returned.
+    callback zoom-at(int, float, float, float, float) -> float;
+    // ⌘ + wheel: as zoom-at, the zoom asked for so far times a factor (small steps add up).
+    callback zoom-by(int, float, float, float, float) -> float;
     // Redact: search the text and the patterns (",email,phone,").
     callback search(int, string, string);
     callback toggle-result(int, int);

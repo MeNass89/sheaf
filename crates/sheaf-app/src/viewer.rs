@@ -415,6 +415,30 @@ impl Viewer {
         self.rects.get(i).copied().unwrap_or([0.0; 4])
     }
 
+    /// The content point (x, y) as a point of the nearest page: (page, x and y as fractions of
+    /// its width and height). A zoom keeps it where it is (the gaps between pages do not scale).
+    pub fn anchor_of(&self, x: f64, y: f64) -> (usize, f64, f64) {
+        let dist = |r: &[f64; 4]| {
+            let dx = (r[0] - x).max(x - (r[0] + r[2])).max(0.0);
+            let dy = (r[1] - y).max(y - (r[1] + r[3])).max(0.0);
+            dx * dx + dy * dy
+        };
+        let i = (0..self.rects.len()).min_by(|a, b| dist(&self.rects[*a]).total_cmp(&dist(&self.rects[*b]))).unwrap_or(0);
+        let [px, py, w, h] = self.page_rect(i);
+        (i, ((x - px) / w.max(1e-9)).clamp(0.0, 1.0), ((y - py) / h.max(1e-9)).clamp(0.0, 1.0))
+    }
+
+    /// The content point of [`Self::anchor_of`]'s page point.
+    pub fn point_of(&self, (i, fx, fy): (usize, f64, f64)) -> (f64, f64) {
+        let [px, py, w, h] = self.page_rect(i);
+        (px + fx * w, py + fy * h)
+    }
+
+    /// The widest horizontal scroll: the content width past the view's.
+    pub fn max_scroll_x(&self) -> f64 {
+        (self.content_width() - self.fit_width).max(0.0)
+    }
+
     /// Device pixels page `i` is rendered wide at `scale` device pixels per logical pixel,
     /// at most [`MAX_RENDER_PIXELS`] in all (a zoomed-in page is then drawn slightly enlarged).
     pub fn render_px(&self, i: usize, scale: f64) -> u32 {
@@ -659,6 +683,29 @@ mod tests {
 
     fn close(a: (f64, f64), b: (f64, f64)) -> bool {
         (a.0 - b.0).abs() < 1e-6 && (a.1 - b.1).abs() < 1e-6
+    }
+
+    #[test]
+    fn a_zoom_keeps_the_anchored_point_of_a_deep_page_in_place() {
+        let pages = |n| (0..n).map(|_| PageBox { crop: A4, rotation: 0, unit: 1.0 }).collect::<Vec<_>>();
+        let mut v = Viewer::new(pages(80));
+        v.set_width(1000.0);
+        v.set_zoom(60);
+        // A point a third into page 50, 300 px below the top of the view, 400 px from its left.
+        let p = v.page_rect(50);
+        let (ax, ay, sx) = (400.0, 300.0, 0.0);
+        let top = p[1] + p[3] / 3.0 - ay;
+        let anchor = v.anchor_of(sx + ax, top + ay);
+        assert_eq!(anchor.0, 50);
+        v.set_zoom(150);
+        let (x, y) = v.point_of(anchor);
+        let (top2, sx2) = (y - ay, (x - ax).clamp(0.0, v.max_scroll_x()));
+        let back = v.anchor_of(sx2 + ax, top2 + ay);
+        assert_eq!(back.0, 50);
+        assert!((back.1 - anchor.1).abs() < 1e-6 && (back.2 - anchor.2).abs() < 1e-6, "{anchor:?} → {back:?}");
+        // A point between pages belongs to the nearest one.
+        let g = v.page_rect(10);
+        assert_eq!(v.anchor_of(g[0] + 5.0, g[1] - 2.0).0, 10);
     }
 
     #[test]

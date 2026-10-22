@@ -59,19 +59,15 @@ export component ReaderScreen inherits Rectangle {
     property <length> pan-vy0;
     property <length> pan-cx0;
     property <length> pan-cy0;
+    property <PointerEventButton> pan-button;
     // Pinch: the zoom when the gesture began.
     property <float> pinch-zoom0;
 
-    // Zooms to `pct` percent actual size, the view point (ax, ay) staying under the pointer or the
-    // pinch: Rust keeps it vertically, the horizontal scroll is set here from the width change.
+    // Zooms to `pct` percent actual size, the view point (ax, ay) staying on the same point of
+    // its page under the pointer or the pinch (Rust works it out; the vertical scroll comes with
+    // the tab, the horizontal one is returned).
     function zoom-around(pct: float, ax: length, ay: length) {
-        let w0 = root.tab.viewer-width;
-        let sx = -sv.content-x;
-        ViewerBridge.zoom-at(root.id, pct, ay / 1px);
-        let w1 = root.tab.viewer-width;
-        if w0 > 0px {
-            sv.content-x = -clamp((sx + ax) * (w1 / w0) - ax, 0px, max(0px, sv.content-width - sv.visible-width));
-        }
+        sv.content-x = -ViewerBridge.zoom-at(root.id, pct, ax / 1px, ay / 1px, -sv.content-x / 1px) * 1px;
     }
 
     // Scrolling moves the pages under a still pointer: a link's tooltip no longer applies.
@@ -230,8 +226,9 @@ export component ReaderScreen inherits Rectangle {
                         }
                         pointer-event(e) => {
                             // A drag with the middle button, or with Space held, moves the pages.
-                            if e.kind == PointerEventKind.down && (e.button == PointerEventButton.middle || (root.space-held && e.button == PointerEventButton.left)) {
+                            if e.kind == PointerEventKind.down && !root.pressing && !root.panning && (e.button == PointerEventButton.middle || (root.space-held && e.button == PointerEventButton.left)) {
                                 root.panning = true;
+                                root.pan-button = e.button;
                                 root.pan-vx0 = self.mouse-x + sv.content-x;
                                 root.pan-vy0 = self.mouse-y + sv.content-y;
                                 root.pan-cx0 = sv.content-x;
@@ -242,8 +239,8 @@ export component ReaderScreen inherits Rectangle {
                                 if e.kind == PointerEventKind.move {
                                     sv.content-x = clamp(root.pan-cx0 + (self.mouse-x + sv.content-x - root.pan-vx0), min(0px, sv.visible-width - sv.content-width), 0px);
                                     sv.content-y = clamp(root.pan-cy0 + (self.mouse-y + sv.content-y - root.pan-vy0), min(0px, sv.visible-height - sv.content-height), 0px);
-                                    root.panned = true;
-                                } else if e.kind == PointerEventKind.up {
+                                    if root.space-held { root.panned = true; }
+                                } else if e.kind == PointerEventKind.up && e.button == root.pan-button {
                                     root.panning = false;
                                 }
                                 return;
@@ -267,7 +264,9 @@ export component ReaderScreen inherits Rectangle {
                         scroll-event(e) => {
                             // ⌘ + wheel zooms around the pointer, as in every reader.
                             if e.modifiers.control && e.delta-y != 0 {
-                                root.zoom-around(root.tab.viewer-zoom * (e.delta-y > 0 ? 1.25 : 0.8), self.mouse-x + sv.content-x, self.mouse-y + sv.content-y);
+                                // In proportion to the scroll: a wheel notch is about ×1.25, a trackpad's
+                                // many small steps add up smoothly.
+                                sv.content-x = -ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), (self.mouse-x + sv.content-x) / 1px, (self.mouse-y + sv.content-y) / 1px, -sv.content-x / 1px) * 1px;
                                 return accept;
                             }
                             reject
@@ -491,6 +490,10 @@ export component ReaderScreen inherits Rectangle {
         y: 0;
         width: 0;
         height: 0;
+        // A Space let go while the keyboard was elsewhere never arrives: no hand left stuck.
+        changed has-focus => {
+            if !self.has-focus { root.space-held = false; root.panned = false; root.panning = false; }
+        }
         // Space: held, a drag pans; let go without a drag, it turns the page (see key-pressed).
         key-released(e) => {
             if e.text == " " && root.space-held {
@@ -567,7 +570,11 @@ export component ReaderScreen inherits Rectangle {
             if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
             if e.text == Key.RightArrow { ReaderBridge.page-step(root.id, 1); return accept; }
             if e.text == Key.LeftArrow { ReaderBridge.page-step(root.id, -1); return accept; }
-            if e.text == " " { root.space-held = true; return accept; }
+            if e.text == " " {
+                if !root.space-held { root.panned = false; }
+                root.space-held = true;
+                return accept;
+            }
             if e.text == Key.PageDown { ReaderBridge.page-step(root.id, 2); return accept; }
             if e.text == Key.PageUp { ReaderBridge.page-step(root.id, -2); return accept; }
             if e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }

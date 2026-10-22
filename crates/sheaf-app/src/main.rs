@@ -217,7 +217,10 @@ fn wire_viewer(ui: &AppWindow) {
     vb.on_released(viewer_ui::released);
     vb.on_thumb_clicked(viewer_ui::thumb_clicked);
     with_ui!(on_zoom_step, |ui, id, d| viewer_ui::zoom_step(&ui, id, d));
-    with_ui!(on_zoom_at, |ui, id, pct, anchor| viewer_ui::zoom_at(&ui, id, pct, anchor));
+    let weak = ui.as_weak();
+    vb.on_zoom_at(move |id, pct, ax, ay, sx| weak.upgrade().map_or(sx, |ui| viewer_ui::zoom_at(&ui, id, pct, ax, ay, sx)));
+    let weak = ui.as_weak();
+    vb.on_zoom_by(move |id, f, ax, ay, sx| weak.upgrade().map_or(sx, |ui| viewer_ui::zoom_by(&ui, id, f, ax, ay, sx)));
     with_ui!(on_search, |ui, id, text, patterns| viewer_ui::search(&ui, id, &text, &patterns));
     vb.on_toggle_result(viewer_ui::toggle_result);
     vb.on_show_result(viewer_ui::show_result);

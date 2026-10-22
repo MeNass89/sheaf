@@ -18131,10 +18131,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 7,
-   "overall": 7
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 8,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -18161,6 +18161,17 @@
      "overall": 7
     },
     "proof": "Pinch (ScaleRotateGestureHandler), ⌘+wheel around the pointer, middle-button and Space+drag pan; gui-smoke ⌘+wheel zooms in, middle-button drag, Space drag; joint review: anchor drift (page gaps), trackpad ⌘-scroll explosive, real-trackpad check needed"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Zoom keeps the page point under the pointer/pinch (Viewer::anchor_of/point_of, unit test on page 50 of 80), wheel/trackpad steps proportional and accumulated (next_zoom_target test), pan robust to focus loss; gui-smoke '⌘ + wheel zooms around the pointer'; joint review round 2: 9 needs a real macOS trackpad session (pinch on a deep page, slow/fast ⌘+trackpad)"
    }
   ]
  },
