@@ -455,7 +455,8 @@ export component ReaderPanel inherits Rectangle {
                     // What is carried: a badge under the pointer (PDF Expert shows the pages).
                     if root.drop-line >= 0: Rectangle {
                         x: strip-ta.mouse-x + 10px;
-                        y: strip-ta.mouse-y + 8px;
+                        // Under the pointer even while the strip scrolls beneath it.
+                        y: strip-ta.view-y - strip.content-y + 8px;
                         width: ghost.preferred-width + 16px;
                         height: 24px;
                         border-radius: 12px;

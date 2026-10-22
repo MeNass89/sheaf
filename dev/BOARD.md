@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 100 · open 232, closed 99
+331 components · at parity (≥9): 102 · open 230, closed 101
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -33,40 +33,40 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 24 | C-files-010 | strong | Documents in tabs or windows | ilovepdf | 8 · 9 · 9 → **8** | document tabs |
 | 25 | C-optimize-001 | strong | Compress a PDF (levels) | ilovepdf | 8 · 8 · 8 → **8** | seed bug: Save after Compress needs Enter; fonts/vector recompression |
 | 26 | C-organize-001 | strong | Open page organizer grid | pdfexpert | 8 · 8 · 9 → **8** | grid in the reader; multi-select; several files |
-| 27 | C-organize-002 | strong | Reorder pages by dragging thumbnails | pdfexpert | 9 · 8 · 9 → **8** | drag-and-drop with multi-select |
-| 28 | C-output-002 | strong | Save as a new file | pdfexpert | 8 · 9 · 9 → **8** | seed bug: the Save panel's Save button ignores clicks, only Enter works |
-| 29 | C-output-007 | strong | Print a document | pdfexpert | 8 · 8 · 9 → **8** | print via the OS |
-| 30 | C-sign-002 | strong | Draw a signature | pdfexpert | 8 · 8 · 9 → **8** | pen colour and thickness |
-| 31 | C-sign-003 | strong | Type a signature | stirling | 8 · 8 · 9 → **8** | several script fonts |
-| 32 | C-annotate-008 | normal | Add callout or speech bubble | acrobat | 0 · 0 · 0 → **0** | after core |
-| 33 | C-annotate-021 | normal | Add link annotation | preview | 0 · 0 · 0 → **0** | with edit links |
-| 34 | C-compare-005 | normal | View documents side by side, synced | stirling | 0 · 0 · 0 → **0** | synced side-by-side view |
-| 35 | C-convert-004 | normal | Create PDF from clipboard | preview | 0 · 0 · 0 → **0** | light |
-| 36 | C-convert-006 | normal | Create PDF from scanner or screenshot | acrobat | 0 · 0 · 0 → **0** | light |
-| 37 | C-convert-008 | normal | Create an empty document | pdfexpert | 0 · 0 · 0 → **0** | engine create_blank |
-| 38 | C-convert-013 | normal | Extract embedded images | ilovepdf | 0 · 0 · 0 → **0** | after core |
-| 39 | C-convert-014 | normal | Export PDF as text or RTF | acrobat | 0 · 0 · 0 → **0** | export text (engine text layer) |
-| 40 | C-edit-008 | normal | Replace, rotate or edit an image | acrobat | 0 · 0 · 0 → **0** | engine EditPageImage |
-| 41 | C-edit-012 | normal | Find and replace text | acrobat | 0 · 0 · 0 → **0** | engine ReplaceText |
-| 42 | C-edit-015 | normal | Add header and footer | acrobat | 0 · 0 · 0 → **0** | engine has page marks; add header/footer tool |
-| 43 | C-edit-021 | normal | Add and edit links | acrobat | 0 · 0 · 0 → **0** | engine links |
-| 44 | C-files-006 | normal | Star or pin favourite files | pdfexpert | 0 · 0 · 0 → **0** | light |
-| 45 | C-files-007 | normal | Search, sort and select listed files | stirling | 0 · 0 · 0 → **0** | light |
-| 46 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
-| 47 | C-forms-003 | normal | Required field warnings | acrobat | 0 · 0 · 0 → **0** | after fill |
-| 48 | C-forms-006 | normal | Enter form editing mode | acrobat | 0 · 0 · 0 → **0** | after core |
-| 49 | C-forms-007 | normal | Auto-detect form fields | pdfexpert | 0 · 0 · 0 → **0** | after core |
-| 50 | C-forms-008 | normal | Add a text field | acrobat | 0 · 0 · 0 → **0** | engine AddField |
-| 51 | C-forms-009 | normal | Add choice fields | acrobat | 0 · 0 · 0 → **0** | engine AddField |
-| 52 | C-forms-012 | normal | Edit field properties | acrobat | 0 · 0 · 0 → **0** | after core |
-| 53 | C-forms-014 | normal | Move, duplicate and arrange fields | acrobat | 0 · 0 · 0 → **0** | after core |
-| 54 | C-optimize-003 | normal | Compress to a target size | stirling | 0 · 0 · 0 → **0** | after core |
-| 55 | C-optimize-010 | normal | Enhance scanned pages | acrobat | 0 · 0 · 0 → **0** | after core |
-| 56 | C-organize-010 | normal | Insert pages from another file | pdfexpert | 0 · 0 · 0 → **0** | insert pages from another PDF |
-| 57 | C-output-009 | normal | Share a document | pdfexpert | 0 · 0 · 0 → **0** | OS share (macOS only) |
-| 58 | C-output-010 | normal | Email as attachment | acrobat | 0 · 0 · 0 → **0** | mailto with attachment |
-| 59 | C-output-014 | normal | Revert, versions and undo history | preview | 0 · 0 · 0 → **0** | revert to saved |
-| 60 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | light; release channel decision is Nassim's |
+| 27 | C-output-002 | strong | Save as a new file | pdfexpert | 8 · 9 · 9 → **8** | seed bug: the Save panel's Save button ignores clicks, only Enter works |
+| 28 | C-output-007 | strong | Print a document | pdfexpert | 8 · 8 · 9 → **8** | print via the OS |
+| 29 | C-sign-003 | strong | Type a signature | stirling | 8 · 8 · 9 → **8** | several script fonts |
+| 30 | C-annotate-008 | normal | Add callout or speech bubble | acrobat | 0 · 0 · 0 → **0** | after core |
+| 31 | C-annotate-021 | normal | Add link annotation | preview | 0 · 0 · 0 → **0** | with edit links |
+| 32 | C-compare-005 | normal | View documents side by side, synced | stirling | 0 · 0 · 0 → **0** | synced side-by-side view |
+| 33 | C-convert-004 | normal | Create PDF from clipboard | preview | 0 · 0 · 0 → **0** | light |
+| 34 | C-convert-006 | normal | Create PDF from scanner or screenshot | acrobat | 0 · 0 · 0 → **0** | light |
+| 35 | C-convert-008 | normal | Create an empty document | pdfexpert | 0 · 0 · 0 → **0** | engine create_blank |
+| 36 | C-convert-013 | normal | Extract embedded images | ilovepdf | 0 · 0 · 0 → **0** | after core |
+| 37 | C-convert-014 | normal | Export PDF as text or RTF | acrobat | 0 · 0 · 0 → **0** | export text (engine text layer) |
+| 38 | C-edit-008 | normal | Replace, rotate or edit an image | acrobat | 0 · 0 · 0 → **0** | engine EditPageImage |
+| 39 | C-edit-012 | normal | Find and replace text | acrobat | 0 · 0 · 0 → **0** | engine ReplaceText |
+| 40 | C-edit-015 | normal | Add header and footer | acrobat | 0 · 0 · 0 → **0** | engine has page marks; add header/footer tool |
+| 41 | C-edit-021 | normal | Add and edit links | acrobat | 0 · 0 · 0 → **0** | engine links |
+| 42 | C-files-006 | normal | Star or pin favourite files | pdfexpert | 0 · 0 · 0 → **0** | light |
+| 43 | C-files-007 | normal | Search, sort and select listed files | stirling | 0 · 0 · 0 → **0** | light |
+| 44 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
+| 45 | C-forms-003 | normal | Required field warnings | acrobat | 0 · 0 · 0 → **0** | after fill |
+| 46 | C-forms-006 | normal | Enter form editing mode | acrobat | 0 · 0 · 0 → **0** | after core |
+| 47 | C-forms-007 | normal | Auto-detect form fields | pdfexpert | 0 · 0 · 0 → **0** | after core |
+| 48 | C-forms-008 | normal | Add a text field | acrobat | 0 · 0 · 0 → **0** | engine AddField |
+| 49 | C-forms-009 | normal | Add choice fields | acrobat | 0 · 0 · 0 → **0** | engine AddField |
+| 50 | C-forms-012 | normal | Edit field properties | acrobat | 0 · 0 · 0 → **0** | after core |
+| 51 | C-forms-014 | normal | Move, duplicate and arrange fields | acrobat | 0 · 0 · 0 → **0** | after core |
+| 52 | C-optimize-003 | normal | Compress to a target size | stirling | 0 · 0 · 0 → **0** | after core |
+| 53 | C-optimize-010 | normal | Enhance scanned pages | acrobat | 0 · 0 · 0 → **0** | after core |
+| 54 | C-organize-010 | normal | Insert pages from another file | pdfexpert | 0 · 0 · 0 → **0** | insert pages from another PDF |
+| 55 | C-output-009 | normal | Share a document | pdfexpert | 0 · 0 · 0 → **0** | OS share (macOS only) |
+| 56 | C-output-010 | normal | Email as attachment | acrobat | 0 · 0 · 0 → **0** | mailto with attachment |
+| 57 | C-output-014 | normal | Revert, versions and undo history | preview | 0 · 0 · 0 → **0** | revert to saved |
+| 58 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | light; release channel decision is Nassim's |
+| 59 | C-preferences-003 | normal | Choose interface language | ilovepdf | 0 · 0 · 0 → **0** | localisation (after core) |
+| 60 | C-preferences-004 | normal | Set default view on open | acrobat | 0 · 0 · 0 → **0** | with reader view modes |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
@@ -80,13 +80,13 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | files | 19 | 5.9 | 8 |
 | forms | 17 | 2.1 | 4 |
 | optimize | 15 | 2.9 | 0 |
-| organize | 27 | 4.2 | 6 |
+| organize | 27 | 4.2 | 7 |
 | output | 15 | 4.3 | 3 |
 | platform | 14 | 3.4 | 1 |
 | preferences | 14 | 2.6 | 2 |
 | reader | 64 | 5.8 | 40 |
 | security | 18 | 5.2 | 4 |
-| sign | 18 | 4.3 | 5 |
+| sign | 18 | 4.3 | 6 |
 
 ## Closed
 | id | component | overall | last proof |
@@ -130,6 +130,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-forms-002 | Clear a form | 9 | Clear form resets every field, undoable (dev/re/evidence/F-004/05) |
 | C-forms-005 | Highlight fillable fields | 9 | Fillable fields tinted light blue in the reader, as PDF Expert/Acrobat (dev/re/evidence/F-004/01) |
 | C-forms-017 | Flatten form fields | 9 | Flatten bakes field values into the page: 0 fields left, 'Jane Doe' in the page text (pdftotext) |
+| C-organize-002 | Reorder pages by dragging thumbnails | 9 | Drag thumbnails (multi-select) with a drop line, a page-count badge, auto-scroll at the strip's edges; one undo step; gui-smoke reorders and checks the saved order. Joint 9/10: interim reviewer agreed in round 3 (screenshots 02b, 02e, 03b) |
 | C-organize-003 | Rotate a page left or right | 9 | Rotate left/right from the strip on the selection or the page shown; thumbnail and page follow (dev/re/evidence/F-003/01) |
 | C-organize-007 | Delete pages | 9 | Delete the selected pages (strip, refused for every page), undoable; 6 → 5 pages checked with qpdf |
 | C-organize-009 | Insert a blank page | 9 | Insert a blank page of the same size after the selection; 4 → 5 pages checked with qpdf |
@@ -186,6 +187,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-security-005 | Open a password-protected PDF | 9 | A protected PDF asks for its password in the reader; a wrong one says so, the right one opens it (dev/re/evidence/F-002/35) |
 | C-security-017 | Edit document metadata | 9 | Metadata edited in Document properties (PdfCraft SetInfo, one undo step); gui-smoke checks /Title in the saved file |
 | C-sign-001 | Open the sign tool | 9 | Sign tool (S) in the reader toolbar, PDF Expert's Fill & Sign place; gui-smoke.sh 'a drawn signature is placed and saved' PASS |
+| C-sign-002 | Draw a signature | 9 | Pad with 3 inks and 3 widths shown while drawing, smoothed strokes; up to 4 kept signatures with their own pen, picked or forgotten from thumbnails in their ink; gui-smoke checks ink and width in the saved file. Joint 9/10: interim reviewer agreed in round 3 (screenshots 02b, 02e, 03b) |
 | C-sign-005 | Place a signature on the page | 9 | Select a placed signature, drag its corner handle: scales from its top-left with proportions kept (pull projected on the diagonal); several placements per run with the kept signature. gui-smoke checks the saved Ink Rect; dev/re/evidence/F-002/41-signature-resized.png |
 | C-sign-008 | Delete a placed signature | 9 | Click a placed signature, Delete (or the Notes panel's delete): gone from the saved file (gui-smoke) |
 | C-sign-009 | Save and manage signatures | 9 | The signature is kept in the preferences and placed again with one click on any document (gui-smoke 'kept signature' PASS); New signature replaces it |

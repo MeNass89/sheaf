@@ -135,9 +135,10 @@ pub fn thumb_at(tab_id: i32, y: f32) -> i32 {
 pub(super) fn drop_gap(v: &Viewer, y: f64) -> (usize, f64) {
     let tl = v.thumb_layout();
     let gap = tl.iter().position(|(top, h)| y < top + h / 2.0).unwrap_or(tl.len());
+    // Just above the next thumbnail, below the previous one's page number (drawn under it).
     let line = match tl.get(gap) {
-        Some((top, _)) => top - viewer::PAGE_GAP / 2.0,
-        None => tl.last().map(|(t, h)| t + h + viewer::PAGE_GAP / 2.0).unwrap_or(0.0),
+        Some((top, _)) => top - 2.0,
+        None => tl.last().map(|(t, h)| t + h + 20.0).unwrap_or(0.0),
     };
     (gap, line)
 }

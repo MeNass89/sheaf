@@ -12297,13 +12297,13 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "drag-and-drop with multi-select",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -12326,6 +12326,17 @@
      "overall": 8
     },
     "proof": "Drag thumbnails with a drop line, ⇧/⌘ multi-select; page order checked in the saved file with pdftotext (dev/re/evidence/F-003/02); no drag ghost image"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-003",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Drag thumbnails (multi-select) with a drop line, a page-count badge, auto-scroll at the strip's edges; one undo step; gui-smoke reorders and checks the saved order. Joint 9/10: interim reviewer agreed in round 3 (screenshots 02b, 02e, 03b)"
    }
   ]
  },
@@ -24035,14 +24046,14 @@
    141
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "pen colour and thickness",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -24065,6 +24076,17 @@
      "overall": 8
     },
     "proof": "Draw on the pad, Use → placed and saved (dev/re/evidence/F-002/40, gui-smoke PASS); one pen colour and width on the pad"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Pad with 3 inks and 3 widths shown while drawing, smoothed strokes; up to 4 kept signatures with their own pen, picked or forgotten from thumbnails in their ink; gui-smoke checks ink and width in the saved file. Joint 9/10: interim reviewer agreed in round 3 (screenshots 02b, 02e, 03b)"
    }
   ]
  },
