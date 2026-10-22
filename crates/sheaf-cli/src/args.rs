@@ -196,7 +196,8 @@ pub(crate) enum Cmd {
         /// What each number reads
         #[arg(long, value_enum, default_value_t = NumberFormat::Number)]
         text: NumberFormat,
-        /// With --text custom: text with {n} (page number) and {p} (page count)
+        /// With --text custom: any text, {page} standing for the page number and {pages} for
+        /// the page count, e.g. "Sheet {page} of {pages}"
         #[arg(long, required_if_eq("text", "custom"))]
         custom: Option<String>,
         /// Text size in points
@@ -700,11 +701,11 @@ pub(crate) enum Margin {
 
 #[derive(Clone, Copy, PartialEq, ValueEnum)]
 pub(crate) enum NumberFormat {
-    /// "{n}"
+    /// The number alone: 3
     Number,
-    /// "Page {n}"
+    /// Page 3
     Page,
-    /// "Page {n} of {p}"
+    /// Page 3 of 10
     PageOf,
     /// --custom text
     Custom,
@@ -836,5 +837,13 @@ mod help_tests {
             }
         }
         assert!(missing.is_empty(), "no help for: {missing:?}");
+    }
+
+    /// The page-number help reads as written (clap turns "{n}" into a line break: the help
+    /// names the placeholders {page} and {pages}).
+    #[test]
+    fn page_number_help_reads_as_written() {
+        let help = Cli::command().find_subcommand_mut("number").unwrap().render_long_help().to_string();
+        assert!(help.contains("Page 3 of 10") && help.contains("\"Sheet {page} of {pages}\""), "{help}");
     }
 }

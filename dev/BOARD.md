@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 121 · open 210, closed 121
+331 components · at parity (≥9): 122 · open 209, closed 122
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -82,7 +82,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | optimize | 15 | 3.3 | 2 |
 | organize | 27 | 4.3 | 8 |
 | output | 15 | 4.3 | 3 |
-| platform | 14 | 3.4 | 1 |
+| platform | 14 | 3.5 | 2 |
 | preferences | 14 | 2.8 | 4 |
 | reader | 64 | 5.9 | 41 |
 | security | 18 | 5.4 | 6 |
@@ -153,6 +153,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-output-001 | Save the document | 9 | ⌘S incremental save 1.1 s on 70 MB, Saved toast, save button state, unsaved prompt. Joint 9/10: independent visual audit (interim reviewer) against PDF Expert / iLovePDF captures, from gui-smoke screenshots, agreed |
 | C-output-005 | Results screen | 9 | Result screen at parity with iLovePDF's: output card (name, size, pages, '-17 %'), Continue to… list, size before → after, restart, Open folder; dev/re/evidence/F-001/sheaf-compress-result.png beside dev/re/evidence/ilovepdf/05c-compress-result.png |
 | C-output-006 | Show the output in its folder | 9 | Open folder on the result screen and per-output file/folder buttons, as iLovePDF; dev/re/evidence/F-001/sheaf-compress-result.png beside dev/re/evidence/ilovepdf/05c-compress-result.png |
+| C-platform-009 | Command-line interface | 9 | Help on every option and value (args::help_tests every_option_and_value_has_help, page_number_help_reads_as_written); {page}/{pages} placeholders; joint review |
 | C-platform-013 | Work offline without account | 9 | Stale-grade audit 22/10 (independent reviewer): no network library at run time (reqwest only a Windows build dep of winprint); outgoing URLs only opened by the user (main.rs, reader_ui/pointer.rs) |
 | C-preferences-001 | Open preferences | 9 | ⌘, from anywhere (Home, tool tabs, documents, their fields) opens Preferences, leaving full screen and a presentation; Home sidebar entry. gui-smoke: from a tool tab and a document. Joint 9/10: independent Opus reviewer (interim for Sol, see DECISIONS) agreed in round 3 |
 | C-preferences-002 | Choose theme and colours | 9 | gui-smoke Dark then Light switch the window; joint review (commit 43f1fff) |

@@ -28,7 +28,9 @@ pub fn custom_text_error(text: &str) -> Option<&'static str> {
 }
 
 impl NumberText {
-    /// The template in PdfCraft's tokens (`<<1>>` number, `<<n>>` count).
+    /// The template in PdfCraft's tokens (`<<1>>` number, `<<n>>` count). The page number is
+    /// written `{n}` or `{page}`, the page count `{p}` or `{pages}` (the long forms read better,
+    /// and survive in the CLI's help, where clap turns `{n}` into a line break).
     fn template(&self) -> String {
         let t = match self {
             NumberText::Number => "{n}",
@@ -36,7 +38,7 @@ impl NumberText {
             NumberText::PageOfTotal => "Page {n} of {p}",
             NumberText::Custom(s) => s.as_str(),
         };
-        t.replace("{n}", "<<1>>").replace("{p}", "<<n>>")
+        t.replace("{pages}", "<<n>>").replace("{page}", "<<1>>").replace("{n}", "<<1>>").replace("{p}", "<<n>>")
     }
 }
 
@@ -175,6 +177,7 @@ mod tests {
         assert_eq!(NumberText::Number.template(), "<<1>>");
         assert_eq!(NumberText::PageOfTotal.template(), "Page <<1>> of <<n>>");
         assert_eq!(NumberText::Custom("{n}/{p}".into()).template(), "<<1>>/<<n>>");
+        assert_eq!(NumberText::Custom("Sheet {page} of {pages}".into()).template(), "Sheet <<1>> of <<n>>");
     }
 
     #[test]
