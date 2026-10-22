@@ -174,10 +174,15 @@ A2=$(annots "$OUT/text.pdf")
 check "the kept signature is placed again with one click ($A1 → $A2)" "[ $A2 -gt $A1 ]"
 # New signature (412,109 in the Signature tool's bar) keeps the first: two in the list, the new one
 # first; a click on the second thumbnail (382,109) brings the first back.
-sigs() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(len(p.get("signatures", [])), len(p.get("signature_strokes", [[]])[0]))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"; }
+sigs() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(len(p.get("signatures", [])), "".join(map(str, p.get("signature_pen", []))))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"; }
 S1=$(sigs); click 412 109 0.8; click 700 620 1
 xdotool mousemove 520 400 mousedown 1; for i in $(seq 0 10); do xdotool mousemove $((520 + i * 10)) $((380 + i * 6)); done; xdotool mouseup 1; sleep 0.3
-click 818 555 1.2; S2=$(sigs); click 382 109 0.8; S3=$(sigs)
+# The second one in black (the pad's first ink, 448,314); the first kept its blue.
+click 448 314 0.3; click 818 555 1.2; S2=$(sigs); shot 02e-two-signatures; click 382 109 0.8; S3=$(sigs)
+blue() { qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -a -B30 PCFillSign | tr -s ' \n' ' ' | grep -o '/C \[ 0.1 0.32 0.85' | wc -l; }
+BL0=$(blue); click 760 700 1.2; key ctrl+s; sleep 1.5; BL1=$(blue)
+check "a signature picked again is placed in its own ink (blue: $BL0 → $BL1)" "[ $BL1 -gt $BL0 ]"
+key ctrl+z; key ctrl+s; sleep 1.5
 check "a second signature is kept beside the first, and the first can be picked again ($S1 / $S2 / $S3)" "[ \"${S2%% *}\" = 2 ] && [ \"${S3#* }\" = \"${S1#* }\" ] && [ \"${S2#* }\" != \"${S1#* }\" ]"
 key ctrl+z; key ctrl+s; sleep 1.5
 key Escape; key v
@@ -250,6 +255,12 @@ key ctrl+z; key ctrl+s; sleep 1.5
 check "undo brings the deleted page back" "[ \"\$(npages $OUT/text.pdf)\" = 5 ]"
 key ctrl+z; key ctrl+s; sleep 1.5
 check "undo again removes the duplicate" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
+# Drag page 1's thumbnail (120,230) below page 2's (the drop line, a page badge under the pointer):
+# page 2 comes first; ⌘Z puts it back.
+xdotool mousemove 120 230 mousedown 1; for i in $(seq 1 12); do xdotool mousemove 120 $((230 + i * 25)); sleep 0.04; done; sleep 0.3; shot 03b-page-drag; xdotool mouseup 1; sleep 1.2
+key ctrl+s; sleep 1.5; FP=$(first_text $OUT/text.pdf 1)
+check "dragging a thumbnail reorders the pages ($FP)" "[ \"$FP\" = 'Page 2' ]"
+key ctrl+z; key ctrl+s; sleep 1.5
 # ⌘A selects the page's text, ⌘C copies it.
 key Escape; key v; echo -n | xclip -selection clipboard >/dev/null 2>&1; key ctrl+a; key ctrl+c; sleep 0.3
 check "⌘A then ⌘C copies the page's text" "xclip -o -selection clipboard 2>/dev/null | grep -q 'the quick brown fox'"

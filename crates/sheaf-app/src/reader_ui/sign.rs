@@ -87,9 +87,14 @@ pub(super) fn signature_thumbs() -> Vec<slint::Image> {
         if t.0 != list {
             let images = list
                 .iter()
-                .filter_map(|(strokes, name)| {
+                .filter_map(|(strokes, name, pen)| {
                     let g = if strokes.is_empty() { sheaf_core::sign::Graphic::Typed(name.clone()?) } else { sheaf_core::sign::Graphic::Drawn(strokes.clone()) };
-                    let p = sheaf_app::sign_preview::render(&g, 120, 40)?;
+                    let mut p = sheaf_app::sign_preview::render(&g, 120, 40)?;
+                    // In its own ink, as it will be placed.
+                    let ink = reader::SIGNATURE_INKS[(pen.0 as usize).min(2)].map(|c| (c * 255.0) as u8);
+                    for px in p.rgba.chunks_mut(4).filter(|px| px[3] > 0) {
+                        px[..3].copy_from_slice(&ink);
+                    }
                     Some(slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&p.rgba, p.w, p.h)))
                 })
                 .collect();

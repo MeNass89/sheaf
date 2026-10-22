@@ -747,7 +747,7 @@ export component ReaderScreen inherits Rectangle {
                                     border-width: k == 0 ? 2px : 1px;
                                     border-color: k == 0 ? Theme.accent : Theme.input-border;
                                     background: Theme.input-bg;
-                                    Image { width: parent.width - 8px; height: parent.height - 6px; source: sig; colorize: Theme.text; image-fit: contain; }
+                                    Image { width: parent.width - 8px; height: parent.height - 6px; source: sig; image-fit: contain; }
                                     sgt := TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.signature-pick(root.id, k, false); keys.focus(); } }
                                     Rectangle {
                                         opacity: sgt.has-hover || sgx.has-hover ? 1 : 0;

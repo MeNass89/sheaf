@@ -409,7 +409,10 @@ export component ReaderPanel inherits Rectangle {
                     }
                     // One area over the whole strip: the thumbnails' model is replaced on
                     // every refresh, which would drop a press held on one of them.
-                    TouchArea {
+                    strip-ta := TouchArea {
+                        // The pointer in the visible strip (y from its top): kept while the strip
+                        // scrolls under a still pointer.
+                        property <length> view-y;
                         width: strip.visible-width;
                         height: root.tab.viewer-thumbs-height + 20px;
                         mouse-cursor: root.drop-line >= 0 ? move : pointer;
@@ -429,9 +432,41 @@ export component ReaderPanel inherits Rectangle {
                             }
                         }
                         moved => {
+                            self.view-y = self.mouse-y + strip.content-y;
                             if self.pressed && root.thumb-down-page >= 0 && abs(self.mouse-y - root.thumb-down-y) > 8px {
                                 root.drop-line = ReaderBridge.thumb-drag(root.id, root.thumb-down-page, self.mouse-y);
                             }
+                        }
+                    }
+                    // Dragging near the top or bottom of the strip scrolls it (a long book's page can
+                    // be carried anywhere), the drop line following.
+                    Timer {
+                        interval: 30ms;
+                        running: root.drop-line >= 0;
+                        triggered => {
+                            let edge = 40px;
+                            let step = strip-ta.view-y < edge ? 14px : strip-ta.view-y > strip.visible-height - edge ? -14px : 0px;
+                            if step != 0px {
+                                strip.content-y = max(min(0px, strip.content-y + step), min(0px, strip.visible-height - strip.content-height));
+                                root.drop-line = ReaderBridge.thumb-drag(root.id, root.thumb-down-page, strip-ta.view-y - strip.content-y);
+                            }
+                        }
+                    }
+                    // What is carried: a badge under the pointer (PDF Expert shows the pages).
+                    if root.drop-line >= 0: Rectangle {
+                        x: strip-ta.mouse-x + 10px;
+                        y: strip-ta.mouse-y + 8px;
+                        width: ghost.preferred-width + 16px;
+                        height: 24px;
+                        border-radius: 12px;
+                        background: Theme.info;
+                        drop-shadow-blur: 6px;
+                        drop-shadow-color: #00000033;
+                        ghost := Text {
+                            text: root.tab.reader.pages-selected <= 1 ? "1 page" : root.tab.reader.pages-selected + " pages";
+                            font-size: Theme.fs-caption;
+                            font-weight: Theme.weight-demibold;
+                            color: white;
                         }
                     }
                     if root.drop-line >= 0: Rectangle {

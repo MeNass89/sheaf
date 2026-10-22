@@ -64,8 +64,9 @@ impl OutputMode {
     }
 }
 
-/// A kept signature: drawn strokes (y up, the pad 1 wide), or a typed name when there are none.
-pub type KeptSignature = (Vec<Vec<[f64; 2]>>, Option<String>);
+/// A kept signature: drawn strokes (y up, the pad 1 wide), or a typed name when there are none;
+/// and the pen it was made with (ink, width: see `Prefs::signature_pen`).
+pub type KeptSignature = (Vec<Vec<[f64; 2]>>, Option<String>, (u8, u8));
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
