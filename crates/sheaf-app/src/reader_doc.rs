@@ -292,35 +292,38 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
             debug(format_args!("document opened in {:?}", t0.elapsed()));
             reply(Reply::Opened(Box::new(snap(&doc))));
             let mut path = input.path.clone();
-            // A preview on the document: whether the document was dirty before it.
-            let mut preview: Option<bool> = None;
+            // A preview on the document: the dirty, undo and redo state before it, which the
+            // window is shown (a preview is not a change to save or undo).
+            let mut preview: Option<(bool, bool, bool)> = None;
             for op in rx {
                 let t0 = std::time::Instant::now();
                 // Reading the paragraphs (asked after each change, the preview's too) keeps it.
-                if !matches!(op, Op::Blocks(_))
-                    && let Some(dirty) = preview.take()
-                {
+                if !matches!(op, Op::Blocks(_)) && preview.take().is_some() {
                     let id = doc.id();
-                    let _ = doc.session_mut().withdraw(id, dirty);
+                    let _ = doc.session_mut().withdraw(id);
                     if !matches!(op, Op::Preview { .. }) {
                         debug(format_args!("a preview was left on the document: taken back"));
                     }
                 }
                 match op {
                     Op::Preview { edit, pages } => {
-                        let dirty = doc.document().dirty;
+                        let d = doc.document();
+                        let before = (d.dirty, d.can_undo().is_some(), d.can_redo().is_some());
                         let error = match edit {
                             Some(e) => {
-                                let r = doc.apply(*e).err().map(|e| e.to_string());
+                                let id = doc.id();
+                                let r = doc.session_mut().preview(id, *e).err().map(|e| e.to_string());
                                 if r.is_none() {
-                                    preview = Some(dirty);
+                                    preview = Some(before);
                                 }
                                 r
                             }
                             None => None,
                         };
                         let note = if preview.is_some() { edit_note(doc.document()) } else { None };
-                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: false, note, preview: true });
+                        let mut s = snap(&doc);
+                        (s.dirty, s.can_undo, s.can_redo) = before;
+                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: false, note, preview: true });
                     }
                     Op::Apply { edit, pages } => {
                         let error = doc.apply(*edit).err().map(|e| e.to_string());
@@ -793,7 +796,7 @@ mod tests {
         let edit = |text: &str| Box::new(Edit::EditTextBlock { page: 0, block: 0, text: text.into(), style: Default::default() });
         ops.send(Op::Preview { edit: Some(edit("Page one draft")), pages: vec![0] }).unwrap();
         let (s, e) = next(&rx);
-        assert!(e.is_none() && s.dirty && s.can_undo, "the preview is on the document");
+        assert!(e.is_none() && !s.dirty && !s.can_undo, "a preview is not a change to save or undo");
         ops.send(Op::Preview { edit: Some(edit("Page one, second draft")), pages: vec![0] }).unwrap();
         next(&rx);
         ops.send(Op::Preview { edit: None, pages: vec![0] }).unwrap();
@@ -807,7 +810,17 @@ mod tests {
         assert!(e.is_none() && s.dirty && s.can_undo && !s.can_redo);
         ops.send(Op::Undo { pages: Some(vec![0]) }).unwrap();
         let (s, _) = next(&rx);
-        assert!(!s.can_undo, "one step: the preview left none");
+        assert!(!s.can_undo && s.can_redo, "one step: the preview left none");
+        // Something to redo, a preview, Escape: it can still be redone.
+        ops.send(Op::Preview { edit: Some(edit("Page one draft")), pages: vec![0] }).unwrap();
+        let (s, _) = next(&rx);
+        assert!(s.can_redo, "shown as before the preview");
+        ops.send(Op::Preview { edit: None, pages: vec![0] }).unwrap();
+        let (s, _) = next(&rx);
+        assert!(s.can_redo && !s.can_undo, "the redo list is as it was");
+        ops.send(Op::Redo { pages: Some(vec![0]) }).unwrap();
+        let (s, e) = next(&rx);
+        assert!(e.is_none() && s.can_undo && !s.can_redo);
     }
 
     #[test]

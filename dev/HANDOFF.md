@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 123 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 2/20, edit 6/29, files 11/19, forms 4/17, optimize 2/15, organize 8/27, output 3/15, platform 2/14, preferences 4/14, reader 41/64, security 6/18, sign 7/18.
+**331 components, 124 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 2/20, edit 7/29, files 11/19, forms 4/17, optimize 2/15, organize 8/27, output 3/15, platform 2/14, preferences 4/14, reader 41/64, security 6/18, sign 7/18.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
@@ -79,7 +79,7 @@ DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and
 
 - PdfCraft is patched in `third_party/` (README there): on a PdfCraft rev bump, re-apply the changes (search
   "Sheaf:"). Asked Nassim whether to send them upstream.
-- Edit mode (C-edit-001…014): move/resize existing objects, font choice. C-edit-002 (at 8): 9 needs the rewrite previewed on the page before ⌘↩ (overlap visible), or editing on the page itself; nits: list-marker rule catches "etc."/"1.5", hyphenation hyphens kept at a rewrap, a direct `myers` unit test.
+- Edit mode (C-edit-001…014): move/resize existing objects, font choice. C-edit-002 at 9 (on-page preview, rewrap, notices). Its nits: ⌘S skips a paragraph emptied in the editor; undo/redo with the editor open keeps the old paragraph index (close the draft on undo)
 - Print: preview, paper size, Windows (C-output-007 at 8); toolbox tools' remaining gaps (convert, optimize).
 - Tabs (C-files-010 at 9), reviewer's small follow-ups: the bar's `active-at` goes stale when an inactive tab is
   dragged across the active one (Rust could send the active place with `tab-order`); unit tests for

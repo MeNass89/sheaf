@@ -479,7 +479,21 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 if structural {
                     forget_page_state(r);
                 }
+                // A preview keeps the paragraph list of the page as it is (the previewed one could
+                // number its paragraphs otherwise, and every edit names one by its number there).
+                let kept: Vec<_> = if preview {
+                    pages.iter().flatten().filter_map(|p| Some((*p, r.blocks.get(p)?.clone(), r.images.get(p).cloned()))).collect()
+                } else {
+                    Vec::new()
+                };
                 after_change(r, v, pages.as_deref().filter(|p| !p.is_empty()));
+                for (p, b, i) in kept {
+                    r.blocks.insert(p, b);
+                    if let Some(i) = i {
+                        r.images.insert(p, i);
+                    }
+                    r.blocks_asked.insert(p);
+                }
                 if r.in_flight == 0 {
                     r.provisional.clear();
                 }

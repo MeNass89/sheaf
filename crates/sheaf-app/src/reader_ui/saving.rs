@@ -3,7 +3,12 @@
 use super::*;
 
 /// ⌘S: the edits are written into the file itself, as an incremental update.
-pub fn save(_ui: &AppWindow, tab_id: i32) {
+pub fn save(ui: &AppWindow, tab_id: i32) {
+    // A paragraph being edited is saved as typed (PDF Expert does the same), not as it was.
+    let typed = update(tab_id, |r, _| r.draft.as_ref().is_some_and(|d| d.kind == 2).then(|| r.preview_text.clone())).flatten();
+    if let Some(text) = typed.filter(|t| !t.is_empty()) {
+        super::note_commit(ui, tab_id, &text);
+    }
     update(tab_id, |r, _| {
         if r.dirty() {
             r.send(Op::Save { to: None });

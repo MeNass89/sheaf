@@ -6627,14 +6627,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "engine EditTextBlock/EditTextLine wired to an in-place editor",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -6690,6 +6690,17 @@
      "overall": 7
     },
     "proof": "Whole paragraph rewraps to its width (TextBlock::soft_breaks: wraps vs typed breaks/list items; editor shows wraps as spaces, a move keeps rows); styles kept across distant edits (edited_spans Myers diff, was prefix/suffix only: red→green test); '?' and substitute-font notices toasted. Tests edit_text.rs, reader_doc tests. Reviewer (Opus) 8/7/9: still a separate plain-text box, result and overlap seen only after ⌘↩; 9 needs on-page preview or on-page editing."
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Click a paragraph, edit: the page shows it as typed after a 300 ms pause (reader_doc Op::Preview; PdfCraft Session::preview/withdraw keep redo, oldest undo and dirty), whole paragraph rewraps (soft_breaks), styles kept across edits (Myers), runs touching mid-word kept together, substitute-font and '?' notices; ⌘↩ one undo step, Escape leaves no trace, ⌘S commits typed text, print refused mid-edit. Tests: edit_text.rs, reader_doc preview test, gui-smoke 2e. Reviewer (Opus) agreed 9/9/9."
    }
   ]
  },

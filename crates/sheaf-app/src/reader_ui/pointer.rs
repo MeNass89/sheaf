@@ -222,6 +222,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                     return Some(Pending::Move(e.page, Box::new(Edit::EditPageImage { page: e.page, index: i, change: sheaf_core::pdfcraft::engine::ImageEdit::Move(to) })));
                 }
                 (EditTarget::Block(i, text, _, rect, at), false) => {
+                    r.preview_text.clear();
                     r.draft = Some(Draft { page: e.page, at, kind: 2, block: Some((i, text, rect)), field: None });
                     r.note_seq += 1;
                 }

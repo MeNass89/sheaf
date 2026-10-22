@@ -363,6 +363,9 @@ pub struct Document {
     /// Sheaf: the font the last successful [`Session::apply`] drew some of a paragraph's
     /// characters in, its own font lacking them (Acrobat says so too).
     pub font_substituted: Option<String>,
+    /// Sheaf: while a [`Session::preview`] is on the document, what it set aside (redo list,
+    /// oldest undo step) and whether the document was dirty before it.
+    preview_kept: Option<(Vec<Snapshot>, Option<Snapshot>, bool)>,
 }
 
 /// Text an edit stored as typed but drew with `?` in place of `ch`, because the font it is drawn
@@ -3325,6 +3328,7 @@ impl Session {
             xfa_warnings: Vec::new(),
             edit_notices: Vec::new(),
             font_substituted: None,
+            preview_kept: None,
         }
     }
 
@@ -3537,13 +3541,37 @@ impl Session {
         Ok(label)
     }
 
-    /// Sheaf: takes back the last edit as if it had never been made (a preview): undone, kept
-    /// off the redo list, and the document as clean or dirty as it was before it (`dirty`).
-    pub fn withdraw(&mut self, id: DocId, dirty: bool) -> Result<(), EditError> {
+    /// Sheaf: applies `edit` as a preview, to be taken back by [`Self::withdraw`] as if it had
+    /// never been made. What an edit drops is kept aside meanwhile: the redo list, and the oldest
+    /// undo step when the list is full.
+    pub fn preview(&mut self, id: DocId, edit: Edit) -> Result<(), EditError> {
+        let doc = self.doc_mut(id)?;
+        let dirty = doc.dirty;
+        let Some(e) = doc.editor.as_mut() else { return self.apply(id, edit) };
+        let redo = std::mem::take(&mut e.redo);
+        let oldest = (e.undo.len() >= MAX_UNDO).then(|| e.undo.remove(0));
+        let applied = self.apply(id, edit);
+        let doc = self.doc_mut(id)?;
+        if applied.is_err() {
+            if let Some(e) = doc.editor.as_mut() {
+                e.redo = redo;
+                e.undo.splice(0..0, oldest);
+            }
+            return applied;
+        }
+        doc.preview_kept = Some((redo, oldest, dirty));
+        Ok(())
+    }
+
+    /// Sheaf: takes back the preview [`Self::preview`] made: undone, the redo list and undo
+    /// steps as they were, the document as clean or dirty as before. Nothing previewed: nothing.
+    pub fn withdraw(&mut self, id: DocId) -> Result<(), EditError> {
+        let Some((redo, oldest, dirty)) = self.doc_mut(id)?.preview_kept.take() else { return Ok(()) };
         self.undo(id)?;
         let doc = self.doc_mut(id)?;
         if let Some(e) = doc.editor.as_mut() {
-            e.redo.pop();
+            e.redo = redo;
+            e.undo.splice(0..0, oldest);
         }
         doc.dirty = dirty;
         Ok(())

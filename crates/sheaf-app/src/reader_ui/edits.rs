@@ -430,7 +430,10 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
 }
 
 pub fn note_cancel(tab_id: i32) {
-    update(tab_id, |r, _| r.draft = None);
+    update(tab_id, |r, _| {
+        r.draft = None;
+        r.preview_timer = None;
+    });
 }
 
 /// Edit text: the paragraph's new text (empty deletes it), rewrapped to its box by PdfCraft;
@@ -453,26 +456,24 @@ const PREVIEW_PAUSE: std::time::Duration = std::time::Duration::from_millis(300)
 pub fn note_edited(ui: &AppWindow, tab_id: i32, text: &str) {
     let weak = ui.as_weak();
     update(tab_id, |r, _| {
-        if r.draft.as_ref().is_none_or(|d| d.kind != 2) {
-            return;
-        }
+        let Some(d) = r.draft.as_ref().filter(|d| d.kind == 2) else { return };
+        // The paragraph this text is for: the timer previews it only if it is still the one edited.
+        let Some(key) = d.block.as_ref().map(|b| (d.page, b.0)) else { return };
         r.preview_text = text.trim().to_string();
         let timer = slint::Timer::default();
         timer.start(slint::TimerMode::SingleShot, PREVIEW_PAUSE, move || {
             if weak.upgrade().is_some() {
-                show_preview(tab_id);
+                show_preview(tab_id, key);
             }
         });
         r.preview_timer = Some(timer);
     });
 }
 
-fn show_preview(tab_id: i32) {
+fn show_preview(tab_id: i32, (page, block): (usize, usize)) {
     update(tab_id, |r, _| {
         r.preview_timer = None;
-        let Some(d) = r.draft.as_ref().filter(|d| d.kind == 2) else { return };
-        let Some(&(block, ..)) = d.block.as_ref() else { return };
-        let page = d.page;
+        let Some(d) = r.draft.as_ref().filter(|d| d.kind == 2 && d.page == page && d.block.as_ref().is_some_and(|b| b.0 == block)) else { return };
         match paragraph_edit(d, &r.preview_text) {
             Some((_, edit)) => {
                 r.preview = Some((page, block));
