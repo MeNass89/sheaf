@@ -123,7 +123,11 @@ fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
             3 => NumberText::Custom(opts.num_custom.to_string()),
             _ => NumberText::Number,
         },
-        ..Default::default()
+        font_size: {
+            let fs = opts.num_font_size.trim();
+            if fs.is_empty() { 12.0 } else { fs.parse::<f64>().ok().filter(|v| (4.0..=72.0).contains(v)).ok_or_else(|| OpdfError::Unsupported(format!("font size: \"{fs}\" (use 4 to 72 points)")))? }
+        },
+        color: WM_COLOURS[opts.num_color.clamp(0, 3) as usize],
     })
 }
 
@@ -555,6 +559,8 @@ mod tests {
         o.num_margin = 2;
         o.num_text = 3;
         o.num_custom = "{n}/{p}".into();
+        o.num_font_size = "18".into();
+        o.num_color = 2;
         o.num_start = "5".into();
         o.from_page = "2".into();
         let job = build_job(ToolId::PageNumbers, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/n.pdf".into())).unwrap();
@@ -562,6 +568,7 @@ mod tests {
         assert_eq!(items[0].1, PathBuf::from("/s/n.pdf"));
         assert_eq!((options.position, options.margin, options.start, options.from, options.to), (8, 54.0, 5, Some(2), None));
         assert_eq!(options.text, NumberText::Custom("{n}/{p}".into()));
+        assert_eq!((options.font_size, options.color), (18.0, [0.85, 0.1, 0.1]));
         // A batch numbers every page of every file, with default names.
         let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
         let Job::PageNumbers { items, options } = build_job(ToolId::PageNumbers, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };

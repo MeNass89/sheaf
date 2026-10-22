@@ -392,6 +392,8 @@ export struct ToolOptions {
     num-start: string,   // first number
     num-text: int,       // 0 number only, 1 "Page {n}", 2 "Page {n} of {p}", 3 custom
     num-custom: string,
+    num-font-size: string, // points, empty: 12
+    num-color: int,        // as wm-color: 0 black, 1 grey, 2 red, 3 blue
     // Watermark
     wm-image-mode: bool,
     wm-text: string,

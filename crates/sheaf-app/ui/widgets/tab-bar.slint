@@ -31,7 +31,8 @@ component TabItem inherits Rectangle {
     }
     Text {
         x: 12px + Theme.tab-icon + 10px;
-        width: 120px;
+        // Up to the close button (24 px from the right edge), elided before it.
+        width: parent.width - self.x - 30px;
         text: root.tab.name;
         font-size: Theme.fs-tab;
         font-weight: root.active ? Theme.weight-demibold : 400;

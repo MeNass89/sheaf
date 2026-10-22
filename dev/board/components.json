@@ -491,14 +491,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "annotate mode with a tool strip",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -521,6 +521,17 @@
      "overall": 8
     },
     "proof": "Toolbar with select, highlight, underline, strike, note, pen, text box, edit text, add image and colour/width rows; single keys V H U K N P T E I; no per-tool settings popover like PDF Expert's"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "All tools in one visible row with letter shortcuts, a floating options bar per tool; colours kept per tool. Joint 9/10: independent visual audit (interim reviewer) against PDF Expert / iLovePDF captures, from gui-smoke screenshots, agreed (vs pdfexpert/05-annotate-toolbar)"
    }
   ]
  },
@@ -9474,12 +9485,12 @@
    41
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -9493,6 +9504,17 @@
      "overall": 8
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [36, 37, 38, 39, 41]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Tools grid by category with colour tiles, collapsible, sort, search, favourites, recent tools. Joint 9/10: independent visual audit (interim reviewer) against PDF Expert / iLovePDF captures, from gui-smoke screenshots, agreed (vs ilovepdf/01c)"
    }
   ]
  },
@@ -14287,13 +14309,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "save in place from the reader",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -14327,6 +14349,17 @@
      "overall": 8
     },
     "proof": "⌘S incremental save 1.1 s on the 70 MB book (was 4.6 s), atomic replace, checked to reopen first; reader_doc::tests incremental_saves_in_a_row_keep_every_edit"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘S incremental save 1.1 s on 70 MB, Saved toast, save button state, unsaved prompt. Joint 9/10: independent visual audit (interim reviewer) against PDF Expert / iLovePDF captures, from gui-smoke screenshots, agreed"
    }
   ]
  },
@@ -17058,14 +17091,14 @@
    190
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "a Reader tab opened by Open, drop and recents; tools act on the open document",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17099,6 +17132,17 @@
      "overall": 8
     },
     "proof": "Pages on screen 1.3 s after opening the 1,982-page book (pdfium page sizes), full document 8 s with a 'Loading' badge (dev/re/evidence/F-002/11); 4-page PDF 8 ms; recents reopen (dev/re/evidence/F-002/17); macOS Open With not verified here"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "PDFs open in document tabs from Open, drop, recents and the system; pages in 1.3 s on 1,982 pages; password, unsaved prompt. Joint 9/10: independent visual audit (interim reviewer) against PDF Expert / iLovePDF captures, from gui-smoke screenshots, agreed"
    }
   ]
  },
@@ -19287,13 +19331,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "outline panel from the PDF's bookmarks",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19316,6 +19360,17 @@
      "overall": 8
     },
     "proof": "GUI: outline tree, expand arrows, click jumps (p. 341), current section highlighted (dev/re/evidence/F-002/01, dev/re/evidence/F-002/05); test reader::tests::outline_rows_*"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-002",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Outline tree with chevrons, page labels, current entry; add, rename, delete bookmarks. Joint 9/10: independent visual audit (interim reviewer) against PDF Expert / iLovePDF captures, from gui-smoke screenshots, agreed (vs pdfexpert/04a)"
    }
   ]
  },

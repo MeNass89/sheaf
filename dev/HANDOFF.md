@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 95 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 14/38, batch 0/9, compare 0/7, convert 0/20, edit 4/29, files 3/19, forms 4/17, optimize 0/15, organize 6/27, output 0/15, platform 1/14, preferences 1/14, reader 26/64, security 2/18, sign 4/18.
+**331 components, 100 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 14/38, batch 0/9, compare 0/7, convert 0/20, edit 4/29, files 3/19, forms 4/17, optimize 0/15, organize 6/27, output 0/15, platform 1/14, preferences 1/14, reader 26/64, security 2/18, sign 4/18.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
@@ -51,14 +51,15 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 Done 21/10: engine speed (`third_party/`), stale grades audited, shapes/eraser/stamps, notes panel (author, date,
 filter, sort, replies, status, hide, summary, remove all), two pages, properties, zoom field, page labels, bookmarks,
 attachments, toolbox Compress flow audited against iLovePDF (`dev/re/evidence/F-001/sheaf-compress-*`).
-Next, by components lifted:
-1. **Toolbox audit per tool** against iLovePDF/PDF Expert (only Compress has reference captures; others need the
-   apps, on a Mac): C-output-003/004, C-security-*, C-optimize-*, C-organize-015/021, C-files-012/015.
-2. **Copy / paste of annotations and objects** (C-edit-010, C-annotate-026): needs reading the annotation's
-   dictionary in PdfCraft (no duplicate edit), or XFDF export/import.
-3. **Menu bar** with every reader command (C-platform-014; menu entries of C-reader-039/040).
-4. Single page mode (C-reader-014), horizontal scroll (003), rotate view (017: text layer is in page view space).
-5. Bookmarks by drag (MoveBookmark; C-edit-023), attachment delete/rename (C-edit-022). 
+Next, by components lifted (visual audit of 22/10, interim reviewer, what each still lacks):
+- C-annotate-007 text box: type inline on the page, font family and bold; a gui-smoke step.
+- C-organize-001 a full-window page grid in the reader with PDF Expert's ops strip; C-organize-002 drag ghost and
+  autoscroll while dragging thumbnails, a gui-smoke reorder step.
+- C-output-007 print preview, paper size and orientation, custom scale, selected pages.
+- C-sign-002 pen colour and thickness, several kept signatures; C-sign-003 several script fonts, live preview.
+- C-annotate-013 drag a line's ends, Shift for 0/45/90°, arrowhead styles; C-annotate-023 opacity slider, fill
+  colour of its own, dashes, free colour picker.
+- Toolbox audit per tool against iLovePDF (only Compress so far); copy/paste of annotations; menu bar.
 
 ## Known limits worth the next session
 

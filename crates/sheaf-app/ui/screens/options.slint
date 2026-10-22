@@ -209,6 +209,7 @@ export component OptionsPanel inherits VerticalLayout {
         from-page: root.from-page, to-page: root.to-page,
         num-position: root.num-position, num-double: root.num-double, num-cover: root.num-cover,
         num-margin: root.num-margin, num-start: root.num-start, num-text: root.num-text, num-custom: root.num-custom,
+        num-font-size: root.num-font-size, num-color: root.num-color,
         wm-image-mode: root.wm-image-mode, wm-text: root.wm-text, wm-font-size: root.wm-font-size,
         wm-color: root.wm-color, wm-image: root.wm-image, wm-scale: root.wm-scale, wm-position: root.wm-position,
         wm-mosaic: root.wm-mosaic, wm-transparency: root.wm-transparency, wm-rotation: root.wm-rotation,
@@ -263,6 +264,8 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> num-start: "1";
     in-out property <int> num-text: 0;
     in-out property <string> num-custom;
+    in-out property <string> num-font-size;
+    in-out property <int> num-color: 0;
     in-out property <bool> wm-image-mode;
     in-out property <string> wm-text;
     in-out property <string> wm-font-size: "48";
@@ -515,6 +518,16 @@ export component OptionsPanel inherits VerticalLayout {
             error: Parse.custom-text-error(root.num-custom);
         }
         if root.num-text == 3: InfoBox { text: "{n} is the page number; {p} is the document's total page count."; }
+        // How the numbers look (Acrobat's and Stirling's font size and colour).
+        SectionLabel { text: "Look"; }
+        TextField { label: "Font size"; placeholder: "12"; text <=> root.num-font-size; }
+        HorizontalLayout {
+            spacing: 8px;
+            Segment { text: "Black"; selected: root.num-color == 0; clicked => { root.num-color = 0; } }
+            Segment { text: "Grey"; selected: root.num-color == 1; clicked => { root.num-color = 1; } }
+            Segment { text: "Red"; selected: root.num-color == 2; clicked => { root.num-color = 2; } }
+            Segment { text: "Blue"; selected: root.num-color == 3; clicked => { root.num-color = 3; } }
+        }
     }
 
     if root.tool == "watermark": VerticalLayout {
