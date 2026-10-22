@@ -7,11 +7,11 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 ## Queue (next first)
 | # | id | weight | component | main | F · A · P → overall | next |
 |---|---|---|---|---|---|---|
-| 1 | C-edit-002 | strong | Edit existing text in place | pdfexpert | 5 · 6 · 9 → **5** | engine EditTextBlock/EditTextLine wired to an in-place editor |
-| 2 | C-edit-006 | strong | Add an image to a page | pdfexpert | 5 · 5 · 7 → **5** | free resize handles, more formats |
-| 3 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 6 · 6 · 6 → **6** | needs LibreOffice installed; no sheet/print-area options |
-| 4 | C-convert-003 | strong | Convert images to PDF | ilovepdf | 6 · 7 · 8 → **6** | one PDF per image; Letter and other sizes |
-| 5 | C-convert-009 | strong | Convert PDF to Word | ilovepdf | 6 · 6 · 7 → **6** | layout fidelity |
+| 1 | C-edit-006 | strong | Add an image to a page | pdfexpert | 5 · 5 · 7 → **5** | free resize handles, more formats |
+| 2 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 6 · 6 · 6 → **6** | needs LibreOffice installed; no sheet/print-area options |
+| 3 | C-convert-003 | strong | Convert images to PDF | ilovepdf | 6 · 7 · 8 → **6** | one PDF per image; Letter and other sizes |
+| 4 | C-convert-009 | strong | Convert PDF to Word | ilovepdf | 6 · 6 · 7 → **6** | layout fidelity |
+| 5 | C-edit-002 | strong | Edit existing text in place | pdfexpert | 6 · 6 · 9 → **6** | engine EditTextBlock/EditTextLine wired to an in-place editor |
 | 6 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 7 · 6 · 6 → **6** | speed on big scans; deskew |
 | 7 | C-security-010 | strong | Mark an area or text for redaction | acrobat | 6 · 7 · 8 → **6** | mark by text selection |
 | 8 | C-edit-001 | strong | Enter edit mode | pdfexpert | 7 · 8 · 9 → **7** | edit mode inside the reader, not a separate tool flow |

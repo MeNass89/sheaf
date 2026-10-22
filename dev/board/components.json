@@ -6627,10 +6627,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 5,
+   "function": 6,
    "aesthetics": 6,
    "performance": 9,
-   "overall": 5
+   "overall": 6
   },
   "status": "open",
   "feature": null,
@@ -6668,6 +6668,17 @@
      "overall": 5
     },
     "proof": "Click a paragraph, edit, ⌘↩ rewraps it in 28 ms, undoable; characters missing from the embedded font subset still draw wrong; switching to a standard font made PdfCraft overprint every row (tried 21/10, reverted)"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 6,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "A paragraph edited twice stays one: rewritten rows share one text object (PdfCraft #594 rule split runs touching mid-word, e.g. Word's 'doul'+'eurs', leftover overprinted the edit); edit_text.rs red→green; real Word fiche checked. Characters the subset lacks drawn in a standard face with Acrobat's notice toast. Reviewer (Opus) 6/6/9: still a separate plain-text box (not on page), original line breaks kept hard (no rewrap), growth overlap seen only after ⌘↩, edit_notices ('?') not surfaced."
    }
   ]
  },

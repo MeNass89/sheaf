@@ -560,3 +560,10 @@ deleted when the tab closes or the file changes. For a protected input the copy 
 large file for each change would take seconds; one copy makes each redraw a one-page mark and render. **Risk.** A
 crash leaves the copy in the temp folder until the system cleans it. **Would change it.** A startup sweep of
 `sheaf-wm-*` folders if crashes prove common.
+
+## 2026-10-22 · Deviation from dev-skill policy: split files over 1,000 lines
+**What.** The vendored PdfCraft files (`third_party/*/src`, e.g. `pdfcraft-engine/src/lib.rs`, 4,757 lines) stay as
+upstream laid them out, though Sheaf patches touch them. **Why better here.** They are copies of upstream to be
+replaced on each PdfCraft update (third_party/README); split, the "Sheaf:" changes could no longer be re-applied by
+copying upstream's files over them. **Scope.** `third_party/`. **Ends when.** A crate's changes are upstream and its
+folder is dropped.

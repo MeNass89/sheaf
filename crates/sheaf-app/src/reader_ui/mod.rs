@@ -453,7 +453,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 e => crate::flow::toast(ui, &sheaf_app::files::open_error(&file_name(&input.path), &e)),
             }
         }
-        Reply::Changed { snap, pages, error, applied } => {
+        Reply::Changed { snap, pages, error, applied, substituted } => {
             update(id, |r, v| {
                 r.in_flight = r.in_flight.saturating_sub(1);
                 r.edits_in_flight = r.edits_in_flight.saturating_sub(1);
@@ -474,6 +474,9 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             });
             if let Some(e) = error {
                 crate::flow::toast(ui, &e);
+            } else if let Some(font) = substituted {
+                // Acrobat's notice: the embedded font lacks some characters typed.
+                crate::flow::toast(ui, &format!("Some characters aren't in this document's font: shown in {font}"));
             }
             crate::viewer_ui::request(ui, id);
         }

@@ -79,7 +79,7 @@ DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and
 
 - PdfCraft is patched in `third_party/` (README there): on a PdfCraft rev bump, re-apply the changes (search
   "Sheaf:"). Asked Nassim whether to send them upstream.
-- Edit mode (C-edit-001…014): move/resize existing objects, font choice, the glyph problem above.
+- Edit mode (C-edit-001…014): move/resize existing objects, font choice. C-edit-002 (at 6), reviewer's order: show `edit_notices` (`?` drawn) as the substitution toast is; rewrap the whole paragraph (source row breaks are hard now, `text_regions.rs`); preview the rewrite on the page before ⌘↩ (overlap visible); then editing on the page itself.
 - Print: preview, paper size, Windows (C-output-007 at 8); toolbox tools' remaining gaps (convert, optimize).
 - Tabs (C-files-010 at 9), reviewer's small follow-ups: the bar's `active-at` goes stale when an inactive tab is
   dragged across the active one (Rust could send the active place with `tab-order`); unit tests for

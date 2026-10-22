@@ -601,6 +601,10 @@ pub(super) fn rewrite_styled_block(
                 _ => 0.0,
             };
         let mut pos = 0;
+        // Sheaf: a row's runs share one text object. Runs in separate text objects that touch
+        // with no space between them ("doul" + "eurs", where a source run ended mid-word) are
+        // read back as separate labels, which split the paragraph on the next edit.
+        let mut in_text = false;
         while pos < row.len() {
             let Some(item) = row.get(pos) else { break };
             let source = lines.get(item.1).unwrap_or(first);
@@ -635,6 +639,9 @@ pub(super) fn rewrite_styled_block(
                 let resource = glyph_resources.get(&(row_index, pos)).ok_or_else(|| EditError::Invalid("shaped font is missing".into()))?;
                 let mut properties = Dict::new();
                 properties.set(b"ActualText".to_vec(), Object::String(PdfString::text(&string)));
+                if std::mem::take(&mut in_text) {
+                    block_ops.push(Op::new("ET", vec![]));
+                }
                 block_ops.push(Op::new("BDC", vec![Object::name("Span"), Object::Dict(properties)]));
                 state.font = Some((resource.clone(), size_of(source, item.1)));
                 // Absolute glyph matrices preserve marks and contextual positions; font-program
@@ -658,7 +665,9 @@ pub(super) fn rewrite_styled_block(
                 block_ops.push(Op::new("EMC", vec![]));
                 segment_width = (shaped.advance * size + extra) * state.scale * source.origin.k;
             } else {
-                block_ops.push(Op::new("BT", vec![]));
+                if !std::mem::replace(&mut in_text, true) {
+                    block_ops.push(Op::new("BT", vec![]));
+                }
                 block_ops.extend(state.ops());
                 block_ops.push(Op::new("Tm", tm.iter().map(|v| n(*v)).collect()));
                 block_ops.extend(source_show(
@@ -669,9 +678,12 @@ pub(super) fn rewrite_styled_block(
                     state.char_spacing,
                     state.word_spacing,
                 )?);
-                block_ops.push(Op::new("ET", vec![]));
             }
             if underlines.get(&item.1).copied().or(style.underline) == Some(true) {
+                // Paths are drawn outside text objects.
+                if std::mem::take(&mut in_text) {
+                    block_ops.push(Op::new("ET", vec![]));
+                }
                 let [r, g, b] = overrides.get(&item.1).and_then(|r| r.color).or(style.color).unwrap_or(source.color);
                 let underline_size = size_of(source, item.1) * source.origin.k;
                 let (x0, y0) = back.apply(x - first.origin.ctm[4], baseline - first.origin.ctm[5] - underline_size * 0.12);
@@ -684,6 +696,9 @@ pub(super) fn rewrite_styled_block(
             }
             x += segment_width;
             pos = end;
+        }
+        if in_text {
+            block_ops.push(Op::new("ET", vec![]));
         }
         baseline -= if style.line_spacing.is_none() && style.size.is_none() {
             source_leading

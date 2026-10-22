@@ -360,6 +360,9 @@ pub struct Document {
     /// What the last successful [`Session::apply`] wrote that its fonts can't draw: kept as typed,
     /// drawn with `?` in its place (see [`TextNotice`]). The interface shows it; tools return it.
     pub edit_notices: Vec<TextNotice>,
+    /// Sheaf: the font the last successful [`Session::apply`] drew some of a paragraph's
+    /// characters in, its own font lacking them (Acrobat says so too).
+    pub font_substituted: Option<String>,
 }
 
 /// Text an edit stored as typed but drew with `?` in place of `ch`, because the font it is drawn
@@ -2082,6 +2085,8 @@ struct EditCtx {
     /// Fields the edit renamed to keep imported names separate (old → new), for the repair
     /// log and the undo label.
     renamed_fields: Vec<(String, String)>,
+    /// Sheaf: the font an edited paragraph drew some characters in, because its own lacks them.
+    substituted: Option<String>,
 }
 
 impl EditCtx {
@@ -2107,6 +2112,7 @@ impl EditCtx {
             seed,
             count: 0,
             renamed_fields: Vec::new(),
+            substituted: None,
         }
     }
 
@@ -2375,7 +2381,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::MoveObjects { page, objects, offset } => pdfcraft_edit::move_objects(doc, *page, objects, *offset)?,
         Edit::EditTextBlock { page, block, text, style } => {
-            pdfcraft_edit::rewrite_block(doc, *page, *block, Some(text), style)?;
+            cx.substituted = pdfcraft_edit::rewrite_block(doc, *page, *block, Some(text), style)?.substituted;
         }
         Edit::RegisterTextFont { page, bytes } => {
             pdfcraft_edit::text::register_text_font(doc, *page, bytes)?;
@@ -3318,6 +3324,7 @@ impl Session {
             fonts_stale: false,
             xfa_warnings: Vec::new(),
             edit_notices: Vec::new(),
+            font_substituted: None,
         }
     }
 
@@ -3332,6 +3339,7 @@ impl Session {
         let js_off = self.js_off;
         let doc = self.doc_mut(id)?;
         doc.edit_notices.clear();
+        doc.font_substituted = None;
         let name = doc.name.clone();
         let is_xfa = doc.info.xfa.is_some();
         let mut cx = EditCtx::new(now, doc.generation ^ (id.0 << 48));
@@ -3372,6 +3380,7 @@ impl Session {
             cx.js = Some(js::JsRunner::new(&next, &name));
         }
         cx.renamed_fields.clear();
+        cx.substituted = None;
         // `next` is a copy: if the edit fails or crashes, the document is unchanged.
         guard(|| run_edit(&mut next, &edit, &mut cx))
             .unwrap_or_else(|m| Err(EditError::Invalid(format!("{} failed unexpectedly ({m}); the document was not changed", edit.label()))))?;
@@ -3496,6 +3505,7 @@ impl Session {
         doc.dirty = true;
         doc.generation += 1;
         doc.edit_notices = notices;
+        doc.font_substituted = cx.substituted.take();
         note_warnings(&mut doc.xfa_warnings, &xfa_notes);
         let notes = doc.xfa_warnings.clone();
         note_warnings(&mut doc.info.warnings, &notes);
@@ -3514,6 +3524,7 @@ impl Session {
     pub fn undo(&mut self, id: DocId) -> Result<Label, EditError> {
         let doc = self.doc_mut(id)?;
         doc.edit_notices.clear();
+        doc.font_substituted = None;
         let editor = doc.editor.as_mut().ok_or(EditError::NothingToUndo)?;
         let (label, prev, keys, scope) = editor.undo.pop().ok_or(EditError::NothingToUndo)?;
         let current = std::mem::replace(&mut editor.cos, prev);
@@ -3529,6 +3540,7 @@ impl Session {
     pub fn redo(&mut self, id: DocId) -> Result<Label, EditError> {
         let doc = self.doc_mut(id)?;
         doc.edit_notices.clear();
+        doc.font_substituted = None;
         let editor = doc.editor.as_mut().ok_or(EditError::NothingToRedo)?;
         let (label, next, keys, scope) = editor.redo.pop().ok_or(EditError::NothingToRedo)?;
         let current = std::mem::replace(&mut editor.cos, next);

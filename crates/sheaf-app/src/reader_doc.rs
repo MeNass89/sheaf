@@ -226,8 +226,9 @@ pub enum Reply {
     Opened(Box<Snap>),
     OpenFailed(sheaf_core::OpdfError),
     /// An edit, undo or redo is done (or failed): the pages to render again (`None`: all).
-    /// `applied`: the answer to an `Apply` (an undo step was added unless `error`).
-    Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool },
+    /// `applied`: the answer to an `Apply` (an undo step was added unless `error`); `substituted`:
+    /// the font it drew characters in that the document's own font lacks.
+    Changed { snap: Box<Snap>, pages: Option<Vec<usize>>, error: Option<String>, applied: bool, substituted: Option<String> },
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
     /// Comments exported to `to` (or why not).
     Exported { to: PathBuf, error: Option<String> },
@@ -258,10 +259,11 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                 match op {
                     Op::Apply { edit, pages } => {
                         let error = doc.apply(*edit).err().map(|e| e.to_string());
+                        let substituted = if error.is_none() { doc.document().font_substituted.clone() } else { None };
                         let t1 = std::time::Instant::now();
                         let s = snap(&doc);
                         debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
-                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: true });
+                        reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: true, substituted });
                     }
                     op @ (Op::Undo { .. } | Op::Redo { .. }) => {
                         let (redo, pages) = match op {
@@ -271,7 +273,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         };
                         let id = doc.id();
                         let r = if redo { doc.session_mut().redo(id) } else { doc.session_mut().undo(id) };
-                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()), applied: false });
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()), applied: false, substituted: None });
                     }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());
