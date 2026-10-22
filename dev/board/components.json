@@ -9975,11 +9975,11 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -10004,6 +10004,17 @@
      "overall": 8
     },
     "proof": "Audit 22/10: probe_failures_are_routed_per_tool, encrypted-input tests; gap: no GUI check of the tool-side prompt, no side-by-side screenshot"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Same PasswordDialog as the reader (proven by smoke), probe_failures_are_routed_per_tool, jobs encrypted-input tests; joint review"
    }
   ]
  },
@@ -10161,12 +10172,12 @@
    21
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -10191,6 +10202,17 @@
      "overall": 7
     },
     "proof": "Audit 22/10: raw engine error shown, two wordings; gap: one short message, GUI check of a broken file, Repair offer"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "files::open_error one wording reader+tools, unit test, gui-smoke damaged PDF refused, app stays open; joint review (commit 43f1fff)"
    }
   ]
  },
@@ -11543,13 +11565,13 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "target size, custom DPI",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -11572,6 +11594,17 @@
      "overall": 8
     },
     "proof": "Audit 22/10: saved_percentages; gap: 'PDF compressed (-0%)' beside 'already as small' when nothing is gained"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "state::compress_note test; joint review (commit 43f1fff)"
    }
   ]
  },
@@ -14797,8 +14830,8 @@
    209
   ],
   "grade": {
-   "function": 9,
-   "aesthetics": 8,
+   "function": 8,
+   "aesthetics": 9,
    "performance": 9,
    "overall": 8
   },
@@ -14827,6 +14860,17 @@
      "overall": 8
     },
     "proof": "Audit 22/10: dest.rs preferences_choose_the_destination_without_a_dialog; gap: no screenshot proof"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Joint review: aesthetics 9 from screenshots; function waits on the macOS native dialog click proof (with C-output-002)"
    }
   ]
  },
@@ -16218,6 +16262,17 @@
      "overall": 8
     },
     "proof": "Audit 22/10: every tool a subcommand, exit codes, JSON, MCP tests; gap: --help look unjudged"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Joint review: about 25 options without help text (inputs, --out, enum values)"
    }
   ]
  },
@@ -16598,12 +16653,12 @@
    217
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -16628,6 +16683,17 @@
      "overall": 8
     },
     "proof": "Audit 22/10: System/Light/Dark wired (theme.slint, home.rs); gap: no test or screenshot of the switch"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "gui-smoke Dark then Light switch the window; joint review (commit 43f1fff)"
    }
   ]
  },
@@ -17095,11 +17161,11 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -17124,6 +17190,17 @@
      "overall": 8
     },
     "proof": "Audit 22/10: 3 modes + open folder after; gap: screenshot beside iLovePDF"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Preferences screenshot beside iLovePDF 07 (cleaner, more choices); dest.rs test; smoke Compress next to original; joint review"
    }
   ]
  },
@@ -22875,13 +22952,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "Sheaf asks for the password on open (tools); bring it to the reader",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -22926,6 +23003,17 @@
      "overall": 8
     },
     "proof": "Audit 22/10: smoke 'a protected PDF opens after its password'; gap: wrong-then-right password not checked, no screenshot"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Prompt + wrong password (red border, message) screenshots; smoke: wrong then right password, Escape skips; joint review"
    }
   ]
  },

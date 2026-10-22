@@ -488,10 +488,19 @@ quit
 
 # 7. A password-protected PDF asks for its password, then opens in the reader.
 qpdf --encrypt sesame sesame 256 -- "$OUT/text.pdf" "$OUT/locked.pdf"
+# A wrong password first: the prompt stays, saying so; then the right one.
 launch "$OUT/locked.pdf"; sleep 1; shot 07-password
+# (Its small red line is read in grey at 300 %.)
+xdotool type --delay 20 "wrong"; xdotool key Return; sleep 1
+WP=$(import -window root -crop 500x200+390+300 png:- 2>/dev/null | convert - -colorspace Gray -resize 300% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
+check "a wrong password keeps the prompt and says so" "echo \"$WP\" | grep -qi 'wrong password'"
 xdotool type --delay 20 "sesame"; xdotool key Return; sleep 2
 key Escape; key v; echo -n | xclip -selection clipboard >/dev/null 2>&1; key ctrl+a; key ctrl+c; sleep 0.3
 check "a protected PDF opens after its password" "xclip -o -selection clipboard 2>/dev/null | grep -q 'the quick brown fox'"
+quit
+# Escape in the prompt skips the file, as Cancel would.
+launch "$OUT/locked.pdf"; sleep 1; key Escape; sleep 0.8; EP=$(ocr 500x200+390+300)
+check "Escape closes the password prompt" "kill -0 $APP_PID 2>/dev/null && ! echo \"$EP\" | grep -qi 'password protected'"
 quit
 
 # 8. Two documents open in two tabs; ⇧⌘[ switches to the other one.
@@ -550,9 +559,9 @@ quit
 
 # 11. A damaged file says so in one line and the app stays up; Preferences ▸ Dark and Light switch the window.
 printf '%%PDF-1.7\nnot really a pdf\n' > "$OUT/broken.pdf"
-# The toast (white on dark, bottom centre, 3 s) read inverted, a few times while it shows.
+# The toast (white on dark, bottom centre, 3 s) read inverted until it is seen (up to 8 s: opening may be slow).
 toastText() { import -window root -crop 700x60+290+722 png:- 2>/dev/null | convert - -negate -resize 200% png:- | tesseract stdin stdout --psm 7 2>/dev/null; }
-launch "$OUT/broken.pdf"; BR=""; for i in 1 2 3 4 5; do sleep 0.6; BR="$BR $(toastText)"; done; shot 11-broken
+launch "$OUT/broken.pdf"; BR=""; for i in $(seq 1 16); do sleep 0.5; BR="$BR $(toastText)"; echo "$BR" | grep -qi 'damaged' && break; done; shot 11-broken
 check "a damaged PDF is refused in one line, the app stays open" "kill -0 $APP_PID 2>/dev/null && echo \"$BR\" | grep -qi 'damaged or not a PDF'"
 lum() { import -window root -crop 40x40+600+700 png:- 2>/dev/null | convert - -colorspace Gray -format '%[fx:mean]' info:; }
 PR=$(at Preferences 250x300+0+40); [ -n "$PR" ] && click $PR 1

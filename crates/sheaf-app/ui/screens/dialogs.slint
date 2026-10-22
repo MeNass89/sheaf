@@ -68,12 +68,21 @@ export component PasswordDialog inherits Modal {
         color: Theme.text;
         wrap: word-wrap;
     }
-    field := TextField {
-        password: true;
-        placeholder: "Password";
-        text <=> root.pw;
-        error: root.wrong ? "Wrong password" : "";
-        accepted => { root.unlock(root.pw); }
+    // Escape skips, as Cancel does in every password prompt (the field leaves the key to it).
+    FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Escape { root.skip(); return accept; }
+            reject
+        }
+        VerticalLayout {
+            field := TextField {
+                password: true;
+                placeholder: "Password";
+                text <=> root.pw;
+                error: root.wrong ? "Wrong password" : "";
+                accepted => { root.unlock(root.pw); }
+            }
+        }
     }
     HorizontalLayout {
         alignment: end;

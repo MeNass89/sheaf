@@ -26,14 +26,17 @@ pub(crate) struct Cli {
 pub(crate) enum Cmd {
     /// Merge several PDFs into one, in the given order
     Merge {
+        /// The PDFs to merge, in order
         #[arg(required = true, num_args = 1..)]
         inputs: Vec<PathBuf>,
+        /// The merged PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Split a PDF by page ranges or every N pages into a directory
     #[command(group = clap::ArgGroup::new("how").required(true).args(["ranges", "every"]))]
     Split {
+        /// The PDF to read
         input: PathBuf,
         /// Page ranges, one file per range, e.g. "1-3,5"
         #[arg(long)]
@@ -41,89 +44,118 @@ pub(crate) enum Cmd {
         /// One file every N pages
         #[arg(long)]
         every: Option<u32>,
+        /// The folder to write the parts into
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Extract pages into a new PDF
     Extract {
+        /// The PDF to read
         input: PathBuf,
+        /// Pages to keep, e.g. "1-3,5"
         #[arg(long)]
         ranges: String,
+        /// The new PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Remove pages
     Remove {
+        /// The PDF to read
         input: PathBuf,
+        /// Pages to remove, e.g. "2,4-6"
         #[arg(long)]
         pages: String,
+        /// The PDF to write without them
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Reorder pages: 1-based page numbers, 0 inserts a blank page, e.g. "3,0,1"
     Organize {
+        /// The PDF to read
         input: PathBuf,
+        /// The new page order, 1-based; 0 inserts a blank page, e.g. "3,0,1,2"
         #[arg(long, value_delimiter = ',', required = true)]
         order: Vec<u32>,
+        /// The reordered PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Rotate pages clockwise by 90, 180 or 270 degrees (negative = counter-clockwise)
     Rotate {
+        /// The PDF to read
         input: PathBuf,
+        /// 90, 180 or 270 (negative turns counter-clockwise)
         #[arg(long, allow_hyphen_values = true)]
         degrees: i64,
         /// Pages to rotate (default: all)
         #[arg(long)]
         pages: Option<String>,
+        /// The rotated PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Compress a PDF
     Compress {
+        /// The PDF to read
         input: PathBuf,
+        /// How hard to compress
         #[arg(long, value_enum, default_value_t = CliLevel::Recommended)]
         level: CliLevel,
+        /// The compressed PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Encrypt a PDF with a password (AES-256)
     Protect {
+        /// The PDF to read
         input: PathBuf,
+        /// The password needed to open it
         #[arg(long)]
         user_password: String,
+        /// The password needed to change its permissions (default: random, not shown)
         #[arg(long)]
         owner_password: Option<String>,
+        /// The protected PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Remove the password from a PDF (needs --password)
     Unlock {
+        /// The protected PDF
         input: PathBuf,
+        /// The PDF to write without its password
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Rebuild a damaged PDF
     Repair {
+        /// The damaged PDF
         input: PathBuf,
+        /// The repaired PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Render every page to JPEG (or PNG with --png) in a directory
     ToJpg {
+        /// The PDF to read
         input: PathBuf,
+        /// Resolution in dots per inch (150 normal, 300 print, 600 fine)
         #[arg(long, default_value_t = 150)]
         dpi: u32,
+        /// JPEG quality, 1 to 100
         #[arg(long, default_value_t = 85, value_parser = clap::value_parser!(u8).range(1..=100))]
         quality: u8,
         /// Lossless PNG images instead of JPEG
         #[arg(long, conflicts_with = "quality")]
         png: bool,
+        /// The folder to write the images into
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Build a PDF from images, one per page
     FromImages {
+        /// The images, one page each, in order (PNG, JPEG, WebP, TIFF, BMP, GIF)
         #[arg(required = true, num_args = 1..)]
         images: Vec<PathBuf>,
         /// Place each image on an A4 page with a 0.5 in margin (default: page fits the image)
@@ -132,12 +164,15 @@ pub(crate) enum Cmd {
         /// Landscape A4 (with --a4)
         #[arg(long, requires = "a4")]
         landscape: bool,
+        /// The PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Stamp page numbers
     Number {
+        /// The PDF to read
         input: PathBuf,
+        /// Where the numbers go
         #[arg(long, value_enum, default_value_t = Position::BottomCenter)]
         position: Position,
         /// Double-sided: even pages mirror the left/right position
@@ -146,6 +181,7 @@ pub(crate) enum Cmd {
         /// First page is a cover page (not numbered)
         #[arg(long)]
         cover: bool,
+        /// Distance from the page edges
         #[arg(long, value_enum, default_value_t = Margin::Recommended)]
         margin: Margin,
         /// First page to number (default: 1)
@@ -157,13 +193,16 @@ pub(crate) enum Cmd {
         /// Number shown on the first numbered page
         #[arg(long, default_value_t = 1)]
         start: u32,
+        /// What each number reads
         #[arg(long, value_enum, default_value_t = NumberFormat::Number)]
         text: NumberFormat,
         /// With --text custom: text with {n} (page number) and {p} (page count)
         #[arg(long, required_if_eq("text", "custom"))]
         custom: Option<String>,
+        /// Text size in points
         #[arg(long, default_value_t = 12.0)]
         font_size: f64,
+        /// The font of the numbers
         #[arg(long, value_enum, default_value_t = CliFont::Helvetica)]
         font: CliFont,
         /// Text colour as RRGGBB
@@ -172,13 +211,16 @@ pub(crate) enum Cmd {
         /// Underline the numbers
         #[arg(long)]
         underline: bool,
+        /// The numbered PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Stamp a text or image watermark
     #[command(group = clap::ArgGroup::new("mark").required(true).args(["text", "image"]))]
     Watermark {
+        /// The PDF to read
         input: PathBuf,
+        /// Text to stamp (or --image)
         #[arg(long)]
         text: Option<String>,
         /// PNG or JPEG file
@@ -211,22 +253,30 @@ pub(crate) enum Cmd {
         /// Draw below the page content
         #[arg(long)]
         below: bool,
+        /// First page to mark, 1-based (default: the first)
         #[arg(long)]
         from: Option<u32>,
+        /// Last page to mark, 1-based (default: the last)
         #[arg(long)]
         to: Option<u32>,
+        /// The watermarked PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Crop pages by margins in millimetres (as the page is displayed), or remove a crop
     Crop {
+        /// The PDF to read
         input: PathBuf,
+        /// Millimetres to cut from the top
         #[arg(long, default_value_t = 0.0)]
         top: f64,
+        /// Millimetres to cut from the bottom
         #[arg(long, default_value_t = 0.0)]
         bottom: f64,
+        /// Millimetres to cut from the left
         #[arg(long, default_value_t = 0.0)]
         left: f64,
+        /// Millimetres to cut from the right
         #[arg(long, default_value_t = 0.0)]
         right: f64,
         /// Remove the crop instead (back to the full page)
@@ -235,11 +285,13 @@ pub(crate) enum Cmd {
         /// Pages to crop (default: all)
         #[arg(long)]
         pages: Option<String>,
+        /// The cropped PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Recognise the text of scanned pages and add a searchable text layer
     Ocr {
+        /// The scanned PDF
         input: PathBuf,
         /// Document language code (the models read Latin script)
         #[arg(long, default_value = "en")]
@@ -247,35 +299,43 @@ pub(crate) enum Cmd {
         /// Also read pages that already contain text (only new words are added)
         #[arg(long)]
         all_pages: bool,
+        /// The searchable PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Export to an editable Word document (.docx); the layout is approximate
     ToWord {
+        /// The PDF to read
         input: PathBuf,
         /// Recognise the text of scanned pages first
         #[arg(long)]
         ocr: bool,
+        /// The .docx to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Export to PowerPoint (.pptx), one slide per page; the layout is approximate
     ToPowerpoint {
+        /// The PDF to read
         input: PathBuf,
         /// Recognise the text of scanned pages first
         #[arg(long)]
         ocr: bool,
+        /// The .pptx to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Export the tables to Excel (.xlsx); pages without a table keep their text in column A
     ToExcel {
+        /// The PDF to read
         input: PathBuf,
+        /// How the tables go into sheets
         #[arg(long, value_enum, default_value_t = CliSheets::OneSheet)]
         layout: CliSheets,
         /// Recognise the text of scanned pages first
         #[arg(long)]
         ocr: bool,
+        /// The .xlsx to write
         #[arg(short, long)]
         out: PathBuf,
     },
@@ -285,13 +345,16 @@ pub(crate) enum Cmd {
         old: PathBuf,
         /// The changed version
         new: PathBuf,
+        /// What to produce
         #[arg(long, value_enum, default_value_t = CliCompare::Text)]
         mode: CliCompare,
+        /// The report or marked PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Black out text, patterns or whole pages for good, then check no text remains under them
     Redact {
+        /// The PDF to read
         input: PathBuf,
         /// Text to redact wherever it appears (any case, unless --match-case); repeat for several
         #[arg(long)]
@@ -308,12 +371,14 @@ pub(crate) enum Cmd {
         /// Pages to redact entirely, e.g. "3" or "1-2,5"
         #[arg(long)]
         pages: Option<String>,
+        /// The redacted PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Place a signature (typed, drawn or an image) on a page, optionally signed with a certificate
     #[command(group = clap::ArgGroup::new("graphic").required(true).args(["text", "image", "strokes"]))]
     Sign {
+        /// The PDF to read
         input: PathBuf,
         /// Page to sign (1-based)
         #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..))]
@@ -348,6 +413,7 @@ pub(crate) enum Cmd {
         /// Where it was signed, shown in the certificate signature
         #[arg(long, requires = "p12")]
         location: Option<String>,
+        /// The signed PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
@@ -355,6 +421,7 @@ pub(crate) enum Cmd {
     /// --at, --size, --color and --width after it apply to that item
     #[command(after_help = "Example: sheaf edit in.pdf --text \"Approved\" --page 1 --at 72,72 --size 18 --color #c00000 \\\n    --image logo.png --page 2 --at 400,40 --width 120 -o out.pdf")]
     Edit {
+        /// The PDF to read
         input: PathBuf,
         /// Text to add (\n starts a new line)
         #[arg(long)]
@@ -377,6 +444,7 @@ pub(crate) enum Cmd {
         /// Width of an image item in points (its height follows the image)
         #[arg(long, value_parser = parse_width)]
         width: Vec<f64>,
+        /// The edited PDF to write
         #[arg(short, long)]
         out: PathBuf,
         /// The items in command-line order (filled from the argument positions).
@@ -386,24 +454,31 @@ pub(crate) enum Cmd {
     /// Convert to PDF/A for archiving, then check the result
     #[command(after_help = "Exit status: 0 when the output conforms. When rules of the standard are still broken, each is\nprinted and the file is still written (everything fixable was fixed), but the exit status is 1.")]
     Pdfa {
+        /// The PDF to read
         input: PathBuf,
+        /// The PDF/A level
         #[arg(long, value_enum, default_value_t = CliPdfA::A2b)]
         level: CliPdfA,
+        /// The PDF/A file to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Convert an Office or HTML document to PDF through LibreOffice
     Office {
+        /// The Office (Word, Excel, PowerPoint, OpenDocument) or HTML document
         input: PathBuf,
+        /// The PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
     /// Describe a PDF: page count and sizes, encryption, metadata, forms, bookmarks (JSON)
     Info {
+        /// The PDF to read
         input: PathBuf,
     },
     /// Print the text of pages as Sheaf's tools read it (what redact searches)
     Text {
+        /// The PDF to read
         input: PathBuf,
         /// Pages to read, e.g. "1-3,5" (default: all); pages are separated by a form feed
         #[arg(long)]
@@ -411,6 +486,7 @@ pub(crate) enum Cmd {
     },
     /// Render one page to a PNG, to look at a result
     Render {
+        /// The PDF to read
         input: PathBuf,
         /// Page to render (1-based)
         #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..))]
@@ -418,6 +494,7 @@ pub(crate) enum Cmd {
         /// Resolution in dots per inch (72 is one pixel per point)
         #[arg(long, default_value_t = 110, value_parser = clap::value_parser!(u32).range(18..=600))]
         dpi: u32,
+        /// The PNG to write
         #[arg(short, long)]
         out: PathBuf,
     },
@@ -429,10 +506,15 @@ pub(crate) enum Cmd {
 
 #[derive(Clone, Copy, ValueEnum)]
 pub(crate) enum CliPattern {
+    /// Email addresses
     Email,
+    /// Phone numbers
     Phone,
+    /// Payment card numbers
     CreditCard,
+    /// US Social Security numbers
     Ssn,
+    /// Dates
     Date,
 }
 
@@ -492,28 +574,40 @@ impl CliScript {
 /// The twelve standard text fonts, by their PDF names.
 #[derive(Clone, Copy, ValueEnum)]
 pub(crate) enum CliFont {
+    /// Helvetica
     #[value(name = "Helvetica")]
     Helvetica,
+    /// Helvetica bold
     #[value(name = "Helvetica-Bold")]
     HelveticaBold,
+    /// Helvetica italic
     #[value(name = "Helvetica-Oblique")]
     HelveticaOblique,
+    /// Helvetica bold italic
     #[value(name = "Helvetica-BoldOblique")]
     HelveticaBoldOblique,
+    /// Times
     #[value(name = "Times-Roman")]
     TimesRoman,
+    /// Times bold
     #[value(name = "Times-Bold")]
     TimesBold,
+    /// Times italic
     #[value(name = "Times-Italic")]
     TimesItalic,
+    /// Times bold italic
     #[value(name = "Times-BoldItalic")]
     TimesBoldItalic,
+    /// Courier
     #[value(name = "Courier")]
     Courier,
+    /// Courier bold
     #[value(name = "Courier-Bold")]
     CourierBold,
+    /// Courier italic
     #[value(name = "Courier-Oblique")]
     CourierOblique,
+    /// Courier bold italic
     #[value(name = "Courier-BoldOblique")]
     CourierBoldOblique,
 }
@@ -539,43 +633,68 @@ pub(crate) enum CliPdfA {
 
 #[derive(Clone, Copy, ValueEnum)]
 pub(crate) enum CliLevel {
+    /// Best image quality, a modest saving
     Low,
+    /// Small file, sharp enough to read
     Recommended,
+    /// Smallest file, softer images
     Extreme,
 }
 
 /// A cell of the 3×3 position grid.
 #[derive(Clone, Copy, ValueEnum)]
 pub(crate) enum Position {
+    /// Top left
     TopLeft,
+    /// Top centre
     TopCenter,
+    /// Top right
     TopRight,
+    /// Middle left
     MiddleLeft,
+    /// Centre
     Center,
+    /// Middle right
     MiddleRight,
+    /// Bottom left
     BottomLeft,
+    /// Bottom centre
     BottomCenter,
+    /// Bottom right
     BottomRight,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
 pub(crate) enum WmPosition {
+    /// Top left
     TopLeft,
+    /// Top centre
     TopCenter,
+    /// Top right
     TopRight,
+    /// Middle left
     MiddleLeft,
+    /// Centre
     Center,
+    /// Middle right
     MiddleRight,
+    /// Bottom left
     BottomLeft,
+    /// Bottom centre
     BottomCenter,
+    /// Bottom right
     BottomRight,
+    /// Repeated across the page (3 × 3)
     Mosaic,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
 pub(crate) enum Margin {
+    /// 18 pt (1/4 in)
     Small,
+    /// 36 pt (1/2 in)
     Recommended,
+    /// 54 pt (3/4 in)
     Big,
 }
 
@@ -691,5 +810,31 @@ impl From<CliLevel> for Level {
             CliLevel::Recommended => Level::Recommended,
             CliLevel::Extreme => Level::Extreme,
         }
+    }
+}
+
+#[cfg(test)]
+mod help_tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    /// Every option, input and enumerated value of every command says what it is in `--help`.
+    #[test]
+    fn every_option_and_value_has_help() {
+        let cli = Cli::command();
+        let mut missing = Vec::new();
+        for cmd in cli.get_subcommands() {
+            for arg in cmd.get_arguments().filter(|a| !matches!(a.get_id().as_str(), "help" | "version")) {
+                if arg.get_help().is_none() {
+                    missing.push(format!("{} {}", cmd.get_name(), arg.get_id()));
+                }
+                for v in arg.get_possible_values() {
+                    if v.get_help().is_none() && !matches!(v.get_name(), "true" | "false") {
+                        missing.push(format!("{} {}={}", cmd.get_name(), arg.get_id(), v.get_name()));
+                    }
+                }
+            }
+        }
+        assert!(missing.is_empty(), "no help for: {missing:?}");
     }
 }

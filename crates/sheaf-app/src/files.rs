@@ -132,8 +132,6 @@ pub fn probe_pdf_full(input: &Input, width: i32) -> Result<(u32, Thumb, bool)> {
     Ok((pages, Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }, protected))
 }
 
-/// Sign never asks for a password: a signature must not silently remove protection, so a
-/// protected file is refused as soon as it is added.
 /// Why `name` cannot be opened, in one short line, the same in the reader and the tools: a file
 /// the engines cannot read is "damaged or not a PDF" whatever their own wording.
 pub fn open_error(name: &str, e: &OpdfError) -> String {
@@ -145,6 +143,8 @@ pub fn open_error(name: &str, e: &OpdfError) -> String {
     }
 }
 
+/// Sign never asks for a password: a signature must not silently remove protection, so a
+/// protected file is refused as soon as it is added.
 pub const SIGN_PROTECTED: &str = "Unlock the PDF first, then sign it";
 
 /// Whether `tool` refuses a password-protected file at once (no password dialog).
@@ -229,6 +229,8 @@ mod tests {
         let gone = OpdfError::Io(std::io::Error::from(std::io::ErrorKind::NotFound));
         assert_eq!(open_error("a.pdf", &gone), "a.pdf is no longer there.");
         assert_eq!(open_error("a.pdf", &OpdfError::Engine("xref broken at 12".into())), "a.pdf can't be opened: it is damaged or not a PDF.");
+        let denied = OpdfError::Io(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+        assert_eq!(open_error("a.pdf", &denied), "a.pdf can't be read: permission denied.");
     }
     use std::path::PathBuf;
 

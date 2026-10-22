@@ -279,7 +279,7 @@ export component ReaderScreen inherits Rectangle {
                             if e.modifiers.control && e.delta-y != 0 {
                                 // In proportion to the scroll: a wheel notch is about ×1.25, a trackpad's
                                 // many small steps add up smoothly.
-                                ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), root.pointer-vx / 1px, root.pointer-vy / 1px, -sv.content-x / 1px) * 1px;
+                                ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), root.pointer-vx / 1px, root.pointer-vy / 1px, -sv.content-x / 1px);
                                 return accept;
                             }
                             reject
