@@ -134,6 +134,17 @@ pub fn probe_pdf_full(input: &Input, width: i32) -> Result<(u32, Thumb, bool)> {
 
 /// Sign never asks for a password: a signature must not silently remove protection, so a
 /// protected file is refused as soon as it is added.
+/// Why `name` cannot be opened, in one short line, the same in the reader and the tools: a file
+/// the engines cannot read is "damaged or not a PDF" whatever their own wording.
+pub fn open_error(name: &str, e: &OpdfError) -> String {
+    match e {
+        OpdfError::Io(io) if io.kind() == std::io::ErrorKind::NotFound => format!("{name} is no longer there."),
+        OpdfError::Io(io) if io.kind() == std::io::ErrorKind::PermissionDenied => format!("{name} can't be read: permission denied."),
+        OpdfError::Pdfium(_) | OpdfError::Lopdf(_) | OpdfError::Engine(_) => format!("{name} can't be opened: it is damaged or not a PDF."),
+        e => format!("{name} can't be opened: {e}."),
+    }
+}
+
 pub const SIGN_PROTECTED: &str = "Unlock the PDF first, then sign it";
 
 /// Whether `tool` refuses a password-protected file at once (no password dialog).
@@ -212,6 +223,13 @@ pub fn image_thumb(p: &Path, max: u32) -> Result<Thumb> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn files_that_cannot_open_are_told_in_one_short_line() {
+        let gone = OpdfError::Io(std::io::Error::from(std::io::ErrorKind::NotFound));
+        assert_eq!(open_error("a.pdf", &gone), "a.pdf is no longer there.");
+        assert_eq!(open_error("a.pdf", &OpdfError::Engine("xref broken at 12".into())), "a.pdf can't be opened: it is damaged or not a PDF.");
+    }
     use std::path::PathBuf;
 
     #[test]

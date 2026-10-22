@@ -214,7 +214,7 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                             remove_file(&ui, tab_id, uid);
                         }
                         ProbeFailure::Remove => {
-                            toast(&ui, &format!("Cannot open {}: {e}", input.path.file_name().unwrap_or_default().to_string_lossy()));
+                            toast(&ui, &files::open_error(&input.path.file_name().unwrap_or_default().to_string_lossy(), &e));
                             remove_file(&ui, tab_id, uid);
                         }
                     }

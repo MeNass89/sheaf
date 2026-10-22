@@ -288,6 +288,16 @@ fn notes_title(tool: ToolId) -> &'static str {
     }
 }
 
+/// A compressed file's line on the result page: the saving, or that there was none to make
+/// (a saving that rounds to 0 % is none); nothing when it grew (the summary says why).
+fn compress_note(before: u64, after: u64) -> String {
+    match percent_saved(before, after) {
+        _ if after > before => String::new(),
+        0 => "Already optimised".into(),
+        p => format!("PDF compressed (-{p}%)"),
+    }
+}
+
 fn percent_saved(before: u64, after: u64) -> i64 {
     if before == 0 { 0 } else { ((before as f64 - after as f64) / before as f64 * 100.0).round() as i64 }
 }
@@ -449,7 +459,7 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
         .map(|(i, p)| {
             let size = files::file_size(p);
             let note = match (is_compress, d.input_sizes.get(i)) {
-                (true, Some(&b)) if size <= b => format!("PDF compressed (-{}%)", percent_saved(b, size)),
+                (true, Some(&b)) => compress_note(b, size),
                 _ => String::new(),
             };
             ResultFile {
@@ -665,5 +675,13 @@ mod tests {
     fn saved_percentages() {
         assert_eq!(percent_saved(3_322_740, 2_339_000), 30);
         assert_eq!(percent_saved(0, 10), 0);
+    }
+
+    #[test]
+    fn a_file_compress_could_not_shrink_says_so() {
+        assert_eq!(compress_note(3_322_740, 2_339_000), "PDF compressed (-30%)");
+        assert_eq!(compress_note(1_000_000, 998_000), "Already optimised");
+        assert_eq!(compress_note(1_000_000, 1_000_000), "Already optimised");
+        assert_eq!(compress_note(1_000_000, 1_200_000), "");
     }
 }

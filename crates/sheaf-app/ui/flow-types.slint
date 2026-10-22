@@ -331,6 +331,8 @@ export struct ToolTab {
     viewer-status: string,
     // Rust asks the viewer to scroll: the position, and a counter bumped on each request.
     viewer-scroll: length,
+    // The horizontal scroll set with viewer-scroll after a zoom around a point (negative: unchanged).
+    viewer-scroll-x: length,
     viewer-scroll-seq: int,
     // Redact
     redact-searched: bool,

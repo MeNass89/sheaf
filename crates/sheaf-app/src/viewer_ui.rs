@@ -53,6 +53,8 @@ pub struct ViewerUi {
     zoom_target: Option<f64>,
     pub scroll: f64,
     pub scroll_seq: i32,
+    /// The horizontal scroll a zoom around a point sets, with `scroll` (`None`: left as it is).
+    pub scroll_x: Option<f64>,
     drag: Option<(usize, f64, f64)>,
     /// The reader renders its working copy (edits not saved yet) from memory; tools read the file.
     pub source: Option<Arc<Vec<u8>>>,
@@ -109,6 +111,7 @@ impl ViewerUi {
             zoom_target: None,
             scroll: 0.0,
             scroll_seq: 0,
+            scroll_x: None,
             drag: None,
             source: None,
             theme: Default::default(),
@@ -145,6 +148,7 @@ impl ViewerUi {
     pub fn show_page(&mut self, page: usize, focus: Option<[f64; 4]>) {
         self.scroll = self.viewer.scroll_to(page.min(self.viewer.page_count().saturating_sub(1)), focus, self.height);
         self.scroll_seq += 1;
+        self.scroll_x = None;
     }
 
     /// The page under the middle of the viewport.
@@ -332,6 +336,7 @@ pub fn thumb_clicked(tab_id: i32, page: i32) {
     update(tab_id, |v| {
         v.scroll = v.viewer.scroll_to(page.max(0) as usize, None, v.height);
         v.scroll_seq += 1;
+        v.scroll_x = None;
     });
 }
 
@@ -412,6 +417,7 @@ fn zoom_to_at(ui: &AppWindow, tab_id: i32, z: u32, (ax, ay, sx): (f64, f64, f64)
         }
         let (x, y) = v.viewer.point_of(anchor);
         v.scroll = (y - ay).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
+        v.scroll_x = Some((x - ax).clamp(0.0, v.viewer.max_scroll_x()));
         v.top = v.scroll;
         v.scroll_seq += 1;
         v.zoom_settling = true;
@@ -580,6 +586,7 @@ pub fn show_result(tab_id: i32, k: i32) {
         v.focused = Some(k as usize);
         v.scroll = v.viewer.scroll_to(page, Some(focus), v.height);
         v.scroll_seq += 1;
+        v.scroll_x = None;
     });
 }
 
@@ -693,6 +700,7 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     let step = viewer::ZOOMS.iter().copied().find(|z| (*z as f64 - actual).abs() <= (*z as f64) * 0.015);
     tab.viewer_zoom = step.map(|z| z as f64).unwrap_or(actual).round() as i32;
     tab.viewer_scroll = len(v.scroll);
+    tab.viewer_scroll_x = len(v.scroll_x.unwrap_or(-1.0));
     tab.viewer_scroll_seq = v.scroll_seq;
     tab.redact_searched = v.searched;
     tab.redact_busy = v.busy;

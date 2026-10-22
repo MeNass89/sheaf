@@ -548,6 +548,19 @@ shot 10c-watermark-preview; R1=$(red)
 check "the watermark preview shows the mark as typed, in its colour ($R0 → $R1)" "[ \"\${R1:-0}\" -gt \$(( \${R0:-0} + 50 )) ]"
 quit
 
+# 11. A damaged file says so in one line and the app stays up; Preferences ▸ Dark and Light switch the window.
+printf '%%PDF-1.7\nnot really a pdf\n' > "$OUT/broken.pdf"
+# The toast (white on dark, bottom centre, 3 s) read inverted, a few times while it shows.
+toastText() { import -window root -crop 700x60+290+722 png:- 2>/dev/null | convert - -negate -resize 200% png:- | tesseract stdin stdout --psm 7 2>/dev/null; }
+launch "$OUT/broken.pdf"; BR=""; for i in 1 2 3 4 5; do sleep 0.6; BR="$BR $(toastText)"; done; shot 11-broken
+check "a damaged PDF is refused in one line, the app stays open" "kill -0 $APP_PID 2>/dev/null && echo \"$BR\" | grep -qi 'damaged or not a PDF'"
+lum() { import -window root -crop 40x40+600+700 png:- 2>/dev/null | convert - -colorspace Gray -format '%[fx:mean]' info:; }
+PR=$(at Preferences 250x300+0+40); [ -n "$PR" ] && click $PR 1
+DK=$(at Dark); [ -n "$DK" ] && click $DK 1.2; L1=$(lum); shot 11-dark
+LT=$(at Light); [ -n "$LT" ] && click $LT 1.2; L2=$(lum)
+check "Preferences ▸ Dark then Light switch the window ($L1 → $L2)" "python3 -c 'import sys; sys.exit(0 if $L1 < 0.3 and $L2 > 0.7 else 1)'"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).

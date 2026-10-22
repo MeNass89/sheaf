@@ -71,7 +71,7 @@ export component ReaderScreen inherits Rectangle {
     // its page under the pointer or the pinch (Rust works it out; the vertical scroll comes with
     // the tab, the horizontal one is returned).
     function zoom-around(pct: float, ax: length, ay: length) {
-        sv.content-x = -ViewerBridge.zoom-at(root.id, pct, ax / 1px, ay / 1px, -sv.content-x / 1px) * 1px;
+        ViewerBridge.zoom-at(root.id, pct, ax / 1px, ay / 1px, -sv.content-x / 1px);
     }
 
     // Scrolling moves the pages under a still pointer: a link's tooltip no longer applies.
@@ -83,7 +83,12 @@ export component ReaderScreen inherits Rectangle {
     changed strip-h => { ViewerBridge.strip-viewport(root.id, root.strip-top, root.strip-h); }
     changed strip-top => { ViewerBridge.strip-viewport(root.id, root.strip-top, root.strip-h); }
     property <int> scroll-seq: root.tab.viewer-scroll-seq;
-    changed scroll-seq => { sv.content-y = -root.tab.viewer-scroll; }
+    // Rust's scroll after a zoom, both ways, once the new page sizes are in (setting it earlier
+    // would be cut to the old width).
+    changed scroll-seq => {
+        sv.content-y = -root.tab.viewer-scroll;
+        if root.tab.viewer-scroll-x >= 0px { sv.content-x = -root.tab.viewer-scroll-x; }
+    }
 
     init => {
         ViewerBridge.viewport(root.id, sv.visible-width, root.page-top, sv.visible-height);
@@ -274,7 +279,7 @@ export component ReaderScreen inherits Rectangle {
                             if e.modifiers.control && e.delta-y != 0 {
                                 // In proportion to the scroll: a wheel notch is about ×1.25, a trackpad's
                                 // many small steps add up smoothly.
-                                sv.content-x = -ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), root.pointer-vx / 1px, root.pointer-vy / 1px, -sv.content-x / 1px) * 1px;
+                                ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), root.pointer-vx / 1px, root.pointer-vy / 1px, -sv.content-x / 1px) * 1px;
                                 return accept;
                             }
                             reject

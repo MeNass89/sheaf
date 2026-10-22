@@ -450,7 +450,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             crate::flow::remove_tab(ui, id);
             match e {
                 sheaf_core::OpdfError::PasswordRequired(_) | sheaf_core::OpdfError::WrongPassword(_) => crate::password::ask_reader(ui, input.path, input.password.is_some()),
-                e => crate::flow::toast(ui, &format!("Can't open {}: {e}", file_name(&input.path))),
+                e => crate::flow::toast(ui, &sheaf_app::files::open_error(&file_name(&input.path), &e)),
             }
         }
         Reply::Changed { snap, pages, error, applied } => {
