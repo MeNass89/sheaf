@@ -70,6 +70,9 @@ export component AppWindow inherits Window {
     in-out property <Page> page: Page.recents;
     in-out property <[ToolSection]> sections;
     in property <[ToolCard]> all-tools;
+    // Tools page search: the tools found for what is typed, best first.
+    in property <[ToolCard]> tool-results;
+    callback tool-query(string);
     // Tools page sort: 0 = Categories, 1 = All. Kept here so it survives page switches.
     in-out property <int> tools-sort: 0;
 
@@ -188,6 +191,8 @@ export component AppWindow inherits Window {
                         sort <=> root.tools-sort;
                         chevron: @image-url("icons/chevron-down.svg");
                         open-tool(id) => { root.open-tool(id); }
+                        results: root.tool-results;
+                        query(q) => { root.tool-query(q); }
                     }
                     if root.page == Page.history: HistoryScreen {
                         rows: root.history;
@@ -217,6 +222,7 @@ export component AppWindow inherits Window {
                     active: root.active-tab == i;
                     is-full-screen: root.full-screen;
                     full-screen(on) => { root.full-screen = on; }
+                    open-preferences => { root.active-tab = -1; root.page = Page.preferences; }
                     switch-tab(d) => {
                         // Tabs wrap around, Home not included.
                         root.active-tab = Math.mod(root.active-tab + d + root.tabs.length, root.tabs.length);

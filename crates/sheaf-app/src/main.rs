@@ -278,6 +278,11 @@ fn main() -> Result<(), slint::PlatformError> {
         let d = dialog::new(&ui).add_filter("PDF", &["pdf"]);
         dialog::pick_files(&ui, d, flow::home_files);
     });
+    // Tools search: found tools, best first (sheaf_core::tools::search).
+    wire!(ui, on_tool_query, |ui, q| {
+        let found: Vec<ToolCard> = tools::search(&q).into_iter().map(card).collect();
+        ui.set_tool_results(ModelRc::new(VecModel::from(found)));
+    });
     wire!(ui, on_open_tool, |ui, id| {
         if let Some(tool) = flow::tool_from_str(&id) {
             let preload = state::with(|a| std::mem::take(&mut a.home_files));

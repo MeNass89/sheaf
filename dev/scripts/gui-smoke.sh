@@ -438,6 +438,13 @@ check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})"
 click 50 21 0.8; click 90 192 0.8; click 700 610 0.5
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Author"; sleep 0.8; shot 09-preferences
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
+# Tools ▸ search (990,76): "cmprs" (letters in order) finds Compress; ↩ opens it in a new tab.
+tabs() { import -window root -crop 1280x24+0+8 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
+click 90 112 0.8; T0=$(tabs); click 990 76 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "cmprs"; sleep 0.6; key Return; sleep 1.5; T1=$(tabs); shot 09b-tool-search
+check "tool search: 'cmprs' then ↩ opens Compress in a tab ($T0 → $T1)" "python3 -c 'import sys; sys.exit(0 if abs($T0 - $T1) > 0.005 else 1)'"
+# ⌘, in a document opens Preferences (the reader's toolbar goes).
+click 230 21 1; Q0=$(tabs); key ctrl+comma; sleep 1; Q1=$(tabs)   # the text.pdf tab; Home becomes the active tab
+check "⌘, from a document opens Preferences ($Q0 → $Q1)" "python3 -c 'import sys; sys.exit(0 if abs($Q0 - $Q1) > 0.003 else 1)'"
 quit
 
 # 10. A tool from the reader: the wrench (WRENCH_X,61) → Tools → Compress (270,350) → Compress PDF

@@ -31,6 +31,11 @@ export component ToolsScreen inherits Rectangle {
     in property <[ToolCard]> all-tools;
     in property <image> chevron;
     in-out property <int> sort: 0; // 0 = Categories, 1 = All
+    // Search: what is typed goes to `query`; `results` come back best first; ↑↓ choose, ↩ opens.
+    in property <[ToolCard]> results;
+    property <string> typed;
+    property <int> chosen;
+    callback query(string);
     callback open-tool(string);
 
     background: Theme.content-bg;
@@ -51,6 +56,33 @@ export component ToolsScreen inherits Rectangle {
                 color: Theme.text;
                 vertical-alignment: center;
                 horizontal-stretch: 1;
+            }
+            // Search tools (Stirling's tool search): a name, a word, or letters in order.
+            Rectangle {
+                y: (parent.height - self.height) / 2;
+                width: 220px;
+                height: 32px;
+                border-radius: Theme.radius-small;
+                border-width: 1px;
+                border-color: search.has-focus ? Theme.text-secondary : Theme.input-border;
+                background: Theme.input-bg;
+                if search.text == "": Text { x: 10px; text: "Search tools"; font-size: Theme.fs-button; color: Theme.text-muted; vertical-alignment: center; }
+                search := TextInput {
+                    x: 10px;
+                    width: parent.width - 20px;
+                    font-size: Theme.fs-button;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                    single-line: true;
+                    edited => { root.typed = self.text; root.chosen = 0; root.query(self.text); }
+                    accepted => { if root.results.length > 0 { root.open-tool(root.results[root.chosen].id); } }
+                    key-pressed(e) => {
+                        if e.text == Key.DownArrow { root.chosen = min(root.chosen + 1, root.results.length - 1); return accept; }
+                        if e.text == Key.UpArrow { root.chosen = max(root.chosen - 1, 0); return accept; }
+                        if e.text == Key.Escape { self.text = ""; root.typed = ""; root.query(""); return accept; }
+                        reject
+                    }
+                }
             }
             Text {
                 text: "Sort";
@@ -78,7 +110,27 @@ export component ToolsScreen inherits Rectangle {
                 padding-bottom: Theme.content-padding;
                 alignment: start;
 
-                if root.sort == 0: VerticalLayout {
+                // Search results replace the grid while something is typed.
+                if root.typed != "": VerticalLayout {
+                    if root.results.length == 0: Text {
+                        height: 60px;
+                        text: "No tool matches \"" + root.typed + "\".";
+                        font-size: Theme.fs-body;
+                        color: Theme.text-muted;
+                        vertical-alignment: center;
+                    }
+                    FlexboxLayout {
+                        spacing: Theme.grid-spacing;
+                        flex-wrap: wrap;
+                        padding-top: 12px;
+                        for tool[i] in root.results: ToolCardView {
+                            tool: tool;
+                            highlighted: i == root.chosen;
+                            clicked(id) => { root.open-tool(id); }
+                        }
+                    }
+                }
+                if root.sort == 0 && root.typed == "": VerticalLayout {
                     for section in root.sections: VerticalLayout {
                         Rectangle {
                             height: Theme.section-header-height;
@@ -115,7 +167,7 @@ export component ToolsScreen inherits Rectangle {
                     }
                 }
 
-                if root.sort == 1: CardGrid {
+                if root.sort == 1 && root.typed == "": CardGrid {
                     padding-top: 12px;
                     tools: root.all-tools;
                     open-tool(id) => { root.open-tool(id); }

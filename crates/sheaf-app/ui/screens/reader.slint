@@ -21,6 +21,8 @@ export component ReaderScreen inherits Rectangle {
     // Full screen on or off; −1 / +1 the previous / next tab.
     callback full-screen(bool);
     callback switch-tab(int);
+    // ⌘, : Home ▸ Preferences.
+    callback open-preferences();
     // The reading view alone, toolbar and panel hidden (View ▸ Hide Toolbar).
     in-out property <bool> bare;
     property <string> link-tip;
@@ -1021,6 +1023,7 @@ export component ReaderScreen inherits Rectangle {
                     return accept;
                 }
                 if e.text == "d" { ReaderBridge.props-open(root.id); return accept; }
+                if e.text == "," { root.open-preferences(); return accept; }
                 if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
                 return reject;

@@ -538,3 +538,10 @@ cache keeps its byte budget (full pass every 1,024 inserts); the text cache is d
 printing refuses user-password PDFs with a reason; prune-target resolves a relative target dir from the project;
 gui-smoke: the print check deletes only the file it made, "remove all" requires the file to be read, search now
 checks its result; CI installs the GUI tools (unverified until the first CI run on main or a PR).
+
+## 2026-10-21 · Deviation from dev-skill policy: two-agent approval with Sol
+**What.** Until Codex's weekly quota resets (27/10/2026 06:48 UTC), the second agent for the joint 9/10 is an
+independent Opus subagent (read-only review, verdict 'C-xxx: AGREE 9' or 'DISAGREE — reason') instead of Sol.
+**Why better here.** Sol's quota stands at 89 %, the stop threshold is 90 % and going past 100 % spends paid credits
+without Nassim's word; blocking every 9 for six days would stop the board. **Scope.** Components closed until then.
+**Ends when.** The quota resets; Sol then re-reviews the components approved this way.

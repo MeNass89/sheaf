@@ -176,6 +176,37 @@ static CATALOGUE: &[ToolInfo] = &[
 ];
 
 /// All tools, in display order.
+/// Tools matching what is typed in the Tools search, best first: a name starting with it, a name
+/// containing it, a word of the description starting with it, then the letters in order in the
+/// name ("cmprs" finds Compress, as Stirling's tool search). Nothing typed: nothing found.
+pub fn search(query: &str) -> Vec<&'static ToolInfo> {
+    let q: String = query.trim().to_lowercase();
+    if q.is_empty() {
+        return Vec::new();
+    }
+    let score = |t: &ToolInfo| {
+        let name = t.name.to_lowercase();
+        let in_order = |hay: &str| {
+            let mut letters = hay.chars().filter(|c| !c.is_whitespace());
+            q.chars().filter(|c| !c.is_whitespace()).all(|c| letters.any(|h| h == c))
+        };
+        if name.starts_with(&q) {
+            Some(0)
+        } else if name.contains(&q) {
+            Some(1)
+        } else if t.description.to_lowercase().split(|c: char| !c.is_alphanumeric()).any(|w| w.starts_with(&q)) {
+            Some(2)
+        } else if in_order(&name) {
+            Some(3)
+        } else {
+            None
+        }
+    };
+    let mut found: Vec<(u8, usize, &'static ToolInfo)> = catalogue().iter().enumerate().filter_map(|(i, t)| score(t).map(|s| (s, i, t))).collect();
+    found.sort_by_key(|(s, i, _)| (*s, *i));
+    found.into_iter().map(|(.., t)| t).collect()
+}
+
 pub fn catalogue() -> &'static [ToolInfo] {
     CATALOGUE
 }

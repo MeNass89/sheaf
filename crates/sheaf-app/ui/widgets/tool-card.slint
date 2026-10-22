@@ -12,14 +12,16 @@ export struct ToolCard {
 // 132 x 136 card: coloured icon tile on top, name below.
 export component ToolCardView inherits Rectangle {
     in property <ToolCard> tool;
+    // The search's chosen result (↑↓ move it, ↩ opens it).
+    in property <bool> highlighted;
     callback clicked(string);
 
     width: Theme.card-width;
     height: Theme.card-height;
     border-radius: Theme.radius-card;
     background: Theme.card;
-    border-width: 1px;
-    border-color: tool.enabled && touch.has-hover ? Theme.card-border-hover : Theme.card;
+    border-width: root.highlighted ? 2px : 1px;
+    border-color: root.highlighted ? Theme.accent : tool.enabled && touch.has-hover ? Theme.card-border-hover : Theme.card;
     opacity: tool.enabled ? 1.0 : 0.5;
 
     Rectangle {
