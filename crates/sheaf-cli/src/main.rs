@@ -185,6 +185,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 font: font.std14(),
                 color: parse_color(&color)?,
                 underline,
+                clamp_to_last: false,
             };
             warned(numbers::number_pages(&input(i), &o, &out))
         }
@@ -208,6 +209,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 to,
                 font: font.std14(),
                 underline,
+                clamp_to_last: false,
             };
             warned(watermark::watermark(&input(i), &o, &out))
         }

@@ -188,16 +188,17 @@ component FontRow inherits VerticalLayout {
     SectionLabel { text: "Font"; }
     HorizontalLayout {
         spacing: 6px;
-        Segment { text: "Sans"; label-family: "sans-serif"; selected: root.family == 0; clicked => { root.family = 0; } }
-        Segment { text: "Serif"; label-family: "serif"; selected: root.family == 1; clicked => { root.family = 1; } }
-        Segment { text: "Mono"; label-family: "monospace"; selected: root.family == 2; clicked => { root.family = 2; } }
+        Segment { text: "Sans"; selected: root.family == 0; clicked => { root.family = 0; } }
+        Segment { text: "Serif"; label-family: Theme.serif-family; selected: root.family == 1; clicked => { root.family = 1; } }
+        Segment { text: "Mono"; label-family: Theme.mono-family; selected: root.family == 2; clicked => { root.family = 2; } }
     }
     HorizontalLayout {
         spacing: 6px;
         TextField { placeholder: root.size-placeholder; text <=> root.size; }
-        Segment { width: 34px; text: "B"; label-bold: true; selected: root.bold; clicked => { root.bold = !root.bold; } }
-        Segment { width: 34px; text: "I"; label-italic: true; selected: root.italic; clicked => { root.italic = !root.italic; } }
-        Segment { width: 34px; text: "U"; selected: root.underline; clicked => { root.underline = !root.underline; } }
+        Text { text: "pt"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+        Segment { width: 32px; text: "B"; label-bold: true; selected: root.bold; clicked => { root.bold = !root.bold; } }
+        Segment { width: 32px; text: "I"; label-italic: true; selected: root.italic; clicked => { root.italic = !root.italic; } }
+        Segment { width: 32px; text: "U"; label-underline: true; selected: root.underline; clicked => { root.underline = !root.underline; } }
     }
 }
 
@@ -215,7 +216,22 @@ component ColourRow inherits VerticalLayout {
             clicked => { root.colour = k; root.hex = ""; }
         }
     }
-    TextField { placeholder: "Custom: RRGGBB"; text <=> root.hex; error: Parse.colour-error(root.hex); }
+    HorizontalLayout {
+        spacing: 8px;
+        TextField { placeholder: "Custom: RRGGBB"; text <=> root.hex; error: Parse.colour-error(root.hex); }
+        // The colour the text will take.
+        VerticalLayout {
+            alignment: start;
+            Rectangle {
+                width: 32px;
+                height: 32px;
+                border-radius: Theme.radius-small;
+                border-width: 1px;
+                border-color: Theme.option-border;
+                background: Parse.colour(root.hex, root.colour);
+            }
+        }
+    }
 }
 
 // Holds its own state; `options` exposes it, `valid` says whether the action may run.
@@ -591,7 +607,7 @@ export component OptionsPanel inherits VerticalLayout {
         // How the numbers look (Acrobat's and Stirling's font, size and colour).
         FontRow {
             family <=> root.num-family; bold <=> root.num-bold; italic <=> root.num-italic; underline <=> root.num-underline;
-            size <=> root.num-font-size; size-placeholder: "Size: 12 pt";
+            size <=> root.num-font-size; size-placeholder: "Size: 12";
         }
         ColourRow { colour <=> root.num-color; hex <=> root.num-hex; }
     }
@@ -608,7 +624,7 @@ export component OptionsPanel inherits VerticalLayout {
             TextField { label: "Text"; placeholder: "CONFIDENTIAL"; text <=> root.wm-text; }
             FontRow {
                 family <=> root.wm-family; bold <=> root.wm-bold; italic <=> root.wm-italic; underline <=> root.wm-underline;
-                size <=> root.wm-font-size; size-placeholder: "Size: 48 pt";
+                size <=> root.wm-font-size; size-placeholder: "Size: 48";
             }
             ColourRow { colour <=> root.wm-color; hex <=> root.wm-hex; }
         }

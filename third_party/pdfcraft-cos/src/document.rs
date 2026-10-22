@@ -135,6 +135,10 @@ pub struct Document {
 pub(crate) struct ObjectReader {
     pub(crate) document: Document,
     decoded_count: usize,
+    /// Sheaf: the object cache's size and own bytes as of the last read, kept as a running total
+    /// (summing the whole cache on every read cost 28 % of numbering a 1,982-page book).
+    cached_count: usize,
+    cached_bytes: usize,
 }
 
 impl ObjectReader {
@@ -178,9 +182,21 @@ impl ObjectReader {
         // have cached large objects.
         if let Ok(mut cache) = self.document.cache.lock() {
             let data = &self.document.data;
-            if cache.len() >= Self::OBJECTS || cache.values().fold(0usize, |n, o| n.saturating_add(owned_bytes(o, data, 0))) > Self::STREAM_BYTES {
-                cache.clear();
+            if cache.len() < self.cached_count {
+                // Emptied elsewhere: count again from what is left.
+                self.cached_bytes = cache.values().fold(0usize, |n, o| n.saturating_add(owned_bytes(o, data, 0)));
+            } else if cache.len() > self.cached_count
+                && let Ok(o) = &object
+            {
+                // The object just read is the newcomer (a resolved /Length may add a small
+                // number too; the object cap below bounds what that misses).
+                self.cached_bytes = self.cached_bytes.saturating_add(owned_bytes(o, data, 0));
             }
+            if cache.len() >= Self::OBJECTS || self.cached_bytes > Self::STREAM_BYTES {
+                cache.clear();
+                self.cached_bytes = 0;
+            }
+            self.cached_count = cache.len();
         }
         object
     }
@@ -796,7 +812,7 @@ impl Document {
         let mut document = self.clone();
         document.cache = Arc::default();
         document.objstms = Arc::default();
-        ObjectReader { document, decoded_count: 0 }
+        ObjectReader { document, decoded_count: 0, cached_count: 0, cached_bytes: 0 }
     }
 
     fn load(&self, num: u32, depth: u32) -> Result<Object, CosError> {

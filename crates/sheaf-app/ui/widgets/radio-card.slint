@@ -63,6 +63,7 @@ export component Segment inherits Rectangle {
     in property <string> label-family;
     in property <bool> label-bold;
     in property <bool> label-italic;
+    in property <bool> label-underline;
     callback clicked();
 
     height: 32px;
@@ -70,13 +71,20 @@ export component Segment inherits Rectangle {
     border-width: root.selected ? 0 : 1px;
     border-color: touch.has-hover ? Theme.text-secondary : Theme.option-border;
     background: root.selected ? Theme.option-selected-bg : Theme.panel-bg;
-    Text {
+    seg-label := Text {
         text: root.text;
         font-size: Theme.fs-label;
         font-weight: root.label-bold ? 700 : root.selected ? Theme.weight-demibold : 400;
         font-italic: root.label-italic;
         font-family: root.label-family;
         color: root.selected ? Theme.accent : Theme.text;
+    }
+    if root.label-underline: Rectangle {
+        x: seg-label.x;
+        y: seg-label.y + seg-label.height - 3px;
+        width: seg-label.width;
+        height: 1px;
+        background: seg-label.color;
     }
     touch := TouchArea {
         mouse-cursor: pointer;

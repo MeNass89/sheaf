@@ -7719,13 +7719,13 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "font, size and colour in the app",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -7748,6 +7748,17 @@
      "overall": 8
     },
     "proof": "Font family/B/I/U, size, presets + custom RRGGBB (vendored pdfcraft-edit HeaderFooter.font); tests/numbers.rs numbers_take_the_chosen_font, numbers_can_be_underlined_in_a_custom_colour; joint review round 2: aesthetics 8 (labels not in their font, no swatch, size unlabelled), perf to measure"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Font section (families in their own look, size pt, B/I/U), presets + RRGGBB with swatch, batch range clamped per file; tests/numbers.rs (font, underline, custom colour, clamp, redaction of a font name); 1,982-page book numbered in 12.9 s (was 83 s: O(n²) page re-listing in pdfcraft-edit, per-read cache sum in pdfcraft-cos); joint review round 3"
    }
   ]
  },

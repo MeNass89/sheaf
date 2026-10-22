@@ -85,11 +85,13 @@ pub struct NumberOptions {
     /// The standard font (`None`: Helvetica).
     pub font: Option<Std14>,
     pub underline: bool,
+    /// A `to` past the last page means the last page (one range for a batch of files).
+    pub clamp_to_last: bool,
 }
 
 impl Default for NumberOptions {
     fn default() -> Self {
-        Self { position: 7, double_sided: false, cover: false, margin: 36.0, from: None, to: None, start: 1, text: NumberText::Number, font_size: 12.0, color: [0.0; 3], font: None, underline: false }
+        Self { position: 7, double_sided: false, cover: false, margin: 36.0, from: None, to: None, start: 1, text: NumberText::Number, font_size: 12.0, color: [0.0; 3], font: None, underline: false, clamp_to_last: false }
     }
 }
 
@@ -97,6 +99,11 @@ impl Default for NumberOptions {
 pub const MARGINS: [f64; 3] = [18.0, 36.0, 54.0];
 
 /// The pages numbered (0-based), from `from`/`to` (1-based, inclusive) and the cover option.
+/// `to`, or the last page when `clamp` and `to` is past it.
+pub(crate) fn clamp(to: Option<u32>, clamp: bool, count: usize) -> Option<u32> {
+    to.map(|t| if clamp { t.min(count as u32) } else { t })
+}
+
 pub(crate) fn page_span(from: Option<u32>, to: Option<u32>, skip_first: bool, count: usize) -> Result<std::ops::Range<usize>> {
     let total = count as u32;
     if from == Some(0) {
@@ -131,7 +138,7 @@ pub fn number_pages(input: &Input, o: &NumberOptions, out: &Path) -> Result<(Pat
     }
     let mut doc = Doc::open(input)?;
     let count = doc.session().get(doc.id()).map(|d| d.info.pages.len()).unwrap_or(0);
-    let span = page_span(o.from, o.to, o.cover, count)?;
+    let span = page_span(o.from, clamp(o.to, o.clamp_to_last, count), o.cover, count)?;
     slot(o.position, false)?;
     let template = o.text.template();
     if template.trim().is_empty() {
@@ -188,6 +195,9 @@ mod tests {
         assert!(page_span(None, None, true, 1).is_err());
         assert!(page_span(Some(0), None, false, 5).is_err());
         assert!(page_span(Some(0), None, true, 5).is_err());
+        assert_eq!(clamp(Some(9), true, 5), Some(5));
+        assert_eq!(clamp(Some(9), false, 5), Some(9));
+        assert_eq!(clamp(Some(3), true, 5), Some(3));
         assert_eq!(custom_text_error("{n} of {p}"), None);
         assert!(custom_text_error("<<1>>").is_some());
     }

@@ -137,9 +137,28 @@ fn numbers_can_be_underlined_in_a_custom_colour() {
     for bad in ["", "12345", "GGGGGG", "1234567"] {
         assert_eq!(sheaf_core::numbers::parse_hex_colour(bad), None, "{bad:?}");
     }
-    let o = NumberOptions { underline: true, color: [1.0, 0.0, 0.0], ..Default::default() };
-    let (out, _) = number_pages(&Input::new(&a), &o, &t.path().join("u.pdf")).unwrap();
-    let qdf = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap().stdout;
-    let qdf = String::from_utf8_lossy(&qdf);
-    assert!(qdf.contains(" re f") && qdf.contains("1 0 0 rg"), "underline in red");
+    // The underline is the only filled rectangle the numbering adds, and it is in the colour.
+    let rects = |underline: bool| {
+        let o = NumberOptions { underline, color: [1.0, 0.0, 0.0], ..Default::default() };
+        let (out, _) = number_pages(&Input::new(&a), &o, &t.path().join(format!("u{underline}.pdf"))).unwrap();
+        let qdf = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap().stdout;
+        let qdf = String::from_utf8_lossy(&qdf).into_owned();
+        (qdf.matches(" re f").count(), qdf.contains("1 0 0 rg"))
+    };
+    let (plain, red) = rects(false);
+    assert!(red);
+    assert_eq!(rects(true).0, plain + 1, "one underline");
+}
+
+#[test]
+fn a_range_past_the_end_stops_at_the_last_page_when_clamped() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 3);
+    let o = NumberOptions { from: Some(2), to: Some(9), ..Default::default() };
+    assert!(number_pages(&Input::new(&a), &o, &t.path().join("e.pdf")).is_err());
+    let o = NumberOptions { clamp_to_last: true, ..o };
+    let (out, _) = number_pages(&Input::new(&a), &o, &t.path().join("c.pdf")).unwrap();
+    let texts = page_texts(&out);
+    assert_eq!(texts[0].matches('1').count(), 1, "page 1 not numbered: {}", texts[0]);
+    assert!(texts[2].contains('2'), "page 3 numbered (2): {}", texts[2]);
 }

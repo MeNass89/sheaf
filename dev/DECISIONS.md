@@ -545,3 +545,11 @@ independent Opus subagent (read-only review, verdict 'C-xxx: AGREE 9' or 'DISAGR
 **Why better here.** Sol's quota stands at 89 %, the stop threshold is 90 % and going past 100 % spends paid credits
 without Nassim's word; blocking every 9 for six days would stop the board. **Scope.** Components closed until then.
 **Ends when.** The quota resets; Sol then re-reviews the components approved this way.
+
+## 2026-10-22 · Marking a long document: page re-listing and cache accounting fixed in the vendored crates
+**What.** Numbering the 1,982-page, 70 MB book took 83 s. perf: pdfcraft-edit re-listed the whole page tree after
+each page (`page_list(doc)[i]`, O(n²)); pdfcraft-cos's ObjectReader summed its object cache on every read. Now
+`reload(doc, &page)` re-reads one page (inherited attributes kept) and the reader keeps a running total. 12.9 s
+(debug build of our crates, opt-level 2 dependencies; open + save alone 3.7 s). **Alternatives.** Batch the per-page
+writes into one pass (bigger change upstream). **Would change it.** A release-build profile showing the editor
+cache's periodic full pass (~15 %) worth an incremental total too.

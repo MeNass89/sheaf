@@ -260,6 +260,21 @@ fn page_list(doc: &Document) -> Vec<pdfcraft_model::Page> {
     pdfcraft_model::pages(doc)
 }
 
+/// Sheaf: `page` as it is now, after an edit to its own dictionary: its dictionary read again,
+/// the attributes it inherits kept. Re-listing every page after each page made marking a long
+/// document quadratic (83 s for 1,982 pages).
+fn reload(doc: &Document, page: &pdfcraft_model::Page) -> pdfcraft_model::Page {
+    let mut dict = doc.get(page.obj).as_dict().cloned().unwrap_or_default();
+    for k in pdfcraft_model::INHERITABLE {
+        if !dict.contains(k)
+            && let Some(v) = page.dict.get(k)
+        {
+            dict.set(k.to_vec(), v.clone());
+        }
+    }
+    pdfcraft_model::Page { obj: page.obj, dict }
+}
+
 fn check(pages: &[usize], count: usize) -> Result<(), EditError> {
     match pages.iter().find(|p| **p >= count) {
         Some(p) => Err(EditError::NoSuchPage(*p)),
@@ -474,7 +489,7 @@ pub fn add_header_footer(doc: &mut Document, pages: &[usize], hf: &HeaderFooter,
     let count = all.len();
     let bates0 = hf.text.iter().find_map(|t| bates_start(t)).unwrap_or(1);
     for (k, &i) in pages.iter().enumerate() {
-        let page = &all[i];
+        let page = &reload(doc, &all[i]);
         let (w, h) = page.display_size(doc);
         let number =
             u32::try_from(u64::from(hf.start_number) + k as u64).map_err(|_| EditError::Invalid("the header page numbers are too large".into()))?;
@@ -514,7 +529,7 @@ pub fn add_header_footer(doc: &mut Document, pages: &[usize], hf: &HeaderFooter,
         content.extend(body);
         content.extend_from_slice(END.as_bytes());
         add_resources_with(doc, page, None, None, Some((&font_name, face)))?;
-        let page = &page_list(doc)[i];
+        let page = &reload(doc, &all[i]);
         place(doc, page, MarkKind::HeaderFooter, content, false)?;
     }
     Ok(())
@@ -545,7 +560,7 @@ pub fn add_watermark(doc: &mut Document, pages: &[usize], wm: &Watermark, replac
     let opacity = wm.opacity.clamp(0.0, 1.0);
     let lines: Vec<&str> = text.lines().collect();
     for &i in pages {
-        let page = page_list(doc)[i].clone();
+        let page = reload(doc, &all[i]);
         let (w, h) = page.display_size(doc);
         if let Some(src) = &wm.source {
             let mut content = begin(MarkKind::Watermark, "Watermark", page.view_matrix(doc));
@@ -553,8 +568,8 @@ pub fn add_watermark(doc: &mut Document, pages: &[usize], wm: &Watermark, replac
             content.push_str(&picture(src, (w, h), wm.scale, wm.rotation, wm.offset));
             content.push_str(END);
             add_resources(doc, &page, Some(opacity), None)?;
-            add_picture_resource(doc, &page_list(doc)[i].clone(), src)?;
-            let page = &page_list(doc)[i];
+            add_picture_resource(doc, &reload(doc, &all[i]), src)?;
+            let page = &reload(doc, &all[i]);
             place(doc, page, MarkKind::Watermark, content.into_bytes(), wm.behind)?;
             continue;
         }
@@ -595,7 +610,7 @@ pub fn add_watermark(doc: &mut Document, pages: &[usize], wm: &Watermark, replac
         content.extend(underlines.bytes());
         content.extend_from_slice(END.as_bytes());
         add_resources_with(doc, &page, Some(opacity), None, Some((&font_name, face)))?;
-        let page = &page_list(doc)[i];
+        let page = &reload(doc, &all[i]);
         place(doc, page, MarkKind::Watermark, content, wm.behind)?;
     }
     Ok(())
@@ -610,7 +625,7 @@ pub fn add_background(doc: &mut Document, pages: &[usize], bg: &Background, repl
     }
     let opacity = if bg.opacity.is_finite() { bg.opacity.clamp(0.0, 1.0) } else { 1.0 };
     for &i in pages {
-        let page = page_list(doc)[i].clone();
+        let page = reload(doc, &all[i]);
         let (w, h) = page.display_size(doc);
         let mut content = begin(MarkKind::Background, "Background", page.view_matrix(doc));
         match &bg.source {
@@ -623,9 +638,9 @@ pub fn add_background(doc: &mut Document, pages: &[usize], bg: &Background, repl
         content.push_str(END);
         add_resources(doc, &page, Some(opacity), None)?;
         if let Some(src) = &bg.source {
-            add_picture_resource(doc, &page_list(doc)[i].clone(), src)?;
+            add_picture_resource(doc, &reload(doc, &all[i]), src)?;
         }
-        let page = &page_list(doc)[i];
+        let page = &reload(doc, &all[i]);
         place(doc, page, MarkKind::Background, content.into_bytes(), true)?;
     }
     Ok(())

@@ -272,6 +272,10 @@ fn main() -> Result<(), slint::PlatformError> {
         .select()?;
 
     let ui = AppWindow::new()?;
+    // Installed serif and monospace families for labels shown in their font.
+    let (serif, mono) = if cfg!(target_os = "linux") { ("Liberation Serif", "DejaVu Sans Mono") } else { ("Times New Roman", "Courier New") };
+    ui.global::<sheaf_app::Theme>().set_serif_family(serif.into());
+    ui.global::<sheaf_app::Theme>().set_mono_family(mono.into());
     home::install(&ui, forced);
     install_catalogue(&ui);
     state::install_tabs_model(&ui);
@@ -367,6 +371,10 @@ fn main() -> Result<(), slint::PlatformError> {
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);
+    parse.on_colour(|hex, k| {
+        let [r, g, b] = run::text_colour(k, &hex).map(|c| (c * 255.0).round() as u8);
+        slint::Color::from_rgb_u8(r, g, b)
+    });
     parse.on_colour_error(|s| if s.trim().is_empty() || sheaf_core::numbers::parse_hex_colour(&s).is_some() { "".into() } else { "Type six hex digits, like 1F6FEB".into() });
     parse.on_file_name_error(|s| dest::file_name_error(&s).unwrap_or_default().into());
     parse.on_custom_text_error(|s| sheaf_core::numbers::custom_text_error(&s).unwrap_or_default().into());

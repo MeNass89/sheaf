@@ -97,16 +97,14 @@ fn mm_field(s: &str, what: &str) -> Result<f64> {
     parse_mm(s).map(crop::mm).ok_or_else(|| OpdfError::Unsupported(format!("{what} margin: \"{}\" is not a number of millimetres", s.trim())))
 }
 
-/// The page range typed in the panel; ignored for a batch (every page of every file).
-fn range(opts: &ToolOptions, batch: bool) -> Result<(Option<u32>, Option<u32>)> {
-    if batch {
-        return Ok((None, None));
-    }
+/// The page range typed in the panel; for a batch it applies to every file, a "to" past a
+/// file's end meaning its last page (see `clamp_to_last`).
+fn range(opts: &ToolOptions) -> Result<(Option<u32>, Option<u32>)> {
     Ok((page_field(&opts.from_page, "from page")?, page_field(&opts.to_page, "to page")?))
 }
 
 fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
-    let (from, to) = range(opts, batch)?;
+    let (from, to) = range(opts)?;
     let start = opts.num_start.trim();
     let start = if start.is_empty() { 1 } else { start.parse().map_err(|_| OpdfError::Unsupported(format!("first number: \"{start}\" is not a number")))? };
     Ok(NumberOptions {
@@ -127,9 +125,10 @@ fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
             let fs = opts.num_font_size.trim();
             if fs.is_empty() { 12.0 } else { fs.parse::<f64>().ok().filter(|v| (4.0..=72.0).contains(v)).ok_or_else(|| OpdfError::Unsupported(format!("font size: \"{fs}\" (use 4 to 72 points)")))? }
         },
-        color: colour(opts.num_color, &opts.num_hex),
+        color: text_colour(opts.num_color, &opts.num_hex),
         font: standard_font(opts.num_family.clamp(0, 2) as u8, opts.num_bold, opts.num_italic),
         underline: opts.num_underline,
+        clamp_to_last: batch,
     })
 }
 
@@ -137,19 +136,19 @@ fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
 const WM_COLOURS: [[f64; 3]; 4] = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [0.85, 0.1, 0.1], [0.1, 0.3, 0.85]];
 
 /// The text colour of a panel: the RRGGBB typed, else preset `k` (the panel refuses a bad hex).
-fn colour(k: i32, hex: &str) -> [f64; 3] {
+pub fn text_colour(k: i32, hex: &str) -> [f64; 3] {
     numbers::parse_hex_colour(hex).unwrap_or(WM_COLOURS[k.clamp(0, 3) as usize])
 }
 const WM_ROTATIONS: [f64; 6] = [0.0, 45.0, 90.0, 180.0, 270.0, -45.0];
 
 fn watermark_options(opts: &ToolOptions, batch: bool) -> Result<WatermarkOptions> {
-    let (from, to) = range(opts, batch)?;
+    let (from, to) = range(opts)?;
     let mark = if opts.wm_image_mode {
         Mark::Image { path: PathBuf::from(opts.wm_image.as_str()), scale: opts.wm_scale.clamp(5, 100) as f64 / 100.0 }
     } else {
         let fs = opts.wm_font_size.trim();
         let font_size = if fs.is_empty() { 48.0 } else { fs.parse::<f64>().ok().filter(|v| (1.0..=500.0).contains(v)).ok_or_else(|| OpdfError::Unsupported(format!("font size: \"{fs}\" (use 1 to 500 points)")))? };
-        Mark::Text { text: opts.wm_text.to_string(), font_size, color: colour(opts.wm_color, &opts.wm_hex) }
+        Mark::Text { text: opts.wm_text.to_string(), font_size, color: text_colour(opts.wm_color, &opts.wm_hex) }
     };
     Ok(WatermarkOptions {
         mark,
@@ -161,6 +160,7 @@ fn watermark_options(opts: &ToolOptions, batch: bool) -> Result<WatermarkOptions
         to,
         font: standard_font(opts.wm_family.clamp(0, 2) as u8, opts.wm_bold, opts.wm_italic),
         underline: opts.wm_underline,
+        clamp_to_last: batch,
     })
 }
 
@@ -578,11 +578,12 @@ mod tests {
         assert_eq!((options.position, options.margin, options.start, options.from, options.to), (8, 54.0, 5, Some(2), None));
         assert_eq!(options.text, NumberText::Custom("{n}/{p}".into()));
         assert_eq!((options.font_size, options.color), (18.0, [0.85, 0.1, 0.1]));
-        // A batch numbers every page of every file, with default names.
+        // A batch takes the same range for every file, a "to" past a file's end meaning its last
+        // page, with default names.
         let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
         (o.num_family, o.num_bold) = (2, true);
         let Job::PageNumbers { items, options } = build_job(ToolId::PageNumbers, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
-        assert_eq!((options.from, items[1].1.clone()), (None, PathBuf::from("/o/y-numbered.pdf")));
+        assert_eq!((options.from, options.clamp_to_last, items[1].1.clone()), (Some(2), true, PathBuf::from("/o/y-numbered.pdf")));
         assert_eq!(options.font, Some(numbers::Std14::CourierBold));
         o.from_page = "x".into();
         let e = build_job(ToolId::PageNumbers, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/n.pdf".into())).unwrap_err().to_string();

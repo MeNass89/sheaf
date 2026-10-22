@@ -643,6 +643,9 @@ export global Parse {
     pure callback file-name-error(string) -> string;
     // Why a typed colour is not RRGGBB ("" when it is, or when it is empty).
     pure callback colour-error(string) -> string;
+    // The text colour of a font panel: the RRGGBB typed, else preset `k` (0 black, 1 grey, 2 red,
+    // 3 blue).
+    pure callback colour(string, int) -> color;
     // A set of codes written ",a,b,": whether `code` is in it, and the set with `code` toggled.
     pure callback has-code(string, string) -> bool;
     pure callback toggle-code(string, string) -> string;

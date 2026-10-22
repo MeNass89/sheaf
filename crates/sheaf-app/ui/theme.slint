@@ -4,6 +4,10 @@ import { Palette } from "std-widgets.slint";
 export global Theme {
     // 0 = follow the OS, 1 = light, 2 = dark. Set from Rust (preference, SHEAF_THEME override).
     in-out property <int> mode: 0;
+    // Installed serif and monospace families, for labels shown in their font (set from Rust
+    // per system: Slint does not resolve the generic names everywhere).
+    in-out property <string> serif-family: "serif";
+    in-out property <string> mono-family: "monospace";
     out property <bool> dark: mode == 2 || (mode == 0 && Palette.color-scheme == ColorScheme.dark);
 
     // Surfaces

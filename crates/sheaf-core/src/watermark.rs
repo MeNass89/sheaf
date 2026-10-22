@@ -44,6 +44,8 @@ pub struct WatermarkOptions {
     pub font: Option<Std14>,
     /// A text mark is underlined.
     pub underline: bool,
+    /// A `to` past the last page means the last page (one range for a batch of files).
+    pub clamp_to_last: bool,
 }
 
 impl Default for WatermarkOptions {
@@ -58,6 +60,7 @@ impl Default for WatermarkOptions {
             to: None,
             font: None,
             underline: false,
+            clamp_to_last: false,
         }
     }
 }
@@ -75,14 +78,16 @@ fn text_size(lines: &[&str], font_size: f64, page: (f64, f64), face: Std14) -> f
     ((page.0 * page.0 + page.1 * page.1).sqrt() * 0.5 / widest).clamp(6.0, 300.0)
 }
 
-/// The mark's size in points on a `page` (w, h) before rotation, text set in `face`.
-fn mark_size(mark: &Mark, picture: Option<(f64, f64)>, page: (f64, f64), face: Std14) -> (f64, f64) {
+/// The mark's size in points on a `page` (w, h) before rotation, text set in `face` (and
+/// underlined: the line hangs 0.16 size below the text, on both sides of the centre).
+fn mark_size(mark: &Mark, picture: Option<(f64, f64)>, page: (f64, f64), face: Std14, underline: bool) -> (f64, f64) {
     match (mark, picture) {
         (Mark::Text { text, font_size, .. }, _) => {
             let lines: Vec<&str> = text.trim().lines().collect();
             let size = text_size(&lines, *font_size, page, face);
             let w = lines.iter().map(|l| face.text_width(l, size)).fold(0.0, f64::max);
-            (w, size * (0.8 + 1.15 * (lines.len().max(1) - 1) as f64))
+            let under = if underline { 0.32 } else { 0.0 };
+            (w, size * (0.8 + under + 1.15 * (lines.len().max(1) - 1) as f64))
         }
         (Mark::Image { scale, .. }, Some((sw, sh))) => {
             let k = (page.0 / sw).min(page.1 / sh) * scale;
@@ -139,7 +144,7 @@ pub fn watermark(input: &Input, o: &WatermarkOptions, out: &Path) -> Result<(Pat
     let mut doc = Doc::open(input)?;
     let sizes: Vec<(f64, f64)> =
         doc.session().get(doc.id()).map(|d| d.info.pages.iter().map(|p| (p.width as f64, p.height as f64)).collect()).unwrap_or_default();
-    let pages: Vec<usize> = page_span(o.from, o.to, false, sizes.len())?.collect();
+    let pages: Vec<usize> = page_span(o.from, crate::numbers::clamp(o.to, o.clamp_to_last, sizes.len()), false, sizes.len())?.collect();
     let mut base = Watermark {
         scale: 1.0,
         font_size: 0.0,
@@ -182,7 +187,7 @@ pub fn watermark(input: &Input, o: &WatermarkOptions, out: &Path) -> Result<(Pat
     }
     let mut edits = Vec::new();
     for (size, group) in groups {
-        for off in offsets(o.placement, size, mark_size(&o.mark, natural, size, o.font.unwrap_or(Std14::Helvetica)), o.rotation) {
+        for off in offsets(o.placement, size, mark_size(&o.mark, natural, size, o.font.unwrap_or(Std14::Helvetica), o.underline), o.rotation) {
             edits.push(Edit::AddWatermark { pages: group.clone(), settings: Watermark { offset: off, ..base.clone() }, replace: false, file: None });
         }
     }
@@ -250,17 +255,19 @@ mod tests {
     fn an_automatic_size_is_measured_at_the_size_drawn() {
         let a4 = (595.0, 842.0);
         let auto = Mark::Text { text: "DRAFT".into(), font_size: 0.0, color: [0.0; 3] };
-        let (w, h) = mark_size(&auto, None, a4, Std14::Helvetica);
+        let (w, h) = mark_size(&auto, None, a4, Std14::Helvetica, false);
         // The widest line spans half the page diagonal (PdfCraft's rule).
         assert!((w - (595.0f64.hypot(842.0) * 0.5)).abs() < 0.01, "{w}");
         assert!(h > 50.0, "{h}");
         // A size given is used as it is.
         let fixed = Mark::Text { text: "DRAFT".into(), font_size: 40.0, color: [0.0; 3] };
-        assert_eq!(mark_size(&fixed, None, a4, Std14::Helvetica).1, 40.0 * 0.8);
+        assert_eq!(mark_size(&fixed, None, a4, Std14::Helvetica, false).1, 40.0 * 0.8);
+        // Underlined, it is taller by the line hanging below (and the same above, centred).
+        assert_eq!(mark_size(&fixed, None, a4, Std14::Helvetica, true).1, 40.0 * (0.8 + 0.32));
         // Each font measures with its own widths: lower case is wider in Courier (fixed 600 units)
         // than in Helvetica, capitals narrower.
         let lower = Mark::Text { text: "draft".into(), font_size: 40.0, color: [0.0; 3] };
-        assert!(mark_size(&lower, None, a4, Std14::Courier).0 > mark_size(&lower, None, a4, Std14::Helvetica).0);
-        assert!(mark_size(&fixed, None, a4, Std14::Courier).0 < mark_size(&fixed, None, a4, Std14::Helvetica).0);
+        assert!(mark_size(&lower, None, a4, Std14::Courier, false).0 > mark_size(&lower, None, a4, Std14::Helvetica, false).0);
+        assert!(mark_size(&fixed, None, a4, Std14::Courier, false).0 < mark_size(&fixed, None, a4, Std14::Helvetica, false).0);
     }
 }
