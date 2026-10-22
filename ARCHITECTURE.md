@@ -7,7 +7,7 @@ commit as any file added, moved, renamed or deleted.
 
 | Folder | Responsibility |
 |---|---|
-| `crates/sheaf-core` | The engine, no UI: one module per tool (`compress.rs`, `redact/`, `sign.rs`, `watermark.rs`…), plus `pdfcraft.rs` (bridge to the PdfCraft engine), `engine.rs` (pdfium), `paths.rs` (safe output paths). Every write goes through a temp file. |
+| `crates/sheaf-core` | The engine, no UI: one module per tool (`compress.rs`, `redact/`, `sign.rs`, `watermark.rs`…), plus `pdfcraft.rs` (bridge to the PdfCraft engine), `engine.rs` (pdfium), `paths.rs` (safe output paths), `script.rs` (typed-signature handwriting fonts, bundled in `assets/fonts` with their licences). Every write goes through a temp file. |
 | `crates/sheaf-cli` | The `sheaf` command (`main.rs` dispatch, `args.rs` the clap arguments), its `--json` output (`agent.rs`) and the MCP server (`mcp.rs`). |
 | `crates/sheaf-app` | The Slint GUI: Rust in `src/`, the interface in `ui/` (`main.slint` root, `screens/`, `widgets/`, `icons/` Lucide, `theme.slint`). |
 | `scripts/` | `test.sh` (the one test suite), packaging (`bundle-macos.sh`, `package-linux.sh`, `package-windows.sh`, `make-dmg.sh`), downloads (`fetch-pdfium.sh`, `fetch-models.sh`), `smoke.sh` (a packaged CLI, release only). |
