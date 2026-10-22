@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 102 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 14/38, batch 0/9, compare 0/7, convert 0/20, edit 4/29, files 3/19, forms 4/17, optimize 0/15, organize 6/27, output 0/15, platform 1/14, preferences 1/14, reader 26/64, security 2/18, sign 4/18.
+**331 components, 107 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 14/38, batch 0/9, compare 0/7, convert 0/20, edit 4/29, files 3/19, forms 4/17, optimize 0/15, organize 6/27, output 0/15, platform 1/14, preferences 1/14, reader 26/64, security 2/18, sign 4/18.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
@@ -59,7 +59,7 @@ Next (audits of 22/10 by the interim reviewer; joint 9/10 rule, see DECISIONS):
 - C-sign-003 several script fonts and a live preview of the typed name.
 - C-annotate-013 drag a line's ends, Shift 0/45/90°, arrowheads; C-annotate-023 opacity slider, own fill colour, dashes
   (dashes need the engine's Style).
-- Toolbox: per-tool audit against iLovePDF's QML (dev/re/sources/pretty/ilovepdf/.../tools/*Tool.qml), captures by
+- Toolbox: what each tool lacks is in `dev/board/audit-toolbox-2026-10-22.md` (audit against iLovePDF's QML).
   `dev/.tmp/capture-tools.sh` (not kept: it is a dev aid; rewrite from the HANDOFF note if needed).
 - Copy/paste of annotations; menu bar.
 

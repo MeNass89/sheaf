@@ -103,3 +103,11 @@ pub(super) fn signature_thumbs() -> Vec<slint::Image> {
         t.1.clone()
     })
 }
+
+/// The pad's live preview of a typed signature: the name in the script font (ink on transparent).
+pub fn signature_preview(name: slint::SharedString) -> slint::Image {
+    let g = sheaf_core::sign::Graphic::Typed(name.trim().to_string());
+    sheaf_app::sign_preview::render(&g, 480, 96)
+        .map(|p| slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&p.rgba, p.w, p.h)))
+        .unwrap_or_default()
+}

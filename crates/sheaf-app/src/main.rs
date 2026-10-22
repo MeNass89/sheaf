@@ -174,6 +174,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_signature_made, |ui, id, c, w, h, n, ink, pen| reader_ui::signature_made(&ui, id, &c, (w, h), &n, (ink, pen)));
     rb.on_signature_reset(reader_ui::signature_reset);
     rb.on_signature_pick(reader_ui::signature_pick);
+    rb.on_signature_preview(reader_ui::signature_preview);
     rb.on_print_open(reader_ui::print_open);
     rb.on_shape_option(reader_ui::shape_option);
     wire_global!(ui, rb, on_cycle_spread, |ui, id| reader_ui::cycle_spread(&ui, id));

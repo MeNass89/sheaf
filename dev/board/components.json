@@ -4485,11 +4485,11 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -4503,6 +4503,17 @@
      "overall": 8
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [174]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Swap the compared files in one click; Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed"
    }
   ]
  },
@@ -4794,12 +4805,12 @@
    175
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -4813,6 +4824,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [175]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "The written comparison PDF is the change report; Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed"
    }
   ]
  },
@@ -6312,13 +6334,13 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "Sheaf is offline only by design",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -6330,6 +6352,17 @@
      "overall": 8
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [86]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Offline only by design, said in the converters' info box; Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed"
    }
   ]
  },
@@ -11682,14 +11715,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 7,
-   "overall": 6
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "Sheaf OCR accepts several files",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -11701,6 +11734,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "OCR takes several files, per-file progress and cancel (jobs.rs each()); Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed"
    }
   ]
  },
@@ -23045,12 +23089,12 @@
    157
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -23064,6 +23108,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [156, 157]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Unlock: password field with reveal, wrong-password feedback, batch; Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed"
    }
   ]
  },

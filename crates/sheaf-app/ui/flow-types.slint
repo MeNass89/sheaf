@@ -551,6 +551,8 @@ export global ReaderBridge {
     callback signature-made(int, string, length, length, string, int, int);
     // A kept signature chosen (its index) or, with true, forgotten.
     callback signature-pick(int, int, bool);
+    // The typed name as it will sign, in the script font (the pad's live preview).
+    pure callback signature-preview(string) -> image;
     callback signature-reset(int);
 }
 
