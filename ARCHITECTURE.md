@@ -7,8 +7,8 @@ commit as any file added, moved, renamed or deleted.
 
 | Folder | Responsibility |
 |---|---|
-| `crates/sheaf-core` | The engine, no UI: one module per tool (`compress.rs`, `redact.rs`, `sign.rs`, `watermark.rs`…), plus `pdfcraft.rs` (bridge to the PdfCraft engine), `engine.rs` (pdfium), `paths.rs` (safe output paths). Every write goes through a temp file. |
-| `crates/sheaf-cli` | The `sheaf` command (`main.rs`), its `--json` output (`agent.rs`) and the MCP server (`mcp.rs`). |
+| `crates/sheaf-core` | The engine, no UI: one module per tool (`compress.rs`, `redact/`, `sign.rs`, `watermark.rs`…), plus `pdfcraft.rs` (bridge to the PdfCraft engine), `engine.rs` (pdfium), `paths.rs` (safe output paths). Every write goes through a temp file. |
+| `crates/sheaf-cli` | The `sheaf` command (`main.rs` dispatch, `args.rs` the clap arguments), its `--json` output (`agent.rs`) and the MCP server (`mcp.rs`). |
 | `crates/sheaf-app` | The Slint GUI: Rust in `src/`, the interface in `ui/` (`main.slint` root, `screens/`, `widgets/`, `icons/` Lucide, `theme.slint`). |
 | `scripts/` | `test.sh` (the one test suite), packaging (`bundle-macos.sh`, `package-linux.sh`, `package-windows.sh`, `make-dmg.sh`), downloads (`fetch-pdfium.sh`, `fetch-models.sh`), `smoke.sh` (a packaged CLI, release only). |
 | `vendor/` | pdfium and the OCR models, fetched by the scripts above (git-ignored). |
@@ -24,7 +24,7 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 ## Entry points
 
 - GUI: `crates/sheaf-app/src/main.rs` builds the window from `ui/main.slint` and wires every callback.
-- CLI: `crates/sheaf-cli/src/main.rs`.
+- CLI: `crates/sheaf-cli/src/main.rs` (dispatch); its subcommands and arguments in `args.rs`.
 - Tool catalogue (what the Tools grid shows): `crates/sheaf-core/src/tools.rs`.
 
 ## Build, test, run
@@ -34,6 +34,19 @@ bash scripts/test.sh            # every test layer: lint (clippy), unit (cargo t
 bash scripts/test.sh gui        # one layer while iterating; a unit of work closes on a full run
 cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p sheaf-app on a small machine)
 ```
+
+## Redaction in `crates/sheaf-core/src/redact/`
+
+| File | What it holds |
+|---|---|
+| `mod.rs` | The public API: `Query`, `TextMatch`, `Needle`, `Mark`, `RedactReport`, `find`, `mark_*`, `apply`. |
+| `matching.rs` | How a searched text is found in a string (case, spacing, Unicode form) and removed from it. |
+| `clean.rs` | The clean-up outside the page content after PdfCraft (`post_pass`): metadata, bookmarks, comments, fields, attachments, scripts, hidden forms, unused fonts. |
+| `audit.rs` | The deny-by-default audit of every object of the final bytes (`check_scrubbed`) and its exemptions. |
+| `verify.rs` | The check of the written pages (`verify`): PdfCraft's redaction audit, then pdfium's text under the marks. |
+| `reach.rs` | What the pages paint and draw with (`Reach`), exempt from the audit. |
+| `content.rs` | Content streams by byte range: comments, marked content, inline images, shown text. |
+| `pdf.rs`, `names.rs` | PDF strings, streams and XMP decoded; the names and keys PDF defines (structure, not text). |
 
 ## The GUI in `crates/sheaf-app/src`
 
@@ -54,7 +67,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 
 | Change | Where |
 |---|---|
-| A new tool | engine in `sheaf-core/src/<tool>.rs` + `tools.rs`; options in `sheaf-app/ui/screens/options.slint` and `run.rs`; a CLI subcommand in `sheaf-cli/src/main.rs` |
+| A new tool | engine in `sheaf-core/src/<tool>.rs` + `tools.rs`; options in `sheaf-app/ui/screens/options.slint` and `run.rs`; a CLI subcommand in `sheaf-cli/src/args.rs` (arguments) and `main.rs` (dispatch) |
 | A reader tool, shortcut or panel | `ui/screens/reader.slint` (toolbar, pages, sheets, keys), `reader-panel.slint` (side panel), `reader-parts.slint` (small controls) + `src/reader_ui/<part>.rs` (behaviour); state fields in `ui/flow-types.slint` (`ReaderState`, `ReaderBridge`) |
 | An edit to the open document | `Op` in `reader_doc.rs`, sent from `reader_ui/edits.rs` |
 | Colours, sizes, fonts | `ui/theme.slint` |
