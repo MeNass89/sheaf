@@ -61,6 +61,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | `print.rs` | Printing through CUPS `lp`: printers, page ranges, `lp` options. |
 | `viewer.rs`, `viewer_ui.rs` | Page layout, zoom and rendering shared by the reader and the Redact/Sign/Edit panels. |
 | `edit_ui.rs`, `sign_ui.rs`, `sign_preview.rs` | The Edit and Sign tool panels. |
+| `wm_preview.rs` | Add watermark's live preview: page 1 marked with the panel's options, redrawn as they change. |
 | `dialog.rs`, `password.rs`, `open_with.rs`, `icons.rs` | File dialogs, password prompt, files opened from outside, icons. |
 
 ## Where to change what

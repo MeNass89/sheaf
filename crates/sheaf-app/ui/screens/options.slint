@@ -258,6 +258,10 @@ export component OptionsPanel inherits VerticalLayout {
         : root.tool == "sign" ? !root.sign-cert || root.sign-p12 != ""
         : root.tool == "merge" ? Parse.file-name-error(root.out-name) == ""
         : true);
+    // Add watermark: the preview follows every option and the file.
+    changed options => { if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); } }
+    changed file-count => { if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); } }
+    init => { if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); } }
     out property <ToolOptions> options: {
         level: root.level, password: root.password, confirm: root.confirm, owner: root.owner,
         allow-printing: root.allow-printing, allow-copying: root.allow-copying,
@@ -614,6 +618,23 @@ export component OptionsPanel inherits VerticalLayout {
 
     if root.tool == "watermark": VerticalLayout {
         spacing: 10px;
+        // The first page it marks, as it will look (redrawn as the options change).
+        Rectangle {
+            height: 200px;
+            background: Theme.filearea-bg;
+            border-radius: Theme.radius-small;
+            if !root.has-preview: Text {
+                text: root.file-count > 0 ? "Preview…" : "Add a file to see the watermark";
+                font-size: Theme.fs-caption;
+                color: Theme.text-muted;
+            }
+            if root.has-preview: Image {
+                width: parent.width - 16px;
+                height: parent.height - 16px;
+                source: root.preview;
+                image-fit: contain;
+            }
+        }
         HorizontalLayout {
             spacing: 8px;
             Segment { text: "Place Text"; selected: !root.wm-image-mode; clicked => { root.wm-image-mode = false; } }

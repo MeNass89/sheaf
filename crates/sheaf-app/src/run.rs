@@ -97,6 +97,16 @@ fn mm_field(s: &str, what: &str) -> Result<f64> {
     parse_mm(s).map(crop::mm).ok_or_else(|| OpdfError::Unsupported(format!("{what} margin: \"{}\" is not a number of millimetres", s.trim())))
 }
 
+/// A page number typed in the panel (`None` when empty or not a page number).
+pub fn page_number(s: &str) -> Option<u32> {
+    page_field(s, "page").ok().flatten()
+}
+
+/// The watermark the panel describes, for the preview of one page (no range).
+pub fn preview_watermark_options(opts: &ToolOptions) -> Result<WatermarkOptions> {
+    Ok(WatermarkOptions { from: None, to: None, ..watermark_options(opts, false)? })
+}
+
 /// The page range typed in the panel; for a batch it applies to every file, a "to" past a
 /// file's end meaning its last page (see `clamp_to_last`).
 fn range(opts: &ToolOptions) -> Result<(Option<u32>, Option<u32>)> {

@@ -330,6 +330,7 @@ pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
     let Some(i) = with(|a| a.tab_index(tab_id)) else { return };
     crate::reader_ui::remember_position(tab_id);
     crate::reader_ui::stop_work(tab_id);
+    crate::wm_preview::forget(tab_id);
     with(|a| {
         let t = &a.tabs[i];
         if matches!(t.phase, Phase::Running) {

@@ -7906,10 +7906,10 @@
    133
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 8,
    "performance": 8,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -7936,6 +7936,17 @@
      "overall": 7
     },
     "proof": "Font family/B/I/U, custom colour (vendored Watermark.font/underline); tests/watermark.rs a_text_watermark_takes_the_chosen_font; joint review: live preview is the remaining gap"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Live preview of the first marked page (wm_preview.rs), fonts, B/I/U, custom colour, batch range; gui-smoke 'the watermark preview shows the mark as typed, in its colour'; joint review round 4: aesthetics waits on a pinned, larger preview, perf on a mosaic timing"
    }
   ]
  },

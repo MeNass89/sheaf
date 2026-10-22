@@ -598,6 +598,8 @@ export global ViewerBridge {
 // side sets the path and bumps the counter; the panel of tab `tab` takes it.
 export global Picked {
     callback pick-watermark(int);
+    // Add watermark: its options or file changed; the preview is drawn again.
+    callback preview-watermark(int, ToolOptions);
     callback pick-p12(int);
     in property <int> tab: -1;
     in property <string> watermark;

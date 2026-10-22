@@ -76,7 +76,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | batch | 9 | 2.6 | 1 |
 | compare | 7 | 6.0 | 2 |
 | convert | 20 | 3.5 | 2 |
-| edit | 29 | 4.0 | 5 |
+| edit | 29 | 4.1 | 5 |
 | files | 19 | 5.9 | 8 |
 | forms | 17 | 2.1 | 4 |
 | optimize | 15 | 3.1 | 1 |

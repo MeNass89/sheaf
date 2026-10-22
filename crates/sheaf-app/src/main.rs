@@ -13,6 +13,7 @@ mod state;
 mod edit_ui;
 mod sign_ui;
 mod viewer_ui;
+mod wm_preview;
 mod reader_ui;
 mod reader_doc;
 
@@ -394,6 +395,7 @@ fn main() -> Result<(), slint::PlatformError> {
         None => slint::CloseRequestResponse::HideWindow,
     });
     let picked = ui.global::<sheaf_app::Picked>();
+    wire_global!(ui, picked, on_preview_watermark, |ui, tab, opts| wm_preview::request(&ui, tab, opts));
     wire_global!(ui, picked, on_pick_watermark, |ui, tab| {
         let d = dialog::new(&ui).set_title("Choose the watermark image").add_filter("Image", &["png", "jpg", "jpeg"]);
         dialog::pick_file(&ui, d, move |ui, p| {
