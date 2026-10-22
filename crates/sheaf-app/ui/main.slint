@@ -74,6 +74,9 @@ export component AppWindow inherits Window {
     in property <[ToolCard]> tool-results;
     // Home: the tools of the latest runs, newest first.
     in property <[ToolCard]> recent-tools;
+    // Starred tools, and starring one.
+    in property <[ToolCard]> favourite-tools;
+    callback star-tool(string);
     callback tool-query(string) -> string;
     // Tools page sort: 0 = Categories, 1 = All. Kept here so it survives page switches.
     in-out property <int> tools-sort: 0;
@@ -143,19 +146,28 @@ export component AppWindow inherits Window {
     // ⌘, from anywhere: Home ▸ Preferences, out of full screen (a presentation ends with it).
     // A tool tab or Home shown: the app scope takes the keyboard (a reader tab takes it itself), so
     // ⌘, reaches it wherever the user is.
-    changed active-tab => {
-        if !self.pw-visible && (self.active-tab == -1 || !self.tabs[self.active-tab].is-reader) { app-keys.focus(); }
+    changed active-tab => { root.take-keys(); }
+    changed pw-visible => { if !self.pw-visible { root.take-keys(); } }
+    init => { root.take-keys(); }
+    // The keyboard goes where it belongs: the Tools search on Home ▸ Tools, else the app scope (so
+    // ⌘, works everywhere); a reader tab and the password dialog take it themselves.
+    function take-keys() {
+        if root.pw-visible || (root.active-tab >= 0 && root.tabs[root.active-tab].is-reader) { return; }
+        if root.active-tab == -1 && root.page == Page.tools { root.search-seq += 1; } else { app-keys.focus(); }
     }
     // Bumped to give the Tools search the keyboard (+ tab, ⌘F).
     property <int> search-seq;
+    // Bumped to end any presentation (⌘, leaves it as Escape would).
+    property <int> end-presenting;
     function show-preferences() {
+        root.end-presenting += 1;
         root.full-screen = false;
         root.active-tab = -1;
         root.page = Page.preferences;
     }
     // Home page switched: refresh relative times and missing files.
     callback page-shown();
-    changed page => { root.page-shown(); }
+    changed page => { root.page-shown(); root.take-keys(); }
 
     title: "Sheaf";
     // Windows and Linux taskbars (macOS takes the bundle's icon).
@@ -184,6 +196,8 @@ export component AppWindow inherits Window {
                 new-tab => {
                     root.active-tab = -1;
                     root.page = Page.tools;
+                    // Already on Tools: neither change fires, the search still takes the keyboard.
+                    root.take-keys();
                 }
             }
             Rectangle {
@@ -220,6 +234,8 @@ export component AppWindow inherits Window {
                             open-tool(id) => { root.open-tool(id); }
                             results: root.tool-results;
                             query(q) => { return root.tool-query(q); }
+                        star(id) => { root.star-tool(id); }
+                        favourites: root.favourite-tools;
                         }
                         if root.page == Page.history: HistoryScreen {
                             rows: root.history;
@@ -248,6 +264,7 @@ export component AppWindow inherits Window {
                         tab: t;
                         active: root.active-tab == i;
                         is-full-screen: root.full-screen;
+                    end-presenting: root.end-presenting;
                         full-screen(on) => { root.full-screen = on; }
                         open-preferences => { root.show-preferences(); }
                         switch-tab(d) => {

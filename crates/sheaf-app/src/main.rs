@@ -75,10 +75,13 @@ pub(crate) fn tool_card(t: &ToolInfo) -> ToolCard {
         icon: icon_image(t.icon),
         tile: tile_colour(t.id),
         enabled: t.wave == 1,
+        favourite: home::is_favourite(t.id.as_str()),
     }
 }
 
-fn install_catalogue(ui: &AppWindow) {
+/// The Tools page's grid and sections, Home's recent and favourite tools: built again when a
+/// tool is starred.
+pub(crate) fn install_catalogue(ui: &AppWindow) {
     let catalogue = tools::catalogue();
     let all: Vec<ToolCard> = catalogue.iter().map(tool_card).collect();
     let sections: Vec<ToolSection> = Category::ALL
@@ -91,6 +94,8 @@ fn install_catalogue(ui: &AppWindow) {
             )),
         })
         .collect();
+    let favourites: Vec<ToolCard> = home::favourites().iter().filter_map(|id| ToolId::from_str(id)).filter_map(|id| catalogue.iter().find(|t| t.id == id)).map(tool_card).collect();
+    ui.set_favourite_tools(ModelRc::new(VecModel::from(favourites)));
     ui.set_all_tools(ModelRc::new(VecModel::from(all)));
     ui.set_sections(ModelRc::from(Rc::new(VecModel::from(sections))));
 }
@@ -287,6 +292,11 @@ fn main() -> Result<(), slint::PlatformError> {
             ui.set_tool_results(ModelRc::new(VecModel::from(found)));
         }
         q.trim().into()
+    });
+    wire!(ui, on_star_tool, |ui, id| {
+        home::toggle_favourite(&id);
+        install_catalogue(&ui);
+        home::refresh(&ui);
     });
     wire!(ui, on_open_tool, |ui, id| {
         if let Some(tool) = flow::tool_from_str(&id) {

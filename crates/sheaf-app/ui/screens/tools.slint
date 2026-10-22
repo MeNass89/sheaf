@@ -12,6 +12,7 @@ export struct ToolSection {
 component CardGrid inherits FlexboxLayout {
     in property <[ToolCard]> tools;
     callback open-tool(string);
+    callback star(string);
     // FlexboxLayout's preferred height overestimates wrapped rows, which let the Tools page
     // scroll past its last row: the height is the rows actually laid out at this width.
     property <int> columns: max(1, floor((self.width + Theme.grid-spacing) / (Theme.card-width + Theme.grid-spacing)));
@@ -22,6 +23,7 @@ component CardGrid inherits FlexboxLayout {
     for tool in root.tools: ToolCardView {
         tool: tool;
         clicked(id) => { root.open-tool(id); }
+        star(id) => { root.star(id); }
     }
 }
 
@@ -38,6 +40,9 @@ export component ToolsScreen inherits Rectangle {
     // What is typed, trimmed and lower-cased by Rust: "" shows the grid (spaces alone search nothing).
     callback query(string) -> string;
     callback open-tool(string);
+    // Star or unstar a tool; the starred ones, shown first.
+    callback star(string);
+    in property <[ToolCard]> favourites;
     // The field takes the keyboard when the page opens (and on ⌘F), as a search should.
     in property <int> focus-seq;
     changed focus-seq => { search.focus(); }
@@ -85,7 +90,7 @@ export component ToolsScreen inherits Rectangle {
                     color: Theme.text;
                     vertical-alignment: center;
                     single-line: true;
-                    edited => { root.typed = root.query(self.text); root.chosen = 0; }
+                    edited => { root.typed = root.query(self.text); root.chosen = 0; scroll.content-y = 0; }
                     accepted => { if root.results.length > 0 { root.open-tool(root.results[root.chosen].id); } }
                     key-pressed(e) => {
                         if e.text == Key.DownArrow { root.chosen = max(0, min(root.chosen + 1, root.results.length - 1)); root.keep-chosen-in-view(); return accept; }
@@ -156,6 +161,21 @@ export component ToolsScreen inherits Rectangle {
                         }
                     }
                 }
+                if root.favourites.length > 0 && root.typed == "": VerticalLayout {
+                    Text {
+                        height: Theme.section-header-height;
+                        text: "Favourites";
+                        font-size: Theme.fs-section;
+                        font-weight: Theme.weight-demibold;
+                        color: Theme.text-heading;
+                        vertical-alignment: center;
+                    }
+                    CardGrid {
+                        tools: root.favourites;
+                        open-tool(id) => { root.open-tool(id); }
+                        star(id) => { root.star(id); }
+                    }
+                }
                 if root.sort == 0 && root.typed == "": VerticalLayout {
                     for section in root.sections: VerticalLayout {
                         Rectangle {
@@ -189,6 +209,7 @@ export component ToolsScreen inherits Rectangle {
                             padding-bottom: 4px;
                             tools: section.tools;
                             open-tool(id) => { root.open-tool(id); }
+                            star(id) => { root.star(id); }
                         }
                     }
                 }
@@ -197,6 +218,7 @@ export component ToolsScreen inherits Rectangle {
                     padding-top: 12px;
                     tools: root.all-tools;
                     open-tool(id) => { root.open-tool(id); }
+                    star(id) => { root.star(id); }
                 }
             }
         }

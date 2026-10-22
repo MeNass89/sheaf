@@ -7,6 +7,8 @@ export struct ToolCard {
     icon: image,
     tile: color,
     enabled: bool,
+    // Starred by the user (shown first on Home and Tools).
+    favourite: bool,
 }
 
 // 132 x 136 card: coloured icon tile on top, name below.
@@ -15,6 +17,7 @@ export component ToolCardView inherits Rectangle {
     // The search's chosen result (↑↓ move it, ↩ opens it).
     in property <bool> highlighted;
     callback clicked(string);
+    callback star(string);
 
     width: Theme.card-width;
     height: Theme.card-height;
@@ -73,5 +76,28 @@ export component ToolCardView inherits Rectangle {
         enabled: root.tool.enabled;
         mouse-cursor: root.tool.enabled ? pointer : default;
         clicked => { root.clicked(root.tool.id); }
+    }
+
+    // Star a tool (Stirling's favourites): on hover, always shown once starred.
+    // Always there (not created on hover): a star that came and went with the card's hover lost
+    // the click to the card.
+    Rectangle {
+        opacity: touch.has-hover || st.has-hover || root.tool.favourite ? 1 : 0;
+        x: 6px;
+        y: 6px;
+        width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        background: st.has-hover ? Theme.popup-hover : transparent;
+        Image {
+            width: 14px;
+            height: 14px;
+            source: @image-url("../icons/star.svg");
+            colorize: root.tool.favourite ? #F5B301 : Theme.text-muted;
+        }
+        st := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.star(root.tool.id); }
+        }
     }
 }

@@ -442,24 +442,29 @@ check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"S
 ocr() { import -window root -crop "$1" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '; }
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.
 
-TB0=$(ocr 1280x30+0+6); click 90 112 0.8; click 990 76 0.5
+# + opens Home ▸ Tools with the search taking the keyboard: typed without clicking the field.
+TB0=$(ocr 1280x30+0+6); click 90 112 0.8; click 90 72 0.5; click 90 112 0.8
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "pdf to"; sleep 0.6; key Down; key Return; sleep 1.5; shot 09b-tool-search
 TB1=$(ocr 1280x30+0+6)
 # OCR drops spaces: compare without them.
 check "tool search: 'pdf to', ↓, ↩ opens PDF to Word ($TB1)" "echo \"$TB1\" | tr -d ' ' | grep -qi 'PDFtoWord' && ! echo \"$TB0\" | tr -d ' ' | grep -qi 'PDFtoWord'"
+# The star on Compress's card (shown on hover, at 233,318): saved as a favourite, a Favourites row on top.
+# The search still holds "pdf to" (the page was not left): cleared with Escape in the field first.
+click 40 21 0.8; click 90 112 0.8; click 990 76 0.4; key Escape; sleep 0.5; shot 09c-before-star; xdotool mousemove 270 350; sleep 0.4; click 233 318 1
+check "starring a tool puts it in the preferences' favourites" "grep -rqs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
 # ⌘, opens Preferences from a tool tab and from a document (keys go up to the app).
 key ctrl+comma; sleep 1; PT1=$(ocr 500x60+200+40)
 click 230 21 1; key ctrl+comma; sleep 1; PT2=$(ocr 500x60+200+40)   # the text.pdf tab
 check "⌘, opens Preferences from a tool tab and from a document ($PT1 / $PT2)" "echo \"$PT1\" | grep -q Preferences && echo \"$PT2\" | grep -q Preferences"
 quit
 
-# 10. A tool from the reader: the wrench (WRENCH_X,61) → Tools → Compress (270,350) → Compress PDF
+# 10. A tool from the reader: the wrench (WRENCH_X,61) → Tools, "compress" typed in its search, ↩ → Compress PDF
 # (1140,755); outputs go next to the original (set in the profile), the result screen shows.
 cp "$OUT/form.pdf" "$OUT/tool.pdf"
 mkdir -p "$PWD/$OUT/profile/data/Sheaf"
 python3 -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)) if __import__("os").path.exists(p) else {}; d["output"] = "next_to_original"; json.dump(d, open(p, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
 launch "$OUT/tool.pdf"; sleep 1
-click $WRENCH_X 61 1.5; click 270 350 2; click 1140 755 4; shot 10-tool-result
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "compress"; key Return; sleep 2; click 1140 755 4; shot 10-tool-result
 check "a tool run from the reader writes its output (Compress)" "qpdf --check $OUT/tool-compressed.pdf >/dev/null 2>&1"
 quit
 

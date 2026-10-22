@@ -110,6 +110,30 @@ pub fn last_view(path: &Path) -> Option<(i32, u32, u8)> {
     with(|h| h.prefs.last_views.iter().find(|(q, ..)| q == &p).map(|(_, f, z, s)| (*f, *z, *s)))
 }
 
+/// Starred tools (Tools ▸ star), in the order starred.
+pub fn favourites() -> Vec<String> {
+    with(|h| h.prefs.favourite_tools.clone())
+}
+
+pub fn is_favourite(id: &str) -> bool {
+    with(|h| h.prefs.favourite_tools.iter().any(|f| f == id))
+}
+
+pub fn toggle_favourite(id: &str) {
+    with(|h| {
+        let list = &mut h.prefs.favourite_tools;
+        match list.iter().position(|f| f == id) {
+            Some(i) => {
+                list.remove(i);
+            }
+            None => list.push(id.to_string()),
+        }
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
 /// The style last used with reader tool `tool` (colour, width, opacity), if any.
 pub fn tool_style(tool: i32) -> Option<(u8, u8, u8)> {
     with(|h| tool_style_of(&h.prefs, tool))
@@ -347,9 +371,9 @@ pub fn refresh(ui: &AppWindow) {
     });
     ui.set_history(ModelRc::new(VecModel::from(rows)));
     ui.set_recents(ModelRc::new(VecModel::from(recents)));
-    let tools: Vec<ToolCard> = with(|h| {
-        history::recent_tools(h.store.list(), READ, 6).into_iter().filter_map(sheaf_core::tools::ToolId::from_str).filter_map(|id| sheaf_core::tools::catalogue().iter().find(|t| t.id == id)).map(crate::tool_card).collect()
-    });
+    // Ids read first: a card asks whether its tool is starred, which borrows the same state.
+    let ids: Vec<sheaf_core::tools::ToolId> = with(|h| history::recent_tools(h.store.list(), READ, 6).into_iter().filter_map(sheaf_core::tools::ToolId::from_str).collect());
+    let tools: Vec<ToolCard> = ids.into_iter().filter_map(|id| sheaf_core::tools::catalogue().iter().find(|t| t.id == id)).map(crate::tool_card).collect();
     ui.set_recent_tools(ModelRc::new(VecModel::from(tools)));
     for (p, kind) in missing {
         render_thumb(ui, p, kind);

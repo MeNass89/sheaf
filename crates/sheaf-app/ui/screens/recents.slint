@@ -35,6 +35,7 @@ export component RecentsScreen inherits Rectangle {
     // The tools of the latest runs (iLovePDF's Recent Tools): one click opens one.
     in property <[ToolCard]> recent-tools;
     callback open-tool(string);
+    callback star(string);
     callback open-file();
     callback open-recent(int);
     callback reveal-recent(int);
@@ -85,12 +86,14 @@ export component RecentsScreen inherits Rectangle {
                 color: Theme.text-heading;
                 vertical-alignment: center;
             }
-            HorizontalLayout {
-                alignment: start;
+            // Wraps at narrow widths (six cards are wider than the window's minimum).
+            FlexboxLayout {
+                flex-wrap: wrap;
                 spacing: Theme.grid-spacing;
                 for t in root.recent-tools: ToolCardView {
                     tool: t;
                     clicked(id) => { root.open-tool(id); }
+                    star(id) => { root.star(id); }
                 }
             }
         }

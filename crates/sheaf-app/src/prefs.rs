@@ -83,6 +83,8 @@ pub struct Prefs {
     /// The reader's style per tool, kept between sessions as PDF Expert keeps it: tool, colour,
     /// width, opacity (indices).
     pub tool_styles: Vec<(i32, u8, u8, u8)>,
+    /// Tools starred by the user (`ToolId::as_str`), in the order starred.
+    pub favourite_tools: Vec<String>,
     /// The signature made in the reader, reused on every document (PDF Expert keeps it too):
     /// drawn strokes (pad units, y up) or a typed name.
     pub signature_strokes: Vec<Vec<[f64; 2]>>,
