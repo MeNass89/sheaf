@@ -77,16 +77,23 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         }
     }
     if r.tool == EDIT_TEXT {
+        // What is pulled or dragged shows itself live on the page: not its old outline too.
+        let moving = r.edit_press.as_ref().filter(|e| e.dragging).map(|e| match e.target {
+            EditTarget::Block(i, ..) => (e.page, Some(i), None),
+            EditTarget::Image(i, ..) => (e.page, None, Some(i)),
+            EditTarget::Empty => (e.page, None, None),
+        });
+        let moving = moving.or(r.image_resize.and(r.selected_image).map(|(p, i)| (p, None, Some(i))));
         // The paragraphs that can be edited, outlined on the pages in view (read when first shown).
         for page in wanted.clone() {
             if let Some(blocks) = r.blocks.get(&page) {
-                for b in blocks.iter() {
+                for (_, b) in blocks.iter().enumerate().filter(|(i, _)| moving != Some((page, Some(*i), None))) {
                     let c = v.viewer.overlay(page, b.rect);
                     marks.push(overlay([c[0] - 2.0, c[1] - 1.0, c[2] + 4.0, c[3] + 2.0], 7));
                 }
             }
             if let Some(images) = r.images.get(&page) {
-                for (rc, _) in images.iter() {
+                for (_, (rc, _)) in images.iter().enumerate().filter(|(i, _)| moving != Some((page, None, Some(*i)))) {
                     marks.push(overlay(v.viewer.overlay(page, *rc), 7));
                 }
             }

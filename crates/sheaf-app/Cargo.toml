@@ -21,6 +21,8 @@ serde_json.workspace = true
 image.workspace = true
 pdfium-render.workspace = true
 tempfile.workspace = true
+# ⌘V of an image onto a page (reader). Already in the graph through Slint; images too here.
+arboard = { version = "3.6", default-features = false, features = ["image-data"] }
 
 # "Open With" from Finder (src/open_with.rs). Same versions winit and rfd already pull in.
 [target.'cfg(target_os = "macos")'.dependencies]

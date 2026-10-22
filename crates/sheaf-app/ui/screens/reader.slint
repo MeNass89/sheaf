@@ -548,6 +548,7 @@ export component ReaderScreen inherits Rectangle {
                     return accept;
                 }
                 if e.text == "a" { ReaderBridge.select-all(root.id); return accept; }
+                if e.text == "v" { ReaderBridge.paste(root.id); return accept; }
                 if e.text == "[" { ReaderBridge.history(root.id, -1); return accept; }
                 if e.text == "]" { ReaderBridge.history(root.id, 1); return accept; }
                 // With ⇧ the letter comes upper case.

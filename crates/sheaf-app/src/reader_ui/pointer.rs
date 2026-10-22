@@ -125,27 +125,57 @@ pub(super) fn pick_image(ui: &AppWindow, tab_id: i32) {
             Ok(p) => p,
             Err(e) => return crate::flow::toast(ui, &e.to_string()),
         };
-        let edit = update(tab_id, |r, v| {
-            let (page, at) = r.image_at.take()?;
-            let size = v.viewer.boxes[page].view_size();
-            let w = 200.0_f64.min(size.0 * 0.8);
-            let h = w * pic.aspect();
-            let x0 = at.0.clamp(0.0, (size.0 - w).max(0.0));
-            let y0 = at.1.clamp(0.0, (size.1 - h).max(0.0));
-            // Display space: points from the displayed page's bottom-left, y up.
-            let rect = [x0, size.1 - (y0 + h), x0 + w, size.1 - y0];
-            let name = file_name(&path);
-            // Then the Edit tool, the new image selected once the page's images are listed again
-            // (it is the last): its corners resize it at once, as in PDF Expert.
-            r.select_added = Some((page, r.images.get(&page).map_or(0, |im| im.len())));
-            r.tool = EDIT_TEXT;
-            Some((page, Edit::AddImage { page, rect: Some(rect), name, bytes: pic.bytes.clone() }))
-        })
-        .flatten();
-        if let Some((page, e)) = edit {
-            apply(ui, tab_id, e, &[page], None);
-        }
+        let Some((page, at)) = update(tab_id, |r, _| r.image_at.take()).flatten() else { return };
+        place_image(ui, tab_id, page, at, 200.0, pic.aspect(), file_name(&path), pic.bytes.clone());
     });
+}
+
+/// ⌘V with an image on the clipboard: placed in the middle of the page in view, as large as its
+/// pixels in points (at most 80 % of the page), as PDF Expert pastes one.
+pub fn paste_image(ui: &AppWindow, tab_id: i32) {
+    let Some(img) = arboard::Clipboard::new().ok().and_then(|mut c| c.get_image().ok()) else {
+        return crate::flow::toast(ui, "The clipboard holds no image to paste");
+    };
+    let Some(rgba) = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned()) else { return };
+    let mut png = Vec::new();
+    if rgba.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).is_err() || rgba.width() == 0 {
+        return crate::flow::toast(ui, "The image on the clipboard could not be read");
+    }
+    let aspect = rgba.height() as f64 / rgba.width() as f64;
+    let Some((page, at, w)) = update(tab_id, |r, v| {
+        let page = v.current();
+        let size = v.viewer.boxes[page].view_size();
+        let w = (rgba.width() as f64).min(size.0 * 0.8).min(size.1 * 0.8 / aspect);
+        r.tool = EDIT_TEXT;
+        Some((page, ((size.0 - w) / 2.0, (size.1 - w * aspect) / 2.0), w))
+    })
+    .flatten() else {
+        return;
+    };
+    place_image(ui, tab_id, page, at, w, aspect, "Pasted image".into(), std::sync::Arc::new(png));
+}
+
+/// An image `w` points wide (less on a small page) of height `aspect` × width, its top-left at
+/// `at` (view points) kept on the page; then the Edit tool, the new image selected once the
+/// page's images are listed again (it is the last): its corners resize it at once, as in PDF
+/// Expert.
+#[allow(clippy::too_many_arguments)]
+fn place_image(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64), w: f64, aspect: f64, name: String, bytes: std::sync::Arc<Vec<u8>>) {
+    let edit = update(tab_id, |r, v| {
+        let size = v.viewer.boxes[page].view_size();
+        let w = w.min(size.0 * 0.8);
+        let h = w * aspect;
+        let x0 = at.0.clamp(0.0, (size.0 - w).max(0.0));
+        let y0 = at.1.clamp(0.0, (size.1 - h).max(0.0));
+        // Display space: points from the displayed page's bottom-left, y up.
+        let rect = [x0, size.1 - (y0 + h), x0 + w, size.1 - y0];
+        r.select_added = Some((page, r.images.get(&page).map_or(0, |im| im.len())));
+        r.tool = EDIT_TEXT;
+        Edit::AddImage { page, rect: Some(rect), name, bytes }
+    });
+    if let Some(e) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
 }
 
 pub fn moved(tab_id: i32, x: f32, y: f32) {
@@ -163,12 +193,19 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
         }
         if let Some(d) = r.image_resize.as_mut() {
             d.2 = b;
+            if let Some((page, e)) = pull_edit(r, v) {
+                live_preview(r, page, e);
+            }
             return;
         }
         if let Some(e) = r.edit_press.as_mut() {
             e.to = b;
             if (e.from.0 - b.0).hypot(e.from.1 - b.1) > 4.0 && !matches!(e.target, EditTarget::Empty) {
                 e.dragging = true;
+            }
+            // The paragraph or image itself follows the pointer, as in PDF Expert.
+            if let Some((page, e)) = pull_edit(r, v) {
+                live_preview(r, page, e);
             }
             return;
         }
@@ -226,28 +263,17 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             r.selected_annot = None;
             return Some(Pending::Move(a.page, Box::new(edit)));
         }
-        if let Some((corner, from, to)) = r.image_resize.take() {
-            let (page, i) = r.selected_image?;
-            let (vis, full) = *r.images.get(&page)?.get(i)?;
-            let to = resized_image(&v.viewer.boxes[page], vis, full, corner, (to.0 - from.0, to.1 - from.1));
-            return Some(Pending::Move(page, Box::new(Edit::EditPageImage { page, index: i, change: sheaf_core::pdfcraft::engine::ImageEdit::Move(to) })));
+        // A corner pulled, an image or paragraph dragged: the edit (its live preview is taken
+        // back by it, or by hand when there is none, as a pull of under 2 points).
+        if r.image_resize.is_some() || r.edit_press.as_ref().is_some_and(|e| e.dragging) {
+            let edit = pull_edit(r, v);
+            r.image_resize = None;
+            r.edit_press = None;
+            end_live(r, edit.is_some());
+            return edit.map(|(page, e)| Pending::Move(page, Box::new(e)));
         }
         if let Some(e) = r.edit_press.take() {
-            let b = &v.viewer.boxes[e.page];
-            let size = b.view_size();
-            let p0 = viewer::view_to_pdf(b, size, e.from.0, e.from.1);
-            let p1 = viewer::view_to_pdf(b, size, e.to.0, e.to.1);
-            let (dx, dy) = (p1.0 - p0.0, p1.1 - p0.1);
             match (e.target, e.dragging) {
-                (EditTarget::Block(i, _, text, _, _), true) => {
-                    let style = sheaf_core::pdfcraft::edit::BlockStyle { offset: Some([dx, dy]), ..Default::default() };
-                    return Some(Pending::Move(e.page, Box::new(Edit::EditTextBlock { page: e.page, block: i, text, style })));
-                }
-                (EditTarget::Image(i, _, rc), true) => {
-                    // The full box moves (a cropped image keeps its crop and its size).
-                    let to = [rc[0] + dx, rc[1] + dy, rc[2] + dx, rc[3] + dy];
-                    return Some(Pending::Move(e.page, Box::new(Edit::EditPageImage { page: e.page, index: i, change: sheaf_core::pdfcraft::engine::ImageEdit::Move(to) })));
-                }
                 (EditTarget::Block(i, text, _, rect, at), false) => {
                     r.preview_text.clear();
                     r.draft = Some(Draft { page: e.page, at, kind: 2, block: Some((i, text, rect)), field: None });
@@ -257,7 +283,8 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                     r.draft = Some(Draft { page: e.page, at: e.from, kind: 3, block: None, field: None });
                     r.note_seq += 1;
                 }
-                (EditTarget::Image(..), false) => {}
+                // An image pressed is selected (on the press); drags are handled above.
+                _ => {}
             }
             return None;
         }
@@ -359,6 +386,61 @@ pub(super) fn link_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> O
         let [x, y, w, h] = viewer::pdf_rect_to_view(&v.boxes[page], size, l.rect.map(f64::from));
         (p.0 >= x && p.0 <= x + w && p.1 >= y && p.1 <= y + h).then(|| l.target.clone())
     })
+}
+
+/// The edit a pull or drag in progress makes (Edit tool): a corner of the selected image pulled
+/// (none under 2 points), an image or paragraph dragged.
+fn pull_edit(r: &ReaderUi, v: &ViewerUi) -> Option<(usize, Edit)> {
+    use sheaf_core::pdfcraft::engine::ImageEdit;
+    if let Some((corner, from, to)) = r.image_resize {
+        if (to.0 - from.0).hypot(to.1 - from.1) < 2.0 {
+            return None;
+        }
+        let (page, i) = r.selected_image?;
+        let (vis, full) = *r.images.get(&page)?.get(i)?;
+        let to = resized_image(&v.viewer.boxes[page], vis, full, corner, (to.0 - from.0, to.1 - from.1));
+        return Some((page, Edit::EditPageImage { page, index: i, change: ImageEdit::Move(to) }));
+    }
+    let e = r.edit_press.as_ref().filter(|e| e.dragging)?;
+    let b = &v.viewer.boxes[e.page];
+    let size = b.view_size();
+    let p0 = viewer::view_to_pdf(b, size, e.from.0, e.from.1);
+    let p1 = viewer::view_to_pdf(b, size, e.to.0, e.to.1);
+    let (dx, dy) = (p1.0 - p0.0, p1.1 - p0.1);
+    match &e.target {
+        EditTarget::Block(i, _, text, _, _) => {
+            let style = sheaf_core::pdfcraft::edit::BlockStyle { offset: Some([dx, dy]), ..Default::default() };
+            Some((e.page, Edit::EditTextBlock { page: e.page, block: *i, text: text.clone(), style }))
+        }
+        // The full box moves (a cropped image keeps its crop and its size).
+        EditTarget::Image(i, _, rc) => {
+            Some((e.page, Edit::EditPageImage { page: e.page, index: *i, change: ImageEdit::Move([rc[0] + dx, rc[1] + dy, rc[2] + dx, rc[3] + dy]) }))
+        }
+        EditTarget::Empty => None,
+    }
+}
+
+/// Shows `edit` on its page while a pull or drag goes on: one preview on its way at a time, the
+/// latest one waiting for it (the document thread renders as fast as it can, no faster).
+fn live_preview(r: &mut ReaderUi, page: usize, edit: Edit) {
+    r.live = Some(page);
+    if r.live_in_flight {
+        r.live_pending = Some((page, edit));
+    } else {
+        r.live_in_flight = true;
+        r.send(Op::Preview { edit: Some(Box::new(edit)), pages: vec![page] });
+    }
+}
+
+/// The pull or drag is over: its edit (`applied`) takes the live preview back; otherwise it is
+/// taken back here.
+fn end_live(r: &mut ReaderUi, applied: bool) {
+    r.live_pending = None;
+    if let Some(page) = r.live.take()
+        && !applied
+    {
+        r.send(Op::Preview { edit: None, pages: vec![page] });
+    }
 }
 
 /// The corner of the selected image (Edit tool) at view point `p` of `page`, within 8 points:

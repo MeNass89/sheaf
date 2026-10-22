@@ -541,6 +541,8 @@ export global ReaderBridge {
     callback note-commit(int, string);
     // The editor's text changed (Edit text previews the paragraph on its page).
     callback note-edited(int, string);
+    // ⌘V: an image on the clipboard placed on the page in view.
+    callback paste(int);
     // The selected page image: 0 turn left, 1 turn right, 2 flip, 3 replace, 4 delete.
     callback image-action(int, int);
     callback note-cancel(int);

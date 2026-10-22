@@ -73,13 +73,16 @@ objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
         "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 1 0 R >> >> /Annots [6 0 R] >>",
         "<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /Rect [72 400 540 700] /P 5 0 R /DA (/Helv 12 Tf 0 g) /F 4 >>"]
 write("form.pdf", objs, 2)
-# image.pdf: a red image 60×40 px drawn 150×100 pt at (200, 500), over a line of text
-hexdata = "FF0000" * 60 * 40 + ">"
-c = "BT /F1 18 Tf 72 720 Td (An image below) Tj ET q 150 0 0 100 200 500 cm /Im1 Do Q"
+# image.pdf: an image 60×40 px, red left half and blue right half, drawn 150×100 pt at (200, 500),
+# and a green one below it at (200, 200)
+hexdata = ("FF0000" * 30 + "0000FF" * 30) * 40 + ">"
+green = "00FF00" * 20 * 12 + ">"
+c = "BT /F1 18 Tf 72 720 Td (An image below) Tj ET q 150 0 0 100 200 500 cm /Im1 Do Q q 100 0 0 60 200 200 cm /Im2 Do Q"
 objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", "<< /Type /Catalog /Pages 3 0 R >>",
         "<< /Type /Pages /Kids [5 0 R] /Count 1 >>", f"<< /Length {len(c)} >>\nstream\n{c}\nendstream",
-        "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 1 0 R >> /XObject << /Im1 6 0 R >> >> >>",
-        f"<< /Type /XObject /Subtype /Image /Width 60 /Height 40 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length {len(hexdata)} >>\nstream\n{hexdata}\nendstream"]
+        "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 1 0 R >> /XObject << /Im1 6 0 R /Im2 7 0 R >> >> >>",
+        f"<< /Type /XObject /Subtype /Image /Width 60 /Height 40 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length {len(hexdata)} >>\nstream\n{hexdata}\nendstream",
+        f"<< /Type /XObject /Subtype /Image /Width 20 /Height 12 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length {len(green)} >>\nstream\n{green}\nendstream"]
 write("image.pdf", objs, 2)
 PY
 for f in text form labels links image; do qpdf "$OUT/$f.pdf" "$OUT/$f.fixed.pdf" && mv "$OUT/$f.fixed.pdf" "$OUT/$f.pdf"; done
@@ -625,23 +628,41 @@ N2=$(ntabs); TB=$(ocr 1280x40+0+0)
 check "the tab menu's Close Other Tabs leaves only that one ($N2: $TB)" "[ \"$N2\" = 1 ] && echo \"$TB\" | grep -q third"
 quit
 
-# 14. A page image: the Edit tool selects it, its bottom-right corner pulled out makes it bigger
-# (proportions kept), Delete removes it. Measured on the saved file: the red area at 72 dpi.
-redbox() { convert - -fuzz 12% -fill white +opaque '#ff0000' -trim -format '%w %h %X %Y' info: 2>/dev/null; }
-saved_red() { pdftoppm -r 72 -f 1 -l 1 -png "$OUT/image.pdf" 2>/dev/null | redbox; }
+# 14. Page images: the Edit tool selects the first (red | blue), its bottom-right corner pulled
+# out makes it bigger (proportions kept); the bar flips it (red goes right) and turns it right
+# (red goes down); Delete removes it and only it (the green one stays). Measured on the saved
+# file, at 72 dpi.
+colourbox() { convert - -fuzz 12% -fill white +opaque "$1" -trim -format '%w %h %X %Y' info: 2>/dev/null; }
+saved() { pdftoppm -r 72 -f 1 -l 1 -png "$OUT/image.pdf" 2>/dev/null | colourbox "$1"; }
+# The centre of a box "W H +X +Y" as "x y".
+centre() { echo "$1" | awk '{ gsub(/\+/, ""); print $3 + $1 / 2, $4 + $2 / 2 }'; }
 launch "$OUT/image.pdf"; key e; sleep 1.2
-# Found on screen below the options bar (whose red buttons would count too).
-read IW IH IX IY <<< "$(import -window root -crop 1000x640+260+140 +repage png:- 2>/dev/null | redbox)"; IX=$(( ${IX#+} + 260 )); IY=$(( ${IY#+} + 140 ))
-S0=$(saved_red)
+# The first image found on screen below the options bar (whose red buttons would count too): red
+# and blue together.
+SHOT=$(mktemp); import -window root -crop 1000x640+260+140 +repage "png:$SHOT" 2>/dev/null
+read RW RH RX RY <<< "$(colourbox '#ff0000' < "$SHOT")"; read BW BH BX BY <<< "$(colourbox '#0000ff' < "$SHOT")"; rm -f "$SHOT"
+IX=$(( ${RX#+} + 260 )); IY=$(( ${RY#+} + 140 )); IW=$(( ${BX#+} + BW - ${RX#+} )); IH=$RH
+S0=$(saved '#ff0000')
 click $((IX + IW / 2)) $((IY + IH / 2)) 0.6
 xdotool mousemove $((IX + IW - 1)) $((IY + IH - 1)) mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $((IX + IW - 1 + i * 12)) $((IY + IH - 1 + i * 8)); sleep 0.05; done; xdotool mouseup 1; sleep 1.2
-shot 14-image-resized; key ctrl+s; sleep 1.5; S1=$(saved_red)
-check "a page image's corner pulled out makes it bigger, proportions kept (${S0%% +*} → ${S1%% +*})" "python3 -c '
+shot 14-image-resized; key ctrl+s; sleep 1.5; S1=$(saved '#ff0000')
+check "a page image's corner pulled out makes it bigger, proportions kept (red half ${S0%% +*} → ${S1%% +*})" "python3 -c '
 import sys
 a, b = [list(map(int, v.split()[:2])) for v in sys.argv[1:]]
-sys.exit(0 if b[0] > a[0] + 30 and abs(b[0] / b[1] - a[0] / a[1]) < 0.05 else 1)' \"$S0\" \"$S1\""
-key Delete; sleep 1; key ctrl+s; sleep 1.5; S2=$(saved_red)
-check "Delete removes the selected image ($S2)" "! echo \"$S2\" | grep -qE '^[0-9]{2,}'"
+sys.exit(0 if b[0] > a[0] + 15 and abs(b[0] / b[1] - a[0] / a[1]) < 0.05 else 1)' \"$S0\" \"$S1\""
+# The image bar: rotate left, rotate right, flip, replace, delete at x 287, 322, 355, 388, 423 (y 110).
+click 355 110 1.2; key ctrl+s; sleep 1.5; FR=$(centre "$(saved '#ff0000')"); FB=$(centre "$(saved '#0000ff')")
+check "Flip puts the red half on the right ($FR | $FB)" "[ \"\${FR%% *}\" ] && python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) + 20 else 1)' \${FR%% *} \${FB%% *}"
+click 322 110 1.2; key ctrl+s; sleep 1.5; TR=$(centre "$(saved '#ff0000')"); TB=$(centre "$(saved '#0000ff')")
+check "Rotate right turns it a quarter clockwise: red (right) goes down ($TR / $TB)" "[ \"\${TR#* }\" ] && python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) + 20 else 1)' \${TR#* } \${TB#* }"
+key Delete; sleep 1; key ctrl+s; sleep 1.5; S2=$(saved '#ff0000'); G2=$(saved '#00ff00')
+check "Delete removes the selected image and only it (red: $S2, green: ${G2%% +*})" "! echo \"$S2\" | grep -qE '^[0-9]{2,}' && echo \"$G2\" | grep -qE '^[0-9]{2,} [0-9]{2,}'"
+# ⌘V of an image on the clipboard (magenta, 120×60 px): placed on the page, selected (Delete
+# removes it again).
+convert -size 120x60 xc:'#ff00ff' "$OUT/magenta.png"; xclip -selection clipboard -t image/png -i "$OUT/magenta.png" & CLIP=$!
+sleep 0.5; key ctrl+v; sleep 1.5; key ctrl+s; sleep 1.5; M1=$(saved '#ff00ff')
+key Delete; sleep 1; key ctrl+s; sleep 1.5; M2=$(saved '#ff00ff'); kill $CLIP 2>/dev/null
+check "⌘V places the image on the clipboard, selected (${M1%% +*}, then Delete: ${M2%% +*})" "echo \"$M1\" | grep -qE '^1[12][0-9] (5[0-9]|6[0-9]) ' && ! echo \"$M2\" | grep -qE '^[0-9]{2,}'"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

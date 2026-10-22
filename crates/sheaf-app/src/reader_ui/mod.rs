@@ -165,6 +165,11 @@ pub struct ReaderUi {
     image_resize: Option<ImagePull>,
     /// An image just added to a page and how many the page had: it is selected once listed.
     select_added: Option<(usize, usize)>,
+    /// A pull or drag shown live on its page (Edit tool): the page, whether a preview is on its
+    /// way, and the latest one waiting for it.
+    live: Option<usize>,
+    live_in_flight: bool,
+    live_pending: Option<(usize, Edit)>,
     /// Signature: where the click was, and whether the pad is open to make one.
     sign_at: Option<(usize, (f64, f64))>,
     sign_open: bool,
@@ -296,6 +301,9 @@ impl ReaderUi {
             selected_image: None,
             image_resize: None,
             select_added: None,
+            live: None,
+            live_in_flight: false,
+            live_pending: None,
             sign_at: None,
             sign_open: false,
             print_open: false,
@@ -481,10 +489,18 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 r.in_flight = r.in_flight.saturating_sub(1);
                 if !preview {
                     r.edits_in_flight = r.edits_in_flight.saturating_sub(1);
+                } else if std::mem::take(&mut r.live_in_flight)
+                    && r.live.is_some()
+                    && let Some((page, e)) = r.live_pending.take()
+                {
+                    r.live_in_flight = true;
+                    r.send(Op::Preview { edit: Some(Box::new(e)), pages: vec![page] });
                 }
                 // A refused edit added no undo step: its pages leave the stack too.
                 if applied && error.is_some() {
                     r.undo_pages.pop();
+                    // An image that was not added is not selected later either.
+                    r.select_added = None;
                 }
                 let structural = r.snap.boxes.len() != snap.boxes.len() || r.structure_pending;
                 r.snap = *snap;
@@ -500,18 +516,19 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                     Vec::new()
                 };
                 after_change(r, v, pages.as_deref().filter(|p| !p.is_empty()));
-                // The Edit tool's outlines (paragraphs, images, the selected one) are read again at
-                // once for the pages in view; an image just added is selected then.
-                tools::load_blocks(r, v);
-                if let Some((p, _)) = r.select_added {
-                    r.blocks(p);
-                }
                 for (p, b, i) in kept {
                     r.blocks.insert(p, b);
                     if let Some(i) = i {
                         r.images.insert(p, i);
                     }
                     r.blocks_asked.insert(p);
+                }
+                // The Edit tool's outlines (paragraphs, images, the selected one) are read again at
+                // once for the pages in view (not a previewed page: kept above); an image just
+                // added is selected then.
+                tools::load_blocks(r, v);
+                if let Some((p, _)) = r.select_added {
+                    r.blocks(p);
                 }
                 if r.in_flight == 0 {
                     r.provisional.clear();
