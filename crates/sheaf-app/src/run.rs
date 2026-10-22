@@ -7,7 +7,7 @@ use sheaf_app::prefs::OutputMode;
 use sheaf_app::{AppWindow, ToolOptions};
 use sheaf_core::compress::Level;
 use sheaf_core::crop::{self, CropSpec};
-use sheaf_core::numbers::{self, NumberOptions, NumberText};
+use sheaf_core::numbers::{self, standard_font, NumberOptions, NumberText};
 use sheaf_app::jobs::ExportKind;
 use sheaf_core::compare::CompareMode;
 use sheaf_core::excel::SheetLayout;
@@ -127,12 +127,19 @@ fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
             let fs = opts.num_font_size.trim();
             if fs.is_empty() { 12.0 } else { fs.parse::<f64>().ok().filter(|v| (4.0..=72.0).contains(v)).ok_or_else(|| OpdfError::Unsupported(format!("font size: \"{fs}\" (use 4 to 72 points)")))? }
         },
-        color: WM_COLOURS[opts.num_color.clamp(0, 3) as usize],
+        color: colour(opts.num_color, &opts.num_hex),
+        font: standard_font(opts.num_family.clamp(0, 2) as u8, opts.num_bold, opts.num_italic),
+        underline: opts.num_underline,
     })
 }
 
-/// Colours offered for watermark text.
+/// Colours offered for watermark and page number text.
 const WM_COLOURS: [[f64; 3]; 4] = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [0.85, 0.1, 0.1], [0.1, 0.3, 0.85]];
+
+/// The text colour of a panel: the RRGGBB typed, else preset `k` (the panel refuses a bad hex).
+fn colour(k: i32, hex: &str) -> [f64; 3] {
+    numbers::parse_hex_colour(hex).unwrap_or(WM_COLOURS[k.clamp(0, 3) as usize])
+}
 const WM_ROTATIONS: [f64; 6] = [0.0, 45.0, 90.0, 180.0, 270.0, -45.0];
 
 fn watermark_options(opts: &ToolOptions, batch: bool) -> Result<WatermarkOptions> {
@@ -142,7 +149,7 @@ fn watermark_options(opts: &ToolOptions, batch: bool) -> Result<WatermarkOptions
     } else {
         let fs = opts.wm_font_size.trim();
         let font_size = if fs.is_empty() { 48.0 } else { fs.parse::<f64>().ok().filter(|v| (1.0..=500.0).contains(v)).ok_or_else(|| OpdfError::Unsupported(format!("font size: \"{fs}\" (use 1 to 500 points)")))? };
-        Mark::Text { text: opts.wm_text.to_string(), font_size, color: WM_COLOURS[opts.wm_color.clamp(0, 3) as usize] }
+        Mark::Text { text: opts.wm_text.to_string(), font_size, color: colour(opts.wm_color, &opts.wm_hex) }
     };
     Ok(WatermarkOptions {
         mark,
@@ -152,6 +159,8 @@ fn watermark_options(opts: &ToolOptions, batch: bool) -> Result<WatermarkOptions
         behind: opts.wm_below,
         from,
         to,
+        font: standard_font(opts.wm_family.clamp(0, 2) as u8, opts.wm_bold, opts.wm_italic),
+        underline: opts.wm_underline,
     })
 }
 
@@ -571,8 +580,10 @@ mod tests {
         assert_eq!((options.font_size, options.color), (18.0, [0.85, 0.1, 0.1]));
         // A batch numbers every page of every file, with default names.
         let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
+        (o.num_family, o.num_bold) = (2, true);
         let Job::PageNumbers { items, options } = build_job(ToolId::PageNumbers, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
         assert_eq!((options.from, items[1].1.clone()), (None, PathBuf::from("/o/y-numbered.pdf")));
+        assert_eq!(options.font, Some(numbers::Std14::CourierBold));
         o.from_page = "x".into();
         let e = build_job(ToolId::PageNumbers, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/n.pdf".into())).unwrap_err().to_string();
         // Lowercase after the prefix, like the core's messages.
@@ -585,8 +596,15 @@ mod tests {
         o.wm_rotation = 5;
         o.wm_mosaic = true;
         o.wm_below = true;
+        (o.wm_family, o.wm_bold, o.wm_italic) = (1, true, true);
         let Job::Watermark { options, .. } = build_job(ToolId::Watermark, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/w.pdf".into())).unwrap() else { panic!() };
         assert_eq!(options.mark, Mark::Text { text: "DRAFT".into(), font_size: 30.0, color: [0.0; 3] });
+        assert_eq!(options.font, Some(numbers::Std14::TimesBoldItalic));
+        o.wm_hex = "#1F6FEB".into();
+        o.wm_underline = true;
+        let Job::Watermark { options, .. } = build_job(ToolId::Watermark, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/w.pdf".into())).unwrap() else { panic!() };
+        assert_eq!(options.mark, Mark::Text { text: "DRAFT".into(), font_size: 30.0, color: [31.0 / 255.0, 111.0 / 255.0, 235.0 / 255.0] });
+        assert!(options.underline);
         assert_eq!((options.placement, options.opacity, options.rotation, options.behind), (Placement::Mosaic, 0.5, -45.0, true));
         o.wm_image_mode = true;
         o.wm_image = "/i/logo.png".into();

@@ -403,11 +403,21 @@ export struct ToolOptions {
     num-custom: string,
     num-font-size: string, // points, empty: 12
     num-color: int,        // as wm-color: 0 black, 1 grey, 2 red, 3 blue
+    num-family: int,       // 0 Helvetica, 1 Times, 2 Courier
+    num-bold: bool,
+    num-italic: bool,
+    num-underline: bool,
+    num-hex: string,       // a custom colour RRGGBB: overrides num-color when set
     // Watermark
     wm-image-mode: bool,
     wm-text: string,
     wm-font-size: string,
     wm-color: int,       // 0 black, 1 grey, 2 red, 3 blue
+    wm-family: int,      // as num-family
+    wm-bold: bool,
+    wm-italic: bool,
+    wm-underline: bool,
+    wm-hex: string,      // as num-hex
     wm-image: string,    // picture file path
     wm-scale: int,       // percent of the page
     wm-position: int,    // 3×3 grid cell
@@ -631,6 +641,8 @@ export global Parse {
     pure callback custom-text-error(string) -> string;
     // Why a typed output name is not a valid file name ("" when it is, or when it is empty).
     pure callback file-name-error(string) -> string;
+    // Why a typed colour is not RRGGBB ("" when it is, or when it is empty).
+    pure callback colour-error(string) -> string;
     // A set of codes written ",a,b,": whether `code` is in it, and the set with `code` toggled.
     pure callback has-code(string, string) -> bool;
     pure callback toggle-code(string, string) -> string;

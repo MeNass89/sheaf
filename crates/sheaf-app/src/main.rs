@@ -367,6 +367,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);
+    parse.on_colour_error(|s| if s.trim().is_empty() || sheaf_core::numbers::parse_hex_colour(&s).is_some() { "".into() } else { "Type six hex digits, like 1F6FEB".into() });
     parse.on_file_name_error(|s| dest::file_name_error(&s).unwrap_or_default().into());
     parse.on_custom_text_error(|s| sheaf_core::numbers::custom_text_error(&s).unwrap_or_default().into());
     parse.on_has_code(|set, code| run::has_code(&set, &code));

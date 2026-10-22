@@ -7718,10 +7718,10 @@
    123
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 8,
    "performance": 8,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -7737,6 +7737,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [115, 116, 117, 118, 119, 120, 121, 122, 123]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Font family/B/I/U, size, presets + custom RRGGBB (vendored pdfcraft-edit HeaderFooter.font); tests/numbers.rs numbers_take_the_chosen_font, numbers_can_be_underlined_in_a_custom_colour; joint review round 2: aesthetics 8 (labels not in their font, no swatch, size unlabelled), perf to measure"
    }
   ]
  },
@@ -7884,10 +7895,10 @@
    133
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 6,
+   "function": 8,
+   "aesthetics": 7,
    "performance": 8,
-   "overall": 6
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -7903,6 +7914,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [124, 125, 126, 127, 128, 129, 130, 131, 132, 133]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 7,
+     "performance": 8,
+     "overall": 7
+    },
+    "proof": "Font family/B/I/U, custom colour (vendored Watermark.font/underline); tests/watermark.rs a_text_watermark_takes_the_chosen_font; joint review: live preview is the remaining gap"
    }
   ]
  },

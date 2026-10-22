@@ -4,6 +4,7 @@
 
 use clap::{ArgMatches, Parser, Subcommand, ValueEnum};
 use sheaf_core::compress::Level;
+use sheaf_core::numbers::Std14;
 use sheaf_core::redact::Pattern;
 use sheaf_core::sign;
 use std::path::PathBuf;
@@ -163,6 +164,14 @@ pub(crate) enum Cmd {
         custom: Option<String>,
         #[arg(long, default_value_t = 12.0)]
         font_size: f64,
+        #[arg(long, value_enum, default_value_t = CliFont::Helvetica)]
+        font: CliFont,
+        /// Text colour as RRGGBB
+        #[arg(long, default_value = "000000")]
+        color: String,
+        /// Underline the numbers
+        #[arg(long)]
+        underline: bool,
         #[arg(short, long)]
         out: PathBuf,
     },
@@ -178,6 +187,12 @@ pub(crate) enum Cmd {
         /// Text size in points (1 to 500), or "auto"
         #[arg(long, default_value = "48", value_parser = parse_font_size)]
         font_size: f64,
+        /// The font of --text
+        #[arg(long, value_enum, default_value_t = CliFont::Helvetica)]
+        font: CliFont,
+        /// Underline --text
+        #[arg(long)]
+        underline: bool,
         /// Text colour as RRGGBB
         #[arg(long, default_value = "000000")]
         color: String,
@@ -444,6 +459,44 @@ pub(crate) enum CliSheets {
     OneSheet,
     /// One sheet per table
     SheetPerTable,
+}
+
+/// The twelve standard text fonts, by their PDF names.
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliFont {
+    #[value(name = "Helvetica")]
+    Helvetica,
+    #[value(name = "Helvetica-Bold")]
+    HelveticaBold,
+    #[value(name = "Helvetica-Oblique")]
+    HelveticaOblique,
+    #[value(name = "Helvetica-BoldOblique")]
+    HelveticaBoldOblique,
+    #[value(name = "Times-Roman")]
+    TimesRoman,
+    #[value(name = "Times-Bold")]
+    TimesBold,
+    #[value(name = "Times-Italic")]
+    TimesItalic,
+    #[value(name = "Times-BoldItalic")]
+    TimesBoldItalic,
+    #[value(name = "Courier")]
+    Courier,
+    #[value(name = "Courier-Bold")]
+    CourierBold,
+    #[value(name = "Courier-Oblique")]
+    CourierOblique,
+    #[value(name = "Courier-BoldOblique")]
+    CourierBoldOblique,
+}
+
+impl CliFont {
+    /// The engine's font; `None` for Helvetica, its default.
+    pub(crate) fn std14(self) -> Option<Std14> {
+        use Std14::*;
+        let f = [Helvetica, HelveticaBold, HelveticaOblique, HelveticaBoldOblique, TimesRoman, TimesBold, TimesItalic, TimesBoldItalic, Courier, CourierBold, CourierOblique, CourierBoldOblique][self as usize];
+        Some(f).filter(|f| *f != Helvetica)
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]

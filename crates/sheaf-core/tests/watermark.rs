@@ -133,3 +133,16 @@ fn an_automatic_size_at_the_top_left_stays_inside_the_page() {
         assert_eq!(dark_in(&img, x0, x1, y0, y1), 0, "{name} edge");
     }
 }
+
+#[test]
+fn a_text_watermark_takes_the_chosen_font() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let o = WatermarkOptions { mark: text("DRAFT"), font: sheaf_core::numbers::standard_font(2, true, false), underline: true, ..Default::default() };
+    let (out, _) = watermark(&Input::new(&a), &o, &t.path().join("w.pdf")).unwrap();
+    qpdf_clean(&out);
+    let f = String::from_utf8_lossy(&std::process::Command::new("pdffonts").arg(&out).output().unwrap().stdout).into_owned();
+    assert!(f.contains("Courier-Bold"), "{f}");
+    let qdf = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap().stdout;
+    assert!(String::from_utf8_lossy(&qdf).contains(" re f"), "underlined");
+}

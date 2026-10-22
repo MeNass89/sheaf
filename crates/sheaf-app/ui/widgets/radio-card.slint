@@ -59,6 +59,10 @@ export component RadioCard inherits Rectangle {
 export component Segment inherits Rectangle {
     in property <string> text;
     in property <bool> selected;
+    // The label drawn in a style of its own (a font row shows each choice in its look).
+    in property <string> label-family;
+    in property <bool> label-bold;
+    in property <bool> label-italic;
     callback clicked();
 
     height: 32px;
@@ -69,7 +73,9 @@ export component Segment inherits Rectangle {
     Text {
         text: root.text;
         font-size: Theme.fs-label;
-        font-weight: root.selected ? Theme.weight-demibold : 400;
+        font-weight: root.label-bold ? 700 : root.selected ? Theme.weight-demibold : 400;
+        font-italic: root.label-italic;
+        font-family: root.label-family;
         color: root.selected ? Theme.accent : Theme.text;
     }
     touch := TouchArea {

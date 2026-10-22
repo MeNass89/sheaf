@@ -2,6 +2,7 @@
 //! Header & Footer (`Edit::AddHeaderFooter`).
 
 use crate::pdfcraft::engine::{Edit, HeaderFooter};
+pub use pdfcraft_fonts::Std14;
 use crate::pdfcraft::Doc;
 use crate::{pages::Input, OpdfError, Result};
 use std::path::{Path, PathBuf};
@@ -39,6 +40,28 @@ impl NumberText {
     }
 }
 
+/// The standard font of `family` (0 Helvetica, 1 Times, 2 Courier), bold and/or italic, as the
+/// options panels and the CLI choose it; `None` for plain Helvetica (the engine's default).
+pub fn standard_font(family: u8, bold: bool, italic: bool) -> Option<Std14> {
+    use Std14::*;
+    const FACES: [[Std14; 4]; 3] = [
+        [Helvetica, HelveticaBold, HelveticaOblique, HelveticaBoldOblique],
+        [TimesRoman, TimesBold, TimesItalic, TimesBoldItalic],
+        [Courier, CourierBold, CourierOblique, CourierBoldOblique],
+    ];
+    Some(FACES[family.min(2) as usize][bold as usize + 2 * italic as usize]).filter(|f| *f != Helvetica)
+}
+
+/// A colour typed as RRGGBB (a leading # allowed), as 0–1 components.
+pub fn parse_hex_colour(s: &str) -> Option<[f64; 3]> {
+    let h = s.trim().trim_start_matches('#');
+    if h.len() != 6 || !h.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    let v = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).ok().map(|b| b as f64 / 255.0);
+    Some([v(0)?, v(2)?, v(4)?])
+}
+
 /// Page numbers settings, mirroring the options panel.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NumberOptions {
@@ -59,11 +82,14 @@ pub struct NumberOptions {
     pub text: NumberText,
     pub font_size: f64,
     pub color: [f64; 3],
+    /// The standard font (`None`: Helvetica).
+    pub font: Option<Std14>,
+    pub underline: bool,
 }
 
 impl Default for NumberOptions {
     fn default() -> Self {
-        Self { position: 7, double_sided: false, cover: false, margin: 36.0, from: None, to: None, start: 1, text: NumberText::Number, font_size: 12.0, color: [0.0; 3] }
+        Self { position: 7, double_sided: false, cover: false, margin: 36.0, from: None, to: None, start: 1, text: NumberText::Number, font_size: 12.0, color: [0.0; 3], font: None, underline: false }
     }
 }
 
@@ -116,7 +142,7 @@ pub fn number_pages(input: &Input, o: &NumberOptions, out: &Path) -> Result<(Pat
     let edit = |pages: Vec<usize>, start_number: u32, mirror: bool| -> Result<Edit> {
         let mut text: [String; 6] = Default::default();
         text[slot(o.position, mirror)?] = template.clone();
-        let settings = HeaderFooter { text, font_size: o.font_size, color: o.color, underline: false, margins: [o.margin; 4], start_number };
+        let settings = HeaderFooter { text, font_size: o.font_size, color: o.color, underline: o.underline, margins: [o.margin; 4], start_number, font: o.font };
         Ok(Edit::AddHeaderFooter { pages, settings, replace: false })
     };
     let edits = if o.double_sided {

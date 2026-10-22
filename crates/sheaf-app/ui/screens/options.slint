@@ -175,6 +175,49 @@ component CropPreview inherits Rectangle {
 }
 
 // The tool-specific options between the panel title and the action button.
+// A text font: family (Sans, Serif, Mono: Helvetica, Times, Courier), then the size beside bold,
+// italic and underline, each label drawn in its look.
+component FontRow inherits VerticalLayout {
+    in-out property <int> family;
+    in-out property <bool> bold;
+    in-out property <bool> italic;
+    in-out property <bool> underline;
+    in-out property <string> size;
+    in property <string> size-placeholder;
+    spacing: 10px;
+    SectionLabel { text: "Font"; }
+    HorizontalLayout {
+        spacing: 6px;
+        Segment { text: "Sans"; label-family: "sans-serif"; selected: root.family == 0; clicked => { root.family = 0; } }
+        Segment { text: "Serif"; label-family: "serif"; selected: root.family == 1; clicked => { root.family = 1; } }
+        Segment { text: "Mono"; label-family: "monospace"; selected: root.family == 2; clicked => { root.family = 2; } }
+    }
+    HorizontalLayout {
+        spacing: 6px;
+        TextField { placeholder: root.size-placeholder; text <=> root.size; }
+        Segment { width: 34px; text: "B"; label-bold: true; selected: root.bold; clicked => { root.bold = !root.bold; } }
+        Segment { width: 34px; text: "I"; label-italic: true; selected: root.italic; clicked => { root.italic = !root.italic; } }
+        Segment { width: 34px; text: "U"; selected: root.underline; clicked => { root.underline = !root.underline; } }
+    }
+}
+
+// The text colour: four presets, or any colour typed as RRGGBB (which then takes over).
+component ColourRow inherits VerticalLayout {
+    in-out property <int> colour;
+    in-out property <string> hex;
+    spacing: 10px;
+    SectionLabel { text: "Colour"; }
+    HorizontalLayout {
+        spacing: 6px;
+        for c[k] in ["Black", "Grey", "Red", "Blue"]: Segment {
+            text: c;
+            selected: root.hex == "" && root.colour == k;
+            clicked => { root.colour = k; root.hex = ""; }
+        }
+    }
+    TextField { placeholder: "Custom: RRGGBB"; text <=> root.hex; error: Parse.colour-error(root.hex); }
+}
+
 // Holds its own state; `options` exposes it, `valid` says whether the action may run.
 export component OptionsPanel inherits VerticalLayout {
     in property <string> tool;
@@ -190,8 +233,8 @@ export component OptionsPanel inherits VerticalLayout {
         root.tool == "protect" ? root.password != "" && root.password == root.confirm
         : root.tool == "remove_pages" || root.tool == "extract_pages" ? root.pages != ""
         : root.tool == "split" ? (root.split-mode == 0 ? root.ranges != "" : root.every >= 1)
-        : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == ""))
-        : root.tool == "watermark" ? (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "")
+        : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == "")) && Parse.colour-error(root.num-hex) == ""
+        : root.tool == "watermark" ? (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "" && Parse.colour-error(root.wm-hex) == "")
         : root.tool == "ocr" ? OcrInfo.available && root.ocr-languages != ","
         : root.tool == "pdf_to_word" || root.tool == "pdf_to_powerpoint" || root.tool == "pdf_to_excel" ? !root.export-ocr || OcrInfo.available
         : root.tool == "crop" ? (root.crop-mode == 2 || ((root.crop-mode == 0 || root.pages != "")
@@ -211,6 +254,8 @@ export component OptionsPanel inherits VerticalLayout {
         num-position: root.num-position, num-double: root.num-double, num-cover: root.num-cover,
         num-margin: root.num-margin, num-start: root.num-start, num-text: root.num-text, num-custom: root.num-custom,
         num-font-size: root.num-font-size, num-color: root.num-color,
+        num-family: root.num-family, num-bold: root.num-bold, num-italic: root.num-italic, num-underline: root.num-underline, num-hex: root.num-hex,
+        wm-family: root.wm-family, wm-bold: root.wm-bold, wm-italic: root.wm-italic, wm-underline: root.wm-underline, wm-hex: root.wm-hex,
         wm-image-mode: root.wm-image-mode, wm-text: root.wm-text, wm-font-size: root.wm-font-size,
         wm-color: root.wm-color, wm-image: root.wm-image, wm-scale: root.wm-scale, wm-position: root.wm-position,
         wm-mosaic: root.wm-mosaic, wm-transparency: root.wm-transparency, wm-rotation: root.wm-rotation,
@@ -268,10 +313,20 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> num-custom;
     in-out property <string> num-font-size;
     in-out property <int> num-color: 0;
+    in-out property <int> num-family: 0;
+    in-out property <bool> num-bold;
+    in-out property <bool> num-italic;
+    in-out property <bool> num-underline;
+    in-out property <string> num-hex;
     in-out property <bool> wm-image-mode;
     in-out property <string> wm-text;
-    in-out property <string> wm-font-size: "48";
+    in-out property <string> wm-font-size;
     in-out property <int> wm-color: 0;
+    in-out property <int> wm-family: 0;
+    in-out property <bool> wm-bold;
+    in-out property <bool> wm-italic;
+    in-out property <bool> wm-underline;
+    in-out property <string> wm-hex;
     in-out property <string> wm-image;
     in-out property <int> wm-scale: 50;
     in-out property <int> wm-position: 4;
@@ -533,16 +588,12 @@ export component OptionsPanel inherits VerticalLayout {
             error: Parse.custom-text-error(root.num-custom);
         }
         if root.num-text == 3: InfoBox { text: "{n} is the page number; {p} is the document's total page count."; }
-        // How the numbers look (Acrobat's and Stirling's font size and colour).
-        SectionLabel { text: "Look"; }
-        TextField { label: "Font size"; placeholder: "12"; text <=> root.num-font-size; }
-        HorizontalLayout {
-            spacing: 8px;
-            Segment { text: "Black"; selected: root.num-color == 0; clicked => { root.num-color = 0; } }
-            Segment { text: "Grey"; selected: root.num-color == 1; clicked => { root.num-color = 1; } }
-            Segment { text: "Red"; selected: root.num-color == 2; clicked => { root.num-color = 2; } }
-            Segment { text: "Blue"; selected: root.num-color == 3; clicked => { root.num-color = 3; } }
+        // How the numbers look (Acrobat's and Stirling's font, size and colour).
+        FontRow {
+            family <=> root.num-family; bold <=> root.num-bold; italic <=> root.num-italic; underline <=> root.num-underline;
+            size <=> root.num-font-size; size-placeholder: "Size: 12 pt";
         }
+        ColourRow { colour <=> root.num-color; hex <=> root.num-hex; }
     }
 
     if root.tool == "watermark": VerticalLayout {
@@ -555,15 +606,11 @@ export component OptionsPanel inherits VerticalLayout {
         if !root.wm-image-mode: VerticalLayout {
             spacing: 10px;
             TextField { label: "Text"; placeholder: "CONFIDENTIAL"; text <=> root.wm-text; }
-            TextField { label: "Font size"; placeholder: "48"; text <=> root.wm-font-size; }
-            SectionLabel { text: "Colour"; }
-            HorizontalLayout {
-                spacing: 6px;
-                Segment { text: "Black"; selected: root.wm-color == 0; clicked => { root.wm-color = 0; } }
-                Segment { text: "Grey"; selected: root.wm-color == 1; clicked => { root.wm-color = 1; } }
-                Segment { text: "Red"; selected: root.wm-color == 2; clicked => { root.wm-color = 2; } }
-                Segment { text: "Blue"; selected: root.wm-color == 3; clicked => { root.wm-color = 3; } }
+            FontRow {
+                family <=> root.wm-family; bold <=> root.wm-bold; italic <=> root.wm-italic; underline <=> root.wm-underline;
+                size <=> root.wm-font-size; size-placeholder: "Size: 48 pt";
             }
+            ColourRow { colour <=> root.wm-color; hex <=> root.wm-hex; }
         }
         if root.wm-image-mode: VerticalLayout {
             spacing: 10px;

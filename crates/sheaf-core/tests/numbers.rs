@@ -1,6 +1,6 @@
 mod common;
 use common::{dark_in, fixture_pdf, page_texts, qpdf_clean, render};
-use sheaf_core::numbers::{number_pages, NumberOptions, NumberText};
+use sheaf_core::numbers::{number_pages, standard_font, NumberOptions, NumberText};
 use sheaf_core::pages::Input;
 
 #[test]
@@ -103,4 +103,43 @@ fn from_page_zero_is_an_invalid_range() {
         let o = NumberOptions { from: Some(0), cover, ..Default::default() };
         assert!(matches!(number_pages(&Input::new(&a), &o, &t.path().join("n.pdf")), Err(sheaf_core::OpdfError::InvalidRange { .. })));
     }
+}
+
+/// The fonts a PDF uses, as pdffonts lists them.
+fn fonts(path: &std::path::Path) -> String {
+    String::from_utf8_lossy(&std::process::Command::new("pdffonts").arg(path).output().unwrap().stdout).into_owned()
+}
+
+#[test]
+fn numbers_take_the_chosen_font() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 2);
+    assert_eq!(standard_font(0, false, false), None);
+    let o = NumberOptions { font: standard_font(1, true, true), ..Default::default() };
+    let (out, _) = number_pages(&Input::new(&a), &o, &t.path().join("n.pdf")).unwrap();
+    qpdf_clean(&out);
+    assert!(fonts(&out).contains("Times-BoldItalic"), "{}", fonts(&out));
+    assert!(page_texts(&out)[1].contains('2'));
+    // A font's names are structure, not text: redacting the word "Bold" passes the audit of a
+    // file whose numbers are set in Times-Bold.
+    let o = NumberOptions { font: standard_font(1, true, false), text: NumberText::Custom("Bold {n}".into()), ..Default::default() };
+    let (out, _) = number_pages(&Input::new(&a), &o, &t.path().join("b.pdf")).unwrap();
+    let hits = sheaf_core::redact::find(&Input::new(&out), &sheaf_core::redact::Query::Literal { text: "Bold".into(), case_insensitive: false, whole_word: true }).unwrap();
+    assert_eq!(hits.len(), 2);
+    sheaf_core::redact::apply(&Input::new(&out), &sheaf_core::redact::mark_text(&hits), &[], &t.path().join("r.pdf")).unwrap();
+}
+
+#[test]
+fn numbers_can_be_underlined_in_a_custom_colour() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    assert_eq!(sheaf_core::numbers::parse_hex_colour("#1F6FEB"), Some([31.0 / 255.0, 111.0 / 255.0, 235.0 / 255.0]));
+    for bad in ["", "12345", "GGGGGG", "1234567"] {
+        assert_eq!(sheaf_core::numbers::parse_hex_colour(bad), None, "{bad:?}");
+    }
+    let o = NumberOptions { underline: true, color: [1.0, 0.0, 0.0], ..Default::default() };
+    let (out, _) = number_pages(&Input::new(&a), &o, &t.path().join("u.pdf")).unwrap();
+    let qdf = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap().stdout;
+    let qdf = String::from_utf8_lossy(&qdf);
+    assert!(qdf.contains(" re f") && qdf.contains("1 0 0 rg"), "underline in red");
 }

@@ -44,11 +44,7 @@ fn read_strokes(path: &Path) -> sheaf_core::Result<Vec<Vec<[f64; 2]>>> {
 
 /// "RRGGBB" → RGB in 0..=1.
 fn parse_color(s: &str) -> sheaf_core::Result<[f64; 3]> {
-    let s = s.trim_start_matches('#');
-    let bad = || OpdfError::Unsupported(format!("colour \"{s}\" (use RRGGBB)"));
-    if s.len() != 6 { return Err(bad()); }
-    let c = |i: usize| u8::from_str_radix(&s[i..i + 2], 16).map(|v| v as f64 / 255.0).map_err(|_| bad());
-    Ok([c(0)?, c(2)?, c(4)?])
+    numbers::parse_hex_colour(s).ok_or_else(|| OpdfError::Unsupported(format!("colour \"{s}\" (use RRGGBB)")))
 }
 
 
@@ -169,7 +165,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             one(images::images_to_pdf(&imgs, layout, &out))
         }
         Cmd::Office { input: i, out } => one(office::office_to_pdf(&i, &out)),
-        Cmd::Number { input: i, position, double_sided, cover, margin, from, to, start, text, custom, font_size, out } => {
+        Cmd::Number { input: i, position, double_sided, cover, margin, from, to, start, text, custom, font_size, font, color, underline, out } => {
             let text = match text {
                 NumberFormat::Number => NumberText::Number,
                 NumberFormat::Page => NumberText::Page,
@@ -186,11 +182,13 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 start,
                 text,
                 font_size,
-                ..Default::default()
+                font: font.std14(),
+                color: parse_color(&color)?,
+                underline,
             };
             warned(numbers::number_pages(&input(i), &o, &out))
         }
-        Cmd::Watermark { input: i, text, image, font_size, color, scale, position, transparency, rotate, below, from, to, out } => {
+        Cmd::Watermark { input: i, text, image, font_size, font, underline, color, scale, position, transparency, rotate, below, from, to, out } => {
             let mark = match (text, image) {
                 (_, Some(path)) => Mark::Image { path, scale },
                 (Some(text), None) => Mark::Text { text, font_size, color: parse_color(&color)? },
@@ -200,7 +198,17 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 WmPosition::Mosaic => Placement::Mosaic,
                 p => Placement::Grid(p as u8),
             };
-            let o = WatermarkOptions { mark, placement, opacity: 1.0 - transparency as f64 / 100.0, rotation: rotate as f64, behind: below, from, to };
+            let o = WatermarkOptions {
+                mark,
+                placement,
+                opacity: 1.0 - transparency as f64 / 100.0,
+                rotation: rotate as f64,
+                behind: below,
+                from,
+                to,
+                font: font.std14(),
+                underline,
+            };
             warned(watermark::watermark(&input(i), &o, &out))
         }
         Cmd::Crop { input: i, top, bottom, left, right, remove, pages: p, out } => {
