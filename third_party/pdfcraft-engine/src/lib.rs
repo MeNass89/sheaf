@@ -201,6 +201,7 @@ fn scope_of(edit: &Edit) -> Scope {
         Edit::AddAnnotation(a) if matches!(a.shape, Shape::Attachment { .. }) => Scope::Full,
         Edit::AddMeasurement(_)
         | Edit::AddAnnotation(_)
+        | Edit::AddTextBox { .. }
         | Edit::AddCustomStamp { .. }
         | Edit::DeleteAnnotation { .. }
         | Edit::SetAnnotationContents { .. }
@@ -214,6 +215,7 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::ResizeAnnotation { .. }
         | Edit::StyleAnnotation { .. }
         | Edit::FillAnnotation { .. }
+        | Edit::SetTextFont { .. }
         | Edit::SetAnnotationInfo { .. } => Scope::Comments,
         Edit::SetFieldValue { .. } | Edit::ResetForm { .. } | Edit::SetFieldImage { .. } | Edit::ApplyScriptChanges { .. } => Scope::Form,
         // Page content, resources and added content/marks only: the page tree, annotations,
@@ -1280,6 +1282,24 @@ pub enum Edit {
         index: usize,
         fill: Option<Rgb>,
     },
+    /// Sheaf: a text box (`annotation`, a `Shape::TextBox`) added in `font` (a resource name of
+    /// `pdfcraft_annot::appearance::TEXT_FONTS`), as one step.
+    AddTextBox {
+        annotation: NewAnnotation,
+        font: String,
+        /// `/Q`: 0 left, 1 centre, 2 right.
+        align: u8,
+    },
+    /// Sheaf: a text box's font (a resource name of `pdfcraft_annot::appearance::TEXT_FONTS`,
+    /// "TiBo") and, when given, its size.
+    SetTextFont {
+        page: usize,
+        index: usize,
+        font: String,
+        size: Option<f64>,
+        /// `/Q`: 0 left, 1 centre, 2 right; `None` leaves it.
+        align: Option<u8>,
+    },
     /// Comment properties ▸ General / note icon.
     SetAnnotationInfo {
         page: usize,
@@ -1783,6 +1803,7 @@ impl Edit {
             }),
             Edit::SetMeasurementScale { .. } => Label::of("Set measurement scale"),
             Edit::AddAnnotation(a) => Label::of(add_annotation(&a.shape)),
+            Edit::AddTextBox { .. } => Label::of("Add text box"),
             Edit::AddCustomStamp { .. } => Label::of("Add stamp"),
             Edit::DeleteAnnotation { .. } => Label::of("Delete comment"),
             Edit::SetAnnotationContents { .. } => Label::of("Edit comment"),
@@ -1803,7 +1824,9 @@ impl Edit {
             Edit::LockAnnotation { .. } => Label::of("Unlock comment"),
             Edit::MoveAnnotation { .. } => Label::of("Move comment"),
             Edit::ResizeAnnotation { .. } => Label::of("Resize comment"),
-            Edit::StyleAnnotation { .. } | Edit::FillAnnotation { .. } | Edit::SetAnnotationInfo { .. } => Label::of("Change comment properties"),
+            Edit::StyleAnnotation { .. } | Edit::FillAnnotation { .. } | Edit::SetTextFont { .. } | Edit::SetAnnotationInfo { .. } => {
+                Label::of("Change comment properties")
+            }
             Edit::SetFieldValue { name, .. } => Label::with("Fill in {name}", name.as_str()),
             Edit::SetFieldImage { name, .. } => Label::with("Set the image of {name}", name.as_str()),
             Edit::ResetForm { .. } => Label::of("Clear form"),
@@ -1939,6 +1962,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         }
         Edit::AddMeasurement(_)
         | Edit::AddAnnotation(_)
+        | Edit::AddTextBox { .. }
         | Edit::AddCustomStamp { .. }
         | Edit::DeleteAnnotation { .. }
         | Edit::SetAnnotationContents { .. }
@@ -1952,6 +1976,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::ResizeAnnotation { .. }
         | Edit::StyleAnnotation { .. }
         | Edit::FillAnnotation { .. }
+        | Edit::SetTextFont { .. }
         | Edit::SetAnnotationInfo { .. }
         | Edit::SetMeasurementScale { .. } => {
             if p.annotate() {
@@ -2163,6 +2188,10 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::AddAnnotation(a) => {
             pdfcraft_annot::add_annotation(doc, a, &cx.meta())?;
         }
+        Edit::AddTextBox { annotation, font, align } => {
+            let index = pdfcraft_annot::add_annotation(doc, annotation, &cx.meta())?;
+            pdfcraft_annot::set_text_font(doc, annotation.page, index, font, None, Some(*align), &cx.meta())?;
+        }
         Edit::AddCustomStamp { page, rect, name, file, author } => {
             let src = mark_source(doc, file)?;
             let (sw, sh) = (src.size.0.max(1.0), src.size.1.max(1.0));
@@ -2205,6 +2234,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_annot::set_style(doc, *page, *index, *color, *opacity, *width, endings.as_deref(), &cx.meta())?;
         }
         Edit::FillAnnotation { page, index, fill } => pdfcraft_annot::set_fill(doc, *page, *index, *fill, &cx.meta())?,
+        Edit::SetTextFont { page, index, font, size, align } => pdfcraft_annot::set_text_font(doc, *page, *index, font, *size, *align, &cx.meta())?,
         Edit::SetAnnotationInfo { page, index, author, subject, icon } => {
             pdfcraft_annot::set_info(doc, *page, *index, author.as_deref(), subject.as_deref(), *icon, &cx.meta())?;
         }
@@ -4468,6 +4498,15 @@ impl Session {
 
     pub fn get(&self, id: DocId) -> Option<&Document> {
         self.docs.iter().find(|d| d.id == id)
+    }
+
+    /// Sheaf: the format of every text box on `pages` of document `id`, see
+    /// `pdfcraft_annot::text_fonts` (read only, one walk of the page tree).
+    pub fn text_box_fonts(&self, id: DocId, pages: &[usize]) -> Vec<((usize, usize), (&'static str, f64, u8))> {
+        match self.get(id).and_then(|d| d.editor.as_ref()) {
+            Some(editor) => pdfcraft_annot::text_fonts(&editor.cos, pages),
+            None => Vec::new(),
+        }
     }
 
     /// Read document `id`'s font list again if content edits since the last full inspection may

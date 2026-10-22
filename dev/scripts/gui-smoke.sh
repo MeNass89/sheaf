@@ -109,6 +109,8 @@ quit() { kill "$APP_PID" 2>/dev/null; wait "$APP_PID" 2>/dev/null; APP_PID=; }
 click() { xdotool mousemove "$1" "$2" mousedown 1; sleep 0.08; xdotool mouseup 1; sleep "${3:-0.5}"; }
 # Keys go to the app window: focus it first (Xvfb has no window manager to keep it).
 key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4; }
+# The screen centre "x y" of the first word $1 (OCR at 200 %, its box halved), empty when not seen.
+at() { import -window root png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '$12 == w { printf "%d %d\n", ($7 + $9 / 2) / 2, ($8 + $10 / 2) / 2; exit }'; }
 # ⇧ + a letter, ⇧ held first: xdotool's "shift+t" can deliver the letter before the app has seen ⇧
 # (flaky ⇧T on 21/10); a hand on a keyboard never does.
 shifted() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool keydown shift; sleep 0.1; xdotool key "$1"; xdotool keyup shift; sleep 0.4; }
@@ -225,10 +227,25 @@ xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Added by s
 key Escape; key v; key ctrl+s; sleep 1.5
 check "text added with the Edit tool is in the page content" "pdftotext -f 1 -l 1 $OUT/text.pdf - | grep -q 'Added by smoke'"
 # The format row: Serif, bold, two sizes up → the page gains Times-Bold.
-key e; sleep 0.8; click 360 110 0.3; click 470 110 0.3; click 578 110 0.3; click 578 110 0.3
+# The row: Sans 299, Serif 359, Mono 421, B 470, I 502, align left 534 / centre 568 / right 602,
+# − 635, the size field 680, + 723 (y 110).
+key e; sleep 0.8; click 359 110 0.3; click 470 110 0.3; click 723 110 0.3; click 723 110 0.3
 click 640 680 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Serif bold"; key ctrl+Return; sleep 1.2
 key Escape; key v; key ctrl+s; sleep 1.5; shot 02c-text-format
 check "added text takes the chosen font (Times-Bold)" "pdffonts -f 1 -l 1 $OUT/text.pdf 2>/dev/null | grep -q 'Times-Bold'"
+# A text box in the same row's format plus italic (the row is shared): Times Bold Italic. Then
+# selected (the row takes its format), Mono, aligned right, 30 pt typed: redrawn in Courier Bold
+# Oblique, wrapped on two lines in a box grown to keep them, still one box.
+key t; sleep 0.6; click 502 110 0.3; click 1000 520 0.8
+xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Boxtest in a font"; key ctrl+Return; sleep 1.2
+key v; key ctrl+s; sleep 1.5; shot 02c2-text-box-font
+check "a text box takes the format row's font (Times Bold Italic)" "qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -aq '/BaseFont /Times-BoldItalic'"
+NB=$(qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -ac '/Subtype /FreeText$')
+BX=$(at Boxtest); [ -n "$BX" ] && click $BX 0.8; click 421 110 1; click 602 110 1
+click 680 110 0.3; key ctrl+a; xdotool type --delay 20 "30"; key Return; sleep 1.2
+shot 02c3-text-box-restyled; click 1150 300 0.5; key ctrl+s; sleep 1.5
+QB=$(qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null)
+check "a selected text box takes a new font, alignment and a typed size, and grows ($BX)" "echo \"\$QB\" | grep -aq '/BaseFont /Courier-BoldOblique' && echo \"\$QB\" | grep -aq '/CoBO 30 Tf' && echo \"\$QB\" | grep -aq '/Q 2' && echo \"\$QB\" | grep -aq '(a font) Tj' && [ \$(echo \"\$QB\" | grep -ac '/Subtype /FreeText\$') -eq $NB ]"
 
 # 2d. Edit tool: drag the first paragraph of page 1 down; its words move down in the saved file.
 word_y() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/'; }
@@ -461,8 +478,6 @@ xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Auth
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 # Text on screen, read by tesseract (the tab bar and page titles have no other handle under Xvfb).
 ocr() { import -window root -crop "$1" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '; }
-# The screen centre "x y" of the first word $1 (OCR at 200 %, its box halved), empty when not seen.
-at() { import -window root png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '$12 == w { printf "%d %d\n", ($7 + $9 / 2) / 2, ($8 + $10 / 2) / 2; exit }'; }
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.
 
 # + opens Home ▸ Tools with the search taking the keyboard: typed without clicking the field.

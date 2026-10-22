@@ -1,0 +1,14 @@
+# PdfCraft's annotations (https://github.com/storytold/pdfcraft, crates/annot, MIT OR Apache-2.0) at rev
+# d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24, with the text box font changes: see ../README.md. Its siblings come from the same git rev.
+[package]
+name = "pdfcraft-annot"
+version = "0.8.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Annotations (comments): builders, appearance streams and edits, ISO 32000-2 §12.5"
+
+[dependencies]
+pdfcraft-cos = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-fonts = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-model = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+thiserror = "2"

@@ -132,7 +132,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_set_tool, |ui, id, t| reader_ui::set_tool_and_mark(&ui, id, t));
     wire_global!(ui, rb, on_set_colour, |ui, id, c| reader_ui::set_colour(&ui, id, c));
     rb.on_set_pen_width(reader_ui::set_pen_width);
-    rb.on_text_format(reader_ui::text_format);
+    wire_global!(ui, rb, on_text_format, |ui, id, what, v| reader_ui::text_format(&ui, id, what, v));
+    wire_global!(ui, rb, on_text_size_typed, |ui, id, s| reader_ui::text_size_typed(&ui, id, &s));
     wire_global!(ui, rb, on_set_theme, |ui, id, t| reader_ui::set_theme(&ui, id, t));
     rb.on_set_panel(reader_ui::set_panel);
     rb.on_toggle_panel(reader_ui::toggle_panel);

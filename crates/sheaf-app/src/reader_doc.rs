@@ -32,6 +32,9 @@ pub struct AnnotEntry {
     /// Replies to it, oldest first: "author: text"; and its latest review status ("Accepted").
     pub replies: Vec<String>,
     pub status: String,
+    /// A text box's format: (standard font resource name, "TiBo"; size in points; alignment 0
+    /// left, 1 centre, 2 right).
+    pub font: Option<(&'static str, f64, u8)>,
 }
 
 /// A paragraph of a page as the edit tool shows it (from PdfCraft's `text_blocks`).
@@ -118,6 +121,13 @@ fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
 }
 
 fn snap(doc: &Doc) -> Snap {
+    // Text boxes' fonts, read from the document as edited (the format row shows them): only the
+    // pages holding one are read.
+    let mut pages: Vec<usize> = doc.document().info.annotations.iter().filter(|a| a.subtype == "FreeText").map(|a| a.page).collect();
+    pages.sort_unstable();
+    pages.dedup();
+    let fonts: std::collections::HashMap<(usize, usize), (&'static str, f64, u8)> =
+        if pages.is_empty() { Default::default() } else { doc.session().text_box_fonts(doc.id(), &pages).into_iter().collect() };
     let d = doc.document();
     // Replies and status replies point at their comment's name (/IRT → /NM).
     let mut replies: std::collections::HashMap<&str, Vec<String>> = std::collections::HashMap::new();
@@ -149,6 +159,7 @@ fn snap(doc: &Doc) -> Snap {
             modified: a.modified.clone().unwrap_or_default(),
             replies: a.name.as_deref().and_then(|n| replies.get(n)).cloned().unwrap_or_default(),
             status: a.name.as_deref().and_then(|n| status.get(n)).cloned().unwrap_or_default(),
+            font: fonts.get(&(a.page, a.index)).copied(),
         })
         .collect();
     annots.sort_by_key(|a| (a.page, a.index));
@@ -428,6 +439,15 @@ mod tests {
         let t = std::time::Instant::now();
         let (ops, rx, snap) = started(Path::new(&path));
         println!("open: {:?} ({} pages)", t.elapsed(), snap.boxes.len());
+        // SHEAF_BENCH_BOXES=n: n text boxes first, one a page (each snapshot reads their fonts).
+        let boxes = std::env::var("SHEAF_BENCH_BOXES").ok().and_then(|n| n.parse().ok()).unwrap_or(0).min(snap.boxes.len());
+        for page in 0..boxes {
+            let shape = Shape::TextBox { rect: [72.0, 600.0, 272.0, 640.0], font_size: 12.0 };
+            let style = Style::default_for(&shape);
+            let annotation = NewAnnotation { page, shape, style, contents: "Bench".into(), author: String::new() };
+            ops.send(Op::Apply { edit: Box::new(Edit::AddTextBox { annotation, font: "TiRo".into(), align: 0 }), pages: vec![page] }).unwrap();
+            next(&rx);
+        }
         let edits = std::env::var("SHEAF_BENCH_EDITS").ok().and_then(|n| n.parse().ok()).unwrap_or(3);
         for i in 0..edits {
             let t = std::time::Instant::now();
@@ -540,6 +560,34 @@ mod tests {
         send(Edit::DeleteBookmark { path: vec![0] });
         let (snap, _) = next(&rx);
         assert!(snap.outline.is_empty());
+    }
+
+    #[test]
+    fn a_text_box_takes_a_font_grows_to_fit_and_undoes_in_one_step() {
+        let dir = tempfile::tempdir().unwrap();
+        let (ops, rx, _) = started(&fixture(dir.path(), 1));
+        let send = |e: Edit| ops.send(Op::Apply { edit: Box::new(e), pages: vec![0] }).unwrap();
+        // 100 × 20 pt is one line of 24 pt text: the box grows down to keep all of it.
+        let shape = Shape::TextBox { rect: [72.0, 700.0, 172.0, 720.0], font_size: 24.0 };
+        let style = Style { color: [0.0; 3], width: 0.0, ..Style::default_for(&shape) };
+        let annotation = NewAnnotation { page: 0, shape, style, contents: "A text box that wraps".into(), author: String::new() };
+        send(Edit::AddTextBox { annotation, font: "TiBo".into(), align: 1 });
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        let boxes = |s: &Snap| s.annots.iter().filter(|a| a.subtype == "FreeText").cloned().collect::<Vec<_>>();
+        let b = &boxes(&snap)[0];
+        assert_eq!(b.font, Some(("TiBo", 24.0, 1)));
+        assert!(b.rect[3] - b.rect[1] > 60.0 && (b.rect[3] - 720.0).abs() < 0.01, "grew down from its top: {:?}", b.rect);
+        send(Edit::SetTextFont { page: 0, index: b.index, font: "CoBO".into(), size: Some(10.0), align: Some(2) });
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        assert_eq!(boxes(&snap).len(), 1, "restyled, not added");
+        assert_eq!(boxes(&snap)[0].font, Some(("CoBO", 10.0, 2)));
+        // One undo per step: back to Times Bold, then no box at all.
+        ops.send(Op::Undo { pages: None }).unwrap();
+        assert_eq!(boxes(&next(&rx).0)[0].font, Some(("TiBo", 24.0, 1)));
+        ops.send(Op::Undo { pages: None }).unwrap();
+        assert!(boxes(&next(&rx).0).is_empty());
     }
 
     #[test]

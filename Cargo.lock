@@ -4861,7 +4861,6 @@ dependencies = [
 [[package]]
 name = "pdfcraft-annot"
 version = "0.8.0"
-source = "git+https://github.com/storytold/pdfcraft?rev=d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24#d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24"
 dependencies = [
  "pdfcraft-cos",
  "pdfcraft-fonts",

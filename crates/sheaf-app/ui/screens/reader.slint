@@ -45,7 +45,9 @@ export component ReaderScreen inherits Rectangle {
     property <[color]> light-colours: [#FFDB40, #6BD96B, #61B8FF, #FF7399, #BF80FF];
     property <[color]> ink-colours: [#D93326, #1A1A1F, #1A66E6, #1A994D, #9940D9];
     property <bool> markup-tool: root.tab.reader.tool >= 1 && root.tab.reader.tool <= 3;
-    property <bool> light-tool: root.tab.reader.tool == 0 || root.tab.reader.tool == 1 || root.tab.reader.tool == 4;
+    // The palette shown: a selected comment's own (light for highlights and notes), else the tool's.
+    property <bool> light-tool: root.tab.reader.selected-annot ? root.tab.reader.annot-light
+        : root.tab.reader.tool == 0 || root.tab.reader.tool == 1 || root.tab.reader.tool == 4;
     property <bool> ink-tool: root.tab.reader.tool >= 4;
 
     // Scrolling moves the pages under a still pointer: a link's tooltip no longer applies.
@@ -717,22 +719,48 @@ export component ReaderScreen inherits Rectangle {
                                 text: root.tab.reader.opacity + " %";
                                 clicked => { ReaderBridge.shape-option(root.id, 2, 0); keys.focus(); }
                             }
-                            // Text box: its text size.
-                            if root.tab.reader.tool == 6: HorizontalLayout {
-                                spacing: 4px;
-                                SmallButton { y: 2px; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
-                                Text { text: root.tab.reader.text-size + " pt"; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                SmallButton { y: 2px; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
-                            }
-                            // Edit text: the format of text added on the page.
-                            if root.tab.reader.tool == 7: HorizontalLayout {
+                            // The text format: of text boxes (also the selected one) and of text added on
+                            // the page (Edit text).
+                            if root.tab.reader.tool == 6 || root.tab.reader.tool == 7 || root.tab.reader.selected-text-box: HorizontalLayout {
                                 spacing: 4px;
                                 SmallButton { y: 2px; text: "Sans"; primary: root.tab.reader.text-family == 0; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
                                 SmallButton { y: 2px; text: "Serif"; primary: root.tab.reader.text-family == 1; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
                                 SmallButton { y: 2px; text: "Mono"; primary: root.tab.reader.text-family == 2; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
                                 SmallButton { y: 2px; text: "B"; primary: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
+                                SmallButton { y: 2px; text: "I"; primary: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
+                                for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {
+                                    icon: icon;
+                                    tip: ["Align left", "Centre", "Align right"][k];
+                                    active: root.tab.reader.text-align == k;
+                                    clicked => { ReaderBridge.text-format(root.id, 4, k); }
+                                }
                                 SmallButton { y: 2px; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
-                                Text { text: root.tab.reader.text-size + " pt"; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                // The size: − and + step through the presets; any size can be typed (↩).
+                                Rectangle {
+                                    property <int> shown: root.tab.reader.text-size;
+                                    changed shown => { if !size-field.has-focus { size-field.text = self.shown + " pt"; } }
+                                    init => { size-field.text = self.shown + " pt"; }
+                                    width: 48px;
+                                    height: 26px;
+                                    y: 2px;
+                                    border-radius: Theme.radius-small;
+                                    border-width: size-field.has-focus || size-hover.has-hover ? 1px : 0px;
+                                    border-color: Theme.input-border;
+                                    background: size-field.has-focus ? Theme.input-bg : transparent;
+                                    size-hover := TouchArea { }
+                                    size-field := TextInput {
+                                        font-size: Theme.fs-label;
+                                        color: Theme.text;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                        single-line: true;
+                                        accepted => {
+                                            ReaderBridge.text-size-typed(root.id, self.text);
+                                            self.text = root.tab.reader.text-size + " pt";
+                                            keys.focus();
+                                        }
+                                    }
+                                }
                                 SmallButton { y: 2px; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
                             }
                             if root.tab.reader.has-signature: HorizontalLayout {

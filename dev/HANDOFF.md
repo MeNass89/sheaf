@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 110 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 22/38, batch 1/9, compare 2/7, convert 2/20, edit 4/29, files 8/19, forms 4/17, optimize 1/15, organize 8/27, output 3/15, platform 1/14, preferences 2/14, reader 40/64, security 6/18, sign 6/18.
+**331 components, 112 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 2/20, edit 4/29, files 8/19, forms 4/17, optimize 1/15, organize 8/27, output 3/15, platform 1/14, preferences 2/14, reader 40/64, security 6/18, sign 6/18.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
@@ -52,8 +52,10 @@ Done 21/10: engine speed (`third_party/`), stale grades audited, shapes/eraser/s
 filter, sort, replies, status, hide, summary, remove all), two pages, properties, zoom field, page labels, bookmarks,
 attachments, toolbox Compress flow audited against iLovePDF (`dev/re/evidence/F-001/sheaf-compress-*`).
 Next (audits of 22/10 by the interim reviewer; joint 9/10 rule, see DECISIONS):
-- C-annotate-007 text box: inline typing, font family and bold (PdfCraft's FreeText appearance is Helvetica only:
-  needs `pdfcraft-annot` patched in third_party). C-edit-016 page numbers: font family, bold/italic/underline.
+- Done 22/10: text box fonts (pdfcraft-annot patched: 12 standard fonts, size, alignment, grow to fit) → C-annotate-007
+  and 009 at 9. Left: in-place typing in the box (the Comment pop-up covers it); a typed decimal size is rounded
+  (`text_size_typed` sends whole points); callouts don't grow; C-edit-004 needs text outside WinAnsi (embedded font)
+  and more families. C-edit-016 page numbers: font family, bold/italic/underline (the same font table could serve).
 - C-organize-001 a full-window page grid in the reader with PDF Expert's ops strip.
 - C-output-007 print preview, paper size and orientation, custom scale, selected pages.
 - C-sign-003 several script fonts and a live preview of the typed name.
@@ -70,8 +72,8 @@ DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and
 
 ## Known limits worth the next session
 
-- PdfCraft is patched in `third_party/` (README there): on a PdfCraft rev bump, re-apply the two changes. Asked
-  Nassim whether to send them upstream.
+- PdfCraft is patched in `third_party/` (README there): on a PdfCraft rev bump, re-apply the changes (search
+  "Sheaf:"). Asked Nassim whether to send them upstream.
 - Edit mode (C-edit-001…014): move/resize existing objects, font choice, the glyph problem above.
 - Print: preview, paper size, Windows (C-output-007 at 8); toolbox tools' remaining gaps (convert, optimize).
 
@@ -84,6 +86,8 @@ DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and
   the test app and the ChatGPT desktop app (Nassim: it stays closed), waits for ≥ 3 GB free, caps the build at
   free − 700 MB and gives it OOMScoreAdjust=1000 so a shortage kills the build, not the session. rustc on
   sheaf-app peaks at ~2.4 GB (Slint's generated module). Twice on 21/10 the global OOM killer took the session.
+- Never edit code while a suite runs: each layer compiles at its start, so the verdict would cover a mix
+  (twice on 22/10). Docs only, or wait.
 - Before a full suite (~13 min): `build-safe.sh clippy --workspace --all-targets -- -D warnings` (seconds when
   built) catches the test code a signature change broke; twice on 22/10 a full run died on it.
 - One test file: `build-safe.sh test --workspace --test <name>` (seconds). Never `-p <crate>` alone: features

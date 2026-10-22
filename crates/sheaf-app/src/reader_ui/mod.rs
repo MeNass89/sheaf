@@ -36,7 +36,10 @@ pub const EDIT_TEXT: i32 = 7;
 /// Edit mode: click to place an image.
 pub const ADD_IMAGE: i32 = 8;
 /// Text sizes offered for added text, in points.
-pub const TEXT_SIZES: [f64; 6] = [9.0, 10.0, 12.0, 14.0, 18.0, 24.0];
+pub const TEXT_SIZES: [f64; 15] = [8.0, 9.0, 10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 24.0, 28.0, 32.0, 36.0, 48.0, 72.0];
+/// Added text's alignment by the format row's index (left, centre, right).
+const TEXT_ALIGNS: [sheaf_core::pdfcraft::engine::TextAlign; 3] =
+    [sheaf_core::pdfcraft::engine::TextAlign::Left, sheaf_core::pdfcraft::engine::TextAlign::Center, sheaf_core::pdfcraft::engine::TextAlign::Right];
 
 /// Fill & Sign: click to place the signature (made once, kept for every document).
 pub const SIGN: i32 = 9;
@@ -176,10 +179,13 @@ pub struct ReaderUi {
     stamp: usize,
     /// Shapes and pen: index in `reader::OPACITIES`.
     opacity: usize,
-    /// Added text: index in TEXT_SIZES, 0 Helvetica / 1 Times / 2 Courier, bold.
-    text_size: i32,
+    /// Added text and text boxes: size in points (the presets of TEXT_SIZES, or typed), 0 Helvetica
+    /// / 1 Times / 2 Courier, bold, italic, alignment (0 left, 1 centre, 2 right).
+    text_pt: f64,
     text_family: i32,
     text_bold: bool,
+    text_italic: bool,
+    text_align: i32,
     /// Pages selected in the Pages panel (empty: the current page is meant).
     page_sel: std::collections::BTreeSet<usize>,
     /// The last page clicked in the panel, the anchor of a ⇧-click range.
@@ -286,9 +292,11 @@ impl ReaderUi {
             notes_filter: 0,
             notes_sort: 0,
             stamp: MARKS.len() + StampKind::ALL.iter().position(|k| *k == StampKind::Approved).unwrap_or(0),
-            text_size: 2,
+            text_pt: 12.0,
             text_family: 0,
             text_bold: false,
+            text_italic: false,
+            text_align: 0,
             annot_candidate: None,
             annot_drag: None,
             annot_resize: None,

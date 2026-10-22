@@ -86,13 +86,81 @@ pub fn set_colour(ui: &AppWindow, tab_id: i32, k: i32) {
     }
 }
 
-/// Added text's format: `what` 0 size step (±1 in `v`), 1 family (`v`), 2 bold toggle.
-pub fn text_format(tab_id: i32, what: i32, v: i32) {
-    update(tab_id, |r, _| match what {
-        0 => r.text_size = (r.text_size + v).clamp(0, TEXT_SIZES.len() as i32 - 1),
-        1 => r.text_family = v.clamp(0, 2),
-        _ => r.text_bold = !r.text_bold,
-    });
+/// Text format (added text, text boxes): `what` 0 size step (±1 in `v`, to the next preset), 1
+/// family (`v`), 2 bold toggle, 3 italic toggle, 4 alignment (`v`), 5 size typed (`v` points). With a text box selected (the row then shows its
+/// format, see [`select_annot`]), it takes the new format at once; a click that changes nothing
+/// adds no undo step.
+pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
+    let restyle = update(tab_id, |r, _| {
+        match what {
+            0 => r.text_pt = step_size(r.text_pt, v),
+            5 => r.text_pt = (v as f64).clamp(1.0, 400.0),
+            1 => r.text_family = v.clamp(0, 2),
+            2 => r.text_bold = !r.text_bold,
+            3 => r.text_italic = !r.text_italic,
+            _ => r.text_align = v.clamp(0, 2),
+        }
+        let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| a.subtype == "FreeText" && !a.fill_sign)?;
+        let (font, size, align) = (text_font(r), r.text_pt, r.text_align as u8);
+        let now = a.font.unwrap_or(("Helv", 12.0, 0));
+        let size = ((what == 0 || what == 5) && size != now.1).then_some(size);
+        let align = (align != now.2).then_some(align);
+        if font == now.0 && size.is_none() && align.is_none() {
+            return None;
+        }
+        Some((a.page, Edit::SetTextFont { page: a.page, index: a.index, font: font.into(), size, align }))
+    })
+    .flatten();
+    if let Some((page, e)) = restyle {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
+/// A size typed in the format row: its leading number ("16", "16 pt", "10,5"); anything else is
+/// ignored.
+pub fn text_size_typed(ui: &AppWindow, tab_id: i32, s: &str) {
+    if let Some(v) = typed_size(s) {
+        text_format(ui, tab_id, 5, v.round() as i32);
+    }
+}
+
+fn typed_size(s: &str) -> Option<f64> {
+    let num: String = s.trim().chars().take_while(|c| c.is_ascii_digit() || *c == '.' || *c == ',').collect();
+    num.replace(',', ".").parse::<f64>().ok().filter(|v| *v >= 1.0)
+}
+
+/// The size after `pt` one step up (`dir` > 0) or down: the next preset of TEXT_SIZES, past them
+/// a quarter more or one point less (1–400 pt).
+fn step_size(pt: f64, dir: i32) -> f64 {
+    let next = if dir > 0 {
+        TEXT_SIZES.iter().copied().find(|s| *s > pt).unwrap_or((pt * 1.25).round())
+    } else {
+        TEXT_SIZES.iter().rev().copied().find(|s| *s < pt).unwrap_or(pt - 1.0)
+    };
+    next.clamp(1.0, 400.0)
+}
+
+/// The text box fonts by family (Helvetica, Times, Courier), then regular, bold, italic, bold
+/// italic, as PDF standard font resource names.
+const FONTS: [[&str; 4]; 3] = [["Helv", "HeBo", "HeOb", "HeBO"], ["TiRo", "TiBo", "TiIt", "TiBI"], ["Cour", "CoBo", "CoOb", "CoBO"]];
+
+/// The text box font of the format row, as a PDF standard font resource name ("TiBo").
+pub(super) fn text_font(r: &ReaderUi) -> &'static str {
+    FONTS[r.text_family.clamp(0, 2) as usize][r.text_bold as usize + 2 * r.text_italic as usize]
+}
+
+/// Selects annotation `i`; a text box sets the format row to its font, size and alignment, as PDF
+/// Expert's row shows the selected box's format.
+pub(super) fn select_annot(r: &mut ReaderUi, i: usize) {
+    r.selected_annot = Some(i);
+    let Some((font, size, align)) = r.annots().get(i).and_then(|a| a.font) else { return };
+    r.text_align = align as i32;
+    if let Some((family, style)) = FONTS.iter().enumerate().find_map(|(f, row)| row.iter().position(|n| *n == font).map(|s| (f, s))) {
+        r.text_family = family as i32;
+        r.text_bold = style % 2 == 1;
+        r.text_italic = style >= 2;
+    }
+    r.text_pt = size;
 }
 
 /// Shapes, pen and stamp options: `what` 0 the shape (0 rectangle, 1 oval, 2 line, 3 arrow), 1
@@ -226,7 +294,7 @@ pub fn annot_reply(tab_id: i32, k: i32) {
         let (page, index, rect) = (a.page, a.index, a.rect);
         let size = v.viewer.boxes[page].view_size();
         let [x, y, _, h] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, rect);
-        r.selected_annot = Some(k as usize);
+        select_annot(r, k as usize);
         r.draft = Some(Draft { page, at: (x, y + h + 4.0), kind: 7, block: Some((index, String::new(), rect)), field: None });
         r.note_seq += 1;
         v.show_page(page, Some(rect));
@@ -243,8 +311,30 @@ pub fn annot_clicked(tab_id: i32, k: i32) {
         let k = k.max(0) as usize;
         let Some(a) = r.annots().get(k) else { return };
         let (page, rect) = (a.page, a.rect);
-        r.selected_annot = Some(k);
+        select_annot(r, k);
         r.sel = None;
         v.show_page(page, Some(rect));
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_sizes_step_through_the_presets_and_can_be_typed() {
+        assert_eq!(step_size(12.0, 1), 14.0);
+        assert_eq!(step_size(13.0, 1), 14.0);
+        assert_eq!(step_size(13.0, -1), 12.0);
+        assert_eq!(step_size(72.0, 1), 90.0);
+        assert_eq!(step_size(8.0, -1), 7.0);
+        assert_eq!(step_size(400.0, 1), 400.0);
+        assert_eq!(step_size(1.0, -1), 1.0);
+        assert_eq!(typed_size("16"), Some(16.0));
+        assert_eq!(typed_size(" 16 pt"), Some(16.0));
+        assert_eq!(typed_size("10,5"), Some(10.5));
+        for bad in ["", "pt", "0", "-3", "abc"] {
+            assert_eq!(typed_size(bad), None, "{bad:?}");
+        }
+    }
 }

@@ -151,6 +151,8 @@ export struct ReaderState {
     has-selection: bool,
     selected-text: string,
     selected-annot: bool,
+    // The selected annotation takes the light palette (highlights, notes), not the ink one.
+    annot-light: bool,
     // The selected annotation's colour as an index of its palette (−1: none of the five).
     annot-colour: int,
     // The stroke being drawn with the pen, as SVG path commands in content coordinates.
@@ -164,10 +166,14 @@ export struct ReaderState {
     zoom-mode: int,
     // Pen: 0 fine, 1 medium, 2 thick.
     pen-width: int,
-    // Added text: size in points, 0 Helvetica / 1 Times / 2 Courier, bold.
+    // Added text and text boxes: size in points, 0 Helvetica / 1 Times / 2 Courier, bold, italic.
     text-size: int,
     text-family: int,
     text-bold: bool,
+    text-italic: bool,
+    text-align: int,
+    // The selected annotation is a text box: the text format row restyles it.
+    selected-text-box: bool,
     // Pages selected in the Pages panel.
     pages-selected: int,
     // A form choice field being filled: its options.
@@ -490,6 +496,8 @@ export global ReaderBridge {
     callback set-pen-width(int, int);
     // Added text's format: 0 size step, 1 family, 2 bold toggle.
     callback text-format(int, int, int);
+    // A text size typed in the format row ("16", "16 pt").
+    callback text-size-typed(int, string);
     callback set-theme(int, int);
     callback set-panel(int, int);
     callback toggle-panel(int);

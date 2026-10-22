@@ -174,7 +174,7 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             && r.annots().get(i).is_some_and(|x| !matches!(x.subtype.as_str(), "Highlight" | "Underline" | "StrikeOut" | "Squiggly"))
         {
             r.annot_drag = Some((i, a, b));
-            r.selected_annot = Some(i);
+            select_annot(r, i);
             return;
         }
         r.annot_candidate = None;
@@ -245,7 +245,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         if let Some(i) = r.annot_candidate.take()
             && r.sel.is_none()
         {
-            r.selected_annot = Some(i);
+            select_annot(r, i);
             // A note or text box opens to read and edit its text, as PDF Expert's pop-ups do.
             if let Some(a) = r.annots().get(i)
                 && matches!(a.subtype.as_str(), "Text" | "FreeText")

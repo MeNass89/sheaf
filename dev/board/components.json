@@ -1214,14 +1214,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "FreeText box",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -1244,6 +1244,17 @@
      "overall": 8
     },
     "proof": "T tool, click, type, Done: FreeText saved, moved inside the page near edges (dev/re/evidence/F-002/32); fixed 200 pt width and 12 pt text, no resize yet"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Text box in the format row's font (12 standard fonts, bold, italic), size and alignment, grows to keep its text, one undo step (Edit::AddTextBox, vendored pdfcraft-annot); reader_doc::tests::a_text_box_takes_a_font_grows_to_fit_and_undoes_in_one_step; gui-smoke 'a text box takes the format row's font'; 300 boxes on the 1,982-page book: edit 0.19 → 0.27 s; joint 9, 3 rounds, 22/10"
    }
   ]
  },
@@ -1377,14 +1388,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "font size, colour for text boxes",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -1407,6 +1418,17 @@
      "overall": 7
     },
     "proof": "Text box: size 9–24 pt and colour. Missing: font family (PdfCraft's TextBox shape takes a size only), bold"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Selected text box: the row shows its font/size/alignment, each control restyles only its own setting (Edit::SetTextFont), free size typed or stepped (8–72 presets), no-op clicks add no undo, palette follows the comment; tools::tests::text_sizes_step_through_the_presets_and_can_be_typed; gui-smoke 'a selected text box takes a new font, alignment and a typed size, and grows'; joint 9 round 3"
    }
   ]
  },
@@ -6809,7 +6831,7 @@
   ],
   "grade": {
    "function": 8,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
    "overall": 8
   },
@@ -6838,6 +6860,17 @@
      "overall": 8
     },
     "proof": "New text: family, bold, size, colour (gui-smoke Times-Bold PASS); existing paragraphs keep their font (no restyle yet), no italic or alignment"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Edit text: family, bold, italic, alignment, free size; below 9: text outside WinAnsi and only 3 families (joint review 22/10)"
    }
   ]
  },

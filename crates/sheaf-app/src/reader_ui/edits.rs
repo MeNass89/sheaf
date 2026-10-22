@@ -38,6 +38,7 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::DeleteAnnotation { .. }
         | Edit::EraseInk { .. }
         | Edit::StyleAnnotation { .. }
+        | Edit::SetTextFont { .. }
         | Edit::SetAnnotationContents { .. }
         | Edit::SetAnnotationStatus { .. }
         | Edit::ReplyToAnnotation { .. }
@@ -116,8 +117,12 @@ pub(super) fn after_change(r: &mut ReaderUi, v: &mut ViewerUi, pages: Option<&[u
         None => r.texts.clear(),
     }
     r.version += 1;
-    if r.selected_annot.is_some_and(|i| i >= r.snap.annots.len()) {
-        r.selected_annot = None;
+    // A selection that survives the change is selected again, so the format row shows the
+    // comment as it is now (after an undo, say).
+    match r.selected_annot {
+        Some(i) if i >= r.snap.annots.len() => r.selected_annot = None,
+        Some(i) => select_annot(r, i),
+        None => {}
     }
     r.rows = reader::outline_rows(&r.snap.outline, &r.toggled);
 }
@@ -388,7 +393,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         }
         if d.kind == 3 {
             // The font, size and weight chosen in the options bar (PDF Expert's text format row).
-            let pt = TEXT_SIZES[r.text_size.clamp(0, TEXT_SIZES.len() as i32 - 1) as usize];
+            let pt = r.text_pt;
             let family = match r.text_family {
                 1 => sheaf_core::pdfcraft::engine::FontFamily::Times,
                 2 => sheaf_core::pdfcraft::engine::FontFamily::Courier,
@@ -400,7 +405,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             let rect = [x0, size.1 - (d.at.1 + h), x0 + w + pt, size.1 - d.at.1];
             return Some((
                 d.page,
-                Edit::AddText { page: d.page, text: AddedText { rect, text: text.clone(), size: pt, color: INK[r.ink_colour], family, bold: r.text_bold, ..Default::default() } },
+                Edit::AddText { page: d.page, text: AddedText { rect, text: text.clone(), size: pt, color: INK[r.ink_colour], family, bold: r.text_bold, italic: r.text_italic, align: TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize] } },
             ));
         }
         let (x, y) = viewer::view_to_pdf(b, size, d.at.0, d.at.1);
@@ -408,7 +413,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             Shape::Note { at: [x, y], icon: NoteIcon::Comment }
         } else {
             // A box 200 pt wide, tall enough for the lines typed at the chosen size, kept on the page.
-            let pt = TEXT_SIZES[r.text_size as usize];
+            let pt = r.text_pt;
             let lines = text.lines().count().max(1) as f64 + (text.len() as f64 / (38.0 * 12.0 / pt)).floor();
             // 200 pt wide, moved left or up so the whole box is on the page (PDF Expert does the same).
             let (w, h) = (200.0_f64.min(size.0), (lines * pt * 1.25 + 8.0).min(size.1));
@@ -417,7 +422,9 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             Shape::TextBox { rect: r, font_size: pt }
         };
         let colour = if d.kind == 0 { COLOURS[r.light] } else { INK[r.ink_colour] };
-        Some((d.page, Edit::AddAnnotation(NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 { 1.0 } else { 0.0 }), contents: text, author: author() })))
+        let annotation = NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 { 1.0 } else { 0.0 }), contents: text, author: author() };
+        // A text box in the font of the format row.
+        Some((d.page, if d.kind == 0 { Edit::AddAnnotation(annotation) } else { Edit::AddTextBox { annotation, font: super::tools::text_font(r).into(), align: r.text_align as u8 } }))
     })
     .flatten();
     if let Some((page, e)) = edit {
@@ -444,7 +451,7 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
 }
 
 pub fn annot_delete(ui: &AppWindow, tab_id: i32, k: i32) {
-    update(tab_id, |r, _| r.selected_annot = Some(k.max(0) as usize));
+    update(tab_id, |r, _| select_annot(r, k.max(0) as usize));
     delete_selected(ui, tab_id);
 }
 
