@@ -51,15 +51,22 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 Done 21/10: engine speed (`third_party/`), stale grades audited, shapes/eraser/stamps, notes panel (author, date,
 filter, sort, replies, status, hide, summary, remove all), two pages, properties, zoom field, page labels, bookmarks,
 attachments, toolbox Compress flow audited against iLovePDF (`dev/re/evidence/F-001/sheaf-compress-*`).
-Next, by components lifted (visual audit of 22/10, interim reviewer, what each still lacks):
-- C-annotate-007 text box: type inline on the page, font family and bold; a gui-smoke step.
-- C-organize-001 a full-window page grid in the reader with PDF Expert's ops strip; C-organize-002 drag ghost and
-  autoscroll while dragging thumbnails, a gui-smoke reorder step.
+Next (audits of 22/10 by the interim reviewer; joint 9/10 rule, see DECISIONS):
+- C-annotate-007 text box: inline typing, font family and bold (PdfCraft's FreeText appearance is Helvetica only:
+  needs `pdfcraft-annot` patched in third_party). C-edit-016 page numbers: font family, bold/italic/underline.
+- C-organize-001 a full-window page grid in the reader with PDF Expert's ops strip.
 - C-output-007 print preview, paper size and orientation, custom scale, selected pages.
-- C-sign-002 pen colour and thickness, several kept signatures; C-sign-003 several script fonts, live preview.
-- C-annotate-013 drag a line's ends, Shift for 0/45/90°, arrowhead styles; C-annotate-023 opacity slider, fill
-  colour of its own, dashes, free colour picker.
-- Toolbox audit per tool against iLovePDF (only Compress so far); copy/paste of annotations; menu bar.
+- C-sign-003 several script fonts and a live preview of the typed name.
+- C-annotate-013 drag a line's ends, Shift 0/45/90°, arrowheads; C-annotate-023 opacity slider, own fill colour, dashes
+  (dashes need the engine's Style).
+- Toolbox: per-tool audit against iLovePDF's QML (dev/re/sources/pretty/ilovepdf/.../tools/*Tool.qml), captures by
+  `dev/.tmp/capture-tools.sh` (not kept: it is a dev aid; rewrite from the HANDOFF note if needed).
+- Copy/paste of annotations; menu bar.
+
+## How components reach 9 now
+Author proposes, a second agent reviews (Sol when Codex is under 90 %, else an independent Opus agent, logged in
+DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and gui-smoke screenshots
+(`SMOKE_KEEP=1 bash scripts/test.sh gui`).
 
 ## Known limits worth the next session
 
