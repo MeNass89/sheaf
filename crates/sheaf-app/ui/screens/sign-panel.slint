@@ -16,6 +16,9 @@ component SectionLabel inherits Text {
 // "M x y L x y …" in pad pixels.
 export component Pad inherits Rectangle {
     in property <bool> enabled: true;
+    // The pen as it will sign: colour and width shown while drawing.
+    in property <color> ink: Theme.text;
+    in property <length> pen: 2.5px;
     in-out property <string> commands;
     callback stroke-done(string, length, length);
     property <bool> down;
@@ -39,8 +42,8 @@ export component Pad inherits Rectangle {
         viewbox-width: parent.width / 1px;
         viewbox-height: parent.height / 1px;
         commands: root.commands;
-        stroke: Theme.text;
-        stroke-width: 2.5px;
+        stroke: root.ink;
+        stroke-width: root.pen;
     }
     // The signing line.
     Rectangle {

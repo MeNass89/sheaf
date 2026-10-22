@@ -162,6 +162,15 @@ pub fn last_page(path: &Path) -> Option<usize> {
     with(|h| h.prefs.last_pages.iter().find(|(q, _)| q == &p).map(|(_, n)| *n as usize))
 }
 
+pub fn set_signature_pen(pen: (u8, u8)) {
+    with(|h| {
+        h.prefs.signature_pen = pen;
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
 /// The reader's signature, kept for every document: drawn strokes, or a typed name.
 pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>) {
     with(|h| {

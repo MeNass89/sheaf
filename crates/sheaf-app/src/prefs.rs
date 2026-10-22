@@ -89,6 +89,8 @@ pub struct Prefs {
     /// drawn strokes (pad units, y up) or a typed name.
     pub signature_strokes: Vec<Vec<[f64; 2]>>,
     pub signature_name: Option<String>,
+    /// The signature's pen: colour (index in `reader::SIGNATURE_INKS`) and width (0 fine, 1 medium, 2 bold).
+    pub signature_pen: (u8, u8),
 }
 
 impl Prefs {

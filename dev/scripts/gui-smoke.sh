@@ -162,11 +162,13 @@ key Escape; key s; click 700 500 1
 xdotool mousemove 520 420 mousedown 1; for i in $(seq 0 20); do xdotool mousemove $((520 + i * 12)) $((420 + (i % 3) * 8)); done; xdotool mouseup 1; sleep 0.3
 shot 02b-signature-pad
 A0=$(annots "$OUT/text.pdf")
-# The pad's Use button: bottom right of the centred dialog.
-click 818 536 1.2
+# Blue ink and the bold pen (the pad's first row), then Use (bottom right of the centred dialog).
+click 477 314 0.3; click 610 314 0.3
+click 818 555 1.2
 key ctrl+s; sleep 1.5
 A1=$(annots "$OUT/text.pdf")
 check "a drawn signature is placed and saved ($A0 → $A1)" "[ $A1 -gt $A0 ]"
+check "the signature is in the ink and pen chosen on the pad (blue, bold)" "qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -a -B30 PCFillSign | tr -s ' \\n' ' ' | grep -aq '/W 2.8 >> /C \\[ 0.1 0.32 0.85'"
 click 700 650 1.2; key ctrl+s; sleep 1.5
 A2=$(annots "$OUT/text.pdf")
 check "the kept signature is placed again with one click ($A1 → $A2)" "[ $A2 -gt $A1 ]"

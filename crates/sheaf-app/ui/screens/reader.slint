@@ -799,15 +799,33 @@ export component ReaderScreen inherits Rectangle {
                 padding: 18px;
                 spacing: 12px;
                 Text { text: "Create your signature"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-                pad := Pad { }
+                // The pen: three inks and three widths, as PDF Expert's signature pad.
+                property <int> ink: 0;
+                property <int> pen: 1;
+                HorizontalLayout {
+                    spacing: 6px;
+                    for c[k] in [#1A1A1F, #1A52D9, #0D2673]: ColourDot { y: 2px; colour: c; selected: ink == k; clicked => { ink = k; } }
+                    Rectangle { width: 10px; }
+                    for w[k] in [2px, 4px, 6px]: Rectangle {
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 12px;
+                        border-width: pen == k ? 2px : 0px;
+                        border-color: Theme.text;
+                        Rectangle { width: w; height: w; border-radius: w / 2; background: Theme.text-secondary; }
+                        TouchArea { mouse-cursor: pointer; clicked => { pen = k; } }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                pad := Pad { ink: [#1A1A1F, #1A52D9, #0D2673][ink]; pen: [1.5px, 2.5px, 4px][pen]; }
                 Text { text: "or type your name"; font-size: Theme.fs-caption; color: Theme.text-muted; }
                 typed := TextField { placeholder: "Your name"; }
                 HorizontalLayout {
                     spacing: 8px;
                     SmallButton { text: "Clear"; clicked => { pad.commands = ""; typed.text = ""; } }
                     Rectangle { horizontal-stretch: 1; }
-                    SmallButton { text: "Cancel"; clicked => { ReaderBridge.signature-made(root.id, "", 1px, 1px, ""); keys.focus(); } }
-                    SmallButton { text: "Use"; primary: true; clicked => { ReaderBridge.signature-made(root.id, pad.commands, pad.width, pad.height, typed.text); keys.focus(); } }
+                    SmallButton { text: "Cancel"; clicked => { ReaderBridge.signature-made(root.id, "", 1px, 1px, "", 0, 1); keys.focus(); } }
+                    SmallButton { text: "Use"; primary: true; clicked => { ReaderBridge.signature-made(root.id, pad.commands, pad.width, pad.height, typed.text, ink, pen); keys.focus(); } }
                 }
             }
         }

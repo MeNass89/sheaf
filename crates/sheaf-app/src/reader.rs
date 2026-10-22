@@ -309,6 +309,10 @@ pub fn parse_zoom(text: &str) -> Option<u32> {
     (n.is_finite() && n > 0.0).then(|| n.round().clamp(10.0, 1600.0) as u32)
 }
 
+/// Signature inks (PDF Expert's black, blue, dark blue) and pen widths in points.
+pub const SIGNATURE_INKS: [[f64; 3]; 3] = [[0.1, 0.1, 0.12], [0.1, 0.32, 0.85], [0.05, 0.15, 0.45]];
+pub const SIGNATURE_WIDTHS: [f64; 3] = [1.0, 1.8, 2.8];
+
 /// Opacities offered for shapes and drawings.
 pub const OPACITIES: [f64; 4] = [1.0, 0.75, 0.5, 0.25];
 

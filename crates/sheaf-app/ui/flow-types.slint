@@ -544,7 +544,9 @@ export global ReaderBridge {
     // 0 clear the form, 1 flatten the form fields, 2 flatten fields and comments.
     callback form-op(int, int);
     // The signature pad: commands and pad size, or a typed name; reset forgets the kept one.
-    callback signature-made(int, string, length, length, string);
+    // The pad's answer: strokes (commands, pad width, height), typed name, ink (0 black, 1 blue,
+    // 2 dark blue) and pen (0 fine, 1 medium, 2 bold).
+    callback signature-made(int, string, length, length, string, int, int);
     callback signature-reset(int);
 }
 

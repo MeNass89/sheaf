@@ -19,7 +19,8 @@ pub(super) fn place_signature(ui: &AppWindow, tab_id: i32) {
         let b = &v.viewer.boxes[page];
         let (w, h) = b.view_size();
         let info = render::PageInfo { width: w as f32, height: h as f32, label: String::new(), crop: b.crop.map(|c| c as f32), rotation: b.rotation };
-        Some((page, sheaf_core::sign::signature_edit(&info, page, [at.0, at.1], 150.0_f64.min(w * 0.6), &graphic)))
+        let edit = sheaf_core::sign::signature_edit(&info, page, [at.0, at.1], 150.0_f64.min(w * 0.6), &graphic).map(with_pen);
+        Some((page, edit))
     })
     .flatten();
     match made {
@@ -29,9 +30,27 @@ pub(super) fn place_signature(ui: &AppWindow, tab_id: i32) {
     }
 }
 
+/// A drawn or typed signature in the pen chosen on the pad (colour and width; an image keeps its own).
+fn with_pen(e: Edit) -> Edit {
+    let (ink, width) = crate::home::prefs().signature_pen;
+    match e {
+        Edit::AddAnnotation(mut a) => {
+            a.style.color = reader::SIGNATURE_INKS[(ink as usize).min(2)];
+            if matches!(a.shape, Shape::Signature { .. }) {
+                a.style.width = reader::SIGNATURE_WIDTHS[(width as usize).min(2)];
+            }
+            Edit::AddAnnotation(a)
+        }
+        other => other,
+    }
+}
+
 /// The signature pad's answer: strokes drawn (pad commands and size) or a name typed; empty
 /// cancels. The signature is kept and placed where the tool was clicked.
-pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, w: f32, h: f32, name: &str) {
+/// `pen`: ink and width chosen on the pad (see `reader::SIGNATURE_INKS`, `SIGNATURE_WIDTHS`).
+pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, size: (f32, f32), name: &str, pen: (i32, i32)) {
+    let (w, h) = size;
+    crate::home::set_signature_pen((pen.0.clamp(0, 2) as u8, pen.1.clamp(0, 2) as u8));
     let strokes = crate::sign_ui::pad_strokes(commands, w, h);
     let name = name.trim().to_string();
     update(tab_id, |r, _| r.sign_open = false);
