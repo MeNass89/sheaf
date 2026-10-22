@@ -51,7 +51,7 @@ pub fn open_tool(ui: &AppWindow, tool: ToolId, preload: Vec<PathBuf>) {
     let id = with(|a| {
         a.next_id += 1;
         let t = TabState::new(a.next_id, tool);
-        tabs_model().push(state::build(&t));
+        state::push_tab_row(&t);
         a.tabs.push(t);
         a.next_id
     });
@@ -340,10 +340,12 @@ pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
         a.tabs.remove(i);
         a.pw_queue.retain(|(t, _)| *t != tab_id);
     });
-    tabs_model().remove(i);
+    // The tab before it in the bar takes over (Home after the first).
+    let before = state::tab_order().iter().take_while(|r| *r != i as i32).last();
+    state::remove_tab_row(i);
     let active = ui.get_active_tab();
     if active == i as i32 {
-        ui.set_active_tab(i as i32 - 1);
+        ui.set_active_tab(before.map_or(-1, |r| if r > i as i32 { r - 1 } else { r }));
     } else if active > i as i32 {
         ui.set_active_tab(active - 1);
     }
@@ -363,6 +365,48 @@ pub fn close_tab(ui: &AppWindow, tab_id: i32) {
         ui.set_confirm_visible(true);
     } else {
         remove_tab(ui, tab_id);
+    }
+}
+
+/// A tab dragged from place `from` to `to` in the bar. Only the bar's order changes: every tab's
+/// page, and which one is active, stay as they are.
+pub fn move_tab(from: i32, to: i32) {
+    if from >= 0 && to >= 0 {
+        state::move_in_order(from as usize, to as usize);
+    }
+}
+
+/// ⇧⌘[ and ⇧⌘]: the tab `d` places along the bar from the active one, wrapping (Home not included).
+pub fn step_tab(ui: &AppWindow, d: i32) {
+    let order: Vec<i32> = state::tab_order().iter().collect();
+    let n = order.len() as i32;
+    if n == 0 {
+        return;
+    }
+    let at = order.iter().position(|r| *r == ui.get_active_tab()).map_or(0, |p| p as i32);
+    ui.set_active_tab(order[(at + d).rem_euclid(n) as usize]);
+}
+
+/// The tab bar's menu: close the other tabs (`which` 0), those to the left (1) or to the right
+/// (2) of tab `id`. Tabs with unsaved edits or a running task stay open (they would ask first).
+pub fn close_tabs_around(ui: &AppWindow, id: i32, which: i32) {
+    let ids: Vec<i32> = with(|a| {
+        // Left and right as the bar shows them.
+        let bar: Vec<i32> = state::tab_order().iter().filter_map(|r| a.tabs.get(r as usize)).map(|t| t.id).collect();
+        let Some(at) = bar.iter().position(|t| *t == id) else { return Vec::new() };
+        bar.iter().enumerate().filter(|(i, _)| match which { 1 => *i < at, 2 => *i > at, _ => *i != at }).map(|(_, t)| *t).collect()
+    });
+    let mut kept = 0;
+    for t in ids {
+        let busy = with(|a| a.tab(t).is_some_and(|t| matches!(t.phase, Phase::Running)));
+        if busy || crate::reader_ui::unsaved_name(t).is_some() {
+            kept += 1;
+        } else {
+            remove_tab(ui, t);
+        }
+    }
+    if kept > 0 {
+        toast(ui, &format!("{kept} tab{} with unsaved changes or a running task stayed open", if kept == 1 { "" } else { "s" }));
     }
 }
 

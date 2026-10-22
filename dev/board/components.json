@@ -9477,14 +9477,14 @@
    24
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "document tabs",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -9540,6 +9540,17 @@
      "overall": 8
     },
     "proof": "Tabs share the bar (72–168 px, active 140), scroll past that, × on active/hovered when narrow, middle click closes; gui-smoke twelve tabs; joint review: drag reorder, right-click menu, dividers needed for 9 (iLovePDF)"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Tabs drag to reorder (drop line), right-click Close Other/Left/Right, 1px dividers as iLovePDF; only the bar order moves so tab pages keep options and scroll. gui-smoke 13: drag reorders, dragged document keeps Page 4, Close Other Tabs leaves one. Reviewer (Opus) agreed 9/9/9."
    }
   ]
  },

@@ -151,6 +151,25 @@ impl ViewerUi {
         self.scroll_x = None;
     }
 
+    /// Zooms to `z` percent of the fit width, the view point (ax, ay), scrolled `sx` across, staying
+    /// on the same point of its page; the zoom then settles. Returns the new horizontal scroll.
+    fn zoom_around(&mut self, z: u32, (ax, ay, sx): (f64, f64, f64)) -> Option<f64> {
+        // A wheel step right after another comes before the view has taken the first one's
+        // horizontal scroll: while the zoom settles, ours is the current one.
+        let sx = if self.zoom_settling { self.scroll_x.unwrap_or(sx) } else { sx };
+        let anchor = self.viewer.anchor_of(sx + ax, self.top + ay);
+        if !self.viewer.set_zoom(z) {
+            return None;
+        }
+        let (x, y) = self.viewer.point_of(anchor);
+        self.scroll = (y - ay).clamp(0.0, (self.viewer.content_height() - self.height).max(0.0));
+        self.scroll_x = Some((x - ax).clamp(0.0, self.viewer.max_scroll_x()));
+        self.top = self.scroll;
+        self.scroll_seq += 1;
+        self.zoom_settling = true;
+        self.scroll_x
+    }
+
     /// The page under the middle of the viewport.
     pub fn current(&self) -> usize {
         self.viewer.current(self.top, self.height)
@@ -411,18 +430,9 @@ fn zoom_to_at(ui: &AppWindow, tab_id: i32, z: u32, (ax, ay, sx): (f64, f64, f64)
         }
     });
     update(tab_id, move |v| {
-        let anchor = v.viewer.anchor_of(sx + ax, v.top + ay);
-        if !v.viewer.set_zoom(z) {
-            return None;
-        }
-        let (x, y) = v.viewer.point_of(anchor);
-        v.scroll = (y - ay).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
-        v.scroll_x = Some((x - ax).clamp(0.0, v.viewer.max_scroll_x()));
-        v.top = v.scroll;
-        v.scroll_seq += 1;
-        v.zoom_settling = true;
+        let sx = v.zoom_around(z, (ax, ay, sx))?;
         v.zoom_timer = Some(timer);
-        Some((x - ax).clamp(0.0, v.viewer.max_scroll_x()))
+        Some(sx)
     })
     .flatten()
 }
@@ -737,6 +747,22 @@ pub fn fill_sign(tab: &mut ToolTab, v: &ViewerUi, width: f64, aspect: Option<f64
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_second_wheel_step_before_the_view_scrolls_keeps_the_point() {
+        let pages = (0..3).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        let (ax, ay) = (800.0, 300.0);
+        let anchor = v.viewer.anchor_of(ax, ay);
+        let sx = v.zoom_around(130, (ax, ay, 0.0)).unwrap();
+        assert!(sx > 0.0);
+        // The second step arrives with the view still scrolled 0 across.
+        let sx = v.zoom_around(170, (ax, ay, 0.0)).unwrap();
+        let back = v.viewer.anchor_of(sx + ax, v.top + ay);
+        assert!(back.0 == anchor.0 && (back.1 - anchor.1).abs() < 1e-6 && (back.2 - anchor.2).abs() < 1e-6, "{anchor:?} → {back:?}");
+    }
 
     #[test]
     fn small_wheel_steps_add_up_while_the_zoom_settles() {

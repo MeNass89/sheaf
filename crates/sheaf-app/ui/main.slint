@@ -83,6 +83,8 @@ export component AppWindow inherits Window {
 
     // Tool tabs; active-tab is an index into `tabs`, -1 = Home.
     in property <[ToolTab]> tabs;
+    // The bar's order: rows of `tabs` as the bar shows them (a dragged tab moves only here).
+    in property <[int]> tab-order;
     in-out property <int> active-tab: -1;
 
     // Password dialog
@@ -112,6 +114,11 @@ export component AppWindow inherits Window {
     callback open-file();
     callback open-tool(string);
     callback close-tab(int);
+    // A tab dragged to another place (from, to), and the tab menu's close others / left / right.
+    callback move-tab(int, int);
+    // ⇧⌘[ / ⇧⌘]: the next tab along the bar.
+    callback step-tab(int);
+    callback close-tabs-around(int, int);
     callback add-files(int);
     callback open-slot(int, int);
     callback swap-slots(int);
@@ -196,8 +203,11 @@ export component AppWindow inherits Window {
         VerticalLayout {
             TabBar {
                 tabs: root.tabs;
+                order: root.tab-order;
                 active <=> root.active-tab;
                 close-tab(id) => { root.close-tab(id); }
+                move-tab(from, to) => { root.move-tab(from, to); }
+                close-tabs-around(id, which) => { root.close-tabs-around(id, which); }
                 new-tab => {
                     root.active-tab = -1;
                     root.page = Page.tools;
@@ -275,10 +285,7 @@ export component AppWindow inherits Window {
                     take-keys: root.reader-keys;
                         full-screen(on) => { root.full-screen = on; }
                         open-preferences => { root.show-preferences(); }
-                        switch-tab(d) => {
-                            // Tabs wrap around, Home not included.
-                            root.active-tab = Math.mod(root.active-tab + d + root.tabs.length, root.tabs.length);
-                        }
+                        switch-tab(d) => { root.step-tab(d); }
                     }
                     if !t.is-reader: ToolFlowScreen {
                         visible: t.phase < 2;

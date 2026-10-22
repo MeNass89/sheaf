@@ -590,6 +590,26 @@ N0=$(ntabs); NM=$(ocr 150x36+1095+4 | tr -d ' '); xdotool mousemove 1160 21 clic
 check "twelve tabs share the bar, the active keeps its name, a middle click closes it ($N0 → $N1, $NM)" "[ \"$N0\" = 12 ] && [ \"$N1\" = 11 ] && echo \"$NM\" | grep -q '12'"
 quit
 
+# 13. Four documents: the first, scrolled to its last page, is dragged two places right; the bar
+# reorders and the document keeps its page (only the bar moves, not the tab's page). Its right-click
+# menu then closes the others.
+cp "$OUT/labels.pdf" "$OUT/first.pdf"; for n in second third fourth; do cp "$OUT/form.pdf" "$OUT/$n.pdf"; done
+launch $OUT/first.pdf $OUT/second.pdf $OUT/third.pdf $OUT/fourth.pdf; sleep 4
+read FX0 _ <<< "$(at first 1280x40+0+0)"; xdotool mousemove "${FX0:-0}" 21 click 1; sleep 1; key End; sleep 1; DP0=$(inview)
+read FX0 _ <<< "$(at first 1280x40+0+0)"; read TX0 _ <<< "$(at third 1280x40+0+0)"
+xdotool mousemove "${FX0:-0}" 21 mousedown 1
+for i in $(seq 1 20); do xdotool mousemove $(( ${FX0:-0} + i * 18 )) 21; sleep 0.03; done
+xdotool mouseup 1; sleep 0.8; shot 13-tab-drag
+read FX1 _ <<< "$(at first 1280x40+0+0)"; read TX1 _ <<< "$(at third 1280x40+0+0)"
+check "dragging a tab reorders the bar (first ${FX0:-?} < third ${TX0:-?} → first ${FX1:-?} > third ${TX1:-?})" "[ -n \"$FX1\" ] && [ -n \"$TX1\" ] && [ $FX0 -lt $TX0 ] && [ $FX1 -gt $TX1 ]"
+DP1=$(inview)
+check "a dragged document tab keeps its page ($DP0 → $DP1)" "[ \"$DP0\" = 'Page 4' ] && [ \"$DP1\" = 'Page 4' ]"
+xdotool mousemove "${TX1:-0}" 21 click 3; sleep 0.8
+read OX OY <<< "$(at Other 1280x300+0+0)"; xdotool mousemove "${OX:-0}" "${OY:-0}" click 1; sleep 1
+N2=$(ntabs); TB=$(ocr 1280x40+0+0)
+check "the tab menu's Close Other Tabs leaves only that one ($N2: $TB)" "[ \"$N2\" = 1 ] && echo \"$TB\" | grep -q third"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).

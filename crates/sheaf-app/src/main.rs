@@ -319,6 +319,9 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // Tabs
     wire!(ui, on_close_tab, |ui, id| flow::close_tab(&ui, id));
+    ui.on_move_tab(flow::move_tab);
+    wire!(ui, on_step_tab, |ui, d| flow::step_tab(&ui, d));
+    wire!(ui, on_close_tabs_around, |ui, id, which| flow::close_tabs_around(&ui, id, which));
     wire!(ui, on_confirm_keep, |ui| {
         state::with(|a| a.pending_close = None);
         ui.set_confirm_visible(false);

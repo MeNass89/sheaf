@@ -7,8 +7,15 @@ import { ToolTab } from "../flow-types.slint";
 component TabItem inherits Rectangle {
     in property <ToolTab> tab;
     in property <bool> active;
+    // Draw the divider on its right (an inactive neighbour follows).
+    in property <bool> divider;
     callback select();
     callback close();
+    // Dragged sideways by `dx` (still pressed), then let go.
+    callback drag(length);
+    callback dropped(length);
+    callback close-around(int);
+    property <bool> dragging;
     property <bool> narrow: root.width < 110px;
     width: Theme.tool-tab-width;
     height: Theme.tab-height;
@@ -16,10 +23,36 @@ component TabItem inherits Rectangle {
     border-top-left-radius: Theme.radius-small;
     border-top-right-radius: Theme.radius-small;
     touch := TouchArea {
-        clicked => { root.select(); }
+        clicked => { if !root.dragging { root.select(); } }
         pointer-event(e) => {
             if e.kind == PointerEventKind.up && e.button == PointerEventButton.middle { root.close(); }
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left { root.dragging = false; }
+            if e.kind == PointerEventKind.up && e.button == PointerEventButton.left && root.dragging {
+                root.dropped(self.mouse-x - self.pressed-x);
+                root.dragging = false;
+            }
         }
+        moved => {
+            if self.pressed && abs(self.mouse-x - self.pressed-x) > 6px {
+                root.dragging = true;
+                root.drag(self.mouse-x - self.pressed-x);
+            }
+        }
+    }
+    // Right click: close the others, those to the left or to the right (iLovePDF's tab menu).
+    ContextMenuArea {
+        Menu {
+            MenuItem { title: "Close Other Tabs"; activated => { root.close-around(0); } }
+            MenuItem { title: "Close Tabs to the Left"; activated => { root.close-around(1); } }
+            MenuItem { title: "Close Tabs to the Right"; activated => { root.close-around(2); } }
+        }
+    }
+    if root.divider: Rectangle {
+        x: parent.width - 1px;
+        y: 9px;
+        width: 1px;
+        height: parent.height - 18px;
+        background: Theme.option-border;
     }
     Rectangle {
         x: 12px;
@@ -58,10 +91,22 @@ component TabItem inherits Rectangle {
 
 export component TabBar inherits Rectangle {
     in property <[ToolTab]> tabs;
+    // Rows of `tabs` in the order shown; `active` is a row.
+    in property <[int]> order;
+    // The active tab's place in the bar.
+    property <int> active-at: -1;
     in-out property <int> active: -1;
     callback close-tab(int);
     callback new-tab();
+    callback move-tab(int, int);
+    callback close-tabs-around(int, int);
     height: Theme.tabbar-height;
+    // A tab being dragged: its index and how far, for the drop line.
+    property <int> drag-from: -1;
+    property <length> drag-dx;
+    // Where it would land: whole tab widths away from where it was.
+    property <int> drop-at: root.drag-from < 0 ? -1
+        : clamp(root.drag-from + round(root.drag-dx / (root.other-w + 2px)), 0, root.tabs.length - 1);
     background: Theme.tabbar-bg;
     // Tabs share the bar: full width while they fit, narrower down to 72 px as more open (a
     // browser's), then the row scrolls (wheel or trackpad) and the active tab is kept in view.
@@ -73,15 +118,19 @@ export component TabBar inherits Rectangle {
     property <length> other-w: root.active < 0 || root.tabs.length < 2 ? root.each
         : clamp((root.room - root.active-w - 2px * root.tabs.length) / (root.tabs.length - 1), 72px, Theme.tool-tab-width);
     property <length> row-width: 8px + Theme.tab-width + (root.tabs.length - 1) * (root.other-w + 2px) + root.active-w + 38px;
-    changed active => {
-        if root.active >= 0 {
-            let left = 8px + Theme.tab-width + 2px + root.active * (root.other-w + 2px);
+    changed active => { if root.active < 0 { root.active-at = -1; } }
+    // The active tab is kept in view (its place is set by the tab itself).
+    changed active-at => {
+        if root.active-at >= 0 {
+            let left = 8px + Theme.tab-width + 2px + root.active-at * (root.other-w + 2px);
             if left + root.active-w > -strip.content-x + strip.width { strip.content-x = -(left + root.active-w - strip.width + 4px); }
             if left < -strip.content-x { strip.content-x = min(0px, -(left - 8px)); }
         }
     }
 
     strip := Flickable {
+        // Scrolled by wheel or trackpad only: a mouse drag moves a tab.
+        interactive: false;
         y: parent.height - Theme.tab-height;
         height: Theme.tab-height;
         content-width: max(root.row-width, self.width);
@@ -120,12 +169,23 @@ export component TabBar inherits Rectangle {
                 }
             }
         }
-        for t[i] in root.tabs: TabItem {
-            width: root.active == i ? root.active-w : root.other-w;
-            tab: t;
-            active: root.active == i;
-            select => { root.active = i; }
-            close => { root.close-tab(t.id); }
+        for k[i] in root.order: TabItem {
+            width: root.active == k ? root.active-w : root.other-w;
+            divider: root.active != k && i + 1 < root.order.length && root.active != root.order[i + 1];
+            init => { if root.active == k { root.active-at = i; } }
+            changed active => { if self.active { root.active-at = i; } }
+            drag(dx) => { root.drag-from = i; root.drag-dx = dx; }
+            dropped(dx) => {
+                root.drag-dx = dx;
+                let to = root.drop-at;
+                root.drag-from = -1;
+                root.move-tab(i, to);
+            }
+            close-around(which) => { root.close-tabs-around(root.tabs[k].id, which); }
+            tab: root.tabs[k];
+            active: root.active == k;
+            select => { root.active = k; }
+            close => { root.close-tab(root.tabs[k].id); }
         }
         Rectangle {
             width: 34px;
@@ -134,6 +194,14 @@ export component TabBar inherits Rectangle {
                 clicked => { root.new-tab(); }
             }
         }
+    }
+    // Where a dragged tab will go.
+    if root.drag-from >= 0 && root.drop-at != root.drag-from: Rectangle {
+        property <length> left: 8px + Theme.tab-width + 2px + root.drop-at * (root.other-w + 2px);
+        x: root.drop-at > root.drag-from ? self.left + root.other-w : self.left - 2px;
+        width: 2px;
+        height: Theme.tab-height;
+        background: Theme.accent;
     }
     }
     Rectangle {

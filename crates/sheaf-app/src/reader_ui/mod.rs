@@ -395,7 +395,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
         let mut t = TabState::new(a.next_id, sheaf_core::tools::ToolId::Edit);
         t.reader_loading = Some(file_name(&path));
         t.reader_file = Some(canon.clone());
-        tabs_model().push(crate::state::build(&t));
+        crate::state::push_tab_row(&t);
         a.tabs.push(t);
         a.next_id
     });

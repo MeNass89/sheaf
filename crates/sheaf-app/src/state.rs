@@ -501,14 +501,50 @@ pub fn with<R>(f: impl FnOnce(&mut App) -> R) -> R {
     APP.with(|a| f(&mut a.borrow_mut()))
 }
 
+/// The tab bar's order: rows of [`tabs_model`] as the bar shows them. Dragging a tab reorders
+/// only this, so no tab's page is rebuilt (its options and scroll stay).
+pub fn tab_order() -> Rc<VecModel<i32>> {
+    ORDER.with(|t| t.borrow().clone().expect("tab order installed at startup"))
+}
+
 thread_local! {
     static TABS: RefCell<Option<Rc<VecModel<ToolTab>>>> = const { RefCell::new(None) };
+    static ORDER: RefCell<Option<Rc<VecModel<i32>>>> = const { RefCell::new(None) };
 }
 
 pub fn install_tabs_model(ui: &AppWindow) {
     let m = Rc::new(VecModel::<ToolTab>::default());
     TABS.with(|t| *t.borrow_mut() = Some(m.clone()));
     ui.set_tabs(ModelRc::from(m));
+    let o = Rc::new(VecModel::<i32>::default());
+    ORDER.with(|t| *t.borrow_mut() = Some(o.clone()));
+    ui.set_tab_order(ModelRc::from(o));
+}
+
+/// Adds tab `t`'s row, last in the bar; returns its row.
+pub fn push_tab_row(t: &TabState) -> i32 {
+    let m = tabs_model();
+    m.push(build(t));
+    let row = m.row_count() as i32 - 1;
+    tab_order().push(row);
+    row
+}
+
+/// Takes out row `i` of the tabs model and its place in the bar.
+pub fn remove_tab_row(i: usize) {
+    tabs_model().remove(i);
+    let order = tab_order();
+    let rows: Vec<i32> = order.iter().filter(|r| *r != i as i32).map(|r| if r > i as i32 { r - 1 } else { r }).collect();
+    order.set_vec(rows);
+}
+
+/// Moves the tab at place `from` of the bar to place `to`.
+pub fn move_in_order(from: usize, to: usize) {
+    let order = tab_order();
+    if from < order.row_count() && to < order.row_count() && from != to {
+        let r = order.remove(from);
+        order.insert(to, r);
+    }
 }
 
 /// Pushes the tab `id` into its model row.
