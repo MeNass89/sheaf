@@ -1,0 +1,327 @@
+// The reader's toolbar: side panel, annotation tools, page field, zoom, page theme, search, the
+// More menu, undo/redo/save.
+import { Theme } from "../theme.slint";
+import { ToolButton, Divider } from "reader-parts.slint";
+import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
+
+export component ReaderToolbar inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    in property <bool> is-full-screen;
+    // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
+    in property <bool> narrow;
+    in-out property <bool> bare;
+    // What the search field holds (the side panel lists its results).
+    out property <string> search-text: search-in.text;
+    // The keyboard back to the pages; Presentation; full screen on or off (More menu).
+    callback focus-pages();
+    callback present();
+    callback toggle-full-screen();
+
+    property <string> page-text: root.tab.reader.page-text;
+    changed page-text => { if !page-in.has-focus { page-in.text = root.page-text; } }
+
+    // ⌥⌘G: the page field, its text selected.
+    public function focus-page-field() { page-in.focus(); page-in.select-all(); }
+    // ⌘F: the search field, its text selected.
+    public function focus-search() { search-in.focus(); search-in.select-all(); }
+    // The given words in the search field, searched.
+    public function search-for(text: string) {
+        search-in.text = text;
+        ReaderBridge.search(root.id, search-in.text);
+    }
+
+    height: root.bare ? 0px : 46px;
+    visible: !root.bare;
+    background: Theme.panel-bg;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 10px;
+        spacing: 4px;
+        alignment: stretch;
+        HorizontalLayout {
+            spacing: 2px;
+            alignment: start;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            ToolButton { icon: @image-url("../icons/panel-left.svg"); tip: "Side panel"; active: root.tab.reader.panel-open; clicked => { ReaderBridge.toggle-panel(root.id); } }
+            Rectangle { width: 6px; }
+            Divider { y: 5px; }
+            Rectangle { width: 6px; }
+            ToolButton { icon: @image-url("../icons/mouse-pointer-2.svg"); tip: "Select text (V)"; active: root.tab.reader.tool == 0; clicked => { ReaderBridge.set-tool(root.id, 0); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight (H)"; active: root.tab.reader.tool == 1; clicked => { ReaderBridge.set-tool(root.id, 1); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline (U)"; active: root.tab.reader.tool == 2; clicked => { ReaderBridge.set-tool(root.id, 2); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough (K)"; active: root.tab.reader.tool == 3; clicked => { ReaderBridge.set-tool(root.id, 3); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/sticky-note.svg"); tip: "Note (N)"; active: root.tab.reader.tool == 4; clicked => { ReaderBridge.set-tool(root.id, 4); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Pen (P)"; active: root.tab.reader.tool == 5; clicked => { ReaderBridge.set-tool(root.id, 5); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/shapes.svg"); tip: "Shapes (R)"; active: root.tab.reader.tool == 10; clicked => { ReaderBridge.set-tool(root.id, 10); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/eraser.svg"); tip: "Eraser (X)"; active: root.tab.reader.tool == 11; clicked => { ReaderBridge.set-tool(root.id, 11); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/stamp.svg"); tip: "Stamp (M)"; active: root.tab.reader.tool == 12; clicked => { ReaderBridge.set-tool(root.id, 12); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/type.svg"); tip: "Text box (T)"; active: root.tab.reader.tool == 6; clicked => { ReaderBridge.set-tool(root.id, 6); root.focus-pages(); } }
+            Rectangle { width: 6px; }
+            Divider { y: 5px; }
+            Rectangle { width: 6px; }
+            ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text (E)"; active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image (I)"; active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/signature.svg"); tip: "Sign (S)"; active: root.tab.reader.tool == 9; clicked => { ReaderBridge.set-tool(root.id, 9); root.focus-pages(); } }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        // Page field and zoom
+        HorizontalLayout {
+            spacing: 4px;
+            alignment: center;
+            padding-top: 9px;
+            padding-bottom: 9px;
+            Rectangle {
+                width: 46px;
+                border-radius: Theme.radius-small;
+                border-width: 1px;
+                border-color: page-in.has-focus ? Theme.text-secondary : Theme.input-border;
+                background: Theme.input-bg;
+                page-in := TextInput {
+                    // Back to the page shown once the field is left or a jump is done.
+                    changed has-focus => { if !self.has-focus { self.text = root.tab.reader.page-text; } }
+                    x: 6px;
+                    width: parent.width - 12px;
+                    text: root.tab.reader.page-text;
+                    font-size: Theme.fs-label;
+                    color: Theme.text;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    single-line: true;
+                    accepted => {
+                        ReaderBridge.go-to-page(root.id, self.text);
+                        root.focus-pages();
+                        self.text = root.tab.reader.page-text;
+                    }
+                }
+            }
+            Text {
+                text: root.tab.reader.page-counter;
+                font-size: Theme.fs-label;
+                color: Theme.text-muted;
+                vertical-alignment: center;
+            }
+            Rectangle { width: 8px; }
+            if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-out.svg"); tip: "Zoom out (⌘−)"; clicked => { ViewerBridge.zoom-step(root.id, -1); } }
+            // The zoom: type a percentage (↩), or pick one from the list (PDF Expert's zoom menu).
+            Rectangle {
+                property <int> shown: root.tab.viewer-zoom;
+                changed shown => { if !zoom-field.has-focus { zoom-field.text = self.shown + "%"; } }
+                init => { zoom-field.text = self.shown + "%"; }
+                width: 62px;
+                height: 26px;
+                border-radius: Theme.radius-small;
+                border-width: zoom-field.has-focus || zoom-hover.has-hover ? 1px : 0px;
+                border-color: Theme.input-border;
+                background: zoom-field.has-focus ? Theme.input-bg : transparent;
+                zoom-hover := TouchArea { }
+                zoom-field := TextInput {
+                    x: 4px;
+                    width: 40px;
+                    font-size: Theme.fs-label;
+                    color: Theme.text;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    single-line: true;
+                    accepted => { ReaderBridge.zoom-typed(root.id, self.text); root.focus-pages(); }
+                }
+                Image {
+                    x: parent.width - 16px;
+                    width: 11px;
+                    height: 11px;
+                    source: @image-url("../icons/chevron-down.svg");
+                    colorize: Theme.text-secondary;
+                }
+                TouchArea {
+                    x: parent.width - 18px;
+                    width: 18px;
+                    mouse-cursor: pointer;
+                    clicked => { zoom-menu.show(); }
+                }
+                zoom-menu := PopupWindow {
+                    x: 0;
+                    y: parent.height + 4px;
+                    width: 120px;
+                    Rectangle {
+                        background: Theme.card;
+                        border-radius: Theme.radius-small;
+                        border-width: 1px;
+                        border-color: Theme.input-border;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: #00000033;
+                        VerticalLayout {
+                            padding: 4px;
+                            for z in ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%"]: Rectangle {
+                                height: 26px;
+                                background: zt.has-hover ? Theme.popup-hover : transparent;
+                                border-radius: Theme.radius-small;
+                                Text { x: 10px; text: z; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                zt := TouchArea { clicked => { ReaderBridge.zoom-typed(root.id, z); root.focus-pages(); } }
+                            }
+                            Rectangle { height: 1px; background: Theme.sidebar-border; }
+                            for f[k] in ["Fit width", "Fit page"]: Rectangle {
+                                height: 26px;
+                                background: ft.has-hover ? Theme.popup-hover : transparent;
+                                border-radius: Theme.radius-small;
+                                Text { x: 10px; text: f; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                ft := TouchArea { clicked => { ReaderBridge.zoom-fit(root.id, k); root.focus-pages(); } }
+                            }
+                        }
+                    }
+                }
+            }
+            if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-in.svg"); tip: "Zoom in (⌘+)"; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
+            ToolButton {
+                y: -2px;
+                icon: @image-url("../icons/columns-2.svg");
+                active: root.tab.reader.spread > 0;
+                tip: (root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide") + " (⌥⌘2)";
+                clicked => { ReaderBridge.cycle-spread(root.id); root.focus-pages(); }
+            }
+            ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        HorizontalLayout {
+            spacing: 2px;
+            alignment: end;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            if !root.narrow: ToolButton { icon: @image-url("../icons/sun.svg"); tip: "Day"; active: root.tab.reader.theme == 0; clicked => { ReaderBridge.set-theme(root.id, 0); } }
+            if !root.narrow: ToolButton { icon: @image-url("../icons/book-open.svg"); tip: "Sepia"; active: root.tab.reader.theme == 2; clicked => { ReaderBridge.set-theme(root.id, 2); } }
+            if !root.narrow: ToolButton { icon: @image-url("../icons/moon.svg"); tip: "Night"; active: root.tab.reader.theme == 1; clicked => { ReaderBridge.set-theme(root.id, 1); } }
+            // Day → Sepia → Night → Day.
+            if root.narrow: ToolButton {
+                icon: root.tab.reader.theme == 0 ? @image-url("../icons/sun.svg") : root.tab.reader.theme == 2 ? @image-url("../icons/book-open.svg") : @image-url("../icons/moon.svg");
+                tip: "Page theme";
+                clicked => { ReaderBridge.set-theme(root.id, root.tab.reader.theme == 0 ? 2 : root.tab.reader.theme == 2 ? 1 : 0); }
+            }
+            Rectangle { width: 6px; }
+            // Search
+            Rectangle {
+                // Narrower in a small window, so the toolbar always fits (the window's
+                // minimum is 900 px).
+                width: root.narrow ? 110px : clamp(root.width - 1090px, 110px, 210px);
+                border-radius: Theme.radius-button;
+                border-width: 1px;
+                border-color: search-in.has-focus ? Theme.text-secondary : Theme.input-border;
+                background: Theme.input-bg;
+                Image {
+                    x: 8px;
+                    width: 14px;
+                    height: 14px;
+                    source: @image-url("../icons/search.svg");
+                    colorize: Theme.text-muted;
+                }
+                Text {
+                    x: 28px;
+                    visible: search-in.text == "";
+                    text: "Search";
+                    font-size: Theme.fs-label;
+                    color: Theme.text-disabled;
+                    vertical-alignment: center;
+                }
+                search-in := TextInput {
+                    x: 28px;
+                    width: parent.width - 28px - count.width - 8px;
+                    font-size: Theme.fs-label;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                    single-line: true;
+                    accepted => {
+                        if root.tab.reader.search-count != "" && !root.tab.reader.search-busy {
+                            ReaderBridge.search-step(root.id, 1);
+                        } else {
+                            ReaderBridge.search(root.id, self.text);
+                        }
+                    }
+                    // Any change drops the results of the old text: Enter then searches the new one.
+                    edited => { ReaderBridge.search-clear(root.id); }
+                    key-pressed(e) => {
+                        if e.text == Key.Escape {
+                            self.text = "";
+                            ReaderBridge.search-clear(root.id);
+                            root.focus-pages();
+                            return accept;
+                        }
+                        if e.text == Key.Return && e.modifiers.shift {
+                            ReaderBridge.search-step(root.id, -1);
+                            return accept;
+                        }
+                        if e.modifiers.control && (e.text == "g" || e.text == "G") {
+                            ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1);
+                            return accept;
+                        }
+                        reject
+                    }
+                }
+                count := Text {
+                    x: parent.width - self.width - 8px;
+                    text: root.tab.reader.search-count;
+                    font-size: Theme.fs-caption;
+                    color: Theme.text-muted;
+                    vertical-alignment: center;
+                }
+            }
+            Rectangle { width: 6px; }
+            // More: how the window shows the document (PDF Expert's View menu), print, properties.
+            ToolButton {
+                icon: @image-url("../icons/ellipsis.svg");
+                tip: "More";
+                clicked => { view-menu.show(); }
+                view-menu := PopupWindow {
+                    x: parent.width - 240px;
+                    y: parent.height + 6px;
+                    width: 240px;
+                    Rectangle {
+                        background: Theme.card;
+                        border-radius: Theme.radius-small;
+                        border-width: 1px;
+                        border-color: Theme.input-border;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: #00000033;
+                        VerticalLayout {
+                            padding: 4px;
+                            for item[k] in [
+                                { text: "Presentation", keys: "⇧⌘P", on: false },
+                                { text: "Full screen", keys: "⌃⌘F", on: root.is-full-screen },
+                                { text: "Hide toolbar", keys: "⇧T", on: root.bare },
+                                { text: "Highlight links", keys: "⇧⌘L", on: root.tab.reader.show-links },
+                                { text: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide", keys: "⌥⌘2", on: false },
+                                { text: "Print…", keys: "⌘P", on: false },
+                                { text: "Document properties…", keys: "⌘D", on: false },
+                            ]: Rectangle {
+                                height: 28px;
+                                border-radius: Theme.radius-small;
+                                background: vt.has-hover ? Theme.popup-hover : transparent;
+                                Text { x: 10px; text: (item.on ? "✓ " : "") + item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                Text { x: parent.width - self.width - 10px; text: item.keys; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                                vt := TouchArea {
+                                    clicked => {
+                                        if k == 0 { root.present(); }
+                                        if k == 1 { root.toggle-full-screen(); }
+                                        if k == 2 { root.bare = !root.bare; }
+                                        if k == 3 { ReaderBridge.toggle-links(root.id); }
+                                        if k == 4 { ReaderBridge.cycle-spread(root.id); }
+                                        if k == 5 { ReaderBridge.print-open(root.id); }
+                                        if k == 6 { ReaderBridge.props-open(root.id); }
+                                        root.focus-pages();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: "Undo (⌘Z)"; enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
+            ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
+            ToolButton { icon: @image-url("../icons/wrench.svg"); tip: "Use a tool on this PDF"; clicked => { ReaderBridge.to-tools(root.id); } }
+            ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? "Save (⌘S)" : "Saved"; enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
+        }
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Theme.sidebar-border;
+    }
+}

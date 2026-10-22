@@ -1,0 +1,167 @@
+// The reader's options bar, floating over the top of the pages: the tool in use's options (stamp,
+// shapes, pen widths, opacity, text format, signatures, colours) and the form's actions.
+import { Theme } from "../theme.slint";
+import { ToolButton, SmallButton, ColourDot } from "reader-parts.slint";
+import { SortCombo } from "../widgets/sort-combo.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
+
+export component ReaderOptionsBar inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    // The palettes, and which one is shown (see reader.slint).
+    in property <[color]> light-colours;
+    in property <[color]> ink-colours;
+    in property <bool> light-tool;
+    // The width the bar's content asks for.
+    out property <length> bar-width: optbar.preferred-width;
+    // The keyboard back to the pages.
+    callback focus-pages();
+
+    height: 36px;
+    border-radius: Theme.radius-item;
+    background: Theme.card;
+    drop-shadow-blur: 10px;
+    drop-shadow-color: #00000030;
+    drop-shadow-offset-y: 2px;
+    optbar := HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        spacing: 4px;
+        // Stamp: which one (a click on the page places it).
+        if root.tab.reader.tool == 12: SortCombo {
+            y: 2px;
+            width: 200px;
+            options: root.tab.reader.stamps;
+            current-index: root.tab.reader.stamp;
+            chevron: @image-url("../icons/chevron-down.svg");
+            selected(i) => { ReaderBridge.shape-option(root.id, 3, i); root.focus-pages(); }
+        }
+        // Shapes: which one, filled or not.
+        if root.tab.reader.tool == 10: HorizontalLayout {
+            spacing: 0px;
+            ToolButton { icon: @image-url("../icons/square.svg"); tip: "Rectangle"; active: root.tab.reader.shape-kind == 0; clicked => { ReaderBridge.shape-option(root.id, 0, 0); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/circle.svg"); tip: "Oval"; active: root.tab.reader.shape-kind == 1; clicked => { ReaderBridge.shape-option(root.id, 0, 1); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/slash.svg"); tip: "Line"; active: root.tab.reader.shape-kind == 2; clicked => { ReaderBridge.shape-option(root.id, 0, 2); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/move-up-right.svg"); tip: "Arrow"; active: root.tab.reader.shape-kind == 3; clicked => { ReaderBridge.shape-option(root.id, 0, 3); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Fill"; primary: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); root.focus-pages(); } }
+        }
+        if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.tool == 11: HorizontalLayout {
+            spacing: 2px;
+            padding-left: 6px;
+            for w[k] in [2px, 4px, 7px]: Rectangle {
+                y: 4px;
+                width: 22px;
+                height: 22px;
+                border-radius: 11px;
+                border-width: root.tab.reader.pen-width == k ? 2px : 0px;
+                border-color: Theme.text;
+                Rectangle {
+                    width: w;
+                    height: w;
+                    border-radius: w / 2;
+                    background: Theme.text-secondary;
+                }
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { ReaderBridge.set-pen-width(root.id, k); root.focus-pages(); }
+                }
+            }
+        }
+        if root.tab.reader.tool == 5 || root.tab.reader.tool == 10: SmallButton {
+            y: 2px;
+            text: root.tab.reader.opacity + " %";
+            clicked => { ReaderBridge.shape-option(root.id, 2, 0); root.focus-pages(); }
+        }
+        // The text format: of text boxes (also the selected one) and of text added on
+        // the page (Edit text).
+        if root.tab.reader.tool == 6 || root.tab.reader.tool == 7 || root.tab.reader.selected-text-box: HorizontalLayout {
+            spacing: 4px;
+            SmallButton { y: 2px; text: "Sans"; primary: root.tab.reader.text-family == 0; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
+            SmallButton { y: 2px; text: "Serif"; primary: root.tab.reader.text-family == 1; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
+            SmallButton { y: 2px; text: "Mono"; primary: root.tab.reader.text-family == 2; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
+            SmallButton { y: 2px; text: "B"; primary: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
+            SmallButton { y: 2px; text: "I"; primary: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
+            for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {
+                icon: icon;
+                tip: ["Align left", "Centre", "Align right"][k];
+                active: root.tab.reader.text-align == k;
+                clicked => { ReaderBridge.text-format(root.id, 4, k); }
+            }
+            SmallButton { y: 2px; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
+            // The size: − and + step through the presets; any size can be typed (↩).
+            Rectangle {
+                property <int> shown: root.tab.reader.text-size;
+                changed shown => { if !size-field.has-focus { size-field.text = self.shown + " pt"; } }
+                init => { size-field.text = self.shown + " pt"; }
+                width: 48px;
+                height: 26px;
+                y: 2px;
+                border-radius: Theme.radius-small;
+                border-width: size-field.has-focus || size-hover.has-hover ? 1px : 0px;
+                border-color: Theme.input-border;
+                background: size-field.has-focus ? Theme.input-bg : transparent;
+                size-hover := TouchArea { }
+                size-field := TextInput {
+                    font-size: Theme.fs-label;
+                    color: Theme.text;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    single-line: true;
+                    accepted => {
+                        ReaderBridge.text-size-typed(root.id, self.text);
+                        self.text = root.tab.reader.text-size + " pt";
+                        root.focus-pages();
+                    }
+                }
+            }
+            SmallButton { y: 2px; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
+        }
+        if root.tab.reader.has-signature: HorizontalLayout {
+            spacing: 6px;
+            // Kept signatures (PDF Expert's list): the first is placed; a click picks another,
+            // × forgets one.
+            for sig[k] in root.tab.reader.signatures: Rectangle {
+                width: 72px;
+                height: 28px;
+                y: 1px;
+                border-radius: Theme.radius-small;
+                border-width: k == 0 ? 2px : 1px;
+                border-color: k == 0 ? Theme.accent : Theme.input-border;
+                background: Theme.input-bg;
+                Image { width: parent.width - 8px; height: parent.height - 6px; source: sig; image-fit: contain; }
+                sgt := TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.signature-pick(root.id, k, false); root.focus-pages(); } }
+                Rectangle {
+                    opacity: sgt.has-hover || sgx.has-hover ? 1 : 0;
+                    x: parent.width - 14px;
+                    y: -4px;
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 8px;
+                    background: Theme.toast-bg;
+                    Text { text: "×"; font-size: 11px; color: Theme.on-toast; }
+                    sgx := TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.signature-pick(root.id, k, true); root.focus-pages(); } }
+                }
+            }
+            SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
+        }
+        if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && root.tab.reader.tool != 12) || root.tab.reader.selected-annot: HorizontalLayout {
+            spacing: 2px;
+            padding-left: 6px;
+            for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {
+                y: 4px;
+                colour: c;
+                selected: root.tab.reader.selected-annot ? root.tab.reader.annot-colour == k : root.tab.reader.colour == k;
+                clicked => { ReaderBridge.set-colour(root.id, k); root.focus-pages(); }
+            }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        if root.tab.reader.has-form: HorizontalLayout {
+            spacing: 4px;
+            padding-right: 6px;
+            SmallButton { y: 2px; text: "Clear form"; clicked => { ReaderBridge.form-op(root.id, 0); } }
+            SmallButton { y: 2px; text: "Flatten"; clicked => { ReaderBridge.form-op(root.id, 1); } }
+        }
+    }
+}

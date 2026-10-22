@@ -1,15 +1,16 @@
 // Reader: one document open to read and annotate, PDF Expert's reading window as the model.
-// Toolbar on top (panel, annotation tools and colours, page field, zoom, page theme, search,
-// undo/redo/save), a side panel (reader-panel.slint: thumbnails, outline, notes, results), the pages in a continuous
-// scroll. Pages, thumbnails and zoom are the tab's viewer (ViewerBridge); everything else is
-// ReaderBridge. Coordinates given to Rust are content coordinates of the page scroll.
+// Toolbar on top (reader-toolbar.slint), a side panel (reader-panel.slint: thumbnails, outline,
+// notes, results), the pages in a continuous scroll with the tool's options bar over them
+// (reader-options.slint), sheets over everything (reader-sheets.slint). Pages, thumbnails and
+// zoom are the tab's viewer (ViewerBridge); everything else is ReaderBridge. Coordinates given to
+// Rust are content coordinates of the page scroll.
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { Pad } from "sign-panel.slint";
 import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
 import { ReaderPanel } from "reader-panel.slint";
-import { SortCombo } from "../widgets/sort-combo.slint";
-import { TextField } from "../widgets/text-field.slint";
+import { ReaderToolbar } from "reader-toolbar.slint";
+import { ReaderOptionsBar } from "reader-options.slint";
+import { SignatureSheet, PrintSheet, PropertiesSheet } from "reader-sheets.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 
 export component ReaderScreen inherits Rectangle {
@@ -61,8 +62,6 @@ export component ReaderScreen inherits Rectangle {
     property <int> scroll-seq: root.tab.viewer-scroll-seq;
     changed scroll-seq => { sv.content-y = -root.tab.viewer-scroll; }
 
-    property <string> page-text: root.tab.reader.page-text;
-    changed page-text => { if !page-in.has-focus { page-in.text = root.page-text; } }
     init => {
         ViewerBridge.viewport(root.id, sv.visible-width, root.page-top, sv.visible-height);
         keys.focus();
@@ -104,301 +103,15 @@ export component ReaderScreen inherits Rectangle {
     background: Theme.filearea-bg;
 
     VerticalLayout {
-        // ---- toolbar ----------------------------------------------------------------------
-        Rectangle {
-            height: root.bare ? 0px : 46px;
-            visible: !root.bare;
-            background: Theme.panel-bg;
-            HorizontalLayout {
-                padding-left: 8px;
-                padding-right: 10px;
-                spacing: 4px;
-                alignment: stretch;
-                HorizontalLayout {
-                    spacing: 2px;
-                    alignment: start;
-                    padding-top: 8px;
-                    padding-bottom: 8px;
-                    ToolButton { icon: @image-url("../icons/panel-left.svg"); tip: "Side panel"; active: root.tab.reader.panel-open; clicked => { ReaderBridge.toggle-panel(root.id); } }
-                    Rectangle { width: 6px; }
-                    Divider { y: 5px; }
-                    Rectangle { width: 6px; }
-                    ToolButton { icon: @image-url("../icons/mouse-pointer-2.svg"); tip: "Select text (V)"; active: root.tab.reader.tool == 0; clicked => { ReaderBridge.set-tool(root.id, 0); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight (H)"; active: root.tab.reader.tool == 1; clicked => { ReaderBridge.set-tool(root.id, 1); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline (U)"; active: root.tab.reader.tool == 2; clicked => { ReaderBridge.set-tool(root.id, 2); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough (K)"; active: root.tab.reader.tool == 3; clicked => { ReaderBridge.set-tool(root.id, 3); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/sticky-note.svg"); tip: "Note (N)"; active: root.tab.reader.tool == 4; clicked => { ReaderBridge.set-tool(root.id, 4); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Pen (P)"; active: root.tab.reader.tool == 5; clicked => { ReaderBridge.set-tool(root.id, 5); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/shapes.svg"); tip: "Shapes (R)"; active: root.tab.reader.tool == 10; clicked => { ReaderBridge.set-tool(root.id, 10); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/eraser.svg"); tip: "Eraser (X)"; active: root.tab.reader.tool == 11; clicked => { ReaderBridge.set-tool(root.id, 11); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/stamp.svg"); tip: "Stamp (M)"; active: root.tab.reader.tool == 12; clicked => { ReaderBridge.set-tool(root.id, 12); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/type.svg"); tip: "Text box (T)"; active: root.tab.reader.tool == 6; clicked => { ReaderBridge.set-tool(root.id, 6); keys.focus(); } }
-                    Rectangle { width: 6px; }
-                    Divider { y: 5px; }
-                    Rectangle { width: 6px; }
-                    ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text (E)"; active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image (I)"; active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); keys.focus(); } }
-                    ToolButton { icon: @image-url("../icons/signature.svg"); tip: "Sign (S)"; active: root.tab.reader.tool == 9; clicked => { ReaderBridge.set-tool(root.id, 9); keys.focus(); } }
-                }
-                Rectangle { horizontal-stretch: 1; }
-                // Page field and zoom
-                HorizontalLayout {
-                    spacing: 4px;
-                    alignment: center;
-                    padding-top: 9px;
-                    padding-bottom: 9px;
-                    Rectangle {
-                        width: 46px;
-                        border-radius: Theme.radius-small;
-                        border-width: 1px;
-                        border-color: page-in.has-focus ? Theme.text-secondary : Theme.input-border;
-                        background: Theme.input-bg;
-                        page-in := TextInput {
-                            // Back to the page shown once the field is left or a jump is done.
-                            changed has-focus => { if !self.has-focus { self.text = root.tab.reader.page-text; } }
-                            x: 6px;
-                            width: parent.width - 12px;
-                            text: root.tab.reader.page-text;
-                            font-size: Theme.fs-label;
-                            color: Theme.text;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                            single-line: true;
-                            accepted => {
-                                ReaderBridge.go-to-page(root.id, self.text);
-                                keys.focus();
-                                self.text = root.tab.reader.page-text;
-                            }
-                        }
-                    }
-                    Text {
-                        text: root.tab.reader.page-counter;
-                        font-size: Theme.fs-label;
-                        color: Theme.text-muted;
-                        vertical-alignment: center;
-                    }
-                    Rectangle { width: 8px; }
-                    if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-out.svg"); tip: "Zoom out (⌘−)"; clicked => { ViewerBridge.zoom-step(root.id, -1); } }
-                    // The zoom: type a percentage (↩), or pick one from the list (PDF Expert's zoom menu).
-                    Rectangle {
-                        property <int> shown: root.tab.viewer-zoom;
-                        changed shown => { if !zoom-field.has-focus { zoom-field.text = self.shown + "%"; } }
-                        init => { zoom-field.text = self.shown + "%"; }
-                        width: 62px;
-                        height: 26px;
-                        border-radius: Theme.radius-small;
-                        border-width: zoom-field.has-focus || zoom-hover.has-hover ? 1px : 0px;
-                        border-color: Theme.input-border;
-                        background: zoom-field.has-focus ? Theme.input-bg : transparent;
-                        zoom-hover := TouchArea { }
-                        zoom-field := TextInput {
-                            x: 4px;
-                            width: 40px;
-                            font-size: Theme.fs-label;
-                            color: Theme.text;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                            single-line: true;
-                            accepted => { ReaderBridge.zoom-typed(root.id, self.text); keys.focus(); }
-                        }
-                        Image {
-                            x: parent.width - 16px;
-                            width: 11px;
-                            height: 11px;
-                            source: @image-url("../icons/chevron-down.svg");
-                            colorize: Theme.text-secondary;
-                        }
-                        TouchArea {
-                            x: parent.width - 18px;
-                            width: 18px;
-                            mouse-cursor: pointer;
-                            clicked => { zoom-menu.show(); }
-                        }
-                        zoom-menu := PopupWindow {
-                            x: 0;
-                            y: parent.height + 4px;
-                            width: 120px;
-                            Rectangle {
-                                background: Theme.card;
-                                border-radius: Theme.radius-small;
-                                border-width: 1px;
-                                border-color: Theme.input-border;
-                                drop-shadow-blur: 8px;
-                                drop-shadow-color: #00000033;
-                                VerticalLayout {
-                                    padding: 4px;
-                                    for z in ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%"]: Rectangle {
-                                        height: 26px;
-                                        background: zt.has-hover ? Theme.popup-hover : transparent;
-                                        border-radius: Theme.radius-small;
-                                        Text { x: 10px; text: z; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                        zt := TouchArea { clicked => { ReaderBridge.zoom-typed(root.id, z); keys.focus(); } }
-                                    }
-                                    Rectangle { height: 1px; background: Theme.sidebar-border; }
-                                    for f[k] in ["Fit width", "Fit page"]: Rectangle {
-                                        height: 26px;
-                                        background: ft.has-hover ? Theme.popup-hover : transparent;
-                                        border-radius: Theme.radius-small;
-                                        Text { x: 10px; text: f; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                        ft := TouchArea { clicked => { ReaderBridge.zoom-fit(root.id, k); keys.focus(); } }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-in.svg"); tip: "Zoom in (⌘+)"; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
-                    ToolButton {
-                        y: -2px;
-                        icon: @image-url("../icons/columns-2.svg");
-                        active: root.tab.reader.spread > 0;
-                        tip: (root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide") + " (⌥⌘2)";
-                        clicked => { ReaderBridge.cycle-spread(root.id); keys.focus(); }
-                    }
-                    ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
-                }
-                Rectangle { horizontal-stretch: 1; }
-                HorizontalLayout {
-                    spacing: 2px;
-                    alignment: end;
-                    padding-top: 8px;
-                    padding-bottom: 8px;
-                    if !root.narrow: ToolButton { icon: @image-url("../icons/sun.svg"); tip: "Day"; active: root.tab.reader.theme == 0; clicked => { ReaderBridge.set-theme(root.id, 0); } }
-                    if !root.narrow: ToolButton { icon: @image-url("../icons/book-open.svg"); tip: "Sepia"; active: root.tab.reader.theme == 2; clicked => { ReaderBridge.set-theme(root.id, 2); } }
-                    if !root.narrow: ToolButton { icon: @image-url("../icons/moon.svg"); tip: "Night"; active: root.tab.reader.theme == 1; clicked => { ReaderBridge.set-theme(root.id, 1); } }
-                    // Day → Sepia → Night → Day.
-                    if root.narrow: ToolButton {
-                        icon: root.tab.reader.theme == 0 ? @image-url("../icons/sun.svg") : root.tab.reader.theme == 2 ? @image-url("../icons/book-open.svg") : @image-url("../icons/moon.svg");
-                        tip: "Page theme";
-                        clicked => { ReaderBridge.set-theme(root.id, root.tab.reader.theme == 0 ? 2 : root.tab.reader.theme == 2 ? 1 : 0); }
-                    }
-                    Rectangle { width: 6px; }
-                    // Search
-                    Rectangle {
-                        // Narrower in a small window, so the toolbar always fits (the window's
-                        // minimum is 900 px).
-                        width: root.narrow ? 110px : clamp(root.width - 1090px, 110px, 210px);
-                        border-radius: Theme.radius-button;
-                        border-width: 1px;
-                        border-color: search-in.has-focus ? Theme.text-secondary : Theme.input-border;
-                        background: Theme.input-bg;
-                        Image {
-                            x: 8px;
-                            width: 14px;
-                            height: 14px;
-                            source: @image-url("../icons/search.svg");
-                            colorize: Theme.text-muted;
-                        }
-                        Text {
-                            x: 28px;
-                            visible: search-in.text == "";
-                            text: "Search";
-                            font-size: Theme.fs-label;
-                            color: Theme.text-disabled;
-                            vertical-alignment: center;
-                        }
-                        search-in := TextInput {
-                            x: 28px;
-                            width: parent.width - 28px - count.width - 8px;
-                            font-size: Theme.fs-label;
-                            color: Theme.text;
-                            vertical-alignment: center;
-                            single-line: true;
-                            accepted => {
-                                if root.tab.reader.search-count != "" && !root.tab.reader.search-busy {
-                                    ReaderBridge.search-step(root.id, 1);
-                                } else {
-                                    ReaderBridge.search(root.id, self.text);
-                                }
-                            }
-                            // Any change drops the results of the old text: Enter then searches the new one.
-                            edited => { ReaderBridge.search-clear(root.id); }
-                            key-pressed(e) => {
-                                if e.text == Key.Escape {
-                                    self.text = "";
-                                    ReaderBridge.search-clear(root.id);
-                                    keys.focus();
-                                    return accept;
-                                }
-                                if e.text == Key.Return && e.modifiers.shift {
-                                    ReaderBridge.search-step(root.id, -1);
-                                    return accept;
-                                }
-                                if e.modifiers.control && (e.text == "g" || e.text == "G") {
-                                    ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1);
-                                    return accept;
-                                }
-                                reject
-                            }
-                        }
-                        count := Text {
-                            x: parent.width - self.width - 8px;
-                            text: root.tab.reader.search-count;
-                            font-size: Theme.fs-caption;
-                            color: Theme.text-muted;
-                            vertical-alignment: center;
-                        }
-                    }
-                    Rectangle { width: 6px; }
-                    // More: how the window shows the document (PDF Expert's View menu), print, properties.
-                    ToolButton {
-                        icon: @image-url("../icons/ellipsis.svg");
-                        tip: "More";
-                        clicked => { view-menu.show(); }
-                        view-menu := PopupWindow {
-                            x: parent.width - 240px;
-                            y: parent.height + 6px;
-                            width: 240px;
-                            Rectangle {
-                                background: Theme.card;
-                                border-radius: Theme.radius-small;
-                                border-width: 1px;
-                                border-color: Theme.input-border;
-                                drop-shadow-blur: 8px;
-                                drop-shadow-color: #00000033;
-                                VerticalLayout {
-                                    padding: 4px;
-                                    for item[k] in [
-                                        { text: "Presentation", keys: "⇧⌘P", on: false },
-                                        { text: "Full screen", keys: "⌃⌘F", on: root.is-full-screen },
-                                        { text: "Hide toolbar", keys: "⇧T", on: root.bare },
-                                        { text: "Highlight links", keys: "⇧⌘L", on: root.tab.reader.show-links },
-                                        { text: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide", keys: "⌥⌘2", on: false },
-                                        { text: "Print…", keys: "⌘P", on: false },
-                                        { text: "Document properties…", keys: "⌘D", on: false },
-                                    ]: Rectangle {
-                                        height: 28px;
-                                        border-radius: Theme.radius-small;
-                                        background: vt.has-hover ? Theme.popup-hover : transparent;
-                                        Text { x: 10px; text: (item.on ? "✓ " : "") + item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                        Text { x: parent.width - self.width - 10px; text: item.keys; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
-                                        vt := TouchArea {
-                                            clicked => {
-                                                if k == 0 { root.present(); }
-                                                if k == 1 { root.full-screen(!root.is-full-screen); root.presenting = false; }
-                                                if k == 2 { root.bare = !root.bare; }
-                                                if k == 3 { ReaderBridge.toggle-links(root.id); }
-                                                if k == 4 { ReaderBridge.cycle-spread(root.id); }
-                                                if k == 5 { ReaderBridge.print-open(root.id); }
-                                                if k == 6 { ReaderBridge.props-open(root.id); }
-                                                keys.focus();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: "Undo (⌘Z)"; enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
-                    ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
-                    ToolButton { icon: @image-url("../icons/wrench.svg"); tip: "Use a tool on this PDF"; clicked => { ReaderBridge.to-tools(root.id); } }
-                    ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? "Save (⌘S)" : "Saved"; enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
-                }
-            }
-            Rectangle {
-                y: parent.height - 1px;
-                height: 1px;
-                background: Theme.sidebar-border;
-            }
+        toolbar := ReaderToolbar {
+            tab: root.tab;
+            id: root.id;
+            is-full-screen: root.is-full-screen;
+            narrow: root.narrow;
+            bare <=> root.bare;
+            focus-pages => { keys.focus(); }
+            present => { root.present(); }
+            toggle-full-screen => { root.full-screen(!root.is-full-screen); root.presenting = false; }
         }
         HorizontalLayout {
             vertical-stretch: 1;
@@ -408,7 +121,7 @@ export component ReaderScreen inherits Rectangle {
                 id: root.id;
                 bare: root.bare;
                 panel-width: root.panel-width;
-                search-text: search-in.text;
+                search-text: toolbar.search-text;
                 thumb-down-y <=> root.thumb-down-y;
                 drop-line <=> root.drop-line;
                 thumb-down-page <=> root.thumb-down-page;
@@ -532,7 +245,7 @@ export component ReaderScreen inherits Rectangle {
                             ToolButton {
                                 icon: @image-url("../icons/search.svg");
                                 tip: "Search for this (⇧⌘E)";
-                                clicked => { root.bare = false; search-in.text = root.tab.reader.selected-text; ReaderBridge.search(root.id, search-in.text); keys.focus(); }
+                                clicked => { root.bare = false; toolbar.search-for(root.tab.reader.selected-text); keys.focus(); }
                             }
                             ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight"; clicked => { ReaderBridge.markup(root.id, 1); } }
                             ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline"; clicked => { ReaderBridge.markup(root.id, 2); } }
@@ -655,160 +368,19 @@ export component ReaderScreen inherits Rectangle {
                         }
                     }
                 }
-                        // Options of the tool in use and the form's actions: a bar floating over the top of
-                        // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
-                        // pages never move when a tool is picked.
-                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): Rectangle {
+                // Options of the tool in use and the form's actions: a bar floating over the top of
+                // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
+                // pages never move when a tool is picked.
+                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
                     x: 12px;
                     y: 8px;
-                    width: min(parent.width - 24px, optbar.preferred-width);
-                    height: 36px;
-                    border-radius: Theme.radius-item;
-                    background: Theme.card;
-                    drop-shadow-blur: 10px;
-                    drop-shadow-color: #00000030;
-                    drop-shadow-offset-y: 2px;
-                    optbar := HorizontalLayout {
-                        padding-left: 12px;
-                        padding-right: 12px;
-                        padding-top: 3px;
-                        padding-bottom: 3px;
-                        spacing: 4px;
-                            // Stamp: which one (a click on the page places it).
-                            if root.tab.reader.tool == 12: SortCombo {
-                                y: 2px;
-                                width: 200px;
-                                options: root.tab.reader.stamps;
-                                current-index: root.tab.reader.stamp;
-                                chevron: @image-url("../icons/chevron-down.svg");
-                                selected(i) => { ReaderBridge.shape-option(root.id, 3, i); keys.focus(); }
-                            }
-                            // Shapes: which one, filled or not.
-                            if root.tab.reader.tool == 10: HorizontalLayout {
-                                spacing: 0px;
-                                ToolButton { icon: @image-url("../icons/square.svg"); tip: "Rectangle"; active: root.tab.reader.shape-kind == 0; clicked => { ReaderBridge.shape-option(root.id, 0, 0); keys.focus(); } }
-                                ToolButton { icon: @image-url("../icons/circle.svg"); tip: "Oval"; active: root.tab.reader.shape-kind == 1; clicked => { ReaderBridge.shape-option(root.id, 0, 1); keys.focus(); } }
-                                ToolButton { icon: @image-url("../icons/slash.svg"); tip: "Line"; active: root.tab.reader.shape-kind == 2; clicked => { ReaderBridge.shape-option(root.id, 0, 2); keys.focus(); } }
-                                ToolButton { icon: @image-url("../icons/move-up-right.svg"); tip: "Arrow"; active: root.tab.reader.shape-kind == 3; clicked => { ReaderBridge.shape-option(root.id, 0, 3); keys.focus(); } }
-                                if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Fill"; primary: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); keys.focus(); } }
-                            }
-                            if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.tool == 11: HorizontalLayout {
-                                spacing: 2px;
-                                padding-left: 6px;
-                                for w[k] in [2px, 4px, 7px]: Rectangle {
-                                    y: 4px;
-                                    width: 22px;
-                                    height: 22px;
-                                    border-radius: 11px;
-                                    border-width: root.tab.reader.pen-width == k ? 2px : 0px;
-                                    border-color: Theme.text;
-                                    Rectangle {
-                                        width: w;
-                                        height: w;
-                                        border-radius: w / 2;
-                                        background: Theme.text-secondary;
-                                    }
-                                    TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { ReaderBridge.set-pen-width(root.id, k); keys.focus(); }
-                                    }
-                                }
-                            }
-                            if root.tab.reader.tool == 5 || root.tab.reader.tool == 10: SmallButton {
-                                y: 2px;
-                                text: root.tab.reader.opacity + " %";
-                                clicked => { ReaderBridge.shape-option(root.id, 2, 0); keys.focus(); }
-                            }
-                            // The text format: of text boxes (also the selected one) and of text added on
-                            // the page (Edit text).
-                            if root.tab.reader.tool == 6 || root.tab.reader.tool == 7 || root.tab.reader.selected-text-box: HorizontalLayout {
-                                spacing: 4px;
-                                SmallButton { y: 2px; text: "Sans"; primary: root.tab.reader.text-family == 0; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
-                                SmallButton { y: 2px; text: "Serif"; primary: root.tab.reader.text-family == 1; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
-                                SmallButton { y: 2px; text: "Mono"; primary: root.tab.reader.text-family == 2; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
-                                SmallButton { y: 2px; text: "B"; primary: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
-                                SmallButton { y: 2px; text: "I"; primary: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
-                                for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {
-                                    icon: icon;
-                                    tip: ["Align left", "Centre", "Align right"][k];
-                                    active: root.tab.reader.text-align == k;
-                                    clicked => { ReaderBridge.text-format(root.id, 4, k); }
-                                }
-                                SmallButton { y: 2px; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
-                                // The size: − and + step through the presets; any size can be typed (↩).
-                                Rectangle {
-                                    property <int> shown: root.tab.reader.text-size;
-                                    changed shown => { if !size-field.has-focus { size-field.text = self.shown + " pt"; } }
-                                    init => { size-field.text = self.shown + " pt"; }
-                                    width: 48px;
-                                    height: 26px;
-                                    y: 2px;
-                                    border-radius: Theme.radius-small;
-                                    border-width: size-field.has-focus || size-hover.has-hover ? 1px : 0px;
-                                    border-color: Theme.input-border;
-                                    background: size-field.has-focus ? Theme.input-bg : transparent;
-                                    size-hover := TouchArea { }
-                                    size-field := TextInput {
-                                        font-size: Theme.fs-label;
-                                        color: Theme.text;
-                                        horizontal-alignment: center;
-                                        vertical-alignment: center;
-                                        single-line: true;
-                                        accepted => {
-                                            ReaderBridge.text-size-typed(root.id, self.text);
-                                            self.text = root.tab.reader.text-size + " pt";
-                                            keys.focus();
-                                        }
-                                    }
-                                }
-                                SmallButton { y: 2px; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
-                            }
-                            if root.tab.reader.has-signature: HorizontalLayout {
-                                spacing: 6px;
-                                // Kept signatures (PDF Expert's list): the first is placed; a click picks another,
-                                // × forgets one.
-                                for sig[k] in root.tab.reader.signatures: Rectangle {
-                                    width: 72px;
-                                    height: 28px;
-                                    y: 1px;
-                                    border-radius: Theme.radius-small;
-                                    border-width: k == 0 ? 2px : 1px;
-                                    border-color: k == 0 ? Theme.accent : Theme.input-border;
-                                    background: Theme.input-bg;
-                                    Image { width: parent.width - 8px; height: parent.height - 6px; source: sig; image-fit: contain; }
-                                    sgt := TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.signature-pick(root.id, k, false); keys.focus(); } }
-                                    Rectangle {
-                                        opacity: sgt.has-hover || sgx.has-hover ? 1 : 0;
-                                        x: parent.width - 14px;
-                                        y: -4px;
-                                        width: 16px;
-                                        height: 16px;
-                                        border-radius: 8px;
-                                        background: Theme.toast-bg;
-                                        Text { text: "×"; font-size: 11px; color: Theme.on-toast; }
-                                        sgx := TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.signature-pick(root.id, k, true); keys.focus(); } }
-                                    }
-                                }
-                                SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
-                            }
-                            if (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && root.tab.reader.tool != 12) || root.tab.reader.selected-annot: HorizontalLayout {
-                                spacing: 2px;
-                                padding-left: 6px;
-                                for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {
-                                    y: 4px;
-                                    colour: c;
-                                    selected: root.tab.reader.selected-annot ? root.tab.reader.annot-colour == k : root.tab.reader.colour == k;
-                                    clicked => { ReaderBridge.set-colour(root.id, k); keys.focus(); }
-                                }
-                            }
-                        Rectangle { horizontal-stretch: 1; }
-                            if root.tab.reader.has-form: HorizontalLayout {
-                                spacing: 4px;
-                                padding-right: 6px;
-                                SmallButton { y: 2px; text: "Clear form"; clicked => { ReaderBridge.form-op(root.id, 0); } }
-                                SmallButton { y: 2px; text: "Flatten"; clicked => { ReaderBridge.form-op(root.id, 1); } }
-                            }
-                    }
+                    width: min(parent.width - 24px, self.bar-width);
+                    tab: root.tab;
+                    id: root.id;
+                    light-colours: root.light-colours;
+                    ink-colours: root.ink-colours;
+                    light-tool: root.light-tool;
+                    focus-pages => { keys.focus(); }
                 }
                 if root.tab.viewer-status != "": Text {
                     y: 40px;
@@ -835,225 +407,25 @@ export component ReaderScreen inherits Rectangle {
         }
     }
 
-    // The signature pad (PDF Expert's "Create signature"): draw it, or type a name.
-    if root.tab.reader.sign-open: Rectangle {
-        background: #00000044;
-        TouchArea { }
-        Rectangle {
-            width: 440px;
-            height: sl.preferred-height;
-            border-radius: Theme.radius-card;
-            background: Theme.card;
-            drop-shadow-blur: 24px;
-            drop-shadow-color: #00000055;
-            sl := VerticalLayout {
-                padding: 18px;
-                spacing: 12px;
-                Text { text: "Create your signature"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-                // The pen: three inks and three widths, as PDF Expert's signature pad.
-                property <int> ink: 0;
-                property <int> pen: 1;
-                HorizontalLayout {
-                    spacing: 6px;
-                    for c[k] in [#1A1A1F, #1A52D9, #0D2673]: ColourDot { y: 2px; colour: c; selected: ink == k; clicked => { ink = k; } }
-                    Rectangle { width: 10px; }
-                    for w[k] in [2px, 4px, 6px]: Rectangle {
-                        width: 24px;
-                        height: 24px;
-                        border-radius: 12px;
-                        border-width: pen == k ? 2px : 0px;
-                        border-color: Theme.text;
-                        Rectangle { width: w; height: w; border-radius: w / 2; background: Theme.text-secondary; }
-                        TouchArea { mouse-cursor: pointer; clicked => { pen = k; } }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                pad := Pad { ink: [#1A1A1F, #1A52D9, #0D2673][ink]; pen: [1.5px, 2.5px, 4px][pen]; }
-                Text { text: "or type your name"; font-size: Theme.fs-caption; color: Theme.text-muted; }
-                typed := TextField { placeholder: "Your name"; }
-                // The name in the script font it will sign with, as it is typed.
-                if typed.text != "": Rectangle {
-                    height: 56px;
-                    border-radius: Theme.radius-small;
-                    background: Theme.input-bg;
-                    Image {
-                        width: parent.width - 16px;
-                        height: parent.height - 8px;
-                        source: ReaderBridge.signature-preview(typed.text);
-                        image-fit: contain;
-                        colorize: [#1A1A1F, #1A52D9, #0D2673][ink];
-                    }
-                }
-                HorizontalLayout {
-                    spacing: 8px;
-                    SmallButton { text: "Clear"; clicked => { pad.commands = ""; typed.text = ""; } }
-                    Rectangle { horizontal-stretch: 1; }
-                    SmallButton { text: "Cancel"; clicked => { ReaderBridge.signature-made(root.id, "", 1px, 1px, "", 0, 1); keys.focus(); } }
-                    SmallButton { text: "Use"; primary: true; clicked => { ReaderBridge.signature-made(root.id, pad.commands, pad.width, pad.height, typed.text, ink, pen); keys.focus(); } }
-                }
-            }
-        }
+    // The signature pad.
+    if root.tab.reader.sign-open: SignatureSheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
     }
 
-    // The print sheet (PDF Expert's print panel, reduced to what matters): printer, copies, pages,
-    // scale, two-sided. Choices stay local until Print.
-    if root.tab.reader.print-open: Rectangle {
-        property <int> copies: 1;
-        property <int> pages: 0;
-        property <bool> fit: true;
-        property <bool> two-sided: false;
-        property <bool> ready: root.tab.reader.printers.length > 0;
-        property <int> printer: root.tab.reader.printer;
-        background: #00000044;
-        TouchArea { }
-        // Return prints, Escape cancels (the sheet takes the keyboard when it opens).
-        sheet-keys := FocusScope {
-            init => { self.focus(); }
-            key-pressed(e) => {
-                if e.text == Key.Return { ok.clicked(); return accept; }
-                if e.text == Key.Escape { ReaderBridge.print-cancel(root.id); keys.focus(); return accept; }
-                reject
-            }
-        }
-        Rectangle {
-            width: 420px;
-            height: pl.preferred-height;
-            border-radius: Theme.radius-card;
-            background: Theme.card;
-            drop-shadow-blur: 24px;
-            drop-shadow-color: #00000055;
-            pl := VerticalLayout {
-                padding: 18px;
-                spacing: 12px;
-                Text { text: "Print"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-                HorizontalLayout {
-                    spacing: 10px;
-                    Text { text: "Printer"; width: 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                    if ready: SortCombo {
-                        width: 250px;
-                        options: root.tab.reader.printers;
-                        current-index: root.tab.reader.printer;
-                        chevron: @image-url("../icons/chevron-down.svg");
-                        selected(i) => { printer = i; }
-                    }
-                    if !ready: Text { text: "No printer is set up"; font-size: Theme.fs-label; color: Theme.text-muted; vertical-alignment: center; }
-                }
-                HorizontalLayout {
-                    spacing: 6px;
-                    Text { text: "Copies"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                    SmallButton { text: "−"; clicked => { copies = max(1, copies - 1); } }
-                    Text { text: copies; width: 30px; horizontal-alignment: center; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                    SmallButton { text: "+"; clicked => { copies = min(999, copies + 1); } }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                HorizontalLayout {
-                    spacing: 6px;
-                    Text { text: "Pages"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                    SmallButton { text: "All"; primary: pages == 0; clicked => { pages = 0; } }
-                    SmallButton { text: "Current"; primary: pages == 1; clicked => { pages = 1; } }
-                    SmallButton { text: "Range"; primary: pages == 2; clicked => { pages = 2; } }
-                    Rectangle {
-                        width: 110px;
-                        height: 26px;
-                        border-radius: Theme.radius-small;
-                        border-width: 1px;
-                        border-color: range.has-focus ? Theme.text-secondary : Theme.input-border;
-                        background: Theme.input-bg;
-                        if range.text == "": Text { x: 8px; text: "1-3, 5"; font-size: Theme.fs-label; color: Theme.text-muted; }
-                        range := TextInput {
-                            x: 8px;
-                            width: parent.width - 16px;
-                            font-size: Theme.fs-label;
-                            color: Theme.text;
-                            vertical-alignment: center;
-                            single-line: true;
-                            changed text => { if self.text != "" { pages = 2; } }
-                            accepted => { ok.clicked(); }
-                        }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                HorizontalLayout {
-                    spacing: 6px;
-                    Text { text: "Scale"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                    SmallButton { text: "Fit to paper"; primary: fit; clicked => { fit = true; } }
-                    SmallButton { text: "Actual size"; primary: !fit; clicked => { fit = false; } }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                HorizontalLayout {
-                    spacing: 6px;
-                    Text { text: "Two-sided"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                    SmallButton { text: "Off"; primary: !two-sided; clicked => { two-sided = false; } }
-                    SmallButton { text: "On"; primary: two-sided; clicked => { two-sided = true; } }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-                HorizontalLayout {
-                    spacing: 8px;
-                    Rectangle { horizontal-stretch: 1; }
-                    SmallButton { text: "Cancel"; clicked => { ReaderBridge.print-cancel(root.id); keys.focus(); } }
-                    ok := SmallButton {
-                        text: "Print";
-                        primary: ready;
-                        clicked => {
-                            if ready {
-                                ReaderBridge.print(root.id, printer, copies, pages, range.text, fit, two-sided);
-                                keys.focus();
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    // The print sheet.
+    if root.tab.reader.print-open: PrintSheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
     }
 
-    // Document Properties (Acrobat's ⌘D): the four entries to edit, then what the file is.
-    if root.tab.reader.props-open: Rectangle {
-        background: #00000044;
-        TouchArea { }
-        // Escape from any field cancels (keys bubble up from the fields inside).
-        FocusScope {
-            init => { title-in.focus-input(); }
-            key-pressed(e) => {
-                if e.text == Key.Escape { ReaderBridge.props-cancel(root.id); keys.focus(); return accept; }
-                reject
-            }
-            Rectangle {
-                width: 460px;
-                height: ppl.preferred-height;
-                border-radius: Theme.radius-card;
-                background: Theme.card;
-                drop-shadow-blur: 24px;
-                drop-shadow-color: #00000055;
-                ppl := VerticalLayout {
-                    padding: 18px;
-                    spacing: 10px;
-                    Text { text: "Document properties"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-                    title-in := TextField { label: "Title"; text: root.tab.reader.props-title; accepted => { save.clicked(); } }
-                    author-in := TextField { label: "Author"; text: root.tab.reader.props-author; accepted => { save.clicked(); } }
-                    subject-in := TextField { label: "Subject"; text: root.tab.reader.props-subject; accepted => { save.clicked(); } }
-                    keywords-in := TextField { label: "Keywords"; text: root.tab.reader.props-keywords; accepted => { save.clicked(); } }
-                    Rectangle { height: 1px; background: Theme.sidebar-border; }
-                    for p in root.tab.reader.props-about: HorizontalLayout {
-                        spacing: 10px;
-                        Text { text: p.name; width: 150px; font-size: Theme.fs-label; color: Theme.text-secondary; }
-                        Text { text: p.value; font-size: Theme.fs-label; color: Theme.text; overflow: elide; horizontal-stretch: 1; }
-                    }
-                    HorizontalLayout {
-                        spacing: 8px;
-                        Rectangle { horizontal-stretch: 1; }
-                        SmallButton { text: "Cancel"; clicked => { ReaderBridge.props-cancel(root.id); keys.focus(); } }
-                        save := SmallButton {
-                            text: "Save";
-                            primary: true;
-                            clicked => {
-                                ReaderBridge.props-save(root.id, title-in.text, author-in.text, subject-in.text, keywords-in.text);
-                                keys.focus();
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    // Document Properties (⌘D).
+    if root.tab.reader.props-open: PropertiesSheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
     }
 
     // Copy goes through a hidden text field: Slint's clipboard is a text input's.
@@ -1084,10 +456,10 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == "9" { ReaderBridge.zoom-fit(root.id, 0); return accept; }
                 if e.text == "8" { ReaderBridge.zoom-fit(root.id, 1); return accept; }
                 if (e.text == "f" || e.text == "F") && e.modifiers.meta { root.full-screen(!root.is-full-screen); return accept; }
-                if (e.text == "g" || e.text == "©") && e.modifiers.alt { page-in.focus(); page-in.select-all(); return accept; }
+                if (e.text == "g" || e.text == "©") && e.modifiers.alt { toolbar.focus-page-field(); return accept; }
                 if (e.text == "[" || e.text == "{") && e.modifiers.shift { root.switch-tab(-1); return accept; }
                 if (e.text == "]" || e.text == "}") && e.modifiers.shift { root.switch-tab(1); return accept; }
-                if e.text == "f" { search-in.focus(); search-in.select-all(); return accept; }
+                if e.text == "f" { toolbar.focus-search(); return accept; }
                 if e.text == "g" || e.text == "G" { ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
                 if e.text == "c" && root.tab.reader.has-selection {
                     clip.text = root.tab.reader.selected-text;
@@ -1113,8 +485,7 @@ export component ReaderScreen inherits Rectangle {
                 if (e.text == "e" || e.text == "E") && e.modifiers.shift && root.tab.reader.has-selection {
                     // The field and the results show again if the toolbar was hidden (⇧T).
                     root.bare = false;
-                    search-in.text = root.tab.reader.selected-text;
-                    ReaderBridge.search(root.id, search-in.text);
+                    toolbar.search-for(root.tab.reader.selected-text);
                     return accept;
                 }
                 if e.text == "d" { ReaderBridge.props-open(root.id); return accept; }
