@@ -173,16 +173,17 @@ pub fn set_signature_pen(pen: (u8, u8)) {
 
 /// The reader's signature, kept for every document: drawn strokes, or a typed name. A new one goes
 /// first in the list of kept signatures (four at most, as PDF Expert's); none clears the current one only.
-pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>) {
+pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>, font: u8) {
     with(|h| {
         if !strokes.is_empty() || name.is_some() {
-            let sig = (strokes.clone(), name.clone(), h.prefs.signature_pen);
-            h.prefs.signatures.retain(|s| (&s.0, &s.1) != (&sig.0, &sig.1));
+            let sig = (strokes.clone(), name.clone(), h.prefs.signature_pen, font);
+            h.prefs.signatures.retain(|s| (&s.0, &s.1, s.3) != (&sig.0, &sig.1, sig.3));
             h.prefs.signatures.insert(0, sig);
             h.prefs.signatures.truncate(4);
         }
         h.prefs.signature_strokes = strokes;
         h.prefs.signature_name = name;
+        h.prefs.signature_font = font;
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");
         }
@@ -193,7 +194,7 @@ pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>) {
 pub fn signatures() -> Vec<sheaf_app::prefs::KeptSignature> {
     with(|h| {
         if h.prefs.signatures.is_empty() && (!h.prefs.signature_strokes.is_empty() || h.prefs.signature_name.is_some()) {
-            return vec![(h.prefs.signature_strokes.clone(), h.prefs.signature_name.clone(), h.prefs.signature_pen)];
+            return vec![(h.prefs.signature_strokes.clone(), h.prefs.signature_name.clone(), h.prefs.signature_pen, h.prefs.signature_font)];
         }
         h.prefs.signatures.clone()
     })
@@ -207,18 +208,20 @@ pub fn pick_signature(i: usize, remove: bool) {
         h.prefs.signatures = list;
         h.prefs.signatures.remove(i);
         if remove {
-            if (&h.prefs.signature_strokes, &h.prefs.signature_name) == (&sig.0, &sig.1) {
+            if (&h.prefs.signature_strokes, &h.prefs.signature_name, h.prefs.signature_font) == (&sig.0, &sig.1, sig.3) {
                 let next = h.prefs.signatures.first().cloned().unwrap_or_default();
                 h.prefs.signature_strokes = next.0;
                 h.prefs.signature_name = next.1;
                 h.prefs.signature_pen = next.2;
+                h.prefs.signature_font = next.3;
             }
         } else {
             h.prefs.signatures.insert(0, sig.clone());
             h.prefs.signature_strokes = sig.0;
             h.prefs.signature_name = sig.1;
-            // Placed in the pen it was made with.
+            // Placed in the pen and font it was made with.
             h.prefs.signature_pen = sig.2;
+            h.prefs.signature_font = sig.3;
         }
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");

@@ -95,7 +95,8 @@ fn prefs_round_trip_and_corrupt_means_default() {
         signature_strokes: vec![vec![[0.0, 0.0], [1.0, 0.5]]],
         signature_name: None,
         signature_pen: (1, 2),
-        signatures: vec![(vec![vec![[0.0, 0.0], [1.0, 0.5]]], None, (1, 2))],
+        signature_font: 0,
+        signatures: vec![(vec![vec![[0.0, 0.0], [1.0, 0.5]]], None, (1, 2), 0), (Vec::new(), Some("Ada".into()), (0, 1), 2)],
     };
     p.save(dir.path()).unwrap();
     assert_eq!(Prefs::load(dir.path()), p);
@@ -219,4 +220,12 @@ fn recent_tools_are_the_newest_distinct_runs() {
     let list = vec![e("compress", 9), e("read", 8), e("merge", 7), e("compress", 6), e("split", 5), e("rotate", 4)];
     assert_eq!(recent_tools(&list, "read", 3), ["compress", "merge", "split"]);
     assert!(recent_tools(&[], "read", 3).is_empty());
+}
+
+#[test]
+fn signatures_kept_before_handwriting_fonts_still_load() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("prefs.json"), r#"{"signatures": [[[], "Ada", [0, 1]], [[], "Bo", [1, 0], 3]]}"#).unwrap();
+    let p = Prefs::load(dir.path());
+    assert_eq!(p.signatures, vec![(Vec::new(), Some("Ada".into()), (0, 1), 0), (Vec::new(), Some("Bo".into()), (1, 0), 3)]);
 }

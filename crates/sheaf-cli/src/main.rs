@@ -274,10 +274,10 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             }
             warned(Ok((r.path, r.was_encrypted)))
         }
-        Cmd::Sign { input: i, page, at, width, text, image, strokes, p12, p12_password, reason, location, out } => {
+        Cmd::Sign { input: i, page, at, width, text, script_font, image, strokes, p12, p12_password, reason, location, out } => {
             let i = input(i);
             let graphic = match (text, image, strokes) {
-                (Some(t), _, _) => Graphic::Typed(t),
+                (Some(t), _, _) => Graphic::Typed(t, script_font.font()),
                 (_, Some(p), _) => Graphic::Image(p),
                 (_, _, Some(p)) => Graphic::Drawn(read_strokes(&p)?),
                 _ => unreachable!("clap requires one graphic"),

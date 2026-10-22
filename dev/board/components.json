@@ -1838,10 +1838,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -1868,6 +1868,17 @@
      "overall": 8
     },
     "proof": "Shapes tool: line and arrow (open arrowhead) dragged with a live preview; saved as Line with /LE (gui-smoke). Missing for 9: dragging an end of an existing line"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Audit 22/10: smoke shapes; gap: drag line ends, Shift snap, double arrow / arrowhead choice"
    }
   ]
  },
@@ -2694,10 +2705,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 7,
    "aesthetics": 8,
    "performance": 9,
-   "overall": 8
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -2724,6 +2735,17 @@
      "overall": 8
     },
     "proof": "Pen and shapes: 5 colours, 3 widths, fill on/off (a tint of the stroke), opacity 100/75/50/25 %; gui-smoke checks /IC and /CA. Missing for 9: free colour picker, fill colour of its own, dashed lines"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Audit 22/10: 4 opacity steps, 3 widths, fill on/off; gap: slider, separate fill colour, dashes"
    }
   ]
  },
@@ -2940,10 +2962,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 7,
    "aesthetics": 8,
    "performance": 9,
-   "overall": 8
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -2970,6 +2992,17 @@
      "overall": 8
     },
     "proof": "⌘Z undoes (tested dev/re/evidence/F-002/15); ⇧⌘Z wired, not yet driven"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Audit 22/10: undo/redo by smoke; gap: cut/copy/paste of annotations absent"
    }
   ]
  },
@@ -8840,6 +8873,17 @@
      "overall": 8
     },
     "proof": "A PDF dropped on the window opens in a reader tab (flow.rs). Missing for 9: proof — not automatable with xdotool (no XDND)"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: flow.rs drop opens a document tab (files.rs drops_are_routed_by_tool_and_extension); gap: no hover highlight, non-PDF on the reader goes to Tools"
    }
   ]
  },
@@ -9434,7 +9478,7 @@
   ],
   "grade": {
    "function": 8,
-   "aesthetics": 9,
+   "aesthetics": 8,
    "performance": 9,
    "overall": 8
   },
@@ -9474,6 +9518,17 @@
      "overall": 8
     },
     "proof": "Two files given at launch open in two tabs; ⇧⌘[ switches and the new tab takes the keyboard (bug fixed, gui-smoke red→green). Missing for 9: separate windows (PDF Expert offers both)"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: smoke 'two files open in two tabs'; gap: tabs don't shrink/scroll past ~6, no drag reorder"
    }
   ]
  },
@@ -9919,10 +9974,10 @@
    18
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 8,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -9938,6 +9993,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [13, 15, 16, 17, 18]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: probe_failures_are_routed_per_tool, encrypted-input tests; gap: no GUI check of the tool-side prompt, no side-by-side screenshot"
    }
   ]
  },
@@ -10114,6 +10180,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [19, 20, 21]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 7,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Audit 22/10: raw engine error shown, two wordings; gap: one short message, GUI check of a broken file, Repair offer"
    }
   ]
  },
@@ -11419,6 +11496,17 @@
      "overall": 8
     },
     "proof": "Compress → Save dialog → mouse click on Save writes the file and shows the result (Linux: dev/re/evidence/F-001/03, dev/re/evidence/F-001/04); Mac click still to prove; fonts/vectors not recompressed"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: 3 levels, 18 tests, smoke Compress; gap: macOS save click proof, images only (no font subsetting/dedup)"
    }
   ]
  },
@@ -11454,10 +11542,10 @@
    67
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 8,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -11473,6 +11561,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [67]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: saved_percentages; gap: 'PDF compressed (-0%)' beside 'already as small' when nothing is gained"
    }
   ]
  },
@@ -11549,10 +11648,10 @@
    65
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 8,
    "performance": 8,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -11568,6 +11667,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [65]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: jobs.rs batch tests (cancel, outputs, failures kept); gap: sequential, no GUI batch check"
    }
   ]
  },
@@ -14638,6 +14748,17 @@
      "overall": 8
     },
     "proof": "⇧⌘S opens the system Save sheet attached to the window; a mouse click on Save writes the copy and the tab follows it (Linux, GTK portal: dev/re/evidence/F-001/01, dev/re/evidence/F-001/02); Mac click still to prove"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: async save dialog, reader_doc save_as test, Linux click proof; gap: macOS click unproven, no smoke Save As"
    }
   ]
  },
@@ -14676,10 +14797,10 @@
    209
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 8,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -14695,6 +14816,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [193, 209]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: dest.rs preferences_choose_the_destination_without_a_dialog; gap: no screenshot proof"
    }
   ]
  },
@@ -14986,9 +15118,9 @@
   ],
   "grade": {
    "function": 8,
-   "aesthetics": 8,
+   "aesthetics": 7,
    "performance": 9,
-   "overall": 8
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -15015,6 +15147,17 @@
      "overall": 8
     },
     "proof": "⌘P / toolbar: print sheet (printer, copies, pages all/current/range, fit or actual size, two-sided; Return prints) → CUPS lp on macOS and Linux, unsaved edits included. gui-smoke prints a filled-but-unsaved form to cups-pdf and finds the value; range 2-3 printed 2 pages. Missing for 9: print preview, paper size/orientation, Windows, Mac run unverified. dev/re/evidence/F-002/42-print-sheet.png"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 7,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Audit 22/10: CUPS lp sheet, smoke prints unsaved edits; gap: preview, paper size, orientation, scale, Windows"
    }
   ]
  },
@@ -16064,6 +16207,17 @@
      "overall": 8
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: every tool a subcommand, exit codes, JSON, MCP tests; gap: --help look unjudged"
    }
   ]
  },
@@ -16240,7 +16394,7 @@
    "performance": 9,
    "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -16254,6 +16408,17 @@
      "overall": 9
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [269]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Stale-grade audit 22/10 (independent reviewer): no network library at run time (reqwest only a Windows build dep of winprint); outgoing URLs only opened by the user (main.rs, reader_ui/pointer.rs)"
    }
   ]
  },
@@ -16452,6 +16617,17 @@
      "overall": 8
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [216, 217]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: System/Light/Dark wired (theme.slint, home.rs); gap: no test or screenshot of the switch"
    }
   ]
  },
@@ -16937,6 +17113,17 @@
      "overall": 8
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [218, 219, 220, 221]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: 3 modes + open folder after; gap: screenshot beside iLovePDF"
    }
   ]
  },
@@ -22728,6 +22915,17 @@
      "overall": 8
     },
     "proof": "A PDF encrypted with qpdf (AES-256) asks for its password and opens in the reader (gui-smoke). Missing for 9: its restrictions shown (lock badge, what is not allowed)"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Audit 22/10: smoke 'a protected PDF opens after its password'; gap: wrong-then-right password not checked, no screenshot"
    }
   ]
  },
@@ -22834,6 +23032,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 7,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Audit 22/10: permissions tests; gap: restrictions with only a permissions password, no sanitize entry"
    }
   ]
  },
@@ -23430,7 +23639,7 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 7,
    "aesthetics": 7,
    "performance": 8,
    "overall": 7
@@ -23449,6 +23658,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 7,
+     "performance": 8,
+     "overall": 7
+    },
+    "proof": "Audit 22/10: Redact only as a toolbox tab; gap: reader redact mode, mark by selection (the panel promises it), undo of marks, preview"
    }
   ]
  },
@@ -24353,14 +24573,14 @@
    139
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "several script fonts",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -24383,6 +24603,17 @@
      "overall": 8
     },
     "proof": "Type a name instead of drawing: typed signature outlines (sheaf_core::sign); one script font"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Four handwriting fonts (Dancing Script, Great Vibes, Satisfy, Caveat; sheaf-core/src/script.rs, Cyrillic/Greek fallback), live 2×2 previews on the pad, kept per signature, Sign tool and CLI --script-font; script::tests, tests/sign.rs a_typed_name_takes_its_handwriting_font + same ink visual/digital for every font, history compat test, gui-smoke typed signature in Great Vibes; Stirling offers no script fonts; joint review 2 rounds"
    }
   ]
  },

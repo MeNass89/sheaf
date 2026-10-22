@@ -173,7 +173,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_field_tab, |ui, id, t, back| reader_ui::field_tab(&ui, id, &t, back));
     wire_global!(ui, rb, on_choice_picked, |ui, id, k| reader_ui::choice_picked(&ui, id, k));
     wire_global!(ui, rb, on_form_op, |ui, id, op| reader_ui::form_op(&ui, id, op));
-    wire_global!(ui, rb, on_signature_made, |ui, id, c, w, h, n, ink, pen| reader_ui::signature_made(&ui, id, &c, (w, h), &n, (ink, pen)));
+    wire_global!(ui, rb, on_signature_made, |ui, id, c, w, h, n, ink, pen, font| reader_ui::signature_made(&ui, id, &c, (w, h), &n, (ink, pen), font));
     rb.on_signature_reset(reader_ui::signature_reset);
     rb.on_signature_pick(reader_ui::signature_pick);
     rb.on_signature_preview(reader_ui::signature_preview);
@@ -231,6 +231,7 @@ fn wire_viewer(ui: &AppWindow) {
     let sb = ui.global::<sheaf_app::SignBridge>();
     sb.on_mode(sign_ui::mode);
     sb.on_typed(|id, name| sign_ui::typed(id, &name));
+    sb.on_font(sign_ui::font);
     sb.on_drawn(|id, c, w, h| sign_ui::drawn(id, &c, w, h));
     sb.on_size(sign_ui::size);
     let weak = ui.as_weak();

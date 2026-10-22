@@ -47,25 +47,36 @@ export component SignatureSheet inherits Rectangle {
             pad := Pad { ink: [#1A1A1F, #1A52D9, #0D2673][ink]; pen: [1.5px, 2.5px, 4px][pen]; }
             Text { text: "or type your name"; font-size: Theme.fs-caption; color: Theme.text-muted; }
             typed := TextField { placeholder: "Your name"; }
-            // The name in the script font it will sign with, as it is typed.
-            if typed.text != "": Rectangle {
-                height: 56px;
-                border-radius: Theme.radius-small;
-                background: Theme.input-bg;
-                Image {
-                    width: parent.width - 16px;
-                    height: parent.height - 8px;
-                    source: ReaderBridge.signature-preview(typed.text);
-                    image-fit: contain;
-                    colorize: [#1A1A1F, #1A52D9, #0D2673][ink];
+            // The name in each handwriting font as it is typed (Stirling's and PDF Expert's choice):
+            // the one picked signs.
+            property <int> font: 0;
+            if typed.text != "": VerticalLayout {
+                spacing: 6px;
+                for row in [[0, 1], [2, 3]]: HorizontalLayout {
+                    spacing: 6px;
+                    for f in row: Rectangle {
+                        height: 52px;
+                        border-radius: Theme.radius-small;
+                        background: Theme.input-bg;
+                        border-width: font == f ? 2px : 1px;
+                        border-color: font == f ? Theme.accent : Theme.input-border;
+                        Image {
+                            width: parent.width - 14px;
+                            height: parent.height - 8px;
+                            source: ReaderBridge.signature-preview(typed.text, f);
+                            image-fit: contain;
+                            colorize: [#1A1A1F, #1A52D9, #0D2673][ink];
+                        }
+                        TouchArea { mouse-cursor: pointer; clicked => { font = f; } }
+                    }
                 }
             }
             HorizontalLayout {
                 spacing: 8px;
                 SmallButton { text: "Clear"; clicked => { pad.commands = ""; typed.text = ""; } }
                 Rectangle { horizontal-stretch: 1; }
-                SmallButton { text: "Cancel"; clicked => { ReaderBridge.signature-made(root.id, "", 1px, 1px, "", 0, 1); root.focus-pages(); } }
-                SmallButton { text: "Use"; primary: true; clicked => { ReaderBridge.signature-made(root.id, pad.commands, pad.width, pad.height, typed.text, ink, pen); root.focus-pages(); } }
+                SmallButton { text: "Cancel"; clicked => { ReaderBridge.signature-made(root.id, "", 1px, 1px, "", 0, 1, 0); root.focus-pages(); } }
+                SmallButton { text: "Use"; primary: true; clicked => { ReaderBridge.signature-made(root.id, pad.commands, pad.width, pad.height, typed.text, ink, pen, font); root.focus-pages(); } }
             }
         }
     }

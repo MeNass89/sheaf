@@ -19,8 +19,8 @@ use std::sync::Arc;
 /// What the signature looks like.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Graphic {
-    /// The name, typed in the script font.
-    Typed(String),
+    /// The name, typed in a handwriting font.
+    Typed(String, crate::script::ScriptFont),
     /// Strokes drawn on a pad, each a list of points, y up, in units where the pad is 1 wide.
     Drawn(Vec<Vec<[f64; 2]>>),
     /// A PNG or JPEG image of a signature.
@@ -74,7 +74,7 @@ pub const MAX_TYPED_CHARS: usize = engine::MAX_SIGNATURE_CHARS;
 
 /// The graphic, decoded and checked, ready to place.
 enum Ready {
-    Typed(String, engine::ScriptOutline),
+    Typed(engine::ScriptOutline),
     Drawn(Vec<Vec<[f64; 2]>>, [f64; 4]),
     Image(SignatureImage),
 }
@@ -82,7 +82,7 @@ enum Ready {
 impl Ready {
     fn new(g: &Graphic) -> Result<Ready> {
         match g {
-            Graphic::Typed(t) => {
+            Graphic::Typed(t, font) => {
                 let t = t.trim();
                 if t.is_empty() {
                     return Err(OpdfError::Unsupported("type a name to sign with".into()));
@@ -90,11 +90,11 @@ impl Ready {
                 if t.chars().count() > MAX_TYPED_CHARS {
                     return Err(OpdfError::Unsupported(format!("a typed signature can have at most {MAX_TYPED_CHARS} characters")));
                 }
-                let o = engine::script_outline(t);
+                let o = crate::script::outline(*font, t);
                 if !o.contours.iter().any(|c| c.len() > 2) {
                     return Err(OpdfError::Unsupported("the signature font has no letters for that name".into()));
                 }
-                Ok(Ready::Typed(t.to_string(), o))
+                Ok(Ready::Typed(o))
             }
             Graphic::Drawn(strokes) => {
                 let strokes: Vec<Vec<[f64; 2]>> = strokes.iter().filter(|s| !s.is_empty()).cloned().collect();
@@ -127,7 +127,7 @@ impl Ready {
     /// The graphic's own width and height (any unit): what it is fitted by.
     fn extent(&self) -> (f64, f64) {
         match self {
-            Ready::Typed(_, o) => {
+            Ready::Typed(o) => {
                 let [l, b, r, t] = o.bounds();
                 (r - l, t - b)
             }
@@ -140,7 +140,7 @@ impl Ready {
     /// As the graphic of a visible digital signature.
     fn digital(&self) -> Option<engine::sign::Graphic> {
         match self {
-            Ready::Typed(t, _) => engine::typed_signature_graphic(t),
+            Ready::Typed(o) => engine::typed_signature_graphic_from(o.clone()),
             Ready::Drawn(s, _) => Some(engine::sign::Graphic::Strokes(s.clone())),
             Ready::Image(i) => Some(i.graphic()),
         }
@@ -325,9 +325,9 @@ fn place(page: usize, info: &PageInfo, view: [f64; 4], ready: &Ready) -> Result<
     };
     let bad = || OpdfError::Unsupported("the signature can't be placed there".into());
     Ok(match ready {
-        Ready::Typed(t, _) => {
+        Ready::Typed(o) => {
             let at = to_user(x0, y0 + h / 2.0);
-            annot(engine::typed_signature_shape(at, t, h, i64::from(info.rotation)).ok_or_else(bad)?)
+            annot(engine::typed_signature_shape_from(at, o, h, i64::from(info.rotation)).ok_or_else(bad)?)
         }
         Ready::Drawn(strokes, b) => {
             let strokes = strokes.iter().map(|s| s.iter().map(|p| to_user(x0 + (p[0] - b[0]) * k, y0 + (b[3] - p[1]) * k)).collect()).collect();

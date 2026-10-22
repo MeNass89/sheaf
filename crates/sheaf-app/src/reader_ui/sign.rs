@@ -1,6 +1,7 @@
 //! The signature tool: the kept signature, placing it, the pad.
 
 use super::*;
+use sheaf_core::script::ScriptFont;
 
 /// The signature kept in the preferences.
 pub(super) fn saved_signature() -> Option<sheaf_core::sign::Graphic> {
@@ -8,7 +9,8 @@ pub(super) fn saved_signature() -> Option<sheaf_core::sign::Graphic> {
     if !p.signature_strokes.is_empty() {
         return Some(sheaf_core::sign::Graphic::Drawn(p.signature_strokes));
     }
-    p.signature_name.filter(|n| !n.trim().is_empty()).map(sheaf_core::sign::Graphic::Typed)
+    let font = ScriptFont::from_index(p.signature_font as usize);
+    p.signature_name.filter(|n| !n.trim().is_empty()).map(|n| sheaf_core::sign::Graphic::Typed(n, font))
 }
 
 /// Places the signature where the Signature tool was clicked, 150 pt wide as PDF Expert's default.
@@ -48,7 +50,7 @@ fn with_pen(e: Edit) -> Edit {
 /// The signature pad's answer: strokes drawn (pad commands and size) or a name typed; empty
 /// cancels. The signature is kept and placed where the tool was clicked.
 /// `pen`: ink and width chosen on the pad (see `reader::SIGNATURE_INKS`, `SIGNATURE_WIDTHS`).
-pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, size: (f32, f32), name: &str, pen: (i32, i32)) {
+pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, size: (f32, f32), name: &str, pen: (i32, i32), font: i32) {
     let (w, h) = size;
     crate::home::set_signature_pen((pen.0.clamp(0, 2) as u8, pen.1.clamp(0, 2) as u8));
     let strokes = crate::sign_ui::pad_strokes(commands, w, h);
@@ -58,13 +60,13 @@ pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, size: (f32, f
         update(tab_id, |r, _| r.sign_at = None);
         return;
     }
-    crate::home::set_signature(strokes, (!name.is_empty()).then_some(name));
+    crate::home::set_signature(strokes, (!name.is_empty()).then_some(name), ScriptFont::from_index(font.max(0) as usize).index() as u8);
     place_signature(ui, tab_id);
 }
 
 /// Forget the kept signature and draw a new one at the next click.
 pub fn signature_reset(tab_id: i32) {
-    crate::home::set_signature(Vec::new(), None);
+    crate::home::set_signature(Vec::new(), None, 0);
     update(tab_id, |r, _| r.sign_open = r.sign_at.is_some());
 }
 
@@ -87,8 +89,12 @@ pub(super) fn signature_thumbs() -> Vec<slint::Image> {
         if t.0 != list {
             let images = list
                 .iter()
-                .filter_map(|(strokes, name, pen)| {
-                    let g = if strokes.is_empty() { sheaf_core::sign::Graphic::Typed(name.clone()?) } else { sheaf_core::sign::Graphic::Drawn(strokes.clone()) };
+                .filter_map(|(strokes, name, pen, font)| {
+                    let g = if strokes.is_empty() {
+                        sheaf_core::sign::Graphic::Typed(name.clone()?, ScriptFont::from_index(*font as usize))
+                    } else {
+                        sheaf_core::sign::Graphic::Drawn(strokes.clone())
+                    };
                     let mut p = sheaf_app::sign_preview::render(&g, 120, 40)?;
                     // In its own ink, as it will be placed.
                     let ink = reader::SIGNATURE_INKS[(pen.0 as usize).min(2)].map(|c| (c * 255.0) as u8);
@@ -104,9 +110,10 @@ pub(super) fn signature_thumbs() -> Vec<slint::Image> {
     })
 }
 
-/// The pad's live preview of a typed signature: the name in the script font (ink on transparent).
-pub fn signature_preview(name: slint::SharedString) -> slint::Image {
-    let g = sheaf_core::sign::Graphic::Typed(name.trim().to_string());
+/// The pad's live preview of a typed signature: the name in handwriting font `font` (ink on
+/// transparent).
+pub fn signature_preview(name: slint::SharedString, font: i32) -> slint::Image {
+    let g = sheaf_core::sign::Graphic::Typed(name.trim().to_string(), ScriptFont::from_index(font.max(0) as usize));
     sheaf_app::sign_preview::render(&g, 480, 96)
         .map(|p| slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&p.rgba, p.w, p.h)))
         .unwrap_or_default()

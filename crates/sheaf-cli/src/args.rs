@@ -324,9 +324,12 @@ pub(crate) enum Cmd {
         /// Width of the signature in points (its height follows the graphic)
         #[arg(long, default_value_t = sign::DEFAULT_WIDTH, value_parser = parse_width)]
         width: f64,
-        /// The name to sign with, in a script font
+        /// The name to sign with, in a handwriting font
         #[arg(long)]
         text: Option<String>,
+        /// The handwriting font of --text
+        #[arg(long, value_enum, default_value_t = CliScript::Dancing)]
+        script_font: CliScript,
         /// A PNG or JPEG image of the signature
         #[arg(long)]
         image: Option<PathBuf>,
@@ -459,6 +462,31 @@ pub(crate) enum CliSheets {
     OneSheet,
     /// One sheet per table
     SheetPerTable,
+}
+
+/// The handwriting fonts of a typed signature.
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliScript {
+    /// Dancing Script
+    Dancing,
+    /// Great Vibes
+    GreatVibes,
+    /// Satisfy
+    Satisfy,
+    /// Caveat
+    Caveat,
+}
+
+impl CliScript {
+    pub(crate) fn font(self) -> sheaf_core::script::ScriptFont {
+        use sheaf_core::script::ScriptFont;
+        match self {
+            CliScript::Dancing => ScriptFont::Dancing,
+            CliScript::GreatVibes => ScriptFont::GreatVibes,
+            CliScript::Satisfy => ScriptFont::Satisfy,
+            CliScript::Caveat => ScriptFont::Caveat,
+        }
+    }
 }
 
 /// The twelve standard text fonts, by their PDF names.

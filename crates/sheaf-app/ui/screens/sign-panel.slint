@@ -120,6 +120,18 @@ export component SignPanel inherits VerticalLayout {
         placeholder: "Your name";
         text <=> root.name;
     }
+    // The handwriting font (the preview below shows the name in it).
+    if root.tab.sign-mode == 0: VerticalLayout {
+        spacing: 6px;
+        for row in [[0, 1], [2, 3]]: HorizontalLayout {
+            spacing: 6px;
+            for f in row: Segment {
+                text: ["Dancing Script", "Great Vibes", "Satisfy", "Caveat"][f];
+                selected: root.tab.sign-font == f;
+                clicked => { SignBridge.font(root.tab.id, f); }
+            }
+        }
+    }
     if root.tab.sign-mode == 1: VerticalLayout {
         spacing: 6px;
         Pad {

@@ -91,7 +91,11 @@ pub use pdfcraft_fonts::{MAX_SIGNATURE_CHARS, ScriptOutline, script_missing, scr
 /// the box runs along the displayed axes, like an image signature's
 /// ([`SignatureImage::rect`]), and the outlines are turned back so the name reads across.
 pub fn typed_signature_shape(at: [f64; 2], text: &str, height: f64, rotation: i64) -> Option<Shape> {
-    let o = script_outline(text);
+    typed_signature_shape_from(at, &script_outline(text), height, rotation)
+}
+
+/// Sheaf: [`typed_signature_shape`] from outlines already made (another handwriting font).
+pub fn typed_signature_shape_from(at: [f64; 2], o: &ScriptOutline, height: f64, rotation: i64) -> Option<Shape> {
     let [left, bottom, right, top] = o.bounds();
     let span = (top - bottom).max(0.1);
     let width = right - left;
@@ -110,7 +114,11 @@ pub fn typed_signature_shape(at: [f64; 2], text: &str, height: f64, rotation: i6
 /// `text` in the script font as the graphic of a visible digital signature, as Fill & Sign types
 /// it. `None` for text with no outlines.
 pub fn typed_signature_graphic(text: &str) -> Option<pdfcraft_sign::Graphic> {
-    let o = script_outline(text);
+    typed_signature_graphic_from(script_outline(text))
+}
+
+/// Sheaf: [`typed_signature_graphic`] from outlines already made (another handwriting font).
+pub fn typed_signature_graphic_from(o: ScriptOutline) -> Option<pdfcraft_sign::Graphic> {
     o.contours.iter().any(|c| c.len() > 2).then_some(pdfcraft_sign::Graphic::Outlines(o.contours))
 }
 

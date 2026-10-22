@@ -21,6 +21,8 @@ pub struct SignState {
     /// 0 Type, 1 Draw, 2 Upload.
     pub mode: i32,
     pub name: String,
+    /// The handwriting font of the typed name.
+    pub font: sheaf_core::script::ScriptFont,
     pub strokes: Vec<Vec<[f64; 2]>>,
     pub image: Option<PathBuf>,
     /// 0 small, 1 medium, 2 large.
@@ -37,7 +39,7 @@ impl SignState {
     /// The graphic of the chosen mode, if one is made.
     pub fn graphic(&self) -> Option<Graphic> {
         match self.mode {
-            0 => (!self.name.trim().is_empty()).then(|| Graphic::Typed(self.name.trim().to_string())),
+            0 => (!self.name.trim().is_empty()).then(|| Graphic::Typed(self.name.trim().to_string(), self.font)),
             1 => (!self.strokes.is_empty()).then(|| Graphic::Drawn(self.strokes.clone())),
             _ => self.image.clone().map(Graphic::Image),
         }
@@ -66,6 +68,7 @@ fn to_image(p: &Picture) -> Image {
 /// The Sign fields of `tab` (the viewer's part is filled with the placement).
 pub fn fill(tab: &mut ToolTab, s: &SignState) {
     tab.sign_mode = s.mode;
+    tab.sign_font = s.font.index() as i32;
     tab.sign_size = s.size;
     tab.sign_has_graphic = s.preview.is_some();
     tab.sign_preview = s.preview.as_ref().map(|p| p.0.clone()).unwrap_or_default();
@@ -100,6 +103,11 @@ pub fn pad_strokes(commands: &str, w: f32, h: f32) -> Vec<Vec<[f64; 2]>> {
 pub fn drawn(tab_id: i32, commands: &str, w: f32, h: f32) {
     let strokes = sign_preview::parse_pad(commands, w as f64, h as f64);
     edit(tab_id, |s| s.strokes = strokes);
+}
+
+/// The handwriting font of the typed name (`ScriptFont::ALL` index).
+pub fn font(tab_id: i32, font: i32) {
+    edit(tab_id, |s| s.font = sheaf_core::script::ScriptFont::from_index(font.max(0) as usize));
 }
 
 pub fn size(tab_id: i32, size: i32) {
@@ -140,7 +148,7 @@ mod tests {
         assert_eq!(s.width(), 150.0);
         assert!(s.graphic().is_none());
         s.name = "  Ada ".into();
-        assert_eq!(s.graphic(), Some(Graphic::Typed("Ada".into())));
+        assert_eq!(s.graphic(), Some(Graphic::Typed("Ada".into(), Default::default())));
         s.mode = 1;
         assert!(s.graphic().is_none(), "nothing drawn yet");
         s.strokes = vec![vec![[0.0, 0.0], [1.0, 0.2]]];

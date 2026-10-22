@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 114 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 2/20, edit 6/29, files 8/19, forms 4/17, optimize 1/15, organize 8/27, output 3/15, platform 1/14, preferences 2/14, reader 40/64, security 6/18, sign 6/18.
+**331 components, 115 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 2/20, edit 6/29, files 8/19, forms 4/17, optimize 1/15, organize 8/27, output 3/15, platform 1/14, preferences 2/14, reader 40/64, security 6/18, sign 7/18.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)

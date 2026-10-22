@@ -65,8 +65,27 @@ impl OutputMode {
 }
 
 /// A kept signature: drawn strokes (y up, the pad 1 wide), or a typed name when there are none;
-/// and the pen it was made with (ink, width: see `Prefs::signature_pen`).
-pub type KeptSignature = (Vec<Vec<[f64; 2]>>, Option<String>, (u8, u8));
+/// the pen it was made with (ink, width: see `Prefs::signature_pen`); the handwriting font of a
+/// typed name (`sheaf_core::script::ScriptFont` index).
+pub type KeptSignature = (Vec<Vec<[f64; 2]>>, Option<String>, (u8, u8), u8);
+
+/// Kept signatures as saved: before handwriting fonts, without the font (it was the first).
+fn kept_signatures<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<KeptSignature>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Saved {
+        WithFont(Vec<Vec<[f64; 2]>>, Option<String>, (u8, u8), u8),
+        Before(Vec<Vec<[f64; 2]>>, Option<String>, (u8, u8)),
+    }
+    let list: Vec<Saved> = Vec::deserialize(d)?;
+    Ok(list
+        .into_iter()
+        .map(|s| match s {
+            Saved::WithFont(a, b, c, f) => (a, b, c, f),
+            Saved::Before(a, b, c) => (a, b, c, 0),
+        })
+        .collect())
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
@@ -95,8 +114,11 @@ pub struct Prefs {
     pub signature_name: Option<String>,
     /// The signature's pen: colour (index in `reader::SIGNATURE_INKS`) and width (0 fine, 1 medium, 2 bold).
     pub signature_pen: (u8, u8),
+    /// The handwriting font of the typed `signature_name` (`sheaf_core::script::ScriptFont` index).
+    pub signature_font: u8,
     /// Signatures made before, newest first (at most four): strokes or a typed name each. The
     /// first is `signature_strokes` / `signature_name`.
+    #[serde(deserialize_with = "kept_signatures")]
     pub signatures: Vec<KeptSignature>,
 }
 

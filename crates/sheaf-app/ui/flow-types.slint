@@ -341,6 +341,8 @@ export struct ToolTab {
     // Sign: 0 Type, 1 Draw, 2 Upload; the signature as ink on transparent (black, tinted in the
     // panel); one is made; the uploaded image's name; 0 small, 1 medium, 2 large; where it is.
     sign-mode: int,
+    // The typed name's handwriting font (Dancing Script, Great Vibes, Satisfy, Caveat).
+    sign-font: int,
     sign-preview: image,
     sign-has-graphic: bool,
     sign-image-name: string,
@@ -569,11 +571,11 @@ export global ReaderBridge {
     // The signature pad: commands and pad size, or a typed name; reset forgets the kept one.
     // The pad's answer: strokes (commands, pad width, height), typed name, ink (0 black, 1 blue,
     // 2 dark blue) and pen (0 fine, 1 medium, 2 bold).
-    callback signature-made(int, string, length, length, string, int, int);
+    callback signature-made(int, string, length, length, string, int, int, int);
     // A kept signature chosen (its index) or, with true, forgotten.
     callback signature-pick(int, int, bool);
     // The typed name as it will sign, in the script font (the pad's live preview).
-    pure callback signature-preview(string) -> image;
+    pure callback signature-preview(string, int) -> image;
     callback signature-reset(int);
 }
 
@@ -619,6 +621,8 @@ export global SignBridge {
     // 0 Type, 1 Draw, 2 Upload.
     callback mode(int, int);
     callback typed(int, string);
+    // The typed name's handwriting font (0 Dancing Script, 1 Great Vibes, 2 Satisfy, 3 Caveat).
+    callback font(int, int);
     // The pad's strokes as "M x y L x y … M …" in pad pixels, and the pad's width and height.
     callback drawn(int, string, length, length);
     callback pick-image(int);

@@ -27,4 +27,7 @@ done
 for f in OFL-DancingScript.txt OFL-Inter.txt; do
     cp "$pdfcraft_src/assets/fonts/$f" "$out/licenses/fonts/$f"
 done
+# Sheaf's own handwriting fonts (typed signatures).
+cp crates/sheaf-core/assets/fonts/OFL-GreatVibes.txt crates/sheaf-core/assets/fonts/OFL-Caveat.txt \
+    crates/sheaf-core/assets/fonts/LICENSE-Satisfy.txt "$out/licenses/fonts/"
 cargo about generate --workspace -c about.toml about/template.hbs -o "$out/licenses/THIRD_PARTY_LICENSES.html"

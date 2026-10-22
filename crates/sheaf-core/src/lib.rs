@@ -17,6 +17,7 @@ pub mod paths;
 pub mod ranges;
 pub mod redact;
 pub mod repair;
+pub mod script;
 pub mod rotate;
 pub mod security;
 pub mod sign;

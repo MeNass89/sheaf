@@ -70,7 +70,7 @@ fn digital_signature_is_signed_valid_and_written_verbatim() {
     let t = tempfile::tempdir().unwrap();
     let p12 = test_id(t.path());
     let out = t.path().join("signed.pdf");
-    let r = sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada Lovelace".into()), digital(&p12, "secret")), &out).unwrap();
+    let r = sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada Lovelace".into(), Default::default()), digital(&p12, "secret")), &out).unwrap();
     assert_eq!(r.path, out);
     assert_eq!(r.signer.as_deref(), Some("Sheaf Test Signer"));
     // Incremental: the original file is a prefix of the signed one.
@@ -93,7 +93,7 @@ fn digital_signature_is_signed_valid_and_written_verbatim() {
 fn signing_twice_keeps_both_signatures_valid() {
     let t = tempfile::tempdir().unwrap();
     let p12 = test_id(t.path());
-    let once = sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("First".into()), digital(&p12, "secret")), &t.path().join("once.pdf")).unwrap().path;
+    let once = sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("First".into(), Default::default()), digital(&p12, "secret")), &t.path().join("once.pdf")).unwrap().path;
     let strokes = vec![vec![[0.0, 0.0], [0.3, 0.2], [0.6, 0.0], [1.0, 0.25]]];
     let twice = sign::sign(&Input::new(&once), &spec(0, [320.0, 72.0, 520.0, 132.0], Graphic::Drawn(strokes), digital(&p12, "secret")), &t.path().join("twice.pdf")).unwrap().path;
     assert!(std::fs::read(&twice).unwrap().starts_with(&std::fs::read(&once).unwrap()));
@@ -103,7 +103,7 @@ fn signing_twice_keeps_both_signatures_valid() {
         assert_eq!(s.matches("Signature is Valid").count(), 2, "pdfsig: {s}");
     }
     // A visual-only signature on a signed file is an incremental update too.
-    let third = sign::sign(&Input::new(&twice), &spec(0, [72.0, 200.0, 222.0, 240.0], Graphic::Typed("Witness".into()), None), &t.path().join("third.pdf")).unwrap().path;
+    let third = sign::sign(&Input::new(&twice), &spec(0, [72.0, 200.0, 222.0, 240.0], Graphic::Typed("Witness".into(), Default::default()), None), &t.path().join("third.pdf")).unwrap().path;
     assert!(std::fs::read(&third).unwrap().starts_with(&std::fs::read(&twice).unwrap()));
     assert_eq!(signatures(&third), [(true, true), (true, true)]);
     if let Some(s) = pdfsig(&third) {
@@ -147,7 +147,7 @@ fn visual_signature_on_a_turned_page_lands_upright_where_placed() {
     let info = sign::page_info(&src, 0).unwrap();
     assert_eq!((info.rotation, info.width.round(), info.height.round()), (90, 842.0, 595.0));
     // Clicked at (200, 150) on the landscape page as displayed, a 200 pt wide signature.
-    let graphic = Graphic::Typed("Ada Lovelace".into());
+    let graphic = Graphic::Typed("Ada Lovelace".into(), Default::default());
     let aspect = sign::aspect(&graphic).unwrap();
     assert!(aspect < 0.6, "a name is wider than tall: {aspect}");
     let rect = sign::box_at(&info, [200.0, 150.0], 200.0, aspect);
@@ -177,7 +177,7 @@ fn a_digital_signature_on_a_turned_page_draws_its_graphic_upright() {
     let src = Input::new(rotated(t.path()));
     let info = sign::page_info(&src, 0).unwrap();
     let rect = sign::box_at(&info, [600.0, 400.0], 180.0, 0.3);
-    let out = sign::sign(&src, &spec(0, rect, Graphic::Typed("Ada".into()), digital(&p12, "secret")), &t.path().join("out.pdf")).unwrap().path;
+    let out = sign::sign(&src, &spec(0, rect, Graphic::Typed("Ada".into(), Default::default()), digital(&p12, "secret")), &t.path().join("out.pdf")).unwrap().path;
     assert_eq!(signatures(&out), [(true, true)]);
     qpdf_ok(&out);
     let [x0, y0, x1, y1] = ink(&render(&out, 0)).expect("no ink");
@@ -219,7 +219,7 @@ fn encrypted_input_is_refused_and_nothing_is_written() {
     assert!(o.status.success());
     let before = files_in(t.path());
     for input in [Input { path: locked.clone(), password: Some("user".into()) }, Input::new(&locked), Input::new(&owner_only)] {
-        let e = sign::sign(&input, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into()), None), &t.path().join("out.pdf")).unwrap_err();
+        let e = sign::sign(&input, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into(), Default::default()), None), &t.path().join("out.pdf")).unwrap_err();
         assert!(e.to_string().contains("unlock the PDF first"), "{e}");
     }
     assert_eq!(files_in(t.path()), before);
@@ -230,11 +230,11 @@ fn wrong_certificate_password_is_its_own_error_and_nothing_is_written() {
     let t = tempfile::tempdir().unwrap();
     let p12 = test_id(t.path());
     let before = files_in(t.path());
-    let e = sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into()), digital(&p12, "nope")), &t.path().join("out.pdf")).unwrap_err();
+    let e = sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into(), Default::default()), digital(&p12, "nope")), &t.path().join("out.pdf")).unwrap_err();
     assert!(matches!(e, OpdfError::CertificatePassword(_)), "{e:?}");
     assert!(e.to_string().contains("wrong certificate password"), "{e}");
     let not_id = t.path().join("k.pem");
-    let e = sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into()), digital(&not_id, "secret")), &t.path().join("out.pdf")).unwrap_err();
+    let e = sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into(), Default::default()), digital(&not_id, "secret")), &t.path().join("out.pdf")).unwrap_err();
     assert!(e.to_string().contains("not a usable digital ID"), "{e}");
     assert_eq!(files_in(t.path()), before);
 }
@@ -244,10 +244,10 @@ fn bad_specs_are_refused() {
     let t = tempfile::tempdir().unwrap();
     let out = t.path().join("out.pdf");
     let i = Input::new(invoice());
-    let typed = || Graphic::Typed("Ada".into());
+    let typed = || Graphic::Typed("Ada".into(), Default::default());
     assert!(sign::sign(&i, &spec(3, [72.0, 72.0, 272.0, 132.0], typed(), None), &out).unwrap_err().to_string().contains("page 4 does not exist"));
     assert!(sign::sign(&i, &spec(0, [72.0, 72.0, 72.0, 132.0], typed(), None), &out).is_err());
-    assert!(sign::sign(&i, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("  ".into()), None), &out).is_err());
+    assert!(sign::sign(&i, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("  ".into(), Default::default()), None), &out).is_err());
     assert!(sign::sign(&i, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Drawn(vec![vec![]]), None), &out).is_err());
     assert!(sign::sign(&i, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Drawn(vec![vec![[f64::NAN, 0.0]]]), None), &out).is_err());
     assert!(sign::sign(&i, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Image(invoice()), None), &out).is_err());
@@ -260,9 +260,11 @@ fn a_digital_signature_draws_the_same_ink_as_a_visual_one() {
     let p12 = test_id(t.path());
     let rect = [72.0, 72.0, 272.0, 132.0];
     let strokes = vec![vec![[0.0, 0.0], [0.4, 0.3], [0.7, 0.05], [1.0, 0.3]]];
-    for (name, g) in [("typed", Graphic::Typed("Ada Lovelace".into())), ("drawn", Graphic::Drawn(strokes))] {
-        let visual = sign::sign(&Input::new(invoice()), &spec(0, rect, g.clone(), None), &t.path().join(format!("{name}-v.pdf"))).unwrap().path;
-        let digital = sign::sign(&Input::new(invoice()), &spec(0, rect, g, digital(&p12, "secret")), &t.path().join(format!("{name}-d.pdf"))).unwrap().path;
+    // Every handwriting font (their descents differ: the box must hold the same ink either way).
+    let typed = sheaf_core::script::ScriptFont::ALL.map(|f| (f.name(), Graphic::Typed("Ada Lovelace".into(), f)));
+    for (name, g) in typed.into_iter().chain([("drawn", Graphic::Drawn(strokes))]) {
+        let visual = sign::sign(&Input::new(invoice()), &spec(0, rect, g.clone(), None), &t.path().join(format!("{name}-v.pdf").replace(' ', "-"))).unwrap().path;
+        let digital = sign::sign(&Input::new(invoice()), &spec(0, rect, g, digital(&p12, "secret")), &t.path().join(format!("{name}-d.pdf").replace(' ', "-"))).unwrap().path;
         // Only the signature box: the invoice's own text is outside it.
         let ink_in_box = |path: &Path| {
             let img = render(path, 0);
@@ -329,7 +331,7 @@ fn visual_and_digital_signatures_land_where_placed_on_every_rotation_with_a_crop
         assert_eq!((w, h), if rotation % 180 == 0 { (400.0, 500.0) } else { (500.0, 400.0) }, "rot {rotation}");
         // Centred a third across and a quarter down the page as displayed, 160 pt wide.
         let center = [w / 3.0, h / 4.0];
-        let g = Graphic::Typed("Ada Lovelace".into());
+        let g = Graphic::Typed("Ada Lovelace".into(), Default::default());
         let rect = sign::box_at(&info, center, 160.0, sign::aspect(&g).unwrap());
         for (kind, d) in [("visual", None), ("digital", digital(&p12, "secret"))] {
             let out = sign::sign(&src, &spec(0, rect, g.clone(), d.clone()), &t.path().join(format!("out-{rotation}-{kind}.pdf"))).unwrap().path;
@@ -347,4 +349,11 @@ fn visual_and_digital_signatures_land_where_placed_on_every_rotation_with_a_crop
             assert!(x1 - x0 > 2 * (y1 - y0) && (x1 - x0) as f64 > 140.0 && (x1 - x0) as f64 <= 162.0, "rot {rotation} {kind}: ink {:?} not upright", [x0, y0, x1, y1]);
         }
     }
+}
+
+#[test]
+fn a_typed_name_takes_its_handwriting_font() {
+    use sheaf_core::script::ScriptFont;
+    let aspects: Vec<f64> = ScriptFont::ALL.iter().map(|f| sign::aspect(&Graphic::Typed("Ada Lovelace".into(), *f)).unwrap()).collect();
+    assert!(aspects.windows(2).all(|w| (w[0] - w[1]).abs() > 1e-6), "each font its own shape: {aspects:?}");
 }

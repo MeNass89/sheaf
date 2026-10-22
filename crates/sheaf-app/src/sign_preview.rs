@@ -65,7 +65,7 @@ pub fn render(graphic: &Graphic, w: u32, h: u32) -> Option<Picture> {
         return None;
     }
     match graphic {
-        Graphic::Typed(t) => typed(t, w, h),
+        Graphic::Typed(t, font) => typed(t, *font, w, h),
         Graphic::Drawn(s) => drawn(s, w, h),
         Graphic::Image(p) => picture(p, w, h),
     }
@@ -78,8 +78,8 @@ fn fit(bw: f64, bh: f64, w: u32, h: u32, margin: f64) -> (f64, f64, f64) {
     (k, margin + (aw - bw * k) / 2.0, margin + (ah - bh * k) / 2.0)
 }
 
-fn typed(text: &str, w: u32, h: u32) -> Option<Picture> {
-    let o = sheaf_core::pdfcraft::engine::script_outline(text.trim());
+fn typed(text: &str, font: sheaf_core::script::ScriptFont, w: u32, h: u32) -> Option<Picture> {
+    let o = sheaf_core::script::outline(font, text.trim());
     if !o.contours.iter().any(|c| c.len() > 2) {
         return None;
     }
@@ -184,12 +184,12 @@ mod tests {
 
     #[test]
     fn each_kind_draws_ink_inside_its_box() {
-        let t = render(&Graphic::Typed("Ada Lovelace".into()), 240, 60).unwrap();
+        let t = render(&Graphic::Typed("Ada Lovelace".into(), Default::default()), 240, 60).unwrap();
         assert_eq!((t.w, t.h), (240, 60));
         assert!(t.inked() > 300, "typed ink {}", t.inked());
         let d = render(&Graphic::Drawn(vec![vec![[0.0, 0.0], [1.0, 0.3]]]), 240, 60).unwrap();
         assert!(d.inked() > 200, "drawn ink {}", d.inked());
-        assert!(render(&Graphic::Typed("   ".into()), 240, 60).is_none());
+        assert!(render(&Graphic::Typed("   ".into(), Default::default()), 240, 60).is_none());
         assert!(render(&Graphic::Drawn(vec![]), 240, 60).is_none());
         assert!(render(&Graphic::Image("/no/such/file.png".into()), 240, 60).is_none());
     }

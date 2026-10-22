@@ -188,6 +188,17 @@ check "a signature picked again is placed in its own ink (blue: $BL0 → $BL1)" 
 key ctrl+z; key ctrl+s; sleep 1.5
 check "a second signature is kept beside the first, and the first can be picked again ($S1 / $S2 / $S3)" "[ \"${S2%% *}\" = 2 ] && [ \"${S3#* }\" = \"${S1#* }\" ] && [ \"${S2#* }\" != \"${S1#* }\" ]"
 key ctrl+z; key ctrl+s; sleep 1.5
+# A typed signature: New signature, the name typed (field 640,512) shows in the four handwriting fonts; the
+# second (Great Vibes, 742,506 once the previews push the pad up) is picked and Use (817,614) places it.
+sfont() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("signature_font", 0))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"; }
+# "New signature" moves right as signatures are kept: found by OCR in the options bar; the name is typed
+# only once the pad is open (else its letters would pick tools).
+NS=$(at New 900x40+250+90); [ -n "$NS" ] && click $NS 0.8; click 700 620 1; click 640 512 0.3
+PAD=$(at Create 600x400+340+200)
+[ -n "$PAD" ] && { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "Ada Lovelace"; sleep 1.5; }; shot 02f-typed-fonts
+[ -n "$PAD" ] && { click 742 506 0.4; click 817 614 1.2; key ctrl+s; sleep 1.5; }; SF=$(sfont)
+check "a typed signature is placed in the handwriting font picked (font $SF, pad $PAD)" "[ \"$SF\" = 1 ] && qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -aq PCFillSign"
+key ctrl+z; key ctrl+s; sleep 1.5
 key Escape; key v
 
 # 2b'. Select that signature, pull its corner handle: it grows, keeping its proportions and top-left.

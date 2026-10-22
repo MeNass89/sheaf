@@ -105,6 +105,6 @@ Sheaf is free and stays free. If it saves you a subscription, you can [buy me a 
 
 ## License
 
-Sheaf's own source code is GPL-3.0-or-later. The distributed app links Slint under GPL-3.0-only and is therefore distributed under GPL-3.0. Third-party notices ship inside the app (`Contents/Resources/licenses/` on macOS, `licenses/` in the Windows zip, `share/doc/sheaf/` in the Linux package). Icons: [Lucide](https://lucide.dev) (ISC). PDF engine: [pdfium](https://pdfium.googlesource.com/pdfium/) (BSD-3-Clause) via [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries). Built on [PdfCraft](https://github.com/storytold/pdfcraft) (MIT OR Apache-2.0), which embeds the Dancing Script and Inter fonts (SIL OFL 1.1).
+Sheaf's own source code is GPL-3.0-or-later. The distributed app links Slint under GPL-3.0-only and is therefore distributed under GPL-3.0. Third-party notices ship inside the app (`Contents/Resources/licenses/` on macOS, `licenses/` in the Windows zip, `share/doc/sheaf/` in the Linux package). Icons: [Lucide](https://lucide.dev) (ISC). PDF engine: [pdfium](https://pdfium.googlesource.com/pdfium/) (BSD-3-Clause) via [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries). Built on [PdfCraft](https://github.com/storytold/pdfcraft) (MIT OR Apache-2.0), which embeds the Dancing Script and Inter fonts (SIL OFL 1.1). Typed signatures also use Great Vibes and Caveat (SIL OFL 1.1) and Satisfy (Apache-2.0).
 
 Sheaf is an independent project, not affiliated with any other PDF vendor.

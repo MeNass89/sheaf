@@ -682,7 +682,7 @@ mod tests {
         let o = ToolOptions::default();
         let dest = || Dest::File("/s/v-signed.pdf".into());
         assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], None, &o, dest()).is_err());
-        let placed = (sheaf_core::sign::Graphic::Typed("Ada".into()), 2, [10.0, 20.0, 160.0, 60.0]);
+        let placed = (sheaf_core::sign::Graphic::Typed("Ada".into(), Default::default()), 2, [10.0, 20.0, 160.0, 60.0]);
         let Job::Sign { input, page, view_box, digital, out, .. } = build_job_full(ToolId::Sign, one(), vec![], vec![], Some(OnPages::Sign(placed.clone())), &o, dest()).unwrap() else { panic!() };
         assert_eq!((input.path, page, view_box, digital, out), (PathBuf::from("/a/v.pdf"), 2, [10.0, 20.0, 160.0, 60.0], None, PathBuf::from("/s/v-signed.pdf")));
         assert_eq!(out_name(ToolId::Sign, Path::new("/a/v.pdf"), &o), "v-signed.pdf");
