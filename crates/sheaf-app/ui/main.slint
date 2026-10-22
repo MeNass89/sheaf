@@ -152,9 +152,13 @@ export component AppWindow inherits Window {
     // The keyboard goes where it belongs: the Tools search on Home ▸ Tools, else the app scope (so
     // ⌘, works everywhere); a reader tab and the password dialog take it themselves.
     function take-keys() {
-        if root.pw-visible || (root.active-tab >= 0 && root.tabs[root.active-tab].is-reader) { return; }
+        if root.pw-visible { return; }
+        // A reader tab takes the keyboard itself (also after the password dialog it opened with).
+        if root.active-tab >= 0 && root.tabs[root.active-tab].is-reader { root.reader-keys += 1; return; }
         if root.active-tab == -1 && root.page == Page.tools { root.search-seq += 1; } else { app-keys.focus(); }
     }
+    // Bumped to give the shown reader tab the keyboard.
+    property <int> reader-keys;
     // Bumped to give the Tools search the keyboard (+ tab, ⌘F).
     property <int> search-seq;
     // Bumped to end any presentation (⌘, leaves it as Escape would).
@@ -219,6 +223,7 @@ export component AppWindow inherits Window {
                             recents: root.recents;
                             recent-tools: root.recent-tools;
                             open-tool(id) => { root.open-tool(id); }
+                            star(id) => { root.star-tool(id); }
                             open-file => { root.open-file(); }
                             open-recent(i) => { root.open-recent(i); }
                             reveal-recent(i) => { root.reveal-recent(i); }
@@ -265,6 +270,7 @@ export component AppWindow inherits Window {
                         active: root.active-tab == i;
                         is-full-screen: root.full-screen;
                     end-presenting: root.end-presenting;
+                    take-keys: root.reader-keys;
                         full-screen(on) => { root.full-screen = on; }
                         open-preferences => { root.show-preferences(); }
                         switch-tab(d) => {

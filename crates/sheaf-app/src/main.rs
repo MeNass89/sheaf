@@ -79,8 +79,7 @@ pub(crate) fn tool_card(t: &ToolInfo) -> ToolCard {
     }
 }
 
-/// The Tools page's grid and sections, Home's recent and favourite tools: built again when a
-/// tool is starred.
+/// The Tools page's grid, sections and favourites: built again when a tool is starred.
 pub(crate) fn install_catalogue(ui: &AppWindow) {
     let catalogue = tools::catalogue();
     let all: Vec<ToolCard> = catalogue.iter().map(tool_card).collect();

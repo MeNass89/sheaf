@@ -8731,14 +8731,14 @@
    35
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "recents with thumbnails; open-file drop zone",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -8750,6 +8750,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [23, 28, 29, 33, 35]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Home as iLovePDF's: drop zone with Open file, Recent tools (latest runs' tools, wrapping), Recent files with thumbnails, remove and clear. Joint 9/10: independent Opus reviewer (interim for Sol, see DECISIONS) agreed in round 3"
    }
   ]
  },
@@ -9513,14 +9524,14 @@
    40
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 6
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "fuzzy matching, keyboard ↑↓ Enter",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -9532,6 +9543,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [40]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Tools search: ranked (name start, name, description word, letters in order: 'cmprs' finds Compress), results as a list, ↑↓ with the chosen row kept in view, ↩ opens, Escape clears; focused on Tools, + and ⌘F (sheaf_core tests; gui-smoke: 'pdf to', ↓, ↩ opens PDF to Word without clicking the field). Joint 9/10: independent Opus reviewer (interim for Sol, see DECISIONS) agreed in round 3"
    }
   ]
  },
@@ -16093,14 +16115,14 @@
    222
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 6
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "⌘, shortcut; more settings",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -16112,6 +16134,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [222]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": "F-001",
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "⌘, from anywhere (Home, tool tabs, documents, their fields) opens Preferences, leaving full screen and a presentation; Home sidebar entry. gui-smoke: from a tool tab and a document. Joint 9/10: independent Opus reviewer (interim for Sol, see DECISIONS) agreed in round 3"
    }
   ]
  },

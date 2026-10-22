@@ -74,6 +74,9 @@ export component ReaderScreen inherits Rectangle {
     property <bool> presenting;
     // Bumped by the window (⌘, Preferences) to end a presentation as Escape does.
     in property <int> end-presenting;
+    // Bumped by the window when this tab should take the keyboard (after a dialog closed).
+    in property <int> take-keys;
+    changed take-keys => { if root.active { keys.focus(); } }
     changed end-presenting => { root.stop-presenting(); }
     function stop-presenting() {
         if root.presenting {
