@@ -2309,3 +2309,27 @@ mod tests {
         assert!(!is_type3_fallback(&other));
     }
 }
+
+/// Sheaf: tests of the Sheaf changes in this file (upstream's tests are left out of the copy).
+#[cfg(test)]
+mod sheaf_tests {
+    use super::myers;
+
+    fn kept(old: &str, new: &str, max: usize) -> Option<Vec<Option<usize>>> {
+        myers(&old.chars().collect::<Vec<_>>(), &new.chars().collect::<Vec<_>>(), max)
+    }
+
+    #[test]
+    fn myers_keeps_the_longest_common_characters() {
+        assert_eq!(kept("", "", 4), Some(vec![]));
+        assert_eq!(kept("ab", "", 4), Some(vec![]));
+        assert_eq!(kept("", "ab", 4), Some(vec![None, None]));
+        assert_eq!(kept("abc", "xyz", 6), Some(vec![None, None, None]));
+        // Two changes apart: the middle is kept where it was.
+        assert_eq!(kept("a bold c", "A bold C", 4), Some(vec![None, Some(1), Some(2), Some(3), Some(4), Some(5), Some(6), None]));
+        // A newline turned into a space and a word typed.
+        assert_eq!(kept("x\ny", "x new y", 6), Some(vec![Some(0), None, None, None, None, None, Some(2)]));
+        // More edits than allowed: none.
+        assert_eq!(kept("abcdef", "uvwxyz", 3), None);
+    }
+}

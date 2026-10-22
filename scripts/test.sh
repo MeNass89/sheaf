@@ -43,7 +43,7 @@ else
 fi
 export -f cargo_
 layer lint cargo_ clippy --workspace --all-targets -- -D warnings
-layer unit cargo_ test --workspace --no-fail-fast
+layer unit bash -c 'cargo_ test --workspace --no-fail-fast && cargo_ test -p pdfcraft-edit --lib'
 # The reader driven for real (Xvfb + xdotool), checked on the files it writes.
 if command -v Xvfb >/dev/null && command -v xdotool >/dev/null && command -v qpdf >/dev/null; then
     layer gui bash -c 'cargo_ build -p sheaf-app && bash dev/scripts/gui-smoke.sh'

@@ -170,9 +170,15 @@ fn group_layout(lines: &[TextLine], mixed: bool) -> Vec<TextBlock> {
 fn wrapped(row: &[usize], next: &[usize], rect: [f64; 4], lines: &[TextLine]) -> bool {
     let (Some(r), Some(first)) = (row_rect(row, lines), next.first().and_then(|i| lines.get(*i))) else { return false };
     let text = first.text.trim_start();
-    // A list item, a bullet or a numbered line starts on its own line.
-    let marker = text.starts_with(['-', '–', '—', '•', '·', '*', '.', '\u{f0b7}', '\u{f092}', '\u{2192}'])
-        || text.split_once([')', '.']).is_some_and(|(n, _)| !n.is_empty() && n.len() <= 3 && n.chars().all(|c| c.is_ascii_alphanumeric()));
+    // A list item, a bullet or a numbered line ("1.", "a)") starts on its own line; the marker
+    // is followed by a space ("etc." or "1.5 mg" at the start of a row are words).
+    let mut cs = text.chars();
+    let bullet = cs.next().is_some_and(|c| ['-', '–', '—', '•', '·', '*', '.', '\u{f0b7}', '\u{f092}', '\u{2192}'].contains(&c))
+        && cs.next().is_none_or(char::is_whitespace);
+    let numbered = text.split_once([')', '.']).is_some_and(|(n, rest)| {
+        !n.is_empty() && n.len() <= 3 && n.chars().all(|c| c.is_ascii_alphanumeric()) && rest.starts_with(char::is_whitespace)
+    });
+    let marker = bullet || numbered;
     if marker {
         return false;
     }

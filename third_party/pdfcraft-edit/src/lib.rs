@@ -351,14 +351,6 @@ fn add_resources_with(
 const WRAP_OPEN: &[u8] = b"q %PdfCraft\n";
 const WRAP_CLOSE: &[u8] = b"Q %PdfCraft\n";
 
-#[cfg(test)]
-fn stream_bytes(doc: &Document, o: &Object) -> Option<Vec<u8>> {
-    match &*doc.resolve(o) {
-        Object::Stream(s) => s.decoded().ok(),
-        _ => None,
-    }
-}
-
 /// The `/PCMark` tag in a content stream's dictionary: a mark kind, or `Wrap` for the q/Q
 /// wrapper. Read from the dictionary, so finding marks never decompresses page content.
 fn stream_tag(doc: &Document, o: &Object) -> Option<String> {
@@ -697,5 +689,5 @@ pub use added::{
     update_content,
 };
 
-#[cfg(test)]
-mod tests;
+// Sheaf: upstream's `mod tests` (src/tests.rs) is left out of the copy; Sheaf's own tests are in
+// the files they test (`text.rs` `sheaf_tests`).
