@@ -132,13 +132,16 @@ enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
-    /// Render every page to JPEG in a directory
+    /// Render every page to JPEG (or PNG with --png) in a directory
     ToJpg {
         input: PathBuf,
         #[arg(long, default_value_t = 150)]
         dpi: u32,
         #[arg(long, default_value_t = 85, value_parser = clap::value_parser!(u8).range(1..=100))]
         quality: u8,
+        /// Lossless PNG images instead of JPEG
+        #[arg(long, conflicts_with = "quality")]
+        png: bool,
         #[arg(short, long)]
         out: PathBuf,
     },
@@ -299,9 +302,15 @@ enum Cmd {
     /// Black out text, patterns or whole pages for good, then check no text remains under them
     Redact {
         input: PathBuf,
-        /// Text to redact wherever it appears (case-insensitive); repeat for several
+        /// Text to redact wherever it appears (any case, unless --match-case); repeat for several
         #[arg(long)]
         text: Vec<String>,
+        /// Match --text only with the same upper and lower case
+        #[arg(long)]
+        match_case: bool,
+        /// Match --text only as whole words, not inside longer ones
+        #[arg(long)]
+        whole_words: bool,
         /// Kind of content to redact wherever it appears; repeat for several
         #[arg(long, value_enum)]
         pattern: Vec<CliPattern>,
@@ -754,7 +763,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         }
         Cmd::Unlock { input: i, out } => one(security::unlock(&input(i), &out)),
         Cmd::Repair { input: i, out } => one(repair::repair(&input(i), &out)),
-        Cmd::ToJpg { input: i, dpi, quality, out } => images::pdf_to_jpg(&input(i), dpi, quality, &out),
+        Cmd::ToJpg { input: i, dpi, quality, png, out } => images::pdf_to_jpg(&input(i), dpi, (!png).then_some(quality), &out),
         Cmd::FromImages { images: imgs, a4, landscape, out } => {
             let layout = if a4 { PageLayout::A4 { landscape, margin_pt: 36.0 } } else { PageLayout::FitImage };
             one(images::images_to_pdf(&imgs, layout, &out))
@@ -833,10 +842,10 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             note!("{}", r.summary());
             warned(Ok((r.path, r.was_encrypted)))
         }
-        Cmd::Redact { input: i, text, pattern, pages: whole, out } => {
+        Cmd::Redact { input: i, text, match_case, whole_words, pattern, pages: whole, out } => {
             let i = input(i);
-            let searched = text.clone();
-            let mut queries: Vec<Query> = text.into_iter().map(|t| Query::Literal { text: t, case_insensitive: true }).collect();
+            let searched: Vec<redact::Needle> = text.iter().map(|t| redact::Needle { text: t.clone(), match_case, whole_word: whole_words }).collect();
+            let mut queries: Vec<Query> = text.into_iter().map(|t| Query::Literal { text: t, case_insensitive: !match_case, whole_word: whole_words }).collect();
             queries.extend(pattern.into_iter().map(|p| Query::Pattern(p.into())));
             let mut marks = redact::mark_text(&redact::find_all(&i, &queries)?);
             if let Some(spec) = whole {

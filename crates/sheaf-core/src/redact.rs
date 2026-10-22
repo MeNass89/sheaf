@@ -24,18 +24,43 @@ pub use crate::pdfcraft::engine::RedactPattern as Pattern;
 /// What to look for.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Query {
-    /// The text as typed (runs of spaces match any spacing, words may wrap to the next line).
-    Literal { text: String, case_insensitive: bool },
+    /// The text as typed (runs of spaces match any spacing, words may wrap to the next line);
+    /// `whole_word` skips matches inside a longer word.
+    Literal { text: String, case_insensitive: bool, whole_word: bool },
     Pattern(Pattern),
 }
 
 /// One match: its page (0-based), one quadrilateral per line it covers (user space, as PDF
-/// `/QuadPoints`: top-left, top-right, bottom-left, bottom-right), and the text matched.
+/// `/QuadPoints`: top-left, top-right, bottom-left, bottom-right), and the text matched, with
+/// how its search matched it (kept for the clean-up outside the page, see [`Needle`]).
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextMatch {
     pub page: usize,
     pub quads: Vec<[f64; 8]>,
     pub text: String,
+    pub match_case: bool,
+    pub whole_word: bool,
+}
+
+/// A text [`apply`] removes outside the page content (metadata, bookmarks, comments, fields),
+/// matched as the search that found it did: by default any case and inside longer words.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Needle {
+    pub text: String,
+    pub match_case: bool,
+    pub whole_word: bool,
+}
+
+impl From<&str> for Needle {
+    fn from(text: &str) -> Needle {
+        Needle { text: text.into(), ..Default::default() }
+    }
+}
+
+impl From<String> for Needle {
+    fn from(text: String) -> Needle {
+        Needle { text, ..Default::default() }
+    }
 }
 
 /// An area to redact on page `page` (0-based): one or more quadrilaterals in user space.
@@ -44,8 +69,11 @@ pub struct Mark {
     pub page: usize,
     pub quads: Vec<[f64; 8]>,
     /// The text matched under this mark (empty for a drawn area): [`apply`] also removes it
-    /// from the document information, XMP metadata, bookmarks, comments and form fields.
+    /// from the document information, XMP metadata, bookmarks, comments and form fields,
+    /// matched with the search's options.
     pub text: String,
+    pub match_case: bool,
+    pub whole_word: bool,
     /// The mark is the whole page: its content is replaced by a black fill of the page and its
     /// annotations dropped, so nothing outside the media box survives either.
     pub whole_page: bool,
@@ -106,15 +134,19 @@ pub fn find_all(input: &Input, queries: &[Query]) -> Result<Vec<TextMatch>> {
             continue;
         };
         for q in queries {
+            let (match_case, whole_word) = match q {
+                Query::Literal { case_insensitive, whole_word, .. } => (!case_insensitive, *whole_word),
+                Query::Pattern(_) => (false, false),
+            };
             let ranges = match q {
                 // Typed text in either Unicode form ("É" as one character or "E" + accent) finds
                 // the page's text in either.
-                Query::Literal { text: needle, case_insensitive } => {
+                Query::Literal { text: needle, case_insensitive, whole_word } => {
                     use unicode_normalization::UnicodeNormalization;
                     let (c, dcomp): (String, String) = (needle.nfc().collect(), needle.nfd().collect());
-                    let mut r = text.find_opts(&c, !case_insensitive, false);
+                    let mut r = text.find_opts(&c, !case_insensitive, *whole_word);
                     if dcomp != c {
-                        for g in text.find_opts(&dcomp, !case_insensitive, false) {
+                        for g in text.find_opts(&dcomp, !case_insensitive, *whole_word) {
                             if !r.contains(&g) {
                                 r.push(g);
                             }
@@ -126,7 +158,7 @@ pub fn find_all(input: &Input, queries: &[Query]) -> Result<Vec<TextMatch>> {
             };
             for g in ranges {
                 let quads = text.line_rects(g.clone()).into_iter().map(|v| info.view_rect_to_quad(v)).collect();
-                out.push(TextMatch { page, quads, text: text.text_of(g).replace('\n', " ") });
+                out.push(TextMatch { page, quads, text: text.text_of(g).replace('\n', " "), match_case, whole_word });
             }
         }
     }
@@ -135,7 +167,10 @@ pub fn find_all(input: &Input, queries: &[Query]) -> Result<Vec<TextMatch>> {
 
 /// Marks over the matches.
 pub fn mark_text(matches: &[TextMatch]) -> Vec<Mark> {
-    matches.iter().map(|m| Mark { page: m.page, quads: m.quads.clone(), text: m.text.clone(), whole_page: false }).collect()
+    matches
+        .iter()
+        .map(|m| Mark { page: m.page, quads: m.quads.clone(), text: m.text.clone(), match_case: m.match_case, whole_word: m.whole_word, whole_page: false })
+        .collect()
 }
 
 /// Marks over rectangles `[x0, y0, x1, y1]` in user space, one per `(page, rect)`.
@@ -153,7 +188,7 @@ pub fn mark_pages(input: &Input, pages: &[usize]) -> Result<Vec<Mark>> {
         .iter()
         .map(|p| {
             let b = boxes.get(*p).ok_or_else(|| OpdfError::Unsupported(format!("page {} does not exist (the document has {} pages)", p + 1, boxes.len())))?;
-            Ok(Mark { page: *p, quads: vec![rect_quad(b[0])], text: String::new(), whole_page: true })
+            Ok(Mark { page: *p, quads: vec![rect_quad(b[0])], whole_page: true, ..Default::default() })
         })
         .collect()
 }
@@ -164,7 +199,7 @@ pub fn mark_pages(input: &Input, pages: &[usize]) -> Result<Vec<Mark>> {
 /// document information, XMP metadata, bookmarks, comments and form fields (see [`Mark::text`]).
 /// The bytes are audited ([`verify`]) under their temporary name; any finding fails the call
 /// and nothing is written.
-pub fn apply(input: &Input, marks: &[Mark], searched: &[String], out: &Path) -> Result<RedactReport> {
+pub fn apply(input: &Input, marks: &[Mark], searched: &[Needle], out: &Path) -> Result<RedactReport> {
     if marks.is_empty() {
         return Err(OpdfError::Unsupported("nothing is marked for redaction".into()));
     }
@@ -203,12 +238,14 @@ pub fn apply(input: &Input, marks: &[Mark], searched: &[String], out: &Path) -> 
 }
 
 /// The texts to remove outside the page content: the typed searches and every match's text.
-fn needles(marks: &[Mark], searched: &[String]) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-    for t in searched.iter().chain(marks.iter().map(|m| &m.text)) {
-        let t = nfc(&t.split_whitespace().collect::<Vec<_>>().join(" "));
-        if !t.is_empty() && !out.iter().any(|o| o.to_lowercase() == t.to_lowercase()) {
-            out.push(t);
+fn needles(marks: &[Mark], searched: &[Needle]) -> Vec<Needle> {
+    let mut out: Vec<Needle> = Vec::new();
+    let from_marks = marks.iter().map(|m| Needle { text: m.text.clone(), match_case: m.match_case, whole_word: m.whole_word });
+    for n in searched.iter().cloned().chain(from_marks) {
+        let n = Needle { text: nfc(&n.text.split_whitespace().collect::<Vec<_>>().join(" ")), ..n };
+        let same = |o: &Needle| o.match_case == n.match_case && o.whole_word == n.whole_word && o.text.to_lowercase() == n.text.to_lowercase();
+        if !n.text.is_empty() && !out.iter().any(same) {
+            out.push(n);
         }
     }
     out
@@ -220,18 +257,23 @@ fn nfc(s: &str) -> String {
     s.nfc().collect()
 }
 
-/// Where `needle` occurs in `hay` (byte range of `hay`): case-insensitive, any run of white
-/// space in `needle` matching any run in `hay`, both compared in Unicode form C. `hay` must
-/// already be in form C (see [`nfc`]) for the range to be meaningful.
-fn find_loose(hay: &str, needle: &str) -> Option<(usize, usize)> {
-    let needle = nfc(needle);
-    let words: Vec<Vec<char>> = needle.split_whitespace().map(|w| w.chars().collect()).collect();
+/// Where `needle` occurs in `hay` (byte range of `hay`): any run of white space in the text
+/// matching any run in `hay`, both compared in Unicode form C; any case unless
+/// `match_case`, and only between non-letters when `whole_word`. `hay` must already be in
+/// form C (see [`nfc`]) for the range to be meaningful.
+fn find_loose(hay: &str, needle: &Needle) -> Option<(usize, usize)> {
+    let text = nfc(&needle.text);
+    let words: Vec<Vec<char>> = text.split_whitespace().map(|w| w.chars().collect()).collect();
     if words.is_empty() {
         return None;
     }
-    let same = |a: char, b: char| a == b || a.to_lowercase().eq(b.to_lowercase());
+    let same = |a: char, b: char| a == b || (!needle.match_case && a.to_lowercase().eq(b.to_lowercase()));
     let chars: Vec<(usize, char)> = hay.char_indices().collect();
+    let wordy = |i: usize| chars.get(i).is_some_and(|c| c.1.is_alphanumeric());
     'start: for s in 0..chars.len() {
+        if needle.whole_word && s > 0 && wordy(s - 1) {
+            continue;
+        }
         let mut i = s;
         for (k, w) in words.iter().enumerate() {
             if k > 0 {
@@ -250,19 +292,22 @@ fn find_loose(hay: &str, needle: &str) -> Option<(usize, usize)> {
                 }
             }
         }
+        if needle.whole_word && wordy(i) {
+            continue;
+        }
         let end = chars.get(i).map_or(hay.len(), |c| c.0);
         return Some((chars[s].0, end));
     }
     None
 }
 
-fn contains_any(hay: &str, needles: &[String]) -> bool {
+fn contains_any(hay: &str, needles: &[Needle]) -> bool {
     let hay = nfc(hay);
     needles.iter().any(|n| find_loose(&hay, n).is_some())
 }
 
 /// `text` (in form C) without any of `needles`, or `None` when none occurs.
-fn scrub(text: &str, needles: &[String]) -> Option<String> {
+fn scrub(text: &str, needles: &[Needle]) -> Option<String> {
     let mut t = nfc(text);
     let mut changed = false;
     while let Some((a, b)) = needles.iter().find_map(|n| find_loose(&t, n)) {
@@ -452,7 +497,7 @@ fn outline_items(d: &lopdf::Document) -> HashSet<ObjectId> {
 
 /// Scrubs the allow-listed keys of `d` (through arrays and nested dictionaries: a choice
 /// field's /Opt); the document information is scrubbed whole with [`scrub_dict_all`].
-fn scrub_dict(d: &mut Dictionary, kinds: &[Kind], needles: &[String]) -> bool {
+fn scrub_dict(d: &mut Dictionary, kinds: &[Kind], needles: &[Needle]) -> bool {
     if kinds.contains(&Kind::Info) {
         return scrub_dict_all(d, needles);
     }
@@ -485,7 +530,7 @@ type Warnings = Vec<String>;
 /// alternate texts; XMP metadata, attachments, JavaScript, private application data
 /// (/PieceInfo) and Form XObjects no page paints that contain one removed whole (each kind
 /// named in the warnings). Unchanged bytes are returned as they are.
-fn post_pass(bytes: &[u8], marks: &[Mark], needles: &[String]) -> Result<(Vec<u8>, Warnings)> {
+fn post_pass(bytes: &[u8], marks: &[Mark], needles: &[Needle]) -> Result<(Vec<u8>, Warnings)> {
     let whole: BTreeSet<usize> = marks.iter().filter(|m| m.whole_page).map(|m| m.page).collect();
     let mut warnings = Vec::new();
     if whole.is_empty() && needles.is_empty() {
@@ -1349,7 +1394,7 @@ struct Finding {
 /// The deny-by-default reader: every string, name and key of what it is given is checked,
 /// with the exemptions of [`check_scrubbed`]; exempt places that still hold a needle are noted.
 struct Audit<'n> {
-    needles: &'n [String],
+    needles: &'n [Needle],
     roles: HashSet<Vec<u8>>,
     id: ObjectId,
     hits: Vec<Finding>,
@@ -1589,7 +1634,7 @@ fn xmp_streams(d: &lopdf::Document) -> HashSet<ObjectId> {
 
 /// Every place where one of `needles` still occurs (see [`check_scrubbed`]), and the notes for
 /// exempt places that still hold one.
-fn findings(d: &lopdf::Document, needles: &[String]) -> (Vec<Finding>, BTreeSet<&'static str>) {
+fn findings(d: &lopdf::Document, needles: &[Needle]) -> (Vec<Finding>, BTreeSet<&'static str>) {
     let reach = Reach::of(d);
     let xmp = xmp_streams(d);
     let under = under_map(d);
@@ -1672,7 +1717,7 @@ fn findings(d: &lopdf::Document, needles: &[String]) -> (Vec<Finding>, BTreeSet<
 /// Returns a note for each kind of exempt place that still holds a searched text (a link
 /// address, a named destination, a field name, a font or glyph name, a font program or
 /// character map), so the success line never hides it.
-fn check_scrubbed(bytes: &[u8], needles: &[String]) -> Result<Vec<String>> {
+fn check_scrubbed(bytes: &[u8], needles: &[Needle]) -> Result<Vec<String>> {
     if needles.is_empty() {
         return Ok(Vec::new());
     }
@@ -1772,7 +1817,7 @@ fn object_bytes(o: &Object) -> Option<Vec<u8>> {
 /// holding one are dropped; marked-content property lists and inline image dictionaries are
 /// scrubbed like any value; a marked-content tag holding one becomes `/Span`. `None` when
 /// nothing changed.
-fn scrub_painted(raw: &[u8], needles: &[String]) -> Option<Vec<u8>> {
+fn scrub_painted(raw: &[u8], needles: &[Needle]) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(raw.len());
     let mut at = 0;
     let mut changed = false;
@@ -1827,7 +1872,7 @@ fn scrub_painted(raw: &[u8], needles: &[String]) -> Option<Vec<u8>> {
 }
 
 /// Scrubs every painted stream of `d` (see [`scrub_painted`]); returns whether one changed.
-fn scrub_painted_streams(d: &mut lopdf::Document, reach: &Reach, needles: &[String]) -> bool {
+fn scrub_painted_streams(d: &mut lopdf::Document, reach: &Reach, needles: &[Needle]) -> bool {
     let mut changed = false;
     for id in &reach.painted {
         let Some(Object::Stream(s)) = d.objects.get_mut(id) else { continue };
@@ -1842,7 +1887,7 @@ fn scrub_painted_streams(d: &mut lopdf::Document, reach: &Reach, needles: &[Stri
 /// Fonts and colour spaces listed in a `/Resources` that no painted content or appearance uses,
 /// whose dictionary, program or character map holds one of `needles`: removed from every
 /// resource dictionary, each named in a warning.
-fn remove_unused_assets(d: &mut lopdf::Document, reach: &Reach, needles: &[String], warnings: &mut Warnings) -> bool {
+fn remove_unused_assets(d: &mut lopdf::Document, reach: &Reach, needles: &[Needle], warnings: &mut Warnings) -> bool {
     let mut gone: Vec<(Vec<u8>, ObjectId, &'static str)> = Vec::new();
     for o in d.objects.values() {
         let dict = match o {
@@ -1901,7 +1946,7 @@ enum Scrubbed {
 /// holding it (other than [`PDF_NAMES`]) go, arrays and dictionaries are read through.
 /// References are not followed. In an array an emptied string stays as `()`, so the positions
 /// of the others (a choice field's /Opt pairs) do not move.
-fn scrub_any(o: &mut Object, needles: &[String]) -> Scrubbed {
+fn scrub_any(o: &mut Object, needles: &[Needle]) -> Scrubbed {
     match o {
         Object::String(..) => match scrub(&decode(o), needles) {
             None => Scrubbed::Kept,
@@ -1948,7 +1993,7 @@ fn scrub_any(o: &mut Object, needles: &[String]) -> Scrubbed {
 }
 
 /// [`scrub_any`] on every value of `d`; a dropped value loses its key.
-fn scrub_dict_all(d: &mut Dictionary, needles: &[String]) -> bool {
+fn scrub_dict_all(d: &mut Dictionary, needles: &[Needle]) -> bool {
     let keys: Vec<Vec<u8>> = d.iter().map(|(k, _)| k.clone()).collect();
     let mut changed = false;
     for k in keys {
@@ -1967,7 +2012,7 @@ fn scrub_dict_all(d: &mut Dictionary, needles: &[String]) -> bool {
 
 /// Whether `o`, or anything it holds or points to (references followed once), contains one of
 /// `needles`: strings, names, and streams read as text, as XMP and as content.
-fn holds(d: &lopdf::Document, o: &Object, needles: &[String], seen: &mut HashSet<ObjectId>) -> bool {
+fn holds(d: &lopdf::Document, o: &Object, needles: &[Needle], seen: &mut HashSet<ObjectId>) -> bool {
     match o {
         Object::Reference(r) => seen.insert(*r) && d.get_object(*r).is_ok_and(|x| holds(d, x, needles, seen)),
         Object::String(..) => contains_any(&decode(o), needles),
@@ -2192,7 +2237,7 @@ mod tests {
 
     #[test]
     fn the_check_reads_xmp_through_references_comments_and_cdata() {
-        let n = ["secretword".to_string()];
+        let n: [Needle; 1] = ["secretword".into()];
         for inner in ["<dc:title>&#115;ecretword</dc:title>", "<dc:title>s&#x65;cretword</dc:title>", "<dc:title>secret<!-- x -->word</dc:title>", "<dc:title>secret<![CDATA[word]]></dc:title>", "<dc:title>SECRETWORD</dc:title>"] {
             let e = check_scrubbed(&with_xmp(inner), &n).unwrap_err().to_string();
             assert!(e.contains("XMP metadata"), "{inner}: {e}");
@@ -2245,7 +2290,7 @@ mod tests {
     }
 
     fn audit(bytes: &[u8], needle: &str) -> std::result::Result<Vec<String>, String> {
-        check_scrubbed(bytes, &[needle.to_string()]).map_err(|e| e.to_string())
+        check_scrubbed(bytes, &[needle.into()]).map_err(|e| e.to_string())
     }
 
     const SHOWN: &[u8] = b"BT /F1 12 Tf 72 700 Td (keep) Tj ET";
@@ -2271,7 +2316,7 @@ mod tests {
 
     #[test]
     fn painted_content_is_scrubbed_outside_its_drawing() {
-        let n = ["secretword".to_string()];
+        let n: [Needle; 1] = ["secretword".into()];
         let raw = b"/Span << /ActualText (secretword) /Lang (en) >> BDC BT (x) Tj ET EMC\n% secretword\nBI /W 1 /H 1 /CS /G /BPC 8 /Note (a secretword) ID \x00 EI";
         let out = scrub_painted(raw, &n).unwrap();
         let t = String::from_utf8_lossy(&out);
@@ -2285,7 +2330,7 @@ mod tests {
 
     #[test]
     fn comments_next_to_and_inside_operations_never_overlap_and_are_scrubbed() {
-        let n = ["secretword".to_string()];
+        let n: [Needle; 1] = ["secretword".into()];
         // Every pairing of a comment with operands, operators and inline image dictionaries,
         // with and without white space around it.
         let parts: [&[u8]; 12] = [
@@ -2447,8 +2492,13 @@ mod tests {
     #[test]
     fn matching_ignores_case_spacing_and_unicode_form() {
         let hay = nfc("Mme E\u{301}LODIE  Martin");
-        assert!(find_loose(&hay, "élodie martin").is_some());
+        assert!(find_loose(&hay, &"élodie martin".into()).is_some());
         assert_eq!(scrub("Doc secretword", &["secretword".into()]).as_deref(), Some("Doc "));
         assert_eq!(scrub("nothing", &["secretword".into()]), None);
+        // The search's options hold outside the page too: "Ann" as a whole word, case kept.
+        let ann = Needle { text: "Ann".into(), match_case: true, whole_word: true };
+        assert_eq!(scrub("Annual planning", std::slice::from_ref(&ann)), None);
+        assert_eq!(scrub("ann notes", std::slice::from_ref(&ann)), None);
+        assert_eq!(scrub("By Ann, 2026", std::slice::from_ref(&ann)).as_deref(), Some("By , 2026"));
     }
 }

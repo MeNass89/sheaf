@@ -43,6 +43,32 @@ pub fn out_name(tool: ToolId, input: &Path, opts: &ToolOptions) -> String {
     jobs::default_name(tool, &stem(input))
 }
 
+/// Why a typed output name cannot be a file name on every system, or `None` when it can (empty
+/// is fine: the default name is used).
+pub fn file_name_error(name: &str) -> Option<String> {
+    let n = name.trim();
+    if n.is_empty() {
+        return None;
+    }
+    if let Some(c) = n.chars().find(|c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') || c.is_control()) {
+        return Some(if c.is_control() { "A name cannot contain control characters".into() } else { format!("A name cannot contain {c}") });
+    }
+    if n.starts_with('.') {
+        return Some("A name cannot start with a dot".into());
+    }
+    let stem = n.split('.').next().unwrap_or("").to_uppercase();
+    let reserved = ["CON", "PRN", "AUX", "NUL"].contains(&stem.as_str())
+        || (stem.len() == 4 && (stem.starts_with("COM") || stem.starts_with("LPT")) && (b'1'..=b'9').contains(&stem.as_bytes()[3]));
+    if reserved {
+        return Some(format!("{stem} is reserved on Windows"));
+    }
+    // Systems cap a name at 255 bytes; ".pdf" may still be added.
+    if n.len() > 250 {
+        return Some("This name is too long".into());
+    }
+    None
+}
+
 /// Whether the run writes into a folder (several outputs) rather than one chosen file.
 fn writes_folder(tool: ToolId, inputs: &[PathBuf]) -> bool {
     always_many(tool) || (!combines(tool) && inputs.len() > 1)
@@ -96,6 +122,17 @@ mod tests {
 
     fn opts() -> ToolOptions {
         ToolOptions { level: 1, every: 1, degrees: 90, ..Default::default() }
+    }
+
+    #[test]
+    fn typed_output_names_are_checked() {
+        for ok in ["", "  ", "report", "Q3 report.pdf", "rapport été", "COM0", &"é".repeat(125)] {
+            assert_eq!(file_name_error(ok), None, "{ok:?}");
+        }
+        for bad in ["a/b", "a\\b", "x:y", "what?", "..", ".hidden", "con", "COM1.pdf", "tab\tname", &"é".repeat(126)] {
+            assert!(file_name_error(bad).is_some(), "{bad:?} accepted");
+        }
+        assert_eq!(file_name_error("a/b").unwrap(), "A name cannot contain /");
     }
 
     #[test]

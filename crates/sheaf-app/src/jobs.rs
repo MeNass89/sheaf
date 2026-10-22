@@ -54,7 +54,8 @@ pub enum Job {
     Unlock { items: Vec<(Input, PathBuf)> },
     Repair { items: Vec<(Input, PathBuf)> },
     JpgToPdf { images: Vec<PathBuf>, layout: PageLayout, out: PathBuf },
-    PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: u8, out_dir: PathBuf },
+    /// `quality`: JPEG quality, or `None` for PNG.
+    PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: Option<u8>, out_dir: PathBuf },
     /// Word / PowerPoint / Excel / HTML → PDF through LibreOffice.
     Office { items: Vec<(PathBuf, PathBuf)> },
     PageNumbers { items: Vec<(Input, PathBuf)>, options: NumberOptions },

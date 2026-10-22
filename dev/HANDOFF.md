@@ -16,7 +16,7 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 
 ## Board status
 
-**331 components, 107 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 14/38, batch 0/9, compare 0/7, convert 0/20, edit 4/29, files 3/19, forms 4/17, optimize 0/15, organize 6/27, output 0/15, platform 1/14, preferences 1/14, reader 26/64, security 2/18, sign 4/18.
+**331 components, 110 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 22/38, batch 1/9, compare 2/7, convert 2/20, edit 4/29, files 8/19, forms 4/17, optimize 1/15, organize 8/27, output 3/15, platform 1/14, preferences 2/14, reader 40/64, security 6/18, sign 6/18.
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
@@ -84,6 +84,10 @@ DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and
   the test app and the ChatGPT desktop app (Nassim: it stays closed), waits for ≥ 3 GB free, caps the build at
   free − 700 MB and gives it OOMScoreAdjust=1000 so a shortage kills the build, not the session. rustc on
   sheaf-app peaks at ~2.4 GB (Slint's generated module). Twice on 21/10 the global OOM killer took the session.
+- Before a full suite (~13 min): `build-safe.sh clippy --workspace --all-targets -- -D warnings` (seconds when
+  built) catches the test code a signature change broke; twice on 22/10 a full run died on it.
+- One test file: `build-safe.sh test --workspace --test <name>` (seconds). Never `-p <crate>` alone: features
+  are then not unified with the workspace and every dependency rebuilds (> 10 min, 22/10).
 - `dev/scripts/cargo.sh`: one target dir (`~/.cache/cargo-target/sheaf`), opt-level 2 dependencies, light debug info, no incremental.
 - GUI tests: `systemd-run --user --unit=sheaf-gui -p MemoryMax=900M -p OOMScoreAdjust=1000 … bash
   dev/.tmp/run-app.sh <pdf>` on Xvfb :99, driven with xdotool (`windowfocus --sync` first; hold clicks ~0.1 s);

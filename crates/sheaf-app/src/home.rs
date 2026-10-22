@@ -370,6 +370,7 @@ fn row(e: &Entry, now: u64) -> HistoryRow {
         files: format!("{} → {}", names(&e.inputs), names(&e.outputs)).into(),
         when: history::relative_time(e.at_unix, now).into(),
         can_reveal: e.outputs.first().is_some_and(|p| p.exists()),
+        can_rerun: rerun_inputs(e).is_some(),
     }
 }
 
@@ -488,6 +489,25 @@ pub fn clear_recents(ui: &AppWindow) {
 pub fn reveal_recent(i: i32) {
     if let Some(p) = recent(i) {
         crate::run::reveal(&p);
+    }
+}
+
+/// The tool and files of a history entry, when it can run again: the tool is known and every
+/// input still exists.
+fn rerun_inputs(e: &Entry) -> Option<(ToolId, Vec<PathBuf>)> {
+    let tool = ToolId::from_str(&e.tool)?;
+    (!e.inputs.is_empty() && e.inputs.iter().all(|p| p.exists())).then(|| (tool, e.inputs.clone()))
+}
+
+/// "Run again": a new tab of the entry's tool with its files (options start from the defaults).
+pub fn rerun_history(ui: &AppWindow, i: i32) {
+    let entry = with(|h| h.store.list().iter().filter(|e| e.tool != READ).nth(i.max(0) as usize).and_then(rerun_inputs));
+    match entry {
+        Some((tool, inputs)) => crate::flow::open_tool(ui, tool, inputs),
+        None => {
+            crate::flow::toast(ui, "These files are no longer where they were.");
+            refresh(ui);
+        }
     }
 }
 

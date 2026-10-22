@@ -6,11 +6,19 @@ use sheaf_core::{images::*, pages::Input};
 fn pdf_to_jpg_one_file_per_page_at_dpi() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 12);
-    let outs = pdf_to_jpg(&Input::new(&a), 72, 85, t.path()).unwrap();
+    let outs = pdf_to_jpg(&Input::new(&a), 72, Some(85), t.path()).unwrap();
     assert_eq!(outs.len(), 12);
     assert!(outs[0].ends_with("a-01.jpg"));
     let img = image::open(&outs[0]).unwrap();
     assert_eq!(img.width(), 595); // A4 = 595 pt wide; 72 dpi → 1 px per pt
+    // PNG instead, at 600 dpi (one page: a 600 dpi render takes a second).
+    let b = fixture_pdf(t.path(), "b.pdf", 1);
+    std::fs::create_dir(t.path().join("png")).unwrap();
+    let png = pdf_to_jpg(&Input::new(&b), 600, None, &t.path().join("png")).unwrap();
+    assert!(png[0].ends_with("b-1.png"));
+    assert_eq!(image::ImageReader::open(&png[0]).unwrap().with_guessed_format().unwrap().format(), Some(image::ImageFormat::Png));
+    let w = image::image_dimensions(&png[0]).unwrap().0;
+    assert!((4955..=4965).contains(&w), "{w} px for 595 pt at 600 dpi");
 }
 #[test]
 fn images_to_pdf_fit_and_a4() {

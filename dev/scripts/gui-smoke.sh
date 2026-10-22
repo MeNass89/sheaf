@@ -461,6 +461,8 @@ xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Auth
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 # Text on screen, read by tesseract (the tab bar and page titles have no other handle under Xvfb).
 ocr() { import -window root -crop "$1" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '; }
+# The screen centre "x y" of the first word $1 (OCR at 200 %, its box halved), empty when not seen.
+at() { import -window root png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '$12 == w { printf "%d %d\n", ($7 + $9 / 2) / 2, ($8 + $10 / 2) / 2; exit }'; }
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.
 
 # + opens Home ▸ Tools with the search taking the keyboard: typed without clicking the field.
@@ -490,6 +492,10 @@ check "a tool run from the reader writes its output (Compress)" "qpdf --check $O
 # The same star on Home ▸ Recents' Recent tools (Compress just ran: its card is the first, star at 233,266; starred above).
 click 40 21 0.8; click 90 72 0.8; xdotool mousemove 270 300; sleep 0.4; shot 09d-recent-tools; click 233 266 1
 check "unstarring from Home's Recent tools takes it out of the favourites" "! grep -qs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
+# Tasks History ▸ Run again on the Compress row: a new Compress tab holding tool.pdf.
+H=$(at History); [ -n "$H" ] && click $H 1; RA=$(at again); [ -n "$RA" ] && click $RA 1.5; shot 10b-rerun
+RR=$(ocr 960x700+20+60); RP=$(ocr 280x300+1000+40)   # the file area (below the tab bar, which names tool.pdf too), the options
+check "Run again from Tasks History reopens Compress with its file ($H / $RA)" "[ -n \"$RA\" ] && echo \"$RR\" | grep -q 'tool.pdf' && echo \"$RP\" | grep -qi 'Recommended'"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

@@ -249,8 +249,8 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
         ToolId::Repair => Job::Repair { items: pairs(inputs) },
         ToolId::JpgToPdf => Job::JpgToPdf { images: inputs.into_iter().map(|i| i.path).collect(), layout: layout(opts), out: single()? },
         ToolId::PdfToJpg => {
-            let (dpi, q) = if opts.quality == 1 { (300, 92) } else { (150, 85) };
-            Job::PdfToJpg { inputs, dpi, quality: q, out_dir: folder }
+            let (dpi, q) = match opts.quality { 2 => (600, 92), 1 => (300, 92), _ => (150, 85) };
+            Job::PdfToJpg { inputs, dpi, quality: (!opts.png).then_some(q), out_dir: folder }
         }
         ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf => {
             Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect() }

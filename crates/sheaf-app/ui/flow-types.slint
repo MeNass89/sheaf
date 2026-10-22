@@ -381,7 +381,8 @@ export struct ToolOptions {
     degrees: int,        // 90 / 180 / 270
     layout: int,         // jpg→pdf: 0 fit, 1 A4 portrait, 2 A4 landscape
     margin: int,         // 0 none, 1 small, 2 big
-    quality: int,        // pdf→jpg: 0 normal, 1 high
+    quality: int,        // pdf→jpg: 0 normal (150 dpi), 1 high (300), 2 very high (600)
+    png: bool,           // pdf→jpg: lossless PNG instead of JPEG
     out-name: string,    // merge
     // Page numbers and watermark: page range ("" = first / last page).
     from-page: string,
@@ -620,6 +621,8 @@ export global Parse {
     pure callback mm(string) -> float;
     // Why a custom page-number text is refused ("" when it is fine).
     pure callback custom-text-error(string) -> string;
+    // Why a typed output name is not a valid file name ("" when it is, or when it is empty).
+    pure callback file-name-error(string) -> string;
     // A set of codes written ",a,b,": whether `code` is in it, and the set with `code` toggled.
     pure callback has-code(string, string) -> bool;
     pure callback toggle-code(string, string) -> string;

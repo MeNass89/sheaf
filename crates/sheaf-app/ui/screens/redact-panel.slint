@@ -76,7 +76,18 @@ export component RedactPanel inherits VerticalLayout {
         text <=> root.query;
         accepted => { ViewerBridge.search(root.tab.id, root.query, root.patterns); }
     }
+    // How the typed text matches: stored as the codes "case" and "word" beside the patterns.
+    HorizontalLayout {
+        spacing: 6px;
+        alignment: start;
+        for c in [{ code: "case", name: "Match case" }, { code: "word", name: "Whole words" }]: Chip {
+            text: c.name;
+            selected: Parse.has-code(root.patterns, c.code);
+            clicked => { root.patterns = Parse.toggle-code(root.patterns, c.code); }
+        }
+    }
     // Patterns: the original's three, then the two more PdfCraft finds.
+    SectionLabel { text: "Patterns"; }
     FlexboxLayout {
         flex-wrap: wrap;
         spacing: 6px;

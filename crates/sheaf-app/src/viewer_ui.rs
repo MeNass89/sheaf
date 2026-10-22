@@ -462,11 +462,13 @@ fn pattern(id: &str) -> Option<Pattern> {
     }
 }
 
-/// The queries for a typed text and the selected pattern codes (",email,phone,").
+/// The queries for a typed text and the selected codes (",email,phone,"; "case" and "word" set
+/// how the typed text matches).
 pub fn queries(text: &str, patterns: &str) -> Vec<Query> {
     let mut q = Vec::new();
+    let has = |c: &str| patterns.split(',').any(|p| p == c);
     if !text.trim().is_empty() {
-        q.push(Query::Literal { text: text.trim().into(), case_insensitive: true });
+        q.push(Query::Literal { text: text.trim().into(), case_insensitive: !has("case"), whole_word: has("word") });
     }
     q.extend(patterns.split(',').filter_map(pattern).map(Query::Pattern));
     q
@@ -705,11 +707,16 @@ mod tests {
     }
 
     #[test]
+    fn match_case_and_whole_words_reach_the_query() {
+        assert_eq!(queries("Secret", ",case,word,"), vec![Query::Literal { text: "Secret".into(), case_insensitive: false, whole_word: true }]);
+    }
+
+    #[test]
     fn typed_text_and_chips_become_queries() {
         assert_eq!(
             queries(" secret ", ",email,card,"),
             vec![
-                Query::Literal { text: "secret".into(), case_insensitive: true },
+                Query::Literal { text: "secret".into(), case_insensitive: true, whole_word: false },
                 Query::Pattern(Pattern::Email),
                 Query::Pattern(Pattern::CreditCard)
             ]

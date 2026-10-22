@@ -23,4 +23,6 @@ export struct HistoryRow {
     when: string,
     // The first output still exists.
     can-reveal: bool,
+    // The tool is known and every input still exists: "Run again" reopens it with them.
+    can-rerun: bool,
 }

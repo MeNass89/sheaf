@@ -99,14 +99,17 @@ component CompareSlot inherits VerticalLayout {
             }
         }
     }
-    if root.filled && root.interactive: HorizontalLayout {
+    // Always laid out, so a filled slot and an empty one keep their cards on one line.
+    HorizontalLayout {
         alignment: center;
         Text {
             text: "Replace…";
             font-size: Theme.fs-caption;
             color: Theme.text-secondary;
+            opacity: root.filled && root.interactive ? 1 : 0;
             TouchArea {
-                mouse-cursor: pointer;
+                enabled: root.filled && root.interactive;
+                mouse-cursor: self.enabled ? pointer : default;
                 clicked => { root.open(); }
             }
         }
@@ -313,29 +316,33 @@ export component ToolFlowScreen inherits Rectangle {
                 height: 1px;
                 background: Theme.separator;
             }
-            // Long panels (page numbers, watermark) scroll above the action button.
-            ScrollView {
+            // Long panels (page numbers, watermark, crop) scroll above the action button. The
+            // style's scrollbar draws over the content, so it gets a 12 px gutter, always (measuring
+            // the overflow instead would make the width depend on the height: a binding loop).
+            sv := ScrollView {
+                property <length> inner: self.visible-width - 12px;
                 vertical-stretch: 1;
-                content-width: self.visible-width;
+                // The gutter's width only: content as wide as the viewport would be centred in it.
+                content-width: self.inner;
                 content-height: root.redact ? rp.preferred-height
                     : root.sign ? sp.preferred-height + 14px + opts.preferred-height
                     : root.edit ? ep.preferred-height : opts.preferred-height;
                 rp := RedactPanel {
-                    width: parent.visible-width;
+                    width: sv.inner;
                     visible: root.redact;
                     height: root.redact ? self.preferred-height : 0;
                     tab: root.tab;
                     enabled: !root.running && root.tab.files.length > 0;
                 }
                 sp := SignPanel {
-                    width: parent.visible-width;
+                    width: sv.inner;
                     visible: root.sign;
                     height: root.sign ? self.preferred-height : 0;
                     tab: root.tab;
                     enabled: !root.running && root.tab.files.length > 0;
                 }
                 ep := EditPanel {
-                    width: parent.visible-width;
+                    width: sv.inner;
                     visible: root.edit;
                     height: root.edit ? self.preferred-height : 0;
                     tab: root.tab;
@@ -344,7 +351,7 @@ export component ToolFlowScreen inherits Rectangle {
                 opts := OptionsPanel {
                     y: root.sign ? sp.preferred-height + 14px : 0;
                     visible: !root.redact && !root.edit;
-                    width: parent.visible-width;
+                    width: sv.inner;
                     tool: root.tab.tool;
                     file-count: root.tab.files.length;
                     default-out: root.tab.default-out;

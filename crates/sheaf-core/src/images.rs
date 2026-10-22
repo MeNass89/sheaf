@@ -6,19 +6,47 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PageLayout { FitImage, A4 { landscape: bool, margin_pt: f32 } }
 
-/// Renders each page to `<stem>-<n>.jpg` in `out_dir` (n 1-based, zero-padded to the page-count width).
+/// Pixels per rendered page at most (72 Mpx: 290 MB as RGBA, A3 at 600 dpi): a bigger page at
+/// 600 dpi (A1, A0) is rendered smaller rather than failing to allocate gigabytes.
+const MAX_PIXELS: f32 = 72e6;
+
+/// A document closed under the pdfium lock, even when a panic unwinds past it.
+struct Locked(Option<PdfDocument<'static>>);
+
+impl Drop for Locked {
+    fn drop(&mut self) {
+        let _g = pdfium_lock();
+        self.0.take();
+    }
+}
+
+/// Renders each page to `<stem>-<n>.jpg` in `out_dir` (n 1-based, zero-padded to the page-count width)
+/// at JPEG `quality`, or to `<stem>-<n>.png` when `quality` is `None`; at `dpi`, or less for a page
+/// that would pass [`MAX_PIXELS`].
+/// The pdfium lock is held only while a page renders, not while it is encoded, so thumbnails
+/// elsewhere keep coming during a long export.
 /// All or nothing: if a page fails, the images already written are deleted.
-pub fn pdf_to_jpg(input: &Input, dpi: u32, quality: u8, out_dir: &Path) -> Result<Vec<PathBuf>> {
-    let _g = pdfium_lock();
-    let doc = input.open()?;
-    let width = doc.pages().len().to_string().len();
-    all_or_nothing(doc.pages().iter().enumerate(), |(i, page)| {
-        let px = (page.width().value * dpi as f32 / 72.0).round() as i32;
-        let img = page.render_with_config(&PdfRenderConfig::new().set_target_width(px))?.as_image()?;
-        let target = out_dir.join(format!("{}-{:0width$}.jpg", input.stem(), i + 1));
+pub fn pdf_to_jpg(input: &Input, dpi: u32, quality: Option<u8>, out_dir: &Path) -> Result<Vec<PathBuf>> {
+    let g = pdfium_lock();
+    let doc = Locked(Some(input.open()?));
+    let n = doc.0.as_ref().map_or(0, |d| d.pages().len());
+    drop(g);
+    let width = n.to_string().len();
+    all_or_nothing(0..n, |i| {
+        let img = {
+            let _g = pdfium_lock();
+            let page = doc.0.as_ref().expect("open until the end").pages().get(i)?;
+            let (w, h) = (page.width().value, page.height().value);
+            let scale = (dpi as f32 / 72.0).min((MAX_PIXELS / (w * h).max(1.0)).sqrt());
+            page.render_with_config(&PdfRenderConfig::new().set_target_width((w * scale).round() as i32))?.as_image()?.to_rgb8()
+        };
+        let ext = if quality.is_some() { "jpg" } else { "png" };
+        let target = out_dir.join(format!("{}-{:0width$}.{ext}", input.stem(), i + 1));
         atomic_write(&target, |part| {
-            let f = std::fs::File::create(part)?;
-            img.to_rgb8().write_with_encoder(JpegEncoder::new_with_quality(f, quality))?;
+            match quality {
+                Some(q) => img.write_with_encoder(JpegEncoder::new_with_quality(std::fs::File::create(part)?, q))?,
+                None => img.save_with_format(part, ImageFormat::Png)?,
+            }
             Ok(())
         })
     })

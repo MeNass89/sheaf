@@ -4422,9 +4422,9 @@
   ],
   "grade": {
    "function": 8,
-   "aesthetics": 7,
+   "aesthetics": 8,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -4440,6 +4440,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [171, 172, 173]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "slots aligned (Replace row always laid out); cannot pick a file open in a tab: below 9 by joint review"
    }
   ]
  },
@@ -5791,14 +5802,14 @@
    91
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 6
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "PNG/TIFF, DPI choice",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -5810,6 +5821,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [89, 90, 91]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "150/300/600 dpi, JPG or PNG, count in the result title; 72 Mpx cap, pdfium lock released while encoding (images.rs); tests/images.rs pdf_to_jpg_one_file_per_page_at_dpi; TIFF a known gap (iLovePDF has none); joint 9 round 3"
    }
   ]
  },
@@ -6224,7 +6246,7 @@
   ],
   "grade": {
    "function": 7,
-   "aesthetics": 7,
+   "aesthetics": 8,
    "performance": 7,
    "overall": 7
   },
@@ -6242,6 +6264,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [100, 101, 102, 103]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 7,
+     "overall": 7
+    },
+    "proof": "PDF/A-3b title no longer cut; levels limited to 2b/3b by the PdfCraft preflight"
    }
   ]
  },
@@ -14060,11 +14093,11 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -14078,6 +14111,17 @@
      "overall": 8
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [44]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "dest::tests::typed_output_names_are_checked; inline error + disabled action (options.slint); joint 9 with interim reviewer 22/10 (round 1)"
    }
   ]
  },
@@ -15202,10 +15246,10 @@
    215
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -15221,6 +15265,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [211, 212, 213, 214, 215]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Run again from Tasks History (gui-smoke 'Run again from Tasks History reopens Compress with its file'); options start from defaults: below 9 by joint review"
    }
   ]
  },
@@ -23535,14 +23590,14 @@
    162
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "regex, whole words, custom patterns",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -23554,6 +23609,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [158, 159, 160, 161, 162]"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Match case / Whole words in the panel, engine and CLI, honoured by the clean-up and audit outside the page (redact::Needle); tests/redact.rs whole-words count, redact::tests scrub Ann; joint 9 round 3 (regex a Stirling extra)"
    }
   ]
  },

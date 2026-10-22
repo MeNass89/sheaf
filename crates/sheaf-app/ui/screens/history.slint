@@ -8,6 +8,7 @@ import { PrimaryButton } from "../widgets/button.slint";
 component HistoryRowView inherits Rectangle {
     in property <HistoryRow> item;
     callback reveal();
+    callback rerun();
     height: 56px;
     border-radius: Theme.radius-item;
     background: Theme.card;
@@ -52,6 +53,17 @@ component HistoryRowView inherits Rectangle {
             color: Theme.text-muted;
             vertical-alignment: center;
         }
+        if root.item.can-rerun: Text {
+            text: "Run again";
+            font-size: Theme.fs-label;
+            font-weight: Theme.weight-demibold;
+            color: rerun-touch.has-hover ? Theme.accent-hover : Theme.accent;
+            vertical-alignment: center;
+            rerun-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.rerun(); }
+            }
+        }
         IconButton {
             y: (parent.height - self.height) / 2;
             icon: @image-url("../icons/folder-open.svg");
@@ -94,6 +106,7 @@ export component ClearHistoryDialog inherits Modal {
 export component HistoryScreen inherits Rectangle {
     in property <[HistoryRow]> rows;
     callback reveal(int);
+    callback rerun(int);
     // "Clear all" pressed: AppWindow asks for confirmation.
     callback ask-clear();
     background: Theme.content-bg;
@@ -145,6 +158,7 @@ export component HistoryScreen inherits Rectangle {
                 for r[i] in root.rows: HistoryRowView {
                     item: r;
                     reveal => { root.reveal(i); }
+                    rerun => { root.rerun(i); }
                 }
             }
         }

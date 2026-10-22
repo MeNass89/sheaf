@@ -137,6 +137,7 @@ export component AppWindow inherits Window {
     callback remove-recent(int);
     callback clear-recents();
     callback reveal-history(int);
+    callback rerun-history(int);
     callback clear-history();
     callback set-theme(int);
     callback set-output(int);
@@ -245,6 +246,7 @@ export component AppWindow inherits Window {
                         if root.page == Page.history: HistoryScreen {
                             rows: root.history;
                             reveal(i) => { root.reveal-history(i); }
+                            rerun(i) => { root.rerun-history(i); }
                             ask-clear => { root.confirm-clear = true; }
                         }
                         if root.page == Page.preferences: PreferencesScreen {

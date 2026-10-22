@@ -197,6 +197,7 @@ export component OptionsPanel inherits VerticalLayout {
         : root.tool == "crop" ? (root.crop-mode == 2 || ((root.crop-mode == 0 || root.pages != "")
             && Parse.mm(root.crop-top) + Parse.mm(root.crop-bottom) + Parse.mm(root.crop-left) + Parse.mm(root.crop-right) > 0))
         : root.tool == "sign" ? !root.sign-cert || root.sign-p12 != ""
+        : root.tool == "merge" ? Parse.file-name-error(root.out-name) == ""
         : true);
     out property <ToolOptions> options: {
         level: root.level, password: root.password, confirm: root.confirm, owner: root.owner,
@@ -204,7 +205,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
         pages: root.pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every,
-        degrees: root.degrees, layout: root.layout, margin: root.margin, quality: root.quality,
+        degrees: root.degrees, layout: root.layout, margin: root.margin, quality: root.quality, png: root.png,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
         num-position: root.num-position, num-double: root.num-double, num-cover: root.num-cover,
@@ -254,6 +255,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> layout: 0;
     in-out property <int> margin: 0;
     in-out property <int> quality: 0;
+    in-out property <bool> png;
     in-out property <string> out-name;
     in-out property <string> from-page;
     in-out property <string> to-page;
@@ -296,6 +298,7 @@ export component OptionsPanel inherits VerticalLayout {
         label: "Output file name";
         placeholder: root.default-out;
         text <=> root.out-name;
+        error: Parse.file-name-error(root.out-name);
     }
 
     if root.tool == "split": VerticalLayout {
@@ -476,6 +479,18 @@ export component OptionsPanel inherits VerticalLayout {
             description: "300 dpi, for print";
             selected: root.quality == 1;
             clicked => { root.quality = 1; }
+        }
+        RadioCard {
+            title: "Very high quality";
+            description: "600 dpi, for enlargements";
+            selected: root.quality == 2;
+            clicked => { root.quality = 2; }
+        }
+        SectionLabel { text: "Format"; }
+        HorizontalLayout {
+            spacing: 8px;
+            Segment { text: "JPG"; selected: !root.png; clicked => { root.png = false; } }
+            Segment { text: "PNG (lossless)"; selected: root.png; clicked => { root.png = true; } }
         }
     }
 
@@ -733,8 +748,8 @@ export component OptionsPanel inherits VerticalLayout {
             clicked => { root.pdfa-level = 0; }
         }
         RadioCard {
-            title: "PDF/A-3b (allows attachments)";
-            description: "Also allows attached files";
+            title: "PDF/A-3b";
+            description: "Archiving, attachments allowed";
             selected: root.pdfa-level == 1;
             clicked => { root.pdfa-level = 1; }
         }

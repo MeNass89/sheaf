@@ -48,9 +48,9 @@ fn search_finds_patterns_and_words_on_every_page_including_the_rotated_one() {
     assert_eq!(texts, [(0, "alice@example.com"), (1, "bob@test.org"), (2, "carol@example.net")]);
     let phones = redact::find(&pdf, &Query::Pattern(Pattern::Phone)).unwrap();
     assert_eq!(phones.iter().map(|m| m.page).collect::<Vec<_>>(), [0, 1], "{phones:?}");
-    let secret = redact::find(&pdf, &Query::Literal { text: "secret".into(), case_insensitive: true }).unwrap();
+    let secret = redact::find(&pdf, &Query::Literal { text: "secret".into(), case_insensitive: true, whole_word: false }).unwrap();
     assert_eq!(secret.iter().map(|m| m.page).collect::<Vec<_>>(), [0, 1, 2]);
-    let exact = redact::find(&pdf, &Query::Literal { text: "secret".into(), case_insensitive: false }).unwrap();
+    let exact = redact::find(&pdf, &Query::Literal { text: "secret".into(), case_insensitive: false, whole_word: false }).unwrap();
     assert_eq!(exact.iter().map(|m| m.page).collect::<Vec<_>>(), [0, 2]);
     // On the rotated page the match box is in user space, where the line was drawn (wide, near
     // the top of the unrotated page), not where it shows on screen (running down the left).
@@ -64,7 +64,7 @@ fn applied_redactions_remove_the_words_draw_black_boxes_and_pass_the_audit() {
     let pdf = Input::new(fixture(t.path()));
     let mut hits = redact::find(&pdf, &Query::Pattern(Pattern::Email)).unwrap();
     hits.extend(redact::find(&pdf, &Query::Pattern(Pattern::Phone)).unwrap());
-    hits.extend(redact::find(&pdf, &Query::Literal { text: "secret".into(), case_insensitive: true }).unwrap());
+    hits.extend(redact::find(&pdf, &Query::Literal { text: "secret".into(), case_insensitive: true, whole_word: false }).unwrap());
     let marks = redact::mark_text(&hits);
     assert_eq!(marks.len(), 8);
     let before = render(&pdf.path, 0);
@@ -98,7 +98,7 @@ fn whole_pages_and_rectangles_can_be_marked() {
     let pdf = Input::new(fixture(t.path()));
     let mut marks = redact::mark_pages(&pdf, &[1]).unwrap();
     // A rectangle around "Zebra" on page 1 (Helvetica 14 at x 72, baseline 730).
-    let zebra = redact::find(&pdf, &Query::Literal { text: "Zebra".into(), case_insensitive: false }).unwrap();
+    let zebra = redact::find(&pdf, &Query::Literal { text: "Zebra".into(), case_insensitive: false, whole_word: false }).unwrap();
     let zr = redact::bounds(&zebra[0].quads);
     marks.extend(redact::mark_rects(&[(0, [zr[0] - 2.0, zr[1] - 2.0, zr[2] + 2.0, zr[3] + 2.0])]));
     let r = redact::apply(&pdf, &marks, &[], &t.path().join("out.pdf")).unwrap();
@@ -328,8 +328,11 @@ fn a_searched_text_is_removed_from_metadata_bookmarks_comments_and_fields_too() 
     let t = tempfile::tempdir().unwrap();
     let pdf = Input::new(metadata_pdf(t.path()));
     assert!(strings_and_xmp(&pdf.path).matches("secretword").count() >= 7, "fixture");
-    let hits = redact::find(&pdf, &Query::Literal { text: "secretword".into(), case_insensitive: true }).unwrap();
+    let hits = redact::find(&pdf, &Query::Literal { text: "secretword".into(), case_insensitive: true, whole_word: false }).unwrap();
     assert_eq!(hits.len(), 1, "only the page text is a match");
+    // Whole words: "secret" is inside "secretword", so it is found only without the option.
+    let part = |whole_word| redact::find(&pdf, &Query::Literal { text: "secret".into(), case_insensitive: true, whole_word }).unwrap().len();
+    assert_eq!((part(false), part(true)), (1, 0));
     let r = redact::apply(&pdf, &redact::mark_text(&hits), &["secretword".into()], &t.path().join("out.pdf")).unwrap();
     qpdf_clean(&r.path);
     let rest = strings_and_xmp(&r.path).to_lowercase();
@@ -405,7 +408,7 @@ fn a_failed_audit_writes_nothing_not_even_for_a_moment_under_the_final_name() {
     assert_eq!(left, ["faux.pdf"], "nothing written, no .part left");
     // A search mark over part of the box ("secret") does not make it ours: "Account 4242"
     // is still hidden under the input's box only.
-    let secret = redact::find(&Input::new(&faux), &Query::Literal { text: "secret".into(), case_insensitive: false }).unwrap();
+    let secret = redact::find(&Input::new(&faux), &Query::Literal { text: "secret".into(), case_insensitive: false, whole_word: false }).unwrap();
     let e = redact::apply(&Input::new(&faux), &redact::mark_text(&secret), &[], &out).unwrap_err().to_string();
     assert_eq!(e, "This PDF already hides text under a box on page 1. Mark that area too to remove it.");
     assert!(!out.exists());
@@ -438,7 +441,7 @@ fn xmp_packet(inner: &str) -> Vec<u8> {
 }
 
 fn secret_marks(pdf: &Input, word: &str) -> Vec<redact::Mark> {
-    redact::mark_text(&redact::find(pdf, &Query::Literal { text: word.into(), case_insensitive: true }).unwrap())
+    redact::mark_text(&redact::find(pdf, &Query::Literal { text: word.into(), case_insensitive: true, whole_word: false }).unwrap())
 }
 
 #[test]
@@ -588,9 +591,9 @@ fn decomposed_and_composed_accents_match_each_other() {
     let pdf = Input::new(raw_pdf(&t.path().join("nfd.pdf"), &objs, Some(6)));
     // Typed decomposed, as some keyboards and pastes give it.
     let typed = "E\u{301}lodie".to_string();
-    let hits = redact::find(&pdf, &Query::Literal { text: typed.clone(), case_insensitive: true }).unwrap();
+    let hits = redact::find(&pdf, &Query::Literal { text: typed.clone(), case_insensitive: true, whole_word: false }).unwrap();
     assert_eq!(hits.len(), 1, "the decomposed search finds the composed page text");
-    let r = redact::apply(&pdf, &redact::mark_text(&hits), &[typed], &t.path().join("out.pdf")).unwrap();
+    let r = redact::apply(&pdf, &redact::mark_text(&hits), &[typed.into()], &t.path().join("out.pdf")).unwrap();
     let all = strings_and_xmp(&r.path);
     assert!(!all.contains("lodie"), "{all}");
     assert!(all.contains("Secretword"), "only the match goes: {all}");
@@ -930,12 +933,12 @@ fn common_words_on_the_invoice_are_not_refused() {
     let t = tempfile::tempdir().unwrap();
     let invoice = Input::new(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/invoice.pdf"));
     for w in ["a", "red", "e", "the", "Invoice"] {
-        let hits = redact::find(&invoice, &Query::Literal { text: w.into(), case_insensitive: true }).unwrap();
+        let hits = redact::find(&invoice, &Query::Literal { text: w.into(), case_insensitive: true, whole_word: false }).unwrap();
         if hits.is_empty() {
             continue;
         }
         let out = t.path().join(format!("inv-{w}.pdf"));
-        let r = redact::apply(&invoice, &redact::mark_text(&hits), &[w.to_string()], &out);
+        let r = redact::apply(&invoice, &redact::mark_text(&hits), &[w.into()], &out);
         assert!(r.is_ok(), "{w:?} refused: {r:?}");
     }
 }

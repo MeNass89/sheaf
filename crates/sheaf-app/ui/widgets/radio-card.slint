@@ -1,13 +1,14 @@
 import { Theme } from "../theme.slint";
 
-// Full-width choice card: radio circle, title, optional one-line description.
+// Full-width choice card: radio circle, title, optional description; both wrap when the panel
+// is too narrow for them, and the card grows.
 export component RadioCard inherits Rectangle {
     in property <string> title;
     in property <string> description;
     in property <bool> selected;
     callback clicked();
 
-    height: root.description == "" ? 36px : Theme.radio-card-height;
+    height: max(root.description == "" ? 36px : Theme.radio-card-height, lines.preferred-height + 12px);
     border-radius: Theme.radius-button;
     border-width: root.selected ? 0 : 1px;
     border-color: touch.has-hover ? Theme.text-secondary : Theme.option-border;
@@ -29,7 +30,7 @@ export component RadioCard inherits Rectangle {
             background: Theme.on-success;
         }
     }
-    VerticalLayout {
+    lines := VerticalLayout {
         x: 40px;
         width: parent.width - 52px;
         alignment: center;
@@ -39,13 +40,13 @@ export component RadioCard inherits Rectangle {
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: root.selected ? Theme.accent : Theme.text;
-            overflow: elide;
+            wrap: word-wrap;
         }
         if root.description != "": Text {
             text: root.description;
             font-size: Theme.fs-caption;
             color: root.selected ? Theme.accent : Theme.text-muted;
-            overflow: elide;
+            wrap: word-wrap;
         }
     }
     touch := TouchArea {

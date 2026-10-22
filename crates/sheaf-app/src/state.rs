@@ -385,7 +385,10 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
     let many = o.outputs.len() > 1;
     let is_compress = t.tool == ToolId::Compress;
     tab.result_title = if t.tool == ToolId::PdfToJpg {
-        "Your images have been created successfully.".into()
+        match o.outputs.len() {
+            1 => "Your image has been created successfully.".into(),
+            n => format!("Your {n} images have been created successfully.").into(),
+        }
     } else if let Some(what) = exported_kind(t.tool) {
         let (it, have) = if many { (format!("{what}s"), "have") } else { (what.to_string(), "has") };
         format!("Your {it} {have} been created successfully.").into()

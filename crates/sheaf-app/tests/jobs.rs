@@ -383,7 +383,7 @@ fn redact_job_counts_the_areas_and_warns_on_protected_input() {
     let prot = dir.path().join("p.pdf");
     protect_with_qpdf(&text, &prot, "pw", "owner");
     let locked = Input { path: prot, password: Some("pw".into()) };
-    let hits = redact::find(&locked, &Query::Literal { text: "hello".into(), case_insensitive: true }).unwrap();
+    let hits = redact::find(&locked, &Query::Literal { text: "hello".into(), case_insensitive: true, whole_word: false }).unwrap();
     let mut marks = redact::mark_text(&hits);
     marks.extend(redact::mark_rects(&[(0, [300.0, 300.0, 400.0, 400.0])]));
     let no = AtomicBool::new(false);
