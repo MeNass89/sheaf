@@ -50,6 +50,29 @@ export component ReaderScreen inherits Rectangle {
     property <bool> light-tool: root.tab.reader.selected-annot ? root.tab.reader.annot-light
         : root.tab.reader.tool == 0 || root.tab.reader.tool == 1 || root.tab.reader.tool == 4;
     property <bool> ink-tool: root.tab.reader.tool >= 4;
+    // Panning: Space held, or the middle button, drags the pages (PDF Expert's and Acrobat's hand);
+    // the pointer and scroll position where the drag began, in view coordinates.
+    property <bool> space-held;
+    property <bool> panning;
+    property <bool> panned;
+    property <length> pan-vx0;
+    property <length> pan-vy0;
+    property <length> pan-cx0;
+    property <length> pan-cy0;
+    // Pinch: the zoom when the gesture began.
+    property <float> pinch-zoom0;
+
+    // Zooms to `pct` percent actual size, the view point (ax, ay) staying under the pointer or the
+    // pinch: Rust keeps it vertically, the horizontal scroll is set here from the width change.
+    function zoom-around(pct: float, ax: length, ay: length) {
+        let w0 = root.tab.viewer-width;
+        let sx = -sv.content-x;
+        ViewerBridge.zoom-at(root.id, pct, ay / 1px);
+        let w1 = root.tab.viewer-width;
+        if w0 > 0px {
+            sv.content-x = -clamp((sx + ax) * (w1 / w0) - ax, 0px, max(0px, sv.content-width - sv.visible-width));
+        }
+    }
 
     // Scrolling moves the pages under a still pointer: a link's tooltip no longer applies.
     changed page-top => { root.link-tip = ""; ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
@@ -133,6 +156,12 @@ export component ReaderScreen inherits Rectangle {
                 horizontal-stretch: 1;
                 background: root.tab.reader.backdrop;
                 clip: true;
+                // Trackpad pinch (macOS) and touch screens zoom around the fingers. Under the pages:
+                // everything else passes through to them.
+                ScaleRotateGestureHandler {
+                    started => { root.pinch-zoom0 = root.tab.viewer-zoom; }
+                    updated => { root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x, self.center.y); }
+                }
                 sv := ScrollView {
                     content-width: max(root.tab.viewer-width, self.visible-width);
                     content-height: root.tab.viewer-height;
@@ -187,7 +216,7 @@ export component ReaderScreen inherits Rectangle {
                         changed has-hover => { if !self.has-hover { root.link-tip = ""; } }
                         width: max(root.tab.viewer-width, sv.visible-width);
                         height: root.tab.viewer-height;
-                        mouse-cursor: root.over-link && root.tab.reader.tool == 0 ? pointer : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
+                        mouse-cursor: root.panning ? grabbing : root.space-held ? grab : root.over-link && root.tab.reader.tool == 0 ? pointer : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
                         // Where a link goes, beside the pointer.
                         if root.over-link && root.tab.reader.tool == 0: Rectangle {
                             // Beside the pointer, flipped above or to the left near the edges of the view.
@@ -200,6 +229,25 @@ export component ReaderScreen inherits Rectangle {
                             lt := Text { x: 7px; width: parent.width - 14px; text: root.link-tip; font-size: Theme.fs-caption; color: Theme.on-toast; overflow: elide; vertical-alignment: center; }
                         }
                         pointer-event(e) => {
+                            // A drag with the middle button, or with Space held, moves the pages.
+                            if e.kind == PointerEventKind.down && (e.button == PointerEventButton.middle || (root.space-held && e.button == PointerEventButton.left)) {
+                                root.panning = true;
+                                root.pan-vx0 = self.mouse-x + sv.content-x;
+                                root.pan-vy0 = self.mouse-y + sv.content-y;
+                                root.pan-cx0 = sv.content-x;
+                                root.pan-cy0 = sv.content-y;
+                                return;
+                            }
+                            if root.panning {
+                                if e.kind == PointerEventKind.move {
+                                    sv.content-x = clamp(root.pan-cx0 + (self.mouse-x + sv.content-x - root.pan-vx0), min(0px, sv.visible-width - sv.content-width), 0px);
+                                    sv.content-y = clamp(root.pan-cy0 + (self.mouse-y + sv.content-y - root.pan-vy0), min(0px, sv.visible-height - sv.content-height), 0px);
+                                    root.panned = true;
+                                } else if e.kind == PointerEventKind.up {
+                                    root.panning = false;
+                                }
+                                return;
+                            }
                             if e.kind == PointerEventKind.move && !root.pressing {
                                 root.link-tip = ReaderBridge.over-link(root.id, self.mouse-x, self.mouse-y);
                             }
@@ -217,9 +265,9 @@ export component ReaderScreen inherits Rectangle {
                             if root.pressing { ReaderBridge.moved(root.id, self.mouse-x, self.mouse-y); }
                         }
                         scroll-event(e) => {
-                            // ⌘ + wheel zooms, as in every reader.
+                            // ⌘ + wheel zooms around the pointer, as in every reader.
                             if e.modifiers.control && e.delta-y != 0 {
-                                ViewerBridge.zoom-step(root.id, e.delta-y > 0 ? 1 : -1);
+                                root.zoom-around(root.tab.viewer-zoom * (e.delta-y > 0 ? 1.25 : 0.8), self.mouse-x + sv.content-x, self.mouse-y + sv.content-y);
                                 return accept;
                             }
                             reject
@@ -443,6 +491,16 @@ export component ReaderScreen inherits Rectangle {
         y: 0;
         width: 0;
         height: 0;
+        // Space: held, a drag pans; let go without a drag, it turns the page (see key-pressed).
+        key-released(e) => {
+            if e.text == " " && root.space-held {
+                root.space-held = false;
+                if !root.panned { ReaderBridge.page-step(root.id, e.modifiers.shift ? -2 : 2); }
+                root.panned = false;
+                return accept;
+            }
+            reject
+        }
         key-pressed(e) => {
             if e.modifiers.control {
                 if e.text == "+" || e.text == "=" { ViewerBridge.zoom-step(root.id, 1); return accept; }
@@ -509,8 +567,9 @@ export component ReaderScreen inherits Rectangle {
             if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
             if e.text == Key.RightArrow { ReaderBridge.page-step(root.id, 1); return accept; }
             if e.text == Key.LeftArrow { ReaderBridge.page-step(root.id, -1); return accept; }
-            if e.text == Key.PageDown || (e.text == " " && !e.modifiers.shift) { ReaderBridge.page-step(root.id, 2); return accept; }
-            if e.text == Key.PageUp || (e.text == " " && e.modifiers.shift) { ReaderBridge.page-step(root.id, -2); return accept; }
+            if e.text == " " { root.space-held = true; return accept; }
+            if e.text == Key.PageDown { ReaderBridge.page-step(root.id, 2); return accept; }
+            if e.text == Key.PageUp { ReaderBridge.page-step(root.id, -2); return accept; }
             if e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
             if e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
             if e.text == Key.DownArrow { ReaderBridge.scroll-by(root.id, 48px); return accept; }

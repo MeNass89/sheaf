@@ -18131,10 +18131,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 7,
+   "aesthetics": 7,
+   "performance": 7,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -18150,6 +18150,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-22",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 7,
+     "performance": 7,
+     "overall": 7
+    },
+    "proof": "Pinch (ScaleRotateGestureHandler), ⌘+wheel around the pointer, middle-button and Space+drag pan; gui-smoke ⌘+wheel zooms in, middle-button drag, Space drag; joint review: anchor drift (page gaps), trackpad ⌘-scroll explosive, real-trackpad check needed"
    }
   ]
  },

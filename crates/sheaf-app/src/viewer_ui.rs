@@ -349,16 +349,31 @@ pub fn zoom_step(ui: &AppWindow, tab_id: i32, dir: i32) {
     crate::reader_ui::zoom_changed(tab_id);
 }
 
+/// Pinch and ⌘ + wheel: `pct` percent of actual size (10–800), the point `anchor` px below the
+/// top of the view staying where it is.
+pub fn zoom_at(ui: &AppWindow, tab_id: i32, pct: f32, anchor: f32) {
+    let z = with(|a| a.tab(tab_id)?.viewer.as_deref().map(|v| v.viewer.zoom_for_actual(v.current(), (pct as f64).clamp(10.0, 800.0))));
+    if let Some(z) = z {
+        zoom_to_at(ui, tab_id, z, anchor as f64);
+        crate::reader_ui::zoom_changed(tab_id);
+    }
+}
+
 /// Sets the zoom to `z` percent of the fit width, keeping the same part of the document in view;
 /// pages render at the new size once the zoom has settled.
 pub fn zoom_to(ui: &AppWindow, tab_id: i32, z: u32) {
+    zoom_to_at(ui, tab_id, z, 0.0);
+}
+
+/// [`zoom_to`], keeping the point `anchor` px below the top of the view where it is.
+fn zoom_to_at(ui: &AppWindow, tab_id: i32, z: u32, anchor: f64) {
     let changed = update(tab_id, |v| {
         let old_h = v.viewer.content_height();
         if !v.viewer.set_zoom(z) {
             return false;
         }
-        // Keep the same part of the document in view.
-        v.scroll = (v.top * v.viewer.content_height() / old_h.max(1.0)).max(0.0);
+        // Keep the same part of the document in view, at the same height in it.
+        v.scroll = ((v.top + anchor) * v.viewer.content_height() / old_h.max(1.0) - anchor).max(0.0);
         v.top = v.scroll;
         v.scroll_seq += 1;
         v.zoom_settling = true;

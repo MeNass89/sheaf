@@ -419,6 +419,19 @@ click $ZOOM_X 61 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key c
 click $ZOOM_MENU_X 61 0.6; click 640 330 2; Z2=$(leftedge)
 check "zoom typed (200 %) and Fit page from the list ($Z1 → $Z2)" "python3 -c 'import sys; sys.exit(0 if $Z1 - $Z2 > 0.02 else 1)'"
 key ctrl+9; sleep 1
+# 6h. By hand: ⌘ + wheel zooms in around the pointer (the zoom field at ZOOM_X grows); a middle-button drag,
+# then a drag with Space held, move the pages (from the top of page 1, where the text is); Space let go
+# without a drag still turns the page.
+pagesig() { import -window root -crop 1000x690+260+90 png:- 2>/dev/null | md5sum | cut -c1-8; }
+# The zoom field read alone (a single line at 300 %: the default OCR misses it).
+zoomval() { import -window root -crop 70x26+$((ZOOM_X - 32))+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
+key Home; sleep 1; ZA=$(zoomval); xdotool mousemove 700 300; xdotool keydown ctrl click 4 click 4 keyup ctrl; sleep 2; ZB=$(zoomval)
+check "⌘ + wheel zooms in ($ZA → $ZB %)" "[ -n \"$ZA\" ] && [ -n \"$ZB\" ] && [ $ZB -gt $ZA ]"
+PG0=$(pagesig); xdotool mousemove 700 520; sleep 0.4; xdotool mousedown 2; for i in $(seq 1 8); do xdotool mousemove $((700 - i * 8)) $((520 - i * 25)); sleep 0.03; done; xdotool mouseup 2; sleep 1; PG1=$(pagesig); shot 06h-pan
+check "a middle-button drag moves the pages" "[ \"$PG0\" != \"$PG1\" ]"
+xdotool windowfocus --sync "$W" 2>/dev/null; xdotool keydown space; sleep 0.2; xdotool mousemove 700 300 mousedown 1; for i in $(seq 1 8); do xdotool mousemove 700 $((300 + i * 25)); sleep 0.03; done; xdotool mouseup 1; xdotool keyup space; sleep 1; PG2=$(pagesig)
+check "a drag with Space held moves the pages" "[ \"$PG1\" != \"$PG2\" ]"
+key ctrl+9; sleep 1
 
 # 6f. Closed in two pages, it reopens in two pages (and on the same page).
 key ctrl+alt+2; sleep 2.5; key ctrl+w; sleep 1; quit
