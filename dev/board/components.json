@@ -5175,14 +5175,14 @@
    80
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 6
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "one PDF per image; Letter and other sizes",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -5194,6 +5194,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [75, 76, 77, 78, 79, 80]"
+   },
+   {
+    "date": "2026-10-23",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "iLovePDF's options: Fit / A4 / US Letter, orientation and margin for paper, Merge all images into one PDF (off: a PDF next to each image); PNG JPEG WebP TIF/TIFF BMP GIF; images opened from outside open the tool; JPEGs embedded as they are, EXIF rotation applied. Tests: images (Letter landscape, tif+gif), run, dest, open_with, route_drop; gui-smoke 16. Reviewer (Opus) agreed 9/9/9."
    }
   ]
  },

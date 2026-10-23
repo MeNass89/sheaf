@@ -88,3 +88,15 @@ fn images_to_pdf_rejects_negative_or_nan_margin() {
         assert!(matches!(r, Err(sheaf_core::OpdfError::Unsupported(_))), "{m}");
     }
 }
+#[test]
+fn a_tif_scan_and_a_gif_become_pages() {
+    let t = tempfile::tempdir().unwrap();
+    let (tif, gif) = (t.path().join("scan.tif"), t.path().join("a.gif"));
+    image::RgbImage::from_pixel(80, 40, image::Rgb([10, 20, 30])).save_with_format(&tif, image::ImageFormat::Tiff).unwrap();
+    image::RgbaImage::from_pixel(40, 80, image::Rgba([200, 0, 0, 255])).save(&gif).unwrap();
+    let out = images_to_pdf(&[tif, gif], PageLayout::FitImage, &t.path().join("o.pdf")).unwrap();
+    let _g = sheaf_core::engine::pdfium_lock();
+    let d = sheaf_core::engine::open_pdf(&out, None).unwrap();
+    assert_eq!(d.pages().len(), 2);
+    assert_eq!(d.pages().get(1).unwrap().height().value.round(), 60.0); // 80 px at 96 dpi
+}

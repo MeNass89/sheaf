@@ -34,7 +34,7 @@ pub fn ext(p: &Path) -> String {
 pub fn kind_of(p: &Path) -> Kind {
     match ext(p).as_str() {
         "pdf" => Kind::Pdf,
-        "jpg" | "jpeg" | "png" | "webp" | "tiff" | "bmp" => Kind::Image,
+        "jpg" | "jpeg" | "png" | "webp" | "tif" | "tiff" | "bmp" | "gif" => Kind::Image,
         _ => Kind::Document,
     }
 }
@@ -351,6 +351,10 @@ mod tests {
         assert_eq!(route_drop(None, &pdf), DropAction::PickTool);
         assert!(matches!(route_drop(None, &docx), DropAction::Reject(_)));
         assert_eq!(route_drop(Some(ToolId::JpgToPdf), Path::new("/x/p.jpeg")), DropAction::AddToTab);
+        // Scans are often .tif; GIFs too (as Add image takes them).
+        assert_eq!(route_drop(Some(ToolId::JpgToPdf), Path::new("/x/scan.tif")), DropAction::AddToTab);
+        assert_eq!(route_drop(Some(ToolId::JpgToPdf), Path::new("/x/a.gif")), DropAction::AddToTab);
+        assert_eq!(kind_of(Path::new("/x/scan.TIF")), Kind::Image);
     }
 
     #[test]
