@@ -110,3 +110,19 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   Tests: `running_lines_go_to_the_header_and_footer_once`, `empty_and_merged_cells_take_no_height`,
   `symbol_font_characters_become_the_unicode_they_draw` (pdfcraft-edit, whose lib tests the suite runs: the
   engine's are vendored without their `tests.rs`).
+- 23/10 23:00, reviewer 8/8/9 on 7e34e93; its blockers fixed:
+  - Text in the wrong cell: Word draws a row's cells, in one style, as one string whose spaces are stretched by word
+    spacing (`Tw`), or with large `TJ` moves; the read line now records those jumps (`TextLine::jumps`) and the
+    export cuts a line there, each piece where it is drawn ("Tabagisme | Facteur de risque", "ANCA | Négatif").
+  - Spurious narrow columns and rows: Word pads a cell's shading 5 pt inside it (a box inside the cell's box), and
+    shades paragraphs with `m l l l h f` paths that `page_fills` did not read. Paths drawing a box are fills now;
+    the edges of a box padded 1–8 pt inside another (both sides), or beside a drawn border, are no grid lines.
+  - Wingdings 3 arrows (U+F026 ↗ …) mapped; the corpus fails on any private-use character left.
+  - Superscripts: a run smaller than the one before and above its baseline is `w:vertAlign superscript` ("1ère").
+  - Tables indented as on the page (`w:tblInd`: the title band narrower than the table below).
+  MICI: 4 pages for 4; the page-3 differential table reads cell by cell as the source. Left: a few empty slivers in
+  the "PC / Endoscopie" block (page 1) and under "Paraclinique" (page 2).
+  Tests (red then green): `a_row_drawn_in_one_string_across_cells_goes_into_each_cell`,
+  `a_box_filled_as_a_path_is_a_fill_of_the_export`, `shading_padded_inside_a_cell_is_no_column_edge`,
+  `a_box_edge_beside_a_drawn_border_is_no_grid_line`, `a_small_raised_run_after_another_is_a_superscript`;
+  `symbol_font_characters_become_the_unicode_they_draw` extended. Corpus: + "no private-use characters" (25/25).

@@ -219,23 +219,38 @@ impl crate::Document {
                             continue;
                         }
                         let f = l.base_font.to_ascii_lowercase();
-                        // Symbol fonts' characters (Word's arrows and bullets in Wingdings or Symbol,
-                        // read as private-use code points) as the Unicode characters they draw.
-                        let (text, symbols_mapped) = pdfcraft_edit::unicode_symbols(&text, &f);
                         // The family Word knows it by: no subset tag, no style suffix.
                         let family = l.base_font.rsplit('+').next().unwrap_or_default();
                         let family = family.split([',', '-']).next().unwrap_or_default().trim_matches(|c: char| c == '*' || c.is_whitespace()).to_string();
-                        blocks.push(pdfcraft_export::Block {
-                            font: if symbols_mapped { String::new() } else { family },
-                            para: pid,
-                            text,
-                            rect: visible_rect(l.rect),
-                            size: l.size * unit,
-                            bold: l.bold || f.contains("bold") || f.contains("black") || f.contains("heavy"),
-                            italic: l.italic || f.contains("italic") || f.contains("oblique"),
-                            color: l.color,
-                            rotation: l.rotation() - f64::from(info.rotation),
-                        });
+                        // Pieces of the line apart by more than its size (Word draws a table row's
+                        // cells in one `TJ`) are blocks of their own, each where it is drawn.
+                        let pre = text.len() - piece.len();
+                        let mut parts = Vec::new();
+                        let (mut from, mut x0) = (0, l.rect[0]);
+                        for &(k, end, start) in l.jumps.iter().filter(|j| j.0 > 0 && j.0 < piece.len() && piece.is_char_boundary(j.0)) {
+                            parts.push((&text[from..pre + k], [x0, l.rect[1], end, l.rect[3]]));
+                            (from, x0) = (pre + k, start);
+                        }
+                        parts.push((&text[from..], [x0, l.rect[1], l.rect[2], l.rect[3]]));
+                        for (part, rect) in parts {
+                            if part.trim().is_empty() && !part.contains('\n') {
+                                continue;
+                            }
+                            // Symbol fonts' characters (Word's arrows and bullets in Wingdings or Symbol,
+                            // read as private-use code points) as the Unicode characters they draw.
+                            let (part, symbols_mapped) = pdfcraft_edit::unicode_symbols(part, &f);
+                            blocks.push(pdfcraft_export::Block {
+                                font: if symbols_mapped { String::new() } else { family.clone() },
+                                para: pid,
+                                text: part,
+                                rect: visible_rect(rect),
+                                size: l.size * unit,
+                                bold: l.bold || f.contains("bold") || f.contains("black") || f.contains("heavy"),
+                                italic: l.italic || f.contains("italic") || f.contains("oblique"),
+                                color: l.color,
+                                rotation: l.rotation() - f64::from(info.rotation),
+                            });
+                        }
                     }
                 }
                 let images = pdfcraft_edit::reading_images(cos, i)

@@ -57,6 +57,10 @@ pub struct TextLine {
     /// Right-to-left `/ActualText` already supplies typing order; glyph text still needs bidi
     /// recovery. Left-to-right ActualText (e.g. a Latin ligature) joins its line as usual.
     logical_order: bool,
+    /// Sheaf: where the line jumps across more than twice its size (Word draws a row's cells, side by
+    /// side, in one `TJ`): the byte in `text` after the jump, and the x (user space) where the text
+    /// before it ends and where the text after it starts. Upright lines only.
+    pub jumps: Vec<(usize, f64, f64)>,
     /// Some of the line's text is `/ActualText`, which is already in logical order: visual-order
     /// Indic recovery would scramble it.
     actual_text: bool,
@@ -445,6 +449,28 @@ pub fn page_fills(doc: &Document, page: usize) -> Result<Vec<([f64; 4], [f64; 3]
     let mut fill = [0.0; 3];
     let mut stack: Vec<(Matrix, [f64; 3])> = Vec::new();
     let mut rects: Vec<[f64; 4]> = Vec::new();
+    // Sheaf: a box drawn as a path (`m l l l h`, as Word shades a paragraph) is one too: the current
+    // subpath's points, and whether it has curves.
+    let mut path: Vec<(f64, f64)> = Vec::new();
+    let mut curved = false;
+    let boxed = |path: &[(f64, f64)], curved: bool| -> Option<[f64; 4]> {
+        let mut pts = path.to_vec();
+        if pts.len() == 5 && (pts[0].0 - pts[4].0).abs() < 0.01 && (pts[0].1 - pts[4].1).abs() < 0.01 {
+            pts.pop();
+        }
+        if curved || pts.len() != 4 {
+            return None;
+        }
+        let square = (0..4).all(|i| {
+            let (a, b) = (pts[i], pts[(i + 1) % 4]);
+            (a.0 - b.0).abs() < 0.01 || (a.1 - b.1).abs() < 0.01
+        });
+        square.then(|| {
+            let xs = pts.iter().map(|p| p.0);
+            let ys = pts.iter().map(|p| p.1);
+            [xs.clone().fold(f64::MAX, f64::min), ys.clone().fold(f64::MAX, f64::min), xs.fold(f64::MIN, f64::max), ys.fold(f64::MIN, f64::max)]
+        })
+    };
     let n = |o: &Op, i: usize| o.num(i).filter(|v| v.is_finite()).unwrap_or(0.0);
     for o in &ops {
         match o.op.as_slice() {
@@ -471,14 +497,24 @@ pub fn page_fills(doc: &Document, page: usize) -> Result<Vec<([f64; 4], [f64; 3]
                 let (a, b) = (ctm.apply(x, y), ctm.apply(x + w, y + h));
                 rects.push([a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)]);
             }
+            b"m" => {
+                rects.extend(boxed(&path, curved));
+                (path, curved) = (vec![ctm.apply(n(o, 0), n(o, 1))], false);
+            }
+            b"l" if !path.is_empty() && path.len() < 6 => path.push(ctm.apply(n(o, 0), n(o, 1))),
+            b"c" | b"v" | b"y" => curved = true,
             b"f" | b"F" | b"f*" | b"B" | b"B*" | b"b" | b"b*" => {
+                rects.extend(boxed(&std::mem::take(&mut path), curved));
                 for r in rects.drain(..) {
                     if out.len() < 20_000 {
                         out.push((r, fill.map(|v| v.clamp(0.0, 1.0))));
                     }
                 }
             }
-            b"n" | b"S" | b"s" | b"m" => rects.clear(),
+            b"n" | b"S" | b"s" => {
+                rects.clear();
+                path.clear();
+            }
             _ => {}
         }
     }
@@ -603,6 +639,8 @@ struct Shown {
     scope: Option<usize>,
     logical_order: bool,
     actual_text: bool,
+    /// Sheaf: as [`TextLine::jumps`].
+    jumps: Vec<(usize, f64, f64)>,
 }
 
 /// The graphics state carried from one of a page's content streams to the next: the streams
@@ -783,6 +821,8 @@ fn interpret(
                 let mut decodable = true;
                 let mut x_text = 0.0;
                 let mut glyph_count = 0_usize;
+                let mut jumps = Vec::new();
+                let upright = trm0.0[1].abs() < 1e-9 && trm0.0[2].abs() < 1e-9 && trm0.0[0] > 0.0;
                 for p in &pieces {
                     match p {
                         Object::String(s) => {
@@ -793,6 +833,10 @@ fn interpret(
                                     None => decodable = false,
                                 }
                                 let w = m.width(code) * ts.size + ts.char_spacing + if m.is_space(code, len) { ts.word_spacing } else { 0.0 };
+                                // Sheaf: a space made wide by word spacing (Word's way to reach the next cell).
+                                if upright && m.is_space(code, len) && w * ts.scale > ts.size * 2.0 && !text.trim().is_empty() {
+                                    jumps.push((text.len(), trm0.apply(x_text, 0.0).0, trm0.apply(x_text + w * ts.scale, 0.0).0));
+                                }
                                 x_text += w * ts.scale;
                             }
                         }
@@ -803,11 +847,16 @@ fn interpret(
                                 if dx > ts.size * 0.2 && !text.ends_with(' ') {
                                     text.push(' ');
                                 }
+                                if upright && dx > ts.size * 2.0 && !text.trim().is_empty() {
+                                    jumps.push((text.len(), trm0.apply(x_text, 0.0).0, trm0.apply(x_text + dx, 0.0).0));
+                                }
                                 x_text += dx;
                             }
                         }
                     }
                 }
+                // A wide space at the very end jumps nowhere: the next run is placed with its own move.
+                jumps.retain(|j: &(usize, f64, f64)| j.0 < text.len());
                 tm = Matrix([1.0, 0.0, 0.0, 1.0, x_text, 0.0]).then(&tm);
                 let end = tm.then(&ts.ctm).apply(0.0, ts.rise);
                 // The box: from descent to ascent along the run.
@@ -853,6 +902,7 @@ fn interpret(
                     scope: marked.last().copied().flatten(),
                     logical_order: false,
                     actual_text: false,
+                    jumps,
                 });
             }
             _ => {}
@@ -911,6 +961,11 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
             if gap > l.size * 0.2 && !l.text.ends_with(' ') && !s.text.starts_with(' ') {
                 l.text.push(' ');
             }
+            if gap > l.size * 2.0 {
+                l.jumps.push((l.text.len(), last.map_or(s.start_x, |x| x.3), s.start_x));
+            }
+            let at = l.text.len();
+            l.jumps.extend(s.jumps.iter().map(|&(k, a, b)| (at + k, a, b)));
             l.text.push_str(&s.text);
             l.rect = [l.rect[0].min(s.rect[0]), l.rect[1].min(s.rect[1]), l.rect[2].max(s.rect[2]), l.rect[3].max(s.rect[3])];
             l.ops.push(s.op);
@@ -936,6 +991,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
                 scope: s.scope,
                 logical_order: s.logical_order,
                 actual_text: s.actual_text,
+                jumps: s.jumps.clone(),
                 ops: std::iter::once(s.op).chain(s.extra_ops.iter().copied()).collect(),
                 origin: Origin {
                     tm: s.tm.0,
@@ -957,8 +1013,13 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
         // A visual-order Indic font draws pre-base vowel signs before their consonant.
         if l.visual_order && !l.actual_text {
             l.text = crate::indic::to_logical(&l.text);
+            l.jumps.clear();
         }
-        l.text = crate::bidi::to_logical(&l.text);
+        let logical = crate::bidi::to_logical(&l.text);
+        if logical != l.text {
+            l.text = logical;
+            l.jumps.clear();
+        }
     }
     // Lines of only spaces aren't editable text.
     lines.retain(|l| !l.text.trim().is_empty());
@@ -998,6 +1059,11 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
         if gap > l.size * 0.2 && !l.text.ends_with(' ') && !s.text.starts_with(' ') {
             l.text.push(' ');
         }
+        if gap > l.size * 2.0 {
+            l.jumps.push((l.text.len(), last.map_or(s.start_x, |x| x.2), s.start_x));
+        }
+        let at = l.text.len();
+        l.jumps.extend(s.jumps.iter().map(|&(k, a, b)| (at + k, a, b)));
         l.text.push_str(&s.text);
         l.rect = [l.rect[0].min(s.rect[0]), l.rect[1].min(s.rect[1]), l.rect[2].max(s.rect[2]), l.rect[3].max(s.rect[3])];
         l.ops.push(s.op);
@@ -1022,6 +1088,7 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
             scope: s.scope,
             logical_order: s.logical_order,
             actual_text: s.actual_text,
+            jumps: s.jumps.clone(),
             ops: std::iter::once(s.op).chain(s.extra_ops.iter().copied()).collect(),
             origin: Origin {
                 tm: s.tm.0,
@@ -1155,6 +1222,7 @@ fn reading_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditError
     // A visual-order Indic font draws pre-base vowel signs before their consonant.
     for l in lines.iter_mut().filter(|l| l.visual_order && !l.actual_text) {
         l.text = crate::indic::to_logical(&l.text);
+        l.jumps.clear();
     }
     lines.retain(|l| !l.text.trim().is_empty());
     Ok(lines)
@@ -1725,7 +1793,21 @@ pub fn clear_block(doc: &mut Document, page: usize, block: usize) -> Result<(), 
 /// whether it needs the symbol font no more (every such character mapped).
 pub fn unicode_symbols(text: &str, font: &str) -> (String, bool) {
     let table: &[(char, char)] = if font.contains("wingdings 3") || font.contains("wingdings3") {
-        &[('\u{f092}', '➔'), ('\u{f0e0}', '➔'), ('\u{f075}', '▲'), ('\u{f071}', '▼'), ('\u{f0c6}', '➔')]
+        &[
+            ('\u{f021}', '←'),
+            ('\u{f022}', '→'),
+            ('\u{f023}', '↑'),
+            ('\u{f024}', '↓'),
+            ('\u{f025}', '↖'),
+            ('\u{f026}', '↗'),
+            ('\u{f027}', '↙'),
+            ('\u{f028}', '↘'),
+            ('\u{f092}', '➔'),
+            ('\u{f0e0}', '➔'),
+            ('\u{f075}', '▲'),
+            ('\u{f071}', '▼'),
+            ('\u{f0c6}', '➔'),
+        ]
     } else if font.contains("wingdings") {
         &[
             ('\u{f0e0}', '→'),
@@ -2371,6 +2453,7 @@ mod tests {
     fn symbol_font_characters_become_the_unicode_they_draw() {
         assert_eq!(unicode_symbols("\u{f0e0} Exploration", "wingdings-regular"), ("→ Exploration".to_string(), true));
         assert_eq!(unicode_symbols("\u{f0b3} 5", "symbol"), ("≥ 5".to_string(), true));
+        assert_eq!(unicode_symbols("\u{f026} du taux", "lhdljl+wingdings3"), ("↗ du taux".to_string(), true));
         // An unknown glyph keeps the font, so it still draws.
         assert!(!unicode_symbols("\u{f0e0}\u{f001}", "wingdings").1);
         assert_eq!(unicode_symbols("\u{f0e0}", "calibri"), ("\u{f0e0}".to_string(), false));

@@ -182,12 +182,14 @@ def main():
         os.makedirs(back, exist_ok=True)
         soffice("--convert-to", "pdf", export, outdir=back)
         xml = zipfile.ZipFile(export).read("word/document.xml").decode("utf8", "replace")
+        pua = [f"U+{ord(c):04X}" for c in xml if 0xE000 <= ord(c) <= 0xF8FF]
         boxes = len(re.findall(r"<wp:anchor|<w:framePr|<v:textbox|<wps:txbx", xml))
         w0, w1 = words(orig), words(export)
         checks = [
             ("words in order", w0 == w1, f"{len(w1)} of {len(w0)} words" + ("" if w0 == w1 else f", first difference at {next((i for i, (a, b) in enumerate(zip(w0, w1)) if a != b), min(len(w0), len(w1)))}")),
             ("tables", tables(orig) == tables(export), f"{tables(export)} for {tables(orig)} (rows, cells)"),
             ("no floating text boxes", boxes == 0, f"{boxes}"),
+            ("no private-use characters", not pua, f"{len(pua)}" + (f": {sorted(set(pua))[:5]}" if pua else "")),
             ("page count", abs(pages(f'{back}/{name}-sheaf.pdf') - pages(pdf)) <= 1, f"{pages(f'{back}/{name}-sheaf.pdf')} for {pages(pdf)}"),
         ]
         for what, ok, detail in checks:

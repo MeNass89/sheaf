@@ -342,6 +342,46 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]], fills: &[([f64;
             vs.push([(x0 + x1) / 2.0, y0, y1]);
         }
     }
+    // The edges of a shaded box are lines too (shaded cells with a hairline between them are a grid),
+    // but Word pads a cell's shading a few points inside the cell: the edges of a box lying 1–8 pt
+    // inside another box on both sides (left and right, or top and bottom), or beside a drawn line (not a box's edge) within 8 pt, are no grid lines.
+    let boxes: Vec<[f64; 4]> = fills.iter().map(|(f, _)| *f).filter(|f| f[2] - f[0] > 2.0 && f[3] - f[1] > 2.0).take(5_000).collect();
+    let inset = |a: f64, b: f64| (1.0..8.0).contains(&a) && (1.0..8.0).contains(&b);
+    let padded: Vec<bool> = boxes
+        .iter()
+        .map(|f| {
+            boxes.iter().any(|c| {
+                let pad = [f[0] - c[0], f[1] - c[1], c[2] - f[2], c[3] - f[3]];
+                pad.iter().all(|p| *p >= -0.5) && (inset(pad[0], pad[2]) || inset(pad[1], pad[3]))
+            })
+        })
+        .collect();
+    // Whether a line is a box's edge, and whether every box it edges is a padded one.
+    let edge = |at: f64, from: f64, to: f64, across: bool| -> Option<bool> {
+        let mut found = None;
+        for (f, pad) in boxes.iter().zip(&padded) {
+            let (a, b, lo, hi) = if across { (f[1], f[3], f[0], f[2]) } else { (f[0], f[2], f[1], f[3]) };
+            if ((a - at).abs() < 0.5 || (b - at).abs() < 0.5) && from >= lo - 0.5 && to <= hi + 0.5 {
+                found = Some(found.unwrap_or(true) && *pad);
+            }
+        }
+        found
+    };
+    let inset = |ls: &[[f64; 3]], across: bool| -> Vec<[f64; 3]> {
+        let kind: Vec<Option<bool>> = ls.iter().map(|l| edge(l[0], l[1], l[2], across)).collect();
+        ls.iter()
+            .enumerate()
+            .filter(|(k, l)| match kind[*k] {
+                None => true,
+                Some(true) => false,
+                Some(false) => !ls.iter().enumerate().any(|(m, r)| kind[m].is_none() && (r[0] - l[0]).abs() <= 8.0 && r[2].min(l[2]) - r[1].max(l[1]) > 2.0),
+            })
+            .map(|(_, l)| *l)
+            .collect()
+    };
+    if hs.len().max(vs.len()) <= 5_000 {
+        (hs, vs) = (inset(&hs, true), inset(&vs, false));
+    }
     if hs.len() < 2 || vs.len() < 2 || hs.len().saturating_mul(vs.len()) > 4_000_000 {
         return (Vec::new(), consumed);
     }
@@ -745,6 +785,18 @@ fn run_xml_font(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3]
     format!("<w:r><w:rPr>{rpr}</w:rPr><w:t xml:space=\"preserve\">{t}</w:t></w:r>")
 }
 
+/// Sheaf: `b`'s run (as `text`), raised as a superscript when it stands smaller than the run before
+/// it and above that run's baseline, right after it ("1ère", "2nd").
+fn block_run(b: &Block, text: &str, prev: Option<&Block>) -> String {
+    let sup = prev.filter(|p| {
+        b.size <= p.size * 0.8 && b.rect[1] > p.rect[1] + p.size * 0.15 && b.rect[1] < p.rect[3] && b.rect[0] >= p.rect[2] - 1.0 && b.rect[0] - p.rect[2] < p.size
+    });
+    match sup {
+        Some(p) => run_xml_font(text, p.size, b.bold, b.italic, b.color, &b.font).replacen("</w:rPr>", "<w:vertAlign w:val=\"superscript\"/></w:rPr>", 1),
+        None => run_xml_font(text, b.size, b.bold, b.italic, b.color, &b.font),
+    }
+}
+
 /// One Word table: explicit absent borders (alignment alone cannot prove PDF rules), a grid sized
 /// from the detected column edges, `gridSpan` for spanning cells, empty cells for holes.
 /// Sheaf: a cell's paragraphs: its blocks run on while on one line; a block below the one before
@@ -781,7 +833,7 @@ fn cell_paragraphs(c: &Cell) -> String {
         if prev.is_none() {
             text = text.trim_start();
         }
-        s.push_str(&run_xml_font(text, b.size, b.bold, b.italic, b.color, &b.font));
+        s.push_str(&block_run(b, text, prev));
         prev = Some(b);
     }
     s.push_str("</w:p>");
@@ -791,14 +843,21 @@ fn cell_paragraphs(c: &Cell) -> String {
 /// Sheaf: an empty paragraph in a table cell, 1 pt high.
 const EMPTY_CELL_P: &str = "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"20\" w:lineRule=\"exact\"/></w:pPr></w:p>";
 
-fn docx_table(t: &Table, max_w: f64) -> String {
+/// `left`: the page's left margin (pt), so a table standing in from it keeps its place.
+fn docx_table(t: &Table, max_w: f64, left: f64) -> String {
     let mut edges = t.cols.clone();
     edges.push(t.rect[2]);
     // Sheaf: a table wider than the text column (a page laid out edge to edge) is scaled to it.
     let total = (t.rect[2] - t.cols.first().copied().unwrap_or(t.rect[0])).max(1.0);
     let k = if max_w > 0.0 && total > max_w { max_w / total } else { 1.0 };
     let widths: Vec<i64> = edges.windows(2).map(|w| ((w[1] - w[0]).max(20.0) * k * 20.0).round().clamp(60.0, 31680.0) as i64).collect();
-    let mut s = String::from("<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/><w:tblBorders>");
+    let mut s = String::from("<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/>");
+    // Sheaf: indented as on the page (a title band narrower than the table below it).
+    let ind = t.cols.first().copied().unwrap_or(t.rect[0]) - left;
+    if k == 1.0 && left > 0.0 && ind > 2.0 {
+        s.push_str(&format!("<w:tblInd w:w=\"{}\" w:type=\"dxa\"/>", (ind * 20.0).round() as i64));
+    }
+    s.push_str("<w:tblBorders>");
     // Sheaf: a ruled table keeps its borders.
     let border = if t.ruled { "w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"000000\"" } else { "w:val=\"nil\"" };
     for edge in ["top", "left", "bottom", "right", "insideH", "insideV"] {
@@ -1086,7 +1145,7 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
     let mut media: Vec<(String, &Image)> = Vec::new();
     // Word needs a paragraph between adjacent tables and after the last one in the body.
     let mut after_table = false;
-    let run = |b: &Block| run_xml_font(&b.text, b.size, b.bold, b.italic, b.color, &b.font);
+
     // Sheaf: a running header and footer go to Word's own parts.
     let (running, pages) = running(pages);
     let pages = pages.as_slice();
@@ -1112,7 +1171,7 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
                             if k > 0 && b.para == 0 && !bs[k - 1].text.ends_with(char::is_whitespace) && !b.text.starts_with(char::is_whitespace) && b.rect[0] - bs[k - 1].rect[2] > b.size * 0.15 {
                                 runs.push_str(&run_xml(" ", b.size, false, false, b.color));
                             }
-                            runs.push_str(&run(b));
+                            runs.push_str(&block_run(b, &b.text, k.checked_sub(1).map(|j| bs[j])));
                         }
                         body.push_str(&format!("<w:p>{style}{runs}</w:p>"));
                     }
@@ -1121,7 +1180,7 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
                             // Sheaf: the paragraph Word needs between two tables, 1 pt high.
                             body.push_str("<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"20\" w:lineRule=\"exact\"/></w:pPr></w:p>");
                         }
-                        body.push_str(&docx_table(t, text_w));
+                        body.push_str(&docx_table(t, text_w, margins(page).0 as f64 / 20.0));
                     }
                     Item::Img(im) => {
                         let n = media.len() + 1;
@@ -1598,7 +1657,7 @@ mod tests {
         assert!(d.windows(b"word/document.xml".len()).any(|w| w == b"word/document.xml"));
         let (tables, _) = tables(&p.blocks);
         assert_eq!(tables.len(), 1);
-        let table_xml = docx_table(&tables[0], 0.0);
+        let table_xml = docx_table(&tables[0], 0.0, 0.0);
         assert!(table_xml.contains("<w:tblGrid>"));
         assert!(table_xml.contains("<w:gridSpan w:val=\"2\"/>"), "{table_xml}");
         assert_eq!(table_xml.matches("<w:tr>").count(), 4);
@@ -1766,7 +1825,7 @@ mod tests {
         assert!(xml.contains("w:after=\"0\""), "tight lines");
         assert!(xml.contains("<w:b/>") && xml.contains("0000FF"), "{xml}");
         let t = Table { rect: [0.0, 0.0, 800.0, 100.0], cols: vec![0.0, 400.0], rows: vec![vec![cell.clone(), cell]], ruled: true };
-        let x = docx_table(&t, 400.0);
+        let x = docx_table(&t, 400.0, 0.0);
         assert!(x.contains("<w:gridCol w:w=\"4000\"/>"), "800 pt into 400: each column halved: {x}");
     }
 
@@ -1787,7 +1846,7 @@ mod tests {
         assert!(band.rows[0][0].fill.is_some());
         let grid = tables.iter().find(|t| t.rows[0].len() == 2).unwrap();
         assert!(grid.rows[0][0].fill.is_some() && grid.rows[0][1].fill.is_none(), "only the shaded cell");
-        let xml = docx_table(grid, 0.0);
+        let xml = docx_table(grid, 0.0, 0.0);
         assert!(xml.contains("<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"D6E3BD\"/>") || xml.contains("w:fill=\"D6E3BC\""), "{xml}");
     }
 
@@ -1809,7 +1868,47 @@ mod tests {
     fn empty_and_merged_cells_take_no_height() {
         assert!(cell_paragraphs(&Cell::default()).contains("w:line=\"20\" w:lineRule=\"exact\""));
         let t = Table { rows: vec![vec![Cell { text: "A".into(), size: 10.0, ..Default::default() }, Cell { merge: 2, ..Default::default() }]], rect: [0.0, 0.0, 200.0, 20.0], cols: vec![0.0, 100.0, 200.0], ruled: true };
-        let xml = docx_table(&t, 0.0);
+        let xml = docx_table(&t, 0.0, 0.0);
         assert!(xml.contains(EMPTY_CELL_P), "{xml}");
+    }
+
+    #[test]
+    fn a_small_raised_run_after_another_is_a_superscript() {
+        let b = |t: &str, x: f64, y: f64, size: f64| Block { font: String::new(), para: 1, text: t.into(), rect: [x, y, x + 5.0, y + size], size, bold: false, italic: false, color: [0.0; 3], rotation: 0.0 };
+        let c = Cell { blocks: vec![b("1", 100.0, 400.0, 10.0), b("ère", 105.0, 404.0, 6.5), b(" intention", 113.0, 400.0, 10.0)], ..Default::default() };
+        let xml = cell_paragraphs(&c);
+        let sup = xml.split("<w:r>").find(|r| r.contains(">ère<")).unwrap();
+        assert!(sup.contains("<w:vertAlign w:val=\"superscript\"/>") && sup.contains("<w:sz w:val=\"20\"/>"), "{sup}");
+        assert!(!xml.split("<w:r>").find(|r| r.contains("intention")).unwrap().contains("vertAlign"));
+    }
+
+    #[test]
+    fn shading_padded_inside_a_cell_is_no_column_edge() {
+        // Word's shaded cells: boxes side by side (the hairline between them is the border), each
+        // with its shading again 5 pt inside it; every box's edges are lines.
+        let b = |t: &str, x: f64| Block { font: String::new(), para: 0, text: t.into(), rect: [x, 405.0, x + 30.0, 415.0], size: 10.0, bold: false, italic: false, color: [0.0; 3], rotation: 0.0 };
+        let blocks = vec![b("Left", 130.0), b("Right", 240.0)];
+        let green = [0.8, 0.9, 0.7];
+        let fills = vec![([100.0, 400.0, 200.0, 420.0], green), ([105.0, 400.0, 195.0, 420.0], green), ([200.5, 400.0, 300.0, 420.0], green), ([205.5, 400.0, 295.0, 420.0], green)];
+        let rules: Vec<[f64; 4]> = fills.iter().flat_map(|(f, _)| [[f[0], f[1], f[2], f[1]], [f[0], f[3], f[2], f[3]], [f[0], f[1], f[0], f[3]], [f[2], f[1], f[2], f[3]]]).collect();
+        let (tables, _) = ruled_tables(&blocks, &rules, &fills);
+        assert_eq!(tables.len(), 1, "{tables:?}");
+        let t = &tables[0];
+        assert_eq!(t.cols.len(), 2, "{:?}", t.cols);
+        assert!((t.cols[1] - 200.25).abs() < 1.0, "the border, not the shading's inner edge: {:?}", t.cols);
+        assert_eq!(t.rows[0].iter().map(|c| c.text.as_str()).collect::<Vec<_>>(), ["Left", "Right"]);
+    }
+
+    #[test]
+    fn a_box_edge_beside_a_drawn_border_is_no_grid_line() {
+        // Borders drawn as lines; a cell's shading stops 3 pt below its top border.
+        let b = |t: &str, x: f64| Block { font: String::new(), para: 0, text: t.into(), rect: [x, 405.0, x + 30.0, 415.0], size: 10.0, bold: false, italic: false, color: [0.0; 3], rotation: 0.0 };
+        let blocks = vec![b("Left", 130.0), b("Right", 240.0)];
+        let mut rules = vec![[100.0, 400.0, 300.0, 400.0], [100.0, 420.0, 300.0, 420.0], [100.0, 400.0, 100.0, 420.0], [200.0, 400.0, 200.0, 420.0], [300.0, 400.0, 300.0, 420.0]];
+        let fills = vec![([100.5, 400.5, 199.5, 417.0], [0.8, 0.9, 0.7])];
+        rules.extend([[100.5, 400.5, 199.5, 400.5], [100.5, 417.0, 199.5, 417.0]]);
+        let (tables, _) = ruled_tables(&blocks, &rules, &fills);
+        assert_eq!(tables.len(), 1, "{tables:?}");
+        assert!((tables[0].rect[3] - 420.0).abs() < 0.5, "the border, not the shading's edge: {:?}", tables[0].rect);
     }
 }
