@@ -5595,10 +5595,10 @@
    99
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
+   "function": 4,
+   "aesthetics": 3,
    "performance": 7,
-   "overall": 6
+   "overall": 3
   },
   "status": "open",
   "feature": null,
@@ -5614,6 +5614,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [92, 99]"
+   },
+   {
+    "date": "2026-10-23",
+    "feature": null,
+    "grade": {
+     "function": 4,
+     "aesthetics": 3,
+     "performance": 7,
+     "overall": 3
+    },
+    "proof": "Measured on a real Word fiche (MICI, 4 p., table layout): PdfCraft's docx is 738 floating text boxes, no table, runs overlap once rendered (page 1 unreadable); LibreOffice's PDF import keeps fills but is 419 floating shapes, shifted and cut off. Neither is editable flowing text or tables as iLovePDF gives. Reviewer (Opus) 4/3/7 (performance unmeasured). Path to 9: own docx export from text_blocks + ruled-cell tables (F-005), corpus first."
    }
   ]
  },

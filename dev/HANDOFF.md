@@ -82,6 +82,13 @@ DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and
 
 ## Known limits worth the next session
 
+- **PDF to Word (C-convert-009 at 4, measured 23/10).** Both engines give floating text boxes, no tables.
+  Plan (reviewer): F-005, own docx writer in sheaf-core from `text_blocks` paragraphs and styled runs,
+  tables rebuilt from ruled cells (fills, merged cells), images inline, OCR offered for scans. Build a
+  6-8 PDF corpus with their Word originals and checks first (word order vs pdftotext, table/cell counts,
+  page count rendered back, no text boxes left). Optional stopgap if LibreOffice is accepted: exact layout
+  via writer_pdf_import with anchors made page-relative, no wrap.
+
 - PdfCraft is patched in `third_party/` (README there): on a PdfCraft rev bump, re-apply the changes (search
   "Sheaf:"). Asked Nassim whether to send them upstream.
 - Edit mode (C-edit-001…014): move/resize existing objects, font choice. C-edit-002 at 9 (on-page preview, rewrap, notices). Its nits: ⌘S skips a paragraph emptied in the editor; undo/redo with the editor open keeps the old paragraph index (close the draft on undo)
