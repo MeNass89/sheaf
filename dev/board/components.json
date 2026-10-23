@@ -5596,13 +5596,13 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "layout fidelity",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -5669,6 +5669,17 @@
      "overall": 8
     },
     "proof": "reviewer 23/10 on b1d75f0: cells split at Tw/TJ jumps, padded shading ignored, ↗, superscripts; aesthetics blockers: sliver columns in nested label blocks (MICI p1 PC/Endoscopie, p2 Paraclinique), RCH table overflow on p2"
+   },
+   {
+    "date": "2026-10-23",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "reviewer 24/10 on 13e2b2b: MICI fiche as source on 4 pages (cells, colours, merged labels, superscripts, symbols, header/footer), corpus 25/25 (words, tables, no text boxes, page count, no PUA), 0.1 s for 4 pages, 6.6 s for 100 (debug)"
    }
   ]
  },
