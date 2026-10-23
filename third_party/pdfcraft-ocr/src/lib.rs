@@ -138,6 +138,10 @@ pub struct Word {
     pub rect: [f32; 4],
     /// Sheaf: which way it reads (a table's label may stand on its side).
     pub turn: Turn,
+    /// Sheaf: a scan's tilt (radians): `rect` is in the image straightened about `pivot`; the word
+    /// is placed turned back by `tilt` about it, where the scan draws it.
+    pub tilt: f32,
+    pub pivot: [f32; 2],
 }
 
 /// Sheaf: the way a word reads on the page.
@@ -205,15 +209,34 @@ impl Ocr {
         };
         let err = |e: &dyn std::fmt::Display| OcrError::Recognize(e.to_string());
         let source = ocrs::ImageSource::from_bytes(&rgb, (width, height)).map_err(|e| err(&e))?;
-        let input = self.engine.prepare_input(source).map_err(|e| err(&e))?;
-        let found = self.engine.detect_words(&input).map_err(|e| err(&e))?;
+        let mut input = self.engine.prepare_input(source).map_err(|e| err(&e))?;
+        let mut found = self.engine.detect_words(&input).map_err(|e| err(&e))?;
+        // Sheaf: a scan fed in a little askew (2.5° left 8 % of a page's words) is straightened, read
+        // again, and its words turned back to where the scan draws them.
+        let tilt = if slant(&found) == 0.0 && found.len() < 8 { 0.0 } else { skew(&rgb, width as usize, height as usize) };
+        let mut rgb = rgb;
+        if tilt.abs() > 0.004 {
+            rgb = straightened(&rgb, width as usize, height as usize, tilt).into();
+            let source = ocrs::ImageSource::from_bytes(&rgb, (width, height)).map_err(|e| err(&e))?;
+            input = self.engine.prepare_input(source).map_err(|e| err(&e))?;
+            found = self.engine.detect_words(&input).map_err(|e| err(&e))?;
+        }
+        let pivot = [width as f32 / 2.0, height as f32 / 2.0];
+        let tilted = |mut lines: Vec<Line>| {
+            if tilt.abs() > 0.004 {
+                for w in lines.iter_mut().flat_map(|l| l.words.iter_mut()) {
+                    (w.tilt, w.pivot) = (tilt, pivot);
+                }
+            }
+            lines
+        };
         let lines = self.engine.find_text_lines(&input, &found);
         if let Some(latin) = &self.latin {
-            return self.read_latin(latin, &rgb, width, height, &lines);
+            return self.read_latin(latin, &rgb, width, height, &lines).map(tilted);
         }
         let read = self.engine.recognize_text(&input, &lines).map_err(|e| err(&e))?;
         use ocrs::TextItem;
-        Ok(read
+        Ok(tilted(read
             .into_iter()
             .flatten()
             .map(|line| Line {
@@ -227,7 +250,7 @@ impl Ocr {
                     .collect(),
             })
             .filter(|l| !l.words.is_empty())
-            .collect())
+            .collect()))
     }
 }
 
@@ -304,7 +327,7 @@ impl Ocr {
                 }
                 let score = read.iter().map(|r| r.2).sum::<f32>() / read.len() as f32;
                 if score >= 0.8 && best.as_ref().is_none_or(|(s, _, _)| score > *s) {
-                    best = Some((score, score * letters as f32, read.into_iter().map(|(text, at, _)| Word { text, rect: back(at), turn }).collect()));
+                    best = Some((score, score * letters as f32, read.into_iter().map(|(text, at, _)| Word { text, rect: back(at), turn, ..Default::default() }).collect()));
                 }
             }
             let inside = |w: &Word| {
@@ -332,6 +355,94 @@ impl Ocr {
         }
         Ok(out.into_iter().map(|(l, _)| l).collect())
     }
+}
+
+/// Sheaf: whether the page has text to go by (words clearly longer than tall): 0 when too few.
+fn slant(found: &[rten_imageproc::RotatedRect]) -> f32 {
+    let long = found
+        .iter()
+        .filter(|r| {
+            let c = r.corners();
+            let (a, b) = ((c[1].x - c[0].x).hypot(c[1].y - c[0].y), (c[2].x - c[1].x).hypot(c[2].y - c[1].y));
+            a.max(b) >= 2.0 * a.min(b)
+        })
+        .count();
+    if long < 8 { 0.0 } else { 1.0 }
+}
+
+/// Sheaf: how much a page's text slants (radians, y down), within 5°: the angle at which its dark
+/// pixels fall into the sharpest rows (the projection profile, as deskew tools measure it), searched
+/// by quarter degrees, then by fortieths around the best, on the page reduced to 800 px across.
+fn skew(img: &[u8], width: usize, height: usize) -> f32 {
+    let ch = (img.len() / (width * height).max(1)).max(1);
+    let step = (width / 800).max(1);
+    let mut dark: Vec<(f32, f32)> = Vec::new();
+    for y in (0..height).step_by(step) {
+        for x in (0..width).step_by(step) {
+            let at = (y * width + x) * ch;
+            let v: u32 = img.get(at..at + ch).map_or(255, |p| p.iter().map(|v| u32::from(*v)).sum::<u32>() / ch as u32);
+            if v < 128 {
+                dark.push(((x / step) as f32, (y / step) as f32));
+            }
+        }
+    }
+    if dark.len() < 100 {
+        return 0.0;
+    }
+    let rows = (width.max(height) / step) * 2 + 2;
+    let sharpness = |a: f32| -> f64 {
+        let (sin, cos) = a.sin_cos();
+        let mut hist = vec![0u32; rows];
+        for &(x, y) in &dark {
+            // The row the pixel falls in once the page is turned by -a.
+            let r = (-x * sin + y * cos + rows as f32 / 4.0) as usize;
+            if let Some(h) = hist.get_mut(r) {
+                *h += 1;
+            }
+        }
+        hist.iter().map(|h| f64::from(*h).powi(2)).sum()
+    };
+    let best = |from: f32, to: f32, by: f32| {
+        let mut a = from;
+        let mut out = (0.0, f64::MIN);
+        while a <= to + by / 2.0 {
+            let s = sharpness(a.to_radians());
+            if s > out.1 {
+                out = (a, s);
+            }
+            a += by;
+        }
+        out.0
+    };
+    let coarse = best(-5.0, 5.0, 0.25);
+    best(coarse - 0.25, coarse + 0.25, 0.025).to_radians()
+}
+
+/// Sheaf: `img` (1 or 3 bytes a pixel) turned by `-tilt` about its centre, so text slanting by `tilt`
+/// runs level; what comes in from beyond the edges is white.
+fn straightened(img: &[u8], width: usize, height: usize, tilt: f32) -> Vec<u8> {
+    let ch = (img.len() / (width * height).max(1)).max(1);
+    let mut out = vec![255u8; width * height * ch];
+    let (sin, cos) = tilt.sin_cos();
+    let (cx, cy) = (width as f32 / 2.0, height as f32 / 2.0);
+    for y in 0..height {
+        for x in 0..width {
+            // Where this straightened pixel lies on the scan.
+            let (dx, dy) = (x as f32 + 0.5 - cx, y as f32 + 0.5 - cy);
+            let (sx, sy) = (cx + dx * cos - dy * sin - 0.5, cy + dx * sin + dy * cos - 0.5);
+            if sx < 0.0 || sy < 0.0 || sx >= (width - 1) as f32 || sy >= (height - 1) as f32 {
+                continue;
+            }
+            let (x0, y0) = (sx as usize, sy as usize);
+            let (fx, fy) = (sx - x0 as f32, sy - y0 as f32);
+            for c in 0..ch {
+                let at = |xx: usize, yy: usize| f32::from(img[(yy * width + xx) * ch + c]);
+                let v = at(x0, y0) * (1.0 - fx) * (1.0 - fy) + at(x0 + 1, y0) * fx * (1.0 - fy) + at(x0, y0 + 1) * (1.0 - fx) * fy + at(x0 + 1, y0 + 1) * fx * fy;
+                out[(y * width + x) * ch + c] = v.round() as u8;
+            }
+        }
+    }
+    out
 }
 
 /// Sheaf: the boxes standing on their side among `found` (taller than 1.5 widths), once the boxes
@@ -475,9 +586,16 @@ impl PlacedWord {
             Turn::Up => ((r, b), (r, t), (l, b)),
             Turn::Down => ((l, t), (l, b), (r, t)),
         };
-        let o = to_user(ox, oy);
-        let br = to_user(ex, ey);
-        let tl = to_user(ux, uy);
+        // Sheaf: on a tilted scan, back from the straightened image to the scan.
+        let (sin, cos) = word.tilt.sin_cos();
+        let [px, py] = word.pivot;
+        let on_scan = |x: f32, y: f32| {
+            let (dx, dy) = (x - px, y - py);
+            to_user(px + dx * cos - dy * sin, py + dx * sin + dy * cos)
+        };
+        let o = on_scan(ox, oy);
+        let br = on_scan(ex, ey);
+        let tl = on_scan(ux, uy);
         PlacedWord { text: word.text.clone(), origin: o, across: [br[0] - o[0], br[1] - o[1]], up: [tl[0] - o[0], tl[1] - o[1]] }
     }
 }
@@ -545,7 +663,9 @@ pub fn text_layer(words: &[PlacedWord]) -> Vec<u8> {
         } else {
             out.extend(pdfcraft_fonts::literal(&pdfcraft_fonts::win_ansi(&w.text)));
         }
-        out.extend_from_slice(b" Tj\n");
+        // Sheaf: a space after it, where it ends, so a reader of the text need not guess where words
+        // part (on a tilted scan, pdftotext ran some together: "causeinconnue").
+        out.extend_from_slice(if uni { b" Tj <0020> Tj\n" } else { b" Tj ( ) Tj\n" });
     }
     out.extend_from_slice(b"ET\nEMC\n");
     out
@@ -554,6 +674,27 @@ pub fn text_layer(words: &[PlacedWord]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_page_slant_is_measured_and_straightened() {
+        // Rows of dark dashes ("lines of text") slanting by -2°, y down.
+        let (w, h) = (800, 600);
+        let t = (-2.0f32).to_radians();
+        let mut img = vec![255u8; w * h];
+        for row in 0..12 {
+            for x in 50..750 {
+                if x % 40 < 30 {
+                    let y0 = 60.0 + row as f32 * 40.0 + (x as f32 - 400.0) * t.tan();
+                    for dy in 0..8 {
+                        img[(y0 as usize + dy) * w + x] = 0;
+                    }
+                }
+            }
+        }
+        let got = skew(&img, w, h);
+        assert!((got - t).abs() < 0.1f32.to_radians(), "{} for {}", got.to_degrees(), t.to_degrees());
+        assert!(skew(&straightened(&img, w, h, got), w, h).abs() < 0.1f32.to_radians());
+    }
 
     #[test]
     fn a_region_turned_and_back_is_where_it_was() {
@@ -594,7 +735,7 @@ mod tests {
     fn a_turned_word_is_placed_reading_up_the_page() {
         // Bottom to top: its baseline runs up the right side of its box, its letters' tops to the left.
         let to_user = |x: f32, y: f32| [x as f64, 100.0 - y as f64];
-        let w = PlacedWord::place(&Word { text: "Bio".into(), rect: [10.0, 20.0, 20.0, 60.0], turn: Turn::Up }, to_user);
+        let w = PlacedWord::place(&Word { text: "Bio".into(), rect: [10.0, 20.0, 20.0, 60.0], turn: Turn::Up, ..Default::default() }, to_user);
         assert_eq!((w.origin, w.across, w.up), ([20.0, 40.0], [0.0, 40.0], [-10.0, 0.0]));
     }
 

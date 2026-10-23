@@ -47,3 +47,10 @@ Main app: iLovePDF (OCR to a searchable PDF, language choice). Also Acrobat (Rec
     `a_region_turned_and_back_is_where_it_was`, `a_turned_label_grows_along_its_ink_on_a_dark_ground`,
     `a_turned_word_is_placed_reading_up_the_page`.
   Next: deskew, Tesseract benchmark on the same scan, release-build timing.
+- 24/10 10:00, deskew: the MICI page turned 2.5° read 8.5 % of its words (lines run into each other across a dense
+  page). The slant is now measured by projection profile (the angle at which the page's dark pixels fall into the
+  sharpest rows; quarter degrees then fortieths, page reduced to 800 px; -2.52° found for -2.5°), the image
+  straightened, read, and each word turned back by the same angle about the page's centre (`Word::tilt`, `pivot`),
+  so it sits where the scan draws it. Each word is now followed by a space in the layer, as Tesseract writes it
+  (pdftotext ran tilted words together). 2.5° page: 93.3 % of its words (`pdftotext -raw`), the straight page 93.4 %.
+  Tests `a_scan_fed_in_askew_is_read` (red without: 4 of 102 words), `a_page_slant_is_measured_and_straightened`.

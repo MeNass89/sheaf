@@ -149,6 +149,43 @@ fn a_label_turned_on_its_side_is_read() {
 }
 
 #[test]
+fn a_scan_fed_in_askew_is_read() {
+    // Every line slants 2.5°, as a page fed crooked into a scanner: across a full line the slant
+    // drifts more than a line's pitch (8 % of a dense page's words were read).
+    let lines = [
+        "Sheaf reads scanned pages even when the paper went into the scanner a little crooked",
+        "the page is put straight before reading and every word is placed back where it is drawn",
+        "so selecting a word on the scan highlights that word and searching for it finds it there",
+        "a fiche printed dense with small type has its lines close together across the whole page",
+        "and a slant of two or three degrees is enough for one line to run into the next one down",
+        "which is why the reader would otherwise mix the words of two lines into one jumbled line",
+    ];
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("askew.png");
+    {
+        let _g = pdfium_lock();
+        let mut doc = new_document();
+        let font = doc.fonts_mut().helvetica();
+        let size = PdfPagePaperSize::Custom(PdfPoints::new(560.0), PdfPoints::new(180.0));
+        let mut page = doc.pages_mut().create_page_at_end(size).unwrap();
+        for (k, line) in lines.iter().enumerate() {
+            let mut o = page.objects_mut().create_text_object(PdfPoints::ZERO, PdfPoints::ZERO, line, font, PdfPoints::new(11.0)).unwrap();
+            o.rotate_counter_clockwise_degrees(2.5).unwrap();
+            o.translate(PdfPoints::new(20.0), PdfPoints::new(130.0 - 15.0 * k as f32)).unwrap();
+        }
+        let px = (560.0 * 200.0 / 72.0) as i32;
+        let cfg = PdfRenderConfig::new().set_target_width(px).set_clear_color(PdfColor::WHITE);
+        page.render_with_config(&cfg).unwrap().as_image().unwrap().to_rgb8().save(&png).unwrap();
+    }
+    let scan = images_to_pdf(&[png], PageLayout::FitImage, &t.path().join("askew.pdf")).unwrap();
+    let r = ocr::ocr(&Input::new(&scan), &OcrOptions::default(), &t.path().join("o.pdf"), &mut no_cancel()).unwrap();
+    let text = page_texts(&r.path).join(" ").to_lowercase();
+    let want: Vec<&str> = lines.iter().flat_map(|l| l.split_whitespace()).collect();
+    let found = want.iter().filter(|w| text.contains(&w.to_lowercase())).count();
+    assert!(found * 10 >= want.len() * 9, "{found} of {} words: {text:?}", want.len());
+}
+
+#[test]
 fn words_beyond_winansi_are_kept_in_the_text_layer() {
     // Helvetica's WinAnsi has no Greek and no arrows: "TNFα" was written "TNF?", "→" "?".
     use sheaf_core::pdfcraft::engine::{ocr::PlacedWord, Edit};
