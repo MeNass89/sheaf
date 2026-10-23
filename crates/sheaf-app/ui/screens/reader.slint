@@ -88,7 +88,21 @@ export component ReaderScreen inherits Rectangle {
     // would be cut to the old width).
     changed scroll-seq => {
         sv.content-y = -root.tab.viewer-scroll;
-        if root.tab.viewer-scroll-x >= 0px { sv.content-x = -root.tab.viewer-scroll-x; }
+        if root.tab.viewer-scroll-x >= 0px {
+            sv.content-x = -root.tab.viewer-scroll-x;
+            root.want-x = root.tab.viewer-scroll-x;
+            want-x-timer.running = true;
+        }
+    }
+    // The view can take that scroll before its content has the new width, and cut it to the old
+    // width: it is set again when the width comes, for a moment after the zoom.
+    property <length> want-x: -1px;
+    property <length> content-w: root.tab.viewer-width;
+    changed content-w => { if root.want-x >= 0px { sv.content-x = -root.want-x; } }
+    want-x-timer := Timer {
+        interval: 300ms;
+        running: false;
+        triggered => { root.want-x = -1px; self.running = false; }
     }
 
     init => {

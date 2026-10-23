@@ -36,3 +36,18 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   (invoice heading and "Billed to" inside the table; fiche's last line); (3) two columns read across, not
   column by column; (4) rotated text forces positioned boxes. Decision: vendor pdfcraft-export and fix these
   in its flow (it already writes paragraphs, tables, images, headings) rather than a new writer.
+- 23/10 04:10, pdfcraft-export vendored (third_party/pdfcraft-export; upstream's inline tests kept and run
+  by the unit layer; its LibreOffice test skips without Impress, which vpsn lacks: libreoffice-writer-nogui).
+  Where the faults come from, and the steps:
+  1. Paragraphs: the engine (`compare.rs` `export_pages`) feeds `pdfcraft_edit::reading_blocks`, which
+     groups by single style (`group_layout(lines, false)`), so a bold run is its own block. Step: export
+     `Block` gains styled runs; the engine fills them from the mixed grouping (`text_blocks`: spans, rows,
+     `soft_breaks`); docx writes one `w:p` per paragraph with its runs, a typed break as `w:br`.
+  2. Tables: `tables()` (lib.rs) clusters left edges of short blocks, no ruling seen. Step: `Page` gains the
+     page's drawn segments, from `measure::snap::geometry` (user space, mapped like `visible_rect`); where
+     horizontal and vertical segments make a grid, cells come from it (text assigned by centre, merged
+     cells where a rule is missing, fills later); the text-alignment detector stays for unruled tables.
+  3. Columns: `items()` sorts every part by top edge. Step: split the page at a vertical gutter (no text
+     crossing it, both sides tall) and read left column then right.
+  4. Rotated text: `positioned()` sends the whole page to boxes for one rotated block. Step: a rotated
+     block inside a table cell becomes that cell's text with `w:textDirection btLr`; elsewhere a paragraph.
