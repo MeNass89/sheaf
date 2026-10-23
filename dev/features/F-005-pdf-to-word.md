@@ -67,3 +67,8 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   Next: the table is wider than the page (scale columns or narrow the margins), a cell's lines become one
   run (keep one paragraph per line, each block's own style), letter-by-letter labels in narrow merged cells;
   then paragraphs (step 1), columns (step 3).
+- 23/10 10:00, cells: one paragraph per line (blocks grouped into lines by their middles, then left to right),
+  each block's own style (bold, colour), tight spacing; tables wider than the text column scaled to it. MICI:
+  9 pages for 4 (was 10), styles kept. Much of the length is the font: runs name no font and vpsn has no
+  Calibri or Carlito, so LibreOffice uses DejaVu (wider). Next: font names in runs, Carlito/Caladea on vpsn
+  for fair measuring; labels in narrow merged cells (letter by letter); paragraphs (step 1); columns (step 3).

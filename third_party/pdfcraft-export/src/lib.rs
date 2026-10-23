@@ -70,6 +70,9 @@ pub struct Cell {
     pub merge: u8,
     /// Sheaf: the text runs bottom to top (a vertical label, as fiches put down their left side).
     pub vertical: bool,
+    /// Sheaf: the cell's text as it is drawn, in reading order, each block with its own style; a
+    /// block lower than the one before starts a new line. Empty: `text` in the cell's style.
+    pub blocks: Vec<Block>,
 }
 
 /// A table detected from the page's text layout: rows of cells, and the left edge of each
@@ -454,8 +457,23 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>,
             texts.entry(own[row * nc + col]).or_default().push(b);
             consumed[b] = true;
         }
+        // Reading order in a cell: lines top to bottom, a line being the blocks whose middles are
+        // within half a size of each other (a bold block stands taller than the regular one beside
+        // it), each line left to right.
         for v in texts.values_mut() {
-            v.sort_by(|a, b| blocks[*b].rect[3].total_cmp(&blocks[*a].rect[3]).then(blocks[*a].rect[0].total_cmp(&blocks[*b].rect[0])));
+            let mid = |b: usize| (blocks[b].rect[1] + blocks[b].rect[3]) / 2.0;
+            v.sort_by(|a, b| mid(*b).total_cmp(&mid(*a)));
+            let mut lines: Vec<Vec<usize>> = Vec::new();
+            for &b in v.iter() {
+                match lines.last_mut() {
+                    Some(l) if (mid(l[0]) - mid(b)).abs() <= blocks[b].size.max(blocks[l[0]].size) * 0.5 => l.push(b),
+                    _ => lines.push(vec![b]),
+                }
+            }
+            for l in lines.iter_mut() {
+                l.sort_by(|a, b| blocks[*a].rect[0].total_cmp(&blocks[*b].rect[0]));
+            }
+            *v = lines.concat();
         }
         let mut rows = Vec::with_capacity(nr);
         for r in 0..nr {
@@ -473,6 +491,7 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>,
                         cell.text = bs.iter().map(|&b| blocks[b].text.trim()).collect::<Vec<_>>().join(" ");
                         (cell.size, cell.bold, cell.italic, cell.color) = (first.size, first.bold, first.italic, first.color);
                         cell.vertical = (first.rotation - 90.0).abs() < 1.0;
+                        cell.blocks = bs.iter().map(|&b| blocks[b].clone()).collect();
                     }
                     cell.merge = u8::from(tall);
                 } else {
@@ -645,10 +664,40 @@ fn run_xml(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3]) -> 
 
 /// One Word table: explicit absent borders (alignment alone cannot prove PDF rules), a grid sized
 /// from the detected column edges, `gridSpan` for spanning cells, empty cells for holes.
-fn docx_table(t: &Table) -> String {
+/// Sheaf: a cell's paragraphs: its blocks run on while on one line; a block below the one before
+/// (by more than half its size) starts a new paragraph.
+fn cell_paragraphs(c: &Cell) -> String {
+    if c.blocks.is_empty() {
+        return format!("<w:p>{}</w:p>", run_xml(&c.text, c.size, c.bold, c.italic, c.color));
+    }
+    // Tight, as the lines are on the page (Word's default spacing would double a dense fiche).
+    const P: &str = "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"240\" w:lineRule=\"auto\"/></w:pPr>";
+    let mut s = String::from(P);
+    let mut prev: Option<&Block> = None;
+    for b in &c.blocks {
+        if let Some(p) = prev {
+            let mid = |x: &Block| (x.rect[1] + x.rect[3]) / 2.0;
+            if mid(p) - mid(b) > b.size.max(p.size) * 0.5 {
+                s.push_str("</w:p>");
+                s.push_str(P);
+            } else if !p.text.ends_with(char::is_whitespace) && !b.text.starts_with(char::is_whitespace) && b.rect[0] - p.rect[2] > b.size * 0.15 {
+                s.push_str(&run_xml(" ", b.size, false, false, b.color));
+            }
+        }
+        s.push_str(&run_xml(&b.text, b.size, b.bold, b.italic, b.color));
+        prev = Some(b);
+    }
+    s.push_str("</w:p>");
+    s
+}
+
+fn docx_table(t: &Table, max_w: f64) -> String {
     let mut edges = t.cols.clone();
     edges.push(t.rect[2]);
-    let widths: Vec<i64> = edges.windows(2).map(|w| ((w[1] - w[0]).max(20.0) * 20.0).round().clamp(60.0, 31680.0) as i64).collect();
+    // Sheaf: a table wider than the text column (a page laid out edge to edge) is scaled to it.
+    let total = (t.rect[2] - t.cols.first().copied().unwrap_or(t.rect[0])).max(1.0);
+    let k = if max_w > 0.0 && total > max_w { max_w / total } else { 1.0 };
+    let widths: Vec<i64> = edges.windows(2).map(|w| ((w[1] - w[0]).max(20.0) * k * 20.0).round().clamp(60.0, 31680.0) as i64).collect();
     let mut s = String::from("<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/><w:tblBorders>");
     // Sheaf: a ruled table keeps its borders.
     let border = if t.ruled { "w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"000000\"" } else { "w:val=\"nil\"" };
@@ -676,8 +725,8 @@ fn docx_table(t: &Table) -> String {
             // Vertical text in a cell merged down makes LibreOffice give up laying out the page
             // (its layout aborts); there the text stays horizontal.
             let dir = if c.vertical && c.merge == 0 { "<w:textDirection w:val=\"btLr\"/>" } else { "" };
-            let text = if c.merge == 2 { String::new() } else { run_xml(&c.text, c.size, c.bold, c.italic, c.color) };
-            s.push_str(&format!("<w:tc><w:tcPr><w:tcW w:w=\"{w}\" w:type=\"dxa\"/>{span}{merge}{dir}</w:tcPr><w:p>{text}</w:p></w:tc>"));
+            let text = if c.merge == 2 { "<w:p/>".to_string() } else { cell_paragraphs(c) };
+            s.push_str(&format!("<w:tc><w:tcPr><w:tcW w:w=\"{w}\" w:type=\"dxa\"/>{span}{merge}{dir}</w:tcPr>{text}</w:tc>"));
         }
         // Pad the grid so every row covers all columns (Word rejects short rows).
         let used: usize = row.iter().map(|c| c.span).sum();
@@ -825,7 +874,7 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
                         if after_table {
                             body.push_str("<w:p/>");
                         }
-                        body.push_str(&docx_table(t));
+                        body.push_str(&docx_table(t, text_w));
                     }
                     Item::Img(im) => {
                         let n = media.len() + 1;
@@ -1287,7 +1336,7 @@ mod tests {
         assert!(d.windows(b"word/document.xml".len()).any(|w| w == b"word/document.xml"));
         let (tables, _) = tables(&p.blocks);
         assert_eq!(tables.len(), 1);
-        let table_xml = docx_table(&tables[0]);
+        let table_xml = docx_table(&tables[0], 0.0);
         assert!(table_xml.contains("<w:tblGrid>"));
         assert!(table_xml.contains("<w:gridSpan w:val=\"2\"/>"), "{table_xml}");
         assert_eq!(table_xml.matches("<w:tr>").count(), 4);
@@ -1436,5 +1485,26 @@ mod tests {
         assert!(xml.contains("<w:vMerge w:val=\"restart\"/>") && xml.contains("<w:vMerge/>"), "{xml}");
         assert!(!xml.contains("btLr"), "vertical text is kept out of merged cells (LibreOffice can't lay it out)");
         assert!(xml.contains("<w:insideH w:val=\"single\"") && !xml.contains("v:textbox"));
+    }
+
+    /// Sheaf: a cell keeps its lines as paragraphs and each block's style; a table wider than the
+    /// text column is scaled to it.
+    #[test]
+    fn cell_lines_stay_paragraphs_and_wide_tables_fit() {
+        let b = |t: &str, x: f64, y: f64, bold: bool, color: [f64; 3]| Block { text: t.into(), rect: [x, y, x + 60.0, y + 10.0], size: 10.0, bold, italic: false, color, rotation: 0.0 };
+        let cell = Cell {
+            text: "Symptoms - Pain Fever".into(),
+            size: 10.0,
+            span: 1,
+            blocks: vec![b("Symptoms", 10.0, 100.0, true, [0.0; 3]), b("- Pain", 10.0, 86.0, false, [0.0; 3]), b("Fever", 75.0, 86.0, false, [0.0, 0.0, 1.0])],
+            ..Default::default()
+        };
+        let xml = cell_paragraphs(&cell);
+        assert_eq!(xml.matches("<w:p>").count(), 2, "{xml}");
+        assert!(xml.contains("w:after=\"0\""), "tight lines");
+        assert!(xml.contains("<w:b/>") && xml.contains("0000FF"), "{xml}");
+        let t = Table { rect: [0.0, 0.0, 800.0, 100.0], cols: vec![0.0, 400.0], rows: vec![vec![cell.clone(), cell]], ruled: true };
+        let x = docx_table(&t, 400.0);
+        assert!(x.contains("<w:gridCol w:w=\"4000\"/>"), "800 pt into 400: each column halved: {x}");
     }
 }
