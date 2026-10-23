@@ -771,7 +771,12 @@ fn docx_table(t: &Table, max_w: f64) -> String {
     for edge in ["top", "left", "bottom", "right", "insideH", "insideV"] {
         s.push_str(&format!("<w:{edge} {border}/>"));
     }
-    s.push_str("</w:tblBorders></w:tblPr><w:tblGrid>");
+    s.push_str("</w:tblBorders>");
+    // Sheaf: a ruled table's cells as tight as on the page (about 3 pt each side, not Word's 0.19 cm).
+    if t.ruled {
+        s.push_str("<w:tblCellMar><w:top w:w=\"0\" w:type=\"dxa\"/><w:left w:w=\"57\" w:type=\"dxa\"/><w:bottom w:w=\"0\" w:type=\"dxa\"/><w:right w:w=\"57\" w:type=\"dxa\"/></w:tblCellMar>");
+    }
+    s.push_str("</w:tblPr><w:tblGrid>");
     for w in &widths {
         s.push_str(&format!("<w:gridCol w:w=\"{w}\"/>"));
     }
@@ -789,11 +794,11 @@ fn docx_table(t: &Table, max_w: f64) -> String {
                 2 => "<w:vMerge/>",
                 _ => "",
             };
-            // Vertical text in a cell merged down makes LibreOffice give up laying out the page
-            // (its layout aborts); there the text stays horizontal.
             // Sheaf: the cell's shading.
             let shd = c.fill.and_then(hex).map(|h| format!("<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{h}\"/>")).unwrap_or_default();
-            let dir = if c.vertical && c.merge == 0 { "<w:textDirection w:val=\"btLr\"/>" } else { "" };
+            // A vertical label, merged down or not (an earlier export made LibreOffice abort on it in
+            // merged cells; the cause was elsewhere, it lays them out now).
+            let dir = if c.vertical { "<w:textDirection w:val=\"btLr\"/>" } else { "" };
             let text = if c.merge == 2 { "<w:p/>".to_string() } else { cell_paragraphs(c) };
             s.push_str(&format!("<w:tc><w:tcPr><w:tcW w:w=\"{w}\" w:type=\"dxa\"/>{span}{merge}{shd}{dir}</w:tcPr>{text}</w:tc>"));
         }
@@ -972,7 +977,8 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
                     }
                     Item::Table(t) => {
                         if after_table {
-                            body.push_str("<w:p/>");
+                            // Sheaf: the paragraph Word needs between two tables, 1 pt high.
+                            body.push_str("<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"20\" w:lineRule=\"exact\"/></w:pPr></w:p>");
                         }
                         body.push_str(&docx_table(t, text_w));
                     }
@@ -1584,7 +1590,7 @@ mod tests {
         assert!(!positioned(&page), "a rotated label in a ruled table no longer makes the page positioned");
         let xml = part(&docx(&[page], "t"), "word/document.xml");
         assert!(xml.contains("<w:vMerge w:val=\"restart\"/>") && xml.contains("<w:vMerge/>"), "{xml}");
-        assert!(!xml.contains("btLr"), "vertical text is kept out of merged cells (LibreOffice can't lay it out)");
+        assert!(xml.contains("<w:vMerge w:val=\"restart\"/><w:textDirection w:val=\"btLr\"/>"), "the label, vertical in its merged cell");
         assert!(xml.contains("<w:insideH w:val=\"single\"") && !xml.contains("v:textbox"));
     }
 
