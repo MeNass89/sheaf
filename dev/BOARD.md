@@ -20,7 +20,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 11 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | macOS notarisation (needs Nassim's Apple account) |
 | 12 | C-security-015 | strong | Apply redactions | acrobat | 8 · 7 · 8 → **7** | preview of the redacted output |
 | 13 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 8 · 9 · 9 → **8** | needs LibreOffice installed; no sheet/print-area options |
-| 14 | C-convert-009 | strong | Convert PDF to Word | ilovepdf | 8 · 8 · 9 → **8** | layout fidelity |
+| 14 | C-convert-009 | strong | Convert PDF to Word | ilovepdf | 9 · 8 · 9 → **8** | layout fidelity |
 | 15 | C-files-002 | strong | Drag and drop files to open | ilovepdf | 8 · 8 · 9 → **8** | drop on the reader opens the document |
 | 16 | C-optimize-001 | strong | Compress a PDF (levels) | ilovepdf | 8 · 8 · 8 → **8** | seed bug: Save after Compress needs Enter; fonts/vector recompression |
 | 17 | C-organize-001 | strong | Open page organizer grid | pdfexpert | 8 · 8 · 9 → **8** | grid in the reader; multi-select; several files |

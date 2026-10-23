@@ -5595,7 +5595,7 @@
    99
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 8,
    "performance": 9,
    "overall": 8
@@ -5658,6 +5658,17 @@
      "overall": 8
     },
     "proof": "reviewer 23/10 on 7e34e93: MICI 4 pages for 4, running header/footer, symbols, centred bands; blockers: cell assignment in page-3 table, U+F026, superscripts, spurious narrow columns"
+   },
+   {
+    "date": "2026-10-23",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "reviewer 23/10 on b1d75f0: cells split at Tw/TJ jumps, padded shading ignored, ↗, superscripts; aesthetics blockers: sliver columns in nested label blocks (MICI p1 PC/Endoscopie, p2 Paraclinique), RCH table overflow on p2"
    }
   ]
  },
