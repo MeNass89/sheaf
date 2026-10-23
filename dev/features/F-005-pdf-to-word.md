@@ -83,3 +83,8 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   as `text_lines` does (§7.8.2). Test `text_cut_between_two_content_streams_is_exported_where_it_is_drawn`
   (red then green). MICI page 1 nearly whole in its table. Next: fills (white titles on green bands are
   invisible without them: MICI's "ITEM 282", "MALADIE DE CROHN"), then the letter (step 1).
+- 23/10 13:30, fills: `pdfcraft_edit::page_fills` (re + fill, gray/RGB/CMYK); a cell takes the fill covering half
+  of it (`w:shd`); a single shaded ruled box (a title band) is a one-cell table. MICI page 1 reads as the fiche.
+  Reviewer 6/6/7 (was 4/3/7). Its order next: (1) spaces lost between style runs ("inconnue**pouvant**") with a
+  word-level corpus check against pdftotext; (2) paragraphs outside tables (header, letter); (3) page length
+  (cell padding, row heights); (4) labels in narrow merged cells; (5) OCR offer; (6) timing (4-page, 100-page).

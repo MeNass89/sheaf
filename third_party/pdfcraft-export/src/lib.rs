@@ -55,6 +55,8 @@ pub struct Page {
     /// Sheaf: the straight lines drawn on the page (table rules, cell borders, the edges of filled
     /// boxes) as [x0, y0, x1, y1], same space as the blocks: ruled tables are found from them.
     pub rules: Vec<[f64; 4]>,
+    /// Sheaf: the rectangles filled on the page and their colour (RGB 0–1), same space: cell shading.
+    pub fills: Vec<([f64; 4], [f64; 3])>,
 }
 
 /// One cell of a detected table. `span` is how many grid columns the cell covers (a header
@@ -76,6 +78,8 @@ pub struct Cell {
     /// Sheaf: the cell's text as it is drawn, in reading order, each block with its own style; a
     /// block lower than the one before starts a new line. Empty: `text` in the cell's style.
     pub blocks: Vec<Block>,
+    /// Sheaf: the cell's shading (RGB 0–1), when a filled rectangle covers most of it.
+    pub fill: Option<[f64; 3]>,
 }
 
 /// A table detected from the page's text layout: rows of cells, and the left edge of each
@@ -318,7 +322,7 @@ pub(crate) fn tables(blocks: &[Block]) -> (Vec<Table>, Vec<bool>) {
 /// missing (across: `span`, down: `merge`), and each block goes into the cell holding its centre.
 /// Boxes without text in them (a frame, a filled band) are not tables. Returns the tables and, per
 /// block, whether one took it.
-pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>, Vec<bool>) {
+pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]], fills: &[([f64; 4], [f64; 3])]) -> (Vec<Table>, Vec<bool>) {
     const TOL: f64 = 2.0;
     let mut consumed = vec![false; blocks.len()];
     let fine = |v: f64| v.is_finite() && v.abs() < 1e6;
@@ -412,7 +416,23 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>,
         let mut ys = thin(cluster(hi.iter().map(|&i| hs[i][0]).collect()), 4.0);
         ys.reverse(); // top first (y up)
         let (nr, nc) = (ys.len().saturating_sub(1), xs.len().saturating_sub(1));
-        if nr == 0 || nc == 0 || nr * nc < 2 || nc > MAX_COLS || nr > 1000 {
+        // The colour filling most of a box (the last drawn wins where fills overlap), if any.
+        let shade = |r: [f64; 4]| -> Option<[f64; 3]> {
+            let area = ((r[2] - r[0]) * (r[3] - r[1])).max(1e-9);
+            fills
+                .iter()
+                .rev()
+                .find(|(f, _)| {
+                    let w = f[2].min(r[2]) - f[0].max(r[0]);
+                    let h = f[3].min(r[3]) - f[1].max(r[1]);
+                    w > 0.0 && h > 0.0 && w * h >= 0.5 * area
+                })
+                .map(|(_, c)| *c)
+        };
+        let rect_of = |xs: &[f64], ys: &[f64]| [xs[0], ys[ys.len() - 1], xs[xs.len() - 1], ys[0]];
+        // A single box counts when it is shaded (a coloured title band).
+        let single_band = nr == 1 && nc == 1 && shade(rect_of(&xs, &ys)).is_some_and(|c| c.iter().any(|v| *v < 0.95));
+        if nr == 0 || nc == 0 || (nr * nc < 2 && !single_band) || nc > MAX_COLS || nr > 1000 {
             continue;
         }
         let rect = [xs[0], ys[nr], xs[nc], ys[0]];
@@ -488,6 +508,10 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>,
                 let (orow, ocol) = (o / nc, o % nc);
                 let tall = (0..nr).filter(|&k| own[k * nc + ocol] == o).count() > 1;
                 let mut cell = Cell { size: 11.0, span, ..Default::default() };
+                // The cell's whole box (its first row down to the last it is merged into).
+                let last_row = (0..nr).rev().find(|&k| own[k * nc + ocol] == o).unwrap_or(orow);
+                let shading = shade([xs[ocol], ys[last_row + 1], xs[ocol + span], ys[orow]]).filter(|c| c.iter().any(|v| *v < 0.95));
+                cell.fill = shading;
                 if orow == r {
                     if let Some(bs) = texts.get(&o) {
                         let first = &blocks[bs[0]];
@@ -520,7 +544,7 @@ fn items(pages: &[Page]) -> Vec<Item<'_>> {
         }
         // Sheaf: ruled tables first; the text-layout detector then looks at what is left, on a page
         // without ruled tables only (there its guesses split the boxes around the tables).
-        let (mut tables, mut consumed) = ruled_tables(&p.blocks, &p.rules);
+        let (mut tables, mut consumed) = ruled_tables(&p.blocks, &p.rules, &p.fills);
         let rest: Vec<usize> = if tables.is_empty() { (0..p.blocks.len()).collect() } else { Vec::new() };
         let rest_blocks: Vec<Block> = rest.iter().map(|i| p.blocks[*i].clone()).collect();
         let (more, taken) = self::tables(&rest_blocks);
@@ -736,9 +760,11 @@ fn docx_table(t: &Table, max_w: f64) -> String {
             };
             // Vertical text in a cell merged down makes LibreOffice give up laying out the page
             // (its layout aborts); there the text stays horizontal.
+            // Sheaf: the cell's shading.
+            let shd = c.fill.and_then(hex).map(|h| format!("<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{h}\"/>")).unwrap_or_default();
             let dir = if c.vertical && c.merge == 0 { "<w:textDirection w:val=\"btLr\"/>" } else { "" };
             let text = if c.merge == 2 { "<w:p/>".to_string() } else { cell_paragraphs(c) };
-            s.push_str(&format!("<w:tc><w:tcPr><w:tcW w:w=\"{w}\" w:type=\"dxa\"/>{span}{merge}{dir}</w:tcPr>{text}</w:tc>"));
+            s.push_str(&format!("<w:tc><w:tcPr><w:tcW w:w=\"{w}\" w:type=\"dxa\"/>{span}{merge}{shd}{dir}</w:tcPr>{text}</w:tc>"));
         }
         // Pad the grid so every row covers all columns (Word rejects short rows).
         let used: usize = row.iter().map(|c| c.span).sum();
@@ -757,7 +783,7 @@ fn docx_table(t: &Table, max_w: f64) -> String {
 /// one with a logo or a big title that sits clear of the text, flows as paragraphs and tables.
 fn positioned(page: &Page) -> bool {
     // Sheaf: a rotated label inside a ruled table becomes that cell's vertical text.
-    let in_table = ruled_tables(&page.blocks, &page.rules).1;
+    let in_table = ruled_tables(&page.blocks, &page.rules, &page.fills).1;
     if page.blocks.iter().enumerate().any(|(i, b)| b.rotation.abs() > 0.1 && !in_table[i]) {
         return true;
     }
@@ -1116,7 +1142,7 @@ mod tests {
             color: [0.0; 3],
             rotation: 0.0,
         };
-        Page { rules: Vec::new(),
+        Page { rules: Vec::new(), fills: Vec::new(),
             width: 612.0,
             height: 792.0,
             blocks: vec![
@@ -1265,7 +1291,7 @@ mod tests {
         assert!(xml.contains("<w:sz w:val=\"24\"/>"), "a non-finite size falls back to 12 pt");
         assert!(rtf(&[p]).contains("Total 4.50\tGBP"));
         // A narrow page keeps room for text: margins shrink.
-        let narrow = Page { rules: Vec::new(), width: 100.0, height: 200.0, ..page() };
+        let narrow = Page { rules: Vec::new(), fills: Vec::new(), width: 100.0, height: 200.0, ..page() };
         let xml = part(&docx(&[narrow], "Narrow"), "word/document.xml");
         assert!(xml.contains("<w:pgMar w:top=\"500\" w:right=\"250\" w:bottom=\"500\" w:left=\"250\""), "{xml}");
     }
@@ -1328,7 +1354,7 @@ mod tests {
             color: [0.0; 3],
             rotation: 0.0,
         };
-        Page { rules: Vec::new(),
+        Page { rules: Vec::new(), fills: Vec::new(),
             width: 612.0,
             height: 792.0,
             blocks: vec![
@@ -1413,7 +1439,7 @@ mod tests {
     #[test]
     fn word_opens_tables_up_to_its_column_limit() {
         // Rows of short numbers on a regular grid, n columns wide.
-        let grid = |n: usize| Page { rules: Vec::new(),
+        let grid = |n: usize| Page { rules: Vec::new(), fills: Vec::new(),
             width: 1500.0,
             height: 792.0,
             blocks: (0..3)
@@ -1451,7 +1477,7 @@ mod tests {
             color: [0.0; 3],
             rotation: 0.0,
         };
-        let p = Page { rules: Vec::new(),
+        let p = Page { rules: Vec::new(), fills: Vec::new(),
             width: 612.0,
             height: 792.0,
             blocks: vec![
@@ -1502,7 +1528,7 @@ mod tests {
         }
         // A fill drawn 3 pt inside the header's borders: its edges are rules too.
         rules.extend([[103.0, 297.0, 397.0, 297.0], [103.0, 283.0, 397.0, 283.0], [103.0, 283.0, 103.0, 297.0], [397.0, 283.0, 397.0, 297.0]]);
-        let (tables, used) = ruled_tables(&blocks, &rules);
+        let (tables, used) = ruled_tables(&blocks, &rules, &[]);
         assert_eq!(tables.len(), 1);
         let t = &tables[0];
         assert!(t.ruled);
@@ -1514,7 +1540,7 @@ mod tests {
         assert_eq!(t.rows[2].iter().map(|c| c.text.as_str()).collect::<Vec<_>>(), ["", "C", "D"]);
         assert_eq!(used, [true, true, true, true, true, true, false], "the paragraph below stays a paragraph");
         // In the Word file: borders, the merge, the vertical text; the page flows (no text boxes).
-        let page = Page { rules, width: 500.0, height: 400.0, blocks, images: Vec::new() };
+        let page = Page { rules, fills: Vec::new(), width: 500.0, height: 400.0, blocks, images: Vec::new() };
         assert!(!positioned(&page), "a rotated label in a ruled table no longer makes the page positioned");
         let xml = part(&docx(&[page], "t"), "word/document.xml");
         assert!(xml.contains("<w:vMerge w:val=\"restart\"/>") && xml.contains("<w:vMerge/>"), "{xml}");
@@ -1541,5 +1567,25 @@ mod tests {
         let t = Table { rect: [0.0, 0.0, 800.0, 100.0], cols: vec![0.0, 400.0], rows: vec![vec![cell.clone(), cell]], ruled: true };
         let x = docx_table(&t, 400.0);
         assert!(x.contains("<w:gridCol w:w=\"4000\"/>"), "800 pt into 400: each column halved: {x}");
+    }
+
+    /// Sheaf: a shaded cell keeps its colour; a single shaded box (a title band) becomes a one-cell
+    /// table, so white text on it stays readable.
+    #[test]
+    fn shaded_cells_and_title_bands() {
+        let b = |t: &str, x: f64, y: f64, color: [f64; 3]| Block { font: String::new(), text: t.into(), rect: [x, y, x + 40.0, y + 10.0], size: 10.0, bold: true, italic: false, color, rotation: 0.0 };
+        let blocks = vec![b("TITLE", 120.0, 405.0, [1.0; 3]), b("Left", 110.0, 255.0, [0.0; 3]), b("Right", 210.0, 255.0, [0.0; 3])];
+        let mut rules = vec![[100.0, 400.0, 300.0, 400.0], [100.0, 420.0, 300.0, 420.0], [100.0, 400.0, 100.0, 420.0], [300.0, 400.0, 300.0, 420.0]];
+        rules.extend([[100.0, 250.0, 300.0, 250.0], [100.0, 270.0, 300.0, 270.0], [100.0, 250.0, 100.0, 270.0], [200.0, 250.0, 200.0, 270.0], [300.0, 250.0, 300.0, 270.0]]);
+        let fills = vec![([100.0, 400.0, 300.0, 420.0], [0.46, 0.57, 0.23]), ([101.0, 251.0, 199.0, 269.0], [0.84, 0.89, 0.74])];
+        let (tables, _) = ruled_tables(&blocks, &rules, &fills);
+        assert_eq!(tables.len(), 2, "{tables:?}");
+        let band = tables.iter().find(|t| t.rows.len() == 1 && t.rows[0].len() == 1).expect("the band is a one-cell table");
+        assert_eq!(band.rows[0][0].text, "TITLE");
+        assert!(band.rows[0][0].fill.is_some());
+        let grid = tables.iter().find(|t| t.rows[0].len() == 2).unwrap();
+        assert!(grid.rows[0][0].fill.is_some() && grid.rows[0][1].fill.is_none(), "only the shaded cell");
+        let xml = docx_table(grid, 0.0);
+        assert!(xml.contains("<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"D6E3BD\"/>") || xml.contains("w:fill=\"D6E3BC\""), "{xml}");
     }
 }

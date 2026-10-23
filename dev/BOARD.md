@@ -7,7 +7,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 ## Queue (next first)
 | # | id | weight | component | main | F · A · P → overall | next |
 |---|---|---|---|---|---|---|
-| 1 | C-convert-009 | strong | Convert PDF to Word | ilovepdf | 4 · 3 · 7 → **3** | layout fidelity |
+| 1 | C-convert-009 | strong | Convert PDF to Word | ilovepdf | 6 · 6 · 7 → **6** | layout fidelity |
 | 2 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 7 · 6 · 6 → **6** | speed on big scans; deskew |
 | 3 | C-security-010 | strong | Mark an area or text for redaction | acrobat | 6 · 7 · 8 → **6** | mark by text selection |
 | 4 | C-edit-001 | strong | Enter edit mode | pdfexpert | 7 · 8 · 9 → **7** | edit mode inside the reader, not a separate tool flow |
@@ -75,7 +75,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | annotate | 38 | 6.2 | 24 |
 | batch | 9 | 2.6 | 1 |
 | compare | 7 | 6.0 | 2 |
-| convert | 20 | 3.6 | 3 |
+| convert | 20 | 3.8 | 3 |
 | edit | 29 | 4.4 | 8 |
 | files | 19 | 6.2 | 11 |
 | forms | 17 | 2.1 | 4 |

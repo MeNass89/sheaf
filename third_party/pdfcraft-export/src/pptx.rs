@@ -357,7 +357,7 @@ mod tests {
     use crate::tests::part;
 
     fn sample_page() -> Page {
-        Page { rules: Vec::new(),
+        Page { rules: Vec::new(), fills: Vec::new(),
             width: 720.0,
             height: 540.0,
             blocks: vec![
@@ -510,7 +510,7 @@ mod tests {
             color: [0.0; 3],
             rotation: 0.0,
         };
-        let table_page = Page { rules: Vec::new(),
+        let table_page = Page { rules: Vec::new(), fills: Vec::new(),
             width: 612.0,
             height: 792.0,
             blocks: vec![
@@ -619,7 +619,7 @@ mod tests {
         let images = (0..40)
             .map(|k| Image { ext: "png", bytes: vec![0; 4], rect: [0.0, -1e300, 1e-300, 1e300 - k as f64], size: [1.0, 1.0], rotation: 0.0 })
             .collect();
-        let p = Page { rules: Vec::new(), width: f64::MAX, height: f64::NAN, blocks, images };
+        let p = Page { rules: Vec::new(), fills: Vec::new(), width: f64::MAX, height: f64::NAN, blocks, images };
         let bytes = pptx(&[p], "Hostile");
         let slide = part(&bytes, "ppt/slides/slide1.xml");
         assert!(slide.contains("Title") && slide.contains("<p:pic>"), "the slide is still written");
@@ -640,25 +640,25 @@ mod tests {
     #[test]
     fn pptx_slide_dimensions_and_clamping() {
         // Known dimensions: 720x540 pt (10x7.5 in) = 9144000x6858000 EMU
-        let p = Page { rules: Vec::new(), width: 720.0, height: 540.0, ..Page::default() };
+        let p = Page { rules: Vec::new(), fills: Vec::new(), width: 720.0, height: 540.0, ..Page::default() };
         let bytes = pptx(&[p], "Known Dimensions");
         let pres_xml = part(&bytes, "ppt/presentation.xml");
         assert!(pres_xml.contains("<p:sldSz cx=\"9144000\" cy=\"6858000\"/>"), "{pres_xml}");
 
         // Tiny page (10x10 pt) clamps to PowerPoint minimum of 1 inch (914400 EMU)
-        let tiny = Page { rules: Vec::new(), width: 10.0, height: 10.0, ..Page::default() };
+        let tiny = Page { rules: Vec::new(), fills: Vec::new(), width: 10.0, height: 10.0, ..Page::default() };
         let tiny_bytes = pptx(&[tiny], "Tiny");
         let tiny_pres = part(&tiny_bytes, "ppt/presentation.xml");
         assert!(tiny_pres.contains("<p:sldSz cx=\"914400\" cy=\"914400\"/>"), "{tiny_pres}");
 
         // Poster page (10000x10000 pt) clamps to PowerPoint maximum of 56 inches (51206400 EMU)
-        let poster = Page { rules: Vec::new(), width: 10_000.0, height: 10_000.0, ..Page::default() };
+        let poster = Page { rules: Vec::new(), fills: Vec::new(), width: 10_000.0, height: 10_000.0, ..Page::default() };
         let poster_bytes = pptx(&[poster], "Poster");
         let poster_pres = part(&poster_bytes, "ppt/presentation.xml");
         assert!(poster_pres.contains("<p:sldSz cx=\"51206400\" cy=\"51206400\"/>"), "{poster_pres}");
 
         // Non-finite dimensions fall back to default
-        let nan_page = Page { rules: Vec::new(), width: f64::NAN, height: -1.0, ..Page::default() };
+        let nan_page = Page { rules: Vec::new(), fills: Vec::new(), width: f64::NAN, height: -1.0, ..Page::default() };
         let nan_bytes = pptx(&[nan_page], "NaN");
         let nan_pres = part(&nan_bytes, "ppt/presentation.xml");
         assert!(nan_pres.contains("<p:sldSz cx=\"9144000\" cy=\"6858000\"/>"), "{nan_pres}");
@@ -675,7 +675,7 @@ mod tests {
             color: [0.0; 3],
             rotation: 0.0,
         };
-        let p = Page { rules: Vec::new(),
+        let p = Page { rules: Vec::new(), fills: Vec::new(),
             width: 720.0,
             height: 540.0,
             blocks: vec![

@@ -432,6 +432,58 @@ fn content_streams(doc: &Document, page: &Dict) -> Vec<(Object, Vec<u8>)> {
         .collect()
 }
 
+/// Sheaf: the rectangles filled on page `page` (user space) and their fill colour (RGB 0–1): table
+/// cell shading, coloured bands. Only the page's own content (not its forms), only rectangles (`re`
+/// then a fill); gray, RGB and CMYK fills. At most 20,000.
+pub fn page_fills(doc: &Document, page: usize) -> Result<Vec<([f64; 4], [f64; 3])>, EditError> {
+    let p = page_dict(doc, page)?;
+    let pieces = Pieces::join(&content_streams(doc, &p.dict).into_iter().map(|(_, d)| d).collect::<Vec<_>>());
+    let ops = pieces.parse().ops;
+    let mut out = Vec::new();
+    let mut ctm = Matrix([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    let mut fill = [0.0; 3];
+    let mut stack: Vec<(Matrix, [f64; 3])> = Vec::new();
+    let mut rects: Vec<[f64; 4]> = Vec::new();
+    let n = |o: &Op, i: usize| o.num(i).filter(|v| v.is_finite()).unwrap_or(0.0);
+    for o in &ops {
+        match o.op.as_slice() {
+            b"q" => stack.push((ctm.clone(), fill)),
+            b"Q" => {
+                if let Some((m, f)) = stack.pop() {
+                    (ctm, fill) = (m, f);
+                }
+            }
+            b"cm" => ctm = Matrix([n(o, 0), n(o, 1), n(o, 2), n(o, 3), n(o, 4), n(o, 5)]).then(&ctm),
+            b"g" => fill = [n(o, 0); 3],
+            b"rg" => fill = [n(o, 0), n(o, 1), n(o, 2)],
+            b"k" => {
+                let k = n(o, 3);
+                fill = [(1.0 - n(o, 0)) * (1.0 - k), (1.0 - n(o, 1)) * (1.0 - k), (1.0 - n(o, 2)) * (1.0 - k)];
+            }
+            b"sc" | b"scn" => match o.operands.iter().filter(|v| matches!(v, Object::Int(_) | Object::Real(_))).count() {
+                1 => fill = [n(o, 0); 3],
+                3 => fill = [n(o, 0), n(o, 1), n(o, 2)],
+                _ => {}
+            },
+            b"re" => {
+                let (x, y, w, h) = (n(o, 0), n(o, 1), n(o, 2), n(o, 3));
+                let (a, b) = (ctm.apply(x, y), ctm.apply(x + w, y + h));
+                rects.push([a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)]);
+            }
+            b"f" | b"F" | b"f*" | b"B" | b"B*" | b"b" | b"b*" => {
+                for r in rects.drain(..) {
+                    if out.len() < 20_000 {
+                        out.push((r, fill.map(|v| v.clamp(0.0, 1.0))));
+                    }
+                }
+            }
+            b"n" | b"S" | b"s" | b"m" => rects.clear(),
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
 /// Rewrite a page's content (its streams joined, see [`Pieces`]): `edit(i)` gives the operators
 /// to insert before operator `i` of `ops` (parsed from the joined pieces) and whether to keep it.
 /// Everything else is copied byte for byte. A page's streams are one stream in pieces, split

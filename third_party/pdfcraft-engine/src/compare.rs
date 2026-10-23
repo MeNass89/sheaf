@@ -214,7 +214,9 @@ impl crate::Document {
                     .map(|[a, b]| visible_rect([a[0], a[1], b[0], b[1]]))
                     .filter(|r| (r[2] - r[0]).abs() < 0.5 || (r[3] - r[1]).abs() < 0.5)
                     .collect();
-                pdfcraft_export::Page { width: info.width as f64, height: info.height as f64, blocks, images, rules }
+                // Sheaf: filled rectangles and their colour, for cell shading.
+                let fills = pdfcraft_edit::page_fills(cos, i).unwrap_or_default().into_iter().map(|(r, c)| (visible_rect(r), c)).collect();
+                pdfcraft_export::Page { width: info.width as f64, height: info.height as f64, blocks, images, rules, fills }
             })
             .collect()
     }
