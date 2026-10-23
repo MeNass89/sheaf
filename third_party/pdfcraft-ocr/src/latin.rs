@@ -15,8 +15,9 @@ const HEIGHT: usize = 48;
 /// Longest line read at once, in model pixels (a line across a large-format page).
 const MAX_WIDTH: usize = 4_000;
 
-/// One recognised word: its text and its box in image pixels `[left, top, right, bottom]`.
-pub(crate) type Read = (String, [f32; 4]);
+/// One recognised word: its text, its box in image pixels `[left, top, right, bottom]`, and how
+/// sure the model is of it (the mean score of its characters, 0 to 1).
+pub(crate) type Read = (String, [f32; 4], f32);
 
 pub(crate) struct Latin {
     model: rten::Model,
@@ -73,18 +74,21 @@ impl Latin {
             other => return Err(format!("unexpected output shape {other:?}")),
         };
         let probs = out.to_vec();
-        let chars: Vec<(char, usize)> = ctc(&probs, steps, classes).into_iter().filter_map(|(k, t)| self.chars.get(k - 1).map(|c| (*c, t))).collect();
+        let chars: Vec<(char, usize, f32)> = ctc(&probs, steps, classes).into_iter().filter_map(|(k, t, p)| self.chars.get(k - 1).map(|c| (*c, t, p))).collect();
         // Each step covers `step` pixels of the line in the image.
         let step = cw as f32 / steps.max(1) as f32;
         let mut words = Vec::new();
         let mut word = String::new();
         let mut span = (0, 0);
-        for (c, t) in chars.into_iter().chain(std::iter::once((' ', steps))) {
+        let mut score = 0.0;
+        for (c, t, p) in chars.into_iter().chain(std::iter::once((' ', steps, 1.0))) {
             if c == ' ' {
                 if !word.is_empty() {
                     let left = x0 as f32 + span.0 as f32 * step;
                     let right = x0 as f32 + (span.1 + 1) as f32 * step;
-                    words.push((std::mem::take(&mut word), [left.max(line[0]), line[1], right.min(line[2]).max(left + 1.0), line[3]]));
+                    let n = word.chars().count() as f32;
+                    words.push((std::mem::take(&mut word), [left.max(line[0]), line[1], right.min(line[2]).max(left + 1.0), line[3]], score / n));
+                    score = 0.0;
                 }
                 continue;
             }
@@ -93,21 +97,23 @@ impl Latin {
             }
             span.1 = t;
             word.push(c);
+            score += p;
         }
         Ok(words)
     }
 }
 
 /// Greedy CTC decoding of `steps` rows of `classes` scores: the likeliest class at each step,
-/// repeats and blanks (class 0) dropped. Returns each class kept and the step it was read at.
-fn ctc(probs: &[f32], steps: usize, classes: usize) -> Vec<(usize, usize)> {
+/// repeats and blanks (class 0) dropped. Returns each class kept, the step it was read at, and its
+/// score there.
+fn ctc(probs: &[f32], steps: usize, classes: usize) -> Vec<(usize, usize, f32)> {
     let mut out = Vec::new();
     let mut prev = 0;
     for t in 0..steps {
         let Some(row) = probs.get(t * classes..(t + 1) * classes) else { break };
-        let best = row.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).map_or(0, |(k, _)| k);
+        let (best, p) = row.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).map_or((0, 0.0), |(k, p)| (k, *p));
         if best != 0 && best != prev {
-            out.push((best, t));
+            out.push((best, t, p));
         }
         prev = best;
     }
@@ -124,6 +130,6 @@ mod tests {
         let classes = 4;
         let pick = |k: usize| (0..classes).map(|c| if c == k { 1.0 } else { 0.0 }).collect::<Vec<f32>>();
         let probs: Vec<f32> = [1, 1, 0, 2, 0, 2, 3].iter().flat_map(|k| pick(*k)).collect();
-        assert_eq!(ctc(&probs, 7, classes), [(1, 0), (2, 3), (2, 5), (3, 6)]);
+        assert_eq!(ctc(&probs, 7, classes), [(1, 0, 1.0), (2, 3, 1.0), (2, 5, 1.0), (3, 6, 1.0)]);
     }
 }

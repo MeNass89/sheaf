@@ -124,6 +124,48 @@ fn accented_letters_are_read() {
 }
 
 #[test]
+fn a_label_turned_on_its_side_is_read() {
+    // A table's turned label ("rotate text 270°" in Word: it reads bottom to top), beside upright text.
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("turned.png");
+    {
+        let _g = pdfium_lock();
+        let mut doc = new_document();
+        let font = doc.fonts_mut().helvetica();
+        let size = PdfPagePaperSize::Custom(PdfPoints::new(420.0), PdfPoints::new(220.0));
+        let mut page = doc.pages_mut().create_page_at_end(size).unwrap();
+        let mut label = page.objects_mut().create_text_object(PdfPoints::ZERO, PdfPoints::ZERO, "Diagnostic", font, PdfPoints::new(24.0)).unwrap();
+        label.rotate_counter_clockwise_degrees(90.0).unwrap();
+        label.translate(PdfPoints::new(50.0), PdfPoints::new(30.0)).unwrap();
+        page.objects_mut().create_text_object(PdfPoints::new(100.0), PdfPoints::new(100.0), "Sheaf OCR test", font, PdfPoints::new(24.0)).unwrap();
+        let px = (420.0 * 300.0 / 72.0) as i32;
+        let cfg = PdfRenderConfig::new().set_target_width(px).set_clear_color(PdfColor::WHITE);
+        page.render_with_config(&cfg).unwrap().as_image().unwrap().to_rgb8().save(&png).unwrap();
+    }
+    let scan = images_to_pdf(&[png], PageLayout::FitImage, &t.path().join("turned.pdf")).unwrap();
+    let r = ocr::ocr(&Input::new(&scan), &OcrOptions { language: "fr".into(), ..Default::default() }, &t.path().join("o.pdf"), &mut no_cancel()).unwrap();
+    let text = page_texts(&r.path).join(" ");
+    assert!(text.contains("Diagnostic") && text.contains("Sheaf"), "{text:?}");
+}
+
+#[test]
+fn words_beyond_winansi_are_kept_in_the_text_layer() {
+    // Helvetica's WinAnsi has no Greek and no arrows: "TNFα" was written "TNF?", "→" "?".
+    use sheaf_core::pdfcraft::engine::{ocr::PlacedWord, Edit};
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let mut doc = sheaf_core::pdfcraft::Doc::open(&Input::new(&a)).unwrap();
+    let word = |text: &str, x: f64| PlacedWord { text: text.into(), origin: [x, 500.0], across: [40.0, 0.0], up: [0.0, 12.0] };
+    doc.apply(Edit::AddOcrText { page: 0, words: vec![word("anti-TNFα", 100.0), word("→", 150.0), word("élevée", 170.0)] }).unwrap();
+    let out = doc.save(&t.path().join("o.pdf")).unwrap();
+    let _g = pdfium_lock();
+    let d = sheaf_core::engine::open_pdf(&out, None).unwrap();
+    let text = d.pages().get(0).unwrap().text().unwrap().all();
+    assert!(text.contains("anti-TNFα") && text.contains('→') && text.contains("élevée"), "{text:?}");
+    qpdf_clean(&out);
+}
+
+#[test]
 fn unknown_languages_are_refused() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 1);

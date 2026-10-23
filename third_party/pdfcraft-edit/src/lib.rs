@@ -324,6 +324,10 @@ fn add_resources_with(
         font.set(b"Encoding".to_vec(), Object::name("WinAnsiEncoding"));
         fonts.set(name.to_vec(), Object::Dict(font));
     }
+    // Sheaf: an OCR text layer's words that WinAnsi cannot carry (α, →) are in a glyphless Unicode font.
+    if content.is_some_and(|c| c.windows(6).any(|w| w == b"/PCUni")) {
+        fonts.set(b"PCUni".to_vec(), Object::Ref(glyphless_font(doc)));
+    }
     if let Some((name, face)) = mark.filter(|m| m.1 != Std14::Helvetica) {
         let mut font = Dict::new();
         font.set(b"Type".to_vec(), Object::name("Font"));
@@ -391,6 +395,66 @@ fn place_tagged(doc: &mut Document, page: &pdfcraft_model::Page, tag: &str, cont
     }
     doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), Object::Array(list)))?;
     Ok(())
+}
+
+/// Sheaf: a font with no visible glyphs, for invisible text (an OCR layer) in any Unicode
+/// character: codes are UTF-16 units (Identity-H), every one drawn with the one empty glyph of
+/// Tesseract's `pdf.ttf` (Apache-2.0, as OCRmyPDF), half an em wide, and read back through a
+/// ToUnicode map that gives each code its own character.
+fn glyphless_font(doc: &mut Document) -> pdfcraft_cos::ObjRef {
+    use pdfcraft_cos::PdfString;
+    const TTF: &[u8] = include_bytes!("glyphless.ttf");
+    let mut file = Dict::new();
+    file.set(b"Length1".to_vec(), Object::Int(TTF.len() as i64));
+    let file = doc.add(Object::Stream(Stream::flate(file, TTF)));
+    let mut desc = Dict::new();
+    desc.set(b"Type".to_vec(), Object::name("FontDescriptor"));
+    desc.set(b"FontName".to_vec(), Object::name("GlyphLessFont"));
+    desc.set(b"Flags".to_vec(), Object::Int(5));
+    desc.set(b"FontBBox".to_vec(), Object::Array([0, 0, 500, 1000].map(Object::Int).to_vec()));
+    for (k, v) in [(&b"ItalicAngle"[..], 0), (b"Ascent", 1000), (b"Descent", 0), (b"CapHeight", 1000), (b"StemV", 80)] {
+        desc.set(k.to_vec(), Object::Int(v));
+    }
+    desc.set(b"FontFile2".to_vec(), Object::Ref(file));
+    let desc = doc.add(Object::Dict(desc));
+    // Every code to glyph 1.
+    let gids: Vec<u8> = (0..0x1_0000).flat_map(|_| [0u8, 1u8]).collect();
+    let gids = doc.add(Object::Stream(Stream::flate(Dict::new(), &gids)));
+    let mut info = Dict::new();
+    info.set(b"Registry".to_vec(), Object::String(PdfString::literal(b"Adobe".to_vec())));
+    info.set(b"Ordering".to_vec(), Object::String(PdfString::literal(b"Identity".to_vec())));
+    info.set(b"Supplement".to_vec(), Object::Int(0));
+    let mut cid = Dict::new();
+    cid.set(b"Type".to_vec(), Object::name("Font"));
+    cid.set(b"Subtype".to_vec(), Object::name("CIDFontType2"));
+    cid.set(b"BaseFont".to_vec(), Object::name("GlyphLessFont"));
+    cid.set(b"CIDSystemInfo".to_vec(), Object::Dict(info));
+    cid.set(b"FontDescriptor".to_vec(), Object::Ref(desc));
+    cid.set(b"DW".to_vec(), Object::Int(500));
+    cid.set(b"CIDToGIDMap".to_vec(), Object::Ref(gids));
+    let cid = doc.add(Object::Dict(cid));
+    // Code = UTF-16 unit: one range per high byte (a range may not cross one), surrogates left out.
+    let mut cmap = String::from(
+        "/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+    );
+    let highs: Vec<u32> = (0..=0xFF).filter(|h| !(0xD8..=0xDF).contains(h)).collect();
+    for chunk in highs.chunks(100) {
+        cmap.push_str(&format!("{} beginbfrange\n", chunk.len()));
+        for h in chunk {
+            cmap.push_str(&format!("<{h:02X}00> <{h:02X}FF> <{h:02X}00>\n"));
+        }
+        cmap.push_str("endbfrange\n");
+    }
+    cmap.push_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
+    let to_unicode = doc.add(Object::Stream(Stream::flate(Dict::new(), cmap.as_bytes())));
+    let mut font = Dict::new();
+    font.set(b"Type".to_vec(), Object::name("Font"));
+    font.set(b"Subtype".to_vec(), Object::name("Type0"));
+    font.set(b"BaseFont".to_vec(), Object::name("GlyphLessFont"));
+    font.set(b"Encoding".to_vec(), Object::name("Identity-H"));
+    font.set(b"DescendantFonts".to_vec(), Object::Array(vec![Object::Ref(cid)]));
+    font.set(b"ToUnicode".to_vec(), Object::Ref(to_unicode));
+    doc.add(Object::Dict(font))
 }
 
 /// Draw `content` on top of a page (0-based) as permanent page content, with standard Helvetica

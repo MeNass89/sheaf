@@ -32,3 +32,18 @@ Main app: iLovePDF (OCR to a searchable PDF, language choice). Also Acrobat (Rec
   read it, as tall as the box: the line reads whole again ("de cause inconnue pouvant"). Test
   `words_read_take_the_boxes_found_in_order`.
   Measured (debug build, deps optimised, 1 physical core): 43 s for a dense French page, 237 MB.
+- 24/10 08:00, reviewer 8/8/6 on 35b1abd (words found 73.6 → 94.8 %, accented 0 → 95 %, placement median 0.5 pt).
+  Blockers taken:
+  - Characters WinAnsi cannot carry: the model reads α and → but the layer wrote them "?". Words that need it are
+    now in `/PCUni`, a glyphless Unicode font (Type0, Identity-H, ToUnicode; Tesseract's 572-byte `pdf.ttf`,
+    Apache-2.0, as OCRmyPDF). "anti-TNFα", "→ Cholangite" read back by pdftotext and pdfium; the page renders
+    byte for byte the same. Test `words_beyond_winansi_are_kept_in_the_text_layer` (red: "anti-TNF? ?").
+  - Turned text: ocrs finds a turned label as a tall box, part of one, or (large print) a stack of letters. Stacks
+    in one column are joined, each tall box grown along its ink (against its own ground: white on a green cell
+    counts), cut out, turned both ways and read; the surer reading replaces the upright one when it reads more.
+    Words carry their `Turn` and are placed reading up or down the page. MICI: Clinique, Bio, Diagnostic,
+    Endoscopie, Evolution, Prise en charge, Paraclinique, Coloscopie + iléoscopie, Médical, Chirurgical, FDR,
+    Lésion macroscopique, Histo, DD all read. Tests `a_label_turned_on_its_side_is_read` (red: "C…_+SOE90■"),
+    `a_region_turned_and_back_is_where_it_was`, `a_turned_label_grows_along_its_ink_on_a_dark_ground`,
+    `a_turned_word_is_placed_reading_up_the_page`.
+  Next: deskew, Tesseract benchmark on the same scan, release-build timing.

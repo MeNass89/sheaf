@@ -132,10 +132,23 @@ impl Models {
 }
 
 /// A recognised word: its text and its box in image pixels `[left, top, right, bottom]`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Word {
     pub text: String,
     pub rect: [f32; 4],
+    /// Sheaf: which way it reads (a table's label may stand on its side).
+    pub turn: Turn,
+}
+
+/// Sheaf: the way a word reads on the page.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Turn {
+    #[default]
+    Upright,
+    /// Bottom to top, the letters' tops to the left (Word's "rotate text 270°").
+    Up,
+    /// Top to bottom, the letters' tops to the right.
+    Down,
 }
 
 /// A recognised line of words, in reading order.
@@ -208,7 +221,7 @@ impl Ocr {
                     .words()
                     .map(|w| {
                         let r = w.bounding_rect();
-                        Word { text: w.to_string(), rect: [r.left() as f32, r.top() as f32, r.right() as f32, r.bottom() as f32] }
+                        Word { text: w.to_string(), rect: [r.left() as f32, r.top() as f32, r.right() as f32, r.bottom() as f32], ..Default::default() }
                     })
                     .filter(|w| !w.text.trim().is_empty())
                     .collect(),
@@ -236,19 +249,21 @@ impl Ocr {
                 .collect()
         };
         // One line at a time on each core (a line is too small for the model to use them all).
-        let read_one = |line: &Vec<rten_imageproc::RotatedRect>| -> Result<Option<Line>, OcrError> {
+        // Each line with how sure the model is of each word.
+        let read_one = |line: &Vec<rten_imageproc::RotatedRect>| -> Result<Option<(Line, Vec<f32>)>, OcrError> {
             let found = boxes(line);
             if found.is_empty() {
                 return Ok(None);
             }
             let rect = found.iter().fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]);
             let read = latin.read_line(&rgb, width as usize, height as usize, rect).map_err(OcrError::Recognize)?;
+            let scores: Vec<f32> = read.iter().map(|r| r.2).collect();
             let words = place_words(read, &found);
-            Ok((!words.is_empty()).then_some(Line { words }))
+            Ok((!words.is_empty()).then_some((Line { words }, scores)))
         };
         let workers = std::thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 8).min(lines.len().max(1));
         let next = std::sync::atomic::AtomicUsize::new(0);
-        let mut slots: Vec<Option<Result<Option<Line>, OcrError>>> = (0..lines.len()).map(|_| None).collect();
+        let mut slots: Vec<Option<Result<Option<(Line, Vec<f32>)>, OcrError>>> = (0..lines.len()).map(|_| None).collect();
         let results = std::sync::Mutex::new(&mut slots);
         std::thread::scope(|scope| {
             for _ in 0..workers {
@@ -266,31 +281,175 @@ impl Ocr {
                 });
             }
         });
-        let mut out = Vec::new();
+        let mut out: Vec<(Line, Vec<f32>)> = Vec::new();
         for r in slots.into_iter().flatten() {
             if let Some(line) = r? {
                 out.push(line);
             }
         }
-        Ok(out)
+        // Words standing on their side (a table's turned labels): ocrs finds them as boxes much
+        // taller than wide, or as a stack of letters. Each is cut out, turned both ways and read as a
+        // line; the surer reading is kept when it reads more than was read there upright (single
+        // letters, or nothing sure), which it then replaces.
+        let tall: Vec<[f32; 4]> = tall_boxes(&lines.iter().flat_map(boxes).collect::<Vec<_>>()).into_iter().map(|b| along_ink(&rgb, width as usize, height as usize, b)).collect();
+        let tall = tall_boxes(&tall);
+        for b in tall {
+            let mut best: Option<(f32, f32, Vec<Word>)> = None;
+            for turn in [Turn::Up, Turn::Down] {
+                let (img, w, h, back) = turned(&rgb, width as usize, height as usize, b, turn);
+                let read = latin.read_line(&img, w, h, [0.0, 0.0, w as f32, h as f32]).map_err(OcrError::Recognize)?;
+                let letters: usize = read.iter().map(|r| r.0.chars().filter(|c| c.is_alphanumeric()).count()).sum();
+                if read.is_empty() || letters < 2 {
+                    continue;
+                }
+                let score = read.iter().map(|r| r.2).sum::<f32>() / read.len() as f32;
+                if score >= 0.8 && best.as_ref().is_none_or(|(s, _, _)| score > *s) {
+                    best = Some((score, score * letters as f32, read.into_iter().map(|(text, at, _)| Word { text, rect: back(at), turn }).collect()));
+                }
+            }
+            let inside = |w: &Word| {
+                let (cx, cy) = ((w.rect[0] + w.rect[2]) / 2.0, (w.rect[1] + w.rect[3]) / 2.0);
+                cx >= b[0] && cx <= b[2] && cy >= b[1] && cy <= b[3]
+            };
+            // What the upright reading found there: its letters, each counted as sure as its word.
+            let upright: f32 = out
+                .iter()
+                .flat_map(|(l, s)| l.words.iter().zip(s))
+                .filter(|(w, _)| inside(w))
+                .map(|(w, s)| s * w.text.chars().filter(|c| c.is_alphanumeric()).count() as f32)
+                .sum();
+            if let Some((_, _, words)) = best.filter(|(_, weight, _)| *weight > upright) {
+                for (l, s) in out.iter_mut() {
+                    let keep: Vec<bool> = l.words.iter().map(|w| !inside(w)).collect();
+                    let mut k = keep.iter();
+                    l.words.retain(|_| k.next().copied().unwrap_or(true));
+                    let mut k = keep.iter();
+                    s.retain(|_| k.next().copied().unwrap_or(true));
+                }
+                out.retain(|(l, _)| !l.words.is_empty());
+                out.push((Line { words }, Vec::new()));
+            }
+        }
+        Ok(out.into_iter().map(|(l, _)| l).collect())
     }
+}
+
+/// Sheaf: the boxes standing on their side among `found` (taller than 1.5 widths), once the boxes
+/// stacked in one column with little between them are joined (ocrs may cut a long turned label in
+/// two, or find each of its letters on its own).
+fn tall_boxes(found: &[[f32; 4]]) -> Vec<[f32; 4]> {
+    let mut sorted = found.to_vec();
+    sorted.sort_by(|a, b| a[1].total_cmp(&b[1]));
+    let mut out: Vec<[f32; 4]> = Vec::new();
+    for b in sorted {
+        // One above the other, sharing most of the wider one's width (a column of letters, not lines
+        // of words of all lengths), with less than about half a letter between them.
+        let stacked = |o: &&mut [f32; 4]| {
+            let (wo, wb) = (o[2] - o[0], b[2] - b[0]);
+            let (narrow, wide) = (wo.min(wb).max(1.0), wo.max(wb));
+            o[2].min(b[2]) - o[0].max(b[0]) >= 0.6 * wide && o[2].max(b[2]) - o[0].min(b[0]) <= 1.2 * wide && b[1] - o[3] < 0.6 * narrow
+        };
+        match out.iter_mut().find(stacked) {
+            Some(o) => *o = [o[0].min(b[0]), o[1].min(b[1]), o[2].max(b[2]), o[3].max(b[3])],
+            None => out.push(b),
+        }
+    }
+    out.retain(|b| b[3] - b[1] > 1.5 * (b[2] - b[0]) && b[3] - b[1] > 12.0);
+    out
+}
+
+/// Sheaf: `b` (a box standing on its side) grown up and down its column while there is ink: ocrs
+/// often finds only part of a turned label ("cha" of "Prise en charge"). It stops at a blank gap
+/// longer than the box is wide, or at a rule across the column reaching past its sides (a table's
+/// border, not a turned letter's stroke).
+fn along_ink(rgb: &[u8], width: usize, height: usize, b: [f32; 4]) -> [f32; 4] {
+    let (x0, x1) = (b[0].max(0.0) as usize, (b[2].max(0.0) as usize).min(width));
+    if x1 <= x0 || height == 0 {
+        return b;
+    }
+    let gap = (b[2] - b[0]).max(4.0) as usize;
+    let grey = |x: usize, y: usize| rgb.get((y * width + x) * 3..(y * width + x) * 3 + 3).map_or(255, |p| (u16::from(p[0]) + u16::from(p[1]) + u16::from(p[2])) / 3);
+    // The label's ground (light paper, or a dark shaded cell with light letters): the seed box's
+    // median grey. Ink is what differs from it.
+    let (y0, y1) = (b[1].max(0.0) as usize, (b[3].max(0.0) as usize).min(height));
+    let mut seen: Vec<u16> = (y0..y1).flat_map(|y| (x0..x1).map(move |x| (x, y))).map(|(x, y)| grey(x, y)).collect();
+    seen.sort_unstable();
+    let ground = seen.get(seen.len() / 2).copied().unwrap_or(255);
+    let is_ink = |x: usize, y: usize| grey(x, y).abs_diff(ground) > 70;
+    let ink = |y: usize| (x0..x1).filter(|&x| is_ink(x, y)).count();
+    let grow = |from: usize, step: isize| -> usize {
+        let (mut y, mut last, mut blank) = (from as isize, from, 0);
+        loop {
+            y += step;
+            if y < 0 || y >= height as isize || blank > gap {
+                return last;
+            }
+            let n = ink(y as usize);
+            // A rule across the column reaches past both its sides (a letter's stroke does not).
+            let reach = gap / 2;
+            if n * 10 >= (x1 - x0) * 8 && x0 >= reach && is_ink(x0 - reach, y as usize) && is_ink((x1 + reach).min(width - 1), y as usize) {
+                return last;
+            }
+            if n > 0 {
+                last = y as usize;
+                blank = 0;
+            } else {
+                blank += 1;
+            }
+        }
+    };
+    let top = grow(b[1].max(0.0) as usize, -1);
+    let bottom = grow((b[3].max(0.0) as usize).min(height - 1), 1);
+    [b[0], top as f32, b[2], bottom as f32 + 1.0]
+}
+
+/// Sheaf: the region `b` of `rgb` (with room around it) turned so a word reading `turn` reads
+/// upright, its size, and the way back from a box in it to one on the page.
+fn turned(rgb: &[u8], width: usize, height: usize, b: [f32; 4], turn: Turn) -> (Vec<u8>, usize, usize, impl Fn([f32; 4]) -> [f32; 4]) {
+    let w = b[2] - b[0];
+    let x0 = (b[0] - w * 0.3).floor().max(0.0) as usize;
+    let x1 = ((b[2] + w * 0.3).ceil() as usize).min(width).max(x0 + 1);
+    let y0 = (b[1] - w * 0.3).floor().max(0.0) as usize;
+    let y1 = ((b[3] + w * 0.3).ceil() as usize).min(height).max(y0 + 1);
+    let (cw, ch) = (x1 - x0, y1 - y0);
+    let mut out = vec![255u8; cw * ch * 3];
+    // Up: turned a quarter clockwise (out is ch wide, cw high); Down: a quarter the other way.
+    for y in 0..ch {
+        for x in 0..cw {
+            let (ox, oy) = match turn {
+                Turn::Down => (y, cw - 1 - x),
+                _ => (ch - 1 - y, x),
+            };
+            let from = ((y0 + y) * width + x0 + x) * 3;
+            let to = (oy * ch + ox) * 3;
+            if let (Some(src), Some(dst)) = (rgb.get(from..from + 3), out.get_mut(to..to + 3)) {
+                dst.copy_from_slice(src);
+            }
+        }
+    }
+    let (fx, fy, fcw, fch) = (x0 as f32, y0 as f32, cw as f32, ch as f32);
+    let back = move |r: [f32; 4]| match turn {
+        Turn::Down => [fx + fcw - r[3], fy + r[0], fx + fcw - r[1], fy + r[2]],
+        _ => [fx + r[1], fy + fch - r[2], fx + r[3], fy + fch - r[0]],
+    };
+    (out, ch, cw, back)
 }
 
 /// Sheaf: the words read on a line, placed: with the boxes ocrs found, in order, when there are as
 /// many as words (the usual case); else (ocrs found "cause inconnue" as one word) each where the
 /// model read it across the line, as tall as the boxes it overlaps.
-fn place_words(read: Vec<(String, [f32; 4])>, found: &[[f32; 4]]) -> Vec<Word> {
+fn place_words(read: Vec<latin::Read>, found: &[[f32; 4]]) -> Vec<Word> {
     let mut sorted = found.to_vec();
     sorted.sort_by(|a, b| a[0].total_cmp(&b[0]));
     if read.len() == sorted.len() {
-        return read.into_iter().zip(sorted).map(|((text, _), rect)| Word { text, rect }).collect();
+        return read.into_iter().zip(sorted).map(|((text, _, _), rect)| Word { text, rect, ..Default::default() }).collect();
     }
     read.into_iter()
-        .map(|(text, at)| {
+        .map(|(text, at, _)| {
             let over = sorted.iter().filter(|b| b[0] < at[2] && b[2] > at[0]);
             let (top, bottom) = over.fold((f32::MAX, f32::MIN), |(t, d), b| (t.min(b[1]), d.max(b[3])));
             let rect = if top < bottom { [at[0], top, at[2], bottom] } else { at };
-            Word { text, rect }
+            Word { text, rect, ..Default::default() }
         })
         .collect()
 }
@@ -310,9 +469,15 @@ impl PlacedWord {
     /// user space.
     pub fn place(word: &Word, to_user: impl Fn(f32, f32) -> [f64; 2]) -> PlacedWord {
         let [l, t, r, b] = word.rect;
-        let o = to_user(l, b);
-        let br = to_user(r, b);
-        let tl = to_user(l, t);
+        // Sheaf: the start of its baseline, the end, and the top of its first letter, as it reads.
+        let ((ox, oy), (ex, ey), (ux, uy)) = match word.turn {
+            Turn::Upright => ((l, b), (r, b), (l, t)),
+            Turn::Up => ((r, b), (r, t), (l, b)),
+            Turn::Down => ((l, t), (l, b), (r, t)),
+        };
+        let o = to_user(ox, oy);
+        let br = to_user(ex, ey);
+        let tl = to_user(ux, uy);
         PlacedWord { text: word.text.clone(), origin: o, across: [br[0] - o[0], br[1] - o[1]], up: [tl[0] - o[0], tl[1] - o[1]] }
     }
 }
@@ -345,12 +510,20 @@ fn num(v: f64) -> String {
 }
 
 /// Page content that writes `words` as invisible text in `/PCHelv` (standard Helvetica,
-/// WinAnsiEncoding), each word stretched to its box so selection and search highlight the
+/// WinAnsiEncoding; Sheaf: other characters in `/PCUni`), each word stretched to its box so selection and search highlight the
 /// right place. Marked content `/OCR` so it can be told apart from the page's own text.
 pub fn text_layer(words: &[PlacedWord]) -> Vec<u8> {
     let mut out = b"/OCR BMC\nBT\n3 Tr\n/PCHelv 1 Tf\n".to_vec();
+    let mut in_uni = false;
     for w in words {
-        let width = helvetica_width(&w.text, 1.0);
+        // Sheaf: a word WinAnsi cannot carry (α, →) in `/PCUni`, the glyphless Unicode font
+        // pdfcraft-edit adds (UTF-16 codes, each glyph half an em wide).
+        let uni = !w.text.chars().all(|c| c == '?' || pdfcraft_fonts::win_ansi_byte(c).is_some());
+        if uni != in_uni {
+            out.extend_from_slice(if uni { b"/PCUni 1 Tf\n" } else { b"/PCHelv 1 Tf\n" });
+            in_uni = uni;
+        }
+        let width = if uni { w.text.encode_utf16().count() as f64 * 0.5 } else { helvetica_width(&w.text, 1.0) };
         let height = w.up[0].hypot(w.up[1]);
         if width <= 0.0 || height <= 0.0 {
             continue;
@@ -365,7 +538,13 @@ pub fn text_layer(words: &[PlacedWord]) -> Vec<u8> {
         let nums: Vec<String> = m.iter().map(|v| num(*v)).collect();
         out.extend_from_slice(nums.join(" ").as_bytes());
         out.extend_from_slice(b" Tm ");
-        out.extend(pdfcraft_fonts::literal(&pdfcraft_fonts::win_ansi(&w.text)));
+        if uni {
+            out.push(b'<');
+            out.extend(w.text.encode_utf16().flat_map(|u| format!("{u:04X}").into_bytes()));
+            out.push(b'>');
+        } else {
+            out.extend(pdfcraft_fonts::literal(&pdfcraft_fonts::win_ansi(&w.text)));
+        }
         out.extend_from_slice(b" Tj\n");
     }
     out.extend_from_slice(b"ET\nEMC\n");
@@ -377,8 +556,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_region_turned_and_back_is_where_it_was() {
+        // A 4 × 2 region at (10, 20) of a 40 × 40 image; its pixel (1, 0) is black.
+        let mut rgb = vec![255u8; 40 * 40 * 3];
+        rgb[(20 * 40 + 11) * 3..(20 * 40 + 11) * 3 + 3].fill(0);
+        for turn in [Turn::Up, Turn::Down] {
+            let (img, w, h, back) = turned(&rgb, 40, 40, [10.0, 20.0, 14.0, 22.0], turn);
+            assert_eq!(w * h * 3, img.len());
+            let at = img.chunks(3).position(|p| p[0] == 0).expect("the black pixel is in the turned region");
+            let (x, y) = ((at % w) as f32, (at / w) as f32);
+            let r = back([x, y, x + 1.0, y + 1.0]);
+            assert_eq!([r[0], r[1]], [11.0, 20.0], "{turn:?}: {r:?}");
+        }
+    }
+
+    #[test]
+    fn a_turned_label_grows_along_its_ink_on_a_dark_ground() {
+        // A dark column (a shaded cell) with light letters from y = 10 to 90, a rule across at y = 100.
+        let (w, h) = (40, 120);
+        let mut rgb = vec![255u8; w * h * 3];
+        for y in 0..h {
+            for x in 10..30 {
+                let light = (10..90).contains(&y) && (17..23).contains(&x) && y % 7 != 0;
+                let v = if light { 250 } else { 60 };
+                rgb[(y * w + x) * 3..(y * w + x) * 3 + 3].fill(v);
+            }
+        }
+        for x in 0..w {
+            rgb[(100 * w + x) * 3..(100 * w + x) * 3 + 3].fill(0);
+        }
+        // ocrs found only the middle of it.
+        let b = along_ink(&rgb, w, h, [10.0, 40.0, 30.0, 60.0]);
+        assert!(b[1] <= 11.0 && (89.0..=99.0).contains(&b[3]), "{b:?}");
+    }
+
+    #[test]
+    fn a_turned_word_is_placed_reading_up_the_page() {
+        // Bottom to top: its baseline runs up the right side of its box, its letters' tops to the left.
+        let to_user = |x: f32, y: f32| [x as f64, 100.0 - y as f64];
+        let w = PlacedWord::place(&Word { text: "Bio".into(), rect: [10.0, 20.0, 20.0, 60.0], turn: Turn::Up }, to_user);
+        assert_eq!((w.origin, w.across, w.up), ([20.0, 40.0], [0.0, 40.0], [-10.0, 0.0]));
+    }
+
+    #[test]
     fn words_read_take_the_boxes_found_in_order() {
-        let read = vec![("de".to_string(), [0.0, 0.0, 10.0, 12.0]), ("cause".to_string(), [18.0, 0.0, 52.0, 12.0]), ("inconnue".to_string(), [58.0, 0.0, 99.0, 12.0])];
+        let read = vec![("de".to_string(), [0.0, 0.0, 10.0, 12.0], 1.0), ("cause".to_string(), [18.0, 0.0, 52.0, 12.0], 1.0), ("inconnue".to_string(), [58.0, 0.0, 99.0, 12.0], 1.0)];
         let found = [[60.0, 2.0, 100.0, 10.0], [0.0, 2.0, 15.0, 10.0], [20.0, 2.0, 55.0, 10.0]];
         let words = place_words(read.clone(), &found);
         assert_eq!(words.iter().map(|w| w.rect).collect::<Vec<_>>(), [found[1], found[2], found[0]]);
@@ -391,7 +613,7 @@ mod tests {
     fn places_words_through_the_mapping() {
         // 2 pixels per point, page 612 × 792, y flipped.
         let to_user = |x: f32, y: f32| [x as f64 / 2.0, 792.0 - y as f64 / 2.0];
-        let w = PlacedWord::place(&Word { text: "Hello".into(), rect: [100.0, 200.0, 300.0, 240.0] }, to_user);
+        let w = PlacedWord::place(&Word { text: "Hello".into(), rect: [100.0, 200.0, 300.0, 240.0], ..Default::default() }, to_user);
         assert_eq!(w.origin, [50.0, 672.0]);
         assert_eq!(w.across, [100.0, 0.0]);
         assert_eq!(w.up, [0.0, 20.0]);
@@ -437,7 +659,7 @@ mod tests {
     fn rotated_pages_keep_the_reading_direction() {
         // A page turned 90°: image x runs up the page.
         let to_user = |x: f32, y: f32| [y as f64, x as f64];
-        let w = PlacedWord::place(&Word { text: "Up".into(), rect: [0.0, 0.0, 50.0, 10.0] }, to_user);
+        let w = PlacedWord::place(&Word { text: "Up".into(), rect: [0.0, 0.0, 50.0, 10.0], ..Default::default() }, to_user);
         assert_eq!(w.across, [0.0, 50.0]);
         assert_eq!(w.up, [-10.0, 0.0]);
     }
