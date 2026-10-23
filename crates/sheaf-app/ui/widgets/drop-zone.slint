@@ -61,3 +61,28 @@ export component AddFab inherits Rectangle {
         clicked => { root.clicked(); }
     }
 }
+
+// Sorts the files by name, A to Z (again: Z to A), as iLovePDF's order button under its +.
+export component SortFab inherits Rectangle {
+    callback clicked();
+    width: Theme.fab-size;
+    height: Theme.fab-size;
+    Rectangle {
+        border-radius: self.width / 2;
+        background: touch.pressed ? Theme.popup-hover : touch.has-hover ? Theme.menu-hover-bg : Theme.card;
+        border-width: 1px;
+        border-color: Theme.sidebar-border;
+        drop-shadow-blur: 6px;
+        drop-shadow-color: Theme.thumb-shadow;
+        Image {
+            width: 20px;
+            height: 20px;
+            source: @image-url("../icons/arrow-down-a-z.svg");
+            colorize: Theme.text;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}

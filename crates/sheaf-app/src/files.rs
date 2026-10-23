@@ -11,7 +11,8 @@ use std::path::Path;
 pub enum Kind {
     Pdf,
     Image,
-    /// Office or HTML document: no thumbnail, size only.
+    /// Office or HTML document: page 1 and page count once converted on the side
+    /// ([`document_probe`]), else size only.
     Document,
 }
 
@@ -111,6 +112,51 @@ pub struct Thumb {
     pub width: u32,
     pub height: u32,
     pub rgba: Vec<u8>,
+}
+
+/// Page count and page-1 thumbnail of an Office or HTML file, converted to a PDF in a folder of
+/// its own (removed after) by LibreOffice.
+pub fn document_probe(path: &Path, width: i32) -> Result<(u32, Thumb)> {
+    let dir = tempfile::Builder::new().prefix("sheaf-office-probe-").tempdir()?;
+    let pdf = sheaf_core::office::office_to_pdf(path, &dir.path().join("probe.pdf"))?;
+    probe_pdf(&Input::new(pdf), width)
+}
+
+/// Names compared as a person would: digits as numbers ("file 2" before "file 10"), letters
+/// without regard to case.
+pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    let (mut a, mut b) = (a.chars().peekable(), b.chars().peekable());
+    loop {
+        match (a.peek().copied(), b.peek().copied()) {
+            (None, None) => return std::cmp::Ordering::Equal,
+            (None, _) => return std::cmp::Ordering::Less,
+            (_, None) => return std::cmp::Ordering::Greater,
+            (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
+                let num = |it: &mut std::iter::Peekable<std::str::Chars>| {
+                    let mut s = String::new();
+                    while let Some(c) = it.peek().copied().filter(char::is_ascii_digit) {
+                        s.push(c);
+                        it.next();
+                    }
+                    s
+                };
+                let (n, m) = (num(&mut a), num(&mut b));
+                let (n2, m2) = (n.trim_start_matches('0'), m.trim_start_matches('0'));
+                let o = n2.len().cmp(&m2.len()).then_with(|| n2.cmp(m2));
+                if o.is_ne() {
+                    return o;
+                }
+            }
+            (Some(x), Some(y)) => {
+                let o = x.to_lowercase().cmp(y.to_lowercase());
+                if o.is_ne() {
+                    return o;
+                }
+                a.next();
+                b.next();
+            }
+        }
+    }
 }
 
 /// Page count and page-1 thumbnail (`width` px wide) of a PDF. Takes the pdfium lock;
@@ -247,6 +293,13 @@ mod tests {
         assert_eq!(route_drop(None, &pdf), DropAction::PickTool);
         assert!(matches!(route_drop(None, &docx), DropAction::Reject(_)));
         assert_eq!(route_drop(Some(ToolId::JpgToPdf), Path::new("/x/p.jpeg")), DropAction::AddToTab);
+    }
+
+    #[test]
+    fn names_sort_as_a_person_would() {
+        let mut v = vec!["file 10.docx", "File 2.docx", "file 1.docx", "abc.pptx", "file 02b.docx"];
+        v.sort_by(|a, b| natural_cmp(a, b));
+        assert_eq!(v, ["abc.pptx", "file 1.docx", "File 2.docx", "file 02b.docx", "file 10.docx"]);
     }
 
     #[test]

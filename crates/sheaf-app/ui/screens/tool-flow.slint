@@ -2,7 +2,7 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolTab, ToolOptions, FileItem } from "../flow-types.slint";
 import { DashedBox } from "../widgets/dashed-box.slint";
-import { DropZone, AddFab } from "../widgets/drop-zone.slint";
+import { DropZone, AddFab, SortFab } from "../widgets/drop-zone.slint";
 import { PrimaryButton } from "../widgets/button.slint";
 import { FileCardView, PageCardView } from "../widgets/file-card.slint";
 import { OptionsPanel } from "options.slint";
@@ -122,6 +122,8 @@ export component ToolFlowScreen inherits Rectangle {
     callback open-files();
     callback remove-file(int);
     callback move-file(int, int);
+    // The files by name: A to Z, or Z to A when they already are.
+    callback sort-files();
     callback remove-page(int);
     callback move-page(int, int);
     callback insert-blank();
@@ -281,6 +283,11 @@ export component ToolFlowScreen inherits Rectangle {
                 y: 20px;
                 count: root.tab.files.length;
                 clicked => { root.open-files(); }
+            }
+            if !root.compare && !root.viewer && root.tab.multi && root.tab.files.length > 1 && !root.running: SortFab {
+                x: parent.width - self.width - 20px;
+                y: 20px + Theme.fab-size + 12px;
+                clicked => { root.sort-files(); }
             }
             if root.running: ProcessingOverlay {
                 progress: root.tab.progress;

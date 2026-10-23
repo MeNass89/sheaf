@@ -5054,10 +5054,10 @@
    88
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 6,
-   "overall": 6
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 7,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -5073,6 +5073,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [81, 82, 83, 85, 87, 88]"
+   },
+   {
+    "date": "2026-10-23",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 7,
+     "overall": 7
+    },
+    "proof": "Office/HTML files opened from Finder or the command line open their →PDF tool; cards show page 1 and page count (LibreOffice on the probe pool); A–Z order button (natural order, again Z–A) as iLovePDF; headings→bookmarks and links proven (office.rs test). gui-smoke 15. Reviewer (Opus) 8/9/7: needs LibreOffice installed (decision for Nassim: bundle or accept), fidelity unproven on real Word files, each file converted twice, 3 soffice probes at once."
    }
   ]
  },

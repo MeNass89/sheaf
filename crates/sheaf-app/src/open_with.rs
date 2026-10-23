@@ -46,6 +46,10 @@ impl Inbox {
 pub struct Plan {
     /// PDFs to keep on Home for the next tool (same landing as a PDF dropped on Home).
     pub open: Vec<PathBuf>,
+    /// Office and HTML files, each with the tool that turns it into a PDF (Word, PowerPoint,
+    /// Excel or HTML to PDF), in the order they came: opened in that tool, as Acrobat creates a
+    /// PDF from an Office file it is asked to open.
+    pub convert: Vec<(sheaf_core::tools::ToolId, Vec<PathBuf>)>,
     /// A toast about the files left out, shown instead of "Choose a tool".
     pub notice: Option<String>,
 }
@@ -57,22 +61,37 @@ fn name(p: &Path) -> String {
 /// Keeps existing PDF files, without duplicates; anything else is skipped with one toast.
 pub fn plan(paths: Vec<PathBuf>) -> Plan {
     let mut open: Vec<PathBuf> = Vec::new();
+    let mut convert: Vec<(sheaf_core::tools::ToolId, Vec<PathBuf>)> = Vec::new();
     let mut skipped: Vec<String> = Vec::new();
     for p in paths {
         if !p.is_file() {
             skipped.push(format!("File not found: {}", name(&p)));
-        } else if files::kind_of(&p) != Kind::Pdf {
-            skipped.push(format!("Not a PDF: {}", name(&p)));
-        } else if !open.contains(&p) {
-            open.push(p);
+        } else if files::kind_of(&p) == Kind::Pdf {
+            if !open.contains(&p) {
+                open.push(p);
+            }
+        } else if let Some(tool) = to_pdf_tool(&p) {
+            match convert.iter_mut().find(|(t, _)| *t == tool) {
+                Some((_, v)) if !v.contains(&p) => v.push(p),
+                Some(_) => {}
+                None => convert.push((tool, vec![p])),
+            }
+        } else {
+            skipped.push(format!("Not a PDF or a document: {}", name(&p)));
         }
     }
     let notice = match skipped.len() {
         0 => None,
         1 => Some(skipped.remove(0)),
-        n => Some(format!("{n} files skipped: only PDFs can be opened")),
+        n => Some(format!("{n} files skipped: only PDFs and documents can be opened")),
     };
-    Plan { open, notice }
+    Plan { open, convert, notice }
+}
+
+/// The tool that makes a PDF of `p` (an Office or HTML file), if one does.
+fn to_pdf_tool(p: &Path) -> Option<sheaf_core::tools::ToolId> {
+    use sheaf_core::tools::ToolId;
+    [ToolId::WordToPdf, ToolId::PowerPointToPdf, ToolId::ExcelToPdf, ToolId::HtmlToPdf].into_iter().find(|t| files::accepts(*t, p))
 }
 
 /// Command-line arguments that name files (macOS may add a `-psn_…` switch on old systems).
@@ -196,17 +215,25 @@ mod tests {
         let a = dir.path().join("a.pdf");
         let b = dir.path().join("B.PDF");
         let txt = dir.path().join("notes.txt");
-        for p in [&a, &b, &txt] {
+        let (doc, ppt, doc2) = (dir.path().join("r.docx"), dir.path().join("s.pptx"), dir.path().join("t.odt"));
+        for p in [&a, &b, &txt, &doc, &ppt, &doc2] {
             std::fs::write(p, b"x").unwrap();
         }
         let gone = dir.path().join("gone.pdf");
 
-        assert_eq!(plan(vec![a.clone(), b.clone(), a.clone()]), Plan { open: vec![a.clone(), b.clone()], notice: None });
-        assert_eq!(plan(vec![a.clone(), txt.clone()]), Plan { open: vec![a.clone()], notice: Some("Not a PDF: notes.txt".into()) });
-        assert_eq!(plan(vec![gone.clone()]), Plan { open: vec![], notice: Some("File not found: gone.pdf".into()) });
+        let none = Vec::new;
+        assert_eq!(plan(vec![a.clone(), b.clone(), a.clone()]), Plan { open: vec![a.clone(), b.clone()], convert: none(), notice: None });
+        assert_eq!(plan(vec![a.clone(), txt.clone()]), Plan { open: vec![a.clone()], convert: none(), notice: Some("Not a PDF or a document: notes.txt".into()) });
+        assert_eq!(plan(vec![gone.clone()]), Plan { open: vec![], convert: none(), notice: Some("File not found: gone.pdf".into()) });
         assert_eq!(
             plan(vec![gone, txt, dir.path().to_path_buf()]),
-            Plan { open: vec![], notice: Some("3 files skipped: only PDFs can be opened".into()) }
+            Plan { open: vec![], convert: none(), notice: Some("3 files skipped: only PDFs and documents can be opened".into()) }
+        );
+        // Documents go to the tool that converts them, Word files together.
+        use sheaf_core::tools::ToolId;
+        assert_eq!(
+            plan(vec![doc.clone(), ppt.clone(), doc2.clone(), a.clone()]),
+            Plan { open: vec![a.clone()], convert: vec![(ToolId::WordToPdf, vec![doc, doc2]), (ToolId::PowerPointToPdf, vec![ppt])], notice: None }
         );
         assert_eq!(plan(vec![]), Plan::default());
     }

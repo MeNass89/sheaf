@@ -135,3 +135,60 @@ fn exit_zero_without_pdf_is_reported() {
     let e = office_to_pdf_with(Some(&chatty), &f, &t.path().join("a.pdf"), Duration::from_secs(5)).unwrap_err();
     assert!(matches!(&e, OpdfError::Conversion(m) if m == "LibreOffice produced no PDF (exit 0): Error: no export filter"), "{e:?}");
 }
+
+/// A Word file with two heading levels and a web link, made by LibreOffice from a flat ODT.
+fn headed_docx(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    let fodt = dir.join("headed.fodt");
+    std::fs::write(&fodt, r#"<?xml version="1.0" encoding="UTF-8"?>
+<office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" office:version="1.3" office:mimetype="application/vnd.oasis.opendocument.text">
+<office:body><office:text>
+<text:h text:outline-level="1">Chapter One</text:h><text:p>Intro with a <text:a xlink:type="simple" xlink:href="https://example.org/">link</text:a>.</text:p>
+<text:h text:outline-level="2">Section A</text:h><text:p>Text.</text:p>
+<text:h text:outline-level="1">Chapter Two</text:h><text:p>More.</text:p>
+</office:text></office:body></office:document>"#).unwrap();
+    let st = std::process::Command::new(find_soffice()?)
+        .args(["--headless", "--norestore", "--convert-to", "docx", "--outdir"])
+        .arg(dir)
+        .arg(&fodt)
+        .env("HOME", dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .ok()?;
+    let docx = dir.join("headed.docx");
+    (st.success() && docx.exists()).then_some(docx)
+}
+
+#[test]
+fn a_word_file_keeps_its_headings_as_bookmarks_and_its_links() {
+    let t = tempfile::tempdir().unwrap();
+    let Some(docx) = headed_docx(t.path()) else {
+        eprintln!("skip: no LibreOffice");
+        return;
+    };
+    let out = office_to_pdf(&docx, &t.path().join("headed.pdf")).unwrap();
+    let doc = lopdf::Document::load(&out).unwrap();
+    let mut titles = Vec::new();
+    let mut uris = Vec::new();
+    for (_, o) in doc.objects.iter() {
+        if let Ok(d) = o.as_dict() {
+            if let Ok(lopdf::Object::String(s, _)) = d.get(b"Title")
+                && d.has(b"Parent")
+            {
+                let t: Vec<u16> = s.chunks(2).skip(1).map(|c| u16::from_be_bytes([c[0], *c.get(1).unwrap_or(&0)])).collect();
+                titles.push(if s.starts_with(&[0xFE, 0xFF]) { String::from_utf16_lossy(&t) } else { String::from_utf8_lossy(s).into_owned() });
+            }
+            // A link annotation's action, inline or its own object.
+            let action = d.get(b"A").ok().and_then(|a| match a {
+                lopdf::Object::Reference(r) => doc.get_dictionary(*r).ok(),
+                a => a.as_dict().ok(),
+            });
+            if let Some(Ok(lopdf::Object::String(u, _))) = action.map(|a| a.get(b"URI")) {
+                uris.push(String::from_utf8_lossy(u).into_owned());
+            }
+        }
+    }
+    titles.sort();
+    assert_eq!(titles, ["Chapter One", "Chapter Two", "Section A"], "the headings are the bookmarks");
+    assert_eq!(uris, ["https://example.org/"], "the link still goes there");
+}

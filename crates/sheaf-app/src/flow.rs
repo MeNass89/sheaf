@@ -235,7 +235,23 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                 });
             });
         }
-        Kind::Document => {}
+        // An Office or HTML file: converted on the side for its page 1 and page count, as
+        // iLovePDF shows them (none without LibreOffice; the card keeps its icon then).
+        Kind::Document => {
+            if sheaf_core::office::find_soffice().is_none() {
+                return;
+            }
+            let r = catching(|| files::document_probe(&input.path, THUMB_PX));
+            let _ = weak.upgrade_in_event_loop(move |_| {
+                with(|a| {
+                    if let (Ok((pages, thumb)), Some(f)) = (r, a.tab(tab_id).and_then(|t| t.files.iter_mut().find(|f| f.uid == uid))) {
+                        f.pages = Some(pages);
+                        f.thumb = Some(state::to_image(thumb));
+                    }
+                    refresh(a, tab_id);
+                });
+            });
+        }
     });
 }
 
@@ -308,6 +324,21 @@ pub fn move_file(tab_id: i32, uid: i32, delta: i32) {
             let j = i as i32 + delta;
             if j >= 0 && (j as usize) < t.files.len() {
                 t.files.swap(i, j as usize);
+            }
+        }
+        refresh(a, tab_id);
+    });
+}
+
+/// The files by name, A to Z ("file 2" before "file 10"); Z to A when they already are.
+pub fn sort_files(tab_id: i32) {
+    with(|a| {
+        if let Some(t) = a.tab(tab_id) {
+            let name = |f: &state::FileEntry| f.input.path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+            let ascending = t.files.windows(2).all(|w| files::natural_cmp(&name(&w[0]), &name(&w[1])).is_le());
+            t.files.sort_by(|x, y| files::natural_cmp(&name(x), &name(y)));
+            if ascending {
+                t.files.reverse();
             }
         }
         refresh(a, tab_id);

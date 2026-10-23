@@ -665,6 +665,31 @@ key Delete; sleep 1; key ctrl+s; sleep 1.5; M2=$(saved '#ff00ff'); kill $CLIP 2>
 check "⌘V places the image on the clipboard, selected (${M1%% +*}, then Delete: ${M2%% +*})" "echo \"$M1\" | grep -qE '^1[12][0-9] (5[0-9]|6[0-9]) ' && ! echo \"$M2\" | grep -qE '^[0-9]{2,}'"
 quit
 
+# 15. Word files opened from outside (Finder, command line) open Word to PDF with them: each card
+# shows page 1 and its page count once LibreOffice has read it; the order button sorts them A to Z;
+# converted next to the originals (set in step 10), headings as bookmarks. Needs LibreOffice.
+if command -v soffice >/dev/null; then
+    cat > "$OUT/headed.fodt" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" office:version="1.3" office:mimetype="application/vnd.oasis.opendocument.text">
+<office:body><office:text><text:h text:outline-level="1">Chapter One</text:h><text:p>Intro.</text:p><text:h text:outline-level="1">Chapter Two</text:h><text:p>More.</text:p></office:text></office:body></office:document>
+XML
+    HOME="$PWD/$OUT/profile" soffice --headless --norestore --convert-to docx --outdir "$OUT" "$OUT/headed.fodt" >/dev/null 2>&1
+    mkdir -p "$OUT/office"; for n in "file 10" "file 2" abc; do cp "$OUT/headed.docx" "$OUT/office/$n.docx"; done
+    launch "$OUT/office/file 10.docx" "$OUT/office/file 2.docx" "$OUT/office/abc.docx"
+    for _ in $(seq 1 40); do [ "$(ocr 980x200+20+150 | grep -o '1 page' | wc -l)" -ge 3 ] && break; sleep 0.5; done
+    OT=$(ocr 400x30+100+8); OP=$(ocr 980x200+20+150 | grep -o '1 page' | wc -l); shot 15-office-cards
+    read A0 _ <<< "$(at abc 980x260+20+40)"; read T0 _ <<< "$(at 10.docx 980x260+20+40)"
+    click 928 150 1; read A1 _ <<< "$(at abc 980x260+20+40)"; read T1 _ <<< "$(at 10.docx 980x260+20+40)"
+    check "Word files opened from outside open Word to PDF, each with its page count ($OT, $OP)" "echo \"$OT\" | grep -q 'Word to PDF' && [ $OP -ge 3 ]"
+    check "the order button sorts the files A to Z (abc ${A0:-?} > file 10 ${T0:-?} → abc ${A1:-?} < file 10 ${T1:-?})" "[ -n \"$A1\" ] && [ -n \"$T1\" ] && [ $A0 -gt $T0 ] && [ $A1 -lt $T1 ]"
+    click 1133 755 1; for _ in $(seq 1 60); do [ -f "$OUT/office/file 10.pdf" ] && [ -f "$OUT/office/abc.pdf" ] && break; sleep 0.5; done; sleep 1
+    check "converted next to the originals, headings as bookmarks" "[ \$(ls \"$OUT\"/office/*.pdf | wc -l) -eq 3 ] && qpdf --qdf --object-streams=disable \"$OUT/office/abc.pdf\" - 2>/dev/null | grep -aq '/Outlines'"
+    quit
+else
+    echo "SKIP 15 (Office to PDF): LibreOffice not installed"
+fi
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).
