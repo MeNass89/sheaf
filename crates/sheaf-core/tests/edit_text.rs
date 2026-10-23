@@ -243,3 +243,15 @@ fn two_edits_apart_keep_the_styles_between_them() {
     assert_eq!(font_of("ache"), "F1");
 }
 
+
+#[test]
+fn text_cut_between_two_content_streams_is_exported_where_it_is_drawn() {
+    // The fixture's last row ends its first content stream with a TJ's operands; the operator
+    // starts the second stream, followed by the rest of the row ("iac fossa").
+    let dir = tempfile::tempdir().unwrap();
+    let doc = Doc::open(&Input::new(mixed_paragraph(dir.path()))).unwrap();
+    let pages = doc.document().export_pages();
+    let b = pages[0].blocks.iter().find(|b| b.text.contains("fossa")).expect("drawn text is exported");
+    assert!((b.size - 10.0).abs() < 0.01, "size {} (was 1: text space)", b.size);
+    assert!(b.rect[0] >= 71.0 && b.rect[1] > 600.0, "where it is drawn: {:?}", b.rect);
+}

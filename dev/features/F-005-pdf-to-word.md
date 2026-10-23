@@ -77,3 +77,9 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   margins follow the content (between a quarter inch and Word's usual eighth; content past the page's edges
   keeps the usual ones). MICI 7 pages for 4. Corpus 19/20 (columns now pass). Next: the column of tiny empty
   paragraphs on MICI page 2 (footer pieces), letter-by-letter labels in narrow merged cells, letter (step 1).
+- 23/10 12:40, PdfCraft bug fixed: `reading_lines` (export) parsed the page's content streams one by one;
+  a TJ whose operands end one stream lost its text state and its text came out at 1 pt in the page's
+  corner (the "dashes" after MICI's tables, the lines missing from its cells). It now parses them joined,
+  as `text_lines` does (§7.8.2). Test `text_cut_between_two_content_streams_is_exported_where_it_is_drawn`
+  (red then green). MICI page 1 nearly whole in its table. Next: fills (white titles on green bands are
+  invisible without them: MICI's "ITEM 282", "MALADIE DE CROHN"), then the letter (step 1).

@@ -1093,9 +1093,11 @@ fn reading_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditError
     let streams = content_streams(doc, &p.dict);
     let mut w = Walk { doc, lines: Vec::new(), next_stream: streams.len(), path: Vec::new(), visits: 0 };
     let mut carry = Carry::new();
-    for (si, (_, data)) in streams.into_iter().enumerate() {
-        walk(&mut w, &parse(&data).ops, &res, &mut carry, si);
-    }
+    // Sheaf: the page's streams are one stream in pieces, cut between any two tokens (§7.8.2), as
+    // `text_lines` reads them: parsed one by one, a `TJ` whose operands end one piece lost its text
+    // state, and its text came out at 1 pt in the page's corner (Word fiches cut there).
+    let pieces = Pieces::join(&streams.iter().map(|(_, d)| d.as_slice()).collect::<Vec<_>>());
+    walk(&mut w, &pieces.parse().ops, &res, &mut carry, 0);
     let mut lines = w.lines;
     // A visual-order Indic font draws pre-base vowel signs before their consonant.
     for l in lines.iter_mut().filter(|l| l.visual_order && !l.actual_text) {
