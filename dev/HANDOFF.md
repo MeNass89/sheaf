@@ -66,6 +66,11 @@ Next (audits of 22/10 by the interim reviewer; joint 9/10 rule, see DECISIONS):
 - Copy/paste of annotations; menu bar.
 
 ## Waiting on Nassim
+
+- **LibreOffice for Office → PDF (C-convert-002 at 7, reviewer 8/9/7).** Conversion needs LibreOffice
+  installed; iLovePDF needs nothing. Bundle a headless LibreOffice with Sheaf (size, licence MPL), or
+  accept it as a requirement (DECISIONS entry)? Fidelity on real Word files also needs Carlito/Caladea
+  (Calibri/Cambria stand-ins), absent on vpsn.
 - C-reader-010 (pinch / trackpad zoom) is at 8 until a real macOS trackpad session: pinch on page 30+ of a long
   file (the point under the fingers stays put), slow and fast ⌘ + trackpad scroll, Magic Mouse. Not doable on the
   Linux VM; the MacBook Pro is reserved for another project.

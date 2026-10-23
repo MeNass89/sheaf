@@ -170,7 +170,7 @@ fn a_word_file_keeps_its_headings_as_bookmarks_and_its_links() {
     let doc = lopdf::Document::load(&out).unwrap();
     let mut titles = Vec::new();
     let mut uris = Vec::new();
-    for (_, o) in doc.objects.iter() {
+    for o in doc.objects.values() {
         if let Ok(d) = o.as_dict() {
             if let Ok(lopdf::Object::String(s, _)) = d.get(b"Title")
                 && d.has(b"Parent")
