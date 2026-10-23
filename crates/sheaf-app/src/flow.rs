@@ -116,7 +116,7 @@ fn add_paths_to(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>, slot: Option<u
             let uid = a.next_uid;
             let Some(t) = a.tab(tab_id) else { return };
             let kind = files::kind_of(&p);
-            let entry = FileEntry { uid, input: Input::new(&p), kind, size: files::file_size(&p), pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0 };
+            let entry = FileEntry { uid, input: Input::new(&p), kind, size: files::file_size(&p), pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0, scanned: false };
             if tool == ToolId::Compare {
                 let taken: Vec<usize> = t.files.iter().map(|f| f.slot).collect();
                 // Several files at once fill the slots in order; one asked-for slot is used once.
@@ -151,16 +151,17 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                 Err(OpdfError::Conversion(format!("internal error: {}", sheaf_app::jobs::panic_message(&*p))))
             });
             let _ = weak.upgrade_in_event_loop(move |ui| match r {
-                Ok((_, _, true)) if with(|a| a.tab(tab_id).is_some_and(|t| files::refuses_protected(t.tool))) => {
+                Ok(p) if p.protected && with(|a| a.tab(tab_id).is_some_and(|t| files::refuses_protected(t.tool))) => {
                     toast(&ui, files::SIGN_PROTECTED);
                     remove_file(&ui, tab_id, uid);
                     crate::password::done(&ui, tab_id, uid);
                 }
-                Ok((pages, thumb, _)) => {
+                Ok(files::Probe { pages, thumb, scanned, .. }) => {
                     let (organize, crop, view) = with(|a| {
                         let Some(t) = a.tab(tab_id) else { return (None, None, None) };
                         let Some(f) = t.files.iter_mut().find(|f| f.uid == uid) else { return (None, None, None) };
                         f.pages = Some(pages);
+                        f.scanned = scanned;
                         f.thumb = Some(state::to_image(thumb));
                         f.locked = f.input.password.is_some();
                         let input = f.input.clone();

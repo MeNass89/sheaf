@@ -28,6 +28,8 @@ pub struct FileEntry {
     pub locked: bool,
     /// Compare: 0 Original, 1 Changed (0 for every other tool).
     pub slot: usize,
+    /// Its first pages carry next to no text: a scan (PDF to Office suggests OCR).
+    pub scanned: bool,
 }
 
 pub enum Phase {
@@ -323,6 +325,7 @@ pub fn build(t: &TabState) -> ToolTab {
         icon: t.icon.clone(),
         tile: tile_colour(t.tool),
         multi: info.multi,
+        any_scanned: t.files.iter().any(|f| f.scanned),
         phase: match t.phase { Phase::Edit => 0, Phase::Running => 1, Phase::Done(_) => 2 },
         progress: t.progress,
         progress_text: format!("{:.0}%", t.progress * 100.0).into(),
@@ -671,7 +674,7 @@ mod tests {
     }
 
     fn entry(uid: i32) -> FileEntry {
-        FileEntry { uid, input: Input::new(format!("/x/{uid}.pdf")), kind: Kind::Pdf, size: 0, pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0 }
+        FileEntry { uid, input: Input::new(format!("/x/{uid}.pdf")), kind: Kind::Pdf, size: 0, pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0, scanned: false }
     }
 
     #[test]

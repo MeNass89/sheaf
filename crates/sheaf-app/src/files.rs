@@ -220,11 +220,23 @@ pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
 /// Page count and page-1 thumbnail (`width` px wide) of a PDF. Takes the pdfium lock;
 /// call it from a worker thread. Errors include `PasswordRequired` / `WrongPassword`.
 pub fn probe_pdf(input: &Input, width: i32) -> Result<(u32, Thumb)> {
-    probe_pdf_full(input, width).map(|(n, t, _)| (n, t))
+    probe_pdf_full(input, width).map(|p| (p.pages, p.thumb))
 }
 
 /// [`probe_pdf`], and whether the file is password-protected (user or owner password).
-pub fn probe_pdf_full(input: &Input, width: i32) -> Result<(u32, Thumb, bool)> {
+/// What a PDF's probe finds: its page count, page 1's thumbnail, whether it is password-protected,
+/// and whether it looks scanned (its first pages carry next to no text: PDF to Office needs OCR).
+pub struct Probe {
+    pub pages: u32,
+    pub thumb: Thumb,
+    pub protected: bool,
+    pub scanned: bool,
+}
+
+/// Fewer characters than this on each of the first pages: a scan without a text layer.
+const SCANNED_CHARS: usize = 20;
+
+pub fn probe_pdf_full(input: &Input, width: i32) -> Result<Probe> {
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = input.open()?;
     let protected = sheaf_core::engine::is_protected(&doc);
@@ -233,7 +245,8 @@ pub fn probe_pdf_full(input: &Input, width: i32) -> Result<(u32, Thumb, bool)> {
     let bmp = page.render_with_config(
         &pdfium_render::prelude::PdfRenderConfig::new().set_target_width(width),
     )?;
-    Ok((pages, Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }, protected))
+    let scanned = doc.pages().iter().take(3).all(|p| p.text().map(|t| t.all().chars().filter(|c| !c.is_whitespace()).count()).unwrap_or(0) < SCANNED_CHARS);
+    Ok(Probe { pages, thumb: Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }, protected, scanned })
 }
 
 /// Why `name` cannot be opened, in one short line, the same in the reader and the tools: a file
@@ -410,12 +423,17 @@ mod tests {
         let png = t.path().join("x.png");
         image::RgbImage::from_pixel(8, 8, image::Rgb([0, 0, 0])).save(&png).unwrap();
         let a = sheaf_core::images::images_to_pdf(&[png], sheaf_core::images::PageLayout::FitImage, &t.path().join("a.pdf")).unwrap();
-        assert!(!probe_pdf_full(&Input::new(&a), 40).unwrap().2);
+        let probe = probe_pdf_full(&Input::new(&a), 40).unwrap();
+        assert!(!probe.protected);
+        // A page that is only a picture is a scan; the invoice has its text.
+        assert!(probe.scanned);
+        let invoice = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../sheaf-core/tests/fixtures/invoice.pdf");
+        assert!(!probe_pdf_full(&Input::new(&invoice), 40).unwrap().scanned);
         // Opens without a password (no dialog would be shown), yet is protected.
         let p = t.path().join("p.pdf");
         let st = std::process::Command::new("qpdf").args(["--encrypt", "", "owner", "256", "--"]).arg(&a).arg(&p).status().unwrap();
         assert!(st.success());
-        assert!(probe_pdf_full(&Input::new(&p), 40).unwrap().2);
+        assert!(probe_pdf_full(&Input::new(&p), 40).unwrap().protected);
         assert!(refuses_protected(ToolId::Sign) && !refuses_protected(ToolId::Edit));
     }
 

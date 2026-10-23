@@ -276,6 +276,8 @@ export struct ContinueTool {
 }
 
 export struct ToolTab {
+    // A file whose first pages carry next to no text (a scan): PDF to Office suggests OCR.
+    any-scanned: bool,
     id: int,
     tool: string,
     name: string,

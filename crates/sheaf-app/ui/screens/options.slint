@@ -238,6 +238,8 @@ component ColourRow inherits VerticalLayout {
 export component OptionsPanel inherits VerticalLayout {
     in property <string> tool;
     in property <int> file-count;
+    // A file looks scanned (PDF to Office suggests OCR).
+    in property <bool> any-scanned;
     in property <string> default-out;
     in property <bool> office-missing;
     // Crop preview: page 1 and its size in points.
@@ -778,6 +780,11 @@ export component OptionsPanel inherits VerticalLayout {
             text: root.export-ocr
                 ? "Converts scanned PDFs with non-selectable text to editable " + what + " files."
                 : "Converts PDFs with selectable text to editable " + what + " files.";
+        }
+        // iLovePDF converts a scan's pages as pictures unless OCR is chosen: say so when a file is one.
+        if !root.export-ocr && root.any-scanned: InfoBox {
+            icon: @image-url("../icons/triangle-alert.svg");
+            text: "This PDF looks scanned: its text can't be selected. Choose OCR to get editable text.";
         }
         if root.export-ocr && !OcrInfo.available: InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");

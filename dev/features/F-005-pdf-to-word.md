@@ -96,3 +96,8 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   Corpus 20/20. MICI page 1 ≈ the original (header in order, table, colours); the document is 7 pages for 4.
   Tests: `a_space_before_a_word_in_another_style_is_kept_in_the_export` (red then green; one paragraph holds
   both runs). Next: page length, narrow merged labels, OCR offer, timing.
+- 23/10 16:30: vertical labels in merged cells again (works now), ruled cells 3 pt each side, 1 pt between tables;
+  MICI still 7 pages for 4 (each source page, a Word section, spills a few lines). Timing (debug build):
+  MICI 4 pages 0.12 s / 25 MB; 100 pages of Greenberg 6.6 s / 101 MB. Scanned PDFs: the probe flags a file
+  whose first 3 pages carry under 20 characters each; PDF to Word/PowerPoint/Excel then say it looks scanned
+  and to choose OCR (the OCR choice itself existed). gui-smoke 17; files test.

@@ -700,6 +700,15 @@ JA=$(pdfinfo "$OUT/img/a.pdf" 2>/dev/null | grep -o '[0-9]* x [0-9]* pts'); JB=$
 check "images opened from outside open JPG to PDF ($JT); unmerged, a US Letter landscape PDF each ($JA / $JB)" "echo \"$JT\" | grep -q 'JPG to PDF' && [ \"$JA\" = '792 x 612 pts' ] && [ \"$JB\" = '792 x 612 pts' ]"
 quit
 
+# 17. A scanned PDF (a page that is only a picture) taken from the reader to PDF to Word: the options
+# say it looks scanned and to choose OCR (iLovePDF converts a scan's pages as pictures otherwise).
+convert -size 600x800 xc:white -fill black -draw "rectangle 100,100 500,140" "$OUT/scan.png"; convert "$OUT/scan.png" "$OUT/scan.pdf"
+launch "$OUT/scan.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "pdf to word"; key Return; sleep 3; shot 17-scanned
+SC=$(ocr 280x700+1000+60 | tr -s ' ')
+check "PDF to Word says a scanned PDF needs OCR ($SC)" "echo \"$SC\" | grep -qi 'looks scanned'"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).
