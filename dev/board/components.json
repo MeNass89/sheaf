@@ -5595,10 +5595,10 @@
    99
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 7,
-   "overall": 6
+   "function": 8,
+   "aesthetics": 7,
+   "performance": 9,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -5636,6 +5636,17 @@
      "overall": 6
     },
     "proof": "F-005: ruled tables from page rules (merged cells, nested label boxes, tight cell paragraphs, fonts, shading, title bands as one-cell tables), margins from content, PdfCraft reading_lines joined-stream fix. MICI: one Word table with its colours, no text box, 7 pages for 4. Corpus 19/20. Reviewer (Opus) 6/6/7: spaces lost between style runs, header out of order, page length, narrow merged labels, no OCR offer, performance unmeasured."
+   },
+   {
+    "date": "2026-10-23",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 7,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "F-005: ruled tables (merged cells, shading, vertical labels), paragraphs of styled runs (spaces kept, wraps vs line ends), fonts, margins, scanned PDFs flagged for OCR; corpus 20/20 (words, tables, no text boxes, pages); MICI page 1 ≈ original. Timing (debug): 4-page fiche 0.12 s/25 MB, 100 pages 6.6 s/101 MB. Reviewer (Opus) 8/7/9: header line order, Wingdings private-range glyphs, 7 pages for 4 (headers/footers as body text)."
    }
   ]
  },
