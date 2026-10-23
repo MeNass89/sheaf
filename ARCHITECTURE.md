@@ -12,7 +12,7 @@ commit as any file added, moved, renamed or deleted.
 | `crates/sheaf-app` | The Slint GUI: Rust in `src/`, the interface in `ui/` (`main.slint` root, `screens/`, `widgets/`, `icons/` Lucide, `theme.slint`). |
 | `scripts/` | `test.sh` (the one test suite), packaging (`bundle-macos.sh`, `package-linux.sh`, `package-windows.sh`, `make-dmg.sh`), downloads (`fetch-pdfium.sh`, `fetch-models.sh`), `smoke.sh` (a packaged CLI, release only). |
 | `vendor/` | pdfium and the OCR models, fetched by the scripts above (git-ignored). |
-| `third_party/` | Four PdfCraft crates patched (annot: text box fonts; edit: page number and watermark fonts; cos and engine: speed on large files, text box edits), used through `[patch]` (its README says what and how to update). |
+| `third_party/` | Six PdfCraft crates patched (annot: text box fonts; edit: page number and watermark fonts, text read for export; cos and engine: speed on large files, text box edits; export: PDF to Word tables and paragraphs; ocr: accented Latin with PaddleOCR's model), used through `[patch]` (its README says what and how to update). |
 | `dev/` | How the app is built: brief, decisions, parity board, features, handoff, dev scripts (`dev/HANDOFF.md` first). |
 | `docs/` | Benchmarks and plans. |
 

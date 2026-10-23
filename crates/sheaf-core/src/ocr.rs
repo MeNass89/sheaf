@@ -1,6 +1,7 @@
 //! OCR PDF: PdfCraft's recogniser (ocrs models) adds an invisible, searchable text layer.
 //!
-//! The models (`text-detection.rten`, `text-recognition.rten`) are looked up in
+//! The models (`text-detection.rten`, `text-recognition.rten`, and PaddleOCR's `latin-recognition.onnx`
+//! with `latin-dict.txt`, which reads accented letters) are looked up in
 //! `$PDFCRAFT_MODELS`, then beside the executable (`Sheaf.app/Contents/Resources/models`), then,
 //! in debug builds, in the source tree's `vendor/models/` (scripts/fetch-models.sh).
 

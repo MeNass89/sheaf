@@ -1,0 +1,129 @@
+//! Sheaf: PaddleOCR's Latin recogniser (PP-OCRv5 mobile, Apache-2.0) reading the lines ocrs finds.
+//!
+//! ocrs' own recognition model knows the unaccented Latin alphabet only, so a French or German scan
+//! came out with "?" for every accented letter (upstream issue #524). This model reads 32 languages
+//! written in Latin script, accents included. ocrs still finds the words and the lines; each line is
+//! cut out of the page with a little room around it, scaled to the model's 48 px height and read;
+//! the classes are decoded greedily (CTC), and the time step of each character gives its place on
+//! the line, so every word keeps its own box.
+
+use rten_tensor::prelude::*;
+use std::path::Path;
+
+/// The model's input height, in pixels.
+const HEIGHT: usize = 48;
+/// Longest line read at once, in model pixels (a line across a large-format page).
+const MAX_WIDTH: usize = 4_000;
+
+/// One recognised word: its text and its box in image pixels `[left, top, right, bottom]`.
+pub(crate) type Read = (String, [f32; 4]);
+
+pub(crate) struct Latin {
+    model: rten::Model,
+    /// The classes after the blank: the dictionary's characters, then a space.
+    chars: Vec<char>,
+}
+
+impl Latin {
+    pub(crate) fn load(model: &Path, dict: &Path) -> Result<Latin, String> {
+        let text = std::fs::read_to_string(dict).map_err(|e| format!("{}: {e}", dict.display()))?;
+        let mut chars: Vec<char> = text.lines().filter_map(|l| l.chars().next()).collect();
+        chars.push(' ');
+        let model = rten::Model::load_file(model).map_err(|e| format!("{}: {e}", model.display()))?;
+        Ok(Latin { model, chars })
+    }
+
+    /// Reads the line whose box (image pixels, `[left, top, right, bottom]`) is `line` in `rgb`
+    /// (3 bytes a pixel, `width` × `height`): its words, left to right.
+    pub(crate) fn read_line(&self, rgb: &[u8], width: usize, height: usize, line: [f32; 4]) -> Result<Vec<Read>, String> {
+        // Room around the line, as PaddleOCR's detector leaves (its boxes are about half a line taller).
+        let h = (line[3] - line[1]).max(1.0);
+        let pad = h * 0.25;
+        let x0 = (line[0] - pad).floor().max(0.0) as usize;
+        let x1 = ((line[2] + pad).ceil() as usize).min(width);
+        let y0 = (line[1] - pad).floor().max(0.0) as usize;
+        let y1 = ((line[3] + pad).ceil() as usize).min(height);
+        if x1 <= x0 + 1 || y1 <= y0 + 1 {
+            return Ok(Vec::new());
+        }
+        let (cw, ch) = (x1 - x0, y1 - y0);
+        let w = ((cw as f32 * HEIGHT as f32 / ch as f32).round() as usize).clamp(8, MAX_WIDTH);
+        // Bilinear scaling to 48 px high, BGR as the model was trained (OpenCV), values in [-1, 1].
+        let mut input = rten_tensor::NdTensor::zeros([1, 3, HEIGHT, w]);
+        let (sx, sy) = (cw as f32 / w as f32, ch as f32 / HEIGHT as f32);
+        for y in 0..HEIGHT {
+            let fy = ((y as f32 + 0.5) * sy - 0.5).clamp(0.0, (ch - 1) as f32);
+            let (ya, dy) = (fy.floor() as usize, fy.fract());
+            let yb = (ya + 1).min(ch - 1);
+            for x in 0..w {
+                let fx = ((x as f32 + 0.5) * sx - 0.5).clamp(0.0, (cw - 1) as f32);
+                let (xa, dx) = (fx.floor() as usize, fx.fract());
+                let xb = (xa + 1).min(cw - 1);
+                for c in 0..3 {
+                    let at = |px: usize, py: usize| f32::from(rgb.get(((y0 + py) * width + x0 + px) * 3 + c).copied().unwrap_or(255));
+                    let v = at(xa, ya) * (1.0 - dx) * (1.0 - dy) + at(xb, ya) * dx * (1.0 - dy) + at(xa, yb) * (1.0 - dx) * dy + at(xb, yb) * dx * dy;
+                    input[[0, 2 - c, y, x]] = v / 127.5 - 1.0;
+                }
+            }
+        }
+        let out: rten_tensor::Tensor<f32> = self.model.run_one(input.view().into(), None).map_err(|e| e.to_string())?.try_into().map_err(|e| format!("{e:?}"))?;
+        let shape = out.shape().to_vec();
+        let (steps, classes) = match shape.as_slice() {
+            [1, t, c] => (*t, *c),
+            other => return Err(format!("unexpected output shape {other:?}")),
+        };
+        let probs = out.to_vec();
+        let chars: Vec<(char, usize)> = ctc(&probs, steps, classes).into_iter().filter_map(|(k, t)| self.chars.get(k - 1).map(|c| (*c, t))).collect();
+        // Each step covers `step` pixels of the line in the image.
+        let step = cw as f32 / steps.max(1) as f32;
+        let mut words = Vec::new();
+        let mut word = String::new();
+        let mut span = (0, 0);
+        for (c, t) in chars.into_iter().chain(std::iter::once((' ', steps))) {
+            if c == ' ' {
+                if !word.is_empty() {
+                    let left = x0 as f32 + span.0 as f32 * step;
+                    let right = x0 as f32 + (span.1 + 1) as f32 * step;
+                    words.push((std::mem::take(&mut word), [left.max(line[0]), line[1], right.min(line[2]).max(left + 1.0), line[3]]));
+                }
+                continue;
+            }
+            if word.is_empty() {
+                span.0 = t;
+            }
+            span.1 = t;
+            word.push(c);
+        }
+        Ok(words)
+    }
+}
+
+/// Greedy CTC decoding of `steps` rows of `classes` scores: the likeliest class at each step,
+/// repeats and blanks (class 0) dropped. Returns each class kept and the step it was read at.
+fn ctc(probs: &[f32], steps: usize, classes: usize) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    let mut prev = 0;
+    for t in 0..steps {
+        let Some(row) = probs.get(t * classes..(t + 1) * classes) else { break };
+        let best = row.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).map_or(0, |(k, _)| k);
+        if best != 0 && best != prev {
+            out.push((best, t));
+        }
+        prev = best;
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ctc;
+
+    #[test]
+    fn ctc_drops_blanks_and_repeats_but_keeps_doubled_letters() {
+        // Steps read: a a _ b _ b c (class 0 is the blank): "abbc", "b" twice because a blank parts them.
+        let classes = 4;
+        let pick = |k: usize| (0..classes).map(|c| if c == k { 1.0 } else { 0.0 }).collect::<Vec<f32>>();
+        let probs: Vec<f32> = [1, 1, 0, 2, 0, 2, 3].iter().flat_map(|k| pick(*k)).collect();
+        assert_eq!(ctc(&probs, 7, classes), [(1, 0), (2, 3), (2, 5), (3, 6)]);
+    }
+}

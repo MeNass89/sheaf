@@ -22,7 +22,7 @@ mkdir -p "$stage/models" "$stage/licenses/pdfium"
 cp target/release/sheaf-app.exe "$stage/Sheaf.exe"
 cp target/release/sheaf.exe "$stage/sheaf-cli.exe"
 cp "$pdfium/bin/pdfium.dll" "$stage/"
-cp vendor/models/*.rten "$stage/models/"
+cp vendor/models/*.rten vendor/models/latin-recognition.onnx vendor/models/latin-dict.txt "$stage/models/"
 sh scripts/collect-licenses.sh "$stage"
 
 rm -f "target/$name.zip"

@@ -30,8 +30,8 @@ version="$(cargo metadata --no-deps --format-version 1 |
 sh scripts/fetch-pdfium.sh
 [ -f "$pdfium/lib/libpdfium.dylib" ] || { echo "error: $pdfium/lib/libpdfium.dylib missing" >&2; exit 1; }
 sh scripts/fetch-models.sh
-for m in text-detection text-recognition; do
-    [ -f "vendor/models/$m.rten" ] || { echo "error: vendor/models/$m.rten missing" >&2; exit 1; }
+for m in text-detection.rten text-recognition.rten latin-recognition.onnx latin-dict.txt; do
+    [ -f "vendor/models/$m" ] || { echo "error: vendor/models/$m missing" >&2; exit 1; }
 done
 
 echo "==> cargo build --release"
@@ -80,8 +80,10 @@ cp target/release/sheaf-app "$app/Contents/MacOS/Sheaf"
 cp target/release/sheaf "$app/Contents/Helpers/sheaf"
 cp "$pdfium/lib/libpdfium.dylib" "$app/Contents/Frameworks/"
 # OCR models: PdfCraft looks in <exe>/../Resources/models (the CLI in Helpers finds them too).
-cp vendor/models/*.rten "$app/Contents/Resources/models/"
+cp vendor/models/*.rten vendor/models/latin-recognition.onnx vendor/models/latin-dict.txt "$app/Contents/Resources/models/"
 cp "$mac/ocr-models-NOTICE.txt" "$app/Contents/Resources/licenses/ocr-models-NOTICE.txt"
+cp "$mac/ocr-latin-NOTICE.txt" "$app/Contents/Resources/licenses/ocr-latin-NOTICE.txt"
+cp third_party/pdfcraft-ocr/LICENSE-APACHE "$app/Contents/Resources/licenses/ocr-latin-LICENSE-APACHE.txt"
 cp target/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 [ -f target/icon-car/Assets.car ] && cp target/icon-car/Assets.car "$app/Contents/Resources/Assets.car"
 sed "s/@VERSION@/$version/g" "$mac/Info.plist" > "$app/Contents/Info.plist"

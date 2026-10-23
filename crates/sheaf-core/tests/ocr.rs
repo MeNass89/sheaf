@@ -14,6 +14,11 @@ const WORDS: &str = "Sheaf OCR test 2026";
 /// A scan-like PDF: a page of text drawn by pdfium, rendered at 300 dpi to a PNG, and that
 /// picture as the only content of a page (no text layer).
 fn scanned_pdf(dir: &Path) -> PathBuf {
+    scan_of(dir, WORDS)
+}
+
+/// [`scanned_pdf`] showing `words`.
+fn scan_of(dir: &Path, words: &str) -> PathBuf {
     let png = dir.join("scan.png");
     {
         let _g = pdfium_lock();
@@ -21,7 +26,7 @@ fn scanned_pdf(dir: &Path) -> PathBuf {
         let font = doc.fonts_mut().helvetica();
         let size = PdfPagePaperSize::Custom(PdfPoints::new(420.0), PdfPoints::new(120.0));
         let mut page = doc.pages_mut().create_page_at_end(size).unwrap();
-        page.objects_mut().create_text_object(PdfPoints::new(30.0), PdfPoints::new(50.0), WORDS, font, PdfPoints::new(32.0)).unwrap();
+        page.objects_mut().create_text_object(PdfPoints::new(30.0), PdfPoints::new(50.0), words, font, PdfPoints::new(32.0)).unwrap();
         let px = (420.0 * 300.0 / 72.0) as i32;
         let cfg = PdfRenderConfig::new().set_target_width(px).set_clear_color(PdfColor::WHITE);
         page.render_with_config(&cfg).unwrap().as_image().unwrap().to_rgb8().save(&png).unwrap();
@@ -105,6 +110,17 @@ fn cancelling_writes_nothing() {
     assert!(!out.exists());
     let left: Vec<_> = std::fs::read_dir(t.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
     assert_eq!(left.len(), 2, "only scan.png and scan.pdf, no .part: {left:?}");
+}
+
+#[test]
+fn accented_letters_are_read() {
+    // ocrs' model reads unaccented Latin only ("Pr?valence"); PaddleOCR's Latin model reads them.
+    let t = tempfile::tempdir().unwrap();
+    let scan = scan_of(t.path(), "Prévalence élevée à âge");
+    let opts = OcrOptions { language: "fr".into(), ..Default::default() };
+    let r = ocr::ocr(&Input::new(&scan), &opts, &t.path().join("fr.pdf"), &mut no_cancel()).unwrap();
+    let text = page_texts(&r.path).join(" ");
+    assert!(text.contains("Prévalence") && text.contains("élevée"), "{text:?}");
 }
 
 #[test]

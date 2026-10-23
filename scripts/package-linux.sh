@@ -22,7 +22,7 @@ mkdir -p "$stage/bin" "$stage/lib" "$stage/share/pdfcraft/models" "$stage/share/
     "$stage/share/icons/hicolor/scalable/apps" "$stage/share/doc/sheaf/licenses/pdfium"
 cp target/release/sheaf-app target/release/sheaf "$stage/bin/"
 cp "$pdfium/lib/libpdfium.so" "$stage/lib/"
-cp vendor/models/*.rten "$stage/share/pdfcraft/models/"
+cp vendor/models/*.rten vendor/models/latin-recognition.onnx vendor/models/latin-dict.txt "$stage/share/pdfcraft/models/"
 cp "$mac/icon.svg" "$stage/share/icons/hicolor/scalable/apps/sheaf.svg"
 cat > "$stage/share/applications/sheaf.desktop" <<EOF
 [Desktop Entry]

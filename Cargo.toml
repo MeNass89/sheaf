@@ -57,3 +57,4 @@ pdfcraft-cos = { path = "third_party/pdfcraft-cos" }
 pdfcraft-edit = { path = "third_party/pdfcraft-edit" }
 pdfcraft-engine = { path = "third_party/pdfcraft-engine" }
 pdfcraft-export = { path = "third_party/pdfcraft-export" }
+pdfcraft-ocr = { path = "third_party/pdfcraft-ocr" }

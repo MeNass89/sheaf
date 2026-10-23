@@ -1,0 +1,13 @@
+OCR model: latin-recognition.onnx and latin-dict.txt
+
+PP-OCRv5 Latin text recognition model (latin_PP-OCRv5_mobile_rec) and its character dictionary,
+from PaddleOCR by the PaddlePaddle Authors. Reads 32 languages written in Latin script, accents included.
+Source: https://github.com/PaddlePaddle/PaddleOCR
+ONNX conversion: https://huggingface.co/monkt/paddleocr-onnx (languages/latin/rec.onnx, dict.txt),
+revision 7b02d0a30a07ba2b92ad1ff5a8941ae2c633de65.
+
+Copyright (c) PaddlePaddle Authors. All Rights Reserved.
+Licence: Apache License, Version 2.0 (the full text is in ocr-latin-LICENSE-APACHE.txt).
+https://www.apache.org/licenses/LICENSE-2.0
+
+Sheaf ships these files unmodified (renamed) in its models folder.

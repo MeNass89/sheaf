@@ -1,0 +1,17 @@
+# PdfCraft's OCR (https://github.com/storytold/pdfcraft, crates/ocr, MIT OR Apache-2.0)
+# at rev d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24, with accented Latin read by PaddleOCR's Latin model: see ../README.md.
+[package]
+name = "pdfcraft-ocr"
+version = "0.8.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Scan & OCR: recognise text in page images (ocrs) and write it as an invisible, searchable text layer"
+
+[dependencies]
+pdfcraft-fonts = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+ocrs = { version = "0.13.1", default-features = false, features = ["rten"] }
+# Sheaf: onnx_format, to load PaddleOCR's Latin recognition model as published.
+rten = { version = "0.26.0", default-features = false, features = ["rten_format", "onnx_format"] }
+rten-tensor = "0.26.0"
+rten-imageproc = "0.26.0"
+thiserror = "2"
