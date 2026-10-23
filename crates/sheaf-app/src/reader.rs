@@ -136,6 +136,31 @@ pub fn quads(page: &PageBox, rects: &[[f32; 4]]) -> Vec<[f64; 8]> {
         .collect()
 }
 
+/// A drag over text in the Redact tool, as Acrobat marks text for redaction: the glyphs from `a`
+/// to `b` (view points of page `page`) as one quadrilateral per line, with their text (redacted
+/// from the metadata and bookmarks too). `None` when the drag does not start on text (it marks an
+/// area then).
+pub fn redact_selection(text: &PageText, page_box: &PageBox, page: usize, a: (f32, f32), b: (f32, f32)) -> Option<sheaf_core::redact::Mark> {
+    // On text: inside a glyph's box, give or take 2 points.
+    let on = text.glyphs.iter().any(|g| a.0 >= g.rect[0] - 2.0 && a.0 <= g.rect[2] + 2.0 && a.1 >= g.rect[1] - 2.0 && a.1 <= g.rect[3] + 2.0);
+    if !on {
+        return None;
+    }
+    let range = selection(text, a, b)?;
+    let words = selected_text(text, range.clone());
+    if words.trim().is_empty() {
+        return None;
+    }
+    Some(sheaf_core::redact::Mark {
+        page,
+        quads: quads(page_box, &text.line_rects(range)),
+        text: words.split_whitespace().collect::<Vec<_>>().join(" "),
+        match_case: true,
+        whole_word: false,
+        whole_page: false,
+    })
+}
+
 /// One visible row of the outline panel.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutlineRow {
@@ -373,6 +398,16 @@ mod tests {
         assert_eq!(selected_text(&t, 0..6), "ab cd\nef");
         assert_eq!(word(&t, (29.0, 12.0)), Some(2..4));
         assert_eq!(selection(&PageText { glyphs: vec![], line_of: vec![], space_before: vec![] }, (0.0, 0.0), (1.0, 1.0)), None);
+    }
+
+    #[test]
+    fn a_drag_over_text_marks_its_lines_for_redaction() {
+        let t = sample();
+        let page = PageBox { crop: [0.0, 0.0, 600.0, 800.0], rotation: 0, unit: 1.0 };
+        let m = redact_selection(&t, &page, 3, (17.0, 12.0), (17.0, 32.0)).expect("starts on text");
+        assert_eq!((m.page, m.text.as_str(), m.quads.len()), (3, "b cd ef", 2), "one quad per line");
+        // Off the text: an area, not a text mark.
+        assert!(redact_selection(&t, &page, 3, (300.0, 300.0), (400.0, 400.0)).is_none());
     }
 
     #[test]

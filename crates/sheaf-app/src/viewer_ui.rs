@@ -72,6 +72,9 @@ pub struct ViewerUi {
     pub focused: Option<usize>,
     pub searched: bool,
     pub busy: bool,
+    /// Pages' text, read when a drag in Redact starts on a page (text is marked by selecting it).
+    texts: std::collections::HashMap<usize, Arc<sheaf_core::pdfcraft::render::PageText>>,
+    text_renderer: Option<sheaf_core::pdfcraft::render::PageRenderer>,
     // Sign: where the signature is centred (page, view-space point of the displayed page, in
     // points), and its height-to-width ratio once a graphic is made.
     pub sign_at: Option<(usize, f64, f64)>,
@@ -124,8 +127,28 @@ impl ViewerUi {
             focused: None,
             searched: false,
             busy: false,
+            texts: Default::default(),
+            text_renderer: None,
             sign_at: None,
         }
+    }
+
+    /// Page `page`'s text (read once).
+    fn text(&mut self, page: usize) -> Option<Arc<sheaf_core::pdfcraft::render::PageText>> {
+        use sheaf_core::pdfcraft::render;
+        if let Some(t) = self.texts.get(&page) {
+            return Some(t.clone());
+        }
+        if self.text_renderer.is_none() {
+            let config = render::RenderConfig { password: self.input.password.as_deref().map(Arc::from), ..Default::default() };
+            // A tool's viewer renders from the file; the reader's from its edited bytes.
+            let bytes = self.source.clone().or_else(|| std::fs::read(&self.input.path).ok().map(Arc::new))?;
+            self.text_renderer = Some(render::PageRenderer::new(bytes, config));
+        }
+        let res = self.text_renderer.as_mut()?.render(render::RenderRequest { page, kind: render::RequestKind::Text, scale: 1.0, ..Default::default() });
+        let t = res.text?;
+        self.texts.insert(page, t.clone());
+        Some(t)
     }
 
     fn rev(&self, page: usize) -> u64 {
@@ -479,6 +502,18 @@ pub fn released(tab_id: i32, x: f32, y: f32) {
             return;
         }
         let (x1, y1) = (x as f64, y as f64);
+        // A drag that starts on text selects it, as Acrobat marks text: its lines are marked.
+        if (x1 - x0).hypot(y1 - y0) >= MIN_DRAG
+            && let Some(text) = v.text(page)
+        {
+            let (a, b) = (place_point(&v.viewer, page, x0, y0), place_point(&v.viewer, page, x1, y1));
+            if let Some(mark) = sheaf_app::reader::redact_selection(&text, &v.viewer.boxes[page], page, (a.1 as f32, a.2 as f32), (b.1 as f32, b.2 as f32)) {
+                let short: String = mark.text.chars().take(40).collect();
+                let label = if short.len() < mark.text.len() { format!("“{short}…”") } else { format!("“{short}”") };
+                v.manual.push(Manual { mark, label });
+                return;
+            }
+        }
         if (x1 - x0).abs() < MIN_DRAG || (y1 - y0).abs() < MIN_DRAG {
             return;
         }

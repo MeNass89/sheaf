@@ -170,7 +170,8 @@ export component RedactPanel inherits VerticalLayout {
     Rectangle { height: 1px; background: Theme.separator; }
 
     Text {
-        text: "Drag on a page to mark an area.";
+        text: "Drag over text to mark it, or elsewhere on a page to mark an area.";
+        wrap: word-wrap;
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }

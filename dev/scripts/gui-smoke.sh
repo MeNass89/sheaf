@@ -284,8 +284,12 @@ check "dragging a paragraph with the Edit tool moves it ($QY0 → $QY1)" "[ -n \
 # 2e. Editing that paragraph shows it on the page as typed, before ⌘↩; Escape puts it back and
 # leaves the file as it was.
 key e; sleep 1; QK=$(at quick); [ -n "$QK" ] && click $QK 1.2
-xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 10 " zebra"; sleep 1.5
-PV1=$(ocr 1000x500+260+90); shot 02e-preview; key Escape; sleep 1.2; PV2=$(ocr 1000x500+260+90); key Escape; key v
+xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 10 " zebra"
+# The preview is a render: waited for (up to 6 s), not slept for (1.5 s missed it on a busy machine).
+for _ in $(seq 1 12); do sleep 0.5; PV1=$(ocr 1000x500+260+90); echo "$PV1" | grep -q zebra && break; done
+shot 02e-preview; key Escape
+for _ in $(seq 1 12); do sleep 0.5; PV2=$(ocr 1000x500+260+90); echo "$PV2" | grep -q zebra || break; done
+key Escape; key v
 check "an edited paragraph shows on the page before ⌘↩, Escape takes it back" "echo \"$PV1\" | grep -q zebra && ! echo \"$PV2\" | grep -q zebra && ! pdftotext $OUT/text.pdf - | grep -q zebra"
 
 # 3. Page operations from the Pages panel: duplicate page 1, delete it again, rotate.
@@ -707,6 +711,22 @@ launch "$OUT/scan.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "pdf to word"; key Return; sleep 3; shot 17-scanned
 SC=$(ocr 280x700+1000+60 | tr -s ' ')
 check "PDF to Word says a scanned PDF needs OCR ($SC)" "echo \"$SC\" | grep -qi 'looks scanned'"
+quit
+
+# 18. Redact by selecting text, as Acrobat: in the Redact tool, a drag that starts on a word marks the
+# words it crosses (not a rectangle); applied, they are gone from the text and the rest of the line stays.
+cp "$OUT/text.pdf" "$OUT/redact.pdf"
+launch "$OUT/redact.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
+Q=$(at quick 820x700+140+60); F=$(at fox 820x700+140+60)
+if [ -n "$Q" ] && [ -n "$F" ]; then
+    set -- $Q; QX=$(( $1 - 25 )); QY=$2; set -- $F; FX=$(( $1 + 15 ))
+    xdotool mousemove $QX $QY mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $(( QX + (FX - QX) * i / 6 )) $QY; sleep 0.05; done; xdotool mouseup 1; sleep 1
+    shot 18-redact-marked; RM=$(ocr 280x60+1000+525 | tr -s ' ')
+    click 1140 755 1; for _ in $(seq 1 20); do [ -f "$OUT/redact-redacted.pdf" ] && break; sleep 0.5; done
+fi
+RT=$(pdftotext -f 1 -l 1 "$OUT/redact-redacted.pdf" - 2>/dev/null | tr -s ' \n' ' ')
+check "Redact: a drag over words marks them ($RM) and only they are removed ($RT)" "echo \"$RM\" | grep -qi quick && echo \"$RT\" | grep -q 'Page 1' && ! echo \"$RT\" | grep -qE 'quick|brown|fox'"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

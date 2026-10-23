@@ -46,3 +46,6 @@ Two-page spread, bookmarks of one's own, split view, reading aloud, measure, com
 - 2026-10-20: reader core (`reader.rs`, tests), document tabs (`reader_ui.rs`, `screens/reader.slint`), opening on a
   worker, revisions in the render cache (an edit re-renders only its page, old render stays until then), links and
   history, unsaved prompt. First GUI run on Linux/Xvfb: the 1,982-page book opens with its outline.
+- 24/10 17:00, flaky smoke check fixed: "an edited paragraph shows on the page before ⌘↩" read the screen a fixed
+  1.5 s after typing and failed once on a busy machine (passed on the next run); it now waits for the preview
+  (and for its removal after Escape) up to 6 s.
