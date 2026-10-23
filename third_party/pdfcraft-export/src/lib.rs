@@ -31,6 +31,8 @@ pub struct Block {
     /// Sheaf: the font's family as Word names it ("Calibri" for "ABCDEF+Calibri,Bold"; empty when
     /// unknown): written in the run, so Word draws the text in it, or in its metric twin.
     pub font: String,
+    /// Sheaf: the paragraph this run belongs to (runs of one paragraph share it; 0 when unknown).
+    pub para: usize,
 }
 
 /// An image of a page.
@@ -95,7 +97,8 @@ pub struct Table {
 
 /// What goes into the output, in order.
 enum Item<'a> {
-    Para(&'a Block, u8),
+    /// Sheaf: a paragraph's runs (blocks in different styles on one line join it), its level.
+    Para(Vec<&'a Block>, u8),
     /// Owned: tables are detected per page inside [`items`], so they cannot borrow.
     Table(Table),
     Img(&'a Image),
@@ -535,6 +538,19 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]], fills: &[([f64;
     (tables, consumed)
 }
 
+/// Sheaf: a paragraph's text, its runs joined (a space where neither has one at the join).
+fn para_text(bs: &[&Block]) -> String {
+    let mut t = String::new();
+    for b in bs {
+        // Runs read with their paragraph carry their own spaces ("doul" + "eurs" is one word).
+        if !t.is_empty() && b.para == 0 && !t.ends_with(char::is_whitespace) && !b.text.starts_with(char::is_whitespace) {
+            t.push(' ');
+        }
+        t.push_str(&b.text);
+    }
+    t
+}
+
 fn items(pages: &[Page]) -> Vec<Item<'_>> {
     let body = body_size(pages);
     let mut out = Vec::new();
@@ -554,14 +570,20 @@ fn items(pages: &[Page]) -> Vec<Item<'_>> {
                 consumed[rest[k]] = true;
             }
         }
-        // Blocks and images by their top edge, top to bottom.
-        let mut parts: Vec<(f64, f64, Item)> = p
-            .blocks
-            .iter()
-            .enumerate()
-            .filter(|(bi, _)| !consumed.get(*bi).copied().unwrap_or(false))
-            .map(|(_, b)| (b.rect[3], b.rect[0], Item::Para(b, level(b, body))))
-            .collect();
+        // Blocks and images by their top edge, top to bottom. Sheaf: a block that goes on along the
+        // last line of the paragraph before it (a word in another style) joins that paragraph.
+        // Sheaf: runs of one paragraph (same `para`, not 0) stay together, in their order; placed by
+        // the paragraph's top.
+        let mut paras: Vec<Vec<&Block>> = Vec::new();
+        for (_, b) in p.blocks.iter().enumerate().filter(|(bi, _)| !consumed.get(*bi).copied().unwrap_or(false)) {
+            match paras.last_mut() {
+                Some(ps) if b.para != 0 && ps[0].para == b.para => ps.push(b),
+                _ => paras.push(vec![b]),
+            }
+        }
+        let top = |ps: &[&Block]| ps.iter().map(|b| b.rect[3]).fold(f64::MIN, f64::max);
+        let left = |ps: &[&Block]| ps.iter().map(|b| b.rect[0]).fold(f64::MAX, f64::min);
+        let mut parts: Vec<(f64, f64, Item)> = paras.into_iter().map(|ps| (top(&ps), left(&ps), Item::Para(ps.clone(), level(ps[0], body)))).collect();
         parts.extend(tables.into_iter().map(|t| (t.rect[3], t.rect[0], Item::Table(t))));
         parts.extend(p.images.iter().map(|im| (im.rect[3], im.rect[0], Item::Img(im))));
         parts.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.total_cmp(&b.1)));
@@ -615,8 +637,9 @@ table{{border-collapse:collapse;margin:1em 0}}td,th{{border:1px solid #999;paddi
     );
     for it in items(pages) {
         match it {
-            Item::Para(b, lvl) => {
-                let mut t = esc(&b.text);
+            Item::Para(bs, lvl) => {
+                let b = bs[0];
+                let mut t = esc(&para_text(&bs));
                 if b.italic {
                     t = format!("<em>{t}</em>");
                 }
@@ -695,7 +718,9 @@ fn run_xml_font(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3]
     }
     let half_points = if size.is_finite() { (size * 2.0).round().clamp(2.0, 3276.0) as i64 } else { 24 };
     rpr.push_str(&format!("<w:sz w:val=\"{half_points}\"/>"));
-    format!("<w:r><w:rPr>{rpr}</w:rPr><w:t xml:space=\"preserve\">{}</w:t></w:r>", esc(text))
+    // Sheaf: a line the author ended inside a paragraph ('\n') is a line break.
+    let t = text.split('\n').map(esc).collect::<Vec<_>>().join("</w:t><w:br/><w:t xml:space=\"preserve\">");
+    format!("<w:r><w:rPr>{rpr}</w:rPr><w:t xml:space=\"preserve\">{t}</w:t></w:r>")
 }
 
 /// One Word table: explicit absent borders (alignment alone cannot prove PDF rules), a grid sized
@@ -711,16 +736,22 @@ fn cell_paragraphs(c: &Cell) -> String {
     let mut s = String::from(P);
     let mut prev: Option<&Block> = None;
     for b in &c.blocks {
+        let mut text = b.text.as_str();
         if let Some(p) = prev {
             let mid = |x: &Block| (x.rect[1] + x.rect[3]) / 2.0;
             if mid(p) - mid(b) > b.size.max(p.size) * 0.5 {
                 s.push_str("</w:p>");
                 s.push_str(P);
-            } else if !p.text.ends_with(char::is_whitespace) && !b.text.starts_with(char::is_whitespace) && b.rect[0] - p.rect[2] > b.size * 0.15 {
+                // A new paragraph already: not the line break or space the run starts with too.
+                text = text.trim_start();
+            } else if (b.para == 0 || b.para != p.para) && !p.text.ends_with(char::is_whitespace) && !b.text.starts_with(char::is_whitespace) && b.rect[0] - p.rect[2] > b.size * 0.15 {
                 s.push_str(&run_xml(" ", b.size, false, false, b.color));
             }
         }
-        s.push_str(&run_xml_font(&b.text, b.size, b.bold, b.italic, b.color, &b.font));
+        if prev.is_none() {
+            text = text.trim_start();
+        }
+        s.push_str(&run_xml_font(text, b.size, b.bold, b.italic, b.color, &b.font));
         prev = Some(b);
     }
     s.push_str("</w:p>");
@@ -923,13 +954,21 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
         } else {
             for it in items(std::slice::from_ref(page)) {
                 match &it {
-                    Item::Para(b, lvl) => {
+                    Item::Para(bs, lvl) => {
                         let style = match lvl {
                             1 => "<w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr>",
                             2 => "<w:pPr><w:pStyle w:val=\"Heading2\"/></w:pPr>",
                             _ => "",
                         };
-                        body.push_str(&format!("<w:p>{style}{}</w:p>", run(b)));
+                        // Sheaf: its runs, a space between two where the source leaves a gap.
+                        let mut runs = String::new();
+                        for (k, b) in bs.iter().enumerate() {
+                            if k > 0 && b.para == 0 && !bs[k - 1].text.ends_with(char::is_whitespace) && !b.text.starts_with(char::is_whitespace) && b.rect[0] - bs[k - 1].rect[2] > b.size * 0.15 {
+                                runs.push_str(&run_xml(" ", b.size, false, false, b.color));
+                            }
+                            runs.push_str(&run(b));
+                        }
+                        body.push_str(&format!("<w:p>{style}{runs}</w:p>"));
                     }
                     Item::Table(t) => {
                         if after_table {
@@ -1060,7 +1099,7 @@ pub fn rtf(pages: &[Page]) -> String {
     };
     for it in &items {
         match it {
-            Item::Para(b, _) => note(b.color),
+            Item::Para(bs, _) => bs.iter().for_each(|b| note(b.color)),
             Item::Table(t) => t.rows.iter().flatten().for_each(|c| note(c.color)),
             Item::Img(_) | Item::PageBreak => {}
         }
@@ -1080,7 +1119,8 @@ pub fn rtf(pages: &[Page]) -> String {
     }
     for it in items {
         match it {
-            Item::Para(b, _) => {
+            Item::Para(bs, _) => {
+                let b = bs[0];
                 let mut fmt = format!("\\fs{}", (b.size * 2.0).round() as i64);
                 if b.bold {
                     fmt.push_str("\\b");
@@ -1089,7 +1129,7 @@ pub fn rtf(pages: &[Page]) -> String {
                     fmt.push_str("\\i");
                 }
                 fmt.push_str(&cf(b.color));
-                s.push_str(&format!("{{\\pard{fmt} {}\\par}}\n", rtf_text(&b.text)));
+                s.push_str(&format!("{{\\pard{fmt} {}\\par}}\n", rtf_text(&para_text(&bs))));
             }
             Item::Table(t) => {
                 let mut edges = t.cols.clone();
@@ -1133,7 +1173,7 @@ mod tests {
     use super::*;
 
     fn page() -> Page {
-        let b = |t: &str, y: f64, size: f64, bold: bool| Block { font: String::new(),
+        let b = |t: &str, y: f64, size: f64, bold: bool| Block { font: String::new(), para: 0,
             text: t.into(),
             rect: [72.0, y, 500.0, y + size],
             size,
@@ -1214,7 +1254,7 @@ mod tests {
     #[test]
     fn word_overlap_does_not_consume_invoice_body_space() {
         let mut p = table_page();
-        p.blocks.push(Block { font: String::new(),
+        p.blocks.push(Block { font: String::new(), para: 0,
             text: "DRAFT".into(),
             rect: [100.0, 200.0, 500.0, 700.0],
             size: 100.0,
@@ -1275,7 +1315,7 @@ mod tests {
         // Word then refused the whole file. A till receipt is also taller than Word's 22 in.
         let mut p = page();
         p.height = 2400.0;
-        p.blocks.push(Block { font: String::new(),
+        p.blocks.push(Block { font: String::new(), para: 0,
             text: "Total\u{0}\u{3}\u{c} 4.50\u{FFFF}\tGBP".into(),
             rect: [72.0, 100.0, 300.0, 110.0],
             size: f64::NAN,
@@ -1328,7 +1368,7 @@ mod tests {
     #[test]
     fn rtf_escapes_and_sizes() {
         let mut p = page();
-        p.blocks.push(Block { font: String::new(),
+        p.blocks.push(Block { font: String::new(), para: 0,
             text: "Café {x}".into(),
             rect: [72.0, 100.0, 200.0, 110.0],
             size: 10.0,
@@ -1345,7 +1385,7 @@ mod tests {
 
     /// A 3-column table with a spanning header row and a hole in the last row.
     fn table_page() -> Page {
-        let cell = |t: &str, x: f64, y: f64, w: f64| Block { font: String::new(),
+        let cell = |t: &str, x: f64, y: f64, w: f64| Block { font: String::new(), para: 0,
             text: t.into(),
             rect: [x, y, x + w, y + 12.0],
             size: 11.0,
@@ -1368,7 +1408,7 @@ mod tests {
                 cell("kW", 232.0, 560.0, 80.0),
                 // A2's row is missing its third cell (an empty cell in the grid).
                 cell("Totals", 72.0, 530.0, 240.0),
-                Block { font: String::new(),
+                Block { font: String::new(), para: 0,
                     text: "Notes follow the table and are long enough to be the body text size of the page here.".into(),
                     rect: [72.0, 460.0, 500.0, 471.0],
                     size: 11.0,
@@ -1427,7 +1467,7 @@ mod tests {
             .map(|i| {
                 let (row, col) = (i / 2, i / 2 + i % 2);
                 let (x, y) = (10.0 + col as f64 * 20.0, 10_000.0 - row as f64 * 14.0);
-                Block { font: String::new(), text: "x".into(), rect: [x, y, x + 8.0, y + 12.0], size: 11.0, bold: false, italic: false, color: [0.0; 3], rotation: 0.0 }
+                Block { font: String::new(), para: 0, text: "x".into(), rect: [x, y, x + 8.0, y + 12.0], size: 11.0, bold: false, italic: false, color: [0.0; 3], rotation: 0.0 }
             })
             .collect();
         let started = std::time::Instant::now();
@@ -1446,7 +1486,7 @@ mod tests {
                 .flat_map(|row| {
                     (0..n).map(move |col| {
                         let (x, y) = (20.0 + col as f64 * 22.0, 700.0 - row as f64 * 14.0);
-                        Block { font: String::new(),
+                        Block { font: String::new(), para: 0,
                             text: (col + 1).to_string(),
                             rect: [x, y, x + 8.0, y + 8.0],
                             size: 8.0,
@@ -1468,7 +1508,7 @@ mod tests {
 
     #[test]
     fn two_column_body_text_is_not_mistaken_for_a_table() {
-        let para = |t: &str, x: f64, y: f64| Block { font: String::new(),
+        let para = |t: &str, x: f64, y: f64| Block { font: String::new(), para: 0,
             text: t.into(),
             rect: [x, y, x + 200.0, y + 90.0], // nine lines tall: body text, not a cell
             size: 11.0,
@@ -1496,7 +1536,7 @@ mod tests {
     /// down two rows on the left, a missing rule merging cells, a fill band inset in a cell.
     #[test]
     fn ruled_table_with_merged_cells_and_a_vertical_label() {
-        let b = |t: &str, x: f64, y: f64, rotation: f64| Block { font: String::new(),
+        let b = |t: &str, x: f64, y: f64, rotation: f64| Block { font: String::new(), para: 0,
             text: t.into(),
             rect: [x, y, x + 40.0, y + 10.0],
             size: 10.0,
@@ -1552,7 +1592,7 @@ mod tests {
     /// text column is scaled to it.
     #[test]
     fn cell_lines_stay_paragraphs_and_wide_tables_fit() {
-        let b = |t: &str, x: f64, y: f64, bold: bool, color: [f64; 3]| Block { font: String::new(), text: t.into(), rect: [x, y, x + 60.0, y + 10.0], size: 10.0, bold, italic: false, color, rotation: 0.0 };
+        let b = |t: &str, x: f64, y: f64, bold: bool, color: [f64; 3]| Block { font: String::new(), para: 0, text: t.into(), rect: [x, y, x + 60.0, y + 10.0], size: 10.0, bold, italic: false, color, rotation: 0.0 };
         let cell = Cell {
             text: "Symptoms - Pain Fever".into(),
             size: 10.0,
@@ -1573,7 +1613,7 @@ mod tests {
     /// table, so white text on it stays readable.
     #[test]
     fn shaded_cells_and_title_bands() {
-        let b = |t: &str, x: f64, y: f64, color: [f64; 3]| Block { font: String::new(), text: t.into(), rect: [x, y, x + 40.0, y + 10.0], size: 10.0, bold: true, italic: false, color, rotation: 0.0 };
+        let b = |t: &str, x: f64, y: f64, color: [f64; 3]| Block { font: String::new(), para: 0, text: t.into(), rect: [x, y, x + 40.0, y + 10.0], size: 10.0, bold: true, italic: false, color, rotation: 0.0 };
         let blocks = vec![b("TITLE", 120.0, 405.0, [1.0; 3]), b("Left", 110.0, 255.0, [0.0; 3]), b("Right", 210.0, 255.0, [0.0; 3])];
         let mut rules = vec![[100.0, 400.0, 300.0, 400.0], [100.0, 420.0, 300.0, 420.0], [100.0, 400.0, 100.0, 420.0], [300.0, 400.0, 300.0, 420.0]];
         rules.extend([[100.0, 250.0, 300.0, 250.0], [100.0, 270.0, 300.0, 270.0], [100.0, 250.0, 100.0, 270.0], [200.0, 250.0, 200.0, 270.0], [300.0, 250.0, 300.0, 270.0]]);

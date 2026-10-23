@@ -59,13 +59,21 @@ def fiche(path):
     t.cell(1, 0).merge(t.cell(2, 0)).text = "Clinique"
     fill(t.cell(1, 0), "D7E4BD")
     t.cell(1, 1).text = "Symptoms"
-    t.cell(1, 2).text = "Abdominal pain, diarrhoea, weight loss"
+    # A word in another style mid-line: the space before it must stay (a lost one merges words).
+    cp = t.cell(1, 2).paragraphs[0]
+    cp.add_run("Abdominal pain, ")
+    cp.add_run("diarrhoea").bold = True
+    cp.add_run(", weight loss")
     t.cell(2, 1).text = "Signs"
     t.cell(2, 2).text = "Fever, growth delay"
     t.cell(3, 0).text = "Bio"
     t.cell(3, 1).text = "CRP"
     t.cell(3, 2).text = "Raised in flares"
-    d.add_paragraph("Evolution by flares separated by remissions.")
+    p = d.add_paragraph("Evolution by ")
+    r = p.add_run("flares")
+    r.bold = True
+    r.font.color.rgb = RGBColor(0x1F, 0x4E, 0x79)
+    p.add_run(" separated by remissions.")
     d.save(path)
 
 
@@ -120,6 +128,11 @@ def soffice(*args, outdir):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180, env={**os.environ, "HOME": OUT})
 
 
+def text_of(el):
+    """An element's text, a line break or a tab being a space."""
+    return "".join((t.text or "") if t.tag == qn("w:t") else " " for t in el.iter(qn("w:t"), qn("w:br"), qn("w:tab")))
+
+
 def words(path):
     """The document's words in order: paragraphs, then table cells row by row, where they are."""
     d = docx.Document(path)
@@ -127,14 +140,14 @@ def words(path):
     body = d.element.body
     for el in body.iterchildren():
         if el.tag == qn("w:p"):
-            out.append("".join(t.text or "" for t in el.iter(qn("w:t"))))
+            out.append(text_of(el))
         elif el.tag == qn("w:tbl"):
             seen = set()
             for tc in el.iter(qn("w:tc")):
                 if id(tc) in seen:
                     continue
                 seen.add(id(tc))
-                out.append("".join(t.text or "" for t in tc.iter(qn("w:t"))))
+                out.append(text_of(tc))
     return re.findall(r"\w+", " ".join(out).lower())
 
 

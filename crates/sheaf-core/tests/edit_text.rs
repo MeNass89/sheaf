@@ -255,3 +255,20 @@ fn text_cut_between_two_content_streams_is_exported_where_it_is_drawn() {
     assert!((b.size - 10.0).abs() < 0.01, "size {} (was 1: text space)", b.size);
     assert!(b.rect[0] >= 71.0 && b.rect[1] > 600.0, "where it is drawn: {:?}", b.rect);
 }
+
+#[test]
+fn a_space_before_a_word_in_another_style_is_kept_in_the_export() {
+    // "- General " (regular, its space drawn last) then "signs" (bold).
+    let dir = tempfile::tempdir().unwrap();
+    let doc = Doc::open(&Input::new(mixed_paragraph(dir.path()))).unwrap();
+    let pages = doc.document().export_pages();
+    let b = pages[0].blocks.iter().find(|b| b.text.contains("General")).unwrap();
+    assert!(b.text.ends_with(' '), "{:?}", b.text);
+    let out = dir.path().join("mixed.docx");
+    sheaf_core::export::to_office(&Input::new(dir.path().join("mixed.pdf")), sheaf_core::export::Office::Word, &Default::default(), &out, &mut |_| true).unwrap();
+    let xml = String::from_utf8(std::process::Command::new("unzip").arg("-p").arg(&out).arg("word/document.xml").output().unwrap().stdout).unwrap();
+    let text: String = xml.split("<w:t").skip(1).filter_map(|t| t.split_once('>').and_then(|(_, r)| r.split_once("</w:t>")).map(|(t, _)| t.to_string())).collect();
+    assert!(text.contains("General signs"), "{text}");
+    // One paragraph holds the regular and the bold run (the word in bold stays in its sentence).
+    assert!(xml.split("</w:p>").any(|p| p.contains(">- General ") && p.contains("<w:b/>") && p.contains(">signs")), "{xml}");
+}

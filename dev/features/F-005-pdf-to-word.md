@@ -88,3 +88,11 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   Reviewer 6/6/7 (was 4/3/7). Its order next: (1) spaces lost between style runs ("inconnue**pouvant**") with a
   word-level corpus check against pdftotext; (2) paragraphs outside tables (header, letter); (3) page length
   (cell padding, row heights); (4) labels in narrow merged cells; (5) OCR offer; (6) timing (4-page, 100-page).
+- 23/10 15:00, step 1 (paragraphs) and the space bug: the export now reads runs (`reading_paragraphs`: the
+  export's lines, forms included, grouped as the editor groups them, styles mixed) and each run carries its
+  paragraph; a row break is a space when the row wrapped, a line break when the author ended it, a new
+  paragraph where the row stands further below than the usual pitch. Spaces live in the runs, so none is
+  lost at a change of style ("inconnue pouvant"). The corpus reader counted w:br as nothing ("Doe12"): fixed.
+  Corpus 20/20. MICI page 1 ≈ the original (header in order, table, colours); the document is 7 pages for 4.
+  Tests: `a_space_before_a_word_in_another_style_is_kept_in_the_export` (red then green; one paragraph holds
+  both runs). Next: page length, narrow merged labels, OCR offer, timing.

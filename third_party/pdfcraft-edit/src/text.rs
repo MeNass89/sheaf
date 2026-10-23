@@ -383,7 +383,8 @@ impl TextLine {
         (self.stream, self.ops.iter().max().copied().unwrap_or(0))
     }
 
-    fn rotation(&self) -> f64 {
+    /// Counterclockwise baseline angle in user space (degrees). Sheaf: public, for the export.
+    pub fn rotation(&self) -> f64 {
         let m = Matrix(self.origin.tm).then(&Matrix(self.origin.ctm)).0;
         m[1].atan2(m[0]).to_degrees()
     }
@@ -1719,6 +1720,14 @@ pub fn clear_block(doc: &mut Document, page: usize, block: usize) -> Result<(), 
 /// The paragraphs on a page as a reader sees them, including text drawn by form XObjects
 /// (Export to Word, HTML and RTF). Read-only: indexes into this list are not
 /// [`text_blocks`] indexes, so they can't be passed to [`replace_block`] or [`rewrite_block`].
+/// Sheaf: page `page`'s text as the export reads it (forms included, as [`reading_blocks`]) but
+/// grouped as the editor groups it, styles mixed in a paragraph: the paragraphs (their `spans` index
+/// the lines returned with them, `soft_breaks` tell wraps from lines the author ended) and the lines.
+pub fn reading_paragraphs(doc: &Document, page: usize) -> Result<(Vec<TextBlock>, Vec<TextLine>), EditError> {
+    let lines = reading_lines(doc, page)?;
+    Ok((group_blocks(&lines), lines))
+}
+
 pub fn reading_blocks(doc: &Document, page: usize) -> Result<Vec<TextBlock>, EditError> {
     let lines = reading_lines(doc, page)?;
     Ok(regions::group_reading_blocks(&lines))

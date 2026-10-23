@@ -680,7 +680,7 @@ pub mod bidi;
 pub mod indic;
 pub mod text;
 pub use text::{
-    BlockStyle, LineEdit, RangeStyle, TextBlock, TextLine, clear_block, page_fills, reading_blocks, replace_block, replace_line, rewrite_block,
+    BlockStyle, LineEdit, RangeStyle, TextBlock, TextLine, clear_block, page_fills, reading_blocks, reading_paragraphs, replace_block, replace_line, rewrite_block,
     text_blocks, text_lines,
 };
 pub mod added;

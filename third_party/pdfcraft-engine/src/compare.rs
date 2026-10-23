@@ -171,26 +171,70 @@ impl crate::Document {
                 let crop_width = f64::from(info.crop[2] - info.crop[0]);
                 let display_width = f64::from(if info.rotation % 180 == 0 { info.width } else { info.height });
                 let unit = if crop_width > 0.0 && crop_width.is_finite() && display_width.is_finite() { display_width / crop_width } else { 1.0 };
-                let blocks = pdfcraft_edit::reading_blocks(cos, i)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter(|b| !b.text.trim().is_empty())
-                    .map(|b| {
-                        let f = b.base_font.to_ascii_lowercase();
-                        // Sheaf: the family Word knows it by: no subset tag, no style suffix.
-                        let family = b.base_font.rsplit('+').next().unwrap_or_default();
-                        let family = family.split([',', '-']).next().unwrap_or_default().trim_matches(|c: char| c == '*' || c.is_whitespace()).to_string();
-                        pdfcraft_export::Block { font: family,
-                            text: b.text,
-                            rect: visible_rect(b.rect),
-                            size: b.size * unit,
-                            bold: f.contains("bold") || f.contains("black") || f.contains("heavy"),
-                            italic: f.contains("italic") || f.contains("oblique"),
-                            color: b.color,
-                            rotation: b.rotation - f64::from(info.rotation),
+                // Sheaf: one block per run (a line's piece in one style), with the paragraph it is in:
+                // paragraphs as the editor groups them, styles mixed, so a word in bold stays in its
+                // sentence. A row break before a run is a space when the row wrapped, a line break
+                // ('\n') when the author ended it.
+                let (paras, lines) = pdfcraft_edit::reading_paragraphs(cos, i).unwrap_or_default();
+                let mut blocks = Vec::new();
+                let mut pid = 0usize;
+                for tb in paras.iter() {
+                    pid += 1;
+                    let breaks: Vec<usize> = tb.editor_text.match_indices('\n').map(|(k, _)| k).collect();
+                    // A row further below than the paragraph's usual line pitch (by a quarter, or 1.6
+                    // lines when there is no usual one) starts a new paragraph: Word's space between
+                    // paragraphs that the grouping joined.
+                    let tops: Vec<f64> = tb.rows.iter().map(|r| r.iter().filter_map(|i| lines.get(*i)).map(|l| l.rect[3]).fold(f64::MIN, f64::max)).collect();
+                    let pitches: Vec<f64> = tops.windows(2).map(|w| w[0] - w[1]).collect();
+                    let mut sorted = pitches.clone();
+                    sorted.sort_by(|a, b| a.total_cmp(b));
+                    let usual = (sorted.len() >= 2).then(|| sorted[sorted.len() / 2]);
+                    let split: Vec<bool> = pitches.iter().map(|p| match usual { Some(u) => *p > u * 1.25, None => *p > tb.size * 1.6 }).collect();
+                    let mut prev_end: Option<usize> = None;
+                    let mut prev_hyphen = false;
+                    for (range, li) in &tb.spans {
+                        let Some(l) = lines.get(*li) else { continue };
+                        let Some(piece) = tb.editor_text.get(range.clone()) else { continue };
+                        let mut text = String::new();
+                        if let Some(pe) = prev_end {
+                            let between = tb.editor_text.get(pe..range.start).unwrap_or_default();
+                            let at = breaks.iter().position(|&k| k >= pe && k < range.start);
+                            let new_para = at.is_some_and(|k| split.get(k).copied().unwrap_or(false));
+                            if new_para {
+                                pid += 1;
+                            }
+                            match at {
+                                _ if new_para => {}
+                                Some(k) if !tb.soft_breaks.get(k).copied().unwrap_or(true) => text.push('\n'),
+                                Some(_) if !prev_hyphen => text.push(' '),
+                                Some(_) => {}
+                                None if between.chars().any(char::is_whitespace) => text.push(' '),
+                                None => {}
+                            }
                         }
-                    })
-                    .collect();
+                        text.push_str(piece);
+                        prev_end = Some(range.end);
+                        prev_hyphen = piece.ends_with('-');
+                        if text.trim().is_empty() && !text.contains('\n') {
+                            continue;
+                        }
+                        let f = l.base_font.to_ascii_lowercase();
+                        // The family Word knows it by: no subset tag, no style suffix.
+                        let family = l.base_font.rsplit('+').next().unwrap_or_default();
+                        let family = family.split([',', '-']).next().unwrap_or_default().trim_matches(|c: char| c == '*' || c.is_whitespace()).to_string();
+                        blocks.push(pdfcraft_export::Block {
+                            font: family,
+                            para: pid,
+                            text,
+                            rect: visible_rect(l.rect),
+                            size: l.size * unit,
+                            bold: l.bold || f.contains("bold") || f.contains("black") || f.contains("heavy"),
+                            italic: l.italic || f.contains("italic") || f.contains("oblique"),
+                            color: l.color,
+                            rotation: l.rotation() - f64::from(info.rotation),
+                        });
+                    }
+                }
                 let images = pdfcraft_edit::reading_images(cos, i)
                     .unwrap_or_default()
                     .iter()
