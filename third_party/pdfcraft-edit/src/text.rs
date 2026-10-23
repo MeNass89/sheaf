@@ -59,7 +59,8 @@ pub struct TextLine {
     logical_order: bool,
     /// Sheaf: where the line jumps across more than twice its size (Word draws a row's cells, side by
     /// side, in one `TJ`): the byte in `text` after the jump, and the x (user space) where the text
-    /// before it ends and where the text after it starts. Upright lines only.
+    /// before it ends and where the text after it starts. Upright lines only. One at the end of the
+    /// text is a wide space the line ends with: where its text ends.
     pub jumps: Vec<(usize, f64, f64)>,
     /// Some of the line's text is `/ActualText`, which is already in logical order: visual-order
     /// Indic recovery would scramble it.
@@ -834,7 +835,7 @@ fn interpret(
                                 }
                                 let w = m.width(code) * ts.size + ts.char_spacing + if m.is_space(code, len) { ts.word_spacing } else { 0.0 };
                                 // Sheaf: a space made wide by word spacing (Word's way to reach the next cell).
-                                if upright && m.is_space(code, len) && w * ts.scale > ts.size * 2.0 && !text.trim().is_empty() {
+                                if upright && m.is_space(code, len) && w * ts.scale > ts.size * 2.0 {
                                     jumps.push((text.len(), trm0.apply(x_text, 0.0).0, trm0.apply(x_text + w * ts.scale, 0.0).0));
                                 }
                                 x_text += w * ts.scale;
@@ -847,7 +848,7 @@ fn interpret(
                                 if dx > ts.size * 0.2 && !text.ends_with(' ') {
                                     text.push(' ');
                                 }
-                                if upright && dx > ts.size * 2.0 && !text.trim().is_empty() {
+                                if upright && dx > ts.size * 2.0 && !text.is_empty() {
                                     jumps.push((text.len(), trm0.apply(x_text, 0.0).0, trm0.apply(x_text + dx, 0.0).0));
                                 }
                                 x_text += dx;
@@ -855,8 +856,6 @@ fn interpret(
                         }
                     }
                 }
-                // A wide space at the very end jumps nowhere: the next run is placed with its own move.
-                jumps.retain(|j: &(usize, f64, f64)| j.0 < text.len());
                 tm = Matrix([1.0, 0.0, 0.0, 1.0, x_text, 0.0]).then(&tm);
                 let end = tm.then(&ts.ctm).apply(0.0, ts.rise);
                 // The box: from descent to ascent along the run.
@@ -961,7 +960,10 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
             if gap > l.size * 0.2 && !l.text.ends_with(' ') && !s.text.starts_with(' ') {
                 l.text.push(' ');
             }
-            if gap > l.size * 2.0 {
+            // A wide space ending the line so far jumps to where this run starts (placed with its own move).
+            if let Some(j) = l.jumps.last_mut().filter(|j| j.0 == l.text.len()) {
+                j.2 = s.start_x;
+            } else if gap > l.size * 2.0 {
                 l.jumps.push((l.text.len(), last.map_or(s.start_x, |x| x.3), s.start_x));
             }
             let at = l.text.len();
@@ -1059,7 +1061,10 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
         if gap > l.size * 0.2 && !l.text.ends_with(' ') && !s.text.starts_with(' ') {
             l.text.push(' ');
         }
-        if gap > l.size * 2.0 {
+        // A wide space ending the line so far jumps to where this run starts (placed with its own move).
+        if let Some(j) = l.jumps.last_mut().filter(|j| j.0 == l.text.len()) {
+            j.2 = s.start_x;
+        } else if gap > l.size * 2.0 {
             l.jumps.push((l.text.len(), last.map_or(s.start_x, |x| x.2), s.start_x));
         }
         let at = l.text.len();

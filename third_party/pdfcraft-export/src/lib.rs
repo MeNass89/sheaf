@@ -344,15 +344,21 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]], fills: &[([f64;
     }
     // The edges of a shaded box are lines too (shaded cells with a hairline between them are a grid),
     // but Word pads a cell's shading a few points inside the cell: the edges of a box lying 1–8 pt
-    // inside another box on both sides (left and right, or top and bottom), or beside a drawn line (not a box's edge) within 8 pt, are no grid lines.
-    let boxes: Vec<[f64; 4]> = fills.iter().map(|(f, _)| *f).filter(|f| f[2] - f[0] > 2.0 && f[3] - f[1] > 2.0).take(5_000).collect();
+    // inside another box on both sides (left and right, or top and bottom), or beside a drawn line (not a box's edge) within 8 pt
+    // along most of it, are no grid lines.
+    let (boxes, colours): (Vec<[f64; 4]>, Vec<[f64; 3]>) = fills.iter().filter(|(f, _)| f[2] - f[0] > 2.0 && f[3] - f[1] > 2.0).take(5_000).copied().unzip();
     let inset = |a: f64, b: f64| (1.0..8.0).contains(&a) && (1.0..8.0).contains(&b);
+    let same = |a: &[f64; 3], b: &[f64; 3]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 0.01);
     let padded: Vec<bool> = boxes
         .iter()
-        .map(|f| {
-            boxes.iter().any(|c| {
+        .zip(&colours)
+        .map(|(f, fc)| {
+            boxes.iter().zip(&colours).any(|(c, cc)| {
                 let pad = [f[0] - c[0], f[1] - c[1], c[2] - f[2], c[3] - f[3]];
-                pad.iter().all(|p| *p >= -0.5) && (inset(pad[0], pad[2]) || inset(pad[1], pad[3]))
+                // Or one line thick within a box of its colour (Word shades each line of a turned label
+                // on its own).
+                let line = (f[2] - f[0]).min(f[3] - f[1]) <= 15.0;
+                pad.iter().all(|p| *p >= -0.5) && (inset(pad[0], pad[2]) || inset(pad[1], pad[3]) || (line && same(fc, cc) && pad.iter().any(|p| *p > 1.0)))
             })
         })
         .collect();
@@ -374,7 +380,7 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]], fills: &[([f64;
             .filter(|(k, l)| match kind[*k] {
                 None => true,
                 Some(true) => false,
-                Some(false) => !ls.iter().enumerate().any(|(m, r)| kind[m].is_none() && (r[0] - l[0]).abs() <= 8.0 && r[2].min(l[2]) - r[1].max(l[1]) > 2.0),
+                Some(false) => !ls.iter().enumerate().any(|(m, r)| kind[m].is_none() && (r[0] - l[0]).abs() <= 8.0 && r[2].min(l[2]) - r[1].max(l[1]) >= (l[2] - l[1]) * 0.8),
             })
             .map(|(_, l)| *l)
             .collect()
@@ -583,9 +589,42 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]], fills: &[([f64;
             rows.push(row);
         }
         taken.push(rect);
-        tables.push(Table { rect, cols: xs[..nc].to_vec(), rows, ruled: true });
+        let mut cols = xs[..nc].to_vec();
+        drop_unused_edges(&mut cols, &mut rows);
+        tables.push(Table { rect, cols, rows, ruled: true });
     }
     (tables, consumed)
+}
+
+/// Sheaf: grid columns no cell starts at (an edge drawn only inside merged cells, or a shading's
+/// edge): merged into the column before, so no empty sliver column is left. `cols` are the
+/// columns' left edges, `rows` the cells with their spans.
+fn drop_unused_edges(cols: &mut Vec<f64>, rows: &mut [Vec<Cell>]) {
+    for k in (1..cols.len()).rev() {
+        let needed = rows.iter().any(|row| {
+            let mut at = 0;
+            row.iter().any(|c| {
+                let starts = at == k;
+                at += c.span.max(1);
+                starts
+            })
+        });
+        if needed {
+            continue;
+        }
+        cols.remove(k);
+        for row in rows.iter_mut() {
+            let mut at = 0;
+            for c in row.iter_mut() {
+                let w = c.span.max(1);
+                if at < k && k < at + w {
+                    c.span = w - 1;
+                    break;
+                }
+                at += w;
+            }
+        }
+    }
 }
 
 /// Sheaf: a paragraph's text, its runs joined (a space where neither has one at the join).
@@ -847,15 +886,25 @@ const EMPTY_CELL_P: &str = "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" 
 fn docx_table(t: &Table, max_w: f64, left: f64) -> String {
     let mut edges = t.cols.clone();
     edges.push(t.rect[2]);
-    // Sheaf: a table wider than the text column (a page laid out edge to edge) is scaled to it.
-    let total = (t.rect[2] - t.cols.first().copied().unwrap_or(t.rect[0])).max(1.0);
-    let k = if max_w > 0.0 && total > max_w { max_w / total } else { 1.0 };
-    let widths: Vec<i64> = edges.windows(2).map(|w| ((w[1] - w[0]).max(20.0) * k * 20.0).round().clamp(60.0, 31680.0) as i64).collect();
-    let mut s = String::from("<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/>");
+    let mut widths: Vec<i64> = edges.windows(2).map(|w| ((w[1] - w[0]).max(20.0) * 20.0).round().clamp(60.0, 31680.0) as i64).collect();
     // Sheaf: indented as on the page (a title band narrower than the table below it).
-    let ind = t.cols.first().copied().unwrap_or(t.rect[0]) - left;
-    if k == 1.0 && left > 0.0 && ind > 2.0 {
-        s.push_str(&format!("<w:tblInd w:w=\"{}\" w:type=\"dxa\"/>", (ind * 20.0).round() as i64));
+    let mut ind = if left > 0.0 { ((t.cols.first().copied().unwrap_or(t.rect[0]) - left) * 20.0).round() as i64 } else { 0 };
+    if ind <= 40 {
+        ind = 0;
+    }
+    // Sheaf: a table wider than the text column, its indent included (a page laid out edge to edge),
+    // is scaled to it; the indent goes first.
+    let room = (max_w * 20.0).round() as i64;
+    if max_w > 0.0 && widths.iter().sum::<i64>() + ind > room {
+        ind = (room - widths.iter().sum::<i64>()).max(0);
+        let sum = widths.iter().sum::<i64>().max(1);
+        if sum > room {
+            widths = widths.iter().map(|w| (w * room / sum).max(60)).collect();
+        }
+    }
+    let mut s = String::from("<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/>");
+    if ind > 0 {
+        s.push_str(&format!("<w:tblInd w:w=\"{ind}\" w:type=\"dxa\"/>"));
     }
     s.push_str("<w:tblBorders>");
     // Sheaf: a ruled table keeps its borders.
@@ -1910,5 +1959,41 @@ mod tests {
         let (tables, _) = ruled_tables(&blocks, &rules, &fills);
         assert_eq!(tables.len(), 1, "{tables:?}");
         assert!((tables[0].rect[3] - 420.0).abs() < 0.5, "the border, not the shading's edge: {:?}", tables[0].rect);
+    }
+
+    #[test]
+    fn each_line_of_a_turned_label_shaded_on_its_own_makes_no_column() {
+        // Word shades each line of a turned label with a box of the cell's colour, inside the cell's box.
+        let b = |t: &str, x: f64| Block { font: String::new(), para: 0, text: t.into(), rect: [x, 420.0, x + 10.0, 480.0], size: 10.0, bold: false, italic: false, color: [0.0; 3], rotation: 90.0 };
+        let mut blocks = vec![b("Coloscopie +", 111.0), b("iléoscopie", 123.0)];
+        blocks.push(Block { rotation: 0.0, rect: [160.0, 445.0, 200.0, 455.0], ..b("Text", 0.0) });
+        let green = [0.76, 0.84, 0.61];
+        let fills = vec![([100.0, 400.0, 150.0, 500.0], green), ([110.0, 400.0, 122.0, 500.0], green), ([122.0, 400.0, 134.0, 500.0], green), ([150.5, 400.0, 300.0, 500.0], [0.9, 0.9, 0.9])];
+        let rules: Vec<[f64; 4]> = fills.iter().flat_map(|(f, _)| [[f[0], f[1], f[2], f[1]], [f[0], f[3], f[2], f[3]], [f[0], f[1], f[0], f[3]], [f[2], f[1], f[2], f[3]]]).collect();
+        let (tables, _) = ruled_tables(&blocks, &rules, &fills);
+        assert_eq!(tables.len(), 1, "{tables:?}");
+        let row: Vec<&str> = tables[0].rows[0].iter().map(|c| c.text.as_str()).collect();
+        assert_eq!(row, ["Coloscopie + iléoscopie", "Text"], "{:?}", tables[0].cols);
+    }
+
+    #[test]
+    fn a_grid_edge_no_cell_starts_at_is_dropped() {
+        let cell = |t: &str, span: usize| Cell { text: t.into(), span, ..Default::default() };
+        let mut cols = vec![0.0, 50.0, 55.0, 200.0];
+        let mut rows = vec![vec![cell("A", 1), cell("B", 2), cell("C", 1)], vec![cell("D", 1), cell("E", 2), cell("F", 1)]];
+        drop_unused_edges(&mut cols, &mut rows);
+        assert_eq!(cols, [0.0, 50.0, 200.0]);
+        assert!(rows.iter().all(|r| r.iter().map(|c| c.span).collect::<Vec<_>>() == [1, 1, 1]), "{rows:?}");
+    }
+
+    #[test]
+    fn an_indented_table_fits_the_text_column() {
+        let cell = |t: &str| Cell { text: t.into(), size: 10.0, ..Default::default() };
+        // 500 pt wide, 30 pt in from a 40 pt margin, in a 515 pt text column.
+        let t = Table { rect: [70.0, 0.0, 570.0, 20.0], cols: vec![70.0, 120.0, 125.0], rows: vec![vec![cell("A"), cell("B"), cell("C")]], ruled: true };
+        let xml = docx_table(&t, 515.0, 40.0);
+        let grid: i64 = xml.split("<w:gridCol w:w=\"").skip(1).map(|g| g.split('"').next().unwrap().parse::<i64>().unwrap()).sum();
+        let ind: i64 = xml.split("<w:tblInd w:w=\"").nth(1).map_or(0, |g| g.split('"').next().unwrap().parse().unwrap());
+        assert!(grid + ind <= 515 * 20, "{grid} + {ind}");
     }
 }

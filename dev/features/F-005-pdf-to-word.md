@@ -126,3 +126,16 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   `a_box_filled_as_a_path_is_a_fill_of_the_export`, `shading_padded_inside_a_cell_is_no_column_edge`,
   `a_box_edge_beside_a_drawn_border_is_no_grid_line`, `a_small_raised_run_after_another_is_a_superscript`;
   `symbol_font_characters_become_the_unicode_they_draw` extended. Corpus: + "no private-use characters" (25/25).
+- 24/10 01:30, reviewer 9/8/9 on b1d75f0 (function 9 agreed); its aesthetics blockers fixed:
+  - Sliver columns: Word shades each line of a turned label with its own box of the cell's colour; a box one line
+    thick inside a box of its colour is no grid line. Grid edges no cell starts at are dropped (`drop_unused_edges`).
+    A box edge beside a drawn border counts as that border only where the border runs along most of it (the
+    PC | Endoscopie edge was lost where the border started lower down). MICI page 1 PC | Endoscopie | Macroscopie,
+    page 2 "Coloscopie + iléoscopie" one label, as the source.
+  - Overflow: a table's widths plus its indent are fitted to the text column (slivers had been widened to 20 pt).
+  - A line ending or starting with a wide space: its piece now starts and ends where its text does (" Constante"
+    centred, "= 10 des cas" in its cell); a run's box past the page had sent page 3 back to 1-inch margins, which
+    squeezed "Complications" into "Complicatio/ns".
+  Tests: `each_line_of_a_turned_label_shaded_on_its_own_makes_no_column`, `a_grid_edge_no_cell_starts_at_is_dropped`,
+  `an_indented_table_fits_the_text_column`, `a_row_drawn_in_one_string_across_cells_goes_into_each_cell` (+ a run
+  starting with the wide space, red then green). Left: the "Révision" right tab, the footer logo's text.

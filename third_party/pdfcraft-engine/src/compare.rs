@@ -231,7 +231,9 @@ impl crate::Document {
                             parts.push((&text[from..pre + k], [x0, l.rect[1], end, l.rect[3]]));
                             (from, x0) = (pre + k, start);
                         }
-                        parts.push((&text[from..], [x0, l.rect[1], l.rect[2], l.rect[3]]));
+                        // The line's text ends before a wide space it ends with.
+                        let x1 = l.jumps.iter().find(|j| j.0 == piece.len()).map_or(l.rect[2], |j| j.1.min(l.rect[2]));
+                        parts.push((&text[from..], [x0, l.rect[1], x1, l.rect[3]]));
                         for (part, rect) in parts {
                             if part.trim().is_empty() && !part.contains('\n') {
                                 continue;

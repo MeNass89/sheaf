@@ -282,7 +282,7 @@ fn a_space_before_a_word_in_another_style_is_kept_in_the_export() {
 fn a_row_drawn_in_one_string_across_cells_goes_into_each_cell() {
     // Word draws a table row's cells, side by side and in one style, as one string whose spaces are
     // stretched by word spacing (Tw) to reach the next cell, the rest of a cell placed with Td:
-    // "Tabagisme | Facteur de risque".
+    // "Tabagisme | Facteur de risque"; or a run starting with the wide space ("Genetique| CRP").
     let dir = tempfile::tempdir().unwrap();
     let mut grid = String::new();
     for x in [72, 200, 400] {
@@ -291,7 +291,7 @@ fn a_row_drawn_in_one_string_across_cells_goes_into_each_cell() {
     for y in [680, 700, 720] {
         grid.push_str(&format!("72 {y} 328 0.5 re f "));
     }
-    let content = format!("{grid}BT /F2 1 Tf 0 Tc 11.2 Tw 10 0 0 10 80 704 Tm (Tabagisme Facteur )Tj 20.6 0 Td 0 Tw (de risque)Tj ET BT /F1 1 Tf 0 Tw 10 0 0 10 80 684 Tm (Genetique)Tj ET");
+    let content = format!("{grid}BT /F2 1 Tf 0 Tc 11.2 Tw 10 0 0 10 80 704 Tm (Tabagisme Facteur )Tj 20.6 0 Td 0 Tw (de risque)Tj ET BT /F1 1 Tf 0 Tw 10 0 0 10 80 684 Tm (Genetique)Tj /F2 1 Tf 11.2 Tw ( CRP)Tj ET");
     let pdf = page_pdf(dir.path(), "row.pdf", vec![content.into_bytes()]);
     let out = dir.path().join("row.docx");
     sheaf_core::export::to_office(&Input::new(pdf), sheaf_core::export::Office::Word, &Default::default(), &out, &mut |_| true).unwrap();
@@ -303,6 +303,8 @@ fn a_row_drawn_in_one_string_across_cells_goes_into_each_cell() {
         .collect();
     let cells: Vec<&str> = cells.iter().map(|c| c.trim()).collect();
     assert!(cells.windows(2).any(|w| w == ["Tabagisme", "Facteur de risque"]), "{cells:?}");
+    // A run starting with a wide space starts where its text does: in the next cell.
+    assert!(cells.windows(2).any(|w| w == ["Genetique", "CRP"]), "{cells:?}");
 }
 
 #[test]
