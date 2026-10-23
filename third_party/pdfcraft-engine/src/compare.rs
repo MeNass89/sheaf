@@ -219,11 +219,14 @@ impl crate::Document {
                             continue;
                         }
                         let f = l.base_font.to_ascii_lowercase();
+                        // Symbol fonts' characters (Word's arrows and bullets in Wingdings or Symbol,
+                        // read as private-use code points) as the Unicode characters they draw.
+                        let (text, symbols_mapped) = pdfcraft_edit::unicode_symbols(&text, &f);
                         // The family Word knows it by: no subset tag, no style suffix.
                         let family = l.base_font.rsplit('+').next().unwrap_or_default();
                         let family = family.split([',', '-']).next().unwrap_or_default().trim_matches(|c: char| c == '*' || c.is_whitespace()).to_string();
                         blocks.push(pdfcraft_export::Block {
-                            font: family,
+                            font: if symbols_mapped { String::new() } else { family },
                             para: pid,
                             text,
                             rect: visible_rect(l.rect),

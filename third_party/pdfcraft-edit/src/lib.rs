@@ -681,7 +681,7 @@ pub mod indic;
 pub mod text;
 pub use text::{
     BlockStyle, LineEdit, RangeStyle, TextBlock, TextLine, clear_block, page_fills, reading_blocks, reading_paragraphs, replace_block, replace_line, rewrite_block,
-    text_blocks, text_lines,
+    text_blocks, text_lines, unicode_symbols,
 };
 pub mod added;
 pub use added::{

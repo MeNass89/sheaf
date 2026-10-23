@@ -101,3 +101,12 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   MICI 4 pages 0.12 s / 25 MB; 100 pages of Greenberg 6.6 s / 101 MB. Scanned PDFs: the probe flags a file
   whose first 3 pages carry under 20 characters each; PDF to Word/PowerPoint/Excel then say it looks scanned
   and to choose OCR (the OCR choice itself existed). gui-smoke 17; files test.
+- 23/10 19:30, page length: empty and merged cells took Word's Normal paragraph (11 pt, 6 pt after) and stretched
+  every row; they are now 1 pt (`EMPTY_CELL_P`). Margins come from the content's extent. Lines repeated at the
+  same place on most pages go once into Word's header and footer parts (`running`). Wingdings and Symbol
+  private-use characters become the Unicode they draw (`unicode_symbols`, → ≥ •). Pieces of one line are
+  ordered left to right. Title bands whose text sits centred are centred (`w:jc`). MICI: 4 pages for 4, page 1
+  side by side ≈ the original (header, bands, colours, labels, footer). Corpus 20/20.
+  Tests: `running_lines_go_to_the_header_and_footer_once`, `empty_and_merged_cells_take_no_height`,
+  `symbol_font_characters_become_the_unicode_they_draw` (pdfcraft-edit, whose lib tests the suite runs: the
+  engine's are vendored without their `tests.rs`).

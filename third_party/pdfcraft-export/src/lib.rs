@@ -82,6 +82,8 @@ pub struct Cell {
     pub blocks: Vec<Block>,
     /// Sheaf: the cell's shading (RGB 0–1), when a filled rectangle covers most of it.
     pub fill: Option<[f64; 3]>,
+    /// Sheaf: its lines are centred in it (a title band).
+    pub centered: bool,
 }
 
 /// A table detected from the page's text layout: rows of cells, and the left edge of each
@@ -522,6 +524,14 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]], fills: &[([f64;
                         (cell.size, cell.bold, cell.italic, cell.color) = (first.size, first.bold, first.italic, first.color);
                         cell.vertical = (first.rotation - 90.0).abs() < 1.0;
                         cell.blocks = bs.iter().map(|&b| blocks[b].clone()).collect();
+                        // Centred: as much room left as right of its text, and some (not a full line).
+                        let (cx0, cx1) = (xs[ocol], xs[ocol + span]);
+                        let (tx0, tx1) = (
+                            bs.iter().map(|&b| blocks[b].rect[0]).fold(f64::MAX, f64::min),
+                            bs.iter().map(|&b| blocks[b].rect[2]).fold(f64::MIN, f64::max),
+                        );
+                        let (gl, gr, w) = (tx0 - cx0, cx1 - tx1, (cx1 - cx0).max(1.0));
+                        cell.centered = !cell.vertical && gl > w * 0.08 && (gl - gr).abs() < w * 0.06;
                     }
                     cell.merge = u8::from(tall);
                 } else {
@@ -587,7 +597,19 @@ fn items(pages: &[Page]) -> Vec<Item<'_>> {
         parts.extend(tables.into_iter().map(|t| (t.rect[3], t.rect[0], Item::Table(t))));
         parts.extend(p.images.iter().map(|im| (im.rect[3], im.rect[0], Item::Img(im))));
         parts.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.total_cmp(&b.1)));
-        out.extend(parts.into_iter().map(|x| x.2));
+        // Sheaf: parts whose tops are within 4 pt are on one line (a bigger font stands taller):
+        // left to right there ("R2C : Rang A…" before "Révision…" at the line's right end).
+        let mut lines: Vec<Vec<(f64, f64, Item)>> = Vec::new();
+        for part in parts {
+            match lines.last_mut() {
+                Some(l) if (l[0].0 - part.0).abs() <= 4.0 => l.push(part),
+                _ => lines.push(vec![part]),
+            }
+        }
+        for mut l in lines {
+            l.sort_by(|a, b| a.1.total_cmp(&b.1));
+            out.extend(l.into_iter().map(|x| x.2));
+        }
     }
     out
 }
@@ -729,11 +751,19 @@ fn run_xml_font(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3]
 /// (by more than half its size) starts a new paragraph.
 fn cell_paragraphs(c: &Cell) -> String {
     if c.blocks.is_empty() {
+        // Sheaf: an empty cell takes no height of its own.
+        if c.text.trim().is_empty() {
+            return EMPTY_CELL_P.to_string();
+        }
         return format!("<w:p>{}</w:p>", run_xml(&c.text, c.size, c.bold, c.italic, c.color));
     }
     // Tight, as the lines are on the page (Word's default spacing would double a dense fiche).
-    const P: &str = "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"240\" w:lineRule=\"auto\"/></w:pPr>";
-    let mut s = String::from(P);
+    let open = if c.centered {
+        "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"240\" w:lineRule=\"auto\"/><w:jc w:val=\"center\"/></w:pPr>"
+    } else {
+        "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"240\" w:lineRule=\"auto\"/></w:pPr>"
+    };
+    let mut s = String::from(open);
     let mut prev: Option<&Block> = None;
     for b in &c.blocks {
         let mut text = b.text.as_str();
@@ -741,7 +771,7 @@ fn cell_paragraphs(c: &Cell) -> String {
             let mid = |x: &Block| (x.rect[1] + x.rect[3]) / 2.0;
             if mid(p) - mid(b) > b.size.max(p.size) * 0.5 {
                 s.push_str("</w:p>");
-                s.push_str(P);
+                s.push_str(open);
                 // A new paragraph already: not the line break or space the run starts with too.
                 text = text.trim_start();
             } else if (b.para == 0 || b.para != p.para) && !p.text.ends_with(char::is_whitespace) && !b.text.starts_with(char::is_whitespace) && b.rect[0] - p.rect[2] > b.size * 0.15 {
@@ -757,6 +787,9 @@ fn cell_paragraphs(c: &Cell) -> String {
     s.push_str("</w:p>");
     s
 }
+
+/// Sheaf: an empty paragraph in a table cell, 1 pt high.
+const EMPTY_CELL_P: &str = "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"20\" w:lineRule=\"exact\"/></w:pPr></w:p>";
 
 fn docx_table(t: &Table, max_w: f64) -> String {
     let mut edges = t.cols.clone();
@@ -799,13 +832,15 @@ fn docx_table(t: &Table, max_w: f64) -> String {
             // A vertical label, merged down or not (an earlier export made LibreOffice abort on it in
             // merged cells; the cause was elsewhere, it lays them out now).
             let dir = if c.vertical { "<w:textDirection w:val=\"btLr\"/>" } else { "" };
-            let text = if c.merge == 2 { "<w:p/>".to_string() } else { cell_paragraphs(c) };
+            // A cell merged into the one above holds an empty paragraph: 1 pt high, or its default
+            // spacing (and the 11 pt default font) would make the row taller than its text.
+            let text = if c.merge == 2 { EMPTY_CELL_P.to_string() } else { cell_paragraphs(c) };
             s.push_str(&format!("<w:tc><w:tcPr><w:tcW w:w=\"{w}\" w:type=\"dxa\"/>{span}{merge}{shd}{dir}</w:tcPr>{text}</w:tc>"));
         }
         // Pad the grid so every row covers all columns (Word rejects short rows).
         let used: usize = row.iter().map(|c| c.span).sum();
         for _ in used..t.cols.len() {
-            s.push_str("<w:tc><w:tcPr><w:tcW w:w=\"0\" w:type=\"auto\"/></w:tcPr><w:p/></w:tc>");
+            s.push_str(&format!("<w:tc><w:tcPr><w:tcW w:w=\"0\" w:type=\"auto\"/></w:tcPr>{EMPTY_CELL_P}</w:tc>"));
         }
         s.push_str("</w:tr>");
     }
@@ -932,12 +967,115 @@ fn margins(page: &Page) -> (i64, i64) {
 }
 
 fn section(page: &Page) -> String {
+    section_with(page, &Running::default())
+}
+
+/// Sheaf: lines repeated at the same place on most pages (a running header or footer): written once
+/// in Word's header and footer parts, kept out of each page's body.
+#[derive(Default)]
+struct Running {
+    header: Vec<Block>,
+    footer: Vec<Block>,
+    /// Distance from the page's top to the header's top, and from its bottom to the footer's bottom
+    /// (twips).
+    header_at: i64,
+    footer_at: i64,
+}
+
+/// The running header and footer of `pages`, and the pages without them. A line counts when its text
+/// is found within 6 pt of the same height, in the top or bottom eighth of the page, on at least half
+/// the pages (two at least).
+fn running(pages: &[Page]) -> (Running, Vec<Page>) {
+    let mut out = Running::default();
+    if pages.len() < 2 {
+        return (out, pages.to_vec());
+    }
+    let band = |p: &Page, b: &Block| -> Option<bool> {
+        let h = p.height.max(1.0);
+        if b.rect[1] > h * 0.88 {
+            Some(true)
+        } else if b.rect[3] < h * 0.12 {
+            Some(false)
+        } else {
+            None
+        }
+    };
+    let key = |b: &Block| (b.text.split_whitespace().collect::<Vec<_>>().join(" "), (b.rect[1] / 6.0).round() as i64);
+    let mut count: std::collections::HashMap<(String, i64), usize> = std::collections::HashMap::new();
+    for p in pages {
+        let mut seen = std::collections::HashSet::new();
+        for b in p.blocks.iter().filter(|b| band(p, b).is_some() && !b.text.trim().is_empty()) {
+            if seen.insert(key(b)) {
+                *count.entry(key(b)).or_default() += 1;
+            }
+        }
+    }
+    let need = (pages.len() / 2).max(2);
+    let repeated = |b: &Block| count.get(&key(b)).is_some_and(|n| *n >= need);
+    // The header and footer as on the first page that has them.
+    if let Some(p) = pages.iter().find(|p| p.blocks.iter().any(|b| band(p, b).is_some() && repeated(b))) {
+        for b in p.blocks.iter().filter(|b| repeated(b)) {
+            match band(p, b) {
+                Some(true) => out.header.push(b.clone()),
+                Some(false) => out.footer.push(b.clone()),
+                None => {}
+            }
+        }
+        let top = out.header.iter().map(|b| b.rect[3]).fold(f64::MIN, f64::max);
+        let bottom = out.footer.iter().map(|b| b.rect[1]).fold(f64::MAX, f64::min);
+        out.header_at = if out.header.is_empty() { 0 } else { ((p.height - top).max(0.0) * 20.0).round() as i64 };
+        out.footer_at = if out.footer.is_empty() { 0 } else { (bottom.max(0.0) * 20.0).round() as i64 };
+    }
+    let rest = pages
+        .iter()
+        .map(|p| Page { blocks: p.blocks.iter().filter(|b| !(band(p, b).is_some() && repeated(b))).cloned().collect(), ..p.clone() })
+        .collect();
+    (out, rest)
+}
+
+/// Sheaf: a header or footer part's paragraphs: blocks on one line (tops within 4 pt) are one
+/// paragraph, left to right, a tab between pieces far apart.
+fn running_part(blocks: &[Block], tag: &str) -> String {
+    let mut bs: Vec<&Block> = blocks.iter().collect();
+    bs.sort_by(|a, b| b.rect[3].total_cmp(&a.rect[3]));
+    let mut lines: Vec<Vec<&Block>> = Vec::new();
+    for b in bs {
+        match lines.last_mut() {
+            Some(l) if (l[0].rect[3] - b.rect[3]).abs() <= 4.0 => l.push(b),
+            _ => lines.push(vec![b]),
+        }
+    }
+    let mut body = String::new();
+    for mut l in lines {
+        l.sort_by(|a, b| a.rect[0].total_cmp(&b.rect[0]));
+        body.push_str("<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr>");
+        for (k, b) in l.iter().enumerate() {
+            if k > 0 && b.rect[0] - l[k - 1].rect[2] > b.size * 3.0 {
+                body.push_str("<w:r><w:tab/></w:r>");
+            }
+            body.push_str(&run_xml_font(&b.text, b.size, b.bold, b.italic, b.color, &b.font));
+        }
+        body.push_str("</w:p>");
+    }
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<w:{tag} xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">{body}</w:{tag}>"
+    )
+}
+
+fn section_with(page: &Page, run: &Running) -> String {
     let (pw, ph) = word_page_size(page);
     let (mx, my) = margins(page);
+    let mut refs = String::new();
+    if !run.header.is_empty() {
+        refs.push_str("<w:headerReference w:type=\"default\" r:id=\"rIdHeader\"/>");
+    }
+    if !run.footer.is_empty() {
+        refs.push_str("<w:footerReference w:type=\"default\" r:id=\"rIdFooter\"/>");
+    }
+    let header = if run.header.is_empty() { my / 2 } else { run.header_at.min(my) };
+    let footer = if run.footer.is_empty() { my / 2 } else { run.footer_at.min(my) };
     format!(
-        "<w:sectPr><w:type w:val=\"nextPage\"/><w:pgSz w:w=\"{pw}\" w:h=\"{ph}\"/><w:pgMar w:top=\"{my}\" w:right=\"{mx}\" w:bottom=\"{my}\" w:left=\"{mx}\" w:header=\"{}\" w:footer=\"{}\" w:gutter=\"0\"/></w:sectPr>",
-        my / 2,
-        my / 2
+        "<w:sectPr>{refs}<w:type w:val=\"nextPage\"/><w:pgSz w:w=\"{pw}\" w:h=\"{ph}\"/><w:pgMar w:top=\"{my}\" w:right=\"{mx}\" w:bottom=\"{my}\" w:left=\"{mx}\" w:header=\"{header}\" w:footer=\"{footer}\" w:gutter=\"0\"/></w:sectPr>"
     )
 }
 
@@ -949,6 +1087,9 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
     // Word needs a paragraph between adjacent tables and after the last one in the body.
     let mut after_table = false;
     let run = |b: &Block| run_xml_font(&b.text, b.size, b.bold, b.italic, b.color, &b.font);
+    // Sheaf: a running header and footer go to Word's own parts.
+    let (running, pages) = running(pages);
+    let pages = pages.as_slice();
     let mut shape_id = 0usize;
     for (page_index, page) in pages.iter().enumerate() {
         let (pw, _) = word_page_size(page);
@@ -1009,13 +1150,13 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
         if page_index + 1 < pages.len() {
             body.push_str(&format!(
                 "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"20\" w:lineRule=\"exact\"/>{}</w:pPr></w:p>",
-                section(page)
+                section_with(page, &running)
             ));
         } else {
             if after_table || page.blocks.is_empty() && page.images.is_empty() {
                 body.push_str("<w:p><w:pPr><w:spacing w:after=\"0\" w:line=\"20\" w:lineRule=\"exact\"/></w:pPr></w:p>");
             }
-            body.push_str(&section(page));
+            body.push_str(&section_with(page, &running));
         }
         after_table = false;
     }
@@ -1047,6 +1188,14 @@ xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawin
             i + 1
         ));
     }
+    if !running.header.is_empty() {
+        doc_rels.push_str("<Relationship Id=\"rIdHeader\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/header\" Target=\"header1.xml\"/>");
+        types = types.replace("</Types>", "<Override PartName=\"/word/header1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml\"/></Types>");
+    }
+    if !running.footer.is_empty() {
+        doc_rels.push_str("<Relationship Id=\"rIdFooter\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer\" Target=\"footer1.xml\"/>");
+        types = types.replace("</Types>", "<Override PartName=\"/word/footer1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml\"/></Types>");
+    }
     doc_rels.push_str("</Relationships>");
     let styles = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">\
 <w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/><w:pPr><w:spacing w:after=\"120\"/></w:pPr></w:style>\
@@ -1064,6 +1213,12 @@ xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawin
     z.add("word/document.xml", doc.as_bytes(), true);
     z.add("word/styles.xml", styles.as_bytes(), true);
     z.add("word/_rels/document.xml.rels", doc_rels.as_bytes(), true);
+    if !running.header.is_empty() {
+        z.add("word/header1.xml", running_part(&running.header, "hdr").as_bytes(), true);
+    }
+    if !running.footer.is_empty() {
+        z.add("word/footer1.xml", running_part(&running.footer, "ftr").as_bytes(), true);
+    }
     for (name, im) in &media {
         z.add(&format!("word/media/{name}"), &im.bytes, false);
     }
@@ -1628,10 +1783,33 @@ mod tests {
         assert_eq!(tables.len(), 2, "{tables:?}");
         let band = tables.iter().find(|t| t.rows.len() == 1 && t.rows[0].len() == 1).expect("the band is a one-cell table");
         assert_eq!(band.rows[0][0].text, "TITLE");
+        assert!(!band.rows[0][0].centered, "TITLE starts near the band's left edge");
         assert!(band.rows[0][0].fill.is_some());
         let grid = tables.iter().find(|t| t.rows[0].len() == 2).unwrap();
         assert!(grid.rows[0][0].fill.is_some() && grid.rows[0][1].fill.is_none(), "only the shaded cell");
         let xml = docx_table(grid, 0.0);
         assert!(xml.contains("<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"D6E3BD\"/>") || xml.contains("w:fill=\"D6E3BC\""), "{xml}");
+    }
+
+    #[test]
+    fn running_lines_go_to_the_header_and_footer_once() {
+        let b = |t: &str, y: f64| Block { font: String::new(), para: 0, text: t.into(), rect: [72.0, y, 200.0, y + 10.0], size: 10.0, bold: false, italic: false, color: [0.0; 3], rotation: 0.0 };
+        let page = |body: &str| Page { width: 595.0, height: 842.0, blocks: vec![b("R2C Rank A", 820.0), b(body, 400.0), b("CODEX", 20.0)], images: vec![], rules: vec![], fills: vec![] };
+        let (run, rest) = running(&[page("one"), page("two"), page("three")]);
+        assert_eq!(run.header.iter().map(|b| b.text.as_str()).collect::<Vec<_>>(), ["R2C Rank A"]);
+        assert_eq!(run.footer.iter().map(|b| b.text.as_str()).collect::<Vec<_>>(), ["CODEX"]);
+        assert!(rest.iter().all(|p| p.blocks.len() == 1), "the body keeps only its own lines");
+        let section = section_with(&rest[0], &run);
+        assert!(section.contains("w:headerReference") && section.contains("w:footerReference"), "{section}");
+        // One page alone has no running lines.
+        assert!(running(&[page("one")]).0.header.is_empty());
+    }
+
+    #[test]
+    fn empty_and_merged_cells_take_no_height() {
+        assert!(cell_paragraphs(&Cell::default()).contains("w:line=\"20\" w:lineRule=\"exact\""));
+        let t = Table { rows: vec![vec![Cell { text: "A".into(), size: 10.0, ..Default::default() }, Cell { merge: 2, ..Default::default() }]], rect: [0.0, 0.0, 200.0, 20.0], cols: vec![0.0, 100.0, 200.0], ruled: true };
+        let xml = docx_table(&t, 0.0);
+        assert!(xml.contains(EMPTY_CELL_P), "{xml}");
     }
 }

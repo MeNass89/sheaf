@@ -1720,6 +1720,49 @@ pub fn clear_block(doc: &mut Document, page: usize, block: usize) -> Result<(), 
 /// The paragraphs on a page as a reader sees them, including text drawn by form XObjects
 /// (Export to Word, HTML and RTF). Read-only: indexes into this list are not
 /// [`text_blocks`] indexes, so they can't be passed to [`replace_block`] or [`rewrite_block`].
+/// Sheaf: `text` drawn in a symbol font (`font`, lowercase): Wingdings' and Symbol's characters read
+/// as private-use code points (U+F0xx) mapped to the Unicode characters they draw. Returns the text and
+/// whether it needs the symbol font no more (every such character mapped).
+pub fn unicode_symbols(text: &str, font: &str) -> (String, bool) {
+    let table: &[(char, char)] = if font.contains("wingdings 3") || font.contains("wingdings3") {
+        &[('\u{f092}', '➔'), ('\u{f0e0}', '➔'), ('\u{f075}', '▲'), ('\u{f071}', '▼'), ('\u{f0c6}', '➔')]
+    } else if font.contains("wingdings") {
+        &[
+            ('\u{f0e0}', '→'),
+            ('\u{f0df}', '←'),
+            ('\u{f0e1}', '↑'),
+            ('\u{f0e2}', '↓'),
+            ('\u{f0e8}', '➔'),
+            ('\u{f0d8}', '➢'),
+            ('\u{f0a7}', '▪'),
+            ('\u{f06c}', '●'),
+            ('\u{f06e}', '■'),
+            ('\u{f076}', '❖'),
+            ('\u{f0fc}', '✓'),
+            ('\u{f0fb}', '✗'),
+            ('\u{f0b7}', '•'),
+        ]
+    } else if font.contains("symbol") {
+        &[('\u{f0b7}', '•'), ('\u{f0ae}', '→'), ('\u{f0ac}', '←'), ('\u{f0b3}', '≥'), ('\u{f0a3}', '≤'), ('\u{f0b1}', '±'), ('\u{f0b4}', '×')]
+    } else {
+        return (text.to_string(), false);
+    };
+    let mut all = true;
+    let out = text
+        .chars()
+        .map(|c| match table.iter().find(|(from, _)| *from == c) {
+            Some((_, to)) => *to,
+            None => {
+                if ('\u{f000}'..='\u{f0ff}').contains(&c) {
+                    all = false;
+                }
+                c
+            }
+        })
+        .collect();
+    (out, all)
+}
+
 /// Sheaf: page `page`'s text as the export reads it (forms included, as [`reading_blocks`]) but
 /// grouped as the editor groups it, styles mixed in a paragraph: the paragraphs (their `spans` index
 /// the lines returned with them, `soft_breaks` tell wraps from lines the author ended) and the lines.
@@ -2323,6 +2366,15 @@ pub(crate) fn translate_blocks(doc: &mut Document, page: usize, indexes: &[usize
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn symbol_font_characters_become_the_unicode_they_draw() {
+        assert_eq!(unicode_symbols("\u{f0e0} Exploration", "wingdings-regular"), ("→ Exploration".to_string(), true));
+        assert_eq!(unicode_symbols("\u{f0b3} 5", "symbol"), ("≥ 5".to_string(), true));
+        // An unknown glyph keeps the font, so it still draws.
+        assert!(!unicode_symbols("\u{f0e0}\u{f001}", "wingdings").1);
+        assert_eq!(unicode_symbols("\u{f0e0}", "calibri"), ("\u{f0e0}".to_string(), false));
+    }
 
     #[test]
     fn paragraph_wrapping_keeps_ideographic_spaces() {
