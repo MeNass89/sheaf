@@ -7,24 +7,24 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 ## Queue (next first)
 | # | id | weight | component | main | F · A · P → overall | next |
 |---|---|---|---|---|---|---|
-| 1 | C-security-010 | strong | Mark an area or text for redaction | acrobat | 6 · 7 · 8 → **6** | mark by text selection |
-| 2 | C-edit-001 | strong | Enter edit mode | pdfexpert | 7 · 8 · 9 → **7** | edit mode inside the reader, not a separate tool flow |
-| 3 | C-edit-007 | strong | Move, resize and select page objects | acrobat | 7 · 8 · 9 → **7** | resize handles, move existing page objects (engine MoveObjects) |
-| 4 | C-files-015 | strong | Manage a tool's input files | ilovepdf | 7 · 7 · 8 → **7** | drag reorder |
-| 5 | C-organize-015 | strong | Split by page ranges or split points | ilovepdf | 8 · 7 · 8 → **7** | split points chosen visually |
-| 6 | C-organize-021 | strong | Merge files into one PDF | ilovepdf | 7 · 7 · 8 → **7** | per-file page ranges |
-| 7 | C-output-004 | strong | Run progress and cancel | ours | 8 · 7 · 8 → **7** | — |
-| 8 | C-output-007 | strong | Print a document | pdfexpert | 8 · 7 · 9 → **7** | print via the OS |
-| 9 | C-platform-011 | strong | Open files from the system | ours | 7 · 7 · 9 → **7** | registered as Alternate viewer on macOS |
-| 10 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | macOS notarisation (needs Nassim's Apple account) |
-| 11 | C-security-015 | strong | Apply redactions | acrobat | 8 · 7 · 8 → **7** | preview of the redacted output |
-| 12 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 8 · 9 · 9 → **8** | needs LibreOffice installed; no sheet/print-area options |
-| 13 | C-files-002 | strong | Drag and drop files to open | ilovepdf | 8 · 8 · 9 → **8** | drop on the reader opens the document |
-| 14 | C-optimize-001 | strong | Compress a PDF (levels) | ilovepdf | 8 · 8 · 8 → **8** | seed bug: Save after Compress needs Enter; fonts/vector recompression |
-| 15 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |
-| 16 | C-organize-001 | strong | Open page organizer grid | pdfexpert | 8 · 8 · 9 → **8** | grid in the reader; multi-select; several files |
-| 17 | C-output-002 | strong | Save as a new file | pdfexpert | 8 · 9 · 9 → **8** | seed bug: the Save panel's Save button ignores clicks, only Enter works |
-| 18 | C-reader-010 | strong | Gesture zoom and pan | pdfexpert | 8 · 8 · 8 → **8** | pinch zoom and drag-pan (hand tool / space-drag) |
+| 1 | C-edit-001 | strong | Enter edit mode | pdfexpert | 7 · 8 · 9 → **7** | edit mode inside the reader, not a separate tool flow |
+| 2 | C-edit-007 | strong | Move, resize and select page objects | acrobat | 7 · 8 · 9 → **7** | resize handles, move existing page objects (engine MoveObjects) |
+| 3 | C-files-015 | strong | Manage a tool's input files | ilovepdf | 7 · 7 · 8 → **7** | drag reorder |
+| 4 | C-organize-015 | strong | Split by page ranges or split points | ilovepdf | 8 · 7 · 8 → **7** | split points chosen visually |
+| 5 | C-organize-021 | strong | Merge files into one PDF | ilovepdf | 7 · 7 · 8 → **7** | per-file page ranges |
+| 6 | C-output-004 | strong | Run progress and cancel | ours | 8 · 7 · 8 → **7** | — |
+| 7 | C-output-007 | strong | Print a document | pdfexpert | 8 · 7 · 9 → **7** | print via the OS |
+| 8 | C-platform-011 | strong | Open files from the system | ours | 7 · 7 · 9 → **7** | registered as Alternate viewer on macOS |
+| 9 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | macOS notarisation (needs Nassim's Apple account) |
+| 10 | C-security-015 | strong | Apply redactions | acrobat | 8 · 7 · 8 → **7** | preview of the redacted output |
+| 11 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 8 · 9 · 9 → **8** | needs LibreOffice installed; no sheet/print-area options |
+| 12 | C-files-002 | strong | Drag and drop files to open | ilovepdf | 8 · 8 · 9 → **8** | drop on the reader opens the document |
+| 13 | C-optimize-001 | strong | Compress a PDF (levels) | ilovepdf | 8 · 8 · 8 → **8** | seed bug: Save after Compress needs Enter; fonts/vector recompression |
+| 14 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |
+| 15 | C-organize-001 | strong | Open page organizer grid | pdfexpert | 8 · 8 · 9 → **8** | grid in the reader; multi-select; several files |
+| 16 | C-output-002 | strong | Save as a new file | pdfexpert | 8 · 9 · 9 → **8** | seed bug: the Save panel's Save button ignores clicks, only Enter works |
+| 17 | C-reader-010 | strong | Gesture zoom and pan | pdfexpert | 8 · 8 · 8 → **8** | pinch zoom and drag-pan (hand tool / space-drag) |
+| 18 | C-security-010 | strong | Mark an area or text for redaction | acrobat | 8 · 8 · 9 → **8** | mark by text selection |
 | 19 | C-annotate-008 | normal | Add callout or speech bubble | acrobat | 0 · 0 · 0 → **0** | after core |
 | 20 | C-annotate-021 | normal | Add link annotation | preview | 0 · 0 · 0 → **0** | with edit links |
 | 21 | C-compare-005 | normal | View documents side by side, synced | stirling | 0 · 0 · 0 → **0** | synced side-by-side view |
@@ -85,7 +85,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | platform | 14 | 3.5 | 2 |
 | preferences | 14 | 2.8 | 4 |
 | reader | 64 | 5.9 | 41 |
-| security | 18 | 5.4 | 6 |
+| security | 18 | 5.6 | 6 |
 | sign | 18 | 4.4 | 7 |
 
 ## Closed
