@@ -54,3 +54,14 @@ Main app: iLovePDF (OCR to a searchable PDF, language choice). Also Acrobat (Rec
   so it sits where the scan draws it. Each word is now followed by a space in the layer, as Tesseract writes it
   (pdftotext ran tilted words together). 2.5° page: 93.3 % of its words (`pdftotext -raw`), the straight page 93.4 %.
   Tests `a_scan_fed_in_askew_is_read` (red without: 4 of 102 words), `a_page_slant_is_measured_and_straightened`.
+- 24/10 12:00, benchmark against Tesseract 5.3.4 (`fra`) on the same 4-page scan (words of the source found in the
+  text: Sheaf via `pdftotext -raw`, Tesseract's own text output). Words that touch on a line (two read in one ocrs
+  box) are now pulled apart so they extract as two (`apart`, test `words_that_touch_are_pulled_apart`): 94.6 →
+  95.7 %. Splitting words at ocrs' gaps where the model read no space was tried and dropped (95.4 %).
+
+  | | p1 | p2 | p3 | p4 | all | accented | time (4 pages) | memory |
+  |---|---|---|---|---|---|---|---|---|
+  | Sheaf, release | 96.1 % | 97.1 % | 93.6 % | 95.5 % | 95.7 % | 370/384 | 62 s | 234 MB |
+  | Tesseract fra | 98.4 % | 96.4 % | 94.3 % | 95.0 % | 96.4 % | 369/384 | 47 s | 8 MB |
+
+  Release build 2.5× faster than the debug one (62 s against 155 s); this VM has one physical core.

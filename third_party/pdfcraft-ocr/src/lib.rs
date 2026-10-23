@@ -281,7 +281,8 @@ impl Ocr {
             let rect = found.iter().fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]);
             let read = latin.read_line(&rgb, width as usize, height as usize, rect).map_err(OcrError::Recognize)?;
             let scores: Vec<f32> = read.iter().map(|r| r.2).collect();
-            let words = place_words(read, &found);
+            let mut words = place_words(read, &found);
+            apart(&mut words);
             Ok((!words.is_empty()).then_some((Line { words }, scores)))
         };
         let workers = std::thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 8).min(lines.len().max(1));
@@ -546,6 +547,21 @@ fn turned(rgb: &[u8], width: usize, height: usize, b: [f32; 4], turn: Turn) -> (
     (out, ch, cw, back)
 }
 
+/// Sheaf: words of a line that touch or overlap (two read in one box ocrs found) pulled apart, a
+/// fifth of their height between them, so a reader of the text sees two words ("de" "cause", not
+/// "decause").
+fn apart(words: &mut [Word]) {
+    for k in 1..words.len() {
+        let (a, b) = (words[k - 1].rect, words[k].rect);
+        let gap = 0.2 * (a[3] - a[1]).max(b[3] - b[1]);
+        if b[0] - a[2] < gap && b[0] > a[0] && b[2] > a[2] {
+            let mid = ((a[2] + b[0]) / 2.0).clamp(a[0] + gap, b[2] - gap);
+            words[k - 1].rect[2] = (mid - gap / 2.0).max(a[0] + 1.0);
+            words[k].rect[0] = (mid + gap / 2.0).min(b[2] - 1.0);
+        }
+    }
+}
+
 /// Sheaf: the words read on a line, placed: with the boxes ocrs found, in order, when there are as
 /// many as words (the usual case); else (ocrs found "cause inconnue" as one word) each where the
 /// model read it across the line, as tall as the boxes it overlaps.
@@ -737,6 +753,15 @@ mod tests {
         let to_user = |x: f32, y: f32| [x as f64, 100.0 - y as f64];
         let w = PlacedWord::place(&Word { text: "Bio".into(), rect: [10.0, 20.0, 20.0, 60.0], turn: Turn::Up, ..Default::default() }, to_user);
         assert_eq!((w.origin, w.across, w.up), ([20.0, 40.0], [0.0, 40.0], [-10.0, 0.0]));
+    }
+
+    #[test]
+    fn words_that_touch_are_pulled_apart() {
+        let w = |x0: f32, x1: f32| Word { text: "w".into(), rect: [x0, 0.0, x1, 10.0], ..Default::default() };
+        let mut words = vec![w(0.0, 20.0), w(18.0, 40.0), w(60.0, 80.0)];
+        apart(&mut words);
+        assert!(words[1].rect[0] - words[0].rect[2] >= 1.9, "{words:?}");
+        assert_eq!(words[2].rect, [60.0, 0.0, 80.0, 10.0], "words already apart are left");
     }
 
     #[test]
