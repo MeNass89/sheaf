@@ -159,10 +159,13 @@ pub(crate) enum Cmd {
         #[arg(required = true, num_args = 1..)]
         images: Vec<PathBuf>,
         /// Place each image on an A4 page with a 0.5 in margin (default: page fits the image)
-        #[arg(long)]
+        #[arg(long, group = "paper")]
         a4: bool,
-        /// Landscape A4 (with --a4)
-        #[arg(long, requires = "a4")]
+        /// Place each image on a US Letter page with a 0.5 in margin
+        #[arg(long, group = "paper")]
+        letter: bool,
+        /// Landscape paper (with --a4 or --letter)
+        #[arg(long, requires = "paper")]
         landscape: bool,
         /// The PDF to write
         #[arg(short, long)]

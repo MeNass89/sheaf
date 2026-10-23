@@ -46,9 +46,9 @@ impl Inbox {
 pub struct Plan {
     /// PDFs to keep on Home for the next tool (same landing as a PDF dropped on Home).
     pub open: Vec<PathBuf>,
-    /// Office and HTML files, each with the tool that turns it into a PDF (Word, PowerPoint,
-    /// Excel or HTML to PDF), in the order they came: opened in that tool, as Acrobat creates a
-    /// PDF from an Office file it is asked to open.
+    /// Images, Office and HTML files, each with the tool that turns it into a PDF (JPG, Word,
+    /// PowerPoint, Excel or HTML to PDF), in the order they came: opened in that tool, as Acrobat
+    /// creates a PDF from a file it is asked to open.
     pub convert: Vec<(sheaf_core::tools::ToolId, Vec<PathBuf>)>,
     /// A toast about the files left out, shown instead of "Choose a tool".
     pub notice: Option<String>,
@@ -88,10 +88,10 @@ pub fn plan(paths: Vec<PathBuf>) -> Plan {
     Plan { open, convert, notice }
 }
 
-/// The tool that makes a PDF of `p` (an Office or HTML file), if one does.
+/// The tool that makes a PDF of `p` (an image, an Office or HTML file), if one does.
 fn to_pdf_tool(p: &Path) -> Option<sheaf_core::tools::ToolId> {
     use sheaf_core::tools::ToolId;
-    [ToolId::WordToPdf, ToolId::PowerPointToPdf, ToolId::ExcelToPdf, ToolId::HtmlToPdf].into_iter().find(|t| files::accepts(*t, p))
+    [ToolId::JpgToPdf, ToolId::WordToPdf, ToolId::PowerPointToPdf, ToolId::ExcelToPdf, ToolId::HtmlToPdf].into_iter().find(|t| files::accepts(*t, p))
 }
 
 /// Command-line arguments that name files (macOS may add a `-psn_…` switch on old systems).
@@ -215,8 +215,8 @@ mod tests {
         let a = dir.path().join("a.pdf");
         let b = dir.path().join("B.PDF");
         let txt = dir.path().join("notes.txt");
-        let (doc, ppt, doc2) = (dir.path().join("r.docx"), dir.path().join("s.pptx"), dir.path().join("t.odt"));
-        for p in [&a, &b, &txt, &doc, &ppt, &doc2] {
+        let (doc, ppt, doc2, png) = (dir.path().join("r.docx"), dir.path().join("s.pptx"), dir.path().join("t.odt"), dir.path().join("u.png"));
+        for p in [&a, &b, &txt, &doc, &ppt, &doc2, &png] {
             std::fs::write(p, b"x").unwrap();
         }
         let gone = dir.path().join("gone.pdf");
@@ -232,8 +232,12 @@ mod tests {
         // Documents go to the tool that converts them, Word files together.
         use sheaf_core::tools::ToolId;
         assert_eq!(
-            plan(vec![doc.clone(), ppt.clone(), doc2.clone(), a.clone()]),
-            Plan { open: vec![a.clone()], convert: vec![(ToolId::WordToPdf, vec![doc, doc2]), (ToolId::PowerPointToPdf, vec![ppt])], notice: None }
+            plan(vec![doc.clone(), ppt.clone(), png.clone(), doc2.clone(), a.clone()]),
+            Plan {
+                open: vec![a.clone()],
+                convert: vec![(ToolId::WordToPdf, vec![doc, doc2]), (ToolId::PowerPointToPdf, vec![ppt]), (ToolId::JpgToPdf, vec![png])],
+                notice: None
+            }
         );
         assert_eq!(plan(vec![]), Plan::default());
     }

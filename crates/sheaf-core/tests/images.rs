@@ -26,12 +26,17 @@ fn images_to_pdf_fit_and_a4() {
     let p = t.path().join("x.png");
     image::RgbImage::from_pixel(400, 200, image::Rgb([200, 30, 30])).save(&p).unwrap();
     let fit = images_to_pdf(&[p.clone(), p.clone()], PageLayout::FitImage, &t.path().join("f.pdf")).unwrap();
-    let a4 = images_to_pdf(&[p], PageLayout::A4 { landscape: false, margin_pt: 36.0 }, &t.path().join("a.pdf")).unwrap();
+    let a4 = images_to_pdf(std::slice::from_ref(&p), PageLayout::Paper { paper: Paper::A4, landscape: false, margin_pt: 36.0 }, &t.path().join("a.pdf")).unwrap();
+    let letter = images_to_pdf(&[p], PageLayout::Paper { paper: Paper::Letter, landscape: true, margin_pt: 18.0 }, &t.path().join("l.pdf")).unwrap();
     let _g = sheaf_core::engine::pdfium_lock();
     let d = sheaf_core::engine::open_pdf(&fit, None).unwrap();
     assert_eq!(d.pages().len(), 2);
     assert_eq!(d.pages().get(0).unwrap().width().value.round(), 300.0); // 400 px at 96 dpi = 300 pt
     assert_eq!(sheaf_core::engine::open_pdf(&a4, None).unwrap().pages().get(0).unwrap().width().value.round(), 595.0);
+    // US Letter, landscape: 11 × 8.5 in.
+    let l = sheaf_core::engine::open_pdf(&letter, None).unwrap();
+    let page = l.pages().get(0).unwrap();
+    assert_eq!((page.width().value.round(), page.height().value.round()), (792.0, 612.0));
 }
 #[test]
 fn images_to_pdf_rejects_non_image() {
@@ -69,8 +74,8 @@ fn images_to_pdf_rejects_oversized_margin() {
     let t = tempfile::tempdir().unwrap();
     let p = t.path().join("x.png");
     image::RgbImage::from_pixel(40, 20, image::Rgb([1, 2, 3])).save(&p).unwrap();
-    let layout = PageLayout::A4 { landscape: true, margin_pt: 297.5 }; // half of 595
-    assert_eq!(layout, PageLayout::A4 { landscape: true, margin_pt: 297.5 });
+    let layout = PageLayout::Paper { paper: Paper::A4, landscape: true, margin_pt: 297.5 }; // half of 595
+    assert_eq!(layout, PageLayout::Paper { paper: Paper::A4, landscape: true, margin_pt: 297.5 });
     assert!(matches!(images_to_pdf(&[p], layout, &t.path().join("f.pdf")), Err(sheaf_core::OpdfError::Unsupported(_))));
 }
 #[test]
@@ -79,7 +84,7 @@ fn images_to_pdf_rejects_negative_or_nan_margin() {
     let p = t.path().join("x.png");
     image::RgbImage::from_pixel(40, 20, image::Rgb([1, 2, 3])).save(&p).unwrap();
     for m in [-1.0, f32::NAN, f32::INFINITY] {
-        let r = images_to_pdf(std::slice::from_ref(&p), PageLayout::A4 { landscape: false, margin_pt: m }, &t.path().join("f.pdf"));
+        let r = images_to_pdf(std::slice::from_ref(&p), PageLayout::Paper { paper: Paper::A4, landscape: false, margin_pt: m }, &t.path().join("f.pdf"));
         assert!(matches!(r, Err(sheaf_core::OpdfError::Unsupported(_))), "{m}");
     }
 }

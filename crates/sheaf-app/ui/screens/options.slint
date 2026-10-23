@@ -268,7 +268,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
         pages: root.pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every,
-        degrees: root.degrees, layout: root.layout, margin: root.margin, quality: root.quality, png: root.png,
+        degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
         num-position: root.num-position, num-double: root.num-double, num-cover: root.num-cover,
@@ -318,6 +318,8 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> every: 1;
     in-out property <int> degrees: 90;
     in-out property <int> layout: 0;
+    in-out property <bool> landscape: false;
+    in-out property <bool> merge-images: true;
     in-out property <int> margin: 0;
     in-out property <int> quality: 0;
     in-out property <bool> png;
@@ -524,13 +526,20 @@ export component OptionsPanel inherits VerticalLayout {
 
     if root.tool == "jpg_to_pdf": VerticalLayout {
         spacing: 10px;
+        // iLovePDF's options: page size, orientation (for paper), margin, one PDF or one each.
         SectionLabel { text: "Page size"; }
-        RadioCard { title: "Fit to image"; selected: root.layout == 0; clicked => { root.layout = 0; } }
-        RadioCard { title: "A4 portrait"; selected: root.layout == 1; clicked => { root.layout = 1; } }
-        RadioCard { title: "A4 landscape"; selected: root.layout == 2; clicked => { root.layout = 2; } }
+        RadioCard { title: "Fit"; description: "Same page size as image"; selected: root.layout == 0; clicked => { root.layout = 0; } }
+        RadioCard { title: "A4"; description: "210 × 297 mm"; selected: root.layout == 1; clicked => { root.layout = 1; } }
+        RadioCard { title: "US Letter"; description: "8.5 × 11 in"; selected: root.layout == 2; clicked => { root.layout = 2; } }
         if root.layout != 0: VerticalLayout {
             spacing: 10px;
             padding-top: 6px;
+            SectionLabel { text: "Orientation"; }
+            HorizontalLayout {
+                spacing: 8px;
+                Segment { text: "Portrait"; selected: !root.landscape; clicked => { root.landscape = false; } }
+                Segment { text: "Landscape"; selected: root.landscape; clicked => { root.landscape = true; } }
+            }
             SectionLabel { text: "Margin"; }
             HorizontalLayout {
                 spacing: 8px;
@@ -538,6 +547,10 @@ export component OptionsPanel inherits VerticalLayout {
                 Segment { text: "Small"; selected: root.margin == 1; clicked => { root.margin = 1; } }
                 Segment { text: "Big"; selected: root.margin == 2; clicked => { root.margin = 2; } }
             }
+        }
+        if root.file-count > 1: VerticalLayout {
+            padding-top: 6px;
+            Check { text: "Merge all images into one PDF file"; checked <=> root.merge-images; }
         }
     }
 

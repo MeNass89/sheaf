@@ -25,9 +25,9 @@ fn always_many(tool: ToolId) -> bool {
     matches!(tool, ToolId::Split | ToolId::PdfToJpg)
 }
 
-/// Tools that write one output from all their inputs.
-fn combines(tool: ToolId) -> bool {
-    matches!(tool, ToolId::Merge | ToolId::JpgToPdf | ToolId::Compare)
+/// Tools that write one output from all their inputs (JPG to PDF unless "Merge all images" is off).
+fn combines(tool: ToolId, opts: &ToolOptions) -> bool {
+    matches!(tool, ToolId::Merge | ToolId::Compare) || (tool == ToolId::JpgToPdf && !opts.one_per_image)
 }
 
 fn stem(p: &Path) -> String {
@@ -70,8 +70,8 @@ pub fn file_name_error(name: &str) -> Option<String> {
 }
 
 /// Whether the run writes into a folder (several outputs) rather than one chosen file.
-fn writes_folder(tool: ToolId, inputs: &[PathBuf]) -> bool {
-    always_many(tool) || (!combines(tool) && inputs.len() > 1)
+fn writes_folder(tool: ToolId, inputs: &[PathBuf], opts: &ToolOptions) -> bool {
+    always_many(tool) || (!combines(tool, opts) && inputs.len() > 1)
 }
 
 /// Where the outputs go without asking: the preference's folder, default names.
@@ -80,11 +80,11 @@ pub fn pref_dest(tool: ToolId, inputs: &[PathBuf], opts: &ToolOptions, prefs: &P
     let first = inputs.first()?;
     let dir = match prefs.output {
         OutputMode::Ask => return None,
-        OutputMode::NextToOriginal if writes_folder(tool, inputs) => return Some(Dest::NextToEach),
+        OutputMode::NextToOriginal if writes_folder(tool, inputs, opts) => return Some(Dest::NextToEach),
         OutputMode::NextToOriginal => parent_dir(first),
         OutputMode::Fixed => prefs.fixed_folder.clone().filter(|d| d.is_dir())?,
     };
-    Some(if writes_folder(tool, inputs) { Dest::Folder(dir) } else { Dest::File(dir.join(out_name(tool, first, opts))) })
+    Some(if writes_folder(tool, inputs, opts) { Dest::Folder(dir) } else { Dest::File(dir.join(out_name(tool, first, opts))) })
 }
 
 /// The folder holding `p` ("." for a bare name).
@@ -106,7 +106,7 @@ pub fn save_filter(tool: ToolId) -> (&'static str, &'static str) {
 pub fn ask_dest(ui: &AppWindow, tool: ToolId, inputs: &[PathBuf], opts: &ToolOptions, then: impl FnOnce(&AppWindow, Dest) + 'static) {
     let Some(first) = inputs.first() else { return };
     let dir = parent_dir(first);
-    if writes_folder(tool, inputs) {
+    if writes_folder(tool, inputs, opts) {
         let d = dialog::new(ui).set_title("Choose a folder for the files").set_directory(&dir);
         dialog::pick_folder(ui, d, move |ui, p| then(ui, Dest::Folder(p)));
     } else {
@@ -147,6 +147,11 @@ mod tests {
         assert!(matches!(pref_dest(ToolId::Compress, &two, &opts(), &p), Some(Dest::NextToEach)));
         assert!(matches!(pref_dest(ToolId::Merge, &two, &opts(), &p), Some(Dest::File(f)) if f == Path::new("/a/x-merged.pdf")));
         assert!(matches!(pref_dest(ToolId::Split, &one, &opts(), &p), Some(Dest::NextToEach)));
+        // JPG to PDF: one PDF of all the images, or one each when "Merge all images" is off.
+        let imgs = [PathBuf::from("/a/x.png"), PathBuf::from("/b/y.jpg")];
+        assert!(matches!(pref_dest(ToolId::JpgToPdf, &imgs, &opts(), &p), Some(Dest::File(f)) if f == Path::new("/a/x.pdf")));
+        let each = ToolOptions { one_per_image: true, ..opts() };
+        assert!(matches!(pref_dest(ToolId::JpgToPdf, &imgs, &each, &p), Some(Dest::NextToEach)));
         let dir = tempfile::tempdir().unwrap();
         p.output = OutputMode::Fixed;
         p.fixed_folder = Some(dir.path().to_path_buf());

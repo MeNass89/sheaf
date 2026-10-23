@@ -3,8 +3,30 @@ use image::{codecs::jpeg::JpegEncoder, metadata::Orientation, DynamicImage, Imag
 use pdfium_render::prelude::*;
 use std::path::{Path, PathBuf};
 
+/// How each image is placed: on a page its own size, or centred on a sheet of paper.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PageLayout { FitImage, A4 { landscape: bool, margin_pt: f32 } }
+pub enum PageLayout { FitImage, Paper { paper: Paper, landscape: bool, margin_pt: f32 } }
+
+/// A sheet of paper, as iLovePDF offers them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Paper { A4, Letter }
+
+impl Paper {
+    /// Portrait width and height in points.
+    pub fn points(self) -> (f32, f32) {
+        match self {
+            Paper::A4 => (595.0, 842.0),
+            Paper::Letter => (612.0, 792.0),
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Paper::A4 => "an A4",
+            Paper::Letter => "a Letter",
+        }
+    }
+}
 
 /// Pixels per rendered page at most (72 Mpx: 290 MB as RGBA, A3 at 600 dpi): a bigger page at
 /// 600 dpi (A1, A0) is rendered smaller rather than failing to allocate gigabytes.
@@ -89,10 +111,10 @@ fn load_source(p: &Path) -> Result<Source> {
 /// JPEGs that need no rotation are embedded without re-encoding.
 pub fn images_to_pdf(images: &[PathBuf], layout: PageLayout, out: &Path) -> Result<PathBuf> {
     if images.is_empty() { return Err(OpdfError::Unsupported("no images".into())); }
-    if let PageLayout::A4 { margin_pt, .. } = layout
-        && (!margin_pt.is_finite() || margin_pt < 0.0 || margin_pt >= 595.0 / 2.0)
+    if let PageLayout::Paper { paper, margin_pt, .. } = layout
+        && (!margin_pt.is_finite() || margin_pt < 0.0 || margin_pt >= paper.points().0 / 2.0)
     {
-        return Err(OpdfError::Unsupported(format!("margin {margin_pt} pt leaves no room on an A4 page")));
+        return Err(OpdfError::Unsupported(format!("margin {margin_pt} pt leaves no room on {} page", paper.name())));
     }
     let _g = pdfium_lock();
     let mut doc = pdfium().create_new_pdf()?;
@@ -102,7 +124,10 @@ pub fn images_to_pdf(images: &[PathBuf], layout: PageLayout, out: &Path) -> Resu
         let (iw, ih) = (pxw as f32 * 0.75, pxh as f32 * 0.75); // 96 dpi → pt
         let (pw, ph, m) = match layout {
             PageLayout::FitImage => (iw, ih, 0.0),
-            PageLayout::A4 { landscape, margin_pt } => if landscape { (842.0, 595.0, margin_pt) } else { (595.0, 842.0, margin_pt) },
+            PageLayout::Paper { paper, landscape, margin_pt } => {
+                let (w, h) = paper.points();
+                if landscape { (h, w, margin_pt) } else { (w, h, margin_pt) }
+            }
         };
         let s = ((pw - 2.0 * m) / iw).min((ph - 2.0 * m) / ih).min(1.0);
         let (w, h) = (iw * s, ih * s);

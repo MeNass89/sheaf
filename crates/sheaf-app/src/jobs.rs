@@ -58,6 +58,8 @@ pub enum Job {
     PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: Option<u8>, out_dir: PathBuf },
     /// Word / PowerPoint / Excel / HTML → PDF through LibreOffice.
     Office { items: Vec<(PathBuf, PathBuf)> },
+    /// JPG to PDF with "Merge all images" off: a PDF for each image.
+    ImagesEach { items: Vec<(PathBuf, PathBuf)>, layout: PageLayout },
     PageNumbers { items: Vec<(Input, PathBuf)>, options: NumberOptions },
     Watermark { items: Vec<(Input, PathBuf)>, options: WatermarkOptions },
     /// `pages`: "1-3,5", or `None` for every page.
@@ -110,7 +112,7 @@ impl Job {
             | Job::Unlock { items }
             | Job::Repair { items } => items.iter().map(|(i, _)| i.path.as_path()).collect(),
             Job::JpgToPdf { images, .. } => images.iter().map(|p| p.as_path()).collect(),
-            Job::Office { items } => items.iter().map(|(i, _)| i.as_path()).collect(),
+            Job::Office { items } | Job::ImagesEach { items, .. } => items.iter().map(|(i, _)| i.as_path()).collect(),
         }
     }
 }
@@ -207,6 +209,7 @@ fn loses_protection(job: &Job) -> bool {
         Job::Protect { .. }
         | Job::Unlock { .. }
         | Job::JpgToPdf { .. }
+        | Job::ImagesEach { .. }
         | Job::Office { .. }
         | Job::PageNumbers { .. }
         | Job::Watermark { .. }
@@ -290,6 +293,9 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         }
         Job::PdfToJpg { inputs, dpi, quality, out_dir } => {
             batch(each(inputs, cancel, progress, |i| i.path.as_path(), |i| images::pdf_to_jpg(i, *dpi, *quality, out_dir)))?
+        }
+        Job::ImagesEach { items, layout } => {
+            batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(images::images_to_pdf(std::slice::from_ref(i), *layout, o))))?
         }
         Job::Office { items } => {
             batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(crate::files::office_to_pdf(i, o))))?

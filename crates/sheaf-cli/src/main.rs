@@ -160,8 +160,9 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         Cmd::Unlock { input: i, out } => one(security::unlock(&input(i), &out)),
         Cmd::Repair { input: i, out } => one(repair::repair(&input(i), &out)),
         Cmd::ToJpg { input: i, dpi, quality, png, out } => images::pdf_to_jpg(&input(i), dpi, (!png).then_some(quality), &out),
-        Cmd::FromImages { images: imgs, a4, landscape, out } => {
-            let layout = if a4 { PageLayout::A4 { landscape, margin_pt: 36.0 } } else { PageLayout::FitImage };
+        Cmd::FromImages { images: imgs, a4, letter, landscape, out } => {
+            let paper = if letter { Some(images::Paper::Letter) } else { a4.then_some(images::Paper::A4) };
+            let layout = paper.map_or(PageLayout::FitImage, |paper| PageLayout::Paper { paper, landscape, margin_pt: 36.0 });
             one(images::images_to_pdf(&imgs, layout, &out))
         }
         Cmd::Office { input: i, out } => one(office::office_to_pdf(&i, &out)),

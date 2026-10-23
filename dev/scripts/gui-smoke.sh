@@ -690,6 +690,16 @@ else
     echo "SKIP 15 (Office to PDF): LibreOffice not installed"
 fi
 
+# 16. Images opened from outside open JPG to PDF. US Letter (1130,260), Landscape (1188,341), "Merge
+# all images" unticked (1012,453): one Letter landscape PDF next to each image (set in step 10).
+mkdir -p "$OUT/img"; convert -size 400x300 xc:'#3366cc' "$OUT/img/a.png"; convert -size 300x400 xc:'#cc6633' "$OUT/img/b.png"
+launch "$OUT/img/a.png" "$OUT/img/b.png"; JT=$(ocr 400x30+100+8)
+click 1130 260 0.5; click 1188 341 0.4; click 1012 453 0.4; shot 16-jpg-options; click 1133 755 1
+for _ in $(seq 1 20); do [ -f "$OUT/img/a.pdf" ] && [ -f "$OUT/img/b.pdf" ] && break; sleep 0.5; done
+JA=$(pdfinfo "$OUT/img/a.pdf" 2>/dev/null | grep -o '[0-9]* x [0-9]* pts'); JB=$(pdfinfo "$OUT/img/b.pdf" 2>/dev/null | grep -o '[0-9]* x [0-9]* pts')
+check "images opened from outside open JPG to PDF ($JT); unmerged, a US Letter landscape PDF each ($JA / $JB)" "echo \"$JT\" | grep -q 'JPG to PDF' && [ \"$JA\" = '792 x 612 pts' ] && [ \"$JB\" = '792 x 612 pts' ]"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).

@@ -393,7 +393,9 @@ export struct ToolOptions {
     ranges: string,
     every: int,
     degrees: int,        // 90 / 180 / 270
-    layout: int,         // jpg→pdf: 0 fit, 1 A4 portrait, 2 A4 landscape
+    layout: int,         // jpg→pdf: 0 fit, 1 A4, 2 US Letter
+    landscape: bool,     // jpg→pdf: the paper turned
+    one-per-image: bool, // jpg→pdf: a PDF for each image instead of one for all
     margin: int,         // 0 none, 1 small, 2 big
     quality: int,        // pdf→jpg: 0 normal (150 dpi), 1 high (300), 2 very high (600)
     png: bool,           // pdf→jpg: lossless PNG instead of JPEG

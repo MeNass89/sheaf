@@ -15,7 +15,7 @@ use sheaf_core::export::ExportOptions;
 use sheaf_core::ocr::OcrOptions;
 use sheaf_core::pdfa::PdfALevel;
 use sheaf_core::watermark::{Mark, Placement, WatermarkOptions};
-use sheaf_core::images::PageLayout;
+use sheaf_core::images::{PageLayout, Paper};
 use sheaf_core::pages::Input;
 use sheaf_core::tools::{self, ToolId};
 use sheaf_core::{OpdfError, Result};
@@ -45,11 +45,12 @@ fn parse_level(i: i32) -> Level {
 
 fn layout(opts: &ToolOptions) -> PageLayout {
     let margin_pt = [0.0, 18.0, 36.0][opts.margin.clamp(0, 2) as usize];
-    match opts.layout {
-        1 => PageLayout::A4 { landscape: false, margin_pt },
-        2 => PageLayout::A4 { landscape: true, margin_pt },
-        _ => PageLayout::FitImage,
-    }
+    let paper = match opts.layout {
+        1 => Paper::A4,
+        2 => Paper::Letter,
+        _ => return PageLayout::FitImage,
+    };
+    PageLayout::Paper { paper, landscape: opts.landscape, margin_pt }
 }
 
 /// A typed page number ("" = none). Anything else is an error naming the field.
@@ -266,6 +267,9 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
         },
         ToolId::Unlock => Job::Unlock { items: pairs(inputs) },
         ToolId::Repair => Job::Repair { items: pairs(inputs) },
+        ToolId::JpgToPdf if opts.one_per_image && inputs.len() > 1 => {
+            Job::ImagesEach { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), layout: layout(opts) }
+        }
         ToolId::JpgToPdf => Job::JpgToPdf { images: inputs.into_iter().map(|i| i.path).collect(), layout: layout(opts), out: single()? },
         ToolId::PdfToJpg => {
             let (dpi, q) = match opts.quality { 2 => (600, 92), 1 => (300, 92), _ => (150, 85) };
@@ -741,8 +745,14 @@ mod tests {
     fn jpg_layout_and_split_mode() {
         let mut o = opts();
         o.layout = 2;
+        o.landscape = true;
         o.margin = 1;
-        assert_eq!(layout(&o), PageLayout::A4 { landscape: true, margin_pt: 18.0 });
+        assert_eq!(layout(&o), PageLayout::Paper { paper: Paper::Letter, landscape: true, margin_pt: 18.0 });
+        // "Merge all images" off: a PDF for each image, next to it.
+        o.one_per_image = true;
+        let job = build_job(ToolId::JpgToPdf, vec![Input::new("/a/x.png"), Input::new("/b/y.jpg")], vec![], &o, Dest::NextToEach).unwrap();
+        let Job::ImagesEach { items, .. } = job else { panic!("one PDF each") };
+        assert_eq!(items, [("/a/x.png".into(), "/a/x.pdf".into()), ("/b/y.jpg".into(), "/b/y.pdf".into())]);
         o.split_mode = 1;
         o.every = 3;
         let job = build_job(ToolId::Split, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::Folder("/o".into())).unwrap();
