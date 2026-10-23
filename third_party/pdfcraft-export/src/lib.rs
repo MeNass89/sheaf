@@ -28,6 +28,9 @@ pub struct Block {
     pub color: [f64; 3],
     /// Counterclockwise baseline angle in user space (degrees).
     pub rotation: f64,
+    /// Sheaf: the font's family as Word names it ("Calibri" for "ABCDEF+Calibri,Bold"; empty when
+    /// unknown): written in the run, so Word draws the text in it, or in its metric twin.
+    pub font: String,
 }
 
 /// An image of a page.
@@ -647,7 +650,16 @@ pub(crate) fn hex(c: [f64; 3]) -> Option<String> {
 
 /// A formatted text run (shared by paragraphs and table cells).
 fn run_xml(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3]) -> String {
+    run_xml_font(text, size, bold, italic, color, "")
+}
+
+/// Sheaf: [`run_xml`] in the font named `font` (none: Word's default).
+fn run_xml_font(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3], font: &str) -> String {
     let mut rpr = String::new();
+    if !font.is_empty() {
+        let f = esc(font);
+        rpr.push_str(&format!("<w:rFonts w:ascii=\"{f}\" w:hAnsi=\"{f}\" w:cs=\"{f}\"/>"));
+    }
     if bold {
         rpr.push_str("<w:b/>");
     }
@@ -684,7 +696,7 @@ fn cell_paragraphs(c: &Cell) -> String {
                 s.push_str(&run_xml(" ", b.size, false, false, b.color));
             }
         }
-        s.push_str(&run_xml(&b.text, b.size, b.bold, b.italic, b.color));
+        s.push_str(&run_xml_font(&b.text, b.size, b.bold, b.italic, b.color, &b.font));
         prev = Some(b);
     }
     s.push_str("</w:p>");
@@ -834,9 +846,32 @@ fn word_page_size(page: &Page) -> (i64, i64) {
     (twips(page.width), twips(page.height))
 }
 
+/// Sheaf: the page margins in twips (left and right, top and bottom): the source page's own, from
+/// where its content starts and ends, between a quarter inch and Word's usual eighth of the page (at
+/// most an inch). A fiche laid out edge to edge keeps its width instead of being squeezed.
+fn margins(page: &Page) -> (i64, i64) {
+    let (pw, ph) = word_page_size(page);
+    let (dx, dy) = ((pw / 8).min(1440), (ph / 8).min(1440));
+    let rects = page.blocks.iter().map(|b| b.rect).chain(page.images.iter().map(|i| i.rect)).chain(page.rules.iter().copied());
+    let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+    for r in rects.filter(|r| r.iter().all(|v| v.is_finite())) {
+        (x0, y0, x1, y1) = (x0.min(r[0].min(r[2])), y0.min(r[1].min(r[3])), x1.max(r[0].max(r[2])), y1.max(r[1].max(r[3])));
+    }
+    if x0 > x1 {
+        return (dx, dy);
+    }
+    // Never more than the usual margin, nor less than a quarter inch (or that margin, on a tiny page).
+    let side = |a: f64, b: f64, d: i64| (((a.min(b)) * 20.0).round() as i64).clamp(d.min(360), d);
+    // Content past the page's edges says nothing about its margins: the usual ones then.
+    let within = |a: f64, b: f64, size: f64| a >= -1.0 && b <= size + 1.0;
+    let mx = if within(x0, x1, page.width) { side(x0, page.width - x1, dx) } else { dx };
+    let my = if within(y0, y1, page.height) { side(y0, page.height - y1, dy) } else { dy };
+    (mx, my)
+}
+
 fn section(page: &Page) -> String {
     let (pw, ph) = word_page_size(page);
-    let (mx, my) = ((pw / 8).min(1440), (ph / 8).min(1440));
+    let (mx, my) = margins(page);
     format!(
         "<w:sectPr><w:type w:val=\"nextPage\"/><w:pgSz w:w=\"{pw}\" w:h=\"{ph}\"/><w:pgMar w:top=\"{my}\" w:right=\"{mx}\" w:bottom=\"{my}\" w:left=\"{mx}\" w:header=\"{}\" w:footer=\"{}\" w:gutter=\"0\"/></w:sectPr>",
         my / 2,
@@ -851,11 +886,11 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
     let mut media: Vec<(String, &Image)> = Vec::new();
     // Word needs a paragraph between adjacent tables and after the last one in the body.
     let mut after_table = false;
-    let run = |b: &Block| run_xml(&b.text, b.size, b.bold, b.italic, b.color);
+    let run = |b: &Block| run_xml_font(&b.text, b.size, b.bold, b.italic, b.color, &b.font);
     let mut shape_id = 0usize;
     for (page_index, page) in pages.iter().enumerate() {
         let (pw, _) = word_page_size(page);
-        let text_w = (pw - 2 * (pw / 8).min(1440)) as f64 / 20.0;
+        let text_w = (pw - 2 * margins(page).0) as f64 / 20.0;
         if positioned(page) {
             body.push_str(&positioned_page(page, &mut media, &mut shape_id));
             after_table = false;
@@ -1072,7 +1107,7 @@ mod tests {
     use super::*;
 
     fn page() -> Page {
-        let b = |t: &str, y: f64, size: f64, bold: bool| Block {
+        let b = |t: &str, y: f64, size: f64, bold: bool| Block { font: String::new(),
             text: t.into(),
             rect: [72.0, y, 500.0, y + size],
             size,
@@ -1153,7 +1188,7 @@ mod tests {
     #[test]
     fn word_overlap_does_not_consume_invoice_body_space() {
         let mut p = table_page();
-        p.blocks.push(Block {
+        p.blocks.push(Block { font: String::new(),
             text: "DRAFT".into(),
             rect: [100.0, 200.0, 500.0, 700.0],
             size: 100.0,
@@ -1214,7 +1249,7 @@ mod tests {
         // Word then refused the whole file. A till receipt is also taller than Word's 22 in.
         let mut p = page();
         p.height = 2400.0;
-        p.blocks.push(Block {
+        p.blocks.push(Block { font: String::new(),
             text: "Total\u{0}\u{3}\u{c} 4.50\u{FFFF}\tGBP".into(),
             rect: [72.0, 100.0, 300.0, 110.0],
             size: f64::NAN,
@@ -1267,7 +1302,7 @@ mod tests {
     #[test]
     fn rtf_escapes_and_sizes() {
         let mut p = page();
-        p.blocks.push(Block {
+        p.blocks.push(Block { font: String::new(),
             text: "Café {x}".into(),
             rect: [72.0, 100.0, 200.0, 110.0],
             size: 10.0,
@@ -1284,7 +1319,7 @@ mod tests {
 
     /// A 3-column table with a spanning header row and a hole in the last row.
     fn table_page() -> Page {
-        let cell = |t: &str, x: f64, y: f64, w: f64| Block {
+        let cell = |t: &str, x: f64, y: f64, w: f64| Block { font: String::new(),
             text: t.into(),
             rect: [x, y, x + w, y + 12.0],
             size: 11.0,
@@ -1307,7 +1342,7 @@ mod tests {
                 cell("kW", 232.0, 560.0, 80.0),
                 // A2's row is missing its third cell (an empty cell in the grid).
                 cell("Totals", 72.0, 530.0, 240.0),
-                Block {
+                Block { font: String::new(),
                     text: "Notes follow the table and are long enough to be the body text size of the page here.".into(),
                     rect: [72.0, 460.0, 500.0, 471.0],
                     size: 11.0,
@@ -1366,7 +1401,7 @@ mod tests {
             .map(|i| {
                 let (row, col) = (i / 2, i / 2 + i % 2);
                 let (x, y) = (10.0 + col as f64 * 20.0, 10_000.0 - row as f64 * 14.0);
-                Block { text: "x".into(), rect: [x, y, x + 8.0, y + 12.0], size: 11.0, bold: false, italic: false, color: [0.0; 3], rotation: 0.0 }
+                Block { font: String::new(), text: "x".into(), rect: [x, y, x + 8.0, y + 12.0], size: 11.0, bold: false, italic: false, color: [0.0; 3], rotation: 0.0 }
             })
             .collect();
         let started = std::time::Instant::now();
@@ -1385,7 +1420,7 @@ mod tests {
                 .flat_map(|row| {
                     (0..n).map(move |col| {
                         let (x, y) = (20.0 + col as f64 * 22.0, 700.0 - row as f64 * 14.0);
-                        Block {
+                        Block { font: String::new(),
                             text: (col + 1).to_string(),
                             rect: [x, y, x + 8.0, y + 8.0],
                             size: 8.0,
@@ -1407,7 +1442,7 @@ mod tests {
 
     #[test]
     fn two_column_body_text_is_not_mistaken_for_a_table() {
-        let para = |t: &str, x: f64, y: f64| Block {
+        let para = |t: &str, x: f64, y: f64| Block { font: String::new(),
             text: t.into(),
             rect: [x, y, x + 200.0, y + 90.0], // nine lines tall: body text, not a cell
             size: 11.0,
@@ -1435,7 +1470,7 @@ mod tests {
     /// down two rows on the left, a missing rule merging cells, a fill band inset in a cell.
     #[test]
     fn ruled_table_with_merged_cells_and_a_vertical_label() {
-        let b = |t: &str, x: f64, y: f64, rotation: f64| Block {
+        let b = |t: &str, x: f64, y: f64, rotation: f64| Block { font: String::new(),
             text: t.into(),
             rect: [x, y, x + 40.0, y + 10.0],
             size: 10.0,
@@ -1491,7 +1526,7 @@ mod tests {
     /// text column is scaled to it.
     #[test]
     fn cell_lines_stay_paragraphs_and_wide_tables_fit() {
-        let b = |t: &str, x: f64, y: f64, bold: bool, color: [f64; 3]| Block { text: t.into(), rect: [x, y, x + 60.0, y + 10.0], size: 10.0, bold, italic: false, color, rotation: 0.0 };
+        let b = |t: &str, x: f64, y: f64, bold: bool, color: [f64; 3]| Block { font: String::new(), text: t.into(), rect: [x, y, x + 60.0, y + 10.0], size: 10.0, bold, italic: false, color, rotation: 0.0 };
         let cell = Cell {
             text: "Symptoms - Pain Fever".into(),
             size: 10.0,

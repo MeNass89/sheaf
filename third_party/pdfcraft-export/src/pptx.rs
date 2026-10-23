@@ -361,7 +361,7 @@ mod tests {
             width: 720.0,
             height: 540.0,
             blocks: vec![
-                Block {
+                Block { font: String::new(),
                     text: "Q3 Business Update".into(),
                     rect: [72.0, 460.0, 500.0, 500.0],
                     size: 28.0,
@@ -370,7 +370,7 @@ mod tests {
                     color: [0.1, 0.2, 0.3],
                     rotation: 0.0,
                 },
-                Block {
+                Block { font: String::new(),
                     text: "Revenue grew 25% year over year across all regions.".into(),
                     rect: [72.0, 380.0, 500.0, 410.0],
                     size: 14.0,
@@ -379,7 +379,7 @@ mod tests {
                     color: [0.0; 3],
                     rotation: 0.0,
                 },
-                Block {
+                Block { font: String::new(),
                     text: "Operational expenses remained flat.".into(),
                     rect: [72.0, 340.0, 500.0, 370.0],
                     size: 14.0,
@@ -501,7 +501,7 @@ mod tests {
 
     #[test]
     fn pptx_package_parts_are_complete_and_consistent() {
-        let cell = |t: &str, x: f64, y: f64| Block {
+        let cell = |t: &str, x: f64, y: f64| Block { font: String::new(),
             text: t.into(),
             rect: [x, y, x + 100.0, y + 14.0],
             size: 12.0,
@@ -601,7 +601,7 @@ mod tests {
 
     #[test]
     fn hostile_sizes_do_not_overflow_the_slide_position() {
-        let huge = |text: &str, size: f64, y: f64| Block {
+        let huge = |text: &str, size: f64, y: f64| Block { font: String::new(),
             text: text.into(),
             rect: [72.0, y, 500.0, y + 10.0],
             size,
@@ -666,7 +666,7 @@ mod tests {
 
     #[test]
     fn pptx_table_cell_with_largest_font_stays_in_table_and_not_in_title() {
-        let cell = |t: &str, x: f64, y: f64, w: f64, sz: f64| Block {
+        let cell = |t: &str, x: f64, y: f64, w: f64, sz: f64| Block { font: String::new(),
             text: t.into(),
             rect: [x, y, x + w, y + 14.0],
             size: sz,
@@ -680,7 +680,7 @@ mod tests {
             height: 540.0,
             blocks: vec![
                 // Heading outside the table (short width, does not span table columns)
-                Block {
+                Block { font: String::new(),
                     text: "Monthly Summary".into(),
                     rect: [50.0, 480.0, 150.0, 500.0],
                     size: 20.0,

@@ -72,3 +72,8 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   9 pages for 4 (was 10), styles kept. Much of the length is the font: runs name no font and vpsn has no
   Calibri or Carlito, so LibreOffice uses DejaVu (wider). Next: font names in runs, Carlito/Caladea on vpsn
   for fair measuring; labels in narrow merged cells (letter by letter); paragraphs (step 1); columns (step 3).
+- 23/10 11:30, fonts and margins: runs name the source family (`w:rFonts`, "Calibri" from "ABCDEF+Calibri,
+  Bold"); vpsn now has Carlito/Caladea (fonts-crosextra-*), so LibreOffice renders Calibri's metrics. Page
+  margins follow the content (between a quarter inch and Word's usual eighth; content past the page's edges
+  keeps the usual ones). MICI 7 pages for 4. Corpus 19/20 (columns now pass). Next: the column of tiny empty
+  paragraphs on MICI page 2 (footer pieces), letter-by-letter labels in narrow merged cells, letter (step 1).

@@ -177,7 +177,10 @@ impl crate::Document {
                     .filter(|b| !b.text.trim().is_empty())
                     .map(|b| {
                         let f = b.base_font.to_ascii_lowercase();
-                        pdfcraft_export::Block {
+                        // Sheaf: the family Word knows it by: no subset tag, no style suffix.
+                        let family = b.base_font.rsplit('+').next().unwrap_or_default();
+                        let family = family.split([',', '-']).next().unwrap_or_default().trim_matches(|c: char| c == '*' || c.is_whitespace()).to_string();
+                        pdfcraft_export::Block { font: family,
                             text: b.text,
                             rect: visible_rect(b.rect),
                             size: b.size * unit,
