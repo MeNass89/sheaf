@@ -74,6 +74,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | Colours, sizes, fonts | `ui/theme.slint` |
 | A preference | `prefs.rs` + `ui/screens/preferences.slint` |
 | A test | a layer already exists for it in `scripts/test.sh`: unit tests next to the code or in `crates/*/tests/`, GUI checks in `dev/scripts/gui-smoke.sh` |
+| PDF to Word quality | `dev/scripts/word-corpus.py`: Word originals → PDF → Sheaf's export, measured against the original (words in order, tables, no text boxes, pages); not in the suite (needs LibreOffice and python-docx) |
 
 ## Vocabulary
 

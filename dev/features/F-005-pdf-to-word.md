@@ -1,0 +1,38 @@
+# F-005 — PDF to Word as editable text and tables
+
+Status: open
+Components: C-convert-009 (PDF to Word; at 4/3/7 on 23/10/2026), then C-convert-010/011 (PowerPoint, Excel)
+Why: iLovePDF's PDF to Word gives flowing paragraphs and real Word tables. Both engines Sheaf has (PdfCraft's
+`pdfcraft-export::docx`, LibreOffice's PDF import) give pages of floating text boxes and no table: on a real
+Word fiche page 1 is unreadable once opened in Word (dev/HANDOFF.md, reviewer 23/10).
+
+## Target (main app iLovePDF; Acrobat's flowing vs exact layout later)
+- Paragraphs as Word paragraphs, lines joined (Sheaf's `text_blocks`, `soft_breaks`: hardened for C-edit-002),
+  their runs styled: font name (subset tag dropped), size, bold, italic, colour, underline.
+- Tables as Word tables, rebuilt from the page's ruled cells (stroked lines, filled rectangles): cell text,
+  fills, merged cells.
+- Images inline, in reading order. Two-column pages read column by column.
+- A scanned page offers OCR first (the OCR tool exists).
+
+## Corpus and checks, before code
+`dev/scripts/word-corpus.py` builds the corpus from Word originals (python-docx), turns them into PDFs with
+LibreOffice, exports them with Sheaf and measures each against its original:
+1. words in order: the export's text equals the original's (normalised whitespace), in order;
+2. tables: as many tables, with as many rows and cells, as the original;
+3. no floating text boxes in `word/document.xml`;
+4. the export rendered back by LibreOffice has the original's page count (± 1).
+Documents: a letter (paragraphs, bold, a link), a fiche (table with fills and merged cells, as MICI), an
+invoice (ruled table with numbers), a two-column article, a report with headings and an image.
+Plus the MICI fiche itself (no Word original: checks 2–4 by eye and counts).
+
+## Done when
+C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agreeing.
+
+## Journal
+- 23/10 03:30, corpus first run (PdfCraft's export as is): 14 of 20 checks pass. On these simple pages it
+  flows and makes tables; MICI turns to 738 text boxes because one rotated label (`positioned()`) sends the
+  whole page to positioned boxes. Faults found: (1) paragraphs: lines merged across paragraphs, a bold run
+  made its own paragraph (letter); (2) tables found from text alignment swallow the paragraphs around them
+  (invoice heading and "Billed to" inside the table; fiche's last line); (3) two columns read across, not
+  column by column; (4) rotated text forces positioned boxes. Decision: vendor pdfcraft-export and fix these
+  in its flow (it already writes paragraphs, tables, images, headings) rather than a new writer.
