@@ -12043,8 +12043,8 @@
    74
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 6,
+   "function": 8,
+   "aesthetics": 8,
    "performance": 6,
    "overall": 6
   },
@@ -12062,6 +12062,17 @@
      "overall": 6
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [70, 72, 73, 74]"
+   },
+   {
+    "date": "2026-10-23",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 6,
+     "overall": 6
+    },
+    "proof": "reviewer 24/10 on 35b1abd: MICI scan words found 73.6→94.8 %, accented 0→95 %, placement median 0.5 pt; blockers: turned text, α/→ in text layer, deskew, Tesseract benchmark, release timing (43 s/page debug, 1 core)"
    }
   ]
  },
