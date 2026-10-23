@@ -5056,8 +5056,8 @@
   "grade": {
    "function": 8,
    "aesthetics": 9,
-   "performance": 7,
-   "overall": 7
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -5084,6 +5084,17 @@
      "overall": 7
     },
     "proof": "Office/HTML files opened from Finder or the command line open their →PDF tool; cards show page 1 and page count (LibreOffice on the probe pool); A–Z order button (natural order, again Z–A) as iLovePDF; headings→bookmarks and links proven (office.rs test). gui-smoke 15. Reviewer (Opus) 8/9/7: needs LibreOffice installed (decision for Nassim: bundle or accept), fidelity unproven on real Word files, each file converted twice, 3 soffice probes at once."
+   },
+   {
+    "date": "2026-10-23",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Each Office file converted once: the card's PDF is kept (path+size+mtime, 64, cleared on quit) and copied by the run through atomic_write (an existing PDF kept, free name beside it), one LibreOffice probe at a time. Tests: files office cache (overwrite case). Reviewer (Opus) 8/9/9; function waits on Nassim (bundle LibreOffice?) and a fidelity test."
    }
   ]
  },

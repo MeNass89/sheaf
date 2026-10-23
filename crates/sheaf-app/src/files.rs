@@ -160,12 +160,17 @@ fn office_cache_put(path: &Path, dir: tempfile::TempDir) {
     cache.push((key, dir));
 }
 
-/// Office or HTML file to PDF at `out`: a copy of the PDF its card was made from when the file
-/// has not changed since, else converted by LibreOffice.
+/// Office or HTML file to PDF at `out` (or a free name beside it, written whole or not at all, as
+/// every output): a copy of the PDF its card was made from when the file has not changed since,
+/// else converted by LibreOffice (also when that copy has gone meanwhile).
 pub fn office_to_pdf(path: &Path, out: &Path) -> Result<std::path::PathBuf> {
-    if let Some(pdf) = office_cached(path) {
-        std::fs::copy(&pdf, out)?;
-        return Ok(out.to_path_buf());
+    if let Some(pdf) = office_cached(path)
+        && let Ok(written) = sheaf_core::paths::atomic_write(out, |part| {
+            std::fs::copy(&pdf, part)?;
+            Ok(())
+        })
+    {
+        return Ok(written);
     }
     sheaf_core::office::office_to_pdf(path, out)
 }
@@ -356,9 +361,13 @@ mod tests {
         let made = tempfile::Builder::new().prefix("sheaf-office-probe-").tempdir().unwrap();
         std::fs::write(made.path().join("probe.pdf"), b"%PDF-cached").unwrap();
         office_cache_put(&doc, made);
+        // A PDF of that name is already there: kept, the copy goes beside it.
         let out = dir.path().join("a.pdf");
-        office_to_pdf(&doc, &out).unwrap();
-        assert_eq!(std::fs::read(&out).unwrap(), b"%PDF-cached");
+        std::fs::write(&out, b"%PDF-mine").unwrap();
+        let written = office_to_pdf(&doc, &out).unwrap();
+        assert_eq!(std::fs::read(&out).unwrap(), b"%PDF-mine");
+        assert_eq!(written, dir.path().join("a (1).pdf"));
+        assert_eq!(std::fs::read(&written).unwrap(), b"%PDF-cached");
         // Changed since (size differs): not the old PDF.
         std::fs::write(&doc, b"second version").unwrap();
         assert!(office_cached(&doc).is_none());
