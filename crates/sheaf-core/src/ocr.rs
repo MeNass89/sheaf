@@ -80,6 +80,13 @@ pub fn languages() -> &'static [(&'static str, &'static str)] {
     eng::LANGUAGES
 }
 
+/// The language to offer first for a system locale ("fr-FR", "de_CH.UTF-8"): its own when the
+/// models read it, else English.
+pub fn default_language(locale: Option<&str>) -> &'static str {
+    let code = locale.unwrap_or_default().split(['-', '_', '.']).next().unwrap_or_default().to_ascii_lowercase();
+    languages().iter().find(|(c, _)| *c == code).map_or("en", |(c, _)| c)
+}
+
 /// The source tree's models, for debug builds only: release builds carry no build path.
 #[cfg(debug_assertions)]
 fn debug_models() -> Option<Models> {

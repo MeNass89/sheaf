@@ -402,6 +402,7 @@ fn main() -> Result<(), slint::PlatformError> {
         sheaf_core::ocr::languages().iter().map(|(code, name)| sheaf_app::OcrLanguage { code: (*code).into(), name: (*name).into() }).collect();
     ocr.set_languages(ModelRc::new(VecModel::from(langs)));
     ocr.set_available(sheaf_core::ocr::available());
+    ocr.set_default_language(sheaf_core::ocr::default_language(sys_locale::get_locale().as_deref()).into());
     wire_reader(&ui);
     wire!(ui, on_unsaved_answer, |ui, a| flow::unsaved_answer(&ui, a));
     let weak = ui.as_weak();

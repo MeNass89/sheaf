@@ -15,6 +15,8 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 sheaf-core = { path = "../sheaf-core" }
 slint = { workspace = true, features = ["unstable-winit-030", "raw-window-handle-06"] }
 rfd.workspace = true
+# The system language, ticked first in OCR's languages (already in the tree through slint).
+sys-locale = "0.3.2"
 dirs.workspace = true
 serde.workspace = true
 serde_json.workspace = true

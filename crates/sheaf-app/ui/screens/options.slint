@@ -364,7 +364,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> crop-left: "10";
     in-out property <string> crop-right: "10";
     in-out property <int> pdfa-level: 0;
-    in-out property <string> ocr-languages: ",en,";
+    in-out property <string> ocr-languages: "," + OcrInfo.default-language + ",";
     in-out property <bool> ocr-all-pages;
     in-out property <bool> export-ocr;
     in-out property <int> excel-layout: 0;

@@ -203,6 +203,14 @@ fn words_beyond_winansi_are_kept_in_the_text_layer() {
 }
 
 #[test]
+fn the_system_language_is_offered_first() {
+    assert_eq!(ocr::default_language(Some("fr-FR")), "fr");
+    assert_eq!(ocr::default_language(Some("de_CH.UTF-8")), "de");
+    assert_eq!(ocr::default_language(Some("ja-JP")), "en", "a language the models do not read");
+    assert_eq!(ocr::default_language(None), "en");
+}
+
+#[test]
 fn unknown_languages_are_refused() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 1);

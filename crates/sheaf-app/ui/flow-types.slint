@@ -471,6 +471,8 @@ export global OcrInfo {
     in property <[OcrLanguage]> languages;
     // The recognition models are installed.
     in property <bool> available;
+    // The language ticked at first: the system's, when the models read it.
+    in property <string> default-language: "en";
 }
 
 // Page viewer and Redact panel events, answered by the Rust side. The first argument is the tab id.

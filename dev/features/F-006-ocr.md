@@ -65,3 +65,9 @@ Main app: iLovePDF (OCR to a searchable PDF, language choice). Also Acrobat (Rec
   | Tesseract fra | 98.4 % | 96.4 % | 94.3 % | 95.0 % | 96.4 % | 369/384 | 47 s | 8 MB |
 
   Release build 2.5× faster than the debug one (62 s against 155 s); this VM has one physical core.
+- 24/10 13:00, the tool in the app (Xvfb, fiche scan): options panel with the 29 languages as iLovePDF's checklist;
+  run; result screen "Your PDF has been made searchable successfully. 4 pages read, 1780 words added" with
+  "Continue to…". The language ticked first is now the system's when the models read it (`default_language`, through
+  `sys-locale`; was always English): French on a French Mac. Test `the_system_language_is_offered_first`.
+  not automatable here: the ticked box itself under a French locale (checked by screenshot, LANG=fr_FR) — the smoke
+  layer runs one locale.

@@ -6700,6 +6700,7 @@ dependencies = [
  "sheaf-core",
  "slint",
  "slint-build",
+ "sys-locale",
  "tempfile",
 ]
 
