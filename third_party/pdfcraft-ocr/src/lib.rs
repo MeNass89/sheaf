@@ -320,6 +320,10 @@ impl Ocr {
         for b in tall {
             let mut best: Option<(f32, f32, Vec<Word>)> = None;
             for turn in [Turn::Up, Turn::Down] {
+                // Reading up first (Word's turned cells read so); the other way only when that was unsure.
+                if best.as_ref().is_some_and(|(s, _, _)| *s >= 0.95) {
+                    break;
+                }
                 let (img, w, h, back) = turned(&rgb, width as usize, height as usize, b, turn);
                 let read = latin.read_line(&img, w, h, [0.0, 0.0, w as f32, h as f32]).map_err(OcrError::Recognize)?;
                 let letters: usize = read.iter().map(|r| r.0.chars().filter(|c| c.is_alphanumeric()).count()).sum();

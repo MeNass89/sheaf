@@ -567,3 +567,10 @@ upstream laid them out, though Sheaf patches touch them. **Why better here.** Th
 replaced on each PdfCraft update (third_party/README); split, the "Sheaf:" changes could no longer be re-applied by
 copying upstream's files over them. **Scope.** `third_party/`. **Ends when.** A crate's changes are upstream and its
 folder is dropped.
+
+## 2026-10-24 · OCR speed: onnxruntime not adopted yet
+**Decision.** PaddleOCR's Latin model stays on rten (pure Rust). **Alternatives.** onnxruntime (`ort` crate, about
+2.5× faster on the same lines, ~6 s/page here against Tesseract's 11.75), an int8 model (rten reads nothing back),
+batched lines (slower). **Reason.** onnxruntime adds a native library per platform to build, sign and ship, for one
+north star of one component (C-optimize-006 is 9/9/8); higher-leverage components wait. **What would change it.** A
+Mac timing still slower than Tesseract, or OCR becoming the bottleneck of PDF to Word with OCR.

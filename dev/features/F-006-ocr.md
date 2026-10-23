@@ -71,3 +71,11 @@ Main app: iLovePDF (OCR to a searchable PDF, language choice). Also Acrobat (Rec
   `sys-locale`; was always English): French on a French Mac. Test `the_system_language_is_offered_first`.
   not automatable here: the ticked box itself under a French locale (checked by screenshot, LANG=fr_FR) — the smoke
   layer runs one locale.
+- 24/10 15:00, reviewer 9/9/8 on 3f18004: function and aesthetics 9 agreed; performance 8 (release 15.5 s/page
+  against Tesseract's 11.75 on this one-core VM, 234 MB). Profile of one page (RTEN_TIMING, release): model time
+  19.1 s, detection 0.8 s, recognition 18.3 s over 87 runs (67 lines, the rest turned labels), 89 % of it in Conv.
+  Tried and dropped: the model quantised to int8 (rten reads nothing back from it: 0 % of words, and only 14 %
+  faster); lines read in batches of one length padded white (slower, 405 MB, 84 % of words). Kept: a turned label
+  is read the other way only when reading it up was unsure (fewer runs).
+  The lever left for performance 9 is onnxruntime for this model (Python onnxruntime reads the same lines about
+  2.5× faster): a native library to ship per platform, as pdfium is. Not taken this session: logged in DECISIONS.
