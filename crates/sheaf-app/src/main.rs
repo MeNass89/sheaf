@@ -461,5 +461,7 @@ fn main() -> Result<(), slint::PlatformError> {
         deliver(queued);
     });
 
-    ui.run()
+    let r = ui.run();
+    sheaf_app::files::clear_office_cache();
+    r
 }

@@ -17,7 +17,7 @@ use sheaf_core::redact::{self, Mark};
 use sheaf_core::edit::{self, EditSpec, Item};
 use sheaf_core::sign::{self, DigitalSpec, Graphic, SignSpec};
 use sheaf_core::watermark::{self, WatermarkOptions};
-use sheaf_core::{office, repair, rotate, security, OpdfError, Result};
+use sheaf_core::{repair, rotate, security, OpdfError, Result};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -292,7 +292,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             batch(each(inputs, cancel, progress, |i| i.path.as_path(), |i| images::pdf_to_jpg(i, *dpi, *quality, out_dir)))?
         }
         Job::Office { items } => {
-            batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(office::office_to_pdf(i, o))))?
+            batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(crate::files::office_to_pdf(i, o))))?
         }
         Job::PageNumbers { items, options } => batch(each(items, cancel, progress, pair, |(i, o)| {
             let (p, w) = numbers::number_pages(i, options, o)?;

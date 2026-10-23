@@ -114,12 +114,65 @@ pub struct Thumb {
     pub rgba: Vec<u8>,
 }
 
-/// Page count and page-1 thumbnail of an Office or HTML file, converted to a PDF in a folder of
-/// its own (removed after) by LibreOffice.
+/// Page count and page-1 thumbnail of an Office or HTML file, converted to a PDF by LibreOffice,
+/// one file at a time (each LibreOffice is a few hundred MB). The PDF is kept for the conversion
+/// itself ([`office_to_pdf`]), so a file is converted once.
 pub fn document_probe(path: &Path, width: i32) -> Result<(u32, Thumb)> {
-    let dir = tempfile::Builder::new().prefix("sheaf-office-probe-").tempdir()?;
-    let pdf = sheaf_core::office::office_to_pdf(path, &dir.path().join("probe.pdf"))?;
+    static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let pdf = match office_cached(path) {
+        Some(p) => p,
+        None => {
+            let dir = tempfile::Builder::new().prefix("sheaf-office-probe-").tempdir()?;
+            let pdf = sheaf_core::office::office_to_pdf(path, &dir.path().join("probe.pdf"))?;
+            office_cache_put(path, dir);
+            pdf
+        }
+    };
     probe_pdf(&Input::new(pdf), width)
+}
+
+/// An Office file as it is on disk: its path, size and modification time.
+type OfficeKey = (std::path::PathBuf, u64, std::time::SystemTime);
+
+/// PDFs of Office files made for their cards, at most [`OFFICE_CACHE`] (the oldest go).
+static OFFICE_PDFS: std::sync::Mutex<Vec<(OfficeKey, tempfile::TempDir)>> = std::sync::Mutex::new(Vec::new());
+const OFFICE_CACHE: usize = 64;
+
+fn office_key(path: &Path) -> Option<OfficeKey> {
+    let m = std::fs::metadata(path).ok()?;
+    Some((path.to_path_buf(), m.len(), m.modified().ok()?))
+}
+
+fn office_cached(path: &Path) -> Option<std::path::PathBuf> {
+    let key = office_key(path)?;
+    let cache = OFFICE_PDFS.lock().unwrap_or_else(|e| e.into_inner());
+    cache.iter().find(|(k, _)| *k == key).map(|(_, d)| d.path().join("probe.pdf")).filter(|p| p.is_file())
+}
+
+fn office_cache_put(path: &Path, dir: tempfile::TempDir) {
+    let Some(key) = office_key(path) else { return };
+    let mut cache = OFFICE_PDFS.lock().unwrap_or_else(|e| e.into_inner());
+    cache.retain(|(k, _)| k.0 != key.0);
+    if cache.len() >= OFFICE_CACHE {
+        cache.remove(0);
+    }
+    cache.push((key, dir));
+}
+
+/// Office or HTML file to PDF at `out`: a copy of the PDF its card was made from when the file
+/// has not changed since, else converted by LibreOffice.
+pub fn office_to_pdf(path: &Path, out: &Path) -> Result<std::path::PathBuf> {
+    if let Some(pdf) = office_cached(path) {
+        std::fs::copy(&pdf, out)?;
+        return Ok(out.to_path_buf());
+    }
+    sheaf_core::office::office_to_pdf(path, out)
+}
+
+/// The PDFs kept for cards are deleted (the app quits).
+pub fn clear_office_cache() {
+    OFFICE_PDFS.lock().unwrap_or_else(|e| e.into_inner()).clear();
 }
 
 /// Names compared as a person would: digits as numbers ("file 2" before "file 10"), letters
@@ -293,6 +346,23 @@ mod tests {
         assert_eq!(route_drop(None, &pdf), DropAction::PickTool);
         assert!(matches!(route_drop(None, &docx), DropAction::Reject(_)));
         assert_eq!(route_drop(Some(ToolId::JpgToPdf), Path::new("/x/p.jpeg")), DropAction::AddToTab);
+    }
+
+    #[test]
+    fn an_office_file_converted_for_its_card_is_copied_until_it_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let doc = dir.path().join("a.docx");
+        std::fs::write(&doc, b"first").unwrap();
+        let made = tempfile::Builder::new().prefix("sheaf-office-probe-").tempdir().unwrap();
+        std::fs::write(made.path().join("probe.pdf"), b"%PDF-cached").unwrap();
+        office_cache_put(&doc, made);
+        let out = dir.path().join("a.pdf");
+        office_to_pdf(&doc, &out).unwrap();
+        assert_eq!(std::fs::read(&out).unwrap(), b"%PDF-cached");
+        // Changed since (size differs): not the old PDF.
+        std::fs::write(&doc, b"second version").unwrap();
+        assert!(office_cached(&doc).is_none());
+        clear_office_cache();
     }
 
     #[test]
