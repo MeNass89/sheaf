@@ -12043,10 +12043,10 @@
    74
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 6,
-   "overall": 6
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 8,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -12073,6 +12073,17 @@
      "overall": 6
     },
     "proof": "reviewer 24/10 on 35b1abd: MICI scan words found 73.6→94.8 %, accented 0→95 %, placement median 0.5 pt; blockers: turned text, α/→ in text layer, deskew, Tesseract benchmark, release timing (43 s/page debug, 1 core)"
+   },
+   {
+    "date": "2026-10-23",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "reviewer 24/10 on 3f18004: 95.8 % words vs Tesseract 96.4 % same scan, accented on par, turned labels, α/→, deskew 2.5° 93.3 %; release 15.5 s/page vs Tesseract 11.75, 234 MB; perf blocker: speed (onnxruntime or int8)"
    }
   ]
  },
