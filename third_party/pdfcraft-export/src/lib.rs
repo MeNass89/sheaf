@@ -49,11 +49,14 @@ pub struct Page {
     pub height: f64,
     pub blocks: Vec<Block>,
     pub images: Vec<Image>,
+    /// Sheaf: the straight lines drawn on the page (table rules, cell borders, the edges of filled
+    /// boxes) as [x0, y0, x1, y1], same space as the blocks: ruled tables are found from them.
+    pub rules: Vec<[f64; 4]>,
 }
 
 /// One cell of a detected table. `span` is how many grid columns the cell covers (a header
 /// row that stretches over sub-columns).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Cell {
     pub text: String,
     pub size: f64,
@@ -62,6 +65,11 @@ pub struct Cell {
     /// Text fill colour as sRGB components in 0..=1.
     pub color: [f64; 3],
     pub span: usize,
+    /// Sheaf: rows merged down (a ruled table's cell spanning rows): 0 none, 1 the first row of
+    /// the merged cell (it holds the text), 2 a row it continues into (empty).
+    pub merge: u8,
+    /// Sheaf: the text runs bottom to top (a vertical label, as fiches put down their left side).
+    pub vertical: bool,
 }
 
 /// A table detected from the page's text layout: rows of cells, and the left edge of each
@@ -71,6 +79,8 @@ pub struct Table {
     pub rect: [f64; 4],
     pub cols: Vec<f64>,
     pub rows: Vec<Vec<Cell>>,
+    /// Sheaf: found from the rules drawn on the page: its cells keep their borders.
+    pub ruled: bool,
 }
 
 /// What goes into the output, in order.
@@ -212,7 +222,7 @@ pub(crate) fn tables(blocks: &[Block]) -> (Vec<Table>, Vec<bool>) {
                 let b = &blocks[bi];
                 let Some(slot) = edges.iter().position(|e| (*e - b.rect[0]).abs() <= COL_TOL) else { continue };
                 let span = edges[slot + 1..].iter().filter(|e| **e > b.rect[0] + COL_TOL && **e < b.rect[2] - COL_TOL).count() + 1;
-                let cell = Cell { text: b.text.trim().to_string(), size: b.size, bold: b.bold, italic: b.italic, color: b.color, span };
+                let cell = Cell { text: b.text.trim().to_string(), size: b.size, bold: b.bold, italic: b.italic, color: b.color, span, ..Default::default() };
                 match &mut slots[slot] {
                     Some(c) => {
                         c.text.push(' ');
@@ -233,7 +243,7 @@ pub(crate) fn tables(blocks: &[Block]) -> (Vec<Table>, Vec<bool>) {
                     }
                     None => {
                         column += 1;
-                        materialized.push(Cell { text: String::new(), size: 11.0, bold: false, italic: false, color: [0.0; 3], span: 1 });
+                        materialized.push(Cell { size: 11.0, span: 1, ..Default::default() });
                     }
                 }
             }
@@ -248,7 +258,7 @@ pub(crate) fn tables(blocks: &[Block]) -> (Vec<Table>, Vec<bool>) {
             right,
             used.iter().map(|&i| blocks[i].rect[3]).fold(f64::MIN, f64::max),
         ];
-        out.push(Table { rect, cols: edges, rows: rows_out });
+        out.push(Table { rect, cols: edges, rows: rows_out, ruled: false });
     };
     // Runs of consecutive multi-column rows are tables. Rows on either side of a run that
     // hold a single cell wide enough to span two columns (a header band, a totals row) join
@@ -297,6 +307,167 @@ pub(crate) fn tables(blocks: &[Block]) -> (Vec<Table>, Vec<bool>) {
     (out, consumed)
 }
 
+/// Sheaf: tables drawn with rules, as Word draws its tables: the grid comes from the page's
+/// horizontal and vertical lines (`Page::rules`), cells merge where a line between them is
+/// missing (across: `span`, down: `merge`), and each block goes into the cell holding its centre.
+/// Boxes without text in them (a frame, a filled band) are not tables. Returns the tables and, per
+/// block, whether one took it.
+pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>, Vec<bool>) {
+    const TOL: f64 = 2.0;
+    let mut consumed = vec![false; blocks.len()];
+    let fine = |v: f64| v.is_finite() && v.abs() < 1e6;
+    // (y, x0, x1) and (x, y0, y1).
+    let (mut hs, mut vs): (Vec<[f64; 3]>, Vec<[f64; 3]>) = (Vec::new(), Vec::new());
+    for r in rules.iter().take(20_000).filter(|r| r.iter().all(|v| fine(*v))) {
+        let (x0, x1, y0, y1) = (r[0].min(r[2]), r[0].max(r[2]), r[1].min(r[3]), r[1].max(r[3]));
+        if y1 - y0 < 0.5 && x1 - x0 >= 4.0 {
+            hs.push([(y0 + y1) / 2.0, x0, x1]);
+        } else if x1 - x0 < 0.5 && y1 - y0 >= 4.0 {
+            vs.push([(x0 + x1) / 2.0, y0, y1]);
+        }
+    }
+    if hs.len() < 2 || vs.len() < 2 || hs.len().saturating_mul(vs.len()) > 4_000_000 {
+        return (Vec::new(), consumed);
+    }
+    // Lines that cross or touch belong to one grid (union-find over horizontals then verticals).
+    let n = hs.len() + vs.len();
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn root(p: &mut [usize], mut i: usize) -> usize {
+        while p[i] != i {
+            p[i] = p[p[i]];
+            i = p[i];
+        }
+        i
+    }
+    for (i, h) in hs.iter().enumerate() {
+        for (j, v) in vs.iter().enumerate() {
+            if v[0] >= h[1] - TOL && v[0] <= h[2] + TOL && h[0] >= v[1] - TOL && h[0] <= v[2] + TOL {
+                let (a, b) = (root(&mut parent, i), root(&mut parent, hs.len() + j));
+                parent[a] = b;
+            }
+        }
+    }
+    let mut groups: std::collections::BTreeMap<usize, (Vec<usize>, Vec<usize>)> = std::collections::BTreeMap::new();
+    for i in 0..n {
+        let r = root(&mut parent, i);
+        let g = groups.entry(r).or_default();
+        if i < hs.len() { g.0.push(i) } else { g.1.push(i - hs.len()) }
+    }
+    // Positions within `TOL` of each other are one grid line.
+    let cluster = |mut v: Vec<f64>| -> Vec<f64> {
+        v.sort_by(|a, b| a.total_cmp(b));
+        let mut out: Vec<(f64, usize)> = Vec::new();
+        for x in v {
+            match out.last_mut() {
+                Some((m, k)) if x - *m / *k as f64 <= TOL => {
+                    *m += x;
+                    *k += 1;
+                }
+                _ => out.push((x, 1)),
+            }
+        }
+        out.into_iter().map(|(m, k)| m / k as f64).collect()
+    };
+    // Grid lines closer than this are one: a cell's fill is often drawn a little inside its
+    // borders (Word's shading), and its edges are lines too.
+    let thin = |v: Vec<f64>, min: f64| -> Vec<f64> {
+        let mut out: Vec<f64> = Vec::new();
+        for x in v {
+            match out.last() {
+                Some(l) if x - l < min => {}
+                _ => out.push(x),
+            }
+        }
+        out
+    };
+    let mut tables = Vec::new();
+    for (hi, vi) in groups.values() {
+        let xs = thin(cluster(vi.iter().map(|&j| vs[j][0]).collect()), 8.0);
+        let mut ys = thin(cluster(hi.iter().map(|&i| hs[i][0]).collect()), 4.0);
+        ys.reverse(); // top first (y up)
+        let (nr, nc) = (ys.len().saturating_sub(1), xs.len().saturating_sub(1));
+        if nr == 0 || nc == 0 || nr * nc < 2 || nc > MAX_COLS || nr > 1000 {
+            continue;
+        }
+        let rect = [xs[0], ys[nr], xs[nc], ys[0]];
+        let inside: Vec<usize> = (0..blocks.len())
+            .filter(|&b| !consumed[b])
+            .filter(|&b| {
+                let r = &blocks[b].rect;
+                let (cx, cy) = ((r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0);
+                cx > rect[0] && cx < rect[2] && cy > rect[1] && cy < rect[3]
+            })
+            .collect();
+        if inside.is_empty() {
+            continue;
+        }
+        // A grid line between two cells: is it drawn there?
+        // (Within the distance that made one grid line of several.)
+        let v_drawn = |x: f64, y: f64| vi.iter().any(|&j| (vs[j][0] - x).abs() <= 8.0 && y >= vs[j][1] - TOL && y <= vs[j][2] + TOL);
+        let h_drawn = |y: f64, x: f64| hi.iter().any(|&i| (hs[i][0] - y).abs() <= 4.0 && x >= hs[i][1] - TOL && x <= hs[i][2] + TOL);
+        // Cells merge where the line between them is missing: each grid cell's owner, top-left first.
+        let mut owner: Vec<usize> = (0..nr * nc).collect();
+        for r in 0..nr {
+            let ym = (ys[r] + ys[r + 1]) / 2.0;
+            for c in 0..nc {
+                let xm = (xs[c] + xs[c + 1]) / 2.0;
+                if c + 1 < nc && !v_drawn(xs[c + 1], ym) {
+                    let (a, b) = (root(&mut owner, r * nc + c), root(&mut owner, r * nc + c + 1));
+                    let (lo, hi2) = (a.min(b), a.max(b));
+                    owner[hi2] = lo;
+                }
+                if r + 1 < nr && !h_drawn(ys[r + 1], xm) {
+                    let (a, b) = (root(&mut owner, r * nc + c), root(&mut owner, (r + 1) * nc + c));
+                    let (lo, hi2) = (a.min(b), a.max(b));
+                    owner[hi2] = lo;
+                }
+            }
+        }
+        let own: Vec<usize> = (0..nr * nc).map(|k| root(&mut owner, k)).collect();
+        // Each block to the cell holding its centre, in reading order.
+        let mut texts: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+        for &b in &inside {
+            let r = &blocks[b].rect;
+            let (cx, cy) = ((r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0);
+            let row = ys.windows(2).position(|w| cy <= w[0] && cy >= w[1]).unwrap_or(0);
+            let col = xs.windows(2).position(|w| cx >= w[0] && cx <= w[1]).unwrap_or(0);
+            texts.entry(own[row * nc + col]).or_default().push(b);
+            consumed[b] = true;
+        }
+        for v in texts.values_mut() {
+            v.sort_by(|a, b| blocks[*b].rect[3].total_cmp(&blocks[*a].rect[3]).then(blocks[*a].rect[0].total_cmp(&blocks[*b].rect[0])));
+        }
+        let mut rows = Vec::with_capacity(nr);
+        for r in 0..nr {
+            let mut row = Vec::new();
+            let mut c = 0;
+            while c < nc {
+                let o = own[r * nc + c];
+                let span = (c..nc).take_while(|&k| own[r * nc + k] == o).count().max(1);
+                let (orow, ocol) = (o / nc, o % nc);
+                let tall = (0..nr).filter(|&k| own[k * nc + ocol] == o).count() > 1;
+                let mut cell = Cell { size: 11.0, span, ..Default::default() };
+                if orow == r {
+                    if let Some(bs) = texts.get(&o) {
+                        let first = &blocks[bs[0]];
+                        cell.text = bs.iter().map(|&b| blocks[b].text.trim()).collect::<Vec<_>>().join(" ");
+                        (cell.size, cell.bold, cell.italic, cell.color) = (first.size, first.bold, first.italic, first.color);
+                        cell.vertical = (first.rotation - 90.0).abs() < 1.0;
+                    }
+                    cell.merge = u8::from(tall);
+                } else {
+                    cell.merge = 2;
+                }
+                row.push(cell);
+                c += span;
+            }
+            rows.push(row);
+        }
+        tables.push(Table { rect, cols: xs[..nc].to_vec(), rows, ruled: true });
+    }
+    (tables, consumed)
+}
+
 fn items(pages: &[Page]) -> Vec<Item<'_>> {
     let body = body_size(pages);
     let mut out = Vec::new();
@@ -304,7 +475,17 @@ fn items(pages: &[Page]) -> Vec<Item<'_>> {
         if i > 0 {
             out.push(Item::PageBreak);
         }
-        let (tables, consumed) = tables(&p.blocks);
+        // Sheaf: ruled tables first; the text-layout detector then looks at what is left.
+        let (mut tables, mut consumed) = ruled_tables(&p.blocks, &p.rules);
+        let rest: Vec<usize> = (0..p.blocks.len()).filter(|i| !consumed[*i]).collect();
+        let rest_blocks: Vec<Block> = rest.iter().map(|i| p.blocks[*i].clone()).collect();
+        let (more, taken) = self::tables(&rest_blocks);
+        tables.extend(more);
+        for (k, t) in taken.into_iter().enumerate() {
+            if t {
+                consumed[rest[k]] = true;
+            }
+        }
         // Blocks and images by their top edge, top to bottom.
         let mut parts: Vec<(f64, f64, Item)> = p
             .blocks
@@ -447,8 +628,10 @@ fn docx_table(t: &Table) -> String {
     edges.push(t.rect[2]);
     let widths: Vec<i64> = edges.windows(2).map(|w| ((w[1] - w[0]).max(20.0) * 20.0).round().clamp(60.0, 31680.0) as i64).collect();
     let mut s = String::from("<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/><w:tblBorders>");
+    // Sheaf: a ruled table keeps its borders.
+    let border = if t.ruled { "w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"000000\"" } else { "w:val=\"nil\"" };
     for edge in ["top", "left", "bottom", "right", "insideH", "insideV"] {
-        s.push_str(&format!("<w:{edge} w:val=\"nil\"/>"));
+        s.push_str(&format!("<w:{edge} {border}/>"));
     }
     s.push_str("</w:tblBorders></w:tblPr><w:tblGrid>");
     for w in &widths {
@@ -457,13 +640,20 @@ fn docx_table(t: &Table) -> String {
     s.push_str("</w:tblGrid>");
     for row in &t.rows {
         s.push_str("<w:tr>");
+        let mut col = 0;
         for c in row {
             let span = if c.span > 1 { format!("<w:gridSpan w:val=\"{}\"/>", c.span) } else { String::new() };
-            let w: i64 = widths.iter().take(c.span.min(widths.len())).sum();
-            s.push_str(&format!(
-                "<w:tc><w:tcPr><w:tcW w:w=\"{w}\" w:type=\"dxa\"/>{span}</w:tcPr><w:p>{}</w:p></w:tc>",
-                run_xml(&c.text, c.size, c.bold, c.italic, c.color)
-            ));
+            // Sheaf: the width of the columns this cell covers (was always taken from the first).
+            let w: i64 = widths.iter().skip(col).take(c.span.max(1)).sum();
+            col += c.span.max(1);
+            let merge = match c.merge {
+                1 => "<w:vMerge w:val=\"restart\"/>",
+                2 => "<w:vMerge/>",
+                _ => "",
+            };
+            let dir = if c.vertical { "<w:textDirection w:val=\"btLr\"/>" } else { "" };
+            let text = if c.merge == 2 { String::new() } else { run_xml(&c.text, c.size, c.bold, c.italic, c.color) };
+            s.push_str(&format!("<w:tc><w:tcPr><w:tcW w:w=\"{w}\" w:type=\"dxa\"/>{span}{merge}{dir}</w:tcPr><w:p>{text}</w:p></w:tc>"));
         }
         // Pad the grid so every row covers all columns (Word rejects short rows).
         let used: usize = row.iter().map(|c| c.span).sum();
@@ -481,7 +671,9 @@ fn docx_table(t: &Table) -> String {
 /// Keep those pages as editable, absolutely positioned text boxes. Every other page, including
 /// one with a logo or a big title that sits clear of the text, flows as paragraphs and tables.
 fn positioned(page: &Page) -> bool {
-    if page.blocks.iter().any(|b| b.rotation.abs() > 0.1) {
+    // Sheaf: a rotated label inside a ruled table becomes that cell's vertical text.
+    let in_table = ruled_tables(&page.blocks, &page.rules).1;
+    if page.blocks.iter().enumerate().any(|(i, b)| b.rotation.abs() > 0.1 && !in_table[i]) {
         return true;
     }
     let body = body_size(std::slice::from_ref(page)).max(1.0);
@@ -816,7 +1008,7 @@ mod tests {
             color: [0.0; 3],
             rotation: 0.0,
         };
-        Page {
+        Page { rules: Vec::new(),
             width: 612.0,
             height: 792.0,
             blocks: vec![
@@ -965,7 +1157,7 @@ mod tests {
         assert!(xml.contains("<w:sz w:val=\"24\"/>"), "a non-finite size falls back to 12 pt");
         assert!(rtf(&[p]).contains("Total 4.50\tGBP"));
         // A narrow page keeps room for text: margins shrink.
-        let narrow = Page { width: 100.0, height: 200.0, ..page() };
+        let narrow = Page { rules: Vec::new(), width: 100.0, height: 200.0, ..page() };
         let xml = part(&docx(&[narrow], "Narrow"), "word/document.xml");
         assert!(xml.contains("<w:pgMar w:top=\"500\" w:right=\"250\" w:bottom=\"500\" w:left=\"250\""), "{xml}");
     }
@@ -1028,7 +1220,7 @@ mod tests {
             color: [0.0; 3],
             rotation: 0.0,
         };
-        Page {
+        Page { rules: Vec::new(),
             width: 612.0,
             height: 792.0,
             blocks: vec![
@@ -1113,7 +1305,7 @@ mod tests {
     #[test]
     fn word_opens_tables_up_to_its_column_limit() {
         // Rows of short numbers on a regular grid, n columns wide.
-        let grid = |n: usize| Page {
+        let grid = |n: usize| Page { rules: Vec::new(),
             width: 1500.0,
             height: 792.0,
             blocks: (0..3)
@@ -1151,7 +1343,7 @@ mod tests {
             color: [0.0; 3],
             rotation: 0.0,
         };
-        let p = Page {
+        let p = Page { rules: Vec::new(),
             width: 612.0,
             height: 792.0,
             blocks: vec![
@@ -1164,5 +1356,60 @@ mod tests {
         };
         let h = html(&[p], "Paper");
         assert!(!h.contains("<table>"), "tall two-column text must stay paragraphs: {h}");
+    }
+
+    /// Sheaf: a ruled table as Word draws one: a header across three columns, a vertical label
+    /// down two rows on the left, a missing rule merging cells, a fill band inset in a cell.
+    #[test]
+    fn ruled_table_with_merged_cells_and_a_vertical_label() {
+        let b = |t: &str, x: f64, y: f64, rotation: f64| Block {
+            text: t.into(),
+            rect: [x, y, x + 40.0, y + 10.0],
+            size: 10.0,
+            bold: false,
+            italic: false,
+            color: [0.0; 3],
+            rotation,
+        };
+        let blocks = vec![
+            b("Head", 150.0, 285.0, 0.0),
+            b("Label", 105.0, 225.0, 90.0),
+            b("A", 205.0, 255.0, 0.0),
+            b("B", 305.0, 255.0, 0.0),
+            b("C", 205.0, 205.0, 0.0),
+            b("D", 305.0, 205.0, 0.0),
+            b("Below", 100.0, 100.0, 0.0),
+        ];
+        // Rows at y 300, 280, 240, 200; columns at x 100, 200, 300, 400.
+        let mut rules = Vec::new();
+        for y in [300.0, 280.0, 200.0] {
+            rules.push([100.0, y, 400.0, y]);
+        }
+        rules.push([200.0, 240.0, 400.0, 240.0]); // not across the label's column
+        for x in [100.0, 400.0] {
+            rules.push([x, 200.0, x, 300.0]);
+        }
+        for x in [200.0, 300.0] {
+            rules.push([x, 200.0, x, 280.0]); // not through the header
+        }
+        // A fill drawn 3 pt inside the header's borders: its edges are rules too.
+        rules.extend([[103.0, 297.0, 397.0, 297.0], [103.0, 283.0, 397.0, 283.0], [103.0, 283.0, 103.0, 297.0], [397.0, 283.0, 397.0, 297.0]]);
+        let (tables, used) = ruled_tables(&blocks, &rules);
+        assert_eq!(tables.len(), 1);
+        let t = &tables[0];
+        assert!(t.ruled);
+        assert_eq!(t.rows.len(), 3, "{:?}", t.rows);
+        assert_eq!((t.rows[0].len(), t.rows[0][0].text.as_str(), t.rows[0][0].span), (1, "Head", 3));
+        assert_eq!((t.rows[1][0].text.as_str(), t.rows[1][0].merge, t.rows[1][0].vertical), ("Label", 1, true));
+        assert_eq!((t.rows[2][0].merge, t.rows[2][0].text.as_str()), (2, ""));
+        assert_eq!(t.rows[1].iter().map(|c| c.text.as_str()).collect::<Vec<_>>(), ["Label", "A", "B"]);
+        assert_eq!(t.rows[2].iter().map(|c| c.text.as_str()).collect::<Vec<_>>(), ["", "C", "D"]);
+        assert_eq!(used, [true, true, true, true, true, true, false], "the paragraph below stays a paragraph");
+        // In the Word file: borders, the merge, the vertical text; the page flows (no text boxes).
+        let page = Page { rules, width: 500.0, height: 400.0, blocks, images: Vec::new() };
+        assert!(!positioned(&page), "a rotated label in a ruled table no longer makes the page positioned");
+        let xml = part(&docx(&[page], "t"), "word/document.xml");
+        assert!(xml.contains("<w:vMerge w:val=\"restart\"/><w:textDirection w:val=\"btLr\"/>") && xml.contains("<w:vMerge/>"), "{xml}");
+        assert!(xml.contains("<w:insideH w:val=\"single\"") && !xml.contains("v:textbox"));
     }
 }

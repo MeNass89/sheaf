@@ -51,3 +51,11 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
      crossing it, both sides tall) and read left column then right.
   4. Rotated text: `positioned()` sends the whole page to boxes for one rotated block. Step: a rotated
      block inside a table cell becomes that cell's text with `w:textDirection btLr`; elsewhere a paragraph.
+- 23/10 05:30, step 2 done (ruled tables): `Page::rules` from `measure::snap::geometry`; `ruled_tables` builds
+  the grid (lines within 8 pt across / 4 pt down are one: fills inset in cells), merges cells where a rule
+  is missing (gridSpan, vMerge), puts each block in its cell, a rotated label as `btLr` text; borders kept;
+  the text-layout detector then runs on what is left; a rotated block in a ruled table no longer makes the
+  page positioned. Test `ruled_table_with_merged_cells_and_a_vertical_label`. Corpus 18/20 (fiche and invoice
+  tables exact). MICI: no text box left (14 tables, 26 vertical labels) but still poor: 10 pages for 4, the
+  first page's stacked tables fragmented. Next: MICI page 1 (why tables split, cells lose text), then
+  paragraphs (step 1), columns (step 3).

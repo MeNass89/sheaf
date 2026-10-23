@@ -202,7 +202,16 @@ impl crate::Document {
                         })
                     })
                     .collect();
-                pdfcraft_export::Page { width: info.width as f64, height: info.height as f64, blocks, images }
+                // Sheaf: the page's straight horizontal and vertical lines (table rules, cell borders,
+                // box edges), for ruled tables; mapped as the blocks are.
+                let rules = crate::measure::snap::geometry(cos, i)
+                    .map(|g| g.segments)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|[a, b]| visible_rect([a[0], a[1], b[0], b[1]]))
+                    .filter(|r| (r[2] - r[0]).abs() < 0.5 || (r[3] - r[1]).abs() < 0.5)
+                    .collect();
+                pdfcraft_export::Page { width: info.width as f64, height: info.height as f64, blocks, images, rules }
             })
             .collect()
     }
