@@ -24,3 +24,11 @@ Main app: iLovePDF (OCR to a searchable PDF, language choice). Also Acrobat (Rec
   Test: `accented_letters_are_read` (red without the model: "Pr?valence?lev?e??ge").
   Left: "→" read as "?" (the text layer's font has no arrow), a line's words in a few places out of order, speed in a
   release build, deskew (Acrobat).
+- 24/10 05:00, speed and word places. Page 1 of the MICI scan (1654 × 2339): detection 2.6 s, reading 67 lines
+  41.6 s (onnxruntime would take ~2.5× less on the same lines). This VM has one physical core: rten sizes its pool
+  from physical cores, and forcing 2 threads gives 170 % CPU but no gain. Lines are now read on every core at once
+  (`read_latin`), for Macs' performance cores; not measurable here. Word places: words take ocrs' boxes in order
+  when the counts match; when ocrs found two words as one box ("cause inconnue"), each word keeps where the model
+  read it, as tall as the box: the line reads whole again ("de cause inconnue pouvant"). Test
+  `words_read_take_the_boxes_found_in_order`.
+  Measured (debug build, deps optimised, 1 physical core): 43 s for a dense French page, 237 MB.

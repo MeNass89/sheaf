@@ -235,28 +235,64 @@ impl Ocr {
                 })
                 .collect()
         };
-        let mut out = Vec::new();
-        for line in lines {
+        // One line at a time on each core (a line is too small for the model to use them all).
+        let read_one = |line: &Vec<rten_imageproc::RotatedRect>| -> Result<Option<Line>, OcrError> {
             let found = boxes(line);
             if found.is_empty() {
-                continue;
+                return Ok(None);
             }
             let rect = found.iter().fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]);
             let read = latin.read_line(&rgb, width as usize, height as usize, rect).map_err(OcrError::Recognize)?;
-            let words: Vec<Word> = read
-                .into_iter()
-                .map(|(text, at)| {
-                    let under: Vec<&[f32; 4]> = found.iter().filter(|b| (b[0] + b[2]) / 2.0 >= at[0] && (b[0] + b[2]) / 2.0 <= at[2]).collect();
-                    let rect = if under.is_empty() { at } else { under.iter().fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]) };
-                    Word { text, rect }
-                })
-                .collect();
-            if !words.is_empty() {
-                out.push(Line { words });
+            let words = place_words(read, &found);
+            Ok((!words.is_empty()).then_some(Line { words }))
+        };
+        let workers = std::thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 8).min(lines.len().max(1));
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let mut slots: Vec<Option<Result<Option<Line>, OcrError>>> = (0..lines.len()).map(|_| None).collect();
+        let results = std::sync::Mutex::new(&mut slots);
+        std::thread::scope(|scope| {
+            for _ in 0..workers {
+                scope.spawn(|| {
+                    loop {
+                        let k = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(line) = lines.get(k) else { break };
+                        let r = read_one(line);
+                        if let Ok(mut slots) = results.lock()
+                            && let Some(slot) = slots.get_mut(k)
+                        {
+                            *slot = Some(r);
+                        }
+                    }
+                });
+            }
+        });
+        let mut out = Vec::new();
+        for r in slots.into_iter().flatten() {
+            if let Some(line) = r? {
+                out.push(line);
             }
         }
         Ok(out)
     }
+}
+
+/// Sheaf: the words read on a line, placed: with the boxes ocrs found, in order, when there are as
+/// many as words (the usual case); else (ocrs found "cause inconnue" as one word) each where the
+/// model read it across the line, as tall as the boxes it overlaps.
+fn place_words(read: Vec<(String, [f32; 4])>, found: &[[f32; 4]]) -> Vec<Word> {
+    let mut sorted = found.to_vec();
+    sorted.sort_by(|a, b| a[0].total_cmp(&b[0]));
+    if read.len() == sorted.len() {
+        return read.into_iter().zip(sorted).map(|((text, _), rect)| Word { text, rect }).collect();
+    }
+    read.into_iter()
+        .map(|(text, at)| {
+            let over = sorted.iter().filter(|b| b[0] < at[2] && b[2] > at[0]);
+            let (top, bottom) = over.fold((f32::MAX, f32::MIN), |(t, d), b| (t.min(b[1]), d.max(b[3])));
+            let rect = if top < bottom { [at[0], top, at[2], bottom] } else { at };
+            Word { text, rect }
+        })
+        .collect()
 }
 
 /// A word placed on a page, in PDF user space: the bottom-left corner of its box, and the
@@ -339,6 +375,17 @@ pub fn text_layer(words: &[PlacedWord]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn words_read_take_the_boxes_found_in_order() {
+        let read = vec![("de".to_string(), [0.0, 0.0, 10.0, 12.0]), ("cause".to_string(), [18.0, 0.0, 52.0, 12.0]), ("inconnue".to_string(), [58.0, 0.0, 99.0, 12.0])];
+        let found = [[60.0, 2.0, 100.0, 10.0], [0.0, 2.0, 15.0, 10.0], [20.0, 2.0, 55.0, 10.0]];
+        let words = place_words(read.clone(), &found);
+        assert_eq!(words.iter().map(|w| w.rect).collect::<Vec<_>>(), [found[1], found[2], found[0]]);
+        // "cause inconnue" found as one box: each word where it was read, as tall as that box.
+        let words = place_words(read, &[[0.0, 2.0, 15.0, 10.0], [20.0, 1.0, 100.0, 11.0]]);
+        assert_eq!(words.iter().map(|w| w.rect).collect::<Vec<_>>(), [[0.0, 2.0, 10.0, 10.0], [18.0, 1.0, 52.0, 11.0], [58.0, 1.0, 99.0, 11.0]]);
+    }
 
     #[test]
     fn places_words_through_the_mapping() {
