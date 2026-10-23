@@ -59,3 +59,11 @@ C-convert-009 at 9 on the three axes with the corpus checks green, reviewer agre
   tables exact). MICI: no text box left (14 tables, 26 vertical labels) but still poor: 10 pages for 4, the
   first page's stacked tables fragmented. Next: MICI page 1 (why tables split, cells lose text), then
   paragraphs (step 1), columns (step 3).
+- 23/10 08:20, MICI page 1 is a Word table with its text in the cells (was 10 pages of fragments). Fixes: on a
+  page with ruled tables the text-layout detector no longer runs (it made a 9×12 grid of nothing); border
+  pieces join across a corner gap of up to 4 pt and pieces from 2 pt count (Word draws borders in pieces);
+  the biggest grid first, a grid nested in it (a label's own box) is part of its cell; no vertical text in a
+  cell merged down (LibreOffice aborts the page layout on it: tested by removing either). Corpus 18/20.
+  Next: the table is wider than the page (scale columns or narrow the margins), a cell's lines become one
+  run (keep one paragraph per line, each block's own style), letter-by-letter labels in narrow merged cells;
+  then paragraphs (step 1), columns (step 3).

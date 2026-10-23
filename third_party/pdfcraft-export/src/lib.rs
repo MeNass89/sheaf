@@ -320,9 +320,10 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>,
     let (mut hs, mut vs): (Vec<[f64; 3]>, Vec<[f64; 3]>) = (Vec::new(), Vec::new());
     for r in rules.iter().take(20_000).filter(|r| r.iter().all(|v| fine(*v))) {
         let (x0, x1, y0, y1) = (r[0].min(r[2]), r[0].max(r[2]), r[1].min(r[3]), r[1].max(r[3]));
-        if y1 - y0 < 0.5 && x1 - x0 >= 4.0 {
+        // Short pieces count: Word draws a cell's border in pieces, the one at a corner a few points long.
+        if y1 - y0 < 0.5 && x1 - x0 >= 2.0 {
             hs.push([(y0 + y1) / 2.0, x0, x1]);
-        } else if x1 - x0 < 0.5 && y1 - y0 >= 4.0 {
+        } else if x1 - x0 < 0.5 && y1 - y0 >= 2.0 {
             vs.push([(x0 + x1) / 2.0, y0, y1]);
         }
     }
@@ -339,9 +340,11 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>,
         }
         i
     }
+    // Lines a little apart still meet (a border's pieces leave gaps of a few points at corners).
+    const JOIN: f64 = 4.0;
     for (i, h) in hs.iter().enumerate() {
         for (j, v) in vs.iter().enumerate() {
-            if v[0] >= h[1] - TOL && v[0] <= h[2] + TOL && h[0] >= v[1] - TOL && h[0] <= v[2] + TOL {
+            if v[0] >= h[1] - JOIN && v[0] <= h[2] + JOIN && h[0] >= v[1] - JOIN && h[0] <= v[2] + JOIN {
                 let (a, b) = (root(&mut parent, i), root(&mut parent, hs.len() + j));
                 parent[a] = b;
             }
@@ -381,7 +384,24 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>,
         out
     };
     let mut tables = Vec::new();
-    for (hi, vi) in groups.values() {
+    // Bigger grids first; a grid inside one already taken (a label's own box in a cell) is part of
+    // that cell, not a table of its own.
+    let extent = |(hi, vi): &(Vec<usize>, Vec<usize>)| -> [f64; 4] {
+        let x0 = vi.iter().map(|&j| vs[j][0]).fold(f64::MAX, f64::min);
+        let x1 = vi.iter().map(|&j| vs[j][0]).fold(f64::MIN, f64::max);
+        let y0 = hi.iter().map(|&i| hs[i][0]).fold(f64::MAX, f64::min);
+        let y1 = hi.iter().map(|&i| hs[i][0]).fold(f64::MIN, f64::max);
+        [x0, y0, x1, y1]
+    };
+    let mut order: Vec<&(Vec<usize>, Vec<usize>)> = groups.values().filter(|(hi, vi)| hi.len() >= 2 && vi.len() >= 2).collect();
+    let area = |r: [f64; 4]| (r[2] - r[0]).max(0.0) * (r[3] - r[1]).max(0.0);
+    order.sort_by(|a, b| area(extent(b)).total_cmp(&area(extent(a))));
+    let mut taken: Vec<[f64; 4]> = Vec::new();
+    for (hi, vi) in order {
+        let e = extent(&(hi.clone(), vi.clone()));
+        if taken.iter().any(|t| e[0] >= t[0] - TOL && e[2] <= t[2] + TOL && e[1] >= t[1] - TOL && e[3] <= t[3] + TOL) {
+            continue;
+        }
         let xs = thin(cluster(vi.iter().map(|&j| vs[j][0]).collect()), 8.0);
         let mut ys = thin(cluster(hi.iter().map(|&i| hs[i][0]).collect()), 4.0);
         ys.reverse(); // top first (y up)
@@ -463,6 +483,7 @@ pub(crate) fn ruled_tables(blocks: &[Block], rules: &[[f64; 4]]) -> (Vec<Table>,
             }
             rows.push(row);
         }
+        taken.push(rect);
         tables.push(Table { rect, cols: xs[..nc].to_vec(), rows, ruled: true });
     }
     (tables, consumed)
@@ -475,9 +496,10 @@ fn items(pages: &[Page]) -> Vec<Item<'_>> {
         if i > 0 {
             out.push(Item::PageBreak);
         }
-        // Sheaf: ruled tables first; the text-layout detector then looks at what is left.
+        // Sheaf: ruled tables first; the text-layout detector then looks at what is left, on a page
+        // without ruled tables only (there its guesses split the boxes around the tables).
         let (mut tables, mut consumed) = ruled_tables(&p.blocks, &p.rules);
-        let rest: Vec<usize> = (0..p.blocks.len()).filter(|i| !consumed[*i]).collect();
+        let rest: Vec<usize> = if tables.is_empty() { (0..p.blocks.len()).collect() } else { Vec::new() };
         let rest_blocks: Vec<Block> = rest.iter().map(|i| p.blocks[*i].clone()).collect();
         let (more, taken) = self::tables(&rest_blocks);
         tables.extend(more);
@@ -651,7 +673,9 @@ fn docx_table(t: &Table) -> String {
                 2 => "<w:vMerge/>",
                 _ => "",
             };
-            let dir = if c.vertical { "<w:textDirection w:val=\"btLr\"/>" } else { "" };
+            // Vertical text in a cell merged down makes LibreOffice give up laying out the page
+            // (its layout aborts); there the text stays horizontal.
+            let dir = if c.vertical && c.merge == 0 { "<w:textDirection w:val=\"btLr\"/>" } else { "" };
             let text = if c.merge == 2 { String::new() } else { run_xml(&c.text, c.size, c.bold, c.italic, c.color) };
             s.push_str(&format!("<w:tc><w:tcPr><w:tcW w:w=\"{w}\" w:type=\"dxa\"/>{span}{merge}{dir}</w:tcPr><w:p>{text}</w:p></w:tc>"));
         }
@@ -1409,7 +1433,8 @@ mod tests {
         let page = Page { rules, width: 500.0, height: 400.0, blocks, images: Vec::new() };
         assert!(!positioned(&page), "a rotated label in a ruled table no longer makes the page positioned");
         let xml = part(&docx(&[page], "t"), "word/document.xml");
-        assert!(xml.contains("<w:vMerge w:val=\"restart\"/><w:textDirection w:val=\"btLr\"/>") && xml.contains("<w:vMerge/>"), "{xml}");
+        assert!(xml.contains("<w:vMerge w:val=\"restart\"/>") && xml.contains("<w:vMerge/>"), "{xml}");
+        assert!(!xml.contains("btLr"), "vertical text is kept out of merged cells (LibreOffice can't lay it out)");
         assert!(xml.contains("<w:insideH w:val=\"single\"") && !xml.contains("v:textbox"));
     }
 }
