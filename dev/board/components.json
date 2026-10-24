@@ -7301,10 +7301,10 @@
    111
   ],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 8,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -7331,6 +7331,17 @@
      "overall": 7
     },
     "proof": "Edit tool: drag a paragraph to move it (gui-smoke: 'quick' 72 → 158 pt), images outlined and draggable (EditPageImage Move, not yet in the smoke suite); no resize handles yet"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "reviewer 25/10 on 4822c52: multi-select (⇧-click, marquee), drag together, nudge, saved file proves it; blockers: paragraph resize handles, drawings (engine scope), stale outlines during drag, outlines vs preview, format row while picked, selection box"
    }
   ]
  },
