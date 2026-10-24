@@ -24057,14 +24057,14 @@
    163
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "mark by text selection",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -24087,6 +24087,17 @@
      "overall": 8
     },
     "proof": "reviewer 24/10 on 0720459: drag over text marks its words, output scrubbed (fiche); blockers: live highlight + midpoint end, double/triple-click, result wording, recapture"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "reviewer 24/10 on 42fcabb: live selection, caret ends, word/line clicks, result counts text passages; output scrubbed (fiche); gui-smoke 18"
    }
   ]
  },
