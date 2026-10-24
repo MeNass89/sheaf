@@ -63,6 +63,8 @@ export component ReaderToolbar inherits Rectangle {
             Rectangle { width: 6px; }
             ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text (E)"; active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image (I)"; active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link (L)"; active: root.tab.reader.tool == 13; clicked => { ReaderBridge.set-tool(root.id, 13); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/eye-off.svg"); tip: "Redact…"; clicked => { ReaderBridge.redact(root.id); } }
             ToolButton { icon: @image-url("../icons/signature.svg"); tip: "Sign (S)"; active: root.tab.reader.tool == 9; clicked => { ReaderBridge.set-tool(root.id, 9); root.focus-pages(); } }
         }
         Rectangle { horizontal-stretch: 1; }
@@ -201,7 +203,7 @@ export component ReaderToolbar inherits Rectangle {
             Rectangle {
                 // Narrower in a small window, so the toolbar always fits (the window's
                 // minimum is 900 px).
-                width: root.narrow ? 110px : clamp(root.width - 1090px, 110px, 210px);
+                width: root.narrow ? 110px : clamp(root.width - 1154px, 110px, 210px);
                 border-radius: Theme.radius-button;
                 border-width: 1px;
                 border-color: search-in.has-focus ? Theme.text-secondary : Theme.input-border;

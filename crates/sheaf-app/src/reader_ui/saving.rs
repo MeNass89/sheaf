@@ -50,12 +50,23 @@ pub fn to_tools(ui: &AppWindow, tab_id: i32) {
     hand_to_tools(ui, tab_id);
 }
 
+/// Redact (the edit group's button): the document opens in the Redact tool, saved first as for
+/// the Tools button.
+pub fn to_redact(ui: &AppWindow, tab_id: i32) {
+    update(tab_id, |r, _| r.tool_after_save = Some(sheaf_core::tools::ToolId::Redact));
+    to_tools(ui, tab_id);
+}
+
 pub(super) fn tools_waiting(tab_id: i32) -> bool {
     with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).is_some_and(|r| r.tools_after_save))
 }
 
 pub(super) fn hand_to_tools(ui: &AppWindow, tab_id: i32) {
-    let Some(path) = with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).map(|r| r.path.clone())) else { return };
+    let Some((path, tool)) = update(tab_id, |r, _| (r.path.clone(), r.tool_after_save.take())) else { return };
+    if let Some(tool) = tool {
+        crate::flow::open_tool(ui, tool, vec![path]);
+        return;
+    }
     with(|a| {
         a.home_files.retain(|p| p != &path);
         a.home_files.push(path);

@@ -13,7 +13,7 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 r.stroke = Some((page, vec![p]));
                 false
             }
-            SHAPE => {
+            SHAPE | LINK => {
                 r.stroke = Some((page, vec![p]));
                 r.shape_end = None;
                 false
@@ -215,6 +215,12 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             r.stroke = Some((page, reader::shape_outline(r.shape_kind, a, b)));
             return;
         }
+        if r.tool == LINK {
+            // The box the link will cover.
+            r.shape_end = Some(b);
+            r.stroke = Some((page, reader::shape_outline(0, a, b)));
+            return;
+        }
         if r.tool == PEN || r.tool == ERASER {
             if let Some((_, pts)) = r.stroke.as_mut() {
                 let last = *pts.last().unwrap_or(&b);
@@ -332,6 +338,30 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                 // A click without a drag draws nothing.
                 press.zip(r.shape_end.take()).filter(|((_, a), b)| (a.0 - b.0).hypot(a.1 - b.1) >= 4.0).map(|((page, a), b)| Pending::Shape(page, a, b))
             }
+            LINK => {
+                r.stroke = None;
+                let ((page, a), end) = (press?, r.shape_end.take());
+                let b = &v.viewer.boxes[page];
+                let size = b.view_size();
+                match end.filter(|e| (a.0 - e.0).hypot(a.1 - e.1) >= 4.0) {
+                    // A box dragged: where should it go?
+                    Some(e) => {
+                        let rect = viewer::view_rect_to_pdf(b, size, (a.0.min(e.0), a.1.min(e.1)), (a.0.max(e.0), a.1.max(e.1)));
+                        r.draft = Some(Draft { page, at: (a.0.min(e.0), a.1.max(e.1) + 6.0), kind: 8, block: Some((usize::MAX, String::new(), rect)), field: None });
+                        r.note_seq += 1;
+                    }
+                    // A click on a link: change where it goes, or remove it.
+                    None => {
+                        if let Some(l) = link_hit(r, &v.viewer, page, a) {
+                            let (index, target, rect) = (l.index, link_text(&l.target), l.rect.map(f64::from));
+                            let [x, y, _, h] = viewer::pdf_rect_to_view(b, size, rect);
+                            r.draft = Some(Draft { page, at: (x, y + h + 6.0), kind: 9, block: Some((index, target, rect)), field: None });
+                            r.note_seq += 1;
+                        }
+                    }
+                }
+                None
+            }
             HIGHLIGHT | UNDERLINE | STRIKE if press.is_some() && r.sel.is_some() => Some(Pending::Markup(r.tool)),
             _ => None,
         }
@@ -382,11 +412,25 @@ pub(super) enum Pending {
 
 /// The link under view point `p` of `page`.
 pub(super) fn link_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<render::LinkTarget> {
+    link_hit(r, v, page, p).map(|l| l.target.clone())
+}
+
+/// The link (its place in the page's `/Annots`, box and target) under view point `p` of `page`.
+pub(super) fn link_hit<'a>(r: &'a ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<&'a render::Link> {
     let size = v.boxes[page].view_size();
-    r.snap.links.iter().filter(|l| l.page == page).find_map(|l| {
+    r.snap.links.iter().filter(|l| l.page == page).find(|l| {
         let [x, y, w, h] = viewer::pdf_rect_to_view(&v.boxes[page], size, l.rect.map(f64::from));
-        (p.0 >= x && p.0 <= x + w && p.1 >= y && p.1 <= y + h).then(|| l.target.clone())
+        p.0 >= x && p.0 <= x + w && p.1 >= y && p.1 <= y + h
     })
+}
+
+/// A link's target as typed in the Link editor: a page number (1-based) or the address.
+pub(super) fn link_text(t: &render::LinkTarget) -> String {
+    match t {
+        render::LinkTarget::Page(p, _) => (p + 1).to_string(),
+        render::LinkTarget::Uri(u) => u.clone(),
+        _ => String::new(),
+    }
 }
 
 /// The edit a pull or drag in progress makes (Edit tool): a corner of the selected image pulled

@@ -49,6 +49,8 @@ pub const SHAPE: i32 = 10;
 pub const ERASER: i32 = 11;
 /// Stamp: click to place the stamp chosen in the options bar (`ReaderUi::stamp`).
 pub const STAMP: i32 = 12;
+/// Edit ▸ Link: drag a box to link it to a page or a web address; click a link to change or remove it.
+pub const LINK: i32 = 13;
 /// Fill & Sign marks offered first in the stamp list (Acrobat's ✓ ✗ • —), with their label.
 pub const MARKS: [(sheaf_core::pdfcraft::engine::FillMark, &str); 4] = [
     (sheaf_core::pdfcraft::engine::FillMark::Check, "✓ Checkmark"),
@@ -216,6 +218,10 @@ pub struct ReaderUi {
     structure_pending: bool,
     /// The Tools button saved first: the file goes to the tools when that save succeeds.
     tools_after_save: bool,
+    /// The tool it goes to then (Redact from the edit group), else the Tools page.
+    tool_after_save: Option<sheaf_core::tools::ToolId>,
+    /// The Link editor's complaint about what was typed (not a page or an address).
+    link_error: String,
     /// Generation of the running search, shared with its thread so it stops when replaced.
     search_live: Arc<std::sync::atomic::AtomicU64>,
     /// A plain press on a page already selected: the selection shrinks to it only if no drag
@@ -336,6 +342,8 @@ impl ReaderUi {
             page_drag: None,
             structure_pending: false,
             tools_after_save: false,
+            tool_after_save: None,
+            link_error: String::new(),
             search_live: Default::default(),
             pending_reduce: None,
             undo_pages: Vec::new(),

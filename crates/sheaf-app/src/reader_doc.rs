@@ -767,6 +767,36 @@ mod tests {
     }
 
     #[test]
+    fn a_link_is_added_changed_and_removed_and_saved() {
+        use sheaf_core::pdfcraft::engine::{LinkAction, LinkStyle};
+        use sheaf_core::pdfcraft::render::LinkTarget;
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 3);
+        let (ops, rx, _) = started(&path);
+        let add = Edit::AddLink { page: 0, rect: [72.0, 700.0, 200.0, 740.0], action: LinkAction::Page(2), style: LinkStyle::default() };
+        ops.send(Op::Apply { edit: Box::new(add), pages: vec![0] }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        let l = snap.links.iter().find(|l| l.page == 0).expect("the link is read back");
+        assert!(matches!(l.target, LinkTarget::Page(2, _)), "{:?}", l.target);
+        let index = l.index;
+        let set = Edit::SetLink { page: 0, index, rect: None, action: Some(LinkAction::Uri("https://example.org".into())), style: None };
+        ops.send(Op::Apply { edit: Box::new(set), pages: vec![0] }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        assert!(snap.links.iter().any(|l| matches!(&l.target, LinkTarget::Uri(u) if u == "https://example.org")), "{:?}", snap.links);
+        ops.send(Op::Save { to: None }).unwrap();
+        let (_, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        qpdf_clean(&path);
+        let (ops, rx, again) = started(&path);
+        assert_eq!(again.links.len(), 1);
+        ops.send(Op::Apply { edit: Box::new(Edit::DeleteLink { page: 0, index: again.links[0].index }), pages: vec![0] }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none() && snap.links.is_empty(), "{err:?}");
+    }
+
+    #[test]
     fn an_edit_that_draws_a_character_as_a_question_mark_says_so() {
         let dir = tempfile::tempdir().unwrap();
         let path = fixture(dir.path(), 1);

@@ -115,7 +115,7 @@ export struct ReaderNote {
     h: length,
     text: string,
     // 0 note, 1 text box, 2 a paragraph of the page, 3 new text on the page, 4 a form text field,
-    // 5 a form choice, 6 an existing note or text box
+    // 5 a form choice, 6 an existing note or text box, 7 a reply, 8 a new link, 9 an existing link
     kind: int,
     seq: int,
 }
@@ -201,6 +201,8 @@ export struct ReaderState {
     attachments: [ReaderProp],
     // View ▸ Highlight links is on.
     show-links: bool,
+    // The Link editor's complaint about what was typed.
+    link-error: string,
     // Hide all comments is on.
     comments-hidden: bool,
     // Stamp tool: the stamps offered (labels) and the chosen one.
@@ -517,6 +519,8 @@ export global ReaderBridge {
     callback pressed(int, length, length, int);
     callback moved(int, length, length);
     callback released(int, length, length);
+    // Edit group: Redact opens the document in the Redact tool (saved first).
+    callback redact(int);
     callback set-tool(int, int);
     callback set-colour(int, int);
     callback set-pen-width(int, int);

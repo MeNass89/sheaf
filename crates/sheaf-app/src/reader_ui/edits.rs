@@ -43,6 +43,8 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::SetAnnotationStatus { .. }
         | Edit::ReplyToAnnotation { .. }
         | Edit::EditTextBlock { .. }
+        | Edit::SetLink { .. }
+        | Edit::DeleteLink { .. }
         | Edit::EditPageImage { .. }
         | Edit::RenameBookmark { .. }
         | Edit::DeleteBookmark { .. }
@@ -354,6 +356,26 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let d = r.draft.take()?;
         let b = &v.viewer.boxes[d.page];
         let size = b.view_size();
+        if d.kind == 8 || d.kind == 9 {
+            // Link: a page number or an address; an existing link emptied is removed.
+            let (index, old, rect) = d.block.clone()?;
+            if d.kind == 9 && text.is_empty() {
+                return Some((d.page, Edit::DeleteLink { page: d.page, index }));
+            }
+            let Some(action) = reader::link_action(&text, v.viewer.page_count()) else {
+                // Not a page or an address: the editor stays open to correct it.
+                r.link_error = format!("“{text}” is not a page number (1–{}) or a web address", v.viewer.page_count());
+                r.draft = Some(d);
+                r.note_seq += 1;
+                return None;
+            };
+            r.link_error.clear();
+            if d.kind == 9 {
+                return (text != old).then_some((d.page, Edit::SetLink { page: d.page, index, rect: None, action: Some(action), style: None }));
+            }
+            let style = sheaf_core::pdfcraft::engine::LinkStyle::default();
+            return Some((d.page, Edit::AddLink { page: d.page, rect, action, style }));
+        }
         if d.kind == 7 {
             // A reply to an existing comment (PdfCraft's ReplyToAnnotation: /IRT, the author's name).
             let (index, _, _) = d.block?;
@@ -434,6 +456,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
 pub fn note_cancel(tab_id: i32) {
     update(tab_id, |r, _| {
         r.draft = None;
+        r.link_error.clear();
         r.preview_timer = None;
     });
 }

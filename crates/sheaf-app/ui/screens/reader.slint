@@ -391,7 +391,7 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : "Add text";
+                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : root.tab.reader.note.kind == 8 ? "Link to — a page number or a web address" : root.tab.reader.note.kind == 9 ? "Link — change where it goes, or remove it" : "Add text";
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;
@@ -437,7 +437,8 @@ export component ReaderScreen inherits Rectangle {
                                     }
                                     // A form field: Return fills it, Tab / ⇧Tab moves to the next / previous one.
                                     // A reply: Return sends it, ⇧Return starts a new line (as in a chat).
-                                    if (root.tab.reader.note.kind == 4 || root.tab.reader.note.kind == 7) && e.text == Key.Return && !e.modifiers.shift {
+                                    // A link: Return sets it.
+                                    if (root.tab.reader.note.kind == 4 || root.tab.reader.note.kind == 7 || root.tab.reader.note.kind >= 8) && e.text == Key.Return && !e.modifiers.shift {
                                         ReaderBridge.note-commit(root.id, self.text);
                                         keys.focus();
                                         return accept;
@@ -449,9 +450,17 @@ export component ReaderScreen inherits Rectangle {
                                     reject
                                 }
                             }
-                            if root.tab.reader.note.kind < 4 || root.tab.reader.note.kind == 6: HorizontalLayout {
+                            if root.tab.reader.note.kind >= 8 && root.tab.reader.link-error != "": Text {
+                                text: root.tab.reader.link-error;
+                                font-size: Theme.fs-caption;
+                                color: Theme.danger;
+                                wrap: word-wrap;
+                            }
+                            if root.tab.reader.note.kind < 4 || root.tab.reader.note.kind == 6 || root.tab.reader.note.kind >= 8: HorizontalLayout {
                                 spacing: 6px;
                                 alignment: end;
+                                // An existing link: remove it (as Acrobat's Delete on a selected link).
+                                if root.tab.reader.note.kind == 9: SmallButton { text: "Remove link"; clicked => { ReaderBridge.note-commit(root.id, ""); keys.focus(); } }
                                 SmallButton { text: "Cancel"; clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }
                                 SmallButton { text: "Done"; primary: true; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
                             }
@@ -461,7 +470,7 @@ export component ReaderScreen inherits Rectangle {
                 // Options of the tool in use and the form's actions: a bar floating over the top of
                 // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
                 // pages never move when a tool is picked.
-                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
+                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 13) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
                     x: 12px;
                     y: 8px;
                     width: min(parent.width - 24px, self.bar-width);
@@ -638,6 +647,7 @@ export component ReaderScreen inherits Rectangle {
             if e.text == "e" { ReaderBridge.set-tool(root.id, 7); return accept; }
             if e.text == "i" { ReaderBridge.set-tool(root.id, 8); return accept; }
             if e.text == "s" { ReaderBridge.set-tool(root.id, 9); return accept; }
+            if e.text == "l" { ReaderBridge.set-tool(root.id, 13); return accept; }
             reject
         }
     }

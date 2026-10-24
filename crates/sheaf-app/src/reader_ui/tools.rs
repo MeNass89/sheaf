@@ -4,7 +4,7 @@ use super::*;
 
 pub fn set_tool(tab_id: i32, tool: i32) {
     update(tab_id, |r, v| {
-        r.tool = tool.clamp(SELECT, STAMP);
+        r.tool = tool.clamp(SELECT, LINK);
         // Each tool comes back with the style it was last used with, as PDF Expert's tools do.
         if let Some((c, w, o)) = crate::home::tool_style(r.tool) {
             if uses_light(r.tool) {

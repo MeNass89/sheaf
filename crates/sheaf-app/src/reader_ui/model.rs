@@ -63,10 +63,16 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             });
         }
     }
-    if r.show_links {
+    if r.show_links || r.tool == LINK {
         for l in r.snap.links.iter().filter(|l| wanted.contains(&l.page)) {
             marks.push(overlay(v.viewer.overlay(l.page, l.rect.map(f64::from)), 10));
         }
+    }
+    // The box being linked, while its target is typed.
+    if let Some(d) = r.draft.as_ref().filter(|d| d.kind == 8 || d.kind == 9)
+        && let Some((_, _, rect)) = &d.block
+    {
+        marks.push(overlay(v.viewer.overlay(d.page, *rect), 6));
     }
     if r.tool == SELECT {
         // Fillable fields, tinted as PDF Expert and Acrobat highlight them.
@@ -236,6 +242,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                     (t.clone(), c[2].max(160.0), if d.kind == 5 { 34.0 + 28.0 * n } else { c[3].max(28.0) + 34.0 })
                 }
                 }
+                // Link: a one-line editor below the box.
+                Some((_, t, _)) if d.kind == 8 || d.kind == 9 => (t.clone(), 300.0, if r.link_error.is_empty() { 116.0 } else { 140.0 }),
                 // Edit text: the paragraph shows on its page as typed, and what it grows over
                 // below it; the editor goes above it when the page has room there, else below.
                 Some((_, t, rect)) if d.kind == 2 => {
@@ -328,7 +336,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         )),
         stamp: r.stamp as i32,
         comments_hidden: r.comments_hidden,
-        show_links: r.show_links,
+        // The Link tool shows where the links are, as PDF Expert's does.
+        show_links: r.show_links || r.tool == LINK,
+        link_error: r.link_error.clone().into(),
         attachments: ModelRc::new(VecModel::from(
             r.snap
                 .attachments

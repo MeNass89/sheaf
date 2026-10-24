@@ -191,6 +191,29 @@ pub fn redact_range(text: &PageText, page_box: &PageBox, page: usize, range: Ran
     })
 }
 
+/// Where a link typed in the Link editor goes: a page number of the document (1 to `pages`), or
+/// a web address ("example.org" becomes "https://example.org", an e-mail address a `mailto:`).
+/// `None` when it is neither (a page past the end, a blank).
+pub fn link_action(text: &str, pages: usize) -> Option<sheaf_core::pdfcraft::engine::LinkAction> {
+    use sheaf_core::pdfcraft::engine::LinkAction;
+    let t = text.trim();
+    // "4", "p4", "p. 4".
+    if let Ok(n) = t.trim_start_matches(['p', 'P']).trim_start_matches(['.', ' ']).parse::<usize>() {
+        return (1..=pages).contains(&n).then(|| LinkAction::Page(n - 1));
+    }
+    if t.is_empty() || t.contains(char::is_whitespace) {
+        return None;
+    }
+    let lower = t.to_ascii_lowercase();
+    if ["http://", "https://", "mailto:", "ftp://", "file://"].iter().any(|s| lower.starts_with(s)) {
+        return Some(LinkAction::Uri(t.to_string()));
+    }
+    if t.contains('@') && !t.contains('/') {
+        return Some(LinkAction::Uri(format!("mailto:{t}")));
+    }
+    t.contains('.').then(|| LinkAction::Uri(format!("https://{t}")))
+}
+
 /// One visible row of the outline panel.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutlineRow {
@@ -444,6 +467,20 @@ mod tests {
         assert_eq!(redact_range(&t, &page, 0, word(&t, (29.0, 12.0)).unwrap()).map(|m| m.text), Some("cd".into()));
         // Off the text: an area, not a text mark.
         assert!(redact_selection(&t, &page, 3, (300.0, 300.0), (400.0, 400.0)).is_none());
+    }
+
+    #[test]
+    fn a_link_goes_to_a_page_number_or_a_web_address() {
+        use sheaf_core::pdfcraft::engine::LinkAction;
+        assert_eq!(link_action("3", 10), Some(LinkAction::Page(2)));
+        assert_eq!(link_action(" p. 4 ", 10), Some(LinkAction::Page(3)));
+        assert_eq!(link_action("11", 10), None, "past the last page");
+        assert_eq!(link_action("0", 10), None);
+        assert_eq!(link_action("example.org/x", 10), Some(LinkAction::Uri("https://example.org/x".into())));
+        assert_eq!(link_action("HTTP://a.b", 10), Some(LinkAction::Uri("HTTP://a.b".into())));
+        assert_eq!(link_action("ada@example.com", 10), Some(LinkAction::Uri("mailto:ada@example.com".into())));
+        assert_eq!(link_action("hello", 10), None);
+        assert_eq!(link_action("  ", 10), None);
     }
 
     #[test]

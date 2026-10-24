@@ -94,7 +94,7 @@ REAL0=$(real_profile)
 
 # Toolbar controls reached by position (1280×800 window), kept here: update them when the toolbar
 # changes (a capture of the toolbar shows where they went).
-ZOOM_X=652; ZOOM_MENU_X=681; WRENCH_X=1222
+ZOOM_X=716; ZOOM_MENU_X=745; WRENCH_X=1222
 
 launch() {
     # A fresh profile: no kept signature, history or preferences from earlier runs.
@@ -452,10 +452,10 @@ key End; sleep 0.8; key ctrl+a; shifted t; sleep 0.5; key ctrl+shift+e; sleep 1.
 check "searching the selection with the toolbar hidden shows it again ($BE)" "python3 -c 'import sys; sys.exit(0 if abs($BE - $B0) < 0.03 else 1)'"
 key Escape
 # 6g. The zoom field (ZOOM_X,61): 200 typed and ↩ covers the view's left edge with the page; Fit page
-# from its list (ZOOM_MENU_X,61 ▸ 640,330) shows the background there again.
+# from its list (ZOOM_MENU_X,61 ▸ 41 px left of it, 330) shows the background there again.
 leftedge() { import -window root -crop 6x200+300+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
 click $ZOOM_X 61 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "200"; key Return; sleep 2; Z1=$(leftedge)
-click $ZOOM_MENU_X 61 0.6; click 640 330 2; Z2=$(leftedge)
+click $ZOOM_MENU_X 61 0.6; click $((ZOOM_MENU_X - 41)) 330 2; Z2=$(leftedge)
 check "zoom typed (200 %) and Fit page from the list ($Z1 → $Z2)" "python3 -c 'import sys; sys.exit(0 if $Z1 - $Z2 > 0.02 else 1)'"
 key ctrl+9; sleep 1
 # 6h. By hand: ⌘ + wheel zooms in around the pointer (the zoom field at ZOOM_X grows); a middle-button drag,
@@ -734,6 +734,21 @@ if [ -n "$Q" ] && [ -n "$F" ]; then
 fi
 RT=$(pdftotext -f 1 -l 1 "$OUT/redact-redacted.pdf" - 2>/dev/null | tr -s ' \n' ' ')
 check "Redact: a drag over words and a double click mark them ($RM), only they are removed ($RT), counted as text ($RS)" "echo \"$RM\" | grep -qi quick && echo \"$RT\" | grep -q '1 the' && ! echo \"$RT\" | grep -qE 'Page|quick|brown|fox' && echo \"$RS\" | grep -q '2 text passages'"
+quit
+
+# 19. Link tool (L), as PDF Expert's Edit ▸ Link: drag a box, type a page number, ↩; click the link with the
+# tool, change it to an address, ↩; saved, the file has one /Link to https://example.org. Then the edit group's
+# Redact button (509,61) opens the document in Redact PDF.
+cp "$OUT/text.pdf" "$OUT/link.pdf"
+launch "$OUT/link.pdf"; key ctrl+9; sleep 1; key l
+xdotool mousemove 330 190 mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $((330 + i * 40)) $((190 + i * 4)); sleep 0.05; done; xdotool mouseup 1; sleep 1
+xdotool type --delay 30 "2"; key Return; sleep 1.5
+click 420 200 1; LE=$(ocr 320x130+300+200 | tr -s ' '); shot 19-link-existing
+key ctrl+a; xdotool type --delay 20 "example.org"; key Return; sleep 1; key ctrl+s; sleep 2
+LK=$(qpdf --qdf --object-streams=disable "$OUT/link.pdf" - 2>/dev/null | grep -ac "/Subtype /Link"); LU=$(qpdf --qdf --object-streams=disable "$OUT/link.pdf" - 2>/dev/null | grep -ao "/URI (https://example.org)")
+check "Link tool: a box linked to page 2 ($LE), changed to an address, saved ($LK link, $LU)" "echo \"$LE\" | grep -q 'Remove link' && echo \"$LE\" | grep -qw 2 && [ \"$LK\" = 1 ] && [ -n \"$LU\" ]"
+click 509 61 3; RD=$(ocr 1280x40+0+0 | tr -s ' ')
+check "the edit group's Redact button opens Redact PDF ($RD)" "echo \"$RD\" | grep -qE 'Redact ?PDF'"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
