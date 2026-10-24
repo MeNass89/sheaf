@@ -191,6 +191,45 @@ pub fn redact_range(text: &PageText, page_box: &PageBox, page: usize, range: Ran
     })
 }
 
+/// Edit tool, several objects: the smallest of `rects` (user space) holding point `p`, within 2
+/// points (an image over a paragraph is the image).
+pub fn object_at(rects: &[[f64; 4]], p: (f64, f64)) -> Option<usize> {
+    rects
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| p.0 >= r[0] - 2.0 && p.0 <= r[2] + 2.0 && p.1 >= r[1] - 2.0 && p.1 <= r[3] + 2.0)
+        .min_by(|a, b| ((a.1[2] - a.1[0]) * (a.1[3] - a.1[1])).total_cmp(&((b.1[2] - b.1[0]) * (b.1[3] - b.1[1]))))
+        .map(|(i, _)| i)
+}
+
+/// The objects a marquee (user space) touches, as Acrobat's selection rectangle picks them.
+pub fn objects_in(rects: &[[f64; 4]], m: [f64; 4]) -> Vec<usize> {
+    rects.iter().enumerate().filter(|(_, r)| r[0] < m[2] && r[2] > m[0] && r[1] < m[3] && r[3] > m[1]).map(|(i, _)| i).collect()
+}
+
+/// After a move, the objects now where the picked ones went: for each of `moved` (their boxes
+/// moved by the offset), the one of `rects` (the page read again) overlapping it most, if by half.
+pub fn picked_again(moved: &[[f64; 4]], rects: &[[f64; 4]]) -> Vec<usize> {
+    let overlap = |a: &[f64; 4], b: &[f64; 4]| {
+        let (w, h) = (a[2].min(b[2]) - a[0].max(b[0]), a[3].min(b[3]) - a[1].max(b[1]));
+        if w <= 0.0 || h <= 0.0 { 0.0 } else { w * h / ((a[2] - a[0]) * (a[3] - a[1])).max((b[2] - b[0]) * (b[3] - b[1])).max(1e-9) }
+    };
+    moved
+        .iter()
+        .filter_map(|m| rects.iter().enumerate().map(|(i, r)| (i, overlap(m, r))).filter(|(_, o)| *o >= 0.5).max_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, _)| i))
+        .collect()
+}
+
+/// A link's target as the Link editor shows it to change: its page number (1-based) or address
+/// (what `link_action` reads back).
+pub fn link_text(t: &render::LinkTarget) -> String {
+    match t {
+        render::LinkTarget::Page(p, _) => (p + 1).to_string(),
+        render::LinkTarget::Uri(u) => u.clone(),
+        _ => String::new(),
+    }
+}
+
 /// Where a link typed in the Link editor goes: a page number of the document (1 to `pages`), or
 /// a web address ("example.org" becomes "https://example.org", an e-mail address a `mailto:`).
 /// `None` when it is neither (a page past the end, a blank).
@@ -470,6 +509,19 @@ mod tests {
     }
 
     #[test]
+    fn objects_are_picked_by_point_by_marquee_and_found_again_after_a_move() {
+        // A paragraph and an image inside it.
+        let rects = [[100.0, 400.0, 500.0, 600.0], [200.0, 450.0, 260.0, 500.0], [100.0, 100.0, 200.0, 150.0]];
+        assert_eq!(object_at(&rects, (230.0, 470.0)), Some(1), "the smaller, the image");
+        assert_eq!(object_at(&rects, (120.0, 420.0)), Some(0));
+        assert_eq!(object_at(&rects, (50.0, 50.0)), None);
+        assert_eq!(objects_in(&rects, [90.0, 90.0, 210.0, 420.0]), [0, 2]);
+        // Moved 10 right: found again where they went, in the page read again (another order).
+        let after = [[110.0, 100.0, 210.0, 150.0], [110.0, 400.0, 510.0, 600.0]];
+        assert_eq!(picked_again(&[[110.0, 400.0, 510.0, 600.0], [110.0, 100.0, 210.0, 150.0]], &after), [1, 0]);
+    }
+
+    #[test]
     fn a_link_goes_to_a_page_number_or_a_web_address() {
         use sheaf_core::pdfcraft::engine::LinkAction;
         assert_eq!(link_action("3", 10), Some(LinkAction::Page(2)));
@@ -481,6 +533,10 @@ mod tests {
         assert_eq!(link_action("ada@example.com", 10), Some(LinkAction::Uri("mailto:ada@example.com".into())));
         assert_eq!(link_action("hello", 10), None);
         assert_eq!(link_action("  ", 10), None);
+        // An existing link is shown as typed, and reads back as it was.
+        assert_eq!(link_text(&render::LinkTarget::Page(1, render::DestView::Fit)), "2");
+        assert_eq!(link_action(&link_text(&render::LinkTarget::Page(1, render::DestView::Fit)), 10), Some(LinkAction::Page(1)));
+        assert_eq!(link_text(&render::LinkTarget::Uri("https://example.org".into())), "https://example.org");
     }
 
     #[test]

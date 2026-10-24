@@ -295,7 +295,9 @@ pub enum Reply {
     /// A page's paragraphs and its images' boxes (user space).
     /// A page's paragraphs and its images: (visible box, full box), user space; a cropped image
     /// shows less than its full box, which is what a move translates.
-    Blocks(usize, Vec<Block>, Vec<([f64; 4], [f64; 4])>),
+    /// A page's paragraphs, its images (visible and full box) and its objects as Edit a PDF
+    /// selects them together (inventory target, box; user space).
+    Blocks(usize, Vec<Block>, Vec<([f64; 4], [f64; 4])>, Vec<(sheaf_core::pdfcraft::engine::ObjectTarget, [f64; 4])>),
     Extracted { to: PathBuf, error: Option<String> },
 }
 
@@ -409,7 +411,8 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             .map(|b| Block { rect: b.rect, text: reflowed(&b.editor_text, &b.soft_breaks), drawn: b.editor_text })
                             .collect();
                         let images = doc.document().page_images(page).iter().map(|i| (i.visible_rect.unwrap_or(i.rect), i.rect)).collect();
-                        reply(Reply::Blocks(page, b, images));
+                        let objects = doc.document().editable_objects(page).unwrap_or_default().into_iter().map(|o| (o.target, o.rect)).collect();
+                        reply(Reply::Blocks(page, b, images, objects));
                     }
                 }
                 debug(format_args!("operation done in {:?}", t0.elapsed()));

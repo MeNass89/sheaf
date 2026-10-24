@@ -68,6 +68,23 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             marks.push(overlay(v.viewer.overlay(l.page, l.rect.map(f64::from)), 10));
         }
     }
+    // Edit tool: the objects picked together (moved along while dragged), and a marquee.
+    if let Some((page, list)) = &r.picked {
+        let shift = match r.picked_drag {
+            Some((a, b)) => (b.0 - a.0, b.1 - a.1),
+            None => (0.0, 0.0),
+        };
+        for (_, rect) in list.iter() {
+            let c = v.viewer.overlay(*page, *rect);
+            let k = v.viewer.page_rect(*page)[2] / v.viewer.boxes[*page].view_size().0.max(1e-9);
+            marks.push(overlay([c[0] + shift.0 * k, c[1] + shift.1 * k, c[2], c[3]], 6));
+        }
+    }
+    if let Some((page, a, b)) = r.marquee {
+        let (x0, y0) = view_to_content(&v.viewer, page, (a.0.min(b.0), a.1.min(b.1)));
+        let (x1, y1) = view_to_content(&v.viewer, page, (a.0.max(b.0), a.1.max(b.1)));
+        marks.push(overlay([x0, y0, x1 - x0, y1 - y0], 6));
+    }
     // The box being linked, while its target is typed.
     if let Some(d) = r.draft.as_ref().filter(|d| d.kind == 8 || d.kind == 9)
         && let Some((_, _, rect)) = &d.block
@@ -340,6 +357,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         show_links: r.show_links || r.tool == LINK,
         link_error: r.link_error.clone().into(),
         link_visible: r.link_visible,
+        has_picked: r.picked.is_some(),
         link_dashed: r.link_dashed,
         attachments: ModelRc::new(VecModel::from(
             r.snap

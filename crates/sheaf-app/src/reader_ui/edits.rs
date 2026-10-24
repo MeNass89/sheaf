@@ -45,6 +45,7 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::EditTextBlock { .. }
         | Edit::SetLink { .. }
         | Edit::DeleteLink { .. }
+        | Edit::MoveObjects { .. }
         | Edit::EditPageImage { .. }
         | Edit::RenameBookmark { .. }
         | Edit::DeleteBookmark { .. }
@@ -76,6 +77,9 @@ pub(super) fn forget_page_state(r: &mut ReaderUi) {
     r.texts.clear();
     r.blocks.clear();
     r.images.clear();
+    r.objects.clear();
+    r.picked = None;
+    r.repick = None;
     r.edit_press = None;
     r.blocks_asked.clear();
     r.back.clear();
@@ -103,12 +107,14 @@ pub(super) fn after_change(r: &mut ReaderUi, v: &mut ViewerUi, pages: Option<&[u
             v.page_changed(p);
             r.blocks.remove(&p);
             r.images.remove(&p);
+            r.objects.remove(&p);
             r.blocks_asked.remove(&p);
         }),
         None => {
             v.all_changed();
             r.blocks.clear();
             r.images.clear();
+            r.objects.clear();
             r.blocks_asked.clear();
         }
     }
@@ -456,6 +462,24 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         // A form value can change other pages (widgets, scripts): all render again.
         let pages = if matches!(e, Edit::SetFieldValue { .. }) { vec![] } else { vec![page] };
         apply(ui, tab_id, e, &pages, None);
+    }
+}
+
+/// Edit tool: the arrow keys nudge the picked objects (1 point, 10 with ⇧; `dy` up the page).
+/// Held down, a key waits for the last nudge to be applied (the objects are found again first).
+pub fn nudge(ui: &AppWindow, tab_id: i32, dx: f32, dy: f32) {
+    let edit = update(tab_id, |r, _| {
+        if r.edits_in_flight > 0 || r.repick.is_some() {
+            return None;
+        }
+        let (page, list) = r.picked.as_ref()?;
+        let (dx, dy) = (f64::from(dx), f64::from(dy));
+        r.repick = Some((*page, list.iter().map(|o| [o.1[0] + dx, o.1[1] + dy, o.1[2] + dx, o.1[3] + dy]).collect()));
+        Some((*page, Edit::MoveObjects { page: *page, objects: list.iter().map(|o| o.0).collect(), offset: [dx, dy] }))
+    })
+    .flatten();
+    if let Some((page, e)) = edit {
+        apply(ui, tab_id, e, &[page], None);
     }
 }
 

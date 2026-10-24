@@ -75,6 +75,11 @@ struct Search {
     generation: u64,
 }
 
+/// An object of a page as Edit a PDF selects it: its inventory target and box (user space).
+type PageObject = (sheaf_core::pdfcraft::engine::ObjectTarget, [f64; 4]);
+/// A drag on a page: the page, from and to (view points).
+type PageDrag = (usize, (f64, f64), (f64, f64));
+
 /// What is being typed: 0 a note, 1 a text box (annotation), 2 an existing paragraph, 3 new
 /// text on the page, 4 a form text field, 5 a form choice field (a list to pick from).
 struct Draft {
@@ -132,6 +137,16 @@ pub struct ReaderUi {
     blocks: HashMap<usize, Arc<Vec<Block>>>,
     /// The boxes of each page's images (user space), read with its paragraphs.
     images: HashMap<usize, Arc<Vec<ImageBoxes>>>,
+    /// Edit tool: each page's objects as Edit a PDF selects them together (target, box; user space).
+    objects: HashMap<usize, Arc<Vec<PageObject>>>,
+    /// Edit tool: the objects picked together (⇧-click, a marquee, a pressed image) on a page,
+    /// moved by a drag or the arrow keys; `repick` their boxes where a move put them, to find
+    /// them again in the page read again.
+    picked: Option<(usize, Vec<PageObject>)>,
+    repick: Option<(usize, Vec<[f64; 4]>)>,
+    /// A drag of the picked objects (view points, from and to), and a marquee being drawn.
+    picked_drag: Option<((f64, f64), (f64, f64))>,
+    marquee: Option<PageDrag>,
     /// Edit tool: what the press is on, where it started and where the pointer is (view).
     edit_press: Option<EditPress>,
     blocks_asked: HashSet<usize>,
@@ -289,6 +304,11 @@ impl ReaderUi {
             text_renderer: None,
             blocks: HashMap::new(),
             images: HashMap::new(),
+            objects: HashMap::new(),
+            picked: None,
+            repick: None,
+            picked_drag: None,
+            marquee: None,
             edit_press: None,
             blocks_asked: HashSet::new(),
             sel: None,
@@ -615,9 +635,16 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 Some(e) => crate::flow::toast(ui, &format!("Not extracted: {e}")),
             }
         }
-        Reply::Blocks(page, b, images) => {
+        Reply::Blocks(page, b, images, objects) => {
             update(id, |r, _| {
                 r.blocks.insert(page, Arc::new(b));
+                // Objects just moved: picked again where they went.
+                if let Some((p, moved)) = r.repick.take_if(|(p, _)| *p == page) {
+                    let rects: Vec<[f64; 4]> = objects.iter().map(|o| o.1).collect();
+                    let again: Vec<_> = reader::picked_again(&moved, &rects).into_iter().map(|i| objects[i]).collect();
+                    r.picked = (!again.is_empty()).then_some((p, again));
+                }
+                r.objects.insert(page, Arc::new(objects));
                 if let Some((p, before)) = r.select_added
                     && p == page
                     && images.len() > before

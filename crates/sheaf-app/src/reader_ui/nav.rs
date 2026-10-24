@@ -205,7 +205,7 @@ pub fn escape(tab_id: i32) {
         if r.draft.take().is_some() {
             return;
         }
-        if r.selected_image.take().is_some() {
+        if r.selected_image.take().is_some() | r.picked.take().is_some() {
             return;
         }
         if r.sel.take().is_some() || r.selected_annot.take().is_some() {

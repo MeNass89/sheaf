@@ -289,7 +289,8 @@ export component ReaderScreen inherits Rectangle {
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                                 keys.focus();
                                 root.pressing = true;
-                                ReaderBridge.pressed(root.id, self.mouse-x, self.mouse-y, 1);
+                                // ⇧ held: 16 more (the Edit tool picks objects together).
+                                ReaderBridge.pressed(root.id, self.mouse-x, self.mouse-y, e.modifiers.shift ? 17 : 1);
                             } else if e.kind == PointerEventKind.up && root.pressing {
                                 root.pressing = false;
                                 ReaderBridge.released(root.id, self.mouse-x, self.mouse-y);
@@ -628,6 +629,13 @@ export component ReaderScreen inherits Rectangle {
             // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).
             if e.text == "T" || (e.text == "t" && e.modifiers.shift) { root.bare = !root.bare; return accept; }
             if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
+            // Edit tool, objects picked: the arrows nudge them (1 point, 10 with ⇧), as iLovePDF's.
+            if root.tab.reader.tool == 7 && root.tab.reader.has-picked {
+                if e.text == Key.LeftArrow { ReaderBridge.nudge(root.id, e.modifiers.shift ? -10 : -1, 0); return accept; }
+                if e.text == Key.RightArrow { ReaderBridge.nudge(root.id, e.modifiers.shift ? 10 : 1, 0); return accept; }
+                if e.text == Key.UpArrow { ReaderBridge.nudge(root.id, 0, e.modifiers.shift ? 10 : 1); return accept; }
+                if e.text == Key.DownArrow { ReaderBridge.nudge(root.id, 0, e.modifiers.shift ? -10 : -1); return accept; }
+            }
             if e.text == Key.RightArrow { ReaderBridge.page-step(root.id, 1); return accept; }
             if e.text == Key.LeftArrow { ReaderBridge.page-step(root.id, -1); return accept; }
             if e.text == " " {

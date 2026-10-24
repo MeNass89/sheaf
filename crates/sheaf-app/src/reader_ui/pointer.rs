@@ -2,8 +2,10 @@
 
 use super::*;
 
+/// `clicks`: 1, or 2 on a double-click; plus 16 when ⇧ is held.
 pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
     let (x, y) = (x as f64, y as f64);
+    let (clicks, shift) = (clicks & 15, clicks & 16 != 0);
     let opened = update(tab_id, |r, v| {
         let Some(page) = page_at(&v.viewer, x, y) else { return false };
         let p = to_view(&v.viewer, page, x, y);
@@ -30,8 +32,38 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
             }
             EDIT_TEXT => {
                 // A click on a paragraph edits it, a drag moves it; a drag on an image moves the
-                // image; a click on empty space adds text (decided on release).
+                // image; a click on empty space adds text, a drag there draws a marquee (decided
+                // on release). ⇧-click picks objects together; a drag on picked ones moves them all.
                 let size = v.viewer.boxes[page].view_size();
+                let user = viewer::view_to_pdf(&v.viewer.boxes[page], size, p.0, p.1);
+                let objects = r.objects.get(&page).cloned().unwrap_or_default();
+                let rects: Vec<[f64; 4]> = objects.iter().map(|o| o.1).collect();
+                if shift {
+                    if let Some(i) = reader::object_at(&rects, user) {
+                        let mut list = match r.picked.take() {
+                            Some((pp, l)) if pp == page => l,
+                            _ => Vec::new(),
+                        };
+                        match list.iter().position(|o| o.0 == objects[i].0) {
+                            Some(k) => {
+                                list.remove(k);
+                            }
+                            None => list.push(objects[i]),
+                        }
+                        r.picked = (!list.is_empty()).then_some((page, list));
+                    }
+                    r.selected_image = None;
+                    r.press = None;
+                    return false;
+                }
+                if let Some((pp, list)) = &r.picked
+                    && *pp == page
+                    && list.len() > 1
+                    && reader::object_at(&list.iter().map(|o| o.1).collect::<Vec<_>>(), user).is_some()
+                {
+                    r.picked_drag = Some((p, p));
+                    return false;
+                }
                 // A corner of the selected image resizes it.
                 if let Some(corner) = image_corner_at(r, v, page, p) {
                     r.image_resize = Some((corner, p, p));
@@ -46,9 +78,14 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 let block = blocks.iter().enumerate().find_map(|(i, b)| inside(b.rect).map(|at| EditTarget::Block(i, b.text.clone(), b.drawn.clone(), b.rect, at)));
                 let image = || r.images.get(&page).and_then(|im| im.iter().enumerate().rev().find_map(|(i, (vis, full))| inside(*vis).map(|_| EditTarget::Image(i, *vis, *full))));
                 let target = block.or_else(image).unwrap_or(EditTarget::Empty);
-                // An image is selected as soon as it is pressed (PDF Expert), to drag or resize.
+                // An image is selected as soon as it is pressed (PDF Expert), to drag or resize;
+                // it is also the one object picked (the arrow keys nudge it).
                 r.selected_image = match target {
                     EditTarget::Image(i, ..) => Some((page, i)),
+                    _ => None,
+                };
+                r.picked = match target {
+                    EditTarget::Image(_, vis, _) => reader::picked_again(&[vis], &rects).first().map(|&i| (page, vec![objects[i]])),
                     _ => None,
                 };
                 r.edit_press = Some(EditPress { page, target, from: p, to: p, dragging: false });
@@ -199,6 +236,22 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             }
             return;
         }
+        if let Some((_, to)) = r.picked_drag.as_mut() {
+            *to = b;
+            if let Some((page, e)) = picked_move(r, v) {
+                live_preview(r, page, e);
+            }
+            return;
+        }
+        if let Some(e) = r.edit_press.as_mut()
+            && matches!(e.target, EditTarget::Empty)
+            && (e.from.0 - b.0).hypot(e.from.1 - b.1) > 4.0
+        {
+            // On empty space, a drag draws a marquee.
+            e.to = b;
+            r.marquee = Some((e.page, e.from, b));
+            return;
+        }
         if let Some(e) = r.edit_press.as_mut() {
             e.to = b;
             if (e.from.0 - b.0).hypot(e.from.1 - b.1) > 4.0 && !matches!(e.target, EditTarget::Empty) {
@@ -269,6 +322,23 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             let edit = Edit::ResizeAnnotation { page: a.page, index: a.index, rect: user };
             r.selected_annot = None;
             return Some(Pending::Move(a.page, Box::new(edit)));
+        }
+        // Picked objects dragged together: one move (none under 2 points).
+        if r.picked_drag.is_some() {
+            let edit = picked_move(r, v);
+            r.picked_drag = None;
+            end_live(r, edit.is_some());
+            return edit.map(|(page, e)| Pending::Move(page, Box::new(e)));
+        }
+        // A marquee: the objects it touches are picked.
+        if let Some((page, a, b)) = r.marquee.take() {
+            r.edit_press = None;
+            let bx = &v.viewer.boxes[page];
+            let m = viewer::view_rect_to_pdf(bx, bx.view_size(), (a.0.min(b.0), a.1.min(b.1)), (a.0.max(b.0), a.1.max(b.1)));
+            let objects = r.objects.get(&page).cloned().unwrap_or_default();
+            let found: Vec<_> = reader::objects_in(&objects.iter().map(|o| o.1).collect::<Vec<_>>(), m).into_iter().map(|i| objects[i]).collect();
+            r.picked = (!found.is_empty()).then_some((page, found));
+            return None;
         }
         // A corner pulled, an image or paragraph dragged: the edit (its live preview is taken
         // back by it, or by hand when there is none, as a pull of under 2 points).
@@ -355,7 +425,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                     // A click on a link: change where it goes, or remove it.
                     None => {
                         if let Some(l) = link_hit(r, &v.viewer, page, a) {
-                            let (index, target, rect) = (l.index, link_text(&l.target), l.rect.map(f64::from));
+                            let (index, target, rect) = (l.index, reader::link_text(&l.target), l.rect.map(f64::from));
                             let [x, y, _, h] = viewer::pdf_rect_to_view(b, size, rect);
                             r.draft = Some(Draft { page, at: (x, y + h + 6.0), kind: 9, block: Some((index, target, rect)), field: None });
                             r.note_seq += 1;
@@ -426,13 +496,22 @@ pub(super) fn link_hit<'a>(r: &'a ReaderUi, v: &Viewer, page: usize, p: (f64, f6
     })
 }
 
-/// A link's target as typed in the Link editor: a page number (1-based) or the address.
-pub(super) fn link_text(t: &render::LinkTarget) -> String {
-    match t {
-        render::LinkTarget::Page(p, _) => (p + 1).to_string(),
-        render::LinkTarget::Uri(u) => u.clone(),
-        _ => String::new(),
+
+
+/// The move a drag of the picked objects makes (none under 2 points); their boxes where it puts
+/// them are kept to pick them again once the page is read again.
+fn picked_move(r: &mut ReaderUi, v: &ViewerUi) -> Option<(usize, Edit)> {
+    let (from, to) = r.picked_drag?;
+    let (page, list) = r.picked.as_ref()?;
+    let b = &v.viewer.boxes[*page];
+    let size = b.view_size();
+    let (p0, p1) = (viewer::view_to_pdf(b, size, from.0, from.1), viewer::view_to_pdf(b, size, to.0, to.1));
+    let (dx, dy) = (p1.0 - p0.0, p1.1 - p0.1);
+    if dx.hypot(dy) < 2.0 {
+        return None;
     }
+    r.repick = Some((*page, list.iter().map(|o| [o.1[0] + dx, o.1[1] + dy, o.1[2] + dx, o.1[3] + dy]).collect()));
+    Some((*page, Edit::MoveObjects { page: *page, objects: list.iter().map(|o| o.0).collect(), offset: [dx, dy] }))
 }
 
 /// The edit a pull or drag in progress makes (Edit tool): a corner of the selected image pulled
