@@ -20,3 +20,15 @@ Main app: Acrobat (Redact ▸ drag over content: text is selected, an empty area
   (/tmp evidence). Hint: "Drag over text to mark it, or elsewhere on a page to mark an area."
   Tests: `a_drag_over_text_marks_its_lines_for_redaction` (unit), gui-smoke 18 (drag "quick" → "fox", applied:
   "Page 1 the" kept, the three words gone).
+- 24/10 19:00, reviewer 8/8/9 on 0720459; its blockers:
+  1. Live selection: the viewer sends pointer moves to Rust while a drag that began on text goes on; the text it
+     selects shows as a selection (overlay kind 3) and no rubber band is drawn. The selection's ends are carets
+     between letters: a letter is in once the pointer passes its middle (`reader::caret`; the drag of the first
+     evidence stopped on the "e" of "fréquence" and left it readable).
+  2. A double click marks a word; a third click soon after, the line (`reader::line`, `redact_range`).
+  3. The result counts kinds: "2 text passages, 1 page and 1 area redacted" (`redact::MarkCounts`; the CLI's
+     "7 areas redacted" for 6 matches and a page is now "6 text passages and 1 page redacted").
+  Evidence (real app, Xvfb): mid-drag highlight, two marks (a dragged line, a double-clicked word), result
+  "2 text passages redacted". Tests: `a_drag_over_text_marks_its_lines_for_redaction` (carets, line, word),
+  `tools::tests` summary lines, cli `redact_subcommand_counts_the_areas_and_removes_the_text`, gui-smoke 18 (drag
+  "quick"→"fox" from edge to edge + double click "Page"; "1 the" kept; "2 text passages redacted").

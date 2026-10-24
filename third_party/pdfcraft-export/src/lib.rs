@@ -1074,10 +1074,6 @@ fn margins(page: &Page) -> (i64, i64) {
     (mx, my)
 }
 
-fn section(page: &Page) -> String {
-    section_with(page, &Running::default())
-}
-
 /// Sheaf: lines repeated at the same place on most pages (a running header or footer): written once
 /// in Word's header and footer parts, kept out of each page's body.
 #[derive(Default)]

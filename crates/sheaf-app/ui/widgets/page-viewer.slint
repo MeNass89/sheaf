@@ -53,7 +53,11 @@ export component PageViewer inherits Rectangle {
     // The strip shows [top, top + height) of its content.
     callback strip-viewport(length, length);
     callback pressed(length, length);
+    callback dragged(length, length);
+    callback double-clicked(length, length);
     callback released(length, length);
+    // A drag is selecting text: its selection shows, not a rectangle.
+    in property <bool> selecting;
     callback thumb-clicked(int);
     // +1 / −1 one zoom step, 0 fit width.
     callback zoom-step(int);
@@ -154,9 +158,10 @@ export component PageViewer inherits Rectangle {
             y: o.y;
             width: o.w;
             height: o.h;
-            border-width: o.kind == 2 ? 3px : 2px;
+            // 3: the text a drag is selecting, as a text selection looks.
+            border-width: o.kind == 3 ? 0px : o.kind == 2 ? 3px : 2px;
             border-color: o.kind == 1 ? Theme.info : Theme.danger;
-            background: o.kind == 0 ? Theme.option-selected-bg.with-alpha(0.35) : transparent;
+            background: o.kind == 0 ? Theme.option-selected-bg.with-alpha(0.35) : o.kind == 3 ? Theme.info.with-alpha(0.3) : transparent;
         }
         if root.sign.show: Rectangle {
             x: root.sign.x;
@@ -197,7 +202,7 @@ export component PageViewer inherits Rectangle {
                 image-fit: fill;
             }
         }
-        if root.dragging && root.drag-box: Rectangle {
+        if root.dragging && root.drag-box && !root.selecting: Rectangle {
             x: min(root.x0, root.x1);
             y: min(root.y0, root.y1);
             width: abs(root.x1 - root.x0);
@@ -228,8 +233,10 @@ export component PageViewer inherits Rectangle {
                 if root.dragging {
                     root.x1 = self.mouse-x;
                     root.y1 = self.mouse-y;
+                    root.dragged(self.mouse-x, self.mouse-y);
                 }
             }
+            double-clicked => { root.double-clicked(self.mouse-x, self.mouse-y); }
         }
     }
 

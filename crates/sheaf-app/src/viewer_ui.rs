@@ -74,6 +74,11 @@ pub struct ViewerUi {
     pub busy: bool,
     /// Pages' text, read when a drag in Redact starts on a page (text is marked by selecting it).
     texts: std::collections::HashMap<usize, Arc<sheaf_core::pdfcraft::render::PageText>>,
+    /// The text a drag that started on text selects so far (drawn as it goes), and the last
+    /// double click (a third click soon after, there, takes the whole line).
+    live: Option<Mark>,
+    selecting: bool,
+    last_double: Option<(std::time::Instant, usize, f64, f64)>,
     text_renderer: Option<sheaf_core::pdfcraft::render::PageRenderer>,
     // Sign: where the signature is centred (page, view-space point of the displayed page, in
     // points), and its height-to-width ratio once a graphic is made.
@@ -128,6 +133,9 @@ impl ViewerUi {
             searched: false,
             busy: false,
             texts: Default::default(),
+            live: None,
+            selecting: false,
+            last_double: None,
             text_renderer: None,
             sign_at: None,
         }
@@ -465,6 +473,30 @@ pub fn pressed(tab_id: i32, x: f32, y: f32) {
         let Some(t) = a.tab(tab_id) else { return };
         let Some(v) = t.viewer.as_deref_mut() else { return };
         v.drag = v.viewer.hit(x as f64, y as f64).map(|(p, _, _)| (p, x as f64, y as f64));
+        v.live = None;
+        v.selecting = false;
+        if t.tool == sheaf_core::tools::ToolId::Redact
+            && let Some((page, ..)) = v.drag
+        {
+            let (_, px, py) = place_point(&v.viewer, page, x as f64, y as f64);
+            // A third click soon after a double click, there: the line.
+            if let Some((at, p, dx, dy)) = v.last_double.take()
+                && p == page
+                && at.elapsed() < std::time::Duration::from_millis(500)
+                && (dx - x as f64).hypot(dy - y as f64) < 6.0
+                && let Some(text) = v.text(page)
+                && let Some(mark) = sheaf_app::reader::line(&text, (px as f32, py as f32)).and_then(|r| sheaf_app::reader::redact_range(&text, &v.viewer.boxes[page], page, r))
+            {
+                // It replaces the word the double click marked.
+                if v.manual.last().is_some_and(|m| m.mark.page == page && m.label.starts_with('“')) {
+                    v.manual.pop();
+                }
+                v.manual.push(Manual { label: quoted(&mark.text), mark });
+                v.drag = None;
+                return;
+            }
+            v.selecting = v.text(page).is_some_and(|t| t.glyphs.iter().any(|g| px as f32 >= g.rect[0] - 2.0 && px as f32 <= g.rect[2] + 2.0 && py as f32 >= g.rect[1] - 2.0 && py as f32 <= g.rect[3] + 2.0));
+        }
         // Edit: a press on an item grabs it, to move it on release.
         if t.tool == sheaf_core::tools::ToolId::Edit
             && let Some((page, ..)) = v.drag
@@ -507,13 +539,15 @@ pub fn released(tab_id: i32, x: f32, y: f32) {
             && let Some(text) = v.text(page)
         {
             let (a, b) = (place_point(&v.viewer, page, x0, y0), place_point(&v.viewer, page, x1, y1));
+            v.live = None;
+            v.selecting = false;
             if let Some(mark) = sheaf_app::reader::redact_selection(&text, &v.viewer.boxes[page], page, (a.1 as f32, a.2 as f32), (b.1 as f32, b.2 as f32)) {
-                let short: String = mark.text.chars().take(40).collect();
-                let label = if short.len() < mark.text.len() { format!("“{short}…”") } else { format!("“{short}”") };
-                v.manual.push(Manual { mark, label });
+                v.manual.push(Manual { label: quoted(&mark.text), mark });
                 return;
             }
         }
+        v.live = None;
+        v.selecting = false;
         if (x1 - x0).abs() < MIN_DRAG || (y1 - y0).abs() < MIN_DRAG {
             return;
         }
@@ -521,6 +555,41 @@ pub fn released(tab_id: i32, x: f32, y: f32) {
         let b = v.viewer.to_page(page, x1, y1);
         let rect = [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)];
         v.manual.push(Manual { mark: redact::mark_rects(&[(page, rect)]).remove(0), label: "Selected area".into() });
+    });
+}
+
+/// A list label for marked text: “its first 40 characters…”.
+fn quoted(text: &str) -> String {
+    let short: String = text.chars().take(40).collect();
+    if short.len() < text.len() { format!("“{short}…”") } else { format!("“{short}”") }
+}
+
+/// Redact: the pointer moved with the button held; a drag that started on text shows what it
+/// selects so far.
+pub fn dragged(tab_id: i32, x: f32, y: f32) {
+    let busy = with(|a| a.tab(tab_id).and_then(|t| t.viewer.as_deref()).is_none_or(|v| !v.selecting));
+    if busy {
+        return;
+    }
+    update(tab_id, |v| {
+        let Some((page, x0, y0)) = v.drag else { return };
+        let Some(text) = v.text(page) else { return };
+        let (a, b) = (place_point(&v.viewer, page, x0, y0), place_point(&v.viewer, page, x as f64, y as f64));
+        v.live = sheaf_app::reader::redact_selection(&text, &v.viewer.boxes[page], page, (a.1 as f32, a.2 as f32), (b.1 as f32, b.2 as f32));
+    });
+}
+
+/// Redact: a double click on a word marks it (a third click, the line).
+pub fn double_clicked(tab_id: i32, x: f32, y: f32) {
+    update(tab_id, |v| {
+        let Some((page, ..)) = v.viewer.hit(x as f64, y as f64) else { return };
+        let Some(text) = v.text(page) else { return };
+        let (_, px, py) = place_point(&v.viewer, page, x as f64, y as f64);
+        if let Some(mark) = sheaf_app::reader::word(&text, (px as f32, py as f32)).and_then(|r| sheaf_app::reader::redact_range(&text, &v.viewer.boxes[page], page, r)) {
+            // The drag the first click began marks nothing (it did not move).
+            v.manual.push(Manual { label: quoted(&mark.text), mark });
+            v.last_double = Some((std::time::Instant::now(), page, x as f64, y as f64));
+        }
     });
 }
 
@@ -723,6 +792,9 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     for m in &v.manual {
         boxes(m.mark.page, &m.mark.quads, 0);
     }
+    if let Some(m) = &v.live {
+        boxes(m.page, &m.quads, 3);
+    }
     let results: Vec<RedactResult> =
         v.found.iter().map(|f| RedactResult { text: f.m.text.clone().into(), page: page_label(f.m.page), checked: f.checked }).collect();
     let marks: Vec<RedactMarkItem> = v
@@ -736,6 +808,7 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     tab.viewer_pages = ModelRc::new(VecModel::from(pages));
     tab.viewer_thumbs = ModelRc::new(VecModel::from(thumbs));
     tab.viewer_overlays = ModelRc::new(VecModel::from(overlays));
+    tab.viewer_selecting = v.selecting;
     tab.viewer_width = len(v.viewer.content_width());
     tab.viewer_height = len(v.viewer.content_height());
     tab.viewer_thumbs_height = len(viewer::content_height(&tl));

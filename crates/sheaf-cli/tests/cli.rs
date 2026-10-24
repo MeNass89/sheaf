@@ -334,7 +334,7 @@ fn redact_subcommand_counts_the_areas_and_removes_the_text() {
     assert!(r.status.success(), "{err}");
     assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
     // 3 matches on each of the 2 pages; page 2 is also marked whole.
-    assert!(err.contains("7 areas redacted"), "{err}");
+    assert!(err.contains("6 text passages and 1 page redacted"), "{err}");
     assert!(err.contains("No text remains under the black boxes. Matches also removed from metadata, bookmarks and comments."), "{err}");
     let d = lopdf::Document::load(&out).unwrap();
     let p1 = d.extract_text(&[1]).unwrap();

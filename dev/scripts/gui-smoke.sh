@@ -124,6 +124,8 @@ key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4
 # The screen centre "x y" of the first word starting with $1 (OCR at 200 %, its box halved; OCR may glue
 # punctuation to it) in the area $2 (WxH+X+Y, default the whole screen), empty when not seen.
 at() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" 'index($12, w) == 1 { printf "%d %d\n", ox + ($7 + $9 / 2) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
+# The screen "left right y" of the first word starting with $1 in the area $2 (as `at`), empty when not seen.
+span() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" 'index($12, w) == 1 { printf "%d %d %d\n", ox + $7 / 2, ox + ($7 + $9) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
 # Text on screen, read by tesseract (the tab bar and page titles have no other handle under Xvfb).
 ocr() { import -window root -crop "$1" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '; }
 # ⇧ + a letter, ⇧ held first: xdotool's "shift+t" can deliver the letter before the app has seen ⇧
@@ -283,7 +285,8 @@ QY1=$(word_y "$OUT/text.pdf")
 check "dragging a paragraph with the Edit tool moves it ($QY0 → $QY1)" "[ -n \"$QY1\" ] && python3 -c 'import sys; sys.exit(0 if float(\"$QY1\") - float(\"$QY0\") > 30 else 1)'"
 # 2e. Editing that paragraph shows it on the page as typed, before ⌘↩; Escape puts it back and
 # leaves the file as it was.
-key e; sleep 1; QK=$(at quick); [ -n "$QK" ] && click $QK 1.2
+# "quick" looked for on the page only: the open thumbnails show it too, and a click there opened no editor.
+key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
 xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 10 " zebra"
 # The preview is a render: waited for (up to 6 s), not slept for (1.5 s missed it on a busy machine).
 for _ in $(seq 1 12); do sleep 0.5; PV1=$(ocr 1000x500+260+90); echo "$PV1" | grep -q zebra && break; done
@@ -714,19 +717,23 @@ check "PDF to Word says a scanned PDF needs OCR ($SC)" "echo \"$SC\" | grep -qi 
 quit
 
 # 18. Redact by selecting text, as Acrobat: in the Redact tool, a drag that starts on a word marks the
-# words it crosses (not a rectangle); applied, they are gone from the text and the rest of the line stays.
+# words it crosses (not a rectangle), shown as it goes; a double click marks a word ("Page"); applied,
+# they are gone from the text, the rest of the line stays, and the result counts text passages.
 cp "$OUT/text.pdf" "$OUT/redact.pdf"
 launch "$OUT/redact.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
-Q=$(at quick 820x700+140+60); F=$(at fox 820x700+140+60)
+Q=$(span quick 820x700+140+60); F=$(span fox 820x700+140+60)
 if [ -n "$Q" ] && [ -n "$F" ]; then
-    set -- $Q; QX=$(( $1 - 25 )); QY=$2; set -- $F; FX=$(( $1 + 15 ))
+    # From the left edge of "quick" to the right edge of "fox" (a letter counts once the pointer passes its middle).
+    set -- $Q; QX=$(( $1 + 1 )); QY=$3; set -- $F; FX=$(( $2 - 1 ))
     xdotool mousemove $QX $QY mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $(( QX + (FX - QX) * i / 6 )) $QY; sleep 0.05; done; xdotool mouseup 1; sleep 1
-    shot 18-redact-marked; RM=$(ocr 280x60+1000+525 | tr -s ' ')
+    P=$(at Page 820x700+140+60); [ -n "$P" ] && { set -- $P; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
+    shot 18-redact-marked; RM=$(ocr 280x90+1000+525 | tr -s ' ')
     click 1140 755 1; for _ in $(seq 1 20); do [ -f "$OUT/redact-redacted.pdf" ] && break; sleep 0.5; done
+    sleep 1; RS=$(ocr 700x40+100+720 | tr -s ' ')
 fi
 RT=$(pdftotext -f 1 -l 1 "$OUT/redact-redacted.pdf" - 2>/dev/null | tr -s ' \n' ' ')
-check "Redact: a drag over words marks them ($RM) and only they are removed ($RT)" "echo \"$RM\" | grep -qi quick && echo \"$RT\" | grep -q 'Page 1' && ! echo \"$RT\" | grep -qE 'quick|brown|fox'"
+check "Redact: a drag over words and a double click mark them ($RM), only they are removed ($RT), counted as text ($RS)" "echo \"$RM\" | grep -qi quick && echo \"$RT\" | grep -q '1 the' && ! echo \"$RT\" | grep -qE 'Page|quick|brown|fox' && echo \"$RS\" | grep -q '2 text passages'"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

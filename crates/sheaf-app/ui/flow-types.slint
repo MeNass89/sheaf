@@ -326,6 +326,8 @@ export struct ToolTab {
     viewer-pages: [ViewerPage],
     viewer-thumbs: [ViewerThumb],
     viewer-overlays: [ViewerOverlay],
+    // Redact: a drag is selecting text (no rubber band; the selection shows as overlays of kind 3).
+    viewer-selecting: bool,
     viewer-width: length,
     viewer-height: length,
     viewer-thumbs-height: length,
@@ -600,6 +602,9 @@ export global ViewerBridge {
     callback viewport(int, length, length, length);
     callback strip-viewport(int, length, length);
     callback pressed(int, length, length);
+    // The pointer moved with the button held (Redact shows the text a drag selects as it goes).
+    callback dragged(int, length, length);
+    callback double-clicked(int, length, length);
     callback released(int, length, length);
     callback thumb-clicked(int, int);
     // +1 / −1 one zoom step, 0 fit width.

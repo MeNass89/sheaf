@@ -146,7 +146,37 @@ pub fn redact_selection(text: &PageText, page_box: &PageBox, page: usize, a: (f3
     if !on {
         return None;
     }
-    let range = selection(text, a, b)?;
+    // Between letters, as a caret: a letter is in once the pointer is past its middle (taking the
+    // nearest whole, a drag stopping on the last letter of a word left it readable).
+    let (i, j) = (caret(text, a)?, caret(text, b)?);
+    let range = i.min(j)..i.max(j);
+    if range.is_empty() {
+        return None;
+    }
+    redact_range(text, page_box, page, range)
+}
+
+/// The place between two glyphs nearest `p`: before the nearest glyph, or after it when `p` is
+/// past its middle (along its writing direction).
+fn caret(text: &PageText, p: (f32, f32)) -> Option<usize> {
+    let i = text.nearest(p.0, p.1)?;
+    let g = &text.glyphs[i];
+    let (cx, cy) = ((g.rect[0] + g.rect[2]) / 2.0, (g.rect[1] + g.rect[3]) / 2.0);
+    let along = (p.0 - cx) * g.direction[0] + (p.1 - cy) * g.direction[1];
+    Some(if along > 0.0 { i + 1 } else { i })
+}
+
+/// The words of a line, for a triple click: the glyphs of the line holding the glyph nearest `at`.
+pub fn line(text: &PageText, at: (f32, f32)) -> Option<Range<usize>> {
+    let i = text.nearest(at.0, at.1)?;
+    let l = text.line_of.get(i)?;
+    let start = (0..=i).rev().take_while(|&k| text.line_of.get(k) == Some(l)).last()?;
+    let end = (i..text.glyphs.len()).take_while(|&k| text.line_of.get(k) == Some(l)).last()?;
+    Some(start..end + 1)
+}
+
+/// A redaction mark for glyphs `range` of page `page` (a word or line clicked).
+pub fn redact_range(text: &PageText, page_box: &PageBox, page: usize, range: Range<usize>) -> Option<sheaf_core::redact::Mark> {
     let words = selected_text(text, range.clone());
     if words.trim().is_empty() {
         return None;
@@ -405,7 +435,13 @@ mod tests {
         let t = sample();
         let page = PageBox { crop: [0.0, 0.0, 600.0, 800.0], rotation: 0, unit: 1.0 };
         let m = redact_selection(&t, &page, 3, (17.0, 12.0), (17.0, 32.0)).expect("starts on text");
-        assert_eq!((m.page, m.text.as_str(), m.quads.len()), (3, "b cd ef", 2), "one quad per line");
+        assert_eq!((m.page, m.text.as_str(), m.quads.len()), (3, "b cd e", 2), "one quad per line");
+        // A letter is in once the pointer is past its middle: "d" (34–40) taken at 38, not at 36.
+        assert_eq!(redact_selection(&t, &page, 0, (9.0, 12.0), (38.0, 12.0)).map(|m| m.text), Some("ab cd".into()));
+        assert_eq!(redact_selection(&t, &page, 0, (9.0, 12.0), (36.0, 12.0)).map(|m| m.text), Some("ab c".into()));
+        // A triple click takes the line, a double click the word.
+        assert_eq!(line(&t, (17.0, 12.0)), Some(0..4));
+        assert_eq!(redact_range(&t, &page, 0, word(&t, (29.0, 12.0)).unwrap()).map(|m| m.text), Some("cd".into()));
         // Off the text: an area, not a text mark.
         assert!(redact_selection(&t, &page, 3, (300.0, 300.0), (400.0, 400.0)).is_none());
     }

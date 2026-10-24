@@ -79,7 +79,11 @@ export component ReaderScreen inherits Rectangle {
     // Scrolling moves the pages under a still pointer: a link's tooltip no longer applies.
     changed page-top => { root.link-tip = ""; ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     property <length> page-left: -sv.content-x;
-    changed page-left => { root.link-tip = ""; }
+    // The scroll a zoom wanted is taken: no need to set it again.
+    changed page-left => {
+        root.link-tip = "";
+        if root.want-x >= 0px && abs(root.page-left - root.want-x) < 1px { root.want-x = -1px; }
+    }
     changed page-w => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     changed page-h => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     changed strip-h => { ViewerBridge.strip-viewport(root.id, root.strip-top, root.strip-h); }
@@ -96,12 +100,13 @@ export component ReaderScreen inherits Rectangle {
         }
     }
     // The view can take that scroll before its content has the new width, and cut it to the old
-    // width: it is set again when the width comes, for a moment after the zoom.
+    // width: it is set again when the width comes, until the view shows it (a busy machine brought
+    // the width after the 300 ms this used to wait, and a zoom drifted sideways), 2 s at most.
     property <length> want-x: -1px;
     property <length> content-w: root.tab.viewer-width;
     changed content-w => { if root.want-x >= 0px { sv.content-x = -root.want-x; } }
     want-x-timer := Timer {
-        interval: 300ms;
+        interval: 2000ms;
         running: false;
         triggered => { root.want-x = -1px; self.running = false; }
     }

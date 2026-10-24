@@ -225,6 +225,7 @@ export component ToolFlowScreen inherits Rectangle {
                 scroll-seq: root.tab.viewer-scroll-seq;
                 interactive: !root.running;
                 drag-box: root.redact;
+                selecting: root.tab.viewer-selecting;
                 sign: root.tab.sign-overlay;
                 sign-image: root.tab.sign-preview;
                 edits: root.tab.edit-overlays;
@@ -232,6 +233,8 @@ export component ToolFlowScreen inherits Rectangle {
                 strip-viewport(top, h) => { ViewerBridge.strip-viewport(root.tab.id, top, h); }
                 pressed(x, y) => { ViewerBridge.pressed(root.tab.id, x, y); }
                 released(x, y) => { ViewerBridge.released(root.tab.id, x, y); }
+                dragged(x, y) => { if root.redact { ViewerBridge.dragged(root.tab.id, x, y); } }
+                double-clicked(x, y) => { if root.redact { ViewerBridge.double-clicked(root.tab.id, x, y); } }
                 thumb-clicked(p) => { ViewerBridge.thumb-clicked(root.tab.id, p); }
                 zoom-step(d) => { ViewerBridge.zoom-step(root.tab.id, d); }
             }

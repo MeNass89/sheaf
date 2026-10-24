@@ -374,7 +374,7 @@ fn compare_job_shows_the_counts() {
 }
 
 #[test]
-fn redact_job_counts_the_areas_and_warns_on_protected_input() {
+fn redact_job_counts_what_it_redacts_and_warns_on_protected_input() {
     use sheaf_core::redact::{self, Query};
     let dir = tempfile::tempdir().unwrap();
     let text = helvetica_pdf(dir.path());
@@ -388,7 +388,7 @@ fn redact_job_counts_the_areas_and_warns_on_protected_input() {
     marks.extend(redact::mark_rects(&[(0, [300.0, 300.0, 400.0, 400.0])]));
     let no = AtomicBool::new(false);
     let o = run(&Job::Redact { input: locked, marks, out: dir.path().join("r.pdf") }, &no, &|_| {}).unwrap();
-    assert_eq!(o.summary, "2 areas redacted");
+    assert_eq!(o.summary, "1 text passage and 1 area redacted");
     assert!(o.was_encrypted);
     let d = lopdf::Document::load(&o.outputs[0]).unwrap();
     assert!(!d.extract_text(&[1]).unwrap().contains("Hello"));

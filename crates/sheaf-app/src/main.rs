@@ -221,6 +221,8 @@ fn wire_viewer(ui: &AppWindow) {
     with_ui!(on_strip_viewport, |ui, id, top, h| viewer_ui::strip_viewport(&ui, id, top, h));
     vb.on_pressed(viewer_ui::pressed);
     vb.on_released(viewer_ui::released);
+    vb.on_dragged(viewer_ui::dragged);
+    vb.on_double_clicked(viewer_ui::double_clicked);
     vb.on_thumb_clicked(viewer_ui::thumb_clicked);
     with_ui!(on_zoom_step, |ui, id, d| viewer_ui::zoom_step(&ui, id, d));
     let weak = ui.as_weak();

@@ -268,7 +268,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 return Err(OpdfError::Unsupported("nothing to redact: no match and no page given".into()));
             }
             let r = redact::apply(&i, &marks, &searched, &out)?;
-            note!("{}", redact::summary(r.areas));
+            note!("{}", redact::summary(r.counts));
             note!("{}", redact::VERIFIED);
             for w in &r.warnings {
                 note!("warning: {w}");

@@ -48,4 +48,9 @@ Two-page spread, bookmarks of one's own, split view, reading aloud, measure, com
   history, unsaved prompt. First GUI run on Linux/Xvfb: the 1,982-page book opens with its outline.
 - 24/10 17:00, flaky smoke check fixed: "an edited paragraph shows on the page before ⌘↩" read the screen a fixed
   1.5 s after typing and failed once on a busy machine (passed on the next run); it now waits for the preview
-  (and for its removal after Escape) up to 6 s.
+  (and for its removal after Escape) up to 6 s. It failed again: the cause was that it looked for "quick" on the
+  whole screen, and when tesseract read it in the open thumbnails the click went there, no editor opened and
+  " zebra" was typed as tool shortcuts. It now looks on the page only.
+- 24/10 18:30, flaky "⌘ + wheel zooms around the pointer" (961 → 889): after a zoom the view may cut the new
+  horizontal scroll to the old content width; the wanted scroll was set again when the width came, but only for
+  300 ms, and on a busy machine the width came later. It is now kept until the view shows it (2 s at most).

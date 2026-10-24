@@ -381,7 +381,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             let r = redact::apply(input, marks, &[], out)?;
             notes.extend(r.warnings.iter().cloned());
             was_encrypted |= r.was_encrypted;
-            summary = redact::summary(r.areas);
+            summary = redact::summary(r.counts);
             progress(1.0);
             vec![r.path]
         }

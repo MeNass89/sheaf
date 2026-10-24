@@ -103,10 +103,32 @@ pub struct Mark {
 /// The line shown when [`apply`] succeeds (its audit passed).
 pub const VERIFIED: &str = "No text remains under the black boxes. Matches also removed from metadata, bookmarks and comments.";
 
-/// The result line for `areas` areas redacted (followed by [`VERIFIED`]), in Sheaf's CLI and
-/// app alike.
-pub fn summary(areas: usize) -> String {
-    format!("{} redacted", crate::tools::count(areas, "area"))
+/// What the marks applied were: text passages (selected or found), whole pages, drawn areas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MarkCounts {
+    pub texts: usize,
+    pub pages: usize,
+    pub areas: usize,
+}
+
+impl MarkCounts {
+    pub fn of(marks: &[Mark]) -> MarkCounts {
+        let pages = marks.iter().filter(|m| m.whole_page).count();
+        let texts = marks.iter().filter(|m| !m.whole_page && !m.text.is_empty()).count();
+        MarkCounts { texts, pages, areas: marks.len() - pages - texts }
+    }
+}
+
+/// The result line for what was redacted (followed by [`VERIFIED`]), in Sheaf's CLI and app
+/// alike: "2 text passages, 1 page and 1 area redacted".
+pub fn summary(c: MarkCounts) -> String {
+    use crate::tools::count;
+    let parts: Vec<String> = [(c.texts, "text passage"), (c.pages, "page"), (c.areas, "area")].iter().filter(|(n, _)| *n > 0).map(|(n, w)| count(*n, w)).collect();
+    match parts.as_slice() {
+        [] => "Nothing redacted".into(),
+        [one] => format!("{one} redacted"),
+        [rest @ .., last] => format!("{} and {last} redacted", rest.join(", ")),
+    }
 }
 
 /// What [`apply`] wrote.
@@ -115,6 +137,8 @@ pub struct RedactReport {
     pub path: PathBuf,
     /// Marks applied (a match over two lines is one area).
     pub areas: usize,
+    /// Of what kinds.
+    pub counts: MarkCounts,
     /// The input was password-protected; the output is not.
     pub was_encrypted: bool,
     /// What was removed whole besides the marks, one line each ("XMP metadata removed: it
@@ -255,7 +279,7 @@ pub fn apply(input: &Input, marks: &[Mark], searched: &[Needle], out: &Path) -> 
         Ok(())
     })?;
     warnings.extend(notes);
-    Ok(RedactReport { path, areas: marks.len(), was_encrypted, warnings })
+    Ok(RedactReport { path, areas: marks.len(), counts: MarkCounts::of(marks), was_encrypted, warnings })
 }
 
 /// The texts to remove outside the page content: the typed searches and every match's text.

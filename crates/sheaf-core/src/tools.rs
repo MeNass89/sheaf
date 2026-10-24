@@ -256,7 +256,10 @@ mod summary_tests {
         assert_eq!(crate::excel::summary(4), "4 tables found");
         assert_eq!(crate::ocr::summary(1, 12, 0), "1 page read, 12 words added");
         assert_eq!(crate::ocr::summary(2, 1, 1), "2 pages read, 1 word added, 1 page already had text");
-        assert_eq!(crate::redact::summary(1), "1 area redacted");
+        use crate::redact::{summary, MarkCounts};
+        assert_eq!(summary(MarkCounts { texts: 0, pages: 0, areas: 1 }), "1 area redacted");
+        assert_eq!(summary(MarkCounts { texts: 1, pages: 0, areas: 0 }), "1 text passage redacted");
+        assert_eq!(summary(MarkCounts { texts: 2, pages: 1, areas: 1 }), "2 text passages, 1 page and 1 area redacted");
         assert_eq!(crate::pdfa::summary(PdfALevel::A2b, 0), "Conforms to PDF/A-2b");
         assert_eq!(crate::pdfa::summary(PdfALevel::A3b, 2), "2 files do not fully conform to PDF/A-3b");
         let c = crate::compare::CompareReport { path: Default::default(), added: 1, removed: 0, replaced: 2, regions: 1, was_encrypted: false };
