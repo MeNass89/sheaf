@@ -1,4 +1,4 @@
-# Sheaf — handoff (VPS, 2026-10-21 ~05:30)
+# Sheaf — handoff (VPS, 2026-10-24)
 
 Sheaf is built and tested on the **Linux VPS** (the MacBook Pro is for another project). Method: the **`dev`
 skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, then `dev/DECISIONS.md`.
@@ -12,11 +12,13 @@ skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, t
 | Raw features | `dev/board/raw/<app>.json` → `dev/board/features.json`; instructions `EXTRACT.md`, `MERGE.md` |
 | Inspiration code | `dev/re/archive/*.tar.zst` (git-ignored) → `python3 dev/scripts/archive.py extract <app>` |
 | UI references | `dev/re/evidence/{pdfexpert,preview,ilovepdf}/`; Sheaf proofs in `dev/re/evidence/F-00N/` |
-| Features | `dev/features/F-001…F-004` |
+| Features | `dev/features/F-001…F-007` |
 
 ## Board status
 
-**331 components, 126 at ≥ 9.** Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 2/20, edit 8/29, files 11/19, forms 4/17, optimize 2/15, organize 8/27, output 3/15, platform 2/14, preferences 4/14, reader 41/64, security 6/18, sign 7/18.
+**331 components, 127 at ≥ 9** (last suite: ALL GREEN, 1051 s, commit 42fcabb). Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 4/20, edit 8/29, files 11/19, forms 4/17, optimize 2/15, organize 8/27, output 3/15, platform 2/14, preferences 4/14, reader 41/64, security 6/18, sign 7/18.
+In flight: C-optimize-006 OCR 9/9/8 (performance: onnxruntime, see DECISIONS 24/10); C-security-010 redact by
+selection 8/8/9 → re-grade asked on 42fcabb (live selection, word/line clicks, result counts done).
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
@@ -29,6 +31,12 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
   (incremental); print (CUPS); Document properties (⌘D); Day/Sepia/Night; two pages / cover; reopen as left;
   links and history; PDF Expert's shortcuts.
 - **F-003 pages panel**, **F-004 forms** as before.
+- **F-005 PDF to Word** (closed 9/9/9): own docx writer in `third_party/pdfcraft-export` (ruled tables with merged
+  cells, shading, turned labels, runs with fonts, superscripts, header/footer parts, symbol fonts); corpus
+  `dev/scripts/word-corpus.py` (25 checks).
+- **F-006 OCR** (9/9/8): PaddleOCR Latin model on rten (`third_party/pdfcraft-ocr`, 29 languages, accents), turned
+  labels, deskew, glyphless Unicode text layer; 95.7 % of words against Tesseract's 96.4 % on the MICI scan.
+- **F-007 redact by selection** (8/8/9, re-grade pending).
 - PdfCraft patched for large files in `third_party/` (a 1,982-page book: annotation 0.19 s, save 1.1 s).
 
 ## Tests: one suite
@@ -82,12 +90,9 @@ DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and
 
 ## Known limits worth the next session
 
-- **PDF to Word (C-convert-009 at 4, measured 23/10).** Both engines give floating text boxes, no tables.
-  Plan (reviewer): F-005, own docx writer in sheaf-core from `text_blocks` paragraphs and styled runs,
-  tables rebuilt from ruled cells (fills, merged cells), images inline, OCR offered for scans. Build a
-  6-8 PDF corpus with their Word originals and checks first (word order vs pdftotext, table/cell counts,
-  page count rendered back, no text boxes left). Optional stopgap if LibreOffice is accepted: exact layout
-  via writer_pdf_import with anchors made page-relative, no wrap.
+- PDF to Word leftovers (non-blocking): "Révision" right tab in the header, footer logo text, "± Budésonide"
+  alignment (F-005 journal).
+- OCR speed: onnxruntime for the recognition model is the lever to performance 9 (DECISIONS 24/10).
 
 - PdfCraft is patched in `third_party/` (README there): on a PdfCraft rev bump, re-apply the changes (search
   "Sheaf:"). Asked Nassim whether to send them upstream.
