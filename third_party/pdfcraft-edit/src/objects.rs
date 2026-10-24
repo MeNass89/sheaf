@@ -19,6 +19,8 @@ pub enum ObjectKind {
     Added,
     Text,
     Image,
+    /// Sheaf: a drawing (a painted vector path).
+    Path,
 }
 
 impl ObjectKind {
@@ -27,6 +29,7 @@ impl ObjectKind {
             Self::Added => "added",
             Self::Text => "text",
             Self::Image => "image",
+            Self::Path => "path",
         }
     }
 }
@@ -89,6 +92,13 @@ pub fn editable_objects(doc: &Document, page: usize) -> Result<Vec<EditableObjec
             text: None,
         });
     }
+    // Sheaf: drawings too, as long as the page does not hold too many objects with them.
+    let paths = crate::paths::page_paths(doc, page, &excluded)?;
+    if objects.len() + paths.len() <= MAX_PAGE_OBJECTS {
+        for (index, p) in paths.into_iter().enumerate() {
+            objects.push(EditableObject { target: ObjectTarget { kind: ObjectKind::Path, index }, rect: p.rect, content_type: "path", text: None });
+        }
+    }
     if objects.len() > MAX_PAGE_OBJECTS {
         return Err(EditError::Invalid("this page has too many objects to select together".into()));
     }
@@ -122,6 +132,9 @@ pub fn move_objects(doc: &mut Document, page: usize, targets: &[ObjectTarget], o
     }
     let indexes = |kind| targets.iter().filter(|t| t.kind == kind).map(|t| t.index).collect::<Vec<_>>();
     let mut work = doc.clone();
+    // Sheaf: drawings first, located in the content as it is (the other moves rewrite it).
+    let excluded = crate::list_added(&work).into_iter().filter(|a| a.page == page).map(|a| a.obj).collect();
+    crate::paths::translate_paths(&mut work, page, &indexes(ObjectKind::Path), offset, &excluded)?;
     crate::text::translate_blocks(&mut work, page, &indexes(ObjectKind::Text), offset)?;
     crate::images::translate_images(&mut work, page, &indexes(ObjectKind::Image), offset)?;
     translate_added(&mut work, page, &indexes(ObjectKind::Added), offset)?;

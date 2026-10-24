@@ -71,6 +71,11 @@ struct ClipPath {
     even_odd: bool,
 }
 
+/// Sheaf: the page's content streams, decoded (for `paths`).
+pub(crate) fn page_streams(doc: &Document, page: &Dict) -> Vec<(Object, Vec<u8>)> {
+    streams(doc, page)
+}
+
 fn streams(doc: &Document, page: &Dict) -> Vec<(Object, Vec<u8>)> {
     let list: Vec<Object> = match page.get(b"Contents") {
         None => Vec::new(),

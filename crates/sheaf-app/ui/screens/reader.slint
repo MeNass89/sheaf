@@ -476,7 +476,7 @@ export component ReaderScreen inherits Rectangle {
                 // Options of the tool in use and the form's actions: a bar floating over the top of
                 // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
                 // pages never move when a tool is picked.
-                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
+                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
                     x: 12px;
                     y: 8px;
                     width: min(parent.width - 24px, self.bar-width);

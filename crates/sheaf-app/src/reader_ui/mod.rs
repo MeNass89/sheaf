@@ -79,6 +79,8 @@ struct Search {
 type PageObject = (sheaf_core::pdfcraft::engine::ObjectTarget, [f64; 4]);
 /// A drag on a page: the page, from and to (view points).
 type PageDrag = (usize, (f64, f64), (f64, f64));
+/// A corner pulled: which (0 top-left … 3 bottom-right), from and to (view points).
+type CornerPull = (u8, (f64, f64), (f64, f64));
 
 /// What is being typed: 0 a note, 1 a text box (annotation), 2 an existing paragraph, 3 new
 /// text on the page, 4 a form text field, 5 a form choice field (a list to pick from).
@@ -147,6 +149,12 @@ pub struct ReaderUi {
     /// A drag of the picked objects (view points, from and to), and a marquee being drawn.
     picked_drag: Option<((f64, f64), (f64, f64))>,
     marquee: Option<PageDrag>,
+    /// The one picked paragraph's side being pulled (corner 0–3, from, to; view points): it
+    /// rewraps to the new width.
+    para_resize: Option<CornerPull>,
+    /// The offset (user space) of the last move preview sent: picked outlines follow what the
+    /// page shows, not the pointer ahead of it.
+    live_offset: Option<[f64; 2]>,
     /// Edit tool: what the press is on, where it started and where the pointer is (view).
     edit_press: Option<EditPress>,
     blocks_asked: HashSet<usize>,
@@ -309,6 +317,8 @@ impl ReaderUi {
             repick: None,
             picked_drag: None,
             marquee: None,
+            para_resize: None,
+            live_offset: None,
             edit_press: None,
             blocks_asked: HashSet::new(),
             sel: None,
@@ -531,6 +541,10 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                     && let Some((page, e)) = r.live_pending.take()
                 {
                     r.live_in_flight = true;
+                    r.live_offset = match &e {
+                        Edit::MoveObjects { offset, .. } => Some(*offset),
+                        _ => None,
+                    };
                     r.send(Op::Preview { edit: Some(Box::new(e)), pages: vec![page] });
                 }
                 // A refused edit added no undo step: its pages leave the stack too.

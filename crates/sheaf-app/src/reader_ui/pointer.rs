@@ -56,9 +56,15 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                     r.press = None;
                     return false;
                 }
+                // A side of the one picked paragraph: pulled, it rewraps to the new width.
+                if let Some(corner) = paragraph_corner_at(r, v, page, p) {
+                    r.para_resize = Some((corner, p, p));
+                    return false;
+                }
+                // Several picked, or drawings (no other way to move them): a drag moves them all.
                 if let Some((pp, list)) = &r.picked
                     && *pp == page
-                    && list.len() > 1
+                    && (list.len() > 1 || list.iter().all(|o| o.0.kind == sheaf_core::pdfcraft::engine::ObjectKind::Path))
                     && reader::object_at(&list.iter().map(|o| o.1).collect::<Vec<_>>(), user).is_some()
                 {
                     r.picked_drag = Some((p, p));
@@ -236,6 +242,13 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             }
             return;
         }
+        if let Some((_, _, to)) = r.para_resize.as_mut() {
+            *to = b;
+            if let Some((page, e)) = paragraph_resize(r, v) {
+                live_preview(r, page, e);
+            }
+            return;
+        }
         if let Some((_, to)) = r.picked_drag.as_mut() {
             *to = b;
             if let Some((page, e)) = picked_move(r, v) {
@@ -322,6 +335,14 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             let edit = Edit::ResizeAnnotation { page: a.page, index: a.index, rect: user };
             r.selected_annot = None;
             return Some(Pending::Move(a.page, Box::new(edit)));
+        }
+        // The picked paragraph's side pulled: rewrapped (none under 2 points).
+        if r.para_resize.is_some() {
+            let edit = paragraph_resize(r, v);
+            r.para_resize = None;
+            r.edit_press = None;
+            end_live(r, edit.is_some());
+            return edit.map(|(page, e)| Pending::Move(page, Box::new(e)));
         }
         // Picked objects dragged together: one move (none under 2 points).
         if r.picked_drag.is_some() {
@@ -498,6 +519,51 @@ pub(super) fn link_hit<'a>(r: &'a ReaderUi, v: &Viewer, page: usize, p: (f64, f6
 
 
 
+/// The one paragraph picked: its page, index among the page's paragraphs and box (user space).
+pub(super) fn picked_paragraph(r: &ReaderUi) -> Option<(usize, usize, [f64; 4])> {
+    use sheaf_core::pdfcraft::engine::ObjectKind;
+    let (page, list) = r.picked.as_ref()?;
+    let [(target, rect)] = list.as_slice() else { return None };
+    if target.kind != ObjectKind::Text {
+        return None;
+    }
+    let blocks = r.blocks.get(page)?;
+    let i = *reader::picked_again(&[*rect], &blocks.iter().map(|b| b.rect).collect::<Vec<_>>()).first()?;
+    Some((*page, i, blocks[i].rect))
+}
+
+/// The corner of the one picked paragraph at view point `p` of `page`, within 8 points: 0
+/// top-left, 1 top-right, 2 bottom-left, 3 bottom-right.
+fn paragraph_corner_at(r: &ReaderUi, v: &ViewerUi, page: usize, p: (f64, f64)) -> Option<u8> {
+    let (pp, _, rect) = picked_paragraph(r).filter(|(pp, ..)| *pp == page)?;
+    let b = &v.viewer.boxes[pp];
+    let [x, y, w, h] = viewer::pdf_rect_to_view(b, b.view_size(), rect);
+    [(x, y), (x + w, y), (x, y + h), (x + w, y + h)].iter().position(|c| (p.0 - c.0).abs() <= 8.0 && (p.1 - c.1).abs() <= 8.0).map(|c| c as u8)
+}
+
+/// The rewrap a pull of the picked paragraph's side makes (none under 2 points): a right corner
+/// moves the right edge, a left corner the left edge (the box moves with it); at least 24 points
+/// wide. Where it will be is kept to pick it again.
+fn paragraph_resize(r: &mut ReaderUi, v: &ViewerUi) -> Option<(usize, Edit)> {
+    let (corner, from, to) = r.para_resize?;
+    let (page, i, rect) = picked_paragraph(r)?;
+    let b = &v.viewer.boxes[page];
+    let size = b.view_size();
+    let dx = viewer::view_to_pdf(b, size, to.0, to.1).0 - viewer::view_to_pdf(b, size, from.0, from.1).0;
+    if dx.abs() < 2.0 {
+        return None;
+    }
+    let left = corner % 2 == 0;
+    let w = (rect[2] - rect[0] + if left { -dx } else { dx }).max(24.0);
+    let x0 = if left { rect[2] - w } else { rect[0] };
+    let text = r.blocks.get(&page)?.get(i)?.text.clone();
+    // The same text over a new width: about as much area.
+    let h = ((rect[2] - rect[0]) * (rect[3] - rect[1]) / w).max(4.0);
+    r.repick = Some((page, vec![[x0, rect[3] - h, x0 + w, rect[3]]]));
+    let style = sheaf_core::pdfcraft::edit::BlockStyle { width: Some(w), offset: left.then_some([x0 - rect[0], 0.0]), ..Default::default() };
+    Some((page, Edit::EditTextBlock { page, block: i, text, style }))
+}
+
 /// The move a drag of the picked objects makes (none under 2 points); their boxes where it puts
 /// them are kept to pick them again once the page is read again.
 fn picked_move(r: &mut ReaderUi, v: &ViewerUi) -> Option<(usize, Edit)> {
@@ -554,6 +620,10 @@ fn live_preview(r: &mut ReaderUi, page: usize, edit: Edit) {
         r.live_pending = Some((page, edit));
     } else {
         r.live_in_flight = true;
+        r.live_offset = match &edit {
+            Edit::MoveObjects { offset, .. } => Some(*offset),
+            _ => None,
+        };
         r.send(Op::Preview { edit: Some(Box::new(edit)), pages: vec![page] });
     }
 }

@@ -799,6 +799,72 @@ da, db = (a1[0] - a0[0], a1[1] - a0[1]), (b1[0] - b0[0], b1[1] - b0[1])
 sys.exit(0 if abs(da[0] - 10) < 1 and abs(db[0] - 10) < 1 and da[1] > 30 and abs(da[1] - db[1]) < 1 else 1)' \"$A0\" \"$A1\" \"$B0\" \"$B1\""
 quit
 
+# 20b. One picked paragraph: its right corner pulled 200 px left rewraps it to the new width; saved, its words
+# stand on more lines ("here" below "Alpha").
+key_y() { pdftotext -bbox "$OUT/para.pdf" - 2>/dev/null | grep -m1 ">$1<" | sed 's/.*yMin="\([0-9.]*\)".*/\1/'; }
+cp "$OUT/two.pdf" "$OUT/para.pdf"
+launch "$OUT/para.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
+S=$(span here 1020x700+255+90); A=$(at Alpha 1020x700+255+90)
+if [ -n "$S" ] && [ -n "$A" ]; then
+    set -- $A; xdotool mousemove $1 $2 keydown shift click 1 keyup shift; sleep 0.8
+    # The bottom-right corner: right of "here", 22 px below its middle (24 pt text at fit width).
+    set -- $S; RX=$(( $2 + 2 )); RY=$(( $3 + 23 ))
+    xdotool mousemove $RX $RY mousedown 1; for i in 1 2 3 4 5 6 7 8; do xdotool mousemove $(( RX - i * 25 )) $RY; sleep 0.08; done; xdotool mouseup 1; sleep 2
+    shot 20b-rewrapped; key ctrl+s; sleep 2
+fi
+HA=$(key_y Alpha); HH=$(key_y here)
+check "a picked paragraph's side pulled rewraps it (Alpha at $HA, here at $HH)" "[ -n \"$HH\" ] && python3 -c 'import sys; sys.exit(0 if float(\"$HH\") - float(\"$HA\") > 20 else 1)'"
+quit
+
+# 20c. A drawing is an object too: a blue square ⇧-clicked and dragged 60 px down moves alone (rendered from the
+# saved file: its blue pixels lower, the words where they were).
+python3 - "$OUT/square.pdf" <<'PY'
+import sys
+objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", "<< /Type /Catalog /Pages 3 0 R >>", "<< /Type /Pages /Kids [5 0 R] /Count 1 >>"]
+c = "0 0 1 rg 400 600 60 60 re f 0 g BT /F1 24 Tf 72 700 Td (Alpha paragraph here) Tj ET"
+objs.append(f"<< /Length {len(c)} >>\nstream\n{c}\nendstream")
+objs.append("<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 1 0 R >> >> >>")
+b = b"%PDF-1.7\n"; offs = []
+for i, o in enumerate(objs, 1):
+    offs.append(len(b)); b += f"{i} 0 obj\n{o}\nendobj\n".encode()
+x = len(b)
+b += f"xref\n0 {len(objs)+1}\n0000000000 65535 f \n".encode() + b"".join(f"{n:010d} 00000 n \n".encode() for n in offs)
+b += f"trailer\n<< /Size {len(objs)+1} /Root 2 0 R >>\nstartxref\n{x}\n%%EOF\n".encode()
+open(sys.argv[1], "wb").write(b)
+PY
+blue_top() { pdftoppm -r 72 -png "$OUT/square.pdf" "$OUT/sq" 2>/dev/null; python3 -c "
+import struct, zlib, sys
+d = open('$OUT/sq-1.png', 'rb').read()
+w, h = struct.unpack('>II', d[16:24]); raw = b''; i = 8
+while i < len(d):
+    n = struct.unpack('>I', d[i:i+4])[0]; t = d[i+4:i+8]
+    if t == b'IDAT': raw += d[i+8:i+8+n]
+    i += 12 + n
+data = zlib.decompress(raw); bpp = 3 if d[25] == 2 else 4; stride = w * bpp + 1; rows = []; prev = bytearray(w * bpp)
+for y in range(h):
+    f = data[y*stride]; line = bytearray(data[y*stride+1:(y+1)*stride])
+    for x in range(len(line)):
+        a = line[x-bpp] if x >= bpp else 0; b = prev[x]; c = prev[x-bpp] if x >= bpp else 0
+        if f == 1: line[x] = (line[x] + a) & 255
+        elif f == 2: line[x] = (line[x] + b) & 255
+        elif f == 3: line[x] = (line[x] + (a + b) // 2) & 255
+        elif f == 4:
+            p = a + b - c; pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+            line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+    rows.append(line); prev = line
+print(min((y for y in range(h) for x in range(w) if rows[y][x*bpp] < 60 and rows[y][x*bpp+2] > 200), default=-1))
+"; }
+Y0=$(blue_top)
+launch "$OUT/square.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
+# The square's centre at fit width: 430,630 pt of a 612 pt page shown 1000 px wide from x 264.
+SX=$(( 264 + 430 * 1000 / 612 )); SY=$(( 100 + (792 - 630) * 1000 / 612 ))
+xdotool mousemove $SX $SY keydown shift click 1 keyup shift; sleep 0.8
+xdotool mousemove $SX $SY mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $SX $(( SY + i * 10 )); sleep 0.08; done; xdotool mouseup 1; sleep 2
+shot 20c-drawing-moved; key ctrl+s; sleep 2
+Y1=$(blue_top); WA=$(pdftotext -bbox "$OUT/square.pdf" - 2>/dev/null | grep -m1 '>Alpha<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/')
+check "a drawing ⇧-clicked and dragged moves alone (square top $Y0 → $Y1 px, Alpha at $WA)" "[ \"$Y0\" -ge 0 ] && [ \"$Y1\" -gt \"$(( Y0 + 20 ))\" ] && python3 -c 'import sys; sys.exit(0 if abs(float(\"$WA\") - 74.768) < 1 else 1)'"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).

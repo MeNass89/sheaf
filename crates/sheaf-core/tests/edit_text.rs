@@ -317,3 +317,26 @@ fn a_box_filled_as_a_path_is_a_fill_of_the_export() {
     assert!(fills.iter().any(|r| (r[0] - 100.0).abs() < 0.5 && (r[2] - 300.0).abs() < 0.5 && (r[3] - r[1] - 20.0).abs() < 0.5), "{fills:?}");
     assert_eq!(fills.len(), 1, "a triangle is no box: {fills:?}");
 }
+
+#[test]
+fn drawings_are_objects_that_move_alone() {
+    // A filled square, a stroked line, a clipping path (not a drawing) and a word.
+    use sheaf_core::pdfcraft::engine::{Edit, ObjectKind};
+    let dir = tempfile::tempdir().unwrap();
+    let content = b"0 0 1 rg 100 100 50 50 re f 2 w 300 200 m 400 200 l S q 0 0 10 10 re W n Q BT /F1 12 Tf 72 700 Td (Word) Tj ET".to_vec();
+    let pdf = page_pdf(dir.path(), "paths.pdf", vec![content]);
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    let objects = doc.document().editable_objects(0).unwrap();
+    let paths: Vec<_> = objects.iter().filter(|o| o.target.kind == ObjectKind::Path).collect();
+    assert_eq!(paths.len(), 2, "the square and the line, not the clip: {objects:?}");
+    let square = paths.iter().find(|o| (o.rect[0] - 100.0).abs() < 0.01).expect("the square");
+    assert_eq!(square.rect, [100.0, 100.0, 150.0, 150.0]);
+    doc.apply(Edit::MoveObjects { page: 0, objects: vec![square.target], offset: [20.0, 10.0] }).unwrap();
+    let after = doc.document().editable_objects(0).unwrap();
+    assert!(after.iter().any(|o| o.target.kind == ObjectKind::Path && o.rect == [120.0, 110.0, 170.0, 160.0]), "{after:?}");
+    assert!(after.iter().any(|o| o.target.kind == ObjectKind::Path && (o.rect[0] - 300.0).abs() < 0.01), "the line stays: {after:?}");
+    let word = after.iter().find(|o| o.target.kind == ObjectKind::Text).expect("the word");
+    assert!((word.rect[0] - 72.0).abs() < 1.0, "the word stays: {:?}", word.rect);
+    let out = doc.save(&dir.path().join("moved.pdf")).unwrap();
+    assert!(std::process::Command::new("qpdf").arg("--check").arg(&out).status().unwrap().success());
+}

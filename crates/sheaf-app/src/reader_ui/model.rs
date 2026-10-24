@@ -68,16 +68,44 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             marks.push(overlay(v.viewer.overlay(l.page, l.rect.map(f64::from)), 10));
         }
     }
-    // Edit tool: the objects picked together (moved along while dragged), and a marquee.
+    // Edit tool: the objects picked together, moved as the page shows them (the offset of the
+    // last preview sent); several in one box; one paragraph with corners to pull.
     if let Some((page, list)) = &r.picked {
-        let shift = match r.picked_drag {
-            Some((a, b)) => (b.0 - a.0, b.1 - a.1),
-            None => (0.0, 0.0),
-        };
-        for (_, rect) in list.iter() {
-            let c = v.viewer.overlay(*page, *rect);
-            let k = v.viewer.page_rect(*page)[2] / v.viewer.boxes[*page].view_size().0.max(1e-9);
-            marks.push(overlay([c[0] + shift.0 * k, c[1] + shift.1 * k, c[2], c[3]], 6));
+        let off = if r.picked_drag.is_some() { r.live_offset.unwrap_or([0.0, 0.0]) } else { [0.0, 0.0] };
+        let moved: Vec<[f64; 4]> = list.iter().map(|(_, q)| [q[0] + off[0], q[1] + off[1], q[2] + off[0], q[3] + off[1]]).collect();
+        // (A paragraph whose side is pulled is drawn below, at its new width.)
+        for q in moved.iter().filter(|_| r.para_resize.is_none()) {
+            let c = v.viewer.overlay(*page, *q);
+            marks.push(overlay([c[0] - 2.0, c[1] - 2.0, c[2] + 4.0, c[3] + 4.0], 6));
+        }
+        if moved.len() > 1 {
+            let u = moved.iter().fold(moved[0], |a, q| [a[0].min(q[0]), a[1].min(q[1]), a[2].max(q[2]), a[3].max(q[3])]);
+            let c = v.viewer.overlay(*page, u);
+            marks.push(overlay([c[0] - 6.0, c[1] - 6.0, c[2] + 12.0, c[3] + 12.0], 6));
+        } else if let Some((pp, _, rect)) = super::pointer::picked_paragraph(r)
+            && pp == *page
+            && r.picked_drag.is_none()
+        {
+            // While a side is pulled, the box shows the new width.
+            let rect = match r.para_resize {
+                Some((corner, from, to)) => {
+                    let b = &v.viewer.boxes[pp];
+                    let dx = viewer::view_to_pdf(b, b.view_size(), to.0, to.1).0 - viewer::view_to_pdf(b, b.view_size(), from.0, from.1).0;
+                    let w = (rect[2] - rect[0] + if corner % 2 == 0 { -dx } else { dx }).max(24.0);
+                    // About as tall as the same text over that width.
+                    let h = ((rect[2] - rect[0]) * (rect[3] - rect[1]) / w).max(4.0);
+                    let x0 = if corner % 2 == 0 { rect[2] - w } else { rect[0] };
+                    [x0, rect[3] - h, x0 + w, rect[3]]
+                }
+                None => rect,
+            };
+            let c = v.viewer.overlay(pp, rect);
+            if r.para_resize.is_some() {
+                marks.push(overlay([c[0] - 2.0, c[1] - 2.0, c[2] + 4.0, c[3] + 4.0], 6));
+            }
+            for (cx, cy) in [(c[0], c[1]), (c[0] + c[2], c[1]), (c[0], c[1] + c[3]), (c[0] + c[2], c[1] + c[3])] {
+                marks.push(overlay([cx - 4.5, cy - 4.5, 9.0, 9.0], 11));
+            }
         }
     }
     if let Some((page, a, b)) = r.marquee {
@@ -107,16 +135,22 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             EditTarget::Empty => (e.page, None, None),
         });
         let moving = moving.or(r.image_resize.and(r.selected_image).map(|(p, i)| (p, None, Some(i))));
+        // Picked objects moved or a picked paragraph pulled: their old outlines are not drawn.
+        let picked_moving: Vec<[f64; 4]> = match &r.picked {
+            Some((_, list)) if r.picked_drag.is_some() || r.para_resize.is_some() => list.iter().map(|o| o.1).collect(),
+            _ => Vec::new(),
+        };
+        let left_behind = |q: [f64; 4]| !picked_moving.is_empty() && !reader::picked_again(&[q], &picked_moving).is_empty();
         // The paragraphs that can be edited, outlined on the pages in view (read when first shown).
         for page in wanted.clone() {
             if let Some(blocks) = r.blocks.get(&page) {
-                for (_, b) in blocks.iter().enumerate().filter(|(i, _)| moving != Some((page, Some(*i), None))) {
+                for (_, b) in blocks.iter().enumerate().filter(|(i, b)| moving != Some((page, Some(*i), None)) && !left_behind(b.rect)) {
                     let c = v.viewer.overlay(page, b.rect);
                     marks.push(overlay([c[0] - 2.0, c[1] - 1.0, c[2] + 4.0, c[3] + 2.0], 7));
                 }
             }
             if let Some(images) = r.images.get(&page) {
-                for (_, (rc, _)) in images.iter().enumerate().filter(|(i, _)| moving != Some((page, None, Some(*i)))) {
+                for (_, (rc, _)) in images.iter().enumerate().filter(|(i, (rc, _))| moving != Some((page, None, Some(*i))) && !left_behind(*rc)) {
                     marks.push(overlay(v.viewer.overlay(page, *rc), 7));
                 }
             }
