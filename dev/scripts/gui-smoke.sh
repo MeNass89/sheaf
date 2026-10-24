@@ -866,6 +866,17 @@ Y1=$(blue_top); WA=$(pdftotext -bbox "$OUT/square.pdf" - 2>/dev/null | grep -m1 
 check "a drawing pressed and dragged moves alone (square top $Y0 → $Y1 px, Alpha at $WA)" "[ \"$Y0\" -ge 0 ] && [ \"$Y1\" -gt \"$(( Y0 + 20 ))\" ] && python3 -c 'import sys; sys.exit(0 if abs(float(\"$WA\") - 74.768) < 1 else 1)'"
 quit
 
+# 21. A tool's files reorder by drag (iLovePDF, Stirling): three images open in JPG to PDF, a.png's card dragged
+# past c.png's (cards at 101/237/373, 130); the dragged card dims, a bar shows where it goes; the order becomes b c a.
+mkdir -p "$OUT/reo"; convert -size 300x400 xc:'#3366cc' "$OUT/reo/a.png"; convert -size 300x400 xc:'#cc6633' "$OUT/reo/b.png"; convert -size 300x400 xc:'#33aa55' "$OUT/reo/c.png"
+launch "$OUT/reo/a.png" "$OUT/reo/b.png" "$OUT/reo/c.png"; sleep 1
+xdotool mousemove 101 130 mousedown 1; for i in 1 2 3 4 5 6 7 8 9 10; do xdotool mousemove $(( 101 + i * 35 )) 140; sleep 0.08; done; sleep 0.4; shot 21-dragging; xdotool mouseup 1; sleep 1
+# Read by place, not by OCR's word order (it reads a row of names out of order).
+RX=$(for n in a b c; do at "$n.png" 460x30+40+180 | cut -d' ' -f1; done | tr '\n' ' ')
+read -r XA XB XC <<<"$RX"
+check "a file card dragged past the others moves there (a b c at x $RX)" "[ -n \"$XC\" ] && [ \"$XB\" -lt \"$XC\" ] && [ \"$XC\" -lt \"$XA\" ]"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).

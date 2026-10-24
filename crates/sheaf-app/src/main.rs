@@ -353,6 +353,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_swap_slots(flow::swap_compare);
     wire!(ui, on_remove_file, |ui, id, uid| flow::remove_file(&ui, id, uid));
     ui.on_move_file(flow::move_file);
+    ui.on_place_file(flow::place_file);
     ui.on_sort_files(flow::sort_files);
     ui.on_remove_page(|id, k| flow::edit_pages(id, |o| {
         if (k as usize) < o.len() {

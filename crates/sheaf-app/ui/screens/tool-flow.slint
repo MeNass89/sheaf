@@ -122,6 +122,21 @@ export component ToolFlowScreen inherits Rectangle {
     callback open-files();
     callback remove-file(int);
     callback move-file(int, int);
+    // A file card dropped before slot (0 … files) of the list.
+    callback place-file(int, int);
+    // A file card being dragged: which, its name, where the pointer is in the grid; the slot it
+    // would drop before (the grid's columns from its width, every card one size).
+    property <int> drag-uid: -1;
+    property <string> drag-name;
+    property <length> drag-x;
+    property <length> drag-y;
+    property <length> step-x: Theme.file-card-width + 16px;
+    property <length> step-y: Theme.file-card-height + 16px;
+    property <length> grid-w;
+    property <int> drop-cols: max(1, floor((root.grid-w - 40px - Theme.fab-size - 36px + 16px) / root.step-x));
+    property <int> drop-col: clamp(floor((root.drag-x - 20px + root.step-x / 2) / root.step-x), 0, root.drop-cols);
+    property <int> drop-row: max(0, floor((root.drag-y - 20px) / root.step-y));
+    property <int> drop-slot: min(root.tab.files.length, root.drop-row * root.drop-cols + root.drop-col);
     // The files by name: A to Z, or Z to A when they already are.
     callback sort-files();
     callback remove-page(int);
@@ -255,6 +270,17 @@ export component ToolFlowScreen inherits Rectangle {
                     spacing: 16px;
                     flex-wrap: wrap;
                     for f[i] in (root.organize ? [] : root.tab.files): FileCardView {
+                        drag-to(x, y) => {
+                            root.drag-uid = f.uid;
+                            root.drag-name = f.name;
+                            root.grid-w = grid.width;
+                            root.drag-x = x - grid.absolute-position.x;
+                            root.drag-y = y - grid.absolute-position.y;
+                        }
+                        drag-end => {
+                            root.place-file(f.uid, root.drop-slot);
+                            root.drag-uid = -1;
+                        }
                         file: f;
                         tile: root.tab.tile;
                         reorder: root.tab.multi && root.tab.files.length > 1;
@@ -271,6 +297,31 @@ export component ToolFlowScreen inherits Rectangle {
                         interactive: !root.running;
                         remove => { root.remove-page(i); }
                         move(d) => { root.move-page(i, d); }
+                    }
+                }
+                // Where the dragged card would go: a bar before that slot; its name under the pointer.
+                if root.drag-uid >= 0: Rectangle {
+                    x: 20px + mod(root.drop-slot, root.drop-cols) * root.step-x - 10px;
+                    y: 20px + floor(root.drop-slot / root.drop-cols) * root.step-y;
+                    width: 3px;
+                    height: Theme.file-card-height;
+                    border-radius: 2px;
+                    background: Theme.accent;
+                }
+                if root.drag-uid >= 0: Rectangle {
+                    x: root.drag-x + 8px;
+                    y: root.drag-y + 8px;
+                    width: min(200px, ghost-text.preferred-width + 20px);
+                    height: 28px;
+                    border-radius: Theme.radius-small;
+                    background: Theme.card;
+                    drop-shadow-blur: 8px;
+                    drop-shadow-color: #00000040;
+                    ghost-text := Text {
+                        text: root.drag-name;
+                        font-size: Theme.fs-label;
+                        color: Theme.text;
+                        overflow: elide;
                     }
                 }
             }

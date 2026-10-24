@@ -331,6 +331,26 @@ pub fn move_file(tab_id: i32, uid: i32, delta: i32) {
     });
 }
 
+/// Where an item at `from` goes when dropped before slot `slot` (0..=len) of a list of `len`.
+pub(crate) fn dropped_at(from: usize, slot: usize, len: usize) -> usize {
+    let slot = slot.min(len);
+    if slot > from { slot - 1 } else { slot }
+}
+
+/// A file card dragged and dropped before slot `slot` of the list (iLovePDF's drag to reorder).
+pub fn place_file(tab_id: i32, uid: i32, slot: i32) {
+    with(|a| {
+        if let Some(t) = a.tab(tab_id)
+            && let Some(i) = t.files.iter().position(|f| f.uid == uid)
+        {
+            let to = dropped_at(i, slot.max(0) as usize, t.files.len());
+            let f = t.files.remove(i);
+            t.files.insert(to, f);
+        }
+        refresh(a, tab_id);
+    });
+}
+
 /// The files by name, A to Z ("file 2" before "file 10"); Z to A when they already are.
 pub fn sort_files(tab_id: i32) {
     with(|a| {
@@ -531,4 +551,21 @@ pub fn home_files(ui: &AppWindow, paths: Vec<PathBuf>) {
     ui.set_page(Page::Tools);
     let what = if n == 1 { "your file".to_string() } else { format!("your {n} files") };
     toast(ui, &format!("Choose a tool for {what}"));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::dropped_at;
+
+    #[test]
+    fn a_dropped_card_lands_before_the_slot_it_is_dropped_on() {
+        // [a b c d]: a dropped before slot 3 (before d) → [b c a d], at 2.
+        assert_eq!(dropped_at(0, 3, 4), 2);
+        // d dropped before slot 0 → first.
+        assert_eq!(dropped_at(3, 0, 4), 0);
+        // Past the end → last; on its own place → unchanged.
+        assert_eq!(dropped_at(1, 9, 4), 3);
+        assert_eq!(dropped_at(2, 2, 4), 2);
+        assert_eq!(dropped_at(2, 3, 4), 2);
+    }
 }

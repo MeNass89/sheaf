@@ -124,6 +124,7 @@ export component AppWindow inherits Window {
     callback swap-slots(int);
     callback remove-file(int, int);
     callback move-file(int, int, int);
+    callback place-file(int, int, int);
     callback sort-files(int);
     callback remove-page(int, int);
     callback move-page(int, int, int);
@@ -294,6 +295,7 @@ export component AppWindow inherits Window {
                         open-files => { root.add-files(t.id); }
                         remove-file(uid) => { root.remove-file(t.id, uid); }
                         move-file(uid, d) => { root.move-file(t.id, uid, d); }
+                        place-file(uid, k) => { root.place-file(t.id, uid, k); }
                         sort-files => { root.sort-files(t.id); }
                         remove-page(k) => { root.remove-page(t.id, k); }
                         move-page(k, d) => { root.move-page(t.id, k, d); }
