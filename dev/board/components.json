@@ -8349,14 +8349,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "engine links",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -8379,6 +8379,17 @@
      "overall": 7
     },
     "proof": "reviewer 24/10 on d613100: draw, change, remove done; missing: link from selected text, links from URLs, appearance, move/resize"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "reviewer 25/10 on 39e2ad9: draw, from selected text (bar, ⌘K), from web addresses (skips linked), appearance with /AP, change/remove; qpdf clean; tests + gui-smoke 19/19b"
    }
   ]
  },

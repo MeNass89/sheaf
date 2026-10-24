@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 130 · open 201, closed 130
+331 components · at parity (≥9): 131 · open 200, closed 131
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -76,7 +76,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | batch | 9 | 2.6 | 1 |
 | compare | 7 | 6.0 | 2 |
 | convert | 20 | 3.9 | 4 |
-| edit | 29 | 4.7 | 9 |
+| edit | 29 | 4.8 | 10 |
 | files | 19 | 6.2 | 11 |
 | forms | 17 | 2.1 | 4 |
 | optimize | 15 | 3.5 | 2 |
@@ -131,6 +131,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-edit-014 | Save edited PDF | 9 | ⌘S saves edits in place (incremental, validated by check_save), Save As copies; gui-smoke checks every saved file with qpdf/pdftotext |
 | C-edit-016 | Add page numbers | 9 | Font section (families in their own look, size pt, B/I/U), presets + RRGGBB with swatch, batch range clamped per file; tests/numbers.rs (font, underline, custom colour, clamp, redaction of a font name); 1,982-page book numbered in 12.9 s (was 83 s: O(n²) page re-listing in pdfcraft-edit, per-read cache sum in pdfcraft-cos); joint review round 3 |
 | C-edit-018 | Add a watermark | 9 | Live preview pinned above the options (640 px, redrawn 300 ms after a change, one page copy per file, reason shown when no mark); gui-smoke 'the watermark preview shows the mark as typed, in its colour' (0 → 116/10000 red); mosaic on the 1,982-page book 15.2 s; joint review round 5 |
+| C-edit-021 | Add and edit links | 9 | reviewer 25/10 on 39e2ad9: draw, from selected text (bar, ⌘K), from web addresses (skips linked), appearance with /AP, change/remove; qpdf clean; tests + gui-smoke 19/19b |
 | C-edit-026 | Insert a blank page while editing | 9 | Pages panel: Insert blank page after the selection; gui-smoke checks an empty page 2 in the saved file and that ⌘Z removes it |
 | C-files-001 | Open a PDF from a file picker | 9 | Home ▸ Open file: system dialog (GTK portal on Linux) → the PDF opens in a reader tab (dev/re/evidence/F-002/29, dev/re/evidence/F-002/30) |
 | C-files-003 | Home screen | 9 | Home as iLovePDF's: drop zone with Open file, Recent tools (latest runs' tools, wrapping), Recent files with thumbnails, remove and clear. Joint 9/10: independent Opus reviewer (interim for Sol, see DECISIONS) agreed in round 3 |
