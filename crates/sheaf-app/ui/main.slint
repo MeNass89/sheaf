@@ -126,6 +126,8 @@ export component AppWindow inherits Window {
     callback move-file(int, int, int);
     callback place-file(int, int, int);
     callback sort-files(int);
+    pure callback open-doc-count(int) -> int;
+    callback add-open-docs(int);
     callback remove-page(int, int);
     callback move-page(int, int, int);
     callback insert-blank(int);
@@ -297,6 +299,8 @@ export component AppWindow inherits Window {
                         move-file(uid, d) => { root.move-file(t.id, uid, d); }
                         place-file(uid, k) => { root.place-file(t.id, uid, k); }
                         sort-files => { root.sort-files(t.id); }
+                        open-doc-count => { root.open-doc-count(t.id) }
+                        add-open-docs => { root.add-open-docs(t.id); }
                         remove-page(k) => { root.remove-page(t.id, k); }
                         move-page(k, d) => { root.move-page(t.id, k, d); }
                         insert-blank => { root.insert-blank(t.id); }

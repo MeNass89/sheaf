@@ -59,13 +59,15 @@ export component FileCardView inherits Rectangle {
     // Dragged to reorder: where the pointer is (window coordinates), and let go.
     callback drag-to(length, length);
     callback drag-end();
+    // Being dragged: shown faded where it was (not while a cancelled drag is still held).
+    in property <bool> dimmed;
     property <bool> dragging;
 
     width: Theme.file-card-width;
     height: Theme.file-card-height;
     border-radius: Theme.radius-item;
     background: Theme.card;
-    opacity: root.dragging ? 0.35 : 1.0;
+    opacity: root.dimmed ? 0.35 : 1.0;
     border-width: 1px;
     border-color: touch.has-hover && root.interactive ? Theme.dashed : Theme.card;
 

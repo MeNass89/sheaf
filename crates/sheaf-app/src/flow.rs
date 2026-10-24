@@ -77,6 +77,28 @@ pub fn pick_and_add(ui: &AppWindow, tab_id: i32) {
     }
 }
 
+/// The documents open in reader tabs (as last saved) that tab `tab_id`'s tool takes and does
+/// not have yet, in tab order; a single-file tool is offered the last one.
+pub fn open_documents(tab_id: i32) -> Vec<PathBuf> {
+    with(|a| {
+        let Some(t) = a.tabs.iter().find(|t| t.id == tab_id) else { return Vec::new() };
+        if t.tool == ToolId::Compare {
+            return Vec::new();
+        }
+        let have: Vec<&PathBuf> = t.files.iter().map(|f| &f.input.path).collect();
+        let mut docs: Vec<PathBuf> = a.tabs.iter().filter_map(|r| r.reader.as_ref()).map(|r| r.path.clone()).filter(|p| files::accepts(t.tool, p) && !have.contains(&p)).collect();
+        let mut seen = Vec::new();
+        docs.retain(|p| !seen.contains(p) && {
+            seen.push(p.clone());
+            true
+        });
+        if !tools::find(t.tool).multi {
+            docs = docs.pop().into_iter().collect();
+        }
+        docs
+    })
+}
+
 /// Adds files to a tab: rejected extensions get a toast; single-file tools keep the newest.
 pub fn add_paths(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>) {
     add_paths_to(ui, tab_id, paths, None);

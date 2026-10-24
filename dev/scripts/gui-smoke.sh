@@ -875,6 +875,32 @@ xdotool mousemove 101 130 mousedown 1; for i in 1 2 3 4 5 6 7 8 9 10; do xdotool
 RX=$(for n in a b c; do at "$n.png" 460x30+40+180 | cut -d' ' -f1; done | tr '\n' ' ')
 read -r XA XB XC <<<"$RX"
 check "a file card dragged past the others moves there (a b c at x $RX)" "[ -n \"$XC\" ] && [ \"$XB\" -lt \"$XC\" ] && [ \"$XC\" -lt \"$XA\" ]"
+# A drag cancelled by Escape, then one let go over the options panel: the order stays b c a.
+xdotool mousemove 101 130 mousedown 1; for i in 1 2 3 4 5 6 7 8 9 10; do xdotool mousemove $(( 101 + i * 35 )) 140; sleep 0.08; done; sleep 0.3; xdotool key Escape; sleep 0.3; xdotool mouseup 1; sleep 0.8
+xdotool mousemove 101 130 mousedown 1; for i in $(seq 1 30); do xdotool mousemove $(( 101 + i * 35 )) 300; sleep 0.04; done; sleep 0.3; xdotool mouseup 1; sleep 0.8
+RX=$(for n in a b c; do at "$n.png" 460x30+40+180 | cut -d' ' -f1; done | tr '\n' ' ')
+read -r XA XB XC <<<"$RX"
+check "a drag cancelled by Escape or let go outside the files moves nothing (a b c at x $RX)" "[ -n \"$XC\" ] && [ \"$XB\" -lt \"$XC\" ] && [ \"$XC\" -lt \"$XA\" ]"
+quit
+
+# 21b. More files than fit: a card held at the bottom edge scrolls the files and goes past what was in view.
+# 30 images, f01 held at the bottom: the files scroll to the end and it lands in the last row (before f27).
+for i in $(seq 1 30); do convert -size 60x80 xc:"hsl($(( i * 12 )),60%,50%)" "$OUT/reo/f$(printf %02d "$i").png"; done
+launch "$OUT"/reo/f*.png; sleep 1
+xdotool mousemove 101 130 mousedown 1; for y in 200 300 400 500 600 700 750 765; do xdotool mousemove 300 $y; sleep 0.08; done; sleep 2.5; xdotool mouseup 1; sleep 0.8; shot 21b-edge
+F1=$(at f01 940x30+20+712)
+check "a card held at the bottom edge scrolls the files and lands in the last row (f01 at $F1)" "[ -n \"$F1\" ]"
+quit
+
+# 21c. "Open file" in a tool offers the PDFs open in reader tabs (Acrobat's open files in Combine):
+# two documents open, Merge opened from Tools, Open file → Open documents (2) → both are its files.
+convert -size 300x400 xc:'#3366cc' "$OUT/reo/one.pdf"; convert -size 300x400 xc:'#cc6633' "$OUT/reo/two.pdf"
+launch "$OUT/reo/one.pdf" "$OUT/reo/two.pdf"
+click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; shot 21c-menu
+M=$(at Open 400x100+340+440)
+click 460 527 2
+NAMES=$(ocr 300x24+40+184)
+check "Open file in Merge offers the open documents and adds them (menu at $M; cards: $NAMES)" "[ -n \"$M\" ] && echo \"$NAMES\" | grep -q one.pdf && echo \"$NAMES\" | grep -q two.pdf"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
