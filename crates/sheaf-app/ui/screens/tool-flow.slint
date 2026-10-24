@@ -401,9 +401,9 @@ export component ToolFlowScreen inherits Rectangle {
                     interval: 30ms;
                     running: root.drag-uid >= 0 && !root.drag-out && root.edge-step != 0px;
                     triggered => {
-                        let to = clamp(files-view.viewport-y + root.edge-step, min(0px, files-view.visible-height - files-view.viewport-height), 0px);
-                        root.drag-y -= to - files-view.viewport-y;
-                        files-view.viewport-y = to;
+                        let to = clamp(files-view.content-y + root.edge-step, min(0px, files-view.visible-height - files-view.content-height), 0px);
+                        root.drag-y -= to - files-view.content-y;
+                        files-view.content-y = to;
                     }
                 }
             }

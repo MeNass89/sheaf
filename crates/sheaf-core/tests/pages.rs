@@ -11,6 +11,18 @@ fn merge_concatenates_in_order() {
     assert_eq!(page_texts(&out), ["Page 1", "Page 1", "Page 2"]);
 }
 #[test]
+fn merge_takes_the_pages_chosen_for_each_file() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 4);
+    let b = fixture_pdf(t.path(), "b.pdf", 3);
+    // a: pages 4, then 1-2 (in the order written); b: every page (an empty choice).
+    let out = merge_pages(&[Input::new(&a), Input::new(&b)], &["4, 1-2".into(), String::new()], &t.path().join("m.pdf")).unwrap();
+    assert_eq!(page_texts(&out), ["Page 4", "Page 1", "Page 2", "Page 1", "Page 2", "Page 3"]);
+    let e = merge_pages(&[Input::new(&a)], &["5".into()], &t.path().join("x.pdf")).unwrap_err();
+    assert!(matches!(e, OpdfError::InvalidRange { pages: 4, .. }), "{e:?}");
+    assert!(!t.path().join("x.pdf").exists());
+}
+#[test]
 fn split_ranges_writes_one_file_per_range() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 5);

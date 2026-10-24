@@ -356,7 +356,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_place_file(flow::place_file);
     ui.on_sort_files(flow::sort_files);
     ui.on_open_doc_count(|id| flow::open_documents(id).len() as i32);
-    wire!(ui, on_add_open_docs, |ui, id| flow::add_paths(&ui, id, flow::open_documents(id)));
+    wire!(ui, on_add_open_docs, |ui, id| flow::add_open_documents(&ui, id));
     ui.on_remove_page(|id, k| flow::edit_pages(id, |o| {
         if (k as usize) < o.len() {
             o.remove(k as usize);

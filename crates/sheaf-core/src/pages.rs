@@ -55,10 +55,24 @@ fn page_string(ranges: &[std::ops::RangeInclusive<u32>]) -> String {
         .collect::<Vec<_>>().join(",")
 }
 
-pub fn merge(inputs: &[Input], out: &Path) -> Result<PathBuf> {
+pub fn merge(inputs: &[Input], out: &Path) -> Result<PathBuf> { merge_pages(inputs, &[], out) }
+
+/// Merge taking, from each input, the pages of its range spec ("4, 1-2": in the order written);
+/// an empty or missing spec takes every page (Acrobat's Combine picks pages per file).
+pub fn merge_pages(inputs: &[Input], pages: &[String], out: &Path) -> Result<PathBuf> {
     let _g = pdfium_lock();
     let mut dst = pdfium().create_new_pdf()?;
-    for i in inputs { let src = i.open()?; dst.pages_mut().append(&src)?; }
+    for (k, i) in inputs.iter().enumerate() {
+        let src = i.open()?;
+        match pages.get(k).map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            None => dst.pages_mut().append(&src)?,
+            Some(spec) => {
+                let ranges = parse_ranges(spec, src.pages().len() as u32)?;
+                let at = dst.pages().len();
+                dst.pages_mut().copy_pages_from_document(&src, &page_string(&ranges), at)?;
+            }
+        }
+    }
     save(&dst, out)
 }
 

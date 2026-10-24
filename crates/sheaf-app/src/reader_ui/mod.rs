@@ -415,7 +415,7 @@ impl ReaderUi {
         self.snap.password.clone()
     }
 
-    fn dirty(&self) -> bool {
+    pub(crate) fn dirty(&self) -> bool {
         self.snap.dirty || self.in_flight > 0
     }
 

@@ -896,9 +896,14 @@ quit
 # two documents open, Merge opened from Tools, Open file → Open documents (2) → both are its files.
 convert -size 300x400 xc:'#3366cc' "$OUT/reo/one.pdf"; convert -size 300x400 xc:'#cc6633' "$OUT/reo/two.pdf"
 launch "$OUT/reo/one.pdf" "$OUT/reo/two.pdf"
+# A note left unsaved in two.pdf: it goes in as last saved, and a toast says so.
+key n; click 640 400 0.8; xdotool type --delay 10 "smoke note"; key ctrl+Return; sleep 0.6
 click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; shot 21c-menu
 M=$(at Open 400x100+340+440)
-click 460 527 2
+click 460 527 1
+TOAST=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
+check "an open document with unsaved edits is added as saved, and a toast says so" "echo \"$TOAST\" | grep -q 'two.pdf has unsaved changes'"
+sleep 1
 NAMES=$(ocr 300x24+40+184)
 check "Open file in Merge offers the open documents and adds them (menu at $M; cards: $NAMES)" "[ -n \"$M\" ] && echo \"$NAMES\" | grep -q one.pdf && echo \"$NAMES\" | grep -q two.pdf"
 quit

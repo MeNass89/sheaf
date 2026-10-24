@@ -99,6 +99,18 @@ pub fn open_documents(tab_id: i32) -> Vec<PathBuf> {
     })
 }
 
+/// "Open documents (n)": adds them; one with unsaved edits goes in as last saved, and says so.
+pub fn add_open_documents(ui: &AppWindow, tab_id: i32) {
+    let docs = open_documents(tab_id);
+    let unsaved: Vec<String> = with(|a| a.tabs.iter().filter_map(|t| t.reader.as_ref()).filter(|r| r.dirty() && docs.contains(&r.path)).map(|r| r.name.clone()).collect());
+    add_paths(ui, tab_id, docs);
+    match unsaved.as_slice() {
+        [] => {}
+        [one] => toast(ui, &format!("{one} has unsaved changes: its saved version was added")),
+        more => toast(ui, &format!("{} documents have unsaved changes: their saved versions were added", more.len())),
+    }
+}
+
 /// Adds files to a tab: rejected extensions get a toast; single-file tools keep the newest.
 pub fn add_paths(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>) {
     add_paths_to(ui, tab_id, paths, None);

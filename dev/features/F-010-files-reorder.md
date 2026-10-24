@@ -28,3 +28,6 @@ Stirling PDF: drag-sort of the file list.
     slot with it. gui-smoke 21b: 30 images, f01 held at the bottom lands before f27.
   not automatable: the drop slot from a point (Slint bindings, `drop-cols` from theme sizes) — no unit seam
   in Slint; covered end to end by gui-smoke 21 and 21b.
+- 25/10, reviewer 9/9/9 on b9c2017, on one condition, now met: a document with unsaved edits is added as last
+  saved and a toast says so ("two.pdf has unsaved changes: its saved version was added"); gui-smoke 21c adds
+  a note first. Left (not blocking): a protected document open in the reader is asked for its password again.
