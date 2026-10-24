@@ -7,17 +7,17 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 ## Queue (next first)
 | # | id | weight | component | main | F · A · P → overall | next |
 |---|---|---|---|---|---|---|
-| 1 | C-edit-001 | strong | Enter edit mode | pdfexpert | 7 · 8 · 9 → **7** | edit mode inside the reader, not a separate tool flow |
-| 2 | C-edit-007 | strong | Move, resize and select page objects | acrobat | 7 · 8 · 9 → **7** | resize handles, move existing page objects (engine MoveObjects) |
-| 3 | C-files-015 | strong | Manage a tool's input files | ilovepdf | 7 · 7 · 8 → **7** | drag reorder |
-| 4 | C-organize-015 | strong | Split by page ranges or split points | ilovepdf | 8 · 7 · 8 → **7** | split points chosen visually |
-| 5 | C-organize-021 | strong | Merge files into one PDF | ilovepdf | 7 · 7 · 8 → **7** | per-file page ranges |
-| 6 | C-output-004 | strong | Run progress and cancel | ours | 8 · 7 · 8 → **7** | — |
-| 7 | C-output-007 | strong | Print a document | pdfexpert | 8 · 7 · 9 → **7** | print via the OS |
-| 8 | C-platform-011 | strong | Open files from the system | ours | 7 · 7 · 9 → **7** | registered as Alternate viewer on macOS |
-| 9 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | macOS notarisation (needs Nassim's Apple account) |
-| 10 | C-security-015 | strong | Apply redactions | acrobat | 8 · 7 · 8 → **7** | preview of the redacted output |
-| 11 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 8 · 9 · 9 → **8** | needs LibreOffice installed; no sheet/print-area options |
+| 1 | C-edit-007 | strong | Move, resize and select page objects | acrobat | 7 · 8 · 9 → **7** | resize handles, move existing page objects (engine MoveObjects) |
+| 2 | C-files-015 | strong | Manage a tool's input files | ilovepdf | 7 · 7 · 8 → **7** | drag reorder |
+| 3 | C-organize-015 | strong | Split by page ranges or split points | ilovepdf | 8 · 7 · 8 → **7** | split points chosen visually |
+| 4 | C-organize-021 | strong | Merge files into one PDF | ilovepdf | 7 · 7 · 8 → **7** | per-file page ranges |
+| 5 | C-output-004 | strong | Run progress and cancel | ours | 8 · 7 · 8 → **7** | — |
+| 6 | C-output-007 | strong | Print a document | pdfexpert | 8 · 7 · 9 → **7** | print via the OS |
+| 7 | C-platform-011 | strong | Open files from the system | ours | 7 · 7 · 9 → **7** | registered as Alternate viewer on macOS |
+| 8 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | macOS notarisation (needs Nassim's Apple account) |
+| 9 | C-security-015 | strong | Apply redactions | acrobat | 8 · 7 · 8 → **7** | preview of the redacted output |
+| 10 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 8 · 9 · 9 → **8** | needs LibreOffice installed; no sheet/print-area options |
+| 11 | C-edit-001 | strong | Enter edit mode | pdfexpert | 8 · 8 · 9 → **8** | edit mode inside the reader, not a separate tool flow |
 | 12 | C-files-002 | strong | Drag and drop files to open | ilovepdf | 8 · 8 · 9 → **8** | drop on the reader opens the document |
 | 13 | C-optimize-001 | strong | Compress a PDF (levels) | ilovepdf | 8 · 8 · 8 → **8** | seed bug: Save after Compress needs Enter; fonts/vector recompression |
 | 14 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |

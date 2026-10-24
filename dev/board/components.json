@@ -6619,10 +6619,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 8,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -6649,6 +6649,17 @@
      "overall": 7
     },
     "proof": "Edit text (E) and Add image (I) are tools of the reader, paragraphs outlined (dev/re/evidence/F-002/09); glyphs missing from embedded subsets draw wrong (C-edit-002)"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "reviewer 24/10: edit tools in the reader (E, I, outlines, format row, preview, drag); blockers: no link tool, Redact not reachable from the reader, stale screenshot"
    }
   ]
  },
