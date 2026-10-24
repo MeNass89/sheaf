@@ -16,7 +16,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 7 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | macOS notarisation (needs Nassim's Apple account) |
 | 8 | C-security-015 | strong | Apply redactions | acrobat | 8 · 7 · 8 → **7** | preview of the redacted output |
 | 9 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 8 · 9 · 9 → **8** | needs LibreOffice installed; no sheet/print-area options |
-| 10 | C-edit-007 | strong | Move, resize and select page objects | acrobat | 8 · 8 · 9 → **8** | resize handles, move existing page objects (engine MoveObjects) |
+| 10 | C-edit-007 | strong | Move, resize and select page objects | acrobat | 9 · 8 · 9 → **8** | resize handles, move existing page objects (engine MoveObjects) |
 | 11 | C-files-002 | strong | Drag and drop files to open | ilovepdf | 8 · 8 · 9 → **8** | drop on the reader opens the document |
 | 12 | C-optimize-001 | strong | Compress a PDF (levels) | ilovepdf | 8 · 8 · 8 → **8** | seed bug: Save after Compress needs Enter; fonts/vector recompression |
 | 13 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |

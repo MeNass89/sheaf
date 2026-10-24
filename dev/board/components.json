@@ -7301,7 +7301,7 @@
    111
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 8,
    "performance": 9,
    "overall": 8
@@ -7342,6 +7342,17 @@
      "overall": 8
     },
     "proof": "reviewer 25/10 on 4822c52: multi-select (⇧-click, marquee), drag together, nudge, saved file proves it; blockers: paragraph resize handles, drawings (engine scope), stale outlines during drag, outlines vs preview, format row while picked, selection box"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "reviewer 25/10 on d94ef27: paragraph resize live, drawings as objects (PdfCraft patched), multi-move, nudge; aesthetics blockers: drawings not discoverable (press picks / hover outline), pulled box height"
    }
   ]
  },
