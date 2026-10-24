@@ -24,7 +24,7 @@ ne change. Nassim : « Limits are at 16% consumed bro just use codex !! »
 
 ## Board status
 
-**331 components, 131 at ≥ 9** (last suite: ALL GREEN, 1051 s, commit 42fcabb). Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 4/20, edit 8/29, files 11/19, forms 4/17, optimize 2/15, organize 8/27, output 3/15, platform 2/14, preferences 4/14, reader 41/64, security 7/18, sign 7/18.
+**331 components, 132 at ≥ 9** (last suite: ALL GREEN, 1051 s, commit 42fcabb). Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 4/20, edit 8/29, files 11/19, forms 4/17, optimize 2/15, organize 8/27, output 3/15, platform 2/14, preferences 4/14, reader 41/64, security 7/18, sign 7/18.
 In flight: C-optimize-006 OCR 9/9/8 (performance: onnxruntime, see DECISIONS 24/10); C-security-010 redact by
 selection closed 9/9/9 (F-007).
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
@@ -48,6 +48,9 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 - **F-008 link tool** (C-edit-001, C-annotate-021, C-edit-021 closed 9/9/9): Link tool (L), ⌘K on a selection, Link web
   addresses, borders (PdfCraft patched to write the link's /AP); Redact… in the reader's edit group.
   Nits left: move/resize a link's box, underline style and click highlight menus, width tooltips.
+- **F-009 page objects** (C-edit-007 closed 9/9/9): ⇧-click/marquee/press pick, drag together, arrow nudge, paragraph
+  resize; drawings are objects (PdfCraft patched: pdfcraft-edit/src/paths.rs). Nits: drawings have no resize
+  handles; multi-selection resize not offered.
 - PdfCraft patched for large files in `third_party/` (a 1,982-page book: annotation 0.19 s, save 1.1 s).
 
 ## Tests: one suite

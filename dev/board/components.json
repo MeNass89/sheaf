@@ -7302,13 +7302,13 @@
   ],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "resize handles, move existing page objects (engine MoveObjects)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -7353,6 +7353,17 @@
      "overall": 8
     },
     "proof": "reviewer 25/10 on d94ef27: paragraph resize live, drawings as objects (PdfCraft patched), multi-move, nudge; aesthetics blockers: drawings not discoverable (press picks / hover outline), pulled box height"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "reviewer 25/10 on 07c9d1c: multi-pick (⇧-click, marquee), drawings (PdfCraft patch) found by hover and picked by press, drag together, nudge, paragraph resize with matching box; gui-smoke 20/20b/20c"
    }
   ]
  },
