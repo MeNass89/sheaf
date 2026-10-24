@@ -816,7 +816,7 @@ HA=$(key_y Alpha); HH=$(key_y here)
 check "a picked paragraph's side pulled rewraps it (Alpha at $HA, here at $HH)" "[ -n \"$HH\" ] && python3 -c 'import sys; sys.exit(0 if float(\"$HH\") - float(\"$HA\") > 20 else 1)'"
 quit
 
-# 20c. A drawing is an object too: a blue square ⇧-clicked and dragged 60 px down moves alone (rendered from the
+# 20c. A drawing is an object too: a blue square pressed and dragged 60 px down moves alone (rendered from the
 # saved file: its blue pixels lower, the words where they were).
 python3 - "$OUT/square.pdf" <<'PY'
 import sys
@@ -858,11 +858,12 @@ Y0=$(blue_top)
 launch "$OUT/square.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
 # The square's centre at fit width: 430,630 pt of a 612 pt page shown 1000 px wide from x 264.
 SX=$(( 264 + 430 * 1000 / 612 )); SY=$(( 100 + (792 - 630) * 1000 / 612 ))
-xdotool mousemove $SX $SY keydown shift click 1 keyup shift; sleep 0.8
+# Hovered, it is outlined (drawings are not otherwise); a plain press picks it, a drag moves it.
+xdotool mousemove $(( SX - 200 )) $SY; sleep 0.3; xdotool mousemove $SX $SY; sleep 0.8; shot 20c-drawing-hover
 xdotool mousemove $SX $SY mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $SX $(( SY + i * 10 )); sleep 0.08; done; xdotool mouseup 1; sleep 2
 shot 20c-drawing-moved; key ctrl+s; sleep 2
 Y1=$(blue_top); WA=$(pdftotext -bbox "$OUT/square.pdf" - 2>/dev/null | grep -m1 '>Alpha<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/')
-check "a drawing ⇧-clicked and dragged moves alone (square top $Y0 → $Y1 px, Alpha at $WA)" "[ \"$Y0\" -ge 0 ] && [ \"$Y1\" -gt \"$(( Y0 + 20 ))\" ] && python3 -c 'import sys; sys.exit(0 if abs(float(\"$WA\") - 74.768) < 1 else 1)'"
+check "a drawing pressed and dragged moves alone (square top $Y0 → $Y1 px, Alpha at $WA)" "[ \"$Y0\" -ge 0 ] && [ \"$Y1\" -gt \"$(( Y0 + 20 ))\" ] && python3 -c 'import sys; sys.exit(0 if abs(float(\"$WA\") - 74.768) < 1 else 1)'"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

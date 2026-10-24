@@ -68,6 +68,15 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             marks.push(overlay(v.viewer.overlay(l.page, l.rect.map(f64::from)), 10));
         }
     }
+    // Edit tool: the drawing under the pointer.
+    if r.tool == EDIT_TEXT
+        && let Some((page, q)) = r.hover
+        && !r.picked.as_ref().is_some_and(|(_, l)| l.iter().any(|o| o.1 == q))
+    {
+        // Just outside it, to show on a filled shape too.
+        let c = v.viewer.overlay(page, q);
+        marks.push(overlay([c[0] - 3.0, c[1] - 3.0, c[2] + 6.0, c[3] + 6.0], 6));
+    }
     // Edit tool: the objects picked together, moved as the page shows them (the offset of the
     // last preview sent); several in one box; one paragraph with corners to pull.
     if let Some((page, list)) = &r.picked {
@@ -92,8 +101,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                     let b = &v.viewer.boxes[pp];
                     let dx = viewer::view_to_pdf(b, b.view_size(), to.0, to.1).0 - viewer::view_to_pdf(b, b.view_size(), from.0, from.1).0;
                     let w = (rect[2] - rect[0] + if corner % 2 == 0 { -dx } else { dx }).max(24.0);
-                    // About as tall as the same text over that width.
-                    let h = ((rect[2] - rect[0]) * (rect[3] - rect[1]) / w).max(4.0);
+                    // As tall as the same text wrapped to that width.
+                    let drawn = r.blocks.get(&pp).and_then(|b| b.iter().find(|b| b.rect == rect)).map(|b| b.drawn.clone()).unwrap_or_default();
+                    let h = reader::rewrapped_height(&drawn, rect, w);
                     let x0 = if corner % 2 == 0 { rect[2] - w } else { rect[0] };
                     [x0, rect[3] - h, x0 + w, rect[3]]
                 }

@@ -35,3 +35,10 @@ iLovePDF: drag handles, arrow keys nudge.
   as in Acrobat). Tests: `drawings_are_objects_that_move_alone` (sheaf-core edit_text: the square and the line
   listed, not the clip; the square moved, the line and the word not; qpdf clean), gui-smoke 20c (rendered from
   the saved file: the square lower, the word in place).
+- 25/10 17:00, reviewer 9/8/9 on d94ef27 (function 9 agreed). Aesthetics taken: drawings are found: the one under
+  the pointer is outlined in the Edit tool (just outside it), and a press on one where there is no paragraph or
+  image picks it, a drag moves it (no ⇧ needed); drawings covering most of the page are left out, so a click on a
+  background still adds text. While a paragraph's side is pulled its box is as tall as its rewrapped lines
+  (`reader::rewrapped_height`: its rows' line height and character width; test
+  `a_paragraph_pulled_narrower_is_as_tall_as_its_new_lines`). gui-smoke 20c now hovers then drags without ⇧.
+  On MICI, a press near the header picks the page's header form (image 0), which is right: the header is a form.

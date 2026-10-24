@@ -220,6 +220,29 @@ pub fn picked_again(moved: &[[f64; 4]], rects: &[[f64; 4]]) -> Vec<usize> {
         .collect()
 }
 
+/// The height of paragraph `drawn` (its rows as drawn, one per line, in box `rect`) rewrapped to
+/// width `w`: its line height and mean character width kept, its words wrapped greedily.
+pub fn rewrapped_height(drawn: &str, rect: [f64; 4], w: f64) -> f64 {
+    let rows: Vec<&str> = drawn.lines().filter(|l| !l.trim().is_empty()).collect();
+    let n = rows.len().max(1) as f64;
+    let line_h = (rect[3] - rect[1]).max(1.0) / n;
+    let longest = rows.iter().map(|r| r.chars().count()).max().unwrap_or(1).max(1) as f64;
+    let char_w = ((rect[2] - rect[0]).max(1.0) / longest).max(0.1);
+    let per_line = (w / char_w).floor().max(1.0) as usize;
+    let mut lines = 1;
+    let mut used = 0usize;
+    for word in drawn.split_whitespace() {
+        let len = word.chars().count();
+        if used > 0 && used + 1 + len > per_line {
+            lines += 1;
+            used = len;
+        } else {
+            used += if used > 0 { 1 } else { 0 } + len;
+        }
+    }
+    lines as f64 * line_h
+}
+
 /// A link's target as the Link editor shows it to change: its page number (1-based) or address
 /// (what `link_action` reads back).
 pub fn link_text(t: &render::LinkTarget) -> String {
@@ -506,6 +529,14 @@ mod tests {
         assert_eq!(redact_range(&t, &page, 0, word(&t, (29.0, 12.0)).unwrap()).map(|m| m.text), Some("cd".into()));
         // Off the text: an area, not a text mark.
         assert!(redact_selection(&t, &page, 3, (300.0, 300.0), (400.0, 400.0)).is_none());
+    }
+
+    #[test]
+    fn a_paragraph_pulled_narrower_is_as_tall_as_its_new_lines() {
+        // One row of 20 characters, 230 points wide (11.5 a character), 24 high; 120 wide: 10 a line.
+        let h = rewrapped_height("Alpha paragraph here", [72.0, 700.0, 302.0, 724.0], 120.0);
+        assert_eq!(h, 72.0, "Alpha / paragraph / here");
+        assert_eq!(rewrapped_height("Alpha paragraph here", [72.0, 700.0, 302.0, 724.0], 400.0), 24.0);
     }
 
     #[test]

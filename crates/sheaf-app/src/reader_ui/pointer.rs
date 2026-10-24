@@ -84,6 +84,15 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 let block = blocks.iter().enumerate().find_map(|(i, b)| inside(b.rect).map(|at| EditTarget::Block(i, b.text.clone(), b.drawn.clone(), b.rect, at)));
                 let image = || r.images.get(&page).and_then(|im| im.iter().enumerate().rev().find_map(|(i, (vis, full))| inside(*vis).map(|_| EditTarget::Image(i, *vis, *full))));
                 let target = block.or_else(image).unwrap_or(EditTarget::Empty);
+                // On a drawing (no paragraph or image there): it is picked, a drag moves it.
+                if matches!(target, EditTarget::Empty)
+                    && let Some(o) = drawing_at(&objects, &v.viewer.boxes[page], user)
+                {
+                    r.picked = Some((page, vec![o]));
+                    r.picked_drag = Some((p, p));
+                    r.selected_image = None;
+                    return false;
+                }
                 // An image is selected as soon as it is pressed (PDF Expert), to drag or resize;
                 // it is also the one object picked (the arrow keys nudge it).
                 r.selected_image = match target {
@@ -519,6 +528,46 @@ pub(super) fn link_hit<'a>(r: &'a ReaderUi, v: &Viewer, page: usize, p: (f64, f6
 
 
 
+/// The drawing under user-space point `p` of a page (`objects`, its box `b`), smallest first; not
+/// one covering most of the page (a background: clicks there add text).
+pub(super) fn drawing_at(objects: &[PageObject], b: &viewer::PageBox, p: (f64, f64)) -> Option<PageObject> {
+    use sheaf_core::pdfcraft::engine::ObjectKind;
+    let (w, h) = b.view_size();
+    let drawings: Vec<PageObject> =
+        objects.iter().copied().filter(|o| o.0.kind == ObjectKind::Path && (o.1[2] - o.1[0]) * (o.1[3] - o.1[1]) < 0.6 * w * h).collect();
+    reader::object_at(&drawings.iter().map(|o| o.1).collect::<Vec<_>>(), p).map(|i| drawings[i])
+}
+
+/// Edit tool, the pointer up: the drawing under it is outlined (drawings are not outlined
+/// otherwise, to keep dense pages readable). The view is refreshed only when that changes.
+pub fn hover(tab_id: i32, x: f32, y: f32) {
+    let changed = with(|a| {
+        let t = a.tab(tab_id)?;
+        let (r, v) = (t.reader.as_mut()?, t.viewer.as_ref()?);
+        let found = (|| {
+            let page = v.viewer.hit(x as f64, y as f64)?.0;
+            let p = to_view(&v.viewer, page, x as f64, y as f64);
+            let b = &v.viewer.boxes[page];
+            let user = viewer::view_to_pdf(b, b.view_size(), p.0, p.1);
+            // Not over a paragraph or an image: those are outlined already.
+            let size = b.view_size();
+            let on = |q: [f64; 4]| {
+                let [x0, y0, w, h] = viewer::pdf_rect_to_view(b, size, q);
+                p.0 >= x0 && p.0 <= x0 + w && p.1 >= y0 && p.1 <= y0 + h
+            };
+            if r.blocks.get(&page).is_some_and(|bl| bl.iter().any(|q| on(q.rect))) || r.images.get(&page).is_some_and(|im| im.iter().any(|q| on(q.0))) {
+                return None;
+            }
+            drawing_at(r.objects.get(&page)?, b, user).map(|o| (page, o.1))
+        })();
+        (found != r.hover).then(|| r.hover = found)
+    })
+    .is_some();
+    if changed {
+        update(tab_id, |_, _| {});
+    }
+}
+
 /// The one paragraph picked: its page, index among the page's paragraphs and box (user space).
 pub(super) fn picked_paragraph(r: &ReaderUi) -> Option<(usize, usize, [f64; 4])> {
     use sheaf_core::pdfcraft::engine::ObjectKind;
@@ -556,9 +605,9 @@ fn paragraph_resize(r: &mut ReaderUi, v: &ViewerUi) -> Option<(usize, Edit)> {
     let left = corner % 2 == 0;
     let w = (rect[2] - rect[0] + if left { -dx } else { dx }).max(24.0);
     let x0 = if left { rect[2] - w } else { rect[0] };
-    let text = r.blocks.get(&page)?.get(i)?.text.clone();
-    // The same text over a new width: about as much area.
-    let h = ((rect[2] - rect[0]) * (rect[3] - rect[1]) / w).max(4.0);
+    let block = r.blocks.get(&page)?.get(i)?;
+    let text = block.text.clone();
+    let h = reader::rewrapped_height(&block.drawn, rect, w);
     r.repick = Some((page, vec![[x0, rect[3] - h, x0 + w, rect[3]]]));
     let style = sheaf_core::pdfcraft::edit::BlockStyle { width: Some(w), offset: left.then_some([x0 - rect[0], 0.0]), ..Default::default() };
     Some((page, Edit::EditTextBlock { page, block: i, text, style }))

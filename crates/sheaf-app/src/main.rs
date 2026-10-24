@@ -173,6 +173,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_link_urls, |ui, id| reader_ui::link_urls(&ui, id));
     wire_global!(ui, rb, on_nudge, |ui, id, dx, dy| reader_ui::nudge(&ui, id, dx, dy));
     rb.on_link_selection(reader_ui::link_selection);
+    rb.on_hover(reader_ui::hover);
     wire_global!(ui, rb, on_close, |ui, id| flow::close_tab(&ui, id));
     rb.on_over_link(reader_ui::over_link);
     rb.on_thumb_pressed(reader_ui::thumb_pressed);

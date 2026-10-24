@@ -529,6 +529,8 @@ export global ReaderBridge {
     // Link tool: link the web addresses in the text; link the selected text.
     // Edit tool: nudge the picked objects (points; y up the page).
     callback nudge(int, float, float);
+    // Edit tool: the pointer is up at a content point (the drawing under it is outlined).
+    callback hover(int, length, length);
     callback link-urls(int);
     callback link-selection(int);
     callback set-tool(int, int);

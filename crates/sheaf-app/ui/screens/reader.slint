@@ -285,6 +285,7 @@ export component ReaderScreen inherits Rectangle {
                             }
                             if e.kind == PointerEventKind.move && !root.pressing {
                                 root.link-tip = ReaderBridge.over-link(root.id, self.mouse-x, self.mouse-y);
+                                if root.tab.reader.tool == 7 { ReaderBridge.hover(root.id, self.mouse-x, self.mouse-y); }
                             }
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                                 keys.focus();

@@ -152,6 +152,8 @@ pub struct ReaderUi {
     /// The one picked paragraph's side being pulled (corner 0–3, from, to; view points): it
     /// rewraps to the new width.
     para_resize: Option<CornerPull>,
+    /// Edit tool: the drawing under the pointer (outlined), its page and box.
+    hover: Option<(usize, [f64; 4])>,
     /// The offset (user space) of the last move preview sent: picked outlines follow what the
     /// page shows, not the pointer ahead of it.
     live_offset: Option<[f64; 2]>,
@@ -318,6 +320,7 @@ impl ReaderUi {
             picked_drag: None,
             marquee: None,
             para_resize: None,
+            hover: None,
             live_offset: None,
             edit_press: None,
             blocks_asked: HashSet::new(),
