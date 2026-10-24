@@ -10179,14 +10179,14 @@
    14
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "drag reorder",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -10198,6 +10198,28 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [5, 7, 9, 10, 11, 12, 14]"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "28565ac drag reorder (gui-smoke 21, flow::tests::a_dropped_card_lands…); reviewer 8/9/9: open documents, cancel, edge scroll missing"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "9c3df65: reviewer 9/9/9 (open documents with unsaved notice, Escape/outside cancel, edge scroll; gui-smoke 21, 21b, 21c)"
    }
   ]
  },
