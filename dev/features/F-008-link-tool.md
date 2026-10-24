@@ -22,3 +22,17 @@ Link Properties: page view or open a web page; select a link to change or delete
   The two buttons pushed Save off a 1280 px toolbar: the search field's share narrowed by 64 px; smoke positions
   of the zoom field updated (ZOOM_X 652 → 716). Evidence: /tmp/o6/edit (edit text active, a paragraph in the
   editor, a new link, an existing link).
+- 24/10 23:30, reviewer: C-edit-001 and C-annotate-021 closed 9/9/9; C-edit-021 7/8/9. Its blockers:
+  1. Link from selected text: the selection bar's Link (after Strikethrough) asks the target; one box per line,
+     one undo step (`tools::link_selection`, a Batch of AddLink).
+  2. Links from the text's web addresses: the Link tool's options bar ▸ "Link web addresses" (`Op::LinkUrls`:
+     PdfCraft's `find_urls` + `AddLinks`; addresses already under a link are skipped, `reader_doc::unlinked`, so a
+     second run adds nothing and says so).
+  3. Appearance: the options bar's Border (Acrobat's visible rectangle; invisible by default, as Acrobat), then
+     Dashed, the width dots and the colour dots. PdfCraft wrote `/BS` and `/C` but no appearance stream, and
+     Sheaf's view (and other readers that draw only appearances) showed no border: patched (`links.rs`
+     `write_appearance`). The reader_doc tests were run with `--lib` at first, which runs none of them (they live
+     in the app binary): run with `--bin sheaf-app`.
+  Tests: `a_visible_link_is_drawn_by_its_appearance` (red without the appearance),
+  `web_addresses_in_the_text_are_linked_once`, `an_address_under_a_link_is_not_linked_again`, gui-smoke 19b
+  (select "quick brown", Link, "3": saved with one /Dest). Not done: moving or resizing an existing link's box.

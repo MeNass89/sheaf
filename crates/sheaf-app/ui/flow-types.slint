@@ -203,6 +203,9 @@ export struct ReaderState {
     show-links: bool,
     // The Link editor's complaint about what was typed.
     link-error: string,
+    // New links' look: a visible border, dashed.
+    link-visible: bool,
+    link-dashed: bool,
     // Hide all comments is on.
     comments-hidden: bool,
     // Stamp tool: the stamps offered (labels) and the chosen one.
@@ -521,6 +524,9 @@ export global ReaderBridge {
     callback released(int, length, length);
     // Edit group: Redact opens the document in the Redact tool (saved first).
     callback redact(int);
+    // Link tool: link the web addresses in the text; link the selected text.
+    callback link-urls(int);
+    callback link-selection(int);
     callback set-tool(int, int);
     callback set-colour(int, int);
     callback set-pen-width(int, int);

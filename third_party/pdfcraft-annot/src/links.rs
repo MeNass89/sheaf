@@ -178,6 +178,46 @@ fn write_style(d: &mut Dict, s: &LinkStyle) {
     d.set(b"H".to_vec(), Object::name(s.highlight.code()));
 }
 
+/// Sheaf: a visible link's border as an appearance stream (`/AP /N`): a stroked rectangle in its
+/// colour, width and style, drawn inside its box. Readers that only draw appearances (pdfium's
+/// rendering in Sheaf, Preview) showed no border from `/BS` alone; an invisible link has none.
+fn write_appearance(doc: &mut Document, d: &mut Dict) {
+    let r: Vec<f64> = match d.get(b"Rect") {
+        Some(Object::Array(a)) => a.iter().filter_map(Object::as_f64).collect(),
+        _ => Vec::new(),
+    };
+    let bs = d.get(b"BS").and_then(Object::as_dict).cloned().unwrap_or_default();
+    let w = bs.get(b"W").and_then(Object::as_f64).unwrap_or(0.0);
+    if r.len() != 4 || w <= 0.0 {
+        d.remove(b"AP");
+        return;
+    }
+    let (bw, bh) = ((r[2] - r[0]).abs(), (r[3] - r[1]).abs());
+    let c: Vec<f64> = match d.get(b"C") {
+        Some(Object::Array(a)) => a.iter().filter_map(Object::as_f64).collect(),
+        _ => vec![0.0, 0.0, 1.0],
+    };
+    let colour = match c.as_slice() {
+        [g] => format!("{g:.3} G"),
+        [r0, g, b] => format!("{r0:.3} {g:.3} {b:.3} RG"),
+        _ => "0 0 1 RG".to_string(),
+    };
+    let dash = if bs.name(b"S") == Some(b"D") { "[3] 0 d " } else { "" };
+    let content = if bs.name(b"S") == Some(b"U") {
+        format!("q {colour} {w:.2} w {dash}0 {h:.2} m {bw:.2} {h:.2} l S Q", h = w / 2.0)
+    } else {
+        format!("q {colour} {w:.2} w {dash}{h:.2} {h:.2} {iw:.2} {ih:.2} re S Q", h = w / 2.0, iw = (bw - w).max(0.0), ih = (bh - w).max(0.0))
+    };
+    let mut sd = Dict::new();
+    sd.set(b"Type".to_vec(), Object::name("XObject"));
+    sd.set(b"Subtype".to_vec(), Object::name("Form"));
+    sd.set(b"BBox".to_vec(), Object::Array(vec![Object::Int(0), Object::Int(0), Object::Real(bw), Object::Real(bh)]));
+    let stream = doc.add(Object::Stream(pdfcraft_cos::Stream::flate(sd, content.as_bytes())));
+    let mut ap = Dict::new();
+    ap.set(b"N".to_vec(), Object::Ref(stream));
+    d.set(b"AP".to_vec(), Object::Dict(ap));
+}
+
 fn write_action(doc: &Document, d: &mut Dict, a: &LinkAction) -> Result<(), AnnotError> {
     match a {
         LinkAction::Page(p) => {
@@ -230,6 +270,7 @@ pub fn add(doc: &mut Document, page: usize, rect: [f64; 4], action: &LinkAction,
     d.set(b"P".to_vec(), Object::Ref(p));
     d.set(b"F".to_vec(), Object::Int(4));
     write_style(&mut d, style);
+    write_appearance(doc, &mut d);
     write_action(doc, &mut d, action)?;
     let obj = doc.add(Object::Dict(d));
     let mut list = annots(doc, p);
@@ -266,6 +307,9 @@ pub fn set(
     }
     if let Some(s) = style {
         write_style(&mut d, s);
+    }
+    if style.is_some() || rect.is_some() {
+        write_appearance(doc, &mut d);
     }
     if let Some(a) = action {
         write_action(doc, &mut d, a)?;

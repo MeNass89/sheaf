@@ -93,9 +93,12 @@ export component ReaderScreen inherits Rectangle {
     // would be cut to the old width).
     changed scroll-seq => {
         sv.content-y = -root.tab.viewer-scroll;
+        // Each scroll asked for replaces what an earlier zoom wanted across: a jump with no
+        // horizontal part (Home, a page) left the last zoom's, which a later width change then
+        // put back (the view drifted sideways after ⌘9 then a ⌘ + wheel zoom).
+        root.want-x = root.tab.viewer-scroll-x >= 0px ? root.tab.viewer-scroll-x : -1px;
         if root.tab.viewer-scroll-x >= 0px {
             sv.content-x = -root.tab.viewer-scroll-x;
-            root.want-x = root.tab.viewer-scroll-x;
             want-x-timer.running = true;
         }
     }
@@ -339,6 +342,8 @@ export component ReaderScreen inherits Rectangle {
                             ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight"; clicked => { ReaderBridge.markup(root.id, 1); } }
                             ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline"; clicked => { ReaderBridge.markup(root.id, 2); } }
                             ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough"; clicked => { ReaderBridge.markup(root.id, 3); } }
+                            // Acrobat's and PDF Expert's link from selected text.
+                            ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link… (⌘K)"; clicked => { ReaderBridge.link-selection(root.id); } }
                             Divider { y: 7px; }
                             // Highlight in one of the five colours straight from the selection.
                             for c[k] in root.light-colours: ColourDot {
@@ -470,7 +475,7 @@ export component ReaderScreen inherits Rectangle {
                 // Options of the tool in use and the form's actions: a bar floating over the top of
                 // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
                 // pages never move when a tool is picked.
-                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 13) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
+                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
                     x: 12px;
                     y: 8px;
                     width: min(parent.width - 24px, self.bar-width);
@@ -558,6 +563,8 @@ export component ReaderScreen inherits Rectangle {
         }
         key-pressed(e) => {
             if e.modifiers.control {
+                // ⌘K: link the selected text (as in Word, Pages and PDF Expert).
+                if e.text == "k" && root.tab.reader.has-selection { ReaderBridge.link-selection(root.id); return accept; }
                 if e.text == "+" || e.text == "=" { ViewerBridge.zoom-step(root.id, 1); return accept; }
                 if e.text == "-" { ViewerBridge.zoom-step(root.id, -1); return accept; }
                 // PDF Expert's shortcuts: ⌘0 100 %, ⌘9 fit width, ⌘8 fit page, ⌃⌘F full screen,

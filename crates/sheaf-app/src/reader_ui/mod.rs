@@ -222,6 +222,12 @@ pub struct ReaderUi {
     tool_after_save: Option<sheaf_core::tools::ToolId>,
     /// The Link editor's complaint about what was typed (not a page or an address).
     link_error: String,
+    /// New links' look (the Link tool's options): a visible border, dashed; its colour and width
+    /// are the ink colour and pen width.
+    link_visible: bool,
+    link_dashed: bool,
+    /// A link made from selected text: one box per line (user space); the draft holds their union.
+    link_rects: Vec<[f64; 4]>,
     /// Generation of the running search, shared with its thread so it stops when replaced.
     search_live: Arc<std::sync::atomic::AtomicU64>,
     /// A plain press on a page already selected: the selection shrinks to it only if no drag
@@ -344,6 +350,9 @@ impl ReaderUi {
             tools_after_save: false,
             tool_after_save: None,
             link_error: String::new(),
+            link_visible: false,
+            link_dashed: false,
+            link_rects: Vec::new(),
             search_live: Default::default(),
             pending_reduce: None,
             undo_pages: Vec::new(),
@@ -379,7 +388,7 @@ impl ReaderUi {
 
     fn send(&mut self, op: Op) {
         // A preview is not counted: it never names something another edit is waiting on.
-        let edit = matches!(op, Op::Apply { .. } | Op::Undo { .. } | Op::Redo { .. });
+        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. });
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
             self.edits_in_flight += usize::from(edit);

@@ -172,6 +172,8 @@ pub fn shape_option(tab_id: i32, what: i32, value: i32) {
         0 => r.shape_kind = value.clamp(0, 3),
         1 => r.shape_fill = !r.shape_fill,
         3 => r.stamp = (value.max(0) as usize).min(MARKS.len() + StampKind::ALL.len() - 1),
+        4 => r.link_visible = !r.link_visible,
+        5 => r.link_dashed = !r.link_dashed,
         _ => {
             r.opacity = (r.opacity + 1) % reader::OPACITIES.len();
             remember_style(r);
@@ -191,6 +193,54 @@ pub fn set_pen_width(tab_id: i32, k: i32) {
 fn remember_style(r: &ReaderUi) {
     let colour = if uses_light(r.tool) { r.light } else { r.ink_colour };
     crate::home::set_tool_style(r.tool, (colour as u8, r.pen_width as u8, r.opacity as u8));
+}
+
+/// The look of a new link (Acrobat's Link Properties ▸ Appearance): invisible by default, as
+/// Acrobat makes them; else a border in the ink colour, 1–3 points, solid or dashed.
+pub(super) fn link_style(r: &ReaderUi) -> sheaf_core::pdfcraft::engine::LinkStyle {
+    use sheaf_core::pdfcraft::engine::{LinkHighlight, LinkStyle};
+    LinkStyle { visible: r.link_visible, color: INK[r.ink_colour], width: f64::from(r.pen_width.clamp(0, 2) + 1), dashed: r.link_dashed, underline: false, highlight: LinkHighlight::Invert }
+}
+
+/// Link the web addresses in the document's text that no link covers yet, in the Link tool's look.
+pub fn link_urls(ui: &AppWindow, tab_id: i32) {
+    let err = update(tab_id, |r, _| {
+        if !r.snap.read_only.is_empty() {
+            return Some(r.snap.read_only.clone());
+        }
+        if r.edits_in_flight > 0 {
+            return Some("One moment: the last change is still being applied".to_string());
+        }
+        let style = link_style(r);
+        r.send(Op::LinkUrls { style });
+        // All pages may change.
+        r.undo_pages.push(Vec::new());
+        r.redo_pages.clear();
+        None
+    })
+    .flatten();
+    if let Some(e) = err {
+        crate::flow::toast(ui, &e);
+    }
+}
+
+/// The selection bar's Link: the selected text's lines become the link's boxes; its target is asked.
+pub fn link_selection(tab_id: i32) {
+    update(tab_id, |r, v| {
+        let Some((page, range)) = r.sel.clone() else { return };
+        let Some(t) = r.text(page) else { return };
+        let b = &v.viewer.boxes[page];
+        let size = b.view_size();
+        let rects: Vec<[f64; 4]> = t.line_rects(range).iter().map(|q| viewer::view_rect_to_pdf(b, size, (q[0] as f64, q[1] as f64), (q[2] as f64, q[3] as f64))).collect();
+        let Some(first) = rects.first().copied() else { return };
+        let union = rects.iter().fold(first, |a, q| [a[0].min(q[0]), a[1].min(q[1]), a[2].max(q[2]), a[3].max(q[3])]);
+        let [x, y, _, h] = viewer::pdf_rect_to_view(b, size, union);
+        r.link_rects = rects;
+        r.link_error.clear();
+        r.sel = None;
+        r.draft = Some(Draft { page, at: (x, y + h + 6.0), kind: 8, block: Some((usize::MAX, String::new(), union)), field: None });
+        r.note_seq += 1;
+    });
 }
 
 pub(super) fn pen_points(k: i32) -> f64 {

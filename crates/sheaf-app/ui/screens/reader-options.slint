@@ -47,7 +47,16 @@ export component ReaderOptionsBar inherits Rectangle {
             ToolButton { icon: @image-url("../icons/move-up-right.svg"); tip: "Arrow"; active: root.tab.reader.shape-kind == 3; clicked => { ReaderBridge.shape-option(root.id, 0, 3); root.focus-pages(); } }
             if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Fill"; primary: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); root.focus-pages(); } }
         }
-        if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.tool == 11: HorizontalLayout {
+        // Link: links of the text's web addresses; new links' look (Acrobat's Link Properties ▸
+        // Appearance: invisible by default, else a border in the colour, width and style chosen).
+        if root.tab.reader.tool == 13: HorizontalLayout {
+            spacing: 4px;
+            SmallButton { y: 2px; text: "Link web addresses"; clicked => { ReaderBridge.link-urls(root.id); root.focus-pages(); } }
+            Rectangle { width: 6px; }
+            SmallButton { y: 2px; text: "Border"; primary: root.tab.reader.link-visible; clicked => { ReaderBridge.shape-option(root.id, 4, 0); root.focus-pages(); } }
+            if root.tab.reader.link-visible: SmallButton { y: 2px; text: "Dashed"; primary: root.tab.reader.link-dashed; clicked => { ReaderBridge.shape-option(root.id, 5, 0); root.focus-pages(); } }
+        }
+        if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.tool == 11 || (root.tab.reader.tool == 13 && root.tab.reader.link-visible): HorizontalLayout {
             spacing: 2px;
             padding-left: 6px;
             for w[k] in [2px, 4px, 7px]: Rectangle {
@@ -156,7 +165,7 @@ export component ReaderOptionsBar inherits Rectangle {
             }
             SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
         }
-        if !root.tab.reader.selected-image && ((root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && root.tab.reader.tool != 12) || root.tab.reader.selected-annot): HorizontalLayout {
+        if !root.tab.reader.selected-image && ((root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && root.tab.reader.tool != 12 && (root.tab.reader.tool != 13 || root.tab.reader.link-visible)) || root.tab.reader.selected-annot): HorizontalLayout {
             spacing: 2px;
             padding-left: 6px;
             for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {

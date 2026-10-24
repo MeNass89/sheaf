@@ -54,3 +54,7 @@ Two-page spread, bookmarks of one's own, split view, reading aloud, measure, com
 - 24/10 18:30, flaky "⌘ + wheel zooms around the pointer" (961 → 889): after a zoom the view may cut the new
   horizontal scroll to the old content width; the wanted scroll was set again when the width came, but only for
   300 ms, and on a busy machine the width came later. It is now kept until the view shows it (2 s at most).
+- 25/10 00:30, "⌘ + wheel zooms around the pointer" failed again under the full suite (961 → 889, the same
+  72 px): the cause was not the 300 ms. A scroll asked for with no horizontal part (Home, a jump to a page) kept the
+  last zoom's wanted horizontal scroll alive, and a later width change (the next ⌘ + wheel zoom) put it back. Each
+  scroll asked for now replaces it or clears it (reader.slint `changed scroll-seq`).

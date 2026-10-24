@@ -751,6 +751,20 @@ click 509 61 3; RD=$(ocr 1280x40+0+0 | tr -s ' ')
 check "the edit group's Redact button opens Redact PDF ($RD)" "echo \"$RD\" | grep -qE 'Redact ?PDF'"
 quit
 
+# 19b. A link from selected text (⌘K, as the selection bar's Link): "quick brown" linked to page 3, saved with
+# its destination.
+cp "$OUT/text.pdf" "$OUT/link2.pdf"
+launch "$OUT/link2.pdf"; key ctrl+9; sleep 1
+Q=$(span quick 1020x700+255+90); B=$(span brown 1020x700+255+90)
+if [ -n "$Q" ] && [ -n "$B" ]; then
+    set -- $Q; SX=$(( $1 + 1 )); SY=$3; set -- $B; EX=$(( $2 - 1 ))
+    xdotool mousemove $SX $SY mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( SX + (EX - SX) * i / 5 )) $SY; sleep 0.05; done; xdotool mouseup 1; sleep 1
+    key ctrl+k; sleep 1; xdotool type --delay 30 "3"; key Return; sleep 1.5; key ctrl+s; sleep 2
+fi
+LD=$(qpdf --qdf --object-streams=disable "$OUT/link2.pdf" - 2>/dev/null | grep -ac "/Dest")
+check "a link from selected text, saved with its destination ($LD)" "[ \"$LD\" = 1 ]"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).

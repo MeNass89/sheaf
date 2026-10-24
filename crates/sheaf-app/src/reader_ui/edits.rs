@@ -373,8 +373,14 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             if d.kind == 9 {
                 return (text != old).then_some((d.page, Edit::SetLink { page: d.page, index, rect: None, action: Some(action), style: None }));
             }
-            let style = sheaf_core::pdfcraft::engine::LinkStyle::default();
-            return Some((d.page, Edit::AddLink { page: d.page, rect, action, style }));
+            let style = super::tools::link_style(r);
+            // Selected text: a box per line, one undo step.
+            let rects = std::mem::take(&mut r.link_rects);
+            if rects.len() > 1 {
+                let edits = rects.into_iter().map(|rect| Edit::AddLink { page: d.page, rect, action: action.clone(), style }).collect();
+                return Some((d.page, Edit::Batch { label: "Add link".into(), edits }));
+            }
+            return Some((d.page, Edit::AddLink { page: d.page, rect: rects.first().copied().unwrap_or(rect), action, style }));
         }
         if d.kind == 7 {
             // A reply to an existing comment (PdfCraft's ReplyToAnnotation: /IRT, the author's name).
@@ -457,6 +463,7 @@ pub fn note_cancel(tab_id: i32) {
     update(tab_id, |r, _| {
         r.draft = None;
         r.link_error.clear();
+        r.link_rects.clear();
         r.preview_timer = None;
     });
 }

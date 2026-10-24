@@ -339,6 +339,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         // The Link tool shows where the links are, as PDF Expert's does.
         show_links: r.show_links || r.tool == LINK,
         link_error: r.link_error.clone().into(),
+        link_visible: r.link_visible,
+        link_dashed: r.link_dashed,
         attachments: ModelRc::new(VecModel::from(
             r.snap
                 .attachments

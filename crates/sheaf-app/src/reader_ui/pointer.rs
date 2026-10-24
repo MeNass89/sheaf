@@ -347,6 +347,8 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                     // A box dragged: where should it go?
                     Some(e) => {
                         let rect = viewer::view_rect_to_pdf(b, size, (a.0.min(e.0), a.1.min(e.1)), (a.0.max(e.0), a.1.max(e.1)));
+                        r.link_rects.clear();
+                        r.link_error.clear();
                         r.draft = Some(Draft { page, at: (a.0.min(e.0), a.1.max(e.1) + 6.0), kind: 8, block: Some((usize::MAX, String::new(), rect)), field: None });
                         r.note_seq += 1;
                     }

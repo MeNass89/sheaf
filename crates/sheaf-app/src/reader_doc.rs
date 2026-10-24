@@ -237,6 +237,26 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
         .collect()
 }
 
+/// The web addresses `found` (page, line boxes, address; user space) whose boxes no link covers yet
+/// (more than half of a box under a link of its page): linking twice adds nothing.
+pub fn unlinked(found: Vec<(usize, Vec<[f64; 4]>, String)>, links: &[render::Link]) -> Vec<(usize, Vec<[f64; 4]>, String)> {
+    let covered = |page: usize, r: &[f64; 4]| {
+        let area = ((r[2] - r[0]) * (r[3] - r[1])).max(1e-9);
+        links.iter().filter(|l| l.page == page).any(|l| {
+            let l = l.rect.map(f64::from);
+            let (w, h) = (r[2].min(l[2]) - r[0].max(l[0]), r[3].min(l[3]) - r[1].max(l[1]));
+            w > 0.0 && h > 0.0 && w * h > 0.5 * area
+        })
+    };
+    found
+        .into_iter()
+        .filter_map(|(page, rects, uri)| {
+            let rects: Vec<[f64; 4]> = rects.into_iter().filter(|r| !covered(page, r)).collect();
+            (!rects.is_empty()).then_some((page, rects, uri))
+        })
+        .collect()
+}
+
 pub enum Op {
     /// An edit; `pages` are the pages it changes (rendered again).
     Apply { edit: Box<Edit>, pages: Vec<usize> },
@@ -250,6 +270,8 @@ pub enum Op {
     Blocks(usize),
     /// `pages` written to a new PDF at `to`.
     Extract { pages: Vec<usize>, to: PathBuf },
+    /// Acrobat's Create Links from URLs: every web address in the text not linked yet, in `style`.
+    LinkUrls { style: sheaf_core::pdfcraft::engine::LinkStyle },
     /// Acrobat's Summarize Comments: a PDF listing every comment, by page, written to `to`.
     Summary { to: PathBuf },
     /// Every comment exported to `to`: XFDF, or FDF when `to` ends in .fdf.
@@ -342,6 +364,16 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let id = doc.id();
                         let r = if redo { doc.session_mut().redo(id) } else { doc.session_mut().undo(id) };
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages, error: r.err().map(|e| e.to_string()), applied: false, note: None, preview: false });
+                    }
+                    Op::LinkUrls { style } => {
+                        let id = doc.id();
+                        let found = unlinked(doc.session().find_urls(id), &doc.document().info.links);
+                        let pages: Vec<usize> = found.iter().map(|f| f.0).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+                        let n: usize = found.iter().map(|f| f.1.len()).sum();
+                        let error = if n == 0 { Some("No web addresses to link: none in the text, or all linked already".to_string()) } else { doc.apply(Edit::AddLinks { links: found, style }).err().map(|e| e.to_string()) };
+                        let note = (error.is_none()).then(|| format!("{} added", sheaf_core::tools::count(n, "link")));
+                        // An undo step was counted for it by the window: `applied` even when refused, so it is taken back.
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: true, note, preview: false });
                     }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());
@@ -794,6 +826,58 @@ mod tests {
         ops.send(Op::Apply { edit: Box::new(Edit::DeleteLink { page: 0, index: again.links[0].index }), pages: vec![0] }).unwrap();
         let (snap, err) = next(&rx);
         assert!(err.is_none() && snap.links.is_empty(), "{err:?}");
+    }
+
+    #[test]
+    fn a_visible_link_is_drawn_by_its_appearance() {
+        use sheaf_core::pdfcraft::engine::{LinkAction, LinkHighlight, LinkStyle};
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 1);
+        let (ops, rx, _) = started(&path);
+        let style = LinkStyle { visible: true, color: [0.85, 0.2, 0.15], width: 2.0, dashed: true, underline: false, highlight: LinkHighlight::Invert };
+        ops.send(Op::Apply { edit: Box::new(Edit::AddLink { page: 0, rect: [72.0, 700.0, 200.0, 740.0], action: LinkAction::Page(0), style }), pages: vec![0] }).unwrap();
+        assert!(next(&rx).1.is_none());
+        ops.send(Op::Save { to: None }).unwrap();
+        assert!(next(&rx).1.is_none());
+        qpdf_clean(&path);
+        let qdf = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&path).arg("-").output().unwrap().stdout;
+        let qdf = String::from_utf8_lossy(&qdf);
+        // Its border as an appearance: dashed, 2 pt, in its colour (readers that draw only
+        // appearances showed nothing).
+        assert!(qdf.contains("/AP") && qdf.contains("0.850 0.200 0.150 RG 2.00 w [3] 0 d"), "{qdf}");
+    }
+
+    #[test]
+    fn web_addresses_in_the_text_are_linked_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("urls.pdf");
+        {
+            let _g = sheaf_core::engine::pdfium_lock();
+            let mut doc = sheaf_core::engine::new_document();
+            let font = doc.fonts_mut().helvetica();
+            let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+            page.objects_mut().create_text_object(PdfPoints::new(72.0), PdfPoints::new(720.0), "Visit https://example.org today", font, PdfPoints::new(18.0)).unwrap();
+            doc.save_to_file(&path).unwrap();
+        }
+        let (ops, rx, snap) = started(&path);
+        assert!(snap.links.is_empty());
+        let style = sheaf_core::pdfcraft::engine::LinkStyle::default();
+        ops.send(Op::LinkUrls { style }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        assert!(matches!(&snap.links[..], [l] if matches!(&l.target, render::LinkTarget::Uri(u) if u.starts_with("https://example.org"))), "{:?}", snap.links);
+        // Again: the address is linked already.
+        ops.send(Op::LinkUrls { style }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_some_and(|e| e.contains("No web addresses")) && snap.links.len() == 1);
+    }
+
+    #[test]
+    fn an_address_under_a_link_is_not_linked_again() {
+        let link = render::Link { page: 0, index: 0, rect: [100.0, 700.0, 200.0, 720.0], target: render::LinkTarget::Uri("x".into()) };
+        let found = vec![(0, vec![[105.0, 702.0, 190.0, 718.0], [100.0, 600.0, 150.0, 620.0]], "https://a.b".to_string()), (1, vec![[105.0, 702.0, 190.0, 718.0]], "https://c.d".to_string())];
+        let left = unlinked(found, &[link]);
+        assert_eq!(left.iter().map(|(p, r, _)| (*p, r.len())).collect::<Vec<_>>(), [(0, 1), (1, 1)], "{left:?}");
     }
 
     #[test]
