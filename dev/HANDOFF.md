@@ -3,6 +3,14 @@
 Sheaf is built and tested on the **Linux VPS** (the MacBook Pro is for another project). Method: the **`dev`
 skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, then `dev/DECISIONS.md`.
 
+## ⚠️ Instruction de Nassim (24/10/2026 11:03 UTC, relayée par Alfred)
+
+Codex est à **13 % de quota** (rollouts 07:31 UTC, reset le 30/10), pas 89 %. La décision du 21/10 dans
+`dev/DECISIONS.md` (Opus en 2e voix jusqu'au 27/10) est **périmée** : Sol redevient la 2e voix des 9/10 conjoints
+dès maintenant. À faire au prochain tour : (1) appendre dans DECISIONS.md la fin de la dérogation du 21/10 ;
+(2) faire relire par Sol les composants validés avec Opus depuis le 21/10 ; (3) continuer le board. Rien d'autre
+ne change. Nassim : « Limits are at 16% consumed bro just use codex !! »
+
 ## Where things are
 
 | What | Where |
