@@ -2462,14 +2462,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "with edit links",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -2481,6 +2481,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "reviewer 24/10 on d613100: drag a box, page/URL/mailto target, saved /Link; reader_doc and gui-smoke 19"
    }
   ]
  },
@@ -6619,14 +6630,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "edit mode inside the reader, not a separate tool flow",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -6660,6 +6671,17 @@
      "overall": 8
     },
     "proof": "reviewer 24/10: edit tools in the reader (E, I, outlines, format row, preview, drag); blockers: no link tool, Redact not reachable from the reader, stale screenshot"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "reviewer 24/10 on d613100: edit group = Edit text, Add image, Link, Redact…, Sign (PDF Expert's strip); fresh captures; fits 1280 px"
    }
   ]
  },
@@ -8327,10 +8349,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 7,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -8346,6 +8368,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-24",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "reviewer 24/10 on d613100: draw, change, remove done; missing: link from selected text, links from URLs, appearance, move/resize"
    }
   ]
  },
