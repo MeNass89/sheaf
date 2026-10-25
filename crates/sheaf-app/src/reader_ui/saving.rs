@@ -161,3 +161,10 @@ pub fn attachment_add(ui: &AppWindow, tab_id: i32) {
         }
     });
 }
+
+/// More ▸ Sanitize document (Acrobat's): metadata, scripts and actions, attachments, links, hidden
+/// text and layers removed in one step, which ⌘Z undoes until the file is saved.
+pub fn sanitize(ui: &AppWindow, tab_id: i32) {
+    super::apply(ui, tab_id, Edit::Sanitize, &[], None);
+    crate::flow::toast(ui, "Hidden information removed: metadata, scripts, attachments, links, layers (⌘Z undoes it)");
+}

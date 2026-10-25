@@ -55,6 +55,15 @@ impl ProtectPermissions {
     }
 }
 
+/// Acrobat's Sanitize Document: the document's hidden information removed in one step (metadata,
+/// scripts and actions, attachments, links, comments' hidden data, hidden text, layers: PdfCraft's
+/// Sanitize), written unprotected at `out` (never overwriting).
+pub fn sanitize(input: &Input, out: &Path) -> Result<PathBuf> {
+    let mut doc = crate::pdfcraft::Doc::open(input)?;
+    doc.apply(crate::pdfcraft::engine::Edit::Sanitize)?;
+    Ok(doc.save_unprotected(out)?.0)
+}
+
 pub fn protect(input: &Input, user_pw: &str, owner_pw: Option<&str>, out: &Path) -> Result<PathBuf> {
     protect_with_permissions(input, user_pw, owner_pw, ProtectPermissions::default(), out)
 }

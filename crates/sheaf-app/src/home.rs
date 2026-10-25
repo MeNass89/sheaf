@@ -278,6 +278,7 @@ fn push_prefs(ui: &AppWindow) {
     ui.set_author_name(p.author.clone().unwrap_or_default().into());
     ui.set_author_default(login_name().into());
     ui.set_default_zoom(p.default_zoom);
+    ui.set_default_spread(p.default_spread as i32);
     ui.global::<Theme>().set_accent_choice(p.accent.min(5) as i32);
     ui.set_backdrop_pref(p.backdrop.min(4) as i32);
     let rb = ui.global::<sheaf_app::ReaderBridge>();
@@ -357,6 +358,11 @@ pub fn set_open_after(ui: &AppWindow, v: bool) {
 }
 
 /// Preferences ▸ Open documents at (0 fit width, 1 fit page, 2 actual size).
+/// Preferences ▸ Documents ▸ pages: one column, two, two with the cover alone.
+pub fn set_default_spread(ui: &AppWindow, s: i32) {
+    update_prefs(ui, |p| p.default_spread = s.clamp(0, 2) as u8);
+}
+
 pub fn set_default_zoom(ui: &AppWindow, z: i32) {
     update_prefs(ui, |p| p.default_zoom = z.clamp(0, 2));
 }

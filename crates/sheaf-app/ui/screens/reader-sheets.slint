@@ -253,6 +253,7 @@ export component PropertiesSheet inherits Rectangle {
                 author-in := TextField { label: "Author"; text: root.tab.reader.props-author; accepted => { save.clicked(); } }
                 subject-in := TextField { label: "Subject"; text: root.tab.reader.props-subject; accepted => { save.clicked(); } }
                 keywords-in := TextField { label: "Keywords"; text: root.tab.reader.props-keywords; accepted => { save.clicked(); } }
+                custom-in := TextField { label: "Custom properties"; placeholder: "Name: value; another: value"; text: root.tab.reader.props-custom; accepted => { save.clicked(); } }
                 Rectangle { height: 1px; background: Theme.sidebar-border; }
                 for p in root.tab.reader.props-about: HorizontalLayout {
                     spacing: 10px;
@@ -267,7 +268,7 @@ export component PropertiesSheet inherits Rectangle {
                         text: "Save";
                         primary: true;
                         clicked => {
-                            ReaderBridge.props-save(root.id, title-in.text, author-in.text, subject-in.text, keywords-in.text);
+                            ReaderBridge.props-save(root.id, title-in.text, author-in.text, subject-in.text, keywords-in.text, custom-in.text);
                             root.focus-pages();
                         }
                     }

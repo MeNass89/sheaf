@@ -21,7 +21,8 @@ use sheaf_core::{repair, rotate, security, OpdfError, Result};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Remove pages' spec for "the blank pages", worked out when the job runs.
+/// Remove pages' spec for "the blank pages", worked out when the job runs; ":N" after it, the
+/// strictness (`pages::blank_pages`).
 pub const BLANK_PAGES: &str = "blank";
 
 /// How Split cuts the document.
@@ -60,9 +61,10 @@ pub enum Job {
     ExtractPages { input: Input, pages: String, out: PathBuf },
     /// 1-based page numbers in output order; 0 inserts a blank page.
     Organize { input: Input, order: Vec<u32>, out: PathBuf },
-    Rotate { items: Vec<(Input, PathBuf)>, degrees: i64, pages: Option<String> },
+    Rotate { items: Vec<(Input, PathBuf)>, degrees: i64, pages: Option<String>, filter: rotate::PageFilter },
     Compress { items: Vec<(Input, PathBuf)>, level: Level },
-    Protect { items: Vec<(Input, PathBuf)>, password: String, owner: Option<String>, permissions: security::ProtectPermissions },
+    /// `sanitize`: the hidden information removed first (Acrobat's Protect ▸ Sanitize Document).
+    Protect { items: Vec<(Input, PathBuf)>, password: String, owner: Option<String>, permissions: security::ProtectPermissions, sanitize: bool },
     Unlock { items: Vec<(Input, PathBuf)> },
     Repair { items: Vec<(Input, PathBuf)> },
     JpgToPdf { images: Vec<PathBuf>, layout: PageLayout, out: PathBuf },
@@ -270,15 +272,19 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 SplitMode::OneFile(s) => vec![pages::extract(input, s, &out_dir.join(format!("{}-split.pdf", input.stem())))?],
                 SplitMode::Every(n) => pages::split_every(input, *n, out_dir)?,
                 SplitMode::Bookmarks => pages::split_bookmarks(input, out_dir)?,
-                SplitMode::Size(max) => pages::split_size(input, *max, out_dir)?,
+                SplitMode::Size(max) => {
+                    let (files, over) = pages::split_size_report(input, *max, out_dir)?;
+                    summary = pages::oversize_note(&over);
+                    files
+                }
             };
             progress(1.0);
             r
         }
         Job::RemovePages { input, pages: spec, out } => {
             // "blank": the blank pages, found now (Acrobat's Remove Blank Pages).
-            let spec = if spec == BLANK_PAGES {
-                let blank = pages::blank_pages(input)?;
+            let spec = if let Some(level) = spec.strip_prefix(BLANK_PAGES) {
+                let blank = pages::blank_pages(input, level.trim_start_matches(':').parse().unwrap_or(1))?;
                 if blank.is_empty() {
                     return Err(OpdfError::Unsupported("this PDF has no blank pages".into()));
                 }
@@ -300,8 +306,8 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             r
         }
-        Job::Rotate { items, degrees, pages: spec } => {
-            batch(each(items, cancel, progress, pair, |(i, o)| one(rotate::rotate(i, spec.as_deref(), *degrees, o))))?
+        Job::Rotate { items, degrees, pages: spec, filter } => {
+            batch(each(items, cancel, progress, pair, |(i, o)| one(rotate::rotate_filtered(i, spec.as_deref(), *degrees, *filter, o))))?
         }
         Job::Compress { items, level } => {
             batch(each(items, cancel, progress, pair, |(i, o)| {
@@ -311,8 +317,18 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 Ok(vec![rep.path])
             }))?
         }
-        Job::Protect { items, password, owner, permissions } => {
-            batch(each(items, cancel, progress, pair, |(i, o)| one(security::protect_with_permissions(i, password, owner.as_deref(), *permissions, o))))?
+        Job::Protect { items, password, owner, permissions, sanitize } => {
+            let tmp = tempfile::tempdir()?;
+            batch(each(items, cancel, progress, pair, |(i, o)| {
+                let clean;
+                let i = if *sanitize {
+                    clean = Input::new(security::sanitize(i, &tmp.path().join(i.path.file_name().unwrap_or_default()))?);
+                    &clean
+                } else {
+                    i
+                };
+                one(security::protect_with_permissions(i, password, owner.as_deref(), *permissions, o))
+            }))?
         }
         Job::Unlock { items } => {
             batch(each(items, cancel, progress, pair, |(i, o)| one(security::unlock(i, o))))?

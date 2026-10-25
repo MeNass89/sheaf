@@ -419,6 +419,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         pen_width: r.pen_width,
         shape_kind: r.shape_kind,
         shape_fill: r.shape_fill,
+        arrow_head: reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].1.into(),
+        arrow_both: r.arrow_both,
         opacity: (reader::OPACITIES[r.opacity] * 100.0).round() as i32,
         // Dynamic stamps share their names with standard ones: they say they are dated.
         stamp_image: r.custom_stamp.as_ref().map(|(n, _, _)| n.as_str()).unwrap_or_default().into(),
@@ -458,6 +460,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_author: r.snap.props.author.clone().into(),
         props_subject: r.snap.props.subject.clone().into(),
         props_keywords: r.snap.props.keywords.clone().into(),
+        props_custom: r.facts.as_ref().map(|f| super::properties::custom_text(&f.custom)).unwrap_or_default().into(),
         props_about: ModelRc::new(VecModel::from(super::properties::about_rows(&r.snap.props.about, r.facts.as_ref()).into_iter().map(|(n, v)| ReaderProp { name: n.into(), value: v.into() }).collect::<Vec<_>>())),
         text_size: r.text_pt.round() as i32,
         text_family: r.text_family,

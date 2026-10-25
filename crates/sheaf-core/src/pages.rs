@@ -139,6 +139,13 @@ pub fn split_bookmarks(input: &Input, out_dir: &Path) -> Result<Vec<PathBuf>> {
 /// Acrobat's Split by file size: consecutive pages grouped while their files stay under
 /// `max_bytes` (each page measured alone; a page larger than that is a file on its own).
 pub fn split_size(input: &Input, max_bytes: u64, out_dir: &Path) -> Result<Vec<PathBuf>> {
+    split_size_report(input, max_bytes, out_dir).map(|(files, _)| files)
+}
+
+/// [`split_size`], and the pages (1-based) larger than `max_bytes` on their own: their files are
+/// over the size asked (a page cannot be cut), which the result says (Sol, 25/10).
+pub fn split_size_report(input: &Input, max_bytes: u64, out_dir: &Path) -> Result<(Vec<PathBuf>, Vec<u32>)> {
+    let mut over = Vec::new();
     let spec = {
         let _g = pdfium_lock();
         let src = input.open()?;
@@ -149,6 +156,9 @@ pub fn split_size(input: &Input, max_bytes: u64, out_dir: &Path) -> Result<Vec<P
             let mut one = pdfium().create_new_pdf()?;
             one.pages_mut().copy_pages_from_document(&src, &p.to_string(), 0)?;
             let n = one.save_to_bytes()?.len() as u64;
+            if n > max_bytes {
+                over.push(p);
+            }
             match groups.last_mut() {
                 Some(g) if size + n <= max_bytes => {
                     g.1 = p;
@@ -162,20 +172,35 @@ pub fn split_size(input: &Input, max_bytes: u64, out_dir: &Path) -> Result<Vec<P
         }
         groups.iter().map(|(a, b)| if a == b { a.to_string() } else { format!("{a}-{b}") }).collect::<Vec<_>>().join(",")
     };
-    split_ranges(input, &spec, out_dir)
+    Ok((split_ranges(input, &spec, out_dir)?, over))
 }
 
+/// What the result says of the pages too large for the size asked ("" when none).
+pub fn oversize_note(over: &[u32]) -> String {
+    match over {
+        [] => String::new(),
+        [p] => format!("Page {p} alone is larger than the size asked: its file is too"),
+        many => format!("{} pages alone are larger than the size asked (page {}…): their files are too", many.len(), many[0]),
+    }
+}
+
+/// How blank a page must be, Stirling's threshold and white share in three steps: 0 strict (white
+/// from 245, 0.1 % else), 1 as Acrobat (235, 0.3 %), 2 scans (grey paper: white from 200, 1 %).
+const BLANKNESS: [(u8, usize); 3] = [(245, 1), (235, 3), (200, 10)];
+
 /// The blank pages of `input`, 1-based (Acrobat's Remove Blank Pages): no text, and nothing but
-/// near-white once drawn (a scan's specks and a page's frame-thin marks under 0.3 % count as blank).
-pub fn blank_pages(input: &Input) -> Result<Vec<u32>> {
+/// near-white once drawn (a scan's specks and a page's frame-thin marks count as blank), at the
+/// strictness `level` ([`BLANKNESS`]).
+pub fn blank_pages(input: &Input, level: usize) -> Result<Vec<u32>> {
+    let (white, per_mille) = BLANKNESS[level.min(2)];
     let _g = pdfium_lock();
     let doc = input.open()?;
     let mut blank = Vec::new();
     for (i, page) in doc.pages().iter().enumerate() {
         if page.text().map(|t| t.all().trim().is_empty()).unwrap_or(true) {
             let img = page.render_with_config(&PdfRenderConfig::new().set_target_width(120))?.as_image()?.to_luma8();
-            let dark = img.pixels().filter(|p| p[0] < 235).count();
-            if dark * 1000 <= img.len() * 3 {
+            let dark = img.pixels().filter(|p| p[0] < white).count();
+            if dark * 1000 <= img.len() * per_mille {
                 blank.push(i as u32 + 1);
             }
         }

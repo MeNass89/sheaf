@@ -159,6 +159,12 @@ export struct ReaderFieldProps {
     exact: int,
     // A dropdown's or list's items, one per line.
     options: string,
+    // Its text's alignment (0 left, 1 centre, 2 right) and size ("Auto" or points).
+    align: int,
+    font-size: string,
+    // A button's click: 0 nothing, 1 clear the form, 2 print, 3 open `url`.
+    action: int,
+    url: string,
     // Pages that do not hold the field yet (On every page is offered when some).
     other-pages: bool,
 }
@@ -235,6 +241,8 @@ export struct ReaderState {
     props-author: string,
     props-subject: string,
     props-keywords: string,
+    // Its own properties, "Name: value; …" (Acrobat's Custom tab).
+    props-custom: string,
     props-about: [ReaderProp],
     // Notes panel: filter (0 all, 1 markup, 2 notes, 3 drawings, 4 stamps) and order (0 page,
     // 1 newest, 2 author, 3 type).
@@ -271,6 +279,9 @@ export struct ReaderState {
     // Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled; opacity of shapes and pen (%).
     shape-kind: int,
     shape-fill: bool,
+    // Shapes ▸ Arrow: its head's name and whether both ends carry it.
+    arrow-head: string,
+    arrow-both: bool,
     opacity: int,
     // Print sheet: open, the system's printers, the chosen one.
     print-open: bool,
@@ -465,6 +476,10 @@ export struct ToolOptions {
     allow-filling-forms: bool,
     pages: string,       // remove / extract / rotate (optional)
     remove-blank: bool,  // remove pages: the blank ones, found by Sheaf
+    blank-level: int,    // how blank: 0 strict, 1 normal, 2 scans on grey paper
+    rotate-parity: int,  // rotate: 0 even and odd pages, 1 odd, 2 even
+    protect-sanitize: bool, // protect: remove the hidden information first
+    rotate-orientation: int, // rotate: 0 portrait and landscape pages, 1 portrait, 2 landscape
     split-mode: int,     // 0 ranges, 1 every N, 2 top-level bookmarks, 3 file size
     ranges: string,
     every: int,
@@ -597,7 +612,7 @@ export global ReaderBridge {
     callback annot-status(int, int, int);
     // Document Properties: open; save title, author, subject, keywords; cancel.
     callback props-open(int);
-    callback props-save(int, string, string, string, string);
+    callback props-save(int, string, string, string, string, string);
     callback props-cancel(int);
     // Shapes and pen: what (0 shape kind, 1 fill toggle, 2 next opacity), value.
     callback shape-option(int, int, int);
@@ -620,7 +635,9 @@ export global ReaderBridge {
     // every page.
     callback field-kind(int, int);
     callback detect-fields(int);
-    callback field-props(int, string, string, bool, bool, bool, string);
+    // More ▸ Sanitize document.
+    callback sanitize(int);
+    callback field-props(int, string, string, bool, bool, bool, string, string, int, int, string);
     callback field-delete(int);
     callback field-everywhere(int);
     callback link-selection(int);

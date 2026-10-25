@@ -277,6 +277,15 @@ pub fn probe_pdf_full(input: &Input, width: i32) -> Result<Probe> {
 
 /// Why `name` cannot be opened, in one short line, the same in the reader and the tools: a file
 /// the engines cannot read is "damaged or not a PDF" whatever their own wording.
+/// Whether the file at `p` starts as a PDF does ("%PDF-" in its first kilobyte): a damaged one,
+/// worth repairing, rather than another kind of file.
+pub fn looks_like_pdf(p: &std::path::Path) -> bool {
+    use std::io::Read;
+    let mut head = [0u8; 1024];
+    let n = std::fs::File::open(p).and_then(|mut f| f.read(&mut head)).unwrap_or(0);
+    head[..n].windows(5).any(|w| w == b"%PDF-")
+}
+
 pub fn open_error(name: &str, e: &OpdfError) -> String {
     match e {
         OpdfError::Io(io) if io.kind() == std::io::ErrorKind::NotFound => format!("{name} is no longer there."),

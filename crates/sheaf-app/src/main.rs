@@ -177,7 +177,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_link_urls, |ui, id| reader_ui::link_urls(&ui, id));
     rb.on_field_kind(reader_ui::field_kind);
     wire_global!(ui, rb, on_detect_fields, |ui, id| reader_ui::detect_fields(&ui, id));
-    wire_global!(ui, rb, on_field_props, |ui, id, name, tip, req, ro, ml, opts| reader_ui::field_props(&ui, id, &name, &tip, req, ro, ml, &opts));
+    wire_global!(ui, rb, on_sanitize, |ui, id| reader_ui::sanitize(&ui, id));
+    wire_global!(ui, rb, on_field_props, |ui, id, name, tip, req, ro, ml, opts, size, align, act, url| reader_ui::field_props(&ui, id, &name, &tip, req, ro, ml, &opts, (&size, align), (act, &url)));
     wire_global!(ui, rb, on_field_delete, |ui, id| reader_ui::field_delete(&ui, id));
     wire_global!(ui, rb, on_field_everywhere, |ui, id| reader_ui::field_everywhere(&ui, id));
     wire_global!(ui, rb, on_nudge, |ui, id, dx, dy| reader_ui::nudge(&ui, id, dx, dy));
@@ -221,7 +222,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_zoom_typed, |ui, id, t| reader_ui::zoom_typed(&ui, id, &t));
     wire_global!(ui, rb, on_annot_status, |ui, id, k, s| reader_ui::annot_status(&ui, id, k, s));
     rb.on_props_cancel(reader_ui::props_cancel);
-    wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k| reader_ui::props_save(&ui, id, &t, &a, &s, &k));
+    wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k, c| reader_ui::props_save(&ui, id, &t, &a, &s, &k, &c));
     rb.on_print_cancel(reader_ui::print_cancel);
     wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t, paper, o| reader_ui::print(&ui, id, p, c, m, &r, f, t, paper, o));
     wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));
@@ -444,6 +445,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_open_after, |ui, v| home::set_open_after(&ui, v));
     wire!(ui, on_set_author, |ui, v| home::set_author(&ui, &v));
     wire!(ui, on_set_default_zoom, |ui, z| home::set_default_zoom(&ui, z));
+    wire!(ui, on_set_default_spread, |ui, s| home::set_default_spread(&ui, s));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);

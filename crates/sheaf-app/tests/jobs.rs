@@ -38,6 +38,7 @@ fn merge_then_protect_and_unlock_without_password() {
             password: "secret".into(),
             owner: None,
             permissions: Default::default(),
+            sanitize: false,
         },
         &no_cancel,
         &progress,
@@ -217,11 +218,11 @@ fn every_tool_but_protect_and_unlock_reports_an_encrypted_input() {
     assert!(go(Job::Merge { inputs: vec![Input::new(&src), enc.clone()], pages: vec![], out: o("m.pdf") }).was_encrypted);
     assert!(!go(Job::Merge { inputs: vec![Input::new(&src)], pages: vec![], out: o("m2.pdf") }).was_encrypted);
     assert!(go(Job::Merge { inputs: vec![Input::new(&owner_only)], pages: vec![], out: o("m3.pdf") }).was_encrypted, "owner-password-only counts");
-    assert!(go(Job::Rotate { items: vec![(enc.clone(), o("r.pdf"))], degrees: 90, pages: None }).was_encrypted);
+    assert!(go(Job::Rotate { items: vec![(enc.clone(), o("r.pdf"))], degrees: 90, pages: None, filter: Default::default() }).was_encrypted);
     assert!(go(Job::Repair { items: vec![(enc.clone(), o("f.pdf"))] }).was_encrypted);
     assert!(go(Job::ExtractPages { input: enc.clone(), pages: "1".into(), out: o("e.pdf") }).was_encrypted);
     assert!(!go(Job::Unlock { items: vec![(enc.clone(), o("u.pdf"))] }).was_encrypted);
-    assert!(!go(Job::Protect { items: vec![(enc, o("pp.pdf"))], password: "x".into(), owner: None, permissions: Default::default() }).was_encrypted);
+    assert!(!go(Job::Protect { items: vec![(enc, o("pp.pdf"))], password: "x".into(), owner: None, permissions: Default::default(), sanitize: false }).was_encrypted);
 }
 
 #[test]
@@ -517,6 +518,7 @@ fn protect_job_applies_permission_restrictions() {
         password: "user".into(),
         owner: Some("owner".into()),
         permissions: sheaf_core::security::ProtectPermissions { printing: false, ..Default::default() },
+        sanitize: false,
     }, &AtomicBool::new(false), &|_| {}).unwrap();
     let result = std::process::Command::new("qpdf")
         .args(["--show-encryption", "--password=user"]).arg(&out).output().unwrap();

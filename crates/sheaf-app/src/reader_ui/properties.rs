@@ -50,15 +50,20 @@ pub fn props_cancel(tab_id: i32) {
 }
 
 /// The entries changed become one undo step (PdfCraft's SetInfo per entry).
-pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subject: &str, keywords: &str) {
+pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subject: &str, keywords: &str, custom: &str) {
     let edit = update(tab_id, |r, _| {
         r.props_open = false;
         let p = r.snap.props.clone();
-        let edits: Vec<Edit> = [("Title", &p.title, title), ("Author", &p.author, author), ("Subject", &p.subject, subject), ("Keywords", &p.keywords, keywords)]
+        let mut edits: Vec<Edit> = [("Title", &p.title, title), ("Author", &p.author, author), ("Subject", &p.subject, subject), ("Keywords", &p.keywords, keywords)]
             .into_iter()
             .filter(|(_, old, new)| old.trim() != new.trim())
             .map(|(key, _, new)| Edit::SetInfo { key: key.into(), value: new.trim().into() })
             .collect();
+        // Custom properties: those changed or added are set, those taken out are emptied.
+        let before = r.facts.as_ref().map(|f| f.custom.clone()).unwrap_or_default();
+        let after = custom_pairs(custom);
+        edits.extend(after.iter().filter(|kv| !before.contains(kv)).map(|(k, v)| Edit::SetInfo { key: k.clone(), value: v.clone() }));
+        edits.extend(before.iter().filter(|(k, _)| !after.iter().any(|(a, _)| a == k)).map(|(k, _)| Edit::SetInfo { key: k.clone(), value: String::new() }));
         (!edits.is_empty()).then(|| Edit::Batch { label: "Document properties".into(), edits })
     })
     .flatten();
@@ -67,9 +72,32 @@ pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subjec
     }
 }
 
+/// The custom properties as typed ("Client: Acme; Project: Atlas"): name and value pairs, names
+/// made PDF names (spaces become "_"), empty ones dropped.
+pub(super) fn custom_pairs(typed: &str) -> Vec<(String, String)> {
+    typed
+        .split(';')
+        .filter_map(|p| p.split_once(':'))
+        .map(|(k, v)| (k.trim().replace(char::is_whitespace, "_"), v.trim().to_string()))
+        .filter(|(k, v)| !k.is_empty() && !v.is_empty())
+        .collect()
+}
+
+/// [`custom_pairs`] read back for the field.
+pub(super) fn custom_text(pairs: &[(String, String)]) -> String {
+    pairs.iter().map(|(k, v)| format!("{k}: {v}")).collect::<Vec<_>>().join("; ")
+}
+
 #[cfg(test)]
 mod tests {
-    use super::about_rows;
+    use super::{about_rows, custom_pairs, custom_text};
+
+    #[test]
+    fn custom_properties_are_typed_as_name_and_value_pairs() {
+        let p = custom_pairs(" Client : Acme;Project code: A-1 ; nothing; empty: ");
+        assert_eq!(p, [("Client".to_string(), "Acme".to_string()), ("Project_code".into(), "A-1".into())]);
+        assert_eq!(custom_text(&p), "Client: Acme; Project_code: A-1");
+    }
 
     #[test]
     fn signatures_come_after_the_facts_and_the_security_line_says_what_is_forbidden() {

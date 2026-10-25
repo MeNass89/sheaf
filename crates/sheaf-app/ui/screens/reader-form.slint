@@ -36,8 +36,10 @@ export component FieldPropsCard inherits Rectangle {
     property <bool> required;
     property <bool> read-only;
     property <bool> multiline;
+    property <int> align;
+    property <int> action;
 
-    width: 330px;
+    width: 360px;
     height: col.preferred-height;
     border-radius: Theme.radius-item;
     background: Theme.card;
@@ -54,6 +56,10 @@ export component FieldPropsCard inherits Rectangle {
         root.required = props.required;
         root.read-only = props.read-only;
         root.multiline = props.multiline;
+        root.align = props.align;
+        root.action = props.action;
+        size-text.text = props.font-size;
+        url-text.text = props.url;
     }
     init => {
         name-field.text = props.name;
@@ -62,9 +68,13 @@ export component FieldPropsCard inherits Rectangle {
         root.required = props.required;
         root.read-only = props.read-only;
         root.multiline = props.multiline;
+        root.align = props.align;
+        root.action = props.action;
+        size-text.text = props.font-size;
+        url-text.text = props.url;
     }
     function apply() {
-        ReaderBridge.field-props(root.id, name-field.text, tip-field.text, root.required, root.read-only, root.multiline, items.text);
+        ReaderBridge.field-props(root.id, name-field.text, tip-field.text, root.required, root.read-only, root.multiline, items.text, size-text.text, root.align, root.action, url-text.text);
         root.focus-pages();
     }
     // A click on the card stays on it.
@@ -89,6 +99,24 @@ export component FieldPropsCard inherits Rectangle {
                 text <=> items.text;
             }
         }
+        // Text, dropdown and list: the text's size and alignment (Acrobat's Appearance ▸ Font size, Options ▸ Alignment).
+        if root.props.exact == 0 || root.props.exact == 3 || root.props.exact == 4: HorizontalLayout {
+            spacing: 6px;
+            Text { text: "Size"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            PanelField { width: 64px; placeholder: "Auto"; text <=> size-text.text; }
+            Rectangle { width: 8px; }
+            for a[i] in ["Left", "Centre", "Right"]: SmallButton { text: a; primary: root.align == i; clicked => { root.align = i; } }
+        }
+        // A button: what a click does (Acrobat's Actions ▸ Mouse Up).
+        if root.props.exact == 5: VerticalLayout {
+            spacing: 6px;
+            Text { text: "When clicked"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            HorizontalLayout {
+                spacing: 4px;
+                for a[i] in ["Nothing", "Clear form", "Print", "Open address"]: SmallButton { text: a; primary: root.action == i; clicked => { root.action = i; } }
+            }
+            if root.action == 3: PanelField { placeholder: "https://…"; text <=> url-text.text; }
+        }
         HorizontalLayout {
             spacing: 14px;
             Check { text: "Required"; checked <=> root.required; }
@@ -103,8 +131,20 @@ export component FieldPropsCard inherits Rectangle {
             SmallButton { text: "Done"; primary: true; clicked => { root.apply(); } }
         }
     }
-    // The items' text, kept when the list is hidden (a field that is not a choice).
+    // The texts of the rows shown for some fields only, kept here when the row is hidden.
     items := Rectangle {
+        in-out property <string> text;
+        visible: false;
+        width: 0;
+        height: 0;
+    }
+    size-text := Rectangle {
+        in-out property <string> text;
+        visible: false;
+        width: 0;
+        height: 0;
+    }
+    url-text := Rectangle {
         in-out property <string> text;
         visible: false;
         width: 0;

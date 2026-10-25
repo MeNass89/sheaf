@@ -607,6 +607,12 @@ pub fn shape_outline(kind: i32, a: (f64, f64), b: (f64, f64)) -> Vec<(f64, f64)>
     }
 }
 
+/// The Arrow's heads the options bar cycles through, with their names (Acrobat's Line Ends).
+pub const ARROW_HEADS: [(sheaf_core::pdfcraft::engine::LineEnding, &str); 5] = {
+    use sheaf_core::pdfcraft::engine::LineEnding as E;
+    [(E::OpenArrow, "Open arrow"), (E::ClosedArrow, "Closed arrow"), (E::Circle, "Circle"), (E::Square, "Square"), (E::Diamond, "Diamond")]
+};
+
 /// Shape tool kinds clicked out as closed outlines: polygon (4), cloud (5), area (9).
 pub fn closed_shape(kind: i32) -> bool {
     matches!(kind, 4 | 5 | 9)

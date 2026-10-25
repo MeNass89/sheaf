@@ -80,3 +80,20 @@ fn rotate_and_unlock_of_protected_file_pass_qpdf_check_without_warnings() {
         }
     }
 }
+#[test]
+fn only_the_odd_or_even_and_the_portrait_or_landscape_pages_turn_when_asked() {
+    use sheaf_core::rotate::{rotate_filtered, PageFilter};
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 4);
+    let rot = |p: &std::path::Path| {
+        let d = lopdf::Document::load(p).unwrap();
+        (1..=4).map(|n| d.get_dictionary(d.get_pages()[&n]).unwrap().get(b"Rotate").and_then(|o| o.as_i64()).unwrap_or(0)).collect::<Vec<_>>()
+    };
+    let even = rotate_filtered(&Input::new(&a), None, 90, PageFilter { parity: 2, orientation: 0 }, &t.path().join("even.pdf")).unwrap();
+    assert_eq!(rot(&even), [0, 90, 0, 90]);
+    // Pages 2 and 4 now show landscape: turning the landscape ones only turns them back.
+    let back = rotate_filtered(&Input::new(&even), None, 270, PageFilter { parity: 0, orientation: 2 }, &t.path().join("back.pdf")).unwrap();
+    assert_eq!(rot(&back), [0, 0, 0, 0]);
+    let odd_portrait = rotate_filtered(&Input::new(&even), Some("1-3"), 180, PageFilter { parity: 1, orientation: 1 }, &t.path().join("op.pdf")).unwrap();
+    assert_eq!(rot(&odd_portrait), [180, 90, 180, 90]);
+}

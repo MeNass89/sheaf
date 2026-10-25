@@ -25,3 +25,15 @@ fn properties_read_restrictions_pdfa_and_dates_from_the_file() {
     assert_eq!(f.pdfa.as_deref(), Some("PDF/A-2b"));
     assert!(f.modified.is_some() || f.created.is_some(), "{f:?}");
 }
+
+#[test]
+fn custom_properties_are_read_past_the_standard_ones() {
+    let t = tempfile::tempdir().unwrap();
+    let a = common::fixture_pdf(t.path(), "a.pdf", 1);
+    let mut d = lopdf::Document::load(&a).unwrap();
+    let info = d.add_object(lopdf::dictionary! { "Title" => lopdf::Object::string_literal("T"), "Client" => lopdf::Object::string_literal("Acme") });
+    d.trailer.set("Info", info);
+    d.save(&a).unwrap();
+    let f = sheaf_core::facts::read(&std::fs::read(&a).unwrap(), None);
+    assert_eq!(f.custom, [("Client".to_string(), "Acme".to_string())]);
+}

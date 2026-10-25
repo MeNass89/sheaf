@@ -303,6 +303,8 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Document properties…", keys: "⌘D", on: false },
                                 // Acrobat's Prepare a Form, among its tools: add, move and set up fields.
                                 { text: "Prepare form", keys: "F", on: root.tab.reader.tool == 14 },
+                                // Acrobat's Protect ▸ Sanitize Document: hidden information removed, ⌘Z undoes it.
+                                { text: "Sanitize document", keys: "", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -322,6 +324,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 8 { ReaderBridge.print-open(root.id); }
                                         if k == 9 { ReaderBridge.props-open(root.id); }
                                         if k == 10 { ReaderBridge.set-tool(root.id, root.tab.reader.tool == 14 ? 0 : 14); }
+                                        if k == 11 { ReaderBridge.sanitize(root.id); }
                                         root.focus-pages();
                                     }
                                 }

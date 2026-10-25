@@ -172,3 +172,24 @@ fn protecting_a_protected_file_changes_its_password() {
     let opens = |pw: &str| Command::new("qpdf").arg(format!("--password={pw}")).arg("--check").arg(&new).output().unwrap().status.success();
     assert!(opens("new") && !opens("old"), "the new password opens it, the old one no longer does");
 }
+
+#[test]
+fn sanitize_removes_the_metadata_the_scripts_and_the_attachments() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    // An author, a script run on opening, an attached file.
+    let marked = t.path().join("marked.pdf");
+    let s = Command::new("qpdf").arg(&a).arg("--add-attachment").arg(&a).arg("--").arg(&marked).output().unwrap();
+    assert!(s.status.success(), "{}", String::from_utf8_lossy(&s.stderr));
+    let mut d = lopdf::Document::load(&marked).unwrap();
+    let js = d.add_object(lopdf::dictionary! { "S" => "JavaScript", "JS" => lopdf::Object::string_literal("app.alert('hi')") });
+    let root = d.trailer.get(b"Root").unwrap().as_reference().unwrap();
+    d.get_dictionary_mut(root).unwrap().set("OpenAction", js);
+    let info = d.add_object(lopdf::dictionary! { "Author" => lopdf::Object::string_literal("Ada Lovelace") });
+    d.trailer.set("Info", info);
+    d.save(&marked).unwrap();
+    let out = sheaf_core::security::sanitize(&Input::new(&marked), &t.path().join("clean.pdf")).unwrap();
+    let q = String::from_utf8_lossy(&Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap().stdout).into_owned();
+    assert!(!q.contains("Ada Lovelace") && !q.contains("/JavaScript") && !q.contains("/EmbeddedFile"), "{q}");
+    assert_eq!(page_texts(&out), ["Page 1"]);
+}

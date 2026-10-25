@@ -321,3 +321,40 @@ Each line: the component, Sol's gap, what was done, its proof.
   - **C-convert-013** Same fix as C-convert-012 (pictures inside forms).
 - Prepare form lives in More ▸ Prepare form and on F: a toolbar button moved the bar's right half, which the
   smoke's coordinates (zoom field, More, the wrench) are measured on.
+
+## Round 11 (25/10, the forms' remaining gaps and more of Sol's)
+- **C-forms-012** The field card sets the text's size ("Auto" or points) and alignment for text fields, dropdowns
+  and lists (Acrobat's Appearance ▸ Font size, Options ▸ Alignment).
+- **C-forms-010** A button's card says what a click does: nothing, clear the form, print, or open a web address
+  (Acrobat's Actions ▸ Mouse Up). Proof: `prepare::tests::a_size_typed_and_a_click_chosen_become_the_fields_properties`.
+- **C-forms-003** Saving says which required fields are still empty ("Saved form.pdf. 2 required fields are
+  empty: Name, City"). Proof: `prepare::tests::required_fields_left_empty_are_named_on_save`.
+- **C-organize-008** (Sol b14) Remove blank pages had one fixed threshold: Strict, Normal (Acrobat's) or Scans
+  (grey paper, white from 200; Stirling's threshold in three steps). Proof: sheaf-core
+  `pages::blank_pages_are_found_and_text_or_drawn_ones_are_not` (a grey scan blank only at Scans).
+- **C-organize-004** (Sol b13b) Rotate turned every page of the range: the even or odd ones only, the portrait or
+  landscape ones only (as shown, their rotation counted), as Acrobat's Rotate Pages. Proof: sheaf-core
+  `rotate::only_the_odd_or_even_and_the_portrait_or_landscape_pages_turn_when_asked`.
+- **C-edit-005** (Sol b13b) A paragraph open in Edit text kept its own style whatever the format row said: what
+  is changed in the row while it is open (colour, size, font, alignment) applies to it, the rest stays its own.
+- **C-preferences-004** (Sol b14) Only the opening zoom could be chosen: Preferences ▸ Documents also sets the
+  pages of a document never opened before: one column, two side by side, or two with the cover alone (PDF
+  Expert's and Preview's default view). Proof: `tests/history.rs` (the preference is kept).
+- **C-organize-016** (Sol b13b) Split by size wrote a page larger than the limit without a word: the result says
+  which pages are over it alone (a page cannot be cut). Proof: sheaf-core `pages::split_by_size_groups_pages_under_the_limit`.
+- **C-security-016** No Sanitize: More ▸ Sanitize document (Acrobat's) removes the hidden information in one step
+  (metadata, scripts and actions, attachments, links, hidden text, layers: PdfCraft's Sanitize), undone by ⌘Z
+  until saved. Proof: sheaf-core `security::sanitize_removes_the_metadata_the_scripts_and_the_attachments`.
+- **C-security-001** (Sol b13c) The Protect panel had passwords and permissions only: it also removes the hidden
+  information first when asked (Acrobat's Protect tool gathers both).
+- **C-optimize-011** (Sol b13c) A damaged PDF closed its tab with an error: it opens in Repair PDF, ready to
+  rebuild it (a file that does not start as a PDF is still refused). Proof: gui-smoke 11.
+- **C-annotate-013** (Sol b13c) The arrow had one head, at one end: its head is chosen (open or closed arrow,
+  circle, square, diamond: a click on the options bar's name goes to the next) and Both ends puts it at the start
+  too (Acrobat's Line Ends).
+- **C-security-017** (Sol b13c) Document Properties had only the four standard entries to edit: its own (custom)
+  properties are listed and edited too, "Name: value; …" (Acrobat's Custom tab); one taken out is emptied.
+  Proof: sheaf-core `facts::custom_properties_are_read_past_the_standard_ones`,
+  `reader_ui::properties::tests::custom_properties_are_typed_as_name_and_value_pairs`.
+- **C-compare-006** (Sol b13b) The proof never ran a comparison: gui-smoke 26 now runs one (Overlay) and opens
+  its result, the marked copy in the reader with its differences listed in the Notes panel.

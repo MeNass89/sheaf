@@ -285,6 +285,12 @@ pub struct ReaderUi {
     /// a selected field being dragged (page, from, to; view points).
     field_kind: i32,
     radio_group: Option<String>,
+    /// Shapes ▸ Arrow: its head (`reader::ARROW_HEADS`) and whether both ends carry one.
+    arrow_head: usize,
+    arrow_both: bool,
+    /// Edit text: what of the format row was changed while a paragraph is open (1 colour, 2 size,
+    /// 4 font, 8 alignment): those apply to it, the rest of its style stays its own.
+    para_format: u8,
     form_sel: Option<(usize, [f64; 4])>,
     form_drag: Option<FormDrag>,
     /// Generation of the running search, shared with its thread so it stops when replaced.
@@ -432,6 +438,9 @@ impl ReaderUi {
             replace_quads: Vec::new(),
             field_kind: 0,
             radio_group: None,
+            arrow_head: 0,
+            arrow_both: false,
+            para_format: 0,
             form_sel: None,
             form_drag: None,
             search_live: Default::default(),
@@ -594,6 +603,12 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             crate::flow::remove_tab(ui, id);
             match e {
                 sheaf_core::OpdfError::PasswordRequired(_) | sheaf_core::OpdfError::WrongPassword(_) => crate::password::ask_reader(ui, input.path, input.password.is_some()),
+                // A damaged PDF goes to Repair PDF, ready to rebuild it (Acrobat repairs as it opens;
+                // Sol 25/10: the tab just closed).
+                sheaf_core::OpdfError::Pdfium(_) | sheaf_core::OpdfError::Lopdf(_) | sheaf_core::OpdfError::Engine(_) if sheaf_app::files::looks_like_pdf(&input.path) => {
+                    crate::flow::toast(ui, &format!("{} Repair PDF can try to rebuild it.", sheaf_app::files::open_error(&file_name(&input.path), &e)));
+                    crate::flow::open_tool(ui, sheaf_core::tools::ToolId::Repair, vec![input.path]);
+                }
                 e => crate::flow::toast(ui, &sheaf_app::files::open_error(&file_name(&input.path), &e)),
             }
         }
@@ -676,7 +691,9 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                         save(ui, id);
                         return;
                     }
-                    crate::flow::toast(ui, &format!("Saved {n}"));
+                    // Required fields left empty are said (Acrobat warns before a form goes out).
+                    let empty = update(id, |r, _| prepare::required_empty(&r.snap.fields)).unwrap_or_default();
+                    crate::flow::toast(ui, &format!("Saved {n}{}", prepare::empty_note(&empty)));
                     if update(id, |r, _| std::mem::take(&mut r.tools_after_save)).unwrap_or(false) {
                         hand_to_tools(ui, id);
                     }
@@ -787,18 +804,22 @@ fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
             }
             _ => {}
         }
-    } else if crate::home::prefs().default_zoom == 2 {
-        // Preferences ▸ Open documents at Actual size. The zoom is a share of the view's width,
-        // which may still be a first guess: it is set again as the width comes, until a zoom of
-        // the user's own.
-        if width > 0.0 {
-            let z = v.viewer.zoom_for_actual(0, 100.0);
-            v.viewer.set_zoom(z);
+    } else {
+        // A document never opened: Preferences ▸ Documents, its pages side by side or not and its
+        // zoom. Actual size: the zoom is a share of the view's width, which may still be a first
+        // guess: it is set again as the width comes, until a zoom of the user's own.
+        let p = crate::home::prefs();
+        v.viewer.set_spread(p.default_spread.min(2));
+        if p.default_zoom == 2 {
+            if width > 0.0 {
+                let z = v.viewer.zoom_for_actual(0, 100.0);
+                v.viewer.set_zoom(z);
+            }
+            v.pending_actual = Some(100.0);
+        } else if p.default_zoom == 1 {
+            // Fit page: the height decides, set as the view reports it (kept on later resizes by keep_fit).
+            v.pending_fit = true;
         }
-        v.pending_actual = Some(100.0);
-    } else if crate::home::prefs().default_zoom == 1 {
-        // Fit page: the height decides, set as the view reports it (kept on later resizes by keep_fit).
-        v.pending_fit = true;
     }
     if let Some(p) = crate::home::last_page(path).filter(|p| *p > 0) {
         v.show_page(p, None);

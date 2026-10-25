@@ -102,6 +102,9 @@ pub struct Prefs {
     pub plain_fields: bool,
     /// How a document never opened before is shown: 0 fit width, 1 fit page, 2 actual size.
     pub default_zoom: i32,
+    /// And its pages: 0 one column, 1 two side by side, 2 two with the cover alone (PDF Expert's
+    /// and Preview's default view).
+    pub default_spread: u8,
     /// The reader's side panel width in px, dragged by its edge (0: the default, 248).
     pub panel_width: u16,
     /// Accent colour (0 Sheaf red, 1 blue, 2 green, 3 purple, 4 orange, 5 graphite).

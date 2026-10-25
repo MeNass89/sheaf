@@ -148,6 +148,13 @@ fn split_by_size_groups_pages_under_the_limit() {
     std::fs::create_dir(&each).unwrap();
     assert_eq!(split_size(&Input::new(&a), 100 << 20, &one).unwrap().len(), 1, "all under 100 MB: one file");
     assert_eq!(split_size(&Input::new(&a), 1, &each).unwrap().len(), 6, "each page over 1 byte: a file each");
+    // Pages over the limit alone are said, not hidden.
+    let again = t.path().join("again");
+    std::fs::create_dir(&again).unwrap();
+    let (files, over) = split_size_report(&Input::new(&a), 1, &again).unwrap();
+    assert_eq!((files.len(), &over[..]), (6, &[1, 2, 3, 4, 5, 6][..]));
+    assert_eq!(oversize_note(&over[..1]), "Page 1 alone is larger than the size asked: its file is too");
+    assert!(oversize_note(&over).starts_with("6 pages alone") && oversize_note(&[]).is_empty());
 }
 
 #[test]
@@ -155,12 +162,17 @@ fn blank_pages_are_found_and_text_or_drawn_ones_are_not() {
     use sheaf_core::images::{images_to_pdf, PageLayout};
     let t = tempfile::tempdir().unwrap();
     let text = fixture_pdf(t.path(), "text.pdf", 2);
-    let (white, drawn) = (t.path().join("white.png"), t.path().join("drawn.png"));
+    let (white, drawn, grey) = (t.path().join("white.png"), t.path().join("drawn.png"), t.path().join("grey.png"));
     image::RgbImage::from_pixel(60, 80, image::Rgb([255, 255, 255])).save(&white).unwrap();
     image::RgbImage::from_fn(60, 80, |x, _| if x < 30 { image::Rgb([20, 20, 20]) } else { image::Rgb([255, 255, 255]) }).save(&drawn).unwrap();
-    let pics = images_to_pdf(&[white, drawn], PageLayout::FitImage, &t.path().join("pics.pdf")).unwrap();
+    // An empty page scanned on grey paper.
+    image::RgbImage::from_pixel(60, 80, image::Rgb([215, 215, 215])).save(&grey).unwrap();
+    let pics = images_to_pdf(&[white, drawn, grey], PageLayout::FitImage, &t.path().join("pics.pdf")).unwrap();
     let all = merge(&[Input::new(&text), Input::new(&pics)], &t.path().join("all.pdf")).unwrap();
-    assert_eq!(blank_pages(&Input::new(&all)).unwrap(), [3], "the white picture only");
+    assert_eq!(blank_pages(&Input::new(&all), 1).unwrap(), [3], "the white picture only");
+    // Scans: the grey page is blank too; strict or not, the drawn one never is.
+    assert_eq!(blank_pages(&Input::new(&all), 2).unwrap(), [3, 5]);
+    assert_eq!(blank_pages(&Input::new(&all), 0).unwrap(), [3]);
 }
 
 #[test]

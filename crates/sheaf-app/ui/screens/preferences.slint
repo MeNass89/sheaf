@@ -126,6 +126,8 @@ export component PreferencesScreen inherits Rectangle {
     // How a document opened for the first time is shown (0 fit width, 1 fit page, 2 actual size).
     in property <int> default-zoom;
     callback set-default-zoom(int);
+    in property <int> default-spread;
+    callback set-default-spread(int);
     // Accent colour (Theme.accent-choice) and the window background behind the pages (0 as the
     // theme, then light grey, mid grey, dark, black; Preview's Window background).
     in property <int> backdrop-pref;
@@ -255,6 +257,16 @@ export component PreferencesScreen inherits Rectangle {
                         text: label;
                         selected: root.default-zoom == i;
                         clicked => { root.set-default-zoom(i); }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    for label[i] in ["One page", "Two pages", "Two, cover alone"]: Segment {
+                        width: 136px;
+                        text: label;
+                        selected: root.default-spread == i;
+                        clicked => { root.set-default-spread(i); }
                     }
                 }
             }

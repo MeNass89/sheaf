@@ -47,6 +47,9 @@ export component ReaderOptionsBar inherits Rectangle {
             ToolButton { icon: @image-url("../icons/slash.svg"); tip: "Line"; active: root.tab.reader.shape-kind == 2; clicked => { ReaderBridge.shape-option(root.id, 0, 2); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/move-up-right.svg"); tip: "Arrow"; active: root.tab.reader.shape-kind == 3; clicked => { ReaderBridge.shape-option(root.id, 0, 3); root.focus-pages(); } }
             if root.tab.reader.shape-kind < 2 || root.tab.reader.shape-kind == 4 || root.tab.reader.shape-kind == 5: SmallButton { y: 2px; text: "Fill"; primary: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); root.focus-pages(); } }
+            // The arrow's head (a click goes to the next) and both ends (Acrobat's Line Ends).
+            if root.tab.reader.shape-kind == 3: SmallButton { y: 2px; text: root.tab.reader.arrow-head; clicked => { ReaderBridge.shape-option(root.id, 6, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind == 3: SmallButton { y: 2px; text: "Both ends"; primary: root.tab.reader.arrow-both; clicked => { ReaderBridge.shape-option(root.id, 7, 0); root.focus-pages(); } }
         }
         // Link: links of the text's web addresses; new links' look (Acrobat's Link Properties ▸
         // Appearance: invisible by default, else a border in the colour, width and style chosen).

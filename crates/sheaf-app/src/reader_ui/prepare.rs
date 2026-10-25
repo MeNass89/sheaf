@@ -3,7 +3,7 @@
 //! properties, and finds a flat form's fields for you (Detect fields).
 
 use super::*;
-use sheaf_core::pdfcraft::engine::{FieldProps, NewField};
+use sheaf_core::pdfcraft::engine::{FieldAction, FieldProps, FieldTrigger, NewField};
 
 /// The field kinds the options bar offers, in its order (Acrobat's Prepare Form toolbar).
 pub const FIELD_KINDS: [&str; 9] = ["Text", "Check box", "Radio", "Dropdown", "List", "Date", "Button", "Signature", "Image"];
@@ -156,9 +156,11 @@ pub fn detect_fields(ui: &AppWindow, tab_id: i32) {
 }
 
 /// The selected field's properties card ▸ Done: what changed, one undo step; the card closes (the
-/// field is let go, as Acrobat's Properties dialog closes). `options`: one per line.
+/// field is let go, as Acrobat's Properties dialog closes). `options`: one per line. `look`: the
+/// text's size typed ("" or "Auto": fitted) and its alignment (0 left, 1 centre, 2 right).
+/// `click`: a button's action (0 nothing, 1 clear the form, 2 print, 3 open the address).
 #[allow(clippy::too_many_arguments)]
-pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, required: bool, read_only: bool, multiline: bool, options: &str) {
+pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, required: bool, read_only: bool, multiline: bool, options: &str, look: (&str, i32), click: (i32, &str)) {
     let edit = update(tab_id, |r, _| {
         let (fi, _, page, _) = selected_field(r)?;
         let f = &r.snap.fields[fi];
@@ -171,6 +173,9 @@ pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, requi
             read_only: (read_only != f.read_only).then_some(read_only),
             multiline: (f.exact == 0 && multiline != f.multiline).then_some(multiline),
             options: (matches!(f.exact, 3 | 4) && !options.is_empty() && options != f.options.iter().map(|o| o.1.clone()).collect::<Vec<_>>()).then_some(options),
+            quadding: (matches!(f.exact, 0 | 3 | 4) && look.1 != f.align).then_some(look.1.clamp(0, 2) as i64),
+            font_size: font_size(look.0).filter(|s| matches!(f.exact, 0 | 3 | 4) && (s - f.font_size).abs() > 0.01),
+            actions: (f.exact == 5 && (click.0 != f.action || (click.0 == 3 && click.1.trim() != f.url))).then(|| click_action(click.0, click.1)),
             ..Default::default()
         };
         let edit = (props != FieldProps::default()).then(|| (page, Edit::SetFieldProps { name: f.name.clone(), props: Box::new(props) }));
@@ -180,6 +185,25 @@ pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, requi
     .flatten();
     if let Some((page, e)) = edit {
         apply(ui, tab_id, e, &[page], None);
+    }
+}
+
+/// A text size typed in the card: points, or 0 for "Auto" (empty); `None` when it is no size.
+pub(super) fn font_size(typed: &str) -> Option<f64> {
+    let t = typed.trim();
+    if t.is_empty() || t.eq_ignore_ascii_case("auto") {
+        return Some(0.0);
+    }
+    t.trim_end_matches("pt").trim().replace(',', ".").parse::<f64>().ok().filter(|s| (1.0..=300.0).contains(s))
+}
+
+/// A button's click as its Actions (Mouse Up): nothing, clear the form, print, open an address.
+pub(super) fn click_action(k: i32, url: &str) -> Vec<(FieldTrigger, FieldAction)> {
+    match k {
+        1 => vec![(FieldTrigger::MouseUp, FieldAction::Reset(Vec::new()))],
+        2 => vec![(FieldTrigger::MouseUp, FieldAction::Named("Print".into()))],
+        3 if !url.trim().is_empty() => vec![(FieldTrigger::MouseUp, FieldAction::Uri(url.trim().into()))],
+        _ => Vec::new(),
     }
 }
 
@@ -250,10 +274,70 @@ pub(super) fn form_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -
                 multiline: f.multiline,
                 exact: f.exact,
                 options: f.options.iter().map(|o| o.1.as_str()).collect::<Vec<_>>().join("\n").into(),
+                align: f.align,
+                font_size: if f.font_size > 0.0 { format!("{}", f.font_size).into() } else { "Auto".into() },
+                action: f.action,
+                url: f.url.clone().into(),
                 other_pages: (0..v.viewer.page_count()).any(|p| !f.widgets.iter().any(|w| w.0 == p)),
             }
         }
         None => ReaderFieldProps::default(),
     };
     (list, props)
+}
+
+/// The required fields still empty: text and choices without a value, radio groups with none picked.
+pub(super) fn required_empty(fields: &[reader_doc::FieldEntry]) -> Vec<String> {
+    fields.iter().filter(|f| f.required && matches!(f.exact, 0 | 2 | 3 | 4) && f.value.iter().all(|v| v.trim().is_empty() || v == "Off")).map(|f| f.name.clone()).collect()
+}
+
+/// What the "Saved" message adds about them: ". 2 required fields are empty: Name, City".
+pub(super) fn empty_note(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => format!(". The required field {one} is empty"),
+        many => format!(". {} required fields are empty: {}", many.len(), many.iter().take(3).cloned().collect::<Vec<_>>().join(", ") + if many.len() > 3 { "…" } else { "" }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn field(name: &str, exact: i32, required: bool, value: &[&str]) -> reader_doc::FieldEntry {
+        reader_doc::FieldEntry {
+            name: name.into(),
+            kind: exact.min(4),
+            value: value.iter().map(|v| v.to_string()).collect(),
+            options: Vec::new(),
+            read_only: false,
+            required,
+            tooltip: String::new(),
+            multiline: false,
+            exact,
+            align: 0,
+            font_size: 0.0,
+            action: 0,
+            url: String::new(),
+            widgets: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn required_fields_left_empty_are_named_on_save() {
+        let fields = [field("Name", 0, true, &[""]), field("City", 0, true, &["Paris"]), field("Group1", 2, true, &["Off"]), field("Notes", 0, false, &[])];
+        let empty = required_empty(&fields);
+        assert_eq!(empty, ["Name", "Group1"]);
+        assert_eq!(empty_note(&empty), ". 2 required fields are empty: Name, Group1");
+        assert_eq!(empty_note(&empty[..1]), ". The required field Name is empty");
+        assert_eq!(empty_note(&[]), "");
+    }
+
+    #[test]
+    fn a_size_typed_and_a_click_chosen_become_the_fields_properties() {
+        assert_eq!((font_size(""), font_size("Auto"), font_size("12"), font_size("10,5 pt"), font_size("big")), (Some(0.0), Some(0.0), Some(12.0), Some(10.5), None));
+        assert!(click_action(0, "").is_empty() && click_action(3, " ").is_empty());
+        assert!(matches!(&click_action(3, "https://a.b")[..], [(FieldTrigger::MouseUp, FieldAction::Uri(u))] if u == "https://a.b"));
+        assert!(matches!(&click_action(2, "")[..], [(_, FieldAction::Named(n))] if n == "Print"));
+    }
 }

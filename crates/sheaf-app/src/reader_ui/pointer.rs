@@ -448,6 +448,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             match (e.target, e.dragging) {
                 (EditTarget::Block(i, text, _, rect, at), false) => {
                     r.preview_text = text.trim().to_string();
+                    r.para_format = 0;
                     r.draft = Some(Draft { page: e.page, at, kind: 2, block: Some((i, text, rect)), field: None });
                     r.note_seq += 1;
                 }

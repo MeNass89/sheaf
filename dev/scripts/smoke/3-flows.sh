@@ -114,6 +114,18 @@ click 50 21 1; click 67 113 1; click 993 76 0.5; xdotool type --delay 20 "compar
 click 388 411 1; click 330 481 2; click 600 411 1; click 560 481 2; shot 26-compare
 CS=$(ocr 500x40+300+450)
 check "Compare's slots take open documents ($CS)" "echo \"$CS\" | grep -q 'one.pdf.*two.pdf'"
+# Run with Overlay: the result card's open icon (167,236) shows the marked copy in the reader, its differences listed in the Notes panel
+# (the two pages differ by colour only: one changed area).
+OV=$(at Overlay 280x700+1000+90); [ -n "$OV" ] && click $OV 1
+# Compare PDF (1134,756), its result waited for (a second press if the first was not taken); where to save
+# it is answered in case the profile asks.
+answer "$PWD/$OUT/reo/compared.pdf"
+for try in 1 2; do
+    click 1134 756 1; for _ in $(seq 1 20); do ocr 700x60+100+712 | grep -q successfully && break 2; sleep 0.5; done
+done
+answer ""; click 167 236 3; shot 26-compare-open   # the result card's open icon
+NL=$(ocr 245x600+0+130)
+check "Compare's marked copy opens in the reader, its differences listed (${NL:0:60})" "echo \"$NL\" | grep -qi 'changed area'"
 quit
 
 # 27. Protect with restrictions only (Acrobat's Restrict editing and printing): "Require a password to open"
@@ -320,7 +332,7 @@ quit
 # 45. Home ▸ New blank PDF: named in the Save dialog (the test seam answers it), one blank page, opened in a tab.
 launch; answer "$PWD/$OUT/blank.pdf"; NB=$(at New 900x120+300+80); [ -n "$NB" ] && click $NB 2.5
 BP=$( [ -f "$OUT/blank.pdf" ] && npages "$OUT/blank.pdf" ); answer ""
-check "New blank PDF writes one blank page and opens it (${NB:-no button}; ${BP:-no file} page; $(ntabs) tabs)" "[ \"$BP\" = 1 ] && [ \"\$(ntabs)\" = 2 ]"
+check "New blank PDF writes one blank page and opens it (${NB:-no button}; ${BP:-no file} page; $(ntabs) document tab)" "[ \"$BP\" = 1 ] && [ \"\$(ntabs)\" = 1 ]"
 quit
 
 # 46. Replace text (the selection bar's Replace text…, 7th of its 30 px buttons, the bar 42 px above the line):
@@ -346,11 +358,13 @@ check "PDF to HTML or text writes Markdown with every page in order ($(ls $OUT/m
 quit
 
 # 53. Prepare form (F; More ▸ Prepare form): a text field dragged 500,400 → 700,430 opens its card under it (name
-# 650,487; Required 520,554; Done 788,586): named "Full name", required. A check box (its kind at 372,109) clicked
+# 650,487; Required and Done found below it): named "Full name", required. A check box (its kind at 372,109) clicked
 # at 500,600 is placed selected: Delete removes it; another at 500,650 stays. Saved: the two fields, as set.
 cp "$OUT/text.pdf" "$OUT/prep.pdf"; launch "$OUT/prep.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6
 xdotool mousemove 500 400 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 40 )) $(( 400 + i * 6 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
-click 650 487 0.4; xdotool key ctrl+a; xdotool type --delay 20 "Full name"; click 520 554 0.3; click 788 586 1.2
+click 650 487 0.4; xdotool key ctrl+a; xdotool type --delay 20 "Full name"
+RQ=$(at Required 400x300+490+430); [ -n "$RQ" ] && click $RQ 0.3   # the whole check, its label included, toggles
+DN=$(at Done 400x300+490+430); [ -n "$DN" ] && click $DN 1.2
 click 372 109 0.5; click 500 600 1.2; key Delete; sleep 1; click 500 650 1.2; key ctrl+s; sleep 1.5; shot 53-prepare
 PF=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null)
 check "Prepare form places fields, names one and makes it required, and Delete removes one ($(echo "$PF" | grep -ac '/FT /Btn') check box)" "echo \"\$PF\" | grep -aq '/T (Full name)' && echo \"\$PF\" | grep -aq '/Ff 2' && [ \"\$(echo \"\$PF\" | grep -ac '/FT /Btn')\" = 1 ]"

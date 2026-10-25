@@ -86,6 +86,9 @@ toastText() { import -window root -crop 380x26+450+742 png:- 2>/dev/null | conve
 ( for i in $(seq 1 30); do t=$(toastText); echo "$t"; echo "$t" | grep -qi damaged && break; sleep 0.1; done > "$OUT/toast.txt" ) & TP=$!
 launch "$OUT/broken.pdf"; wait $TP; BR=$(tr '\n' ' ' < "$OUT/toast.txt"); shot 11-broken
 check "a damaged PDF is refused in one line, the app stays open" "kill -0 $APP_PID 2>/dev/null && echo \"$BR\" | grep -qi 'damaged or not a PDF'"
+# It opens in Repair PDF, ready to rebuild it; Home (60,21) again for the theme checks.
+RP=$(ocr 1280x30+0+5); check "a damaged PDF opens in Repair PDF (${RP:0:60})" "echo \"$RP\" | grep -q 'Repair'"
+click 60 21 1
 lum() { import -window root -crop 40x40+600+700 png:- 2>/dev/null | convert - -colorspace Gray -format '%[fx:mean]' info:; }
 PR=$(at Preferences 250x300+0+40); [ -n "$PR" ] && click $PR 1
 DK=$(at Dark); [ -n "$DK" ] && click $DK 1.2; L1=$(lum); shot 11-dark

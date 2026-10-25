@@ -100,6 +100,12 @@ pub struct FieldEntry {
     pub multiline: bool,
     /// Which field exactly: 0 text, 1 check box, 2 radio button, 3 dropdown, 4 list, 5 button, 6 signature.
     pub exact: i32,
+    /// Its text's alignment (0 left, 1 centre, 2 right) and size in points (0: auto).
+    pub align: i32,
+    pub font_size: f64,
+    /// A button's click: 0 nothing (or another action), 1 clear the form, 2 print, 3 open `url`.
+    pub action: i32,
+    pub url: String,
     /// (page, rect in user space, the widget's "on" state for check boxes and radios, tab order).
     pub widgets: Vec<(usize, [f64; 4], Option<String>, usize)>,
 }
@@ -256,7 +262,7 @@ fn snap(doc: &Doc) -> Snap {
 }
 
 fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
-    use sheaf_core::pdfcraft::engine::{field_flags, FormFieldKind as K};
+    use sheaf_core::pdfcraft::engine::{field_flags, form_scripts::ButtonAction as B, FormFieldKind as K};
     d.form
         .iter()
         .map(|f| FieldEntry {
@@ -282,6 +288,18 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
                 K::List => 4,
                 K::PushButton => 5,
                 _ => 6,
+            },
+            align: f.quadding.clamp(0, 2) as i32,
+            font_size: f.da.split_whitespace().collect::<Vec<_>>().windows(2).find(|w| w[1] == "Tf").and_then(|w| w[0].parse().ok()).unwrap_or(0.0),
+            action: match &f.button {
+                Some(B::Reset { .. }) => 1,
+                Some(B::Named(n)) if n == "Print" => 2,
+                Some(B::Uri(_)) => 3,
+                _ => 0,
+            },
+            url: match &f.button {
+                Some(B::Uri(u)) => u.clone(),
+                _ => String::new(),
             },
             widgets: f.widgets.iter().filter_map(|w| Some((w.page?, w.rect, w.on_state.clone(), w.tab))).collect(),
         })

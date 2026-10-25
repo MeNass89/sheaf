@@ -258,17 +258,19 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             },
             out_dir: folder,
         },
-        ToolId::RemovePages => Job::RemovePages { input: one(inputs)?, pages: if opts.remove_blank { jobs::BLANK_PAGES.into() } else { pages }, out: single()? },
+        ToolId::RemovePages => Job::RemovePages { input: one(inputs)?, pages: if opts.remove_blank { format!("{}:{}", jobs::BLANK_PAGES, opts.blank_level.clamp(0, 2)) } else { pages }, out: single()? },
         ToolId::ExtractPages => Job::ExtractPages { input: one(inputs)?, pages, out: single()? },
         ToolId::Organize => Job::Organize { input: one(inputs)?, order, out: single()? },
         ToolId::Rotate => Job::Rotate {
             items: pairs(inputs),
             degrees: opts.degrees as i64,
             pages: (!pages.is_empty()).then_some(pages),
+            filter: sheaf_core::rotate::PageFilter { parity: opts.rotate_parity.clamp(0, 2) as u8, orientation: opts.rotate_orientation.clamp(0, 2) as u8 },
         },
         ToolId::Compress => Job::Compress { items: pairs(inputs), level: parse_level(opts.level) },
         ToolId::Protect => Job::Protect {
             items: pairs(inputs),
+            sanitize: opts.protect_sanitize,
             password: opts.password.to_string(),
             owner: (!opts.owner.is_empty()).then(|| opts.owner.to_string()),
             permissions: sheaf_core::security::ProtectPermissions {

@@ -118,6 +118,8 @@ export component AppWindow inherits Window {
     in property <string> author-name;
     in property <int> default-zoom;
     callback set-default-zoom(int);
+    in property <int> default-spread;
+    callback set-default-spread(int);
     in property <string> author-default;
     property <bool> confirm-clear;
 
@@ -289,6 +291,8 @@ export component AppWindow inherits Window {
                             author-default: root.author-default;
                             default-zoom: root.default-zoom;
                             set-default-zoom(z) => { root.set-default-zoom(z); }
+                            default-spread: root.default-spread;
+                            set-default-spread(s) => { root.set-default-spread(s); }
                             backdrop-pref: root.backdrop-pref;
                             set-accent(i) => { root.set-accent(i); }
                             set-backdrop(i) => { root.set-backdrop(i); }

@@ -79,6 +79,10 @@ pub fn set_colour(ui: &AppWindow, tab_id: i32, k: i32) {
             r.ink_colour = k;
         }
         remember_style(r);
+        // A paragraph open in Edit text takes the colour (Sol, 25/10: it kept its own).
+        if r.draft.as_ref().is_some_and(|d| d.kind == 2) {
+            r.para_format |= 1;
+        }
         // Picked in the selection bar: it is the colour its Highlight button uses, so the
         // highlighter keeps it (the bar takes the highlighter's saved colour).
         if r.tool == SELECT && r.sel.is_some() {
@@ -106,6 +110,13 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
             2 => r.text_bold = !r.text_bold,
             3 => r.text_italic = !r.text_italic,
             _ => r.text_align = v.clamp(0, 2),
+        }
+        if r.draft.as_ref().is_some_and(|d| d.kind == 2) {
+            r.para_format |= match what {
+                0 | 5 => 2,
+                1..=3 => 4,
+                _ => 8,
+            };
         }
         let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| a.subtype == "FreeText" && !a.fill_sign)?;
         let (font, size, align) = (text_font(r), r.text_pt, r.text_align as u8);
@@ -185,6 +196,8 @@ pub fn shape_option(tab_id: i32, what: i32, value: i32) {
         }
         4 => r.link_visible = !r.link_visible,
         5 => r.link_dashed = !r.link_dashed,
+        6 => r.arrow_head = (r.arrow_head + 1) % reader::ARROW_HEADS.len(),
+        7 => r.arrow_both = !r.arrow_both,
         _ => {
             r.opacity = (r.opacity + 1) % reader::OPACITIES.len();
             remember_style(r);

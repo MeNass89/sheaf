@@ -15,6 +15,8 @@ pub struct Facts {
     pub modified: Option<String>,
     /// Page 1's boxes in millimetres: media and crop always, trim, bleed and art when the file sets them.
     pub boxes: Vec<(&'static str, String)>,
+    /// The document's own properties (Acrobat's Custom tab): Info entries past the standard ones.
+    pub custom: Vec<(String, String)>,
 }
 
 /// The /P bits (PDF 32000 table 22) and what each forbids when it is off.
@@ -53,6 +55,12 @@ pub fn read(bytes: &[u8], password: Option<&str>) -> Facts {
     if let Ok(info) = doc.trailer.get(b"Info").and_then(|o| doc.dereference(o).map(|(_, o)| o.clone())).and_then(|o| o.as_dict().cloned()) {
         f.created = date(&info, b"CreationDate");
         f.modified = date(&info, b"ModDate");
+        const STANDARD: [&[u8]; 9] = [b"Title", b"Author", b"Subject", b"Keywords", b"Creator", b"Producer", b"CreationDate", b"ModDate", b"Trapped"];
+        f.custom = info
+            .iter()
+            .filter(|(k, _)| !STANDARD.contains(&k.as_slice()))
+            .filter_map(|(k, v)| Some((String::from_utf8_lossy(k).into_owned(), lopdf::decode_text_string(doc.dereference(v).ok()?.1).ok()?)))
+            .collect();
     }
     f.pdfa = doc.catalog().ok().and_then(|c| c.get(b"Metadata").ok()).and_then(|m| m.as_reference().ok()).and_then(|r| doc.get_object(r).ok()).and_then(|o| o.as_stream().ok()).and_then(|s| s.decompressed_content().ok().or_else(|| Some(s.content.clone()))).and_then(|x| pdfa_of(&String::from_utf8_lossy(&x)));
     if let Some((_, &id)) = doc.get_pages().iter().next() {

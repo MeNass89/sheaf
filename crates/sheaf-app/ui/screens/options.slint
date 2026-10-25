@@ -258,7 +258,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-printing: root.allow-printing, allow-copying: root.allow-copying,
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
-        pages: root.pages, remove-blank: root.remove-blank, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size,
+        pages: root.pages, remove-blank: root.remove-blank, blank-level: root.blank-level, rotate-parity: root.rotate-parity, rotate-orientation: root.rotate-orientation, protect-sanitize: root.protect-sanitize, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size,
         degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
@@ -307,6 +307,10 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <bool> allow-filling-forms: true;
     in-out property <string> pages;
     in-out property <bool> remove-blank;
+    in-out property <int> blank-level: 1;
+    in-out property <int> rotate-parity: 0;
+    in-out property <bool> protect-sanitize;
+    in-out property <int> rotate-orientation: 0;
     in-out property <int> split-mode: 0;
     in-out property <string> split-size;
     in-out property <string> ranges;
@@ -443,6 +447,16 @@ export component OptionsPanel inherits VerticalLayout {
         spacing: 10px;
         // Acrobat's Remove Blank Pages: no text and nothing drawn but specks.
         if root.tool == "remove_pages": Check { text: "The blank pages (found for you)"; checked <=> root.remove-blank; }
+        // How blank (Stirling's threshold): a scan's grey paper needs the lenient step.
+        if root.tool == "remove_pages" && root.remove-blank: HorizontalLayout {
+            spacing: 8px;
+            for label[i] in ["Strict", "Normal", "Scans"]: Segment {
+                width: 96px;
+                text: label;
+                selected: root.blank-level == i;
+                clicked => { root.blank-level = i; }
+            }
+        }
         if !(root.tool == "remove_pages" && root.remove-blank): TextField {
             label: root.tool == "remove_pages" ? "Pages to remove" : "Pages to extract";
             placeholder: "1-3,5";
@@ -475,6 +489,15 @@ export component OptionsPanel inherits VerticalLayout {
             label: "Pages (optional)";
             placeholder: "All pages";
             text <=> root.pages;
+        }
+        // Acrobat's Rotate Pages: of those, the even or odd ones, the portrait or landscape ones.
+        HorizontalLayout {
+            spacing: 8px;
+            for label[i] in ["Even and odd", "Odd only", "Even only"]: Segment { width: 116px; text: label; selected: root.rotate-parity == i; clicked => { root.rotate-parity = i; } }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            for label[i] in ["Any orientation", "Portrait", "Landscape"]: Segment { width: 116px; text: label; selected: root.rotate-orientation == i; clicked => { root.rotate-orientation = i; } }
         }
     }
 
@@ -554,6 +577,9 @@ export component OptionsPanel inherits VerticalLayout {
         Check { text: "Editing"; checked <=> root.allow-editing; }
         Check { text: "Commenting"; checked <=> root.allow-commenting; }
         Check { text: "Filling forms"; checked <=> root.allow-filling-forms; }
+        // Acrobat's Protect ▸ Sanitize Document, in the same panel.
+        SectionLabel { text: "Hidden information"; }
+        Check { text: "Remove it first: metadata, scripts, attachments, links, hidden text, layers"; checked <=> root.protect-sanitize; }
     }
 
     if root.tool == "unlock": InfoBox {

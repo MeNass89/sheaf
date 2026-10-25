@@ -217,7 +217,11 @@ pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64),
         let shape = match r.shape_kind {
             0 => Shape::Rectangle { rect },
             1 => Shape::Oval { rect },
-            k => Shape::Line { from: [pa.0, pa.1], to: [pb.0, pb.1], start: LineEnding::None, end: if k == 3 { LineEnding::OpenArrow } else { LineEnding::None } },
+            // An arrow's head as chosen, at both ends when asked (Acrobat's Line Ends, start and end).
+            k => {
+                let head = if k == 3 { reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].0 } else { LineEnding::None };
+                Shape::Line { from: [pa.0, pa.1], to: [pb.0, pb.1], start: if r.arrow_both { head } else { LineEnding::None }, end: head }
+            }
         };
         let colour = INK[r.ink_colour];
         let fill = (r.shape_fill && r.shape_kind < 2).then(|| reader::fill_tint(colour));
@@ -496,7 +500,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             // The preview, if any, is taken back by the edit itself (the document thread).
             r.preview = None;
             r.preview_timer = None;
-            return paragraph_edit(&d, &text);
+            return paragraph_edit(r, &d, &text);
         }
         if text.is_empty() {
             return None;
@@ -572,14 +576,23 @@ pub fn note_cancel(tab_id: i32) {
     });
 }
 
-/// Edit text: the paragraph's new text (empty deletes it), rewrapped to its box by PdfCraft;
-/// `None` when unchanged.
-fn paragraph_edit(d: &Draft, text: &str) -> Option<(usize, Edit)> {
+/// Edit text: the paragraph's new text (empty deletes it), rewrapped to its box by PdfCraft, in
+/// what of the format row was changed while it was open; `None` when nothing changed.
+fn paragraph_edit(r: &ReaderUi, d: &Draft, text: &str) -> Option<(usize, Edit)> {
     let (block, old, _) = d.block.as_ref()?;
-    if text == old.trim() {
+    if text == old.trim() && r.para_format == 0 {
         return None;
     }
-    let style = sheaf_core::pdfcraft::edit::BlockStyle::default();
+    use sheaf_core::pdfcraft::engine::FontFamily;
+    let f = r.para_format;
+    let family = [FontFamily::Helvetica, FontFamily::Times, FontFamily::Courier][r.text_family.clamp(0, 2) as usize];
+    let style = sheaf_core::pdfcraft::edit::BlockStyle {
+        color: (f & 1 != 0).then(|| INK[r.ink_colour.min(INK.len() - 1)]),
+        size: (f & 2 != 0).then_some(r.text_pt),
+        family: (f & 4 != 0).then_some((family, r.text_bold, r.text_italic)),
+        align: (f & 8 != 0).then(|| TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize]),
+        ..Default::default()
+    };
     Some((d.page, Edit::EditTextBlock { page: d.page, block: *block, text: text.to_string(), style }))
 }
 
@@ -610,7 +623,7 @@ fn show_preview(tab_id: i32, (page, block): (usize, usize)) {
     update(tab_id, |r, _| {
         r.preview_timer = None;
         let Some(d) = r.draft.as_ref().filter(|d| d.kind == 2 && d.page == page && d.block.as_ref().is_some_and(|b| b.0 == block)) else { return };
-        match paragraph_edit(d, &r.preview_text) {
+        match paragraph_edit(r, d, &r.preview_text) {
             Some((_, edit)) => {
                 r.preview = Some((page, block));
                 r.send(Op::Preview { edit: Some(Box::new(edit)), pages: vec![page] });
