@@ -143,6 +143,12 @@ fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
     })
 }
 
+/// Split by size: the largest file typed in MB ("2", "1.5"), in bytes.
+fn split_size(typed: &str) -> Result<u64> {
+    let t = typed.trim().replace(',', ".");
+    t.parse::<f64>().ok().filter(|mb| mb.is_finite() && *mb > 0.0).map(|mb| (mb * 1_048_576.0) as u64).ok_or_else(|| OpdfError::Unsupported(format!("file size: \"{}\" (type megabytes, such as 2 or 1.5)", typed.trim())))
+}
+
 /// Colours offered for watermark and page number text.
 const WM_COLOURS: [[f64; 3]; 4] = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [0.85, 0.1, 0.1], [0.1, 0.3, 0.85]];
 
@@ -245,6 +251,8 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             input: one(inputs)?,
             mode: match (opts.split_mode, opts.split_one_file) {
                 (1, _) => SplitMode::Every(opts.every.max(1) as u32),
+                (2, _) => SplitMode::Bookmarks,
+                (3, _) => SplitMode::Size(split_size(&opts.split_size)?),
                 (_, true) => SplitMode::OneFile(opts.ranges.trim().into()),
                 _ => SplitMode::Ranges(opts.ranges.trim().into()),
             },
@@ -308,7 +316,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 ToolId::PdfToPowerPoint => ExportKind::PowerPoint,
                 _ => ExportKind::Excel(if opts.excel_layout == 1 { SheetLayout::SheetPerTable } else { SheetLayout::OneSheet }),
             };
-            Job::Export { items: pairs(inputs), kind, options: ExportOptions { ocr: opts.export_ocr, ..Default::default() } }
+            Job::Export { items: pairs(inputs), kind, options: ExportOptions { ocr: opts.export_ocr, exact_layout: opts.export_exact, ..Default::default() } }
         }
         ToolId::Compare => {
             let mut it = inputs.into_iter();
@@ -395,7 +403,9 @@ fn start(ui: &AppWindow, tab_id: i32, tool: ToolId, inputs: (Vec<Input>, Vec<Str
         }
         refresh(a, tab_id);
     });
-    jobs::spawn(ui.as_weak(), tab_id, job);
+    // PDFs made from other files carry the identity name as their Author (Acrobat's Create PDF).
+    let author = matches!(job, Job::JpgToPdf { .. } | Job::ImagesEach { .. } | Job::Office { .. }).then(crate::home::author);
+    jobs::spawn(ui.as_weak(), tab_id, job, author);
 }
 
 pub fn on_progress(tab_id: i32, p: f32) {
@@ -506,9 +516,14 @@ pub fn reveal(p: &std::path::Path) {
     }
 }
 
-pub fn open_output(tab_id: i32, k: i32) {
-    if let Some(p) = outputs(tab_id).get(k as usize) {
-        open_detached(p);
+/// A result's Open: Compare's report and marked copy open in Sheaf's reader (the marked copy on
+/// its list of differences); other results in their own app.
+pub fn open_output(ui: &AppWindow, tab_id: i32, k: i32) {
+    let Some(p) = outputs(tab_id).get(k as usize).cloned() else { return };
+    let compare = with(|a| a.tab(tab_id).is_some_and(|t| t.tool == ToolId::Compare));
+    match (compare, p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))) {
+        (true, true) => crate::reader_ui::open_on_notes(ui, p),
+        _ => open_detached(&p),
     }
 }
 

@@ -105,6 +105,32 @@ pub(crate) fn page_paths(doc: &Document, page: usize, excluded: &BTreeSet<ObjRef
 
 /// Moves paths `indexes` (of [`page_paths`]) by `offset` (user space): each is wrapped in `q`, a
 /// translation in its own space, and `Q`.
+/// Sheaf: drawings `indexes` (from [`page_paths`]) taken out of the page content: their
+/// construction and painting operators go, the rest of the content stays byte for byte.
+pub(crate) fn delete_paths(doc: &mut Document, page: usize, indexes: &[usize], excluded: &BTreeSet<ObjRef>) -> Result<(), EditError> {
+    if indexes.is_empty() {
+        return Ok(());
+    }
+    let paths = page_paths(doc, page, excluded)?;
+    let p = pdfcraft_model::pages(doc).into_iter().nth(page).ok_or(EditError::NoSuchPage(page))?;
+    let all = crate::images::page_streams(doc, &p.dict);
+    let mut gone = BTreeSet::new();
+    for i in indexes {
+        let path = paths.get(*i).ok_or_else(|| EditError::Invalid("a selected drawing no longer exists".into()))?;
+        gone.extend((path.start..=path.end).map(|k| (path.stream, k)));
+    }
+    let mut data = Vec::with_capacity(all.len());
+    for (stream, (_, bytes)) in all.iter().enumerate() {
+        let pieces = Pieces::join(&[bytes.as_slice()]);
+        let ops = pieces.parse().ops;
+        let changed = crate::text::splice(&pieces, &ops, |index| (Vec::new(), !gone.contains(&(stream, index))));
+        data.push(changed.into_iter().next().unwrap_or_default());
+    }
+    let contents = crate::text::rewritten_contents(doc, &all, data);
+    doc.update_dict(p.obj, |d| d.set(b"Contents".to_vec(), contents))?;
+    Ok(())
+}
+
 pub(crate) fn translate_paths(doc: &mut Document, page: usize, indexes: &[usize], offset: [f64; 2], excluded: &BTreeSet<ObjRef>) -> Result<(), EditError> {
     if indexes.is_empty() {
         return Ok(());

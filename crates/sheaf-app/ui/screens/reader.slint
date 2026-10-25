@@ -601,6 +601,10 @@ export component ReaderScreen inherits Rectangle {
                     keys.focus();
                     return accept;
                 }
+                if (e.text == "c" || e.text == "x") && root.tab.reader.selected-annot {
+                    ReaderBridge.copy-comment(root.id, e.text == "x");
+                    return accept;
+                }
                 if e.text == "c" && root.tab.reader.panel-open && root.tab.reader.panel == 0 && root.tab.reader.pages-selected > 0 {
                     ReaderBridge.copy-pages(root.id);
                     return accept;

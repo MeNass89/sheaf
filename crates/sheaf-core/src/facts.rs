@@ -100,12 +100,14 @@ fn rect(o: &Object) -> Option<[f64; 4]> {
     (v.len() == 4).then(|| [v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])])
 }
 
-/// "D:20261025143000+02'00'" as "2026-10-25 14:30".
+/// The date `key` of the document information, as [`pdf_date`] writes it.
 fn date(info: &Dictionary, key: &[u8]) -> Option<String> {
-    let s = info.get(key).ok()?.as_str().ok()?;
-    let s = String::from_utf8_lossy(s);
-    let d = s.trim().trim_start_matches("D:");
-    let digits: String = d.chars().take_while(char::is_ascii_digit).collect();
+    pdf_date(&String::from_utf8_lossy(info.get(key).ok()?.as_str().ok()?))
+}
+
+/// "D:20261025143000+02'00'" as "2026-10-25 14:30" (documents, signatures, comments).
+pub fn pdf_date(s: &str) -> Option<String> {
+    let digits: String = s.trim().trim_start_matches("D:").chars().take_while(char::is_ascii_digit).collect();
     if digits.len() < 8 {
         return None;
     }

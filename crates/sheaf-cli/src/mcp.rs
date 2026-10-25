@@ -251,18 +251,63 @@ fn call(name: &str, args: &Map<String, Value>) -> Value {
     json!({ "content": content, "structuredContent": result, "isError": !ok })
 }
 
+/// The common jobs, worded for an assistant, each naming the tools to use (MCP prompts).
+fn prompts() -> Vec<Value> {
+    let file = json!([{ "name": "file", "description": "Path of the PDF", "required": true }]);
+    vec![
+        json!({ "name": "summarize_pdf", "description": "Summarise a PDF from its text", "arguments": file }),
+        json!({ "name": "redact_personal_data", "description": "Find and redact the personal data in a PDF", "arguments": file }),
+        json!({ "name": "prepare_to_share", "description": "Make a PDF smaller, and protected if asked, before sending it", "arguments": file }),
+    ]
+}
+
+fn prompt(name: &str, args: &Value) -> Result<Value, (i64, String)> {
+    let file = args["file"].as_str().filter(|f| !f.trim().is_empty()).ok_or((-32602, "the prompt needs \"file\"".to_string()))?;
+    let text = match name {
+        "summarize_pdf" => format!("Read the text of {file} with the `text` tool, page by page if it is long, and look at its `info`. Then summarise it in a few short paragraphs: what it is for, its key points, and the figures, names and dates that matter."),
+        "redact_personal_data" => format!("Find the personal data in {file} with the `text` tool: people's names, e-mail addresses, phone numbers, postal addresses, ID and account numbers. Remove them with the `redact` tool, which writes a new file. Then read the new file with `text` to check nothing is left, and report what was redacted and the path written."),
+        "prepare_to_share" => format!("Make {file} ready to send: reduce its size with the `compress` tool, and if a password was asked for, protect the result with the `protect` tool. Report the size before and after, and the path of the file to send."),
+        _ => return Err((-32602, format!("no prompt named {name}"))),
+    };
+    Ok(json!({ "messages": [{ "role": "user", "content": { "type": "text", "text": text } }] }))
+}
+
+/// A PDF's text or information as an MCP resource: `sheaf://text/<path>`, `sheaf://info/<path>`.
+fn read_resource(uri: &str) -> Result<Value, (i64, String)> {
+    let (tool, path) = uri
+        .strip_prefix("sheaf://text/")
+        .map(|p| ("text", p))
+        .or_else(|| uri.strip_prefix("sheaf://info/").map(|p| ("info", p)))
+        .ok_or((-32602, format!("unknown resource {uri} (sheaf://text/<path> or sheaf://info/<path>)")))?;
+    let mut args = Map::new();
+    args.insert("input".into(), json!(path));
+    let r = call(tool, &args);
+    if r["isError"] == true {
+        return Err((-32602, r["content"][0]["text"].as_str().unwrap_or("cannot read it").to_string()));
+    }
+    Ok(json!({ "contents": [{ "uri": uri, "mimeType": "application/json", "text": r["structuredContent"].to_string() }] }))
+}
+
 fn handle(msg: &Value) -> Option<Value> {
     let id = msg.get("id")?.clone();
     let params = msg.get("params").cloned().unwrap_or(json!({}));
     let result = match msg["method"].as_str().unwrap_or("") {
         "initialize" => Ok(json!({
             "protocolVersion": params["protocolVersion"].as_str().unwrap_or(PROTOCOL),
-            "capabilities": { "tools": {} },
+            "capabilities": { "tools": {}, "prompts": {}, "resources": {} },
             "serverInfo": { "name": "sheaf", "version": env!("CARGO_PKG_VERSION") },
             "instructions": "Sheaf edits PDF files on this computer. Every tool writes a new file and never overwrites one: read the path written from \"outputs\". Use info and text to inspect a PDF, and render to look at a page. A protected PDF needs \"password\".",
         })),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({ "tools": tools() })),
+        "prompts/list" => Ok(json!({ "prompts": prompts() })),
+        "prompts/get" => prompt(params["name"].as_str().unwrap_or(""), &params["arguments"]),
+        "resources/list" => Ok(json!({ "resources": [] })),
+        "resources/templates/list" => Ok(json!({ "resourceTemplates": [
+            { "uriTemplate": "sheaf://text/{path}", "name": "PDF text", "description": "The text of a PDF, page by page", "mimeType": "application/json" },
+            { "uriTemplate": "sheaf://info/{path}", "name": "PDF information", "description": "Pages, size, metadata, protection", "mimeType": "application/json" },
+        ] })),
+        "resources/read" => read_resource(params["uri"].as_str().unwrap_or("")),
         "tools/call" => match params["name"].as_str() {
             Some(name) => Ok(call(name, params["arguments"].as_object().unwrap_or(&Map::new()))),
             None => Err((-32602, "tools/call needs a name".to_string())),

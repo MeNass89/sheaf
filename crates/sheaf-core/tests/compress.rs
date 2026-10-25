@@ -327,3 +327,21 @@ fn encrypted_object_stream_input_picks_the_smaller_candidate() {
     assert_eq!(std::fs::metadata(&r.path).unwrap().len(), r.after);
     assert_eq!(Document::load(&r.path).unwrap().get_pages().len(), 30);
 }
+
+#[test]
+fn the_same_picture_embedded_twice_is_kept_once() {
+    let t = tempfile::tempdir().unwrap();
+    // A small CMYK picture (left as it is by the recompression) written twice as its own object.
+    let img = || raw_image(40, 30, "DeviceCMYK", noise(40 * 30 * 4));
+    let src = lopdf_with_images(&t.path().join("twice.pdf"), vec![img(), img()]);
+    assert_eq!(image_dicts(&src).len(), 2);
+    let r = compress(&Input::new(&src), Level::Low, &t.path().join("once.pdf")).unwrap();
+    assert_eq!(image_dicts(&r.path).len(), 1, "one copy left");
+    assert!(r.after < r.before);
+    // Both places still draw it.
+    let d = Document::load(&r.path).unwrap();
+    let page = d.get_pages()[&1];
+    let res = d.get_dictionary(page).unwrap().get(b"Resources").unwrap().as_dict().unwrap();
+    let x = res.get(b"XObject").unwrap().as_dict().unwrap();
+    assert_eq!(x.get(b"Im0").unwrap().as_reference().unwrap(), x.get(b"Im1").unwrap().as_reference().unwrap());
+}

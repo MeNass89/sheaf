@@ -177,6 +177,33 @@ pub fn user_rect_to_view(page: &PageInfo, r: [f64; 4]) -> [f64; 4] {
     [a[0].min(b[0]), a[1].min(b[1]), a[0].max(b[0]), a[1].max(b[1])]
 }
 
+/// A signature photographed or scanned on paper: the paper turns transparent and the ink keeps its
+/// colour, edges softened (PDF Expert's background removal). Written as a PNG among the system's
+/// temporary files and returned; a picture that already has transparency is returned as it is.
+pub fn clear_background(path: &Path) -> Result<PathBuf> {
+    let img = image::open(path).map_err(|e| OpdfError::Unsupported(format!("{}: {e}", path.display())))?.to_rgba8();
+    if img.pixels().any(|p| p[3] < 250) {
+        return Ok(path.to_path_buf());
+    }
+    let lum = |p: &image::Rgba<u8>| 0.299 * p[0] as f64 + 0.587 * p[1] as f64 + 0.114 * p[2] as f64;
+    // The paper: the brightness most of the picture has (its 80th percentile).
+    let mut l: Vec<u8> = img.pixels().map(|p| lum(p) as u8).collect();
+    l.sort_unstable();
+    let paper = (l[l.len() * 8 / 10] as f64).max(1.0);
+    let mut out = img.clone();
+    for p in out.pixels_mut() {
+        // Darker than the paper by a third or more: ink, opaque; between: a soft edge.
+        let a = ((paper - lum(p)) / (paper * 0.33)).clamp(0.0, 1.0);
+        p[3] = (a * 255.0).round() as u8;
+    }
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    img.as_raw().hash(&mut h);
+    let target = std::env::temp_dir().join(format!("sheaf-signature-{:016x}.png", h.finish()));
+    out.save(&target).map_err(|e| OpdfError::Unsupported(format!("{}: {e}", target.display())))?;
+    Ok(target)
+}
+
 /// Page `page` (0-based) of `input`, as displayed: what [`box_at`] needs.
 pub fn page_info(input: &Input, page: usize) -> Result<PageInfo> {
     let doc = open(input)?;

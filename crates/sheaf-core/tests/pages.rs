@@ -110,3 +110,42 @@ fn encryption_is_detected_including_owner_only() {
     assert!(Input::new(&user).is_encrypted());
     assert!(Input { path: user, password: Some("u".into()) }.is_encrypted());
 }
+
+#[test]
+fn split_by_top_level_bookmarks_names_each_file_after_its_bookmark() {
+    use lopdf::{dictionary, Object};
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 5);
+    // Bookmarks "Intro" on page 2 and "Methods" on page 4 (page 1 goes with Intro).
+    let mut d = lopdf::Document::load(&a).unwrap();
+    let pages = d.get_pages();
+    let (p2, p4) = (pages[&2], pages[&4]);
+    let outlines = d.new_object_id();
+    let (i1, i2) = (d.new_object_id(), d.new_object_id());
+    d.objects.insert(i1, Object::Dictionary(dictionary! { "Title" => Object::string_literal("Intro"), "Parent" => outlines, "Next" => i2, "Dest" => vec![p2.into(), "Fit".into()] }));
+    d.objects.insert(i2, Object::Dictionary(dictionary! { "Title" => Object::string_literal("Methods/Results"), "Parent" => outlines, "Prev" => i1, "Dest" => vec![p4.into(), "Fit".into()] }));
+    d.objects.insert(outlines, Object::Dictionary(dictionary! { "Type" => "Outlines", "First" => i1, "Last" => i2, "Count" => 2 }));
+    let root = d.trailer.get(b"Root").unwrap().as_reference().unwrap();
+    d.get_object_mut(root).unwrap().as_dict_mut().unwrap().set("Outlines", outlines);
+    let marked = t.path().join("marked.pdf");
+    d.save(&marked).unwrap();
+    let out = t.path().join("out");
+    std::fs::create_dir(&out).unwrap();
+    let files = split_bookmarks(&Input::new(&marked), &out).unwrap();
+    let names: Vec<String> = files.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
+    assert_eq!(names, ["marked-1 Intro.pdf", "marked-2 Methods Results.pdf"]);
+    assert_eq!((page_texts(&files[0]).len(), page_texts(&files[1]).len()), (3, 2));
+    // Fewer than two bookmarks: said, nothing written.
+    assert!(split_bookmarks(&Input::new(&a), &out).unwrap_err().to_string().contains("fewer than two"));
+}
+
+#[test]
+fn split_by_size_groups_pages_under_the_limit() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 6);
+    let (one, each) = (t.path().join("one"), t.path().join("each"));
+    std::fs::create_dir(&one).unwrap();
+    std::fs::create_dir(&each).unwrap();
+    assert_eq!(split_size(&Input::new(&a), 100 << 20, &one).unwrap().len(), 1, "all under 100 MB: one file");
+    assert_eq!(split_size(&Input::new(&a), 1, &each).unwrap().len(), 6, "each page over 1 byte: a file each");
+}

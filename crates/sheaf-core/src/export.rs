@@ -34,6 +34,9 @@ pub struct ExportOptions {
     pub ocr: bool,
     /// The OCR settings when `ocr` is set.
     pub ocr_options: OcrOptions,
+    /// Word: each page kept as laid out (positioned text boxes) instead of flowing paragraphs and
+    /// tables (Acrobat's "Retain page layout").
+    pub exact_layout: bool,
 }
 
 /// What an export wrote.
@@ -56,6 +59,7 @@ pub(crate) fn open_for_export(input: &Input, opts: &ExportOptions, progress: &mu
 pub fn to_office(input: &Input, format: Office, opts: &ExportOptions, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<ExportReport> {
     let doc = open_for_export(input, opts, progress)?;
     let engine = match format {
+        Office::Word if opts.exact_layout => OfficeFormat::DocxLayout,
         Office::Word => OfficeFormat::Docx,
         Office::PowerPoint => OfficeFormat::Pptx,
     };

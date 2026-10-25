@@ -592,3 +592,13 @@ held. Per the joint rule each disagreement reopens its component at Sol's grades
 `gui-smoke.sh` (1,052 lines). **Why better here.** The suite is green on this exact tree (ALL GREEN, 1118 s); a
 split now would need another 19-minute run before anything is saved, while two sessions share the machine.
 **Scope.** Round 5 only. **Ends when.** The next commit, a refactor that splits both files, suite green after.
+
+## 2026-10-25 · Sign takes protected PDFs (reverses d2cb91d's refusal)
+**Decision.** Sign asks for a protected file's password as every tool does, and the signed file keeps its
+encryption; only a file whose owner password forbids both filling in forms and adding comments is refused.
+**Alternatives.** Keep refusing (Release 0.2.0, d2cb91d: "a signature must not silently remove protection").
+**Reason.** The refusal's premise is gone: PdfCraft's save keeps the encryption, so signing removes nothing; Acrobat
+signs a protected file the same way, and Sol's re-review counted the refusal as a gap (C-files-016). **Would change
+it.** A signature that a validator rejects on encrypted files: then signing such a file needs Unlock first again.
+- **Closed (25/10).** The split came as its own refactor commit right after round 6 (which was written before the
+  split): `reader_doc/` with its tests in `tests.rs`, the smoke steps in `dev/scripts/smoke/`. Suite green after.

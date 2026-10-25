@@ -30,8 +30,12 @@ export component Thumb inherits Rectangle {
     in property <bool> has-thumb;
     in property <length> max-w;
     in property <length> max-h;
-    property <float> ratio: root.has-thumb && root.thumb.height > 0
+    // Degrees clockwise the page is shown turned (Rotate's preview, as iLovePDF's cards).
+    in property <int> turn;
+    property <bool> sideways: Math.mod(root.turn, 180) == 90;
+    property <float> upright: root.has-thumb && root.thumb.height > 0
         ? root.thumb.width / root.thumb.height : 0.707;
+    property <float> ratio: root.sideways ? 1 / root.upright : root.upright;
     width: min(root.max-w, root.max-h * root.ratio);
     height: min(root.max-h, root.max-w / root.ratio);
     background: Theme.thumb-placeholder;
@@ -39,10 +43,14 @@ export component Thumb inherits Rectangle {
     drop-shadow-color: Theme.thumb-shadow;
     drop-shadow-offset-y: 1px;
     if root.has-thumb: Image {
-        width: parent.width;
-        height: parent.height;
+        width: root.sideways ? parent.height : parent.width;
+        height: root.sideways ? parent.width : parent.height;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
         source: root.thumb;
         image-fit: fill;
+        transform-rotation: root.turn * 1deg;
+        animate transform-rotation { duration: 150ms; }
     }
 }
 
@@ -63,6 +71,8 @@ export component FileCardView inherits Rectangle {
     in property <bool> dimmed;
     // Merge: the caption is the file's page choice, clicked to type it ("1-3, 5"; Enter keeps it).
     in property <bool> ranges;
+    // Rotate: page 1 shown turned as chosen.
+    in property <int> turn;
     callback set-pages(string);
     property <bool> editing;
     property <bool> dragging;
@@ -88,6 +98,7 @@ export component FileCardView inherits Rectangle {
         if root.file.kind != 2 || root.file.has-thumb: Thumb {
             thumb: root.file.thumb;
             has-thumb: root.file.has-thumb;
+            turn: root.turn;
             max-w: Theme.file-thumb-width + (root.file.kind == 1 ? 30px : 0);
             max-h: Theme.file-thumb-height;
         }

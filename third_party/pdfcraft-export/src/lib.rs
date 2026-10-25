@@ -956,37 +956,68 @@ fn docx_table(t: &Table, max_w: f64, left: f64) -> String {
     s
 }
 
-/// Pages with rotated text, or text that actually overlaps an image or an oversized
-/// (watermark-like) text block, cannot be put in paragraph flow without changing their layout.
-/// Keep those pages as editable, absolutely positioned text boxes. Every other page, including
-/// one with a logo or a big title that sits clear of the text, flows as paragraphs and tables.
-fn positioned(page: &Page) -> bool {
-    // Sheaf: a rotated label inside a ruled table becomes that cell's vertical text.
+/// Sheaf: what a page lays over its flowing text, kept where it is as floating shapes, so its
+/// paragraphs and tables stay paragraphs and Word tables: rotated text outside ruled tables (a
+/// watermark, a side label), text twice the body size that lies over other text (a stamp), and
+/// a picture under the text that covers at least half the page (a background). Indices into
+/// the page's blocks and images.
+fn floating(page: &Page) -> (Vec<usize>, Vec<usize>) {
     let in_table = ruled_tables(&page.blocks, &page.rules, &page.fills).1;
-    if page.blocks.iter().enumerate().any(|(i, b)| b.rotation.abs() > 0.1 && !in_table[i]) {
-        return true;
-    }
     let body = body_size(std::slice::from_ref(page)).max(1.0);
-    let overlays = page
-        .images
-        .iter()
-        .map(|im| (im.rect, None))
-        .chain(page.blocks.iter().enumerate().filter(|(_, b)| b.size >= 2.0 * body).map(|(i, b)| (b.rect, Some(i))));
-    // Bound the pairwise test on hostile pages (many overlays times many blocks): past the
+    let over_text = |r: [f64; 4], own: Option<usize>| page.blocks.iter().enumerate().take(4096).any(|(i, b)| Some(i) != own && overlaps(r, b.rect));
+    let blocks = (0..page.blocks.len())
+        .filter(|&i| {
+            let b = &page.blocks[i];
+            (b.rotation.abs() > 0.1 && !in_table[i]) || (b.size >= 2.0 * body && over_text(b.rect, Some(i)))
+        })
+        .collect();
+    let area = (page.width * page.height).max(1.0);
+    let images = (0..page.images.len())
+        .filter(|&k| {
+            let r = page.images[k].rect;
+            (r[2] - r[0]) * (r[3] - r[1]) >= 0.5 * area && over_text(r, None)
+        })
+        .collect();
+    (blocks, images)
+}
+
+/// Pages whose text overlaps a picture (other than a background, see [`floating`]) cannot be
+/// put in paragraph flow without changing their layout: those keep every element as editable,
+/// absolutely positioned text boxes. Every other page flows as paragraphs and tables, with its
+/// floating elements laid over it.
+fn positioned(page: &Page, floats: &(Vec<usize>, Vec<usize>)) -> bool {
+    // Bound the pairwise test on hostile pages (many images times many blocks): past the
     // budget, keep the default flowing layout.
     let mut budget: usize = 1_000_000;
-    for (r, own) in overlays {
+    for (k, im) in page.images.iter().enumerate() {
+        if floats.1.contains(&k) {
+            continue;
+        }
         for (i, b) in page.blocks.iter().enumerate() {
             if budget == 0 {
                 return false;
             }
             budget -= 1;
-            if Some(i) != own && overlaps(r, b.rect) {
+            if !floats.0.contains(&i) && overlaps(im.rect, b.rect) {
                 return true;
             }
         }
     }
     false
+}
+
+/// Sheaf: the page as its floating layer and the rest that flows; `None` when it keeps every
+/// element positioned ([`positioned`]).
+fn layers(page: &Page) -> Option<(Page, Page)> {
+    let floats = floating(page);
+    if positioned(page, &floats) {
+        return None;
+    }
+    let pick = |all: &[Block], keep: bool| all.iter().enumerate().filter(|(i, _)| floats.0.contains(i) == keep).map(|(_, b)| b.clone()).collect::<Vec<_>>();
+    let pick_im = |keep: bool| page.images.iter().enumerate().filter(|(k, _)| floats.1.contains(k) == keep).map(|(_, im)| im.clone()).collect::<Vec<_>>();
+    let float = Page { blocks: pick(&page.blocks, true), images: pick_im(true), rules: Vec::new(), fills: Vec::new(), ..page.clone() };
+    let rest = Page { blocks: pick(&page.blocks, false), images: pick_im(false), ..page.clone() };
+    Some((float, rest))
 }
 
 /// Whether two [x0, y0, x1, y1] boxes share more than a hairline (0.5 pt each way); boxes that
@@ -1186,6 +1217,12 @@ fn section_with(page: &Page, run: &Running) -> String {
 /// A Word document (.docx, Office Open XML). Ordinary pages flow as paragraphs and tables;
 /// pages with rotated text, or text that overlaps artwork, use floating shapes to retain their layout.
 pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
+    docx_with(pages, title, false)
+}
+
+/// Sheaf: [`docx`], or with `exact` every page kept as positioned, editable text boxes (Acrobat's
+/// "Retain page layout" against its default "Retain flowing text").
+pub fn docx_with(pages: &[Page], title: &str, exact: bool) -> Vec<u8> {
     let mut body = String::new();
     let mut media: Vec<(String, &Image)> = Vec::new();
     // Word needs a paragraph between adjacent tables and after the last one in the body.
@@ -1194,15 +1231,18 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
     // Sheaf: a running header and footer go to Word's own parts.
     let (running, pages) = running(pages);
     let pages = pages.as_slice();
+    let layered: Vec<Option<(Page, Page)>> = if exact { vec![None; pages.len()] } else { pages.iter().map(layers).collect() };
     let mut shape_id = 0usize;
     for (page_index, page) in pages.iter().enumerate() {
         let (pw, _) = word_page_size(page);
         let text_w = (pw - 2 * margins(page).0) as f64 / 20.0;
-        if positioned(page) {
-            body.push_str(&positioned_page(page, &mut media, &mut shape_id));
-            after_table = false;
-        } else {
-            for it in items(std::slice::from_ref(page)) {
+        if let Some((float, rest)) = &layered[page_index] {
+            // Sheaf: the floating layer first (one 1 pt anchor paragraph), then the page flows.
+            if !float.blocks.is_empty() || !float.images.is_empty() {
+                body.push_str(&positioned_page(float, &mut media, &mut shape_id));
+                after_table = false;
+            }
+            for it in items(std::slice::from_ref(rest)) {
                 match &it {
                     Item::Para(bs, lvl) => {
                         let style = match lvl {
@@ -1248,6 +1288,9 @@ pub fn docx(pages: &[Page], title: &str) -> Vec<u8> {
                 }
                 after_table = matches!(it, Item::Table(_));
             }
+        } else {
+            body.push_str(&positioned_page(page, &mut media, &mut shape_id));
+            after_table = false;
         }
         // Section breaks carry this source page's size and create exactly one next page.
         // The last section must be a direct child of the body (OOXML 17.6.17).
@@ -1540,6 +1583,34 @@ mod tests {
         assert!(watermark.contains("z-index:-2"), "watermark is behind foreground graphics");
         let image = xml.split("<v:imagedata ").next().unwrap().rsplit("<v:rect ").next().unwrap();
         assert!(image.contains("z-index:-1"), "foreground graphics cover the watermark");
+    }
+
+    #[test]
+    fn word_a_diagonal_watermark_floats_and_the_table_stays_a_table() {
+        // Sheaf: a page with a 45° "COPY" across it kept its table only as positioned text boxes.
+        let mut p = table_page();
+        p.blocks.push(Block { font: String::new(), para: 0,
+            text: "COPY".into(),
+            rect: [120.0, 300.0, 480.0, 660.0],
+            size: 90.0,
+            bold: true,
+            italic: false,
+            color: [0.85; 3],
+            rotation: 45.0,
+        });
+        let xml = part(&docx(&[p], "Invoice"), "word/document.xml");
+        assert!(xml.contains("<w:tbl>"), "the table is still a Word table: {xml}");
+        let copy = xml.split(">COPY</w:t>").next().unwrap().rsplit("<v:rect ").next().unwrap();
+        assert!(copy.contains("position:absolute") && copy.contains("z-index:-2"), "the watermark floats behind: {copy}");
+        assert_eq!(xml.matches("position:absolute").count(), 1, "only the watermark is a shape");
+    }
+
+    #[test]
+    fn word_retain_page_layout_keeps_every_page_positioned() {
+        let xml = part(&docx_with(&[table_page()], "Invoice", true), "word/document.xml");
+        assert!(xml.contains("position:absolute") && !xml.contains("<w:tbl>"), "{xml}");
+        let flowing = part(&docx(&[table_page()], "Invoice"), "word/document.xml");
+        assert!(flowing.contains("<w:tbl>") && !flowing.contains("position:absolute"));
     }
 
     #[test]
@@ -1846,7 +1917,7 @@ mod tests {
         assert_eq!(used, [true, true, true, true, true, true, false], "the paragraph below stays a paragraph");
         // In the Word file: borders, the merge, the vertical text; the page flows (no text boxes).
         let page = Page { rules, fills: Vec::new(), width: 500.0, height: 400.0, blocks, images: Vec::new() };
-        assert!(!positioned(&page), "a rotated label in a ruled table no longer makes the page positioned");
+        assert!(floating(&page).0.is_empty() && layers(&page).is_some(), "a rotated label in a ruled table neither floats nor makes the page positioned");
         let xml = part(&docx(&[page], "t"), "word/document.xml");
         assert!(xml.contains("<w:vMerge w:val=\"restart\"/>") && xml.contains("<w:vMerge/>"), "{xml}");
         assert!(xml.contains("<w:vMerge w:val=\"restart\"/><w:textDirection w:val=\"btLr\"/>"), "the label, vertical in its merged cell");

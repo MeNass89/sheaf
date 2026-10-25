@@ -162,3 +162,13 @@ fn restrictions_alone_open_without_a_password() {
     assert_eq!(page_texts(&out), ["Page 1"]);
     assert!(protect_with_permissions(&Input::new(&a), "", None, perms, &t.path().join("x.pdf")).is_err());
 }
+
+#[test]
+fn protecting_a_protected_file_changes_its_password() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let old = protect(&Input::new(&a), "old", None, &t.path().join("old.pdf")).unwrap();
+    let new = protect(&Input { path: old.clone(), password: Some("old".into()) }, "new", None, &t.path().join("new.pdf")).unwrap();
+    let opens = |pw: &str| Command::new("qpdf").arg(format!("--password={pw}")).arg("--check").arg(&new).output().unwrap().status.success();
+    assert!(opens("new") && !opens("old"), "the new password opens it, the old one no longer does");
+}

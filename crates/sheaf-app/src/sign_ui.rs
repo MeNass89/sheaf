@@ -121,6 +121,8 @@ pub fn pick_image(ui: &AppWindow, tab_id: i32) {
         if let Err(e) = sign::aspect(&Graphic::Image(p.clone())) {
             return crate::flow::toast(ui, &e.to_string());
         }
+        // A photo or scan of a signature on paper: its background goes (PDF Expert's).
+        let p = sign::clear_background(&p).unwrap_or(p);
         edit(tab_id, |s| s.image = Some(p));
     });
 }

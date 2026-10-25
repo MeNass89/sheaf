@@ -24,9 +24,9 @@ launch "$OUT/text.pdf" "$OUT/form.pdf"; sleep 1
 copied() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null; }
 T1=$(copied); key ctrl+shift+bracketleft; sleep 0.8; T2=$(copied); shot 08-tabs
 check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})" "[ -n \"$T1\" ] && [ -n \"$T2\" ] && [ \"$T1\" != \"$T2\" ]"
-# 9. Home ▸ Preferences ▸ Author name: what is typed is kept.
-# The field sits 30 px below its "Author name" label.
-click 50 21 0.8; click 90 192 0.8; AN=$(at Author 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
+# 9. Home ▸ Preferences ▸ Identity ▸ Your name: what is typed is kept.
+# The field sits 30 px below its "Your name" label.
+click 50 21 0.8; click 90 192 0.8; AN=$(at Your 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Author"; sleep 0.8; shot 09-preferences
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.
@@ -230,6 +230,18 @@ fi
 RT=$(pdftotext -f 1 -l 1 "$OUT/redact-redacted.pdf" - 2>/dev/null | tr -s ' \n' ' ')
 check "Redact: a drag over words and a double click mark them ($RM), only they are removed ($RT), counted as text ($RS)" "echo \"$RM\" | grep -qi quick && echo \"$RT\" | grep -q '1 the' && ! echo \"$RT\" | grep -qE 'Page|quick|brown|fox' && echo \"$RS\" | grep -q '2 text passages'"
 check "the Redact result shows the first redacted page as written ($(echo $RV | cut -c1-60))" "echo \"$RV\" | grep -q 'Page 1 as redacted'"
+quit
+
+# 18b. Redact whole pages by range (Acrobat's Redact Pages): "2-3" typed in the field by "Mark whole page", ↩:
+# two marks listed; applied, pages 2 and 3 have no text left, pages 1 and 4 keep theirs.
+cp "$OUT/text.pdf" "$OUT/pages.pdf"
+launch "$OUT/pages.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
+PF=$(at Pages: 300x700+990+60); [ -n "$PF" ] && click $PF 0.4; xdotool type --delay 30 "2-3"; key Return; sleep 2
+PM=$(ocr 290x500+990+200 | tr -s ' ')
+click 1140 755 1; for _ in $(seq 1 20); do [ -f "$OUT/pages-redacted.pdf" ] && break; sleep 0.5; done; sleep 0.5
+PT=$(for p in 1 2 3 4; do pdftotext -f $p -l $p "$OUT/pages-redacted.pdf" - 2>/dev/null | tr -d '[:space:]' | wc -c; done | tr '\n' ' ')
+check "Redact marks a range of whole pages ($(echo $PM | grep -o 'Whole page [0-9]' | tr '\n' ' '); characters per page: $PT)" "echo \"$PM\" | grep -q 'Whole page 2' && echo \"$PM\" | grep -q 'Whole page 3' && [ \"\$(echo $PT | cut -d' ' -f2,3)\" = '0 0' ] && [ \"\$(echo $PT | cut -d' ' -f1)\" -gt 0 ]"
 quit
 
 # 19. Link tool (L), as PDF Expert's Edit ▸ Link: drag a box, type a page number, ↩; click the link with the

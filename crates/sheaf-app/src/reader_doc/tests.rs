@@ -624,3 +624,47 @@ fn replace_keeps_the_old_file_until_the_new_one_is_complete() {
     // No temporary file left behind.
     assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
 }
+
+#[test]
+fn a_comment_is_copied_and_pasted_as_a_new_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 2);
+    let (ops, rx, _) = started(&path);
+    ops.send(Op::Apply { edit: Box::new(highlight(0)), pages: vec![0] }).unwrap();
+    let (snap, _) = next(&rx);
+    let nm = snap.annots[0].nm.clone();
+    assert!(!nm.is_empty(), "Sheaf's comments are named");
+    ops.send(Op::CopyComment { nm }).unwrap();
+    let el = match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+        Reply::Copied(Some(el)) => el,
+        _ => panic!("expected Copied"),
+    };
+    assert!(el.starts_with("<highlight "), "{el}");
+    // Pasted on page 2 under a new name: a second comment, the first kept.
+    let xfdf = sheaf_app::reader::paste_xfdf(&el, 1, (0.0, 0.0), "pasted-1");
+    ops.send(Op::Apply { edit: Box::new(Edit::ImportData { name: "Paste".into(), bytes: Arc::new(xfdf.into_bytes()) }), pages: vec![1] }).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    assert_eq!(snap.annots.iter().map(|a| (a.page, a.subtype.as_str())).collect::<Vec<_>>(), [(0, "Highlight"), (1, "Highlight")]);
+}
+
+#[test]
+fn document_properties_list_the_signatures_with_their_verdict() {
+    use sheaf_core::sign::{self, DigitalSpec, Graphic, SignSpec};
+    let dir = tempfile::tempdir().unwrap();
+    let (key, cert, p12) = (dir.path().join("k.pem"), dir.path().join("c.pem"), dir.path().join("id.p12"));
+    let ok = |c: &mut std::process::Command| c.output().map(|o| o.status.success()).unwrap_or(false);
+    if !ok(std::process::Command::new("openssl").args(["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj", "/CN=Ada Signer", "-keyout"]).arg(&key).arg("-out").arg(&cert))
+        || !ok(std::process::Command::new("openssl").args(["pkcs12", "-export", "-passout", "pass:pw", "-inkey"]).arg(&key).arg("-in").arg(&cert).arg("-out").arg(&p12))
+    {
+        return eprintln!("openssl missing: skipped");
+    }
+    let path = fixture(dir.path(), 1);
+    let signed = dir.path().join("signed.pdf");
+    let digital = DigitalSpec { p12: p12.clone(), password: "pw".into(), reason: Some("Approved".into()), location: None };
+    sign::sign(&Input::new(&path), &SignSpec { page: 0, rect: [72.0, 72.0, 272.0, 132.0], graphic: Graphic::Typed("Ada".into(), Default::default()), digital: Some(digital) }, &signed).unwrap();
+    let (_, _, snap) = started(&signed);
+    let row = snap.props.about.iter().find(|(k, _)| k.starts_with("Signature 1")).expect("a row for the signature");
+    assert!(row.0.contains("Ada Signer"), "{row:?}");
+    assert!(row.1.contains("Signature validity is unknown") && row.1.contains("Approved"), "self-signed: not trusted, its reason shown: {row:?}");
+}

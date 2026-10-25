@@ -342,6 +342,28 @@ fn drawings_are_objects_that_move_alone() {
 }
 
 #[test]
+fn picked_drawings_and_words_are_deleted_together() {
+    // A filled square, a stroked line and a word: the square and the word picked, deleted.
+    use sheaf_core::pdfcraft::engine::{Edit, ObjectKind};
+    let dir = tempfile::tempdir().unwrap();
+    let content = b"0 0 1 rg 100 100 50 50 re f 2 w 300 200 m 400 200 l S BT /F1 12 Tf 72 700 Td (Word) Tj ET".to_vec();
+    let pdf = page_pdf(dir.path(), "paths.pdf", vec![content]);
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    let objects = doc.document().editable_objects(0).unwrap();
+    let square = objects.iter().find(|o| o.target.kind == ObjectKind::Path && (o.rect[0] - 100.0).abs() < 0.01).expect("the square").target;
+    let word = objects.iter().find(|o| o.target.kind == ObjectKind::Text).expect("the word").target;
+    doc.apply(Edit::DeleteObjects { page: 0, objects: vec![square, word] }).unwrap();
+    let after = doc.document().editable_objects(0).unwrap();
+    assert_eq!(after.len(), 1, "only the line is left: {after:?}");
+    assert!(after[0].target.kind == ObjectKind::Path && (after[0].rect[0] - 300.0).abs() < 0.01, "{after:?}");
+    // One step: undone, all three are back.
+    doc.session_mut().undo(doc.id()).unwrap();
+    assert_eq!(doc.document().editable_objects(0).unwrap().len(), 3);
+    let out = doc.save(&dir.path().join("deleted.pdf")).unwrap();
+    assert!(std::process::Command::new("qpdf").arg("--check").arg(&out).status().unwrap().success());
+}
+
+#[test]
 fn a_paragraph_emptied_is_removed_from_the_page() {
     let dir = tempfile::tempdir().unwrap();
     let mut doc = Doc::open(&Input::new(ascii_subset(dir.path()))).unwrap();

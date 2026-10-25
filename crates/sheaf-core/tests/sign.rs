@@ -389,3 +389,17 @@ fn a_typed_name_takes_its_handwriting_font() {
     let aspects: Vec<f64> = ScriptFont::ALL.iter().map(|f| sign::aspect(&Graphic::Typed("Ada Lovelace".into(), *f)).unwrap()).collect();
     assert!(aspects.windows(2).all(|w| (w[0] - w[1]).abs() > 1e-6), "each font its own shape: {aspects:?}");
 }
+
+#[test]
+fn a_signature_on_paper_loses_its_background_and_keeps_its_ink() {
+    let t = tempfile::tempdir().unwrap();
+    // Off-white paper with a dark blue stroke across the middle.
+    let src = t.path().join("photo.png");
+    image::RgbImage::from_fn(120, 40, |x, y| if (18..22).contains(&y) && (10..110).contains(&x) { image::Rgb([20, 30, 120]) } else { image::Rgb([236, 232, 225]) }).save(&src).unwrap();
+    let out = sign::clear_background(&src).unwrap();
+    let img = image::open(&out).unwrap().to_rgba8();
+    assert_eq!(img.get_pixel(2, 2)[3], 0, "the paper is transparent");
+    assert_eq!(*img.get_pixel(60, 20), image::Rgba([20, 30, 120, 255]), "the ink keeps its colour, opaque");
+    // A picture already transparent is kept as it is.
+    assert_eq!(sign::clear_background(&out).unwrap(), out);
+}

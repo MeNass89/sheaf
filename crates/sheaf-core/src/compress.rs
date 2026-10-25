@@ -37,6 +37,7 @@ pub fn compress(input: &Input, level: Level, out: &Path) -> Result<CompressRepor
     let mut doc = input.load_lopdf()?;
     let was_encrypted = doc.was_encrypted();
     let mut plain = was_encrypted.then(|| doc.clone());
+    dedupe_streams(&mut doc);
     let (max, q) = level.params();
     let masks = mask_targets(&doc);
     let kinds: HashMap<ObjectId, bool> = doc.objects.iter()
@@ -62,6 +63,55 @@ pub fn compress(input: &Input, level: Level, out: &Path) -> Result<CompressRepor
     let (before, after) = (original.len() as u64, bytes.len() as u64);
     let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;
     Ok(CompressReport { path, before, after, already_optimal: after >= before, was_encrypted, grew: after > before })
+}
+
+/// Identical streams (the same picture or font program embedded again for each page, as some
+/// producers write them) are kept once: every reference goes to the first, the copies are
+/// pruned with the other unused objects. Returns how many copies were dropped.
+fn dedupe_streams(doc: &mut lopdf::Document) -> usize {
+    use std::hash::{Hash, Hasher};
+    let mut seen: HashMap<u64, Vec<ObjectId>> = HashMap::new();
+    let mut remap: HashMap<ObjectId, ObjectId> = HashMap::new();
+    let key = |s: &Stream| {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        (format!("{:?}", s.dict), &s.content).hash(&mut h);
+        h.finish()
+    };
+    let mut ids: Vec<ObjectId> = doc.objects.keys().copied().collect();
+    ids.sort();
+    for id in ids {
+        let Ok(s) = doc.objects[&id].as_stream() else { continue };
+        let list = seen.entry(key(s)).or_default();
+        // Equal bytes and dictionary, not only an equal hash.
+        let same = list.iter().copied().find(|o| doc.objects[o].as_stream().is_ok_and(|t| t.content == s.content && t.dict == s.dict));
+        match same {
+            Some(o) => {
+                remap.insert(id, o);
+            }
+            None => list.push(id),
+        }
+    }
+    if remap.is_empty() {
+        return 0;
+    }
+    fn walk(o: &mut Object, remap: &HashMap<ObjectId, ObjectId>) {
+        match o {
+            Object::Reference(r) => {
+                if let Some(to) = remap.get(r) {
+                    *r = *to;
+                }
+            }
+            Object::Array(a) => a.iter_mut().for_each(|x| walk(x, remap)),
+            Object::Dictionary(d) => d.iter_mut().for_each(|(_, x)| walk(x, remap)),
+            Object::Stream(s) => s.dict.iter_mut().for_each(|(_, x)| walk(x, remap)),
+            _ => {}
+        }
+    }
+    for o in doc.objects.values_mut() {
+        walk(o, &remap);
+    }
+    doc.trailer.iter_mut().for_each(|(_, x)| walk(x, &remap));
+    remap.len()
 }
 
 /// For an image whose colour space is DeviceGray/CalGray (`Some(true)`) or DeviceRGB/CalRGB (`Some(false)`);

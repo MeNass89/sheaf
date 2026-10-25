@@ -175,11 +175,24 @@ export component RedactPanel inherits VerticalLayout {
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }
-    Segment {
-        text: "Mark whole page " + (root.tab.viewer-current + 1);
-        clicked => {
-            if root.enabled {
-                ViewerBridge.mark-page(root.tab.id);
+    // Whole pages: the one shown, or a range typed (Acrobat's Redact Pages).
+    HorizontalLayout {
+        spacing: 6px;
+        Segment {
+            text: page-range.text == "" ? "Mark whole page " + (root.tab.viewer-current + 1) : "Mark pages";
+            clicked => {
+                if root.enabled {
+                    ViewerBridge.mark-page(root.tab.id, page-range.text);
+                }
+            }
+        }
+        page-range := TextField {
+            width: 110px;
+            placeholder: "Pages: 2-4, 7";
+            accepted => {
+                if root.enabled {
+                    ViewerBridge.mark-page(root.tab.id, self.text);
+                }
             }
         }
     }

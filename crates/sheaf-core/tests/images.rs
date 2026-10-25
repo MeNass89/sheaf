@@ -120,3 +120,18 @@ fn extract_images_writes_each_picture_as_stored_once() {
     let text = common::fixture_pdf(t.path(), "text.pdf", 1);
     assert!(extract_images(&Input::new(&text), None, &out).unwrap_err().to_string().contains("no pictures"));
 }
+
+#[test]
+fn a_pdf_made_from_images_takes_the_author_given_unless_it_has_one() {
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("a.png");
+    image::RgbImage::from_pixel(10, 10, image::Rgb([200, 0, 0])).save(&png).unwrap();
+    let pdf = images_to_pdf(&[png], PageLayout::FitImage, &t.path().join("a.pdf")).unwrap();
+    assert!(sheaf_core::info::set_author_if_empty(&pdf, "Ada Lovelace").unwrap());
+    let d = sheaf_core::pdfcraft::Doc::open(&Input::new(&pdf)).unwrap();
+    assert_eq!(d.document().info.author.as_deref(), Some("Ada Lovelace"));
+    drop(d);
+    // Kept once set; an empty name writes nothing.
+    assert!(!sheaf_core::info::set_author_if_empty(&pdf, "Someone Else").unwrap());
+    assert!(!sheaf_core::info::set_author_if_empty(&pdf, " ").unwrap());
+}

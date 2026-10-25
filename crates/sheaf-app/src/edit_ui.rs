@@ -25,7 +25,8 @@ const SLACK: f64 = 3.0;
 
 #[derive(Clone)]
 pub enum Kind {
-    Text { text: String, size: usize, colour: usize },
+    /// `colour`: RGB, one of [`COLOURS`] or one typed in hex.
+    Text { text: String, size: usize, colour: [u8; 3] },
     Image { path: PathBuf, aspect: f64, width: usize, image: Image },
 }
 
@@ -82,7 +83,7 @@ pub struct EditState {
     pub selected_seq: i32,
     /// For the next text placed (and shown when no text is selected).
     pub size: usize,
-    pub colour: usize,
+    pub colour: [u8; 3],
     pub width: usize,
     pub image: Option<Chosen>,
     pub grab: Option<Grab>,
@@ -90,7 +91,7 @@ pub struct EditState {
 
 impl EditState {
     pub fn new() -> Self {
-        Self { mode: 0, items: Vec::new(), selected: None, selected_seq: 0, size: DEFAULT_SIZE, colour: 0, width: 1, image: None, grab: None }
+        Self { mode: 0, items: Vec::new(), selected: None, selected_seq: 0, size: DEFAULT_SIZE, colour: COLOURS[0], width: 1, image: None, grab: None }
     }
 
     fn select(&mut self, i: Option<usize>) {
@@ -178,7 +179,7 @@ impl EditState {
                     if let Some(why) = edit::text_problem(text) {
                         return Err(format!("A text box on page {}: {why}", it.page + 1));
                     }
-                    Ok(EditPlaced::Text { page: it.page, at: [it.at.0, it.at.1], text: text.clone(), size: SIZES[*size], color: COLOURS[*colour] })
+                    Ok(EditPlaced::Text { page: it.page, at: [it.at.0, it.at.1], text: text.clone(), size: SIZES[*size], color: *colour })
                 }
                 Kind::Image { path, .. } => {
                     let (w, h) = it.size();
@@ -214,7 +215,9 @@ pub fn fill(tab: &mut ToolTab, s: &EditState, viewer: Option<&Viewer>) {
         _ => "".into(),
     };
     tab.edit_size = SIZES[s.size] as i32;
-    tab.edit_colour = s.colour as i32;
+    // A preset is ringed; a colour typed shows its hex in the field instead.
+    tab.edit_colour = COLOURS.iter().position(|c| *c == s.colour).map_or(-1, |i| i as i32);
+    tab.edit_hex = if tab.edit_colour < 0 { format!("{:02X}{:02X}{:02X}", s.colour[0], s.colour[1], s.colour[2]).into() } else { "".into() };
     tab.edit_width = s.width as i32;
     tab.edit_image_name = s.image.as_ref().and_then(|c| c.path.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default().into();
     let problem = s.problem();
@@ -244,7 +247,7 @@ pub fn fill(tab: &mut ToolTab, s: &EditState, viewer: Option<&Viewer>) {
                     o.is_text = true;
                     o.text = text.as_str().into();
                     o.font_size = (SIZES[*size] * k) as f32;
-                    o.color = colour(COLOURS[*c]);
+                    o.color = colour(*c);
                 }
                 Kind::Image { image, .. } => o.image = image.clone(),
             }
@@ -298,11 +301,22 @@ pub fn size_step(tab_id: i32, step: i32) {
 }
 
 pub fn colour_pick(tab_id: i32, c: i32) {
+    set_colour(tab_id, COLOURS[c.clamp(0, COLOURS.len() as i32 - 1) as usize]);
+}
+
+/// A colour typed as RRGGBB (Acrobat's Other Color); a hex not yet complete changes nothing.
+pub fn colour_typed(tab_id: i32, hex: &str) {
+    if let Some(rgb) = sheaf_core::numbers::parse_hex_colour(hex) {
+        set_colour(tab_id, rgb.map(|v| (v * 255.0).round() as u8));
+    }
+}
+
+/// The text colour: for text added next, and the selected text at once.
+fn set_colour(tab_id: i32, rgb: [u8; 3]) {
     update(tab_id, |s| {
-        s.colour = c.clamp(0, COLOURS.len() as i32 - 1) as usize;
-        let n = s.colour;
+        s.colour = rgb;
         if let Some(Item { kind: Kind::Text { colour, .. }, .. }) = s.selected.and_then(|i| s.items.get_mut(i)) {
-            *colour = n;
+            *colour = rgb;
         }
     });
 }
@@ -398,7 +412,7 @@ mod tests {
         s.release(1, (300.0, 400.0), (600.0, 800.0));
         assert_eq!((s.items.len(), s.selected), (2, Some(1)));
         let Kind::Text { size, colour, .. } = &s.items[1].kind else { panic!() };
-        assert_eq!((SIZES[*size], *colour), (18.0, 2));
+        assert_eq!((SIZES[*size], *colour), (18.0, COLOURS[2]));
         s.items.remove(1);
         s.select(None);
         assert_eq!(s.items.len(), 1);
@@ -406,11 +420,26 @@ mod tests {
 
     fn size_colour(s: &mut EditState) {
         s.size = 6;
-        s.colour = 2;
+        s.colour = COLOURS[2];
         let i = s.selected.unwrap();
         if let Kind::Text { size, colour, .. } = &mut s.items[i].kind {
-            (*size, *colour) = (6, 2);
+            (*size, *colour) = (6, COLOURS[2]);
         }
+    }
+
+    #[test]
+    fn a_colour_typed_in_hex_is_kept_and_shown_as_typed() {
+        let mut s = EditState::new();
+        s.release(1, (10.0, 10.0), (600.0, 800.0));
+        text_item(&mut s, "A");
+        let rgb = sheaf_core::numbers::parse_hex_colour("2E8B57").unwrap().map(|v| (v * 255.0).round() as u8);
+        s.colour = rgb;
+        if let Kind::Text { colour, .. } = &mut s.items[0].kind {
+            *colour = rgb;
+        }
+        let EditPlaced::Text { color, .. } = &s.placed().unwrap()[0] else { panic!() };
+        assert_eq!(*color, [0x2E, 0x8B, 0x57]);
+        assert!(!COLOURS.contains(&s.colour), "not a preset: the field shows it");
     }
 
     #[test]

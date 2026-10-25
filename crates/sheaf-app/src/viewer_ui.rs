@@ -748,17 +748,27 @@ pub fn show_result(tab_id: i32, k: i32) {
     });
 }
 
-pub fn mark_page(ui: &AppWindow, tab_id: i32) {
-    let Some((load_id, input, page)) = update(tab_id, |v| (v.load_id, v.input.clone(), v.viewer.current(v.top, v.height))) else { return };
+/// Whole pages marked for redaction (Acrobat's Redact Pages): those of `range` ("2-4, 7"), or the
+/// page shown when it is empty; each is one mark of the list.
+pub fn mark_page(ui: &AppWindow, tab_id: i32, range: &str) {
+    let Some((load_id, input, page, count)) = update(tab_id, |v| (v.load_id, v.input.clone(), v.viewer.current(v.top, v.height), v.viewer.page_count())) else { return };
+    let pages: Vec<usize> = if range.trim().is_empty() {
+        vec![page]
+    } else {
+        match sheaf_core::ranges::parse_ranges(range, count as u32) {
+            Ok(rs) => rs.into_iter().flatten().map(|p| p as usize - 1).collect(),
+            Err(e) => return crate::flow::toast(ui, &format!("Pages: {e}")),
+        }
+    };
     let weak = ui.as_weak();
     sheaf_app::pool::probes().submit(move || {
-        let r = sheaf_app::jobs::catching(|| redact::mark_pages(&input, &[page]));
+        let r = sheaf_app::jobs::catching(|| redact::mark_pages(&input, &pages));
         let _ = weak.upgrade_in_event_loop(move |ui| {
             // A mark of the file shown when the button was pressed, never of a file swapped in since.
             let current = update(tab_id, |v| v.load_id == load_id).unwrap_or(false);
             match r {
-                Ok(mut m) if current => {
-                    update(tab_id, |v| v.manual.push(Manual { mark: m.remove(0), label: "Whole page".into() }));
+                Ok(m) if current => {
+                    update(tab_id, |v| v.manual.extend(m.into_iter().map(|mark| Manual { label: format!("Whole page {}", mark.page + 1), mark })));
                 }
                 Err(e) if current => crate::flow::toast(&ui, &e.to_string()),
                 _ => {}

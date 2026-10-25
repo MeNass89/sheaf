@@ -167,6 +167,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_image_action, |ui, id, a| reader_ui::image_action(&ui, id, a));
     wire_global!(ui, rb, on_paste, |ui, id| reader_ui::paste_image(&ui, id));
     wire_global!(ui, rb, on_copy_pages, |ui, id| reader_ui::copy_pages(&ui, id));
+    wire_global!(ui, rb, on_copy_comment, |ui, id, cut| reader_ui::copy_comment(&ui, id, cut));
     rb.on_escape(reader_ui::escape);
     rb.on_select_all(reader_ui::select_all);
     rb.on_history(reader_ui::history);
@@ -247,7 +248,7 @@ fn wire_viewer(ui: &AppWindow) {
     with_ui!(on_search, |ui, id, text, patterns| viewer_ui::search(&ui, id, &text, &patterns));
     vb.on_toggle_result(viewer_ui::toggle_result);
     vb.on_show_result(viewer_ui::show_result);
-    with_ui!(on_mark_page, |ui, id| viewer_ui::mark_page(&ui, id));
+    with_ui!(on_mark_page, |ui, id, range| viewer_ui::mark_page(&ui, id, &range));
     vb.on_remove_mark(viewer_ui::remove_mark);
     vb.on_clear_marks(viewer_ui::clear_marks);
 
@@ -269,6 +270,7 @@ fn wire_viewer(ui: &AppWindow) {
     eb.on_text(|id, t| edit_ui::text(id, &t));
     eb.on_size_step(edit_ui::size_step);
     eb.on_colour(edit_ui::colour_pick);
+    eb.on_colour_typed(|id, hex| edit_ui::colour_typed(id, &hex));
     eb.on_width(edit_ui::width);
     eb.on_remove(edit_ui::remove);
     let weak = ui.as_weak();
@@ -315,9 +317,16 @@ fn main() -> Result<(), slint::PlatformError> {
     );
 
     // Home
+    // Open file: any file Sheaf reads, as a drop on the window: PDFs open in the reader, images,
+    // Office and HTML files in the tool that makes them PDFs (Acrobat's Open / Create PDF).
     wire!(ui, on_open_file, |ui| {
-        let d = dialog::new(&ui).add_filter("PDF", &["pdf"]);
-        dialog::pick_files(&ui, d, flow::home_files);
+        use sheaf_core::tools::{find, ToolId};
+        let mut exts: Vec<&str> = vec!["pdf"];
+        for t in [ToolId::JpgToPdf, ToolId::WordToPdf, ToolId::PowerPointToPdf, ToolId::ExcelToPdf, ToolId::HtmlToPdf] {
+            exts.extend(find(t).accepts.iter().copied().filter(|e| !exts.contains(e)).collect::<Vec<_>>());
+        }
+        let d = dialog::new(&ui).add_filter("PDFs, images and documents", &exts).add_filter("PDF", &["pdf"]);
+        dialog::pick_files(&ui, d, |_, paths| deliver(paths));
     });
     // Tools search: found tools, best first (sheaf_core::tools::search).
     let weak = ui.as_weak();
@@ -397,7 +406,7 @@ fn main() -> Result<(), slint::PlatformError> {
     // Run and result
     wire!(ui, on_run_tool, |ui, id, opts| run::run_tool(&ui, id, opts));
     ui.on_cancel_job(run::cancel);
-    ui.on_open_output(run::open_output);
+    wire!(ui, on_open_output, |ui, id, k| run::open_output(&ui, id, k));
     ui.on_reveal_output(run::reveal_output);
     ui.on_open_folder(run::open_folder);
     ui.on_start_over(run::start_over);

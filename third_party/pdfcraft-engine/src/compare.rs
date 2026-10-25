@@ -125,6 +125,9 @@ impl Session {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OfficeFormat {
     Docx,
+    /// Sheaf: Word with each page's layout kept (positioned text boxes), Acrobat's "Retain page
+    /// layout".
+    DocxLayout,
     Pptx,
     Html,
     Rtf,
@@ -133,7 +136,7 @@ pub enum OfficeFormat {
 impl OfficeFormat {
     pub fn extension(self) -> &'static str {
         match self {
-            OfficeFormat::Docx => "docx",
+            OfficeFormat::Docx | OfficeFormat::DocxLayout => "docx",
             OfficeFormat::Pptx => "pptx",
             OfficeFormat::Html => "html",
             OfficeFormat::Rtf => "rtf",
@@ -291,6 +294,7 @@ impl crate::Document {
         let title = self.info.title.clone().unwrap_or_else(|| self.name.trim_end_matches(".pdf").to_string());
         match format {
             OfficeFormat::Docx => pdfcraft_export::docx(&pages, &title),
+            OfficeFormat::DocxLayout => pdfcraft_export::docx_with(&pages, &title, true),
             OfficeFormat::Pptx => pdfcraft_export::pptx(&pages, &title),
             OfficeFormat::Html => pdfcraft_export::html(&pages, &title).into_bytes(),
             OfficeFormat::Rtf => pdfcraft_export::rtf(&pages).into_bytes(),

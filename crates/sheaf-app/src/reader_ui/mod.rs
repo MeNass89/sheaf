@@ -253,6 +253,8 @@ pub struct ReaderUi {
     delete_after_extract: Vec<usize>,
     /// The page grid is shown: the pages' layout to go back to when it closes.
     grid_prev: Option<u8>,
+    /// ⌘C on a comment: the page it is on, until its copy comes back.
+    copy_from: Option<usize>,
     /// The tool it goes to then (Redact from the edit group), else the Tools page.
     tool_after_save: Option<sheaf_core::tools::ToolId>,
     /// The Link editor's complaint about what was typed (not a page or an address).
@@ -396,6 +398,7 @@ impl ReaderUi {
             tools_after_save: false,
             delete_after_extract: Vec::new(),
             grid_prev: None,
+            copy_from: None,
             tool_after_save: None,
             link_error: String::new(),
             link_visible: false,
@@ -476,6 +479,18 @@ impl ReaderUi {
 // ---- opening ---------------------------------------------------------------------------------
 
 /// Opens `path` in a new reader tab and shows it. A file already open is brought forward.
+thread_local! {
+    /// Documents to open on the Notes panel (see [`open_on_notes`]).
+    static NOTES_FIRST: std::cell::RefCell<HashSet<PathBuf>> = Default::default();
+}
+
+/// Opens `path` with its comments listed: Compare's marked copy, each difference a comment to
+/// step through (Acrobat shows its comparison in the app, its changes in a list).
+pub fn open_on_notes(ui: &AppWindow, path: PathBuf) {
+    NOTES_FIRST.with(|n| n.borrow_mut().insert(std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone())));
+    open(ui, path, None);
+}
+
 pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
     let canon = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
     // One tab per file, a tab still loading included: two tabs saving one file would overwrite
@@ -655,6 +670,18 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 _ => {}
             }
         }
+        Reply::Copied(element) => {
+            let Some((path, page)) = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?))).flatten() else { return };
+            match element {
+                Some(el) => {
+                    with(|a| a.comment_clip = Some((el, path, page)));
+                    // The system clipboard says a comment is copied: anything copied after it wins.
+                    let _ = arboard::Clipboard::new().and_then(|mut c| c.set_text(COMMENT_ON_CLIPBOARD));
+                    crate::flow::toast(ui, "Comment copied: ⌘V pastes it on the page shown");
+                }
+                None => crate::flow::toast(ui, "This comment could not be copied"),
+            }
+        }
         Reply::Exported { to, error } => {
             update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
             match error {
@@ -750,6 +777,10 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
             }
         };
         let mut r = ReaderUi::new(ops, snap, path.clone());
+        // Compare's marked copy opens on its list of differences.
+        if NOTES_FIRST.with(|n| n.borrow_mut().remove(&std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone()))) && !r.snap.annots.is_empty() {
+            (r.panel, r.panel_open) = (2, true);
+        }
         r.zoom_mode = crate::home::last_view(&path).map_or(crate::home::prefs().default_zoom.clamp(0, 2), |(fit, ..)| fit.clamp(0, 2));
         r.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
         v.theme = r.theme;

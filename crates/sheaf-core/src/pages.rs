@@ -104,6 +104,67 @@ pub fn split_every(input: &Input, n: u32, out_dir: &Path) -> Result<Vec<PathBuf>
     split_ranges(input, &spec, out_dir)
 }
 
+/// Acrobat's Split by top-level bookmarks: a file from each top-level bookmark's page to the
+/// next one's, named after it ("report-2 Methods.pdf"); pages before the first go with it.
+pub fn split_bookmarks(input: &Input, out_dir: &Path) -> Result<Vec<PathBuf>> {
+    let _g = pdfium_lock();
+    let src = input.open()?;
+    let total = src.pages().len() as u32;
+    let mut marks: Vec<(u32, String)> = Vec::new();
+    let mut b = src.bookmarks().root();
+    while let Some(m) = b {
+        if let Some(p) = m.destination().and_then(|d| d.page_index().ok()).map(|p| p as u32).filter(|p| *p < total) {
+            if marks.last().is_none_or(|(q, _)| *q < p) {
+                marks.push((p, m.title().unwrap_or_default()));
+            }
+        }
+        b = m.next_sibling();
+    }
+    if marks.len() < 2 {
+        return Err(OpdfError::Unsupported("this PDF has fewer than two top-level bookmarks to split at".into()));
+    }
+    let width = marks.len().to_string().len();
+    all_or_nothing(marks.iter().enumerate(), |(k, (p, title))| {
+        let start = if k == 0 { 1 } else { p + 1 };
+        let end = marks.get(k + 1).map_or(total, |(q, _)| *q);
+        let mut dst = pdfium().create_new_pdf()?;
+        dst.pages_mut().copy_pages_from_document(&src, &page_string(&[start..=end]), 0)?;
+        let clean: String = title.chars().map(|c| if c.is_control() || "/\\:*?\"<>|".contains(c) { ' ' } else { c }).collect();
+        let clean = clean.split_whitespace().collect::<Vec<_>>().join(" ");
+        let clean: String = clean.chars().take(60).collect();
+        save(&dst, &out_dir.join(format!("{}-{:0width$} {}.pdf", input.stem(), k + 1, if clean.is_empty() { "Untitled" } else { &clean })))
+    })
+}
+
+/// Acrobat's Split by file size: consecutive pages grouped while their files stay under
+/// `max_bytes` (each page measured alone; a page larger than that is a file on its own).
+pub fn split_size(input: &Input, max_bytes: u64, out_dir: &Path) -> Result<Vec<PathBuf>> {
+    let spec = {
+        let _g = pdfium_lock();
+        let src = input.open()?;
+        let total = src.pages().len() as u32;
+        let mut groups: Vec<(u32, u32)> = Vec::new();
+        let mut size = 0u64;
+        for p in 1..=total {
+            let mut one = pdfium().create_new_pdf()?;
+            one.pages_mut().copy_pages_from_document(&src, &p.to_string(), 0)?;
+            let n = one.save_to_bytes()?.len() as u64;
+            match groups.last_mut() {
+                Some(g) if size + n <= max_bytes => {
+                    g.1 = p;
+                    size += n;
+                }
+                _ => {
+                    groups.push((p, p));
+                    size = n;
+                }
+            }
+        }
+        groups.iter().map(|(a, b)| if a == b { a.to_string() } else { format!("{a}-{b}") }).collect::<Vec<_>>().join(",")
+    };
+    split_ranges(input, &spec, out_dir)
+}
+
 pub fn remove(input: &Input, spec: &str, out: &Path) -> Result<PathBuf> {
     let _g = pdfium_lock();
     let total = input.open()?.pages().len() as u32;

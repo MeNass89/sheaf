@@ -22,6 +22,23 @@ component TabItem inherits Rectangle {
     background: root.active ? Theme.tab-bg : touch.has-hover ? Theme.menu-hover-bg : transparent;
     border-top-left-radius: Theme.radius-small;
     border-top-right-radius: Theme.radius-small;
+    // A task running in this tab: its progress along the tab's foot, followed from any other tab
+    // (the task goes on while another document is read).
+    if root.tab.phase == 1: Rectangle {
+        x: 8px;
+        y: parent.height - 4px;
+        width: parent.width - 16px;
+        height: 3px;
+        border-radius: 1.5px;
+        background: Theme.progress-track;
+        Rectangle {
+            x: 0;
+            width: parent.width * clamp(root.tab.progress, 0, 1);
+            border-radius: 1.5px;
+            background: Theme.accent;
+            animate width { duration: 150ms; }
+        }
+    }
     touch := TouchArea {
         clicked => { if !root.dragging { root.select(); } }
         pointer-event(e) => {

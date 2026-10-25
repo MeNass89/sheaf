@@ -1,4 +1,4 @@
-# Sheaf — handoff (VPS, 2026-10-24)
+# Sheaf — handoff (VPS, 2026-10-25)
 
 Sheaf is built and tested on the **Linux VPS** (the MacBook Pro is for another project). Method: the **`dev`
 skill** (brain: `claude-code/skills/dev/`). Read its SKILL.md, then this file, then `dev/DECISIONS.md`.
@@ -10,6 +10,14 @@ Codex est à **13 % de quota** (rollouts 07:31 UTC, reset le 30/10), pas 89 %. L
 dès maintenant. À faire au prochain tour : (1) appendre dans DECISIONS.md la fin de la dérogation du 21/10 ;
 (2) faire relire par Sol les composants validés avec Opus depuis le 21/10 ; (3) continuer le board. Rien d'autre
 ne change. Nassim : « Limits are at 16% consumed bro just use codex !! »
+
+## Two sessions on one VM (25/10)
+
+Two Claude sessions worked Sheaf at once on 25/10 (this T3 one and a headless resume). Their suites collided on
+Xvfb :98. The rule they agreed: **one heavy job at a time** (build, suite, Sol); before one, check
+`pgrep -f "[s]cripts/test.sh|[b]uild-safe.sh|[g]ui-smoke.sh|[c]odex exec"` and wait while anything matches;
+components are split between them so no two touch the same one; each works in its own git worktree under
+`/tmp/f5/` and rebases on what the other pushed, never force-pushing.
 
 ## Where things are
 
@@ -56,8 +64,9 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 ## Tests: one suite
 
 - `bash scripts/test.sh` runs every layer and ends on one verdict line: `lint` (clippy `-D warnings`), `unit`
-  (`cargo test --workspace`), `gui` (`dev/scripts/gui-smoke.sh`: the real app on Xvfb :98 driven with
-  xdotool, checked on the files it writes with qpdf/pdftotext; needs a CUPS printer named PDF from
+  (`cargo test --workspace`), `gui` (`dev/scripts/gui-smoke.sh` sets up and holds the helpers; the steps are
+  `dev/scripts/smoke/1-reader.sh`, `2-documents-and-tools.sh`, `3-flows.sh`, run in that order in its shell: the
+  real app on Xvfb :98 driven with xdotool, checked on the files it writes with qpdf/pdftotext; needs a CUPS printer named PDF from
   `printer-driver-cups-pdf` for the print check). On this VM Cargo goes through `build-safe.sh` (memory cap).
   `bash scripts/test.sh gui` runs one layer while iterating; a unit closes on a full run. CI runs the same script.
 - Outputs go to `dev/.tmp/` and are deleted on green (`SMOKE_KEEP=1` keeps the smoke screenshots to file a proof).

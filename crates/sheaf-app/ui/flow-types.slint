@@ -307,6 +307,8 @@ export struct ContinueTool {
 export struct ToolTab {
     // A file whose first pages carry next to no text (a scan): PDF to Office suggests OCR.
     any-scanned: bool,
+    // A file was opened with its password (Protect then changes it).
+    any-locked: bool,
     id: int,
     tool: string,
     name: string,
@@ -401,7 +403,9 @@ export struct ToolTab {
     edit-selected-seq: int,
     edit-text: string,
     edit-size: int,
+    // The preset ringed (−1: a colour typed, shown in hex).
     edit-colour: int,
+    edit-hex: string,
     edit-width: int,
     edit-image-name: string,
     edit-ready: bool,
@@ -425,10 +429,11 @@ export struct ToolOptions {
     allow-commenting: bool,
     allow-filling-forms: bool,
     pages: string,       // remove / extract / rotate (optional)
-    split-mode: int,     // 0 ranges, 1 every N
+    split-mode: int,     // 0 ranges, 1 every N, 2 top-level bookmarks, 3 file size
     ranges: string,
     every: int,
     split-one-file: bool, // split: every range into one PDF (iLovePDF's "Merge all ranges")
+    split-size: string,  // split by size: the largest file, in MB as typed
     degrees: int,        // 90 / 180 / 270
     layout: int,         // jpg→pdf: 0 fit, 1 A4, 2 US Letter
     landscape: bool,     // jpg→pdf: the paper turned
@@ -489,6 +494,7 @@ export struct ToolOptions {
     ocr-all-pages: bool,   // also read pages that already contain text
     // PDF to Word / PowerPoint / Excel
     export-ocr: bool,      // recognise scanned pages first
+    export-exact: bool,    // Word: keep each page's layout (positioned text boxes)
     excel-layout: int,     // 0 one sheet, 1 one sheet per table
     // Compare
     compare-mode: int,     // 0 semantic text (report), 1 content overlay
@@ -611,6 +617,8 @@ export global ReaderBridge {
     callback paste(int);
     // ⌘C with pages selected in the Pages panel (and no text selected).
     callback copy-pages(int);
+    // ⌘C / ⌘X on a selected comment (cut: true).
+    callback copy-comment(int, bool);
     // The selected page image: 0 turn left, 1 turn right, 2 flip, 3 replace, 4 delete.
     callback image-action(int, int);
     callback note-cancel(int);
@@ -685,7 +693,8 @@ export global ViewerBridge {
     callback search(int, string, string);
     callback toggle-result(int, int);
     callback show-result(int, int);
-    callback mark-page(int);
+    // Whole pages marked for redaction: the range typed ("2-4, 7"), empty for the page shown.
+    callback mark-page(int, string);
     callback remove-mark(int, int);
     callback clear-marks(int);
 }
@@ -727,6 +736,8 @@ export global EditBridge {
     // +1 / −1: the next or previous text size.
     callback size-step(int, int);
     callback colour(int, int);
+    // A colour typed as RRGGBB.
+    callback colour-typed(int, string);
     callback width(int, int);
     callback pick-image(int);
     // Remove the selected item.

@@ -33,6 +33,8 @@ pub struct AnnotEntry {
     /// review status ("Accepted").
     pub replies: Vec<(String, usize, usize)>,
     pub status: String,
+    /// Its /NM, what an XFDF export names it by ("" when the file gives none).
+    pub nm: String,
     /// Checked with Acrobat's check mark (its last Marked/Unmarked reply is Marked).
     pub checked: bool,
     /// A text box's format: (standard font resource name, "TiBo"; size in points; alignment 0
@@ -142,7 +144,7 @@ fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
         format!("{w:.0} × {h:.0} mm")
     });
     let mb = i.file_size as f64 / 1_048_576.0;
-    let about = vec![
+    let mut about = vec![
         ("Pages".into(), i.pages.len().to_string()),
         ("Page size".into(), page.unwrap_or_else(|| "—".into())),
         ("File size".into(), if mb >= 1.0 { format!("{mb:.1} MB") } else { format!("{:.0} KB", i.file_size as f64 / 1024.0) }),
@@ -153,6 +155,16 @@ fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
         ("Tagged (accessible)".into(), if i.tagged { "Yes".into() } else { "No".into() }),
         ("Fonts".into(), i.fonts.len().to_string()),
     ];
+    // Acrobat's Signatures panel, in short: who signed, the verdict, when and why, and what the
+    // verdict rests on (its sentences: changed since, certificate not trusted…).
+    for (k, s) in d.signatures.iter().filter(|s| s.signed).enumerate() {
+        let who = s.signer.clone().unwrap_or_else(|| "unknown signer".into());
+        let when = s.date.as_deref().and_then(sheaf_core::facts::pdf_date).unwrap_or_default();
+        let mut line = vec![s.summary().to_string()];
+        line.extend([when, s.reason.clone().unwrap_or_default()].into_iter().filter(|v| !v.is_empty()));
+        line.extend(s.details.iter().map(|x| x.message.clone()));
+        about.push((format!("Signature {} · {who}", k + 1), line.join(". ")));
+    }
     let get = |v: &Option<String>| v.clone().unwrap_or_default();
     Props { title: get(&i.title), author: get(&i.author), subject: get(&i.subject), keywords: get(&i.keywords), about }
 }
@@ -213,6 +225,7 @@ fn snap(doc: &Doc) -> Snap {
             replies: a.name.as_deref().and_then(|n| replies.get(n)).cloned().unwrap_or_default(),
             checked: a.name.as_deref().and_then(|n| checked.get(n)).copied().unwrap_or(false),
             status: a.name.as_deref().and_then(|n| status.get(n)).cloned().unwrap_or_default(),
+            nm: a.name.clone().unwrap_or_default(),
             font: fonts.get(&(a.page, a.index)).copied(),
         })
         .collect();
@@ -296,6 +309,8 @@ pub enum Op {
     Summary { to: PathBuf },
     /// Every comment exported to `to`: XFDF, or FDF when `to` ends in .fdf.
     ExportComments { to: PathBuf },
+    /// The XFDF element of the comment named `nm` (⌘C on a selected comment).
+    CopyComment { nm: String },
     /// A paragraph being edited, shown on its page as typed: the last preview is taken back,
     /// then `edit` (if any) applied in its place, on `pages`. A preview is not an undo step; any
     /// other edit, undo, redo or save takes it back first. Answered by `Changed`, not applied.
@@ -312,6 +327,8 @@ pub enum Reply {
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
     /// Comments exported to `to` (or why not).
     Exported { to: PathBuf, error: Option<String> },
+    /// The copied comment's XFDF element (`None`: it could not be written).
+    Copied(Option<String>),
     /// A page's paragraphs and its images' boxes (user space).
     /// A page's paragraphs and its images: (visible box, full box), user space; a cropped image
     /// shows less than its full box, which is what a move translates.
@@ -423,6 +440,11 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let format = if fdf { sheaf_core::pdfcraft::engine::DataFormat::Fdf } else { sheaf_core::pdfcraft::engine::DataFormat::Xfdf };
                         let r = doc.session().export_data(id, format, true, false).map_err(|e| e.to_string()).and_then(|bytes| replace(&to, &bytes).map_err(|e| e.to_string()));
                         reply(Reply::Exported { to, error: r.err() });
+                    }
+                    Op::CopyComment { nm } => {
+                        let id = doc.id();
+                        let xfdf = doc.session().export_data(id, sheaf_core::pdfcraft::engine::DataFormat::Xfdf, true, false).ok();
+                        reply(Reply::Copied(xfdf.and_then(|b| sheaf_app::reader::xfdf_element(&String::from_utf8_lossy(&b), &nm))));
                     }
                     Op::Summary { to } => {
                         let id = doc.id();

@@ -30,6 +30,10 @@ pub enum SplitMode {
     Every(u32),
     /// Every range, in order, into one output (`<stem>-split.pdf`).
     OneFile(String),
+    /// One output per top-level bookmark, named after it.
+    Bookmarks,
+    /// Outputs of at most this many bytes each.
+    Size(u64),
 }
 
 /// What PDF to Word / PowerPoint / Excel writes.
@@ -260,6 +264,8 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 SplitMode::Ranges(s) => pages::split_ranges(input, s, out_dir)?,
                 SplitMode::OneFile(s) => vec![pages::extract(input, s, &out_dir.join(format!("{}-split.pdf", input.stem())))?],
                 SplitMode::Every(n) => pages::split_every(input, *n, out_dir)?,
+                SplitMode::Bookmarks => pages::split_bookmarks(input, out_dir)?,
+                SplitMode::Size(max) => pages::split_size(input, *max, out_dir)?,
             };
             progress(1.0);
             r
@@ -629,7 +635,9 @@ pub fn cancel(tab_id: i32) {
 }
 
 /// Runs `job` on a worker thread; progress and the result reach the handlers on the UI thread.
-pub fn spawn(ui: slint::Weak<crate::AppWindow>, tab_id: i32, job: Job) {
+/// `author`: written as the Author of the PDFs the job makes from other files when they have
+/// none (Acrobat's Create PDF uses the identity name).
+pub fn spawn(ui: slint::Weak<crate::AppWindow>, tab_id: i32, job: Job, author: Option<String>) {
     let flag = std::sync::Arc::new(AtomicBool::new(false));
     {
         let mut c = CANCELS.lock().unwrap();
@@ -651,6 +659,11 @@ pub fn spawn(ui: slint::Weak<crate::AppWindow>, tab_id: i32, job: Job) {
             std::thread::sleep(std::time::Duration::from_millis(ms));
         }
         let r = r.and_then(|o| finalize(o, flag.load(Ordering::Relaxed)));
+        if let (Ok(o), Some(name)) = (&r, &author) {
+            for p in o.outputs.iter().filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))) {
+                let _ = sheaf_core::info::set_author_if_empty(p, name);
+            }
+        }
         let counts = match &r {
             Ok(o) => o.outputs.iter().map(|p| page_count(p)).collect(),
             Err(_) => Vec::new(),

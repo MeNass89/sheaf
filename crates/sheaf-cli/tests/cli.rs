@@ -577,3 +577,28 @@ fn every_tool_schema_parses() {
         }
     }
 }
+
+#[test]
+fn mcp_offers_prompts_and_reads_resources() {
+    use serde_json::json;
+    let t = tempfile::tempdir().unwrap();
+    one_page(t.path());
+    let replies = mcp(
+        &[
+            json!({"jsonrpc": "2.0", "id": 1, "method": "prompts/list"}),
+            json!({"jsonrpc": "2.0", "id": 2, "method": "prompts/get", "params": {"name": "redact_personal_data", "arguments": {"file": "a.pdf"}}}),
+            json!({"jsonrpc": "2.0", "id": 3, "method": "resources/templates/list"}),
+            json!({"jsonrpc": "2.0", "id": 4, "method": "resources/read", "params": {"uri": "sheaf://info/a.pdf"}}),
+            json!({"jsonrpc": "2.0", "id": 5, "method": "prompts/get", "params": {"name": "summarize_pdf", "arguments": {}}}),
+        ],
+        t.path(),
+    );
+    let names: Vec<&str> = replies[0]["result"]["prompts"].as_array().unwrap().iter().map(|p| p["name"].as_str().unwrap()).collect();
+    assert_eq!(names, ["summarize_pdf", "redact_personal_data", "prepare_to_share"]);
+    let text = replies[1]["result"]["messages"][0]["content"]["text"].as_str().unwrap();
+    assert!(text.contains("a.pdf") && text.contains("`redact`"), "{text}");
+    assert_eq!(replies[2]["result"]["resourceTemplates"][0]["uriTemplate"], "sheaf://text/{path}");
+    let info: serde_json::Value = serde_json::from_str(replies[3]["result"]["contents"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(info["ok"], true, "{info}");
+    assert_eq!(replies[4]["error"]["code"], -32602, "a prompt without its file is refused");
+}

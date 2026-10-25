@@ -214,6 +214,9 @@ pub struct App {
     /// Pages copied from a document's Pages panel (⌘C): its name, its bytes as they were, the
     /// pages; pasted into another document's Pages panel (⌘V).
     pub page_clip: Option<(String, std::sync::Arc<Vec<u8>>, Vec<usize>)>,
+    /// A comment copied (⌘C): its XFDF element, its file and page; pasted while the system
+    /// clipboard still holds [`crate::reader_ui::COMMENT_ON_CLIPBOARD`].
+    pub comment_clip: Option<(String, PathBuf, usize)>,
 }
 
 impl App {
@@ -342,6 +345,7 @@ pub fn build(t: &TabState) -> ToolTab {
         tile: tile_colour(t.tool),
         multi: info.multi,
         any_scanned: t.files.iter().any(|f| f.scanned),
+        any_locked: t.files.iter().any(|f| f.locked),
         phase: match t.phase { Phase::Edit => 0, Phase::Running => 1, Phase::Done(_) => 2 },
         progress: t.progress,
         progress_text: progress_text(t.progress, if info.multi { t.files.len() } else { 1 }, t.started.map(|s| s.elapsed())).into(),
@@ -776,7 +780,7 @@ mod tests {
         assert_eq!((tab.result_sub.as_str(), tab.result_verified.as_str()), ("3 areas redacted", REDACTION_VERIFIED));
         assert_eq!(done_tab(ToolId::Rotate, JobOutcome { outputs: vec![PathBuf::from("/x/a.pdf")], ..Default::default() }).result_verified, "");
         // The first redacted page is shown as written.
-        let th = crate::files::Thumb { width: 2, height: 3, rgba: vec![0; 24] };
+        let th = Thumb { width: 2, height: 3, rgba: vec![0; 24] };
         let o = JobOutcome { outputs: vec![PathBuf::from("/x/a-redacted.pdf")], preview: Some((2, th)), ..Default::default() };
         let tab = done_tab(ToolId::Redact, o);
         assert_eq!((tab.result_preview_caption.as_str(), tab.result_preview.size().width), ("Page 3 as redacted", 2));

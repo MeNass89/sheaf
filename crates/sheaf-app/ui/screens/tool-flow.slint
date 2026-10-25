@@ -392,6 +392,7 @@ export component ToolFlowScreen inherits Rectangle {
                     spacing: root.split ? 2px : 16px;
                     flex-wrap: wrap;
                     for f[i] in (root.organize || root.split ? [] : root.tab.files): FileCardView {
+                        turn: root.tab.tool == "rotate" ? opts.degrees : 0;
                         drag-to(x, y) => {
                             if !root.drag-cancelled {
                                 root.drag-uid = f.uid;
@@ -607,6 +608,7 @@ export component ToolFlowScreen inherits Rectangle {
                     ranges <=> root.split-ranges;
                     page-count: root.tab.tool == "split" ? root.tab.pages.length : 0;
                     any-scanned: root.tab.any-scanned;
+                    any-locked: root.tab.any-locked;
                     default-out: root.tab.default-out;
                     office-missing: root.tab.office-missing;
                     preview: root.tab.preview;

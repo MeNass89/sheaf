@@ -145,6 +145,40 @@ pub fn move_objects(doc: &mut Document, page: usize, targets: &[ObjectTarget], o
     Ok(())
 }
 
+/// Sheaf: the objects picked with the Edit tool deleted together (Acrobat's Delete on a
+/// selection): drawings first, located in the content as it is, then paragraphs, images and
+/// added items, each kind from its last so the earlier ones keep their numbers. One step.
+pub fn delete_objects(doc: &mut Document, page: usize, targets: &[ObjectTarget]) -> Result<(), EditError> {
+    if targets.is_empty() || targets.len() > MAX_MOVE_OBJECTS {
+        return Err(EditError::Invalid("select between 1 and 1000 objects to delete".into()));
+    }
+    let inventory: BTreeSet<_> = editable_objects(doc, page)?.into_iter().map(|o| o.target).collect();
+    if let Some(t) = targets.iter().find(|t| !inventory.contains(t)) {
+        let _ = t;
+        return Err(EditError::Invalid("a selected object no longer exists; select the objects again".into()));
+    }
+    let last_first = |kind| {
+        let mut v: Vec<usize> = targets.iter().filter(|t| t.kind == kind).map(|t| t.index).collect();
+        v.sort_unstable_by(|a, b| b.cmp(a));
+        v.dedup();
+        v
+    };
+    let mut work = doc.clone();
+    let excluded = crate::list_added(&work).into_iter().filter(|a| a.page == page).map(|a| a.obj).collect();
+    crate::paths::delete_paths(&mut work, page, &last_first(ObjectKind::Path), &excluded)?;
+    for b in last_first(ObjectKind::Text) {
+        crate::text::clear_block(&mut work, page, b)?;
+    }
+    for i in last_first(ObjectKind::Image) {
+        crate::images::change_image(&mut work, page, i, &crate::images::ImageChange::Delete)?;
+    }
+    for i in last_first(ObjectKind::Added) {
+        crate::added::delete_content(&mut work, page, i)?;
+    }
+    *doc = work;
+    Ok(())
+}
+
 struct AddedGeometry {
     rect: [f64; 4],
     local_rect: [f64; 4],

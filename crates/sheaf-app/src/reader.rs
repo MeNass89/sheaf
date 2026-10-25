@@ -320,6 +320,70 @@ pub fn dest_focus(view: &render::DestView, crop: [f64; 4]) -> Option<[f64; 4]> {
     }
 }
 
+/// The XFDF element of the comment named `name` in an export of the document's comments (one
+/// element a line, PdfCraft's writer), its replies left out.
+pub fn xfdf_element(xfdf: &str, name: &str) -> Option<String> {
+    let attr = format!(" name=\"{}\"", xml_escape(name));
+    xfdf.lines().find(|l| l.starts_with('<') && l.contains(&attr) && !l.contains(" inreplyto=\"")).map(str::to_string)
+}
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
+
+/// A copied comment's XFDF element made ready to paste: on `page` (0-based), moved by (dx, dy)
+/// points (PDF space, y up), under the fresh `name` (an import replaces a comment of the same
+/// name); wrapped as a whole XFDF file.
+pub fn paste_xfdf(element: &str, page: usize, (dx, dy): (f64, f64), name: &str) -> String {
+    // Each "x,y,x,y…" attribute that holds points, and the "x,y;x,y" contents of points.
+    let shift = |v: &str, sep: char| -> String {
+        v.split(sep)
+            .map(|pt| {
+                pt.split(',')
+                    .enumerate()
+                    .map(|(i, n)| n.trim().parse::<f64>().map_or_else(|_| n.to_string(), |x| format!("{}", x + if i % 2 == 0 { dx } else { dy })))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            })
+            .collect::<Vec<_>>()
+            .join(&sep.to_string())
+    };
+    let mut out = String::new();
+    let mut rest = element;
+    // Attributes: page, name, and the point lists.
+    while let Some(eq) = rest.find("=\"") {
+        let key_start = rest[..eq].rfind(' ').map_or(0, |k| k + 1);
+        let key = &rest[key_start..eq];
+        let Some(end) = rest[eq + 2..].find('"') else { break };
+        let value = &rest[eq + 2..eq + 2 + end];
+        out.push_str(&rest[..eq + 2]);
+        out.push_str(&match key {
+            "page" => page.to_string(),
+            "name" => xml_escape(name),
+            "rect" | "coords" | "start" | "end" | "callout" => shift(value, ';'),
+            _ => value.to_string(),
+        });
+        out.push('"');
+        rest = &rest[eq + 3 + end..];
+    }
+    out.push_str(rest);
+    // Ink strokes and polygon points.
+    for tag in ["gesture", "vertices"] {
+        let (open, close) = (format!("<{tag}>"), format!("</{tag}>"));
+        let mut s = String::new();
+        let mut r = out.as_str();
+        while let Some(a) = r.find(&open) {
+            let Some(b) = r[a..].find(&close) else { break };
+            s.push_str(&r[..a + open.len()]);
+            s.push_str(&shift(&r[a + open.len()..a + b], ';'));
+            r = &r[a + b..];
+        }
+        s.push_str(r);
+        out = s;
+    }
+    format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xfdf xmlns=\"http://ns.adobe.com/xfdf/\" xml:space=\"preserve\">\n<annots>\n{}\n</annots>\n</xfdf>\n", out.trim_end())
+}
+
 /// Outline titles often carry line breaks and runs of spaces from the authoring tool.
 fn clean_title(s: &str) -> String {
     let t = s.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -689,6 +753,18 @@ mod tests {
         assert_eq!(rows[1].depth, 1);
         assert_eq!(current_section(&rows, 3), Some(1));
         assert_eq!(current_section(&rows, 9), Some(2));
+    }
+
+    #[test]
+    fn a_copied_comment_is_pasted_on_another_page_moved_and_renamed() {
+        let x = "<?xml?>\n<xfdf><annots>\n<ink page=\"0\" rect=\"10,20,30,40\" name=\"a&amp;1\" color=\"#FF0000\"><inklist><gesture>10,20;30,40</gesture></inklist><popup page=\"0\" rect=\"100,100,200,150\" open=\"no\"/></ink>\n<text page=\"0\" rect=\"0,0,1,1\" name=\"r\" inreplyto=\"a&amp;1\"><contents>Reply</contents></text>\n</annots></xfdf>";
+        let el = xfdf_element(x, "a&1").unwrap();
+        assert!(el.starts_with("<ink ") && !el.contains("Reply"));
+        assert_eq!(xfdf_element(x, "missing"), None);
+        let p = paste_xfdf(&el, 2, (12.0, -12.0), "copy-1");
+        assert!(p.contains("<ink page=\"2\" rect=\"22,8,42,28\" name=\"copy-1\" color=\"#FF0000\">"), "{p}");
+        assert!(p.contains("<gesture>22,8;42,28</gesture>") && p.contains("<popup page=\"2\" rect=\"112,88,212,138\""), "{p}");
+        assert!(p.starts_with("<?xml") && p.contains("<annots>"));
     }
 
     #[test]

@@ -118,7 +118,8 @@ export component PreferencesScreen inherits Rectangle {
     callback set-output(int);
     callback choose-folder();
     callback set-open-after(bool);
-    // Author written on annotations; empty: the login name (shown as the placeholder).
+    // The user's name, on comments and as the Author of the PDFs Sheaf makes from other files;
+    // empty: the login name (shown as the placeholder).
     in property <string> author-name;
     in property <string> author-default;
     callback set-author(string);
@@ -243,12 +244,18 @@ export component PreferencesScreen inherits Rectangle {
                 }
             }
             Section {
-                title: "Annotations";
+                title: "Identity";
                 TextField {
-                    label: "Author name";
+                    label: "Your name";
                     text: root.author-name;
                     placeholder: root.author-default;
                     changed text => { root.set-author(self.text); }
+                }
+                Text {
+                    text: "Signs your comments, and is the author of the PDFs Sheaf makes from images and documents.";
+                    font-size: Theme.fs-caption;
+                    color: Theme.text-muted;
+                    wrap: word-wrap;
                 }
             }
         }

@@ -8,6 +8,7 @@ pub mod excel;
 pub mod facts;
 pub mod crop;
 pub mod images;
+pub mod info;
 pub mod office;
 pub mod numbers;
 pub mod ocr;

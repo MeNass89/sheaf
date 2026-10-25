@@ -46,6 +46,7 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::SetLink { .. }
         | Edit::DeleteLink { .. }
         | Edit::MoveObjects { .. }
+        | Edit::DeleteObjects { .. }
         | Edit::EditPageImage { .. }
         | Edit::RenameBookmark { .. }
         | Edit::DeleteBookmark { .. }
@@ -548,6 +549,10 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     if update(tab_id, |r, _| r.grid_prev.is_some() && !r.page_sel.is_empty()) == Some(true) {
         return super::pages::page_op(ui, tab_id, 2);
     }
+    // Objects picked with the Edit tool (drawings, paragraphs, images): deleted in one step.
+    if let Some((page, objects)) = update(tab_id, |r, _| r.picked.take().map(|(p, l)| (p, l.iter().map(|o| o.0).collect::<Vec<_>>()))).flatten() {
+        return apply(ui, tab_id, Edit::DeleteObjects { page, objects }, &[page], None);
+    }
     if update(tab_id, |r, _| r.selected_image.is_some()) == Some(true) {
         return image_action(ui, tab_id, 4);
     }
@@ -560,6 +565,47 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     if let Some((page, e)) = edit {
         apply(ui, tab_id, e, &[page], None);
     }
+}
+
+/// What the system clipboard holds while a comment copied in Sheaf is the latest copy.
+pub const COMMENT_ON_CLIPBOARD: &str = "(Sheaf comment)";
+
+/// ⌘C (and ⌘X, `cut`) on a selected comment, Acrobat's copy of a comment: it can be pasted on any
+/// page of any document open (⌘V).
+pub fn copy_comment(ui: &AppWindow, tab_id: i32, cut: bool) {
+    let nm = update(tab_id, |r, _| {
+        let a = r.selected_annot.and_then(|i| r.annots().get(i))?;
+        let (nm, page) = (a.nm.clone(), a.page);
+        if nm.is_empty() {
+            return Some(Err(()));
+        }
+        r.copy_from = Some(page);
+        r.send(Op::CopyComment { nm });
+        Some(Ok(()))
+    })
+    .flatten();
+    match nm {
+        Some(Err(())) => crate::flow::toast(ui, "This comment has no name in the file: it cannot be copied"),
+        Some(Ok(())) if cut => delete_selected(ui, tab_id),
+        _ => {}
+    }
+}
+
+/// ⌘V with a comment copied last: it goes on the page shown, a little below and right of its
+/// place when that is the page it came from. False: nothing to paste.
+pub(super) fn paste_comment(ui: &AppWindow, tab_id: i32) -> bool {
+    let fresh = arboard::Clipboard::new().and_then(|mut c| c.get_text()).is_ok_and(|t| t == COMMENT_ON_CLIPBOARD);
+    let Some((el, from, page)) = with(|a| a.comment_clip.clone()).filter(|_| fresh) else { return false };
+    let Some((to, same)) = update(tab_id, |r, v| {
+        let to = v.current();
+        (to, r.path == from && to == page)
+    }) else {
+        return false;
+    };
+    let nm = format!("sheaf-{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos()));
+    let xfdf = reader::paste_xfdf(&el, to, if same { (12.0, -12.0) } else { (0.0, 0.0) }, &nm);
+    apply(ui, tab_id, Edit::ImportData { name: "Paste comment".into(), bytes: Arc::new(xfdf.into_bytes()) }, &[to], None);
+    true
 }
 
 /// A reply deleted from its comment's thread (Acrobat's Delete on a reply); the comment stays.

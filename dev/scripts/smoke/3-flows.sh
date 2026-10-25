@@ -66,8 +66,10 @@ convert -size 200x260 xc:'#dd2222' xc:'#22aa22' xc:'#2222dd' xc:'#dddd22' xc:'#2
 launch "$OUT/reo/ten.pdf"
 click 50 21 1; click 67 113 1; click 406 197 2; click 494 405 1; click 460 527 3
 click 414 160 0.6; click 158 337 0.6; shot 22-split
-R1=$(ocr 240x30+1006+254 | tr -d ' ')
-click 414 160 0.6; R2=$(ocr 240x30+1006+254 | tr -d ' ')
+# The Ranges field, under its label in the options (its place moves with the cards above it).
+read _ RY <<< "$(at Ranges 280x600+1000+100)"; ranges_now() { ocr 240x60+1006+$(( ${RY:-240} - 5 )) | tr -d ' ' | grep -o '[0-9][0-9,-]*' | head -1; }
+R1=$(ranges_now)
+click 414 160 0.6; R2=$(ranges_now)
 click 414 160 0.6; click 1133 755 4
 check "clicks between Split's pages cut and join its ranges ($R1 → $R2)" "[ \"$R1\" = 1-3,4-7,8-10 ] && [ \"$R2\" = 1-7,8-10 ]"
 check "Split writes a file for each cut range" "[ \"\$(pdfinfo $OUT/reo/ten-4-7.pdf 2>/dev/null | awk '/^Pages/{print \$2}')\" = 4 ] && [ -f $OUT/reo/ten-1-3.pdf ] && [ -f $OUT/reo/ten-8-10.pdf ]"
@@ -252,3 +254,23 @@ NB=$(npages "$OUT/grid.pdf")
 [ -n "$GR" ] && xdotool mousemove $(( GR + 20 )) $GY click --repeat 2 --delay 120 1; sleep 1.5; WIDE=$(first_x r 450)
 check "the page grid shows the pages in a row, Delete takes out the one selected, a double-click opens one (red $GR, green $GG, blue $GB; $NB pages; red at x ${WIDE:-?} on row 450)" "[ -n \"$GR\" ] && [ -n \"$GB\" ] && [ $GR -lt ${GG:-0} ] && [ ${GG:-0} -lt $GB ] && [ \"$NB\" = 3 ] && [ -n \"$WIDE\" ] && [ $WIDE -lt 400 ]"
 quit
+
+# 39. Rotate: a portrait page's card shows it turned as chosen: wider than tall at Right 90° (the default),
+# taller than wide again at 180° (found by its label).
+convert -size 300x420 xc:'#2040E0' "$OUT/turn.pdf"; launch "$OUT/turn.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "rotate"; key Return; sleep 2.5
+cardbox() { import -window root -crop 600x300+40+100 png:- 2>/dev/null | convert - -fuzz 20% -fill white +opaque '#2040E0' -trim -format '%w %h' info: 2>/dev/null; }
+read CW0 CH0 <<< "$(cardbox)"; HF=$(at 180 300x500+990+90); [ -n "$HF" ] && click $HF 1; read CW1 CH1 <<< "$(cardbox)"
+check "Rotate shows each file's page turned as chosen (${CW0:-?}x${CH0:-?} → ${CW1:-?}x${CH1:-?})" "[ -n \"$CW1\" ] && [ ${CW0:-0} -gt ${CH0:-0} ] && [ ${CH1:-0} -gt ${CW1:-0} ]"
+quit
+
+# 40. Crop: a box dragged on the page preview (found by its accent outline's place, the preview under the margin
+# fields) fills the four margins; the Top field then holds a number.
+cp "$OUT/text.pdf" "$OUT/crop.pdf"; launch "$OUT/crop.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "crop"; key Return; sleep 2.5
+read _ MY <<< "$(at Margins 300x600+990+100)"
+if [ -n "$MY" ]; then PY=$(( MY + 190 )); xdotool mousemove 1100 $PY mousedown 1 mousemove 1120 $(( PY + 20 )) mousemove 1150 $(( PY + 60 )) mouseup 1; sleep 0.8; fi
+read _ TY <<< "$(at Top 300x600+990+100)"; CT=$(ocr 120x30+1000+$(( ${TY:-200} + 8 )) | tr -cd '0-9.')
+check "a box dragged on Crop's preview sets the margins (top: ${CT:-none})" "[ -n \"$CT\" ] && [ \"$CT\" != 0 ]"
+quit
+
