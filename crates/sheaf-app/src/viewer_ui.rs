@@ -34,6 +34,8 @@ pub struct Manual {
 pub struct ViewerUi {
     /// Load id: renders of an earlier document are told apart and dropped.
     pub load_id: u64,
+    /// Redact's searches started: an answer for an older one is dropped.
+    pub search_seq: u64,
     pub input: Input,
     pub viewer: Viewer,
     /// Device pixels per logical pixel (2 on Retina).
@@ -104,6 +106,7 @@ impl ViewerUi {
         let ((_, top, h), (stop, sh)) = (viewport, strip);
         ViewerUi {
             load_id: next_load_id(),
+            search_seq: 0,
             input,
             viewer,
             scale,
@@ -639,7 +642,7 @@ pub fn queries(text: &str, patterns: &str) -> Vec<Query> {
 
 pub fn search(ui: &AppWindow, tab_id: i32, text: &str, patterns: &str) {
     let queries = queries(text, patterns);
-    let Some((load_id, input)) = update(tab_id, |v| {
+    let Some((load_id, seq, input)) = update(tab_id, |v| {
         // Matches still checked from an earlier search stay marked.
         for f in v.found.drain(..).filter(|f| f.checked) {
             v.manual.push(Manual { label: f.m.text.clone(), mark: redact::mark_text(std::slice::from_ref(&f.m)).remove(0) });
@@ -647,7 +650,8 @@ pub fn search(ui: &AppWindow, tab_id: i32, text: &str, patterns: &str) {
         v.focused = None;
         v.searched = !queries.is_empty();
         v.busy = !queries.is_empty();
-        (v.load_id, v.input.clone())
+        v.search_seq += 1;
+        (v.load_id, v.search_seq, v.input.clone())
     }) else {
         return;
     };
@@ -659,8 +663,8 @@ pub fn search(ui: &AppWindow, tab_id: i32, text: &str, patterns: &str) {
         let r = sheaf_app::jobs::catching(|| redact::find_all(&input, &queries));
         let _ = weak.upgrade_in_event_loop(move |ui| {
             let err = update(tab_id, |v| {
-                // The file was swapped meanwhile: these matches belong to the old one.
-                if v.load_id != load_id {
+                // The file was swapped, or a newer search started, meanwhile: these matches are stale.
+                if v.load_id != load_id || v.search_seq != seq {
                     return None;
                 }
                 v.busy = false;

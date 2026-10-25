@@ -340,3 +340,13 @@ fn drawings_are_objects_that_move_alone() {
     let out = doc.save(&dir.path().join("moved.pdf")).unwrap();
     assert!(std::process::Command::new("qpdf").arg("--check").arg(&out).status().unwrap().success());
 }
+
+#[test]
+fn a_paragraph_emptied_is_removed_from_the_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut doc = Doc::open(&Input::new(ascii_subset(dir.path()))).unwrap();
+    let (i, _, _) = block_with(&doc, "cafe");
+    doc.apply(Edit::EditTextBlock { page: 0, block: i, text: String::new(), style: BlockStyle::default() }).unwrap();
+    let blocks = doc.session().get(doc.id()).unwrap().text_blocks(0);
+    assert!(blocks.iter().all(|b| !b.text.contains("cafe")), "{:?}", blocks.iter().map(|b| &b.text).collect::<Vec<_>>());
+}

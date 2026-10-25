@@ -261,7 +261,7 @@ pub struct OverlayRect {
 
 /// Width of a thumbnail in the strip, logical pixels.
 pub const THUMB_WIDTH: f64 = 84.0;
-/// Narrowest a page is ever drawn, logical pixels.
+/// Narrowest the view is laid out for, logical pixels.
 const MIN_PAGE_WIDTH: f64 = 120.0;
 
 /// Where every page of one document sits in the viewer's scrolling content (logical pixels,
@@ -301,7 +301,8 @@ impl Viewer {
     }
 
     fn relayout(&mut self) {
-        self.page_width = (self.fit_page_width() * self.zoom as f64 / 100.0).max(MIN_PAGE_WIDTH).round();
+        // Zoomed out, a page may go narrower than the window's floor: a very tall page fits whole.
+        self.page_width = (self.fit_page_width() * self.zoom as f64 / 100.0).max(16.0).round();
         let w = self.page_width;
         let heights: Vec<f64> = self.boxes.iter().map(|b| { let (bw, bh) = b.view_size(); w * bh / bw.max(1e-9) }).collect();
         let n = heights.len();
@@ -357,7 +358,7 @@ impl Viewer {
     pub fn set_zoom(&mut self, zoom: u32) -> bool {
         // The internal zoom is relative to the fit width; the steps the user sees are actual sizes
         // (`actual_percent`), so this range is wider than theirs.
-        let zoom = zoom.clamp(5, 1600);
+        let zoom = zoom.clamp(1, 1600);
         let changed = zoom != self.zoom;
         self.zoom = zoom;
         self.relayout();
@@ -389,7 +390,8 @@ impl Viewer {
             return 100;
         }
         let want_w = (height - 2.0 * PAGE_GAP).max(1.0) / ratio;
-        ((want_w / fit_w * 100.0).floor() as u32).clamp(MIN_ZOOM, 100)
+        // A very tall page (a receipt, a scroll) fits whole too: down to the viewer's own floor.
+        ((want_w / fit_w * 100.0).floor() as u32).clamp(1, 100)
     }
 
     pub fn page_count(&self) -> usize {
@@ -686,6 +688,16 @@ mod tests {
     }
 
     #[test]
+    fn fit_page_fits_a_very_tall_page_whole() {
+        let mut v = Viewer::new(vec![PageBox { crop: [0.0, 0.0, 200.0, 4000.0], rotation: 0, unit: 1.0 }]);
+        v.set_width(1000.0);
+        let z = v.fit_page_zoom(700.0, 0..1);
+        assert!(z < 25, "{z}");
+        v.set_zoom(z);
+        assert!(v.page_rect(0)[3] <= 700.0, "{:?}", v.page_rect(0));
+    }
+
+    #[test]
     fn a_zoom_keeps_the_anchored_point_of_a_deep_page_in_place() {
         let pages = |n| (0..n).map(|_| PageBox { crop: A4, rotation: 0, unit: 1.0 }).collect::<Vec<_>>();
         let mut v = Viewer::new(pages(80));
@@ -861,10 +873,10 @@ mod tests {
         assert_eq!((v.page_rect(0)[2], v.content_width()), (300.0, 632.0));
         assert_eq!(v.page_rect(0)[0], 166.0, "centred");
         assert!(!v.set_zoom(50));
-        // The internal zoom (relative to the fit width) is held to 5–1600 %; the steps shown are
-        // actual sizes, 25–400 %.
-        assert!(v.set_zoom(5));
-        assert!(!v.set_zoom(1), "clamped to 5");
+        // The internal zoom (relative to the fit width) is held to 1–1600 % (1 %: Fit page on a very tall
+        // page); the steps shown are actual sizes, 25–400 %.
+        assert!(v.set_zoom(1));
+        assert!(!v.set_zoom(0), "clamped to 1");
         assert!(v.set_zoom(50));
         // Jumping to a page puts it at the top, never past the end.
         let top = v.scroll_to(1, None, 400.0);

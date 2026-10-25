@@ -269,7 +269,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             *shown_current = None;
         }
         let have = model.row_count();
-        for (i, ((page, _), (b, m, a))) in r.search.hits.iter().zip(&r.search.snippets).enumerate().skip(have).take(2000usize.saturating_sub(have)) {
+        for (i, ((page, _), (b, m, a))) in r.search.hits.iter().zip(&r.search.snippets).enumerate().skip(have) {
             model.push(ReaderResultRow {
                 before: b.clone().into(),
                 hit: m.clone().into(),

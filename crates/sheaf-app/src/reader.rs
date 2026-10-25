@@ -456,6 +456,41 @@ pub const SIGNATURE_WIDTHS: [f64; 3] = [1.0, 1.8, 2.8];
 /// Opacities offered for shapes and drawings.
 pub const OPACITIES: [f64; 4] = [1.0, 0.75, 0.5, 0.25];
 
+/// A `file:` link's target: the path decoded (%20…), relative to the document's folder when it
+/// is not absolute. None for anything else.
+pub fn file_link_path(uri: &str, doc_dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    let rest = uri.strip_prefix("file://").or_else(|| uri.strip_prefix("file:"))?;
+    // "file://host/path": only the local host is ours.
+    let rest = rest.strip_prefix("localhost").unwrap_or(rest);
+    let bytes = rest.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() && let Ok(b) = u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).ok()?, 16) {
+            out.push(b);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    let path = std::path::PathBuf::from(String::from_utf8(out).ok()?);
+    (!path.as_os_str().is_empty()).then(|| if path.is_absolute() { path } else { doc_dir.join(path) })
+}
+
+/// Shapes tool with ⇧ held at the press (PDF Expert, Acrobat): a rectangle becomes a square and an
+/// oval a circle (the longer side wins), a line or arrow snaps to the nearest 45°.
+pub fn constrained(kind: i32, a: (f64, f64), b: (f64, f64)) -> (f64, f64) {
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    if kind <= 1 {
+        let side = dx.abs().max(dy.abs());
+        return (a.0 + side.copysign(dx), a.1 + side.copysign(dy));
+    }
+    let len = dx.hypot(dy);
+    let angle = (dy.atan2(dx) / std::f64::consts::FRAC_PI_4).round() * std::f64::consts::FRAC_PI_4;
+    (a.0 + len * angle.cos(), a.1 + len * angle.sin())
+}
+
 /// Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow. The outline shown while a shape is dragged
 /// from `a` to `b` (view points), as one path.
 pub fn shape_outline(kind: i32, a: (f64, f64), b: (f64, f64)) -> Vec<(f64, f64)> {
@@ -488,6 +523,25 @@ pub fn fill_tint(c: [f64; 3]) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn file_links_are_decoded_and_taken_from_the_document_folder() {
+        let d = std::path::Path::new("/docs");
+        assert_eq!(file_link_path("file:///home/a/My%20file.pdf", d), Some("/home/a/My file.pdf".into()));
+        assert_eq!(file_link_path("file://localhost/tmp/x.pdf", d), Some("/tmp/x.pdf".into()));
+        assert_eq!(file_link_path("file:annex.pdf", d), Some("/docs/annex.pdf".into()));
+        assert_eq!(file_link_path("https://x.org", d), None);
+    }
+
+    #[test]
+    fn shift_makes_squares_circles_and_45_degree_lines() {
+        assert_eq!(constrained(0, (10.0, 10.0), (40.0, 20.0)), (40.0, 40.0));
+        assert_eq!(constrained(1, (10.0, 10.0), (0.0, 50.0)), (-30.0, 50.0));
+        let (x, y) = constrained(2, (0.0, 0.0), (100.0, 8.0));
+        assert!((y - 0.0).abs() < 1e-9 && (x - 100.0_f64.hypot(8.0)).abs() < 1e-9);
+        let (x, y) = constrained(3, (0.0, 0.0), (50.0, 45.0));
+        assert!((x - y).abs() < 1e-9);
+    }
     use super::*;
     use render::{DestView, OutlineItem, TextGlyph};
 

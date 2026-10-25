@@ -18,6 +18,7 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
             SHAPE | LINK => {
                 r.stroke = Some((page, vec![p]));
                 r.shape_end = None;
+                r.shape_shift = shift;
                 false
             }
             ERASER => {
@@ -286,6 +287,7 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             return;
         }
         if r.tool == SHAPE {
+            let b = if r.shape_shift { reader::constrained(r.shape_kind, a, b) } else { b };
             r.shape_end = Some(b);
             r.stroke = Some((page, reader::shape_outline(r.shape_kind, a, b)));
             return;
@@ -382,7 +384,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         if let Some(e) = r.edit_press.take() {
             match (e.target, e.dragging) {
                 (EditTarget::Block(i, text, _, rect, at), false) => {
-                    r.preview_text.clear();
+                    r.preview_text = text.trim().to_string();
                     r.draft = Some(Draft { page: e.page, at, kind: 2, block: Some((i, text, rect)), field: None });
                     r.note_seq += 1;
                 }
@@ -490,6 +492,19 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             });
         }
         Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("http://") || u.starts_with("https://") || u.starts_with("mailto:") => crate::run::open_detached(&u),
+        // A link to a local file (Acrobat asks before launching one): a PDF opens in its own tab; any
+        // other file is shown in its folder, never run.
+        Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("file:") => {
+            let dir = update(tab_id, |r, _| crate::dest::parent_dir(&r.path)).unwrap_or_default();
+            match reader::file_link_path(&u, &dir) {
+                Some(p) if p.is_file() && p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) => crate::flow::home_files(ui, vec![p]),
+                Some(p) if p.exists() => {
+                    crate::run::reveal(&p);
+                    crate::flow::toast(ui, &format!("Shown in its folder: {}", super::file_name(&p)));
+                }
+                _ => crate::flow::toast(ui, "The linked file was not found"),
+            }
+        }
         Some(Pending::Link(_)) | None => {}
     }
 }

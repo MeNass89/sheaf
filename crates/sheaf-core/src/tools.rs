@@ -128,6 +128,8 @@ pub struct ToolInfo {
 }
 
 const PDF: &[&str] = &["pdf"];
+/// Merge takes PDFs, images and Office or HTML documents, as iLovePDF's Merge.
+const MERGE: &[&str] = &["pdf", "jpg", "jpeg", "png", "webp", "tif", "tiff", "bmp", "gif", "doc", "docx", "odt", "rtf", "ppt", "pptx", "odp", "xls", "xlsx", "ods", "csv", "html", "htm"];
 
 macro_rules! tool {
     ($id:ident, $name:literal, $desc:literal, $cat:ident, $icon:literal, $accepts:expr, $multi:literal, $wave:literal) => {
@@ -145,7 +147,7 @@ macro_rules! tool {
 }
 
 static CATALOGUE: &[ToolInfo] = &[
-    tool!(Merge, "Merge PDF", "Combine several PDFs into one, in the order you choose.", Organize, "combine", PDF, true, 1),
+    tool!(Merge, "Merge PDF", "Combine PDFs, images and documents into one PDF, in the order you choose.", Organize, "combine", MERGE, true, 1),
     tool!(Split, "Split PDF", "Cut a PDF into separate files by page ranges.", Organize, "scissors", PDF, false, 1),
     tool!(RemovePages, "Remove pages", "Delete the pages you no longer need from a PDF.", Organize, "file-minus", PDF, false, 1),
     tool!(ExtractPages, "Extract pages", "Pull selected pages out into a new PDF.", Organize, "file-output", PDF, false, 1),

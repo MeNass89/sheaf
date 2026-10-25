@@ -385,9 +385,11 @@ mod tests {
         let pdf = PathBuf::from("/x/a.PDF");
         let docx = PathBuf::from("/x/letter.docx");
         assert_eq!(route_drop(Some(ToolId::Merge), &pdf), DropAction::AddToTab);
+        // Merge takes Word files too (iLovePDF merges mixed files), not a zip.
+        assert_eq!(route_drop(Some(ToolId::Merge), &docx), DropAction::AddToTab);
         assert_eq!(
-            route_drop(Some(ToolId::Merge), &docx),
-            DropAction::Reject("Not supported by Merge PDF: letter.docx".into())
+            route_drop(Some(ToolId::Merge), &PathBuf::from("/x/a.zip")),
+            DropAction::Reject("Not supported by Merge PDF: a.zip".into())
         );
         assert_eq!(route_drop(Some(ToolId::WordToPdf), &docx), DropAction::AddToTab);
         assert_eq!(route_drop(None, &pdf), DropAction::PickTool);

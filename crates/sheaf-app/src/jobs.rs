@@ -28,6 +28,8 @@ pub enum SplitMode {
     Ranges(String),
     /// One output every N pages.
     Every(u32),
+    /// Every range, in order, into one output (`<stem>-split.pdf`).
+    OneFile(String),
 }
 
 /// What PDF to Word / PowerPoint / Excel writes.
@@ -242,13 +244,17 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
     };
     let outputs = match job {
         Job::Merge { inputs, pages: specs, out } => {
-            let r = one(pages::merge_pages(inputs, specs, out))?;
+            let tmp = tempfile::tempdir()?;
+            let parts = as_pdfs(inputs, tmp.path(), cancel, progress)?;
+            check(cancel)?;
+            let r = one(pages::merge_pages(&parts, specs, out))?;
             progress(1.0);
             r
         }
         Job::Split { input, mode, out_dir } => {
             let r = match mode {
                 SplitMode::Ranges(s) => pages::split_ranges(input, s, out_dir)?,
+                SplitMode::OneFile(s) => vec![pages::extract(input, s, &out_dir.join(format!("{}-split.pdf", input.stem())))?],
                 SplitMode::Every(n) => pages::split_every(input, *n, out_dir)?,
             };
             progress(1.0);
@@ -469,6 +475,27 @@ pub fn finalize(outcome: JobOutcome, cancelled: bool) -> Result<JobOutcome> {
         let _ = std::fs::remove_file(p);
     }
     Err(OpdfError::Cancelled)
+}
+
+/// Merge's inputs as PDFs: an image becomes a page of its size, an Office or HTML document is
+/// converted by LibreOffice (iLovePDF merges mixed files), each into `dir`; PDFs pass through.
+/// The conversions count as the first nine tenths of the work.
+fn as_pdfs(inputs: &[Input], dir: &Path, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Vec<Input>> {
+    let images = sheaf_core::tools::find(sheaf_core::tools::ToolId::JpgToPdf).accepts;
+    let n = inputs.len().max(1) as f32;
+    let mut out = Vec::with_capacity(inputs.len());
+    for (k, i) in inputs.iter().enumerate() {
+        check(cancel)?;
+        let ext = i.path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+        let part = dir.join(format!("{k:05}.pdf"));
+        out.push(match ext.as_str() {
+            "pdf" => i.clone(),
+            e if images.contains(&e) => Input::new(images::images_to_pdf(std::slice::from_ref(&i.path), PageLayout::FitImage, &part)?),
+            _ => Input::new(crate::files::office_to_pdf(&i.path, &part)?),
+        });
+        progress((k + 1) as f32 / n * 0.9);
+    }
+    Ok(out)
 }
 
 /// Images → one PDF, one image at a time so the job can report progress and be cancelled:

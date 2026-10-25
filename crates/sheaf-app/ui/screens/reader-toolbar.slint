@@ -231,7 +231,8 @@ export component ReaderToolbar inherits Rectangle {
                     vertical-alignment: center;
                     single-line: true;
                     accepted => {
-                        if root.tab.reader.search-count != "" && !root.tab.reader.search-busy {
+                        // Results already listed (even while the search goes on): Enter goes to the next one.
+                        if root.tab.reader.search-count != "" && root.tab.reader.search-count != "None" {
                             ReaderBridge.search-step(root.id, 1);
                         } else {
                             ReaderBridge.search(root.id, self.text);

@@ -298,3 +298,94 @@ export component PageCardView inherits Rectangle {
         }
     }
 }
+
+// One page of Split's grid (PDF Expert's split points): the file it goes into, tinted and numbered,
+// and the gap after it, clicked to cut there or join again.
+export component SplitPageView inherits Rectangle {
+    in property <PageItem> item;
+    // The output file (0-based) the page goes into; -1 when no range takes it.
+    in property <int> range;
+    // A cut after this page: the next page starts another file.
+    in property <bool> cut;
+    in property <bool> last;
+    in property <bool> interactive: true;
+    callback toggle-cut();
+    property <[color]> tints: [#2f6fd6, #1f9d62, #c77d0a, #8150c8, #c43d5a, #13899b];
+    property <color> tint: root.range >= 0 ? root.tints[mod(root.range, 6)] : Theme.card;
+    width: Theme.page-thumb-width + 24px + 18px;
+    // 14 px below each card: the rows' spacing (the grid's own is the gaps' 2 px).
+    height: Theme.page-thumb-height + 44px + 14px;
+
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width - 18px;
+        height: parent.height - 14px;
+        border-radius: Theme.radius-item;
+        background: Theme.card;
+        border-width: 2px;
+        border-color: root.tint;
+        opacity: root.range < 0 ? 0.45 : 1.0;
+        Rectangle {
+            y: 10px;
+            height: Theme.page-thumb-height;
+            Thumb {
+                thumb: root.item.thumb;
+                has-thumb: root.item.has-thumb;
+                max-w: Theme.page-thumb-width;
+                max-h: Theme.page-thumb-height;
+            }
+        }
+        Text {
+            y: Theme.page-thumb-height + 18px;
+            text: "Page " + root.item.page;
+            font-size: Theme.fs-caption;
+            color: Theme.text-muted;
+        }
+        if root.range >= 0: Rectangle {
+            x: 6px;
+            y: 6px;
+            width: file-no.preferred-width + 10px;
+            height: 16px;
+            border-radius: 8px;
+            background: root.tint;
+            file-no := Text {
+                text: root.range + 1;
+                font-size: 10px;
+                font-weight: Theme.weight-demibold;
+                color: white;
+            }
+        }
+    }
+    if !root.last: Rectangle {
+        x: parent.width - 18px;
+        y: 0;
+        width: 18px;
+        height: parent.height - 14px;
+        Rectangle {
+            x: 8px;
+            width: 2px;
+            background: root.cut ? Theme.accent : gap.has-hover && root.interactive ? Theme.dashed : transparent;
+        }
+        if root.cut || (gap.has-hover && root.interactive): Rectangle {
+            width: 22px;
+            height: 22px;
+            x: -2px;
+            border-radius: 11px;
+            background: root.cut ? Theme.accent : Theme.card;
+            border-width: root.cut ? 0 : 1px;
+            border-color: Theme.dashed;
+            Image {
+                width: 12px;
+                height: 12px;
+                source: @image-url("../icons/scissors.svg");
+                colorize: root.cut ? Theme.on-accent : Theme.text-secondary;
+            }
+        }
+        gap := TouchArea {
+            enabled: root.interactive;
+            mouse-cursor: pointer;
+            clicked => { root.toggle-cut(); }
+        }
+    }
+}

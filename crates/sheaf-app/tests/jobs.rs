@@ -247,6 +247,29 @@ fn a_batch_keeps_the_outputs_written_before_a_failure() {
 }
 
 #[test]
+fn merge_takes_images_and_documents_with_pdfs() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = two_page_pdf(dir.path());
+    let png = dir.path().join("c.png");
+    image::RgbImage::from_pixel(120, 80, image::Rgb([30, 160, 30])).save(&png).unwrap();
+    let mut inputs = vec![Input::new(&png), Input::new(&src)];
+    let html = dir.path().join("d.html");
+    let office = sheaf_core::office::find_soffice().is_some();
+    if office {
+        std::fs::write(&html, "<html><body><p>Hello</p></body></html>").unwrap();
+        inputs.push(Input::new(&html));
+    }
+    // The PDF's page 2 only; the image and the document whole.
+    let out = run(&Job::Merge { inputs, pages: vec![String::new(), "2".into()], out: dir.path().join("m.pdf") }, &AtomicBool::new(false), &|_| {}).unwrap();
+    let _g = pdfium_lock();
+    let doc = open_pdf(&out.outputs[0], None).unwrap();
+    assert_eq!(doc.pages().len(), if office { 3 } else { 2 });
+    // The image's page has its proportions (120 × 80), then the PDF's page 2 (300 × 200 px image).
+    let w = |i: i32| doc.pages().get(i).unwrap().width().value / doc.pages().get(i).unwrap().height().value;
+    assert!((w(0) - 1.5).abs() < 0.01 && (w(1) - 1.5).abs() < 0.01, "{} {}", w(0), w(1));
+}
+
+#[test]
 fn office_batch_keeps_the_first_pdf_when_the_second_fails() {
     if sheaf_core::office::find_soffice().is_none() { return; }
     let dir = tempfile::tempdir().unwrap();

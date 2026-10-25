@@ -6,6 +6,7 @@ import { SortCombo } from "../widgets/sort-combo.slint";
 import { ToolTab, ReaderBridge } from "../flow-types.slint";
 
 export component ReaderOptionsBar inherits Rectangle {
+    property <bool> confirm-clear;
     in property <ToolTab> tab;
     in property <int> id;
     // The palettes, and which one is shown (see reader.slint).
@@ -179,8 +180,25 @@ export component ReaderOptionsBar inherits Rectangle {
         if root.tab.reader.has-form: HorizontalLayout {
             spacing: 4px;
             padding-right: 6px;
-            SmallButton { y: 2px; text: "Clear form"; clicked => { ReaderBridge.form-op(root.id, 0); } }
-            SmallButton { y: 2px; text: "Flatten"; clicked => { ReaderBridge.form-op(root.id, 1); } }
+            // Clear form asks first, as Acrobat's Reset Form ("Are you sure…"): every value is lost.
+            if !root.confirm-clear: SmallButton { y: 2px; text: "Clear form"; clicked => { root.confirm-clear = true; } }
+            if root.confirm-clear: Text {
+                text: "Clear every field?";
+                font-size: Theme.fs-caption;
+                color: Theme.text;
+                vertical-alignment: center;
+            }
+            if root.confirm-clear: SmallButton {
+                y: 2px;
+                text: "Clear";
+                primary: true;
+                clicked => {
+                    root.confirm-clear = false;
+                    ReaderBridge.form-op(root.id, 0);
+                }
+            }
+            if root.confirm-clear: SmallButton { y: 2px; text: "Cancel"; clicked => { root.confirm-clear = false; } }
+            if !root.confirm-clear: SmallButton { y: 2px; text: "Flatten"; clicked => { ReaderBridge.form-op(root.id, 1); } }
         }
     }
 }

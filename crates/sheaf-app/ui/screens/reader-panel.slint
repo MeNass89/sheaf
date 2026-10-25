@@ -1,7 +1,7 @@
 // The reader's side panel: Pages (thumbnails, drag to reorder, page operations), Outline, Notes
 // and search Results.
 
-import { ScrollView } from "std-widgets.slint";
+import { ScrollView, ListView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolTab, ReaderBridge } from "../flow-types.slint";
 import { ToolButton, PanelTab, SmallButton } from "reader-parts.slint";
@@ -62,14 +62,15 @@ export component ReaderPanel inherits Rectangle {
                             clicked => { ReaderBridge.search-options(root.id, root.tab.reader.case-sensitive, !root.tab.reader.whole-words, root.search-text); }
                         }
                     }
-                    ScrollView {
+                    // A ListView makes only the rows in view: tens of thousands of results stay cheap.
+                    ListView {
                         vertical-stretch: 1;
-                        VerticalLayout {
-                            padding: 6px;
-                            padding-top: 0px;
-                            spacing: 2px;
                             for h[i] in root.tab.reader.results: Rectangle {
-                                height: hl.preferred-height;
+                                height: hl.preferred-height + 2px;
+                                Rectangle {
+                                x: 6px;
+                                width: parent.width - 12px;
+                                height: parent.height - 2px;
                                 border-radius: Theme.radius-button;
                                 background: h.current ? Theme.menu-selected-bg : ht.has-hover ? Theme.popup-hover : transparent;
                                 hl := VerticalLayout {
@@ -95,8 +96,8 @@ export component ReaderPanel inherits Rectangle {
                                     mouse-cursor: pointer;
                                     clicked => { ReaderBridge.result-clicked(root.id, i); }
                                 }
+                                }
                             }
-                        }
                     }
                 }
                 if root.tab.reader.panel == 1 && root.tab.reader.outline-empty: Text {

@@ -241,7 +241,11 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
         ToolId::Merge => Job::Merge { inputs, pages: Vec::new(), out: single()? },
         ToolId::Split => Job::Split {
             input: one(inputs)?,
-            mode: if opts.split_mode == 1 { SplitMode::Every(opts.every.max(1) as u32) } else { SplitMode::Ranges(opts.ranges.trim().into()) },
+            mode: match (opts.split_mode, opts.split_one_file) {
+                (1, _) => SplitMode::Every(opts.every.max(1) as u32),
+                (_, true) => SplitMode::OneFile(opts.ranges.trim().into()),
+                _ => SplitMode::Ranges(opts.ranges.trim().into()),
+            },
             out_dir: folder,
         },
         ToolId::RemovePages => Job::RemovePages { input: one(inputs)?, pages, out: single()? },

@@ -4,14 +4,14 @@ import { ToolTab, ToolOptions, FileItem } from "../flow-types.slint";
 import { DashedBox } from "../widgets/dashed-box.slint";
 import { DropZone, AddFab, SortFab } from "../widgets/drop-zone.slint";
 import { PrimaryButton } from "../widgets/button.slint";
-import { FileCardView, PageCardView } from "../widgets/file-card.slint";
+import { FileCardView, PageCardView, SplitPageView } from "../widgets/file-card.slint";
 import { OptionsPanel } from "options.slint";
 import { ProcessingOverlay } from "processing.slint";
 import { PageViewer } from "../widgets/page-viewer.slint";
 import { RedactPanel } from "redact-panel.slint";
 import { SignPanel } from "sign-panel.slint";
 import { EditPanel } from "edit-panel.slint";
-import { ViewerBridge } from "../flow-types.slint";
+import { ViewerBridge, Parse } from "../flow-types.slint";
 
 // Full-width accent button at the bottom of the options panel.
 component ActionButton inherits Rectangle {
@@ -211,6 +211,9 @@ export component ToolFlowScreen inherits Rectangle {
 
     property <bool> running: root.tab.phase == 1;
     property <bool> organize: root.tab.tool == "organize";
+    // Split: its pages shown in their files, cut between by a click; the ranges are the options panel's.
+    property <bool> split: root.tab.tool == "split" && root.tab.pages.length > 0;
+    property <string> split-ranges;
     property <bool> compare: root.tab.tool == "compare";
     // Redact shows its one file in the page viewer instead of the file grid.
     property <bool> redact: root.tab.tool == "redact";
@@ -330,9 +333,9 @@ export component ToolFlowScreen inherits Rectangle {
                     width: parent.visible-width;
                     padding: 20px;
                     padding-right: Theme.fab-size + 36px;
-                    spacing: 16px;
+                    spacing: root.split ? 2px : 16px;
                     flex-wrap: wrap;
-                    for f[i] in (root.organize ? [] : root.tab.files): FileCardView {
+                    for f[i] in (root.organize || root.split ? [] : root.tab.files): FileCardView {
                         drag-to(x, y) => {
                             if !root.drag-cancelled {
                                 root.drag-uid = f.uid;
@@ -365,6 +368,17 @@ export component ToolFlowScreen inherits Rectangle {
                         interactive: !root.running;
                         remove => { root.remove-file(f.uid); }
                         move(d) => { root.move-file(f.uid, d); }
+                    }
+                    for p[i] in (root.split ? root.tab.pages : []): SplitPageView {
+                        item: p;
+                        range: root.split-ranges == "" ? 0 : Parse.split-range-of(root.split-ranges, p.page, root.tab.pages.length);
+                        cut: root.split-ranges != "" && i < root.tab.pages.length - 1
+                            && Parse.split-range-of(root.split-ranges, p.page, root.tab.pages.length) >= 0
+                            && Parse.split-range-of(root.split-ranges, p.page + 1, root.tab.pages.length) >= 0
+                            && Parse.split-range-of(root.split-ranges, p.page, root.tab.pages.length) != Parse.split-range-of(root.split-ranges, p.page + 1, root.tab.pages.length);
+                        last: i == root.tab.pages.length - 1;
+                        interactive: !root.running;
+                        toggle-cut => { root.split-ranges = Parse.split-cut(root.split-ranges, p.page, root.tab.pages.length); }
                     }
                     for p[i] in (root.organize ? root.tab.pages : []): PageCardView {
                         item: p;
@@ -534,6 +548,8 @@ export component ToolFlowScreen inherits Rectangle {
                     width: sv.inner;
                     tool: root.tab.tool;
                     file-count: root.tab.files.length;
+                    ranges <=> root.split-ranges;
+                    page-count: root.tab.tool == "split" ? root.tab.pages.length : 0;
                     any-scanned: root.tab.any-scanned;
                     default-out: root.tab.default-out;
                     office-missing: root.tab.office-missing;

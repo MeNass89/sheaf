@@ -364,6 +364,17 @@ fi
 key ctrl+s; sleep 1.5; shot 06-form
 V=$(qpdf --json=2 --json-key=acroform "$OUT/form.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
 check "a form field is filled and saved ($V)" "echo \"$V\" | grep -q 'Smoke Test'"
+# Clear form asks first (Acrobat's Reset Form): Cancel keeps the value; Clear empties it.
+CF=$(at Clear 1280x40+0+90)
+[ -n "$CF" ] && click $CF 0.6; ASK=$(ocr 1280x40+0+90)
+CN=$(at Cancel 1280x40+0+90); [ -n "$CN" ] && click $CN 0.6; key ctrl+s; sleep 1
+V1=$(qpdf --json=2 --json-key=acroform "$OUT/form.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
+CF=$(at Clear 1280x40+0+90); [ -n "$CF" ] && click $CF 0.6
+# The confirming Clear (white on the accent: OCR misses it) sits just left of Cancel.
+CN=$(at Cancel 1280x40+0+90); OK=$([ -n "$CN" ] && echo "$CN" | awk '{ print $1 - 68, $2 }')
+[ -n "$OK" ] && click $OK 0.6; key ctrl+s; sleep 1.5
+V2=$(qpdf --json=2 --json-key=acroform "$OUT/form.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
+check "Clear form asks first; Cancel keeps the value, Clear empties it ($ASK; $V1 → $V2)" "echo \"$ASK\" | grep -q 'Clear every field' && echo \"$V1\" | grep -q 'Smoke Test' && ! echo \"$V2\" | grep -q 'Smoke Test'"
 quit
 
 # 6c. Shapes (R): a rectangle; an oval, filled, at 75 %; an arrow. Options bar at 1280×800:
@@ -371,11 +382,20 @@ quit
 launch "$OUT/shapes.pdf"; key ctrl+9
 drag() { xdotool mousemove $1 $2 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(($1 + i * $3 / 5)) $(($2 + i * $4 / 5)); sleep 0.05; done; xdotool mouseup 1; sleep 1.2; }
 key r; drag 500 300 180 120
+# ⇧ held at the press: a rectangle dragged 160 × 50 is saved square.
+xdotool keydown shift; drag 260 650 160 50; xdotool keyup shift
 click 317 109; click 413 109; click 550 109; drag 500 600 200 100
 click 376 109; drag 900 300 150 -100
 key ctrl+s; sleep 1.5; shot 06c-shapes
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a rectangle, a filled oval at 75 % and an arrow are saved" "echo \"\$SH\" | grep -aq '/Subtype /Square' && echo \"\$SH\" | grep -aq '/Subtype /Circle' && echo \"\$SH\" | grep -aq '/IC \\[' && echo \"\$SH\" | grep -aq '/CA 0.75' && echo \"\$SH\" | grep -aq '/OpenArrow'"
+SQ=$(qpdf --json=2 "$OUT/shapes.pdf" | python3 -c 'import json, sys
+o = json.load(sys.stdin)["qpdf"][1]
+for v in o.values():
+    d = v.get("value", {}) if isinstance(v, dict) else {}
+    if d.get("/Subtype") == "/Square":
+        r = d["/Rect"]; print(round(r[2] - r[0]), round(r[3] - r[1]))')
+check "⇧ makes a rectangle square ($(echo $SQ))" "echo \"$SQ\" | awk '{ if (\$1 > 20 && (\$1 - \$2) * (\$1 - \$2) <= 4) ok = 1 } END { exit !ok }'"
 check "the Shapes tool keeps its style for next time (opacity 75 % in the preferences)" "python3 -c 'import json, glob, sys; p = json.load(open(glob.glob(\"$PWD/$OUT/profile/data/Sheaf/prefs.json\")[0])); sys.exit(0 if any(t[0] == 10 and t[3] == 1 for t in p.get(\"tool_styles\", [])) else 1)'"
 # 6c'. The eraser (X) along a short pen stroke rubs it out entirely.
 ninks() { inks "$1" | tr ';' '\n' | grep -c .; }
@@ -922,6 +942,20 @@ MC=$(for i in 1 2 3 4; do pdftoppm -r 10 -f $i -l $i -png "$OUT/reo/ra-merged.pd
 NP=$(pdfinfo "$OUT/reo/ra-merged.pdf" 2>/dev/null | awk '/^Pages/{print $2}')
 check "a page choice outside the file is refused ($BAD; run button $RUN)" "echo \"$BAD\" | grep -q 'only 1' && [ \"$RUN\" != '#E5322D' ]"
 check "Merge takes the pages chosen for each file ($NP pages: $MC)" "[ \"$NP\" = 4 ] && [ \"$MC\" = 'srgb(220,220,33) srgb(220,33,33) srgb(33,169,33) srgb(186,186,186) ' ]"
+quit
+
+# 22. Split's pages, cut between by a click (PDF Expert's split points; iLovePDF's ranges): ten pages, cuts after
+# 3 and 7 → 1-3, 4-7, 8-10 in the Ranges field and three files; a second click after 3 joins again (1-7,8-10).
+# Cards step 128 px from x 41 (gap centre +117), rows 178 px from y 79.
+convert -size 200x260 xc:'#dd2222' xc:'#22aa22' xc:'#2222dd' xc:'#dddd22' xc:'#22dddd' xc:'#dd22dd' xc:'#888888' xc:'#111111' xc:'#ff8800' xc:'#0088ff' "$OUT/reo/ten.pdf"
+launch "$OUT/reo/ten.pdf"
+click 50 21 1; click 67 113 1; click 406 197 2; click 494 405 1; click 460 527 3
+click 414 160 0.6; click 158 337 0.6; shot 22-split
+R1=$(ocr 240x30+1006+254 | tr -d ' ')
+click 414 160 0.6; R2=$(ocr 240x30+1006+254 | tr -d ' ')
+click 414 160 0.6; click 1133 755 4
+check "clicks between Split's pages cut and join its ranges ($R1 → $R2)" "[ \"$R1\" = 1-3,4-7,8-10 ] && [ \"$R2\" = 1-7,8-10 ]"
+check "Split writes a file for each cut range" "[ \"\$(pdfinfo $OUT/reo/ten-4-7.pdf 2>/dev/null | awk '/^Pages/{print \$2}')\" = 4 ] && [ -f $OUT/reo/ten-1-3.pdf ] && [ -f $OUT/reo/ten-8-10.pdf ]"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

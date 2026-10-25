@@ -210,6 +210,8 @@ pub struct ReaderUi {
     shape_kind: i32,
     shape_fill: bool,
     shape_end: Option<(f64, f64)>,
+    /// ⇧ held when the shape was started: squares, circles, 45° lines.
+    shape_shift: bool,
     /// Notes panel: filter (`reader::notes_filter`) and order (0 page, 1 newest, 2 author, 3 type).
     notes_filter: i32,
     notes_sort: i32,
@@ -359,6 +361,7 @@ impl ReaderUi {
             shape_kind: 0,
             shape_fill: false,
             shape_end: None,
+            shape_shift: false,
             opacity: 0,
             comments_hidden: false,
             props_open: false,

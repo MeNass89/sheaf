@@ -207,7 +207,8 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                             t.new_viewer_file();
                             return (None, None, Some(input));
                         }
-                        let organize = if t.tool == ToolId::Organize {
+                        // Organize and Split show every page (Split cuts between them).
+                        let organize = if matches!(t.tool, ToolId::Organize | ToolId::Split) {
                             t.order = (1..=pages).collect();
                             t.page_thumbs.clear();
                             t.pages_failed = false;
@@ -290,7 +291,7 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
     });
 }
 
-/// Organize: render every page on the probe pool, posting each thumbnail as it is ready.
+/// Organize and Split: render every page on the probe pool, posting each thumbnail as it is ready.
 fn page_thumbs(ui: &AppWindow, tab_id: i32, input: Input) {
     let weak = ui.as_weak();
     sheaf_app::pool::probes().submit(move || {
@@ -385,7 +386,6 @@ pub fn place_file(tab_id: i32, uid: i32, slot: i32) {
     });
 }
 
-/// The files by name, A to Z ("file 2" before "file 10"); Z to A when they already are.
 /// Merge: the pages taken from file `uid` ("" = all), kept as typed; the card says when they
 /// are not pages of the file and Merge waits until they are.
 pub fn set_pages(tab_id: i32, uid: i32, text: &str) {
@@ -398,6 +398,7 @@ pub fn set_pages(tab_id: i32, uid: i32, text: &str) {
     });
 }
 
+/// The files by name, A to Z ("file 2" before "file 10"); Z to A when they already are.
 pub fn sort_files(tab_id: i32) {
     with(|a| {
         if let Some(t) = a.tab(tab_id) {

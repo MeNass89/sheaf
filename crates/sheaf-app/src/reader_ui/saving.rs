@@ -4,11 +4,7 @@ use super::*;
 
 /// ⌘S: the edits are written into the file itself, as an incremental update.
 pub fn save(ui: &AppWindow, tab_id: i32) {
-    // A paragraph being edited is saved as typed (PDF Expert does the same), not as it was.
-    let typed = update(tab_id, |r, _| r.draft.as_ref().is_some_and(|d| d.kind == 2).then(|| r.preview_text.clone())).flatten();
-    if let Some(text) = typed.filter(|t| !t.is_empty()) {
-        super::note_commit(ui, tab_id, &text);
-    }
+    commit_open_paragraph(ui, tab_id);
     update(tab_id, |r, _| {
         if r.dirty() {
             r.send(Op::Save { to: None });
@@ -16,8 +12,18 @@ pub fn save(ui: &AppWindow, tab_id: i32) {
     });
 }
 
+/// A paragraph being edited is saved as typed (PDF Expert does the same), not as it was; emptied,
+/// it is removed. Its text starts as the paragraph's own, so one opened and left alone is unchanged.
+fn commit_open_paragraph(ui: &AppWindow, tab_id: i32) {
+    let typed = update(tab_id, |r, _| r.draft.as_ref().is_some_and(|d| d.kind == 2).then(|| r.preview_text.clone())).flatten();
+    if let Some(text) = typed {
+        super::note_commit(ui, tab_id, &text);
+    }
+}
+
 /// ⇧⌘S: a full copy with the edits, under a new name; the tab then shows that file.
 pub fn save_as(ui: &AppWindow, tab_id: i32) {
+    commit_open_paragraph(ui, tab_id);
     let Some((dir, name)) = update(tab_id, |r, _| (crate::dest::parent_dir(&r.path), r.name.clone())) else { return };
     let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(name).add_filter("PDF", &["pdf"]);
     crate::dialog::save_file(ui, d, move |ui, target| {

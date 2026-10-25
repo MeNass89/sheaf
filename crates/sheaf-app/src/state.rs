@@ -460,6 +460,9 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
             .map(|(p, e)| format!("{} — {e}", p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()).into())
             .collect();
         tab.failures = ModelRc::new(VecModel::from(lines));
+        // Not every file went through: the heading says how many did (iLovePDF's partial result).
+        let done = o.outputs.len();
+        tab.result_title = format!("{done} of {} files {} {}; {n} failed.", done + n, if done == 1 { "was" } else { "were" }, verb(t.tool)).into();
     }
     let outs: Vec<ResultFile> = o
         .outputs
@@ -641,6 +644,7 @@ mod tests {
         };
         let tab = done_tab(ToolId::WordToPdf, o);
         assert_eq!(tab.failure_title, "1 file failed:");
+        assert_eq!(tab.result_title, "1 of 2 files was converted; 1 failed.");
         assert_eq!(tab.failures.row_data(0).unwrap(), "b.docx — conversion failed: boom");
         assert_eq!(tab.outputs.row_count(), 1);
     }
