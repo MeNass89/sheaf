@@ -1,0 +1,223 @@
+// The controls the tools' options are made of: section labels, a stepper, the position grid, page
+// ranges, the crop preview, font and colour rows.
+import { Theme } from "../theme.slint";
+import { Parse } from "../flow-types.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Segment } from "../widgets/radio-card.slint";
+
+export component SectionLabel inherits Text {
+    font-size: Theme.fs-label;
+    font-weight: Theme.weight-demibold;
+    color: Theme.text;
+}
+
+// -/+ number picker, or typed (Split "every N pages").
+export component Stepper inherits HorizontalLayout {
+    in-out property <int> value: 1;
+    in property <int> minimum: 1;
+    spacing: 8px;
+    height: 32px;
+    Segment {
+        width: 32px;
+        text: "−";
+        clicked => { root.value = max(root.minimum, root.value - 1); }
+    }
+    // The number can be typed too.
+    Rectangle {
+        width: 56px;
+        border-radius: Theme.radius-button;
+        border-width: 1px;
+        border-color: n.has-focus ? Theme.text-secondary : Theme.option-border;
+        n := TextInput {
+            width: parent.width - 12px;
+            text: root.value;
+            font-size: Theme.fs-label;
+            color: Theme.text;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            single-line: true;
+            edited => {
+                if self.text.is-float() && self.text.to-float() >= root.minimum {
+                    root.value = Math.round(self.text.to-float());
+                }
+            }
+        }
+    }
+    Segment {
+        width: 32px;
+        text: "+";
+        clicked => { root.value += 1; }
+    }
+}
+
+// Position picker: a page outline with a 3×3 grid of small squares. `edges-only` hides the
+// middle row (page numbers go at the top or bottom).
+export component PositionGrid inherits Rectangle {
+    in-out property <int> selected: 7;
+    in property <bool> edges-only;
+    in property <bool> enabled: true;
+    property <length> cell: 18px;
+    width: 96px;
+    height: 120px;
+    border-radius: Theme.radius-small;
+    border-width: 1px;
+    border-color: Theme.option-border;
+    background: Theme.panel-bg;
+    opacity: root.enabled ? 1 : 0.4;
+    for i in 9: Rectangle {
+        x: 8px + mod(i, 3) * (root.width - 16px - root.cell) / 2;
+        y: 8px + floor(i / 3) * (root.height - 16px - root.cell) / 2;
+        width: root.cell;
+        height: root.cell;
+        visible: !root.edges-only || floor(i / 3) != 1;
+        border-radius: Theme.radius-small;
+        border-width: root.selected == i && root.enabled ? 0 : 1px;
+        border-color: t.has-hover ? Theme.text-secondary : Theme.option-border;
+        background: root.selected == i && root.enabled ? Theme.success-strong : Theme.input-bg;
+        t := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: pointer;
+            clicked => { root.selected = i; }
+        }
+    }
+}
+
+// Two page fields side by side ("From page" / "To page").
+export component PageRange inherits HorizontalLayout {
+    in-out property <string> from;
+    in-out property <string> to;
+    spacing: 10px;
+    TextField { width: (parent.width - 10px) / 2; label: "From page"; placeholder: "1"; text <=> root.from; }
+    TextField { width: (parent.width - 10px) / 2; label: "To page"; placeholder: "Last"; text <=> root.to; }
+}
+
+// Crop: page 1 with the kept area outlined and the cut margins dimmed. Margins are drawn from the
+// page as rendered (its existing CropBox), while the crop measures them from the MediaBox. A box
+// dragged on the page sets the four margins (iLovePDF's crop box).
+export component CropPreview inherits Rectangle {
+    // The box dragged: the margins it leaves (top, bottom, left, right), in points.
+    callback boxed(float, float, float, float);
+    in property <image> source;
+    in property <bool> ready;
+    // Page size in points, and the margins in points.
+    in property <float> page-w;
+    in property <float> page-h;
+    in property <float> top;
+    in property <float> bottom;
+    in property <float> left;
+    in property <float> right;
+    property <length> box: 200px;
+    property <float> k: root.page-w > 0 && root.page-h > 0 ? min(root.box / 1px / root.page-w, root.box / 1px / root.page-h) : 0;
+    property <length> pw: root.page-w * root.k * 1px;
+    property <length> ph: root.page-h * root.k * 1px;
+    property <length> px: (root.width - root.pw) / 2;
+    property <length> py: (root.box - root.ph) / 2;
+    property <length> t: clamp(root.top, 0, root.page-h) * root.k * 1px;
+    property <length> b: clamp(root.bottom, 0, root.page-h) * root.k * 1px;
+    property <length> l: clamp(root.left, 0, root.page-w) * root.k * 1px;
+    property <length> r: clamp(root.right, 0, root.page-w) * root.k * 1px;
+    height: root.box;
+    background: Theme.filearea-bg;
+    border-radius: Theme.radius-small;
+    if !root.ready: Text {
+        text: "Preview…";
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+    }
+    if root.ready: Rectangle {
+        x: root.px;
+        y: root.py;
+        width: root.pw;
+        height: root.ph;
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: root.source;
+            image-fit: fill;
+        }
+        Rectangle { x: 0; y: 0; width: parent.width; height: root.t; background: Theme.scrim; }
+        Rectangle { x: 0; y: parent.height - root.b; width: parent.width; height: root.b; background: Theme.scrim; }
+        Rectangle { x: 0; y: root.t; width: root.l; height: max(0, parent.height - root.t - root.b); background: Theme.scrim; }
+        Rectangle { x: parent.width - root.r; y: root.t; width: root.r; height: max(0, parent.height - root.t - root.b); background: Theme.scrim; }
+        Rectangle {
+            x: root.l;
+            y: root.t;
+            width: max(0, parent.width - root.l - root.r);
+            height: max(0, parent.height - root.t - root.b);
+            border-width: 2px;
+            border-color: Theme.accent;
+        }
+        TouchArea {
+            mouse-cursor: crosshair;
+            moved => {
+                if self.pressed && root.k > 0 {
+                    let x0 = clamp(min(self.pressed-x, self.mouse-x), 0, self.width) / 1px / root.k;
+                    let x1 = clamp(max(self.pressed-x, self.mouse-x), 0, self.width) / 1px / root.k;
+                    let y0 = clamp(min(self.pressed-y, self.mouse-y), 0, self.height) / 1px / root.k;
+                    let y1 = clamp(max(self.pressed-y, self.mouse-y), 0, self.height) / 1px / root.k;
+                    root.boxed(y0, root.page-h - y1, x0, root.page-w - x1);
+                }
+            }
+        }
+    }
+}
+
+// The tool-specific options between the panel title and the action button.
+// A text font: family (Sans, Serif, Mono: Helvetica, Times, Courier), then the size beside bold,
+// italic and underline, each label drawn in its look.
+export component FontRow inherits VerticalLayout {
+    in-out property <int> family;
+    in-out property <bool> bold;
+    in-out property <bool> italic;
+    in-out property <bool> underline;
+    in-out property <string> size;
+    in property <string> size-placeholder;
+    spacing: 10px;
+    SectionLabel { text: "Font"; }
+    HorizontalLayout {
+        spacing: 6px;
+        Segment { text: "Sans"; selected: root.family == 0; clicked => { root.family = 0; } }
+        Segment { text: "Serif"; label-family: Theme.serif-family; selected: root.family == 1; clicked => { root.family = 1; } }
+        Segment { text: "Mono"; label-family: Theme.mono-family; selected: root.family == 2; clicked => { root.family = 2; } }
+    }
+    HorizontalLayout {
+        spacing: 6px;
+        TextField { placeholder: root.size-placeholder; text <=> root.size; }
+        Text { text: "pt"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+        Segment { width: 32px; text: "B"; label-bold: true; selected: root.bold; clicked => { root.bold = !root.bold; } }
+        Segment { width: 32px; text: "I"; label-italic: true; selected: root.italic; clicked => { root.italic = !root.italic; } }
+        Segment { width: 32px; text: "U"; label-underline: true; selected: root.underline; clicked => { root.underline = !root.underline; } }
+    }
+}
+
+// The text colour: four presets, or any colour typed as RRGGBB (which then takes over).
+export component ColourRow inherits VerticalLayout {
+    in-out property <int> colour;
+    in-out property <string> hex;
+    spacing: 10px;
+    SectionLabel { text: "Colour"; }
+    HorizontalLayout {
+        spacing: 6px;
+        for c[k] in ["Black", "Grey", "Red", "Blue"]: Segment {
+            text: c;
+            selected: root.hex == "" && root.colour == k;
+            clicked => { root.colour = k; root.hex = ""; }
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        TextField { placeholder: "Custom: RRGGBB"; text <=> root.hex; error: Parse.colour-error(root.hex); }
+        // The colour the text will take.
+        VerticalLayout {
+            alignment: start;
+            Rectangle {
+                width: 32px;
+                height: 32px;
+                border-radius: Theme.radius-small;
+                border-width: 1px;
+                border-color: Theme.option-border;
+                background: Parse.colour(root.hex, root.colour);
+            }
+        }
+    }
+}

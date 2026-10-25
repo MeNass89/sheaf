@@ -612,3 +612,7 @@ touched again by round 9 (PDF to HTML or text's format row): splitting it once, 
 file a pending branch rewrites. **Scope.** `third_party/*` for as long as it is vendored; `options.slint` until
 round 9 lands. **Ends when.** The refactor commit right after round 9 splits `options.slint` (per tool group), suite
 green after.
+- **Closed (25/10, round 12's first commit).** `options.slint` split by responsibility: the controls the tools'
+  options are made of (section labels, stepper, position grid, page ranges, crop preview, font and colour rows) in
+  `options-parts.slint`, the per-tool panel in `options.slint` (855 lines). The vendored `third_party/` files keep
+  upstream's layout, as decided.

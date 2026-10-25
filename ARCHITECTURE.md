@@ -68,7 +68,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 
 | Change | Where |
 |---|---|
-| A new tool | engine in `sheaf-core/src/<tool>.rs` + `tools.rs`; options in `sheaf-app/ui/screens/options.slint` and `run.rs`; a CLI subcommand in `sheaf-cli/src/args.rs` (arguments) and `main.rs` (dispatch) |
+| A new tool | engine in `sheaf-core/src/<tool>.rs` + `tools.rs`; options in `sheaf-app/ui/screens/options.slint` (its controls in `options-parts.slint`) and `run.rs`; a CLI subcommand in `sheaf-cli/src/args.rs` (arguments) and `main.rs` (dispatch) |
 | A reader tool, shortcut or panel | `ui/screens/reader.slint` (composition, pages, keys), `reader-toolbar.slint` (top bar: tools, page field, zoom, search, More menu), `reader-options.slint` (the tool's options bar over the pages), `reader-sheets.slint` (signature pad, print, properties), `reader-form.slint` (Prepare form's field boxes and card), `reader-panel.slint` (side panel), `reader-parts.slint` (small controls) + `src/reader_ui/<part>.rs` (behaviour); state fields in `ui/flow-types.slint` (`ReaderState`, `ReaderBridge`) |
 | An edit to the open document | `Op` in `reader_doc/mod.rs`, sent from `reader_ui/edits.rs` |
 | Colours, sizes, fonts | `ui/theme.slint` |
