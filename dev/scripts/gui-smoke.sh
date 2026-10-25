@@ -490,7 +490,9 @@ key ctrl+9; sleep 1
 pagesig() { import -window root -crop 1000x690+260+90 png:- 2>/dev/null | md5sum | cut -c1-8; }
 # The zoom field read alone (a single line at 300 %: the default OCR misses it).
 zoomval() { import -window root -crop 70x26+$((ZOOM_X - 32))+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
-key Home; sleep 1; ZA=$(zoomval); QK=$(at fox 1020x700+255+90); [ -n "$QK" ] && xdotool mousemove $QK; xdotool keydown ctrl click 4 click 4 keyup ctrl; sleep 2; ZB=$(zoomval); QK2=$(at fox 1020x700+255+90)
+key Home; sleep 1; ZA=$(zoomval); QK=$(at fox 1020x700+255+90); # The pointer arrives as a hand moves it (two steps, a pause): a wheel event read before the move
+# into the page was handled would anchor on where the pointer was before (961 → 889 on 25/10).
+[ -n "$QK" ] && xdotool mousemove $(echo $QK | awk '{ print $1 - 6, $2 - 4 }') && sleep 0.15 && xdotool mousemove $QK && sleep 0.4; xdotool keydown ctrl click 4 click 4 keyup ctrl; sleep 2; ZB=$(zoomval); QK2=$(at fox 1020x700+255+90)
 check "⌘ + wheel zooms in ($ZA → $ZB %)" "[ -n \"$ZA\" ] && [ -n \"$ZB\" ] && [ $ZB -gt $ZA ]"
 # The word under the pointer stays under it (OCR centres within 60 px).
 check "⌘ + wheel zooms around the pointer ($QK → $QK2)" "[ -n \"$QK\" ] && [ -n \"$QK2\" ] && python3 -c 'import sys; a, b = [list(map(int, v.split())) for v in sys.argv[1:]]; sys.exit(0 if abs(a[0] - b[0]) < 60 and abs(a[1] - b[1]) < 60 else 1)' \"$QK\" \"$QK2\""
@@ -562,7 +564,8 @@ copied() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key
 T1=$(copied); key ctrl+shift+bracketleft; sleep 0.8; T2=$(copied); shot 08-tabs
 check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})" "[ -n \"$T1\" ] && [ -n \"$T2\" ] && [ \"$T1\" != \"$T2\" ]"
 # 9. Home ▸ Preferences ▸ Author name: what is typed is kept.
-click 50 21 0.8; click 90 192 0.8; click 700 610 0.5
+# The field sits 30 px below its "Author name" label.
+click 50 21 0.8; click 90 192 0.8; AN=$(at Author 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Author"; sleep 0.8; shot 09-preferences
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.
@@ -984,6 +987,45 @@ quit
 qpdf --encrypt "" owner 256 --print=none --extract=n -- "$OUT/text.pdf" "$OUT/owner.pdf"
 launch "$OUT/owner.pdf"; key ctrl+d; sleep 2; PR=$(ocr 440x330+420+400)
 check "Document properties say what the owner password forbids and the dates ($(echo $PR | cut -c1-80))" "echo \"$PR\" | grep -q 'Restricted: no printing' && echo \"$PR\" | grep -q 'PDF/A'"
+quit
+
+# 25. Files panel (211,106), Acrobat's Attachments: four attached files; "con" in Find (160,150) leaves
+# contract.txt alone; a click on annex.pdf (100,185) opens it in its own tab.
+echo hello > "$OUT/notes.txt"; echo b > "$OUT/budget.txt"; echo c > "$OUT/contract.txt"; cp "$OUT/text.pdf" "$OUT/annex.pdf"
+qpdf "$OUT/text.pdf" --add-attachment "$OUT/annex.pdf" -- --add-attachment "$OUT/notes.txt" -- --add-attachment "$OUT/budget.txt" -- --add-attachment "$OUT/contract.txt" -- "$OUT/withatt.pdf"
+launch "$OUT/withatt.pdf"; click 211 106 1
+click 160 150 0.5; xdotool type --delay 30 "con"; sleep 0.6; xdotool mousemove 100 400; sleep 0.3; AF=$(ocr 240x140+0+165)
+xdotool key ctrl+a BackSpace; sleep 0.5; click 100 185 2; TB=$(ocr 700x30+0+8)
+check "attachments are found by name and open, a PDF in its own tab ($AF; tabs: $TB)" "echo \"$AF\" | grep -q contract && ! echo \"$AF\" | grep -q budget && echo \"$TB\" | grep -q 'annex.pdf'"
+quit
+
+# 26. Compare's slots offer the documents open in tabs (Original: one.pdf at 330,481 in the menu under Open
+# file 388,411; Changed then lists only two.pdf, 560,481 under 600,411).
+launch "$OUT/reo/one.pdf" "$OUT/reo/two.pdf"
+click 50 21 1; click 67 113 1; click 993 76 0.5; xdotool type --delay 20 "compare"; key Return; sleep 2
+click 388 411 1; click 330 481 2; click 600 411 1; click 560 481 2; shot 26-compare
+CS=$(ocr 500x40+300+450)
+check "Compare's slots take open documents ($CS)" "echo \"$CS\" | grep -q 'one.pdf.*two.pdf'"
+quit
+
+# 27. Protect with restrictions only (Acrobat's Restrict editing and printing): "Require a password to open"
+# off, a permissions password, Printing off: the file opens with no password and cannot be printed.
+cp "$OUT/text.pdf" "$OUT/perm.pdf"
+launch "$OUT/perm.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "protect"; key Return; sleep 2
+RQ=$(at Require 280x700+1000+90); [ -n "$RQ" ] && click $RQ 0.6
+PL=$(at Permissions 280x700+1000+90); [ -n "$PL" ] && click $(echo $PL | awk '{ print $1 + 40, $2 + 30 }') 0.4; xdotool type --delay 20 "owner"
+PR=$(at Printing 280x700+1000+90); [ -n "$PR" ] && click $PR 0.4
+click 1133 755 4
+EN=$(qpdf --show-encryption "$OUT/perm-protected.pdf" 2>&1)
+check "Protect can restrict without an open password ($(echo "$EN" | grep -E 'print low' | tr -s ' '))" "echo \"$EN\" | grep -q 'User password = $' && echo \"$EN\" | grep -q 'print low resolution: not allowed'"
+quit
+
+# 28. Preferences ▸ Open new documents at Actual size (Preferences 67,193 in Home's menu): a file never
+# opened shows at 100 %.
+launch; click 67 193 1; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $AS 0.6; quit
+cp "$OUT/text.pdf" "$OUT/fresh.pdf"; launch "$OUT/fresh.pdf"; sleep 1.5; ZF=$(zoomval)
+check "a new document opens at the zoom chosen in Preferences (Actual size: $ZF %)" "[ \"$ZF\" = 100 ]"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

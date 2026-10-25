@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 97 · open 234, closed 97
+331 components · at parity (≥9): 100 · open 231, closed 100
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -78,15 +78,15 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | convert | 20 | 3.6 | 1 |
 | edit | 29 | 4.8 | 10 |
 | files | 19 | 6.1 | 9 |
-| forms | 17 | 2.1 | 3 |
+| forms | 17 | 2.1 | 4 |
 | optimize | 15 | 3.5 | 2 |
 | organize | 27 | 4.3 | 8 |
 | output | 15 | 4.3 | 3 |
 | platform | 14 | 3.5 | 2 |
 | preferences | 14 | 2.6 | 2 |
-| reader | 64 | 5.5 | 27 |
+| reader | 64 | 5.5 | 28 |
 | security | 18 | 5.4 | 5 |
-| sign | 18 | 4.2 | 5 |
+| sign | 18 | 4.3 | 6 |
 
 ## Closed
 | id | component | overall | last proof |
@@ -133,6 +133,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-files-019 | Unreadable file feedback | 9 | files::open_error one wording reader+tools, unit test, gui-smoke damaged PDF refused, app stays open; joint review (commit 43f1fff) |
 | C-forms-001 | Fill form fields | 9 | Text fields edited on the field (↩ fills, Tab/⇧Tab to the next text field, check boxes untouched), check boxes, radios, combo lists; values saved and read back with qpdf (dev/re/evidence/F-004/01–04) |
 | C-forms-002 | Clear a form | 9 | 85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013 |
+| C-forms-005 | Highlight fillable fields | 9 | 41b1756: Sol AGREE 9 (round 3 25/10); F-013 round 3 |
 | C-forms-017 | Flatten form fields | 9 | Flatten bakes field values into the page: 0 fields left, 'Jane Doe' in the page text (pdftotext) |
 | C-optimize-002 | See compression savings | 9 | state::compress_note test; joint review (commit 43f1fff) |
 | C-optimize-008 | OCR multiple files | 9 | OCR takes several files, per-file progress and cancel (jobs.rs each()); Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed |
@@ -167,6 +168,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-reader-031 | Add an attachment | 9 | Files panel ▸ Attach…: a file attached to the page in view (Acrobat's Attach File comment), listed at once; unit-tested |
 | C-reader-033 | Next and previous search match | 9 | 85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013 |
 | C-reader-034 | Search options | 9 | Aa / Whole words toggles re-run the search (dev/re/evidence/F-002/12) |
+| C-reader-035 | Search results list | 9 | 41b1756: Sol AGREE 9 (round 3 25/10); F-013 round 3 |
 | C-reader-036 | Search for the selected text | 9 | Selection bar Search and ⇧⌘E: the selection searched, results listed; shows the toolbar again if hidden; bar kept inside the view. Joint 9/10: Claude built it, Sol agreed after its second review round (gui-smoke: page 4's text searched from page 1) |
 | C-reader-039 | Hide toolbars for reading | 9 | ⇧T or More ▸ Hide toolbar: toolbar and panel hidden for reading, kept hidden through full screen; Escape restores. Joint 9/10: Sol agreed (round 5); gui-smoke checks hide, restore, and full screen keeping it hidden |
 | C-reader-040 | Full screen mode | 9 | ⌃⌘F and More ▸ Full screen; Escape leaves it and keeps a hidden toolbar hidden. Joint 9/10: Sol agreed (round 4). Window state itself not checkable without a window manager here |
@@ -188,3 +190,4 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-sign-003 | Type a signature | 9 | Four handwriting fonts (Dancing Script, Great Vibes, Satisfy, Caveat; sheaf-core/src/script.rs, Cyrillic/Greek fallback), live 2×2 previews on the pad, kept per signature, Sign tool and CLI --script-font; script::tests, tests/sign.rs a_typed_name_takes_its_handwriting_font + same ink visual/digital for every font, history compat test, gui-smoke typed signature in Great Vibes; Stirling offers no script fonts; joint review 2 rounds |
 | C-sign-005 | Place a signature on the page | 9 | Select a placed signature, drag its corner handle: scales from its top-left with proportions kept (pull projected on the diagonal); several placements per run with the kept signature. gui-smoke checks the saved Ink Rect; dev/re/evidence/F-002/41-signature-resized.png |
 | C-sign-008 | Delete a placed signature | 9 | Click a placed signature, Delete (or the Notes panel's delete): gone from the saved file (gui-smoke) |
+| C-sign-010 | Add marks to fill a form | 9 | 41b1756: Sol AGREE 9 (round 3 25/10); F-013 round 3 |

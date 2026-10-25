@@ -510,7 +510,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
                 let mut v = ViewerUi::new(fast, reader_viewer(boxes), scale, t.viewport, t.strip);
                 v.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
                 v.viewer.set_width(t.viewport.0 as f64);
-                restore_view(&mut v, &path);
+                restore_view(&mut v, &path, t.viewport.0);
                 t.viewer = Some(Box::new(v));
                 refresh(a, id);
                 true
@@ -686,12 +686,22 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
 
 /// The document is shown as it was left, as PDF Expert reopens it: pages side by side, the zoom
 /// when one was chosen (Fit width and Fit page refit to the window), the page.
-fn restore_view(v: &mut ViewerUi, path: &std::path::Path) {
+/// `width`: the view's width when known (0 before the widget reports it).
+fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
     if let Some((fit, zoom, spread)) = crate::home::last_view(path) {
         v.viewer.set_spread(spread);
         if fit == 2 {
             v.viewer.set_zoom(zoom);
         }
+    } else if crate::home::prefs().default_zoom == 2 {
+        // Preferences ▸ Open documents at Actual size. The zoom is a share of the view's width,
+        // which may still be a first guess: it is set again as the width comes, until a zoom of
+        // the user's own.
+        if width > 0.0 {
+            let z = v.viewer.zoom_for_actual(0, 100.0);
+            v.viewer.set_zoom(z);
+        }
+        v.pending_actual = Some(100.0);
     }
     if let Some(p) = crate::home::last_page(path).filter(|p| *p > 0) {
         v.show_page(p, None);
@@ -715,12 +725,12 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
             _ => {
                 let mut v = Box::new(ViewerUi::new(input, reader_viewer(snap.boxes.clone()), scale, t.viewport, t.strip));
                 v.viewer.set_width(t.viewport.0 as f64);
-                restore_view(&mut v, &path);
+                restore_view(&mut v, &path, t.viewport.0);
                 v
             }
         };
         let mut r = ReaderUi::new(ops, snap, path.clone());
-        r.zoom_mode = crate::home::last_view(&path).map_or(0, |(fit, ..)| fit.clamp(0, 2));
+        r.zoom_mode = crate::home::last_view(&path).map_or(crate::home::prefs().default_zoom.clamp(0, 2), |(fit, ..)| fit.clamp(0, 2));
         r.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
         v.theme = r.theme;
         // Same file, same pixels: what is rendered stays; later renders come from the working copy.

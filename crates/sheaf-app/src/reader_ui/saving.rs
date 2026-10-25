@@ -101,6 +101,34 @@ pub fn attachment_save(ui: &AppWindow, tab_id: i32, i: i32) {
     });
 }
 
+/// Files panel: open attachment `i` (Acrobat's Open attachment). It is written to a private temporary
+/// folder; a PDF opens in its own tab, any other file in its app once the user agrees.
+pub fn attachment_open(ui: &AppWindow, tab_id: i32, i: i32) {
+    let Some((att, bytes, password)) = update(tab_id, |r, _| Some((r.snap.attachments.get(i.max(0) as usize)?.clone(), r.snap.bytes.clone(), r.password()))).flatten() else {
+        return;
+    };
+    // The name stays the file's own (its app shows it); the folder is ours alone.
+    let dir = std::env::temp_dir().join(format!("sheaf-attachments-{}", std::process::id()));
+    let safe: String = att.name.chars().map(|c| if matches!(c, '/' | '\\' | '\0') { '_' } else { c }).collect();
+    let to = dir.join(if safe.trim_matches('.').is_empty() { "attachment".into() } else { safe });
+    let written = std::fs::create_dir_all(&dir).map_err(|e| e.to_string()).and_then(|_| {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+        }
+        reader_doc::save_attachment(&bytes, password.as_deref(), &att, &to)
+    });
+    match written {
+        Err(e) => crate::flow::toast(ui, &format!("Not opened: {e}")),
+        Ok(()) if to.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) => crate::flow::home_files(ui, vec![to]),
+        Ok(()) => {
+            ui.set_launch_name(file_name(&to).into());
+            with(|a| a.pending_launch = Some(to));
+        }
+    }
+}
+
 /// Files panel: attach a file to the page in view (a file attachment comment at its top left, as
 /// Acrobat's Attach File).
 pub fn attachment_add(ui: &AppWindow, tab_id: i32) {

@@ -13,18 +13,20 @@ pub struct Facts {
     pub pdfa: Option<String>,
     pub created: Option<String>,
     pub modified: Option<String>,
-    /// Page 1's media, trim, bleed and art boxes in millimetres, those that differ from its crop box.
+    /// Page 1's boxes in millimetres: media and crop always, trim, bleed and art when the file sets them.
     pub boxes: Vec<(&'static str, String)>,
 }
 
 /// The /P bits (PDF 32000 table 22) and what each forbids when it is off.
-const BITS: [(u32, &str); 6] = [
+const BITS: [(u32, &str); 8] = [
     (3, "Printing"),
     (4, "Changing the document"),
     (5, "Copying text and images"),
     (6, "Adding comments"),
     (9, "Filling in forms"),
+    (10, "Copying for accessibility"),
     (11, "Assembling pages"),
+    (12, "Printing in high quality"),
 ];
 
 /// Reads `bytes` (decrypted with `password` for the dates and metadata when it is protected).
@@ -38,7 +40,7 @@ pub fn read(bytes: &[u8], password: Option<&str>) -> Facts {
         _ => raw.encryption_state.as_ref().map(|e| e.permissions().bits() as u32),
     };
     if let Some(p) = p {
-        f.restricted = BITS.iter().filter(|(bit, _)| p & (1 << (bit - 1)) == 0).map(|(_, what)| *what).collect();
+        f.restricted = restricted_by(p);
     }
     let doc = if raw.is_encrypted() {
         match password.and_then(|pw| Document::load_mem_with_options(bytes, lopdf::LoadOptions::with_password(pw)).ok()).or_else(|| Document::load_mem_with_options(bytes, lopdf::LoadOptions::with_password("")).ok()) {
@@ -55,17 +57,29 @@ pub fn read(bytes: &[u8], password: Option<&str>) -> Facts {
     f.pdfa = doc.catalog().ok().and_then(|c| c.get(b"Metadata").ok()).and_then(|m| m.as_reference().ok()).and_then(|r| doc.get_object(r).ok()).and_then(|o| o.as_stream().ok()).and_then(|s| s.decompressed_content().ok().or_else(|| Some(s.content.clone()))).and_then(|x| pdfa_of(&String::from_utf8_lossy(&x)));
     if let Some((_, &id)) = doc.get_pages().iter().next() {
         let page = |key: &[u8]| inherited(&doc, id, key).and_then(|o| rect(&o));
-        let crop = page(b"CropBox").or_else(|| page(b"MediaBox"));
-        for (key, name) in [(&b"MediaBox"[..], "Media box"), (b"TrimBox", "Trim box"), (b"BleedBox", "Bleed box"), (b"ArtBox", "Art box")] {
-            if let Some(r) = page(key)
-                && Some(r) != crop
-            {
-                let mm = |v: f64| v / 72.0 * 25.4;
-                f.boxes.push((name, format!("{:.0} × {:.0} mm", mm(r[2] - r[0]), mm(r[3] - r[1]))));
+        let media = page(b"MediaBox");
+        let mm = |r: [f64; 4]| {
+            let mm = |v: f64| v / 72.0 * 25.4;
+            format!("{:.0} × {:.0} mm", mm(r[2] - r[0]), mm(r[3] - r[1]))
+        };
+        // A missing crop box is the media box (PDF 32000 14.11.2); the others are listed when set.
+        for (key, name) in [(&b"MediaBox"[..], "Media box"), (b"CropBox", "Crop box"), (b"TrimBox", "Trim box"), (b"BleedBox", "Bleed box"), (b"ArtBox", "Art box")] {
+            let r = page(key).or(if key == b"CropBox" { media } else { None });
+            if let Some(r) = r {
+                f.boxes.push((name, mm(r)));
             }
         }
     }
     f
+}
+
+/// What a /P value forbids; no printing at all says the high-quality one too.
+fn restricted_by(p: u32) -> Vec<&'static str> {
+    let mut r: Vec<&str> = BITS.iter().filter(|(bit, _)| p & (1 << (bit - 1)) == 0).map(|(_, what)| *what).collect();
+    if r.contains(&"Printing") {
+        r.retain(|w| *w != "Printing in high quality");
+    }
+    r
 }
 
 /// A page attribute, from the page or the nearest parent holding it.
@@ -118,6 +132,15 @@ fn pdfa_of(xmp: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_permission_bit_is_named() {
+        let all = 0xFFFF_FFFC_u32;
+        assert!(restricted_by(all).is_empty());
+        assert_eq!(restricted_by(all & !(1 << 9)), ["Copying for accessibility"]);
+        assert_eq!(restricted_by(all & !(1 << 11)), ["Printing in high quality"]);
+        assert_eq!(restricted_by(all & !(1 << 2) & !(1 << 11)), ["Printing"]);
+    }
 
     #[test]
     fn xmp_and_dates_read_as_people_write_them() {

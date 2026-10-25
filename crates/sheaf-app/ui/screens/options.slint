@@ -248,7 +248,7 @@ export component OptionsPanel inherits VerticalLayout {
     in property <float> preview-w;
     in property <float> preview-h;
     out property <bool> valid: !root.office-missing && (
-        root.tool == "protect" ? root.password != "" && root.password == root.confirm
+        root.tool == "protect" ? (root.require-open ? root.password != "" && root.password == root.confirm : root.owner != "")
         : root.tool == "remove_pages" || root.tool == "extract_pages" ? root.pages != ""
         : root.tool == "split" ? (root.split-mode == 0 ? root.ranges != "" && root.split-files >= 0 : root.every >= 1)
         : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == "")) && Parse.colour-error(root.num-hex) == ""
@@ -265,7 +265,7 @@ export component OptionsPanel inherits VerticalLayout {
     changed file-count => { if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); } }
     init => { if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); } }
     out property <ToolOptions> options: {
-        level: root.level, password: root.password, confirm: root.confirm, owner: root.owner,
+        level: root.level, password: root.require-open ? root.password : "", confirm: root.confirm, owner: root.owner,
         allow-printing: root.allow-printing, allow-copying: root.allow-copying,
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
@@ -309,6 +309,8 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> password;
     in-out property <string> confirm;
     in-out property <string> owner;
+    // Protect: an open password asked (off: only the permissions password restricts the file).
+    in-out property <bool> require-open: true;
     in-out property <bool> allow-printing: true;
     in-out property <bool> allow-copying: true;
     in-out property <bool> allow-editing: true;
@@ -484,14 +486,15 @@ export component OptionsPanel inherits VerticalLayout {
 
     if root.tool == "protect": VerticalLayout {
         spacing: 12px;
-        TextField {
+        Check { text: "Require a password to open"; checked <=> root.require-open; }
+        if root.require-open: TextField {
             label: "Password";
             password: true;
             allow-reveal: true;
             placeholder: "Type a password";
             text <=> root.password;
         }
-        if root.password != "": meter := VerticalLayout {
+        if root.require-open && root.password != "": meter := VerticalLayout {
             spacing: 4px;
             property <int> strength: Parse.password-strength(root.password);
             HorizontalLayout {
@@ -510,7 +513,7 @@ export component OptionsPanel inherits VerticalLayout {
                 color: Theme.text-secondary;
             }
         }
-        TextField {
+        if root.require-open: TextField {
             label: "Repeat password";
             password: true;
             allow-reveal: true;
@@ -519,7 +522,7 @@ export component OptionsPanel inherits VerticalLayout {
             error: root.confirm != "" && root.confirm != root.password ? "Passwords do not match" : "";
         }
         TextField {
-            label: "Permissions password (optional)";
+            label: root.require-open ? "Permissions password (optional)" : "Permissions password";
             password: true;
             allow-reveal: true;
             placeholder: "Needed to lift the restrictions";

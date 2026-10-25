@@ -11088,12 +11088,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -11129,6 +11129,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): La teinte des champs est automatique en mode Select ; aucune commande ne permet de l’activer ou de la désactiver : crates/sheaf-app/src/reader_ui/model.rs:132"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "41b1756: Sol AGREE 9 (round 3 25/10); F-013 round 3"
    }
   ]
  },
@@ -21622,12 +21633,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -21685,6 +21696,17 @@
      "overall": 8
     },
     "proof": "Sol round 2: groups lack a count per page and the number of pages found"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "41b1756: Sol AGREE 9 (round 3 25/10); F-013 round 3"
    }
   ]
  },
@@ -26233,12 +26255,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -26274,6 +26296,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Les marques prennent leur couleur par défaut à la pose ; la couleur choisie n’est pas appliquée : crates/sheaf-app/src/reader_ui/edits.rs:271"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "41b1756: Sol AGREE 9 (round 3 25/10); F-013 round 3"
    }
   ]
  },

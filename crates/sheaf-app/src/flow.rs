@@ -82,9 +82,6 @@ pub fn pick_and_add(ui: &AppWindow, tab_id: i32) {
 pub fn open_documents(tab_id: i32) -> Vec<PathBuf> {
     with(|a| {
         let Some(t) = a.tabs.iter().find(|t| t.id == tab_id) else { return Vec::new() };
-        if t.tool == ToolId::Compare {
-            return Vec::new();
-        }
         let have: Vec<&PathBuf> = t.files.iter().map(|f| &f.input.path).collect();
         let mut docs: Vec<PathBuf> = a.tabs.iter().filter_map(|r| r.reader.as_ref()).map(|r| r.path.clone()).filter(|p| files::accepts(t.tool, p) && !have.contains(&p)).collect();
         let mut seen = Vec::new();
@@ -92,11 +89,22 @@ pub fn open_documents(tab_id: i32) -> Vec<PathBuf> {
             seen.push(p.clone());
             true
         });
-        if !tools::find(t.tool).multi {
+        // Compare picks one document per slot from them all; another single-file tool takes the last.
+        if !tools::find(t.tool).multi && t.tool != ToolId::Compare {
             docs = docs.pop().into_iter().collect();
         }
         docs
     })
+}
+
+/// Compare: open document `i` (of [`open_documents`]) in slot `slot` (0 Original, 1 Changed).
+pub fn add_open_doc_to_slot(ui: &AppWindow, tab_id: i32, slot: i32, i: i32) {
+    let Some(p) = open_documents(tab_id).into_iter().nth(i.max(0) as usize) else { return };
+    let unsaved = with(|a| a.tabs.iter().filter_map(|t| t.reader.as_ref()).find(|r| r.dirty() && r.path == p).map(|r| r.name.clone()));
+    add_paths_to(ui, tab_id, vec![p], Some(slot.clamp(0, 1) as usize));
+    if let Some(name) = unsaved {
+        toast(ui, &format!("{name} has unsaved changes: its saved version was added"));
+    }
 }
 
 /// "Open documents (n)": adds them; one with unsaved edits goes in as last saved, and says so.

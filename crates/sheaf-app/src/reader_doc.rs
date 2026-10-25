@@ -154,6 +154,16 @@ fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
     Props { title: get(&i.title), author: get(&i.author), subject: get(&i.subject), keywords: get(&i.keywords), about }
 }
 
+/// The review status a status reply sets: Acrobat's check mark (state model Marked) is none and
+/// leaves the status as it was; "None" clears it.
+fn review_status(state: &str) -> Option<&str> {
+    match state {
+        "Marked" | "Unmarked" => None,
+        "None" => Some(""),
+        s => Some(s),
+    }
+}
+
 fn snap(doc: &Doc) -> Snap {
     // Text boxes' fonts, read from the document as edited (the format row shows them): only the
     // pages holding one are read.
@@ -170,7 +180,9 @@ fn snap(doc: &Doc) -> Snap {
         let Some(parent) = a.in_reply_to.as_deref() else { continue };
         match a.state.as_deref() {
             Some(s) => {
-                status.insert(parent, s.to_string());
+                if let Some(s) = review_status(s) {
+                    status.insert(parent, s.to_string());
+                }
             }
             None => replies.entry(parent).or_default().push(format!("{}: {}", a.author.as_deref().unwrap_or("—"), a.contents.as_deref().unwrap_or("").trim())),
         }
@@ -472,6 +484,14 @@ pub fn debug(args: std::fmt::Arguments) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_check_mark_is_not_a_review_status() {
+        assert_eq!(review_status("Accepted"), Some("Accepted"));
+        assert_eq!(review_status("Marked"), None);
+        assert_eq!(review_status("Unmarked"), None);
+        assert_eq!(review_status("None"), Some(""));
+    }
     #[test]
     fn wraps_become_spaces_and_typed_breaks_stay() {
         let soft = [true, false, true];

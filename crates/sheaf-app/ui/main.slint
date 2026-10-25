@@ -110,6 +110,8 @@ export component AppWindow inherits Window {
     in property <string> fixed-folder;
     in property <bool> open-after;
     in property <string> author-name;
+    in property <int> default-zoom;
+    callback set-default-zoom(int);
     in property <string> author-default;
     property <bool> confirm-clear;
 
@@ -131,6 +133,8 @@ export component AppWindow inherits Window {
     callback set-pages(int, int, string);
     pure callback open-doc-count(int) -> int;
     callback add-open-docs(int);
+    pure callback open-doc-names(int) -> [string];
+    callback add-open-doc-to-slot(int, int, int);
     callback remove-page(int, int);
     callback move-page(int, int, int);
     callback insert-blank(int);
@@ -273,6 +277,8 @@ export component AppWindow inherits Window {
                             open-after: root.open-after;
                             author-name: root.author-name;
                             author-default: root.author-default;
+                            default-zoom: root.default-zoom;
+                            set-default-zoom(z) => { root.set-default-zoom(z); }
                             set-theme(m) => { root.set-theme(m); }
                             set-output(m) => { root.set-output(m); }
                             choose-folder => { root.choose-folder(); }
@@ -305,6 +311,8 @@ export component AppWindow inherits Window {
                         set-pages(uid, text) => { root.set-pages(t.id, uid, text); }
                         open-doc-count => { root.open-doc-count(t.id) }
                         add-open-docs => { root.add-open-docs(t.id); }
+                        open-doc-names => { root.open-doc-names(t.id) }
+                        add-open-doc-to-slot(slot, i) => { root.add-open-doc-to-slot(t.id, slot, i); }
                         remove-page(k) => { root.remove-page(t.id, k); }
                         move-page(k, d) => { root.move-page(t.id, k, d); }
                         insert-blank => { root.insert-blank(t.id); }

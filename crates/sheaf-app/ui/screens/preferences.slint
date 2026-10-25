@@ -100,6 +100,9 @@ export component PreferencesScreen inherits Rectangle {
     in property <string> author-name;
     in property <string> author-default;
     callback set-author(string);
+    // How a document opened for the first time is shown (0 fit width, 1 fit page, 2 actual size).
+    in property <int> default-zoom;
+    callback set-default-zoom(int);
     background: Theme.content-bg;
 
     scroll := ScrollView {
@@ -171,6 +174,24 @@ export component PreferencesScreen inherits Rectangle {
                     Switch {
                         on: root.open-after;
                         toggled(v) => { root.set-open-after(v); }
+                    }
+                }
+            }
+            Section {
+                title: "Documents";
+                Text {
+                    text: "Open new documents at";
+                    font-size: Theme.fs-body;
+                    color: Theme.text;
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    for label[i] in ["Fit width", "Fit page", "Actual size"]: Segment {
+                        width: 104px;
+                        text: label;
+                        selected: root.default-zoom == i;
+                        clicked => { root.set-default-zoom(i); }
                     }
                 }
             }

@@ -60,7 +60,9 @@ pub fn protect(input: &Input, user_pw: &str, owner_pw: Option<&str>, out: &Path)
 }
 
 pub fn protect_with_permissions(input: &Input, user_pw: &str, owner_pw: Option<&str>, permissions: ProtectPermissions, out: &Path) -> Result<PathBuf> {
-    if user_pw.is_empty() { return Err(crate::OpdfError::Unsupported("password must not be empty".into())); }
+    // No open password is allowed when an owner password restricts the file (Acrobat's "Restrict
+    // editing and printing" alone): it opens for anyone, with those restrictions.
+    if user_pw.is_empty() && owner_pw.is_none_or(str::is_empty) { return Err(crate::OpdfError::Unsupported("password must not be empty".into())); }
     let mut doc = input.load_lopdf()?;
     let mut key = [0u8; 32];
     getrandom::fill(&mut key).map_err(|e| crate::OpdfError::Conversion(format!("rng: {e}")))?;

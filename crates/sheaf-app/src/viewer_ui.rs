@@ -36,6 +36,9 @@ pub struct ViewerUi {
     pub load_id: u64,
     /// Redact's searches started: an answer for an older one is dropped.
     pub search_seq: u64,
+    /// An actual size (percent) kept as the view's width comes in (Preferences ▸ Open new documents
+    /// at Actual size; the zoom is a share of the width), until the user zooms.
+    pub pending_actual: Option<f64>,
     pub input: Input,
     pub viewer: Viewer,
     /// Device pixels per logical pixel (2 on Retina).
@@ -107,6 +110,7 @@ impl ViewerUi {
         ViewerUi {
             load_id: next_load_id(),
             search_seq: 0,
+            pending_actual: None,
             input,
             viewer,
             scale,
@@ -367,6 +371,12 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) 
         v.viewer.set_width(width as f64);
         v.top = top as f64;
         v.height = height as f64;
+        if width > 0.0
+            && let Some(pct) = v.pending_actual
+        {
+            let z = v.viewer.zoom_for_actual(v.current(), pct);
+            v.viewer.set_zoom(z);
+        }
     });
     crate::reader_ui::viewport_changed(ui, tab_id);
     request(ui, tab_id);
@@ -464,6 +474,8 @@ fn zoom_to_at(ui: &AppWindow, tab_id: i32, z: u32, (ax, ay, sx): (f64, f64, f64)
         }
     });
     update(tab_id, move |v| {
+        // A zoom of the user's own: the opening size no longer follows the width.
+        v.pending_actual = None;
         let sx = v.zoom_around(z, (ax, ay, sx))?;
         v.zoom_timer = Some(timer);
         Some(sx)

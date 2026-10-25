@@ -100,6 +100,8 @@ pub struct Prefs {
     pub reader_theme: i32,
     /// Fillable fields are not tinted in the reader (More ▸ Highlight form fields off).
     pub plain_fields: bool,
+    /// How a document never opened before is shown: 0 fit width, 1 fit page, 2 actual size.
+    pub default_zoom: i32,
     /// The page each document was left on (newest first, at most 200): reopening goes back to it.
     pub last_pages: Vec<(PathBuf, u32)>,
     /// How each document was viewed when left: fit mode (0 width, 1 page, 2 a chosen zoom), the

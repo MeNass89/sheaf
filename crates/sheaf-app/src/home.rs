@@ -277,6 +277,7 @@ fn push_prefs(ui: &AppWindow) {
     ui.set_open_after(p.open_folder_after);
     ui.set_author_name(p.author.clone().unwrap_or_default().into());
     ui.set_author_default(login_name().into());
+    ui.set_default_zoom(p.default_zoom);
 }
 
 /// Theme.mode and the window's own appearance (title bar, scroll bars).
@@ -316,6 +317,11 @@ pub fn choose_folder(ui: &AppWindow) {
 
 pub fn set_open_after(ui: &AppWindow, v: bool) {
     update_prefs(ui, |p| p.open_folder_after = v);
+}
+
+/// Preferences ▸ Open documents at (0 fit width, 1 fit page, 2 actual size).
+pub fn set_default_zoom(ui: &AppWindow, z: i32) {
+    update_prefs(ui, |p| p.default_zoom = z.clamp(0, 2));
 }
 
 pub fn set_author(ui: &AppWindow, name: &str) {

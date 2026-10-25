@@ -200,6 +200,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_annot_reply(reader_ui::annot_reply);
     wire_global!(ui, rb, on_attachment_save, |ui, id, i| reader_ui::attachment_save(&ui, id, i));
     wire_global!(ui, rb, on_attachment_add, |ui, id| reader_ui::attachment_add(&ui, id));
+    wire_global!(ui, rb, on_attachment_open, |ui, id, i| reader_ui::attachment_open(&ui, id, i));
     wire_global!(ui, rb, on_outline_op, |ui, id, row, op, t| reader_ui::outline_op(&ui, id, row, op, &t));
     wire_global!(ui, rb, on_zoom_typed, |ui, id, t| reader_ui::zoom_typed(&ui, id, &t));
     wire_global!(ui, rb, on_annot_status, |ui, id, k, s| reader_ui::annot_status(&ui, id, k, s));
@@ -364,6 +365,11 @@ fn main() -> Result<(), slint::PlatformError> {
     });
     ui.on_set_pages(|id, uid, text| flow::set_pages(id, uid, text.as_str()));
     ui.on_open_doc_count(|id| flow::open_documents(id).len() as i32);
+    ui.on_open_doc_names(|id| {
+        let names: Vec<slint::SharedString> = flow::open_documents(id).iter().map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default().into()).collect();
+        slint::ModelRc::new(slint::VecModel::from(names))
+    });
+    wire!(ui, on_add_open_doc_to_slot, |ui, id, slot, i| flow::add_open_doc_to_slot(&ui, id, slot, i));
     wire!(ui, on_add_open_docs, |ui, id| flow::add_open_documents(&ui, id));
     ui.on_remove_page(|id, k| flow::edit_pages(id, |o| {
         if (k as usize) < o.len() {
@@ -402,6 +408,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_choose_folder, |ui| home::choose_folder(&ui));
     wire!(ui, on_set_open_after, |ui, v| home::set_open_after(&ui, v));
     wire!(ui, on_set_author, |ui, v| home::set_author(&ui, &v));
+    wire!(ui, on_set_default_zoom, |ui, z| home::set_default_zoom(&ui, z));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);
@@ -412,6 +419,7 @@ fn main() -> Result<(), slint::PlatformError> {
     parse.on_colour_error(|s| if s.trim().is_empty() || sheaf_core::numbers::parse_hex_colour(&s).is_some() { "".into() } else { "Type six hex digits, like 1F6FEB".into() });
     parse.on_split_cut(|s, after, n| sheaf_core::ranges::toggle_cut(&s, after.max(0) as u32, n.max(1) as u32).into());
     parse.on_split_range_of(|s, p, n| sheaf_core::ranges::range_of(&s, p.max(0) as u32, n.max(1) as u32).map_or(-1, |i| i as i32));
+    parse.on_name_matches(|name, q| q.trim().is_empty() || name.to_lowercase().contains(&q.trim().to_lowercase()));
     parse.on_split_count(|s, n| sheaf_core::ranges::parse_ranges(&s, n.max(1) as u32).map_or(-1, |r| r.len() as i32));
     parse.on_file_name_error(|s| dest::file_name_error(&s).unwrap_or_default().into());
     parse.on_custom_text_error(|s| sheaf_core::numbers::custom_text_error(&s).unwrap_or_default().into());

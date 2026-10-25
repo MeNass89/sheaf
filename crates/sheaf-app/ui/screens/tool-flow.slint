@@ -49,71 +49,117 @@ component ActionButton inherits Rectangle {
 }
 
 // Compare: one of the two file slots ("Original" / "Changed").
-component CompareSlot inherits VerticalLayout {
+component CompareSlot inherits Rectangle {
     in property <string> label;
     in property <bool> filled;
     in property <FileItem> file;
     in property <color> tile;
     in property <bool> interactive;
     callback open();
+    // Documents open in tabs: Open file first offers them (any one per slot), then the computer.
+    in property <[string]> docs;
+    callback pick-doc(int);
+    callback computer();
     callback remove();
-    spacing: 10px;
-    alignment: center;
-    Text {
-        text: root.label;
-        font-size: Theme.fs-body-large;
-        font-weight: Theme.weight-demibold;
-        color: Theme.text;
-        horizontal-alignment: center;
-    }
-    HorizontalLayout {
-        alignment: center;
-        if root.filled: FileCardView {
-            file: root.file;
-            tile: root.tile;
-            interactive: root.interactive;
-            remove => { root.remove(); }
-        }
-        if !root.filled: DashedBox {
-            width: Theme.file-card-width;
-            height: Theme.file-card-height;
-            background: Theme.card;
-            VerticalLayout {
-                alignment: center;
-                spacing: 8px;
-                HorizontalLayout {
-                    alignment: center;
-                    PrimaryButton {
-                        text: "Open file";
-                        width: 96px;
-                        height: 32px;
-                        clicked => { root.open(); }
-                    }
-                }
-                Text {
-                    text: "or drop it here";
-                    font-size: Theme.fs-caption;
-                    color: Theme.text-muted;
-                    horizontal-alignment: center;
-                }
-            }
-        }
-    }
-    // Always laid out, so a filled slot and an empty one keep their cards on one line.
-    HorizontalLayout {
+    VerticalLayout {
+        spacing: 10px;
         alignment: center;
         Text {
-            text: "Replace…";
-            font-size: Theme.fs-caption;
-            color: Theme.text-secondary;
-            opacity: root.filled && root.interactive ? 1 : 0;
-            TouchArea {
-                enabled: root.filled && root.interactive;
-                mouse-cursor: self.enabled ? pointer : default;
-                clicked => { root.open(); }
+            text: root.label;
+            font-size: Theme.fs-body-large;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text;
+            horizontal-alignment: center;
+        }
+        HorizontalLayout {
+            alignment: center;
+            if root.filled: FileCardView {
+                file: root.file;
+                tile: root.tile;
+                interactive: root.interactive;
+                remove => { root.remove(); }
+            }
+            if !root.filled: DashedBox {
+                width: Theme.file-card-width;
+                height: Theme.file-card-height;
+                background: Theme.card;
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    HorizontalLayout {
+                        alignment: center;
+                        PrimaryButton {
+                            text: "Open file";
+                            width: 96px;
+                            height: 32px;
+                            clicked => { root.open(); }
+                        }
+                    }
+                    Text {
+                        text: "or drop it here";
+                        font-size: Theme.fs-caption;
+                        color: Theme.text-muted;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+        }
+        // Always laid out, so a filled slot and an empty one keep their cards on one line.
+        HorizontalLayout {
+            alignment: center;
+            Text {
+                text: "Replace…";
+                font-size: Theme.fs-caption;
+                color: Theme.text-secondary;
+                opacity: root.filled && root.interactive ? 1 : 0;
+                TouchArea {
+                    enabled: root.filled && root.interactive;
+                    mouse-cursor: self.enabled ? pointer : default;
+                    clicked => { root.open(); }
+                }
             }
         }
     }
+    // A popup's own size: without it, it takes this slot's and centres the list in it.
+    doc-menu := PopupWindow {
+        x: (root.width - 240px) / 2;
+        y: root.height / 2 + 10px;
+        width: 240px;
+        height: doc-list.preferred-height;
+        Rectangle {
+            width: 240px;
+            height: doc-list.preferred-height;
+            background: Theme.input-bg;
+            border-radius: Theme.radius-small;
+            border-width: 1px;
+            border-color: Theme.input-border;
+            drop-shadow-blur: 8px;
+            drop-shadow-color: #00000022;
+            doc-list := VerticalLayout {
+                padding: 4px;
+                Rectangle {
+                    height: 32px;
+                    border-radius: 3px;
+                    background: pc.has-hover ? Theme.popup-hover : transparent;
+                    Text { x: 8px; text: "From your computer…"; font-size: Theme.fs-button; color: Theme.text; vertical-alignment: center; }
+                    pc := TouchArea { mouse-cursor: pointer; clicked => { root.computer(); } }
+                }
+                for name[i] in root.docs: Rectangle {
+                    height: 32px;
+                    border-radius: 3px;
+                    background: dt.has-hover ? Theme.popup-hover : transparent;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        spacing: 8px;
+                        Image { y: (parent.height - 16px) / 2; width: 16px; height: 16px; source: @image-url("../icons/file-text.svg"); colorize: Theme.text-secondary; }
+                        Text { text: name; font-size: Theme.fs-button; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                    }
+                    dt := TouchArea { mouse-cursor: pointer; clicked => { root.pick-doc(i); } }
+                }
+            }
+        }
+    }
+    public function choose() { doc-menu.show(); }
 }
 
 // The + menu when PDFs are open in reader tabs: add from the computer, or those documents.
@@ -194,6 +240,10 @@ export component ToolFlowScreen inherits Rectangle {
     // PDFs open in reader tabs that this tool can take (asked when the + is pressed).
     pure callback open-doc-count() -> int;
     callback add-open-docs();
+    // Compare: the open documents by name, and one put in a slot (0 Original, 1 Changed).
+    pure callback open-doc-names() -> [string];
+    callback add-open-doc-to-slot(int, int);
+    property <[string]> slot-docs;
     property <int> doc-count;
     property <length> menu-x;
     property <length> menu-y;
@@ -239,13 +289,16 @@ export component ToolFlowScreen inherits Rectangle {
             if root.compare: HorizontalLayout {
                 alignment: center;
                 spacing: 28px;
-                CompareSlot {
+                orig-slot := CompareSlot {
                     label: "Original";
                     filled: root.has-original;
                     file: root.tab.files[0];
                     tile: root.tab.tile;
                     interactive: !root.running;
-                    open => { root.open-slot(0); }
+                    docs: root.slot-docs;
+                    open => { root.slot-docs = root.open-doc-names(); if root.slot-docs.length > 0 { orig-slot.choose(); } else { root.open-slot(0); } }
+                    computer => { root.open-slot(0); }
+                    pick-doc(i) => { root.add-open-doc-to-slot(0, i); }
                     remove => { root.remove-file(root.tab.files[0].uid); }
                 }
                 VerticalLayout {
@@ -275,13 +328,16 @@ export component ToolFlowScreen inherits Rectangle {
                         horizontal-alignment: center;
                     }
                 }
-                CompareSlot {
+                changed-slot := CompareSlot {
                     label: "Changed";
                     filled: root.has-changed;
                     file: root.tab.files[root.tab.files.length - 1];
                     tile: root.tab.tile;
                     interactive: !root.running;
-                    open => { root.open-slot(1); }
+                    docs: root.slot-docs;
+                    open => { root.slot-docs = root.open-doc-names(); if root.slot-docs.length > 0 { changed-slot.choose(); } else { root.open-slot(1); } }
+                    computer => { root.open-slot(1); }
+                    pick-doc(i) => { root.add-open-doc-to-slot(1, i); }
                     remove => { root.remove-file(root.tab.files[root.tab.files.length - 1].uid); }
                 }
             }
@@ -590,6 +646,8 @@ export component ToolFlowScreen inherits Rectangle {
     add-menu := PopupWindow {
         x: root.menu-x;
         y: root.menu-y;
+        width: 240px;
+        height: 72px;
         AddMenu {
             docs: root.doc-count;
             computer => { root.open-files(); }

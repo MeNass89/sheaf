@@ -8,6 +8,8 @@ fn properties_read_restrictions_pdfa_and_dates_from_the_file() {
     let a = fixture_pdf(t.path(), "a.pdf", 1);
     let plain = facts::read(&std::fs::read(&a).unwrap(), None);
     assert!(plain.restricted.is_empty() && plain.pdfa.is_none(), "{plain:?}");
+    // An ordinary page: its media and crop boxes.
+    assert_eq!(plain.boxes.iter().map(|b| b.0).collect::<Vec<_>>(), ["Media box", "Crop box"]);
 
     let perms = ProtectPermissions { printing: false, copying: false, ..Default::default() };
     let p = protect_with_permissions(&Input::new(&a), "user", Some("owner"), perms, &t.path().join("p.pdf")).unwrap();

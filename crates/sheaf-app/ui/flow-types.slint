@@ -519,6 +519,7 @@ export global ReaderBridge {
     callback annot-reply(int, int);
     // Files panel: save attachment (its index); attach a file to the page in view.
     callback attachment-save(int, int);
+    callback attachment-open(int, int);
     callback attachment-add(int);
     // Outline panel: row, op (0 bookmark this page, 1 rename, 2 renamed to text, 3 stop, 4 delete), text.
     callback outline-op(int, int, int, string);
@@ -710,6 +711,8 @@ export global Parse {
     pure callback split-cut(string, int, int) -> string;
     pure callback split-range-of(string, int, int) -> int;
     pure callback split-count(string, int) -> int;
+    // A name holds the text typed (any case); an empty text matches every name.
+    pure callback name-matches(string, string) -> bool;
     // Why a typed colour is not RRGGBB ("" when it is, or when it is empty).
     pure callback colour-error(string) -> string;
     // The text colour of a font panel: the RRGGBB typed, else preset `k` (0 black, 1 grey, 2 red,

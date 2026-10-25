@@ -149,3 +149,16 @@ fn restrictions_hold_when_no_owner_password_is_given() {
         assert!(info.contains("print high resolution: not allowed"), "{info}");
     }
 }
+
+#[test]
+fn restrictions_alone_open_without_a_password() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let perms = ProtectPermissions { printing: false, ..Default::default() };
+    let out = protect_with_permissions(&Input::new(&a), "", Some("owner"), perms, &t.path().join("r.pdf")).unwrap();
+    // Opens with no password; printing is not allowed.
+    let info = qpdf(&["--show-encryption", out.to_str().unwrap()]);
+    assert!(info.contains("print low resolution: not allowed"), "{info}");
+    assert_eq!(page_texts(&out), ["Page 1"]);
+    assert!(protect_with_permissions(&Input::new(&a), "", None, perms, &t.path().join("x.pdf")).is_err());
+}

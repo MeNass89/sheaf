@@ -62,3 +62,31 @@ Each line: the component, Sol's gap, what was done, its proof.
   takes it. Proof: gui-smoke 6c'' (a blue checkmark, /C saved blue).
 - **C-forms-005** Fields were always tinted: More ▸ Highlight form fields turns it off and on, kept in the
   preferences. Proof: gui-smoke 24.
+
+## Round 4 (25/10, after Sol's round 3: 3 agree, 3 disagree)
+- **C-annotate-031** Acrobat's check mark (state model Marked) was read as a status: it neither sets nor overwrites
+  one now; "None" clears it. Proof: `reader_doc::tests::a_check_mark_is_not_a_review_status`.
+- **C-reader-052** An ordinary page showed no box: media and crop boxes always, trim/bleed/art when set. Proof:
+  `facts::properties_read_restrictions_pdfa_and_dates_from_the_file`.
+- **C-reader-063** High-quality printing and accessibility copying were not named: all eight /P bits are; "no
+  printing" covers the high-quality one. Proof: `facts::tests::every_permission_bit_is_named`.
+- **C-reader-030** Attachments only saved: a click opens one (a PDF in its own tab, any other file in its app after
+  "Open name?"), the arrow on hover saves a copy, past three a Find field filters them by name. Proof: gui-smoke 25.
+- **C-files-015** (Sol's re-review) Compare could not take open documents: each slot's Open file lists them (one
+  per slot, the other slot's excluded). Proof: gui-smoke 26. Popups now carry their own size (without it they took
+  their parent's and centred their list in it: the + menu and the slot menu sat off to the side).
+- **C-security-004** Restrictions needed an open password: "Require a password to open" can be turned off, the
+  permissions password then restricts alone (`security::protect_with_permissions` accepts an empty open password
+  with an owner one). Proof: sheaf-core `security::restrictions_alone_open_without_a_password`, gui-smoke 27.
+- **C-reader-013** No default zoom: Preferences ▸ Documents ▸ Open new documents at Fit width / Fit page / Actual
+  size. Proof: gui-smoke 28.
+- The opening size "Actual size" was computed on the view's first, provisional width (600 px) and showed 176 %:
+  it is kept pending and set again as the width comes, until the user zooms (`ViewerUi::pending_actual`).
+- gui-smoke 6h failed twice in five runs (961 → 889 px, at 263 %): a wheel event handled before the pointer's
+  move into the page anchors where the pointer was. The smoke now moves the pointer in as a hand does (two
+  steps, a pause). The app reads the pointer from the last move; a wheel without a move first is not a real case.
+- OPEN flake, gui-smoke 6h "⌘ + wheel zooms around the pointer": red in 3 of 7 full runs on 25/10, always
+  961 → 889 px at 263 %; green in every partial replay, in the gui layer alone, and once instrumented (a log line
+  in `zoom_around` made it pass: a timing race). Leading hypothesis: a horizontal scroll still pending from the
+  earlier "zoom typed 200 %" step (`want-x`, cleared after 2 s or once shown) is taken as the anchor's scroll.
+  Next probe: wait 2.5 s before the wheel in the smoke (predicts green), then clear `want-x` on any zoom.
