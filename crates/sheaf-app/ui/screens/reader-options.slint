@@ -166,7 +166,7 @@ export component ReaderOptionsBar inherits Rectangle {
             }
             SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
         }
-        if !root.tab.reader.selected-image && ((root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && root.tab.reader.tool != 12 && (root.tab.reader.tool != 13 || root.tab.reader.link-visible)) || root.tab.reader.selected-annot): HorizontalLayout {
+        if !root.tab.reader.selected-image && ((root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && (root.tab.reader.tool != 12 || root.tab.reader.stamp < 4) && (root.tab.reader.tool != 13 || root.tab.reader.link-visible)) || root.tab.reader.selected-annot): HorizontalLayout {
             spacing: 2px;
             padding-left: 6px;
             for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): ColourDot {

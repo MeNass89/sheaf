@@ -8580,12 +8580,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -8632,6 +8632,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Un lien `file://` peut être créé, mais un clic ne l’ouvre pas : seuls les liens HTTP(S) et `mailto:` sont traités dans crates/sheaf-app/src/reader_ui/pointer.rs:492"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "6edfb12: Sol AGREE 9 (round 2 25/10); F-013 round 2"
    }
   ]
  },
@@ -15620,12 +15631,12 @@
    208
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -15661,6 +15672,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): après un lot partiellement échoué, le bandeau annonce quand même une réussite complète, bien que les échecs soient listés (`crates/sheaf-app/src/state.rs:416`)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "6edfb12: Sol AGREE 9 (round 2 25/10); F-013 round 2"
    }
   ]
  },
@@ -18808,12 +18830,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -18860,6 +18882,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): « Fit page » s’arrête à 25 % ; une page très haute ne tient donc pas entière dans la fenêtre (crates/sheaf-app/src/viewer.rs:392)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "6edfb12: Sol AGREE 9 (round 2 25/10); F-013 round 2"
    }
   ]
  },
@@ -21589,10 +21622,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -21641,6 +21674,17 @@
      "overall": 7
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): La liste s’arrête à 2 000 résultats, même si davantage de correspondances ont été trouvées : crates/sheaf-app/src/reader_ui/model.rs:272"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol round 2: groups lack a count per page and the number of pages found"
    }
   ]
  },

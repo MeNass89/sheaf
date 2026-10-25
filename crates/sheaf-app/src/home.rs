@@ -79,6 +79,17 @@ pub fn set_reader_theme(theme: i32) {
     });
 }
 
+/// More ▸ Highlight form fields, remembered (Acrobat's "Highlight existing fields").
+pub fn toggle_field_tint() -> bool {
+    with(|h| {
+        h.prefs.plain_fields = !h.prefs.plain_fields;
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+        !h.prefs.plain_fields
+    })
+}
+
 /// Remembers that `path` was left on `page` (0-based).
 pub fn remember_page(path: &Path, page: usize) {
     let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());

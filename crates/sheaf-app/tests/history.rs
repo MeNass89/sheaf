@@ -88,6 +88,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         open_folder_after: true,
         author: Some("Ada".into()),
         reader_theme: 2,
+        plain_fields: true,
         last_pages: vec![(PathBuf::from("/tmp/a.pdf"), 12)],
         last_views: vec![(PathBuf::from("/tmp/a.pdf"), 2, 150, 1)],
         tool_styles: vec![(5, 2, 1, 0)],

@@ -41,24 +41,11 @@ export component ReaderPanel inherits Rectangle {
             Rectangle {
                 vertical-stretch: 1;
                 if root.tab.reader.panel == 3: VerticalLayout {
+                    // The search options on one row, how many results and where on the next.
                     HorizontalLayout {
                         padding: 10px;
-                        padding-bottom: 6px;
+                        padding-bottom: 4px;
                         spacing: 6px;
-                        Text {
-                            text: root.tab.reader.search-count == "None" ? "No results" : root.tab.reader.results.length + (root.tab.reader.search-busy ? "+ results" : root.tab.reader.results.length == 1 ? " result" : " results");
-                            font-size: Theme.fs-caption;
-                            font-weight: Theme.weight-demibold;
-                            color: Theme.text-secondary;
-                            vertical-alignment: center;
-                        }
-                        Rectangle { horizontal-stretch: 1; }
-                        if root.tab.reader.search-history.length > 1: ToolButton {
-                            y: -2px;
-                            icon: @image-url("../icons/history.svg");
-                            tip: "Recent searches";
-                            clicked => { recent.show(); }
-                        }
                         SmallButton {
                             text: "Aa";
                             primary: root.tab.reader.case-sensitive;
@@ -68,6 +55,26 @@ export component ReaderPanel inherits Rectangle {
                             text: "Whole words";
                             primary: root.tab.reader.whole-words;
                             clicked => { ReaderBridge.search-options(root.id, root.tab.reader.case-sensitive, !root.tab.reader.whole-words, root.search-text); }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        if root.tab.reader.search-history.length > 1: ToolButton {
+                            y: -2px;
+                            icon: @image-url("../icons/history.svg");
+                            tip: "Recent searches";
+                            clicked => { recent.show(); }
+                        }
+                    }
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 10px;
+                        padding-bottom: 6px;
+                        Text {
+                            text: root.tab.reader.search-count == "None" ? "No results" : root.tab.reader.results.length + (root.tab.reader.search-busy ? "+ results" : root.tab.reader.results.length == 1 ? " result" : " results")
+                                + (root.tab.reader.search-pages > 1 ? " on \{root.tab.reader.search-pages} pages" : "");
+                            font-size: Theme.fs-caption;
+                            font-weight: Theme.weight-demibold;
+                            color: Theme.text-secondary;
+                            overflow: elide;
                         }
                     }
                     recent := PopupWindow {
@@ -311,7 +318,7 @@ export component ReaderPanel inherits Rectangle {
                         spacing: 6px;
                         SortCombo {
                             width: 112px;
-                            options: ["All", "Markup", "Notes", "Drawings", "Stamps"];
+                            options: ["All", "Markup", "Notes", "Drawings", "Stamps", "Accepted", "Rejected", "Cancelled", "Completed", "No status"];
                             current-index: root.tab.reader.notes-filter;
                             chevron: @image-url("../icons/chevron-down.svg");
                             selected(i) => { ReaderBridge.notes-view(root.id, 0, i); }

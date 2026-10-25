@@ -268,7 +268,8 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
             let (w, h) = (18.0, 18.0);
             let rect = viewer::view_rect_to_pdf(bx, size, (at.0 - w / 2.0, at.1 - h / 2.0), (at.0 + w / 2.0, at.1 + h / 2.0));
             let shape = Shape::Mark { rect, mark };
-            let style = Style::default_for(&shape);
+            // In the colour picked, as Acrobat's Fill & Sign marks take the text colour.
+            let style = Style { color: INK[r.ink_colour], ..Style::default_for(&shape) };
             return Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: label.trim_start_matches(|c: char| !c.is_alphabetic()).into(), author: author() });
         }
         let (w, h) = (160.0_f64.min(size.0), 42.0_f64.min(size.1));

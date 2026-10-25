@@ -431,7 +431,14 @@ pub fn read_texts(
 
 /// The Notes panel's filter: 0 everything, 1 text markup, 2 notes and text boxes, 3 drawings and
 /// shapes, 4 stamps and signatures. Whether a comment of `subtype` (a signature: `fill_sign`) shows.
-pub fn notes_filter(filter: i32, subtype: &str, fill_sign: bool) -> bool {
+/// Review statuses the Notes filter offers (Acrobat's), then "" for none.
+const STATUSES: [&str; 5] = ["Accepted", "Rejected", "Cancelled", "Completed", ""];
+
+pub fn notes_filter(filter: i32, subtype: &str, fill_sign: bool, status: &str) -> bool {
+    // 5–9: by review status, as Acrobat's comment filter (Accepted … Completed, then none).
+    if let Some(want) = usize::try_from(filter - 5).ok().and_then(|k| STATUSES.get(k)) {
+        return status.eq_ignore_ascii_case(want);
+    }
     let group = match subtype {
         _ if fill_sign => 4,
         "Highlight" | "Underline" | "StrikeOut" | "Squiggly" => 1,
@@ -688,9 +695,12 @@ mod tests {
 
     #[test]
     fn notes_filter_groups() {
-        assert!(notes_filter(0, "Ink", false) && notes_filter(1, "Underline", false) && notes_filter(2, "FreeText", false));
-        assert!(notes_filter(3, "Square", false) && notes_filter(3, "Ink", false) && notes_filter(4, "Ink", true) && notes_filter(4, "Stamp", false));
-        assert!(!notes_filter(1, "Text", false) && !notes_filter(3, "Ink", true));
+        assert!(notes_filter(0, "Ink", false, "") && notes_filter(1, "Underline", false, "") && notes_filter(2, "FreeText", false, ""));
+        assert!(notes_filter(3, "Square", false, "") && notes_filter(3, "Ink", false, "") && notes_filter(4, "Ink", true, "") && notes_filter(4, "Stamp", false, ""));
+        assert!(!notes_filter(1, "Text", false, "") && !notes_filter(3, "Ink", true, ""));
+        // By status: Accepted (5) … Completed (8), no status (9).
+        assert!(notes_filter(5, "Text", false, "Accepted") && !notes_filter(5, "Text", false, "Rejected"));
+        assert!(notes_filter(9, "Highlight", false, "") && !notes_filter(9, "Highlight", false, "Completed"));
     }
 
     #[test]

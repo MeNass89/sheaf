@@ -19,7 +19,8 @@ pub fn set_tool(tab_id: i32, tool: i32) {
             if uses_light(r.tool) {
                 r.light = 0;
             } else {
-                r.ink_colour = 0;
+                // Fill & Sign marks start black (Acrobat's); drawing tools start red.
+                r.ink_colour = if r.tool == STAMP { 1 } else { 0 };
             }
             r.pen_width = 1;
             r.opacity = 0;
@@ -334,7 +335,7 @@ pub fn outline_toggled(tab_id: i32, row: i32) {
 /// Notes panel: `what` 0 the filter, 1 the order.
 pub fn notes_view(tab_id: i32, what: i32, value: i32) {
     update(tab_id, |r, _| match what {
-        0 => r.notes_filter = value.clamp(0, 4),
+        0 => r.notes_filter = value.clamp(0, 9),
         _ => r.notes_sort = value.clamp(0, 3),
     });
 }
@@ -354,6 +355,12 @@ pub fn annot_reply(tab_id: i32, k: i32) {
 }
 
 /// View ▸ Highlight links (⇧⌘L): links tinted on the pages, or not.
+/// Fillable fields tinted or not, in every document (a preference).
+pub fn toggle_fields(tab_id: i32) {
+    let on = crate::home::toggle_field_tint();
+    update(tab_id, |r, _| r.show_fields = on);
+}
+
 pub fn toggle_links(tab_id: i32) {
     update(tab_id, |r, _| r.show_links = !r.show_links);
 }

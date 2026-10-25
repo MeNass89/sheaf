@@ -295,6 +295,7 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Full screen", keys: "⌃⌘F", on: root.is-full-screen },
                                 { text: "Hide toolbar", keys: "⇧T", on: root.bare },
                                 { text: "Highlight links", keys: "⇧⌘L", on: root.tab.reader.show-links },
+                                { text: "Highlight form fields", keys: "", on: root.tab.reader.show-fields },
                                 { text: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide", keys: "⌥⌘2", on: false },
                                 { text: "Print…", keys: "⌘P", on: false },
                                 { text: "Document properties…", keys: "⌘D", on: false },
@@ -310,9 +311,10 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 1 { root.toggle-full-screen(); }
                                         if k == 2 { root.bare = !root.bare; }
                                         if k == 3 { ReaderBridge.toggle-links(root.id); }
-                                        if k == 4 { ReaderBridge.cycle-spread(root.id); }
-                                        if k == 5 { ReaderBridge.print-open(root.id); }
-                                        if k == 6 { ReaderBridge.props-open(root.id); }
+                                        if k == 4 { ReaderBridge.toggle-fields(root.id); }
+                                        if k == 5 { ReaderBridge.cycle-spread(root.id); }
+                                        if k == 6 { ReaderBridge.print-open(root.id); }
+                                        if k == 7 { ReaderBridge.props-open(root.id); }
                                         root.focus-pages();
                                     }
                                 }

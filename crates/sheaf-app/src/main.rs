@@ -196,6 +196,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_props_open(reader_ui::props_open);
     rb.on_notes_view(reader_ui::notes_view);
     rb.on_toggle_links(reader_ui::toggle_links);
+    rb.on_toggle_fields(reader_ui::toggle_fields);
     rb.on_annot_reply(reader_ui::annot_reply);
     wire_global!(ui, rb, on_attachment_save, |ui, id, i| reader_ui::attachment_save(&ui, id, i));
     wire_global!(ui, rb, on_attachment_add, |ui, id| reader_ui::attachment_add(&ui, id));

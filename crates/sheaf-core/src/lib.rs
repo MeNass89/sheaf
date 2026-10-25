@@ -5,6 +5,7 @@ pub mod engine;
 pub mod export;
 pub mod error;
 pub mod excel;
+pub mod facts;
 pub mod crop;
 pub mod images;
 pub mod office;

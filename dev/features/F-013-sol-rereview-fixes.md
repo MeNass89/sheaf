@@ -47,3 +47,18 @@ Each line: the component, Sol's gap, what was done, its proof.
   its words). Proof: `search::tests::a_search_goes_first_in_the_history_once_and_the_oldest_drop_off`, gui-smoke 23.
 - Refactor: `viewer.rs` (1,004 lines) split into `viewer/mod.rs` (layout, zoom, mapping) and `viewer/renders.rs`
   (caches, render queue, drawing).
+
+## Round 3 (25/10)
+- **C-reader-035** (Sol round 2) Each page heads its results with their count ("Page 4 · 3 results"), the header
+  says "12 results on 5 pages" (Preview). Counts from one map per update (no quadratic pass on 50k hits).
+- **C-reader-052 / C-reader-063** Properties lacked page boxes, PDF/A and restrictions: `sheaf_core::facts` reads
+  what the owner password forbids (from /P, or the encryption state when lopdf opened it with no password), PDF/A
+  from XMP, creation and modification dates, page 1's media/trim/bleed/art boxes when they differ; read on the
+  side when the sheet opens. Proof: sheaf-core `facts::properties_read_restrictions_pdfa_and_dates_from_the_file`,
+  `facts::tests::xmp_and_dates_read_as_people_write_them`, gui-smoke 24 ("Restricted: no printing").
+- **C-annotate-031** Notes filter by review status (Accepted, Rejected, Cancelled, Completed, No status), as
+  Acrobat's. Proof: `reader::tests::notes_filter_groups`.
+- **C-sign-010** Marks took a fixed colour: the colour row shows for marks (black first, as Acrobat) and the mark
+  takes it. Proof: gui-smoke 6c'' (a blue checkmark, /C saved blue).
+- **C-forms-005** Fields were always tinted: More ▸ Highlight form fields turns it off and on, kept in the
+  preferences. Proof: gui-smoke 24.

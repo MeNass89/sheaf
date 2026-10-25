@@ -219,8 +219,12 @@ pub struct ReaderUi {
     outline_edit: Option<usize>,
     /// View ▸ Highlight links: every link tinted, as fields are.
     show_links: bool,
+    /// Fillable fields tinted in Select mode (More ▸ Highlight form fields).
+    show_fields: bool,
     /// The Document Properties sheet is open.
     props_open: bool,
+    /// Document Properties: what is read from the file when the sheet opens.
+    facts: Option<sheaf_core::facts::Facts>,
     /// Hide all comments: not drawn, not selectable.
     comments_hidden: bool,
     /// Stamp tool: one of `MARKS`, then `StampKind::ALL` (index past the marks).
@@ -365,7 +369,9 @@ impl ReaderUi {
             opacity: 0,
             comments_hidden: false,
             props_open: false,
+            facts: None,
             show_links: false,
+            show_fields: !crate::home::prefs().plain_fields,
             outline_edit: None,
             notes_filter: 0,
             notes_sort: 0,

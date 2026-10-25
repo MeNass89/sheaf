@@ -207,6 +207,8 @@ export struct ReaderState {
     attachments: [ReaderProp],
     // View ▸ Highlight links is on.
     show-links: bool,
+    // Fillable fields tinted (More ▸ Highlight form fields).
+    show-fields: bool,
     // The Link editor's complaint about what was typed.
     link-error: string,
     // Edit tool: objects are picked together (the arrow keys nudge them).
@@ -232,6 +234,8 @@ export struct ReaderState {
     results: [ReaderResultRow],
     // Earlier searches, newest first (this session).
     search-history: [string],
+    // How many pages the results are on.
+    search-pages: int,
     case-sensitive: bool,
     whole-words: bool,
 }
@@ -510,6 +514,7 @@ export global ReaderBridge {
     callback notes-view(int, int, int);
     // View ▸ Highlight links on or off.
     callback toggle-links(int);
+    callback toggle-fields(int);
     // Reply to a comment of the Notes panel (its index).
     callback annot-reply(int, int);
     // Files panel: save attachment (its index); attach a file to the page in view.

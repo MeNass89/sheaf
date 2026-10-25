@@ -408,10 +408,16 @@ key v
 # 317,330 once the list at 350,109 is open, after the four marks) says who and when.
 key m; click 900 300 1.2; click 350 109 0.8; click 317 330 0.8; click 700 600 1.2
 # A checkmark (first in the list, 317,150) placed beside them.
-click 350 109 0.8; click 317 150 0.8; click 400 650 1.2; key ctrl+s; sleep 1.5; key v
+# In blue (the colour row shows for marks, 540,109): Acrobat's Fill & Sign marks take a colour.
+click 350 109 0.8; click 317 150 0.8; click 540 109 0.5; click 400 650 1.2; key ctrl+s; sleep 1.5; key v
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "stamps: Approved, and Received dated by the author" "echo \"\$SH\" | grep -aq '/Name /Approved' && echo \"\$SH\" | grep -aq '/PCByLine (By $USER at '"
 check "a checkmark is placed (Fill & Sign mark)" "echo \"\$SH\" | grep -aq 'PCFillSign' && echo \"\$SH\" | grep -aq '(Checkmark)'"
+MC=$(qpdf --json=2 "$OUT/shapes.pdf" | python3 -c 'import json, sys
+for v in json.load(sys.stdin)["qpdf"][1].values():
+    d = v.get("value", {}) if isinstance(v, dict) else {}
+    if d.get("/Name") == "/PCCheck": print(d.get("/C"))')
+check "the checkmark is in the colour picked (blue: $MC)" "echo \"$MC\" | grep -q '0.9'"
 
 # 6c-notes. Notes panel (153,106): Hide all (45,149) hides the stamp at 900,300 and shows it again;
 # the trash (226,152) removes every comment, in the saved file too.
@@ -959,13 +965,25 @@ check "Split writes a file for each cut range" "[ \"\$(pdfinfo $OUT/reo/ten-4-7.
 quit
 
 # 23. Search history (Acrobat's and PDF Expert's recent searches): "fox" then "quick"; the clock in the results
-# panel (92,153) lists them newest first; the second ("fox", 60,237) runs again and is back in the field.
+# panel (223,153) lists them newest first; the second ("fox", 60,237) runs again and is back in the field.
 launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "fox"; key Return; sleep 1.5
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
-click 92 153 0.8; shot 23-recent; click 60 237 1.5
-SF=$(ocr 110x26+1000+48 | tr -d ' '); RN=$(ocr 80x24+0+141)
+click 223 153 0.8; shot 23-recent; click 60 237 1.5
+SF=$(ocr 110x26+1000+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
 check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 results'"
+quit
+
+# 24. More ▸ Highlight form fields (1127,61 ▸ "form" 1008,211) turns the fields' tint off and on (Acrobat's
+# Highlight existing fields); Document properties of a file with only an owner password say what it forbids.
+launch "$OUT/form.pdf"; key ctrl+9; sleep 1
+tint() { import -window root -crop 1x1+640+300 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}'; }
+T0=$(tint); click 1127 61 0.8; click 1008 211 1; T1=$(tint); click 1127 61 0.8; click 1008 211 1; T2=$(tint)
+check "Highlight form fields turns the fields' tint off and on ($T0 → $T1 → $T2)" "[ \"$T0\" != \"$T1\" ] && [ \"$T0\" = \"$T2\" ] && [ \"$T1\" = '#FFFFFF' ]"
+quit
+qpdf --encrypt "" owner 256 --print=none --extract=n -- "$OUT/text.pdf" "$OUT/owner.pdf"
+launch "$OUT/owner.pdf"; key ctrl+d; sleep 2; PR=$(ocr 440x330+420+400)
+check "Document properties say what the owner password forbids and the dates ($(echo $PR | cut -c1-80))" "echo \"$PR\" | grep -q 'Restricted: no printing' && echo \"$PR\" | grep -q 'PDF/A'"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

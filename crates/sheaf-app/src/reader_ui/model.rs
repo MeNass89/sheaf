@@ -1,6 +1,7 @@
 //! Into the tab model: the ReaderState pushed to Slint, its marks, panels and rows.
 
 use super::*;
+use std::collections::HashMap;
 
 /// The palette entry (light or ink) closest to `c`, if one is close.
 pub(super) fn palette_index(c: [f32; 3]) -> i32 {
@@ -129,7 +130,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     {
         marks.push(overlay(v.viewer.overlay(d.page, *rect), 6));
     }
-    if r.tool == SELECT {
+    if r.tool == SELECT && r.show_fields {
         // Fillable fields, tinted as PDF Expert and Acrobat highlight them.
         for f in r.snap.fields.iter().filter(|f| !f.read_only && f.kind < 4) {
             for (page, rect, _, _) in f.widgets.iter().filter(|w| wanted.contains(&w.0)) {
@@ -269,12 +270,36 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             *shown_current = None;
         }
         let have = model.row_count();
+        // Each page heads its group with its count (Preview's results list): "Page 4 · 3".
+        let mut counts: HashMap<usize, usize> = HashMap::new();
+        for (p, _) in &r.search.hits {
+            *counts.entry(*p).or_default() += 1;
+        }
+        let heading = |page: usize| -> slint::SharedString {
+            match counts.get(&page).copied().unwrap_or(0) {
+                1 => format!("Page {}", label(r, page)),
+                n => format!("Page {} · {n} results", label(r, page)),
+            }
+            .into()
+        };
+        // A page whose results came in two batches: its heading counts them all.
+        if let Some(last) = have.checked_sub(1)
+            && let Some(&(page, _)) = r.search.hits.get(last)
+            && let Some(first) = (0..have).rev().take_while(|&i| r.search.hits[i].0 == page).last()
+            && let Some(mut row) = model.row_data(first)
+        {
+            let h = heading(page);
+            if row.page_label != h {
+                row.page_label = h;
+                model.set_row_data(first, row);
+            }
+        }
         for (i, ((page, _), (b, m, a))) in r.search.hits.iter().zip(&r.search.snippets).enumerate().skip(have) {
             model.push(ReaderResultRow {
                 before: b.clone().into(),
                 hit: m.clone().into(),
                 after: a.clone().into(),
-                page_label: format!("Page {}", label(r, *page)).into(),
+                page_label: heading(*page),
                 current: r.search.current == Some(i),
                 first: i == 0 || r.search.hits[i - 1].0 != *page,
             });
@@ -290,8 +315,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             }
             *shown_current = r.search.current;
         }
-        ModelRc::from(model.clone())
+        (ModelRc::from(model.clone()), counts.len() as i32)
     };
+    let (results, search_pages) = results;
     let note = match &r.draft {
         Some(d) => {
             let (mut x, mut y) = view_to_content(&v.viewer, d.page, d.at);
@@ -400,6 +426,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         comments_hidden: r.comments_hidden,
         // The Link tool shows where the links are, as PDF Expert's does.
         show_links: r.show_links || r.tool == LINK,
+        show_fields: r.show_fields,
         link_error: r.link_error.clone().into(),
         link_visible: r.link_visible,
         has_picked: r.picked.is_some(),
@@ -418,7 +445,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_author: r.snap.props.author.clone().into(),
         props_subject: r.snap.props.subject.clone().into(),
         props_keywords: r.snap.props.keywords.clone().into(),
-        props_about: ModelRc::new(VecModel::from(r.snap.props.about.iter().map(|(n, v)| ReaderProp { name: n.into(), value: v.into() }).collect::<Vec<_>>())),
+        props_about: ModelRc::new(VecModel::from(super::properties::about_rows(&r.snap.props.about, r.facts.as_ref()).into_iter().map(|(n, v)| ReaderProp { name: n.into(), value: v.into() }).collect::<Vec<_>>())),
         text_size: r.text_pt.round() as i32,
         text_family: r.text_family,
         text_bold: r.text_bold,
@@ -444,6 +471,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 .unwrap_or_default(),
         )),
         results,
+        search_pages,
         search_history: ModelRc::new(VecModel::from(super::search::recent_searches().into_iter().map(Into::into).collect::<Vec<slint::SharedString>>())),
         case_sensitive: r.search.case_sensitive,
         whole_words: r.search.whole_words,
@@ -476,7 +504,7 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
         .annots()
         .iter()
         .enumerate()
-        .filter(|(_, a)| reader::notes_filter(r.notes_filter, &a.subtype, a.fill_sign))
+        .filter(|(_, a)| reader::notes_filter(r.notes_filter, &a.subtype, a.fill_sign, &a.status))
         .map(|(i, a)| {
             let text = if a.quads.is_empty() || !a.contents.is_empty() {
                 a.contents.clone()
