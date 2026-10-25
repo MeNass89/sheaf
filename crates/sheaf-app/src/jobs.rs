@@ -42,7 +42,8 @@ pub enum ExportKind {
 /// the output path is the wanted name; the engine suffixes it if the name is taken.
 #[derive(Debug, Clone)]
 pub enum Job {
-    Merge { inputs: Vec<Input>, out: PathBuf },
+    /// `pages`: the range spec taken from each input ("" = all).
+    Merge { inputs: Vec<Input>, pages: Vec<String>, out: PathBuf },
     Split { input: Input, mode: SplitMode, out_dir: PathBuf },
     RemovePages { input: Input, pages: String, out: PathBuf },
     ExtractPages { input: Input, pages: String, out: PathBuf },
@@ -240,8 +241,8 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Ok(o)
     };
     let outputs = match job {
-        Job::Merge { inputs, out } => {
-            let r = one(pages::merge(inputs, out))?;
+        Job::Merge { inputs, pages: specs, out } => {
+            let r = one(pages::merge_pages(inputs, specs, out))?;
             progress(1.0);
             r
         }

@@ -14,6 +14,10 @@ export struct FileItem {
     preview-failed: bool,
     // Compare: 0 Original, 1 Changed.
     slot: int,
+    // Merge: the pages taken ("1-3, 5", empty = all), as the card shows it, and not valid.
+    pages-spec: string,
+    pages-label: string,
+    pages-bad: bool,
 }
 
 // One page of the Organize grid. page 0 = inserted blank page.

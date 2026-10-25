@@ -103,6 +103,25 @@ pub fn caption(bytes: u64, pages: Option<u32>) -> String {
     }
 }
 
+/// Merge: what a file's page choice reads as on its card ("All 7 pages", "Pages 1-3, 5 · 4 of 7"),
+/// and whether it is valid for its page count (unknown yet: taken as valid).
+pub fn pages_label(spec: &str, pages: Option<u32>) -> (String, bool) {
+    let spec = spec.trim();
+    match (spec.is_empty(), pages) {
+        (true, Some(1)) => ("1 page".into(), true),
+        (true, Some(n)) => (format!("All {n} pages"), true),
+        (true, None) => ("All pages".into(), true),
+        (false, None) => (format!("Pages {spec}"), true),
+        (false, Some(n)) => match sheaf_core::ranges::parse_ranges(spec, n) {
+            Ok(r) => {
+                let count: u32 = r.iter().map(|r| r.end() - r.start() + 1).sum();
+                (format!("Pages {spec} · {count} of {n}"), true)
+            }
+            Err(_) => (format!("Pages {spec}: only 1–{n}"), false),
+        },
+    }
+}
+
 pub fn file_size(p: &Path) -> u64 {
     std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
 }
@@ -339,6 +358,16 @@ pub fn image_thumb(p: &Path, max: u32) -> Result<Thumb> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_merge_page_choice_reads_as_its_count_or_says_what_is_wrong() {
+        assert_eq!(pages_label("", Some(7)), ("All 7 pages".into(), true));
+        assert_eq!(pages_label(" ", Some(1)), ("1 page".into(), true));
+        assert_eq!(pages_label("1-3, 5", Some(7)), ("Pages 1-3, 5 · 4 of 7".into(), true));
+        assert_eq!(pages_label("9", Some(7)), ("Pages 9: only 1–7".into(), false));
+        assert!(!pages_label("abc", Some(7)).1);
+        assert_eq!(pages_label("2", None), ("Pages 2".into(), true));
+    }
     use super::*;
 
     #[test]

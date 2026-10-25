@@ -238,7 +238,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
     let one = |inputs: Vec<Input>| inputs.into_iter().next().ok_or_else(|| OpdfError::Unsupported("no input".into()));
     let pages = opts.pages.trim().to_string();
     Ok(match tool {
-        ToolId::Merge => Job::Merge { inputs, out: single()? },
+        ToolId::Merge => Job::Merge { inputs, pages: Vec::new(), out: single()? },
         ToolId::Split => Job::Split {
             input: one(inputs)?,
             mode: if opts.split_mode == 1 { SplitMode::Every(opts.every.max(1) as u32) } else { SplitMode::Ranges(opts.ranges.trim().into()) },
@@ -335,14 +335,15 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
 
 /// The action button of tab `tab_id`.
 pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
-    let Some((tool, inputs, order, marks, placed)) = with(|a| {
+    let Some((tool, inputs, specs, order, marks, placed)) = with(|a| {
         let t = a.tab(tab_id)?;
         let marks = t.viewer.as_ref().map(|v| v.marks()).unwrap_or_default();
         let placed = match t.tool {
             ToolId::Edit => Some(t.edit.placed().map(OnPages::Edit)),
             _ => t.viewer.as_ref().and_then(|v| crate::viewer_ui::placed(v, &t.sign)).map(|p| Ok(OnPages::Sign(p))),
         };
-        matches!(t.phase, Phase::Edit).then(|| (t.tool, t.files.iter().map(|f| f.input.clone()).collect::<Vec<_>>(), t.order.clone(), marks, placed))
+        let specs: Vec<String> = t.files.iter().map(|f| f.pages_spec.clone()).collect();
+        matches!(t.phase, Phase::Edit).then(|| (t.tool, t.files.iter().map(|f| f.input.clone()).collect::<Vec<_>>(), specs, t.order.clone(), marks, placed))
     }) else {
         return;
     };
@@ -354,7 +355,7 @@ pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
     let paths: Vec<PathBuf> = inputs.iter().map(|i| i.path.clone()).collect();
     let prefs = crate::home::prefs();
     match pref_dest(tool, &paths, &opts, &prefs) {
-        Some(dest) => start(ui, tab_id, tool, inputs, order, marks, placed, &opts, dest),
+        Some(dest) => start(ui, tab_id, tool, (inputs, specs), order, marks, placed, &opts, dest),
         None => {
             if prefs.output == OutputMode::Fixed {
                 toast(ui, "Output folder not found");
@@ -364,7 +365,7 @@ pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
             ask_dest(ui, tool, &paths, &opts, move |ui, dest| {
                 let still = with(|a| a.tab(tab_id).map(|t| matches!(t.phase, Phase::Edit))).unwrap_or(false);
                 if still {
-                    start(ui, tab_id, tool, inputs, order, marks, placed, &o, dest);
+                    start(ui, tab_id, tool, (inputs, specs), order, marks, placed, &o, dest);
                 }
             });
         }
@@ -372,11 +373,16 @@ pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn start(ui: &AppWindow, tab_id: i32, tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, placed: Option<OnPages>, opts: &ToolOptions, dest: Dest) {
-    let job = match build_job_full(tool, inputs, order, marks, placed, opts, dest) {
+/// `inputs`: the files, each with its Merge page choice ("" = all).
+fn start(ui: &AppWindow, tab_id: i32, tool: ToolId, inputs: (Vec<Input>, Vec<String>), order: Vec<u32>, marks: Vec<sheaf_core::redact::Mark>, placed: Option<OnPages>, opts: &ToolOptions, dest: Dest) {
+    let (inputs, specs) = inputs;
+    let mut job = match build_job_full(tool, inputs, order, marks, placed, opts, dest) {
         Ok(j) => j,
         Err(e) => return toast(ui, &e.to_string()),
     };
+    if let Job::Merge { pages, .. } = &mut job {
+        *pages = specs;
+    }
     with(|a| {
         if let Some(t) = a.tab(tab_id) {
             t.start_job();

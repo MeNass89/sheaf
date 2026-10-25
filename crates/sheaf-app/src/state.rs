@@ -30,6 +30,8 @@ pub struct FileEntry {
     pub slot: usize,
     /// Its first pages carry next to no text: a scan (PDF to Office suggests OCR).
     pub scanned: bool,
+    /// Merge: the pages taken from it ("1-3, 5"; empty = all).
+    pub pages_spec: String,
 }
 
 pub enum Phase {
@@ -232,6 +234,9 @@ fn file_item(f: &FileEntry) -> FileItem {
         kind: if f.unreadable { Kind::Document.index() } else { f.kind.index() },
         locked: f.locked,
         slot: f.slot as i32,
+        pages_label: files::pages_label(&f.pages_spec, f.pages).0.into(),
+        pages_spec: f.pages_spec.clone().into(),
+        pages_bad: !files::pages_label(&f.pages_spec, f.pages).1,
     }
 }
 
@@ -347,7 +352,8 @@ pub fn build(t: &TabState) -> ToolTab {
         preview: t.preview.as_ref().map(|p| p.0.clone()).unwrap_or_default(),
         preview_w: t.preview.as_ref().map(|p| p.1).unwrap_or_default(),
         preview_h: t.preview.as_ref().map(|p| p.2).unwrap_or_default(),
-        files_ready: t.files.iter().all(|f| f.kind != Kind::Pdf || f.pages.is_some() || f.unreadable || f.thumb_failed),
+        // A Merge page choice that is not pages of its file holds the run back (its card says why).
+        files_ready: t.files.iter().all(|f| (f.kind != Kind::Pdf || f.pages.is_some() || f.unreadable || f.thumb_failed) && files::pages_label(&f.pages_spec, f.pages).1),
         default_out: t.files.first().map(|f| sheaf_app::jobs::default_name(t.tool, &f.input.stem())).unwrap_or_default().into(),
         ..Default::default()
     };
@@ -674,7 +680,7 @@ mod tests {
     }
 
     fn entry(uid: i32) -> FileEntry {
-        FileEntry { uid, input: Input::new(format!("/x/{uid}.pdf")), kind: Kind::Pdf, size: 0, pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0, scanned: false }
+        FileEntry { uid, input: Input::new(format!("/x/{uid}.pdf")), kind: Kind::Pdf, size: 0, pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0, scanned: false, pages_spec: String::new() }
     }
 
     #[test]

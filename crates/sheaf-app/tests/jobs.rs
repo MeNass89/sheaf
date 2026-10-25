@@ -20,7 +20,7 @@ fn merge_then_protect_and_unlock_without_password() {
     let progress = |p: f32| seen.set(p);
 
     let merged = run(
-        &Job::Merge { inputs: vec![Input::new(&src), Input::new(&src)], out: dir.path().join("m.pdf") },
+        &Job::Merge { inputs: vec![Input::new(&src), Input::new(&src)], pages: vec![], out: dir.path().join("m.pdf") },
         &no_cancel,
         &progress,
     )
@@ -107,7 +107,7 @@ fn finalize_removes_outputs_when_cancel_arrived_during_an_uninterruptible_call()
     let src = two_page_pdf(dir.path());
     // Merge is one engine call: the cancel flag is only seen after it returned Ok.
     let done = run(
-        &Job::Merge { inputs: vec![Input::new(&src)], out: dir.path().join("m.pdf") },
+        &Job::Merge { inputs: vec![Input::new(&src)], pages: vec![], out: dir.path().join("m.pdf") },
         &AtomicBool::new(false),
         &|_| {},
     )
@@ -214,9 +214,9 @@ fn every_tool_but_protect_and_unlock_reports_an_encrypted_input() {
     let go = |job: Job| run(&job, &AtomicBool::new(false), &|_| {}).unwrap();
     let o = |n: &str| dir.path().join(n);
 
-    assert!(go(Job::Merge { inputs: vec![Input::new(&src), enc.clone()], out: o("m.pdf") }).was_encrypted);
-    assert!(!go(Job::Merge { inputs: vec![Input::new(&src)], out: o("m2.pdf") }).was_encrypted);
-    assert!(go(Job::Merge { inputs: vec![Input::new(&owner_only)], out: o("m3.pdf") }).was_encrypted, "owner-password-only counts");
+    assert!(go(Job::Merge { inputs: vec![Input::new(&src), enc.clone()], pages: vec![], out: o("m.pdf") }).was_encrypted);
+    assert!(!go(Job::Merge { inputs: vec![Input::new(&src)], pages: vec![], out: o("m2.pdf") }).was_encrypted);
+    assert!(go(Job::Merge { inputs: vec![Input::new(&owner_only)], pages: vec![], out: o("m3.pdf") }).was_encrypted, "owner-password-only counts");
     assert!(go(Job::Rotate { items: vec![(enc.clone(), o("r.pdf"))], degrees: 90, pages: None }).was_encrypted);
     assert!(go(Job::Repair { items: vec![(enc.clone(), o("f.pdf"))] }).was_encrypted);
     assert!(go(Job::ExtractPages { input: enc.clone(), pages: "1".into(), out: o("e.pdf") }).was_encrypted);

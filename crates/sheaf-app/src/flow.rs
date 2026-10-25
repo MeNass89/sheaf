@@ -150,7 +150,7 @@ fn add_paths_to(ui: &AppWindow, tab_id: i32, paths: Vec<PathBuf>, slot: Option<u
             let uid = a.next_uid;
             let Some(t) = a.tab(tab_id) else { return };
             let kind = files::kind_of(&p);
-            let entry = FileEntry { uid, input: Input::new(&p), kind, size: files::file_size(&p), pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0, scanned: false };
+            let entry = FileEntry { uid, input: Input::new(&p), kind, size: files::file_size(&p), pages: None, thumb: None, thumb_failed: false, unreadable: false, locked: false, slot: 0, scanned: false, pages_spec: String::new() };
             if tool == ToolId::Compare {
                 let taken: Vec<usize> = t.files.iter().map(|f| f.slot).collect();
                 // Several files at once fill the slots in order; one asked-for slot is used once.
@@ -386,6 +386,18 @@ pub fn place_file(tab_id: i32, uid: i32, slot: i32) {
 }
 
 /// The files by name, A to Z ("file 2" before "file 10"); Z to A when they already are.
+/// Merge: the pages taken from file `uid` ("" = all), kept as typed; the card says when they
+/// are not pages of the file and Merge waits until they are.
+pub fn set_pages(tab_id: i32, uid: i32, text: &str) {
+    with(|a| {
+        if let Some(f) = a.tab(tab_id).and_then(|t| t.files.iter_mut().find(|f| f.uid == uid)) {
+            let t = text.trim();
+            f.pages_spec = if t.eq_ignore_ascii_case("all") { String::new() } else { t.to_string() };
+        }
+        refresh(a, tab_id);
+    });
+}
+
 pub fn sort_files(tab_id: i32) {
     with(|a| {
         if let Some(t) = a.tab(tab_id) {

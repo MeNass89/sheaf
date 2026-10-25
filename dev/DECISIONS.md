@@ -574,3 +574,9 @@ folder is dropped.
 batched lines (slower). **Reason.** onnxruntime adds a native library per platform to build, sign and ship, for one
 north star of one component (C-optimize-006 is 9/9/8); higher-leverage components wait. **What would change it.** A
 Mac timing still slower than Tesseract, or OCR becoming the bottleneck of PDF to Word with OCR.
+
+## 2026-10-25 · End of the 21/10 deviation: Sol is the second voice again
+**What.** The deviation of 21/10 (an independent Opus agent as the second voice of the joint 9/10) ends now. **Why.**
+Codex's weekly quota stood at 13 % on 24/10 (Nassim: "just use codex"), not 89 %. **Follow-up.** Sol re-reviews the
+components closed with Opus alone since 21/10; a disagreement reopens the component. Quota read before each batch;
+stop at 90 %.

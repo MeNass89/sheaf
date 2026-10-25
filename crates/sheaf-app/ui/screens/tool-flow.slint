@@ -168,6 +168,8 @@ export component ToolFlowScreen inherits Rectangle {
     callback move-file(int, int);
     // A file card dropped before slot (0 … files) of the list.
     callback place-file(int, int);
+    // Merge: the pages taken from a file ("" = all).
+    callback set-pages(int, string);
     // A file card being dragged: which, its name, where the pointer is in the grid; the slot it
     // would drop before (the grid's columns from its width, every card one size).
     property <int> drag-uid: -1;
@@ -353,6 +355,8 @@ export component ToolFlowScreen inherits Rectangle {
                             root.drag-cancelled = false;
                         }
                         dimmed: root.drag-uid == f.uid;
+                        ranges: root.tab.tool == "merge";
+                        set-pages(text) => { root.set-pages(f.uid, text); }
                         file: f;
                         tile: root.tab.tile;
                         reorder: root.tab.multi && root.tab.files.length > 1;

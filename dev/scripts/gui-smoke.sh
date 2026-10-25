@@ -908,6 +908,22 @@ NAMES=$(ocr 300x24+40+184)
 check "Open file in Merge offers the open documents and adds them (menu at $M; cards: $NAMES)" "[ -n \"$M\" ] && echo \"$NAMES\" | grep -q one.pdf && echo \"$NAMES\" | grep -q two.pdf"
 quit
 
+# 21d. Merge takes chosen pages from each file (Acrobat's Combine): a.pdf (red green blue yellow) "4,1-2",
+# b.pdf (black grey light) "9" refused (the run waits, the card says why), then "3": the merge is yellow red green light.
+convert -size 200x260 xc:'#dd2222' xc:'#22aa22' xc:'#2222dd' xc:'#dddd22' "$OUT/reo/ra.pdf"; convert -size 200x260 xc:'#111111' xc:'#777777' xc:'#bbbbbb' "$OUT/reo/rb.pdf"
+launch "$OUT/reo/ra.pdf" "$OUT/reo/rb.pdf"
+click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; click 460 527 2
+click 101 212 0.6; xdotool type --delay 20 "4,1-2"; key Return
+click 237 212 0.6; xdotool type --delay 20 "9"; key Return; sleep 0.3
+BAD=$(ocr 300x20+30+202); RUN=$(import -window root -crop 1x1+1015+740 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}')
+click 237 212 0.6; xdotool type --delay 20 "3"; key Return
+click 1133 755 4
+MC=$(for i in 1 2 3 4; do pdftoppm -r 10 -f $i -l $i -png "$OUT/reo/ra-merged.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}] " info: 2>/dev/null; done)
+NP=$(pdfinfo "$OUT/reo/ra-merged.pdf" 2>/dev/null | awk '/^Pages/{print $2}')
+check "a page choice outside the file is refused ($BAD; run button $RUN)" "echo \"$BAD\" | grep -q 'only 1' && [ \"$RUN\" != '#E5322D' ]"
+check "Merge takes the pages chosen for each file ($NP pages: $MC)" "[ \"$NP\" = 4 ] && [ \"$MC\" = 'srgb(220,220,33) srgb(220,33,33) srgb(33,169,33) srgb(186,186,186) ' ]"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).
