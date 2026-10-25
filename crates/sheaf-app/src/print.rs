@@ -88,6 +88,19 @@ pub fn lp_args(job: &Job, file: &Path) -> Vec<String> {
 }
 
 /// Prints `bytes` (a PDF) named `title`; returns `lp`'s request id ("PDF-12").
+/// A document opened with its password, as the print service can read it: an unprotected copy,
+/// when its owner allows printing (Acrobat prints such a file; Sol 25/10: Sheaf refused it).
+pub fn unlocked(bytes: &[u8], password: &str) -> Result<std::sync::Arc<Vec<u8>>, String> {
+    if sheaf_core::facts::read(bytes, Some(password)).restricted.contains(&"Printing") {
+        return Err("its owner does not allow printing it".into());
+    }
+    let tmp = tempfile::Builder::new().suffix(".pdf").tempfile().map_err(|e| e.to_string())?;
+    std::fs::write(tmp.path(), bytes).map_err(|e| e.to_string())?;
+    let input = sheaf_core::pages::Input { path: tmp.path().to_path_buf(), password: Some(password.to_string()) };
+    let mut doc = sheaf_core::pdfcraft::Doc::open(&input).map_err(|e| e.to_string())?;
+    doc.unprotected_bytes().map(|(b, _)| b).map_err(|e| e.to_string())
+}
+
 pub fn submit(job: &Job, title: &str, bytes: &[u8]) -> Result<String, String> {
     let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
     let file = dir.path().join(format!("{}.pdf", title.replace(['/', '\\'], "_")));
@@ -129,5 +142,24 @@ mod tests {
         // Paper and orientation when chosen.
         let a = lp_args(&Job { media: Some("A4".into()), orientation: 2, ..job }, Path::new("/tmp/x/Book.pdf"));
         assert!(a.windows(2).any(|w| w == ["-o", "media=A4"]) && a.windows(2).any(|w| w == ["-o", "orientation-requested=4"]), "{a:?}");
+    }
+
+    #[test]
+    fn a_protected_pdf_prints_from_an_unprotected_copy_unless_printing_is_forbidden() {
+        let t = tempfile::tempdir().unwrap();
+        let blank = sheaf_core::pages::blank(false, &t.path().join("b.pdf")).unwrap();
+        let qpdf = |extra: &[&str], out: &str| {
+            let mut args = vec!["--encrypt", "user", "owner", "256"];
+            args.extend_from_slice(extra);
+            args.push("--");
+            let o = Command::new("qpdf").args(&args).arg(&blank).arg(t.path().join(out)).output().unwrap();
+            assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+            std::fs::read(t.path().join(out)).unwrap()
+        };
+        let open = qpdf(&[], "open.pdf");
+        let copy = unlocked(&open, "user").unwrap();
+        assert!(!String::from_utf8_lossy(&copy).contains("/Encrypt"), "the copy is not encrypted");
+        let no_print = qpdf(&["--print=none"], "noprint.pdf");
+        assert!(unlocked(&no_print, "user").unwrap_err().contains("does not allow printing"));
     }
 }

@@ -1,0 +1,113 @@
+// Prepare form: the fields drawn over their pages and the selected field's properties card
+// (Acrobat's Field Properties, in short: name, tooltip, required, read-only, several lines, items).
+import { Theme } from "../theme.slint";
+import { SmallButton, PanelField } from "reader-parts.slint";
+import { Check } from "../widgets/check.slint";
+import { TextEdit } from "std-widgets.slint";
+import { ReaderFormField, ReaderFieldProps, ReaderBridge } from "../flow-types.slint";
+
+// One field over its page, its name in its top-left corner.
+export component FormFieldBox inherits Rectangle {
+    in property <ReaderFormField> field;
+    x: field.x;
+    y: field.y;
+    width: field.w;
+    height: field.h;
+    background: field.selected ? #3B82F633 : #3B82F61A;
+    border-width: field.selected ? 2px : 1px;
+    border-color: field.selected ? Theme.accent : #3B82F6;
+    Text {
+        x: 3px;
+        y: 1px;
+        width: parent.width - 6px;
+        text: root.field.name;
+        font-size: 10px;
+        color: #1D4ED8;
+        overflow: elide;
+    }
+}
+
+// The selected field's card. Done (or ↩ in a line) applies what changed, as one undo step.
+export component FieldPropsCard inherits Rectangle {
+    in property <ReaderFieldProps> props;
+    in property <int> id;
+    // The keyboard back to the pages.
+    callback focus-pages();
+    property <bool> required;
+    property <bool> read-only;
+    property <bool> multiline;
+
+    width: 330px;
+    height: col.preferred-height;
+    border-radius: Theme.radius-item;
+    background: Theme.card;
+    drop-shadow-blur: 12px;
+    drop-shadow-color: #00000040;
+    drop-shadow-offset-y: 2px;
+    // Each newly selected field (or a change applied: a new name, a new place) starts from its own
+    // values; the model's refreshes in between keep what is being typed.
+    property <string> key: props.name + "@" + round(props.x / 1px) + "," + round(props.y / 1px) + "#" + props.seq;
+    changed key => {
+        name-field.text = props.name;
+        tip-field.text = props.tooltip;
+        items.text = props.options;
+        root.required = props.required;
+        root.read-only = props.read-only;
+        root.multiline = props.multiline;
+    }
+    init => {
+        name-field.text = props.name;
+        tip-field.text = props.tooltip;
+        items.text = props.options;
+        root.required = props.required;
+        root.read-only = props.read-only;
+        root.multiline = props.multiline;
+    }
+    function apply() {
+        ReaderBridge.field-props(root.id, name-field.text, tip-field.text, root.required, root.read-only, root.multiline, items.text);
+        root.focus-pages();
+    }
+    // A click on the card stays on it.
+    TouchArea { }
+    col := VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+        Text {
+            text: ["Text field", "Check box", "Radio button", "Dropdown", "List box", "Button", "Signature field"][root.props.exact];
+            font-size: Theme.fs-label;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text-heading;
+        }
+        name-field := PanelField { placeholder: "Name"; }
+        tip-field := PanelField { placeholder: "Tooltip (what to fill in)"; }
+        if root.props.exact == 3 || root.props.exact == 4: VerticalLayout {
+            spacing: 4px;
+            Text { text: "Items, one per line"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            items-edit := TextEdit {
+                height: 84px;
+                font-size: Theme.fs-label;
+                text <=> items.text;
+            }
+        }
+        HorizontalLayout {
+            spacing: 14px;
+            Check { text: "Required"; checked <=> root.required; }
+            Check { text: "Read-only"; checked <=> root.read-only; }
+            if root.props.exact == 0: Check { text: "Several lines"; checked <=> root.multiline; }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            SmallButton { text: "Delete"; clicked => { ReaderBridge.field-delete(root.id); root.focus-pages(); } }
+            if root.props.other-pages: SmallButton { text: "On every page"; clicked => { ReaderBridge.field-everywhere(root.id); root.focus-pages(); } }
+            Rectangle { horizontal-stretch: 1; }
+            SmallButton { text: "Done"; primary: true; clicked => { root.apply(); } }
+        }
+    }
+    // The items' text, kept when the list is hidden (a field that is not a choice).
+    items := Rectangle {
+        in-out property <string> text;
+        visible: false;
+        width: 0;
+        height: 0;
+    }
+}

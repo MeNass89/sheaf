@@ -86,9 +86,11 @@ pub fn extract_images(input: &Input, quality: Option<u8>, out_dir: &Path) -> Res
         let mut seen = std::collections::HashSet::new();
         for (i, page) in doc.pages().iter().enumerate() {
             let mut k = 0;
+            let mut pictures = Vec::new();
             for o in page.objects().iter() {
-                let Some(img) = o.as_image_object() else { continue };
-                let Ok(img) = img.get_raw_image().or_else(|_| img.get_processed_image(&doc)) else { continue };
+                pictures_in(&o, &doc, &mut pictures);
+            }
+            for img in pictures {
                 let mut h = std::collections::hash_map::DefaultHasher::new();
                 (img.width(), img.height(), img.as_bytes()).hash(&mut h);
                 if seen.insert(h.finish()) {
@@ -113,6 +115,22 @@ pub fn extract_images(input: &Input, quality: Option<u8>, out_dir: &Path) -> Res
             Ok(())
         })
     })
+}
+
+/// The pictures of page object `o`: itself, or those a form XObject draws, at any depth (Sol,
+/// 25/10: pictures inside forms were missed, and a PDF said to have none).
+fn pictures_in(o: &PdfPageObject, doc: &PdfDocument, out: &mut Vec<DynamicImage>) {
+    if let Some(img) = o.as_image_object() {
+        if let Ok(img) = img.get_raw_image().or_else(|_| img.get_processed_image(doc)) {
+            out.push(img);
+        }
+    } else if let Some(form) = o.as_x_object_form_object() {
+        for i in 0..form.len() {
+            if let Ok(child) = form.get(i) {
+                pictures_in(&child, doc, out);
+            }
+        }
+    }
 }
 
 /// Renders page `page` (0-based) to a PNG at `dpi`, written to `unique_path(out)`: a look at

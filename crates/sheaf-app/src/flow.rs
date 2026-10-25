@@ -454,6 +454,14 @@ pub fn close_tab(ui: &AppWindow, tab_id: i32) {
     // A document with unsaved annotations asks first.
     if let Some(name) = crate::reader_ui::unsaved_name(tab_id) {
         with(|a| a.pending_close = Some(tab_id));
+        ui.set_unsaved_redact_marks(0);
+        ui.set_unsaved_file(name.into());
+        return;
+    }
+    // Redact with marks not applied: closing drops them, asked first (Sol, 25/10).
+    if let Some((name, n)) = crate::viewer_ui::redact_pending(tab_id) {
+        with(|a| a.pending_close = Some(tab_id));
+        ui.set_unsaved_redact_marks(n as i32);
         ui.set_unsaved_file(name.into());
         return;
     }

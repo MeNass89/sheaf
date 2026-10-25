@@ -309,11 +309,12 @@ check "Stamp ▸ Image… places a picture as a stamp (${IM:-no Image… button}
 quit
 
 # 44. Extract ▸ One file per page, the folder chosen (the dialog answered): page 1 of a four-page file is written
-# as "<name> - page 1.pdf" in it.
+# as "<name> - page 1.pdf" in it; a file of that name already there is kept, the page goes to "… (1).pdf".
 mkdir -p "$OUT/each"; cp "$OUT/text.pdf" "$OUT/four-pages.pdf"; launch "$OUT/four-pages.pdf"; sleep 1
+echo mine > "$OUT/each/four-pages - page 1.pdf"
 click 120 230 0.6; click 156 778 0.8; click 17 674 0.3
 answer "$PWD/$OUT/each"; click 201 734 2; answer ""
-check "Extract writes one file per page in the folder chosen ($(ls $OUT/each 2>/dev/null | tr '\n' ' '))" "[ -f \"$OUT/each/four-pages - page 1.pdf\" ]"
+check "Extract writes one file per page in the folder chosen, never over a file there ($(ls $OUT/each 2>/dev/null | tr '\n' ' '))" "grep -qx mine \"$OUT/each/four-pages - page 1.pdf\" && qpdf --check \"$OUT/each/four-pages - page 1 (1).pdf\" >/dev/null 2>&1"
 quit
 
 # 45. Home ▸ New blank PDF: named in the Save dialog (the test seam answers it), one blank page, opened in a tab.
@@ -342,4 +343,50 @@ click $WRENCH_X 61 1.5; xdotool type --delay 20 "html or text"; key Return; slee
 MD=$(at Markdown 1000x700+250+90); [ -n "$MD" ] && click $MD 0.8
 click 1140 755 4
 check "PDF to HTML or text writes Markdown with every page in order ($(ls $OUT/md*.md 2>/dev/null))" "grep -q 'Page 1' $OUT/md.md && grep -q 'Page 4' $OUT/md.md"
+quit
+
+# 53. Prepare form (F; More ▸ Prepare form): a text field dragged 500,400 → 700,430 opens its card under it (name
+# 650,487; Required 520,554; Done 788,586): named "Full name", required. A check box (its kind at 372,109) clicked
+# at 500,600 is placed selected: Delete removes it; another at 500,650 stays. Saved: the two fields, as set.
+cp "$OUT/text.pdf" "$OUT/prep.pdf"; launch "$OUT/prep.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6
+xdotool mousemove 500 400 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 40 )) $(( 400 + i * 6 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+click 650 487 0.4; xdotool key ctrl+a; xdotool type --delay 20 "Full name"; click 520 554 0.3; click 788 586 1.2
+click 372 109 0.5; click 500 600 1.2; key Delete; sleep 1; click 500 650 1.2; key ctrl+s; sleep 1.5; shot 53-prepare
+PF=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null)
+check "Prepare form places fields, names one and makes it required, and Delete removes one ($(echo "$PF" | grep -ac '/FT /Btn') check box)" "echo \"\$PF\" | grep -aq '/T (Full name)' && echo \"\$PF\" | grep -aq '/Ff 2' && [ \"\$(echo \"\$PF\" | grep -ac '/FT /Btn')\" = 1 ]"
+quit
+# Detect fields (982,109) on a flat form: its blanks after "Name:" and "City:" become two text fields.
+python3 - "$OUT/flat.pdf" <<'PY'
+import sys
+c = b"BT /F1 12 Tf 72 700 Td (Name: ______________________) Tj 0 -40 Td (City: ______________________) Tj ET"
+objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+        b"<< /Length %d >>\nstream\n" % len(c) + c + b"\nendstream", b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+out, offs = b"%PDF-1.7\n", []
+for i, o in enumerate(objs, 1):
+    offs.append(len(out)); out += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+x = len(out)
+out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offs)
+out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
+open(sys.argv[1], "wb").write(out)
+PY
+launch "$OUT/flat.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6; DF=$(at Detect 900x60+600+90); [ -n "$DF" ] && click $DF 2; key ctrl+s; sleep 1.5
+FT=$(qpdf --qdf --object-streams=disable "$OUT/flat.pdf" - 2>/dev/null | grep -ac '/FT /Tx')
+check "Detect fields turns a flat form's blanks into text fields (${DF:-no button}; $FT fields)" "[ \"$FT\" = 2 ]"
+quit
+
+# 54. Closing what would be lost asks first: a paragraph retyped in Edit text and not applied ("Save changes to
+# …?"), and Redact's marks not applied ("Close … without redacting?", its own tab's × at 466,21); Cancel keeps
+# the tab.
+cp "$OUT/text.pdf" "$OUT/retype.pdf"; launch "$OUT/retype.pdf"; key ctrl+9; sleep 1
+key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
+xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 10 " zebra"; sleep 0.8; click 296 21 1
+RT=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
+check "closing with a paragraph retyped asks first, Cancel keeps it (${RT:0:60}; $(ntabs) document tab)" "echo \"$RT\" | grep -q 'Save changes' && [ \"\$(ntabs)\" = 1 ]"
+key Escape; quit
+cp "$OUT/text.pdf" "$OUT/redact2.pdf"; launch "$OUT/redact2.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
+P=$(at Page 820x700+140+60); [ -n "$P" ] && { set -- $P; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
+click 466 21 1; RC=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
+check "closing Redact with marks not applied asks first (${RC:0:60})" "echo \"$RC\" | grep -q 'without redacting'"
 quit

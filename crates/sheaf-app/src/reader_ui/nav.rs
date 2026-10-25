@@ -19,7 +19,13 @@ pub fn remember_position(tab_id: i32) {
         // Right to left rides on the spread's byte (bit 4), so older preferences read as before.
         // The grid is a passing view: the layout under it is kept.
         let spread = r.grid_prev.unwrap_or(v.viewer.spread());
-        Some((r.path.clone(), v.current(), r.zoom_mode, v.viewer.zoom(), spread | (v.viewer.rtl() as u8) << 4))
+        // A zoom chosen is kept as its actual size (tenths of a percent, mode 3): a share of the
+        // window's width would change with the window (Sol, 25/10).
+        let (fit, zoom) = match r.zoom_mode {
+            2 => (3, (v.viewer.actual_percent(v.current()) * 10.0).round() as u32),
+            m => (m, v.viewer.zoom()),
+        };
+        Some((r.path.clone(), v.current(), fit, zoom, spread | (v.viewer.rtl() as u8) << 4))
     }) {
         crate::home::remember_page(&path, page);
         crate::home::remember_view(&path, fit, zoom, spread);
@@ -54,6 +60,21 @@ pub(super) fn jump(r: &mut ReaderUi, v: &mut ViewerUi, page: usize, focus: Optio
     }
     r.forward.clear();
     v.show_page(page, focus);
+}
+
+/// [`jump`] to a destination: its zoom, top and left edge (Acrobat's /XYZ left top zoom).
+pub(super) fn jump_dest(r: &mut ReaderUi, v: &mut ViewerUi, page: usize, view: &render::DestView) {
+    let cur = v.place();
+    if r.back.last() != Some(&cur) {
+        r.back.push(cur);
+    }
+    r.forward.clear();
+    if v.show_dest(page, view) {
+        // A zoom of the destination's: the window's opening size no longer applies.
+        r.zoom_mode = 2;
+        v.pending_fit = false;
+        v.pending_actual = None;
+    }
 }
 
 /// ⌘[ (back, `dir` −1) and ⌘] (forward, +1).

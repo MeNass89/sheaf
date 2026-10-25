@@ -638,7 +638,7 @@ fn a_comment_is_copied_and_pasted_as_a_new_one() {
     let (snap, _) = next(&rx);
     let nm = snap.annots[0].nm.clone();
     assert!(!nm.is_empty(), "Sheaf's comments are named");
-    ops.send(Op::CopyComment { nm }).unwrap();
+    ops.send(Op::CopyComment { nm, page: 0, rect: snap.annots[0].rect }).unwrap();
     let el = match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
         Reply::Copied(Some(el)) => el,
         _ => panic!("expected Copied"),
@@ -671,4 +671,59 @@ fn document_properties_list_the_signatures_with_their_verdict() {
     let row = snap.props.about.iter().find(|(k, _)| k.starts_with("Signature 1")).expect("a row for the signature");
     assert!(row.0.contains("Ada Signer"), "{row:?}");
     assert!(row.1.contains("Signature validity is unknown") && row.1.contains("Approved"), "self-signed: not trusted, its reason shown: {row:?}");
+}
+
+#[test]
+fn a_form_is_prepared_fields_added_set_up_copied_and_deleted() {
+    use sheaf_core::pdfcraft::engine::{FieldProps, NewField};
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 2);
+    let (ops, rx, snap) = started(&path);
+    assert!(snap.fields.is_empty());
+    let add = |kind: NewField, rect: [f64; 4]| Op::Apply { edit: Box::new(Edit::AddField { page: 0, rect, kind, name: None }), pages: vec![0] };
+    ops.send(add(NewField::Text { multiline: false }, [72.0, 600.0, 222.0, 622.0])).unwrap();
+    next(&rx);
+    ops.send(add(NewField::CheckBox, [72.0, 560.0, 86.0, 574.0])).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    assert_eq!(snap.fields.iter().map(|f| (f.name.as_str(), f.exact)).collect::<Vec<_>>(), [("Text1", 0), ("Check Box1", 1)], "Acrobat's names");
+    // Renamed, required, with a tooltip.
+    let props = FieldProps { name: Some("Full name".into()), tooltip: Some("As on your passport".into()), required: Some(true), ..Default::default() };
+    ops.send(Op::Apply { edit: Box::new(Edit::SetFieldProps { name: "Text1".into(), props: Box::new(props) }), pages: vec![0] }).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    let f = snap.fields.iter().find(|f| f.name == "Full name").expect("renamed");
+    assert!(f.required && f.tooltip == "As on your passport" && !f.read_only);
+    // On every page: the same field on page 2; then the check box deleted.
+    ops.send(Op::Apply { edit: Box::new(Edit::DuplicateField { name: "Full name".into(), pages: vec![1] }), pages: vec![] }).unwrap();
+    let (snap, _) = next(&rx);
+    assert_eq!(snap.fields.iter().find(|f| f.name == "Full name").map(|f| f.widgets.iter().map(|w| w.0).collect::<Vec<_>>()), Some(vec![0, 1]));
+    ops.send(Op::Apply { edit: Box::new(Edit::DeleteField { name: "Check Box1".into() }), pages: vec![0] }).unwrap();
+    let (snap, _) = next(&rx);
+    assert_eq!(snap.fields.len(), 1);
+}
+
+#[test]
+fn a_flat_forms_blanks_become_fields_named_from_their_labels() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("flat.pdf");
+    {
+        let _g = sheaf_core::engine::pdfium_lock();
+        let mut doc = sheaf_core::engine::new_document();
+        let font = doc.fonts_mut().helvetica();
+        let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+        page.objects_mut().create_text_object(PdfPoints::new(72.0), PdfPoints::new(700.0), "Name: ______________________", font, PdfPoints::new(12.0)).unwrap();
+        page.objects_mut().create_text_object(PdfPoints::new(72.0), PdfPoints::new(670.0), "City: ______________________", font, PdfPoints::new(12.0)).unwrap();
+        doc.save_to_file(&path).unwrap();
+    }
+    let (ops, rx, _) = started(&path);
+    ops.send(Op::DetectFields).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    let names: Vec<&str> = snap.fields.iter().map(|f| f.name.as_str()).collect();
+    assert!(names.len() == 2 && names.iter().any(|n| n.contains("Name")) && names.iter().any(|n| n.contains("City")), "{names:?}");
+    // Again: nothing new to find, one undo step each time.
+    ops.send(Op::DetectFields).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_some_and(|e| e.contains("No fields found")) && snap.fields.len() == 2);
 }

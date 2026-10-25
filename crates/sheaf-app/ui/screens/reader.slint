@@ -10,6 +10,7 @@ import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint"
 import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
+import { FormFieldBox, FieldPropsCard } from "reader-form.slint";
 import { SignatureSheet, PrintSheet, PropertiesSheet } from "reader-sheets.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 
@@ -82,6 +83,7 @@ export component ReaderScreen inherits Rectangle {
     // The scroll a zoom wanted is taken: no need to set it again.
     changed page-left => {
         root.link-tip = "";
+        ViewerBridge.view-left(root.id, root.page-left);
         if root.want-x >= 0px && abs(root.page-left - root.want-x) < 1px { root.want-x = -1px; }
     }
     changed page-w => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
@@ -237,6 +239,8 @@ export component ReaderScreen inherits Rectangle {
                         border-width: m.kind == 12 ? 3px : m.kind == 6 ? 1.5px : m.kind == 5 || m.kind == 7 ? 1px : 0px;
                         border-color: m.kind == 12 ? Theme.accent : m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : #FF9F0A;
                     }
+                    // Prepare form: every field, named (its card is above the pages' pointer area, below).
+                    for f in root.tab.reader.form-fields: FormFieldBox { field: f; }
                     if root.tab.reader.ink != "": Path {
                         x: 0;
                         y: 0;
@@ -370,6 +374,14 @@ export component ReaderScreen inherits Rectangle {
                                 }
                             }
                         }
+                    }
+                    // Prepare form: the selected field's card, under it.
+                    if root.tab.reader.field-props.show: FieldPropsCard {
+                        x: max(-sv.content-x + 4px, min(root.tab.reader.field-props.x, -sv.content-x + sv.visible-width - self.width - 4px));
+                        y: root.tab.reader.field-props.y;
+                        props: root.tab.reader.field-props;
+                        id: root.id;
+                        focus-pages => { keys.focus(); }
                     }
                     // A note or text box being typed.
                     if root.tab.reader.note.show: Rectangle {
@@ -686,6 +698,7 @@ export component ReaderScreen inherits Rectangle {
             if e.text == "i" { ReaderBridge.set-tool(root.id, 8); return accept; }
             if e.text == "s" { ReaderBridge.set-tool(root.id, 9); return accept; }
             if e.text == "l" { ReaderBridge.set-tool(root.id, 13); return accept; }
+            if e.text == "f" { ReaderBridge.set-tool(root.id, 14); return accept; }
             reject
         }
     }

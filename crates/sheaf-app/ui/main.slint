@@ -97,6 +97,7 @@ export component AppWindow inherits Window {
     in property <string> launch-name;
     callback launch-answer(bool);
     in property <string> unsaved-file;
+    in property <int> unsaved-redact-marks;
     callback unsaved-answer(int);
     // Bottom-centre toast
     in property <string> toast-text;
@@ -387,6 +388,7 @@ export component AppWindow inherits Window {
     }
     if root.unsaved-file != "": UnsavedDialog {
         file-name: root.unsaved-file;
+        redact-marks: root.unsaved-redact-marks;
         save => { root.unsaved-answer(1); }
         discard => { root.unsaved-answer(2); }
         cancel => { root.unsaved-answer(0); }

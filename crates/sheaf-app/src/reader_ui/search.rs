@@ -64,7 +64,8 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
             let mut texts = Vec::new();
             let mut hits = Vec::new();
             let mut snippets = Vec::new();
-            // Results come back in batches so the first pages show while the rest are read.
+            // Results come back in batches so the first pages show while the rest are read; the first
+            // result as soon as it is found.
             let mut sent = 0;
             for (p, t) in rx {
                 waiting.insert(p, t);
@@ -82,7 +83,7 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
                         }
                     }
                     let last = page + 1 == n;
-                    if last || (hits.len() > sent && (page % 16 == 15)) {
+                    if send_now(sent, hits.len(), page, last) {
                         let batch: Vec<_> = hits[sent..].to_vec();
                         let snips: Vec<_> = snippets[sent..].to_vec();
                         sent = hits.len();
@@ -114,6 +115,12 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
             }
         });
     });
+}
+
+/// Whether the results found so far go to the window now: the first one at once (it is shown and
+/// selected: a long file waited for a batch of 16 pages, Sol 25/10), then every 16 pages, and at the end.
+fn send_now(sent: usize, found: usize, page: usize, last: bool) -> bool {
+    last || (found > sent && (sent == 0 || page % 16 == 15))
 }
 
 pub(super) fn union(rects: &[[f32; 4]]) -> [f32; 4] {
@@ -210,5 +217,14 @@ mod tests {
         }
         assert_eq!(h.len(), HISTORY_LEN);
         assert_eq!(h[0], "11");
+    }
+
+    #[test]
+    fn the_first_result_is_shown_at_once_then_every_sixteen_pages() {
+        // The first hit, on page 3: sent with page 3, not with page 15.
+        assert!(super::send_now(0, 1, 3, false));
+        assert!(!super::send_now(0, 0, 3, false));
+        // Then batches: nothing new on page 4, the next batch on page 15, the rest at the end.
+        assert!(!super::send_now(1, 2, 4, false) && super::send_now(1, 2, 15, false) && super::send_now(2, 2, 40, true));
     }
 }

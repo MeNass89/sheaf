@@ -186,3 +186,18 @@ fn the_report_lists_a_changed_picture_whose_words_are_the_same() {
     let last = texts.last().unwrap();
     assert!(last.contains("Changes outside the text") && last.contains("Page 1: 1 area"), "{texts:?}");
 }
+
+#[test]
+fn a_page_added_or_removed_at_the_end_is_reported() {
+    let t = tempfile::tempdir().unwrap();
+    let one = text_pdf(t.path(), "one.pdf", &["The same words"]);
+    // The same page, then a blank (scanned-like, no words) page: nothing for the text to see.
+    let two = sheaf_core::pages::merge(&[Input::new(&one), Input::new(sheaf_core::pages::blank(false, &t.path().join("b.pdf")).unwrap())], &t.path().join("two.pdf")).unwrap();
+    let r = compare::compare(&Input::new(&one), &Input::new(&two), CompareMode::Text, &t.path().join("r1.pdf")).unwrap();
+    assert_eq!((r.pages_added, r.pages_removed), (1, 0), "{r:?}");
+    assert!(r.summary().contains("1 page added at the end"), "{}", r.summary());
+    assert!(page_texts(&r.path).join(" ").contains("Page 2 is only in the changed document"));
+    let r = compare::compare(&Input::new(&two), &Input::new(&one), CompareMode::Text, &t.path().join("r2.pdf")).unwrap();
+    assert_eq!((r.pages_added, r.pages_removed), (0, 1));
+    assert!(page_texts(&r.path).join(" ").contains("Page 2 of the original is not in the changed document"));
+}

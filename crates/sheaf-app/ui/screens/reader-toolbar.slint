@@ -301,6 +301,8 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Right to left", keys: "", on: root.tab.reader.rtl },
                                 { text: "Print…", keys: "⌘P", on: false },
                                 { text: "Document properties…", keys: "⌘D", on: false },
+                                // Acrobat's Prepare a Form, among its tools: add, move and set up fields.
+                                { text: "Prepare form", keys: "F", on: root.tab.reader.tool == 14 },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -319,6 +321,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 7 { ReaderBridge.toggle-rtl(root.id); }
                                         if k == 8 { ReaderBridge.print-open(root.id); }
                                         if k == 9 { ReaderBridge.props-open(root.id); }
+                                        if k == 10 { ReaderBridge.set-tool(root.id, root.tab.reader.tool == 14 ? 0 : 14); }
                                         root.focus-pages();
                                     }
                                 }

@@ -111,7 +111,9 @@ pub fn extract(ui: &AppWindow, tab_id: i32, each: bool, delete: bool) {
     if each {
         let pages = pages.clone();
         return crate::dialog::pick_folder(ui, d, move |_, folder| {
-            start(pages.iter().map(|p| (vec![*p], folder.join(format!("{stem} - page {}.pdf", p + 1)))).collect());
+            // The folder's own files are never written over: a name taken gets " (1)" (no dialog asked
+            // about these names, unlike a Save dialog's; Sol, 25/10).
+            start(pages.iter().map(|p| (vec![*p], sheaf_core::paths::unique_path(&folder.join(format!("{stem} - page {}.pdf", p + 1))))).collect());
         });
     }
     let name = if pages.len() == 1 { format!("{stem} - page {}.pdf", pages[0] + 1) } else { format!("{stem} - {} pages.pdf", pages.len()) };
@@ -135,8 +137,10 @@ pub fn number_pages(ui: &AppWindow, tab_id: i32, style: i32, prefix: &str, start
     };
     let style = [S::Decimal, S::LowerRoman, S::UpperRoman, S::LowerAlpha, S::UpperAlpha, S::None][style.clamp(0, 5) as usize];
     let Some((from, to)) = update(tab_id, |r, v| {
+        // Several pages selected: those (Acrobat's Pages from … to …, Sol 25/10); one: it and the rest.
         let pages = op_pages(r, v);
-        (*pages.first().unwrap_or(&0), v.viewer.page_count().saturating_sub(1))
+        let last = if pages.len() > 1 { *pages.last().unwrap_or(&0) } else { v.viewer.page_count().saturating_sub(1) };
+        (*pages.first().unwrap_or(&0), last)
     }) else {
         return;
     };
@@ -146,7 +150,23 @@ pub fn number_pages(ui: &AppWindow, tab_id: i32, style: i32, prefix: &str, start
 /// ⌘C in the Pages panel: the selected pages are kept to paste into another document (PDF
 /// Expert's and Acrobat's page copy), as the document is now, unsaved edits included.
 pub fn copy_pages(ui: &AppWindow, tab_id: i32) {
+    // A document opened with its password: its pages are written out as a new, unprotected PDF on
+    // the document's thread, and copied once they are (Sol, 25/10: pasting needed the password).
+    let protected = update(tab_id, |r, v| {
+        r.snap.password.is_some().then(|| {
+            let pages = op_pages(r, v);
+            r.send(Op::CopyPages { pages });
+        })
+    });
+    if protected.flatten().is_some() {
+        return;
+    }
     let Some(clip) = update(tab_id, |r, v| (r.name.clone(), r.snap.bytes.clone(), op_pages(r, v))) else { return };
+    pages_copied(ui, clip);
+}
+
+/// The pages copied, ready for ⌘V elsewhere.
+pub(super) fn pages_copied(ui: &AppWindow, clip: (String, Arc<Vec<u8>>, Vec<usize>)) {
     let n = clip.2.len();
     with(|a| a.page_clip = Some(clip));
     crate::flow::toast(ui, &format!("{n} page{} copied: ⌘V in a document's Pages panel puts {} after its selected page", if n == 1 { "" } else { "s" }, if n == 1 { "it" } else { "them" }));

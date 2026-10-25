@@ -12,6 +12,13 @@ pub fn save(ui: &AppWindow, tab_id: i32) {
     });
 }
 
+impl ReaderUi {
+    /// A paragraph open in Edit text whose text is no longer the page's.
+    pub(super) fn retyping(&self) -> bool {
+        self.draft.as_ref().is_some_and(|d| d.kind == 2 && d.block.as_ref().is_some_and(|b| !self.preview_text.is_empty() && self.preview_text != b.1.trim()))
+    }
+}
+
 /// A paragraph being edited is saved as typed (PDF Expert does the same), not as it was; emptied,
 /// it is removed. Its text starts as the paragraph's own, so one opened and left alone is unchanged.
 fn commit_open_paragraph(ui: &AppWindow, tab_id: i32) {
@@ -40,9 +47,10 @@ pub fn save_as(ui: &AppWindow, tab_id: i32) {
     });
 }
 
-/// The file name of tab `tab_id` when closing it would lose edits.
+/// The file name of tab `tab_id` when closing it would lose edits, a paragraph being retyped
+/// included (Sol, 25/10: it was lost without a word; Save applies it first).
 pub fn unsaved_name(tab_id: i32) -> Option<String> {
-    with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).filter(|r| r.dirty()).map(|r| r.name.clone()))
+    with(|a| a.tab(tab_id).and_then(|t| t.reader.as_ref()).filter(|r| r.dirty() || r.retyping()).map(|r| r.name.clone()))
 }
 
 /// The document goes to the Tools page, ready for the tool picked. Unsaved edits are saved first,
@@ -110,8 +118,9 @@ pub fn attachment_open(ui: &AppWindow, tab_id: i32, i: i32) {
     // The name stays the file's own (its app shows it); the folder is ours alone.
     let dir = std::env::temp_dir().join(format!("sheaf-attachments-{}", std::process::id()));
     let safe: String = att.name.chars().map(|c| if matches!(c, '/' | '\\' | '\0') { '_' } else { c }).collect();
-    // A folder per attachment: two attached files of the same name stay apart.
-    let to = dir.join(i.to_string()).join(if safe.trim_matches('.').is_empty() { "attachment".into() } else { safe });
+    // A folder per document tab and attachment: two attached files of one name stay apart, in one
+    // document or in two (the second opened the first's tab, Sol 25/10).
+    let to = dir.join(format!("{tab_id}-{i}")).join(if safe.trim_matches('.').is_empty() { "attachment".into() } else { safe });
     let written = std::fs::create_dir_all(to.parent().unwrap_or(&dir)).map_err(|e| e.to_string()).and_then(|_| {
         #[cfg(unix)]
         {

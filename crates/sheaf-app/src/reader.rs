@@ -327,6 +327,17 @@ pub fn xfdf_element(xfdf: &str, name: &str) -> Option<String> {
     xfdf.lines().find(|l| l.starts_with('<') && l.contains(&attr) && !l.contains(" inreplyto=\"")).map(str::to_string)
 }
 
+/// A comment without a name (/NM) in the file, found by its page and box (within half a point):
+/// copied as [`xfdf_element`] copies a named one (Sol, 25/10: unnamed comments were refused).
+pub fn xfdf_element_at(xfdf: &str, page: usize, rect: [f64; 4]) -> Option<String> {
+    let attr = |l: &str, key: &str| l.split(&format!(" {key}=\"")).nth(1).and_then(|v| v.split('"').next()).map(str::to_string);
+    xfdf.lines().filter(|l| l.starts_with('<') && !l.contains(" inreplyto=\"") && attr(l, "name").is_none()).find(|l| {
+        let r: Vec<f64> = attr(l, "rect").map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
+        attr(l, "page").and_then(|p| p.parse::<usize>().ok()) == Some(page) && r.len() == 4 && (0..4).all(|k| (r[k] - rect[k]).abs() < 0.5)
+    })
+    .map(str::to_string)
+}
+
 fn xml_escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
@@ -602,9 +613,10 @@ pub fn closed_shape(kind: i32) -> bool {
 }
 
 /// A measure's label in true size (PDF points, 72 to the inch, in cm): a distance or perimeter
-/// along the points (kind 7, 8), an area inside them (9).
-pub fn measure_label(kind: i32, pts: &[[f64; 2]]) -> String {
-    let cm = 2.54 / 72.0;
+/// along the points (kind 7, 8), an area inside them (9). `unit`: the page's /UserUnit, points
+/// per user-space unit (Sol, 25/10: a page at 2 read half its lengths).
+pub fn measure_label(kind: i32, pts: &[[f64; 2]], unit: f64) -> String {
+    let cm = 2.54 / 72.0 * unit;
     match kind {
         9 => {
             let n = pts.len();
@@ -777,9 +789,12 @@ mod tests {
     #[test]
     fn measures_read_in_true_size() {
         // One inch along, then a 72 × 72 pt square: 2.54 cm, 6.45 cm².
-        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]]), "2.54 cm");
-        assert_eq!(measure_label(8, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0]]), "5.08 cm");
-        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]]), "6.45 cm²");
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], 1.0), "2.54 cm");
+        assert_eq!(measure_label(8, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0]], 1.0), "5.08 cm");
+        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], 1.0), "6.45 cm²");
+        // A page whose /UserUnit is 2: each unit is two points.
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], 2.0), "5.08 cm");
+        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], 2.0), "25.81 cm²");
         assert!(closed_shape(9) && closed_shape(5) && !closed_shape(6) && !closed_shape(7));
     }
 
@@ -789,6 +804,10 @@ mod tests {
         let el = xfdf_element(x, "a&1").unwrap();
         assert!(el.starts_with("<ink ") && !el.contains("Reply"));
         assert_eq!(xfdf_element(x, "missing"), None);
+        // Unnamed: found by its page and box.
+        let unnamed = "<xfdf><annots>\n<square page=\"1\" rect=\"10,20,30,40\" color=\"#00FF00\"/>\n</annots></xfdf>";
+        assert!(xfdf_element_at(unnamed, 1, [10.2, 20.0, 30.0, 39.8]).is_some_and(|e| e.starts_with("<square ")));
+        assert_eq!(xfdf_element_at(unnamed, 0, [10.0, 20.0, 30.0, 40.0]), None);
         let p = paste_xfdf(&el, 2, (12.0, -12.0), "copy-1");
         assert!(p.contains("<ink page=\"2\" rect=\"22,8,42,28\" name=\"copy-1\" color=\"#FF0000\">"), "{p}");
         assert!(p.contains("<gesture>22,8;42,28</gesture>") && p.contains("<popup page=\"2\" rect=\"112,88,212,138\""), "{p}");

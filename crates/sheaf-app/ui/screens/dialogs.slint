@@ -165,25 +165,30 @@ export component LaunchFileDialog inherits Modal {
 // A document with unsaved annotations is being closed (PDF Expert asks the same three ways).
 export component UnsavedDialog inherits Modal {
     in property <string> file-name;
+    // Redact marks not applied (their count, 0: a document's unsaved edits): closing drops them,
+    // there is nothing to save.
+    in property <int> redact-marks;
     callback save();
     callback discard();
     callback cancel();
     Text {
-        text: "Save changes to “" + root.file-name + "”?";
+        text: root.redact-marks > 0 ? "Close “" + root.file-name + "” without redacting?" : "Save changes to “" + root.file-name + "”?";
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
         wrap: word-wrap;
     }
     Text {
-        text: "Your annotations will be lost if you don’t save them.";
+        text: root.redact-marks == 1 ? "1 mark is not applied: Redact applies it."
+            : root.redact-marks > 1 ? root.redact-marks + " marks are not applied: Redact applies them."
+            : "Your annotations will be lost if you don’t save them.";
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
         wrap: word-wrap;
     }
     HorizontalLayout {
         spacing: 10px;
-        SecondaryButton {
+        if root.redact-marks == 0: SecondaryButton {
             text: "Don’t Save";
             clicked => { root.discard(); }
         }
@@ -192,9 +197,13 @@ export component UnsavedDialog inherits Modal {
             text: "Cancel";
             clicked => { root.cancel(); }
         }
-        PrimaryButton {
+        if root.redact-marks == 0: PrimaryButton {
             text: "Save";
             clicked => { root.save(); }
+        }
+        if root.redact-marks > 0: PrimaryButton {
+            text: "Close";
+            clicked => { root.discard(); }
         }
     }
 }

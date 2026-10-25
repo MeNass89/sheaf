@@ -269,3 +269,55 @@ Each line: the component, Sol's gap, what was done, its proof.
   fold (`reader_ui::properties::tests`). The 300-page search test built its fixture through the engine, 13,500
   text objects one by one, which never ended in a debug build (the unit layer hung): it is written by hand now,
   read in 4 s, its first page in 28 ms.
+
+## Round 10 (25/10, Prepare form, and Sol's gaps from batch b12)
+- **C-forms-006 / 007 / 008 / 009 / 010 / 011 / 012 / 014 / 003** No way to make a form: the Form tool (F, Acrobat's
+  Prepare a Form) adds a field of the kind chosen in its bar (Text, Check box, Radio, Dropdown, List, Date,
+  Button, Signature, Image) where a box is dragged, or at its own size where the page is clicked; radio buttons
+  placed one after another make one group. Every field shows over its page, named; a click selects one: it is
+  dragged to move, Delete removes it, and its card sets the name, the tooltip, Required, Read-only, Several lines
+  and a dropdown's or list's items, copies it to every page (Acrobat's Duplicate across pages), as one undo step
+  each. Detect fields turns a flat form's blanks into fields named from their labels (PdfCraft's detection,
+  Acrobat's automatic field detection). Proof: `reader_doc::tests::a_form_is_prepared_fields_added_set_up_copied_and_deleted`,
+  `a_flat_forms_blanks_become_fields_named_from_their_labels`, gui-smoke 53.
+- **C-reader-013** (Sol b12) A chosen zoom was kept as a share of the window's width, so a document reopened in
+  a wider or narrower window came back at another percentage: it is kept as its actual size (preferences mode 3;
+  older entries read as before).
+- **C-reader-030** (Sol b12) Two documents' attachments of one name at one index shared their temporary path,
+  so opening the second showed the first's tab: the folder is per document tab and attachment.
+- Sol's re-review of rounds 5–7 (batches b12–b13c, 25/10): 23 components agreed at 9, 34 reopened with their
+  gaps (board history). Fixed here:
+  - **C-files-011** Closing a document whose paragraph was being retyped lost the text without a word: a
+    paragraph open in Edit text whose text changed counts as unsaved (Save applies it first).
+  - **C-organize-014** One file per page wrote over files of the same name in the folder chosen: a name taken
+    gets " (1)". Proof: gui-smoke 44 (a file already there is kept).
+  - **C-reader-025** /XYZ destinations ignored their left edge and zoom: a bookmark or link now brings its zoom
+    (1.0 = actual size), its top a third down and its left edge at the view's left (`ViewerUi::show_dest`).
+    Proof: `viewer_ui::tests::a_destination_brings_its_zoom_its_top_and_its_left_edge`.
+  - **C-reader-021** ⌘[ restored the height only: the view reports how far across it is scrolled, and a place
+    keeps it. Proof: `viewer_ui::tests::a_place_keeps_how_far_across_a_wide_page_was_scrolled`.
+  - **C-reader-028** The Notes panel read highlighted words on the window's thread: read on a thread of their own,
+    the rows fill in as it ends.
+  - **C-organize-013** Pages copied from a document opened with its password could not be pasted (the copy kept
+    the encrypted bytes): they are written out as a new, unprotected PDF on the document's thread first.
+  - **C-reader-032** The first search result waited for a batch of 16 pages: it is sent as soon as it is found.
+    Proof: `search::tests::the_first_result_is_shown_at_once_then_every_sixteen_pages`.
+  - **C-compare-004 / C-compare-007** A page added or removed at the end went unreported (the visual comparison
+    stops at the pages both have): a page only the changed document has is a changed area of its own, pages only
+    the original has are said, and the result line counts both. Proof: sheaf-core
+    `compare::a_page_added_or_removed_at_the_end_is_reported`.
+  - **C-output-007** Print refused a PDF opened with its password: an unprotected copy goes to the print service
+    when the owner allows printing (else it says so). Proof: `print::tests::a_protected_pdf_prints_from_an_unprotected_copy_unless_printing_is_forbidden`.
+  - **C-convert-012** Extract images missed pictures drawn inside forms: form XObjects are walked at any depth.
+    Proof: sheaf-core `images::extract_images_finds_a_picture_drawn_inside_a_form`.
+  - **C-security-015** Closing Redact dropped the marks not applied without a word: it asks first ("Close … without
+    redacting?", Cancel keeps the tab). Proof: gui-smoke 54.
+  - **C-files-011** proof: gui-smoke 54 (a retyped paragraph asks before its tab closes).
+  - **C-annotate-026** A comment without a name in the file (/NM) could not be copied: it is found by its page and
+    box. Proof: `reader::tests::a_copied_comment_is_pasted_on_another_page_moved_and_renamed`.
+  - **C-reader-053** Measures ignored /UserUnit (a page at 2 read half its lengths). Proof:
+    `reader::tests::measures_read_in_true_size`.
+  - **C-edit-025** Number pages ran to the end whatever was selected: several pages selected are numbered alone.
+  - **C-convert-013** Same fix as C-convert-012 (pictures inside forms).
+- Prepare form lives in More ▸ Prepare form and on F: a toolbar button moved the bar's right half, which the
+  smoke's coordinates (zoom field, More, the wrench) are measured on.

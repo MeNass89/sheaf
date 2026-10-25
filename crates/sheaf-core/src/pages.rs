@@ -220,7 +220,8 @@ pub fn letter_region(locale: Option<&str>) -> bool {
 pub fn blank(letter: bool, out: &Path) -> Result<PathBuf> {
     let _g = pdfium_lock();
     let mut dst = pdfium().create_new_pdf()?;
-    let size = if letter { PdfPagePaperSize::Portrait(PdfPagePaperStandardSize::USLetterAnsiA) } else { PdfPagePaperSize::a4() };
+    // Letter in points exactly (pdfium's own Letter is 612 × 791).
+    let size = if letter { PdfPagePaperSize::new_custom(PdfPoints::new(612.0), PdfPoints::new(792.0)) } else { PdfPagePaperSize::a4() };
     dst.pages_mut().create_page_at_end(size)?;
     save(&dst, out)
 }

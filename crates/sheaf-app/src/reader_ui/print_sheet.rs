@@ -29,10 +29,6 @@ pub fn print(ui: &AppWindow, tab_id: i32, printer: i32, copies: i32, pages: i32,
         if r.preview.is_some() || r.live.is_some() {
             return Err("Finish editing the paragraph first (⌘↩ to apply, Escape to cancel)".to_string());
         }
-        // The print service gets the file's bytes: an encrypted file would reach it unreadable.
-        if r.snap.password.is_some() {
-            return Err("This PDF is password-protected: remove its password (Tools ▸ Unlock) to print it".to_string());
-        }
         let count = r.snap.boxes.len();
         let pages = match pages {
             1 => Some((v.current() + 1).to_string()),
@@ -45,17 +41,22 @@ pub fn print(ui: &AppWindow, tab_id: i32, printer: i32, copies: i32, pages: i32,
         let media = (paper > 0).then(|| sheaf_app::print::PAPERS.get(paper as usize - 1)).flatten().map(|m| m.to_string());
         let job = sheaf_app::print::Job { printer, copies: copies.clamp(1, 999) as u32, pages, fit, two_sided, media, orientation: orientation.clamp(0, 2) as u8 };
         let title = r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Document".into());
-        Ok((job, title, r.snap.bytes.clone()))
+        Ok((job, title, r.snap.bytes.clone(), r.snap.password.clone()))
     }) else {
         return;
     };
-    let (job, title, bytes) = match prepared {
+    let (job, title, bytes, password) = match prepared {
         Ok(p) => p,
         Err(e) => return crate::flow::toast(ui, &e),
     };
     let weak = ui.as_weak();
     std::thread::spawn(move || {
-        let msg = match sheaf_app::print::submit(&job, &title, &bytes) {
+        // The print service gets bytes it can read: an encrypted file's are unprotected first.
+        let bytes = match password {
+            Some(pw) => sheaf_app::print::unlocked(&bytes, &pw),
+            None => Ok(bytes),
+        };
+        let msg = match bytes.and_then(|b| sheaf_app::print::submit(&job, &title, &b)) {
             Ok(_) => format!("Sent to {}", job.printer),
             Err(e) => format!("Not printed: {e}"),
         };

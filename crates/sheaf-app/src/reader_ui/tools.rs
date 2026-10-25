@@ -4,7 +4,11 @@ use super::*;
 
 pub fn set_tool(tab_id: i32, tool: i32) {
     update(tab_id, |r, v| {
-        r.tool = tool.clamp(SELECT, LINK);
+        r.tool = tool.clamp(SELECT, FORM);
+        if r.tool != FORM {
+            r.form_sel = None;
+            r.form_drag = None;
+        }
         // Each tool comes back with the style it was last used with, as PDF Expert's tools do.
         if let Some((c, w, o)) = crate::home::tool_style(r.tool) {
             if uses_light(r.tool) {
@@ -295,7 +299,7 @@ pub fn set_panel(tab_id: i32, panel: i32) {
     update(tab_id, |r, _| {
         r.panel = panel.clamp(0, 4);
         r.panel_open = true;
-        model::quote_texts(r);
+        model::quote_texts(r, tab_id);
     });
 }
 
@@ -320,7 +324,7 @@ pub fn refresh_all() {
 pub fn toggle_panel(tab_id: i32) {
     update(tab_id, |r, _| {
         r.panel_open = !r.panel_open;
-        model::quote_texts(r);
+        model::quote_texts(r, tab_id);
     });
 }
 
@@ -364,8 +368,7 @@ pub fn outline_clicked(tab_id: i32, row: i32) {
     update(tab_id, |r, v| {
         // The bookmark's own point on its page, not only the page's top (Acrobat).
         if let Some((p, view)) = r.rows.get(row.max(0) as usize).and_then(|x| Some((x.page?, x.view))) {
-            let focus = v.viewer.boxes.get(p).and_then(|b| reader::dest_focus(&view, b.crop));
-            jump(r, v, p, focus);
+            jump_dest(r, v, p, &view);
         }
     });
 }

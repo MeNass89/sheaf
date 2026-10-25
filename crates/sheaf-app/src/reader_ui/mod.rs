@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
-use sheaf_app::{AppWindow, ReaderMark, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
+use sheaf_app::{AppWindow, ReaderFieldProps, ReaderFormField, ReaderMark, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, StampKind, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
@@ -51,6 +51,9 @@ pub const ERASER: i32 = 11;
 pub const STAMP: i32 = 12;
 /// Edit ▸ Link: drag a box to link it to a page or a web address; click a link to change or remove it.
 pub const LINK: i32 = 13;
+/// Prepare form: drag or click to add a field of the kind chosen; a field clicked is selected to
+/// move, delete or set its properties (Acrobat's Prepare a Form).
+pub const FORM: i32 = 14;
 /// Fill & Sign marks offered first in the stamp list (Acrobat's ✓ ✗ • —), with their label.
 pub const MARKS: [(sheaf_core::pdfcraft::engine::FillMark, &str); 4] = [
     (sheaf_core::pdfcraft::engine::FillMark::Check, "✓ Checkmark"),
@@ -123,6 +126,9 @@ struct Provisional {
     kind: i32,
 }
 
+/// A field dragged with the Form tool: its page, from and to (view points).
+type FormDrag = (usize, (f64, f64), (f64, f64));
+
 pub struct ReaderUi {
     ops: std::sync::mpsc::Sender<Op>,
     snap: Snap,
@@ -134,6 +140,8 @@ pub struct ReaderUi {
     pub path: PathBuf,
     pub name: String,
     texts: HashMap<usize, Arc<PageText>>,
+    /// The Notes panel's highlighted words being read on their thread (`model::quote_texts`).
+    quotes_reading: bool,
     /// The text layer's renderer, kept for the working file it was made from.
     text_renderer: Option<(Arc<Vec<u8>>, render::PageRenderer)>,
     blocks: HashMap<usize, Arc<Vec<Block>>>,
@@ -272,6 +280,13 @@ pub struct ReaderUi {
     link_rects: Vec<[f64; 4]>,
     /// Replace Text from selected words: their quads (PDF space), struck out once the new words are typed.
     replace_quads: Vec<[f64; 8]>,
+    /// Prepare form: the kind of field to add (`prepare::FIELD_KINDS`), the radio group being
+    /// placed, the selected field (its widget's page and box: found again after each change) and
+    /// a selected field being dragged (page, from, to; view points).
+    field_kind: i32,
+    radio_group: Option<String>,
+    form_sel: Option<(usize, [f64; 4])>,
+    form_drag: Option<FormDrag>,
     /// Generation of the running search, shared with its thread so it stops when replaced.
     search_live: Arc<std::sync::atomic::AtomicU64>,
     /// A plain press on a page already selected: the selection shrinks to it only if no drag
@@ -330,6 +345,7 @@ impl ReaderUi {
             path,
             name,
             texts: HashMap::new(),
+            quotes_reading: false,
             text_renderer: None,
             blocks: HashMap::new(),
             images: HashMap::new(),
@@ -414,6 +430,10 @@ impl ReaderUi {
             link_dashed: false,
             link_rects: Vec::new(),
             replace_quads: Vec::new(),
+            field_kind: 0,
+            radio_group: None,
+            form_sel: None,
+            form_drag: None,
             search_live: Default::default(),
             pending_reduce: None,
             undo_pages: Vec::new(),
@@ -555,7 +575,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
     let ops = reader_doc::start(input.clone(), move |reply| {
         let _ = weak.upgrade_in_event_loop(move |ui| {
             on_reply(&ui, id, reply);
-            update(id, |r, _| model::quote_texts(r));
+            update(id, |r, _| model::quote_texts(r, id));
         });
     });
     with(|a| {
@@ -680,6 +700,13 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 _ => {}
             }
         }
+        Reply::PagesCopied(made) => match made {
+            Ok((bytes, n)) => {
+                let Some(name) = update(id, |r, _| r.name.clone()) else { return };
+                pages::pages_copied(ui, (name, bytes, (0..n).collect()));
+            }
+            Err(e) => crate::flow::toast(ui, &format!("Pages not copied: {e}")),
+        },
         Reply::Copied(element) => {
             let Some((path, page)) = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?))).flatten() else { return };
             match element {
@@ -744,8 +771,21 @@ fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
     if let Some((fit, zoom, spread)) = crate::home::last_view(path) {
         v.viewer.set_spread(spread & 3);
         v.viewer.set_rtl(spread & 0x10 != 0);
-        if fit == 2 {
-            v.viewer.set_zoom(zoom);
+        match fit {
+            // Before 25/10: a share of the window's width.
+            2 => {
+                v.viewer.set_zoom(zoom);
+            }
+            // Its actual size, whatever the window: set as the width comes, as Actual size is.
+            3 => {
+                let pct = zoom as f64 / 10.0;
+                if width > 0.0 {
+                    let z = v.viewer.zoom_for_actual(0, pct);
+                    v.viewer.set_zoom(z);
+                }
+                v.pending_actual = Some(pct);
+            }
+            _ => {}
         }
     } else if crate::home::prefs().default_zoom == 2 {
         // Preferences ▸ Open documents at Actual size. The zoom is a share of the view's width,
@@ -919,6 +959,7 @@ mod forms;
 mod sign;
 mod print_sheet;
 mod properties;
+mod prepare;
 mod nav;
 mod edits;
 mod saving;
@@ -931,6 +972,7 @@ pub use forms::*;
 pub use sign::*;
 pub use print_sheet::*;
 pub use properties::*;
+pub use prepare::*;
 pub use nav::*;
 pub use edits::*;
 pub use saving::*;

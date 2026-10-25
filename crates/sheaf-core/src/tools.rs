@@ -267,7 +267,7 @@ mod summary_tests {
         assert_eq!(summary(MarkCounts { texts: 2, pages: 1, areas: 1 }), "2 text passages, 1 page and 1 area redacted");
         assert_eq!(crate::pdfa::summary(PdfALevel::A2b, 0), "Conforms to PDF/A-2b");
         assert_eq!(crate::pdfa::summary(PdfALevel::A3b, 2), "2 files do not fully conform to PDF/A-3b");
-        let c = crate::compare::CompareReport { path: Default::default(), added: 1, removed: 0, replaced: 2, regions: 1, listed: false, was_encrypted: false };
+        let c = crate::compare::CompareReport { path: Default::default(), added: 1, removed: 0, replaced: 2, regions: 1, listed: false, was_encrypted: false, pages_added: 0, pages_removed: 0 };
         assert_eq!(c.summary(), "1 added, 0 removed, 2 changed; 1 other changed area outlined");
         let c = crate::compare::CompareReport { listed: true, ..c };
         assert_eq!(c.summary(), "1 added, 0 removed, 2 changed; 1 other changed area listed");

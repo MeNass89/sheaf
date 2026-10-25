@@ -64,6 +64,10 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 r.stroke = Some((page, vec![p]));
                 false
             }
+            FORM => {
+                super::prepare::form_pressed(r, &v.viewer, page, p);
+                false
+            }
             SHAPE | LINK => {
                 r.stroke = Some((page, vec![p]));
                 r.shape_end = None;
@@ -298,6 +302,9 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             d.2 = b;
             return;
         }
+        if r.tool == FORM {
+            return super::prepare::form_moved(r, page, a, b);
+        }
         if let Some(d) = r.image_resize.as_mut() {
             d.2 = b;
             if let Some((page, e)) = pull_edit(r, v) {
@@ -497,6 +504,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                 // A click without a drag draws nothing.
                 press.zip(r.shape_end.take()).filter(|((_, a), b)| (a.0 - b.0).hypot(a.1 - b.1) >= 4.0).map(|((page, a), b)| Pending::Shape(page, a, b))
             }
+            FORM => super::prepare::form_released(r, &v.viewer, press),
             LINK => {
                 r.stroke = None;
                 let ((page, a), end) = (press?, r.shape_end.take());
@@ -536,10 +544,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         Some(Pending::Markup(kind)) => markup(ui, tab_id, kind),
         Some(Pending::Move(page, e)) => apply(ui, tab_id, *e, &[page], None),
         Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
-            update(tab_id, |r, v| {
-                let focus = reader::dest_focus(&view, v.viewer.boxes[page.min(v.viewer.page_count().saturating_sub(1))].crop);
-                jump(r, v, page, focus);
-            });
+            update(tab_id, |r, v| jump_dest(r, v, page, &view));
         }
         Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("http://") || u.starts_with("https://") || u.starts_with("mailto:") => crate::run::open_detached(&u),
         // A link to a local file: a PDF opens in its own tab; any other file opens in its own app once

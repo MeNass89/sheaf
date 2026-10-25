@@ -135,3 +135,38 @@ fn a_pdf_made_from_images_takes_the_author_given_unless_it_has_one() {
     assert!(!sheaf_core::info::set_author_if_empty(&pdf, "Someone Else").unwrap());
     assert!(!sheaf_core::info::set_author_if_empty(&pdf, " ").unwrap());
 }
+
+#[test]
+fn extract_images_finds_a_picture_drawn_inside_a_form() {
+    let t = tempfile::tempdir().unwrap();
+    // Written by hand: the page draws form /Fm1, which draws a 2 × 2 picture /Im1 (no picture on the page itself).
+    let pixels: Vec<u8> = [[255u8, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]].concat();
+    let page = b"q /Fm1 Do Q".to_vec();
+    let form = b"q 100 0 0 100 50 50 cm /Im1 Do Q".to_vec();
+    let objs: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Contents 4 0 R /Resources << /XObject << /Fm1 5 0 R >> >> >>".to_vec(),
+        [format!("<< /Length {} >>\nstream\n", page.len()).into_bytes(), page, b"\nendstream".to_vec()].concat(),
+        [format!("<< /Type /XObject /Subtype /Form /BBox [0 0 300 300] /Resources << /XObject << /Im1 6 0 R >> >> /Length {} >>\nstream\n", form.len()).into_bytes(), form, b"\nendstream".to_vec()].concat(),
+        [format!("<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length {} >>\nstream\n", pixels.len()).into_bytes(), pixels, b"\nendstream".to_vec()].concat(),
+    ];
+    let mut pdf = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(pdf.len());
+        pdf.extend(format!("{} 0 obj\n", i + 1).bytes());
+        pdf.extend(o);
+        pdf.extend(b"\nendobj\n");
+    }
+    let xref = pdf.len();
+    pdf.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).bytes());
+    offsets.iter().for_each(|o| pdf.extend(format!("{o:010} 00000 n \n").bytes()));
+    pdf.extend(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).bytes());
+    let path = t.path().join("form.pdf");
+    std::fs::write(&path, pdf).unwrap();
+    let outs = extract_images(&Input::new(&path), None, t.path()).unwrap();
+    assert_eq!(outs.len(), 1, "{outs:?}");
+    let img = image::open(&outs[0]).unwrap();
+    assert_eq!((img.width(), img.height()), (2, 2));
+}

@@ -392,8 +392,9 @@ fn compare_job_shows_the_counts() {
     assert_eq!(o.outputs.len(), 1);
     let o = run(&Job::Compare { old: Input::new(&src), new: Input::new(&text), mode: CompareMode::Overlay, out: dir.path().join("o.pdf") }, &no, &|_| {}).unwrap();
     // The page-number-free image PDF has no words: every word of the new one is added. Its red
-    // picture is gone too, a change no word accounts for: outlined.
-    assert_eq!(o.summary, "1 added, 0 removed, 0 changed; 1 other changed area outlined");
+    // picture is gone too, a change no word accounts for: outlined. Its second page has no
+    // counterpart: said.
+    assert_eq!(o.summary, "1 added, 0 removed, 0 changed; 1 other changed area outlined; 1 page removed at the end");
 }
 
 #[test]

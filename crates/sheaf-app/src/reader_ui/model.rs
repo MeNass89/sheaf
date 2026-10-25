@@ -325,6 +325,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         (ModelRc::from(model.clone()), counts.len() as i32)
     };
     let (results, search_pages) = results;
+    let (form_fields, field_props) = super::prepare::form_overlay(r, v, |p| wanted.contains(&p));
     let note = match &r.draft {
         Some(d) => {
             let (mut x, mut y) = view_to_content(&v.viewer, d.page, d.at);
@@ -436,6 +437,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         // The Link tool shows where the links are, as PDF Expert's does.
         show_links: r.show_links || r.tool == LINK,
         show_fields: r.show_fields,
+        field_kind: r.field_kind,
+        form_fields: ModelRc::new(VecModel::from(form_fields)),
+        field_props,
         link_error: r.link_error.clone().into(),
         link_visible: r.link_visible,
         has_picked: r.picked.is_some(),
@@ -510,14 +514,45 @@ pub(super) fn outline_model(r: &ReaderUi, current_row: Option<usize>) -> Vec<Rea
 
 /// While the Notes panel is open, the text of the pages holding a highlight saved without a note
 /// is read, so the list shows the words it covers (Acrobat), whether or not that page was shown.
-pub(super) fn quote_texts(r: &mut ReaderUi) {
-    if !(r.panel_open && r.panel == 2) {
+/// Read on a thread of its own: a long annotated file kept the window waiting (Sol, 25/10); the
+/// rows fill in as it ends.
+pub(super) fn quote_texts(r: &mut ReaderUi, tab_id: i32) {
+    if !(r.panel_open && r.panel == 2) || r.quotes_reading {
         return;
     }
-    let pages: std::collections::BTreeSet<usize> = r.annots().iter().filter(|a| !a.quads.is_empty() && a.contents.is_empty()).map(|a| a.page).filter(|p| !r.texts.contains_key(p)).collect();
-    for p in pages {
-        r.text(p);
+    let pages: Vec<usize> = r
+        .annots()
+        .iter()
+        .filter(|a| !a.quads.is_empty() && a.contents.is_empty())
+        .map(|a| a.page)
+        .filter(|p| !r.texts.contains_key(p))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    if pages.is_empty() {
+        return;
     }
+    r.quotes_reading = true;
+    let bytes = r.snap.bytes.clone();
+    let config = render::RenderConfig { password: r.snap.password.as_deref().map(Arc::from), ..Default::default() };
+    std::thread::spawn(move || {
+        let mut rr = render::PageRenderer::new(bytes.clone(), config);
+        let read: Vec<(usize, Arc<PageText>)> = pages
+            .into_iter()
+            .filter_map(|page| rr.render(render::RenderRequest { page, kind: render::RequestKind::Text, scale: 1.0, ..Default::default() }).text.map(|t| (page, t)))
+            .collect();
+        let _ = slint::invoke_from_event_loop(move || {
+            update(tab_id, |r, _| {
+                r.quotes_reading = false;
+                // Texts of the file as it is: an edit since then has its own.
+                if Arc::ptr_eq(&r.snap.bytes, &bytes) {
+                    for (page, t) in read {
+                        r.texts.entry(page).or_insert(t);
+                    }
+                }
+            });
+        });
+    });
 }
 
 pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {

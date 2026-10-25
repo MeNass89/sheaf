@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use sheaf_app::viewer::{self, PageBox};
 use sheaf_core::pages::Input;
-use sheaf_core::pdfcraft::engine::Edit;
+use sheaf_core::pdfcraft::engine::{Edit, NewField};
 use sheaf_core::pdfcraft::render;
 use sheaf_core::pdfcraft::Doc;
 
@@ -94,6 +94,12 @@ pub struct FieldEntry {
     /// Choice: (export value, display text).
     pub options: Vec<(String, String)>,
     pub read_only: bool,
+    /// Prepare form's properties: required, its tooltip, several lines (text fields).
+    pub required: bool,
+    pub tooltip: String,
+    pub multiline: bool,
+    /// Which field exactly: 0 text, 1 check box, 2 radio button, 3 dropdown, 4 list, 5 button, 6 signature.
+    pub exact: i32,
     /// (page, rect in user space, the widget's "on" state for check boxes and radios, tab order).
     pub widgets: Vec<(usize, [f64; 4], Option<String>, usize)>,
 }
@@ -265,6 +271,18 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
             value: f.value.clone(),
             options: f.options.clone(),
             read_only: f.flags & field_flags::READ_ONLY != 0,
+            required: f.flags & field_flags::REQUIRED != 0,
+            tooltip: f.tooltip.clone().unwrap_or_default(),
+            multiline: f.flags & field_flags::MULTILINE != 0,
+            exact: match f.kind {
+                K::Text => 0,
+                K::CheckBox => 1,
+                K::Radio => 2,
+                K::Combo => 3,
+                K::List => 4,
+                K::PushButton => 5,
+                _ => 6,
+            },
             widgets: f.widgets.iter().filter_map(|w| Some((w.page?, w.rect, w.on_state.clone(), w.tab))).collect(),
         })
         .collect()
@@ -305,12 +323,18 @@ pub enum Op {
     Extract { parts: Vec<(Vec<usize>, PathBuf)> },
     /// Acrobat's Create Links from URLs: every web address in the text not linked yet, in `style`.
     LinkUrls { style: sheaf_core::pdfcraft::engine::LinkStyle },
+    /// ⌘C in the Pages panel of a document opened with its password: its pages as a new PDF
+    /// (a copy of the file's bytes would need the password to be pasted).
+    CopyPages { pages: Vec<usize> },
+    /// Prepare form ▸ Detect fields (Acrobat's automatic field detection), as one undo step.
+    DetectFields,
     /// Acrobat's Summarize Comments: a PDF listing every comment, by page, written to `to`.
     Summary { to: PathBuf },
     /// Every comment exported to `to`: XFDF, or FDF when `to` ends in .fdf.
     ExportComments { to: PathBuf },
     /// The XFDF element of the comment named `nm` (⌘C on a selected comment).
-    CopyComment { nm: String },
+    /// A comment by its name, or (none in the file) by its page and box.
+    CopyComment { nm: String, page: usize, rect: [f64; 4] },
     /// A paragraph being edited, shown on its page as typed: the last preview is taken back,
     /// then `edit` (if any) applied in its place, on `pages`. A preview is not an undo step; any
     /// other edit, undo, redo or save takes it back first. Answered by `Changed`, not applied.
@@ -329,6 +353,8 @@ pub enum Reply {
     Exported { to: PathBuf, error: Option<String> },
     /// The copied comment's XFDF element (`None`: it could not be written).
     Copied(Option<String>),
+    /// Pages copied from a document opened with its password: a new PDF of them, unprotected.
+    PagesCopied(Result<(Arc<Vec<u8>>, usize), String>),
     /// A page's paragraphs and its images' boxes (user space).
     /// A page's paragraphs and its images: (visible box, full box), user space; a cropped image
     /// shows less than its full box, which is what a move translates.
@@ -414,6 +440,28 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         // An undo step was counted for it by the window: `applied` even when refused, so it is taken back.
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: true, note, preview: false });
                     }
+                    Op::DetectFields => {
+                        let id = doc.id();
+                        let found = doc.session().detect_fields(id, &[]);
+                        let pages: Vec<usize> = found.iter().map(|f| f.0).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+                        let n = found.len();
+                        let edits: Vec<Edit> = found
+                            .into_iter()
+                            .map(|(page, c)| Edit::AddField {
+                                page,
+                                rect: c.rect,
+                                kind: match c.kind {
+                                    sheaf_core::pdfcraft::engine::detect::Kind::Text => NewField::Text { multiline: c.rect[3] - c.rect[1] > 30.0 },
+                                    sheaf_core::pdfcraft::engine::detect::Kind::CheckBox => NewField::CheckBox,
+                                },
+                                name: Some(c.name),
+                            })
+                            .collect();
+                        let error = if n == 0 { Some("No fields found: no lines, boxes or labelled blanks to fill".to_string()) } else { doc.apply(Edit::Batch { label: "Detect form fields".into(), edits }).err().map(|e| e.to_string()) };
+                        let note = (error.is_none()).then(|| format!("{} found", sheaf_core::tools::count(n, "field")));
+                        // An undo step was counted for it by the window: `applied` even when refused, so it is taken back.
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: true, note, preview: false });
+                    }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());
                         let error = save(&mut doc, &target).err();
@@ -441,10 +489,17 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let r = doc.session().export_data(id, format, true, false).map_err(|e| e.to_string()).and_then(|bytes| replace(&to, &bytes).map_err(|e| e.to_string()));
                         reply(Reply::Exported { to, error: r.err() });
                     }
-                    Op::CopyComment { nm } => {
+                    Op::CopyComment { nm, page, rect } => {
                         let id = doc.id();
                         let xfdf = doc.session().export_data(id, sheaf_core::pdfcraft::engine::DataFormat::Xfdf, true, false).ok();
-                        reply(Reply::Copied(xfdf.and_then(|b| sheaf_app::reader::xfdf_element(&String::from_utf8_lossy(&b), &nm))));
+                        reply(Reply::Copied(xfdf.and_then(|b| {
+                            let x = String::from_utf8_lossy(&b);
+                            if nm.is_empty() { sheaf_app::reader::xfdf_element_at(&x, page, rect) } else { sheaf_app::reader::xfdf_element(&x, &nm) }
+                        })));
+                    }
+                    Op::CopyPages { pages } => {
+                        let id = doc.id();
+                        reply(Reply::PagesCopied(doc.session().extract(id, &pages).map(|b| (b, pages.len())).map_err(|e| e.to_string())));
                     }
                     Op::Summary { to } => {
                         let id = doc.id();

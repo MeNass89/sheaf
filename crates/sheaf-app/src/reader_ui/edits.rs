@@ -256,8 +256,9 @@ pub(super) fn add_poly(ui: &AppWindow, tab_id: i32) {
             7..=9 => {
                 use sheaf_core::pdfcraft::engine::measure::{Kind, NewMeasurement, Scale};
                 let kind = [Kind::Distance, Kind::Perimeter, Kind::Area][(r.shape_kind - 7) as usize];
-                let label = reader::measure_label(r.shape_kind, &vertices);
-                let scale = Scale::new(2.54 / 72.0, "cm", 2).ok()?;
+                let unit = v.viewer.boxes.get(page).map_or(1.0, |b| b.unit);
+                let label = reader::measure_label(r.shape_kind, &vertices, unit);
+                let scale = Scale::new(2.54 / 72.0 * unit, "cm", 2).ok()?;
                 Edit::AddMeasurement(NewMeasurement { page, kind, points: vertices, scale, style, label, author: author() })
             }
             k => {
@@ -622,6 +623,10 @@ fn show_preview(tab_id: i32, (page, block): (usize, usize)) {
 }
 
 pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
+    // Prepare form: the selected field.
+    if update(tab_id, |r, _| r.tool == FORM && r.form_sel.is_some()) == Some(true) {
+        return super::prepare::field_delete(ui, tab_id);
+    }
     // The page grid: Delete takes the selected pages out.
     if update(tab_id, |r, _| r.grid_prev.is_some() && !r.page_sel.is_empty()) == Some(true) {
         return super::pages::page_op(ui, tab_id, 2);
@@ -650,21 +655,16 @@ pub const COMMENT_ON_CLIPBOARD: &str = "(Sheaf comment)";
 /// ⌘C (and ⌘X, `cut`) on a selected comment, Acrobat's copy of a comment: it can be pasted on any
 /// page of any document open (⌘V).
 pub fn copy_comment(ui: &AppWindow, tab_id: i32, cut: bool) {
-    let nm = update(tab_id, |r, _| {
+    let sent = update(tab_id, |r, _| {
         let a = r.selected_annot.and_then(|i| r.annots().get(i))?;
-        let (nm, page) = (a.nm.clone(), a.page);
-        if nm.is_empty() {
-            return Some(Err(()));
-        }
+        let (nm, page, rect) = (a.nm.clone(), a.page, a.rect);
         r.copy_from = Some(page);
-        r.send(Op::CopyComment { nm });
-        Some(Ok(()))
+        r.send(Op::CopyComment { nm, page, rect });
+        Some(())
     })
     .flatten();
-    match nm {
-        Some(Err(())) => crate::flow::toast(ui, "This comment has no name in the file: it cannot be copied"),
-        Some(Ok(())) if cut => delete_selected(ui, tab_id),
-        _ => {}
+    if sent.is_some() && cut {
+        delete_selected(ui, tab_id);
     }
 }
 

@@ -9,6 +9,7 @@ use std::time::Duration;
 use sheaf_app::viewer::{self, Lru, RenderKey, Viewer, CACHE_BYTES, CACHE_CAP};
 use sheaf_app::{AppWindow, RedactMarkItem, RedactResult, SignOverlay, ToolTab, ViewerOverlay, ViewerPage, ViewerThumb};
 use sheaf_core::pages::Input;
+use sheaf_core::pdfcraft::render;
 use sheaf_core::redact::{self, Mark, Pattern, Query, TextMatch};
 use slint::{ComponentHandle, Image, ModelRc, VecModel};
 
@@ -46,6 +47,8 @@ pub struct ViewerUi {
     /// Device pixels per logical pixel (2 on Retina).
     scale: f64,
     pub top: f64,
+    /// How far the view is scrolled across (the view reports it), kept by ⌘[ and ⌘].
+    pub left: f64,
     pub height: f64,
     strip_top: f64,
     strip_height: f64,
@@ -118,6 +121,7 @@ impl ViewerUi {
             viewer,
             scale,
             top: top as f64,
+            left: 0.0,
             height: h as f64,
             strip_top: stop as f64,
             strip_height: sh as f64,
@@ -192,18 +196,46 @@ impl ViewerUi {
         self.scroll_x = None;
     }
 
+    /// Shows a destination as Acrobat does: at its zoom when it has one (/XYZ's, 1.0 = actual
+    /// size), its top edge or rectangle a third down the view, its left edge at the view's left
+    /// when the page is wider than the view (/XYZ left, /FitR). Returns whether the zoom changed.
+    pub fn show_dest(&mut self, page: usize, view: &render::DestView) -> bool {
+        let page = page.min(self.viewer.page_count().saturating_sub(1));
+        let zoomed = match *view {
+            render::DestView::Xyz { zoom: Some(z), .. } => {
+                let target = self.viewer.zoom_for_actual(page, z as f64 * 100.0);
+                self.viewer.set_zoom(target)
+            }
+            _ => false,
+        };
+        let crop = self.viewer.boxes.get(page).map(|b| b.crop).unwrap_or_default();
+        self.show_page(page, sheaf_app::reader::dest_focus(view, crop));
+        let left = match *view {
+            render::DestView::Xyz { left: Some(l), .. } => Some(l as f64),
+            render::DestView::FitR { rect } => Some(rect[0] as f64),
+            _ => None,
+        };
+        if let Some(l) = left {
+            let x = self.viewer.overlay(page, [l, crop[1], l + 1.0, crop[1] + 1.0])[0];
+            self.scroll_x = Some((x - 8.0).clamp(0.0, self.viewer.max_scroll_x()));
+        }
+        zoomed
+    }
+
     /// Where the view stands: the page point at its top edge, which a zoom keeps (⌘[ comes back to
     /// it, not only to its page).
     pub fn place(&self) -> (usize, f64, f64) {
-        self.viewer.anchor_of(self.viewer.page_rect(self.current())[0], self.top)
+        let left = self.left.max(self.viewer.page_rect(self.current())[0]);
+        self.viewer.anchor_of(left, self.top)
     }
 
     /// Scrolls back to a [`Self::place`].
     pub fn go_to_place(&mut self, place: (usize, f64, f64)) {
-        let (_, y) = self.viewer.point_of(place);
+        let (x, y) = self.viewer.point_of(place);
         self.scroll = y.clamp(0.0, (self.viewer.content_height() - self.height).max(0.0));
         self.scroll_seq += 1;
-        self.scroll_x = None;
+        // Across too, on a page wider than the view (Sol, 25/10: only the height came back).
+        self.scroll_x = (self.viewer.max_scroll_x() > 0.0).then(|| x.clamp(0.0, self.viewer.max_scroll_x()));
     }
 
     /// Zooms to `z` percent of the fit width, the view point (ax, ay), scrolled `sx` across, staying
@@ -377,6 +409,25 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
 }
 
 // ---- events from the widget ------------------------------------------------------------------
+
+/// Redact's marks not applied yet in tool tab `tab_id`, and its file's name: (name, count).
+pub fn redact_pending(tab_id: i32) -> Option<(String, usize)> {
+    with(|a| {
+        let t = a.tab(tab_id)?;
+        if t.tool != sheaf_core::tools::ToolId::Redact || matches!(t.phase, crate::state::Phase::Done(_)) {
+            return None;
+        }
+        let v = t.viewer.as_ref()?;
+        let n = v.found.iter().filter(|f| f.checked).count() + v.manual.len();
+        let name = v.input.path.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+        (n > 0).then_some((name, n))
+    })
+}
+
+/// The view scrolled across to `left` (its own scroll or one asked for).
+pub fn view_left(tab_id: i32, left: f32) {
+    update(tab_id, |v| v.left = left as f64);
+}
 
 pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) {
     with(|a| {
@@ -924,6 +975,38 @@ mod tests {
         let sx = v.zoom_around(170, (ax, ay, 0.0)).unwrap();
         let back = v.viewer.anchor_of(sx + ax, v.top + ay);
         assert!(back.0 == anchor.0 && (back.1 - anchor.1).abs() < 1e-6 && (back.2 - anchor.2).abs() < 1e-6, "{anchor:?} → {back:?}");
+    }
+
+    #[test]
+    fn a_destination_brings_its_zoom_its_top_and_its_left_edge() {
+        let pages = (0..3).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        // /XYZ 200 300 3: page 2 at 300 %, the point (200, 300) near the view's top left.
+        assert!(v.show_dest(1, &render::DestView::Xyz { left: Some(200.0), top: Some(300.0), zoom: Some(3.0) }));
+        assert!((v.viewer.actual_percent(1) - 300.0).abs() < 1.0, "{}", v.viewer.actual_percent(1));
+        let c = v.viewer.overlay(1, [200.0, 299.0, 201.0, 300.0]);
+        let sx = v.scroll_x.expect("scrolled across");
+        assert!((c[0] - sx - 8.0).abs() < 1.0 && c[1] > v.scroll && c[1] - v.scroll < 700.0 / 2.0, "{c:?} {sx} {}", v.scroll);
+        // No zoom, no left: the zoom stays, no horizontal scroll asked for.
+        let z = v.viewer.zoom();
+        assert!(!v.show_dest(0, &render::DestView::Xyz { left: None, top: Some(500.0), zoom: None }));
+        assert_eq!((v.viewer.zoom(), v.scroll_x), (z, None));
+    }
+
+    #[test]
+    fn a_place_keeps_how_far_across_a_wide_page_was_scrolled() {
+        let pages = (0..3).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        v.viewer.set_zoom(250);
+        (v.top, v.left) = (v.viewer.page_rect(1)[1] + 300.0, 600.0);
+        let place = v.place();
+        (v.top, v.left) = (0.0, 0.0);
+        v.go_to_place(place);
+        assert!(v.scroll_x.is_some_and(|x| (x - 600.0).abs() < 1.0), "{:?}", v.scroll_x);
     }
 
     #[test]
