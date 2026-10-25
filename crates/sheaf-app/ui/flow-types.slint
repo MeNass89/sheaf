@@ -148,7 +148,9 @@ export struct ReaderFormField {
 export struct ReaderFieldProps {
     show: bool,
     x: length,
+    // Under the field (y), or above it (its top) when the pages end before the card does.
     y: length,
+    top: length,
     seq: int,
     name: string,
     tooltip: string,
@@ -162,7 +164,7 @@ export struct ReaderFieldProps {
     // Its text's alignment (0 left, 1 centre, 2 right) and size ("Auto" or points).
     align: int,
     font-size: string,
-    // A button's click: 0 nothing, 1 clear the form, 2 print, 3 open `url`.
+    // A button's click: 0 nothing, 1 clear the form, 2 print, 3 open `url`, 4 submit the form to `url`.
     action: int,
     url: string,
     // Pages that do not hold the field yet (On every page is offered when some).
@@ -241,6 +243,10 @@ export struct ReaderState {
     props-author: string,
     props-subject: string,
     props-keywords: string,
+    // "Open the version signed by …", one per signature (Acrobat's View Signed Version).
+    props-signed: [string],
+    // "Trust …'s certificate", one per signature ("" when trusted already).
+    props-trust: [string],
     // Its own properties, "Name: value; …" (Acrobat's Custom tab).
     props-custom: string,
     props-about: [ReaderProp],
@@ -282,6 +288,8 @@ export struct ReaderState {
     // Shapes ▸ Arrow: its head's name and whether both ends carry it.
     arrow-head: string,
     arrow-both: bool,
+    // The Measuring tools' scale ("1:100 · m").
+    measure-scale: string,
     opacity: int,
     // Print sheet: open, the system's printers, the chosen one.
     print-open: bool,
@@ -479,6 +487,8 @@ export struct ToolOptions {
     blank-level: int,    // how blank: 0 strict, 1 normal, 2 scans on grey paper
     rotate-parity: int,  // rotate: 0 even and odd pages, 1 odd, 2 even
     protect-sanitize: bool, // protect: remove the hidden information first
+    compare-old-pages: string, // compare: the original's pages ("" all)
+    compare-new-pages: string, // compare: the changed document's pages ("" all)
     rotate-orientation: int, // rotate: 0 portrait and landscape pages, 1 portrait, 2 landscape
     split-mode: int,     // 0 ranges, 1 every N, 2 top-level bookmarks, 3 file size
     ranges: string,
@@ -547,7 +557,7 @@ export struct ToolOptions {
     export-ocr: bool,      // recognise scanned pages first
     export-exact: bool,    // Word: keep each page's layout (positioned text boxes)
     excel-layout: int,     // 0 one sheet, 1 one sheet per table
-    text-format: int,      // PDF to HTML or text: 0 web page, 1 Markdown, 2 rich text, 3 plain text
+    text-format: int,      // PDF to HTML or text: 0 web page, 1 Markdown, 2 rich text, 3 plain text, 4 XML
     // Compare
     compare-mode: int,     // 0 semantic text (report), 1 content overlay
     // Sign: the optional certificate
@@ -613,6 +623,8 @@ export global ReaderBridge {
     // Document Properties: open; save title, author, subject, keywords; cancel.
     callback props-open(int);
     callback props-save(int, string, string, string, string, string);
+    callback open-signed(int, int);
+    callback trust-signature(int, int);
     callback props-cancel(int);
     // Shapes and pen: what (0 shape kind, 1 fill toggle, 2 next opacity), value.
     callback shape-option(int, int, int);
@@ -635,6 +647,10 @@ export global ReaderBridge {
     // every page.
     callback field-kind(int, int);
     callback detect-fields(int);
+    // Prepare form ▸ Tab order: 0 rows, 1 columns, 2 structure.
+    callback tab-order(int, int);
+    // ⌘C / ⌘X (true) on a picture picked with the Edit tool.
+    callback copy-image(int, bool);
     // More ▸ Sanitize document.
     callback sanitize(int);
     callback field-props(int, string, string, bool, bool, bool, string, string, int, int, string);
@@ -643,6 +659,7 @@ export global ReaderBridge {
     callback link-selection(int);
     // Replace Text from the selection bar: the words to propose instead are typed next.
     callback replace-selection(int);
+    callback insert-after-selection(int);
     callback set-tool(int, int);
     callback set-colour(int, int);
     callback set-pen-width(int, int);

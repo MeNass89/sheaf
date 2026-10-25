@@ -135,6 +135,8 @@ pub enum OfficeFormat {
     Text,
     /// Sheaf: Markdown, headings and tables kept.
     Markdown,
+    /// Sheaf: structured XML (pages, headings, paragraphs, tables, pictures).
+    Xml,
 }
 
 impl OfficeFormat {
@@ -146,6 +148,7 @@ impl OfficeFormat {
             OfficeFormat::Rtf => "rtf",
             OfficeFormat::Text => "txt",
             OfficeFormat::Markdown => "md",
+            OfficeFormat::Xml => "xml",
         }
     }
 
@@ -157,6 +160,7 @@ impl OfficeFormat {
             "rtf" => Some(OfficeFormat::Rtf),
             "txt" => Some(OfficeFormat::Text),
             "md" | "markdown" => Some(OfficeFormat::Markdown),
+            "xml" => Some(OfficeFormat::Xml),
             _ => None,
         }
     }
@@ -308,6 +312,7 @@ impl crate::Document {
             OfficeFormat::Rtf => pdfcraft_export::rtf(&pages).into_bytes(),
             OfficeFormat::Text => pdfcraft_export::text(&pages).into_bytes(),
             OfficeFormat::Markdown => pdfcraft_export::markdown(&pages).into_bytes(),
+            OfficeFormat::Xml => pdfcraft_export::xml(&pages, &title).into_bytes(),
         }
     }
 }

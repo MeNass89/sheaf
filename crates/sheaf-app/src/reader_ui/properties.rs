@@ -72,6 +72,35 @@ pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subjec
     }
 }
 
+/// Document properties ▸ Open the version signed by … (Acrobat's View Signed Version): the file as
+/// it was when signature `k` was made, opened in its own tab (a copy in the temporary folder).
+pub fn open_signed(ui: &AppWindow, tab_id: i32, k: i32) {
+    let Some((path, name, (who, len, _, _))) = update(tab_id, |r, _| Some((r.path.clone(), r.name.clone(), r.snap.props.signed.get(k.max(0) as usize)?.clone()))).flatten() else { return };
+    let made = std::fs::read(&path).map_err(|e| e.to_string()).and_then(|bytes| {
+        let part = bytes.get(..len).ok_or("the file is shorter than its signature says")?;
+        let dir = std::env::temp_dir().join(format!("sheaf-signed-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let stem = name.trim_end_matches(".pdf");
+        let to = sheaf_core::paths::unique_path(&dir.join(format!("{stem} (signed by {who}).pdf")));
+        std::fs::write(&to, part).map_err(|e| e.to_string())?;
+        Ok(to)
+    });
+    match made {
+        Ok(to) => super::open(ui, to, None),
+        Err(e) => crate::flow::toast(ui, &format!("The signed version could not be opened: {e}")),
+    }
+}
+
+/// Document properties ▸ Trust …'s certificate: kept as trusted, the signatures validated again.
+pub fn trust_signature(tab_id: i32, k: i32) {
+    update(tab_id, |r, _| {
+        if let Some(&(_, _, index, _)) = r.snap.props.signed.get(k.max(0) as usize) {
+            r.in_flight += 1;
+            r.send(Op::TrustSignature { index });
+        }
+    });
+}
+
 /// The custom properties as typed ("Client: Acme; Project: Atlas"): name and value pairs, names
 /// made PDF names (spaces become "_"), empty ones dropped.
 pub(super) fn custom_pairs(typed: &str) -> Vec<(String, String)> {

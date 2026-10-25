@@ -288,6 +288,8 @@ pub struct ReaderUi {
     /// Shapes ▸ Arrow: its head (`reader::ARROW_HEADS`) and whether both ends carry one.
     arrow_head: usize,
     arrow_both: bool,
+    /// The Measuring tools' scale (`reader::MEASURE_SCALES`).
+    measure_scale: usize,
     /// Edit text: what of the format row was changed while a paragraph is open (1 colour, 2 size,
     /// 4 font, 8 alignment): those apply to it, the rest of its style stays its own.
     para_format: u8,
@@ -440,6 +442,7 @@ impl ReaderUi {
             radio_group: None,
             arrow_head: 0,
             arrow_both: false,
+            measure_scale: 0,
             para_format: 0,
             form_sel: None,
             form_drag: None,
@@ -715,6 +718,16 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                     crate::flow::toast(ui, &format!("Not saved: {e}"));
                 }
                 _ => {}
+            }
+        }
+        Reply::ImageCopied(made) => {
+            let copied = made.and_then(|(width, height, rgba)| {
+                let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
+                arboard::Clipboard::new().and_then(|mut c| c.set_image(image)).map_err(|e| e.to_string())
+            });
+            match copied {
+                Ok(()) => crate::flow::toast(ui, "Picture copied: ⌘V pastes it on a page, or in another app"),
+                Err(e) => crate::flow::toast(ui, &format!("The picture was not copied: {e}")),
             }
         }
         Reply::PagesCopied(made) => match made {

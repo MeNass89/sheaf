@@ -79,8 +79,11 @@ pub fn pdf_to_jpg(input: &Input, dpi: u32, quality: Option<u8>, out_dir: &Path) 
 /// written once. JPG at `quality`, else PNG. A PDF without pictures says so.
 pub fn extract_images(input: &Input, quality: Option<u8>, out_dir: &Path) -> Result<Vec<PathBuf>> {
     use std::hash::{Hash, Hasher};
-    let mut found: Vec<(usize, usize, DynamicImage)> = Vec::new();
-    {
+    let ext = if quality.is_some() { "jpg" } else { "png" };
+    let mut written: Vec<PathBuf> = Vec::new();
+    // Each picture is written as soon as it is decoded (Sol, 25/10: a long scan kept gigabytes of
+    // pixels before the first write); a failure takes back what was written, as before.
+    let result = (|| -> Result<()> {
         let _g = pdfium_lock();
         let doc = input.open()?;
         let mut seen = std::collections::HashSet::new();
@@ -93,28 +96,30 @@ pub fn extract_images(input: &Input, quality: Option<u8>, out_dir: &Path) -> Res
             for img in pictures {
                 let mut h = std::collections::hash_map::DefaultHasher::new();
                 (img.width(), img.height(), img.as_bytes()).hash(&mut h);
-                if seen.insert(h.finish()) {
-                    k += 1;
-                    found.push((i, k, img));
+                if !seen.insert(h.finish()) {
+                    continue;
                 }
+                k += 1;
+                let target = out_dir.join(format!("{}-p{}-{k}.{ext}", input.stem(), i + 1));
+                written.push(atomic_write(&target, |part| {
+                    match quality {
+                        Some(q) => img.to_rgb8().write_with_encoder(JpegEncoder::new_with_quality(std::fs::File::create(part)?, q))?,
+                        None => img.save_with_format(part, ImageFormat::Png)?,
+                    }
+                    Ok(())
+                })?);
             }
         }
+        Ok(())
+    })();
+    if let Err(e) = result {
+        written.iter().for_each(|p| { let _ = std::fs::remove_file(p); });
+        return Err(e);
     }
-    if found.is_empty() {
+    if written.is_empty() {
         return Err(OpdfError::Unsupported(format!("{} has no pictures to extract", input.path.display())));
     }
-    let ext = if quality.is_some() { "jpg" } else { "png" };
-    // Decoded under the pdfium lock, encoded after it: thumbnails elsewhere keep coming.
-    all_or_nothing(&found, |(page, k, img)| {
-        let target = out_dir.join(format!("{}-p{}-{k}.{ext}", input.stem(), page + 1));
-        atomic_write(&target, |part| {
-            match quality {
-                Some(q) => img.to_rgb8().write_with_encoder(JpegEncoder::new_with_quality(std::fs::File::create(part)?, q))?,
-                None => img.save_with_format(part, ImageFormat::Png)?,
-            }
-            Ok(())
-        })
-    })
+    Ok(written)
 }
 
 /// The pictures of page object `o`: itself, or those a form XObject draws, at any depth (Sol,

@@ -23,6 +23,8 @@ pub enum Office {
     Text,
     /// .md, headings and tables kept
     Markdown,
+    /// .xml, the document's structure
+    Xml,
 }
 
 impl Office {
@@ -35,6 +37,7 @@ impl Office {
             Office::Rtf => "rtf",
             Office::Text => "txt",
             Office::Markdown => "md",
+            Office::Xml => "xml",
         }
     }
 }
@@ -78,6 +81,7 @@ pub fn to_office(input: &Input, format: Office, opts: &ExportOptions, out: &Path
         Office::Rtf => OfficeFormat::Rtf,
         Office::Text => OfficeFormat::Text,
         Office::Markdown => OfficeFormat::Markdown,
+        Office::Xml => OfficeFormat::Xml,
     };
     let bytes = doc.document().export_office(engine);
     let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;

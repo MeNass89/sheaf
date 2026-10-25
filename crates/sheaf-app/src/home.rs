@@ -48,6 +48,8 @@ fn with<R>(f: impl FnOnce(&mut Home) -> R) -> R {
 /// Loads history and preferences from the data folder and fills the pages.
 pub fn install(ui: &AppWindow, forced_theme: Option<ThemePref>) {
     let dir = store_file::data_dir();
+    // The certificates trusted for signing live with the rest of Sheaf's data.
+    sheaf_core::pdfcraft::set_trust_dir(dir.join("trusted"));
     let h = Home {
         store: Store::open(&dir),
         prefs: Prefs::load(&dir),
@@ -579,4 +581,22 @@ pub fn reveal_history(i: i32) {
     if let Some(p) = first.filter(|p| p.exists()) {
         crate::run::reveal(&p);
     }
+}
+
+/// Picture stamps kept for next time (Acrobat's custom stamps), in the data folder's `stamps`:
+/// their files, by name.
+pub fn stamp_library() -> Vec<PathBuf> {
+    let dir = with(|h| h.dir.join("stamps"));
+    let mut files: Vec<PathBuf> = std::fs::read_dir(dir).map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.is_file()).collect()).unwrap_or_default();
+    files.sort();
+    files
+}
+
+/// Keeps a picture stamp in the library under `name` (a name taken gets " (1)"); its file.
+pub fn keep_stamp(name: &str, bytes: &[u8]) -> Option<PathBuf> {
+    let dir = with(|h| h.dir.join("stamps"));
+    std::fs::create_dir_all(&dir).ok()?;
+    let to = sheaf_core::paths::unique_path(&dir.join(name));
+    std::fs::write(&to, bytes).ok()?;
+    Some(to)
 }

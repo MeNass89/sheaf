@@ -132,7 +132,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         marks.push(overlay([x0, y0, x1 - x0, y1 - y0], 6));
     }
     // The box being linked, while its target is typed.
-    if let Some(d) = r.draft.as_ref().filter(|d| matches!(d.kind, 8..=10))
+    if let Some(d) = r.draft.as_ref().filter(|d| matches!(d.kind, 8..=11))
         && let Some((_, _, rect)) = &d.block
     {
         marks.push(overlay(v.viewer.overlay(d.page, *rect), 6));
@@ -339,7 +339,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 }
                 }
                 // Link: a one-line editor below the box.
-                Some((_, t, _)) if matches!(d.kind, 8..=10) => (t.clone(), 300.0, if r.link_error.is_empty() { 116.0 } else { 140.0 }),
+                Some((_, t, _)) if matches!(d.kind, 8..=11) => (t.clone(), 300.0, if r.link_error.is_empty() { 116.0 } else { 140.0 }),
                 // Edit text: the paragraph shows on its page as typed, and what it grows over
                 // below it; the editor goes above it when the page has room there, else below.
                 Some((_, t, rect)) if d.kind == 2 => {
@@ -421,6 +421,11 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         shape_fill: r.shape_fill,
         arrow_head: reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].1.into(),
         arrow_both: r.arrow_both,
+        measure_scale: {
+            let (ratio, unit) = reader::MEASURE_SCALES[r.measure_scale.min(reader::MEASURE_SCALES.len() - 1)];
+            if ratio == 1.0 { format!("True size · {unit}") } else { format!("1:{ratio} · {unit}") }
+        }
+        .into(),
         opacity: (reader::OPACITIES[r.opacity] * 100.0).round() as i32,
         // Dynamic stamps share their names with standard ones: they say they are dated.
         stamp_image: r.custom_stamp.as_ref().map(|(n, _, _)| n.as_str()).unwrap_or_default().into(),
@@ -432,6 +437,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                     sheaf_core::pdfcraft::engine::StampGroup::Dynamic => slint::SharedString::from(format!("{} · DATED", k.label())),
                     _ => slint::SharedString::from(k.label()),
                 }))
+                // The pictures kept as stamps.
+                .chain(crate::home::stamp_library().iter().map(|p| slint::SharedString::from(format!("Picture · {}", p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()))))
                 .collect::<Vec<_>>(),
         )),
         stamp: r.stamp as i32,
@@ -460,6 +467,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_author: r.snap.props.author.clone().into(),
         props_subject: r.snap.props.subject.clone().into(),
         props_keywords: r.snap.props.keywords.clone().into(),
+        props_signed: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, ..)| slint::SharedString::from(format!("Open the version signed by {who}"))).collect::<Vec<_>>())),
+        props_trust: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, _, _, trusted)| slint::SharedString::from(if *trusted { String::new() } else { format!("Trust {who}'s certificate") })).collect::<Vec<_>>())),
         props_custom: r.facts.as_ref().map(|f| super::properties::custom_text(&f.custom)).unwrap_or_default().into(),
         props_about: ModelRc::new(VecModel::from(super::properties::about_rows(&r.snap.props.about, r.facts.as_ref()).into_iter().map(|(n, v)| ReaderProp { name: n.into(), value: v.into() }).collect::<Vec<_>>())),
         text_size: r.text_pt.round() as i32,

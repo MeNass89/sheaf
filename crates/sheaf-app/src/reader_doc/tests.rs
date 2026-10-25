@@ -671,6 +671,38 @@ fn document_properties_list_the_signatures_with_their_verdict() {
     let row = snap.props.about.iter().find(|(k, _)| k.starts_with("Signature 1")).expect("a row for the signature");
     assert!(row.0.contains("Ada Signer"), "{row:?}");
     assert!(row.1.contains("Signature validity is unknown") && row.1.contains("Approved"), "self-signed: not trusted, its reason shown: {row:?}");
+    // Its certificate, and the signed version: the file's bytes up to the signature's end.
+    let cert = snap.props.about.iter().find(|(k, _)| k == "Signature 1 · certificate").expect("the certificate's row");
+    assert!(cert.1.starts_with("Issued to Ada Signer by Ada Signer, valid "), "{cert:?}");
+    let len = std::fs::metadata(&signed).unwrap().len() as usize;
+    assert!(matches!(&snap.props.signed[..], [(who, n, 0, false)] if who == "Ada Signer" && *n > 0 && *n <= len), "{:?}", snap.props.signed);
+}
+
+#[test]
+fn a_signers_certificate_once_trusted_makes_the_signature_valid() {
+    use sheaf_core::sign::{self, DigitalSpec, Graphic, SignSpec};
+    let dir = tempfile::tempdir().unwrap();
+    let (key, cert, p12) = (dir.path().join("k.pem"), dir.path().join("c.pem"), dir.path().join("id.p12"));
+    let ok = |c: &mut std::process::Command| c.output().map(|o| o.status.success()).unwrap_or(false);
+    if !ok(std::process::Command::new("openssl").args(["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj", "/CN=Bea Signer", "-keyout"]).arg(&key).arg("-out").arg(&cert))
+        || !ok(std::process::Command::new("openssl").args(["pkcs12", "-export", "-passout", "pass:pw", "-inkey"]).arg(&key).arg("-in").arg(&cert).arg("-out").arg(&p12))
+    {
+        return eprintln!("openssl missing: skipped");
+    }
+    // The trust folder of this test process (set once): Bea's certificate goes there.
+    let trust = Box::leak(Box::new(tempfile::tempdir().unwrap()));
+    sheaf_core::pdfcraft::set_trust_dir(trust.path().to_path_buf());
+    let path = fixture(dir.path(), 1);
+    let signed = dir.path().join("signed.pdf");
+    let digital = DigitalSpec { p12, password: "pw".into(), reason: None, location: None };
+    sign::sign(&Input::new(&path), &SignSpec { page: 0, rect: [72.0, 72.0, 272.0, 132.0], graphic: Graphic::Typed("Bea".into(), Default::default()), digital: Some(digital) }, &signed).unwrap();
+    let (ops, rx, snap) = started(&signed);
+    let verdict = |s: &Snap| s.props.about.iter().find(|(k, _)| k.starts_with("Signature 1 · Bea")).map(|r| r.1.clone()).unwrap_or_default();
+    assert!(verdict(&snap).contains("validity is unknown"), "{}", verdict(&snap));
+    ops.send(Op::TrustSignature { index: 0 }).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    assert!(!verdict(&snap).contains("unknown") && snap.props.signed[0].3, "{}", verdict(&snap));
 }
 
 #[test]
@@ -726,4 +758,19 @@ fn a_flat_forms_blanks_become_fields_named_from_their_labels() {
     ops.send(Op::DetectFields).unwrap();
     let (snap, err) = next(&rx);
     assert!(err.is_some_and(|e| e.contains("No fields found")) && snap.fields.len() == 2);
+}
+
+#[test]
+fn a_picked_picture_is_copied_as_its_own_pixels() {
+    let dir = tempfile::tempdir().unwrap();
+    let png = dir.path().join("p.png");
+    image::RgbImage::from_pixel(30, 20, image::Rgb([200, 30, 30])).save(&png).unwrap();
+    let path = sheaf_core::images::images_to_pdf(&[png], sheaf_core::images::PageLayout::FitImage, &dir.path().join("pic.pdf")).unwrap();
+    let (ops, rx, _) = started(&path);
+    ops.send(Op::CopyImage { page: 0, index: 0 }).unwrap();
+    match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+        Reply::ImageCopied(Ok((w, h, rgba))) => assert!(w == 30 && h == 20 && rgba[..4] == [200, 30, 30, 255], "{w}×{h} {:?}", &rgba[..4]),
+        Reply::ImageCopied(Err(e)) => panic!("{e}"),
+        _ => panic!("expected ImageCopied"),
+    }
 }

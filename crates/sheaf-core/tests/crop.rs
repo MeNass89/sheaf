@@ -67,3 +67,17 @@ fn margins_follow_what_the_reader_sees_on_a_rotated_page() {
     let b = crop_box(&out, 1).unwrap();
     assert!(close(&b, &[100.0, 40.0, W, H]), "{b:?}");
 }
+
+#[test]
+fn white_margins_cut_each_page_to_what_is_drawn() {
+    let t = tempfile::tempdir().unwrap();
+    // "Page 1" in Helvetica 24 at (72, 720) on an A4 page: about 70 × 17 pt of ink.
+    let a = fixture_pdf(t.path(), "a.pdf", 2);
+    let (out, _) = crop(&Input::new(&a), None, &CropSpec::WhiteMargins { pad: 3.0 }, &t.path().join("w.pdf")).unwrap();
+    for page in [1, 2] {
+        let b = crop_box(&out, page).expect("a crop box");
+        assert!(b[0] > 60.0 && b[0] < 72.0 && b[1] > 705.0 && b[1] < 722.0, "page {page}: {b:?}");
+        assert!(b[2] - b[0] > 60.0 && b[2] - b[0] < 110.0 && b[3] - b[1] > 15.0 && b[3] - b[1] < 35.0, "page {page}: {b:?}");
+    }
+    assert_eq!(page_texts(&out), ["Page 1", "Page 2"]);
+}

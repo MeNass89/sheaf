@@ -509,7 +509,8 @@ pub fn close_tabs_around(ui: &AppWindow, id: i32, which: i32) {
         let busy = with(|a| a.tab(t).is_some_and(|t| matches!(t.phase, Phase::Running)));
         if busy {
             kept += 1;
-        } else if crate::reader_ui::unsaved_name(t).is_some() {
+        } else if crate::reader_ui::unsaved_name(t).is_some() || crate::viewer_ui::redact_pending(t).is_some() {
+            // Unsaved edits, or Redact's marks not applied (Sol, 25/10), are asked about.
             ask.push(t);
         } else {
             remove_tab(ui, t);
@@ -519,7 +520,7 @@ pub fn close_tabs_around(ui: &AppWindow, id: i32, which: i32) {
         toast(ui, &format!("{kept} tab{} with a running task stayed open", if kept == 1 { "" } else { "s" }));
     }
     // Documents with unsaved edits are asked about one by one (Save / Don't Save / Cancel), as
-    // closing each would.
+    // closing each would; so are Redact tabs with marks not applied.
     with(|a| a.close_queue = ask);
     next_close(ui);
 }

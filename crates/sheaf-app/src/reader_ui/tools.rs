@@ -191,12 +191,16 @@ pub fn shape_option(tab_id: i32, what: i32, value: i32) {
         }
         1 => r.shape_fill = !r.shape_fill,
         3 => {
-            r.stamp = (value.max(0) as usize).min(MARKS.len() + StampKind::ALL.len() - 1);
-            r.custom_stamp = None;
+            // Past the standard stamps: a picture kept in the library.
+            let first_picture = MARKS.len() + StampKind::ALL.len();
+            let library = crate::home::stamp_library();
+            r.stamp = (value.max(0) as usize).min(first_picture + library.len().saturating_sub(1));
+            r.custom_stamp = r.stamp.checked_sub(first_picture).and_then(|k| library.get(k)).and_then(|p| super::edits::picture_stamp(p));
         }
         4 => r.link_visible = !r.link_visible,
         5 => r.link_dashed = !r.link_dashed,
         6 => r.arrow_head = (r.arrow_head + 1) % reader::ARROW_HEADS.len(),
+        10 => r.measure_scale = (r.measure_scale + 1) % reader::MEASURE_SCALES.len(),
         7 => r.arrow_both = !r.arrow_both,
         _ => {
             r.opacity = (r.opacity + 1) % reader::OPACITIES.len();
@@ -270,6 +274,17 @@ pub fn link_selection(tab_id: i32) {
 /// Acrobat's Replace Text: the selected words are kept and an editor opens below them for the
 /// words proposed instead (kind 10); committed, they are struck out and a caret holds the new ones.
 pub fn replace_selection(tab_id: i32) {
+    propose(tab_id, 10);
+}
+
+/// Acrobat's Insert Text: the words typed are proposed after the selection, in a caret, nothing
+/// struck out (kind 11; Sol 25/10: only replacing was offered).
+pub fn insert_after_selection(tab_id: i32) {
+    propose(tab_id, 11);
+}
+
+/// Replace (10) or Insert (11) text from the selection: its quads kept, an editor below it.
+fn propose(tab_id: i32, kind: i32) {
     update(tab_id, |r, v| {
         let Some((page, range)) = r.sel.clone() else { return };
         let Some(t) = r.text(page) else { return };
@@ -282,7 +297,7 @@ pub fn replace_selection(tab_id: i32) {
         let [x, y, _, h] = viewer::pdf_rect_to_view(b, size, union);
         r.replace_quads = reader::quads(b, &lines);
         r.sel = None;
-        r.draft = Some(Draft { page, at: (x, y + h + 6.0), kind: 10, block: Some((usize::MAX, String::new(), union)), field: None });
+        r.draft = Some(Draft { page, at: (x, y + h + 6.0), kind, block: Some((usize::MAX, String::new(), union)), field: None });
         r.note_seq += 1;
     });
 }

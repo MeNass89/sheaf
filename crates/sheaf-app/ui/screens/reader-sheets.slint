@@ -260,6 +260,13 @@ export component PropertiesSheet inherits Rectangle {
                     Text { text: p.name; width: 150px; font-size: Theme.fs-label; color: Theme.text-secondary; }
                     Text { text: p.value; font-size: Theme.fs-label; color: Theme.text; overflow: elide; horizontal-stretch: 1; }
                 }
+                for label[k] in root.tab.reader.props-signed: HorizontalLayout {
+                    alignment: start;
+                    spacing: 6px;
+                    SmallButton { text: label; clicked => { ReaderBridge.open-signed(root.id, k); } }
+                    // Acrobat's Add to Trusted Certificates.
+                    if root.tab.reader.props-trust[k] != "": SmallButton { text: root.tab.reader.props-trust[k]; clicked => { ReaderBridge.trust-signature(root.id, k); } }
+                }
                 HorizontalLayout {
                     spacing: 8px;
                     Rectangle { horizontal-stretch: 1; }

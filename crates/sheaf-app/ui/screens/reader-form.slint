@@ -113,9 +113,9 @@ export component FieldPropsCard inherits Rectangle {
             Text { text: "When clicked"; font-size: Theme.fs-caption; color: Theme.text-muted; }
             HorizontalLayout {
                 spacing: 4px;
-                for a[i] in ["Nothing", "Clear form", "Print", "Open address"]: SmallButton { text: a; primary: root.action == i; clicked => { root.action = i; } }
+                for a[i] in ["Nothing", "Clear", "Print", "Open address", "Submit"]: SmallButton { text: a; primary: root.action == i; clicked => { root.action = i; } }
             }
-            if root.action == 3: PanelField { placeholder: "https://…"; text <=> url-text.text; }
+            if root.action >= 3: PanelField { placeholder: root.action == 4 ? "The address the form is sent to" : "https://…"; text <=> url-text.text; }
         }
         HorizontalLayout {
             spacing: 14px;

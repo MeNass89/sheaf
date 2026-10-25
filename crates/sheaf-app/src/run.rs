@@ -187,6 +187,10 @@ fn crop_spec(opts: &ToolOptions) -> Result<CropSpec> {
     if opts.crop_mode == 2 {
         return Ok(CropSpec::Remove);
     }
+    // Acrobat's Remove White Margins: each page to what is drawn on it, 3 pt around.
+    if opts.crop_mode == 3 {
+        return Ok(CropSpec::WhiteMargins { pad: 3.0 });
+    }
     Ok(CropSpec::Margins {
         top: mm_field(&opts.crop_top, "top")?,
         bottom: mm_field(&opts.crop_bottom, "bottom")?,
@@ -326,7 +330,8 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             let (Some(old), Some(new), None) = (it.next(), it.next(), it.next()) else {
                 return Err(OpdfError::Unsupported("Compare needs an original and a changed PDF".into()));
             };
-            Job::Compare { old, new, mode: if opts.compare_mode == 1 { CompareMode::Overlay } else { CompareMode::Text }, out: single()? }
+            let range = |s: &slint::SharedString| (!s.trim().is_empty()).then(|| s.trim().to_string());
+            Job::Compare { old, new, mode: if opts.compare_mode == 1 { CompareMode::Overlay } else { CompareMode::Text }, out: single()?, pages: [range(&opts.compare_old_pages), range(&opts.compare_new_pages)] }
         }
         ToolId::Redact => {
             if marks.is_empty() {
@@ -756,7 +761,7 @@ mod tests {
         let mut o = opts();
         o.compare_mode = 1;
         let two = vec![Input::new("/a/v1.pdf"), Input::new("/a/v2.pdf")];
-        let Job::Compare { old, new, mode, out } = build_job(ToolId::Compare, two, vec![], &o, Dest::File("/s/v1-comparison.pdf".into())).unwrap() else { panic!() };
+        let Job::Compare { old, new, mode, out, .. } = build_job(ToolId::Compare, two, vec![], &o, Dest::File("/s/v1-comparison.pdf".into())).unwrap() else { panic!() };
         assert_eq!((old.path, new.path, mode, out), (PathBuf::from("/a/v1.pdf"), PathBuf::from("/a/v2.pdf"), CompareMode::Overlay, PathBuf::from("/s/v1-comparison.pdf")));
         assert!(build_job(ToolId::Compare, vec![Input::new("/a/v1.pdf")], vec![], &o, Dest::File("/s/c.pdf".into())).is_err());
         assert_eq!(out_name(ToolId::Compare, Path::new("/a/v1.pdf"), &o), "v1-comparison.pdf");

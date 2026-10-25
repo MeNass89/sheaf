@@ -312,12 +312,15 @@ check "Shapes ▸ Distance measures between two clicks (${DS:-no Distance button
 quit
 
 # 43. Stamp (M) ▸ Image…: a picture chosen (the dialog answered with stamp.png) is placed by a click (Acrobat's
-# custom stamp); saved, the file has a stamp drawing that picture.
+# custom stamp); saved, the file has a stamp drawing that picture; the picture is kept for next time.
 convert -size 80x40 xc:'#2a9d4b' "$OUT/stamp.png"; cp "$OUT/text.pdf" "$OUT/stamped.pdf"; launch "$OUT/stamped.pdf"; sleep 1; key m; sleep 0.5
-answer "$PWD/$OUT/stamp.png"; IM="515 105"; click $IM 0.8   # Image…, right of the stamp list; answer ""
+# Image… is right of the stamp list.
+answer "$PWD/$OUT/stamp.png"; IM="515 105"; click $IM 0.8; answer ""
 click 640 420 1.2; key ctrl+s; sleep 1.5
 QS=$(qpdf --qdf --object-streams=disable "$OUT/stamped.pdf" - 2>/dev/null)
 check "Stamp ▸ Image… places a picture as a stamp (${IM:-no Image… button})" "echo \"\$QS\" | grep -aq '/Subtype /Stamp' && echo \"\$QS\" | grep -aq '/Subtype /Image'"
+# Kept for next time: the picture is in the stamp library, listed with the stamps.
+check "a picture stamp is kept in the library ($(ls $OUT/profile/data/Sheaf/stamps 2>/dev/null))" "[ -f $OUT/profile/data/Sheaf/stamps/stamp.png ]"
 quit
 
 # 44. Extract ▸ One file per page, the folder chosen (the dialog answered): page 1 of a four-page file is written
@@ -347,6 +350,16 @@ if [ -n "$Q" ] && [ -n "$B" ]; then
 fi
 RQ=$(qpdf --qdf --object-streams=disable "$OUT/replace.pdf" - 2>/dev/null)
 check "Replace text proposes the words typed: a caret holding them and the selection struck out, grouped" "echo \"\$RQ\" | grep -aq '/Subtype /Caret' && echo \"\$RQ\" | grep -aq '/Contents (slow)' && echo \"\$RQ\" | grep -aq '/RT /Group'"
+# Insert text after… (the 8th button): "Page" selected (at the line's start: the bar is not pushed back from the
+# window's edge), "red" typed: a caret holding it, nothing more struck out.
+F=$(span Page 1020x700+255+90)
+if [ -n "$F" ]; then
+    set -- $F; FX=$(( $1 + 1 )); FY=$3; FE=$(( $2 - 1 ))
+    xdotool mousemove $FX $FY mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( FX + (FE - FX) * i / 5 )) $FY; sleep 0.05; done; xdotool mouseup 1; sleep 1
+    click $(( FX + 227 )) $(( FY - 36 )) 1; xdotool type --delay 30 "red"; key Return; sleep 1.5; key ctrl+s; sleep 2
+fi
+IQ=$(qpdf --qdf --object-streams=disable "$OUT/replace.pdf" - 2>/dev/null)
+check "Insert text proposes the words after the selection, nothing struck out ($(echo "$IQ" | grep -ac '/Subtype /StrikeOut') strike-out)" "echo \"\$IQ\" | grep -aq '/Contents (red)' && [ \"\$(echo \"\$IQ\" | grep -ac '/Subtype /Caret')\" = 2 ] && [ \"\$(echo \"\$IQ\" | grep -ac '/Subtype /StrikeOut')\" = 1 ]"
 quit
 
 # 47. PDF to HTML or text (wrench, "html or text" typed), Markdown chosen: the .md holds each page's words in order.

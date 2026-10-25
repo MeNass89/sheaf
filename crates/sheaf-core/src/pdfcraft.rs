@@ -32,6 +32,12 @@ impl Doc {
     /// failure is [`OpdfError::Engine`].
     pub fn open(input: &Input) -> Result<Doc> {
         let mut session = Session::new();
+        // The certificates trusted for signing (Acrobat's Trusted Certificates): signatures they
+        // made validate.
+        let trusted = trusted_certificates();
+        if !trusted.is_empty() {
+            session.set_trusted_certificates(trusted);
+        }
         let id = open_in(&mut session, input)?;
         Ok(Doc { session, id })
     }
@@ -119,6 +125,37 @@ impl Doc {
         let bytes = self.session.save_bytes(self.id).map_err(engine_err)?;
         write_verbatim(&bytes, out)
     }
+}
+
+/// Where the certificates trusted for signing are kept (one DER file each), set once by the app.
+static TRUST_DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+/// Sets the folder of trusted certificates (the app's data folder's `trusted`).
+pub fn set_trust_dir(dir: std::path::PathBuf) {
+    let _ = TRUST_DIR.set(dir);
+}
+
+/// The trusted certificates: every file of the trust folder that parses as one.
+pub fn trusted_certificates() -> Vec<engine::sign::Certificate> {
+    let Some(dir) = TRUST_DIR.get() else { return Vec::new() };
+    let mut files: Vec<_> = std::fs::read_dir(dir).map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).collect()).unwrap_or_default();
+    files.sort();
+    files.iter().filter_map(|p| std::fs::read(p).ok()).filter_map(|der| engine::sign::Certificate::parse(&der).ok()).collect()
+}
+
+/// Trusts certificate `der` from now on (Acrobat's Add to Trusted Certificates): kept in the trust
+/// folder under a name of its own. Returns whether it was added (false: already there, or no folder).
+pub fn trust_certificate(der: &[u8]) -> Result<bool> {
+    let Some(dir) = TRUST_DIR.get() else { return Ok(false) };
+    if trusted_certificates().iter().any(|c| c.raw == der) {
+        return Ok(false);
+    }
+    std::fs::create_dir_all(dir)?;
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    der.hash(&mut h);
+    std::fs::write(dir.join(format!("{:016x}.cer", h.finish())), der)?;
+    Ok(true)
 }
 
 fn open_in(session: &mut Session, input: &Input) -> Result<DocId> {

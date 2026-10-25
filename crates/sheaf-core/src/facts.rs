@@ -55,7 +55,9 @@ pub fn read(bytes: &[u8], password: Option<&str>) -> Facts {
     if let Ok(info) = doc.trailer.get(b"Info").and_then(|o| doc.dereference(o).map(|(_, o)| o.clone())).and_then(|o| o.as_dict().cloned()) {
         f.created = date(&info, b"CreationDate");
         f.modified = date(&info, b"ModDate");
-        const STANDARD: [&[u8]; 9] = [b"Title", b"Author", b"Subject", b"Keywords", b"Creator", b"Producer", b"CreationDate", b"ModDate", b"Trapped"];
+        // Creator and Producer are listed with them, so they can be changed too (the dates and
+        // /Trapped are the reader's and the writer's own).
+        const STANDARD: [&[u8]; 7] = [b"Title", b"Author", b"Subject", b"Keywords", b"CreationDate", b"ModDate", b"Trapped"];
         f.custom = info
             .iter()
             .filter(|(k, _)| !STANDARD.contains(&k.as_slice()))

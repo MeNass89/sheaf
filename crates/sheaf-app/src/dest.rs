@@ -47,9 +47,9 @@ pub fn out_name(tool: ToolId, input: &Path, opts: &ToolOptions) -> String {
     jobs::default_name(tool, &stem(input))
 }
 
-/// PDF to HTML or text's format: 0 web page, 1 Markdown, 2 rich text, 3 plain text.
+/// PDF to HTML or text's format: 0 web page, 1 Markdown, 2 rich text, 3 plain text, 4 XML.
 pub fn text_format(opts: &ToolOptions) -> Office {
-    [Office::Html, Office::Markdown, Office::Rtf, Office::Text][opts.text_format.clamp(0, 3) as usize]
+    [Office::Html, Office::Markdown, Office::Rtf, Office::Text, Office::Xml][opts.text_format.clamp(0, 4) as usize]
 }
 
 /// Why a typed output name cannot be a file name on every system, or `None` when it can (empty
@@ -108,6 +108,7 @@ pub fn save_filter(tool: ToolId, opts: &ToolOptions) -> (&'static str, &'static 
             Office::Markdown => ("Markdown", "md"),
             Office::Rtf => ("Rich text", "rtf"),
             Office::Text => ("Plain text", "txt"),
+            Office::Xml => ("XML", "xml"),
             _ => ("Web page", "html"),
         },
         ToolId::PdfToWord => ("Word document", "docx"),

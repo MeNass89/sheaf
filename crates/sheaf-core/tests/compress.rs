@@ -345,3 +345,19 @@ fn the_same_picture_embedded_twice_is_kept_once() {
     let x = res.get(b"XObject").unwrap().as_dict().unwrap();
     assert_eq!(x.get(b"Im0").unwrap().as_reference().unwrap(), x.get(b"Im1").unwrap().as_reference().unwrap());
 }
+
+#[test]
+fn compress_says_how_far_it_is_and_stops_when_cancelled() {
+    let t = tempfile::tempdir().unwrap();
+    let a = photo_pdf(t.path());
+    let mut seen = Vec::new();
+    compress_with(&Input::new(&a), Level::Recommended, &t.path().join("c.pdf"), &mut |p| {
+        seen.push(p);
+        true
+    })
+    .unwrap();
+    assert!(seen.len() >= 2 && seen.windows(2).all(|w| w[0] <= w[1]) && seen.last() == Some(&1.0), "{seen:?}");
+    let out = t.path().join("cancelled.pdf");
+    let r = compress_with(&Input::new(&a), Level::Recommended, &out, &mut |_| false);
+    assert!(matches!(r, Err(sheaf_core::OpdfError::Cancelled)) && !out.exists());
+}

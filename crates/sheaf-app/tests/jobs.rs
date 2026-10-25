@@ -388,14 +388,17 @@ fn compare_job_shows_the_counts() {
     let src = two_page_pdf(dir.path());
     let text = helvetica_pdf(dir.path());
     let no = AtomicBool::new(false);
-    let o = run(&Job::Compare { old: Input::new(&text), new: Input::new(&text), mode: CompareMode::Text, out: dir.path().join("c.pdf") }, &no, &|_| {}).unwrap();
+    let o = run(&Job::Compare { old: Input::new(&text), new: Input::new(&text), mode: CompareMode::Text, out: dir.path().join("c.pdf"), pages: [None, None] }, &no, &|_| {}).unwrap();
     assert_eq!(o.summary, "No differences: the documents' text is identical.");
     assert_eq!(o.outputs.len(), 1);
-    let o = run(&Job::Compare { old: Input::new(&src), new: Input::new(&text), mode: CompareMode::Overlay, out: dir.path().join("o.pdf") }, &no, &|_| {}).unwrap();
+    let o = run(&Job::Compare { old: Input::new(&src), new: Input::new(&text), mode: CompareMode::Overlay, out: dir.path().join("o.pdf"), pages: [None, None] }, &no, &|_| {}).unwrap();
     // The page-number-free image PDF has no words: every word of the new one is added. Its red
     // picture is gone too, a change no word accounts for: outlined. Its second page has no
     // counterpart: said.
     assert_eq!(o.summary, "1 added, 0 removed, 0 changed; 1 other changed area outlined; 1 page removed at the end");
+    // Its first page only against the other: no page left over.
+    let o = run(&Job::Compare { old: Input::new(&src), new: Input::new(&text), mode: CompareMode::Overlay, out: dir.path().join("p.pdf"), pages: [Some("1".into()), None] }, &no, &|_| {}).unwrap();
+    assert_eq!(o.summary, "1 added, 0 removed, 0 changed; 1 other changed area outlined");
 }
 
 #[test]

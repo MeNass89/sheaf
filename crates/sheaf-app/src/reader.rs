@@ -618,18 +618,32 @@ pub fn closed_shape(kind: i32) -> bool {
     matches!(kind, 4 | 5 | 9)
 }
 
-/// A measure's label in true size (PDF points, 72 to the inch, in cm): a distance or perimeter
-/// along the points (kind 7, 8), an area inside them (9). `unit`: the page's /UserUnit, points
-/// per user-space unit (Sol, 25/10: a page at 2 read half its lengths).
-pub fn measure_label(kind: i32, pts: &[[f64; 2]], unit: f64) -> String {
-    let cm = 2.54 / 72.0 * unit;
+/// The Measuring tools' scales (Acrobat's Scale Ratio): paper to real, and the real unit.
+pub const MEASURE_SCALES: [(f64, &str); 8] = [(1.0, "cm"), (1.0, "in"), (50.0, "m"), (100.0, "m"), (200.0, "m"), (500.0, "m"), (1000.0, "m"), (25000.0, "km")];
+
+/// Real units per user-space unit at scale `k` of [`MEASURE_SCALES`] on a page whose /UserUnit
+/// is `user_unit` (points per user-space unit; Sol, 25/10: a page at 2 read half its lengths).
+pub fn measure_factor(k: usize, user_unit: f64) -> (f64, &'static str) {
+    let (ratio, unit) = MEASURE_SCALES[k.min(MEASURE_SCALES.len() - 1)];
+    let cm_per_unit = match unit {
+        "in" => 2.54,
+        "m" => 100.0,
+        "km" => 100_000.0,
+        _ => 1.0,
+    };
+    (2.54 / 72.0 * user_unit * ratio / cm_per_unit, unit)
+}
+
+/// A measure's label: a distance or perimeter along the points (kind 7, 8), an area inside them
+/// (9), `per_unit` real `unit`s for each user-space unit ([`measure_factor`]).
+pub fn measure_label(kind: i32, pts: &[[f64; 2]], (per_unit, unit): (f64, &str)) -> String {
     match kind {
         9 => {
             let n = pts.len();
             let twice: f64 = (0..n).map(|i| pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1]).sum();
-            format!("{:.2} cm²", (twice / 2.0).abs() * cm * cm)
+            format!("{:.2} {unit}²", (twice / 2.0).abs() * per_unit * per_unit)
         }
-        _ => format!("{:.2} cm", pts.windows(2).map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1])).sum::<f64>() * cm),
+        _ => format!("{:.2} {unit}", pts.windows(2).map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1])).sum::<f64>() * per_unit),
     }
 }
 
@@ -795,12 +809,16 @@ mod tests {
     #[test]
     fn measures_read_in_true_size() {
         // One inch along, then a 72 × 72 pt square: 2.54 cm, 6.45 cm².
-        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], 1.0), "2.54 cm");
-        assert_eq!(measure_label(8, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0]], 1.0), "5.08 cm");
-        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], 1.0), "6.45 cm²");
+        let true_size = measure_factor(0, 1.0);
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], true_size), "2.54 cm");
+        assert_eq!(measure_label(8, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0]], true_size), "5.08 cm");
+        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], true_size), "6.45 cm²");
         // A page whose /UserUnit is 2: each unit is two points.
-        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], 2.0), "5.08 cm");
-        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], 2.0), "25.81 cm²");
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], measure_factor(0, 2.0)), "5.08 cm");
+        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], measure_factor(0, 2.0)), "25.81 cm²");
+        // A plan at 1:100 in metres: 1 inch of paper is 2.54 m; in inches, 1 inch is 1 inch.
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], measure_factor(3, 1.0)), "2.54 m");
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], measure_factor(1, 1.0)), "1.00 in");
         assert!(closed_shape(9) && closed_shape(5) && !closed_shape(6) && !closed_shape(7));
     }
 

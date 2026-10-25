@@ -82,7 +82,8 @@ pub enum Job {
     PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel },
     Ocr { items: Vec<(Input, PathBuf)>, options: OcrOptions },
     Export { items: Vec<(Input, PathBuf)>, kind: ExportKind, options: ExportOptions },
-    Compare { old: Input, new: Input, mode: CompareMode, out: PathBuf },
+    /// `pages`: the pages of the original and of the changed document compared (none: all).
+    Compare { old: Input, new: Input, mode: CompareMode, out: PathBuf, pages: [Option<String>; 2] },
     /// Areas to black out for good (search matches, rectangles, whole pages).
     Redact { input: Input, marks: Vec<Mark>, out: PathBuf },
     /// A signature in `view_box` (points, y down, on page `page` as displayed), optionally
@@ -310,8 +311,16 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             batch(each(items, cancel, progress, pair, |(i, o)| one(rotate::rotate_filtered(i, spec.as_deref(), *degrees, *filter, o))))?
         }
         Job::Compress { items, level } => {
+            let n = items.len() as f32;
+            let started = std::cell::Cell::new(0usize);
             batch(each(items, cancel, progress, pair, |(i, o)| {
-                let rep = compress::compress(i, *level, o)?;
+                let k = started.get() as f32;
+                started.set(started.get() + 1);
+                // Progress within the file, and a cancel that stops between its pictures.
+                let rep = compress::compress_with(i, *level, o, &mut |p| {
+                    progress((k + p) / n);
+                    !cancel.load(Ordering::Relaxed)
+                })?;
                 was_encrypted |= rep.was_encrypted;
                 grew |= rep.grew;
                 Ok(vec![rep.path])
@@ -418,8 +427,18 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             }
             outs
         }
-        Job::Compare { old, new, mode, out } => {
-            let r = compare::compare(old, new, *mode, out)?;
+        Job::Compare { old, new, mode, out, pages: chosen } => {
+            // Pages chosen in either document (Acrobat compares page ranges): those pages only, as
+            // a document of their own.
+            let tmp = tempfile::tempdir()?;
+            let part = |i: &Input, spec: &Option<String>, name: &str| -> Result<Input> {
+                match spec.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+                    Some(s) => Ok(Input { path: pages::extract(i, s, &tmp.path().join(name))?, password: None }),
+                    None => Ok(i.clone()),
+                }
+            };
+            let (old, new) = (part(old, &chosen[0], "original.pdf")?, part(new, &chosen[1], "changed.pdf")?);
+            let r = compare::compare(&old, &new, *mode, out)?;
             was_encrypted |= r.was_encrypted;
             summary = r.summary();
             progress(1.0);

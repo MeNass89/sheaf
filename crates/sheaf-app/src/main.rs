@@ -177,6 +177,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_link_urls, |ui, id| reader_ui::link_urls(&ui, id));
     rb.on_field_kind(reader_ui::field_kind);
     wire_global!(ui, rb, on_detect_fields, |ui, id| reader_ui::detect_fields(&ui, id));
+    wire_global!(ui, rb, on_tab_order, |ui, id, o| reader_ui::tab_order(&ui, id, o));
+    wire_global!(ui, rb, on_copy_image, |ui, id, cut| reader_ui::copy_image(&ui, id, cut));
     wire_global!(ui, rb, on_sanitize, |ui, id| reader_ui::sanitize(&ui, id));
     wire_global!(ui, rb, on_field_props, |ui, id, name, tip, req, ro, ml, opts, size, align, act, url| reader_ui::field_props(&ui, id, &name, &tip, req, ro, ml, &opts, (&size, align), (act, &url)));
     wire_global!(ui, rb, on_field_delete, |ui, id| reader_ui::field_delete(&ui, id));
@@ -184,6 +186,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_nudge, |ui, id, dx, dy| reader_ui::nudge(&ui, id, dx, dy));
     rb.on_link_selection(reader_ui::link_selection);
     rb.on_replace_selection(reader_ui::replace_selection);
+    rb.on_insert_after_selection(reader_ui::insert_after_selection);
     rb.on_hover(reader_ui::hover);
     wire_global!(ui, rb, on_close, |ui, id| flow::close_tab(&ui, id));
     wire_global!(ui, rb, on_close_all, |ui, id| flow::close_tabs_around(&ui, id, 3));
@@ -223,6 +226,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_annot_status, |ui, id, k, s| reader_ui::annot_status(&ui, id, k, s));
     rb.on_props_cancel(reader_ui::props_cancel);
     wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k, c| reader_ui::props_save(&ui, id, &t, &a, &s, &k, &c));
+    wire_global!(ui, rb, on_open_signed, |ui, id, k| reader_ui::open_signed(&ui, id, k));
+    rb.on_trust_signature(reader_ui::trust_signature);
     rb.on_print_cancel(reader_ui::print_cancel);
     wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t, paper, o| reader_ui::print(&ui, id, p, c, m, &r, f, t, paper, o));
     wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));

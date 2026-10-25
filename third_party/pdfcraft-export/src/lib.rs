@@ -629,15 +629,21 @@ fn drop_unused_edges(cols: &mut Vec<f64>, rows: &mut [Vec<Cell>]) {
 
 /// Sheaf: a paragraph's text, its runs joined (a space where neither has one at the join).
 fn para_text(bs: &[&Block]) -> String {
-    let mut t = String::new();
+    para_runs(bs).into_iter().map(|(_, t)| t).collect()
+}
+
+/// Sheaf: a paragraph's runs, each with its text as joined in [`para_text`] (a space before it
+/// where neither side has one), for writers that keep each run's own style.
+fn para_runs<'a>(bs: &[&'a Block]) -> Vec<(&'a Block, String)> {
+    let mut out: Vec<(&Block, String)> = Vec::new();
+    let mut ends_space = true;
     for b in bs {
         // Runs read with their paragraph carry their own spaces ("doul" + "eurs" is one word).
-        if !t.is_empty() && b.para == 0 && !t.ends_with(char::is_whitespace) && !b.text.starts_with(char::is_whitespace) {
-            t.push(' ');
-        }
-        t.push_str(&b.text);
+        let space = !out.is_empty() && b.para == 0 && !ends_space && !b.text.starts_with(char::is_whitespace);
+        out.push((b, if space { format!(" {}", b.text) } else { b.text.clone() }));
+        ends_space = b.text.ends_with(char::is_whitespace) || (b.text.is_empty() && ends_space);
     }
-    t
+    out
 }
 
 fn items(pages: &[Page]) -> Vec<Item<'_>> {
@@ -1429,17 +1435,21 @@ pub fn rtf(pages: &[Page]) -> String {
     }
     for it in items {
         match it {
+            // Sheaf: each run in its own size, weight, slant and colour (a bold word stays bold).
             Item::Para(bs, _) => {
-                let b = bs[0];
-                let mut fmt = format!("\\fs{}", (b.size * 2.0).round() as i64);
-                if b.bold {
-                    fmt.push_str("\\b");
+                s.push_str("{\\pard");
+                for (b, text) in para_runs(&bs) {
+                    let mut fmt = format!("\\fs{}", (b.size * 2.0).round() as i64);
+                    if b.bold {
+                        fmt.push_str("\\b");
+                    }
+                    if b.italic {
+                        fmt.push_str("\\i");
+                    }
+                    fmt.push_str(&cf(b.color));
+                    s.push_str(&format!("{{{fmt} {}}}", rtf_text(&text)));
                 }
-                if b.italic {
-                    fmt.push_str("\\i");
-                }
-                fmt.push_str(&cf(b.color));
-                s.push_str(&format!("{{\\pard{fmt} {}\\par}}\n", rtf_text(&para_text(&bs))));
+                s.push_str("\\par}\n");
             }
             Item::Table(t) => {
                 let mut edges = t.cols.clone();
@@ -1500,6 +1510,46 @@ pub fn text(pages: &[Page]) -> String {
         }
     }
     s.retain(|c| c == '\u{c}' || allowed(c));
+    s
+}
+
+/// Sheaf: the document as structured XML (Acrobat's Export ▸ XML 1.0): pages holding headings
+/// (`h1`…), paragraphs (`p`, with `bold`, `italic`, `size`), tables (`table`, `row`, `cell` and its
+/// `span`) and pictures (`image`, their size in points), in reading order.
+pub fn xml(pages: &[Page], title: &str) -> String {
+    let mut s = format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<document title=\"{}\">\n<page number=\"1\">\n", esc(title));
+    let mut n = 1;
+    for it in items(pages) {
+        match it {
+            Item::Para(bs, lvl) => {
+                let b = bs[0];
+                let t = esc(&para_text(&bs));
+                match lvl {
+                    0 => s.push_str(&format!("  <p size=\"{:.1}\"{}{}>{t}</p>\n", b.size, if b.bold { " bold=\"true\"" } else { "" }, if b.italic { " italic=\"true\"" } else { "" })),
+                    l => s.push_str(&format!("  <h{l}>{t}</h{l}>\n")),
+                }
+            }
+            Item::Table(t) => {
+                s.push_str("  <table>\n");
+                for row in &t.rows {
+                    s.push_str("    <row>");
+                    for c in row {
+                        let span = if c.span > 1 { format!(" span=\"{}\"", c.span) } else { String::new() };
+                        s.push_str(&format!("<cell{span}>{}</cell>", esc(&c.text)));
+                    }
+                    s.push_str("</row>\n");
+                }
+                s.push_str("  </table>\n");
+            }
+            Item::Img(im) => s.push_str(&format!("  <image width=\"{:.0}\" height=\"{:.0}\"/>\n", im.size[0], im.size[1])),
+            Item::PageBreak => {
+                n += 1;
+                s.push_str(&format!("</page>\n<page number=\"{n}\">\n"));
+            }
+        }
+    }
+    s.push_str("</page>\n</document>\n");
+    s.retain(allowed);
     s
 }
 
@@ -1593,6 +1643,15 @@ mod tests {
                 size: [200.0, 150.0],
                 rotation: 0.0,
             }],
+        }
+    }
+
+    #[test]
+    fn xml_holds_each_page_with_its_headings_paragraphs_and_pictures() {
+        let x = xml(&[page(), page()], "R&D");
+        assert!(x.starts_with("<?xml") && x.contains("<document title=\"R&amp;D\">") && x.ends_with("</page>\n</document>\n"), "{x}");
+        for t in ["<page number=\"2\">", "<h1>Annual Report</h1>", "<p size=\"11.0\">Some &lt;body&gt; text", "<image width=\"200\" height=\"150\"/>"] {
+            assert!(x.contains(t), "{t} missing in {x}");
         }
     }
 
@@ -1798,6 +1857,14 @@ mod tests {
         let xml = part(&docx(&[t.clone()], "Grid"), "word/document.xml");
         assert!(xml.contains("<w:color w:val=\"FF0000\"/>"), "{xml}");
         assert!(html(&[t], "Grid").contains("style=\"color:#FF0000\""));
+    }
+
+    #[test]
+    fn rtf_keeps_each_runs_own_style() {
+        let run = |t: &str, x: f64, bold: bool, color: [f64; 3]| Block { font: String::new(), para: 7, text: t.into(), rect: [x, 500.0, x + 60.0, 511.0], size: 11.0, bold, italic: false, color, rotation: 0.0 };
+        let p = Page { rules: Vec::new(), fills: Vec::new(), width: 612.0, height: 792.0, blocks: vec![run("Plain then ", 72.0, false, [0.0; 3]), run("bold", 140.0, true, [0.0; 3]), run(" red.", 170.0, false, [1.0, 0.0, 0.0])], images: Vec::new() };
+        let r = rtf(&[p]);
+        assert!(r.contains("{\\fs22 Plain then }{\\fs22\\b bold}{\\fs22\\cf1  red.}"), "{r}");
     }
 
     #[test]

@@ -175,7 +175,7 @@ pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, requi
             options: (matches!(f.exact, 3 | 4) && !options.is_empty() && options != f.options.iter().map(|o| o.1.clone()).collect::<Vec<_>>()).then_some(options),
             quadding: (matches!(f.exact, 0 | 3 | 4) && look.1 != f.align).then_some(look.1.clamp(0, 2) as i64),
             font_size: font_size(look.0).filter(|s| matches!(f.exact, 0 | 3 | 4) && (s - f.font_size).abs() > 0.01),
-            actions: (f.exact == 5 && (click.0 != f.action || (click.0 == 3 && click.1.trim() != f.url))).then(|| click_action(click.0, click.1)),
+            actions: (f.exact == 5 && (click.0 != f.action || (click.0 >= 3 && click.1.trim() != f.url))).then(|| click_action(click.0, click.1)),
             ..Default::default()
         };
         let edit = (props != FieldProps::default()).then(|| (page, Edit::SetFieldProps { name: f.name.clone(), props: Box::new(props) }));
@@ -197,14 +197,26 @@ pub(super) fn font_size(typed: &str) -> Option<f64> {
     t.trim_end_matches("pt").trim().replace(',', ".").parse::<f64>().ok().filter(|s| (1.0..=300.0).contains(s))
 }
 
-/// A button's click as its Actions (Mouse Up): nothing, clear the form, print, open an address.
+/// A button's click as its Actions (Mouse Up): nothing, clear the form, print, open an address,
+/// submit the form to an address (Acrobat's Submit a form).
 pub(super) fn click_action(k: i32, url: &str) -> Vec<(FieldTrigger, FieldAction)> {
     match k {
         1 => vec![(FieldTrigger::MouseUp, FieldAction::Reset(Vec::new()))],
         2 => vec![(FieldTrigger::MouseUp, FieldAction::Named("Print".into()))],
         3 if !url.trim().is_empty() => vec![(FieldTrigger::MouseUp, FieldAction::Uri(url.trim().into()))],
+        4 if !url.trim().is_empty() => vec![(FieldTrigger::MouseUp, FieldAction::Submit(url.trim().into()))],
         _ => Vec::new(),
     }
+}
+
+/// Prepare form ▸ Tab order (Acrobat's Page Properties ▸ Tab Order) for every page: 0 by rows, 1 by
+/// columns, 2 the document's structure. One undo step.
+pub fn tab_order(ui: &AppWindow, tab_id: i32, order: i32) {
+    use sheaf_core::pdfcraft::engine::TabOrder;
+    let pages = update(tab_id, |_, v| (0..v.viewer.page_count()).collect::<Vec<_>>()).unwrap_or_default();
+    let order = [TabOrder::Row, TabOrder::Column, TabOrder::Structure][order.clamp(0, 2) as usize];
+    apply(ui, tab_id, Edit::SetTabOrder { pages, order }, &[], None);
+    crate::flow::toast(ui, "Tab order set for every page");
 }
 
 /// The selected field ▸ Delete (or the Delete key).
@@ -266,6 +278,7 @@ pub(super) fn form_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -
                 show: true,
                 x: c[0] as f32,
                 y: (c[1] + c[3] + 8.0) as f32,
+                top: c[1] as f32,
                 seq: r.note_seq,
                 name: f.name.clone().into(),
                 tooltip: f.tooltip.clone().into(),
@@ -286,9 +299,10 @@ pub(super) fn form_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -
     (list, props)
 }
 
-/// The required fields still empty: text and choices without a value, radio groups with none picked.
+/// The required fields still empty: text and choices without a value, check boxes unticked, radio
+/// groups with none picked.
 pub(super) fn required_empty(fields: &[reader_doc::FieldEntry]) -> Vec<String> {
-    fields.iter().filter(|f| f.required && matches!(f.exact, 0 | 2 | 3 | 4) && f.value.iter().all(|v| v.trim().is_empty() || v == "Off")).map(|f| f.name.clone()).collect()
+    fields.iter().filter(|f| f.required && matches!(f.exact, 0..=4) && f.value.iter().all(|v| v.trim().is_empty() || v == "Off")).map(|f| f.name.clone()).collect()
 }
 
 /// What the "Saved" message adds about them: ". 2 required fields are empty: Name, City".
@@ -325,10 +339,10 @@ mod tests {
 
     #[test]
     fn required_fields_left_empty_are_named_on_save() {
-        let fields = [field("Name", 0, true, &[""]), field("City", 0, true, &["Paris"]), field("Group1", 2, true, &["Off"]), field("Notes", 0, false, &[])];
+        let fields = [field("Name", 0, true, &[""]), field("City", 0, true, &["Paris"]), field("Group1", 2, true, &["Off"]), field("Notes", 0, false, &[]), field("Agree", 1, true, &[])];
         let empty = required_empty(&fields);
-        assert_eq!(empty, ["Name", "Group1"]);
-        assert_eq!(empty_note(&empty), ". 2 required fields are empty: Name, Group1");
+        assert_eq!(empty, ["Name", "Group1", "Agree"]);
+        assert_eq!(empty_note(&empty), ". 3 required fields are empty: Name, Group1, Agree");
         assert_eq!(empty_note(&empty[..1]), ". The required field Name is empty");
         assert_eq!(empty_note(&[]), "");
     }
@@ -339,5 +353,6 @@ mod tests {
         assert!(click_action(0, "").is_empty() && click_action(3, " ").is_empty());
         assert!(matches!(&click_action(3, "https://a.b")[..], [(FieldTrigger::MouseUp, FieldAction::Uri(u))] if u == "https://a.b"));
         assert!(matches!(&click_action(2, "")[..], [(_, FieldAction::Named(n))] if n == "Print"));
+        assert!(matches!(&click_action(4, "https://forms.example/in")[..], [(_, FieldAction::Submit(u))] if u == "https://forms.example/in"));
     }
 }

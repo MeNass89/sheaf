@@ -103,7 +103,8 @@ pub struct FieldEntry {
     /// Its text's alignment (0 left, 1 centre, 2 right) and size in points (0: auto).
     pub align: i32,
     pub font_size: f64,
-    /// A button's click: 0 nothing (or another action), 1 clear the form, 2 print, 3 open `url`.
+    /// A button's click: 0 nothing (or another action), 1 clear the form, 2 print, 3 open `url`,
+    /// 4 submit the form to `url`.
     pub action: i32,
     pub url: String,
     /// (page, rect in user space, the widget's "on" state for check boxes and radios, tab order).
@@ -146,6 +147,10 @@ pub struct Props {
     pub subject: String,
     pub keywords: String,
     pub about: Vec<(String, String)>,
+    /// Each signature's signed version (Acrobat's View Signed Version): who signed, how many bytes
+    /// of the file it covers, its place in the document's signatures, and whether its certificate
+    /// is trusted already.
+    pub signed: Vec<(String, usize, usize, bool)>,
 }
 
 fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
@@ -176,9 +181,21 @@ fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
         line.extend([when, s.reason.clone().unwrap_or_default()].into_iter().filter(|v| !v.is_empty()));
         line.extend(s.details.iter().map(|x| x.message.clone()));
         about.push((format!("Signature {} · {who}", k + 1), line.join(". ")));
+        // Its certificate, as Acrobat's Certificate Viewer summarises it (Sol, 25/10).
+        if let Some(c) = &s.certificate {
+            about.push((format!("Signature {} · certificate", k + 1), format!("Issued to {} by {}, valid {} to {}", c.subject.display_name(), c.issuer.display_name(), c.not_before, c.not_after)));
+        }
     }
+    let trusted = sheaf_core::pdfcraft::trusted_certificates();
+    let signed = d
+        .signatures
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s.signed && s.signed_len > 0)
+        .map(|(i, s)| (s.signer.clone().unwrap_or_else(|| "unknown signer".into()), s.signed_len, i, s.certificate.as_ref().is_none_or(|c| trusted.iter().any(|t| t.raw == c.raw))))
+        .collect();
     let get = |v: &Option<String>| v.clone().unwrap_or_default();
-    Props { title: get(&i.title), author: get(&i.author), subject: get(&i.subject), keywords: get(&i.keywords), about }
+    Props { title: get(&i.title), author: get(&i.author), subject: get(&i.subject), keywords: get(&i.keywords), about, signed }
 }
 
 /// The review status a status reply sets: Acrobat's check mark (state model Marked) is none and
@@ -295,10 +312,11 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
                 Some(B::Reset { .. }) => 1,
                 Some(B::Named(n)) if n == "Print" => 2,
                 Some(B::Uri(_)) => 3,
+                Some(B::Submit(_)) => 4,
                 _ => 0,
             },
             url: match &f.button {
-                Some(B::Uri(u)) => u.clone(),
+                Some(B::Uri(u)) | Some(B::Submit(u)) => u.clone(),
                 _ => String::new(),
             },
             widgets: f.widgets.iter().filter_map(|w| Some((w.page?, w.rect, w.on_state.clone(), w.tab))).collect(),
@@ -341,6 +359,11 @@ pub enum Op {
     Extract { parts: Vec<(Vec<usize>, PathBuf)> },
     /// Acrobat's Create Links from URLs: every web address in the text not linked yet, in `style`.
     LinkUrls { style: sheaf_core::pdfcraft::engine::LinkStyle },
+    /// Trust signature `index`'s certificate from now on (Acrobat's Add to Trusted Certificates):
+    /// the document's signatures are validated again.
+    TrustSignature { index: usize },
+    /// ⌘C on a picture picked with the Edit tool: its pixels at its own resolution, for the clipboard.
+    CopyImage { page: usize, index: usize },
     /// ⌘C in the Pages panel of a document opened with its password: its pages as a new PDF
     /// (a copy of the file's bytes would need the password to be pasted).
     CopyPages { pages: Vec<usize> },
@@ -371,6 +394,8 @@ pub enum Reply {
     Exported { to: PathBuf, error: Option<String> },
     /// The copied comment's XFDF element (`None`: it could not be written).
     Copied(Option<String>),
+    /// A picture copied: (width, height, RGBA pixels), or why not.
+    ImageCopied(Result<(u32, u32, Vec<u8>), String>),
     /// Pages copied from a document opened with its password: a new PDF of them, unprotected.
     PagesCopied(Result<(Arc<Vec<u8>>, usize), String>),
     /// A page's paragraphs and its images' boxes (user space).
@@ -514,6 +539,20 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             let x = String::from_utf8_lossy(&b);
                             if nm.is_empty() { sheaf_app::reader::xfdf_element_at(&x, page, rect) } else { sheaf_app::reader::xfdf_element(&x, &nm) }
                         })));
+                    }
+                    Op::TrustSignature { index } => {
+                        let id = doc.id();
+                        let cert = doc.document().signatures.get(index).and_then(|s| s.certificate.as_ref().map(|c| c.raw.clone()));
+                        let error = match cert {
+                            Some(der) => sheaf_core::pdfcraft::trust_certificate(&der).err().map(|e| e.to_string()),
+                            None => Some("This signature has no certificate to trust".into()),
+                        };
+                        doc.session_mut().set_trusted_certificates(sheaf_core::pdfcraft::trusted_certificates());
+                        let _ = id;
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(Vec::new()), error, applied: false, note: Some("Certificate trusted: its signatures validate".into()), preview: false });
+                    }
+                    Op::CopyImage { page, index } => {
+                        reply(Reply::ImageCopied(doc.document().page_image_rgba(page, index)));
                     }
                     Op::CopyPages { pages } => {
                         let id = doc.id();

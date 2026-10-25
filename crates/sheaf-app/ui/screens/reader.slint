@@ -362,6 +362,8 @@ export component ReaderScreen inherits Rectangle {
                             ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link… (⌘K)"; clicked => { ReaderBridge.link-selection(root.id); } }
                             // Acrobat's Replace Text: struck out, the new words in a caret note.
                             ToolButton { icon: @image-url("../icons/replace.svg"); tip: "Replace text…"; clicked => { ReaderBridge.replace-selection(root.id); } }
+                            // Acrobat's Insert Text: words proposed after the selection, nothing struck out.
+                            ToolButton { icon: @image-url("../icons/plus.svg"); tip: "Insert text after…"; clicked => { ReaderBridge.insert-after-selection(root.id); } }
                             Divider { y: 7px; }
                             // Highlight in one of the five colours straight from the selection.
                             for c[k] in root.light-colours: ColourDot {
@@ -378,7 +380,8 @@ export component ReaderScreen inherits Rectangle {
                     // Prepare form: the selected field's card, under it.
                     if root.tab.reader.field-props.show: FieldPropsCard {
                         x: max(-sv.content-x + 4px, min(root.tab.reader.field-props.x, -sv.content-x + sv.visible-width - self.width - 4px));
-                        y: root.tab.reader.field-props.y;
+                        // Above the field when it would run past the end of the pages (Sol, 25/10).
+                        y: root.tab.reader.field-props.y + self.height > root.tab.viewer-height ? max(0px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
                         props: root.tab.reader.field-props;
                         id: root.id;
                         focus-pages => { keys.focus(); }
@@ -422,7 +425,7 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : root.tab.reader.note.kind == 8 ? "Link to — a page number or a web address" : root.tab.reader.note.kind == 9 ? "Link — change where it goes, or remove it" : root.tab.reader.note.kind == 10 ? "Replace with — ↩ to propose" : "Add text";
+                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : root.tab.reader.note.kind == 8 ? "Link to — a page number or a web address" : root.tab.reader.note.kind == 9 ? "Link — change where it goes, or remove it" : root.tab.reader.note.kind == 10 ? "Replace with — ↩ to propose" : root.tab.reader.note.kind == 11 ? "Insert after — ↩ to propose" : "Add text";
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;
@@ -613,6 +616,10 @@ export component ReaderScreen inherits Rectangle {
                     clip.copy();
                     // Copying went through the hidden field: the keyboard comes back here.
                     keys.focus();
+                    return accept;
+                }
+                if (e.text == "c" || e.text == "x") && root.tab.reader.selected-image {
+                    ReaderBridge.copy-image(root.id, e.text == "x");
                     return accept;
                 }
                 if (e.text == "c" || e.text == "x") && root.tab.reader.selected-annot {

@@ -13,6 +13,22 @@ pub enum CropSpec {
     Margins { top: f64, bottom: f64, left: f64, right: f64 },
     /// Back to the full page (no crop box).
     Remove,
+    /// Acrobat's Remove White Margins: each page cut to what is drawn on it, `pad` points around.
+    WhiteMargins { pad: f64 },
+}
+
+/// The box of what is drawn in an RGBA render (any pixel visibly darker than white), in pixels:
+/// [x0, y0, x1, y1] inclusive, `None` for a blank page.
+fn drawn_box(rgba: &[u8], w: usize, h: usize) -> Option<[usize; 4]> {
+    let mut b: Option<[usize; 4]> = None;
+    for (i, px) in rgba.as_chunks::<4>().0.iter().enumerate().take(w * h) {
+        let ink = px[3] > 16 && px[..3].iter().any(|c| *c < 235);
+        if ink {
+            let (x, y) = (i % w, i / w);
+            b = Some(b.map_or([x, y, x, y], |[x0, y0, x1, y1]| [x0.min(x), y0.min(y), x1.max(x), y1.max(y)]));
+        }
+    }
+    b
 }
 
 /// Millimetres to points.
@@ -47,6 +63,31 @@ pub fn crop(input: &Input, pages: Option<&str>, spec: &CropSpec, out: &Path) -> 
     };
     let edits = match *spec {
         CropSpec::Remove => vec![Edit::SetPageBox { pages: selected, which: PageBox::Crop, spec: BoxSpec::Remove }],
+        CropSpec::WhiteMargins { pad } => {
+            let d = doc.session().get(doc.id()).ok_or_else(|| crate::OpdfError::Engine("the document is not open".into()))?;
+            let config = crate::pdfcraft::render::RenderConfig { password: d.password.as_deref().map(std::sync::Arc::from), ..Default::default() };
+            let mut r = crate::pdfcraft::render::PageRenderer::new(d.bytes.clone(), config);
+            let infos = d.info.pages.clone();
+            // A blank page keeps its size.
+            selected
+                .iter()
+                .filter_map(|&p| {
+                    let info = infos.get(p)?;
+                    let px = r.render(crate::pdfcraft::render::RenderRequest { page: p, scale: 1.0, ..Default::default() });
+                    let [x0, y0, x1, y1] = drawn_box(&px.rgba, px.width as usize, px.height as usize)?;
+                    let s = px.width as f32 / info.width.max(1e-3);
+                    let (a, b) = (info.view_to_user(x0 as f32 / s, y0 as f32 / s), info.view_to_user((x1 + 1) as f32 / s, (y1 + 1) as f32 / s));
+                    let c = info.crop;
+                    let rect = [
+                        (a[0].min(b[0]) as f64 - pad).max(c[0] as f64),
+                        (a[1].min(b[1]) as f64 - pad).max(c[1] as f64),
+                        (a[0].max(b[0]) as f64 + pad).min(c[2] as f64),
+                        (a[1].max(b[1]) as f64 + pad).min(c[3] as f64),
+                    ];
+                    Some(Edit::SetPageBox { pages: vec![p], which: PageBox::Crop, spec: BoxSpec::Rect(rect) })
+                })
+                .collect()
+        }
         CropSpec::Margins { top, bottom, left, right } => {
             // One edit per rotation: the same visible margins land on different user-space edges.
             [0u16, 90, 180, 270]

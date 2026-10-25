@@ -33,6 +33,13 @@ pub struct CompressReport {
 /// user): the smaller of the recompressed save and a plain decrypted save is written. That can
 /// still be larger than the encrypted original (e.g. one packed in object streams); `grew` says so.
 pub fn compress(input: &Input, level: Level, out: &Path) -> Result<CompressReport> {
+    compress_with(input, level, out, &mut |_| true)
+}
+
+/// [`compress`], `progress` told 0..=1 as the pictures are re-encoded (most of the time); returning
+/// `false` stops with [`crate::OpdfError::Cancelled`], nothing written (Sol, 25/10: a large file
+/// showed no progress and Cancel waited for its end).
+pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<CompressReport> {
     let original = std::fs::read(&input.path)?;
     let mut doc = input.load_lopdf()?;
     let was_encrypted = doc.was_encrypted();
@@ -44,8 +51,13 @@ pub fn compress(input: &Input, level: Level, out: &Path) -> Result<CompressRepor
         .filter(|(id, _)| !masks.contains(id))
         .filter_map(|(id, o)| Some((*id, is_gray(&doc, o.as_stream().ok()?)?)))
         .collect();
+    let (total, mut done) = (kinds.len().max(1) as f32, 0.0);
     for (id, obj) in doc.objects.iter_mut() {
-        if let (Some(&gray), Ok(s)) = (kinds.get(id), obj.as_stream_mut()) { recompress(s, gray, max, q); }
+        if let (Some(&gray), Ok(s)) = (kinds.get(id), obj.as_stream_mut()) {
+            recompress(s, gray, max, q);
+            done += 1.0;
+            if !progress(0.9 * done / total) { return Err(crate::OpdfError::Cancelled); }
+        }
     }
     doc.prune_objects();
     doc.compress();
@@ -61,7 +73,9 @@ pub fn compress(input: &Input, level: Level, out: &Path) -> Result<CompressRepor
         }
     };
     let (before, after) = (original.len() as u64, bytes.len() as u64);
+    if !progress(0.95) { return Err(crate::OpdfError::Cancelled); }
     let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;
+    progress(1.0);
     Ok(CompressReport { path, before, after, already_optimal: after >= before, was_encrypted, grew: after > before })
 }
 

@@ -260,9 +260,9 @@ pub(super) fn add_poly(ui: &AppWindow, tab_id: i32) {
             7..=9 => {
                 use sheaf_core::pdfcraft::engine::measure::{Kind, NewMeasurement, Scale};
                 let kind = [Kind::Distance, Kind::Perimeter, Kind::Area][(r.shape_kind - 7) as usize];
-                let unit = v.viewer.boxes.get(page).map_or(1.0, |b| b.unit);
-                let label = reader::measure_label(r.shape_kind, &vertices, unit);
-                let scale = Scale::new(2.54 / 72.0 * unit, "cm", 2).ok()?;
+                let factor = reader::measure_factor(r.measure_scale, v.viewer.boxes.get(page).map_or(1.0, |b| b.unit));
+                let label = reader::measure_label(r.shape_kind, &vertices, factor);
+                let scale = Scale::new(factor.0, factor.1, 2).ok()?;
                 Edit::AddMeasurement(NewMeasurement { page, kind, points: vertices, scale, style, label, author: author() })
             }
             k => {
@@ -352,13 +352,27 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
 pub fn stamp_image(ui: &AppWindow, tab_id: i32) {
     let d = crate::dialog::new(ui).set_title("Choose a picture for the stamp").add_filter("Image", &["png", "jpg", "jpeg"]);
     crate::dialog::pick_file(ui, d, move |ui, p| {
-        let read = std::fs::read(&p).ok().and_then(|b| image::load_from_memory(&b).ok().map(|i| (b, i.height() as f64 / i.width().max(1) as f64)));
-        let Some((bytes, aspect)) = read else {
+        let Some(stamp) = picture_stamp(&p) else {
             return crate::flow::toast(ui, "That picture could not be read (PNG or JPEG)");
         };
-        let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "stamp.png".into());
-        update(tab_id, |r, _| r.custom_stamp = Some((name, Arc::new(bytes), aspect)));
+        // Kept in the library for next time (Sol, 25/10: it lasted as long as its tab), and chosen.
+        let kept = crate::home::keep_stamp(&stamp.0, &stamp.1);
+        update(tab_id, |r, _| {
+            let first_picture = MARKS.len() + StampKind::ALL.len();
+            if let Some(k) = kept.and_then(|f| crate::home::stamp_library().iter().position(|p| *p == f)) {
+                r.stamp = first_picture + k;
+            }
+            r.custom_stamp = Some(stamp);
+        });
     });
+}
+
+/// A picture file as a stamp: (name, bytes, height / width), `None` when it is no PNG or JPEG.
+pub(super) fn picture_stamp(p: &std::path::Path) -> Option<(String, Arc<Vec<u8>>, f64)> {
+    let bytes = std::fs::read(p).ok()?;
+    let img = image::load_from_memory(&bytes).ok()?;
+    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "stamp.png".into());
+    Some((name, Arc::new(bytes), img.height() as f64 / img.width().max(1) as f64))
 }
 
 /// The Notes panel's actions: 0 hide or show every comment, 1 a summary of the comments (a PDF,
@@ -435,6 +449,19 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let d = r.draft.take()?;
         let b = &v.viewer.boxes[d.page];
         let size = b.view_size();
+        if d.kind == 11 {
+            // Insert Text: a caret after the selection's last character, holding the words.
+            let last = r.replace_quads.pop()?;
+            r.replace_quads.clear();
+            if text.is_empty() {
+                return None;
+            }
+            let (x, y0, y1) = (last[2].max(last[6]), last[5].min(last[7]), last[1].max(last[3]));
+            let rect = [x - 3.0, y0, x + 3.0, y0 + (y1 - y0) * 0.6];
+            let shape = Shape::Caret { rect };
+            let style = Style { color: INK[r.ink_colour.min(INK.len() - 1)], ..Style::default_for(&shape) };
+            return Some((d.page, Edit::AddAnnotation(NewAnnotation { page: d.page, shape, style, contents: text.clone(), author: author() })));
+        }
         if d.kind == 10 {
             // Replace Text: the words struck out, a caret after them holding the new ones (in
             // the ink colour, as Strikethrough). Nothing typed proposes nothing.
@@ -678,6 +705,20 @@ pub fn copy_comment(ui: &AppWindow, tab_id: i32, cut: bool) {
     .flatten();
     if sent.is_some() && cut {
         delete_selected(ui, tab_id);
+    }
+}
+
+/// ⌘C (⌘X, `cut`) on a picture picked with the Edit tool: its pixels go to the clipboard (Acrobat's
+/// Copy Image; Sol 25/10: picked objects could not be copied); cut, it is deleted once sent.
+pub fn copy_image(ui: &AppWindow, tab_id: i32, cut: bool) {
+    let sent = update(tab_id, |r, _| {
+        let (page, index) = r.selected_image?;
+        r.send(Op::CopyImage { page, index });
+        Some(())
+    })
+    .flatten();
+    if sent.is_some() && cut {
+        image_action(ui, tab_id, 4);
     }
 }
 
