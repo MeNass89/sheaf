@@ -580,3 +580,9 @@ Mac timing still slower than Tesseract, or OCR becoming the bottleneck of PDF to
 Codex's weekly quota stood at 13 % on 24/10 (Nassim: "just use codex"), not 89 %. **Follow-up.** Sol re-reviews the
 components closed with Opus alone since 21/10; a disagreement reopens the component. Quota read before each batch;
 stop at 90 %.
+
+## 2026-10-25 · Sol's re-review of the Opus-only closes: 48 of 126 reopened
+**What.** Sol re-read the 126 components closed since 21/10 without him (7 already had his word): 78 agree, 48
+disagree with a concrete gap and file:line each (`dev/board/reviews/sol-rereview-2026-10-25.md`). Spot checks of eight
+held. Per the joint rule each disagreement reopens its component at Sol's grades; the gap is its next task.
+**Would change it.** A gap found to be outside the component's definition: the grade goes back up with both voices.

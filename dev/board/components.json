@@ -491,12 +491,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
-   "aesthetics": 9,
+   "function": 8,
+   "aesthetics": 8,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -532,6 +532,17 @@
      "overall": 9
     },
     "proof": "All tools in one visible row with letter shortcuts, a floating options bar per tool; colours kept per tool. Joint 9/10: independent visual audit (interim reviewer) against PDF Expert / iLovePDF captures, from gui-smoke screenshots, agreed (vs pdfexpert/05-annotate-toolbar)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): À la largeur minimale de 900 px, plusieurs outils sortent de la barre sans menu de repli : dev/re/evidence/F-002/39-toolbar-900px.png, crates/sheaf-app/ui/screens/reader-toolbar.slint:55"
    }
   ]
  },
@@ -1214,12 +1225,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -1255,6 +1266,17 @@
      "overall": 9
     },
     "proof": "Text box in the format row's font (12 standard fonts, bold, italic), size and alignment, grows to keep its text, one undo step (Edit::AddTextBox, vendored pdfcraft-annot); reader_doc::tests::a_text_box_takes_a_font_grows_to_fit_and_undoes_in_one_step; gui-smoke 'a text box takes the format row's font'; 300 boxes on the 1,982-page book: edit 0.19 → 0.27 s; joint 9, 3 rounds, 22/10"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Le texte se saisit dans une fenêtre flottante puis apparaît après « Done », au lieu d’être saisi directement sur la page : crates/sheaf-app/ui/screens/reader.slint:401"
    }
   ]
  },
@@ -1388,12 +1410,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -1429,6 +1451,17 @@
      "overall": 9
     },
     "proof": "Selected text box: the row shows its font/size/alignment, each control restyles only its own setting (Edit::SetTextFont), free size typed or stepped (8–72 presets), no-op clicks add no undo, palette follows the comment; tools::tests::text_sizes_step_through_the_presets_and_can_be_typed; gui-smoke 'a selected text box takes a new font, alignment and a typed size, and grows'; joint 9 round 3"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Le choix se limite à trois familles ; changer la taille d’une boîte utilisant une autre police remplace aussi sa police : crates/sheaf-app/src/reader_ui/tools.rs:144"
    }
   ]
  },
@@ -1727,12 +1760,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -1757,6 +1790,17 @@
      "overall": 9
     },
     "proof": "Shapes tool (R): drag a rectangle or oval with a live outline; colour, width, fill, opacity; moved by drag, resized by the corner handle; gui-smoke saves a rectangle and a filled oval at 75 %"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Maj ne contraint ni le rectangle en carré ni l’ovale en cercle : crates/sheaf-app/src/reader_ui/edits.rs:210"
    }
   ]
  },
@@ -2334,12 +2378,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -2364,6 +2408,17 @@
      "overall": 9
     },
     "proof": "Dated stamps (Approved, Confidential, Received, Reviewed, Revised · DATED): 'By <author> at 11:32 am, Oct 21, 2026' in the stamp and /PCByLine (gui-smoke checks it)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Le tampon daté emploie un format fixe ; aucun choix de format n’est transmis : crates/sheaf-app/src/reader_ui/edits.rs:282"
    }
   ]
  },
@@ -2575,12 +2630,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -2616,6 +2671,17 @@
      "overall": 9
     },
     "proof": "Selected annotation recoloured from the colour row, whose dot shows its current colour (dev/re/evidence/F-002/14)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Seules cinq couleurs prédéfinies sont proposées, sans sélecteur personnalisé : crates/sheaf-app/ui/screens/reader-options.slint:171"
    }
   ]
  },
@@ -3369,12 +3435,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -3399,6 +3465,17 @@
      "overall": 9
     },
     "proof": "Notes panel: Show (All, Markup, Notes, Drawings, Stamps) and Sort (page, newest, author, type), rows keep their comment's identity (gui-smoke: the first row of Stamps deletes a stamp, shapes kept; reader::tests::notes_filter_groups)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Le filtre par statut d’Acrobat manque ; le panneau ne filtre que par grandes catégories de commentaires : crates/sheaf-app/ui/screens/reader-panel.slint:260"
    }
   ]
  },
@@ -3502,12 +3579,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -3532,6 +3609,17 @@
      "overall": 9
     },
     "proof": "Notes panel: Reply on the selected comment opens the editor (↩ sends, ⇧↩ new line); replies listed under their comment and saved as /IRT replies (reader_doc::tests::a_reply_is_listed_under_its_comment; gui-smoke saves one); review status shown when present"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Les réponses sont affichées comme un seul texte et ne peuvent pas être supprimées séparément : crates/sheaf-app/ui/screens/reader-panel.slint:332"
    }
   ]
  },
@@ -4882,12 +4970,12 @@
    175
   ],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -4912,6 +5000,17 @@
      "overall": 9
     },
     "proof": "The written comparison PDF is the change report; Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): The change report compares words only, so changed images in scanned PDFs are absent from it; `crates/sheaf-core/src/compare.rs:111`"
    }
   ]
  },
@@ -5606,12 +5705,12 @@
    99
   ],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -5691,6 +5790,17 @@
      "overall": 9
     },
     "proof": "reviewer 24/10 on 13e2b2b: MICI fiche as source on 4 pages (cells, colours, merged labels, superscripts, symbols, header/footer), corpus 25/25 (words, tables, no text boxes, page count, no PUA), 0.1 s for 4 pages, 6.6 s for 100 (debug)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): une page avec texte tourné ou filigrane devient une série de zones de texte ; même ses tableaux cessent d’être des tableaux Word éditables (`third_party/pdfcraft-export/src/lib.rs:1201`)"
    }
   ]
  },
@@ -5967,12 +6077,12 @@
    91
   ],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -5997,6 +6107,17 @@
      "overall": 9
     },
     "proof": "150/300/600 dpi, JPG or PNG, count in the result title; 72 Mpx cap, pdfium lock released while encoding (images.rs); tests/images.rs pdf_to_jpg_one_file_per_page_at_dpi; TIFF a known gap (iLovePDF has none); joint 9 round 3"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): l’outil exporte les pages rendues, mais n’offre pas le mode « Extract images » d’iLovePDF (`crates/sheaf-app/ui/screens/options.slint:574`)"
    }
   ]
  },
@@ -6531,12 +6652,12 @@
    86
   ],
   "grade": {
-   "function": 9,
-   "aesthetics": 9,
+   "function": 6,
+   "aesthetics": 8,
    "performance": 9,
-   "overall": 9
+   "overall": 6
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -6561,6 +6682,17 @@
      "overall": 9
     },
     "proof": "Offline only by design, said in the converters' info box; Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): aucun choix local/serveur ; l’information « rien n’est envoyé » n’apparaît que pour la conversion Office (`crates/sheaf-app/ui/screens/options.slint:909`)"
    }
   ]
  },
@@ -6759,12 +6891,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -6833,6 +6965,17 @@
      "overall": 9
     },
     "proof": "Click a paragraph, edit: the page shows it as typed after a 300 ms pause (reader_doc Op::Preview; PdfCraft Session::preview/withdraw keep redo, oldest undo and dirty), whole paragraph rewraps (soft_breaks), styles kept across edits (Myers), runs touching mid-word kept together, substitute-font and '?' notices; ⌘↩ one undo step, Escape leaves no trace, ⌘S commits typed text, print refused mid-edit. Tests: edit_text.rs, reader_doc preview test, gui-smoke 2e. Reviewer (Opus) agreed 9/9/9."
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Vider un paragraphe puis faire ⌘S ne valide pas sa suppression : le texte vide est ignoré dans crates/sheaf-app/src/reader_ui/saving.rs:9"
    }
   ]
  },
@@ -7795,12 +7938,12 @@
    113
   ],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -7825,6 +7968,17 @@
      "overall": 9
     },
     "proof": "⌘S saves edits in place (incremental, validated by check_save), Save As copies; gui-smoke checks every saved file with qpdf/pdftotext"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): « Save As » n’applique pas le paragraphe encore ouvert dans l’éditeur avant de copier le PDF : crates/sheaf-app/src/reader_ui/saving.rs:20"
    }
   ]
  },
@@ -8159,12 +8313,12 @@
    133
   ],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -8211,6 +8365,17 @@
      "overall": 9
     },
     "proof": "Live preview pinned above the options (640 px, redrawn 300 ms after a change, one page copy per file, reason shown when no mark); gui-smoke 'the watermark preview shows the mark as typed, in its colour' (0 → 116/10000 red); mosaic on the 1,982-page book 15.2 s; joint review round 5"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Le composant promet de modifier ou retirer un filigrane existant, mais le traitement ajoute toujours un nouveau filigrane (`replace: false`) : crates/sheaf-core/src/watermark.rs:191"
    }
   ]
  },
@@ -8382,12 +8547,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -8423,6 +8588,17 @@
      "overall": 9
     },
     "proof": "reviewer 25/10 on 39e2ad9: draw, from selected text (bar, ⌘K), from web addresses (skips linked), appearance with /AP, change/remove; qpdf clean; tests + gui-smoke 19/19b"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Un lien `file://` peut être créé, mais un clic ne l’ouvre pas : seuls les liens HTTP(S) et `mailto:` sont traités dans crates/sheaf-app/src/reader_ui/pointer.rs:492"
    }
   ]
  },
@@ -9866,12 +10042,12 @@
    27
   ],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -9896,6 +10072,17 @@
      "overall": 9
     },
     "proof": "⌘W closes the document tab; with unsaved edits Save / Don't Save / Cancel (dev/re/evidence/F-002/16, dev/re/evidence/F-002/17); window close asks for each dirty document"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): “Close Other Tabs” leaves edited documents open without offering Save / Don’t Save / Cancel; `crates/sheaf-app/src/flow.rs:501`"
    }
   ]
  },
@@ -10179,12 +10366,12 @@
    14
   ],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -10220,6 +10407,17 @@
      "overall": 9
     },
     "proof": "9c3df65: reviewer 9/9/9 (open documents with unsaved notice, Escape/outside cancel, edge scroll; gui-smoke 21, 21b, 21c)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Compare cannot take PDFs already open in reader tabs; `crates/sheaf-app/src/flow.rs:85`"
    }
   ]
  },
@@ -10260,12 +10458,12 @@
    18
   ],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -10301,6 +10499,17 @@
      "overall": 9
     },
     "proof": "Same PasswordDialog as the reader (proven by smoke), probe_failures_are_routed_per_tool, jobs encrypted-input tests; joint review"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Sign rejects a protected PDF instead of asking for its password; `crates/sheaf-app/src/files.rs:287`"
    }
   ]
  },
@@ -10639,12 +10848,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -10669,6 +10878,17 @@
      "overall": 9
     },
     "proof": "Clear form resets every field, undoable (dev/re/evidence/F-004/05)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): « Clear form » efface immédiatement, sans la confirmation prévue par la définition : crates/sheaf-app/ui/screens/reader-options.slint:182"
    }
   ]
  },
@@ -10813,12 +11033,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -10843,6 +11063,17 @@
      "overall": 9
     },
     "proof": "Fillable fields tinted light blue in the reader, as PDF Expert/Acrobat (dev/re/evidence/F-004/01)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): La teinte des champs est automatique en mode Select ; aucune commande ne permet de l’activer ou de la désactiver : crates/sheaf-app/src/reader_ui/model.rs:132"
    }
   ]
  },
@@ -13783,12 +14014,12 @@
    55
   ],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -13813,6 +14044,17 @@
      "overall": 9
     },
     "proof": "Duplicate the selected pages after them; page count checked with qpdf"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): L’action ne fait que dupliquer les pages dans le même document ; elle ne permet pas de les copier vers un autre document comme le prévoit la définition : crates/sheaf-app/src/reader_ui/pages.rs:53"
    }
   ]
  },
@@ -13888,12 +14130,12 @@
    50
   ],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -13918,6 +14160,17 @@
      "overall": 9
     },
     "proof": "Extract the selection to a new PDF named 'name - page 3.pdf' in a Save dialog; it opens in its own tab (dev/re/evidence/F-003/03, dev/re/evidence/F-003/04)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): L’extraction produit un seul PDF et laisse toujours la source intacte ; les options « un fichier par page » et « retirer de la source » manquent : crates/sheaf-app/src/reader_ui/pages.rs:93"
    }
   ]
  },
@@ -14946,12 +15199,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -14998,6 +15251,17 @@
      "overall": 9
     },
     "proof": "⌘S incremental save 1.1 s on 70 MB, Saved toast, save button state, unsaved prompt. Joint 9/10: independent visual audit (interim reviewer) against PDF Expert / iLovePDF captures, from gui-smoke screenshots, agreed"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): ⌘S ignore un paragraphe vidé dans l’éditeur : le filtre écarte le texte vide avant de valider la modification (`crates/sheaf-app/src/reader_ui/saving.rs:9`)"
    }
   ]
  },
@@ -15279,12 +15543,12 @@
    208
   ],
   "grade": {
-   "function": 9,
-   "aesthetics": 9,
+   "function": 8,
+   "aesthetics": 8,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -15309,6 +15573,17 @@
      "overall": 9
     },
     "proof": "Result screen at parity with iLovePDF's: output card (name, size, pages, '-17 %'), Continue to… list, size before → after, restart, Open folder; dev/re/evidence/F-001/sheaf-compress-result.png beside dev/re/evidence/ilovepdf/05c-compress-result.png"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): après un lot partiellement échoué, le bandeau annonce quand même une réussite complète, bien que les échecs soient listés (`crates/sheaf-app/src/state.rs:416`)"
    }
   ]
  },
@@ -16972,12 +17247,12 @@
    217
   ],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -17013,6 +17288,17 @@
      "overall": 9
     },
     "proof": "gui-smoke Dark then Light switch the window; joint review (commit 43f1fff)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): les choix système/clair/sombre existent, mais la couleur d’accent et celle du fond de fenêtre demandées ne sont pas réglables (`crates/sheaf-app/ui/screens/preferences.slint:125`)"
    }
   ]
  },
@@ -17409,12 +17695,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -17439,6 +17725,17 @@
      "overall": 9
     },
     "proof": "Preferences ▸ Annotations ▸ Author name (placeholder: the login name, used when empty, as Acrobat/PDF Expert); gui-smoke: typed name kept in prefs.json, default author written into a saved note"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): le nom choisi sert aux annotations ; il ne renseigne pas l’auteur des documents, modifié séparément dans leurs propriétés (`crates/sheaf-app/src/home.rs:319`)"
    }
   ]
  },
@@ -18434,12 +18731,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -18475,6 +18772,17 @@
      "overall": 9
     },
     "proof": "⌘8 / toolbar fit page; kept when the window is resized (80 % → 63 %, dev/re/evidence/F-002/38)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): « Fit page » s’arrête à 25 % ; une page très haute ne tient donc pas entière dans la fenêtre (crates/sheaf-app/src/viewer.rs:392)"
    }
   ]
  },
@@ -18919,12 +19227,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -18960,6 +19268,17 @@
      "overall": 9
     },
     "proof": "Reopens on the page, zoom (a chosen zoom; Fit width/page refit) and two-page mode it was left in, as PDF Expert (gui-smoke: closed in two pages, reopens in two pages); fixed: small files lost the page (document thread answered first)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Le zoom et la page sont mémorisés par document, mais le zoom par défaut reste fixé à « Fit width » sans préférence réglable (crates/sheaf-app/src/reader_ui/mod.rs:395)"
    }
   ]
  },
@@ -19134,12 +19453,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -19164,6 +19483,17 @@
      "overall": 9
     },
     "proof": "Toolbar: Two pages — pages in pairs, the page in view kept in view, Fit width / Fit page per page, hit testing, edits and search unchanged (viewer::tests two_pages_side_by_side_and_the_cover_alone; gui-smoke samples the gap between the pages). On the 1,982-page book: instant"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Les spreads imposent l’ordre gauche-droite ; le mode droite-gauche prévu dans la définition manque (crates/sheaf-app/src/viewer.rs:321)"
    }
   ]
  },
@@ -19725,12 +20055,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -19755,6 +20085,17 @@
      "overall": 9
     },
     "proof": "⌘[ / ⌘] after a page jump, link or outline: 27 → 420 → 27 → 420 (dev/re/evidence/F-002/22)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): L’historique ne garde que le numéro de page : revenir après un saut perd la position précise dans cette page (crates/sheaf-app/src/reader_ui/nav.rs:48)"
    }
   ]
  },
@@ -19830,12 +20171,12 @@
    179
   ],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -19860,6 +20201,17 @@
      "overall": 9
     },
     "proof": "Panel button and ⌥⌘0 hide/show the side panel (dev/re/evidence/F-002/28)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Le panneau s’ouvre et se ferme, mais sa largeur reste fixée à 248 px ; il ne se redimensionne pas (crates/sheaf-app/ui/screens/reader.slint:38)"
    }
   ]
  },
@@ -20133,12 +20485,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -20174,6 +20526,17 @@
      "overall": 9
     },
     "proof": "Outline tree with chevrons, page labels, current entry; add, rename, delete bookmarks. Joint 9/10: independent visual audit (interim reviewer) against PDF Expert / iLovePDF captures, from gui-smoke screenshots, agreed (vs pdfexpert/04a)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Un clic sur une entrée du plan ignore sa destination précise et revient en haut de la page, même si le signet vise un point plus bas (crates/sheaf-app/src/reader_ui/tools.rs:316)"
    }
   ]
  },
@@ -20228,12 +20591,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 6,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 6
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -20258,6 +20621,17 @@
      "overall": 9
     },
     "proof": "Outline panel: + Bookmark (the page in view, in page order), rename in place (double-click or pencil; ↩ / Escape), delete (with what is under it); PdfCraft Add/Rename/DeleteBookmark (reader_doc::tests::bookmarks_are_added_renamed_and_deleted; gui-smoke adds and renames one)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): L’interface crée seulement un signet de la page courante ; elle ne permet ni de partir du texte sélectionné, ni de changer sa destination ou son ordre (crates/sheaf-app/src/reader_ui/tools.rs:284)"
    }
   ]
  },
@@ -20391,12 +20765,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -20432,6 +20806,17 @@
      "overall": 9
     },
     "proof": "Same Notes panel (C-annotate-030): highlights, notes, ink, signatures with author and date; click jumps"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Un surlignage importé sans `/Contents` n’affiche pas son texte si la page n’a pas déjà été chargée : crates/sheaf-app/src/reader_ui/model.rs:479"
    }
   ]
  },
@@ -20580,12 +20965,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -20610,6 +20995,17 @@
      "overall": 9
     },
     "proof": "Files panel (paperclip): every attached file (document and page level) with its size; a click saves it under its name (reader_doc::tests::a_file_is_attached_listed_and_saved_back reads the bytes back). Save dialog not automatable here (xdg portal on another display)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Un clic sur une pièce jointe ouvre « Enregistrer » ; le panneau ne permet ni de l’ouvrir ni de la rechercher : crates/sheaf-app/ui/screens/reader-panel.slint:224"
    }
   ]
  },
@@ -20779,10 +21175,10 @@
   "grade": {
    "function": 9,
    "aesthetics": 9,
-   "performance": 9,
-   "overall": 9
+   "performance": 8,
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -20840,6 +21236,17 @@
      "overall": 9
     },
     "proof": "Search on the 1,982-page book (reader_doc::tests::search_cost_on_a_big_file): results stream from the first pages within 0.5 s; the whole book in 12.6 s on 2 vCPUs (was 15.8 s; one reader per core, up to 4); every later search 1.5 ms (texts kept). gui-smoke runs a search"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Le test de performance est ignoré et n’affirme ni les 12,6 s ni l’arrivée du premier résultat sous 0,5 s : crates/sheaf-app/src/reader_doc.rs:592"
    }
   ]
  },
@@ -20912,12 +21319,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -20942,6 +21349,17 @@
      "overall": 9
     },
     "proof": "Enter / ⇧Enter / ⌘G / ⇧⌘G step through matches: 1/9 → 2/9 → 3/9 → 2/9 → 3/9 (dev/re/evidence/F-002/31)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Pendant la recherche, Entrée relance celle-ci au lieu de passer au résultat suivant : crates/sheaf-app/ui/screens/reader-toolbar.slint:234"
    }
   ]
  },
@@ -21083,12 +21501,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -21124,6 +21542,17 @@
      "overall": 9
     },
     "proof": "Results panel: page, context with the match in bold, wraps, click jumps even while the search streams (dev/re/evidence/F-002/20, dev/re/evidence/F-002/21)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): La liste s’arrête à 2 000 résultats, même si davantage de correspondances ont été trouvées : crates/sheaf-app/src/reader_ui/model.rs:272"
    }
   ]
  },
@@ -22002,12 +22431,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -22032,6 +22461,17 @@
      "overall": 9
     },
     "proof": "Each PDF opens in its own tab next to tool tabs, title = file name, × closes (dev/re/evidence/F-002/12, dev/re/evidence/F-002/17)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): L’ouverture gère des onglets dans une seule fenêtre ; déplacer ou fusionner des fenêtres manque : crates/sheaf-app/src/reader_ui/mod.rs:466"
    }
   ]
  },
@@ -22564,12 +23004,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -22594,6 +23034,17 @@
      "overall": 9
     },
     "proof": "⌘D or the info button: Document properties (Acrobat's sheet) — title, author, subject, keywords editable; pages, page size, file size, PDF version, creator, producer, security, tagged, fonts shown; Return saves, Escape cancels; gui-smoke saves a title"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Les propriétés montrent la taille de la première page, sans les boîtes de page ni le statut PDF/A : crates/sheaf-app/src/reader_doc.rs:142"
    }
   ]
  },
@@ -23154,12 +23605,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 6,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 6
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -23184,6 +23635,17 @@
      "overall": 9
     },
     "proof": "Page field shows the page label (iv) with '(4 / 12)' beside it, as Acrobat; a typed label goes to its page before a page number (gui-smoke: '1' in a book labelled i, ii, 1, 2 goes to the third page); labels in outline, notes and results rows"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Les étiquettes existantes servent à naviguer, mais aucune commande ne permet de marquer une page comme couverture ou de définir sa numérotation : crates/sheaf-app/src/reader_ui/nav.rs:73"
    }
   ]
  },
@@ -23270,12 +23732,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -23333,6 +23795,17 @@
      "overall": 9
     },
     "proof": "Prompt + wrong password (red border, message) screenshots; smoke: wrong then right password, Escape skips; joint review"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Après déverrouillage, « Security » indique seulement « Encrypted » ; les restrictions du PDF ne sont pas affichées : crates/sheaf-app/src/reader_doc.rs:149"
    }
   ]
  },
@@ -23686,12 +24159,12 @@
    153
   ],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -23716,6 +24189,17 @@
      "overall": 9
     },
     "proof": "Protect: allow printing, copying, editing, commenting, filling forms; qpdf-checked per permission. Joint 9/10: Sol built it and set on-screen validation as its condition; Claude reviewed, validated on screen and fixed: with restrictions and no permissions password a random one is set, so the open password no longer grants every right (test inverted to check it)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Impossible de limiter les droits sans imposer aussi un mot de passe d’ouverture, contrairement à Acrobat : crates/sheaf-app/ui/screens/options.slint:251"
    }
   ]
  },
@@ -24349,12 +24833,12 @@
    162
   ],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -24379,6 +24863,17 @@
      "overall": 9
     },
     "proof": "Match case / Whole words in the panel, engine and CLI, honoured by the clean-up and audit outside the page (redact::Needle); tests/redact.rs whole-words count, redact::tests scrub Ann; joint 9 round 3 (regex a Stirling extra)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Une ancienne recherche peut écraser les résultats d’une nouvelle sur le même PDF ; la réponse ne vérifie que l’identifiant du fichier : crates/sheaf-app/src/viewer_ui.rs:663"
    }
   ]
  },
@@ -24690,12 +25185,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -24720,6 +25215,17 @@
      "overall": 9
     },
     "proof": "Metadata edited in Document properties (PdfCraft SetInfo, one undo step); gui-smoke checks /Title in the saved file"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Seuls quatre champs sont modifiables ; créateur, producteur, dates et propriétés personnalisées ne le sont pas : crates/sheaf-app/src/reader_ui/properties.rs:19"
    }
   ]
  },
@@ -25502,12 +26008,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 7,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 7
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -25532,6 +26038,17 @@
      "overall": 9
     },
     "proof": "The signature is kept in the preferences and placed again with one click on any document (gui-smoke 'kept signature' PASS); New signature replaces it"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Les signatures sont conservées dans prefs.json, sans stockage sécurisé ni option d’usage unique : crates/sheaf-app/src/prefs.rs:131"
    }
   ]
  },
@@ -25573,12 +26090,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 9,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 9
+   "overall": 8
   },
-  "status": "closed",
+  "status": "open",
   "feature": null,
   "next": "—",
   "history": [
@@ -25603,6 +26120,17 @@
      "overall": 9
     },
     "proof": "Marks to fill a form: checkmark, cross, dot, line (Stamp tool, M), plus typed text (T, E) and the pen; gui-smoke places a checkmark"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Les marques prennent leur couleur par défaut à la pose ; la couleur choisie n’est pas appliquée : crates/sheaf-app/src/reader_ui/edits.rs:271"
    }
   ]
  },
