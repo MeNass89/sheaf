@@ -7,6 +7,7 @@ use sheaf_app::prefs::{OutputMode, Prefs};
 use sheaf_app::{AppWindow, ToolOptions};
 
 use crate::dialog;
+use sheaf_core::export::Office;
 use sheaf_core::tools::ToolId;
 
 /// Where the outputs go.
@@ -40,7 +41,15 @@ pub fn out_name(tool: ToolId, input: &Path, opts: &ToolOptions) -> String {
         let n = opts.out_name.trim();
         return if n.to_lowercase().ends_with(".pdf") { n.to_string() } else { format!("{n}.pdf") };
     }
+    if tool == ToolId::PdfToText {
+        return format!("{}.{}", stem(input), text_format(opts).extension());
+    }
     jobs::default_name(tool, &stem(input))
+}
+
+/// PDF to HTML or text's format: 0 web page, 1 Markdown, 2 rich text, 3 plain text.
+pub fn text_format(opts: &ToolOptions) -> Office {
+    [Office::Html, Office::Markdown, Office::Rtf, Office::Text][opts.text_format.clamp(0, 3) as usize]
 }
 
 /// Why a typed output name cannot be a file name on every system, or `None` when it can (empty
@@ -93,8 +102,14 @@ pub fn parent_dir(p: &Path) -> PathBuf {
 }
 
 /// The Save dialog's file type for `tool`'s output: (name, extension).
-pub fn save_filter(tool: ToolId) -> (&'static str, &'static str) {
+pub fn save_filter(tool: ToolId, opts: &ToolOptions) -> (&'static str, &'static str) {
     match tool {
+        ToolId::PdfToText => match text_format(opts) {
+            Office::Markdown => ("Markdown", "md"),
+            Office::Rtf => ("Rich text", "rtf"),
+            Office::Text => ("Plain text", "txt"),
+            _ => ("Web page", "html"),
+        },
         ToolId::PdfToWord => ("Word document", "docx"),
         ToolId::PdfToPowerPoint => ("PowerPoint presentation", "pptx"),
         ToolId::PdfToExcel => ("Excel workbook", "xlsx"),
@@ -110,7 +125,7 @@ pub fn ask_dest(ui: &AppWindow, tool: ToolId, inputs: &[PathBuf], opts: &ToolOpt
         let d = dialog::new(ui).set_title("Choose a folder for the files").set_directory(&dir);
         dialog::pick_folder(ui, d, move |ui, p| then(ui, Dest::Folder(p)));
     } else {
-        let (name, ext) = save_filter(tool);
+        let (name, ext) = save_filter(tool, opts);
         let d = dialog::new(ui).set_directory(&dir).set_file_name(out_name(tool, first, opts)).add_filter(name, &[ext]);
         dialog::save_file(ui, d, move |ui, p| then(ui, Dest::File(p)));
     }
@@ -159,7 +174,12 @@ mod tests {
         assert!(matches!(pref_dest(ToolId::PdfToExcel, &one, &opts(), &p), Some(Dest::File(f)) if f == dir.path().join("x.xlsx")));
         p.fixed_folder = Some(dir.path().join("gone"));
         assert!(pref_dest(ToolId::Compress, &one, &opts(), &p).is_none());
-        assert_eq!(save_filter(ToolId::PdfToWord), ("Word document", "docx"));
-        assert_eq!(save_filter(ToolId::Crop), ("PDF", "pdf"));
+        assert_eq!(save_filter(ToolId::PdfToWord, &opts()), ("Word document", "docx"));
+        assert_eq!(save_filter(ToolId::Crop, &opts()), ("PDF", "pdf"));
+        let mut md = opts();
+        md.text_format = 1;
+        assert_eq!(save_filter(ToolId::PdfToText, &md), ("Markdown", "md"));
+        assert_eq!(out_name(ToolId::PdfToText, Path::new("/a/x.pdf"), &md), "x.md");
+        assert_eq!(out_name(ToolId::PdfToText, Path::new("/a/x.pdf"), &opts()), "x.html");
     }
 }

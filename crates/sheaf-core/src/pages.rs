@@ -207,3 +207,20 @@ pub fn organize(input: &Input, order: &[u32], out: &Path) -> Result<PathBuf> {
     }
     save(&dst, out)
 }
+
+/// Whether the locale's region uses US Letter paper (CLDR's paper size data: the Americas that do,
+/// and the Philippines); everywhere else A4. `locale` as the system gives it ("en-US", "fr_CA.UTF-8").
+pub fn letter_region(locale: Option<&str>) -> bool {
+    let region = locale.and_then(|l| l.split(['.', '@']).next()).and_then(|l| l.split(['-', '_']).nth(1)).unwrap_or("");
+    ["US", "CA", "MX", "CL", "CO", "CR", "GT", "NI", "PA", "PH", "PR", "SV", "VE"].contains(&region.to_ascii_uppercase().as_str())
+}
+
+/// A new PDF of one blank page, A4 or US Letter (PDF Expert's New ▸ Blank Document), at `out`
+/// (never overwriting). Pages, text and pictures are then added in the reader.
+pub fn blank(letter: bool, out: &Path) -> Result<PathBuf> {
+    let _g = pdfium_lock();
+    let mut dst = pdfium().create_new_pdf()?;
+    let size = if letter { PdfPagePaperSize::Portrait(PdfPagePaperStandardSize::USLetterAnsiA) } else { PdfPagePaperSize::a4() };
+    dst.pages_mut().create_page_at_end(size)?;
+    save(&dst, out)
+}

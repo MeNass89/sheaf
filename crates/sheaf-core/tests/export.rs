@@ -39,6 +39,19 @@ fn powerpoint_export_has_one_slide_per_page() {
 }
 
 #[test]
+fn web_page_rtf_text_and_markdown_hold_each_page_in_order() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 2);
+    for (format, name, page_break) in [(Office::Html, "a.html", "<hr>"), (Office::Rtf, "a.rtf", "\\page"), (Office::Text, "a.txt", "\u{c}"), (Office::Markdown, "a.md", "---")] {
+        let r = export::to_office(&Input::new(&a), format, &ExportOptions::default(), &t.path().join(name), &mut no_cancel()).unwrap();
+        assert_eq!(r.path.extension().unwrap(), format.extension());
+        let s = std::fs::read_to_string(&r.path).unwrap();
+        let (one, two) = (s.find("Page 1").unwrap_or(usize::MAX), s.find("Page 2").unwrap_or(0));
+        assert!(one < two && s[one..two].contains(page_break), "{name}: {s}");
+    }
+}
+
+#[test]
 fn an_existing_file_is_never_overwritten() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 1);

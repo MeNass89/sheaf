@@ -297,6 +297,7 @@ fn exported_kind(tool: ToolId) -> Option<&'static str> {
         ToolId::PdfToWord => Some("Word document"),
         ToolId::PdfToPowerPoint => Some("presentation"),
         ToolId::PdfToExcel => Some("spreadsheet"),
+        ToolId::PdfToText => Some("file"),
         _ => None,
     }
 }

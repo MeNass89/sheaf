@@ -356,6 +356,8 @@ export component ReaderScreen inherits Rectangle {
                             ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough"; clicked => { ReaderBridge.markup(root.id, 3); } }
                             // Acrobat's and PDF Expert's link from selected text.
                             ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link… (⌘K)"; clicked => { ReaderBridge.link-selection(root.id); } }
+                            // Acrobat's Replace Text: struck out, the new words in a caret note.
+                            ToolButton { icon: @image-url("../icons/replace.svg"); tip: "Replace text…"; clicked => { ReaderBridge.replace-selection(root.id); } }
                             Divider { y: 7px; }
                             // Highlight in one of the five colours straight from the selection.
                             for c[k] in root.light-colours: ColourDot {
@@ -408,7 +410,7 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : root.tab.reader.note.kind == 8 ? "Link to — a page number or a web address" : root.tab.reader.note.kind == 9 ? "Link — change where it goes, or remove it" : "Add text";
+                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : root.tab.reader.note.kind == 8 ? "Link to — a page number or a web address" : root.tab.reader.note.kind == 9 ? "Link — change where it goes, or remove it" : root.tab.reader.note.kind == 10 ? "Replace with — ↩ to propose" : "Add text";
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;

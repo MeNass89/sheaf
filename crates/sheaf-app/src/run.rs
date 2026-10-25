@@ -22,7 +22,7 @@ use sheaf_core::{OpdfError, Result};
 use slint::ComponentHandle;
 
 use crate::flow::toast;
-use crate::dest::{ask_dest, out_name, parent_dir, pref_dest, Dest};
+use crate::dest::{ask_dest, out_name, parent_dir, pref_dest, text_format, Dest};
 use crate::state::{refresh, with, Done, Phase};
 
 /// Strength levels used by the Protect panel's three-segment meter.
@@ -310,10 +310,11 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             let options = ocr_options(opts)?;
             Job::Ocr { items: pairs(inputs), options }
         }
-        ToolId::PdfToWord | ToolId::PdfToPowerPoint | ToolId::PdfToExcel => {
+        ToolId::PdfToWord | ToolId::PdfToPowerPoint | ToolId::PdfToExcel | ToolId::PdfToText => {
             let kind = match tool {
                 ToolId::PdfToWord => ExportKind::Word,
                 ToolId::PdfToPowerPoint => ExportKind::PowerPoint,
+                ToolId::PdfToText => ExportKind::Text(text_format(opts)),
                 _ => ExportKind::Excel(if opts.excel_layout == 1 { SheetLayout::SheetPerTable } else { SheetLayout::OneSheet }),
             };
             Job::Export { items: pairs(inputs), kind, options: ExportOptions { ocr: opts.export_ocr, exact_layout: opts.export_exact, ..Default::default() } }

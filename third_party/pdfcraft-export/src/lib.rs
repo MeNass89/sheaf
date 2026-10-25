@@ -1,4 +1,4 @@
-//! pdfcraft-export — Export a PDF ▸ Word, HTML, RTF (L4).
+//! pdfcraft-export — Export a PDF ▸ Word, HTML, RTF, plain text and Markdown (L4).
 //!
 //! The engine reduces each page to [`Page`]: paragraphs (text, box, size, bold/italic) and
 //! images (encoded bytes and box), in reading order. The writers turn that into a flowing
@@ -1478,6 +1478,91 @@ pub fn rtf(pages: &[Page]) -> String {
     s
 }
 
+/// Sheaf: the document as plain text (Acrobat's Export ▸ Text): a paragraph per line, a blank line
+/// between them, table rows with their cells separated by tabs, a form feed between pages.
+pub fn text(pages: &[Page]) -> String {
+    let mut s = String::new();
+    for it in items(pages) {
+        match it {
+            Item::Para(bs, _) => {
+                s.push_str(&para_text(&bs));
+                s.push_str("\n\n");
+            }
+            Item::Table(t) => {
+                for row in &t.rows {
+                    s.push_str(&row.iter().map(|c| c.text.replace(['\t', '\n'], " ")).collect::<Vec<_>>().join("\t"));
+                    s.push('\n');
+                }
+                s.push('\n');
+            }
+            Item::Img(_) => {}
+            Item::PageBreak => s.push('\u{c}'),
+        }
+    }
+    s.retain(|c| c == '\u{c}' || allowed(c));
+    s
+}
+
+/// Sheaf: the document as Markdown: headings (`#` by level), bold and italic paragraphs, tables
+/// (their first row as the header), a rule between pages. Pictures are left out: inlined, each
+/// would be one line of base64 hundreds of kilobytes long.
+pub fn markdown(pages: &[Page]) -> String {
+    // Characters Markdown would read as formatting, escaped where they start a line or anywhere.
+    let md = |t: &str| {
+        let mut e = String::new();
+        for c in t.chars() {
+            if matches!(c, '\\' | '*' | '_' | '`' | '[' | ']' | '<' | '>' | '|') {
+                e.push('\\');
+            }
+            e.push(c);
+        }
+        if e.starts_with(['#', '-', '+']) || e.split_once(". ").is_some_and(|(n, _)| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit())) {
+            e.insert(0, '\\');
+        }
+        e
+    };
+    let mut s = String::new();
+    for it in items(pages) {
+        match it {
+            Item::Para(bs, lvl) => {
+                let b = bs[0];
+                let t = md(para_text(&bs).trim());
+                if t.is_empty() {
+                    continue;
+                }
+                match lvl {
+                    0 if b.bold && b.italic => s.push_str(&format!("***{t}***")),
+                    0 if b.bold => s.push_str(&format!("**{t}**")),
+                    0 if b.italic => s.push_str(&format!("*{t}*")),
+                    0 => s.push_str(&t),
+                    l => s.push_str(&format!("{} {t}", "#".repeat(l as usize))),
+                }
+                s.push_str("\n\n");
+            }
+            Item::Table(t) => {
+                let cols = t.rows.iter().map(|r| r.iter().map(|c| c.span.max(1)).sum::<usize>()).max().unwrap_or(0);
+                for (i, row) in t.rows.iter().enumerate() {
+                    let mut cells: Vec<String> = Vec::new();
+                    for c in row {
+                        cells.push(md(&c.text.replace('\n', " ")));
+                        cells.extend((1..c.span.max(1)).map(|_| String::new()));
+                    }
+                    cells.resize(cols, String::new());
+                    s.push_str(&format!("| {} |\n", cells.join(" | ")));
+                    if i == 0 {
+                        s.push_str(&format!("|{}\n", " --- |".repeat(cols)));
+                    }
+                }
+                s.push('\n');
+            }
+            Item::Img(_) => {}
+            Item::PageBreak => s.push_str("---\n\n"),
+        }
+    }
+    s.retain(allowed);
+    s
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1509,6 +1594,18 @@ mod tests {
                 rotation: 0.0,
             }],
         }
+    }
+
+    #[test]
+    fn text_and_markdown_keep_the_reading_order_and_the_headings() {
+        let t = text(&[page(), page()]);
+        let order: Vec<usize> = ["Annual Report\n\nOverview\n\nSome <body> text", "Body text after"].iter().map(|x| t.find(x).unwrap_or_else(|| panic!("{x} missing in {t}"))).collect();
+        assert!(order[0] < order[1] && t.matches('\u{c}').count() == 1, "{t}");
+        let m = markdown(&[page(), page()]);
+        for x in ["# Annual Report\n\n## Overview\n\nSome \\<body\\> text & more", "Body text after", "---\n\n# Annual Report"] {
+            assert!(m.contains(x), "{x} missing in {m}");
+        }
+        assert!(!m.contains("data:"), "pictures are left out: {m}");
     }
 
     #[test]

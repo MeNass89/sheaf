@@ -250,6 +250,26 @@ pub fn link_selection(tab_id: i32) {
     });
 }
 
+/// Acrobat's Replace Text: the selected words are kept and an editor opens below them for the
+/// words proposed instead (kind 10); committed, they are struck out and a caret holds the new ones.
+pub fn replace_selection(tab_id: i32) {
+    update(tab_id, |r, v| {
+        let Some((page, range)) = r.sel.clone() else { return };
+        let Some(t) = r.text(page) else { return };
+        let b = &v.viewer.boxes[page];
+        let size = b.view_size();
+        let lines = t.line_rects(range);
+        let rects: Vec<[f64; 4]> = lines.iter().map(|q| viewer::view_rect_to_pdf(b, size, (q[0] as f64, q[1] as f64), (q[2] as f64, q[3] as f64))).collect();
+        let Some(first) = rects.first().copied() else { return };
+        let union = rects.iter().fold(first, |a, q| [a[0].min(q[0]), a[1].min(q[1]), a[2].max(q[2]), a[3].max(q[3])]);
+        let [x, y, _, h] = viewer::pdf_rect_to_view(b, size, union);
+        r.replace_quads = reader::quads(b, &lines);
+        r.sel = None;
+        r.draft = Some(Draft { page, at: (x, y + h + 6.0), kind: 10, block: Some((usize::MAX, String::new(), union)), field: None });
+        r.note_seq += 1;
+    });
+}
+
 pub(super) fn pen_points(k: i32) -> f64 {
     [1.0, 2.0, 4.0][k.clamp(0, 2) as usize]
 }

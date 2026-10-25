@@ -131,6 +131,10 @@ pub enum OfficeFormat {
     Pptx,
     Html,
     Rtf,
+    /// Sheaf: plain text, a paragraph per line (Acrobat's Export ▸ Text).
+    Text,
+    /// Sheaf: Markdown, headings and tables kept.
+    Markdown,
 }
 
 impl OfficeFormat {
@@ -140,6 +144,8 @@ impl OfficeFormat {
             OfficeFormat::Pptx => "pptx",
             OfficeFormat::Html => "html",
             OfficeFormat::Rtf => "rtf",
+            OfficeFormat::Text => "txt",
+            OfficeFormat::Markdown => "md",
         }
     }
 
@@ -149,6 +155,8 @@ impl OfficeFormat {
             "pptx" => Some(OfficeFormat::Pptx),
             "html" | "htm" => Some(OfficeFormat::Html),
             "rtf" => Some(OfficeFormat::Rtf),
+            "txt" => Some(OfficeFormat::Text),
+            "md" | "markdown" => Some(OfficeFormat::Markdown),
             _ => None,
         }
     }
@@ -298,6 +306,8 @@ impl crate::Document {
             OfficeFormat::Pptx => pdfcraft_export::pptx(&pages, &title),
             OfficeFormat::Html => pdfcraft_export::html(&pages, &title).into_bytes(),
             OfficeFormat::Rtf => pdfcraft_export::rtf(&pages).into_bytes(),
+            OfficeFormat::Text => pdfcraft_export::text(&pages).into_bytes(),
+            OfficeFormat::Markdown => pdfcraft_export::markdown(&pages).into_bytes(),
         }
     }
 }

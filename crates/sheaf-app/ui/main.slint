@@ -121,6 +121,7 @@ export component AppWindow inherits Window {
     property <bool> confirm-clear;
 
     callback open-file();
+    callback new-blank();
     callback open-tool(string);
     callback close-tab(int);
     // A tab dragged to another place (from, to), and the tab menu's close others / left / right.
@@ -254,6 +255,7 @@ export component AppWindow inherits Window {
                             open-tool(id) => { root.open-tool(id); }
                             star(id) => { root.star-tool(id); }
                             open-file => { root.open-file(); }
+                            new-blank => { root.new-blank(); }
                             open-recent(i) => { root.open-recent(i); }
                             reveal-recent(i) => { root.reveal-recent(i); }
                             remove-recent(i) => { root.remove-recent(i); }

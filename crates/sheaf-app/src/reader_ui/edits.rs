@@ -430,6 +430,16 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let d = r.draft.take()?;
         let b = &v.viewer.boxes[d.page];
         let size = b.view_size();
+        if d.kind == 10 {
+            // Replace Text: the words struck out, a caret after them holding the new ones (in
+            // the ink colour, as Strikethrough). Nothing typed proposes nothing.
+            let quads = std::mem::take(&mut r.replace_quads);
+            if text.is_empty() || quads.is_empty() {
+                return None;
+            }
+            let s = style(INK[r.ink_colour.min(INK.len() - 1)], 1.0);
+            return Some((d.page, Edit::ReplaceText { page: d.page, quads, text: text.clone(), author: author(), strike: s.clone(), caret: s }));
+        }
         if d.kind == 8 || d.kind == 9 {
             // Link: a page number or an address; an existing link emptied is removed.
             let (index, old, rect) = d.block.clone()?;
@@ -556,6 +566,7 @@ pub fn note_cancel(tab_id: i32) {
         r.draft = None;
         r.link_error.clear();
         r.link_rects.clear();
+        r.replace_quads.clear();
         r.preview_timer = None;
     });
 }

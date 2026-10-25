@@ -499,6 +499,7 @@ export struct ToolOptions {
     export-ocr: bool,      // recognise scanned pages first
     export-exact: bool,    // Word: keep each page's layout (positioned text boxes)
     excel-layout: int,     // 0 one sheet, 1 one sheet per table
+    text-format: int,      // PDF to HTML or text: 0 web page, 1 Markdown, 2 rich text, 3 plain text
     // Compare
     compare-mode: int,     // 0 semantic text (report), 1 content overlay
     // Sign: the optional certificate
@@ -582,6 +583,8 @@ export global ReaderBridge {
     callback hover(int, length, length);
     callback link-urls(int);
     callback link-selection(int);
+    // Replace Text from the selection bar: the words to propose instead are typed next.
+    callback replace-selection(int);
     callback set-tool(int, int);
     callback set-colour(int, int);
     callback set-pen-width(int, int);

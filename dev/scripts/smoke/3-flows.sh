@@ -315,3 +315,31 @@ click 120 230 0.6; click 156 778 0.8; click 17 674 0.3
 answer "$PWD/$OUT/each"; click 201 734 2; answer ""
 check "Extract writes one file per page in the folder chosen ($(ls $OUT/each 2>/dev/null | tr '\n' ' '))" "[ -f \"$OUT/each/four-pages - page 1.pdf\" ]"
 quit
+
+# 45. Home ▸ New blank PDF: named in the Save dialog (the test seam answers it), one blank page, opened in a tab.
+launch; answer "$PWD/$OUT/blank.pdf"; NB=$(at New 900x120+300+80); [ -n "$NB" ] && click $NB 2.5
+BP=$( [ -f "$OUT/blank.pdf" ] && npages "$OUT/blank.pdf" ); answer ""
+check "New blank PDF writes one blank page and opens it (${NB:-no button}; ${BP:-no file} page; $(ntabs) tabs)" "[ \"$BP\" = 1 ] && [ \"\$(ntabs)\" = 2 ]"
+quit
+
+# 46. Replace text (the selection bar's Replace text…, 7th of its 30 px buttons, the bar 42 px above the line):
+# "quick brown" selected, "slow" typed and ↩: saved as a caret holding "slow" and a strike-out grouped with it.
+cp "$OUT/text.pdf" "$OUT/replace.pdf"
+launch "$OUT/replace.pdf"; key ctrl+9; sleep 1
+Q=$(span quick 1020x700+255+90); B=$(span brown 1020x700+255+90)
+if [ -n "$Q" ] && [ -n "$B" ]; then
+    set -- $Q; SX=$(( $1 + 1 )); SY=$3; set -- $B; EX=$(( $2 - 1 ))
+    xdotool mousemove $SX $SY mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( SX + (EX - SX) * i / 5 )) $SY; sleep 0.05; done; xdotool mouseup 1; sleep 1
+    shot 46-bar; click $(( SX + 197 )) $(( SY - 36 )) 1; xdotool type --delay 30 "slow"; key Return; sleep 1.5; key ctrl+s; sleep 2
+fi
+RQ=$(qpdf --qdf --object-streams=disable "$OUT/replace.pdf" - 2>/dev/null)
+check "Replace text proposes the words typed: a caret holding them and the selection struck out, grouped" "echo \"\$RQ\" | grep -aq '/Subtype /Caret' && echo \"\$RQ\" | grep -aq '/Contents (slow)' && echo \"\$RQ\" | grep -aq '/RT /Group'"
+quit
+
+# 47. PDF to HTML or text (wrench, "html or text" typed), Markdown chosen: the .md holds each page's words in order.
+cp "$OUT/text.pdf" "$OUT/md.pdf"; launch "$OUT/md.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "html or text"; key Return; sleep 2.5
+MD=$(at Markdown 1000x700+250+90); [ -n "$MD" ] && click $MD 0.8
+click 1140 755 4
+check "PDF to HTML or text writes Markdown with every page in order ($(ls $OUT/md*.md 2>/dev/null))" "grep -q 'Page 1' $OUT/md.md && grep -q 'Page 4' $OUT/md.md"
+quit

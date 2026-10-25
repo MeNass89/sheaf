@@ -177,6 +177,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_link_urls, |ui, id| reader_ui::link_urls(&ui, id));
     wire_global!(ui, rb, on_nudge, |ui, id, dx, dy| reader_ui::nudge(&ui, id, dx, dy));
     rb.on_link_selection(reader_ui::link_selection);
+    rb.on_replace_selection(reader_ui::replace_selection);
     rb.on_hover(reader_ui::hover);
     wire_global!(ui, rb, on_close, |ui, id| flow::close_tab(&ui, id));
     wire_global!(ui, rb, on_close_all, |ui, id| flow::close_tabs_around(&ui, id, 3));
@@ -328,6 +329,14 @@ fn main() -> Result<(), slint::PlatformError> {
         }
         let d = dialog::new(&ui).add_filter("PDFs, images and documents", &exts).add_filter("PDF", &["pdf"]);
         dialog::pick_files(&ui, d, |_, paths| deliver(paths));
+    });
+    // Home ▸ New blank PDF: named and placed first (a document Sheaf opens is a file), then opened.
+    wire!(ui, on_new_blank, |ui| {
+        let d = dialog::new(&ui).set_file_name("Untitled.pdf").add_filter("PDF", &["pdf"]);
+        dialog::save_file(&ui, d, |ui, path| match sheaf_core::pages::blank(sheaf_core::pages::letter_region(sys_locale::get_locale().as_deref()), &path) {
+            Ok(p) => deliver(vec![p]),
+            Err(e) => flow::toast(&ui, &e.to_string()),
+        });
     });
     // Tools search: found tools, best first (sheaf_core::tools::search).
     let weak = ui.as_weak();

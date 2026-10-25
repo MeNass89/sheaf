@@ -162,3 +162,28 @@ fn blank_pages_are_found_and_text_or_drawn_ones_are_not() {
     let all = merge(&[Input::new(&text), Input::new(&pics)], &t.path().join("all.pdf")).unwrap();
     assert_eq!(blank_pages(&Input::new(&all)).unwrap(), [3], "the white picture only");
 }
+
+#[test]
+fn a_blank_document_is_one_empty_page_of_the_size_chosen() {
+    let t = tempfile::tempdir().unwrap();
+    for (letter, size) in [(false, [595, 842]), (true, [612, 792])] {
+        let out = blank(letter, &t.path().join("Untitled.pdf")).unwrap();
+        common::qpdf_clean(&out);
+        let d = lopdf::Document::load(&out).unwrap();
+        let page = *d.get_pages().values().next().unwrap();
+        let mb = d.get_dictionary(page).unwrap().get(b"MediaBox").unwrap().as_array().unwrap().iter().map(|v| v.as_float().unwrap().round() as i64).collect::<Vec<_>>();
+        assert_eq!(mb[2..], size, "letter {letter}");
+        assert_eq!(page_texts(&out), [""]);
+    }
+}
+
+#[test]
+fn letter_paper_is_for_the_regions_that_use_it() {
+    for l in ["en-US", "fr_CA.UTF-8", "es_MX", "en_PH"] {
+        assert!(letter_region(Some(l)), "{l}");
+    }
+    for l in ["en-GB", "fr_FR.UTF-8", "de", "C", ""] {
+        assert!(!letter_region(Some(l)), "{l}");
+    }
+    assert!(!letter_region(None));
+}

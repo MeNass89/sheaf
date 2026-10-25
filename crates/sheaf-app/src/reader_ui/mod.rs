@@ -270,6 +270,8 @@ pub struct ReaderUi {
     link_dashed: bool,
     /// A link made from selected text: one box per line (user space); the draft holds their union.
     link_rects: Vec<[f64; 4]>,
+    /// Replace Text from selected words: their quads (PDF space), struck out once the new words are typed.
+    replace_quads: Vec<[f64; 8]>,
     /// Generation of the running search, shared with its thread so it stops when replaced.
     search_live: Arc<std::sync::atomic::AtomicU64>,
     /// A plain press on a page already selected: the selection shrinks to it only if no drag
@@ -411,6 +413,7 @@ impl ReaderUi {
             link_visible: false,
             link_dashed: false,
             link_rects: Vec::new(),
+            replace_quads: Vec::new(),
             search_live: Default::default(),
             pending_reduce: None,
             undo_pages: Vec::new(),

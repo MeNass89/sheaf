@@ -37,6 +37,8 @@ export component RecentsScreen inherits Rectangle {
     callback open-tool(string);
     callback star(string);
     callback open-file();
+    // A new one-page blank PDF (PDF Expert's New ▸ Blank Document).
+    callback new-blank();
     callback open-recent(int);
     callback reveal-recent(int);
     callback remove-recent(int);
@@ -60,10 +62,15 @@ export component RecentsScreen inherits Rectangle {
                 spacing: 8px;
                 HorizontalLayout {
                     alignment: center;
+                    spacing: 8px;
                     PrimaryButton {
                         text: "Open file";
                         width: 92px;
                         clicked => { root.open-file(); }
+                    }
+                    SecondaryButton {
+                        text: "New blank PDF";
+                        clicked => { root.new-blank(); }
                     }
                 }
                 Text {

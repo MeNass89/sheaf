@@ -17,7 +17,7 @@ pub fn tile_colour(id: ToolId) -> Color {
         ToolId::WordToPdf | ToolId::PdfToWord => 0x2B579A,
         ToolId::PowerPointToPdf | ToolId::PdfToPowerPoint => 0xD24726,
         ToolId::ExcelToPdf | ToolId::PdfToExcel => 0x217346,
-        ToolId::HtmlToPdf => 0xE44D26,
+        ToolId::HtmlToPdf | ToolId::PdfToText => 0xE44D26,
         ToolId::PdfToPdfA => 0x4A6FA5,
         ToolId::Edit | ToolId::PageNumbers | ToolId::Watermark | ToolId::Crop => 0x9B59B6,
         ToolId::Sign | ToolId::Protect | ToolId::Unlock => 0x4A6FA5,
@@ -40,7 +40,7 @@ pub fn icon_svg(name: &str) -> Option<&'static [u8]> {
     icons!(
         "combine", "scissors", "file-minus", "file-output", "layout-grid", "rotate-cw",
         "minimize-2", "wrench", "scan-text", "image", "file-text", "presentation", "sheet",
-        "code", "images", "file-type", "archive", "pen-line", "list-ordered", "stamp", "crop",
+        "code", "file-code", "images", "file-type", "archive", "pen-line", "list-ordered", "stamp", "crop",
         "signature", "lock", "lock-open", "eraser", "git-compare",
     )
 }

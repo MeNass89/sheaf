@@ -45,6 +45,8 @@ pub enum ExportKind {
     Word,
     PowerPoint,
     Excel(SheetLayout),
+    /// A web page, Markdown, rich text or plain text.
+    Text(Office),
 }
 
 /// One run of a tool, with owned parameters. Batch tools carry `(input, output)` pairs:
@@ -386,6 +388,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 let path = match kind {
                     ExportKind::Word => export::to_office(i, Office::Word, options, o, &mut step)?.path,
                     ExportKind::PowerPoint => export::to_office(i, Office::PowerPoint, options, o, &mut step)?.path,
+                    ExportKind::Text(format) => export::to_office(i, *format, options, o, &mut step)?.path,
                     ExportKind::Excel(layout) => {
                         let r = excel::to_excel(i, *layout, options, o, &mut step)?;
                         tables += r.tables;
@@ -574,6 +577,7 @@ pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
         T::PdfToWord => return format!("{stem}.docx"),
         T::PdfToPowerPoint => return format!("{stem}.pptx"),
         T::PdfToExcel => return format!("{stem}.xlsx"),
+        T::PdfToText => return format!("{stem}.html"),
         T::Compare => "-comparison",
         T::Redact => "-redacted",
         T::Sign => "-signed",

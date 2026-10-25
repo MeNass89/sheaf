@@ -132,7 +132,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         marks.push(overlay([x0, y0, x1 - x0, y1 - y0], 6));
     }
     // The box being linked, while its target is typed.
-    if let Some(d) = r.draft.as_ref().filter(|d| d.kind == 8 || d.kind == 9)
+    if let Some(d) = r.draft.as_ref().filter(|d| matches!(d.kind, 8..=10))
         && let Some((_, _, rect)) = &d.block
     {
         marks.push(overlay(v.viewer.overlay(d.page, *rect), 6));
@@ -338,7 +338,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 }
                 }
                 // Link: a one-line editor below the box.
-                Some((_, t, _)) if d.kind == 8 || d.kind == 9 => (t.clone(), 300.0, if r.link_error.is_empty() { 116.0 } else { 140.0 }),
+                Some((_, t, _)) if matches!(d.kind, 8..=10) => (t.clone(), 300.0, if r.link_error.is_empty() { 116.0 } else { 140.0 }),
                 // Edit text: the paragraph shows on its page as typed, and what it grows over
                 // below it; the editor goes above it when the page has room there, else below.
                 Some((_, t, rect)) if d.kind == 2 => {
