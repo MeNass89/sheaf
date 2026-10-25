@@ -355,7 +355,7 @@ export component ReaderPanel inherits Rectangle {
                         spacing: 6px;
                         SortCombo {
                             width: 112px;
-                            options: ["All", "Markup", "Notes", "Drawings", "Stamps", "Accepted", "Rejected", "Cancelled", "Completed", "No status"];
+                            options: ["All", "Markup", "Notes", "Drawings", "Stamps", "Accepted", "Rejected", "Cancelled", "Completed", "No status", "Checked"];
                             current-index: root.tab.reader.notes-filter;
                             chevron: @image-url("../icons/chevron-down.svg");
                             selected(i) => { ReaderBridge.notes-view(root.id, 0, i); }

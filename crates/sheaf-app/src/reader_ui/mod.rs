@@ -630,6 +630,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                         crate::flow::remove_tab(ui, id);
                         if with(|a| a.quitting) {
                             crate::flow::quit_or_ask(ui);
+                        } else {
+                            crate::flow::next_close(ui);
                         }
                     }
                 }
@@ -702,6 +704,9 @@ fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
             v.viewer.set_zoom(z);
         }
         v.pending_actual = Some(100.0);
+    } else if crate::home::prefs().default_zoom == 1 {
+        // Fit page: the height decides, set as the view reports it (kept on later resizes by keep_fit).
+        v.pending_fit = true;
     }
     if let Some(p) = crate::home::last_page(path).filter(|p| *p > 0) {
         v.show_page(p, None);

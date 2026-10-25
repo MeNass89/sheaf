@@ -32,6 +32,8 @@ pub struct AnnotEntry {
     /// Replies to it, oldest first: "author: text"; and its latest review status ("Accepted").
     pub replies: Vec<String>,
     pub status: String,
+    /// Checked with Acrobat's check mark (its last Marked/Unmarked reply is Marked).
+    pub checked: bool,
     /// A text box's format: (standard font resource name, "TiBo"; size in points; alignment 0
     /// left, 1 centre, 2 right).
     pub font: Option<(&'static str, f64, u8)>,
@@ -176,10 +178,14 @@ fn snap(doc: &Doc) -> Snap {
     // Replies and status replies point at their comment's name (/IRT → /NM).
     let mut replies: std::collections::HashMap<&str, Vec<String>> = std::collections::HashMap::new();
     let mut status: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
+    let mut checked: std::collections::HashMap<&str, bool> = std::collections::HashMap::new();
     for a in &d.info.annotations {
         let Some(parent) = a.in_reply_to.as_deref() else { continue };
         match a.state.as_deref() {
             Some(s) => {
+                if matches!(s, "Marked" | "Unmarked") {
+                    checked.insert(parent, s == "Marked");
+                }
                 if let Some(s) = review_status(s) {
                     status.insert(parent, s.to_string());
                 }
@@ -204,6 +210,7 @@ fn snap(doc: &Doc) -> Snap {
             author: a.author.clone().unwrap_or_default(),
             modified: a.modified.clone().unwrap_or_default(),
             replies: a.name.as_deref().and_then(|n| replies.get(n)).cloned().unwrap_or_default(),
+            checked: a.name.as_deref().and_then(|n| checked.get(n)).copied().unwrap_or(false),
             status: a.name.as_deref().and_then(|n| status.get(n)).cloned().unwrap_or_default(),
             font: fonts.get(&(a.page, a.index)).copied(),
         })

@@ -586,3 +586,9 @@ stop at 90 %.
 disagree with a concrete gap and file:line each (`dev/board/reviews/sol-rereview-2026-10-25.md`). Spot checks of eight
 held. Per the joint rule each disagreement reopens its component at Sol's grades; the gap is its next task.
 **Would change it.** A gap found to be outside the component's definition: the grade goes back up with both voices.
+
+## 2026-10-25 · Deviation from dev-skill policy: end-of-unit step 3 (split candidates)
+**What.** Round 5 is committed with two split candidates in files it touched, `reader_doc.rs` (1,060 lines) and
+`gui-smoke.sh` (1,052 lines). **Why better here.** The suite is green on this exact tree (ALL GREEN, 1118 s); a
+split now would need another 19-minute run before anything is saved, while two sessions share the machine.
+**Scope.** Round 5 only. **Ends when.** The next commit, a refactor that splits both files, suite green after.

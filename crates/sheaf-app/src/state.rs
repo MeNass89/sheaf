@@ -205,6 +205,8 @@ pub struct App {
     pub quitting: bool,
     /// Documents to close once their save is done (Save in the unsaved-changes dialog).
     pub closing_after_save: std::collections::HashSet<i32>,
+    /// Close Other / Left / Right: documents with unsaved edits still to ask about, in turn.
+    pub close_queue: Vec<i32>,
 }
 
 impl App {

@@ -1027,6 +1027,23 @@ launch; click 67 193 1; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $A
 cp "$OUT/text.pdf" "$OUT/fresh.pdf"; launch "$OUT/fresh.pdf"; sleep 1.5; ZF=$(zoomval)
 check "a new document opens at the zoom chosen in Preferences (Actual size: $ZF %)" "[ \"$ZF\" = 100 ]"
 quit
+# Fit page: a whole letter page in the 700 px high view, well under fit width (163 %).
+launch; click 67 193 1; FP2=$(import -window root -crop 900x700+200+90 png:- | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="page"{printf "%d %d\n", 200+($7+$9/2)/2, 90+($8+$10/2)/2; exit}'); [ -n "$FP2" ] && click $FP2 0.6; quit
+cp "$OUT/text.pdf" "$OUT/fresh2.pdf"; launch "$OUT/fresh2.pdf"; sleep 1.5; ZP=$(zoomval)
+check "a new document opens fitted to the page when chosen ($ZP %)" "[ -n \"$ZP\" ] && [ \"$ZP\" -lt 120 ]"
+quit
+
+# 29. Close Other Tabs asks about a document with unsaved edits (as ⌘W would): b.pdf highlighted, then from
+# a.pdf's tab menu Close Other Tabs: the Save / Don't Save prompt names b.pdf; Don't Save closes it.
+cp "$OUT/text.pdf" "$OUT/ca.pdf"; cp "$OUT/text.pdf" "$OUT/cb.pdf"
+launch "$OUT/ca.pdf" "$OUT/cb.pdf"; sleep 1
+key h; xdotool mousemove 330 200 mousedown 1 mousemove 800 201 mouseup 1; sleep 0.3; key h; sleep 1
+read AX _ <<< "$(at ca 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
+read OX OY <<< "$(at Other 1280x300+0+0)"; xdotool mousemove "${OX:-0}" "${OY:-0}" click 1; sleep 1; shot 29-close-other
+PQ=$(ocr 700x300+290+250)
+DS=$(at "Don" 700x300+290+250); [ -n "$DS" ] && click $DS 1
+check "Close Other Tabs asks about unsaved edits, Don't Save closes it ($(echo $PQ | cut -c1-60); $(ntabs) tab)" "echo \"$PQ\" | grep -q cb.pdf && [ \"\$(ntabs)\" = 1 ]"
+quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"

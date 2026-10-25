@@ -110,8 +110,9 @@ pub fn attachment_open(ui: &AppWindow, tab_id: i32, i: i32) {
     // The name stays the file's own (its app shows it); the folder is ours alone.
     let dir = std::env::temp_dir().join(format!("sheaf-attachments-{}", std::process::id()));
     let safe: String = att.name.chars().map(|c| if matches!(c, '/' | '\\' | '\0') { '_' } else { c }).collect();
-    let to = dir.join(if safe.trim_matches('.').is_empty() { "attachment".into() } else { safe });
-    let written = std::fs::create_dir_all(&dir).map_err(|e| e.to_string()).and_then(|_| {
+    // A folder per attachment: two attached files of the same name stay apart.
+    let to = dir.join(i.to_string()).join(if safe.trim_matches('.').is_empty() { "attachment".into() } else { safe });
+    let written = std::fs::create_dir_all(to.parent().unwrap_or(&dir)).map_err(|e| e.to_string()).and_then(|_| {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;

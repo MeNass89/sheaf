@@ -504,16 +504,42 @@ pub fn close_tabs_around(ui: &AppWindow, id: i32, which: i32) {
         bar.iter().enumerate().filter(|(i, _)| match which { 1 => *i < at, 2 => *i > at, _ => *i != at }).map(|(_, t)| *t).collect()
     });
     let mut kept = 0;
+    let mut ask = Vec::new();
     for t in ids {
         let busy = with(|a| a.tab(t).is_some_and(|t| matches!(t.phase, Phase::Running)));
-        if busy || crate::reader_ui::unsaved_name(t).is_some() {
+        if busy {
             kept += 1;
+        } else if crate::reader_ui::unsaved_name(t).is_some() {
+            ask.push(t);
         } else {
             remove_tab(ui, t);
         }
     }
     if kept > 0 {
-        toast(ui, &format!("{kept} tab{} with unsaved changes or a running task stayed open", if kept == 1 { "" } else { "s" }));
+        toast(ui, &format!("{kept} tab{} with a running task stayed open", if kept == 1 { "" } else { "s" }));
+    }
+    // Documents with unsaved edits are asked about one by one (Save / Don't Save / Cancel), as
+    // closing each would.
+    with(|a| a.close_queue = ask);
+    next_close(ui);
+}
+
+/// The next document of a Close Other / Left / Right still to ask about; Cancel empties the queue.
+pub fn next_close(ui: &AppWindow) {
+    let next = with(|a| {
+        while !a.close_queue.is_empty() {
+            let id = a.close_queue.remove(0);
+            if a.tab(id).is_some() {
+                return Some(id);
+            }
+        }
+        None
+    });
+    if let Some(id) = next {
+        if let Some(i) = with(|a| a.tab_index(id)) {
+            ui.set_active_tab(i as i32);
+        }
+        close_tab(ui, id);
     }
 }
 
@@ -529,10 +555,15 @@ pub fn unsaved_answer(ui: &AppWindow, answer: i32) {
             return;
         }
         2 => remove_tab(ui, id),
-        _ => with(|a| a.quitting = false),
+        _ => with(|a| {
+            a.quitting = false;
+            a.close_queue.clear();
+        }),
     }
     if with(|a| a.quitting) {
         quit_or_ask(ui);
+    } else {
+        next_close(ui);
     }
 }
 

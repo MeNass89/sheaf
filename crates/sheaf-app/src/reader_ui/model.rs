@@ -504,7 +504,7 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
         .annots()
         .iter()
         .enumerate()
-        .filter(|(_, a)| reader::notes_filter(r.notes_filter, &a.subtype, a.fill_sign, &a.status))
+        .filter(|(_, a)| reader::notes_filter(r.notes_filter, &a.subtype, a.fill_sign, &a.status, a.checked))
         .map(|(i, a)| {
             let text = if a.quads.is_empty() || !a.contents.is_empty() {
                 a.contents.clone()

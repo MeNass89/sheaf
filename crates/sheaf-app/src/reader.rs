@@ -434,7 +434,11 @@ pub fn read_texts(
 /// Review statuses the Notes filter offers (Acrobat's), then "" for none.
 const STATUSES: [&str; 5] = ["Accepted", "Rejected", "Cancelled", "Completed", ""];
 
-pub fn notes_filter(filter: i32, subtype: &str, fill_sign: bool, status: &str) -> bool {
+pub fn notes_filter(filter: i32, subtype: &str, fill_sign: bool, status: &str, checked: bool) -> bool {
+    // 10: checked with Acrobat's check mark.
+    if filter == 10 {
+        return checked;
+    }
     // 5–9: by review status, as Acrobat's comment filter (Accepted … Completed, then none).
     if let Some(want) = usize::try_from(filter - 5).ok().and_then(|k| STATUSES.get(k)) {
         return status.eq_ignore_ascii_case(want);
@@ -695,12 +699,13 @@ mod tests {
 
     #[test]
     fn notes_filter_groups() {
-        assert!(notes_filter(0, "Ink", false, "") && notes_filter(1, "Underline", false, "") && notes_filter(2, "FreeText", false, ""));
-        assert!(notes_filter(3, "Square", false, "") && notes_filter(3, "Ink", false, "") && notes_filter(4, "Ink", true, "") && notes_filter(4, "Stamp", false, ""));
-        assert!(!notes_filter(1, "Text", false, "") && !notes_filter(3, "Ink", true, ""));
+        assert!(notes_filter(0, "Ink", false, "", false) && notes_filter(1, "Underline", false, "", false) && notes_filter(2, "FreeText", false, "", false));
+        assert!(notes_filter(3, "Square", false, "", false) && notes_filter(3, "Ink", false, "", false) && notes_filter(4, "Ink", true, "", false) && notes_filter(4, "Stamp", false, "", false));
+        assert!(!notes_filter(1, "Text", false, "", false) && !notes_filter(3, "Ink", true, "", false));
         // By status: Accepted (5) … Completed (8), no status (9).
-        assert!(notes_filter(5, "Text", false, "Accepted") && !notes_filter(5, "Text", false, "Rejected"));
-        assert!(notes_filter(9, "Highlight", false, "") && !notes_filter(9, "Highlight", false, "Completed"));
+        assert!(notes_filter(5, "Text", false, "Accepted", false) && !notes_filter(5, "Text", false, "Rejected", false));
+        assert!(notes_filter(9, "Highlight", false, "", false) && !notes_filter(9, "Highlight", false, "Completed", false));
+        assert!(notes_filter(10, "Text", false, "Accepted", true) && !notes_filter(10, "Text", false, "", false));
     }
 
     #[test]

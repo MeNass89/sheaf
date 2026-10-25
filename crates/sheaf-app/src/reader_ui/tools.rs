@@ -335,7 +335,7 @@ pub fn outline_toggled(tab_id: i32, row: i32) {
 /// Notes panel: `what` 0 the filter, 1 the order.
 pub fn notes_view(tab_id: i32, what: i32, value: i32) {
     update(tab_id, |r, _| match what {
-        0 => r.notes_filter = value.clamp(0, 9),
+        0 => r.notes_filter = value.clamp(0, 10),
         _ => r.notes_sort = value.clamp(0, 3),
     });
 }

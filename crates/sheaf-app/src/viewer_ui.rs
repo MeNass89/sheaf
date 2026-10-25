@@ -39,6 +39,8 @@ pub struct ViewerUi {
     /// An actual size (percent) kept as the view's width comes in (Preferences ▸ Open new documents
     /// at Actual size; the zoom is a share of the width), until the user zooms.
     pub pending_actual: Option<f64>,
+    /// Fit page to apply once the view knows its height (Preferences ▸ Open new documents at Fit page).
+    pub pending_fit: bool,
     pub input: Input,
     pub viewer: Viewer,
     /// Device pixels per logical pixel (2 on Retina).
@@ -111,6 +113,7 @@ impl ViewerUi {
             load_id: next_load_id(),
             search_seq: 0,
             pending_actual: None,
+            pending_fit: false,
             input,
             viewer,
             scale,
@@ -377,6 +380,11 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) 
             let z = v.viewer.zoom_for_actual(v.current(), pct);
             v.viewer.set_zoom(z);
         }
+        if width > 0.0 && height > 0.0 && v.pending_fit {
+            let cur = v.current();
+            let z = v.viewer.fit_page_zoom(height as f64, cur..cur + 1);
+            v.viewer.set_zoom(z);
+        }
     });
     crate::reader_ui::viewport_changed(ui, tab_id);
     request(ui, tab_id);
@@ -469,6 +477,11 @@ fn zoom_to_at(ui: &AppWindow, tab_id: i32, z: u32, (ax, ay, sx): (f64, f64, f64)
             update(tab_id, |v| {
                 v.zoom_settling = false;
                 v.zoom_target = None;
+                // The anchored scroll is sent again once the page sizes have settled: the view may
+                // have cut it to a width it had in between (25/10: a ⌘ + wheel left the point 72 px off).
+                if v.scroll_x.is_some() {
+                    v.scroll_seq += 1;
+                }
             });
             request(&ui, tab_id);
         }
@@ -476,6 +489,7 @@ fn zoom_to_at(ui: &AppWindow, tab_id: i32, z: u32, (ax, ay, sx): (f64, f64, f64)
     update(tab_id, move |v| {
         // A zoom of the user's own: the opening size no longer follows the width.
         v.pending_actual = None;
+        v.pending_fit = false;
         let sx = v.zoom_around(z, (ax, ay, sx))?;
         v.zoom_timer = Some(timer);
         Some(sx)

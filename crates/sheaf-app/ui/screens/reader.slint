@@ -99,6 +99,9 @@ export component ReaderScreen inherits Rectangle {
         root.want-x = root.tab.viewer-scroll-x >= 0px ? root.tab.viewer-scroll-x : -1px;
         if root.tab.viewer-scroll-x >= 0px {
             sv.content-x = -root.tab.viewer-scroll-x;
+            // Restarted for each scroll asked for (a running timer is not restarted by running = true):
+            // the latest wheel notch keeps its full 2 s.
+            want-x-timer.running = false;
             want-x-timer.running = true;
         }
     }
@@ -110,7 +113,9 @@ export component ReaderScreen inherits Rectangle {
     // view's. A wheel notch landing before the last one's scroll is shown (a busy machine) would
     // otherwise anchor on the old one and drift.
     property <length> scroll-x-now: root.want-x >= 0px ? root.want-x : -sv.content-x;
-    property <length> content-w: root.tab.viewer-width;
+    // The width the view really has, not the one the model asks for: a scroll set before it comes
+    // is cut to the old width, so it is set again when it does (25/10: a ⌘ + wheel drifted 72 px).
+    property <length> content-w: sv.content-width;
     changed content-w => { if root.want-x >= 0px { sv.content-x = -root.want-x; } }
     want-x-timer := Timer {
         interval: 2000ms;

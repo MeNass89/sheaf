@@ -10410,12 +10410,12 @@
    14
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -10462,6 +10462,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Compare cannot take PDFs already open in reader tabs; `crates/sheaf-app/src/flow.rs:85`"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "4e08ff3: Sol AGREE 9 (round 4 25/10); F-013 round 4"
    }
   ]
  },
@@ -23158,12 +23169,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -23199,6 +23210,17 @@
      "overall": 7
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Les propriétés montrent la taille de la première page, sans les boîtes de page ni le statut PDF/A : crates/sheaf-app/src/reader_doc.rs:142"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "4e08ff3: Sol AGREE 9 (round 4 25/10); F-013 round 4"
    }
   ]
  },
@@ -23886,12 +23908,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -23960,6 +23982,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Après déverrouillage, « Security » indique seulement « Encrypted » ; les restrictions du PDF ne sont pas affichées : crates/sheaf-app/src/reader_doc.rs:149"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "4e08ff3: Sol AGREE 9 (round 4 25/10); F-013 round 4"
    }
   ]
  },
@@ -24313,12 +24346,12 @@
    153
   ],
   "grade": {
-   "function": 7,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -24354,6 +24387,17 @@
      "overall": 7
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Impossible de limiter les droits sans imposer aussi un mot de passe d’ouverture, contrairement à Acrobat : crates/sheaf-app/ui/screens/options.slint:251"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "4e08ff3: Sol AGREE 9 (round 4 25/10); F-013 round 4"
    }
   ]
  },

@@ -85,8 +85,23 @@ Each line: the component, Sol's gap, what was done, its proof.
 - gui-smoke 6h failed twice in five runs (961 → 889 px, at 263 %): a wheel event handled before the pointer's
   move into the page anchors where the pointer was. The smoke now moves the pointer in as a hand does (two
   steps, a pause). The app reads the pointer from the last move; a wheel without a move first is not a real case.
-- OPEN flake, gui-smoke 6h "⌘ + wheel zooms around the pointer": red in 3 of 7 full runs on 25/10, always
-  961 → 889 px at 263 %; green in every partial replay, in the gui layer alone, and once instrumented (a log line
-  in `zoom_around` made it pass: a timing race). Leading hypothesis: a horizontal scroll still pending from the
-  earlier "zoom typed 200 %" step (`want-x`, cleared after 2 s or once shown) is taken as the anchor's scroll.
-  Next probe: wait 2.5 s before the wheel in the smoke (predicts green), then clear `want-x` on any zoom.
+- Found 25/10 (was a flake in 5 of 11 full runs): gui-smoke 6h, ⌘ + wheel left the point under the pointer 72 px
+  off. Diagnosis: the app kept its anchor through every wheel step (a probe recorded each step, written out 3 s
+  later so as not to change the timing; the first probe, a log line in the step, made the bug vanish), and the view
+  took each intermediate scroll; the last one was moved after the fact, the view cutting it to a width it had in
+  between. Fix: when the zoom settles (150 ms), the anchored scroll is sent again (`viewer_ui::zoom_to_at`); the
+  view's 2 s retry timer is restarted for each scroll. Proof: gui-smoke 6h green in the full runs since.
+
+## Round 5 (25/10, after Sol's round 4: 4 agree, 3 disagree)
+- **C-annotate-031** A "Checked" filter (Acrobat's check mark: the comment's last Marked/Unmarked reply).
+  Proof: `reader::tests::notes_filter_groups`.
+- **C-reader-013** Fit page as the opening size was saved but not applied: it is set once the view knows its
+  height (`ViewerUi::pending_fit`). Proof: gui-smoke 28 (a fresh letter page opens under 120 %; 85 % by hand).
+- **C-reader-030** Two attachments of one name shared a temporary file: each opens from its own folder.
+- **C-files-011** Close Other / Left / Right left unsaved documents open with a toast: each is asked about in turn
+  (Save / Don't Save / Cancel; Cancel stops), as closing it would (`flow::close_queue`, `next_close`). Proof:
+  gui-smoke 29.
+- gui-smoke 6h (⌘ + wheel around the pointer, 961 → 889 px in 5 of 11 full runs): the view cut the anchored
+  horizontal scroll to a width it had while the page sizes were still changing. The anchored scroll is now sent
+  again once the zoom settles (`viewer_ui::zoom_to_at`), and the 2 s `want-x` timer restarts on each request.
+  Green in the three full runs since (961 → 959, 960, 960 px). The flake is closed.
