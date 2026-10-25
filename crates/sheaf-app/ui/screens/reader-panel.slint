@@ -37,6 +37,7 @@ export component ReaderPanel inherits Rectangle {
     property <int> number-style;
     property <string> number-prefix;
     property <string> number-start;
+    property <string> number-through;
         visible: root.tab.reader.panel-open && !root.bare;
         width: root.tab.reader.panel-open && !root.bare ? root.panel-width : 0px;
         background: Theme.panel-bg;
@@ -625,7 +626,7 @@ export component ReaderPanel inherits Rectangle {
                         padding: 10px;
                         spacing: 6px;
                         Text {
-                            text: "Number " + (root.tab.reader.pages-selected <= 1 ? "this page" : "the " + root.tab.reader.pages-selected + " pages") + " and the next ones";
+                            text: "Number " + (root.tab.reader.pages-selected <= 1 ? "this page" : "the " + root.tab.reader.pages-selected + " pages") + (root.number-through != "" ? " through page " + root.number-through : root.tab.reader.pages-selected <= 1 ? " and the next ones" : "");
                             font-size: Theme.fs-caption;
                             color: Theme.text-secondary;
                         }
@@ -638,6 +639,8 @@ export component ReaderPanel inherits Rectangle {
                             spacing: 6px;
                             PanelField { placeholder: "Prefix"; text <=> root.number-prefix; }
                             PanelField { width: 70px; placeholder: "Start: 1"; text <=> root.number-start; }
+                            // Acrobat's Pages from … to …: the last page numbered so (empty: as selected).
+                            PanelField { width: 86px; placeholder: "Through: end"; text <=> root.number-through; }
                         }
                         HorizontalLayout {
                             alignment: end;
@@ -648,7 +651,7 @@ export component ReaderPanel inherits Rectangle {
                                 primary: true;
                                 clicked => {
                                     root.number-open = false;
-                                    ReaderBridge.number-pages(root.id, root.number-style, root.number-prefix, root.number-start);
+                                    ReaderBridge.number-pages(root.id, root.number-style, root.number-prefix, root.number-start, root.number-through);
                                 }
                             }
                         }

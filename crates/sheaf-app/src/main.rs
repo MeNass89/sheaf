@@ -180,7 +180,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_tab_order, |ui, id, o| reader_ui::tab_order(&ui, id, o));
     wire_global!(ui, rb, on_copy_image, |ui, id, cut| reader_ui::copy_image(&ui, id, cut));
     wire_global!(ui, rb, on_sanitize, |ui, id| reader_ui::sanitize(&ui, id));
-    wire_global!(ui, rb, on_field_props, |ui, id, name, tip, req, ro, ml, opts, size, align, act, url| reader_ui::field_props(&ui, id, &name, &tip, req, ro, ml, &opts, (&size, align), (act, &url)));
+    wire_global!(ui, rb, on_field_props, |ui, id, name, tip, req, ro, ml, opts, size, align, font, act, url| reader_ui::field_props(&ui, id, &name, &tip, req, ro, ml, &opts, (&size, align, font), (act, &url)));
     wire_global!(ui, rb, on_field_delete, |ui, id| reader_ui::field_delete(&ui, id));
     wire_global!(ui, rb, on_field_everywhere, |ui, id| reader_ui::field_everywhere(&ui, id));
     wire_global!(ui, rb, on_nudge, |ui, id, dx, dy| reader_ui::nudge(&ui, id, dx, dy));
@@ -194,7 +194,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_thumb_pressed(reader_ui::thumb_pressed);
     wire_global!(ui, rb, on_page_op, |ui, id, op| reader_ui::page_op(&ui, id, op));
     wire_global!(ui, rb, on_panel_resized, |ui, w| reader_ui::panel_resized(&ui, w));
-    wire_global!(ui, rb, on_number_pages, |ui, id, style, prefix, start| reader_ui::number_pages(&ui, id, style, &prefix, &start));
+    wire_global!(ui, rb, on_number_pages, |ui, id, style, prefix, start, through| reader_ui::number_pages(&ui, id, style, &prefix, &start, &through));
     wire_global!(ui, rb, on_extract, |ui, id, each, delete| reader_ui::extract(&ui, id, each, delete));
     rb.on_thumb_drag(reader_ui::thumb_drag);
     rb.on_thumb_at(reader_ui::thumb_at);
@@ -451,6 +451,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_author, |ui, v| home::set_author(&ui, &v));
     wire!(ui, on_set_default_zoom, |ui, z| home::set_default_zoom(&ui, z));
     wire!(ui, on_set_default_spread, |ui, s| home::set_default_spread(&ui, s));
+    wire!(ui, on_set_open_first_page, |ui, f| home::set_open_first_page(&ui, f));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);

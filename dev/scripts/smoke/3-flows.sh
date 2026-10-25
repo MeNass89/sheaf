@@ -284,10 +284,12 @@ quit
 # field changes to the box's.
 cp "$OUT/text.pdf" "$OUT/crop.pdf"; launch "$OUT/crop.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "crop"; key Return; sleep 2.5
-topval() { ocr 110x30+1006+345 | tr -cd '0-9.'; }   # the Top field (label 1004,327)
+# Placed from the Top label (the cards above it vary): its field 18 px under it, the page preview from 129 px
+# under it to 329, x 1051–1205; a box from inside its top-left to near its bottom-right.
+read _ TY <<< "$(at Top 300x700+990+90)"; TY=${TY:-327}
+topval() { ocr 110x30+1006+$(( TY + 18 )) | tr -cd '0-9.'; }
 CT0=$(topval)
-# The page preview spans y 456–656, x 1051–1205: a box from inside its top-left to near its bottom-right.
-xdotool mousemove 1075 490 mousedown 1 mousemove 1110 540 mousemove 1180 620 mouseup 1; sleep 0.8
+xdotool mousemove 1075 $(( TY + 163 )) mousedown 1 mousemove 1110 $(( TY + 213 )) mousemove 1180 $(( TY + 293 )) mouseup 1; sleep 0.8
 CT=$(topval)
 check "a box dragged on Crop's preview sets the margins (top: ${CT0:-?} → ${CT:-none})" "[ -n \"$CT\" ] && [ \"$CT\" != \"$CT0\" ]"
 quit

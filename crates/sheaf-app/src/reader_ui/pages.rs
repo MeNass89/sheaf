@@ -126,7 +126,7 @@ pub fn extract(ui: &AppWindow, tab_id: i32, each: bool, delete: bool) {
 /// end, pages are labelled in `style` from `start` after `prefix` (a front matter in i, ii, then
 /// 1 from the first chapter: two steps). An edit that can be undone; the labels show in the page
 /// field and Go to.
-pub fn number_pages(ui: &AppWindow, tab_id: i32, style: i32, prefix: &str, start: &str) {
+pub fn number_pages(ui: &AppWindow, tab_id: i32, style: i32, prefix: &str, start: &str, through: &str) {
     use sheaf_core::pdfcraft::engine::LabelStyle as S;
     let first = match start.trim() {
         "" => 1,
@@ -136,11 +136,20 @@ pub fn number_pages(ui: &AppWindow, tab_id: i32, style: i32, prefix: &str, start
         },
     };
     let style = [S::Decimal, S::LowerRoman, S::UpperRoman, S::LowerAlpha, S::UpperAlpha, S::None][style.clamp(0, 5) as usize];
+    // Through page N (1-based), when typed: Acrobat's Pages from … to … (Sol, 25/10).
+    let through = match through.trim() {
+        "" => None,
+        t => match t.parse::<usize>() {
+            Ok(n) if n >= 1 => Some(n - 1),
+            _ => return crate::flow::toast(ui, &format!("Through: \"{t}\" is not a page number (1 or more)")),
+        },
+    };
     let Some((from, to)) = update(tab_id, |r, v| {
-        // Several pages selected: those (Acrobat's Pages from … to …, Sol 25/10); one: it and the rest.
+        // Several pages selected: those; one: it and the rest; through page N when typed.
         let pages = op_pages(r, v);
         let last = if pages.len() > 1 { *pages.last().unwrap_or(&0) } else { v.viewer.page_count().saturating_sub(1) };
-        (*pages.first().unwrap_or(&0), last)
+        let from = *pages.first().unwrap_or(&0);
+        (from, through.map_or(last, |t| t.clamp(from, v.viewer.page_count().saturating_sub(1))))
     }) else {
         return;
     };

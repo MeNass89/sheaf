@@ -165,6 +165,9 @@ pub(super) fn show_view_rect(v: &mut ViewerUi, page: usize, r: [f32; 4]) {
     }
     let c = view_rect_to_content(&v.viewer, page, r);
     v.scroll = (c[1] - v.height / 3.0).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
+    // Across too, on a page wider than the view, when the result is out of sight (Sol, 25/10).
+    let width = v.viewer.view_width();
+    v.scroll_x = (v.viewer.max_scroll_x() > 0.0 && (c[0] < v.left || c[0] + c[2] > v.left + width)).then(|| (c[0] - width / 3.0).clamp(0.0, v.viewer.max_scroll_x()));
     v.scroll_seq += 1;
 }
 

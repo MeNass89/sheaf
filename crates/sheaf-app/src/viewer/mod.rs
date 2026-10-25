@@ -344,6 +344,11 @@ impl Viewer {
         (px + fx * w, py + fy * h)
     }
 
+    /// The view's width (the fit width).
+    pub fn view_width(&self) -> f64 {
+        self.fit_width
+    }
+
     /// The widest horizontal scroll: the content width past the view's.
     pub fn max_scroll_x(&self) -> f64 {
         (self.content_width() - self.fit_width).max(0.0)

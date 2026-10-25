@@ -409,3 +409,19 @@ Each line: the component, Sol's gap, what was done, its proof.
   - **C-security-015** Close All Tabs dropped Redact's marks without asking: those tabs are asked about in turn.
   - **C-convert-012 / C-convert-013** Extract images kept every decoded picture before writing: each is written as
     soon as it is decoded (a failure still takes back what was written).
+
+## Round 13 (25/10, Sol's follow-ups on rounds 10–11)
+- **C-reader-025** /Fit and /FitH destinations kept a zoomed view: /Fit shows the whole page, /FitH its width.
+  Proof: `viewer_ui::tests::a_destination_brings_its_zoom_its_top_and_its_left_edge`.
+- **C-reader-021** ⌘[ after a link that zoomed kept the new zoom: each place in the history keeps its zoom.
+- **C-reader-032** A result out of sight across a zoomed page stayed out of sight: the view scrolls across to it.
+- **C-edit-025** Number pages ran from one selected page to the end: a "Through" page bounds it (Acrobat's Pages
+  from … to …).
+- **C-forms-012** Size and alignment but no font: the field card sets its text's font too (Helvetica, Times,
+  Courier: Acrobat's Appearance ▸ Font).
+- **C-preferences-004** No start page to choose: Preferences ▸ Documents ▸ Reopen documents where I left off, or on
+  the first page (Acrobat's Restore last view settings). Proof: `tests/history.rs` (the preference is kept).
+- **C-compare-004 / C-compare-007** Text moved with the same words showed no difference: lines of the changed
+  document whose words are the same but sit elsewhere, with no change on their line, are reported as moved (the
+  result line counts them, the report says them page by page, Overlay outlines them in blue). Proof: sheaf-core
+  `compare::a_line_moved_with_the_same_words_is_reported`.

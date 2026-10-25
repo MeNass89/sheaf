@@ -42,6 +42,9 @@ pub struct CompareReport {
     /// has no words to compare): pages only the changed one has, pages only the original has.
     pub pages_added: usize,
     pub pages_removed: usize,
+    /// Lines of the changed document whose words are the same but moved (no change on that line to
+    /// have pushed them): Acrobat reports moved text.
+    pub moved: usize,
 }
 
 impl CompareReport {
@@ -60,6 +63,9 @@ impl CompareReport {
         let mut s = if self.identical() { "No differences: the documents' text is identical.".to_string() } else { self.counts() };
         if self.regions > 0 {
             s += &format!("; {} {}", crate::tools::count(self.regions, "other changed area"), if self.listed { "listed" } else { "outlined" });
+        }
+        if self.moved > 0 {
+            s += &format!("; {} moved", crate::tools::count(self.moved, "line"));
         }
         if self.pages_added > 0 {
             s += &format!("; {} at the end", crate::tools::count(self.pages_added, "page added"));
@@ -103,6 +109,20 @@ fn moved(old: &[Placed], new: &[Placed]) -> Vec<(usize, [f64; 4])> {
     out
 }
 
+/// The lines of `new` whose words were in `old` but are not at the same place, on lines where
+/// `changed` sees no changed word: text moved as it was. One box per line, by page.
+fn moved_lines(old: &[Placed], new: &[Placed], changed: impl Fn(usize, &[f64; 4]) -> bool) -> Vec<(usize, [f64; 4])> {
+    let same = |a: &Placed, b: &Placed| a.1 == b.1 && a.0 == b.0 && a.2.iter().zip(b.2).all(|(x, y)| (x - y).abs() < 0.5);
+    let mut lines: Vec<(usize, [f64; 4])> = Vec::new();
+    for w in new.iter().filter(|w| !old.iter().any(|o| same(o, w)) && old.iter().any(|o| o.0 == w.0) && !changed(w.1, &w.2)) {
+        match lines.iter_mut().find(|(p, l)| *p == w.1 && (l[1] - w.2[1]).abs() < 3.0) {
+            Some((_, l)) => *l = [l[0].min(w.2[0]), l[1].min(w.2[1]), l[2].max(w.2[2]), l[3].max(w.2[3])],
+            None => lines.push((w.1, w.2)),
+        }
+    }
+    lines
+}
+
 /// Compares `old` (the original) with `new` (the changed version) and writes `out` (never
 /// overwriting): the report for [`CompareMode::Text`], the marked copy of `new` for
 /// [`CompareMode::Overlay`].
@@ -122,6 +142,7 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
         was_encrypted: false,
         pages_added: 0,
         pages_removed: 0,
+        moved: 0,
     };
     // Regions that look different, less those that text changes entirely account for: the
     // changed words, as they are now and as they were, and the words a change moved along the
@@ -134,7 +155,14 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
         .iter()
         .flat_map(|ch| ch.new.rects.iter().map(move |r| (ch.new.page, *r)).chain(ch.old.rects.iter().map(move |r| (ch.old.page, *r))))
         .collect();
-    words.extend(moved(&doc_words(old_id), &doc_words(new_id)));
+    let (old_words, new_words) = (doc_words(old_id), doc_words(new_id));
+    let shifted = moved(&old_words, &new_words);
+    // Words moved where no change is on their line moved on their own (a paragraph moved down): a
+    // line of them is reported (Sol, 25/10: a move with the same words showed no difference).
+    let changed_line = |page: usize, r: &[f64; 4]| c.changes.iter().any(|ch| ch.new.page == page && ch.new.rects.iter().any(|q| (q[1] - r[1]).abs() < 3.0));
+    let moved_lines = moved_lines(&old_words, &new_words, changed_line);
+    report.moved = moved_lines.len();
+    words.extend(shifted);
     let mut areas: Vec<(usize, [f64; 4])> =
         visual.into_iter().filter(|(page, r)| !explained_by(*r, &words.iter().filter(|(p, _)| p == page).map(|(_, w)| *w).collect::<Vec<_>>())).collect();
     report.regions = areas.len();
@@ -153,6 +181,16 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
     if report.pages_added > 0 {
         notes.push(format!("{} only in the changed document.", pages_span(old_pages.len() + 1, new_pages.len(), "is", "are")));
     }
+    let mut moved_pages: Vec<(usize, usize)> = Vec::new();
+    for (page, _) in &moved_lines {
+        match moved_pages.last_mut() {
+            Some((p, k)) if p == page => *k += 1,
+            _ => moved_pages.push((*page, 1)),
+        }
+    }
+    for (page, k) in &moved_pages {
+        notes.push(format!("Page {}: {} moved, the words the same.", page + 1, crate::tools::count(*k, "line")));
+    }
     if report.pages_removed > 0 {
         notes.push(format!("{} not in the changed document.", pages_span(new_pages.len() + 1, old_pages.len(), "of the original is", "of the original are")));
     }
@@ -166,15 +204,18 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
             }
         }
         CompareMode::Overlay => {
+            // Changed areas outlined in red, moved lines in blue.
+            let outline = |(page, rect): (usize, [f64; 4]), kind: Kind, contents: &str| {
+                let shape = Shape::Rectangle { rect };
+                let mut style = Style::default_for(&shape);
+                style.color = crate::pdfcraft::engine::compare::colour(kind);
+                style.width = 1.5;
+                Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: contents.into(), author: "Compare".into() })
+            };
             let edits: Vec<Edit> = areas
                 .into_iter()
-                .map(|(page, rect)| {
-                    let shape = Shape::Rectangle { rect };
-                    let mut style = Style::default_for(&shape);
-                    style.color = crate::pdfcraft::engine::compare::colour(Kind::Deleted);
-                    style.width = 1.5;
-                    Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: "Changed area".into(), author: "Compare".into() })
-                })
+                .map(|a| outline(a, Kind::Deleted, "Changed area"))
+                .chain(moved_lines.iter().map(|&a| outline(a, Kind::Replaced, "Moved text")))
                 .collect();
             doc.session_mut().mark_differences(old_id, new_id).map_err(|e| OpdfError::Engine(e.to_string()))?;
             if !edits.is_empty() {

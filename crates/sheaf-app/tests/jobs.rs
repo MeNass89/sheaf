@@ -164,9 +164,10 @@ fn compress_batch_cancelled_after_the_first_file_leaves_no_outputs() {
     let items = outs.iter().map(|o| (Input::new(&src), o.clone())).collect();
     let cancel = AtomicBool::new(false);
     let first_done = std::cell::Cell::new(false);
-    let err = run(&Job::Compress { items, level: Level::Recommended }, &cancel, &|_| {
-        // After file 1: it is on disk, then the user cancels.
-        if !first_done.get() {
+    let err = run(&Job::Compress { items, level: Level::Recommended }, &cancel, &|p| {
+        // After file 1 (a third of the way: progress also comes within each file): it is on
+        // disk, then the user cancels.
+        if !first_done.get() && p >= 1.0 / 3.0 - 1e-6 {
             first_done.set(true);
             assert!(outs[0].exists(), "first output written before the cancel");
             cancel.store(true, Ordering::Relaxed);

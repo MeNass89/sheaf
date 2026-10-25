@@ -316,9 +316,10 @@ pub struct ReaderUi {
     results_cache: Cache<(Rc<VecModel<ReaderResultRow>>, Option<usize>)>,
     /// 0 fit width, 1 fit page, 2 a zoom the user chose.
     zoom_mode: i32,
-    /// Places (page, and point in it) left by a link or the outline (⌘[ goes back), and those gone back from.
-    back: Vec<(usize, f64, f64)>,
-    forward: Vec<(usize, f64, f64)>,
+    /// Places (page, and point in it) and their zoom left by a link or the outline (⌘[ goes back),
+    /// and those gone back from.
+    back: Vec<((usize, f64, f64), u32)>,
+    forward: Vec<((usize, f64, f64), u32)>,
     /// Bumped when the outline rows or the annotation list change: the panel models are rebuilt
     /// only then, not on every scroll.
     version: u64,
@@ -834,7 +835,7 @@ fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
             v.pending_fit = true;
         }
     }
-    if let Some(p) = crate::home::last_page(path).filter(|p| *p > 0) {
+    if let Some(p) = crate::home::last_page(path).filter(|p| *p > 0 && !crate::home::prefs().open_first_page) {
         v.show_page(p, None);
     }
 }

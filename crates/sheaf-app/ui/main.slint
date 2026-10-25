@@ -120,6 +120,8 @@ export component AppWindow inherits Window {
     callback set-default-zoom(int);
     in property <int> default-spread;
     callback set-default-spread(int);
+    in property <bool> open-first-page;
+    callback set-open-first-page(bool);
     in property <string> author-default;
     property <bool> confirm-clear;
 
@@ -293,6 +295,8 @@ export component AppWindow inherits Window {
                             set-default-zoom(z) => { root.set-default-zoom(z); }
                             default-spread: root.default-spread;
                             set-default-spread(s) => { root.set-default-spread(s); }
+                            open-first-page: root.open-first-page;
+                            set-open-first-page(f) => { root.set-open-first-page(f); }
                             backdrop-pref: root.backdrop-pref;
                             set-accent(i) => { root.set-accent(i); }
                             set-backdrop(i) => { root.set-backdrop(i); }

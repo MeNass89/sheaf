@@ -37,6 +37,7 @@ export component FieldPropsCard inherits Rectangle {
     property <bool> read-only;
     property <bool> multiline;
     property <int> align;
+    property <int> font;
     property <int> action;
 
     width: 360px;
@@ -57,6 +58,7 @@ export component FieldPropsCard inherits Rectangle {
         root.read-only = props.read-only;
         root.multiline = props.multiline;
         root.align = props.align;
+        root.font = props.font;
         root.action = props.action;
         size-text.text = props.font-size;
         url-text.text = props.url;
@@ -69,12 +71,13 @@ export component FieldPropsCard inherits Rectangle {
         root.read-only = props.read-only;
         root.multiline = props.multiline;
         root.align = props.align;
+        root.font = props.font;
         root.action = props.action;
         size-text.text = props.font-size;
         url-text.text = props.url;
     }
     function apply() {
-        ReaderBridge.field-props(root.id, name-field.text, tip-field.text, root.required, root.read-only, root.multiline, items.text, size-text.text, root.align, root.action, url-text.text);
+        ReaderBridge.field-props(root.id, name-field.text, tip-field.text, root.required, root.read-only, root.multiline, items.text, size-text.text, root.align, root.font, root.action, url-text.text);
         root.focus-pages();
     }
     // A click on the card stays on it.
@@ -106,6 +109,11 @@ export component FieldPropsCard inherits Rectangle {
             PanelField { width: 64px; placeholder: "Auto"; text <=> size-text.text; }
             Rectangle { width: 8px; }
             for a[i] in ["Left", "Centre", "Right"]: SmallButton { text: a; primary: root.align == i; clicked => { root.align = i; } }
+        }
+        // Its text's font (Acrobat's Appearance ▸ Font).
+        if root.props.exact == 0 || (root.props.exact >= 3 && root.props.exact <= 5): HorizontalLayout {
+            spacing: 4px;
+            for f[i] in ["Helvetica", "Times", "Courier"]: SmallButton { text: f; primary: root.font == i; clicked => { root.font = i; } }
         }
         // A button: what a click does (Acrobat's Actions ▸ Mouse Up).
         if root.props.exact == 5: VerticalLayout {

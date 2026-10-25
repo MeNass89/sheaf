@@ -158,9 +158,9 @@ pub fn detect_fields(ui: &AppWindow, tab_id: i32) {
 /// The selected field's properties card ▸ Done: what changed, one undo step; the card closes (the
 /// field is let go, as Acrobat's Properties dialog closes). `options`: one per line. `look`: the
 /// text's size typed ("" or "Auto": fitted) and its alignment (0 left, 1 centre, 2 right).
-/// `click`: a button's action (0 nothing, 1 clear the form, 2 print, 3 open the address).
+/// `font`: 0 Helvetica, 1 Times, 2 Courier. `click`: a button's action (0 nothing, 1 clear the form, 2 print, 3 open the address).
 #[allow(clippy::too_many_arguments)]
-pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, required: bool, read_only: bool, multiline: bool, options: &str, look: (&str, i32), click: (i32, &str)) {
+pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, required: bool, read_only: bool, multiline: bool, options: &str, look: (&str, i32, i32), click: (i32, &str)) {
     let edit = update(tab_id, |r, _| {
         let (fi, _, page, _) = selected_field(r)?;
         let f = &r.snap.fields[fi];
@@ -175,6 +175,11 @@ pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, requi
             options: (matches!(f.exact, 3 | 4) && !options.is_empty() && options != f.options.iter().map(|o| o.1.clone()).collect::<Vec<_>>()).then_some(options),
             quadding: (matches!(f.exact, 0 | 3 | 4) && look.1 != f.align).then_some(look.1.clamp(0, 2) as i64),
             font_size: font_size(look.0).filter(|s| matches!(f.exact, 0 | 3 | 4) && (s - f.font_size).abs() > 0.01),
+            // The text's font (Acrobat's Appearance ▸ Font; Sol, 25/10).
+            appearance: (matches!(f.exact, 0 | 3 | 4 | 5) && look.2 != f.font).then(|| {
+                use sheaf_core::pdfcraft::engine::{FieldFont, FieldLookPatch};
+                FieldLookPatch { font: Some([FieldFont::Helvetica, FieldFont::Times, FieldFont::Courier][look.2.clamp(0, 2) as usize]), ..Default::default() }
+            }),
             actions: (f.exact == 5 && (click.0 != f.action || (click.0 >= 3 && click.1.trim() != f.url))).then(|| click_action(click.0, click.1)),
             ..Default::default()
         };
@@ -289,6 +294,7 @@ pub(super) fn form_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -
                 options: f.options.iter().map(|o| o.1.as_str()).collect::<Vec<_>>().join("\n").into(),
                 align: f.align,
                 font_size: if f.font_size > 0.0 { format!("{}", f.font_size).into() } else { "Auto".into() },
+                font: f.font,
                 action: f.action,
                 url: f.url.clone().into(),
                 other_pages: (0..v.viewer.page_count()).any(|p| !f.widgets.iter().any(|w| w.0 == p)),
@@ -331,6 +337,7 @@ mod tests {
             exact,
             align: 0,
             font_size: 0.0,
+            font: 0,
             action: 0,
             url: String::new(),
             widgets: Vec::new(),

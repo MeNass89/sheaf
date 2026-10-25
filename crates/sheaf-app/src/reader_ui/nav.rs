@@ -54,21 +54,22 @@ pub fn over_link(tab_id: i32, x: f32, y: f32) -> slint::SharedString {
 /// Goes to `page`, remembering where the reader was for ⌘[ (the point in the page, Acrobat's
 /// Previous View).
 pub(super) fn jump(r: &mut ReaderUi, v: &mut ViewerUi, page: usize, focus: Option<[f64; 4]>) {
-    let cur = v.place();
+    remember_here(r, v);
+    v.show_page(page, focus);
+}
+
+/// The place and zoom the reader leaves, for ⌘[.
+fn remember_here(r: &mut ReaderUi, v: &ViewerUi) {
+    let cur = (v.place(), v.viewer.zoom());
     if r.back.last() != Some(&cur) {
         r.back.push(cur);
     }
     r.forward.clear();
-    v.show_page(page, focus);
 }
 
 /// [`jump`] to a destination: its zoom, top and left edge (Acrobat's /XYZ left top zoom).
 pub(super) fn jump_dest(r: &mut ReaderUi, v: &mut ViewerUi, page: usize, view: &render::DestView) {
-    let cur = v.place();
-    if r.back.last() != Some(&cur) {
-        r.back.push(cur);
-    }
-    r.forward.clear();
+    remember_here(r, v);
     if v.show_dest(page, view) {
         // A zoom of the destination's: the window's opening size no longer applies.
         r.zoom_mode = 2;
@@ -80,10 +81,14 @@ pub(super) fn jump_dest(r: &mut ReaderUi, v: &mut ViewerUi, page: usize, view: &
 /// ⌘[ (back, `dir` −1) and ⌘] (forward, +1).
 pub fn history(tab_id: i32, dir: i32) {
     update(tab_id, |r, v| {
-        let cur = v.place();
+        let cur = (v.place(), v.viewer.zoom());
         let to = if dir < 0 { r.back.pop() } else { r.forward.pop() };
-        if let Some(p) = to {
+        if let Some((p, zoom)) = to {
             if dir < 0 { r.forward.push(cur) } else { r.back.push(cur) }
+            // The zoom it was left at, too (Sol, 25/10: a link that zoomed kept its zoom on ⌘[).
+            if v.viewer.set_zoom(zoom) {
+                r.zoom_mode = 2;
+            }
             v.go_to_place(p);
         }
     });

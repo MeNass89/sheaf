@@ -164,6 +164,8 @@ export struct ReaderFieldProps {
     // Its text's alignment (0 left, 1 centre, 2 right) and size ("Auto" or points).
     align: int,
     font-size: string,
+    // 0 Helvetica, 1 Times, 2 Courier.
+    font: int,
     // A button's click: 0 nothing, 1 clear the form, 2 print, 3 open `url`, 4 submit the form to `url`.
     action: int,
     url: string,
@@ -653,7 +655,7 @@ export global ReaderBridge {
     callback copy-image(int, bool);
     // More ▸ Sanitize document.
     callback sanitize(int);
-    callback field-props(int, string, string, bool, bool, bool, string, string, int, int, string);
+    callback field-props(int, string, string, bool, bool, bool, string, string, int, int, int, string);
     callback field-delete(int);
     callback field-everywhere(int);
     callback link-selection(int);
@@ -731,7 +733,7 @@ export global ReaderBridge {
     callback page-op(int, int);
     // Number the selected pages (or the one shown) and the next: style (0 1 2 3, 1 i ii, 2 I II,
     // 3 a b, 4 A B, 5 none), prefix, first number as typed.
-    callback number-pages(int, int, string, string);
+    callback number-pages(int, int, string, string, string);
     // Extract the selected pages (or the one shown): one file per page, then delete them.
     callback extract(int, bool, bool);
     callback thumb-drag(int, int, length) -> length;

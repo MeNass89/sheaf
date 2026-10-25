@@ -91,6 +91,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         plain_fields: true,
         default_zoom: 1,
         default_spread: 2,
+        open_first_page: true,
         panel_width: 320,
         accent: 2,
         backdrop: 3,

@@ -103,6 +103,8 @@ pub struct FieldEntry {
     /// Its text's alignment (0 left, 1 centre, 2 right) and size in points (0: auto).
     pub align: i32,
     pub font_size: f64,
+    /// Its font: 0 Helvetica, 1 Times, 2 Courier (from its appearance's font name).
+    pub font: i32,
     /// A button's click: 0 nothing (or another action), 1 clear the form, 2 print, 3 open `url`,
     /// 4 submit the form to `url`.
     pub action: i32,
@@ -308,6 +310,11 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
             },
             align: f.quadding.clamp(0, 2) as i32,
             font_size: f.da.split_whitespace().collect::<Vec<_>>().windows(2).find(|w| w[1] == "Tf").and_then(|w| w[0].parse().ok()).unwrap_or(0.0),
+            font: match f.da.split_whitespace().find(|t| t.starts_with('/')).map(|t| t.trim_start_matches('/').to_ascii_lowercase()) {
+                Some(n) if n.starts_with("ti") || n.contains("times") => 1,
+                Some(n) if n.starts_with("co") => 2,
+                _ => 0,
+            },
             action: match &f.button {
                 Some(B::Reset { .. }) => 1,
                 Some(B::Named(n)) if n == "Print" => 2,

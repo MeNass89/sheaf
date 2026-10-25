@@ -201,3 +201,23 @@ fn a_page_added_or_removed_at_the_end_is_reported() {
     assert_eq!((r.pages_added, r.pages_removed), (0, 1));
     assert!(page_texts(&r.path).join(" ").contains("Page 2 of the original is not in the changed document"));
 }
+
+#[test]
+fn a_line_moved_with_the_same_words_is_reported() {
+    let t = tempfile::tempdir().unwrap();
+    let at = |name: &str, y: f32| {
+        let _g = pdfium_lock();
+        let mut doc = new_document();
+        let font = doc.fonts_mut().helvetica();
+        let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+        page.objects_mut().create_text_object(PdfPoints::new(72.0), PdfPoints::new(y), "The same words here", font, PdfPoints::new(14.0)).unwrap();
+        let path = t.path().join(name);
+        doc.save_to_file(&path).unwrap();
+        path
+    };
+    let (old, new) = (at("old.pdf", 760.0), at("new.pdf", 500.0));
+    let r = compare::compare(&Input::new(&old), &Input::new(&new), CompareMode::Text, &t.path().join("r.pdf")).unwrap();
+    assert_eq!((r.added, r.removed, r.replaced, r.moved), (0, 0, 0, 1), "{r:?}");
+    assert!(r.summary().contains("1 line moved"), "{}", r.summary());
+    assert!(page_texts(&r.path).join(" ").contains("Page 1: 1 line moved"));
+}

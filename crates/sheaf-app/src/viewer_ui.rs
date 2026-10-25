@@ -206,6 +206,12 @@ impl ViewerUi {
                 let target = self.viewer.zoom_for_actual(page, z as f64 * 100.0);
                 self.viewer.set_zoom(target)
             }
+            // The whole page in the view, or its width (Sol, 25/10: a zoomed view stayed zoomed).
+            render::DestView::Fit => {
+                let z = self.viewer.fit_page_zoom(self.height, page..page + 1);
+                self.viewer.set_zoom(z)
+            }
+            render::DestView::FitH { .. } => self.viewer.set_zoom(100),
             _ => false,
         };
         let crop = self.viewer.boxes.get(page).map(|b| b.crop).unwrap_or_default();
@@ -989,6 +995,10 @@ mod tests {
         let c = v.viewer.overlay(1, [200.0, 299.0, 201.0, 300.0]);
         let sx = v.scroll_x.expect("scrolled across");
         assert!((c[0] - sx - 8.0).abs() < 1.0 && c[1] > v.scroll && c[1] - v.scroll < 700.0 / 2.0, "{c:?} {sx} {}", v.scroll);
+        // /Fit: the whole page in the view; /FitH: the width.
+        assert!(v.show_dest(0, &render::DestView::Fit));
+        assert_eq!(v.viewer.zoom(), v.viewer.fit_page_zoom(v.height, 0..1));
+        assert!(v.show_dest(0, &render::DestView::FitH { top: Some(500.0) }) && v.viewer.zoom() == 100);
         // No zoom, no left: the zoom stays, no horizontal scroll asked for.
         let z = v.viewer.zoom();
         assert!(!v.show_dest(0, &render::DestView::Xyz { left: None, top: Some(500.0), zoom: None }));
