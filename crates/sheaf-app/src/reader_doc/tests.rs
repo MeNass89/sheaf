@@ -150,22 +150,26 @@ fn search_cost_on_a_big_file() {
 #[test]
 fn a_search_shows_its_first_page_at_once_on_a_long_file() {
     use sheaf_core::pdfcraft::render;
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("long.pdf");
-    {
-        let _g = sheaf_core::engine::pdfium_lock();
-        let mut doc = sheaf_core::engine::new_document();
-        let font = doc.fonts_mut().helvetica();
-        let line = "The quick brown fox jumps over the lazy dog, a tumor of words for the search to read.";
-        for _ in 0..300 {
-            let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
-            for row in 0..45 {
-                page.objects_mut().create_text_object(PdfPoints::new(40.0), PdfPoints::new(800.0 - row as f32 * 17.0), line, font, PdfPoints::new(10.0)).unwrap();
-            }
-        }
-        doc.save_to_file(&path).unwrap();
+    // Written by hand: 13,500 text objects added one by one through the engine took minutes in a
+    // debug build (the unit layer hung on it, 25/10).
+    let line = "(The quick brown fox jumps over the lazy dog, a tumor of words for the search to read.) Tj 0 -17 Td ";
+    let content = format!("BT /F1 10 Tf 40 800 Td {} ET", line.repeat(45));
+    let mut objs = vec!["<< /Type /Catalog /Pages 2 0 R >>".to_string(), String::new(), "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".into()];
+    objs.push(format!("<< /Length {} >>\nstream\n{content}\nendstream", content.len()));
+    let kids: Vec<String> = (0..300).map(|i| format!("{} 0 R", 5 + i)).collect();
+    objs[1] = format!("<< /Type /Pages /Kids [{}] /Count 300 >>", kids.join(" "));
+    objs.extend((0..300).map(|_| "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 3 0 R >> >> >>".to_string()));
+    let mut pdf = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(pdf.len());
+        pdf.extend(format!("{} 0 obj\n{o}\nendobj\n", i + 1).bytes());
     }
-    let bytes = Arc::new(std::fs::read(&path).unwrap());
+    let xref = pdf.len();
+    pdf.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).bytes());
+    offsets.iter().for_each(|o| pdf.extend(format!("{o:010} 00000 n \n").bytes()));
+    pdf.extend(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).bytes());
+    let bytes = Arc::new(pdf);
     let (first, read) = (std::sync::Mutex::new(None), std::sync::atomic::AtomicUsize::new(0));
     let t = std::time::Instant::now();
     sheaf_app::reader::read_texts(&bytes, &render::RenderConfig::default(), 300, &Default::default(), &|| false, |_, x| {

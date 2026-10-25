@@ -183,6 +183,21 @@ export component PreferencesScreen inherits Rectangle {
                 }
             }
             Section {
+                title: "Identity";
+                TextField {
+                    label: "Your name";
+                    text: root.author-name;
+                    placeholder: root.author-default;
+                    changed text => { root.set-author(self.text); }
+                }
+                Text {
+                    text: "Signs your comments, and is the author of the PDFs Sheaf makes from images and documents.";
+                    font-size: Theme.fs-caption;
+                    color: Theme.text-muted;
+                    wrap: word-wrap;
+                }
+            }
+            Section {
                 title: "Output location";
                 Radio {
                     text: "Ask every time";
@@ -241,21 +256,6 @@ export component PreferencesScreen inherits Rectangle {
                         selected: root.default-zoom == i;
                         clicked => { root.set-default-zoom(i); }
                     }
-                }
-            }
-            Section {
-                title: "Identity";
-                TextField {
-                    label: "Your name";
-                    text: root.author-name;
-                    placeholder: root.author-default;
-                    changed text => { root.set-author(self.text); }
-                }
-                Text {
-                    text: "Signs your comments, and is the author of the PDFs Sheaf makes from images and documents.";
-                    font-size: Theme.fs-caption;
-                    color: Theme.text-muted;
-                    wrap: word-wrap;
                 }
             }
         }

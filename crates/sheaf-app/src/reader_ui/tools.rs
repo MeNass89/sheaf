@@ -170,9 +170,15 @@ pub(super) fn select_annot(r: &mut ReaderUi, i: usize) {
 /// fill on or off, 2 the next opacity, 3 the stamp (index in `StampKind::ALL`).
 pub fn shape_option(tab_id: i32, what: i32, value: i32) {
     update(tab_id, |r, _| match what {
-        0 => r.shape_kind = value.clamp(0, 3),
+        0 => {
+            r.shape_kind = value.clamp(0, 9);
+            r.poly = None;
+        }
         1 => r.shape_fill = !r.shape_fill,
-        3 => r.stamp = (value.max(0) as usize).min(MARKS.len() + StampKind::ALL.len() - 1),
+        3 => {
+            r.stamp = (value.max(0) as usize).min(MARKS.len() + StampKind::ALL.len() - 1);
+            r.custom_stamp = None;
+        }
         4 => r.link_visible = !r.link_visible,
         5 => r.link_dashed = !r.link_dashed,
         _ => {

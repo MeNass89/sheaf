@@ -428,7 +428,7 @@ fn progress_text(p: f32, files: usize, elapsed: Option<std::time::Duration>) -> 
         parts.push(format!("File {} of {files}", ((p * files as f32) as usize + 1).min(files)));
     }
     parts.push(format!("{:.0}%", p * 100.0));
-    if let Some(e) = elapsed.filter(|e| p >= 0.05 && p < 1.0 && e.as_secs_f32() >= 2.0) {
+    if let Some(e) = elapsed.filter(|e| (0.05..1.0).contains(&p) && e.as_secs_f32() >= 2.0) {
         let left = (e.as_secs_f32() * (1.0 - p) / p).round() as u64;
         parts.push(match left {
             0..=4 => "a few seconds left".to_string(),

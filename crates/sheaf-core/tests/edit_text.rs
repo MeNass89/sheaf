@@ -357,7 +357,8 @@ fn picked_drawings_and_words_are_deleted_together() {
     assert_eq!(after.len(), 1, "only the line is left: {after:?}");
     assert!(after[0].target.kind == ObjectKind::Path && (after[0].rect[0] - 300.0).abs() < 0.01, "{after:?}");
     // One step: undone, all three are back.
-    doc.session_mut().undo(doc.id()).unwrap();
+    let id = doc.id();
+    doc.session_mut().undo(id).unwrap();
     assert_eq!(doc.document().editable_objects(0).unwrap().len(), 3);
     let out = doc.save(&dir.path().join("deleted.pdf")).unwrap();
     assert!(std::process::Command::new("qpdf").arg("--check").arg(&out).status().unwrap().success());

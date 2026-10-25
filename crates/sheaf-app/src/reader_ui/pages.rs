@@ -100,9 +100,10 @@ pub fn extract(ui: &AppWindow, tab_id: i32, each: bool, delete: bool) {
     if delete && pages.len() >= n {
         return crate::flow::toast(ui, "A PDF needs at least one page: extract without deleting them");
     }
+    let to_delete = if delete { pages.clone() } else { Vec::new() };
     let start = move |parts: Vec<(Vec<usize>, PathBuf)>| {
         update(tab_id, |r, _| {
-            r.delete_after_extract = if delete { pages.clone() } else { Vec::new() };
+            r.delete_after_extract = to_delete;
             r.send(Op::Extract { parts });
         });
     };

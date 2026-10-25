@@ -212,6 +212,11 @@ pub struct ReaderUi {
     shape_end: Option<(f64, f64)>,
     /// ⇧ held when the shape was started: squares, circles, 45° lines.
     shape_shift: bool,
+    /// Polygon, Cloud and Polygonal line: the vertices clicked so far (view points of the page).
+    poly: Option<(usize, Vec<(f64, f64)>)>,
+    /// A picture chosen as the stamp (Acrobat's custom stamp): its file name, bytes and
+    /// height / width; each click places it.
+    custom_stamp: Option<(String, Arc<Vec<u8>>, f64)>,
     /// Notes panel: filter (`reader::notes_filter`) and order (0 page, 1 newest, 2 author, 3 type).
     notes_filter: i32,
     notes_sort: i32,
@@ -372,6 +377,8 @@ impl ReaderUi {
             shape_fill: false,
             shape_end: None,
             shape_shift: false,
+            poly: None,
+            custom_stamp: None,
             opacity: 0,
             comments_hidden: false,
             props_open: false,
@@ -478,7 +485,6 @@ impl ReaderUi {
 
 // ---- opening ---------------------------------------------------------------------------------
 
-/// Opens `path` in a new reader tab and shows it. A file already open is brought forward.
 thread_local! {
     /// Documents to open on the Notes panel (see [`open_on_notes`]).
     static NOTES_FIRST: std::cell::RefCell<HashSet<PathBuf>> = Default::default();
@@ -491,6 +497,7 @@ pub fn open_on_notes(ui: &AppWindow, path: PathBuf) {
     open(ui, path, None);
 }
 
+/// Opens `path` in a new reader tab and shows it. A file already open is brought forward.
 pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
     let canon = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
     // One tab per file, a tab still loading included: two tabs saving one file would overwrite

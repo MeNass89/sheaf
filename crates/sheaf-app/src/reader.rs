@@ -596,6 +596,25 @@ pub fn shape_outline(kind: i32, a: (f64, f64), b: (f64, f64)) -> Vec<(f64, f64)>
     }
 }
 
+/// Shape tool kinds clicked out as closed outlines: polygon (4), cloud (5), area (9).
+pub fn closed_shape(kind: i32) -> bool {
+    matches!(kind, 4 | 5 | 9)
+}
+
+/// A measure's label in true size (PDF points, 72 to the inch, in cm): a distance or perimeter
+/// along the points (kind 7, 8), an area inside them (9).
+pub fn measure_label(kind: i32, pts: &[[f64; 2]]) -> String {
+    let cm = 2.54 / 72.0;
+    match kind {
+        9 => {
+            let n = pts.len();
+            let twice: f64 = (0..n).map(|i| pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1]).sum();
+            format!("{:.2} cm²", (twice / 2.0).abs() * cm * cm)
+        }
+        _ => format!("{:.2} cm", pts.windows(2).map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1])).sum::<f64>() * cm),
+    }
+}
+
 /// The two ends of an open arrowhead at `b`, `len` long, 30° either side of the line from `a`.
 pub fn arrow_head(a: (f64, f64), b: (f64, f64), len: f64) -> [(f64, f64); 2] {
     let angle = (b.1 - a.1).atan2(b.0 - a.0);
@@ -753,6 +772,15 @@ mod tests {
         assert_eq!(rows[1].depth, 1);
         assert_eq!(current_section(&rows, 3), Some(1));
         assert_eq!(current_section(&rows, 9), Some(2));
+    }
+
+    #[test]
+    fn measures_read_in_true_size() {
+        // One inch along, then a 72 × 72 pt square: 2.54 cm, 6.45 cm².
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]]), "2.54 cm");
+        assert_eq!(measure_label(8, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0]]), "5.08 cm");
+        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]]), "6.45 cm²");
+        assert!(closed_shape(9) && closed_shape(5) && !closed_shape(6) && !closed_shape(7));
     }
 
     #[test]

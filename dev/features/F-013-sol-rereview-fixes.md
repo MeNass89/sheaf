@@ -112,8 +112,8 @@ Each line: the component, Sol's gap, what was done, its proof.
 - **C-organize-014** Extract made one PDF and kept the pages: the Pages panel's Extract… opens Acrobat's options,
   "One file per page" (a folder chosen, "name - page 3.pdf" each) and "Delete pages after extracting" (an edit
   that can be undone; refused when it would leave no page). Proof: `reader_doc::tests::extract_one_file_per_page_writes_each_and_names_their_folder`,
-  gui-smoke 30. not automatable: choosing the folder or file — the Linux file dialog goes through the XDG
-  portal, which Xvfb does not have.
+  gui-smoke 30, 44 (one file per page in the folder chosen; debug builds answer a dialog from
+  `SHEAF_TEST_DIALOG`, `dialog::test_answer`, since Xvfb has no XDG portal).
 - **C-reader-025** A bookmark went to its page's top: it goes to its /XYZ or /FitH top edge, or its /FitR
   rectangle (links share the rule, `reader::dest_focus`). Proof: `reader::tests::a_destination_points_at_its_top_edge_or_rectangle`.
 - **C-reader-022** The side panel kept 248 px: its edge drags it from 200 to 480 px, the thumbnails take the
@@ -237,3 +237,35 @@ Each line: the component, Sol's gap, what was done, its proof.
 - **C-platform-010** The MCP server offered tools only: it also offers prompts (summarise a PDF, redact its personal
   data, prepare it to share; each names the tools to use) and resources (`sheaf://text/<path>`,
   `sheaf://info/<path>`, as templates). Proof: sheaf-cli `cli::mcp_offers_prompts_and_reads_resources`.
+
+## Round 8 (25/10, components at 0 the engine already carried, and fixes from rounds 6–7)
+- **C-annotate-014** No polygon, polyline or cloud: the Shapes tool gains Polygon, Cloud and Polyline, clicked out
+  vertex by vertex, a double-click to end, Escape to drop (Acrobat's tools; PdfCraft's Polygon and PolyLine). Proof:
+  gui-smoke 41.
+- **C-annotate-038** No measuring: the Shapes tool gains Distance (two clicks), Perimeter and Area (clicked out, a
+  double-click to end), labelled in true size in cm (Acrobat's Measuring tools; PdfCraft's AddMeasurement). Proof:
+  `reader::tests::measures_read_in_true_size`, gui-smoke 42.
+- **C-annotate-017** No custom stamp: Stamp ▸ Image… takes a PNG or JPEG as the stamp, placed at each click,
+  150 pt wide (Acrobat's custom stamp; PdfCraft's AddCustomStamp). Proof: gui-smoke 43.
+- Test seam: debug builds answer file dialogs from the file `SHEAF_TEST_DIALOG` names (`dialog::test_answer`;
+  release builds never read it), so the smoke chooses files and folders (gui-smoke 43, 44).
+- **C-organize-008** No way to drop blank pages: Remove pages ▸ "The blank pages (found for you)": pages with no
+  text and nothing drawn but specks (under 0.3 % dark) are removed (Acrobat's Remove Blank Pages); a file without
+  any says so. Proof: sheaf-core `pages::blank_pages_are_found_and_text_or_drawn_ones_are_not`.
+- Fixes found by the suite after rounds 6–7: the Redact page preview drew over the window's top-left (a layout
+  sized by a computed width: now a plain column, its caption above); the export's floating layer measured its
+  "body size" on itself (a watermark lost its place behind the text); Preferences ▸ Identity moved up under
+  Appearance (it was below the fold); the grid now clears a pending opening size (Fit page could come back over it). Smoke
+  fixes: X screenshots are read as 16-bit (`#E0E020202020`), so pixel colours are taken from the 8-bit `srgb()`
+  field (the grid step read green as blue); a `key ctrl+s` sat behind a `#` and never ran; the damaged-PDF toast
+  is read while the app opens (the wait for its first frame outlasted the toast's 3 s).
+- gui-smoke 6h's "drift" (⌘ + wheel, 961 → 889 px, 5 of 11 runs; rounds 4 and 5 fixed the scroll for it) was
+  the test's: traced (the anchor Rust computes, the scroll the view shows: 425.17 px both) and screenshotted, the
+  point under the pointer stayed put; OCR read "fox" with the end of the arrow drawn beside it at 6c as one word,
+  its centre 63 px right of the word, so the pointer went to empty space and "fox" was then found where it
+  really was. The step anchors on "quick" now. Rounds 4–5's scroll resends stay (they cover a width that comes
+  late), their comments no longer cite this.
+- Document Properties list a file's signatures after its facts: their long lines pushed PDF/A below the sheet's
+  fold (`reader_ui::properties::tests`). The 300-page search test built its fixture through the engine, 13,500
+  text objects one by one, which never ended in a debug build (the unit layer hung): it is written by hand now,
+  read in 4 s, its first page in 28 ms.

@@ -21,10 +21,14 @@ pub fn props_open(tab_id: i32) {
 }
 
 /// The sheet's read-only rows: the engine's, the security line made precise, then the facts read
-/// from the file (none until they are).
+/// from the file (none until they are), the signatures last (long lines that would push the
+/// facts below the sheet's fold).
 pub(super) fn about_rows(about: &[(String, String)], facts: Option<&sheaf_core::facts::Facts>) -> Vec<(String, String)> {
-    let mut rows: Vec<(String, String)> = about.to_vec();
-    let Some(f) = facts else { return rows };
+    let (signatures, mut rows): (Vec<_>, Vec<_>) = about.iter().cloned().partition(|(n, _)| n.starts_with("Signature "));
+    let Some(f) = facts else {
+        rows.extend(signatures);
+        return rows;
+    };
     if !f.restricted.is_empty()
         && let Some(sec) = rows.iter_mut().find(|(n, _)| n == "Security")
     {
@@ -37,6 +41,7 @@ pub(super) fn about_rows(about: &[(String, String)], facts: Option<&sheaf_core::
         }
     }
     rows.extend(f.boxes.iter().map(|(n, v)| (n.to_string(), v.clone())));
+    rows.extend(signatures);
     rows
 }
 
@@ -59,5 +64,21 @@ pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subjec
     .flatten();
     if let Some(e) = edit {
         apply(ui, tab_id, e, &[], None);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::about_rows;
+
+    #[test]
+    fn signatures_come_after_the_facts_and_the_security_line_says_what_is_forbidden() {
+        let row = |n: &str, v: &str| (n.to_string(), v.to_string());
+        let about = [row("Pages", "4"), row("Security", "Encrypted"), row("Signature 1 · Ada", "Valid"), row("Fonts", "1")];
+        let facts = sheaf_core::facts::Facts { restricted: vec!["Printing"], pdfa: Some("PDF/A-2b".into()), ..Default::default() };
+        let names: Vec<String> = about_rows(&about, Some(&facts)).into_iter().map(|r| r.0).collect();
+        assert_eq!(names, ["Pages", "Security", "Fonts", "PDF/A", "Signature 1 · Ada"]);
+        assert_eq!(about_rows(&about, Some(&facts))[1].1, "Restricted: no printing");
+        assert_eq!(about_rows(&about, None).last().unwrap().0, "Signature 1 · Ada");
     }
 }

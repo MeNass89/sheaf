@@ -420,6 +420,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         shape_fill: r.shape_fill,
         opacity: (reader::OPACITIES[r.opacity] * 100.0).round() as i32,
         // Dynamic stamps share their names with standard ones: they say they are dated.
+        stamp_image: r.custom_stamp.as_ref().map(|(n, _, _)| n.as_str()).unwrap_or_default().into(),
         stamps: ModelRc::new(VecModel::from(
             MARKS
                 .iter()

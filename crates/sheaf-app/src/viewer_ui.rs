@@ -492,7 +492,7 @@ fn zoom_to_at(ui: &AppWindow, tab_id: i32, z: u32, (ax, ay, sx): (f64, f64, f64)
                 v.zoom_settling = false;
                 v.zoom_target = None;
                 // The anchored scroll is sent again once the page sizes have settled: the view may
-                // have cut it to a width it had in between (25/10: a ⌘ + wheel left the point 72 px off).
+                // have cut it to a width it had in between.
                 if v.scroll_x.is_some() {
                     v.scroll_seq += 1;
                 }

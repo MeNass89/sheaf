@@ -13,11 +13,13 @@ ne change. Nassim : « Limits are at 16% consumed bro just use codex !! »
 
 ## Two sessions on one VM (25/10)
 
-Two Claude sessions worked Sheaf at once on 25/10 (this T3 one and a headless resume). Their suites collided on
-Xvfb :98. The rule they agreed: **one heavy job at a time** (build, suite, Sol); before one, check
+Two Claude sessions worked Sheaf at once on 25/10. Their suites collided on Xvfb :98. The rule they agreed:
+**one heavy job at a time** (build, suite, Sol); before one, check
 `pgrep -f "[s]cripts/test.sh|[b]uild-safe.sh|[g]ui-smoke.sh|[c]odex exec"` and wait while anything matches;
-components are split between them so no two touch the same one; each works in its own git worktree under
-`/tmp/f5/` and rebases on what the other pushed, never force-pushing.
+each works in its own git worktree under `/tmp/f5/` and rebases on what the other pushed, never force-pushing.
+The second session stopped mid-way; its branch `dev/annot-gaps` (C-annotate-001/007/009/019/022, C-reader-026,
+attachments, craft-fonts) was rebased onto round 7 and is being finished here (its suite was red on in-place
+typing and Edit text).
 
 ## Where things are
 
@@ -32,9 +34,12 @@ components are split between them so no two touch the same one; each works in it
 
 ## Board status
 
-**331 components, 132 at ≥ 9** (last suite: ALL GREEN, 1182 s; Merge mixed files + page ranges (F-011), Split points (F-012), first round of Sol's re-review gaps (F-013); all three under Sol's review), under review; Sol re-reviewing the Opus-only closes in /tmp/f5/solrv). Per domain (at 9 / total): ai 0/7, annotate 24/38, batch 1/9, compare 2/7, convert 4/20, edit 8/29, files 11/19, forms 4/17, optimize 2/15, organize 8/27, output 3/15, platform 2/14, preferences 4/14, reader 41/64, security 7/18, sign 7/18.
-In flight: C-optimize-006 OCR 9/9/8 (performance: onnxruntime, see DECISIONS 24/10); C-security-010 redact by
-selection closed 9/9/9 (F-007).
+**331 components, 132 at ≥ 9** (last suite: ALL GREEN, 1684 s, 25/10, round 8). Rounds 6–8 (F-013) wait on Sol:
+batches `b12`–`b14` in `/tmp/f5/solrv/` (run.sh, a frozen worktree `/tmp/f5/wt-sol`), graded with `board.py`
+on agreement. Next: round 9 (branch `dev/round9`: PDF to HTML or text, New blank PDF, Replace text), the
+second session's `dev/annot-gaps` (red on in-place typing and Edit text), then round 10 Prepare form (plan:
+engine has AddField, SetFieldProps, DetectFields; C-forms-003/006–012/014).
+In flight: C-optimize-006 OCR 9/9/8 (performance: onnxruntime, see DECISIONS 24/10).
 Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
@@ -148,7 +153,7 @@ DECISIONS); both agree, then `board.py grade`. Reviews read diffs in /tmp/rv and
 
 ## Rules carried over
 
-- Commits: `git -c user.name="Sheaf contributors" -c user.email="267055942+MeNass89@users.noreply.github.com" commit`,
+- Commits: `git -c user.name="Sheaf contributors" -c user.email="sheaf@users.noreply.github.com" commit`,
   message ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. No personal names, emails, home
   paths or machine details in tracked files. Merge PRs locally. Push freely; tags and releases: ask Nassim.
 - Talk to Nassim in French, vouvoiement, Alfred; 🦇 only emoji; short.

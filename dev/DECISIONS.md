@@ -602,3 +602,13 @@ signs a protected file the same way, and Sol's re-review counted the refusal as 
 it.** A signature that a validator rejects on encrypted files: then signing such a file needs Unlock first again.
 - **Closed (25/10).** The split came as its own refactor commit right after round 6 (which was written before the
   split): `reader_doc/` with its tests in `tests.rs`, the smoke steps in `dev/scripts/smoke/`. Suite green after.
+
+## 2026-10-25 · Deviation from dev-skill policy: split candidates (house rule 2)
+**What.** Round 8 commits with two split candidates in touched files: `third_party/pdfcraft-export/src/lib.rs`
+(2,068 lines) and `crates/sheaf-app/ui/screens/options.slint` (1,015). **Why better here.** The PdfCraft crates in
+`third_party/` are vendored upstream code carrying "Sheaf:" patches; splitting them would make every rev bump a
+manual merge of moved code, so they keep upstream's layout (their size is upstream's debt). `options.slint` is
+touched again by round 9 (PDF to HTML or text's format row): splitting it once, after round 9, avoids splitting a
+file a pending branch rewrites. **Scope.** `third_party/*` for as long as it is vendored; `options.slint` until
+round 9 lands. **Ends when.** The refactor commit right after round 9 splits `options.slint` (per tool group), suite
+green after.

@@ -230,6 +230,49 @@ pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64),
     }
 }
 
+/// The Polygon, Cloud, Polygonal line or measure clicked out ends (a double-click, or a distance's
+/// second point): two vertices at least for a line, three for a polygon or an area. Acrobat's
+/// Polygon, Cloud and Polygonal Line tools, and its Measuring tools (true size, in cm).
+pub(super) fn add_poly(ui: &AppWindow, tab_id: i32) {
+    let edit = update(tab_id, |r, v| {
+        let (page, pts) = r.poly.take()?;
+        r.stroke = None;
+        let closed = reader::closed_shape(r.shape_kind);
+        if pts.len() < if closed { 3 } else { 2 } {
+            return None;
+        }
+        let bx = &v.viewer.boxes[page];
+        let size = bx.view_size();
+        let vertices: Vec<[f64; 2]> = pts.iter().map(|p| { let (x, y) = viewer::view_to_pdf(bx, size, p.0, p.1); [x, y] }).collect();
+        let colour = INK[r.ink_colour];
+        let fill = (r.shape_fill && closed && r.shape_kind != 9).then(|| reader::fill_tint(colour));
+        let style = Style { color: colour, opacity: reader::OPACITIES[r.opacity], width: pen_points(r.pen_width), fill };
+        let mut outline = pts.clone();
+        if closed {
+            outline.push(pts[0]);
+        }
+        let prov = Provisional { page, rects: Vec::new(), stroke: outline, colour, kind: PEN };
+        let edit = match r.shape_kind {
+            7..=9 => {
+                use sheaf_core::pdfcraft::engine::measure::{Kind, NewMeasurement, Scale};
+                let kind = [Kind::Distance, Kind::Perimeter, Kind::Area][(r.shape_kind - 7) as usize];
+                let label = reader::measure_label(r.shape_kind, &vertices);
+                let scale = Scale::new(2.54 / 72.0, "cm", 2).ok()?;
+                Edit::AddMeasurement(NewMeasurement { page, kind, points: vertices, scale, style, label, author: author() })
+            }
+            k => {
+                let shape = if k < 6 { Shape::Polygon { vertices, cloud: k == 5 } } else { Shape::PolyLine { vertices, start: LineEnding::None, end: LineEnding::None } };
+                Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() })
+            }
+        };
+        Some((page, edit, prov))
+    })
+    .flatten();
+    if let Some((page, e, prov)) = edit {
+        apply(ui, tab_id, e, &[page], Some(prov));
+    }
+}
+
 /// The eraser went along `pts` (view points of `page`): every drawing it crossed is rubbed out
 /// along the path (PdfCraft's EraseInk), as one undo step. Signatures are left alone.
 pub(super) fn erase(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f64)>) {
@@ -264,6 +307,15 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
     let edit = update(tab_id, |r, v| {
         let bx = &v.viewer.boxes[page];
         let size = bx.view_size();
+        // A picture of the user's own, 150 pt wide (less on a small page), centred on the click.
+        if let Some((name, bytes, aspect)) = r.custom_stamp.clone() {
+            let w = 150.0_f64.min(size.0 * 0.8).min(size.1 * 0.8 / aspect);
+            let h = w * aspect;
+            let (x, y) = ((at.0 - w / 2.0).clamp(0.0, size.0 - w), (at.1 - h / 2.0).clamp(0.0, size.1 - h));
+            let rect = viewer::view_rect_to_pdf(bx, size, (x, y), (x + w, y + h));
+            let stem = name.rsplit_once('.').map_or(name.as_str(), |(s, _)| s).to_string();
+            return Edit::AddCustomStamp { page, rect, name: stem, file: sheaf_core::pdfcraft::engine::MarkFile { name, bytes, page: 0 }, author: author() };
+        }
         // A mark (✓ ✗ • —): small, centred on the click, as Fill & Sign places it.
         if let Some((mark, label)) = MARKS.get(r.stamp).copied() {
             let (w, h) = (18.0, 18.0);
@@ -288,6 +340,20 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
     if let Some(e) = edit {
         apply(ui, tab_id, e, &[page], None);
     }
+}
+
+/// Stamp ▸ Image…: a PNG or JPEG chosen becomes the stamp, placed at each click until another
+/// stamp is picked (Acrobat's Create Custom Stamp, kept for the session).
+pub fn stamp_image(ui: &AppWindow, tab_id: i32) {
+    let d = crate::dialog::new(ui).set_title("Choose a picture for the stamp").add_filter("Image", &["png", "jpg", "jpeg"]);
+    crate::dialog::pick_file(ui, d, move |ui, p| {
+        let read = std::fs::read(&p).ok().and_then(|b| image::load_from_memory(&b).ok().map(|i| (b, i.height() as f64 / i.width().max(1) as f64)));
+        let Some((bytes, aspect)) = read else {
+            return crate::flow::toast(ui, "That picture could not be read (PNG or JPEG)");
+        };
+        let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "stamp.png".into());
+        update(tab_id, |r, _| r.custom_stamp = Some((name, Arc::new(bytes), aspect)));
+    });
 }
 
 /// The Notes panel's actions: 0 hide or show every comment, 1 a summary of the comments (a PDF,

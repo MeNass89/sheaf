@@ -23,6 +23,34 @@ fn grid_pressed(r: &mut ReaderUi, v: &mut ViewerUi, page: Option<usize>, clicks:
 pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
     let (x, y) = (x as f64, y as f64);
     let (clicks, shift) = (clicks & 15, clicks & 16 != 0);
+    // Polygon, Cloud, Polygonal line, and the measures (Shape tool): a click adds a vertex, a
+    // double-click ends it; a distance ends at its second point.
+    if update(tab_id, |r, _| r.tool == SHAPE && r.shape_kind >= 4) == Some(true) {
+        let finish = update(tab_id, |r, v| {
+            let page = page_at(&v.viewer, x, y)?;
+            let p = to_view(&v.viewer, page, x, y);
+            if clicks >= 2 {
+                return Some(true);
+            }
+            match r.poly.as_mut() {
+                Some((pg, pts)) if *pg == page => pts.push(p),
+                _ => r.poly = Some((page, vec![p])),
+            }
+            let (pg, pts) = r.poly.clone()?;
+            let distance_done = r.shape_kind == 7 && pts.len() == 2;
+            let mut outline = pts;
+            if reader::closed_shape(r.shape_kind) && outline.len() > 2 {
+                outline.push(outline[0]);
+            }
+            r.stroke = Some((pg, outline));
+            Some(distance_done)
+        })
+        .flatten();
+        if finish == Some(true) {
+            super::edits::add_poly(ui, tab_id);
+        }
+        return;
+    }
     let opened = update(tab_id, |r, v| {
         if r.grid_prev.is_some() {
             grid_pressed(r, v, page_at(&v.viewer, x, y), clicks, shift);
@@ -311,6 +339,9 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
             }
             return;
         }
+        if r.tool == SHAPE && r.shape_kind >= 4 {
+            return;
+        }
         if r.tool == SHAPE {
             let b = if r.shape_shift { reader::constrained(r.shape_kind, a, b) } else { b };
             r.shape_end = Some(b);
@@ -460,6 +491,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             PEN => r.stroke.take().filter(|(_, pts)| pts.len() >= 2).map(|(page, pts)| Pending::Ink(page, pts)),
             ERASER => r.stroke.take().map(|(page, pts)| Pending::Erase(page, pts)),
             STAMP => press.map(|(page, p)| Pending::Stamp(page, p)),
+            SHAPE if r.shape_kind >= 4 => None,
             SHAPE => {
                 r.stroke = None;
                 // A click without a drag draws nothing.

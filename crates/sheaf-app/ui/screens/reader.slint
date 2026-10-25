@@ -114,7 +114,7 @@ export component ReaderScreen inherits Rectangle {
     // otherwise anchor on the old one and drift.
     property <length> scroll-x-now: root.want-x >= 0px ? root.want-x : -sv.content-x;
     // The width the view really has, not the one the model asks for: a scroll set before it comes
-    // is cut to the old width, so it is set again when it does (25/10: a ⌘ + wheel drifted 72 px).
+    // is cut to the old width, so it is set again when it does.
     property <length> content-w: sv.content-width;
     changed content-w => { if root.want-x >= 0px { sv.content-x = -root.want-x; } }
     want-x-timer := Timer {

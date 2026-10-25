@@ -165,6 +165,9 @@ pub fn toggle_grid(ui: &AppWindow, tab_id: i32) {
                 v.viewer.set_spread(3);
                 v.viewer.set_zoom(100);
                 r.zoom_mode = 0;
+                // The opening size (Fit page, Actual size) must not come back over the grid.
+                v.pending_fit = false;
+                v.pending_actual = None;
             }
         }
         v.show_page(cur, None);
@@ -252,6 +255,11 @@ pub(super) fn keep_fit(ui: &AppWindow, tab_id: i32) {
 pub fn escape(tab_id: i32) {
     update(tab_id, |r, _| {
         if r.draft.take().is_some() {
+            return;
+        }
+        // A polygon being clicked out is dropped.
+        if r.poly.take().is_some() {
+            r.stroke = None;
             return;
         }
         if r.selected_image.take().is_some() | r.picked.take().is_some() {

@@ -1033,11 +1033,13 @@ fn layout_number(n: f64) -> f64 {
     if n.is_finite() { n.clamp(-1584.0, 1584.0) } else { 0.0 }
 }
 
-fn positioned_page<'a>(page: &'a Page, media: &mut Vec<(String, &'a Image)>, shape_id: &mut usize) -> String {
+/// `body`: the body text size of the page the shapes come from (Sheaf: a floating layer is
+/// measured against its whole page, not against itself).
+fn positioned_page<'a>(page: &'a Page, body: f64, media: &mut Vec<(String, &'a Image)>, shape_id: &mut usize) -> String {
     // One 1 pt paragraph anchors the whole page. Shapes never reserve body space, so even a
     // page-sized watermark cannot push the invoice footer onto another page.
     let mut s = String::from("<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\" w:line=\"20\" w:lineRule=\"exact\"/></w:pPr>");
-    let body = body_size(std::slice::from_ref(page)).max(1.0);
+    let body = body.max(1.0);
     for b in &page.blocks {
         *shape_id = shape_id.saturating_add(1);
         let rotation = layout_number(-b.rotation).rem_euclid(360.0);
@@ -1239,7 +1241,7 @@ pub fn docx_with(pages: &[Page], title: &str, exact: bool) -> Vec<u8> {
         if let Some((float, rest)) = &layered[page_index] {
             // Sheaf: the floating layer first (one 1 pt anchor paragraph), then the page flows.
             if !float.blocks.is_empty() || !float.images.is_empty() {
-                body.push_str(&positioned_page(float, &mut media, &mut shape_id));
+                body.push_str(&positioned_page(float, body_size(std::slice::from_ref(page)), &mut media, &mut shape_id));
                 after_table = false;
             }
             for it in items(std::slice::from_ref(rest)) {
@@ -1289,7 +1291,7 @@ pub fn docx_with(pages: &[Page], title: &str, exact: bool) -> Vec<u8> {
                 after_table = matches!(it, Item::Table(_));
             }
         } else {
-            body.push_str(&positioned_page(page, &mut media, &mut shape_id));
+            body.push_str(&positioned_page(page, body_size(std::slice::from_ref(page)), &mut media, &mut shape_id));
             after_table = false;
         }
         // Section breaks carry this source page's size and create exactly one next page.

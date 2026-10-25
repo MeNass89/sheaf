@@ -258,7 +258,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             },
             out_dir: folder,
         },
-        ToolId::RemovePages => Job::RemovePages { input: one(inputs)?, pages, out: single()? },
+        ToolId::RemovePages => Job::RemovePages { input: one(inputs)?, pages: if opts.remove_blank { jobs::BLANK_PAGES.into() } else { pages }, out: single()? },
         ToolId::ExtractPages => Job::ExtractPages { input: one(inputs)?, pages, out: single()? },
         ToolId::Organize => Job::Organize { input: one(inputs)?, order, out: single()? },
         ToolId::Rotate => Job::Rotate {

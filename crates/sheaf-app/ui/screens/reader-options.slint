@@ -46,7 +46,7 @@ export component ReaderOptionsBar inherits Rectangle {
             ToolButton { icon: @image-url("../icons/circle.svg"); tip: "Oval"; active: root.tab.reader.shape-kind == 1; clicked => { ReaderBridge.shape-option(root.id, 0, 1); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/slash.svg"); tip: "Line"; active: root.tab.reader.shape-kind == 2; clicked => { ReaderBridge.shape-option(root.id, 0, 2); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/move-up-right.svg"); tip: "Arrow"; active: root.tab.reader.shape-kind == 3; clicked => { ReaderBridge.shape-option(root.id, 0, 3); root.focus-pages(); } }
-            if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Fill"; primary: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 2 || root.tab.reader.shape-kind == 4 || root.tab.reader.shape-kind == 5: SmallButton { y: 2px; text: "Fill"; primary: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); root.focus-pages(); } }
         }
         // Link: links of the text's web addresses; new links' look (Acrobat's Link Properties ▸
         // Appearance: invisible by default, else a border in the colour, width and style chosen).
@@ -175,6 +175,25 @@ export component ReaderOptionsBar inherits Rectangle {
                 selected: root.tab.reader.selected-annot ? root.tab.reader.annot-colour == k : root.tab.reader.colour == k;
                 clicked => { ReaderBridge.set-colour(root.id, k); root.focus-pages(); }
             }
+        }
+        // Added after the colours and pens, so those keep their places.
+        // A picture of one's own as the stamp (Acrobat's custom stamp).
+        if root.tab.reader.tool == 12: SmallButton {
+            y: 2px;
+            text: root.tab.reader.stamp-image == "" ? "Image…" : root.tab.reader.stamp-image;
+            primary: root.tab.reader.stamp-image != "";
+            clicked => { ReaderBridge.stamp-image(root.id); root.focus-pages(); }
+        }
+        if root.tab.reader.tool == 10: HorizontalLayout {
+            spacing: 0px;
+            padding-left: 6px;
+            // Clicked out vertex by vertex, a double-click to end (Acrobat's Polygon, Cloud, Polygonal Line).
+            SmallButton { y: 2px; text: "Polygon"; primary: root.tab.reader.shape-kind == 4; clicked => { ReaderBridge.shape-option(root.id, 0, 4); root.focus-pages(); } }
+            SmallButton { y: 2px; text: "Cloud"; primary: root.tab.reader.shape-kind == 5; clicked => { ReaderBridge.shape-option(root.id, 0, 5); root.focus-pages(); } }
+            SmallButton { y: 2px; text: "Polyline"; primary: root.tab.reader.shape-kind == 6; clicked => { ReaderBridge.shape-option(root.id, 0, 6); root.focus-pages(); } }
+            // Acrobat's Measuring tools, in true size (cm).
+            Rectangle { width: 6px; }
+            for m[k] in ["Distance", "Perimeter", "Area"]: SmallButton { y: 2px; text: m; primary: root.tab.reader.shape-kind == 7 + k; clicked => { ReaderBridge.shape-option(root.id, 0, 7 + k); root.focus-pages(); } }
         }
         Rectangle { horizontal-stretch: 1; }
         if root.tab.reader.has-form: HorizontalLayout {

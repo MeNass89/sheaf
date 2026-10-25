@@ -113,10 +113,10 @@ pub fn split_bookmarks(input: &Input, out_dir: &Path) -> Result<Vec<PathBuf>> {
     let mut marks: Vec<(u32, String)> = Vec::new();
     let mut b = src.bookmarks().root();
     while let Some(m) = b {
-        if let Some(p) = m.destination().and_then(|d| d.page_index().ok()).map(|p| p as u32).filter(|p| *p < total) {
-            if marks.last().is_none_or(|(q, _)| *q < p) {
-                marks.push((p, m.title().unwrap_or_default()));
-            }
+        if let Some(p) = m.destination().and_then(|d| d.page_index().ok()).map(|p| p as u32).filter(|p| *p < total)
+            && marks.last().is_none_or(|(q, _)| *q < p)
+        {
+            marks.push((p, m.title().unwrap_or_default()));
         }
         b = m.next_sibling();
     }
@@ -128,7 +128,7 @@ pub fn split_bookmarks(input: &Input, out_dir: &Path) -> Result<Vec<PathBuf>> {
         let start = if k == 0 { 1 } else { p + 1 };
         let end = marks.get(k + 1).map_or(total, |(q, _)| *q);
         let mut dst = pdfium().create_new_pdf()?;
-        dst.pages_mut().copy_pages_from_document(&src, &page_string(&[start..=end]), 0)?;
+        dst.pages_mut().copy_pages_from_document(&src, &page_string(std::slice::from_ref(&(start..=end))), 0)?;
         let clean: String = title.chars().map(|c| if c.is_control() || "/\\:*?\"<>|".contains(c) { ' ' } else { c }).collect();
         let clean = clean.split_whitespace().collect::<Vec<_>>().join(" ");
         let clean: String = clean.chars().take(60).collect();
@@ -163,6 +163,24 @@ pub fn split_size(input: &Input, max_bytes: u64, out_dir: &Path) -> Result<Vec<P
         groups.iter().map(|(a, b)| if a == b { a.to_string() } else { format!("{a}-{b}") }).collect::<Vec<_>>().join(",")
     };
     split_ranges(input, &spec, out_dir)
+}
+
+/// The blank pages of `input`, 1-based (Acrobat's Remove Blank Pages): no text, and nothing but
+/// near-white once drawn (a scan's specks and a page's frame-thin marks under 0.3 % count as blank).
+pub fn blank_pages(input: &Input) -> Result<Vec<u32>> {
+    let _g = pdfium_lock();
+    let doc = input.open()?;
+    let mut blank = Vec::new();
+    for (i, page) in doc.pages().iter().enumerate() {
+        if page.text().map(|t| t.all().trim().is_empty()).unwrap_or(true) {
+            let img = page.render_with_config(&PdfRenderConfig::new().set_target_width(120))?.as_image()?.to_luma8();
+            let dark = img.pixels().filter(|p| p[0] < 235).count();
+            if dark * 1000 <= img.len() * 3 {
+                blank.push(i as u32 + 1);
+            }
+        }
+    }
+    Ok(blank)
 }
 
 pub fn remove(input: &Input, spec: &str, out: &Path) -> Result<PathBuf> {

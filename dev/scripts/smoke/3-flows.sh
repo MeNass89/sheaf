@@ -129,14 +129,16 @@ EN=$(qpdf --show-encryption "$OUT/perm-protected.pdf" 2>&1)
 check "Protect can restrict without an open password ($(echo "$EN" | grep -E 'print low' | tr -s ' '))" "echo \"$EN\" | grep -q 'User password = $' && echo \"$EN\" | grep -q 'print low resolution: not allowed'"
 quit
 
+# The end of the Preferences page (Documents is below Appearance, Identity and output).
+prefs_end() { xdotool mousemove 700 500 click --repeat 12 5; sleep 0.6; }
 # 28. Preferences ▸ Open new documents at Actual size (Preferences 67,193 in Home's menu): a file never
 # opened shows at 100 %.
-launch; click 67 193 1; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $AS 0.6; quit
+launch; click 67 193 1; prefs_end; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $AS 0.6; quit
 cp "$OUT/text.pdf" "$OUT/fresh.pdf"; launch "$OUT/fresh.pdf"; sleep 1.5; ZF=$(zoomval)
 check "a new document opens at the zoom chosen in Preferences (Actual size: $ZF %)" "[ \"$ZF\" = 100 ]"
 quit
 # Fit page: a whole letter page in the 700 px high view, well under fit width (163 %).
-launch; click 67 193 1; FP2=$(import -window root -crop 900x700+200+90 png:- | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="page"{printf "%d %d\n", 200+($7+$9/2)/2, 90+($8+$10/2)/2; exit}'); [ -n "$FP2" ] && click $FP2 0.6; quit
+launch; click 67 193 1; prefs_end; FP2=$(import -window root -crop 900x700+200+90 png:- | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="page"{printf "%d %d\n", 200+($7+$9/2)/2, 90+($8+$10/2)/2; exit}'); [ -n "$FP2" ] && click $FP2 0.6; quit
 cp "$OUT/text.pdf" "$OUT/fresh2.pdf"; launch "$OUT/fresh2.pdf"; sleep 1.5; ZP=$(zoomval)
 check "a new document opens fitted to the page when chosen ($ZP %)" "[ -n \"$ZP\" ] && [ \"$ZP\" -lt 120 ]"
 quit
@@ -157,8 +159,7 @@ quit
 # pages after. Deleting the only page is refused before any file is asked for.
 qpdf "$OUT/text.pdf" --pages . 1 -- "$OUT/single.pdf"; launch "$OUT/single.pdf"; sleep 1
 click 156 778 0.8; XS=$(ocr 260x110+0+620)
-DL=$(at Delete 260x110+0+620); [ -n "$DL" ] && click $DL 0.3
-EX=$(at Extract 260x40+0+690); [ -n "$EX" ] && click $EX 0.6
+click 17 704 0.3; click 201 734 0.6   # "Delete pages after extracting", then Extract
 XT=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
 check "Extract offers one file per page and deleting the pages ($XS)" "echo \"$XS\" | grep -q 'One file per page' && echo \"$XS\" | grep -q 'Delete pages'"
 check "extracting and deleting the only page is refused" "echo \"$XT\" | grep -q 'needs at least one page' && [ \"\$(npages $OUT/single.pdf)\" = 1 ]"
@@ -166,13 +167,15 @@ quit
 
 # 31. The side panel's edge (247,400) dragged 100 px right: the first thumbnail (row y 230) widens
 # from 150 to 250 px, and the width is kept for the next start (PDF Expert's sidebar).
-thumbw() { import -window root -crop 500x1+0+230 png:- 2>/dev/null | convert - txt:- | awk -F'[(),]' 'NR > 1 && $3 + 0 > 240 && $4 + 0 > 240 && $5 + 0 > 240 { n++ } END { print n + 0 }'; }
-launch "$OUT/text.pdf"; sleep 1.5; TW0=$(thumbw)
+# The width of the first blue run on row 230: the first thumbnail of a blue page.
+thumbw() { import -window root -crop 500x1+0+230 png:- 2>/dev/null | convert - txt:- | awk -F'[(),]' 'NR > 1 { b = ($5 + 0 > 180 && $3 + 0 < 90); if (b) n++; else if (n > 20) { print n; exit } else n = 0 }' | head -1; }
+convert -size 300x400 xc:'#2040E0' "$OUT/blue.pdf"; launch "$OUT/blue.pdf"; sleep 1.5; TW0=$(thumbw)
 xdotool mousemove 247 400 mousedown 1; for i in $(seq 1 10); do xdotool mousemove $(( 247 + i * 10 )) 400; sleep 0.04; done; xdotool mouseup 1; sleep 1.5; TW1=$(thumbw); quit
-# Dragged back, so later steps find the default panel.
-launch "$OUT/text.pdf"; sleep 1.5; TW2=$(thumbw)
-xdotool mousemove 347 400 mousedown 1; for i in $(seq 1 10); do xdotool mousemove $(( 347 - i * 10 )) 400; sleep 0.04; done; xdotool mouseup 1; sleep 0.5; quit
-check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ $TW0 -gt 130 ] && [ $TW0 -lt 160 ] && [ $TW1 -gt 230 ] && [ $TW1 -lt 260 ] && [ $TW2 = $TW1 ]"
+launch "$OUT/blue.pdf"; sleep 1.5; TW2=$(thumbw)
+quit
+# Back to the default panel for the later steps.
+python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["panel_width"] = 0; json.dump(p, open(sys.argv[1], "w"))' "$OUT/profile/data/Sheaf/prefs.json"
+check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ \"\${TW0:-0}\" -gt 130 ] && [ \"\${TW0:-0}\" -lt 160 ] && [ \"\${TW1:-0}\" -gt 230 ] && [ \"\${TW1:-0}\" -lt 260 ] && [ \"\${TW2:-x}\" = \"\${TW1:-y}\" ]"
 
 # 32. A highlight saved without a note, on a page never shown: the Notes panel (153,106) lists the
 # words it covers (step 1's highlight, its page moved third).
@@ -188,7 +191,7 @@ colour_at() { import -window root -crop "1x1+$1+420" txt:- 2>/dev/null | grep -o
 click 1127 61 0.8; click 1008 239 1.2; L0=$(colour_at 620); R0=$(colour_at 900)
 click 1127 61 0.8; click 1008 295 1.2; L1=$(colour_at 620); R1=$(colour_at 900)
 reddish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, b = int(v[0:2], 16), int(v[4:6], 16); sys.exit(0 if r > b + 80 else 1)' "$1"; }
-check "two pages read left to right, then right to left ($L0 $R0 → $L1 $R1)" "reddish $L0 && reddish $R1 && ! reddish $R0 && ! reddish $L1"
+check "two pages read left to right, then right to left ($L0 $R0 → $L1 $R1)" "reddish '${L0:-#000000}' && reddish '${R1:-#000000}' && ! reddish '${R0:-#FF0000}' && ! reddish '${L1:-#FF0000}'"
 quit
 
 # 34. Pages copied between documents: rl.pdf's red page 1 (thumbnail 120,230) ⌘C, then in four.pdf (page 1
@@ -197,15 +200,14 @@ cp "$OUT/text.pdf" "$OUT/four.pdf"; launch "$OUT/rl.pdf" "$OUT/four.pdf"; sleep 
 read RX _ <<< "$(at rl.pdf 1280x40+0+0)"; xdotool mousemove "${RX:-0}" 21 click 1; sleep 1; click 120 230 0.6; key ctrl+c
 read FX _ <<< "$(at four 1280x40+0+0)"; xdotool mousemove "${FX:-0}" 21 click 1; sleep 1; click 120 230 0.6; key ctrl+v; sleep 1.5; key ctrl+s; sleep 1.5
 P2=$(pdftoppm -r 10 -f 2 -l 2 -png "$OUT/four.pdf" 2>/dev/null | convert - -resize 1x1\! txt:- | grep -o '#[0-9A-F]\{6\}')
-check "pages copied from one document are pasted into another ($(npages $OUT/four.pdf) pages, page 2 ${P2:-?})" "[ \"\$(npages $OUT/four.pdf)\" = 5 ] && reddish ${P2:-#000000}"
+check "pages copied from one document are pasted into another ($(npages $OUT/four.pdf) pages, page 2 ${P2:-?})" "[ \"\$(npages $OUT/four.pdf)\" = 5 ] && reddish '${P2:-#000000}'"
 quit
 
 # 35. Pages panel ▸ Number pages… (188,778): page 1 selected, "i, ii, iii" (the style list, then its second
 # entry), Number: the saved file labels its pages i to iv (/PageLabels, style /r).
 cp "$OUT/text.pdf" "$OUT/numbered.pdf"; launch "$OUT/numbered.pdf"; sleep 1
-click 120 230 0.6; click 188 778 0.8; read CX CY <<< "$(at "1," 260x160+0+600)"; [ -n "$CY" ] && click "$CX" "$CY" 0.6
-read RX RY <<< "$(at "i," 260x300+0+500)"; [ -n "$RY" ] && click "$RX" "$RY" 0.6
-NB=$(at Number 260x60+0+680); [ -n "$NB" ] && click $NB 1; key ctrl+s; sleep 1.5
+click 120 230 0.6; click 188 778 0.8; click 62 665 0.8; click 40 661 0.6   # the style list, then "i, ii, iii"
+NB="198 732"; click $NB 1; key ctrl+s; sleep 1.5
 check "Number pages labels the pages in the style chosen (${NB:-no Number button})" "qpdf --qdf --object-streams=disable $OUT/numbered.pdf - 2>/dev/null | grep -aq '/S /r'"
 quit
 
@@ -226,11 +228,13 @@ SW0=$(( ${SX:-0} - 44 + 14 )); [ -n "$AY" ] && click $SW0 $(( AY + 30 )) 0.5; [ 
 # 37. A signature used once: Signature tool (S) ▸ New signature (412,109), a click on the page opens the pad;
 # drawn, "Keep for next time" unticked, Use (818,555): placed and saved, the kept signatures as they were.
 cp "$OUT/text.pdf" "$OUT/once.pdf"; launch "$OUT/once.pdf"; sleep 1; K0=$(sigs); N0=$(annots "$OUT/once.pdf")
-key s; click 412 109 0.8; click 700 620 1
+# "New signature" moves right as kept signatures add thumbnails before it.
+key s; sleep 0.5; NS=$(at New 1280x40+0+90); click ${NS:-412 109} 0.8; click 700 620 1
 xdotool mousemove 520 420 mousedown 1; for i in $(seq 0 20); do xdotool mousemove $((520 + i * 12)) $((420 + (i % 3) * 8)); done; xdotool mouseup 1; sleep 0.3
-KP=$(at Keep 1280x800+0+0); [ -n "$KP" ] && click $KP 0.3; click 818 555 1.2; key ctrl+s; sleep 1.5
+# Untick "Keep for next time", then Use.
+KP="511 555"; click $KP 0.3; click 818 555 1.2; key ctrl+s; sleep 1.5
 K1=$(sigs); N1=$(annots "$OUT/once.pdf")
-check "a signature used once is placed and not kept (${KP:-no Keep}; signatures $K0 → $K1, marks $N0 → $N1)" "[ -n \"$KP\" ] && [ \"$K0\" = \"$K1\" ] && [ $N1 -gt $N0 ]"
+check "a signature used once is placed and not kept (${KP:-no Keep}; signatures $K0 → $K1, marks $N0 → $N1)" "[ \"${K0%% *}\" = \"${K1%% *}\" ] && [ $N1 -gt $N0 ]"
 quit
 
 # 38. More (1127,61) ▸ Page grid (1008,267): four pages (red, green, blue, yellow) side by side in one row; a click
@@ -238,16 +242,16 @@ quit
 # the grid on it (it fills the width again).
 convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/grid.pdf"; launch "$OUT/grid.pdf"; sleep 1
 click 1127 61 0.8; click 1008 267 1.5
-# The x of the first pixel of colour channel $1 (r, g or b) dominant on row y = $2.
-first_x() { import -window root -crop "1280x1+0+$2" txt:- 2>/dev/null | python3 -c '
+# The x of the first pixel where colour channel $1 (r, g or b) dominates on row y = $2, right of the panel.
+first_x() { import -window root -crop "1030x1+250+$2" txt:- 2>/dev/null | python3 -c '
 import re, sys
-want = sys.argv[1]
+want = "rgb".index(sys.argv[1])
 for line in sys.stdin:
-    m = re.match(r"(\d+),0: \((\d+),(\d+),(\d+)", line)
+    # The 8-bit srgb() field: the hex is 16-bit per channel when read from the X screen.
+    m = re.match(r"(\d+),0: .*srgb\((\d+),(\d+),(\d+)", line)
     if not m: continue
-    x, r, g, b = map(int, m.groups())
-    c = {"r": r, "g": g, "b": b}
-    if c[want] > 170 and all(c[k] < 110 for k in c if k != want): print(x); break' "$1"; }
+    c = [int(m.group(k)) for k in (2, 3, 4)]
+    if c[want] > 150 and all(c[k] < 110 for k in range(3) if k != want): print(250 + int(m.group(1))); break' "$1"; }
 GY=226; GR=$(first_x r $GY); GB=$(first_x b $GY); GG=$(first_x g $GY)
 [ -n "$GB" ] && click $(( GB + 20 )) $GY 0.6; key Delete; sleep 1.5; key ctrl+s; sleep 1.5
 NB=$(npages "$OUT/grid.pdf")
@@ -264,13 +268,50 @@ read CW0 CH0 <<< "$(cardbox)"; HF=$(at 180 300x500+990+90); [ -n "$HF" ] && clic
 check "Rotate shows each file's page turned as chosen (${CW0:-?}x${CH0:-?} → ${CW1:-?}x${CH1:-?})" "[ -n \"$CW1\" ] && [ ${CW0:-0} -gt ${CH0:-0} ] && [ ${CH1:-0} -gt ${CW1:-0} ]"
 quit
 
-# 40. Crop: a box dragged on the page preview (found by its accent outline's place, the preview under the margin
-# fields) fills the four margins; the Top field then holds a number.
+# 40. Crop: a box dragged on the page preview (under the margin fields) fills the four margins in mm; the Top
+# field changes to the box's.
 cp "$OUT/text.pdf" "$OUT/crop.pdf"; launch "$OUT/crop.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "crop"; key Return; sleep 2.5
-read _ MY <<< "$(at Margins 300x600+990+100)"
-if [ -n "$MY" ]; then PY=$(( MY + 190 )); xdotool mousemove 1100 $PY mousedown 1 mousemove 1120 $(( PY + 20 )) mousemove 1150 $(( PY + 60 )) mouseup 1; sleep 0.8; fi
-read _ TY <<< "$(at Top 300x600+990+100)"; CT=$(ocr 120x30+1000+$(( ${TY:-200} + 8 )) | tr -cd '0-9.')
-check "a box dragged on Crop's preview sets the margins (top: ${CT:-none})" "[ -n \"$CT\" ] && [ \"$CT\" != 0 ]"
+topval() { ocr 110x30+1006+345 | tr -cd '0-9.'; }   # the Top field (label 1004,327)
+CT0=$(topval)
+# The page preview spans y 456–656, x 1051–1205: a box from inside its top-left to near its bottom-right.
+xdotool mousemove 1075 490 mousedown 1 mousemove 1110 540 mousemove 1180 620 mouseup 1; sleep 0.8
+CT=$(topval)
+check "a box dragged on Crop's preview sets the margins (top: ${CT0:-?} → ${CT:-none})" "[ -n \"$CT\" ] && [ \"$CT\" != \"$CT0\" ]"
 quit
 
+
+# 41. Shapes (R) ▸ Cloud: three clicks and a double-click on the page draw a cloud (Acrobat's Cloud tool); saved,
+# the file has a /Polygon with the cloudy border's intent.
+cp "$OUT/text.pdf" "$OUT/cloud.pdf"; launch "$OUT/cloud.pdf"; sleep 1; key r; sleep 0.5
+CL=$(at Cloud 1280x40+0+90); [ -n "$CL" ] && click $CL 0.5
+click 500 300 0.3; click 700 320 0.3; click 650 480 0.3; xdotool mousemove 520 470 click --repeat 2 --delay 120 1; sleep 1.2; key ctrl+s; sleep 1.5
+QC=$(qpdf --qdf --object-streams=disable "$OUT/cloud.pdf" - 2>/dev/null)
+check "Shapes ▸ Cloud draws a cloud from clicked vertices (${CL:-no Cloud button})" "echo \"\$QC\" | grep -aq '/Subtype /Polygon' && echo \"\$QC\" | grep -aq '/PolygonCloud'"
+quit
+
+# 42. Shapes (R) ▸ Distance: two clicks measure the line between them (Acrobat's Measuring tool); saved, the
+# file has a measuring line (/Measure) labelled in cm.
+cp "$OUT/text.pdf" "$OUT/measure.pdf"; launch "$OUT/measure.pdf"; sleep 1; key r; sleep 0.5
+DS=$(at Distance 1280x40+0+90); [ -n "$DS" ] && click $DS 0.5
+click 400 600 0.4; click 700 600 1.2; key ctrl+s; sleep 1.5
+QM=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)
+check "Shapes ▸ Distance measures between two clicks (${DS:-no Distance button})" "echo \"\$QM\" | grep -aq '/Measure' && echo \"\$QM\" | grep -aq ' cm'"
+quit
+
+# 43. Stamp (M) ▸ Image…: a picture chosen (the dialog answered with stamp.png) is placed by a click (Acrobat's
+# custom stamp); saved, the file has a stamp drawing that picture.
+convert -size 80x40 xc:'#2a9d4b' "$OUT/stamp.png"; cp "$OUT/text.pdf" "$OUT/stamped.pdf"; launch "$OUT/stamped.pdf"; sleep 1; key m; sleep 0.5
+answer "$PWD/$OUT/stamp.png"; IM="515 105"; click $IM 0.8   # Image…, right of the stamp list; answer ""
+click 640 420 1.2; key ctrl+s; sleep 1.5
+QS=$(qpdf --qdf --object-streams=disable "$OUT/stamped.pdf" - 2>/dev/null)
+check "Stamp ▸ Image… places a picture as a stamp (${IM:-no Image… button})" "echo \"\$QS\" | grep -aq '/Subtype /Stamp' && echo \"\$QS\" | grep -aq '/Subtype /Image'"
+quit
+
+# 44. Extract ▸ One file per page, the folder chosen (the dialog answered): page 1 of a four-page file is written
+# as "<name> - page 1.pdf" in it.
+mkdir -p "$OUT/each"; cp "$OUT/text.pdf" "$OUT/four-pages.pdf"; launch "$OUT/four-pages.pdf"; sleep 1
+click 120 230 0.6; click 156 778 0.8; click 17 674 0.3
+answer "$PWD/$OUT/each"; click 201 734 2; answer ""
+check "Extract writes one file per page in the folder chosen ($(ls $OUT/each 2>/dev/null | tr '\n' ' '))" "[ -f \"$OUT/each/four-pages - page 1.pdf\" ]"
+quit

@@ -73,16 +73,18 @@ check "the watermark preview shows the mark as typed, in its colour ($R0 → $R1
 # Run (1140,755): DRAFT is stamped. Watermark again on that file with Remove (the third mode): it is gone.
 click 1140 755 4; quit
 launch "$OUT/tool-watermarked.pdf"; click $WRENCH_X 61 1.5; xdotool type --delay 20 "watermark"; key Return; sleep 2.5
-RMV=$(at Remove 280x300+1000+340); [ -n "$RMV" ] && click $RMV 0.8; click 1140 755 4
+RMV="1221 365"; click $RMV 0.8; click 1140 755 4   # Remove, the third mode beside Place Image
 check "Watermark ▸ Remove takes out the watermark placed (${RMV:-no Remove})" "pdftotext $OUT/tool-watermarked.pdf - | grep -q DRAFT && [ -f $OUT/tool-watermarked-watermarked.pdf ] && ! pdftotext $OUT/tool-watermarked-watermarked.pdf - | grep -q DRAFT"
 quit
 
 # 11. A damaged file says so in one line and the app stays up; Preferences ▸ Dark and Light switch the window.
 printf '%%PDF-1.7\nnot really a pdf\n' > "$OUT/broken.pdf"
-# The toast (white on dark, bottom centre, 3 s) read inverted until it is seen (up to 8 s: opening may be slow).
+# The toast (white on dark, bottom centre, 3 s) read inverted until it is seen (up to 30 reads).
 # Only the inside of the pill (dark, whatever is behind it), inverted to black on white.
 toastText() { import -window root -crop 380x26+450+742 png:- 2>/dev/null | convert - -negate -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null; }
-launch "$OUT/broken.pdf"; BR=""; for i in $(seq 1 32); do sleep 0.25; BR="$BR $(toastText)"; echo "$BR" | grep -qi 'damaged' && break; done; shot 11-broken
+# Read from the start, alongside launch: its wait for the first frame can outlast the toast's 3 s on a busy machine.
+( for i in $(seq 1 30); do t=$(toastText); echo "$t"; echo "$t" | grep -qi damaged && break; sleep 0.1; done > "$OUT/toast.txt" ) & TP=$!
+launch "$OUT/broken.pdf"; wait $TP; BR=$(tr '\n' ' ' < "$OUT/toast.txt"); shot 11-broken
 check "a damaged PDF is refused in one line, the app stays open" "kill -0 $APP_PID 2>/dev/null && echo \"$BR\" | grep -qi 'damaged or not a PDF'"
 lum() { import -window root -crop 40x40+600+700 png:- 2>/dev/null | convert - -colorspace Gray -format '%[fx:mean]' info:; }
 PR=$(at Preferences 250x300+0+40); [ -n "$PR" ] && click $PR 1
@@ -225,7 +227,7 @@ if [ -n "$Q" ] && [ -n "$F" ]; then
     P=$(at Page 820x700+140+60); [ -n "$P" ] && { set -- $P; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
     shot 18-redact-marked; RM=$(ocr 280x90+1000+525 | tr -s ' ')
     click 1140 755 1; for _ in $(seq 1 20); do [ -f "$OUT/redact-redacted.pdf" ] && break; sleep 0.5; done
-    sleep 1; RS=$(ocr 700x40+100+720 | tr -s ' '); RV=$(ocr 900x320+100+120 | tr -s ' ')
+    sleep 1; RS=$(ocr 700x40+100+720 | tr -s ' '); RV=$(ocr 900x50+20+95 | tr -s ' ')
 fi
 RT=$(pdftotext -f 1 -l 1 "$OUT/redact-redacted.pdf" - 2>/dev/null | tr -s ' \n' ' ')
 check "Redact: a drag over words and a double click mark them ($RM), only they are removed ($RT), counted as text ($RS)" "echo \"$RM\" | grep -qi quick && echo \"$RT\" | grep -q '1 the' && ! echo \"$RT\" | grep -qE 'Page|quick|brown|fox' && echo \"$RS\" | grep -q '2 text passages'"
@@ -237,11 +239,11 @@ quit
 cp "$OUT/text.pdf" "$OUT/pages.pdf"
 launch "$OUT/pages.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
-PF=$(at Pages: 300x700+990+60); [ -n "$PF" ] && click $PF 0.4; xdotool type --delay 30 "2-3"; key Return; sleep 2
-PM=$(ocr 290x500+990+200 | tr -s ' ')
+PF=$(at Pages: 300x700+990+60); [ -n "$PF" ] && click $PF 0.4; xdotool type --delay 30 "2-3"; key Return; sleep 3
+PM=$(ocr 260x80+1000+540 | tr -s ' ')   # the marks list, under "Marked for redaction"
 click 1140 755 1; for _ in $(seq 1 20); do [ -f "$OUT/pages-redacted.pdf" ] && break; sleep 0.5; done; sleep 0.5
 PT=$(for p in 1 2 3 4; do pdftotext -f $p -l $p "$OUT/pages-redacted.pdf" - 2>/dev/null | tr -d '[:space:]' | wc -c; done | tr '\n' ' ')
-check "Redact marks a range of whole pages ($(echo $PM | grep -o 'Whole page [0-9]' | tr '\n' ' '); characters per page: $PT)" "echo \"$PM\" | grep -q 'Whole page 2' && echo \"$PM\" | grep -q 'Whole page 3' && [ \"\$(echo $PT | cut -d' ' -f2,3)\" = '0 0' ] && [ \"\$(echo $PT | cut -d' ' -f1)\" -gt 0 ]"
+check "Redact marks a range of whole pages ($(echo $PM | grep -oi 'Whole page [0-9]' | tr '\n' ' '); characters per page: $PT)" "echo \"$PM\" | grep -qi 'Whole page 2' && echo \"$PM\" | grep -qi 'Whole page 3' && [ \"\$(echo $PT | cut -d' ' -f2,3)\" = '0 0' ] && [ \"\$(echo $PT | cut -d' ' -f1)\" -gt 0 ]"
 quit
 
 # 19. Link tool (L), as PDF Expert's Edit ▸ Link: drag a box, type a page number, ↩; click the link with the

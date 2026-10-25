@@ -21,6 +21,9 @@ use sheaf_core::{repair, rotate, security, OpdfError, Result};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
+/// Remove pages' spec for "the blank pages", worked out when the job runs.
+pub const BLANK_PAGES: &str = "blank";
+
 /// How Split cuts the document.
 #[derive(Debug, Clone)]
 pub enum SplitMode {
@@ -271,7 +274,17 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             r
         }
         Job::RemovePages { input, pages: spec, out } => {
-            let r = one(pages::remove(input, spec, out))?;
+            // "blank": the blank pages, found now (Acrobat's Remove Blank Pages).
+            let spec = if spec == BLANK_PAGES {
+                let blank = pages::blank_pages(input)?;
+                if blank.is_empty() {
+                    return Err(OpdfError::Unsupported("this PDF has no blank pages".into()));
+                }
+                blank.iter().map(u32::to_string).collect::<Vec<_>>().join(",")
+            } else {
+                spec.clone()
+            };
+            let r = one(pages::remove(input, &spec, out))?;
             progress(1.0);
             r
         }

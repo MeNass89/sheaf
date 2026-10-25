@@ -116,31 +116,20 @@ export component ResultScreen inherits Rectangle {
                     }
                 }
                 // The output's first redacted page, as written: what was removed shows black.
-                if root.tab.result-preview-caption != "": Rectangle {
-                    height: 250px;
-                    VerticalLayout {
-                        padding: 14px;
-                        padding-bottom: 0px;
-                        spacing: 6px;
-                        Text {
-                            text: root.tab.result-preview-caption;
-                            font-size: Theme.fs-label;
-                            font-weight: Theme.weight-demibold;
-                            color: Theme.text;
-                        }
-                        HorizontalLayout {
-                            alignment: start;
-                            Rectangle {
-                                width: self.height * root.tab.result-preview.width / max(1, root.tab.result-preview.height);
-                                background: #ffffff;
-                                drop-shadow-blur: 6px;
-                                drop-shadow-color: Theme.thumb-shadow;
-                                Image {
-                                    source: root.tab.result-preview;
-                                    image-fit: contain;
-                                }
-                            }
-                        }
+                if root.tab.result-preview-caption != "": VerticalLayout {
+                    padding: 14px;
+                    padding-bottom: 0px;
+                    spacing: 6px;
+                    Text {
+                        text: root.tab.result-preview-caption;
+                        font-size: Theme.fs-label;
+                        font-weight: Theme.weight-demibold;
+                        color: Theme.text;
+                    }
+                    Image {
+                        height: 210px;
+                        source: root.tab.result-preview;
+                        image-fit: contain;
                     }
                 }
                 ScrollView {

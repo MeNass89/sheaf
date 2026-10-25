@@ -167,6 +167,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_image_action, |ui, id, a| reader_ui::image_action(&ui, id, a));
     wire_global!(ui, rb, on_paste, |ui, id| reader_ui::paste_image(&ui, id));
     wire_global!(ui, rb, on_copy_pages, |ui, id| reader_ui::copy_pages(&ui, id));
+    wire_global!(ui, rb, on_stamp_image, |ui, id| reader_ui::stamp_image(&ui, id));
     wire_global!(ui, rb, on_copy_comment, |ui, id, cut| reader_ui::copy_comment(&ui, id, cut));
     rb.on_escape(reader_ui::escape);
     rb.on_select_all(reader_ui::select_all);

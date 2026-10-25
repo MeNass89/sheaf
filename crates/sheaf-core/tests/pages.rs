@@ -149,3 +149,16 @@ fn split_by_size_groups_pages_under_the_limit() {
     assert_eq!(split_size(&Input::new(&a), 100 << 20, &one).unwrap().len(), 1, "all under 100 MB: one file");
     assert_eq!(split_size(&Input::new(&a), 1, &each).unwrap().len(), 6, "each page over 1 byte: a file each");
 }
+
+#[test]
+fn blank_pages_are_found_and_text_or_drawn_ones_are_not() {
+    use sheaf_core::images::{images_to_pdf, PageLayout};
+    let t = tempfile::tempdir().unwrap();
+    let text = fixture_pdf(t.path(), "text.pdf", 2);
+    let (white, drawn) = (t.path().join("white.png"), t.path().join("drawn.png"));
+    image::RgbImage::from_pixel(60, 80, image::Rgb([255, 255, 255])).save(&white).unwrap();
+    image::RgbImage::from_fn(60, 80, |x, _| if x < 30 { image::Rgb([20, 20, 20]) } else { image::Rgb([255, 255, 255]) }).save(&drawn).unwrap();
+    let pics = images_to_pdf(&[white, drawn], PageLayout::FitImage, &t.path().join("pics.pdf")).unwrap();
+    let all = merge(&[Input::new(&text), Input::new(&pics)], &t.path().join("all.pdf")).unwrap();
+    assert_eq!(blank_pages(&Input::new(&all)).unwrap(), [3], "the white picture only");
+}

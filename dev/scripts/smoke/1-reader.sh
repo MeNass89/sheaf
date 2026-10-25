@@ -355,11 +355,13 @@ key ctrl+9; sleep 1
 pagesig() { import -window root -crop 1000x690+260+90 png:- 2>/dev/null | md5sum | cut -c1-8; }
 # The zoom field read alone (a single line at 300 %: the default OCR misses it).
 zoomval() { import -window root -crop 70x26+$((ZOOM_X - 32))+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
-key Home; sleep 1; ZA=$(zoomval); QK=$(at fox 1020x700+255+90); # The pointer arrives as a hand moves it (two steps, a pause): a wheel event read before the move
-# into the page was handled would anchor on where the pointer was before (961 → 889 on 25/10).
-[ -n "$QK" ] && xdotool mousemove $(echo $QK | awk '{ print $1 - 6, $2 - 4 }') && sleep 0.15 && xdotool mousemove $QK && sleep 0.4; xdotool keydown ctrl click 4 click 4 keyup ctrl; sleep 2; ZB=$(zoomval); QK2=$(at fox 1020x700+255+90)
+key Home; sleep 1; ZA=$(zoomval); QK=$(at quick 1020x700+255+90); # The pointer arrives as a hand moves it (two steps, a pause): a wheel event read before the move
+# into the page was handled would anchor on where the pointer was before.
+[ -n "$QK" ] && xdotool mousemove $(echo $QK | awk '{ print $1 - 6, $2 - 4 }') && sleep 0.15 && xdotool mousemove $QK && sleep 0.4; xdotool keydown ctrl click 4 click 4 keyup ctrl; sleep 2; ZB=$(zoomval); QK2=$(at quick 1020x700+255+90)
 check "⌘ + wheel zooms in ($ZA → $ZB %)" "[ -n \"$ZA\" ] && [ -n \"$ZB\" ] && [ $ZB -gt $ZA ]"
-# The word under the pointer stays under it (OCR centres within 60 px).
+# The word under the pointer stays under it (OCR centres within 60 px). "quick", not "fox": the arrow drawn
+# at 6c ends beside "fox", and OCR read the two as one word some runs, its centre 63 px right of the word
+# (the "drift" 961 → 889 of 25/10 was that: the zoom kept the point under the pointer).
 check "⌘ + wheel zooms around the pointer ($QK → $QK2)" "[ -n \"$QK\" ] && [ -n \"$QK2\" ] && python3 -c 'import sys; a, b = [list(map(int, v.split())) for v in sys.argv[1:]]; sys.exit(0 if abs(a[0] - b[0]) < 60 and abs(a[1] - b[1]) < 60 else 1)' \"$QK\" \"$QK2\""
 PG0=$(pagesig); xdotool mousemove 700 520; sleep 0.4; xdotool mousedown 2; for i in $(seq 1 8); do xdotool mousemove $((700 - i * 8)) $((520 - i * 25)); sleep 0.03; done; xdotool mouseup 2; sleep 1; PG1=$(pagesig); shot 06h-pan
 check "a middle-button drag moves the pages" "[ \"$PG0\" != \"$PG1\" ]"

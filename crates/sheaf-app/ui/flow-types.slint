@@ -228,6 +228,8 @@ export struct ReaderState {
     comments-hidden: bool,
     // Stamp tool: the stamps offered (labels) and the chosen one.
     stamps: [string],
+    // A picture chosen as the stamp (its file name; "" for the palette's).
+    stamp-image: string,
     stamp: int,
     // Pages side by side: 0 one column, 1 two pages, 2 two pages with the cover alone.
     spread: int,
@@ -429,6 +431,7 @@ export struct ToolOptions {
     allow-commenting: bool,
     allow-filling-forms: bool,
     pages: string,       // remove / extract / rotate (optional)
+    remove-blank: bool,  // remove pages: the blank ones, found by Sheaf
     split-mode: int,     // 0 ranges, 1 every N, 2 top-level bookmarks, 3 file size
     ranges: string,
     every: int,
@@ -617,6 +620,8 @@ export global ReaderBridge {
     callback paste(int);
     // ⌘C with pages selected in the Pages panel (and no text selected).
     callback copy-pages(int);
+    // Stamp ▸ Image…: a picture chosen as the stamp.
+    callback stamp-image(int);
     // ⌘C / ⌘X on a selected comment (cut: true).
     callback copy-comment(int, bool);
     // The selected page image: 0 turn left, 1 turn right, 2 flip, 3 replace, 4 delete.
