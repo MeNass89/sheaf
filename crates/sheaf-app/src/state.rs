@@ -199,6 +199,8 @@ pub struct App {
     pub closed_jobs: HashMap<i32, (ToolId, Vec<PathBuf>)>,
     /// A document the reader is opening, waiting for its password.
     pub reader_pw: Option<PathBuf>,
+    /// A file a document links to, waiting for "Open this file?" (Acrobat asks before launching one).
+    pub pending_launch: Option<PathBuf>,
     /// The window is closing: each document with unsaved edits is asked about in turn.
     pub quitting: bool,
     /// Documents to close once their save is done (Save in the unsaved-changes dialog).
@@ -460,9 +462,11 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
             .map(|(p, e)| format!("{} — {e}", p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()).into())
             .collect();
         tab.failures = ModelRc::new(VecModel::from(lines));
-        // Not every file went through: the heading says how many did (iLovePDF's partial result).
-        let done = o.outputs.len();
-        tab.result_title = format!("{done} of {} files {} {}; {n} failed.", done + n, if done == 1 { "was" } else { "were" }, verb(t.tool)).into();
+        // Not every file went through: the heading says how many of the files given did (iLovePDF's
+        // partial result); a file may make several outputs (PDF to JPG), so the inputs are counted.
+        let total = t.files.len().max(n);
+        let done = total - n;
+        tab.result_title = format!("{done} of {total} files {} {}; {n} failed.", if done == 1 { "was" } else { "were" }, verb(t.tool)).into();
     }
     let outs: Vec<ResultFile> = o
         .outputs
@@ -642,9 +646,18 @@ mod tests {
             failures: vec![(PathBuf::from("/x/b.docx"), "conversion failed: boom".into())],
             ..Default::default()
         };
-        let tab = done_tab(ToolId::WordToPdf, o);
+        let mut t = TabState::new(1, ToolId::WordToPdf);
+        t.files = vec![entry(1), entry(2)];
+        t.finish(Some(Done { outcome: o.clone(), page_counts: vec![], input_sizes: vec![] }));
+        let tab = build(&t);
         assert_eq!(tab.failure_title, "1 file failed:");
         assert_eq!(tab.result_title, "1 of 2 files was converted; 1 failed.");
+        // A file that made several outputs (PDF to JPG) counts once.
+        let mut t = TabState::new(1, ToolId::PdfToJpg);
+        t.files = vec![entry(1), entry(2), entry(3)];
+        let jpgs = JobOutcome { outputs: (1..=5).map(|k| PathBuf::from(format!("/x/a-{k}.jpg"))).collect(), ..o.clone() };
+        t.finish(Some(Done { outcome: jpgs, page_counts: vec![], input_sizes: vec![] }));
+        assert_eq!(build(&t).result_title, "2 of 3 files were converted; 1 failed.");
         assert_eq!(tab.failures.row_data(0).unwrap(), "b.docx — conversion failed: boom");
         assert_eq!(tab.outputs.row_count(), 1);
     }

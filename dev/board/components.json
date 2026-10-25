@@ -1760,12 +1760,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -1801,6 +1801,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Maj ne contraint ni le rectangle en carré ni l’ovale en cercle : crates/sheaf-app/src/reader_ui/edits.rs:210"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013"
    }
   ]
  },
@@ -6891,12 +6902,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -6976,6 +6987,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Vider un paragraphe puis faire ⌘S ne valide pas sa suppression : le texte vide est ignoré dans crates/sheaf-app/src/reader_ui/saving.rs:9"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013"
    }
   ]
  },
@@ -7938,12 +7960,12 @@
    113
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -7979,6 +8001,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): « Save As » n’applique pas le paragraphe encore ouvert dans l’éditeur avant de copier le PDF : crates/sheaf-app/src/reader_ui/saving.rs:20"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013"
    }
   ]
  },
@@ -10848,12 +10881,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -10889,6 +10922,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): « Clear form » efface immédiatement, sans la confirmation prévue par la définition : crates/sheaf-app/ui/screens/reader-options.slint:182"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013"
    }
   ]
  },
@@ -14241,14 +14285,14 @@
    50
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "split points chosen visually",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -14260,6 +14304,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [45, 47, 50]"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013"
    }
   ]
  },
@@ -14773,14 +14828,14 @@
    42
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "per-file page ranges",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -14792,6 +14847,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [42]"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013"
    }
   ]
  },
@@ -15199,12 +15265,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -15262,6 +15328,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): ⌘S ignore un paragraphe vidé dans l’éditeur : le filtre écarte le texte vide avant de valider la modification (`crates/sheaf-app/src/reader_ui/saving.rs:9`)"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013"
    }
   ]
  },
@@ -21319,12 +21396,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -21360,6 +21437,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Pendant la recherche, Entrée relance celle-ci au lieu de passer au résultat suivant : crates/sheaf-app/ui/screens/reader-toolbar.slint:234"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013"
    }
   ]
  },
@@ -24833,12 +24921,12 @@
    162
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -24874,6 +24962,17 @@
      "overall": 8
     },
     "proof": "Sol re-review 25/10 (end of the Opus-only deviation): Une ancienne recherche peut écraser les résultats d’une nouvelle sur le même PDF ; la réponse ne vérifie que l’identifiant du fichier : crates/sheaf-app/src/viewer_ui.rs:663"
+   },
+   {
+    "date": "2026-10-25",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013"
    }
   ]
  },

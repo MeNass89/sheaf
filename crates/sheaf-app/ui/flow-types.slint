@@ -74,6 +74,8 @@ export struct ReaderResultRow {
     after: string,
     page-label: string,
     current: bool,
+    // The first result of its page: the page heads its group (PDF Expert groups results by page).
+    first: bool,
 }
 
 // Reader: one row of the outline panel.
@@ -228,6 +230,8 @@ export struct ReaderState {
     printers: [string],
     printer: int,
     results: [ReaderResultRow],
+    // Earlier searches, newest first (this session).
+    search-history: [string],
     case-sensitive: bool,
     whole-words: bool,
 }

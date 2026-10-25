@@ -34,3 +34,16 @@ Each line: the component, Sol's gap, what was done, its proof.
   under CPU load): a second notch arriving after the 150 ms settle but before the view showed the first notch's
   scroll anchored on the old scroll. The zoom now anchors on the scroll asked for while it is not shown yet
   (`reader.slint` `scroll-x-now`). Probable cause, fix kept; watch this check.
+
+## Round 2 (25/10, after Sol's round 1: 9 agree, 4 disagree)
+- **C-edit-021** A non-PDF linked file was only shown in its folder: it now opens in its own app after "Open
+  “name”?" (Acrobat's Launch File warning; `LaunchFileDialog`, Cancel keeps it closed).
+- **C-output-005** The partial heading counted outputs: it counts the files given (a PDF to JPG input making five
+  images counts once). Proof: `state::tests::failed_batch_items_are_listed` (2 of 3 with 5 JPGs).
+- **C-reader-007** A 200 × 14,400 pt page still overflowed at 1 %: narrow pages round their width down, floor 4 px.
+  Proof: `viewer::tests::fit_page_fits_a_very_tall_page_whole` (that page, 700 px high).
+- **C-reader-035** Results were a flat list without history: the page heads its group of results (PDF Expert), and
+  the clock lists the session's last ten searches, one click runs it again into the field (⌘F in the field selects
+  its words). Proof: `search::tests::a_search_goes_first_in_the_history_once_and_the_oldest_drop_off`, gui-smoke 23.
+- Refactor: `viewer.rs` (1,004 lines) split into `viewer/mod.rs` (layout, zoom, mapping) and `viewer/renders.rs`
+  (caches, render queue, drawing).

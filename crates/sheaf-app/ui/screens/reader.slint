@@ -182,6 +182,7 @@ export component ReaderScreen inherits Rectangle {
                 drop-line <=> root.drop-line;
                 thumb-down-page <=> root.thumb-down-page;
                 focus-pages => { keys.focus(); }
+                search-again(text) => { toolbar.search-for(text); }
             }
 
             // ---- pages ------------------------------------------------------------------------

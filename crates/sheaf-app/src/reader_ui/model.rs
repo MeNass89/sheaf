@@ -276,6 +276,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 after: a.clone().into(),
                 page_label: format!("Page {}", label(r, *page)).into(),
                 current: r.search.current == Some(i),
+                first: i == 0 || r.search.hits[i - 1].0 != *page,
             });
         }
         if *shown_current != r.search.current {
@@ -443,6 +444,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 .unwrap_or_default(),
         )),
         results,
+        search_history: ModelRc::new(VecModel::from(super::search::recent_searches().into_iter().map(Into::into).collect::<Vec<slint::SharedString>>())),
         case_sensitive: r.search.case_sensitive,
         whole_words: r.search.whole_words,
     };

@@ -23,6 +23,8 @@ export component ReaderPanel inherits Rectangle {
     out property <length> strip-h: strip.visible-height;
     // The keyboard goes back to the pages.
     callback focus-pages();
+    // A recent search picked: it goes back in the search field and runs.
+    callback search-again(string);
         visible: root.tab.reader.panel-open && !root.bare;
         width: root.tab.reader.panel-open && !root.bare ? root.panel-width : 0px;
         background: Theme.panel-bg;
@@ -51,6 +53,12 @@ export component ReaderPanel inherits Rectangle {
                             vertical-alignment: center;
                         }
                         Rectangle { horizontal-stretch: 1; }
+                        if root.tab.reader.search-history.length > 1: ToolButton {
+                            y: -2px;
+                            icon: @image-url("../icons/history.svg");
+                            tip: "Recent searches";
+                            clicked => { recent.show(); }
+                        }
                         SmallButton {
                             text: "Aa";
                             primary: root.tab.reader.case-sensitive;
@@ -60,6 +68,48 @@ export component ReaderPanel inherits Rectangle {
                             text: "Whole words";
                             primary: root.tab.reader.whole-words;
                             clicked => { ReaderBridge.search-options(root.id, root.tab.reader.case-sensitive, !root.tab.reader.whole-words, root.search-text); }
+                        }
+                    }
+                    recent := PopupWindow {
+                        x: 10px;
+                        y: 40px;
+                        width: root.panel-width - 20px;
+                        Rectangle {
+                            background: Theme.input-bg;
+                            border-radius: Theme.radius-small;
+                            border-width: 1px;
+                            border-color: Theme.input-border;
+                            drop-shadow-blur: 8px;
+                            drop-shadow-color: #00000022;
+                            VerticalLayout {
+                                padding: 4px;
+                                Text {
+                                    text: "Recent searches";
+                                    font-size: Theme.fs-caption;
+                                    color: Theme.text-muted;
+                                    height: 22px;
+                                    vertical-alignment: center;
+                                    x: 6px;
+                                }
+                                for q in root.tab.reader.search-history: Rectangle {
+                                    height: 28px;
+                                    border-radius: 3px;
+                                    background: qt.has-hover ? Theme.popup-hover : transparent;
+                                    Text {
+                                        x: 6px;
+                                        width: parent.width - 12px;
+                                        text: q;
+                                        font-size: Theme.fs-label;
+                                        color: Theme.text;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                    qt := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { root.search-again(q); }
+                                    }
+                                }
+                            }
                         }
                     }
                     // A ListView makes only the rows in view: tens of thousands of results stay cheap.
@@ -75,11 +125,14 @@ export component ReaderPanel inherits Rectangle {
                                 background: h.current ? Theme.menu-selected-bg : ht.has-hover ? Theme.popup-hover : transparent;
                                 hl := VerticalLayout {
                                     padding: 8px;
+                                    padding-top: h.first ? 10px : 4px;
                                     spacing: 2px;
-                                    Text {
+                                    // The page heads its results (PDF Expert groups them by page).
+                                    if h.first: Text {
                                         text: h.page-label;
                                         font-size: Theme.fs-caption;
-                                        color: Theme.text-muted;
+                                        font-weight: Theme.weight-demibold;
+                                        color: Theme.text-secondary;
                                     }
                                     // The match in bold inside its context, as PDF Expert lists results.
                                     StyledText {

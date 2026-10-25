@@ -2,8 +2,30 @@
 
 use super::*;
 
+thread_local! {
+    /// The session's searches, newest first (Acrobat's and PDF Expert's recent searches).
+    static HISTORY: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Most searches kept in the history.
+const HISTORY_LEN: usize = 10;
+
+pub(super) fn recent_searches() -> Vec<String> {
+    HISTORY.with(|h| h.borrow().clone())
+}
+
+/// `q` put first in `history`, once, at most [`HISTORY_LEN`] kept.
+fn remember(history: &mut Vec<String>, q: &str) {
+    history.retain(|h| h != q);
+    history.insert(0, q.to_string());
+    history.truncate(HISTORY_LEN);
+}
+
 pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
     let q = query.trim().to_string();
+    if !q.is_empty() {
+        HISTORY.with(|h| remember(&mut h.borrow_mut(), &q));
+    }
     let Some((bytes, password, n, generation, case, whole, live, known)) = update(tab_id, |r, v| {
         r.search.generation += 1;
         r.search.query = q.clone();
@@ -170,4 +192,23 @@ pub fn search_clear(tab_id: i32) {
             r.panel = r.panel_before_search.take().unwrap_or(0);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_search_goes_first_in_the_history_once_and_the_oldest_drop_off() {
+        let mut h = Vec::new();
+        for q in ["a", "b", "a"] {
+            remember(&mut h, q);
+        }
+        assert_eq!(h, ["a", "b"]);
+        for k in 0..12 {
+            remember(&mut h, &k.to_string());
+        }
+        assert_eq!(h.len(), HISTORY_LEN);
+        assert_eq!(h[0], "11");
+    }
 }

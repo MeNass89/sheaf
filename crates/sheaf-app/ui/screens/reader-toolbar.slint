@@ -251,6 +251,11 @@ export component ReaderToolbar inherits Rectangle {
                             ReaderBridge.search-step(root.id, -1);
                             return accept;
                         }
+                        // ⌘F again in the field: its words selected, ready to type a new search.
+                        if e.modifiers.control && (e.text == "f" || e.text == "F") {
+                            self.select-all();
+                            return accept;
+                        }
                         if e.modifiers.control && (e.text == "g" || e.text == "G") {
                             ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1);
                             return accept;

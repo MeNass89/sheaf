@@ -958,6 +958,16 @@ check "clicks between Split's pages cut and join its ranges ($R1 → $R2)" "[ \"
 check "Split writes a file for each cut range" "[ \"\$(pdfinfo $OUT/reo/ten-4-7.pdf 2>/dev/null | awk '/^Pages/{print \$2}')\" = 4 ] && [ -f $OUT/reo/ten-1-3.pdf ] && [ -f $OUT/reo/ten-8-10.pdf ]"
 quit
 
+# 23. Search history (Acrobat's and PDF Expert's recent searches): "fox" then "quick"; the clock in the results
+# panel (92,153) lists them newest first; the second ("fox", 60,237) runs again and is back in the field.
+launch "$OUT/text.pdf"
+key ctrl+f; xdotool type --delay 20 "fox"; key Return; sleep 1.5
+key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
+click 92 153 0.8; shot 23-recent; click 60 237 1.5
+SF=$(ocr 110x26+1000+48 | tr -d ' '); RN=$(ocr 80x24+0+141)
+check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 results'"
+quit
+
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"
 echo "---"
 # Outputs are deleted on success (SMOKE_KEEP=1 keeps the screenshots, e.g. to file a proof).

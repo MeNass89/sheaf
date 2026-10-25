@@ -130,6 +130,38 @@ export component ConfirmCloseDialog inherits Modal {
     }
 }
 
+// A link in a document opens a file that is not a PDF: it runs in its own app, so the user says so
+// first (Acrobat's Launch File warning).
+export component LaunchFileDialog inherits Modal {
+    in property <string> name;
+    callback answer(bool);
+    Text {
+        text: "Open “\{root.name}”?";
+        font-size: Theme.fs-body-large;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+        wrap: word-wrap;
+    }
+    Text {
+        text: "The document links to this file. It opens in the app your system uses for it; open it only if you trust the document.";
+        font-size: Theme.fs-label;
+        color: Theme.text-secondary;
+        wrap: word-wrap;
+    }
+    HorizontalLayout {
+        alignment: end;
+        spacing: 10px;
+        SecondaryButton {
+            text: "Cancel";
+            clicked => { root.answer(false); }
+        }
+        PrimaryButton {
+            text: "Open";
+            clicked => { root.answer(true); }
+        }
+    }
+}
+
 // A document with unsaved annotations is being closed (PDF Expert asks the same three ways).
 export component UnsavedDialog inherits Modal {
     in property <string> file-name;

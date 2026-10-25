@@ -11,7 +11,7 @@ import { ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, Par
 import { ToolFlowScreen } from "screens/tool-flow.slint";
 import { ReaderScreen } from "screens/reader.slint";
 import { ResultScreen } from "screens/result.slint";
-import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, Toast } from "screens/dialogs.slint";
+import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, Toast } from "screens/dialogs.slint";
 
 export { Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
@@ -94,6 +94,8 @@ export component AppWindow inherits Window {
     in property <int> pw-attempt;
     // Closing a tab with a running job
     in property <bool> confirm-visible;
+    in property <string> launch-name;
+    callback launch-answer(bool);
     in property <string> unsaved-file;
     callback unsaved-answer(int);
     // Bottom-centre toast
@@ -349,6 +351,10 @@ export component AppWindow inherits Window {
         save => { root.unsaved-answer(1); }
         discard => { root.unsaved-answer(2); }
         cancel => { root.unsaved-answer(0); }
+    }
+    if root.launch-name != "": LaunchFileDialog {
+        name: root.launch-name;
+        answer(yes) => { root.launch-answer(yes); }
     }
     if root.confirm-visible: ConfirmCloseDialog {
         cancel-job => { root.confirm-cancel-job(); }

@@ -355,6 +355,12 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_move_file(flow::move_file);
     ui.on_place_file(flow::place_file);
     ui.on_sort_files(flow::sort_files);
+    wire!(ui, on_launch_answer, |ui, yes| {
+        ui.set_launch_name("".into());
+        if let Some(p) = state::with(|a| a.pending_launch.take()).filter(|_| yes) {
+            run::open_detached(&p);
+        }
+    });
     ui.on_set_pages(|id, uid, text| flow::set_pages(id, uid, text.as_str()));
     ui.on_open_doc_count(|id| flow::open_documents(id).len() as i32);
     wire!(ui, on_add_open_docs, |ui, id| flow::add_open_documents(&ui, id));
