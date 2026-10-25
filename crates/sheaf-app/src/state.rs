@@ -58,6 +58,8 @@ pub struct TabState {
     pub page_thumbs: HashMap<u32, Image>,
     pub phase: Phase,
     pub progress: f32,
+    /// When the running job started (for the time left).
+    pub started: Option<std::time::Instant>,
     /// Cancel pressed; the job has not returned yet.
     pub cancelling: bool,
     /// Organize: page previews could not be rendered.
@@ -103,6 +105,7 @@ impl TabState {
             page_thumbs: HashMap::new(),
             phase: Phase::Edit,
             progress: 0.0,
+            started: None,
             cancelling: false,
             pages_failed: false,
             preview: None,
@@ -169,6 +172,7 @@ impl TabState {
     pub fn start_job(&mut self) {
         self.phase = Phase::Running;
         self.progress = 0.0;
+        self.started = Some(std::time::Instant::now());
         self.cancelling = false;
     }
 
@@ -207,6 +211,9 @@ pub struct App {
     pub closing_after_save: std::collections::HashSet<i32>,
     /// Close Other / Left / Right: documents with unsaved edits still to ask about, in turn.
     pub close_queue: Vec<i32>,
+    /// Pages copied from a document's Pages panel (⌘C): its name, its bytes as they were, the
+    /// pages; pasted into another document's Pages panel (⌘V).
+    pub page_clip: Option<(String, std::sync::Arc<Vec<u8>>, Vec<usize>)>,
 }
 
 impl App {
@@ -337,7 +344,7 @@ pub fn build(t: &TabState) -> ToolTab {
         any_scanned: t.files.iter().any(|f| f.scanned),
         phase: match t.phase { Phase::Edit => 0, Phase::Running => 1, Phase::Done(_) => 2 },
         progress: t.progress,
-        progress_text: format!("{:.0}%", t.progress * 100.0).into(),
+        progress_text: progress_text(t.progress, if info.multi { t.files.len() } else { 1 }, t.started.map(|s| s.elapsed())).into(),
         cancelling: t.cancelling,
         preview_failed: t.pages_failed,
         files: ModelRc::new(VecModel::from(t.files.iter().map(file_item).collect::<Vec<_>>())),
@@ -408,6 +415,26 @@ pub fn build(t: &TabState) -> ToolTab {
     tab
 }
 
+/// "File 2 of 5 · 40% · about 12 s left": the file being worked on (a batch shares the bar
+/// evenly), how far, and the time left once enough is done to tell (iLovePDF's and Acrobat's).
+fn progress_text(p: f32, files: usize, elapsed: Option<std::time::Duration>) -> String {
+    let p = p.clamp(0.0, 1.0);
+    let mut parts = Vec::new();
+    if files > 1 {
+        parts.push(format!("File {} of {files}", ((p * files as f32) as usize + 1).min(files)));
+    }
+    parts.push(format!("{:.0}%", p * 100.0));
+    if let Some(e) = elapsed.filter(|e| p >= 0.05 && p < 1.0 && e.as_secs_f32() >= 2.0) {
+        let left = (e.as_secs_f32() * (1.0 - p) / p).round() as u64;
+        parts.push(match left {
+            0..=4 => "a few seconds left".to_string(),
+            5..=59 => format!("about {left} s left"),
+            _ => format!("about {} min left", left.div_ceil(60)),
+        });
+    }
+    parts.join(" · ")
+}
+
 fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
     let o = &d.outcome;
     let many = o.outputs.len() > 1;
@@ -449,6 +476,10 @@ fn fill_result(tab: &mut ToolTab, t: &TabState, d: &Done) {
     }
     if t.tool == ToolId::Redact && !o.outputs.is_empty() {
         tab.result_verified = REDACTION_VERIFIED.into();
+    }
+    if let Some((page, th)) = &o.preview {
+        tab.result_preview = Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(&th.rgba, th.width, th.height));
+        tab.result_preview_caption = format!("Page {} as redacted", page + 1).into();
     }
     if !o.notes.is_empty() {
         tab.notes_title = notes_title(t.tool).into();
@@ -727,12 +758,28 @@ mod tests {
     }
 
     #[test]
+    fn progress_says_the_file_how_far_and_the_time_left() {
+        use std::time::Duration;
+        assert_eq!(progress_text(0.0, 1, None), "0%");
+        assert_eq!(progress_text(0.4, 5, Some(Duration::from_secs(1))), "File 3 of 5 · 40%");
+        assert_eq!(progress_text(0.25, 1, Some(Duration::from_secs(10))), "25% · about 30 s left");
+        assert_eq!(progress_text(0.1, 1, Some(Duration::from_secs(30))), "10% · about 5 min left");
+        assert_eq!(progress_text(0.9, 1, Some(Duration::from_secs(18))), "90% · a few seconds left");
+        assert_eq!(progress_text(1.0, 2, Some(Duration::from_secs(9))), "File 2 of 2 · 100%");
+    }
+
+    #[test]
     fn redact_result_says_how_many_areas_and_that_the_audit_passed() {
         let o = JobOutcome { outputs: vec![PathBuf::from("/x/a-redacted.pdf")], summary: "3 areas redacted".into(), ..Default::default() };
         let tab = done_tab(ToolId::Redact, o);
         assert_eq!(tab.result_title, "Your PDF has been redacted successfully.");
         assert_eq!((tab.result_sub.as_str(), tab.result_verified.as_str()), ("3 areas redacted", REDACTION_VERIFIED));
         assert_eq!(done_tab(ToolId::Rotate, JobOutcome { outputs: vec![PathBuf::from("/x/a.pdf")], ..Default::default() }).result_verified, "");
+        // The first redacted page is shown as written.
+        let th = crate::files::Thumb { width: 2, height: 3, rgba: vec![0; 24] };
+        let o = JobOutcome { outputs: vec![PathBuf::from("/x/a-redacted.pdf")], preview: Some((2, th)), ..Default::default() };
+        let tab = done_tab(ToolId::Redact, o);
+        assert_eq!((tab.result_preview_caption.as_str(), tab.result_preview.size().width), ("Page 3 as redacted", 2));
     }
 
     #[test]

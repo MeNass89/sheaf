@@ -97,6 +97,13 @@ export struct ReaderProp {
     value: string,
 }
 
+// A reply under a comment, with where it is in the file (each can be deleted).
+export struct ReaderReply {
+    text: string,
+    page: int,
+    index: int,
+}
+
 export struct ReaderAnnotRow {
     kind: string,
     text: string,
@@ -104,8 +111,8 @@ export struct ReaderAnnotRow {
     meta: string,
     // Its place in the document's comment list (rows can be filtered and sorted).
     index: int,
-    // Replies, one per line ("author: text"), and its review status.
-    replies: string,
+    // Replies ("author: text"), oldest first, and its review status.
+    replies: [ReaderReply],
     status: string,
     page-label: string,
     colour: color,
@@ -151,7 +158,8 @@ export struct ReaderState {
     theme: int,
     backdrop: color,
     // Text selection, search hits and the selected annotation, in content coordinates;
-    // kind 3 selection, 4 search hit, 5 current hit, 6 selected annotation.
+    // kind 3 selection, 4 search hit, 5 current hit, 6 selected annotation, 12 a page selected in
+    // the page grid.
     marks: [ViewerOverlay],
     provisional: [ReaderMark],
     has-selection: bool,
@@ -223,6 +231,8 @@ export struct ReaderState {
     stamp: int,
     // Pages side by side: 0 one column, 1 two pages, 2 two pages with the cover alone.
     spread: int,
+    // Pairs read right to left.
+    rtl: bool,
     // Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled; opacity of shapes and pen (%).
     shape-kind: int,
     shape-fill: bool,
@@ -341,6 +351,9 @@ export struct ToolTab {
     continue-tools: [ContinueTool],
     // Result page: a check that passed ("Verified: no hidden text remains under the redactions").
     result-verified: string,
+    // Result page: a page of the output as written ("Page 3 as redacted"; "" for none).
+    result-preview: image,
+    result-preview-caption: string,
     // Page viewer (Redact)
     viewer-pages: [ViewerPage],
     viewer-thumbs: [ViewerThumb],
@@ -423,6 +436,7 @@ export struct ToolOptions {
     margin: int,         // 0 none, 1 small, 2 big
     quality: int,        // pdf→jpg: 0 normal (150 dpi), 1 high (300), 2 very high (600)
     png: bool,           // pdf→jpg: lossless PNG instead of JPEG
+    extract-images: bool, // pdf→jpg: the pictures placed in the pages, not the pages (iLovePDF)
     out-name: string,    // merge
     // Page numbers and watermark: page range ("" = first / last page).
     from-page: string,
@@ -459,6 +473,9 @@ export struct ToolOptions {
     wm-transparency: int, // 0 none, 1 25 %, 2 50 %, 3 75 %
     wm-rotation: int,    // 0 none, 1 45°, 2 90°, 3 180°, 4 270°, 5 −45°
     wm-below: bool,
+    // Watermarks already in the file go first; or are only taken out (Acrobat's Remove).
+    wm-replace: bool,
+    wm-remove: bool,
     // Crop
     crop-mode: int,      // 0 all pages, 1 selected pages, 2 remove crop
     crop-top: string,    // millimetres
@@ -501,11 +518,19 @@ export global OcrInfo {
 // Reader events, answered by the Rust side (src/reader_ui/). The first argument is the tab id.
 // Pages, thumbnails, viewport and zoom go through ViewerBridge like the tools' viewers.
 export global ReaderBridge {
+    // The side panel's width, shared by every document; its edge dragged and let go.
+    in-out property <length> panel-width: 248px;
+    // The thumbnails' width, set once the edge is let go (their heights come with it).
+    in property <length> thumb-width: 150px;
+    callback panel-resized(length);
     // Print: open the sheet; print with printer, copies, pages (0 all, 1 current, 2 range),
-    // the range typed, fit to paper, two-sided; cancel.
+    // the range typed, fit to paper, two-sided, paper (0 the printer's, 1 A4, 2 Letter, 3 Legal),
+    // orientation (0 auto, 1 portrait, 2 landscape); cancel.
     callback print-open(int);
     // One column → two pages → two pages with the cover alone.
     callback cycle-spread(int);
+    callback toggle-rtl(int);
+    callback toggle-grid(int);
     // Pages side by side as given (0 one column, 1 two pages, 2 cover alone).
     callback set-spread(int, int);
     // The Notes panel: 0 hide or show all comments, 1 summary of comments, 2 remove all.
@@ -533,7 +558,7 @@ export global ReaderBridge {
     callback props-cancel(int);
     // Shapes and pen: what (0 shape kind, 1 fill toggle, 2 next opacity), value.
     callback shape-option(int, int, int);
-    callback print(int, int, int, int, string, bool, bool);
+    callback print(int, int, int, int, string, bool, bool, int, int);
     callback print-cancel(int);
     // Pointer on the pages, content coordinates; `clicks` 2 on a double-click.
     callback pressed(int, length, length, int);
@@ -562,6 +587,8 @@ export global ReaderBridge {
     callback outline-toggled(int, int);
     callback annot-clicked(int, int);
     callback annot-delete(int, int);
+    // A reply deleted alone (its page and index in the file), the comment kept.
+    callback reply-delete(int, int, int);
     callback go-to-page(int, string);
     // +1 / −1 a page, +2 / −2 a screen, 10 / −10 the last / first page.
     callback page-step(int, int);
@@ -582,6 +609,8 @@ export global ReaderBridge {
     callback note-edited(int, string);
     // ⌘V: an image on the clipboard placed on the page in view.
     callback paste(int);
+    // ⌘C with pages selected in the Pages panel (and no text selected).
+    callback copy-pages(int);
     // The selected page image: 0 turn left, 1 turn right, 2 flip, 3 replace, 4 delete.
     callback image-action(int, int);
     callback note-cancel(int);
@@ -598,15 +627,22 @@ export global ReaderBridge {
     callback to-tools(int);
     // ⌘W: close the document (asks first when there are unsaved edits).
     callback close(int);
+    // ⌥⌘W: every tab, documents with unsaved edits asked about in turn.
+    callback close-all(int);
     // Whether a content point is over a link (the hand cursor).
     // Where the link under the point goes ("" when none).
     callback over-link(int, length, length) -> string;
     // Pages panel: a thumbnail clicked (`extend` ⇧, `toggle` ⌘), an operation on the selected
-    // pages (0 rotate left, 1 rotate right, 2 delete, 3 duplicate, 4 extract, 5 insert a blank page
+    // pages (0 rotate left, 1 rotate right, 2 delete, 3 duplicate, 5 insert a blank page
     // after), a drag over the thumbnails (content y; returns the drop line's y, −1 for none) and
     // its drop.
     callback thumb-pressed(int, int, bool, bool);
     callback page-op(int, int);
+    // Number the selected pages (or the one shown) and the next: style (0 1 2 3, 1 i ii, 2 I II,
+    // 3 a b, 4 A B, 5 none), prefix, first number as typed.
+    callback number-pages(int, int, string, string);
+    // Extract the selected pages (or the one shown): one file per page, then delete them.
+    callback extract(int, bool, bool);
     callback thumb-drag(int, int, length) -> length;
     callback thumb-drop(int, length);
     // The page whose thumbnail is at content y of the Pages panel (−1: none).
@@ -619,8 +655,8 @@ export global ReaderBridge {
     callback form-op(int, int);
     // The signature pad: commands and pad size, or a typed name; reset forgets the kept one.
     // The pad's answer: strokes (commands, pad width, height), typed name, ink (0 black, 1 blue,
-    // 2 dark blue) and pen (0 fine, 1 medium, 2 bold).
-    callback signature-made(int, string, length, length, string, int, int, int);
+    // 2 dark blue), pen (0 fine, 1 medium, 2 bold), font, and whether it is kept for next time.
+    callback signature-made(int, string, length, length, string, int, int, int, bool);
     // A kept signature chosen (its index) or, with true, forgotten.
     callback signature-pick(int, int, bool);
     // The typed name as it will sign, in the script font (the pad's live preview).

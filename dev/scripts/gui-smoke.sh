@@ -151,6 +151,7 @@ key h; sleep 1
 key ctrl+s; sleep 1.5; shot 02-highlight
 check "a highlight is saved into the file" "[ \"\$(annots $OUT/text.pdf)\" -ge 1 ]"
 check "the saved file passes qpdf --check" "qpdf --check $OUT/text.pdf >/dev/null 2>&1"
+cp "$OUT/text.pdf" "$OUT/highlighted.pdf"   # kept for step 32
 
 # 2. A note, then undo / redo.
 key n; click 1000 400 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "smoke note"; key ctrl+Return; sleep 1
@@ -296,13 +297,13 @@ key Escape; key v
 check "an edited paragraph shows on the page before ⌘↩, Escape takes it back" "echo \"$PV1\" | grep -q zebra && ! echo \"$PV2\" | grep -q zebra && ! pdftotext $OUT/text.pdf - | grep -q zebra"
 
 # 3. Page operations from the Pages panel: duplicate page 1, delete it again, rotate.
-click 120 230; click 142 778 1.2      # select page 1, Duplicate
+click 120 230; click 124 778 1.2      # select page 1, Duplicate
 key ctrl+s; sleep 1.5
 check "duplicate adds a page" "[ \"\$(npages $OUT/text.pdf)\" = 5 ]"
-click 120 230; click 203 778 1.2      # Delete
+click 120 230; click 220 778 1.2      # Delete
 key ctrl+s; sleep 1.5
 check "delete removes it" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
-click 120 230; click 108 778 1.2      # Insert blank page after page 1
+click 120 230; click 92 778 1.2       # Insert blank page after page 1
 key ctrl+s; sleep 1.5
 check "insert blank adds an empty page 2" "[ \"\$(npages $OUT/text.pdf)\" = 5 ] && [ -z \"\$(pdftotext -f 2 -l 2 $OUT/text.pdf - | tr -d '[:space:]')\" ]"
 key ctrl+z; key ctrl+s; sleep 1.5
@@ -446,6 +447,10 @@ check "a reply to a comment is saved as a reply" "echo \"\$QD\" | grep -aq '/IRT
 # saved as a status reply.
 click 120 240 1; click 150 292 0.8; shot 06c-status; click 150 358 1; key ctrl+s; sleep 1.5
 check "a review status is saved (Accepted)" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/State (Accepted)'"
+# The reply's own bin (right of its line, x 220) deletes it alone: the comment and its status stay.
+read _ RY <<< "$(at Smoke 260x500+0+130)"; [ -n "$RY" ] && click 220 "$RY" 1; key ctrl+s; sleep 1.5
+QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
+check "a reply is deleted alone, its comment and status kept" "[ -n \"$RY\" ] && ! echo \"\$QD\" | grep -aq '(Smoke reply)' && echo \"\$QD\" | grep -aq '/State (Accepted)'"
 key Escape
 click 37 106 0.8   # back to the Pages panel
 
@@ -609,6 +614,11 @@ click 230 21 1; click $WRENCH_X 61 1.5; xdotool type --delay 20 "watermark"; key
 click 1130 432 0.4; xdotool type --delay 30 "DRAFT"; click 1060 546 0.4; xdotool type --delay 30 "120"; click 1165 615 0.3; sleep 2.5
 shot 10c-watermark-preview; R1=$(red)
 check "the watermark preview shows the mark as typed, in its colour ($R0 → $R1)" "[ \"\${R1:-0}\" -gt \$(( \${R0:-0} + 50 )) ]"
+# Run (1140,755): DRAFT is stamped. Watermark again on that file with Remove (the third mode): it is gone.
+click 1140 755 4; quit
+launch "$OUT/tool-watermarked.pdf"; click $WRENCH_X 61 1.5; xdotool type --delay 20 "watermark"; key Return; sleep 2.5
+RMV=$(at Remove 280x300+1000+340); [ -n "$RMV" ] && click $RMV 0.8; click 1140 755 4
+check "Watermark ▸ Remove takes out the watermark placed (${RMV:-no Remove})" "pdftotext $OUT/tool-watermarked.pdf - | grep -q DRAFT && [ -f $OUT/tool-watermarked-watermarked.pdf ] && ! pdftotext $OUT/tool-watermarked-watermarked.pdf - | grep -q DRAFT"
 quit
 
 # 11. A damaged file says so in one line and the app stays up; Preferences ▸ Dark and Light switch the window.
@@ -759,10 +769,11 @@ if [ -n "$Q" ] && [ -n "$F" ]; then
     P=$(at Page 820x700+140+60); [ -n "$P" ] && { set -- $P; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
     shot 18-redact-marked; RM=$(ocr 280x90+1000+525 | tr -s ' ')
     click 1140 755 1; for _ in $(seq 1 20); do [ -f "$OUT/redact-redacted.pdf" ] && break; sleep 0.5; done
-    sleep 1; RS=$(ocr 700x40+100+720 | tr -s ' ')
+    sleep 1; RS=$(ocr 700x40+100+720 | tr -s ' '); RV=$(ocr 900x320+100+120 | tr -s ' ')
 fi
 RT=$(pdftotext -f 1 -l 1 "$OUT/redact-redacted.pdf" - 2>/dev/null | tr -s ' \n' ' ')
 check "Redact: a drag over words and a double click mark them ($RM), only they are removed ($RT), counted as text ($RS)" "echo \"$RM\" | grep -qi quick && echo \"$RT\" | grep -q '1 the' && ! echo \"$RT\" | grep -qE 'Page|quick|brown|fox' && echo \"$RS\" | grep -q '2 text passages'"
+check "the Redact result shows the first redacted page as written ($(echo $RV | cut -c1-60))" "echo \"$RV\" | grep -q 'Page 1 as redacted'"
 quit
 
 # 19. Link tool (L), as PDF Expert's Edit ▸ Link: drag a box, type a page number, ↩; click the link with the
@@ -1043,6 +1054,108 @@ read OX OY <<< "$(at Other 1280x300+0+0)"; xdotool mousemove "${OX:-0}" "${OY:-0
 PQ=$(ocr 700x300+290+250)
 DS=$(at "Don" 700x300+290+250); [ -n "$DS" ] && click $DS 1
 check "Close Other Tabs asks about unsaved edits, Don't Save closes it ($(echo $PQ | cut -c1-60); $(ntabs) tab)" "echo \"$PQ\" | grep -q cb.pdf && [ \"\$(ntabs)\" = 1 ]"
+quit
+
+# 30. Pages panel ▸ Extract… (156,778) opens its options strip, Acrobat's: one file per page, delete the
+# pages after. Deleting the only page is refused before any file is asked for.
+qpdf "$OUT/text.pdf" --pages . 1 -- "$OUT/single.pdf"; launch "$OUT/single.pdf"; sleep 1
+click 156 778 0.8; XS=$(ocr 260x110+0+620)
+DL=$(at Delete 260x110+0+620); [ -n "$DL" ] && click $DL 0.3
+EX=$(at Extract 260x40+0+690); [ -n "$EX" ] && click $EX 0.6
+XT=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
+check "Extract offers one file per page and deleting the pages ($XS)" "echo \"$XS\" | grep -q 'One file per page' && echo \"$XS\" | grep -q 'Delete pages'"
+check "extracting and deleting the only page is refused" "echo \"$XT\" | grep -q 'needs at least one page' && [ \"\$(npages $OUT/single.pdf)\" = 1 ]"
+quit
+
+# 31. The side panel's edge (247,400) dragged 100 px right: the first thumbnail (row y 230) widens
+# from 150 to 250 px, and the width is kept for the next start (PDF Expert's sidebar).
+thumbw() { import -window root -crop 500x1+0+230 png:- 2>/dev/null | convert - txt:- | awk -F'[(),]' 'NR > 1 && $3 + 0 > 240 && $4 + 0 > 240 && $5 + 0 > 240 { n++ } END { print n + 0 }'; }
+launch "$OUT/text.pdf"; sleep 1.5; TW0=$(thumbw)
+xdotool mousemove 247 400 mousedown 1; for i in $(seq 1 10); do xdotool mousemove $(( 247 + i * 10 )) 400; sleep 0.04; done; xdotool mouseup 1; sleep 1.5; TW1=$(thumbw); quit
+# Dragged back, so later steps find the default panel.
+launch "$OUT/text.pdf"; sleep 1.5; TW2=$(thumbw)
+xdotool mousemove 347 400 mousedown 1; for i in $(seq 1 10); do xdotool mousemove $(( 347 - i * 10 )) 400; sleep 0.04; done; xdotool mouseup 1; sleep 0.5; quit
+check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ $TW0 -gt 130 ] && [ $TW0 -lt 160 ] && [ $TW1 -gt 230 ] && [ $TW1 -lt 260 ] && [ $TW2 = $TW1 ]"
+
+# 32. A highlight saved without a note, on a page never shown: the Notes panel (153,106) lists the
+# words it covers (step 1's highlight, its page moved third).
+qpdf "$OUT/highlighted.pdf" --pages . 2,3,1,4 -- "$OUT/hl-third.pdf"; launch "$OUT/hl-third.pdf"; sleep 1
+click 153 106 1; NT=$(ocr 260x300+0+130)
+check "the Notes panel shows a highlight's words though its page was never shown ($NT)" "echo \"$NT\" | grep -qi 'quick'"
+quit
+
+# 33. More (1127,61) ▸ Two pages (1008,239) puts a red page 1 left of a blue page 2; More ▸ Right to left
+# (1008,295) swaps them (Acrobat's right-to-left page order).
+convert -size 300x400 xc:'#E02020' xc:'#2040E0' "$OUT/rl.pdf"; launch "$OUT/rl.pdf"; sleep 1
+colour_at() { import -window root -crop "1x1+$1+420" txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}'; }
+click 1127 61 0.8; click 1008 239 1.2; L0=$(colour_at 620); R0=$(colour_at 900)
+click 1127 61 0.8; click 1008 295 1.2; L1=$(colour_at 620); R1=$(colour_at 900)
+reddish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, b = int(v[0:2], 16), int(v[4:6], 16); sys.exit(0 if r > b + 80 else 1)' "$1"; }
+check "two pages read left to right, then right to left ($L0 $R0 → $L1 $R1)" "reddish $L0 && reddish $R1 && ! reddish $R0 && ! reddish $L1"
+quit
+
+# 34. Pages copied between documents: rl.pdf's red page 1 (thumbnail 120,230) ⌘C, then in four.pdf (page 1
+# selected) ⌘V puts it second; saved, four.pdf has five pages, the second red.
+cp "$OUT/text.pdf" "$OUT/four.pdf"; launch "$OUT/rl.pdf" "$OUT/four.pdf"; sleep 3
+read RX _ <<< "$(at rl.pdf 1280x40+0+0)"; xdotool mousemove "${RX:-0}" 21 click 1; sleep 1; click 120 230 0.6; key ctrl+c
+read FX _ <<< "$(at four 1280x40+0+0)"; xdotool mousemove "${FX:-0}" 21 click 1; sleep 1; click 120 230 0.6; key ctrl+v; sleep 1.5; key ctrl+s; sleep 1.5
+P2=$(pdftoppm -r 10 -f 2 -l 2 -png "$OUT/four.pdf" 2>/dev/null | convert - -resize 1x1\! txt:- | grep -o '#[0-9A-F]\{6\}')
+check "pages copied from one document are pasted into another ($(npages $OUT/four.pdf) pages, page 2 ${P2:-?})" "[ \"\$(npages $OUT/four.pdf)\" = 5 ] && reddish ${P2:-#000000}"
+quit
+
+# 35. Pages panel ▸ Number pages… (188,778): page 1 selected, "i, ii, iii" (the style list, then its second
+# entry), Number: the saved file labels its pages i to iv (/PageLabels, style /r).
+cp "$OUT/text.pdf" "$OUT/numbered.pdf"; launch "$OUT/numbered.pdf"; sleep 1
+click 120 230 0.6; click 188 778 0.8; read CX CY <<< "$(at "1," 260x160+0+600)"; [ -n "$CY" ] && click "$CX" "$CY" 0.6
+read RX RY <<< "$(at "i," 260x300+0+500)"; [ -n "$RY" ] && click "$RX" "$RY" 0.6
+NB=$(at Number 260x60+0+680); [ -n "$NB" ] && click $NB 1; key ctrl+s; sleep 1.5
+check "Number pages labels the pages in the style chosen (${NB:-no Number button})" "qpdf --qdf --object-streams=disable $OUT/numbered.pdf - 2>/dev/null | grep -aq '/S /r'"
+quit
+
+# 36. Preferences (67,193 in Home's menu) ▸ Accent colour blue (the second swatch, 38 px right of the first,
+# under its label) and Background behind pages black (the fifth): kept in the preferences, and a document
+# opened then shows black around its page (zoomed out, ⌘-).
+launch; click 67 193 1
+read AX AY <<< "$(at Accent 1100x700+180+60)"; read SX _ <<< "$(at System 1100x700+180+60)"
+SW0=$(( ${SX:-0} - 44 + 14 )); [ -n "$AY" ] && click $(( SW0 + 38 )) $(( AY + 30 )) 0.5
+read BX BY <<< "$(at Background 1100x700+180+60)"; [ -n "$BY" ] && click $(( SW0 + 4 * 38 )) $(( BY + 30 )) 0.5; quit
+cp "$OUT/text.pdf" "$OUT/backdrop.pdf"; launch "$OUT/backdrop.pdf"; sleep 1; key ctrl+minus; key ctrl+minus; sleep 1
+BD=$(import -window root -crop 1x1+300+500 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}')
+check "Preferences keep the accent and the background behind pages (${BD:-?}; $(grep -o '"accent": [0-9]' $OUT/profile/data/Sheaf/prefs.json))" "grep -q '\"accent\": 1' $OUT/profile/data/Sheaf/prefs.json && [ \"$BD\" = '#000000' ]"
+quit
+launch; click 67 193 1; read SX _ <<< "$(at System 1100x700+180+60)"; read AX AY <<< "$(at Accent 1100x700+180+60)"; read BX BY <<< "$(at Background 1100x700+180+60)"
+SW0=$(( ${SX:-0} - 44 + 14 )); [ -n "$AY" ] && click $SW0 $(( AY + 30 )) 0.5; [ -n "$BY" ] && click $SW0 $(( BY + 30 )) 0.5; quit   # back to the defaults
+
+# 37. A signature used once: Signature tool (S) ▸ New signature (412,109), a click on the page opens the pad;
+# drawn, "Keep for next time" unticked, Use (818,555): placed and saved, the kept signatures as they were.
+cp "$OUT/text.pdf" "$OUT/once.pdf"; launch "$OUT/once.pdf"; sleep 1; K0=$(sigs); N0=$(annots "$OUT/once.pdf")
+key s; click 412 109 0.8; click 700 620 1
+xdotool mousemove 520 420 mousedown 1; for i in $(seq 0 20); do xdotool mousemove $((520 + i * 12)) $((420 + (i % 3) * 8)); done; xdotool mouseup 1; sleep 0.3
+KP=$(at Keep 1280x800+0+0); [ -n "$KP" ] && click $KP 0.3; click 818 555 1.2; key ctrl+s; sleep 1.5
+K1=$(sigs); N1=$(annots "$OUT/once.pdf")
+check "a signature used once is placed and not kept (${KP:-no Keep}; signatures $K0 → $K1, marks $N0 → $N1)" "[ -n \"$KP\" ] && [ \"$K0\" = \"$K1\" ] && [ $N1 -gt $N0 ]"
+quit
+
+# 38. More (1127,61) ▸ Page grid (1008,267): four pages (red, green, blue, yellow) side by side in one row; a click
+# selects the blue one, Delete takes it out (saved: three pages, no blue); a double-click on the red one closes
+# the grid on it (it fills the width again).
+convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/grid.pdf"; launch "$OUT/grid.pdf"; sleep 1
+click 1127 61 0.8; click 1008 267 1.5
+# The x of the first pixel of colour channel $1 (r, g or b) dominant on row y = $2.
+first_x() { import -window root -crop "1280x1+0+$2" txt:- 2>/dev/null | python3 -c '
+import re, sys
+want = sys.argv[1]
+for line in sys.stdin:
+    m = re.match(r"(\d+),0: \((\d+),(\d+),(\d+)", line)
+    if not m: continue
+    x, r, g, b = map(int, m.groups())
+    c = {"r": r, "g": g, "b": b}
+    if c[want] > 170 and all(c[k] < 110 for k in c if k != want): print(x); break' "$1"; }
+GY=226; GR=$(first_x r $GY); GB=$(first_x b $GY); GG=$(first_x g $GY)
+[ -n "$GB" ] && click $(( GB + 20 )) $GY 0.6; key Delete; sleep 1.5; key ctrl+s; sleep 1.5
+NB=$(npages "$OUT/grid.pdf")
+[ -n "$GR" ] && xdotool mousemove $(( GR + 20 )) $GY click --repeat 2 --delay 120 1; sleep 1.5; WIDE=$(first_x r 450)
+check "the page grid shows the pages in a row, Delete takes out the one selected, a double-click opens one (red $GR, green $GG, blue $GB; $NB pages; red at x ${WIDE:-?} on row 450)" "[ -n \"$GR\" ] && [ -n \"$GB\" ] && [ $GR -lt ${GG:-0} ] && [ ${GG:-0} -lt $GB ] && [ \"$NB\" = 3 ] && [ -n \"$WIDE\" ] && [ $WIDE -lt 400 ]"
 quit
 
 check "the real user profile was not touched" "[ \"\$(real_profile)\" = \"$REAL0\" ]"

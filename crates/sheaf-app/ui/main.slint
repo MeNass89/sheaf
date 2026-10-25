@@ -100,12 +100,17 @@ export component AppWindow inherits Window {
     callback unsaved-answer(int);
     // Bottom-centre toast
     in property <string> toast-text;
+    // Files dragged over the window: what a drop would do ("" when nothing is dragged); a drop
+    // the tab refuses is told in the warning colour.
+    in property <string> drop-hint;
+    in property <bool> drop-refused;
     in property <bool> toast-visible;
 
     // Recents, history, preferences
     in property <[RecentFile]> recents;
     in property <[HistoryRow]> history;
     in property <int> theme-pref;
+    in property <int> backdrop-pref;
     in property <int> output-mode;
     in property <string> fixed-folder;
     in property <bool> open-after;
@@ -158,6 +163,8 @@ export component AppWindow inherits Window {
     callback rerun-history(int);
     callback clear-history();
     callback set-theme(int);
+    callback set-accent(int);
+    callback set-backdrop(int);
     callback set-output(int);
     callback choose-folder();
     callback set-open-after(bool);
@@ -279,6 +286,9 @@ export component AppWindow inherits Window {
                             author-default: root.author-default;
                             default-zoom: root.default-zoom;
                             set-default-zoom(z) => { root.set-default-zoom(z); }
+                            backdrop-pref: root.backdrop-pref;
+                            set-accent(i) => { root.set-accent(i); }
+                            set-backdrop(i) => { root.set-backdrop(i); }
                             set-theme(m) => { root.set-theme(m); }
                             set-output(m) => { root.set-output(m); }
                             choose-folder => { root.choose-folder(); }
@@ -335,6 +345,25 @@ export component AppWindow inherits Window {
         }
     }
 
+    // The window as a drop zone while files are dragged over it (iLovePDF's and PDF Expert's).
+    if root.drop-hint != "": Rectangle {
+        background: (root.drop-refused ? Theme.warning : Theme.accent).transparentize(90%);
+        border-width: 2px;
+        border-color: root.drop-refused ? Theme.warning : Theme.accent;
+        border-radius: Theme.radius-card;
+        Rectangle {
+            width: hint.preferred-width + 32px;
+            height: 40px;
+            border-radius: 20px;
+            background: root.drop-refused ? Theme.warning : Theme.accent;
+            hint := Text {
+                text: root.drop-hint;
+                font-size: Theme.fs-label;
+                font-weight: Theme.weight-demibold;
+                color: Theme.on-accent;
+            }
+        }
+    }
     if root.toast-visible: Toast {
         x: (parent.width - self.width) / 2;
         y: parent.height - self.height - 28px;

@@ -379,12 +379,13 @@ fn sign_subcommand_visual_and_digital() {
     // No graphic: a usage error.
     let r = bin().arg("sign").arg(&src).args(["--at", "72,600", "-o"]).arg(&bad).output().unwrap();
     assert_eq!(r.status.code(), Some(1));
-    // Protected input: refused.
+    // Protected input: signed with its password, and still protected.
     let locked = t.path().join("locked.pdf");
     assert!(Command::new("qpdf").args(["--encrypt", "u", "o", "256", "--"]).arg(&src).arg(&locked).status().unwrap().success());
-    let r = bin().arg("sign").arg(&locked).args(["--password", "u", "--at", "72,600", "--text", "Ada", "-o"]).arg(&bad).output().unwrap();
-    assert!(!r.status.success() && !bad.exists());
-    assert!(String::from_utf8_lossy(&r.stderr).contains("unlock the PDF first"), "{}", String::from_utf8_lossy(&r.stderr));
+    let kept = t.path().join("kept.pdf");
+    let r = bin().arg("sign").arg(&locked).args(["--password", "u", "--at", "72,600", "--text", "Ada", "-o"]).arg(&kept).output().unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    assert_eq!(Command::new("qpdf").arg("--requires-password").arg(&kept).status().unwrap().code(), Some(0));
 }
 
 #[test]

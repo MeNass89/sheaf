@@ -17,9 +17,10 @@ pub fn print_cancel(tab_id: i32) {
 }
 
 /// Prints the document as it is now (unsaved edits included). `pages`: 0 all, 1 the current page,
-/// 2 the typed `range`.
+/// 2 the typed `range`; `paper` 0 the printer's own, else [`sheaf_app::print::PAPERS`]` [paper - 1]`;
+/// `orientation` 0 as each page is, 1 portrait, 2 landscape.
 #[allow(clippy::too_many_arguments)]
-pub fn print(ui: &AppWindow, tab_id: i32, printer: i32, copies: i32, pages: i32, range: &str, fit: bool, two_sided: bool) {
+pub fn print(ui: &AppWindow, tab_id: i32, printer: i32, copies: i32, pages: i32, range: &str, fit: bool, two_sided: bool, paper: i32, orientation: i32) {
     let Some(prepared) = update(tab_id, |r, v| {
         if r.in_flight > 0 {
             return Err("Still applying your last change: print again in a moment".to_string());
@@ -41,7 +42,8 @@ pub fn print(ui: &AppWindow, tab_id: i32, printer: i32, copies: i32, pages: i32,
         let printer = r.printers.get(printer.max(0) as usize).cloned().ok_or("No printer is set up")?;
         r.printer = r.printers.iter().position(|p| *p == printer).unwrap_or(0);
         r.print_open = false;
-        let job = sheaf_app::print::Job { printer, copies: copies.clamp(1, 999) as u32, pages, fit, two_sided };
+        let media = (paper > 0).then(|| sheaf_app::print::PAPERS.get(paper as usize - 1)).flatten().map(|m| m.to_string());
+        let job = sheaf_app::print::Job { printer, copies: copies.clamp(1, 999) as u32, pages, fit, two_sided, media, orientation: orientation.clamp(0, 2) as u8 };
         let title = r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Document".into());
         Ok((job, title, r.snap.bytes.clone()))
     }) else {

@@ -29,8 +29,9 @@ pub struct AnnotEntry {
     /// Who made it and when it last changed, as shown ("" when the file does not say).
     pub author: String,
     pub modified: String,
-    /// Replies to it, oldest first: "author: text"; and its latest review status ("Accepted").
-    pub replies: Vec<String>,
+    /// Replies to it, oldest first: ("author: text", its page, its index there); and its latest
+    /// review status ("Accepted").
+    pub replies: Vec<(String, usize, usize)>,
     pub status: String,
     /// Checked with Acrobat's check mark (its last Marked/Unmarked reply is Marked).
     pub checked: bool,
@@ -176,7 +177,7 @@ fn snap(doc: &Doc) -> Snap {
         if pages.is_empty() { Default::default() } else { doc.session().text_box_fonts(doc.id(), &pages).into_iter().collect() };
     let d = doc.document();
     // Replies and status replies point at their comment's name (/IRT → /NM).
-    let mut replies: std::collections::HashMap<&str, Vec<String>> = std::collections::HashMap::new();
+    let mut replies: std::collections::HashMap<&str, Vec<(String, usize, usize)>> = std::collections::HashMap::new();
     let mut status: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
     let mut checked: std::collections::HashMap<&str, bool> = std::collections::HashMap::new();
     for a in &d.info.annotations {
@@ -190,7 +191,7 @@ fn snap(doc: &Doc) -> Snap {
                     status.insert(parent, s.to_string());
                 }
             }
-            None => replies.entry(parent).or_default().push(format!("{}: {}", a.author.as_deref().unwrap_or("—"), a.contents.as_deref().unwrap_or("").trim())),
+            None => replies.entry(parent).or_default().push((format!("{}: {}", a.author.as_deref().unwrap_or("—"), a.contents.as_deref().unwrap_or("").trim()), a.page, a.index)),
         }
     }
     let mut annots: Vec<AnnotEntry> = d
@@ -287,8 +288,8 @@ pub enum Op {
     Save { to: Option<PathBuf> },
     /// The paragraphs of a page (Edit text).
     Blocks(usize),
-    /// `pages` written to a new PDF at `to`.
-    Extract { pages: Vec<usize>, to: PathBuf },
+    /// Each group of pages written to a new PDF at its path (one file, or one per page).
+    Extract { parts: Vec<(Vec<usize>, PathBuf)> },
     /// Acrobat's Create Links from URLs: every web address in the text not linked yet, in `style`.
     LinkUrls { style: sheaf_core::pdfcraft::engine::LinkStyle },
     /// Acrobat's Summarize Comments: a PDF listing every comment, by page, written to `to`.
@@ -404,9 +405,16 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         }
                         reply(Reply::Saved { snap: Box::new(snap(&doc)), to: target, error });
                     }
-                    Op::Extract { pages, to } => {
+                    Op::Extract { parts } => {
                         let id = doc.id();
-                        let r = doc.session().extract(id, &pages).map_err(|e| e.to_string()).and_then(|bytes| replace(&to, &bytes).map_err(|e| e.to_string()));
+                        let r = parts.iter().try_for_each(|(pages, to)| {
+                            doc.session().extract(id, pages).map_err(|e| e.to_string()).and_then(|bytes| replace(to, &bytes).map_err(|e| e.to_string()))
+                        });
+                        // One file is opened; several are announced by their folder.
+                        let to = match &parts[..] {
+                            [(_, one)] => one.clone(),
+                            _ => parts.first().and_then(|(_, p)| p.parent()).map(PathBuf::from).unwrap_or_default(),
+                        };
                         reply(Reply::Extracted { to, error: r.err() });
                     }
                     Op::ExportComments { to } => {
@@ -637,6 +645,43 @@ mod tests {
         println!("{n} pages, {hits} hits: first search {first:?}, again {:?}", t.elapsed());
     }
 
+    /// Search on a 300-page file of full text pages, as the reader's search thread reads it: the
+    /// first page's text comes at once (its results show while the rest is read), every page is
+    /// read, and the whole pass stays within seconds even in a debug build.
+    #[test]
+    fn a_search_shows_its_first_page_at_once_on_a_long_file() {
+        use sheaf_core::pdfcraft::render;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("long.pdf");
+        {
+            let _g = sheaf_core::engine::pdfium_lock();
+            let mut doc = sheaf_core::engine::new_document();
+            let font = doc.fonts_mut().helvetica();
+            let line = "The quick brown fox jumps over the lazy dog, a tumor of words for the search to read.";
+            for _ in 0..300 {
+                let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+                for row in 0..45 {
+                    page.objects_mut().create_text_object(PdfPoints::new(40.0), PdfPoints::new(800.0 - row as f32 * 17.0), line, font, PdfPoints::new(10.0)).unwrap();
+                }
+            }
+            doc.save_to_file(&path).unwrap();
+        }
+        let bytes = Arc::new(std::fs::read(&path).unwrap());
+        let (first, read) = (std::sync::Mutex::new(None), std::sync::atomic::AtomicUsize::new(0));
+        let t = std::time::Instant::now();
+        sheaf_app::reader::read_texts(&bytes, &render::RenderConfig::default(), 300, &Default::default(), &|| false, |_, x| {
+            first.lock().unwrap().get_or_insert(t.elapsed());
+            assert!(x.is_some_and(|x| !x.find_opts("tumor", false, false).is_empty()));
+            read.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            true
+        });
+        let (first, all) = (first.into_inner().unwrap().unwrap(), t.elapsed());
+        println!("300 pages: first page {first:?}, all {all:?}");
+        assert_eq!(read.into_inner(), 300);
+        assert!(first < Duration::from_millis(500), "first page after {first:?}");
+        assert!(all < Duration::from_secs(20), "300 pages read in {all:?}");
+    }
+
     #[test]
     fn a_summary_of_comments_is_written() {
         let dir = tempfile::tempdir().unwrap();
@@ -666,7 +711,14 @@ mod tests {
         let (snap, err) = next(&rx);
         assert!(err.is_none(), "{err:?}");
         assert_eq!(snap.annots.len(), 1, "a reply is not a comment of its own");
-        assert_eq!(snap.annots[0].replies, ["Ada: Agreed"]);
+        let (text, page, index) = snap.annots[0].replies[0].clone();
+        assert_eq!(text, "Ada: Agreed");
+        // Deleted alone, the comment stays.
+        ops.send(Op::Apply { edit: Box::new(Edit::DeleteAnnotation { page, index }), pages: vec![page] }).unwrap();
+        let (snap, err) = next(&rx);
+        assert!(err.is_none(), "{err:?}");
+        assert_eq!(snap.annots.len(), 1);
+        assert!(snap.annots[0].replies.is_empty());
     }
 
     #[test]
@@ -1015,7 +1067,7 @@ mod tests {
         let path = fixture(dir.path(), 3);
         let (ops, rx, _) = started(&path);
         let out = dir.path().join("extract.pdf");
-        ops.send(Op::Extract { pages: vec![1, 2], to: out.clone() }).unwrap();
+        ops.send(Op::Extract { parts: vec![(vec![1, 2], out.clone())] }).unwrap();
         match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
             Reply::Extracted { to, error } => assert!(error.is_none() && to == out, "{error:?}"),
             _ => panic!("expected Extracted"),
@@ -1024,6 +1076,22 @@ mod tests {
         assert_eq!(texts(&out), ["Page 2", "Page 3"]);
         // The document itself is untouched.
         assert_eq!(texts(&path).len(), 3);
+    }
+
+    #[test]
+    fn extract_one_file_per_page_writes_each_and_names_their_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), 3);
+        let (ops, rx, _) = started(&path);
+        let (a, b) = (dir.path().join("x - page 1.pdf"), dir.path().join("x - page 3.pdf"));
+        ops.send(Op::Extract { parts: vec![(vec![0], a.clone()), (vec![2], b.clone())] }).unwrap();
+        match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+            Reply::Extracted { to, error } => assert!(error.is_none() && to == dir.path(), "{error:?} {to:?}"),
+            _ => panic!("expected Extracted"),
+        }
+        qpdf_clean(&a);
+        qpdf_clean(&b);
+        assert_eq!((texts(&a), texts(&b)), (vec!["Page 1".to_string()], vec!["Page 3".to_string()]));
     }
 
     #[test]

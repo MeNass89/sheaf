@@ -284,6 +284,8 @@ pub struct OutlineRow {
     pub title: String,
     pub depth: usize,
     pub page: Option<usize>,
+    /// Where on `page` it goes.
+    pub view: render::DestView,
     pub has_children: bool,
     pub expanded: bool,
 }
@@ -296,7 +298,7 @@ pub fn outline_rows(items: &[render::OutlineItem], toggled: &HashSet<Vec<usize>>
             prefix.push(i);
             let has_children = !it.children.is_empty();
             let expanded = has_children && (it.open != toggled.contains(prefix));
-            out.push(OutlineRow { path: prefix.clone(), title: clean_title(&it.title), depth, page: it.page, has_children, expanded });
+            out.push(OutlineRow { path: prefix.clone(), title: clean_title(&it.title), depth, page: it.page, view: it.view, has_children, expanded });
             if expanded {
                 walk(&it.children, depth + 1, prefix, toggled, out);
             }
@@ -306,6 +308,16 @@ pub fn outline_rows(items: &[render::OutlineItem], toggled: &HashSet<Vec<usize>>
     let mut out = Vec::new();
     walk(items, 0, &mut Vec::new(), toggled, &mut out);
     out
+}
+
+/// The part of a page a destination points at, brought into view by a jump there (None: the
+/// page's top): an /XYZ or /FitH top edge, a /FitR rectangle.
+pub fn dest_focus(view: &render::DestView, crop: [f64; 4]) -> Option<[f64; 4]> {
+    match *view {
+        render::DestView::Xyz { top: Some(t), .. } | render::DestView::FitH { top: Some(t) } => Some([crop[0], t as f64 - 1.0, crop[2], t as f64]),
+        render::DestView::FitR { rect } => Some(rect.map(f64::from)),
+        _ => None,
+    }
 }
 
 /// Outline titles often carry line breaks and runs of spaces from the authoring tool.
@@ -677,6 +689,16 @@ mod tests {
         assert_eq!(rows[1].depth, 1);
         assert_eq!(current_section(&rows, 3), Some(1));
         assert_eq!(current_section(&rows, 9), Some(2));
+    }
+
+    #[test]
+    fn a_destination_points_at_its_top_edge_or_rectangle() {
+        let crop = [0.0, 0.0, 612.0, 792.0];
+        assert_eq!(dest_focus(&DestView::Xyz { left: None, top: Some(300.0), zoom: None }, crop), Some([0.0, 299.0, 612.0, 300.0]));
+        assert_eq!(dest_focus(&DestView::FitH { top: Some(500.0) }, crop), Some([0.0, 499.0, 612.0, 500.0]));
+        assert_eq!(dest_focus(&DestView::FitR { rect: [10.0, 20.0, 30.0, 40.0] }, crop), Some([10.0, 20.0, 30.0, 40.0]));
+        assert_eq!(dest_focus(&DestView::Fit, crop), None);
+        assert_eq!(dest_focus(&DestView::Xyz { left: None, top: None, zoom: None }, crop), None);
     }
 
     #[test]

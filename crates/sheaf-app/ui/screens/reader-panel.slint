@@ -4,8 +4,9 @@
 import { ScrollView, ListView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolTab, ReaderBridge, Parse } from "../flow-types.slint";
-import { ToolButton, PanelTab, SmallButton } from "reader-parts.slint";
+import { ToolButton, PanelTab, SmallButton, PanelField } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
+import { Check } from "../widgets/check.slint";
 
 export component ReaderPanel inherits Rectangle {
     in property <ToolTab> tab;
@@ -27,6 +28,15 @@ export component ReaderPanel inherits Rectangle {
     callback search-again(string);
     // Files panel: the attachments' names must hold this (any case).
     property <string> att-filter;
+    // Extract…'s options strip (Acrobat's Extract bar), shown over the page strip.
+    property <bool> extract-open;
+    property <bool> extract-each;
+    property <bool> extract-delete;
+    // Number pages…'s strip (Acrobat's Page Labels): style, prefix, first number.
+    property <bool> number-open;
+    property <int> number-style;
+    property <string> number-prefix;
+    property <string> number-start;
         visible: root.tab.reader.panel-open && !root.bare;
         width: root.tab.reader.panel-open && !root.bare ? root.panel-width : 0px;
         background: Theme.panel-bg;
@@ -268,29 +278,10 @@ export component ReaderPanel inherits Rectangle {
                         spacing: 6px;
                         SmallButton { text: "Attach…"; clicked => { ReaderBridge.attachment-add(root.id); } }
                         if root.tab.reader.attachments.length <= 3: Rectangle { horizontal-stretch: 1; }
-                        if root.tab.reader.attachments.length > 3: Rectangle {
+                        if root.tab.reader.attachments.length > 3: PanelField {
                             horizontal-stretch: 1;
-                            height: 26px;
-                            border-radius: Theme.radius-button;
-                            border-width: 1px;
-                            border-color: att-find.has-focus ? Theme.text-secondary : Theme.input-border;
-                            background: Theme.input-bg;
-                            if att-find.text == "": Text {
-                                x: 8px;
-                                text: "Find";
-                                font-size: Theme.fs-label;
-                                color: Theme.text-disabled;
-                                vertical-alignment: center;
-                            }
-                            att-find := TextInput {
-                                x: 8px;
-                                width: parent.width - 16px;
-                                font-size: Theme.fs-label;
-                                color: Theme.text;
-                                vertical-alignment: center;
-                                single-line: true;
-                                edited => { root.att-filter = self.text; }
-                            }
+                            placeholder: "Find";
+                            edited(t) => { root.att-filter = t; }
                         }
                     }
                     if root.tab.reader.attachments.length == 0: Text {
@@ -422,12 +413,41 @@ export component ReaderPanel inherits Rectangle {
                                         color: Theme.text-muted;
                                         overflow: elide;
                                     }
-                                    // Replies, under the comment (Acrobat's and PDF Expert's threads).
-                                    if a.replies != "": Text {
-                                        text: a.replies;
-                                        font-size: Theme.fs-caption;
-                                        color: Theme.text-secondary;
-                                        wrap: word-wrap;
+                                    // Replies, under the comment (Acrobat's and PDF Expert's threads),
+                                    // each deleted alone by the bin on its hover.
+                                    for rp in a.replies: Rectangle {
+                                        height: max(rl.preferred-height, 20px);
+                                        rt := TouchArea {}
+                                        rl := Text {
+                                            x: 0;
+                                            width: parent.width - 24px;
+                                            text: rp.text;
+                                            font-size: Theme.fs-caption;
+                                            color: Theme.text-secondary;
+                                            wrap: word-wrap;
+                                        }
+                                        if rt.has-hover || rd.has-hover: Rectangle {
+                                            x: parent.width - 20px;
+                                            y: 0;
+                                            width: 20px;
+                                            height: 20px;
+                                            border-radius: Theme.radius-small;
+                                            background: rd.has-hover ? Theme.pill-bg : transparent;
+                                            Image {
+                                                width: 12px;
+                                                height: 12px;
+                                                source: @image-url("../icons/trash-2.svg");
+                                                colorize: Theme.text-muted;
+                                            }
+                                        }
+                                        rd := TouchArea {
+                                            x: parent.width - 20px;
+                                            width: 20px;
+                                            height: 20px;
+                                            y: 0;
+                                            mouse-cursor: pointer;
+                                            clicked => { ReaderBridge.reply-delete(root.id, rp.page, rp.index); }
+                                        }
                                     }
                                     if a.selected: HorizontalLayout {
                                         alignment: start;
@@ -471,9 +491,9 @@ export component ReaderPanel inherits Rectangle {
                     content-width: self.visible-width;
                     content-height: root.tab.viewer-thumbs-height + 20px;
                     for t in root.tab.viewer-thumbs: Rectangle {
-                        x: (strip.visible-width - 150px) / 2;
+                        x: (strip.visible-width - ReaderBridge.thumb-width) / 2;
                         y: t.y;
-                        width: 150px;
+                        width: ReaderBridge.thumb-width;
                         height: t.h + 18px;
                         Rectangle {
                             height: t.h;
@@ -591,8 +611,72 @@ export component ReaderPanel inherits Rectangle {
                         ToolButton { icon: @image-url("../icons/rotate-cw.svg"); tip: "Rotate right"; clicked => { ReaderBridge.page-op(root.id, 1); } }
                         ToolButton { icon: @image-url("../icons/plus.svg"); tip: "Insert blank page after"; clicked => { ReaderBridge.page-op(root.id, 5); } }
                         ToolButton { icon: @image-url("../icons/copy.svg"); tip: "Duplicate"; clicked => { ReaderBridge.page-op(root.id, 3); } }
-                        ToolButton { icon: @image-url("../icons/file-output.svg"); tip: "Extract…"; clicked => { ReaderBridge.page-op(root.id, 4); } }
+                        ToolButton { icon: @image-url("../icons/file-output.svg"); tip: "Extract…"; clicked => { root.extract-open = !root.extract-open; root.number-open = false; } }
+                        ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: "Number pages…"; clicked => { root.number-open = !root.number-open; root.extract-open = false; } }
                         ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete"; clicked => { ReaderBridge.page-op(root.id, 2); } }
+                    }
+                }
+                if root.tab.reader.panel == 0 && root.number-open: Rectangle {
+                    y: parent.height - 44px - self.height;
+                    height: 136px;
+                    background: Theme.panel-bg;
+                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+                        Text {
+                            text: "Number " + (root.tab.reader.pages-selected <= 1 ? "this page" : "the " + root.tab.reader.pages-selected + " pages") + " and the next ones";
+                            font-size: Theme.fs-caption;
+                            color: Theme.text-secondary;
+                        }
+                        SortCombo {
+                            options: ["1, 2, 3", "i, ii, iii", "I, II, III", "a, b, c", "A, B, C", "No number"];
+                            current-index <=> root.number-style;
+                            chevron: @image-url("../icons/chevron-down.svg");
+                        }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            PanelField { placeholder: "Prefix"; text <=> root.number-prefix; }
+                            PanelField { width: 70px; placeholder: "Start: 1"; text <=> root.number-start; }
+                        }
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: 6px;
+                            SmallButton { text: "Cancel"; clicked => { root.number-open = false; } }
+                            SmallButton {
+                                text: "Number";
+                                primary: true;
+                                clicked => {
+                                    root.number-open = false;
+                                    ReaderBridge.number-pages(root.id, root.number-style, root.number-prefix, root.number-start);
+                                }
+                            }
+                        }
+                    }
+                }
+                if root.tab.reader.panel == 0 && root.extract-open: Rectangle {
+                    y: parent.height - 44px - self.height;
+                    height: 104px;
+                    background: Theme.panel-bg;
+                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+                        Check { text: "One file per page"; checked <=> root.extract-each; }
+                        Check { text: "Delete pages after extracting"; checked <=> root.extract-delete; }
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: 6px;
+                            SmallButton { text: "Cancel"; clicked => { root.extract-open = false; } }
+                            SmallButton {
+                                text: "Extract";
+                                primary: true;
+                                clicked => {
+                                    root.extract-open = false;
+                                    ReaderBridge.extract(root.id, root.extract-each, root.extract-delete);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -600,6 +684,23 @@ export component ReaderPanel inherits Rectangle {
         Rectangle {
             x: parent.width - 1px;
             width: 1px;
-            background: Theme.sidebar-border;
+            background: edge.has-hover || edge.pressed ? Theme.accent : Theme.sidebar-border;
+        }
+        // The edge drags to resize the panel (PDF Expert's sidebar), 200–480 px; the thumbnails
+        // take the new width once it is let go.
+        edge := TouchArea {
+            x: parent.width - 4px;
+            width: 7px;
+            mouse-cursor: ew-resize;
+            moved => {
+                if self.pressed {
+                    ReaderBridge.panel-width = clamp(self.absolute-position.x + self.mouse-x - root.absolute-position.x, 200px, 480px);
+                }
+            }
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.up {
+                    ReaderBridge.panel-resized(ReaderBridge.panel-width);
+                }
+            }
         }
 }

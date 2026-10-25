@@ -21,6 +21,13 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     let wanted = v.viewer.wanted(v.top, v.height);
     let cur = v.current();
     let mut marks = Vec::new();
+    // The page grid's selection: each page ringed.
+    if r.grid_prev.is_some() {
+        for &p in &r.page_sel {
+            let [x, y, w, h] = v.viewer.page_rect(p);
+            marks.push(overlay([x - 4.0, y - 4.0, w + 8.0, h + 8.0], 12));
+        }
+    }
     if let Some((page, range)) = &r.sel
         && let Some(t) = r.texts.get(page)
     {
@@ -389,7 +396,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         tool: r.tool,
         colour: if uses_light(r.tool) { r.light as i32 } else { r.ink_colour as i32 },
         theme: r.theme.index(),
-        backdrop: reader::backdrop(r.theme).map(|c| Color::from_rgb_u8(c[0], c[1], c[2])).unwrap_or_default(),
+        backdrop: reader::backdrop(r.theme).or_else(crate::home::backdrop).map(|c| Color::from_rgb_u8(c[0], c[1], c[2])).unwrap_or_default(),
         marks: ModelRc::new(VecModel::from(marks)),
         provisional: ModelRc::new(VecModel::from(provisional)),
         has_selection: r.sel.is_some(),
@@ -407,6 +414,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         can_redo: r.snap.can_redo && r.in_flight == 0,
         zoom_mode: r.zoom_mode,
         spread: v.viewer.spread() as i32,
+        rtl: v.viewer.rtl(),
         pen_width: r.pen_width,
         shape_kind: r.shape_kind,
         shape_fill: r.shape_fill,
@@ -476,7 +484,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         case_sensitive: r.search.case_sensitive,
         whole_words: r.search.whole_words,
     };
-    if reader::backdrop(r.theme).is_none() {
+    if reader::backdrop(r.theme).or_else(crate::home::backdrop).is_none() {
         tab.reader.backdrop = Color::from_argb_u8(0, 0, 0, 0);
     }
 }
@@ -497,6 +505,18 @@ pub(super) fn outline_model(r: &ReaderUi, current_row: Option<usize>) -> Vec<Rea
         })
         .collect();
     outline
+}
+
+/// While the Notes panel is open, the text of the pages holding a highlight saved without a note
+/// is read, so the list shows the words it covers (Acrobat), whether or not that page was shown.
+pub(super) fn quote_texts(r: &mut ReaderUi) {
+    if !(r.panel_open && r.panel == 2) {
+        return;
+    }
+    let pages: std::collections::BTreeSet<usize> = r.annots().iter().filter(|a| !a.quads.is_empty() && a.contents.is_empty()).map(|a| a.page).filter(|p| !r.texts.contains_key(p)).collect();
+    for p in pages {
+        r.text(p);
+    }
 }
 
 pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
@@ -533,7 +553,7 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
                 colour: a.color.map(|c| colour_of([c[0] as f64, c[1] as f64, c[2] as f64])).unwrap_or(Color::from_rgb_u8(255, 214, 10)),
                 selected: r.selected_annot == Some(i),
                 index: i as i32,
-                replies: a.replies.join("\n").into(),
+                replies: ModelRc::new(VecModel::from(a.replies.iter().map(|(t, p, i)| ReaderReply { text: t.into(), page: *p as i32, index: *i as i32 }).collect::<Vec<_>>())),
                 status: a.status.clone().into(),
             };
             (a, row)

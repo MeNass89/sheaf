@@ -2,11 +2,32 @@
 
 use super::*;
 
+/// A press in the page grid: a page selected (⇧ a run from the last one), a double-click opens it,
+/// the gaps clear the selection.
+fn grid_pressed(r: &mut ReaderUi, v: &mut ViewerUi, page: Option<usize>, clicks: i32, shift: bool) {
+    let Some(p) = page else {
+        r.page_sel.clear();
+        return;
+    };
+    match (clicks >= 2, shift, r.page_anchor) {
+        (true, _, _) => super::nav::open_from_grid(r, v, p),
+        (false, true, Some(a)) => r.page_sel = (a.min(p)..=a.max(p)).collect(),
+        _ => {
+            r.page_sel = [p].into_iter().collect();
+            r.page_anchor = Some(p);
+        }
+    }
+}
+
 /// `clicks`: 1, or 2 on a double-click; plus 16 when ⇧ is held.
 pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
     let (x, y) = (x as f64, y as f64);
     let (clicks, shift) = (clicks & 15, clicks & 16 != 0);
     let opened = update(tab_id, |r, v| {
+        if r.grid_prev.is_some() {
+            grid_pressed(r, v, page_at(&v.viewer, x, y), clicks, shift);
+            return false;
+        }
         let Some(page) = page_at(&v.viewer, x, y) else { return false };
         let p = to_view(&v.viewer, page, x, y);
         r.press = Some((page, p));
@@ -183,9 +204,13 @@ pub(super) fn pick_image(ui: &AppWindow, tab_id: i32) {
     });
 }
 
-/// ⌘V with an image on the clipboard: placed in the middle of the page in view, as large as its
-/// pixels in points (at most 80 % of the page), as PDF Expert pastes one.
+/// ⌘V: pages copied from a Pages panel when this document's is shown; else an image on the
+/// clipboard, placed in the middle of the page in view, as large as its pixels in points (at most
+/// 80 % of the page), as PDF Expert pastes one.
 pub fn paste_image(ui: &AppWindow, tab_id: i32) {
+    if super::pages::paste_pages(ui, tab_id) {
+        return;
+    }
     let Some(img) = arboard::Clipboard::new().ok().and_then(|mut c| c.get_image().ok()) else {
         return crate::flow::toast(ui, "The clipboard holds no image to paste");
     };
@@ -480,14 +505,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         Some(Pending::Move(page, e)) => apply(ui, tab_id, *e, &[page], None),
         Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
             update(tab_id, |r, v| {
-                // An /XYZ destination's top edge, when it has one, is brought near the top.
-                let focus = match view {
-                    render::DestView::Xyz { top: Some(t), .. } => {
-                        let b = &v.viewer.boxes[page.min(v.viewer.page_count().saturating_sub(1))];
-                        Some([b.crop[0], t as f64 - 1.0, b.crop[2], t as f64])
-                    }
-                    _ => None,
-                };
+                let focus = reader::dest_focus(&view, v.viewer.boxes[page.min(v.viewer.page_count().saturating_sub(1))].crop);
                 jump(r, v, page, focus);
             });
         }

@@ -544,6 +544,10 @@ fn show_preview(tab_id: i32, (page, block): (usize, usize)) {
 }
 
 pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
+    // The page grid: Delete takes the selected pages out.
+    if update(tab_id, |r, _| r.grid_prev.is_some() && !r.page_sel.is_empty()) == Some(true) {
+        return super::pages::page_op(ui, tab_id, 2);
+    }
     if update(tab_id, |r, _| r.selected_image.is_some()) == Some(true) {
         return image_action(ui, tab_id, 4);
     }
@@ -556,6 +560,12 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     if let Some((page, e)) = edit {
         apply(ui, tab_id, e, &[page], None);
     }
+}
+
+/// A reply deleted from its comment's thread (Acrobat's Delete on a reply); the comment stays.
+pub fn reply_delete(ui: &AppWindow, tab_id: i32, page: i32, index: i32) {
+    let (page, index) = (page.max(0) as usize, index.max(0) as usize);
+    apply(ui, tab_id, Edit::DeleteAnnotation { page, index }, &[page], None);
 }
 
 /// The selected page image (Edit tool): 0 turned left, 1 right, 2 flipped, 3 replaced by a file

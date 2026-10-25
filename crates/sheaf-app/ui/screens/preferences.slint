@@ -5,6 +5,28 @@ import { SecondaryButton } from "dialogs.slint";
 import { TextField } from "../widgets/text-field.slint";
 
 // White card with a section title.
+// A round colour to pick, ringed when chosen.
+component Swatch inherits Rectangle {
+    in property <color> colour;
+    in property <bool> selected;
+    callback clicked();
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    border-width: root.selected ? 2px : 1px;
+    border-color: root.selected ? Theme.text : Theme.input-border;
+    Rectangle {
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: root.colour;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
 component Section inherits Rectangle {
     in property <string> title;
     border-radius: Theme.radius-card;
@@ -103,6 +125,11 @@ export component PreferencesScreen inherits Rectangle {
     // How a document opened for the first time is shown (0 fit width, 1 fit page, 2 actual size).
     in property <int> default-zoom;
     callback set-default-zoom(int);
+    // Accent colour (Theme.accent-choice) and the window background behind the pages (0 as the
+    // theme, then light grey, mid grey, dark, black; Preview's Window background).
+    in property <int> backdrop-pref;
+    callback set-accent(int);
+    callback set-backdrop(int);
     background: Theme.content-bg;
 
     scroll := ScrollView {
@@ -131,6 +158,26 @@ export component PreferencesScreen inherits Rectangle {
                         text: label;
                         selected: root.theme-pref == i;
                         clicked => { root.set-theme(i); }
+                    }
+                }
+                Text { text: "Accent colour"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 10px;
+                    for c[i] in [#E5322D, #1F6FEB, #1A7F37, #8250DF, #D9730D, #57606A]: Swatch {
+                        colour: c;
+                        selected: Theme.accent-choice == i;
+                        clicked => { root.set-accent(i); }
+                    }
+                }
+                Text { text: "Background behind pages"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 10px;
+                    for c[i] in [Theme.content-bg, #E4E4E7, #9A9AA0, #2B2B2E, #000000]: Swatch {
+                        colour: c;
+                        selected: root.backdrop-pref == i;
+                        clicked => { root.set-backdrop(i); }
                     }
                 }
             }

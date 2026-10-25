@@ -297,6 +297,8 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Highlight links", keys: "⇧⌘L", on: root.tab.reader.show-links },
                                 { text: "Highlight form fields", keys: "", on: root.tab.reader.show-fields },
                                 { text: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide", keys: "⌥⌘2", on: false },
+                                { text: "Page grid", keys: "", on: root.tab.reader.spread == 3 },
+                                { text: "Right to left", keys: "", on: root.tab.reader.rtl },
                                 { text: "Print…", keys: "⌘P", on: false },
                                 { text: "Document properties…", keys: "⌘D", on: false },
                             ]: Rectangle {
@@ -313,8 +315,10 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 3 { ReaderBridge.toggle-links(root.id); }
                                         if k == 4 { ReaderBridge.toggle-fields(root.id); }
                                         if k == 5 { ReaderBridge.cycle-spread(root.id); }
-                                        if k == 6 { ReaderBridge.print-open(root.id); }
-                                        if k == 7 { ReaderBridge.props-open(root.id); }
+                                        if k == 6 { ReaderBridge.toggle-grid(root.id); }
+                                        if k == 7 { ReaderBridge.toggle-rtl(root.id); }
+                                        if k == 8 { ReaderBridge.print-open(root.id); }
+                                        if k == 9 { ReaderBridge.props-open(root.id); }
                                         root.focus-pages();
                                     }
                                 }

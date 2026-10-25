@@ -102,6 +102,13 @@ pub struct Prefs {
     pub plain_fields: bool,
     /// How a document never opened before is shown: 0 fit width, 1 fit page, 2 actual size.
     pub default_zoom: i32,
+    /// The reader's side panel width in px, dragged by its edge (0: the default, 248).
+    pub panel_width: u16,
+    /// Accent colour (0 Sheaf red, 1 blue, 2 green, 3 purple, 4 orange, 5 graphite).
+    pub accent: u8,
+    /// The window background behind the pages (0 as the theme, 1 light grey, 2 mid grey, 3 dark,
+    /// 4 black; a page theme's own background, Night or Sepia, comes first).
+    pub backdrop: u8,
     /// The page each document was left on (newest first, at most 200): reopening goes back to it.
     pub last_pages: Vec<(PathBuf, u32)>,
     /// How each document was viewed when left: fit mode (0 width, 1 page, 2 a chosen zoom), the

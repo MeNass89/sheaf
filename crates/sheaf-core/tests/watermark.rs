@@ -146,3 +146,24 @@ fn a_text_watermark_takes_the_chosen_font() {
     let qdf = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap().stdout;
     assert!(String::from_utf8_lossy(&qdf).contains(" re f"), "underlined");
 }
+
+#[test]
+fn a_watermark_replaces_the_one_there_and_can_be_removed() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 2);
+    let o = WatermarkOptions { mark: text("FIRST"), ..Default::default() };
+    let (first, _) = watermark(&Input::new(&a), &o, &t.path().join("first.pdf")).unwrap();
+    let o = WatermarkOptions { mark: text("SECOND"), replace: true, ..Default::default() };
+    let (second, _) = watermark(&Input::new(&first), &o, &t.path().join("second.pdf")).unwrap();
+    qpdf_clean(&second);
+    let texts = page_texts(&second);
+    assert!(texts.iter().all(|p| p.contains("SECOND") && !p.contains("FIRST")), "{texts:?}");
+    // Remove: none left, the page's own text kept; a file without one says so.
+    let o = WatermarkOptions { remove: true, ..Default::default() };
+    let (clean, _) = watermark(&Input::new(&second), &o, &t.path().join("clean.pdf")).unwrap();
+    qpdf_clean(&clean);
+    let texts = page_texts(&clean);
+    assert!(texts.iter().all(|p| !p.contains("SECOND")) && texts[0].contains("Page 1"), "{texts:?}");
+    let e = watermark(&Input::new(&a), &o, &t.path().join("none.pdf")).unwrap_err();
+    assert!(e.to_string().contains("no watermark"), "{e}");
+}

@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
-use sheaf_app::{AppWindow, ReaderMark, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
+use sheaf_app::{AppWindow, ReaderMark, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, StampKind, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
@@ -249,6 +249,10 @@ pub struct ReaderUi {
     structure_pending: bool,
     /// The Tools button saved first: the file goes to the tools when that save succeeds.
     tools_after_save: bool,
+    /// Pages to delete once their extract is written (Extract's "Delete pages after extracting").
+    delete_after_extract: Vec<usize>,
+    /// The page grid is shown: the pages' layout to go back to when it closes.
+    grid_prev: Option<u8>,
     /// The tool it goes to then (Redact from the edit group), else the Tools page.
     tool_after_save: Option<sheaf_core::tools::ToolId>,
     /// The Link editor's complaint about what was typed (not a page or an address).
@@ -280,9 +284,9 @@ pub struct ReaderUi {
     results_cache: Cache<(Rc<VecModel<ReaderResultRow>>, Option<usize>)>,
     /// 0 fit width, 1 fit page, 2 a zoom the user chose.
     zoom_mode: i32,
-    /// Pages left by following a link or the outline (⌘[ goes back), and those gone back from.
-    back: Vec<usize>,
-    forward: Vec<usize>,
+    /// Places (page, and point in it) left by a link or the outline (⌘[ goes back), and those gone back from.
+    back: Vec<(usize, f64, f64)>,
+    forward: Vec<(usize, f64, f64)>,
     /// Bumped when the outline rows or the annotation list change: the panel models are rebuilt
     /// only then, not on every scroll.
     version: u64,
@@ -390,6 +394,8 @@ impl ReaderUi {
             page_drag: None,
             structure_pending: false,
             tools_after_save: false,
+            delete_after_extract: Vec::new(),
+            grid_prev: None,
             tool_after_save: None,
             link_error: String::new(),
             link_visible: false,
@@ -522,7 +528,10 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
     });
     let weak = ui.as_weak();
     let ops = reader_doc::start(input.clone(), move |reply| {
-        let _ = weak.upgrade_in_event_loop(move |ui| on_reply(&ui, id, reply));
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            on_reply(&ui, id, reply);
+            update(id, |r, _| model::quote_texts(r));
+        });
     });
     with(|a| {
         if let Some(t) = a.tab(id) {
@@ -655,12 +664,17 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         }
         Reply::Extracted { to, error } => {
             update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
+            let delete = update(id, |r, _| std::mem::take(&mut r.delete_after_extract)).unwrap_or_default();
             match error {
+                None if to.is_dir() => crate::flow::toast(ui, &format!("Extracted one file per page to {}", file_name(&to))),
                 None => {
                     crate::flow::toast(ui, &format!("Extracted to {}", file_name(&to)));
                     open(ui, to, None);
                 }
-                Some(e) => crate::flow::toast(ui, &format!("Not extracted: {e}")),
+                Some(e) => return crate::flow::toast(ui, &format!("Not extracted: {e}")),
+            }
+            if !delete.is_empty() {
+                pages::apply_structure(ui, id, Edit::DeletePages { pages: delete });
             }
         }
         Reply::Blocks(page, b, images, objects) => {
@@ -691,7 +705,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
 /// `width`: the view's width when known (0 before the widget reports it).
 fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
     if let Some((fit, zoom, spread)) = crate::home::last_view(path) {
-        v.viewer.set_spread(spread);
+        v.viewer.set_spread(spread & 3);
+        v.viewer.set_rtl(spread & 0x10 != 0);
         if fit == 2 {
             v.viewer.set_zoom(zoom);
         }
@@ -751,12 +766,18 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     }
 }
 
-/// Thumbnails in the reader's side panel, PDF Expert's size (the tools' strip uses 84 px).
-pub const READER_THUMB: f64 = 150.0;
+/// The reader's side panel width until one is dragged, PDF Expert's.
+pub const PANEL_WIDTH: f32 = 248.0;
+
+/// Thumbnails in the reader's side panel: its width less the margins (150 px at the default
+/// width, PDF Expert's size; the tools' strip uses 84 px).
+pub fn reader_thumb(panel: f32) -> f64 {
+    (panel as f64 - 98.0).max(100.0)
+}
 
 fn reader_viewer(boxes: Vec<viewer::PageBox>) -> Viewer {
     let mut v = Viewer::new(boxes);
-    v.thumb_width = READER_THUMB;
+    v.thumb_width = reader_thumb(crate::home::panel_width());
     v
 }
 

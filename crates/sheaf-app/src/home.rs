@@ -278,6 +278,43 @@ fn push_prefs(ui: &AppWindow) {
     ui.set_author_name(p.author.clone().unwrap_or_default().into());
     ui.set_author_default(login_name().into());
     ui.set_default_zoom(p.default_zoom);
+    ui.global::<Theme>().set_accent_choice(p.accent.min(5) as i32);
+    ui.set_backdrop_pref(p.backdrop.min(4) as i32);
+    let rb = ui.global::<sheaf_app::ReaderBridge>();
+    rb.set_panel_width(panel_width());
+    rb.set_thumb_width(crate::reader_ui::reader_thumb(panel_width()) as f32);
+}
+
+/// Preferences ▸ Appearance ▸ Accent colour.
+pub fn set_accent(ui: &AppWindow, i: i32) {
+    update_prefs(ui, |p| p.accent = i.clamp(0, 5) as u8);
+}
+
+/// Preferences ▸ Appearance ▸ Background behind pages (Preview's window background); open
+/// documents take it at once.
+pub fn set_backdrop(ui: &AppWindow, i: i32) {
+    update_prefs(ui, |p| p.backdrop = i.clamp(0, 4) as u8);
+    crate::reader_ui::refresh_all();
+}
+
+/// The colour behind the pages chosen in Preferences, `None` for the theme's own.
+pub fn backdrop() -> Option<[u8; 3]> {
+    [None, Some([228, 228, 231]), Some([154, 154, 160]), Some([43, 43, 46]), Some([0, 0, 0])][prefs().backdrop.min(4) as usize]
+}
+
+/// The reader's side panel width, as last dragged (PDF Expert keeps it).
+pub fn panel_width() -> f32 {
+    match prefs().panel_width {
+        0 => crate::reader_ui::PANEL_WIDTH,
+        w => w as f32,
+    }
+}
+
+/// The side panel let go at `w` px: kept within 200–480 and remembered. Returns the width kept.
+pub fn set_panel_width(ui: &AppWindow, w: f32) -> f32 {
+    let w = w.clamp(200.0, 480.0);
+    update_prefs(ui, |p| p.panel_width = w.round() as u16);
+    w
 }
 
 /// Theme.mode and the window's own appearance (title bar, scroll bars).

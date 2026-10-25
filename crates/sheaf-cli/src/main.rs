@@ -211,6 +211,8 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 font: font.std14(),
                 underline,
                 clamp_to_last: false,
+                replace: false,
+                remove: false,
             };
             warned(watermark::watermark(&input(i), &o, &out))
         }

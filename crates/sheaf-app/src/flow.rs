@@ -193,11 +193,6 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                 Err(OpdfError::Conversion(format!("internal error: {}", sheaf_app::jobs::panic_message(&*p))))
             });
             let _ = weak.upgrade_in_event_loop(move |ui| match r {
-                Ok(p) if p.protected && with(|a| a.tab(tab_id).is_some_and(|t| files::refuses_protected(t.tool))) => {
-                    toast(&ui, files::SIGN_PROTECTED);
-                    remove_file(&ui, tab_id, uid);
-                    crate::password::done(&ui, tab_id, uid);
-                }
                 Ok(files::Probe { pages, thumb, scanned, .. }) => {
                     let (organize, crop, view) = with(|a| {
                         let Some(t) = a.tab(tab_id) else { return (None, None, None) };
@@ -252,10 +247,6 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                                 refresh(a, tab_id);
                             });
                             crate::password::done(&ui, tab_id, uid);
-                        }
-                        ProbeFailure::RefuseProtected => {
-                            toast(&ui, files::SIGN_PROTECTED);
-                            remove_file(&ui, tab_id, uid);
                         }
                         ProbeFailure::Remove => {
                             toast(&ui, &files::open_error(&input.path.file_name().unwrap_or_default().to_string_lossy(), &e));
@@ -495,13 +486,14 @@ pub fn step_tab(ui: &AppWindow, d: i32) {
 }
 
 /// The tab bar's menu: close the other tabs (`which` 0), those to the left (1) or to the right
-/// (2) of tab `id`. Tabs with unsaved edits or a running task stay open (they would ask first).
+/// (2) of tab `id`, or every tab (3: Close All Tabs, ⌥⌘W). Tabs with a running task stay open;
+/// documents with unsaved edits are asked about in turn.
 pub fn close_tabs_around(ui: &AppWindow, id: i32, which: i32) {
     let ids: Vec<i32> = with(|a| {
         // Left and right as the bar shows them.
         let bar: Vec<i32> = state::tab_order().iter().filter_map(|r| a.tabs.get(r as usize)).map(|t| t.id).collect();
         let Some(at) = bar.iter().position(|t| *t == id) else { return Vec::new() };
-        bar.iter().enumerate().filter(|(i, _)| match which { 1 => *i < at, 2 => *i > at, _ => *i != at }).map(|(_, t)| *t).collect()
+        bar.iter().enumerate().filter(|(i, _)| match which { 1 => *i < at, 2 => *i > at, 3 => true, _ => *i != at }).map(|(_, t)| *t).collect()
     });
     let mut kept = 0;
     let mut ask = Vec::new();
@@ -612,6 +604,21 @@ pub fn dropped(ui: &AppWindow, path: PathBuf) {
         }
         DropAction::PickTool => home_files(ui, vec![path]),
         DropAction::Reject(msg) => toast(ui, &msg),
+    }
+}
+
+/// What dropping `path` here would do, said while it is dragged over the window; true when the
+/// tab shown refuses it (said in the warning colour, as the drop would toast).
+pub fn drop_hint(ui: &AppWindow, path: &std::path::Path) -> (String, bool) {
+    let active = active_tool(ui);
+    let pdf = files::kind_of(path) == Kind::Pdf;
+    if active.is_some_and(|(id, _)| crate::reader_ui::is_reader(id)) {
+        return ((if pdf { "Drop to open in a new tab" } else { "Drop to choose a tool for it" }).into(), false);
+    }
+    match files::route_drop(active.map(|(_, t)| t), path) {
+        DropAction::AddToTab => (format!("Drop to add to {}", active.map_or("", |(_, t)| tools::find(t).name)), false),
+        DropAction::PickTool => ((if pdf { "Drop to open" } else { "Drop to choose a tool for it" }).into(), false),
+        DropAction::Reject(msg) => (msg, true),
     }
 }
 

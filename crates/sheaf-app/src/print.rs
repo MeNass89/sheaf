@@ -17,7 +17,14 @@ pub struct Job {
     /// Shrink or grow each page to the paper (PDF Expert's "Fit"); else print at actual size.
     pub fit: bool,
     pub two_sided: bool,
+    /// Paper: `None` the printer's own, else a CUPS media name ("A4", "Letter", "Legal").
+    pub media: Option<String>,
+    /// 0 as each page is (CUPS turns landscape pages), 1 portrait, 2 landscape.
+    pub orientation: u8,
 }
+
+/// The paper sizes the print sheet offers after the printer's own (index 1, 2, 3).
+pub const PAPERS: [&str; 3] = ["A4", "Letter", "Legal"];
 
 /// The printers the system knows, and the default one when set.
 pub fn printers() -> (Vec<String>, Option<String>) {
@@ -67,6 +74,13 @@ pub fn lp_args(job: &Job, file: &Path) -> Vec<String> {
     }
     a.extend(["-o".into(), if job.fit { "fit-to-page".into() } else { "print-scaling=none".into() }]);
     a.extend(["-o".into(), if job.two_sided { "sides=two-sided-long-edge".into() } else { "sides=one-sided".into() }]);
+    if let Some(m) = &job.media {
+        a.extend(["-o".into(), format!("media={m}")]);
+    }
+    // IPP orientation-requested: 3 portrait, 4 landscape.
+    if job.orientation > 0 {
+        a.extend(["-o".into(), format!("orientation-requested={}", if job.orientation == 2 { 4 } else { 3 })]);
+    }
     a.extend(["-t".into(), file.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()]);
     a.push("--".into());
     a.push(file.to_string_lossy().into_owned());
@@ -105,12 +119,15 @@ mod tests {
 
     #[test]
     fn lp_gets_every_option() {
-        let job = Job { printer: "PDF".into(), copies: 2, pages: Some("1-2".into()), fit: true, two_sided: true };
+        let job = Job { printer: "PDF".into(), copies: 2, pages: Some("1-2".into()), fit: true, two_sided: true, media: None, orientation: 0 };
         let a = lp_args(&job, Path::new("/tmp/x/Book.pdf"));
         assert_eq!(a, ["-d", "PDF", "-n", "2", "-P", "1-2", "-o", "fit-to-page", "-o", "sides=two-sided-long-edge", "-t", "Book", "--", "/tmp/x/Book.pdf"]);
         let job = Job { copies: 0, pages: None, fit: false, two_sided: false, ..job };
         let a = lp_args(&job, Path::new("/tmp/x/Book.pdf"));
         assert!(a.contains(&"print-scaling=none".to_string()) && a.contains(&"sides=one-sided".to_string()) && !a.contains(&"-P".to_string()));
         assert_eq!(a[3], "1");
+        // Paper and orientation when chosen.
+        let a = lp_args(&Job { media: Some("A4".into()), orientation: 2, ..job }, Path::new("/tmp/x/Book.pdf"));
+        assert!(a.windows(2).any(|w| w == ["-o", "media=A4"]) && a.windows(2).any(|w| w == ["-o", "orientation-requested=4"]), "{a:?}");
     }
 }

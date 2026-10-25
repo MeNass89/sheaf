@@ -145,6 +145,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_outline_toggled(reader_ui::outline_toggled);
     rb.on_annot_clicked(reader_ui::annot_clicked);
     wire_global!(ui, rb, on_annot_delete, |ui, id, k| reader_ui::annot_delete(&ui, id, k));
+    wire_global!(ui, rb, on_reply_delete, |ui, id, page, index| reader_ui::reply_delete(&ui, id, page, index));
     rb.on_go_to_page(|id, t| reader_ui::go_to_page(id, &t));
     rb.on_page_step(reader_ui::page_step);
     rb.on_scroll_by(reader_ui::scroll_by);
@@ -165,6 +166,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_delete_selected, |ui, id| reader_ui::delete_selected(&ui, id));
     wire_global!(ui, rb, on_image_action, |ui, id, a| reader_ui::image_action(&ui, id, a));
     wire_global!(ui, rb, on_paste, |ui, id| reader_ui::paste_image(&ui, id));
+    wire_global!(ui, rb, on_copy_pages, |ui, id| reader_ui::copy_pages(&ui, id));
     rb.on_escape(reader_ui::escape);
     rb.on_select_all(reader_ui::select_all);
     rb.on_history(reader_ui::history);
@@ -175,22 +177,28 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_link_selection(reader_ui::link_selection);
     rb.on_hover(reader_ui::hover);
     wire_global!(ui, rb, on_close, |ui, id| flow::close_tab(&ui, id));
+    wire_global!(ui, rb, on_close_all, |ui, id| flow::close_tabs_around(&ui, id, 3));
     rb.on_over_link(reader_ui::over_link);
     rb.on_thumb_pressed(reader_ui::thumb_pressed);
     wire_global!(ui, rb, on_page_op, |ui, id, op| reader_ui::page_op(&ui, id, op));
+    wire_global!(ui, rb, on_panel_resized, |ui, w| reader_ui::panel_resized(&ui, w));
+    wire_global!(ui, rb, on_number_pages, |ui, id, style, prefix, start| reader_ui::number_pages(&ui, id, style, &prefix, &start));
+    wire_global!(ui, rb, on_extract, |ui, id, each, delete| reader_ui::extract(&ui, id, each, delete));
     rb.on_thumb_drag(reader_ui::thumb_drag);
     rb.on_thumb_at(reader_ui::thumb_at);
     rb.on_thumb_released(reader_ui::thumb_released);
     wire_global!(ui, rb, on_field_tab, |ui, id, t, back| reader_ui::field_tab(&ui, id, &t, back));
     wire_global!(ui, rb, on_choice_picked, |ui, id, k| reader_ui::choice_picked(&ui, id, k));
     wire_global!(ui, rb, on_form_op, |ui, id, op| reader_ui::form_op(&ui, id, op));
-    wire_global!(ui, rb, on_signature_made, |ui, id, c, w, h, n, ink, pen, font| reader_ui::signature_made(&ui, id, &c, (w, h), &n, (ink, pen), font));
+    wire_global!(ui, rb, on_signature_made, |ui, id, c, w, h, n, ink, pen, font, keep| reader_ui::signature_made(&ui, id, &c, (w, h), &n, (ink, pen), font, keep));
     rb.on_signature_reset(reader_ui::signature_reset);
     rb.on_signature_pick(reader_ui::signature_pick);
     rb.on_signature_preview(reader_ui::signature_preview);
     rb.on_print_open(reader_ui::print_open);
     rb.on_shape_option(reader_ui::shape_option);
     wire_global!(ui, rb, on_cycle_spread, |ui, id| reader_ui::cycle_spread(&ui, id));
+    wire_global!(ui, rb, on_toggle_rtl, |ui, id| reader_ui::toggle_rtl(&ui, id));
+    wire_global!(ui, rb, on_toggle_grid, |ui, id| reader_ui::toggle_grid(&ui, id));
     wire_global!(ui, rb, on_set_spread, |ui, id, m| reader_ui::set_spread(&ui, id, m));
     wire_global!(ui, rb, on_notes_action, |ui, id, w| reader_ui::notes_action(&ui, id, w));
     rb.on_props_open(reader_ui::props_open);
@@ -207,7 +215,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_props_cancel(reader_ui::props_cancel);
     wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k| reader_ui::props_save(&ui, id, &t, &a, &s, &k));
     rb.on_print_cancel(reader_ui::print_cancel);
-    wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t| reader_ui::print(&ui, id, p, c, m, &r, f, t));
+    wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t, paper, o| reader_ui::print(&ui, id, p, c, m, &r, f, t, paper, o));
     wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));
 }
 
@@ -404,6 +412,8 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_clear_history, |ui| home::clear(&ui));
     wire!(ui, on_page_shown, |ui| home::refresh(&ui));
     wire!(ui, on_set_theme, |ui, m| home::set_theme(&ui, m));
+    wire!(ui, on_set_accent, |ui, i| home::set_accent(&ui, i));
+    wire!(ui, on_set_backdrop, |ui, i| home::set_backdrop(&ui, i));
     wire!(ui, on_set_output, |ui, m| home::set_output(&ui, m));
     wire!(ui, on_choose_folder, |ui| home::choose_folder(&ui));
     wire!(ui, on_set_open_after, |ui, v| home::set_open_after(&ui, v));
@@ -466,8 +476,23 @@ fn main() -> Result<(), slint::PlatformError> {
     // Drag and drop from Finder.
     let weak = ui.as_weak();
     ui.window().on_winit_window_event(move |_, ev| match ev {
+        winit::event::WindowEvent::HoveredFile(path) => {
+            if let Some(ui) = weak.upgrade() {
+                let (hint, refused) = flow::drop_hint(&ui, path);
+                ui.set_drop_hint(hint.into());
+                ui.set_drop_refused(refused);
+            }
+            EventResult::PreventDefault
+        }
+        winit::event::WindowEvent::HoveredFileCancelled => {
+            if let Some(ui) = weak.upgrade() {
+                ui.set_drop_hint("".into());
+            }
+            EventResult::PreventDefault
+        }
         winit::event::WindowEvent::DroppedFile(path) => {
             if let Some(ui) = weak.upgrade() {
+                ui.set_drop_hint("".into());
                 flow::dropped(&ui, path.clone());
             }
             EventResult::PreventDefault

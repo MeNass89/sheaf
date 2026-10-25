@@ -269,11 +269,33 @@ pub fn set_panel(tab_id: i32, panel: i32) {
     update(tab_id, |r, _| {
         r.panel = panel.clamp(0, 4);
         r.panel_open = true;
+        model::quote_texts(r);
     });
 }
 
+/// The side panel's edge let go at `width` px: every document's thumbnails take the new width
+/// (PDF Expert's sidebar), and it is remembered.
+pub fn panel_resized(ui: &AppWindow, width: f32) {
+    let w = crate::home::set_panel_width(ui, width);
+    for id in with(|a| a.tabs.iter().map(|t| t.id).collect::<Vec<_>>()) {
+        if update(id, |_, v| v.viewer.thumb_width = reader_thumb(w)).is_some() {
+            crate::viewer_ui::request(ui, id);
+        }
+    }
+}
+
+/// Every document's view built again (a preference they show changed).
+pub fn refresh_all() {
+    for id in with(|a| a.tabs.iter().map(|t| t.id).collect::<Vec<_>>()) {
+        update(id, |_, _| ());
+    }
+}
+
 pub fn toggle_panel(tab_id: i32) {
-    update(tab_id, |r, _| r.panel_open = !r.panel_open);
+    update(tab_id, |r, _| {
+        r.panel_open = !r.panel_open;
+        model::quote_texts(r);
+    });
 }
 
 /// Outline panel edits (PDF Expert's and Acrobat's bookmarks): `op` 0 bookmark the page in view,
@@ -314,8 +336,10 @@ pub fn outline_op(ui: &AppWindow, tab_id: i32, row: i32, op: i32, text: &str) {
 
 pub fn outline_clicked(tab_id: i32, row: i32) {
     update(tab_id, |r, v| {
-        if let Some(p) = r.rows.get(row.max(0) as usize).and_then(|x| x.page) {
-            jump(r, v, p, None);
+        // The bookmark's own point on its page, not only the page's top (Acrobat).
+        if let Some((p, view)) = r.rows.get(row.max(0) as usize).and_then(|x| Some((x.page?, x.view))) {
+            let focus = v.viewer.boxes.get(p).and_then(|b| reader::dest_focus(&view, b.crop));
+            jump(r, v, p, focus);
         }
     });
 }

@@ -7,7 +7,7 @@
 //! around any other region that looks different when the pages are rendered (pictures, drawings).
 
 use crate::paths::atomic_write;
-use crate::pdfcraft::engine::{compare::Kind, Edit, NewAnnotation, Shape, Style};
+use crate::pdfcraft::engine::{compare::Kind, AddedText, Edit, NewAnnotation, Shape, Style};
 use crate::pdfcraft::Doc;
 use crate::{pages::Input, OpdfError, Result};
 use std::path::{Path, PathBuf};
@@ -31,8 +31,11 @@ pub struct CompareReport {
     pub added: usize,
     pub removed: usize,
     pub replaced: usize,
-    /// Overlay: regions that look different but carry no changed words.
+    /// Regions that look different but carry no changed words: outlined by Overlay, listed on the
+    /// report's last page.
     pub regions: usize,
+    /// The report was asked for (the areas are listed, not outlined).
+    pub listed: bool,
     /// Overlay: the changed document was password-protected (its marked copy is not).
     pub was_encrypted: bool,
 }
@@ -52,7 +55,7 @@ impl CompareReport {
     pub fn summary(&self) -> String {
         let mut s = if self.identical() { "No differences: the documents' text is identical.".to_string() } else { self.counts() };
         if self.regions > 0 {
-            s += &format!("; {} outlined", crate::tools::count(self.regions, "other changed area"));
+            s += &format!("; {} {}", crate::tools::count(self.regions, "other changed area"), if self.listed { "listed" } else { "outlined" });
         }
         s
     }
@@ -105,29 +108,36 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
         removed: c.count(Kind::Deleted),
         replaced: c.count(Kind::Replaced),
         regions: 0,
+        listed: mode == CompareMode::Text,
         was_encrypted: false,
     };
+    // Regions that look different, less those that text changes entirely account for: the
+    // changed words, as they are now and as they were, and the words a change moved along the
+    // line. A region that also holds another change (a picture next to a changed caption) is
+    // kept whole. What is left changed outside the words: images, drawings, scanned pages.
+    let visual = session.compare_visual(old_id, new_id, VISUAL_DPI).map_err(|e| OpdfError::Engine(e.to_string()))?;
+    let doc_words = |id| -> Vec<Placed> { session.get(id).map(|d| d.words().into_iter().map(|w| (w.text, w.page, w.rect)).collect()).unwrap_or_default() };
+    let mut words: Vec<(usize, [f64; 4])> = c
+        .changes
+        .iter()
+        .flat_map(|ch| ch.new.rects.iter().map(move |r| (ch.new.page, *r)).chain(ch.old.rects.iter().map(move |r| (ch.old.page, *r))))
+        .collect();
+    words.extend(moved(&doc_words(old_id), &doc_words(new_id)));
+    let areas: Vec<(usize, [f64; 4])> =
+        visual.into_iter().filter(|(page, r)| !explained_by(*r, &words.iter().filter(|(p, _)| p == page).map(|(_, w)| *w).collect::<Vec<_>>())).collect();
+    report.regions = areas.len();
     match mode {
         CompareMode::Text => {
             let bytes = session.compare_report(old_id, new_id).map_err(|e| OpdfError::Engine(e.to_string()))?;
-            report.path = atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?))?;
+            if areas.is_empty() {
+                report.path = atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?))?;
+            } else {
+                report.path = with_areas_page(&bytes, &areas, out)?;
+            }
         }
         CompareMode::Overlay => {
-            // Regions that look different, less those that text changes entirely account for:
-            // the changed words, as they are now and as they were, and the words a change moved
-            // along the line. A region that also holds another change (a picture next to a
-            // changed caption) is kept whole.
-            let visual = session.compare_visual(old_id, new_id, VISUAL_DPI).map_err(|e| OpdfError::Engine(e.to_string()))?;
-            let doc_words = |id| -> Vec<Placed> { session.get(id).map(|d| d.words().into_iter().map(|w| (w.text, w.page, w.rect)).collect()).unwrap_or_default() };
-            let mut words: Vec<(usize, [f64; 4])> = c
-                .changes
-                .iter()
-                .flat_map(|ch| ch.new.rects.iter().map(move |r| (ch.new.page, *r)).chain(ch.old.rects.iter().map(move |r| (ch.old.page, *r))))
-                .collect();
-            words.extend(moved(&doc_words(old_id), &doc_words(new_id)));
-            let edits: Vec<Edit> = visual
+            let edits: Vec<Edit> = areas
                 .into_iter()
-                .filter(|(page, r)| !explained_by(*r, &words.iter().filter(|(p, _)| p == page).map(|(_, w)| *w).collect::<Vec<_>>()))
                 .map(|(page, rect)| {
                     let shape = Shape::Rectangle { rect };
                     let mut style = Style::default_for(&shape);
@@ -136,7 +146,6 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
                     Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: "Changed area".into(), author: "Compare".into() })
                 })
                 .collect();
-            report.regions = edits.len();
             doc.session_mut().mark_differences(old_id, new_id).map_err(|e| OpdfError::Engine(e.to_string()))?;
             if !edits.is_empty() {
                 doc.apply(Edit::Batch { label: "Mark changed areas".into(), edits })?;
@@ -145,6 +154,31 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
         }
     }
     Ok(report)
+}
+
+/// The text report with a last page listing the areas that changed outside the words (Acrobat's
+/// report lists image changes too): a scanned page, a picture or a drawing changed shows there,
+/// page by page; Overlay marks them on the page.
+fn with_areas_page(report: &[u8], areas: &[(usize, [f64; 4])], out: &Path) -> Result<PathBuf> {
+    let tmp = tempfile::Builder::new().suffix(".pdf").tempfile()?;
+    std::fs::write(tmp.path(), report)?;
+    let mut doc = Doc::open(&Input::new(tmp.path()))?;
+    let n = doc.document().info.pages.len();
+    let mut per_page: Vec<(usize, usize)> = Vec::new();
+    for (page, _) in areas {
+        match per_page.last_mut() {
+            Some((p, k)) if p == page => *k += 1,
+            _ => per_page.push((*page, 1)),
+        }
+    }
+    let lines: Vec<String> = per_page.iter().map(|(p, k)| format!("Page {}: {k} area{}", p + 1, if *k == 1 { "" } else { "s" })).collect();
+    let text = format!(
+        "Changes outside the text\n\nThese areas of the changed document look different though their words are the same: images, drawings or scanned pages. Compare's Overlay marks them on the pages.\n\n{}",
+        lines.join("\n")
+    );
+    doc.apply(Edit::InsertBlankPage { at: n, width: 612.0, height: 792.0 })?;
+    doc.apply(Edit::AddText { page: n, text: AddedText { rect: [54.0, 60.0, 558.0, 740.0], text, size: 11.0, ..Default::default() } })?;
+    doc.save(out)
 }
 
 #[cfg(test)]

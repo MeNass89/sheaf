@@ -208,20 +208,52 @@ fn visual_signatures_drawn_and_image_land_in_their_box() {
     }
 }
 
+/// `qpdf --requires-password`: 0 when the file needs a password to open, 2 when it is not
+/// encrypted, 3 when it is encrypted but opens without one.
+fn requires_password(path: &Path) -> i32 {
+    Command::new("qpdf").arg("--requires-password").arg(path).status().unwrap().code().unwrap_or(-1)
+}
+
 #[test]
-fn encrypted_input_is_refused_and_nothing_is_written() {
+fn a_protected_input_is_signed_and_stays_protected() {
     let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
     let locked = t.path().join("locked.pdf");
     let o = Command::new("qpdf").args(["--encrypt", "user", "owner", "256", "--"]).arg(invoice()).arg(&locked).output().unwrap();
     assert!(o.status.success());
     let owner_only = t.path().join("owner-only.pdf");
-    let o = Command::new("qpdf").args(["--encrypt", "", "owner", "256", "--"]).arg(invoice()).arg(&owner_only).output().unwrap();
+    let o = Command::new("qpdf").args(["--encrypt", "", "owner", "256", "--print=none", "--"]).arg(invoice()).arg(&owner_only).output().unwrap();
     assert!(o.status.success());
-    let before = files_in(t.path());
-    for input in [Input { path: locked.clone(), password: Some("user".into()) }, Input::new(&locked), Input::new(&owner_only)] {
-        let e = sign::sign(&input, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into(), Default::default()), None), &t.path().join("out.pdf")).unwrap_err();
-        assert!(e.to_string().contains("unlock the PDF first"), "{e}");
+    let open = Input { path: locked.clone(), password: Some("user".into()) };
+    // Without its password: asked for, as any tool asks.
+    let e = sign::sign(&Input::new(&locked), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into(), Default::default()), None), &t.path().join("x.pdf")).unwrap_err();
+    assert!(matches!(e, sheaf_core::OpdfError::PasswordRequired(_)), "{e}");
+    for (name, input, d) in [("visual.pdf", open.clone(), None), ("digital.pdf", open.clone(), digital(&p12, "secret")), ("owner-only-signed.pdf", Input::new(&owner_only), None)] {
+        let out = t.path().join(name);
+        sign::sign(&input, &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into(), Default::default()), d.clone()), &out).unwrap();
+        let want = if input.password.is_some() { 0 } else { 3 };
+        assert_eq!(requires_password(&out), want, "{name} keeps its protection");
+        let doc = Doc::open(&Input { path: out.clone(), password: input.password.clone() }).unwrap();
+        if d.is_some() {
+            assert!(doc.document().is_signed(), "{name} is signed");
+            // Valid for a validator too, opened with the user password.
+            if let Ok(o) = Command::new("pdfsig").args(["-nocert", "-upw", "user"]).arg(&out).output() {
+                let s = String::from_utf8_lossy(&o.stdout);
+                assert!(s.contains("Signature is Valid"), "pdfsig: {s}{}", String::from_utf8_lossy(&o.stderr));
+            }
+        }
     }
+}
+
+#[test]
+fn signing_is_refused_where_the_owner_password_forbids_it() {
+    let t = tempfile::tempdir().unwrap();
+    let no_forms = t.path().join("no-forms.pdf");
+    let o = Command::new("qpdf").args(["--encrypt", "", "owner", "256", "--form=n", "--annotate=n", "--"]).arg(invoice()).arg(&no_forms).output().unwrap();
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let before = files_in(t.path());
+    let e = sign::sign(&Input::new(&no_forms), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada".into(), Default::default()), None), &t.path().join("out.pdf")).unwrap_err();
+    assert!(e.to_string().contains("does not allow signing"), "{e}");
     assert_eq!(files_in(t.path()), before);
 }
 

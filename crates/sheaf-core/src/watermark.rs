@@ -3,6 +3,7 @@
 
 use crate::numbers::{page_span, Std14};
 use crate::pdfcraft::engine::{Edit, MarkFile, Watermark};
+use crate::pdfcraft::edit::MarkKind;
 use crate::pdfcraft::Doc;
 use crate::{pages::Input, OpdfError, Result};
 use pdfcraft_edit::MarkSource;
@@ -46,6 +47,10 @@ pub struct WatermarkOptions {
     pub underline: bool,
     /// A `to` past the last page means the last page (one range for a batch of files).
     pub clamp_to_last: bool,
+    /// The watermarks already in the file go first (Acrobat asks to replace them).
+    pub replace: bool,
+    /// Only take the watermarks out, add none (Acrobat's Remove Watermark).
+    pub remove: bool,
 }
 
 impl Default for WatermarkOptions {
@@ -61,6 +66,8 @@ impl Default for WatermarkOptions {
             font: None,
             underline: false,
             clamp_to_last: false,
+            replace: false,
+            remove: false,
         }
     }
 }
@@ -127,6 +134,13 @@ fn offsets(placement: Placement, page: (f64, f64), size: (f64, f64), rotation: f
 /// Stamps the watermark on `input` and writes `out` (never overwriting). Returns the path
 /// written and whether the input was password-protected (the output never is).
 pub fn watermark(input: &Input, o: &WatermarkOptions, out: &Path) -> Result<(PathBuf, bool)> {
+    if o.remove {
+        let mut doc = Doc::open(input)?;
+        if !remove_existing(&mut doc)? {
+            return Err(OpdfError::Unsupported("this PDF has no watermark to remove".into()));
+        }
+        return doc.save_unprotected(out);
+    }
     if let Placement::Grid(c) = o.placement
         && c > 8
     {
@@ -142,6 +156,9 @@ pub fn watermark(input: &Input, o: &WatermarkOptions, out: &Path) -> Result<(Pat
         _ => {}
     }
     let mut doc = Doc::open(input)?;
+    if o.replace {
+        remove_existing(&mut doc)?;
+    }
     let sizes: Vec<(f64, f64)> =
         doc.session().get(doc.id()).map(|d| d.info.pages.iter().map(|p| (p.width as f64, p.height as f64)).collect()).unwrap_or_default();
     let pages: Vec<usize> = page_span(o.from, crate::numbers::clamp(o.to, o.clamp_to_last, sizes.len()), false, sizes.len())?.collect();
@@ -220,6 +237,15 @@ pub fn watermark(input: &Input, o: &WatermarkOptions, out: &Path) -> Result<(Pat
         doc.apply(Edit::Batch { label: "Add watermark".into(), edits: rest })?;
     }
     doc.save_unprotected(out)
+}
+
+/// Takes out the watermarks PdfCraft and Acrobat mark as such; whether there were any.
+fn remove_existing(doc: &mut Doc) -> Result<bool> {
+    let any = doc.session().get(doc.id()).is_some_and(|d| d.marks.contains(&MarkKind::Watermark));
+    if any {
+        doc.apply(Edit::RemoveMarks { kind: MarkKind::Watermark })?;
+    }
+    Ok(any)
 }
 
 /// A PNG or JPEG's size in pixels, upright (EXIF orientation applied, as PdfCraft embeds it).

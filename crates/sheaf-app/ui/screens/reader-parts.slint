@@ -128,3 +128,31 @@ export component SmallButton inherits Rectangle {
         clicked => { root.clicked(); }
     }
 }
+
+// A small one-line field of the side panel (the attachments' Find, a page-number prefix).
+export component PanelField inherits Rectangle {
+    in property <string> placeholder;
+    in-out property <string> text <=> input.text;
+    callback edited(string);
+    height: 26px;
+    border-radius: Theme.radius-button;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.text-secondary : Theme.input-border;
+    background: Theme.input-bg;
+    if input.text == "": Text {
+        x: 8px;
+        text: root.placeholder;
+        font-size: Theme.fs-label;
+        color: Theme.text-disabled;
+        vertical-alignment: center;
+    }
+    input := TextInput {
+        x: 8px;
+        width: parent.width - 16px;
+        font-size: Theme.fs-label;
+        color: Theme.text;
+        vertical-alignment: center;
+        single-line: true;
+        edited => { root.edited(self.text); }
+    }
+}

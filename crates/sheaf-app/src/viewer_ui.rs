@@ -192,6 +192,20 @@ impl ViewerUi {
         self.scroll_x = None;
     }
 
+    /// Where the view stands: the page point at its top edge, which a zoom keeps (⌘[ comes back to
+    /// it, not only to its page).
+    pub fn place(&self) -> (usize, f64, f64) {
+        self.viewer.anchor_of(self.viewer.page_rect(self.current())[0], self.top)
+    }
+
+    /// Scrolls back to a [`Self::place`].
+    pub fn go_to_place(&mut self, place: (usize, f64, f64)) {
+        let (_, y) = self.viewer.point_of(place);
+        self.scroll = y.clamp(0.0, (self.viewer.content_height() - self.height).max(0.0));
+        self.scroll_seq += 1;
+        self.scroll_x = None;
+    }
+
     /// Zooms to `z` percent of the fit width, the view point (ax, ay), scrolled `sx` across, staying
     /// on the same point of its page; the zoom then settles. Returns the new horizontal scroll.
     fn zoom_around(&mut self, z: u32, (ax, ay, sx): (f64, f64, f64)) -> Option<f64> {
@@ -900,6 +914,23 @@ mod tests {
         let sx = v.zoom_around(170, (ax, ay, 0.0)).unwrap();
         let back = v.viewer.anchor_of(sx + ax, v.top + ay);
         assert!(back.0 == anchor.0 && (back.1 - anchor.1).abs() < 1e-6 && (back.2 - anchor.2).abs() < 1e-6, "{anchor:?} → {back:?}");
+    }
+
+    #[test]
+    fn a_place_in_a_page_is_found_again_after_a_zoom() {
+        let pages = (0..3).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        v.top = v.viewer.page_rect(1)[1] + 400.0;
+        let place = v.place();
+        assert_eq!(place.0, 1);
+        assert!(place.2 > 0.2 && place.2 < 0.5, "{place:?}");
+        v.viewer.set_zoom(200);
+        v.go_to_place(place);
+        v.top = v.scroll;
+        let back = v.place();
+        assert!(back.0 == 1 && (back.2 - place.2).abs() < 1e-6, "{place:?} → {back:?}");
     }
 
     #[test]

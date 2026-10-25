@@ -39,12 +39,13 @@ component TabItem inherits Rectangle {
             }
         }
     }
-    // Right click: close the others, those to the left or to the right (iLovePDF's tab menu).
+    // Right click: close the others, those to the left or to the right, or all (iLovePDF's tab menu).
     ContextMenuArea {
         Menu {
             MenuItem { title: "Close Other Tabs"; activated => { root.close-around(0); } }
             MenuItem { title: "Close Tabs to the Left"; activated => { root.close-around(1); } }
             MenuItem { title: "Close Tabs to the Right"; activated => { root.close-around(2); } }
+            MenuItem { title: "Close All Tabs"; activated => { root.close-around(3); } }
         }
     }
     if root.divider: Rectangle {

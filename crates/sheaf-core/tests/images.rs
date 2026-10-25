@@ -100,3 +100,23 @@ fn a_tif_scan_and_a_gif_become_pages() {
     assert_eq!(d.pages().len(), 2);
     assert_eq!(d.pages().get(1).unwrap().height().value.round(), 60.0); // 80 px at 96 dpi
 }
+
+#[test]
+fn extract_images_writes_each_picture_as_stored_once() {
+    let t = tempfile::tempdir().unwrap();
+    let (red, blue) = (t.path().join("red.png"), t.path().join("blue.png"));
+    image::RgbImage::from_pixel(40, 30, image::Rgb([220, 20, 20])).save(&red).unwrap();
+    image::RgbImage::from_pixel(20, 50, image::Rgb([20, 20, 220])).save(&blue).unwrap();
+    // Three pages: red, blue, red again (the same picture repeated is written once).
+    let pdf = images_to_pdf(&[red.clone(), blue, red], PageLayout::FitImage, &t.path().join("pics.pdf")).unwrap();
+    let out = t.path().join("out");
+    std::fs::create_dir(&out).unwrap();
+    let outs = extract_images(&Input::new(&pdf), None, &out).unwrap();
+    let names: Vec<String> = outs.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
+    assert_eq!(names, ["pics-p1-1.png", "pics-p2-1.png"], "{names:?}");
+    let first = image::open(&outs[0]).unwrap();
+    assert_eq!((first.width(), first.height()), (40, 30), "as stored, not the page around it");
+    // A PDF without pictures says so.
+    let text = common::fixture_pdf(t.path(), "text.pdf", 1);
+    assert!(extract_images(&Input::new(&text), None, &out).unwrap_err().to_string().contains("no pictures"));
+}

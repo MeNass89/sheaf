@@ -143,6 +143,8 @@ pub struct OverlayRect {
 
 /// Width of a thumbnail in the strip, logical pixels.
 pub const THUMB_WIDTH: f64 = 84.0;
+/// A page's width in the page grid (spread 3) at 100 %.
+pub const GRID_PAGE: f64 = 170.0;
 /// Narrowest the view is laid out for, logical pixels.
 const MIN_PAGE_WIDTH: f64 = 120.0;
 
@@ -159,21 +161,30 @@ pub struct Viewer {
     content_h: f64,
     page_width: f64,
     /// Pages side by side: 0 one column, 1 two per row, 2 two per row with the first page alone
-    /// on the right (a book's cover, as Acrobat and PDF Expert show it).
+    /// on the right (a book's cover, as Acrobat and PDF Expert show it), 3 a grid of as many
+    /// columns as fit (PDF Expert's page thumbnails view).
     spread: u8,
+    /// Pages side by side read right to left (Acrobat's Right-to-left page order: Arabic, Hebrew,
+    /// manga): the first of a pair on the right, the cover on the left.
+    rtl: bool,
     /// Width of a thumbnail in the strip or panel.
     pub thumb_width: f64,
 }
 
 impl Viewer {
     pub fn new(boxes: Vec<PageBox>) -> Self {
-        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, thumb_width: THUMB_WIDTH };
+        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, rtl: false, thumb_width: THUMB_WIDTH };
         v.relayout();
         v
     }
 
     fn columns(&self) -> f64 {
-        if self.spread == 0 { 1.0 } else { 2.0 }
+        match self.spread {
+            0 => 1.0,
+            1 | 2 => 2.0,
+            // Pages about GRID_PAGE wide at 100 %, at least two to a row.
+            _ => ((self.fit_width - PAGE_GAP) / (GRID_PAGE + PAGE_GAP)).floor().max(2.0),
+        }
     }
 
     /// The width one page has at 100 % (fit width): the viewport's, shared by the columns.
@@ -191,12 +202,12 @@ impl Viewer {
         let heights: Vec<f64> = self.boxes.iter().map(|b| { let (bw, bh) = b.view_size(); w * bh / bw.max(1e-9) }).collect();
         let n = heights.len();
         // Rows of pages: one each, pairs, or the cover alone then pairs.
+        let cols = self.columns();
         let rows: Vec<Vec<usize>> = match self.spread {
             0 => (0..n).map(|i| vec![i]).collect(),
-            1 => (0..n).collect::<Vec<_>>().chunks(2).map(<[usize]>::to_vec).collect(),
-            _ => std::iter::once(vec![0]).take(n.min(1)).chain((1..n).collect::<Vec<_>>().chunks(2).map(<[usize]>::to_vec)).collect(),
+            2 => std::iter::once(vec![0]).take(n.min(1)).chain((1..n).collect::<Vec<_>>().chunks(2).map(<[usize]>::to_vec)).collect(),
+            _ => (0..n).collect::<Vec<_>>().chunks(cols as usize).map(<[usize]>::to_vec).collect(),
         };
-        let cols = self.columns();
         let row_w = cols * w + (cols - 1.0) * PAGE_GAP;
         let left = ((self.content_width_for(row_w) - row_w) / 2.0).round();
         let mut rects = vec![[0.0; 4]; n];
@@ -204,6 +215,7 @@ impl Viewer {
         for row in rows {
             for (k, &i) in row.iter().enumerate() {
                 let col = if self.spread == 2 && i == 0 { 1.0 } else { k as f64 };
+                let col = if self.rtl { cols - 1.0 - col } else { col };
                 rects[i] = [left + col * (w + PAGE_GAP), y, w, heights[i]];
             }
             y += row.iter().map(|&i| heights[i]).fold(0.0, f64::max) + PAGE_GAP;
@@ -219,7 +231,7 @@ impl Viewer {
 
     /// Pages side by side (see `spread`); returns whether the layout changed.
     pub fn set_spread(&mut self, spread: u8) -> bool {
-        let spread = spread.min(2);
+        let spread = spread.min(3);
         let changed = spread != self.spread;
         self.spread = spread;
         self.relayout();
@@ -228,6 +240,18 @@ impl Viewer {
 
     pub fn spread(&self) -> u8 {
         self.spread
+    }
+
+    /// Pairs read right to left (see `rtl`); returns whether the layout changed.
+    pub fn set_rtl(&mut self, rtl: bool) -> bool {
+        let changed = rtl != self.rtl;
+        self.rtl = rtl;
+        self.relayout();
+        changed
+    }
+
+    pub fn rtl(&self) -> bool {
+        self.rtl
     }
 
     /// The viewport is `width` logical pixels wide; returns whether the layout changed.
@@ -449,6 +473,17 @@ mod tests {
         let (c0, c1, c2) = (v.page_rect(0), v.page_rect(1), v.page_rect(2));
         assert!(c0[0] > c1[0] && c1[1] > c0[1] && c1[1] == c2[1] && c2[0] > c1[0]);
         assert_eq!(c0[0], c2[0], "the cover sits in the right column");
+        // Right to left: the cover on the left, then 2 on the right of 3.
+        assert!(v.set_rtl(true));
+        let (r0, r1, r2) = (v.page_rect(0), v.page_rect(1), v.page_rect(2));
+        assert!(r0[0] == r2[0] && r0[0] < c0[0], "the cover sits in the left column: {r0:?} {c0:?}");
+        assert!(r1[0] > r2[0] && r1[1] == r2[1], "page 2 on the right of page 3: {r1:?} {r2:?}");
+        v.set_rtl(false);
+        // The grid: as many columns as fit in 1000 px, pages in reading order.
+        v.set_spread(3);
+        let (g0, g1, g4) = (v.page_rect(0), v.page_rect(1), v.page_rect(4));
+        assert!(g0[1] == g1[1] && g1[0] > g0[0] && g4[1] == g0[1], "five pages in one row of five: {g0:?} {g1:?} {g4:?}");
+        assert!(g0[2] > 150.0 && g0[2] < 200.0, "{g0:?}");
         // Back to one column: as before.
         v.set_spread(0);
         assert_eq!(v.page_rect(1), single);

@@ -188,15 +188,16 @@ fn no_page(page: usize, n: usize) -> OpdfError {
     OpdfError::Unsupported(format!("page {} does not exist (the document has {n} pages)", page + 1))
 }
 
-/// Opens `input`, refusing a password-protected one (even one that opens without a password).
+/// Opens `input` with its password. A protected file stays protected once signed (the save keeps
+/// its encryption, as Acrobat's does); one whose owner password forbids filling in forms and
+/// adding comments, which a signature is, is refused (Acrobat's "Signing: Not Allowed").
 fn open(input: &Input) -> Result<Doc> {
-    let protected = || OpdfError::Unsupported(format!("{} is password-protected: unlock the PDF first, then sign it", input.path.display()));
-    let doc = Doc::open(input).map_err(|e| match e {
-        OpdfError::PasswordRequired(_) | OpdfError::WrongPassword(_) => protected(),
-        e => e,
-    })?;
+    let doc = Doc::open(input)?;
     if doc.was_encrypted() {
-        return Err(protected());
+        let restricted = crate::facts::read(&std::fs::read(&input.path)?, input.password.as_deref()).restricted;
+        if restricted.contains(&"Filling in forms") && restricted.contains(&"Adding comments") {
+            return Err(OpdfError::Unsupported(format!("{}'s owner password does not allow signing: unlock the PDF first, then sign it", input.path.display())));
+        }
     }
     Ok(doc)
 }

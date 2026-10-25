@@ -172,3 +172,17 @@ fn a_changed_picture_touching_a_changed_caption_is_still_outlined() {
     assert_eq!(r.regions, 1, "the picture's change is not hidden by the caption's: {r:?}");
     qpdf_clean(&r.path);
 }
+
+#[test]
+fn the_report_lists_a_changed_picture_whose_words_are_the_same() {
+    let t = tempfile::tempdir().unwrap();
+    let old = picture_with_caption(t.path(), "old.pdf", "0 0 1", "Figure one");
+    let new = picture_with_caption(t.path(), "new.pdf", "1 0 0", "Figure one");
+    let r = compare::compare(&Input::new(&old), &Input::new(&new), CompareMode::Text, &t.path().join("r.pdf")).unwrap();
+    assert!(r.identical(), "no words changed: {r:?}");
+    assert_eq!(r.regions, 1, "{r:?}");
+    qpdf_clean(&r.path);
+    let texts = page_texts(&r.path);
+    let last = texts.last().unwrap();
+    assert!(last.contains("Changes outside the text") && last.contains("Page 1: 1 area"), "{texts:?}");
+}

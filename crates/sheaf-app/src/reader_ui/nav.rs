@@ -16,7 +16,10 @@ pub fn remember_position(tab_id: i32) {
     if let Some((path, page, fit, zoom, spread)) = with(|a| {
         let t = a.tab(tab_id)?;
         let (r, v) = (t.reader.as_ref()?, t.viewer.as_ref()?);
-        Some((r.path.clone(), v.current(), r.zoom_mode, v.viewer.zoom(), v.viewer.spread()))
+        // Right to left rides on the spread's byte (bit 4), so older preferences read as before.
+        // The grid is a passing view: the layout under it is kept.
+        let spread = r.grid_prev.unwrap_or(v.viewer.spread());
+        Some((r.path.clone(), v.current(), r.zoom_mode, v.viewer.zoom(), spread | (v.viewer.rtl() as u8) << 4))
     }) {
         crate::home::remember_page(&path, page);
         crate::home::remember_view(&path, fit, zoom, spread);
@@ -42,9 +45,10 @@ pub fn over_link(tab_id: i32, x: f32, y: f32) -> slint::SharedString {
     .into()
 }
 
-/// Goes to `page`, remembering where the reader was for ⌘[.
+/// Goes to `page`, remembering where the reader was for ⌘[ (the point in the page, Acrobat's
+/// Previous View).
 pub(super) fn jump(r: &mut ReaderUi, v: &mut ViewerUi, page: usize, focus: Option<[f64; 4]>) {
-    let cur = v.current();
+    let cur = v.place();
     if r.back.last() != Some(&cur) {
         r.back.push(cur);
     }
@@ -55,11 +59,11 @@ pub(super) fn jump(r: &mut ReaderUi, v: &mut ViewerUi, page: usize, focus: Optio
 /// ⌘[ (back, `dir` −1) and ⌘] (forward, +1).
 pub fn history(tab_id: i32, dir: i32) {
     update(tab_id, |r, v| {
-        let cur = v.current();
+        let cur = v.place();
         let to = if dir < 0 { r.back.pop() } else { r.forward.pop() };
         if let Some(p) = to {
             if dir < 0 { r.forward.push(cur) } else { r.back.push(cur) }
-            v.show_page(p, None);
+            v.go_to_place(p);
         }
     });
 }
@@ -143,6 +147,51 @@ pub fn cycle_spread(ui: &AppWindow, tab_id: i32) {
     let next = with(|a| a.tab(tab_id)?.viewer.as_ref().map(|v| (v.viewer.spread() + 1) % 3));
     if let Some(next) = next {
         set_spread(ui, tab_id, next as i32);
+    }
+}
+
+/// More ▸ Page grid (PDF Expert's page thumbnails): every page small, as many to a row as fit;
+/// a click selects (⇧ a run), a double-click opens that page, the Pages panel's actions and
+/// Delete act on the selection. Again: back to the layout it came from.
+pub fn toggle_grid(ui: &AppWindow, tab_id: i32) {
+    let done = update(tab_id, |r, v| {
+        let cur = v.current();
+        match r.grid_prev.take() {
+            Some(prev) => {
+                v.viewer.set_spread(prev);
+            }
+            None => {
+                r.grid_prev = Some(v.viewer.spread());
+                v.viewer.set_spread(3);
+                v.viewer.set_zoom(100);
+                r.zoom_mode = 0;
+            }
+        }
+        v.show_page(cur, None);
+    });
+    if done.is_some() {
+        crate::viewer_ui::request(ui, tab_id);
+    }
+}
+
+/// A double-click in the page grid: the grid closes on `page`.
+pub(super) fn open_from_grid(r: &mut ReaderUi, v: &mut ViewerUi, page: usize) {
+    if let Some(prev) = r.grid_prev.take() {
+        v.viewer.set_spread(prev);
+    }
+    v.show_page(page, None);
+}
+
+/// More ▸ Right to left: pairs read from the right, kept with the document's view.
+pub fn toggle_rtl(ui: &AppWindow, tab_id: i32) {
+    let done = update(tab_id, |_, v| {
+        let cur = v.current();
+        let rtl = !v.viewer.rtl();
+        v.viewer.set_rtl(rtl);
+        v.show_page(cur, None);
+    });
+    if done.is_some() {
+        crate::viewer_ui::request(ui, tab_id);
     }
 }
 

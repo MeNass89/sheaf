@@ -74,6 +74,47 @@ pub fn pdf_to_jpg(input: &Input, dpi: u32, quality: Option<u8>, out_dir: &Path) 
     })
 }
 
+/// iLovePDF's "Extract images": every picture placed in `input`, as stored (not the page around
+/// it), one file each named `<stem>-p<page>-<n>`, a picture repeated on several pages (a logo)
+/// written once. JPG at `quality`, else PNG. A PDF without pictures says so.
+pub fn extract_images(input: &Input, quality: Option<u8>, out_dir: &Path) -> Result<Vec<PathBuf>> {
+    use std::hash::{Hash, Hasher};
+    let mut found: Vec<(usize, usize, DynamicImage)> = Vec::new();
+    {
+        let _g = pdfium_lock();
+        let doc = input.open()?;
+        let mut seen = std::collections::HashSet::new();
+        for (i, page) in doc.pages().iter().enumerate() {
+            let mut k = 0;
+            for o in page.objects().iter() {
+                let Some(img) = o.as_image_object() else { continue };
+                let Ok(img) = img.get_raw_image().or_else(|_| img.get_processed_image(&doc)) else { continue };
+                let mut h = std::collections::hash_map::DefaultHasher::new();
+                (img.width(), img.height(), img.as_bytes()).hash(&mut h);
+                if seen.insert(h.finish()) {
+                    k += 1;
+                    found.push((i, k, img));
+                }
+            }
+        }
+    }
+    if found.is_empty() {
+        return Err(OpdfError::Unsupported(format!("{} has no pictures to extract", input.path.display())));
+    }
+    let ext = if quality.is_some() { "jpg" } else { "png" };
+    // Decoded under the pdfium lock, encoded after it: thumbnails elsewhere keep coming.
+    all_or_nothing(&found, |(page, k, img)| {
+        let target = out_dir.join(format!("{}-p{}-{k}.{ext}", input.stem(), page + 1));
+        atomic_write(&target, |part| {
+            match quality {
+                Some(q) => img.to_rgb8().write_with_encoder(JpegEncoder::new_with_quality(std::fs::File::create(part)?, q))?,
+                None => img.save_with_format(part, ImageFormat::Png)?,
+            }
+            Ok(())
+        })
+    })
+}
+
 /// Renders page `page` (0-based) to a PNG at `dpi`, written to `unique_path(out)`: a look at
 /// the page as displayed, for checking a result.
 pub fn render_png(input: &Input, page: usize, dpi: u32, out: &Path) -> Result<PathBuf> {

@@ -4,6 +4,7 @@ import { Pad } from "sign-panel.slint";
 import { SmallButton, ColourDot } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
 import { TextField } from "../widgets/text-field.slint";
+import { Check } from "../widgets/check.slint";
 import { ToolTab, ReaderBridge } from "../flow-types.slint";
 
 // The signature pad (PDF Expert's "Create signature"): draw it, or type a name.
@@ -74,16 +75,18 @@ export component SignatureSheet inherits Rectangle {
             HorizontalLayout {
                 spacing: 8px;
                 SmallButton { text: "Clear"; clicked => { pad.commands = ""; typed.text = ""; } }
+                // Unticked, the signature is placed this once and not kept (PDF Expert's).
+                keep := Check { y: (parent.height - self.height) / 2; text: "Keep for next time"; checked: true; }
                 Rectangle { horizontal-stretch: 1; }
-                SmallButton { text: "Cancel"; clicked => { ReaderBridge.signature-made(root.id, "", 1px, 1px, "", 0, 1, 0); root.focus-pages(); } }
-                SmallButton { text: "Use"; primary: true; clicked => { ReaderBridge.signature-made(root.id, pad.commands, pad.width, pad.height, typed.text, ink, pen, font); root.focus-pages(); } }
+                SmallButton { text: "Cancel"; clicked => { ReaderBridge.signature-made(root.id, "", 1px, 1px, "", 0, 1, 0, true); root.focus-pages(); } }
+                SmallButton { text: "Use"; primary: true; clicked => { ReaderBridge.signature-made(root.id, pad.commands, pad.width, pad.height, typed.text, ink, pen, font, keep.checked); root.focus-pages(); } }
             }
         }
     }
 }
 
 // The print sheet (PDF Expert's print panel, reduced to what matters): printer, copies, pages,
-// scale, two-sided. Choices stay local until Print.
+// scale, paper, orientation, two-sided. Choices stay local until Print.
 export component PrintSheet inherits Rectangle {
     in property <ToolTab> tab;
     in property <int> id;
@@ -94,6 +97,8 @@ export component PrintSheet inherits Rectangle {
     property <int> pages: 0;
     property <bool> fit: true;
     property <bool> two-sided: false;
+    property <int> paper: 0;
+    property <int> orientation: 0;
     property <bool> ready: root.tab.reader.printers.length > 0;
     property <int> printer: root.tab.reader.printer;
     background: #00000044;
@@ -173,6 +178,25 @@ export component PrintSheet inherits Rectangle {
                 Rectangle { horizontal-stretch: 1; }
             }
             HorizontalLayout {
+                spacing: 10px;
+                Text { text: "Paper"; width: 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                SortCombo {
+                    width: 150px;
+                    options: ["Printer's default", "A4", "Letter", "Legal"];
+                    current-index <=> paper;
+                    chevron: @image-url("../icons/chevron-down.svg");
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                Text { text: "Orientation"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                SmallButton { text: "Auto"; primary: orientation == 0; clicked => { orientation = 0; } }
+                SmallButton { text: "Portrait"; primary: orientation == 1; clicked => { orientation = 1; } }
+                SmallButton { text: "Landscape"; primary: orientation == 2; clicked => { orientation = 2; } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            HorizontalLayout {
                 spacing: 6px;
                 Text { text: "Two-sided"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                 SmallButton { text: "Off"; primary: !two-sided; clicked => { two-sided = false; } }
@@ -188,7 +212,7 @@ export component PrintSheet inherits Rectangle {
                     primary: ready;
                     clicked => {
                         if ready {
-                            ReaderBridge.print(root.id, printer, copies, pages, range.text, fit, two-sided);
+                            ReaderBridge.print(root.id, printer, copies, pages, range.text, fit, two-sided, paper, orientation);
                             root.focus-pages();
                         }
                     }

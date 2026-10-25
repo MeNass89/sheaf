@@ -172,6 +172,8 @@ fn watermark_options(opts: &ToolOptions, batch: bool) -> Result<WatermarkOptions
         font: standard_font(opts.wm_family.clamp(0, 2) as u8, opts.wm_bold, opts.wm_italic),
         underline: opts.wm_underline,
         clamp_to_last: batch,
+        replace: opts.wm_replace,
+        remove: opts.wm_remove,
     })
 }
 
@@ -277,7 +279,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
         ToolId::JpgToPdf => Job::JpgToPdf { images: inputs.into_iter().map(|i| i.path).collect(), layout: layout(opts), out: single()? },
         ToolId::PdfToJpg => {
             let (dpi, q) = match opts.quality { 2 => (600, 92), 1 => (300, 92), _ => (150, 85) };
-            Job::PdfToJpg { inputs, dpi, quality: (!opts.png).then_some(q), out_dir: folder }
+            Job::PdfToJpg { inputs, dpi, quality: (!opts.png).then_some(q), extract: opts.extract_images, out_dir: folder }
         }
         ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf => {
             Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect() }

@@ -58,7 +58,8 @@ pub enum Job {
     Repair { items: Vec<(Input, PathBuf)> },
     JpgToPdf { images: Vec<PathBuf>, layout: PageLayout, out: PathBuf },
     /// `quality`: JPEG quality, or `None` for PNG.
-    PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: Option<u8>, out_dir: PathBuf },
+    /// `extract`: the pictures in the pages instead of the pages (iLovePDF's Extract images).
+    PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: Option<u8>, extract: bool, out_dir: PathBuf },
     /// Word / PowerPoint / Excel / HTML → PDF through LibreOffice.
     Office { items: Vec<(PathBuf, PathBuf)> },
     /// JPG to PDF with "Merge all images" off: a PDF for each image.
@@ -138,6 +139,8 @@ pub struct JobOutcome {
     pub summary: String,
     /// Things the user should know about the outputs, one per line (PDF/A rules still broken).
     pub notes: Vec<String>,
+    /// A page of the output as it came out, 0-based (Redact: the first page redacted).
+    pub preview: Option<(usize, crate::files::Thumb)>,
 }
 
 fn size(p: &Path) -> u64 {
@@ -236,6 +239,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
     let mut failures = Vec::new();
     let mut summary = String::new();
     let mut notes = Vec::new();
+    let mut preview = None;
     let one = |r: Result<PathBuf>| r.map(|p| vec![p]);
     let mut batch = |r: BatchResult| -> Result<Vec<PathBuf>> {
         let (o, f) = r?;
@@ -298,9 +302,9 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::JpgToPdf { images, layout, out } => {
             jpg_to_pdf(images, *layout, out, cancel, progress)?
         }
-        Job::PdfToJpg { inputs, dpi, quality, out_dir } => {
-            batch(each(inputs, cancel, progress, |i| i.path.as_path(), |i| images::pdf_to_jpg(i, *dpi, *quality, out_dir)))?
-        }
+        Job::PdfToJpg { inputs, dpi, quality, extract, out_dir } => batch(each(inputs, cancel, progress, |i| i.path.as_path(), |i| {
+            if *extract { images::extract_images(i, *quality, out_dir) } else { images::pdf_to_jpg(i, *dpi, *quality, out_dir) }
+        }))?,
         Job::ImagesEach { items, layout } => {
             batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(images::images_to_pdf(std::slice::from_ref(i), *layout, o))))?
         }
@@ -386,6 +390,10 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::Redact { input, marks, out } => {
             // The marks carry their matched texts: unchecked matches are not removed anywhere.
             let r = redact::apply(input, marks, &[], out)?;
+            // The first page redacted, as written: what is gone shows black.
+            if let Some(page) = marks.iter().map(|m| m.page).min() {
+                preview = crate::files::page_thumb(&Input::new(&r.path), page, 420).ok().map(|t| (page, t));
+            }
             notes.extend(r.warnings.iter().cloned());
             was_encrypted |= r.was_encrypted;
             summary = redact::summary(r.counts);
@@ -446,7 +454,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
     };
     let after = outputs.iter().map(|p| size(p)).sum();
     let before = job.inputs().iter().map(|p| size(p)).sum();
-    Ok(JobOutcome { outputs, before, after, was_encrypted, grew, failures, summary, notes })
+    Ok(JobOutcome { outputs, before, after, was_encrypted, grew, failures, summary, notes, preview })
 }
 
 /// `run`, with a panic anywhere in the engine turned into an error, so the tab never stays

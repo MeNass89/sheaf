@@ -36,9 +36,6 @@ pub(super) fn op_pages(r: &ReaderUi, v: &ViewerUi) -> Vec<usize> {
 }
 
 pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
-    if op == 4 {
-        return extract(ui, tab_id);
-    }
     let made = update(tab_id, |r, v| {
         let pages = op_pages(r, v);
         let n = v.viewer.page_count();
@@ -91,18 +88,76 @@ pub(super) fn apply_structure(ui: &AppWindow, tab_id: i32, edit: Edit) {
 }
 
 /// The selected pages (or the one shown) written to a new PDF chosen in a Save dialog, which then
-/// opens in its own tab.
-pub(super) fn extract(ui: &AppWindow, tab_id: i32) {
-    let Some((pages, dir, stem)) = update(tab_id, |r, v| {
-        (op_pages(r, v), crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())
+/// opens in its own tab; or, `each`, one file per page ("name - page 3.pdf") in a folder chosen
+/// (Acrobat's Extract as separate files). `delete` removes them from the document once written,
+/// an edit that can be undone.
+pub fn extract(ui: &AppWindow, tab_id: i32, each: bool, delete: bool) {
+    let Some((pages, n, dir, stem)) = update(tab_id, |r, v| {
+        (op_pages(r, v), v.viewer.page_count(), crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())
     }) else {
         return;
     };
+    if delete && pages.len() >= n {
+        return crate::flow::toast(ui, "A PDF needs at least one page: extract without deleting them");
+    }
+    let start = move |parts: Vec<(Vec<usize>, PathBuf)>| {
+        update(tab_id, |r, _| {
+            r.delete_after_extract = if delete { pages.clone() } else { Vec::new() };
+            r.send(Op::Extract { parts });
+        });
+    };
+    let d = crate::dialog::new(ui).set_directory(&dir);
+    if each {
+        let pages = pages.clone();
+        return crate::dialog::pick_folder(ui, d, move |_, folder| {
+            start(pages.iter().map(|p| (vec![*p], folder.join(format!("{stem} - page {}.pdf", p + 1)))).collect());
+        });
+    }
     let name = if pages.len() == 1 { format!("{stem} - page {}.pdf", pages[0] + 1) } else { format!("{stem} - {} pages.pdf", pages.len()) };
-    let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(name).add_filter("PDF", &["pdf"]);
-    crate::dialog::save_file(ui, d, move |_, target| {
-        update(tab_id, |r, _| r.send(Op::Extract { pages, to: target }));
-    });
+    let d = d.set_file_name(name).add_filter("PDF", &["pdf"]);
+    let parts = pages.clone();
+    crate::dialog::save_file(ui, d, move |_, target| start(vec![(parts, target)]));
+}
+
+/// Number pages… (Acrobat's Page Labels): from the first selected page (or the one shown) to the
+/// end, pages are labelled in `style` from `start` after `prefix` (a front matter in i, ii, then
+/// 1 from the first chapter: two steps). An edit that can be undone; the labels show in the page
+/// field and Go to.
+pub fn number_pages(ui: &AppWindow, tab_id: i32, style: i32, prefix: &str, start: &str) {
+    use sheaf_core::pdfcraft::engine::LabelStyle as S;
+    let first = match start.trim() {
+        "" => 1,
+        t => match t.parse::<u32>() {
+            Ok(n) if n >= 1 => n,
+            _ => return crate::flow::toast(ui, &format!("Start: \"{t}\" is not a page number (1 or more)")),
+        },
+    };
+    let style = [S::Decimal, S::LowerRoman, S::UpperRoman, S::LowerAlpha, S::UpperAlpha, S::None][style.clamp(0, 5) as usize];
+    let Some((from, to)) = update(tab_id, |r, v| {
+        let pages = op_pages(r, v);
+        (*pages.first().unwrap_or(&0), v.viewer.page_count().saturating_sub(1))
+    }) else {
+        return;
+    };
+    apply(ui, tab_id, Edit::NumberPages { from, to, style, prefix: prefix.to_string(), first }, &[], None);
+}
+
+/// ⌘C in the Pages panel: the selected pages are kept to paste into another document (PDF
+/// Expert's and Acrobat's page copy), as the document is now, unsaved edits included.
+pub fn copy_pages(ui: &AppWindow, tab_id: i32) {
+    let Some(clip) = update(tab_id, |r, v| (r.name.clone(), r.snap.bytes.clone(), op_pages(r, v))) else { return };
+    let n = clip.2.len();
+    with(|a| a.page_clip = Some(clip));
+    crate::flow::toast(ui, &format!("{n} page{} copied: ⌘V in a document's Pages panel puts {} after its selected page", if n == 1 { "" } else { "s" }, if n == 1 { "it" } else { "them" }));
+}
+
+/// ⌘V with the Pages panel shown and pages copied: they go after the selected page (or the one
+/// shown), an edit that can be undone. False: nothing to paste here.
+pub(super) fn paste_pages(ui: &AppWindow, tab_id: i32) -> bool {
+    let Some((name, bytes, pages)) = with(|a| a.page_clip.clone()) else { return false };
+    let Some(at) = update(tab_id, |r, v| (r.panel_open && r.panel == 0).then(|| op_pages(r, v).last().map_or(0, |p| p + 1))).flatten() else { return false };
+    apply_structure(ui, tab_id, Edit::InsertPagesFrom { name, bytes, pages: Some(pages), at, field_conflicts: Default::default() });
+    true
 }
 
 /// A thumbnail dragged to content y `y` of the panel: the drop line's y (−1: none).

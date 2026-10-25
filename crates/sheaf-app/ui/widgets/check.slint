@@ -1,0 +1,40 @@
+import { Theme } from "../theme.slint";
+
+// Square tick box with a label ("First page is cover page").
+export component Check inherits Rectangle {
+    in property <string> text;
+    in-out property <bool> checked;
+    callback toggled();
+    height: 24px;
+    HorizontalLayout {
+        spacing: 8px;
+        Rectangle {
+            y: (parent.height - self.height) / 2;
+            width: 16px;
+            height: 16px;
+            border-radius: Theme.radius-small;
+            border-width: root.checked ? 0 : 1.5px;
+            border-color: Theme.option-border;
+            background: root.checked ? Theme.success-strong : Theme.panel-bg;
+            if root.checked: Image {
+                width: 12px;
+                height: 12px;
+                source: @image-url("../icons/check.svg");
+                colorize: Theme.on-success;
+            }
+        }
+        Text {
+            text: root.text;
+            font-size: Theme.fs-label;
+            color: Theme.text;
+            vertical-alignment: center;
+        }
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled();
+        }
+    }
+}

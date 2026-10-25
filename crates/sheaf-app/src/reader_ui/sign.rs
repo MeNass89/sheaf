@@ -13,15 +13,21 @@ pub(super) fn saved_signature() -> Option<sheaf_core::sign::Graphic> {
     p.signature_name.filter(|n| !n.trim().is_empty()).map(|n| sheaf_core::sign::Graphic::Typed(n, font))
 }
 
-/// Places the signature where the Signature tool was clicked, 150 pt wide as PDF Expert's default.
+/// Places the kept signature where the Signature tool was clicked.
 pub(super) fn place_signature(ui: &AppWindow, tab_id: i32) {
-    let Some(graphic) = saved_signature() else { return };
+    if let Some(graphic) = saved_signature() {
+        place_graphic(ui, tab_id, &graphic);
+    }
+}
+
+/// Places `graphic` where the Signature tool was clicked, 150 pt wide as PDF Expert's default.
+fn place_graphic(ui: &AppWindow, tab_id: i32, graphic: &sheaf_core::sign::Graphic) {
     let made = update(tab_id, |r, v| {
         let (page, at) = r.sign_at.take()?;
         let b = &v.viewer.boxes[page];
         let (w, h) = b.view_size();
         let info = render::PageInfo { width: w as f32, height: h as f32, label: String::new(), crop: b.crop.map(|c| c as f32), rotation: b.rotation };
-        let edit = sheaf_core::sign::signature_edit(&info, page, [at.0, at.1], 150.0_f64.min(w * 0.6), &graphic).map(with_pen);
+        let edit = sheaf_core::sign::signature_edit(&info, page, [at.0, at.1], 150.0_f64.min(w * 0.6), graphic).map(with_pen);
         Some((page, edit))
     })
     .flatten();
@@ -48,9 +54,11 @@ fn with_pen(e: Edit) -> Edit {
 }
 
 /// The signature pad's answer: strokes drawn (pad commands and size) or a name typed; empty
-/// cancels. The signature is kept and placed where the tool was clicked.
+/// cancels. It is placed where the tool was clicked, and kept for next time unless `keep` is
+/// off (used once: nothing of it is stored).
 /// `pen`: ink and width chosen on the pad (see `reader::SIGNATURE_INKS`, `SIGNATURE_WIDTHS`).
-pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, size: (f32, f32), name: &str, pen: (i32, i32), font: i32) {
+#[allow(clippy::too_many_arguments)]
+pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, size: (f32, f32), name: &str, pen: (i32, i32), font: i32, keep: bool) {
     let (w, h) = size;
     crate::home::set_signature_pen((pen.0.clamp(0, 2) as u8, pen.1.clamp(0, 2) as u8));
     let strokes = crate::sign_ui::pad_strokes(commands, w, h);
@@ -60,7 +68,12 @@ pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, size: (f32, f
         update(tab_id, |r, _| r.sign_at = None);
         return;
     }
-    crate::home::set_signature(strokes, (!name.is_empty()).then_some(name), ScriptFont::from_index(font.max(0) as usize).index() as u8);
+    let font = ScriptFont::from_index(font.max(0) as usize);
+    if !keep {
+        let graphic = if strokes.is_empty() { sheaf_core::sign::Graphic::Typed(name, font) } else { sheaf_core::sign::Graphic::Drawn(strokes) };
+        return place_graphic(ui, tab_id, &graphic);
+    }
+    crate::home::set_signature(strokes, (!name.is_empty()).then_some(name), font.index() as u8);
     place_signature(ui, tab_id);
 }
 

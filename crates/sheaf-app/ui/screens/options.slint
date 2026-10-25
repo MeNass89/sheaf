@@ -1,6 +1,7 @@
 import { Theme } from "../theme.slint";
 import { ToolOptions, Parse, OcrInfo, SignBridge, Picked } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
+import { Check } from "../widgets/check.slint";
 import { RadioCard, Segment, InfoBox } from "../widgets/radio-card.slint";
 
 component SectionLabel inherits Text {
@@ -35,45 +36,6 @@ component Stepper inherits HorizontalLayout {
         width: 32px;
         text: "+";
         clicked => { root.value += 1; }
-    }
-}
-
-// Square tick box with a label ("First page is cover page").
-component Check inherits Rectangle {
-    in property <string> text;
-    in-out property <bool> checked;
-    callback toggled();
-    height: 24px;
-    HorizontalLayout {
-        spacing: 8px;
-        Rectangle {
-            y: (parent.height - self.height) / 2;
-            width: 16px;
-            height: 16px;
-            border-radius: Theme.radius-small;
-            border-width: root.checked ? 0 : 1.5px;
-            border-color: Theme.option-border;
-            background: root.checked ? Theme.success-strong : Theme.panel-bg;
-            if root.checked: Image {
-                width: 12px;
-                height: 12px;
-                source: @image-url("../icons/check.svg");
-                colorize: Theme.on-success;
-            }
-        }
-        Text {
-            text: root.text;
-            font-size: Theme.fs-label;
-            color: Theme.text;
-            vertical-alignment: center;
-        }
-    }
-    TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.checked = !root.checked;
-            root.toggled();
-        }
     }
 }
 
@@ -252,7 +214,7 @@ export component OptionsPanel inherits VerticalLayout {
         : root.tool == "remove_pages" || root.tool == "extract_pages" ? root.pages != ""
         : root.tool == "split" ? (root.split-mode == 0 ? root.ranges != "" && root.split-files >= 0 : root.every >= 1)
         : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == "")) && Parse.colour-error(root.num-hex) == ""
-        : root.tool == "watermark" ? (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "" && Parse.colour-error(root.wm-hex) == "")
+        : root.tool == "watermark" ? (root.wm-remove || (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "" && Parse.colour-error(root.wm-hex) == ""))
         : root.tool == "ocr" ? OcrInfo.available && root.ocr-languages != ","
         : root.tool == "pdf_to_word" || root.tool == "pdf_to_powerpoint" || root.tool == "pdf_to_excel" ? !root.export-ocr || OcrInfo.available
         : root.tool == "crop" ? (root.crop-mode == 2 || ((root.crop-mode == 0 || root.pages != "")
@@ -270,7 +232,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
         pages: root.pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file,
-        degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png,
+        degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
         num-position: root.num-position, num-double: root.num-double, num-cover: root.num-cover,
@@ -281,7 +243,7 @@ export component OptionsPanel inherits VerticalLayout {
         wm-image-mode: root.wm-image-mode, wm-text: root.wm-text, wm-font-size: root.wm-font-size,
         wm-color: root.wm-color, wm-image: root.wm-image, wm-scale: root.wm-scale, wm-position: root.wm-position,
         wm-mosaic: root.wm-mosaic, wm-transparency: root.wm-transparency, wm-rotation: root.wm-rotation,
-        wm-below: root.wm-below,
+        wm-below: root.wm-below, wm-replace: root.wm-replace, wm-remove: root.wm-remove,
         crop-mode: root.crop-mode, crop-top: root.crop-top, crop-bottom: root.crop-bottom,
         crop-left: root.crop-left, crop-right: root.crop-right,
         pdfa-level: root.pdfa-level,
@@ -331,6 +293,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> margin: 0;
     in-out property <int> quality: 0;
     in-out property <bool> png;
+    in-out property <bool> extract-images;
     in-out property <string> out-name;
     in-out property <string> from-page;
     in-out property <string> to-page;
@@ -364,6 +327,8 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> wm-transparency: 0;
     in-out property <int> wm-rotation: 0;
     in-out property <bool> wm-below;
+    in-out property <bool> wm-replace;
+    in-out property <bool> wm-remove;
     in-out property <int> crop-mode: 0;
     in-out property <string> crop-top: "10";
     in-out property <string> crop-bottom: "10";
@@ -576,23 +541,32 @@ export component OptionsPanel inherits VerticalLayout {
 
     if root.tool == "pdf_to_jpg": VerticalLayout {
         spacing: 10px;
-        RadioCard {
-            title: "Normal quality";
-            description: "150 dpi, smaller images";
-            selected: root.quality == 0;
-            clicked => { root.quality = 0; }
+        HorizontalLayout {
+            spacing: 8px;
+            Segment { text: "Page to image"; selected: !root.extract-images; clicked => { root.extract-images = false; } }
+            Segment { text: "Extract images"; selected: root.extract-images; clicked => { root.extract-images = true; } }
         }
-        RadioCard {
-            title: "High quality";
-            description: "300 dpi, for print";
-            selected: root.quality == 1;
-            clicked => { root.quality = 1; }
-        }
-        RadioCard {
-            title: "Very high quality";
-            description: "600 dpi, for enlargements";
-            selected: root.quality == 2;
-            clicked => { root.quality = 2; }
+        if root.extract-images: InfoBox { text: "Every picture placed in the pages is saved as stored, each once."; }
+        if !root.extract-images: VerticalLayout {
+            spacing: 10px;
+            RadioCard {
+                title: "Normal quality";
+                description: "150 dpi, smaller images";
+                selected: root.quality == 0;
+                clicked => { root.quality = 0; }
+            }
+            RadioCard {
+                title: "High quality";
+                description: "300 dpi, for print";
+                selected: root.quality == 1;
+                clicked => { root.quality = 1; }
+            }
+            RadioCard {
+                title: "Very high quality";
+                description: "600 dpi, for enlargements";
+                selected: root.quality == 2;
+                clicked => { root.quality = 2; }
+            }
         }
         SectionLabel { text: "Format"; }
         HorizontalLayout {
@@ -653,80 +627,88 @@ export component OptionsPanel inherits VerticalLayout {
         spacing: 10px;
         HorizontalLayout {
             spacing: 8px;
-            Segment { text: "Place Text"; selected: !root.wm-image-mode; clicked => { root.wm-image-mode = false; } }
-            Segment { text: "Place Image"; selected: root.wm-image-mode; clicked => { root.wm-image-mode = true; } }
+            Segment { text: "Place Text"; selected: !root.wm-remove && !root.wm-image-mode; clicked => { root.wm-image-mode = false; root.wm-remove = false; } }
+            Segment { text: "Place Image"; selected: !root.wm-remove && root.wm-image-mode; clicked => { root.wm-image-mode = true; root.wm-remove = false; } }
+            Segment { text: "Remove"; selected: root.wm-remove; clicked => { root.wm-remove = true; } }
         }
-        if !root.wm-image-mode: VerticalLayout {
+        if root.wm-remove: InfoBox {
+            text: "Takes out the watermarks Sheaf, Acrobat and other PDF editors placed. The page's own text and images stay.";
+        }
+        if !root.wm-remove: VerticalLayout {
             spacing: 10px;
-            TextField { label: "Text"; placeholder: "CONFIDENTIAL"; text <=> root.wm-text; }
-            FontRow {
-                family <=> root.wm-family; bold <=> root.wm-bold; italic <=> root.wm-italic; underline <=> root.wm-underline;
-                size <=> root.wm-font-size; size-placeholder: "Size: 48";
+            if !root.wm-image-mode: VerticalLayout {
+                spacing: 10px;
+                TextField { label: "Text"; placeholder: "CONFIDENTIAL"; text <=> root.wm-text; }
+                FontRow {
+                    family <=> root.wm-family; bold <=> root.wm-bold; italic <=> root.wm-italic; underline <=> root.wm-underline;
+                    size <=> root.wm-font-size; size-placeholder: "Size: 48";
+                }
+                ColourRow { colour <=> root.wm-color; hex <=> root.wm-hex; }
             }
-            ColourRow { colour <=> root.wm-color; hex <=> root.wm-hex; }
-        }
-        if root.wm-image-mode: VerticalLayout {
-            spacing: 10px;
-            Segment {
-                text: root.wm-image == "" ? "Choose an image…" : "Change image…";
-                clicked => {
-                    Picked.pick-watermark(root.tab-id);
+            if root.wm-image-mode: VerticalLayout {
+                spacing: 10px;
+                Segment {
+                    text: root.wm-image == "" ? "Choose an image…" : "Change image…";
+                    clicked => {
+                        Picked.pick-watermark(root.tab-id);
+                    }
+                }
+                if root.wm-image != "": Text {
+                    text: root.wm-image;
+                    font-size: Theme.fs-caption;
+                    color: Theme.text-muted;
+                    overflow: elide;
+                }
+                SectionLabel { text: "Size"; }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Segment { text: "25%"; selected: root.wm-scale == 25; clicked => { root.wm-scale = 25; } }
+                    Segment { text: "50%"; selected: root.wm-scale == 50; clicked => { root.wm-scale = 50; } }
+                    Segment { text: "75%"; selected: root.wm-scale == 75; clicked => { root.wm-scale = 75; } }
+                    Segment { text: "100%"; selected: root.wm-scale == 100; clicked => { root.wm-scale = 100; } }
                 }
             }
-            if root.wm-image != "": Text {
-                text: root.wm-image;
-                font-size: Theme.fs-caption;
-                color: Theme.text-muted;
-                overflow: elide;
+            HorizontalLayout {
+                spacing: 14px;
+                VerticalLayout {
+                    spacing: 6px;
+                    SectionLabel { text: "Position"; }
+                    PositionGrid { selected <=> root.wm-position; enabled: !root.wm-mosaic; }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    alignment: start;
+                    SectionLabel { text: "Layer"; }
+                    Segment { text: "Over the content"; selected: !root.wm-below; clicked => { root.wm-below = false; } }
+                    Segment { text: "Below the content"; selected: root.wm-below; clicked => { root.wm-below = true; } }
+                    Check { text: "Mosaic"; checked <=> root.wm-mosaic; }
+                }
             }
-            SectionLabel { text: "Size"; }
+            SectionLabel { text: "Transparency"; }
             HorizontalLayout {
                 spacing: 6px;
-                Segment { text: "25%"; selected: root.wm-scale == 25; clicked => { root.wm-scale = 25; } }
-                Segment { text: "50%"; selected: root.wm-scale == 50; clicked => { root.wm-scale = 50; } }
-                Segment { text: "75%"; selected: root.wm-scale == 75; clicked => { root.wm-scale = 75; } }
-                Segment { text: "100%"; selected: root.wm-scale == 100; clicked => { root.wm-scale = 100; } }
+                Segment { text: "No"; selected: root.wm-transparency == 0; clicked => { root.wm-transparency = 0; } }
+                Segment { text: "25%"; selected: root.wm-transparency == 1; clicked => { root.wm-transparency = 1; } }
+                Segment { text: "50%"; selected: root.wm-transparency == 2; clicked => { root.wm-transparency = 2; } }
+                Segment { text: "75%"; selected: root.wm-transparency == 3; clicked => { root.wm-transparency = 3; } }
             }
-        }
-        HorizontalLayout {
-            spacing: 14px;
-            VerticalLayout {
+            SectionLabel { text: "Rotate"; }
+            HorizontalLayout {
                 spacing: 6px;
-                SectionLabel { text: "Position"; }
-                PositionGrid { selected <=> root.wm-position; enabled: !root.wm-mosaic; }
+                Segment { text: "None"; selected: root.wm-rotation == 0; clicked => { root.wm-rotation = 0; } }
+                Segment { text: "45°"; selected: root.wm-rotation == 1; clicked => { root.wm-rotation = 1; } }
+                Segment { text: "90°"; selected: root.wm-rotation == 2; clicked => { root.wm-rotation = 2; } }
             }
-            VerticalLayout {
+            HorizontalLayout {
                 spacing: 6px;
-                alignment: start;
-                SectionLabel { text: "Layer"; }
-                Segment { text: "Over the content"; selected: !root.wm-below; clicked => { root.wm-below = false; } }
-                Segment { text: "Below the content"; selected: root.wm-below; clicked => { root.wm-below = true; } }
-                Check { text: "Mosaic"; checked <=> root.wm-mosaic; }
+                Segment { text: "180°"; selected: root.wm-rotation == 3; clicked => { root.wm-rotation = 3; } }
+                Segment { text: "270°"; selected: root.wm-rotation == 4; clicked => { root.wm-rotation = 4; } }
+                Segment { text: "−45°"; selected: root.wm-rotation == 5; clicked => { root.wm-rotation = 5; } }
             }
+            if root.file-count <= 1: PageRange { from <=> root.from-page; to <=> root.to-page; }
+            if root.file-count > 1: InfoBox { text: "All pages will be stamped because multiple PDFs have been selected."; }
+            Check { text: "Replace the watermarks already there"; checked <=> root.wm-replace; }
         }
-        SectionLabel { text: "Transparency"; }
-        HorizontalLayout {
-            spacing: 6px;
-            Segment { text: "No"; selected: root.wm-transparency == 0; clicked => { root.wm-transparency = 0; } }
-            Segment { text: "25%"; selected: root.wm-transparency == 1; clicked => { root.wm-transparency = 1; } }
-            Segment { text: "50%"; selected: root.wm-transparency == 2; clicked => { root.wm-transparency = 2; } }
-            Segment { text: "75%"; selected: root.wm-transparency == 3; clicked => { root.wm-transparency = 3; } }
-        }
-        SectionLabel { text: "Rotate"; }
-        HorizontalLayout {
-            spacing: 6px;
-            Segment { text: "None"; selected: root.wm-rotation == 0; clicked => { root.wm-rotation = 0; } }
-            Segment { text: "45°"; selected: root.wm-rotation == 1; clicked => { root.wm-rotation = 1; } }
-            Segment { text: "90°"; selected: root.wm-rotation == 2; clicked => { root.wm-rotation = 2; } }
-        }
-        HorizontalLayout {
-            spacing: 6px;
-            Segment { text: "180°"; selected: root.wm-rotation == 3; clicked => { root.wm-rotation = 3; } }
-            Segment { text: "270°"; selected: root.wm-rotation == 4; clicked => { root.wm-rotation = 4; } }
-            Segment { text: "−45°"; selected: root.wm-rotation == 5; clicked => { root.wm-rotation = 5; } }
-        }
-        if root.file-count <= 1: PageRange { from <=> root.from-page; to <=> root.to-page; }
-        if root.file-count > 1: InfoBox { text: "All pages will be stamped because multiple PDFs have been selected."; }
     }
 
     if root.tool == "crop": VerticalLayout {
@@ -911,6 +893,23 @@ export component OptionsPanel inherits VerticalLayout {
     if !root.office-missing && (root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf"
             || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): InfoBox {
         text: "Converted with LibreOffice on this computer. Nothing is uploaded.";
+    }
+    // Every tool runs here, offline (iLovePDF Desktop's offline tools): said at the foot of the
+    // options; Office conversion says it above, with LibreOffice.
+    if !(root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf" || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): HorizontalLayout {
+        spacing: 6px;
+        Image {
+            y: (parent.height - self.height) / 2;
+            width: 12px;
+            height: 12px;
+            source: @image-url("../icons/lock.svg");
+            colorize: Theme.text-muted;
+        }
+        Text {
+            text: "Runs on this computer. Nothing is uploaded.";
+            font-size: Theme.fs-caption;
+            color: Theme.text-muted;
+        }
     }
 
     if root.office-missing: VerticalLayout {

@@ -127,6 +127,7 @@ pub fn file_size(p: &Path) -> u64 {
 }
 
 /// RGBA pixels of a thumbnail.
+#[derive(Debug, Clone, Default)]
 pub struct Thumb {
     pub width: u32,
     pub height: u32,
@@ -242,13 +243,20 @@ pub fn probe_pdf(input: &Input, width: i32) -> Result<(u32, Thumb)> {
     probe_pdf_full(input, width).map(|p| (p.pages, p.thumb))
 }
 
-/// [`probe_pdf`], and whether the file is password-protected (user or owner password).
-/// What a PDF's probe finds: its page count, page 1's thumbnail, whether it is password-protected,
-/// and whether it looks scanned (its first pages carry next to no text: PDF to Office needs OCR).
+/// Page `page` (0-based) of `input` rendered `width` pixels wide.
+pub fn page_thumb(input: &Input, page: usize, width: i32) -> Result<Thumb> {
+    let _g = sheaf_core::engine::pdfium_lock();
+    let doc = input.open()?;
+    let p = doc.pages().get(page as i32).map_err(|e| OpdfError::Unsupported(format!("page {}: {e}", page + 1)))?;
+    let bmp = p.render_with_config(&pdfium_render::prelude::PdfRenderConfig::new().set_target_width(width))?;
+    Ok(Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() })
+}
+
+/// What a PDF's probe finds: its page count, page 1's thumbnail, and whether it looks scanned
+/// (its first pages carry next to no text: PDF to Office needs OCR).
 pub struct Probe {
     pub pages: u32,
     pub thumb: Thumb,
-    pub protected: bool,
     pub scanned: bool,
 }
 
@@ -258,14 +266,13 @@ const SCANNED_CHARS: usize = 20;
 pub fn probe_pdf_full(input: &Input, width: i32) -> Result<Probe> {
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = input.open()?;
-    let protected = sheaf_core::engine::is_protected(&doc);
     let pages = doc.pages().len() as u32;
     let page = doc.pages().first().map_err(|e| OpdfError::Unsupported(format!("no pages: {e}")))?;
     let bmp = page.render_with_config(
         &pdfium_render::prelude::PdfRenderConfig::new().set_target_width(width),
     )?;
     let scanned = doc.pages().iter().take(3).all(|p| p.text().map(|t| t.all().chars().filter(|c| !c.is_whitespace()).count()).unwrap_or(0) < SCANNED_CHARS);
-    Ok(Probe { pages, thumb: Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }, protected, scanned })
+    Ok(Probe { pages, thumb: Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }, scanned })
 }
 
 /// Why `name` cannot be opened, in one short line, the same in the reader and the tools: a file
@@ -279,15 +286,6 @@ pub fn open_error(name: &str, e: &OpdfError) -> String {
     }
 }
 
-/// Sign never asks for a password: a signature must not silently remove protection, so a
-/// protected file is refused as soon as it is added.
-pub const SIGN_PROTECTED: &str = "Unlock the PDF first, then sign it";
-
-/// Whether `tool` refuses a password-protected file at once (no password dialog).
-pub fn refuses_protected(tool: ToolId) -> bool {
-    tool == ToolId::Sign
-}
-
 /// What to do with a PDF whose probe (page count + thumbnail) failed.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ProbeFailure {
@@ -299,14 +297,11 @@ pub enum ProbeFailure {
     KeepUnpreviewed,
     /// Toast the error and drop the file: the tool cannot use a PDF pdfium refuses.
     Remove,
-    /// Toast [`SIGN_PROTECTED`] and drop the file: the tool does not take protected files.
-    RefuseProtected,
 }
 
 /// Routes a failed probe. `panicked`: the probe crashed rather than returning `err`.
 pub fn probe_failure(tool: ToolId, err: &OpdfError, panicked: bool) -> ProbeFailure {
     match err {
-        OpdfError::PasswordRequired(_) | OpdfError::WrongPassword(_) if refuses_protected(tool) => ProbeFailure::RefuseProtected,
         OpdfError::PasswordRequired(_) => ProbeFailure::AskPassword { wrong: false },
         OpdfError::WrongPassword(_) => ProbeFailure::AskPassword { wrong: true },
         _ if tool == ToolId::Repair => ProbeFailure::KeepForRepair,
@@ -442,30 +437,21 @@ mod tests {
             assert_eq!(probe_failure(t, &OpdfError::PasswordRequired(p()), false), ProbeFailure::AskPassword { wrong: false });
             assert_eq!(probe_failure(t, &OpdfError::WrongPassword(p()), false), ProbeFailure::AskPassword { wrong: true });
         }
-        // Sign refuses a protected file outright: no password dialog.
-        assert_eq!(probe_failure(ToolId::Sign, &OpdfError::PasswordRequired(p()), false), ProbeFailure::RefuseProtected);
-        assert_eq!(probe_failure(ToolId::Sign, &OpdfError::WrongPassword(p()), false), ProbeFailure::RefuseProtected);
+        // Sign asks for the password too: the signed file keeps its protection.
+        assert_eq!(probe_failure(ToolId::Sign, &OpdfError::PasswordRequired(p()), false), ProbeFailure::AskPassword { wrong: false });
         assert_eq!(probe_failure(ToolId::Sign, &bad(), false), ProbeFailure::Remove);
     }
 
     #[test]
-    fn a_file_with_only_an_owner_password_is_seen_as_protected() {
+    fn a_page_that_is_only_a_picture_is_seen_as_scanned() {
         let t = tempfile::tempdir().unwrap();
         let png = t.path().join("x.png");
         image::RgbImage::from_pixel(8, 8, image::Rgb([0, 0, 0])).save(&png).unwrap();
         let a = sheaf_core::images::images_to_pdf(&[png], sheaf_core::images::PageLayout::FitImage, &t.path().join("a.pdf")).unwrap();
-        let probe = probe_pdf_full(&Input::new(&a), 40).unwrap();
-        assert!(!probe.protected);
         // A page that is only a picture is a scan; the invoice has its text.
-        assert!(probe.scanned);
+        assert!(probe_pdf_full(&Input::new(&a), 40).unwrap().scanned);
         let invoice = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../sheaf-core/tests/fixtures/invoice.pdf");
         assert!(!probe_pdf_full(&Input::new(&invoice), 40).unwrap().scanned);
-        // Opens without a password (no dialog would be shown), yet is protected.
-        let p = t.path().join("p.pdf");
-        let st = std::process::Command::new("qpdf").args(["--encrypt", "", "owner", "256", "--"]).arg(&a).arg(&p).status().unwrap();
-        assert!(st.success());
-        assert!(probe_pdf_full(&Input::new(&p), 40).unwrap().protected);
-        assert!(refuses_protected(ToolId::Sign) && !refuses_protected(ToolId::Edit));
     }
 
     #[test]
