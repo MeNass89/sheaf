@@ -32,7 +32,7 @@ Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next
 ## What exists now (branch `dev/phase-4-5`, pushed)
 
 - **F-001** every file dialog async and attached to the window (`src/dialog.rs`); the Mac click is still to prove.
-- **F-002 reader** (`src/reader_ui/`, `src/reader_doc.rs`, `src/reader.rs`, `ui/screens/reader*.slint`): document
+- **F-002 reader** (`src/reader_ui/`, `src/reader_doc/`, `src/reader.rs`, `ui/screens/reader*.slint`): document
   tabs; outline, thumbnails, notes (author, date; hide all, summary, remove all), search (parallel, texts kept);
   highlight/underline/strike, note, pen, eraser, text box (size), shapes (rectangle, oval, line, arrow; fill,
   opacity), stamps (dated too), signature (place, resize), edit text and images, forms; undo/redo; ⌘S and Save As

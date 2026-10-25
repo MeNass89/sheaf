@@ -56,7 +56,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | `flow.rs`, `run.rs`, `jobs.rs`, `dest.rs`, `files.rs`, `pool.rs` | A tool tab: adding files, options → job, running off the UI thread, where outputs go. |
 | `home.rs`, `history.rs`, `prefs.rs`, `store_file.rs` | Recents, task history, preferences, their JSON files. |
 | `reader_ui/` | The reader (a PDF open in its own tab): `mod.rs` state and opening; `pointer`, `edits`, `forms`, `sign`, `pages`, `search`, `nav`, `tools`, `saving`, `print_sheet`, `properties`; `model.rs` pushes the state to Slint. |
-| `reader_doc.rs` | The reader's document on its own thread: edits (`Op`) in, snapshots (`Reply`) out, saving. |
+| `reader_doc/` | The reader's document on its own thread: edits (`Op`) in, snapshots (`Reply`) out, saving (`mod.rs`); its tests in `tests.rs`. |
 | `reader.rs` | Reader logic without UI types: themes, text selection, outline. |
 | `print.rs` | Printing through CUPS `lp`: printers, page ranges, `lp` options. |
 | `viewer/` (`mod.rs` layout, zoom, view ↔ PDF mapping; `renders.rs` caches, render queue, drawing a page), `viewer_ui.rs` | Page layout, zoom and rendering shared by the reader and the Redact/Sign/Edit panels. |
@@ -70,10 +70,10 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 |---|---|
 | A new tool | engine in `sheaf-core/src/<tool>.rs` + `tools.rs`; options in `sheaf-app/ui/screens/options.slint` and `run.rs`; a CLI subcommand in `sheaf-cli/src/args.rs` (arguments) and `main.rs` (dispatch) |
 | A reader tool, shortcut or panel | `ui/screens/reader.slint` (composition, pages, keys), `reader-toolbar.slint` (top bar: tools, page field, zoom, search, More menu), `reader-options.slint` (the tool's options bar over the pages), `reader-sheets.slint` (signature pad, print, properties), `reader-panel.slint` (side panel), `reader-parts.slint` (small controls) + `src/reader_ui/<part>.rs` (behaviour); state fields in `ui/flow-types.slint` (`ReaderState`, `ReaderBridge`) |
-| An edit to the open document | `Op` in `reader_doc.rs`, sent from `reader_ui/edits.rs` |
+| An edit to the open document | `Op` in `reader_doc/mod.rs`, sent from `reader_ui/edits.rs` |
 | Colours, sizes, fonts | `ui/theme.slint` |
 | A preference | `prefs.rs` + `ui/screens/preferences.slint` |
-| A test | a layer already exists for it in `scripts/test.sh`: unit tests next to the code or in `crates/*/tests/`, GUI checks in `dev/scripts/gui-smoke.sh` |
+| A test | a layer already exists for it in `scripts/test.sh`: unit tests next to the code or in `crates/*/tests/`, GUI checks in `dev/scripts/smoke/*.sh` (the steps, in order; `dev/scripts/gui-smoke.sh` holds the setup and helpers and runs them) |
 | PDF to Word quality | `dev/scripts/word-corpus.py`: Word originals → PDF → Sheaf's export, measured against the original (words in order, tables, no text boxes, pages); not in the suite (needs LibreOffice and python-docx) |
 
 ## Vocabulary
