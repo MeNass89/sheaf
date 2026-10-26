@@ -10,13 +10,13 @@ const INHERITED: [&[u8]; 7] = [b"FT", b"Ff", b"V", b"DV", b"DA", b"Q", b"Opt"];
 /// A widget's own keys (the field's are taken whole).
 const WIDGET_KEYS: [&[u8]; 9] = [b"Type", b"Subtype", b"AP", b"AS", b"MK", b"F", b"BS", b"Border", b"H"];
 
-/// `rows` × `cols` copies of field `name`, the original in the top-left cell, each cell the
-/// size of its first widget; copy (r, c) is named `name_r_c` (1-based; a free name if that one
+/// `rows` × `cols` copies of field `name`, its widget `widget` in the top-left cell, each cell the
+/// size of that widget, on its page; copy (r, c) is named `name_r_c` (1-based; a free name if that one
 /// is taken). Returns the new names.
-pub fn copy_field(doc: &mut Document, name: &str, rows: usize, cols: usize) -> Result<Vec<String>, FormError> {
+pub fn copy_field(doc: &mut Document, name: &str, widget: usize, rows: usize, cols: usize) -> Result<Vec<String>, FormError> {
     let all = pdfcraft_forms::fields(doc);
     let f = all.iter().find(|f| f.name == name).ok_or_else(|| FormError::NoSuchField(name.into()))?;
-    let w = f.widgets.first().ok_or_else(|| FormError::Invalid(format!("{name} has no widget")))?;
+    let w = f.widgets.get(widget).or(f.widgets.first()).ok_or_else(|| FormError::Invalid(format!("{name} has no widget")))?;
     let page = w.page.ok_or_else(|| FormError::Invalid(format!("{name} is on no page")))?;
     let pages = pdfcraft_annot::page_refs(doc).map_err(|e| FormError::Invalid(e.to_string()))?;
     let page_ref = *pages.get(page).ok_or_else(|| FormError::Invalid(format!("page {} does not exist", page + 1)))?;

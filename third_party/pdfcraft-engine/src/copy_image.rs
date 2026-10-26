@@ -79,7 +79,7 @@ impl Document {
             if nm.is_empty() { same_rect(d) } else { named.as_deref() == Some(nm) }
         })?;
         let ap = stamp.get(b"AP").map(|a| cos.resolve(a))?.as_dict()?.get(b"N")?.as_ref()?;
-        if drawing(cos, ap) != (1, false) {
+        if drawing(cos, ap) != (1, false, false) {
             return None;
         }
         let picture = picture_in_form(cos, ap)?;
@@ -103,8 +103,9 @@ impl Document {
         };
         let stamp = annots.into_iter().find(|a| out.resolve(a).as_dict().is_some_and(is_it))?;
         let ap = out.resolve(&stamp).as_dict()?.get(b"AP").map(|a| out.resolve(a))?.as_dict()?.get(b"N")?.as_ref()?;
+        // A lone picture, or text alone (XFDF redraws it): not here.
         match drawing(&out, ap) {
-            (1, false) | (0, true) => return None,
+            (1, false, false) | (0, true, false) => return None,
             _ => {}
         }
         let r = rect.iter().map(|v| Object::Real(*v)).collect::<Vec<_>>();
@@ -143,11 +144,17 @@ impl Document {
     }
 }
 
-/// What Form `form` draws, nested Forms included: (raster images, whether it shows text).
-fn drawing(cos: &Cos, form: ObjRef) -> (usize, bool) {
-    fn walk(cos: &Cos, form: ObjRef, depth: usize, seen: &mut HashSet<ObjRef>, acc: &mut (usize, bool)) {
+/// What Form `form` draws, nested Forms included: (raster images, whether it shows text, whether
+/// it paints paths: Sol, 26/10, a picture with a drawing was taken for the picture alone).
+fn drawing(cos: &Cos, form: ObjRef) -> (usize, bool, bool) {
+    fn walk(cos: &Cos, form: ObjRef, depth: usize, seen: &mut HashSet<ObjRef>, acc: &mut (usize, bool, bool)) {
         if depth > MAX_FORM_DEPTH || !seen.insert(form) {
             return;
+        }
+        if let Object::Stream(s) = &*cos.get(form)
+            && let Ok(data) = s.decoded()
+        {
+            acc.2 |= paints_paths(&data);
         }
         let Some(res) = resources(cos, form) else { return };
         acc.1 |= res.get(b"Font").map(|f| cos.resolve(f)).and_then(|f| f.as_dict().map(|d| !d.is_empty())).unwrap_or(false);
@@ -165,7 +172,7 @@ fn drawing(cos: &Cos, form: ObjRef) -> (usize, bool) {
             }
         }
     }
-    let mut acc = (0, false);
+    let mut acc = (0, false, false);
     walk(cos, form, 0, &mut HashSet::new(), &mut acc);
     acc
 }
@@ -215,3 +222,28 @@ fn collect(cos: &Cos, res: &Dict, depth: usize, seen: &mut HashSet<ObjRef>, best
         }
     }
 }
+
+/// Whether content paints a path (fills or strokes), outside text and inline images.
+pub fn paints_paths(content: &[u8]) -> bool {
+    let mut in_text = false;
+    let text = String::from_utf8_lossy(content);
+    let mut words = text.split(|c: char| c.is_ascii_whitespace() || "[]()<>/".contains(c)).filter(|w| !w.is_empty());
+    while let Some(w) = words.next() {
+        match w {
+            "BT" => in_text = true,
+            "ET" => in_text = false,
+            // An inline image's data is skipped to its end.
+            "ID" => {
+                for w in words.by_ref() {
+                    if w == "EI" {
+                        break;
+                    }
+                }
+            }
+            "f" | "F" | "f*" | "S" | "s" | "B" | "B*" | "b" | "b*" if !in_text => return true,
+            _ => {}
+        }
+    }
+    false
+}
+

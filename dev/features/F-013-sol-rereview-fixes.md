@@ -708,3 +708,116 @@ unbound variable). Run at last, they found real defects as well as their own:
   (C-optimize-007), signatures in the system keychain (C-sign-009), a camera signature (C-sign-004),
   OCR speed (C-optimize-006), Shortcuts/AppleScript (C-platform-007), Office without LibreOffice
   (C-convert-002); a real macOS trackpad check (C-reader-010) needs the Mac.
+
+### Round 23 (26/10)
+
+- C-edit-004: text added on the page underlined (U) and as a bulleted list (•), Acrobat's format
+  panel (PdfCraft patch: `AddedText::underline`, drawn and kept in `/PCAdded`). Tests
+  `text_added_underlined_is_drawn_with_a_line_under_it_and_reads_back`,
+  `lines_become_a_bulleted_list_once`.
+- C-convert-011: PDF to PowerPoint keeps the page's layout: each paragraph, picture and table where the
+  page has it, on a slide the page's size (PdfCraft patch, `pptx.rs`; test
+  `pptx_items_keep_their_place_on_the_page`).
+- C-organize-001: pages dragged in the page grid, before or after the page they are dropped on (the
+  selection with them), one undo step. Smoke 104.
+- C-edit-029: More ▸ More tools ▸ Remove all images (PdfCraft patch `Edit::RemoveImages`). Smoke 105.
+- C-reader-042: More ▸ More tools ▸ Reflow: the page in view's text on the window's width, its lines
+  joined into paragraphs, A− A+ (`reader::reflow_text`, tested). Smoke 106.
+- C-forms-004: Auto-Complete: what is typed in form text fields is remembered (200 entries) and
+  offered under a field as it is typed; a click fills it (`reader::completions`, tested). Smoke 107.
+- C-convert-016: PDF to HTML or text ▸ Ebook: an EPUB 3 that reflows, a chapter per page, its
+  headings, tables and pictures (PdfCraft patch `pdfcraft_export::epub`, `OfficeFormat::Epub`; test
+  `epub_is_a_package_with_a_chapter_per_page`).
+- C-reader-037: the search panel's In a folder… (Acrobat's Advanced Search in a folder): the words
+  searched in the folder's PDFs (and its folders'), the pages listed with a line each, a click opens
+  the file at its page (`reader_ui/folder_search.rs`; test `a_folders_pdfs_are_searched_page_by_page`).
+- C-optimize-005: Compress ▸ Advanced settings (Acrobat's PDF Optimizer): the images' largest
+  resolution and JPEG quality chosen; page thumbnails, structure tags, document information and
+  metadata taken out (`compress::Advanced`; test `advanced_settings_take_out_what_was_asked`).
+- C-annotate-028 (part): with the grid shown, a comment dragged lands its top-left corner on a grid
+  crossing (Acrobat's Snap to Grid; fields already did).
+- C-reader-029: a Layers tab in the side panel when the document has layers (Acrobat's Layers pane):
+  a click shows or hides one on screen, Show all, Hide all, Reset to the file's own choice; a
+  document asking to open on its layers opens there. Pages are drawn from a copy whose default
+  configuration hides them (`sheaf_core::layers::shown`, one incremental update, made off the UI
+  thread); the file, its saves and prints are unchanged. Test
+  `layers::tests::hidden_layers_are_left_out_of_the_pages_drawn_and_the_file_is_kept`, smoke 108.
+- C-sign-018: Document properties ▸ Clear signature beside each signature (Acrobat's Clear
+  Signature, needed before signing again): the field stays, unsigned, its widgets drawn empty, a
+  certification it made withdrawn; one undo step, saved as an update so the signatures before stay
+  valid (PdfCraft patch `Edit::ClearSignature`, `clear_signature.rs`). Test
+  `a_cleared_signature_leaves_its_field_unsigned_and_its_certification_gone`.
+- C-optimize-013: Compress ▸ Convert to grayscale (Stirling's compress option, Acrobat's Convert
+  Colors to Gray): colours set in pages, forms and appearances (rg, RG, k, K; sc/scn in RGB, CMYK
+  and ICC spaces) written as the grey of their lightness, RGB and CMYK pictures stored again in
+  DeviceGray, gradients (exponential or stitched shadings) run between greys; text and drawings
+  stay vector (`sheaf_core::grayscale`). Sampled gradients, spot and indexed colours are left. Tests `grayscale::tests::*`,
+  `grayscale_makes_drawings_and_pictures_grey_and_keeps_the_text`.
+- C-edit-009: Edit tool, several objects picked: a card in the view's corner ▸ Align left, centre,
+  right, top, middle, bottom (on the selection's outer edge or middle, Acrobat's Align Objects) and
+  Space evenly across or down (Distribute); each one undo step (PdfCraft patch
+  `Edit::ArrangeObjects`, `arrange_objects.rs`: each object found again by kind and place before
+  its own move). Test `objects_line_up_each_by_its_own_move_in_one_step`.
+- C-reader-059: a text selection's bar ▸ Look up (its last button) (PDF Expert's, Preview's): the words in Dictionary
+  on macOS (`dict://`), GoldenDict on Linux when installed; else, and on Windows (no dictionary app),
+  Wiktionary in the browser, said. Test `look_up::tests::words_are_asked_of_the_dictionary_on_one_line`.
+  not automatable: the dictionary window opening — an outside app, none under Xvfb.
+- C-preferences-005: Preferences ▸ Rendering ▸ Smooth text, Smooth line art, Smooth images
+  (Acrobat's Page Display ▸ Rendering), kept; every open document drawn again at once
+  (`viewer::PageLook`, pdfium's smoothing flags). Test
+  `renders::tests::pages_drawn_without_smoothing_have_hard_edges`.
+- C-organize-026: a thumbnail's menu ▸ Transitions… (Acrobat's Page Transitions, in its thumbnail menu): the selected pages (or
+  the one shown) come in with an effect (Fade, Dissolve, Wipe, Push, Cover, Uncover, Split, Blinds,
+  Box, Glitter, Fly, or none) and, with seconds typed, turn to the next by themselves in Sheaf's
+  full screen (PdfCraft patch `Edit::SetTransition`, `transitions.rs`, `Document::page_durations`).
+  Test `a_page_transition_and_its_time_are_written_and_taken_back`. Sheaf's full screen turns the
+  page at once (the effect is shown by Acrobat and other readers).
+- C-output-008: the print sheet ▸ Layout: 1, 2, 4, 6, 9 or 16 pages per sheet (Preview's; CUPS
+  `number-up`) or Booklet (Acrobat's: pages imposed in folding order, both sides flipped on the
+  short edge); Print in colour or grey (`print-color-mode=monochrome`), with or without comments
+  (fields and links kept). Tests `print::tests::lp_gets_every_option`,
+  `printing_without_comments_keeps_fields_and_links`.
+- C-convert-007: HTML to PDF (and Merge) take Markdown (headings, lists, tables, quotes, code,
+  bold, italic, links), e-mails (`.eml`: sender, recipients, date and subject above the message,
+  its HTML part over its plain one, encoded headers and bodies read, its attachments attached to the
+  PDF; Stirling's Email to PDF) and PostScript (Ghostscript's `ps2pdf`, macOS's `pstopdf`)
+  (`sheaf_core::textdocs`). Tests `textdocs::tests::*`, `tests/office.rs`
+  `a_markdown_file_a_mail_and_postscript_become_pdfs`.
+- C-files-018: covered by Home ▸ From scanner and From screenshot (round 22, C-convert-006: Preview's
+  Import from Scanner). Left for Nassim's decision: iLovePDF's phone scan through a QR code needs a
+  relay server (network and an account).
+- C-platform-004 (part): More ▸ More tools ▸ Accessibility check (Acrobat's Full Check, PdfCraft's
+  32 rules): failed rules first, each with its first findings (page and sentence), those to check by
+  hand, those passed; Fix on the rules with a fix (title, language from the system's, tab order,
+  tags from the text, bookmarks from the headings), the check run again after; Save report… as
+  Acrobat's HTML report (`reader_ui/accessibility.rs`). Test
+  `accessibility::tests::failed_rules_come_first_with_where_and_why`, smoke 109. Left: a
+  right-to-left interface.
+- C-edit-028: Tools ▸ Adjust colours (Stirling's Adjust Colours/Contrast, Preview's Adjust Color):
+  brightness, contrast and saturation from −100 to 100, or inverted (light on dark, the paper
+  painted in what white becomes); colours set in pages, forms and appearances and the grey and RGB
+  pictures changed, text and drawings still vector (`sheaf_core::adjust`). Tests
+  `adjust::tests::*`, `tests/adjust.rs`. Gradients, spot colours and CMYK pictures are left.
+- Sol's b27a–d gaps (round 22's review): a text box in a subset font of the file's keeps it when its
+  glyphs hold the text (C-annotate-009, C-annotate-022; test with `ABCDEF+Arial`); a stamp of a picture
+  with a drawing is copied whole (C-annotate-026, `copy_image::paints_paths`); a second quarter turn
+  is drawn from the stamp's dictionary, not the first turn's matrix (C-annotate-027, test: half a turn
+  is wide again); Windows's PDF data on the clipboard read (C-convert-004); More tools ▸ Underlay a PDF…,
+  page by page behind the pages (C-edit-020, `underlay.rs`, test
+  `a_pdf_underlaid_is_drawn_before_each_pages_own_content`); a calculation in field notation written
+  as the script Acrobat runs (C-forms-013, `sfn.rs`, `tests/engine_patches.rs`); copies of a field
+  shown on several pages made from the widget selected (C-forms-014); Detect fields run again adds no
+  field over those found (C-forms-007, smoke); Merge's pages arranged still make the merge back in
+  Files until a file is moved (C-organize-022, test
+  `the_pages_arranged_make_the_merge_until_a_file_is_moved`); a search after Rotate view finds its
+  hits on the turned text (C-reader-017); the loupe three times the view's own scale, rendered sharp
+  (C-reader-012); One page at a time scrolls through a page taller than the view before turning it
+  (C-reader-014); filled fields with no appearance drawn before flattening (C-output-011, test
+  `a_field_without_an_appearance_is_drawn_when_flattened`); When opened's Fit and Centre followed
+  (C-preferences-004; not automatable: window size and place under Xvfb with no window manager); Read
+  this page, Read the selection, Pause or resume reading, and Voice… (C-reader-055, C-reader-056; test
+  `voices_are_read_from_the_systems_listings`); a signature placed on several pages deleted from all
+  of them (C-sign-007); Certify with no signature shown (C-sign-014, test
+  `a_document_is_certified_with_no_signature_shown`); Replace all leaves OCR words even on a page with
+  a typed header (C-reader-038); a two-row table of words in three columns or more (C-convert-010).
+- Auto-Complete offers an entry remembered in two cases once (a test caught it).

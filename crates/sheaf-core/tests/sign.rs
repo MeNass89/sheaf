@@ -415,3 +415,41 @@ fn a_certifying_signature_says_which_changes_it_allows() {
     let doc = Doc::open(&Input::new(&out)).unwrap();
     assert_eq!(doc.document().signatures[0].certify, Some(2), "a certification allowing forms and signing");
 }
+
+/// Acrobat's Certify (invisible signature): certified, nothing drawn on a page.
+#[test]
+fn a_document_is_certified_with_no_signature_shown() {
+    let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
+    let out = t.path().join("certified.pdf");
+    let d = DigitalSpec { certify: Some(1), ..digital(&p12, "secret").unwrap() };
+    sign::certify_invisible(&Input::new(invoice()), &d, &out).unwrap();
+    let doc = Doc::open(&Input::new(&out)).unwrap();
+    let s = &doc.document().signatures[0];
+    assert!(s.signed && !s.visible, "signed, not shown");
+    assert_eq!(s.certify, Some(1), "no changes allowed");
+}
+
+/// Acrobat's Clear Signature: the field stays, unsigned, and its certification goes with it; saved
+/// as an update, so the signed revision is still in the file.
+#[test]
+fn a_cleared_signature_leaves_its_field_unsigned_and_its_certification_gone() {
+    let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
+    let signed = t.path().join("certified.pdf");
+    let d = DigitalSpec { certify: Some(2), ..digital(&p12, "secret").unwrap() };
+    sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada Lovelace".into(), Default::default()), Some(d)), &signed).unwrap();
+    let mut doc = Doc::open(&Input::new(&signed)).unwrap();
+    let field = doc.document().signatures[0].field.clone();
+    doc.apply(sheaf_core::pdfcraft::engine::Edit::ClearSignature { name: field.clone() }).unwrap();
+    let cleared = t.path().join("cleared.pdf");
+    doc.save_incremental(&cleared).unwrap();
+    let after = Doc::open(&Input::new(&cleared)).unwrap();
+    let s = after.document().signatures.iter().find(|s| s.field == field).expect("the field is kept");
+    assert!(!s.signed, "the field is unsigned");
+    assert_eq!(s.certify, None);
+    assert!(!after.document().is_signed());
+    let bytes = std::fs::read(&cleared).unwrap();
+    assert_eq!(&bytes[..std::fs::metadata(&signed).unwrap().len() as usize], &std::fs::read(&signed).unwrap()[..], "the signed revision is kept");
+    assert!(!String::from_utf8_lossy(&bytes[std::fs::metadata(&signed).unwrap().len() as usize..]).contains("/DocMDP"));
+}

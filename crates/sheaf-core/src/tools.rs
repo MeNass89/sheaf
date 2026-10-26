@@ -11,6 +11,7 @@ pub enum ToolId {
     Rotate,
     Compress,
     Repair,
+    AdjustColours,
     Ocr,
     JpgToPdf,
     WordToPdf,
@@ -46,6 +47,7 @@ impl ToolId {
             ToolId::Rotate => "rotate",
             ToolId::Compress => "compress",
             ToolId::Repair => "repair",
+            ToolId::AdjustColours => "adjust_colours",
             ToolId::Ocr => "ocr",
             ToolId::JpgToPdf => "jpg_to_pdf",
             ToolId::WordToPdf => "word_to_pdf",
@@ -131,7 +133,7 @@ pub struct ToolInfo {
 
 const PDF: &[&str] = &["pdf"];
 /// Merge takes PDFs, images and Office or HTML documents, as iLovePDF's Merge.
-const MERGE: &[&str] = &["pdf", "jpg", "jpeg", "png", "webp", "tif", "tiff", "bmp", "gif", "doc", "docx", "odt", "rtf", "ppt", "pptx", "odp", "xls", "xlsx", "ods", "csv", "html", "htm"];
+const MERGE: &[&str] = &["pdf", "jpg", "jpeg", "png", "webp", "tif", "tiff", "bmp", "gif", "doc", "docx", "odt", "rtf", "ppt", "pptx", "odp", "xls", "xlsx", "ods", "csv", "html", "htm", "md", "markdown", "eml", "ps", "eps"];
 
 macro_rules! tool {
     ($id:ident, $name:literal, $desc:literal, $cat:ident, $icon:literal, $accepts:expr, $multi:literal, $wave:literal) => {
@@ -162,7 +164,7 @@ static CATALOGUE: &[ToolInfo] = &[
     tool!(WordToPdf, "Word to PDF", "Convert text documents to PDF with their layout intact.", ConvertToPdf, "file-text", &["doc", "docx", "odt", "rtf"], true, 1),
     tool!(PowerPointToPdf, "PowerPoint to PDF", "Save slide decks as PDFs that look the same everywhere.", ConvertToPdf, "presentation", &["ppt", "pptx", "odp"], true, 1),
     tool!(ExcelToPdf, "Excel to PDF", "Turn spreadsheets into printable PDF pages.", ConvertToPdf, "sheet", &["xls", "xlsx", "ods", "csv"], true, 1),
-    tool!(HtmlToPdf, "HTML to PDF", "Render a web page file as a PDF.", ConvertToPdf, "code", &["html", "htm"], true, 1),
+    tool!(HtmlToPdf, "HTML to PDF", "Render a web page, Markdown, e-mail or PostScript file as a PDF.", ConvertToPdf, "code", &["html", "htm", "md", "markdown", "eml", "ps", "eps"], true, 1),
     tool!(PdfToJpg, "PDF to JPG", "Export each page as an image file.", ConvertFromPdf, "images", PDF, true, 1),
     tool!(PdfToWord, "PDF to Word", "Get an editable document back from a PDF.", ConvertFromPdf, "file-type", PDF, true, 1),
     tool!(PdfToPowerPoint, "PDF to PowerPoint", "Rebuild a PDF as slides you can edit.", ConvertFromPdf, "presentation", PDF, true, 1),
@@ -172,6 +174,7 @@ static CATALOGUE: &[ToolInfo] = &[
     tool!(Edit, "Edit PDF", "Add text and images on top of your pages.", Edit, "pen-line", PDF, false, 1),
     tool!(PageNumbers, "Page numbers", "Stamp page numbers, a header, a footer or Bates numbers where you want them.", Edit, "list-ordered", PDF, true, 1),
     tool!(Watermark, "Add watermark", "Overlay text or an image across your pages.", Edit, "stamp", PDF, true, 1),
+    tool!(AdjustColours, "Adjust colours", "Change brightness, contrast and saturation, or invert the colours for reading at night.", Edit, "sun", PDF, true, 1),
     tool!(Crop, "Crop PDF", "Trim the margins or keep only part of each page.", Edit, "crop", PDF, false, 1),
     tool!(Sign, "Sign PDF", "Place your signature on a document.", Security, "signature", PDF, false, 1),
     tool!(Protect, "Protect PDF", "Lock a PDF behind a password.", Security, "lock", PDF, true, 1),
@@ -239,8 +242,8 @@ mod tests {
     #[test]
     fn tool_keys_are_unique() {
         let keys: std::collections::HashSet<_> = catalogue().iter().map(|t| t.id.as_str()).collect();
-        assert_eq!(keys.len(), 29);
-        assert_eq!(catalogue().len(), 29);
+        assert_eq!(keys.len(), 30);
+        assert_eq!(catalogue().len(), 30);
     }
 }
 

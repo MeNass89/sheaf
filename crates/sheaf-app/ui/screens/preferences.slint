@@ -132,6 +132,8 @@ export component PreferencesScreen inherits Rectangle {
     callback set-default-spread(int);
     in property <bool> open-first-page;
     callback set-open-first-page(bool);
+    in property <[bool]> smooth;
+    callback set-smoothing(int, bool);
     // Accent colour (Theme.accent-choice) and the window background behind the pages (0 as the
     // theme, then light grey, mid grey, dark, black; Preview's Window background).
     in property <int> backdrop-pref;
@@ -188,6 +190,20 @@ export component PreferencesScreen inherits Rectangle {
                         colour: c;
                         selected: root.backdrop-pref == i;
                         clicked => { root.set-backdrop(i); }
+                    }
+                }
+            }
+            // Acrobat's Page Display ▸ Rendering: smoothing off draws sharper, rougher edges.
+            Section {
+                title: "Rendering";
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    for label[i] in ["Smooth text", "Smooth line art", "Smooth images"]: Segment {
+                        width: 140px;
+                        text: label;
+                        selected: root.smooth[i];
+                        clicked => { root.set-smoothing(i, !root.smooth[i]); }
                     }
                 }
             }

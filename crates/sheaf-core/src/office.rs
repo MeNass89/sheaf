@@ -54,6 +54,10 @@ pub fn office_to_pdf(input: &Path, out: &Path) -> Result<PathBuf> {
 /// `None`) and timeout. A missing `soffice` yields [`OpdfError::OfficeMissing`]
 /// before anything is spawned.
 pub fn office_to_pdf_with(soffice: Option<&Path>, input: &Path, out: &Path, timeout: Duration) -> Result<PathBuf> {
+    // Markdown and e-mail as a web page set here, PostScript through Ghostscript (`textdocs`).
+    if crate::textdocs::kind(input).is_some() {
+        return crate::textdocs::to_pdf(input, out, |html, out| office_to_pdf_with(soffice, html, out, timeout));
+    }
     let soffice = match soffice {
         Some(p) if p.is_file() => p.to_path_buf(),
         Some(_) => return Err(OpdfError::OfficeMissing),

@@ -192,3 +192,31 @@ fn a_word_file_keeps_its_headings_as_bookmarks_and_its_links() {
     assert_eq!(titles, ["Chapter One", "Chapter Two", "Section A"], "the headings are the bookmarks");
     assert_eq!(uris, ["https://example.org/"], "the link still goes there");
 }
+
+/// Stirling's Markdown and Email to PDF, Preview's PostScript: a Markdown file's heading and
+/// table, a mail's subject and text with its attachment attached, a PostScript page's words.
+#[test]
+fn a_markdown_file_a_mail_and_postscript_become_pdfs() {
+    let t = tempfile::tempdir().unwrap();
+    if find_soffice().is_some() {
+        let md = t.path().join("notes.md");
+        std::fs::write(&md, "# Release notes\n\n| Item | Done |\n|---|---|\n| Layers | yes |\n").unwrap();
+        let text = common::page_texts(&office_to_pdf(&md, &t.path().join("notes.pdf")).unwrap()).join(" ");
+        assert!(text.contains("Release notes") && text.contains("Layers"), "{text}");
+        let eml = t.path().join("mail.eml");
+        std::fs::write(&eml, "From: Ada <ada@x.org>\r\nSubject: Quarterly figures\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nThe figures are attached.\r\n--b\r\nContent-Disposition: attachment; filename=\"figures.csv\"\r\n\r\na,b\r\n--b--\r\n").unwrap();
+        let pdf = office_to_pdf(&eml, &t.path().join("mail.pdf")).unwrap();
+        let text = common::page_texts(&pdf).join(" ");
+        assert!(text.contains("Quarterly figures") && text.contains("The figures are attached"), "{text}");
+        let raw = std::fs::read(&pdf).unwrap();
+        assert!(raw.windows(11).any(|w| w == b"figures.csv"), "the attachment is in the PDF");
+    } else {
+        eprintln!("skip: no LibreOffice for Markdown and mail");
+    }
+    if std::process::Command::new("ps2pdf").arg("--version").output().is_ok() || std::path::Path::new("/usr/bin/ps2pdf").exists() {
+        let ps = t.path().join("page.ps");
+        std::fs::write(&ps, "%!PS\n/Helvetica findfont 24 scalefont setfont 72 700 moveto (PostScript page) show showpage\n").unwrap();
+        let out = office_to_pdf(&ps, &t.path().join("page.pdf")).unwrap();
+        assert!(common::page_texts(&out)[0].contains("PostScript page"));
+    }
+}

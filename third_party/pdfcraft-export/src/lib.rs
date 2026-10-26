@@ -790,6 +790,92 @@ table{{border-collapse:collapse;margin:1em 0}}td,th{{border:1px solid #999;paddi
     s
 }
 
+/// Sheaf: the document as an EPUB 3 ebook (Acrobat's Export ▸ ebook): a chapter per page, its
+/// headings, paragraphs, tables and pictures (as files), a table of contents of the pages, the
+/// title. It reflows on a reader's screen.
+pub fn epub(pages: &[Page], title: &str) -> Vec<u8> {
+    let mut chapters: Vec<String> = vec![String::new()];
+    let mut images: Vec<(String, &Image)> = Vec::new();
+    for it in items(pages) {
+        let s = chapters.last_mut().expect("one chapter at least");
+        match it {
+            Item::Para(bs, lvl) => {
+                let b = bs[0];
+                let mut t = esc(&para_text(&bs));
+                if b.italic {
+                    t = format!("<em>{t}</em>");
+                }
+                if b.bold && lvl == 0 {
+                    t = format!("<strong>{t}</strong>");
+                }
+                match lvl {
+                    0 => s.push_str(&format!("<p>{t}</p>\n")),
+                    l => s.push_str(&format!("<h{l}>{t}</h{l}>\n")),
+                }
+            }
+            Item::Table(t) => {
+                s.push_str("<table>\n");
+                for row in &t.rows {
+                    s.push_str("<tr>");
+                    for c in row {
+                        let span = if c.span > 1 { format!(" colspan=\"{}\"", c.span) } else { String::new() };
+                        s.push_str(&format!("<td{span}>{}</td>", esc(&c.text)));
+                    }
+                    s.push_str("</tr>\n");
+                }
+                s.push_str("</table>\n");
+            }
+            Item::Img(im) => {
+                let name = format!("images/image{}.{}", images.len() + 1, if im.ext == "jpg" { "jpg" } else { "png" });
+                s.push_str(&format!("<p><img alt=\"\" src=\"{name}\"/></p>\n"));
+                images.push((name, im));
+            }
+            Item::PageBreak => chapters.push(String::new()),
+        }
+    }
+    let t = esc(title);
+    let xhtml = |body: &str, head: &str| {
+        format!(
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<!DOCTYPE html>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\">\n\
+<head><title>{head}</title><style>body{{line-height:1.45}}img{{max-width:100%}}table{{border-collapse:collapse}}td{{border:1px solid #999;padding:2px 6px}}</style></head>\n<body>\n{body}</body>\n</html>\n"
+        )
+    };
+    let mut zip = Zip::default();
+    // The mimetype first and stored, as the format requires.
+    zip.add("mimetype", b"application/epub+zip", false);
+    zip.add(
+        "META-INF/container.xml",
+        b"<?xml version=\"1.0\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles>\
+<rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>\n",
+        true,
+    );
+    let mut manifest = String::from("<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>");
+    let mut spine = String::new();
+    let mut toc = String::new();
+    for (i, c) in chapters.iter().enumerate() {
+        let n = i + 1;
+        zip.add(&format!("OEBPS/page{n}.xhtml"), xhtml(c, &format!("{t} · {n}")).as_bytes(), true);
+        manifest.push_str(&format!("<item id=\"p{n}\" href=\"page{n}.xhtml\" media-type=\"application/xhtml+xml\"/>"));
+        spine.push_str(&format!("<itemref idref=\"p{n}\"/>"));
+        toc.push_str(&format!("<li><a href=\"page{n}.xhtml\">Page {n}</a></li>"));
+    }
+    for (k, (name, im)) in images.iter().enumerate() {
+        let mime = if im.ext == "jpg" { "image/jpeg" } else { "image/png" };
+        zip.add(&format!("OEBPS/{name}"), &im.bytes, false);
+        manifest.push_str(&format!("<item id=\"i{}\" href=\"{name}\" media-type=\"{mime}\"/>", k + 1));
+    }
+    zip.add("OEBPS/nav.xhtml", xhtml(&format!("<nav epub:type=\"toc\"><h1>{t}</h1><ol>{toc}</ol></nav>\n"), &t).as_bytes(), true);
+    // A stable identifier: the title and the size of what it holds.
+    let id = format!("urn:sheaf:{:016x}", chapters.iter().map(|c| c.len() as u64).fold(title.len() as u64, |a, b| a.wrapping_mul(1_000_003).wrapping_add(b)));
+    let opf = format!(
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"id\">\
+<metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:identifier id=\"id\">{id}</dc:identifier><dc:title>{t}</dc:title><dc:language>en</dc:language>\
+<meta property=\"dcterms:modified\">2000-01-01T00:00:00Z</meta></metadata><manifest>{manifest}</manifest><spine>{spine}</spine></package>\n"
+    );
+    zip.add("OEBPS/content.opf", opf.as_bytes(), true);
+    zip.finish()
+}
+
 /// A colour's 8-bit sRGB components (NaN and out-of-range values clamp; NaN reads as 0).
 pub(crate) fn rgb8(c: [f64; 3]) -> [u8; 3] {
     // The value is clamped to 0..=255 before the cast, so it cannot truncate.
@@ -1658,6 +1744,21 @@ pub fn markdown(pages: &[Page]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn epub_is_a_package_with_a_chapter_per_page() {
+        // Sheaf: the mimetype first and stored, the container, a chapter per page in the spine.
+        let bytes = epub(&[page(), page()], "Report & notes");
+        assert_eq!(&bytes[30..38], b"mimetype");
+        assert!(String::from_utf8_lossy(&bytes[38..58]).starts_with("application/epub+zip"));
+        assert!(part(&bytes, "META-INF/container.xml").contains("OEBPS/content.opf"));
+        let opf = part(&bytes, "OEBPS/content.opf");
+        assert_eq!(opf.matches("<itemref").count(), 2);
+        assert!(opf.contains("<dc:title>Report &amp; notes</dc:title>"));
+        let ch = part(&bytes, "OEBPS/page1.xhtml");
+        assert!(ch.starts_with("<?xml") && ch.contains("<p>") && ch.ends_with("</html>\n"), "{ch}");
+        assert!(part(&bytes, "OEBPS/nav.xhtml").contains("page2.xhtml"));
+    }
 
     fn page() -> Page {
         let b = |t: &str, y: f64, size: f64, bold: bool| Block { font: String::new(), para: 0,

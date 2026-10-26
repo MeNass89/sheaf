@@ -21,6 +21,13 @@ pub struct Job {
     pub media: Option<String>,
     /// 0 as each page is (CUPS turns landscape pages), 1 portrait, 2 landscape.
     pub orientation: u8,
+    /// Pages to a sheet: 1, 2, 4, 6, 9 or 16 (Preview's Pages per Sheet, CUPS `number-up`).
+    pub per_sheet: u8,
+    /// A booklet (Acrobat's Booklet): the pages imposed two to a side in folding order before
+    /// printing, both sides, flipped on the short edge.
+    pub booklet: bool,
+    /// In shades of grey (Acrobat's Print in grayscale, iLovePDF's Grayscale).
+    pub gray: bool,
 }
 
 /// The paper sizes the print sheet offers after the printer's own (index 1, 2, 3).
@@ -73,7 +80,14 @@ pub fn lp_args(job: &Job, file: &Path) -> Vec<String> {
         a.extend(["-P".into(), p.clone()]);
     }
     a.extend(["-o".into(), if job.fit { "fit-to-page".into() } else { "print-scaling=none".into() }]);
-    a.extend(["-o".into(), if job.two_sided { "sides=two-sided-long-edge".into() } else { "sides=one-sided".into() }]);
+    let sides = if job.booklet { "sides=two-sided-short-edge" } else if job.two_sided { "sides=two-sided-long-edge" } else { "sides=one-sided" };
+    a.extend(["-o".into(), sides.into()]);
+    if job.per_sheet > 1 && !job.booklet {
+        a.extend(["-o".into(), format!("number-up={}", job.per_sheet)]);
+    }
+    if job.gray {
+        a.extend(["-o".into(), "print-color-mode=monochrome".into()]);
+    }
     if let Some(m) = &job.media {
         a.extend(["-o".into(), format!("media={m}")]);
     }
@@ -94,6 +108,36 @@ pub fn unlocked(bytes: &[u8], password: &str) -> Result<std::sync::Arc<Vec<u8>>,
         return Err("its owner does not allow printing it".into());
     }
     sheaf_core::security::printable_copy(bytes, password).map(std::sync::Arc::new).map_err(|e| e.to_string())
+}
+
+/// `bytes` as printed with comments off (Acrobat's Comments and Forms ▸ Document): the
+/// annotations taken out but for form fields and links.
+pub fn without_comments(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let mut d = lopdf::Document::load_mem(bytes).map_err(|e| e.to_string())?;
+    let keep = |d: &lopdf::Document, o: &lopdf::Object| {
+        d.dereference(o).ok().and_then(|(_, a)| a.as_dict().ok()?.get(b"Subtype").ok()?.as_name().ok().map(|s| s == b"Widget" || s == b"Link")).unwrap_or(true)
+    };
+    for page in d.get_pages().into_values() {
+        let Some(annots) = d.get_dictionary(page).ok().and_then(|p| p.get(b"Annots").ok()).and_then(|a| d.dereference(a).ok()).and_then(|(_, a)| a.as_array().ok().cloned()) else { continue };
+        let kept: Vec<lopdf::Object> = annots.iter().filter(|o| keep(&d, o)).cloned().collect();
+        if kept.len() != annots.len()
+            && let Ok(p) = d.get_object_mut(page).and_then(lopdf::Object::as_dict_mut)
+        {
+            p.set("Annots", kept);
+        }
+    }
+    let mut out = Vec::new();
+    d.save_to(&mut out).map_err(|e| e.to_string())?;
+    Ok(out)
+}
+
+/// `bytes` imposed as a booklet (`sheaf_core::pages::impose`).
+pub fn booklet(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let (from, to) = (dir.path().join("in.pdf"), dir.path().join("booklet.pdf"));
+    std::fs::write(&from, bytes).map_err(|e| e.to_string())?;
+    sheaf_core::pages::impose(&sheaf_core::pages::Input::new(&from), 2, true, &to).map_err(|e| e.to_string())?;
+    std::fs::read(&to).map_err(|e| e.to_string())
 }
 
 /// Prints `bytes` (a PDF) named `title`; returns `lp`'s request id ("PDF-12").
@@ -128,7 +172,7 @@ mod tests {
 
     #[test]
     fn lp_gets_every_option() {
-        let job = Job { printer: "PDF".into(), copies: 2, pages: Some("1-2".into()), fit: true, two_sided: true, media: None, orientation: 0 };
+        let job = Job { printer: "PDF".into(), copies: 2, pages: Some("1-2".into()), fit: true, two_sided: true, media: None, orientation: 0, per_sheet: 1, booklet: false, gray: false };
         let a = lp_args(&job, Path::new("/tmp/x/Book.pdf"));
         assert_eq!(a, ["-d", "PDF", "-n", "2", "-P", "1-2", "-o", "fit-to-page", "-o", "sides=two-sided-long-edge", "-t", "Book", "--", "/tmp/x/Book.pdf"]);
         let job = Job { copies: 0, pages: None, fit: false, two_sided: false, ..job };
@@ -136,8 +180,33 @@ mod tests {
         assert!(a.contains(&"print-scaling=none".to_string()) && a.contains(&"sides=one-sided".to_string()) && !a.contains(&"-P".to_string()));
         assert_eq!(a[3], "1");
         // Paper and orientation when chosen.
-        let a = lp_args(&Job { media: Some("A4".into()), orientation: 2, ..job }, Path::new("/tmp/x/Book.pdf"));
+        let a = lp_args(&Job { media: Some("A4".into()), orientation: 2, ..job.clone() }, Path::new("/tmp/x/Book.pdf"));
         assert!(a.windows(2).any(|w| w == ["-o", "media=A4"]) && a.windows(2).any(|w| w == ["-o", "orientation-requested=4"]), "{a:?}");
+        // Pages per sheet and grey; a booklet prints both sides flipped on the short edge, its
+        // pages imposed already.
+        let a = lp_args(&Job { per_sheet: 4, gray: true, ..job.clone() }, Path::new("/tmp/x/Book.pdf"));
+        assert!(a.windows(2).any(|w| w == ["-o", "number-up=4"]) && a.windows(2).any(|w| w == ["-o", "print-color-mode=monochrome"]), "{a:?}");
+        let a = lp_args(&Job { per_sheet: 4, booklet: true, ..job }, Path::new("/tmp/x/Book.pdf"));
+        assert!(a.windows(2).any(|w| w == ["-o", "sides=two-sided-short-edge"]) && !a.iter().any(|s| s.starts_with("number-up")), "{a:?}");
+    }
+
+    /// Comments off: a highlight and a note go, a form field and a link stay.
+    #[test]
+    fn printing_without_comments_keeps_fields_and_links() {
+        use lopdf::{Document, Object, dictionary};
+        let mut d = Document::with_version("1.7");
+        let annots: Vec<Object> = ["Highlight", "Text", "Widget", "Link"].iter().map(|s| d.add_object(dictionary! { "Type" => "Annot", "Subtype" => *s, "Rect" => vec![0.into(), 0.into(), 10.into(), 10.into()] }).into()).collect();
+        let pages = d.new_object_id();
+        let page = d.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 100.into(), 100.into()], "Annots" => annots });
+        d.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
+        let cat = d.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+        d.trailer.set("Root", cat);
+        let mut bytes = Vec::new();
+        d.save_to(&mut bytes).unwrap();
+        let out = Document::load_mem(&without_comments(&bytes).unwrap()).unwrap();
+        let p = out.get_dictionary(*out.get_pages().get(&1).unwrap()).unwrap();
+        let kinds: Vec<Vec<u8>> = p.get(b"Annots").unwrap().as_array().unwrap().iter().map(|o| out.dereference(o).unwrap().1.as_dict().unwrap().get(b"Subtype").unwrap().as_name().unwrap().to_vec()).collect();
+        assert_eq!(kinds, [b"Widget".to_vec(), b"Link".to_vec()]);
     }
 
     #[test]

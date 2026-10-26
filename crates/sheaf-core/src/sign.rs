@@ -295,6 +295,19 @@ pub fn sign(input: &Input, spec: &SignSpec, out: &Path) -> Result<SignReport> {
     Ok(SignReport { path, signer: Some(id.certificate.display_name()) })
 }
 
+/// Acrobat's Certify (invisible signature): the document certified by the digital ID `d` (its
+/// `certify` permissions, else no changes), with no signature shown on a page (Sol, 26/10: a
+/// certification needed a signature placed).
+pub fn certify_invisible(input: &Input, d: &DigitalSpec, out: &Path) -> Result<SignReport> {
+    let id = digital_id(d)?;
+    let doc = open(input)?;
+    let some = |s: &Option<String>| s.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
+    let opts = SignOptions { page: 0, rect: None, reason: some(&d.reason), location: some(&d.location), certify: Some(d.certify.unwrap_or(1).clamp(1, 3)), ..SignOptions::default() };
+    let bytes = doc.session().sign(doc.id(), &id, opts).map_err(|e| OpdfError::Engine(format!("certifying failed: {e}")))?;
+    let path = atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?))?;
+    Ok(SignReport { path, signer: Some(id.certificate.display_name()) })
+}
+
 /// The widget rectangle whose inner area, once PdfCraft insets its graphic by its pad
 /// (`clamp(0.06 × height, 1, 6)` on every side), is `r`.
 fn padded(r: [f64; 4]) -> [f64; 4] {

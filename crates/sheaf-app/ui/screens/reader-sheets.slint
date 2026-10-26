@@ -100,6 +100,10 @@ export component PrintSheet inherits Rectangle {
     property <bool> two-sided: false;
     property <int> paper: 0;
     property <int> orientation: 0;
+    // Pages per sheet: 1, 2, 4, 6, 9, 16, or a booklet (6).
+    property <int> layout: 0;
+    property <bool> gray: false;
+    property <bool> comments: true;
     property <bool> ready: root.tab.reader.printers.length > 0;
     property <int> printer: root.tab.reader.printer;
     background: #00000044;
@@ -200,8 +204,29 @@ export component PrintSheet inherits Rectangle {
             HorizontalLayout {
                 spacing: 6px;
                 Text { text: "Two-sided"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                SmallButton { text: "Off"; primary: !two-sided; clicked => { two-sided = false; } }
-                SmallButton { text: "On"; primary: two-sided; clicked => { two-sided = true; } }
+                SmallButton { text: "Off"; primary: !two-sided && layout != 6; clicked => { two-sided = false; } }
+                SmallButton { text: "On"; primary: two-sided || layout == 6; clicked => { two-sided = true; } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            // Preview's Pages per Sheet and Acrobat's Booklet (both sides, folded in the middle).
+            HorizontalLayout {
+                spacing: 10px;
+                Text { text: "Layout"; width: 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                SortCombo {
+                    width: 150px;
+                    options: ["1 page per sheet", "2 per sheet", "4 per sheet", "6 per sheet", "9 per sheet", "16 per sheet", "Booklet"];
+                    current-index <=> layout;
+                    chevron: @image-url("../icons/chevron-down.svg");
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            // Acrobat's Print in grayscale, and Comments and Forms ▸ Document and Markups or Document.
+            HorizontalLayout {
+                spacing: 6px;
+                Text { text: "Print"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                SmallButton { text: "Colour"; primary: !gray; clicked => { gray = false; } }
+                SmallButton { text: "Grey"; primary: gray; clicked => { gray = true; } }
+                SmallButton { text: comments ? "With comments" : "Without comments"; primary: comments; clicked => { comments = !comments; } }
                 Rectangle { horizontal-stretch: 1; }
             }
             HorizontalLayout {
@@ -213,7 +238,7 @@ export component PrintSheet inherits Rectangle {
                     primary: ready;
                     clicked => {
                         if ready {
-                            ReaderBridge.print(root.id, printer, copies, pages, range.text, fit, two-sided, paper, orientation);
+                            ReaderBridge.print(root.id, printer, copies, pages, range.text, fit, two-sided, paper, orientation, layout, gray, comments);
                             root.focus-pages();
                         }
                     }
@@ -332,6 +357,8 @@ export component PropertiesSheet inherits Rectangle {
                             SmallButton { text: label; clicked => { ReaderBridge.open-signed(root.id, k); } }
                             // Acrobat's Add to Trusted Certificates.
                             if root.tab.reader.props-trust[k] != "": SmallButton { text: root.tab.reader.props-trust[k]; clicked => { ReaderBridge.trust-signature(root.id, k); } }
+                            // Acrobat's Clear Signature: the field unsigned, to be signed again.
+                            SmallButton { text: "Clear signature"; clicked => { ReaderBridge.clear-signature(root.id, k); root.focus-pages(); } }
                         }
                     }
                 }
@@ -454,6 +481,189 @@ export component VersionsSheet inherits Rectangle {
                 if root.tab.reader.dirty: Text { text: "Unsaved changes are lost"; font-size: Theme.fs-caption; color: Theme.danger; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; }
                 SmallButton { text: "Close"; primary: true; clicked => { ReaderBridge.version-action(root.id, -1); root.focus-pages(); } }
+            }
+        }
+    }
+}
+
+// The search panel's In a folder… (Acrobat's Advanced Search): the pages of the folder's PDFs that
+// hold the words, a line around them; a click opens the file at its page.
+export component FolderSearchSheet inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    callback focus-pages();
+    background: #00000044;
+    TouchArea { }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape { ReaderBridge.folder-result(root.id, -1); root.focus-pages(); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        width: 560px;
+        height: min(vl.preferred-height, root.height - 80px);
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000055;
+        vl := VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+            Text { text: root.tab.reader.folder-title; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; overflow: elide; }
+            Text {
+                text: root.tab.reader.folder-busy ? "Searching…" : root.tab.reader.folder-results.length == 0 ? "Not found in the folder's PDFs." : root.tab.reader.folder-results.length + " pages found";
+                font-size: Theme.fs-caption;
+                color: Theme.text-muted;
+            }
+            ScrollView {
+                min-height: min(root.tab.reader.folder-results.length * 40px, 420px);
+                VerticalLayout {
+                    for h[k] in root.tab.reader.folder-results: Rectangle {
+                        height: 40px;
+                        border-radius: Theme.radius-small;
+                        background: ht.has-hover ? Theme.popup-hover : transparent;
+                        VerticalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            alignment: center;
+                            Text { text: h.file + " · " + h.page; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; overflow: elide; }
+                            Text { text: h.line; font-size: Theme.fs-caption; color: Theme.text-muted; overflow: elide; }
+                        }
+                        ht := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { ReaderBridge.folder-result(root.id, k); root.focus-pages(); }
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                SmallButton { text: "Close"; clicked => { ReaderBridge.folder-result(root.id, -1); root.focus-pages(); } }
+            }
+        }
+    }
+}
+
+// More tools ▸ Accessibility check (Acrobat's Full Check): the rules failed first, each with where
+// and why; Fix on the ones Sheaf can fix, then checked again; Save report… as Acrobat's.
+export component AccessibilitySheet inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    callback focus-pages();
+    background: #00000044;
+    TouchArea { }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape { ReaderBridge.accessibility-fix(root.id, -1); root.focus-pages(); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        width: 600px;
+        height: min(vl.preferred-height, root.height - 80px);
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000055;
+        vl := VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+            Text { text: "Accessibility check"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text {
+                text: root.tab.reader.a11y-busy ? "Checking…" : root.tab.reader.a11y-summary;
+                font-size: Theme.fs-caption;
+                color: Theme.text-muted;
+            }
+            ScrollView {
+                min-height: min(root.tab.reader.a11y-rows.length * 52px, 440px);
+                VerticalLayout {
+                    for c[k] in root.tab.reader.a11y-rows: Rectangle {
+                        height: 52px;
+                        HorizontalLayout {
+                            padding-left: 4px;
+                            padding-right: 8px;
+                            spacing: 10px;
+                            Rectangle {
+                                width: 10px;
+                                Rectangle {
+                                    width: 10px;
+                                    height: 10px;
+                                    border-radius: 5px;
+                                    background: c.status == 0 ? Theme.danger : c.status == 1 ? #D9A21B : Theme.success-strong;
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text { text: c.name + (c.status == 1 ? " (check by hand)" : ""); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; overflow: elide; }
+                                Text { text: c.detail; font-size: Theme.fs-caption; color: Theme.text-muted; overflow: elide; }
+                            }
+                            if c.fix: SmallButton { y: 13px; text: "Fix"; clicked => { ReaderBridge.accessibility-fix(root.id, k); } }
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                SmallButton { text: "Save report…"; clicked => { ReaderBridge.accessibility-report(root.id); } }
+                Rectangle { horizontal-stretch: 1; }
+                SmallButton { text: "Close"; primary: true; clicked => { ReaderBridge.accessibility-fix(root.id, -1); root.focus-pages(); } }
+            }
+        }
+    }
+}
+
+// More tools ▸ Voice… (Acrobat's Reading ▸ Voice): the system's voices; a click picks one, kept.
+export component VoicesSheet inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    callback focus-pages();
+    background: #00000044;
+    TouchArea { }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape { ReaderBridge.voice-pick(root.id, -2); root.focus-pages(); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        width: 360px;
+        height: min(vl.preferred-height, root.height - 80px);
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000055;
+        vl := VerticalLayout {
+            padding: 18px;
+            spacing: 8px;
+            Text { text: "Voice"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            if root.tab.reader.voices.length == 0: Text { text: "No voice was found on this computer."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            ScrollView {
+                min-height: min((root.tab.reader.voices.length + 1) * 30px, 400px);
+                VerticalLayout {
+                    for name[k] in [""]: Rectangle {
+                        height: 30px;
+                        background: dt.has-hover ? Theme.popup-hover : transparent;
+                        border-radius: Theme.radius-small;
+                        Text { x: 8px; text: "The system's default"; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                        dt := TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.voice-pick(root.id, -1); root.focus-pages(); } }
+                    }
+                    for v[k] in root.tab.reader.voices: Rectangle {
+                        height: 30px;
+                        background: vt.has-hover ? Theme.popup-hover : transparent;
+                        border-radius: Theme.radius-small;
+                        Text { x: 8px; text: v; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                        vt := TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.voice-pick(root.id, k); root.focus-pages(); } }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                SmallButton { text: "Close"; clicked => { ReaderBridge.voice-pick(root.id, -2); root.focus-pages(); } }
             }
         }
     }

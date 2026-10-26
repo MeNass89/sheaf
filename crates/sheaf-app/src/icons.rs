@@ -13,6 +13,7 @@ pub fn tile_colour(id: ToolId) -> Color {
         | ToolId::Organize
         | ToolId::Rotate => 0xEE6C4D,
         ToolId::Compress | ToolId::Repair | ToolId::Ocr => 0x8FBC5D,
+        ToolId::AdjustColours => 0xD9A21B,
         ToolId::JpgToPdf | ToolId::PdfToJpg => 0xF2B705,
         ToolId::WordToPdf | ToolId::PdfToWord => 0x2B579A,
         ToolId::PowerPointToPdf | ToolId::PdfToPowerPoint => 0xD24726,
@@ -41,7 +42,7 @@ pub fn icon_svg(name: &str) -> Option<&'static [u8]> {
         "combine", "scissors", "file-minus", "file-output", "layout-grid", "rotate-cw",
         "minimize-2", "wrench", "scan-text", "image", "file-text", "presentation", "sheet",
         "code", "file-code", "images", "file-type", "archive", "pen-line", "list-ordered", "stamp", "crop",
-        "signature", "lock", "lock-open", "eraser", "git-compare",
+        "signature", "lock", "lock-open", "eraser", "git-compare", "sun",
     )
 }
 

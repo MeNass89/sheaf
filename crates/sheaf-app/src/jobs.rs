@@ -67,11 +67,12 @@ pub enum Job {
     /// `long`: every page one under the other on one long page.
     Organize { input: Input, order: Vec<u32>, out: PathBuf, per_sheet: u8, booklet: bool, long: bool },
     Rotate { items: Vec<(Input, PathBuf)>, degrees: i64, pages: Option<String>, filter: rotate::PageFilter },
-    Compress { items: Vec<(Input, PathBuf)>, level: Level },
+    Compress { items: Vec<(Input, PathBuf)>, level: Level, advanced: compress::Advanced },
     /// `sanitize`: the hidden information removed first (Acrobat's Protect ▸ Sanitize Document).
     Protect { items: Vec<(Input, PathBuf)>, password: String, owner: Option<String>, permissions: security::ProtectPermissions, sanitize: bool },
     Unlock { items: Vec<(Input, PathBuf)> },
     Repair { items: Vec<(Input, PathBuf)> },
+    AdjustColours { items: Vec<(Input, PathBuf)>, adjust: sheaf_core::adjust::Adjust },
     JpgToPdf { images: Vec<PathBuf>, layout: PageLayout, out: PathBuf },
     /// `quality`: JPEG quality, or `None` for PNG.
     /// `extract`: the pictures in the pages instead of the pages (iLovePDF's Extract images).
@@ -94,6 +95,8 @@ pub enum Job {
     /// A signature in `view_box` (points, y down, on page `page` as displayed), optionally
     /// signed with a certificate.
     Sign { input: Input, page: usize, view_box: [f64; 4], graphic: Graphic, digital: Option<DigitalSpec>, out: PathBuf },
+    /// Certified by a digital ID with no signature shown (Acrobat's Certify (invisible signature)).
+    Certify { input: Input, digital: DigitalSpec, out: PathBuf },
     /// Text and images placed on the pages (view space: points, y down, as displayed).
     Edit { input: Input, items: Vec<EditPlaced>, out: PathBuf },
 }
@@ -120,6 +123,7 @@ impl Job {
             | Job::Crop { input, .. }
             | Job::Redact { input, .. }
             | Job::Sign { input, .. }
+            | Job::Certify { input, .. }
             | Job::Edit { input, .. } => vec![input.path.as_path()],
             Job::Compare { old, new, .. } => vec![old.path.as_path(), new.path.as_path()],
             Job::Rotate { items, .. }
@@ -131,7 +135,8 @@ impl Job {
             | Job::Compress { items, .. }
             | Job::Protect { items, .. }
             | Job::Unlock { items }
-            | Job::Repair { items } => items.iter().map(|(i, _)| i.path.as_path()).collect(),
+            | Job::Repair { items }
+            | Job::AdjustColours { items, .. } => items.iter().map(|(i, _)| i.path.as_path()).collect(),
             Job::JpgToPdf { images, .. } => images.iter().map(|p| p.as_path()).collect(),
             Job::Office { items } | Job::ImagesEach { items, .. } => items.iter().map(|(i, _)| i.as_path()).collect(),
         }
@@ -227,7 +232,7 @@ fn loses_protection(job: &Job) -> bool {
         | Job::RemovePages { input, .. }
         | Job::ExtractPages { input, .. }
         | Job::Organize { input, .. } => vec![input],
-        Job::Rotate { items, .. } | Job::Compress { items, .. } | Job::Repair { items } => items.iter().map(|(i, _)| i).collect(),
+        Job::Rotate { items, .. } | Job::Compress { items, .. } | Job::Repair { items } | Job::AdjustColours { items, .. } => items.iter().map(|(i, _)| i).collect(),
         // The PdfCraft tools report it from the engine.
         Job::Protect { .. }
         | Job::Unlock { .. }
@@ -242,6 +247,7 @@ fn loses_protection(job: &Job) -> bool {
         | Job::Compare { .. }
         | Job::Redact { .. }
         | Job::Sign { .. }
+        | Job::Certify { .. }
         | Job::Edit { .. }
         | Job::Crop { .. } => vec![],
     };
@@ -326,14 +332,14 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::Rotate { items, degrees, pages: spec, filter } => {
             batch(each(items, cancel, progress, pair, |(i, o)| one(rotate::rotate_filtered(i, spec.as_deref(), *degrees, *filter, o))))?
         }
-        Job::Compress { items, level } => {
+        Job::Compress { items, level, advanced } => {
             let n = items.len() as f32;
             let started = std::cell::Cell::new(0usize);
             batch(each(items, cancel, progress, pair, |(i, o)| {
                 let k = started.get() as f32;
                 started.set(started.get() + 1);
                 // Progress within the file, and a cancel that stops between its pictures.
-                let rep = compress::compress_with(i, *level, o, &mut |p| {
+                let rep = compress::compress_advanced(i, *level, advanced, o, &mut |p| {
                     progress((k + p) / n);
                     !cancel.load(Ordering::Relaxed)
                 })?;
@@ -364,6 +370,9 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         }
         Job::Repair { items } => {
             batch(each(items, cancel, progress, pair, |(i, o)| one(repair::repair(i, o))))?
+        }
+        Job::AdjustColours { items, adjust } => {
+            batch(each(items, cancel, progress, pair, |(i, o)| one(sheaf_core::adjust::adjust_colours(i, adjust, o).map(|(p, _)| p))))?
         }
         Job::JpgToPdf { images, layout, out } => {
             jpg_to_pdf(images, *layout, out, cancel, progress)?
@@ -488,6 +497,12 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             let info = sign::page_info(input, *page)?;
             let spec = SignSpec { page: *page, rect: sign::view_rect_to_user(&info, *view_box), graphic: graphic.clone(), digital: digital.clone() };
             let r = sign::sign(input, &spec, out)?;
+            summary = r.summary();
+            progress(1.0);
+            vec![r.path]
+        }
+        Job::Certify { input, digital, out } => {
+            let r = sign::certify_invisible(input, digital, out)?;
             summary = r.summary();
             progress(1.0);
             vec![r.path]
@@ -633,6 +648,7 @@ pub fn default_name(tool: sheaf_core::tools::ToolId, stem: &str) -> String {
         T::ExtractPages => "-extracted",
         T::Organize => "-organized",
         T::Repair => "-repaired",
+        T::AdjustColours => "-adjusted",
         T::PageNumbers => "-numbered",
         T::Watermark => "-watermarked",
         T::Crop => "-cropped",

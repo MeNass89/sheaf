@@ -36,6 +36,7 @@ pub(super) fn open_field(r: &mut ReaderUi, v: &ViewerUi, page: usize, fi: usize,
             let [x, y, _, _] = viewer::pdf_rect_to_view(&v.viewer.boxes[page], size, rect);
             let text = if f.kind == 0 { f.value.join("") } else { String::new() };
             r.draft = Some(Draft { page, at: (x, y), kind: if f.kind == 0 { 4 } else { 5 }, block: Some((0, text, rect)), field: Some((fi, rect)) });
+            r.suggestions.clear();
             r.note_seq += 1;
             true
         }

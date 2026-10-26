@@ -296,12 +296,19 @@ fn a_text_box_takes_a_font_grows_to_fit_and_undoes_in_one_step() {
 
 #[test]
 fn a_text_box_in_a_font_of_its_own_keeps_it_through_a_new_size_and_colour() {
+    // Whole, or a subset holding only the characters drawn (Sol, 26/10: a subset was replaced).
+    for base in ["Arial", "ABCDEF+Arial"] {
+        text_box_keeps_its_font(base);
+    }
+}
+
+fn text_box_keeps_its_font(base: &str) {
     use lopdf::{dictionary, Object as L, Stream};
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("arial.pdf");
     // A text box another program wrote in Arial (a TrueType font not embedded, WinAnsi).
     let mut d = lopdf::Document::with_version("1.7");
-    let arial = d.add_object(dictionary! { "Type" => "Font", "Subtype" => "TrueType", "BaseFont" => "Arial", "Encoding" => "WinAnsiEncoding" });
+    let arial = d.add_object(dictionary! { "Type" => "Font", "Subtype" => "TrueType", "BaseFont" => L::Name(base.as_bytes().to_vec()), "Encoding" => "WinAnsiEncoding" });
     let ap = d.add_object(Stream::new(
         dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![72.into(), 700.into(), 272.into(), 730.into()], "Resources" => dictionary! { "Font" => dictionary! { "Arial" => arial } } },
         b"BT /Arial 12 Tf 74 712 Td (Hello Arial) Tj ET".to_vec(),
@@ -334,7 +341,7 @@ fn a_text_box_in_a_font_of_its_own_keeps_it_through_a_new_size_and_colour() {
     let text = String::from_utf8_lossy(&q.stdout);
     assert!(text.contains("/Arial 18 Tf") && text.contains("0.8 0.1 0.1 rg /Arial"), "the /DA keeps Arial");
     // Drawn with the file's Arial: the new appearance names it, no Helvetica.
-    assert!(text.contains("/BaseFont /Arial") && !text.contains("/BaseFont /Helvetica"), "drawn in Arial");
+    assert!(text.contains(&format!("/BaseFont /{base}")) && !text.contains("/BaseFont /Helvetica"), "drawn in {base}");
 }
 
 #[test]
@@ -737,6 +744,29 @@ fn a_stamp_turns_a_quarter_about_its_centre() {
         })
         .unwrap();
     assert!(h > w * 2.0, "the appearance is {w} × {h}");
+    // A second quarter turn (Sol, 26/10: it kept the first one's matrix): half a turn, wide again.
+    ops.send(Op::Apply { edit: Box::new(Edit::TurnAnnotation { page: 0, index, quarters: 1 }), pages: vec![0] }).unwrap();
+    let (_, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    let out = dir.path().join("half.pdf");
+    ops.send(Op::Save { to: Some(out.clone()) }).unwrap();
+    next(&rx);
+    let d = lopdf::Document::load(&out).unwrap();
+    let (w, h) = d
+        .objects
+        .values()
+        .filter_map(|o| o.as_dict().ok())
+        .find(|a| a.get(b"Subtype").and_then(|s| s.as_name()).ok() == Some(b"Stamp".as_slice()))
+        .map(|a| {
+            let n = a.get(b"AP").and_then(|ap| d.dereference(ap)).unwrap().1.as_dict().unwrap().get(b"N").unwrap().as_reference().unwrap();
+            let s = d.get_object(n).unwrap().as_stream().unwrap();
+            let b = nums(s.dict.get(b"BBox").unwrap());
+            let m = s.dict.get(b"Matrix").map(nums).unwrap_or_else(|_| vec![1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+            let (bw, bh) = (b[2] - b[0], b[3] - b[1]);
+            ((bw * m[0]).abs() + (bh * m[2]).abs(), (bw * m[1]).abs() + (bh * m[3]).abs())
+        })
+        .unwrap();
+    assert!(w > h * 2.0, "half a turn: the appearance is {w} × {h}");
 }
 
 #[test]
@@ -849,4 +879,60 @@ fn replace_all_leaves_a_scans_words_alone() {
     ops.send(Op::ReplaceAll { find: "secret".into(), with: "public".into(), case: false, whole: true }).unwrap();
     let (_, err) = next(&rx);
     assert!(err.as_deref().is_some_and(|e| e.contains("only on scanned pages")), "{err:?}");
+    // The same scan with a header typed over it (visible text): the header's word is replaced, the
+    // OCR word stays (Sol, 26/10: the whole page was taken for a text page).
+    let headed = dir.path().join("headed.pdf");
+    {
+        use lopdf::{dictionary, Object, Stream};
+        let mut d = lopdf::Document::load(&path).unwrap();
+        let page = *d.get_pages().get(&1).unwrap();
+        let stream = d.add_object(Stream::new(dictionary! {}, b"BT 0 Tr /FOcr 10 Tf 40 40 Td (Header secret) Tj ET".to_vec()));
+        let p = d.get_object_mut(page).unwrap().as_dict_mut().unwrap();
+        let mut contents = p.get(b"Contents").unwrap().as_array().unwrap().clone();
+        contents.push(Object::Reference(stream));
+        p.set("Contents", contents);
+        d.save(&headed).unwrap();
+    }
+    let (ops, rx, _) = started(&headed);
+    ops.send(Op::ReplaceAll { find: "secret".into(), with: "public".into(), case: false, whole: true }).unwrap();
+    let (_, err) = next(&rx);
+    assert!(err.is_none() || err.as_deref().is_some_and(|e| e.contains("scanned")), "{err:?}");
+    let out = dir.path().join("headed-out.pdf");
+    ops.send(Op::Save { to: Some(out.clone()) }).unwrap();
+    next(&rx);
+    let text = String::from_utf8_lossy(&std::process::Command::new("pdftotext").arg(&out).arg("-").output().unwrap().stdout).into_owned();
+    assert!(text.contains("Header public") && text.contains("a secret word"), "{text}");
+}
+
+#[test]
+fn text_added_underlined_is_drawn_with_a_line_under_it_and_reads_back() {
+    use sheaf_core::pdfcraft::engine::AddedText;
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 1);
+    let (ops, rx, _) = started(&path);
+    let text = AddedText { rect: [72.0, 600.0, 300.0, 640.0], text: "• Milk\n• Eggs".into(), size: 14.0, underline: true, ..Default::default() };
+    ops.send(Op::Apply { edit: Box::new(Edit::AddText { page: 0, text }), pages: vec![0] }).unwrap();
+    let (_, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    let out = dir.path().join("u.pdf");
+    ops.send(Op::Save { to: Some(out.clone()) }).unwrap();
+    next(&rx);
+    let q = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap();
+    let s = String::from_utf8_lossy(&q.stdout);
+    // Two strokes, one under each line; the item keeps its underline when read back (moved, resized).
+    assert_eq!(s.matches(" l S").count(), 2, "underlines");
+    assert!(s.contains("/Underline true"));
+    assert_eq!(texts(&out)[0].matches("Milk").count(), 1);
+}
+
+#[test]
+fn a_folders_pdfs_are_searched_page_by_page() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("inner")).unwrap();
+    fixture(dir.path(), 2);
+    fixture(&dir.path().join("inner"), 3);
+    // "Page 2" is on page 2 of each file (fixture pages say "Page n").
+    let found = crate::reader_ui::folder_search_for_test(dir.path(), "page 2");
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert!(found.iter().all(|(_, page, line)| *page == 1 && line.contains("Page 2")), "{found:?}");
 }

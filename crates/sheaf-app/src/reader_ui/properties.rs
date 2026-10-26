@@ -172,6 +172,20 @@ pub fn trust_signature(tab_id: i32, k: i32) {
     });
 }
 
+/// Document properties ▸ Clear signature (Acrobat's, needed before signing the field again): the
+/// field of signature `k` left unsigned and empty, one undo step; the sheet closes on the change.
+pub fn clear_signature(ui: &AppWindow, tab_id: i32, k: i32) {
+    let Some((name, page)) = update(tab_id, |r, _| {
+        let k = usize::try_from(k).ok()?;
+        let name = r.snap.props.signed_fields.get(k)?.clone();
+        let page = r.snap.fields.iter().find(|f| f.name == name).and_then(|f| f.widgets.first()).map_or(0, |w| w.0);
+        r.props_open = false;
+        Some((name, page))
+    })
+    .flatten() else { return };
+    edits::apply(ui, tab_id, Edit::ClearSignature { name }, &[page], None);
+}
+
 /// The custom properties as typed ("Client: Acme; Project: Atlas"): name and value pairs, names
 /// made PDF names (spaces become "_"), empty ones dropped.
 pub(super) fn custom_pairs(typed: &str) -> Vec<(String, String)> {
@@ -216,12 +230,39 @@ pub(super) fn open_as_asked(r: &mut ReaderUi, v: &mut ViewerUi) {
     match o.navigation {
         N::Bookmarks => (r.panel, r.panel_open) = (1, true),
         N::Pages => (r.panel, r.panel_open) = (0, true),
+        N::Attachments => (r.panel, r.panel_open) = (4, true),
+        N::Layers if !r.snap.layers.is_empty() => (r.panel, r.panel_open) = (5, true),
         _ => {}
     }
     // The window options (Sol, 26/10: saved but not followed here): full screen and no toolbar,
-    // asked of the window once (`opened`); the title shown is the model's. Fitting and centring a
-    // window do not apply to a tab.
+    // asked of the window once (`opened`); the title shown is the model's; fitting and centring the
+    // window, once the document is shown ([`window_as_asked`]).
     r.opened = (o.full_screen, o.hide_toolbar, r.opened.2 + 1);
+    r.window_ask = (o.fit_window || o.center_window).then_some((o.fit_window, o.center_window));
+}
+
+/// When opened ▸ Resize window to the page and Centre window (Acrobat's): the window as wide and
+/// tall as the first page shown at actual size with the toolbar and tabs (the screen's 90 % at
+/// most), then centred on its screen.
+pub(super) fn window_as_asked(ui: &AppWindow, fit: bool, centre: bool, page: (f64, f64)) {
+    use slint::winit_030::{winit, WinitWindowAccessor};
+    ui.window().with_winit_window(|w: &winit::window::Window| {
+        let Some(m) = w.current_monitor() else { return };
+        let scale = m.scale_factor();
+        let screen = m.size().to_logical::<f64>(scale);
+        if fit {
+            // Points at actual size (96 px an inch), with the bars above the pages (84 px) and margins.
+            let (pw, ph) = (page.0 * 96.0 / 72.0 + 48.0, page.1 * 96.0 / 72.0 + 84.0 + 32.0);
+            let size = winit::dpi::LogicalSize::new(pw.min(screen.width * 0.9), ph.min(screen.height * 0.9));
+            let _ = w.request_inner_size(size);
+        }
+        if centre {
+            let outer = w.outer_size().to_logical::<f64>(scale);
+            let origin = m.position().to_logical::<f64>(scale);
+            let at = winit::dpi::LogicalPosition::new(origin.x + (screen.width - outer.width).max(0.0) / 2.0, origin.y + (screen.height - outer.height).max(0.0) / 2.0);
+            w.set_outer_position(at);
+        }
+    });
 }
 
 /// Document Properties ▸ When opened, as the sheet's controls give it: the page (1-based, typed),

@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
-use sheaf_app::{AppWindow, ReaderFieldProps, ReaderFormField, ReaderGrid, ReaderMark, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
+use sheaf_app::{AppWindow, FolderHit, ReaderFieldProps, ReaderFormField, ReaderGrid, ReaderMark, ReaderCheck, ReaderLayer, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, StampKind, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
@@ -258,6 +258,10 @@ pub struct ReaderUi {
     /// What is typed in a text box or added text edited in place (committed by a click elsewhere).
     inplace_text: String,
     text_bold: bool,
+    /// Text added on the page: underlined, and each line a bullet (Acrobat's Underline and
+    /// Bulleted list).
+    text_underline: bool,
+    text_bullets: bool,
     text_italic: bool,
     text_align: i32,
     /// Pages selected in the Pages panel (empty: the current page is meant).
@@ -275,6 +279,16 @@ pub struct ReaderUi {
     delete_after_extract: Vec<usize>,
     /// The page grid is shown: the pages' layout to go back to when it closes.
     grid_prev: Option<u8>,
+    /// The page grid: a page pressed (its page, where, whether dragged yet) and the gap it would
+    /// go to.
+    grid_drag: Option<(usize, (f64, f64), bool)>,
+    /// More ▸ More tools ▸ Reflow (Acrobat's View ▸ Zoom ▸ Reflow): on, its text size in points.
+    reflow: Option<i32>,
+    /// A form text field being typed in: the entries offered (Auto-Complete).
+    suggestions: Vec<String>,
+    /// The search panel's In a folder…: its search and results, shown in a sheet.
+    folder_search: Option<folder_search::FolderSearch>,
+    grid_gap: Option<usize>,
     /// ⌘C on a comment: the page it is on, until its copy comes back.
     copy_from: Option<usize>,
     /// The tool it goes to then (Redact from the edit group), else the Tools page.
@@ -331,6 +345,19 @@ pub struct ReaderUi {
     loupe_busy: bool,
     loupe_next: Option<(usize, [f64; 4])>,
     loupe_image: Option<slint::Image>,
+    /// Layers hidden on screen by the Layers panel (None: as the file sets them), and the count of
+    /// copies asked for, so only the latest one is shown.
+    layers_off: Option<Vec<(u32, u16)>>,
+    layers_made: u64,
+    /// More tools ▸ Accessibility check: its sheet, a check running, the last report.
+    a11y_open: bool,
+    a11y_busy: bool,
+    a11y: Option<sheaf_core::pdfcraft::engine::a11y::Report>,
+    /// When opened ▸ fit the window to the page, centre it (Acrobat's): asked once it is shown.
+    window_ask: Option<(bool, bool)>,
+    /// More tools ▸ Voice…: the list open, the system's voices.
+    voices_open: bool,
+    voices: Vec<String>,
     /// Pen and shapes draw dashed lines (Acrobat's Dashed line style).
     dashed: bool,
     /// Replace Pages with a file of more pages than selected: its name, bytes, page count and the pages
@@ -480,6 +507,8 @@ impl ReaderUi {
             text_family: 0,
             inplace_text: String::new(),
             text_bold: false,
+            text_underline: false,
+            text_bullets: false,
             text_italic: false,
             text_align: 0,
             annot_candidate: None,
@@ -493,6 +522,11 @@ impl ReaderUi {
             tools_after_save: false,
             delete_after_extract: Vec::new(),
             grid_prev: None,
+            grid_drag: None,
+            reflow: None,
+            suggestions: Vec::new(),
+            folder_search: None,
+            grid_gap: None,
             copy_from: None,
             tool_after_save: None,
             link_error: String::new(),
@@ -523,6 +557,14 @@ impl ReaderUi {
             loupe_busy: false,
             loupe_next: None,
             loupe_image: None,
+            layers_off: None,
+            layers_made: 0,
+            a11y_open: false,
+            a11y_busy: false,
+            a11y: None,
+            window_ask: None,
+            voices_open: false,
+            voices: Vec::new(),
             dashed: false,
             replace_pending: None,
             wheel_turned: None,
@@ -694,7 +736,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     // The copies' and the loupe's answers give back the count `send` took (they left it raised:
     // Undo greyed, and closing asked to save a document untouched).
-    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_)) {
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_)) {
         update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
     }
     match reply {
@@ -748,7 +790,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 } else {
                     Vec::new()
                 };
-                after_change(r, v, pages.as_deref().filter(|p| !p.is_empty()));
+                after_change(ui, id, r, v, pages.as_deref().filter(|p| !p.is_empty()));
                 for (p, b, i) in kept {
                     r.blocks.insert(p, b);
                     if let Some(i) = i {
@@ -834,6 +876,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         },
         Reply::Loupe(made) => loupe::shown(id, made),
         Reply::Upright(turns) => pages::upright(ui, id, turns),
+        Reply::Accessibility(report) => accessibility::checked(id, report),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
@@ -1023,6 +1066,10 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     });
     if ok {
         crate::viewer_ui::request(ui, id);
+        let ask = update(id, |r, _| r.window_ask.take().map(|a| (a, r.snap.boxes.first().map_or((612.0, 792.0), |b| b.view_size())))).flatten();
+        if let Some(((fit, centre), page)) = ask {
+            properties::window_as_asked(ui, fit, centre, page);
+        }
     }
 }
 
@@ -1070,6 +1117,13 @@ fn update<R>(tab_id: i32, f: impl FnOnce(&mut ReaderUi, &mut ViewerUi) -> R) -> 
         let t = a.tab(tab_id)?;
         let (Some(r), Some(v)) = (t.reader.as_deref_mut(), t.viewer.as_deref_mut()) else { return None };
         let out = f(r, v);
+        // Reflow shows the page in view's text: read once it is needed.
+        if r.reflow.is_some() {
+            let cur = v.current();
+            if !r.texts.contains_key(&cur) {
+                r.text(cur);
+            }
+        }
         // A paragraph previewed whose editor has gone (closed, another paragraph, another tool):
         // the page shows it as it was.
         if let Some((page, block)) = r.preview
@@ -1163,6 +1217,10 @@ mod edits;
 mod saving;
 mod speech;
 mod loupe;
+mod accessibility;
+mod layers;
+mod look_up;
+mod folder_search;
 mod pages;
 mod tools;
 mod search;
@@ -1178,6 +1236,12 @@ pub use edits::*;
 pub use saving::*;
 pub use speech::*;
 pub use loupe::*;
+pub use accessibility::{accessibility_check, accessibility_fix, accessibility_report};
+pub use layers::{layer_set, layers_all};
+pub use look_up::look_up;
+pub use folder_search::{folder_result, folder_search};
+#[cfg(test)]
+pub use folder_search::folder_search_for_test;
 pub use pages::*;
 pub use tools::*;
 pub use search::*;

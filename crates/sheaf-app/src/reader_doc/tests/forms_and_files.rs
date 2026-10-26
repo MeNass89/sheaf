@@ -113,7 +113,7 @@ fn a_form_is_prepared_fields_added_set_up_copied_and_deleted() {
     assert_eq!(snap.fields.len(), 1);
     // Copies, 3 down × 2 across (Acrobat's Create Multiple Copies): five separate fields side by
     // side with it, each required with its tooltip, one undo step.
-    ops.send(Op::Apply { edit: Box::new(Edit::CopyField { name: "Full name".into(), rows: 3, cols: 2 }), pages: vec![0] }).unwrap();
+    ops.send(Op::Apply { edit: Box::new(Edit::CopyField { name: "Full name".into(), widget: 0, rows: 3, cols: 2 }), pages: vec![0] }).unwrap();
     let (snap, err) = next(&rx);
     assert!(err.is_none(), "{err:?}");
     let at = |n: &str| snap.fields.iter().find(|f| f.name == n).map(|f| (f.widgets[0].0, f.widgets[0].1.map(f64::round), f.required, f.tooltip.clone()));

@@ -47,5 +47,7 @@ if [ "${code:-1}" -eq 0 ]; then
     echo "EXIT 0"
     exit 0
 fi
+# The failed tests and where they panicked first (the tail alone loses them in a long run), then the tail.
+grep -aE '^---- .* stdout ----$|panicked at|^error(\[E[0-9]+\])?:' dev/.tmp/build.log | head -n 40
 tail -n 30 dev/.tmp/build.log    # kept until the failure is fixed
 exit "${code:-1}"

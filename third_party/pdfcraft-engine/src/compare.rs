@@ -137,6 +137,8 @@ pub enum OfficeFormat {
     Markdown,
     /// Sheaf: structured XML (pages, headings, paragraphs, tables, pictures).
     Xml,
+    /// Sheaf: an EPUB 3 ebook, a chapter per page.
+    Epub,
 }
 
 impl OfficeFormat {
@@ -149,6 +151,7 @@ impl OfficeFormat {
             OfficeFormat::Text => "txt",
             OfficeFormat::Markdown => "md",
             OfficeFormat::Xml => "xml",
+            OfficeFormat::Epub => "epub",
         }
     }
 
@@ -161,6 +164,7 @@ impl OfficeFormat {
             "txt" => Some(OfficeFormat::Text),
             "md" | "markdown" => Some(OfficeFormat::Markdown),
             "xml" => Some(OfficeFormat::Xml),
+            "epub" => Some(OfficeFormat::Epub),
             _ => None,
         }
     }
@@ -313,6 +317,7 @@ impl crate::Document {
             OfficeFormat::Text => pdfcraft_export::text(&pages).into_bytes(),
             OfficeFormat::Markdown => pdfcraft_export::markdown(&pages).into_bytes(),
             OfficeFormat::Xml => pdfcraft_export::xml(&pages, &title).into_bytes(),
+            OfficeFormat::Epub => pdfcraft_export::epub(&pages, &title),
         }
     }
 }

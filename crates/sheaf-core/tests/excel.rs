@@ -230,6 +230,12 @@ fn a_heading_over_one_row_is_a_table() {
     let rows = &read(&r.path)[0].1;
     assert_eq!(rows[0], vec![s("Item"), s("Qty"), s("Price")]);
     assert_eq!(rows[1], vec![s("Widget"), Data::Float(2.0), Data::Float(10.0)]);
+    // Words only, three columns: a table (Sol, 26/10).
+    let names = vec![(72.0, 700.0, "Name"), (220.0, 700.0, "City"), (368.0, 700.0, "Team"), (72.0, 678.0, "Ada"), (220.0, 678.0, "London"), (368.0, 678.0, "Engines")];
+    let n = placed_pdf(t.path(), "names.pdf", &[names]);
+    let r = excel::to_excel(&Input::new(&n), SheetLayout::OneSheet, &ExportOptions::default(), &t.path().join("n.xlsx"), &mut |_| true).unwrap();
+    assert_eq!(r.tables, 1);
+    assert_eq!(read(&r.path)[0].1[1], vec![s("Ada"), s("London"), s("Engines")]);
     let words = vec![(72.0, 700.0, "Dear"), (220.0, 700.0, "client"), (72.0, 678.0, "Kind"), (220.0, 678.0, "regards")];
     let b = placed_pdf(t.path(), "words.pdf", &[words]);
     let r = excel::to_excel(&Input::new(&b), SheetLayout::OneSheet, &ExportOptions::default(), &t.path().join("w.xlsx"), &mut |_| true).unwrap();

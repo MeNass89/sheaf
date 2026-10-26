@@ -25,6 +25,8 @@ pub enum Office {
     Markdown,
     /// .xml, the document's structure
     Xml,
+    /// .epub, an ebook that reflows, a chapter per page (Acrobat's Export ▸ ebook)
+    Epub,
 }
 
 impl Office {
@@ -38,6 +40,7 @@ impl Office {
             Office::Text => "txt",
             Office::Markdown => "md",
             Office::Xml => "xml",
+            Office::Epub => "epub",
         }
     }
 }
@@ -82,6 +85,7 @@ pub fn to_office(input: &Input, format: Office, opts: &ExportOptions, out: &Path
         Office::Text => OfficeFormat::Text,
         Office::Markdown => OfficeFormat::Markdown,
         Office::Xml => OfficeFormat::Xml,
+        Office::Epub => OfficeFormat::Epub,
     };
     let bytes = doc.document().export_office(engine);
     let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;

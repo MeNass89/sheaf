@@ -125,6 +125,9 @@ export component AppWindow inherits Window {
     callback set-default-spread(int);
     in property <bool> open-first-page;
     callback set-open-first-page(bool);
+    // Preferences ▸ Rendering: text, line art and images smoothed.
+    in property <[bool]> smooth: [true, true, true];
+    callback set-smoothing(int, bool);
     in property <string> author-default;
     property <bool> confirm-clear;
 
@@ -321,6 +324,8 @@ export component AppWindow inherits Window {
                             set-default-spread(s) => { root.set-default-spread(s); }
                             open-first-page: root.open-first-page;
                             set-open-first-page(f) => { root.set-open-first-page(f); }
+                            smooth: root.smooth;
+                            set-smoothing(k, on) => { root.set-smoothing(k, on); }
                             backdrop-pref: root.backdrop-pref;
                             set-accent(i) => { root.set-accent(i); }
                             set-backdrop(i) => { root.set-backdrop(i); }

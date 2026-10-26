@@ -48,6 +48,7 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::SetLink { .. }
         | Edit::DeleteLink { .. }
         | Edit::MoveObjects { .. }
+        | Edit::ArrangeObjects { .. }
         | Edit::DeleteObjects { .. }
         | Edit::EditPageImage { .. }
         | Edit::RenameBookmark { .. }
@@ -97,8 +98,8 @@ pub(super) fn forget_page_state(r: &mut ReaderUi) {
 }
 
 /// The working copy changed: new bytes to render, annotations to list.
-pub(super) fn after_change(r: &mut ReaderUi, v: &mut ViewerUi, pages: Option<&[usize]>) {
-    v.source = Some(r.bytes());
+pub(super) fn after_change(ui: &AppWindow, tab_id: i32, r: &mut ReaderUi, v: &mut ViewerUi, pages: Option<&[usize]>) {
+    layers::remake(ui, tab_id, r, v);
     let turn = v.viewer.turn();
     if v.viewer.boxes != viewer::turned(&r.snap.boxes, turn) {
         // A page was added, removed or turned (the view's own turn kept).
@@ -572,6 +573,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             if text == f.value.join("") {
                 return None;
             }
+            crate::home::remember_entry(&text);
             return Some((d.page, Edit::SetFieldValue { name: f.name.clone(), value: FieldValue::Text(text.clone()) }));
         }
         if d.kind == 2 {
@@ -597,7 +599,20 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             let rect = [x0, size.1 - (d.at.1 + h), x0 + w + pt, size.1 - d.at.1];
             return Some((
                 d.page,
-                Edit::AddText { page: d.page, text: AddedText { rect, text: text.clone(), size: pt, color: ink_at(r.ink_colour), family, bold: r.text_bold, italic: r.text_italic, align: TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize] } },
+                Edit::AddText {
+                    page: d.page,
+                    text: AddedText {
+                        rect,
+                        text: if r.text_bullets { reader::bulleted(&text) } else { text.clone() },
+                        size: pt,
+                        color: ink_at(r.ink_colour),
+                        family,
+                        bold: r.text_bold,
+                        italic: r.text_italic,
+                        align: TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize],
+                        underline: r.text_underline,
+                    },
+                },
             ));
         }
         let (x, y) = viewer::view_to_pdf(b, size, d.at.0, d.at.1);
@@ -656,6 +671,32 @@ pub fn nudge(ui: &AppWindow, tab_id: i32, dx: f32, dy: f32) {
     }
 }
 
+/// Edit tool, several objects picked ▸ Align or Distribute (`how` as [`reader::arrange`]; Acrobat's
+/// Align Objects): lined up on the selection's outer edge or centre, or spaced evenly; one step.
+pub fn objects_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
+    let edit = update(tab_id, |r, _| {
+        if r.edits_in_flight > 0 || r.repick.is_some() {
+            return None;
+        }
+        let (page, list) = r.picked.as_ref()?;
+        let rects: Vec<[f64; 4]> = list.iter().map(|o| o.1).collect();
+        let arranged = if how == 9 || how == 10 {
+            reader::arrange(&rects, how)
+        } else {
+            // Against the box round them all: the leftmost edge, the topmost, their middle.
+            let union = rects.iter().fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |u, r| [u[0].min(r[0]), u[1].min(r[1]), u[2].max(r[2]), u[3].max(r[3])]);
+            reader::arrange(&[&[union][..], &rects].concat(), how).split_off(1)
+        };
+        let moves = list.iter().zip(&arranged).map(|(o, a)| (o.0, [a[0] - o.1[0], a[1] - o.1[1]])).collect();
+        r.repick = Some((*page, arranged));
+        Some((*page, Edit::ArrangeObjects { page: *page, moves }))
+    })
+    .flatten();
+    if let Some((page, e)) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
 pub fn note_cancel(tab_id: i32) {
     update(tab_id, |r, _| {
         r.draft = None;
@@ -698,6 +739,11 @@ pub fn note_edited(ui: &AppWindow, tab_id: i32, text: &str) {
         // Typed in place: kept, so a click elsewhere on the page commits it.
         if r.draft.as_ref().is_some_and(|d| matches!(d.kind, 1 | 3) && d.block.is_none()) {
             r.inplace_text = text.to_string();
+            return;
+        }
+        // A form text field: the entries remembered that start as typed (Acrobat's Auto-Complete).
+        if r.draft.as_ref().is_some_and(|d| d.kind == 4) {
+            r.suggestions = sheaf_app::reader::completions(&crate::home::prefs().form_entries, text, 4);
             return;
         }
         let Some(d) = r.draft.as_ref().filter(|d| d.kind == 2) else { return };
@@ -749,11 +795,29 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     let edit = update(tab_id, |r, _| {
         let i = r.selected_annot.take()?;
         let a = r.annots().get(i)?;
-        Some((a.page, Edit::DeleteAnnotation { page: a.page, index: a.index }))
+        // A signature or initials placed on several pages at once (Every page): the copies go
+        // together, one undo step (Sol, 26/10: only the one selected went).
+        let twins: Vec<(usize, usize)> = if a.fill_sign && a.subtype == "Stamp" {
+            let same = |b: &reader_doc::AnnotEntry| b.page != a.page && b.subtype == a.subtype && b.fill_sign && b.contents == a.contents && (0..4).all(|k| (b.rect[k] - a.rect[k]).abs() < 0.5);
+            r.annots().iter().filter(|b| same(b)).map(|b| (b.page, b.index)).collect()
+        } else {
+            Vec::new()
+        };
+        if twins.is_empty() {
+            return Some((vec![a.page], Edit::DeleteAnnotation { page: a.page, index: a.index }, 0));
+        }
+        let mut pages = vec![a.page];
+        pages.extend(twins.iter().map(|t| t.0));
+        let edits = std::iter::once((a.page, a.index)).chain(twins).map(|(page, index)| Edit::DeleteAnnotation { page, index }).collect();
+        let n = pages.len();
+        Some((pages, Edit::Batch { label: "Delete signatures".into(), edits }, n))
     })
     .flatten();
-    if let Some((page, e)) = edit {
-        apply(ui, tab_id, e, &[page], None);
+    if let Some((pages, e, n)) = edit {
+        apply(ui, tab_id, e, &pages, None);
+        if n > 1 {
+            crate::flow::toast(ui, &format!("Deleted from the {n} pages it was placed on (⌘Z brings them back)"));
+        }
     }
 }
 
@@ -853,15 +917,16 @@ pub(super) fn paste_objects(ui: &AppWindow, tab_id: i32) -> bool {
 
 /// More ▸ Overlay a PDF… (PDF Expert's and Acrobat's overlay): a PDF chosen is drawn over every
 /// page, its page 1 on page 1 and so on (its last again past its end), each an item the Edit tool
-/// moves, resizes or deletes; one undo step.
-pub fn overlay_pdf(ui: &AppWindow, tab_id: i32) {
+/// moves, resizes or deletes; `behind` (Underlay a PDF…, Acrobat's) under the page's content
+/// instead. One undo step.
+pub fn overlay_pdf(ui: &AppWindow, tab_id: i32, behind: bool) {
     let d = crate::dialog::new(ui).add_filter("PDF", &["pdf"]);
     crate::dialog::pick_file(ui, d, move |ui, path| {
         let Ok(bytes) = std::fs::read(&path) else {
             return crate::flow::toast(ui, "That file could not be read");
         };
         let Some(pages) = update(tab_id, |_, v| (0..v.viewer.page_count()).collect::<Vec<_>>()) else { return };
-        apply(ui, tab_id, Edit::OverlayPdf { name: file_name(&path), bytes: Arc::new(bytes), pages: pages.clone() }, &pages, None);
+        apply(ui, tab_id, Edit::OverlayPdf { name: file_name(&path), bytes: Arc::new(bytes), pages: pages.clone(), behind }, &pages, None);
     });
 }
 

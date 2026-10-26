@@ -1323,7 +1323,8 @@ fn draw_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
 fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
     let mut stream = appearance::build(d)?;
     // Sheaf: a text box in a font of the file's own is drawn with it when its old appearance holds
-    // it whole (not a subset, WinAnsi-encoded, a simple font): the text is written in WinAnsi.
+    // it (WinAnsi-encoded, a simple font; a subset when the text is made of the characters it drew
+    // before): the text is written in WinAnsi.
     if d.name(b"Subtype") == Some(b"FreeText") {
         let (name, _) = appearance::text_font(d);
         if !appearance::TEXT_FONTS.iter().any(|f| f.0 == name)
@@ -1351,8 +1352,10 @@ fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
     Some(stream)
 }
 
-/// Sheaf: font `name` of a text box's present appearance, when it can draw any WinAnsi text: a
-/// simple font (Type1, TrueType), not a subset, WinAnsi-encoded.
+/// Sheaf: font `name` of a text box's present appearance, when it can draw its text: a simple font
+/// (Type1, TrueType), WinAnsi-encoded; a subset (Acrobat and Word embed only the characters used)
+/// when every character of the text was drawn by the old appearance, as after a new size, colour
+/// or alignment (Sol, 26/10: a subset was replaced by a standard face).
 fn old_text_font(doc: &Document, d: &Dict, name: &str) -> Option<Object> {
     let ap = doc.resolve(d.get(b"AP")?);
     let normal = doc.resolve(ap.as_dict()?.get(b"N")?);
@@ -1363,9 +1366,73 @@ fn old_text_font(doc: &Document, d: &Dict, name: &str) -> Option<Object> {
     let font = doc.resolve(&entry);
     let f = font.as_dict()?;
     let simple = matches!(f.name(b"Subtype"), Some(b"Type1" | b"TrueType"));
-    let whole = f.name(b"BaseFont").is_some_and(|b| b.get(6) != Some(&b'+'));
+    let subset = f.name(b"BaseFont").is_some_and(|b| b.get(6) == Some(&b'+'));
     let win_ansi = f.name(b"Encoding") == Some(b"WinAnsiEncoding");
-    (simple && whole && win_ansi).then_some(entry)
+    let holds = !subset || {
+        let shown = shown_bytes(&normal.decoded().unwrap_or_default());
+        let text = d.get(b"Contents").and_then(|o| o.as_string()).map(PdfString::to_text).unwrap_or_default();
+        pdfcraft_fonts::win_ansi(&text).iter().all(|b| matches!(b, b' ' | b'\n' | b'\r') || shown.contains(b))
+    };
+    (simple && win_ansi && holds).then_some(entry)
+}
+
+/// The bytes a content stream's strings hold (literal and hexadecimal): the characters it shows.
+fn shown_bytes(content: &[u8]) -> std::collections::HashSet<u8> {
+    let mut out = std::collections::HashSet::new();
+    let mut i = 0;
+    while i < content.len() {
+        match content[i] {
+            b'(' => {
+                let mut depth = 1;
+                i += 1;
+                while i < content.len() && depth > 0 {
+                    match content[i] {
+                        b'\\' => {
+                            i += 1;
+                            let Some(&c) = content.get(i) else { break };
+                            if c.is_ascii_digit() {
+                                let digits: Vec<u8> = content[i..].iter().take(3).take_while(|d| (b'0'..=b'7').contains(d)).copied().collect();
+                                if let Ok(v) = u8::from_str_radix(std::str::from_utf8(&digits).unwrap_or("0"), 8) {
+                                    out.insert(v);
+                                }
+                                i += digits.len().max(1) - 1;
+                            } else {
+                                out.insert(match c { b'n' => b'\n', b'r' => b'\r', b't' => b'\t', b'b' => 8, b'f' => 12, other => other });
+                            }
+                        }
+                        b'(' => {
+                            depth += 1;
+                            out.insert(b'(');
+                        }
+                        b')' => {
+                            depth -= 1;
+                            if depth > 0 {
+                                out.insert(b')');
+                            }
+                        }
+                        c => {
+                            out.insert(c);
+                        }
+                    }
+                    i += 1;
+                }
+            }
+            b'<' if content.get(i + 1) != Some(&b'<') => {
+                let end = content[i..].iter().position(|&c| c == b'>').map_or(content.len(), |e| i + e);
+                let hex: Vec<u8> = content[i + 1..end].iter().filter(|c| c.is_ascii_hexdigit()).copied().collect();
+                for pair in hex.chunks(2) {
+                    let s = std::str::from_utf8(pair).unwrap_or("0");
+                    if let Ok(v) = u8::from_str_radix(&format!("{s:0<2}"), 16) {
+                        out.insert(v);
+                    }
+                }
+                i = end + 1;
+            }
+            b'<' => i += 2,
+            _ => i += 1,
+        }
+    }
+    out
 }
 
 /// Store a built appearance on the annotation: the cheap half of [`set_appearance`].
@@ -1854,16 +1921,17 @@ pub fn turn_stamp(doc: &mut Document, page: usize, index: usize, quarters: i64, 
         d.set(b"Rect".to_vec(), num_array(&rect));
         touch(d, meta);
     })?;
-    // Drawn again turned (Sol, 26/10: only the box turned); an appearance PdfCraft cannot draw (a
-    // stamp made from another PDF's page) is turned by its matrix instead.
-    match draw_appearance(doc, r) {
-        Ok(()) => Ok(()),
-        Err(AnnotError::Unsupported(_)) => turn_appearance(doc, r, quarters),
-        Err(e) => {
-            doc.set(r, Object::Dict(d));
-            Err(e)
-        }
+    // Drawn again turned (Sol, 26/10: only the box turned), from the dictionary alone: the matrix
+    // the new turn gives, not the old appearance's (Sol, 26/10: the second quarter turn kept the
+    // first one's). An appearance PdfCraft cannot draw (a stamp made from another PDF's page) is
+    // turned by its matrix instead.
+    let now = annot_dict(doc, r);
+    let Some(stream) = appearance::build(&now) else { return turn_appearance(doc, r, quarters) };
+    if let Err(e) = apply_appearance(doc, r, &now, stream) {
+        doc.set(r, Object::Dict(d));
+        return Err(e);
     }
+    Ok(())
 }
 
 /// Sheaf: the normal appearance of `r` turned `quarters` quarter turns clockwise by its `/Matrix`

@@ -341,6 +341,29 @@ fn drawings_are_objects_that_move_alone() {
     assert!(std::process::Command::new("qpdf").arg("--check").arg(&out).status().unwrap().success());
 }
 
+/// Acrobat's Align Objects: a square, a line and a word, each moved by its own offset in one
+/// step, lined up on their leftmost edge; then the squares spaced evenly.
+#[test]
+fn objects_line_up_each_by_its_own_move_in_one_step() {
+    use sheaf_core::pdfcraft::engine::{Edit, ObjectKind};
+    let dir = tempfile::tempdir().unwrap();
+    let content = b"0 0 1 rg 100 100 50 50 re f 2 w 300 200 m 400 200 l S BT /F1 12 Tf 72 700 Td (Word) Tj ET 0 1 0 rg 200 400 20 20 re f".to_vec();
+    let pdf = page_pdf(dir.path(), "align.pdf", vec![content]);
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    let objects = doc.document().editable_objects(0).unwrap();
+    let left = objects.iter().map(|o| o.rect[0]).fold(f64::MAX, f64::min);
+    let moves = objects.iter().map(|o| (o.target, [left - o.rect[0], 0.0])).collect();
+    doc.apply(Edit::ArrangeObjects { page: 0, moves }).unwrap();
+    let after = doc.document().editable_objects(0).unwrap();
+    assert_eq!(after.len(), objects.len());
+    assert!(after.iter().all(|o| (o.rect[0] - left).abs() < 1.0), "every left edge at {left}: {after:?}");
+    assert!(after.iter().any(|o| o.target.kind == ObjectKind::Text), "the word is still a word");
+    let id = doc.id();
+    doc.session_mut().undo(id).unwrap();
+    let undone = doc.document().editable_objects(0).unwrap();
+    assert!(undone.iter().any(|o| (o.rect[0] - 300.0).abs() < 0.01), "one undo puts them all back: {undone:?}");
+}
+
 #[test]
 fn picked_drawings_and_words_are_deleted_together() {
     // A filled square, a stroked line and a word: the square and the word picked, deleted.
@@ -386,4 +409,75 @@ fn a_paragraph_takes_text_outside_winansi_when_the_faces_are_built_in() {
     doc.apply(Edit::EditTextBlock { page: 0, block: i, text: "Привет мир 日本語".into(), style: BlockStyle::default() }).unwrap();
     let (_, _, text) = block_with(&doc, "Привет");
     assert!(text.contains("Привет мир") && text.contains("日本語"), "{text}");
+}
+
+/// Acrobat's Page Transitions: the second page comes in with a wipe and stays 3 s in full screen; set
+/// again with no effect, both are gone.
+#[test]
+fn a_page_transition_and_its_time_are_written_and_taken_back() {
+    use sheaf_core::pdfcraft::engine::Edit;
+    let dir = tempfile::tempdir().unwrap();
+    let one = page_pdf(dir.path(), "one.pdf", vec![b"BT /F1 12 Tf 72 700 Td (Slide) Tj ET".to_vec()]);
+    let pdf = dir.path().join("slides.pdf");
+    assert!(std::process::Command::new("qpdf").arg("--empty").arg("--pages").arg(&one).arg(&one).arg("--").arg(&pdf).status().unwrap().success());
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    doc.apply(Edit::SetTransition { pages: vec![1], style: Some("Wipe".into()), seconds: 1.0, advance: Some(3.0) }).unwrap();
+    assert_eq!(doc.document().page_durations(), vec![None, Some(3.0)]);
+    let out = doc.save(&dir.path().join("trans.pdf")).unwrap();
+    let l = lopdf::Document::load(&out).unwrap();
+    let page = l.get_dictionary(*l.get_pages().get(&2).unwrap()).unwrap();
+    let trans = l.dereference(page.get(b"Trans").unwrap()).unwrap().1.as_dict().unwrap().clone();
+    assert_eq!(trans.get(b"S").unwrap().as_name().unwrap(), b"Wipe");
+    assert_eq!(page.get(b"Dur").unwrap().as_float().unwrap(), 3.0);
+    doc.apply(Edit::SetTransition { pages: vec![1], style: None, seconds: 1.0, advance: None }).unwrap();
+    assert_eq!(doc.document().page_durations(), vec![None, None]);
+    assert!(doc.apply(Edit::SetTransition { pages: vec![0], style: Some("Spin".into()), seconds: 1.0, advance: None }).is_err());
+}
+
+/// Acrobat's Underlay (Sol, 26/10: only an overlay in front ran page by page): the other PDF's page
+/// k is drawn first on page k, under the page's own text, which stays text.
+#[test]
+fn a_pdf_underlaid_is_drawn_before_each_pages_own_content() {
+    use sheaf_core::pdfcraft::engine::Edit;
+    let dir = tempfile::tempdir().unwrap();
+    let under = page_pdf(dir.path(), "under.pdf", vec![b"0.9 0.9 0.9 rg 0 0 612 792 re f BT /F1 30 Tf 72 400 Td (Letterhead) Tj ET".to_vec()]);
+    let top = page_pdf(dir.path(), "top.pdf", vec![b"BT /F1 12 Tf 72 700 Td (Dear reader) Tj ET".to_vec()]);
+    let mut doc = Doc::open(&Input::new(&top)).unwrap();
+    doc.apply(Edit::OverlayPdf { name: "under.pdf".into(), bytes: std::sync::Arc::new(std::fs::read(&under).unwrap()), pages: vec![0], behind: true }).unwrap();
+    let out = doc.save(&dir.path().join("out.pdf")).unwrap();
+    let l = lopdf::Document::load(&out).unwrap();
+    let page = *l.get_pages().get(&1).unwrap();
+    let first = l.get_page_contents(page)[0];
+    let data = l.get_object(first).unwrap().as_stream().unwrap().decompressed_content().unwrap();
+    assert!(String::from_utf8_lossy(&data).contains("/SheafUnder0 Do"), "the underlay is drawn first");
+    let text = String::from_utf8_lossy(&std::process::Command::new("pdftotext").arg(&out).arg("-").output().unwrap().stdout).into_owned();
+    assert!(text.contains("Dear reader") && text.contains("Letterhead"), "{text}");
+}
+
+/// A filled text field with no appearance (a viewer asked to draw it) keeps its value once
+/// flattened (Sol, 26/10: it was removed, the value lost).
+#[test]
+fn a_field_without_an_appearance_is_drawn_when_flattened() {
+    use lopdf::{dictionary, Object as L, Stream};
+    use sheaf_core::pdfcraft::engine::Edit;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("needs.pdf");
+    let mut d = lopdf::Document::with_version("1.7");
+    let font = d.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica" });
+    let field = d.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Widget", "FT" => "Tx", "T" => L::string_literal("Name"), "V" => L::string_literal("Ada Lovelace"),
+        "Rect" => vec![72.into(), 700.into(), 300.into(), 720.into()], "DA" => L::string_literal("/Helv 12 Tf 0 g"),
+    });
+    let pages = d.new_object_id();
+    let content = d.add_object(Stream::new(dictionary! {}, Vec::new()));
+    let page = d.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()], "Contents" => content, "Annots" => vec![field.into()] });
+    d.objects.insert(pages, L::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
+    let catalog = d.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages, "AcroForm" => dictionary! { "Fields" => vec![field.into()], "NeedAppearances" => true, "DR" => dictionary! { "Font" => dictionary! { "Helv" => font } }, "DA" => L::string_literal("/Helv 12 Tf 0 g") } });
+    d.trailer.set("Root", catalog);
+    d.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::Flatten { comments: false, fields: true }).unwrap();
+    let out = doc.save(&dir.path().join("flat.pdf")).unwrap();
+    let text = String::from_utf8_lossy(&std::process::Command::new("pdftotext").arg(&out).arg("-").output().unwrap().stdout).into_owned();
+    assert!(text.contains("Ada Lovelace"), "the value is drawn into the page: {text:?}");
 }

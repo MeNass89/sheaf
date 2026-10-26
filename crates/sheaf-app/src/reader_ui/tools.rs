@@ -131,12 +131,16 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
             1 => r.text_family = v.clamp(0, 2),
             2 => r.text_bold = !r.text_bold,
             3 => r.text_italic = !r.text_italic,
+            6 => r.text_underline = !r.text_underline,
+            7 => r.text_bullets = !r.text_bullets,
             _ => r.text_align = v.clamp(0, 2),
         }
         if r.draft.as_ref().is_some_and(|d| d.kind == 2) {
             r.para_format |= match what {
                 0 | 5 => 2,
                 1..=3 => 4,
+                // Underline and bullets are for text added on the page.
+                6 | 7 => 0,
                 _ => 8,
             };
         }
@@ -437,7 +441,7 @@ pub fn set_theme(ui: &AppWindow, tab_id: i32, theme: i32) {
 
 pub fn set_panel(tab_id: i32, panel: i32) {
     update(tab_id, |r, _| {
-        r.panel = panel.clamp(0, 4);
+        r.panel = panel.clamp(0, 5);
         r.panel_open = true;
         model::quote_texts(r, tab_id);
     });

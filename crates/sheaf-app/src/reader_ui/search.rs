@@ -26,7 +26,7 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
     if !q.is_empty() {
         HISTORY.with(|h| remember(&mut h.borrow_mut(), &q));
     }
-    let Some((bytes, password, n, generation, case, whole, live, known)) = update(tab_id, |r, v| {
+    let Some((bytes, password, n, generation, case, whole, live, known, (turn, sizes))) = update(tab_id, |r, v| {
         r.search.generation += 1;
         r.search.query = q.clone();
         r.search.hits.clear();
@@ -42,7 +42,10 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
         r.search_live.store(r.search.generation, std::sync::atomic::Ordering::Relaxed);
         // Pages read before (an earlier search, selection) are not read again.
         let known = r.texts.clone();
-        (r.snap.bytes.clone(), r.password(), v.viewer.page_count(), r.search.generation, r.search.case_sensitive, r.search.whole_words, r.search_live.clone(), known)
+        // With Rotate view on, the pages read are turned as the known ones are (Sol, 26/10: a search
+        // after a turn put its hits on the unturned text).
+        let turn = (r.turn, r.snap.boxes.iter().map(|b| { let (w, h) = b.view_size(); (w as f32, h as f32) }).collect::<Vec<_>>());
+        (r.snap.bytes.clone(), r.password(), v.viewer.page_count(), r.search.generation, r.search.case_sensitive, r.search.whole_words, r.search_live.clone(), known, turn)
     }) else {
         return;
     };
@@ -73,6 +76,10 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
                     if stale() {
                         return;
                     }
+                    let t = match t {
+                        Some(t) if turn != 0 && !known.contains_key(&page) => sizes.get(page).map(|&s| Arc::new(reader::turned_text(&t, s, turn))).or(Some(t)),
+                        t => t,
+                    };
                     if let Some(t) = t {
                         for m in t.find_opts(&q, case, whole) {
                             snippets.push(snippet(&t, m.clone()));

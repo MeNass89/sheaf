@@ -136,6 +136,50 @@ pub fn quads(page: &PageBox, rects: &[[f32; 4]]) -> Vec<[f64; 8]> {
         .collect()
 }
 
+/// Auto-Complete: up to `n` of `entries` (newest first) that start with what is `typed` (any case),
+/// other than it; nothing for less than one letter typed.
+pub fn completions(entries: &[String], typed: &str, n: usize) -> Vec<String> {
+    let t = typed.trim().to_lowercase();
+    if t.is_empty() {
+        return Vec::new();
+    }
+    // The same entry in another case is offered once, as first remembered (the newest).
+    let mut seen = std::collections::HashSet::new();
+    entries.iter().filter(|e| e.to_lowercase().starts_with(&t) && e.to_lowercase() != t && seen.insert(e.to_lowercase())).take(n).cloned().collect()
+}
+
+/// A page's text for Reflow: its lines joined into paragraphs (a line ending a sentence, or short,
+/// ends one), hyphens at line ends taken out.
+pub fn reflow_text(text: &str) -> String {
+    let mut out = String::new();
+    let lines: Vec<&str> = text.lines().map(str::trim).collect();
+    let longest = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+    for (i, l) in lines.iter().enumerate() {
+        if l.is_empty() {
+            if !out.ends_with("\n\n") && !out.is_empty() {
+                out.push_str("\n\n");
+            }
+            continue;
+        }
+        if let Some(stem) = l.strip_suffix('-').filter(|s| s.chars().last().is_some_and(char::is_alphabetic)) {
+            out.push_str(stem);
+            continue;
+        }
+        out.push_str(l);
+        let ends = l.ends_with(['.', '!', '?', ':']) || l.chars().count() * 3 < longest * 2;
+        let last = i + 1 == lines.len();
+        if !last {
+            out.push_str(if ends { "\n\n" } else { " " });
+        }
+    }
+    out.trim_end().to_string()
+}
+
+/// Text as a bulleted list (Acrobat's Bulleted list): each line not empty starts with "• ", once.
+pub fn bulleted(text: &str) -> String {
+    text.lines().map(|l| if l.trim().is_empty() || l.starts_with("• ") { l.to_string() } else { format!("• {l}") }).collect::<Vec<_>>().join("\n")
+}
+
 /// A point of a page shown `size` (`w`, `h`; view space, y down), where it lies once the page is
 /// turned `quarters` quarter turns clockwise (Rotate view).
 pub fn turned_point(p: [f32; 2], size: (f32, f32), quarters: u16) -> [f32; 2] {
@@ -955,6 +999,25 @@ mod tests {
         assert_eq!(link_text(&render::LinkTarget::Page(1, render::DestView::Fit)), "2");
         assert_eq!(link_action(&link_text(&render::LinkTarget::Page(1, render::DestView::Fit)), 10), Some(LinkAction::Page(1)));
         assert_eq!(link_text(&render::LinkTarget::Uri("https://example.org".into())), "https://example.org");
+    }
+
+    #[test]
+    fn reflow_joins_a_paragraphs_lines_and_keeps_its_breaks() {
+        let page = "The quick brown fox jumps over the lazy dog and runs\naway into the forest, never to be seen again.\nShort title\nA hyphen-\nated word.";
+        assert_eq!(reflow_text(page), "The quick brown fox jumps over the lazy dog and runs away into the forest, never to be seen again.\n\nShort title\n\nA hyphenated word.");
+    }
+
+    #[test]
+    fn entries_are_offered_by_what_they_start_with() {
+        let e = ["Paris".to_string(), "Pau".into(), "paris".into(), "Lyon".into()];
+        assert_eq!(completions(&e, "pa", 4), ["Paris", "Pau"]);
+        assert_eq!(completions(&e, "Paris", 4), Vec::<String>::new(), "what is typed already is not offered");
+        assert!(completions(&e, "", 4).is_empty());
+    }
+
+    #[test]
+    fn lines_become_a_bulleted_list_once() {
+        assert_eq!(bulleted("Milk\n\nEggs\n• Bread"), "• Milk\n\n• Eggs\n• Bread");
     }
 
     #[test]

@@ -267,3 +267,39 @@ export component FieldsArrangeCard inherits Rectangle {
         }
     }
 }
+
+// Edit tool, several objects picked (Acrobat's Align Objects): lined up on the selection's outer
+// edge or middle, or spaced evenly; each button is one undo step.
+export component ObjectsArrangeCard inherits Rectangle {
+    in property <int> count;
+    in property <int> id;
+    callback focus-pages();
+    width: 300px;
+    height: col.preferred-height;
+    border-radius: Theme.radius-item;
+    background: Theme.card;
+    drop-shadow-blur: 12px;
+    drop-shadow-color: #00000040;
+    drop-shadow-offset-y: 2px;
+    TouchArea { }
+    col := VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+        Text {
+            text: root.count + " objects selected";
+            font-size: Theme.fs-label;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text-heading;
+        }
+        // Codes as reader::arrange.
+        for row in [
+            { label: "Align", items: [{ t: "Left", k: 0 }, { t: "Centre", k: 1 }, { t: "Right", k: 2 }] },
+            { label: "", items: [{ t: "Top", k: 3 }, { t: "Middle", k: 4 }, { t: "Bottom", k: 5 }] },
+            { label: "Space", items: [{ t: "Evenly across", k: 9 }, { t: "Evenly down", k: 10 }] },
+        ]: HorizontalLayout {
+            spacing: 4px;
+            Text { width: 44px; text: row.label; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            for b in row.items: SmallButton { text: b.t; clicked => { ReaderBridge.objects-arrange(root.id, b.k); root.focus-pages(); } }
+        }
+    }
+}

@@ -393,6 +393,8 @@ pub fn move_file(tab_id: i32, uid: i32, delta: i32) {
             let j = i as i32 + delta;
             if j >= 0 && (j as usize) < t.files.len() {
                 t.files.swap(i, j as usize);
+                // Files put in another order merge whole, in that order.
+                t.merge_kept = None;
             }
         }
         refresh(a, tab_id);
@@ -414,6 +416,7 @@ pub fn place_file(tab_id: i32, uid: i32, slot: i32) {
             let to = dropped_at(i, slot.max(0) as usize, t.files.len());
             let f = t.files.remove(i);
             t.files.insert(to, f);
+            t.merge_kept = None;
         }
         refresh(a, tab_id);
     });
@@ -487,6 +490,9 @@ pub fn show_merge_pages(ui: &AppWindow, tab_id: i32, on: bool) {
         refresh(a, tab_id);
         Some(pdfs)
     });
+    if !on && with(|a| a.tab(tab_id).is_some_and(|t| t.merge_kept.is_some())) {
+        toast(ui, "The pages are merged as arranged in Pages; moving a file here merges the files whole");
+    }
     for (input, uid) in render.unwrap_or_default() {
         page_thumbs(ui, tab_id, input, Some(uid));
     }

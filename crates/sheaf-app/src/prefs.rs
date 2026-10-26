@@ -87,6 +87,9 @@ fn kept_signatures<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<KeptSig
         .collect())
 }
 
+/// How many form entries Auto-Complete keeps.
+pub const ENTRIES: usize = 200;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct Prefs {
@@ -109,6 +112,11 @@ pub struct Prefs {
     pub stamp_date: i32,
     /// Read aloud's speed: 0 normal, 1 slow, 2 fast.
     pub reading_speed: u8,
+    /// Read aloud's voice by the system's name for it (None: the system's default).
+    pub reading_voice: Option<String>,
+    /// What was typed in form text fields, newest first (Acrobat's Auto-Complete memory; at most
+    /// [`ENTRIES`]); offered back while a field is typed in.
+    pub form_entries: Vec<String>,
     /// How a document never opened before is shown: 0 fit width, 1 fit page, 2 actual size.
     pub default_zoom: i32,
     /// And its pages: 0 one column, 1 two side by side, 2 two with the cover alone (PDF Expert's
@@ -117,6 +125,9 @@ pub struct Prefs {
     /// Documents reopen on their first page, not where they were left (Acrobat's "Restore last view
     /// settings when reopening documents" off).
     pub open_first_page: bool,
+    /// Pages drawn without smoothing (Acrobat's Rendering ▸ Smooth text, line art, images
+    /// unticked): 1 text, 2 line art, 4 images.
+    pub rough: u8,
     /// The reader's side panel width in px, dragged by its edge (0: the default, 248).
     pub panel_width: u16,
     /// Accent colour (0 Sheaf red, 1 blue, 2 green, 3 purple, 4 orange, 5 graphite).

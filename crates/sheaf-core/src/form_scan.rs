@@ -97,8 +97,9 @@ pub fn lines_in(gray: &[u8], w: usize, min: usize, thick: usize) -> (Vec<[usize;
 }
 
 /// Fields proposed for the scanned pages among `pages` (a page with text of its own is left to
-/// PdfCraft's detection): (page, candidate), names unique against `taken`.
-pub fn candidates(doc: &Doc, pages: &[usize], taken: &[String]) -> Vec<(usize, Candidate)> {
+/// PdfCraft's detection): (page, candidate), names unique against `taken`, none over a field
+/// already there (`existing`: page and rectangle; Sol, 26/10: detecting again stacked fields).
+pub fn candidates(doc: &Doc, pages: &[usize], taken: &[String], existing: &[(usize, [f64; 4])]) -> Vec<(usize, Candidate)> {
     let Some(d) = doc.session().get(doc.id()) else { return Vec::new() };
     let config = RenderConfig { password: d.password.as_deref().map(Arc::from), ..Default::default() };
     let mut r = PageRenderer::new(d.bytes.clone(), config);
@@ -147,7 +148,8 @@ pub fn candidates(doc: &Doc, pages: &[usize], taken: &[String]) -> Vec<(usize, C
             }
             None => Vec::new(),
         };
-        for c in detect::detect(&words, &shapes, &[], &taken) {
+        let here: Vec<[f64; 4]> = existing.iter().filter(|e| e.0 == page).map(|e| e.1).collect();
+        for c in detect::detect(&words, &shapes, &here, &taken) {
             taken.push(c.name.clone());
             out.push((page, c));
         }

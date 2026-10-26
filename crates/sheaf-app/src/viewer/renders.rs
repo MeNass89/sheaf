@@ -280,24 +280,38 @@ pub fn render_page(input: &sheaf_core::pages::Input, page: usize, width: u32) ->
     Ok(slint::SharedPixelBuffer::clone_from_slice(&bmp.as_rgba_bytes(), w, h))
 }
 
+/// How the reader draws its pages: recoloured for `theme`; `comments` false leaves annotations out;
+/// `turn` turns the page clockwise more (Rotate View); `smooth` the text, line art and images
+/// anti-aliased (Preferences ▸ Rendering, Acrobat's Smooth text, line art and images).
+#[derive(Clone, Copy, Debug)]
+pub struct PageLook {
+    pub theme: crate::reader::PageTheme,
+    pub comments: bool,
+    pub turn: u16,
+    pub smooth: [bool; 3],
+}
+
+impl Default for PageLook {
+    fn default() -> Self {
+        Self { theme: Default::default(), comments: true, turn: 0, smooth: [true; 3] }
+    }
+}
+
 /// Page `page` of a PDF held in memory (`bytes`, opened with `password`) rendered `width` pixels
-/// wide, as RGBA, then recoloured for `theme`: the reader's pages, which show edits not saved yet;
-/// `comments` false leaves annotations out; `turn` turns the page clockwise more (Rotate View).
-pub fn render_bytes(
-    bytes: &[u8],
-    password: Option<&str>,
-    page: usize,
-    width: u32,
-    theme: crate::reader::PageTheme,
-    comments: bool,
-    turn: u16,
-) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
+/// wide, as RGBA, drawn as `look` asks: the reader's pages, which show edits not saved yet.
+pub fn render_bytes(bytes: &[u8], password: Option<&str>, page: usize, width: u32, look: PageLook) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
     use pdfium_render::prelude::PdfRenderConfig;
+    let PageLook { theme, comments, turn, smooth: [text, lines, images] } = look;
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = sheaf_core::engine::open_pdf_bytes(bytes, password).map_err(|e| e.to_string())?;
     let p = doc.pages().get(page as i32).map_err(|e| e.to_string())?;
     // Without comments (Hide all comments), form fields still draw.
-    let config = PdfRenderConfig::new().render_form_data(true).render_annotations(comments);
+    let config = PdfRenderConfig::new()
+        .render_form_data(true)
+        .render_annotations(comments)
+        .set_text_smoothing(text)
+        .set_path_smoothing(lines)
+        .set_image_smoothing(images);
     // Drawn upright, then turned (pdfium-render's own rotation keeps the upright size): a quarter
     // turn asks for the height the width will be.
     let config = if turn % 180 == 90 { config.set_target_height(width as i32) } else { config.set_target_width(width as i32) };
@@ -359,13 +373,33 @@ mod tests {
         assert_eq!((px.width(), px.height()), (250, 500));
         // The view turned a quarter more (Rotate View): 200 × 100 shown, still 250 px wide; half a
         // turn: as tall as without.
-        let theme = crate::reader::PageTheme::default();
-        let px = render_bytes(&bytes, None, 0, 250, theme, true, 90).unwrap();
+        let px = render_bytes(&bytes, None, 0, 250, PageLook { turn: 90, ..Default::default() }).unwrap();
         assert_eq!((px.width(), px.height()), (250, 125));
-        let px = render_bytes(&bytes, None, 0, 250, theme, true, 180).unwrap();
+        let px = render_bytes(&bytes, None, 0, 250, PageLook { turn: 180, ..Default::default() }).unwrap();
         assert_eq!((px.width(), px.height()), (250, 500));
         // The boxes the view maps its points with turn the same way.
         assert_eq!(crate::viewer::turned(&boxes, 90)[0].view_size(), (200.0, 100.0));
+    }
+
+    /// Preferences ▸ Rendering: a slanted line drawn smoothed has grey edges, drawn rough none.
+    #[test]
+    fn pages_drawn_without_smoothing_have_hard_edges() {
+        use lopdf::{Document, Object, Stream, dictionary};
+        let mut d = Document::with_version("1.7");
+        let c = d.add_object(Stream::new(dictionary! {}, b"0 g 3 w 10 10 m 190 90 l S".to_vec()));
+        let pages = d.new_object_id();
+        let page = d.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 200.into(), 100.into()], "Contents" => c });
+        d.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
+        let cat = d.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+        d.trailer.set("Root", cat);
+        let mut bytes = Vec::new();
+        d.save_to(&mut bytes).unwrap();
+        let greys = |smooth| {
+            let px = render_bytes(&bytes, None, 0, 200, PageLook { smooth: [smooth; 3], ..Default::default() }).unwrap();
+            px.as_bytes().as_chunks::<4>().0.iter().filter(|p| (30..225).contains(&p[0])).count()
+        };
+        assert!(greys(true) > 50, "smoothed edges are grey");
+        assert!(greys(false) < greys(true) / 4, "rough edges are black or white");
     }
 
     #[test]

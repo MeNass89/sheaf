@@ -86,7 +86,8 @@ fn area_scale(w: f32, h: f32) -> f32 {
     AREA_SCALE.min((40e6 / (w * h)).sqrt()).min(4096.0 / w).min(4096.0 / h)
 }
 
-fn area_pixels(d: &sheaf_core::pdfcraft::engine::Document, page: usize, rect: [f64; 4]) -> Result<(u32, u32, Vec<u8>), String> {
+/// Area `rect` of `page` as pixels: at the snapshot's scale, or `wide` pixels across (the loupe's).
+fn area_pixels(d: &sheaf_core::pdfcraft::engine::Document, page: usize, rect: [f64; 4], wide: Option<f32>) -> Result<(u32, u32, Vec<u8>), String> {
     let info = d.info.pages.get(page).ok_or("no such page")?;
     let a = info.user_to_view(rect[0] as f32, rect[1] as f32);
     let b = info.user_to_view(rect[2] as f32, rect[3] as f32);
@@ -94,7 +95,7 @@ fn area_pixels(d: &sheaf_core::pdfcraft::engine::Document, page: usize, rect: [f
     if x1 - x0 < 1.0 || y1 - y0 < 1.0 {
         return Err("the area is empty".into());
     }
-    let scale = area_scale(x1 - x0, y1 - y0);
+    let scale = wide.map_or_else(|| area_scale(x1 - x0, y1 - y0), |px| (px / (x1 - x0)).min(area_scale(x1 - x0, y1 - y0).max(24.0)));
     let tile = render::Tile { x: (x0 * scale) as u32, y: (y0 * scale) as u32, w: ((x1 - x0) * scale).ceil() as u32, h: ((y1 - y0) * scale).ceil() as u32 };
     let config = render::RenderConfig { password: d.password.as_deref().map(Arc::from), ..Default::default() };
     let shot = render::PageRenderer::new(d.display.clone(), config).render(render::RenderRequest { page, scale, tile: Some(tile), ..Default::default() });
@@ -184,6 +185,10 @@ pub struct Snap {
     pub props: Arc<Props>,
     /// Files attached to the document or to its pages.
     pub attachments: Arc<Vec<sheaf_core::pdfcraft::render::Attachment>>,
+    /// The document's layers (optional content groups), shown or not as the file sets them.
+    pub layers: Arc<Vec<sheaf_core::pdfcraft::render::Layer>>,
+    /// Each page's seconds in full screen before the next (Page transitions), when set.
+    pub durations: Arc<Vec<Option<f64>>>,
 }
 
 /// A certificate name's attribute by its usual short name (RFC 4514's, and E for the e-mail);
@@ -240,6 +245,8 @@ pub struct Props {
     /// of the file it covers, its place in the document's signatures, and whether its certificate
     /// is trusted already.
     pub signed: Vec<(String, usize, usize, bool)>,
+    /// The field of each of those (Clear signature).
+    pub signed_fields: Vec<String>,
 }
 
 fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
@@ -281,15 +288,15 @@ fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
         }
     }
     let trusted = sheaf_core::pdfcraft::trusted_certificates();
-    let signed = d
+    let (signed, signed_fields): (Vec<_>, Vec<_>) = d
         .signatures
         .iter()
         .enumerate()
         .filter(|(_, s)| s.signed && s.signed_len > 0)
-        .map(|(i, s)| (s.signer.clone().unwrap_or_else(|| "unknown signer".into()), s.signed_len, i, s.certificate.as_ref().is_none_or(|c| trusted.iter().any(|t| t.raw == c.raw))))
-        .collect();
+        .map(|(i, s)| ((s.signer.clone().unwrap_or_else(|| "unknown signer".into()), s.signed_len, i, s.certificate.as_ref().is_none_or(|c| trusted.iter().any(|t| t.raw == c.raw))), s.field.clone()))
+        .unzip();
     let get = |v: &Option<String>| v.clone().unwrap_or_default();
-    Props { title: get(&i.title), author: get(&i.author), subject: get(&i.subject), keywords: get(&i.keywords), about, signed }
+    Props { title: get(&i.title), author: get(&i.author), subject: get(&i.subject), keywords: get(&i.keywords), about, signed, signed_fields }
 }
 
 /// The review status a status reply sets: Acrobat's check mark (state model Marked) is none and
@@ -374,6 +381,8 @@ fn snap(doc: &Doc) -> Snap {
         fields: Arc::new(fields(d)),
         props: Arc::new(props(d)),
         attachments: Arc::new(d.info.attachments.clone()),
+        layers: Arc::new(d.info.layers.clone()),
+        durations: Arc::new(d.page_durations()),
     }
 }
 
@@ -497,6 +506,8 @@ pub enum Op {
     CopyArea { page: usize, rect: [f64; 4] },
     /// The pages whose text runs sideways or upside down, and the turns that set them upright.
     UprightTurns,
+    /// Accessibility check: the full check's report.
+    AccessibilityCheck,
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
     /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
@@ -566,6 +577,7 @@ pub enum Reply {
     ImageCopied(Result<(u32, u32, Vec<u8>), String>),
     /// Pages to turn upright: (page, clockwise degrees).
     Upright(Vec<(usize, i64)>),
+    Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
     /// The loupe's area: (width, height, RGBA pixels), or why not.
     Loupe(Result<(u32, u32, Vec<u8>), String>),
     /// A flattened copy written (`FlatCopy`), or why not.
@@ -666,6 +678,12 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             for (k, b) in blocks.iter().enumerate().rev() {
                                 let text = reflowed(&b.editor_text, &b.soft_breaks);
                                 let (new, n) = sheaf_app::reader::replace_words(&text, &find, &with, case, whole);
+                                // OCR words (invisible text) on a page that also has text drawn, a
+                                // scan with a typed header: left too (Sol, 26/10).
+                                if b.invisible {
+                                    on_scans += n;
+                                    continue;
+                                }
                                 if n > 0 {
                                     edits.push(Edit::EditTextBlock { page, block: k, text: new, style: Default::default() });
                                     on_page += n;
@@ -715,13 +733,14 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let note = r.is_ok().then(|| "Back to the file as last saved".to_string());
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error: r.err().map(|e| e.to_string()), applied: false, note, preview: false });
                     }
-                    Op::CopyArea { page, rect } => reply(Reply::ImageCopied(area_pixels(doc.document(), page, rect))),
+                    Op::CopyArea { page, rect } => reply(Reply::ImageCopied(area_pixels(doc.document(), page, rect, None))),
                     Op::UprightTurns => reply(Reply::Upright(doc.document().upright_turns())),
+                    Op::AccessibilityCheck => reply(Reply::Accessibility(doc.document().accessibility_check(&Default::default()))),
                     // Sol, 26/10: the next save wrote the old name again.
                     Op::Renamed { to } => path = to,
-                    Op::LoupeArea { page, rect } => reply(Reply::Loupe(area_pixels(doc.document(), page, rect))),
+                    Op::LoupeArea { page, rect } => reply(Reply::Loupe(area_pixels(doc.document(), page, rect, Some(720.0)))),
                     Op::CopyObjects { page, objects, rect, shown } => {
-                        let made = area_pixels(doc.document(), page, rect).and_then(|px| Ok((px, Arc::new(doc.document().objects_pdf(page, &objects, rect)?), shown)));
+                        let made = area_pixels(doc.document(), page, rect, None).and_then(|px| Ok((px, Arc::new(doc.document().objects_pdf(page, &objects, rect)?), shown)));
                         reply(Reply::ObjectsCopied(made));
                     }
                     Op::SaveVersion { n, to } => {
@@ -762,7 +781,8 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let with: std::collections::BTreeSet<usize> = found.iter().map(|f| f.0).collect();
                         let rest: Vec<usize> = (0..doc.document().info.pages.len()).filter(|p| !with.contains(p)).collect();
                         let taken: Vec<String> = doc.document().form.iter().map(|f| f.name.clone()).chain(found.iter().map(|f| f.1.name.clone())).collect();
-                        found.extend(sheaf_core::form_scan::candidates(&doc, &rest, &taken));
+                        let existing: Vec<(usize, [f64; 4])> = doc.document().form.iter().flat_map(|f| f.widgets.iter().filter_map(|w| Some((w.page?, w.rect)))).collect();
+                        found.extend(sheaf_core::form_scan::candidates(&doc, &rest, &taken, &existing));
                         let pages: Vec<usize> = found.iter().map(|f| f.0).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
                         let n = found.len();
                         let edits: Vec<Edit> = found

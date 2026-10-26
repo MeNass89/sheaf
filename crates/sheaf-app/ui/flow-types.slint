@@ -106,6 +106,21 @@ export struct ReaderProp {
     value: string,
 }
 
+// A rule of the accessibility check: its name, 0 failed, 1 to check by hand, 2 passed, where and
+// why, and whether it has a fix here.
+export struct ReaderCheck {
+    name: string,
+    status: int,
+    detail: string,
+    fix: bool,
+}
+
+// A layer of the document (Layers panel): its name, shown on screen or not.
+export struct ReaderLayer {
+    name: string,
+    shown: bool,
+}
+
 // A reply under a comment, with where it is in the file (each can be deleted).
 export struct ReaderReply {
     text: string,
@@ -208,6 +223,13 @@ export struct ReaderFieldProps {
     group: int,
 }
 
+// A page found by In a folder…: its file, its page ("p. 3") and the line around the words.
+export struct FolderHit {
+    file: string,
+    page: string,
+    line: string,
+}
+
 export struct ReaderState {
     title: string,
     // The document's When opened ▸ full screen and no toolbar, followed once per opening (open-seq).
@@ -266,6 +288,8 @@ export struct ReaderState {
     text-family: int,
     text-bold: bool,
     text-italic: bool,
+    text-underline: bool,
+    text-bullets: bool,
     text-align: int,
     // The selected annotation is a text box: the text format row restyles it.
     selected-text-box: bool,
@@ -302,6 +326,18 @@ export struct ReaderState {
     notes-sort: int,
     // Files attached to the document or its pages: name, size.
     attachments: [ReaderProp],
+    // The document's layers (the Layers tab shows when there is one).
+    layers: [ReaderLayer],
+    // Some layer is shown or hidden otherwise than the file sets it (Reset).
+    layers-changed: bool,
+    // More tools ▸ Voice…: the list open, the system's voices.
+    voices-open: bool,
+    voices: [string],
+    // More tools ▸ Accessibility check: the sheet, a check running, its count, its rules.
+    a11y-open: bool,
+    a11y-busy: bool,
+    a11y-summary: string,
+    a11y-rows: [ReaderCheck],
     // View ▸ Highlight links is on.
     show-links: bool,
     // Fillable fields tinted (More ▸ Highlight form fields).
@@ -317,6 +353,8 @@ export struct ReaderState {
     link-error: string,
     // Edit tool: objects are picked together (the arrow keys nudge them).
     has-picked: bool,
+    // How many (Align and Distribute show from two).
+    picked-count: int,
     // New links' look: a visible border, dashed.
     link-visible: bool,
     link-dashed: bool,
@@ -346,6 +384,12 @@ export struct ReaderState {
     calibrating: bool,
     // Scroll automatically is on.
     auto-scroll: bool,
+    // A form text field typed in: the entries remembered that start as typed (Auto-Complete).
+    suggestions: [string],
+    // Reflow: on, the page in view's text, its size in points.
+    reflow: bool,
+    reflow-text: string,
+    reflow-size: int,
     // More ▸ Loupe: on, and the area under the pointer magnified.
     loupe: bool,
     loupe-image: image,
@@ -355,6 +399,11 @@ export struct ReaderState {
     // Pen and shapes: dashed lines.
     dashed: bool,
     page-at-a-time: bool,
+    // The page shown's top and bottom in the view's content (px): One page at a time turns it at its edges.
+    page-top: float,
+    page-bottom: float,
+    // The page shown's seconds in full screen before the next (its transition's /Dur; 0 none).
+    page-advance: float,
     // Rotate View: how far the pages shown are turned clockwise (0, 90, 180, 270).
     view-turn: int,
     // The Signature tool places the initials; on every page at once.
@@ -375,6 +424,11 @@ export struct ReaderState {
     background-open: bool,
     // More ▸ Versions… is open; the versions saved in the file; what Undo and Redo would do.
     versions-open: bool,
+    // The search panel's In a folder…: the sheet open, still searching, what and where, the results.
+    folder-open: bool,
+    folder-busy: bool,
+    folder-title: string,
+    folder-results: [FolderHit],
     versions: int,
     undo-label: string,
     redo-label: string,
@@ -447,6 +501,16 @@ export struct ContinueTool {
 export struct ToolOptions {
     level: int,          // compress: 0 extreme, 1 recommended, 2 low, 3 a target size
     compress-target: string, // compress to a size: the largest file, in MB as typed
+    compress-ppi: string,    // compress, advanced: images' largest resolution in ppi ("" the level's)
+    compress-quality: string, // compress, advanced: JPEG quality 1–100 ("" the level's)
+    discard-thumbs: bool,    // compress, advanced: page thumbnails taken out
+    discard-tags: bool,      // compress, advanced: structure tags taken out
+    discard-meta: bool,      // compress, advanced: document information and XMP taken out
+    compress-gray: bool,     // compress: every colour made grey (Stirling's Convert to grayscale)
+    adjust-brightness: int,  // adjust colours: −100 to 100 (0 as it is)
+    adjust-contrast: int,
+    adjust-saturation: int,
+    adjust-invert: bool,     // adjust colours: inverted (light on dark)
     password: string,    // protect
     confirm: string,
     owner: string,
@@ -728,12 +792,21 @@ export global ReaderBridge {
     // Replace Pages: the file's first page to take ("" cancels).
     callback replace-from(int, string);
     callback email(int);
-    callback overlay-pdf(int);
+    // More tools ▸ Overlay a PDF… (false) or Underlay a PDF… (true, behind the pages' content).
+    callback overlay-pdf(int, bool);
+    // 0 read from the page shown, 1 reading speed, 2 this page only, 3 the selection, 4 pause or
+    // resume, 5 the voices.
     callback read-aloud(int, int);
+    // A voice picked from the list (−1 the system's default; −2 closes).
+    callback voice-pick(int, int);
     callback flat-copy(int, bool);
     callback loupe(int);
     callback sign-pages(int, string);
     callback turn-upright(int);
+    callback remove-images(int);
+    callback reflow(int, int);
+    callback folder-search(int, string);
+    callback folder-result(int, int);
     callback field-scripts(int, int, string, string, string);
     callback outline-drop(int, int, int, bool);
     callback version-action(int, int);
@@ -760,6 +833,9 @@ export global ReaderBridge {
     // Attachment deleted ("" ) or renamed to the text.
     callback attachment-change(int, int, string);
     callback attachment-add(int);
+    // Layers panel: layer (index) shown or hidden; all shown (0), hidden (1), as the file sets them (2).
+    callback layer-set(int, int, bool);
+    callback layers-all(int, int);
     // Outline panel: row, op (0 bookmark this page, 1 rename, 2 renamed to text, 3 stop, 4 delete), text.
     callback outline-op(int, int, int, string);
     // A zoom typed in the zoom field or picked from its list ("150", "150 %").
@@ -772,13 +848,15 @@ export global ReaderBridge {
     callback props-save(int, string, string, string, string, string, string, int, int, int, int);
     callback open-signed(int, int);
     callback trust-signature(int, int);
+    // Document properties ▸ Clear signature k (Acrobat's): its field left unsigned.
+    callback clear-signature(int, int);
     callback props-cancel(int);
     // Copy report: the properties and the fonts as text on the clipboard.
     callback props-copy(int);
     callback props-report(int);
     // Shapes and pen: what (0 shape kind, 1 fill toggle, 2 next opacity), value.
     callback shape-option(int, int, int);
-    callback print(int, int, int, int, string, bool, bool, int, int);
+    callback print(int, int, int, int, string, bool, bool, int, int, int, bool, bool);
     callback print-cancel(int);
     // Pointer on the pages, content coordinates; `clicks` 2 on a double-click.
     callback pressed(int, length, length, int);
@@ -810,6 +888,17 @@ export global ReaderBridge {
     callback field-copies(int, int, int);
     // Fields selected together: align, match size or space them (reader::arrange); the arrow keys move them.
     callback fields-arrange(int, int);
+    // Edit tool, several objects picked ▸ Align or Distribute (codes as fields-arrange's, no sizes).
+    callback objects-arrange(int, int);
+    // A text selection ▸ Look up: the words in the system's dictionary.
+    callback look-up(string);
+    // Pages panel ▸ Transitions: the selected pages' (or the one shown's) effect (index of
+    // transitions::STYLES, −1 none) and seconds before the next page in full screen ("" none).
+    callback page-transition(int, int, string);
+    // Accessibility check: run it; row k's fix (−1 closes); its report saved.
+    callback accessibility-check(int);
+    callback accessibility-fix(int, int);
+    callback accessibility-report(int);
     callback form-grid(int);
     callback fields-nudge(int, float, float);
     callback link-selection(int);

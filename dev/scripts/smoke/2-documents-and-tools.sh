@@ -243,6 +243,7 @@ quit
 cp "$OUT/text.pdf" "$OUT/redact.pdf"
 launch "$OUT/redact.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
+RM=; RS=; RV=   # said empty in the check when the words are not found
 Q=$(span quick 820x700+140+60); F=$(span fox 820x700+140+60)
 if [ -n "$Q" ] && [ -n "$F" ]; then
     # From the left edge of "quick" to the right edge of "fox" (a letter counts once the pointer passes its middle).

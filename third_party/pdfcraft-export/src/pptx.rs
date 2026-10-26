@@ -118,9 +118,6 @@ pub fn pptx(pages: &[Page], title: &str) -> Vec<u8> {
     let pages = if pages.is_empty() { &dummy[..] } else { pages };
 
     let (sw, sh) = pages.first().map_or((9144000, 6858000), |p| (emu(p.width, 720.0), emu(p.height, 540.0)));
-    let mx = (sw / 16).clamp(360000, 914400);
-    let my = (sh / 16).clamp(360000, 914400);
-    let content_w = sw - 2 * mx;
 
     let mut global_media: Vec<(String, &Image)> = Vec::new();
     let mut slides: Vec<(String, String)> = Vec::new(); // (slide_xml, slide_rels)
@@ -150,44 +147,46 @@ pub fn pptx(pages: &[Page], title: &str) -> Vec<u8> {
         }
         items.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.total_cmp(&b.1)));
 
-        let mut current_y = my;
+        // Sheaf: each item where the page has it (the slide is the page's size), so a page's
+        // columns, captions and pictures keep their places (Sol, 26/10: they were stacked in one
+        // column and ran off the slide). y is from the top on a slide, from the bottom in PDF.
+        let page_h = p.height;
+        let place = |r: [f64; 4]| -> (i64, i64, i64, i64) {
+            let x = height_emu(r[0].max(0.0));
+            let y = height_emu((page_h - r[3]).max(0.0));
+            let cx = height_emu((r[2] - r[0]).max(4.0)).min((sw - x).max(height_emu(4.0)));
+            let cy = height_emu((r[3] - r[1]).max(4.0)).min((sh - y).max(height_emu(4.0)));
+            (x, y, cx, cy)
+        };
         let mut shapes = String::new();
         let mut shape_id = 2usize;
         let mut slide_media_rels: Vec<(String, usize)> = Vec::new();
 
         if let Some(title_block) = title_idx.and_then(|ti| p.blocks.get(ti)) {
-            let title_h = height_emu((title_block.size * 1.5).max(36.0));
+            let (x, y, cx, cy) = place(title_block.rect);
+            // A little wider than the PDF's line: PowerPoint's metrics differ from the page's fonts.
+            let cx = (cx + cx / 10).min(sw - x);
             let title_run = run_drawingml(&title_block.text, title_block.size, title_block.bold, title_block.italic, title_block.color);
             shapes.push_str(&format!(
                 "<p:sp><p:nvSpPr><p:cNvPr id=\"{shape_id}\" name=\"Title {shape_id}\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr>\
-<p:spPr><a:xfrm><a:off x=\"{mx}\" y=\"{current_y}\"/><a:ext cx=\"{content_w}\" cy=\"{title_h}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>\
-<p:txBody><a:bodyPr wrap=\"square\" rtlCol=\"0\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p>{title_run}</a:p></p:txBody></p:sp>"
+<p:spPr><a:xfrm><a:off x=\"{x}\" y=\"{y}\"/><a:ext cx=\"{cx}\" cy=\"{cy}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>\
+<p:txBody><a:bodyPr wrap=\"square\" lIns=\"0\" tIns=\"0\" rIns=\"0\" bIns=\"0\" rtlCol=\"0\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p>{title_run}</a:p></p:txBody></p:sp>"
             ));
             shape_id += 1;
-            current_y = current_y.saturating_add(title_h).saturating_add(height_emu(18.0));
         }
 
-        let mut i = 0;
-        while let Some((_, _, item)) = items.get(i) {
+        for (_, _, item) in &items {
             match item {
-                SlideBodyItem::Para(_) => {
-                    let mut paras_xml = String::new();
-                    let mut est_h_pt = 0.0;
-                    while let Some((_, _, SlideBodyItem::Para(b))) = items.get(i) {
-                        let run = run_drawingml(&b.text, b.size, b.bold, b.italic, b.color);
-                        paras_xml.push_str(&format!("<a:p>{run}</a:p>"));
-                        let lines = (b.text.len() as f64 / 60.0).ceil().max(1.0);
-                        est_h_pt += (b.size.max(10.0) * 1.3) * lines + 6.0;
-                        i += 1;
-                    }
-                    let box_h = height_emu(est_h_pt);
+                SlideBodyItem::Para(b) => {
+                    let (x, y, cx, cy) = place(b.rect);
+                    let cx = (cx + cx / 10).min(sw - x);
+                    let run = run_drawingml(&b.text, b.size, b.bold, b.italic, b.color);
                     shapes.push_str(&format!(
                         "<p:sp><p:nvSpPr><p:cNvPr id=\"{shape_id}\" name=\"TextBox {shape_id}\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr>\
-<p:spPr><a:xfrm><a:off x=\"{mx}\" y=\"{current_y}\"/><a:ext cx=\"{content_w}\" cy=\"{box_h}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>\
-<p:txBody><a:bodyPr wrap=\"square\" rtlCol=\"0\"><a:spAutoFit/></a:bodyPr><a:lstStyle/>{paras_xml}</p:txBody></p:sp>"
+<p:spPr><a:xfrm><a:off x=\"{x}\" y=\"{y}\"/><a:ext cx=\"{cx}\" cy=\"{cy}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>\
+<p:txBody><a:bodyPr wrap=\"square\" lIns=\"0\" tIns=\"0\" rIns=\"0\" bIns=\"0\" rtlCol=\"0\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p>{run}</a:p></p:txBody></p:sp>"
                     ));
                     shape_id += 1;
-                    current_y = current_y.saturating_add(box_h).saturating_add(height_emu(12.0));
                 }
                 SlideBodyItem::Img(im) => {
                     let global_img_idx = global_media.len() + 1;
@@ -195,30 +194,19 @@ pub fn pptx(pages: &[Page], title: &str) -> Vec<u8> {
                     global_media.push((img_name, *im));
                     let r_id = format!("rIdImg{}", slide_media_rels.len() + 1);
                     slide_media_rels.push((r_id.clone(), global_img_idx));
-
-                    let (w, h) = ((im.rect[2] - im.rect[0]).max(1.0), (im.rect[3] - im.rect[1]).max(1.0));
-                    let max_w = content_w as f64 / 12700.0;
-                    let k = (max_w / w).min(1.0);
-                    let cx = height_emu(w * k).min(content_w);
-                    let cy = height_emu(h * k);
-                    let x = mx + (content_w - cx) / 2;
-                    let y = current_y;
-
+                    let (x, y, cx, cy) = place(im.rect);
                     shapes.push_str(&format!(
                         "<p:pic><p:nvPicPr><p:cNvPr id=\"{shape_id}\" name=\"Picture {shape_id}\"/><p:cNvPicPr><a:picLocks noChangeAspect=\"1\"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>\
 <p:blipFill><a:blip r:embed=\"{r_id}\"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>\
 <p:spPr><a:xfrm><a:off x=\"{x}\" y=\"{y}\"/><a:ext cx=\"{cx}\" cy=\"{cy}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></p:spPr></p:pic>"
                     ));
                     shape_id += 1;
-                    current_y = current_y.saturating_add(cy).saturating_add(height_emu(12.0));
-                    i += 1;
                 }
                 SlideBodyItem::Table(t) => {
-                    let (table_xml, table_h) = pptx_table(shape_id, t, mx, current_y, content_w);
+                    let (x, y, cx, _) = place(t.rect);
+                    let (table_xml, _) = pptx_table(shape_id, t, x, y, cx);
                     shapes.push_str(&table_xml);
                     shape_id += 1;
-                    current_y = current_y.saturating_add(table_h).saturating_add(height_emu(12.0));
-                    i += 1;
                 }
             }
         }
@@ -440,6 +428,30 @@ mod tests {
         let rels_xml = part(&bytes, "ppt/slides/_rels/slide1.xml.rels");
         assert!(rels_xml.contains("Target=\"../media/image1.png\""));
         assert!(rels_xml.contains("Target=\"../slideLayouts/slideLayout1.xml\""));
+    }
+
+    #[test]
+    fn pptx_items_keep_their_place_on_the_page() {
+        // Sheaf: a paragraph low on the page and an image at its right stay there, not stacked.
+        let p = sample_page();
+        let bytes = pptx(&[p.clone()], "Deck");
+        let slide_xml = part(&bytes, "ppt/slides/slide1.xml");
+        let off = |name: &str| {
+            let at = slide_xml.find(&format!("name=\"{name}")).unwrap();
+            let rest = &slide_xml[at..];
+            let o = rest.find("<a:off x=\"").unwrap() + 10;
+            let x: i64 = rest[o..].split('"').next().unwrap().parse().unwrap();
+            let yo = rest.find("\" y=\"").unwrap() + 5;
+            let y: i64 = rest[yo..].split('"').next().unwrap().parse().unwrap();
+            (x, y)
+        };
+        let (tx, ty) = off("Title");
+        let (bx, by) = off("TextBox");
+        // Placed from their PDF rectangles: x from the left, y from the top.
+        let title = p.blocks.iter().max_by(|a, b| a.size.total_cmp(&b.size)).unwrap();
+        assert_eq!(tx, (title.rect[0] * 12700.0).round() as i64);
+        assert_eq!(ty, ((p.height - title.rect[3]) * 12700.0).round() as i64);
+        assert!(by > ty && bx >= 0, "the body below the title: {by} vs {ty}");
     }
 
     #[test]

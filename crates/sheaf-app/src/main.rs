@@ -188,6 +188,12 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_field_everywhere, |ui, id| reader_ui::field_everywhere(&ui, id));
     wire_global!(ui, rb, on_field_copies, |ui, id, rows, cols| reader_ui::field_copies(&ui, id, rows, cols));
     wire_global!(ui, rb, on_fields_arrange, |ui, id, how| reader_ui::fields_arrange(&ui, id, how));
+    wire_global!(ui, rb, on_objects_arrange, |ui, id, how| reader_ui::objects_arrange(&ui, id, how));
+    wire_global!(ui, rb, on_look_up, |ui, words| reader_ui::look_up(&ui, words));
+    rb.on_accessibility_check(reader_ui::accessibility_check);
+    wire_global!(ui, rb, on_accessibility_fix, |ui, id, k| reader_ui::accessibility_fix(&ui, id, k));
+    wire_global!(ui, rb, on_accessibility_report, |ui, id| reader_ui::accessibility_report(&ui, id));
+    wire_global!(ui, rb, on_page_transition, |ui, id, style, advance| reader_ui::page_transition(&ui, id, style, &advance));
     wire_global!(ui, rb, on_fields_nudge, |ui, id, dx, dy| reader_ui::fields_nudge(&ui, id, dx, dy));
     wire_global!(ui, rb, on_nudge, |ui, id, dx, dy| reader_ui::nudge(&ui, id, dx, dy));
     rb.on_link_selection(reader_ui::link_selection);
@@ -231,15 +237,24 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_replace_one, |ui, id, f, w| reader_ui::replace_one(&ui, id, &f, &w));
     wire_global!(ui, rb, on_replace_from, |ui, id, f| reader_ui::replace_from(&ui, id, &f));
     wire_global!(ui, rb, on_email, |ui, id| reader_ui::email(&ui, id));
-    wire_global!(ui, rb, on_overlay_pdf, |ui, id| reader_ui::overlay_pdf(&ui, id));
+    wire_global!(ui, rb, on_overlay_pdf, |ui, id, behind| reader_ui::overlay_pdf(&ui, id, behind));
     wire_global!(ui, rb, on_loupe, |ui, id| reader_ui::toggle_loupe(&ui, id));
     rb.on_sign_pages(|id, t| reader_ui::sign_pages(id, &t));
     rb.on_turn_upright(reader_ui::turn_upright);
+    rb.on_reflow(reader_ui::reflow);
+    wire_global!(ui, rb, on_folder_search, |ui, id, q| reader_ui::folder_search(&ui, id, &q));
+    wire_global!(ui, rb, on_folder_result, |ui, id, k| reader_ui::folder_result(&ui, id, k));
+    wire_global!(ui, rb, on_remove_images, |ui, id| reader_ui::remove_images(&ui, id));
     wire_global!(ui, rb, on_outline_drop, |ui, id, from, to, inside| reader_ui::outline_drop(&ui, id, from, to, inside));
     rb.on_field_scripts(|id, f, min, max, calc| reader_ui::field_scripts(id, f, &min, &max, &calc));
     rb.on_loupe_at(reader_ui::loupe_at);
     wire_global!(ui, rb, on_flat_copy, |ui, id, mail| reader_ui::flat_copy(&ui, id, mail));
-    wire_global!(ui, rb, on_read_aloud, |ui, id, what| if what == 0 { reader_ui::read_aloud(&ui, id) } else { reader_ui::reading_speed(&ui) });
+    wire_global!(ui, rb, on_read_aloud, |ui, id, what| match what {
+        1 => reader_ui::reading_speed(&ui),
+        5 => reader_ui::voices_open(id),
+        _ => reader_ui::read_aloud(&ui, id, what),
+    });
+    wire_global!(ui, rb, on_voice_pick, |ui, id, k| reader_ui::voice_pick(&ui, id, k));
     wire_global!(ui, rb, on_version_action, |ui, id, n| reader_ui::version_action(&ui, id, n));
     wire_global!(ui, rb, on_background_apply, |ui, id, c, o, a| reader_ui::background_apply(&ui, id, c, o, a));
     rb.on_notes_view(reader_ui::notes_view);
@@ -250,6 +265,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_attachment_add, |ui, id| reader_ui::attachment_add(&ui, id));
     wire_global!(ui, rb, on_attachment_change, |ui, id, i, to| reader_ui::attachment_change(&ui, id, i, &to));
     wire_global!(ui, rb, on_attachment_open, |ui, id, i| reader_ui::attachment_open(&ui, id, i));
+    wire_global!(ui, rb, on_layer_set, |ui, id, i, on| reader_ui::layer_set(&ui, id, i, on));
+    wire_global!(ui, rb, on_layers_all, |ui, id, how| reader_ui::layers_all(&ui, id, how));
     wire_global!(ui, rb, on_outline_op, |ui, id, row, op, t| reader_ui::outline_op(&ui, id, row, op, &t));
     wire_global!(ui, rb, on_zoom_typed, |ui, id, t| reader_ui::zoom_typed(&ui, id, &t));
     wire_global!(ui, rb, on_annot_status, |ui, id, k, s| reader_ui::annot_status(&ui, id, k, s));
@@ -259,8 +276,9 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k, c, page, layout, zoom, panel, window| reader_ui::props_save(&ui, id, &t, &a, &s, &k, &c, (&page, layout, zoom, panel, window)));
     wire_global!(ui, rb, on_open_signed, |ui, id, k| reader_ui::open_signed(&ui, id, k));
     rb.on_trust_signature(reader_ui::trust_signature);
+    wire_global!(ui, rb, on_clear_signature, |ui, id, k| reader_ui::clear_signature(&ui, id, k));
     rb.on_print_cancel(reader_ui::print_cancel);
-    wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t, paper, o| reader_ui::print(&ui, id, p, c, m, &r, f, t, paper, o));
+    wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t, paper, o, layout, gray, comments| reader_ui::print(&ui, id, p, c, m, &r, f, t, paper, o, layout, gray, comments));
     wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));
 }
 
@@ -538,6 +556,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_default_zoom, |ui, z| home::set_default_zoom(&ui, z));
     wire!(ui, on_set_default_spread, |ui, s| home::set_default_spread(&ui, s));
     wire!(ui, on_set_open_first_page, |ui, f| home::set_open_first_page(&ui, f));
+    wire!(ui, on_set_smoothing, |ui, k, on| home::set_smoothing(&ui, k, on));
     wire!(ui, on_set_stamp_date, |ui, f| home::set_stamp_date(&ui, f));
     wire!(ui, on_make_default, |ui| flow::toast(&ui, &run::make_default_pdf_app()));
     let parse = ui.global::<sheaf_app::Parse>();

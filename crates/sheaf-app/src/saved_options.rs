@@ -37,16 +37,17 @@ kept! {
         bates_digits,
         level, blank_level, rotate_parity, rotate_orientation, split_mode, every, degrees, layout, margin, quality,
         num_position, num_margin, num_text, num_color, num_family, wm_color, wm_family, wm_scale, wm_position,
-        wm_transparency, wm_rotation, crop_mode, pdfa_level, excel_layout, text_format, compare_mode;
+        wm_transparency, wm_rotation, crop_mode, pdfa_level, excel_layout, text_format, compare_mode,
+        adjust_brightness, adjust_contrast, adjust_saturation;
     bools:
-        redact_repeat,
+        redact_repeat, discard_thumbs, discard_tags, discard_meta, compress_gray, adjust_invert,
         hf_replace,
         allow_printing, allow_copying, allow_editing, allow_commenting, allow_filling_forms, remove_blank,
         protect_sanitize, split_one_file, landscape, one_per_image, png, extract_images, num_double, num_cover,
         num_bold, num_italic, num_underline, wm_image_mode, wm_bold, wm_italic, wm_underline, wm_mosaic, wm_below,
         wm_replace, wm_remove, ocr_all_pages, ocr_enhance, export_ocr, export_exact, sign_cert;
     strings:
-        redact_overlay,
+        redact_overlay, compress_ppi, compress_quality,
         organize_order,
         hf_tl, hf_tc, hf_tr, hf_bl, hf_bc, hf_br, bates_prefix, bates_start, compress_target,
         pages, compare_old_pages, compare_new_pages, ranges, split_size, out_name, from_page, to_page, num_start,

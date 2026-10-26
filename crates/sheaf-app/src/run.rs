@@ -303,6 +303,14 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
         ToolId::Compress => Job::Compress {
             items: pairs(inputs),
             level: if opts.level == 3 { Level::Target(split_size(&opts.compress_target)?) } else { parse_level(opts.level) },
+            advanced: sheaf_core::compress::Advanced {
+                max_ppi: opts.compress_ppi.trim().parse().ok(),
+                quality: opts.compress_quality.trim().parse().ok(),
+                discard_thumbnails: opts.discard_thumbs,
+                discard_tags: opts.discard_tags,
+                discard_metadata: opts.discard_meta,
+                grayscale: opts.compress_gray,
+            },
         },
         ToolId::Protect => Job::Protect {
             items: pairs(inputs),
@@ -319,6 +327,15 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
         },
         ToolId::Unlock => Job::Unlock { items: pairs(inputs) },
         ToolId::Repair => Job::Repair { items: pairs(inputs) },
+        ToolId::AdjustColours => Job::AdjustColours {
+            items: pairs(inputs),
+            adjust: sheaf_core::adjust::Adjust {
+                brightness: opts.adjust_brightness.clamp(-100, 100) as f32 / 100.0,
+                contrast: opts.adjust_contrast.clamp(-100, 100) as f32 / 100.0,
+                saturation: opts.adjust_saturation.clamp(-100, 100) as f32 / 100.0,
+                invert: opts.adjust_invert,
+            },
+        },
         ToolId::JpgToPdf if opts.one_per_image && inputs.len() > 1 => {
             Job::ImagesEach { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), layout: layout(opts) }
         }
@@ -374,10 +391,18 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             Job::Redact { input: one(inputs)?, marks, look, out: single()? }
         }
         ToolId::Sign => {
+            // Certifying with a digital ID needs no signature on a page (Acrobat's Certify
+            // (invisible signature)).
+            let digital = crate::sign_ui::digital(opts)?;
+            if placed.is_none()
+                && let Some(d) = digital.clone().filter(|d| d.certify.is_some())
+            {
+                return Ok(Job::Certify { input: one(inputs)?, digital: d, out: single()? });
+            }
             let Some(OnPages::Sign((graphic, page, view_box))) = placed else {
-                return Err(OpdfError::Unsupported("Create your signature and click on a page to place it".into()));
+                return Err(OpdfError::Unsupported("Create your signature and click on a page to place it, or certify with a digital ID".into()));
             };
-            Job::Sign { input: one(inputs)?, page, view_box, graphic, digital: crate::sign_ui::digital(opts)?, out: single()? }
+            Job::Sign { input: one(inputs)?, page, view_box, graphic, digital, out: single()? }
         }
         ToolId::Edit => {
             let Some(OnPages::Edit(items)) = placed.filter(|p| !matches!(p, OnPages::Edit(v) if v.is_empty())) else {
@@ -512,7 +537,7 @@ pub fn on_done(ui: &AppWindow, tab_id: i32, r: Result<JobOutcome>, page_counts: 
 /// Windows's speech synthesizer), at `speed` (0 normal, 1 slow, 2 fast); the process speaking,
 /// to wait for or stop. Debug builds append the text to the file `SHEAF_TEST_SPEECH` names instead
 /// (gui-smoke), with a process that ends at once.
-pub fn speak(text: &str, speed: u8) -> Option<std::process::Child> {
+pub fn speak(text: &str, speed: u8, voice: Option<&str>) -> Option<std::process::Child> {
     use std::io::Write;
     use std::process::{Command, Stdio};
     if cfg!(debug_assertions)
@@ -528,6 +553,9 @@ pub fn speak(text: &str, speed: u8) -> Option<std::process::Child> {
     let mut cmd = {
         let mut c = Command::new("say");
         c.args(["-r", &wpm, "-f", "-"]);
+        if let Some(v) = voice {
+            c.args(["-v", v]);
+        }
         c
     };
     #[cfg(windows)]
@@ -537,7 +565,10 @@ pub fn speak(text: &str, speed: u8) -> Option<std::process::Child> {
         c.args([
             "-NoProfile",
             "-Command",
-            &format!("Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = {rate}; $s.Speak([Console]::In.ReadToEnd())"),
+            &format!(
+                "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = {rate}; {}$s.Speak([Console]::In.ReadToEnd())",
+                voice.map(|v| format!("$s.SelectVoice('{}'); ", v.replace('\'', "''"))).unwrap_or_default()
+            ),
         ]);
         c
     };
@@ -545,6 +576,9 @@ pub fn speak(text: &str, speed: u8) -> Option<std::process::Child> {
     let mut cmd = {
         let mut c = Command::new("espeak-ng");
         c.args(["-s", &wpm, "--stdin"]);
+        if let Some(v) = voice {
+            c.args(["-v", v]);
+        }
         c
     };
     let mut child = match cmd.stdin(Stdio::piped()).spawn() {
@@ -565,6 +599,27 @@ pub fn speak(text: &str, speed: u8) -> Option<std::process::Child> {
         let _ = stdin.write_all(text.as_bytes());
     });
     Some(child)
+}
+
+/// The system's voices by name (macOS's `say -v ?`, eSpeak NG's, Windows's installed voices).
+pub fn voices() -> Vec<String> {
+    let out = |cmd: &str, args: &[&str]| std::process::Command::new(cmd).args(args).output().ok().filter(|o| o.status.success()).map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+    #[cfg(target_os = "macos")]
+    let list = parse_voices(&out("say", &["-v", "?"]), 0);
+    #[cfg(windows)]
+    let list: Vec<String> = out("powershell", &["-NoProfile", "-Command", "Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).GetInstalledVoices() | % { $_.VoiceInfo.Name }"]).lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect();
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let list = parse_voices(&out("espeak-ng", &["--voices"]), 1);
+    list
+}
+
+/// Voice names from a listing: macOS's (`Alex  en_US  # …`, `kind` 0: the name before two spaces)
+/// or eSpeak NG's table (`kind` 1: its language column, what `-v` takes, after a header).
+pub(crate) fn parse_voices(text: &str, kind: u8) -> Vec<String> {
+    match kind {
+        0 => text.lines().filter_map(|l| l.split("  ").next()).map(str::trim).filter(|n| !n.is_empty()).map(String::from).collect(),
+        _ => text.lines().skip(1).filter_map(|l| l.split_whitespace().nth(1)).map(String::from).collect(),
+    }
 }
 
 /// How long a job runs before its end is announced by a system notification.
@@ -732,10 +787,20 @@ fn clipboard_pdf() -> Option<Vec<u8>> {
         let _ = std::fs::remove_file(&tmp);
         b
     };
+    // Windows: the formats Acrobat and browsers register for PDF data, written to a file by PowerShell
+    // (Sol, 26/10: Windows's PDF data was ignored).
     #[cfg(windows)]
-    let bytes: Option<Vec<u8>> = {
-        let _ = read;
-        None
+    let bytes = {
+        let tmp = std::env::temp_dir().join(format!("sheaf-clip-{}.pdf", std::process::id()));
+        let path = tmp.to_string_lossy().replace('\'', "''");
+        let script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms; foreach ($f in 'Portable Document Format', 'application/pdf', 'PDF') {{ \
+             $d = [System.Windows.Forms.Clipboard]::GetData($f); if ($d -is [System.IO.MemoryStream]) {{ [IO.File]::WriteAllBytes('{path}', $d.ToArray()); 'ok'; exit }} }}; 'none'"
+        );
+        let ok = read("powershell", &["-NoProfile", "-STA", "-Command", &script]).is_some_and(|o| o.starts_with(b"ok"));
+        let b = ok.then(|| std::fs::read(&tmp).ok()).flatten();
+        let _ = std::fs::remove_file(&tmp);
+        b
     };
     #[cfg(not(any(target_os = "macos", windows)))]
     let bytes = read("xclip", &["-selection", "clipboard", "-t", "application/pdf", "-o"]).or_else(|| read("wl-paste", &["--type", "application/pdf"]));
@@ -831,11 +896,22 @@ pub fn make_default_pdf_app() -> String {
         "osascript",
         &["-l", "JavaScript", "-e", "ObjC.import('CoreServices'); $.LSSetDefaultRoleHandlerForContentType($('com.adobe.pdf'), $.kLSRolesAll, $('app.sheaf.Sheaf')) === 0"],
     );
+    // Windows asks the user itself; Sheaf is first registered for this user as an app that opens
+    // PDFs (its ProgID and .pdf's Open with list), so it is there to pick even from the portable
+    // folder (Sol, 26/10: Default apps did not list it).
     #[cfg(windows)]
     let done = {
-        let _ = ran;
+        let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default();
+        let open = format!("\"{exe}\" \"%1\"");
+        let keys: [&[&str]; 4] = [
+            &["add", r"HKCU\Software\Classes\Sheaf.PDF", "/ve", "/d", "PDF document", "/f"],
+            &["add", r"HKCU\Software\Classes\Sheaf.PDF\shell\open\command", "/ve", "/d", &open, "/f"],
+            &["add", r"HKCU\Software\Classes\.pdf\OpenWithProgids", "/v", "Sheaf.PDF", "/t", "REG_NONE", "/f"],
+            &["add", r"HKCU\Software\Classes\Applications\sheaf.exe\SupportedTypes", "/v", ".pdf", "/t", "REG_SZ", "/f"],
+        ];
+        let registered = keys.iter().all(|k| ran("reg", k));
         spawn_detached("explorer", &["ms-settings:defaultapps".as_ref()]);
-        return "Pick Sheaf for .pdf in Default apps".into();
+        return if registered { "Pick Sheaf for .pdf in Default apps".into() } else { "Sheaf could not be registered: pick it with Open with ▸ Choose another app".into() };
     };
     #[cfg(not(any(target_os = "macos", windows)))]
     let done = ran("xdg-mime", &["default", "sheaf.desktop", "application/pdf"]);
@@ -955,6 +1031,14 @@ pub fn continue_to(ui: &AppWindow, tab_id: i32, tool: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn voices_are_read_from_the_systems_listings() {
+        let mac = "Alex                en_US    # Most people recognize me by my voice.\nAmélie              fr_CA    # Bonjour, je m’appelle Amélie.\n";
+        assert_eq!(parse_voices(mac, 0), ["Alex", "Amélie"]);
+        let espeak = "Pty Language       Age/Gender VoiceName          File                 Other Languages\n 5  af              --/M      Afrikaans          gmw/af\n 5  en-gb           --/M      English_(Great_Britain) gmw/en\n";
+        assert_eq!(parse_voices(espeak, 1), ["af", "en-gb"]);
+    }
     use std::path::Path;
 
     fn opts() -> ToolOptions {
@@ -965,7 +1049,7 @@ mod tests {
     fn batch_jobs_write_default_names_in_the_folder() {
         let inputs = vec![Input::new("/a/x.pdf"), Input::new("/b/y.pdf")];
         let job = build_job(ToolId::Compress, inputs, vec![], &opts(), Dest::Folder("/out".into())).unwrap();
-        let Job::Compress { items, level } = job else { panic!() };
+        let Job::Compress { items, level, .. } = job else { panic!() };
         assert_eq!(level, Level::Recommended);
         assert_eq!(items[0].1, PathBuf::from("/out/x-compressed.pdf"));
         assert_eq!(items[1].1, PathBuf::from("/out/y-compressed.pdf"));

@@ -496,6 +496,10 @@ convert -size 1224x1584 xc:white -fill none -stroke black -strokewidth 2 -draw "
 cp "$OUT/scan-form.pdf" "$OUT/scan0.pdf"; launch "$OUT/scan-form.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6; DS=$(at Detect 900x60+600+90); [ -n "$DS" ] && click $DS 8; key ctrl+s; sleep 1.5
 SQ=$(qpdf --qdf --object-streams=disable "$OUT/scan-form.pdf" - 2>/dev/null)
 check "Detect fields finds a scanned form's lines and box ($(echo "$SQ" | grep -ac '/FT /Tx') text, $(echo "$SQ" | grep -ac '/FT /Btn') check box)" "[ \"\$(echo \"\$SQ\" | grep -ac '/FT /Tx')\" = 2 ] && [ \"\$(echo \"\$SQ\" | grep -ac '/FT /Btn')\" = 1 ]"
+# Detect fields again (Sol, 26/10: a second run stacked new fields on the first): nothing is added.
+DS=$(at Detect 900x60+600+90); [ -n "$DS" ] && click $DS 8; key ctrl+s; sleep 1.5
+SQ2=$(qpdf --qdf --object-streams=disable "$OUT/scan-form.pdf" - 2>/dev/null)
+check "Detect fields run again adds no field over those found ($(echo "$SQ2" | grep -ac '/FT /Tx') text, $(echo "$SQ2" | grep -ac '/FT /Btn') check box)" "[ \"\$(echo \"\$SQ2\" | grep -ac '/FT /Tx')\" = 2 ] && [ \"\$(echo \"\$SQ2\" | grep -ac '/FT /Btn')\" = 1 ]"
 quit
 # A document mixing the two (Sol, 26/10: the scan was left out once the drawn page gave fields): all are found.
 qpdf --empty --pages "$OUT/flat0.pdf" "$OUT/scan0.pdf" -- "$OUT/mixed-form.pdf"
@@ -677,6 +681,10 @@ cp "$OUT/text.pdf" "$OUT/single-view.pdf"; launch "$OUT/single-view.pdf"; sleep 
 click 1127 61 0.8; click 1008 575 1.5; xdotool mousemove 640 450; xdotool click 5; sleep 1.2; shot 67-one-page
 SP=$(ocr 1020x720+255+80)
 check "One page at a time turns to page 2 alone with one wheel notch ($(echo "$SP" | cut -c1-60))" "echo \"$SP\" | grep -q 'Page 2' && ! echo \"$SP\" | grep -q 'Page 1' && ! echo \"$SP\" | grep -q 'Page 3'"
+# Zoomed in (⌘9, the page wider than the view and taller): a notch scrolls through the page first, page 2 stays
+# (Acrobat's; Sol, 26/10: it turned at once).
+key ctrl+9; sleep 1; xdotool mousemove 640 450; xdotool click 5; sleep 1.2; SZ=$(ocr 1020x720+255+80)
+check "One page at a time zoomed in scrolls within the page before turning it ($(echo "$SZ" | cut -c1-40))" "! echo \"$SZ\" | grep -q 'Page 3'"
 quit
 
 # 68. Find and replace (Acrobat's Edit PDF ▸ Find ▸ Replace All): "quick" searched (⌘F, ↩), "slow" typed in the
@@ -1025,4 +1033,79 @@ mkdir -p "$OUT/locked"; chmod 555 "$OUT/locked"; cp "$OUT/text.pdf" "$OUT/keepme
 answer "$PWD/$OUT/locked/copy.pdf"; key ctrl+shift+s; sleep 2; click 40 21 1; answer "$PWD/$OUT/keepme.pdf"; key ctrl+o; sleep 2; answer ""
 KT=$(ntabs); chmod 755 "$OUT/locked"
 check "a failed Save As leaves the tab the original's ($KT tab)" "[ \"$KT\" = 1 ] && [ ! -e \"$OUT/locked/copy.pdf\" ]"
+quit
+
+# 104. The page grid (More ▸ Page grid): the yellow page (the last) dragged onto the left half of the red one (the
+# first) goes before it (Acrobat's Organize Pages): saved, the first page is yellow.
+convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/griddrag.pdf"; launch "$OUT/griddrag.pdf"; sleep 1
+click 1127 61 0.8; click 1008 267 1.5
+GY=226; GR=$(first_x r $GY); GB=$(first_x b $GY)
+# Yellow is red and green high: the last card, right of the blue one (cards are about as wide as blue's offset).
+GYW=${GB:+$(( GB + (GB - ${GR:-0}) / 2 + 20 ))}
+if [ -n "$GR" ] && [ -n "$GYW" ]; then
+    xdotool mousemove $GYW $GY mousedown 1; for i in 1 2 3 4 5 6 7 8; do xdotool mousemove $(( GYW - (GYW - GR - 10) * i / 8 )) $GY; sleep 0.06; done; xdotool mouseup 1; sleep 1.5
+fi
+key ctrl+s; sleep 1.5
+P1=$(pdftoppm -r 10 -f 1 -l 1 -png "$OUT/griddrag.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
+check "a page dragged in the page grid goes where it is dropped (red ${GR:-?}, from ${GYW:-?}; page 1 $P1)" "echo \"$P1\" | grep -qE 'srgb\\((22[0-9]|2[0-4][0-9]),(19[0-9]|20[0-9]),'"
+quit
+
+# 105. More ▸ More tools ▸ Remove all images (Acrobat's): image.pdf's pictures go, its text stays; saved.
+cp "$OUT/image.pdf" "$OUT/noimages.pdf"; launch "$OUT/noimages.pdf"; sleep 1
+click 1127 61 0.8; click 1008 659 0.8; RI=$(at Remove 300x400+880+80); [ -n "$RI" ] && click $RI 1.5; key ctrl+s; sleep 1.5
+NI=$(pdfimages -list "$OUT/noimages.pdf" 2>/dev/null | tail -n +3 | wc -l)
+check "Remove all images takes every picture out (${RI:-no item}; $NI left)" "[ \"$NI\" = 0 ]"
+quit
+
+# 106. More ▸ More tools ▸ Reflow (Acrobat's): the page's text across the window, larger with A+.
+cp "$OUT/text.pdf" "$OUT/reflow.pdf"; launch "$OUT/reflow.pdf"; sleep 1
+click 1127 61 0.8; click 1008 659 0.8; RF=$(at Reflow 300x400+880+80); [ -n "$RF" ] && click $RF 1; RT=$(ocr 1020x300+255+90)
+check "Reflow shows the page's text on the window's width (${RF:-no item}; $(echo "$RT" | cut -c1-60))" "echo \"$RT\" | grep -q 'Reflow' && echo \"$RT\" | grep -q 'quick brown fox'"
+quit
+
+# 107. Auto-Complete (Acrobat's): "Smoke Test" typed in step 6's form is remembered; in a copy, "Sm" typed in the field
+# offers it under the field, and a click on it fills the field (saved).
+cp "$OUT/form.pdf" "$OUT/autocomplete.pdf"; launch "$OUT/autocomplete.pdf"; key ctrl+9
+click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+a; xdotool type --delay 10 "Remembered entry"; key Return; sleep 1; key ctrl+s; sleep 1
+click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+a; xdotool type --delay 30 "Rem"; sleep 1
+AC=$(at Remembered 1280x700+0+90); [ -n "$AC" ] && click $AC 1; key ctrl+s; sleep 1.5
+AV=$(qpdf --json=2 --json-key=acroform "$OUT/autocomplete.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
+check "a form field offers an entry typed before, and a click fills it (${AC:-no suggestion}; $AV)" "echo \"$AV\" | grep -q 'Remembered entry'"
+quit
+
+# 108. Layers panel (Acrobat's Layers pane; the fifth tab, 218,106 (five share the row), shown when the document has layers): a
+# page with a red square in layer Red and a blue one in layer Blue, Blue hidden by the file. A click on Red hides
+# it, Show all shows both; the file keeps its own choice.
+python3 - "$OUT/layers-raw.pdf" <<'PY'
+import sys
+c = b"/OC /R BDC 1 0 0 rg 60 300 200 200 re f EMC /OC /B BDC 0 0 1 rg 340 300 200 200 re f EMC"
+objs = [b"<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [4 0 R 5 0 R] /D << /Order [4 0 R 5 0 R] /OFF [5 0 R] >> >> >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Contents 6 0 R /Resources << /Properties << /R 4 0 R /B 5 0 R >> >> >>",
+        b"<< /Type /OCG /Name (Red) >>", b"<< /Type /OCG /Name (Blue) >>",
+        b"<< /Length %d >>\nstream\n" % len(c) + c + b"\nendstream"]
+open(sys.argv[1], "wb").write(b"%PDF-1.7\n" + b"".join(b"%d 0 obj\n" % (i + 1) + o + b"\nendobj\n" for i, o in enumerate(objs)) + b"trailer\n<< /Root 1 0 R >>\n%%EOF\n")
+PY
+qpdf "$OUT/layers-raw.pdf" "$OUT/layers.pdf" 2>/dev/null; cp "$OUT/layers.pdf" "$OUT/layers-before.pdf"
+launch "$OUT/layers.pdf"; sleep 1
+share() { import -window root -crop 1000x700+260+90 png:- 2>/dev/null | convert - -fuzz 25% -fill black +opaque "$1" -fill white -opaque "$1" -format "%[fx:mean>0.002]" info: 2>/dev/null; }
+L0="$(share '#ff0000')$(share '#0000ff')"
+click 218 106 1; LR=$(at Red 300x300+0+120); [ -n "$LR" ] && click $LR 1.5
+L1="$(share '#ff0000')$(share '#0000ff')"
+LS=$(at Show 300x200+0+110); [ -n "$LS" ] && click $LS 1.5
+L2="$(share '#ff0000')$(share '#0000ff')"
+check "Layers: as the file sets them, Red hidden by a click, Show all (red,blue: $L0 → $L1 → $L2; ${LR:-no Red row})" "[ \"$L0\" = 10 ] && [ \"$L1\" = 00 ] && [ \"$L2\" = 11 ] && cmp -s \"$OUT/layers.pdf\" \"$OUT/layers-before.pdf\""
+quit
+
+# 109. More ▸ More tools ▸ Accessibility check (Acrobat's Full Check): text.pdf has no title, so Title fails; its
+# row's Fix sets one (the file's name) and the check runs again; saved, the file has a title shown in the window.
+cp "$OUT/text.pdf" "$OUT/a11y.pdf"; launch "$OUT/a11y.pdf"; sleep 1
+click 1127 61 0.8; click 1008 659 0.8; AK=$(at Accessibility 300x500+880+80); [ -n "$AK" ] && click $AK 3
+A1=$(ocr 640x560+320+120 | tr -s ' ')
+# The Fix on the Title row: the row's y, the Fix button's x (the buttons line up on the right).
+read _ TY <<< "$(at Title 600x520+330+150)"; read FX _ <<< "$(at Fix 640x560+320+120)"
+[ -n "$TY" ] && [ -n "$FX" ] && click $FX $TY 4
+key Escape; key ctrl+s; sleep 1.5
+TT=$(pdfinfo "$OUT/a11y.pdf" 2>/dev/null | sed -n 's/^Title: *//p')
+check "the accessibility check lists failed rules and its Fix gives the document a title (${AK:-no item}; $(echo "$A1" | grep -o '[0-9]* failed' | head -1); $TT)" "echo \"$A1\" | grep -q 'failed' && [ -n \"$TT\" ] && qpdf --qdf --object-streams=disable \"$OUT/a11y.pdf\" - 2>/dev/null | grep -aq '/DisplayDocTitle true'"
 quit

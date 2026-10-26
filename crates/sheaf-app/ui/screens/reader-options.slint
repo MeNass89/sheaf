@@ -203,6 +203,9 @@ export component ReaderOptionsBar inherits Rectangle {
             SmallButton { y: 2px; text: "Mono"; primary: root.tab.reader.text-family == 2; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
             SmallButton { y: 2px; text: "B"; primary: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
             SmallButton { y: 2px; text: "I"; primary: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
+            // Text added on the page: underlined, a bulleted list (Acrobat's Edit PDF format panel).
+            if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "U"; primary: root.tab.reader.text-underline; clicked => { ReaderBridge.text-format(root.id, 6, 0); } }
+            if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "•"; primary: root.tab.reader.text-bullets; clicked => { ReaderBridge.text-format(root.id, 7, 0); } }
             for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {
                 icon: icon;
                 tip: ["Align left", "Centre", "Align right"][k];

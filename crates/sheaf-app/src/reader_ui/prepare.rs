@@ -436,12 +436,13 @@ pub fn field_everywhere(ui: &AppWindow, tab_id: i32) {
 pub fn field_copies(ui: &AppWindow, tab_id: i32, rows: i32, cols: i32) {
     let (rows, cols) = (rows.clamp(1, 50) as usize, cols.clamp(1, 20) as usize);
     let edit = update(tab_id, |r, v| {
-        let (fi, ..) = selected_field(r)?;
+        // The widget selected (a field on several pages copies the one picked: Sol, 26/10).
+        let (fi, wi, ..) = selected_field(r)?;
         let f = &r.snap.fields[fi];
-        let (page, [x0, y0, x1, y1]) = f.widgets.first().map(|w| (w.0, w.1))?;
+        let (page, [x0, y0, x1, y1]) = f.widgets.get(wi).map(|w| (w.0, w.1))?;
         let crop = v.viewer.boxes.get(page)?.crop;
         let fits = x0 + (x1 - x0) * cols as f64 <= crop[2] + 0.5 && y1 - (y1 - y0) * rows as f64 >= crop[1] - 0.5;
-        Some((page, fits, Edit::CopyField { name: f.name.clone(), rows, cols }))
+        Some((page, fits, Edit::CopyField { name: f.name.clone(), widget: wi, rows, cols }))
     })
     .flatten();
     match edit {

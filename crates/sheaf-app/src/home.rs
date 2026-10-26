@@ -86,7 +86,33 @@ pub fn set_reader_theme(theme: i32) {
     });
 }
 
+/// A value typed in a form text field, remembered for Auto-Complete (newest first, once).
+pub fn remember_entry(value: &str) {
+    let v = value.trim();
+    if v.is_empty() || v.len() > 200 {
+        return;
+    }
+    with(|h| {
+        h.prefs.form_entries.retain(|e| e != v);
+        h.prefs.form_entries.insert(0, v.to_string());
+        h.prefs.form_entries.truncate(sheaf_app::prefs::ENTRIES);
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
 /// More ▸ Reading speed: normal, then slow, then fast, remembered. Returns the new one.
+/// Read aloud's voice, kept (None: the system's default).
+pub fn set_reading_voice(voice: Option<String>) {
+    with(|h| {
+        h.prefs.reading_voice = voice;
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
 pub fn cycle_reading_speed() -> u8 {
     with(|h| {
         h.prefs.reading_speed = (h.prefs.reading_speed + 1) % 3;
@@ -320,6 +346,7 @@ fn push_prefs(ui: &AppWindow) {
     ui.set_default_zoom(p.default_zoom);
     ui.set_default_spread(p.default_spread as i32);
     ui.set_open_first_page(p.open_first_page);
+    ui.set_smooth(slint::ModelRc::new(slint::VecModel::from([0, 1, 2].map(|k| p.rough & (1 << k) == 0).to_vec())));
     ui.global::<Theme>().set_accent_choice(p.accent.min(5) as i32);
     ui.set_backdrop_pref(p.backdrop.min(4) as i32);
     let rb = ui.global::<sheaf_app::ReaderBridge>();
@@ -408,6 +435,20 @@ pub fn set_stamp_date(ui: &AppWindow, f: i32) {
 /// Preferences ▸ Documents ▸ reopen on the first page or where left.
 pub fn set_open_first_page(ui: &AppWindow, first: bool) {
     update_prefs(ui, |p| p.open_first_page = first);
+}
+
+/// The pages drawn without smoothing (Preferences ▸ Rendering), read on every render request: no
+/// copy of the preferences.
+pub fn rough() -> u8 {
+    with(|h| h.prefs.rough)
+}
+
+/// Preferences ▸ Rendering ▸ Smooth text (0), line art (1) or images (2) ticked or not; every
+/// open document's pages are drawn again.
+pub fn set_smoothing(ui: &AppWindow, which: i32, on: bool) {
+    let bit = 1u8 << which.clamp(0, 2);
+    update_prefs(ui, |p| p.rough = if on { p.rough & !bit } else { p.rough | bit });
+    crate::viewer_ui::redraw_all(ui);
 }
 
 /// Preferences ▸ Documents ▸ pages: one column, two, two with the cover alone.

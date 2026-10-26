@@ -21,7 +21,12 @@ pub mod camera_edges;
 pub mod catalog;
 pub mod commands;
 pub mod compare;
-mod copy_image;
+pub mod copy_image;
+pub mod arrange_objects;
+pub mod clear_signature;
+pub mod sfn;
+pub mod transitions;
+pub mod underlay;
 pub mod field_copies;
 mod upright;
 pub mod dates;
@@ -237,10 +242,12 @@ fn scope_of(edit: &Edit) -> Scope {
         // Page content, resources and added content/marks only: the page tree, annotations,
         // fields, links and document metadata are untouched (see `refresh_content`).
         Edit::MoveObjects { .. }
+        | Edit::ArrangeObjects { .. }
         | Edit::DeleteObjects { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
         | Edit::EditPageImage { .. }
+        | Edit::RemoveImages { .. }
         | Edit::AddText { .. }
         | Edit::AddImage { .. }
         | Edit::AddArtwork { .. }
@@ -1242,6 +1249,15 @@ pub enum Edit {
         prefix: String,
         first: u32,
     },
+    /// Sheaf: how `pages` come in and how long they stay in full screen (Acrobat's Page
+    /// Transitions; `transitions.rs`): an effect of [`transitions::STYLES`] or none, its length,
+    /// and seconds before the next page or none.
+    SetTransition {
+        pages: Vec<usize>,
+        style: Option<String>,
+        seconds: f64,
+        advance: Option<f64>,
+    },
     /// Add a calibrated distance, perimeter or area annotation.
     AddMeasurement(measure::NewMeasurement),
     /// Store a drawing scale for a rectangular viewport (PDF user space).
@@ -1412,14 +1428,20 @@ pub enum Edit {
         name: String,
         pages: Vec<usize>,
     },
-    /// Sheaf: `rows` × `cols` separate copies of a field, side by side with it (Acrobat's Create
-    /// Multiple Copies).
+    /// Sheaf: `rows` × `cols` separate copies of a field, side by side with its widget `widget`
+    /// (Acrobat's Create Multiple Copies; a field shown on several pages copies the one selected).
     CopyField {
         name: String,
+        widget: usize,
         rows: usize,
         cols: usize,
     },
     DeleteField {
+        name: String,
+    },
+    /// Sheaf: the digital signature in field `name` cleared (Acrobat's Clear Signature): the
+    /// field kept, unsigned and drawn empty; a certification it made withdrawn.
+    ClearSignature {
         name: String,
     },
     /// Page properties ▸ Tab order, for pages (0-based).
@@ -1501,12 +1523,23 @@ pub enum Edit {
         index: usize,
         change: ImageEdit,
     },
+    /// Sheaf: every picture of `pages` taken out (Acrobat's Remove all images; Smallpdf's), one
+    /// step; grouped artwork that holds a picture goes too.
+    RemoveImages {
+        pages: Vec<usize>,
+    },
     /// Move mixed existing and added objects together. References resolve before any change;
     /// offset is a user-space vector. No retyping, reflow or font substitution is involved.
     MoveObjects {
         page: usize,
         objects: Vec<ObjectTarget>,
         offset: [f64; 2],
+    },
+    /// Sheaf: objects picked with the Edit tool each moved by its own offset, one step (Acrobat's
+    /// Align and Distribute; `arrange_objects.rs`).
+    ArrangeObjects {
+        page: usize,
+        moves: Vec<(ObjectTarget, [f64; 2])>,
     },
     /// Sheaf: delete the objects picked with the Edit tool (drawings, paragraphs, images, added
     /// items) in one step.
@@ -1584,6 +1617,8 @@ pub enum Edit {
         name: String,
         bytes: Arc<Vec<u8>>,
         pages: Vec<usize>,
+        /// Behind the page's content (Acrobat's Underlay; `underlay.rs`) instead of over it.
+        behind: bool,
     },
     /// Move, resize, retype or reformat an added item (`index` among the page's added items).
     UpdateContent {
@@ -1845,6 +1880,7 @@ pub const EDIT_LABELS: &[&str] = &[
     "Add image",
     "Paste objects",
     "Overlay PDF",
+    "Remove images",
     "Edit content",
     "Delete content",
     "Apply redactions",
@@ -1906,6 +1942,7 @@ impl Edit {
             Edit::SetBookmarkStyle { .. } => Label::of("Change bookmark properties"),
             Edit::BookmarksFromStructure => Label::of("New bookmarks from structure"),
             Edit::NumberPages { .. } => Label::of("Number pages"),
+            Edit::SetTransition { .. } => Label::of("Set page transitions"),
             // What was measured is part of the wording too, for the same reason.
             Edit::AddMeasurement(m) => Label::of(match m.kind {
                 pdfcraft_measure::Kind::Distance => "Measure distance",
@@ -1946,6 +1983,7 @@ impl Edit {
             Edit::AddField { .. } => Label::of("Add field"),
             Edit::SetFieldProps { .. } => Label::of("Change field properties"),
             Edit::DeleteField { .. } => Label::of("Delete field"),
+            Edit::ClearSignature { .. } => Label::of("Clear signature"),
             Edit::CopyField { .. } => Label::of("Copy field"),
             Edit::DuplicateField { .. } => Label::of("Duplicate field"),
             Edit::SetTabOrder { .. } | Edit::MoveInTabOrder { .. } => Label::of("Set tab order"),
@@ -1966,6 +2004,7 @@ impl Edit {
             Edit::EditTextLine { .. } | Edit::EditTextBlock { .. } => Label::of("Edit text"),
             Edit::RegisterTextFont { .. } => Label::of("Load document font"),
             Edit::MoveObjects { objects, .. } => plural("Move object", "Move objects", objects.len()),
+            Edit::ArrangeObjects { .. } => Label::of("Arrange objects"),
             Edit::DeleteObjects { objects, .. } => plural("Delete object", "Delete objects", objects.len()),
             Edit::EditPageImage { change, .. } => Label::of(match change {
                 ImageEdit::Move(_) => "Move image",
@@ -1987,6 +2026,7 @@ impl Edit {
             Edit::AddImage { .. } => Label::of("Add image"),
             Edit::AddArtwork { .. } => Label::of("Paste objects"),
             Edit::OverlayPdf { .. } => Label::of("Overlay PDF"),
+            Edit::RemoveImages { .. } => Label::of("Remove images"),
             Edit::UpdateContent { .. } => Label::of("Edit content"),
             Edit::DeleteContent { .. } => Label::of("Delete content"),
             Edit::ReplaceImage { .. } => Label::of("Replace image"),
@@ -2072,7 +2112,8 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetBookmarkView { .. }
         | Edit::SetBookmarkStyle { .. }
         | Edit::BookmarksFromStructure
-        | Edit::NumberPages { .. } => {
+        | Edit::NumberPages { .. }
+        | Edit::SetTransition { .. } => {
             if p.assemble() {
                 Ok(())
             } else {
@@ -2134,6 +2175,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::OverlayPdf { .. }
         | Edit::UpdateContent { .. }
         | Edit::MoveObjects { .. }
+        | Edit::ArrangeObjects { .. }
         | Edit::DeleteObjects { .. }
         | Edit::DeleteContent { .. }
         | Edit::ReplaceImage { .. }
@@ -2148,6 +2190,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::Sanitize
         | Edit::SetFieldProps { .. }
         | Edit::DeleteField { .. }
+        | Edit::ClearSignature { .. }
         | Edit::DuplicateField { .. }
         | Edit::CopyField { .. }
         | Edit::SetTabOrder { .. }
@@ -2166,6 +2209,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::EditTextBlock { .. }
         | Edit::RegisterTextFont { .. }
         | Edit::EditPageImage { .. }
+        | Edit::RemoveImages { .. }
         | Edit::Flatten { .. }
         | Edit::FlattenFillSign => {
             if p.modify() {
@@ -2332,6 +2376,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_organize::add_bookmark_tree(doc, "Untitled", &entries)?;
         }
         Edit::NumberPages { from, to, style, prefix, first } => pdfcraft_organize::number_pages(doc, *from, *to, *style, prefix, *first)?,
+        Edit::SetTransition { pages, style, seconds, advance } => transitions::set_transition(doc, pages, style.as_deref(), *seconds, *advance)?,
         Edit::AddMeasurement(m) => {
             measure::add(doc, m, &cx.meta())?;
         }
@@ -2450,6 +2495,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::SetFieldProps { name, props } => {
             pdfcraft_forms::set_props(doc, name, props)?;
+            if let Some(pdfcraft_forms::af::Calculate::Notation(expr)) = &props.calculate {
+                sfn::write_notation(doc, name, expr)?;
+            }
         }
         Edit::DuplicateField { name, pages } => {
             if pdfcraft_forms::duplicate_field(doc, name, pages)? == 0 {
@@ -2457,8 +2505,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             }
         }
         Edit::DeleteField { name } => pdfcraft_forms::delete_field(doc, name)?,
-        Edit::CopyField { name, rows, cols } => {
-            field_copies::copy_field(doc, name, *rows, *cols)?;
+        Edit::ClearSignature { name } => clear_signature::clear_signature(doc, name)?,
+        Edit::CopyField { name, widget, rows, cols } => {
+            field_copies::copy_field(doc, name, *widget, *rows, *cols)?;
         }
         Edit::SetTabOrder { pages, order } => pdfcraft_forms::set_tab_order(doc, pages, *order)?,
         Edit::MoveInTabOrder { name, earlier } => pdfcraft_forms::move_in_tab_order(doc, name, *earlier)?,
@@ -2521,7 +2570,22 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             };
             pdfcraft_edit::change_image(doc, *page, *index, &c)?;
         }
+        Edit::RemoveImages { pages } => {
+            let mut removed = 0;
+            for &page in pages {
+                // Last first: deleting one keeps the indices before it.
+                let n = pdfcraft_edit::page_images(doc, page)?.len();
+                for i in (0..n).rev() {
+                    pdfcraft_edit::change_image(doc, page, i, &pdfcraft_edit::ImageChange::Delete)?;
+                    removed += 1;
+                }
+            }
+            if removed == 0 {
+                return Err(EditError::Invalid("there is no picture to remove".into()));
+            }
+        }
         Edit::MoveObjects { page, objects, offset } => pdfcraft_edit::move_objects(doc, *page, objects, *offset)?,
+        Edit::ArrangeObjects { page, moves } => arrange_objects::arrange_objects(doc, *page, moves)?,
         Edit::DeleteObjects { page, objects } => pdfcraft_edit::delete_objects(doc, *page, objects)?,
         Edit::EditTextBlock { page, block, text, style } => {
             cx.substituted = pdfcraft_edit::rewrite_block(doc, *page, *block, Some(text), style)?.substituted;
@@ -2579,7 +2643,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             let form = unit_form(doc, &src, 0)?;
             pdfcraft_edit::add_content(doc, *page, &AddedContent::Image(pdfcraft_edit::AddedImage::new(*rect, form)))?;
         }
-        Edit::OverlayPdf { name, bytes, pages } => {
+        Edit::OverlayPdf { name, bytes, pages, behind } => {
             let src = open_source(name, bytes)?;
             let n = pdfcraft_organize::page_count(&src)?;
             if n == 0 {
@@ -2589,6 +2653,11 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             for (k, &page) in pages.iter().enumerate() {
                 let (pw, ph) = all.get(page).ok_or_else(|| EditError::Invalid(format!("page {} does not exist", page + 1)))?.display_size(doc);
                 let form = unit_form(doc, &src, k.min(n - 1))?;
+                if *behind {
+                    let page_ref = *pdfcraft_annot::page_refs(doc)?.get(page).ok_or_else(|| EditError::Invalid(format!("page {} does not exist", page + 1)))?;
+                    underlay::underlay(doc, page_ref, form)?;
+                    continue;
+                }
                 pdfcraft_edit::add_content(doc, page, &AddedContent::Image(pdfcraft_edit::AddedImage::new([0.0, 0.0, pw, ph], form)))?;
             }
         }
@@ -2651,6 +2720,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::Flatten { comments, fields } => {
             let n = pdfcraft_model::pages(doc).len();
+            if *fields {
+                draw_missing_field_appearances(doc);
+            }
             pdfcraft_edit::flatten(doc, &(0..n).collect::<Vec<_>>(), *comments, *fields)?;
         }
         Edit::FlattenFillSign => {
@@ -2811,6 +2883,32 @@ pub fn guard<T>(f: impl FnOnce() -> T) -> Result<T, String> {
 /// Parse another PDF to copy pages from.
 /// Sheaf: page `page` of `src` as a Form in `doc` drawn in the unit square, as an added image is
 /// (its matrix scaled by 1 / its size), so an added item can show it in any box.
+/// Sheaf: the text and choice fields that hold a value but have no appearance (a viewer was asked
+/// to draw them: `/NeedAppearances`) drawn, so flattening keeps their value (Sol, 26/10: they were
+/// removed, their value lost).
+fn draw_missing_field_appearances(doc: &mut pdfcraft_cos::Document) {
+    use pdfcraft_cos::{Dict, Object};
+    use pdfcraft_forms::FieldKind;
+    for f in pdfcraft_forms::fields(doc) {
+        if !matches!(f.kind, FieldKind::Text | FieldKind::Combo | FieldKind::List) || f.value.iter().all(|v| v.is_empty()) {
+            continue;
+        }
+        for w in &f.widgets {
+            let has = doc.get(w.obj).as_dict().and_then(|d| d.get(b"AP").cloned()).is_some_and(|ap| doc.resolve(&ap).as_dict().is_some_and(|a| a.get(b"N").is_some()));
+            if has {
+                continue;
+            }
+            let stream = pdfcraft_forms::appearance::field_appearance(doc, &f, w, &f.value);
+            let n = doc.add(Object::Stream(stream));
+            let _ = doc.update_dict(w.obj, |d| {
+                let mut ap = Dict::new();
+                ap.set(b"N".to_vec(), Object::Ref(n));
+                d.set(b"AP".to_vec(), ap);
+            });
+        }
+    }
+}
+
 fn unit_form(doc: &mut pdfcraft_cos::Document, src: &pdfcraft_cos::Document, page: usize) -> Result<pdfcraft_cos::ObjRef, EditError> {
     use pdfcraft_cos::Object;
     let (form, (w, h)) = pdfcraft_organize::page_as_form(doc, src, page)?;
@@ -3917,6 +4015,7 @@ impl Session {
                 e,
                 Edit::AddText { .. } | Edit::AddImage { .. } | Edit::AddArtwork { .. } | Edit::OverlayPdf { .. } | Edit::UpdateContent { .. } | Edit::DeleteContent { .. } | Edit::ReplaceImage { .. }
             ) || matches!(e, Edit::MoveObjects { objects, .. } | Edit::DeleteObjects { objects, .. } if objects.iter().any(|o| o.kind == ObjectKind::Added))
+                || matches!(e, Edit::ArrangeObjects { moves, .. } if moves.iter().any(|(o, _)| o.kind == ObjectKind::Added))
         });
         let touches_marks = edit.is_none_or(|e| {
             matches!(e, Edit::AddHeaderFooter { .. } | Edit::AddWatermark { .. } | Edit::AddBackground { .. } | Edit::RemoveMarks { .. })

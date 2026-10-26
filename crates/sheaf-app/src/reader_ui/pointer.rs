@@ -19,6 +19,14 @@ fn grid_pressed(r: &mut ReaderUi, v: &mut ViewerUi, page: Option<usize>, clicks:
     }
 }
 
+/// Where a page dragged in the grid would go: before the page under content point (`x`, `y`) when
+/// over its left half, else after it.
+fn grid_gap(v: &Viewer, x: f64, y: f64) -> Option<usize> {
+    let t = page_at(v, x, y)?;
+    let [px, _, w, _] = v.page_rect(t);
+    Some(if x < px + w / 2.0 { t } else { t + 1 })
+}
+
 /// `clicks`: 1, or 2 on a double-click; plus 16 when ⇧ is held.
 pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
     // Text typed in place is finished by a click elsewhere, as in Acrobat and PDF Expert: it is
@@ -59,7 +67,10 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
     }
     let opened = update(tab_id, |r, v| {
         if r.grid_prev.is_some() {
-            grid_pressed(r, v, page_at(&v.viewer, x, y), clicks, shift);
+            let hit = page_at(&v.viewer, x, y);
+            grid_pressed(r, v, hit, clicks, shift);
+            // A page pressed may be dragged to another place (Acrobat's Organize Pages).
+            r.grid_drag = hit.filter(|_| clicks < 2 && !shift).map(|p| (p, (x, y), false));
             return false;
         }
         let Some(page) = page_at(&v.viewer, x, y) else { return false };
@@ -306,6 +317,14 @@ fn place_image(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64), w: f64,
 pub fn moved(tab_id: i32, x: f32, y: f32) {
     let (x, y) = (x as f64, y as f64);
     update(tab_id, |r, v| {
+        // The page grid: a page dragged past 8 px shows where it would go.
+        if let Some((p, from, _)) = r.grid_drag {
+            if (x - from.0).hypot(y - from.1) > 8.0 {
+                r.grid_drag = Some((p, from, true));
+                r.grid_gap = grid_gap(&v.viewer, x, y);
+            }
+            return;
+        }
         let Some((page, a)) = r.press else { return };
         let b = to_view(&v.viewer, page, x, y);
         if let Some(d) = r.annot_drag.as_mut() {
@@ -408,6 +427,24 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
 
 pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     moved(tab_id, x, y);
+    // The page grid: the pages dragged (the selection, when the page pressed is in it) go to the gap.
+    let grid = update(tab_id, |r, _| {
+        let (p, _, dragged) = r.grid_drag.take()?;
+        let gap = r.grid_gap.take().filter(|_| dragged)?;
+        let mut pages: Vec<usize> = if r.page_sel.contains(&p) { r.page_sel.iter().copied().collect() } else { vec![p] };
+        pages.sort_unstable();
+        // `to` is the position in the result: the gap less the moved pages before it.
+        let to = gap - pages.iter().filter(|q| **q < gap).count();
+        if pages.iter().enumerate().all(|(k, q)| *q == to + k) {
+            return None;
+        }
+        r.page_sel = (to..to + pages.len()).collect();
+        Some(Edit::MovePages { pages, to })
+    })
+    .flatten();
+    if let Some(e) = grid {
+        return super::pages::apply_structure(ui, tab_id, e);
+    }
     let action = update(tab_id, |r, v| {
         let press = r.press.take();
         if let Some((i, from, to)) = r.annot_resize.take() {
@@ -486,6 +523,16 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             let a = r.annots().get(i)?;
             let b = &v.viewer.boxes[a.page];
             let size = b.view_size();
+            // Grid shown (More ▸ More tools ▸ Grid): the comment's top-left corner lands on a crossing
+            // (Acrobat's Snap to Grid).
+            let to = if r.form_grid {
+                let [x, y, _, _] = viewer::pdf_rect_to_view(b, size, a.rect);
+                let (nx, ny) = (x + to.0 - from.0, y + to.1 - from.1);
+                let g = super::prepare::GRID;
+                (from.0 + (nx / g).round() * g - x, from.1 + (ny / g).round() * g - y)
+            } else {
+                to
+            };
             let p0 = viewer::view_to_pdf(b, size, from.0, from.1);
             let p1 = viewer::view_to_pdf(b, size, to.0, to.1);
             return Some(Pending::Move(a.page, Box::new(Edit::MoveAnnotation { page: a.page, index: a.index, dx: p1.0 - p0.0, dy: p1.1 - p0.1 })));

@@ -23,6 +23,7 @@ serde_json.workspace = true
 image.workspace = true
 pdfium-render.workspace = true
 tempfile.workspace = true
+lopdf.workspace = true
 # ⌘V of an image onto a page (reader). Already in the graph through Slint; images too here.
 arboard = { version = "3.6", default-features = false, features = ["image-data"] }
 
@@ -31,9 +32,6 @@ arboard = { version = "3.6", default-features = false, features = ["image-data"]
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSURL"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder"] }
-
-[dev-dependencies]
-lopdf.workspace = true
 
 [build-dependencies]
 slint-build.workspace = true

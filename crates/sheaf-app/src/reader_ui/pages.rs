@@ -120,6 +120,13 @@ fn from_clipboard_or_scanner(ui: &AppWindow, tab_id: i32, scanner: bool) {
     });
 }
 
+/// More ▸ More tools ▸ Remove all images: every picture of every page out, the text and drawings
+/// kept; one undo step.
+pub fn remove_images(ui: &AppWindow, tab_id: i32) {
+    let Some(pages) = update(tab_id, |_, v| (0..v.viewer.page_count()).collect::<Vec<_>>()) else { return };
+    apply_structure(ui, tab_id, Edit::RemoveImages { pages });
+}
+
 /// More ▸ More tools ▸ Turn pages upright (Acrobat's Auto-Rotate): asks the document which pages'
 /// text runs sideways or upside down.
 pub fn turn_upright(tab_id: i32) {
@@ -269,6 +276,23 @@ pub fn extract(ui: &AppWindow, tab_id: i32, each: bool, delete: bool) {
 /// end, pages are labelled in `style` from `start` after `prefix` (a front matter in i, ii, then
 /// 1 from the first chapter: two steps). An edit that can be undone; the labels show in the page
 /// field and Go to.
+/// Pages panel ▸ Transitions (Acrobat's Page Transitions): the selected pages (or the one shown)
+/// come in with effect `style` (index of `transitions::STYLES`, −1 none) over a second and, with
+/// `advance` seconds typed, turn to the next by themselves in full screen. One undo step.
+pub fn page_transition(ui: &AppWindow, tab_id: i32, style: i32, advance: &str) {
+    use sheaf_core::pdfcraft::engine::transitions::STYLES;
+    let advance = match advance.trim().trim_end_matches('s').trim() {
+        "" => None,
+        t => match t.replace(',', ".").parse::<f64>() {
+            Ok(s) if (0.0..=3600.0).contains(&s) => Some(s),
+            _ => return crate::flow::toast(ui, &format!("Next page after: \"{t}\" is not a number of seconds")),
+        },
+    };
+    let style = usize::try_from(style).ok().and_then(|i| STYLES.get(i)).map(|s| (*s).to_string());
+    let Some(pages) = update(tab_id, |r, v| op_pages(r, v)) else { return };
+    apply(ui, tab_id, Edit::SetTransition { pages: pages.clone(), style, seconds: 1.0, advance }, &pages, None);
+}
+
 pub fn number_pages(ui: &AppWindow, tab_id: i32, style: i32, prefix: &str, start: &str, through: &str) {
     use sheaf_core::pdfcraft::engine::LabelStyle as S;
     let first = match start.trim() {

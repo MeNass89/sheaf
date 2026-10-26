@@ -1,11 +1,13 @@
 //! More ▸ Loupe (Acrobat's Loupe tool): a panel in the view's corner shows the part of the page
-//! under the pointer three times larger, following it. One render at a time: a move while one is
+//! under the pointer three times as large as the view shows it, following it. One render at a time: a move while one is
 //! out keeps only the latest area, asked for when the render comes back.
 
 use super::*;
 
-/// The area shown, in points around the pointer: three times larger, it fills the 360 × 240 panel.
-const AREA: (f64, f64) = (120.0, 80.0);
+/// The panel, in pixels; it shows what is under the pointer three times as large as the page shows
+/// it, whatever the zoom (Sol, 26/10: a fixed 120 × 80 pt area went smaller than the page past 300 %).
+const PANEL: (f64, f64) = (360.0, 240.0);
+const MAGNIFY: f64 = 3.0;
 
 pub fn toggle_loupe(ui: &AppWindow, tab_id: i32) {
     let on = update(tab_id, |r, _| {
@@ -25,7 +27,12 @@ pub fn loupe_at(tab_id: i32, x: f32, y: f32) {
         let Some(t) = a.tab(tab_id) else { return };
         let (Some(r), Some(v)) = (t.reader.as_mut(), t.viewer.as_ref()) else { return };
         let Some((page, ux, uy)) = v.viewer.hit(x as f64, y as f64) else { return };
-        let rect = [ux - AREA.0 / 2.0, uy - AREA.1 / 2.0, ux + AREA.0 / 2.0, uy + AREA.1 / 2.0];
+        // Pixels per point on screen now: the page's width shown over its width in points.
+        let shown = v.viewer.page_rect(page)[2];
+        let points = v.viewer.boxes.get(page).map_or(1.0, |b| b.view_size().0.max(1.0));
+        let k = (shown / points).max(0.01) * MAGNIFY;
+        let (hw, hh) = (PANEL.0 / k / 2.0, PANEL.1 / k / 2.0);
+        let rect = [ux - hw, uy - hh, ux + hw, uy + hh];
         if r.loupe_busy {
             r.loupe_next = Some((page, rect));
         } else {

@@ -10,8 +10,8 @@ import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint"
 import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
-import { FormFieldBox, FieldPropsCard, FieldsArrangeCard } from "reader-form.slint";
-import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet } from "reader-sheets.slint";
+import { FormFieldBox, FieldPropsCard, FieldsArrangeCard, ObjectsArrangeCard } from "reader-form.slint";
+import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet } from "reader-sheets.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 
 export component ReaderScreen inherits Rectangle {
@@ -128,6 +128,12 @@ export component ReaderScreen inherits Rectangle {
         interval: 16ms;
         running: root.tab.reader.auto-scroll;
         triggered => { sv.content-y = max(sv.visible-height - sv.content-height, sv.content-y - root.scroll-speed * 0.5px); }
+    }
+    // Full screen (Acrobat's): a page with a time of its own (Page transitions) turns to the next.
+    Timer {
+        interval: max(0.2, root.tab.reader.page-advance) * 1s;
+        running: root.bare && root.tab.reader.page-advance > 0;
+        triggered => { ReaderBridge.page-step(root.id, 2); }
     }
     want-x-timer := Timer {
         interval: 2000ms;
@@ -378,8 +384,11 @@ export component ReaderScreen inherits Rectangle {
                                 return accept;
                             }
                             // One page at a time (Acrobat's Single Page): the wheel turns pages, a
-                            // notch (or a trackpad's 60 px) a page.
-                            if root.tab.reader.page-at-a-time && e.delta-y != 0 {
+                            // notch (or a trackpad's 60 px) a page; a page taller than the view is
+                            // scrolled through first, turned at its top or bottom (Sol, 26/10).
+                            if root.tab.reader.page-at-a-time && e.delta-y != 0
+                                && (e.delta-y < 0 ? -sv.content-y + sv.visible-height >= root.tab.reader.page-bottom * 1px - 2px
+                                                  : -sv.content-y <= root.tab.reader.page-top * 1px + 2px) {
                                 root.wheel-sum += e.delta-y;
                                 if abs(root.wheel-sum) >= 60px {
                                     ReaderBridge.page-step(root.id, root.wheel-sum > 0 ? -3 : 3);
@@ -421,6 +430,8 @@ export component ReaderScreen inherits Rectangle {
                             ToolButton { icon: @image-url("../icons/replace.svg"); tip: "Replace text…"; clicked => { ReaderBridge.replace-selection(root.id); } }
                             // Acrobat's Insert Text: words proposed after the selection, nothing struck out.
                             ToolButton { icon: @image-url("../icons/plus.svg"); tip: "Insert text after…"; clicked => { ReaderBridge.insert-after-selection(root.id); } }
+                            // PDF Expert's and Preview's Look Up: the words in the system's dictionary.
+                            ToolButton { icon: @image-url("../icons/book-open.svg"); tip: "Look up"; clicked => { ReaderBridge.look-up(root.tab.reader.selected-text); keys.focus(); } }
                             Divider { y: 7px; }
                             // Highlight in one of the five colours straight from the selection.
                             for c[k] in root.light-colours: ColourDot {
@@ -433,6 +444,14 @@ export component ReaderScreen inherits Rectangle {
                                 }
                             }
                         }
+                    }
+                    // Edit tool, objects picked together: Align and Distribute, in the view's top-right corner.
+                    if root.tab.reader.tool == 7 && root.tab.reader.picked-count > 1: ObjectsArrangeCard {
+                        x: -sv.content-x + sv.visible-width - self.width - 12px;
+                        y: -sv.content-y + 12px;
+                        count: root.tab.reader.picked-count;
+                        id: root.id;
+                        focus-pages => { keys.focus(); }
                     }
                     // Prepare form: the selected field's card, under it.
                     if root.tab.reader.field-props.show && root.tab.reader.field-props.group > 1: FieldsArrangeCard {
@@ -585,6 +604,19 @@ export component ReaderScreen inherits Rectangle {
                                     reject
                                 }
                             }
+                            // Auto-Complete (Acrobat's): earlier entries that start as typed; a click fills the field.
+                            if root.tab.reader.note.kind == 4: VerticalLayout {
+                                for s in root.tab.reader.suggestions: Rectangle {
+                                    height: 24px;
+                                    border-radius: Theme.radius-small;
+                                    background: st.has-hover ? Theme.popup-hover : transparent;
+                                    Text { x: 6px; text: s; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; overflow: elide; }
+                                    st := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { ReaderBridge.note-commit(root.id, s); keys.focus(); }
+                                    }
+                                }
+                            }
                             if root.tab.reader.note.kind >= 8 && root.tab.reader.link-error != "": Text {
                                 text: root.tab.reader.link-error;
                                 font-size: Theme.fs-caption;
@@ -598,6 +630,37 @@ export component ReaderScreen inherits Rectangle {
                                 if root.tab.reader.note.kind == 9: SmallButton { text: "Remove link"; clicked => { ReaderBridge.note-commit(root.id, ""); keys.focus(); } }
                                 SmallButton { text: "Cancel"; clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }
                                 SmallButton { text: "Done"; primary: true; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
+                            }
+                        }
+                    }
+                }
+                // Reflow (Acrobat's): the page in view's text on the window's width, at a size of its
+                // own; ‹ › turn pages, A− A+ change the size.
+                if root.tab.reader.reflow: Rectangle {
+                    background: Theme.card;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 10px;
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Text { text: "Reflow · page " + (root.tab.viewer-current + 1); font-size: Theme.fs-label; color: Theme.text-muted; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                            SmallButton { text: "‹"; clicked => { ReaderBridge.page-step(root.id, -1); } }
+                            SmallButton { text: "›"; clicked => { ReaderBridge.page-step(root.id, 1); } }
+                            SmallButton { text: "A−"; clicked => { ReaderBridge.reflow(root.id, -1); } }
+                            SmallButton { text: "A+"; clicked => { ReaderBridge.reflow(root.id, 1); } }
+                            SmallButton { text: "Close"; clicked => { ReaderBridge.reflow(root.id, 0); keys.focus(); } }
+                        }
+                        ScrollView {
+                            VerticalLayout {
+                                alignment: start;
+                                Text {
+                                    text: root.tab.reader.reflow-text == "" ? "No text on this page (a scan: OCR reads it)." : root.tab.reader.reflow-text;
+                                    wrap: word-wrap;
+                                    font-size: root.tab.reader.reflow-size * 1px * 4 / 3;
+                                    color: Theme.text;
+                                    line-height-factor: 1.4;
+                                }
                             }
                         }
                     }
@@ -656,6 +719,21 @@ export component ReaderScreen inherits Rectangle {
     }
 
     if root.tab.reader.versions-open: VersionsSheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.voices-open: VoicesSheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.a11y-open: AccessibilitySheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.folder-open: FolderSearchSheet {
         tab: root.tab;
         id: root.id;
         focus-pages => { keys.focus(); }

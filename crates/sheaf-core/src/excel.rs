@@ -196,7 +196,10 @@ fn table(run: &[Vec<Segment>]) -> Option<Table> {
         let full = rows.iter().all(|r| r.iter().all(|c| !c.is_empty()));
         let heading = rows[0].iter().all(|c| parse_number(c).is_none());
         let figure = rows[1].iter().any(|c| parse_number(c).is_some());
-        return (line_up.iter().all(|n| *n >= 2) && full && heading && figure).then_some(Table { rect, rows });
+        // Or words only, in three columns or more of short cells (a heading and a row of names: Sol,
+        // 26/10); two columns of words stay prose.
+        let words = cols.len() >= 3 && rows.iter().flatten().all(|c| c.split_whitespace().count() <= 3);
+        return (line_up.iter().all(|n| *n >= 2) && full && heading && (figure || words)).then_some(Table { rect, rows });
     }
     let lined_up = line_up.iter().any(|n| *n >= MIN_ROWS) && line_up.iter().all(|n| *n >= 2);
     // Some column holds short cells (three words at most, or numbers) in two rows out of three:

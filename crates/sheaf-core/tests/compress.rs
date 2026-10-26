@@ -389,3 +389,58 @@ fn a_target_size_tries_stronger_settings_until_the_file_fits() {
     let tiny = compress(&Input::new(&a), Level::Target(10), &t.path().join("tiny.pdf")).unwrap();
     assert!(tiny.missed_target && tiny.after <= extreme.after, "{tiny:?} {extreme:?}");
 }
+
+#[test]
+fn advanced_settings_take_out_what_was_asked() {
+    let t = tempfile::tempdir().unwrap();
+    let a = common::fixture_pdf(t.path(), "a.pdf", 2);
+    // The document's title and a structure tree, to be taken out.
+    let mut d = lopdf::Document::load(&a).unwrap();
+    let info = d.add_object(lopdf::dictionary! { "Title" => lopdf::Object::string_literal("Secret title") });
+    d.trailer.set("Info", info);
+    let st = d.add_object(lopdf::dictionary! { "Type" => "StructTreeRoot" });
+    let root = d.trailer.get(b"Root").unwrap().as_reference().unwrap();
+    d.get_object_mut(root).unwrap().as_dict_mut().unwrap().set("StructTreeRoot", st);
+    d.save(&a).unwrap();
+    let adv = Advanced { discard_tags: true, discard_metadata: true, ..Default::default() };
+    let out = t.path().join("c.pdf");
+    compress_advanced(&Input::new(&a), Level::Recommended, &adv, &out, &mut |_| true).unwrap();
+    let q = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap();
+    let s = String::from_utf8_lossy(&q.stdout);
+    assert!(!s.contains("Secret title") && !s.contains("/StructTreeRoot"), "taken out");
+    assert_eq!(common::page_texts(&out).len(), 2);
+}
+
+/// Compress ▸ Convert to grayscale (Stirling's): a red square drawn in the page, a photo and text
+/// all come out grey, the text still text.
+#[test]
+fn grayscale_makes_drawings_and_pictures_grey_and_keeps_the_text() {
+    let t = tempfile::tempdir().unwrap();
+    let photo = photo_pdf(t.path());
+    let mut d = Document::load(&photo).unwrap();
+    let page = *d.get_pages().values().next().unwrap();
+    let font = d.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica" });
+    let drawn = d.add_object(Stream::new(dictionary! {}, b"q 1 0 0 rg 0 0 400 400 re f Q BT /FG 48 Tf 0 0 1 rg 20 500 Td (Grey words) Tj ET".to_vec()));
+    let mut contents = d.get_page_contents(page).into_iter().map(Object::Reference).collect::<Vec<_>>();
+    contents.push(Object::Reference(drawn));
+    let pd = d.get_object_mut(page).unwrap().as_dict_mut().unwrap();
+    pd.set("Contents", contents);
+    let res = pd.get(b"Resources").unwrap().clone();
+    let res_id = res.as_reference().ok();
+    let fonts = dictionary! { "FG" => font };
+    match res_id {
+        Some(id) => d.get_object_mut(id).unwrap().as_dict_mut().unwrap().set("Font", fonts),
+        None => d.get_object_mut(page).unwrap().as_dict_mut().unwrap().get_mut(b"Resources").unwrap().as_dict_mut().unwrap().set("Font", fonts),
+    }
+    let colour = t.path().join("colour.pdf");
+    d.save(&colour).unwrap();
+    let out = t.path().join("grey.pdf");
+    let adv = Advanced { grayscale: true, ..Default::default() };
+    compress_advanced(&Input::new(&colour), Level::Recommended, &adv, &out, &mut |_| true).unwrap();
+    let (w, h, px) = common::render(&out, 0);
+    let coloured = px.as_chunks::<4>().0.iter().filter(|p| (p[0] as i32 - p[1] as i32).abs() > 3 || (p[1] as i32 - p[2] as i32).abs() > 3).count();
+    assert_eq!(coloured, 0, "every pixel grey ({w}×{h})");
+    let (_, _, before) = common::render(&colour, 0);
+    assert!(before.as_chunks::<4>().0.iter().filter(|p| (p[0] as i32 - p[1] as i32).abs() > 3).count() > 1000, "the original has colour");
+    assert!(common::page_texts(&out)[0].contains("Grey words"), "the text is still text");
+}

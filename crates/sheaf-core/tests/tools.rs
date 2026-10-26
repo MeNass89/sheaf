@@ -3,13 +3,13 @@ use sheaf_core::tools::*;
 #[test]
 fn catalogue_is_complete_and_consistent() {
     let c = catalogue();
-    assert_eq!(c.len(), 29);
+    assert_eq!(c.len(), 30);
     let mut ids: Vec<_> = c.iter().map(|t| format!("{:?}", t.id)).collect();
     ids.sort();
     ids.dedup();
-    assert_eq!(ids.len(), 29);
+    assert_eq!(ids.len(), 30);
     assert!(c.iter().all(|t| !t.accepts.is_empty() && !t.description.is_empty()));
-    assert_eq!(c.iter().filter(|t| t.wave == 1).count(), 29);
+    assert_eq!(c.iter().filter(|t| t.wave == 1).count(), 30);
     assert!(c.iter().all(|t| !t.name.to_lowercase().contains("ilove")));
 }
 

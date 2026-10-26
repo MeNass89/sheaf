@@ -153,9 +153,13 @@ impl TabState {
     }
 
     /// Removes file `uid`; with no file left, everything made for it goes too.
-    /// Merge's Pages view as the job takes it: (input index, page).
+    /// Merge's Pages view as the job takes it: (input index, page). Files shown again, the order
+    /// made in Pages still counts while the files are the same ones (Sol, 26/10: going back to
+    /// Files dropped the pages taken out and their order at the merge).
     pub fn merge_seq(&self) -> Option<Vec<(usize, u32)>> {
-        let seq = self.merge_order.as_ref()?;
+        let uids: std::collections::BTreeSet<i32> = self.files.iter().map(|f| f.uid).collect();
+        let kept = self.merge_kept.as_ref().filter(|k| k.0 == uids).map(|k| &k.1);
+        let seq = self.merge_order.as_ref().or(kept)?;
         Some(seq.iter().filter_map(|(uid, p)| self.files.iter().position(|f| f.uid == *uid).map(|k| (k, *p))).collect())
     }
 
@@ -328,6 +332,7 @@ fn verb(tool: ToolId) -> &'static str {
         ToolId::Protect => "protected",
         ToolId::Unlock => "unlocked",
         ToolId::Repair => "repaired",
+        ToolId::AdjustColours => "adjusted",
         ToolId::PageNumbers => "numbered",
         ToolId::Watermark => "watermarked",
         ToolId::Crop => "cropped",
@@ -711,6 +716,21 @@ mod tests {
         assert!(pdf.contains(&ToolId::Merge) && pdf.contains(&ToolId::Protect));
         assert!(!pdf.contains(&ToolId::Compress) && !pdf.contains(&ToolId::JpgToPdf) && !pdf.contains(&ToolId::WordToPdf));
         assert_eq!(continue_tools(ToolId::PdfToJpg, &[PathBuf::from("a-1.jpg")]), vec![ToolId::JpgToPdf]);
+    }
+
+    /// Merge ▸ Pages, then Files: the pages arranged still make the merge while the files are the
+    /// same; a file moved in Files merges the files whole (Sol, 26/10).
+    #[test]
+    fn the_pages_arranged_make_the_merge_until_a_file_is_moved() {
+        let mut t = TabState::new(1, ToolId::Merge);
+        t.files = vec![entry(1), entry(2)];
+        // pb (uid 2) dropped, pa's pages turned around.
+        t.merge_kept = Some(([1, 2].into_iter().collect(), vec![(1, 2), (1, 1)]));
+        assert_eq!(t.merge_seq(), Some(vec![(0, 2), (0, 1)]));
+        t.files.swap(0, 1);
+        assert_eq!(t.merge_seq(), Some(vec![(1, 2), (1, 1)]), "the same files: still the order made");
+        t.merge_kept = None;
+        assert_eq!(t.merge_seq(), None, "files whole");
     }
 
     #[test]

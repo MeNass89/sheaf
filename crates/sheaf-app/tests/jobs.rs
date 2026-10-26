@@ -164,7 +164,7 @@ fn compress_batch_cancelled_after_the_first_file_leaves_no_outputs() {
     let items = outs.iter().map(|o| (Input::new(&src), o.clone())).collect();
     let cancel = AtomicBool::new(false);
     let first_done = std::cell::Cell::new(false);
-    let err = run(&Job::Compress { items, level: Level::Recommended }, &cancel, &|p| {
+    let err = run(&Job::Compress { items, level: Level::Recommended, advanced: Default::default() }, &cancel, &|p| {
         // After file 1 (a third of the way: progress also comes within each file): it is on
         // disk, then the user cancels.
         if !first_done.get() && p >= 1.0 / 3.0 - 1e-6 {
@@ -195,7 +195,7 @@ fn compress_batch_writes_each_output_in_its_own_inputs_folder() {
         (Input::new(&x), a.join("two-compressed.pdf")),
         (Input::new(&y), b.join("two-compressed.pdf")),
     ];
-    let out = run(&Job::Compress { items, level: Level::Recommended }, &AtomicBool::new(false), &|_| {}).unwrap();
+    let out = run(&Job::Compress { items, level: Level::Recommended, advanced: Default::default() }, &AtomicBool::new(false), &|_| {}).unwrap();
     assert_eq!(out.outputs, vec![a.join("two-compressed.pdf"), b.join("two-compressed.pdf")]);
     assert!(out.outputs.iter().all(|p| p.is_file()));
 }
@@ -237,7 +237,7 @@ fn a_batch_keeps_the_outputs_written_before_a_failure() {
         (Input::new(&src), dir.path().join("c1.pdf")),
         (Input::new(&garbage), dir.path().join("c2.pdf")),
     ];
-    let out = run(&Job::Compress { items, level: Level::Recommended }, &AtomicBool::new(false), &|_| {}).unwrap();
+    let out = run(&Job::Compress { items, level: Level::Recommended, advanced: Default::default() }, &AtomicBool::new(false), &|_| {}).unwrap();
     assert_eq!(out.outputs, vec![dir.path().join("c1.pdf")]);
     assert!(out.outputs[0].is_file());
     assert_eq!(out.failures.len(), 1, "{:?}", out.failures);
@@ -245,7 +245,7 @@ fn a_batch_keeps_the_outputs_written_before_a_failure() {
     assert!(!out.failures[0].1.is_empty());
     // Every file failing is still an error, so a single-file run keeps its toast.
     let only = vec![(Input::new(&garbage), dir.path().join("c3.pdf"))];
-    assert!(run(&Job::Compress { items: only, level: Level::Recommended }, &AtomicBool::new(false), &|_| {}).is_err());
+    assert!(run(&Job::Compress { items: only, level: Level::Recommended, advanced: Default::default() }, &AtomicBool::new(false), &|_| {}).is_err());
 }
 
 #[test]

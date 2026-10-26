@@ -379,6 +379,18 @@ pub fn page_at_a_time(ui: &AppWindow, tab_id: i32) {
     }
 }
 
+/// More ▸ More tools ▸ Reflow: on or off (`step` 0), or its text a step larger (1) or smaller (−1).
+pub fn reflow(tab_id: i32, step: i32) {
+    update(tab_id, |r, _| {
+        r.reflow = match (r.reflow, step) {
+            (None, 0) => Some(16),
+            (Some(_), 0) => None,
+            (Some(s), d) => Some((s + 2 * d.signum()).clamp(10, 40)),
+            (None, _) => None,
+        };
+    });
+}
+
 /// More ▸ Scroll automatically (Acrobat's): on or off; Escape stops it too.
 pub fn auto_scroll(tab_id: i32) {
     update(tab_id, |r, _| r.auto_scroll = !r.auto_scroll);

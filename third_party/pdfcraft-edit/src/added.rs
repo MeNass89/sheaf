@@ -114,6 +114,8 @@ pub struct AddedText {
     pub size: f64,
     pub color: [f64; 3],
     pub align: Align,
+    /// Sheaf: a line under each line of text, in its colour (Acrobat's Underline).
+    pub underline: bool,
 }
 
 impl Default for AddedText {
@@ -127,6 +129,7 @@ impl Default for AddedText {
             size: 12.0,
             color: [0.0; 3],
             align: Align::Left,
+            underline: false,
         }
     }
 }
@@ -744,6 +747,21 @@ fn draw(doc: &mut Document, c: &Content, view: [f64; 6], taken: &Dict, existing:
                 out.extend_from_slice(b" Tj\n");
             }
             out.extend_from_slice(b"ET\n");
+            // Sheaf: underlined, a stroke under each line, 0.12 em below its baseline.
+            if t.underline {
+                let all = lines(t);
+                out.extend(format!("{} {} {} RG {} w\n", n(cr), n(cg), n(cb), n(t.size * 0.06)).bytes());
+                for (i, line) in all.iter().enumerate().filter(|(_, l)| !l.trim().is_empty()) {
+                    let w = if t.align == Align::Justify && i + 1 < all.len() { r[2] - r[0] } else { t.family.width(line, t.size, t.bold, t.italic) };
+                    let x = match t.align {
+                        Align::Left | Align::Justify => r[0],
+                        Align::Center => r[0] + ((r[2] - r[0]) - w) / 2.0,
+                        Align::Right => r[2] - w,
+                    };
+                    let y = r[3] - (i as f64 * 1.2 + 0.95) * t.size - 0.12 * t.size;
+                    out.extend(format!("{} {} m {} {} l S\n", n(x), n(y), n(x + w), n(y)).bytes());
+                }
+            }
         }
         Content::Image(i) => {
             // Sheaf: or a Form drawn in the unit square (objects copied and pasted, still vector).
@@ -789,6 +807,9 @@ fn params(c: &Content) -> Dict {
             d.set(b"Font".to_vec(), Object::name(t.family.base_font(t.bold, t.italic)));
             d.set(b"Size".to_vec(), Object::Real(t.size));
             d.set(b"Color".to_vec(), arr(&t.color));
+            if t.underline {
+                d.set(b"Underline".to_vec(), Object::Bool(true));
+            }
             d.set(
                 b"Align".to_vec(),
                 Object::Int(match t.align {
@@ -842,6 +863,7 @@ fn parse(doc: &Document, d: &Dict) -> Option<Content> {
                     Some(3) => Align::Justify,
                     _ => Align::Left,
                 },
+                underline: matches!(d.get(b"Underline"), Some(Object::Bool(true))),
             }))
         }
         b"Image" => {

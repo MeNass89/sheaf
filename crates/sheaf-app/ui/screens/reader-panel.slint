@@ -37,6 +37,10 @@ export component ReaderPanel inherits Rectangle {
     property <bool> extract-delete;
     // Number pages…'s strip (Acrobat's Page Labels): style, prefix, first number.
     property <bool> number-open;
+    // Pages ▸ Transitions: the effect (0 none, then transitions::STYLES) and the seconds per page.
+    property <bool> transition-open;
+    property <int> transition-style;
+    property <string> transition-advance;
     property <int> number-style;
     property <string> number-prefix;
     property <string> number-start;
@@ -53,6 +57,7 @@ export component ReaderPanel inherits Rectangle {
                 PanelTab { text: "Outline"; icon: @image-url("../icons/list-tree.svg"); selected: root.tab.reader.panel == 1; clicked => { ReaderBridge.set-panel(root.id, 1); } }
                 PanelTab { text: "Notes"; icon: @image-url("../icons/message-square.svg"); selected: root.tab.reader.panel == 2; clicked => { ReaderBridge.set-panel(root.id, 2); } }
                 PanelTab { text: "Files"; icon: @image-url("../icons/paperclip.svg"); selected: root.tab.reader.panel == 4; clicked => { ReaderBridge.set-panel(root.id, 4); } }
+                if root.tab.reader.layers.length > 0: PanelTab { text: "Layers"; icon: @image-url("../icons/layers.svg"); selected: root.tab.reader.panel == 5; clicked => { ReaderBridge.set-panel(root.id, 5); } }
             }
             Rectangle { height: 1px; background: Theme.sidebar-border; }
             Rectangle {
@@ -92,6 +97,14 @@ export component ReaderPanel inherits Rectangle {
                             font-weight: Theme.weight-demibold;
                             color: Theme.text-secondary;
                             overflow: elide;
+                            horizontal-stretch: 1;
+                        }
+                        // Acrobat's Advanced Search ▸ All PDF documents in a folder: the same words there.
+                        Text {
+                            text: "In a folder…";
+                            font-size: Theme.fs-caption;
+                            color: Theme.accent;
+                            TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.folder-search(root.id, root.search-text); } }
                         }
                     }
                     // Acrobat's Find and Replace: the words found rewritten in the pages' text. The field
@@ -324,6 +337,47 @@ export component ReaderPanel inherits Rectangle {
                 }
                 // Attached files (Acrobat's Attachments pane): a click opens one, its arrow saves it,
                 // Attach… adds one; past three, a field finds them by name.
+                // The document's layers (Acrobat's Layers pane): a click shows or hides one on screen;
+                // the file keeps them as it sets them.
+                if root.tab.reader.panel == 5: VerticalLayout {
+                    padding: 8px;
+                    spacing: 4px;
+                    HorizontalLayout {
+                        spacing: 6px;
+                        SmallButton { text: "Show all"; clicked => { ReaderBridge.layers-all(root.id, 0); } }
+                        SmallButton { text: "Hide all"; clicked => { ReaderBridge.layers-all(root.id, 1); } }
+                        if root.tab.reader.layers-changed: SmallButton { text: "Reset"; clicked => { ReaderBridge.layers-all(root.id, 2); } }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    if root.tab.reader.layers.length == 0: Text {
+                        text: "No layers.";
+                        font-size: Theme.fs-label;
+                        color: Theme.text-muted;
+                    }
+                    for l[i] in root.tab.reader.layers: Rectangle {
+                        height: 30px;
+                        border-radius: Theme.radius-item;
+                        background: la.has-hover ? Theme.popup-hover : transparent;
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 8px;
+                            Image {
+                                y: 8px;
+                                width: 14px;
+                                height: 14px;
+                                source: l.shown ? @image-url("../icons/eye.svg") : @image-url("../icons/eye-off.svg");
+                                colorize: l.shown ? Theme.text-secondary : Theme.text-muted;
+                            }
+                            Text { text: l.name; font-size: Theme.fs-label; color: l.shown ? Theme.text : Theme.text-muted; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+                        }
+                        la := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { ReaderBridge.layer-set(root.id, i, !l.shown); }
+                        }
+                    }
+                    Rectangle { vertical-stretch: 1; }
+                }
                 if root.tab.reader.panel == 4: VerticalLayout {
                     padding: 8px;
                     spacing: 4px;
@@ -612,7 +666,7 @@ export component ReaderPanel inherits Rectangle {
                         x: root.menu-x;
                         y: root.menu-y;
                         width: 220px;
-                        height: 11 * 30px + 8px;
+                        height: 12 * 30px + 8px;
                         Rectangle {
                             background: Theme.card;
                             border-radius: Theme.radius-small;
@@ -625,11 +679,17 @@ export component ReaderPanel inherits Rectangle {
                                 // Codes as reader_ui::page_op.
                                 for o in [{ t: "Rotate left", k: 0 }, { t: "Rotate right", k: 1 }, { t: "Insert blank page after", k: 5 }, { t: "Duplicate", k: 3 },
                                           { t: "Insert pages from file…", k: 6 }, { t: "Insert a file's pages before…", k: 9 }, { t: "Insert from clipboard", k: 10 }, { t: "Insert from scanner…", k: 11 },
-                                          { t: "Replace with a file's pages…", k: 7 }, { t: "Reverse page order", k: 8 }, { t: "Delete", k: 2 }]: Rectangle {
+                                          { t: "Replace with a file's pages…", k: 7 }, { t: "Reverse page order", k: 8 },
+                                          // Acrobat's Page Transitions (in its page thumbnail menu).
+                                          { t: "Transitions…", k: -1 }, { t: "Delete", k: 2 }]: Rectangle {
                                     height: 30px;
                                     background: pm.has-hover ? Theme.popup-hover : transparent;
                                     Text { x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }
-                                    pm := TouchArea { clicked => { ReaderBridge.page-op(root.id, o.k); } }
+                                    pm := TouchArea {
+                                        clicked => {
+                                            if o.k < 0 { root.transition-open = true; root.number-open = false; root.extract-open = false; } else { ReaderBridge.page-op(root.id, o.k); }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -733,8 +793,8 @@ export component ReaderPanel inherits Rectangle {
                         ToolButton { icon: @image-url("../icons/rotate-cw.svg"); tip: "Rotate right"; clicked => { ReaderBridge.page-op(root.id, 1); } }
                         ToolButton { icon: @image-url("../icons/plus.svg"); tip: "Insert blank page after"; clicked => { ReaderBridge.page-op(root.id, 5); } }
                         ToolButton { icon: @image-url("../icons/copy.svg"); tip: "Duplicate"; clicked => { ReaderBridge.page-op(root.id, 3); } }
-                        ToolButton { icon: @image-url("../icons/file-output.svg"); tip: "Extract…"; clicked => { root.extract-open = !root.extract-open; root.number-open = false; } }
-                        ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: "Number pages…"; clicked => { root.number-open = !root.number-open; root.extract-open = false; } }
+                        ToolButton { icon: @image-url("../icons/file-output.svg"); tip: "Extract…"; clicked => { root.extract-open = !root.extract-open; root.number-open = false; root.transition-open = false; } }
+                        ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: "Number pages…"; clicked => { root.number-open = !root.number-open; root.extract-open = false; root.transition-open = false; } }
                         ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete"; clicked => { ReaderBridge.page-op(root.id, 2); } }
                     }
                 }
@@ -773,6 +833,40 @@ export component ReaderPanel inherits Rectangle {
                                 clicked => {
                                     root.number-open = false;
                                     ReaderBridge.number-pages(root.id, root.number-style, root.number-prefix, root.number-start, root.number-through);
+                                }
+                            }
+                        }
+                    }
+                }
+                if root.tab.reader.panel == 0 && root.transition-open: Rectangle {
+                    y: parent.height - 44px - self.height;
+                    height: 136px;
+                    background: Theme.panel-bg;
+                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+                        Text {
+                            text: "In full screen, " + (root.tab.reader.pages-selected <= 1 ? "this page comes" : "the " + root.tab.reader.pages-selected + " pages come") + " in with";
+                            font-size: Theme.fs-caption;
+                            color: Theme.text-secondary;
+                        }
+                        SortCombo {
+                            options: ["No effect", "Fade", "Dissolve", "Wipe", "Push", "Cover", "Uncover", "Split", "Blinds", "Box", "Glitter", "Fly"];
+                            current-index <=> root.transition-style;
+                            chevron: @image-url("../icons/chevron-down.svg");
+                        }
+                        PanelField { placeholder: "Next page after (seconds): when turned"; text <=> root.transition-advance; }
+                        HorizontalLayout {
+                            alignment: end;
+                            spacing: 6px;
+                            SmallButton { text: "Cancel"; clicked => { root.transition-open = false; } }
+                            SmallButton {
+                                text: "Set";
+                                primary: true;
+                                clicked => {
+                                    root.transition-open = false;
+                                    ReaderBridge.page-transition(root.id, root.transition-style - 1, root.transition-advance);
                                 }
                             }
                         }

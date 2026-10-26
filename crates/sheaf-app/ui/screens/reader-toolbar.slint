@@ -359,6 +359,19 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Email a flattened copy", on: false },
                                 // Acrobat's Auto-Rotate Pages: the pages whose text runs sideways turned upright.
                                 { text: "Turn pages upright", on: false },
+                                // Acrobat's Remove all images (Smallpdf's): the text kept, every picture out.
+                                { text: "Remove all images", on: false },
+                                // Acrobat's Reflow: the page's text on the window's width, any size.
+                                { text: "Reflow", on: root.tab.reader.reflow },
+                                // Acrobat's Accessibility ▸ Full Check, its fixes and its report.
+                                { text: "Accessibility check", on: false },
+                                // Acrobat's Underlay: another PDF's pages behind these, page by page.
+                                { text: "Underlay a PDF…", on: false },
+                                // Acrobat's Read This Page Only, a selection read, Pause, and the voice.
+                                { text: "Read this page", on: false },
+                                { text: "Read the selection", on: false },
+                                { text: "Pause or resume reading", on: false },
+                                { text: "Voice…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -366,7 +379,7 @@ export component ReaderToolbar inherits Rectangle {
                                 Text { x: 10px; text: (item.on ? "✓ " : "") + item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
                                 mt := TouchArea {
                                     clicked => {
-                                        if k == 0 { ReaderBridge.overlay-pdf(root.id); }
+                                        if k == 0 { ReaderBridge.overlay-pdf(root.id, false); }
                                         if k == 1 { ReaderBridge.read-aloud(root.id, 0); }
                                         if k == 2 { ReaderBridge.read-aloud(root.id, 1); }
                                         if k == 3 { ReaderBridge.loupe(root.id); }
@@ -374,6 +387,14 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 5 { ReaderBridge.flat-copy(root.id, false); }
                                         if k == 6 { ReaderBridge.flat-copy(root.id, true); }
                                         if k == 7 { ReaderBridge.turn-upright(root.id); }
+                                        if k == 8 { ReaderBridge.remove-images(root.id); }
+                                        if k == 9 { ReaderBridge.reflow(root.id, 0); }
+                                        if k == 10 { ReaderBridge.accessibility-check(root.id); }
+                                        if k == 11 { ReaderBridge.overlay-pdf(root.id, true); }
+                                        if k == 12 { ReaderBridge.read-aloud(root.id, 2); }
+                                        if k == 13 { ReaderBridge.read-aloud(root.id, 3); }
+                                        if k == 14 { ReaderBridge.read-aloud(root.id, 4); }
+                                        if k == 15 { ReaderBridge.read-aloud(root.id, 5); }
                                         root.focus-pages();
                                     }
                                 }

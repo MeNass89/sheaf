@@ -29,6 +29,13 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             let [x, y, w, h] = v.viewer.page_rect(p);
             marks.push(overlay([x - 4.0, y - 4.0, w + 8.0, h + 8.0], 12));
         }
+        // Where the pages dragged would go: a bar in the gap before page `g` (after the last one).
+        if let Some(g) = r.grid_gap {
+            let n = v.viewer.page_count();
+            let [x, y, w, h] = v.viewer.page_rect(g.min(n.saturating_sub(1)));
+            let bar_x = if g >= n { x + w + 4.0 } else { x - 8.0 };
+            marks.push(overlay([bar_x, y, 4.0, h], 12));
+        }
     }
     if let Some((page, range)) = &r.sel
         && let Some(t) = r.texts.get(page)
@@ -465,6 +472,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         .into(),
         calibrating: r.calibrating,
         auto_scroll: r.auto_scroll,
+        reflow: r.reflow.is_some(),
+        suggestions: ModelRc::new(VecModel::from(if r.draft.as_ref().is_some_and(|d| d.kind == 4) { r.suggestions.iter().map(|s| s.as_str().into()).collect::<Vec<slint::SharedString>>() } else { Vec::new() })),
+        reflow_size: r.reflow.unwrap_or(16),
+        reflow_text: r.reflow.and_then(|_| r.texts.get(&v.current())).map(|t| reader::reflow_text(&t.plain_text())).unwrap_or_default().into(),
         loupe: r.loupe,
         loupe_image: r.loupe_image.clone().unwrap_or_default(),
         dashed: r.dashed,
@@ -472,6 +483,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             format!("Replace the {} page{} with pages of {name} ({count}) from page", pages.len(), if pages.len() == 1 { "" } else { "s" }).into()
         }),
         page_at_a_time: r.page_at_a_time,
+        page_top: v.viewer.page_rect(v.current())[1] as f32,
+        page_bottom: { let [_, y, _, h] = v.viewer.page_rect(v.current()); (y + h) as f32 },
+        page_advance: r.snap.durations.get(v.current()).copied().flatten().unwrap_or(0.0) as f32,
         view_turn: i32::from(v.viewer.turn()),
         opacity: (super::tools::opacity_of(r) * 100.0).round() as i32,
         fill_colour: r.fill_colour.map_or(-1, |k| k as i32),
@@ -505,6 +519,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         link_error: r.link_error.clone().into(),
         link_visible: r.link_visible,
         has_picked: r.picked.is_some(),
+        picked_count: r.picked.as_ref().map_or(0, |p| p.1.len() as i32),
         link_dashed: r.link_dashed,
         attachments: ModelRc::new(VecModel::from(
             r.snap
@@ -513,11 +528,44 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 .map(|a| ReaderProp { name: a.name.clone().into(), value: a.size.map(|n| if n >= 1 << 20 { format!("{:.1} MB", n as f64 / 1_048_576.0) } else { format!("{:.0} KB", (n as f64 / 1024.0).max(1.0)) }).unwrap_or_default().into() })
                 .collect::<Vec<_>>(),
         )),
+        layers: ModelRc::new(VecModel::from(
+            r.snap.layers.iter().zip(super::layers::shown(r)).map(|(l, shown)| ReaderLayer { name: l.name.clone().into(), shown }).collect::<Vec<_>>(),
+        )),
+        layers_changed: r.layers_off.is_some(),
+        voices_open: r.voices_open,
+        voices: ModelRc::new(VecModel::from(r.voices.iter().map(|v| slint::SharedString::from(v.as_str())).collect::<Vec<_>>())),
+        a11y_open: r.a11y_open,
+        a11y_busy: r.a11y_busy,
+        a11y_summary: r.a11y.as_ref().map_or_else(String::new, |rep| {
+            use sheaf_core::pdfcraft::engine::a11y::Status;
+            format!("{} failed · {} to check by hand · {} passed", rep.count(Status::Failed), rep.count(Status::Manual), rep.count(Status::Passed))
+        }).into(),
+        a11y_rows: ModelRc::new(VecModel::from(r.a11y.as_ref().map_or_else(Vec::new, |rep| {
+            use sheaf_core::pdfcraft::engine::a11y::Status;
+            super::accessibility::rows(rep)
+                .into_iter()
+                .map(|x| ReaderCheck {
+                    name: x.rule.name().into(),
+                    status: match x.status { Status::Failed => 0, Status::Manual => 1, _ => 2 },
+                    detail: super::accessibility::detail(x).into(),
+                    fix: x.status == Status::Failed && super::accessibility::fixable(x.rule),
+                })
+                .collect()
+        }))),
         notes_filter: r.notes_filter,
         notes_sort: r.notes_sort,
         props_open: r.props_open,
         background_open: r.background_open,
         versions_open: r.versions_open,
+        folder_open: r.folder_search.is_some(),
+        folder_busy: r.folder_search.as_ref().is_some_and(|f| f.busy),
+        folder_title: r.folder_search.as_ref().map(|f| format!("“{}” in {}", f.query, f.folder)).unwrap_or_default().into(),
+        folder_results: ModelRc::new(VecModel::from(
+            r.folder_search
+                .as_ref()
+                .map(|f| f.results.iter().map(|(p, page, line)| FolderHit { file: file_name(p).into(), page: format!("p. {}", page + 1).into(), line: line.as_str().into() }).collect::<Vec<_>>())
+                .unwrap_or_default(),
+        )),
         versions: r.snap.versions as i32,
         undo_label: r.snap.undo_label.clone().into(),
         redo_label: r.snap.redo_label.clone().into(),
@@ -536,6 +584,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         text_size: r.text_pt.round() as i32,
         text_family: r.text_family,
         text_bold: r.text_bold,
+        text_underline: r.text_underline,
+        text_bullets: r.text_bullets,
         text_italic: r.text_italic,
         text_align: r.text_align,
         selected_image: r.selected_image.is_some(),

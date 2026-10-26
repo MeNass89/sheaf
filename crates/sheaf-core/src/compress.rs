@@ -28,6 +28,24 @@ impl Level {
     }
 }
 
+/// Acrobat's PDF Optimizer, on top of a level: the images' largest resolution and their JPEG
+/// quality chosen, and parts of the file that do not show taken out.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Advanced {
+    /// Images above this many pixels per inch are brought down to it (the level's otherwise).
+    pub max_ppi: Option<u32>,
+    /// JPEG quality, 1–100 (the level's otherwise).
+    pub quality: Option<u8>,
+    /// Page thumbnails (`/Thumb`), which readers make themselves.
+    pub discard_thumbnails: bool,
+    /// The document's structure tags (accessibility, reflow): `/StructTreeRoot`, `/MarkInfo`.
+    pub discard_tags: bool,
+    /// Its information (title, author…) and XMP metadata.
+    pub discard_metadata: bool,
+    /// Every colour made grey ([`crate::grayscale`]; Stirling's Convert to grayscale).
+    pub grayscale: bool,
+}
+
 #[derive(Debug)]
 pub struct CompressReport {
     pub path: PathBuf,
@@ -56,12 +74,17 @@ pub fn compress(input: &Input, level: Level, out: &Path) -> Result<CompressRepor
 /// `false` stops with [`crate::OpdfError::Cancelled`], nothing written (Sol, 25/10: a large file
 /// showed no progress and Cancel waited for its end).
 pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<CompressReport> {
+    compress_advanced(input, level, &Advanced::default(), out, progress)
+}
+
+/// [`compress_with`], with [`Advanced`] settings.
+pub fn compress_advanced(input: &Input, level: Level, adv: &Advanced, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<CompressReport> {
     let (bytes, before, was_encrypted, missed_target) = match level {
         Level::Target(limit) => {
             let n = TARGET_STEPS.len() as f32;
             let mut best: Option<(Vec<u8>, u64, bool)> = None;
             for (k, (max, q)) in TARGET_STEPS.into_iter().enumerate() {
-                let tried = squeeze(input, max, q, &mut |p| progress((k as f32 + p) / n * 0.95))?;
+                let tried = squeeze(input, max, q, adv, &mut |p| progress((k as f32 + p) / n * 0.95))?;
                 let fits = tried.0.len() as u64 <= limit;
                 if best.as_ref().is_none_or(|b| tried.0.len() < b.0.len()) {
                     best = Some(tried);
@@ -76,7 +99,10 @@ pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn
         }
         level => {
             let (max, q) = level.params();
-            let (bytes, before, enc) = squeeze(input, max, q, progress)?;
+            // Pixels per inch to the long side the level allows: 150 ppi on A4's 11.7 in is 1,755 px.
+            let max = adv.max_ppi.map_or(max, |ppi| (ppi.clamp(36, 1200) as f64 * 11.7) as u32);
+            let q = adv.quality.map_or(q, |q| q.clamp(1, 100));
+            let (bytes, before, enc) = squeeze(input, max, q, adv, progress)?;
             (bytes, before, enc, false)
         }
     };
@@ -84,16 +110,54 @@ pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn
     if !progress(0.95) { return Err(crate::OpdfError::Cancelled); }
     let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;
     progress(1.0);
-    Ok(CompressReport { path, before, after, already_optimal: after >= before, was_encrypted, grew: after > before, missed_target })
+    Ok(CompressReport { path, before, after, already_optimal: after >= before && *adv == Advanced::default(), was_encrypted, grew: after > before, missed_target })
 }
 
 /// The file recompressed with pictures at most `max` pixels on their long side and JPEG quality
 /// `q`, as bytes, with the original's size and whether it was encrypted; `progress` told 0..0.9.
-fn squeeze(input: &Input, max: u32, q: u8, progress: &mut dyn FnMut(f32) -> bool) -> Result<(Vec<u8>, u64, bool)> {
+/// The parts [`Advanced`] takes out; what they leave behind is pruned with the rest.
+fn discard(doc: &mut lopdf::Document, adv: &Advanced) {
+    let pages: Vec<ObjectId> = doc.get_pages().into_values().collect();
+    for id in pages {
+        if let Ok(p) = doc.get_object_mut(id).and_then(Object::as_dict_mut) {
+            if adv.discard_thumbnails {
+                p.remove(b"Thumb");
+            }
+            if adv.discard_tags {
+                p.remove(b"StructParents");
+            }
+            if adv.discard_metadata {
+                p.remove(b"Metadata");
+                p.remove(b"PieceInfo");
+            }
+        }
+    }
+    if let Ok(root) = doc.trailer.get(b"Root").and_then(Object::as_reference)
+        && let Ok(c) = doc.get_object_mut(root).and_then(Object::as_dict_mut)
+    {
+        if adv.discard_tags {
+            c.remove(b"StructTreeRoot");
+            c.remove(b"MarkInfo");
+        }
+        if adv.discard_metadata {
+            c.remove(b"Metadata");
+            c.remove(b"PieceInfo");
+        }
+    }
+    if adv.discard_metadata {
+        doc.trailer.remove(b"Info");
+    }
+}
+
+fn squeeze(input: &Input, max: u32, q: u8, adv: &Advanced, progress: &mut dyn FnMut(f32) -> bool) -> Result<(Vec<u8>, u64, bool)> {
     let original = std::fs::read(&input.path)?;
     let mut doc = input.load_lopdf()?;
     let was_encrypted = doc.was_encrypted();
     let mut plain = was_encrypted.then(|| doc.clone());
+    discard(&mut doc, adv);
+    if adv.grayscale {
+        crate::grayscale::to_gray(&mut doc);
+    }
     dedupe_streams(&mut doc);
     let masks = mask_targets(&doc);
     let kinds: HashMap<ObjectId, bool> = doc.objects.iter()
@@ -128,8 +192,11 @@ fn squeeze(input: &Input, max: u32, q: u8, progress: &mut dyn FnMut(f32) -> bool
     let mut buf = Vec::new();
     doc.save_with_options(&mut buf, SaveOptions::builder().use_object_streams(true).use_xref_streams(true).build())?;
     let bytes = match plain.as_mut() {
-        None if buf.len() >= original.len() => original.clone(),
+        // Nothing gained: the file as it was, unless parts were asked out.
+        None if buf.len() >= original.len() && *adv == Advanced::default() => original.clone(),
         None => buf,
+        // The parts asked out, or the colours made grey, are only in the recompressed save.
+        Some(_) if *adv != Advanced::default() => buf,
         Some(d) => {
             let mut b = Vec::new();
             d.save_to(&mut b)?;
@@ -208,7 +275,7 @@ fn mask_targets(doc: &lopdf::Document) -> HashSet<ObjectId> {
 fn name<'a>(s: &'a Stream, key: &[u8]) -> Option<&'a [u8]> { s.dict.get(key).and_then(Object::as_name).ok() }
 
 /// The stream's single filter, if it has exactly one (a bare name or a one-element array).
-fn single_filter(s: &Stream) -> Option<&[u8]> {
+pub(crate) fn single_filter(s: &Stream) -> Option<&[u8]> {
     match s.dict.get(b"Filter").ok()? {
         Object::Name(n) => Some(n),
         Object::Array(a) if a.len() == 1 => a[0].as_name().ok(),
@@ -244,7 +311,7 @@ fn identity_decode(s: &Stream) -> bool {
 /// Decodes an image XObject we can re-encode faithfully, or `None` to leave it alone:
 /// 8-bit, `gray` (1 component) or RGB (3), no /Mask or /ImageMask, identity Decode,
 /// Flate-family or plain DCT data, /DecodeParms lopdf reads faithfully. An /SMask is allowed: it is a separate stream we never touch.
-fn image_pixels(s: &Stream, gray: bool) -> Option<DynamicImage> {
+pub(crate) fn image_pixels(s: &Stream, gray: bool) -> Option<DynamicImage> {
     if s.dict.has(b"Mask") || s.dict.get(b"ImageMask").and_then(Object::as_bool).unwrap_or(false) { return None; }
     if s.dict.get(b"BitsPerComponent").and_then(Object::as_i64).ok() != Some(8) || !identity_decode(s) { return None; }
     if !decode_parms_supported(s) { return None; }

@@ -1,3 +1,4 @@
+import { Slider } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolOptions, Parse, OcrInfo, SignBridge, Picked } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
@@ -146,6 +147,16 @@ export component OptionsPanel inherits VerticalLayout {
         root.sign-location = o.sign-location;
         root.sign-certify = o.sign-certify;
         root.redact-fill = o.redact-fill;
+        root.compress-ppi = o.compress-ppi;
+        root.compress-quality = o.compress-quality;
+        root.discard-thumbs = o.discard-thumbs;
+        root.discard-tags = o.discard-tags;
+        root.discard-meta = o.discard-meta;
+        root.compress-gray = o.compress-gray;
+        root.adjust-brightness = o.adjust-brightness;
+        root.adjust-contrast = o.adjust-contrast;
+        root.adjust-saturation = o.adjust-saturation;
+        root.adjust-invert = o.adjust-invert;
         root.redact-overlay = o.redact-overlay;
         root.redact-repeat = o.redact-repeat;
     }
@@ -177,6 +188,8 @@ export component OptionsPanel inherits VerticalLayout {
         compare-mode: root.compare-mode,
         sign-cert: root.sign-cert, sign-p12: root.sign-p12, sign-p12-password: root.sign-p12-password,
         sign-reason: root.sign-reason, sign-location: root.sign-location, sign-certify: root.sign-certify,
+        compress-ppi: root.compress-ppi, compress-quality: root.compress-quality, discard-thumbs: root.discard-thumbs, discard-tags: root.discard-tags, discard-meta: root.discard-meta, compress-gray: root.compress-gray,
+        adjust-brightness: root.adjust-brightness, adjust-contrast: root.adjust-contrast, adjust-saturation: root.adjust-saturation, adjust-invert: root.adjust-invert,
         redact-fill: root.redact-fill, redact-overlay: root.redact-overlay, redact-repeat: root.redact-repeat,
     };
     callback insert-blank();
@@ -202,6 +215,17 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> sign-location;
     in-out property <int> sign-certify;
     in-out property <int> redact-fill;
+    in-out property <string> compress-ppi;
+    in-out property <string> compress-quality;
+    in-out property <bool> discard-thumbs;
+    in-out property <bool> discard-tags;
+    in-out property <bool> discard-meta;
+    in-out property <bool> compress-gray;
+    in-out property <int> adjust-brightness;
+    in-out property <int> adjust-contrast;
+    in-out property <int> adjust-saturation;
+    in-out property <bool> adjust-invert;
+    property <bool> compress-advanced;
     in-out property <string> redact-overlay;
     in-out property <bool> redact-repeat;
     in-out property <int> level: 1;
@@ -518,8 +542,23 @@ export component OptionsPanel inherits VerticalLayout {
             clicked => { root.level = 3; }
         }
         if root.level == 3: TextField { label: "Largest file (MB)"; placeholder: "2"; text <=> root.compress-target; }
+        // Stirling's Convert to grayscale (Acrobat's Convert Colors to Gray): text and drawings stay vector.
+        Check { text: "Convert to grayscale"; checked <=> root.compress-gray; }
+        // Acrobat's PDF Optimizer: the images' resolution and quality chosen, parts that do not show taken out.
+        Check { text: "Advanced settings"; checked <=> root.compress-advanced; }
+        if root.compress-advanced: VerticalLayout {
+            spacing: 8px;
+            if root.level != 3: HorizontalLayout {
+                spacing: 8px;
+                TextField { label: "Images at most (ppi)"; placeholder: "150"; text <=> root.compress-ppi; }
+                TextField { label: "JPEG quality (1–100)"; placeholder: "70"; text <=> root.compress-quality; }
+            }
+            Check { text: "Remove page thumbnails"; checked <=> root.discard-thumbs; }
+            Check { text: "Remove structure tags (accessibility)"; checked <=> root.discard-tags; }
+            Check { text: "Remove document information and metadata"; checked <=> root.discard-meta; }
+        }
         Rectangle { height: 4px; }
-        InfoBox { text: root.level == 3 ? "Sheaf tries stronger settings in turn until the file is that size or smaller; if none gets there, it keeps the smallest and says so." : "Recommended and Extreme recompress images; text and vector graphics are never touched."; }
+        InfoBox { text: root.level == 3 ? "Sheaf tries stronger settings in turn until the file is that size or smaller; if none gets there, it keeps the smallest and says so." : "Recommended and Extreme recompress images; text and vector graphics stay as they are (grey with Convert to grayscale)."; }
     }
 
     if root.tool == "protect": VerticalLayout {
@@ -896,7 +935,7 @@ export component OptionsPanel inherits VerticalLayout {
 
     if root.tool == "pdf_to_word" || root.tool == "pdf_to_powerpoint" || root.tool == "pdf_to_excel" || root.tool == "pdf_to_text": VerticalLayout {
         property <string> what: root.tool == "pdf_to_word" ? "Word" : root.tool == "pdf_to_powerpoint" ? "PowerPoint" : root.tool == "pdf_to_excel" ? "Excel"
-            : ["HTML", "Markdown", "RTF", "text", "XML"][root.text-format];
+            : ["HTML", "Markdown", "RTF", "text", "XML", "EPUB"][root.text-format];
         spacing: 10px;
         RadioCard {
             title: "No OCR (text PDFs)";
@@ -958,7 +997,7 @@ export component OptionsPanel inherits VerticalLayout {
             SectionLabel { text: "Format:"; }
             HorizontalLayout {
                 spacing: 8px;
-                for label[i] in ["Web page", "Markdown", "Rich text", "Plain text", "XML"]: Segment {
+                for label[i] in ["Web page", "Markdown", "Rich text", "Plain text", "XML", "Ebook"]: Segment {
                     text: label;
                     selected: root.text-format == i;
                     clicked => { root.text-format = i; }
@@ -971,6 +1010,7 @@ export component OptionsPanel inherits VerticalLayout {
                     "An .rtf file that word processors open, with its sizes, bold, italic and colours.",
                     "A .txt file: the text in reading order, a paragraph per line, table cells split by tabs.",
                     "An .xml file: each page's headings, paragraphs, tables and pictures, in reading order.",
+                    "An .epub ebook that reflows on any reader's screen: a chapter per page, its pictures and tables.",
                 ][root.text-format];
             }
         }
@@ -1025,6 +1065,32 @@ export component OptionsPanel inherits VerticalLayout {
             clicked => { root.pdfa-level = 1; }
         }
         InfoBox { text: "Metadata, a colour profile and the other required parts are added, then the file is checked. Anything that cannot be fixed (a font that is not embedded, for example) is listed on the result page."; }
+    }
+
+    // Stirling's Adjust Colours/Contrast, Preview's Adjust Color: −100 to 100 each, or inverted.
+    if root.tool == "adjust_colours": VerticalLayout {
+        spacing: 10px;
+        for a[i] in [
+            { label: "Brightness", value: root.adjust-brightness },
+            { label: "Contrast", value: root.adjust-contrast },
+            { label: "Saturation", value: root.adjust-saturation },
+        ]: HorizontalLayout {
+            spacing: 10px;
+            Text { width: 80px; text: a.label; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Slider {
+                minimum: -100;
+                maximum: 100;
+                value: a.value;
+                changed(v) => {
+                    if i == 0 { root.adjust-brightness = round(v); }
+                    if i == 1 { root.adjust-contrast = round(v); }
+                    if i == 2 { root.adjust-saturation = round(v); }
+                }
+            }
+            Text { width: 40px; text: a.value; font-size: Theme.fs-label; color: Theme.text; horizontal-alignment: right; vertical-alignment: center; }
+        }
+        Check { text: "Invert the colours (light on dark)"; checked <=> root.adjust-invert; }
+        InfoBox { text: "Text and drawings stay sharp and selectable: their colours change, and the pictures'. Gradients and spot colours are left as they are."; }
     }
 
     // Acrobat's Redaction Properties ▸ Appearance: the boxes' fill and a text over each.
