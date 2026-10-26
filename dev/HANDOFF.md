@@ -34,28 +34,10 @@ typing and Edit text).
 
 ## Board status
 
-**331 components, 155 at ≥ 9** jointly (Opus and Sol; board commit bad962c, 26/10 00:00). Landed on
-`dev/phase-4-5`: rounds 9–13 (last suite ALL GREEN 2130 s). Sol's re-review of rounds 12–13 (b16a–c): 8 closed, 21
-left open with its gaps in each component's history.
-
-**In flight (26/10 night):** rounds 14–15 and the second session's `dev/annot-gaps` (F-014), together on branch
-`dev/round16` (worktree `/tmp/f5/wt-r16`; journals: F-013 sections Round 14 and Round 15, F-014). Round 14 answers
-Sol's b15 gaps and the audit of the components at 0 that the engine already served (page menu with insert, replace
-and reverse; page background; header and footer with Bates; callout; Versions and Revert; New from clipboard; Merge's
-page view; scanned-form detection; form fields arranged together and a grid). Round 15 answers b16's 21 gaps and adds
-zoom to area, snapshot, auto-scroll, initials, signature on every page, compress to a size, document initial view,
-calibrated measuring. Sol batches ready in `/tmp/f5/solrv/`: `b17-round14`, `b18a-round15`, `b18b-round15` (add the
-F-014 components C-annotate-001/007/009/019/022, C-reader-026 and C-edit-005 to a batch). Their suite runs first.
-
-Round 17 (branch `dev/round17`, on round 16): starred and searched Recent files, one page at a time, find and
-replace all, Email…, Crop ▸ Change page size, Rotate ▸ Flip (F-013 Round 17; Sol batch `b20-round17`).
-
-**Still open, no engine base (new work):** C-reader-017 view rotation (the reader's glyph boxes come in PdfCraft's
-view space: a turn of the view needs them mapped through user space at every use, `reader_ui/model.rs` and
-`pointer.rs`), C-reader-045 split view, C-output-009 share sheet (native), C-files-009 cloud, C-platform-001 update
-check (network: Nassim to decide, Sheaf says nothing leaves the computer), C-preferences-003 interface language,
-C-sign-004 camera, C-sign-009 keychain, C-optimize-007 CJK OCR (model download), C-convert-020 online conversion
-(offline by design, Nassim to decide). `python3 dev/scripts/board.py next` gives the heaviest one below 9.
+**331 components, 216 at ≥ 9** jointly (Opus and Sol; 26/10 18:40, after Sol's b27a–d on round 22, landed
+726a6da: 21 closed, 29 left open with Sol's gaps in each component's history). Round 23 (24 components
+and the fixes of those gaps) is in `/tmp/f5/wt-r23`, branch `dev/round23`, rebased on round 22, not built
+yet; notes in `/tmp/f5/round23-notes.md`.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
 
