@@ -373,3 +373,17 @@ fn a_paragraph_emptied_is_removed_from_the_page() {
     let blocks = doc.session().get(doc.id()).unwrap().text_blocks(0);
     assert!(blocks.iter().all(|b| !b.text.contains("cafe")), "{:?}", blocks.iter().map(|b| &b.text).collect::<Vec<_>>());
 }
+
+#[test]
+fn a_paragraph_takes_text_outside_winansi_when_the_faces_are_built_in() {
+    // Without scripts/fetch-fonts.sh before the build, PdfCraft has no face for these: nothing to check.
+    if pdfcraft_fonts::CRAFT_FONTS.is_empty() {
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut doc = Doc::open(&Input::new(ascii_subset(dir.path()))).unwrap();
+    let (i, _, _) = block_with(&doc, "cafe");
+    doc.apply(Edit::EditTextBlock { page: 0, block: i, text: "Привет мир 日本語".into(), style: BlockStyle::default() }).unwrap();
+    let (_, _, text) = block_with(&doc, "Привет");
+    assert!(text.contains("Привет мир") && text.contains("日本語"), "{text}");
+}

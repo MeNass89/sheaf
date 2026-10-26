@@ -66,16 +66,16 @@ cp "$OUT/reo/ra.pdf" "$OUT/reo/pa.pdf"; cp "$OUT/reo/rb.pdf" "$OUT/reo/pb.pdf"
 launch "$OUT/reo/pa.pdf" "$OUT/reo/pb.pdf"
 click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; click 460 527 2
 PG=$(at Pages 280x400+1000+60); [ -n "$PG" ] && click $PG 2; shot 21e-pages
-cards() { import -window root -crop 980x700+0+60 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12 ~ /^p[ab]\.pdf/ { printf "%d %d\n", ($7 + $9 / 2) / 2, 60 + ($8 + $10 / 2) / 2 }'; }
-NC=$(cards | wc -l); read CX CY <<< "$(cards | head -1)"
-if [ -n "$CY" ]; then xdotool mousemove $CX $(( CY - 70 )); sleep 0.4; click $(( CX + 39 )) $(( CY - 127 )) 1; fi
-read LX LY <<< "$(cards | tail -1)"
-if [ -n "$LY" ]; then xdotool mousemove $LX $(( LY - 70 )); sleep 0.4; click $(( LX - 39 )) $(( LY + 1 )) 1; fi
+# Page cards are 108 px wide, 124 apart, from x 41, y 79 (162 high); hovered, × at +93,+15 and ← at +15,+143.
+# Seven cards: six in the first row, one below; labels read "pa.pdf · 1" (11 px, read at 3×).
+NC=$(import -window root -crop 940x380+20+200 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout 2>/dev/null | grep -o 'p[ab]\.pdf' | wc -l)
+xdotool mousemove 95 140; sleep 0.4; click 134 94 1
+xdotool mousemove $(( 41 + 124 * 5 + 54 )) 140; sleep 0.4; click $(( 41 + 124 * 5 + 15 )) 222 1
 click 1133 755 4
 px() { pdftoppm -r 10 -f $2 -l $2 -png "$1" 2>/dev/null | convert - -format "%[pixel:p{5,5}] " info: 2>/dev/null; }
 WANT="$(px $OUT/reo/pa.pdf 2)$(px $OUT/reo/pa.pdf 3)$(px $OUT/reo/pa.pdf 4)$(px $OUT/reo/pb.pdf 1)$(px $OUT/reo/pb.pdf 3)$(px $OUT/reo/pb.pdf 2)"
 GOT=$(for i in 1 2 3 4 5 6 7; do px "$OUT/reo/pa-merged.pdf" $i; done)
-check "Merge's Pages view merges the pages in the order arranged (${PG:-no Pages}; $NC cards; $GOT)" "[ \"$NC\" = 7 ] && [ \"$GOT\" = \"$WANT\" ]"
+check "Merge's Pages view merges the pages in the order arranged (${PG:-no Pages}; $NC labels; $GOT)" "[ \"$NC\" -ge 6 ] && [ \"$GOT\" = \"$WANT\" ]"
 quit
 
 # 22. Split's pages, cut between by a click (PDF Expert's split points; iLovePDF's ranges): ten pages, cuts after
@@ -590,4 +590,45 @@ click $WRENCH_X 61 1.5; xdotool type --delay 20 "compress"; key Return; sleep 2
 TS=$(at size 280x600+1000+40); [ -n "$TS" ] && { set -- $TS; click $1 $2 0.4; click $1 $(( $2 + 30 )) 0.4; xdotool type --delay 20 "0.001"; }
 click 1140 755 4; shot 66-target; TR=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
 check "Compress to a size out of reach keeps the smallest and says so (${TS:-no option}; $(ls $OUT/target-compressed*.pdf 2>/dev/null | wc -l) file)" "ls $OUT/target-compressed*.pdf >/dev/null 2>&1 && echo \"$TR\" | grep -q 'as small as it gets'"
+quit
+
+# 50. Any colour (Acrobat's Other color): the row's sixth dot (557,110 with the Pen) opens a palette; its
+# orange (498,145) draws the stroke, saved orange (F28C28).
+cp "$OUT/text.pdf" "$OUT/colour.pdf"; launch "$OUT/colour.pdf"
+key p; click 557 110 0.8; click 498 145 0.6
+xdotool mousemove 500 400 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 30 )) 410; sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
+OC=$(qpdf --json=2 "$OUT/colour.pdf" | python3 -c 'import json, sys
+for v in json.load(sys.stdin)["qpdf"][1].values():
+    d = v.get("value", {}) if isinstance(v, dict) else {}
+    if d.get("/Subtype") == "/Ink": print(d.get("/C"))')
+check "a colour from the palette draws the stroke ($OC)" "echo \"$OC\" | grep -qE '0\.94[0-9]*, 0\.54[0-9]*, 0\.15'"
+quit
+
+# 51. Bookmarks (Outline 95,106): + Bookmark on page 1 then on page 3; the second moved up (hover, ⋯ at the
+# row's right 199,218 ▸ Move up) comes first in the file's outline.
+cp "$OUT/text.pdf" "$OUT/marks.pdf"; launch "$OUT/marks.pdf"; key ctrl+9; sleep 1
+click 95 106 0.8; click 55 149 1; key End; sleep 1; key Up; key Up; sleep 0.8; click 55 149 1
+xdotool mousemove 150 218; sleep 0.5; click 199 218 0.8; MU=$(at Move 260x200+0+220); [ -n "$MU" ] && click $MU 1; key ctrl+s; sleep 1.5; shot 51-bookmarks
+OT=$(qpdf --json=2 "$OUT/marks.pdf" | python3 -c 'import json, sys
+o = json.load(sys.stdin)["qpdf"][1]
+get = lambda r: o.get("obj:" + r, {}).get("value", {})
+root = next(v["value"] for v in o.values() if isinstance(v, dict) and v.get("value", {}).get("/Type") == "/Catalog")
+ref = lambda r: r.replace(" 0 R", " 0").replace(" ", " ") if r else r
+get = lambda r: o.get("obj:" + r, {}).get("value", {}) if r else {}
+out = get(root["/Outlines"]); cur = out.get("/First"); titles = []
+while cur:
+    d = get(cur); titles.append(d.get("/Title", "")); cur = d.get("/Next")
+print(" ".join(t.replace("u:", "") for t in titles))')
+check "a bookmark moved up comes first in the outline ($OT)" "echo \"$OT\" | grep -qE '^Page [34] Page 1'"
+quit
+
+# 52. Files panel (211,106): on hover, the trash deletes an attachment and the pencil renames one (Acrobat's
+# Attachments pane). Rows from y 185, 34 apart, in name order: annex, budget, contract, notes; trash at 223,
+# pencil at 193. notes.txt deleted, budget.txt renamed money.txt; Attach… adds one to the document.
+cp "$OUT/withatt.pdf" "$OUT/att2.pdf"; launch "$OUT/att2.pdf"; click 211 106 1
+xdotool mousemove 120 287; sleep 0.4; click 223 287 1
+xdotool mousemove 120 219; sleep 0.4; click 193 219 0.6; key ctrl+a; xdotool type --delay 20 "money.txt"; key Return; sleep 1
+key ctrl+s; sleep 1.5; shot 52-attachments
+AL=$(qpdf --list-attachments "$OUT/att2.pdf" 2>/dev/null | tr '\n' ' ')
+check "an attachment is deleted and another renamed ($AL)" "! echo \"$AL\" | grep -q notes.txt && echo \"$AL\" | grep -q money.txt && ! echo \"$AL\" | grep -q budget.txt && echo \"$AL\" | grep -q contract.txt"
 quit

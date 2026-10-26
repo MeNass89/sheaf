@@ -135,7 +135,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_released, |ui, id, x, y| reader_ui::released(&ui, id, x, y));
     wire_global!(ui, rb, on_set_tool, |ui, id, t| reader_ui::set_tool_and_mark(&ui, id, t));
     wire_global!(ui, rb, on_set_colour, |ui, id, c| reader_ui::set_colour(&ui, id, c));
-    rb.on_set_pen_width(reader_ui::set_pen_width);
+    wire_global!(ui, rb, on_set_custom_colour, |ui, id, hex| reader_ui::set_custom_colour(&ui, id, &hex));
+    wire_global!(ui, rb, on_set_pen_width, |ui, id, k| reader_ui::set_pen_width(&ui, id, k));
     wire_global!(ui, rb, on_text_format, |ui, id, what, v| reader_ui::text_format(&ui, id, what, v));
     wire_global!(ui, rb, on_text_size_typed, |ui, id, s| reader_ui::text_size_typed(&ui, id, &s));
     wire_global!(ui, rb, on_set_theme, |ui, id, t| reader_ui::set_theme(&ui, id, t));
@@ -210,7 +211,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_signature_pick(reader_ui::signature_pick);
     rb.on_signature_preview(reader_ui::signature_preview);
     rb.on_print_open(reader_ui::print_open);
-    rb.on_shape_option(reader_ui::shape_option);
+    wire_global!(ui, rb, on_shape_option, |ui, id, w, v| reader_ui::shape_option(&ui, id, w, v));
     wire_global!(ui, rb, on_cycle_spread, |ui, id| reader_ui::cycle_spread(&ui, id));
     wire_global!(ui, rb, on_toggle_rtl, |ui, id| reader_ui::toggle_rtl(&ui, id));
     wire_global!(ui, rb, on_toggle_grid, |ui, id| reader_ui::toggle_grid(&ui, id));
@@ -230,6 +231,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_annot_reply(reader_ui::annot_reply);
     wire_global!(ui, rb, on_attachment_save, |ui, id, i| reader_ui::attachment_save(&ui, id, i));
     wire_global!(ui, rb, on_attachment_add, |ui, id| reader_ui::attachment_add(&ui, id));
+    wire_global!(ui, rb, on_attachment_change, |ui, id, i, to| reader_ui::attachment_change(&ui, id, i, &to));
     wire_global!(ui, rb, on_attachment_open, |ui, id, i| reader_ui::attachment_open(&ui, id, i));
     wire_global!(ui, rb, on_outline_op, |ui, id, row, op, t| reader_ui::outline_op(&ui, id, row, op, &t));
     wire_global!(ui, rb, on_zoom_typed, |ui, id, t| reader_ui::zoom_typed(&ui, id, &t));
@@ -468,6 +470,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_default_zoom, |ui, z| home::set_default_zoom(&ui, z));
     wire!(ui, on_set_default_spread, |ui, s| home::set_default_spread(&ui, s));
     wire!(ui, on_set_open_first_page, |ui, f| home::set_open_first_page(&ui, f));
+    wire!(ui, on_set_stamp_date, |ui, f| home::set_stamp_date(&ui, f));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);

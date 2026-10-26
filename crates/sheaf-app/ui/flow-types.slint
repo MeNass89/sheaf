@@ -133,6 +133,14 @@ export struct ReaderNote {
     // 5 a form choice, 6 an existing note or text box, 7 a reply, 8 a new link, 9 an existing link
     kind: int,
     seq: int,
+    // A new text box or added text is typed on the page itself (Acrobat, PDF Expert): no card, the
+    // text in its own size, font and colour where it will be.
+    inplace: bool,
+    font-px: length,
+    font-family: string,
+    bold: bool,
+    italic: bool,
+    ink: color,
 }
 
 // Reader: everything a document tab shows besides the pages (ToolTab.viewer-*).
@@ -207,6 +215,9 @@ export struct ReaderState {
     // 7 edit text, 8 add image
     tool: int,
     colour: int,
+    // The colour row's sixth colour (index 5), for strokes and for highlights.
+    custom-ink: color,
+    custom-light: color,
     // 0 day, 1 night, 2 sepia
     theme: int,
     backdrop: color,
@@ -321,6 +332,10 @@ export struct ReaderState {
     initials: bool,
     sign-every-page: bool,
     opacity: int,
+    // Shapes' fill: −1 a tint of the stroke, else a highlight colour (5 the sixth).
+    fill-colour: int,
+    // A drawing or shape selected: the bar sets its width and opacity.
+    selected-stroke: bool,
     // Print sheet: open, the system's printers, the chosen one.
     print-open: bool,
     // More ▸ Background… is open.
@@ -682,6 +697,8 @@ export global ReaderBridge {
     // Files panel: save attachment (its index); attach a file to the page in view.
     callback attachment-save(int, int);
     callback attachment-open(int, int);
+    // Attachment deleted ("" ) or renamed to the text.
+    callback attachment-change(int, int, string);
     callback attachment-add(int);
     // Outline panel: row, op (0 bookmark this page, 1 rename, 2 renamed to text, 3 stop, 4 delete), text.
     callback outline-op(int, int, int, string);
@@ -736,6 +753,8 @@ export global ReaderBridge {
     callback insert-after-selection(int);
     callback set-tool(int, int);
     callback set-colour(int, int);
+    // A colour from the palette or typed, RRGGBB.
+    callback set-custom-colour(int, string);
     callback set-pen-width(int, int);
     // Added text's format: 0 size step, 1 family, 2 bold toggle.
     callback text-format(int, int, int);

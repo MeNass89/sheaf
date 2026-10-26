@@ -100,6 +100,13 @@ pub struct Prefs {
     pub reader_theme: i32,
     /// Fillable fields are not tinted in the reader (More ▸ Highlight form fields off).
     pub plain_fields: bool,
+    /// The sixth colour of the reader's colour row (Acrobat's "Other color"), RRGGBB: for strokes
+    /// and text, and for highlights and notes.
+    pub custom_ink: Option<String>,
+    pub custom_light: Option<String>,
+    /// How dated stamps write the time: 0 Acrobat's ("10:32 am, Oct 25, 2026"), 1 day first
+    /// ("25/10/2026 10:32"), 2 ISO ("2026-10-25 10:32").
+    pub stamp_date: i32,
     /// How a document never opened before is shown: 0 fit width, 1 fit page, 2 actual size.
     pub default_zoom: i32,
     /// And its pages: 0 one column, 1 two side by side, 2 two with the cover alone (PDF Expert's

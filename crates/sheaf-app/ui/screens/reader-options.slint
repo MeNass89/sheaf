@@ -1,9 +1,10 @@
 // The reader's options bar, floating over the top of the pages: the tool in use's options (stamp,
 // shapes, pen widths, opacity, text format, signatures, colours) and the form's actions.
+import { Slider } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, ColourDot } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
-import { ToolTab, ReaderBridge } from "../flow-types.slint";
+import { ToolTab, ReaderBridge, Parse } from "../flow-types.slint";
 
 export component ReaderOptionsBar inherits Rectangle {
     property <bool> confirm-clear;
@@ -48,8 +49,8 @@ export component ReaderOptionsBar inherits Rectangle {
             ToolButton { icon: @image-url("../icons/move-up-right.svg"); tip: "Arrow"; active: root.tab.reader.shape-kind == 3; clicked => { ReaderBridge.shape-option(root.id, 0, 3); root.focus-pages(); } }
             if root.tab.reader.shape-kind < 2 || root.tab.reader.shape-kind == 4 || root.tab.reader.shape-kind == 5: SmallButton { y: 2px; text: "Fill"; primary: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); root.focus-pages(); } }
             // The arrow's head (a click goes to the next) and both ends (Acrobat's Line Ends).
-            if root.tab.reader.shape-kind == 3: SmallButton { y: 2px; text: root.tab.reader.arrow-head; clicked => { ReaderBridge.shape-option(root.id, 6, 0); root.focus-pages(); } }
-            if root.tab.reader.shape-kind == 3: SmallButton { y: 2px; text: "Both ends"; primary: root.tab.reader.arrow-both; clicked => { ReaderBridge.shape-option(root.id, 7, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind == 3: SmallButton { y: 2px; text: root.tab.reader.arrow-head; clicked => { ReaderBridge.shape-option(root.id, 8, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind == 3: SmallButton { y: 2px; text: "Both ends"; primary: root.tab.reader.arrow-both; clicked => { ReaderBridge.shape-option(root.id, 9, 0); root.focus-pages(); } }
         }
         // Link: links of the text's web addresses; new links' look (Acrobat's Link Properties ▸
         // Appearance: invisible by default, else a border in the colour, width and style chosen).
@@ -97,7 +98,7 @@ export component ReaderOptionsBar inherits Rectangle {
             SmallButton { y: 2px; text: "Border"; primary: root.tab.reader.link-visible; clicked => { ReaderBridge.shape-option(root.id, 4, 0); root.focus-pages(); } }
             if root.tab.reader.link-visible: SmallButton { y: 2px; text: "Dashed"; primary: root.tab.reader.link-dashed; clicked => { ReaderBridge.shape-option(root.id, 5, 0); root.focus-pages(); } }
         }
-        if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.tool == 11 || (root.tab.reader.tool == 13 && root.tab.reader.link-visible): HorizontalLayout {
+        if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.tool == 11 || (root.tab.reader.tool == 13 && root.tab.reader.link-visible) || root.tab.reader.selected-stroke: HorizontalLayout {
             spacing: 2px;
             padding-left: 6px;
             for w[k] in [2px, 4px, 7px]: Rectangle {
@@ -119,10 +120,64 @@ export component ReaderOptionsBar inherits Rectangle {
                 }
             }
         }
-        if root.tab.reader.tool == 5 || root.tab.reader.tool == 10: SmallButton {
-            y: 2px;
-            text: root.tab.reader.opacity + " %";
-            clicked => { ReaderBridge.shape-option(root.id, 2, 0); root.focus-pages(); }
+        // Opacity: any value on a slider, four quick ones (Acrobat's Properties bar, PDF Expert's slider).
+        if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.selected-stroke: Rectangle {
+            width: op-btn.width;
+            op-btn := SmallButton {
+                y: 2px;
+                text: root.tab.reader.opacity + " %";
+                clicked => { op-menu.show(); }
+            }
+            op-menu := PopupWindow {
+                x: 0;
+                y: 34px;
+                width: 220px;
+                height: 72px;
+                Rectangle {
+                    background: Theme.input-bg;
+                    border-radius: Theme.radius-small;
+                    border-width: 1px;
+                    border-color: Theme.input-border;
+                    drop-shadow-blur: 8px;
+                    drop-shadow-color: #00000022;
+                    VerticalLayout {
+                        padding: 8px;
+                        spacing: 6px;
+                        Slider {
+                            minimum: 10;
+                            maximum: 100;
+                            value: root.tab.reader.opacity;
+                            released(v) => { ReaderBridge.shape-option(root.id, 2, round(v / 5) * 5); }
+                        }
+                        HorizontalLayout {
+                            spacing: 4px;
+                            for p in [100, 75, 50, 25]: SmallButton {
+                                text: p + " %";
+                                primary: root.tab.reader.opacity == p;
+                                clicked => { ReaderBridge.shape-option(root.id, 2, p); op-menu.close(); root.focus-pages(); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // Shapes filled: their own fill colour (Acrobat's Fill Color), a tint of the stroke by default.
+        if root.tab.reader.tool == 10 && root.tab.reader.shape-fill && root.tab.reader.shape-kind < 2: HorizontalLayout {
+            spacing: 2px;
+            padding-left: 4px;
+            Text { text: "Fill"; font-size: Theme.fs-caption; color: Theme.text-secondary; vertical-alignment: center; }
+            ColourDot {
+                y: 4px;
+                colour: transparent;
+                selected: root.tab.reader.fill-colour == -1;
+                clicked => { ReaderBridge.shape-option(root.id, 6, -1); root.focus-pages(); }
+            }
+            for c[k] in root.light-colours: ColourDot {
+                y: 4px;
+                colour: c;
+                selected: root.tab.reader.fill-colour == k;
+                clicked => { ReaderBridge.shape-option(root.id, 6, k); root.focus-pages(); }
+            }
         }
         // A page image selected with the Edit tool: turn, flip, replace or delete it (its
         // corners on the page resize it).
@@ -221,6 +276,91 @@ export component ReaderOptionsBar inherits Rectangle {
                 colour: c;
                 selected: root.tab.reader.selected-annot ? root.tab.reader.annot-colour == k : root.tab.reader.colour == k;
                 clicked => { ReaderBridge.set-colour(root.id, k); root.focus-pages(); }
+            }
+            // The sixth: any colour, from a palette or typed (Acrobat's Other color, PDF Expert's
+            // colour picker); it stays in the row once picked.
+            Rectangle {
+                width: 22px;
+                ColourDot {
+                    y: 4px;
+                    colour: root.light-tool ? root.tab.reader.custom-light : root.tab.reader.custom-ink;
+                    selected: root.tab.reader.selected-annot ? root.tab.reader.annot-colour == 5 : root.tab.reader.colour == 5;
+                    clicked => { palette.show(); }
+                }
+                Text {
+                    x: 15px;
+                    y: 1px;
+                    text: "+";
+                    font-size: 10px;
+                    font-weight: Theme.weight-bold;
+                    color: Theme.text-secondary;
+                }
+                palette := PopupWindow {
+                    x: -80px;
+                    y: 30px;
+                    width: 196px;
+                    height: 128px;
+                    close-policy: close-on-click-outside;
+                    Rectangle {
+                        background: Theme.input-bg;
+                        border-radius: Theme.radius-small;
+                        border-width: 1px;
+                        border-color: Theme.input-border;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: #00000022;
+                        VerticalLayout {
+                            padding: 8px;
+                            spacing: 6px;
+                            for row in [
+                                ["F2C12E", "F28C28", "E5322D", "D6336C", "AE3EC9", "7048E8"],
+                                ["4263EB", "1C7ED6", "1098AD", "0CA678", "37B24D", "74B816"],
+                                ["000000", "495057", "868E96", "CED4DA", "8B5A2B", "FFFFFF"],
+                            ]: HorizontalLayout {
+                                spacing: 6px;
+                                for hex in row: Rectangle {
+                                    width: 24px;
+                                    height: 24px;
+                                    border-radius: 4px;
+                                    background: Parse.colour(hex, 0);
+                                    border-width: sw.has-hover ? 2px : 1px;
+                                    border-color: sw.has-hover ? Theme.text : #00000022;
+                                    sw := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { ReaderBridge.set-custom-colour(root.id, hex); palette.close(); root.focus-pages(); }
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                height: 22px;
+                                border-radius: 3px;
+                                border-width: 1px;
+                                border-color: hex-in.has-focus ? Theme.text-secondary : Theme.input-border;
+                                if hex-in.text == "": Text {
+                                    x: 6px;
+                                    text: "# RRGGBB, then Enter";
+                                    font-size: Theme.fs-caption;
+                                    color: Theme.text-disabled;
+                                    vertical-alignment: center;
+                                }
+                                hex-in := TextInput {
+                                    x: 6px;
+                                    width: parent.width - 12px;
+                                    font-size: Theme.fs-caption;
+                                    color: Theme.text;
+                                    vertical-alignment: center;
+                                    single-line: true;
+                                    accepted => {
+                                        if Parse.colour-error(self.text) == "" && self.text != "" {
+                                            ReaderBridge.set-custom-colour(root.id, self.text);
+                                            palette.close();
+                                            root.focus-pages();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         // Added after the colours and pens, so those keep their places.

@@ -117,6 +117,8 @@ export component AppWindow inherits Window {
     in property <bool> open-after;
     in property <string> author-name;
     in property <int> default-zoom;
+    in property <int> stamp-date;
+    callback set-stamp-date(int);
     callback set-default-zoom(int);
     in property <int> default-spread;
     callback set-default-spread(int);
@@ -296,6 +298,8 @@ export component AppWindow inherits Window {
                             author-name: root.author-name;
                             author-default: root.author-default;
                             default-zoom: root.default-zoom;
+                            stamp-date: root.stamp-date;
+                            set-stamp-date(f) => { root.set-stamp-date(f); }
                             set-default-zoom(z) => { root.set-default-zoom(z); }
                             default-spread: root.default-spread;
                             set-default-spread(s) => { root.set-default-spread(s); }

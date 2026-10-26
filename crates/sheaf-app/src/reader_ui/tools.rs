@@ -13,12 +13,12 @@ pub fn set_tool(tab_id: i32, tool: i32) {
         // Each tool comes back with the style it was last used with, as PDF Expert's tools do.
         if let Some((c, w, o)) = crate::home::tool_style(r.tool) {
             if uses_light(r.tool) {
-                r.light = (c as usize).min(COLOURS.len() - 1);
+                r.light = (c as usize).min(CUSTOM);
             } else {
-                r.ink_colour = (c as usize).min(INK.len() - 1);
+                r.ink_colour = (c as usize).min(CUSTOM);
             }
             r.pen_width = (w as i32).clamp(0, 2);
-            r.opacity = (o as usize).min(reader::OPACITIES.len() - 1);
+            r.opacity = (o as usize).min(100);
         } else {
             // A tool not styled yet starts from its defaults, not from the previous tool's style.
             if uses_light(r.tool) {
@@ -67,11 +67,11 @@ pub fn set_tool_and_mark(ui: &AppWindow, tab_id: i32, tool: i32) {
 /// The colour of the current tool: highlights and notes take the light palette, strokes the ink one.
 /// With an annotation selected, it is recoloured (PDF Expert's colour row does the same).
 pub fn set_colour(ui: &AppWindow, tab_id: i32, k: i32) {
-    let k = k.clamp(0, 4) as usize;
+    let k = k.clamp(0, CUSTOM as i32) as usize;
     let restyle = update(tab_id, |r, _| {
         if let Some(a) = r.selected_annot.and_then(|i| r.annots().get(i)) {
             let light = matches!(a.subtype.as_str(), "Highlight" | "Text");
-            let colour = if light { COLOURS[k] } else { INK[k] };
+            let colour = if light { light_at(k) } else { ink_at(k) };
             return Some((a.page, Edit::StyleAnnotation { page: a.page, index: a.index, color: Some(colour), opacity: None, width: None, endings: None }));
         }
         if uses_light(r.tool) {
@@ -102,6 +102,21 @@ pub fn set_colour(ui: &AppWindow, tab_id: i32, k: i32) {
 /// family (`v`), 2 bold toggle, 3 italic toggle, 4 alignment (`v`), 5 size typed (`v` points). With a text box selected (the row then shows its
 /// format, see [`select_annot`]), it takes the new format at once; a click that changes nothing
 /// adds no undo step.
+/// A colour picked from the palette or typed (RRGGBB) becomes the row's sixth and is used at once, for
+/// the selected comment or the tool (Acrobat's Other color). Not a colour: nothing changes.
+pub fn set_custom_colour(ui: &AppWindow, tab_id: i32, hex: &str) {
+    if sheaf_core::numbers::parse_hex_colour(hex).is_none() {
+        return;
+    }
+    let light = update(tab_id, |r, _| match r.selected_annot.and_then(|i| r.annots().get(i)) {
+        Some(a) => matches!(a.subtype.as_str(), "Highlight" | "Text"),
+        None => uses_light(r.tool),
+    });
+    let Some(light) = light else { return };
+    crate::home::set_custom_colour(light, hex);
+    set_colour(ui, tab_id, CUSTOM as i32);
+}
+
 pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
     let restyle = update(tab_id, |r, _| {
         match what {
@@ -120,8 +135,11 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
             };
         }
         let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| a.subtype == "FreeText" && !a.fill_sign)?;
-        let (font, size, align) = (text_font(r), r.text_pt, r.text_align as u8);
         let now = a.font.unwrap_or(("Helv", 12.0, 0));
+        // Only a family, bold or italic click changes the font: a size or alignment change keeps the
+        // box's own (one the row does not list, an embedded one, stays).
+        let font = if matches!(what, 1..=3) { text_font(r) } else { now.0 };
+        let (size, align) = (r.text_pt, r.text_align as u8);
         let size = ((what == 0 || what == 5) && size != now.1).then_some(size);
         let align = (align != now.2).then_some(align);
         if font == now.0 && size.is_none() && align.is_none() {
@@ -183,8 +201,13 @@ pub(super) fn select_annot(r: &mut ReaderUi, i: usize) {
 }
 
 /// Shapes, pen and stamp options: `what` 0 the shape (0 rectangle, 1 oval, 2 line, 3 arrow), 1
-/// fill on or off, 2 the next opacity, 3 the stamp (index in `StampKind::ALL`).
-pub fn shape_option(tab_id: i32, what: i32, value: i32) {
+/// fill on or off, 2 the opacity in percent (`value`, 10–100), 3 the stamp (index in
+/// `StampKind::ALL`, then the pictures kept in the library), 6 the fill colour (`value`: −1 a tint of
+/// the stroke, else a highlight colour), 8 the arrow's next head, 9 its head at both ends or one,
+/// 10 the next measuring scale, 11 callouts, 12 Calibrate, 13 initials, 14 new initials, 15 every
+/// page. Shapes 4–9: polygon, cloud, polyline, distance, perimeter, area. A selected drawing or
+/// shape takes the opacity at once (Acrobat's Properties bar).
+pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
     // New initials: the kept ones forgotten, the pad opens at the next click (outside the reader's
     // state: the preferences are their own).
     if what == 14 {
@@ -192,46 +215,78 @@ pub fn shape_option(tab_id: i32, what: i32, value: i32) {
         update(tab_id, |r, _| r.version += 1);
         return;
     }
-    update(tab_id, |r, _| match what {
-        0 => {
-            r.shape_kind = value.clamp(0, 9);
-            r.poly = None;
-        }
-        1 => r.shape_fill = !r.shape_fill,
-        3 => {
-            // Past the standard stamps: a picture kept in the library.
-            let first_picture = MARKS.len() + StampKind::ALL.len();
-            let library = crate::home::stamp_library();
-            r.stamp = (value.max(0) as usize).min(first_picture + library.len().saturating_sub(1));
-            r.custom_stamp = r.stamp.checked_sub(first_picture).and_then(|k| library.get(k)).and_then(|p| super::edits::picture_stamp(p));
-        }
-        4 => r.link_visible = !r.link_visible,
-        5 => r.link_dashed = !r.link_dashed,
-        6 => r.arrow_head = (r.arrow_head + 1) % reader::ARROW_HEADS.len(),
-        10 => {
-            // From a calibrated scale back to the presets, at the one it was on.
-            if r.measure_custom.take().is_none() {
-                r.measure_scale = (r.measure_scale + 1) % reader::MEASURE_SCALES.len();
+    let restyle = update(tab_id, |r, _| {
+        match what {
+            0 => {
+                r.shape_kind = value.clamp(0, 9);
+                r.poly = None;
+            }
+            1 => r.shape_fill = !r.shape_fill,
+            3 => {
+                // Past the standard stamps: a picture kept in the library.
+                let first_picture = MARKS.len() + StampKind::ALL.len();
+                let library = crate::home::stamp_library();
+                r.stamp = (value.max(0) as usize).min(first_picture + library.len().saturating_sub(1));
+                r.custom_stamp = r.stamp.checked_sub(first_picture).and_then(|k| library.get(k)).and_then(|p| super::edits::picture_stamp(p));
+            }
+            4 => r.link_visible = !r.link_visible,
+            5 => r.link_dashed = !r.link_dashed,
+            6 => {
+                r.fill_colour = usize::try_from(value).ok().map(|k| k.min(CUSTOM));
+                r.shape_fill = true;
+            }
+            8 => r.arrow_head = (r.arrow_head + 1) % reader::ARROW_HEADS.len(),
+            9 => r.arrow_both = !r.arrow_both,
+            10 => {
+                // From a calibrated scale back to the presets, at the one it was on.
+                if r.measure_custom.take().is_none() {
+                    r.measure_scale = (r.measure_scale + 1) % reader::MEASURE_SCALES.len();
+                }
+            }
+            11 => r.callout = !r.callout,
+            12 => r.calibrating = !r.calibrating,
+            13 => r.initials = !r.initials,
+            15 => r.sign_every_page = !r.sign_every_page,
+            _ => {
+                r.opacity = value.clamp(10, 100) as usize;
+                remember_style(r);
             }
         }
-        12 => r.calibrating = !r.calibrating,
-        13 => r.initials = !r.initials,
-        15 => r.sign_every_page = !r.sign_every_page,
-        7 => r.arrow_both = !r.arrow_both,
-        11 => r.callout = !r.callout,
-        _ => {
-            r.opacity = (r.opacity + 1) % reader::OPACITIES.len();
-            remember_style(r);
-        }
-    });
+        let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| stroked(&a.subtype))?;
+        (what == 2).then(|| (a.page, Edit::StyleAnnotation { page: a.page, index: a.index, color: None, opacity: Some(opacity_of(r)), width: None, endings: None }))
+    })
+    .flatten();
+    if let Some((page, e)) = restyle {
+        apply(ui, tab_id, e, &[page], None);
+    }
 }
 
-/// Pen thickness in points: 0 fine, 1 medium, 2 thick.
-pub fn set_pen_width(tab_id: i32, k: i32) {
-    update(tab_id, |r, _| {
+/// Drawings and shapes: the comments whose width and opacity the options bar sets.
+pub(super) fn stroked(subtype: &str) -> bool {
+    matches!(subtype, "Ink" | "Square" | "Circle" | "Line" | "Polygon" | "PolyLine")
+}
+
+/// The tool's opacity, 0–1. Kept as a percent; 0–3 are the four steps of before (preferences
+/// saved then), 100 %, 75 %, 50 %, 25 %.
+pub(super) fn opacity_of(r: &ReaderUi) -> f64 {
+    match r.opacity {
+        k @ 0..=3 => reader::OPACITIES[k],
+        p => p.min(100) as f64 / 100.0,
+    }
+}
+
+/// The width picked: the tool's, and a selected drawing's or shape's at once.
+pub fn set_pen_width(ui: &AppWindow, tab_id: i32, k: i32) {
+    let restyle = update(tab_id, |r, _| {
         r.pen_width = k.clamp(0, 2);
         remember_style(r);
-    });
+        let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| stroked(&a.subtype))?;
+        Some((a.page, Edit::StyleAnnotation { page: a.page, index: a.index, color: None, opacity: None, width: Some(pen_points(r.pen_width)), endings: None }))
+    })
+    .flatten();
+    if let Some((page, e)) = restyle {
+        apply(ui, tab_id, e, &[page], None);
+    }
 }
 
 /// The current tool's style, kept for the next time it is picked (and the next session).
@@ -244,7 +299,7 @@ fn remember_style(r: &ReaderUi) {
 /// Acrobat makes them; else a border in the ink colour, 1–3 points, solid or dashed.
 pub(super) fn link_style(r: &ReaderUi) -> sheaf_core::pdfcraft::engine::LinkStyle {
     use sheaf_core::pdfcraft::engine::{LinkHighlight, LinkStyle};
-    LinkStyle { visible: r.link_visible, color: INK[r.ink_colour], width: f64::from(r.pen_width.clamp(0, 2) + 1), dashed: r.link_dashed, underline: false, highlight: LinkHighlight::Invert }
+    LinkStyle { visible: r.link_visible, color: ink_at(r.ink_colour), width: f64::from(r.pen_width.clamp(0, 2) + 1), dashed: r.link_dashed, underline: false, highlight: LinkHighlight::Invert }
 }
 
 /// Link the web addresses in the document's text that no link covers yet, in the Link tool's look.
@@ -373,8 +428,11 @@ pub fn toggle_panel(tab_id: i32) {
     });
 }
 
-/// Outline panel edits (PDF Expert's and Acrobat's bookmarks): `op` 0 bookmark the page in view,
-/// 1 start renaming `row`, 2 rename it to `text`, 3 stop renaming, 4 delete `row` and what is under it.
+/// Outline panel edits (PDF Expert's and Acrobat's bookmarks): `op` 0 bookmark the page in view
+/// (titled with the selected text, as Acrobat names a new bookmark), 1 start renaming `row`, 2 rename
+/// it to `text`, 3 stop renaming, 4 delete `row` and what is under it, 5 point `row` at the page in
+/// view (Acrobat's Set Destination), 6 / 7 move `row` up / down among its siblings, 8 indent it (the
+/// last child of the bookmark above), 9 outdent it (after its parent).
 pub fn outline_op(ui: &AppWindow, tab_id: i32, row: i32, op: i32, text: &str) {
     let edit = update(tab_id, |r, v| {
         let path = usize::try_from(row).ok().and_then(|i| r.rows.get(i)).map(|x| x.path.clone());
@@ -383,7 +441,11 @@ pub fn outline_op(ui: &AppWindow, tab_id: i32, row: i32, op: i32, text: &str) {
                 // At the top level, in page order.
                 let page = v.current();
                 let index = r.snap.outline.iter().filter(|o| o.page.is_some_and(|p| p <= page)).count();
-                Some(Edit::AddBookmark { parent: Vec::new(), index, title: format!("Page {}", label(r, page)), page })
+                let selected = r.sel.as_ref().and_then(|(p, range)| r.texts.get(p).map(|t| reader::selected_text(t, range.clone())));
+                let title = selected.map(|t| bookmark_title(&t)).filter(|t| !t.is_empty()).unwrap_or_else(|| format!("Page {}", label(r, page)));
+                // From a selection, the bookmark goes to the selection's page.
+                let page = r.sel.as_ref().map_or(page, |(p, _)| *p);
+                Some(Edit::AddBookmark { parent: Vec::new(), index, title, page })
             }
             1 => {
                 r.outline_edit = usize::try_from(row).ok();
@@ -400,12 +462,45 @@ pub fn outline_op(ui: &AppWindow, tab_id: i32, row: i32, op: i32, text: &str) {
                 r.outline_edit = None;
                 None
             }
+            5 => Some(Edit::SetBookmarkPage { path: path?, page: v.current() }),
+            6 | 7 => {
+                let path = path?;
+                let (&last, parent) = path.split_last()?;
+                let siblings = r.rows.iter().filter(|x| x.path.len() == path.len() && x.path[..parent.len()] == *parent).count();
+                let to = if op == 6 { last.checked_sub(1)? } else { last + 1 };
+                (to < siblings).then(|| Edit::MoveBookmark { from: path.clone(), to_parent: parent.to_vec(), index: to })
+            }
+            8 => {
+                // Under the sibling above, as its last child.
+                let path = path?;
+                let (&last, parent) = path.split_last()?;
+                let mut to_parent = parent.to_vec();
+                to_parent.push(last.checked_sub(1)?);
+                let children = r.rows.iter().filter(|x| x.path.len() == path.len() + 1 && x.path[..path.len()] == to_parent[..]).count();
+                Some(Edit::MoveBookmark { from: path.clone(), to_parent, index: children })
+            }
+            9 => {
+                // Right after its parent, one level up.
+                let path = path?;
+                let (_, parent) = path.split_last()?;
+                let (&p_last, grand) = parent.split_last()?;
+                Some(Edit::MoveBookmark { from: path.clone(), to_parent: grand.to_vec(), index: p_last + 1 })
+            }
             _ => Some(Edit::DeleteBookmark { path: path? }),
         }
     })
     .flatten();
     if let Some(e) = edit {
         apply(ui, tab_id, e, &[], None);
+    }
+}
+
+/// A selection as a bookmark title: one line, spaces collapsed, at most 80 characters.
+fn bookmark_title(text: &str) -> String {
+    let t = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    match t.char_indices().nth(80) {
+        Some((i, _)) => format!("{}…", t[..i].trim_end()),
+        None => t,
     }
 }
 
@@ -493,5 +588,16 @@ mod tests {
         for bad in ["", "pt", "0", "-3", "abc"] {
             assert_eq!(typed_size(bad), None, "{bad:?}");
         }
+    }
+}
+
+#[cfg(test)]
+mod bookmark_tests {
+    use super::*;
+
+    #[test]
+    fn bookmark_titles_are_one_short_line() {
+        assert_eq!(bookmark_title("  Chapter\n 2:   Methods "), "Chapter 2: Methods");
+        assert_eq!(bookmark_title(&"word ".repeat(30)).chars().count(), 80);
     }
 }

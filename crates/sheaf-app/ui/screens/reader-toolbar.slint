@@ -10,6 +10,9 @@ export component ReaderToolbar inherits Rectangle {
     in property <bool> is-full-screen;
     // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
     in property <bool> narrow;
+    // Too narrow for every tool: the edit group folds into one button (900 px, the window's least,
+    // up to where it all fits).
+    property <bool> fold-edit: root.width < 1180px;
     in-out property <bool> bare;
     // What the search field holds (the side panel lists its results).
     out property <string> search-text: search-in.text;
@@ -61,11 +64,59 @@ export component ReaderToolbar inherits Rectangle {
             Rectangle { width: 6px; }
             Divider { y: 5px; }
             Rectangle { width: 6px; }
-            ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text (E)"; active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image (I)"; active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link (L)"; active: root.tab.reader.tool == 13; clicked => { ReaderBridge.set-tool(root.id, 13); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/eye-off.svg"); tip: "Redact…"; clicked => { ReaderBridge.redact(root.id); } }
-            ToolButton { icon: @image-url("../icons/signature.svg"); tip: "Sign (S)"; active: root.tab.reader.tool == 9; clicked => { ReaderBridge.set-tool(root.id, 9); root.focus-pages(); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text (E)"; active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); root.focus-pages(); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image (I)"; active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); root.focus-pages(); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link (L)"; active: root.tab.reader.tool == 13; clicked => { ReaderBridge.set-tool(root.id, 13); root.focus-pages(); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/eye-off.svg"); tip: "Redact…"; clicked => { ReaderBridge.redact(root.id); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/signature.svg"); tip: "Sign (S)"; active: root.tab.reader.tool == 9; clicked => { ReaderBridge.set-tool(root.id, 9); root.focus-pages(); } }
+            // A narrow window folds the edit group into one button with its menu (Acrobat's toolbar
+            // overflow), so no tool falls off the bar.
+            if root.fold-edit: Rectangle {
+                width: 30px;
+                ToolButton {
+                    icon: @image-url("../icons/text-cursor-input.svg");
+                    tip: "Edit, link, redact, sign";
+                    active: root.tab.reader.tool == 7 || root.tab.reader.tool == 8 || root.tab.reader.tool == 13 || root.tab.reader.tool == 9;
+                    clicked => { edit-menu.show(); }
+                }
+                edit-menu := PopupWindow {
+                    x: 0;
+                    y: 34px;
+                    width: 220px;
+                    height: 5 * 30px + 8px;
+                    Rectangle {
+                        background: Theme.input-bg;
+                        border-radius: Theme.radius-small;
+                        border-width: 1px;
+                        border-color: Theme.input-border;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: #00000033;
+                        VerticalLayout {
+                            padding: 4px;
+                            for item[k] in [
+                                { icon: @image-url("../icons/text-cursor-input.svg"), text: "Edit text", keys: "E", tool: 7 },
+                                { icon: @image-url("../icons/image.svg"), text: "Add image", keys: "I", tool: 8 },
+                                { icon: @image-url("../icons/link.svg"), text: "Link", keys: "L", tool: 13 },
+                                { icon: @image-url("../icons/eye-off.svg"), text: "Redact…", keys: "", tool: -1 },
+                                { icon: @image-url("../icons/signature.svg"), text: "Sign", keys: "S", tool: 9 },
+                            ]: Rectangle {
+                                height: 30px;
+                                border-radius: Theme.radius-small;
+                                background: et.has-hover ? Theme.popup-hover : transparent;
+                                Image { x: 8px; width: 16px; height: 16px; source: item.icon; colorize: Theme.text-secondary; }
+                                Text { x: 32px; text: item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                Text { x: parent.width - self.width - 10px; text: item.keys; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                                et := TouchArea {
+                                    clicked => {
+                                        if item.tool < 0 { ReaderBridge.redact(root.id); } else { ReaderBridge.set-tool(root.id, item.tool); }
+                                        root.focus-pages();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         Rectangle { horizontal-stretch: 1; }
         // Page field and zoom
@@ -174,14 +225,16 @@ export component ReaderToolbar inherits Rectangle {
                 }
             }
             if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-in.svg"); tip: "Zoom in (⌘+)"; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
-            ToolButton {
+            // Narrow: in the More menu only (its "Two pages" entry).
+            if !root.fold-edit: ToolButton {
                 y: -2px;
                 icon: @image-url("../icons/columns-2.svg");
                 active: root.tab.reader.spread > 0;
                 tip: (root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide") + " (⌥⌘2)";
                 clicked => { ReaderBridge.cycle-spread(root.id); root.focus-pages(); }
             }
-            ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
+            // Narrow: Fit width / Fit page stay in the zoom list (and ⌘9 / ⌘8).
+            if !root.fold-edit: ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
         }
         Rectangle { horizontal-stretch: 1; }
         HorizontalLayout {
@@ -203,7 +256,7 @@ export component ReaderToolbar inherits Rectangle {
             Rectangle {
                 // Narrower in a small window, so the toolbar always fits (the window's
                 // minimum is 900 px).
-                width: root.narrow ? 110px : clamp(root.width - 1154px, 110px, 210px);
+                width: root.fold-edit ? 88px : root.narrow ? 110px : clamp(root.width - 1154px, 110px, 210px);
                 border-radius: Theme.radius-button;
                 border-width: 1px;
                 border-color: search-in.has-focus ? Theme.text-secondary : Theme.input-border;

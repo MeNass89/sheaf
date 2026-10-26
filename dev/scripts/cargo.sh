@@ -11,6 +11,9 @@ set -eu
 export CARGO_INCREMENTAL=0
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target/sheaf}"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+# The faces for text WinAnsi cannot write (scripts/fetch-fonts.sh), embedded by PdfCraft when present.
+fonts="$(cd "$(dirname "$0")/../.." && pwd)/vendor/craft-fonts"
+[ -f "$fonts/fonts/manifest.txt" ] && export CRAFT_FONTS_DIR="$fonts"
 # Nassim 21/10/2026: nothing else runs on this VPS while a class is being recorded
 # (7 GB RAM; a cargo test left 184 MB free mid-class). Wait, never build over it.
 while pgrep -f join_teams.py >/dev/null 2>&1; do

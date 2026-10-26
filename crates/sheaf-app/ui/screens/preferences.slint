@@ -135,6 +135,9 @@ export component PreferencesScreen inherits Rectangle {
     in property <int> backdrop-pref;
     callback set-accent(int);
     callback set-backdrop(int);
+    // How dated stamps write the time (0 Acrobat's, 1 day first, 2 ISO).
+    in property <int> stamp-date;
+    callback set-stamp-date(int);
     background: Theme.content-bg;
 
     scroll := ScrollView {
@@ -281,6 +284,21 @@ export component PreferencesScreen inherits Rectangle {
                     spacing: 8px;
                     Segment { width: 180px; text: "Where I left off"; selected: !root.open-first-page; clicked => { root.set-open-first-page(false); } }
                     Segment { width: 180px; text: "On the first page"; selected: root.open-first-page; clicked => { root.set-open-first-page(true); } }
+                }
+                Text {
+                    text: "Dated stamps write the time as";
+                    font-size: Theme.fs-body;
+                    color: Theme.text;
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    for label[i] in ["2:05 pm, Oct 25, 2026", "25/10/2026 14:05", "2026-10-25 14:05"]: Segment {
+                        width: 168px;
+                        text: label;
+                        selected: root.stamp-date == i;
+                        clicked => { root.set-stamp-date(i); }
+                    }
                 }
             }
         }

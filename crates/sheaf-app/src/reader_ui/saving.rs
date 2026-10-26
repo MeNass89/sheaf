@@ -141,26 +141,17 @@ pub fn attachment_open(ui: &AppWindow, tab_id: i32, i: i32) {
     }
 }
 
-/// Files panel: attach a file to the page in view (a file attachment comment at its top left, as
-/// Acrobat's Attach File).
+/// Files panel ▸ Attach…: a file embedded in the document (Acrobat's Attachments ▸ Add file), under its
+/// own name (one of that name is replaced).
 pub fn attachment_add(ui: &AppWindow, tab_id: i32) {
     let d = crate::dialog::new(ui);
     crate::dialog::pick_file(ui, d, move |ui, path| {
         let Ok(data) = std::fs::read(&path) else {
             return crate::flow::toast(ui, "That file could not be read");
         };
-        let file = file_name(&path);
-        let edit = update(tab_id, |_, v| {
-            let page = v.current();
-            let b = &v.viewer.boxes[page];
-            let at = viewer::view_to_pdf(b, b.view_size(), 24.0, 24.0);
-            let shape = Shape::Attachment { at: [at.0, at.1], icon: sheaf_core::pdfcraft::engine::AttachIcon::Paperclip, file, data };
-            let style = Style::default_for(&shape);
-            (page, Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() }))
-        });
-        if let Some((page, e)) = edit {
-            apply(ui, tab_id, e, &[page], None);
-        }
+        let key = file_name(&path);
+        let action = sheaf_core::pdfcraft::engine::doc_attachments::DocAttachment::Add { bytes: std::sync::Arc::new(data) };
+        apply(ui, tab_id, Edit::DocAttachment { key, action }, &[], None);
     });
 }
 
@@ -246,4 +237,24 @@ pub fn version_action(ui: &AppWindow, tab_id: i32, n: i32) {
 pub fn sanitize(ui: &AppWindow, tab_id: i32) {
     // What was removed is said by the reply, once done; a refusal says why instead.
     super::apply(ui, tab_id, Edit::Sanitize, &[], None);
+}
+
+/// Files panel: attachment `i` deleted (a page's attachment comment, or the document's file), or
+/// renamed to `to` (the document's files; a comment keeps its name).
+pub fn attachment_change(ui: &AppWindow, tab_id: i32, i: i32, to: &str) {
+    use sheaf_core::pdfcraft::engine::doc_attachments::DocAttachment;
+    use sheaf_core::pdfcraft::render::AttachmentSource;
+    let Some(a) = update(tab_id, |r, _| r.snap.attachments.get(i.max(0) as usize).cloned()).flatten() else { return };
+    let rename = !to.trim().is_empty();
+    let edit = match (&a.source, rename) {
+        (AttachmentSource::Document { key }, false) => Edit::DocAttachment { key: key.clone(), action: DocAttachment::Remove },
+        (AttachmentSource::Document { key }, true) => Edit::DocAttachment { key: key.clone(), action: DocAttachment::Rename { to: to.trim().into() } },
+        (AttachmentSource::Annotation { page, index }, false) => Edit::DeleteAnnotation { page: *page, index: *index },
+        (AttachmentSource::Annotation { .. }, true) => return crate::flow::toast(ui, "A file attached to a page keeps its name"),
+    };
+    let pages = match &a.source {
+        AttachmentSource::Annotation { page, .. } => vec![*page],
+        _ => vec![],
+    };
+    apply(ui, tab_id, edit, &pages, None);
 }

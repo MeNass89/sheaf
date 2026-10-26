@@ -6,7 +6,9 @@ use std::collections::HashMap;
 /// The palette entry (light or ink) closest to `c`, if one is close.
 pub(super) fn palette_index(c: [f32; 3]) -> i32 {
     let d = |p: &[f64; 3]| (0..3).map(|i| (p[i] - c[i] as f64).powi(2)).sum::<f64>();
-    COLOURS.iter().chain(INK.iter()).enumerate().map(|(i, p)| (i % 5, d(p))).filter(|(_, d)| *d < 0.01).min_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, _)| i as i32).unwrap_or(-1)
+    // The presets, then the custom colours (both count as the sixth place).
+    let custom = [custom_colour(true), custom_colour(false)];
+    COLOURS.iter().chain(INK.iter()).chain(custom.iter()).enumerate().map(|(i, p)| (if i >= 10 { CUSTOM } else { i % 5 }, d(p))).filter(|(_, d)| *d < 0.01).min_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, _)| i as i32).unwrap_or(-1)
 }
 
 pub(super) fn colour_of(c: [f64; 3]) -> Color {
@@ -356,7 +358,30 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 }
                 None => (String::new(), 260.0, 150.0),
             };
-            ReaderNote { show: true, x: x as f32, y: y as f32, w: w as f32, h: h as f32, text: text.into(), kind: d.kind, seq: r.note_seq }
+            // A new text box (1) or added text (3): typed in place, 200 pt wide, in its size and font.
+            if matches!(d.kind, 1 | 3) && d.block.is_none() {
+                let s = 1.0 / k(&v.viewer, d.page);
+                let pt = r.text_pt;
+                let family = match r.text_family { 1 => "Times New Roman", 2 => "Courier New", _ => "Helvetica" };
+                ReaderNote {
+                    show: true,
+                    x: x as f32,
+                    y: y as f32,
+                    w: (200.0 * s) as f32,
+                    h: ((pt * 1.25 * 3.0 + 8.0) * s) as f32,
+                    text: r.inplace_text.clone().into(),
+                    kind: d.kind,
+                    seq: r.note_seq,
+                    inplace: true,
+                    font_px: (pt * s) as f32,
+                    font_family: family.into(),
+                    bold: r.text_bold,
+                    italic: r.text_italic,
+                    ink: colour_of(ink_at(r.ink_colour)),
+                }
+            } else {
+                ReaderNote { show: true, x: x as f32, y: y as f32, w: w as f32, h: h as f32, text: text.into(), kind: d.kind, seq: r.note_seq, ..Default::default() }
+            }
         }
         None => ReaderNote { seq: r.note_seq, ..Default::default() },
     };
@@ -397,6 +422,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         annots,
         tool: r.tool,
         colour: if uses_light(r.tool) { r.light as i32 } else { r.ink_colour as i32 },
+        custom_ink: colour_of(custom_colour(false)),
+        custom_light: colour_of(custom_colour(true)),
         theme: r.theme.index(),
         backdrop: reader::backdrop(r.theme).or_else(crate::home::backdrop).map(|c| Color::from_rgb_u8(c[0], c[1], c[2])).unwrap_or_default(),
         marks: ModelRc::new(VecModel::from(marks)),
@@ -408,7 +435,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         annot_colour: r.selected_annot.and_then(|i| r.annots().get(i)).and_then(|a| a.color).map(palette_index).unwrap_or(-1),
         ink: ink.into(),
         // The eraser leaves a grey trail.
-        ink_colour: if r.tool == ERASER { Color::from_argb_u8(140, 128, 128, 128) } else { colour_of(INK[r.ink_colour]) },
+        ink_colour: if r.tool == ERASER { Color::from_argb_u8(140, 128, 128, 128) } else { colour_of(ink_at(r.ink_colour)) },
         note,
         search_count: search_count.into(),
         search_busy: r.search.busy,
@@ -433,7 +460,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         .into(),
         calibrating: r.calibrating,
         auto_scroll: r.auto_scroll,
-        opacity: (reader::OPACITIES[r.opacity] * 100.0).round() as i32,
+        opacity: (super::tools::opacity_of(r) * 100.0).round() as i32,
+        fill_colour: r.fill_colour.map_or(-1, |k| k as i32),
+        selected_stroke: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(|a| super::tools::stroked(&a.subtype)),
         // Dynamic stamps share their names with standard ones: they say they are dated.
         stamp_image: r.custom_stamp.as_ref().map(|(n, _, _)| n.as_str()).unwrap_or_default().into(),
         stamps: ModelRc::new(VecModel::from(

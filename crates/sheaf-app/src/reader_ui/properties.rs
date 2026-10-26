@@ -51,6 +51,7 @@ pub fn props_cancel(tab_id: i32) {
 
 /// The entries changed become one undo step (PdfCraft's SetInfo per entry).
 /// `opening`: When opened's page typed and its layout, zoom and panel ([`opening_edit`]).
+#[allow(clippy::too_many_arguments)]
 pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subject: &str, keywords: &str, custom: &str, opening: (&str, i32, i32, i32)) {
     let edit = update(tab_id, |r, _| {
         let view = match opening_edit(r, opening.0, opening.1, opening.2, opening.3) {
@@ -127,29 +128,6 @@ pub(super) fn custom_text(pairs: &[(String, String)]) -> String {
     pairs.iter().map(|(k, v)| format!("{k}: {v}")).collect::<Vec<_>>().join("; ")
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{about_rows, custom_pairs, custom_text};
-
-    #[test]
-    fn custom_properties_are_typed_as_name_and_value_pairs() {
-        let p = custom_pairs(" Client : Acme;Project code: A-1 ; nothing; empty: ");
-        assert_eq!(p, [("Client".to_string(), "Acme".to_string()), ("Project_code".into(), "A-1".into())]);
-        assert_eq!(custom_text(&p), "Client: Acme; Project_code: A-1");
-    }
-
-    #[test]
-    fn signatures_come_after_the_facts_and_the_security_line_says_what_is_forbidden() {
-        let row = |n: &str, v: &str| (n.to_string(), v.to_string());
-        let about = [row("Pages", "4"), row("Security", "Encrypted"), row("Signature 1 · Ada", "Valid"), row("Fonts", "1")];
-        let facts = sheaf_core::facts::Facts { restricted: vec!["Printing"], pdfa: Some("PDF/A-2b".into()), ..Default::default() };
-        let names: Vec<String> = about_rows(&about, Some(&facts)).into_iter().map(|r| r.0).collect();
-        assert_eq!(names, ["Pages", "Security", "Fonts", "PDF/A", "Signature 1 · Ada"]);
-        assert_eq!(about_rows(&about, Some(&facts))[1].1, "Restricted: no printing");
-        assert_eq!(about_rows(&about, None).last().unwrap().0, "Signature 1 · Ada");
-    }
-}
-
 /// The document's Initial View applied to a first opening: page layout, magnification, the page
 /// opened to and the side panel (bookmarks or pages); what it leaves at Default stays as set.
 pub(super) fn open_as_asked(r: &mut ReaderUi, v: &mut ViewerUi) {
@@ -223,4 +201,27 @@ pub(super) fn opening_controls(o: &sheaf_core::pdfcraft::engine::InitialView) ->
         _ => 0,
     };
     (o.page as i32 + 1, layout, zoom, panel)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{about_rows, custom_pairs, custom_text};
+
+    #[test]
+    fn custom_properties_are_typed_as_name_and_value_pairs() {
+        let p = custom_pairs(" Client : Acme;Project code: A-1 ; nothing; empty: ");
+        assert_eq!(p, [("Client".to_string(), "Acme".to_string()), ("Project_code".into(), "A-1".into())]);
+        assert_eq!(custom_text(&p), "Client: Acme; Project_code: A-1");
+    }
+
+    #[test]
+    fn signatures_come_after_the_facts_and_the_security_line_says_what_is_forbidden() {
+        let row = |n: &str, v: &str| (n.to_string(), v.to_string());
+        let about = [row("Pages", "4"), row("Security", "Encrypted"), row("Signature 1 · Ada", "Valid"), row("Fonts", "1")];
+        let facts = sheaf_core::facts::Facts { restricted: vec!["Printing"], pdfa: Some("PDF/A-2b".into()), ..Default::default() };
+        let names: Vec<String> = about_rows(&about, Some(&facts)).into_iter().map(|r| r.0).collect();
+        assert_eq!(names, ["Pages", "Security", "Fonts", "PDF/A", "Signature 1 · Ada"]);
+        assert_eq!(about_rows(&about, Some(&facts))[1].1, "Restricted: no printing");
+        assert_eq!(about_rows(&about, None).last().unwrap().0, "Signature 1 · Ada");
+    }
 }

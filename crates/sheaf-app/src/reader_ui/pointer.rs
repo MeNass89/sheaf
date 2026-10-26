@@ -21,6 +21,12 @@ fn grid_pressed(r: &mut ReaderUi, v: &mut ViewerUi, page: Option<usize>, clicks:
 
 /// `clicks`: 1, or 2 on a double-click; plus 16 when ⇧ is held.
 pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
+    // Text typed in place is finished by a click elsewhere, as in Acrobat and PDF Expert: it is
+    // added, and this click does nothing more.
+    let typed = update(tab_id, |r, _| r.draft.as_ref().is_some_and(|d| matches!(d.kind, 1 | 3) && d.block.is_none()).then(|| std::mem::take(&mut r.inplace_text))).flatten();
+    if let Some(text) = typed {
+        return super::note_commit(ui, tab_id, &text);
+    }
     let (x, y) = (x as f64, y as f64);
     let (clicks, shift) = (clicks & 15, clicks & 16 != 0);
     // Polygon, Cloud, Polygonal line, and the measures (Shape tool): a click adds a vertex, a
@@ -86,6 +92,7 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 false
             }
             NOTE | TEXTBOX => {
+                r.inplace_text.clear();
                 r.draft = Some(Draft { page, at: p, kind: if r.tool == NOTE { 0 } else { 1 }, block: None, field: None });
                 r.note_seq += 1;
                 r.press = None;
@@ -465,6 +472,7 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                     r.note_seq += 1;
                 }
                 (EditTarget::Empty, _) => {
+                    r.inplace_text.clear();
                     r.draft = Some(Draft { page: e.page, at: e.from, kind: 3, block: None, field: None });
                     r.note_seq += 1;
                 }

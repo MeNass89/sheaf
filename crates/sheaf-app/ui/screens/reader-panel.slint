@@ -29,7 +29,7 @@ export component ReaderPanel inherits Rectangle {
     callback focus-pages();
     // A recent search picked: it goes back in the search field and runs.
     callback search-again(string);
-    // Files panel: the attachments' names must hold this (any case).
+    // Files panel: the attachments' names must hold this (any case); the one being renamed (−1 none).
     property <string> att-filter;
     // Extract…'s options strip (Acrobat's Extract bar), shown over the page strip.
     property <bool> extract-open;
@@ -41,6 +41,7 @@ export component ReaderPanel inherits Rectangle {
     property <string> number-prefix;
     property <string> number-start;
     property <string> number-through;
+    property <int> att-renaming: -1;
         visible: root.tab.reader.panel-open && !root.bare;
         width: root.tab.reader.panel-open && !root.bare ? root.panel-width : 0px;
         background: Theme.panel-bg;
@@ -254,11 +255,13 @@ export component ReaderPanel inherits Rectangle {
                                     }
                                 }
                             }
+                            // On hover: rename, delete, and the rest in a menu (Acrobat's bookmark context menu).
                             if ot.has-hover && !r.editing: HorizontalLayout {
-                                x: parent.width - 84px;
-                                width: 46px;
+                                x: parent.width - 34px - 90px;
+                                width: 90px;
                                 ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Rename"; clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); } }
                                 ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete bookmark"; clicked => { ReaderBridge.outline-op(root.id, i, 4, ""); root.focus-pages(); } }
+                                ToolButton { icon: @image-url("../icons/ellipsis.svg"); tip: "More"; clicked => { root.mark-row = i; root.mark-menu-y = self.absolute-position.y - root.absolute-position.y + 30px; mark-menu.show(); } }
                             }
                             Text {
                                 x: parent.width - 34px;
@@ -310,12 +313,38 @@ export component ReaderPanel inherits Rectangle {
                         fa := TouchArea {
                             mouse-cursor: pointer;
                             clicked => { ReaderBridge.attachment-open(root.id, i); }
-                            if fa.has-hover: ToolButton {
-                                x: parent.width - self.width - 2px;
+                            // On hover (Acrobat's Attachments pane): save a copy, rename, delete.
+                            if fa.has-hover && root.att-renaming != i: HorizontalLayout {
+                                x: parent.width - 92px;
                                 y: 2px;
-                                icon: @image-url("../icons/download.svg");
-                                tip: "Save a copy…";
-                                clicked => { ReaderBridge.attachment-save(root.id, i); }
+                                width: 90px;
+                                ToolButton { icon: @image-url("../icons/download.svg"); tip: "Save a copy…"; clicked => { ReaderBridge.attachment-save(root.id, i); } }
+                                ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Rename"; clicked => { root.att-renaming = i; } }
+                                ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete attachment"; clicked => { ReaderBridge.attachment-change(root.id, i, ""); } }
+                            }
+                        }
+                        if root.att-renaming == i: Rectangle {
+                            x: 28px;
+                            width: parent.width - 36px;
+                            height: 24px;
+                            background: Theme.input-bg;
+                            border-radius: 3px;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+                            att-name := TextInput {
+                                x: 5px;
+                                width: parent.width - 10px;
+                                text: f.name;
+                                font-size: Theme.fs-label;
+                                color: Theme.text;
+                                vertical-alignment: center;
+                                single-line: true;
+                                init => { self.focus(); self.select-all(); }
+                                accepted => { ReaderBridge.attachment-change(root.id, i, self.text); root.att-renaming = -1; }
+                                key-pressed(e) => {
+                                    if e.text == Key.Escape { root.att-renaming = -1; return accept; }
+                                    reject
+                                }
                             }
                         }
                     }
@@ -749,4 +778,37 @@ export component ReaderPanel inherits Rectangle {
                 }
             }
         }
+    // A bookmark's commands (Acrobat): move, nest, point it at the page in view.
+    property <int> mark-row;
+    property <length> mark-menu-y;
+    mark-menu := PopupWindow {
+        x: root.width - 216px;
+        y: root.mark-menu-y;
+        width: 210px;
+        height: 5 * 30px + 8px;
+        Rectangle {
+            background: Theme.input-bg;
+            border-radius: Theme.radius-small;
+            border-width: 1px;
+            border-color: Theme.input-border;
+            drop-shadow-blur: 8px;
+            drop-shadow-color: #00000033;
+            VerticalLayout {
+                padding: 4px;
+                for item in [
+                    { text: "Move up", op: 6 },
+                    { text: "Move down", op: 7 },
+                    { text: "Indent", op: 8 },
+                    { text: "Outdent", op: 9 },
+                    { text: "Set destination to this page", op: 5 },
+                ]: Rectangle {
+                    height: 30px;
+                    border-radius: Theme.radius-small;
+                    background: mt.has-hover ? Theme.popup-hover : transparent;
+                    Text { x: 10px; text: item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                    mt := TouchArea { clicked => { ReaderBridge.outline-op(root.id, root.mark-row, item.op, ""); root.focus-pages(); } }
+                }
+            }
+        }
+    }
 }

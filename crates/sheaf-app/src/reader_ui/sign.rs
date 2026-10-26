@@ -43,7 +43,7 @@ fn place_graphic(ui: &AppWindow, tab_id: i32, graphic: &sheaf_core::sign::Graphi
         let b = &v.viewer.boxes[page];
         let (w, h) = b.view_size();
         let info = render::PageInfo { width: w as f32, height: h as f32, label: String::new(), crop: b.crop.map(|c| c as f32), rotation: b.rotation };
-        let width = if r.initials { 60.0 } else { 150.0 };
+        let width: f64 = if r.initials { 60.0 } else { 150.0 };
         // Every page: the same place on each, one undo step (initials down every page of a contract).
         if r.sign_every_page {
             let edits = (0..v.viewer.page_count())

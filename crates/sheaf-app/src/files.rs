@@ -340,7 +340,7 @@ pub fn first_page_preview(input: &Input, width: i32) -> Result<(Thumb, f32, f32)
 pub fn page_preview(input: &Input, index: u16, width: i32) -> Result<(Thumb, f32, f32)> {
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = input.open()?;
-    let page = doc.pages().get(index).map_err(|e| OpdfError::Unsupported(format!("no page {}: {e}", index + 1)))?;
+    let page = doc.pages().get(i32::from(index)).map_err(|e| OpdfError::Unsupported(format!("no page {}: {e}", index + 1)))?;
     let (w, h) = (page.width().value, page.height().value);
     let bmp = page.render_with_config(&pdfium_render::prelude::PdfRenderConfig::new().set_target_width(width))?;
     Ok((Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }, w, h))

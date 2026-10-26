@@ -23,6 +23,8 @@ pub mod commands;
 pub mod compare;
 mod copy_image;
 pub mod dates;
+// Sheaf: document-level attachments added, renamed, removed.
+pub mod doc_attachments;
 pub mod export;
 pub mod js;
 pub mod links;
@@ -205,6 +207,8 @@ fn uses_scripts(edit: &Edit) -> bool {
 fn scope_of(edit: &Edit) -> Scope {
     match edit {
         Edit::SetInfo { .. } => Scope::Metadata,
+        // The Attachments list changes.
+        Edit::DocAttachment { .. } => Scope::Full,
         // A file attachment also changes the Attachments list.
         Edit::AddAnnotation(a) if matches!(a.shape, Shape::Attachment { .. }) => Scope::Full,
         Edit::AddMeasurement(_)
@@ -1164,6 +1168,11 @@ pub enum Edit {
         key: String,
         value: String,
     },
+    /// Sheaf: add, rename or remove the document-level attachment `key` (Acrobat's Attachments pane).
+    DocAttachment {
+        key: String,
+        action: doc_attachments::DocAttachment,
+    },
     /// Insert pages from another PDF (all pages when `pages` is `None`) at position `at`.
     InsertPagesFrom {
         name: String,
@@ -1815,6 +1824,11 @@ impl Edit {
             Edit::SetPageBox { .. } => Label::of("Set page boxes"),
             // The four `/Info` keys PdfCraft itself offers get a wording of their own, so each can
             // be said in another language; any other key is the document's and goes in as it stands.
+            Edit::DocAttachment { action, .. } => match action {
+                doc_attachments::DocAttachment::Add { .. } => Label::of("Attach file"),
+                doc_attachments::DocAttachment::Remove => Label::of("Delete attachment"),
+                doc_attachments::DocAttachment::Rename { .. } => Label::of("Rename attachment"),
+            },
             Edit::SetInfo { key, .. } => match key.as_str() {
                 "Title" => Label::of("Change Title"),
                 "Author" => Label::of("Change Author"),
@@ -2036,6 +2050,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
             }
         }
         Edit::SetInfo { .. }
+        | Edit::DocAttachment { .. }
         | Edit::AddHeaderFooter { .. }
         | Edit::AddWatermark { .. }
         | Edit::AddBackground { .. }
@@ -2189,6 +2204,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_organize::insert_blank_page(doc, *at, *width, *height)?;
         }
         Edit::SetInfo { key, value } => pdfcraft_organize::set_info(doc, key, value)?,
+        Edit::DocAttachment { key, action } => doc_attachments::apply(doc, key, action).map_err(EditError::Invalid)?,
         Edit::DuplicatePages { pages } => pdfcraft_organize::duplicate_pages(doc, pages)?,
         Edit::ReplacePages { pages, name, bytes, src_pages } => {
             let src = open_source(name, bytes)?;

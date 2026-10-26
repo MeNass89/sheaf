@@ -616,3 +616,11 @@ green after.
   options are made of (section labels, stepper, position grid, page ranges, crop preview, font and colour rows) in
   `options-parts.slint`, the per-tool panel in `options.slint` (855 lines). The vendored `third_party/` files keep
   upstream's layout, as decided.
+
+## 2026-10-25 · Non-Latin text: PdfCraft's craft-fonts faces embedded (about 10 MB)
+**Decision.** Sheaf builds with `CRAFT_FONTS_DIR` (scripts/fetch-fonts.sh, pinned craft-fonts commit): BIZ UDPGothic
+Regular and Bold (Japanese, kanji, Cyrillic, Greek), Noto Sans Arabic, Thai, Georgian, all OFL-1.1. PdfCraft then
+writes text WinAnsi cannot in Edit text and text boxes, shaped, with ToUnicode, embedded in the PDF.
+**Alternatives.** The whole set (68 MB: two Mincho faces and Noto Sans CJK, which PdfCraft's build bars); system
+fonts (PdfCraft refuses faces without an open-licence declaration, so macOS's own fonts are out). **Cost.** About
+10 MB in the binary. **Would change it.** Hebrew or Devanagari faces added to craft-fonts; a smaller app wanted.

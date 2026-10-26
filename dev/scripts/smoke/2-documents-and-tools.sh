@@ -396,9 +396,11 @@ quit
 cp "$OUT/text.pdf" "$OUT/hf.pdf"; launch "$OUT/hf.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "bates"; key Return; sleep 2.5
 xdotool mousemove 1130 450; for i in $(seq 1 25); do xdotool click 5; sleep 0.03; done; sleep 0.8; shot 20d-header-footer
+# Fields found from their labels (placeholders are too faint to read): Top's Left field 84 px right of "Top",
+# the prefix field 33 px under "Bates".
 NP=$(at "No" 280x700+1000+40); [ -n "$NP" ] && click $NP 0.5
-TL=$(at Left 280x700+1000+40); [ -n "$TL" ] && { click $TL 0.4; xdotool type --delay 20 "Case {bates}"; }
-BP=$(at ACME- 280x700+1000+40); [ -n "$BP" ] && { click $BP 0.4; xdotool type --delay 20 "ACME-"; }
+read TX TY <<< "$(at Top 280x700+1000+40)"; TL=${TY:+$(( TX + 76 )) $TY}; [ -n "$TL" ] && { click $TL 0.4; xdotool type --delay 20 "Case {bates}"; }
+read BX BY <<< "$(at Bates 280x700+1000+40)"; BP=${BY:+$BX $(( BY + 33 ))}; [ -n "$BP" ] && { click $BP 0.4; xdotool type --delay 20 "ACME-"; }
 click 1140 755 4
 HF=$(pdftotext "$OUT/hf-numbered.pdf" - 2>/dev/null | tr '\n' ' ')
 check "Header and footer text with Bates numbers (${NP:-no radio} ${TL:-no field} ${BP:-no prefix}; $(echo "$HF" | cut -c1-80))" "echo \"$HF\" | grep -q 'Case ACME-000001' && echo \"$HF\" | grep -q 'Case ACME-000002'"

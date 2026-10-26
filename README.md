@@ -90,6 +90,7 @@ Tools never overwrite a file: when the output name is taken they write `name (1)
 ```sh
 sh scripts/fetch-pdfium.sh          # downloads the pdfium library for this platform
 sh scripts/fetch-models.sh          # the OCR models
+sh scripts/fetch-fonts.sh           # the faces for non-Latin text (craft-fonts, OFL)
 bash scripts/test.sh                # every test, one verdict (needs qpdf and poppler; Xvfb + xdotool for the GUI layer)
 cargo run -p sheaf-app              # the GUI
 sh scripts/bundle-macos.sh          # → target/Sheaf.app (needs: brew install librsvg; cargo install cargo-about --features cli)

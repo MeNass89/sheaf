@@ -153,9 +153,9 @@ pub fn markup(ui: &AppWindow, tab_id: i32, kind: i32) {
         // From the selection bar (another tool active), the markup tool's own saved colour.
         let saved = (r.tool != kind).then(|| crate::home::tool_style(kind)).flatten().map(|(c, ..)| c as usize);
         let (m, colour) = match kind {
-            UNDERLINE => (Markup::Underline, INK[saved.unwrap_or(r.ink_colour).min(INK.len() - 1)]),
-            STRIKE => (Markup::StrikeOut, INK[saved.unwrap_or(r.ink_colour).min(INK.len() - 1)]),
-            _ => (Markup::Highlight, COLOURS[saved.unwrap_or(r.light).min(COLOURS.len() - 1)]),
+            UNDERLINE => (Markup::Underline, ink_at(saved.unwrap_or(r.ink_colour))),
+            STRIKE => (Markup::StrikeOut, ink_at(saved.unwrap_or(r.ink_colour))),
+            _ => (Markup::Highlight, light_at(saved.unwrap_or(r.light))),
         };
         r.sel = None;
         let prov = Provisional { page, rects, stroke: Vec::new(), colour, kind };
@@ -197,8 +197,8 @@ pub(super) fn add_ink(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f
         let b = &v.viewer.boxes[page];
         let size = b.view_size();
         let stroke: Vec<[f64; 2]> = pts.iter().map(|p| { let (x, y) = viewer::view_to_pdf(b, size, p.0, p.1); [x, y] }).collect();
-        let prov = Provisional { page, rects: Vec::new(), stroke: pts.clone(), colour: INK[r.ink_colour], kind: PEN };
-        let style = Style { opacity: reader::OPACITIES[r.opacity], ..style(INK[r.ink_colour], pen_points(r.pen_width)) };
+        let prov = Provisional { page, rects: Vec::new(), stroke: pts.clone(), colour: ink_at(r.ink_colour), kind: PEN };
+        let style = Style { opacity: super::tools::opacity_of(r), ..style(ink_at(r.ink_colour), pen_points(r.pen_width)) };
         (Edit::AddAnnotation(NewAnnotation { page, shape: Shape::Ink { strokes: vec![stroke] }, style, contents: String::new(), author: author() }), prov)
     });
     if let Some((e, prov)) = edit {
@@ -223,9 +223,10 @@ pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64),
                 Shape::Line { from: [pa.0, pa.1], to: [pb.0, pb.1], start: if r.arrow_both { head } else { LineEnding::None }, end: head }
             }
         };
-        let colour = INK[r.ink_colour];
-        let fill = (r.shape_fill && r.shape_kind < 2).then(|| reader::fill_tint(colour));
-        let style = Style { color: colour, opacity: reader::OPACITIES[r.opacity], width: pen_points(r.pen_width), fill };
+        let colour = ink_at(r.ink_colour);
+        // Its own fill colour (a highlight colour or the sixth), else a tint of the stroke.
+        let fill = (r.shape_fill && r.shape_kind < 2).then(|| r.fill_colour.map_or_else(|| reader::fill_tint(colour), light_at));
+        let style = Style { color: colour, opacity: super::tools::opacity_of(r), width: pen_points(r.pen_width), fill };
         let prov = Provisional { page, rects: Vec::new(), stroke: reader::shape_outline(r.shape_kind, a, b), colour, kind: PEN };
         (Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() }), prov)
     });
@@ -248,9 +249,9 @@ pub(super) fn add_poly(ui: &AppWindow, tab_id: i32) {
         let bx = &v.viewer.boxes[page];
         let size = bx.view_size();
         let vertices: Vec<[f64; 2]> = pts.iter().map(|p| { let (x, y) = viewer::view_to_pdf(bx, size, p.0, p.1); [x, y] }).collect();
-        let colour = INK[r.ink_colour];
-        let fill = (r.shape_fill && closed && r.shape_kind != 9).then(|| reader::fill_tint(colour));
-        let style = Style { color: colour, opacity: reader::OPACITIES[r.opacity], width: pen_points(r.pen_width), fill };
+        let colour = ink_at(r.ink_colour);
+        let fill = (r.shape_fill && closed && r.shape_kind != 9).then(|| r.fill_colour.map_or_else(|| reader::fill_tint(colour), light_at));
+        let style = Style { color: colour, opacity: super::tools::opacity_of(r), width: pen_points(r.pen_width), fill };
         let mut outline = pts.clone();
         if closed {
             outline.push(pts[0]);
@@ -317,6 +318,16 @@ pub(super) fn erase(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f64
 
 /// The chosen stamp, 160 × 42 pt centred on `at` (view point of `page`), as Acrobat sizes them;
 /// a dynamic stamp says who and when ("By Ada at 2:14 pm, Oct 02, 2026").
+/// A dated stamp's time in the format chosen in Preferences (0 Acrobat's, 1 day first, 2 ISO).
+fn stamp_time(t: chrono::DateTime<chrono::Local>, format: i32) -> String {
+    t.format(match format {
+        1 => "%d/%m/%Y %H:%M",
+        2 => "%Y-%m-%d %H:%M",
+        _ => "%-I:%M %P, %b %d, %Y",
+    })
+    .to_string()
+}
+
 pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)) {
     let edit = update(tab_id, |r, v| {
         let bx = &v.viewer.boxes[page];
@@ -336,7 +347,7 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
             let rect = viewer::view_rect_to_pdf(bx, size, (at.0 - w / 2.0, at.1 - h / 2.0), (at.0 + w / 2.0, at.1 + h / 2.0));
             let shape = Shape::Mark { rect, mark };
             // In the colour picked, as Acrobat's Fill & Sign marks take the text colour.
-            let style = Style { color: INK[r.ink_colour], ..Style::default_for(&shape) };
+            let style = Style { color: ink_at(r.ink_colour), ..Style::default_for(&shape) };
             return Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: label.trim_start_matches(|c: char| !c.is_alphabetic()).into(), author: author() });
         }
         let (w, h) = (160.0_f64.min(size.0), 42.0_f64.min(size.1));
@@ -346,7 +357,7 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
         let stamp = StampKind::ALL[(r.stamp - MARKS.len()).min(StampKind::ALL.len() - 1)];
         let dynamic = matches!(stamp.group(), sheaf_core::pdfcraft::engine::StampGroup::Dynamic);
         // The time is formatted alone: the author's name may hold a % (a format directive).
-        let by = dynamic.then(|| format!("By {} at {}", author(), chrono::Local::now().format("%-I:%M %P, %b %d, %Y")));
+        let by = dynamic.then(|| format!("By {} at {}", author(), stamp_time(chrono::Local::now(), crate::home::prefs().stamp_date)));
         let shape = Shape::Stamp { rect, stamp, by };
         let style = Style::default_for(&shape);
         Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: stamp.label().into(), author: author() })
@@ -468,7 +479,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             let (x, y0, y1) = (last[2].max(last[6]), last[5].min(last[7]), last[1].max(last[3]));
             let rect = [x - 3.0, y0, x + 3.0, y0 + (y1 - y0) * 0.6];
             let shape = Shape::Caret { rect };
-            let style = Style { color: INK[r.ink_colour.min(INK.len() - 1)], ..Style::default_for(&shape) };
+            let style = Style { color: ink_at(r.ink_colour), ..Style::default_for(&shape) };
             return Some((d.page, Edit::AddAnnotation(NewAnnotation { page: d.page, shape, style, contents: text.clone(), author: author() })));
         }
         if d.kind == 10 {
@@ -478,7 +489,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             if text.is_empty() || quads.is_empty() {
                 return None;
             }
-            let s = style(INK[r.ink_colour.min(INK.len() - 1)], 1.0);
+            let s = style(ink_at(r.ink_colour), 1.0);
             return Some((d.page, Edit::ReplaceText { page: d.page, quads, text: text.clone(), author: author(), strike: s.clone(), caret: s }));
         }
         if d.kind == 12 {
@@ -572,7 +583,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             let rect = [x0, size.1 - (d.at.1 + h), x0 + w + pt, size.1 - d.at.1];
             return Some((
                 d.page,
-                Edit::AddText { page: d.page, text: AddedText { rect, text: text.clone(), size: pt, color: INK[r.ink_colour], family, bold: r.text_bold, italic: r.text_italic, align: TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize] } },
+                Edit::AddText { page: d.page, text: AddedText { rect, text: text.clone(), size: pt, color: ink_at(r.ink_colour), family, bold: r.text_bold, italic: r.text_italic, align: TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize] } },
             ));
         }
         let (x, y) = viewer::view_to_pdf(b, size, d.at.0, d.at.1);
@@ -599,7 +610,7 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
                 Shape::TextBox { rect: r, font_size: pt }
             }
         };
-        let colour = if d.kind == 0 { COLOURS[r.light] } else { INK[r.ink_colour] };
+        let colour = if d.kind == 0 { light_at(r.light) } else { ink_at(r.ink_colour) };
         let callout = matches!(shape, Shape::Callout { .. });
         let annotation = NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 || callout { 1.0 } else { 0.0 }), contents: text, author: author() };
         // A text box in the font of the format row; a callout in PdfCraft's own (Helvetica).
@@ -652,7 +663,7 @@ fn paragraph_edit(r: &ReaderUi, d: &Draft, text: &str) -> Option<(usize, Edit)> 
     let f = r.para_format;
     let family = [FontFamily::Helvetica, FontFamily::Times, FontFamily::Courier][r.text_family.clamp(0, 2) as usize];
     let style = sheaf_core::pdfcraft::edit::BlockStyle {
-        color: (f & 1 != 0).then(|| INK[r.ink_colour.min(INK.len() - 1)]),
+        color: (f & 1 != 0).then(|| ink_at(r.ink_colour)),
         size: (f & 2 != 0).then_some(r.text_pt),
         family: (f & 4 != 0).then_some((family, r.text_bold, r.text_italic)),
         align: (f & 8 != 0).then(|| TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize]),
@@ -670,6 +681,11 @@ const PREVIEW_PAUSE: std::time::Duration = std::time::Duration::from_millis(300)
 pub fn note_edited(ui: &AppWindow, tab_id: i32, text: &str) {
     let weak = ui.as_weak();
     update(tab_id, |r, _| {
+        // Typed in place: kept, so a click elsewhere on the page commits it.
+        if r.draft.as_ref().is_some_and(|d| matches!(d.kind, 1 | 3) && d.block.is_none()) {
+            r.inplace_text = text.to_string();
+            return;
+        }
         let Some(d) = r.draft.as_ref().filter(|d| d.kind == 2) else { return };
         // The paragraph this text is for: the timer previews it only if it is still the one edited.
         let Some(key) = d.block.as_ref().map(|b| (d.page, b.0)) else { return };
@@ -848,4 +864,18 @@ pub fn undo(_ui: &AppWindow, tab_id: i32, redo: bool) {
         let pages = pages.filter(|p| !p.is_empty());
         r.send(if redo { Op::Redo { pages } } else { Op::Undo { pages } });
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dated_stamps_write_the_time_in_the_format_chosen() {
+        use chrono::TimeZone;
+        let t = chrono::Local.with_ymd_and_hms(2026, 10, 25, 14, 5, 0).unwrap();
+        assert_eq!(stamp_time(t, 0), "2:05 pm, Oct 25, 2026");
+        assert_eq!(stamp_time(t, 1), "25/10/2026 14:05");
+        assert_eq!(stamp_time(t, 2), "2026-10-25 14:05");
+    }
 }

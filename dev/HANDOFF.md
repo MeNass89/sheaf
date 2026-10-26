@@ -34,19 +34,24 @@ typing and Edit text).
 
 ## Board status
 
-**331 components, 104 at ≥ 9** (joint: Opus and Sol; last suite: ALL GREEN, 1366 s, round 11). Sol re-reviewed rounds 5–8 on 25/10
-(b12–b14): 27 agreed, 42 left open with its gaps in each component's history. Rounds 9–11 (F-013) answer most of
-those gaps and add PDF to HTML or text, New blank PDF, Replace text, Prepare form and Sanitize; they wait on Sol:
-batches `b15a`–`b15c` in `/tmp/f5/solrv/` (`run.sh` on a frozen worktree, `grade.py <batch> <label>` writes the
-verdicts to the board). Next: the second session's `dev/annot-gaps` (rebased on round 7; red on in-place typing
-and Edit text), then what Sol leaves open; still open from its lists: C-sign-009 (kept signatures in the system
-keychain), C-output-004 (Compress progress and cancel), C-compare-003 (depth, page choice), C-sign-004 (camera),
-C-edit-010 (copy/cut picked objects), C-organize-018 (crop preview past page 1, auto white margins), C-sign-017
-(certificate details), C-output-012 (Run again keeps options), C-organize-022 (Merge's page view), C-optimize-007
-(CJK OCR), C-annotate-017 (stamp library), C-annotate-038 (scale calibration), C-sign-016 (trust settings),
-C-convert-020 (online conversion: offline by design, Nassim to decide).
-In flight: C-optimize-006 OCR 9/9/8 (performance: onnxruntime, see DECISIONS 24/10).
-Grades below 9 say what is missing in `next`. `python3 dev/scripts/board.py next` gives the next component.
+**331 components, 155 at ≥ 9** jointly (Opus and Sol; board commit bad962c, 26/10 00:00). Landed on
+`dev/phase-4-5`: rounds 9–13 (last suite ALL GREEN 2130 s). Sol's re-review of rounds 12–13 (b16a–c): 8 closed, 21
+left open with its gaps in each component's history.
+
+**In flight (26/10 night):** rounds 14–15 and the second session's `dev/annot-gaps` (F-014), together on branch
+`dev/round16` (worktree `/tmp/f5/wt-r16`; journals: F-013 sections Round 14 and Round 15, F-014). Round 14 answers
+Sol's b15 gaps and the audit of the components at 0 that the engine already served (page menu with insert, replace
+and reverse; page background; header and footer with Bates; callout; Versions and Revert; New from clipboard; Merge's
+page view; scanned-form detection; form fields arranged together and a grid). Round 15 answers b16's 21 gaps and adds
+zoom to area, snapshot, auto-scroll, initials, signature on every page, compress to a size, document initial view,
+calibrated measuring. Sol batches ready in `/tmp/f5/solrv/`: `b17-round14`, `b18a-round15`, `b18b-round15` (add the
+F-014 components C-annotate-001/007/009/019/022, C-reader-026 and C-edit-005 to a batch). Their suite runs first.
+
+**Still open, no engine base (new work):** C-reader-017 view rotation (renders and text layer must turn together),
+C-reader-045 split view, C-output-009/010 share and email, C-files-009 cloud, C-platform-001 updates,
+C-preferences-003 interface language, C-organize-006/019 flip and scale pages, C-sign-004 camera, C-sign-009
+keychain, C-optimize-007 CJK OCR (model download), C-convert-020 online conversion (offline by design, Nassim to
+decide). `python3 dev/scripts/board.py next` gives the heaviest one below 9.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
 

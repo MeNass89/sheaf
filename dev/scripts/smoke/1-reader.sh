@@ -126,7 +126,11 @@ check "added text takes the chosen font (Times-Bold)" "pdffonts -f 1 -l 1 $OUT/t
 # selected (the row takes its format), Mono, aligned right, 30 pt typed: redrawn in Courier Bold
 # Oblique, wrapped on two lines in a box grown to keep them, still one box.
 key t; sleep 0.6; click 502 110 0.3; click 1000 520 0.8
-xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Boxtest in a font"; key ctrl+Return; sleep 1.2
+xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Boxtest in a font"; sleep 0.5
+# Typed on the page where the box goes (Acrobat, PDF Expert), not in a card: the words at the click.
+IP=$(at Boxtest 420x140+980+500)
+check "a text box is typed in place on the page ($IP)" "[ -n \"$IP\" ]"
+key ctrl+Return; sleep 1.2
 key v; key ctrl+s; sleep 1.5; shot 02c2-text-box-font
 check "a text box takes the format row's font (Times Bold Italic)" "qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -aq '/BaseFont /Times-BoldItalic'"
 NB=$(qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -ac '/Subtype /FreeText$')
@@ -239,13 +243,14 @@ check "Clear form asks first; Cancel keeps the value, Clear empties it ($ASK; $V
 quit
 
 # 6c. Shapes (R): a rectangle; an oval, filled, at 75 %; an arrow. Options bar at 1280×800:
-# oval (317,109), arrow (376,109), Fill (413,109), opacity (550,109).
+# oval (317,109), arrow (376,109), Fill (413,109), opacity (550,109, a menu).
 launch "$OUT/shapes.pdf"; key ctrl+9
 drag() { xdotool mousemove $1 $2 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(($1 + i * $3 / 5)) $(($2 + i * $4 / 5)); sleep 0.05; done; xdotool mouseup 1; sleep 1.2; }
 key r; drag 500 300 180 120
 # ⇧ held at the press: a rectangle dragged 160 × 50 is saved square.
 xdotool keydown shift; drag 260 650 160 50; xdotool keyup shift
-click 317 109; click 413 109; click 550 109; drag 500 600 200 100
+# Opacity (550,109) opens its slider and quick values: 75 % picked.
+click 317 109; click 413 109; click 550 109 0.6; P75=$(at 75 500x140+450+125); [ -n "$P75" ] && click $P75 0.5; drag 500 600 200 100
 click 376 109; drag 900 300 150 -100
 key ctrl+s; sleep 1.5; shot 06c-shapes
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
@@ -257,7 +262,7 @@ for v in o.values():
     if d.get("/Subtype") == "/Square":
         r = d["/Rect"]; print(round(r[2] - r[0]), round(r[3] - r[1]))')
 check "⇧ makes a rectangle square ($(echo $SQ))" "echo \"$SQ\" | awk '{ if (\$1 > 20 && (\$1 - \$2) * (\$1 - \$2) <= 4) ok = 1 } END { exit !ok }'"
-check "the Shapes tool keeps its style for next time (opacity 75 % in the preferences)" "python3 -c 'import json, glob, sys; p = json.load(open(glob.glob(\"$PWD/$OUT/profile/data/Sheaf/prefs.json\")[0])); sys.exit(0 if any(t[0] == 10 and t[3] == 1 for t in p.get(\"tool_styles\", [])) else 1)'"
+check "the Shapes tool keeps its style for next time (opacity 75 % in the preferences)" "python3 -c 'import json, glob, sys; p = json.load(open(glob.glob(\"$PWD/$OUT/profile/data/Sheaf/prefs.json\")[0])); sys.exit(0 if any(t[0] == 10 and t[3] == 75 for t in p.get(\"tool_styles\", [])) else 1)'"
 # 6c'. The eraser (X) along a short pen stroke rubs it out entirely.
 ninks() { inks "$1" | tr ';' '\n' | grep -c .; }
 key p; drag 600 720 40 0; key ctrl+s; sleep 1.5; N1=$(ninks "$OUT/shapes.pdf")

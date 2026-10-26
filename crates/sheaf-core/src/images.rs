@@ -109,7 +109,7 @@ pub fn extract_images(input: &Input, quality: Option<u8>, out_dir: &Path) -> Res
                     continue;
                 }
                 k += 1;
-                let target = out_dir.join(format!("{}-p{}-{k}.{ext}", input.stem(), usize::from(i) + 1));
+                let target = out_dir.join(format!("{}-p{}-{k}.{ext}", input.stem(), i + 1));
                 written.push(atomic_write(&target, |part| {
                     match quality {
                         Some(q) => img.to_rgb8().write_with_encoder(JpegEncoder::new_with_quality(std::fs::File::create(part)?, q))?,

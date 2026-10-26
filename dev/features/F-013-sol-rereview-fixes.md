@@ -358,3 +358,137 @@ Each line: the component, Sol's gap, what was done, its proof.
   `reader_ui::properties::tests::custom_properties_are_typed_as_name_and_value_pairs`.
 - **C-compare-006** (Sol b13b) The proof never ran a comparison: gui-smoke 26 now runs one (Overlay) and opens
   its result, the marked copy in the reader with its differences listed in the Notes panel.
+
+## Round 14 (25/10, Sol's b15 follow-ups)
+- **C-output-007** (Sol b15b) A PDF that allows printing but forbids changes could not be printed: the copy for the
+  print service was made through Remove security, which needs the right to change security. It is now decrypted
+  with the open password alone (`security::printable_copy`), as Acrobat prints such a file. Proof:
+  `print::tests::a_protected_pdf_prints_from_an_unprotected_copy_unless_printing_is_forbidden` (changes forbidden).
+- **C-annotate-026** (Sol b15b) A copied picture stamp was pasted blank: XFDF carries no appearance. The copy keeps
+  the stamp's picture (pdfcraft-engine `Document::stamp_picture_file`, patched in third_party) and ⌘V places a
+  picture stamp in the same box. Proof: `reader_doc::tests::a_picture_stamp_is_copied_with_its_picture`.
+- **C-output-012** (Sol b13c) Run again started from the default options: each task's options are kept with its
+  history entry (passwords never: `saved_options`) and Run again starts the panel from them. Proof:
+  `saved_options::tests::options_come_back_as_they_were_without_their_passwords`, `tests/history.rs`
+  `a_tasks_options_are_kept_with_it_and_older_files_still_load`, gui-smoke 10 (Low compression comes back).
+- **C-forms-014** (Sol b15a) Fields could be moved, deleted and copied one at a time only: ⇧-click selects
+  several; dragged, they move together; their card aligns them on the first one picked (left, centre, right,
+  top, middle, bottom), gives them its width, height or both, and spaces them evenly across or down (Acrobat's
+  Align, Center, Match Size, Distribute); the arrow keys move the fields selected by 1 point (10 with ⇧), and
+  Delete removes them all, one undo step each; Escape lets them go without leaving the tool. Proof:
+  `reader::tests::fields_selected_together_align_match_and_spread_after_the_first`, gui-smoke 53 (two check boxes
+  ⇧-clicked and aligned by Left).
+- **C-forms-014** (Sol b15a, grids) The options bar's Grid (Acrobat's Grid with Snap to Grid) draws lines every
+  9 pt over the pages (a stronger one every inch); fields drawn, placed by a click or dragged land on them.
+  Proof: gui-smoke 53 (a field drawn with the grid on has every edge on it).
+- Bug found on the way: a field placed by a click was its kind's size divided by the zoom (150 pt wide at 100 %,
+  240 at 160 %); it is now its size in points whatever the zoom. Proof: gui-smoke 53 (a check box is 14 pt).
+- **C-organize-022** (Sol b13c) Merge kept its files as cards with page ranges typed: Files | Pages opens them out
+  into one card per page (its file and number under it, each file's page choice kept), moved with the arrows or
+  dropped with ×, files mixed; the merge follows that order (Acrobat's Combine Files with its pages expanded).
+  Files added meanwhile come in at the end; a file removed takes its pages. Proof: sheaf-core
+  `pages::assemble_mixes_the_pages_of_several_files_in_the_order_given`, gui-smoke 21e.
+- **C-forms-007** (Sol) Detect fields found nothing on a scanned form (its lines are a picture): the page is
+  rendered at 144 dpi, its lines and boxes are found in the pixels (`form_scan::lines_in`: dark bands one to six
+  pixels thick; a box is two of the same span joined by dark sides), its words read by OCR for the labels, and
+  PdfCraft's detection runs on them (Acrobat's Prepare Form on a scan). Proof: sheaf-core
+  `form_scan::tests::a_scans_rules_and_boxes_are_found_and_its_dark_areas_and_strokes_are_not`,
+  `two_lines_without_sides_are_two_rules`, gui-smoke 53 (a scanned form: two text fields and a check box).
+- **C-organize-010, C-organize-012, C-organize-020** (never built: the audit of 25/10 found the engine ready) A
+  thumbnail's right-click menu (Acrobat's and Preview's) gathers the page actions and adds Insert pages from file…
+  (a PDF after the page, `Edit::InsertPagesFrom`), Replace with a file's pages… (its first pages in the selected
+  pages' places, refused when it has fewer, `Edit::ReplacePages`) and Reverse page order (the selected run, else
+  every page, one undo step). Proof: gui-smoke 35b.
+- **C-edit-019** (never built; engine ready) More ▸ Page background… (Acrobat's Edit a PDF ▸ Background): six pale
+  colours or a picture (image or PDF page) behind every page's content, at 100, 75 or 50 %, replacing an earlier
+  background; Remove takes out the ones a file has; one undo step. Proof: gui-smoke 35c.
+- **C-edit-015, C-edit-017** (never built; engine ready) The Page numbers tool (found by "header", "footer" or
+  "bates") adds Acrobat's Header & Footer: text in any of the six places (top and bottom, left, centre, right) with
+  {n}, {p}, {date} and {bates}; Bates numbers with a prefix, a first number and 3 to 15 digits; "No page number"
+  for text alone; Replace takes out the file's own headers and footers first. Proof: sheaf-core
+  `numbers::tests::header_and_footer_tokens_take_the_date_and_the_bates_number`, `tests/numbers.rs`
+  `header_and_footer_text_and_bates_numbers_without_a_page_number`, gui-smoke 20d.
+- **C-annotate-008** (never built; engine ready) Text box ▸ Callout (Acrobat's Callout tool): the click is where the
+  callout points; its box, 60 pt up and right (left or down near the page's edges), is joined to it by a bent line
+  with an open arrow; the text typed goes in the box. Proof: gui-smoke 60.
+- **C-output-014** (partial before: undo and redo only) More ▸ Versions… (Acrobat's File ▸ Revert, and the
+  versions an incremental save keeps): Revert to saved drops the unsaved edits and their undo history (said in red
+  first); each version saved in the file opens in a tab of its own; Undo and Redo name what they take back
+  ("Undo Add highlight"), as Acrobat's Edit menu. Proof: gui-smoke 35d.
+- **C-convert-004** (never built) Home ▸ From clipboard (Acrobat's Create PDF from Clipboard, Preview's New from
+  Clipboard): a picture on the clipboard becomes a page of its size, text becomes US Letter pages in 11 pt
+  Helvetica; named in the Save dialog, then opened. Proof: sheaf-core `pages::a_pdf_is_made_from_a_pasted_picture_or_text`,
+  gui-smoke 45b.
+
+## Round 15 (26/10, Sol's b16 gaps and the audit's)
+- **C-reader-025** (Sol b16c) /FitR kept the zoom and could leave its rectangle cut off: the rectangle fills the
+  view (`ViewerUi::zoom_to_fit`), shown whole when it fits. Proof: `viewer_ui::tests::a_destination_brings_its_zoom_its_top_and_its_left_edge` (FitR).
+- **C-reader-011** (never built) Zoom to area (Z, or More ▸ Zoom to area: Acrobat's Marquee Zoom): the next box
+  dragged on a page fills the view, ⌘[ comes back; Z again or Escape lets it go. Proof: gui-smoke 61.
+- **C-security-016** (Sol b16b) A refused Sanitize (pages being rearranged) was covered by the success message:
+  the document's thread says what was removed only once it was. Proof:
+  `reader_doc::tests::sanitize_says_what_it_removed_only_when_it_did`.
+- **C-security-015** (Sol b16b) Quitting dropped Redact's marks not applied: the window's close asks about them
+  as closing their tab does. not automatable: the window's close button in Xvfb (no window manager sends it) —
+  the same dialog's path is gui-smoke 54 (closing the tab).
+- **C-files-011** (Sol b16b) A paragraph open in Edit text with only its format changed was dropped on close: it
+  counts as an unsaved change. Proof: gui-smoke 54 (made bold, then closed: asked).
+- **C-convert-012, C-convert-013** (Sol b16b) Extract images held the pdfium lock for the whole document: it is
+  held while a page's pictures are read, not while they are encoded and written (as PDF to JPG).
+- **C-compare-004, C-compare-007** (Sol b16c) A moved line went unreported when a word of another column changed at
+  the same height: a change on the line counts only within the run of words it belongs to (neighbours closer than
+  an 18 pt gutter). Proof: sheaf-core `compare::a_line_moved_with_the_same_words_is_reported` (two columns).
+- **C-compare-003** (Sol b16b) Semantic Text said pictures were not part of the report while it listed their
+  changes, and two unrelated documents were compared without a word: the panel says the report lists the words,
+  then pictures, drawings and scanned pages (Acrobat's report does both), and documents sharing almost no words
+  (80 % or more changed) are said to differ almost everywhere. Proof: sheaf-core
+  `compare::documents_that_share_almost_no_words_are_said_to`.
+- **C-preferences-004** (Sol b16b) No page to start on and no opening layout: Document Properties ▸ When opened
+  (Acrobat's Initial View) sets the page a document opens at, its layout (one page, two, cover alone), its zoom
+  (fit page, fit width, actual size) and its side panel (bookmarks, pages), written in the file for every reader;
+  a document never opened in Sheaf opens as it asks, over Preferences ▸ Documents. Proof: gui-smoke 62.
+- **C-sign-017** (Sol b16a) A certificate's summary was cut short with no way to read it: a click on any About
+  line of Document Properties shows it in full (issuer, subject and dates), a second click folds it.
+  not automatable: the click on a cut-off line needs a signed PDF in the GUI suite, which has none (its text,
+  issuer and dates, is `reader_doc::tests::document_properties_list_the_signatures_with_their_verdict`'s).
+- **C-output-004** (Sol b16a) A file without pictures showed no progress and Cancel waited for the end:
+  compressing each stream reports its progress too (pictures to 60 %, streams to 90 %), and Cancel is heard
+  every 64 streams and before writing. Proof: sheaf-core `compress::compress_says_how_far_it_is_and_stops_when_cancelled`
+  (a file without pictures).
+- **C-organize-018** (Sol b16a) Crop's preview showed page 1 only: ‹ › under it step through the file's pages,
+  the box drawn on any of them. Proof: gui-smoke 40 (page 2 shown).
+- **C-reader-050** (partial before) More ▸ Copy an area as a picture (Acrobat's Snapshot): the next box dragged
+  on a page goes to the clipboard as the page shows it, at 216 dpi (less past 40 megapixels). Proof:
+  `reader_doc::tests::an_area_of_a_page_is_copied_as_its_pixels`, gui-smoke 63.
+- **C-edit-010** (Sol b16a) ⌘C/⌘X copied a picked picture only: drawings, paragraphs and several objects picked
+  with the Edit tool are copied as a picture of what they cover (⌘X then deletes them), as Acrobat's Snapshot of a
+  selection; pasting brings them back as a picture (PdfCraft has no object copy). Proof: gui-smoke 20c (a
+  drawing picked, ⌘C), `reader_doc::tests::an_area_of_a_page_is_copied_as_its_pixels`.
+- **C-forms-012** (Sol b16c) A field whose /DA names its font by a resource key (/F1) read as Helvetica, so
+  choosing Helvetica changed nothing: the key is looked up in the form's resources (pdfcraft-engine
+  `Document::form_font_base`, patched in third_party). Proof:
+  `reader_doc::tests::a_fields_font_named_by_a_resource_key_is_read_through_the_forms_resources`.
+- **C-convert-014** (Sol b16a) RTF gave a table cell its first block's style: each block keeps its own (bold,
+  italic, size, colour), a block below the one before on a new line, as the Word export lays cells out
+  (pdfcraft-export `rtf_cell`, patched in third_party). Proof: pdfcraft-export `tests::rtf_table_cells_keep_each_blocks_style`.
+- **C-convert-015** (Sol b16a) The XML export wrote a picture's size only: the picture goes in, in base64 lines
+  with its type (PNG or JPEG), so the file holds the whole document (pdfcraft-export `xml`, patched). Proof:
+  pdfcraft-export `tests::xml_holds_each_page_with_its_headings_paragraphs_and_pictures`.
+- **C-annotate-038** (Sol b16a) Eight preset scales and no way to calibrate on a resized plan: Distance ▸
+  Calibrate (Acrobat's, Bluebeam's): the next line drawn is a length you know, its real length is typed ("4.5 m",
+  "12 ft", mm to mi), and the scale it gives measures from then on ("Calibrated · m"; the scale button goes back to
+  the presets). Proof: `reader::tests::a_known_length_calibrates_the_scale`, gui-smoke 42.
+- **C-reader-004** (never built) More ▸ Scroll automatically (Acrobat's Automatically Scroll): the pages move up by
+  themselves (the view is moved in the UI, 60 times a second), ↑ and ↓ slow it down or speed it up, Escape stops.
+  Proof: gui-smoke 64.
+- **C-sign-006** (never built) Signature ▸ Initials (Acrobat's Fill & Sign ▸ Add Initials): initials are drawn or
+  typed on their own pad ("Create your initials"), kept apart from the signatures, and placed 60 pt wide by a click;
+  New initials forgets them. Proof: gui-smoke 65.
+- **C-sign-007** (never built) Signature ▸ Every page: one click places the signature (or initials) at the same
+  place on every page, one undo step. Proof: gui-smoke 65 (initials on all four pages).
+- **C-optimize-003** (never built) Compress ▸ To a size (iLovePDF's and Smallpdf's target size): stronger settings
+  are tried in turn (Low, Recommended, Extreme, then two beyond) until the file is the size typed or smaller; out of
+  reach, the smallest made is kept and the result says so. Proof: sheaf-core
+  `compress::a_target_size_tries_stronger_settings_until_the_file_fits`, gui-smoke 66.
+- **C-edit-005** (Sol b13b) A paragraph edited with a colour of the palette's (F-014) came out in a preset one:
+  Edit text's format row, carets and Replace text take the colour chosen, palette included (`ink_at`).

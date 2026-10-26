@@ -92,6 +92,17 @@ pub fn toggle_field_tint() -> bool {
     })
 }
 
+/// The reader's sixth colour, kept for next time (`light`: the highlights' one).
+pub fn set_custom_colour(light: bool, hex: &str) {
+    with(|h| {
+        let v = Some(hex.trim().trim_start_matches('#').to_uppercase());
+        if light { h.prefs.custom_light = v } else { h.prefs.custom_ink = v }
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
 /// Remembers that `path` was left on `page` (0-based).
 pub fn remember_page(path: &Path, page: usize) {
     let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
@@ -206,7 +217,8 @@ pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>, font: u8
 /// The initials kept (drawn strokes or typed letters), placed by the Signature tool's Initials.
 pub fn set_initials(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>, font: u8) {
     with(|h| {
-        h.prefs.initials = (!strokes.is_empty() || name.is_some()).then(|| (strokes, name, h.prefs.signature_pen, font));
+        let pen = h.prefs.signature_pen;
+        h.prefs.initials = (!strokes.is_empty() || name.is_some()).then_some((strokes, name, pen, font));
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");
         }
@@ -297,6 +309,7 @@ fn push_prefs(ui: &AppWindow) {
     let rb = ui.global::<sheaf_app::ReaderBridge>();
     rb.set_panel_width(panel_width());
     rb.set_thumb_width(crate::reader_ui::reader_thumb(panel_width()) as f32);
+    ui.set_stamp_date(p.stamp_date);
 }
 
 /// Preferences ▸ Appearance ▸ Accent colour.
@@ -368,6 +381,11 @@ pub fn choose_folder(ui: &AppWindow) {
 
 pub fn set_open_after(ui: &AppWindow, v: bool) {
     update_prefs(ui, |p| p.open_folder_after = v);
+}
+
+/// Preferences ▸ Dated stamps (0 Acrobat's, 1 day first, 2 ISO).
+pub fn set_stamp_date(ui: &AppWindow, f: i32) {
+    update_prefs(ui, |p| p.stamp_date = f.clamp(0, 2));
 }
 
 /// Preferences ▸ Open documents at (0 fit width, 1 fit page, 2 actual size).

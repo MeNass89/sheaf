@@ -363,7 +363,7 @@ pub fn crop_preview_step(ui: &AppWindow, tab_id: i32, d: i32) {
             (f.uid, f.input.clone(), page)
         })
     });
-    if let Some((uid, input, page)) = next.flatten() {
+    if let Some((uid, input, page)) = next {
         with(|a| refresh(a, tab_id));
         crop_preview(ui, tab_id, uid, input, page);
     }

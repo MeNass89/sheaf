@@ -94,7 +94,7 @@ fn area_pixels(d: &sheaf_core::pdfcraft::engine::Document, page: usize, rect: [f
     let shot = render::PageRenderer::new(d.display.clone(), config).render(render::RenderRequest { page, scale, tile: Some(tile), ..Default::default() });
     match shot.error {
         Some(e) => Err(e),
-        None => Ok((shot.width, shot.height, shot.rgba)),
+        None => Ok((shot.width, shot.height, shot.rgba.to_vec())),
     }
 }
 

@@ -441,10 +441,9 @@ export component OptionsPanel inherits VerticalLayout {
             title: "To a size";
             description: "The largest file, in MB";
             selected: root.level == 3;
-            placeholder: "2";
-            text <=> root.compress-target;
             clicked => { root.level = 3; }
         }
+        if root.level == 3: TextField { label: "Largest file (MB)"; placeholder: "2"; text <=> root.compress-target; }
         Rectangle { height: 4px; }
         InfoBox { text: root.level == 3 ? "Sheaf tries stronger settings in turn until the file is that size or smaller; if none gets there, it keeps the smallest and says so." : "Recommended and Extreme recompress images; text and vector graphics are never touched."; }
     }
@@ -645,16 +644,16 @@ export component OptionsPanel inherits VerticalLayout {
         }
         InfoBox { text: "{n} page number, {p} page count, {date} today, {bates} the Bates number below."; }
         HorizontalLayout {
-            spacing: 6px;
+            spacing: 8px;
             TextField { label: "Bates prefix"; placeholder: "ACME-"; text <=> root.bates-prefix; }
-            TextField { label: "From"; placeholder: "1"; text <=> root.bates-start; }
-            VerticalLayout {
-                spacing: 4px;
-                SectionLabel { text: "Digits"; }
-                Stepper { value <=> root.bates-digits; minimum: 3; }
-            }
+            TextField { width: 80px; label: "From"; placeholder: "1"; text <=> root.bates-start; }
         }
-        Check { text: "Replace the headers and footers already in the file"; checked <=> root.hf-replace; }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: "Digits"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Stepper { value <=> root.bates-digits; minimum: 3; }
+        }
+        Check { text: "Replace existing headers, footers"; checked <=> root.hf-replace; }
     }
 
     if root.tool == "watermark": VerticalLayout {

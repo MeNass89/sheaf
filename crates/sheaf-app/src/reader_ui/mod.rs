@@ -217,6 +217,8 @@ pub struct ReaderUi {
     /// Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled (rectangle, oval); where the drag is.
     shape_kind: i32,
     shape_fill: bool,
+    /// Shapes' fill: a highlight colour (index, the sixth too), or None a tint of the stroke.
+    fill_colour: Option<usize>,
     shape_end: Option<(f64, f64)>,
     /// ⇧ held when the shape was started: squares, circles, 45° lines.
     shape_shift: bool,
@@ -248,6 +250,8 @@ pub struct ReaderUi {
     /// / 1 Times / 2 Courier, bold, italic, alignment (0 left, 1 centre, 2 right).
     text_pt: f64,
     text_family: i32,
+    /// What is typed in a text box or added text edited in place (committed by a click elsewhere).
+    inplace_text: String,
     text_bold: bool,
     text_italic: bool,
     text_align: i32,
@@ -427,6 +431,7 @@ impl ReaderUi {
             pen_width: 1,
             shape_kind: 0,
             shape_fill: false,
+            fill_colour: None,
             shape_end: None,
             shape_shift: false,
             poly: None,
@@ -443,6 +448,7 @@ impl ReaderUi {
             stamp: MARKS.len() + StampKind::ALL.iter().position(|k| *k == StampKind::Approved).unwrap_or(0),
             text_pt: 12.0,
             text_family: 0,
+            inplace_text: String::new(),
             text_bold: false,
             text_italic: false,
             text_align: 0,
@@ -949,6 +955,25 @@ fn reader_viewer(boxes: Vec<viewer::PageBox>) -> Viewer {
     v.thumb_width = reader_thumb(crate::home::panel_width());
     v
 }
+
+/// The sixth colour of the row (index [`CUSTOM`]): the one picked, else a grey.
+fn custom_colour(light: bool) -> [f64; 3] {
+    let p = crate::home::prefs();
+    (if light { p.custom_light } else { p.custom_ink }).and_then(|h| sheaf_core::numbers::parse_hex_colour(&h)).unwrap_or([0.5, 0.5, 0.5])
+}
+
+/// Colour row index `k` for strokes and text: the five presets, then the custom one.
+pub(super) fn ink_at(k: usize) -> [f64; 3] {
+    if k >= INK.len() { custom_colour(false) } else { INK[k] }
+}
+
+/// Colour row index `k` for highlights and notes.
+pub(super) fn light_at(k: usize) -> [f64; 3] {
+    if k >= COLOURS.len() { custom_colour(true) } else { COLOURS[k] }
+}
+
+/// The colour row's sixth place: the colour picked from the palette or typed.
+pub const CUSTOM: usize = 5;
 
 fn file_name(p: &std::path::Path) -> String {
     p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()

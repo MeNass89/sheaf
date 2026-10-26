@@ -410,8 +410,45 @@ export component ReaderScreen inherits Rectangle {
                         id: root.id;
                         focus-pages => { keys.focus(); }
                     }
+                    // A new text box or added text, typed on the page where it goes, in its own font,
+                    // size and colour (Acrobat, PDF Expert). A click elsewhere, Escape or ⌘↩ finishes it.
+                    if root.tab.reader.note.show && root.tab.reader.note.inplace: Rectangle {
+                        x: root.tab.reader.note.x;
+                        y: root.tab.reader.note.y;
+                        width: root.tab.reader.note.w;
+                        height: max(root.tab.reader.note.h, inplace-edit.preferred-height + 6px);
+                        border-width: 1px;
+                        border-color: Theme.accent;
+                        init => { inplace-edit.focus(); }
+                        Timer {
+                            interval: 1ms;
+                            running: true;
+                            triggered => { inplace-edit.focus(); self.running = false; }
+                        }
+                        inplace-edit := TextInput {
+                            x: 3px;
+                            y: 3px;
+                            width: parent.width - 6px;
+                            single-line: false;
+                            wrap: word-wrap;
+                            font-size: root.tab.reader.note.font-px;
+                            font-family: root.tab.reader.note.font-family;
+                            font-weight: root.tab.reader.note.bold ? 700 : 400;
+                            font-italic: root.tab.reader.note.italic;
+                            color: root.tab.reader.note.ink;
+                            edited => { ReaderBridge.note-edited(root.id, self.text); }
+                            key-pressed(e) => {
+                                if e.text == Key.Escape || (e.text == Key.Return && e.modifiers.control) {
+                                    ReaderBridge.note-commit(root.id, self.text);
+                                    keys.focus();
+                                    return accept;
+                                }
+                                reject
+                            }
+                        }
+                    }
                     // A note or text box being typed.
-                    if root.tab.reader.note.show: Rectangle {
+                    if root.tab.reader.note.show && !root.tab.reader.note.inplace: Rectangle {
                         init => {
                             note-edit.text = root.tab.reader.note.text;
                             note-edit.focus();
