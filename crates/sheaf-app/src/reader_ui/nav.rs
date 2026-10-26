@@ -280,7 +280,7 @@ pub(super) fn keep_fit(ui: &AppWindow, tab_id: i32) {
 
 pub fn escape(tab_id: i32) {
     update(tab_id, |r, _| {
-        if r.draft.take().is_some() {
+        if r.draft.take().is_some() || std::mem::take(&mut r.zoom_area) | std::mem::take(&mut r.snap_area) | std::mem::take(&mut r.auto_scroll) {
             return;
         }
         // A polygon being clicked out is dropped.
@@ -301,6 +301,34 @@ pub fn escape(tab_id: i32) {
         }
         r.tool = SELECT;
     });
+}
+
+/// Zoom to area (Acrobat's Marquee Zoom, Z): the next box dragged on a page fills the view; Z
+/// again or Escape lets it go.
+pub fn zoom_area(ui: &AppWindow, tab_id: i32) {
+    if update(tab_id, |r, _| {
+        r.zoom_area = !r.zoom_area;
+        r.snap_area = false;
+        r.zoom_area
+    }) == Some(true)
+    {
+        crate::flow::toast(ui, "Drag over the part of the page to zoom to");
+    }
+}
+
+/// More ▸ Copy an area as a picture (Acrobat's Snapshot): the next box dragged on a page goes to
+/// the clipboard as the page shows it, at 216 dpi.
+pub fn snap_area(ui: &AppWindow, tab_id: i32) {
+    update(tab_id, |r, _| {
+        r.snap_area = true;
+        r.zoom_area = false;
+    });
+    crate::flow::toast(ui, "Drag over the part of the page to copy as a picture");
+}
+
+/// More ▸ Scroll automatically (Acrobat's): on or off; Escape stops it too.
+pub fn auto_scroll(tab_id: i32) {
+    update(tab_id, |r, _| r.auto_scroll = !r.auto_scroll);
 }
 
 pub fn select_all(tab_id: i32) {

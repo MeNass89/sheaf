@@ -219,6 +219,9 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_props_open(reader_ui::props_open);
     rb.on_background_open(reader_ui::background_open);
     rb.on_versions_open(reader_ui::versions_open);
+    wire_global!(ui, rb, on_zoom_area, |ui, id| reader_ui::zoom_area(&ui, id));
+    wire_global!(ui, rb, on_snap_area, |ui, id| reader_ui::snap_area(&ui, id));
+    rb.on_auto_scroll(reader_ui::auto_scroll);
     wire_global!(ui, rb, on_version_action, |ui, id, n| reader_ui::version_action(&ui, id, n));
     wire_global!(ui, rb, on_background_apply, |ui, id, c, o, a| reader_ui::background_apply(&ui, id, c, o, a));
     rb.on_notes_view(reader_ui::notes_view);
@@ -232,7 +235,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_zoom_typed, |ui, id, t| reader_ui::zoom_typed(&ui, id, &t));
     wire_global!(ui, rb, on_annot_status, |ui, id, k, s| reader_ui::annot_status(&ui, id, k, s));
     rb.on_props_cancel(reader_ui::props_cancel);
-    wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k, c| reader_ui::props_save(&ui, id, &t, &a, &s, &k, &c));
+    wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k, c, page, layout, zoom, panel| reader_ui::props_save(&ui, id, &t, &a, &s, &k, &c, (&page, layout, zoom, panel)));
     wire_global!(ui, rb, on_open_signed, |ui, id, k| reader_ui::open_signed(&ui, id, k));
     rb.on_trust_signature(reader_ui::trust_signature);
     rb.on_print_cancel(reader_ui::print_cancel);
@@ -433,6 +436,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_remove_page(|id, k| flow::page_op(id, k, 0));
     ui.on_move_page(|id, k, d| flow::page_op(id, k, d.signum()));
     wire!(ui, on_show_merge_pages, |ui, id, on| flow::show_merge_pages(&ui, id, on));
+    wire!(ui, on_crop_preview_step, |ui, id, d| flow::crop_preview_step(&ui, id, d));
     ui.on_insert_blank(|id| flow::edit_pages(id, |o| o.push(0)));
     wire!(ui, on_pw_unlock, |ui, pw| password::entered(&ui, pw.into()));
     wire!(ui, on_pw_skip, |ui| password::skipped(&ui));

@@ -5,12 +5,26 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Level { Low, Recommended, Extreme }
+pub enum Level {
+    Low,
+    Recommended,
+    Extreme,
+    /// A file this many bytes or smaller (iLovePDF's and Smallpdf's target size): stronger settings
+    /// are tried in turn ([`TARGET_STEPS`]) until one fits; none fitting, the smallest is kept.
+    Target(u64),
+}
+
+/// The settings a target size tries, gentlest first: Low, Recommended, Extreme, then two beyond.
+const TARGET_STEPS: [(u32, u8); 5] = [(2400, 85), (1600, 70), (1000, 50), (800, 40), (600, 30)];
 
 impl Level {
     /// (max image long side in px, JPEG quality)
     fn params(self) -> (u32, u8) {
-        match self { Level::Low => (2400, 85), Level::Recommended => (1600, 70), Level::Extreme => (1000, 50) }
+        match self {
+            Level::Low => (2400, 85),
+            Level::Recommended | Level::Target(_) => (1600, 70),
+            Level::Extreme => (1000, 50),
+        }
     }
 }
 
@@ -23,6 +37,8 @@ pub struct CompressReport {
     pub was_encrypted: bool,
     /// Encrypted input only: even the smaller unencrypted candidate is larger than the original.
     pub grew: bool,
+    /// [`Level::Target`]: even the strongest settings left the file larger than asked.
+    pub missed_target: bool,
 }
 
 /// Re-encodes 8-bit RGB/gray images (Device or Cal colour spaces, the latter kept as they are) as JPEG,
@@ -40,27 +56,75 @@ pub fn compress(input: &Input, level: Level, out: &Path) -> Result<CompressRepor
 /// `false` stops with [`crate::OpdfError::Cancelled`], nothing written (Sol, 25/10: a large file
 /// showed no progress and Cancel waited for its end).
 pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<CompressReport> {
+    let (bytes, before, was_encrypted, missed_target) = match level {
+        Level::Target(limit) => {
+            let n = TARGET_STEPS.len() as f32;
+            let mut best: Option<(Vec<u8>, u64, bool)> = None;
+            for (k, (max, q)) in TARGET_STEPS.into_iter().enumerate() {
+                let tried = squeeze(input, max, q, &mut |p| progress((k as f32 + p) / n * 0.95))?;
+                let fits = tried.0.len() as u64 <= limit;
+                if best.as_ref().is_none_or(|b| tried.0.len() < b.0.len()) {
+                    best = Some(tried);
+                }
+                if fits {
+                    break;
+                }
+            }
+            let (bytes, before, enc) = best.ok_or_else(|| crate::OpdfError::Unsupported("nothing to compress".into()))?;
+            let missed = bytes.len() as u64 > limit;
+            (bytes, before, enc, missed)
+        }
+        level => {
+            let (max, q) = level.params();
+            let (bytes, before, enc) = squeeze(input, max, q, progress)?;
+            (bytes, before, enc, false)
+        }
+    };
+    let after = bytes.len() as u64;
+    if !progress(0.95) { return Err(crate::OpdfError::Cancelled); }
+    let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;
+    progress(1.0);
+    Ok(CompressReport { path, before, after, already_optimal: after >= before, was_encrypted, grew: after > before, missed_target })
+}
+
+/// The file recompressed with pictures at most `max` pixels on their long side and JPEG quality
+/// `q`, as bytes, with the original's size and whether it was encrypted; `progress` told 0..0.9.
+fn squeeze(input: &Input, max: u32, q: u8, progress: &mut dyn FnMut(f32) -> bool) -> Result<(Vec<u8>, u64, bool)> {
     let original = std::fs::read(&input.path)?;
     let mut doc = input.load_lopdf()?;
     let was_encrypted = doc.was_encrypted();
     let mut plain = was_encrypted.then(|| doc.clone());
     dedupe_streams(&mut doc);
-    let (max, q) = level.params();
     let masks = mask_targets(&doc);
     let kinds: HashMap<ObjectId, bool> = doc.objects.iter()
         .filter(|(id, _)| !masks.contains(id))
         .filter_map(|(id, o)| Some((*id, is_gray(&doc, o.as_stream().ok()?)?)))
         .collect();
+    // Progress: the pictures to 60 %, then each stream compressed to 90 % (Sol, 25/10: a file
+    // without pictures stayed at 0 % with Cancel unheard until the end).
+    if !progress(0.02) { return Err(crate::OpdfError::Cancelled); }
     let (total, mut done) = (kinds.len().max(1) as f32, 0.0);
     for (id, obj) in doc.objects.iter_mut() {
         if let (Some(&gray), Ok(s)) = (kinds.get(id), obj.as_stream_mut()) {
             recompress(s, gray, max, q);
             done += 1.0;
-            if !progress(0.9 * done / total) { return Err(crate::OpdfError::Cancelled); }
+            if !progress(0.02 + 0.58 * done / total) { return Err(crate::OpdfError::Cancelled); }
         }
     }
     doc.prune_objects();
-    doc.compress();
+    // `Document::compress`, a stream at a time with a word to Cancel every 64.
+    let streams = doc.objects.values().filter(|o| o.as_stream().is_ok()).count().max(1) as f32;
+    for (k, obj) in doc.objects.values_mut().enumerate() {
+        if let Object::Stream(s) = obj
+            && s.allows_compression
+        {
+            let _ = s.compress();
+        }
+        if k % 64 == 63 && !progress(0.6 + 0.3 * (k as f32 / streams).min(1.0)) {
+            return Err(crate::OpdfError::Cancelled);
+        }
+    }
+    if !progress(0.9) { return Err(crate::OpdfError::Cancelled); }
     let mut buf = Vec::new();
     doc.save_with_options(&mut buf, SaveOptions::builder().use_object_streams(true).use_xref_streams(true).build())?;
     let bytes = match plain.as_mut() {
@@ -72,11 +136,7 @@ pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn
             if b.len() < buf.len() { b } else { buf }
         }
     };
-    let (before, after) = (original.len() as u64, bytes.len() as u64);
-    if !progress(0.95) { return Err(crate::OpdfError::Cancelled); }
-    let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;
-    progress(1.0);
-    Ok(CompressReport { path, before, after, already_optimal: after >= before, was_encrypted, grew: after > before })
+    Ok((bytes, original.len() as u64, was_encrypted))
 }
 
 /// Identical streams (the same picture or font program embedded again for each page, as some

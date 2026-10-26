@@ -83,15 +83,24 @@ pub fn extract_images(input: &Input, quality: Option<u8>, out_dir: &Path) -> Res
     let mut written: Vec<PathBuf> = Vec::new();
     // Each picture is written as soon as it is decoded (Sol, 25/10: a long scan kept gigabytes of
     // pixels before the first write); a failure takes back what was written, as before.
+    // The pdfium lock is held while a page's pictures are read, not while they are encoded and
+    // written (Sol, 25/10: other tabs' pages waited for the whole document), as `pdf_to_jpg`.
     let result = (|| -> Result<()> {
-        let _g = pdfium_lock();
-        let doc = input.open()?;
+        let g = pdfium_lock();
+        let doc = Locked(Some(input.open()?));
+        let n = doc.0.as_ref().map_or(0, |d| d.pages().len());
+        drop(g);
         let mut seen = std::collections::HashSet::new();
-        for (i, page) in doc.pages().iter().enumerate() {
+        for i in 0..n {
             let mut k = 0;
             let mut pictures = Vec::new();
-            for o in page.objects().iter() {
-                pictures_in(&o, &doc, &mut pictures);
+            {
+                let _g = pdfium_lock();
+                let d = doc.0.as_ref().expect("open until the end");
+                let page = d.pages().get(i)?;
+                for o in page.objects().iter() {
+                    pictures_in(&o, d, &mut pictures);
+                }
             }
             for img in pictures {
                 let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -100,7 +109,7 @@ pub fn extract_images(input: &Input, quality: Option<u8>, out_dir: &Path) -> Res
                     continue;
                 }
                 k += 1;
-                let target = out_dir.join(format!("{}-p{}-{k}.{ext}", input.stem(), i + 1));
+                let target = out_dir.join(format!("{}-p{}-{k}.{ext}", input.stem(), usize::from(i) + 1));
                 written.push(atomic_write(&target, |part| {
                     match quality {
                         Some(q) => img.to_rgb8().write_with_encoder(JpegEncoder::new_with_quality(std::fs::File::create(part)?, q))?,

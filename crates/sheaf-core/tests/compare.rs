@@ -220,4 +220,40 @@ fn a_line_moved_with_the_same_words_is_reported() {
     assert_eq!((r.added, r.removed, r.replaced, r.moved), (0, 0, 0, 1), "{r:?}");
     assert!(r.summary().contains("1 line moved"), "{}", r.summary());
     assert!(page_texts(&r.path).join(" ").contains("Page 1: 1 line moved"));
+    // The same with a word changed in another column at the new line's height: still moved.
+    let two = |name: &str, y: f32, right: &str| {
+        let _g = pdfium_lock();
+        let mut doc = new_document();
+        let font = doc.fonts_mut().helvetica();
+        let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+        page.objects_mut().create_text_object(PdfPoints::new(72.0), PdfPoints::new(y), "The same words here", font, PdfPoints::new(14.0)).unwrap();
+        page.objects_mut().create_text_object(PdfPoints::new(360.0), PdfPoints::new(500.0), right, font, PdfPoints::new(14.0)).unwrap();
+        let path = t.path().join(name);
+        doc.save_to_file(&path).unwrap();
+        path
+    };
+    let (old, new) = (two("old2.pdf", 760.0, "Column two old"), two("new2.pdf", 500.0, "Column two new"));
+    let r = compare::compare(&Input::new(&old), &Input::new(&new), CompareMode::Text, &t.path().join("r2.pdf")).unwrap();
+    assert_eq!(r.moved, 1, "{r:?}");
+}
+
+#[test]
+fn documents_that_share_almost_no_words_are_said_to() {
+    let t = tempfile::tempdir().unwrap();
+    let doc = |name: &str, word: &str| {
+        let _g = pdfium_lock();
+        let mut doc = new_document();
+        let font = doc.fonts_mut().helvetica();
+        let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+        for line in 0..6 {
+            let text = (0..5).map(|k| format!("{word}{}", line * 5 + k)).collect::<Vec<_>>().join(" ");
+            page.objects_mut().create_text_object(PdfPoints::new(72.0), PdfPoints::new(760.0 - line as f32 * 20.0), &text, font, PdfPoints::new(12.0)).unwrap();
+        }
+        let path = t.path().join(name);
+        doc.save_to_file(&path).unwrap();
+        path
+    };
+    let (old, new) = (doc("a.pdf", "apple"), doc("b.pdf", "zebra"));
+    let r = compare::compare(&Input::new(&old), &Input::new(&new), CompareMode::Text, &t.path().join("r.pdf")).unwrap();
+    assert!(page_texts(&r.path).join(" ").contains("differ almost everywhere"), "{:?}", page_texts(&r.path));
 }

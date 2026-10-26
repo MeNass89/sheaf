@@ -324,6 +324,10 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 })?;
                 was_encrypted |= rep.was_encrypted;
                 grew |= rep.grew;
+                if rep.missed_target {
+                    let name = i.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    notes.push(format!("{name}: {:.1} MB is as small as it gets without spoiling its pages", rep.after as f64 / 1_048_576.0));
+                }
                 Ok(vec![rep.path])
             }))?
         }

@@ -97,6 +97,8 @@ pub struct TabState {
     /// files as cards. Their thumbnails, by the same key.
     pub merge_order: Option<Vec<(i32, u32)>>,
     pub merge_thumbs: HashMap<(i32, u32), Image>,
+    /// Crop: the page its preview shows (0-based).
+    pub preview_page: u32,
 }
 
 impl TabState {
@@ -130,6 +132,7 @@ impl TabState {
             options: None,
             merge_order: None,
             merge_thumbs: HashMap::new(),
+            preview_page: 0,
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
         }
     }
@@ -414,6 +417,8 @@ pub fn build(t: &TabState) -> ToolTab {
         })),
         office_missing: t.office_missing,
         has_preview: t.preview.is_some(),
+        preview_page: t.preview_page as i32 + 1,
+        preview_pages: t.files.first().and_then(|f| f.pages).unwrap_or(1) as i32,
         preview_note: t.preview_note.clone().into(),
         preview: t.preview.as_ref().map(|p| p.0.clone()).unwrap_or_default(),
         preview_w: t.preview.as_ref().map(|p| p.1).unwrap_or_default(),

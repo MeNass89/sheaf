@@ -265,6 +265,8 @@ export struct ReaderState {
     props-trust: [string],
     // Its own properties, "Name: value; …" (Acrobat's Custom tab).
     props-custom: string,
+    // When opened (the document's Initial View): page (1-based), layout, zoom, panel (properties.rs).
+    props-opening: [int],
     props-about: [ReaderProp],
     // Notes panel: filter (0 all, 1 markup, 2 notes, 3 drawings, 4 stamps) and order (0 page,
     // 1 newest, 2 author, 3 type).
@@ -311,6 +313,13 @@ export struct ReaderState {
     callout: bool,
     // The Measuring tools' scale ("1:100 · m").
     measure-scale: string,
+    // Calibrate is on: the next distance asks for its real length.
+    calibrating: bool,
+    // Scroll automatically is on.
+    auto-scroll: bool,
+    // The Signature tool places the initials; on every page at once.
+    initials: bool,
+    sign-every-page: bool,
     opacity: int,
     // Print sheet: open, the system's printers, the chosen one.
     print-open: bool,
@@ -388,7 +397,8 @@ export struct ContinueTool {
 
 // Everything the options panels collect, sent with the action button.
 export struct ToolOptions {
-    level: int,          // compress: 0 extreme, 1 recommended, 2 low
+    level: int,          // compress: 0 extreme, 1 recommended, 2 low, 3 a target size
+    compress-target: string, // compress to a size: the largest file, in MB as typed
     password: string,    // protect
     confirm: string,
     owner: string,
@@ -501,6 +511,9 @@ export struct ToolTab {
     any-locked: bool,
     // Merge: its files opened out into their pages (the page cards show them).
     merge-pages: bool,
+    // Crop: the page its preview shows (1-based) of how many.
+    preview-page: int,
+    preview-pages: int,
     // Run again: the options the task ran with (has-options: there are some to start from).
     options: ToolOptions,
     has-options: bool,
@@ -646,6 +659,10 @@ export global ReaderBridge {
     callback background-apply(int, int, int, int);
     // More ▸ Versions…: open; then 0 reverts to the saved file, n opens version n, −1 closes.
     callback versions-open(int);
+    // Zoom to area: the next box dragged on a page fills the view (Z).
+    callback zoom-area(int);
+    callback snap-area(int);
+    callback auto-scroll(int);
     callback version-action(int, int);
     // One column → two pages → two pages with the cover alone.
     callback cycle-spread(int);
@@ -674,7 +691,8 @@ export global ReaderBridge {
     callback annot-status(int, int, int);
     // Document Properties: open; save title, author, subject, keywords; cancel.
     callback props-open(int);
-    callback props-save(int, string, string, string, string, string);
+    // Title, author, subject, keywords, custom properties; When opened: page, layout, zoom, panel.
+    callback props-save(int, string, string, string, string, string, string, int, int, int);
     callback open-signed(int, int);
     callback trust-signature(int, int);
     callback props-cancel(int);

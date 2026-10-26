@@ -185,6 +185,13 @@ pub(super) fn select_annot(r: &mut ReaderUi, i: usize) {
 /// Shapes, pen and stamp options: `what` 0 the shape (0 rectangle, 1 oval, 2 line, 3 arrow), 1
 /// fill on or off, 2 the next opacity, 3 the stamp (index in `StampKind::ALL`).
 pub fn shape_option(tab_id: i32, what: i32, value: i32) {
+    // New initials: the kept ones forgotten, the pad opens at the next click (outside the reader's
+    // state: the preferences are their own).
+    if what == 14 {
+        crate::home::set_initials(Vec::new(), None, 0);
+        update(tab_id, |r, _| r.version += 1);
+        return;
+    }
     update(tab_id, |r, _| match what {
         0 => {
             r.shape_kind = value.clamp(0, 9);
@@ -201,7 +208,15 @@ pub fn shape_option(tab_id: i32, what: i32, value: i32) {
         4 => r.link_visible = !r.link_visible,
         5 => r.link_dashed = !r.link_dashed,
         6 => r.arrow_head = (r.arrow_head + 1) % reader::ARROW_HEADS.len(),
-        10 => r.measure_scale = (r.measure_scale + 1) % reader::MEASURE_SCALES.len(),
+        10 => {
+            // From a calibrated scale back to the presets, at the one it was on.
+            if r.measure_custom.take().is_none() {
+                r.measure_scale = (r.measure_scale + 1) % reader::MEASURE_SCALES.len();
+            }
+        }
+        12 => r.calibrating = !r.calibrating,
+        13 => r.initials = !r.initials,
+        15 => r.sign_every_page = !r.sign_every_page,
         7 => r.arrow_both = !r.arrow_both,
         11 => r.callout = !r.callout,
         _ => {

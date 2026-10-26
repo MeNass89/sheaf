@@ -1416,7 +1416,10 @@ pub fn rtf(pages: &[Page]) -> String {
     for it in &items {
         match it {
             Item::Para(bs, _) => bs.iter().for_each(|b| note(b.color)),
-            Item::Table(t) => t.rows.iter().flatten().for_each(|c| note(c.color)),
+            Item::Table(t) => t.rows.iter().flatten().for_each(|c| {
+                note(c.color);
+                c.blocks.iter().for_each(|b| note(b.color));
+            }),
             Item::Img(_) | Item::PageBreak => {}
         }
     }
@@ -1467,15 +1470,7 @@ pub fn rtf(pages: &[Page]) -> String {
                         }
                     }
                     for c in row {
-                        let mut fmt = format!("\\intbl\\fs{}", (c.size * 2.0).round() as i64);
-                        if c.bold {
-                            fmt.push_str("\\b");
-                        }
-                        if c.italic {
-                            fmt.push_str("\\i");
-                        }
-                        fmt.push_str(&cf(c.color));
-                        s.push_str(&format!("{{{fmt} {}}}\\cell", rtf_text(&c.text)));
+                        s.push_str(&rtf_cell(c, &cf));
                     }
                     s.push_str("\\row\n");
                 }
@@ -1485,6 +1480,46 @@ pub fn rtf(pages: &[Page]) -> String {
         }
     }
     s.push('}');
+    s
+}
+
+/// Sheaf: a table cell in RTF, its blocks each in their own style (Sol, 25/10: the first block's
+/// style was given to the whole cell), a block below the one before on a new line (`\\line`), as
+/// `cell_paragraphs` lays them out for Word.
+fn rtf_cell(c: &Cell, cf: &dyn Fn([f64; 3]) -> String) -> String {
+    let style = |size: f64, bold: bool, italic: bool, color: [f64; 3]| {
+        let mut fmt = format!("\\fs{}", (size * 2.0).round() as i64);
+        if bold {
+            fmt.push_str("\\b");
+        }
+        if italic {
+            fmt.push_str("\\i");
+        }
+        fmt.push_str(&cf(color));
+        fmt
+    };
+    if c.blocks.is_empty() {
+        return format!("{{\\intbl{} {}}}\\cell", style(c.size, c.bold, c.italic, c.color), rtf_text(&c.text));
+    }
+    let mut s = String::from("{\\intbl");
+    let mut prev: Option<&Block> = None;
+    for b in &c.blocks {
+        let mut text = b.text.clone();
+        if let Some(p) = prev {
+            let mid = |x: &Block| (x.rect[1] + x.rect[3]) / 2.0;
+            if mid(p) - mid(b) > b.size.max(p.size) * 0.5 {
+                s.push_str("\\line");
+                text = text.trim_start().to_string();
+            } else if !p.text.ends_with(char::is_whitespace) && !b.text.starts_with(char::is_whitespace) && b.rect[0] - p.rect[2] > b.size * 0.15 {
+                text.insert(0, ' ');
+            }
+        } else {
+            text = text.trim_start().to_string();
+        }
+        s.push_str(&format!("{{{} {}}}", style(b.size, b.bold, b.italic, b.color), rtf_text(&text)));
+        prev = Some(b);
+    }
+    s.push_str("}\\cell");
     s
 }
 
@@ -1541,7 +1576,14 @@ pub fn xml(pages: &[Page], title: &str) -> String {
                 }
                 s.push_str("  </table>\n");
             }
-            Item::Img(im) => s.push_str(&format!("  <image width=\"{:.0}\" height=\"{:.0}\"/>\n", im.size[0], im.size[1])),
+            // Sheaf: the picture itself, in base64 lines of 76 characters (Sol, 25/10: only its
+            // size was written); its type says how to read it.
+            Item::Img(im) => {
+                let mime = if im.ext == "jpg" { "image/jpeg" } else { "image/png" };
+                let data = base64(&im.bytes);
+                let lines: Vec<&str> = data.as_bytes().chunks(76).filter_map(|c| std::str::from_utf8(c).ok()).collect();
+                s.push_str(&format!("  <image width=\"{:.0}\" height=\"{:.0}\" type=\"{mime}\" encoding=\"base64\">\n{}\n  </image>\n", im.size[0], im.size[1], lines.join("\n")));
+            }
             Item::PageBreak => {
                 n += 1;
                 s.push_str(&format!("</page>\n<page number=\"{n}\">\n"));
@@ -1650,7 +1692,7 @@ mod tests {
     fn xml_holds_each_page_with_its_headings_paragraphs_and_pictures() {
         let x = xml(&[page(), page()], "R&D");
         assert!(x.starts_with("<?xml") && x.contains("<document title=\"R&amp;D\">") && x.ends_with("</page>\n</document>\n"), "{x}");
-        for t in ["<page number=\"2\">", "<h1>Annual Report</h1>", "<p size=\"11.0\">Some &lt;body&gt; text", "<image width=\"200\" height=\"150\"/>"] {
+        for t in ["<page number=\"2\">", "<h1>Annual Report</h1>", "<p size=\"11.0\">Some &lt;body&gt; text", "<image width=\"200\" height=\"150\" type=\"image/png\" encoding=\"base64\">", "iVBORw0KGgo"] {
             assert!(x.contains(t), "{t} missing in {x}");
         }
     }
@@ -1865,6 +1907,14 @@ mod tests {
         let p = Page { rules: Vec::new(), fills: Vec::new(), width: 612.0, height: 792.0, blocks: vec![run("Plain then ", 72.0, false, [0.0; 3]), run("bold", 140.0, true, [0.0; 3]), run(" red.", 170.0, false, [1.0, 0.0, 0.0])], images: Vec::new() };
         let r = rtf(&[p]);
         assert!(r.contains("{\\fs22 Plain then }{\\fs22\\b bold}{\\fs22\\cf1  red.}"), "{r}");
+    }
+
+    #[test]
+    fn rtf_table_cells_keep_each_blocks_style() {
+        let b = |t: &str, x: f64, y: f64, bold: bool, color: [f64; 3]| Block { font: String::new(), para: 0, text: t.into(), rect: [x, y, x + 60.0, y + 10.0], size: 10.0, bold, italic: false, color, rotation: 0.0 };
+        let cell = Cell { text: "Symptoms Fever".into(), size: 10.0, span: 1, blocks: vec![b("Symptoms", 10.0, 100.0, true, [0.0; 3]), b("Fever", 10.0, 86.0, false, [0.0, 0.0, 1.0])], ..Default::default() };
+        let r = rtf_cell(&cell, &|c| if c == [0.0, 0.0, 1.0] { "\\cf1".into() } else { String::new() });
+        assert!(r.contains("\\b Symptoms}") && r.contains("\\line") && r.contains("\\cf1 Fever}") && !r.contains("\\b Fever"), "{r}");
     }
 
     #[test]

@@ -333,9 +333,14 @@ pub fn page_thumbs(input: &Input, width: i32, mut each: impl FnMut(u32, Thumb)) 
 
 /// Page 1 rendered `width` px wide, with its displayed size in points (Crop preview).
 pub fn first_page_preview(input: &Input, width: i32) -> Result<(Thumb, f32, f32)> {
+    page_preview(input, 0, width)
+}
+
+/// Page `index` (0-based) at `width` pixels, with its size in points (Crop's preview of any page).
+pub fn page_preview(input: &Input, index: u16, width: i32) -> Result<(Thumb, f32, f32)> {
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = input.open()?;
-    let page = doc.pages().first().map_err(|e| OpdfError::Unsupported(format!("no pages: {e}")))?;
+    let page = doc.pages().get(index).map_err(|e| OpdfError::Unsupported(format!("no page {}: {e}", index + 1)))?;
     let (w, h) = (page.width().value, page.height().value);
     let bmp = page.render_with_config(&pdfium_render::prelude::PdfRenderConfig::new().set_target_width(width))?;
     Ok((Thumb { width: bmp.width() as u32, height: bmp.height() as u32, rgba: bmp.as_rgba_bytes() }, w, h))

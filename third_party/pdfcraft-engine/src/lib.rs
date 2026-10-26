@@ -585,6 +585,18 @@ impl Document {
         }
     }
 
+    /// Sheaf: the base font a form's default-resources font name stands for (`/F1` → `Times-Roman`,
+    /// AcroForm `/DR /Font`), so a field's font can be told from its `/DA`.
+    pub fn form_font_base(&self, name: &str) -> Option<String> {
+        let cos = &self.editor.as_ref()?.cos;
+        let root = cos.get(cos.root()?);
+        let form = cos.resolve(root.as_dict()?.get(b"AcroForm")?);
+        let dr = cos.resolve(form.as_dict()?.get(b"DR")?);
+        let fonts = cos.resolve(dr.as_dict()?.get(b"Font")?);
+        let font = cos.resolve(fonts.as_dict()?.get(name.as_bytes())?);
+        font.as_dict()?.name(b"BaseFont").map(|b| String::from_utf8_lossy(b).into_owned())
+    }
+
     pub fn initial_view(&self) -> InitialView {
         self.editor.as_ref().map(|e| pdfcraft_organize::initial_view(&e.cos)).unwrap_or_default()
     }

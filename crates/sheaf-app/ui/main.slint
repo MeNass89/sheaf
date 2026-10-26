@@ -151,6 +151,7 @@ export component AppWindow inherits Window {
     callback move-page(int, int, int);
     callback insert-blank(int);
     callback show-merge-pages(int, bool);
+    callback crop-preview-step(int, int);
     callback run-tool(int, ToolOptions);
     callback cancel-job(int);
     callback open-output(int, int);
@@ -341,6 +342,7 @@ export component AppWindow inherits Window {
                         move-page(k, d) => { root.move-page(t.id, k, d); }
                         insert-blank => { root.insert-blank(t.id); }
                         show-merge-pages(on) => { root.show-merge-pages(t.id, on); }
+                        crop-preview-step(d) => { root.crop-preview-step(t.id, d); }
                         run(o) => { root.run-tool(t.id, o); }
                         cancel => { root.cancel-job(t.id); }
                         get-libreoffice => { root.get-libreoffice(); }

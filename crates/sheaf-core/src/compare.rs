@@ -111,6 +111,21 @@ fn moved(old: &[Placed], new: &[Placed]) -> Vec<(usize, [f64; 4])> {
 
 /// The lines of `new` whose words were in `old` but are not at the same place, on lines where
 /// `changed` sees no changed word: text moved as it was. One box per line, by page.
+/// The horizontal span of the run of words on `page` that holds `r`: its neighbours on the same
+/// line closer than a column gutter (18 pt), one after the other.
+fn run_of(words: &[Placed], page: usize, r: &[f64; 4]) -> (f64, f64) {
+    const GUTTER: f64 = 18.0;
+    let line: Vec<[f64; 4]> = words.iter().filter(|w| w.1 == page && (w.2[1] - r[1]).abs() < 3.0).map(|w| w.2).collect();
+    let (mut x0, mut x1) = (r[0], r[2]);
+    loop {
+        let wider = line.iter().fold((x0, x1), |(a, b), w| if w[2] >= a - GUTTER && w[0] <= b + GUTTER { (a.min(w[0]), b.max(w[2])) } else { (a, b) });
+        if wider == (x0, x1) {
+            return (x0, x1);
+        }
+        (x0, x1) = wider;
+    }
+}
+
 fn moved_lines(old: &[Placed], new: &[Placed], changed: impl Fn(usize, &[f64; 4]) -> bool) -> Vec<(usize, [f64; 4])> {
     let same = |a: &Placed, b: &Placed| a.1 == b.1 && a.0 == b.0 && a.2.iter().zip(b.2).all(|(x, y)| (x - y).abs() < 0.5);
     let mut lines: Vec<(usize, [f64; 4])> = Vec::new();
@@ -159,7 +174,12 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
     let shifted = moved(&old_words, &new_words);
     // Words moved where no change is on their line moved on their own (a paragraph moved down): a
     // line of them is reported (Sol, 25/10: a move with the same words showed no difference).
-    let changed_line = |page: usize, r: &[f64; 4]| c.changes.iter().any(|ch| ch.new.page == page && ch.new.rects.iter().any(|q| (q[1] - r[1]).abs() < 3.0));
+    // A change on the same line counts only in the same column (Sol, 25/10: a word changed in the
+    // other column at the same height hid the move).
+    let changed_line = |page: usize, r: &[f64; 4]| {
+        let (x0, x1) = run_of(&new_words, page, r);
+        c.changes.iter().any(|ch| ch.new.page == page && ch.new.rects.iter().any(|q| (q[1] - r[1]).abs() < 3.0 && q[2] >= x0 - 1.0 && q[0] <= x1 + 1.0))
+    };
     let moved_lines = moved_lines(&old_words, &new_words, changed_line);
     report.moved = moved_lines.len();
     words.extend(shifted);
@@ -178,6 +198,13 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
     report.pages_added = new_pages.len().saturating_sub(old_pages.len());
     report.pages_removed = old_pages.len().saturating_sub(new_pages.len());
     let mut notes = Vec::new();
+    // Two documents that share almost no words are said to (Acrobat warns that documents are too
+    // different to compare; Sol, 25/10): the report is still written.
+    let total = old_words.len() + new_words.len();
+    let changed: usize = c.changes.iter().map(|ch| ch.new.rects.len() + ch.old.rects.len()).sum();
+    if total >= 40 && changed * 10 >= total * 8 {
+        notes.push(format!("The documents differ almost everywhere ({} % of their words): they may not be versions of one another.", changed * 100 / total));
+    }
     if report.pages_added > 0 {
         notes.push(format!("{} only in the changed document.", pages_span(old_pages.len() + 1, new_pages.len(), "is", "are")));
     }

@@ -253,6 +253,7 @@ export component ToolFlowScreen inherits Rectangle {
     callback move-page(int, int);
     callback insert-blank();
     callback show-merge-pages(bool);
+    callback crop-preview-step(int);
     callback run(ToolOptions);
     callback cancel();
     callback get-libreoffice();
@@ -623,6 +624,9 @@ export component ToolFlowScreen inherits Rectangle {
                     insert-blank => { root.insert-blank(); }
                     merge-pages: root.tab.merge-pages;
                     show-pages(on) => { root.show-merge-pages(on); }
+                    preview-page: root.tab.preview-page;
+                    preview-pages: root.tab.preview-pages;
+                    preview-step(d) => { root.crop-preview-step(d); }
                     get-libreoffice => { root.get-libreoffice(); }
                     tab-id: root.tab.id;
                 }

@@ -210,6 +210,7 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                         let input = f.input.clone();
                         if t.tool == ToolId::Crop {
                             t.preview = None;
+                            t.preview_page = 0;
                             return (None, Some(input), None);
                         }
                         if matches!(t.tool, ToolId::Redact | ToolId::Sign | ToolId::Edit) {
@@ -237,7 +238,7 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                         page_thumbs(&ui, tab_id, input, merged);
                     }
                     if let Some(input) = crop {
-                        crop_preview(&ui, tab_id, uid, input);
+                        crop_preview(&ui, tab_id, uid, input, 0);
                     }
                     if let Some(input) = view {
                         crate::viewer_ui::load(&ui, tab_id, input);
@@ -332,21 +333,40 @@ fn page_thumbs(ui: &AppWindow, tab_id: i32, input: Input, merged: Option<i32>) {
     });
 }
 
-/// Crop: page 1 at `PREVIEW_PX` on the probe pool, shown under the margin fields. Dropped if
+/// Crop: page `page` (0-based) at `PREVIEW_PX` on the probe pool, shown under the margin fields. Dropped if
 /// the file was replaced meanwhile.
-fn crop_preview(ui: &AppWindow, tab_id: i32, uid: i32, input: Input) {
+fn crop_preview(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, page: u32) {
     let weak = ui.as_weak();
     sheaf_app::pool::probes().submit(move || {
-        let Ok((thumb, w, h)) = catching(|| files::first_page_preview(&input, PREVIEW_PX)) else { return };
+        let Ok((thumb, w, h)) = catching(|| files::page_preview(&input, page.min(u32::from(u16::MAX)) as u16, PREVIEW_PX)) else { return };
         let _ = weak.upgrade_in_event_loop(move |_| {
             with(|a| {
-                if let Some(t) = a.tab(tab_id).filter(|t| t.files.first().is_some_and(|f| f.uid == uid)) {
+                if let Some(t) = a.tab(tab_id).filter(|t| t.files.first().is_some_and(|f| f.uid == uid) && t.preview_page == page) {
                     t.preview = Some((state::to_image(thumb), w, h));
                 }
                 refresh(a, tab_id);
             });
         });
     });
+}
+
+/// Crop's preview ‹ › : another page of the file to draw the box on (Sol, 25/10: only page 1
+/// could be seen); the margins typed apply as before.
+pub fn crop_preview_step(ui: &AppWindow, tab_id: i32, d: i32) {
+    let next = with(|a| {
+        let t = a.tab(tab_id)?;
+        let f = t.files.first()?;
+        let last = f.pages.unwrap_or(1).saturating_sub(1);
+        let page = (t.preview_page as i64 + i64::from(d)).clamp(0, i64::from(last)) as u32;
+        (page != t.preview_page).then(|| {
+            t.preview_page = page;
+            (f.uid, f.input.clone(), page)
+        })
+    });
+    if let Some((uid, input, page)) = next.flatten() {
+        with(|a| refresh(a, tab_id));
+        crop_preview(ui, tab_id, uid, input, page);
+    }
 }
 
 // ---- file and page edits ----------------------------------------------------------------------
@@ -644,7 +664,8 @@ pub fn close_requested(ui: &AppWindow) -> slint::CloseRequestResponse {
 }
 
 pub fn quit_or_ask(ui: &AppWindow) -> slint::CloseRequestResponse {
-    let dirty = with(|a| a.tabs.iter().map(|t| t.id).collect::<Vec<_>>()).into_iter().find(|id| crate::reader_ui::unsaved_name(*id).is_some());
+    // Unsaved edits, and Redact's marks not applied (Sol, 25/10: quitting dropped them unasked).
+    let dirty = with(|a| a.tabs.iter().map(|t| t.id).collect::<Vec<_>>()).into_iter().find(|id| crate::reader_ui::unsaved_name(*id).is_some() || crate::viewer_ui::redact_pending(*id).is_some());
     match dirty {
         Some(id) => {
             if let Some(i) = with(|a| a.tab_index(id)) {

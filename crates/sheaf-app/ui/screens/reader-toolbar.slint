@@ -309,6 +309,12 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Page background…", keys: "", on: false },
                                 // Acrobat's File ▸ Revert, and the versions an incremental save keeps.
                                 { text: "Versions…", keys: "", on: false },
+                                // Acrobat's Marquee Zoom.
+                                { text: "Zoom to area", keys: "Z", on: false },
+                                // Acrobat's Snapshot tool.
+                                { text: "Copy an area as a picture", keys: "", on: false },
+                                // Acrobat's Automatically Scroll.
+                                { text: "Scroll automatically", keys: "", on: root.tab.reader.auto-scroll },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -331,6 +337,9 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 11 { ReaderBridge.sanitize(root.id); }
                                         if k == 12 { ReaderBridge.background-open(root.id); }
                                         if k == 13 { ReaderBridge.versions-open(root.id); }
+                                        if k == 14 { ReaderBridge.zoom-area(root.id); }
+                                        if k == 15 { ReaderBridge.snap-area(root.id); }
+                                        if k == 16 { ReaderBridge.auto-scroll(root.id); }
                                         root.focus-pages();
                                     }
                                 }

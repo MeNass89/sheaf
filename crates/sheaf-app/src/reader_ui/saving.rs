@@ -13,10 +13,11 @@ pub fn save(ui: &AppWindow, tab_id: i32) {
 }
 
 impl ReaderUi {
-    /// A paragraph open in Edit text whose text is no longer the page's: retyped, or emptied (a
-    /// deletion; Sol 25/10).
+    /// A paragraph open in Edit text that is no longer the page's: retyped, emptied (a deletion;
+    /// Sol 25/10), or given another colour, size, font or alignment in the format row (Sol 25/10:
+    /// closing dropped a format change unasked).
     pub(super) fn retyping(&self) -> bool {
-        self.draft.as_ref().is_some_and(|d| d.kind == 2 && d.block.as_ref().is_some_and(|b| self.preview_text.trim() != b.1.trim()))
+        self.draft.as_ref().is_some_and(|d| d.kind == 2 && d.block.as_ref().is_some_and(|b| self.preview_text.trim() != b.1.trim() || self.para_format != 0))
     }
 }
 
@@ -243,10 +244,6 @@ pub fn version_action(ui: &AppWindow, tab_id: i32, n: i32) {
 /// More ▸ Sanitize document (Acrobat's): metadata, scripts and actions, attachments, links, hidden
 /// text and layers removed in one step, which ⌘Z undoes until the file is saved.
 pub fn sanitize(ui: &AppWindow, tab_id: i32) {
-    // A document that cannot be changed says why (the edit's own refusal), and nothing else.
-    let read_only = update(tab_id, |r, _| !r.snap.read_only.is_empty()).unwrap_or(true);
+    // What was removed is said by the reply, once done; a refusal says why instead.
     super::apply(ui, tab_id, Edit::Sanitize, &[], None);
-    if !read_only {
-        crate::flow::toast(ui, "Hidden information removed: metadata, scripts, attachments, links, layers (⌘Z undoes it)");
-    }
 }

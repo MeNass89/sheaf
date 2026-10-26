@@ -13,25 +13,57 @@ pub(super) fn saved_signature() -> Option<sheaf_core::sign::Graphic> {
     p.signature_name.filter(|n| !n.trim().is_empty()).map(|n| sheaf_core::sign::Graphic::Typed(n, font))
 }
 
-/// Places the kept signature where the Signature tool was clicked.
+/// The initials kept in the preferences, as [`saved_signature`].
+pub(super) fn saved_initials() -> Option<sheaf_core::sign::Graphic> {
+    let (strokes, name, _, font) = crate::home::prefs().initials?;
+    if !strokes.is_empty() {
+        return Some(sheaf_core::sign::Graphic::Drawn(strokes));
+    }
+    name.filter(|n| !n.trim().is_empty()).map(|n| sheaf_core::sign::Graphic::Typed(n, ScriptFont::from_index(font as usize)))
+}
+
+/// What the Signature tool places: the initials when Initials is on, else the signature.
+pub(super) fn saved_mark(initials: bool) -> Option<sheaf_core::sign::Graphic> {
+    if initials { saved_initials() } else { saved_signature() }
+}
+
+/// Places the kept signature (or initials) where the Signature tool was clicked.
 pub(super) fn place_signature(ui: &AppWindow, tab_id: i32) {
-    if let Some(graphic) = saved_signature() {
+    let initials = update(tab_id, |r, _| r.initials).unwrap_or(false);
+    if let Some(graphic) = saved_mark(initials) {
         place_graphic(ui, tab_id, &graphic);
     }
 }
 
-/// Places `graphic` where the Signature tool was clicked, 150 pt wide as PDF Expert's default.
+/// Places `graphic` where the Signature tool was clicked, 150 pt wide as PDF Expert's default
+/// (initials 60).
 fn place_graphic(ui: &AppWindow, tab_id: i32, graphic: &sheaf_core::sign::Graphic) {
     let made = update(tab_id, |r, v| {
         let (page, at) = r.sign_at.take()?;
         let b = &v.viewer.boxes[page];
         let (w, h) = b.view_size();
         let info = render::PageInfo { width: w as f32, height: h as f32, label: String::new(), crop: b.crop.map(|c| c as f32), rotation: b.rotation };
-        let edit = sheaf_core::sign::signature_edit(&info, page, [at.0, at.1], 150.0_f64.min(w * 0.6), graphic).map(with_pen);
+        let width = if r.initials { 60.0 } else { 150.0 };
+        // Every page: the same place on each, one undo step (initials down every page of a contract).
+        if r.sign_every_page {
+            let edits = (0..v.viewer.page_count())
+                .map(|p| {
+                    let b = &v.viewer.boxes[p];
+                    let (pw, ph) = b.view_size();
+                    let info = render::PageInfo { width: pw as f32, height: ph as f32, label: String::new(), crop: b.crop.map(|c| c as f32), rotation: b.rotation };
+                    sheaf_core::sign::signature_edit(&info, p, [at.0.min(pw - 1.0), at.1.min(ph - 1.0)], width.min(pw * 0.6), graphic).map(with_pen)
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map(|edits| Edit::Batch { label: if r.initials { "Initials on every page".into() } else { "Signature on every page".into() }, edits });
+            return Some((usize::MAX, edits));
+        }
+        let edit = sheaf_core::sign::signature_edit(&info, page, [at.0, at.1], width.min(w * 0.6), graphic).map(with_pen);
         Some((page, edit))
     })
     .flatten();
     match made {
+        // Every page changes.
+        Some((usize::MAX, Ok(e))) => apply(ui, tab_id, e, &[], None),
         Some((page, Ok(e))) => apply(ui, tab_id, e, &[page], None),
         Some((_, Err(e))) => crate::flow::toast(ui, &e.to_string()),
         None => {}
@@ -73,7 +105,11 @@ pub fn signature_made(ui: &AppWindow, tab_id: i32, commands: &str, size: (f32, f
         let graphic = if strokes.is_empty() { sheaf_core::sign::Graphic::Typed(name, font) } else { sheaf_core::sign::Graphic::Drawn(strokes) };
         return place_graphic(ui, tab_id, &graphic);
     }
-    crate::home::set_signature(strokes, (!name.is_empty()).then_some(name), font.index() as u8);
+    if update(tab_id, |r, _| r.initials).unwrap_or(false) {
+        crate::home::set_initials(strokes, (!name.is_empty()).then_some(name), font.index() as u8);
+    } else {
+        crate::home::set_signature(strokes, (!name.is_empty()).then_some(name), font.index() as u8);
+    }
     place_signature(ui, tab_id);
 }
 

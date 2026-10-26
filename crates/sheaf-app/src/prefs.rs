@@ -137,6 +137,8 @@ pub struct Prefs {
     /// first is `signature_strokes` / `signature_name`.
     #[serde(deserialize_with = "kept_signatures")]
     pub signatures: Vec<KeptSignature>,
+    /// The initials kept apart from the signatures (Acrobat's Fill & Sign ▸ Add Initials).
+    pub initials: Option<KeptSignature>,
 }
 
 impl Prefs {

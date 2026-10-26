@@ -360,4 +360,32 @@ fn compress_says_how_far_it_is_and_stops_when_cancelled() {
     let out = t.path().join("cancelled.pdf");
     let r = compress_with(&Input::new(&a), Level::Recommended, &out, &mut |_| false);
     assert!(matches!(r, Err(sheaf_core::OpdfError::Cancelled)) && !out.exists());
+    // A file without pictures: progress before the end, and a Cancel heard before it is written.
+    let plain = common::fixture_pdf(t.path(), "plain.pdf", 3);
+    let mut seen = Vec::new();
+    compress_with(&Input::new(&plain), Level::Recommended, &t.path().join("p.pdf"), &mut |p| {
+        seen.push(p);
+        true
+    })
+    .unwrap();
+    assert!(seen.iter().any(|p| *p > 0.0 && *p < 0.95), "{seen:?}");
+    let out = t.path().join("plain-cancelled.pdf");
+    assert!(matches!(compress_with(&Input::new(&plain), Level::Recommended, &out, &mut |_| false), Err(sheaf_core::OpdfError::Cancelled)) && !out.exists());
+}
+
+#[test]
+fn a_target_size_tries_stronger_settings_until_the_file_fits() {
+    let t = tempfile::tempdir().unwrap();
+    let a = photo_pdf(t.path());
+    let low = compress(&Input::new(&a), Level::Low, &t.path().join("low.pdf")).unwrap();
+    let extreme = compress(&Input::new(&a), Level::Extreme, &t.path().join("ext.pdf")).unwrap();
+    // A target the gentlest settings meet: they are the ones used.
+    let roomy = compress(&Input::new(&a), Level::Target(low.after), &t.path().join("roomy.pdf")).unwrap();
+    assert!(roomy.after == low.after && !roomy.missed_target, "{roomy:?} {low:?}");
+    // One between Low and Extreme: a stronger step, under it.
+    let mid = compress(&Input::new(&a), Level::Target((low.after + extreme.after) / 2), &t.path().join("mid.pdf")).unwrap();
+    assert!(mid.after <= (low.after + extreme.after) / 2 && !mid.missed_target, "{mid:?}");
+    // Out of reach: the smallest made, said to miss.
+    let tiny = compress(&Input::new(&a), Level::Target(10), &t.path().join("tiny.pdf")).unwrap();
+    assert!(tiny.missed_target && tiny.after <= extreme.after, "{tiny:?} {extreme:?}");
 }

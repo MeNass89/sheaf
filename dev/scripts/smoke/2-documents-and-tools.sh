@@ -381,9 +381,13 @@ SX=$(( 264 + 430 * 1000 / 612 )); SY=$(( 100 + (792 - 630) * 1000 / 612 ))
 # Hovered, it is outlined (drawings are not otherwise); a plain press picks it, a drag moves it.
 xdotool mousemove $(( SX - 200 )) $SY; sleep 0.3; xdotool mousemove $SX $SY; sleep 0.8; shot 20c-drawing-hover
 xdotool mousemove $SX $SY mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $SX $(( SY + i * 10 )); sleep 0.08; done; xdotool mouseup 1; sleep 2
-shot 20c-drawing-moved; key ctrl+s; sleep 2
+shot 20c-drawing-moved
+# Still picked: ⌘C copies it as a picture (PdfCraft has no object copy).
+printf '' | xclip -selection clipboard; key ctrl+c; sleep 1.2; DC=$(xclip -selection clipboard -t TARGETS -o 2>/dev/null | tr '\n' ' ')
+key ctrl+s; sleep 2
 Y1=$(blue_top); WA=$(pdftotext -bbox "$OUT/square.pdf" - 2>/dev/null | grep -m1 '>Alpha<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/')
 check "a drawing pressed and dragged moves alone (square top $Y0 → $Y1 px, Alpha at $WA)" "[ \"$Y0\" -ge 0 ] && [ \"$Y1\" -gt \"$(( Y0 + 20 ))\" ] && python3 -c 'import sys; sys.exit(0 if abs(float(\"$WA\") - 74.768) < 1 else 1)'"
+check "a picked drawing is copied as a picture by ⌘C ($DC)" "echo \"$DC\" | grep -q 'image/png'"
 quit
 
 # 20d. Header & footer with Bates numbers (Acrobat's Header & Footer ▸ Bates Numbering), in the Page numbers tool

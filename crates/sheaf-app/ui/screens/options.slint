@@ -33,6 +33,7 @@ export component OptionsPanel inherits VerticalLayout {
             && Parse.mm(root.crop-top) + Parse.mm(root.crop-bottom) + Parse.mm(root.crop-left) + Parse.mm(root.crop-right) > 0))
         : root.tool == "sign" ? !root.sign-cert || root.sign-p12 != ""
         : root.tool == "merge" ? Parse.file-name-error(root.out-name) == ""
+        : root.tool == "compress" ? root.level != 3 || (root.compress-target.is-float() && root.compress-target.to-float() > 0)
         : true);
     // Add watermark: the preview follows every option and the file.
     changed options => { if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); } }
@@ -47,6 +48,7 @@ export component OptionsPanel inherits VerticalLayout {
     in property <bool> has-restore;
     function restore-options(o: ToolOptions) {
         root.level = o.level;
+        root.compress-target = o.compress-target;
         root.allow-printing = o.allow-printing;
         root.allow-copying = o.allow-copying;
         root.allow-editing = o.allow-editing;
@@ -137,7 +139,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.sign-location = o.sign-location;
     }
     out property <ToolOptions> options: {
-        level: root.level, password: root.require-open ? root.password : "", confirm: root.confirm, owner: root.owner,
+        level: root.level, compress-target: root.compress-target, password: root.require-open ? root.password : "", confirm: root.confirm, owner: root.owner,
         allow-printing: root.allow-printing, allow-copying: root.allow-copying,
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
@@ -166,6 +168,10 @@ export component OptionsPanel inherits VerticalLayout {
         sign-reason: root.sign-reason, sign-location: root.sign-location,
     };
     callback insert-blank();
+    // Crop: the page previewed, of how many; ‹ › step through them.
+    in property <int> preview-page: 1;
+    in property <int> preview-pages: 1;
+    callback preview-step(int);
     // Merge: its pages shown one by one (see above).
     in property <bool> merge-pages;
     callback show-pages(bool);
@@ -183,6 +189,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> sign-reason;
     in-out property <string> sign-location;
     in-out property <int> level: 1;
+    in-out property <string> compress-target;
     in-out property <string> password;
     in-out property <string> confirm;
     in-out property <string> owner;
@@ -429,8 +436,17 @@ export component OptionsPanel inherits VerticalLayout {
             selected: root.level == 2;
             clicked => { root.level = 2; }
         }
+        // iLovePDF's and Smallpdf's target size: stronger settings in turn until the file fits.
+        RadioCard {
+            title: "To a size";
+            description: "The largest file, in MB";
+            selected: root.level == 3;
+            placeholder: "2";
+            text <=> root.compress-target;
+            clicked => { root.level = 3; }
+        }
         Rectangle { height: 4px; }
-        InfoBox { text: "Recommended and Extreme recompress images; text and vector graphics are never touched."; }
+        InfoBox { text: root.level == 3 ? "Sheaf tries stronger settings in turn until the file is that size or smaller; if none gets there, it keeps the smallest and says so." : "Recommended and Extreme recompress images; text and vector graphics are never touched."; }
     }
 
     if root.tool == "protect": VerticalLayout {
@@ -767,6 +783,14 @@ export component OptionsPanel inherits VerticalLayout {
                     root.crop-right = Math.round(r * 254 / 72) / 10;
                 }
             }
+            // Any page to draw on (a cover differs from the pages after it).
+            if root.preview-pages > 1: HorizontalLayout {
+                alignment: center;
+                spacing: 8px;
+                Segment { width: 32px; text: "‹"; clicked => { root.preview-step(-1); } }
+                Text { text: "Page " + root.preview-page + " of " + root.preview-pages; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                Segment { width: 32px; text: "›"; clicked => { root.preview-step(1); } }
+            }
         }
     }
 
@@ -874,7 +898,7 @@ export component OptionsPanel inherits VerticalLayout {
         spacing: 10px;
         RadioCard {
             title: "Semantic Text";
-            description: "A report of the words that changed";
+            description: "A report of what changed: the words, then pictures and drawings";
             selected: root.compare-mode == 0;
             clicked => { root.compare-mode = 0; }
         }
@@ -886,7 +910,7 @@ export component OptionsPanel inherits VerticalLayout {
         }
         InfoBox {
             text: root.compare-mode == 0
-                ? "Words are compared in reading order. Layout and pictures are not part of the report."
+                ? "Words are compared in reading order; pictures, drawings and scanned pages that changed are listed on a last page, as Acrobat's report does."
                 : "Changed words are highlighted (blue changed, green added, a red note where words were removed); other changed areas, such as pictures, are outlined in red.";
         }
         // Acrobat's page ranges: part of each document compared.

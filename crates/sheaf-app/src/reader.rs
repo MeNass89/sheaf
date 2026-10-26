@@ -692,6 +692,21 @@ pub fn measure_factor(k: usize, user_unit: f64) -> (f64, &'static str) {
     (2.54 / 72.0 * user_unit * ratio / cm_per_unit, unit)
 }
 
+/// Calibrate (Acrobat's and Bluebeam's): the real length typed for a line measured `measured`
+/// user-space units long ("4.5 m", "12 ft", "30cm"), as the real units per user-space unit and
+/// the unit; refused when it is not a positive length in mm, cm, m, km, in, ft, yd or mi.
+pub fn calibrated(typed: &str, measured: f64) -> Result<(f64, &'static str), String> {
+    let t = typed.trim().replace(',', ".");
+    let split = t.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(t.len());
+    let (number, unit) = (t[..split].trim(), t[split..].trim().to_ascii_lowercase());
+    let value: f64 = number.parse().map_err(|_| format!("“{}” is not a length: type a number and a unit, such as 4.5 m", typed.trim()))?;
+    let unit = ["mm", "cm", "m", "km", "in", "ft", "yd", "mi"].into_iter().find(|u| *u == unit.trim_end_matches('.')).ok_or_else(|| format!("“{unit}”: use mm, cm, m, km, in, ft, yd or mi"))?;
+    if !(value.is_finite() && value > 0.0 && measured > 0.0) {
+        return Err("the length must be more than 0".into());
+    }
+    Ok((value / measured, unit))
+}
+
 /// A measure's label: a distance or perimeter along the points (kind 7, 8), an area inside them
 /// (9), `per_unit` real `unit`s for each user-space unit ([`measure_factor`]).
 pub fn measure_label(kind: i32, pts: &[[f64; 2]], (per_unit, unit): (f64, &str)) -> String {
@@ -719,6 +734,17 @@ pub fn fill_tint(c: [f64; 3]) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_known_length_calibrates_the_scale() {
+        let (per, unit) = calibrated("4,5 m", 90.0).unwrap();
+        assert_eq!(unit, "m");
+        assert!((per * 90.0 - 4.5).abs() < 1e-9);
+        assert_eq!(calibrated("12ft", 6.0).unwrap(), (2.0, "ft"));
+        for bad in ["", "m", "4.5", "4.5 parsecs", "0 m", "-2 m"] {
+            assert!(calibrated(bad, 10.0).is_err(), "{bad:?} accepted");
+        }
+    }
 
     #[test]
     fn fields_selected_together_align_match_and_spread_after_the_first() {

@@ -75,6 +75,29 @@ fn reflowed(editor_text: &str, soft: &[bool]) -> String {
 
 /// What the last edit drew otherwise than typed, as Acrobat says it: characters the paragraph's
 /// font lacks drawn in another, or characters no font has drawn as `?` (a comment, a field).
+/// Pixels per point an area is copied at (216 dpi: sharp when pasted at its size, as Acrobat's
+/// Snapshot at its usual zoom), less when that would pass 40 megapixels.
+const AREA_SCALE: f32 = 3.0;
+
+/// Part `rect` (user space) of `page` as shown, as (width, height, RGBA).
+fn area_pixels(d: &sheaf_core::pdfcraft::engine::Document, page: usize, rect: [f64; 4]) -> Result<(u32, u32, Vec<u8>), String> {
+    let info = d.info.pages.get(page).ok_or("no such page")?;
+    let a = info.user_to_view(rect[0] as f32, rect[1] as f32);
+    let b = info.user_to_view(rect[2] as f32, rect[3] as f32);
+    let (x0, y0, x1, y1) = (a[0].min(b[0]).max(0.0), a[1].min(b[1]).max(0.0), a[0].max(b[0]).min(info.width), a[1].max(b[1]).min(info.height));
+    if x1 - x0 < 1.0 || y1 - y0 < 1.0 {
+        return Err("the area is empty".into());
+    }
+    let scale = AREA_SCALE.min((40e6 / ((x1 - x0) * (y1 - y0))).sqrt());
+    let tile = render::Tile { x: (x0 * scale) as u32, y: (y0 * scale) as u32, w: ((x1 - x0) * scale).ceil() as u32, h: ((y1 - y0) * scale).ceil() as u32 };
+    let config = render::RenderConfig { password: d.password.as_deref().map(Arc::from), ..Default::default() };
+    let shot = render::PageRenderer::new(d.display.clone(), config).render(render::RenderRequest { page, scale, tile: Some(tile), ..Default::default() });
+    match shot.error {
+        Some(e) => Err(e),
+        None => Ok((shot.width, shot.height, shot.rgba)),
+    }
+}
+
 fn edit_note(d: &sheaf_core::pdfcraft::engine::Document) -> Option<String> {
     if let Some(font) = &d.font_substituted {
         return Some(format!("Some characters aren't in this document's font: shown in {font}"));
@@ -133,6 +156,8 @@ pub struct Snap {
     pub redo_label: String,
     /// The versions saved in the file (its incremental updates), oldest first: at least one.
     pub versions: usize,
+    /// How the document asks to be opened (Acrobat's Document Properties ▸ Initial View).
+    pub opening: sheaf_core::pdfcraft::engine::InitialView,
     pub read_only: String,
     pub fields: Arc<Vec<FieldEntry>>,
     pub props: Arc<Props>,
@@ -281,6 +306,7 @@ fn snap(doc: &Doc) -> Snap {
         undo_label: d.can_undo().unwrap_or_default().to_string(),
         redo_label: d.can_redo().unwrap_or_default().to_string(),
         versions: d.revision_ends().len().max(1),
+        opening: d.initial_view(),
         read_only: d.read_only_reason.as_ref().map(|r| format!("Read only: {r}")).unwrap_or_default(),
         fields: Arc::new(fields(d)),
         props: Arc::new(props(d)),
@@ -318,10 +344,14 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
             },
             align: f.quadding.clamp(0, 2) as i32,
             font_size: f.da.split_whitespace().collect::<Vec<_>>().windows(2).find(|w| w[1] == "Tf").and_then(|w| w[0].parse().ok()).unwrap_or(0.0),
-            font: match f.da.split_whitespace().find(|t| t.starts_with('/')).map(|t| t.trim_start_matches('/').to_ascii_lowercase()) {
-                Some(n) if n.starts_with("ti") || n.contains("times") => 1,
-                Some(n) if n.starts_with("co") => 2,
-                _ => 0,
+            // The font named in /DA, through the form's resources when the name is only a key (/F1;
+            // Sol, 25/10: a Times field read as Helvetica).
+            font: match f.da.split_whitespace().find(|t| t.starts_with('/')).map(|t| t.trim_start_matches('/')) {
+                Some(n) => {
+                    let base = d.form_font_base(n).unwrap_or_else(|| n.to_string()).to_ascii_lowercase();
+                    if base.starts_with("ti") || base.contains("times") { 1 } else if base.starts_with("co") { 2 } else { 0 }
+                }
+                None => 0,
             },
             action: match &f.button {
                 Some(B::Reset { .. }) => 1,
@@ -367,6 +397,9 @@ pub enum Op {
     Redo { pages: Option<Vec<usize>> },
     /// Back to the file as last saved, unsaved edits and their undo history gone (Acrobat's Revert).
     Revert,
+    /// The part `rect` (user space) of `page` as shown, as pixels for the clipboard (Acrobat's
+    /// Snapshot; drawings and paragraphs picked with the Edit tool, copied as a picture).
+    CopyArea { page: usize, rect: [f64; 4] },
     /// Version `n` (1-based) of the file as saved, written to `to` to open on its own.
     SaveVersion { n: usize, to: PathBuf },
     /// Writes the edits: into the file itself as an incremental update, or (`to`) a full copy
@@ -478,8 +511,15 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: false, note, preview: true });
                     }
                     Op::Apply { edit, pages } => {
+                        let sanitize = matches!(*edit, Edit::Sanitize);
                         let error = doc.apply(*edit).err().map(|e| e.to_string());
-                        let note = if error.is_none() { edit_note(doc.document()) } else { None };
+                        // Sanitize says what it removed only once it did (Sol, 25/10: a refusal was
+                        // covered by the window's success message).
+                        let note = match &error {
+                            None if sanitize => Some("Hidden information removed: metadata, scripts, attachments, links, layers (⌘Z undoes it)".to_string()),
+                            None => edit_note(doc.document()),
+                            Some(_) => None,
+                        };
                         let t1 = std::time::Instant::now();
                         let s = snap(&doc);
                         debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
@@ -491,6 +531,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let note = r.is_ok().then(|| "Back to the file as last saved".to_string());
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error: r.err().map(|e| e.to_string()), applied: false, note, preview: false });
                     }
+                    Op::CopyArea { page, rect } => reply(Reply::ImageCopied(area_pixels(doc.document(), page, rect))),
                     Op::SaveVersion { n, to } => {
                         let d = doc.document();
                         let (ends, saved) = (d.revision_ends(), d.saved_bytes());

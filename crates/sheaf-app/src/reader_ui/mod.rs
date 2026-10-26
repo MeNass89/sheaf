@@ -292,6 +292,11 @@ pub struct ReaderUi {
     callout: bool,
     /// The Measuring tools' scale (`reader::MEASURE_SCALES`).
     measure_scale: usize,
+    /// Calibrate: the next distance measured asks for its real length; then the scale it gives
+    /// (real units per user-space unit, the unit) replaces the preset one.
+    calibrating: bool,
+    measure_custom: Option<(f64, &'static str)>,
+    calibration_len: f64,
     /// Edit text: what of the format row was changed while a paragraph is open (1 colour, 2 size,
     /// 4 font, 8 alignment): those apply to it, the rest of its style stays its own.
     para_format: u8,
@@ -304,6 +309,16 @@ pub struct ReaderUi {
     background_open: bool,
     /// More ▸ Versions… is open.
     versions_open: bool,
+    /// Zoom to area (Z): the next box dragged fills the view.
+    zoom_area: bool,
+    /// Copy an area (More ▸ Copy an area as a picture): the next box dragged is copied.
+    snap_area: bool,
+    /// More ▸ Scroll automatically is on (the view moves itself, reader.slint).
+    auto_scroll: bool,
+    /// The Signature tool places the initials (its options bar's Initials).
+    initials: bool,
+    /// The Signature tool places on every page at once (its options bar's Every page).
+    sign_every_page: bool,
     form_drag: Option<FormDrag>,
     /// Generation of the running search, shared with its thread so it stops when replaced.
     search_live: Arc<std::sync::atomic::AtomicU64>,
@@ -455,12 +470,20 @@ impl ReaderUi {
             arrow_both: false,
             callout: false,
             measure_scale: 0,
+            calibrating: false,
+            measure_custom: None,
+            calibration_len: 0.0,
             para_format: 0,
             form_sel: None,
             form_also: Vec::new(),
             form_grid: false,
             background_open: false,
             versions_open: false,
+            zoom_area: false,
+            snap_area: false,
+            auto_scroll: false,
+            initials: false,
+            sign_every_page: false,
             form_drag: None,
             search_live: Default::default(),
             pending_reduce: None,
@@ -887,6 +910,11 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
             }
         };
         let mut r = ReaderUi::new(ops, snap, path.clone());
+        // A document never opened here opens as it asks (Acrobat honours its Initial View): its
+        // layout, zoom, page and side panel, over Preferences ▸ Documents.
+        if crate::home::last_view(&path).is_none() {
+            properties::open_as_asked(&mut r, &mut v);
+        }
         // Compare's marked copy opens on its list of differences.
         if NOTES_FIRST.with(|n| n.borrow_mut().remove(&std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone()))) && !r.snap.annots.is_empty() {
             (r.panel, r.panel_open) = (2, true);

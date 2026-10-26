@@ -119,6 +119,14 @@ export component ReaderScreen inherits Rectangle {
     // is cut to the old width, so it is set again when it does.
     property <length> content-w: sv.content-width;
     changed content-w => { if root.want-x >= 0px { sv.content-x = -root.want-x; } }
+    // Scroll automatically (Acrobat's View ▸ Page Display ▸ Automatically Scroll): the pages move
+    // up by themselves, ↑ ↓ slower and faster, Escape stops; the view moves here, not in Rust.
+    property <int> scroll-speed: 2;
+    Timer {
+        interval: 16ms;
+        running: root.tab.reader.auto-scroll;
+        triggered => { sv.content-y = max(sv.visible-height - sv.content-height, sv.content-y - root.scroll-speed * 0.5px); }
+    }
     want-x-timer := Timer {
         interval: 2000ms;
         running: false;
@@ -441,7 +449,7 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : root.tab.reader.note.kind == 8 ? "Link to — a page number or a web address" : root.tab.reader.note.kind == 9 ? "Link — change where it goes, or remove it" : root.tab.reader.note.kind == 10 ? "Replace with — ↩ to propose" : root.tab.reader.note.kind == 11 ? "Insert after — ↩ to propose" : "Add text";
+                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : root.tab.reader.note.kind == 8 ? "Link to — a page number or a web address" : root.tab.reader.note.kind == 9 ? "Link — change where it goes, or remove it" : root.tab.reader.note.kind == 10 ? "Replace with — ↩ to propose" : root.tab.reader.note.kind == 11 ? "Insert after — ↩ to propose" : root.tab.reader.note.kind == 12 ? "Its real length — such as 4.5 m" : "Add text";
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;
@@ -644,7 +652,8 @@ export component ReaderScreen inherits Rectangle {
                     keys.focus();
                     return accept;
                 }
-                if (e.text == "c" || e.text == "x") && root.tab.reader.selected-image {
+                // A picture, or drawings and paragraphs picked with the Edit tool (copied as a picture).
+                if (e.text == "c" || e.text == "x") && (root.tab.reader.selected-image || root.tab.reader.has-picked) {
                     ReaderBridge.copy-image(root.id, e.text == "x");
                     return accept;
                 }
@@ -697,6 +706,8 @@ export component ReaderScreen inherits Rectangle {
             // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).
             if e.text == "T" || (e.text == "t" && e.modifiers.shift) { root.bare = !root.bare; return accept; }
             if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
+            if root.tab.reader.auto-scroll && e.text == Key.UpArrow { root.scroll-speed = max(1, root.scroll-speed - 1); return accept; }
+            if root.tab.reader.auto-scroll && e.text == Key.DownArrow { root.scroll-speed = min(24, root.scroll-speed + 1); return accept; }
             // Form tool, fields selected: the arrows move them (1 point, 10 with ⇧), as Acrobat's.
             if root.tab.reader.tool == 14 && root.tab.reader.field-props.show {
                 if e.text == Key.LeftArrow { ReaderBridge.fields-nudge(root.id, e.modifiers.shift ? -10 : -1, 0); return accept; }
@@ -739,6 +750,8 @@ export component ReaderScreen inherits Rectangle {
             if e.text == "s" { ReaderBridge.set-tool(root.id, 9); return accept; }
             if e.text == "l" { ReaderBridge.set-tool(root.id, 13); return accept; }
             if e.text == "f" { ReaderBridge.set-tool(root.id, 14); return accept; }
+            // Acrobat's Marquee Zoom: the next box dragged fills the view.
+            if e.text == "z" { ReaderBridge.zoom-area(root.id); return accept; }
             reject
         }
     }

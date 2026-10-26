@@ -283,7 +283,10 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             pages: (!pages.is_empty()).then_some(pages),
             filter: sheaf_core::rotate::PageFilter { parity: opts.rotate_parity.clamp(0, 2) as u8, orientation: opts.rotate_orientation.clamp(0, 2) as u8 },
         },
-        ToolId::Compress => Job::Compress { items: pairs(inputs), level: parse_level(opts.level) },
+        ToolId::Compress => Job::Compress {
+            items: pairs(inputs),
+            level: if opts.level == 3 { Level::Target(split_size(&opts.compress_target)?) } else { parse_level(opts.level) },
+        },
         ToolId::Protect => Job::Protect {
             items: pairs(inputs),
             sanitize: opts.protect_sanitize,

@@ -203,6 +203,16 @@ pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>, font: u8
     });
 }
 
+/// The initials kept (drawn strokes or typed letters), placed by the Signature tool's Initials.
+pub fn set_initials(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>, font: u8) {
+    with(|h| {
+        h.prefs.initials = (!strokes.is_empty() || name.is_some()).then(|| (strokes, name, h.prefs.signature_pen, font));
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
 /// Kept signatures, newest first (an older profile's single signature counts as one).
 pub fn signatures() -> Vec<sheaf_app::prefs::KeptSignature> {
     with(|h| {

@@ -208,6 +208,11 @@ export component ReaderOptionsBar inherits Rectangle {
             }
             SmallButton { y: 2px; text: "New signature"; clicked => { ReaderBridge.signature-reset(root.id); } }
         }
+        // Acrobat's Fill & Sign ▸ Add Initials: kept apart from the signatures, placed smaller.
+        if root.tab.reader.tool == 9: SmallButton { y: 2px; text: "Initials"; primary: root.tab.reader.initials; clicked => { ReaderBridge.shape-option(root.id, 13, 0); root.focus-pages(); } }
+        if root.tab.reader.tool == 9 && root.tab.reader.initials: SmallButton { y: 2px; text: "New initials"; clicked => { ReaderBridge.shape-option(root.id, 14, 0); root.focus-pages(); } }
+        // The same place on every page, one click (initials down a contract's pages).
+        if root.tab.reader.tool == 9: SmallButton { y: 2px; text: "Every page"; primary: root.tab.reader.sign-every-page; clicked => { ReaderBridge.shape-option(root.id, 15, 0); root.focus-pages(); } }
         if !root.tab.reader.selected-image && ((root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && (root.tab.reader.tool != 12 || root.tab.reader.stamp < 4) && root.tab.reader.tool != 14 && (root.tab.reader.tool != 13 || root.tab.reader.link-visible)) || root.tab.reader.selected-annot): HorizontalLayout {
             spacing: 2px;
             padding-left: 6px;
@@ -238,6 +243,8 @@ export component ReaderOptionsBar inherits Rectangle {
             for m[k] in ["Distance", "Perimeter", "Area"]: SmallButton { y: 2px; text: m; primary: root.tab.reader.shape-kind == 7 + k; clicked => { ReaderBridge.shape-option(root.id, 0, 7 + k); root.focus-pages(); } }
             // The scale they measure at (Acrobat's Scale Ratio): a click goes to the next.
             if root.tab.reader.shape-kind >= 7: SmallButton { y: 2px; text: root.tab.reader.measure-scale; clicked => { ReaderBridge.shape-option(root.id, 10, 0); root.focus-pages(); } }
+            // Acrobat's and Bluebeam's Calibrate: measure a length you know, type it.
+            if root.tab.reader.shape-kind == 7: SmallButton { y: 2px; text: "Calibrate"; primary: root.tab.reader.calibrating; clicked => { ReaderBridge.shape-option(root.id, 12, 0); root.focus-pages(); } }
         }
         Rectangle { horizontal-stretch: 1; }
         if root.tab.reader.has-form: HorizontalLayout {

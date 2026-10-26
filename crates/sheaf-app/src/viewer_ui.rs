@@ -212,6 +212,8 @@ impl ViewerUi {
                 self.viewer.set_zoom(z)
             }
             render::DestView::FitH { .. } => self.viewer.set_zoom(100),
+            // The rectangle filling the view (Sol, 25/10: it kept the zoom and could stay cut off).
+            render::DestView::FitR { rect } => self.zoom_to_fit(page, rect.map(f64::from)),
             _ => false,
         };
         let crop = self.viewer.boxes.get(page).map(|b| b.crop).unwrap_or_default();
@@ -226,6 +228,18 @@ impl ViewerUi {
             self.scroll_x = Some((x - 8.0).clamp(0.0, self.viewer.max_scroll_x()));
         }
         zoomed
+    }
+
+    /// The zoom at which `rect` (user space of `page`) fills the view with a little room around it,
+    /// within 1600 % of the fit width: a /FitR destination's, and Zoom to area's. Returns whether
+    /// the zoom changed.
+    pub fn zoom_to_fit(&mut self, page: usize, rect: [f64; 4]) -> bool {
+        let [_, _, w, h] = self.viewer.overlay(page, rect);
+        if w < 1.0 || h < 1.0 {
+            return false;
+        }
+        let k = (self.viewer.view_width() / w).min(self.height / h) * 0.92;
+        self.viewer.set_zoom((f64::from(self.viewer.zoom()) * k).round().clamp(1.0, 1600.0) as u32)
     }
 
     /// Where the view stands: the page point at its top edge, which a zoom keeps (⌘[ comes back to
@@ -999,6 +1013,11 @@ mod tests {
         assert!(v.show_dest(0, &render::DestView::Fit));
         assert_eq!(v.viewer.zoom(), v.viewer.fit_page_zoom(v.height, 0..1));
         assert!(v.show_dest(0, &render::DestView::FitH { top: Some(500.0) }) && v.viewer.zoom() == 100);
+        // /FitR: the rectangle fills the view, its left edge at the view's left.
+        assert!(v.show_dest(2, &render::DestView::FitR { rect: [100.0, 400.0, 250.0, 500.0] }));
+        let r = v.viewer.overlay(2, [100.0, 400.0, 250.0, 500.0]);
+        assert!(r[2] <= v.viewer.view_width() && r[3] <= 700.0 && (r[2] > 0.8 * v.viewer.view_width() || r[3] > 0.8 * 700.0), "{r:?}");
+        assert!(r[1] >= v.scroll && r[1] + r[3] <= v.scroll + 700.0, "{r:?} {}", v.scroll);
         // No zoom, no left: the zoom stays, no horizontal scroll asked for.
         let z = v.viewer.zoom();
         assert!(!v.show_dest(0, &render::DestView::Xyz { left: None, top: Some(500.0), zoom: None }));

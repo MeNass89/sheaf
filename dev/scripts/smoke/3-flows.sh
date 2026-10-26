@@ -337,6 +337,9 @@ CT0=$(topval)
 xdotool mousemove 1075 $(( TY + 163 )) mousedown 1 mousemove 1110 $(( TY + 213 )) mousemove 1180 $(( TY + 293 )) mouseup 1; sleep 0.8
 CT=$(topval)
 check "a box dragged on Crop's preview sets the margins (top: ${CT0:-?} → ${CT:-none})" "[ -n \"$CT\" ] && [ \"$CT\" != \"$CT0\" ]"
+# Under the preview, ‹ Page 1 of 4 › (centred, its › at 1192): page 2 shows.
+PV0=$(ocr 290x50+990+$(( TY + 332 ))); click 1192 $(( TY + 355 )) 1.5; PV1=$(ocr 290x50+990+$(( TY + 332 ))); shot 40b-crop-page
+check "Crop's preview steps to another page ($PV0 → $PV1)" "echo \"$PV0\" | grep -q 'Page 1 of 4' && echo \"$PV1\" | grep -q 'Page 2 of 4'"
 quit
 
 
@@ -356,6 +359,12 @@ DS=$(at Distance 1280x40+0+90); [ -n "$DS" ] && click $DS 0.5
 click 400 600 0.4; click 700 600 1.2; key ctrl+s; sleep 1.5
 QM=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)
 check "Shapes ▸ Distance measures between two clicks (${DS:-no Distance button})" "echo \"\$QM\" | grep -aq '/Measure' && echo \"\$QM\" | grep -aq ' cm'"
+# Calibrate (Acrobat's, Bluebeam's): a 300 px line said to be 3 m; a line half as long then reads 1.50 m.
+CB=$(at Calibrate 1280x40+0+90); [ -n "$CB" ] && click $CB 0.5
+click 400 650 0.4; click 700 650 1.2; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "3 m"; key Return; sleep 0.8
+click 400 700 0.4; click 550 700 1.2; key ctrl+s; sleep 1.5
+QC=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)
+check "Calibrate sets the scale from a known length (${CB:-no Calibrate button})" "echo \"\$QC\" | grep -aq '1.50 m'"
 quit
 
 # 43. Stamp (M) ▸ Image…: a picture chosen (the dialog answered with stamp.png) is placed by a click (Acrobat's
@@ -490,6 +499,13 @@ xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 
 RT=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
 check "closing with a paragraph retyped asks first, Cancel keeps it (${RT:0:60}; $(ntabs) document tab)" "echo \"$RT\" | grep -q 'Save changes' && [ \"\$(ntabs)\" = 1 ]"
 key Escape; quit
+# The same with only its format changed (Bold, 470,110, in the format row): asked about too.
+cp "$OUT/text.pdf" "$OUT/reformat.pdf"; launch "$OUT/reformat.pdf"; key ctrl+9; sleep 1
+key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
+click 470 110 0.8; click 296 21 1
+RF=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
+check "closing with a paragraph only made bold asks first (${RF:0:60})" "echo \"$RF\" | grep -q 'Save changes'"
+key Escape; quit
 cp "$OUT/text.pdf" "$OUT/redact2.pdf"; launch "$OUT/redact2.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
 P=$(at Page 820x700+140+60); [ -n "$P" ] && { set -- $P; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
@@ -505,4 +521,73 @@ click 500 420 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --d
 key v; key ctrl+s; sleep 1.5; shot 60-callout
 CQ=$(qpdf --qdf --object-streams=disable "$OUT/callout.pdf" - 2>/dev/null)
 check "the Callout option makes a text box with a line to the click (${CO:-no button})" "echo \"\$CQ\" | grep -aq '/IT /FreeTextCallout' && echo \"\$CQ\" | grep -aq '/CL \[' && echo \"\$CQ\" | grep -aq 'Look here'"
+quit
+
+# 61. Zoom to area (Z, Acrobat's Marquee Zoom): a box dragged around "quick" fills the view: the word comes back
+# at least three times as wide.
+cp "$OUT/text.pdf" "$OUT/zoomarea.pdf"; launch "$OUT/zoomarea.pdf"; sleep 1
+Q0=$(span quick 1020x700+255+90)
+if [ -n "$Q0" ]; then
+    set -- $Q0; W0=$(( $2 - $1 )); key z; sleep 0.4
+    xdotool mousemove $(( $1 - 20 )) $(( $3 - 25 )) mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( $1 - 20 + (W0 + 40) * i / 5 )) $(( $3 - 25 + 50 * i / 5 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+fi
+shot 61-zoom-area; Q1=$(span quick 1280x720+0+80); W1=$( [ -n "$Q1" ] && set -- $Q1 && echo $(( $2 - $1 )) )
+check "Zoom to area makes the box dragged fill the view (quick ${W0:-?} → ${W1:-?} px wide)" "[ -n \"$W1\" ] && [ \"$W1\" -ge \$(( ${W0:-1000} * 3 )) ]"
+quit
+
+# 62. Document Properties (⌘D) ▸ When opened (Acrobat's Initial View): page 3, Two pages; saved: /OpenAction to page 3
+# and /PageLayout /TwoColumnLeft. A copy never opened here opens as it asks: page 3 in view, not page 1.
+cp "$OUT/text.pdf" "$OUT/initial.pdf"; launch "$OUT/initial.pdf"; sleep 1
+# The page field sits under the "When opened" label (the page's own "Page 1" shows behind the sheet).
+key ctrl+d; sleep 1; read OX OY <<< "$(at opened 900x700+190+60)"; PG=${OY:+$(( OX - 10 )) $(( OY + 34 ))}; [ -n "$PG" ] && { click $PG 0.4; xdotool type --delay 20 "3"; }
+TW=$(at Two 900x700+190+60); [ -n "$TW" ] && click $TW 0.4
+SV=$(at Save 900x700+190+60); [ -n "$SV" ] && click $SV 1; key ctrl+s; sleep 1.5; shot 62-initial-view
+IV=$(qpdf --qdf --object-streams=disable "$OUT/initial.pdf" - 2>/dev/null)
+quit
+cp "$OUT/initial.pdf" "$OUT/initial-copy.pdf"; launch "$OUT/initial-copy.pdf"; sleep 2; IO=$(ocr 1020x700+255+90)
+check "When opened sets the Initial View and a new copy opens as it asks (${PG:-no page field} ${TW:-no Two}; $(echo "$IO" | cut -c1-60))" "echo \"\$IV\" | grep -aq '/OpenAction' && echo \"\$IV\" | grep -aq '/PageLayout /TwoColumnLeft' && echo \"$IO\" | grep -q 'Page 3' && ! echo \"$IO\" | grep -q 'Page 1'"
+quit
+
+# 63. More (1127,61) ▸ Copy an area as a picture (16th item, 1008,519; Acrobat's Snapshot): a box dragged over the
+# page puts a PNG on the clipboard.
+cp "$OUT/text.pdf" "$OUT/snap.pdf"; launch "$OUT/snap.pdf"; sleep 1
+click 1127 61 0.8; click 1008 519 0.8
+xdotool mousemove 500 300 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 30 )) $(( 300 + i * 20 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+CT=$(xclip -selection clipboard -t TARGETS -o 2>/dev/null | tr '\n' ' ')
+check "Copy an area puts a picture on the clipboard ($CT)" "echo \"$CT\" | grep -q 'image/png'"
+quit
+
+# 64. More (1127,61) ▸ Scroll automatically (17th item, 1008,547; Acrobat's): "quick" climbs by itself; Escape stops it.
+cp "$OUT/text.pdf" "$OUT/autoscroll.pdf"; launch "$OUT/autoscroll.pdf"; sleep 1
+read _ AY0 <<< "$(at quick 1020x700+255+90)"; click 1127 61 0.8; click 1008 547 2.5
+read _ AY1 <<< "$(at quick 1020x700+255+90)"; key Escape; sleep 0.5; read _ AY2 <<< "$(at quick 1020x700+255+90)"; sleep 1; read _ AY3 <<< "$(at quick 1020x700+255+90)"
+check "Scroll automatically moves the pages up until Escape (quick at ${AY0:-?}, ${AY1:-?}, then ${AY2:-?} = ${AY3:-?})" "[ -n \"$AY1\" ] && [ \"$AY1\" -lt \$(( ${AY0:-0} - 40 )) ] && [ \"$AY2\" = \"$AY3\" ]"
+quit
+
+# 65. Signature (S) ▸ Initials (Acrobat's Add Initials): a click opens the pad for initials ("Your initials"),
+# "AL" typed and used: kept apart from the signatures (prefs "initials"), placed 60 pt wide.
+cp "$OUT/text.pdf" "$OUT/initials.pdf"; launch "$OUT/initials.pdf"; sleep 1; key s; sleep 0.5
+IN=$(at Initials 1280x40+0+90); [ -n "$IN" ] && click $IN 0.5; click 640 500 1.2; shot 65-initials-pad
+TF=$(at Your 900x700+190+60); [ -n "$TF" ] && { click $TF 0.4; xdotool type --delay 30 "AL"; sleep 0.6; }
+US=$(at Use 900x700+190+60); [ -n "$US" ] && click $US 1.2; key v; key ctrl+s; sleep 1.5
+IP=$(python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); i = p.get("initials"); print("kept" if i and i[1] == "AL" else "none")' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+IW=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | python3 -c '
+import re, sys
+d = sys.stdin.buffer.read().decode("latin-1")
+r = [[float(n) for n in m.group(1).split()] for o in re.split(r"\nendobj", d) if "PCFillSign" in o or "/Subtype /Stamp" in o for m in [re.search(r"/Rect \[ *([-0-9. ]+)\]", o)] if m]
+print(" ".join(str(round(x[2] - x[0])) for x in r))')
+check "Initials are made on their own pad, kept apart and placed 60 pt wide (${IN:-no Initials}; $IP; widths $IW)" "[ \"$IP\" = kept ] && echo \" $IW \" | grep -q ' 60 '"
+# Every page: one click puts the initials on all four pages.
+EP=$(at Every 1280x40+0+90); [ -n "$EP" ] && click $EP 0.5; click 640 600 1.5; key v; key ctrl+s; sleep 1.5
+EV=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | grep -ac 'PCFillSign')
+check "Every page places the initials on each page in one click (${EP:-no Every page}; $EV marks)" "[ \"\${EV:-0}\" -ge 5 ]"
+quit
+
+# 66. Compress ▸ To a size (iLovePDF's target size): 0.001 MB typed, out of reach for text.pdf: the smallest file is
+# written and the result says it is as small as it gets.
+cp "$OUT/text.pdf" "$OUT/target.pdf"; launch "$OUT/target.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "compress"; key Return; sleep 2
+TS=$(at size 280x600+1000+40); [ -n "$TS" ] && { set -- $TS; click $1 $2 0.4; click $1 $(( $2 + 30 )) 0.4; xdotool type --delay 20 "0.001"; }
+click 1140 755 4; shot 66-target; TR=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
+check "Compress to a size out of reach keeps the smallest and says so (${TS:-no option}; $(ls $OUT/target-compressed*.pdf 2>/dev/null | wc -l) file)" "ls $OUT/target-compressed*.pdf >/dev/null 2>&1 && echo \"$TR\" | grep -q 'as small as it gets'"
 quit

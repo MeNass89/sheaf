@@ -340,7 +340,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 }
                 }
                 // Link: a one-line editor below the box.
-                Some((_, t, _)) if matches!(d.kind, 8..=11) => (t.clone(), 300.0, if r.link_error.is_empty() { 116.0 } else { 140.0 }),
+                Some((_, t, _)) if matches!(d.kind, 8..=12) => (t.clone(), 300.0, if r.link_error.is_empty() { 116.0 } else { 140.0 }),
                 // Edit text: the paragraph shows on its page as typed, and what it grows over
                 // below it; the editor goes above it when the page has room there, else below.
                 Some((_, t, rect)) if d.kind == 2 => {
@@ -423,11 +423,16 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         arrow_head: reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].1.into(),
         arrow_both: r.arrow_both,
         callout: r.callout,
-        measure_scale: {
-            let (ratio, unit) = reader::MEASURE_SCALES[r.measure_scale.min(reader::MEASURE_SCALES.len() - 1)];
-            if ratio == 1.0 { format!("True size · {unit}") } else { format!("1:{ratio} · {unit}") }
+        measure_scale: match r.measure_custom {
+            Some((_, unit)) => format!("Calibrated · {unit}"),
+            None => {
+                let (ratio, unit) = reader::MEASURE_SCALES[r.measure_scale.min(reader::MEASURE_SCALES.len() - 1)];
+                if ratio == 1.0 { format!("True size · {unit}") } else { format!("1:{ratio} · {unit}") }
+            }
         }
         .into(),
+        calibrating: r.calibrating,
+        auto_scroll: r.auto_scroll,
         opacity: (reader::OPACITIES[r.opacity] * 100.0).round() as i32,
         // Dynamic stamps share their names with standard ones: they say they are dated.
         stamp_image: r.custom_stamp.as_ref().map(|(n, _, _)| n.as_str()).unwrap_or_default().into(),
@@ -478,6 +483,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_keywords: r.snap.props.keywords.clone().into(),
         props_signed: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, ..)| slint::SharedString::from(format!("Open the version signed by {who}"))).collect::<Vec<_>>())),
         props_trust: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, _, _, trusted)| slint::SharedString::from(if *trusted { String::new() } else { format!("Trust {who}'s certificate") })).collect::<Vec<_>>())),
+        props_opening: {
+            let (p, l, z, n) = super::properties::opening_controls(&r.snap.opening);
+            ModelRc::new(VecModel::from(vec![p, l, z, n]))
+        },
         props_custom: r.facts.as_ref().map(|f| super::properties::custom_text(&f.custom)).unwrap_or_default().into(),
         props_about: ModelRc::new(VecModel::from(super::properties::about_rows(&r.snap.props.about, r.facts.as_ref()).into_iter().map(|(n, v)| ReaderProp { name: n.into(), value: v.into() }).collect::<Vec<_>>())),
         text_size: r.text_pt.round() as i32,
@@ -492,7 +501,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         print_open: r.print_open,
         printers: ModelRc::new(VecModel::from(r.printers.iter().map(slint::SharedString::from).collect::<Vec<_>>())),
         printer: r.printer as i32,
-        has_signature: r.tool == SIGN && saved_signature().is_some(),
+        has_signature: r.tool == SIGN && !r.initials && saved_signature().is_some(),
+        initials: r.initials,
+        sign_every_page: r.sign_every_page,
         signatures: ModelRc::new(VecModel::from(if r.tool == SIGN { signature_thumbs() } else { Vec::new() })),
         has_form: r.snap.fields.iter().any(|f| f.kind < 4),
         choices: ModelRc::new(VecModel::from(

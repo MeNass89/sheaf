@@ -41,7 +41,7 @@ kept! {
         num_bold, num_italic, num_underline, wm_image_mode, wm_bold, wm_italic, wm_underline, wm_mosaic, wm_below,
         wm_replace, wm_remove, ocr_all_pages, export_ocr, export_exact, sign_cert;
     strings:
-        hf_tl, hf_tc, hf_tr, hf_bl, hf_bc, hf_br, bates_prefix, bates_start,
+        hf_tl, hf_tc, hf_tr, hf_bl, hf_bc, hf_br, bates_prefix, bates_start, compress_target,
         pages, compare_old_pages, compare_new_pages, ranges, split_size, out_name, from_page, to_page, num_start,
         num_custom, num_font_size, num_hex, wm_text, wm_font_size, wm_hex, wm_image, crop_top, crop_bottom,
         crop_left, crop_right, ocr_languages, sign_p12, sign_reason, sign_location

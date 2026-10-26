@@ -401,7 +401,12 @@ impl Viewer {
     /// `y_pt` of it near the top third of a viewport `height` high when given.
     pub fn scroll_to(&self, i: usize, focus: Option<[f64; 4]>, height: f64) -> f64 {
         let top = match focus {
-            Some(r) => self.overlay(i, r)[1] - height / 3.0,
+            // A third down the view, or higher when the focus would end below it (a /FitR
+            // rectangle, an area zoomed to).
+            Some(r) => {
+                let [_, y, _, h] = self.overlay(i, r);
+                (y - height / 3.0).min(y + h + 8.0 - height)
+            }
             None => self.page_rect(i)[1] - PAGE_GAP,
         };
         top.clamp(0.0, (self.content_height() - height).max(0.0))

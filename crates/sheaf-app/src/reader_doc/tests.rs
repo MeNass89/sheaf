@@ -57,6 +57,21 @@ fn next(rx: &Receiver<Reply>) -> (Snap, Option<String>) {
     }
 }
 
+/// A PDF written from its objects (1 the catalog), with its cross-reference table.
+fn hand_pdf(objs: &[String]) -> Vec<u8> {
+    let mut pdf = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(pdf.len());
+        pdf.extend(format!("{} 0 obj\n{o}\nendobj\n", i + 1).bytes());
+    }
+    let xref = pdf.len();
+    pdf.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).bytes());
+    offsets.iter().for_each(|o| pdf.extend(format!("{o:010} 00000 n \n").bytes()));
+    pdf.extend(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).bytes());
+    pdf
+}
+
 fn highlight(page: usize) -> Edit {
     Edit::AddAnnotation(NewAnnotation {
         page,
@@ -159,17 +174,7 @@ fn a_search_shows_its_first_page_at_once_on_a_long_file() {
     let kids: Vec<String> = (0..300).map(|i| format!("{} 0 R", 5 + i)).collect();
     objs[1] = format!("<< /Type /Pages /Kids [{}] /Count 300 >>", kids.join(" "));
     objs.extend((0..300).map(|_| "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 3 0 R >> >> >>".to_string()));
-    let mut pdf = b"%PDF-1.7\n".to_vec();
-    let mut offsets = Vec::new();
-    for (i, o) in objs.iter().enumerate() {
-        offsets.push(pdf.len());
-        pdf.extend(format!("{} 0 obj\n{o}\nendobj\n", i + 1).bytes());
-    }
-    let xref = pdf.len();
-    pdf.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).bytes());
-    offsets.iter().for_each(|o| pdf.extend(format!("{o:010} 00000 n \n").bytes()));
-    pdf.extend(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).bytes());
-    let bytes = Arc::new(pdf);
+    let bytes = Arc::new(hand_pdf(&objs));
     let (first, read) = (std::sync::Mutex::new(None), std::sync::atomic::AtomicUsize::new(0));
     let t = std::time::Instant::now();
     sheaf_app::reader::read_texts(&bytes, &render::RenderConfig::default(), 300, &Default::default(), &|| false, |_, x| {
@@ -805,4 +810,56 @@ fn a_picture_stamp_is_copied_with_its_picture() {
     assert!(err.is_none(), "{err:?}");
     let pasted = snap.annots.iter().find(|a| a.page == 1).expect("a stamp on page 2");
     assert!(copy(1, pasted).1.is_some(), "the pasted stamp has its picture");
+}
+
+#[test]
+fn sanitize_says_what_it_removed_only_when_it_did() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 1);
+    let (ops, rx, _) = started(&path);
+    let sanitized = |ops: &Sender<Op>| {
+        ops.send(Op::Apply { edit: Box::new(Edit::Sanitize), pages: vec![] }).unwrap();
+        match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+            Reply::Changed { error, note, .. } => (error, note),
+            _ => panic!("expected Changed"),
+        }
+    };
+    let (error, note) = sanitized(&ops);
+    assert!(error.is_none() && note.as_deref().is_some_and(|n| n.starts_with("Hidden information removed")), "{error:?} {note:?}");
+    // Revert brings back the file as last saved: nothing is left to save (More ▸ Versions…).
+    ops.send(Op::Revert).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none() && !snap.dirty, "{err:?}");
+}
+
+#[test]
+fn an_area_of_a_page_is_copied_as_its_pixels() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 1);
+    let (ops, rx, _) = started(&path);
+    ops.send(Op::CopyArea { page: 0, rect: [72.0, 700.0, 172.0, 750.0] }).unwrap();
+    match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+        // 100 × 50 points at 3 pixels a point.
+        Reply::ImageCopied(Ok((w, h, rgba))) => assert!(w.abs_diff(300) <= 3 && h.abs_diff(150) <= 3 && rgba.len() == (w * h * 4) as usize, "{w}×{h}"),
+        Reply::ImageCopied(Err(e)) => panic!("{e}"),
+        _ => panic!("expected ImageCopied"),
+    }
+    ops.send(Op::CopyArea { page: 0, rect: [10.0, 10.0, 10.0, 10.0] }).unwrap();
+    assert!(matches!(rx.recv_timeout(Duration::from_secs(30)).unwrap(), Reply::ImageCopied(Err(_))), "an empty area is refused");
+}
+
+#[test]
+fn a_fields_font_named_by_a_resource_key_is_read_through_the_forms_resources() {
+    let dir = tempfile::tempdir().unwrap();
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /DR << /Font << /F1 5 0 R >> >> /DA (/F1 0 Tf 0 g) >> >>".into(),
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".into(),
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R] >>".into(),
+        "<< /Type /Annot /Subtype /Widget /FT /Tx /T (Name) /Rect [72 700 272 722] /P 3 0 R /DA (/F1 12 Tf 0 g) >>".into(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>".into(),
+    ];
+    let path = dir.path().join("times.pdf");
+    std::fs::write(&path, hand_pdf(&objs)).unwrap();
+    let (_, _, snap) = started(&path);
+    assert_eq!(snap.fields.iter().map(|f| (f.name.as_str(), f.font)).collect::<Vec<_>>(), [("Name", 1)], "Times through /DR");
 }

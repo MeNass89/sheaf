@@ -50,8 +50,14 @@ pub fn props_cancel(tab_id: i32) {
 }
 
 /// The entries changed become one undo step (PdfCraft's SetInfo per entry).
-pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subject: &str, keywords: &str, custom: &str) {
+/// `opening`: When opened's page typed and its layout, zoom and panel ([`opening_edit`]).
+pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subject: &str, keywords: &str, custom: &str, opening: (&str, i32, i32, i32)) {
     let edit = update(tab_id, |r, _| {
+        let view = match opening_edit(r, opening.0, opening.1, opening.2, opening.3) {
+            Some(Err(why)) => return Some(Err(why)),
+            Some(Ok(e)) => Some(e),
+            None => None,
+        };
         r.props_open = false;
         let p = r.snap.props.clone();
         let mut edits: Vec<Edit> = [("Title", &p.title, title), ("Author", &p.author, author), ("Subject", &p.subject, subject), ("Keywords", &p.keywords, keywords)]
@@ -64,11 +70,15 @@ pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subjec
         let after = custom_pairs(custom);
         edits.extend(after.iter().filter(|kv| !before.contains(kv)).map(|(k, v)| Edit::SetInfo { key: k.clone(), value: v.clone() }));
         edits.extend(before.iter().filter(|(k, _)| !after.iter().any(|(a, _)| a == k)).map(|(k, _)| Edit::SetInfo { key: k.clone(), value: String::new() }));
-        (!edits.is_empty()).then(|| Edit::Batch { label: "Document properties".into(), edits })
+        edits.extend(view);
+        (!edits.is_empty()).then(|| Ok(Edit::Batch { label: "Document properties".into(), edits }))
     })
     .flatten();
-    if let Some(e) = edit {
-        apply(ui, tab_id, e, &[], None);
+    match edit {
+        Some(Ok(e)) => apply(ui, tab_id, e, &[], None),
+        // The sheet stays open on a page that is not in the document.
+        Some(Err(why)) => crate::flow::toast(ui, &why),
+        None => {}
     }
 }
 
@@ -138,4 +148,79 @@ mod tests {
         assert_eq!(about_rows(&about, Some(&facts))[1].1, "Restricted: no printing");
         assert_eq!(about_rows(&about, None).last().unwrap().0, "Signature 1 · Ada");
     }
+}
+
+/// The document's Initial View applied to a first opening: page layout, magnification, the page
+/// opened to and the side panel (bookmarks or pages); what it leaves at Default stays as set.
+pub(super) fn open_as_asked(r: &mut ReaderUi, v: &mut ViewerUi) {
+    use sheaf_core::pdfcraft::engine::{InitialLayout as L, Magnification as M, Navigation as N};
+    let o = r.snap.opening.clone();
+    match o.layout {
+        L::SinglePage | L::SinglePageContinuous => v.viewer.set_spread(0),
+        L::TwoUp | L::TwoUpContinuous => v.viewer.set_spread(1),
+        L::TwoUpCoverPage | L::TwoUpContinuousCoverPage => v.viewer.set_spread(2),
+        L::Default => false,
+    };
+    match o.magnification {
+        M::FitPage | M::FitVisible | M::FitHeight => v.pending_fit = true,
+        M::FitWidth => {
+            v.viewer.set_zoom(100);
+        }
+        M::ActualSize => v.pending_actual = Some(100.0),
+        M::Percent(p) if p > 0.0 => v.pending_actual = Some(p),
+        _ => {}
+    }
+    if o.page > 0 {
+        v.show_page(o.page, None);
+    }
+    match o.navigation {
+        N::Bookmarks => (r.panel, r.panel_open) = (1, true),
+        N::Pages => (r.panel, r.panel_open) = (0, true),
+        _ => {}
+    }
+}
+
+/// Document Properties ▸ When opened, as the sheet's controls give it: the page (1-based, typed),
+/// layout (0 as the reader likes, 1 one page, 2 two pages, 3 two with the cover alone), zoom (0 as
+/// the reader likes, 1 fit page, 2 fit width, 3 actual size), panel (0 none, 1 bookmarks, 2 pages).
+/// None: nothing changed, or a page that is not in the document.
+pub(super) fn opening_edit(r: &ReaderUi, page: &str, layout: i32, zoom: i32, panel: i32) -> Option<Result<Edit, String>> {
+    use sheaf_core::pdfcraft::engine::{InitialLayout as L, Magnification as M, Navigation as N};
+    let mut v = r.snap.opening.clone();
+    let count = r.snap.boxes.len();
+    let page = match page.trim() {
+        "" => 0,
+        t => match t.parse::<usize>() {
+            Ok(p) if (1..=count).contains(&p) => p - 1,
+            _ => return Some(Err(format!("Open at page: \"{t}\" is not a page of this document (1 to {count})"))),
+        },
+    };
+    v.page = page;
+    v.layout = [L::Default, L::SinglePageContinuous, L::TwoUpContinuous, L::TwoUpContinuousCoverPage][layout.clamp(0, 3) as usize];
+    v.magnification = [M::Default, M::FitPage, M::FitWidth, M::ActualSize][zoom.clamp(0, 3) as usize];
+    v.navigation = [N::PageOnly, N::Bookmarks, N::Pages][panel.clamp(0, 2) as usize];
+    (v != r.snap.opening).then(|| Ok(Edit::SetInitialView(Box::new(v))))
+}
+
+/// The sheet's controls from the document's Initial View (see [`opening_edit`]).
+pub(super) fn opening_controls(o: &sheaf_core::pdfcraft::engine::InitialView) -> (i32, i32, i32, i32) {
+    use sheaf_core::pdfcraft::engine::{InitialLayout as L, Magnification as M, Navigation as N};
+    let layout = match o.layout {
+        L::Default => 0,
+        L::SinglePage | L::SinglePageContinuous => 1,
+        L::TwoUp | L::TwoUpContinuous => 2,
+        L::TwoUpCoverPage | L::TwoUpContinuousCoverPage => 3,
+    };
+    let zoom = match o.magnification {
+        M::FitPage | M::FitVisible | M::FitHeight => 1,
+        M::FitWidth => 2,
+        M::ActualSize => 3,
+        _ => 0,
+    };
+    let panel = match o.navigation {
+        N::Bookmarks => 1,
+        N::Pages => 2,
+        _ => 0,
+    };
+    (o.page as i32 + 1, layout, zoom, panel)
 }

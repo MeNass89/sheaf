@@ -256,11 +256,20 @@ pub(super) fn add_poly(ui: &AppWindow, tab_id: i32) {
             outline.push(pts[0]);
         }
         let prov = Provisional { page, rects: Vec::new(), stroke: outline, colour, kind: PEN };
+        // Calibrate: the line drawn is a length the user knows; its real length is asked for at its end.
+        if r.calibrating && r.shape_kind == 7 {
+            r.calibration_len = vertices.windows(2).map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1])).sum();
+            let end = *pts.last()?;
+            r.link_error.clear();
+            r.draft = Some(Draft { page, at: (end.0, end.1 + 8.0), kind: 12, block: Some((0, String::new(), [0.0; 4])), field: None });
+            r.note_seq += 1;
+            return None;
+        }
         let edit = match r.shape_kind {
             7..=9 => {
                 use sheaf_core::pdfcraft::engine::measure::{Kind, NewMeasurement, Scale};
                 let kind = [Kind::Distance, Kind::Perimeter, Kind::Area][(r.shape_kind - 7) as usize];
-                let factor = reader::measure_factor(r.measure_scale, v.viewer.boxes.get(page).map_or(1.0, |b| b.unit));
+                let factor = r.measure_custom.unwrap_or_else(|| reader::measure_factor(r.measure_scale, v.viewer.boxes.get(page).map_or(1.0, |b| b.unit)));
                 let label = reader::measure_label(r.shape_kind, &vertices, factor);
                 let scale = Scale::new(factor.0, factor.1, 2).ok()?;
                 Edit::AddMeasurement(NewMeasurement { page, kind, points: vertices, scale, style, label, author: author() })
@@ -471,6 +480,23 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             }
             let s = style(INK[r.ink_colour.min(INK.len() - 1)], 1.0);
             return Some((d.page, Edit::ReplaceText { page: d.page, quads, text: text.clone(), author: author(), strike: s.clone(), caret: s }));
+        }
+        if d.kind == 12 {
+            // Calibrate: the real length of the line just measured sets the scale; a length not
+            // understood keeps the editor open to correct it.
+            match reader::calibrated(&text, r.calibration_len) {
+                Ok(scale) => {
+                    r.measure_custom = Some(scale);
+                    r.calibrating = false;
+                    r.link_error.clear();
+                }
+                Err(why) => {
+                    r.link_error = why;
+                    r.draft = Some(d);
+                    r.note_seq += 1;
+                }
+            }
+            return None;
         }
         if d.kind == 8 || d.kind == 9 {
             // Link: a page number or an address; an existing link emptied is removed.
@@ -724,13 +750,22 @@ pub fn copy_comment(ui: &AppWindow, tab_id: i32, cut: bool) {
 /// Copy Image; Sol 25/10: picked objects could not be copied); cut, it is deleted once sent.
 pub fn copy_image(ui: &AppWindow, tab_id: i32, cut: bool) {
     let sent = update(tab_id, |r, _| {
-        let (page, index) = r.selected_image?;
-        r.send(Op::CopyImage { page, index });
-        Some(())
+        if let Some((page, index)) = r.selected_image {
+            r.send(Op::CopyImage { page, index });
+            return Some(true);
+        }
+        // Drawings, paragraphs or several objects picked: what they cover, as the page shows it
+        // (Sol, 25/10: only a picture could be copied); cut, they are deleted once sent.
+        let (page, list) = r.picked.as_ref()?;
+        let rect = list.iter().map(|o| o.1).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])?;
+        r.send(Op::CopyArea { page: *page, rect });
+        Some(false)
     })
     .flatten();
-    if sent.is_some() && cut {
-        image_action(ui, tab_id, 4);
+    match sent {
+        Some(true) if cut => image_action(ui, tab_id, 4),
+        Some(false) if cut => delete_selected(ui, tab_id),
+        _ => {}
     }
 }
 

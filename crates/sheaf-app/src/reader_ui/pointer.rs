@@ -59,6 +59,13 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
         let Some(page) = page_at(&v.viewer, x, y) else { return false };
         let p = to_view(&v.viewer, page, x, y);
         r.press = Some((page, p));
+        // Zoom to area (Z): the box dragged is the part of the page to fill the view; Copy an area
+        // (Acrobat's Snapshot): the part to copy as a picture.
+        if r.zoom_area || r.snap_area {
+            r.stroke = Some((page, vec![p]));
+            r.shape_end = None;
+            return false;
+        }
         match r.tool {
             PEN => {
                 r.stroke = Some((page, vec![p]));
@@ -169,7 +176,7 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 // Placed at once when a signature exists; otherwise it is made first.
                 r.press = None;
                 r.sign_at = Some((page, p));
-                if saved_signature().is_none() {
+                if super::sign::saved_mark(r.initials).is_none() {
                     r.sign_open = true;
                 }
                 false
@@ -300,6 +307,11 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
         }
         if let Some(d) = r.annot_resize.as_mut() {
             d.2 = b;
+            return;
+        }
+        if r.zoom_area || r.snap_area {
+            r.shape_end = Some(b);
+            r.stroke = Some((page, reader::shape_outline(0, a, b)));
             return;
         }
         if r.tool == FORM {
@@ -495,6 +507,17 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         {
             return Some(Pending::Link(target));
         }
+        let (zoom, snap) = (std::mem::take(&mut r.zoom_area), std::mem::take(&mut r.snap_area));
+        if zoom || snap {
+            r.stroke = None;
+            let ((page, a), e) = (press?, r.shape_end.take()?);
+            if (a.0 - e.0).abs() < 6.0 || (a.1 - e.1).abs() < 6.0 {
+                return None;
+            }
+            let b = &v.viewer.boxes[page];
+            let rect = viewer::view_rect_to_pdf(b, b.view_size(), (a.0.min(e.0), a.1.min(e.1)), (a.0.max(e.0), a.1.max(e.1)));
+            return Some(if zoom { Pending::Zoom(page, rect) } else { Pending::Snap(page, rect) });
+        }
         match r.tool {
             PEN => r.stroke.take().filter(|(_, pts)| pts.len() >= 2).map(|(page, pts)| Pending::Ink(page, pts)),
             ERASER => r.stroke.take().map(|(page, pts)| Pending::Erase(page, pts)),
@@ -544,6 +567,12 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         Some(Pending::Stamp(page, at)) => add_stamp(ui, tab_id, page, at),
         Some(Pending::Markup(kind)) => markup(ui, tab_id, kind),
         Some(Pending::Move(page, e)) => apply(ui, tab_id, *e, &[page], None),
+        Some(Pending::Snap(page, rect)) => {
+            update(tab_id, |r, _| r.send(Op::CopyArea { page, rect }));
+        }
+        Some(Pending::Zoom(page, rect)) => {
+            update(tab_id, |r, v| jump_dest(r, v, page, &render::DestView::FitR { rect: rect.map(|c| c as f32) }));
+        }
         Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
             update(tab_id, |r, v| jump_dest(r, v, page, &view));
         }
@@ -582,6 +611,10 @@ pub(super) enum Pending {
     Markup(i32),
     Move(usize, Box<Edit>),
     Link(render::LinkTarget),
+    /// Zoom to area: the page and its part (user space) to fill the view.
+    Zoom(usize, [f64; 4]),
+    /// Copy an area: the page and its part (user space) to copy as a picture.
+    Snap(usize, [f64; 4]),
 }
 
 /// The link under view point `p` of `page`.
