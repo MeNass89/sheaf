@@ -453,7 +453,10 @@ pub fn show_merge_pages(ui: &AppWindow, tab_id: i32, on: bool) {
     let render = with(|a| {
         let t = a.tab(tab_id)?;
         if !on {
-            t.merge_kept = t.merge_order.take();
+            // Kept with the files it was made for: one whose every page was taken out still counts
+            // (Sol, 26/10: its pages came back).
+            let files = t.files.iter().map(|f| f.uid).collect();
+            t.merge_kept = t.merge_order.take().map(|o| (files, o));
             refresh(a, tab_id);
             return None;
         }
@@ -462,7 +465,7 @@ pub fn show_merge_pages(ui: &AppWindow, tab_id: i32, on: bool) {
         }
         // The order made before, when the files are the same ones.
         let uids: std::collections::BTreeSet<i32> = t.files.iter().map(|f| f.uid).collect();
-        if let Some(kept) = t.merge_kept.take().filter(|k| k.iter().map(|e| e.0).collect::<std::collections::BTreeSet<_>>() == uids) {
+        if let Some((_, kept)) = t.merge_kept.take().filter(|k| k.0 == uids) {
             t.merge_order = Some(kept);
             refresh(a, tab_id);
             return None;
@@ -607,6 +610,8 @@ pub fn close_tabs_around(ui: &AppWindow, id: i32, which: i32) {
         4 => return crate::reader_ui::rename_file(ui, id),
         5 => return crate::reader_ui::reveal_file(id),
         6 => return crate::reader_ui::trash_file(ui, id),
+        7 => return crate::reader_ui::move_to_window(ui, id),
+        8 => return crate::windows::merge_all(ui),
         _ => {}
     }
     let ids: Vec<i32> = with(|a| {

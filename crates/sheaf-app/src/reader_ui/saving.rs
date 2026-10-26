@@ -40,11 +40,8 @@ pub fn save_as(ui: &AppWindow, tab_id: i32) {
         if with(|a| a.tabs.iter().any(|t| t.id != tab_id && t.reader_file.as_ref() == Some(&canon))) {
             return crate::flow::toast(ui, "That file is open in another tab: close it first");
         }
-        with(|a| {
-            if let Some(t) = a.tab(tab_id) {
-                t.reader_file = Some(canon);
-            }
-        });
+        // The tab becomes the new file once it is written (Sol, 26/10: before, a failed Save As left
+        // the tab named after a file it did not show).
         update(tab_id, |r, _| r.send(Op::Save { to: Some(target) }));
     });
 }
@@ -66,6 +63,8 @@ pub fn rename_file(ui: &AppWindow, tab_id: i32) {
             r.path = to.clone();
             r.name = file_name(&to);
             v.input.path = to.clone();
+            // The document's thread saves there from now on (Sol, 26/10: it wrote the old name).
+            let _ = r.ops.send(Op::Renamed { to: to.clone() });
         });
         with(|a| {
             if let Some(t) = a.tab(tab_id) {
@@ -75,6 +74,20 @@ pub fn rename_file(ui: &AppWindow, tab_id: i32) {
         crate::home::record_open(&to);
         crate::flow::toast(ui, &format!("Renamed {}", file_name(&to)));
     });
+}
+
+/// The tab's menu ▸ Move to New Window (PDF Expert's, a browser's): the document opens in a window of
+/// its own and its tab here closes. Unsaved edits are saved first, or the move is refused.
+pub fn move_to_window(ui: &AppWindow, tab_id: i32) {
+    if let Some(name) = unsaved_name(tab_id) {
+        return crate::flow::toast(ui, &format!("Save {name} first: a new window opens the file as saved"));
+    }
+    let Some(path) = update(tab_id, |r, _| r.path.clone()) else { return };
+    if crate::run::open_in_new_window(&path) {
+        crate::flow::remove_tab(ui, tab_id);
+    } else {
+        crate::flow::toast(ui, "A new window could not be opened");
+    }
 }
 
 /// The tab's menu ▸ Show in Folder.
@@ -306,6 +319,26 @@ pub fn email(ui: &AppWindow, tab_id: i32) {
         Ok(_) => crate::flow::toast(ui, "No mail app to send it with: attach the file from your mail"),
         Err(e) => crate::flow::toast(ui, &format!("Not attached: {e}")),
     }
+}
+
+/// More ▸ Save a flattened copy… and Email a flattened copy (Acrobat's Print to PDF of a marked-up
+/// file, PDF Expert's Export ▸ Flattened Copy): comments and fields drawn into the pages of a copy;
+/// the document keeps them editable.
+pub fn flat_copy(ui: &AppWindow, tab_id: i32, mail: bool) {
+    let Some((dir, stem)) = update(tab_id, |r, _| (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())) else { return };
+    let name = format!("{stem} (flattened).pdf");
+    if mail {
+        let dir = std::env::temp_dir().join("sheaf-mail");
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            return crate::flow::toast(ui, &format!("Not attached: {e}"));
+        }
+        update(tab_id, |r, _| r.send(Op::FlatCopy { to: dir.join(&name), mail: true }));
+        return;
+    }
+    let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(name).add_filter("PDF", &["pdf"]);
+    crate::dialog::save_file(ui, d, move |_, to| {
+        update(tab_id, |r, _| r.send(Op::FlatCopy { to, mail: false }));
+    });
 }
 
 /// More ▸ Sanitize document (Acrobat's): metadata, scripts and actions, attachments, links, hidden

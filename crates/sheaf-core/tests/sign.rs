@@ -30,7 +30,7 @@ fn test_id(dir: &Path) -> PathBuf {
 }
 
 fn digital(p12: &Path, password: &str) -> Option<DigitalSpec> {
-    Some(DigitalSpec { p12: p12.into(), password: password.into(), reason: Some("Approved".into()), location: None })
+    Some(DigitalSpec { p12: p12.into(), password: password.into(), reason: Some("Approved".into()), location: None, certify: None })
 }
 
 fn spec(page: usize, rect: [f64; 4], graphic: Graphic, digital: Option<DigitalSpec>) -> SignSpec {
@@ -402,4 +402,16 @@ fn a_signature_on_paper_loses_its_background_and_keeps_its_ink() {
     assert_eq!(*img.get_pixel(60, 20), image::Rgba([20, 30, 120, 255]), "the ink keeps its colour, opaque");
     // A picture already transparent is kept as it is.
     assert_eq!(sign::clear_background(&out).unwrap(), out);
+}
+
+#[test]
+fn a_certifying_signature_says_which_changes_it_allows() {
+    let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
+    let out = t.path().join("certified.pdf");
+    let d = DigitalSpec { certify: Some(2), ..digital(&p12, "secret").unwrap() };
+    sign::sign(&Input::new(invoice()), &spec(0, [72.0, 72.0, 272.0, 132.0], Graphic::Typed("Ada Lovelace".into(), Default::default()), Some(d)), &out).unwrap();
+    assert_eq!(signatures(&out), [(true, true)]);
+    let doc = Doc::open(&Input::new(&out)).unwrap();
+    assert_eq!(doc.document().signatures[0].certify, Some(2), "a certification allowing forms and signing");
 }

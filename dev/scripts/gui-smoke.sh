@@ -87,6 +87,8 @@ write("image.pdf", objs, 2)
 PY
 for f in text form labels links image; do qpdf "$OUT/$f.pdf" "$OUT/$f.fixed.pdf" && mv "$OUT/$f.fixed.pdf" "$OUT/$f.pdf"; done
 cp "$OUT/text.pdf" "$OUT/shapes.pdf"
+# text.pdf as made, for the steps that need a page no other step has drawn on (Prepare form).
+cp "$OUT/text.pdf" "$OUT/plain.pdf"
 
 # The user's own Sheaf data, as it is before the run (the check at the end compares).
 real_profile() { ls -la --time-style=full-iso "${XDG_DATA_HOME:-$HOME/.local/share}/Sheaf" 2>/dev/null | md5sum; }
@@ -105,7 +107,7 @@ launch() {
     # profile (it did until 21/10: smoke runs wrote into ~/.local/share/Sheaf).
     # Its own temp folder too: the app is killed, so its temp copies are not removed on exit.
     local p="$PWD/$OUT/profile"; mkdir -p "$p/tmp"
-    TMPDIR="$p/tmp" XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" SHEAF_READER_DEBUG=1 SHEAF_TEST_DIALOG="$PWD/$OUT/dialog-answer" SHEAF_TEST_MAIL="$PWD/$OUT/mail-sent" SHEAF_TEST_SCREENSHOT="$PWD/$OUT/stamp.png" "$APP" "$@" >>"$OUT/app.log" 2>&1 &
+    TMPDIR="$p/tmp" XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" SHEAF_READER_DEBUG=1 SHEAF_TEST_DIALOG="$PWD/$OUT/dialog-answer" SHEAF_TEST_MAIL="$PWD/$OUT/mail-sent" SHEAF_TEST_SCREENSHOT="$PWD/$OUT/stamp.png" SHEAF_TEST_SCAN="$PWD/$OUT/stamp.png" SHEAF_TEST_NOTIFY="$PWD/$OUT/notified" SHEAF_TEST_SPEECH="$PWD/$OUT/spoken" SHEAF_TEST_DEFAULT="$PWD/$OUT/made-default" "$APP" "$@" >>"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done
     [ -n "$W" ] || { echo "FAIL the app opened no window (Xvfb $(kill -0 $XVFB 2>/dev/null && echo alive || echo gone), socket $(ls /tmp/.X11-unix/X98 2>/dev/null || echo missing), $(ls /proc/$XVFB/fd 2>/dev/null | wc -l) fds, $(pgrep -c xclip) xclip):"; tail -3 "$OUT/app.log"; tail -5 "$OUT/xvfb.log"; exit 1; }

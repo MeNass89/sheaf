@@ -79,6 +79,9 @@ struct Search {
 }
 
 /// An object of a page as Edit a PDF selects it: its inventory target and box (user space).
+/// Replace Pages from a longer file, asked which of its pages: (its name, its bytes, its page
+/// count, the pages to replace).
+type ReplacePending = (String, Arc<Vec<u8>>, usize, Vec<usize>);
 type PageObject = (sheaf_core::pdfcraft::engine::ObjectTarget, [f64; 4]);
 /// A drag on a page: the page, from and to (view points).
 type PageDrag = (usize, (f64, f64), (f64, f64));
@@ -140,6 +143,8 @@ pub struct ReaderUi {
     pub path: PathBuf,
     pub name: String,
     texts: HashMap<usize, Arc<PageText>>,
+    /// Rotate view's quarter turns: the pages' text is read turned as they show.
+    turn: u16,
     /// The Notes panel's highlighted words being read on their thread (`model::quote_texts`).
     quotes_reading: bool,
     /// The text layer's renderer, kept for the working file it was made from.
@@ -296,6 +301,8 @@ pub struct ReaderUi {
     callout: bool,
     /// The Measuring tools' scale (`reader::MEASURE_SCALES`).
     measure_scale: usize,
+    /// Decimals the measures are written with (Acrobat's Precision; 2 by default).
+    measure_decimals: usize,
     /// Calibrate: the next distance measured asks for its real length; then the scale it gives
     /// (real units per user-space unit, the unit) replaces the preset one.
     calibrating: bool,
@@ -319,8 +326,16 @@ pub struct ReaderUi {
     snap_area: bool,
     /// More ▸ Scroll automatically is on (the view moves itself, reader.slint).
     auto_scroll: bool,
+    /// More ▸ Loupe: on; a render asked and not back; the next area to show once it is; the last shown.
+    loupe: bool,
+    loupe_busy: bool,
+    loupe_next: Option<(usize, [f64; 4])>,
+    loupe_image: Option<slint::Image>,
     /// Pen and shapes draw dashed lines (Acrobat's Dashed line style).
     dashed: bool,
+    /// Replace Pages with a file of more pages than selected: its name, bytes, page count and the pages
+    /// to replace, while the pages to take are asked for.
+    replace_pending: Option<ReplacePending>,
     /// When the wheel last turned a page (One page at a time): the events of the same notch that follow are
     /// let go (an X11 notch comes as two).
     wheel_turned: Option<std::time::Instant>,
@@ -330,6 +345,13 @@ pub struct ReaderUi {
     initials: bool,
     /// The Signature tool places on every page at once (its options bar's Every page).
     sign_every_page: bool,
+    /// The pages it goes on, as typed ("2-5", "odd"); empty: every page.
+    sign_pages: String,
+    /// The field card's Format, range and Calculate, typed, until Done.
+    pending_scripts: Option<(i32, String, String, String)>,
+    /// What the document asks of the window when it opens: full screen, no toolbar; and a count
+    /// the window follows (once per opening).
+    opened: (bool, bool, i32),
     form_drag: Option<FormDrag>,
     /// Generation of the running search, shared with its thread so it stops when replaced.
     search_live: Arc<std::sync::atomic::AtomicU64>,
@@ -390,6 +412,7 @@ impl ReaderUi {
             path,
             name,
             texts: HashMap::new(),
+            turn: 0,
             quotes_reading: false,
             text_renderer: None,
             blocks: HashMap::new(),
@@ -483,6 +506,7 @@ impl ReaderUi {
             arrow_both: false,
             callout: false,
             measure_scale: 0,
+            measure_decimals: 2,
             calibrating: false,
             measure_custom: None,
             calibration_len: 0.0,
@@ -495,11 +519,19 @@ impl ReaderUi {
             zoom_area: false,
             snap_area: false,
             auto_scroll: false,
+            loupe: false,
+            loupe_busy: false,
+            loupe_next: None,
+            loupe_image: None,
             dashed: false,
+            replace_pending: None,
             wheel_turned: None,
             page_at_a_time: false,
             initials: false,
             sign_every_page: false,
+            sign_pages: String::new(),
+            pending_scripts: None,
+            opened: (false, false, 0),
             form_drag: None,
             search_live: Default::default(),
             pending_reduce: None,
@@ -567,7 +599,13 @@ impl ReaderUi {
         }
         let (_, r) = self.text_renderer.as_mut()?;
         let res = r.render(render::RenderRequest { page, kind: render::RequestKind::Text, scale: 1.0, ..Default::default() });
-        let t = res.text?;
+        let mut t = res.text?;
+        if self.turn != 0
+            && let Some(b) = self.snap.boxes.get(page)
+        {
+            let (w, h) = b.view_size();
+            t = Arc::new(reader::turned_text(&t, (w as f32, h as f32), self.turn));
+        }
         self.texts.insert(page, t.clone());
         Some(t)
     }
@@ -654,6 +692,11 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 
 /// An answer of tab `id`'s document thread.
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
+    // The copies' and the loupe's answers give back the count `send` took (they left it raised:
+    // Undo greyed, and closing asked to save a document untouched).
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_)) {
+        update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
+    }
     match reply {
         Reply::Opened(snap) => opened(ui, id, *snap),
         Reply::OpenFailed(e) => {
@@ -741,6 +784,14 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 }
                 r.name.clone()
             });
+            // The file this tab shows, for "already open" (after a Save As, the new one).
+            if error.is_none() {
+                with(|a| {
+                    if let Some(t) = a.tab(id) {
+                        t.reader_file = Some(std::fs::canonicalize(&to).unwrap_or_else(|_| to.clone()));
+                    }
+                });
+            }
             match (error, name) {
                 (None, Some(n)) => {
                     // Edits made while this save ran are not in it: save again before closing or
@@ -775,6 +826,14 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 _ => {}
             }
         }
+        Reply::FlatCopied { to, mail, error } => match error {
+            Some(e) => crate::flow::toast(ui, &format!("The flattened copy was not made: {e}")),
+            None if mail && crate::run::mail_attachment(&to, &file_name(&to)) => crate::flow::toast(ui, &format!("{} attached to a new mail", file_name(&to))),
+            None if mail => crate::flow::toast(ui, "No mail app to send it with: attach the file from your mail"),
+            None => crate::flow::toast(ui, &format!("Flattened copy saved as {}", file_name(&to))),
+        },
+        Reply::Loupe(made) => loupe::shown(id, made),
+        Reply::Upright(turns) => pages::upright(ui, id, turns),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
@@ -783,6 +842,22 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             match copied {
                 Ok(()) => crate::flow::toast(ui, "Picture copied: ⌘V pastes it on a page, or in another app"),
                 Err(e) => crate::flow::toast(ui, &format!("The picture was not copied: {e}")),
+            }
+        }
+        Reply::ObjectsCopied(made) => {
+            let from = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?))).flatten();
+            let copied = made.and_then(|((width, height, rgba), pdf, shown)| {
+                let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
+                arboard::Clipboard::new().and_then(|mut c| c.set_image(image)).map_err(|e| e.to_string())?;
+                Ok((pdf, shown, (width as usize, height as usize)))
+            });
+            match (copied, from) {
+                (Ok((pdf, shown, pixels)), Some((from, page))) => {
+                    with(|a| a.objects_clip = Some(crate::state::ObjectsClip { pdf, shown, from, page, pixels }));
+                    crate::flow::toast(ui, "Objects copied: ⌘V pastes them on a page, or as a picture in another app");
+                }
+                (Err(e), _) => crate::flow::toast(ui, &format!("The objects were not copied: {e}")),
+                _ => {}
             }
         }
         Reply::PagesCopied(made) => match made {
@@ -807,7 +882,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Exported { to, error } => {
             update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
             match error {
-                None => crate::flow::toast(ui, &format!("Comments exported to {}", file_name(&to))),
+                None => crate::flow::toast(ui, &format!("Exported to {}", file_name(&to))),
                 Some(e) => crate::flow::toast(ui, &format!("Not exported: {e}")),
             }
         }
@@ -1086,6 +1161,8 @@ mod prepare;
 mod nav;
 mod edits;
 mod saving;
+mod speech;
+mod loupe;
 mod pages;
 mod tools;
 mod search;
@@ -1099,6 +1176,8 @@ pub use prepare::*;
 pub use nav::*;
 pub use edits::*;
 pub use saving::*;
+pub use speech::*;
+pub use loupe::*;
 pub use pages::*;
 pub use tools::*;
 pub use search::*;

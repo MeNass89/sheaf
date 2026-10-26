@@ -339,6 +339,7 @@ export component PropertiesSheet inherits Rectangle {
                     spacing: 8px;
                     // Acrobat's PDF info report: everything above and the fonts, as text.
                     SmallButton { text: "Copy report"; clicked => { ReaderBridge.props-copy(root.id); } }
+                    SmallButton { text: "Save report…"; clicked => { ReaderBridge.props-report(root.id); } }
                     Rectangle { horizontal-stretch: 1; }
                     SmallButton { text: "Cancel"; clicked => { ReaderBridge.props-cancel(root.id); root.focus-pages(); } }
                     save := SmallButton {

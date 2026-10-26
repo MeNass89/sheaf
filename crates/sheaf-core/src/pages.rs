@@ -132,15 +132,17 @@ pub fn resize(input: &Input, pages: Option<&str>, size: (f64, f64), out: &Path) 
         let turned = matches!(page.rotation()?, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
         // In user space, before the page's own turn.
         let (w, h) = if turned { (size.1, size.0) } else { size };
-        let m = page.boundaries().media()?.bounds;
+        // What shows is scaled: the crop box when there is one, and what it hid stays hidden (Sol,
+        // 26/10: from the media box, a cropped-away margin came back).
+        let m = page.boundaries().crop().or_else(|_| page.boundaries().media())?.bounds;
         let (x0, y0, w0, h0) = (m.left().value as f64, m.bottom().value as f64, m.width().value as f64, m.height().value as f64);
         if w0 <= 0.0 || h0 <= 0.0 {
             continue;
         }
         let k = (w / w0).min(h / h0);
         let (dx, dy) = ((w - w0 * k) / 2.0 - x0 * k, (h - h0 * k) / 2.0 - y0 * k);
-        let all = PdfRect::new_from_values(-1e6, -1e6, 1e6, 1e6);
-        page.transform_with_clip(k as f32, 0.0, 0.0, k as f32, dx as f32, dy as f32, all)?;
+        let shown = PdfRect::new_from_values((y0 * k + dy) as f32, (x0 * k + dx) as f32, ((y0 + h0) * k + dy) as f32, ((x0 + w0) * k + dx) as f32);
+        page.transform_with_clip(k as f32, 0.0, 0.0, k as f32, dx as f32, dy as f32, shown)?;
         let rect = PdfRect::new_from_values(0.0, 0.0, h as f32, w as f32);
         page.boundaries_mut().set_media(rect)?;
         page.boundaries_mut().set_crop(rect)?;

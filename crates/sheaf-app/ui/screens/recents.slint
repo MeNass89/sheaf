@@ -43,6 +43,7 @@ export component RecentsScreen inherits Rectangle {
     callback new-blank();
     callback new-from-clipboard();
     callback new-from-screenshot();
+    callback new-from-scanner();
     callback open-recent(int);
     callback reveal-recent(int);
     callback remove-recent(int);
@@ -91,6 +92,11 @@ export component RecentsScreen inherits Rectangle {
                     SecondaryButton {
                         text: "From screenshot";
                         clicked => { root.new-from-screenshot(); }
+                    }
+                    // Acrobat's Create PDF ▸ Scanner.
+                    SecondaryButton {
+                        text: "From scanner";
+                        clicked => { root.new-from-scanner(); }
                     }
                 }
                 Text {

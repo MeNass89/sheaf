@@ -32,6 +32,12 @@ use std::path::Path;
 /// a page uses (glyph names, a subset's name, text drawn as pixels), name-tree keys,
 /// destinations, URIs, /DA, field names and XMP markup. Anything that can't be read fails.
 pub fn verify(path: &Path, marks: &[Mark]) -> Result<()> {
+    verify_with(path, marks, "")
+}
+
+/// [`verify`], the text written over the boxes (`overlay`, [`super::Appearance`]) allowed on them:
+/// it is the only text a box may have on it.
+pub fn verify_with(path: &Path, marks: &[Mark], overlay: &str) -> Result<()> {
     let fail = |why: String| OpdfError::Conversion(format!("redaction audit failed: {why}"));
     let doc = Doc::open(&Input::new(path)).map_err(|e| fail(format!("the output can't be re-opened ({e})")))?;
     let d = doc.document();
@@ -70,6 +76,12 @@ pub fn verify(path: &Path, marks: &[Mark]) -> Result<()> {
                 (area > 0.0 && inter >= 0.2 * area).then_some((((x0 + x1) / 2.0, (y0 + y1) / 2.0), g.text.as_str()))
             })
             .collect();
+        // The overlay text, drawn over the box after the redaction (repeated or not), is no leak.
+        let joined: String = hidden.iter().map(|(_, t)| *t).collect::<String>().split_whitespace().collect();
+        let over: String = overlay.split_whitespace().collect();
+        if !over.is_empty() && over.repeat(joined.len() / over.len() + 2).contains(&joined) {
+            continue;
+        }
         if hidden.is_empty() {
             continue;
         }
@@ -100,7 +112,7 @@ pub fn verify(path: &Path, marks: &[Mark]) -> Result<()> {
     }
     drop(r);
     drop(doc);
-    text_under_marks(path, marks).map_err(|e| match e {
+    text_under_marks(path, marks, overlay).map_err(|e| match e {
         OpdfError::Conversion(_) => e,
         e => fail(format!("the output can't be read by pdfium ({e})")),
     })
@@ -121,8 +133,8 @@ fn in_quad(q: &[f64; 8], p: (f64, f64)) -> bool {
 }
 
 /// pdfium's text under each mark: any non-blank character whose centre is inside a mark (or
-/// anywhere on a page marked whole) fails.
-fn text_under_marks(path: &Path, marks: &[Mark]) -> Result<()> {
+/// anywhere on a page marked whole) fails, but for the overlay text written over the boxes.
+fn text_under_marks(path: &Path, marks: &[Mark], overlay: &str) -> Result<()> {
     if marks.is_empty() {
         return Ok(());
     }
@@ -145,6 +157,10 @@ fn text_under_marks(path: &Path, marks: &[Mark]) -> Result<()> {
             if whole || here.iter().any(|m| m.quads.iter().any(|q| in_quad(q, centre))) {
                 left.push(ch);
             }
+        }
+        let over: String = overlay.split_whitespace().collect();
+        if !over.is_empty() && over.repeat(left.len() / over.len() + 2).contains(&left) {
+            continue;
         }
         if !left.is_empty() {
             return Err(OpdfError::Conversion(format!("redaction audit failed: text is still under a black box on page {} (\"{left}\")", p + 1)));

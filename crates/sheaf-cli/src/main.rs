@@ -279,7 +279,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             }
             warned(Ok((r.path, r.was_encrypted)))
         }
-        Cmd::Sign { input: i, page, at, width, text, script_font, image, strokes, p12, p12_password, reason, location, out } => {
+        Cmd::Sign { input: i, page, at, width, text, script_font, image, strokes, p12, p12_password, reason, location, certify, out } => {
             let i = input(i);
             let graphic = match (text, image, strokes) {
                 (Some(t), _, _) => Graphic::Typed(t, script_font.font()),
@@ -291,7 +291,11 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             let info = sign::page_info(&i, page)?;
             let aspect = sign::aspect(&graphic)?;
             let center = [at.0 + width / 2.0, at.1 + width * aspect / 2.0];
-            let digital = p12.map(|p12| DigitalSpec { p12, password: p12_password.unwrap_or_default(), reason, location });
+            // Certifying is a certificate signature: it needs the digital ID.
+            if certify.is_some() && p12.is_none() {
+                return Err(OpdfError::Unsupported("--certify needs --p12 (a certifying signature is a certificate one)".into()));
+            }
+            let digital = p12.map(|p12| DigitalSpec { p12, password: p12_password.unwrap_or_default(), reason, location, certify });
             let spec = SignSpec { page, rect: sign::box_at(&info, center, width, aspect), graphic, digital };
             let r = sign::sign(&i, &spec, &out)?;
             note!("{}", r.summary());

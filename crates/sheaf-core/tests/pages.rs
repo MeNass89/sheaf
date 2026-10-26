@@ -96,6 +96,20 @@ fn a_cropped_page_is_mirrored_within_what_shows() {
 }
 
 #[test]
+fn a_cropped_page_changes_size_from_what_shows_and_keeps_its_margin_hidden() {
+    // Cropped to its right half ("Page 1", at the left, hidden), then put on landscape A4: what
+    // shows is scaled into the middle, and the hidden text must not come back in the side margin
+    // (Sol, 26/10: resizing started from the media box).
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let spec = sheaf_core::crop::CropSpec::Margins { top: 0.0, bottom: 0.0, left: 300.0, right: 0.0 };
+    let (cropped, _) = sheaf_core::crop::crop(&Input::new(&a), None, &spec, &t.path().join("c.pdf")).unwrap();
+    let out = resize(&Input::new(&cropped), None, (842.0, 595.0), &t.path().join("r.pdf")).unwrap();
+    let img = common::render(&out, 0);
+    assert_eq!(common::dark_in(&img, 0.0, 1.0, 0.0, 1.0), 0, "the cropped-away text came back");
+}
+
+#[test]
 fn a_flipped_page_takes_its_comments_with_it() {
     use pdfium_render::prelude::*;
     let t = tempfile::tempdir().unwrap();

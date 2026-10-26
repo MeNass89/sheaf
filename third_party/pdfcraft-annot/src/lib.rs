@@ -1322,6 +1322,20 @@ fn draw_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
 /// Pure from the dictionary and the objects it points at, so [`AppearanceCache`] can reuse it.
 fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
     let mut stream = appearance::build(d)?;
+    // Sheaf: a text box in a font of the file's own is drawn with it when its old appearance holds
+    // it whole (not a subset, WinAnsi-encoded, a simple font): the text is written in WinAnsi.
+    if d.name(b"Subtype") == Some(b"FreeText") {
+        let (name, _) = appearance::text_font(d);
+        if !appearance::TEXT_FONTS.iter().any(|f| f.0 == name)
+            && let Some(own) = old_text_font(doc, d, &name)
+            && let Some(Object::Dict(mut res)) = stream.dict.get(b"Resources").cloned()
+        {
+            let mut fonts = res.get(b"Font").and_then(|f| f.as_dict().cloned()).unwrap_or_default();
+            fonts.set(name.into_bytes(), own);
+            res.set(b"Font".to_vec(), Object::Dict(fonts));
+            stream.dict.set(b"Resources".to_vec(), Object::Dict(res));
+        }
+    }
     // Picture-stamp restyling must retain the placement's page-axis correction.
     if d.get(b"PCPicture").is_some() {
         let matrix = d.get(b"AP").and_then(|ap| {
@@ -1335,6 +1349,23 @@ fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
         }
     }
     Some(stream)
+}
+
+/// Sheaf: font `name` of a text box's present appearance, when it can draw any WinAnsi text: a
+/// simple font (Type1, TrueType), not a subset, WinAnsi-encoded.
+fn old_text_font(doc: &Document, d: &Dict, name: &str) -> Option<Object> {
+    let ap = doc.resolve(d.get(b"AP")?);
+    let normal = doc.resolve(ap.as_dict()?.get(b"N")?);
+    let Object::Stream(normal) = normal.as_ref() else { return None };
+    let res = doc.resolve(normal.dict.get(b"Resources")?);
+    let fonts = doc.resolve(res.as_dict()?.get(b"Font")?);
+    let entry = fonts.as_dict()?.get(name.as_bytes())?.clone();
+    let font = doc.resolve(&entry);
+    let f = font.as_dict()?;
+    let simple = matches!(f.name(b"Subtype"), Some(b"Type1" | b"TrueType"));
+    let whole = f.name(b"BaseFont").is_some_and(|b| b.get(6) != Some(&b'+'));
+    let win_ansi = f.name(b"Encoding") == Some(b"WinAnsiEncoding");
+    (simple && whole && win_ansi).then_some(entry)
 }
 
 /// Store a built appearance on the annotation: the cheap half of [`set_appearance`].
@@ -1477,9 +1508,10 @@ fn rich_text(d: &mut Dict) {
     };
     let esc = |s: &str| s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;");
     let body: String = text.split('\n').map(|line| format!("<p dir=\"ltr\">{}</p>", esc(line.trim_end_matches('\r')))).collect();
-    // Sheaf: the family, weight and style of the `/DA` font.
-    let (_, base) = appearance::da_font(d);
-    let family = base.split('-').next().unwrap_or("Helvetica");
+    // Sheaf: the family, weight and style of the `/DA` font (a font of the file's own by its name).
+    let (name, base) = appearance::text_font(d);
+    let own = !appearance::TEXT_FONTS.iter().any(|f| f.0 == name);
+    let family = if own { name.as_str() } else { base.split('-').next().unwrap_or("Helvetica") };
     let weight = if base.contains("Bold") { "bold" } else { "normal" };
     let slant = if base.contains("Oblique") || base.contains("Italic") { "italic" } else { "normal" };
     let style = format!(
@@ -1822,6 +1854,36 @@ pub fn turn_stamp(doc: &mut Document, page: usize, index: usize, quarters: i64, 
         d.set(b"Rect".to_vec(), num_array(&rect));
         touch(d, meta);
     })?;
+    // Drawn again turned (Sol, 26/10: only the box turned); an appearance PdfCraft cannot draw (a
+    // stamp made from another PDF's page) is turned by its matrix instead.
+    match draw_appearance(doc, r) {
+        Ok(()) => Ok(()),
+        Err(AnnotError::Unsupported(_)) => turn_appearance(doc, r, quarters),
+        Err(e) => {
+            doc.set(r, Object::Dict(d));
+            Err(e)
+        }
+    }
+}
+
+/// Sheaf: the normal appearance of `r` turned `quarters` quarter turns clockwise by its `/Matrix`
+/// (a copy: a shared appearance is left alone); the box it is fitted into is the turned `/Rect`.
+fn turn_appearance(doc: &mut Document, r: ObjRef, quarters: i64) -> Result<(), AnnotError> {
+    let d = annot_dict(doc, r);
+    let Some(mut ap) = d.get(b"AP").map(|a| doc.resolve(a)).and_then(|a| a.as_dict().cloned()) else { return Ok(()) };
+    let Some(n) = ap.get(b"N").and_then(Object::as_ref) else { return Ok(()) };
+    let Object::Stream(mut s) = (*doc.get(n)).clone() else { return Ok(()) };
+    let m: Vec<f64> = s.dict.get(b"Matrix").and_then(|m| m.as_array().map(|a| a.iter().filter_map(Object::as_f64).collect())).unwrap_or_default();
+    let [a, b, c, dd, e, f]: [f64; 6] = m.try_into().unwrap_or([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+    // Then a quarter turn clockwise, as often as asked: (x, y) → (y, −x).
+    let mut t = [a, b, c, dd, e, f];
+    for _ in 0..quarters.rem_euclid(4) {
+        t = [t[1], -t[0], t[3], -t[2], t[5], -t[4]];
+    }
+    s.dict.set(b"Matrix".to_vec(), num_array(&t));
+    let turned = doc.add(Object::Stream(s));
+    ap.set(b"N".to_vec(), Object::Ref(turned));
+    doc.update_dict(r, |d| d.set(b"AP".to_vec(), Object::Dict(ap)))?;
     Ok(())
 }
 
@@ -1961,8 +2023,8 @@ pub fn set_style(
         if let Some(c) = color {
             if free_text {
                 let (_, size) = appearance::parse_da(d);
-                // Sheaf: the text box keeps its font.
-                let (font, _) = appearance::da_font(d);
+                // Sheaf: the text box keeps its font, a font of the file's own included.
+                let (font, _) = appearance::text_font(d);
                 let [r, g, b] = c.map(|x| x.clamp(0.0, 1.0));
                 d.set(b"DA".to_vec(), PdfString::literal(format!("{} {} {} rg /{font} {} Tf", n(r), n(g), n(b), n(size)).into_bytes()));
                 rich_text(d);
@@ -2011,7 +2073,10 @@ pub fn text_fonts(doc: &Document, pages: &[usize]) -> Vec<((usize, usize), (&'st
             let obj = doc.resolve(entry);
             let Some(d) = obj.as_dict().filter(|d| d.name(b"Subtype") == Some(b"FreeText")) else { continue };
             let align = d.int(b"Q").unwrap_or(0).clamp(0, 2) as u8;
-            out.push(((page, index), (appearance::da_font(d).0, appearance::parse_da(d).1, align)));
+            // A font of the file's own reads as "": kept by a size or alignment change.
+            let name = appearance::da_font_name(d).unwrap_or_default();
+            let font = appearance::TEXT_FONTS.iter().find(|f| f.0 == name).map_or(if name.is_empty() { "Helv" } else { "" }, |f| f.0);
+            out.push(((page, index), (font, appearance::parse_da(d).1, align)));
         }
     }
     out
@@ -2027,9 +2092,11 @@ pub fn set_text_font(doc: &mut Document, page: usize, index: usize, font: &str, 
     if d.name(b"Subtype") != Some(b"FreeText") {
         return Err(AnnotError::Invalid("only text boxes have a font".into()));
     }
-    if !appearance::TEXT_FONTS.iter().any(|f| f.0 == font) {
+    // "": the box's own font kept (one of the file's, see `text_fonts`).
+    if !font.is_empty() && !appearance::TEXT_FONTS.iter().any(|f| f.0 == font) {
         return Err(AnnotError::Invalid(format!("unknown font {font}")));
     }
+    let font = if font.is_empty() { appearance::text_font(&d).0 } else { font.to_string() };
     if size.is_some_and(|s| !s.is_finite() || s <= 0.0) {
         return Err(AnnotError::Invalid("invalid font size".into()));
     }

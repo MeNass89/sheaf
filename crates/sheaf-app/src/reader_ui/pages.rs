@@ -63,7 +63,7 @@ pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
                 let edits = (0..b - a).map(|i| Edit::MovePages { pages: vec![b], to: a + i }).collect();
                 Edit::Batch { label: "Reverse pages".into(), edits }
             }
-            6 | 7 | 9 => return Ok(None),
+            6 | 7 | 9 | 10 | 11 => return Ok(None),
             _ => return Err(String::new()),
         };
         // Page numbers shift: the selection follows what is left.
@@ -72,10 +72,75 @@ pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
     });
     match made {
         Some(Ok(Some(e))) => apply_structure(ui, tab_id, e),
+        Some(Ok(None)) if op >= 10 => from_clipboard_or_scanner(ui, tab_id, op == 11),
         Some(Ok(None)) => from_file(ui, tab_id, op),
         Some(Err(m)) if !m.is_empty() => crate::flow::toast(ui, &m),
         _ => {}
     }
+}
+
+/// A thumbnail's Insert from clipboard (PDF files copied, a picture, text) or Insert from scanner
+/// (Acrobat's Insert ▸ From Clipboard, From Scanner): the pages made go after the selected page
+/// (or the one shown), one undo step. The scan waits off the UI thread.
+fn from_clipboard_or_scanner(ui: &AppWindow, tab_id: i32, scanner: bool) {
+    let made = std::env::temp_dir().join(format!("sheaf-insert-{}-{tab_id}.pdf", std::process::id()));
+    let insert = move |ui: &AppWindow, name: &str, made: &std::path::Path| {
+        let bytes = std::fs::read(made);
+        let _ = std::fs::remove_file(made);
+        let Ok(bytes) = bytes else { return crate::flow::toast(ui, "Those pages could not be made") };
+        let Some(at) = update(tab_id, |r, v| {
+            let at = op_pages(r, v).last().map_or(0, |p| p + 1);
+            r.page_sel.clear();
+            at
+        }) else {
+            return;
+        };
+        apply_structure(ui, tab_id, Edit::InsertPagesFrom { name: name.into(), bytes: Arc::new(bytes), pages: None, at, field_conflicts: Default::default() });
+    };
+    if !scanner {
+        let Some(clip) = crate::run::clipboard_pages() else { return crate::flow::toast(ui, "The clipboard holds no PDF, picture or text") };
+        return match crate::run::clipboard_to_pdf(&clip, &made) {
+            Ok(p) => insert(ui, "Clipboard", &p),
+            Err(e) => crate::flow::toast(ui, &e.to_string()),
+        };
+    }
+    crate::flow::toast(ui, "Scanning…");
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let png = made.with_extension("png");
+        let r = crate::run::scan_page(&png).and_then(|()| {
+            let p = sheaf_core::images::images_to_pdf(std::slice::from_ref(&png), sheaf_core::images::PageLayout::FitImage, &made).map_err(|e| e.to_string());
+            let _ = std::fs::remove_file(&png);
+            p
+        });
+        let _ = weak.upgrade_in_event_loop(move |ui| match r {
+            Ok(p) => insert(&ui, "Scan", &p),
+            Err(e) => crate::flow::toast(&ui, &e),
+        });
+    });
+}
+
+/// More ▸ More tools ▸ Turn pages upright (Acrobat's Auto-Rotate): asks the document which pages'
+/// text runs sideways or upside down.
+pub fn turn_upright(tab_id: i32) {
+    update(tab_id, |r, _| r.send(Op::UprightTurns));
+}
+
+/// Those pages turned, one undo step; or said that every page reads upright.
+pub(super) fn upright(ui: &AppWindow, tab_id: i32, turns: Vec<(usize, i64)>) {
+    if turns.is_empty() {
+        return crate::flow::toast(ui, "Every page with text reads upright");
+    }
+    let n = turns.len();
+    let edits: Vec<Edit> = [90, 180, 270]
+        .into_iter()
+        .filter_map(|d| {
+            let pages: Vec<usize> = turns.iter().filter(|t| t.1 == d).map(|t| t.0).collect();
+            (!pages.is_empty()).then_some(Edit::RotatePages { pages, degrees: d })
+        })
+        .collect();
+    apply_structure(ui, tab_id, Edit::Batch { label: "Turn pages upright".into(), edits });
+    crate::flow::toast(ui, &format!("{n} page{} turned upright", if n == 1 { "" } else { "s" }));
 }
 
 /// Insert pages from file (Acrobat's): a PDF picked goes after the selected page (or the one
@@ -99,6 +164,12 @@ fn from_file(ui: &AppWindow, tab_id: i32, op: i32) {
                 if count < pages.len() {
                     return Err(format!("{name} has {count} page{}; {} are selected", if count == 1 { "" } else { "s" }, pages.len()));
                 }
+                // More pages than needed: which ones, asked under the pages (Acrobat's Replace Pages ▸
+                // pages … to … of the file; Sol, 26/10: it always took the first).
+                if count > pages.len() {
+                    r.replace_pending = Some((name.clone(), bytes.clone(), count, pages));
+                    return Err(String::new());
+                }
                 Ok(Edit::ReplacePages { src_pages: (0..pages.len()).collect(), pages, name: name.clone(), bytes: bytes.clone() })
             } else {
                 let at = if op == 9 { pages.first().copied().unwrap_or(0) } else { pages.last().map_or(0, |p| p + 1) };
@@ -109,9 +180,33 @@ fn from_file(ui: &AppWindow, tab_id: i32, op: i32) {
         };
         match edit {
             Ok(e) => apply_structure(ui, tab_id, e),
-            Err(m) => crate::flow::toast(ui, &m),
+            Err(m) if !m.is_empty() => crate::flow::toast(ui, &m),
+            Err(_) => {}
         }
     });
+}
+
+/// Replace Pages, the file's pages chosen: from page `from` (1-based, typed) as many as are
+/// selected; "" cancels.
+pub fn replace_from(ui: &AppWindow, tab_id: i32, from: &str) {
+    let edit = update(tab_id, |r, _| {
+        let (name, bytes, count, pages) = r.replace_pending.take()?;
+        let from = from.trim();
+        if from.is_empty() {
+            return None;
+        }
+        let n = pages.len();
+        Some(match from.parse::<usize>() {
+            Ok(f) if f >= 1 && f + n - 1 <= count => Ok(Edit::ReplacePages { src_pages: (f - 1..f - 1 + n).collect(), pages, name, bytes }),
+            _ => Err(format!("From page: 1 to {} ({name} has {count} pages, {n} are needed)", count + 1 - n)),
+        })
+    })
+    .flatten();
+    match edit {
+        Some(Ok(e)) => apply_structure(ui, tab_id, e),
+        Some(Err(m)) => crate::flow::toast(ui, &m),
+        None => {}
+    }
 }
 
 /// An edit that adds, removes, moves or turns pages: every page renders again.

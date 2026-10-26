@@ -136,6 +136,35 @@ pub fn quads(page: &PageBox, rects: &[[f32; 4]]) -> Vec<[f64; 8]> {
         .collect()
 }
 
+/// A point of a page shown `size` (`w`, `h`; view space, y down), where it lies once the page is
+/// turned `quarters` quarter turns clockwise (Rotate view).
+pub fn turned_point(p: [f32; 2], size: (f32, f32), quarters: u16) -> [f32; 2] {
+    let (mut p, (mut w, mut h)) = (p, size);
+    for _ in 0..quarters % 4 {
+        p = [h - p[1], p[0]];
+        (w, h) = (h, w);
+    }
+    let _ = w;
+    p
+}
+
+/// A rectangle `[x0, y0, x1, y1]` of a page shown `size`, as [`turned_point`] turns it.
+pub fn turned_rect(r: [f32; 4], size: (f32, f32), quarters: u16) -> [f32; 4] {
+    let (a, b) = (turned_point([r[0], r[1]], size, quarters), turned_point([r[2], r[3]], size, quarters));
+    [a[0].min(b[0]), a[1].min(b[1]), a[0].max(b[0]), a[1].max(b[1])]
+}
+
+/// A page's text with its glyphs where they show on the page turned `quarters` (Rotate view): the
+/// selection and the search's hits follow the text (Sol, 26/10: they stayed unturned).
+pub fn turned_text(t: &PageText, size: (f32, f32), quarters: u16) -> PageText {
+    let mut out = t.clone();
+    for g in &mut out.glyphs {
+        g.rect = turned_rect(g.rect, size, quarters);
+        g.quad = g.quad.map(|p| turned_point(p, size, quarters));
+    }
+    out
+}
+
 /// A drag over text in the Redact tool, as Acrobat marks text for redaction: the glyphs from `a`
 /// to `b` (view points of page `page`) as one quadrilateral per line, with their text (redacted
 /// from the metadata and bookmarks too). `None` when the drag does not start on text (it marks an
@@ -756,15 +785,15 @@ pub fn calibrated(typed: &str, measured: f64) -> Result<(f64, &'static str), Str
 }
 
 /// A measure's label: a distance or perimeter along the points (kind 7, 8), an area inside them
-/// (9), `per_unit` real `unit`s for each user-space unit ([`measure_factor`]).
-pub fn measure_label(kind: i32, pts: &[[f64; 2]], (per_unit, unit): (f64, &str)) -> String {
+/// (9), `per_unit` real `unit`s for each user-space unit ([`measure_factor`]), with `decimals`.
+pub fn measure_label(kind: i32, pts: &[[f64; 2]], (per_unit, unit): (f64, &str), decimals: usize) -> String {
     match kind {
         9 => {
             let n = pts.len();
             let twice: f64 = (0..n).map(|i| pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1]).sum();
-            format!("{:.2} {unit}²", (twice / 2.0).abs() * per_unit * per_unit)
+            format!("{:.decimals$} {unit}²", (twice / 2.0).abs() * per_unit * per_unit)
         }
-        _ => format!("{:.2} {unit}", pts.windows(2).map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1])).sum::<f64>() * per_unit),
+        _ => format!("{:.decimals$} {unit}", pts.windows(2).map(|w| (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1])).sum::<f64>() * per_unit),
     }
 }
 
@@ -929,6 +958,15 @@ mod tests {
     }
 
     #[test]
+    fn text_turns_with_the_view() {
+        // A 600 × 800 page turned clockwise shows 800 × 600: its top-left corner goes top-right.
+        assert_eq!(turned_point([0.0, 0.0], (600.0, 800.0), 1), [800.0, 0.0]);
+        assert_eq!(turned_rect([10.0, 20.0, 50.0, 30.0], (600.0, 800.0), 1), [770.0, 10.0, 780.0, 50.0]);
+        assert_eq!(turned_rect([10.0, 20.0, 50.0, 30.0], (600.0, 800.0), 2), [550.0, 770.0, 590.0, 780.0]);
+        assert_eq!(turned_rect([10.0, 20.0, 50.0, 30.0], (600.0, 800.0), 4), [10.0, 20.0, 50.0, 30.0]);
+    }
+
+    #[test]
     fn quads_are_top_left_top_right_bottom_left_bottom_right_in_user_space() {
         let page = PageBox { crop: [0.0, 0.0, 600.0, 800.0], rotation: 0, unit: 1.0 };
         let q = quads(&page, &[[10.0, 20.0, 50.0, 30.0]]);
@@ -976,15 +1014,18 @@ mod tests {
     fn measures_read_in_true_size() {
         // One inch along, then a 72 × 72 pt square: 2.54 cm, 6.45 cm².
         let true_size = measure_factor(0, 1.0);
-        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], true_size), "2.54 cm");
-        assert_eq!(measure_label(8, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0]], true_size), "5.08 cm");
-        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], true_size), "6.45 cm²");
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], true_size, 2), "2.54 cm");
+        assert_eq!(measure_label(8, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0]], true_size, 2), "5.08 cm");
+        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], true_size, 2), "6.45 cm²");
         // A page whose /UserUnit is 2: each unit is two points.
-        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], measure_factor(0, 2.0)), "5.08 cm");
-        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], measure_factor(0, 2.0)), "25.81 cm²");
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], measure_factor(0, 2.0), 2), "5.08 cm");
+        assert_eq!(measure_label(9, &[[0.0, 0.0], [72.0, 0.0], [72.0, 72.0], [0.0, 72.0]], measure_factor(0, 2.0), 2), "25.81 cm²");
         // A plan at 1:100 in metres: 1 inch of paper is 2.54 m; in inches, 1 inch is 1 inch.
-        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], measure_factor(3, 1.0)), "2.54 m");
-        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], measure_factor(1, 1.0)), "1.00 in");
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], measure_factor(3, 1.0), 2), "2.54 m");
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], measure_factor(1, 1.0), 2), "1.00 in");
+        // Acrobat's Precision: as many decimals as chosen.
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], true_size, 0), "3 cm");
+        assert_eq!(measure_label(7, &[[0.0, 0.0], [72.0, 0.0]], true_size, 3), "2.540 cm");
         assert!(closed_shape(9) && closed_shape(5) && !closed_shape(6) && !closed_shape(7));
     }
 

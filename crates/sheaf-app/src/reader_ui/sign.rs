@@ -35,6 +35,11 @@ pub(super) fn place_signature(ui: &AppWindow, tab_id: i32) {
     }
 }
 
+/// The Signature tool's Every page ▸ which pages, as typed.
+pub fn sign_pages(tab_id: i32, spec: &str) {
+    update(tab_id, |r, _| r.sign_pages = spec.to_string());
+}
+
 /// Places `graphic` where the Signature tool was clicked, 150 pt wide as PDF Expert's default
 /// (initials 60).
 fn place_graphic(ui: &AppWindow, tab_id: i32, graphic: &sheaf_core::sign::Graphic) {
@@ -46,7 +51,18 @@ fn place_graphic(ui: &AppWindow, tab_id: i32, graphic: &sheaf_core::sign::Graphi
         let width: f64 = if r.initials { 60.0 } else { 150.0 };
         // Every page: the same place on each, one undo step (initials down every page of a contract).
         if r.sign_every_page {
-            let edits = (0..v.viewer.page_count())
+            let n = v.viewer.page_count();
+            let pages: Vec<usize> = match r.sign_pages.trim().to_lowercase().as_str() {
+                "" => (0..n).collect(),
+                "odd" => (0..n).step_by(2).collect(),
+                "even" => (1..n).step_by(2).collect(),
+                spec => match sheaf_core::ranges::parse_ranges(spec, n as u32) {
+                    Ok(rs) => rs.into_iter().flatten().map(|p| p as usize - 1).collect(),
+                    Err(e) => return Some((usize::MAX, Err(e))),
+                },
+            };
+            let edits = pages
+                .into_iter()
                 .map(|p| {
                     let b = &v.viewer.boxes[p];
                     let (pw, ph) = b.view_size();
@@ -54,7 +70,7 @@ fn place_graphic(ui: &AppWindow, tab_id: i32, graphic: &sheaf_core::sign::Graphi
                     sheaf_core::sign::signature_edit(&info, p, [at.0.min(pw - 1.0), at.1.min(ph - 1.0)], width.min(pw * 0.6), graphic).map(with_pen)
                 })
                 .collect::<Result<Vec<_>, _>>()
-                .map(|edits| Edit::Batch { label: if r.initials { "Initials on every page".into() } else { "Signature on every page".into() }, edits });
+                .map(|edits| Edit::Batch { label: if r.initials { "Initials on several pages".into() } else { "Signature on several pages".into() }, edits });
             return Some((usize::MAX, edits));
         }
         let edit = sheaf_core::sign::signature_edit(&info, page, [at.0, at.1], width.min(w * 0.6), graphic).map(with_pen);

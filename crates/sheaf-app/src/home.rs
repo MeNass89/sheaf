@@ -86,6 +86,17 @@ pub fn set_reader_theme(theme: i32) {
     });
 }
 
+/// More ▸ Reading speed: normal, then slow, then fast, remembered. Returns the new one.
+pub fn cycle_reading_speed() -> u8 {
+    with(|h| {
+        h.prefs.reading_speed = (h.prefs.reading_speed + 1) % 3;
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+        h.prefs.reading_speed
+    })
+}
+
 /// More ▸ Highlight form fields, remembered (Acrobat's "Highlight existing fields").
 pub fn toggle_field_tint() -> bool {
     with(|h| {

@@ -217,3 +217,21 @@ fn text_around_a_table_is_kept_in_order() {
         assert_eq!(rows[4], vec![s("Apples"), Data::Float(3.0), Data::Float(1234.5)]);
     }
 }
+
+/// An invoice with one item: a heading and a single row make a two-row table, its cells in their
+/// columns (Sol, 26/10: they went to column A); two lines of words alone stay text.
+#[test]
+fn a_heading_over_one_row_is_a_table() {
+    let t = tempfile::tempdir().unwrap();
+    let one = vec![(72.0, 700.0, "Item"), (220.0, 700.0, "Qty"), (368.0, 700.0, "Price"), (72.0, 678.0, "Widget"), (220.0, 678.0, "2"), (368.0, 678.0, "10.00")];
+    let a = placed_pdf(t.path(), "one.pdf", &[one]);
+    let r = excel::to_excel(&Input::new(&a), SheetLayout::OneSheet, &ExportOptions::default(), &t.path().join("one.xlsx"), &mut |_| true).unwrap();
+    assert_eq!(r.tables, 1);
+    let rows = &read(&r.path)[0].1;
+    assert_eq!(rows[0], vec![s("Item"), s("Qty"), s("Price")]);
+    assert_eq!(rows[1], vec![s("Widget"), Data::Float(2.0), Data::Float(10.0)]);
+    let words = vec![(72.0, 700.0, "Dear"), (220.0, 700.0, "client"), (72.0, 678.0, "Kind"), (220.0, 678.0, "regards")];
+    let b = placed_pdf(t.path(), "words.pdf", &[words]);
+    let r = excel::to_excel(&Input::new(&b), SheetLayout::OneSheet, &ExportOptions::default(), &t.path().join("w.xlsx"), &mut |_| true).unwrap();
+    assert_eq!(r.tables, 0);
+}

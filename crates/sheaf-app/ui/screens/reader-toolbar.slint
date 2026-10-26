@@ -330,6 +330,57 @@ export component ReaderToolbar inherits Rectangle {
                 icon: @image-url("../icons/ellipsis.svg");
                 tip: "More";
                 clicked => { view-menu.show(); }
+                // More ▸ More tools…: what did not fit in the first menu.
+                more-tools := PopupWindow {
+                    x: parent.width - 240px;
+                    y: parent.height + 6px;
+                    width: 240px;
+                    Rectangle {
+                        background: Theme.card;
+                        border-radius: Theme.radius-small;
+                        border-width: 1px;
+                        border-color: Theme.input-border;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: #00000033;
+                        VerticalLayout {
+                            padding: 4px;
+                            for item[k] in [
+                                // PDF Expert's and Acrobat's overlay: another PDF's pages drawn over these.
+                                { text: "Overlay a PDF…", on: false },
+                                // Acrobat's Read Out Loud, Preview's Speech: from the page shown; again, it stops.
+                                { text: "Read aloud", on: false },
+                                { text: "Reading speed", on: false },
+                                // Acrobat's Loupe tool: the area under the pointer magnified.
+                                { text: "Loupe", on: root.tab.reader.loupe },
+                                // Acrobat's View ▸ Show/Hide ▸ Grid (also Prepare form's, where fields snap to it).
+                                { text: "Grid", on: root.tab.reader.form-grid },
+                                // PDF Expert's Export ▸ Flattened Copy: comments and fields drawn in, the document unchanged.
+                                { text: "Save a flattened copy…", on: false },
+                                { text: "Email a flattened copy", on: false },
+                                // Acrobat's Auto-Rotate Pages: the pages whose text runs sideways turned upright.
+                                { text: "Turn pages upright", on: false },
+                            ]: Rectangle {
+                                height: 28px;
+                                border-radius: Theme.radius-small;
+                                background: mt.has-hover ? Theme.popup-hover : transparent;
+                                Text { x: 10px; text: (item.on ? "✓ " : "") + item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                mt := TouchArea {
+                                    clicked => {
+                                        if k == 0 { ReaderBridge.overlay-pdf(root.id); }
+                                        if k == 1 { ReaderBridge.read-aloud(root.id, 0); }
+                                        if k == 2 { ReaderBridge.read-aloud(root.id, 1); }
+                                        if k == 3 { ReaderBridge.loupe(root.id); }
+                                        if k == 4 { ReaderBridge.form-grid(root.id); }
+                                        if k == 5 { ReaderBridge.flat-copy(root.id, false); }
+                                        if k == 6 { ReaderBridge.flat-copy(root.id, true); }
+                                        if k == 7 { ReaderBridge.turn-upright(root.id); }
+                                        root.focus-pages();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 view-menu := PopupWindow {
                     x: parent.width - 240px;
                     y: parent.height + 6px;
@@ -374,6 +425,8 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Email…", keys: "", on: false },
                                 // Acrobat's View ▸ Rotate View ▸ Clockwise: the view, not the file.
                                 { text: "Rotate view", keys: "⇧⌘+", on: root.tab.reader.view-turn != 0 },
+                                // The rest, in a second menu (this one fills the window's height).
+                                { text: "More tools…", keys: "›", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -402,6 +455,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 17 { ReaderBridge.page-at-a-time(root.id); }
                                         if k == 18 { ReaderBridge.email(root.id); }
                                         if k == 19 { ReaderBridge.rotate-view(root.id, 1); }
+                                        if k == 20 { more-tools.show(); return; }
                                         root.focus-pages();
                                     }
                                 }

@@ -183,7 +183,8 @@ fn snapped(r: &ReaderUi, p: (f64, f64)) -> (f64, f64) {
     if r.form_grid { ((p.0 / GRID).round() * GRID, (p.1 / GRID).round() * GRID) } else { p }
 }
 
-/// The options bar's Grid: shown over the pages, fields placed, dragged or moved snap to it.
+/// The options bar's Grid, and More ▸ Grid in any tool (Acrobat's View ▸ Show/Hide ▸ Grid): shown
+/// over the pages; with Prepare form, fields placed, dragged or moved snap to it.
 pub fn form_grid(tab_id: i32) {
     update(tab_id, |r, _| r.form_grid = !r.form_grid);
 }
@@ -191,7 +192,7 @@ pub fn form_grid(tab_id: i32) {
 /// The grid over each page in view (Grid on): (page box in content pixels, its minor and its
 /// major lines as path commands in that box's pixels).
 pub(super) fn grid_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -> bool) -> Vec<ReaderGrid> {
-    if r.tool != FORM || !r.form_grid {
+    if !r.form_grid {
         return Vec::new();
     }
     (0..v.viewer.page_count())
@@ -251,6 +252,7 @@ pub fn detect_fields(ui: &AppWindow, tab_id: i32) {
 #[allow(clippy::too_many_arguments)]
 pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, required: bool, read_only: bool, multiline: bool, options: &str, look: (&str, i32, i32), click: (i32, &str)) {
     let edit = update(tab_id, |r, _| {
+        let typed = r.pending_scripts.take();
         let (fi, _, page, _) = selected_field(r)?;
         let f = &r.snap.fields[fi];
         let name = name.trim();
@@ -270,7 +272,7 @@ pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, requi
                 FieldLookPatch { font: Some([FieldFont::Helvetica, FieldFont::Times, FieldFont::Courier][look.2.clamp(0, 2) as usize]), ..Default::default() }
             }),
             actions: (f.exact == 5 && (click.0 != f.action || (click.0 >= 3 && click.1.trim() != f.url))).then(|| click_action(click.0, click.1)),
-            ..Default::default()
+            ..scripts_props(typed, f)
         };
         let edit = (props != FieldProps::default()).then(|| (page, Edit::SetFieldProps { name: f.name.clone(), props: Box::new(props) }));
         r.form_sel = None;
@@ -279,6 +281,35 @@ pub fn field_props(ui: &AppWindow, tab_id: i32, name: &str, tooltip: &str, requi
     .flatten();
     if let Some((page, e)) = edit {
         apply(ui, tab_id, e, &[page], None);
+    }
+}
+
+/// The card's Format, Validate and Calculate (Acrobat's tabs), kept until Done applies them with
+/// the rest, one undo step.
+pub fn field_scripts(tab_id: i32, format: i32, min: &str, max: &str, calc: &str) {
+    update(tab_id, |r, _| r.pending_scripts = Some((format, min.trim().to_string(), max.trim().to_string(), calc.trim().to_string())));
+}
+
+/// The scripts that changed, as field properties: a text field's format, range and calculation.
+fn scripts_props(typed: Option<(i32, String, String, String)>, f: &reader_doc::FieldEntry) -> FieldProps {
+    use sheaf_core::pdfcraft::engine::form_scripts::{Calculate, Format, Validate};
+    let Some((format, min, max, calc)) = typed.filter(|_| f.exact == 0) else { return FieldProps::default() };
+    let number = |s: &str| s.replace(',', ".").parse::<f64>().ok();
+    FieldProps {
+        format: (format != f.format && format != 6).then(|| match format {
+            1 => Format::Number { decimals: 2, sep: 0, neg: 0, currency: String::new(), prepend: true },
+            2 => Format::Percent { decimals: 2, sep: 0 },
+            3 => Format::Date("dd/mm/yyyy".into()),
+            4 => Format::Special(2),
+            5 => Format::Special(0),
+            _ => Format::None,
+        }),
+        validate: (min != f.min || max != f.max).then(|| match (number(&min), number(&max)) {
+            (None, None) => Validate::None,
+            (min, max) => Validate::Range { min, max },
+        }),
+        calculate: (calc != f.calc).then_some(if calc.is_empty() { Calculate::None } else { Calculate::Notation(calc) }),
+        ..Default::default()
     }
 }
 
@@ -400,6 +431,27 @@ pub fn field_everywhere(ui: &AppWindow, tab_id: i32) {
     }
 }
 
+/// The selected field ▸ Copies, `rows` down and `cols` across (Acrobat's Create Multiple Copies):
+/// separate fields side by side with it, refused when the grid would run off the page.
+pub fn field_copies(ui: &AppWindow, tab_id: i32, rows: i32, cols: i32) {
+    let (rows, cols) = (rows.clamp(1, 50) as usize, cols.clamp(1, 20) as usize);
+    let edit = update(tab_id, |r, v| {
+        let (fi, ..) = selected_field(r)?;
+        let f = &r.snap.fields[fi];
+        let (page, [x0, y0, x1, y1]) = f.widgets.first().map(|w| (w.0, w.1))?;
+        let crop = v.viewer.boxes.get(page)?.crop;
+        let fits = x0 + (x1 - x0) * cols as f64 <= crop[2] + 0.5 && y1 - (y1 - y0) * rows as f64 >= crop[1] - 0.5;
+        Some((page, fits, Edit::CopyField { name: f.name.clone(), rows, cols }))
+    })
+    .flatten();
+    match edit {
+        Some(_) if rows * cols < 2 => crate::flow::toast(ui, "Ask for two copies or more"),
+        Some((_, false, _)) => crate::flow::toast(ui, "The copies would run off the page: fewer, or start higher up"),
+        Some((page, true, e)) => apply(ui, tab_id, e, &[page], None),
+        None => {}
+    }
+}
+
 /// The Form tool's overlay: every field on the pages in view, named, and the selected one's card.
 pub(super) fn form_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -> bool) -> (Vec<ReaderFormField>, ReaderFieldProps) {
     if r.tool != FORM {
@@ -442,6 +494,10 @@ pub(super) fn form_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -
                 font: f.font,
                 action: f.action,
                 url: f.url.clone().into(),
+                format: f.format,
+                min: f.min.clone().into(),
+                max: f.max.clone().into(),
+                calc: f.calc.clone().into(),
                 other_pages: (0..v.viewer.page_count()).any(|p| !f.widgets.iter().any(|w| w.0 == p)),
                 group: group.len() as i32,
             }
@@ -486,8 +542,25 @@ mod tests {
             font: 0,
             action: 0,
             url: String::new(),
+            format: 0,
+            min: String::new(),
+            max: String::new(),
+            calc: String::new(),
             widgets: Vec::new(),
         }
+    }
+
+    #[test]
+    fn a_text_fields_format_range_and_calculation_become_its_scripts() {
+        use sheaf_core::pdfcraft::engine::form_scripts::{Calculate, Format, Validate};
+        let f = field("Total", 0, false, &[]);
+        let p = scripts_props(Some((1, "0".into(), "1000".into(), "Price * Quantity".into())), &f);
+        assert!(matches!(p.format, Some(Format::Number { decimals: 2, .. })), "{:?}", p.format);
+        assert_eq!(p.validate, Some(Validate::Range { min: Some(0.0), max: Some(1000.0) }));
+        assert_eq!(p.calculate, Some(Calculate::Notation("Price * Quantity".into())));
+        // Nothing changed: nothing written; a check box has none of these.
+        assert_eq!(scripts_props(Some((0, String::new(), String::new(), String::new())), &f), FieldProps::default());
+        assert_eq!(scripts_props(Some((3, String::new(), String::new(), String::new())), &field("Agree", 1, false, &[])), FieldProps::default());
     }
 
     #[test]

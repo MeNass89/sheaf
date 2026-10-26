@@ -407,7 +407,11 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     tab.name = r.name.clone().into();
     tab.is_reader = true;
     tab.reader = ReaderState {
-        title: r.name.clone().into(),
+        // When opened ▸ Show the document title (Acrobat's): its Title, not the file's name.
+        title: if r.snap.opening.display_title && !r.snap.props.title.trim().is_empty() { r.snap.props.title.clone().into() } else { r.name.clone().into() },
+        open_full_screen: r.opened.0,
+        open_bare: r.opened.1,
+        open_seq: r.opened.2,
         dirty: r.dirty(),
         read_only: r.snap.read_only.clone().into(),
         page_count: v.viewer.page_count() as i32,
@@ -450,6 +454,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         arrow_head: reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].1.into(),
         arrow_both: r.arrow_both,
         callout: r.callout,
+        measure_decimals: r.measure_decimals as i32,
         measure_scale: match r.measure_custom {
             Some((_, unit)) => format!("Calibrated · {unit}"),
             None => {
@@ -460,7 +465,12 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         .into(),
         calibrating: r.calibrating,
         auto_scroll: r.auto_scroll,
+        loupe: r.loupe,
+        loupe_image: r.loupe_image.clone().unwrap_or_default(),
         dashed: r.dashed,
+        replace_ask: r.replace_pending.as_ref().map_or_else(Default::default, |(name, _, count, pages)| {
+            format!("Replace the {} page{} with pages of {name} ({count}) from page", pages.len(), if pages.len() == 1 { "" } else { "s" }).into()
+        }),
         page_at_a_time: r.page_at_a_time,
         view_turn: i32::from(v.viewer.turn()),
         opacity: (super::tools::opacity_of(r) * 100.0).round() as i32,
@@ -573,6 +583,17 @@ pub(super) fn outline_model(r: &ReaderUi, current_row: Option<usize>) -> Vec<Rea
             expanded: x.expanded,
             current: current_row == Some(i),
             editing: r.outline_edit == Some(i),
+            ..{
+                let s = r.snap.outline_styles.iter().find(|s| s.0 == x.path);
+                let c = s.and_then(|s| s.3);
+                ReaderOutlineRow {
+                    bold: s.is_some_and(|s| s.1),
+                    italic: s.is_some_and(|s| s.2),
+                    has_colour: c.is_some(),
+                    colour: c.map_or_else(Default::default, |c| colour_of(c.map(f64::from))),
+                    ..Default::default()
+                }
+            }
         })
         .collect();
     outline

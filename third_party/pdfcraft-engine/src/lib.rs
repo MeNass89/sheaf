@@ -22,6 +22,8 @@ pub mod catalog;
 pub mod commands;
 pub mod compare;
 mod copy_image;
+pub mod field_copies;
+mod upright;
 pub mod dates;
 // Sheaf: document-level attachments added, renamed, removed.
 pub mod doc_attachments;
@@ -241,6 +243,8 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::EditPageImage { .. }
         | Edit::AddText { .. }
         | Edit::AddImage { .. }
+        | Edit::AddArtwork { .. }
+        | Edit::OverlayPdf { .. }
         | Edit::UpdateContent { .. }
         | Edit::DeleteContent { .. }
         | Edit::ReplaceImage { .. }
@@ -1210,6 +1214,23 @@ pub enum Edit {
         path: Vec<usize>,
         page: usize,
     },
+    /// Sheaf: point a bookmark at a view of a page (Acrobat's Set Destination): `/XYZ left top zoom`
+    /// in user space, `None` keeping the reader's (ISO 32000-2 §12.3.2.2).
+    SetBookmarkView {
+        path: Vec<usize>,
+        page: usize,
+        left: Option<f64>,
+        top: Option<f64>,
+        zoom: Option<f64>,
+    },
+    /// Sheaf: a bookmark's look (Acrobat's Bookmark Properties ▸ Appearance): bold and italic
+    /// (`/F`), its colour (`/C`; `None` the reader's).
+    SetBookmarkStyle {
+        path: Vec<usize>,
+        bold: bool,
+        italic: bool,
+        color: Option<[f64; 3]>,
+    },
     /// Bookmarks for the tagged headings (H, H1–H6), nested by level under a new first
     /// "Untitled" bookmark (New Bookmarks from Structure).
     BookmarksFromStructure,
@@ -1391,6 +1412,13 @@ pub enum Edit {
         name: String,
         pages: Vec<usize>,
     },
+    /// Sheaf: `rows` × `cols` separate copies of a field, side by side with it (Acrobat's Create
+    /// Multiple Copies).
+    CopyField {
+        name: String,
+        rows: usize,
+        cols: usize,
+    },
     DeleteField {
         name: String,
     },
@@ -1541,6 +1569,21 @@ pub enum Edit {
         rect: Option<[f64; 4]>,
         name: String,
         bytes: Arc<Vec<u8>>,
+    },
+    /// Sheaf: objects copied with Edit a PDF (a one-page PDF holding them alone, its crop box
+    /// round them) placed at `rect` (display space) as one added item, still vector and text.
+    AddArtwork {
+        page: usize,
+        rect: [f64; 4],
+        pdf: Arc<Vec<u8>>,
+    },
+    /// Sheaf: another PDF's pages drawn over `pages` (Acrobat's and PDF Expert's overlay): its
+    /// page 1 on the first, 2 on the second…, its last again past its end; each an added item the
+    /// size of the page, still vector and text.
+    OverlayPdf {
+        name: String,
+        bytes: Arc<Vec<u8>>,
+        pages: Vec<usize>,
     },
     /// Move, resize, retype or reformat an added item (`index` among the page's added items).
     UpdateContent {
@@ -1766,6 +1809,7 @@ pub const EDIT_LABELS: &[&str] = &[
     "Change field properties",
     "Delete field",
     "Duplicate field",
+    "Copy field",
     "Set tab order",
     "Change initial view",
     "Set alternate text",
@@ -1799,6 +1843,8 @@ pub const EDIT_LABELS: &[&str] = &[
     "Remove background",
     "Add text",
     "Add image",
+    "Paste objects",
+    "Overlay PDF",
     "Edit content",
     "Delete content",
     "Apply redactions",
@@ -1856,7 +1902,8 @@ impl Edit {
             Edit::RenameBookmark { .. } => Label::of("Rename bookmark"),
             Edit::DeleteBookmark { .. } => Label::of("Delete bookmark"),
             Edit::MoveBookmark { .. } => Label::of("Move bookmark"),
-            Edit::SetBookmarkPage { .. } => Label::of("Set bookmark destination"),
+            Edit::SetBookmarkPage { .. } | Edit::SetBookmarkView { .. } => Label::of("Set bookmark destination"),
+            Edit::SetBookmarkStyle { .. } => Label::of("Change bookmark properties"),
             Edit::BookmarksFromStructure => Label::of("New bookmarks from structure"),
             Edit::NumberPages { .. } => Label::of("Number pages"),
             // What was measured is part of the wording too, for the same reason.
@@ -1899,6 +1946,7 @@ impl Edit {
             Edit::AddField { .. } => Label::of("Add field"),
             Edit::SetFieldProps { .. } => Label::of("Change field properties"),
             Edit::DeleteField { .. } => Label::of("Delete field"),
+            Edit::CopyField { .. } => Label::of("Copy field"),
             Edit::DuplicateField { .. } => Label::of("Duplicate field"),
             Edit::SetTabOrder { .. } | Edit::MoveInTabOrder { .. } => Label::of("Set tab order"),
             Edit::SetInitialView(_) => Label::of("Change initial view"),
@@ -1937,6 +1985,8 @@ impl Edit {
             Edit::RemoveMarks { kind: MarkKind::Background } => Label::of("Remove background"),
             Edit::AddText { .. } => Label::of("Add text"),
             Edit::AddImage { .. } => Label::of("Add image"),
+            Edit::AddArtwork { .. } => Label::of("Paste objects"),
+            Edit::OverlayPdf { .. } => Label::of("Overlay PDF"),
             Edit::UpdateContent { .. } => Label::of("Edit content"),
             Edit::DeleteContent { .. } => Label::of("Delete content"),
             Edit::ReplaceImage { .. } => Label::of("Replace image"),
@@ -2019,6 +2069,8 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::DeleteBookmark { .. }
         | Edit::MoveBookmark { .. }
         | Edit::SetBookmarkPage { .. }
+        | Edit::SetBookmarkView { .. }
+        | Edit::SetBookmarkStyle { .. }
         | Edit::BookmarksFromStructure
         | Edit::NumberPages { .. } => {
             if p.assemble() {
@@ -2078,6 +2130,8 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::ApplyRedactions { .. }
         | Edit::AddText { .. }
         | Edit::AddImage { .. }
+        | Edit::AddArtwork { .. }
+        | Edit::OverlayPdf { .. }
         | Edit::UpdateContent { .. }
         | Edit::MoveObjects { .. }
         | Edit::DeleteObjects { .. }
@@ -2095,6 +2149,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetFieldProps { .. }
         | Edit::DeleteField { .. }
         | Edit::DuplicateField { .. }
+        | Edit::CopyField { .. }
         | Edit::SetTabOrder { .. }
         | Edit::MoveInTabOrder { .. }
         | Edit::SetInitialView(_)
@@ -2248,6 +2303,27 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_organize::move_bookmark(doc, from, to_parent, *index)?;
         }
         Edit::SetBookmarkPage { path, page } => pdfcraft_organize::set_bookmark_page(doc, path, *page)?,
+        Edit::SetBookmarkView { path, page, left, top, zoom } => {
+            // The page first (PdfCraft's checks), then its view.
+            pdfcraft_organize::set_bookmark_page(doc, path, *page)?;
+            let item = outline_item(doc, path).ok_or_else(|| EditError::Edit(pdfcraft_edit::EditError::Invalid("no such bookmark".into())))?;
+            let page_ref = pdfcraft_model::pages(doc).get(*page).map(|p| p.obj).ok_or_else(|| EditError::Edit(pdfcraft_edit::EditError::Invalid("no such page".into())))?;
+            let num = |v: Option<f64>| v.filter(|x| x.is_finite()).map_or(pdfcraft_cos::Object::Null, pdfcraft_cos::Object::Real);
+            let dest = pdfcraft_cos::Object::Array(vec![pdfcraft_cos::Object::Ref(page_ref), pdfcraft_cos::Object::name("XYZ"), num(*left), num(*top), num(*zoom)]);
+            doc.update_dict(item, |d| d.set(b"Dest".to_vec(), dest)).map_err(|e| EditError::Edit(pdfcraft_edit::EditError::Invalid(e.to_string())))?;
+        }
+        Edit::SetBookmarkStyle { path, bold, italic, color } => {
+            let item = outline_item(doc, path).ok_or_else(|| EditError::Edit(pdfcraft_edit::EditError::Invalid("no such bookmark".into())))?;
+            doc.update_dict(item, |d| {
+                let flags = (*italic as i64) | ((*bold as i64) << 1);
+                if flags == 0 { d.remove(b"F"); } else { d.set(b"F".to_vec(), pdfcraft_cos::Object::Int(flags)); }
+                match color {
+                    Some(c) => d.set(b"C".to_vec(), pdfcraft_cos::Object::Array(c.iter().map(|x| pdfcraft_cos::Object::Real(*x)).collect())),
+                    None => { d.remove(b"C"); }
+                }
+            })
+            .map_err(|e| EditError::Edit(pdfcraft_edit::EditError::Invalid(e.to_string())))?;
+        }
         Edit::BookmarksFromStructure => {
             let entries: Vec<_> = pdfcraft_a11y::headings(doc)
                 .into_iter()
@@ -2381,6 +2457,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             }
         }
         Edit::DeleteField { name } => pdfcraft_forms::delete_field(doc, name)?,
+        Edit::CopyField { name, rows, cols } => {
+            field_copies::copy_field(doc, name, *rows, *cols)?;
+        }
         Edit::SetTabOrder { pages, order } => pdfcraft_forms::set_tab_order(doc, pages, *order)?,
         Edit::MoveInTabOrder { name, earlier } => pdfcraft_forms::move_in_tab_order(doc, name, *earlier)?,
         Edit::SetInitialView(v) => pdfcraft_organize::set_initial_view(doc, v)?,
@@ -2494,6 +2573,24 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
                 }
             };
             pdfcraft_edit::add_content(doc, *page, &AddedContent::Image(pdfcraft_edit::AddedImage::new(rect, image)))?;
+        }
+        Edit::AddArtwork { page, rect, pdf } => {
+            let src = open_source("Copied objects", pdf)?;
+            let form = unit_form(doc, &src, 0)?;
+            pdfcraft_edit::add_content(doc, *page, &AddedContent::Image(pdfcraft_edit::AddedImage::new(*rect, form)))?;
+        }
+        Edit::OverlayPdf { name, bytes, pages } => {
+            let src = open_source(name, bytes)?;
+            let n = pdfcraft_organize::page_count(&src)?;
+            if n == 0 {
+                return Err(EditError::Invalid(format!("{name} has no pages")));
+            }
+            let all = pdfcraft_model::pages(doc);
+            for (k, &page) in pages.iter().enumerate() {
+                let (pw, ph) = all.get(page).ok_or_else(|| EditError::Invalid(format!("page {} does not exist", page + 1)))?.display_size(doc);
+                let form = unit_form(doc, &src, k.min(n - 1))?;
+                pdfcraft_edit::add_content(doc, page, &AddedContent::Image(pdfcraft_edit::AddedImage::new([0.0, 0.0, pw, ph], form)))?;
+            }
         }
         Edit::UpdateContent { page, index, content } => pdfcraft_edit::update_content(doc, *page, *index, content)?,
         Edit::DeleteContent { page, index } => pdfcraft_edit::delete_content(doc, *page, *index)?,
@@ -2629,6 +2726,56 @@ fn parse_ymd(d: &str) -> Option<(i64, u32, u32)> {
     Some((d.get(0..4)?.parse().ok()?, d.get(4..6)?.parse().ok()?, d.get(6..8)?.parse().ok()?))
 }
 
+/// Sheaf: every outline item's `/F` and `/C`, those set (a broken or looping outline stops where it
+/// does).
+fn outline_styles(doc: &pdfcraft_cos::Document) -> Vec<(Vec<usize>, bool, bool, Option<[f32; 3]>)> {
+    fn walk(doc: &pdfcraft_cos::Document, first: Option<pdfcraft_cos::ObjRef>, path: &mut Vec<usize>, seen: &mut std::collections::HashSet<pdfcraft_cos::ObjRef>, out: &mut Vec<(Vec<usize>, bool, bool, Option<[f32; 3]>)>) {
+        let mut cur = first;
+        let mut k = 0;
+        while let Some(r) = cur {
+            if !seen.insert(r) || path.len() > 32 {
+                return;
+            }
+            let obj = doc.get(r);
+            let Some(d) = obj.as_dict() else { return };
+            let flags = d.get(b"F").and_then(pdfcraft_cos::Object::as_int).unwrap_or(0);
+            let color = d.get(b"C").and_then(|c| c.as_array()).and_then(|a| {
+                let v: Vec<f32> = a.iter().filter_map(|x| x.as_f64().map(|f| f as f32)).collect();
+                (v.len() == 3 && v.iter().any(|x| *x > 0.0)).then(|| [v[0], v[1], v[2]])
+            });
+            path.push(k);
+            if flags & 3 != 0 || color.is_some() {
+                out.push((path.clone(), flags & 2 != 0, flags & 1 != 0, color));
+            }
+            walk(doc, d.get(b"First").and_then(pdfcraft_cos::Object::as_ref), path, seen, out);
+            path.pop();
+            cur = d.get(b"Next").and_then(pdfcraft_cos::Object::as_ref);
+            k += 1;
+        }
+    }
+    let mut out = Vec::new();
+    let first = doc.root().and_then(|r| doc.get(r).as_dict().and_then(|c| c.get(b"Outlines")).and_then(pdfcraft_cos::Object::as_ref)).and_then(|o| doc.get(o).as_dict().and_then(|d| d.get(b"First")).and_then(pdfcraft_cos::Object::as_ref));
+    walk(doc, first, &mut Vec::new(), &mut std::collections::HashSet::new(), &mut out);
+    out
+}
+
+/// Sheaf: the outline item at `path` (child indices from the top), following `/First` and `/Next`.
+fn outline_item(doc: &pdfcraft_cos::Document, path: &[usize]) -> Option<pdfcraft_cos::ObjRef> {
+    let root = doc.root()?;
+    let catalog = doc.get(root);
+    let mut parent = catalog.as_dict()?.get(b"Outlines")?.as_ref()?;
+    let mut item = None;
+    for &k in path {
+        let mut cur = doc.get(parent).as_dict()?.get(b"First")?.as_ref()?;
+        for _ in 0..k {
+            cur = doc.get(cur).as_dict()?.get(b"Next")?.as_ref()?;
+        }
+        item = Some(cur);
+        parent = cur;
+    }
+    item
+}
+
 /// The passwords after `edit`, if it changes them.
 fn keys_after(edit: &Edit) -> Option<Keys> {
     match edit {
@@ -2662,6 +2809,21 @@ pub fn guard<T>(f: impl FnOnce() -> T) -> Result<T, String> {
 }
 
 /// Parse another PDF to copy pages from.
+/// Sheaf: page `page` of `src` as a Form in `doc` drawn in the unit square, as an added image is
+/// (its matrix scaled by 1 / its size), so an added item can show it in any box.
+fn unit_form(doc: &mut pdfcraft_cos::Document, src: &pdfcraft_cos::Document, page: usize) -> Result<pdfcraft_cos::ObjRef, EditError> {
+    use pdfcraft_cos::Object;
+    let (form, (w, h)) = pdfcraft_organize::page_as_form(doc, src, page)?;
+    if let Object::Stream(mut s) = (*doc.get(form)).clone() {
+        let m: Vec<f64> = s.dict.get(b"Matrix").and_then(|m| m.as_array().map(|a| a.iter().filter_map(Object::as_f64).collect())).unwrap_or_default();
+        let [a, b, c, d, e, f]: [f64; 6] = m.try_into().unwrap_or([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
+        let unit = [a / w, b / h, c / w, d / h, e / w, f / h];
+        s.dict.set(b"Matrix".to_vec(), Object::Array(unit.iter().map(|v| Object::Real(*v)).collect()));
+        doc.set(form, Object::Stream(s));
+    }
+    Ok(form)
+}
+
 fn open_source(name: &str, bytes: &Arc<Vec<u8>>) -> Result<pdfcraft_cos::Document, EditError> {
     open_source_with(name, bytes, None)
 }
@@ -3753,7 +3915,7 @@ impl Session {
         let touches_added = edit.is_none_or(|e| {
             matches!(
                 e,
-                Edit::AddText { .. } | Edit::AddImage { .. } | Edit::UpdateContent { .. } | Edit::DeleteContent { .. } | Edit::ReplaceImage { .. }
+                Edit::AddText { .. } | Edit::AddImage { .. } | Edit::AddArtwork { .. } | Edit::OverlayPdf { .. } | Edit::UpdateContent { .. } | Edit::DeleteContent { .. } | Edit::ReplaceImage { .. }
             ) || matches!(e, Edit::MoveObjects { objects, .. } | Edit::DeleteObjects { objects, .. } if objects.iter().any(|o| o.kind == ObjectKind::Added))
         });
         let touches_marks = edit.is_none_or(|e| {
@@ -4623,6 +4785,14 @@ impl Session {
 
     /// Sheaf: the format of every text box on `pages` of document `id`, see
     /// `pdfcraft_annot::text_fonts` (read only, one walk of the page tree).
+    /// Sheaf: the bookmarks with a look of their own (`/F`, `/C`): (path, bold, italic, colour).
+    pub fn outline_styles(&self, id: DocId) -> Vec<(Vec<usize>, bool, bool, Option<[f32; 3]>)> {
+        match self.get(id).and_then(|d| d.editor.as_ref()) {
+            Some(editor) => outline_styles(&editor.cos),
+            None => Vec::new(),
+        }
+    }
+
     pub fn text_box_fonts(&self, id: DocId, pages: &[usize]) -> Vec<((usize, usize), (&'static str, f64, u8))> {
         match self.get(id).and_then(|d| d.editor.as_ref()) {
             Some(editor) => pdfcraft_annot::text_fonts(&editor.cos, pages),

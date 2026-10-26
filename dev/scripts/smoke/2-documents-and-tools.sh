@@ -175,11 +175,14 @@ check "a page image's corner pulled out makes it bigger, proportions kept (red h
 import sys
 a, b = [list(map(int, v.split()[:2])) for v in sys.argv[1:]]
 sys.exit(0 if b[0] > a[0] + 15 and abs(b[0] / b[1] - a[0] / a[1]) < 0.05 else 1)' \"$S0\" \"$S1\""
-# The image bar: rotate left, rotate right, flip, replace, delete at x 287, 322, 355, 388, 423 (y 110).
+# The image bar: rotate left, rotate right, flip, replace, save as, delete at x 287, 322, 355, 388, 423, 458 (y 110).
 click 355 110 1.2; key ctrl+s; sleep 1.5; FR=$(centre "$(saved '#ff0000')"); FB=$(centre "$(saved '#0000ff')")
 check "Flip puts the red half on the right ($FR | $FB)" "[ \"\${FR%% *}\" ] && python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) + 20 else 1)' \${FR%% *} \${FB%% *}"
 click 322 110 1.2; key ctrl+s; sleep 1.5; TR=$(centre "$(saved '#ff0000')"); TB=$(centre "$(saved '#0000ff')")
 check "Rotate right turns it a quarter clockwise: red (right) goes down ($TR / $TB)" "[ \"\${TR#* }\" ] && python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) + 20 else 1)' \${TR#* } \${TB#* }"
+# Save image as… (Acrobat's): the picture written in its own format (a PNG here, 60 × 40 px turned: 40 × 60).
+answer "$PWD/$OUT/saved-image.png"; click 423 110 1.5; answer ""; SI=$(identify -format '%m %w %h' "$OUT/saved-image.png" 2>/dev/null)
+check "Save image as writes the picture to a file ($SI)" "echo \"$SI\" | grep -qE '^PNG (40 60|60 40)$'"
 key Delete; sleep 1; key ctrl+s; sleep 1.5; S2=$(saved '#ff0000'); G2=$(saved '#00ff00')
 check "Delete removes the selected image and only it (red: $S2, green: ${G2%% +*})" "! echo \"$S2\" | grep -qE '^[0-9]{2,}' && echo \"$G2\" | grep -qE '^[0-9]{2,} [0-9]{2,}'"
 # ⌘V of an image on the clipboard (magenta, 120×60 px): placed on the page, selected (Delete
@@ -393,12 +396,16 @@ SX=$(( 264 + 430 * 1000 / 612 )); SY=$(( 100 + (792 - 630) * 1000 / 612 ))
 xdotool mousemove $(( SX - 200 )) $SY; sleep 0.3; xdotool mousemove $SX $SY; sleep 0.8; shot 20c-drawing-hover
 xdotool mousemove $SX $SY mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $SX $(( SY + i * 10 )); sleep 0.08; done; xdotool mouseup 1; sleep 2
 shot 20c-drawing-moved
-# Still picked: ⌘C copies it as a picture (PdfCraft has no object copy).
+# Still picked: ⌘C copies it (as objects for Sheaf, as a picture for other apps).
 printf '' | xclip -selection clipboard; key ctrl+c; sleep 1.2; DC=$(xclip -selection clipboard -t TARGETS -o 2>/dev/null | tr '\n' ' ')
 key ctrl+s; sleep 2
 Y1=$(blue_top); WA=$(pdftotext -bbox "$OUT/square.pdf" - 2>/dev/null | grep -m1 '>Alpha<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/')
 check "a drawing pressed and dragged moves alone (square top $Y0 → $Y1 px, Alpha at $WA)" "[ \"$Y0\" -ge 0 ] && [ \"$Y1\" -gt \"$(( Y0 + 20 ))\" ] && python3 -c 'import sys; sys.exit(0 if abs(float(\"$WA\") - 74.768) < 1 else 1)'"
 check "a picked drawing is copied as a picture by ⌘C ($DC)" "echo \"$DC\" | grep -q 'image/png'"
+# Saved after the copy: ⌘W closes it without asking (a copy's answer gave back its count; Undo was greyed and
+# closing asked to save until 26/10).
+key ctrl+w; sleep 1.2; CW=$(ntabs)
+check "a document copied from and saved closes without asking ($CW tabs)" "[ \"$CW\" = 0 ]"
 quit
 
 # 20d. Header & footer with Bates numbers (Acrobat's Header & Footer ▸ Bates Numbering), in the Page numbers tool

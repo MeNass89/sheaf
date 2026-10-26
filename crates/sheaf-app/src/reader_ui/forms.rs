@@ -83,6 +83,24 @@ pub fn field_tab(ui: &AppWindow, tab_id: i32, text: &str, back: bool) {
 
 /// Clear the form (back to its defaults) or flatten it into the pages.
 pub fn form_op(ui: &AppWindow, tab_id: i32, op: i32) {
+    // Acrobat's Prepare Form ▸ More ▸ Export Data and Import Data: the field values to a file, or
+    // from one (XFDF, FDF, XML, CSV or tab-separated text with a header row of field names).
+    if op == 3 {
+        let Some((dir, stem)) = update(tab_id, |r, _| (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())) else { return };
+        let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(format!("{stem} - data.xfdf")).add_filter("XFDF", &["xfdf"]).add_filter("FDF", &["fdf"]).add_filter("XML", &["xml"]).add_filter("CSV", &["csv"]).add_filter("Text", &["txt"]);
+        return crate::dialog::save_file(ui, d, move |_, target| {
+            update(tab_id, |r, _| r.send(Op::ExportFormData { to: target }));
+        });
+    }
+    if op == 4 {
+        let d = crate::dialog::new(ui).add_filter("Form data", &["xfdf", "fdf", "xml", "csv", "txt"]);
+        return crate::dialog::pick_file(ui, d, move |ui, path| {
+            let Ok(bytes) = std::fs::read(&path) else {
+                return crate::flow::toast(ui, "That file could not be read");
+            };
+            apply_structure(ui, tab_id, Edit::ImportData { name: file_name(&path), bytes: Arc::new(bytes) });
+        });
+    }
     let edit = match op {
         0 => Edit::ResetForm { names: None },
         1 => Edit::Flatten { comments: false, fields: true },

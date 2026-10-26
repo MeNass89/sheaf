@@ -4,6 +4,7 @@ import { TextField } from "../widgets/text-field.slint";
 import { Check } from "../widgets/check.slint";
 import { RadioCard, Segment, InfoBox } from "../widgets/radio-card.slint";
 import { SectionLabel, Stepper, PositionGrid, PageRange, CropPreview, FontRow, ColourRow } from "options-parts.slint";
+import { Chip } from "redact-panel.slint";
 
 // Holds its own state; `options` exposes it, `valid` says whether the action may run.
 export component OptionsPanel inherits VerticalLayout {
@@ -143,6 +144,10 @@ export component OptionsPanel inherits VerticalLayout {
         root.sign-p12 = o.sign-p12;
         root.sign-reason = o.sign-reason;
         root.sign-location = o.sign-location;
+        root.sign-certify = o.sign-certify;
+        root.redact-fill = o.redact-fill;
+        root.redact-overlay = o.redact-overlay;
+        root.redact-repeat = o.redact-repeat;
     }
     out property <ToolOptions> options: {
         level: root.level, compress-target: root.compress-target, password: root.require-open ? root.password : "", confirm: root.confirm, owner: root.owner,
@@ -171,7 +176,8 @@ export component OptionsPanel inherits VerticalLayout {
         export-ocr: root.export-ocr, export-exact: root.export-exact, excel-layout: root.excel-layout, text-format: root.text-format,
         compare-mode: root.compare-mode,
         sign-cert: root.sign-cert, sign-p12: root.sign-p12, sign-p12-password: root.sign-p12-password,
-        sign-reason: root.sign-reason, sign-location: root.sign-location,
+        sign-reason: root.sign-reason, sign-location: root.sign-location, sign-certify: root.sign-certify,
+        redact-fill: root.redact-fill, redact-overlay: root.redact-overlay, redact-repeat: root.redact-repeat,
     };
     callback insert-blank();
     // Crop: the page previewed, of how many; ‹ › step through them.
@@ -194,6 +200,10 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> sign-p12-password;
     in-out property <string> sign-reason;
     in-out property <string> sign-location;
+    in-out property <int> sign-certify;
+    in-out property <int> redact-fill;
+    in-out property <string> redact-overlay;
+    in-out property <bool> redact-repeat;
     in-out property <int> level: 1;
     in-out property <string> compress-target;
     in-out property <string> password;
@@ -1017,6 +1027,31 @@ export component OptionsPanel inherits VerticalLayout {
         InfoBox { text: "Metadata, a colour profile and the other required parts are added, then the file is checked. Anything that cannot be fixed (a font that is not embedded, for example) is listed on the result page."; }
     }
 
+    // Acrobat's Redaction Properties ▸ Appearance: the boxes' fill and a text over each.
+    if root.tool == "redact": VerticalLayout {
+        spacing: 10px;
+        SectionLabel { text: "Boxes"; }
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: start;
+            for c[i] in ["Black", "White", "Grey", "Red"]: Chip {
+                text: c;
+                selected: root.redact-fill == i;
+                clicked => { root.redact-fill = i; }
+            }
+        }
+        TextField {
+            label: "Text over each box (optional)";
+            placeholder: "Redacted";
+            text <=> root.redact-overlay;
+        }
+        if root.redact-overlay != "": Check {
+            text: "Repeat it to fill the box";
+            checked: root.redact-repeat;
+            toggled => { root.redact-repeat = !root.redact-repeat; }
+        }
+    }
+
     if root.tool == "sign": VerticalLayout {
         spacing: 10px;
         Rectangle { height: 1px; background: Theme.separator; }
@@ -1060,6 +1095,18 @@ export component OptionsPanel inherits VerticalLayout {
                 label: "Location (optional)";
                 placeholder: "City";
                 text <=> root.sign-location;
+            }
+            // Acrobat's Certify (a certification signature): the first signature, saying which
+            // changes stay allowed after it.
+            Text { text: "Certify the document, allowing"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+                for c[i] in ["Not certified", "No changes", "Forms, signing", "And comments"]: Chip {
+                    text: c;
+                    selected: root.sign-certify == i;
+                    clicked => { root.sign-certify = i; }
+                }
             }
         }
     }

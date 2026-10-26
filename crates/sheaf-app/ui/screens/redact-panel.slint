@@ -14,7 +14,7 @@ component SectionLabel inherits Text {
 }
 
 // A pattern chip: toggled on and off.
-component Chip inherits Rectangle {
+export component Chip inherits Rectangle {
     in property <string> text;
     in property <bool> selected;
     callback clicked();

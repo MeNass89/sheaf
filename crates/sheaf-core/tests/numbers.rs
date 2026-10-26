@@ -180,6 +180,11 @@ fn header_and_footer_text_and_bates_numbers_without_a_page_number() {
     let o2 = NumberOptions { replace: true, ..o.clone() };
     let (again, _) = number_pages(&Input::new(&out), &o2, &t.path().join("n2.pdf")).unwrap();
     assert_eq!(page_texts(&again)[0].matches("ACME-").count(), 1, "{}", page_texts(&again)[0]);
+    // Double-sided (each page its own edit): the Bates numbers still run on (Sol, 26/10: all 0007).
+    let o3 = NumberOptions { double_sided: true, ..o.clone() };
+    let (two, _) = number_pages(&Input::new(&a), &o3, &t.path().join("n3.pdf")).unwrap();
+    let pages = page_texts(&two);
+    assert!(pages[0].contains("ACME-0007") && pages[1].contains("ACME-0008"), "{pages:?}");
     // Nothing at all to write is refused.
     let empty = NumberOptions { text: NumberText::Nothing, ..Default::default() };
     assert!(number_pages(&Input::new(&a), &empty, &t.path().join("e.pdf")).is_err());

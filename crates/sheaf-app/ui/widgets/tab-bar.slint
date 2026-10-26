@@ -68,6 +68,8 @@ component TabItem inherits Rectangle {
             MenuItem { title: "Rename…"; enabled: root.tab.is-reader; activated => { root.close-around(4); } }
             MenuItem { title: "Show in Folder"; enabled: root.tab.is-reader; activated => { root.close-around(5); } }
             MenuItem { title: "Move to Trash"; enabled: root.tab.is-reader; activated => { root.close-around(6); } }
+            MenuItem { title: "Move to New Window"; enabled: root.tab.is-reader; activated => { root.close-around(7); } }
+            MenuItem { title: "Merge All Windows"; activated => { root.close-around(8); } }
         }
     }
     if root.divider: Rectangle {

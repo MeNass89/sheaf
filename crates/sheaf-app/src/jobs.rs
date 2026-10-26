@@ -90,7 +90,7 @@ pub enum Job {
     /// `pages`: the pages of the original and of the changed document compared (none: all).
     Compare { old: Input, new: Input, mode: CompareMode, out: PathBuf, pages: [Option<String>; 2] },
     /// Areas to black out for good (search matches, rectangles, whole pages).
-    Redact { input: Input, marks: Vec<Mark>, out: PathBuf },
+    Redact { input: Input, marks: Vec<Mark>, look: redact::Appearance, out: PathBuf },
     /// A signature in `view_box` (points, y down, on page `page` as displayed), optionally
     /// signed with a certificate.
     Sign { input: Input, page: usize, view_box: [f64; 4], graphic: Graphic, digital: Option<DigitalSpec>, out: PathBuf },
@@ -471,9 +471,9 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             vec![r.path]
         }
-        Job::Redact { input, marks, out } => {
+        Job::Redact { input, marks, look, out } => {
             // The marks carry their matched texts: unchecked matches are not removed anywhere.
-            let r = redact::apply(input, marks, &[], out)?;
+            let r = redact::apply_with(input, marks, &[], look, out)?;
             // The first page redacted, as written: what is gone shows black.
             if let Some(page) = marks.iter().map(|m| m.page).min() {
                 preview = crate::files::page_thumb(&Input::new(&r.path), page, 420).ok().map(|t| (page, t));
@@ -537,7 +537,9 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         }
     };
     let after = outputs.iter().map(|p| size(p)).sum();
-    let before = job.inputs().iter().map(|p| size(p)).sum();
+    // The inputs written only: a file that failed is not counted in what was saved (Sol, 26/10: the
+    // saving announced counted its size too).
+    let before = job.inputs().iter().filter(|p| !failures.iter().any(|(f, _)| f == *p)).map(|p| size(p)).sum();
     Ok(JobOutcome { outputs, before, after, was_encrypted, grew, failures, summary, notes, preview })
 }
 

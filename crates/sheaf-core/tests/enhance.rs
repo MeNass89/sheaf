@@ -73,3 +73,14 @@ fn enhancing_stops_when_asked() {
     assert!(matches!(enhance(&Input::new(&scan), &out, &mut |_| false), Err(sheaf_core::OpdfError::Cancelled)));
     assert!(!out.exists());
 }
+
+#[test]
+fn a_scan_with_an_ocr_layer_is_still_cleaned() {
+    let t = tempfile::tempdir().unwrap();
+    let scan = crooked_scan(t.path(), 2.0);
+    // The text a reader found, invisible over the picture (`3 Tr`, as OCR writes it).
+    let ocred = t.path().join("ocred.pdf");
+    common::add_invisible_text(&scan, "Sheaf straightens a page", &ocred);
+    let r = enhance(&Input::new(&ocred), &t.path().join("clean.pdf"), &mut |_| true).unwrap();
+    assert_eq!((r.enhanced, r.kept), (1, 0), "an OCR'd scan is a scan");
+}

@@ -48,6 +48,9 @@ pub struct Done {
     pub input_sizes: Vec<u64>,
 }
 
+/// Merge's Pages order kept while Files shows, with the files it was made for.
+pub type KeptOrder = (std::collections::BTreeSet<i32>, Vec<(i32, u32)>);
+
 pub struct TabState {
     pub id: i32,
     pub tool: ToolId,
@@ -99,7 +102,7 @@ pub struct TabState {
     pub merge_thumbs: HashMap<(i32, u32), Image>,
     /// The Pages view's order while Files is shown: back to Pages, it is there again (Sol, 26/10:
     /// going back to Files dropped it without a word).
-    pub merge_kept: Option<Vec<(i32, u32)>>,
+    pub merge_kept: Option<KeptOrder>,
     /// Crop: the page its preview shows (0-based).
     pub preview_page: u32,
 }
@@ -252,6 +255,9 @@ pub struct App {
     /// A comment copied (⌘C); pasted while the system clipboard still holds
     /// [`crate::reader_ui::COMMENT_ON_CLIPBOARD`].
     pub comment_clip: Option<CommentClip>,
+    /// Objects copied with the Edit tool, pasted as objects while their pixels are still what the
+    /// clipboard holds.
+    pub objects_clip: Option<ObjectsClip>,
 }
 
 /// A comment copied (⌘C): its XFDF element, the picture of a picture stamp (file name, bytes:
@@ -262,6 +268,17 @@ pub struct CommentClip {
     pub picture: Option<(String, std::sync::Arc<Vec<u8>>)>,
     pub from: PathBuf,
     pub page: usize,
+}
+
+/// Objects copied with the Edit tool: a PDF of them alone, where they showed (display rect), the
+/// file and page they came from, and the size of their picture put on the system clipboard.
+#[derive(Clone)]
+pub struct ObjectsClip {
+    pub pdf: std::sync::Arc<Vec<u8>>,
+    pub shown: [f64; 4],
+    pub from: PathBuf,
+    pub page: usize,
+    pub pixels: (usize, usize),
 }
 
 impl App {

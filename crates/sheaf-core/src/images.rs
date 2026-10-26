@@ -162,6 +162,20 @@ pub fn render_png(input: &Input, page: usize, dpi: u32, out: &Path) -> Result<Pa
     })
 }
 
+/// The first page of PDF `bytes` as a PNG `scale` times its size in points, on a transparent
+/// background, its comments drawn: a stamp copied as the picture it shows.
+pub fn page_png_bytes(bytes: &[u8], scale: f32) -> Result<Vec<u8>> {
+    let _g = pdfium_lock();
+    let doc = crate::engine::open_pdf_bytes(bytes, None)?;
+    let p = doc.pages().get(0)?;
+    let px = (p.width().value * scale).round().clamp(1.0, 4096.0) as i32;
+    let cfg = PdfRenderConfig::new().set_target_width(px).render_annotations(true).set_clear_color(PdfColor::new(255, 255, 255, 0));
+    let img = p.render_with_config(&cfg)?.as_image()?;
+    let mut out = std::io::Cursor::new(Vec::new());
+    img.to_rgba8().write_to(&mut out, ImageFormat::Png)?;
+    Ok(out.into_inner())
+}
+
 /// An input image: an untouched JPEG file (embedded as-is) or decoded, EXIF-oriented pixels.
 enum Source { Jpeg { w: u32, h: u32 }, Pixels(DynamicImage) }
 

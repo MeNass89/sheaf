@@ -142,7 +142,10 @@ fn aligned(xs: &[f64]) -> usize {
 
 /// The table made of `run` (lines), if it is one.
 fn table(run: &[Vec<Segment>]) -> Option<Table> {
-    if run.len() < MIN_ROWS {
+    // Two rows make a table only as a heading over one row with a number in it, every cell filled
+    // (an invoice with one item; Sol, 26/10: two-row tables went to column A).
+    let two = run.len() == 2;
+    if run.len() < 2 {
         return None;
     }
     // Columns: the x ranges the segments of the full rows cover.
@@ -189,6 +192,12 @@ fn table(run: &[Vec<Segment>]) -> Option<Table> {
     }
     // One column lines up in three rows, and every column in two (cells may be missing).
     let line_up: Vec<usize> = edges.iter().map(|e| e.iter().map(|xs| aligned(xs)).max().unwrap_or(0)).collect();
+    if two {
+        let full = rows.iter().all(|r| r.iter().all(|c| !c.is_empty()));
+        let heading = rows[0].iter().all(|c| parse_number(c).is_none());
+        let figure = rows[1].iter().any(|c| parse_number(c).is_some());
+        return (line_up.iter().all(|n| *n >= 2) && full && heading && figure).then_some(Table { rect, rows });
+    }
     let lined_up = line_up.iter().any(|n| *n >= MIN_ROWS) && line_up.iter().all(|n| *n >= 2);
     // Some column holds short cells (three words at most, or numbers) in two rows out of three:
     // two columns of wrapped prose, even in short lines, don't.

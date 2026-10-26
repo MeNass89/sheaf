@@ -1,6 +1,7 @@
 //! Sheaf: document-level attachments (`/Names /EmbeddedFiles`) added, renamed and removed, as
 //! Acrobat's Attachments pane does. Page-level ones are file attachment comments (DeleteAnnotation).
-//! Only a flat name tree (a `/Names` array, what writers make) is edited; one with `/Kids` is refused.
+//! A name tree with `/Kids` (what large writers make) is read whole and written back flat, one
+//! `/Names` array (Sol, 26/10: it was refused).
 
 use pdfcraft_cos::{Dict, Document, Object, ObjRef, PdfString, Stream};
 
@@ -38,15 +39,8 @@ pub fn apply(doc: &mut Document, key: &str, action: &DocAttachment) -> Result<()
             r
         }
     };
-    let tree = doc.get(tree_ref).as_dict().cloned().unwrap_or_default();
-    if tree.get(b"Kids").is_some() {
-        return Err("this file's attachments are kept in a nested list Sheaf does not edit yet".into());
-    }
-    let mut pairs: Vec<(String, Object)> = tree
-        .get(b"Names")
-        .and_then(Object::as_array)
-        .map(|a| a.chunks_exact(2).filter_map(|c| Some((c[0].as_string()?.to_text(), c[1].clone()))).collect())
-        .unwrap_or_default();
+    let mut pairs: Vec<(String, Object)> = Vec::new();
+    leaves(doc, tree_ref, 0, &mut pairs);
     let at = pairs.iter().position(|(k, _)| k == key);
     match action {
         DocAttachment::Add { bytes } => {
@@ -83,7 +77,29 @@ pub fn apply(doc: &mut Document, key: &str, action: &DocAttachment) -> Result<()
     // Name trees are sorted by key.
     pairs.sort_by(|a, b| a.0.cmp(&b.0));
     let array: Vec<Object> = pairs.into_iter().flat_map(|(k, v)| [Object::String(PdfString::text(&k)), v]).collect();
-    doc.update_dict(tree_ref, |t| t.set(b"Names".to_vec(), Object::Array(array))).map_err(|e| e.to_string())
+    doc.update_dict(tree_ref, |t| {
+        t.set(b"Names".to_vec(), Object::Array(array));
+        t.remove(b"Kids");
+        t.remove(b"Limits");
+    })
+    .map_err(|e| e.to_string())
+}
+
+/// Every (name, value) pair of the name tree node `node` and the nodes under it, in order.
+fn leaves(doc: &Document, node: ObjRef, depth: usize, out: &mut Vec<(String, Object)>) {
+    // A tree deeper than any writer makes is a loop.
+    if depth > 32 {
+        return;
+    }
+    let d = doc.get(node).as_dict().cloned().unwrap_or_default();
+    if let Some(a) = d.get(b"Names").map(|n| doc.resolve(n)).and_then(|n| n.as_array().cloned()) {
+        out.extend(a.chunks_exact(2).filter_map(|c| Some((doc.resolve(&c[0]).as_string()?.to_text(), c[1].clone()))));
+    }
+    for kid in d.get(b"Kids").map(|k| doc.resolve(k)).and_then(|k| k.as_array().cloned()).unwrap_or_default() {
+        if let Some(r) = kid.as_ref() {
+            leaves(doc, r, depth + 1, out);
+        }
+    }
 }
 
 /// An embedded file stream and its file specification named `name`.

@@ -285,8 +285,8 @@ pub(super) fn add_poly(ui: &AppWindow, tab_id: i32) {
                 use sheaf_core::pdfcraft::engine::measure::{Kind, NewMeasurement, Scale};
                 let kind = [Kind::Distance, Kind::Perimeter, Kind::Area][(r.shape_kind - 7) as usize];
                 let factor = r.measure_custom.unwrap_or_else(|| reader::measure_factor(r.measure_scale, v.viewer.boxes.get(page).map_or(1.0, |b| b.unit)));
-                let label = reader::measure_label(r.shape_kind, &vertices, factor);
-                let scale = Scale::new(factor.0, factor.1, 2).ok()?;
+                let label = reader::measure_label(r.shape_kind, &vertices, factor, r.measure_decimals);
+                let scale = Scale::new(factor.0, factor.1, r.measure_decimals as u8).ok()?;
                 Edit::AddMeasurement(NewMeasurement { page, kind, points: vertices, scale, style, label, author: author() })
             }
             k => {
@@ -779,16 +779,22 @@ pub fn copy_comment(ui: &AppWindow, tab_id: i32, cut: bool) {
 /// ⌘C (⌘X, `cut`) on a picture picked with the Edit tool: its pixels go to the clipboard (Acrobat's
 /// Copy Image; Sol 25/10: picked objects could not be copied); cut, it is deleted once sent.
 pub fn copy_image(ui: &AppWindow, tab_id: i32, cut: bool) {
-    let sent = update(tab_id, |r, _| {
+    let sent = update(tab_id, |r, v| {
         if let Some((page, index)) = r.selected_image {
             r.send(Op::CopyImage { page, index });
             return Some(true);
         }
-        // Drawings, paragraphs or several objects picked: what they cover, as the page shows it
-        // (Sol, 25/10: only a picture could be copied); cut, they are deleted once sent.
+        // Drawings, paragraphs or several objects picked: copied as objects (pasted in Sheaf still
+        // vector and text, Acrobat's) and as what they cover for other apps; cut, they are deleted
+        // once sent.
         let (page, list) = r.picked.as_ref()?;
         let rect = list.iter().map(|o| o.1).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])?;
-        r.send(Op::CopyArea { page: *page, rect });
+        let b = v.viewer.boxes.get(*page)?;
+        let size = b.view_size();
+        let [x, y, w, h] = viewer::pdf_rect_to_view(b, size, rect);
+        let shown = [x, size.1 - (y + h), x + w, size.1 - y];
+        r.copy_from = Some(*page);
+        r.send(Op::CopyObjects { page: *page, objects: list.iter().map(|o| o.0).collect(), rect, shown });
         Some(false)
     })
     .flatten();
@@ -826,6 +832,39 @@ pub(super) fn paste_comment(ui: &AppWindow, tab_id: i32) -> bool {
     true
 }
 
+/// ⌘V with objects copied last (and their picture still on the clipboard): they go on the page
+/// shown as one added item, still vector and text, at their place (a little below and right of it
+/// on the page they came from), selected. False: nothing to paste.
+pub(super) fn paste_objects(ui: &AppWindow, tab_id: i32) -> bool {
+    let size = arboard::Clipboard::new().and_then(|mut c| c.get_image()).ok().map(|i| (i.width, i.height));
+    let Some(clip) = with(|a| a.objects_clip.clone()).filter(|c| size == Some(c.pixels)) else { return false };
+    let edit = update(tab_id, |r, v| {
+        let to = v.current();
+        let (dx, dy) = if r.path == clip.from && to == clip.page { (12.0, -12.0) } else { (0.0, 0.0) };
+        let s = clip.shown;
+        r.select_added = Some((to, r.images.get(&to).map_or(0, |im| im.len())));
+        r.tool = EDIT_TEXT;
+        (to, Edit::AddArtwork { page: to, rect: [s[0] + dx, s[1] + dy, s[2] + dx, s[3] + dy], pdf: clip.pdf.clone() })
+    });
+    let Some((to, e)) = edit else { return false };
+    apply(ui, tab_id, e, &[to], None);
+    true
+}
+
+/// More ▸ Overlay a PDF… (PDF Expert's and Acrobat's overlay): a PDF chosen is drawn over every
+/// page, its page 1 on page 1 and so on (its last again past its end), each an item the Edit tool
+/// moves, resizes or deletes; one undo step.
+pub fn overlay_pdf(ui: &AppWindow, tab_id: i32) {
+    let d = crate::dialog::new(ui).add_filter("PDF", &["pdf"]);
+    crate::dialog::pick_file(ui, d, move |ui, path| {
+        let Ok(bytes) = std::fs::read(&path) else {
+            return crate::flow::toast(ui, "That file could not be read");
+        };
+        let Some(pages) = update(tab_id, |_, v| (0..v.viewer.page_count()).collect::<Vec<_>>()) else { return };
+        apply(ui, tab_id, Edit::OverlayPdf { name: file_name(&path), bytes: Arc::new(bytes), pages: pages.clone() }, &pages, None);
+    });
+}
+
 /// A reply deleted from its comment's thread (Acrobat's Delete on a reply); the comment stays.
 pub fn reply_delete(ui: &AppWindow, tab_id: i32, page: i32, index: i32) {
     let (page, index) = (page.max(0) as usize, index.max(0) as usize);
@@ -833,10 +872,17 @@ pub fn reply_delete(ui: &AppWindow, tab_id: i32, page: i32, index: i32) {
 }
 
 /// The selected page image (Edit tool): 0 turned left, 1 right, 2 flipped, 3 replaced by a file
-/// chosen, 4 deleted. It stays selected, except deleted.
+/// chosen, 4 deleted, 5 saved to a file (Acrobat's Save Image As). It stays selected, except deleted.
 pub fn image_action(ui: &AppWindow, tab_id: i32, action: i32) {
     use sheaf_core::pdfcraft::engine::ImageEdit;
     let Some((page, index)) = update(tab_id, |r, _| r.selected_image).flatten() else { return };
+    if action == 5 {
+        let Some((dir, stem)) = update(tab_id, |r, _| (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())) else { return };
+        let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(format!("{stem} - image {}.png", page + 1)).add_filter("Image", &["png", "jpg", "jpeg"]);
+        return crate::dialog::save_file(ui, d, move |_, to| {
+            update(tab_id, |r, _| r.send(Op::SaveImage { page, index, to }));
+        });
+    }
     let change = match action {
         0 => ImageEdit::Rotate(-1),
         1 => ImageEdit::Rotate(1),

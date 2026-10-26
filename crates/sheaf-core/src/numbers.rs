@@ -211,10 +211,12 @@ pub fn number_pages(input: &Input, o: &NumberOptions, out: &Path) -> Result<(Pat
     if template.trim().is_empty() && (o.text != NumberText::Nothing || o.texts.iter().all(|t| t.trim().is_empty())) {
         return Err(OpdfError::Unsupported(if o.text == NumberText::Nothing { "there is no header or footer text" } else { "the page number text is empty" }.into()));
     }
-    let texts: Vec<String> = o.texts.iter().map(|t| tokens(t.trim(), &o.bates)).collect();
-    // PdfCraft numbers the pages of one edit start, start + 1, … in list order. Double-sided
-    // pages alternate sides, so each page gets its own edit; otherwise one edit covers the span.
+    // PdfCraft numbers the pages of one edit start, start + 1, … in list order, page numbers and
+    // Bates numbers alike. Double-sided pages alternate sides, so each page gets its own edit, its
+    // Bates number moved on as its page number is (Sol, 26/10: every page had the first).
     let edit = |pages: Vec<usize>, start_number: u32, mirror: bool| -> Result<Edit> {
+        let bates = Bates { start: o.bates.start.saturating_add(start_number.saturating_sub(o.start)), ..o.bates.clone() };
+        let texts: Vec<String> = o.texts.iter().map(|t| tokens(t.trim(), &bates)).collect();
         let mut text: [String; 6] = std::array::from_fn(|k| texts[k].clone());
         if !template.is_empty() {
             let s = slot(o.position, mirror)?;

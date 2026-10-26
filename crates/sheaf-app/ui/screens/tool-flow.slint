@@ -579,10 +579,12 @@ export component ToolFlowScreen inherits Rectangle {
                 vertical-stretch: 1;
                 // The gutter's width only: content as wide as the viewport would be centred in it.
                 content-width: self.inner;
-                content-height: root.redact ? rp.preferred-height
+                content-height: root.redact ? rp.preferred-height + 14px + opts.preferred-height
                     : root.sign ? sp.preferred-height + 14px + opts.preferred-height
                     : root.edit ? ep.preferred-height : opts.preferred-height;
                 rp := RedactPanel {
+                    // At the top: a child of a ScrollView without `y` is centred in its content.
+                    y: 0;
                     width: sv.inner;
                     visible: root.redact;
                     height: root.redact ? self.preferred-height : 0;
@@ -590,6 +592,7 @@ export component ToolFlowScreen inherits Rectangle {
                     enabled: !root.running && root.tab.files.length > 0;
                 }
                 sp := SignPanel {
+                    y: 0;
                     width: sv.inner;
                     visible: root.sign;
                     height: root.sign ? self.preferred-height : 0;
@@ -597,6 +600,7 @@ export component ToolFlowScreen inherits Rectangle {
                     enabled: !root.running && root.tab.files.length > 0;
                 }
                 ep := EditPanel {
+                    y: 0;
                     width: sv.inner;
                     visible: root.edit;
                     height: root.edit ? self.preferred-height : 0;
@@ -604,8 +608,8 @@ export component ToolFlowScreen inherits Rectangle {
                     enabled: !root.running && root.tab.files.length > 0;
                 }
                 opts := OptionsPanel {
-                    y: root.sign ? sp.preferred-height + 14px : 0;
-                    visible: !root.redact && !root.edit;
+                    y: root.sign ? sp.preferred-height + 14px : root.redact ? rp.preferred-height + 14px : 0;
+                    visible: !root.edit;
                     width: sv.inner;
                     tool: root.tab.tool;
                     file-count: root.tab.files.length;

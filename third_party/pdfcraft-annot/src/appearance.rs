@@ -37,7 +37,7 @@ pub const TEXT_FONTS: [(&str, &str); 12] = [
 pub fn text_box_height(d: &Dict) -> Option<f64> {
     let rect = nums(d, b"Rect").filter(|r| r.len() == 4)?;
     let (_, size) = parse_da(d);
-    let face = Std14::from_base_font(da_font(d).1).unwrap_or(Std14::Helvetica);
+    let face = Std14::from_base_font(text_font(d).1).unwrap_or(Std14::Helvetica);
     let bw = if d.contains(b"BS") || d.contains(b"Border") { border_width(d) } else { 0.0 };
     let pad = 2.0 + bw;
     let width = ((rect[2] - rect[0]).abs() - 2.0 * pad).max(1.0);
@@ -47,13 +47,43 @@ pub fn text_box_height(d: &Dict) -> Option<f64> {
     Some(2.0 * pad + 0.9 * size + (lines - 1.0) * 1.2 * size + 0.3 * size)
 }
 
-/// Sheaf: the font a text box's `/DA` names (`/TiBo 12 Tf`), as (resource name, base font);
-/// Helvetica when it names none or one outside [`TEXT_FONTS`].
-pub fn da_font(d: &Dict) -> (&'static str, &'static str) {
-    let da = d.get(b"DA").and_then(|o| o.as_string()).map(|s| String::from_utf8_lossy(&s.bytes).into_owned()).unwrap_or_default();
+/// Sheaf: the resource name a text box's `/DA` gives its font (`/TiBo 12 Tf` → `TiBo`), any font.
+pub fn da_font_name(d: &Dict) -> Option<String> {
+    let da = d.get(b"DA").and_then(|o| o.as_string()).map(|s| String::from_utf8_lossy(&s.bytes).into_owned())?;
     let toks: Vec<&str> = da.split_whitespace().collect();
-    let named = toks.iter().position(|t| *t == "Tf").filter(|i| *i >= 2).and_then(|i| toks[i - 2].strip_prefix('/'));
-    named.and_then(|r| TEXT_FONTS.iter().find(|f| f.0 == r)).copied().unwrap_or(TEXT_FONTS[0])
+    toks.iter().position(|t| *t == "Tf").filter(|i| *i >= 2).and_then(|i| toks[i - 2].strip_prefix('/')).filter(|r| !r.is_empty()).map(str::to_string)
+}
+
+/// Sheaf: a text box's font as drawn: (the resource name `/DA` gives, the standard font it is
+/// measured, and drawn unless its own can be, with). A font of the file's own (`/Arial`, outside
+/// [`TEXT_FONTS`]) keeps its name through a restyle (Sol, 26/10: it became Helvetica) and is
+/// measured with the nearest standard face, by its name.
+pub fn text_font(d: &Dict) -> (String, &'static str) {
+    let Some(name) = da_font_name(d) else { return (TEXT_FONTS[0].0.into(), TEXT_FONTS[0].1) };
+    if let Some(f) = TEXT_FONTS.iter().find(|f| f.0 == name) {
+        return (name, f.1);
+    }
+    let l = name.to_ascii_lowercase();
+    let family = if l.contains("cour") || l.contains("mono") {
+        "Courier"
+    } else if l.contains("times") || l.contains("roman") || l.contains("serif") && !l.contains("sans") || l.contains("georgia") || l.contains("garamond") {
+        "Times"
+    } else {
+        "Helvetica"
+    };
+    let bold = l.contains("bold") || l.contains("black") || l.contains("heavy") || l.ends_with("bd");
+    let italic = l.contains("italic") || l.contains("oblique") || l.ends_with("it");
+    let base = match (family, bold, italic) {
+        ("Times", false, false) => "Times-Roman",
+        ("Times", true, false) => "Times-Bold",
+        ("Times", false, true) => "Times-Italic",
+        ("Times", true, true) => "Times-BoldItalic",
+        (f, false, false) => if f == "Courier" { "Courier" } else { "Helvetica" },
+        (f, true, false) => if f == "Courier" { "Courier-Bold" } else { "Helvetica-Bold" },
+        (f, false, true) => if f == "Courier" { "Courier-Oblique" } else { "Helvetica-Oblique" },
+        (f, true, true) => if f == "Courier" { "Courier-BoldOblique" } else { "Helvetica-BoldOblique" },
+    };
+    (name, base)
 }
 
 use crate::{NOTE_SIZE, Rgb, n};
@@ -757,7 +787,7 @@ pub fn build(d: &Dict) -> Option<Stream> {
             }
             let text = d.get(b"Contents").and_then(|o| o.as_string()).map(PdfString::to_text).unwrap_or_default();
             // Sheaf: drawn and measured in the font `/DA` names.
-            let (res_name, base) = da_font(d);
+            let (res_name, base) = text_font(d);
             let face = Std14::from_base_font(base).unwrap_or(Std14::Helvetica);
             let measure = |s: &str, size: f64| face.text_width(s, size);
             let pad = 2.0 + bw;

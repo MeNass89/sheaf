@@ -2,7 +2,7 @@
 // shapes, pen widths, opacity, text format, signatures, colours) and the form's actions.
 import { Slider } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { ToolButton, SmallButton, ColourDot } from "reader-parts.slint";
+import { ToolButton, SmallButton, ColourDot, PanelField } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
 import { ToolTab, ReaderBridge, Parse } from "../flow-types.slint";
 
@@ -168,6 +168,8 @@ export component ReaderOptionsBar inherits Rectangle {
             spacing: 2px;
             padding-left: 4px;
             Text { text: "Fill"; font-size: Theme.fs-caption; color: Theme.text-secondary; vertical-alignment: center; }
+            // Acrobat's No Fill Color.
+            SmallButton { y: 2px; text: "None"; clicked => { ReaderBridge.shape-option(root.id, 19, 0); root.focus-pages(); } }
             ColourDot {
                 y: 4px;
                 colour: transparent;
@@ -189,6 +191,7 @@ export component ReaderOptionsBar inherits Rectangle {
             ToolButton { y: 0px; icon: @image-url("../icons/rotate-cw.svg"); tip: "Rotate right"; clicked => { ReaderBridge.image-action(root.id, 1); root.focus-pages(); } }
             ToolButton { y: 0px; icon: @image-url("../icons/flip-horizontal-2.svg"); tip: "Flip"; clicked => { ReaderBridge.image-action(root.id, 2); root.focus-pages(); } }
             ToolButton { y: 0px; icon: @image-url("../icons/replace.svg"); tip: "Replace…"; clicked => { ReaderBridge.image-action(root.id, 3); root.focus-pages(); } }
+            ToolButton { y: 0px; icon: @image-url("../icons/download.svg"); tip: "Save image as…"; clicked => { ReaderBridge.image-action(root.id, 5); root.focus-pages(); } }
             ToolButton { y: 0px; icon: @image-url("../icons/trash-2.svg"); tip: "Delete"; clicked => { ReaderBridge.image-action(root.id, 4); root.focus-pages(); } }
         }
         // The text format: of text boxes (also the selected one) and of text added on
@@ -272,6 +275,13 @@ export component ReaderOptionsBar inherits Rectangle {
         if root.tab.reader.selected-turnable: SmallButton { y: 2px; text: "Turn ↻"; clicked => { ReaderBridge.shape-option(root.id, 16, 0); root.focus-pages(); } }
         // The same place on every page, one click (initials down a contract's pages).
         if root.tab.reader.tool == 9: SmallButton { y: 2px; text: "Every page"; primary: root.tab.reader.sign-every-page; clicked => { ReaderBridge.shape-option(root.id, 15, 0); root.focus-pages(); } }
+        // Which pages (Acrobat's Place on multiple pages: a range, odd, even): empty, all of them.
+        if root.tab.reader.tool == 9 && root.tab.reader.sign-every-page: PanelField {
+            y: 3px;
+            width: 110px;
+            placeholder: "All pages";
+            edited(t) => { ReaderBridge.sign-pages(root.id, t); }
+        }
         if !root.tab.reader.selected-image && ((root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && (root.tab.reader.tool != 12 || root.tab.reader.stamp < 4) && root.tab.reader.tool != 14 && (root.tab.reader.tool != 13 || root.tab.reader.link-visible)) || root.tab.reader.selected-annot): HorizontalLayout {
             spacing: 2px;
             padding-left: 6px;
@@ -388,11 +398,14 @@ export component ReaderOptionsBar inherits Rectangle {
             for m[k] in ["Distance", "Perimeter", "Area"]: SmallButton { y: 2px; text: m; primary: root.tab.reader.shape-kind == 7 + k; clicked => { ReaderBridge.shape-option(root.id, 0, 7 + k); root.focus-pages(); } }
             // The scale they measure at (Acrobat's Scale Ratio): a click goes to the next.
             if root.tab.reader.shape-kind >= 7: SmallButton { y: 2px; text: root.tab.reader.measure-scale; clicked => { ReaderBridge.shape-option(root.id, 10, 0); root.focus-pages(); } }
+            // Acrobat's Precision: the decimals the measures are written with.
+            if root.tab.reader.shape-kind >= 7: SmallButton { y: 2px; text: root.tab.reader.measure-decimals == 0 ? "1" : root.tab.reader.measure-decimals == 1 ? "0.1" : root.tab.reader.measure-decimals == 2 ? "0.01" : "0.001"; clicked => { ReaderBridge.shape-option(root.id, 18, 0); root.focus-pages(); } }
             // Acrobat's and Bluebeam's Calibrate: measure a length you know, type it.
             if root.tab.reader.shape-kind == 7: SmallButton { y: 2px; text: "Calibrate"; primary: root.tab.reader.calibrating; clicked => { ReaderBridge.shape-option(root.id, 12, 0); root.focus-pages(); } }
         }
         Rectangle { horizontal-stretch: 1; }
-        if root.tab.reader.has-form: HorizontalLayout {
+        // Filling's form actions; Prepare form has its own row (the two did not fit the window).
+        if root.tab.reader.has-form && root.tab.reader.tool != 14: HorizontalLayout {
             spacing: 4px;
             padding-right: 6px;
             // Clear form asks first, as Acrobat's Reset Form ("Are you sure…"): every value is lost.
@@ -414,6 +427,9 @@ export component ReaderOptionsBar inherits Rectangle {
             }
             if root.confirm-clear: SmallButton { y: 2px; text: "Cancel"; clicked => { root.confirm-clear = false; } }
             if !root.confirm-clear: SmallButton { y: 2px; text: "Flatten"; clicked => { ReaderBridge.form-op(root.id, 1); } }
+            // Acrobat's Export Data and Import Data (XFDF, FDF, XML, CSV, text).
+            if !root.confirm-clear: SmallButton { y: 2px; text: "Export data…"; clicked => { ReaderBridge.form-op(root.id, 3); } }
+            if !root.confirm-clear: SmallButton { y: 2px; text: "Import data…"; clicked => { ReaderBridge.form-op(root.id, 4); } }
         }
     }
 }

@@ -16,6 +16,7 @@ mod viewer_ui;
 mod wm_preview;
 mod reader_ui;
 mod reader_doc;
+mod windows;
 
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -185,6 +186,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_field_props, |ui, id, name, tip, req, ro, ml, opts, size, align, font, act, url| reader_ui::field_props(&ui, id, &name, &tip, req, ro, ml, &opts, (&size, align, font), (act, &url)));
     wire_global!(ui, rb, on_field_delete, |ui, id| reader_ui::field_delete(&ui, id));
     wire_global!(ui, rb, on_field_everywhere, |ui, id| reader_ui::field_everywhere(&ui, id));
+    wire_global!(ui, rb, on_field_copies, |ui, id, rows, cols| reader_ui::field_copies(&ui, id, rows, cols));
     wire_global!(ui, rb, on_fields_arrange, |ui, id, how| reader_ui::fields_arrange(&ui, id, how));
     wire_global!(ui, rb, on_fields_nudge, |ui, id, dx, dy| reader_ui::fields_nudge(&ui, id, dx, dy));
     wire_global!(ui, rb, on_nudge, |ui, id, dx, dy| reader_ui::nudge(&ui, id, dx, dy));
@@ -227,7 +229,17 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_page_at_a_time, |ui, id| reader_ui::page_at_a_time(&ui, id));
     wire_global!(ui, rb, on_replace_all, |ui, id, f, w| reader_ui::replace_all(&ui, id, &f, &w));
     wire_global!(ui, rb, on_replace_one, |ui, id, f, w| reader_ui::replace_one(&ui, id, &f, &w));
+    wire_global!(ui, rb, on_replace_from, |ui, id, f| reader_ui::replace_from(&ui, id, &f));
     wire_global!(ui, rb, on_email, |ui, id| reader_ui::email(&ui, id));
+    wire_global!(ui, rb, on_overlay_pdf, |ui, id| reader_ui::overlay_pdf(&ui, id));
+    wire_global!(ui, rb, on_loupe, |ui, id| reader_ui::toggle_loupe(&ui, id));
+    rb.on_sign_pages(|id, t| reader_ui::sign_pages(id, &t));
+    rb.on_turn_upright(reader_ui::turn_upright);
+    wire_global!(ui, rb, on_outline_drop, |ui, id, from, to, inside| reader_ui::outline_drop(&ui, id, from, to, inside));
+    rb.on_field_scripts(|id, f, min, max, calc| reader_ui::field_scripts(id, f, &min, &max, &calc));
+    rb.on_loupe_at(reader_ui::loupe_at);
+    wire_global!(ui, rb, on_flat_copy, |ui, id, mail| reader_ui::flat_copy(&ui, id, mail));
+    wire_global!(ui, rb, on_read_aloud, |ui, id, what| if what == 0 { reader_ui::read_aloud(&ui, id) } else { reader_ui::reading_speed(&ui) });
     wire_global!(ui, rb, on_version_action, |ui, id, n| reader_ui::version_action(&ui, id, n));
     wire_global!(ui, rb, on_background_apply, |ui, id, c, o, a| reader_ui::background_apply(&ui, id, c, o, a));
     rb.on_notes_view(reader_ui::notes_view);
@@ -243,6 +255,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_annot_status, |ui, id, k, s| reader_ui::annot_status(&ui, id, k, s));
     rb.on_props_cancel(reader_ui::props_cancel);
     wire_global!(ui, rb, on_props_copy, |ui, id| reader_ui::props_copy(&ui, id));
+    wire_global!(ui, rb, on_props_report, |ui, id| reader_ui::props_report(&ui, id));
     wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k, c, page, layout, zoom, panel, window| reader_ui::props_save(&ui, id, &t, &a, &s, &k, &c, (&page, layout, zoom, panel, window)));
     wire_global!(ui, rb, on_open_signed, |ui, id, k| reader_ui::open_signed(&ui, id, k));
     rb.on_trust_signature(reader_ui::trust_signature);
@@ -372,31 +385,9 @@ fn main() -> Result<(), slint::PlatformError> {
     // Home ▸ From clipboard: PDF files copied (in Finder, a file manager), else a picture, else text,
     // become a new PDF, named and placed first.
     wire!(ui, on_new_from_clipboard, |ui| {
-        use sheaf_core::pages::Pasted;
-        // Copied PDF files (Sol, 26/10: a PDF on the clipboard was never read): merged in that order.
-        // A file manager's list ends its lines with CR LF (text/uri-list); arboard splits at LF only.
-        let files: Vec<std::path::PathBuf> = arboard::Clipboard::new()
-            .ok()
-            .and_then(|mut c| c.get().file_list().ok())
-            .unwrap_or_default()
-            .into_iter()
-            .map(|p| std::path::PathBuf::from(p.to_string_lossy().trim_end_matches(['\r', '\n'])))
-            .collect();
-        let pdfs: Vec<sheaf_core::pages::Input> =
-            files.iter().filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))).map(sheaf_core::pages::Input::new).collect();
-        if !pdfs.is_empty() {
-            let d = dialog::new(&ui).set_file_name("Clipboard.pdf").add_filter("PDF", &["pdf"]);
-            return dialog::save_file(&ui, d, move |ui, path| match sheaf_core::pages::merge(&pdfs, &path) {
-                Ok(p) => deliver(vec![p]),
-                Err(e) => flow::toast(ui, &e.to_string()),
-            });
-        }
-        let pasted = arboard::Clipboard::new().ok().and_then(|mut c| {
-            c.get_image().ok().map(|i| Pasted::Image { width: i.width as u32, height: i.height as u32, rgba: i.bytes.into_owned() }).or_else(|| c.get_text().ok().map(Pasted::Text))
-        });
-        let Some(pasted) = pasted else { return flow::toast(&ui, "The clipboard holds no picture and no text") };
+        let Some(clip) = run::clipboard_pages() else { return flow::toast(&ui, "The clipboard holds no PDF, picture or text") };
         let d = dialog::new(&ui).set_file_name("Clipboard.pdf").add_filter("PDF", &["pdf"]);
-        dialog::save_file(&ui, d, move |ui, path| match sheaf_core::pages::from_pasted(&pasted, &path) {
+        dialog::save_file(&ui, d, move |ui, path| match run::clipboard_to_pdf(&clip, &path) {
             Ok(p) => deliver(vec![p]),
             Err(e) => flow::toast(ui, &e.to_string()),
         });
@@ -417,6 +408,30 @@ fn main() -> Result<(), slint::PlatformError> {
                 dialog::save_file(&ui, d, move |ui, path| {
                     let made = sheaf_core::images::images_to_pdf(std::slice::from_ref(&shot), sheaf_core::images::PageLayout::FitImage, &path);
                     let _ = std::fs::remove_file(&shot);
+                    match made {
+                        Ok(p) => deliver(vec![p]),
+                        Err(e) => flow::toast(ui, &e.to_string()),
+                    }
+                });
+            });
+        });
+    });
+    // Home ▸ From scanner (Acrobat's Create PDF ▸ Scanner): a page scanned becomes a one-page PDF,
+    // named and placed first. Scanned off the UI thread.
+    wire!(ui, on_new_from_scanner, |ui| {
+        let weak = ui.as_weak();
+        flow::toast(&ui, "Scanning…");
+        std::thread::spawn(move || {
+            let scan = std::env::temp_dir().join(format!("sheaf-scan-{}.png", std::process::id()));
+            let r = run::scan_page(&scan);
+            let _ = weak.upgrade_in_event_loop(move |ui| {
+                if let Err(e) = r {
+                    return flow::toast(&ui, &e);
+                }
+                let d = dialog::new(&ui).set_file_name("Scan.pdf").add_filter("PDF", &["pdf"]);
+                dialog::save_file(&ui, d, move |ui, path| {
+                    let made = sheaf_core::images::images_to_pdf(std::slice::from_ref(&scan), sheaf_core::images::PageLayout::FitImage, &path);
+                    let _ = std::fs::remove_file(&scan);
                     match made {
                         Ok(p) => deliver(vec![p]),
                         Err(e) => flow::toast(ui, &e.to_string()),
@@ -524,6 +539,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_default_spread, |ui, s| home::set_default_spread(&ui, s));
     wire!(ui, on_set_open_first_page, |ui, f| home::set_open_first_page(&ui, f));
     wire!(ui, on_set_stamp_date, |ui, f| home::set_stamp_date(&ui, f));
+    wire!(ui, on_make_default, |ui| flow::toast(&ui, &run::make_default_pdf_app()));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);
@@ -610,18 +626,32 @@ fn main() -> Result<(), slint::PlatformError> {
     // Command-line entries that are not existing files are dropped silently: AppKit-style
     // switches (`-AppleLanguages (fr)`) carry values that are not files.
     let mut args = sheaf_app::open_with::launch_args(std::env::args_os().skip(1));
+    // Paths that name no file (a PDF moved, a typo) are said once the window shows (Sol, 26/10:
+    // they were dropped without a word); the switches' values are not paths.
+    let missing: Vec<String> = args
+        .iter()
+        .filter(|p| !p.is_file() && (p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) || p.components().count() > 1))
+        .map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.display().to_string()))
+        .collect();
     args.retain(|p| p.is_file());
     received(sheaf_app::open_with::absolute(args));
     #[cfg(target_os = "macos")]
     sheaf_app::open_with::install_hook(|paths| received(sheaf_app::open_with::absolute(paths)));
     let weak = ui.as_weak();
     INBOX.with(|i| i.borrow_mut().1 = Some(weak));
-    let _ = slint::invoke_from_event_loop(|| {
+    let _ = slint::invoke_from_event_loop(move || {
         let queued = INBOX.with(|i| i.borrow_mut().0.set_ready());
         deliver(queued);
+        if let Some(ui) = INBOX.with(|i| i.borrow().1.as_ref().and_then(|w| w.upgrade()))
+            && !missing.is_empty()
+        {
+            flow::toast(&ui, &format!("Not found: {}", missing.join(", ")));
+        }
     });
 
+    windows::listen(&ui);
     let r = ui.run();
+    windows::forget();
     sheaf_app::files::clear_office_cache();
     r
 }

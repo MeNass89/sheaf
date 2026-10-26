@@ -254,7 +254,7 @@ pub(super) fn pick_image(ui: &AppWindow, tab_id: i32) {
 /// clipboard, placed in the middle of the page in view, as large as its pixels in points (at most
 /// 80 % of the page), as PDF Expert pastes one.
 pub fn paste_image(ui: &AppWindow, tab_id: i32) {
-    if super::pages::paste_pages(ui, tab_id) || super::edits::paste_comment(ui, tab_id) {
+    if super::pages::paste_pages(ui, tab_id) || super::edits::paste_comment(ui, tab_id) || super::edits::paste_objects(ui, tab_id) {
         return;
     }
     let Some(img) = arboard::Clipboard::new().ok().and_then(|mut c| c.get_image().ok()) else {

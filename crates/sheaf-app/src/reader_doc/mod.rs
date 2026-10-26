@@ -113,6 +113,12 @@ fn edit_note(d: &sheaf_core::pdfcraft::engine::Document) -> Option<String> {
     c.next().map(|f| f.to_uppercase().chain(c).collect())
 }
 
+/// A bookmark's look: its path, bold, italic, its colour.
+pub type OutlineStyle = (Vec<usize>, bool, bool, Option<[f32; 3]>);
+
+/// Objects copied: their pixels (width, height, RGBA), the PDF of them alone, where they showed.
+pub type CopiedObjects = ((u32, u32, Vec<u8>), Arc<Vec<u8>>, [f64; 4]);
+
 /// A form field as the reader fills it.
 #[derive(Clone)]
 pub struct FieldEntry {
@@ -138,6 +144,13 @@ pub struct FieldEntry {
     /// 4 submit the form to `url`.
     pub action: i32,
     pub url: String,
+    /// A text field's scripts (Acrobat's Format, Validate, Calculate): its format (0 none, 1 number,
+    /// 2 percent, 3 date, 4 phone number, 5 zip code, 6 another), the smallest and largest values
+    /// allowed ("" none), and what it calculates in simplified field notation ("" nothing).
+    pub format: i32,
+    pub min: String,
+    pub max: String,
+    pub calc: String,
     /// (page, rect in user space, the widget's "on" state for check boxes and radios, tab order).
     pub widgets: Vec<(usize, [f64; 4], Option<String>, usize)>,
 }
@@ -149,6 +162,8 @@ pub struct Snap {
     pub labels: Vec<String>,
     pub links: Arc<Vec<render::Link>>,
     pub outline: Arc<Vec<render::OutlineItem>>,
+    /// The bookmarks with a look of their own: (path, bold, italic, colour).
+    pub outline_styles: Arc<Vec<OutlineStyle>>,
     pub annots: Arc<Vec<AnnotEntry>>,
     /// The working file (text layer, search) and what is displayed (renders).
     pub bytes: Arc<Vec<u8>>,
@@ -343,6 +358,7 @@ fn snap(doc: &Doc) -> Snap {
         labels: d.info.pages.iter().map(|p| p.label.clone()).collect(),
         links: Arc::new(d.info.links.clone()),
         outline: Arc::new(d.info.outline.clone()),
+        outline_styles: Arc::new(if d.info.outline.is_empty() { Vec::new() } else { doc.session().outline_styles(doc.id()) }),
         annots: Arc::new(annots),
         bytes: d.bytes.clone(),
         display: d.display.clone(),
@@ -362,6 +378,7 @@ fn snap(doc: &Doc) -> Snap {
 }
 
 fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
+    use sheaf_core::pdfcraft::engine::form_scripts::{self, Calculate as C, Format as F, Validate as V};
     use sheaf_core::pdfcraft::engine::{field_flags, form_scripts::ButtonAction as B, FormFieldKind as K};
     d.form
         .iter()
@@ -408,6 +425,34 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
                 Some(B::Uri(u)) | Some(B::Submit(u)) => u.clone(),
                 _ => String::new(),
             },
+            format: match &f.actions.format {
+                F::None => 0,
+                F::Number { .. } => 1,
+                F::Percent { .. } => 2,
+                F::Date(_) => 3,
+                F::Special(2) => 4,
+                F::Special(0) => 5,
+                _ => 6,
+            },
+            min: match &f.actions.validate {
+                V::Range { min: Some(m), .. } => format!("{m}"),
+                _ => String::new(),
+            },
+            max: match &f.actions.validate {
+                V::Range { max: Some(m), .. } => format!("{m}"),
+                _ => String::new(),
+            },
+            calc: match &f.actions.calculate {
+                C::Notation(n) => n.clone(),
+                C::Simple { op, fields } => {
+                    let sep = match op {
+                        form_scripts::CalcOp::Product => " * ",
+                        _ => " + ",
+                    };
+                    fields.join(sep)
+                }
+                C::None => String::new(),
+            },
             widgets: f.widgets.iter().filter_map(|w| Some((w.page?, w.rect, w.on_state.clone(), w.tab))).collect(),
         })
         .collect()
@@ -450,6 +495,15 @@ pub enum Op {
     /// The part `rect` (user space) of `page` as shown, as pixels for the clipboard (Acrobat's
     /// Snapshot; drawings and paragraphs picked with the Edit tool, copied as a picture).
     CopyArea { page: usize, rect: [f64; 4] },
+    /// The pages whose text runs sideways or upside down, and the turns that set them upright.
+    UprightTurns,
+    /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
+    Renamed { to: PathBuf },
+    /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
+    LoupeArea { page: usize, rect: [f64; 4] },
+    /// Objects picked with the Edit tool on `page` (covering user-space `rect`, shown at display
+    /// rect `shown`): as pixels for other apps and as a PDF of them alone to paste as objects.
+    CopyObjects { page: usize, objects: Vec<sheaf_core::pdfcraft::engine::ObjectTarget>, rect: [f64; 4], shown: [f64; 4] },
     /// Version `n` (1-based) of the file as saved, written to `to` to open on its own.
     SaveVersion { n: usize, to: PathBuf },
     /// Writes the edits: into the file itself as an incremental update, or (`to`) a full copy
@@ -475,6 +529,15 @@ pub enum Op {
     Summary { to: PathBuf },
     /// Every comment exported to `to`: XFDF, or FDF when `to` ends in .fdf.
     ExportComments { to: PathBuf },
+    /// A copy of the document as edited, its comments and fields flattened into the pages, written
+    /// to `to` (to be mailed when `mail`); the document itself is left as it is.
+    FlatCopy { to: PathBuf, mail: bool },
+    /// The form's field values written to `to`, in the format its extension names (XFDF, FDF,
+    /// XML, CSV, tab-separated text: Acrobat's Export Data).
+    ExportFormData { to: PathBuf },
+    /// Picture `index` of `page` written to `to` in its own format (Acrobat's Save Image As): a
+    /// JPEG as stored, else PNG; `to`'s extension follows the format.
+    SaveImage { page: usize, index: usize, to: PathBuf },
     /// The XFDF element of the comment named `nm` (⌘C on a selected comment).
     /// A comment by its name, or (none in the file) by its page and box.
     CopyComment { nm: String, page: usize, rect: [f64; 4] },
@@ -501,6 +564,15 @@ pub enum Reply {
     VersionSaved(Result<PathBuf, String>),
     /// A picture copied: (width, height, RGBA pixels), or why not.
     ImageCopied(Result<(u32, u32, Vec<u8>), String>),
+    /// Pages to turn upright: (page, clockwise degrees).
+    Upright(Vec<(usize, i64)>),
+    /// The loupe's area: (width, height, RGBA pixels), or why not.
+    Loupe(Result<(u32, u32, Vec<u8>), String>),
+    /// A flattened copy written (`FlatCopy`), or why not.
+    FlatCopied { to: PathBuf, mail: bool, error: Option<String> },
+    /// Objects copied: their pixels (width, height, RGBA), the PDF of them alone and where they
+    /// showed (display rect), or why not.
+    ObjectsCopied(Result<CopiedObjects, String>),
     /// Pages copied from a document opened with its password: a new PDF of them, unprotected.
     PagesCopied(Result<(Arc<Vec<u8>>, usize), String>),
     /// A page's paragraphs and its images' boxes (user space).
@@ -579,7 +651,15 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let d = doc.document();
                         let mut edits = Vec::new();
                         let (mut count, mut pages) = (0, Vec::new());
+                        // A scan's words are its OCR layer: rewritten, they would be drawn over the
+                        // picture (Sol, 26/10). Its pages are left, and said.
+                        let scans = sheaf_core::enhance::scanned_pages(&d.bytes, d.password.as_deref());
+                        let mut on_scans = 0;
                         for page in 0..d.info.pages.len() {
+                            if scans.get(page).copied().unwrap_or(false) {
+                                on_scans += d.text_blocks(page).iter().map(|b| sheaf_app::reader::replace_words(&reflowed(&b.editor_text, &b.soft_breaks), &find, &with, case, whole).1).sum::<usize>();
+                                continue;
+                            }
                             // Later paragraphs first: an earlier one rewritten never renumbers them.
                             let blocks = d.text_blocks(page);
                             let mut on_page = 0;
@@ -596,12 +676,13 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                                 pages.push(page);
                             }
                         }
+                        let scanned = |n: usize| if n > 0 { format!("; {} on scanned pages left as scanned", sheaf_core::tools::count(n, "occurrence")) } else { String::new() };
                         let error = if edits.is_empty() {
-                            Some(format!("No “{find}” in the pages' text to replace"))
+                            Some(if on_scans > 0 { format!("“{find}” is only on scanned pages: their words are the scan's, not to be replaced") } else { format!("No “{find}” in the pages' text to replace") })
                         } else {
                             doc.apply(Edit::Batch { label: "Replace all".into(), edits }).err().map(|e| e.to_string())
                         };
-                        let note = error.is_none().then(|| format!("{} replaced on {}", sheaf_core::tools::count(count, "occurrence"), sheaf_core::tools::count(pages.len(), "page")));
+                        let note = error.is_none().then(|| format!("{} replaced on {}{}", sheaf_core::tools::count(count, "occurrence"), sheaf_core::tools::count(pages.len(), "page"), scanned(on_scans)));
                         // An undo step was counted for it by the window: `applied` even when refused, so it is taken back.
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: true, note, preview: false });
                     }
@@ -619,7 +700,9 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             }
                             left -= n;
                         }
+                        let scan = sheaf_core::enhance::scanned_pages(&doc.document().bytes, doc.document().password.as_deref()).get(page).copied().unwrap_or(false);
                         let error = match edit {
+                            _ if scan => Some(format!("Page {} is a scan: its words are the scan's, not to be replaced", page + 1)),
                             Some(e) => doc.apply(e).err().map(|e| e.to_string()),
                             None => Some(format!("This “{find}” is not in the page's text to replace")),
                         };
@@ -633,6 +716,14 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error: r.err().map(|e| e.to_string()), applied: false, note, preview: false });
                     }
                     Op::CopyArea { page, rect } => reply(Reply::ImageCopied(area_pixels(doc.document(), page, rect))),
+                    Op::UprightTurns => reply(Reply::Upright(doc.document().upright_turns())),
+                    // Sol, 26/10: the next save wrote the old name again.
+                    Op::Renamed { to } => path = to,
+                    Op::LoupeArea { page, rect } => reply(Reply::Loupe(area_pixels(doc.document(), page, rect))),
+                    Op::CopyObjects { page, objects, rect, shown } => {
+                        let made = area_pixels(doc.document(), page, rect).and_then(|px| Ok((px, Arc::new(doc.document().objects_pdf(page, &objects, rect)?), shown)));
+                        reply(Reply::ObjectsCopied(made));
+                    }
                     Op::SaveVersion { n, to } => {
                         let d = doc.document();
                         let (ends, saved) = (d.revision_ends(), d.saved_bytes());
@@ -711,6 +802,39 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         };
                         reply(Reply::Extracted { to, error: r.err() });
                     }
+                    Op::FlatCopy { to, mail } => {
+                        let id = doc.id();
+                        let password = doc.document().password.clone();
+                        let made = doc.session().save_bytes(id).map_err(|e| e.to_string()).and_then(|bytes| {
+                            let src = std::env::temp_dir().join(format!("sheaf-flat-{}-{id:?}.pdf", std::process::id()).replace(['(', ')', ' '], ""));
+                            std::fs::write(&src, bytes.as_slice()).map_err(|e| e.to_string())?;
+                            let r = (|| {
+                                let mut copy = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input { path: src.clone(), password })?;
+                                copy.apply(Edit::Flatten { comments: true, fields: true })?;
+                                copy.save(&to)
+                            })();
+                            let _ = std::fs::remove_file(&src);
+                            r.map(|_| ()).map_err(|e| e.to_string())
+                        });
+                        reply(Reply::FlatCopied { to, mail, error: made.err() });
+                    }
+                    Op::SaveImage { page, index, to } => {
+                        let r = doc.document().page_image_copy_file(page, index).and_then(|(ext, bytes)| {
+                            let to = to.with_extension(ext);
+                            replace(&to, &bytes).map(|_| to).map_err(|e| e.to_string())
+                        });
+                        match r {
+                            Ok(to) => reply(Reply::Exported { to, error: None }),
+                            Err(e) => reply(Reply::Exported { to, error: Some(e) }),
+                        }
+                    }
+                    Op::ExportFormData { to } => {
+                        let id = doc.id();
+                        let ext = to.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_default();
+                        let format = sheaf_core::pdfcraft::engine::DataFormat::from_extension(&ext).unwrap_or(sheaf_core::pdfcraft::engine::DataFormat::Xfdf);
+                        let r = doc.session().export_data(id, format, false, true).map_err(|e| e.to_string()).and_then(|bytes| replace(&to, &bytes).map_err(|e| e.to_string()));
+                        reply(Reply::Exported { to, error: r.err() });
+                    }
                     Op::ExportComments { to } => {
                         let id = doc.id();
                         let fdf = to.extension().is_some_and(|e| e.eq_ignore_ascii_case("fdf"));
@@ -725,7 +849,11 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             let x = String::from_utf8_lossy(&b);
                             if nm.is_empty() { sheaf_app::reader::xfdf_element_at(&x, page, rect) } else { sheaf_app::reader::xfdf_element(&x, &nm) }
                         });
-                        let picture = doc.document().stamp_picture_file(page, &nm, rect).map(|(ext, bytes)| (format!("Stamp.{ext}"), Arc::new(bytes)));
+                        // A lone picture as stored; a picture with text, or a drawing, as it shows (3×).
+                        let picture = doc.document().stamp_picture_file(page, &nm, rect).map(|(ext, bytes)| (format!("Stamp.{ext}"), Arc::new(bytes))).or_else(|| {
+                            let pdf = doc.document().stamp_alone_pdf(page, &nm, rect)?;
+                            sheaf_core::images::page_png_bytes(&pdf, 3.0).ok().map(|png| ("Stamp.png".to_string(), Arc::new(png)))
+                        });
                         reply(Reply::Copied(element, picture));
                     }
                     Op::TrustSignature { index } => {

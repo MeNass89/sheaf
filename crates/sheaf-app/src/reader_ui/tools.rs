@@ -264,6 +264,10 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
             12 => r.calibrating = !r.calibrating,
             13 => r.initials = !r.initials,
             15 => r.sign_every_page = !r.sign_every_page,
+            // Acrobat's Measuring ▸ Precision: 0 to 3 decimals, a click goes to the next.
+            18 => r.measure_decimals = (r.measure_decimals + 1) % 4,
+            // Fill ▸ None: new shapes unfilled; a selected one loses its fill (below).
+            19 => r.shape_fill = false,
             _ => {
                 r.opacity = value.clamp(10, 100) as usize;
                 remember_style(r);
@@ -271,6 +275,9 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
         }
         let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| stroked(&a.subtype))?;
         // A selected rectangle, oval or polygon takes the fill chosen at once (Acrobat's Properties bar).
+        if what == 19 && fillable(&a.subtype) {
+            return Some((a.page, Edit::FillAnnotation { page: a.page, index: a.index, fill: None }));
+        }
         if what == 6 && fillable(&a.subtype) {
             let stroke = a.color.map_or_else(|| ink_at(r.ink_colour), |c| c.map(f64::from));
             let fill = r.fill_colour.map_or_else(|| reader::fill_tint(stroke), light_at);
@@ -464,11 +471,22 @@ pub fn toggle_panel(tab_id: i32) {
 /// Outline panel edits (PDF Expert's and Acrobat's bookmarks): `op` 0 bookmark the page in view
 /// (titled with the selected text, as Acrobat names a new bookmark), 1 start renaming `row`, 2 rename
 /// it to `text`, 3 stop renaming, 4 delete `row` and what is under it, 5 point `row` at the page in
-/// view (Acrobat's Set Destination), 6 / 7 move `row` up / down among its siblings, 8 indent it (the
-/// last child of the bookmark above), 9 outdent it (after its parent).
+/// view (Acrobat's Set Destination: the view, its place and zoom), 6 / 7 move `row` up / down among its
+/// siblings, 8 indent it (the last child of the bookmark above), 9 outdent it (after its parent), 10 / 11
+/// bold / italic on or off, 12 in the pen's colour, 13 in the reader's colour again (Acrobat's bookmark
+/// Appearance).
 pub fn outline_op(ui: &AppWindow, tab_id: i32, row: i32, op: i32, text: &str) {
     let edit = update(tab_id, |r, v| {
         let path = usize::try_from(row).ok().and_then(|i| r.rows.get(i)).map(|x| x.path.clone());
+        let style = path.as_ref().and_then(|p| r.snap.outline_styles.iter().find(|s| s.0 == *p)).map_or((false, false, None), |s| (s.1, s.2, s.3));
+        let restyle = |path: Vec<usize>, bold: bool, italic: bool, color: Option<[f32; 3]>| Edit::SetBookmarkStyle { path, bold, italic, color: color.map(|c| c.map(f64::from)) };
+        match op {
+            10 => return Some(restyle(path?, !style.0, style.1, style.2)),
+            11 => return Some(restyle(path?, style.0, !style.1, style.2)),
+            12 => return Some(restyle(path?, style.0, style.1, Some(ink_at(r.ink_colour).map(|c| c as f32)))),
+            13 => return Some(restyle(path?, style.0, style.1, None)),
+            _ => {}
+        }
         match op {
             0 => {
                 // At the top level, in page order.
@@ -476,9 +494,16 @@ pub fn outline_op(ui: &AppWindow, tab_id: i32, row: i32, op: i32, text: &str) {
                 let index = r.snap.outline.iter().filter(|o| o.page.is_some_and(|p| p <= page)).count();
                 let selected = r.sel.as_ref().and_then(|(p, range)| r.texts.get(p).map(|t| reader::selected_text(t, range.clone())));
                 let title = selected.map(|t| bookmark_title(&t)).filter(|t| !t.is_empty()).unwrap_or_else(|| format!("Page {}", label(r, page)));
-                // From a selection, the bookmark goes to the selection's page.
-                let page = r.sel.as_ref().map_or(page, |(p, _)| *p);
-                Some(Edit::AddBookmark { parent: Vec::new(), index, title, page })
+                // From a selection, the bookmark goes to the selection's page; else to the view: its
+                // place and zoom (Acrobat's new bookmark).
+                match r.sel.as_ref() {
+                    Some((p, _)) => Some(Edit::AddBookmark { parent: Vec::new(), index, title, page: *p }),
+                    None => {
+                        let add = Edit::AddBookmark { parent: Vec::new(), index, title, page };
+                        let (left, top, zoom) = view_of(v, page);
+                        Some(Edit::Batch { label: "Add bookmark".into(), edits: vec![add, Edit::SetBookmarkView { path: vec![index], page, left, top, zoom }] })
+                    }
+                }
             }
             1 => {
                 r.outline_edit = usize::try_from(row).ok();
@@ -495,7 +520,11 @@ pub fn outline_op(ui: &AppWindow, tab_id: i32, row: i32, op: i32, text: &str) {
                 r.outline_edit = None;
                 None
             }
-            5 => Some(Edit::SetBookmarkPage { path: path?, page: v.current() }),
+            5 => {
+                let page = v.current();
+                let (left, top, zoom) = view_of(v, page);
+                Some(Edit::SetBookmarkView { path: path?, page, left, top, zoom })
+            }
             6 | 7 => {
                 let path = path?;
                 let (&last, parent) = path.split_last()?;
@@ -526,6 +555,53 @@ pub fn outline_op(ui: &AppWindow, tab_id: i32, row: i32, op: i32, text: &str) {
     if let Some(e) = edit {
         apply(ui, tab_id, e, &[], None);
     }
+}
+
+/// A bookmark dragged in the panel (Acrobat's): from row `from` onto row `to`, inside it (its last
+/// child) or before it; past the last row, last. One undo step; refused into its own children.
+pub fn outline_drop(ui: &AppWindow, tab_id: i32, from: i32, to: i32, inside: bool) {
+    let edit = update(tab_id, |r, _| {
+        let from = r.rows.get(usize::try_from(from).ok()?)?.path.clone();
+        let (to_parent, index) = match usize::try_from(to).ok().and_then(|t| r.rows.get(t)) {
+            Some(t) if inside => {
+                (t.path.clone(), outline_children(&r.snap.outline, &t.path))
+            }
+            Some(t) => {
+                let (&last, parent) = t.path.split_last()?;
+                // The index counts once `from` is out: one less after it among the same siblings.
+                let same = from.len() == t.path.len() && from[..from.len() - 1] == *parent && from[from.len() - 1] < last;
+                (parent.to_vec(), if same { last - 1 } else { last })
+            }
+            None => (Vec::new(), usize::MAX),
+        };
+        (!to_parent.starts_with(&from)).then_some(Edit::MoveBookmark { from, to_parent, index })
+    })
+    .flatten();
+    match edit {
+        Some(e) => apply(ui, tab_id, e, &[], None),
+        None => crate::flow::toast(ui, "A bookmark cannot go inside its own children"),
+    }
+}
+
+/// How many children the bookmark at `path` has (at the root, the top-level bookmarks).
+fn outline_children(items: &[render::OutlineItem], path: &[usize]) -> usize {
+    match path.split_first() {
+        None => items.len(),
+        Some((&i, rest)) => items.get(i).map_or(0, |it| outline_children(&it.children, rest)),
+    }
+}
+
+/// The view as a destination on `page`: its top-left corner there (user space) and its zoom (1 =
+/// actual size), as Acrobat's Set Destination keeps them.
+fn view_of(v: &ViewerUi, page: usize) -> (Option<f64>, Option<f64>, Option<f64>) {
+    let [px, py, pw, _] = v.viewer.page_rect(page);
+    let b = &v.viewer.boxes[page];
+    let size = b.view_size();
+    let k = size.0 / pw.max(1e-9);
+    let x = (v.left - px).max(0.0) * k;
+    let y = (v.top - py).max(0.0) * k;
+    let (l, t) = viewer::view_to_pdf(b, size, x, y);
+    (Some(l), Some(t), Some(v.viewer.actual_percent(page) / 100.0))
 }
 
 /// A selection as a bookmark title: one line, spaces collapsed, at most 80 characters.

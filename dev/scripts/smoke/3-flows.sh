@@ -439,14 +439,15 @@ click 1140 755 4
 check "PDF to HTML or text writes Markdown with every page in order ($(ls $OUT/md*.md 2>/dev/null))" "grep -q 'Page 1' $OUT/md.md && grep -q 'Page 4' $OUT/md.md"
 quit
 
-# 53. Prepare form (F; More ▸ Prepare form): a text field dragged 500,400 → 700,430 opens its card under it (name
-# 650,487; Required and Done found below it): named "Full name", required. A check box (its kind at 372,109) clicked
+# 53. Prepare form (F; More ▸ Prepare form): a text field dragged 500,360 → 700,390 on a page no earlier step drew on (plain.pdf; whatever zoom the profile now opens at, ⌘9 and Home) opens its card under it (name
+# above its Tooltip; Required and Done found below it): named "Full name", required. A check box (its kind at 372,109) clicked
 # at 500,600 is placed selected: Delete removes it; another at 500,650 stays. Saved: the two fields, as set.
-cp "$OUT/text.pdf" "$OUT/prep.pdf"; launch "$OUT/prep.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6
-xdotool mousemove 500 400 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 40 )) $(( 400 + i * 6 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
-click 650 487 0.4; xdotool key ctrl+a; xdotool type --delay 20 "Full name"
-RQ=$(at Required 400x300+490+430); [ -n "$RQ" ] && click $RQ 0.3   # the whole check, its label included, toggles
-DN=$(at Done 400x300+490+430); [ -n "$DN" ] && click $DN 1.2
+cp "$OUT/plain.pdf" "$OUT/prep.pdf"; launch "$OUT/prep.pdf"; key ctrl+9; sleep 1; key Home; sleep 0.5; key f; sleep 0.6
+xdotool mousemove 500 360 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 40 )) $(( 360 + i * 6 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+# The card under the field (its rows grew with Format and Copies): the name is the field above "Tooltip".
+NM=$(at Tooltip 640x420+400+380); [ -n "$NM" ] && { set -- $NM; click $1 $(( $2 - 34 )) 0.4; }; xdotool key ctrl+a; xdotool type --delay 20 "Full name"
+RQ=$(at Required 640x420+400+380); [ -n "$RQ" ] && click $RQ 0.3   # the whole check, its label included, toggles
+DN=$(at Done 640x420+400+380); [ -n "$DN" ] && click $DN 1.2
 click 372 109 0.5; click 500 600 1.2; key Delete; sleep 1; click 500 650 1.2; key ctrl+s; sleep 1.5; shot 53-prepare
 PF=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null)
 check "Prepare form places fields, names one and makes it required, and Delete removes one ($(echo "$PF" | grep -ac '/FT /Btn') check box)" "echo \"\$PF\" | grep -aq '/T (Full name)' && echo \"\$PF\" | grep -aq '/Ff 2' && [ \"\$(echo \"\$PF\" | grep -ac '/FT /Btn')\" = 1 ]"
@@ -602,6 +603,10 @@ check "Initials are made on their own pad, kept apart and placed 60 pt wide (${I
 key s; sleep 0.5; EP=$(at Every 1280x40+0+90); [ -n "$EP" ] && click $EP 0.5; click 640 600 1.5; key v; key ctrl+s; sleep 1.5
 EV=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | grep -ac 'PCFillSign')
 check "Every page places the initials on each page in one click (${EP:-no Every page}; $EV marks)" "[ \"\${EV:-0}\" -ge 5 ]"
+# Its pages field (right of Every page; Acrobat's Place on multiple pages): "even", then a click: on pages 2 and 4 only.
+key s; sleep 0.5; [ -n "$EP" ] && { set -- $EP; click $(( $1 + 100 )) $2 0.4; xdotool type --delay 20 "even"; }; click 640 500 1.5; key v; key ctrl+s; sleep 1.5
+EV2=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | grep -ac 'PCFillSign')
+check "the pages field puts them on the even pages only ($EV → $EV2 marks)" "[ \"\${EV2:-0}\" = \"\$(( \${EV:-0} + 2 ))\" ]"
 quit
 
 # 66. Compress ▸ To a size (iLovePDF's target size): 0.001 MB typed, out of reach for text.pdf: the smallest file is
@@ -642,6 +647,17 @@ while cur:
     d = get(cur); titles.append(d.get("/Title", "")); cur = d.get("/Next")
 print(" ".join(t.replace("u:", "") for t in titles))')
 check "a bookmark moved up comes first in the outline ($OT)" "echo \"$OT\" | grep -qE '^Page [34] Page 1'"
+# Dragged (Acrobat's): the second row (y 218) pressed and drawn up to the first row's top edge, dropped: back first.
+xdotool mousemove 100 218 mousedown 1; for y in 212 204 196 188 180 172 169; do xdotool mousemove 100 $y; sleep 0.06; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
+OT2=$(qpdf --json=2 "$OUT/marks.pdf" | python3 -c 'import json, sys
+o = json.load(sys.stdin)["qpdf"][1]
+get = lambda r: o.get("obj:" + r, {}).get("value", {}) if r else {}
+root = next(v["value"] for v in o.values() if isinstance(v, dict) and v.get("value", {}).get("/Type") == "/Catalog")
+out = get(root["/Outlines"]); cur = out.get("/First"); titles = []
+while cur:
+    d = get(cur); titles.append(d.get("/Title", "")); cur = d.get("/Next")
+print(" ".join(t.replace("u:", "") for t in titles))')
+check "a bookmark dragged above another goes before it ($OT → $OT2)" "echo \"$OT2\" | grep -qE '^Page 1 Page [34]'"
 quit
 
 # 52. Files panel (211,106): on hover, the trash deletes an attachment and the pencil renames one (Acrobat's
@@ -842,4 +858,171 @@ cp "$OUT/text.pdf" "$OUT/oddeven.pdf"; launch "$OUT/oddeven.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "organize"; key Return; sleep 3
 OE=$(at Odd 280x700+1000+40); [ -n "$OE" ] && click $OE 0.5; click 1140 755 4
 check "Organize ▸ Odd, then even orders the pages 1, 3, 2, 4 (${OE:-no option}; page 2: $(first_text "$OUT/oddeven-organized.pdf" 2))" "[ \"\$(first_text $OUT/oddeven-organized.pdf 2)\" = 'Page 3' ] && [ \"\$(first_text $OUT/oddeven-organized.pdf 3)\" = 'Page 2' ]"
+quit
+
+# 86. A bookmark's ⋯ menu ▸ Bold, then ▸ Set destination to this view at 200 % (Acrobat's bookmark Appearance and Set
+# Destination): saved, its /F holds bold (2) and its /Dest is /XYZ with a zoom of 2.
+cp "$OUT/text.pdf" "$OUT/markstyle.pdf"; launch "$OUT/markstyle.pdf"; key ctrl+9; sleep 1
+click 95 106 0.8; click 55 149 1
+xdotool mousemove 150 182; sleep 0.5; click 199 182 0.8; BO=$(at Bold 260x400+0+180); [ -n "$BO" ] && click $BO 1
+key ctrl+0; sleep 0.8; xdotool mousemove 150 182; sleep 0.5; click 199 182 0.8; SD=$(at Set 260x400+0+180); [ -n "$SD" ] && click $SD 1
+key ctrl+s; sleep 1.5
+BQ=$(qpdf --qdf --object-streams=disable "$OUT/markstyle.pdf" - 2>/dev/null | python3 -c '
+import re, sys
+d = sys.stdin.buffer.read().decode("latin-1")
+o = [b for b in re.split(r"\nendobj", d) if "/Title" in b and "/Parent" in b]
+print(" ".join(("F" + m.group(1)) if (m := re.search(r"/F (\d+)", b)) else "F0" for b in o), " ".join(re.sub(r"\s+", " ", m.group(1)) for b in o for m in [re.search(r"/Dest \[([^\]]*)\]", b)] if m))')
+check "a bookmark made bold and pointed at a view keeps both (${BO:-no Bold} ${SD:-no Set}; $BQ)" "echo \"$BQ\" | grep -q 'F2' && echo \"$BQ\" | grep -q 'XYZ'"
+quit
+
+# 87. A thumbnail's menu ▸ Replace with a file's pages… from a longer file (text.pdf itself, four pages): the strip under
+# the pages asks from which page (Acrobat's pages … of the file); 3 typed: page 1 is now text.pdf's page 3.
+cp "$OUT/text.pdf" "$OUT/repfrom.pdf"; launch "$OUT/repfrom.pdf"; sleep 1
+answer "$PWD/$OUT/text.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; RP=$(at Replace 300x400+20+200); [ -n "$RP" ] && click $RP 1.5; answer ""
+# The field, Cancel and Replace make the strip's last row, 61 px under its sentence's "from" (Cancel, bold on
+# grey, and the faint placeholder are not read): the field at x 40, Replace at x 200.
+CA=$(at from 248x200+0+560); [ -n "$CA" ] && { set -- $CA; click 40 $(( $2 + 61 )) 0.4; xdotool type --delay 20 "3"; click 200 $(( $2 + 61 )) 1.5; }
+key ctrl+s; sleep 1.5
+check "Replace with a longer file's pages takes the ones chosen (${RP:-no item} ${CA:-no strip}; page 1: $(first_text "$OUT/repfrom.pdf" 1))" "[ \"\$(first_text $OUT/repfrom.pdf 1)\" = 'Page 3' ]"
+quit
+
+# 88. A tab's menu ▸ Move to New Window (PDF Expert's, a browser's): the tab closes and a second Sheaf opens the file
+# in a window of its own (two Sheaf windows on screen). Then, the first window raised, its other tab's menu ▸ Merge All
+# Windows (macOS's Window menu): the second window hands its document over and quits; two tabs here again.
+cp "$OUT/text.pdf" "$OUT/mover.pdf"; cp "$OUT/text.pdf" "$OUT/stayer.pdf"; launch "$OUT/stayer.pdf" "$OUT/mover.pdf"; sleep 1.5
+read AX _ <<< "$(at mover 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
+MW=$(at New 1280x400+0+0); [ -n "$MW" ] && click $MW 0.5
+for _ in $(seq 1 40); do [ "$(xdotool search --name '^Sheaf$' 2>/dev/null | wc -l)" -ge 2 ] && break; sleep 0.25; done; sleep 1.5
+NW=$(xdotool search --name '^Sheaf$' 2>/dev/null | wc -l); MP=$(pgrep -f "mover.pdf" | grep -v "^$APP_PID$" | head -1); NT=$(ntabs)
+check "Move to New Window opens the file in a second window and closes its tab (${MW:-no item}; $NW windows, $NT tab left)" "[ \"$NW\" -ge 2 ] && [ -n \"$MP\" ] && [ \"$NT\" = 1 ]"
+xdotool windowraise "$W"; sleep 0.5
+read AX _ <<< "$(at stayer 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
+MG=$(at Merge 1280x400+0+0); [ -n "$MG" ] && click $MG 0.5
+for _ in $(seq 1 40); do [ -z "$MP" ] || ! kill -0 "$MP" 2>/dev/null && break; sleep 0.25; done; sleep 1
+GONE=$( [ -n "$MP" ] && ! kill -0 "$MP" 2>/dev/null && echo quit )
+check "Merge All Windows brings the other window's document here and closes it (${MG:-no item}; ${GONE:-still open}; $(ntabs) tabs)" "[ \"$GONE\" = quit ] && [ \"\$(ntabs)\" = 2 ]"
+[ -n "$MP" ] && kill "$MP" 2>/dev/null
+quit
+
+# 89. Prepare form: a text field drawn, its card's Copies 3 down × 1 across ▸ Make (Acrobat's Create Multiple Copies):
+# two more separate fields under it, saved (three /T in all). The down box is right of the "Copies" label.
+cp "$OUT/text.pdf" "$OUT/copies.pdf"; launch "$OUT/copies.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6
+xdotool mousemove 500 300 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 40 )) $(( 300 + i * 6 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+CP=$(at Copies 400x400+490+330); [ -n "$CP" ] && { set -- $CP; click $(( $1 + 48 )) $2 0.4; xdotool type --delay 20 "3"; }
+MK=$(at Make 400x400+490+330); [ -n "$MK" ] && click $MK 1.2; key ctrl+s; sleep 1.5
+CQ=$(qpdf --qdf --object-streams=disable "$OUT/copies.pdf" - 2>/dev/null | grep -ac '/T (Text1')
+check "Copies down make separate fields under the one selected (${CP:-no row} ${MK:-no Make}; ${CQ:-0} fields)" "[ \"\${CQ:-0}\" = 3 ]"
+quit
+
+# 90. Home ▸ From scanner (Acrobat's Create PDF ▸ Scanner): the page scanned (the test seam gives stamp.png, green)
+# becomes a one-page PDF, named in the Save dialog and opened.
+launch; answer "$PWD/$OUT/scanned.pdf"; FN=$(at scanner 1000x120+250+80); [ -n "$FN" ] && click $FN 1
+for _ in $(seq 1 12); do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; answer ""
+SN=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/scanned.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
+check "From scanner makes a PDF of the page scanned and opens it (${FN:-no button}; $SN; $(ntabs) tabs)" "[ \"\$(npages $OUT/scanned.pdf 2>/dev/null)\" = 1 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(ntabs)\" = 1 ]"
+quit
+
+# 91. A form's Export data… (Acrobat's Export Data, as CSV: a header row of field names, a row of values), then a
+# blank copy's Import data… of that file: the value typed in the first is in the second, saved.
+cp "$OUT/form.pdf" "$OUT/data-a.pdf"; cp "$OUT/form.pdf" "$OUT/data-b.pdf"; launch "$OUT/data-a.pdf"; key ctrl+9
+click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+a; xdotool type --delay 10 "Exported value"; key Return; sleep 1
+answer "$PWD/$OUT/data.csv"; EX=$(at Export 1280x40+0+90); [ -n "$EX" ] && click $EX 1.5; answer ""
+quit
+launch "$OUT/data-b.pdf"; key ctrl+9
+answer "$PWD/$OUT/data.csv"; IM=$(at Import 1280x40+0+90); [ -n "$IM" ] && click $IM 1.5; answer ""; key ctrl+s; sleep 1.5
+DV=$(qpdf --json=2 --json-key=acroform "$OUT/data-b.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
+check "form data exported to CSV and imported into a blank copy (${EX:-no Export} ${IM:-no Import}; $(head -c 60 $OUT/data.csv 2>/dev/null | tr '\n' '|'); $DV)" "grep -q 'Exported value' $OUT/data.csv 2>/dev/null && echo \"$DV\" | grep -q 'Exported value'"
+quit
+
+# 92. More ▸ Overlay a PDF… (PDF Expert's overlay): single.pdf chosen is drawn over each page of a copy of text.pdf;
+# saved, page 2 shows its own text and single.pdf's.
+cp "$OUT/text.pdf" "$OUT/overlay.pdf"; launch "$OUT/overlay.pdf"; sleep 1
+answer "$PWD/$OUT/single.pdf"; click 1127 61 0.8; click 1008 659 0.8; OV=$(at Overlay 300x400+880+80); [ -n "$OV" ] && click $OV 1.5; answer ""; key ctrl+s; sleep 1.5
+O2=$(pdftotext -f 2 -l 2 "$OUT/overlay.pdf" - 2>/dev/null | tr '\n' ' '); S1=$(pdftotext -f 1 -l 1 "$OUT/single.pdf" - 2>/dev/null | tr '\n' ' ' | awk '{print $1, $2}')
+check "Overlay a PDF draws its page over each page (${OV:-no item}; page 2: $(echo "$O2" | cut -c1-60))" "echo \"$O2\" | grep -q 'Page 2' && echo \"$O2\" | grep -qF \"$S1\""
+quit
+
+# 93. A tool's job done (the test seam announces every one; a real run, those past 10 s): a system notification
+# names the tool and the file made (Organize ▸ Odd, then even, step 85).
+check "a finished job sends a system notification ($(grep -m1 Organize $OUT/notified 2>/dev/null))" "grep -q 'Organize PDF finished: oddeven-organized.pdf is ready' $OUT/notified"
+
+# 94. More ▸ Read aloud (Acrobat's Read Out Loud): from the page shown to the end, each page's text spoken (the test
+# seam writes what the voice is given).
+cp "$OUT/text.pdf" "$OUT/aloud.pdf"; launch "$OUT/aloud.pdf"; sleep 1
+click 1127 61 0.8; click 1008 659 0.8; RD=$(at Read 300x400+880+80); [ -n "$RD" ] && click $RD 3
+check "Read aloud gives every page's text to the voice (${RD:-no item}; $(tr '\n' ' ' < $OUT/spoken 2>/dev/null | cut -c1-60))" "grep -q 'Page 1' $OUT/spoken && grep -q 'Page 4' $OUT/spoken"
+quit
+
+# 95. A thumbnail's menu ▸ Insert from scanner… (Acrobat's Insert ▸ From Scanner; the test seam scans stamp.png) puts
+# the page scanned after page 1, then Insert from clipboard (text copied) a page of that text after it: six pages.
+cp "$OUT/text.pdf" "$OUT/inserted.pdf"; launch "$OUT/inserted.pdf"; sleep 1
+xdotool mousemove 120 230 click 3; sleep 0.8; IS=$(at scanner 300x420+20+200); [ -n "$IS" ] && click $IS 2
+printf 'Pasted words' | xclip -selection clipboard; sleep 0.3
+xdotool mousemove 120 230 click 3; sleep 0.8; IC=$(at clipboard 300x420+20+200); [ -n "$IC" ] && click $IC 2; key ctrl+s; sleep 1.5
+check "Insert from scanner and from clipboard add their pages after page 1 (${IS:-no scanner item} ${IC:-no clipboard item}; $(npages $OUT/inserted.pdf) pages; page 2: $(first_text "$OUT/inserted.pdf" 2))" "[ \"\$(npages $OUT/inserted.pdf)\" = 6 ] && [ \"\$(first_text $OUT/inserted.pdf 2)\" = 'Pasted words' ]"
+quit
+
+# 96. More ▸ Save a flattened copy… (PDF Expert's Export ▸ Flattened Copy): a form filled, its copy has the value drawn
+# into the page and no field left; the document itself keeps its field.
+cp "$OUT/form.pdf" "$OUT/toflat.pdf"; launch "$OUT/toflat.pdf"; key ctrl+9
+click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+a; xdotool type --delay 10 "Drawn in"; key Return; sleep 1
+answer "$PWD/$OUT/flat-copy.pdf"; click 1127 61 0.8; click 1008 659 0.8; FC=$(at flattened 300x400+880+80); [ -n "$FC" ] && click $FC 2; answer ""
+NF=$(qpdf --json=2 --json-key=acroform "$OUT/flat-copy.pdf" 2>/dev/null | python3 -c "import json,sys;print(len(json.load(sys.stdin)['acroform']['fields']))" 2>/dev/null)
+check "Save a flattened copy draws the value in and leaves no field (${FC:-no item}; ${NF:-?} fields; $(pdftotext $OUT/flat-copy.pdf - 2>/dev/null | tr '\n' ' ' | cut -c1-40))" "[ \"\${NF:-1}\" = 0 ] && pdftotext $OUT/flat-copy.pdf - | grep -q 'Drawn in' && [ \"\$(qpdf --json=2 --json-key=acroform $OUT/toflat.pdf | python3 -c 'import json,sys;print(len(json.load(sys.stdin)[\"acroform\"][\"fields\"]))')\" -ge 1 ]"
+quit
+
+# 97. More ▸ Loupe (Acrobat's Loupe tool): the pointer over "Page 1", the panel in the view's bottom-right corner
+# shows those words three times larger.
+cp "$OUT/text.pdf" "$OUT/loupe.pdf"; launch "$OUT/loupe.pdf"; sleep 1
+LW=$(at Page 1020x300+255+80); click 1127 61 0.8; click 1008 659 0.8; LP=$(at Loupe 300x400+880+80); [ -n "$LP" ] && click $LP 0.8
+[ -n "$LW" ] && { set -- $LW; xdotool mousemove $(( $1 - 10 )) $2; sleep 0.3; xdotool mousemove $(( $1 + 20 )) $2; sleep 1.5; }
+LO=$(ocr 400x280+860+500)
+check "the loupe shows the words under the pointer, magnified (${LP:-no item}; $(echo "$LO" | cut -c1-40))" "echo \"$LO\" | grep -q 'Page'"
+quit
+
+# 98. Document properties (⌘D) ▸ Save report… (Acrobat's PDF info report, saved): a JSON file with the facts and fonts.
+cp "$OUT/text.pdf" "$OUT/report2.pdf"; launch "$OUT/report2.pdf"; sleep 1; key ctrl+d; sleep 2
+answer "$PWD/$OUT/report.json"; SR=$(at Save 400x44+400+722); [ -n "$SR" ] && click $SR 1; answer ""
+RJ=$(python3 -c 'import json,sys; v=json.load(open(sys.argv[1])); print(v["file"], v["facts"].get("Pages"), v["fonts"][0]["name"])' "$OUT/report.json" 2>/dev/null)
+check "Save report writes the properties as JSON (${SR:-no button}; $RJ)" "[ \"$RJ\" = 'report2.pdf 4 Helvetica' ]"
+quit
+
+# 99. Preferences ▸ Open PDFs with Sheaf by default (Acrobat's and PDF Expert's prompt): the system is asked (the test
+# seam records the request).
+launch; click 67 193 1; prefs_end; MD=$(at PDFs 900x700+200+90); [ -n "$MD" ] && click $MD 1
+check "Preferences makes Sheaf the default PDF app (${MD:-no button})" "[ \"\$(cat $OUT/made-default 2>/dev/null)\" = default ]"
+quit
+
+# 100. Home ▸ From clipboard with a PDF itself on the clipboard (application/pdf, as Preview and Acrobat copy pages):
+# that PDF becomes the new one.
+xclip -selection clipboard -t application/pdf < "$OUT/single.pdf"; sleep 0.3
+launch; answer "$PWD/$OUT/clippdf.pdf"; FP=$(at From 900x120+300+80); [ -n "$FP" ] && click $FP 1; for _ in $(seq 1 12); do [ -f "$OUT/clippdf.pdf" ] && break; sleep 0.5; done; answer ""
+check "From clipboard takes a PDF copied as data (${FP:-no button}; $(npages $OUT/clippdf.pdf 2>/dev/null) pages, $(first_text "$OUT/clippdf.pdf" 1 2>/dev/null))" "[ \"\$(npages $OUT/clippdf.pdf 2>/dev/null)\" = 1 ] && [ \"\$(first_text $OUT/clippdf.pdf 1)\" = 'Page 1' ]"
+quit
+
+# 101. Merge ▸ Pages: pb.pdf's three page cards all dropped (the fifth card's × three times), then Files and Pages
+# again: the order made is kept, pb.pdf's pages do not come back (Sol, 26/10: they did).
+cp "$OUT/reo/ra.pdf" "$OUT/reo/pa.pdf"; cp "$OUT/reo/rb.pdf" "$OUT/reo/pb.pdf"
+launch "$OUT/reo/pa.pdf" "$OUT/reo/pb.pdf"
+click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; click 460 527 2
+PG=$(at Pages 280x400+1000+60); [ -n "$PG" ] && click $PG 2
+for _ in 1 2 3; do xdotool mousemove $(( 41 + 124 * 4 + 54 )) 140; sleep 0.4; click $(( 41 + 124 * 4 + 93 )) 94 1; done
+FI=$(at Files 280x400+1000+60); [ -n "$FI" ] && click $FI 1.5; PG2=$(at Pages 280x400+1000+60); [ -n "$PG2" ] && click $PG2 2
+# The cards' pictures (124 px apart from x 95, y 150): pa.pdf's four colours, and no fifth card (the area's grey).
+px_at() { import -window root -crop "1x1+$1+150" png:- 2>/dev/null | convert - -format '%[pixel:p{0,0}]' info: 2>/dev/null | tr -d ' '; }
+CARDS="$(px_at 95) $(px_at 219) $(px_at 343) $(px_at 467) $(px_at 591)"; EMPTY=$(px_at 900)
+check "Merge keeps a file's pages dropped through Files and back (${FI:-no Files} ${PG2:-no Pages}; cards $CARDS, area $EMPTY)" "[ \"$(echo $CARDS | wc -w)\" = 5 ] && [ \"$(echo $CARDS | cut -d' ' -f5)\" = \"$EMPTY\" ] && [ \"$(echo $CARDS | cut -d' ' -f4)\" != \"$EMPTY\" ]"
+quit
+
+# 102. A path on the command line that names no file (a PDF moved): said once the window shows, not dropped silently.
+launch "$OUT/moved-away.pdf"; NF=$(ocr 1280x800+0+0)
+check "a missing file asked on the command line is said ($(echo "$NF" | grep -o 'Not found[^|]*' | head -1))" "echo \"$NF\" | grep -q 'Not found: moved-away.pdf'"
+quit
+
+# 103. ⇧⌘S into a folder that cannot be written: the save fails, and the tab is still the original (Sol, 26/10: it
+# took the new name first): opening the original again shows its tab, no second one.
+mkdir -p "$OUT/locked"; chmod 555 "$OUT/locked"; cp "$OUT/text.pdf" "$OUT/keepme.pdf"; launch "$OUT/keepme.pdf"; sleep 1
+answer "$PWD/$OUT/locked/copy.pdf"; key ctrl+shift+s; sleep 2; click 40 21 1; answer "$PWD/$OUT/keepme.pdf"; key ctrl+o; sleep 2; answer ""
+KT=$(ntabs); chmod 755 "$OUT/locked"
+check "a failed Save As leaves the tab the original's ($KT tab)" "[ \"$KT\" = 1 ] && [ ! -e \"$OUT/locked/copy.pdf\" ]"
 quit

@@ -119,7 +119,7 @@ type Warnings = Vec<String>;
 /// alternate texts; XMP metadata, attachments, JavaScript, private application data
 /// (/PieceInfo) and Form XObjects no page paints that contain one removed whole (each kind
 /// named in the warnings). Unchanged bytes are returned as they are.
-pub(super) fn post_pass(bytes: &[u8], marks: &[Mark], needles: &[Needle]) -> Result<(Vec<u8>, Warnings)> {
+pub(super) fn post_pass(bytes: &[u8], marks: &[Mark], needles: &[Needle], fill: [f64; 3]) -> Result<(Vec<u8>, Warnings)> {
     let whole: BTreeSet<usize> = marks.iter().filter(|m| m.whole_page).map(|m| m.page).collect();
     let mut warnings = Vec::new();
     if whole.is_empty() && needles.is_empty() {
@@ -127,14 +127,14 @@ pub(super) fn post_pass(bytes: &[u8], marks: &[Mark], needles: &[Needle]) -> Res
     }
     let mut d = lopdf::Document::load_mem(bytes)?;
     let mut changed = false;
-    // Whole pages: one black fill of the mark's box, nothing else.
+    // Whole pages: one fill of the mark's box in the marks' colour, nothing else.
     let page_ids = d.get_pages();
     let mut dropped: HashSet<ObjectId> = HashSet::new();
     for &p in &whole {
         let id = *page_ids.get(&(p as u32 + 1)).ok_or_else(|| OpdfError::Engine(format!("page {} is missing", p + 1)))?;
         let quads: Vec<[f64; 8]> = marks.iter().filter(|m| m.whole_page && m.page == p).flat_map(|m| m.quads.clone()).collect();
         let [x0, y0, x1, y1] = bounds(&quads);
-        let fill = format!("q 0 0 0 rg {x0} {y0} {} {} re f Q", x1 - x0, y1 - y0).into_bytes();
+        let fill = format!("q {} {} {} rg {x0} {y0} {} {} re f Q", fill[0], fill[1], fill[2], x1 - x0, y1 - y0).into_bytes();
         let content = d.add_object(lopdf::Stream::new(Dictionary::new(), fill));
         let annots: Vec<ObjectId> = match d.get_dictionary(id)?.get(b"Annots") {
             Ok(a) => d.dereference(a)?.1.as_array().map(|a| a.iter().filter_map(|x| x.as_reference().ok()).collect()).unwrap_or_default(),

@@ -126,6 +126,8 @@ export component PreferencesScreen inherits Rectangle {
     // How a document opened for the first time is shown (0 fit width, 1 fit page, 2 actual size).
     in property <int> default-zoom;
     callback set-default-zoom(int);
+    // Make Sheaf the system's default PDF app (Acrobat's and PDF Expert's prompt).
+    callback make-default();
     in property <int> default-spread;
     callback set-default-spread(int);
     in property <bool> open-first-page;
@@ -249,6 +251,10 @@ export component PreferencesScreen inherits Rectangle {
             }
             Section {
                 title: "Documents";
+                HorizontalLayout {
+                    alignment: start;
+                    Segment { width: 260px; text: "Open PDFs with Sheaf by default"; clicked => { root.make-default(); } }
+                }
                 Text {
                     text: "Open new documents at";
                     font-size: Theme.fs-body;

@@ -1,7 +1,8 @@
 #!/bin/sh
 # Builds through dev/scripts/cargo.sh without endangering the rest of a small machine (7 GB, no swap):
 # - waits until at least 3 GB are free (rustc on sheaf-app peaks at ~2.4 GB);
-# - caps the build at (free memory − 700 MB), so the machine never runs out;
+# - caps the build at (free memory − 700 MB), so the machine never runs out (1.2 GB above it when a
+#   swap file is on: see DECISIONS 2026-10-26);
 # - OOMScoreAdjust=1000: if memory still runs out, the kernel kills the build, not the session.
 # The app under test must be stopped first (systemctl --user stop sheaf-gui).
 #   sh dev/scripts/build-safe.sh build -p sheaf-app
@@ -23,7 +24,10 @@ for _ in $(seq 1 60); do
 done
 avail=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo)
 [ "$avail" -ge 3000 ] || { echo "not enough memory (${avail} MB free); build not started" >&2; exit 3; }
-cap=$((avail - 700))
+# With a swap file on (512 MB free at least), idle processes can make room: the cap goes 1.2 GB above
+# what is free (the build itself never swaps and dies first). Without, 700 MB stay free.
+swap=$(awk '/SwapFree/{print int($2/1024)}' /proc/meminfo)
+if [ "${swap:-0}" -ge 512 ]; then cap=$((avail + 1200)); else cap=$((avail - 700)); fi
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 systemd-run --user --unit=heavy-build-$$ --collect -q --wait --working-directory="$PWD" \
     -p MemoryMax="${cap}M" -p MemorySwapMax=0 -p OOMScoreAdjust=1000 \

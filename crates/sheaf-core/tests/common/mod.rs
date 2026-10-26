@@ -88,3 +88,38 @@ pub fn unprotected_and_clean(path: &Path) {
     assert!(String::from_utf8_lossy(&o.stdout).contains("File is not encrypted"), "{} is still encrypted", path.display());
     qpdf_clean(path);
 }
+
+/// `path`'s first page with `text` added in invisible text (render mode 3, as an OCR layer is
+/// written), saved to `out`.
+#[allow(dead_code)]
+pub fn add_invisible_text(path: &Path, text: &str, out: &Path) {
+    use lopdf::{dictionary, Object, Stream};
+    let mut d = lopdf::Document::load(path).unwrap();
+    let page = *d.get_pages().get(&1).unwrap();
+    let font = d.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica" });
+    let body = format!("BT 3 Tr /FOcr 12 Tf 60 300 Td ({text}) Tj ET");
+    let stream = d.add_object(Stream::new(dictionary! {}, body.into_bytes()));
+    let p = d.get_object_mut(page).unwrap().as_dict_mut().unwrap();
+    let contents = match p.get(b"Contents").unwrap().clone() {
+        Object::Array(mut a) => {
+            a.push(stream.into());
+            a
+        }
+        one => vec![one, stream.into()],
+    };
+    p.set("Contents", contents);
+    let res = match p.get(b"Resources").unwrap().clone() {
+        Object::Reference(r) => r,
+        Object::Dictionary(inline) => {
+            let r = d.add_object(inline);
+            d.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("Resources", r);
+            r
+        }
+        _ => panic!("no resources"),
+    };
+    let res = d.get_object_mut(res).unwrap().as_dict_mut().unwrap();
+    let mut fonts = res.get(b"Font").and_then(|f| f.as_dict()).cloned().unwrap_or_default();
+    fonts.set("FOcr", font);
+    res.set("Font", fonts);
+    d.save(out).unwrap();
+}

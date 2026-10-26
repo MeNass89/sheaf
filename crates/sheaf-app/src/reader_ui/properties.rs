@@ -53,6 +53,38 @@ pub fn props_copy(ui: &AppWindow, tab_id: i32) {
     crate::flow::toast(ui, if copied { "Report copied" } else { "The clipboard could not be reached" });
 }
 
+/// Document properties ▸ Save report… (Acrobat's PDF info report, saved): the same report as a
+/// JSON file (description, facts, fonts) for a script or an audit, or as text when named `.txt`.
+pub fn props_report(ui: &AppWindow, tab_id: i32) {
+    let Some((dir, stem)) = update(tab_id, |r, _| (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default())) else { return };
+    let d = crate::dialog::new(ui).set_directory(&dir).set_file_name(format!("{stem} - report.json")).add_filter("JSON", &["json"]).add_filter("Text", &["txt"]);
+    crate::dialog::save_file(ui, d, move |ui, to| {
+        let text = to.extension().is_some_and(|e| e.eq_ignore_ascii_case("txt"));
+        let Some(body) = update(tab_id, |r, _| if text { report(&r.name, &r.snap.props, r.facts.as_ref()) } else { report_json(&r.name, &r.snap.props, r.facts.as_ref()) }) else { return };
+        match std::fs::write(&to, body) {
+            Ok(()) => crate::flow::toast(ui, &format!("Report saved as {}", file_name(&to))),
+            Err(e) => crate::flow::toast(ui, &format!("The report was not saved: {e}")),
+        }
+    });
+}
+
+/// [`report`] as JSON: `file`, `description` (title, author, subject, keywords, custom
+/// properties), `facts` (each row of the sheet) and `fonts` (name, embedded).
+pub(super) fn report_json(name: &str, props: &reader_doc::Props, facts: Option<&sheaf_core::facts::Facts>) -> String {
+    use serde_json::{json, Map, Value};
+    let mut description = Map::new();
+    for (n, v) in [("title", &props.title), ("author", &props.author), ("subject", &props.subject), ("keywords", &props.keywords)] {
+        description.insert(n.into(), v.as_str().into());
+    }
+    if let Some(f) = facts {
+        description.insert("custom".into(), f.custom.iter().map(|(n, v)| (n.clone(), Value::from(v.as_str()))).collect::<Map<_, _>>().into());
+    }
+    let rows: Map<String, Value> = about_rows(&props.about, facts).into_iter().map(|(n, v)| (n, v.into())).collect();
+    let fonts: Vec<Value> = facts.map(|f| f.fonts.iter().map(|(n, e)| json!({ "name": n, "embedded": e })).collect()).unwrap_or_default();
+    let v = json!({ "file": name, "description": description, "facts": rows, "fonts": fonts });
+    serde_json::to_string_pretty(&v).unwrap_or_default() + "\n"
+}
+
 /// The report [`props_copy`] copies: the file's name, its description, then a line per fact.
 pub(super) fn report(name: &str, props: &reader_doc::Props, facts: Option<&sheaf_core::facts::Facts>) -> String {
     let or_none = |v: &str| if v.trim().is_empty() { "—".to_string() } else { v.to_string() };
@@ -186,6 +218,10 @@ pub(super) fn open_as_asked(r: &mut ReaderUi, v: &mut ViewerUi) {
         N::Pages => (r.panel, r.panel_open) = (0, true),
         _ => {}
     }
+    // The window options (Sol, 26/10: saved but not followed here): full screen and no toolbar,
+    // asked of the window once (`opened`); the title shown is the model's. Fitting and centring a
+    // window do not apply to a tab.
+    r.opened = (o.full_screen, o.hide_toolbar, r.opened.2 + 1);
 }
 
 /// Document Properties ▸ When opened, as the sheet's controls give it: the page (1-based, typed),
@@ -240,7 +276,7 @@ pub(super) fn opening_controls(o: &sheaf_core::pdfcraft::engine::InitialView) ->
 
 #[cfg(test)]
 mod tests {
-    use super::{about_rows, custom_pairs, custom_text, report};
+    use super::{about_rows, custom_pairs, custom_text, report, report_json};
 
     #[test]
     fn the_report_lists_the_description_the_facts_and_the_fonts() {
@@ -250,6 +286,17 @@ mod tests {
         assert!(r.starts_with("lease.pdf\n\nTitle: Lease\nAuthor: —\n"), "{r}");
         assert!(r.contains("\nPages: 4\n") && r.contains("\nPDF/A: No\n"), "{r}");
         assert!(r.ends_with("Fonts\nHelvetica (not embedded)\nInter (embedded)\n"), "{r}");
+    }
+
+    #[test]
+    fn the_report_is_saved_as_json_too() {
+        let props = crate::reader_doc::Props { title: "Lease".into(), about: vec![("Pages".into(), "4".into())], ..Default::default() };
+        let facts = sheaf_core::facts::Facts { fonts: vec![("Helvetica".into(), false)], custom: vec![("Client".into(), "Acme".into())], ..Default::default() };
+        let v: serde_json::Value = serde_json::from_str(&report_json("lease.pdf", &props, Some(&facts))).unwrap();
+        assert_eq!(v["file"], "lease.pdf");
+        assert_eq!((v["description"]["title"].as_str(), v["description"]["custom"]["Client"].as_str()), (Some("Lease"), Some("Acme")));
+        assert_eq!((v["facts"]["Pages"].as_str(), v["facts"]["PDF/A"].as_str()), (Some("4"), Some("No")));
+        assert_eq!(v["fonts"][0], serde_json::json!({ "name": "Helvetica", "embedded": false }));
     }
 
     #[test]

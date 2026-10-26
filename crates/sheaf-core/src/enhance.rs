@@ -63,11 +63,20 @@ pub fn enhance(input: &Input, out: &Path, progress: &mut dyn FnMut(f32) -> bool)
     Ok(EnhanceReport { path, enhanced, kept })
 }
 
-/// A scanned page: no text of its own, and a picture over most of it.
-fn is_scan(page: &PdfPage) -> bool {
-    let has_text = page.text().map(|t| t.all().chars().any(|c| !c.is_whitespace())).unwrap_or(false);
+/// Which pages of PDF `bytes` are scans ([`is_scan`]), in order; all false when it cannot be read.
+pub fn scanned_pages(bytes: &[u8], password: Option<&str>) -> Vec<bool> {
+    let _g = crate::engine::pdfium_lock();
+    let Ok(doc) = crate::engine::open_pdf_bytes(bytes, password) else { return Vec::new() };
+    doc.pages().iter().map(|p| is_scan(&p)).collect()
+}
+
+/// A scanned page: a picture over most of it, and no text drawn of its own. An OCR layer
+/// (invisible text over the picture) does not make it a text page (Sol, 26/10: OCR'd scans were
+/// kept as they were).
+pub fn is_scan(page: &PdfPage) -> bool {
+    let drawn_text = page.objects().iter().any(|o| o.as_text_object().is_some_and(|t| t.render_mode() != PdfPageTextRenderMode::Invisible && !t.text().trim().is_empty()));
     let area = page.width().value * page.height().value;
-    !has_text
+    !drawn_text
         && page.objects().iter().any(|o| {
             o.object_type() == PdfPageObjectType::Image && o.bounds().is_ok_and(|b| b.width().value * b.height().value >= 0.6 * area)
         })

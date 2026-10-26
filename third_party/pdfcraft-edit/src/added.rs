@@ -746,7 +746,8 @@ fn draw(doc: &mut Document, c: &Content, view: [f64; 6], taken: &Dict, existing:
             out.extend_from_slice(b"ET\n");
         }
         Content::Image(i) => {
-            if !matches!(&*doc.get(i.image), Object::Stream(s) if s.dict.name(b"Subtype") == Some(b"Image")) {
+            // Sheaf: or a Form drawn in the unit square (objects copied and pasted, still vector).
+            if !matches!(&*doc.get(i.image), Object::Stream(s) if matches!(s.dict.name(b"Subtype"), Some(b"Image" | b"Form"))) {
                 return Err(EditError::Invalid("not an image".into()));
             }
             let r = norm(i.rect);

@@ -434,7 +434,7 @@ fn redact_job_counts_what_it_redacts_and_warns_on_protected_input() {
     let mut marks = redact::mark_text(&hits);
     marks.extend(redact::mark_rects(&[(0, [300.0, 300.0, 400.0, 400.0])]));
     let no = AtomicBool::new(false);
-    let o = run(&Job::Redact { input: locked, marks, out: dir.path().join("r.pdf") }, &no, &|_| {}).unwrap();
+    let o = run(&Job::Redact { input: locked, marks, look: Default::default(), out: dir.path().join("r.pdf") }, &no, &|_| {}).unwrap();
     assert_eq!(o.summary, "1 text passage and 1 area redacted");
     assert!(o.was_encrypted);
     let d = lopdf::Document::load(&o.outputs[0]).unwrap();

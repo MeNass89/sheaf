@@ -34,6 +34,9 @@ pub struct DigitalSpec {
     pub password: String,
     pub reason: Option<String>,
     pub location: Option<String>,
+    /// Certify the document (Acrobat's Certify, a DocMDP signature): which changes stay allowed
+    /// after it, 1 none, 2 filling in forms and signing, 3 those and comments. None: approve only.
+    pub certify: Option<u8>,
 }
 
 /// Where and how to sign.
@@ -281,6 +284,7 @@ pub fn sign(input: &Input, spec: &SignSpec, out: &Path) -> Result<SignReport> {
         rect: upright.then(|| padded(r)),
         reason,
         location,
+        certify: d.certify.map(|p| p.clamp(1, 3)),
         appearance: engine::sign::Appearance { name: false, date: false, reason: false, location: false, distinguished_name: false, labels: false },
         graphic,
         ..SignOptions::default()

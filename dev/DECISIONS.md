@@ -625,9 +625,10 @@ writes text WinAnsi cannot in Edit text and text boxes, shaped, with ToUnicode, 
 fonts (PdfCraft refuses faces without an open-licence declaration, so macOS's own fonts are out). **Cost.** About
 10 MB in the binary. **Would change it.** Hebrew or Devanagari faces added to craft-fonts; a smaller app wanted.
 
-## 2026-10-26 · Deviation from dev-skill policy: one full run per unit
-**What.** Rounds 20–21 closed on lint and gui from one full run (8721d72) and the unit layer run alone on the
-same commit, because the full run's unit build was killed by the kernel's OOM killer (10:52, a code survey agent
-running beside it), not by a test. **Why better here.** The code under test is identical; a third full run
-(~40 min) would re-prove the 200 GUI checks already passed on it. **Scope.** The landing of rounds 20–21 only.
-**Ends when.** Now: later units close on one full run, with no agent beside the suite.
+## 2026-10-26 · A temporary swap file for sheaf-app's build
+**Decision.** While other sessions held ~1 GB more than usual, rustc on sheaf-app's library (the code Slint
+generates, 24.5 MB of Rust in round 22, 23.8 MB before) peaked past the build's cap (free − 700 MB, about
+4.2 GB) and was OOM-killed four times. A 2 GB swap file was added for the build and removed after it; the
+build's own cgroup still has no swap (build-safe.sh), only idle processes may be swapped out. **Alternatives.**
+More code units or no overflow checks for sheaf-app (tried: no lower peak); cutting features. **Would change
+it.** The UI's generated code split across crates, or a larger VM.

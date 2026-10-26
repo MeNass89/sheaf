@@ -36,7 +36,7 @@ use audit::check_scrubbed;
 use clean::post_pass;
 use matching::nfc;
 use std::path::{Path, PathBuf};
-pub use verify::verify;
+pub use verify::{verify, verify_with};
 
 
 /// PdfCraft's search patterns.
@@ -238,13 +238,34 @@ pub fn mark_pages(input: &Input, pages: &[usize]) -> Result<Vec<Mark>> {
         .collect()
 }
 
+/// How applied marks look (Acrobat's Redaction Properties ▸ Appearance): the boxes' colour, and a
+/// text drawn over each (a reason, "Redacted"), once or repeated to fill it. Whole pages take the
+/// colour only.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Appearance {
+    pub fill: [f64; 3],
+    pub overlay: String,
+    pub repeat: bool,
+}
+
+impl Default for Appearance {
+    fn default() -> Self {
+        Self { fill: [0.0; 3], overlay: String::new(), repeat: false }
+    }
+}
+
+/// [`apply_with`] black boxes and no text over them.
+pub fn apply(input: &Input, marks: &[Mark], searched: &[Needle], out: &Path) -> Result<RedactReport> {
+    apply_with(input, marks, searched, &Appearance::default(), out)
+}
+
 /// Applies `marks` and writes the result to `out` (never overwriting).
 ///
 /// `searched` are the texts typed for the search, removed with the marks' own texts from the
 /// document information, XMP metadata, bookmarks, comments and form fields (see [`Mark::text`]).
 /// The bytes are audited ([`verify`]) under their temporary name; any finding fails the call
 /// and nothing is written.
-pub fn apply(input: &Input, marks: &[Mark], searched: &[Needle], out: &Path) -> Result<RedactReport> {
+pub fn apply_with(input: &Input, marks: &[Mark], searched: &[Needle], look: &Appearance, out: &Path) -> Result<RedactReport> {
     if marks.is_empty() {
         return Err(OpdfError::Unsupported("nothing is marked for redaction".into()));
     }
@@ -258,8 +279,11 @@ pub fn apply(input: &Input, marks: &[Mark], searched: &[Needle], out: &Path) -> 
         .iter()
         .filter(|m| !m.whole_page)
         .map(|m| {
-            let shape = Shape::Redact { quads: m.quads.clone(), overlay: String::new(), look: Default::default() };
-            let style = Style::default_for(&shape);
+            // The overlay in white on a dark box, black on a light one.
+            let light = look.fill.iter().sum::<f64>() > 1.5;
+            let text = crate::pdfcraft::engine::OverlayLook { color: if light { [0.0; 3] } else { [1.0; 3] }, repeat: look.repeat, ..Default::default() };
+            let shape = Shape::Redact { quads: m.quads.clone(), overlay: look.overlay.trim().to_string(), look: text };
+            let style = Style { fill: Some(look.fill), ..Style::default_for(&shape) };
             Edit::AddAnnotation(NewAnnotation { page: m.page, shape, style, contents: String::new(), author: "Sheaf".into() })
         })
         .collect();
@@ -270,11 +294,11 @@ pub fn apply(input: &Input, marks: &[Mark], searched: &[Needle], out: &Path) -> 
     let (bytes, was_encrypted) = doc.unprotected_bytes()?;
     drop(doc);
     let needles = needles(marks, searched);
-    let (bytes, mut warnings) = post_pass(&bytes, marks, &needles)?;
+    let (bytes, mut warnings) = post_pass(&bytes, marks, &needles, look.fill)?;
     let mut notes = Vec::new();
     let path = atomic_write(out, |part| {
         std::fs::write(part, &bytes)?;
-        verify(part, marks)?;
+        verify_with(part, marks, &look.overlay)?;
         notes = check_scrubbed(&bytes, &needles)?;
         Ok(())
     })?;

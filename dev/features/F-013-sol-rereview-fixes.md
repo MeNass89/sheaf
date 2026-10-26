@@ -592,50 +592,119 @@ unbound variable). Run at last, they found real defects as well as their own:
   whole page's size, was the cost. Pages wider than the window draw no shadow (their edges are out of
   view): the zoom shows within a second.
 
-### Round 20 (26/10)
+### Round 22 (26/10, Sol's b17–b22 gaps, end)
 
-- C-reader-017 Rotate view (Acrobat's View ▸ Rotate View, ⇧⌘+ / ⇧⌘−, More ▸ Rotate view): the viewer
-  keeps a turn on top of each page's /Rotate (`Viewer::set_turn`, `viewer::turned`); pages render turned
-  (`render_bytes(…, turn)`: a quarter turn asks for the height), every overlay maps through the turned
-  boxes, edits rebuild the viewer with the turn kept; the file is not changed. Tests:
-  `viewer::tests::the_view_turns_every_page_and_back`, `renders::tests::pages_render_at_the_asked_width_with_their_rotation`,
-  smoke 78.
-- C-optimize-010 Enhance scanned pages (Acrobat's Enhance): `sheaf_core::enhance` straightens a page that is
-  only a picture (skew from the row profile of its dark pixels, ±5°, a tenth of a degree), whitens its paper
-  and darkens its ink (levels), and draws it again as a JPEG on a page of the same size; text pages are
-  copied. OCR ▸ "Straighten and clean scans first" runs it before reading (kept with Run again). Tests:
-  `enhance::tests::*`, `tests/enhance.rs`.
-- C-security-018 PDF info report: Document properties ▸ Copy report puts the description, every fact and
-  the fonts (each said embedded or not; `facts::Facts::fonts`) on the clipboard. Tests:
-  `properties::tests::the_report_lists_the_description_the_facts_and_the_fonts`, `tests/facts.rs`.
-- C-output-015 Rename or trash: a document tab's menu ▸ Rename… (a Save dialog in its folder; the tab,
-  Recent files and later saves follow), Show in Folder, Move to Trash (Finder, gio, the Recycle Bin; refused
-  with unsaved edits). Smoke 79.
-- C-annotate-027 Turn a stamp: a stamp, picture or signature selected shows Turn ↻ (Acrobat's Rotate on a
-  stamp): a quarter turn clockwise about its centre, its box turned with it, one undo step (PdfCraft patch:
-  `Edit::TurnAnnotation`, `pdfcraft_annot::turn_stamp`; a vector picture's appearance now turns too). Test:
-  `reader_doc::tests::a_stamp_turns_a_quarter_about_its_centre`.
-- Sol's b17–b22 gaps fixed: Header & footer ▸ Remove, and other apps' Pagination artifacts (Acrobat's
-  headers, footers, watermarks, backgrounds) taken out by every Remove (PdfCraft patch
-  `remove_artifacts`); Bates numbers run on across a batch (`jobs::tests::bates_numbers_run_on_across_a_batch`);
-  versions in a folder per document; PDF files copied in a file manager make the new PDF From clipboard
-  (smoke 81); a thumbnail's Insert a file's pages before… (smoke 82); Detect fields on the scanned pages
-  beside drawn ones (smoke, mixed form); Merge keeps its Pages order while Files shows; text typed in
-  place added when another tool is picked (smoke 83); certificates' subject and issuer in full; Flip about
-  the crop box, comments drawn in with Change page size; One page at a time shows that page alone; Side
-  by side draws the original's comments; /FitR and Zoom to area scroll across to the box on a turned
-  page; documents too different are not compared (Acrobat stops), the changed-areas list runs onto more
-  pages; a subset's tag left out of a field font's name; a large snapshot taken whole (at less than 3×);
-  Crop margins cut from the crop box; Replace (the match in view only); Split ▸ any grid of parts; Organize
-  ▸ One long page; When opened ▸ Window options (full screen, title, fit, centre, no toolbar).
-- Rotate view renders the page upright and turns the pixels (pdfium-render's rotation kept the upright
-  size).
-
-### Round 21 (26/10, Sol's b17–b22 gaps, continued)
-
-- C-annotate-023: the pen and the shapes draw dashed lines ("- -", Acrobat's Dashed style; a selected
-  drawing or shape changes at once, one undo step: PdfCraft patch `Edit::DashAnnotation`,
-  `pdfcraft_annot::set_dashed`; ink appearances honour `/BS /S /D`), and a fourth width, 8 pt. Smoke 84.
-- C-organize-020: Organize takes a typed order ("3,1,2,5-4", a page as often as named, ranges
-  backwards), Odd then even, and Collate a two-sided scan (fronts then backs reversed: 1, n, 2, n − 1…),
-  Acrobat's custom order and its odd-and-even and duplex rules (`ranges::order_spec`, tested). Smoke 85.
+- C-reader-026: a bookmark's ⋯ menu ▸ Set destination to this view (page, top-left and zoom, /XYZ) and
+  its look: Bold, Italic, In the pen's colour, In the usual colour (Acrobat's bookmark Properties ▸
+  Appearance; PdfCraft patch `Edit::SetBookmarkView`, `Edit::SetBookmarkStyle`, `outline_styles`). The
+  outline panel shows them. Test `a_bookmark_keeps_its_view_and_its_look`, smoke 86.
+- C-organize-012: Replace with a file's pages from a longer file asks from which of its pages (a strip
+  under the pages, Acrobat's "pages … of the file"). Smoke 87.
+- C-reader-046: a tab's menu ▸ Move to New Window (Sheaf started again with the file; refused with
+  unsaved edits) and Merge All Windows (each window listens on a local port written with a secret in
+  the profile's `windows` folder; the others hand over their saved documents and quit when empty:
+  `src/windows.rs`). Smoke 88.
+- C-forms-014: a field's card ▸ Copies, down × across ▸ Make (Acrobat's Create Multiple Copies): separate
+  fields side by side with it, named `name_row_col`, refused when the grid would run off the page
+  (PdfCraft patch `Edit::CopyField`, `field_copies.rs`). Test in
+  `a_form_is_prepared_fields_added_set_up_copied_and_deleted`, smoke 89.
+- C-annotate-026: a stamp of a picture with text (or several pictures, or a drawing) is copied whole,
+  drawn at 3× on a transparent background (`Document::stamp_alone_pdf`,
+  `sheaf_core::images::page_png_bytes`); a lone picture is still copied as stored. Test
+  `a_stamp_of_a_picture_and_text_is_copied_whole`.
+- C-edit-010: objects picked with the Edit tool are copied as objects: a PDF of them alone (the others
+  deleted from a copy of the page, its crop box round them), pasted as one added item still vector and
+  text (`Edit::AddArtwork`; pdfcraft-edit's added image may be a Form drawn in the unit square); their
+  picture also goes on the clipboard for other apps. Test
+  `objects_copied_are_pasted_as_objects_without_what_lay_between_them`.
+- C-annotate-009, C-annotate-022: a text box in a font of the file's own (`/Arial`) keeps it through a
+  new size, alignment or colour (`/DA` keeps its name; measured with the nearest standard face; drawn
+  with its own font when the old appearance holds it whole, WinAnsi, simple). Test
+  `a_text_box_in_a_font_of_its_own_keeps_it_through_a_new_size_and_colour`.
+- C-convert-006: Home ▸ From scanner (scanimage on Linux, the Windows scan dialog through WIA; macOS
+  says to use Image Capture) and From screenshot on Windows (the Snipping Tool, its picture taken from
+  the clipboard). Smoke 90.
+- C-output-010: Share ▸ Mail on Windows: Outlook (COM) with the file attached, else Thunderbird.
+- not automatable: the Windows paths (mail, screenshot, scan) — no Windows desktop session in CI; the
+  macOS scanner — no scanner API reachable from a command.
+- Components never graded, now built (the board's 0s and partials, sorted by an agent's code survey):
+  - C-forms-015: Prepare form ▸ Export data… and Import data… (XFDF, FDF, XML, CSV, text; Acrobat's).
+    Smoke 91.
+  - C-edit-020: More ▸ More tools ▸ Overlay a PDF… (its page k over page k, its last again past its end; each an
+    added item the Edit tool moves; PdfCraft patch `Edit::OverlayPdf`). Smoke 92.
+  - C-output-013: a job past 10 s ends with a system notification (Notification Center, notify-send,
+    a Windows balloon). Smoke 93.
+  - C-security-014: Redact ▸ Boxes: black, white, grey or red, and a text over each (once or
+    repeated); whole pages take the colour (`redact::Appearance`, `apply_with`). Test
+    `tests/redact_look.rs`.
+  - C-reader-055, C-reader-056: More ▸ More tools ▸ Read aloud from the page shown (say, eSpeak NG or Speech
+    Dispatcher, Windows's synthesizer; chosen again, it stops) and Reading speed (normal, slow, fast,
+    kept). Smoke 94.
+  - C-organize-011: a thumbnail's Insert from clipboard (PDF files, a picture, text) and Insert from
+    scanner… (`run::clipboard_pages`, shared with Home ▸ From clipboard). Smoke 95.
+  - C-output-011: More ▸ More tools ▸ Save a flattened copy… and Email a flattened copy (comments and fields drawn in
+    a copy; the document keeps them). Smoke 96.
+  - C-sign-014: Sign ▸ Certify the document, allowing no changes, forms and signing, or those and
+    comments (a DocMDP signature; `DigitalSpec::certify`, `sheaf sign --certify`). Test
+    `a_certifying_signature_says_which_changes_it_allows`.
+  - C-reader-012: More ▸ More tools ▸ Loupe: the area under the pointer three times larger in the view's corner,
+    one render at a time. Smoke 97.
+- Bug: the tool page's Redact, Sign and Edit panels had no place set in their scroll area, so Slint
+  centred them: Redact's new Boxes options (below it) pushed the marks list down and the Boxes title
+  over the reminder (smoke 18 and 18b failed). They sit at its top (`y: 0`).
+- Bug: Prepare form's row ran off the window once the form bar had Export data… and Import data…
+  (the row is centred: the field kinds went past its left edge; smoke 53, 54 and the grid failed).
+  The filling actions show in the other tools only. The field card, taller with Format and Copies,
+  is kept below the options bar when it opens above a field (its title was hidden under it).
+- Bug: the answers to ⌘C (a comment, a picture, pages) never gave back the count of operations in
+  flight: Undo stayed greyed and closing asked to save a document untouched. Smoke step 20c now closes
+  after a copy.
+  - C-reader-062: the image bar's Save image as… (a JPEG as stored, else PNG). Smoke step 14.
+  - C-security-018: Document properties ▸ Save report… as JSON (or text). Test
+    `the_report_is_saved_as_json_too`, smoke 98.
+  - C-preferences-011, C-files-017: Preferences ▸ Open PDFs with Sheaf by default (LaunchServices
+    through JXA on macOS, xdg-mime on Linux, Default apps on Windows). Smoke 99.
+  - C-sign-007: Every page takes the pages to sign: a range, odd or even. Smoke step 72.
+  - C-reader-054: measures written with 0 to 3 decimals (Acrobat's Precision), in the label and
+    /Measure. Test `measures_read_in_true_size`.
+  - C-reader-044: More ▸ More tools ▸ Grid in any tool (fields snap to it in Prepare form).
+  - The More menu filled the window's height: its newer entries are in More tools….
+  - C-organize-005: More ▸ More tools ▸ Turn pages upright (Acrobat's Auto-Rotate): the pages whose
+    text mostly runs sideways or upside down turned level, one step (`Document::upright_turns`; pages
+    without text are left). Test `pages_whose_text_runs_sideways_are_found_with_the_turn_that_sets_them_upright`.
+- Sol's b23 gaps (rounds 20–21 re-review): Fill ▸ None takes a selected shape's fill away
+  (C-annotate-023); a turned stamp is drawn again turned, or its appearance turned by its matrix when
+  PdfCraft cannot draw it (C-annotate-027, the test checks the appearance's shape); Compare's notes run
+  onto more pages like the areas (C-compare-007); a PDF itself on the clipboard (application/pdf,
+  macOS's com.adobe.pdf) makes the new PDF (C-convert-004, smoke 100); double-sided Bates numbers run
+  on (C-edit-017); a scan with an OCR layer is still a scan for Detect fields and Enhance
+  (C-forms-007, C-optimize-010; `enhance::is_scan` counts drawn text only).
+  - C-forms-013: a text field's card ▸ Format (number, percent, date, phone, zip), a range it must
+    stay within, and a calculation in simplified field notation ("Price * Quantity"), written as
+    Acrobat's AF scripts with the rest of Done, one undo step. Test
+    `a_text_fields_format_range_and_calculation_become_its_scripts`.
+- Sol's b24 gaps: Change page size scales what shows (the crop box) and keeps what it hid hidden
+  (C-organize-019, test `a_cropped_page_changes_size_from_what_shows_and_keeps_its_margin_hidden`);
+  Merge's order kept with the files it was made for, a file's pages all dropped staying dropped
+  (C-organize-022, smoke 101); a renamed file saves under its new name (C-output-015, test
+  `a_renamed_file_is_saved_under_its_new_name`); When opened's full screen, no toolbar and document
+  title followed here (C-preferences-004; not automatable: full screen under Xvfb without a window
+  manager); One page at a time shows the page gone to at any zoom (C-reader-014, test
+  `one_page_at_a_time_shows_the_page_gone_to_at_any_zoom`); with Rotate view the text, the selection
+  and the search's hits turn with the pages (C-reader-017, test `text_turns_with_the_view`); a large
+  area's test copies a 2000 pt page whole (C-reader-050); the report as JSON (C-security-018, above).
+- Sol's b25–b26 gaps (components built earlier, reviewed jointly for the first time): a heading over
+  one row with a figure is a table for PDF to Excel (C-convert-010, test `a_heading_over_one_row_is_a_table`);
+  Replace leaves a scan's OCR words alone, said (C-reader-038, test `replace_all_leaves_a_scans_words_alone`);
+  attachments kept in a nested name tree are edited, the tree written back flat (C-edit-022, test
+  `attachments_kept_in_a_nested_name_tree_are_renamed_and_kept`); bookmarks dragged in the panel,
+  before a row or into it (C-edit-023, smoke step 51); Compress's saving leaves failed files out
+  (C-optimize-004); Save As takes the new name once written (C-output-002, smoke 103); a missing file
+  asked on the command line is said (C-platform-011, smoke 102).
+- Left for Nassim's decision (network or accounts): a timestamp server for certified signatures
+  (C-sign-012), OCSP/CRL revocation checks (C-sign-016). Left as larger work: PowerPoint layout
+  (C-convert-011), the page grid's drag to reorder (C-organize-001), underline and lists in text
+  (C-edit-004), barcode fields (C-forms-011), PDF/A-1b and a/u levels (C-convert-018), CJK OCR
+  (C-optimize-007), signatures in the system keychain (C-sign-009), a camera signature (C-sign-004),
+  OCR speed (C-optimize-006), Shortcuts/AppleScript (C-platform-007), Office without LibreOffice
+  (C-convert-002); a real macOS trackpad check (C-reader-010) needs the Mac.

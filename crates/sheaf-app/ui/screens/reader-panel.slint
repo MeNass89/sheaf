@@ -216,9 +216,36 @@ export component ReaderPanel inherits Rectangle {
                         for r[i] in root.tab.reader.outline: Rectangle {
                             height: 30px;
                             background: r.current ? Theme.menu-selected-bg : ot.has-hover ? Theme.popup-hover : transparent;
+                            // Where a dragged bookmark would land: a line above this row, or the row ringed.
+                            if root.drag-mark >= 0 && root.drop-row == i: Rectangle {
+                                y: root.drop-inside ? 0px : -1px;
+                                height: root.drop-inside ? parent.height : 2px;
+                                border-width: root.drop-inside ? 2px : 0px;
+                                border-color: Theme.accent;
+                                background: root.drop-inside ? transparent : Theme.accent;
+                            }
                             ot := TouchArea {
-                                mouse-cursor: pointer;
-                                clicked => { ReaderBridge.outline-clicked(root.id, i); root.focus-pages(); }
+                                mouse-cursor: root.drag-mark >= 0 ? grabbing : pointer;
+                                moved => {
+                                    if root.drag-mark >= 0 || abs(self.mouse-y - self.pressed-y) > 6px {
+                                        root.drag-mark = i;
+                                        root.drop-row = i + floor(self.mouse-y / 30px);
+                                        root.drop-inside = mod(self.mouse-y / 1px + 3000, 30) > 8 && mod(self.mouse-y / 1px + 3000, 30) < 22;
+                                    }
+                                }
+                                pointer-event(e) => {
+                                    if e.kind == PointerEventKind.up && root.drag-mark == i {
+                                        if root.drop-row != i { ReaderBridge.outline-drop(root.id, i, root.drop-row, root.drop-inside); }
+                                        root.drag-mark = -1;
+                                        root.drop-row = -1;
+                                        root.just-dropped = true;
+                                    }
+                                }
+                                clicked => {
+                                    if root.just-dropped { root.just-dropped = false; return; }
+                                    ReaderBridge.outline-clicked(root.id, i);
+                                    root.focus-pages();
+                                }
                                 double-clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); }
                                 // On hover: rename, delete, and the rest in a menu (Acrobat's bookmark context menu); inside
                                 // the TouchArea so reaching them keeps the row hovered.
@@ -250,8 +277,10 @@ export component ReaderPanel inherits Rectangle {
                                 width: parent.width - self.x - (ot.has-hover ? 84px : 40px);
                                 text: r.title;
                                 font-size: Theme.fs-label;
-                                font-weight: r.depth == 0 ? Theme.weight-demibold : 400;
-                                color: Theme.text;
+                                // Its own look when it has one (bold, italic, colour), as Acrobat shows it.
+                                font-weight: r.bold ? 700 : r.depth == 0 ? Theme.weight-demibold : 400;
+                                font-italic: r.italic;
+                                color: r.has-colour ? r.colour : Theme.text;
                                 overflow: elide;
                                 vertical-alignment: center;
                             }
@@ -583,7 +612,7 @@ export component ReaderPanel inherits Rectangle {
                         x: root.menu-x;
                         y: root.menu-y;
                         width: 220px;
-                        height: 9 * 30px + 8px;
+                        height: 11 * 30px + 8px;
                         Rectangle {
                             background: Theme.card;
                             border-radius: Theme.radius-small;
@@ -595,7 +624,8 @@ export component ReaderPanel inherits Rectangle {
                                 padding: 4px;
                                 // Codes as reader_ui::page_op.
                                 for o in [{ t: "Rotate left", k: 0 }, { t: "Rotate right", k: 1 }, { t: "Insert blank page after", k: 5 }, { t: "Duplicate", k: 3 },
-                                          { t: "Insert pages from file…", k: 6 }, { t: "Insert a file's pages before…", k: 9 }, { t: "Replace with a file's pages…", k: 7 }, { t: "Reverse page order", k: 8 }, { t: "Delete", k: 2 }]: Rectangle {
+                                          { t: "Insert pages from file…", k: 6 }, { t: "Insert a file's pages before…", k: 9 }, { t: "Insert from clipboard", k: 10 }, { t: "Insert from scanner…", k: 11 },
+                                          { t: "Replace with a file's pages…", k: 7 }, { t: "Reverse page order", k: 8 }, { t: "Delete", k: 2 }]: Rectangle {
                                     height: 30px;
                                     background: pm.has-hover ? Theme.popup-hover : transparent;
                                     Text { x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }
@@ -748,6 +778,24 @@ export component ReaderPanel inherits Rectangle {
                         }
                     }
                 }
+                // Replace Pages from a longer file: which of its pages (Acrobat's pages … to … of it).
+                if root.tab.reader.panel == 0 && root.tab.reader.replace-ask != "": Rectangle {
+                    y: parent.height - 44px - self.height;
+                    height: 112px;
+                    background: Theme.panel-bg;
+                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+                        Text { text: root.tab.reader.replace-ask; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            from-in := PanelField { placeholder: "1"; }
+                            SmallButton { text: "Cancel"; clicked => { ReaderBridge.replace-from(root.id, ""); root.focus-pages(); } }
+                            SmallButton { text: "Replace"; primary: true; clicked => { ReaderBridge.replace-from(root.id, from-in.text == "" ? "1" : from-in.text); root.focus-pages(); } }
+                        }
+                    }
+                }
                 if root.tab.reader.panel == 0 && root.extract-open: Rectangle {
                     y: parent.height - 44px - self.height;
                     height: 104px;
@@ -800,11 +848,17 @@ export component ReaderPanel inherits Rectangle {
     // A bookmark's commands (Acrobat): move, nest, point it at the page in view.
     property <int> mark-row;
     property <length> mark-menu-y;
+    // A bookmark dragged (Acrobat's): its row, the row it is over, whether it would go inside that
+    // row (over its middle) or before it; a drop just made (its release is not a click).
+    property <int> drag-mark: -1;
+    property <int> drop-row: -1;
+    property <bool> drop-inside;
+    property <bool> just-dropped;
     mark-menu := PopupWindow {
         x: root.width - 216px;
         y: root.mark-menu-y;
         width: 210px;
-        height: 5 * 30px + 8px;
+        height: 9 * 30px + 8px;
         Rectangle {
             background: Theme.input-bg;
             border-radius: Theme.radius-small;
@@ -819,7 +873,12 @@ export component ReaderPanel inherits Rectangle {
                     { text: "Move down", op: 7 },
                     { text: "Indent", op: 8 },
                     { text: "Outdent", op: 9 },
-                    { text: "Set destination to this page", op: 5 },
+                    { text: "Set destination to this view", op: 5 },
+                    // Acrobat's bookmark Appearance: style and colour.
+                    { text: "Bold", op: 10 },
+                    { text: "Italic", op: 11 },
+                    { text: "In the pen's colour", op: 12 },
+                    { text: "In the usual colour", op: 13 },
                 ]: Rectangle {
                     height: 30px;
                     border-radius: Theme.radius-small;

@@ -40,6 +40,7 @@ export component FieldPropsCard inherits Rectangle {
     property <int> align;
     property <int> font;
     property <int> action;
+    property <int> format;
 
     width: 360px;
     height: col.preferred-height;
@@ -63,6 +64,10 @@ export component FieldPropsCard inherits Rectangle {
         root.action = props.action;
         size-text.text = props.font-size;
         url-text.text = props.url;
+        root.format = props.format;
+        min-text.text = props.min;
+        max-text.text = props.max;
+        calc-text.text = props.calc;
     }
     init => {
         name-field.text = props.name;
@@ -76,8 +81,13 @@ export component FieldPropsCard inherits Rectangle {
         root.action = props.action;
         size-text.text = props.font-size;
         url-text.text = props.url;
+        root.format = props.format;
+        min-text.text = props.min;
+        max-text.text = props.max;
+        calc-text.text = props.calc;
     }
     function apply() {
+        ReaderBridge.field-scripts(root.id, root.format, min-text.text, max-text.text, calc-text.text);
         ReaderBridge.field-props(root.id, name-field.text, tip-field.text, root.required, root.read-only, root.multiline, items.text, size-text.text, root.align, root.font, root.action, url-text.text);
         root.focus-pages();
     }
@@ -126,11 +136,47 @@ export component FieldPropsCard inherits Rectangle {
             }
             if root.action >= 3: PanelField { placeholder: root.action == 4 ? "The address the form is sent to" : "https://…"; text <=> url-text.text; }
         }
+        // A text field: Acrobat's Format, Validate (a range) and Calculate (simplified field notation).
+        if root.props.exact == 0: VerticalLayout {
+            spacing: 6px;
+            HorizontalLayout {
+                spacing: 4px;
+                alignment: start;
+                Text { text: "Format"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                for f[i] in ["None", "Number", "%", "Date", "Phone", "Zip"]: SmallButton { text: f; primary: root.format == i; clicked => { root.format = i; } }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+                Text { text: "Between"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                PanelField { width: 70px; placeholder: "min"; text <=> min-text.text; }
+                Text { text: "and"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                PanelField { width: 70px; placeholder: "max"; text <=> max-text.text; }
+            }
+            PanelField { placeholder: "Calculated: Price * Quantity"; text <=> calc-text.text; }
+        }
         HorizontalLayout {
             spacing: 14px;
             Check { text: "Required"; checked <=> root.required; }
             Check { text: "Read-only"; checked <=> root.read-only; }
             if root.props.exact == 0: Check { text: "Several lines"; checked <=> root.multiline; }
+        }
+        // Copies in a grid, the field the top-left one (Acrobat's Create Multiple Copies: down, across).
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: start;
+            Text { text: "Copies"; vertical-alignment: center; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            down := PanelField { width: 44px; placeholder: "1"; }
+            Text { text: "down ×"; vertical-alignment: center; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            across := PanelField { width: 44px; placeholder: "1"; }
+            Text { text: "across"; vertical-alignment: center; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            SmallButton {
+                text: "Make";
+                clicked => {
+                    ReaderBridge.field-copies(root.id, down.text == "" ? 1 : down.text.to-float(), across.text == "" ? 1 : across.text.to-float());
+                    root.focus-pages();
+                }
+            }
         }
         HorizontalLayout {
             spacing: 6px;
@@ -148,6 +194,24 @@ export component FieldPropsCard inherits Rectangle {
         height: 0;
     }
     size-text := Rectangle {
+        in-out property <string> text;
+        visible: false;
+        width: 0;
+        height: 0;
+    }
+    min-text := Rectangle {
+        in-out property <string> text;
+        visible: false;
+        width: 0;
+        height: 0;
+    }
+    max-text := Rectangle {
+        in-out property <string> text;
+        visible: false;
+        width: 0;
+        height: 0;
+    }
+    calc-text := Rectangle {
         in-out property <string> text;
         visible: false;
         width: 0;

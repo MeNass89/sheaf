@@ -355,18 +355,32 @@ fn with_areas_page(report: &[u8], areas: &[(usize, [f64; 4])], notes: &[String],
             _ => per_page.push((*page, 1)),
         }
     }
-    let lines: Vec<String> = per_page.iter().map(|(p, k)| format!("Page {}: {k} area{}", p + 1, if *k == 1 { "" } else { "s" })).collect();
-    let pages = if notes.is_empty() { String::new() } else { format!("{}\n\n", notes.join("\n")) };
-    let head = format!(
-        "Changes outside the text\n\n{pages}These areas of the changed document look different though their words are the same: images, drawings or scanned pages. Compare's Overlay marks them on the pages."
-    );
-    // As many pages as the list takes (Sol, 26/10: a long one ran off its single page): about
-    // 50 lines of 11 pt to a page, the first sharing its page with the heading and the notes.
-    let first = LIST_LINES.saturating_sub(8 + notes.len()).max(10);
-    let mut chunks: Vec<&[String]> = vec![&lines[..first.min(lines.len())]];
-    chunks.extend(lines.get(first..).unwrap_or_default().chunks(LIST_LINES));
+    // The notes (text moved, documents too different) first, then the areas, page after page:
+    // a long document's notes run onto more pages too (Sol, 26/10: they stayed on the first).
+    let mut lines: Vec<String> = notes.to_vec();
+    if !notes.is_empty() {
+        lines.push(String::new());
+    }
+    lines.extend(per_page.iter().map(|(p, k)| format!("Page {}: {k} area{}", p + 1, if *k == 1 { "" } else { "s" })));
+    let head = "Changes outside the text\n\nThese areas of the changed document look different though their words are the same: images, drawings or scanned pages. Compare's Overlay marks them on the pages.";
+    // About 48 lines of 11 pt to a page (a line of more than 90 characters wraps), the first page
+    // sharing its room with the heading.
+    let rows = |l: &String| l.chars().count().div_ceil(90).max(1);
+    let mut chunks: Vec<Vec<&String>> = vec![Vec::new()];
+    let mut room = LIST_LINES - 8;
+    for l in &lines {
+        if rows(l) > room && !chunks.last().is_some_and(Vec::is_empty) {
+            chunks.push(Vec::new());
+            room = LIST_LINES;
+        }
+        room = room.saturating_sub(rows(l));
+        if let Some(c) = chunks.last_mut() {
+            c.push(l);
+        }
+    }
     for (k, chunk) in chunks.iter().enumerate() {
-        let text = if k == 0 { format!("{head}\n\n{}", chunk.join("\n")) } else { format!("Changes outside the text (continued)\n\n{}", chunk.join("\n")) };
+        let body = chunk.iter().map(|l| l.as_str()).collect::<Vec<_>>().join("\n");
+        let text = if k == 0 { format!("{head}\n\n{body}") } else { format!("Changes outside the text (continued)\n\n{body}") };
         doc.apply(Edit::InsertBlankPage { at: n + k, width: 612.0, height: 792.0 })?;
         doc.apply(Edit::AddText { page: n + k, text: AddedText { rect: [54.0, 60.0, 558.0, 740.0], text, size: 11.0, ..Default::default() } })?;
     }
@@ -393,6 +407,13 @@ mod tests {
         let doc = lopdf::Document::load(&out).unwrap();
         assert_eq!(doc.get_pages().len(), 4);
         assert!(doc.extract_text(&[4]).unwrap().contains("Page 120: 1 area"));
+        // Many notes (text moved on every page) run onto more pages too, none lost.
+        let notes: Vec<String> = (1..=100).map(|p| format!("Text moved on page {p}: \"a sentence\" now on page {}", p + 1)).collect();
+        let out = with_areas_page(&std::fs::read(&one).unwrap(), &[], &notes, &t.path().join("n.pdf")).unwrap();
+        let doc = lopdf::Document::load(&out).unwrap();
+        let pages = doc.get_pages().len();
+        assert!(pages >= 4, "{pages} pages");
+        assert!(doc.extract_text(&[pages as u32]).unwrap().contains("page 100"));
     }
 
     #[test]

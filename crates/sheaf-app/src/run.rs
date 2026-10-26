@@ -369,7 +369,9 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             if marks.is_empty() {
                 return Err(OpdfError::Unsupported("Mark something for redaction first".into()));
             }
-            Job::Redact { input: one(inputs)?, marks, out: single()? }
+            let fill = [[0.0; 3], [1.0; 3], [0.5; 3], [0.85, 0.1, 0.1]][opts.redact_fill.clamp(0, 3) as usize];
+            let look = sheaf_core::redact::Appearance { fill, overlay: opts.redact_overlay.to_string(), repeat: opts.redact_repeat };
+            Job::Redact { input: one(inputs)?, marks, look, out: single()? }
         }
         ToolId::Sign => {
             let Some(OnPages::Sign((graphic, page, view_box))) = placed else {
@@ -467,6 +469,17 @@ pub fn on_done(ui: &AppWindow, tab_id: i32, r: Result<JobOutcome>, page_counts: 
     match r {
         Ok(outcome) => {
             crate::record_history(tool, &inputs, &outcome.outputs, options.as_ref());
+            // A long job says it is done with a system notification (Acrobat's, Smallpdf's): the
+            // user has often gone to another window meanwhile.
+            let took = with(|a| a.tab(tab_id).and_then(|t| t.started).map(|s| s.elapsed()));
+            if took.is_some_and(|d| d >= NOTIFY_AFTER) || (cfg!(debug_assertions) && std::env::var_os("SHEAF_TEST_NOTIFY").is_some()) {
+                let n = outcome.outputs.len();
+                let body = match n {
+                    1 => format!("{} is ready", file_name_of(&outcome.outputs[0])),
+                    _ => format!("{n} files are ready"),
+                };
+                notify(&format!("{} finished", tools::find(tool).name), &body);
+            }
             // Per-output input sizes (Compress notes): failed inputs produced no output.
             let input_sizes = inputs
                 .iter()
@@ -493,6 +506,105 @@ pub fn on_done(ui: &AppWindow, tab_id: i32, r: Result<JobOutcome>, page_counts: 
             }
         }
     }
+}
+
+/// `text` spoken by the system's voice (macOS's `say`, eSpeak NG or Speech Dispatcher on Linux,
+/// Windows's speech synthesizer), at `speed` (0 normal, 1 slow, 2 fast); the process speaking,
+/// to wait for or stop. Debug builds append the text to the file `SHEAF_TEST_SPEECH` names instead
+/// (gui-smoke), with a process that ends at once.
+pub fn speak(text: &str, speed: u8) -> Option<std::process::Child> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    if cfg!(debug_assertions)
+        && let Some(log) = std::env::var_os("SHEAF_TEST_SPEECH")
+    {
+        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(log).ok()?;
+        writeln!(f, "{text}").ok()?;
+        return Command::new("true").spawn().ok();
+    }
+    #[cfg(not(windows))]
+    let wpm = [180, 140, 240][speed.min(2) as usize].to_string();
+    #[cfg(target_os = "macos")]
+    let mut cmd = {
+        let mut c = Command::new("say");
+        c.args(["-r", &wpm, "-f", "-"]);
+        c
+    };
+    #[cfg(windows)]
+    let mut cmd = {
+        let rate = ["0", "-3", "3"][speed.min(2) as usize];
+        let mut c = Command::new("powershell");
+        c.args([
+            "-NoProfile",
+            "-Command",
+            &format!("Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = {rate}; $s.Speak([Console]::In.ReadToEnd())"),
+        ]);
+        c
+    };
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let mut cmd = {
+        let mut c = Command::new("espeak-ng");
+        c.args(["-s", &wpm, "--stdin"]);
+        c
+    };
+    let mut child = match cmd.stdin(Stdio::piped()).spawn() {
+        Ok(c) => c,
+        // Linux without eSpeak NG: Speech Dispatcher, which takes the text as an argument.
+        #[cfg(not(any(target_os = "macos", windows)))]
+        Err(_) => {
+            let rate = ["0", "-40", "50"][speed.min(2) as usize];
+            return Command::new("spd-say").args(["-w", "-r", rate, text]).spawn().ok();
+        }
+        #[cfg(any(target_os = "macos", windows))]
+        Err(_) => return None,
+    };
+    let mut stdin = child.stdin.take()?;
+    let text = text.to_string();
+    // Written from a thread: a long page fills the pipe before the voice reads it.
+    std::thread::spawn(move || {
+        let _ = stdin.write_all(text.as_bytes());
+    });
+    Some(child)
+}
+
+/// How long a job runs before its end is announced by a system notification.
+const NOTIFY_AFTER: std::time::Duration = std::time::Duration::from_secs(10);
+
+fn file_name_of(p: &std::path::Path) -> String {
+    p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+}
+
+/// A system notification (Notification Center, the desktop's notifications, a Windows balloon).
+/// Debug builds append it to the file `SHEAF_TEST_NOTIFY` names instead (gui-smoke).
+pub fn notify(title: &str, body: &str) {
+    if cfg!(debug_assertions)
+        && let Some(log) = std::env::var_os("SHEAF_TEST_NOTIFY")
+    {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(log) {
+            let _ = writeln!(f, "{title}: {body}");
+        }
+        return;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let q = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+        let script = format!("display notification \"{}\" with title \"{}\"", q(body), q(title));
+        spawn_detached("osascript", &["-e".as_ref(), script.as_ref()]);
+    }
+    #[cfg(windows)]
+    {
+        let q = |s: &str| s.replace('\'', "''");
+        let script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms; $n = New-Object System.Windows.Forms.NotifyIcon; $n.Icon = [System.Drawing.SystemIcons]::Information; \
+             $n.Visible = $true; $n.ShowBalloonTip(5000, '{}', '{}', 'Info'); Start-Sleep -Seconds 6; $n.Dispose()",
+            q(title),
+            q(body)
+        );
+        spawn_detached("powershell", &["-NoProfile".as_ref(), "-Command".as_ref(), script.as_ref()]);
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    spawn_detached("notify-send", &["-a".as_ref(), "Sheaf".as_ref(), title.as_ref(), body.as_ref()]);
 }
 
 /// A job whose tab was closed meanwhile. A cancelled one was already cleaned up by
@@ -533,7 +645,8 @@ fn spawn_detached(cmd: &str, args: &[&std::ffi::OsStr]) {
 }
 
 /// A new mail with `file` attached, in the mail app (Acrobat's and Preview's Share ▸ Mail): Apple
-/// Mail on macOS, the desktop's mail client through xdg-email elsewhere. Debug builds write the
+/// Mail on macOS, Outlook on Windows (else Thunderbird), the desktop's mail client through
+/// xdg-email elsewhere. Debug builds write the
 /// file's path to the file `SHEAF_TEST_MAIL` names instead (gui-smoke). False: no way to mail.
 pub fn mail_attachment(file: &std::path::Path, subject: &str) -> bool {
     if cfg!(debug_assertions)
@@ -549,8 +662,14 @@ pub fn mail_attachment(file: &std::path::Path, subject: &str) -> bool {
     }
     #[cfg(windows)]
     {
-        let _ = (file, subject);
-        false
+        let quote = |s: &str| s.replace('\'', "''");
+        let (path, subject) = (quote(&file.to_string_lossy()), quote(subject));
+        let outlook = format!("$o = New-Object -ComObject Outlook.Application; $m = $o.CreateItem(0); $m.Subject = '{subject}'; [void]$m.Attachments.Add('{path}'); $m.Display()");
+        let shown = std::process::Command::new("powershell").args(["-NoProfile", "-Command", &outlook]).status().is_ok_and(|s| s.success());
+        shown || {
+            let attach = format!("subject='{}',attachment='{}'", subject.replace(',', " "), file.to_string_lossy());
+            std::process::Command::new("thunderbird").args(["-compose", &attach]).spawn().is_ok()
+        }
     }
     #[cfg(not(any(target_os = "macos", windows)))]
     {
@@ -559,8 +678,9 @@ pub fn mail_attachment(file: &std::path::Path, subject: &str) -> bool {
     }
 }
 
-/// A screenshot of an area the user drags (macOS's screencapture -i; elsewhere GNOME's or KDE's
-/// tool, else ImageMagick's import) written to `to` as PNG; blocks until it is taken. Debug builds
+/// A screenshot of an area the user drags (macOS's screencapture -i; Windows's Snipping Tool, the
+/// picture taken from the clipboard it fills; elsewhere GNOME's or KDE's tool, else ImageMagick's
+/// import) written to `to` as PNG; blocks until it is taken. Debug builds
 /// copy the image `SHEAF_TEST_SCREENSHOT` names instead (gui-smoke). False: none was taken.
 pub fn capture_area(to: &std::path::Path) -> bool {
     if cfg!(debug_assertions)
@@ -573,11 +693,153 @@ pub fn capture_area(to: &std::path::Path) -> bool {
     #[cfg(target_os = "macos")]
     return ok("screencapture", &["-i".as_ref(), t]);
     #[cfg(windows)]
-    return false;
+    {
+        // The snip lands on the clipboard: emptied first, then watched for two minutes.
+        let path = to.to_string_lossy().replace('\'', "''");
+        let script = format!(
+            "Add-Type -AssemblyName System.Windows.Forms, System.Drawing; [System.Windows.Forms.Clipboard]::Clear(); Start-Process 'ms-screenclip:'; \
+             for ($i = 0; $i -lt 480; $i++) {{ Start-Sleep -Milliseconds 250; $img = [System.Windows.Forms.Clipboard]::GetImage(); \
+             if ($img) {{ $img.Save('{path}', [System.Drawing.Imaging.ImageFormat]::Png); exit 0 }} }}; exit 1"
+        );
+        ok("powershell", &["-NoProfile".as_ref(), "-STA".as_ref(), "-Command".as_ref(), script.as_ref()])
+    }
     #[cfg(not(any(target_os = "macos", windows)))]
     {
         ok("gnome-screenshot", &["-a".as_ref(), "-f".as_ref(), t]) || ok("spectacle", &["-r".as_ref(), "-b".as_ref(), "-n".as_ref(), "-o".as_ref(), t]) || ok("import", &[t])
     }
+}
+
+/// What the clipboard can make pages of: a PDF itself (Preview's and Acrobat's copy of pages), PDF
+/// files copied in a file manager (in that order), else a picture, else text.
+pub enum ClipPages {
+    Pdf(Vec<u8>),
+    Files(Vec<sheaf_core::pages::Input>),
+    Pasted(sheaf_core::pages::Pasted),
+}
+
+/// The PDF data on the clipboard (`application/pdf`, macOS's `com.adobe.pdf`), when there is some.
+fn clipboard_pdf() -> Option<Vec<u8>> {
+    let read = |cmd: &str, args: &[&str]| std::process::Command::new(cmd).args(args).output().ok().filter(|o| o.status.success()).map(|o| o.stdout);
+    #[cfg(target_os = "macos")]
+    let bytes = {
+        let tmp = std::env::temp_dir().join(format!("sheaf-clip-{}.pdf", std::process::id()));
+        let script = format!(
+            "ObjC.import('AppKit'); var d = $.NSPasteboard.generalPasteboard.dataForType('com.adobe.pdf'); d.isNil() ? 'none' : (d.writeToFileAtomically('{}', true), 'ok')",
+            tmp.display()
+        );
+        let ok = read("osascript", &["-l", "JavaScript", "-e", &script]).is_some_and(|o| o.starts_with(b"ok"));
+        let b = ok.then(|| std::fs::read(&tmp).ok()).flatten();
+        let _ = std::fs::remove_file(&tmp);
+        b
+    };
+    #[cfg(windows)]
+    let bytes: Option<Vec<u8>> = {
+        let _ = read;
+        None
+    };
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let bytes = read("xclip", &["-selection", "clipboard", "-t", "application/pdf", "-o"]).or_else(|| read("wl-paste", &["--type", "application/pdf"]));
+    bytes.filter(|b| b.starts_with(b"%PDF"))
+}
+
+/// The clipboard's [`ClipPages`]; None: nothing pages can be made of.
+pub fn clipboard_pages() -> Option<ClipPages> {
+    use sheaf_core::pages::Pasted;
+    if let Some(pdf) = clipboard_pdf() {
+        return Some(ClipPages::Pdf(pdf));
+    }
+    let mut c = arboard::Clipboard::new().ok()?;
+    // Copied PDF files (Sol, 26/10: a PDF on the clipboard was never read). A file manager's list
+    // ends its lines with CR LF (text/uri-list); arboard splits at LF only.
+    let pdfs: Vec<sheaf_core::pages::Input> = c
+        .get()
+        .file_list()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| std::path::PathBuf::from(p.to_string_lossy().trim_end_matches(['\r', '\n'])))
+        .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")))
+        .map(sheaf_core::pages::Input::new)
+        .collect();
+    if !pdfs.is_empty() {
+        return Some(ClipPages::Files(pdfs));
+    }
+    c.get_image()
+        .ok()
+        .map(|i| Pasted::Image { width: i.width as u32, height: i.height as u32, rgba: i.bytes.into_owned() })
+        .or_else(|| c.get_text().ok().filter(|t| !t.trim().is_empty()).map(Pasted::Text))
+        .map(ClipPages::Pasted)
+}
+
+/// The clipboard's pages as a PDF at `path`: the files merged, or a page of the picture or text.
+pub fn clipboard_to_pdf(c: &ClipPages, path: &std::path::Path) -> sheaf_core::Result<PathBuf> {
+    match c {
+        ClipPages::Pdf(bytes) => std::fs::write(path, bytes).map(|()| path.to_path_buf()).map_err(Into::into),
+        ClipPages::Files(pdfs) => sheaf_core::pages::merge(pdfs, path),
+        ClipPages::Pasted(p) => sheaf_core::pages::from_pasted(p, path),
+    }
+}
+
+/// A page scanned (Acrobat's Create PDF ▸ Scanner) to `to` as PNG; blocks until it is done: the
+/// Windows scan dialog (WIA), SANE's scanimage elsewhere. Debug builds copy the image
+/// `SHEAF_TEST_SCAN` names instead (gui-smoke). Err: what went wrong, said to the user.
+pub fn scan_page(to: &std::path::Path) -> std::result::Result<(), String> {
+    if cfg!(debug_assertions)
+        && let Some(image) = std::env::var_os("SHEAF_TEST_SCAN")
+    {
+        return std::fs::copy(image, to).map(|_| ()).map_err(|e| e.to_string());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = to;
+        Err("Scan with Image Capture, then open the file here: macOS gives other apps no scanner".into())
+    }
+    #[cfg(windows)]
+    {
+        let path = to.to_string_lossy().replace('\'', "''");
+        let script = format!(
+            "$d = New-Object -ComObject WIA.CommonDialog; $i = $d.ShowAcquireImage(1, 1, 0, '{{B96B3CAF-0728-11D3-9D7B-0000F81EF32E}}'); \
+             if ($i) {{ $i.SaveFile('{path}'); exit 0 }}; exit 1"
+        );
+        let done = std::process::Command::new("powershell").args(["-NoProfile", "-STA", "-Command", &script]).status().is_ok_and(|s| s.success());
+        if done && to.is_file() { Ok(()) } else { Err("No page was scanned".into()) }
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        let out = std::process::Command::new("scanimage").args(["--format=png", "--resolution", "300", "-o"]).arg(to).output();
+        match out {
+            Ok(o) if o.status.success() && to.is_file() => Ok(()),
+            Ok(o) => Err(String::from_utf8_lossy(&o.stderr).lines().last().unwrap_or("No scanner was found").trim().to_string()),
+            Err(_) => Err("No scanner software: install SANE (sane-utils)".into()),
+        }
+    }
+}
+
+/// Preferences ▸ Open PDFs with Sheaf by default: Sheaf made the system's PDF handler (macOS's
+/// LaunchServices, xdg-mime) or, on Windows, which asks the user itself, its Default apps page
+/// opened. Debug builds write "default" to the file `SHEAF_TEST_DEFAULT` names instead (gui-smoke).
+/// Returns what to tell the user.
+pub fn make_default_pdf_app() -> String {
+    if cfg!(debug_assertions)
+        && let Some(f) = std::env::var_os("SHEAF_TEST_DEFAULT")
+    {
+        let _ = std::fs::write(f, "default");
+        return "Sheaf now opens PDFs".into();
+    }
+    let ran = |cmd: &str, args: &[&str]| std::process::Command::new(cmd).args(args).status().is_ok_and(|s| s.success());
+    #[cfg(target_os = "macos")]
+    let done = ran(
+        "osascript",
+        &["-l", "JavaScript", "-e", "ObjC.import('CoreServices'); $.LSSetDefaultRoleHandlerForContentType($('com.adobe.pdf'), $.kLSRolesAll, $('app.sheaf.Sheaf')) === 0"],
+    );
+    #[cfg(windows)]
+    let done = {
+        let _ = ran;
+        spawn_detached("explorer", &["ms-settings:defaultapps".as_ref()]);
+        return "Pick Sheaf for .pdf in Default apps".into();
+    };
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let done = ran("xdg-mime", &["default", "sheaf.desktop", "application/pdf"]);
+    if done { "Sheaf now opens PDFs".into() } else { "Sheaf could not be made the default: choose it in your system's settings".into() }
 }
 
 /// Opens a file or URL in its default app.
@@ -604,6 +866,18 @@ pub fn reveal(p: &std::path::Path) {
     #[cfg(not(any(target_os = "macos", windows)))]
     if let Some(dir) = p.parent() {
         spawn_detached("xdg-open", &[dir.as_os_str()]);
+    }
+}
+
+/// Opens `p` in a window of its own: Sheaf started again with it (a tab moved to a new window, as
+/// browsers and PDF Expert do).
+pub fn open_in_new_window(p: &std::path::Path) -> bool {
+    match std::env::current_exe() {
+        Ok(exe) => {
+            spawn_detached(&exe.to_string_lossy(), &[p.as_os_str()]);
+            true
+        }
+        Err(_) => false,
     }
 }
 
@@ -859,7 +1133,7 @@ mod tests {
         let dest = || Dest::File("/s/v-redacted.pdf".into());
         assert!(build_job_with(ToolId::Redact, one(), vec![], vec![], &o, dest()).is_err());
         let marks = sheaf_core::redact::mark_rects(&[(0, [1.0, 2.0, 30.0, 40.0])]);
-        let Job::Redact { input, marks: m, out } = build_job_with(ToolId::Redact, one(), vec![], marks.clone(), &o, dest()).unwrap() else { panic!() };
+        let Job::Redact { input, marks: m, out, .. } = build_job_with(ToolId::Redact, one(), vec![], marks.clone(), &o, dest()).unwrap() else { panic!() };
         assert_eq!((input.path, m, out), (PathBuf::from("/a/v.pdf"), marks, PathBuf::from("/s/v-redacted.pdf")));
         assert_eq!(out_name(ToolId::Redact, Path::new("/a/v.pdf"), &o), "v-redacted.pdf");
     }

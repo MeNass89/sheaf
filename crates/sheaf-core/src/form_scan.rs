@@ -105,10 +105,17 @@ pub fn candidates(doc: &Doc, pages: &[usize], taken: &[String]) -> Vec<(usize, C
     let ocr = crate::ocr::engine().ok();
     let mut taken = taken.to_vec();
     let mut out = Vec::new();
-    for &page in pages {
+    // A scan is read as a picture even with an OCR layer (Sol, 26/10: its boxes and lines, only in
+    // the picture, were never found).
+    let scans: Vec<bool> = {
+        let _g = crate::engine::pdfium_lock();
+        let doc = crate::engine::open_pdf_bytes(&d.bytes, d.password.as_deref()).ok();
+        pages.iter().map(|&p| doc.as_ref().and_then(|doc| doc.pages().get(p as i32).ok()).is_some_and(|pg| crate::enhance::is_scan(&pg))).collect()
+    };
+    for (k, &page) in pages.iter().enumerate() {
         let Some(info) = d.info.pages.get(page) else { continue };
         let has_text = r.render(RenderRequest { page, kind: RequestKind::Text, scale: 1.0, ..Default::default() }).text.is_some_and(|t| t.glyphs.iter().any(|g| !g.text.trim().is_empty()));
-        if has_text {
+        if has_text && !scans[k] {
             continue;
         }
         let shot = r.render(RenderRequest { page, scale: SCALE, ..Default::default() });

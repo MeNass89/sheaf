@@ -73,6 +73,9 @@ pub struct ViewerUi {
     pub theme: sheaf_app::reader::PageTheme,
     /// The reader's Hide all comments: pages render without annotations.
     pub hide_comments: bool,
+    /// One page at a time: the page shown, the one gone to, whatever the zoom (Sol, 26/10: the one
+    /// under the view's middle, page 2 when page 1 was asked for zoomed out). None: continuous.
+    pub single_page: Option<usize>,
     /// Revision of each page's look: bumped by an edit of the page; `base_rev` by a change of
     /// every page (theme, undo). Renders of an older revision stay on screen until replaced.
     revs: std::collections::HashMap<usize, u64>,
@@ -141,6 +144,7 @@ impl ViewerUi {
             source: None,
             theme: Default::default(),
             hide_comments: false,
+            single_page: None,
             revs: Default::default(),
             base_rev: 0,
             next_rev: 1,
@@ -194,7 +198,11 @@ impl ViewerUi {
 
     /// Scrolls so page `page` (and the point `at` of it, in view points) is in view.
     pub fn show_page(&mut self, page: usize, focus: Option<[f64; 4]>) {
-        self.scroll = self.viewer.scroll_to(page.min(self.viewer.page_count().saturating_sub(1)), focus, self.height);
+        let page = page.min(self.viewer.page_count().saturating_sub(1));
+        if self.single_page.is_some() {
+            self.single_page = Some(page);
+        }
+        self.scroll = self.viewer.scroll_to(page, focus, self.height);
         self.scroll_seq += 1;
         self.scroll_x = None;
     }
@@ -288,7 +296,7 @@ impl ViewerUi {
 
     /// The page under the middle of the viewport.
     pub fn current(&self) -> usize {
-        self.viewer.current(self.top, self.height)
+        self.single_page.unwrap_or_else(|| self.viewer.current(self.top, self.height))
     }
 
     fn page_key(&self, page: usize) -> RenderKey {
@@ -468,6 +476,13 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) 
         v.viewer.set_width(width as f64);
         v.top = top as f64;
         v.height = height as f64;
+        // One page at a time, scrolled away from its page (the scroll bar dragged): the page now in view.
+        if let Some(s) = v.single_page {
+            let [_, y, _, h] = v.viewer.page_rect(s);
+            if y + h < v.top || y > v.top + v.height {
+                v.single_page = Some(v.viewer.current(v.top, v.height));
+            }
+        }
         if width > 0.0
             && let Some(pct) = v.pending_actual
         {
@@ -979,7 +994,7 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     tab.viewer_width = len(v.viewer.content_width());
     tab.viewer_height = len(v.viewer.content_height());
     tab.viewer_thumbs_height = len(viewer::content_height(&tl));
-    tab.viewer_current = v.viewer.current(v.top, v.height) as i32;
+    tab.viewer_current = v.current() as i32;
     // Shown as the step it is (100 %, 200 %) when the integer zoom lands a hair off it.
     let actual = v.viewer.actual_percent(v.current());
     let step = viewer::ZOOMS.iter().copied().find(|z| (*z as f64 - actual).abs() <= (*z as f64) * 0.015);
@@ -1097,6 +1112,23 @@ mod tests {
         (v.top, v.left) = (0.0, 0.0);
         v.go_to_place(place);
         assert!(v.scroll_x.is_some_and(|x| (x - 600.0).abs() < 1.0), "{:?}", v.scroll_x);
+    }
+
+    #[test]
+    fn one_page_at_a_time_shows_the_page_gone_to_at_any_zoom() {
+        let pages = (0..3).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        // Zoomed out: page 1 at the top, the view's middle in page 2 (Sol, 26/10: page 2 was shown).
+        v.viewer.set_zoom(25);
+        v.single_page = Some(0);
+        v.show_page(0, None);
+        v.top = v.scroll;
+        assert_eq!(v.current(), 0);
+        v.show_page(2, None);
+        v.top = v.scroll;
+        assert_eq!(v.current(), 2, "the last page, though the view cannot scroll its top up to it");
     }
 
     #[test]

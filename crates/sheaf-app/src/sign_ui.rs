@@ -137,7 +137,7 @@ pub fn digital(opts: &ToolOptions) -> Result<Option<DigitalSpec>> {
         return Err(OpdfError::Unsupported("Choose your certificate file first".into()));
     }
     let text = |s: &slint::SharedString| (!s.trim().is_empty()).then(|| s.trim().to_string());
-    Ok(Some(DigitalSpec { p12: p12.into(), password: opts.sign_p12_password.to_string(), reason: text(&opts.sign_reason), location: text(&opts.sign_location) }))
+    Ok(Some(DigitalSpec { p12: p12.into(), password: opts.sign_p12_password.to_string(), reason: text(&opts.sign_reason), location: text(&opts.sign_location), certify: (opts.sign_certify > 0).then_some(opts.sign_certify.clamp(1, 3) as u8) }))
 }
 
 #[cfg(test)]

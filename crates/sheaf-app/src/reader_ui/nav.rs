@@ -223,10 +223,21 @@ pub(super) fn open_from_grid(r: &mut ReaderUi, v: &mut ViewerUi, page: usize) {
 /// More ▸ Rotate view (Acrobat's View ▸ Rotate View, ⇧⌘+ and ⇧⌘−): every page shown turned a quarter
 /// clockwise (`dir` 1) or back (−1), the file untouched; the page in view stays in view.
 pub fn rotate_view(ui: &AppWindow, tab_id: i32, dir: i32) {
-    let done = update(tab_id, |_, v| {
+    let done = update(tab_id, |r, v| {
         let cur = v.current();
+        // The search's hits turn with the pages; the text is read again, turned.
+        let q = if dir > 0 { 1 } else { 3 };
+        for (page, rects) in &mut r.search.hits {
+            if let Some(b) = v.viewer.boxes.get(*page) {
+                let (w, h) = b.view_size();
+                rects.iter_mut().for_each(|rect| *rect = reader::turned_rect(*rect, (w as f32, h as f32), q));
+            }
+        }
         let turn = i32::from(v.viewer.turn()) + 90 * dir.signum();
         v.viewer.set_turn(turn);
+        r.turn = v.viewer.turn() / 90;
+        r.texts.clear();
+        r.sel = None;
         v.all_changed();
         v.show_page(cur, None);
     });
@@ -355,8 +366,9 @@ pub fn snap_area(ui: &AppWindow, tab_id: i32) {
 pub fn page_at_a_time(ui: &AppWindow, tab_id: i32) {
     let on = update(tab_id, |r, v| {
         r.page_at_a_time = !r.page_at_a_time;
+        let cur = v.current();
+        v.single_page = r.page_at_a_time.then_some(cur);
         if r.page_at_a_time {
-            let cur = v.current();
             v.viewer.set_spread(0);
             v.show_page(cur, None);
         }

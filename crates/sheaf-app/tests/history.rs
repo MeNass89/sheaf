@@ -93,6 +93,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         custom_ink: Some("123456".into()),
         custom_light: None,
         stamp_date: 2,
+        reading_speed: 2,
         default_zoom: 1,
         default_spread: 2,
         open_first_page: true,

@@ -417,6 +417,10 @@ pub(crate) enum Cmd {
         /// Where it was signed, shown in the certificate signature
         #[arg(long, requires = "p12")]
         location: Option<String>,
+        /// Certify the document, allowing after it: 1 no changes, 2 filling in forms and signing,
+        /// 3 those and comments
+        #[arg(long, value_parser = clap::value_parser!(u8).range(1..=3))]
+        certify: Option<u8>,
         /// The signed PDF to write
         #[arg(short, long)]
         out: PathBuf,

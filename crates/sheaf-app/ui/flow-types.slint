@@ -92,6 +92,11 @@ export struct ReaderOutlineRow {
     current: bool,
     // Being renamed in place.
     editing: bool,
+    // Its look (Acrobat's bookmark Appearance): bold, italic, a colour (has-colour: one is set).
+    bold: bool,
+    italic: bool,
+    has-colour: bool,
+    colour: color,
 }
 
 // Reader: one row of the annotations panel.
@@ -191,6 +196,12 @@ export struct ReaderFieldProps {
     // A button's click: 0 nothing, 1 clear the form, 2 print, 3 open `url`, 4 submit the form to `url`.
     action: int,
     url: string,
+    // A text field's Format (0 none, 1 number, 2 percent, 3 date, 4 phone, 5 zip, 6 another),
+    // Validate range ("" none) and Calculate (simplified field notation).
+    format: int,
+    min: string,
+    max: string,
+    calc: string,
     // Pages that do not hold the field yet (On every page is offered when some).
     other-pages: bool,
     // Fields selected together (⇧-click): past one, the card arranges them instead.
@@ -199,6 +210,10 @@ export struct ReaderFieldProps {
 
 export struct ReaderState {
     title: string,
+    // The document's When opened ▸ full screen and no toolbar, followed once per opening (open-seq).
+    open-full-screen: bool,
+    open-bare: bool,
+    open-seq: int,
     dirty: bool,
     read-only: string,
     page-count: int,
@@ -326,11 +341,17 @@ export struct ReaderState {
     callout: bool,
     // The Measuring tools' scale ("1:100 · m").
     measure-scale: string,
+    measure-decimals: int,
     // Calibrate is on: the next distance asks for its real length.
     calibrating: bool,
     // Scroll automatically is on.
     auto-scroll: bool,
+    // More ▸ Loupe: on, and the area under the pointer magnified.
+    loupe: bool,
+    loupe-image: image,
     // One page at a time (not continuous).
+    // Replace Pages from a longer file: what it asks (empty: nothing asked).
+    replace-ask: string,
     // Pen and shapes: dashed lines.
     dashed: bool,
     page-at-a-time: bool,
@@ -535,6 +556,10 @@ export struct ToolOptions {
     sign-p12-password: string,
     sign-reason: string,
     sign-location: string,
+    sign-certify: int,       // sign: 0 approve; certify allowing 1 no changes, 2 forms and signing, 3 also comments
+    redact-fill: int,        // redact: the boxes' colour, 0 black, 1 white, 2 grey, 3 red
+    redact-overlay: string,  // redact: text over each box ("" none)
+    redact-repeat: bool,     // redact: that text repeated to fill the box
 }
 
 export struct ToolTab {
@@ -700,7 +725,17 @@ export global ReaderBridge {
     // The search panel's Replace all: the words searched, what replaces them.
     callback replace-all(int, string, string);
     callback replace-one(int, string, string);
+    // Replace Pages: the file's first page to take ("" cancels).
+    callback replace-from(int, string);
     callback email(int);
+    callback overlay-pdf(int);
+    callback read-aloud(int, int);
+    callback flat-copy(int, bool);
+    callback loupe(int);
+    callback sign-pages(int, string);
+    callback turn-upright(int);
+    callback field-scripts(int, int, string, string, string);
+    callback outline-drop(int, int, int, bool);
     callback version-action(int, int);
     // One column → two pages → two pages with the cover alone.
     callback cycle-spread(int);
@@ -740,6 +775,7 @@ export global ReaderBridge {
     callback props-cancel(int);
     // Copy report: the properties and the fonts as text on the clipboard.
     callback props-copy(int);
+    callback props-report(int);
     // Shapes and pen: what (0 shape kind, 1 fill toggle, 2 next opacity), value.
     callback shape-option(int, int, int);
     callback print(int, int, int, int, string, bool, bool, int, int);
@@ -755,6 +791,7 @@ export global ReaderBridge {
     callback nudge(int, float, float);
     // Edit tool: the pointer is up at a content point (the drawing under it is outlined).
     callback hover(int, length, length);
+    callback loupe-at(int, length, length);
     callback link-urls(int);
     // Prepare form: the kind of field to add; Detect fields; the selected field's properties
     // (name, tooltip, required, read-only, several lines, items one per line), delete, copy to
@@ -770,6 +807,7 @@ export global ReaderBridge {
     callback field-props(int, string, string, bool, bool, bool, string, string, int, int, int, string);
     callback field-delete(int);
     callback field-everywhere(int);
+    callback field-copies(int, int, int);
     // Fields selected together: align, match size or space them (reader::arrange); the arrow keys move them.
     callback fields-arrange(int, int);
     callback form-grid(int);

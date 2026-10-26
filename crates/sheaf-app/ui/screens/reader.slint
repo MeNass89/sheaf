@@ -151,6 +151,12 @@ export component ReaderScreen inherits Rectangle {
     // Bumped by the window when this tab should take the keyboard (after a dialog closed).
     in property <int> take-keys;
     changed take-keys => { if root.active { keys.focus(); } }
+    // The document's When opened window options (Acrobat's Full screen mode, Hide tool bars).
+    property <int> open-seq: root.tab.reader.open-seq;
+    changed open-seq => {
+        if root.tab.reader.open-full-screen { root.full-screen(true); }
+        if root.tab.reader.open-bare { root.bare = true; }
+    }
     changed end-presenting => { root.stop-presenting(); }
     function stop-presenting() {
         if root.presenting {
@@ -284,6 +290,22 @@ export component ReaderScreen inherits Rectangle {
                         width: max(root.tab.viewer-width, sv.visible-width);
                         height: root.tab.viewer-height;
                         mouse-cursor: root.panning ? grabbing : root.space-held ? grab : root.over-link && root.tab.reader.tool == 0 ? pointer : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
+                        // More ▸ Loupe (Acrobat's Loupe tool): the area under the pointer, magnified, in the
+                        // view's bottom-right corner.
+                        if root.tab.reader.loupe: Rectangle {
+                            x: -sv.content-x + sv.visible-width - self.width - 16px;
+                            y: -sv.content-y + sv.visible-height - self.height - 16px;
+                            width: 360px;
+                            height: 240px;
+                            border-radius: Theme.radius-small;
+                            border-width: 2px;
+                            border-color: Theme.accent;
+                            background: Theme.card;
+                            drop-shadow-blur: 12px;
+                            drop-shadow-color: #00000040;
+                            clip: true;
+                            Image { x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px; source: root.tab.reader.loupe-image; image-fit: contain; }
+                        }
                         // Where a link goes, beside the pointer.
                         if root.over-link && root.tab.reader.tool == 0: Rectangle {
                             // Beside the pointer, flipped above or to the left near the edges of the view.
@@ -324,6 +346,7 @@ export component ReaderScreen inherits Rectangle {
                             if e.kind == PointerEventKind.move && !root.pressing {
                                 root.link-tip = ReaderBridge.over-link(root.id, self.mouse-x, self.mouse-y);
                                 if root.tab.reader.tool == 7 { ReaderBridge.hover(root.id, self.mouse-x, self.mouse-y); }
+                                if root.tab.reader.loupe { ReaderBridge.loupe-at(root.id, self.mouse-x, self.mouse-y); }
                             }
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                                 keys.focus();
@@ -414,7 +437,7 @@ export component ReaderScreen inherits Rectangle {
                     // Prepare form: the selected field's card, under it.
                     if root.tab.reader.field-props.show && root.tab.reader.field-props.group > 1: FieldsArrangeCard {
                         x: max(-sv.content-x + 4px, min(root.tab.reader.field-props.x, -sv.content-x + sv.visible-width - self.width - 4px));
-                        y: root.tab.reader.field-props.y + self.height > -sv.content-y + sv.visible-height - 4px ? max(-sv.content-y + 4px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
+                        y: root.tab.reader.field-props.y + self.height > -sv.content-y + sv.visible-height - 4px ? max(-sv.content-y + 52px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
                         count: root.tab.reader.field-props.group;
                         id: root.id;
                         focus-pages => { keys.focus(); }
@@ -422,7 +445,7 @@ export component ReaderScreen inherits Rectangle {
                     if root.tab.reader.field-props.show && root.tab.reader.field-props.group <= 1: FieldPropsCard {
                         x: max(-sv.content-x + 4px, min(root.tab.reader.field-props.x, -sv.content-x + sv.visible-width - self.width - 4px));
                         // Above the field when it would run past the bottom of the view (Sol, 25/10).
-                        y: root.tab.reader.field-props.y + self.height > -sv.content-y + sv.visible-height - 4px ? max(-sv.content-y + 4px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
+                        y: root.tab.reader.field-props.y + self.height > -sv.content-y + sv.visible-height - 4px ? max(-sv.content-y + 52px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
                         props: root.tab.reader.field-props;
                         id: root.id;
                         focus-pages => { keys.focus(); }
