@@ -34,10 +34,10 @@ typing and Edit text).
 
 ## Board status
 
-**331 components, 216 at ≥ 9** jointly (Opus and Sol; 26/10 18:40, after Sol's b27a–d on round 22, landed
-726a6da: 21 closed, 29 left open with Sol's gaps in each component's history). Round 23 (24 components
-and the fixes of those gaps) is in `/tmp/f5/wt-r23`, branch `dev/round23`, rebased on round 22, not built
-yet; notes in `/tmp/f5/round23-notes.md`.
+**331 components, 227 at ≥ 9** jointly (Opus and Sol; 26/10 23:35, after Sol's b28a–d on round 23,
+landed 97b02e2: 11 closed, 33 left open with Sol's gaps in each component's history). Round 24 (fixes
+of those gaps) is in `/tmp/f5/wt-r24`, branch `dev/round24`, not built yet; notes in
+`/tmp/f5/round24-notes.md`.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
 

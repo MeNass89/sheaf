@@ -1550,6 +1550,17 @@
      "overall": 8
     },
     "proof": "Sol b27a-round22 26/10: Les polices externes incorporées en sous-ensemble restent remplacées par une police standard lors du changement de taille : third_party/pdfcraft-annot/src/lib.rs:1366."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28a-round23 26/10: Les polices incorporées Type0 ou à encodage personnalisé sont encore remplacées lors du changement de taille : third_party/pdfcraft-annot/src/lib.rs:1368."
    }
   ]
  },
@@ -2880,6 +2891,17 @@
      "overall": 8
     },
     "proof": "Sol b27a-round22 26/10: Recolorer un texte utilisant une police incorporée en sous-ensemble remplace encore sa police : third_party/pdfcraft-annot/src/lib.rs:1330."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28a-round23 26/10: Recolorer une boîte utilisant une police Type0 ou à encodage personnalisé remplace encore sa police : third_party/pdfcraft-annot/src/lib.rs:1370."
    }
   ]
  },
@@ -3355,6 +3377,17 @@
      "overall": 8
     },
     "proof": "Sol b27a-round22 26/10: Un tampon comprenant une image et des tracés vectoriels sans texte est considéré comme une image seule ; les tracés disparaissent au collage : third_party/pdfcraft-engine/src/copy_image.rs:82."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28a-round23 26/10: Copier un tampon image tourné extrait son bitmap sans sa matrice ; le collage perd sa rotation : third_party/pdfcraft-engine/src/copy_image.rs:86."
    }
   ]
  },
@@ -3433,6 +3466,17 @@
      "overall": 8
     },
     "proof": "Sol b27a-round22 26/10: Au deuxième quart de tour d’un tampon image, l’ancienne matrice écrase la nouvelle ; la rotation à 180° échoue : third_party/pdfcraft-annot/src/lib.rs:1348."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28a-round23 26/10: Sur une page déjà tournée, tourner un tampon image ignore son orientation initiale, conservée seulement dans la matrice : third_party/pdfcraft-annot/src/lib.rs:1909."
    }
   ]
  },
@@ -3471,10 +3515,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 5,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 5
   },
   "status": "open",
   "feature": null,
@@ -3490,6 +3534,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 5,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 5
+    },
+    "proof": "Sol b28a-round23 26/10: Le déplacement individuel accroche la grille, mais aucune sélection multiple ni commande d’alignement des annotations : crates/sheaf-app/src/reader_ui/mod.rs:189."
    }
   ]
  },
@@ -5971,14 +6026,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -6023,6 +6078,17 @@
      "overall": 8
     },
     "proof": "Sol b27a-round22 26/10: Les données PDF natives du presse-papiers restent systématiquement ignorées sous Windows : crates/sheaf-app/src/run.rs:738."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28a-round23, 26/10)"
    }
   ]
  },
@@ -6223,10 +6289,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -6242,6 +6308,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28a-round23 26/10: Les images intégrées des courriels HTML restent des pièces jointes ; leurs références cid: ne sont pas résolues dans la page : crates/sheaf-core/src/textdocs.rs:340."
    }
   ]
  },
@@ -6599,6 +6676,17 @@
      "overall": 8
     },
     "proof": "Sol b27a-round22 26/10: Les tableaux de deux lignes sans valeur numérique restent rejetés, même correctement alignés : crates/sheaf-core/src/excel.rs:198."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28a-round23 26/10: Les tableaux textuels de deux lignes et deux colonnes restent systématiquement rejetés, même parfaitement alignés : crates/sheaf-core/src/excel.rs:201."
    }
   ]
  },
@@ -6668,10 +6756,10 @@
    99
   ],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
+   "function": 8,
+   "aesthetics": 8,
    "performance": 9,
-   "overall": 6
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -6698,6 +6786,17 @@
      "overall": 6
     },
     "proof": "Sol b25-built 26/10: Les éléments sont empilés en une colonne sans conserver leurs positions ni limiter leur hauteur à la diapositive ; les compositions et pages denses débordent : third_party/pdfcraft-export/src/pptx.rs:153."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28a-round23 26/10: Les lignes des tableaux restent forcées à 24 pt sans respecter leur hauteur source ; les tableaux denses débordent encore des diapositives : third_party/pdfcraft-export/src/pptx.rs:63."
    }
   ]
  },
@@ -7253,14 +7352,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -7272,6 +7371,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28a-round23, 26/10)"
    }
   ]
  },
@@ -8136,6 +8246,17 @@
      "overall": 8
     },
     "proof": "Sol b26-built 26/10: Le formatage reste limité à trois familles, sans commande de soulignement ni de listes ; crates/sheaf-app/ui/screens/reader-options.slint:197."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28a-round23 26/10: Trois familles seulement ; soulignement et puces restent sans effet sur les paragraphes existants sélectionnés : crates/sheaf-app/src/reader_ui/tools.rs:143."
    }
   ]
  },
@@ -8574,10 +8695,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -8593,6 +8714,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28b-round23 26/10: Aucun changement d’ordre de superposition des objets ; seules l’alignement et la distribution sont proposés : crates/sheaf-app/ui/screens/reader-form.slint:295."
    }
   ]
  },
@@ -9635,6 +9767,17 @@
      "overall": 8
     },
     "proof": "Sol b27a-round22 26/10: La superposition multipage fonctionne uniquement au premier plan ; le chemin arrière-plan répète seulement la première page du PDF source : crates/sheaf-app/src/reader_ui/saving.rs:253."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28b-round23 26/10: Le multipage est corrigé, mais l’arrière-plan ignore les CropBox/MediaBox héritées et utilise alors un format Letter incorrect : third_party/pdfcraft-engine/src/underlay.rs:13."
    }
   ]
  },
@@ -10262,10 +10405,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -10281,6 +10424,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28b-round23 26/10: Les images CMYK restent inchangées, même avec Invert ; le résultat peut donc mélanger couleurs inversées et originales : crates/sheaf-core/src/adjust.rs:134."
    }
   ]
  },
@@ -10332,10 +10486,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 6,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 6
   },
   "status": "open",
   "feature": null,
@@ -10351,6 +10505,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "Sol b28b-round23 26/10: RemoveImages supprime aussi les Form XObjects entiers, donc leur texte et leurs dessins vectoriels : third_party/pdfcraft-engine/src/lib.rs:2577 ; third_party/pdfcraft-edit/src/images.rs:233."
    }
   ]
  },
@@ -11973,10 +12138,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 7,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -11992,6 +12157,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol b28b-round23 26/10: Le scan depuis le téléphone reste non réalisé, et From scanner échoue systématiquement sous macOS : dev/features/F-013-sol-rereview-fixes.md:786 ; crates/sheaf-app/src/run.rs:859."
    }
   ]
  },
@@ -12371,14 +12547,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -12390,6 +12566,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28b-round23, 26/10)"
    }
   ]
  },
@@ -12610,14 +12797,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -12673,6 +12860,17 @@
      "overall": 8
     },
     "proof": "Sol b27b-round22 26/10: Relancer la détection sur un scan recrée des champs superposés : la détection raster reçoit une liste vide de rectangles existants : crates/sheaf-core/src/form_scan.rs:150."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28b-round23, 26/10)"
    }
   ]
  },
@@ -13165,10 +13363,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -13195,6 +13393,17 @@
      "overall": 7
     },
     "proof": "Sol b27b-round22 26/10: Les calculs utilisent Calculate::Notation, dont le script exporté assigne toujours 0 ; la formule ne fonctionne donc pas dans Acrobat : crates/sheaf-app/src/reader_ui/prepare.rs:311 ; /home/nassim/.cargo/git/checkouts/pdfcraft-f9365ca77a7f2011/d3a91c5/crates/forms/src/af.rs:449."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28b-round23 26/10: Renommer un champ et définir son calcul dans le même Done échoue : write_notation cherche l’ancien nom après le renommage : third_party/pdfcraft-engine/src/lib.rs:2499."
    }
   ]
  },
@@ -13248,14 +13457,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -13311,6 +13520,17 @@
      "overall": 8
     },
     "proof": "Sol b27b-round22 26/10: Copier en grille un champ partagé sélectionné sur une autre page copie son premier widget, sur la première page, au lieu du widget sélectionné : crates/sheaf-app/src/reader_ui/prepare.rs:441."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28b-round23, 26/10)"
    }
   ]
  },
@@ -13960,10 +14180,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 7,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -13979,6 +14199,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 7
+    },
+    "proof": "Sol b28b-round23 26/10: Les réglages avancés n’offrent ni audit d’espace, ni désincorporation des polices, ni aplatissement des transparences : crates/sheaf-app/ui/screens/options.slint:548."
    }
   ]
  },
@@ -14600,10 +14831,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -14619,6 +14850,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28b-round23 26/10: Les images Indexed restent en couleur ; le rapport des éléments non convertis est ignoré par la compression : crates/sheaf-core/src/grayscale.rs:85 ; crates/sheaf-core/src/compress.rs:159."
    }
   ]
  },
@@ -14831,6 +15073,17 @@
      "overall": 8
     },
     "proof": "Sol b26-built 26/10: La grille existe, mais ne permet pas de réordonner ses pages par glisser-déposer ; son gestionnaire ne fait que sélectionner ou ouvrir ; crates/sheaf-app/src/reader_ui/pointer.rs:7."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28c-round23 26/10: Le début du glisser efface la sélection ; plusieurs pages sélectionnées ne peuvent pas être déplacées ensemble : crates/sheaf-app/src/reader_ui/pointer.rs:16."
    }
   ]
  },
@@ -16945,10 +17198,10 @@
    43
   ],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -17008,6 +17261,17 @@
      "overall": 7
     },
     "proof": "Sol b27b-round22 26/10: Passer de Pages à Files avant de fusionner abandonne les suppressions et l’ordre préparé : merge_order est retiré, et le lancement ignore merge_kept : crates/sheaf-app/src/flow.rs:459 ; crates/sheaf-app/src/run.rs:442."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28c-round23 26/10: Après Pages → Files, trier les fichiers change leur ordre affiché mais conserve merge_kept : la fusion ignore le tri : crates/sheaf-app/src/flow.rs:443."
    }
   ]
  },
@@ -17242,10 +17506,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 6,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 6
   },
   "status": "open",
   "feature": null,
@@ -17261,6 +17525,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "Sol b28c-round23 26/10: Les transitions sont enregistrées mais leurs effets ne sont pas joués ; le plein écran ne fait que défiler : crates/sheaf-app/ui/screens/reader.slint:136."
    }
   ]
  },
@@ -18150,10 +18425,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -18169,6 +18444,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28c-round23 26/10: Aucun aperçu du résultat imprimé ou aplati : les choix de disposition et de commentaires passent directement à Print : crates/sheaf-app/ui/screens/reader-sheets.slint:232."
    }
   ]
  },
@@ -18363,10 +18649,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -18393,6 +18679,17 @@
      "overall": 7
     },
     "proof": "Sol b27c-round22 26/10: Les champs contenant une valeur mais sans apparence /AP sont supprimés sans dessiner leur valeur : third_party/pdfcraft-edit/src/flatten.rs:203."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28c-round23 26/10: Sans /AP, un texte hors de l’encodage disponible devient silencieusement « ? » puis est aplati ; le correctif ignore le signalement des caractères impossibles à dessiner : third_party/pdfcraft-engine/src/lib.rs:2901."
    }
   ]
  },
@@ -18931,10 +19228,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 6,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 6
   },
   "status": "open",
   "feature": null,
@@ -18950,6 +19247,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "Sol b28c-round23 26/10: « Right to left » inverse seulement les pages en vis-à-vis ; aucune interface RTL : crates/sheaf-app/src/reader_ui/nav.rs:254."
    }
   ]
  },
@@ -19985,6 +20293,17 @@
      "overall": 8
     },
     "proof": "Sol b27c-round22 26/10: Les options « Fit » et « Centre » sont proposées et enregistrées, mais restent ignorées à l’ouverture : crates/sheaf-app/src/reader_ui/properties.rs:221."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28c-round23 26/10: L’ouverture demandée en Fit Width ou Actual Size ne désactive pas le pending_fit hérité des préférences ; Fit Page reprend alors la main : crates/sheaf-app/src/reader_ui/properties.rs:216 ; crates/sheaf-app/src/viewer_ui.rs:502."
    }
   ]
  },
@@ -20023,10 +20342,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 6,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 6
   },
   "status": "open",
   "feature": null,
@@ -20042,6 +20361,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "Sol b28c-round23 26/10: Seuls les trois lissages sont réglables ; accélération GPU et gestion des couleurs restent absentes : crates/sheaf-app/ui/screens/preferences.slint:202."
    }
   ]
  },
@@ -20464,10 +20794,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -20494,6 +20824,17 @@
      "overall": 7
     },
     "proof": "Sol b27c-round22 26/10: Sous Windows, ouvre seulement les paramètres ; le paquet portable n’enregistre aucune association PDF permettant d’y choisir Sheaf : crates/sheaf-app/src/run.rs:837 ; scripts/package-windows.sh:22."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28d-round23 26/10: Sous Linux, le bouton référence sheaf.desktop sans l’installer ; après simple extraction du paquet, l’association ne peut pas lancer Sheaf malgré le message de réussite : crates/sheaf-app/src/run.rs:917 ; scripts/package-linux.sh:27."
    }
   ]
  },
@@ -21802,6 +22143,17 @@
      "overall": 8
     },
     "proof": "Sol b27c-round22 26/10: La loupe garde une zone fixe de 120 × 80 points : lorsque la page dépasse 300 % de taille réelle, elle montre le texte plus petit que la page : crates/sheaf-app/src/reader_ui/loupe.rs:28."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28c-round23 26/10: Après Rotate View, la loupe dessine encore la région dans l’orientation du fichier ; son rendu ne reçoit pas la rotation de vue : crates/sheaf-app/src/reader_ui/loupe.rs:40 ; crates/sheaf-app/src/reader_doc/mod.rs:741."
    }
   ]
  },
@@ -21993,14 +22345,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "page modes: single, continuous",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -22045,6 +22397,17 @@
      "overall": 8
     },
     "proof": "Sol b27c-round22 26/10: À fort zoom, la molette change immédiatement de page au lieu de permettre de parcourir la hauteur de la page affichée : crates/sheaf-app/ui/screens/reader.slint:382."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28c-round23, 26/10)"
    }
   ]
  },
@@ -22373,6 +22736,17 @@
      "overall": 8
     },
     "proof": "Sol b27c-round22 26/10: Une recherche lancée après rotation réinjecte du texte et des rectangles non tournés ; les résultats et la sélection redeviennent décalés : crates/sheaf-app/src/reader_ui/search.rs:96."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28c-round23 26/10: Une rotation pendant une recherche ne l’invalide pas ; ses lots suivants réinjectent textes et résultats dans l’ancienne orientation : crates/sheaf-app/src/reader_ui/nav.rs:239 ; crates/sheaf-app/src/reader_ui/search.rs:100."
    }
   ]
  },
@@ -23742,10 +24116,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -23761,6 +24135,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28d-round23 26/10: Les groupes de calques exclusifs /RBGroups sont ignorés : activer une variante laisse les autres visibles, superposant leur contenu : crates/sheaf-app/src/reader_ui/layers.rs:14."
    }
   ]
  },
@@ -24614,10 +24999,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 6,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 6
   },
   "status": "open",
   "feature": null,
@@ -24633,6 +25018,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "Sol b28d-round23 26/10: La recherche reste une sous-chaîne exacte par ligne, sans racinisation ni proximité ; une expression coupée entre deux lignes échappe aussi à la recherche : crates/sheaf-app/src/reader_ui/folder_search.rs:69."
    }
   ]
  },
@@ -24661,14 +25057,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "with in-place text editing",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -24702,6 +25098,17 @@
      "overall": 8
     },
     "proof": "Sol b27d-round22 26/10: Un scan OCR avec un en-tête en texte visible échappe au filtre ; Replace all conserve alors le Batch sans masquage : crates/sheaf-core/src/enhance.rs:77 ; third_party/pdfcraft-engine/src/lib.rs:3587."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28d-round23, 26/10)"
    }
   ]
  },
@@ -25029,14 +25436,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -25048,6 +25455,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28d-round23, 26/10)"
    }
   ]
  },
@@ -26331,10 +26749,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -26361,6 +26779,17 @@
      "overall": 7
     },
     "proof": "Sol b27d-round22 26/10: Lecture uniquement de la page courante jusqu’à la fin ; aucune pause/reprise, lecture de sélection ou commande de page : crates/sheaf-app/src/reader_ui/speech.rs:21."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28d-round23 26/10: Sous Windows, « Pause or resume reading » arrête la lecture et perd sa position ; aucune reprise n’est possible : crates/sheaf-app/src/reader_ui/speech.rs:105."
    }
   ]
  },
@@ -26394,14 +26823,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -26424,6 +26853,17 @@
      "overall": 7
     },
     "proof": "Sol b27d-round22 26/10: La vitesse est réglable, mais aucun choix de voix n’est proposé ni transmis au synthétiseur : crates/sheaf-app/src/run.rs:515."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28d-round23, 26/10)"
    }
   ]
  },
@@ -26599,14 +27039,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core (system dictionary)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -26618,6 +27058,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28d-round23, 26/10)"
    }
   ]
  },
@@ -29286,6 +29737,17 @@
      "overall": 8
     },
     "proof": "Sol b27d-round22 26/10: Les copies ne sont pas liées ; supprimer une signature ne supprime que celle sélectionnée : crates/sheaf-app/src/reader_ui/edits.rs:752."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28d-round23 26/10: La suppression groupée exige le type Stamp ; les signatures dessinées sont des Ink et leurs copies restent sur les autres pages : crates/sheaf-app/src/reader_ui/edits.rs:800 ; third_party/pdfcraft-annot/src/lib.rs:485."
    }
   ]
  },
@@ -29895,6 +30357,17 @@
      "overall": 8
     },
     "proof": "Sol b27d-round22 26/10: La certification impose une signature graphique placée ; certifier sans signature visible est impossible : crates/sheaf-app/src/run.rs:377."
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b28d-round23 26/10: Le moteur sait certifier invisiblement, mais le bouton reste désactivé sans signature graphique placée ; le test contourne ce blocage de l’interface : crates/sheaf-app/ui/screens/tool-flow.slint:644."
    }
   ]
  },
@@ -30254,14 +30727,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -30273,6 +30746,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-26",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28d-round23, 26/10)"
    }
   ]
  }
