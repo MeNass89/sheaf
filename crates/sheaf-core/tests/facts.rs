@@ -10,6 +10,8 @@ fn properties_read_restrictions_pdfa_and_dates_from_the_file() {
     assert!(plain.restricted.is_empty() && plain.pdfa.is_none(), "{plain:?}");
     // An ordinary page: its media and crop boxes.
     assert_eq!(plain.boxes.iter().map(|b| b.0).collect::<Vec<_>>(), ["Media box", "Crop box"]);
+    // Its one font, one of the standard fourteen: not embedded.
+    assert_eq!(plain.fonts, [("Helvetica".to_string(), false)]);
 
     let perms = ProtectPermissions { printing: false, copying: false, ..Default::default() };
     let p = protect_with_permissions(&Input::new(&a), "user", Some("owner"), perms, &t.path().join("p.pdf")).unwrap();

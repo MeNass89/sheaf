@@ -460,11 +460,14 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         .into(),
         calibrating: r.calibrating,
         auto_scroll: r.auto_scroll,
+        dashed: r.dashed,
         page_at_a_time: r.page_at_a_time,
+        view_turn: i32::from(v.viewer.turn()),
         opacity: (super::tools::opacity_of(r) * 100.0).round() as i32,
         fill_colour: r.fill_colour.map_or(-1, |k| k as i32),
         selected_stroke: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(|a| super::tools::stroked(&a.subtype)),
         selected_fillable: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(|a| super::tools::fillable(&a.subtype)),
+        selected_turnable: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(|a| super::tools::turnable(&a.subtype)),
         // Dynamic stamps share their names with standard ones: they say they are dated.
         stamp_image: r.custom_stamp.as_ref().map(|(n, _, _)| n.as_str()).unwrap_or_default().into(),
         stamps: ModelRc::new(VecModel::from(
@@ -515,8 +518,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_signed: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, ..)| slint::SharedString::from(format!("Open the version signed by {who}"))).collect::<Vec<_>>())),
         props_trust: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, _, _, trusted)| slint::SharedString::from(if *trusted { String::new() } else { format!("Trust {who}'s certificate") })).collect::<Vec<_>>())),
         props_opening: {
-            let (p, l, z, n) = super::properties::opening_controls(&r.snap.opening);
-            ModelRc::new(VecModel::from(vec![p, l, z, n]))
+            let (p, l, z, n, w) = super::properties::opening_controls(&r.snap.opening);
+            ModelRc::new(VecModel::from(vec![p, l, z, n, w]))
         },
         props_custom: r.facts.as_ref().map(|f| super::properties::custom_text(&f.custom)).unwrap_or_default().into(),
         props_about: ModelRc::new(VecModel::from(super::properties::about_rows(&r.snap.props.about, r.facts.as_ref()).into_iter().map(|(n, v)| ReaderProp { name: n.into(), value: v.into() }).collect::<Vec<_>>())),

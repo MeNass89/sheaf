@@ -97,6 +97,9 @@ pub struct TabState {
     /// files as cards. Their thumbnails, by the same key.
     pub merge_order: Option<Vec<(i32, u32)>>,
     pub merge_thumbs: HashMap<(i32, u32), Image>,
+    /// The Pages view's order while Files is shown: back to Pages, it is there again (Sol, 26/10:
+    /// going back to Files dropped it without a word).
+    pub merge_kept: Option<Vec<(i32, u32)>>,
     /// Crop: the page its preview shows (0-based).
     pub preview_page: u32,
 }
@@ -131,6 +134,7 @@ impl TabState {
             reader_ops: None,
             options: None,
             merge_order: None,
+            merge_kept: None,
             merge_thumbs: HashMap::new(),
             preview_page: 0,
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),

@@ -101,7 +101,7 @@ export component ReaderOptionsBar inherits Rectangle {
         if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.tool == 11 || (root.tab.reader.tool == 13 && root.tab.reader.link-visible) || root.tab.reader.selected-stroke: HorizontalLayout {
             spacing: 2px;
             padding-left: 6px;
-            for w[k] in [2px, 4px, 7px]: Rectangle {
+            for w[k] in [2px, 4px, 7px, 10px]: Rectangle {
                 y: 4px;
                 width: 22px;
                 height: 22px;
@@ -119,6 +119,8 @@ export component ReaderOptionsBar inherits Rectangle {
                     clicked => { ReaderBridge.set-pen-width(root.id, k); root.focus-pages(); }
                 }
             }
+            // Acrobat's line style: solid or dashed (pen and shapes, or the one selected).
+            if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.selected-stroke: SmallButton { y: 2px; text: "- -"; primary: root.tab.reader.dashed; clicked => { ReaderBridge.shape-option(root.id, 17, 0); root.focus-pages(); } }
         }
         // Opacity: any value on a slider, four quick ones (Acrobat's Properties bar, PDF Expert's slider).
         if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.selected-stroke: Rectangle {
@@ -266,6 +268,8 @@ export component ReaderOptionsBar inherits Rectangle {
         // Acrobat's Fill & Sign ▸ Add Initials: kept apart from the signatures, placed smaller.
         if root.tab.reader.tool == 9: SmallButton { y: 2px; text: "Initials"; primary: root.tab.reader.initials; clicked => { ReaderBridge.shape-option(root.id, 13, 0); root.focus-pages(); } }
         if root.tab.reader.tool == 9 && root.tab.reader.initials: SmallButton { y: 2px; text: "New initials"; clicked => { ReaderBridge.shape-option(root.id, 14, 0); root.focus-pages(); } }
+        // A stamp, picture or signature selected (Acrobat's Rotate on a stamp): a quarter turn clockwise.
+        if root.tab.reader.selected-turnable: SmallButton { y: 2px; text: "Turn ↻"; clicked => { ReaderBridge.shape-option(root.id, 16, 0); root.focus-pages(); } }
         // The same place on every page, one click (initials down a contract's pages).
         if root.tab.reader.tool == 9: SmallButton { y: 2px; text: "Every page"; primary: root.tab.reader.sign-every-page; clicked => { ReaderBridge.shape-option(root.id, 15, 0); root.focus-pages(); } }
         if !root.tab.reader.selected-image && ((root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && root.tab.reader.tool != 11 && (root.tab.reader.tool != 12 || root.tab.reader.stamp < 4) && root.tab.reader.tool != 14 && (root.tab.reader.tool != 13 || root.tab.reader.link-visible)) || root.tab.reader.selected-annot): HorizontalLayout {

@@ -591,3 +591,51 @@ unbound variable). Run at last, they found real defects as well as their own:
 - Zoom to 400 %: the view froze ~3 s; the pages' drop shadow, blurred by the software renderer at the
   whole page's size, was the cost. Pages wider than the window draw no shadow (their edges are out of
   view): the zoom shows within a second.
+
+### Round 20 (26/10)
+
+- C-reader-017 Rotate view (Acrobat's View ▸ Rotate View, ⇧⌘+ / ⇧⌘−, More ▸ Rotate view): the viewer
+  keeps a turn on top of each page's /Rotate (`Viewer::set_turn`, `viewer::turned`); pages render turned
+  (`render_bytes(…, turn)`: a quarter turn asks for the height), every overlay maps through the turned
+  boxes, edits rebuild the viewer with the turn kept; the file is not changed. Tests:
+  `viewer::tests::the_view_turns_every_page_and_back`, `renders::tests::pages_render_at_the_asked_width_with_their_rotation`,
+  smoke 78.
+- C-optimize-010 Enhance scanned pages (Acrobat's Enhance): `sheaf_core::enhance` straightens a page that is
+  only a picture (skew from the row profile of its dark pixels, ±5°, a tenth of a degree), whitens its paper
+  and darkens its ink (levels), and draws it again as a JPEG on a page of the same size; text pages are
+  copied. OCR ▸ "Straighten and clean scans first" runs it before reading (kept with Run again). Tests:
+  `enhance::tests::*`, `tests/enhance.rs`.
+- C-security-018 PDF info report: Document properties ▸ Copy report puts the description, every fact and
+  the fonts (each said embedded or not; `facts::Facts::fonts`) on the clipboard. Tests:
+  `properties::tests::the_report_lists_the_description_the_facts_and_the_fonts`, `tests/facts.rs`.
+- C-output-015 Rename or trash: a document tab's menu ▸ Rename… (a Save dialog in its folder; the tab,
+  Recent files and later saves follow), Show in Folder, Move to Trash (Finder, gio, the Recycle Bin; refused
+  with unsaved edits). Smoke 79.
+- C-annotate-027 Turn a stamp: a stamp, picture or signature selected shows Turn ↻ (Acrobat's Rotate on a
+  stamp): a quarter turn clockwise about its centre, its box turned with it, one undo step (PdfCraft patch:
+  `Edit::TurnAnnotation`, `pdfcraft_annot::turn_stamp`; a vector picture's appearance now turns too). Test:
+  `reader_doc::tests::a_stamp_turns_a_quarter_about_its_centre`.
+- Sol's b17–b22 gaps fixed: Header & footer ▸ Remove, and other apps' Pagination artifacts (Acrobat's
+  headers, footers, watermarks, backgrounds) taken out by every Remove (PdfCraft patch
+  `remove_artifacts`); Bates numbers run on across a batch (`jobs::tests::bates_numbers_run_on_across_a_batch`);
+  versions in a folder per document; PDF files copied in a file manager make the new PDF From clipboard
+  (smoke 81); a thumbnail's Insert a file's pages before… (smoke 82); Detect fields on the scanned pages
+  beside drawn ones (smoke, mixed form); Merge keeps its Pages order while Files shows; text typed in
+  place added when another tool is picked (smoke 83); certificates' subject and issuer in full; Flip about
+  the crop box, comments drawn in with Change page size; One page at a time shows that page alone; Side
+  by side draws the original's comments; /FitR and Zoom to area scroll across to the box on a turned
+  page; documents too different are not compared (Acrobat stops), the changed-areas list runs onto more
+  pages; a subset's tag left out of a field font's name; a large snapshot taken whole (at less than 3×);
+  Crop margins cut from the crop box; Replace (the match in view only); Split ▸ any grid of parts; Organize
+  ▸ One long page; When opened ▸ Window options (full screen, title, fit, centre, no toolbar).
+- Rotate view renders the page upright and turns the pixels (pdfium-render's rotation kept the upright
+  size).
+
+### Round 21 (26/10, Sol's b17–b22 gaps, continued)
+
+- C-annotate-023: the pen and the shapes draw dashed lines ("- -", Acrobat's Dashed style; a selected
+  drawing or shape changes at once, one undo step: PdfCraft patch `Edit::DashAnnotation`,
+  `pdfcraft_annot::set_dashed`; ink appearances honour `/BS /S /D`), and a fourth width, 8 pt. Smoke 84.
+- C-organize-020: Organize takes a typed order ("3,1,2,5-4", a page as often as named, ranges
+  backwards), Odd then even, and Collate a two-sided scan (fronts then backs reversed: 1, n, 2, n − 1…),
+  Acrobat's custom order and its odd-and-even and duplex rules (`ranges::order_spec`, tested). Smoke 85.

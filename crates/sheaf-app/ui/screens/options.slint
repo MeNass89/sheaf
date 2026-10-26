@@ -67,7 +67,9 @@ export component OptionsPanel inherits VerticalLayout {
         root.every = o.every;
         root.split-one-file = o.split-one-file;
         root.split-size = o.split-size;
-        root.split-across = o.split-across;
+        root.split-cols = o.split-cols;
+        root.organize-order = o.organize-order;
+        root.split-rows = o.split-rows;
         root.degrees = o.degrees;
         root.layout = o.layout;
         root.landscape = o.landscape;
@@ -131,6 +133,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.pdfa-level = o.pdfa-level;
         root.ocr-languages = o.ocr-languages;
         root.ocr-all-pages = o.ocr-all-pages;
+        root.ocr-enhance = o.ocr-enhance;
         root.export-ocr = o.export-ocr;
         root.export-exact = o.export-exact;
         root.excel-layout = o.excel-layout;
@@ -146,7 +149,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-printing: root.allow-printing, allow-copying: root.allow-copying,
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
-        pages: root.pages, remove-blank: root.remove-blank, blank-level: root.blank-level, rotate-parity: root.rotate-parity, rotate-orientation: root.rotate-orientation, protect-sanitize: root.protect-sanitize, compare-old-pages: root.compare-old-pages, compare-new-pages: root.compare-new-pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size, split-across: root.split-across,
+        pages: root.pages, remove-blank: root.remove-blank, blank-level: root.blank-level, rotate-parity: root.rotate-parity, rotate-orientation: root.rotate-orientation, protect-sanitize: root.protect-sanitize, compare-old-pages: root.compare-old-pages, compare-new-pages: root.compare-new-pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size, split-cols: root.split-cols, split-rows: root.split-rows, organize-order: root.organize-order,
         degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
@@ -164,7 +167,7 @@ export component OptionsPanel inherits VerticalLayout {
         crop-mode: root.crop-mode, crop-paper: root.crop-paper, per-sheet: root.per-sheet, crop-top: root.crop-top, crop-bottom: root.crop-bottom,
         crop-left: root.crop-left, crop-right: root.crop-right,
         pdfa-level: root.pdfa-level,
-        ocr-languages: root.ocr-languages, ocr-all-pages: root.ocr-all-pages,
+        ocr-languages: root.ocr-languages, ocr-all-pages: root.ocr-all-pages, ocr-enhance: root.ocr-enhance,
         export-ocr: root.export-ocr, export-exact: root.export-exact, excel-layout: root.excel-layout, text-format: root.text-format,
         compare-mode: root.compare-mode,
         sign-cert: root.sign-cert, sign-p12: root.sign-p12, sign-p12-password: root.sign-p12-password,
@@ -213,7 +216,9 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> rotate-orientation: 0;
     in-out property <int> split-mode: 0;
     in-out property <string> split-size;
-    in-out property <bool> split-across: true;
+    in-out property <string> organize-order;
+    in-out property <int> split-cols: 2;
+    in-out property <int> split-rows: 1;
     in-out property <string> ranges;
     in-out property <int> every: 1;
     in-out property <bool> split-one-file;
@@ -283,6 +288,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> pdfa-level: 0;
     in-out property <string> ocr-languages: "," + OcrInfo.default-language + ",";
     in-out property <bool> ocr-all-pages;
+    in-out property <bool> ocr-enhance;
     in-out property <bool> export-ocr;
     in-out property <bool> export-exact;
     in-out property <int> excel-layout: 0;
@@ -336,15 +342,28 @@ export component OptionsPanel inherits VerticalLayout {
         }
         // Stirling PDF's Split pages into sections: a scanned spread made two pages again.
         RadioCard {
-            title: "Cut each page in two";
-            description: "A spread scanned on one page becomes two pages";
+            title: "Cut each page into parts";
+            description: "A spread scanned on one page becomes two pages; a poster, sheets";
             selected: root.split-mode == 4;
             clicked => { root.split-mode = 4; }
         }
         if root.split-mode == 4: HorizontalLayout {
             spacing: 8px;
-            Segment { text: "Left | right"; selected: root.split-across; clicked => { root.split-across = true; } }
-            Segment { text: "Top / bottom"; selected: !root.split-across; clicked => { root.split-across = false; } }
+            Segment { text: "Left | right"; selected: root.split-cols == 2 && root.split-rows == 1; clicked => { root.split-cols = 2; root.split-rows = 1; } }
+            Segment { text: "Top / bottom"; selected: root.split-cols == 1 && root.split-rows == 2; clicked => { root.split-cols = 1; root.split-rows = 2; } }
+            Segment {
+                text: "Grid";
+                selected: !(root.split-cols == 2 && root.split-rows == 1) && !(root.split-cols == 1 && root.split-rows == 2);
+                clicked => { root.split-cols = 2; root.split-rows = 2; }
+            }
+        }
+        // Stirling PDF's sections: any grid, across then down.
+        if root.split-mode == 4 && !(root.split-cols == 2 && root.split-rows == 1) && !(root.split-cols == 1 && root.split-rows == 2): HorizontalLayout {
+            spacing: 8px;
+            Text { text: "Across"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Stepper { value <=> root.split-cols; minimum: 1; }
+            Text { text: "Down"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Stepper { value <=> root.split-rows; minimum: 1; }
         }
         Rectangle { height: 4px; }
         if root.split-mode == 0: TextField {
@@ -405,12 +424,26 @@ export component OptionsPanel inherits VerticalLayout {
             clicked => { root.insert-blank(); }
         }
         InfoBox { text: "Hover a page to move it with the arrows or drop it with ×. The blank page is added at the end."; }
+        // Acrobat's custom order and its odd-and-even and duplex rules: typed, it replaces the grid's.
+        TextField { label: "Or an order"; placeholder: "3,1,2,5-4"; text <=> root.organize-order; }
+        HorizontalLayout {
+            spacing: 6px;
+            Segment { text: "Odd, then even"; selected: root.organize-order == "odd,even"; clicked => { root.organize-order = "odd,even"; } }
+            Segment { text: "Collate a 2-sided scan"; selected: root.organize-order == "collate"; clicked => { root.organize-order = "collate"; } }
+        }
         // Acrobat's Multiple pages per sheet and Booklet; iLovePDF's Pages per sheet.
         SectionLabel { text: "Pages per sheet"; }
         HorizontalLayout {
             spacing: 6px;
-            for l[i] in ["1", "2", "4", "6", "9", "Booklet"]: Segment { width: i == 5 ? 72px : 32px; text: l; selected: root.per-sheet == i; clicked => { root.per-sheet = i; } }
+            for l[i] in ["1", "2", "4", "6", "9"]: Segment { width: 40px; text: l; selected: root.per-sheet == i; clicked => { root.per-sheet = i; } }
         }
+        // Folded, or every page on one (Acrobat's Booklet, Stirling's Single large page).
+        HorizontalLayout {
+            spacing: 6px;
+            Segment { text: "Booklet"; selected: root.per-sheet == 5; clicked => { root.per-sheet = 5; } }
+            Segment { text: "One long page"; selected: root.per-sheet == 6; clicked => { root.per-sheet = 6; } }
+        }
+        if root.per-sheet == 6: InfoBox { text: "Every page one under the other on a single long page (200 inches at most)."; }
         if root.per-sheet == 5: InfoBox { text: "Two pages to a side, in the order that reads 1, 2, 3… once the sheets are printed on both sides and folded."; }
     }
 
@@ -645,6 +678,8 @@ export component OptionsPanel inherits VerticalLayout {
         RadioCard { title: "Page {n} of {p}"; selected: root.num-text == 2; clicked => { root.num-text = 2; } }
         RadioCard { title: "Custom"; selected: root.num-text == 3; clicked => { root.num-text = 3; } }
         RadioCard { title: "No page number (header and footer text only)"; selected: root.num-text == 4; clicked => { root.num-text = 4; } }
+        // Acrobat's Header & Footer ▸ Remove: Sheaf's and other apps' (Acrobat's Pagination artifacts).
+        RadioCard { title: "Remove page numbers, headers and footers"; selected: root.num-text == 5; clicked => { root.num-text = 5; } }
         if root.num-text == 3: TextField {
             placeholder: "Sheet {n} of {p}";
             text <=> root.num-custom;
@@ -840,7 +875,9 @@ export component OptionsPanel inherits VerticalLayout {
         }
         InfoBox { text: "Recognises Latin-script text (English, French, Spanish, German, …). The accuracy of detection is increased by correctly selecting the document's languages."; }
         Check { text: "Also read pages with text"; checked <=> root.ocr-all-pages; }
-        InfoBox { text: "The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable. Pages that already contain text are left alone unless you tick the box above; then only words not already there are added."; }
+        // Acrobat's Enhance scanned pages, before it reads them.
+        Check { text: "Straighten and clean scans first"; checked <=> root.ocr-enhance; }
+        InfoBox { text: "The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable. Pages that already contain text are left alone unless you tick the box above; then only words not already there are added. Straightened and cleaned, a scanned page is drawn again level, its paper white and its ink dark."; }
         if !OcrInfo.available: InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");
             text: "The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR.";

@@ -214,6 +214,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_shape_option, |ui, id, w, v| reader_ui::shape_option(&ui, id, w, v));
     wire_global!(ui, rb, on_cycle_spread, |ui, id| reader_ui::cycle_spread(&ui, id));
     wire_global!(ui, rb, on_toggle_rtl, |ui, id| reader_ui::toggle_rtl(&ui, id));
+    wire_global!(ui, rb, on_rotate_view, |ui, id, dir| reader_ui::rotate_view(&ui, id, dir));
     wire_global!(ui, rb, on_toggle_grid, |ui, id| reader_ui::toggle_grid(&ui, id));
     wire_global!(ui, rb, on_set_spread, |ui, id, m| reader_ui::set_spread(&ui, id, m));
     wire_global!(ui, rb, on_notes_action, |ui, id, w| reader_ui::notes_action(&ui, id, w));
@@ -225,6 +226,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_auto_scroll(reader_ui::auto_scroll);
     wire_global!(ui, rb, on_page_at_a_time, |ui, id| reader_ui::page_at_a_time(&ui, id));
     wire_global!(ui, rb, on_replace_all, |ui, id, f, w| reader_ui::replace_all(&ui, id, &f, &w));
+    wire_global!(ui, rb, on_replace_one, |ui, id, f, w| reader_ui::replace_one(&ui, id, &f, &w));
     wire_global!(ui, rb, on_email, |ui, id| reader_ui::email(&ui, id));
     wire_global!(ui, rb, on_version_action, |ui, id, n| reader_ui::version_action(&ui, id, n));
     wire_global!(ui, rb, on_background_apply, |ui, id, c, o, a| reader_ui::background_apply(&ui, id, c, o, a));
@@ -240,7 +242,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_zoom_typed, |ui, id, t| reader_ui::zoom_typed(&ui, id, &t));
     wire_global!(ui, rb, on_annot_status, |ui, id, k, s| reader_ui::annot_status(&ui, id, k, s));
     rb.on_props_cancel(reader_ui::props_cancel);
-    wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k, c, page, layout, zoom, panel| reader_ui::props_save(&ui, id, &t, &a, &s, &k, &c, (&page, layout, zoom, panel)));
+    wire_global!(ui, rb, on_props_copy, |ui, id| reader_ui::props_copy(&ui, id));
+    wire_global!(ui, rb, on_props_save, |ui, id, t, a, s, k, c, page, layout, zoom, panel, window| reader_ui::props_save(&ui, id, &t, &a, &s, &k, &c, (&page, layout, zoom, panel, window)));
     wire_global!(ui, rb, on_open_signed, |ui, id, k| reader_ui::open_signed(&ui, id, k));
     rb.on_trust_signature(reader_ui::trust_signature);
     rb.on_print_cancel(reader_ui::print_cancel);
@@ -366,9 +369,28 @@ fn main() -> Result<(), slint::PlatformError> {
             Err(e) => flow::toast(ui, &e.to_string()),
         });
     });
-    // Home ▸ From clipboard: a picture, else text, becomes a new PDF, named and placed first.
+    // Home ▸ From clipboard: PDF files copied (in Finder, a file manager), else a picture, else text,
+    // become a new PDF, named and placed first.
     wire!(ui, on_new_from_clipboard, |ui| {
         use sheaf_core::pages::Pasted;
+        // Copied PDF files (Sol, 26/10: a PDF on the clipboard was never read): merged in that order.
+        // A file manager's list ends its lines with CR LF (text/uri-list); arboard splits at LF only.
+        let files: Vec<std::path::PathBuf> = arboard::Clipboard::new()
+            .ok()
+            .and_then(|mut c| c.get().file_list().ok())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| std::path::PathBuf::from(p.to_string_lossy().trim_end_matches(['\r', '\n'])))
+            .collect();
+        let pdfs: Vec<sheaf_core::pages::Input> =
+            files.iter().filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))).map(sheaf_core::pages::Input::new).collect();
+        if !pdfs.is_empty() {
+            let d = dialog::new(&ui).set_file_name("Clipboard.pdf").add_filter("PDF", &["pdf"]);
+            return dialog::save_file(&ui, d, move |ui, path| match sheaf_core::pages::merge(&pdfs, &path) {
+                Ok(p) => deliver(vec![p]),
+                Err(e) => flow::toast(ui, &e.to_string()),
+            });
+        }
         let pasted = arboard::Clipboard::new().ok().and_then(|mut c| {
             c.get_image().ok().map(|i| Pasted::Image { width: i.width as u32, height: i.height as u32, rgba: i.bytes.into_owned() }).or_else(|| c.get_text().ok().map(Pasted::Text))
         });

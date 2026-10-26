@@ -220,6 +220,21 @@ pub(super) fn open_from_grid(r: &mut ReaderUi, v: &mut ViewerUi, page: usize) {
     v.show_page(page, None);
 }
 
+/// More ▸ Rotate view (Acrobat's View ▸ Rotate View, ⇧⌘+ and ⇧⌘−): every page shown turned a quarter
+/// clockwise (`dir` 1) or back (−1), the file untouched; the page in view stays in view.
+pub fn rotate_view(ui: &AppWindow, tab_id: i32, dir: i32) {
+    let done = update(tab_id, |_, v| {
+        let cur = v.current();
+        let turn = i32::from(v.viewer.turn()) + 90 * dir.signum();
+        v.viewer.set_turn(turn);
+        v.all_changed();
+        v.show_page(cur, None);
+    });
+    if done.is_some() {
+        crate::viewer_ui::request(ui, tab_id);
+    }
+}
+
 /// More ▸ Right to left: pairs read from the right, kept with the document's view.
 pub fn toggle_rtl(ui: &AppWindow, tab_id: i32) {
     let done = update(tab_id, |_, v| {

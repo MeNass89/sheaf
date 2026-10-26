@@ -319,6 +319,8 @@ pub struct ReaderUi {
     snap_area: bool,
     /// More ▸ Scroll automatically is on (the view moves itself, reader.slint).
     auto_scroll: bool,
+    /// Pen and shapes draw dashed lines (Acrobat's Dashed line style).
+    dashed: bool,
     /// When the wheel last turned a page (One page at a time): the events of the same notch that follow are
     /// let go (an X11 notch comes as two).
     wheel_turned: Option<std::time::Instant>,
@@ -493,6 +495,7 @@ impl ReaderUi {
             zoom_area: false,
             snap_area: false,
             auto_scroll: false,
+            dashed: false,
             wheel_turned: None,
             page_at_a_time: false,
             initials: false,
@@ -533,7 +536,7 @@ impl ReaderUi {
 
     fn send(&mut self, op: Op) {
         // A preview is not counted: it never names something another edit is waiting on.
-        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::Revert | Op::DetectFields);
+        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields);
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
             self.edits_in_flight += usize::from(edit);
@@ -912,7 +915,7 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
         let mut v = match t.viewer.take() {
             Some(mut v) if v.viewer.boxes.len() == snap.boxes.len() => {
                 // Same displayed sizes, now with their real crop boxes and rotations.
-                v.viewer.boxes = snap.boxes.clone();
+                v.viewer.boxes = viewer::turned(&snap.boxes, v.viewer.turn());
                 v
             }
             _ => {

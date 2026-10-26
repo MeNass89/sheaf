@@ -169,11 +169,19 @@ pub struct Viewer {
     rtl: bool,
     /// Width of a thumbnail in the strip or panel.
     pub thumb_width: f64,
+    /// Rotate View (Acrobat's View ▸ Rotate View): every page shown turned this much more clockwise
+    /// than its own /Rotate (0, 90, 180, 270); `boxes` carry it, the file does not.
+    turn: u16,
+}
+
+/// The file's page boxes as the view shows them, turned `turn` degrees clockwise more.
+pub fn turned(boxes: &[PageBox], turn: u16) -> Vec<PageBox> {
+    boxes.iter().map(|b| PageBox { rotation: (b.rotation + turn) % 360, ..*b }).collect()
 }
 
 impl Viewer {
     pub fn new(boxes: Vec<PageBox>) -> Self {
-        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, rtl: false, thumb_width: THUMB_WIDTH };
+        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, rtl: false, thumb_width: THUMB_WIDTH, turn: 0 };
         v.relayout();
         v
     }
@@ -275,6 +283,19 @@ impl Viewer {
 
     pub fn zoom(&self) -> u32 {
         self.zoom
+    }
+
+    /// How far the view is turned clockwise (Rotate View): 0, 90, 180 or 270.
+    pub fn turn(&self) -> u16 {
+        self.turn
+    }
+
+    /// Turns the view to `turn` degrees clockwise (any multiple of 90): every page with it.
+    pub fn set_turn(&mut self, turn: i32) {
+        let turn = turn.rem_euclid(360) as u16 / 90 * 90;
+        self.boxes = turned(&self.boxes, (turn + 360 - self.turn) % 360);
+        self.turn = turn;
+        self.relayout();
     }
 
     /// The zoom as PDF Expert and Preview show it: 100 % draws one point of page `i` as one logical
@@ -499,6 +520,20 @@ mod tests {
         // Back to one column: as before.
         v.set_spread(0);
         assert_eq!(v.page_rect(1), single);
+    }
+
+    #[test]
+    fn the_view_turns_every_page_and_back() {
+        let crop = [0.0, 0.0, 100.0, 200.0];
+        let mut v = Viewer::new(vec![PageBox { crop, rotation: 0, unit: 1.0 }, PageBox { crop, rotation: 90, unit: 1.0 }]);
+        v.set_turn(90);
+        assert_eq!((v.turn(), v.boxes[0].rotation, v.boxes[1].rotation), (90, 90, 180));
+        assert_eq!(v.boxes[0].view_size(), (200.0, 100.0));
+        // Back past 0: 270.
+        v.set_turn(-90);
+        assert_eq!((v.turn(), v.boxes[0].rotation, v.boxes[1].rotation), (270, 270, 0));
+        v.set_turn(0);
+        assert_eq!((v.boxes[0].rotation, v.boxes[1].rotation), (0, 90));
     }
 
     #[test]

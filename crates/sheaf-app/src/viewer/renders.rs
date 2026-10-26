@@ -282,7 +282,7 @@ pub fn render_page(input: &sheaf_core::pages::Input, page: usize, width: u32) ->
 
 /// Page `page` of a PDF held in memory (`bytes`, opened with `password`) rendered `width` pixels
 /// wide, as RGBA, then recoloured for `theme`: the reader's pages, which show edits not saved yet;
-/// `comments` false leaves annotations out.
+/// `comments` false leaves annotations out; `turn` turns the page clockwise more (Rotate View).
 pub fn render_bytes(
     bytes: &[u8],
     password: Option<&str>,
@@ -290,18 +290,31 @@ pub fn render_bytes(
     width: u32,
     theme: crate::reader::PageTheme,
     comments: bool,
+    turn: u16,
 ) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
     use pdfium_render::prelude::PdfRenderConfig;
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = sheaf_core::engine::open_pdf_bytes(bytes, password).map_err(|e| e.to_string())?;
     let p = doc.pages().get(page as i32).map_err(|e| e.to_string())?;
     // Without comments (Hide all comments), form fields still draw.
-    let config = PdfRenderConfig::new().set_target_width(width as i32).render_form_data(true).render_annotations(comments);
+    let config = PdfRenderConfig::new().render_form_data(true).render_annotations(comments);
+    // Drawn upright, then turned (pdfium-render's own rotation keeps the upright size): a quarter
+    // turn asks for the height the width will be.
+    let config = if turn % 180 == 90 { config.set_target_height(width as i32) } else { config.set_target_width(width as i32) };
     let bmp = p.render_with_config(&config).map_err(|e| e.to_string())?;
     let (w, h) = (bmp.width() as u32, bmp.height() as u32);
     let mut rgba = bmp.as_rgba_bytes();
     crate::reader::tint(&mut rgba, theme);
-    Ok(slint::SharedPixelBuffer::clone_from_slice(&rgba, w, h))
+    if turn.is_multiple_of(360) {
+        return Ok(slint::SharedPixelBuffer::clone_from_slice(&rgba, w, h));
+    }
+    let upright = image::RgbaImage::from_raw(w, h, rgba).ok_or("the page's pixels are short")?;
+    let turned = match turn % 360 {
+        90 => image::imageops::rotate90(&upright),
+        180 => image::imageops::rotate180(&upright),
+        _ => image::imageops::rotate270(&upright),
+    };
+    Ok(slint::SharedPixelBuffer::clone_from_slice(turned.as_raw(), turned.width(), turned.height()))
 }
 
 #[cfg(test)]
@@ -344,6 +357,15 @@ mod tests {
         let px = render_page(&sheaf_core::pages::Input::new(&path), 0, 250).unwrap();
         // Turned a quarter: 100 × 200 pt shown, 250 px wide.
         assert_eq!((px.width(), px.height()), (250, 500));
+        // The view turned a quarter more (Rotate View): 200 × 100 shown, still 250 px wide; half a
+        // turn: as tall as without.
+        let theme = crate::reader::PageTheme::default();
+        let px = render_bytes(&bytes, None, 0, 250, theme, true, 90).unwrap();
+        assert_eq!((px.width(), px.height()), (250, 125));
+        let px = render_bytes(&bytes, None, 0, 250, theme, true, 180).unwrap();
+        assert_eq!((px.width(), px.height()), (250, 500));
+        // The boxes the view maps its points with turn the same way.
+        assert_eq!(crate::viewer::turned(&boxes, 90)[0].view_size(), (200.0, 100.0));
     }
 
     #[test]

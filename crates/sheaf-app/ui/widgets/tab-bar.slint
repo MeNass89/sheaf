@@ -63,6 +63,11 @@ component TabItem inherits Rectangle {
             MenuItem { title: "Close Tabs to the Left"; activated => { root.close-around(1); } }
             MenuItem { title: "Close Tabs to the Right"; activated => { root.close-around(2); } }
             MenuItem { title: "Close All Tabs"; activated => { root.close-around(3); } }
+            // A document's file (PDF Expert's File menu): renamed where it is, shown, or trashed.
+            MenuSeparator { }
+            MenuItem { title: "Rename…"; enabled: root.tab.is-reader; activated => { root.close-around(4); } }
+            MenuItem { title: "Show in Folder"; enabled: root.tab.is-reader; activated => { root.close-around(5); } }
+            MenuItem { title: "Move to Trash"; enabled: root.tab.is-reader; activated => { root.close-around(6); } }
         }
     }
     if root.divider: Rectangle {

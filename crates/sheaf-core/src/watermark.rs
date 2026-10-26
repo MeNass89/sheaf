@@ -241,11 +241,8 @@ pub fn watermark(input: &Input, o: &WatermarkOptions, out: &Path) -> Result<(Pat
 
 /// Takes out the watermarks PdfCraft and Acrobat mark as such; whether there were any.
 fn remove_existing(doc: &mut Doc) -> Result<bool> {
-    let any = doc.session().get(doc.id()).is_some_and(|d| d.marks.contains(&MarkKind::Watermark));
-    if any {
-        doc.apply(Edit::RemoveMarks { kind: MarkKind::Watermark })?;
-    }
-    Ok(any)
+    // Other apps' watermarks are found only by reading the pages: tried, "nothing to remove" is none.
+    Ok(doc.apply(Edit::RemoveMarks { kind: MarkKind::Watermark }).is_ok())
 }
 
 /// A PNG or JPEG's size in pixels, upright (EXIF orientation applied, as PdfCraft embeds it).

@@ -1,6 +1,7 @@
 //! Page numbers: a number stamped in a corner or edge of each page, with header and footer text
 //! and Bates numbers if asked, through PdfCraft's Header & Footer (`Edit::AddHeaderFooter`).
 
+use crate::pdfcraft::edit::MarkKind;
 use crate::pdfcraft::engine::{Edit, HeaderFooter};
 pub use pdfcraft_fonts::Std14;
 use crate::pdfcraft::Doc;
@@ -22,6 +23,9 @@ pub enum NumberText {
     Custom(String),
     /// No number: the header and footer text only.
     Nothing,
+    /// Acrobat's Header & Footer ▸ Remove: the page numbers, headers and footers already there go,
+    /// Sheaf's and other apps' (their Pagination artifacts).
+    Remove,
 }
 
 /// Bates numbers (Acrobat's Header & Footer ▸ Bates Numbering): `prefix`, the number on
@@ -63,7 +67,7 @@ impl NumberText {
             NumberText::Page => "Page {n}",
             NumberText::PageOfTotal => "Page {n} of {p}",
             NumberText::Custom(s) => s.as_str(),
-            NumberText::Nothing => "",
+            NumberText::Nothing | NumberText::Remove => "",
         };
         tokens(t, &Bates::default())
     }
@@ -196,6 +200,10 @@ pub fn number_pages(input: &Input, o: &NumberOptions, out: &Path) -> Result<(Pat
         return Err(OpdfError::Unsupported("the Bates prefix and suffix cannot contain #, < or >".into()));
     }
     let mut doc = Doc::open(input)?;
+    if o.text == NumberText::Remove {
+        doc.apply(Edit::RemoveMarks { kind: MarkKind::HeaderFooter }).map_err(|_| OpdfError::Unsupported("there is no header, footer or page number to remove".into()))?;
+        return doc.save_unprotected(out);
+    }
     let count = doc.session().get(doc.id()).map(|d| d.info.pages.len()).unwrap_or(0);
     let span = page_span(o.from, clamp(o.to, o.clamp_to_last, count), o.cover, count)?;
     slot(o.position, false)?;

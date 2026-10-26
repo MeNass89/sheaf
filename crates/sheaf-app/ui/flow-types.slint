@@ -31,6 +31,8 @@ export struct PageItem {
 
 // Page viewer: one page in the scrolling content (logical pixels), its render when ready.
 export struct ViewerPage {
+    // The page's index (0-based).
+    page: int,
     x: length,
     y: length,
     w: length,
@@ -329,7 +331,11 @@ export struct ReaderState {
     // Scroll automatically is on.
     auto-scroll: bool,
     // One page at a time (not continuous).
+    // Pen and shapes: dashed lines.
+    dashed: bool,
     page-at-a-time: bool,
+    // Rotate View: how far the pages shown are turned clockwise (0, 90, 180, 270).
+    view-turn: int,
     // The Signature tool places the initials; on every page at once.
     initials: bool,
     sign-every-page: bool,
@@ -340,6 +346,8 @@ export struct ReaderState {
     selected-stroke: bool,
     // A selected rectangle, oval or polygon: its fill can change.
     selected-fillable: bool,
+    // A stamp or picture selected: Turn ↻ turns it a quarter.
+    selected-turnable: bool,
     // Print sheet: open, the system's printers, the chosen one.
     print-open: bool,
     // More ▸ Background… is open.
@@ -439,7 +447,9 @@ export struct ToolOptions {
     every: int,
     split-one-file: bool, // split: every range into one PDF (iLovePDF's "Merge all ranges")
     split-size: string,  // split by size: the largest file, in MB as typed
-    split-across: bool,  // cut each page in two: left and right (else top and bottom)
+    organize-order: string, // Organize: an order typed ("3,1,2", "odd,even", "collate"); "" the grid's
+    split-cols: int,     // cut each page: columns and rows of parts (2 × 1 left and right, 1 × 2 top and bottom)
+    split-rows: int,
     degrees: int,        // 90 / 180 / 270
     layout: int,         // jpg→pdf: 0 fit, 1 A4, 2 US Letter
     landscape: bool,     // jpg→pdf: the paper turned
@@ -511,6 +521,7 @@ export struct ToolOptions {
     // OCR
     ocr-languages: string, // selected language codes, ",en,fr," (the first one is used)
     ocr-all-pages: bool,   // also read pages that already contain text
+    ocr-enhance: bool,     // straighten and clean scanned pages first (Acrobat's Enhance)
     // PDF to Word / PowerPoint / Excel
     export-ocr: bool,      // recognise scanned pages first
     export-exact: bool,    // Word: keep each page's layout (positioned text boxes)
@@ -688,11 +699,14 @@ export global ReaderBridge {
     callback page-at-a-time(int);
     // The search panel's Replace all: the words searched, what replaces them.
     callback replace-all(int, string, string);
+    callback replace-one(int, string, string);
     callback email(int);
     callback version-action(int, int);
     // One column → two pages → two pages with the cover alone.
     callback cycle-spread(int);
     callback toggle-rtl(int);
+    // Rotate View: the pages shown turned a quarter clockwise (1) or back (−1), not the file.
+    callback rotate-view(int, int);
     callback toggle-grid(int);
     // Pages side by side as given (0 one column, 1 two pages, 2 cover alone).
     callback set-spread(int, int);
@@ -720,10 +734,12 @@ export global ReaderBridge {
     // Document Properties: open; save title, author, subject, keywords; cancel.
     callback props-open(int);
     // Title, author, subject, keywords, custom properties; When opened: page, layout, zoom, panel.
-    callback props-save(int, string, string, string, string, string, string, int, int, int);
+    callback props-save(int, string, string, string, string, string, string, int, int, int, int);
     callback open-signed(int, int);
     callback trust-signature(int, int);
     callback props-cancel(int);
+    // Copy report: the properties and the fonts as text on the clipboard.
+    callback props-copy(int);
     // Shapes and pen: what (0 shape kind, 1 fill toggle, 2 next opacity), value.
     callback shape-option(int, int, int);
     callback print(int, int, int, int, string, bool, bool, int, int);

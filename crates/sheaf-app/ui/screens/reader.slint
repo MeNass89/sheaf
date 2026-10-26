@@ -217,6 +217,9 @@ export component ReaderScreen inherits Rectangle {
                     content-width: max(root.tab.viewer-width, self.visible-width);
                     content-height: root.tab.viewer-height;
                     for p in root.tab.viewer-pages: Rectangle {
+                        // One page at a time: the others are not shown, at any zoom (Sol, 26/10: zoomed
+                        // out, the pages around it showed).
+                        visible: !root.tab.reader.page-at-a-time || p.page == root.tab.viewer-current;
                         x: p.x;
                         y: p.y;
                         width: p.w;
@@ -679,6 +682,9 @@ export component ReaderScreen inherits Rectangle {
             if e.modifiers.control {
                 // ⌘K: link the selected text (as in Word, Pages and PDF Expert).
                 if e.text == "k" && root.tab.reader.has-selection { ReaderBridge.link-selection(root.id); return accept; }
+                // Acrobat's Rotate View: ⇧⌘+ clockwise, ⇧⌘− back.
+                if e.modifiers.shift && (e.text == "+" || e.text == "=") { ReaderBridge.rotate-view(root.id, 1); return accept; }
+                if e.modifiers.shift && (e.text == "_" || e.text == "-") { ReaderBridge.rotate-view(root.id, -1); return accept; }
                 if e.text == "+" || e.text == "=" { ViewerBridge.zoom-step(root.id, 1); return accept; }
                 if e.text == "-" { ViewerBridge.zoom-step(root.id, -1); return accept; }
                 // PDF Expert's shortcuts: ⌘0 100 %, ⌘9 fit width, ⌘8 fit page, ⌃⌘F full screen,

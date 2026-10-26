@@ -35,6 +35,17 @@ fn margins_set_a_crop_box_on_all_pages() {
 }
 
 #[test]
+fn margins_cut_from_what_a_cropped_page_shows() {
+    // Cropped once by 50 pt at the top, then by 20 pt more: 70 pt in all (Sol, 26/10: the second
+    // was measured from the media box again and took 20).
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let once = crop(&Input::new(&a), None, &CropSpec::Margins { top: 50.0, bottom: 0.0, left: 0.0, right: 0.0 }, &t.path().join("1.pdf")).unwrap().0;
+    let twice = crop(&Input::new(&once), None, &CropSpec::Margins { top: 20.0, bottom: 0.0, left: 0.0, right: 0.0 }, &t.path().join("2.pdf")).unwrap().0;
+    assert!((crop_box(&twice, 1).unwrap()[3] - (H - 70.0)).abs() < 0.01, "{:?}", crop_box(&twice, 1));
+}
+
+#[test]
 fn selected_pages_only_and_remove_restores() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 3);

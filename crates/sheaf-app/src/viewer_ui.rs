@@ -221,13 +221,18 @@ impl ViewerUi {
         };
         let crop = self.viewer.boxes.get(page).map(|b| b.crop).unwrap_or_default();
         self.show_page(page, sheaf_app::reader::dest_focus(view, crop));
+        // The view's left edge at the destination's as shown: on a page turned a quarter, a point's
+        // place across depends on its height in user space (Sol, 26/10: it was taken from the crop
+        // box's bottom, and the rectangle could stay out of view).
         let left = match *view {
-            render::DestView::Xyz { left: Some(l), .. } => Some(l as f64),
-            render::DestView::FitR { rect } => Some(rect[0] as f64),
+            render::DestView::Xyz { left: Some(l), top, .. } => {
+                let t = top.map_or(crop[1], f64::from);
+                Some(self.viewer.overlay(page, [l as f64, t, l as f64 + 1.0, t + 1.0])[0])
+            }
+            render::DestView::FitR { rect } => Some(self.viewer.overlay(page, rect.map(f64::from))[0]),
             _ => None,
         };
-        if let Some(l) = left {
-            let x = self.viewer.overlay(page, [l, crop[1], l + 1.0, crop[1] + 1.0])[0];
+        if let Some(x) = left {
             self.scroll_x = Some((x - 8.0).clamp(0.0, self.viewer.max_scroll_x()));
         }
         zoomed
@@ -380,9 +385,9 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
             keys.extend(v.wanted_pages().map(|p| v.page_key(p)).filter(|k| !v.pages.contains(k)));
         }
         keys.extend(v.wanted_thumbs().map(|p| v.thumb_key(p)).filter(|k| !v.thumbs.contains(k)));
-        Some((v.load_id, keys, v.input.clone(), v.source.clone(), v.theme, !v.hide_comments))
+        Some((v.load_id, keys, v.input.clone(), v.source.clone(), v.theme, !v.hide_comments, v.viewer.turn()))
     });
-    let Some((load_id, keys, input, source, theme, comments)) = todo else { return };
+    let Some((load_id, keys, input, source, theme, comments, turn)) = todo else { return };
     let wanted: HashSet<RenderKey> = keys.iter().copied().collect();
     let q = viewer::renders();
     q.retain(|k| k.doc != load_id || wanted.contains(k));
@@ -390,7 +395,7 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
         let (weak, input, source) = (ui.as_weak(), input.clone(), source.clone());
         q.submit(key, move || {
             let px = match &source {
-                Some(bytes) => viewer::render_bytes(bytes, input.password.as_deref(), key.page, key.width, theme, comments),
+                Some(bytes) => viewer::render_bytes(bytes, input.password.as_deref(), key.page, key.width, theme, comments, turn),
                 None => viewer::render_page(&input, key.page, key.width).map(|mut px| {
                     sheaf_app::reader::tint(px.make_mut_bytes(), theme);
                     px
@@ -927,7 +932,7 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
         .map(|i| {
             let [x, y, w, h] = v.viewer.page_rect(i);
             let image = v.any_page_image(i).cloned();
-            ViewerPage { x: len(x), y: len(y), w: len(w), h: len(h), ready: image.is_some(), image: image.unwrap_or_default() }
+            ViewerPage { page: i as i32, x: len(x), y: len(y), w: len(w), h: len(h), ready: image.is_some(), image: image.unwrap_or_default() }
         })
         .collect();
     let tl = v.viewer.thumb_layout();
@@ -1062,6 +1067,22 @@ mod tests {
         let z = v.viewer.zoom();
         assert!(!v.show_dest(0, &render::DestView::Xyz { left: None, top: Some(500.0), zoom: None }));
         assert_eq!((v.viewer.zoom(), v.scroll_x), (z, None));
+    }
+
+    #[test]
+    fn a_rectangle_on_a_turned_page_comes_into_view() {
+        // A page turned a quarter (/Rotate 90): a small rectangle high on it in user space shows far to
+        // the right; /FitR scrolls across to it (Sol, 26/10).
+        let pages = (0..2).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 90, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        let rect = [400.0, 700.0, 450.0, 780.0];
+        v.show_dest(1, &render::DestView::FitR { rect: rect.map(|c| c as f32) });
+        let r = v.viewer.overlay(1, rect);
+        let sx = v.scroll_x.expect("scrolled across");
+        assert!(r[0] >= sx && r[0] + r[2] <= sx + v.viewer.view_width(), "{r:?} {sx}");
+        assert!(r[1] >= v.scroll && r[1] + r[3] <= v.scroll + 700.0, "{r:?} {}", v.scroll);
     }
 
     #[test]

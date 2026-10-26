@@ -231,6 +231,8 @@ export component PropertiesSheet inherits Rectangle {
     property <int> open-layout: root.tab.reader.props-opening[1];
     property <int> open-zoom: root.tab.reader.props-opening[2];
     property <int> open-panel: root.tab.reader.props-opening[3];
+    // Its window options, bits as properties.rs opening_controls.
+    property <int> open-window: root.tab.reader.props-opening[4];
     // The About line shown in full (−1: none).
     property <int> open-row: -1;
     // The keyboard back to the pages once the sheet closes.
@@ -298,6 +300,17 @@ export component PropertiesSheet inherits Rectangle {
                             Text { width: 48px; text: "Panel"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                             for n[i] in ["None", "Bookmarks", "Pages"]: SmallButton { text: n; primary: root.open-panel == i; clicked => { root.open-panel = i; } }
                         }
+                        // Acrobat's Window and User interface options: toggled, each a bit of open-window.
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            Text { width: 48px; text: "Window"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                            for w[i] in [{ t: "Full screen", b: 1 }, { t: "Title", b: 2 }, { t: "Fit", b: 4 }, { t: "Centre", b: 8 }, { t: "No bar", b: 16 }]: SmallButton {
+                                text: w.t;
+                                primary: Math.mod(Math.floor(root.open-window / w.b), 2) == 1;
+                                clicked => { root.open-window += Math.mod(Math.floor(root.open-window / w.b), 2) == 1 ? -w.b : w.b; }
+                            }
+                        }
                         Rectangle { height: 1px; background: Theme.sidebar-border; }
                         // A line cut short opens in full on a click (a certificate's issuer and dates; Sol, 25/10).
                         for p[i] in root.tab.reader.props-about: HorizontalLayout {
@@ -324,13 +337,15 @@ export component PropertiesSheet inherits Rectangle {
                 }
                 HorizontalLayout {
                     spacing: 8px;
+                    // Acrobat's PDF info report: everything above and the fonts, as text.
+                    SmallButton { text: "Copy report"; clicked => { ReaderBridge.props-copy(root.id); } }
                     Rectangle { horizontal-stretch: 1; }
                     SmallButton { text: "Cancel"; clicked => { ReaderBridge.props-cancel(root.id); root.focus-pages(); } }
                     save := SmallButton {
                         text: "Save";
                         primary: true;
                         clicked => {
-                            ReaderBridge.props-save(root.id, title-in.text, author-in.text, subject-in.text, keywords-in.text, custom-in.text, page-in.text, root.open-layout, root.open-zoom, root.open-panel);
+                            ReaderBridge.props-save(root.id, title-in.text, author-in.text, subject-in.text, keywords-in.text, custom-in.text, page-in.text, root.open-layout, root.open-zoom, root.open-panel, root.open-window);
                             root.focus-pages();
                         }
                     }

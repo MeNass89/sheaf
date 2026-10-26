@@ -447,16 +447,24 @@ pub fn sort_files(tab_id: i32) {
 }
 
 /// Merge ▸ Files or Pages: its files opened out into their pages (each file's page choice
-/// kept), to put in any order; back to Files, the order made is let go.
+/// kept), to put in any order; back to Files, the order made is kept aside for the next Pages
+/// view, while the same files stay.
 pub fn show_merge_pages(ui: &AppWindow, tab_id: i32, on: bool) {
     let render = with(|a| {
         let t = a.tab(tab_id)?;
         if !on {
-            t.merge_order = None;
+            t.merge_kept = t.merge_order.take();
             refresh(a, tab_id);
             return None;
         }
         if t.merge_order.is_some() {
+            return None;
+        }
+        // The order made before, when the files are the same ones.
+        let uids: std::collections::BTreeSet<i32> = t.files.iter().map(|f| f.uid).collect();
+        if let Some(kept) = t.merge_kept.take().filter(|k| k.iter().map(|e| e.0).collect::<std::collections::BTreeSet<_>>() == uids) {
+            t.merge_order = Some(kept);
+            refresh(a, tab_id);
             return None;
         }
         let mut seq = Vec::new();
@@ -594,6 +602,13 @@ pub fn close_active_tab(ui: &AppWindow) {
 /// (2) of tab `id`, or every tab (3: Close All Tabs, ⌥⌘W). Tabs with a running task stay open;
 /// documents with unsaved edits are asked about in turn.
 pub fn close_tabs_around(ui: &AppWindow, id: i32, which: i32) {
+    // The tab menu's file commands share its callback.
+    match which {
+        4 => return crate::reader_ui::rename_file(ui, id),
+        5 => return crate::reader_ui::reveal_file(id),
+        6 => return crate::reader_ui::trash_file(ui, id),
+        _ => {}
+    }
     let ids: Vec<i32> = with(|a| {
         // Left and right as the bar shows them.
         let bar: Vec<i32> = state::tab_order().iter().filter_map(|r| a.tabs.get(r as usize)).map(|t| t.id).collect();

@@ -38,8 +38,8 @@ pub enum SplitMode {
     Bookmarks,
     /// Outputs of at most this many bytes each.
     Size(u64),
-    /// Each page cut in two, left and right (`true`) or top and bottom, into one output.
-    Halves(bool),
+    /// Each page cut into columns × rows parts as seen, into one output.
+    Grid(u32, u32),
 }
 
 /// What PDF to Word / PowerPoint / Excel writes.
@@ -64,7 +64,8 @@ pub enum Job {
     ExtractPages { input: Input, pages: String, out: PathBuf },
     /// 1-based page numbers in output order; 0 inserts a blank page. `per_sheet` past 1, or
     /// `booklet`: the result imposed several to a sheet (`pages::impose`).
-    Organize { input: Input, order: Vec<u32>, out: PathBuf, per_sheet: u8, booklet: bool },
+    /// `long`: every page one under the other on one long page.
+    Organize { input: Input, order: Vec<u32>, out: PathBuf, per_sheet: u8, booklet: bool, long: bool },
     Rotate { items: Vec<(Input, PathBuf)>, degrees: i64, pages: Option<String>, filter: rotate::PageFilter },
     Compress { items: Vec<(Input, PathBuf)>, level: Level },
     /// `sanitize`: the hidden information removed first (Acrobat's Protect ▸ Sanitize Document).
@@ -277,7 +278,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 SplitMode::OneFile(s) => vec![pages::extract(input, s, &out_dir.join(format!("{}-split.pdf", input.stem())))?],
                 SplitMode::Every(n) => pages::split_every(input, *n, out_dir)?,
                 SplitMode::Bookmarks => pages::split_bookmarks(input, out_dir)?,
-                SplitMode::Halves(across) => vec![pages::halves(input, *across, &out_dir.join(format!("{}-halves.pdf", input.stem())))?],
+                SplitMode::Grid(cols, rows) => vec![pages::cut(input, *cols, *rows, &out_dir.join(format!("{}-cut.pdf", input.stem())))?],
                 SplitMode::Size(max) => {
                     let (files, over) = pages::split_size_report(input, *max, out_dir)?;
                     summary = pages::oversize_note(&over);
@@ -307,11 +308,11 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             r
         }
-        Job::Organize { input, order, out, per_sheet, booklet } => {
-            let r = if *per_sheet > 1 || *booklet {
+        Job::Organize { input, order, out, per_sheet, booklet, long } => {
+            let r = if *per_sheet > 1 || *booklet || *long {
                 let tmp = tempfile::tempdir()?;
-                let arranged = pages::organize(input, order, &tmp.path().join("arranged.pdf"))?;
-                one(pages::impose(&Input::new(arranged), *per_sheet, *booklet, out))?
+                let arranged = Input::new(pages::organize(input, order, &tmp.path().join("arranged.pdf"))?);
+                one(if *long { pages::long_page(&arranged, out) } else { pages::impose(&arranged, *per_sheet, *booklet, out) })?
             } else {
                 one(pages::organize(input, order, out))?
             };
@@ -376,11 +377,18 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::Office { items } => {
             batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(crate::files::office_to_pdf(i, o))))?
         }
-        Job::PageNumbers { items, options } => batch(each(items, cancel, progress, pair, |(i, o)| {
-            let (p, w) = numbers::number_pages(i, options, o)?;
-            was_encrypted |= w;
-            Ok(vec![p])
-        }))?,
+        Job::PageNumbers { items, options } => {
+            // Bates numbers run on from one file to the next, as Acrobat's batch does (Sol, 26/10: each
+            // file started again, giving the same numbers twice).
+            let mut next = options.bates.start;
+            batch(each(items, cancel, progress, pair, |(i, o)| {
+                let numbered = numbers::NumberOptions { bates: numbers::Bates { start: next, ..options.bates.clone() }, ..options.clone() };
+                let (p, w) = numbers::number_pages(i, &numbered, o)?;
+                was_encrypted |= w;
+                next = next.saturating_add(std::fs::read(&p).map_or(0, |b| sheaf_core::pages::count_in(&b)) as u32);
+                Ok(vec![p])
+            }))?
+        }
         Job::Watermark { items, options } => batch(each(items, cancel, progress, pair, |(i, o)| {
             let (p, w) = watermark::watermark(i, options, o)?;
             was_encrypted |= w;

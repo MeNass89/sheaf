@@ -6,6 +6,22 @@ use std::sync::mpsc::{channel, Receiver};
 use std::time::Duration;
 
 #[test]
+fn a_large_area_is_copied_whole() {
+    assert_eq!(area_scale(100.0, 100.0), AREA_SCALE);
+    // A whole A3 page: 1191 × 3 would pass the 4096 px tile.
+    let s = area_scale(842.0, 1191.0);
+    assert!(842.0 * s <= 4096.0 && 1191.0 * s <= 4096.0, "{s}");
+}
+
+#[test]
+fn a_field_font_is_known_through_its_subset_tag() {
+    assert_eq!(field_font_family("ABCDEF+Courier"), 2);
+    assert_eq!(field_font_family("Times-Roman"), 1);
+    assert_eq!(field_font_family("Helv"), 0);
+    assert_eq!(field_font_family("ABCDEF+TimesNewRomanPSMT"), 1);
+}
+
+#[test]
 fn a_check_mark_is_not_a_review_status() {
     assert_eq!(review_status("Accepted"), Some("Accepted"));
     assert_eq!(review_status("Marked"), None);
@@ -679,6 +695,9 @@ fn document_properties_list_the_signatures_with_their_verdict() {
     // Its certificate, and the signed version: the file's bytes up to the signature's end.
     let cert = snap.props.about.iter().find(|(k, _)| k == "Signature 1 · certificate").expect("the certificate's row");
     assert!(cert.1.starts_with("Issued to Ada Signer by Ada Signer, valid "), "{cert:?}");
+    // The subject's full name, every attribute.
+    let subject = snap.props.about.iter().find(|(k, _)| k == "Signature 1 · subject").expect("the subject's row");
+    assert!(subject.1.contains("CN=Ada Signer"), "{subject:?}");
     let len = std::fs::metadata(&signed).unwrap().len() as usize;
     assert!(matches!(&snap.props.signed[..], [(who, n, 0, false)] if who == "Ada Signer" && *n > 0 && *n <= len), "{:?}", snap.props.signed);
 }
@@ -880,3 +899,22 @@ fn pages_inserted_from_a_file_keep_their_content() {
     assert_eq!(texts(&out), ["Page 1", "Page 1", "Page 2", "Page 3", "Page 4"]);
 }
 
+#[test]
+fn a_stamp_turns_a_quarter_about_its_centre() {
+    use sheaf_core::pdfcraft::engine::StampKind;
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 1);
+    let (ops, rx, _) = started(&path);
+    let shape = Shape::Stamp { rect: [100.0, 400.0, 260.0, 442.0], stamp: StampKind::ALL[0], by: None };
+    let style = Style::default_for(&shape);
+    ops.send(Op::Apply { edit: Box::new(Edit::AddAnnotation(NewAnnotation { page: 0, shape, style, contents: String::new(), author: String::new() })), pages: vec![0] }).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    let index = snap.annots.iter().position(|a| a.subtype == "Stamp").unwrap();
+    ops.send(Op::Apply { edit: Box::new(Edit::TurnAnnotation { page: 0, index, quarters: 1 }), pages: vec![0] }).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    // 160 × 42 becomes 42 × 160 about the same centre (180, 421).
+    let r = snap.annots.iter().find(|a| a.subtype == "Stamp").unwrap().rect;
+    assert!((r[0] - 159.0).abs() < 0.5 && (r[2] - 201.0).abs() < 0.5 && (r[1] - 341.0).abs() < 0.5 && (r[3] - 501.0).abs() < 0.5, "{r:?}");
+}

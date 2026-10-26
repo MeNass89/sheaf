@@ -45,6 +45,16 @@ impl MarkKind {
             MarkKind::Background => "Background",
         }
     }
+
+    /// Sheaf: the `/Subtype`s other apps give these marks as Pagination artifacts (ISO 32000-2
+    /// §14.8.2.2.2; Acrobat's Header & Footer, Watermark and Background).
+    fn artifact_subtypes(self) -> &'static [&'static [u8]] {
+        match self {
+            MarkKind::HeaderFooter => &[b"Header", b"Footer"],
+            MarkKind::Watermark => &[b"Watermark"],
+            MarkKind::Background => &[b"Background"],
+        }
+    }
 }
 
 pub type Rgb = [f64; 3];
@@ -722,7 +732,63 @@ pub fn remove_marks(doc: &mut Document, pages: &[usize], kind: MarkKind) -> Resu
             kept.retain(|o| !is_wrap(o));
         }
         if before != kept.len() {
-            doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), Object::Array(kept)))?;
+            doc.update_dict(page.obj, |d| d.set(b"Contents".to_vec(), Object::Array(kept.clone())))?;
+        }
+        // Sheaf: the same marks made by other apps, inside the page's own content.
+        removed += remove_artifacts(doc, &kept, kind)?;
+    }
+    Ok(removed)
+}
+
+/// Sheaf: takes the Pagination artifacts of `kind` (`/Artifact <</Type /Pagination /Subtype /Header>>
+/// BDC … EMC`, as Acrobat writes its headers, footers, watermarks and backgrounds) out of the content
+/// streams `list`; how many. Each stream changed is written again in its place.
+fn remove_artifacts(doc: &mut Document, list: &[Object], kind: MarkKind) -> Result<usize, EditError> {
+    let mut removed = 0;
+    for entry in list {
+        let Some(r) = Object::as_ref(entry) else { continue };
+        let obj = doc.get(r);
+        let Object::Stream(stream) = &*obj else { continue };
+        if stream.dict.get(b"PCMark").is_some() {
+            continue;
+        }
+        let Ok(bytes) = stream.decoded_within(64 * 1024 * 1024) else { continue };
+        // Cheap test first: most streams hold none.
+        if !kind.artifact_subtypes().iter().any(|s| bytes.windows(s.len()).any(|w| w == *s)) {
+            continue;
+        }
+        let ops = pdfcraft_content::parse(&bytes).ops;
+        let is_mark = |op: &pdfcraft_content::Op| {
+            op.is("BDC")
+                && op.name(0) == Some(&b"Artifact"[..])
+                && op.operands.get(1).and_then(Object::as_dict).is_some_and(|d| {
+                    d.name(b"Subtype").is_some_and(|s| kind.artifact_subtypes().contains(&s)) && d.name(b"Type").is_none_or(|t| t == b"Pagination")
+                })
+        };
+        let (mut kept, mut skip, mut found) = (Vec::with_capacity(ops.len()), 0usize, 0usize);
+        for op in ops {
+            if skip > 0 {
+                // Marked content nests: the artifact ends at its own EMC.
+                if op.is("BDC") || op.is("BMC") {
+                    skip += 1;
+                } else if op.is("EMC") {
+                    skip -= 1;
+                }
+                continue;
+            }
+            if is_mark(&op) {
+                skip = 1;
+                found += 1;
+                continue;
+            }
+            kept.push(op);
+        }
+        if found > 0 {
+            let mut dict = stream.dict.clone();
+            dict.remove(b"Filter");
+            dict.remove(b"DecodeParms");
+            doc.set(r, Object::Stream(Stream::flate(dict, &pdfcraft_content::serialize_ops(&kept))));
+            removed += found;
         }
     }
     Ok(removed)

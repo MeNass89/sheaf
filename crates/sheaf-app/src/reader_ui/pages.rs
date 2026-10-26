@@ -63,7 +63,7 @@ pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
                 let edits = (0..b - a).map(|i| Edit::MovePages { pages: vec![b], to: a + i }).collect();
                 Edit::Batch { label: "Reverse pages".into(), edits }
             }
-            6 | 7 => return Ok(None),
+            6 | 7 | 9 => return Ok(None),
             _ => return Err(String::new()),
         };
         // Page numbers shift: the selection follows what is left.
@@ -72,16 +72,18 @@ pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
     });
     match made {
         Some(Ok(Some(e))) => apply_structure(ui, tab_id, e),
-        Some(Ok(None)) => from_file(ui, tab_id, op == 7),
+        Some(Ok(None)) => from_file(ui, tab_id, op),
         Some(Err(m)) if !m.is_empty() => crate::flow::toast(ui, &m),
         _ => {}
     }
 }
 
 /// Insert pages from file (Acrobat's): a PDF picked goes after the selected page (or the one
-/// shown), all its pages. `replace`: its pages take the selected pages' places instead, from its
-/// first page, one for one (Acrobat's Replace Pages). One undo step either way.
-fn from_file(ui: &AppWindow, tab_id: i32, replace: bool) {
+/// shown), all its pages; `op` 9 before it (Acrobat's Before, so a file can go before page 1; Sol,
+/// 26/10). `op` 7: its pages take the selected pages' places instead, from its first page, one for
+/// one (Acrobat's Replace Pages). One undo step either way.
+fn from_file(ui: &AppWindow, tab_id: i32, op: i32) {
+    let replace = op == 7;
     let d = crate::dialog::new(ui).set_title(if replace { "Replace pages with a file" } else { "Insert pages from a file" }).add_filter("PDF", &["pdf"]);
     crate::dialog::pick_file(ui, d, move |ui, path| {
         let bytes = match std::fs::read(&path) {
@@ -99,7 +101,8 @@ fn from_file(ui: &AppWindow, tab_id: i32, replace: bool) {
                 }
                 Ok(Edit::ReplacePages { src_pages: (0..pages.len()).collect(), pages, name: name.clone(), bytes: bytes.clone() })
             } else {
-                Ok(Edit::InsertPagesFrom { name: name.clone(), bytes: bytes.clone(), pages: None, at: pages.last().map_or(0, |p| p + 1), field_conflicts: Default::default() })
+                let at = if op == 9 { pages.first().copied().unwrap_or(0) } else { pages.last().map_or(0, |p| p + 1) };
+                Ok(Edit::InsertPagesFrom { name: name.clone(), bytes: bytes.clone(), pages: None, at, field_conflicts: Default::default() })
             }
         }) else {
             return;

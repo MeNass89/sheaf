@@ -20,6 +20,39 @@ pub fn parse_ranges(spec: &str, pages: u32) -> Result<Vec<RangeInclusive<u32>>> 
     Ok(out)
 }
 
+/// An order typed for Organize (Acrobat's custom order, its odd-and-even and duplex rules): the
+/// 1-based pages of a document of `pages`, in order, a page as often as named. `"odd, even"` (or
+/// `"even, odd"`) puts one side first; `"collate"` puts back the pages of a two-sided document
+/// scanned one side at a time, the fronts then the backs in reverse (1, n, 2, n − 1…); otherwise a
+/// list like `"3, 1-2, 9-7"` (a range may run backwards).
+pub fn order_spec(spec: &str, pages: u32) -> Result<Vec<u32>> {
+    let bad = || OpdfError::InvalidRange { range: spec.to_string(), pages };
+    let words: Vec<String> = spec.split(',').map(|w| w.trim().to_lowercase()).collect();
+    let odd = || (1..=pages).filter(|p| p % 2 == 1);
+    let even = || (1..=pages).filter(|p| p % 2 == 0);
+    match words.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+        ["odd", "even"] => return Ok(odd().chain(even()).collect()),
+        ["even", "odd"] => return Ok(even().chain(odd()).collect()),
+        ["collate"] => {
+            let fronts = pages.div_ceil(2);
+            let backs: Vec<u32> = (fronts + 1..=pages).rev().collect();
+            return Ok((1..=fronts).flat_map(|f| std::iter::once(f).chain(backs.get(f as usize - 1).copied())).collect());
+        }
+        _ => {}
+    }
+    let mut out = Vec::new();
+    for part in &words {
+        let (a, b) = part.split_once('-').map_or((part.as_str(), part.as_str()), |(a, b)| (a.trim(), b.trim()));
+        let a: u32 = a.parse().map_err(|_| bad())?;
+        let b: u32 = if b.is_empty() { pages } else { b.parse().map_err(|_| bad())? };
+        if a == 0 || b == 0 || a > pages || b > pages {
+            return Err(bad());
+        }
+        if a <= b { out.extend(a..=b) } else { out.extend((b..=a).rev()) }
+    }
+    Ok(out)
+}
+
 /// Ranges written back as a spec ("1-3,4,5-9").
 pub fn spec_of(ranges: &[RangeInclusive<u32>]) -> String {
     ranges.iter().map(|r| if r.start() == r.end() { r.start().to_string() } else { format!("{}-{}", r.start(), r.end()) }).collect::<Vec<_>>().join(",")
@@ -51,6 +84,17 @@ pub fn range_of(spec: &str, page: u32, pages: u32) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn an_order_is_typed_or_ruled() {
+        assert_eq!(order_spec("odd, even", 5).unwrap(), [1, 3, 5, 2, 4]);
+        assert_eq!(order_spec("Even,odd", 4).unwrap(), [2, 4, 1, 3]);
+        // Fronts 1–3 scanned, then backs 6–4: 1, 6, 2, 5, 3, 4.
+        assert_eq!(order_spec("collate", 6).unwrap(), [1, 6, 2, 5, 3, 4]);
+        assert_eq!(order_spec("collate", 5).unwrap(), [1, 5, 2, 4, 3]);
+        assert_eq!(order_spec("3, 1-2, 5-4, 1", 5).unwrap(), [3, 1, 2, 5, 4, 1]);
+        assert!(order_spec("7", 5).is_err() && order_spec("x", 5).is_err());
+    }
     use super::*;
 
     #[test]

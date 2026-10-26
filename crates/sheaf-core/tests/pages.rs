@@ -81,6 +81,21 @@ fn a_flipped_page_is_its_mirror_image() {
     assert!((l2 - 72.0).abs() < 3.0, "page 2 left alone: {l2}");
 }
 #[test]
+fn a_cropped_page_is_mirrored_within_what_shows() {
+    // Cropped to its left half: mirrored about the media box, "Page 1" would land outside it
+    // (Sol, 26/10).
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let spec = sheaf_core::crop::CropSpec::Margins { top: 0.0, bottom: 0.0, left: 0.0, right: 300.0 };
+    let (cropped, _) = sheaf_core::crop::crop(&Input::new(&a), None, &spec, &t.path().join("c.pdf")).unwrap();
+    let out = flip(&Input::new(&cropped), None, true, &t.path().join("f.pdf")).unwrap();
+    let o = std::process::Command::new("pdftotext").arg("-cropbox").arg(&out).arg("-").output().unwrap();
+    // Its letters, mirrored, are still within the crop box.
+    let shown = String::from_utf8_lossy(&o.stdout).chars().filter(|c| c.is_alphanumeric()).count();
+    assert!(shown >= 5, "{:?}", String::from_utf8_lossy(&o.stdout));
+}
+
+#[test]
 fn a_flipped_page_takes_its_comments_with_it() {
     use pdfium_render::prelude::*;
     let t = tempfile::tempdir().unwrap();
@@ -96,6 +111,28 @@ fn a_flipped_page_takes_its_comments_with_it() {
     }
     // Drawn into the page, it is mirrored with it: no comment is left at its old place.
     let out = flip(&Input::new(&marked), None, true, &t.path().join("f.pdf")).unwrap();
+    let doc = lopdf::Document::load(&out).unwrap();
+    let page = doc.get_dictionary(doc.get_pages()[&1]).unwrap();
+    let annots = page.get(b"Annots").ok().and_then(|a| doc.dereference(a).ok()).and_then(|(_, a)| a.as_array().ok().cloned()).unwrap_or_default();
+    assert!(annots.is_empty(), "{annots:?}");
+}
+
+#[test]
+fn a_page_changed_in_size_takes_its_comments_with_it() {
+    use pdfium_render::prelude::*;
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let marked = t.path().join("m.pdf");
+    {
+        let _g = sheaf_core::engine::pdfium_lock();
+        let doc = sheaf_core::engine::open_pdf(&a, None).unwrap();
+        let mut page = doc.pages().get(0).unwrap();
+        let mut square = page.annotations_mut().create_square_annotation().unwrap();
+        square.set_bounds(PdfRect::new_from_values(700.0, 60.0, 740.0, 160.0)).unwrap();
+        doc.save_to_file(&marked).unwrap();
+    }
+    // Drawn into the page, it is scaled with it: no comment is left at its old place.
+    let out = resize(&Input::new(&marked), None, (420.0, 595.0), &t.path().join("r.pdf")).unwrap();
     let doc = lopdf::Document::load(&out).unwrap();
     let page = doc.get_dictionary(doc.get_pages()[&1]).unwrap();
     let annots = page.get(b"Annots").ok().and_then(|a| doc.dereference(a).ok()).and_then(|(_, a)| a.as_array().ok().cloned()).unwrap_or_default();
@@ -132,6 +169,28 @@ fn each_page_is_cut_into_its_two_halves() {
     // Top halves first: the words sit near the top (y 720 of 842).
     assert_eq!(shown_texts(&down), ["Page 1", "", "Page 2", ""]);
 }
+#[test]
+fn every_page_goes_on_one_long_page() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 3);
+    let out = long_page(&Input::new(&a), &t.path().join("l.pdf")).unwrap();
+    assert_eq!(shown_texts(&out).len(), 1);
+    assert!(shown_texts(&out)[0].contains("Page 1") && shown_texts(&out)[0].contains("Page 3"), "{:?}", shown_texts(&out));
+    // 20 A4 pages would pass the 200-inch limit.
+    let many = fixture_pdf(t.path(), "m.pdf", 20);
+    assert!(long_page(&Input::new(&many), &t.path().join("m-l.pdf")).is_err());
+}
+
+#[test]
+fn each_page_is_cut_into_a_grid() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    // 2 × 3: six parts, the words ("Page 1" at 72, 720: top left) in the first only.
+    let out = cut(&Input::new(&a), 2, 3, &t.path().join("g.pdf")).unwrap();
+    assert_eq!(shown_texts(&out), ["Page 1", "", "", "", "", ""]);
+    assert!(cut(&Input::new(&a), 1, 1, &t.path().join("x.pdf")).is_err());
+}
+
 #[test]
 fn split_ranges_writes_one_file_per_range() {
     let t = tempfile::tempdir().unwrap();

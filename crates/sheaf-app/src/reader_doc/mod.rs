@@ -80,6 +80,12 @@ fn reflowed(editor_text: &str, soft: &[bool]) -> String {
 const AREA_SCALE: f32 = 3.0;
 
 /// Part `rect` (user space) of `page` as shown, as (width, height, RGBA).
+/// The scale an area `w` × `h` points is copied at: three times its size, less for a large one (40
+/// Mpx at most, and 4096 px a side, the renderer's largest tile: Sol, 26/10, a large area was cut off).
+fn area_scale(w: f32, h: f32) -> f32 {
+    AREA_SCALE.min((40e6 / (w * h)).sqrt()).min(4096.0 / w).min(4096.0 / h)
+}
+
 fn area_pixels(d: &sheaf_core::pdfcraft::engine::Document, page: usize, rect: [f64; 4]) -> Result<(u32, u32, Vec<u8>), String> {
     let info = d.info.pages.get(page).ok_or("no such page")?;
     let a = info.user_to_view(rect[0] as f32, rect[1] as f32);
@@ -88,7 +94,7 @@ fn area_pixels(d: &sheaf_core::pdfcraft::engine::Document, page: usize, rect: [f
     if x1 - x0 < 1.0 || y1 - y0 < 1.0 {
         return Err("the area is empty".into());
     }
-    let scale = AREA_SCALE.min((40e6 / ((x1 - x0) * (y1 - y0))).sqrt());
+    let scale = area_scale(x1 - x0, y1 - y0);
     let tile = render::Tile { x: (x0 * scale) as u32, y: (y0 * scale) as u32, w: ((x1 - x0) * scale).ceil() as u32, h: ((y1 - y0) * scale).ceil() as u32 };
     let config = render::RenderConfig { password: d.password.as_deref().map(Arc::from), ..Default::default() };
     let shot = render::PageRenderer::new(d.display.clone(), config).render(render::RenderRequest { page, scale, tile: Some(tile), ..Default::default() });
@@ -165,6 +171,42 @@ pub struct Snap {
     pub attachments: Arc<Vec<sheaf_core::pdfcraft::render::Attachment>>,
 }
 
+/// A certificate name's attribute by its usual short name (RFC 4514's, and E for the e-mail);
+/// other attributes keep their OID.
+fn attribute_name(oid: &str) -> &str {
+    match oid {
+        "2.5.4.3" => "CN",
+        "2.5.4.4" => "SN",
+        "2.5.4.5" => "SERIALNUMBER",
+        "2.5.4.6" => "C",
+        "2.5.4.7" => "L",
+        "2.5.4.8" => "ST",
+        "2.5.4.10" => "O",
+        "2.5.4.11" => "OU",
+        "2.5.4.12" => "T",
+        "2.5.4.42" => "G",
+        "1.2.840.113549.1.9.1" => "E",
+        other => other,
+    }
+}
+
+/// A field font's family as Prepare form offers them (0 Helvetica, 1 Times, 2 Courier), from its
+/// base name; a subset's tag ("ABCDEF+Courier") is left out (Sol, 26/10: it read as Helvetica).
+pub(crate) fn field_font_family(base: &str) -> i32 {
+    let base = match base.split_once('+') {
+        Some((tag, rest)) if tag.len() == 6 && tag.chars().all(|c| c.is_ascii_uppercase()) => rest,
+        _ => base,
+    }
+    .to_ascii_lowercase();
+    if base.starts_with("ti") || base.contains("times") {
+        1
+    } else if base.starts_with("co") || base.contains("courier") {
+        2
+    } else {
+        0
+    }
+}
+
 /// Writes attachment `att` of the PDF `bytes` (opened with `password`) to `to`.
 pub fn save_attachment(bytes: &[u8], password: Option<&str>, att: &sheaf_core::pdfcraft::render::Attachment, to: &std::path::Path) -> Result<(), String> {
     let data = sheaf_core::pdfcraft::render::attachment_data(bytes, password, att)?;
@@ -216,6 +258,11 @@ fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
         // Its certificate, as Acrobat's Certificate Viewer summarises it (Sol, 25/10).
         if let Some(c) = &s.certificate {
             about.push((format!("Signature {} · certificate", k + 1), format!("Issued to {} by {}, valid {} to {}", c.subject.display_name(), c.issuer.display_name(), c.not_before, c.not_after)));
+            // Their full names, every attribute (Acrobat's Certificate Viewer; Sol, 26/10: only the
+            // short names showed). A click on the line opens it in full.
+            let full = |attrs: &[(String, String)]| attrs.iter().map(|(k, v)| format!("{}={v}", attribute_name(k))).collect::<Vec<_>>().join(", ");
+            about.push((format!("Signature {} · subject", k + 1), full(&c.subject.attrs)));
+            about.push((format!("Signature {} · issuer", k + 1), full(&c.issuer.attrs)));
         }
     }
     let trusted = sheaf_core::pdfcraft::trusted_certificates();
@@ -347,10 +394,7 @@ fn fields(d: &sheaf_core::pdfcraft::engine::Document) -> Vec<FieldEntry> {
             // The font named in /DA, through the form's resources when the name is only a key (/F1;
             // Sol, 25/10: a Times field read as Helvetica).
             font: match f.da.split_whitespace().find(|t| t.starts_with('/')).map(|t| t.trim_start_matches('/')) {
-                Some(n) => {
-                    let base = d.form_font_base(n).unwrap_or_else(|| n.to_string()).to_ascii_lowercase();
-                    if base.starts_with("ti") || base.contains("times") { 1 } else if base.starts_with("co") { 2 } else { 0 }
-                }
+                Some(n) => field_font_family(&d.form_font_base(n).unwrap_or_else(|| n.to_string())),
                 None => 0,
             },
             action: match &f.button {
@@ -400,6 +444,9 @@ pub enum Op {
     /// Find and replace in the pages' text (Acrobat's Edit PDF ▸ Find ▸ Replace All): each
     /// paragraph holding `find` rewritten with `with`, one undo step.
     ReplaceAll { find: String, with: String, case: bool, whole: bool },
+    /// The search panel's Replace (Acrobat's): only the `nth` occurrence (0-based, in reading
+    /// order) on `page`, one undo step.
+    ReplaceOne { page: usize, nth: usize, find: String, with: String, case: bool, whole: bool },
     /// The part `rect` (user space) of `page` as shown, as pixels for the clipboard (Acrobat's
     /// Snapshot; drawings and paragraphs picked with the Edit tool, copied as a picture).
     CopyArea { page: usize, rect: [f64; 4] },
@@ -558,6 +605,27 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         // An undo step was counted for it by the window: `applied` even when refused, so it is taken back.
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: true, note, preview: false });
                     }
+                    Op::ReplaceOne { page, nth, find, with, case, whole } => {
+                        // The paragraphs in reading order; the one holding the occurrence rewritten.
+                        let blocks = doc.document().text_blocks(page);
+                        let mut left = nth;
+                        let mut edit = None;
+                        for (k, b) in blocks.iter().enumerate() {
+                            let text = reflowed(&b.editor_text, &b.soft_breaks);
+                            let (n, one) = sheaf_app::reader::replace_nth(&text, &find, &with, case, whole, left);
+                            if let Some(new) = one {
+                                edit = Some(Edit::EditTextBlock { page, block: k, text: new, style: Default::default() });
+                                break;
+                            }
+                            left -= n;
+                        }
+                        let error = match edit {
+                            Some(e) => doc.apply(e).err().map(|e| e.to_string()),
+                            None => Some(format!("This “{find}” is not in the page's text to replace")),
+                        };
+                        let note = error.is_none().then(|| "1 occurrence replaced".to_string());
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(vec![page]), error, applied: true, note, preview: false });
+                    }
                     Op::Revert => {
                         let id = doc.id();
                         let r = doc.session_mut().revert(id);
@@ -597,12 +665,13 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                     Op::DetectFields => {
                         let id = doc.id();
                         let mut found = doc.session().detect_fields(id, &[]);
-                        // A scanned form: its lines and boxes are found in the page's picture.
-                        if found.is_empty() {
-                            let pages: Vec<usize> = (0..doc.document().info.pages.len()).collect();
-                            let taken: Vec<String> = doc.document().form.iter().map(|f| f.name.clone()).collect();
-                            found = sheaf_core::form_scan::candidates(&doc, &pages, &taken);
-                        }
+                        // Scanned pages: their lines and boxes are found in the page's picture, the
+                        // pages where none was found as text and drawings (Sol, 26/10: a document
+                        // mixing both had its scans left out once a drawn page gave fields).
+                        let with: std::collections::BTreeSet<usize> = found.iter().map(|f| f.0).collect();
+                        let rest: Vec<usize> = (0..doc.document().info.pages.len()).filter(|p| !with.contains(p)).collect();
+                        let taken: Vec<String> = doc.document().form.iter().map(|f| f.name.clone()).chain(found.iter().map(|f| f.1.name.clone())).collect();
+                        found.extend(sheaf_core::form_scan::candidates(&doc, &rest, &taken));
                         let pages: Vec<usize> = found.iter().map(|f| f.0).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
                         let n = found.len();
                         let edits: Vec<Edit> = found

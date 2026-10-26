@@ -227,6 +227,31 @@ pub fn replace_all(ui: &AppWindow, tab_id: i32, find: &str, with: &str) {
     }
 }
 
+/// The search panel's Replace (Acrobat's Find ▸ Replace): the match in view only, rewritten with
+/// `with`; the search runs again for the next one.
+pub fn replace_one(ui: &AppWindow, tab_id: i32, find: &str, with: &str) {
+    let find = find.trim().to_string();
+    let refused = update(tab_id, |r, _| {
+        if !r.snap.read_only.is_empty() {
+            return Some(r.snap.read_only.clone());
+        }
+        let Some(cur) = r.search.current.filter(|_| !find.is_empty()) else {
+            return Some("Find the words first, then Replace takes the one in view".to_string());
+        };
+        let page = r.search.hits.get(cur)?.0;
+        // Its place among the page's matches, in reading order.
+        let nth = r.search.hits[..cur].iter().filter(|h| h.0 == page).count();
+        r.send(Op::ReplaceOne { page, nth, find: find.clone(), with: with.to_string(), case: r.search.case_sensitive, whole: r.search.whole_words });
+        r.undo_pages.push(vec![page]);
+        None
+    })
+    .flatten();
+    match refused {
+        Some(why) => crate::flow::toast(ui, &why),
+        None => search_clear(tab_id),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

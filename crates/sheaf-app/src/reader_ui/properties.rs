@@ -45,16 +45,44 @@ pub(super) fn about_rows(about: &[(String, String)], facts: Option<&sheaf_core::
     rows
 }
 
+/// Copy report (Acrobat's PDF info, as Preflight lists it): what the sheet shows and the fonts,
+/// each said embedded or not, as text on the clipboard.
+pub fn props_copy(ui: &AppWindow, tab_id: i32) {
+    let Some(text) = update(tab_id, |r, _| report(&r.name, &r.snap.props, r.facts.as_ref())) else { return };
+    let copied = arboard::Clipboard::new().and_then(|mut c| c.set_text(text)).is_ok();
+    crate::flow::toast(ui, if copied { "Report copied" } else { "The clipboard could not be reached" });
+}
+
+/// The report [`props_copy`] copies: the file's name, its description, then a line per fact.
+pub(super) fn report(name: &str, props: &reader_doc::Props, facts: Option<&sheaf_core::facts::Facts>) -> String {
+    let or_none = |v: &str| if v.trim().is_empty() { "—".to_string() } else { v.to_string() };
+    let mut lines = vec![name.to_string(), String::new()];
+    for (n, v) in [("Title", &props.title), ("Author", &props.author), ("Subject", &props.subject), ("Keywords", &props.keywords)] {
+        lines.push(format!("{n}: {}", or_none(v)));
+    }
+    if let Some(f) = facts {
+        lines.extend(f.custom.iter().map(|(n, v)| format!("{n}: {v}")));
+    }
+    lines.push(String::new());
+    lines.extend(about_rows(&props.about, facts).into_iter().map(|(n, v)| format!("{n}: {v}")));
+    if let Some(f) = facts.filter(|f| !f.fonts.is_empty()) {
+        lines.push(String::new());
+        lines.push("Fonts".into());
+        lines.extend(f.fonts.iter().map(|(n, embedded)| format!("{n}{}", if *embedded { " (embedded)" } else { " (not embedded)" })));
+    }
+    lines.join("\n") + "\n"
+}
+
 pub fn props_cancel(tab_id: i32) {
     update(tab_id, |r, _| r.props_open = false);
 }
 
 /// The entries changed become one undo step (PdfCraft's SetInfo per entry).
-/// `opening`: When opened's page typed and its layout, zoom and panel ([`opening_edit`]).
+/// `opening`: When opened's page typed and its layout, zoom, panel and window ([`opening_edit`]).
 #[allow(clippy::too_many_arguments)]
-pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subject: &str, keywords: &str, custom: &str, opening: (&str, i32, i32, i32)) {
+pub fn props_save(ui: &AppWindow, tab_id: i32, title: &str, author: &str, subject: &str, keywords: &str, custom: &str, opening: (&str, i32, i32, i32, i32)) {
     let edit = update(tab_id, |r, _| {
-        let view = match opening_edit(r, opening.0, opening.1, opening.2, opening.3) {
+        let view = match opening_edit(r, opening.0, opening.1, opening.2, opening.3, opening.4) {
             Some(Err(why)) => return Some(Err(why)),
             Some(Ok(e)) => Some(e),
             None => None,
@@ -164,7 +192,7 @@ pub(super) fn open_as_asked(r: &mut ReaderUi, v: &mut ViewerUi) {
 /// layout (0 as the reader likes, 1 one page, 2 two pages, 3 two with the cover alone), zoom (0 as
 /// the reader likes, 1 fit page, 2 fit width, 3 actual size), panel (0 none, 1 bookmarks, 2 pages).
 /// None: nothing changed, or a page that is not in the document.
-pub(super) fn opening_edit(r: &ReaderUi, page: &str, layout: i32, zoom: i32, panel: i32) -> Option<Result<Edit, String>> {
+pub(super) fn opening_edit(r: &ReaderUi, page: &str, layout: i32, zoom: i32, panel: i32, window: i32) -> Option<Result<Edit, String>> {
     use sheaf_core::pdfcraft::engine::{InitialLayout as L, Magnification as M, Navigation as N};
     let mut v = r.snap.opening.clone();
     let count = r.snap.boxes.len();
@@ -179,11 +207,15 @@ pub(super) fn opening_edit(r: &ReaderUi, page: &str, layout: i32, zoom: i32, pan
     v.layout = [L::Default, L::SinglePageContinuous, L::TwoUpContinuous, L::TwoUpContinuousCoverPage][layout.clamp(0, 3) as usize];
     v.magnification = [M::Default, M::FitPage, M::FitWidth, M::ActualSize][zoom.clamp(0, 3) as usize];
     v.navigation = [N::PageOnly, N::Bookmarks, N::Pages][panel.clamp(0, 2) as usize];
+    // Acrobat's Window and User interface options (Sol, 26/10), bits as [`opening_controls`] gives them.
+    (v.full_screen, v.display_title, v.fit_window, v.center_window, v.hide_toolbar) =
+        (window & 1 != 0, window & 2 != 0, window & 4 != 0, window & 8 != 0, window & 16 != 0);
     (v != r.snap.opening).then(|| Ok(Edit::SetInitialView(Box::new(v))))
 }
 
-/// The sheet's controls from the document's Initial View (see [`opening_edit`]).
-pub(super) fn opening_controls(o: &sheaf_core::pdfcraft::engine::InitialView) -> (i32, i32, i32, i32) {
+/// The sheet's controls from the document's Initial View (see [`opening_edit`]); the window bits:
+/// 1 full screen, 2 the title in the bar, 4 the window fitted to the page, 8 centred, 16 no toolbar.
+pub(super) fn opening_controls(o: &sheaf_core::pdfcraft::engine::InitialView) -> (i32, i32, i32, i32, i32) {
     use sheaf_core::pdfcraft::engine::{InitialLayout as L, Magnification as M, Navigation as N};
     let layout = match o.layout {
         L::Default => 0,
@@ -202,12 +234,23 @@ pub(super) fn opening_controls(o: &sheaf_core::pdfcraft::engine::InitialView) ->
         N::Pages => 2,
         _ => 0,
     };
-    (o.page as i32 + 1, layout, zoom, panel)
+    let window = [o.full_screen, o.display_title, o.fit_window, o.center_window, o.hide_toolbar].iter().enumerate().map(|(k, on)| (*on as i32) << k).sum();
+    (o.page as i32 + 1, layout, zoom, panel, window)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{about_rows, custom_pairs, custom_text};
+    use super::{about_rows, custom_pairs, custom_text, report};
+
+    #[test]
+    fn the_report_lists_the_description_the_facts_and_the_fonts() {
+        let props = crate::reader_doc::Props { title: "Lease".into(), about: vec![("Pages".into(), "4".into())], ..Default::default() };
+        let facts = sheaf_core::facts::Facts { fonts: vec![("Helvetica".into(), false), ("Inter".into(), true)], ..Default::default() };
+        let r = report("lease.pdf", &props, Some(&facts));
+        assert!(r.starts_with("lease.pdf\n\nTitle: Lease\nAuthor: —\n"), "{r}");
+        assert!(r.contains("\nPages: 4\n") && r.contains("\nPDF/A: No\n"), "{r}");
+        assert!(r.ends_with("Fonts\nHelvetica (not embedded)\nInter (embedded)\n"), "{r}");
+    }
 
     #[test]
     fn custom_properties_are_typed_as_name_and_value_pairs() {

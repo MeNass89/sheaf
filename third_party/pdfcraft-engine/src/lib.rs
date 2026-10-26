@@ -227,6 +227,8 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::ResizeAnnotation { .. }
         | Edit::StyleAnnotation { .. }
         | Edit::FillAnnotation { .. }
+        | Edit::TurnAnnotation { .. }
+        | Edit::DashAnnotation { .. }
         | Edit::SetTextFont { .. }
         | Edit::SetAnnotationInfo { .. } => Scope::Comments,
         Edit::SetFieldValue { .. } | Edit::ResetForm { .. } | Edit::SetFieldImage { .. } | Edit::ApplyScriptChanges { .. } => Scope::Form,
@@ -1318,6 +1320,19 @@ pub enum Edit {
         index: usize,
         fill: Option<Rgb>,
     },
+    /// Sheaf: a drawing's or shape's line dashed or solid.
+    DashAnnotation {
+        page: usize,
+        index: usize,
+        dashed: bool,
+    },
+    /// Sheaf: turn a stamp or a picture (custom stamp, signature) `quarters` quarter turns
+    /// clockwise about its centre.
+    TurnAnnotation {
+        page: usize,
+        index: usize,
+        quarters: i64,
+    },
     /// Sheaf: a text box (`annotation`, a `Shape::TextBox`) added in `font` (a resource name of
     /// `pdfcraft_annot::appearance::TEXT_FONTS`), as one step.
     AddTextBox {
@@ -1873,6 +1888,8 @@ impl Edit {
             Edit::LockAnnotation { .. } => Label::of("Unlock comment"),
             Edit::MoveAnnotation { .. } => Label::of("Move comment"),
             Edit::ResizeAnnotation { .. } => Label::of("Resize comment"),
+            Edit::TurnAnnotation { .. } => Label::of("Turn comment"),
+            Edit::DashAnnotation { .. } => Label::of("Change comment properties"),
             Edit::StyleAnnotation { .. } | Edit::FillAnnotation { .. } | Edit::SetTextFont { .. } | Edit::SetAnnotationInfo { .. } => {
                 Label::of("Change comment properties")
             }
@@ -2026,6 +2043,8 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::ResizeAnnotation { .. }
         | Edit::StyleAnnotation { .. }
         | Edit::FillAnnotation { .. }
+        | Edit::TurnAnnotation { .. }
+        | Edit::DashAnnotation { .. }
         | Edit::SetTextFont { .. }
         | Edit::SetAnnotationInfo { .. }
         | Edit::SetMeasurementScale { .. } => {
@@ -2290,6 +2309,8 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_annot::set_style(doc, *page, *index, *color, *opacity, *width, endings.as_deref(), &cx.meta())?;
         }
         Edit::FillAnnotation { page, index, fill } => pdfcraft_annot::set_fill(doc, *page, *index, *fill, &cx.meta())?,
+        Edit::TurnAnnotation { page, index, quarters } => pdfcraft_annot::turn_stamp(doc, *page, *index, *quarters, &cx.meta())?,
+        Edit::DashAnnotation { page, index, dashed } => pdfcraft_annot::set_dashed(doc, *page, *index, *dashed, &cx.meta())?,
         Edit::SetTextFont { page, index, font, size, align } => pdfcraft_annot::set_text_font(doc, *page, *index, font, *size, *align, &cx.meta())?,
         Edit::SetAnnotationInfo { page, index, author, subject, icon } => {
             pdfcraft_annot::set_info(doc, *page, *index, author.as_deref(), subject.as_deref(), *icon, &cx.meta())?;

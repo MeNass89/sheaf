@@ -1772,6 +1772,59 @@ pub fn set_rect(doc: &mut Document, page: usize, index: usize, rect: [f64; 4], m
     apply_text_box(doc, r, rect, meta, false)
 }
 
+/// Sheaf: a drawing's or shape's line dashed (`/BS /S /D`, 3 on 2 times its width, Acrobat's
+/// Dashed style) or solid again, and redrawn. `index` `usize::MAX`: the page's last comment (one
+/// just added, in the same batch).
+pub fn set_dashed(doc: &mut Document, page: usize, index: usize, dashed: bool, meta: &Meta) -> Result<(), AnnotError> {
+    let index = if index == usize::MAX { annots(doc, page_ref(doc, page)?).len().saturating_sub(1) } else { index };
+    let (_, r) = annot_ref(doc, page, index)?;
+    unlocked(doc, r)?;
+    let before = annot_dict(doc, r);
+    let w = border_width_of(&before).max(0.5);
+    doc.update_dict(r, |d| {
+        let mut bs = d.get(b"BS").and_then(|b| b.as_dict()).cloned().unwrap_or_default();
+        if dashed {
+            bs.set(b"S".to_vec(), Object::name("D"));
+            bs.set(b"D".to_vec(), num_array(&[3.0 * w, 2.0 * w]));
+        } else {
+            bs.set(b"S".to_vec(), Object::name("S"));
+            bs.remove(b"D");
+        }
+        d.set(b"BS".to_vec(), Object::Dict(bs));
+        touch(d, meta);
+    })?;
+    redraw_or_restore(doc, r, before)
+}
+
+/// Sheaf: turn a stamp or a picture (a custom stamp, a signature) `quarters` quarter turns
+/// clockwise about its centre, its box turned with it. The turn is kept as the page rotation its
+/// appearance is turned back by (`/PCPictureRotate`, `/PCStampRotate`).
+pub fn turn_stamp(doc: &mut Document, page: usize, index: usize, quarters: i64, meta: &Meta) -> Result<(), AnnotError> {
+    let (_, r) = annot_ref(doc, page, index)?;
+    unlocked(doc, r)?;
+    let d = annot_dict(doc, r);
+    if d.name(b"Subtype") != Some(b"Stamp") {
+        return Err(AnnotError::Invalid("only stamps and pictures can be turned".into()));
+    }
+    let key: &[u8] = if d.get(b"PCPicture").is_some() { b"PCPictureRotate" } else { b"PCStampRotate" };
+    let turn = (d.get(key).and_then(Object::as_int).unwrap_or(0) - 90 * quarters).rem_euclid(360);
+    let old: Vec<f64> = d.get(b"Rect").map(|o| doc.resolve(o)).and_then(|o| o.as_array().cloned()).unwrap_or_default().iter().filter_map(Object::as_f64).collect();
+    let [x0, y0, x1, y1] = normalize(old.try_into().map_err(|_| AnnotError::Invalid("the stamp has no rectangle".into()))?);
+    // A quarter turn swaps its width and height, about the same centre.
+    let rect = if quarters.rem_euclid(2) == 1 {
+        let (cx, cy, hw, hh) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0, (x1 - x0) / 2.0, (y1 - y0) / 2.0);
+        [cx - hh, cy - hw, cx + hh, cy + hw]
+    } else {
+        [x0, y0, x1, y1]
+    };
+    doc.update_dict(r, |d| {
+        d.set(key.to_vec(), Object::Int(turn));
+        d.set(b"Rect".to_vec(), num_array(&rect));
+        touch(d, meta);
+    })?;
+    Ok(())
+}
+
 /// Scale a drawing's strokes into `rect`. The margin between the strokes and the old `/Rect` (half
 /// the line width and a little more) stays the same on each side, so the line isn't clipped.
 fn resize_ink(doc: &mut Document, r: ObjRef, rect: [f64; 4], meta: &Meta) -> Result<(), AnnotError> {

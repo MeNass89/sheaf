@@ -2,6 +2,7 @@ pub mod compare;
 pub mod compress;
 pub mod edit;
 pub mod engine;
+pub mod enhance;
 pub mod export;
 pub mod error;
 pub mod excel;

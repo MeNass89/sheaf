@@ -8,8 +8,9 @@ use std::path::{Path, PathBuf};
 /// What Crop does to the selected pages.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CropSpec {
-    /// Points cut from each edge of the page as displayed (after its rotation), measured from the
-    /// media box.
+    /// Points cut from each edge of the page as displayed (after its rotation), measured from what
+    /// shows: the crop box when the page has one (Sol, 26/10: they were measured on the visible page
+    /// in the preview and applied from the media box).
     Margins { top: f64, bottom: f64, left: f64, right: f64 },
     /// Back to the full page (no crop box).
     Remove,
@@ -96,18 +97,20 @@ pub fn crop(input: &Input, pages: Option<&str>, spec: &CropSpec, out: &Path) -> 
         }
         CropSpec::Resize { .. } => Vec::new(),
         CropSpec::Margins { top, bottom, left, right } => {
-            // One edit per rotation: the same visible margins land on different user-space edges.
-            [0u16, 90, 180, 270]
-                .into_iter()
-                .filter_map(|rot| {
-                    let group: Vec<usize> = selected.iter().copied().filter(|&p| rotations[p] % 360 == rot).collect();
-                    (!group.is_empty()).then(|| Edit::SetPageBox {
-                        pages: group,
-                        which: PageBox::Crop,
-                        spec: BoxSpec::Margins(user_margins(rot, [top, right, bottom, left])),
-                    })
-                })
-                .collect()
+            // Each page from its own visible box; the same visible margins land on different
+            // user-space edges as the page is turned.
+            let crops: Vec<[f32; 4]> = doc.session().get(doc.id()).map(|d| d.info.pages.iter().map(|p| p.crop).collect()).unwrap_or_default();
+            let mut edits = Vec::new();
+            for &p in &selected {
+                let (Some(c), Some(&rot)) = (crops.get(p), rotations.get(p)) else { continue };
+                let [ml, mb, mr, mt] = user_margins(rot, [top, right, bottom, left]);
+                let rect = [c[0] as f64 + ml, c[1] as f64 + mb, c[2] as f64 - mr, c[3] as f64 - mt];
+                if rect[2] - rect[0] < 1.0 || rect[3] - rect[1] < 1.0 {
+                    return Err(crate::OpdfError::Unsupported(format!("the margins leave nothing of page {}", p + 1)));
+                }
+                edits.push(Edit::SetPageBox { pages: vec![p], which: PageBox::Crop, spec: BoxSpec::Rect(rect) });
+            }
+            edits
         }
     };
     doc.apply(Edit::Batch { label: "Crop pages".into(), edits })?;

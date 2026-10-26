@@ -17,7 +17,7 @@ pub fn set_tool(tab_id: i32, tool: i32) {
             } else {
                 r.ink_colour = (c as usize).min(CUSTOM);
             }
-            r.pen_width = (w as i32).clamp(0, 2);
+            r.pen_width = (w as i32).clamp(0, 3);
             r.opacity = (o as usize).min(100);
         } else {
             // A tool not styled yet starts from its defaults, not from the previous tool's style.
@@ -57,6 +57,12 @@ pub fn viewport_changed(ui: &AppWindow, tab_id: i32) {
 }
 
 pub fn set_tool_and_mark(ui: &AppWindow, tab_id: i32, tool: i32) {
+    // Text being typed in place is added before the tool changes, as a click elsewhere adds it
+    // (Sol, 26/10: another tool threw it away).
+    let typed = update(tab_id, |r, _| r.draft.as_ref().is_some_and(|d| matches!(d.kind, 1 | 3) && d.block.is_none()).then(|| std::mem::take(&mut r.inplace_text))).flatten();
+    if let Some(text) = typed.filter(|t| !t.trim().is_empty()) {
+        super::note_commit(ui, tab_id, &text);
+    }
     let has_sel = update(tab_id, |r, _| r.sel.is_some()).unwrap_or(false);
     set_tool(tab_id, tool);
     if has_sel && (HIGHLIGHT..=STRIKE).contains(&tool) {
@@ -205,7 +211,8 @@ pub(super) fn select_annot(r: &mut ReaderUi, i: usize) {
 /// `StampKind::ALL`, then the pictures kept in the library), 6 the fill colour (`value`: −1 a tint of
 /// the stroke, else a highlight colour), 8 the arrow's next head, 9 its head at both ends or one,
 /// 10 the next measuring scale, 11 callouts, 12 Calibrate, 13 initials, 14 new initials, 15 every
-/// page. Shapes 4–9: polygon, cloud, polyline, distance, perimeter, area. A selected drawing or
+/// page, 16 the selected stamp or picture turned a quarter clockwise, 17 dashed lines (pen and
+/// shapes; a selected drawing or shape changes at once). Shapes 4–9: polygon, cloud, polyline, distance, perimeter, area. A selected drawing or
 /// shape takes the opacity at once (Acrobat's Properties bar).
 pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
     // New initials: the kept ones forgotten, the pad opens at the next click (outside the reader's
@@ -216,6 +223,16 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
         return;
     }
     let restyle = update(tab_id, |r, _| {
+        // Acrobat's Rotate on a stamp: a quarter turn clockwise, one undo step.
+        if what == 16 {
+            let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| turnable(&a.subtype))?;
+            return Some((a.page, Edit::TurnAnnotation { page: a.page, index: a.index, quarters: 1 }));
+        }
+        if what == 17 {
+            r.dashed = !r.dashed;
+            let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| stroked(&a.subtype))?;
+            return Some((a.page, Edit::DashAnnotation { page: a.page, index: a.index, dashed: r.dashed }));
+        }
         match what {
             0 => {
                 r.shape_kind = value.clamp(0, 9);
@@ -279,6 +296,11 @@ pub(super) fn fillable(subtype: &str) -> bool {
     matches!(subtype, "Square" | "Circle" | "Polygon")
 }
 
+/// Stamps, pictures and signatures placed: the comments a quarter turn turns.
+pub(super) fn turnable(subtype: &str) -> bool {
+    subtype == "Stamp"
+}
+
 pub(super) fn opacity_of(r: &ReaderUi) -> f64 {
     match r.opacity {
         k @ 0..=3 => reader::OPACITIES[k],
@@ -289,7 +311,7 @@ pub(super) fn opacity_of(r: &ReaderUi) -> f64 {
 /// The width picked: the tool's, and a selected drawing's or shape's at once.
 pub fn set_pen_width(ui: &AppWindow, tab_id: i32, k: i32) {
     let restyle = update(tab_id, |r, _| {
-        r.pen_width = k.clamp(0, 2);
+        r.pen_width = k.clamp(0, 3);
         remember_style(r);
         let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| stroked(&a.subtype))?;
         Some((a.page, Edit::StyleAnnotation { page: a.page, index: a.index, color: None, opacity: None, width: Some(pen_points(r.pen_width)), endings: None }))
@@ -386,7 +408,7 @@ fn propose(tab_id: i32, kind: i32) {
 }
 
 pub(super) fn pen_points(k: i32) -> f64 {
-    [1.0, 2.0, 4.0][k.clamp(0, 2) as usize]
+    [1.0, 2.0, 4.0, 8.0][k.clamp(0, 3) as usize]
 }
 
 pub(super) fn uses_light(tool: i32) -> bool {

@@ -161,6 +161,15 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
     let old_id = doc.open_also(old)?;
     let new_id = doc.id();
     let session = doc.session();
+    let doc_words = |id| -> Vec<Placed> { session.get(id).map(|d| d.words().into_iter().map(|w| (w.text, w.page, w.rect)).collect()).unwrap_or_default() };
+    let (old_words, new_words) = (doc_words(old_id), doc_words(new_id));
+    // Two documents that share almost no words are not compared (Acrobat stops: "the documents are
+    // too different"; Sol, 26/10: they were compared in full, then only said to differ).
+    if let Some(share) = too_different(&old_words, &new_words) {
+        return Err(OpdfError::Unsupported(format!(
+            "the documents differ almost everywhere ({share} % of their words): they may not be versions of one another, so they were not compared"
+        )));
+    }
     let c = session.compare(old_id, new_id).map_err(|e| OpdfError::Engine(e.to_string()))?;
     let mut report = CompareReport {
         path: PathBuf::new(),
@@ -179,13 +188,11 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
     // line. A region that also holds another change (a picture next to a changed caption) is
     // kept whole. What is left changed outside the words: images, drawings, scanned pages.
     let visual = session.compare_visual(old_id, new_id, VISUAL_DPI).map_err(|e| OpdfError::Engine(e.to_string()))?;
-    let doc_words = |id| -> Vec<Placed> { session.get(id).map(|d| d.words().into_iter().map(|w| (w.text, w.page, w.rect)).collect()).unwrap_or_default() };
     let mut words: Vec<(usize, [f64; 4])> = c
         .changes
         .iter()
         .flat_map(|ch| ch.new.rects.iter().map(move |r| (ch.new.page, *r)).chain(ch.old.rects.iter().map(move |r| (ch.old.page, *r))))
         .collect();
-    let (old_words, new_words) = (doc_words(old_id), doc_words(new_id));
     let shifted = moved(&old_words, &new_words);
     // Words moved where no change is on their line moved on their own (a paragraph moved down): a
     // line of them is reported (Sol, 25/10: a move with the same words showed no difference).
@@ -213,28 +220,6 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
     report.pages_added = new_pages.len().saturating_sub(old_pages.len());
     report.pages_removed = old_pages.len().saturating_sub(new_pages.len());
     let mut notes = Vec::new();
-    // Two documents that share almost no words are said to (Acrobat warns that documents are too
-    // different to compare; Sol, 25/10): the report is still written.
-    // Words the two share, counted as many times as both have them.
-    let total = old_words.len() + new_words.len();
-    let mut pool: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
-    for w in &old_words {
-        *pool.entry(w.0.as_str()).or_default() += 1;
-    }
-    let common = new_words
-        .iter()
-        .filter(|w| match pool.get_mut(w.0.as_str()) {
-            Some(n) if *n > 0 => {
-                *n -= 1;
-                true
-            }
-            _ => false,
-        })
-        .count();
-    let changed = total - 2 * common;
-    if total >= 40 && changed * 10 >= total * 8 {
-        notes.push(format!("The documents differ almost everywhere ({} % of their words): they may not be versions of one another.", changed * 100 / total));
-    }
     if report.pages_added > 0 {
         notes.push(format!("{} only in the changed document.", pages_span(old_pages.len() + 1, new_pages.len(), "is", "are")));
     }
@@ -285,6 +270,29 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
     Ok(report)
 }
 
+/// The share of the words (in %) two documents do not have in common, when it passes 80 % of at least
+/// 40 words: they are not versions of one another.
+fn too_different(old_words: &[Placed], new_words: &[Placed]) -> Option<usize> {
+    // Words the two share, counted as many times as both have them.
+    let total = old_words.len() + new_words.len();
+    let mut pool: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for w in old_words {
+        *pool.entry(w.0.as_str()).or_default() += 1;
+    }
+    let common = new_words
+        .iter()
+        .filter(|w| match pool.get_mut(w.0.as_str()) {
+            Some(n) if *n > 0 => {
+                *n -= 1;
+                true
+            }
+            _ => false,
+        })
+        .count();
+    let changed = total - 2 * common;
+    (total >= 40 && changed * 10 >= total * 8).then(|| changed * 100 / total)
+}
+
 /// The original's pages each beside the marked copy's (`marked`, its marks drawn into the pages),
 /// two to a sheet as wide as both: a page only one document has stands beside a blank one.
 fn side_by_side(old: &Input, marked: &Path, out: &Path) -> Result<PathBuf> {
@@ -292,9 +300,12 @@ fn side_by_side(old: &Input, marked: &Path, out: &Path) -> Result<PathBuf> {
     let _g = crate::engine::pdfium_lock();
     let a = old.open()?;
     let b = crate::engine::open_pdf(marked, None)?;
-    // The marks are comments: drawn into the pages, or tiling would leave them out.
-    for i in 0..b.pages().len() {
-        b.pages().get(i)?.flatten()?;
+    // Comments are drawn into the pages, or tiling would leave them out: the marks on the copy, and
+    // the original's own (Sol, 26/10: they were left out on the left).
+    for d in [&a, &b] {
+        for i in 0..d.pages().len() {
+            d.pages().get(i)?.flatten()?;
+        }
     }
     let (na, nb) = (a.pages().len(), b.pages().len());
     let size = |d: &PdfDocument, i: i32| d.pages().get(i).ok().map(|p| (p.width().value, p.height().value));
@@ -326,7 +337,10 @@ fn pages_span(first: usize, last: usize, one: &str, many: &str) -> String {
     if first == last { format!("Page {first} {one}") } else { format!("Pages {first}–{last} {many}") }
 }
 
-/// The text report with a last page listing the areas that changed outside the words (Acrobat's
+/// Lines of the changed-areas list a report page holds.
+const LIST_LINES: usize = 48;
+
+/// The text report with last pages listing the areas that changed outside the words (Acrobat's
 /// report lists image changes too): a scanned page, a picture or a drawing changed shows there,
 /// page by page; Overlay marks them on the page.
 fn with_areas_page(report: &[u8], areas: &[(usize, [f64; 4])], notes: &[String], out: &Path) -> Result<PathBuf> {
@@ -343,18 +357,43 @@ fn with_areas_page(report: &[u8], areas: &[(usize, [f64; 4])], notes: &[String],
     }
     let lines: Vec<String> = per_page.iter().map(|(p, k)| format!("Page {}: {k} area{}", p + 1, if *k == 1 { "" } else { "s" })).collect();
     let pages = if notes.is_empty() { String::new() } else { format!("{}\n\n", notes.join("\n")) };
-    let text = format!(
-        "Changes outside the text\n\n{pages}These areas of the changed document look different though their words are the same: images, drawings or scanned pages. Compare's Overlay marks them on the pages.\n\n{}",
-        lines.join("\n")
+    let head = format!(
+        "Changes outside the text\n\n{pages}These areas of the changed document look different though their words are the same: images, drawings or scanned pages. Compare's Overlay marks them on the pages."
     );
-    doc.apply(Edit::InsertBlankPage { at: n, width: 612.0, height: 792.0 })?;
-    doc.apply(Edit::AddText { page: n, text: AddedText { rect: [54.0, 60.0, 558.0, 740.0], text, size: 11.0, ..Default::default() } })?;
+    // As many pages as the list takes (Sol, 26/10: a long one ran off its single page): about
+    // 50 lines of 11 pt to a page, the first sharing its page with the heading and the notes.
+    let first = LIST_LINES.saturating_sub(8 + notes.len()).max(10);
+    let mut chunks: Vec<&[String]> = vec![&lines[..first.min(lines.len())]];
+    chunks.extend(lines.get(first..).unwrap_or_default().chunks(LIST_LINES));
+    for (k, chunk) in chunks.iter().enumerate() {
+        let text = if k == 0 { format!("{head}\n\n{}", chunk.join("\n")) } else { format!("Changes outside the text (continued)\n\n{}", chunk.join("\n")) };
+        doc.apply(Edit::InsertBlankPage { at: n + k, width: 612.0, height: 792.0 })?;
+        doc.apply(Edit::AddText { page: n + k, text: AddedText { rect: [54.0, 60.0, 558.0, 740.0], text, size: 11.0, ..Default::default() } })?;
+    }
     doc.save(out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_long_list_of_changed_areas_takes_more_pages() {
+        let t = tempfile::tempdir().unwrap();
+        let one = t.path().join("one.pdf");
+        {
+            let _g = crate::engine::pdfium_lock();
+            let mut d = crate::engine::new_document();
+            d.pages_mut().create_page_at_end(pdfium_render::prelude::PdfPagePaperSize::a4()).unwrap();
+            d.save_to_file(&one).unwrap();
+        }
+        // 120 pages with an area each: 40 lines on the first list page, 48 on the next two.
+        let areas: Vec<(usize, [f64; 4])> = (0..120).map(|p| (p, [0.0, 0.0, 10.0, 10.0])).collect();
+        let out = with_areas_page(&std::fs::read(&one).unwrap(), &areas, &[], &t.path().join("r.pdf")).unwrap();
+        let doc = lopdf::Document::load(&out).unwrap();
+        assert_eq!(doc.get_pages().len(), 4);
+        assert!(doc.extract_text(&[4]).unwrap().contains("Page 120: 1 area"));
+    }
 
     #[test]
     fn a_region_is_explained_only_when_the_words_cover_it_whole() {

@@ -692,36 +692,52 @@ pub fn measure_factor(k: usize, user_unit: f64) -> (f64, &'static str) {
     (2.54 / 72.0 * user_unit * ratio / cm_per_unit, unit)
 }
 
-/// `text` with every `find` replaced by `with` (any case unless `case`; only whole words when
-/// `whole`), and how many were replaced.
-pub fn replace_words(text: &str, find: &str, with: &str, case: bool, whole: bool) -> (String, usize) {
+/// Where `find` occurs in `text` (byte ranges), any case unless `case`, only whole words when
+/// `whole`.
+fn occurrences(text: &str, find: &str, case: bool, whole: bool) -> Vec<(usize, usize)> {
     if find.is_empty() {
-        return (text.to_string(), 0);
+        return Vec::new();
     }
     let (hay, needle) = if case { (text.to_string(), find.to_string()) } else { (text.to_lowercase(), find.to_lowercase()) };
     // Lowercasing can change a text's length (İ): then only an exact-case match is safe.
     if hay.len() != text.len() || needle.len() != find.len() {
-        return if case { (text.to_string(), 0) } else { replace_words(text, find, with, true, whole) };
+        return if case { Vec::new() } else { occurrences(text, find, true, whole) };
     }
     let word = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
-    let (mut out, mut last, mut n) = (String::new(), 0, 0);
-    let mut from = 0;
+    let (mut found, mut from) = (Vec::new(), 0);
     while let Some(i) = hay[from..].find(&needle).map(|i| i + from) {
         let end = i + needle.len();
-        let alone = !whole || (!word(text[..i].chars().next_back()) && !word(text[end..].chars().next()));
-        if alone {
-            out.push_str(&text[last..i]);
-            out.push_str(with);
-            last = end;
-            n += 1;
+        if !whole || (!word(text[..i].chars().next_back()) && !word(text[end..].chars().next())) {
+            found.push((i, end));
         }
         from = end.max(i + 1);
         while !hay.is_char_boundary(from) {
             from += 1;
         }
     }
+    found
+}
+
+/// `text` with every `find` replaced by `with` (any case unless `case`; only whole words when
+/// `whole`), and how many were replaced.
+pub fn replace_words(text: &str, find: &str, with: &str, case: bool, whole: bool) -> (String, usize) {
+    let found = occurrences(text, find, case, whole);
+    let (mut out, mut last) = (String::new(), 0);
+    for &(i, end) in &found {
+        out.push_str(&text[last..i]);
+        out.push_str(with);
+        last = end;
+    }
     out.push_str(&text[last..]);
-    (out, n)
+    (out, found.len())
+}
+
+/// How many times `find` occurs in `text`, and `text` with only its `nth` occurrence (0-based)
+/// replaced, when it has one (the search panel's Replace: the match in view only).
+pub fn replace_nth(text: &str, find: &str, with: &str, case: bool, whole: bool, nth: usize) -> (usize, Option<String>) {
+    let found = occurrences(text, find, case, whole);
+    let one = found.get(nth).map(|&(i, end)| format!("{}{with}{}", &text[..i], &text[end..]));
+    (found.len(), one)
 }
 
 /// Calibrate (Acrobat's and Bluebeam's): the real length typed for a line measured `measured`
@@ -774,6 +790,9 @@ mod tests {
         assert_eq!(replace_words("cat category cat", "cat", "dog", false, true), ("dog category dog".into(), 2));
         assert_eq!(replace_words("été", "é", "e", false, false), ("ete".into(), 2));
         assert_eq!(replace_words("abc", "", "x", false, false), ("abc".into(), 0));
+        // One only: the second "cat", whole words.
+        assert_eq!(replace_nth("cat category cat", "cat", "dog", false, true, 1), (2, Some("cat category dog".into())));
+        assert_eq!(replace_nth("cat", "cat", "dog", false, true, 1), (1, None));
     }
 
     #[test]

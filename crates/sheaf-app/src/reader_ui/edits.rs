@@ -35,6 +35,8 @@ fn by_index(edit: &Edit) -> bool {
         Edit::Batch { edits, .. } => edits.iter().any(by_index),
         Edit::MoveAnnotation { .. }
         | Edit::ResizeAnnotation { .. }
+        | Edit::TurnAnnotation { .. }
+        | Edit::DashAnnotation { .. }
         | Edit::DeleteAnnotation { .. }
         | Edit::EraseInk { .. }
         | Edit::StyleAnnotation { .. }
@@ -97,10 +99,12 @@ pub(super) fn forget_page_state(r: &mut ReaderUi) {
 /// The working copy changed: new bytes to render, annotations to list.
 pub(super) fn after_change(r: &mut ReaderUi, v: &mut ViewerUi, pages: Option<&[usize]>) {
     v.source = Some(r.bytes());
-    if v.viewer.boxes != r.snap.boxes {
-        // A page was added, removed or turned.
+    let turn = v.viewer.turn();
+    if v.viewer.boxes != viewer::turned(&r.snap.boxes, turn) {
+        // A page was added, removed or turned (the view's own turn kept).
         let width = v.viewer.content_width();
         v.viewer = reader_viewer(r.snap.boxes.clone());
+        v.viewer.set_turn(i32::from(turn));
         v.viewer.set_width(width);
     }
     match pages {
@@ -191,6 +195,16 @@ pub fn smooth(pts: &[(f64, f64)]) -> Vec<(f64, f64)> {
     cur
 }
 
+/// `add`, and when the line is to be dashed (the Dashed option), the mark it adds dashed in the
+/// same undo step.
+fn maybe_dashed(r: &ReaderUi, page: usize, add: Edit) -> Edit {
+    if r.dashed {
+        Edit::Batch { label: "Add comment".into(), edits: vec![add, Edit::DashAnnotation { page, index: usize::MAX, dashed: true }] }
+    } else {
+        add
+    }
+}
+
 pub(super) fn add_ink(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f64)>) {
     let pts = smooth(&pts);
     let edit = update(tab_id, |r, v| {
@@ -199,7 +213,7 @@ pub(super) fn add_ink(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f
         let stroke: Vec<[f64; 2]> = pts.iter().map(|p| { let (x, y) = viewer::view_to_pdf(b, size, p.0, p.1); [x, y] }).collect();
         let prov = Provisional { page, rects: Vec::new(), stroke: pts.clone(), colour: ink_at(r.ink_colour), kind: PEN };
         let style = Style { opacity: super::tools::opacity_of(r), ..style(ink_at(r.ink_colour), pen_points(r.pen_width)) };
-        (Edit::AddAnnotation(NewAnnotation { page, shape: Shape::Ink { strokes: vec![stroke] }, style, contents: String::new(), author: author() }), prov)
+        (maybe_dashed(r, page, Edit::AddAnnotation(NewAnnotation { page, shape: Shape::Ink { strokes: vec![stroke] }, style, contents: String::new(), author: author() })), prov)
     });
     if let Some((e, prov)) = edit {
         apply(ui, tab_id, e, &[page], Some(prov));
@@ -228,7 +242,7 @@ pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64),
         let fill = (r.shape_fill && r.shape_kind < 2).then(|| r.fill_colour.map_or_else(|| reader::fill_tint(colour), light_at));
         let style = Style { color: colour, opacity: super::tools::opacity_of(r), width: pen_points(r.pen_width), fill };
         let prov = Provisional { page, rects: Vec::new(), stroke: reader::shape_outline(r.shape_kind, a, b), colour, kind: PEN };
-        (Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() }), prov)
+        (maybe_dashed(r, page, Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() })), prov)
     });
     if let Some((e, prov)) = edit {
         apply(ui, tab_id, e, &[page], Some(prov));
@@ -277,7 +291,7 @@ pub(super) fn add_poly(ui: &AppWindow, tab_id: i32) {
             }
             k => {
                 let shape = if k < 6 { Shape::Polygon { vertices, cloud: k == 5 } } else { Shape::PolyLine { vertices, start: LineEnding::None, end: LineEnding::None } };
-                Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() })
+                maybe_dashed(r, page, Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() }))
             }
         };
         Some((page, edit, prov))

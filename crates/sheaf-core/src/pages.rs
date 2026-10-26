@@ -107,7 +107,7 @@ pub const PAPER: [(&str, f64, f64); 5] = [("A4", 595.0, 842.0), ("Letter", 612.0
 /// Change Page Size: the pages chosen (`pages` a range, none: all) become `size` points (width,
 /// height as the page is seen: a turned page takes it turned), their content scaled to fit and
 /// centred (Acrobat's Change Page Size, Preview's Scale). Written to `out`; the output is not
-/// password-protected. Comments keep their places on the page, not scaled.
+/// password-protected. Comments are drawn into the pages, scaled with them.
 pub fn resize(input: &Input, pages: Option<&str>, size: (f64, f64), out: &Path) -> Result<PathBuf> {
     if !(size.0 > 0.0 && size.1 > 0.0 && size.0.is_finite() && size.1.is_finite()) {
         return Err(OpdfError::Unsupported("the page size must be more than 0".into()));
@@ -126,6 +126,9 @@ pub fn resize(input: &Input, pages: Option<&str>, size: (f64, f64), out: &Path) 
     dst.pages_mut().append(&src)?;
     for i in chosen {
         let mut page = dst.pages().get(i)?;
+        // Comments are drawn into the page first, so they shrink or grow with it (Sol, 26/10: a
+        // highlight stayed where it was, off its words or off the page).
+        page.flatten()?;
         let turned = matches!(page.rotation()?, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
         // In user space, before the page's own turn.
         let (w, h) = if turned { (size.1, size.0) } else { size };
@@ -167,7 +170,9 @@ pub fn flip(input: &Input, pages: Option<&str>, horizontal: bool, out: &Path) ->
         page.flatten()?;
         // As seen: a page turned a quarter is mirrored about the other axis of its own space.
         let turned = matches!(page.rotation()?, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
-        let m = page.boundaries().media()?.bounds;
+        // About the middle of what shows: the crop box when there is one (Sol, 26/10: about the
+        // media box, an off-centre crop left the mirrored content outside it).
+        let m = page.boundaries().crop().or_else(|_| page.boundaries().media())?.bounds;
         let (x0, y0, x1, y1) = (m.left().value, m.bottom().value, m.right().value, m.top().value);
         let all = PdfRect::new_from_values(-1e6, -1e6, 1e6, 1e6);
         if horizontal != turned {
@@ -183,37 +188,44 @@ pub fn flip(input: &Input, pages: Option<&str>, horizontal: bool, out: &Path) ->
 /// again): every page becomes its left and right halves (`across`), or its top and bottom, as
 /// seen, in reading order. Written to `out`, not password-protected.
 pub fn halves(input: &Input, across: bool, out: &Path) -> Result<PathBuf> {
+    if across { cut(input, 2, 1, out) } else { cut(input, 1, 2, out) }
+}
+
+/// Cut each page into a grid of `cols` × `rows` parts as seen (Stirling PDF's sections; a poster
+/// made sheets; Sol, 26/10), each a page, in reading order: left to right, then down. Written to
+/// `out`, not password-protected.
+pub fn cut(input: &Input, cols: u32, rows: u32, out: &Path) -> Result<PathBuf> {
+    if !(1..=10).contains(&cols) || !(1..=10).contains(&rows) || cols * rows < 2 {
+        return Err(OpdfError::Unsupported(format!("{cols} × {rows} parts (choose 1 to 10 columns and rows, two parts at least)")));
+    }
     let _g = pdfium_lock();
     let src = input.open()?;
     let n = src.pages().len();
     let mut dst = pdfium().create_new_pdf()?;
     for i in 0..n {
-        for half in 0..2 {
+        for k in 0..cols * rows {
             let at = dst.pages().len();
             dst.pages_mut().copy_page_range_from_document(&src, i..=i, at)?;
             let mut page = dst.pages().get(at)?;
             let c = page.boundaries().crop().map(|b| b.bounds).or_else(|_| page.boundaries().media().map(|b| b.bounds))?;
             let (l, b, r, t) = (c.left().value, c.bottom().value, c.right().value, c.top().value);
-            // As seen: a page turned a quarter is cut along its other axis, the halves in reading order.
             let rot = page.rotation()?;
-            let turned = matches!(rot, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
-            let cut_x = across != turned;
-            // Which half comes first as seen: left (or top) of the page as displayed.
-            let first_low = match rot {
-                PdfPageRenderRotation::None => cut_x,
-                PdfPageRenderRotation::Degrees90 => true,
-                PdfPageRenderRotation::Degrees180 => !cut_x,
-                PdfPageRenderRotation::Degrees270 => false,
+            // The page as seen: its width and height, and a point of it (from its top left) in user space.
+            let (dw, dh) = match rot {
+                PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270 => (t - b, r - l),
+                _ => (r - l, t - b),
             };
-            let low = (half == 0) == first_low;
-            let rect = if cut_x {
-                let m = (l + r) / 2.0;
-                if low { PdfRect::new_from_values(b, l, t, m) } else { PdfRect::new_from_values(b, m, t, r) }
-            } else {
-                let m = (b + t) / 2.0;
-                if low { PdfRect::new_from_values(b, l, m, r) } else { PdfRect::new_from_values(m, l, t, r) }
+            let user = |x: f32, y: f32| match rot {
+                PdfPageRenderRotation::None => (l + x, t - y),
+                PdfPageRenderRotation::Degrees90 => (l + y, b + x),
+                PdfPageRenderRotation::Degrees180 => (r - x, b + y),
+                PdfPageRenderRotation::Degrees270 => (r - y, t - x),
             };
-            // Media too: a reader or printer that goes by the media box shows the half alone.
+            let (col, row) = ((k % cols) as f32, (k / cols) as f32);
+            let (cw, ch) = (dw / cols as f32, dh / rows as f32);
+            let (p, q) = (user(col * cw, row * ch), user((col + 1.0) * cw, (row + 1.0) * ch));
+            let rect = PdfRect::new_from_values(p.1.min(q.1), p.0.min(q.0), p.1.max(q.1), p.0.max(q.0));
+            // Media too: a reader or printer that goes by the media box shows the part alone.
             page.boundaries_mut().set_media(rect)?;
             page.boundaries_mut().set_crop(rect)?;
         }
@@ -265,6 +277,28 @@ pub fn impose(input: &Input, per_sheet: u8, booklet: bool, out: &Path) -> Result
     }
     let sheet = if cols > rows { PdfPagePaperSize::new_custom(h, w) } else { PdfPagePaperSize::new_custom(w, h) };
     let tiled = seq.pages().tile_into_new_document(rows, cols, sheet)?;
+    save(&tiled, out)
+}
+
+/// All the pages one under the other on a single long page (Stirling PDF's Single large page), as
+/// wide as the widest, each in a cell as tall as the tallest. A PDF page is 14,400 pt (200 in) at
+/// most: longer is refused. Written to `out`, not password-protected.
+pub fn long_page(input: &Input, out: &Path) -> Result<PathBuf> {
+    let _g = pdfium_lock();
+    let src = input.open()?;
+    let n = src.pages().len();
+    let (mut w, mut h) = (0f32, 0f32);
+    for p in src.pages().iter() {
+        w = w.max(p.width().value);
+        h = h.max(p.height().value);
+    }
+    let total = h * n as f32;
+    if total > 14_400.0 {
+        return Err(OpdfError::Unsupported(format!("{n} pages are too long for one page (a PDF page is 200 inches at most)")));
+    }
+    let rows = u8::try_from(n).map_err(|_| OpdfError::Unsupported("too many pages for one long page".into()))?;
+    let sheet = PdfPagePaperSize::new_custom(PdfPoints::new(w), PdfPoints::new(total));
+    let tiled = src.pages().tile_into_new_document(rows, 1, sheet)?;
     save(&tiled, out)
 }
 

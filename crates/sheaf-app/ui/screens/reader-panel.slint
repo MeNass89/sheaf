@@ -94,14 +94,21 @@ export component ReaderPanel inherits Rectangle {
                             overflow: elide;
                         }
                     }
-                    // Acrobat's Find and Replace: the words found rewritten in the pages' text.
-                    HorizontalLayout {
+                    // Acrobat's Find and Replace: the words found rewritten in the pages' text. The field
+                    // has the row to itself (beside two buttons it was too narrow to read).
+                    VerticalLayout {
                         padding-left: 10px;
                         padding-right: 10px;
                         padding-bottom: 6px;
                         spacing: 6px;
                         replace-in := PanelField { placeholder: "Replace with"; }
-                        SmallButton { text: "Replace all"; clicked => { ReaderBridge.replace-all(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            // Acrobat's Replace: the match in view only.
+                            SmallButton { text: "Replace"; clicked => { ReaderBridge.replace-one(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
+                            SmallButton { text: "Replace all"; clicked => { ReaderBridge.replace-all(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
+                        }
                     }
                     recent := PopupWindow {
                         x: 10px;
@@ -576,7 +583,7 @@ export component ReaderPanel inherits Rectangle {
                         x: root.menu-x;
                         y: root.menu-y;
                         width: 220px;
-                        height: 8 * 30px + 8px;
+                        height: 9 * 30px + 8px;
                         Rectangle {
                             background: Theme.card;
                             border-radius: Theme.radius-small;
@@ -588,7 +595,7 @@ export component ReaderPanel inherits Rectangle {
                                 padding: 4px;
                                 // Codes as reader_ui::page_op.
                                 for o in [{ t: "Rotate left", k: 0 }, { t: "Rotate right", k: 1 }, { t: "Insert blank page after", k: 5 }, { t: "Duplicate", k: 3 },
-                                          { t: "Insert pages from file…", k: 6 }, { t: "Replace with a file's pages…", k: 7 }, { t: "Reverse page order", k: 8 }, { t: "Delete", k: 2 }]: Rectangle {
+                                          { t: "Insert pages from file…", k: 6 }, { t: "Insert a file's pages before…", k: 9 }, { t: "Replace with a file's pages…", k: 7 }, { t: "Reverse page order", k: 8 }, { t: "Delete", k: 2 }]: Rectangle {
                                     height: 30px;
                                     background: pm.has-hover ? Theme.popup-hover : transparent;
                                     Text { x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }

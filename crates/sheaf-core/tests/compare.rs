@@ -253,7 +253,7 @@ fn a_line_moved_with_the_same_words_is_reported() {
 }
 
 #[test]
-fn documents_that_share_almost_no_words_are_said_to() {
+fn documents_that_share_almost_no_words_are_not_compared() {
     let t = tempfile::tempdir().unwrap();
     let doc = |name: &str, word: &str| {
         let _g = pdfium_lock();
@@ -269,6 +269,8 @@ fn documents_that_share_almost_no_words_are_said_to() {
         path
     };
     let (old, new) = (doc("a.pdf", "apple"), doc("b.pdf", "zebra"));
-    let r = compare::compare(&Input::new(&old), &Input::new(&new), CompareMode::Text, &t.path().join("r.pdf")).unwrap();
-    assert!(page_texts(&r.path).join(" ").contains("differ almost everywhere"), "{:?}", page_texts(&r.path));
+    // Not compared at all (Acrobat stops), and nothing written.
+    let e = compare::compare(&Input::new(&old), &Input::new(&new), CompareMode::Text, &t.path().join("r.pdf")).unwrap_err();
+    assert!(e.to_string().contains("differ almost everywhere"), "{e}");
+    assert!(!t.path().join("r.pdf").exists());
 }

@@ -17,6 +17,8 @@ pub struct Facts {
     pub boxes: Vec<(&'static str, String)>,
     /// The document's own properties (Acrobat's Custom tab): Info entries past the standard ones.
     pub custom: Vec<(String, String)>,
+    /// The fonts the pages use (Acrobat's Fonts tab), by name, and whether each is embedded.
+    pub fonts: Vec<(String, bool)>,
 }
 
 /// The /P bits (PDF 32000 table 22) and what each forbids when it is off.
@@ -65,6 +67,7 @@ pub fn read(bytes: &[u8], password: Option<&str>) -> Facts {
             .collect();
     }
     f.pdfa = doc.catalog().ok().and_then(|c| c.get(b"Metadata").ok()).and_then(|m| m.as_reference().ok()).and_then(|r| doc.get_object(r).ok()).and_then(|o| o.as_stream().ok()).and_then(|s| s.decompressed_content().ok().or_else(|| Some(s.content.clone()))).and_then(|x| pdfa_of(&String::from_utf8_lossy(&x)));
+    f.fonts = fonts_of(&doc);
     if let Some((_, &id)) = doc.get_pages().iter().next() {
         let page = |key: &[u8]| inherited(&doc, id, key).and_then(|o| rect(&o));
         let media = page(b"MediaBox");
@@ -81,6 +84,46 @@ pub fn read(bytes: &[u8], password: Option<&str>) -> Facts {
         }
     }
     f
+}
+
+/// The fonts named in the pages' resources (form XObjects' too, one level down), sorted, each
+/// once: its /BaseFont without the subset tag, embedded when it or its descendant carries a font
+/// file.
+fn fonts_of(doc: &Document) -> Vec<(String, bool)> {
+    let deref = |o: &Object| doc.dereference(o).ok().map(|(_, o)| o.clone());
+    let dict = |o: &Object| deref(o).and_then(|o| o.as_dict().ok().cloned());
+    let mut found = std::collections::BTreeMap::new();
+    let mut fonts_in = |res: &Dictionary| {
+        let Some(fonts) = res.get(b"Font").ok().and_then(dict) else { return };
+        for (_, f) in fonts.iter() {
+            let Some(font) = dict(f) else { continue };
+            let Some(name) = font.get(b"BaseFont").ok().and_then(|o| o.as_name().ok()) else { continue };
+            let name = String::from_utf8_lossy(name);
+            // "ABCDEF+Helvetica": a subset of Helvetica.
+            let name = match name.split_once('+') {
+                Some((tag, rest)) if tag.len() == 6 && tag.chars().all(|c| c.is_ascii_uppercase()) => rest.to_string(),
+                _ => name.into_owned(),
+            };
+            let descriptor = |font: &Dictionary| font.get(b"FontDescriptor").ok().and_then(dict);
+            let has_file = |d: Option<Dictionary>| d.is_some_and(|d| [&b"FontFile"[..], b"FontFile2", b"FontFile3"].iter().any(|k| d.has(k)));
+            let descendant = font.get(b"DescendantFonts").ok().and_then(deref).and_then(|a| a.as_array().ok().and_then(|a| a.first().cloned())).and_then(|o| dict(&o));
+            let embedded = has_file(descriptor(&font)) || descendant.is_some_and(|d| has_file(descriptor(&d)));
+            let e = found.entry(name).or_insert(false);
+            *e |= embedded;
+        }
+    };
+    for &id in doc.get_pages().values() {
+        let Some(res) = inherited(doc, id, b"Resources").and_then(|o| o.as_dict().ok().cloned()) else { continue };
+        fonts_in(&res);
+        if let Some(xobjects) = res.get(b"XObject").ok().and_then(dict) {
+            for (_, x) in xobjects.iter() {
+                if let Some(inner) = deref(x).and_then(|o| o.as_stream().ok().and_then(|s| s.dict.get(b"Resources").ok().and_then(dict))) {
+                    fonts_in(&inner);
+                }
+            }
+        }
+    }
+    found.into_iter().collect()
 }
 
 /// What a /P value forbids; no printing at all says the high-quality one too.

@@ -285,6 +285,24 @@ fn office_batch_keeps_the_first_pdf_when_the_second_fails() {
 }
 
 #[test]
+fn bates_numbers_run_on_across_a_batch() {
+    use sheaf_core::numbers::{Bates, NumberOptions, NumberText};
+    let dir = tempfile::tempdir().unwrap();
+    let a = two_page_pdf(dir.path());
+    let b = dir.path().join("b.pdf");
+    std::fs::copy(&a, &b).unwrap();
+    let mut texts: [String; 6] = Default::default();
+    texts[4] = "{bates}".into();
+    let options = NumberOptions { text: NumberText::Nothing, texts, bates: Bates { digits: 3, start: 1, prefix: "X-".into(), suffix: String::new() }, ..Default::default() };
+    let job = Job::PageNumbers { items: vec![(Input::new(&a), dir.path().join("a-n.pdf")), (Input::new(&b), dir.path().join("b-n.pdf"))], options };
+    run(&job, &AtomicBool::new(false), &|_| {}).unwrap();
+    // The second file goes on from the first's two pages: X-003.
+    let text = |p: &Path| String::from_utf8_lossy(&std::process::Command::new("pdftotext").arg(p).arg("-").output().unwrap().stdout).into_owned();
+    assert!(text(&dir.path().join("a-n.pdf")).contains("X-002"));
+    assert!(text(&dir.path().join("b-n.pdf")).contains("X-003"), "{}", text(&dir.path().join("b-n.pdf")));
+}
+
+#[test]
 fn numbers_watermark_and_crop_jobs_warn_on_protected_input() {
     use sheaf_core::{crop::CropSpec, numbers::NumberOptions, watermark::{Mark, WatermarkOptions}};
     let dir = tempfile::tempdir().unwrap();

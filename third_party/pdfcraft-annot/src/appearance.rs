@@ -566,7 +566,8 @@ pub fn build(d: &Dict) -> Option<Stream> {
         b"Ink" => {
             let col = stroke?;
             let list = d.get(b"InkList")?.as_array()?;
-            c.push_str(&format!("{}{} w 1 J 1 j\n", rg_stroke(col), n(w)));
+            // Sheaf: a dashed pen stroke too (`/BS /S /D`).
+            c.push_str(&format!("{}{} w 1 J 1 j\n{}", rg_stroke(col), n(w), dash(d)));
             for s in list {
                 let pts: Vec<f64> = s.as_array()?.iter().map(|o| o.as_f64()).collect::<Option<_>>()?;
                 let pts: Vec<(f64, f64)> = pts.as_chunks::<2>().0.iter().map(|p| (p[0], p[1])).collect();
@@ -599,7 +600,7 @@ pub fn build(d: &Dict) -> Option<Stream> {
                 return Some(form(rect, c.as_bytes(), res));
             }
             // A custom stamp: its picture (an image, or a form mapped to /PCPictureSize) fills
-            // the rectangle. An image signature added to a turned page (`/PCPictureRotate`) gets
+            // the rectangle. A picture added to a turned page, or turned (`/PCPictureRotate`), gets
             // the standard counter-rotation as its form `/Matrix`: viewers fit the turned
             // bounding box to `/Rect` (ISO 32000-2 §12.5.5), so it reads upright as displayed.
             if let Some(pic) = d.get(b"PCPicture").and_then(Object::as_ref) {
@@ -618,7 +619,7 @@ pub fn build(d: &Dict) -> Option<Stream> {
                 res.set(b"XObject".to_vec(), Object::Dict(xo));
                 let mut stream = form(rect, c.as_bytes(), res);
                 let turn = picture_turn(d);
-                if image && turn != 0 {
+                if turn != 0 {
                     // The page's view matrix without its offset: display axes in user space.
                     let m = pdfcraft_model::view_matrix_for(turn, [0.0; 4]);
                     let matrix = [m[0], m[1], m[2], m[3], 0.0, 0.0];

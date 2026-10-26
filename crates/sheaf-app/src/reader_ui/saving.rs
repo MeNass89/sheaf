@@ -49,6 +49,58 @@ pub fn save_as(ui: &AppWindow, tab_id: i32) {
     });
 }
 
+/// The tab's menu ▸ Rename… (PDF Expert's and Preview's File ▸ Rename): the file renamed in its
+/// folder, under the name typed in a Save dialog there; the tab, Recent files and later saves
+/// follow it.
+pub fn rename_file(ui: &AppWindow, tab_id: i32) {
+    let Some((from, name)) = update(tab_id, |r, _| (r.path.clone(), r.name.clone())) else { return };
+    let d = crate::dialog::new(ui).set_title("Rename").set_directory(crate::dest::parent_dir(&from)).set_file_name(name).add_filter("PDF", &["pdf"]);
+    crate::dialog::save_file(ui, d, move |ui, to| {
+        if to == from {
+            return;
+        }
+        if let Err(e) = std::fs::rename(&from, &to) {
+            return crate::flow::toast(ui, &format!("It could not be renamed: {e}"));
+        }
+        update(tab_id, |r, v| {
+            r.path = to.clone();
+            r.name = file_name(&to);
+            v.input.path = to.clone();
+        });
+        with(|a| {
+            if let Some(t) = a.tab(tab_id) {
+                t.reader_file = Some(std::fs::canonicalize(&to).unwrap_or_else(|_| to.clone()));
+            }
+        });
+        crate::home::record_open(&to);
+        crate::flow::toast(ui, &format!("Renamed {}", file_name(&to)));
+    });
+}
+
+/// The tab's menu ▸ Show in Folder.
+pub fn reveal_file(tab_id: i32) {
+    if let Some(p) = update(tab_id, |r, _| r.path.clone()) {
+        crate::run::reveal(&p);
+    }
+}
+
+/// The tab's menu ▸ Move to Trash (PDF Expert's): the file goes to the trash, where it can be put
+/// back from, and its tab closes. Unsaved edits are not thrown away with it: saved or discarded
+/// first.
+pub fn trash_file(ui: &AppWindow, tab_id: i32) {
+    if let Some(name) = unsaved_name(tab_id) {
+        return crate::flow::toast(ui, &format!("{name} has unsaved edits: save them or close it first"));
+    }
+    let Some(path) = update(tab_id, |r, _| r.path.clone()) else { return };
+    match crate::run::trash(&path) {
+        Ok(()) => {
+            crate::flow::remove_tab(ui, tab_id);
+            crate::flow::toast(ui, &format!("{} moved to the Trash", file_name(&path)));
+        }
+        Err(e) => crate::flow::toast(ui, &format!("It could not be moved to the Trash: {e}")),
+    }
+}
+
 /// The file name of tab `tab_id` when closing it would lose edits, a paragraph being retyped
 /// included (Sol, 25/10: it was lost without a word; Save applies it first).
 pub fn unsaved_name(tab_id: i32) -> Option<String> {
@@ -207,9 +259,9 @@ pub fn versions_open(tab_id: i32) {
 pub fn version_action(ui: &AppWindow, tab_id: i32, n: i32) {
     let name = update(tab_id, |r, _| {
         r.versions_open = false;
-        r.name.clone()
+        (r.name.clone(), r.path.clone())
     });
-    let Some(name) = name else { return };
+    let Some((name, path)) = name else { return };
     match n {
         0 => {
             update(tab_id, |r, _| {
@@ -220,7 +272,14 @@ pub fn version_action(ui: &AppWindow, tab_id: i32, n: i32) {
             });
         }
         n if n > 0 => {
-            let dir = std::env::temp_dir().join("sheaf-versions");
+            // A folder per document: two files of one name keep their versions apart (Sol, 26/10:
+            // the second's version 1 reopened the first's tab).
+            let dir = std::env::temp_dir().join("sheaf-versions").join({
+                use std::hash::{Hash, Hasher};
+                let mut h = std::collections::hash_map::DefaultHasher::new();
+                path.hash(&mut h);
+                format!("{:016x}", h.finish())
+            });
             if let Err(e) = std::fs::create_dir_all(&dir) {
                 return crate::flow::toast(ui, &format!("Version not opened: {e}"));
             }

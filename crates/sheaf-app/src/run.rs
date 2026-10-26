@@ -90,7 +90,7 @@ pub fn toggle_code(set: &str, code: &str) -> String {
 
 fn ocr_options(opts: &ToolOptions) -> Result<OcrOptions> {
     let language = opts.ocr_languages.split(',').find(|c| !c.is_empty()).ok_or_else(|| OpdfError::Unsupported("choose a document language".into()))?;
-    Ok(OcrOptions { language: language.into(), read_text_pages: opts.ocr_all_pages, ..Default::default() })
+    Ok(OcrOptions { language: language.into(), read_text_pages: opts.ocr_all_pages, enhance: opts.ocr_enhance, ..Default::default() })
 }
 
 /// A typed millimetre margin, in points.
@@ -131,6 +131,7 @@ fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
             2 => NumberText::PageOfTotal,
             3 => NumberText::Custom(opts.num_custom.to_string()),
             4 => NumberText::Nothing,
+            5 => NumberText::Remove,
             _ => NumberText::Number,
         },
         font_size: {
@@ -274,7 +275,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 (1, _) => SplitMode::Every(opts.every.max(1) as u32),
                 (2, _) => SplitMode::Bookmarks,
                 (3, _) => SplitMode::Size(split_size(&opts.split_size)?),
-                (4, _) => SplitMode::Halves(opts.split_across),
+                (4, _) => SplitMode::Grid(opts.split_cols.clamp(1, 10) as u32, opts.split_rows.clamp(1, 10) as u32),
                 (_, true) => SplitMode::OneFile(opts.ranges.trim().into()),
                 _ => SplitMode::Ranges(opts.ranges.trim().into()),
             },
@@ -282,7 +283,17 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
         },
         ToolId::RemovePages => Job::RemovePages { input: one(inputs)?, pages: if opts.remove_blank { format!("{}:{}", jobs::BLANK_PAGES, opts.blank_level.clamp(0, 2)) } else { pages }, out: single()? },
         ToolId::ExtractPages => Job::ExtractPages { input: one(inputs)?, pages, out: single()? },
-        ToolId::Organize => Job::Organize { input: one(inputs)?, order, out: single()?, per_sheet: [1, 2, 4, 6, 9][opts.per_sheet.clamp(0, 4) as usize], booklet: opts.per_sheet == 5 },
+        ToolId::Organize => Job::Organize {
+            input: one(inputs.clone())?,
+            // An order typed replaces the grid's (its pages counted in the file itself).
+            order: match opts.organize_order.trim() {
+                "" => order,
+                typed => {
+                    let n = inputs.first().and_then(|i| std::fs::read(&i.path).ok()).map_or(0, |b| sheaf_core::pages::count_in(&b)) as u32;
+                    sheaf_core::ranges::order_spec(typed, n)?
+                }
+            },
+            out: single()?, per_sheet: [1, 2, 4, 6, 9][opts.per_sheet.clamp(0, 4) as usize], booklet: opts.per_sheet == 5, long: opts.per_sheet == 6 },
         ToolId::Rotate => Job::Rotate {
             items: pairs(inputs),
             degrees: opts.degrees as i64,
@@ -593,6 +604,31 @@ pub fn reveal(p: &std::path::Path) {
     #[cfg(not(any(target_os = "macos", windows)))]
     if let Some(dir) = p.parent() {
         spawn_detached("xdg-open", &[dir.as_os_str()]);
+    }
+}
+
+/// Moves `p` to the system's trash (Finder's, the desktop's, the Recycle Bin), where it can be put
+/// back from.
+pub fn trash(p: &std::path::Path) -> std::result::Result<(), String> {
+    use std::process::Command;
+    #[cfg(target_os = "macos")]
+    let out = {
+        let path = p.to_string_lossy().replace('\\', "\\\\").replace('"', "\\\"");
+        Command::new("osascript").args(["-e", &format!("tell application \"Finder\" to delete POSIX file \"{path}\"")]).output()
+    };
+    #[cfg(windows)]
+    let out = {
+        let path = p.to_string_lossy().replace('\'', "''");
+        Command::new("powershell")
+            .args(["-NoProfile", "-Command", &format!("Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{path}', 'OnlyErrorDialogs', 'SendToRecycleBin')")])
+            .output()
+    };
+    #[cfg(not(any(target_os = "macos", windows)))]
+    let out = Command::new("gio").arg("trash").arg(p).output();
+    match out {
+        Ok(o) if o.status.success() && !p.exists() => Ok(()),
+        Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
+        Err(e) => Err(e.to_string()),
     }
 }
 

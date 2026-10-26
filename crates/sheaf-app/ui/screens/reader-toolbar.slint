@@ -372,6 +372,8 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "One page at a time", keys: "", on: root.tab.reader.page-at-a-time },
                                 // Acrobat's Share ▸ Email, Preview's Share ▸ Mail.
                                 { text: "Email…", keys: "", on: false },
+                                // Acrobat's View ▸ Rotate View ▸ Clockwise: the view, not the file.
+                                { text: "Rotate view", keys: "⇧⌘+", on: root.tab.reader.view-turn != 0 },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -399,6 +401,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 16 { ReaderBridge.auto-scroll(root.id); }
                                         if k == 17 { ReaderBridge.page-at-a-time(root.id); }
                                         if k == 18 { ReaderBridge.email(root.id); }
+                                        if k == 19 { ReaderBridge.rotate-view(root.id, 1); }
                                         root.focus-pages();
                                     }
                                 }

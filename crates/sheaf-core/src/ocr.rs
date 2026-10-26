@@ -20,11 +20,14 @@ pub struct OcrOptions {
     pub read_text_pages: bool,
     /// Resolution pages are read at (a scan is read at its own resolution, up to this).
     pub dpi: f32,
+    /// Straighten and clean the scanned pages first ([`crate::enhance`]): drawn again level, the
+    /// paper white and the ink dark.
+    pub enhance: bool,
 }
 
 impl Default for OcrOptions {
     fn default() -> Self {
-        OcrOptions { language: "en".into(), read_text_pages: false, dpi: 300.0 }
+        OcrOptions { language: "en".into(), read_text_pages: false, dpi: 300.0, enhance: false }
     }
 }
 
@@ -131,8 +134,18 @@ pub(crate) fn engine() -> Result<Arc<Ocr>> {
 /// layer. `progress` gets 0..=1 before each page and at the end; returning `false` stops, and
 /// the result is [`OpdfError::Cancelled`] with nothing written.
 pub fn ocr(input: &Input, opts: &OcrOptions, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<OcrReport> {
-    let mut doc = Doc::open(input)?;
-    recognize(&mut doc, opts, progress)?.save(doc, out)
+    if !opts.enhance {
+        let mut doc = Doc::open(input)?;
+        return recognize(&mut doc, opts, progress)?.save(doc, out);
+    }
+    // Straightened first (a fifth of the progress), then read.
+    let tmp = tempfile::Builder::new().suffix(".pdf").tempfile()?;
+    crate::enhance::enhance(input, tmp.path(), &mut |f| progress(f * 0.2))?;
+    let mut doc = Doc::open(&Input::new(tmp.path()))?;
+    let mut report = recognize(&mut doc, opts, &mut |f| progress(0.2 + f * 0.8))?.save(doc, out)?;
+    // The straightened copy is never protected: whether the original was.
+    report.was_encrypted = input.password.is_some();
+    Ok(report)
 }
 
 /// What recognition found, before it is written.

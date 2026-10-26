@@ -486,15 +486,21 @@ out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1) + b"".join(b"%010d
 out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
 open(sys.argv[1], "wb").write(out)
 PY
-launch "$OUT/flat.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6; DF=$(at Detect 900x60+600+90); [ -n "$DF" ] && click $DF 2; key ctrl+s; sleep 1.5
+cp "$OUT/flat.pdf" "$OUT/flat0.pdf"; launch "$OUT/flat.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6; DF=$(at Detect 900x60+600+90); [ -n "$DF" ] && click $DF 2; key ctrl+s; sleep 1.5
 FT=$(qpdf --qdf --object-streams=disable "$OUT/flat.pdf" - 2>/dev/null | grep -ac '/FT /Tx')
 check "Detect fields turns a flat form's blanks into text fields (${DF:-no button}; $FT fields)" "[ \"$FT\" = 2 ]"
 quit
 # The same on a scanned form (a picture of two lines and a box, 144 dpi): its lines and box are found in the pixels.
 convert -size 1224x1584 xc:white -fill none -stroke black -strokewidth 2 -draw "line 300,400 900,400" -draw "line 300,500 900,500" -draw "rectangle 300,600 330,630" -units PixelsPerInch -density 144 "$OUT/scan-form.pdf"
-launch "$OUT/scan-form.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6; DS=$(at Detect 900x60+600+90); [ -n "$DS" ] && click $DS 8; key ctrl+s; sleep 1.5
+cp "$OUT/scan-form.pdf" "$OUT/scan0.pdf"; launch "$OUT/scan-form.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6; DS=$(at Detect 900x60+600+90); [ -n "$DS" ] && click $DS 8; key ctrl+s; sleep 1.5
 SQ=$(qpdf --qdf --object-streams=disable "$OUT/scan-form.pdf" - 2>/dev/null)
 check "Detect fields finds a scanned form's lines and box ($(echo "$SQ" | grep -ac '/FT /Tx') text, $(echo "$SQ" | grep -ac '/FT /Btn') check box)" "[ \"\$(echo \"\$SQ\" | grep -ac '/FT /Tx')\" = 2 ] && [ \"\$(echo \"\$SQ\" | grep -ac '/FT /Btn')\" = 1 ]"
+quit
+# A document mixing the two (Sol, 26/10: the scan was left out once the drawn page gave fields): all are found.
+qpdf --empty --pages "$OUT/flat0.pdf" "$OUT/scan0.pdf" -- "$OUT/mixed-form.pdf"
+launch "$OUT/mixed-form.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6; DM=$(at Detect 900x60+600+90); [ -n "$DM" ] && click $DM 8; key ctrl+s; sleep 1.5
+MQ=$(qpdf --qdf --object-streams=disable "$OUT/mixed-form.pdf" - 2>/dev/null)
+check "Detect fields on a drawn page and a scanned one finds both's ($(echo "$MQ" | grep -ac '/FT /Tx') text, $(echo "$MQ" | grep -ac '/FT /Btn') check box)" "[ \"\$(echo \"\$MQ\" | grep -ac '/FT /Tx')\" = 4 ] && [ \"\$(echo \"\$MQ\" | grep -ac '/FT /Btn')\" = 1 ]"
 quit
 
 # 54. Closing what would be lost asks first: a paragraph retyped in Edit text and not applied ("Save changes to
@@ -549,13 +555,15 @@ cp "$OUT/text.pdf" "$OUT/initial.pdf"; launch "$OUT/initial.pdf"; sleep 1
 # The page field sits under the "When opened" label, right of its "Page" (the page's own "Page 1" shows behind the sheet).
 key ctrl+d; sleep 1; read OX OY <<< "$(at opened 900x700+190+60)"; PG=${OY:+$(( OX + 20 )) $(( OY + 34 ))}; [ -n "$PG" ] && { click $PG 0.4; xdotool type --delay 20 "3"; }
 TW=$(at Two 900x700+190+60); [ -n "$TW" ] && click $TW 0.4
+# Window ▸ Full screen (Acrobat's Open in Full Screen mode).
+FL=$(at Full 900x700+190+60); [ -n "$FL" ] && click $FL 0.4
 # Save (white on red) is 71 px right of Cancel, on the sheet's bottom row (read on a small strip: the dimmed
 # page around confuses tesseract).
 CN=$(at Cancel 240x44+640+722); SV=${CN:+$(set -- $CN; echo $(( $1 + 71 )) $2)}; [ -n "$SV" ] && click $SV 1; key ctrl+s; sleep 1.5; shot 62-initial-view
 IV=$(qpdf --qdf --object-streams=disable "$OUT/initial.pdf" - 2>/dev/null)
 quit
 cp "$OUT/initial.pdf" "$OUT/initial-copy.pdf"; launch "$OUT/initial-copy.pdf"; sleep 2; IO=$(ocr 1020x700+255+90)
-check "When opened sets the Initial View and a new copy opens as it asks (${PG:-no page field} ${TW:-no Two}; $(echo "$IO" | cut -c1-60))" "echo \"\$IV\" | grep -aq '/OpenAction' && echo \"\$IV\" | grep -aq '/PageLayout /TwoColumnLeft' && echo \"$IO\" | grep -q 'Page 3' && ! echo \"$IO\" | grep -q 'Page 1'"
+check "When opened sets the Initial View and a new copy opens as it asks (${PG:-no page field} ${TW:-no Two}; $(echo "$IO" | cut -c1-60))" "echo \"\$IV\" | grep -aq '/OpenAction' && echo \"\$IV\" | grep -aq '/PageLayout /TwoColumnLeft' && echo \"\$IV\" | grep -aq '/PageMode /FullScreen' && echo \"$IO\" | grep -q 'Page 3' && ! echo \"$IO\" | grep -q 'Page 1'"
 quit
 
 # 63. More (1127,61) ▸ Copy an area as a picture (16th item, 1008,519; Acrobat's Snapshot): a box dragged over the
@@ -606,10 +614,10 @@ click 1140 755 4; shot 66-target; TR=$(import -window root png:- | convert - -re
 check "Compress to a size out of reach keeps the smallest and says so (${TS:-no option}; $(ls $OUT/target-compressed*.pdf 2>/dev/null | wc -l) file)" "ls $OUT/target-compressed*.pdf >/dev/null 2>&1 && echo \"$TR\" | grep -q 'as small as it gets'"
 quit
 
-# 50. Any colour (Acrobat's Other color): the row's sixth dot (557,110 with the Pen) opens a palette; its
-# orange (the second swatch, 517,145) draws the stroke, saved orange (F28C28).
+# 50. Any colour (Acrobat's Other color): the row's sixth dot (620,110 with the Pen, after the four widths and
+# "- -") opens a palette; its orange (the second swatch, 580,145) draws the stroke, saved orange (F28C28).
 cp "$OUT/text.pdf" "$OUT/colour.pdf"; launch "$OUT/colour.pdf"
-key p; click 557 110 0.8; click 517 145 0.6
+key p; click 620 110 0.8; click 580 145 0.6
 xdotool mousemove 500 400 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 30 )) 410; sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
 OC=$(qpdf --json=2 "$OUT/colour.pdf" | python3 -c 'import json, sys
 for v in json.load(sys.stdin)["qpdf"][1].values():
@@ -659,8 +667,8 @@ quit
 # panel's Replace with, Replace all: every page's text now says "slow brown fox", none "quick".
 cp "$OUT/text.pdf" "$OUT/replace-all.pdf"; launch "$OUT/replace-all.pdf"; sleep 1
 key ctrl+f; xdotool type --delay 10 "quick"; key Return; sleep 2
-# The field's placeholder is too faint to read: it sits left of the "Replace all" button.
-RA=$(at all 300x300+0+60); RW=${RA:+$(set -- $RA; echo $(( $1 - 140 )) $2)}
+# The field's placeholder is too faint to read: it is the row above the "Replace all" button, across the panel.
+RA=$(at all 300x300+0+60); RW=${RA:+$(set -- $RA; echo 100 $(( $2 - 34 )))}
 [ -n "$RW" ] && { click $RW 0.4; xdotool type --delay 20 "slow"; click $RA 3; }; key ctrl+s; sleep 2; shot 68-replace-all
 RT=$(pdftotext "$OUT/replace-all.pdf" - 2>/dev/null | tr '\n' ' ')
 check "Replace all rewrites the words on every page (${RW:-no field} ${RA:-no button}; $(echo "$RT" | cut -c1-60))" "[ \"\$(echo \"$RT\" | grep -o 'slow brown' | wc -l)\" = 4 ] && ! echo \"$RT\" | grep -q quick"
@@ -716,14 +724,27 @@ BK=$(at Booklet 280x700+1000+40); [ -n "$BK" ] && click $BK 0.5; click 1140 755 
 BT=$(pdftotext -f 1 -l 1 "$OUT/booklet-organized.pdf" - 2>/dev/null | tr '\n' ' ')
 check "Booklet puts two pages to a side in folding order (${BK:-no option}; $(pdfinfo $OUT/booklet-organized.pdf 2>/dev/null | grep Pages); $(echo $BT | cut -c1-60))" "pdfinfo $OUT/booklet-organized.pdf 2>/dev/null | grep -q 'Pages: *2' && echo \"$BT\" | grep -q 'Page 4' && echo \"$BT\" | grep -q 'Page 1'"
 quit
+# 73b. Organize ▸ One long page (Stirling's Single large page): text.pdf's four pages on a single page.
+cp "$OUT/text.pdf" "$OUT/long.pdf"; launch "$OUT/long.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "organize"; key Return; sleep 3
+LG=$(at long 280x700+1000+40); [ -n "$LG" ] && click $LG 0.5; click 1140 755 4
+check "One long page puts every page on one (${LG:-no option}; $(pdfinfo $OUT/long-organized.pdf 2>/dev/null | grep Pages))" "pdfinfo $OUT/long-organized.pdf 2>/dev/null | grep -q 'Pages: *1' && pdftotext $OUT/long-organized.pdf - | grep -q 'Page 4'"
+quit
 
-# 74. Split ▸ Cut each page in two (a scanned spread made two pages again), Left | right: text.pdf's four pages become
+# 74. Split ▸ Cut each page into parts (a scanned spread made two pages again), Left | right: text.pdf's four pages become
 # eight, page 1's first words on the first.
 cp "$OUT/text.pdf" "$OUT/spread.pdf"; launch "$OUT/spread.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "split"; key Return; sleep 3
 CT=$(at Cut 280x700+1000+40); [ -n "$CT" ] && click $CT 0.6; click 1140 755 4
-HV=$(ls $OUT/spread-halves*.pdf 2>/dev/null | head -1)
+HV=$(ls -t $OUT/spread-cut*.pdf 2>/dev/null | head -1)
 check "Cut each page in two makes eight half pages (${CT:-no option}; ${HV:-no file})" "[ -n \"$HV\" ] && pdfinfo \"$HV\" | grep -q 'Pages: *8' && pdftotext -f 1 -l 1 \"$HV\" - | grep -q 'Page 1'"
+quit
+# The same, Grid (2 × 2 to start, Stirling's sections): sixteen quarter pages.
+cp "$OUT/text.pdf" "$OUT/poster.pdf"; launch "$OUT/poster.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "split"; key Return; sleep 3
+CT=$(at Cut 280x700+1000+40); [ -n "$CT" ] && click $CT 0.6; GR=$(at Grid 280x700+1000+40); [ -n "$GR" ] && click $GR 0.6; click 1140 755 4
+GV=$(ls -t $OUT/poster-cut*.pdf 2>/dev/null | head -1)
+check "Cut each page into a grid makes sixteen quarter pages (${GR:-no Grid}; ${GV:-no file})" "[ -n \"$GV\" ] && pdfinfo \"$GV\" | grep -q 'Pages: *16'"
 quit
 
 # 75. Home ▸ From screenshot (Acrobat's Create PDF ▸ Screen capture): the area taken (the test seam gives stamp.png,
@@ -755,4 +776,70 @@ xdotool mousemove 500 400; for _ in $(seq 1 40); do xdotool click 5; sleep 0.02;
 # The row's "Page 1", under "Marked for redaction" (the intro above says "quickly").
 ROW=$(at Page 280x300+1000+480); [ -n "$ROW" ] && click $ROW 1.2; V1=$(ocr 820x700+140+60)
 check "a mark's row in Redact's list shows it on its page (${ROW:-no row}; $(echo $V0 | cut -c1-20) → $(echo $V1 | cut -c1-20))" "! echo \"$V0\" | grep -q 'Page 1' && echo \"$V1\" | grep -q 'Page 1'"
+quit
+
+# 78. Rotate view (Acrobat's View ▸ Rotate View): ⇧⌘+ turns the pages shown a quarter, "quick" no longer reads
+# across; ⇧⌘− turns them back. The file is not changed (nothing to save).
+cp "$OUT/text.pdf" "$OUT/turned.pdf"; launch "$OUT/turned.pdf"; sleep 1
+# Tesseract reads the turned word too: it reads narrow then (its letters run down).
+wide() { [ -n "$1" ] && set -- $1 && echo $(( $2 - $1 )); }
+R0=$(span quick 1020x700+255+90); key ctrl+shift+plus; sleep 2; R1=$(span quick 1020x700+255+90); shot 78-turned
+key ctrl+shift+minus; sleep 2; R2=$(span quick 1020x700+255+90); M0=$(md5sum < "$OUT/text.pdf"); M1=$(md5sum < "$OUT/turned.pdf")
+W0=$(wide "$R0"); W1=$(wide "$R1"); W2=$(wide "$R2")
+check "Rotate view turns the pages shown and back, the file untouched (quick ${W0:-?} → ${W1:-?} → ${W2:-?} px wide)" "[ \"\${W0:-0}\" -gt 20 ] && [ \"\${W1:-0}\" -lt \$(( \${W0:-0} / 2 )) ] && [ \"\${W2:-0}\" -gt 20 ] && [ \"$M0\" = \"$M1\" ]"
+quit
+
+# 79. A document tab's menu (PDF Expert's File menu): Rename… (the Save dialog answered with named.pdf in the same
+# folder) renames the file under the open tab; Move to Trash then sends it to the trash and closes the tab.
+cp "$OUT/text.pdf" "$OUT/toname.pdf"; launch "$OUT/toname.pdf"; sleep 1
+answer "$PWD/$OUT/named.pdf"; read AX _ <<< "$(at toname 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
+RN=$(at Rename 1280x400+0+0); [ -n "$RN" ] && click $RN 1.5; answer ""
+NM=$( [ -f "$OUT/named.pdf" ] && [ ! -e "$OUT/toname.pdf" ] && echo renamed )
+read AX _ <<< "$(at named 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
+MT=$(at Move 1280x400+0+0); [ -n "$MT" ] && click $MT 1.5
+check "a tab's menu renames its file and moves it to the trash (${RN:-no Rename} ${NM:-not renamed}; ${MT:-no Move}; $(ntabs) tabs)" "[ \"$NM\" = renamed ] && [ ! -e \"$OUT/named.pdf\" ] && [ \"\$(ntabs)\" = 0 ]"
+quit
+
+# 80. Document properties (⌘D) ▸ Copy report (Acrobat's PDF info): the clipboard holds the description, the facts and
+# the fonts, each said embedded or not (text.pdf: Helvetica, one of the standard fonts, not embedded).
+cp "$OUT/text.pdf" "$OUT/report.pdf"; launch "$OUT/report.pdf"; sleep 1; key ctrl+d; sleep 2
+# Copy report starts the sheet's bottom row (read on that strip: the dimmed page around confuses tesseract).
+CR=$(at Copy 300x44+400+722); [ -n "$CR" ] && click $CR 1
+RP=$(xclip -selection clipboard -o 2>/dev/null | tr '\n' '|')
+check "Copy report puts the properties and the fonts on the clipboard (${CR:-no button}; $(echo "$RP" | cut -c1-60))" "echo \"\$RP\" | grep -q '^report.pdf|' && echo \"\$RP\" | grep -q 'Pages: 4' && echo \"\$RP\" | grep -q 'Helvetica (not embedded)'"
+quit
+
+# 81. Home ▸ From clipboard with PDF files copied (a file manager's Copy: text/uri-list): they make the new PDF, merged.
+printf 'file://%s\r\nfile://%s\r\n' "$PWD/$OUT/text.pdf" "$PWD/$OUT/single.pdf" | xclip -selection clipboard -t text/uri-list; sleep 0.3
+launch; answer "$PWD/$OUT/clipfiles.pdf"; FC=$(at From 900x120+300+80); [ -n "$FC" ] && click $FC 1; for _ in $(seq 1 12); do [ -f "$OUT/clipfiles.pdf" ] && break; sleep 0.5; done; answer ""
+check "From clipboard merges the PDF files copied (${FC:-no button}; $(npages $OUT/clipfiles.pdf 2>/dev/null) pages)" "[ \"\$(npages $OUT/clipfiles.pdf 2>/dev/null)\" = 5 ]"
+quit
+
+# 82. A thumbnail's menu ▸ Insert a file's pages before… (Acrobat's Before): blank.pdf goes before page 1, so the
+# document's first page is now the blank one and "Page 1" its second.
+cp "$OUT/text.pdf" "$OUT/before.pdf"; launch "$OUT/before.pdf"; sleep 1
+answer "$PWD/$OUT/blank.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; BF=$(at before 300x400+20+200); [ -n "$BF" ] && click $BF 1.5; answer ""; key ctrl+s; sleep 1.5
+check "Insert a file's pages before page 1 (${BF:-no item}; $(npages $OUT/before.pdf) pages, page 2: $(first_text "$OUT/before.pdf" 2))" "[ -z \"\$(first_text $OUT/before.pdf 1)\" ] && [ \"\$(first_text $OUT/before.pdf 2)\" = 'Page 1' ]"
+quit
+
+# 83. A text box typed in place, then another tool picked in the toolbar (the Pen, 234,61): the text is added, not
+# thrown away (Sol, 26/10).
+cp "$OUT/text.pdf" "$OUT/switch.pdf"; launch "$OUT/switch.pdf"; sleep 1
+key t; sleep 0.5; click 700 500 0.8; xdotool type --delay 20 "Kept on switch"; click 234 61 1; key ctrl+s; sleep 1.5
+check "text typed in place is kept when another tool is picked" "qpdf --qdf --object-streams=disable $OUT/switch.pdf - 2>/dev/null | grep -aq 'Kept on switch'"
+quit
+
+# 84. Shapes (R) ▸ "- -" (Acrobat's Dashed line style): a rectangle drawn is saved dashed (/BS /S /D).
+cp "$OUT/text.pdf" "$OUT/dashed.pdf"; launch "$OUT/dashed.pdf"; sleep 1; key r; sleep 0.5
+DD=$(at "-" 1280x40+0+90); [ -n "$DD" ] && click $DD 0.4
+xdotool mousemove 520 420 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 520 + i * 30 )) $(( 420 + i * 20 )); sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
+DQ=$(qpdf --qdf --object-streams=disable "$OUT/dashed.pdf" - 2>/dev/null)
+check "a dashed rectangle is saved dashed (${DD:-no button})" "echo \"\$DQ\" | grep -aq '/S /D'"
+quit
+
+# 85. Organize ▸ Odd, then even (Acrobat's odd-and-even rule): text.pdf's pages come out 1, 3, 2, 4.
+cp "$OUT/text.pdf" "$OUT/oddeven.pdf"; launch "$OUT/oddeven.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "organize"; key Return; sleep 3
+OE=$(at Odd 280x700+1000+40); [ -n "$OE" ] && click $OE 0.5; click 1140 755 4
+check "Organize ▸ Odd, then even orders the pages 1, 3, 2, 4 (${OE:-no option}; page 2: $(first_text "$OUT/oddeven-organized.pdf" 2))" "[ \"\$(first_text $OUT/oddeven-organized.pdf 2)\" = 'Page 3' ] && [ \"\$(first_text $OUT/oddeven-organized.pdf 3)\" = 'Page 2' ]"
 quit
