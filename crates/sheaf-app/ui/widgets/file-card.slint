@@ -278,7 +278,11 @@ export component PageCardView inherits Rectangle {
     }
     Text {
         y: Theme.page-thumb-height + 18px;
-        text: root.item.page == 0 ? "Blank" : "Page " + root.item.page;
+        width: parent.width - 12px;
+        horizontal-alignment: center;
+        overflow: elide;
+        // Merge's pages say their file too: "report.pdf · 3".
+        text: root.item.page == 0 ? "Blank" : root.item.label != "" ? root.item.label + " · " + root.item.page : "Page " + root.item.page;
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }

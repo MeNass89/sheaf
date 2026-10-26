@@ -163,6 +163,83 @@ pub fn attachment_add(ui: &AppWindow, tab_id: i32) {
     });
 }
 
+/// More ▸ Page background…'s colours (pale, as Acrobat's background presets) and opacities.
+pub const BACKGROUNDS: [[f64; 3]; 6] = [[1.0, 0.973, 0.839], [0.890, 0.941, 1.0], [0.910, 0.969, 0.894], [0.992, 0.906, 0.925], [0.937, 0.937, 0.937], [1.0, 1.0, 1.0]];
+pub const BACKGROUND_OPACITY: [f64; 3] = [1.0, 0.75, 0.5];
+
+pub fn background_open(tab_id: i32) {
+    update(tab_id, |r, _| r.background_open = true);
+}
+
+/// More ▸ Page background… (Acrobat's Edit a PDF ▸ Background): `action` 0 puts the colour behind
+/// every page's content, 1 a picture chosen in a dialog, 2 removes the backgrounds the file has,
+/// 3 closes the sheet. A new background replaces one Sheaf or Acrobat added before; one undo step.
+pub fn background_apply(ui: &AppWindow, tab_id: i32, colour: i32, opacity: i32, action: i32) {
+    use sheaf_core::pdfcraft::engine::{Background, MarkFile, MarkKind};
+    let Some(pages) = update(tab_id, |r, v| {
+        r.background_open = false;
+        (0..v.viewer.page_count()).collect::<Vec<usize>>()
+    }) else {
+        return;
+    };
+    let settings = Background {
+        color: BACKGROUNDS[colour.clamp(0, 5) as usize],
+        opacity: BACKGROUND_OPACITY[opacity.clamp(0, 2) as usize],
+        ..Background::default()
+    };
+    match action {
+        0 => super::apply(ui, tab_id, Edit::AddBackground { pages, settings, replace: true, file: None }, &[], None),
+        1 => {
+            let d = crate::dialog::new(ui).set_title("A picture behind the pages").add_filter("Image or PDF", &["png", "jpg", "jpeg", "pdf"]);
+            crate::dialog::pick_file(ui, d, move |ui, path| match std::fs::read(&path) {
+                Ok(bytes) => {
+                    let file = MarkFile { name: file_name(&path), bytes: Arc::new(bytes), page: 0 };
+                    super::apply(ui, tab_id, Edit::AddBackground { pages, settings, replace: true, file: Some(file) }, &[], None);
+                }
+                Err(e) => crate::flow::toast(ui, &format!("{} could not be read: {e}", file_name(&path))),
+            });
+        }
+        2 => super::apply(ui, tab_id, Edit::RemoveMarks { kind: MarkKind::Background }, &[], None),
+        _ => {}
+    }
+}
+
+pub fn versions_open(tab_id: i32) {
+    update(tab_id, |r, _| r.versions_open = true);
+}
+
+/// More ▸ Versions…: `n` 0 reverts to the file as last saved (its unsaved edits and their undo
+/// history gone, Acrobat's File ▸ Revert); `n` ≥ 1 opens version `n` of the saved file (each Save
+/// of an incremental update adds one) in a tab of its own, from a copy beside the others in the
+/// temporary folder; −1 closes the sheet.
+pub fn version_action(ui: &AppWindow, tab_id: i32, n: i32) {
+    let name = update(tab_id, |r, _| {
+        r.versions_open = false;
+        r.name.clone()
+    });
+    let Some(name) = name else { return };
+    match n {
+        0 => {
+            update(tab_id, |r, _| {
+                r.undo_pages.clear();
+                r.redo_pages.clear();
+                r.selected_annot = None;
+                r.send(Op::Revert);
+            });
+        }
+        n if n > 0 => {
+            let dir = std::env::temp_dir().join("sheaf-versions");
+            if let Err(e) = std::fs::create_dir_all(&dir) {
+                return crate::flow::toast(ui, &format!("Version not opened: {e}"));
+            }
+            let stem = name.trim_end_matches(".pdf").trim_end_matches(".PDF");
+            let to = dir.join(format!("{stem} (version {n}).pdf"));
+            update(tab_id, |r, _| r.send(Op::SaveVersion { n: n as usize, to }));
+        }
+        _ => {}
+    }
+}
+
 /// More ▸ Sanitize document (Acrobat's): metadata, scripts and actions, attachments, links, hidden
 /// text and layers removed in one step, which ⌘Z undoes until the file is saved.
 pub fn sanitize(ui: &AppWindow, tab_id: i32) {

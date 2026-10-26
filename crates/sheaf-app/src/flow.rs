@@ -48,9 +48,15 @@ pub fn active_tool(ui: &AppWindow) -> Option<(i32, ToolId)> {
 
 /// Opens `tool` in a new tab, preloaded with `files` (those it accepts), and shows it.
 pub fn open_tool(ui: &AppWindow, tool: ToolId, preload: Vec<PathBuf>) {
+    open_tool_with(ui, tool, preload, None);
+}
+
+/// [`open_tool`], its options starting from `options` (Run again) instead of the defaults.
+pub fn open_tool_with(ui: &AppWindow, tool: ToolId, preload: Vec<PathBuf>, options: Option<sheaf_app::ToolOptions>) {
     let id = with(|a| {
         a.next_id += 1;
-        let t = TabState::new(a.next_id, tool);
+        let mut t = TabState::new(a.next_id, tool);
+        t.options = options;
         state::push_tab_row(&t);
         a.tabs.push(t);
         a.next_id
@@ -210,12 +216,16 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                             t.new_viewer_file();
                             return (None, None, Some(input));
                         }
-                        // Organize and Split show every page (Split cuts between them).
+                        // Organize and Split show every page (Split cuts between them); Merge's
+                        // Pages view adds the file's.
                         let organize = if matches!(t.tool, ToolId::Organize | ToolId::Split) {
                             t.order = (1..=pages).collect();
                             t.page_thumbs.clear();
                             t.pages_failed = false;
-                            Some(input)
+                            Some((input, None))
+                        } else if t.merge_order.is_some() {
+                            t.merge_add(uid);
+                            Some((input, Some(uid)))
                         } else {
                             None
                         };
@@ -223,8 +233,8 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
                     });
                     with(|a| refresh(a, tab_id));
                     crate::password::done(&ui, tab_id, uid);
-                    if let Some(input) = organize {
-                        page_thumbs(&ui, tab_id, input);
+                    if let Some((input, merged)) = organize {
+                        page_thumbs(&ui, tab_id, input, merged);
                     }
                     if let Some(input) = crop {
                         crop_preview(&ui, tab_id, uid, input);
@@ -290,8 +300,9 @@ pub fn probe(ui: &AppWindow, tab_id: i32, uid: i32, input: Input, kind: Kind) {
     });
 }
 
-/// Organize and Split: render every page on the probe pool, posting each thumbnail as it is ready.
-fn page_thumbs(ui: &AppWindow, tab_id: i32, input: Input) {
+/// Organize, Split and Merge's Pages view (`merged`: the file's uid): render every page on the
+/// probe pool, posting each thumbnail as it is ready.
+fn page_thumbs(ui: &AppWindow, tab_id: i32, input: Input, merged: Option<i32>) {
     let weak = ui.as_weak();
     sheaf_app::pool::probes().submit(move || {
         let w = weak.clone();
@@ -299,7 +310,10 @@ fn page_thumbs(ui: &AppWindow, tab_id: i32, input: Input) {
             let _ = weak.upgrade_in_event_loop(move |_| {
                 with(|a| {
                     if let Some(t) = a.tab(tab_id) {
-                        t.page_thumbs.insert(n, state::to_image(thumb));
+                        match merged {
+                            Some(uid) => t.merge_thumbs.insert((uid, n), state::to_image(thumb)),
+                            None => t.page_thumbs.insert(n, state::to_image(thumb)),
+                        };
                     }
                     refresh(a, tab_id);
                 });
@@ -412,6 +426,61 @@ pub fn sort_files(tab_id: i32) {
     });
 }
 
+/// Merge ▸ Files or Pages: its files opened out into their pages (each file's page choice
+/// kept), to put in any order; back to Files, the order made is let go.
+pub fn show_merge_pages(ui: &AppWindow, tab_id: i32, on: bool) {
+    let render = with(|a| {
+        let t = a.tab(tab_id)?;
+        if !on {
+            t.merge_order = None;
+            refresh(a, tab_id);
+            return None;
+        }
+        if t.merge_order.is_some() {
+            return None;
+        }
+        let mut seq = Vec::new();
+        for f in &t.files {
+            let n = f.pages.unwrap_or(1);
+            let chosen: Vec<u32> = sheaf_core::ranges::parse_ranges(&f.pages_spec, n).map(|r| r.into_iter().flatten().collect()).unwrap_or_default();
+            seq.extend(if f.pages_spec.trim().is_empty() || chosen.is_empty() { (1..=n).collect() } else { chosen }.into_iter().map(|p| (f.uid, p)));
+            // A picture or document converted at the run: its own thumbnail stands for its page.
+            if f.kind != Kind::Pdf
+                && let Some(th) = &f.thumb
+            {
+                t.merge_thumbs.insert((f.uid, 1), th.clone());
+            }
+        }
+        t.merge_order = Some(seq);
+        let pdfs: Vec<(Input, i32)> = t.files.iter().filter(|f| f.kind == Kind::Pdf && f.pages.is_some() && !t.merge_thumbs.contains_key(&(f.uid, 1))).map(|f| (f.input.clone(), f.uid)).collect();
+        refresh(a, tab_id);
+        Some(pdfs)
+    });
+    for (input, uid) in render.unwrap_or_default() {
+        page_thumbs(ui, tab_id, input, Some(uid));
+    }
+}
+
+/// A page card's × (`d` 0) or arrow (`d` −1 or 1): in Merge's Pages view, its order; else Organize's.
+pub fn page_op(tab_id: i32, k: i32, d: i32) {
+    fn op<T>(v: &mut Vec<T>, k: i32, d: i32) {
+        let (Ok(k), Ok(j)) = (usize::try_from(k), usize::try_from(k + d)) else { return };
+        if k >= v.len() || j >= v.len() {
+            return;
+        }
+        if d == 0 { v.remove(k); } else { v.swap(k, j); }
+    }
+    with(|a| {
+        if let Some(t) = a.tab(tab_id) {
+            match t.merge_order.as_mut() {
+                Some(seq) => op(seq, k, d),
+                None => op(&mut t.order, k, d),
+            }
+        }
+        refresh(a, tab_id);
+    });
+}
+
 pub fn edit_pages(tab_id: i32, f: impl FnOnce(&mut Vec<u32>)) {
     with(|a| {
         if let Some(t) = a.tab(tab_id) {
@@ -433,7 +502,7 @@ pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
         let t = &a.tabs[i];
         if matches!(t.phase, Phase::Running) {
             let inputs = t.files.iter().map(|f| f.input.path.clone()).collect();
-            a.closed_jobs.insert(tab_id, (t.tool, inputs));
+            a.closed_jobs.insert(tab_id, (t.tool, inputs, t.options.clone()));
         }
         a.tabs.remove(i);
         a.pw_queue.retain(|(t, _)| *t != tab_id);

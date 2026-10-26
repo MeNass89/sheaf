@@ -170,7 +170,7 @@ static CATALOGUE: &[ToolInfo] = &[
     tool!(PdfToText, "PDF to HTML or text", "Save a PDF as a web page, Markdown, rich text or plain text.", ConvertFromPdf, "file-code", PDF, true, 1),
     tool!(PdfToPdfA, "PDF to PDF/A", "Save a PDF in the archival format meant to last.", ConvertFromPdf, "archive", PDF, true, 1),
     tool!(Edit, "Edit PDF", "Add text and images on top of your pages.", Edit, "pen-line", PDF, false, 1),
-    tool!(PageNumbers, "Page numbers", "Stamp page numbers where you want them.", Edit, "list-ordered", PDF, true, 1),
+    tool!(PageNumbers, "Page numbers", "Stamp page numbers, a header, a footer or Bates numbers where you want them.", Edit, "list-ordered", PDF, true, 1),
     tool!(Watermark, "Add watermark", "Overlay text or an image across your pages.", Edit, "stamp", PDF, true, 1),
     tool!(Crop, "Crop PDF", "Trim the margins or keep only part of each page.", Edit, "crop", PDF, false, 1),
     tool!(Sign, "Sign PDF", "Place your signature on a document.", Security, "signature", PDF, false, 1),

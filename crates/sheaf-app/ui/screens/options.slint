@@ -25,6 +25,7 @@ export component OptionsPanel inherits VerticalLayout {
         : root.tool == "extract_pages" ? root.pages != ""
         : root.tool == "split" ? (root.split-mode == 0 ? root.ranges != "" && root.split-files >= 0 : root.split-mode == 3 ? root.split-size.is-float() && root.split-size.to-float() > 0 : root.split-mode == 2 || root.every >= 1)
         : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == "")) && Parse.colour-error(root.num-hex) == ""
+            && (root.num-text != 4 || root.hf-tl != "" || root.hf-tc != "" || root.hf-tr != "" || root.hf-bl != "" || root.hf-bc != "" || root.hf-br != "")
         : root.tool == "watermark" ? (root.wm-remove || (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "" && Parse.colour-error(root.wm-hex) == ""))
         : root.tool == "ocr" ? OcrInfo.available && root.ocr-languages != ","
         : root.tool == "pdf_to_word" || root.tool == "pdf_to_powerpoint" || root.tool == "pdf_to_excel" || root.tool == "pdf_to_text" ? !root.export-ocr || OcrInfo.available
@@ -36,7 +37,105 @@ export component OptionsPanel inherits VerticalLayout {
     // Add watermark: the preview follows every option and the file.
     changed options => { if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); } }
     changed file-count => { if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); } }
-    init => { if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); } }
+    init => {
+        if root.has-restore { root.restore-options(root.restore); }
+        if root.tool == "watermark" { Picked.preview-watermark(root.tab-id, root.options); }
+    }
+    // Run again (Home ▸ History): the options of the task as it ran, passwords left out
+    // (saved_options.rs); they start the panel instead of the defaults.
+    in property <ToolOptions> restore;
+    in property <bool> has-restore;
+    function restore-options(o: ToolOptions) {
+        root.level = o.level;
+        root.allow-printing = o.allow-printing;
+        root.allow-copying = o.allow-copying;
+        root.allow-editing = o.allow-editing;
+        root.allow-commenting = o.allow-commenting;
+        root.allow-filling-forms = o.allow-filling-forms;
+        root.pages = o.pages;
+        root.remove-blank = o.remove-blank;
+        root.blank-level = o.blank-level;
+        root.rotate-parity = o.rotate-parity;
+        root.protect-sanitize = o.protect-sanitize;
+        root.compare-old-pages = o.compare-old-pages;
+        root.compare-new-pages = o.compare-new-pages;
+        root.rotate-orientation = o.rotate-orientation;
+        root.split-mode = o.split-mode;
+        root.ranges = o.ranges;
+        root.every = o.every;
+        root.split-one-file = o.split-one-file;
+        root.split-size = o.split-size;
+        root.degrees = o.degrees;
+        root.layout = o.layout;
+        root.landscape = o.landscape;
+        root.merge-images = !o.one-per-image;
+        root.margin = o.margin;
+        root.quality = o.quality;
+        root.png = o.png;
+        root.extract-images = o.extract-images;
+        root.out-name = o.out-name;
+        root.from-page = o.from-page;
+        root.to-page = o.to-page;
+        root.num-position = o.num-position;
+        root.num-double = o.num-double;
+        root.num-cover = o.num-cover;
+        root.num-margin = o.num-margin;
+        root.num-start = o.num-start;
+        root.num-text = o.num-text;
+        root.num-custom = o.num-custom;
+        root.num-font-size = o.num-font-size;
+        root.num-color = o.num-color;
+        root.num-family = o.num-family;
+        root.num-bold = o.num-bold;
+        root.num-italic = o.num-italic;
+        root.num-underline = o.num-underline;
+        root.num-hex = o.num-hex;
+        root.hf-tl = o.hf-tl;
+        root.hf-tc = o.hf-tc;
+        root.hf-tr = o.hf-tr;
+        root.hf-bl = o.hf-bl;
+        root.hf-bc = o.hf-bc;
+        root.hf-br = o.hf-br;
+        root.bates-prefix = o.bates-prefix;
+        root.bates-digits = o.bates-digits;
+        root.bates-start = o.bates-start;
+        root.hf-replace = o.hf-replace;
+        root.wm-image-mode = o.wm-image-mode;
+        root.wm-text = o.wm-text;
+        root.wm-font-size = o.wm-font-size;
+        root.wm-color = o.wm-color;
+        root.wm-family = o.wm-family;
+        root.wm-bold = o.wm-bold;
+        root.wm-italic = o.wm-italic;
+        root.wm-underline = o.wm-underline;
+        root.wm-hex = o.wm-hex;
+        root.wm-image = o.wm-image;
+        root.wm-scale = o.wm-scale;
+        root.wm-position = o.wm-position;
+        root.wm-mosaic = o.wm-mosaic;
+        root.wm-transparency = o.wm-transparency;
+        root.wm-rotation = o.wm-rotation;
+        root.wm-below = o.wm-below;
+        root.wm-replace = o.wm-replace;
+        root.wm-remove = o.wm-remove;
+        root.crop-mode = o.crop-mode;
+        root.crop-top = o.crop-top;
+        root.crop-bottom = o.crop-bottom;
+        root.crop-left = o.crop-left;
+        root.crop-right = o.crop-right;
+        root.pdfa-level = o.pdfa-level;
+        root.ocr-languages = o.ocr-languages;
+        root.ocr-all-pages = o.ocr-all-pages;
+        root.export-ocr = o.export-ocr;
+        root.export-exact = o.export-exact;
+        root.excel-layout = o.excel-layout;
+        root.text-format = o.text-format;
+        root.compare-mode = o.compare-mode;
+        root.sign-cert = o.sign-cert;
+        root.sign-p12 = o.sign-p12;
+        root.sign-reason = o.sign-reason;
+        root.sign-location = o.sign-location;
+    }
     out property <ToolOptions> options: {
         level: root.level, password: root.require-open ? root.password : "", confirm: root.confirm, owner: root.owner,
         allow-printing: root.allow-printing, allow-copying: root.allow-copying,
@@ -50,6 +149,8 @@ export component OptionsPanel inherits VerticalLayout {
         num-margin: root.num-margin, num-start: root.num-start, num-text: root.num-text, num-custom: root.num-custom,
         num-font-size: root.num-font-size, num-color: root.num-color,
         num-family: root.num-family, num-bold: root.num-bold, num-italic: root.num-italic, num-underline: root.num-underline, num-hex: root.num-hex,
+        hf-tl: root.hf-tl, hf-tc: root.hf-tc, hf-tr: root.hf-tr, hf-bl: root.hf-bl, hf-bc: root.hf-bc, hf-br: root.hf-br,
+        bates-prefix: root.bates-prefix, bates-digits: root.bates-digits, bates-start: root.bates-start, hf-replace: root.hf-replace,
         wm-family: root.wm-family, wm-bold: root.wm-bold, wm-italic: root.wm-italic, wm-underline: root.wm-underline, wm-hex: root.wm-hex,
         wm-image-mode: root.wm-image-mode, wm-text: root.wm-text, wm-font-size: root.wm-font-size,
         wm-color: root.wm-color, wm-image: root.wm-image, wm-scale: root.wm-scale, wm-position: root.wm-position,
@@ -65,6 +166,9 @@ export component OptionsPanel inherits VerticalLayout {
         sign-reason: root.sign-reason, sign-location: root.sign-location,
     };
     callback insert-blank();
+    // Merge: its pages shown one by one (see above).
+    in property <bool> merge-pages;
+    callback show-pages(bool);
     callback get-libreoffice();
     // Watermark: a picture file chosen in a dialog ("" when cancelled).
     in property <int> tab-id;
@@ -130,6 +234,16 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <bool> num-italic;
     in-out property <bool> num-underline;
     in-out property <string> num-hex;
+    in-out property <string> hf-tl;
+    in-out property <string> hf-tc;
+    in-out property <string> hf-tr;
+    in-out property <string> hf-bl;
+    in-out property <string> hf-bc;
+    in-out property <string> hf-br;
+    in-out property <string> bates-prefix;
+    in-out property <int> bates-digits: 6;
+    in-out property <string> bates-start;
+    in-out property <bool> hf-replace;
     in-out property <bool> wm-image-mode;
     in-out property <string> wm-text;
     in-out property <string> wm-font-size;
@@ -171,6 +285,14 @@ export component OptionsPanel inherits VerticalLayout {
         text <=> root.out-name;
         error: Parse.file-name-error(root.out-name);
     }
+    // Merge: the files as cards, or opened out into their pages to put in any order (Acrobat's
+    // Combine Files ▸ Expand all).
+    if root.tool == "merge" && root.file-count > 0: HorizontalLayout {
+        spacing: 8px;
+        Segment { width: 100px; text: "Files"; selected: !root.merge-pages; clicked => { root.show-pages(false); } }
+        Segment { width: 100px; text: "Pages"; selected: root.merge-pages; clicked => { root.show-pages(true); } }
+    }
+    if root.tool == "merge" && root.merge-pages: InfoBox { text: "Every page of every file, in the order they will be merged: hover a page to move it with the arrows or drop it with ×."; }
 
     if root.tool == "split": VerticalLayout {
         spacing: 10px;
@@ -476,6 +598,7 @@ export component OptionsPanel inherits VerticalLayout {
         RadioCard { title: "Page {n}"; selected: root.num-text == 1; clicked => { root.num-text = 1; } }
         RadioCard { title: "Page {n} of {p}"; selected: root.num-text == 2; clicked => { root.num-text = 2; } }
         RadioCard { title: "Custom"; selected: root.num-text == 3; clicked => { root.num-text = 3; } }
+        RadioCard { title: "No page number (header and footer text only)"; selected: root.num-text == 4; clicked => { root.num-text = 4; } }
         if root.num-text == 3: TextField {
             placeholder: "Sheet {n} of {p}";
             text <=> root.num-custom;
@@ -488,6 +611,34 @@ export component OptionsPanel inherits VerticalLayout {
             size <=> root.num-font-size; size-placeholder: "Size: 12";
         }
         ColourRow { colour <=> root.num-color; hex <=> root.num-hex; }
+        // Acrobat's Header & Footer: text in any of the six places, Bates numbers among it.
+        SectionLabel { text: "Header and footer"; }
+        HorizontalLayout {
+            spacing: 6px;
+            Text { width: 48px; text: "Top"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            TextField { placeholder: "Left"; text <=> root.hf-tl; error: Parse.custom-text-error(root.hf-tl); }
+            TextField { placeholder: "Centre"; text <=> root.hf-tc; error: Parse.custom-text-error(root.hf-tc); }
+            TextField { placeholder: "Right"; text <=> root.hf-tr; error: Parse.custom-text-error(root.hf-tr); }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            Text { width: 48px; text: "Bottom"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            TextField { placeholder: "Left"; text <=> root.hf-bl; error: Parse.custom-text-error(root.hf-bl); }
+            TextField { placeholder: "Centre"; text <=> root.hf-bc; error: Parse.custom-text-error(root.hf-bc); }
+            TextField { placeholder: "Right"; text <=> root.hf-br; error: Parse.custom-text-error(root.hf-br); }
+        }
+        InfoBox { text: "{n} page number, {p} page count, {date} today, {bates} the Bates number below."; }
+        HorizontalLayout {
+            spacing: 6px;
+            TextField { label: "Bates prefix"; placeholder: "ACME-"; text <=> root.bates-prefix; }
+            TextField { label: "From"; placeholder: "1"; text <=> root.bates-start; }
+            VerticalLayout {
+                spacing: 4px;
+                SectionLabel { text: "Digits"; }
+                Stepper { value <=> root.bates-digits; minimum: 3; }
+            }
+        }
+        Check { text: "Replace the headers and footers already in the file"; checked <=> root.hf-replace; }
     }
 
     if root.tool == "watermark": VerticalLayout {

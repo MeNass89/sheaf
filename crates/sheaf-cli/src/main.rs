@@ -187,6 +187,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 color: parse_color(&color)?,
                 underline,
                 clamp_to_last: false,
+                ..Default::default()
             };
             warned(numbers::number_pages(&input(i), &o, &out))
         }

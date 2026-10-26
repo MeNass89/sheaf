@@ -65,6 +65,8 @@ export component ReaderOptionsBar inherits Rectangle {
             }
             Rectangle { width: 8px; }
             SmallButton { y: 2px; text: "Detect fields"; clicked => { ReaderBridge.detect-fields(root.id); root.focus-pages(); } }
+            // Acrobat's View ▸ Grid with Snap to Grid: lines every 9 pt; fields placed or moved land on them.
+            SmallButton { y: 2px; text: "Grid"; primary: root.tab.reader.form-grid; clicked => { ReaderBridge.form-grid(root.id); root.focus-pages(); } }
             // Acrobat's Tab Order: the order Tab goes through the fields of each page.
             tab-menu := PopupWindow {
                 y: 34px;
@@ -175,6 +177,8 @@ export component ReaderOptionsBar inherits Rectangle {
                 }
             }
             SmallButton { y: 2px; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
+            // Acrobat's Callout: the text box points at where the click was, by a line with an arrow.
+            if root.tab.reader.tool == 6 && !root.tab.reader.selected-text-box: SmallButton { y: 2px; text: "Callout"; primary: root.tab.reader.callout; clicked => { ReaderBridge.shape-option(root.id, 11, 0); root.focus-pages(); } }
         }
         if root.tab.reader.has-signature: HorizontalLayout {
             spacing: 6px;

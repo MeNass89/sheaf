@@ -23,6 +23,29 @@ fn merge_takes_the_pages_chosen_for_each_file() {
     assert!(!t.path().join("x.pdf").exists());
 }
 #[test]
+fn assemble_mixes_the_pages_of_several_files_in_the_order_given() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 4);
+    let b = fixture_pdf(t.path(), "b.pdf", 2);
+    let inputs = [Input::new(&a), Input::new(&b)];
+    // b's page 2, a's page 3, b's page 1, a's page 4: a's pages 1 and 2 left out.
+    let out = assemble(&inputs, &[(1, 2), (0, 3), (1, 1), (0, 4)], &t.path().join("m.pdf")).unwrap();
+    assert_eq!(page_texts(&out), ["Page 2", "Page 3", "Page 1", "Page 4"]);
+    let e = assemble(&inputs, &[(1, 3)], &t.path().join("x.pdf")).unwrap_err();
+    assert!(matches!(e, OpdfError::InvalidRange { pages: 2, .. }), "{e:?}");
+    assert!(!t.path().join("x.pdf").exists());
+}
+#[test]
+fn a_pdf_is_made_from_a_pasted_picture_or_text() {
+    let t = tempfile::tempdir().unwrap();
+    let rgba = [200u8, 30, 30, 255].repeat(30 * 20);
+    let pic = from_pasted(&Pasted::Image { width: 30, height: 20, rgba }, &t.path().join("p.pdf")).unwrap();
+    assert_eq!(page_texts(&pic).len(), 1);
+    let text = from_pasted(&Pasted::Text("Hello from the clipboard\nSecond line".into()), &t.path().join("t.pdf")).unwrap();
+    assert!(page_texts(&text)[0].contains("Hello from the clipboard"), "{:?}", page_texts(&text));
+    assert!(from_pasted(&Pasted::Text("  ".into()), &t.path().join("e.pdf")).is_err());
+}
+#[test]
 fn split_ranges_writes_one_file_per_range() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 5);

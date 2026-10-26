@@ -18,6 +18,9 @@ pub struct Entry {
     pub inputs: Vec<PathBuf>,
     pub outputs: Vec<PathBuf>,
     pub at_unix: u64,
+    /// The options it ran with, passwords left out (`saved_options`); empty in older files.
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub options: serde_json::Map<String, serde_json::Value>,
 }
 
 pub struct Store {

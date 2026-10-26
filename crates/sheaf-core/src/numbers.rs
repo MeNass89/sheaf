@@ -1,5 +1,5 @@
-//! Page numbers: a number stamped in a corner or edge of each page, through PdfCraft's
-//! Header & Footer (`Edit::AddHeaderFooter`).
+//! Page numbers: a number stamped in a corner or edge of each page, with header and footer text
+//! and Bates numbers if asked, through PdfCraft's Header & Footer (`Edit::AddHeaderFooter`).
 
 use crate::pdfcraft::engine::{Edit, HeaderFooter};
 pub use pdfcraft_fonts::Std14;
@@ -20,6 +20,32 @@ pub enum NumberText {
     /// Any text with `{n}` (page number) and `{p}` (the document's total page count).
     /// `<<` and `>>` are refused: PdfCraft would expand them as its own tokens.
     Custom(String),
+    /// No number: the header and footer text only.
+    Nothing,
+}
+
+/// Bates numbers (Acrobat's Header & Footer ▸ Bates Numbering): `prefix`, the number on
+/// `digits` digits from `start`, `suffix`, written where a header or footer text has `{bates}`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Bates {
+    pub digits: u8,
+    pub start: u32,
+    pub prefix: String,
+    pub suffix: String,
+}
+
+impl Default for Bates {
+    /// Acrobat's: six digits from 1.
+    fn default() -> Self {
+        Self { digits: 6, start: 1, prefix: String::new(), suffix: String::new() }
+    }
+}
+
+/// A header or footer text in PdfCraft's tokens: `{n}`/`{page}` the page number, `{p}`/`{pages}`
+/// the count, `{date}` today (year-month-day), `{bates}` the Bates number.
+fn tokens(text: &str, bates: &Bates) -> String {
+    let b = format!("<<Bates Number#{}#{}#{}#{}>>", bates.digits.clamp(3, 15), bates.start, bates.prefix, bates.suffix);
+    text.replace("{pages}", "<<n>>").replace("{page}", "<<1>>").replace("{n}", "<<1>>").replace("{p}", "<<n>>").replace("{date}", "<<yyyy-mm-dd>>").replace("{bates}", &b)
 }
 
 /// Why a custom page-number text is refused, if it is.
@@ -37,8 +63,9 @@ impl NumberText {
             NumberText::Page => "Page {n}",
             NumberText::PageOfTotal => "Page {n} of {p}",
             NumberText::Custom(s) => s.as_str(),
+            NumberText::Nothing => "",
         };
-        t.replace("{pages}", "<<n>>").replace("{page}", "<<1>>").replace("{n}", "<<1>>").replace("{p}", "<<n>>")
+        tokens(t, &Bates::default())
     }
 }
 
@@ -89,11 +116,34 @@ pub struct NumberOptions {
     pub underline: bool,
     /// A `to` past the last page means the last page (one range for a batch of files).
     pub clamp_to_last: bool,
+    /// Header and footer text besides the number (Acrobat's Header & Footer): left, centre and
+    /// right at the top, then at the bottom; the number's own place joins the two.
+    pub texts: [String; 6],
+    pub bates: Bates,
+    /// The headers and footers already in the file are taken out first (Acrobat's Replace).
+    pub replace: bool,
 }
 
 impl Default for NumberOptions {
     fn default() -> Self {
-        Self { position: 7, double_sided: false, cover: false, margin: 36.0, from: None, to: None, start: 1, text: NumberText::Number, font_size: 12.0, color: [0.0; 3], font: None, underline: false, clamp_to_last: false }
+        Self {
+            position: 7,
+            double_sided: false,
+            cover: false,
+            margin: 36.0,
+            from: None,
+            to: None,
+            start: 1,
+            text: NumberText::Number,
+            font_size: 12.0,
+            color: [0.0; 3],
+            font: None,
+            underline: false,
+            clamp_to_last: false,
+            texts: Default::default(),
+            bates: Bates::default(),
+            replace: false,
+        }
     }
 }
 
@@ -138,21 +188,33 @@ pub fn number_pages(input: &Input, o: &NumberOptions, out: &Path) -> Result<(Pat
     {
         return Err(OpdfError::Unsupported(e.into()));
     }
+    if let Some(e) = o.texts.iter().find_map(|t| custom_text_error(t)) {
+        return Err(OpdfError::Unsupported(e.replace("custom text", "header and footer text")));
+    }
+    // PdfCraft reads the Bates token's parts between `#` and up to `>>`.
+    if [&o.bates.prefix, &o.bates.suffix].iter().any(|s| s.contains(['#', '<', '>'])) {
+        return Err(OpdfError::Unsupported("the Bates prefix and suffix cannot contain #, < or >".into()));
+    }
     let mut doc = Doc::open(input)?;
     let count = doc.session().get(doc.id()).map(|d| d.info.pages.len()).unwrap_or(0);
     let span = page_span(o.from, clamp(o.to, o.clamp_to_last, count), o.cover, count)?;
     slot(o.position, false)?;
     let template = o.text.template();
-    if template.trim().is_empty() {
-        return Err(OpdfError::Unsupported("the page number text is empty".into()));
+    if template.trim().is_empty() && (o.text != NumberText::Nothing || o.texts.iter().all(|t| t.trim().is_empty())) {
+        return Err(OpdfError::Unsupported(if o.text == NumberText::Nothing { "there is no header or footer text" } else { "the page number text is empty" }.into()));
     }
+    let texts: Vec<String> = o.texts.iter().map(|t| tokens(t.trim(), &o.bates)).collect();
     // PdfCraft numbers the pages of one edit start, start + 1, … in list order. Double-sided
     // pages alternate sides, so each page gets its own edit; otherwise one edit covers the span.
     let edit = |pages: Vec<usize>, start_number: u32, mirror: bool| -> Result<Edit> {
-        let mut text: [String; 6] = Default::default();
-        text[slot(o.position, mirror)?] = template.clone();
+        let mut text: [String; 6] = std::array::from_fn(|k| texts[k].clone());
+        if !template.is_empty() {
+            let s = slot(o.position, mirror)?;
+            text[s] = [text[s].as_str(), template.as_str()].iter().filter(|t| !t.is_empty()).copied().collect::<Vec<_>>().join("  ");
+        }
         let settings = HeaderFooter { text, font_size: o.font_size, color: o.color, underline: o.underline, margins: [o.margin; 4], start_number, font: o.font };
-        Ok(Edit::AddHeaderFooter { pages, settings, replace: false })
+        // Replace: the page's earlier headers and footers go (none there is no error).
+        Ok(Edit::AddHeaderFooter { pages, settings, replace: o.replace })
     };
     let edits = if o.double_sided {
         span.enumerate()
@@ -178,6 +240,12 @@ mod tests {
         assert_eq!(NumberText::PageOfTotal.template(), "Page <<1>> of <<n>>");
         assert_eq!(NumberText::Custom("{n}/{p}".into()).template(), "<<1>>/<<n>>");
         assert_eq!(NumberText::Custom("Sheet {page} of {pages}".into()).template(), "Sheet <<1>> of <<n>>");
+    }
+
+    #[test]
+    fn header_and_footer_tokens_take_the_date_and_the_bates_number() {
+        let b = Bates { digits: 6, start: 42, prefix: "ACME-".into(), suffix: "".into() };
+        assert_eq!(tokens("{date} · {bates} · {n}/{p}", &b), "<<yyyy-mm-dd>> · <<Bates Number#6#42#ACME-#>> · <<1>>/<<n>>");
     }
 
     #[test]

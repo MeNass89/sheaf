@@ -130,6 +130,7 @@ fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
             1 => NumberText::Page,
             2 => NumberText::PageOfTotal,
             3 => NumberText::Custom(opts.num_custom.to_string()),
+            4 => NumberText::Nothing,
             _ => NumberText::Number,
         },
         font_size: {
@@ -140,6 +141,17 @@ fn number_options(opts: &ToolOptions, batch: bool) -> Result<NumberOptions> {
         font: standard_font(opts.num_family.clamp(0, 2) as u8, opts.num_bold, opts.num_italic),
         underline: opts.num_underline,
         clamp_to_last: batch,
+        texts: [&opts.hf_tl, &opts.hf_tc, &opts.hf_tr, &opts.hf_bl, &opts.hf_bc, &opts.hf_br].map(|t| t.to_string()),
+        bates: numbers::Bates {
+            digits: opts.bates_digits.clamp(3, 15) as u8,
+            start: {
+                let s = opts.bates_start.trim();
+                if s.is_empty() { 1 } else { s.parse().map_err(|_| OpdfError::Unsupported(format!("Bates number: \"{s}\" is not a number")))? }
+            },
+            prefix: opts.bates_prefix.trim().to_string(),
+            suffix: String::new(),
+        },
+        replace: opts.hf_replace,
     })
 }
 
@@ -250,7 +262,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
     let one = |inputs: Vec<Input>| inputs.into_iter().next().ok_or_else(|| OpdfError::Unsupported("no input".into()));
     let pages = opts.pages.trim().to_string();
     Ok(match tool {
-        ToolId::Merge => Job::Merge { inputs, pages: Vec::new(), out: single()? },
+        ToolId::Merge => Job::Merge { inputs, pages: Vec::new(), seq: Vec::new(), out: single()? },
         ToolId::Split => Job::Split {
             input: one(inputs)?,
             mode: match (opts.split_mode, opts.split_one_file) {
@@ -402,12 +414,15 @@ fn start(ui: &AppWindow, tab_id: i32, tool: ToolId, inputs: (Vec<Input>, Vec<Str
         Ok(j) => j,
         Err(e) => return toast(ui, &e.to_string()),
     };
-    if let Job::Merge { pages, .. } = &mut job {
+    if let Job::Merge { pages, seq, .. } = &mut job {
         *pages = specs;
+        // The Pages view: its order, each page by its file's place among the inputs.
+        *seq = with(|a| a.tab(tab_id).and_then(|t| t.merge_seq())).unwrap_or_default();
     }
     with(|a| {
         if let Some(t) = a.tab(tab_id) {
             t.start_job();
+            t.options = Some(opts.clone());
         }
         refresh(a, tab_id);
     });
@@ -426,12 +441,12 @@ pub fn on_progress(tab_id: i32, p: f32) {
 }
 
 pub fn on_done(ui: &AppWindow, tab_id: i32, r: Result<JobOutcome>, page_counts: Vec<Option<u32>>) {
-    let Some((tool, inputs)) = with(|a| a.tab(tab_id).map(|t| (t.tool, t.files.iter().map(|f| f.input.path.clone()).collect::<Vec<_>>()))) else {
+    let Some((tool, inputs, options)) = with(|a| a.tab(tab_id).map(|t| (t.tool, t.files.iter().map(|f| f.input.path.clone()).collect::<Vec<_>>(), t.options.clone()))) else {
         return on_done_closed(ui, tab_id, r);
     };
     match r {
         Ok(outcome) => {
-            crate::record_history(tool, &inputs, &outcome.outputs);
+            crate::record_history(tool, &inputs, &outcome.outputs, options.as_ref());
             // Per-output input sizes (Compress notes): failed inputs produced no output.
             let input_sizes = inputs
                 .iter()
@@ -463,9 +478,9 @@ pub fn on_done(ui: &AppWindow, tab_id: i32, r: Result<JobOutcome>, page_counts: 
 /// A job whose tab was closed meanwhile. A cancelled one was already cleaned up by
 /// `jobs::finalize`; a successful one is still recorded and announced.
 fn on_done_closed(ui: &AppWindow, tab_id: i32, r: Result<JobOutcome>) {
-    let Some((tool, inputs)) = with(|a| a.closed_jobs.remove(&tab_id)) else { return };
+    let Some((tool, inputs, options)) = with(|a| a.closed_jobs.remove(&tab_id)) else { return };
     let Ok(outcome) = r else { return };
-    crate::record_history(tool, &inputs, &outcome.outputs);
+    crate::record_history(tool, &inputs, &outcome.outputs, options.as_ref());
     let first = outcome.outputs.first().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     toast(ui, &format!("{} finished: {first}", tools::find(tool).name));
 }

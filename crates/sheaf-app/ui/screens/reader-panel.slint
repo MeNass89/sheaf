@@ -19,6 +19,9 @@ export component ReaderPanel inherits Rectangle {
     in-out property <length> thumb-down-y;
     in-out property <length> drop-line;
     in-out property <int> thumb-down-page;
+    // Where the thumbnails' right-click menu opens.
+    property <length> menu-x;
+    property <length> menu-y;
     // The thumbnail strip's scroll, for rendering what it shows.
     out property <length> strip-top: -strip.content-y;
     out property <length> strip-h: strip.visible-height;
@@ -528,6 +531,31 @@ export component ReaderPanel inherits Rectangle {
                     }
                     // One area over the whole strip: the thumbnails' model is replaced on
                     // every refresh, which would drop a press held on one of them.
+                    page-menu := PopupWindow {
+                        x: root.menu-x;
+                        y: root.menu-y;
+                        width: 220px;
+                        height: 8 * 30px + 8px;
+                        Rectangle {
+                            background: Theme.card;
+                            border-radius: Theme.radius-small;
+                            border-width: 1px;
+                            border-color: Theme.input-border;
+                            drop-shadow-blur: 8px;
+                            drop-shadow-color: #00000040;
+                            VerticalLayout {
+                                padding: 4px;
+                                // Codes as reader_ui::page_op.
+                                for o in [{ t: "Rotate left", k: 0 }, { t: "Rotate right", k: 1 }, { t: "Insert blank page after", k: 5 }, { t: "Duplicate", k: 3 },
+                                          { t: "Insert pages from file…", k: 6 }, { t: "Replace with a file's pages…", k: 7 }, { t: "Reverse page order", k: 8 }, { t: "Delete", k: 2 }]: Rectangle {
+                                    height: 30px;
+                                    background: pm.has-hover ? Theme.popup-hover : transparent;
+                                    Text { x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }
+                                    pm := TouchArea { clicked => { ReaderBridge.page-op(root.id, o.k); } }
+                                }
+                            }
+                        }
+                    }
                     strip-ta := TouchArea {
                         // The pointer in the visible strip (y from its top): kept while the strip
                         // scrolls under a still pointer.
@@ -536,6 +564,21 @@ export component ReaderPanel inherits Rectangle {
                         height: root.tab.viewer-thumbs-height + 20px;
                         mouse-cursor: root.drop-line >= 0 ? move : pointer;
                         pointer-event(e) => {
+                            // A right click: the page actions at the pointer (Acrobat's and Preview's
+                            // thumbnail menu); a page outside a selection of several is selected first.
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                                root.thumb-down-page = ReaderBridge.thumb-at(root.id, self.mouse-y);
+                                if root.thumb-down-page >= 0 {
+                                    if root.tab.reader.pages-selected <= 1 {
+                                        ReaderBridge.thumb-pressed(root.id, root.thumb-down-page, false, false);
+                                        ReaderBridge.thumb-released(root.id);
+                                    }
+                                    root.menu-x = min(self.mouse-x, self.width - 220px);
+                                    root.menu-y = self.mouse-y;
+                                    page-menu.show();
+                                }
+                                return;
+                            }
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
                                 root.thumb-down-y = self.mouse-y;
                                 root.thumb-down-page = ReaderBridge.thumb-at(root.id, self.mouse-y);

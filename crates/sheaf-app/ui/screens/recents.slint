@@ -39,6 +39,7 @@ export component RecentsScreen inherits Rectangle {
     callback open-file();
     // A new one-page blank PDF (PDF Expert's New ▸ Blank Document).
     callback new-blank();
+    callback new-from-clipboard();
     callback open-recent(int);
     callback reveal-recent(int);
     callback remove-recent(int);
@@ -71,6 +72,11 @@ export component RecentsScreen inherits Rectangle {
                     SecondaryButton {
                         text: "New blank PDF";
                         clicked => { root.new-blank(); }
+                    }
+                    // Acrobat's Create PDF from Clipboard, Preview's New from Clipboard.
+                    SecondaryButton {
+                        text: "From clipboard";
+                        clicked => { root.new-from-clipboard(); }
                     }
                 }
                 Text {

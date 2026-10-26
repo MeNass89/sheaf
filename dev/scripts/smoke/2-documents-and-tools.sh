@@ -53,15 +53,22 @@ cp "$OUT/form.pdf" "$OUT/tool.pdf"
 mkdir -p "$PWD/$OUT/profile/data/Sheaf"
 python3 -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)) if __import__("os").path.exists(p) else {}; d["output"] = "next_to_original"; json.dump(d, open(p, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
 launch "$OUT/tool.pdf"; sleep 1
-click $WRENCH_X 61 1.5; xdotool type --delay 20 "compress"; key Return; sleep 2; click 1140 755 4; shot 10-tool-result
+# Low compression chosen first (its card, found by its title): Run again below must bring it back.
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "compress"; key Return; sleep 2
+cardbg() { import -window root -crop "1x1+1232+$1" txt:- 2>/dev/null | tail -1 | awk '{ print $3 }'; }
+read _ LOWY <<< "$(at Low 280x500+1000+40)"; LOW0=$(cardbg "${LOWY:-0}"); [ -n "$LOWY" ] && click 1100 $LOWY 0.6; LOW1=$(cardbg "${LOWY:-0}")
+click 1140 755 4; shot 10-tool-result
 check "a tool run from the reader writes its output (Compress)" "qpdf --check $OUT/tool-compressed.pdf >/dev/null 2>&1"
 # The same star on Home ▸ Recents' Recent tools (Compress just ran: its card is the first, star at 233,266; starred above).
 click 40 21 0.8; click 90 72 0.8; xdotool mousemove 270 300; sleep 0.4; shot 09d-recent-tools; click 233 266 1
 check "unstarring from Home's Recent tools takes it out of the favourites" "! grep -qs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
-# Tasks History ▸ Run again on the Compress row: a new Compress tab holding tool.pdf.
+# Tasks History ▸ Run again on the Compress row: a new Compress tab holding tool.pdf, Low compression chosen
+# again (its card's background as when it was picked, not as before).
 H=$(at History); [ -n "$H" ] && click $H 1; RA=$(at again); [ -n "$RA" ] && click $RA 1.5; shot 10b-rerun
 RR=$(ocr 960x700+20+60); RP=$(ocr 280x300+1000+40)   # the file area (below the tab bar, which names tool.pdf too), the options
+read _ LOWY2 <<< "$(at Low 280x500+1000+40)"; LOW2=$(cardbg "${LOWY2:-0}")
 check "Run again from Tasks History reopens Compress with its file ($H / $RA)" "[ -n \"$RA\" ] && echo \"$RR\" | grep -q 'tool.pdf' && echo \"$RP\" | grep -qi 'Recommended'"
+check "Run again starts from the options the task ran with (Low: $LOW0 → $LOW1, again $LOW2)" "[ -n \"$LOWY\" ] && [ \"$LOW1\" != \"$LOW0\" ] && [ \"$LOW2\" = \"$LOW1\" ]"
 # Add watermark from the reader tab (tool.pdf, 230,21): the preview of page 1, pinned above the options
 # (1004–1252 × 106–336), turns red once "DRAFT" is typed (text field 1130,432) at 120 pt (size 1060,546) in red
 # (1165,615).
@@ -377,4 +384,18 @@ xdotool mousemove $SX $SY mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemov
 shot 20c-drawing-moved; key ctrl+s; sleep 2
 Y1=$(blue_top); WA=$(pdftotext -bbox "$OUT/square.pdf" - 2>/dev/null | grep -m1 '>Alpha<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/')
 check "a drawing pressed and dragged moves alone (square top $Y0 → $Y1 px, Alpha at $WA)" "[ \"$Y0\" -ge 0 ] && [ \"$Y1\" -gt \"$(( Y0 + 20 ))\" ] && python3 -c 'import sys; sys.exit(0 if abs(float(\"$WA\") - 74.768) < 1 else 1)'"
+quit
+
+# 20d. Header & footer with Bates numbers (Acrobat's Header & Footer ▸ Bates Numbering), in the Page numbers tool
+# found by "bates" (its description): No page number, "Case {bates}" in the top left, prefix ACME-, run: page 1
+# carries "Case ACME-000001", page 2 "Case ACME-000002".
+cp "$OUT/text.pdf" "$OUT/hf.pdf"; launch "$OUT/hf.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "bates"; key Return; sleep 2.5
+xdotool mousemove 1130 450; for i in $(seq 1 25); do xdotool click 5; sleep 0.03; done; sleep 0.8; shot 20d-header-footer
+NP=$(at "No" 280x700+1000+40); [ -n "$NP" ] && click $NP 0.5
+TL=$(at Left 280x700+1000+40); [ -n "$TL" ] && { click $TL 0.4; xdotool type --delay 20 "Case {bates}"; }
+BP=$(at ACME- 280x700+1000+40); [ -n "$BP" ] && { click $BP 0.4; xdotool type --delay 20 "ACME-"; }
+click 1140 755 4
+HF=$(pdftotext "$OUT/hf-numbered.pdf" - 2>/dev/null | tr '\n' ' ')
+check "Header and footer text with Bates numbers (${NP:-no radio} ${TL:-no field} ${BP:-no prefix}; $(echo "$HF" | cut -c1-80))" "echo \"$HF\" | grep -q 'Case ACME-000001' && echo \"$HF\" | grep -q 'Case ACME-000002'"
 quit

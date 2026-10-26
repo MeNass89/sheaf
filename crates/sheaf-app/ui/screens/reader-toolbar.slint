@@ -305,6 +305,10 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Prepare form", keys: "F", on: root.tab.reader.tool == 14 },
                                 // Acrobat's Protect ▸ Sanitize Document: hidden information removed, ⌘Z undoes it.
                                 { text: "Sanitize document", keys: "", on: false },
+                                // Acrobat's Edit a PDF ▸ Background.
+                                { text: "Page background…", keys: "", on: false },
+                                // Acrobat's File ▸ Revert, and the versions an incremental save keeps.
+                                { text: "Versions…", keys: "", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -325,6 +329,8 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 9 { ReaderBridge.props-open(root.id); }
                                         if k == 10 { ReaderBridge.set-tool(root.id, root.tab.reader.tool == 14 ? 0 : 14); }
                                         if k == 11 { ReaderBridge.sanitize(root.id); }
+                                        if k == 12 { ReaderBridge.background-open(root.id); }
+                                        if k == 13 { ReaderBridge.versions-open(root.id); }
                                         root.focus-pages();
                                     }
                                 }
@@ -333,8 +339,9 @@ export component ReaderToolbar inherits Rectangle {
                     }
                 }
             }
-            ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: "Undo (⌘Z)"; enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
-            ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
+            // Named as Acrobat's Edit menu names them: "Undo Add highlight".
+            ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: root.tab.reader.can-undo && root.tab.reader.undo-label != "" ? "Undo " + root.tab.reader.undo-label + " (⌘Z)" : "Undo (⌘Z)"; enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
+            ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: root.tab.reader.can-redo && root.tab.reader.redo-label != "" ? "Redo " + root.tab.reader.redo-label + " (⇧⌘Z)" : "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
             ToolButton { icon: @image-url("../icons/wrench.svg"); tip: "Use a tool on this PDF"; clicked => { ReaderBridge.to-tools(root.id); } }
             ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? "Save (⌘S)" : "Saved"; enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
         }

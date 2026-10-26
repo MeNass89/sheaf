@@ -87,20 +87,16 @@ pub fn lp_args(job: &Job, file: &Path) -> Vec<String> {
     a
 }
 
-/// Prints `bytes` (a PDF) named `title`; returns `lp`'s request id ("PDF-12").
 /// A document opened with its password, as the print service can read it: an unprotected copy,
 /// when its owner allows printing (Acrobat prints such a file; Sol 25/10: Sheaf refused it).
 pub fn unlocked(bytes: &[u8], password: &str) -> Result<std::sync::Arc<Vec<u8>>, String> {
     if sheaf_core::facts::read(bytes, Some(password)).restricted.contains(&"Printing") {
         return Err("its owner does not allow printing it".into());
     }
-    let tmp = tempfile::Builder::new().suffix(".pdf").tempfile().map_err(|e| e.to_string())?;
-    std::fs::write(tmp.path(), bytes).map_err(|e| e.to_string())?;
-    let input = sheaf_core::pages::Input { path: tmp.path().to_path_buf(), password: Some(password.to_string()) };
-    let mut doc = sheaf_core::pdfcraft::Doc::open(&input).map_err(|e| e.to_string())?;
-    doc.unprotected_bytes().map(|(b, _)| b).map_err(|e| e.to_string())
+    sheaf_core::security::printable_copy(bytes, password).map(std::sync::Arc::new).map_err(|e| e.to_string())
 }
 
+/// Prints `bytes` (a PDF) named `title`; returns `lp`'s request id ("PDF-12").
 pub fn submit(job: &Job, title: &str, bytes: &[u8]) -> Result<String, String> {
     let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
     let file = dir.path().join(format!("{}.pdf", title.replace(['/', '\\'], "_")));
@@ -159,6 +155,10 @@ mod tests {
         let open = qpdf(&[], "open.pdf");
         let copy = unlocked(&open, "user").unwrap();
         assert!(!String::from_utf8_lossy(&copy).contains("/Encrypt"), "the copy is not encrypted");
+        // Changes forbidden, printing allowed: it prints.
+        let no_change = qpdf(&["--modify=none", "--extract=n"], "nochange.pdf");
+        let copy = unlocked(&no_change, "user").unwrap();
+        assert!(!String::from_utf8_lossy(&copy).contains("/Encrypt") && copy.starts_with(b"%PDF"), "a locked-for-changes file prints");
         let no_print = qpdf(&["--print=none"], "noprint.pdf");
         assert!(unlocked(&no_print, "user").unwrap_err().contains("does not allow printing"));
     }

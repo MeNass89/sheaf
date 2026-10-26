@@ -59,6 +59,25 @@ check "a page choice outside the file is refused ($BAD; run button $RUN)" "echo 
 check "Merge takes the pages chosen for each file ($NP pages: $MC)" "[ \"$NP\" = 4 ] && [ \"$MC\" = 'srgb(220,220,33) srgb(220,33,33) srgb(33,169,33) srgb(186,186,186) ' ]"
 quit
 
+# 21e. Merge ▸ Pages (Acrobat's Combine Files ▸ Expand): pa.pdf (red green blue yellow) and pb.pdf (black grey light)
+# opened out into 7 page cards, found by their labels ("pa.pdf · 1"); the first dropped with its ×, the last moved
+# left with its arrow: the merge is pa 2-4, pb 1, pb 3, pb 2.
+cp "$OUT/reo/ra.pdf" "$OUT/reo/pa.pdf"; cp "$OUT/reo/rb.pdf" "$OUT/reo/pb.pdf"
+launch "$OUT/reo/pa.pdf" "$OUT/reo/pb.pdf"
+click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; click 460 527 2
+PG=$(at Pages 280x400+1000+60); [ -n "$PG" ] && click $PG 2; shot 21e-pages
+cards() { import -window root -crop 980x700+0+60 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12 ~ /^p[ab]\.pdf/ { printf "%d %d\n", ($7 + $9 / 2) / 2, 60 + ($8 + $10 / 2) / 2 }'; }
+NC=$(cards | wc -l); read CX CY <<< "$(cards | head -1)"
+if [ -n "$CY" ]; then xdotool mousemove $CX $(( CY - 70 )); sleep 0.4; click $(( CX + 39 )) $(( CY - 127 )) 1; fi
+read LX LY <<< "$(cards | tail -1)"
+if [ -n "$LY" ]; then xdotool mousemove $LX $(( LY - 70 )); sleep 0.4; click $(( LX - 39 )) $(( LY + 1 )) 1; fi
+click 1133 755 4
+px() { pdftoppm -r 10 -f $2 -l $2 -png "$1" 2>/dev/null | convert - -format "%[pixel:p{5,5}] " info: 2>/dev/null; }
+WANT="$(px $OUT/reo/pa.pdf 2)$(px $OUT/reo/pa.pdf 3)$(px $OUT/reo/pa.pdf 4)$(px $OUT/reo/pb.pdf 1)$(px $OUT/reo/pb.pdf 3)$(px $OUT/reo/pb.pdf 2)"
+GOT=$(for i in 1 2 3 4 5 6 7; do px "$OUT/reo/pa-merged.pdf" $i; done)
+check "Merge's Pages view merges the pages in the order arranged (${PG:-no Pages}; $NC cards; $GOT)" "[ \"$NC\" = 7 ] && [ \"$GOT\" = \"$WANT\" ]"
+quit
+
 # 22. Split's pages, cut between by a click (PDF Expert's split points; iLovePDF's ranges): ten pages, cuts after
 # 3 and 7 → 1-3, 4-7, 8-10 in the Ranges field and three files; a second click after 3 joins again (1-7,8-10).
 # Cards step 128 px from x 41 (gap centre +117), rows 178 px from y 79.
@@ -222,6 +241,32 @@ click 120 230 0.6; click 188 778 0.8; click 62 665 0.8; click 40 661 0.6   # the
 NB="198 732"; click $NB 1; key ctrl+s; sleep 1.5
 check "Number pages labels the pages in the style chosen (${NB:-no Number button})" "qpdf --qdf --object-streams=disable $OUT/numbered.pdf - 2>/dev/null | grep -aq '/S /r'"
 quit
+# 35c. More (1127,61) ▸ Page background… (13th item, 1008,435): pale yellow chosen (the first colour), Apply,
+# saved: the pages' corners turn pale yellow, behind the text (a /Background artifact).
+cp "$OUT/text.pdf" "$OUT/bg.pdf"; launch "$OUT/bg.pdf"; sleep 1
+click 1127 61 0.8; click 1008 435 1; shot 35c-background; BG=$(at Apply 700x500+300+150); [ -n "$BG" ] && click $BG 1.5; key ctrl+s; sleep 1.5
+BC=$(pdftoppm -r 10 -f 1 -l 1 -png "$OUT/bg.pdf" 2>/dev/null | convert - -format "%[pixel:p{2,2}]" info: 2>/dev/null)
+check "Page background puts a colour behind every page (${BG:-no Apply}; corner $BC)" "[ \"$BC\" = 'srgb(255,248,214)' ] && qpdf --qdf --object-streams=disable $OUT/bg.pdf - 2>/dev/null | grep -aq '/Background'"
+quit
+# 35d. More ▸ Versions… (14th item, 1008,463), Acrobat's Revert: a background applied and not saved, then Revert to
+# saved: the page is white again and nothing is left to save; Open on version 1 opens it in a tab of its own.
+cp "$OUT/text.pdf" "$OUT/ver.pdf"; launch "$OUT/ver.pdf"; sleep 1
+click 1127 61 0.8; click 1008 435 1; AP=$(at Apply 700x500+300+150); [ -n "$AP" ] && click $AP 1.5
+click 1127 61 0.8; click 1008 463 1; shot 35d-versions; RV=$(at Revert 700x500+300+150); [ -n "$RV" ] && click $RV 2
+VC=$(import -window root -crop 1x1+700+700 txt:- 2>/dev/null | tail -1 | awk '{ print $3 }')
+click 1127 61 0.8; click 1008 463 1; OP=$(at Open 700x500+300+150); [ -n "$OP" ] && click $OP 2.5
+check "Versions: Revert drops the unsaved background, Open shows version 1 in a tab (${RV:-no Revert} ${OP:-no Open}; page $VC; $(ntabs) tabs)" "echo \"$VC\" | grep -qi 'FFFFFF\|white' && [ \"\$(ntabs)\" = 2 ]"
+quit
+# 35b. A thumbnail's right-click menu (Acrobat's, Preview's): Reverse page order turns text.pdf's four pages back to
+# front; Insert pages from file… (single.pdf, page 1 of text.pdf) adds one after page 1; Replace with a file's
+# pages… puts it in page 1's place (the one right-clicked). Saved: five pages, the first two single.pdf's.
+cp "$OUT/text.pdf" "$OUT/pagemenu.pdf"; launch "$OUT/pagemenu.pdf"; sleep 1
+xdotool mousemove 120 230 click 3; sleep 0.8; shot 35b-menu; RV=$(at Reverse 300x400+60+200); [ -n "$RV" ] && click $RV 1.5
+answer "$PWD/$OUT/single.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; IN=$(at Insert 300x400+60+200); [ -n "$IN" ] && click $IN 1.5
+xdotool mousemove 120 230 click 3; sleep 0.8; RP=$(at Replace 300x400+60+200); [ -n "$RP" ] && click $RP 1.5; answer ""; key ctrl+s; sleep 1.5
+PM=$(for i in 1 2 3 4 5; do first_text "$OUT/pagemenu.pdf" $i; echo -n "|"; done)
+check "A thumbnail's menu reverses the pages, inserts and replaces from a file ($PM)" "[ \"$PM\" = 'Page 1|Page 1|Page 3|Page 2|Page 1|' ]"
+quit
 
 # 36. Preferences (67,193 in Home's menu) ▸ Accent colour blue (the second swatch, 38 px right of the first,
 # under its label) and Background behind pages black (the fifth): kept in the preferences, and a document
@@ -339,6 +384,12 @@ launch; answer "$PWD/$OUT/blank.pdf"; NB=$(at New 900x120+300+80); [ -n "$NB" ] 
 BP=$( [ -f "$OUT/blank.pdf" ] && npages "$OUT/blank.pdf" ); answer ""
 check "New blank PDF writes one blank page and opens it (${NB:-no button}; ${BP:-no file} page; $(ntabs) document tab)" "[ \"$BP\" = 1 ] && [ \"\$(ntabs)\" = 1 ]"
 quit
+# 45b. Home ▸ From clipboard (Acrobat's Create PDF from Clipboard): text put on the clipboard (xclip) becomes a
+# new PDF, named in the Save dialog, opened in a tab.
+printf 'Pasted from the clipboard' | xclip -selection clipboard; sleep 0.3
+launch; answer "$PWD/$OUT/clip.pdf"; FC=$(at From 900x120+300+80); [ -n "$FC" ] && click $FC 2.5; answer ""
+check "From clipboard makes a PDF of the clipboard's text and opens it (${FC:-no button}; $(ntabs) tabs)" "pdftotext $OUT/clip.pdf - 2>/dev/null | grep -q 'Pasted from the clipboard' && [ \"\$(ntabs)\" = 2 ]"
+quit
 
 # 46. Replace text (the selection bar's Replace text…, 7th of its 30 px buttons, the bar 42 px above the line):
 # "quick brown" selected, "slow" typed and ↩: saved as a caret holding "slow" and a strike-out grouped with it.
@@ -383,6 +434,26 @@ DN=$(at Done 400x300+490+430); [ -n "$DN" ] && click $DN 1.2
 click 372 109 0.5; click 500 600 1.2; key Delete; sleep 1; click 500 650 1.2; key ctrl+s; sleep 1.5; shot 53-prepare
 PF=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null)
 check "Prepare form places fields, names one and makes it required, and Delete removes one ($(echo "$PF" | grep -ac '/FT /Btn') check box)" "echo \"\$PF\" | grep -aq '/T (Full name)' && echo \"\$PF\" | grep -aq '/Ff 2' && [ \"\$(echo \"\$PF\" | grep -ac '/FT /Btn')\" = 1 ]"
+# Several fields arranged (Acrobat's Align): a third check box at 580,700; the one at 500,650 clicked, the new one
+# ⇧-clicked: the card says "2 fields selected"; its Left lines the new one up with the first; saved.
+click 580 700 1.2; click 505 655 0.8; xdotool mousemove 585 705 keydown shift click 1 keyup shift; sleep 1; shot 53b-two-fields
+TWO=$(ocr 640x460+400+330); LF=$(at Left 640x460+400+330); [ -n "$LF" ] && click $LF 1.2; key ctrl+s; sleep 1.5
+BX=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null | python3 -c '
+import re, sys
+d = sys.stdin.buffer.read().decode("latin-1")
+boxes = [o for o in re.split(r"\nendobj", d) if "/FT /Btn" in o]
+rects = [[float(n) for n in m.group(1).split()] for o in boxes for m in [re.search(r"/Rect \[ *([-0-9. ]+)\]", o)] if m]
+print(" ".join(map(str, sorted({round(r[0], 1) for r in rects}))), len(boxes), "w", " ".join(sorted({str(round(r[2] - r[0])) for r in rects})))')
+check "Fields ⇧-clicked together are aligned by the card's Left, a check box placed by a click is 14 pt ($TWO; x of the check boxes, count, widths: $BX)" "echo \"$TWO\" | grep -q '2 fields selected' && echo \"$BX\" | grep -Eq '^[0-9.]+ 2 w 14$'"
+# Grid (Acrobat's Snap to Grid; options bar): a text field dragged from 503,463 to 663,489 lands on the 9 pt grid.
+key Escape; GR=$(at Grid 900x60+300+90); [ -n "$GR" ] && click $GR 0.6; TK=$(at Text 900x60+250+90); [ -n "$TK" ] && click $TK 0.4; shot 53c-grid
+xdotool mousemove 503 463 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 503 + i * 32 )) $(( 463 + i * 5 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.2; key ctrl+s; sleep 1.5
+SN=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null | python3 -c '
+import re, sys
+d = sys.stdin.buffer.read().decode("latin-1")
+rects = [[float(n) for n in m.group(1).split()] for o in re.split(r"\nendobj", d) if "/FT /Tx" in o for m in [re.search(r"/Rect \[ *([-0-9. ]+)\]", o)] if m]
+print(len(rects), sum(all(abs(v / 9 - round(v / 9)) < 0.01 for v in r) for r in rects))')
+check "Grid on, a field drawn lands on its 9 pt lines (${GR:-no button}; text fields, on the grid: $SN)" "[ \"$SN\" = '2 1' ]"
 quit
 # Detect fields (982,109) on a flat form: its blanks after "Name:" and "City:" become two text fields.
 python3 - "$OUT/flat.pdf" <<'PY'
@@ -403,6 +474,12 @@ launch "$OUT/flat.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6; DF=$(at Detect 90
 FT=$(qpdf --qdf --object-streams=disable "$OUT/flat.pdf" - 2>/dev/null | grep -ac '/FT /Tx')
 check "Detect fields turns a flat form's blanks into text fields (${DF:-no button}; $FT fields)" "[ \"$FT\" = 2 ]"
 quit
+# The same on a scanned form (a picture of two lines and a box, 144 dpi): its lines and box are found in the pixels.
+convert -size 1224x1584 xc:white -fill none -stroke black -strokewidth 2 -draw "line 300,400 900,400" -draw "line 300,500 900,500" -draw "rectangle 300,600 330,630" -units PixelsPerInch -density 144 "$OUT/scan-form.pdf"
+launch "$OUT/scan-form.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6; DS=$(at Detect 900x60+600+90); [ -n "$DS" ] && click $DS 8; key ctrl+s; sleep 1.5
+SQ=$(qpdf --qdf --object-streams=disable "$OUT/scan-form.pdf" - 2>/dev/null)
+check "Detect fields finds a scanned form's lines and box ($(echo "$SQ" | grep -ac '/FT /Tx') text, $(echo "$SQ" | grep -ac '/FT /Btn') check box)" "[ \"\$(echo \"\$SQ\" | grep -ac '/FT /Tx')\" = 2 ] && [ \"\$(echo \"\$SQ\" | grep -ac '/FT /Btn')\" = 1 ]"
+quit
 
 # 54. Closing what would be lost asks first: a paragraph retyped in Edit text and not applied ("Save changes to
 # …?"), and Redact's marks not applied ("Close … without redacting?", its own tab's × at 466,21); Cancel keeps
@@ -418,4 +495,14 @@ click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
 P=$(at Page 820x700+140+60); [ -n "$P" ] && { set -- $P; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
 click 466 21 1; RC=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
 check "closing Redact with marks not applied asks first (${RC:0:60})" "echo \"$RC\" | grep -q 'without redacting'"
+quit
+
+# 60. Text box ▸ Callout (Acrobat's Callout tool): a click at 500,420 then "Look here" typed: saved as a callout,
+# a FreeText whose line (/CL) ends at the click, the box up and right of it.
+cp "$OUT/text.pdf" "$OUT/callout.pdf"; launch "$OUT/callout.pdf"; sleep 1
+key t; sleep 0.6; CO=$(at Callout 1280x60+0+85); [ -n "$CO" ] && click $CO 0.5
+click 500 420 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Look here"; key ctrl+Return; sleep 1.2
+key v; key ctrl+s; sleep 1.5; shot 60-callout
+CQ=$(qpdf --qdf --object-streams=disable "$OUT/callout.pdf" - 2>/dev/null)
+check "the Callout option makes a text box with a line to the click (${CO:-no button})" "echo \"\$CQ\" | grep -aq '/IT /FreeTextCallout' && echo \"\$CQ\" | grep -aq '/CL \[' && echo \"\$CQ\" | grep -aq 'Look here'"
 quit

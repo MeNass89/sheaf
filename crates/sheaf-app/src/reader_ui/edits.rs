@@ -559,13 +559,25 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             // 200 pt wide, moved left or up so the whole box is on the page (PDF Expert does the same).
             let (w, h) = (200.0_f64.min(size.0), (lines * pt * 1.25 + 8.0).min(size.1));
             let at = (d.at.0.min(size.0 - w).max(0.0), d.at.1.min(size.1 - h).max(0.0));
-            let r = viewer::view_rect_to_pdf(b, size, at, (at.0 + w, at.1 + h));
-            Shape::TextBox { rect: r, font_size: pt }
+            if r.callout {
+                // The click is the point; the box stands 60 pt up and right of it (left or down
+                // where the page ends), the line bending 18 pt before the box's near side.
+                let bx = if d.at.0 + 60.0 + w <= size.0 { d.at.0 + 60.0 } else { (d.at.0 - 60.0 - w).max(0.0) };
+                let by = if d.at.1 - 60.0 - h >= 0.0 { d.at.1 - 60.0 - h } else { (d.at.1 + 60.0).min(size.1 - h) };
+                let rect = viewer::view_rect_to_pdf(b, size, (bx, by), (bx + w, by + h));
+                let near = if bx > d.at.0 { bx } else { bx + w };
+                let knee = viewer::view_to_pdf(b, size, if bx > d.at.0 { near - 18.0 } else { near + 18.0 }, by + h / 2.0);
+                Shape::Callout { rect, knee: [knee.0, knee.1], point: [x, y], font_size: pt, ending: LineEnding::OpenArrow }
+            } else {
+                let r = viewer::view_rect_to_pdf(b, size, at, (at.0 + w, at.1 + h));
+                Shape::TextBox { rect: r, font_size: pt }
+            }
         };
         let colour = if d.kind == 0 { COLOURS[r.light] } else { INK[r.ink_colour] };
-        let annotation = NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 { 1.0 } else { 0.0 }), contents: text, author: author() };
-        // A text box in the font of the format row.
-        Some((d.page, if d.kind == 0 { Edit::AddAnnotation(annotation) } else { Edit::AddTextBox { annotation, font: super::tools::text_font(r).into(), align: r.text_align as u8 } }))
+        let callout = matches!(shape, Shape::Callout { .. });
+        let annotation = NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 || callout { 1.0 } else { 0.0 }), contents: text, author: author() };
+        // A text box in the font of the format row; a callout in PdfCraft's own (Helvetica).
+        Some((d.page, if d.kind == 0 || callout { Edit::AddAnnotation(annotation) } else { Edit::AddTextBox { annotation, font: super::tools::text_font(r).into(), align: r.text_align as u8 } }))
     })
     .flatten();
     if let Some((page, e)) = edit {
@@ -726,15 +738,25 @@ pub fn copy_image(ui: &AppWindow, tab_id: i32, cut: bool) {
 /// place when that is the page it came from. False: nothing to paste.
 pub(super) fn paste_comment(ui: &AppWindow, tab_id: i32) -> bool {
     let fresh = arboard::Clipboard::new().and_then(|mut c| c.get_text()).is_ok_and(|t| t == COMMENT_ON_CLIPBOARD);
-    let Some((el, from, page)) = with(|a| a.comment_clip.clone()).filter(|_| fresh) else { return false };
+    let Some(clip) = with(|a| a.comment_clip.clone()).filter(|_| fresh) else { return false };
     let Some((to, same)) = update(tab_id, |r, v| {
         let to = v.current();
-        (to, r.path == from && to == page)
+        (to, r.path == clip.from && to == clip.page)
     }) else {
         return false;
     };
+    let (dx, dy) = if same { (12.0, -12.0) } else { (0.0, 0.0) };
+    // A picture stamp is placed again from its picture, in the same box (XFDF would bring it back blank).
+    if let (Some((name, bytes)), Some(r)) = (clip.picture, reader::xfdf_rect(&clip.element)) {
+        let rect = [r[0] + dx, r[1] + dy, r[2] + dx, r[3] + dy];
+        let stem = reader::xfdf_attr(&clip.element, "subject").unwrap_or_else(|| "Stamp".into());
+        let author = reader::xfdf_attr(&clip.element, "title").unwrap_or_else(author);
+        let file = sheaf_core::pdfcraft::engine::MarkFile { name, bytes, page: 0 };
+        apply(ui, tab_id, Edit::AddCustomStamp { page: to, rect, name: stem, file, author }, &[to], None);
+        return true;
+    }
     let nm = format!("sheaf-{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos()));
-    let xfdf = reader::paste_xfdf(&el, to, if same { (12.0, -12.0) } else { (0.0, 0.0) }, &nm);
+    let xfdf = reader::paste_xfdf(&clip.element, to, (dx, dy), &nm);
     apply(ui, tab_id, Edit::ImportData { name: "Paste comment".into(), bytes: Arc::new(xfdf.into_bytes()) }, &[to], None);
     true
 }

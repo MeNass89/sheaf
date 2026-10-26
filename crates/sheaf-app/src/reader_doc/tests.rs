@@ -640,7 +640,7 @@ fn a_comment_is_copied_and_pasted_as_a_new_one() {
     assert!(!nm.is_empty(), "Sheaf's comments are named");
     ops.send(Op::CopyComment { nm, page: 0, rect: snap.annots[0].rect }).unwrap();
     let el = match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
-        Reply::Copied(Some(el)) => el,
+        Reply::Copied(Some(el), None) => el,
         _ => panic!("expected Copied"),
     };
     assert!(el.starts_with("<highlight "), "{el}");
@@ -773,4 +773,36 @@ fn a_picked_picture_is_copied_as_its_own_pixels() {
         Reply::ImageCopied(Err(e)) => panic!("{e}"),
         _ => panic!("expected ImageCopied"),
     }
+}
+
+#[test]
+fn a_picture_stamp_is_copied_with_its_picture() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 2);
+    let png = dir.path().join("logo.png");
+    image::RgbImage::from_pixel(30, 20, image::Rgb([200, 30, 30])).save(&png).unwrap();
+    let file = |name: String, bytes| sheaf_core::pdfcraft::engine::MarkFile { name, bytes, page: 0 };
+    let stamp = |page, rect, file| Edit::AddCustomStamp { page, rect, name: "logo".into(), file, author: "Ada".into() };
+    let (ops, rx, _) = started(&path);
+    ops.send(Op::Apply { edit: Box::new(stamp(0, [100.0, 100.0, 250.0, 200.0], file("logo.png".into(), Arc::new(std::fs::read(&png).unwrap())))), pages: vec![0] }).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    let copy = |page: usize, a: &AnnotEntry| {
+        ops.send(Op::CopyComment { nm: a.nm.clone(), page, rect: a.rect }).unwrap();
+        match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+            Reply::Copied(Some(el), picture) => (el, picture),
+            _ => panic!("expected Copied"),
+        }
+    };
+    let (el, picture) = copy(0, &snap.annots[0]);
+    let (name, bytes) = picture.expect("the stamp's picture is copied");
+    let pixel = image::load_from_memory(&bytes).unwrap().to_rgb8().get_pixel(0, 0).0;
+    assert!(name.starts_with("Stamp.") && pixel == [200, 30, 30], "{name} {pixel:?}");
+    // Pasted as the window does: a picture stamp in the element's box, here on page 2.
+    let rect = sheaf_app::reader::xfdf_rect(&el).unwrap();
+    ops.send(Op::Apply { edit: Box::new(stamp(1, rect, file(name, bytes))), pages: vec![1] }).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    let pasted = snap.annots.iter().find(|a| a.page == 1).expect("a stamp on page 2");
+    assert!(copy(1, pasted).1.is_some(), "the pasted stamp has its picture");
 }

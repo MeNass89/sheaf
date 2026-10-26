@@ -76,6 +76,56 @@ pub fn merge_pages(inputs: &[Input], pages: &[String], out: &Path) -> Result<Pat
     save(&dst, out)
 }
 
+/// What the clipboard holds, for New PDF from clipboard.
+pub enum Pasted {
+    Image { width: u32, height: u32, rgba: Vec<u8> },
+    Text(String),
+}
+
+/// A new PDF of the clipboard at `out` (Acrobat's Create PDF from Clipboard, Preview's New from
+/// Clipboard): a picture on a page of its own size; text on US Letter pages in 11 pt Helvetica.
+pub fn from_pasted(p: &Pasted, out: &Path) -> Result<PathBuf> {
+    let session = crate::pdfcraft::engine::Session::new();
+    let bytes = match p {
+        Pasted::Image { width, height, rgba } => {
+            let img = image::RgbaImage::from_raw(*width, *height, rgba.clone()).ok_or_else(|| OpdfError::Unsupported("the picture on the clipboard is damaged".into()))?;
+            let mut png = Vec::new();
+            img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).map_err(|e| OpdfError::Conversion(e.to_string()))?;
+            session.create_from_images(&[("Clipboard.png".into(), png)])
+        }
+        Pasted::Text(t) if !t.trim().is_empty() => session.create_from_text("Clipboard", t),
+        Pasted::Text(_) => return Err(OpdfError::Unsupported("the clipboard holds no picture and no text".into())),
+    }
+    .map_err(|e| OpdfError::Engine(e.to_string()))?;
+    crate::paths::atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?))
+}
+
+/// The pages of a PDF held in memory (0: it cannot be read).
+pub fn count_in(bytes: &[u8]) -> usize {
+    lopdf::Document::load_mem(bytes).map_or(0, |d| d.get_pages().len())
+}
+
+/// Merge in any order: `seq` lists (input index, 1-based page), each page wherever it is placed,
+/// pages of different files mixed (Acrobat's Combine Files with its pages expanded).
+pub fn assemble(inputs: &[Input], seq: &[(usize, u32)], out: &Path) -> Result<PathBuf> {
+    let _g = pdfium_lock();
+    let srcs = inputs.iter().map(|i| i.open()).collect::<std::result::Result<Vec<_>, _>>()?;
+    if seq.is_empty() {
+        return Err(OpdfError::InvalidRange { range: "no pages".into(), pages: 0 });
+    }
+    let mut dst = pdfium().create_new_pdf()?;
+    for &(k, p) in seq {
+        let src = srcs.get(k).ok_or_else(|| OpdfError::InvalidRange { range: format!("file {}", k + 1), pages: inputs.len() as u32 })?;
+        let total = src.pages().len() as u32;
+        if p == 0 || p > total {
+            return Err(OpdfError::InvalidRange { range: p.to_string(), pages: total });
+        }
+        let at = dst.pages().len();
+        dst.pages_mut().copy_pages_from_document(src, &p.to_string(), at)?;
+    }
+    save(&dst, out)
+}
+
 pub fn extract(input: &Input, spec: &str, out: &Path) -> Result<PathBuf> {
     let _g = pdfium_lock();
     let src = input.open()?;

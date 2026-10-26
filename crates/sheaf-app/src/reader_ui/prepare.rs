@@ -1,9 +1,11 @@
 //! Prepare form (Acrobat's Prepare a Form, PDF Expert's form editing): the Form tool places fields
 //! by a drag or a click, selects one to move it, delete it, copy it to every page or change its
-//! properties, and finds a flat form's fields for you (Detect fields).
+//! properties, selects several (⇧-click) to move, align, size or space them together, and finds a
+//! flat form's fields for you (Detect fields).
 
 use super::*;
 use sheaf_core::pdfcraft::engine::{FieldAction, FieldProps, FieldTrigger, NewField};
+use std::fmt::Write as _;
 
 /// The field kinds the options bar offers, in its order (Acrobat's Prepare Form toolbar).
 pub const FIELD_KINDS: [&str; 9] = ["Text", "Check box", "Radio", "Dropdown", "List", "Date", "Button", "Signature", "Image"];
@@ -58,22 +60,51 @@ pub(super) fn field_hit(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) ->
 /// the fields): (field, widget, page, rect).
 pub(super) fn selected_field(r: &ReaderUi) -> Option<(usize, usize, usize, [f64; 4])> {
     let (page, rect) = r.form_sel?;
+    widget_at(r, page, rect)
+}
+
+fn widget_at(r: &ReaderUi, page: usize, rect: [f64; 4]) -> Option<(usize, usize, usize, [f64; 4])> {
     let near = |a: [f64; 4]| (0..4).all(|k| (a[k] - rect[k]).abs() < 0.5);
     r.snap.fields.iter().enumerate().find_map(|(i, f)| f.widgets.iter().position(|w| w.0 == page && near(w.1)).map(|k| (i, k, page, f.widgets[k].1)))
 }
 
-/// A press with the Form tool: on a field, it is selected and may be dragged; elsewhere a new
-/// field's box starts.
-pub(super) fn form_pressed(r: &mut ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) {
+/// Every field selected: the first one picked (the others follow it when arranged), then those
+/// added with ⇧-click on its page.
+pub(super) fn selected_fields(r: &ReaderUi) -> Vec<(usize, usize, usize, [f64; 4])> {
+    let Some((page, _)) = r.form_sel else { return Vec::new() };
+    selected_field(r).into_iter().chain(r.form_also.iter().filter_map(|rect| widget_at(r, page, *rect))).collect()
+}
+
+/// A press with the Form tool: on a field, it is selected and may be dragged (with the others
+/// selected, when it is one of them); ⇧ adds it to the selection or takes it out (Acrobat's);
+/// elsewhere a new field's box starts.
+pub(super) fn form_pressed(r: &mut ReaderUi, v: &Viewer, page: usize, p: (f64, f64), shift: bool) {
+    let near = |a: [f64; 4], b: [f64; 4]| (0..4).all(|k| (a[k] - b[k]).abs() < 0.5);
     match field_hit(r, v, page, p) {
+        Some((_, rect)) if shift && r.form_sel.is_some_and(|s| s.0 == page) => {
+            if r.form_sel.is_some_and(|s| near(s.1, rect)) {
+                // The first one taken out: the next one leads.
+                r.form_sel = (!r.form_also.is_empty()).then(|| (page, r.form_also.remove(0)));
+            } else if let Some(k) = r.form_also.iter().position(|a| near(*a, rect)) {
+                r.form_also.remove(k);
+            } else {
+                r.form_also.push(rect);
+            }
+            r.note_seq += 1;
+        }
         Some((_, rect)) => {
-            r.form_sel = Some((page, rect));
+            let in_group = r.form_sel.is_some_and(|s| s.0 == page && (near(s.1, rect) || r.form_also.iter().any(|a| near(*a, rect))));
+            if !in_group {
+                r.form_sel = Some((page, rect));
+                r.form_also.clear();
+            }
             r.form_drag = Some((page, p, p));
             // Its card starts from its own values.
             r.note_seq += 1;
         }
         None => {
             r.form_sel = None;
+            r.form_also.clear();
             r.stroke = Some((page, vec![p]));
             r.shape_end = None;
         }
@@ -94,35 +125,91 @@ pub(super) fn form_moved(r: &mut ReaderUi, page: usize, a: (f64, f64), b: (f64, 
 /// adds a field of the kind chosen (selected, to name it).
 pub(super) fn form_released(r: &mut ReaderUi, v: &Viewer, press: Option<(usize, (f64, f64))>) -> Option<Pending> {
     if let Some((page, from, to)) = r.form_drag.take() {
-        let (fi, wi, _, rect) = selected_field(r)?;
         let (dx, dy) = (to.0 - from.0, to.1 - from.1);
         if dx.hypot(dy) < 2.0 {
             return None;
         }
         let b = &v.boxes[page];
         let size = b.view_size();
-        let [x, y, w, h] = viewer::pdf_rect_to_view(b, size, rect);
-        let moved = viewer::view_rect_to_pdf(b, size, (x + dx, y + dy), (x + dx + w, y + dy + h));
-        r.form_sel = Some((page, moved));
-        let props = FieldProps { rect: Some((wi, moved)), ..Default::default() };
-        return Some(Pending::Move(page, Box::new(Edit::SetFieldProps { name: r.snap.fields[fi].name.clone(), props: Box::new(props) })));
+        // With the grid on, the first field's top-left corner lands on a crossing; the others keep their places to it.
+        let (dx, dy) = match selected_field(r) {
+            Some(s) if r.form_grid => {
+                let [x, y, ..] = viewer::pdf_rect_to_view(b, size, s.3);
+                let (sx, sy) = snapped(r, (x + dx, y + dy));
+                (sx - x, sy - y)
+            }
+            _ => (dx, dy),
+        };
+        // Every field selected moves by the drag, one undo step.
+        let moved: Vec<[f64; 4]> = selected_fields(r)
+            .iter()
+            .map(|s| {
+                let [x, y, w, h] = viewer::pdf_rect_to_view(b, size, s.3);
+                viewer::view_rect_to_pdf(b, size, (x + dx, y + dy), (x + dx + w, y + dy + h))
+            })
+            .collect();
+        return place_fields(r, page, &moved, "Move fields").map(|e| Pending::Move(page, Box::new(e)));
     }
     r.stroke = None;
     let (page, a) = press?;
     let b = &v.boxes[page];
     let size = b.view_size();
     let rect = match r.shape_end.take().filter(|e| (a.0 - e.0).hypot(a.1 - e.1) >= 4.0) {
-        Some(e) => viewer::view_rect_to_pdf(b, size, (a.0.min(e.0), a.1.min(e.1)), (a.0.max(e.0), a.1.max(e.1))),
-        // A click: the kind's own size, its top-left corner at the click.
+        Some(e) => {
+            let (a, e) = (snapped(r, a), snapped(r, e));
+            viewer::view_rect_to_pdf(b, size, (a.0.min(e.0), a.1.min(e.1)), (a.0.max(e.0), a.1.max(e.1)))
+        }
+        // A click: the kind's own size in points whatever the zoom (page points are view
+        // points), its top-left corner at the click.
         None => {
             let (w, h) = default_size(r.field_kind);
-            let k = size.0 / v.page_rect(page)[2].max(1e-9);
-            viewer::view_rect_to_pdf(b, size, a, (a.0 + w / k, a.1 + h / k))
+            let a = snapped(r, a);
+            viewer::view_rect_to_pdf(b, size, a, (a.0 + w, a.1 + h))
         }
     };
     let kind = new_field(r);
     r.form_sel = Some((page, rect));
     Some(Pending::Move(page, Box::new(Edit::AddField { page, rect, kind, name: None })))
+}
+
+/// The Form tool's grid step, in points: Acrobat's default grid (lines every inch, 8 subdivisions).
+pub const GRID: f64 = 9.0;
+
+/// A page point (points from the page's top-left corner, as shown) on the nearest grid crossing
+/// when the grid is on.
+fn snapped(r: &ReaderUi, p: (f64, f64)) -> (f64, f64) {
+    if r.form_grid { ((p.0 / GRID).round() * GRID, (p.1 / GRID).round() * GRID) } else { p }
+}
+
+/// The options bar's Grid: shown over the pages, fields placed, dragged or moved snap to it.
+pub fn form_grid(tab_id: i32) {
+    update(tab_id, |r, _| r.form_grid = !r.form_grid);
+}
+
+/// The grid over each page in view (Grid on): (page box in content pixels, its minor and its
+/// major lines as path commands in that box's pixels).
+pub(super) fn grid_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -> bool) -> Vec<ReaderGrid> {
+    if r.tool != FORM || !r.form_grid {
+        return Vec::new();
+    }
+    (0..v.viewer.page_count())
+        .filter(|p| in_view(*p))
+        .map(|p| {
+            let [x, y, w, h] = v.viewer.page_rect(p);
+            let k = w / v.viewer.boxes[p].view_size().0.max(1e-9) * GRID;
+            let (mut minor, mut major) = (String::new(), String::new());
+            let mut lines = |n: usize, len: f64, across: bool| {
+                for i in 1..n {
+                    let at = i as f64 * k;
+                    let out = if i % 8 == 0 { &mut major } else { &mut minor };
+                    let _ = if across { write!(out, "M {at:.1} 0 L {at:.1} {len:.1} ") } else { write!(out, "M 0 {at:.1} L {len:.1} {at:.1} ") };
+                }
+            };
+            lines((w / k).ceil() as usize, h, true);
+            lines((h / k).ceil() as usize, w, false);
+            ReaderGrid { x: x as f32, y: y as f32, w: w as f32, h: h as f32, minor: minor.into(), major: major.into() }
+        })
+        .collect()
 }
 
 /// The options bar's field kind; another kind ends the radio group being placed.
@@ -224,12 +311,70 @@ pub fn tab_order(ui: &AppWindow, tab_id: i32, order: i32) {
     crate::flow::toast(ui, "Tab order set for every page");
 }
 
-/// The selected field ▸ Delete (or the Delete key).
+/// The fields selected, now at `rects` (in the order of [`selected_fields`]): one step setting
+/// each widget's place; the selection follows them. None: nothing selected.
+fn place_fields(r: &mut ReaderUi, page: usize, rects: &[[f64; 4]], label: &str) -> Option<Edit> {
+    let sel = selected_fields(r);
+    let edits: Vec<Edit> = sel
+        .iter()
+        .zip(rects)
+        .map(|(s, rect)| Edit::SetFieldProps { name: r.snap.fields[s.0].name.clone(), props: Box::new(FieldProps { rect: Some((s.1, *rect)), ..Default::default() }) })
+        .collect();
+    let (first, rest) = rects.split_first()?;
+    r.form_sel = Some((page, *first));
+    r.form_also = rest.to_vec();
+    match edits.len() {
+        0 => None,
+        1 => edits.into_iter().next(),
+        _ => Some(Edit::Batch { label: label.into(), edits }),
+    }
+}
+
+/// The fields selected together ▸ Align, Match size or Distribute (`how` as [`reader::arrange`]).
+pub fn fields_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
+    let edit = update(tab_id, |r, _| {
+        let sel = selected_fields(r);
+        let page = sel.first()?.2;
+        let rects = reader::arrange(&sel.iter().map(|s| s.3).collect::<Vec<_>>(), how);
+        place_fields(r, page, &rects, "Arrange fields").map(|e| (page, e))
+    })
+    .flatten();
+    if let Some((page, e)) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
+/// The arrow keys with fields selected: they move by `dx`, `dy` points (1, or 10 with ⇧; `dy` up
+/// the page), as Acrobat's. Held down, a key waits for the last move to be applied.
+pub fn fields_nudge(ui: &AppWindow, tab_id: i32, dx: f32, dy: f32) {
+    let edit = update(tab_id, |r, _| {
+        if r.edits_in_flight > 0 {
+            return None;
+        }
+        let sel = selected_fields(r);
+        let page = sel.first()?.2;
+        let (dx, dy) = (f64::from(dx), f64::from(dy));
+        let rects: Vec<[f64; 4]> = sel.iter().map(|s| [s.3[0] + dx, s.3[1] + dy, s.3[2] + dx, s.3[3] + dy]).collect();
+        place_fields(r, page, &rects, "Move fields").map(|e| (page, e))
+    })
+    .flatten();
+    if let Some((page, e)) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
+/// The selected fields ▸ Delete (or the Delete key), one step.
 pub fn field_delete(ui: &AppWindow, tab_id: i32) {
     let edit = update(tab_id, |r, _| {
-        let (fi, _, page, _) = selected_field(r)?;
+        let sel = selected_fields(r);
+        let page = sel.first()?.2;
+        let mut names: Vec<String> = sel.iter().map(|s| r.snap.fields[s.0].name.clone()).collect();
+        names.sort();
+        names.dedup();
         r.form_sel = None;
-        Some((page, Edit::DeleteField { name: r.snap.fields[fi].name.clone() }))
+        r.form_also.clear();
+        let mut edits: Vec<Edit> = names.into_iter().map(|name| Edit::DeleteField { name }).collect();
+        Some((page, if edits.len() == 1 { edits.remove(0) } else { Edit::Batch { label: "Delete fields".into(), edits } }))
     })
     .flatten();
     if let Some((page, e)) = edit {
@@ -258,20 +403,18 @@ pub(super) fn form_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -
     if r.tool != FORM {
         return (Vec::new(), ReaderFieldProps::default());
     }
-    let sel = selected_field(r);
+    let group = selected_fields(r);
+    let sel = group.first().copied();
     let mut list = Vec::new();
     for (i, f) in r.snap.fields.iter().enumerate() {
         for (k, (page, rect, _, _)) in f.widgets.iter().enumerate().filter(|(_, w)| in_view(w.0)) {
             let mut c = v.viewer.overlay(*page, *rect);
-            // A field being dragged follows the pointer.
-            if let (Some((fi, wi, ..)), Some((_, from, to))) = (sel, r.form_drag)
-                && fi == i
-                && wi == k
-            {
+            let selected = group.iter().any(|s| s.0 == i && s.1 == k);
+            // The fields being dragged follow the pointer.
+            if let Some((_, from, to)) = r.form_drag.filter(|_| selected) {
                 c[0] += to.0 - from.0;
                 c[1] += to.1 - from.1;
             }
-            let selected = sel.is_some_and(|s| s.0 == i && s.1 == k);
             list.push(ReaderFormField { x: c[0] as f32, y: c[1] as f32, w: c[2] as f32, h: c[3] as f32, name: f.name.clone().into(), selected });
         }
     }
@@ -298,6 +441,7 @@ pub(super) fn form_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -
                 action: f.action,
                 url: f.url.clone().into(),
                 other_pages: (0..v.viewer.page_count()).any(|p| !f.widgets.iter().any(|w| w.0 == p)),
+                group: group.len() as i32,
             }
         }
         None => ReaderFieldProps::default(),

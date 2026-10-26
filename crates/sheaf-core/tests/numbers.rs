@@ -1,6 +1,6 @@
 mod common;
 use common::{dark_in, fixture_pdf, page_texts, qpdf_clean, render};
-use sheaf_core::numbers::{number_pages, standard_font, NumberOptions, NumberText};
+use sheaf_core::numbers::{number_pages, standard_font, Bates, NumberOptions, NumberText};
 use sheaf_core::pages::Input;
 
 #[test]
@@ -161,4 +161,26 @@ fn a_range_past_the_end_stops_at_the_last_page_when_clamped() {
     let texts = page_texts(&out);
     assert_eq!(texts[0].matches('1').count(), 1, "page 1 not numbered: {}", texts[0]);
     assert!(texts[2].contains('2'), "page 3 numbered (2): {}", texts[2]);
+}
+
+#[test]
+fn header_and_footer_text_and_bates_numbers_without_a_page_number() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 2);
+    let mut texts: [String; 6] = Default::default();
+    texts[0] = "Case {bates}".into();
+    texts[5] = "Sheet {n} of {p}".into();
+    let o = NumberOptions { text: NumberText::Nothing, texts, bates: Bates { digits: 4, start: 7, prefix: "ACME-".into(), suffix: String::new() }, ..Default::default() };
+    let (out, _) = number_pages(&Input::new(&a), &o, &t.path().join("n.pdf")).unwrap();
+    qpdf_clean(&out);
+    let pages = page_texts(&out);
+    assert!(pages[0].contains("Case ACME-0007") && pages[0].contains("Sheet 1 of 2"), "{}", pages[0]);
+    assert!(pages[1].contains("Case ACME-0008"), "{}", pages[1]);
+    // Again with Replace: the first header and footer go, so each page holds one Bates number.
+    let o2 = NumberOptions { replace: true, ..o.clone() };
+    let (again, _) = number_pages(&Input::new(&out), &o2, &t.path().join("n2.pdf")).unwrap();
+    assert_eq!(page_texts(&again)[0].matches("ACME-").count(), 1, "{}", page_texts(&again)[0]);
+    // Nothing at all to write is refused.
+    let empty = NumberOptions { text: NumberText::Nothing, ..Default::default() };
+    assert!(number_pages(&Input::new(&a), &empty, &t.path().join("e.pdf")).is_err());
 }

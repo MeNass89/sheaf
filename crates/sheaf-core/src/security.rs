@@ -113,6 +113,19 @@ pub fn unlock(input: &Input, out: &Path) -> Result<PathBuf> {
     atomic_write(out, |part| { doc.save(part)?; Ok(()) })
 }
 
+/// A copy of a protected document without its protection, for the print service, which cannot
+/// read an encrypted file. Printing needs only the open password: a document whose owner forbids
+/// changes still prints (Acrobat's behaviour; Sol 25/10), so this decrypts with lopdf rather than
+/// through PdfCraft's Remove security, which asks for the right to change security.
+pub fn printable_copy(bytes: &[u8], password: &str) -> Result<Vec<u8>> {
+    let mut doc = lopdf::Document::load_mem_with_options(bytes, lopdf::LoadOptions::with_password(password))?;
+    doc.trailer.remove(b"Encrypt");
+    doc.max_id = doc.objects.keys().map(|id| id.0).max().unwrap_or(0);
+    let mut out = Vec::new();
+    doc.save_to(&mut out)?;
+    Ok(out)
+}
+
 /// Encryption fills strings with random bytes (the Encrypt dictionary's /O /U /OE /UE /Perms, and
 /// every encrypted string), which lopdf writes as literal strings with line feeds unescaped. That
 /// is valid (ISO 32000-2 §7.3.4.2: each end-of-line marker reads as one LF), but PdfCraft's reader

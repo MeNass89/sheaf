@@ -291,6 +291,11 @@ pub fn escape(tab_id: i32) {
         if r.selected_image.take().is_some() | r.picked.take().is_some() {
             return;
         }
+        // Prepare form: the fields selected are let go first, the tool stays.
+        if r.form_sel.take().is_some() {
+            r.form_also.clear();
+            return;
+        }
         if r.sel.take().is_some() || r.selected_annot.take().is_some() {
             return;
         }

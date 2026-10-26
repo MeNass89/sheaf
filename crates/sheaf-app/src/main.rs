@@ -62,8 +62,8 @@ fn deliver(paths: Vec<PathBuf>) {
 }
 
 /// Called after each successful job: stores it in the task history.
-pub fn record_history(tool: ToolId, inputs: &[PathBuf], outputs: &[PathBuf]) {
-    home::record(tool, inputs, outputs);
+pub fn record_history(tool: ToolId, inputs: &[PathBuf], outputs: &[PathBuf], options: Option<&sheaf_app::ToolOptions>) {
+    home::record(tool, inputs, outputs, options);
 }
 
 fn category_index(c: Category) -> i32 {
@@ -176,6 +176,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_redact, |ui, id| reader_ui::to_redact(&ui, id));
     wire_global!(ui, rb, on_link_urls, |ui, id| reader_ui::link_urls(&ui, id));
     rb.on_field_kind(reader_ui::field_kind);
+    rb.on_form_grid(reader_ui::form_grid);
     wire_global!(ui, rb, on_detect_fields, |ui, id| reader_ui::detect_fields(&ui, id));
     wire_global!(ui, rb, on_tab_order, |ui, id, o| reader_ui::tab_order(&ui, id, o));
     wire_global!(ui, rb, on_copy_image, |ui, id, cut| reader_ui::copy_image(&ui, id, cut));
@@ -183,6 +184,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_field_props, |ui, id, name, tip, req, ro, ml, opts, size, align, font, act, url| reader_ui::field_props(&ui, id, &name, &tip, req, ro, ml, &opts, (&size, align, font), (act, &url)));
     wire_global!(ui, rb, on_field_delete, |ui, id| reader_ui::field_delete(&ui, id));
     wire_global!(ui, rb, on_field_everywhere, |ui, id| reader_ui::field_everywhere(&ui, id));
+    wire_global!(ui, rb, on_fields_arrange, |ui, id, how| reader_ui::fields_arrange(&ui, id, how));
+    wire_global!(ui, rb, on_fields_nudge, |ui, id, dx, dy| reader_ui::fields_nudge(&ui, id, dx, dy));
     wire_global!(ui, rb, on_nudge, |ui, id, dx, dy| reader_ui::nudge(&ui, id, dx, dy));
     rb.on_link_selection(reader_ui::link_selection);
     rb.on_replace_selection(reader_ui::replace_selection);
@@ -214,6 +217,10 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_set_spread, |ui, id, m| reader_ui::set_spread(&ui, id, m));
     wire_global!(ui, rb, on_notes_action, |ui, id, w| reader_ui::notes_action(&ui, id, w));
     rb.on_props_open(reader_ui::props_open);
+    rb.on_background_open(reader_ui::background_open);
+    rb.on_versions_open(reader_ui::versions_open);
+    wire_global!(ui, rb, on_version_action, |ui, id, n| reader_ui::version_action(&ui, id, n));
+    wire_global!(ui, rb, on_background_apply, |ui, id, c, o, a| reader_ui::background_apply(&ui, id, c, o, a));
     rb.on_notes_view(reader_ui::notes_view);
     rb.on_toggle_links(reader_ui::toggle_links);
     rb.on_toggle_fields(reader_ui::toggle_fields);
@@ -350,6 +357,19 @@ fn main() -> Result<(), slint::PlatformError> {
             Err(e) => flow::toast(ui, &e.to_string()),
         });
     });
+    // Home ▸ From clipboard: a picture, else text, becomes a new PDF, named and placed first.
+    wire!(ui, on_new_from_clipboard, |ui| {
+        use sheaf_core::pages::Pasted;
+        let pasted = arboard::Clipboard::new().ok().and_then(|mut c| {
+            c.get_image().ok().map(|i| Pasted::Image { width: i.width as u32, height: i.height as u32, rgba: i.bytes.into_owned() }).or_else(|| c.get_text().ok().map(Pasted::Text))
+        });
+        let Some(pasted) = pasted else { return flow::toast(&ui, "The clipboard holds no picture and no text") };
+        let d = dialog::new(&ui).set_file_name("Clipboard.pdf").add_filter("PDF", &["pdf"]);
+        dialog::save_file(&ui, d, move |ui, path| match sheaf_core::pages::from_pasted(&pasted, &path) {
+            Ok(p) => deliver(vec![p]),
+            Err(e) => flow::toast(ui, &e.to_string()),
+        });
+    });
     // Tools search: found tools, best first (sheaf_core::tools::search).
     let weak = ui.as_weak();
     ui.on_tool_query(move |q| {
@@ -410,17 +430,9 @@ fn main() -> Result<(), slint::PlatformError> {
     });
     wire!(ui, on_add_open_doc_to_slot, |ui, id, slot, i| flow::add_open_doc_to_slot(&ui, id, slot, i));
     wire!(ui, on_add_open_docs, |ui, id| flow::add_open_documents(&ui, id));
-    ui.on_remove_page(|id, k| flow::edit_pages(id, |o| {
-        if (k as usize) < o.len() {
-            o.remove(k as usize);
-        }
-    }));
-    ui.on_move_page(|id, k, d| flow::edit_pages(id, |o| {
-        let j = k + d;
-        if k >= 0 && j >= 0 && (j as usize) < o.len() && (k as usize) < o.len() {
-            o.swap(k as usize, j as usize);
-        }
-    }));
+    ui.on_remove_page(|id, k| flow::page_op(id, k, 0));
+    ui.on_move_page(|id, k, d| flow::page_op(id, k, d.signum()));
+    wire!(ui, on_show_merge_pages, |ui, id, on| flow::show_merge_pages(&ui, id, on));
     ui.on_insert_blank(|id| flow::edit_pages(id, |o| o.push(0)));
     wire!(ui, on_pw_unlock, |ui, pw| password::entered(&ui, pw.into()));
     wire!(ui, on_pw_skip, |ui| password::skipped(&ui));

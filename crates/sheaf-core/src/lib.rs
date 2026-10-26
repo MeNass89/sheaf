@@ -6,6 +6,7 @@ pub mod export;
 pub mod error;
 pub mod excel;
 pub mod facts;
+pub mod form_scan;
 pub mod crop;
 pub mod images;
 pub mod info;

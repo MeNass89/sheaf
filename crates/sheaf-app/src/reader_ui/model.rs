@@ -326,6 +326,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     };
     let (results, search_pages) = results;
     let (form_fields, field_props) = super::prepare::form_overlay(r, v, |p| wanted.contains(&p));
+    let form_grids = super::prepare::grid_overlay(r, v, |p| wanted.contains(&p));
     let note = match &r.draft {
         Some(d) => {
             let (mut x, mut y) = view_to_content(&v.viewer, d.page, d.at);
@@ -421,6 +422,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         shape_fill: r.shape_fill,
         arrow_head: reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].1.into(),
         arrow_both: r.arrow_both,
+        callout: r.callout,
         measure_scale: {
             let (ratio, unit) = reader::MEASURE_SCALES[r.measure_scale.min(reader::MEASURE_SCALES.len() - 1)];
             if ratio == 1.0 { format!("True size · {unit}") } else { format!("1:{ratio} · {unit}") }
@@ -448,6 +450,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         show_fields: r.show_fields,
         field_kind: r.field_kind,
         form_fields: ModelRc::new(VecModel::from(form_fields)),
+        form_grid: r.form_grid,
+        form_grids: ModelRc::new(VecModel::from(form_grids)),
         field_props,
         link_error: r.link_error.clone().into(),
         link_visible: r.link_visible,
@@ -463,6 +467,11 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         notes_filter: r.notes_filter,
         notes_sort: r.notes_sort,
         props_open: r.props_open,
+        background_open: r.background_open,
+        versions_open: r.versions_open,
+        versions: r.snap.versions as i32,
+        undo_label: r.snap.undo_label.clone().into(),
+        redo_label: r.snap.redo_label.clone().into(),
         props_title: r.snap.props.title.clone().into(),
         props_author: r.snap.props.author.clone().into(),
         props_subject: r.snap.props.subject.clone().into(),

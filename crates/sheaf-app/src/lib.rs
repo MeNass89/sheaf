@@ -11,6 +11,7 @@ pub mod pool;
 pub mod prefs;
 pub mod print;
 pub mod reader;
+pub mod saved_options;
 pub mod store_file;
 pub mod sign_preview;
 pub mod viewer;

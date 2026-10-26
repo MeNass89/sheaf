@@ -127,6 +127,7 @@ export component AppWindow inherits Window {
 
     callback open-file();
     callback new-blank();
+    callback new-from-clipboard();
     callback open-tool(string);
     callback close-tab(int);
     // A tab dragged to another place (from, to), and the tab menu's close others / left / right.
@@ -149,6 +150,7 @@ export component AppWindow inherits Window {
     callback remove-page(int, int);
     callback move-page(int, int, int);
     callback insert-blank(int);
+    callback show-merge-pages(int, bool);
     callback run-tool(int, ToolOptions);
     callback cancel-job(int);
     callback open-output(int, int);
@@ -261,6 +263,7 @@ export component AppWindow inherits Window {
                             star(id) => { root.star-tool(id); }
                             open-file => { root.open-file(); }
                             new-blank => { root.new-blank(); }
+                            new-from-clipboard => { root.new-from-clipboard(); }
                             open-recent(i) => { root.open-recent(i); }
                             reveal-recent(i) => { root.reveal-recent(i); }
                             remove-recent(i) => { root.remove-recent(i); }
@@ -337,6 +340,7 @@ export component AppWindow inherits Window {
                         remove-page(k) => { root.remove-page(t.id, k); }
                         move-page(k, d) => { root.move-page(t.id, k, d); }
                         insert-blank => { root.insert-blank(t.id); }
+                        show-merge-pages(on) => { root.show-merge-pages(t.id, on); }
                         run(o) => { root.run-tool(t.id, o); }
                         cancel => { root.cancel-job(t.id); }
                         get-libreoffice => { root.get-libreoffice(); }

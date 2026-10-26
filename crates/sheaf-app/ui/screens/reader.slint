@@ -10,8 +10,8 @@ import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint"
 import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
-import { FormFieldBox, FieldPropsCard } from "reader-form.slint";
-import { SignatureSheet, PrintSheet, PropertiesSheet } from "reader-sheets.slint";
+import { FormFieldBox, FieldPropsCard, FieldsArrangeCard } from "reader-form.slint";
+import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet } from "reader-sheets.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 
 export component ReaderScreen inherits Rectangle {
@@ -239,6 +239,15 @@ export component ReaderScreen inherits Rectangle {
                         border-width: m.kind == 12 ? 3px : m.kind == 6 ? 1.5px : m.kind == 5 || m.kind == 7 ? 1px : 0px;
                         border-color: m.kind == 12 ? Theme.accent : m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : #FF9F0A;
                     }
+                    // Prepare form's grid (Grid on): lines every 9 pt, a stronger one every inch.
+                    for g in root.tab.reader.form-grids: Rectangle {
+                        x: g.x;
+                        y: g.y;
+                        width: g.w;
+                        height: g.h;
+                        Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.minor; stroke: #3B82F61F; stroke-width: 1px; }
+                        Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.major; stroke: #3B82F647; stroke-width: 1px; }
+                    }
                     // Prepare form: every field, named (its card is above the pages' pointer area, below).
                     for f in root.tab.reader.form-fields: FormFieldBox { field: f; }
                     if root.tab.reader.ink != "": Path {
@@ -378,7 +387,14 @@ export component ReaderScreen inherits Rectangle {
                         }
                     }
                     // Prepare form: the selected field's card, under it.
-                    if root.tab.reader.field-props.show: FieldPropsCard {
+                    if root.tab.reader.field-props.show && root.tab.reader.field-props.group > 1: FieldsArrangeCard {
+                        x: max(-sv.content-x + 4px, min(root.tab.reader.field-props.x, -sv.content-x + sv.visible-width - self.width - 4px));
+                        y: root.tab.reader.field-props.y + self.height > root.tab.viewer-height ? max(0px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
+                        count: root.tab.reader.field-props.group;
+                        id: root.id;
+                        focus-pages => { keys.focus(); }
+                    }
+                    if root.tab.reader.field-props.show && root.tab.reader.field-props.group <= 1: FieldPropsCard {
                         x: max(-sv.content-x + 4px, min(root.tab.reader.field-props.x, -sv.content-x + sv.visible-width - self.width - 4px));
                         // Above the field when it would run past the end of the pages (Sol, 25/10).
                         y: root.tab.reader.field-props.y + self.height > root.tab.viewer-height ? max(0px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
@@ -554,6 +570,16 @@ export component ReaderScreen inherits Rectangle {
         focus-pages => { keys.focus(); }
     }
 
+    if root.tab.reader.versions-open: VersionsSheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.background-open: BackgroundSheet {
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
+
     // Document Properties (⌘D).
     if root.tab.reader.props-open: PropertiesSheet {
         tab: root.tab;
@@ -671,6 +697,13 @@ export component ReaderScreen inherits Rectangle {
             // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).
             if e.text == "T" || (e.text == "t" && e.modifiers.shift) { root.bare = !root.bare; return accept; }
             if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
+            // Form tool, fields selected: the arrows move them (1 point, 10 with ⇧), as Acrobat's.
+            if root.tab.reader.tool == 14 && root.tab.reader.field-props.show {
+                if e.text == Key.LeftArrow { ReaderBridge.fields-nudge(root.id, e.modifiers.shift ? -10 : -1, 0); return accept; }
+                if e.text == Key.RightArrow { ReaderBridge.fields-nudge(root.id, e.modifiers.shift ? 10 : 1, 0); return accept; }
+                if e.text == Key.UpArrow { ReaderBridge.fields-nudge(root.id, 0, e.modifiers.shift ? 10 : 1); return accept; }
+                if e.text == Key.DownArrow { ReaderBridge.fields-nudge(root.id, 0, e.modifiers.shift ? -10 : -1); return accept; }
+            }
             // Edit tool, objects picked: the arrows nudge them (1 point, 10 with ⇧), as iLovePDF's.
             if root.tab.reader.tool == 7 && root.tab.reader.has-picked {
                 if e.text == Key.LeftArrow { ReaderBridge.nudge(root.id, e.modifiers.shift ? -10 : -1, 0); return accept; }

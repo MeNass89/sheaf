@@ -8,6 +8,7 @@ fn entry(n: u64) -> Entry {
         inputs: vec![PathBuf::from(format!("/in/{n}.pdf"))],
         outputs: vec![PathBuf::from(format!("/out/{n}-compressed.pdf"))],
         at_unix: n,
+        options: Default::default(),
     }
 }
 
@@ -223,7 +224,7 @@ fn expired_recent_exclusions_are_pruned_and_corrupt_state_is_recoverable() {
 #[test]
 fn recent_tools_are_the_newest_distinct_runs() {
     use sheaf_app::history::{recent_tools, Entry};
-    let e = |tool: &str, at| Entry { tool: tool.into(), inputs: vec![], outputs: vec![], at_unix: at };
+    let e = |tool: &str, at| Entry { tool: tool.into(), inputs: vec![], outputs: vec![], at_unix: at, options: Default::default() };
     let list = vec![e("compress", 9), e("read", 8), e("merge", 7), e("compress", 6), e("split", 5), e("rotate", 4)];
     assert_eq!(recent_tools(&list, "read", 3), ["compress", "merge", "split"]);
     assert!(recent_tools(&[], "read", 3).is_empty());
@@ -235,4 +236,19 @@ fn signatures_kept_before_handwriting_fonts_still_load() {
     std::fs::write(dir.path().join("prefs.json"), r#"{"signatures": [[[], "Ada", [0, 1]], [[], "Bo", [1, 0], 3]]}"#).unwrap();
     let p = Prefs::load(dir.path());
     assert_eq!(p.signatures, vec![(Vec::new(), Some("Ada".into()), (0, 1), 0), (Vec::new(), Some("Bo".into()), (1, 0), 3)]);
+}
+
+#[test]
+fn a_tasks_options_are_kept_with_it_and_older_files_still_load() {
+    let dir = tempfile::tempdir().unwrap();
+    let o = sheaf_app::ToolOptions { level: 2, pages: "3-5".into(), password: "secret".into(), ..Default::default() };
+    let mut s = Store::open(dir.path());
+    s.push(Entry { options: sheaf_app::saved_options::to_json(&o), ..entry(1) }).unwrap();
+    let text = std::fs::read_to_string(dir.path().join("history.json")).unwrap();
+    assert!(text.contains("\"pages\": \"3-5\"") && !text.contains("secret"), "{text}");
+    let back = sheaf_app::saved_options::from_json(&Store::open(dir.path()).list()[0].options);
+    assert!(back.level == 2 && back.pages == "3-5" && back.password.is_empty());
+    // A history written before options were kept: its entries load, with none.
+    std::fs::write(dir.path().join("history.json"), r#"[{"tool":"compress","inputs":["/a.pdf"],"outputs":["/b.pdf"],"at_unix":5}]"#).unwrap();
+    assert!(Store::open(dir.path()).list()[0].options.is_empty());
 }

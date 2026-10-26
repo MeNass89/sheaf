@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
-use sheaf_app::{AppWindow, ReaderFieldProps, ReaderFormField, ReaderMark, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
+use sheaf_app::{AppWindow, ReaderFieldProps, ReaderFormField, ReaderGrid, ReaderMark, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, StampKind, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
@@ -288,12 +288,22 @@ pub struct ReaderUi {
     /// Shapes ▸ Arrow: its head (`reader::ARROW_HEADS`) and whether both ends carry one.
     arrow_head: usize,
     arrow_both: bool,
+    /// The Text box tool makes callouts (Acrobat's Callout).
+    callout: bool,
     /// The Measuring tools' scale (`reader::MEASURE_SCALES`).
     measure_scale: usize,
     /// Edit text: what of the format row was changed while a paragraph is open (1 colour, 2 size,
     /// 4 font, 8 alignment): those apply to it, the rest of its style stays its own.
     para_format: u8,
     form_sel: Option<(usize, [f64; 4])>,
+    /// Other fields selected with it (⇧-click), on its page: their rects.
+    form_also: Vec<[f64; 4]>,
+    /// Prepare form's Grid: shown, and fields snap to it.
+    form_grid: bool,
+    /// More ▸ Page background… is open.
+    background_open: bool,
+    /// More ▸ Versions… is open.
+    versions_open: bool,
     form_drag: Option<FormDrag>,
     /// Generation of the running search, shared with its thread so it stops when replaced.
     search_live: Arc<std::sync::atomic::AtomicU64>,
@@ -443,9 +453,14 @@ impl ReaderUi {
             radio_group: None,
             arrow_head: 0,
             arrow_both: false,
+            callout: false,
             measure_scale: 0,
             para_format: 0,
             form_sel: None,
+            form_also: Vec::new(),
+            form_grid: false,
+            background_open: false,
+            versions_open: false,
             form_drag: None,
             search_live: Default::default(),
             pending_reduce: None,
@@ -738,11 +753,11 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             }
             Err(e) => crate::flow::toast(ui, &format!("Pages not copied: {e}")),
         },
-        Reply::Copied(element) => {
-            let Some((path, page)) = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?))).flatten() else { return };
+        Reply::Copied(element, picture) => {
+            let Some((from, page)) = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?))).flatten() else { return };
             match element {
-                Some(el) => {
-                    with(|a| a.comment_clip = Some((el, path, page)));
+                Some(element) => {
+                    with(|a| a.comment_clip = Some(crate::state::CommentClip { element, picture, from, page }));
                     // The system clipboard says a comment is copied: anything copied after it wins.
                     let _ = arboard::Clipboard::new().and_then(|mut c| c.set_text(COMMENT_ON_CLIPBOARD));
                     crate::flow::toast(ui, "Comment copied: ⌘V pastes it on the page shown");
@@ -755,6 +770,16 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             match error {
                 None => crate::flow::toast(ui, &format!("Comments exported to {}", file_name(&to))),
                 Some(e) => crate::flow::toast(ui, &format!("Not exported: {e}")),
+            }
+        }
+        Reply::VersionSaved(r) => {
+            update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
+            match r {
+                Ok(to) => {
+                    crate::flow::toast(ui, &format!("{} opened: the file as it was saved then", file_name(&to)));
+                    open(ui, to, None);
+                }
+                Err(e) => crate::flow::toast(ui, &format!("Version not opened: {e}")),
             }
         }
         Reply::Extracted { to, error } => {

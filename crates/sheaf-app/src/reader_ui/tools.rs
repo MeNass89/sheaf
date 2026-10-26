@@ -7,6 +7,7 @@ pub fn set_tool(tab_id: i32, tool: i32) {
         r.tool = tool.clamp(SELECT, FORM);
         if r.tool != FORM {
             r.form_sel = None;
+            r.form_also.clear();
             r.form_drag = None;
         }
         // Each tool comes back with the style it was last used with, as PDF Expert's tools do.
@@ -202,6 +203,7 @@ pub fn shape_option(tab_id: i32, what: i32, value: i32) {
         6 => r.arrow_head = (r.arrow_head + 1) % reader::ARROW_HEADS.len(),
         10 => r.measure_scale = (r.measure_scale + 1) % reader::MEASURE_SCALES.len(),
         7 => r.arrow_both = !r.arrow_both,
+        11 => r.callout = !r.callout,
         _ => {
             r.opacity = (r.opacity + 1) % reader::OPACITIES.len();
             remember_style(r);

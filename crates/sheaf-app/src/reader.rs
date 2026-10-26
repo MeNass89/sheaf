@@ -330,12 +330,23 @@ pub fn xfdf_element(xfdf: &str, name: &str) -> Option<String> {
 /// A comment without a name (/NM) in the file, found by its page and box (within half a point):
 /// copied as [`xfdf_element`] copies a named one (Sol, 25/10: unnamed comments were refused).
 pub fn xfdf_element_at(xfdf: &str, page: usize, rect: [f64; 4]) -> Option<String> {
-    let attr = |l: &str, key: &str| l.split(&format!(" {key}=\"")).nth(1).and_then(|v| v.split('"').next()).map(str::to_string);
-    xfdf.lines().filter(|l| l.starts_with('<') && !l.contains(" inreplyto=\"") && attr(l, "name").is_none()).find(|l| {
-        let r: Vec<f64> = attr(l, "rect").map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
-        attr(l, "page").and_then(|p| p.parse::<usize>().ok()) == Some(page) && r.len() == 4 && (0..4).all(|k| (r[k] - rect[k]).abs() < 0.5)
+    xfdf.lines().filter(|l| l.starts_with('<') && !l.contains(" inreplyto=\"") && xfdf_attr(l, "name").is_none()).find(|l| {
+        let r = xfdf_rect(l);
+        xfdf_attr(l, "page").and_then(|p| p.parse::<usize>().ok()) == Some(page) && r.is_some_and(|r| (0..4).all(|k| (r[k] - rect[k]).abs() < 0.5))
     })
     .map(str::to_string)
+}
+
+/// An attribute of an XFDF element, unescaped ("title" is the author, "subject" a stamp's name).
+pub fn xfdf_attr(element: &str, key: &str) -> Option<String> {
+    let v = element.split(&format!(" {key}=\"")).nth(1)?.split('"').next()?;
+    Some(v.replace("&quot;", "\"").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&"))
+}
+
+/// The box of an XFDF element ("rect", PDF space).
+pub fn xfdf_rect(element: &str) -> Option<[f64; 4]> {
+    let r: Vec<f64> = xfdf_attr(element, "rect")?.split(',').filter_map(|n| n.trim().parse().ok()).collect();
+    r.try_into().ok()
 }
 
 fn xml_escape(s: &str) -> String {
@@ -576,6 +587,53 @@ pub fn file_link_path(uri: &str, doc_dir: &std::path::Path) -> Option<std::path:
     (!path.as_os_str().is_empty()).then(|| if path.is_absolute() { path } else { doc_dir.join(path) })
 }
 
+/// Prepare form's arrangement of the fields selected together (Acrobat's Align, Center, Distribute
+/// and Match Size), in user space (y up). The first rectangle is the one the others follow:
+/// 0 left edges, 1 centres in a column, 2 right edges, 3 top edges, 4 centres in a row, 5 bottom
+/// edges, 6 its width, 7 its height, 8 both; 9 and 10 space them evenly across or down, the
+/// outermost two staying (the same gap between neighbours' edges). Order is kept.
+pub fn arrange(rects: &[[f64; 4]], how: i32) -> Vec<[f64; 4]> {
+    let Some(&a) = rects.first() else { return Vec::new() };
+    let shift = |r: [f64; 4], dx: f64, dy: f64| [r[0] + dx, r[1] + dy, r[2] + dx, r[3] + dy];
+    let centre = |r: &[f64; 4], axis: usize| (r[axis] + r[axis + 2]) / 2.0;
+    if how == 9 || how == 10 {
+        let axis = if how == 9 { 0 } else { 1 };
+        let mut order: Vec<usize> = (0..rects.len()).collect();
+        order.sort_by(|&i, &j| centre(&rects[i], axis).total_cmp(&centre(&rects[j], axis)));
+        let mut out = rects.to_vec();
+        if rects.len() < 3 {
+            return out;
+        }
+        let (first, last) = (rects[order[0]], rects[order[rects.len() - 1]]);
+        let used: f64 = rects.iter().map(|r| r[axis + 2] - r[axis]).sum();
+        let gap = (last[axis + 2] - first[axis] - used) / (rects.len() - 1) as f64;
+        let mut at = first[axis];
+        for &i in &order {
+            let r = rects[i];
+            let d = at - r[axis];
+            out[i] = if axis == 0 { shift(r, d, 0.0) } else { shift(r, 0.0, d) };
+            at += r[axis + 2] - r[axis] + gap;
+        }
+        return out;
+    }
+    rects
+        .iter()
+        .map(|&r| match how {
+            0 => shift(r, a[0] - r[0], 0.0),
+            1 => shift(r, centre(&a, 0) - centre(&r, 0), 0.0),
+            2 => shift(r, a[2] - r[2], 0.0),
+            3 => shift(r, 0.0, a[3] - r[3]),
+            4 => shift(r, 0.0, centre(&a, 1) - centre(&r, 1)),
+            5 => shift(r, 0.0, a[1] - r[1]),
+            // Sizes change from the top-left corner, as Acrobat's Match Size.
+            6 => [r[0], r[1], r[0] + a[2] - a[0], r[3]],
+            7 => [r[0], r[3] - (a[3] - a[1]), r[2], r[3]],
+            8 => [r[0], r[3] - (a[3] - a[1]), r[0] + a[2] - a[0], r[3]],
+            _ => r,
+        })
+        .collect()
+}
+
 /// Shapes tool with ⇧ held at the press (PDF Expert, Acrobat): a rectangle becomes a square and an
 /// oval a circle (the longer side wins), a line or arrow snaps to the nearest 45°.
 pub fn constrained(kind: i32, a: (f64, f64), b: (f64, f64)) -> (f64, f64) {
@@ -661,6 +719,28 @@ pub fn fill_tint(c: [f64; 3]) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn fields_selected_together_align_match_and_spread_after_the_first() {
+        let rects = [[100.0, 500.0, 200.0, 520.0], [130.0, 440.0, 250.0, 470.0], [90.0, 300.0, 150.0, 310.0]];
+        let lefts: Vec<f64> = arrange(&rects, 0).iter().map(|r| r[0]).collect();
+        assert_eq!(lefts, [100.0, 100.0, 100.0]);
+        // Moved, not resized.
+        assert!(arrange(&rects, 2).iter().zip(&rects).all(|(a, b)| a[2] == 200.0 && a[2] - a[0] == b[2] - b[0]));
+        assert!(arrange(&rects, 3).iter().all(|r| r[3] == 520.0));
+        assert!(arrange(&rects, 4).iter().all(|r| (r[1] + r[3]) / 2.0 == 510.0));
+        assert!(arrange(&rects, 1).iter().all(|r| (r[0] + r[2]) / 2.0 == 150.0));
+        // Sizes from the top-left corner.
+        assert_eq!(arrange(&rects, 8)[1], [130.0, 450.0, 230.0, 470.0]);
+        assert_eq!(arrange(&rects, 6)[2], [90.0, 300.0, 190.0, 310.0]);
+        // Down: the top and bottom ones stay, the gaps between edges are equal.
+        let d = arrange(&rects, 10);
+        assert_eq!((d[0], d[2]), (rects[0], rects[2]));
+        let (gap_a, gap_b) = (d[0][1] - d[1][3], d[1][1] - d[2][3]);
+        assert!((gap_a - gap_b).abs() < 1e-9, "{gap_a} {gap_b}");
+        // Two fields cannot be spread.
+        assert_eq!(arrange(&rects[..2], 9), rects[..2]);
+    }
 
     #[test]
     fn file_links_are_decoded_and_taken_from_the_document_folder() {

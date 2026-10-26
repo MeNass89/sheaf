@@ -128,6 +128,11 @@ pub struct Snap {
     pub dirty: bool,
     pub can_undo: bool,
     pub can_redo: bool,
+    /// What Undo and Redo would take back or do again ("Add highlight"), as Acrobat's Edit menu says.
+    pub undo_label: String,
+    pub redo_label: String,
+    /// The versions saved in the file (its incremental updates), oldest first: at least one.
+    pub versions: usize,
     pub read_only: String,
     pub fields: Arc<Vec<FieldEntry>>,
     pub props: Arc<Props>,
@@ -273,6 +278,9 @@ fn snap(doc: &Doc) -> Snap {
         dirty: d.dirty,
         can_undo: d.can_undo().is_some(),
         can_redo: d.can_redo().is_some(),
+        undo_label: d.can_undo().unwrap_or_default().to_string(),
+        redo_label: d.can_redo().unwrap_or_default().to_string(),
+        versions: d.revision_ends().len().max(1),
         read_only: d.read_only_reason.as_ref().map(|r| format!("Read only: {r}")).unwrap_or_default(),
         fields: Arc::new(fields(d)),
         props: Arc::new(props(d)),
@@ -357,6 +365,10 @@ pub enum Op {
     /// `pages`: the pages the edit undone touched (`None`: unknown, all render again).
     Undo { pages: Option<Vec<usize>> },
     Redo { pages: Option<Vec<usize>> },
+    /// Back to the file as last saved, unsaved edits and their undo history gone (Acrobat's Revert).
+    Revert,
+    /// Version `n` (1-based) of the file as saved, written to `to` to open on its own.
+    SaveVersion { n: usize, to: PathBuf },
     /// Writes the edits: into the file itself as an incremental update, or (`to`) a full copy
     /// that becomes the document's file.
     Save { to: Option<PathBuf> },
@@ -399,8 +411,11 @@ pub enum Reply {
     Saved { snap: Box<Snap>, to: PathBuf, error: Option<String> },
     /// Comments exported to `to` (or why not).
     Exported { to: PathBuf, error: Option<String> },
-    /// The copied comment's XFDF element (`None`: it could not be written).
-    Copied(Option<String>),
+    /// The copied comment's XFDF element (`None`: it could not be written) and, for a picture
+    /// stamp, its picture as a file (name, bytes).
+    Copied(Option<String>, Option<(String, Arc<Vec<u8>>)>),
+    /// An earlier version written out (its file), or why not.
+    VersionSaved(Result<PathBuf, String>),
     /// A picture copied: (width, height, RGBA pixels), or why not.
     ImageCopied(Result<(u32, u32, Vec<u8>), String>),
     /// Pages copied from a document opened with its password: a new PDF of them, unprotected.
@@ -470,6 +485,21 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
                         reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: true, note, preview: false });
                     }
+                    Op::Revert => {
+                        let id = doc.id();
+                        let r = doc.session_mut().revert(id);
+                        let note = r.is_ok().then(|| "Back to the file as last saved".to_string());
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error: r.err().map(|e| e.to_string()), applied: false, note, preview: false });
+                    }
+                    Op::SaveVersion { n, to } => {
+                        let d = doc.document();
+                        let (ends, saved) = (d.revision_ends(), d.saved_bytes());
+                        let r = match n.checked_sub(1).and_then(|i| ends.get(i)) {
+                            Some(&end) => replace(&to, &saved[..end.min(saved.len())]).map(|_| to.clone()).map_err(|e| e.to_string()),
+                            None => Err(format!("the file holds {} version(s)", ends.len())),
+                        };
+                        reply(Reply::VersionSaved(r));
+                    }
                     op @ (Op::Undo { .. } | Op::Redo { .. }) => {
                         let (redo, pages) = match op {
                             Op::Redo { pages } => (true, pages),
@@ -492,7 +522,13 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                     }
                     Op::DetectFields => {
                         let id = doc.id();
-                        let found = doc.session().detect_fields(id, &[]);
+                        let mut found = doc.session().detect_fields(id, &[]);
+                        // A scanned form: its lines and boxes are found in the page's picture.
+                        if found.is_empty() {
+                            let pages: Vec<usize> = (0..doc.document().info.pages.len()).collect();
+                            let taken: Vec<String> = doc.document().form.iter().map(|f| f.name.clone()).collect();
+                            found = sheaf_core::form_scan::candidates(&doc, &pages, &taken);
+                        }
                         let pages: Vec<usize> = found.iter().map(|f| f.0).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
                         let n = found.len();
                         let edits: Vec<Edit> = found
@@ -542,10 +578,12 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                     Op::CopyComment { nm, page, rect } => {
                         let id = doc.id();
                         let xfdf = doc.session().export_data(id, sheaf_core::pdfcraft::engine::DataFormat::Xfdf, true, false).ok();
-                        reply(Reply::Copied(xfdf.and_then(|b| {
+                        let element = xfdf.and_then(|b| {
                             let x = String::from_utf8_lossy(&b);
                             if nm.is_empty() { sheaf_app::reader::xfdf_element_at(&x, page, rect) } else { sheaf_app::reader::xfdf_element(&x, &nm) }
-                        })));
+                        });
+                        let picture = doc.document().stamp_picture_file(page, &nm, rect).map(|(ext, bytes)| (format!("Stamp.{ext}"), Arc::new(bytes)));
+                        reply(Reply::Copied(element, picture));
                     }
                     Op::TrustSignature { index } => {
                         let id = doc.id();

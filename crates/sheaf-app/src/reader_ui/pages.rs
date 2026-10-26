@@ -53,17 +53,62 @@ pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
                 let (w, h) = v.viewer.boxes[after].view_size();
                 Edit::InsertBlankPage { at: after + 1, width: w, height: h }
             }
+            // The pages selected (two or more: from the first to the last), else all, back to front.
+            8 => {
+                let (a, b) = if pages.len() >= 2 { (pages[0], *pages.last().unwrap_or(&0)) } else { (0, n.saturating_sub(1)) };
+                if b <= a {
+                    return Err("One page has no order to reverse".to_string());
+                }
+                // The last of the block goes to the block's front, then to just after it, and so on.
+                let edits = (0..b - a).map(|i| Edit::MovePages { pages: vec![b], to: a + i }).collect();
+                Edit::Batch { label: "Reverse pages".into(), edits }
+            }
+            6 | 7 => return Ok(None),
             _ => return Err(String::new()),
         };
         // Page numbers shift: the selection follows what is left.
         r.page_sel.clear();
-        Ok(edit)
+        Ok(Some(edit))
     });
     match made {
-        Some(Ok(e)) => apply_structure(ui, tab_id, e),
+        Some(Ok(Some(e))) => apply_structure(ui, tab_id, e),
+        Some(Ok(None)) => from_file(ui, tab_id, op == 7),
         Some(Err(m)) if !m.is_empty() => crate::flow::toast(ui, &m),
         _ => {}
     }
+}
+
+/// Insert pages from file (Acrobat's): a PDF picked goes after the selected page (or the one
+/// shown), all its pages. `replace`: its pages take the selected pages' places instead, from its
+/// first page, one for one (Acrobat's Replace Pages). One undo step either way.
+fn from_file(ui: &AppWindow, tab_id: i32, replace: bool) {
+    let d = crate::dialog::new(ui).set_title(if replace { "Replace pages with a file" } else { "Insert pages from a file" }).add_filter("PDF", &["pdf"]);
+    crate::dialog::pick_file(ui, d, move |ui, path| {
+        let bytes = match std::fs::read(&path) {
+            Ok(b) => Arc::new(b),
+            Err(e) => return crate::flow::toast(ui, &format!("{} could not be read: {e}", file_name(&path))),
+        };
+        let name = file_name(&path);
+        let Some(edit) = update(tab_id, |r, v| {
+            let pages = op_pages(r, v);
+            r.page_sel.clear();
+            if replace {
+                let count = sheaf_core::pages::count_in(&bytes);
+                if count < pages.len() {
+                    return Err(format!("{name} has {count} page{}; {} are selected", if count == 1 { "" } else { "s" }, pages.len()));
+                }
+                Ok(Edit::ReplacePages { src_pages: (0..pages.len()).collect(), pages, name: name.clone(), bytes: bytes.clone() })
+            } else {
+                Ok(Edit::InsertPagesFrom { name: name.clone(), bytes: bytes.clone(), pages: None, at: pages.last().map_or(0, |p| p + 1), field_conflicts: Default::default() })
+            }
+        }) else {
+            return;
+        };
+        match edit {
+            Ok(e) => apply_structure(ui, tab_id, e),
+            Err(m) => crate::flow::toast(ui, &m),
+        }
+    });
 }
 
 /// An edit that adds, removes, moves or turns pages: every page renders again.

@@ -249,7 +249,7 @@ pub const READ: &str = "read";
 /// A document opened in the reader joins Recents.
 pub fn record_open(path: &Path) {
     let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    let e = Entry { tool: READ.into(), inputs: vec![], outputs: vec![p], at_unix: history::now_unix() };
+    let e = Entry { tool: READ.into(), inputs: vec![], outputs: vec![p], at_unix: history::now_unix(), options: Default::default() };
     let ui = with(|h| {
         if let Err(err) = h.store.push(e) {
             eprintln!("sheaf: cannot save history: {err}");
@@ -393,8 +393,9 @@ fn login_name() -> String {
 }
 
 /// A job succeeded: store it, refresh Recents and History, then "open the output folder".
-pub fn record(tool: ToolId, inputs: &[PathBuf], outputs: &[PathBuf]) {
-    let e = Entry { tool: tool.as_str().into(), inputs: inputs.to_vec(), outputs: outputs.to_vec(), at_unix: history::now_unix() };
+pub fn record(tool: ToolId, inputs: &[PathBuf], outputs: &[PathBuf], options: Option<&sheaf_app::ToolOptions>) {
+    let options = options.map(sheaf_app::saved_options::to_json).unwrap_or_default();
+    let e = Entry { tool: tool.as_str().into(), inputs: inputs.to_vec(), outputs: outputs.to_vec(), at_unix: history::now_unix(), options };
     let ui = with(|h| {
         if let Err(err) = h.store.push(e) {
             eprintln!("sheaf: cannot save history: {err}");
@@ -563,18 +564,19 @@ pub fn reveal_recent(i: i32) {
     }
 }
 
-/// The tool and files of a history entry, when it can run again: the tool is known and every
-/// input still exists.
-fn rerun_inputs(e: &Entry) -> Option<(ToolId, Vec<PathBuf>)> {
+/// The tool, files and options of a history entry, when it can run again: the tool is known and
+/// every input still exists (an entry from before options were kept has none).
+fn rerun_inputs(e: &Entry) -> Option<(ToolId, Vec<PathBuf>, Option<sheaf_app::ToolOptions>)> {
     let tool = ToolId::from_str(&e.tool)?;
-    (!e.inputs.is_empty() && e.inputs.iter().all(|p| p.exists())).then(|| (tool, e.inputs.clone()))
+    let options = (!e.options.is_empty()).then(|| sheaf_app::saved_options::from_json(&e.options));
+    (!e.inputs.is_empty() && e.inputs.iter().all(|p| p.exists())).then(|| (tool, e.inputs.clone(), options))
 }
 
-/// "Run again": a new tab of the entry's tool with its files (options start from the defaults).
+/// "Run again": a new tab of the entry's tool with its files and the options it ran with.
 pub fn rerun_history(ui: &AppWindow, i: i32) {
     let entry = with(|h| h.store.list().iter().filter(|e| e.tool != READ).nth(i.max(0) as usize).and_then(rerun_inputs));
     match entry {
-        Some((tool, inputs)) => crate::flow::open_tool(ui, tool, inputs),
+        Some((tool, inputs, options)) => crate::flow::open_tool_with(ui, tool, inputs, options),
         None => {
             crate::flow::toast(ui, "These files are no longer where they were.");
             refresh(ui);

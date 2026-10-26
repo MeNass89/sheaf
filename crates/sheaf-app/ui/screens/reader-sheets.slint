@@ -1,4 +1,4 @@
-// The reader's sheets over the pages: the signature pad, the print sheet, document properties.
+// The reader's sheets over the pages: the signature pad, the print sheet, document properties, the page background, the versions.
 import { Theme } from "../theme.slint";
 import { Pad } from "sign-panel.slint";
 import { SmallButton, ColourDot } from "reader-parts.slint";
@@ -280,6 +280,109 @@ export component PropertiesSheet inherits Rectangle {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// More ▸ Background… (Acrobat's Edit a PDF ▸ Background): a colour or a picture behind every page's
+// content, one undo step; Remove takes out the backgrounds a file already has.
+export component BackgroundSheet inherits Rectangle {
+    in property <int> id;
+    callback focus-pages();
+    // Colours as reader_ui::BACKGROUNDS; strength (opacity) as BACKGROUND_OPACITY.
+    property <int> colour: 0;
+    property <int> strength: 0;
+    background: #00000044;
+    TouchArea { }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Return { ReaderBridge.background-apply(root.id, root.colour, root.strength, 0); root.focus-pages(); return accept; }
+            if e.text == Key.Escape { ReaderBridge.background-apply(root.id, 0, 0, 3); root.focus-pages(); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        width: 400px;
+        height: bl.preferred-height;
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000055;
+        bl := VerticalLayout {
+            padding: 18px;
+            spacing: 12px;
+            Text { text: "Page background"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: "Behind the content of every page. ⌘Z undoes it."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Colour"; width: 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                for c[i] in [#FFF8D6, #E3F0FF, #E8F7E4, #FDE7EC, #EFEFEF, #FFFFFF]: ColourDot { colour: c; selected: root.colour == i; clicked => { root.colour = i; } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                Text { text: "Opacity"; width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                for o[i] in ["100 %", "75 %", "50 %"]: SmallButton { text: o; primary: root.strength == i; clicked => { root.strength = i; } }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                SmallButton { text: "Picture…"; clicked => { ReaderBridge.background-apply(root.id, root.colour, root.strength, 1); root.focus-pages(); } }
+                SmallButton { text: "Remove"; clicked => { ReaderBridge.background-apply(root.id, 0, 0, 2); root.focus-pages(); } }
+                Rectangle { horizontal-stretch: 1; }
+                SmallButton { text: "Cancel"; clicked => { ReaderBridge.background-apply(root.id, 0, 0, 3); root.focus-pages(); } }
+                SmallButton { text: "Apply"; primary: true; clicked => { ReaderBridge.background-apply(root.id, root.colour, root.strength, 0); root.focus-pages(); } }
+            }
+        }
+    }
+}
+
+// More ▸ Versions… (Acrobat's File ▸ Revert, and the versions an incremental save keeps): each
+// version saved in the file opens on its own; Revert drops the unsaved edits.
+export component VersionsSheet inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    callback focus-pages();
+    background: #00000044;
+    TouchArea { }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape { ReaderBridge.version-action(root.id, -1); root.focus-pages(); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        width: 400px;
+        height: vl.preferred-height;
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000055;
+        vl := VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+            Text { text: "Versions"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text {
+                text: root.tab.reader.versions == 1 ? "The file holds one version: each save that adds to it keeps the one before." : "The file holds " + root.tab.reader.versions + " versions, the oldest first.";
+                font-size: Theme.fs-caption;
+                color: Theme.text-muted;
+                wrap: word-wrap;
+            }
+            for i in root.tab.reader.versions: HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Version " + (i + 1) + (i + 1 == root.tab.reader.versions ? " (as last saved)" : ""); font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+                SmallButton { text: "Open"; clicked => { ReaderBridge.version-action(root.id, i + 1); root.focus-pages(); } }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                if root.tab.reader.dirty: SmallButton { text: "Revert to saved"; clicked => { ReaderBridge.version-action(root.id, 0); root.focus-pages(); } }
+                if root.tab.reader.dirty: Text { text: "Unsaved changes are lost"; font-size: Theme.fs-caption; color: Theme.danger; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+                SmallButton { text: "Close"; primary: true; clicked => { ReaderBridge.version-action(root.id, -1); root.focus-pages(); } }
             }
         }
     }

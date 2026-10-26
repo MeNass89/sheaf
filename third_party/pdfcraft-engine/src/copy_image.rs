@@ -61,6 +61,29 @@ impl Document {
     }
 }
 
+impl Document {
+    /// Sheaf: the picture a stamp's appearance draws, as a file (extension, bytes), so that a
+    /// copied picture stamp is pasted with its picture (XFDF carries no appearance). The stamp is
+    /// found on `page` by its `/NM`, else as the one whose rectangle is `rect`. None: not a
+    /// stamp, or its appearance holds no picture (a text stamp, which XFDF redraws).
+    pub fn stamp_picture_file(&self, page: usize, nm: &str, rect: [f64; 4]) -> Option<(&'static str, Vec<u8>)> {
+        let cos = &self.editor.as_ref()?.cos;
+        let p = *pdfcraft_annot::page_refs(cos).ok()?.get(page)?;
+        let annots = cos.get(p).as_dict()?.get(b"Annots").map(|a| cos.resolve(a))?.as_array()?.clone();
+        let same_rect = |d: &Dict| {
+            let r: Vec<f64> = d.get(b"Rect").map(|r| cos.resolve(r)).and_then(|r| r.as_array().map(|a| a.iter().filter_map(Object::as_f64).collect())).unwrap_or_default();
+            r.len() == 4 && r.iter().zip(rect).all(|(a, b)| (a - b).abs() < 0.5)
+        };
+        let stamp = annots.iter().filter_map(|a| cos.resolve(a).as_dict().cloned()).filter(|d| d.name(b"Subtype") == Some(&b"Stamp"[..])).find(|d| {
+            let named = d.get(b"NM").map(|n| cos.resolve(n)).and_then(|n| n.as_string().map(|s| s.to_text()));
+            if nm.is_empty() { same_rect(d) } else { named.as_deref() == Some(nm) }
+        })?;
+        let ap = stamp.get(b"AP").map(|a| cos.resolve(a))?.as_dict()?.get(b"N")?.as_ref()?;
+        let picture = picture_in_form(cos, ap)?;
+        pdfcraft_create::image_file(cos, picture).ok()
+    }
+}
+
 /// The largest raster image Form `form` draws through its resources (nested Forms included).
 fn picture_in_form(cos: &Cos, form: ObjRef) -> Option<ObjRef> {
     let mut seen = HashSet::from([form]);

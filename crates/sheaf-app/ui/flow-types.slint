@@ -23,6 +23,8 @@ export struct FileItem {
 // One page of the Organize grid. page 0 = inserted blank page.
 export struct PageItem {
     page: int,
+    // Merge's pages: the file it comes from ("" in Organize).
+    label: string,
     thumb: image,
     has-thumb: bool,
 }
@@ -135,6 +137,16 @@ export struct ReaderNote {
 
 // Reader: everything a document tab shows besides the pages (ToolTab.viewer-*).
 // Prepare form: a field drawn over its page, named; the selected one is outlined in the accent.
+// Prepare form's grid over a page (content pixels): its minor and major lines as path commands.
+export struct ReaderGrid {
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    minor: string,
+    major: string,
+}
+
 export struct ReaderFormField {
     x: length,
     y: length,
@@ -171,6 +183,8 @@ export struct ReaderFieldProps {
     url: string,
     // Pages that do not hold the field yet (On every page is offered when some).
     other-pages: bool,
+    // Fields selected together (⇧-click): past one, the card arranges them instead.
+    group: int,
 }
 
 export struct ReaderState {
@@ -265,6 +279,9 @@ export struct ReaderState {
     // Prepare form: the kind of field to add, every field drawn over its page, the selected one's card.
     field-kind: int,
     form-fields: [ReaderFormField],
+    // Prepare form: Grid on (fields snap to it) and its lines over the pages in view.
+    form-grid: bool,
+    form-grids: [ReaderGrid],
     field-props: ReaderFieldProps,
     // The Link editor's complaint about what was typed.
     link-error: string,
@@ -290,11 +307,20 @@ export struct ReaderState {
     // Shapes ▸ Arrow: its head's name and whether both ends carry it.
     arrow-head: string,
     arrow-both: bool,
+    // The Text box tool makes callouts (a line from the click to the box).
+    callout: bool,
     // The Measuring tools' scale ("1:100 · m").
     measure-scale: string,
     opacity: int,
     // Print sheet: open, the system's printers, the chosen one.
     print-open: bool,
+    // More ▸ Background… is open.
+    background-open: bool,
+    // More ▸ Versions… is open; the versions saved in the file; what Undo and Redo would do.
+    versions-open: bool,
+    versions: int,
+    undo-label: string,
+    redo-label: string,
     printers: [string],
     printer: int,
     results: [ReaderResultRow],
@@ -360,11 +386,124 @@ export struct ContinueTool {
     tile: color,
 }
 
+// Everything the options panels collect, sent with the action button.
+export struct ToolOptions {
+    level: int,          // compress: 0 extreme, 1 recommended, 2 low
+    password: string,    // protect
+    confirm: string,
+    owner: string,
+    allow-printing: bool,
+    allow-copying: bool,
+    allow-editing: bool,
+    allow-commenting: bool,
+    allow-filling-forms: bool,
+    pages: string,       // remove / extract / rotate (optional)
+    remove-blank: bool,  // remove pages: the blank ones, found by Sheaf
+    blank-level: int,    // how blank: 0 strict, 1 normal, 2 scans on grey paper
+    rotate-parity: int,  // rotate: 0 even and odd pages, 1 odd, 2 even
+    protect-sanitize: bool, // protect: remove the hidden information first
+    compare-old-pages: string, // compare: the original's pages ("" all)
+    compare-new-pages: string, // compare: the changed document's pages ("" all)
+    rotate-orientation: int, // rotate: 0 portrait and landscape pages, 1 portrait, 2 landscape
+    split-mode: int,     // 0 ranges, 1 every N, 2 top-level bookmarks, 3 file size
+    ranges: string,
+    every: int,
+    split-one-file: bool, // split: every range into one PDF (iLovePDF's "Merge all ranges")
+    split-size: string,  // split by size: the largest file, in MB as typed
+    degrees: int,        // 90 / 180 / 270
+    layout: int,         // jpg→pdf: 0 fit, 1 A4, 2 US Letter
+    landscape: bool,     // jpg→pdf: the paper turned
+    one-per-image: bool, // jpg→pdf: a PDF for each image instead of one for all
+    margin: int,         // 0 none, 1 small, 2 big
+    quality: int,        // pdf→jpg: 0 normal (150 dpi), 1 high (300), 2 very high (600)
+    png: bool,           // pdf→jpg: lossless PNG instead of JPEG
+    extract-images: bool, // pdf→jpg: the pictures placed in the pages, not the pages (iLovePDF)
+    out-name: string,    // merge
+    // Page numbers and watermark: page range ("" = first / last page).
+    from-page: string,
+    to-page: string,
+    // Page numbers
+    num-position: int,   // 3×3 grid cell, row by row from the top left (top and bottom rows only)
+    num-double: bool,    // double-sided
+    num-cover: bool,     // first page is a cover page
+    num-margin: int,     // 0 small, 1 recommended, 2 big
+    num-start: string,   // first number
+    num-text: int,       // 0 number only, 1 "Page {n}", 2 "Page {n} of {p}", 3 custom
+    num-custom: string,
+    num-font-size: string, // points, empty: 12
+    num-color: int,        // as wm-color: 0 black, 1 grey, 2 red, 3 blue
+    num-family: int,       // 0 Helvetica, 1 Times, 2 Courier
+    num-bold: bool,
+    num-italic: bool,
+    num-underline: bool,
+    num-hex: string,       // a custom colour RRGGBB: overrides num-color when set
+    // Header and footer text (left, centre, right; top then bottom), Bates numbers for {bates}.
+    hf-tl: string,
+    hf-tc: string,
+    hf-tr: string,
+    hf-bl: string,
+    hf-bc: string,
+    hf-br: string,
+    bates-prefix: string,
+    bates-digits: int,
+    bates-start: string,
+    hf-replace: bool,      // the file's own headers and footers go first
+    // Watermark
+    wm-image-mode: bool,
+    wm-text: string,
+    wm-font-size: string,
+    wm-color: int,       // 0 black, 1 grey, 2 red, 3 blue
+    wm-family: int,      // as num-family
+    wm-bold: bool,
+    wm-italic: bool,
+    wm-underline: bool,
+    wm-hex: string,      // as num-hex
+    wm-image: string,    // picture file path
+    wm-scale: int,       // percent of the page
+    wm-position: int,    // 3×3 grid cell
+    wm-mosaic: bool,
+    wm-transparency: int, // 0 none, 1 25 %, 2 50 %, 3 75 %
+    wm-rotation: int,    // 0 none, 1 45°, 2 90°, 3 180°, 4 270°, 5 −45°
+    wm-below: bool,
+    // Watermarks already in the file go first; or are only taken out (Acrobat's Remove).
+    wm-replace: bool,
+    wm-remove: bool,
+    // Crop
+    crop-mode: int,      // 0 all pages, 1 selected pages, 2 remove crop
+    crop-top: string,    // millimetres
+    crop-bottom: string,
+    crop-left: string,
+    crop-right: string,
+    // PDF to PDF/A
+    pdfa-level: int,     // 0 PDF/A-2b, 1 PDF/A-3b
+    // OCR
+    ocr-languages: string, // selected language codes, ",en,fr," (the first one is used)
+    ocr-all-pages: bool,   // also read pages that already contain text
+    // PDF to Word / PowerPoint / Excel
+    export-ocr: bool,      // recognise scanned pages first
+    export-exact: bool,    // Word: keep each page's layout (positioned text boxes)
+    excel-layout: int,     // 0 one sheet, 1 one sheet per table
+    text-format: int,      // PDF to HTML or text: 0 web page, 1 Markdown, 2 rich text, 3 plain text, 4 XML
+    // Compare
+    compare-mode: int,     // 0 semantic text (report), 1 content overlay
+    // Sign: the optional certificate
+    sign-cert: bool,
+    sign-p12: string,      // .p12 / .pfx path
+    sign-p12-password: string,
+    sign-reason: string,
+    sign-location: string,
+}
+
 export struct ToolTab {
     // A file whose first pages carry next to no text (a scan): PDF to Office suggests OCR.
     any-scanned: bool,
     // A file was opened with its password (Protect then changes it).
     any-locked: bool,
+    // Merge: its files opened out into their pages (the page cards show them).
+    merge-pages: bool,
+    // Run again: the options the task ran with (has-options: there are some to start from).
+    options: ToolOptions,
+    has-options: bool,
     id: int,
     tool: string,
     name: string,
@@ -473,102 +612,6 @@ export struct ToolTab {
     reader: ReaderState,
 }
 
-// Everything the options panels collect, sent with the action button.
-export struct ToolOptions {
-    level: int,          // compress: 0 extreme, 1 recommended, 2 low
-    password: string,    // protect
-    confirm: string,
-    owner: string,
-    allow-printing: bool,
-    allow-copying: bool,
-    allow-editing: bool,
-    allow-commenting: bool,
-    allow-filling-forms: bool,
-    pages: string,       // remove / extract / rotate (optional)
-    remove-blank: bool,  // remove pages: the blank ones, found by Sheaf
-    blank-level: int,    // how blank: 0 strict, 1 normal, 2 scans on grey paper
-    rotate-parity: int,  // rotate: 0 even and odd pages, 1 odd, 2 even
-    protect-sanitize: bool, // protect: remove the hidden information first
-    compare-old-pages: string, // compare: the original's pages ("" all)
-    compare-new-pages: string, // compare: the changed document's pages ("" all)
-    rotate-orientation: int, // rotate: 0 portrait and landscape pages, 1 portrait, 2 landscape
-    split-mode: int,     // 0 ranges, 1 every N, 2 top-level bookmarks, 3 file size
-    ranges: string,
-    every: int,
-    split-one-file: bool, // split: every range into one PDF (iLovePDF's "Merge all ranges")
-    split-size: string,  // split by size: the largest file, in MB as typed
-    degrees: int,        // 90 / 180 / 270
-    layout: int,         // jpg→pdf: 0 fit, 1 A4, 2 US Letter
-    landscape: bool,     // jpg→pdf: the paper turned
-    one-per-image: bool, // jpg→pdf: a PDF for each image instead of one for all
-    margin: int,         // 0 none, 1 small, 2 big
-    quality: int,        // pdf→jpg: 0 normal (150 dpi), 1 high (300), 2 very high (600)
-    png: bool,           // pdf→jpg: lossless PNG instead of JPEG
-    extract-images: bool, // pdf→jpg: the pictures placed in the pages, not the pages (iLovePDF)
-    out-name: string,    // merge
-    // Page numbers and watermark: page range ("" = first / last page).
-    from-page: string,
-    to-page: string,
-    // Page numbers
-    num-position: int,   // 3×3 grid cell, row by row from the top left (top and bottom rows only)
-    num-double: bool,    // double-sided
-    num-cover: bool,     // first page is a cover page
-    num-margin: int,     // 0 small, 1 recommended, 2 big
-    num-start: string,   // first number
-    num-text: int,       // 0 number only, 1 "Page {n}", 2 "Page {n} of {p}", 3 custom
-    num-custom: string,
-    num-font-size: string, // points, empty: 12
-    num-color: int,        // as wm-color: 0 black, 1 grey, 2 red, 3 blue
-    num-family: int,       // 0 Helvetica, 1 Times, 2 Courier
-    num-bold: bool,
-    num-italic: bool,
-    num-underline: bool,
-    num-hex: string,       // a custom colour RRGGBB: overrides num-color when set
-    // Watermark
-    wm-image-mode: bool,
-    wm-text: string,
-    wm-font-size: string,
-    wm-color: int,       // 0 black, 1 grey, 2 red, 3 blue
-    wm-family: int,      // as num-family
-    wm-bold: bool,
-    wm-italic: bool,
-    wm-underline: bool,
-    wm-hex: string,      // as num-hex
-    wm-image: string,    // picture file path
-    wm-scale: int,       // percent of the page
-    wm-position: int,    // 3×3 grid cell
-    wm-mosaic: bool,
-    wm-transparency: int, // 0 none, 1 25 %, 2 50 %, 3 75 %
-    wm-rotation: int,    // 0 none, 1 45°, 2 90°, 3 180°, 4 270°, 5 −45°
-    wm-below: bool,
-    // Watermarks already in the file go first; or are only taken out (Acrobat's Remove).
-    wm-replace: bool,
-    wm-remove: bool,
-    // Crop
-    crop-mode: int,      // 0 all pages, 1 selected pages, 2 remove crop
-    crop-top: string,    // millimetres
-    crop-bottom: string,
-    crop-left: string,
-    crop-right: string,
-    // PDF to PDF/A
-    pdfa-level: int,     // 0 PDF/A-2b, 1 PDF/A-3b
-    // OCR
-    ocr-languages: string, // selected language codes, ",en,fr," (the first one is used)
-    ocr-all-pages: bool,   // also read pages that already contain text
-    // PDF to Word / PowerPoint / Excel
-    export-ocr: bool,      // recognise scanned pages first
-    export-exact: bool,    // Word: keep each page's layout (positioned text boxes)
-    excel-layout: int,     // 0 one sheet, 1 one sheet per table
-    text-format: int,      // PDF to HTML or text: 0 web page, 1 Markdown, 2 rich text, 3 plain text, 4 XML
-    // Compare
-    compare-mode: int,     // 0 semantic text (report), 1 content overlay
-    // Sign: the optional certificate
-    sign-cert: bool,
-    sign-p12: string,      // .p12 / .pfx path
-    sign-p12-password: string,
-    sign-reason: string,
-    sign-location: string,
-}
 
 export struct OcrLanguage {
     code: string,
@@ -597,6 +640,13 @@ export global ReaderBridge {
     // the range typed, fit to paper, two-sided, paper (0 the printer's, 1 A4, 2 Letter, 3 Legal),
     // orientation (0 auto, 1 portrait, 2 landscape); cancel.
     callback print-open(int);
+    // More ▸ Background…: open; then apply (action 0, colour and opacity as chosen), a picture (1),
+    // remove the backgrounds (2) or cancel (3).
+    callback background-open(int);
+    callback background-apply(int, int, int, int);
+    // More ▸ Versions…: open; then 0 reverts to the saved file, n opens version n, −1 closes.
+    callback versions-open(int);
+    callback version-action(int, int);
     // One column → two pages → two pages with the cover alone.
     callback cycle-spread(int);
     callback toggle-rtl(int);
@@ -658,6 +708,10 @@ export global ReaderBridge {
     callback field-props(int, string, string, bool, bool, bool, string, string, int, int, int, string);
     callback field-delete(int);
     callback field-everywhere(int);
+    // Fields selected together: align, match size or space them (reader::arrange); the arrow keys move them.
+    callback fields-arrange(int, int);
+    callback form-grid(int);
+    callback fields-nudge(int, float, float);
     callback link-selection(int);
     // Replace Text from the selection bar: the words to propose instead are typed next.
     callback replace-selection(int);

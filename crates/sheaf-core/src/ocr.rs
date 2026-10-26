@@ -115,7 +115,7 @@ pub fn available() -> bool {
 }
 
 /// The recogniser, loaded once (it takes a moment) and shared by every job.
-fn engine() -> Result<Arc<Ocr>> {
+pub(crate) fn engine() -> Result<Arc<Ocr>> {
     static OCR: Mutex<Option<Arc<Ocr>>> = Mutex::new(None);
     let mut slot = OCR.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(o) = slot.as_ref() {

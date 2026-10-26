@@ -90,6 +90,13 @@ pub struct TabState {
     pub reader_file: Option<PathBuf>,
     /// While the document opens: the channel to its thread and the file.
     pub reader_ops: Option<(std::sync::mpsc::Sender<crate::reader_doc::Op>, sheaf_core::pages::Input)>,
+    /// The options of the task: those it starts from (Run again), then those it last ran with
+    /// (kept in the task history).
+    pub options: Option<sheaf_app::ToolOptions>,
+    /// Merge's Pages view: the pages in merge order, (file uid, 1-based page); None shows the
+    /// files as cards. Their thumbnails, by the same key.
+    pub merge_order: Option<Vec<(i32, u32)>>,
+    pub merge_thumbs: HashMap<(i32, u32), Image>,
 }
 
 impl TabState {
@@ -120,6 +127,9 @@ impl TabState {
             reader_loading: None,
             reader_file: None,
             reader_ops: None,
+            options: None,
+            merge_order: None,
+            merge_thumbs: HashMap::new(),
             office_missing: office && (sheaf_core::office::find_soffice().is_none() || (cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some())),
         }
     }
@@ -133,8 +143,26 @@ impl TabState {
     }
 
     /// Removes file `uid`; with no file left, everything made for it goes too.
+    /// Merge's Pages view as the job takes it: (input index, page).
+    pub fn merge_seq(&self) -> Option<Vec<(usize, u32)>> {
+        let seq = self.merge_order.as_ref()?;
+        Some(seq.iter().filter_map(|(uid, p)| self.files.iter().position(|f| f.uid == *uid).map(|k| (k, *p))).collect())
+    }
+
+    /// Merge's Pages view: file `uid`'s pages added at the end (a file added, or read once added).
+    pub fn merge_add(&mut self, uid: i32) {
+        let Some(f) = self.files.iter().find(|f| f.uid == uid) else { return };
+        let n = f.pages.unwrap_or(1);
+        if let Some(seq) = self.merge_order.as_mut().filter(|s| !s.iter().any(|e| e.0 == uid)) {
+            seq.extend((1..=n).map(|p| (uid, p)));
+        }
+    }
+
     pub fn remove_file(&mut self, uid: i32) {
         self.files.retain(|f| f.uid != uid);
+        if let Some(seq) = self.merge_order.as_mut() {
+            seq.retain(|e| e.0 != uid);
+        }
         if self.files.is_empty() {
             self.order.clear();
             self.page_thumbs.clear();
@@ -200,7 +228,7 @@ pub struct App {
     pub home_files: Vec<PathBuf>,
     pub toast_timer: Option<slint::Timer>,
     /// Tabs closed while their job ran: tab id → (tool, inputs), for the history and toast.
-    pub closed_jobs: HashMap<i32, (ToolId, Vec<PathBuf>)>,
+    pub closed_jobs: HashMap<i32, (ToolId, Vec<PathBuf>, Option<sheaf_app::ToolOptions>)>,
     /// A document the reader is opening, waiting for its password.
     pub reader_pw: Option<PathBuf>,
     /// A file a document links to, waiting for "Open this file?" (Acrobat asks before launching one).
@@ -214,9 +242,19 @@ pub struct App {
     /// Pages copied from a document's Pages panel (⌘C): its name, its bytes as they were, the
     /// pages; pasted into another document's Pages panel (⌘V).
     pub page_clip: Option<(String, std::sync::Arc<Vec<u8>>, Vec<usize>)>,
-    /// A comment copied (⌘C): its XFDF element, its file and page; pasted while the system
-    /// clipboard still holds [`crate::reader_ui::COMMENT_ON_CLIPBOARD`].
-    pub comment_clip: Option<(String, PathBuf, usize)>,
+    /// A comment copied (⌘C); pasted while the system clipboard still holds
+    /// [`crate::reader_ui::COMMENT_ON_CLIPBOARD`].
+    pub comment_clip: Option<CommentClip>,
+}
+
+/// A comment copied (⌘C): its XFDF element, the picture of a picture stamp (file name, bytes:
+/// XFDF carries no appearance, Sol 25/10), the file and page it came from.
+#[derive(Clone)]
+pub struct CommentClip {
+    pub element: String,
+    pub picture: Option<(String, std::sync::Arc<Vec<u8>>)>,
+    pub from: PathBuf,
+    pub page: usize,
 }
 
 impl App {
@@ -347,21 +385,33 @@ pub fn build(t: &TabState) -> ToolTab {
         multi: info.multi,
         any_scanned: t.files.iter().any(|f| f.scanned),
         any_locked: t.files.iter().any(|f| f.locked),
+        merge_pages: t.merge_order.is_some(),
+        options: t.options.clone().unwrap_or_default(),
+        has_options: t.options.is_some(),
         phase: match t.phase { Phase::Edit => 0, Phase::Running => 1, Phase::Done(_) => 2 },
         progress: t.progress,
         progress_text: progress_text(t.progress, if info.multi { t.files.len() } else { 1 }, t.started.map(|s| s.elapsed())).into(),
         cancelling: t.cancelling,
         preview_failed: t.pages_failed,
         files: ModelRc::new(VecModel::from(t.files.iter().map(file_item).collect::<Vec<_>>())),
-        pages: ModelRc::new(VecModel::from(
-            t.order
+        pages: ModelRc::new(VecModel::from(match &t.merge_order {
+            Some(seq) => seq
+                .iter()
+                .map(|(uid, p)| {
+                    let th = t.merge_thumbs.get(&(*uid, *p)).cloned();
+                    let label = t.files.iter().find(|f| f.uid == *uid).map(|f| f.input.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()).unwrap_or_default();
+                    PageItem { page: *p as i32, label: label.into(), has_thumb: th.is_some(), thumb: th.unwrap_or_default() }
+                })
+                .collect::<Vec<_>>(),
+            None => t
+                .order
                 .iter()
                 .map(|p| {
                     let th = t.page_thumbs.get(p).cloned();
-                    PageItem { page: *p as i32, has_thumb: th.is_some(), thumb: th.unwrap_or_default() }
+                    PageItem { page: *p as i32, label: Default::default(), has_thumb: th.is_some(), thumb: th.unwrap_or_default() }
                 })
                 .collect::<Vec<_>>(),
-        )),
+        })),
         office_missing: t.office_missing,
         has_preview: t.preview.is_some(),
         preview_note: t.preview_note.clone().into(),

@@ -54,8 +54,9 @@ pub enum ExportKind {
 /// the output path is the wanted name; the engine suffixes it if the name is taken.
 #[derive(Debug, Clone)]
 pub enum Job {
-    /// `pages`: the range spec taken from each input ("" = all).
-    Merge { inputs: Vec<Input>, pages: Vec<String>, out: PathBuf },
+    /// `pages`: the range spec taken from each input ("" = all). `seq`, when not empty, is the
+    /// pages one by one instead, (input, 1-based page), files mixed (Merge's Pages view).
+    Merge { inputs: Vec<Input>, pages: Vec<String>, seq: Vec<(usize, u32)>, out: PathBuf },
     Split { input: Input, mode: SplitMode, out_dir: PathBuf },
     RemovePages { input: Input, pages: String, out: PathBuf },
     ExtractPages { input: Input, pages: String, out: PathBuf },
@@ -259,11 +260,11 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Ok(o)
     };
     let outputs = match job {
-        Job::Merge { inputs, pages: specs, out } => {
+        Job::Merge { inputs, pages: specs, seq, out } => {
             let tmp = tempfile::tempdir()?;
             let parts = as_pdfs(inputs, tmp.path(), cancel, progress)?;
             check(cancel)?;
-            let r = one(pages::merge_pages(&parts, specs, out))?;
+            let r = one(if seq.is_empty() { pages::merge_pages(&parts, specs, out) } else { pages::assemble(&parts, seq, out) })?;
             progress(1.0);
             r
         }

@@ -65,7 +65,7 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 false
             }
             FORM => {
-                super::prepare::form_pressed(r, &v.viewer, page, p);
+                super::prepare::form_pressed(r, &v.viewer, page, p, shift);
                 false
             }
             SHAPE | LINK => {

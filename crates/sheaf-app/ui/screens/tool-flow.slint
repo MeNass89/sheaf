@@ -252,6 +252,7 @@ export component ToolFlowScreen inherits Rectangle {
     callback remove-page(int);
     callback move-page(int, int);
     callback insert-blank();
+    callback show-merge-pages(bool);
     callback run(ToolOptions);
     callback cancel();
     callback get-libreoffice();
@@ -261,6 +262,8 @@ export component ToolFlowScreen inherits Rectangle {
 
     property <bool> running: root.tab.phase == 1;
     property <bool> organize: root.tab.tool == "organize";
+    // Page cards: Organize's, and Merge's when its files are opened out into their pages.
+    property <bool> page-cards: root.organize || (root.tab.tool == "merge" && root.tab.merge-pages);
     // Split: its pages shown in their files, cut between by a click; the ranges are the options panel's.
     property <bool> split: root.tab.tool == "split" && root.tab.pages.length > 0;
     property <string> split-ranges;
@@ -391,7 +394,7 @@ export component ToolFlowScreen inherits Rectangle {
                     padding-right: Theme.fab-size + 36px;
                     spacing: root.split ? 2px : 16px;
                     flex-wrap: wrap;
-                    for f[i] in (root.organize || root.split ? [] : root.tab.files): FileCardView {
+                    for f[i] in (root.page-cards || root.split ? [] : root.tab.files): FileCardView {
                         turn: root.tab.tool == "rotate" ? opts.degrees : 0;
                         drag-to(x, y) => {
                             if !root.drag-cancelled {
@@ -437,7 +440,7 @@ export component ToolFlowScreen inherits Rectangle {
                         interactive: !root.running;
                         toggle-cut => { root.split-ranges = Parse.split-cut(root.split-ranges, p.page, root.tab.pages.length); }
                     }
-                    for p[i] in (root.organize ? root.tab.pages : []): PageCardView {
+                    for p[i] in (root.page-cards ? root.tab.pages : []): PageCardView {
                         item: p;
                         first: i == 0;
                         last: i == root.tab.pages.length - 1;
@@ -611,11 +614,15 @@ export component ToolFlowScreen inherits Rectangle {
                     any-locked: root.tab.any-locked;
                     default-out: root.tab.default-out;
                     office-missing: root.tab.office-missing;
+                    restore: root.tab.options;
+                    has-restore: root.tab.has-options;
                     preview: root.tab.preview;
                     has-preview: root.tab.has-preview;
                     preview-w: root.tab.preview-w;
                     preview-h: root.tab.preview-h;
                     insert-blank => { root.insert-blank(); }
+                    merge-pages: root.tab.merge-pages;
+                    show-pages(on) => { root.show-merge-pages(on); }
                     get-libreoffice => { root.get-libreoffice(); }
                     tab-id: root.tab.id;
                 }
