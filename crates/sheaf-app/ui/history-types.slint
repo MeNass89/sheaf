@@ -11,6 +11,8 @@ export struct RecentFile {
     has-thumb: bool,
     // 0 = PDF, 1 = image, 2 = other document
     kind: int,
+    // Starred: listed first, kept when Recents are cleared.
+    pinned: bool,
 }
 
 // One row of Tasks History.

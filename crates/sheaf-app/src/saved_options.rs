@@ -30,6 +30,7 @@ macro_rules! kept {
 
 kept! {
     ints:
+        crop_paper,
         bates_digits,
         level, blank_level, rotate_parity, rotate_orientation, split_mode, every, degrees, layout, margin, quality,
         num_position, num_margin, num_text, num_color, num_family, wm_color, wm_family, wm_scale, wm_position,

@@ -396,7 +396,7 @@ export component ToolFlowScreen inherits Rectangle {
                     spacing: root.split ? 2px : 16px;
                     flex-wrap: wrap;
                     for f[i] in (root.page-cards || root.split ? [] : root.tab.files): FileCardView {
-                        turn: root.tab.tool == "rotate" ? opts.degrees : 0;
+                        turn: root.tab.tool == "rotate" && opts.degrees > 0 ? opts.degrees : 0;
                         drag-to(x, y) => {
                             if !root.drag-cancelled {
                                 root.drag-uid = f.uid;

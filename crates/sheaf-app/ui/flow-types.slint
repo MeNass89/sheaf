@@ -328,6 +328,8 @@ export struct ReaderState {
     calibrating: bool,
     // Scroll automatically is on.
     auto-scroll: bool,
+    // One page at a time (not continuous).
+    page-at-a-time: bool,
     // The Signature tool places the initials; on every page at once.
     initials: bool,
     sign-every-page: bool,
@@ -494,7 +496,8 @@ export struct ToolOptions {
     wm-replace: bool,
     wm-remove: bool,
     // Crop
-    crop-mode: int,      // 0 all pages, 1 selected pages, 2 remove crop
+    crop-mode: int,      // 0 all pages, 1 selected pages, 2 remove crop, 3 white margins, 4 change page size
+    crop-paper: int,     // change page size: A4, Letter, A3, A5, Legal (pages::PAPER)
     crop-top: string,    // millimetres
     crop-bottom: string,
     crop-left: string,
@@ -678,6 +681,10 @@ export global ReaderBridge {
     callback zoom-area(int);
     callback snap-area(int);
     callback auto-scroll(int);
+    callback page-at-a-time(int);
+    // The search panel's Replace all: the words searched, what replaces them.
+    callback replace-all(int, string, string);
+    callback email(int);
     callback version-action(int, int);
     // One column → two pages → two pages with the cover alone.
     callback cycle-spread(int);

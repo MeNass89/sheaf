@@ -223,6 +223,9 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_zoom_area, |ui, id| reader_ui::zoom_area(&ui, id));
     wire_global!(ui, rb, on_snap_area, |ui, id| reader_ui::snap_area(&ui, id));
     rb.on_auto_scroll(reader_ui::auto_scroll);
+    wire_global!(ui, rb, on_page_at_a_time, |ui, id| reader_ui::page_at_a_time(&ui, id));
+    wire_global!(ui, rb, on_replace_all, |ui, id, f, w| reader_ui::replace_all(&ui, id, &f, &w));
+    wire_global!(ui, rb, on_email, |ui, id| reader_ui::email(&ui, id));
     wire_global!(ui, rb, on_version_action, |ui, id, n| reader_ui::version_action(&ui, id, n));
     wire_global!(ui, rb, on_background_apply, |ui, id, c, o, a| reader_ui::background_apply(&ui, id, c, o, a));
     rb.on_notes_view(reader_ui::notes_view);
@@ -455,6 +458,8 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_open_recent, |ui, i| home::open_recent(&ui, i));
     ui.on_reveal_recent(home::reveal_recent);
     wire!(ui, on_remove_recent, |ui, i| home::remove_recent(&ui, i));
+    wire!(ui, on_pin_recent, |ui, i| home::pin_recent(&ui, i));
+    wire!(ui, on_filter_recents, |ui, q, o| home::filter_recents(&ui, &q, o));
     wire!(ui, on_clear_recents, |ui| home::clear_recents(&ui));
     ui.on_reveal_history(home::reveal_history);
     wire!(ui, on_rerun_history, |ui, i| home::rerun_history(&ui, i));

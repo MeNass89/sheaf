@@ -109,6 +109,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         signature_font: 0,
         signatures: vec![(vec![vec![[0.0, 0.0], [1.0, 0.5]]], None, (1, 2), 0), (Vec::new(), Some("Ada".into()), (0, 1), 2)],
         initials: Some((Vec::new(), Some("AL".into()), (0, 1), 1)),
+        pinned_files: vec![PathBuf::from("/docs/starred.pdf")],
     };
     p.save(dir.path()).unwrap();
     assert_eq!(Prefs::load(dir.path()), p);

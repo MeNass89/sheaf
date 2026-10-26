@@ -308,6 +308,10 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             r
         }
+        // −1 and −2: flipped left to right, or top to bottom (the Rotate tool's Flip).
+        Job::Rotate { items, degrees: d @ (-2 | -1), pages: spec, .. } => {
+            batch(each(items, cancel, progress, pair, |(i, o)| one(pages::flip(i, spec.as_deref(), *d == -1, o))))?
+        }
         Job::Rotate { items, degrees, pages: spec, filter } => {
             batch(each(items, cancel, progress, pair, |(i, o)| one(rotate::rotate_filtered(i, spec.as_deref(), *degrees, *filter, o))))?
         }

@@ -232,6 +232,23 @@ pub fn version_action(ui: &AppWindow, tab_id: i32, n: i32) {
     }
 }
 
+/// More ▸ Email… (Acrobat's Share ▸ Email, Preview's Share ▸ Mail): the document as it is now,
+/// unsaved edits included, attached to a new mail under its own name (a copy in the temporary
+/// folder; the file itself is left as saved).
+pub fn email(ui: &AppWindow, tab_id: i32) {
+    let Some((name, bytes)) = update(tab_id, |r, _| (r.name.clone(), r.snap.bytes.clone())) else { return };
+    let dir = std::env::temp_dir().join("sheaf-mail");
+    let copy = std::fs::create_dir_all(&dir).and_then(|()| {
+        let to = dir.join(&name);
+        std::fs::write(&to, bytes.as_slice()).map(|()| to)
+    });
+    match copy {
+        Ok(to) if crate::run::mail_attachment(&to, &name) => crate::flow::toast(ui, &format!("{name} attached to a new mail")),
+        Ok(_) => crate::flow::toast(ui, "No mail app to send it with: attach the file from your mail"),
+        Err(e) => crate::flow::toast(ui, &format!("Not attached: {e}")),
+    }
+}
+
 /// More ▸ Sanitize document (Acrobat's): metadata, scripts and actions, attachments, links, hidden
 /// text and layers removed in one step, which ⌘Z undoes until the file is saved.
 pub fn sanitize(ui: &AppWindow, tab_id: i32) {

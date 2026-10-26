@@ -405,7 +405,9 @@ impl Viewer {
             // rectangle, an area zoomed to).
             Some(r) => {
                 let [_, y, _, h] = self.overlay(i, r);
-                (y - height / 3.0).min(y + h + 8.0 - height)
+                let third = y - height / 3.0;
+                // Past the view's bottom from a third down: up until it ends in view, its top kept in view.
+                if y + h + 8.0 > third + height { (y + h + 8.0 - height).min(y - 8.0) } else { third }
             }
             None => self.page_rect(i)[1] - PAGE_GAP,
         };

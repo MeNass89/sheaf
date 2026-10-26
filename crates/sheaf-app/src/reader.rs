@@ -692,6 +692,38 @@ pub fn measure_factor(k: usize, user_unit: f64) -> (f64, &'static str) {
     (2.54 / 72.0 * user_unit * ratio / cm_per_unit, unit)
 }
 
+/// `text` with every `find` replaced by `with` (any case unless `case`; only whole words when
+/// `whole`), and how many were replaced.
+pub fn replace_words(text: &str, find: &str, with: &str, case: bool, whole: bool) -> (String, usize) {
+    if find.is_empty() {
+        return (text.to_string(), 0);
+    }
+    let (hay, needle) = if case { (text.to_string(), find.to_string()) } else { (text.to_lowercase(), find.to_lowercase()) };
+    // Lowercasing can change a text's length (İ): then only an exact-case match is safe.
+    if hay.len() != text.len() || needle.len() != find.len() {
+        return if case { (text.to_string(), 0) } else { replace_words(text, find, with, true, whole) };
+    }
+    let word = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+    let (mut out, mut last, mut n) = (String::new(), 0, 0);
+    let mut from = 0;
+    while let Some(i) = hay[from..].find(&needle).map(|i| i + from) {
+        let end = i + needle.len();
+        let alone = !whole || (!word(text[..i].chars().next_back()) && !word(text[end..].chars().next()));
+        if alone {
+            out.push_str(&text[last..i]);
+            out.push_str(with);
+            last = end;
+            n += 1;
+        }
+        from = end.max(i + 1);
+        while !hay.is_char_boundary(from) {
+            from += 1;
+        }
+    }
+    out.push_str(&text[last..]);
+    (out, n)
+}
+
 /// Calibrate (Acrobat's and Bluebeam's): the real length typed for a line measured `measured`
 /// user-space units long ("4.5 m", "12 ft", "30cm"), as the real units per user-space unit and
 /// the unit; refused when it is not a positive length in mm, cm, m, km, in, ft, yd or mi.
@@ -734,6 +766,15 @@ pub fn fill_tint(c: [f64; 3]) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn words_are_replaced_by_case_and_whole_words() {
+        assert_eq!(replace_words("The cat and the Cat", "cat", "dog", false, false), ("The dog and the dog".into(), 2));
+        assert_eq!(replace_words("The cat and the Cat", "cat", "dog", true, false), ("The dog and the Cat".into(), 1));
+        assert_eq!(replace_words("cat category cat", "cat", "dog", false, true), ("dog category dog".into(), 2));
+        assert_eq!(replace_words("été", "é", "e", false, false), ("ete".into(), 2));
+        assert_eq!(replace_words("abc", "", "x", false, false), ("abc".into(), 0));
+    }
 
     #[test]
     fn a_known_length_calibrates_the_scale() {

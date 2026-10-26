@@ -130,6 +130,8 @@ export component AppWindow inherits Window {
     callback open-file();
     callback new-blank();
     callback new-from-clipboard();
+    callback pin-recent(int);
+    callback filter-recents(string, int);
     callback open-tool(string);
     callback close-tab(int);
     // A tab dragged to another place (from, to), and the tab menu's close others / left / right.
@@ -271,6 +273,8 @@ export component AppWindow inherits Window {
                             reveal-recent(i) => { root.reveal-recent(i); }
                             remove-recent(i) => { root.remove-recent(i); }
                             clear-recents => { root.clear-recents(); }
+                            pin-recent(i) => { root.pin-recent(i); }
+                            filter-recents(q, o) => { root.filter-recents(q, o); }
                         }
                         if root.page == Page.tools: ToolsScreen {
                         focus-seq: root.search-seq;

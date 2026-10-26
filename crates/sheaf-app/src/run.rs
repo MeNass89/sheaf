@@ -203,6 +203,11 @@ fn crop_spec(opts: &ToolOptions) -> Result<CropSpec> {
     if opts.crop_mode == 3 {
         return Ok(CropSpec::WhiteMargins { pad: 3.0 });
     }
+    // Acrobat's Change Page Size: a paper of `pages::PAPER`.
+    if opts.crop_mode == 4 {
+        let (_, w, h) = sheaf_core::pages::PAPER[opts.crop_paper.clamp(0, 4) as usize];
+        return Ok(CropSpec::Resize { size: (w, h) });
+    }
     Ok(CropSpec::Margins {
         top: mm_field(&opts.crop_top, "top")?,
         bottom: mm_field(&opts.crop_bottom, "bottom")?,
@@ -512,6 +517,33 @@ fn spawn_detached(cmd: &str, args: &[&std::ffi::OsStr]) {
         std::thread::spawn(move || {
             let _ = child.wait();
         });
+    }
+}
+
+/// A new mail with `file` attached, in the mail app (Acrobat's and Preview's Share ▸ Mail): Apple
+/// Mail on macOS, the desktop's mail client through xdg-email elsewhere. Debug builds write the
+/// file's path to the file `SHEAF_TEST_MAIL` names instead (gui-smoke). False: no way to mail.
+pub fn mail_attachment(file: &std::path::Path, subject: &str) -> bool {
+    if cfg!(debug_assertions)
+        && let Some(log) = std::env::var_os("SHEAF_TEST_MAIL")
+    {
+        return std::fs::write(log, file.to_string_lossy().as_bytes()).is_ok();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = subject;
+        spawn_detached("open", &["-a".as_ref(), "Mail".as_ref(), file.as_os_str()]);
+        true
+    }
+    #[cfg(windows)]
+    {
+        let _ = (file, subject);
+        false
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        spawn_detached("xdg-email", &["--subject".as_ref(), subject.as_ref(), "--attach".as_ref(), file.as_os_str()]);
+        true
     }
 }
 

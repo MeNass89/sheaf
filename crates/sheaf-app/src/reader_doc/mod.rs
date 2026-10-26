@@ -397,6 +397,9 @@ pub enum Op {
     Redo { pages: Option<Vec<usize>> },
     /// Back to the file as last saved, unsaved edits and their undo history gone (Acrobat's Revert).
     Revert,
+    /// Find and replace in the pages' text (Acrobat's Edit PDF ▸ Find ▸ Replace All): each
+    /// paragraph holding `find` rewritten with `with`, one undo step.
+    ReplaceAll { find: String, with: String, case: bool, whole: bool },
     /// The part `rect` (user space) of `page` as shown, as pixels for the clipboard (Acrobat's
     /// Snapshot; drawings and paragraphs picked with the Edit tool, copied as a picture).
     CopyArea { page: usize, rect: [f64; 4] },
@@ -524,6 +527,36 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let s = snap(&doc);
                         debug(format_args!("apply {:?}, snapshot {:?}", t1 - t0, t1.elapsed()));
                         reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: true, note, preview: false });
+                    }
+                    Op::ReplaceAll { find, with, case, whole } => {
+                        let d = doc.document();
+                        let mut edits = Vec::new();
+                        let (mut count, mut pages) = (0, Vec::new());
+                        for page in 0..d.info.pages.len() {
+                            // Later paragraphs first: an earlier one rewritten never renumbers them.
+                            let blocks = d.text_blocks(page);
+                            let mut on_page = 0;
+                            for (k, b) in blocks.iter().enumerate().rev() {
+                                let text = reflowed(&b.editor_text, &b.soft_breaks);
+                                let (new, n) = sheaf_app::reader::replace_words(&text, &find, &with, case, whole);
+                                if n > 0 {
+                                    edits.push(Edit::EditTextBlock { page, block: k, text: new, style: Default::default() });
+                                    on_page += n;
+                                }
+                            }
+                            if on_page > 0 {
+                                count += on_page;
+                                pages.push(page);
+                            }
+                        }
+                        let error = if edits.is_empty() {
+                            Some(format!("No “{find}” in the pages' text to replace"))
+                        } else {
+                            doc.apply(Edit::Batch { label: "Replace all".into(), edits }).err().map(|e| e.to_string())
+                        };
+                        let note = error.is_none().then(|| format!("{} replaced on {}", sheaf_core::tools::count(count, "occurrence"), sheaf_core::tools::count(pages.len(), "page")));
+                        // An undo step was counted for it by the window: `applied` even when refused, so it is taken back.
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: true, note, preview: false });
                     }
                     Op::Revert => {
                         let id = doc.id();

@@ -100,6 +100,83 @@ pub fn from_pasted(p: &Pasted, out: &Path) -> Result<PathBuf> {
     crate::paths::atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?))
 }
 
+/// Paper sizes a page can be changed to (Acrobat's Set Page Boxes ▸ Change Page Size), in points:
+/// A4, US Letter, A3, A5, US Legal.
+pub const PAPER: [(&str, f64, f64); 5] = [("A4", 595.0, 842.0), ("Letter", 612.0, 792.0), ("A3", 842.0, 1191.0), ("A5", 420.0, 595.0), ("Legal", 612.0, 1008.0)];
+
+/// Change Page Size: the pages chosen (`pages` a range, none: all) become `size` points (width,
+/// height as the page is seen: a turned page takes it turned), their content scaled to fit and
+/// centred (Acrobat's Change Page Size, Preview's Scale). Written to `out`; the output is not
+/// password-protected. Comments keep their places on the page, not scaled.
+pub fn resize(input: &Input, pages: Option<&str>, size: (f64, f64), out: &Path) -> Result<PathBuf> {
+    if !(size.0 > 0.0 && size.1 > 0.0 && size.0.is_finite() && size.1.is_finite()) {
+        return Err(OpdfError::Unsupported("the page size must be more than 0".into()));
+    }
+    let _g = pdfium_lock();
+    let src = input.open()?;
+    let total = src.pages().len() as u32;
+    let chosen: Vec<i32> = match pages.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(s) => {
+            let ranges = parse_ranges(s, total)?;
+            (1..=total).filter(|n| ranges.iter().any(|r| r.contains(n))).map(|n| n as i32 - 1).collect()
+        }
+        None => (0..total as i32).collect(),
+    };
+    let mut dst = pdfium().create_new_pdf()?;
+    dst.pages_mut().append(&src)?;
+    for i in chosen {
+        let mut page = dst.pages().get(i)?;
+        let turned = matches!(page.rotation()?, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
+        // In user space, before the page's own turn.
+        let (w, h) = if turned { (size.1, size.0) } else { size };
+        let m = page.boundaries().media()?.bounds;
+        let (x0, y0, w0, h0) = (m.left().value as f64, m.bottom().value as f64, m.width().value as f64, m.height().value as f64);
+        if w0 <= 0.0 || h0 <= 0.0 {
+            continue;
+        }
+        let k = (w / w0).min(h / h0);
+        let (dx, dy) = ((w - w0 * k) / 2.0 - x0 * k, (h - h0 * k) / 2.0 - y0 * k);
+        let all = PdfRect::new_from_values(-1e6, -1e6, 1e6, 1e6);
+        page.transform_with_clip(k as f32, 0.0, 0.0, k as f32, dx as f32, dy as f32, all)?;
+        let rect = PdfRect::new_from_values(0.0, 0.0, h as f32, w as f32);
+        page.boundaries_mut().set_media(rect)?;
+        page.boundaries_mut().set_crop(rect)?;
+    }
+    save(&dst, out)
+}
+
+/// Flip pages (a mirror image, for transfers and printing on film): the pages chosen (`pages` a
+/// range, none: all) mirrored left to right (`horizontal`) or top to bottom, as seen. Written to
+/// `out`, not password-protected. Comments keep their places.
+pub fn flip(input: &Input, pages: Option<&str>, horizontal: bool, out: &Path) -> Result<PathBuf> {
+    let _g = pdfium_lock();
+    let src = input.open()?;
+    let total = src.pages().len() as u32;
+    let chosen: Vec<i32> = match pages.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(s) => {
+            let ranges = parse_ranges(s, total)?;
+            (1..=total).filter(|n| ranges.iter().any(|r| r.contains(n))).map(|n| n as i32 - 1).collect()
+        }
+        None => (0..total as i32).collect(),
+    };
+    let mut dst = pdfium().create_new_pdf()?;
+    dst.pages_mut().append(&src)?;
+    for i in chosen {
+        let mut page = dst.pages().get(i)?;
+        // As seen: a page turned a quarter is mirrored about the other axis of its own space.
+        let turned = matches!(page.rotation()?, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
+        let m = page.boundaries().media()?.bounds;
+        let (x0, y0, x1, y1) = (m.left().value, m.bottom().value, m.right().value, m.top().value);
+        let all = PdfRect::new_from_values(-1e6, -1e6, 1e6, 1e6);
+        if horizontal != turned {
+            page.transform_with_clip(-1.0, 0.0, 0.0, 1.0, x0 + x1, 0.0, all)?;
+        } else {
+            page.transform_with_clip(1.0, 0.0, 0.0, -1.0, 0.0, y0 + y1, all)?;
+        }
+    }
+    save(&dst, out)
+}
+
 /// The pages of a PDF held in memory (0: it cannot be read).
 pub fn count_in(bytes: &[u8]) -> usize {
     lopdf::Document::load_mem(bytes).map_or(0, |d| d.get_pages().len())

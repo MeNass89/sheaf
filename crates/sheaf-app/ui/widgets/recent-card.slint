@@ -9,6 +9,7 @@ export component RecentCard inherits Rectangle {
     callback open();
     callback reveal();
     callback remove();
+    callback pin();
     accessible-role: button;
     accessible-label: root.file.name;
     accessible-action-default => { root.open(); }
@@ -89,6 +90,26 @@ export component RecentCard inherits Rectangle {
                 accessible-action-default => { root.reveal(); }
                 clicked => { root.reveal(); }
             }
+        }
+        // The star (PDF Expert's Favorites): shown on hover, and always once starred.
+        Rectangle {
+            opacity: touch.has-hover || focus.has-focus || root.file.pinned ? 1 : 0;
+            x: (parent.width - self.width) / 2;
+            y: 4px;
+            width: 28px;
+            height: 28px;
+            border-radius: Theme.radius-small;
+            background: pt.has-hover ? Theme.popup-hover : Theme.card;
+            accessible-role: button;
+            accessible-label: root.file.pinned ? "Unstar" : "Star";
+            accessible-action-default => { root.pin(); }
+            Image {
+                width: 15px;
+                height: 15px;
+                source: @image-url("../icons/star.svg");
+                colorize: root.file.pinned ? #F5B301 : Theme.text-muted;
+            }
+            pt := TouchArea { mouse-cursor: pointer; clicked => { root.pin(); } }
         }
         if touch.has-hover || focus.has-focus: Rectangle {
             x: parent.width - self.width - 4px;

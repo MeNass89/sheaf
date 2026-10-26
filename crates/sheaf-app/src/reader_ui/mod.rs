@@ -319,6 +319,8 @@ pub struct ReaderUi {
     snap_area: bool,
     /// More ▸ Scroll automatically is on (the view moves itself, reader.slint).
     auto_scroll: bool,
+    /// More ▸ One page at a time: the page fits the view, the wheel and arrows turn pages.
+    page_at_a_time: bool,
     /// The Signature tool places the initials (its options bar's Initials).
     initials: bool,
     /// The Signature tool places on every page at once (its options bar's Every page).
@@ -488,6 +490,7 @@ impl ReaderUi {
             zoom_area: false,
             snap_area: false,
             auto_scroll: false,
+            page_at_a_time: false,
             initials: false,
             sign_every_page: false,
             form_drag: None,
@@ -526,7 +529,7 @@ impl ReaderUi {
 
     fn send(&mut self, op: Op) {
         // A preview is not counted: it never names something another edit is waiting on.
-        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. });
+        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::Revert | Op::DetectFields);
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
             self.edits_in_flight += usize::from(edit);

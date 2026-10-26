@@ -460,6 +460,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         .into(),
         calibrating: r.calibrating,
         auto_scroll: r.auto_scroll,
+        page_at_a_time: r.page_at_a_time,
         opacity: (super::tools::opacity_of(r) * 100.0).round() as i32,
         fill_colour: r.fill_colour.map_or(-1, |k| k as i32),
         selected_stroke: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(|a| super::tools::stroked(&a.subtype)),

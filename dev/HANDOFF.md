@@ -47,11 +47,15 @@ zoom to area, snapshot, auto-scroll, initials, signature on every page, compress
 calibrated measuring. Sol batches ready in `/tmp/f5/solrv/`: `b17-round14`, `b18a-round15`, `b18b-round15` (add the
 F-014 components C-annotate-001/007/009/019/022, C-reader-026 and C-edit-005 to a batch). Their suite runs first.
 
-**Still open, no engine base (new work):** C-reader-017 view rotation (renders and text layer must turn together),
-C-reader-045 split view, C-output-009/010 share and email, C-files-009 cloud, C-platform-001 updates,
-C-preferences-003 interface language, C-organize-006/019 flip and scale pages, C-sign-004 camera, C-sign-009
-keychain, C-optimize-007 CJK OCR (model download), C-convert-020 online conversion (offline by design, Nassim to
-decide). `python3 dev/scripts/board.py next` gives the heaviest one below 9.
+Round 17 (branch `dev/round17`, on round 16): starred and searched Recent files, one page at a time, find and
+replace all, Email…, Crop ▸ Change page size, Rotate ▸ Flip (F-013 Round 17; Sol batch `b20-round17`).
+
+**Still open, no engine base (new work):** C-reader-017 view rotation (the reader's glyph boxes come in PdfCraft's
+view space: a turn of the view needs them mapped through user space at every use, `reader_ui/model.rs` and
+`pointer.rs`), C-reader-045 split view, C-output-009 share sheet (native), C-files-009 cloud, C-platform-001 update
+check (network: Nassim to decide, Sheaf says nothing leaves the computer), C-preferences-003 interface language,
+C-sign-004 camera, C-sign-009 keychain, C-optimize-007 CJK OCR (model download), C-convert-020 online conversion
+(offline by design, Nassim to decide). `python3 dev/scripts/board.py next` gives the heaviest one below 9.
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
 

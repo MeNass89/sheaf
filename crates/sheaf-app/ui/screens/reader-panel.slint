@@ -81,6 +81,15 @@ export component ReaderPanel inherits Rectangle {
                             clicked => { recent.show(); }
                         }
                     }
+                    // Acrobat's Find and Replace: the words found rewritten in the pages' text.
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-bottom: 6px;
+                        spacing: 6px;
+                        replace-in := PanelField { placeholder: "Replace with"; }
+                        SmallButton { text: "Replace all"; clicked => { ReaderBridge.replace-all(root.id, root.search-text, replace-in.text); } }
+                    }
                     HorizontalLayout {
                         padding-left: 12px;
                         padding-right: 10px;

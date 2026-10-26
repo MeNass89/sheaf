@@ -492,3 +492,29 @@ Each line: the component, Sol's gap, what was done, its proof.
   `compress::a_target_size_tries_stronger_settings_until_the_file_fits`, gui-smoke 66.
 - **C-edit-005** (Sol b13b) A paragraph edited with a colour of the palette's (F-014) came out in a preset one:
   Edit text's format row, carets and Replace text take the colour chosen, palette included (`ink_at`).
+
+## Round 17 (26/10, components at 0 the audit listed)
+- **C-files-006** (never built) Home ▸ Recent files: a star on each card (PDF Expert's Favorites, Acrobat's Starred)
+  lists the file first, kept in the preferences and when Recents are cleared; a starred file no history entry
+  remembers says "Starred". Proof: `home::tests::starred_files_come_first_and_the_list_is_searched_and_sorted`,
+  gui-smoke 10 (a card starred, then found by the search).
+- **C-files-007** (partial before) Recent files are searched (every word typed, any case) and sorted (newest, name,
+  size), starred ones kept on top. Proof: the same test, gui-smoke 10.
+- **C-reader-014** (partial before: presentation only) More ▸ One page at a time (Acrobat's Single Page): the page
+  shown fits the view, the wheel (a notch, or 60 px of a trackpad) and ↑ ↓ turn pages; off, scrolling is
+  continuous again at the same zoom. Proof: gui-smoke 67.
+- **C-edit-012** (partial before: find only) The search panel's Replace with ▸ Replace all (Acrobat's Edit PDF ▸
+  Find and Replace): every place of the words searched, with its Aa and Whole words options, is rewritten in the
+  pages' text, each paragraph rewrapped in its own style, one undo step; the result says how many on how many pages.
+  Proof: `reader::tests::words_are_replaced_by_case_and_whole_words`, gui-smoke 68.
+- **C-output-010** (never built) More ▸ Email… (Acrobat's Share ▸ Email, Preview's Share ▸ Mail): the document as it
+  is now, unsaved edits included, is attached to a new mail under its own name (Apple Mail on macOS, xdg-email's
+  client elsewhere). Proof: gui-smoke 69 (a note not saved is in the copy attached; a debug seam stands for the mail
+  app). not automatable: the mail app opening its new message — no mail client on the test display.
+- **C-organize-019** (never built) Crop ▸ Change page size (Acrobat's Set Page Boxes ▸ Change Page Size, Preview's
+  Scale): the pages become A4, Letter, A3, A5 or Legal, their content scaled to fit and centred (a turned page takes
+  the size turned; comments keep their places). Proof: sheaf-core `pages::pages_change_size_with_their_content_scaled_to_fit`,
+  gui-smoke 70.
+- **C-organize-006** (never built) Rotate ▸ Flip ↔ and Flip ↕: the pages chosen become their mirror image, left
+  to right or top to bottom as seen (for transfers and printing on film; Acrobat's Print Production flips). Proof:
+  sheaf-core `pages::a_flipped_page_is_its_mirror_image`, gui-smoke 71.

@@ -6,6 +6,8 @@ import { DashedBox } from "../widgets/dashed-box.slint";
 import { SecondaryButton } from "dialogs.slint";
 import { RecentCard } from "../widgets/recent-card.slint";
 import { RecentFile } from "../history-types.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { SortCombo } from "../widgets/sort-combo.slint";
 
 // One tilted page outline of the empty-state illustration.
 component PageSketch inherits Rectangle {
@@ -44,6 +46,12 @@ export component RecentsScreen inherits Rectangle {
     callback reveal-recent(int);
     callback remove-recent(int);
     callback clear-recents();
+    callback pin-recent(int);
+    // Search and order (0 newest, 1 name, 2 size): Home's list filtered in Rust.
+    callback filter-recents(string, int);
+    property <int> order: 0;
+    property <string> query;
+    changed query => { root.filter-recents(root.query, root.order); }
     background: Theme.content-bg;
 
     scroll := ScrollView {
@@ -111,11 +119,12 @@ export component RecentsScreen inherits Rectangle {
             }
         }
 
-        if root.recents.length > 0: VerticalLayout {
+        if root.recents.length > 0 || root.query != "": VerticalLayout {
             padding-top: 24px;
             spacing: 14px;
             HorizontalLayout {
                 height: Theme.button-height;
+                spacing: 10px;
                 Text {
                     text: "Recent files";
                     font-size: Theme.fs-subtitle;
@@ -123,6 +132,18 @@ export component RecentsScreen inherits Rectangle {
                     color: Theme.text-heading;
                     vertical-alignment: center;
                     horizontal-stretch: 1;
+                }
+                // Finder's search and sort, as PDF Expert's file browser has them.
+                TextField {
+                    width: 200px;
+                    placeholder: "Search recent files";
+                    text <=> root.query;
+                }
+                SortCombo {
+                    options: ["Newest", "Name", "Size"];
+                    current-index <=> root.order;
+                    chevron: @image-url("../icons/chevron-down.svg");
+                    selected(i) => { root.filter-recents(root.query, i); }
                 }
                 SecondaryButton {
                     text: "Clear recents";
@@ -150,14 +171,15 @@ export component RecentsScreen inherits Rectangle {
                     open => { root.open-recent(i); }
                     reveal => { root.reveal-recent(i); }
                     remove => { root.remove-recent(i); }
+                    pin => { root.pin-recent(i); }
                 }
             }
         }
 
-        if root.recents.length == 0: Rectangle { height: 80px; }
+        if root.recents.length == 0 && root.query == "": Rectangle { height: 80px; }
 
         // Illustration
-        if root.recents.length == 0: Rectangle {
+        if root.recents.length == 0 && root.query == "": Rectangle {
             height: 232px;
             clip: true;
             Rectangle {

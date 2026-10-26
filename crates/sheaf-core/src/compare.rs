@@ -200,8 +200,23 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
     let mut notes = Vec::new();
     // Two documents that share almost no words are said to (Acrobat warns that documents are too
     // different to compare; Sol, 25/10): the report is still written.
+    // Words the two share, counted as many times as both have them.
     let total = old_words.len() + new_words.len();
-    let changed: usize = c.changes.iter().map(|ch| ch.new.rects.len() + ch.old.rects.len()).sum();
+    let mut pool: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for w in &old_words {
+        *pool.entry(w.0.as_str()).or_default() += 1;
+    }
+    let common = new_words
+        .iter()
+        .filter(|w| match pool.get_mut(w.0.as_str()) {
+            Some(n) if *n > 0 => {
+                *n -= 1;
+                true
+            }
+            _ => false,
+        })
+        .count();
+    let changed = total - 2 * common;
     if total >= 40 && changed * 10 >= total * 8 {
         notes.push(format!("The documents differ almost everywhere ({} % of their words): they may not be versions of one another.", changed * 100 / total));
     }

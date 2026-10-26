@@ -132,6 +132,9 @@ pub struct Prefs {
     pub tool_styles: Vec<(i32, u8, u8, u8)>,
     /// Tools starred by the user (`ToolId::as_str`), in the order starred.
     pub favourite_tools: Vec<String>,
+    /// Files starred on Home (PDF Expert's Favorites, Acrobat's Starred): listed first, kept
+    /// when Recents are cleared.
+    pub pinned_files: Vec<PathBuf>,
     /// The signature made in the reader, reused on every document (PDF Expert keeps it too):
     /// drawn strokes (pad units, y up) or a typed name.
     pub signature_strokes: Vec<Vec<[f64; 2]>>,

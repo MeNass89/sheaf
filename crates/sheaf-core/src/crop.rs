@@ -15,6 +15,9 @@ pub enum CropSpec {
     Remove,
     /// Acrobat's Remove White Margins: each page cut to what is drawn on it, `pad` points around.
     WhiteMargins { pad: f64 },
+    /// Acrobat's Change Page Size: the pages become `size` points, their content scaled to fit
+    /// ([`crate::pages::resize`]).
+    Resize { size: (f64, f64) },
 }
 
 /// The box of what is drawn in an RGBA render (any pixel visibly darker than white), in pixels:
@@ -51,6 +54,9 @@ fn user_margins(rotation: u16, [t, r, b, l]: [f64; 4]) -> [f64; 4] {
 /// overwriting). Returns the path written and whether the input was password-protected (the
 /// output never is).
 pub fn crop(input: &Input, pages: Option<&str>, spec: &CropSpec, out: &Path) -> Result<(PathBuf, bool)> {
+    if let CropSpec::Resize { size } = *spec {
+        return Ok((crate::pages::resize(input, pages, size, out)?, input.password.is_some()));
+    }
     let mut doc = Doc::open(input)?;
     let rotations: Vec<u16> = doc.session().get(doc.id()).map(|d| d.info.pages.iter().map(|p| p.rotation).collect()).unwrap_or_default();
     let total = rotations.len() as u32;
@@ -88,6 +94,7 @@ pub fn crop(input: &Input, pages: Option<&str>, spec: &CropSpec, out: &Path) -> 
                 })
                 .collect()
         }
+        CropSpec::Resize { .. } => Vec::new(),
         CropSpec::Margins { top, bottom, left, right } => {
             // One edit per rotation: the same visible margins land on different user-space edges.
             [0u16, 90, 180, 270]

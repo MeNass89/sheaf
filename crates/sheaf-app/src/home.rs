@@ -34,6 +34,9 @@ struct Home {
     thumbs: HashMap<ThumbKey, Option<(Image, Option<u32>)>>,
     /// Recents currently on screen, in model order.
     recents: Vec<PathBuf>,
+    /// Home ▸ Recent files: the search typed and the order (0 newest, 1 name, 2 size).
+    recent_query: String,
+    recent_order: i32,
 }
 
 thread_local! {
@@ -58,6 +61,8 @@ pub fn install(ui: &AppWindow, forced_theme: Option<ThemePref>) {
         ui: ui.as_weak(),
         thumbs: HashMap::new(),
         recents: Vec::new(),
+        recent_query: String::new(),
+        recent_order: 0,
     };
     HOME.with(|s| *s.borrow_mut() = Some(h));
     push_prefs(ui);
@@ -487,6 +492,57 @@ fn recent_outputs(store: &Store) -> Vec<(PathBuf, u64)> {
     out
 }
 
+/// Home's Recent files as shown: the starred ones first (in the order starred, those still on disk),
+/// then the others; only those whose name holds every word of `query` (any case); in `order` (0
+/// newest first, 1 by name, 2 largest first), starred ones kept on top. `size` gives a file's bytes.
+pub(crate) fn listed(recent: &[(PathBuf, u64)], pinned: &[PathBuf], query: &str, order: i32, size: impl Fn(&Path) -> u64) -> Vec<(PathBuf, u64, bool)> {
+    let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
+    let fits = |p: &Path| {
+        let n = name(p).to_lowercase();
+        words.iter().all(|w| n.contains(w.as_str()))
+    };
+    let at = |p: &Path| recent.iter().find(|(q, _)| q == p).map_or(0, |e| e.1);
+    let mut stars: Vec<(PathBuf, u64, bool)> = pinned.iter().filter(|p| p.is_file() && fits(p)).map(|p| (p.clone(), at(p), true)).collect();
+    let mut rest: Vec<(PathBuf, u64, bool)> = recent.iter().filter(|(p, _)| !pinned.contains(p) && fits(p)).map(|(p, t)| (p.clone(), *t, false)).collect();
+    // Newest first is the history's own order (and the order starred for starred files).
+    for list in [&mut stars, &mut rest] {
+        match order {
+            1 => list.sort_by_key(|e| name(&e.0).to_lowercase()),
+            2 => list.sort_by_key(|e| std::cmp::Reverse(size(&e.0))),
+            _ => {}
+        }
+    }
+    stars.extend(rest);
+    stars
+}
+
+/// A recent file starred or unstarred (Home ▸ Recent files' star).
+pub fn pin_recent(ui: &AppWindow, i: i32) {
+    if let Some(p) = recent(i) {
+        with(|h| {
+            match h.prefs.pinned_files.iter().position(|q| *q == p) {
+                Some(k) => {
+                    h.prefs.pinned_files.remove(k);
+                }
+                None => h.prefs.pinned_files.push(p),
+            }
+            if let Err(e) = h.prefs.save(&h.dir) {
+                eprintln!("sheaf: cannot save preferences: {e}");
+            }
+        });
+        refresh(ui);
+    }
+}
+
+/// Home ▸ Recent files' search field and order.
+pub fn filter_recents(ui: &AppWindow, query: &str, order: i32) {
+    with(|h| {
+        h.recent_query = query.to_string();
+        h.recent_order = order.clamp(0, 2);
+    });
+    refresh(ui);
+}
+
 fn thumb_key(p: &Path) -> ThumbKey {
     (p.to_path_buf(), std::fs::metadata(p).and_then(|m| m.modified()).ok())
 }
@@ -497,11 +553,11 @@ pub fn refresh(ui: &AppWindow) {
     let now = history::now_unix();
     let (rows, recents, missing) = with(|h| {
         let rows: Vec<HistoryRow> = h.store.list().iter().filter(|e| e.tool != READ).map(|e| row(e, now)).collect();
-        let outs = recent_outputs(&h.store);
+        let outs = listed(&recent_outputs(&h.store), &h.prefs.pinned_files, &h.recent_query, h.recent_order, files::file_size);
         let mut missing = Vec::new();
         let recents: Vec<RecentFile> = outs
             .iter()
-            .map(|(p, at)| {
+            .map(|(p, at, pinned)| {
                 let kind = files::kind_of(p);
                 let key = thumb_key(p);
                 let cached = h.thumbs.get(&key).cloned().flatten();
@@ -513,14 +569,16 @@ pub fn refresh(ui: &AppWindow) {
                 RecentFile {
                     name: name(p).into(),
                     info: files::caption(files::file_size(p), pages).into(),
-                    when: history::relative_time(*at, now).into(),
+                    // A starred file no task or opening remembers any more says it is starred.
+                    when: if *at > 0 { history::relative_time(*at, now).into() } else { "Starred".into() },
                     has_thumb: cached.is_some(),
                     thumb: cached.map(|c| c.0).unwrap_or_default(),
                     kind: kind.index(),
+                    pinned: *pinned,
                 }
             })
             .collect();
-        h.recents = outs.into_iter().map(|(p, _)| p).collect();
+        h.recents = outs.into_iter().map(|(p, ..)| p).collect();
         (rows, recents, missing)
     });
     ui.set_history(ModelRc::new(VecModel::from(rows)));
@@ -635,4 +693,33 @@ pub fn keep_stamp(name: &str, bytes: &[u8]) -> Option<PathBuf> {
     let to = sheaf_core::paths::unique_path(&dir.join(name));
     std::fs::write(&to, bytes).ok()?;
     Some(to)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn starred_files_come_first_and_the_list_is_searched_and_sorted() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = |n: &str, bytes: usize| {
+            let p = dir.path().join(n);
+            std::fs::write(&p, vec![0u8; bytes]).unwrap();
+            p
+        };
+        let (a, b, c) = (f("Report 2026.pdf", 30), f("budget.pdf", 10), f("Annex.pdf", 20));
+        let recent = vec![(a.clone(), 30), (b.clone(), 20), (c.clone(), 10)];
+        let names = |l: Vec<(PathBuf, u64, bool)>| l.into_iter().map(|e| (name(&e.0), e.2)).collect::<Vec<_>>();
+        let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
+        // Starred first, the rest newest first.
+        assert_eq!(names(listed(&recent, std::slice::from_ref(&c), "", 0, size)), [("Annex.pdf".into(), true), ("Report 2026.pdf".into(), false), ("budget.pdf".into(), false)]);
+        // By name, any case; by size, largest first.
+        assert_eq!(names(listed(&recent, &[], "", 1, size)).iter().map(|e| e.0.as_str()).collect::<Vec<_>>(), ["Annex.pdf", "budget.pdf", "Report 2026.pdf"]);
+        assert_eq!(names(listed(&recent, &[], "", 2, size)).iter().map(|e| e.0.as_str()).collect::<Vec<_>>(), ["Report 2026.pdf", "Annex.pdf", "budget.pdf"]);
+        // Every word typed, any case.
+        assert_eq!(names(listed(&recent, &[], "report 26", 0, size)).len(), 1);
+        // A starred file gone from the disk is not listed.
+        std::fs::remove_file(&c).unwrap();
+        assert!(names(listed(&recent, std::slice::from_ref(&c), "", 0, size)).iter().all(|e| !e.1));
+    }
 }

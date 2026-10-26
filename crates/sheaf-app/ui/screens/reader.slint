@@ -43,6 +43,8 @@ export component ReaderScreen inherits Rectangle {
     property <length> page-h: sv.visible-height;
     property <length> strip-h: panel.strip-h;
     property <bool> pressing;
+    // One page at a time: the wheel's movement since the last page turned.
+    property <length> wheel-sum;
     // Colours offered per tool: highlights are light, strokes dark (same order as reader.rs).
     property <[color]> light-colours: [#FFDB40, #6BD96B, #61B8FF, #FF7399, #BF80FF];
     property <[color]> ink-colours: [#D93326, #1A1A1F, #1A66E6, #1A994D, #9940D9];
@@ -345,6 +347,16 @@ export component ReaderScreen inherits Rectangle {
                                 // The point of the view under the pointer: the window point less the
                                 // view's own place in the window (not moved by the zoom).
                                 ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), (root.pointer-wx - sv.absolute-position.x) / 1px, (root.pointer-wy - sv.absolute-position.y) / 1px, root.scroll-x-now / 1px);
+                                return accept;
+                            }
+                            // One page at a time (Acrobat's Single Page): the wheel turns pages, a
+                            // notch (or a trackpad's 60 px) a page.
+                            if root.tab.reader.page-at-a-time && e.delta-y != 0 {
+                                root.wheel-sum += e.delta-y;
+                                if abs(root.wheel-sum) >= 60px {
+                                    ReaderBridge.page-step(root.id, root.wheel-sum > 0 ? -1 : 1);
+                                    root.wheel-sum = 0px;
+                                }
                                 return accept;
                             }
                             reject
@@ -743,6 +755,7 @@ export component ReaderScreen inherits Rectangle {
             // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).
             if e.text == "T" || (e.text == "t" && e.modifiers.shift) { root.bare = !root.bare; return accept; }
             if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
+            if root.tab.reader.page-at-a-time && (e.text == Key.UpArrow || e.text == Key.DownArrow) { ReaderBridge.page-step(root.id, e.text == Key.UpArrow ? -1 : 1); return accept; }
             if root.tab.reader.auto-scroll && e.text == Key.UpArrow { root.scroll-speed = max(1, root.scroll-speed - 1); return accept; }
             if root.tab.reader.auto-scroll && e.text == Key.DownArrow { root.scroll-speed = min(24, root.scroll-speed + 1); return accept; }
             // Form tool, fields selected: the arrows move them (1 point, 10 with ⇧), as Acrobat's.

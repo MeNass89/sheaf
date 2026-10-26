@@ -46,6 +46,41 @@ fn a_pdf_is_made_from_a_pasted_picture_or_text() {
     assert!(from_pasted(&Pasted::Text("  ".into()), &t.path().join("e.pdf")).is_err());
 }
 #[test]
+fn pages_change_size_with_their_content_scaled_to_fit() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 3);
+    // Page 2 only, to A5: half the area of A4.
+    let out = resize(&Input::new(&a), Some("2"), (420.0, 595.0), &t.path().join("r.pdf")).unwrap();
+    let doc = lopdf::Document::load(&out).unwrap();
+    let media = |n: u32| {
+        let id = doc.get_pages()[&n];
+        doc.get_dictionary(id).unwrap().get(b"MediaBox").unwrap().as_array().unwrap().iter().map(|o| o.as_float().unwrap_or(0.0)).collect::<Vec<f32>>()
+    };
+    assert_eq!(media(2), [0.0, 0.0, 420.0, 595.0]);
+    assert_ne!(media(1), media(2), "page 1 kept its size");
+    // The text is still there, smaller.
+    assert_eq!(page_texts(&out), ["Page 1", "Page 2", "Page 3"]);
+    assert!(resize(&Input::new(&a), None, (0.0, 10.0), &t.path().join("x.pdf")).is_err());
+}
+#[test]
+fn a_flipped_page_is_its_mirror_image() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 2);
+    // "Page 1" starts 72 pt from the left: mirrored, its text ends 72 pt from the right.
+    let out = flip(&Input::new(&a), Some("1"), true, &t.path().join("f.pdf")).unwrap();
+    let x = |path: &std::path::Path, page: i32| {
+        let _g = sheaf_core::engine::pdfium_lock();
+        let doc = sheaf_core::engine::open_pdf(path, None).unwrap();
+        let p = doc.pages().get(page).unwrap();
+        let t = p.text().unwrap();
+        t.chars().iter().filter(|c| c.unicode_string().is_some_and(|s| !s.trim().is_empty())).map(|c| c.loose_bounds().unwrap()).fold((f32::MAX, f32::MIN), |(a, b), r| (a.min(r.left().value), b.max(r.right().value)))
+    };
+    let (l1, r1) = x(&out, 0);
+    let (l2, _) = x(&out, 1);
+    assert!((595.0 - r1 - 72.0).abs() < 3.0 && l1 > 300.0, "page 1 mirrored: {l1}..{r1}");
+    assert!((l2 - 72.0).abs() < 3.0, "page 2 left alone: {l2}");
+}
+#[test]
 fn split_ranges_writes_one_file_per_range() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 5);

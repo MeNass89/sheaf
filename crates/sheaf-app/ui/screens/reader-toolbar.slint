@@ -368,6 +368,10 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Copy an area as a picture", keys: "", on: false },
                                 // Acrobat's Automatically Scroll.
                                 { text: "Scroll automatically", keys: "", on: root.tab.reader.auto-scroll },
+                                // Acrobat's Single Page view (not continuous).
+                                { text: "One page at a time", keys: "", on: root.tab.reader.page-at-a-time },
+                                // Acrobat's Share ▸ Email, Preview's Share ▸ Mail.
+                                { text: "Email…", keys: "", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -393,6 +397,8 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 14 { ReaderBridge.zoom-area(root.id); }
                                         if k == 15 { ReaderBridge.snap-area(root.id); }
                                         if k == 16 { ReaderBridge.auto-scroll(root.id); }
+                                        if k == 17 { ReaderBridge.page-at-a-time(root.id); }
+                                        if k == 18 { ReaderBridge.email(root.id); }
                                         root.focus-pages();
                                     }
                                 }

@@ -62,6 +62,14 @@ check "a tool run from the reader writes its output (Compress)" "qpdf --check $O
 # The same star on Home ▸ Recents' Recent tools (Compress just ran: its card is the first, star at 233,266; starred above).
 click 40 21 0.8; click 90 72 0.8; xdotool mousemove 270 300; sleep 0.4; shot 09d-recent-tools; click 233 266 1
 check "unstarring from Home's Recent tools takes it out of the favourites" "! grep -qs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
+# Recent files' star (PDF Expert's Favorites), on the card of tool-compressed.pdf found by its name: starred in
+# the preferences; the search field ("compressed") keeps it alone in the list.
+read RX RY <<< "$(at tool-compressed 1280x760+0+40)"
+if [ -n "$RY" ]; then xdotool mousemove $RX $(( RY - 60 )); sleep 0.4; click $RX $(( RY - 96 )) 0.8; fi
+PN=$(grep -c 'tool-compressed.pdf' $OUT/profile/data/Sheaf/prefs.json 2>/dev/null)
+SR=$(at Search 1280x400+0+40); [ -n "$SR" ] && { click $SR 0.3; xdotool type --delay 20 "compressed"; sleep 0.8; }
+RL=$(ocr 1240x500+20+260); shot 09e-recent-search
+check "a recent file is starred and the search finds it alone (${RY:-no card}; prefs: $PN; list: $(echo "$RL" | cut -c1-60))" "[ \"\${PN:-0}\" -ge 1 ] && echo \"$RL\" | grep -q 'tool-compressed' && ! echo \"$RL\" | grep -q 'text.pdf'"
 # Tasks History ▸ Run again on the Compress row: a new Compress tab holding tool.pdf, Low compression chosen
 # again (its card's background as when it was picked, not as before).
 H=$(at History); [ -n "$H" ] && click $H 1; RA=$(at again); [ -n "$RA" ] && click $RA 1.5; shot 10b-rerun

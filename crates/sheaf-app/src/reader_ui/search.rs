@@ -204,6 +204,29 @@ pub fn search_clear(tab_id: i32) {
     });
 }
 
+/// The search panel's Replace all (Acrobat's Edit PDF ▸ Find and Replace): every place of the search's
+/// words in the pages' text is rewritten, with its case and whole-word options, one undo step.
+pub fn replace_all(ui: &AppWindow, tab_id: i32, find: &str, with: &str) {
+    let find = find.trim().to_string();
+    if find.is_empty() {
+        return crate::flow::toast(ui, "Type the words to find first");
+    }
+    let refused = update(tab_id, |r, _| {
+        if !r.snap.read_only.is_empty() {
+            return Some(r.snap.read_only.clone());
+        }
+        r.send(Op::ReplaceAll { find: find.clone(), with: with.to_string(), case: r.search.case_sensitive, whole: r.search.whole_words });
+        r.undo_pages.push(Vec::new());
+        None
+    })
+    .flatten();
+    match refused {
+        Some(why) => crate::flow::toast(ui, &why),
+        // The results named the old words: they go.
+        None => search_clear(tab_id),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

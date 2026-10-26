@@ -632,3 +632,47 @@ key ctrl+s; sleep 1.5; shot 52-attachments
 AL=$(qpdf --list-attachments "$OUT/att2.pdf" 2>/dev/null | tr '\n' ' ')
 check "an attachment is deleted and another renamed ($AL)" "! echo \"$AL\" | grep -q notes.txt && echo \"$AL\" | grep -q money.txt && ! echo \"$AL\" | grep -q budget.txt && echo \"$AL\" | grep -q contract.txt"
 quit
+
+# 67. More (1127,61) ▸ One page at a time (18th item, 1008,575; Acrobat's Single Page): the page fits the view; one
+# wheel notch down shows page 2 alone (its "Page 2" in view, no "Page 1").
+cp "$OUT/text.pdf" "$OUT/single-view.pdf"; launch "$OUT/single-view.pdf"; sleep 1
+click 1127 61 0.8; click 1008 575 1.5; xdotool mousemove 640 450; xdotool click 5; sleep 1.2; shot 67-one-page
+SP=$(ocr 1020x720+255+80)
+check "One page at a time turns to page 2 alone with one wheel notch ($(echo "$SP" | cut -c1-60))" "echo \"$SP\" | grep -q 'Page 2' && ! echo \"$SP\" | grep -q 'Page 1' && ! echo \"$SP\" | grep -q 'Page 3'"
+quit
+
+# 68. Find and replace (Acrobat's Edit PDF ▸ Find ▸ Replace All): "quick" searched (⌘F, ↩), "slow" typed in the
+# panel's Replace with, Replace all: every page's text now says "slow brown fox", none "quick".
+cp "$OUT/text.pdf" "$OUT/replace-all.pdf"; launch "$OUT/replace-all.pdf"; sleep 1
+key ctrl+f; xdotool type --delay 10 "quick"; key Return; sleep 2
+RW=$(at Replace 300x300+0+60); [ -n "$RW" ] && { set -- $RW; click $(( $1 + 20 )) $2 0.4; xdotool type --delay 20 "slow"; }
+RA=$(at all 300x300+0+60); [ -n "$RA" ] && click $RA 3; key ctrl+s; sleep 2; shot 68-replace-all
+RT=$(pdftotext "$OUT/replace-all.pdf" - 2>/dev/null | tr '\n' ' ')
+check "Replace all rewrites the words on every page (${RW:-no field} ${RA:-no button}; $(echo "$RT" | cut -c1-60))" "[ \"\$(echo \"$RT\" | grep -o 'slow brown' | wc -l)\" = 4 ] && ! echo \"$RT\" | grep -q quick"
+quit
+
+# 69. More (1127,61) ▸ Email… (19th item, 1008,603; Acrobat's Share ▸ Email): a note added and not saved, then
+# Email: a copy holding the note goes to the mail app (the test seam names the file attached).
+cp "$OUT/text.pdf" "$OUT/mail.pdf"; launch "$OUT/mail.pdf"; sleep 1; rm -f "$OUT/mail-sent"
+key n; click 640 400 0.8; xdotool type --delay 10 "mailed note"; key ctrl+Return; sleep 0.8
+click 1127 61 0.8; click 1008 603 1.2; MF=$(cat "$OUT/mail-sent" 2>/dev/null)
+check "Email attaches the document as it is now (${MF:-nothing attached})" "[ -f \"$MF\" ] && qpdf --qdf --object-streams=disable \"$MF\" - 2>/dev/null | grep -aq 'mailed note'"
+quit
+
+# 70. Crop ▸ Change page size (Acrobat's Set Page Boxes ▸ Change Page Size), A5: every page of the output is
+# 420 × 595 pt, its text still there.
+cp "$OUT/text.pdf" "$OUT/resize.pdf"; launch "$OUT/resize.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "crop"; key Return; sleep 2.5
+CP=$(at Change 280x700+1000+40); [ -n "$CP" ] && click $CP 0.6; A5=$(at A5 280x700+1000+40); [ -n "$A5" ] && click $A5 0.4
+click 1140 755 4; RZ=$(pdfinfo -f 1 -l 4 "$OUT/resize-cropped.pdf" 2>/dev/null | grep -c 'size: *420 x 595')
+check "Change page size makes every page A5 (${CP:-no option} ${A5:-no A5}; $RZ of 4 pages)" "[ \"$RZ\" = 4 ] && pdftotext $OUT/resize-cropped.pdf - 2>/dev/null | grep -q 'Page 4'"
+quit
+
+# 71. Rotate ▸ Flip ↔ (a mirror image): the output's "Page 1" ends 72 pt from the right edge instead of starting
+# 72 pt from the left.
+cp "$OUT/text.pdf" "$OUT/flip.pdf"; launch "$OUT/flip.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "rotate"; key Return; sleep 2.5
+FL=$(at Flip 280x700+1000+40); [ -n "$FL" ] && click $FL 0.5; click 1140 755 4
+FX=$(pdftotext -bbox -f 1 -l 1 "$OUT/flip-rotated.pdf" - 2>/dev/null | grep -m1 'xMin' | sed 's/.*xMin="\([0-9.]*\)".*/\1/')
+check "Flip ↔ mirrors the pages (${FL:-no Flip}; first word at x ${FX:-?})" "python3 -c 'import sys; sys.exit(0 if float(\"${FX:-0}\") > 300 else 1)'"
+quit

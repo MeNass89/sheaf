@@ -326,6 +326,23 @@ pub fn snap_area(ui: &AppWindow, tab_id: i32) {
     crate::flow::toast(ui, "Drag over the part of the page to copy as a picture");
 }
 
+/// More ▸ One page at a time (Acrobat's Single Page): the page shown fits the view, the wheel
+/// and the arrow keys turn pages; off, the zoom stays and scrolling is continuous again.
+pub fn page_at_a_time(ui: &AppWindow, tab_id: i32) {
+    let on = update(tab_id, |r, v| {
+        r.page_at_a_time = !r.page_at_a_time;
+        if r.page_at_a_time {
+            let cur = v.current();
+            v.viewer.set_spread(0);
+            v.show_page(cur, None);
+        }
+        r.page_at_a_time
+    });
+    if on == Some(true) {
+        zoom_fit(ui, tab_id, 1);
+    }
+}
+
 /// More ▸ Scroll automatically (Acrobat's): on or off; Escape stops it too.
 pub fn auto_scroll(tab_id: i32) {
     update(tab_id, |r, _| r.auto_scroll = !r.auto_scroll);
