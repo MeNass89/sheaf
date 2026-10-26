@@ -274,6 +274,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 (1, _) => SplitMode::Every(opts.every.max(1) as u32),
                 (2, _) => SplitMode::Bookmarks,
                 (3, _) => SplitMode::Size(split_size(&opts.split_size)?),
+                (4, _) => SplitMode::Halves(opts.split_across),
                 (_, true) => SplitMode::OneFile(opts.ranges.trim().into()),
                 _ => SplitMode::Ranges(opts.ranges.trim().into()),
             },
@@ -281,7 +282,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
         },
         ToolId::RemovePages => Job::RemovePages { input: one(inputs)?, pages: if opts.remove_blank { format!("{}:{}", jobs::BLANK_PAGES, opts.blank_level.clamp(0, 2)) } else { pages }, out: single()? },
         ToolId::ExtractPages => Job::ExtractPages { input: one(inputs)?, pages, out: single()? },
-        ToolId::Organize => Job::Organize { input: one(inputs)?, order, out: single()? },
+        ToolId::Organize => Job::Organize { input: one(inputs)?, order, out: single()?, per_sheet: [1, 2, 4, 6, 9][opts.per_sheet.clamp(0, 4) as usize], booklet: opts.per_sheet == 5 },
         ToolId::Rotate => Job::Rotate {
             items: pairs(inputs),
             degrees: opts.degrees as i64,
@@ -351,7 +352,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 return Err(OpdfError::Unsupported("Compare needs an original and a changed PDF".into()));
             };
             let range = |s: &slint::SharedString| (!s.trim().is_empty()).then(|| s.trim().to_string());
-            Job::Compare { old, new, mode: if opts.compare_mode == 1 { CompareMode::Overlay } else { CompareMode::Text }, out: single()?, pages: [range(&opts.compare_old_pages), range(&opts.compare_new_pages)] }
+            Job::Compare { old, new, mode: [CompareMode::Text, CompareMode::Overlay, CompareMode::SideBySide][opts.compare_mode.clamp(0, 2) as usize], out: single()?, pages: [range(&opts.compare_old_pages), range(&opts.compare_new_pages)] }
         }
         ToolId::Redact => {
             if marks.is_empty() {
@@ -544,6 +545,27 @@ pub fn mail_attachment(file: &std::path::Path, subject: &str) -> bool {
     {
         spawn_detached("xdg-email", &["--subject".as_ref(), subject.as_ref(), "--attach".as_ref(), file.as_os_str()]);
         true
+    }
+}
+
+/// A screenshot of an area the user drags (macOS's screencapture -i; elsewhere GNOME's or KDE's
+/// tool, else ImageMagick's import) written to `to` as PNG; blocks until it is taken. Debug builds
+/// copy the image `SHEAF_TEST_SCREENSHOT` names instead (gui-smoke). False: none was taken.
+pub fn capture_area(to: &std::path::Path) -> bool {
+    if cfg!(debug_assertions)
+        && let Some(image) = std::env::var_os("SHEAF_TEST_SCREENSHOT")
+    {
+        return std::fs::copy(image, to).is_ok();
+    }
+    let ok = |cmd: &str, args: &[&std::ffi::OsStr]| std::process::Command::new(cmd).args(args).status().is_ok_and(|s| s.success()) && to.is_file();
+    let t = to.as_os_str();
+    #[cfg(target_os = "macos")]
+    return ok("screencapture", &["-i".as_ref(), t]);
+    #[cfg(windows)]
+    return false;
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        ok("gnome-screenshot", &["-a".as_ref(), "-f".as_ref(), t]) || ok("spectacle", &["-r".as_ref(), "-b".as_ref(), "-n".as_ref(), "-o".as_ref(), t]) || ok("import", &[t])
     }
 }
 

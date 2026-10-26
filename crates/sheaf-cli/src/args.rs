@@ -540,6 +540,8 @@ pub(crate) enum CliCompare {
     Text,
     /// The changed PDF with the differences highlighted
     Overlay,
+    /// Each page of the original beside the marked one, on one sheet
+    SideBySide,
 }
 
 #[derive(Clone, Copy, ValueEnum)]

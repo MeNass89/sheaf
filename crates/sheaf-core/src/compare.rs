@@ -20,6 +20,9 @@ pub enum CompareMode {
     Text,
     /// The changed document with the differences highlighted.
     Overlay,
+    /// Each page of the original beside the same page of the marked copy, on one sheet (Acrobat's
+    /// side-by-side view): scrolling moves both together.
+    SideBySide,
 }
 
 /// What [`compare`] found and wrote.
@@ -60,7 +63,13 @@ impl CompareReport {
 
     /// The result line, in Sheaf's CLI and app alike.
     pub fn summary(&self) -> String {
-        let mut s = if self.identical() { "No differences: the documents' text is identical.".to_string() } else { self.counts() };
+        let more = self.regions + self.moved + self.pages_added + self.pages_removed > 0;
+        // Identical words with other changes: said in the same run of clauses ("identical.; 1 …" read badly).
+        let mut s = match (self.identical(), more) {
+            (true, false) => "No differences: the documents' text is identical.".to_string(),
+            (true, true) => "The text is the same".to_string(),
+            _ => self.counts(),
+        };
         if self.regions > 0 {
             s += &format!("; {} {}", crate::tools::count(self.regions, "other changed area"), if self.listed { "listed" } else { "outlined" });
         }
@@ -142,6 +151,12 @@ fn moved_lines(old: &[Placed], new: &[Placed], changed: impl Fn(usize, &[f64; 4]
 /// overwriting): the report for [`CompareMode::Text`], the marked copy of `new` for
 /// [`CompareMode::Overlay`].
 pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Result<CompareReport> {
+    if mode == CompareMode::SideBySide {
+        let tmp = tempfile::tempdir()?;
+        let mut r = compare(old, new, CompareMode::Overlay, &tmp.path().join("marked.pdf"))?;
+        r.path = side_by_side(old, &r.path, out)?;
+        return Ok(r);
+    }
     let mut doc = Doc::open(new)?;
     let old_id = doc.open_also(old)?;
     let new_id = doc.id();
@@ -245,7 +260,8 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
                 report.path = with_areas_page(&bytes, &areas, &notes, out)?;
             }
         }
-        CompareMode::Overlay => {
+        // Side by side is made from this overlay (at the top of this function).
+        CompareMode::Overlay | CompareMode::SideBySide => {
             // Changed areas outlined in red, moved lines in blue.
             let outline = |(page, rect): (usize, [f64; 4]), kind: Kind, contents: &str| {
                 let shape = Shape::Rectangle { rect };
@@ -267,6 +283,42 @@ pub fn compare(old: &Input, new: &Input, mode: CompareMode, out: &Path) -> Resul
         }
     }
     Ok(report)
+}
+
+/// The original's pages each beside the marked copy's (`marked`, its marks drawn into the pages),
+/// two to a sheet as wide as both: a page only one document has stands beside a blank one.
+fn side_by_side(old: &Input, marked: &Path, out: &Path) -> Result<PathBuf> {
+    use pdfium_render::prelude::*;
+    let _g = crate::engine::pdfium_lock();
+    let a = old.open()?;
+    let b = crate::engine::open_pdf(marked, None)?;
+    // The marks are comments: drawn into the pages, or tiling would leave them out.
+    for i in 0..b.pages().len() {
+        b.pages().get(i)?.flatten()?;
+    }
+    let (na, nb) = (a.pages().len(), b.pages().len());
+    let size = |d: &PdfDocument, i: i32| d.pages().get(i).ok().map(|p| (p.width().value, p.height().value));
+    let (mut w, mut h) = (0f32, 0f32);
+    for i in 0..na.max(nb) {
+        for s in [size(&a, i), size(&b, i)].into_iter().flatten() {
+            w = w.max(s.0);
+            h = h.max(s.1);
+        }
+    }
+    let mut pairs = crate::engine::pdfium().create_new_pdf()?;
+    for i in 0..na.max(nb) {
+        for (d, n) in [(&a, na), (&b, nb)] {
+            let at = pairs.pages().len();
+            if i < n {
+                pairs.pages_mut().copy_page_range_from_document(d, i..=i, at)?;
+            } else {
+                pairs.pages_mut().create_page_at_index(PdfPagePaperSize::new_custom(PdfPoints::new(w), PdfPoints::new(h)), at)?;
+            }
+        }
+    }
+    let sheet = PdfPagePaperSize::new_custom(PdfPoints::new(2.0 * w + 24.0), PdfPoints::new(h + 24.0));
+    let tiled = pairs.pages().tile_into_new_document(1, 2, sheet)?;
+    atomic_write(out, |part| Ok(tiled.save_to_file(part)?))
 }
 
 /// "Page 3 is" or "Pages 3–5 are" (1-based pages, `one` and `many` the words after them).

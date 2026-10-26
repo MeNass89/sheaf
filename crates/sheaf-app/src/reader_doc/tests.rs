@@ -863,3 +863,20 @@ fn a_fields_font_named_by_a_resource_key_is_read_through_the_forms_resources() {
     let (_, _, snap) = started(&path);
     assert_eq!(snap.fields.iter().map(|f| (f.name.as_str(), f.font)).collect::<Vec<_>>(), [("Name", 1)], "Times through /DR");
 }
+
+#[test]
+fn pages_inserted_from_a_file_keep_their_content() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 4);
+    let other = tempfile::tempdir().unwrap();
+    let single = fixture(other.path(), 1);
+    let (ops, rx, _) = started(&path);
+    let bytes = std::sync::Arc::new(std::fs::read(&single).unwrap());
+    ops.send(Op::Apply { edit: Box::new(Edit::InsertPagesFrom { name: "single.pdf".into(), bytes, pages: None, at: 1, field_conflicts: Default::default() }), pages: Vec::new() }).unwrap();
+    let (snap, err) = next(&rx);
+    assert!(err.is_none(), "{err:?}");
+    let out = dir.path().join("out.pdf");
+    std::fs::write(&out, &*snap.bytes).unwrap();
+    assert_eq!(texts(&out), ["Page 1", "Page 1", "Page 2", "Page 3", "Page 4"]);
+}
+

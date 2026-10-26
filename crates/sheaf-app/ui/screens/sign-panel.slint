@@ -19,6 +19,7 @@ export component Pad inherits Rectangle {
     // The pen as it will sign: colour and width shown while drawing.
     in property <color> ink: Theme.text;
     in property <length> pen: 2.5px;
+    in property <string> hint: "Draw your signature here";
     in-out property <string> commands;
     callback stroke-done(string, length, length);
     property <bool> down;
@@ -30,7 +31,7 @@ export component Pad inherits Rectangle {
     background: Theme.input-bg;
     clip: true;
     if root.commands == "": Text {
-        text: "Draw your signature here";
+        text: root.hint;
         font-size: Theme.fs-label;
         color: Theme.text-disabled;
     }

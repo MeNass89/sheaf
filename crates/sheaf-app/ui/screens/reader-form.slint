@@ -186,7 +186,8 @@ export component FieldsArrangeCard inherits Rectangle {
         Text { text: "Arranged after the first one picked; the arrow keys move them."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
         // Codes as reader::arrange.
         for row in [
-            { label: "Align", items: [{ t: "Left", k: 0 }, { t: "Centre", k: 1 }, { t: "Right", k: 2 }, { t: "Top", k: 3 }, { t: "Middle", k: 4 }, { t: "Bottom", k: 5 }] },
+            { label: "Align", items: [{ t: "Left", k: 0 }, { t: "Centre", k: 1 }, { t: "Right", k: 2 }] },
+            { label: "", items: [{ t: "Top", k: 3 }, { t: "Middle", k: 4 }, { t: "Bottom", k: 5 }] },
             { label: "Size", items: [{ t: "Same width", k: 6 }, { t: "Same height", k: 7 }, { t: "Both", k: 8 }] },
             { label: "Space", items: [{ t: "Evenly across", k: 9 }, { t: "Evenly down", k: 10 }] },
         ]: HorizontalLayout {

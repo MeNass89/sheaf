@@ -147,7 +147,8 @@ pub fn resize(input: &Input, pages: Option<&str>, size: (f64, f64), out: &Path) 
 
 /// Flip pages (a mirror image, for transfers and printing on film): the pages chosen (`pages` a
 /// range, none: all) mirrored left to right (`horizontal`) or top to bottom, as seen. Written to
-/// `out`, not password-protected. Comments keep their places.
+/// `out`, not password-protected. Comments are drawn into the pages flipped, so a highlight stays on
+/// its words (a mirror is for printing).
 pub fn flip(input: &Input, pages: Option<&str>, horizontal: bool, out: &Path) -> Result<PathBuf> {
     let _g = pdfium_lock();
     let src = input.open()?;
@@ -163,6 +164,7 @@ pub fn flip(input: &Input, pages: Option<&str>, horizontal: bool, out: &Path) ->
     dst.pages_mut().append(&src)?;
     for i in chosen {
         let mut page = dst.pages().get(i)?;
+        page.flatten()?;
         // As seen: a page turned a quarter is mirrored about the other axis of its own space.
         let turned = matches!(page.rotation()?, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
         let m = page.boundaries().media()?.bounds;
@@ -175,6 +177,95 @@ pub fn flip(input: &Input, pages: Option<&str>, horizontal: bool, out: &Path) ->
         }
     }
     save(&dst, out)
+}
+
+/// Cut each page in two (Stirling PDF's Split pages into sections; a scanned spread made pages
+/// again): every page becomes its left and right halves (`across`), or its top and bottom, as
+/// seen, in reading order. Written to `out`, not password-protected.
+pub fn halves(input: &Input, across: bool, out: &Path) -> Result<PathBuf> {
+    let _g = pdfium_lock();
+    let src = input.open()?;
+    let n = src.pages().len();
+    let mut dst = pdfium().create_new_pdf()?;
+    for i in 0..n {
+        for half in 0..2 {
+            let at = dst.pages().len();
+            dst.pages_mut().copy_page_range_from_document(&src, i..=i, at)?;
+            let mut page = dst.pages().get(at)?;
+            let c = page.boundaries().crop().map(|b| b.bounds).or_else(|_| page.boundaries().media().map(|b| b.bounds))?;
+            let (l, b, r, t) = (c.left().value, c.bottom().value, c.right().value, c.top().value);
+            // As seen: a page turned a quarter is cut along its other axis, the halves in reading order.
+            let rot = page.rotation()?;
+            let turned = matches!(rot, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
+            let cut_x = across != turned;
+            // Which half comes first as seen: left (or top) of the page as displayed.
+            let first_low = match rot {
+                PdfPageRenderRotation::None => cut_x,
+                PdfPageRenderRotation::Degrees90 => true,
+                PdfPageRenderRotation::Degrees180 => !cut_x,
+                PdfPageRenderRotation::Degrees270 => false,
+            };
+            let low = (half == 0) == first_low;
+            let rect = if cut_x {
+                let m = (l + r) / 2.0;
+                if low { PdfRect::new_from_values(b, l, t, m) } else { PdfRect::new_from_values(b, m, t, r) }
+            } else {
+                let m = (b + t) / 2.0;
+                if low { PdfRect::new_from_values(b, l, m, r) } else { PdfRect::new_from_values(m, l, t, r) }
+            };
+            // Media too: a reader or printer that goes by the media box shows the half alone.
+            page.boundaries_mut().set_media(rect)?;
+            page.boundaries_mut().set_crop(rect)?;
+        }
+    }
+    save(&dst, out)
+}
+
+/// The order a booklet's pages are printed in, two to a side, `n` pages padded with blanks (0) to
+/// a multiple of four: folded, the sheets read 1, 2, 3… (Acrobat's Booklet printing).
+pub fn booklet_order(n: u32) -> Vec<u32> {
+    let total = n.div_ceil(4).max(1) * 4;
+    let page = |k: u32| if k <= n { k } else { 0 };
+    let mut out = Vec::with_capacity(total as usize);
+    let (mut lo, mut hi) = (1, total);
+    while lo < hi {
+        // Front: last and first; back: second and second to last.
+        out.extend([page(hi), page(lo), page(lo + 1), page(hi - 1)]);
+        lo += 2;
+        hi -= 2;
+    }
+    out
+}
+
+/// Several pages to a sheet (Acrobat's Multiple pages per sheet; iLovePDF's Pages per sheet):
+/// `per_sheet` 2, 4, 6 or 9, or a booklet (2 to a side, in [`booklet_order`]). The sheets are the
+/// first page's size, turned for 2 and 6. Written to `out`, not password-protected.
+pub fn impose(input: &Input, per_sheet: u8, booklet: bool, out: &Path) -> Result<PathBuf> {
+    let (rows, cols) = match (booklet, per_sheet) {
+        (true, _) | (_, 2) => (1u8, 2u8),
+        (_, 4) => (2, 2),
+        (_, 6) => (2, 3),
+        (_, 9) => (3, 3),
+        (_, n) => return Err(OpdfError::Unsupported(format!("{n} pages to a sheet (choose 2, 4, 6 or 9)"))),
+    };
+    let _g = pdfium_lock();
+    let src = input.open()?;
+    let n = src.pages().len() as u32;
+    let first = src.pages().get(0)?;
+    let (w, h) = (first.width(), first.height());
+    let order: Vec<u32> = if booklet { booklet_order(n) } else { (1..=n).collect() };
+    let mut seq = pdfium().create_new_pdf()?;
+    for p in order {
+        let at = seq.pages().len();
+        if p == 0 {
+            seq.pages_mut().create_page_at_index(PdfPagePaperSize::new_custom(w, h), at)?;
+        } else {
+            seq.pages_mut().copy_page_range_from_document(&src, (p - 1) as PdfPageIndex..=(p - 1) as PdfPageIndex, at)?;
+        }
+    }
+    let sheet = if cols > rows { PdfPagePaperSize::new_custom(h, w) } else { PdfPagePaperSize::new_custom(w, h) };
+    let tiled = seq.pages().tile_into_new_document(rows, cols, sheet)?;
+    save(&tiled, out)
 }
 
 /// The pages of a PDF held in memory (0: it cannot be read).

@@ -81,15 +81,6 @@ export component ReaderPanel inherits Rectangle {
                             clicked => { recent.show(); }
                         }
                     }
-                    // Acrobat's Find and Replace: the words found rewritten in the pages' text.
-                    HorizontalLayout {
-                        padding-left: 10px;
-                        padding-right: 10px;
-                        padding-bottom: 6px;
-                        spacing: 6px;
-                        replace-in := PanelField { placeholder: "Replace with"; }
-                        SmallButton { text: "Replace all"; clicked => { ReaderBridge.replace-all(root.id, root.search-text, replace-in.text); } }
-                    }
                     HorizontalLayout {
                         padding-left: 12px;
                         padding-right: 10px;
@@ -102,6 +93,15 @@ export component ReaderPanel inherits Rectangle {
                             color: Theme.text-secondary;
                             overflow: elide;
                         }
+                    }
+                    // Acrobat's Find and Replace: the words found rewritten in the pages' text.
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-bottom: 6px;
+                        spacing: 6px;
+                        replace-in := PanelField { placeholder: "Replace with"; }
+                        SmallButton { text: "Replace all"; clicked => { ReaderBridge.replace-all(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
                     }
                     recent := PopupWindow {
                         x: 10px;
@@ -213,6 +213,15 @@ export component ReaderPanel inherits Rectangle {
                                 mouse-cursor: pointer;
                                 clicked => { ReaderBridge.outline-clicked(root.id, i); root.focus-pages(); }
                                 double-clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); }
+                                // On hover: rename, delete, and the rest in a menu (Acrobat's bookmark context menu); inside
+                                // the TouchArea so reaching them keeps the row hovered.
+                                if ot.has-hover && !r.editing: HorizontalLayout {
+                                    x: parent.width - 34px - 90px;
+                                    width: 90px;
+                                    ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Rename"; clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); } }
+                                    ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete bookmark"; clicked => { ReaderBridge.outline-op(root.id, i, 4, ""); root.focus-pages(); } }
+                                    ToolButton { icon: @image-url("../icons/ellipsis.svg"); tip: "More"; clicked => { root.mark-row = i; root.mark-menu-y = self.absolute-position.y - root.absolute-position.y + 30px; mark-menu.show(); } }
+                                }
                             }
                             if r.has-children: Rectangle {
                                 x: 6px + r.depth * 14px;
@@ -264,14 +273,6 @@ export component ReaderPanel inherits Rectangle {
                                     }
                                 }
                             }
-                            // On hover: rename, delete, and the rest in a menu (Acrobat's bookmark context menu).
-                            if ot.has-hover && !r.editing: HorizontalLayout {
-                                x: parent.width - 34px - 90px;
-                                width: 90px;
-                                ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Rename"; clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); } }
-                                ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete bookmark"; clicked => { ReaderBridge.outline-op(root.id, i, 4, ""); root.focus-pages(); } }
-                                ToolButton { icon: @image-url("../icons/ellipsis.svg"); tip: "More"; clicked => { root.mark-row = i; root.mark-menu-y = self.absolute-position.y - root.absolute-position.y + 30px; mark-menu.show(); } }
-                            }
                             Text {
                                 x: parent.width - 34px;
                                 width: 26px;
@@ -316,7 +317,8 @@ export component ReaderPanel inherits Rectangle {
                             spacing: 8px;
                             Image { y: 10px; width: 14px; height: 14px; source: @image-url("../icons/paperclip.svg"); colorize: Theme.text-secondary; }
                             Text { text: f.name; font-size: Theme.fs-label; color: Theme.text; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
-                            Text { text: f.value; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                            // Its size gives way to the buttons on hover.
+                            Text { text: f.value; opacity: fa.has-hover ? 0 : 1; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
                             Rectangle { width: 22px; }
                         }
                         fa := TouchArea {
@@ -349,9 +351,10 @@ export component ReaderPanel inherits Rectangle {
                                 vertical-alignment: center;
                                 single-line: true;
                                 init => { self.focus(); self.select-all(); }
-                                accepted => { ReaderBridge.attachment-change(root.id, i, self.text); root.att-renaming = -1; }
+                                // The field goes: the keys (⌘S…) back to the pages.
+                                accepted => { ReaderBridge.attachment-change(root.id, i, self.text); root.att-renaming = -1; root.focus-pages(); }
                                 key-pressed(e) => {
-                                    if e.text == Key.Escape { root.att-renaming = -1; return accept; }
+                                    if e.text == Key.Escape { root.att-renaming = -1; root.focus-pages(); return accept; }
                                     reject
                                 }
                             }

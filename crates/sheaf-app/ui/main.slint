@@ -130,6 +130,7 @@ export component AppWindow inherits Window {
     callback open-file();
     callback new-blank();
     callback new-from-clipboard();
+    callback new-from-screenshot();
     callback pin-recent(int);
     callback filter-recents(string, int);
     callback open-tool(string);
@@ -138,6 +139,8 @@ export component AppWindow inherits Window {
     callback move-tab(int, int);
     // ⇧⌘[ / ⇧⌘]: the next tab along the bar.
     callback step-tab(int);
+    // ⌘W anywhere: the tab shown closed.
+    callback close-active-tab();
     callback close-tabs-around(int, int);
     callback add-files(int);
     callback open-slot(int, int);
@@ -223,10 +226,14 @@ export component AppWindow inherits Window {
     default-font-size: Theme.fs-body;
 
     // App-wide keys (macOS conventions), reached from anywhere a focused control does not take them:
-    // ⌘, Preferences.
+    // ⌘, Preferences, ⌘O Open, ⌘W close the tab shown, ⌃Tab and ⌃⇧Tab the next and previous tab, as
+    // browsers and PDF Expert do (⌘8 and ⌘9 stay the reader's zooms).
     app-keys := FocusScope {
         key-pressed(e) => {
             if e.modifiers.control && e.text == "," { root.show-preferences(); return accept; }
+            if e.modifiers.control && (e.text == "o" || e.text == "O") { root.open-file(); return accept; }
+            if e.modifiers.control && (e.text == "w" || e.text == "W") && root.active-tab >= 0 { root.close-active-tab(); return accept; }
+            if e.text == Key.Tab && e.modifiers.control { root.step-tab(e.modifiers.shift ? -1 : 1); return accept; }
             // ⌘F on the Tools page: its search.
             if e.modifiers.control && e.text == "f" && root.active-tab == -1 && root.page == Page.tools { root.search-seq += 1; return accept; }
             reject
@@ -269,6 +276,7 @@ export component AppWindow inherits Window {
                             open-file => { root.open-file(); }
                             new-blank => { root.new-blank(); }
                             new-from-clipboard => { root.new-from-clipboard(); }
+                            new-from-screenshot => { root.new-from-screenshot(); }
                             open-recent(i) => { root.open-recent(i); }
                             reveal-recent(i) => { root.reveal-recent(i); }
                             remove-recent(i) => { root.remove-recent(i); }

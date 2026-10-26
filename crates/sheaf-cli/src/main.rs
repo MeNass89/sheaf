@@ -251,6 +251,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             let mode = match mode {
                 CliCompare::Text => CompareMode::Text,
                 CliCompare::Overlay => CompareMode::Overlay,
+                CliCompare::SideBySide => CompareMode::SideBySide,
             };
             let r = compare::compare(&input(old), &input(new), mode, &out)?;
             note!("{}", r.summary());

@@ -1,4 +1,5 @@
 // The reader's sheets over the pages: the signature pad, the print sheet, document properties, the page background, the versions.
+import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Pad } from "sign-panel.slint";
 import { SmallButton, ColourDot } from "reader-parts.slint";
@@ -45,7 +46,7 @@ export component SignatureSheet inherits Rectangle {
                 }
                 Rectangle { horizontal-stretch: 1; }
             }
-            pad := Pad { ink: [#1A1A1F, #1A52D9, #0D2673][ink]; pen: [1.5px, 2.5px, 4px][pen]; }
+            pad := Pad { ink: [#1A1A1F, #1A52D9, #0D2673][ink]; pen: [1.5px, 2.5px, 4px][pen]; hint: root.tab.reader.initials ? "Draw your initials here" : "Draw your signature here"; }
             Text { text: root.tab.reader.initials ? "or type them" : "or type your name"; font-size: Theme.fs-caption; color: Theme.text-muted; }
             typed := TextField { placeholder: root.tab.reader.initials ? "Your initials" : "Your name"; }
             // The name in each handwriting font as it is typed (Stirling's and PDF Expert's choice):
@@ -244,56 +245,82 @@ export component PropertiesSheet inherits Rectangle {
             if e.text == Key.Escape { ReaderBridge.props-cancel(root.id); root.focus-pages(); return accept; }
             reject
         }
+        // As tall as it needs, within the window: past that its fields scroll, Cancel and Save stay.
         Rectangle {
             width: 460px;
-            height: ppl.preferred-height;
+            // Its title, buttons, spacing and padding take 110 px.
+            height: min(ppl.preferred-height + 110px, root.height - 48px);
             border-radius: Theme.radius-card;
             background: Theme.card;
             drop-shadow-blur: 24px;
             drop-shadow-color: #00000055;
-            ppl := VerticalLayout {
+            VerticalLayout {
                 padding: 18px;
                 spacing: 10px;
                 Text { text: "Document properties"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-                title-in := TextField { label: "Title"; text: root.tab.reader.props-title; accepted => { save.clicked(); } }
-                author-in := TextField { label: "Author"; text: root.tab.reader.props-author; accepted => { save.clicked(); } }
-                subject-in := TextField { label: "Subject"; text: root.tab.reader.props-subject; accepted => { save.clicked(); } }
-                keywords-in := TextField { label: "Keywords"; text: root.tab.reader.props-keywords; accepted => { save.clicked(); } }
-                custom-in := TextField { label: "Custom properties"; placeholder: "Name: value; another: value"; text: root.tab.reader.props-custom; accepted => { save.clicked(); } }
-                // Acrobat's Initial View: how the document opens, in Sheaf and other readers.
-                Text { text: "When opened"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text-secondary; }
-                HorizontalLayout {
-                    spacing: 6px;
-                    page-in := TextField { width: 70px; placeholder: "Page"; text: root.tab.reader.props-opening[0] > 1 ? root.tab.reader.props-opening[0] : ""; accepted => { save.clicked(); } }
-                    for l[i] in ["Any layout", "One page", "Two pages", "Cover alone"]: SmallButton { text: l; primary: root.open-layout == i; clicked => { root.open-layout = i; } }
-                }
-                HorizontalLayout {
-                    spacing: 6px;
-                    for z[i] in ["Any zoom", "Fit page", "Fit width", "Actual size"]: SmallButton { text: z; primary: root.open-zoom == i; clicked => { root.open-zoom = i; } }
-                    Rectangle { width: 8px; }
-                    for n[i] in ["No panel", "Bookmarks", "Pages"]: SmallButton { text: n; primary: root.open-panel == i; clicked => { root.open-panel = i; } }
-                }
-                Rectangle { height: 1px; background: Theme.sidebar-border; }
-                // A line cut short opens in full on a click (a certificate's issuer and dates; Sol, 25/10).
-                for p[i] in root.tab.reader.props-about: HorizontalLayout {
-                    spacing: 10px;
-                    Text { text: p.name; width: 150px; font-size: Theme.fs-label; color: Theme.text-secondary; }
-                    Text {
-                        text: p.value;
-                        font-size: Theme.fs-label;
-                        color: Theme.text;
-                        horizontal-stretch: 1;
-                        overflow: elide;
-                        wrap: root.open-row == i ? word-wrap : no-wrap;
-                        TouchArea { mouse-cursor: pointer; clicked => { root.open-row = root.open-row == i ? -1 : i; } }
+                ScrollView {
+                    vertical-stretch: 1;
+                    // Never across; room left for the scroll bar.
+                    content-width: self.visible-width;
+                    ppl := VerticalLayout {
+                        x: 0;
+                        width: parent.width - 12px;
+                        spacing: 10px;
+                        title-in := TextField { label: "Title"; text: root.tab.reader.props-title; accepted => { save.clicked(); } }
+                        author-in := TextField { label: "Author"; text: root.tab.reader.props-author; accepted => { save.clicked(); } }
+                        subject-in := TextField { label: "Subject"; text: root.tab.reader.props-subject; accepted => { save.clicked(); } }
+                        keywords-in := TextField { label: "Keywords"; text: root.tab.reader.props-keywords; accepted => { save.clicked(); } }
+                        custom-in := TextField { label: "Custom properties"; placeholder: "Name: value; another: value"; text: root.tab.reader.props-custom; accepted => { save.clicked(); } }
+                        // Acrobat's Initial View: how the document opens, in Sheaf and other readers.
+                        Text { text: "When opened"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text-secondary; }
+                        // One row each, a caption to the left: the four fit the sheet's width.
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Text { width: 48px; text: "Page"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                            page-in := TextField { width: 70px; placeholder: "1"; text: root.tab.reader.props-opening[0] > 1 ? root.tab.reader.props-opening[0] : ""; accepted => { save.clicked(); } }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            Text { width: 48px; text: "Layout"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                            for l[i] in ["Any", "One page", "Two pages", "Cover first"]: SmallButton { text: l; primary: root.open-layout == i; clicked => { root.open-layout = i; } }
+                        }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            Text { width: 48px; text: "Zoom"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                            for z[i] in ["Any", "Fit page", "Fit width", "Actual size"]: SmallButton { text: z; primary: root.open-zoom == i; clicked => { root.open-zoom = i; } }
+                        }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            Text { width: 48px; text: "Panel"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                            for n[i] in ["None", "Bookmarks", "Pages"]: SmallButton { text: n; primary: root.open-panel == i; clicked => { root.open-panel = i; } }
+                        }
+                        Rectangle { height: 1px; background: Theme.sidebar-border; }
+                        // A line cut short opens in full on a click (a certificate's issuer and dates; Sol, 25/10).
+                        for p[i] in root.tab.reader.props-about: HorizontalLayout {
+                            spacing: 10px;
+                            Text { text: p.name; width: 150px; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                            Text {
+                                text: p.value;
+                                font-size: Theme.fs-label;
+                                color: Theme.text;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                                wrap: root.open-row == i ? word-wrap : no-wrap;
+                                TouchArea { mouse-cursor: pointer; clicked => { root.open-row = root.open-row == i ? -1 : i; } }
+                            }
+                        }
+                        for label[k] in root.tab.reader.props-signed: HorizontalLayout {
+                            alignment: start;
+                            spacing: 6px;
+                            SmallButton { text: label; clicked => { ReaderBridge.open-signed(root.id, k); } }
+                            // Acrobat's Add to Trusted Certificates.
+                            if root.tab.reader.props-trust[k] != "": SmallButton { text: root.tab.reader.props-trust[k]; clicked => { ReaderBridge.trust-signature(root.id, k); } }
+                        }
                     }
-                }
-                for label[k] in root.tab.reader.props-signed: HorizontalLayout {
-                    alignment: start;
-                    spacing: 6px;
-                    SmallButton { text: label; clicked => { ReaderBridge.open-signed(root.id, k); } }
-                    // Acrobat's Add to Trusted Certificates.
-                    if root.tab.reader.props-trust[k] != "": SmallButton { text: root.tab.reader.props-trust[k]; clicked => { ReaderBridge.trust-signature(root.id, k); } }
                 }
                 HorizontalLayout {
                     spacing: 8px;

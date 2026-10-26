@@ -42,6 +42,8 @@ pub struct ViewerUi {
     pub pending_actual: Option<f64>,
     /// Fit page to apply once the view knows its height (Preferences ▸ Open new documents at Fit page).
     pub pending_fit: bool,
+    /// The page to show once the view knows its size (a document's Initial View asks for one).
+    pub pending_page: Option<usize>,
     pub input: Input,
     pub viewer: Viewer,
     /// Device pixels per logical pixel (2 on Retina).
@@ -117,6 +119,7 @@ impl ViewerUi {
             search_seq: 0,
             pending_actual: None,
             pending_fit: false,
+            pending_page: None,
             input,
             viewer,
             scale,
@@ -231,15 +234,16 @@ impl ViewerUi {
     }
 
     /// The zoom at which `rect` (user space of `page`) fills the view with a little room around it,
-    /// within 1600 % of the fit width: a /FitR destination's, and Zoom to area's. Returns whether
-    /// the zoom changed.
+    /// up to the reader's largest zoom (400 % of actual size: a word would ask for pages too big to
+    /// draw): a /FitR destination's, and Zoom to area's. Returns whether the zoom changed.
     pub fn zoom_to_fit(&mut self, page: usize, rect: [f64; 4]) -> bool {
         let [_, _, w, h] = self.viewer.overlay(page, rect);
         if w < 1.0 || h < 1.0 {
             return false;
         }
         let k = (self.viewer.view_width() / w).min(self.height / h) * 0.92;
-        self.viewer.set_zoom((f64::from(self.viewer.zoom()) * k).round().clamp(1.0, 1600.0) as u32)
+        let most = self.viewer.zoom_for_actual(page, f64::from(viewer::MAX_ZOOM));
+        self.viewer.set_zoom(((f64::from(self.viewer.zoom()) * k).round() as u32).min(most))
     }
 
     /// Where the view stands: the page point at its top edge, which a zoom keeps (⌘[ comes back to
@@ -471,6 +475,19 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) 
             v.viewer.set_zoom(z);
         }
     });
+    // The Initial View's page, now that the pages have their real width: shown once this layout
+    // pass is over (a scroll set during it is lost).
+    if width > 0.0
+        && height > 0.0
+        && let Some(page) = update(tab_id, |v| v.pending_page.take()).flatten()
+    {
+        let weak = ui.as_weak();
+        slint::Timer::single_shot(Duration::from_millis(30), move || {
+            let Some(ui) = weak.upgrade() else { return };
+            update(tab_id, |v| v.show_page(page, None));
+            request(&ui, tab_id);
+        });
+    }
     crate::reader_ui::viewport_changed(ui, tab_id);
     request(ui, tab_id);
 }
@@ -863,6 +880,26 @@ pub fn remove_mark(tab_id: i32, k: i32) {
     });
 }
 
+/// A mark of the list clicked (Acrobat's Redaction panel): the page shows it, a third down.
+pub fn show_mark(tab_id: i32, k: i32) {
+    update(tab_id, |v| {
+        let k = k.max(0) as usize;
+        let checked: Vec<usize> = v.found.iter().enumerate().filter(|(_, f)| f.checked).map(|(i, _)| i).collect();
+        let (page, quads) = match checked.get(k) {
+            Some(&i) => (v.found[i].m.page, v.found[i].m.quads.clone()),
+            None => match v.manual.get(k - checked.len()) {
+                Some(m) => (m.mark.page, m.mark.quads.clone()),
+                None => return,
+            },
+        };
+        // A whole page has no quads: its top.
+        let focus = (!quads.is_empty()).then(|| redact::bounds(&quads));
+        v.scroll = v.viewer.scroll_to(page, focus, v.height);
+        v.scroll_seq += 1;
+        v.scroll_x = None;
+    });
+}
+
 pub fn clear_marks(tab_id: i32) {
     update(tab_id, |v| {
         v.manual.clear();
@@ -1014,10 +1051,13 @@ mod tests {
         assert_eq!(v.viewer.zoom(), v.viewer.fit_page_zoom(v.height, 0..1));
         assert!(v.show_dest(0, &render::DestView::FitH { top: Some(500.0) }) && v.viewer.zoom() == 100);
         // /FitR: the rectangle fills the view, its left edge at the view's left.
-        assert!(v.show_dest(2, &render::DestView::FitR { rect: [100.0, 400.0, 250.0, 500.0] }));
-        let r = v.viewer.overlay(2, [100.0, 400.0, 250.0, 500.0]);
+        assert!(v.show_dest(2, &render::DestView::FitR { rect: [100.0, 300.0, 500.0, 500.0] }));
+        let r = v.viewer.overlay(2, [100.0, 300.0, 500.0, 500.0]);
         assert!(r[2] <= v.viewer.view_width() && r[3] <= 700.0 && (r[2] > 0.8 * v.viewer.view_width() || r[3] > 0.8 * 700.0), "{r:?}");
         assert!(r[1] >= v.scroll && r[1] + r[3] <= v.scroll + 700.0, "{r:?} {}", v.scroll);
+        // A word's box: no further than 400 % of actual size (pages any larger are too big to draw).
+        v.show_dest(2, &render::DestView::FitR { rect: [100.0, 400.0, 120.0, 405.0] });
+        assert!((v.viewer.actual_percent(2) - 400.0).abs() < 1.0, "{}", v.viewer.actual_percent(2));
         // No zoom, no left: the zoom stays, no horizontal scroll asked for.
         let z = v.viewer.zoom();
         assert!(!v.show_dest(0, &render::DestView::Xyz { left: None, top: Some(500.0), zoom: None }));

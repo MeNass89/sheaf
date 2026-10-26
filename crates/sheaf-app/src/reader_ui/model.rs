@@ -464,6 +464,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         opacity: (super::tools::opacity_of(r) * 100.0).round() as i32,
         fill_colour: r.fill_colour.map_or(-1, |k| k as i32),
         selected_stroke: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(|a| super::tools::stroked(&a.subtype)),
+        selected_fillable: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(|a| super::tools::fillable(&a.subtype)),
         // Dynamic stamps share their names with standard ones: they say they are dated.
         stamp_image: r.custom_stamp.as_ref().map(|(n, _, _)| n.as_str()).unwrap_or_default().into(),
         stamps: ModelRc::new(VecModel::from(

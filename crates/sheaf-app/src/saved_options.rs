@@ -30,12 +30,14 @@ macro_rules! kept {
 
 kept! {
     ints:
+        per_sheet,
         crop_paper,
         bates_digits,
         level, blank_level, rotate_parity, rotate_orientation, split_mode, every, degrees, layout, margin, quality,
         num_position, num_margin, num_text, num_color, num_family, wm_color, wm_family, wm_scale, wm_position,
         wm_transparency, wm_rotation, crop_mode, pdfa_level, excel_layout, text_format, compare_mode;
     bools:
+        split_across,
         hf_replace,
         allow_printing, allow_copying, allow_editing, allow_commenting, allow_filling_forms, remove_blank,
         protect_sanitize, split_one_file, landscape, one_per_image, png, extract_images, num_double, num_cover,

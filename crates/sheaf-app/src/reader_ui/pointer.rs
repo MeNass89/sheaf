@@ -580,9 +580,12 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         }
         Some(Pending::Zoom(page, rect)) => {
             update(tab_id, |r, v| jump_dest(r, v, page, &render::DestView::FitR { rect: rect.map(|c| c as f32) }));
+            // Drawn again at the new zoom (until then the old renders show, stretched).
+            crate::viewer_ui::request(ui, tab_id);
         }
         Some(Pending::Link(render::LinkTarget::Page(page, view))) => {
             update(tab_id, |r, v| jump_dest(r, v, page, &view));
+            crate::viewer_ui::request(ui, tab_id);
         }
         Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("http://") || u.starts_with("https://") || u.starts_with("mailto:") => crate::run::open_detached(&u),
         // A link to a local file: a PDF opens in its own tab; any other file opens in its own app once

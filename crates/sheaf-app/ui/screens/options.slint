@@ -23,7 +23,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.tool == "protect" ? (root.require-open ? root.password != "" && root.password == root.confirm : root.owner != "")
         : root.tool == "remove_pages" ? root.pages != "" || root.remove-blank
         : root.tool == "extract_pages" ? root.pages != ""
-        : root.tool == "split" ? (root.split-mode == 0 ? root.ranges != "" && root.split-files >= 0 : root.split-mode == 3 ? root.split-size.is-float() && root.split-size.to-float() > 0 : root.split-mode == 2 || root.every >= 1)
+        : root.tool == "split" ? (root.split-mode == 0 ? root.ranges != "" && root.split-files >= 0 : root.split-mode == 3 ? root.split-size.is-float() && root.split-size.to-float() > 0 : root.split-mode == 2 || root.split-mode == 4 || root.every >= 1)
         : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == "")) && Parse.colour-error(root.num-hex) == ""
             && (root.num-text != 4 || root.hf-tl != "" || root.hf-tc != "" || root.hf-tr != "" || root.hf-bl != "" || root.hf-bc != "" || root.hf-br != "")
         : root.tool == "watermark" ? (root.wm-remove || (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "" && Parse.colour-error(root.wm-hex) == ""))
@@ -67,6 +67,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.every = o.every;
         root.split-one-file = o.split-one-file;
         root.split-size = o.split-size;
+        root.split-across = o.split-across;
         root.degrees = o.degrees;
         root.layout = o.layout;
         root.landscape = o.landscape;
@@ -122,6 +123,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.wm-remove = o.wm-remove;
         root.crop-mode = o.crop-mode;
         root.crop-paper = o.crop-paper;
+        root.per-sheet = o.per-sheet;
         root.crop-top = o.crop-top;
         root.crop-bottom = o.crop-bottom;
         root.crop-left = o.crop-left;
@@ -144,7 +146,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-printing: root.allow-printing, allow-copying: root.allow-copying,
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
-        pages: root.pages, remove-blank: root.remove-blank, blank-level: root.blank-level, rotate-parity: root.rotate-parity, rotate-orientation: root.rotate-orientation, protect-sanitize: root.protect-sanitize, compare-old-pages: root.compare-old-pages, compare-new-pages: root.compare-new-pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size,
+        pages: root.pages, remove-blank: root.remove-blank, blank-level: root.blank-level, rotate-parity: root.rotate-parity, rotate-orientation: root.rotate-orientation, protect-sanitize: root.protect-sanitize, compare-old-pages: root.compare-old-pages, compare-new-pages: root.compare-new-pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size, split-across: root.split-across,
         degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
@@ -159,7 +161,7 @@ export component OptionsPanel inherits VerticalLayout {
         wm-color: root.wm-color, wm-image: root.wm-image, wm-scale: root.wm-scale, wm-position: root.wm-position,
         wm-mosaic: root.wm-mosaic, wm-transparency: root.wm-transparency, wm-rotation: root.wm-rotation,
         wm-below: root.wm-below, wm-replace: root.wm-replace, wm-remove: root.wm-remove,
-        crop-mode: root.crop-mode, crop-paper: root.crop-paper, crop-top: root.crop-top, crop-bottom: root.crop-bottom,
+        crop-mode: root.crop-mode, crop-paper: root.crop-paper, per-sheet: root.per-sheet, crop-top: root.crop-top, crop-bottom: root.crop-bottom,
         crop-left: root.crop-left, crop-right: root.crop-right,
         pdfa-level: root.pdfa-level,
         ocr-languages: root.ocr-languages, ocr-all-pages: root.ocr-all-pages,
@@ -211,6 +213,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> rotate-orientation: 0;
     in-out property <int> split-mode: 0;
     in-out property <string> split-size;
+    in-out property <bool> split-across: true;
     in-out property <string> ranges;
     in-out property <int> every: 1;
     in-out property <bool> split-one-file;
@@ -272,6 +275,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <bool> wm-remove;
     in-out property <int> crop-mode: 0;
     in-out property <int> crop-paper: 0;
+    in-out property <int> per-sheet: 0;
     in-out property <string> crop-top: "10";
     in-out property <string> crop-bottom: "10";
     in-out property <string> crop-left: "10";
@@ -329,6 +333,18 @@ export component OptionsPanel inherits VerticalLayout {
             description: "Files no larger than the size you type";
             selected: root.split-mode == 3;
             clicked => { root.split-mode = 3; }
+        }
+        // Stirling PDF's Split pages into sections: a scanned spread made two pages again.
+        RadioCard {
+            title: "Cut each page in two";
+            description: "A spread scanned on one page becomes two pages";
+            selected: root.split-mode == 4;
+            clicked => { root.split-mode = 4; }
+        }
+        if root.split-mode == 4: HorizontalLayout {
+            spacing: 8px;
+            Segment { text: "Left | right"; selected: root.split-across; clicked => { root.split-across = true; } }
+            Segment { text: "Top / bottom"; selected: !root.split-across; clicked => { root.split-across = false; } }
         }
         Rectangle { height: 4px; }
         if root.split-mode == 0: TextField {
@@ -389,6 +405,13 @@ export component OptionsPanel inherits VerticalLayout {
             clicked => { root.insert-blank(); }
         }
         InfoBox { text: "Hover a page to move it with the arrows or drop it with ×. The blank page is added at the end."; }
+        // Acrobat's Multiple pages per sheet and Booklet; iLovePDF's Pages per sheet.
+        SectionLabel { text: "Pages per sheet"; }
+        HorizontalLayout {
+            spacing: 6px;
+            for l[i] in ["1", "2", "4", "6", "9", "Booklet"]: Segment { width: i == 5 ? 72px : 32px; text: l; selected: root.per-sheet == i; clicked => { root.per-sheet = i; } }
+        }
+        if root.per-sheet == 5: InfoBox { text: "Two pages to a side, in the order that reads 1, 2, 3… once the sheets are printed on both sides and folded."; }
     }
 
     if root.tool == "rotate": VerticalLayout {
@@ -416,11 +439,11 @@ export component OptionsPanel inherits VerticalLayout {
         // Acrobat's Rotate Pages: of those, the even or odd ones, the portrait or landscape ones.
         HorizontalLayout {
             spacing: 8px;
-            for label[i] in ["Even and odd", "Odd only", "Even only"]: Segment { width: 116px; text: label; selected: root.rotate-parity == i; clicked => { root.rotate-parity = i; } }
+            for label[i] in ["All pages", "Odd", "Even"]: Segment { text: label; selected: root.rotate-parity == i; clicked => { root.rotate-parity = i; } }
         }
         HorizontalLayout {
             spacing: 8px;
-            for label[i] in ["Any orientation", "Portrait", "Landscape"]: Segment { width: 116px; text: label; selected: root.rotate-orientation == i; clicked => { root.rotate-orientation = i; } }
+            for label[i] in ["Any shape", "Portrait", "Landscape"]: Segment { text: label; selected: root.rotate-orientation == i; clicked => { root.rotate-orientation = i; } }
         }
     }
 
@@ -921,9 +944,17 @@ export component OptionsPanel inherits VerticalLayout {
             selected: root.compare-mode == 1;
             clicked => { root.compare-mode = 1; }
         }
+        // Acrobat's side-by-side view: both documents on one sheet, scrolled together.
+        RadioCard {
+            title: "Side by side";
+            description: "The original beside the marked copy";
+            selected: root.compare-mode == 2;
+            clicked => { root.compare-mode = 2; }
+        }
         InfoBox {
             text: root.compare-mode == 0
                 ? "Words are compared in reading order; pictures, drawings and scanned pages that changed are listed on a last page, as Acrobat's report does."
+                : root.compare-mode == 2 ? "Each page of the original stands left of the same page marked, on one sheet: scrolling keeps them together."
                 : "Changed words are highlighted (blue changed, green added, a red note where words were removed); other changed areas, such as pictures, are outlined in red.";
         }
         // Acrobat's page ranges: part of each document compared.

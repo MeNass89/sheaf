@@ -518,3 +518,76 @@ Each line: the component, Sol's gap, what was done, its proof.
 - **C-organize-006** (never built) Rotate ▸ Flip ↔ and Flip ↕: the pages chosen become their mirror image, left
   to right or top to bottom as seen (for transfers and printing on film; Acrobat's Print Production flips). Proof:
   sheaf-core `pages::a_flipped_page_is_its_mirror_image`, gui-smoke 71.
+
+## Round 18 (26/10)
+- **C-compare-005** (never built) Compare ▸ Side by side (Acrobat's side-by-side view): each page of the original
+  stands left of the same page of the marked copy on one sheet as wide as both (its marks drawn into the page), so
+  scrolling keeps them together; a page only one document has stands beside a blank one. Proof: sheaf-core
+  `compare::side_by_side_puts_each_original_page_beside_the_marked_one`, gui-smoke 72.
+- **C-organize-025** (never built) Organize ▸ Pages per sheet: 2, 4, 6 or 9 pages to a sheet, or a Booklet (two to a
+  side, in the order that reads 1, 2, 3… once printed on both sides and folded, padded with blanks), as Acrobat's
+  Multiple pages per sheet and Booklet and iLovePDF's Pages per sheet; the sheets the first page's size, turned for
+  2 and 6. Proof: sheaf-core `pages::a_booklet_prints_its_pages_so_that_folded_they_read_in_order`,
+  `several_pages_go_on_each_sheet`, gui-smoke 73.
+- **C-organize-017** (never built) Split ▸ Cut each page in two (Stirling PDF's Split pages into sections): every page
+  becomes its left and right halves, or its top and bottom, as seen (a turned page cut along its other axis), in
+  reading order, in one file. Proof: sheaf-core `pages::each_page_is_cut_into_its_two_halves`, gui-smoke 74.
+- **C-convert-006** (never built) Home ▸ From screenshot (Acrobat's Create PDF ▸ Screen capture): an area dragged on
+  the screen (macOS's screencapture; GNOME's, KDE's or ImageMagick's tool elsewhere) becomes a one-page PDF, named
+  in the Save dialog, then opened. Scanners stay out (no TWAIN, SANE or ImageCapture yet). Proof: gui-smoke 75 (a
+  debug seam stands for the capture). not automatable: the drag on the real screen — the test display has no
+  screenshot tool.
+
+## Round 19 (26/10, the re-audit of components graded on 20/10)
+- **C-annotate-023** A selected rectangle, oval or polygon could not change its fill, and polygons and clouds had
+  no fill colour row: the Fill row shows for them too, and for a selected shape a colour fills it at once
+  (`Edit::FillAnnotation`, Acrobat's Properties bar). Proof: gui-smoke 6c'0.
+- **C-reader-046** Tabs had no unsaved mark and their keys worked only in the reader: a document with unsaved
+  changes shows a dot where its × goes (the × back on hover, macOS's and PDF Expert's), and ⌘O, ⌘W and ⌃Tab/⌃⇧Tab
+  work from any tab and from Home. Proof: gui-smoke 76. Left: windows of their own (one window holds every tab).
+- **C-security-013** Redact's list could only remove marks: a row clicked shows its mark on its page, a third down
+  (Acrobat's Redaction panel). Proof: gui-smoke 77. Left (in `next`): selecting a mark on the page, overlay text and
+  fill colour, marks saved unapplied for review.
+
+## Round 19b (26/10, rounds 15–19's steps run green at last)
+
+The GUI steps added since round 15 had never run green (the round 16–18 suites stopped on unit failures or an
+unbound variable). Run at last, they found real defects as well as their own:
+
+- Signature tool: its options bar (Initials, Every page) never showed — the bar's condition still left out
+  tool 9 (round 15).
+- Zoom to area: a box round one word asked for ~1,070 % of actual size, pages too big to draw; it froze the
+  view for seconds. Zoom to fit (and /FitR links) now stops at the reader's largest zoom, 400 %
+  (`viewer_ui::tests` checks a word's box).
+- One page at a time: an X11 wheel notch comes as two events and turned two pages; the wheel's steps (±3)
+  are let go for 250 ms after a turn.
+- Flip: the comments stayed where they were over a mirrored page; they are drawn into it first (a mirror
+  is for printing). `pages::a_flipped_page_takes_its_comments_with_it`.
+- Cut in two: the halves set the media box too, so a reader that goes by it shows the half alone.
+- Bookmarks: the hover buttons (rename, delete, ⋯) sat outside the row's TouchArea, so reaching them
+  un-hovered the row and they vanished before the click; inside it now, as the recent cards'.
+- Attachments: a row's size no longer shows under its hover buttons.
+- Document properties: the sheet ran off the window (its top cut) and When opened's rows overflowed it;
+  the fields scroll within the window, Cancel and Save stay, and Page, Layout, Zoom and Panel each have a
+  labelled row.
+- Rotate: the Even/Odd and orientation rows overflowed the panel; shorter labels, no fixed widths.
+- Tests read text through pdfium, which skips forms and crop boxes: `common::shown_texts` reads as poppler
+  shows (Side by side, Pages per sheet, booklet, Cut in two).
+- Smoke: menus read from x 20, the Replace field found from its button, Callout and Compress' size field
+  found where they are, Letter's offset for A5, the palette's second swatch, Zoom to area waits for the
+  400 % render.
+- Initial View: a copy never opened here scrolled to its page before the view had its width (tiny
+  pages, scroll cut to 0); the page is shown on the first viewport report, after its layout pass.
+- Prepare form: a ⇧-click adding a field to the selection also made a new field on release; the press
+  is taken now (dragged, the group moves).
+- Attachments' rename, Replace all: the keys go back to the pages (⌘S was lost in the gone field).
+- Zoom to area, links and bookmarks with a zoom: pages drawn again at it (they stayed stretched).
+- Several fields' card: Align on two rows (it overflowed the card); it stays within the view.
+- Signature pad for initials says "Draw your initials here".
+- Insert pages from a file: a test (`reader_doc::tests::pages_inserted_from_a_file_keep_their_content`);
+  the smoke had picked "Insert blank page after".
+- Compare: identical words with other changes read "No differences: … identical.; 1 other changed area";
+  now "The text is the same; 1 other changed area outlined" (`tools::tests`).
+- Zoom to 400 %: the view froze ~3 s; the pages' drop shadow, blurred by the software renderer at the
+  whole page's size, was the cost. Pages wider than the window draw no shadow (their edges are out of
+  view): the zoom shows within a second.

@@ -149,7 +149,9 @@ pub(super) fn open_as_asked(r: &mut ReaderUi, v: &mut ViewerUi) {
         _ => {}
     }
     if o.page > 0 {
+        // Again once the view has its size: scrolled now, the pages may not be laid out yet.
         v.show_page(o.page, None);
+        v.pending_page = Some(o.page);
     }
     match o.navigation {
         N::Bookmarks => (r.panel, r.panel_open) = (1, true),

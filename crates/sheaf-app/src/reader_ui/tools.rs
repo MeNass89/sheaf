@@ -253,6 +253,12 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
             }
         }
         let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| stroked(&a.subtype))?;
+        // A selected rectangle, oval or polygon takes the fill chosen at once (Acrobat's Properties bar).
+        if what == 6 && fillable(&a.subtype) {
+            let stroke = a.color.map_or_else(|| ink_at(r.ink_colour), |c| c.map(f64::from));
+            let fill = r.fill_colour.map_or_else(|| reader::fill_tint(stroke), light_at);
+            return Some((a.page, Edit::FillAnnotation { page: a.page, index: a.index, fill: Some(fill) }));
+        }
         (what == 2).then(|| (a.page, Edit::StyleAnnotation { page: a.page, index: a.index, color: None, opacity: Some(opacity_of(r)), width: None, endings: None }))
     })
     .flatten();
@@ -268,6 +274,11 @@ pub(super) fn stroked(subtype: &str) -> bool {
 
 /// The tool's opacity, 0–1. Kept as a percent; 0–3 are the four steps of before (preferences
 /// saved then), 100 %, 75 %, 50 %, 25 %.
+/// Comments with an inside to fill: rectangles, ovals, polygons and clouds.
+pub(super) fn fillable(subtype: &str) -> bool {
+    matches!(subtype, "Square" | "Circle" | "Polygon")
+}
+
 pub(super) fn opacity_of(r: &ReaderUi) -> f64 {
     match r.opacity {
         k @ 0..=3 => reader::OPACITIES[k],
@@ -504,13 +515,15 @@ fn bookmark_title(text: &str) -> String {
     }
 }
 
-pub fn outline_clicked(tab_id: i32, row: i32) {
+pub fn outline_clicked(ui: &AppWindow, tab_id: i32, row: i32) {
     update(tab_id, |r, v| {
         // The bookmark's own point on its page, not only the page's top (Acrobat).
         if let Some((p, view)) = r.rows.get(row.max(0) as usize).and_then(|x| Some((x.page?, x.view))) {
             jump_dest(r, v, p, &view);
         }
     });
+    // A bookmark may set a zoom: drawn again at it.
+    crate::viewer_ui::request(ui, tab_id);
 }
 
 pub fn outline_toggled(tab_id: i32, row: i32) {

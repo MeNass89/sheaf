@@ -38,6 +38,8 @@ pub enum SplitMode {
     Bookmarks,
     /// Outputs of at most this many bytes each.
     Size(u64),
+    /// Each page cut in two, left and right (`true`) or top and bottom, into one output.
+    Halves(bool),
 }
 
 /// What PDF to Word / PowerPoint / Excel writes.
@@ -60,8 +62,9 @@ pub enum Job {
     Split { input: Input, mode: SplitMode, out_dir: PathBuf },
     RemovePages { input: Input, pages: String, out: PathBuf },
     ExtractPages { input: Input, pages: String, out: PathBuf },
-    /// 1-based page numbers in output order; 0 inserts a blank page.
-    Organize { input: Input, order: Vec<u32>, out: PathBuf },
+    /// 1-based page numbers in output order; 0 inserts a blank page. `per_sheet` past 1, or
+    /// `booklet`: the result imposed several to a sheet (`pages::impose`).
+    Organize { input: Input, order: Vec<u32>, out: PathBuf, per_sheet: u8, booklet: bool },
     Rotate { items: Vec<(Input, PathBuf)>, degrees: i64, pages: Option<String>, filter: rotate::PageFilter },
     Compress { items: Vec<(Input, PathBuf)>, level: Level },
     /// `sanitize`: the hidden information removed first (Acrobat's Protect ▸ Sanitize Document).
@@ -274,6 +277,7 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                 SplitMode::OneFile(s) => vec![pages::extract(input, s, &out_dir.join(format!("{}-split.pdf", input.stem())))?],
                 SplitMode::Every(n) => pages::split_every(input, *n, out_dir)?,
                 SplitMode::Bookmarks => pages::split_bookmarks(input, out_dir)?,
+                SplitMode::Halves(across) => vec![pages::halves(input, *across, &out_dir.join(format!("{}-halves.pdf", input.stem())))?],
                 SplitMode::Size(max) => {
                     let (files, over) = pages::split_size_report(input, *max, out_dir)?;
                     summary = pages::oversize_note(&over);
@@ -303,8 +307,14 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             r
         }
-        Job::Organize { input, order, out } => {
-            let r = one(pages::organize(input, order, out))?;
+        Job::Organize { input, order, out, per_sheet, booklet } => {
+            let r = if *per_sheet > 1 || *booklet {
+                let tmp = tempfile::tempdir()?;
+                let arranged = pages::organize(input, order, &tmp.path().join("arranged.pdf"))?;
+                one(pages::impose(&Input::new(arranged), *per_sheet, *booklet, out))?
+            } else {
+                one(pages::organize(input, order, out))?
+            };
             progress(1.0);
             r
         }

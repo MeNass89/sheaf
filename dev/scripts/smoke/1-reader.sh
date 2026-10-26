@@ -128,8 +128,9 @@ check "added text takes the chosen font (Times-Bold)" "pdffonts -f 1 -l 1 $OUT/t
 key t; sleep 0.6; click 502 110 0.3; click 1000 520 0.8
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Boxtest in a font"; sleep 0.5
 # Typed on the page where the box goes (Acrobat, PDF Expert), not in a card: the words at the click.
-IP=$(at Boxtest 420x140+980+500)
-check "a text box is typed in place on the page ($IP)" "[ -n \"$IP\" ]"
+# Read just below the note's icon (it sits above the box's corner and spoils the first letter).
+IP=$(ocr 280x60+995+515)
+check "a text box is typed in place on the page ($IP)" "echo \"$IP\" | grep -q 'oxtest in a font'"
 key ctrl+Return; sleep 1.2
 key v; key ctrl+s; sleep 1.5; shot 02c2-text-box-font
 check "a text box takes the format row's font (Times Bold Italic)" "qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -aq '/BaseFont /Times-BoldItalic'"
@@ -142,16 +143,18 @@ check "a selected text box takes a new font, alignment and a typed size, and gro
 
 # 2d. Edit tool: drag the first paragraph of page 1 down; its words move down in the saved file.
 word_y() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/'; }
-QY0=$(word_y "$OUT/text.pdf")
+# Where "quick" is on screen, from the saved file (OCR misses the big highlighted line): the page starts at
+# 264,100 and is drawn 1000/612 px a point at this zoom.
+quick_at() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*xMin="\([0-9.]*\)" yMin="\([0-9.]*\)" xMax="\([0-9.]*\)" yMax="\([0-9.]*\)".*/\1 \2 \3 \4/' | awk '{ k = 1000 / 612; printf "%d %d\n", 264 + ($1 + $3) / 2 * k, 100 + ($2 + $4) / 2 * k }'; }
+QY0=$(word_y "$OUT/text.pdf"); read DX DY <<< "$(quick_at "$OUT/text.pdf")"
 key e; sleep 1.2
-xdotool mousemove 500 200 mousedown 1; sleep 0.1; for y in 220 260 300 340; do xdotool mousemove 500 $y; sleep 0.05; done; xdotool mouseup 1; sleep 1.2
+xdotool mousemove $DX $DY mousedown 1; sleep 0.1; for d in 20 60 100 140; do xdotool mousemove $DX $(( DY + d )); sleep 0.05; done; xdotool mouseup 1; sleep 1.2
 key Escape; key v; key ctrl+s; sleep 1.5; shot 02d-paragraph-moved
 QY1=$(word_y "$OUT/text.pdf")
 check "dragging a paragraph with the Edit tool moves it ($QY0 → $QY1)" "[ -n \"$QY1\" ] && python3 -c 'import sys; sys.exit(0 if float(\"$QY1\") - float(\"$QY0\") > 30 else 1)'"
 # 2e. Editing that paragraph shows it on the page as typed, before ⌘↩; Escape puts it back and
 # leaves the file as it was.
-# "quick" looked for on the page only: the open thumbnails show it too, and a click there opened no editor.
-key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
+key e; sleep 1; QK=$(quick_at "$OUT/text.pdf"); [ -n "$QK" ] && click $QK 1.2
 xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 10 " zebra"
 # The preview is a render: waited for (up to 6 s), not slept for (1.5 s missed it on a busy machine).
 for _ in $(seq 1 12); do sleep 0.5; PV1=$(ocr 1000x500+260+90); echo "$PV1" | grep -q zebra && break; done
@@ -249,8 +252,10 @@ drag() { xdotool mousemove $1 $2 mousedown 1; for i in 1 2 3 4 5; do xdotool mou
 key r; drag 500 300 180 120
 # ⇧ held at the press: a rectangle dragged 160 × 50 is saved square.
 xdotool keydown shift; drag 260 650 160 50; xdotool keyup shift
-# Opacity (550,109) opens its slider and quick values: 75 % picked.
-click 317 109; click 413 109; click 550 109 0.6; P75=$(at 75 500x140+450+125); [ -n "$P75" ] && click $P75 0.5; drag 500 600 200 100
+# Opacity opens its slider and quick values: 75 % picked.
+# The opacity button found by its "100 %" (the bar's width depends on the shape's options).
+click 317 109; click 413 109; OP=$(at 100 800x40+380+90); [ -n "$OP" ] && click $OP 0.6
+P75=$(at 75 600x160+400+120); [ -n "$P75" ] && click $P75 0.5; drag 500 600 200 100
 click 376 109; drag 900 300 150 -100
 key ctrl+s; sleep 1.5; shot 06c-shapes
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
@@ -263,6 +268,14 @@ for v in o.values():
         r = d["/Rect"]; print(round(r[2] - r[0]), round(r[3] - r[1]))')
 check "⇧ makes a rectangle square ($(echo $SQ))" "echo \"$SQ\" | awk '{ if (\$1 > 20 && (\$1 - \$2) * (\$1 - \$2) <= 4) ok = 1 } END { exit !ok }'"
 check "the Shapes tool keeps its style for next time (opacity 75 % in the preferences)" "python3 -c 'import json, glob, sys; p = json.load(open(glob.glob(\"$PWD/$OUT/profile/data/Sheaf/prefs.json\")[0])); sys.exit(0 if any(t[0] == 10 and t[3] == 75 for t in p.get(\"tool_styles\", [])) else 1)'"
+# 6c'0. The first rectangle (unfilled) selected by a click inside it: the Fill row shows for it, its first
+# colour (the yellow dot, found by its colour: OCR misses the small "Fill") fills it at once (Acrobat's Properties
+# bar): saved, two shapes have /IC.
+key v; click 590 360 0.8; shot 06c0-selected
+YX=$(import -window root -crop 600x1+300+110 txt:- 2>/dev/null | grep -m1 'srgb(255,219,64)' | cut -d, -f1); FY=${YX:+110}
+[ -n "$FY" ] && click $(( 300 + YX + 6 )) $FY 1; key ctrl+s; sleep 1.5
+NIC=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null | grep -ac '/IC \[')
+check "a selected rectangle takes a fill colour at once (${FY:+Fill row}; $NIC filled)" "[ \"\${NIC:-0}\" -ge 2 ]"
 # 6c'. The eraser (X) along a short pen stroke rubs it out entirely.
 ninks() { inks "$1" | tr ';' '\n' | grep -c .; }
 key p; drag 600 720 40 0; key ctrl+s; sleep 1.5; N1=$(ninks "$OUT/shapes.pdf")

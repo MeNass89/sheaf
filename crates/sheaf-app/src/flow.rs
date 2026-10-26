@@ -582,6 +582,14 @@ pub fn step_tab(ui: &AppWindow, d: i32) {
     ui.set_active_tab(order[(at + d).rem_euclid(n) as usize]);
 }
 
+/// ⌘W on any tab (the reader's own ⌘W does the same): the tab shown closes, asking first as its ×.
+pub fn close_active_tab(ui: &AppWindow) {
+    let id = with(|a| a.tabs.get(ui.get_active_tab().max(0) as usize).map(|t| t.id));
+    if let Some(id) = id.filter(|_| ui.get_active_tab() >= 0) {
+        close_tab(ui, id);
+    }
+}
+
 /// The tab bar's menu: close the other tabs (`which` 0), those to the left (1) or to the right
 /// (2) of tab `id`, or every tab (3: Close All Tabs, ⌥⌘W). Tabs with a running task stay open;
 /// documents with unsaved edits are asked about in turn.

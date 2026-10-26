@@ -1,5 +1,5 @@
 mod common;
-use common::{page_texts, qpdf_clean};
+use common::{fixture_pdf, page_texts, qpdf_clean};
 use pdfium_render::prelude::*;
 use sheaf_core::compare::{self, CompareMode};
 use sheaf_core::engine::{new_document, pdfium_lock};
@@ -200,6 +200,21 @@ fn a_page_added_or_removed_at_the_end_is_reported() {
     let r = compare::compare(&Input::new(&two), &Input::new(&one), CompareMode::Text, &t.path().join("r2.pdf")).unwrap();
     assert_eq!((r.pages_added, r.pages_removed), (0, 1));
     assert!(page_texts(&r.path).join(" ").contains("Page 2 of the original is not in the changed document"));
+}
+
+#[test]
+fn side_by_side_puts_each_original_page_beside_the_marked_one() {
+    let t = tempfile::tempdir().unwrap();
+    let old = fixture_pdf(t.path(), "old.pdf", 2);
+    let new = fixture_pdf(t.path(), "new.pdf", 3);
+    let r = compare::compare(&Input::new(&old), &Input::new(&new), CompareMode::SideBySide, &t.path().join("s.pdf")).unwrap();
+    let doc = lopdf::Document::load(&r.path).unwrap();
+    // Three sheets (the longer document's pages), each wider than tall, as wide as two pages.
+    assert_eq!(doc.get_pages().len(), 3);
+    let media = doc.get_dictionary(doc.get_pages()[&1]).unwrap().get(b"MediaBox").unwrap().as_array().unwrap().iter().map(|o| o.as_float().unwrap_or(0.0)).collect::<Vec<f32>>();
+    assert!(media[2] > 2.0 * 595.0 && media[3] < media[2], "{media:?}");
+    // Page 1's words are on sheet 1 twice: the original's and the copy's.
+    assert_eq!(common::shown_texts(&r.path)[0].matches("Page 1").count(), 2, "{:?}", common::shown_texts(&r.path));
 }
 
 #[test]

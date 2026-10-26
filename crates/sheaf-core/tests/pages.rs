@@ -1,5 +1,5 @@
 mod common;
-use common::{fixture_pdf, page_texts};
+use common::{fixture_pdf, page_texts, shown_texts};
 use sheaf_core::{pages::*, OpdfError};
 
 #[test]
@@ -79,6 +79,58 @@ fn a_flipped_page_is_its_mirror_image() {
     let (l2, _) = x(&out, 1);
     assert!((595.0 - r1 - 72.0).abs() < 3.0 && l1 > 300.0, "page 1 mirrored: {l1}..{r1}");
     assert!((l2 - 72.0).abs() < 3.0, "page 2 left alone: {l2}");
+}
+#[test]
+fn a_flipped_page_takes_its_comments_with_it() {
+    use pdfium_render::prelude::*;
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 1);
+    let marked = t.path().join("m.pdf");
+    {
+        let _g = sheaf_core::engine::pdfium_lock();
+        let doc = sheaf_core::engine::open_pdf(&a, None).unwrap();
+        let mut page = doc.pages().get(0).unwrap();
+        let mut square = page.annotations_mut().create_square_annotation().unwrap();
+        square.set_bounds(PdfRect::new_from_values(700.0, 60.0, 740.0, 160.0)).unwrap();
+        doc.save_to_file(&marked).unwrap();
+    }
+    // Drawn into the page, it is mirrored with it: no comment is left at its old place.
+    let out = flip(&Input::new(&marked), None, true, &t.path().join("f.pdf")).unwrap();
+    let doc = lopdf::Document::load(&out).unwrap();
+    let page = doc.get_dictionary(doc.get_pages()[&1]).unwrap();
+    let annots = page.get(b"Annots").ok().and_then(|a| doc.dereference(a).ok()).and_then(|(_, a)| a.as_array().ok().cloned()).unwrap_or_default();
+    assert!(annots.is_empty(), "{annots:?}");
+}
+#[test]
+fn a_booklet_prints_its_pages_so_that_folded_they_read_in_order() {
+    assert_eq!(booklet_order(8), [8, 1, 2, 7, 6, 3, 4, 5]);
+    // Five pages: padded to eight with blanks.
+    assert_eq!(booklet_order(5), [0, 1, 2, 0, 0, 3, 4, 5]);
+    assert_eq!(booklet_order(0).len(), 4);
+}
+#[test]
+fn several_pages_go_on_each_sheet() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 5);
+    let four = impose(&Input::new(&a), 4, false, &t.path().join("4.pdf")).unwrap();
+    assert_eq!(shown_texts(&four).len(), 2);
+    assert!(shown_texts(&four)[0].contains("Page 1") && shown_texts(&four)[0].contains("Page 4"), "{:?}", shown_texts(&four));
+    let book = impose(&Input::new(&a), 2, true, &t.path().join("b.pdf")).unwrap();
+    // Eight pages, two to a side: four sides; the first holds pages 8 (blank) and 1.
+    assert_eq!(shown_texts(&book).len(), 4);
+    assert!(shown_texts(&book)[0].contains("Page 1") && !shown_texts(&book)[0].contains("Page 2"), "{:?}", shown_texts(&book));
+    assert!(impose(&Input::new(&a), 3, false, &t.path().join("x.pdf")).is_err());
+}
+#[test]
+fn each_page_is_cut_into_its_two_halves() {
+    let t = tempfile::tempdir().unwrap();
+    let a = fixture_pdf(t.path(), "a.pdf", 2);
+    let out = halves(&Input::new(&a), true, &t.path().join("h.pdf")).unwrap();
+    // Four pages: page 1's left half holds its words (at x 72), its right half none.
+    assert_eq!(shown_texts(&out), ["Page 1", "", "Page 2", ""]);
+    let down = halves(&Input::new(&a), false, &t.path().join("v.pdf")).unwrap();
+    // Top halves first: the words sit near the top (y 720 of 842).
+    assert_eq!(shown_texts(&down), ["Page 1", "", "Page 2", ""]);
 }
 #[test]
 fn split_ranges_writes_one_file_per_range() {

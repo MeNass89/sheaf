@@ -108,12 +108,21 @@ pub fn go_to_page(tab_id: i32, text: &str) {
 }
 
 pub fn page_step(tab_id: i32, step: i32) {
-    update(tab_id, |_, v| {
+    update(tab_id, |r, v| {
         let n = v.viewer.page_count();
         if n == 0 {
             return;
         }
         let cur = v.current();
+        // ±3: a page from the wheel, one per notch however many events it comes as.
+        let step = match step {
+            3 | -3 if r.wheel_turned.is_some_and(|t| t.elapsed() < std::time::Duration::from_millis(250)) => return,
+            3 | -3 => {
+                r.wheel_turned = Some(std::time::Instant::now());
+                step / 3
+            }
+            s => s,
+        };
         match step {
             10 => v.show_page(n - 1, None),
             -10 => v.show_page(0, None),

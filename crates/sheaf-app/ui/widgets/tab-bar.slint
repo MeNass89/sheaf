@@ -96,8 +96,19 @@ component TabItem inherits Rectangle {
         vertical-alignment: center;
         overflow: elide;
     }
+    // A document with unsaved changes shows a dot where its × goes (macOS's and PDF Expert's), the ×
+    // back on hover.
+    property <bool> unsaved: root.tab.is-reader && root.tab.reader.dirty;
+    if root.unsaved && !touch.has-hover: Rectangle {
+        x: parent.width - 18px;
+        y: (parent.height - self.height) / 2;
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        background: Theme.text-secondary;
+    }
     close := IconButton {
-        visible: !root.narrow || root.active || touch.has-hover;
+        visible: (!root.narrow || root.active || touch.has-hover) && (!root.unsaved || touch.has-hover);
         x: parent.width - self.width - 4px;
         width: 20px;
         height: 20px;

@@ -67,7 +67,10 @@ check "unstarring from Home's Recent tools takes it out of the favourites" "! gr
 read RX RY <<< "$(at tool-compressed 1280x760+0+40)"
 if [ -n "$RY" ]; then xdotool mousemove $RX $(( RY - 60 )); sleep 0.4; click $RX $(( RY - 96 )) 0.8; fi
 PN=$(grep -c 'tool-compressed.pdf' $OUT/profile/data/Sheaf/prefs.json 2>/dev/null)
-SR=$(at Search 1280x400+0+40); [ -n "$SR" ] && { click $SR 0.3; xdotool type --delay 20 "compressed"; sleep 0.8; }
+# The field found by its placeholder's "recent" (the top bar has a Search of its own).
+# A faint placeholder may not be read: then the field is the 200 px left of the order list ("Newest").
+SR=$(at recent 1280x760+0+40); [ -z "$SR" ] && { read NX NY <<< "$(at Newest 1280x760+0+40)"; SR=${NY:+$(( NX - 170 )) $NY}; }
+[ -n "$SR" ] && { click $SR 0.3; xdotool type --delay 20 "compressed"; sleep 0.8; }
 RL=$(ocr 1240x500+20+260); shot 09e-recent-search
 check "a recent file is starred and the search finds it alone (${RY:-no card}; prefs: $PN; list: $(echo "$RL" | cut -c1-60))" "[ \"\${PN:-0}\" -ge 1 ] && echo \"$RL\" | grep -q 'tool-compressed' && ! echo \"$RL\" | grep -q 'text.pdf'"
 # Tasks History ▸ Run again on the Compress row: a new Compress tab holding tool.pdf, Low compression chosen
@@ -405,10 +408,10 @@ cp "$OUT/text.pdf" "$OUT/hf.pdf"; launch "$OUT/hf.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "bates"; key Return; sleep 2.5
 xdotool mousemove 1130 450; for i in $(seq 1 25); do xdotool click 5; sleep 0.03; done; sleep 0.8; shot 20d-header-footer
 # Fields found from their labels (placeholders are too faint to read): Top's Left field 84 px right of "Top",
-# the prefix field 33 px under "Bates".
+# the prefix field 33 px under its label's "prefix" (the help above says "Bates" too).
 NP=$(at "No" 280x700+1000+40); [ -n "$NP" ] && click $NP 0.5
 read TX TY <<< "$(at Top 280x700+1000+40)"; TL=${TY:+$(( TX + 76 )) $TY}; [ -n "$TL" ] && { click $TL 0.4; xdotool type --delay 20 "Case {bates}"; }
-read BX BY <<< "$(at Bates 280x700+1000+40)"; BP=${BY:+$BX $(( BY + 33 ))}; [ -n "$BP" ] && { click $BP 0.4; xdotool type --delay 20 "ACME-"; }
+read BX BY <<< "$(at prefix 280x700+1000+40)"; BP=${BY:+$BX $(( BY + 33 ))}; [ -n "$BP" ] && { click $BP 0.4; xdotool type --delay 20 "ACME-"; }
 click 1140 755 4
 HF=$(pdftotext "$OUT/hf-numbered.pdf" - 2>/dev/null | tr '\n' ' ')
 check "Header and footer text with Bates numbers (${NP:-no radio} ${TL:-no field} ${BP:-no prefix}; $(echo "$HF" | cut -c1-80))" "echo \"$HF\" | grep -q 'Case ACME-000001' && echo \"$HF\" | grep -q 'Case ACME-000002'"

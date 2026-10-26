@@ -227,6 +227,10 @@ export component RedactPanel inherits VerticalLayout {
                 spacing: 2px;
                 for m[i] in root.tab.redact-marks: Rectangle {
                     height: 26px;
+                    border-radius: Theme.radius-small;
+                    background: mark-row.has-hover ? Theme.popup-hover : transparent;
+                    // The row shows its mark on the page (Acrobat's Redaction panel); the × removes it.
+                    mark-row := TouchArea { mouse-cursor: pointer; clicked => { ViewerBridge.show-mark(root.tab.id, i); } }
                     HorizontalLayout {
                         spacing: 8px;
                         Rectangle {

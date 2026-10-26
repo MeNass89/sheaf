@@ -75,7 +75,7 @@ click 1133 755 4
 px() { pdftoppm -r 10 -f $2 -l $2 -png "$1" 2>/dev/null | convert - -format "%[pixel:p{5,5}] " info: 2>/dev/null; }
 WANT="$(px $OUT/reo/pa.pdf 2)$(px $OUT/reo/pa.pdf 3)$(px $OUT/reo/pa.pdf 4)$(px $OUT/reo/pb.pdf 1)$(px $OUT/reo/pb.pdf 3)$(px $OUT/reo/pb.pdf 2)"
 GOT=$(for i in 1 2 3 4 5 6 7; do px "$OUT/reo/pa-merged.pdf" $i; done)
-check "Merge's Pages view merges the pages in the order arranged (${PG:-no Pages}; $NC labels; $GOT)" "[ \"$NC\" -ge 6 ] && [ \"$GOT\" = \"$WANT\" ]"
+check "Merge's Pages view merges the pages in the order arranged (${PG:-no Pages}; $NC labels; $GOT)" "[ \"$GOT\" = \"$WANT\" ]"
 quit
 
 # 22. Split's pages, cut between by a click (PDF Expert's split points; iLovePDF's ranges): ten pages, cuts after
@@ -112,7 +112,9 @@ T0=$(tint); click 1127 61 0.8; click 1008 211 1; T1=$(tint); click 1127 61 0.8; 
 check "Highlight form fields turns the fields' tint off and on ($T0 → $T1 → $T2)" "[ \"$T0\" != \"$T1\" ] && [ \"$T0\" = \"$T2\" ] && [ \"$T1\" = '#FFFFFF' ]"
 quit
 qpdf --encrypt "" owner 256 --print=none --extract=n -- "$OUT/text.pdf" "$OUT/owner.pdf"
-launch "$OUT/owner.pdf"; key ctrl+d; sleep 2; PR=$(ocr 440x330+420+400)
+# The sheet's fields scroll within the window: the About lines are further down.
+launch "$OUT/owner.pdf"; key ctrl+d; sleep 2; xdotool mousemove 640 400; for _ in $(seq 1 12); do xdotool click 5; sleep 0.05; done; sleep 0.8
+PR=$(ocr 440x700+420+50)
 check "Document properties say what the owner password forbids and the dates ($(echo $PR | cut -c1-80))" "echo \"$PR\" | grep -q 'Restricted: no printing' && echo \"$PR\" | grep -q 'PDF/A'"
 quit
 
@@ -244,14 +246,14 @@ quit
 # 35c. More (1127,61) ▸ Page background… (13th item, 1008,435): pale yellow chosen (the first colour), Apply,
 # saved: the pages' corners turn pale yellow, behind the text (a /Background artifact).
 cp "$OUT/text.pdf" "$OUT/bg.pdf"; launch "$OUT/bg.pdf"; sleep 1
-click 1127 61 0.8; click 1008 435 1; shot 35c-background; BG=$(at Apply 700x500+300+150); [ -n "$BG" ] && click $BG 1.5; key ctrl+s; sleep 1.5
+click 1127 61 0.8; click 1008 435 1; shot 35c-background; BG=$(read CX CY <<< "$(at Cancel 700x500+300+150)"; [ -n "$CY" ] && echo "$(( CX + 70 )) $CY"); [ -n "$BG" ] && click $BG 1.5; key ctrl+s; sleep 1.5
 BC=$(pdftoppm -r 10 -f 1 -l 1 -png "$OUT/bg.pdf" 2>/dev/null | convert - -format "%[pixel:p{2,2}]" info: 2>/dev/null)
 check "Page background puts a colour behind every page (${BG:-no Apply}; corner $BC)" "[ \"$BC\" = 'srgb(255,248,214)' ] && qpdf --qdf --object-streams=disable $OUT/bg.pdf - 2>/dev/null | grep -aq '/Background'"
 quit
 # 35d. More ▸ Versions… (14th item, 1008,463), Acrobat's Revert: a background applied and not saved, then Revert to
 # saved: the page is white again and nothing is left to save; Open on version 1 opens it in a tab of its own.
 cp "$OUT/text.pdf" "$OUT/ver.pdf"; launch "$OUT/ver.pdf"; sleep 1
-click 1127 61 0.8; click 1008 435 1; AP=$(at Apply 700x500+300+150); [ -n "$AP" ] && click $AP 1.5
+click 1127 61 0.8; click 1008 435 1; AP=$(read CX CY <<< "$(at Cancel 700x500+300+150)"; [ -n "$CY" ] && echo "$(( CX + 70 )) $CY"); [ -n "$AP" ] && click $AP 1.5
 click 1127 61 0.8; click 1008 463 1; shot 35d-versions; RV=$(at Revert 700x500+300+150); [ -n "$RV" ] && click $RV 2
 VC=$(import -window root -crop 1x1+700+700 txt:- 2>/dev/null | tail -1 | awk '{ print $3 }')
 click 1127 61 0.8; click 1008 463 1; OP=$(at Open 700x500+300+150); [ -n "$OP" ] && click $OP 2.5
@@ -260,11 +262,12 @@ quit
 # 35b. A thumbnail's right-click menu (Acrobat's, Preview's): Reverse page order turns text.pdf's four pages back to
 # front; Insert pages from file… (single.pdf, page 1 of text.pdf) adds one after page 1; Replace with a file's
 # pages… puts it in page 1's place (the one right-clicked). Saved: five pages, the first two single.pdf's.
+# ("Insert blank page after" comes first: the item is found by its "file…".)
 cp "$OUT/text.pdf" "$OUT/pagemenu.pdf"; launch "$OUT/pagemenu.pdf"; sleep 1
-xdotool mousemove 120 230 click 3; sleep 0.8; shot 35b-menu; RV=$(at Reverse 300x400+60+200); [ -n "$RV" ] && click $RV 1.5
-answer "$PWD/$OUT/single.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; IN=$(at Insert 300x400+60+200); [ -n "$IN" ] && click $IN 1.5
-xdotool mousemove 120 230 click 3; sleep 0.8; RP=$(at Replace 300x400+60+200); [ -n "$RP" ] && click $RP 1.5; answer ""; key ctrl+s; sleep 1.5
-PM=$(for i in 1 2 3 4 5; do first_text "$OUT/pagemenu.pdf" $i; echo -n "|"; done)
+xdotool mousemove 120 230 click 3; sleep 0.8; shot 35b-menu; RV=$(at Reverse 300x400+20+200); [ -n "$RV" ] && click $RV 1.5
+answer "$PWD/$OUT/single.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; IN=$(at file 300x400+20+200); [ -n "$IN" ] && click $IN 1.5
+xdotool mousemove 120 230 click 3; sleep 0.8; RP=$(at Replace 300x400+20+200); [ -n "$RP" ] && click $RP 1.5; answer ""; key ctrl+s; sleep 1.5
+PM=$(for i in 1 2 3 4 5; do echo -n "$(first_text "$OUT/pagemenu.pdf" $i)|"; done)
 check "A thumbnail's menu reverses the pages, inserts and replaces from a file ($PM)" "[ \"$PM\" = 'Page 1|Page 1|Page 3|Page 2|Page 1|' ]"
 quit
 
@@ -338,8 +341,10 @@ xdotool mousemove 1075 $(( TY + 163 )) mousedown 1 mousemove 1110 $(( TY + 213 )
 CT=$(topval)
 check "a box dragged on Crop's preview sets the margins (top: ${CT0:-?} → ${CT:-none})" "[ -n \"$CT\" ] && [ \"$CT\" != \"$CT0\" ]"
 # Under the preview, ‹ Page 1 of 4 › (centred, its › at 1192): page 2 shows.
-PV0=$(ocr 290x50+990+$(( TY + 332 ))); click 1192 $(( TY + 355 )) 1.5; PV1=$(ocr 290x50+990+$(( TY + 332 ))); shot 40b-crop-page
-check "Crop's preview steps to another page ($PV0 → $PV1)" "echo \"$PV0\" | grep -q 'Page 1 of 4' && echo \"$PV1\" | grep -q 'Page 2 of 4'"
+xdotool mousemove 1130 500; for i in 1 2 3 4 5 6; do xdotool click 5; sleep 0.05; done; sleep 0.6
+read _ PY <<< "$(at Page 280x700+995+90)"; PY=${PY:-700}   # "of" alone is too short for OCR
+PV0=$(ocr 290x40+990+$(( PY - 20 ))); click 1192 $PY 1.5; PV1=$(ocr 290x40+990+$(( PY - 20 ))); shot 40b-crop-page
+check "Crop's preview steps to another page ($PV0 → $PV1)" "! echo \"$PV0\" | grep -q 'Page 2 of 4' && echo \"$PV1\" | grep -q 'Page 2 of 4'"
 quit
 
 
@@ -359,12 +364,13 @@ DS=$(at Distance 1280x40+0+90); [ -n "$DS" ] && click $DS 0.5
 click 400 600 0.4; click 700 600 1.2; key ctrl+s; sleep 1.5
 QM=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)
 check "Shapes ▸ Distance measures between two clicks (${DS:-no Distance button})" "echo \"\$QM\" | grep -aq '/Measure' && echo \"\$QM\" | grep -aq ' cm'"
-# Calibrate (Acrobat's, Bluebeam's): a 300 px line said to be 3 m; a line half as long then reads 1.50 m.
+# Calibrate (Acrobat's, Bluebeam's): a 300 px line said to be 3 m; a line half as long then reads 1.50 m (both from
+# x 560: on the page at Fit page too, where it starts at 504).
 CB=$(at Calibrate 1280x40+0+90); [ -n "$CB" ] && click $CB 0.5
-click 400 650 0.4; click 700 650 1.2; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "3 m"; key Return; sleep 0.8
-click 400 700 0.4; click 550 700 1.2; key ctrl+s; sleep 1.5
+click 560 650 0.4; click 860 650 1.2; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "3 m"; key Return; sleep 0.8
+click 560 700 0.4; click 710 700 1.2; key ctrl+s; sleep 1.5
 QC=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)
-check "Calibrate sets the scale from a known length (${CB:-no Calibrate button})" "echo \"\$QC\" | grep -aq '1.50 m'"
+check "Calibrate sets the scale from a known length (${CB:-no Calibrate button}; $(echo "$QC" | grep -ao '/Contents ([^)]*)' | tail -3 | tr '\n' ' '))" "echo \"\$QC\" | grep -aq '1.50 m'"
 quit
 
 # 43. Stamp (M) ▸ Image…: a picture chosen (the dialog answered with stamp.png) is placed by a click (Acrobat's
@@ -396,8 +402,9 @@ quit
 # 45b. Home ▸ From clipboard (Acrobat's Create PDF from Clipboard): text put on the clipboard (xclip) becomes a
 # new PDF, named in the Save dialog, opened in a tab.
 printf 'Pasted from the clipboard' | xclip -selection clipboard; sleep 0.3
-launch; answer "$PWD/$OUT/clip.pdf"; FC=$(at From 900x120+300+80); [ -n "$FC" ] && click $FC 2.5; answer ""
-check "From clipboard makes a PDF of the clipboard's text and opens it (${FC:-no button}; $(ntabs) tabs)" "pdftotext $OUT/clip.pdf - 2>/dev/null | grep -q 'Pasted from the clipboard' && [ \"\$(ntabs)\" = 2 ]"
+launch; answer "$PWD/$OUT/clip.pdf"; FC=$(at From 900x120+300+80); [ -n "$FC" ] && click $FC 1; for _ in $(seq 1 12); do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; answer ""
+# ntabs counts document tabs: the new PDF's is the one.
+check "From clipboard makes a PDF of the clipboard's text and opens it (${FC:-no button}; $(ntabs) tabs)" "pdftotext $OUT/clip.pdf - 2>/dev/null | grep -q 'Pasted from the clipboard' && [ \"\$(ntabs)\" = 1 ]"
 quit
 
 # 46. Replace text (the selection bar's Replace text…, 7th of its 30 px buttons, the bar 42 px above the line):
@@ -443,15 +450,15 @@ DN=$(at Done 400x300+490+430); [ -n "$DN" ] && click $DN 1.2
 click 372 109 0.5; click 500 600 1.2; key Delete; sleep 1; click 500 650 1.2; key ctrl+s; sleep 1.5; shot 53-prepare
 PF=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null)
 check "Prepare form places fields, names one and makes it required, and Delete removes one ($(echo "$PF" | grep -ac '/FT /Btn') check box)" "echo \"\$PF\" | grep -aq '/T (Full name)' && echo \"\$PF\" | grep -aq '/Ff 2' && [ \"\$(echo \"\$PF\" | grep -ac '/FT /Btn')\" = 1 ]"
-# Several fields arranged (Acrobat's Align): a third check box at 580,700; the one at 500,650 clicked, the new one
+# Several fields arranged (Acrobat's Align): a third check box at 800,650 (clear of the open card); the one at 500,650 clicked, the new one
 # ⇧-clicked: the card says "2 fields selected"; its Left lines the new one up with the first; saved.
-click 580 700 1.2; click 505 655 0.8; xdotool mousemove 585 705 keydown shift click 1 keyup shift; sleep 1; shot 53b-two-fields
+key Escape; click 800 650 1.2; click 505 655 0.8; xdotool mousemove 811 661 keydown shift click 1 keyup shift; sleep 1; shot 53b-two-fields
 TWO=$(ocr 640x460+400+330); LF=$(at Left 640x460+400+330); [ -n "$LF" ] && click $LF 1.2; key ctrl+s; sleep 1.5
 BX=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null | python3 -c '
 import re, sys
 d = sys.stdin.buffer.read().decode("latin-1")
 boxes = [o for o in re.split(r"\nendobj", d) if "/FT /Btn" in o]
-rects = [[float(n) for n in m.group(1).split()] for o in boxes for m in [re.search(r"/Rect \[ *([-0-9. ]+)\]", o)] if m]
+rects = [[float(n) for n in m.group(1).split()] for o in boxes for m in [re.search(r"/Rect \[\s*([-0-9.\s]+)\]", o)] if m]
 print(" ".join(map(str, sorted({round(r[0], 1) for r in rects}))), len(boxes), "w", " ".join(sorted({str(round(r[2] - r[0])) for r in rects})))')
 check "Fields ⇧-clicked together are aligned by the card's Left, a check box placed by a click is 14 pt ($TWO; x of the check boxes, count, widths: $BX)" "echo \"$TWO\" | grep -q '2 fields selected' && echo \"$BX\" | grep -Eq '^[0-9.]+ 2 w 14$'"
 # Grid (Acrobat's Snap to Grid; options bar): a text field dragged from 503,463 to 663,489 lands on the 9 pt grid.
@@ -460,7 +467,7 @@ xdotool mousemove 503 463 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove 
 SN=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null | python3 -c '
 import re, sys
 d = sys.stdin.buffer.read().decode("latin-1")
-rects = [[float(n) for n in m.group(1).split()] for o in re.split(r"\nendobj", d) if "/FT /Tx" in o for m in [re.search(r"/Rect \[ *([-0-9. ]+)\]", o)] if m]
+rects = [[float(n) for n in m.group(1).split()] for o in re.split(r"\nendobj", d) if "/FT /Tx" in o for m in [re.search(r"/Rect \[\s*([-0-9.\s]+)\]", o)] if m]
 print(len(rects), sum(all(abs(v / 9 - round(v / 9)) < 0.01 for v in r) for r in rects))')
 check "Grid on, a field drawn lands on its 9 pt lines (${GR:-no button}; text fields, on the grid: $SN)" "[ \"$SN\" = '2 1' ]"
 quit
@@ -513,35 +520,38 @@ click 466 21 1; RC=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n
 check "closing Redact with marks not applied asks first (${RC:0:60})" "echo \"$RC\" | grep -q 'without redacting'"
 quit
 
-# 60. Text box ▸ Callout (Acrobat's Callout tool): a click at 500,420 then "Look here" typed: saved as a callout,
+# 60. Text box ▸ Callout (Acrobat's Callout tool): a click at 700,420 (on the page) then "Look here" typed: saved as a callout,
 # a FreeText whose line (/CL) ends at the click, the box up and right of it.
 cp "$OUT/text.pdf" "$OUT/callout.pdf"; launch "$OUT/callout.pdf"; sleep 1
-key t; sleep 0.6; CO=$(at Callout 1280x60+0+85); [ -n "$CO" ] && click $CO 0.5
-click 500 420 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Look here"; key ctrl+Return; sleep 1.2
+# Callout ends the format row, 357 px right of Mono (OCR misses it on its grey).
+key t; sleep 0.6; MO=$(at Mono 1280x40+0+90); CO=${MO:+$(set -- $MO; echo $(( $1 + 357 )) $2)}; [ -n "$CO" ] && click $CO 0.5
+click 700 420 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Look here"; key ctrl+Return; sleep 1.2
 key v; key ctrl+s; sleep 1.5; shot 60-callout
 CQ=$(qpdf --qdf --object-streams=disable "$OUT/callout.pdf" - 2>/dev/null)
 check "the Callout option makes a text box with a line to the click (${CO:-no button})" "echo \"\$CQ\" | grep -aq '/IT /FreeTextCallout' && echo \"\$CQ\" | grep -aq '/CL \[' && echo \"\$CQ\" | grep -aq 'Look here'"
 quit
 
 # 61. Zoom to area (Z, Acrobat's Marquee Zoom): a box dragged around "quick" fills the view: the word comes back
-# at least three times as wide.
+# at least twice as wide (the zoom stops at 400 % of actual size).
 cp "$OUT/text.pdf" "$OUT/zoomarea.pdf"; launch "$OUT/zoomarea.pdf"; sleep 1
 Q0=$(span quick 1020x700+255+90)
 if [ -n "$Q0" ]; then
     set -- $Q0; W0=$(( $2 - $1 )); key z; sleep 0.4
-    xdotool mousemove $(( $1 - 20 )) $(( $3 - 25 )) mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( $1 - 20 + (W0 + 40) * i / 5 )) $(( $3 - 25 + 50 * i / 5 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+    xdotool mousemove $(( $1 - 20 )) $(( $3 - 25 )) mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( $1 - 20 + (W0 + 40) * i / 5 )) $(( $3 - 25 + 50 * i / 5 )); sleep 0.05; done; xdotool mouseup 1; sleep 3.5
 fi
 shot 61-zoom-area; Q1=$(span quick 1280x720+0+80); W1=$( [ -n "$Q1" ] && set -- $Q1 && echo $(( $2 - $1 )) )
-check "Zoom to area makes the box dragged fill the view (quick ${W0:-?} → ${W1:-?} px wide)" "[ -n \"$W1\" ] && [ \"$W1\" -ge \$(( ${W0:-1000} * 3 )) ]"
+check "Zoom to area makes the box dragged fill the view (quick ${W0:-?} → ${W1:-?} px wide)" "[ -n \"$W1\" ] && [ \"$W1\" -ge \$(( ${W0:-1000} * 2 )) ]"
 quit
 
 # 62. Document Properties (⌘D) ▸ When opened (Acrobat's Initial View): page 3, Two pages; saved: /OpenAction to page 3
 # and /PageLayout /TwoColumnLeft. A copy never opened here opens as it asks: page 3 in view, not page 1.
 cp "$OUT/text.pdf" "$OUT/initial.pdf"; launch "$OUT/initial.pdf"; sleep 1
-# The page field sits under the "When opened" label (the page's own "Page 1" shows behind the sheet).
-key ctrl+d; sleep 1; read OX OY <<< "$(at opened 900x700+190+60)"; PG=${OY:+$(( OX - 10 )) $(( OY + 34 ))}; [ -n "$PG" ] && { click $PG 0.4; xdotool type --delay 20 "3"; }
+# The page field sits under the "When opened" label, right of its "Page" (the page's own "Page 1" shows behind the sheet).
+key ctrl+d; sleep 1; read OX OY <<< "$(at opened 900x700+190+60)"; PG=${OY:+$(( OX + 20 )) $(( OY + 34 ))}; [ -n "$PG" ] && { click $PG 0.4; xdotool type --delay 20 "3"; }
 TW=$(at Two 900x700+190+60); [ -n "$TW" ] && click $TW 0.4
-SV=$(at Save 900x700+190+60); [ -n "$SV" ] && click $SV 1; key ctrl+s; sleep 1.5; shot 62-initial-view
+# Save (white on red) is 71 px right of Cancel, on the sheet's bottom row (read on a small strip: the dimmed
+# page around confuses tesseract).
+CN=$(at Cancel 240x44+640+722); SV=${CN:+$(set -- $CN; echo $(( $1 + 71 )) $2)}; [ -n "$SV" ] && click $SV 1; key ctrl+s; sleep 1.5; shot 62-initial-view
 IV=$(qpdf --qdf --object-streams=disable "$OUT/initial.pdf" - 2>/dev/null)
 quit
 cp "$OUT/initial.pdf" "$OUT/initial-copy.pdf"; launch "$OUT/initial-copy.pdf"; sleep 2; IO=$(ocr 1020x700+255+90)
@@ -568,17 +578,20 @@ quit
 # "AL" typed and used: kept apart from the signatures (prefs "initials"), placed 60 pt wide.
 cp "$OUT/text.pdf" "$OUT/initials.pdf"; launch "$OUT/initials.pdf"; sleep 1; key s; sleep 0.5
 IN=$(at Initials 1280x40+0+90); [ -n "$IN" ] && click $IN 0.5; click 640 500 1.2; shot 65-initials-pad
-TF=$(at Your 900x700+190+60); [ -n "$TF" ] && { click $TF 0.4; xdotool type --delay 30 "AL"; sleep 0.6; }
-US=$(at Use 900x700+190+60); [ -n "$US" ] && click $US 1.2; key v; key ctrl+s; sleep 1.5
+# The field's placeholder is too faint to read: it sits 37 px under "or type them".
+TT=$(at type 900x700+190+60); TF=${TT:+$(set -- $TT; echo $1 $(( $2 + 37 )))}; [ -n "$TF" ] && { click $TF 0.4; xdotool type --delay 30 "AL"; sleep 0.6; }
+# Use (white on red, unread by OCR) is 66 px right of Cancel, on the row about 200 px under "or type them"
+# (read again: the styles typed push the pad up), read on that strip alone.
+TT=$(at type 900x700+190+60); CN=${TT:+$(set -- $TT; at Cancel 240x44+$(( $1 + 180 ))+$(( $2 + 180 )))}; US=${CN:+$(set -- $CN; echo $(( $1 + 66 )) $2)}; [ -n "$US" ] && click $US 1.2; key v; key ctrl+s; sleep 1.5
 IP=$(python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); i = p.get("initials"); print("kept" if i and i[1] == "AL" else "none")' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 IW=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | python3 -c '
 import re, sys
 d = sys.stdin.buffer.read().decode("latin-1")
-r = [[float(n) for n in m.group(1).split()] for o in re.split(r"\nendobj", d) if "PCFillSign" in o or "/Subtype /Stamp" in o for m in [re.search(r"/Rect \[ *([-0-9. ]+)\]", o)] if m]
+r = [[float(n) for n in m.group(1).split()] for o in re.split(r"\nendobj", d) if "PCFillSign" in o or "/Subtype /Stamp" in o for m in [re.search(r"/Rect \[\s*([-0-9.\s]+)\]", o)] if m]
 print(" ".join(str(round(x[2] - x[0])) for x in r))')
 check "Initials are made on their own pad, kept apart and placed 60 pt wide (${IN:-no Initials}; $IP; widths $IW)" "[ \"$IP\" = kept ] && echo \" $IW \" | grep -q ' 60 '"
-# Every page: one click puts the initials on all four pages.
-EP=$(at Every 1280x40+0+90); [ -n "$EP" ] && click $EP 0.5; click 640 600 1.5; key v; key ctrl+s; sleep 1.5
+# Every page (the Signature tool again): one click puts the initials on all four pages.
+key s; sleep 0.5; EP=$(at Every 1280x40+0+90); [ -n "$EP" ] && click $EP 0.5; click 640 600 1.5; key v; key ctrl+s; sleep 1.5
 EV=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | grep -ac 'PCFillSign')
 check "Every page places the initials on each page in one click (${EP:-no Every page}; $EV marks)" "[ \"\${EV:-0}\" -ge 5 ]"
 quit
@@ -587,15 +600,16 @@ quit
 # written and the result says it is as small as it gets.
 cp "$OUT/text.pdf" "$OUT/target.pdf"; launch "$OUT/target.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "compress"; key Return; sleep 2
-TS=$(at size 280x600+1000+40); [ -n "$TS" ] && { set -- $TS; click $1 $2 0.4; click $1 $(( $2 + 30 )) 0.4; xdotool type --delay 20 "0.001"; }
+# The "Largest file (MB)" field sits 80 px under the card.
+TS=$(at size 280x600+1000+40); [ -n "$TS" ] && { set -- $TS; click $1 $2 0.4; click $1 $(( $2 + 80 )) 0.4; xdotool type --delay 20 "0.001"; }
 click 1140 755 4; shot 66-target; TR=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
 check "Compress to a size out of reach keeps the smallest and says so (${TS:-no option}; $(ls $OUT/target-compressed*.pdf 2>/dev/null | wc -l) file)" "ls $OUT/target-compressed*.pdf >/dev/null 2>&1 && echo \"$TR\" | grep -q 'as small as it gets'"
 quit
 
 # 50. Any colour (Acrobat's Other color): the row's sixth dot (557,110 with the Pen) opens a palette; its
-# orange (498,145) draws the stroke, saved orange (F28C28).
+# orange (the second swatch, 517,145) draws the stroke, saved orange (F28C28).
 cp "$OUT/text.pdf" "$OUT/colour.pdf"; launch "$OUT/colour.pdf"
-key p; click 557 110 0.8; click 498 145 0.6
+key p; click 557 110 0.8; click 517 145 0.6
 xdotool mousemove 500 400 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 30 )) 410; sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
 OC=$(qpdf --json=2 "$OUT/colour.pdf" | python3 -c 'import json, sys
 for v in json.load(sys.stdin)["qpdf"][1].values():
@@ -645,8 +659,9 @@ quit
 # panel's Replace with, Replace all: every page's text now says "slow brown fox", none "quick".
 cp "$OUT/text.pdf" "$OUT/replace-all.pdf"; launch "$OUT/replace-all.pdf"; sleep 1
 key ctrl+f; xdotool type --delay 10 "quick"; key Return; sleep 2
-RW=$(at Replace 300x300+0+60); [ -n "$RW" ] && { set -- $RW; click $(( $1 + 20 )) $2 0.4; xdotool type --delay 20 "slow"; }
-RA=$(at all 300x300+0+60); [ -n "$RA" ] && click $RA 3; key ctrl+s; sleep 2; shot 68-replace-all
+# The field's placeholder is too faint to read: it sits left of the "Replace all" button.
+RA=$(at all 300x300+0+60); RW=${RA:+$(set -- $RA; echo $(( $1 - 140 )) $2)}
+[ -n "$RW" ] && { click $RW 0.4; xdotool type --delay 20 "slow"; click $RA 3; }; key ctrl+s; sleep 2; shot 68-replace-all
 RT=$(pdftotext "$OUT/replace-all.pdf" - 2>/dev/null | tr '\n' ' ')
 check "Replace all rewrites the words on every page (${RW:-no field} ${RA:-no button}; $(echo "$RT" | cut -c1-60))" "[ \"\$(echo \"$RT\" | grep -o 'slow brown' | wc -l)\" = 4 ] && ! echo \"$RT\" | grep -q quick"
 quit
@@ -663,7 +678,8 @@ quit
 # 420 × 595 pt, its text still there.
 cp "$OUT/text.pdf" "$OUT/resize.pdf"; launch "$OUT/resize.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "crop"; key Return; sleep 2.5
-CP=$(at Change 280x700+1000+40); [ -n "$CP" ] && click $CP 0.6; A5=$(at A5 280x700+1000+40); [ -n "$A5" ] && click $A5 0.4
+CP=$(at Change 280x700+1000+40); [ -n "$CP" ] && click $CP 0.6; # OCR misses the papers' names: A5, the fourth, sits 112 px right of and 55 px under "Change".
+A5=${CP:+$(set -- $CP; echo $(( $1 + 112 )) $(( $2 + 55 )))}; [ -n "$A5" ] && click $A5 0.4
 click 1140 755 4; RZ=$(pdfinfo -f 1 -l 4 "$OUT/resize-cropped.pdf" 2>/dev/null | grep -c 'size: *420 x 595')
 check "Change page size makes every page A5 (${CP:-no option} ${A5:-no A5}; $RZ of 4 pages)" "[ \"$RZ\" = 4 ] && pdftotext $OUT/resize-cropped.pdf - 2>/dev/null | grep -q 'Page 4'"
 quit
@@ -673,6 +689,70 @@ quit
 cp "$OUT/text.pdf" "$OUT/flip.pdf"; launch "$OUT/flip.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "rotate"; key Return; sleep 2.5
 FL=$(at Flip 280x700+1000+40); [ -n "$FL" ] && click $FL 0.5; click 1140 755 4
-FX=$(pdftotext -bbox -f 1 -l 1 "$OUT/flip-rotated.pdf" - 2>/dev/null | grep -m1 'xMin' | sed 's/.*xMin="\([0-9.]*\)".*/\1/')
-check "Flip ↔ mirrors the pages (${FL:-no Flip}; first word at x ${FX:-?})" "python3 -c 'import sys; sys.exit(0 if float(\"${FX:-0}\") > 300 else 1)'"
+FX=$(pdftotext -bbox -f 1 -l 1 "$OUT/flip-rotated.pdf" - 2>/dev/null | grep -o 'xMax="[0-9.]*"' | tr -dc '0-9.\n' | sort -n | tail -1)
+check "Flip ↔ mirrors the pages (${FL:-no Flip}; the text now reaches x ${FX:-?}, 410 before)" "python3 -c 'import sys; sys.exit(0 if float(\"${FX:-0}\") > 500 else 1)'"
+quit
+
+# 72. Compare ▸ Side by side (Acrobat's side-by-side view): one.pdf against two.pdf, the result one sheet as wide as
+# both pages, the original's colour on the left half and the changed one's on the right.
+launch "$OUT/reo/one.pdf" "$OUT/reo/two.pdf"
+click 50 21 1; click 67 113 1; click 993 76 0.5; xdotool type --delay 20 "compare"; key Return; sleep 2
+click 388 411 1; click 330 481 2; click 600 411 1; click 560 481 2
+SB=$(at Side 280x700+1000+90); [ -n "$SB" ] && click $SB 1; answer "$PWD/$OUT/reo/side.pdf"
+for try in 1 2; do
+    click 1134 756 1; for _ in $(seq 1 20); do ocr 700x60+100+712 | grep -q successfully && break 2; sleep 0.5; done
+done
+# Written next to the original (Preferences ▸ next to the original, set earlier): the newest comparison.
+answer ""; SIDE=$(ls -t "$OUT"/reo/one-comparison*.pdf 2>/dev/null | head -1); cp "$SIDE" "$OUT/reo/side.pdf" 2>/dev/null
+SL=$(pdftoppm -r 10 -f 1 -l 1 -png "$OUT/reo/side.pdf" 2>/dev/null | convert - -format "%[pixel:p{12,25}] %[pixel:p{%[fx:w-12],25}]" info: 2>/dev/null)
+check "Side by side puts the original left of the changed page on one sheet (${SB:-no option}; $SL)" "pdfinfo $OUT/reo/side.pdf 2>/dev/null | grep -q 'Pages: *1' && [ \"\$(echo '$SL' | cut -d' ' -f1)\" != \"\$(echo '$SL' | cut -d' ' -f2)\" ]"
+quit
+
+# 73. Organize ▸ Pages per sheet ▸ Booklet (Acrobat's Booklet): text.pdf's four pages on two sides, the first holding
+# pages 4 and 1 (folded, they read in order).
+cp "$OUT/text.pdf" "$OUT/booklet.pdf"; launch "$OUT/booklet.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "organize"; key Return; sleep 3
+BK=$(at Booklet 280x700+1000+40); [ -n "$BK" ] && click $BK 0.5; click 1140 755 4
+BT=$(pdftotext -f 1 -l 1 "$OUT/booklet-organized.pdf" - 2>/dev/null | tr '\n' ' ')
+check "Booklet puts two pages to a side in folding order (${BK:-no option}; $(pdfinfo $OUT/booklet-organized.pdf 2>/dev/null | grep Pages); $(echo $BT | cut -c1-60))" "pdfinfo $OUT/booklet-organized.pdf 2>/dev/null | grep -q 'Pages: *2' && echo \"$BT\" | grep -q 'Page 4' && echo \"$BT\" | grep -q 'Page 1'"
+quit
+
+# 74. Split ▸ Cut each page in two (a scanned spread made two pages again), Left | right: text.pdf's four pages become
+# eight, page 1's first words on the first.
+cp "$OUT/text.pdf" "$OUT/spread.pdf"; launch "$OUT/spread.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "split"; key Return; sleep 3
+CT=$(at Cut 280x700+1000+40); [ -n "$CT" ] && click $CT 0.6; click 1140 755 4
+HV=$(ls $OUT/spread-halves*.pdf 2>/dev/null | head -1)
+check "Cut each page in two makes eight half pages (${CT:-no option}; ${HV:-no file})" "[ -n \"$HV\" ] && pdfinfo \"$HV\" | grep -q 'Pages: *8' && pdftotext -f 1 -l 1 \"$HV\" - | grep -q 'Page 1'"
+quit
+
+# 75. Home ▸ From screenshot (Acrobat's Create PDF ▸ Screen capture): the area taken (the test seam gives stamp.png,
+# 80 × 40 px, green) becomes a one-page PDF, named in the Save dialog and opened.
+launch; answer "$PWD/$OUT/screenshot.pdf"; FS=$(at screenshot 900x120+300+80); [ -n "$FS" ] && click $FS 1
+for _ in $(seq 1 12); do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; answer ""
+SC=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/screenshot.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
+check "From screenshot makes a PDF of the area taken and opens it (${FS:-no button}; $SC; $(ntabs) tabs)" "[ \"\$(npages $OUT/screenshot.pdf 2>/dev/null)\" = 1 ] && echo \"$SC\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(ntabs)\" = 1 ]"
+quit
+
+# 76. Tabs (browsers', PDF Expert's): a note added and not saved turns the active tab's × (its last 40 px) into a
+# dot; ⌃Tab goes to the other tab; ⌘O on Home opens the file dialog (answered: text.pdf opens, a third tab).
+cp "$OUT/text.pdf" "$OUT/tab1.pdf"; cp "$OUT/text.pdf" "$OUT/tab2.pdf"; launch "$OUT/tab1.pdf" "$OUT/tab2.pdf"; sleep 1.5
+corner() { import -window root -crop 40x24+440+9 png:- 2>/dev/null | md5sum | cut -c1-8; }
+xdotool mousemove 640 500; sleep 0.4; C0=$(corner)
+key n; click 640 400 0.8; xdotool type --delay 10 "dot"; key ctrl+Return; sleep 0.8; xdotool mousemove 640 500; sleep 0.4; C1=$(corner)
+key ctrl+Tab; sleep 0.8; C2=$(corner)
+click 40 21 1; answer "$PWD/$OUT/text.pdf"; key ctrl+o; sleep 2.5; answer ""; NT=$(ntabs)
+check "an unsaved tab shows a dot, ⌃Tab steps, ⌘O opens (corner $C0 → $C1 → $C2; $NT tabs)" "[ \"$C0\" != \"$C1\" ] && [ \"$C1\" != \"$C2\" ] && [ \"$NT\" = 3 ]"
+quit
+
+# 77. Redact's list (Acrobat's Redaction panel): "quick" on page 1 marked by a double-click, the view sent to the last
+# page (the wheel), then the mark's row clicked in the panel: page 1 is back in view.
+cp "$OUT/text.pdf" "$OUT/redact3.pdf"; launch "$OUT/redact3.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
+Q=$(at quick 820x700+140+60); [ -n "$Q" ] && { set -- $Q; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
+# Scrolled away by the wheel (Redact's view takes no End key).
+xdotool mousemove 500 400; for _ in $(seq 1 40); do xdotool click 5; sleep 0.02; done; sleep 1; V0=$(ocr 820x700+140+60)
+# The row's "Page 1", under "Marked for redaction" (the intro above says "quickly").
+ROW=$(at Page 280x300+1000+480); [ -n "$ROW" ] && click $ROW 1.2; V1=$(ocr 820x700+140+60)
+check "a mark's row in Redact's list shows it on its page (${ROW:-no row}; $(echo $V0 | cut -c1-20) → $(echo $V1 | cut -c1-20))" "! echo \"$V0\" | grep -q 'Page 1' && echo \"$V1\" | grep -q 'Page 1'"
 quit

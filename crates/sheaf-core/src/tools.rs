@@ -271,6 +271,9 @@ mod summary_tests {
         assert_eq!(c.summary(), "1 added, 0 removed, 2 changed; 1 other changed area outlined");
         let c = crate::compare::CompareReport { listed: true, ..c };
         assert_eq!(c.summary(), "1 added, 0 removed, 2 changed; 1 other changed area listed");
+        // The same words, a picture changed: one run of clauses.
+        let c = crate::compare::CompareReport { added: 0, replaced: 0, listed: false, ..c };
+        assert_eq!(c.summary(), "The text is the same; 1 other changed area outlined");
         let e = crate::edit::EditReport { path: Default::default(), added: 1, was_encrypted: false };
         assert_eq!(e.summary(), "1 item added");
         let s = crate::sign::SignReport { path: Default::default(), signer: Some("A".into()) };

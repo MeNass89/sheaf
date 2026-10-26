@@ -25,6 +25,15 @@ pub fn page_texts(path: &Path) -> Vec<String> {
     (1..=d.get_pages().len() as u32).map(|i| d.extract_text(&[i]).unwrap().trim().to_string()).collect()
 }
 
+/// Text of every page as a reader shows it (poppler's pdftotext: inside forms, within the media box), trimmed.
+pub fn shown_texts(path: &Path) -> Vec<String> {
+    let o = std::process::Command::new("pdftotext").arg("-layout").arg(path).arg("-").output().unwrap();
+    let s = String::from_utf8_lossy(&o.stdout);
+    let mut pages: Vec<String> = s.split('\x0c').map(|p| p.split_whitespace().collect::<Vec<_>>().join(" ")).collect();
+    pages.pop();
+    pages
+}
+
 /// Asserts `qpdf --check` passes with no WARNING.
 pub fn qpdf_clean(path: &Path) {
     let o = std::process::Command::new("qpdf").arg("--check").arg(path).output().unwrap();

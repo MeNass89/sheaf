@@ -142,7 +142,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_set_theme, |ui, id, t| reader_ui::set_theme(&ui, id, t));
     rb.on_set_panel(reader_ui::set_panel);
     rb.on_toggle_panel(reader_ui::toggle_panel);
-    rb.on_outline_clicked(reader_ui::outline_clicked);
+    wire_global!(ui, rb, on_outline_clicked, |ui, id, row| reader_ui::outline_clicked(&ui, id, row));
     rb.on_outline_toggled(reader_ui::outline_toggled);
     rb.on_annot_clicked(reader_ui::annot_clicked);
     wire_global!(ui, rb, on_annot_delete, |ui, id, k| reader_ui::annot_delete(&ui, id, k));
@@ -279,6 +279,7 @@ fn wire_viewer(ui: &AppWindow) {
     vb.on_show_result(viewer_ui::show_result);
     with_ui!(on_mark_page, |ui, id, range| viewer_ui::mark_page(&ui, id, &range));
     vb.on_remove_mark(viewer_ui::remove_mark);
+    vb.on_show_mark(viewer_ui::show_mark);
     vb.on_clear_marks(viewer_ui::clear_marks);
 
     let sb = ui.global::<sheaf_app::SignBridge>();
@@ -378,6 +379,30 @@ fn main() -> Result<(), slint::PlatformError> {
             Err(e) => flow::toast(ui, &e.to_string()),
         });
     });
+    // Home ▸ From screenshot (Acrobat's Create PDF ▸ Screen capture): an area dragged on the screen
+    // becomes a one-page PDF, named and placed first. Taken off the UI thread: the tool waits for
+    // the drag.
+    wire!(ui, on_new_from_screenshot, |ui| {
+        let weak = ui.as_weak();
+        std::thread::spawn(move || {
+            let shot = std::env::temp_dir().join(format!("sheaf-screenshot-{}.png", std::process::id()));
+            let taken = run::capture_area(&shot);
+            let _ = weak.upgrade_in_event_loop(move |ui| {
+                if !taken {
+                    return flow::toast(&ui, "No screenshot was taken");
+                }
+                let d = dialog::new(&ui).set_file_name("Screenshot.pdf").add_filter("PDF", &["pdf"]);
+                dialog::save_file(&ui, d, move |ui, path| {
+                    let made = sheaf_core::images::images_to_pdf(std::slice::from_ref(&shot), sheaf_core::images::PageLayout::FitImage, &path);
+                    let _ = std::fs::remove_file(&shot);
+                    match made {
+                        Ok(p) => deliver(vec![p]),
+                        Err(e) => flow::toast(ui, &e.to_string()),
+                    }
+                });
+            });
+        });
+    });
     // Tools search: found tools, best first (sheaf_core::tools::search).
     let weak = ui.as_weak();
     ui.on_tool_query(move |q| {
@@ -403,6 +428,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_close_tab, |ui, id| flow::close_tab(&ui, id));
     ui.on_move_tab(flow::move_tab);
     wire!(ui, on_step_tab, |ui, d| flow::step_tab(&ui, d));
+    wire!(ui, on_close_active_tab, |ui| flow::close_active_tab(&ui));
     wire!(ui, on_close_tabs_around, |ui, id, which| flow::close_tabs_around(&ui, id, which));
     wire!(ui, on_confirm_keep, |ui| {
         state::with(|a| a.pending_close = None);

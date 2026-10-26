@@ -90,6 +90,8 @@ pub(super) fn form_pressed(r: &mut ReaderUi, v: &Viewer, page: usize, p: (f64, f
             } else {
                 r.form_also.push(rect);
             }
+            // The press is taken: let go where it was, it adds no field (dragged, the group moves).
+            r.form_drag = Some((page, p, p));
             r.note_seq += 1;
         }
         Some((_, rect)) => {

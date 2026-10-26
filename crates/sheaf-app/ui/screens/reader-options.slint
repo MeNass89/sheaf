@@ -162,7 +162,7 @@ export component ReaderOptionsBar inherits Rectangle {
             }
         }
         // Shapes filled: their own fill colour (Acrobat's Fill Color), a tint of the stroke by default.
-        if root.tab.reader.tool == 10 && root.tab.reader.shape-fill && root.tab.reader.shape-kind < 2: HorizontalLayout {
+        if (root.tab.reader.tool == 10 && root.tab.reader.shape-fill && (root.tab.reader.shape-kind < 2 || root.tab.reader.shape-kind == 4 || root.tab.reader.shape-kind == 5)) || root.tab.reader.selected-fillable: HorizontalLayout {
             spacing: 2px;
             padding-left: 4px;
             Text { text: "Fill"; font-size: Theme.fs-caption; color: Theme.text-secondary; vertical-alignment: center; }
@@ -374,10 +374,11 @@ export component ReaderOptionsBar inherits Rectangle {
         if root.tab.reader.tool == 10: HorizontalLayout {
             spacing: 0px;
             padding-left: 6px;
-            // Clicked out vertex by vertex, a double-click to end (Acrobat's Polygon, Cloud, Polygonal Line).
-            SmallButton { y: 2px; text: "Polygon"; primary: root.tab.reader.shape-kind == 4; clicked => { ReaderBridge.shape-option(root.id, 0, 4); root.focus-pages(); } }
-            SmallButton { y: 2px; text: "Cloud"; primary: root.tab.reader.shape-kind == 5; clicked => { ReaderBridge.shape-option(root.id, 0, 5); root.focus-pages(); } }
-            SmallButton { y: 2px; text: "Polyline"; primary: root.tab.reader.shape-kind == 6; clicked => { ReaderBridge.shape-option(root.id, 0, 6); root.focus-pages(); } }
+            // Clicked out vertex by vertex, a double-click to end (Acrobat's Polygon, Cloud, Polygonal Line);
+            // hidden while measuring, so the scale and Calibrate fit (a shape icon brings them back).
+            if root.tab.reader.shape-kind < 7: SmallButton { y: 2px; text: "Polygon"; primary: root.tab.reader.shape-kind == 4; clicked => { ReaderBridge.shape-option(root.id, 0, 4); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 7: SmallButton { y: 2px; text: "Cloud"; primary: root.tab.reader.shape-kind == 5; clicked => { ReaderBridge.shape-option(root.id, 0, 5); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 7: SmallButton { y: 2px; text: "Polyline"; primary: root.tab.reader.shape-kind == 6; clicked => { ReaderBridge.shape-option(root.id, 0, 6); root.focus-pages(); } }
             // Acrobat's Measuring tools, in true size or at a scale.
             Rectangle { width: 6px; }
             for m[k] in ["Distance", "Perimeter", "Area"]: SmallButton { y: 2px; text: m; primary: root.tab.reader.shape-kind == 7 + k; clicked => { ReaderBridge.shape-option(root.id, 0, 7 + k); root.focus-pages(); } }

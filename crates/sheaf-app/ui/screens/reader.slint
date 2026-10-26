@@ -222,8 +222,10 @@ export component ReaderScreen inherits Rectangle {
                         width: p.w;
                         height: p.h;
                         background: root.tab.reader.theme == 1 ? #1E1E20 : root.tab.reader.theme == 2 ? #F4ECD8 : white;
-                        drop-shadow-blur: 8px;
-                        drop-shadow-color: Theme.thumb-shadow;
+                        // No shadow on a page wider than the window: the software renderer blurs the
+                        // whole page's size for it (seconds a frame at 400 %), and its edges are out of view.
+                        drop-shadow-blur: p.w > 1600px ? 0px : 8px;
+                        drop-shadow-color: p.w > 1600px ? transparent : Theme.thumb-shadow;
                         drop-shadow-offset-y: 1px;
                         if p.ready: Image {
                             width: parent.width;
@@ -354,7 +356,7 @@ export component ReaderScreen inherits Rectangle {
                             if root.tab.reader.page-at-a-time && e.delta-y != 0 {
                                 root.wheel-sum += e.delta-y;
                                 if abs(root.wheel-sum) >= 60px {
-                                    ReaderBridge.page-step(root.id, root.wheel-sum > 0 ? -1 : 1);
+                                    ReaderBridge.page-step(root.id, root.wheel-sum > 0 ? -3 : 3);
                                     root.wheel-sum = 0px;
                                 }
                                 return accept;
@@ -409,15 +411,15 @@ export component ReaderScreen inherits Rectangle {
                     // Prepare form: the selected field's card, under it.
                     if root.tab.reader.field-props.show && root.tab.reader.field-props.group > 1: FieldsArrangeCard {
                         x: max(-sv.content-x + 4px, min(root.tab.reader.field-props.x, -sv.content-x + sv.visible-width - self.width - 4px));
-                        y: root.tab.reader.field-props.y + self.height > root.tab.viewer-height ? max(0px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
+                        y: root.tab.reader.field-props.y + self.height > -sv.content-y + sv.visible-height - 4px ? max(-sv.content-y + 4px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
                         count: root.tab.reader.field-props.group;
                         id: root.id;
                         focus-pages => { keys.focus(); }
                     }
                     if root.tab.reader.field-props.show && root.tab.reader.field-props.group <= 1: FieldPropsCard {
                         x: max(-sv.content-x + 4px, min(root.tab.reader.field-props.x, -sv.content-x + sv.visible-width - self.width - 4px));
-                        // Above the field when it would run past the end of the pages (Sol, 25/10).
-                        y: root.tab.reader.field-props.y + self.height > root.tab.viewer-height ? max(0px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
+                        // Above the field when it would run past the bottom of the view (Sol, 25/10).
+                        y: root.tab.reader.field-props.y + self.height > -sv.content-y + sv.visible-height - 4px ? max(-sv.content-y + 4px, root.tab.reader.field-props.top - self.height - 8px) : root.tab.reader.field-props.y;
                         props: root.tab.reader.field-props;
                         id: root.id;
                         focus-pages => { keys.focus(); }
@@ -577,7 +579,7 @@ export component ReaderScreen inherits Rectangle {
                 // Options of the tool in use and the form's actions: a bar floating over the top of
                 // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
                 // pages never move when a tool is picked.
-                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && root.tab.reader.tool != 9 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
+                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
                     x: 12px;
                     y: 8px;
                     width: min(parent.width - 24px, self.bar-width);

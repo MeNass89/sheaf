@@ -338,6 +338,8 @@ export struct ReaderState {
     fill-colour: int,
     // A drawing or shape selected: the bar sets its width and opacity.
     selected-stroke: bool,
+    // A selected rectangle, oval or polygon: its fill can change.
+    selected-fillable: bool,
     // Print sheet: open, the system's printers, the chosen one.
     print-open: bool,
     // More ▸ Background… is open.
@@ -437,6 +439,7 @@ export struct ToolOptions {
     every: int,
     split-one-file: bool, // split: every range into one PDF (iLovePDF's "Merge all ranges")
     split-size: string,  // split by size: the largest file, in MB as typed
+    split-across: bool,  // cut each page in two: left and right (else top and bottom)
     degrees: int,        // 90 / 180 / 270
     layout: int,         // jpg→pdf: 0 fit, 1 A4, 2 US Letter
     landscape: bool,     // jpg→pdf: the paper turned
@@ -498,6 +501,7 @@ export struct ToolOptions {
     // Crop
     crop-mode: int,      // 0 all pages, 1 selected pages, 2 remove crop, 3 white margins, 4 change page size
     crop-paper: int,     // change page size: A4, Letter, A3, A5, Legal (pages::PAPER)
+    per-sheet: int,      // organize: pages to a sheet, 0 one, 1 two, 2 four, 3 six, 4 nine, 5 a booklet
     crop-top: string,    // millimetres
     crop-bottom: string,
     crop-left: string,
@@ -513,7 +517,7 @@ export struct ToolOptions {
     excel-layout: int,     // 0 one sheet, 1 one sheet per table
     text-format: int,      // PDF to HTML or text: 0 web page, 1 Markdown, 2 rich text, 3 plain text, 4 XML
     // Compare
-    compare-mode: int,     // 0 semantic text (report), 1 content overlay
+    compare-mode: int,     // 0 semantic text (report), 1 content overlay, 2 side by side
     // Sign: the optional certificate
     sign-cert: bool,
     sign-p12: string,      // .p12 / .pfx path
@@ -881,6 +885,7 @@ export global ViewerBridge {
     // Whole pages marked for redaction: the range typed ("2-4, 7"), empty for the page shown.
     callback mark-page(int, string);
     callback remove-mark(int, int);
+    callback show-mark(int, int);
     callback clear-marks(int);
 }
 

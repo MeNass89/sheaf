@@ -319,6 +319,9 @@ pub struct ReaderUi {
     snap_area: bool,
     /// More ▸ Scroll automatically is on (the view moves itself, reader.slint).
     auto_scroll: bool,
+    /// When the wheel last turned a page (One page at a time): the events of the same notch that follow are
+    /// let go (an X11 notch comes as two).
+    wheel_turned: Option<std::time::Instant>,
     /// More ▸ One page at a time: the page fits the view, the wheel and arrows turn pages.
     page_at_a_time: bool,
     /// The Signature tool places the initials (its options bar's Initials).
@@ -490,6 +493,7 @@ impl ReaderUi {
             zoom_area: false,
             snap_area: false,
             auto_scroll: false,
+            wheel_turned: None,
             page_at_a_time: false,
             initials: false,
             sign_every_page: false,
