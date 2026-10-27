@@ -96,6 +96,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         reading_speed: 2,
         reading_voice: Some("Alex".into()),
         metric: true,
+        guide_colour: 2,
         no_gpu: true,
         show_boxes: true,
         physical_numbers: true,

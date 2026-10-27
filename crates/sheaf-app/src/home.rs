@@ -354,6 +354,7 @@ fn push_prefs(ui: &AppWindow) {
     rb.set_thumb_width(crate::reader_ui::reader_thumb(panel_width()) as f32);
     ui.set_stamp_date(p.stamp_date);
     ui.set_metric(p.metric);
+    ui.set_guide_colour(i32::from(p.guide_colour));
     ui.set_gpu(!p.no_gpu);
     ui.set_show_boxes(p.show_boxes);
     ui.set_digital_ids(ModelRc::new(VecModel::from(p.digital_ids.iter().map(|d| slint::SharedString::from(d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())).collect::<Vec<_>>())));
@@ -502,6 +503,12 @@ pub fn set_page_display(ui: &AppWindow, what: i32, on: bool) {
 pub fn set_gpu(ui: &AppWindow, on: bool) {
     update_prefs(ui, |p| p.no_gpu = !on);
     crate::flow::toast(ui, "Takes effect when Sheaf starts again");
+}
+
+/// Preferences ▸ Guides: their colour, of `reader::GUIDE_COLOURS`.
+pub fn set_guide_colour(ui: &AppWindow, k: i32) {
+    update_prefs(ui, |p| p.guide_colour = k.clamp(0, sheaf_app::reader::GUIDE_COLOURS.len() as i32 - 1) as u8);
+    crate::reader_ui::refresh_all();
 }
 
 /// Preferences ▸ Units: the rulers in inches (false) or centimetres (true).

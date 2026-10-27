@@ -233,6 +233,69 @@ pub(crate) fn drawing(cos: &Cos, form: ObjRef) -> (usize, bool, bool) {
     acc
 }
 
+/// Sheaf: the raster pictures Form `form` draws (nested Forms included) swapped for an empty Form
+/// under the same names, so they no longer show and the group's text and drawings stay (Acrobat's
+/// Remove all images; Sol, 27/10: such groups kept their pictures). Returns how many went.
+pub(crate) fn blank_pictures(cos: &mut Cos, form: ObjRef) -> usize {
+    fn forms(cos: &Cos, form: ObjRef, depth: usize, seen: &mut HashSet<ObjRef>, out: &mut Vec<ObjRef>) {
+        if depth > MAX_FORM_DEPTH || !seen.insert(form) {
+            return;
+        }
+        out.push(form);
+        let Some(xobjects) = resources(cos, form).and_then(|res| res.get(b"XObject").map(|x| cos.resolve(x))).and_then(|x| x.as_dict().cloned()) else { return };
+        for (_, v) in xobjects.iter() {
+            if let Some(r) = v.as_ref()
+                && matches!(&*cos.get(r), Object::Stream(s) if s.dict.name(b"Subtype") == Some(b"Form"))
+            {
+                forms(cos, r, depth + 1, seen, out);
+            }
+        }
+    }
+    let mut all = Vec::new();
+    forms(cos, form, 0, &mut HashSet::new(), &mut all);
+    let mut blank: Option<ObjRef> = None;
+    let mut gone = 0;
+    for f in all {
+        let Some(res) = (match &*cos.get(f) { Object::Stream(s) => s.dict.get(b"Resources").cloned(), _ => None }) else { continue };
+        let xobj = cos.resolve(&res).as_dict().and_then(|d| d.get(b"XObject").cloned());
+        let Some(xobj) = xobj else { continue };
+        let Some(mut dict) = cos.resolve(&xobj).as_dict().cloned() else { continue };
+        let pictures: Vec<Vec<u8>> = dict
+            .iter()
+            .filter(|(_, v)| v.as_ref().is_some_and(|r| matches!(&*cos.get(r), Object::Stream(s) if s.dict.name(b"Subtype") == Some(b"Image"))))
+            .map(|(k, _)| k.clone())
+            .collect();
+        if pictures.is_empty() {
+            continue;
+        }
+        let empty = *blank.get_or_insert_with(|| {
+            let mut d = Dict::new();
+            d.set(b"Type".to_vec(), Object::name("XObject"));
+            d.set(b"Subtype".to_vec(), Object::name("Form"));
+            d.set(b"BBox".to_vec(), vec![Object::Real(0.0), Object::Real(0.0), Object::Real(0.0), Object::Real(0.0)]);
+            cos.add(pdfcraft_cos::Stream::from_raw(d, Vec::new()))
+        });
+        for k in &pictures {
+            dict.set(k.clone(), empty);
+        }
+        gone += pictures.len();
+        // Written back where it lives: its own object, the resources' object, or the Form's dictionary.
+        let written = match (xobj.as_ref(), res.as_ref()) {
+            (Some(x), _) => cos.update_dict(x, |d| *d = dict),
+            (None, Some(r)) => cos.update_dict(r, |d| d.set(b"XObject".to_vec(), dict)),
+            (None, None) => cos.update_dict(f, |d| {
+                if let Some(Object::Dict(res)) = d.get_mut(b"Resources") {
+                    res.set(b"XObject".to_vec(), dict);
+                }
+            }),
+        };
+        if written.is_err() {
+            gone -= pictures.len();
+        }
+    }
+    gone
+}
+
 /// The largest raster image Form `form` draws through its resources (nested Forms included).
 fn picture_in_form(cos: &Cos, form: ObjRef) -> Option<ObjRef> {
     let mut seen = HashSet::from([form]);

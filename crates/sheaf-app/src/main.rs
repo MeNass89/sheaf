@@ -567,6 +567,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_smoothing, |ui, k, on| home::set_smoothing(&ui, k, on));
     wire!(ui, on_set_stamp_date, |ui, f| home::set_stamp_date(&ui, f));
     wire!(ui, on_set_metric, |ui, m| home::set_metric(&ui, m));
+    wire!(ui, on_set_guide_colour, |ui, k| home::set_guide_colour(&ui, k));
     wire!(ui, on_set_gpu, |ui, on| home::set_gpu(&ui, on));
     wire!(ui, on_set_page_display, |ui, what, on| home::set_page_display(&ui, what, on));
     wire!(ui, on_signature_prefs, |ui, what, k| home::signature_prefs(&ui, what, k));

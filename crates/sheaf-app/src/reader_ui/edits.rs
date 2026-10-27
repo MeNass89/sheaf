@@ -846,14 +846,20 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     if let Some((page, e)) = group {
         return apply(ui, tab_id, e, &[page], None);
     }
-    let edit = update(tab_id, |r, _| {
+    let edit = update(tab_id, |r, v| {
         let i = r.selected_annot.take()?;
         let a = r.annots().get(i)?;
+        // Where a comment shows on its page (top-left, size), as Every page placed the copies
+        // (Sol, 27/10: matched by the file's box, copies on pages of another size or turned stayed).
+        let shown = |b: &reader_doc::AnnotEntry| v.viewer.boxes.get(b.page).map(|bx| viewer::pdf_rect_to_view(bx, bx.view_size(), b.rect));
+        let at = shown(a);
         // A signature or initials placed on several pages at once (Every page): the copies go
         // together, one undo step (Sol, 26/10: only the one selected went).
         // Drawn signatures are ink, picture and typed ones stamps (Sol, 26/10: ink was left).
         let twins: Vec<(usize, usize)> = if a.fill_sign && matches!(a.subtype.as_str(), "Stamp" | "Ink") {
-            let same = |b: &reader_doc::AnnotEntry| b.page != a.page && b.subtype == a.subtype && b.fill_sign && b.contents == a.contents && (0..4).all(|k| (b.rect[k] - a.rect[k]).abs() < 0.5);
+            let same = |b: &reader_doc::AnnotEntry| {
+                b.page != a.page && b.subtype == a.subtype && b.fill_sign && b.contents == a.contents && shown(b).zip(at).is_some_and(|(p, q)| viewer::same_place(p, q))
+            };
             r.annots().iter().filter(|b| same(b)).map(|b| (b.page, b.index)).collect()
         } else {
             Vec::new()

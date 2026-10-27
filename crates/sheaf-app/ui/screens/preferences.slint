@@ -144,6 +144,8 @@ export component PreferencesScreen inherits Rectangle {
     callback set-stamp-date(int);
     in property <bool> metric;
     callback set-metric(bool);
+    in property <int> guide-colour;
+    callback set-guide-colour(int);
     in property <bool> gpu;
     callback set-gpu(bool);
     in property <bool> show-boxes;
@@ -377,6 +379,23 @@ export component PreferencesScreen inherits Rectangle {
                     spacing: 8px;
                     Segment { width: 140px; text: "Inches"; selected: !root.metric; clicked => { root.set-metric(false); } }
                     Segment { width: 140px; text: "Centimetres"; selected: root.metric; clicked => { root.set-metric(true); } }
+                }
+                // Acrobat's Guide colour.
+                Text {
+                    text: "Guides in";
+                    font-size: Theme.fs-body;
+                    color: Theme.text;
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    for c[k] in [{ name: "Cyan", col: #00A6D6 }, { name: "Magenta", col: #E0218A }, { name: "Green", col: #2EA043 }, { name: "Orange", col: #F08C00 }]: Segment {
+                        width: 100px;
+                        text: c.name;
+                        selected: root.guide-colour == k;
+                        clicked => { root.set-guide-colour(k); }
+                        Rectangle { x: 8px; y: (parent.height - 10px) / 2; width: 10px; height: 10px; border-radius: 5px; background: c.col; }
+                    }
                 }
             }
         }

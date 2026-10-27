@@ -127,7 +127,7 @@ pub fn space_of(doc: &Document, total: u64) -> Vec<(&'static str, u64)> {
     by[5] = total.saturating_sub(by[..5].iter().sum());
     let names = ["Images", "Fonts", "Page content", "Attached files", "Metadata", "Document structure"];
     let mut out: Vec<(&'static str, u64)> = names.into_iter().zip(by).filter(|(_, n)| *n > 0).collect();
-    out.sort_by(|a, b| b.1.cmp(&a.1));
+    out.sort_by_key(|a| std::cmp::Reverse(a.1));
     out
 }
 

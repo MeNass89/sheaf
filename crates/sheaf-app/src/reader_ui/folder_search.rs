@@ -77,15 +77,38 @@ pub(super) fn search_folder(folder: &std::path::Path, query: &str) -> Vec<(PathB
 }
 
 /// A word as compared: lower case, its common English endings taken off ("forms", "formed",
-/// "forming" → "form"), as Acrobat's search matches a word's forms (Sol, 26/10: exact only).
+/// "forming" → "form"), as Acrobat's search matches a word's forms (Sol, 26/10: exact only): a
+/// consonant doubled before -ing/-ed made single ("running" → "run"), -ies/-ied made -y
+/// ("studies" → "study"), and a final e dropped, so "create" and "creating" meet (Sol, 27/10).
 fn stem(w: &str) -> String {
     let w = w.to_lowercase();
-    for end in ["ing", "ed", "es", "s"] {
-        if let Some(s) = w.strip_suffix(end).filter(|s| s.chars().count() >= 3) {
-            return s.to_string();
+    let long = |s: &str| s.chars().count() >= 3;
+    let mut base = None;
+    for end in ["ies", "ied"] {
+        if let Some(s) = w.strip_suffix(end).filter(|s| s.chars().count() >= 2) {
+            base = Some(format!("{s}y"));
+            break;
         }
     }
-    w
+    if base.is_none() {
+        for end in ["ing", "ed"] {
+            if let Some(s) = w.strip_suffix(end).filter(|s| long(s)) {
+                let c: Vec<char> = s.chars().collect();
+                let n = c.len();
+                let doubled = n >= 4 && c[n - 1] == c[n - 2] && !"aeioulsz".contains(c[n - 1]);
+                base = Some(if doubled { c[..n - 1].iter().collect() } else { s.to_string() });
+                break;
+            }
+        }
+    }
+    let base = base.unwrap_or_else(|| match w.strip_suffix("es").filter(|s| long(s) && !s.ends_with('e')) {
+        Some(s) if s.ends_with(['s', 'x', 'z']) || s.ends_with("ch") || s.ends_with("sh") => s.to_string(),
+        _ => w.strip_suffix('s').filter(|s| long(s) && !s.ends_with('s')).unwrap_or(&w).to_string(),
+    });
+    if let Some(s) = base.strip_suffix('e').filter(|s| s.chars().count() >= 3) {
+        return s.to_string();
+    }
+    base
 }
 
 /// Where `query` is on a page's `text`: its words in a row (across line ends: Sol, 26/10), each in
@@ -156,5 +179,25 @@ mod match_tests {
         assert_eq!(super::page_matches(page, "payment days").len(), 1, "near each other");
         assert!(super::page_matches(page, "payment goods parties").is_empty(), "too far apart");
         assert!(super::page_matches("A hyphen-\nated word", "hyphenated")[0].contains("hyphenated"));
+    }
+
+    /// A word's forms meet whatever their ending does to it (Sol, 27/10).
+    #[test]
+    fn a_words_forms_have_one_stem() {
+        for forms in [
+            &["run", "runs", "running"][..],
+            &["create", "creates", "created", "creating"],
+            &["study", "studies", "studied"],
+            &["box", "boxes"],
+            &["class", "classes"],
+            &["form", "forms", "formed", "forming"],
+            &["stop", "stopped", "stopping"],
+            &["make", "makes", "making"],
+        ] {
+            let stems: Vec<String> = forms.iter().map(|w| super::stem(w)).collect();
+            assert!(stems.iter().all(|s| *s == stems[0]), "{forms:?} → {stems:?}");
+        }
+        assert_ne!(super::stem("fill"), super::stem("file"), "fill keeps its two l");
+        assert_eq!(super::page_matches("The script was running all night.", "run").len(), 1);
     }
 }

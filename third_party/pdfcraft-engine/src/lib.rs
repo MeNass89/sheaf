@@ -1524,7 +1524,8 @@ pub enum Edit {
         change: ImageEdit,
     },
     /// Sheaf: every picture of `pages` taken out (Acrobat's Remove all images; Smallpdf's), one
-    /// step; grouped artwork that is pictures only goes too, one with text or drawings stays.
+    /// step; grouped artwork that is pictures only goes too; one with text or drawings stays,
+    /// its pictures taken out of it.
     RemoveImages {
         pages: Vec<usize>,
     },
@@ -2585,7 +2586,12 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
                 for i in (0..n).rev() {
                     if let Some(o) = images[i].object.filter(|_| images[i].is_form) {
                         let (pictures, text, paths) = copy_image::drawing(doc, o);
-                        if pictures == 0 || text || paths {
+                        if pictures == 0 {
+                            continue;
+                        }
+                        // A group with text or drawings too: its pictures go, the rest stays.
+                        if text || paths {
+                            removed += copy_image::blank_pictures(doc, o);
                             continue;
                         }
                     }

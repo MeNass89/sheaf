@@ -660,6 +660,27 @@ pub fn file_link_path(uri: &str, doc_dir: &std::path::Path) -> Option<std::path:
     (!path.as_os_str().is_empty()).then(|| if path.is_absolute() { path } else { doc_dir.join(path) })
 }
 
+/// The guides' colours (Preferences ▸ Guides): cyan (Acrobat's), magenta, green, orange.
+pub const GUIDE_COLOURS: [[u8; 3]; 4] = [[0x00, 0xA6, 0xD6], [0xE0, 0x21, 0x8A], [0x2E, 0xA0, 0x43], [0xF0, 0x8C, 0x00]];
+
+/// How full screen plays a page's transition (`/Trans /S`): 0 none (Replace), 1 Fade, 2 Wipe,
+/// 3 Split, 4 Box, 5 Blinds, 6 Dissolve, 7 Glitter, 8 Cover or Fly, 9 Push, 10 Uncover.
+pub fn effect_code(style: &str) -> i32 {
+    match style {
+        "R" | "Replace" => 0,
+        "Fade" => 1,
+        "Split" => 3,
+        "Box" => 4,
+        "Blinds" => 5,
+        "Dissolve" => 6,
+        "Glitter" => 7,
+        "Cover" | "Fly" => 8,
+        "Push" => 9,
+        "Uncover" => 10,
+        _ => 2,
+    }
+}
+
 /// Prepare form's arrangement of the fields selected together (Acrobat's Align, Center, Distribute
 /// and Match Size), in user space (y up). The first rectangle is the one the others follow:
 /// 0 left edges, 1 centres in a column, 2 right edges, 3 top edges, 4 centres in a row, 5 bottom
@@ -855,6 +876,11 @@ pub fn fill_tint(c: [f64; 3]) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn every_transition_plays_as_itself() {
+        let codes: Vec<i32> = ["Fade", "Wipe", "Split", "Box", "Blinds", "Dissolve", "Glitter", "Cover", "Push", "Uncover", "R"].iter().map(|s| super::effect_code(s)).collect();
+        assert_eq!(codes, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]);
+    }
 
     #[test]
     fn words_are_replaced_by_case_and_whole_words() {

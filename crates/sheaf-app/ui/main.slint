@@ -121,6 +121,8 @@ export component AppWindow inherits Window {
     callback set-stamp-date(int);
     in property <bool> metric;
     callback set-metric(bool);
+    in property <int> guide-colour;
+    callback set-guide-colour(int);
     in property <bool> gpu: true;
     callback set-gpu(bool);
     in property <bool> show-boxes;
@@ -330,6 +332,8 @@ export component AppWindow inherits Window {
                             set-stamp-date(f) => { root.set-stamp-date(f); }
                             metric: root.metric;
                             set-metric(m) => { root.set-metric(m); }
+                            guide-colour: root.guide-colour;
+                            set-guide-colour(k) => { root.set-guide-colour(k); }
                             gpu: root.gpu;
                             set-gpu(on) => { root.set-gpu(on); }
                             show-boxes: root.show-boxes;

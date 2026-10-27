@@ -27,6 +27,10 @@ export component ReaderScreen inherits Rectangle {
     callback open-preferences();
     // The reading view alone, toolbar and panel hidden (View ▸ Hide Toolbar).
     in-out property <bool> bare;
+    // Full screen's transition playing: how much of it is left (1 → 0), the page it came from.
+    property <float> effect-left: 0;
+    property <int> effect-from: -1;
+    property <int> effect-kind: root.bare && root.effect-left > 0 ? root.tab.reader.page-effect : 0;
     property <string> link-tip;
     property <bool> over-link: root.link-tip != "";
     // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
@@ -240,9 +244,13 @@ export component ReaderScreen inherits Rectangle {
                     for p in root.tab.viewer-pages: Rectangle {
                         // One page at a time: the others are not shown, at any zoom (Sol, 26/10: zoomed
                         // out, the pages around it showed).
-                        visible: !root.tab.reader.page-at-a-time || p.page == root.tab.viewer-current;
-                        x: p.x;
-                        y: p.y;
+                        visible: !root.tab.reader.page-at-a-time || p.page == root.tab.viewer-current || (root.effect-kind >= 9 && p.page == root.effect-from);
+                        // Cover, Fly and Push slide the new page in from the right; Push and Uncover move
+                        // the old one out to the left, over the new one for Uncover, where the new one is.
+                        x: p.x + (root.effect-kind >= 8 && root.effect-kind != 10 && p.page == root.tab.viewer-current ? sv.visible-width * root.effect-left
+                            : root.effect-kind >= 9 && p.page == root.effect-from ? -sv.visible-width * (1 - root.effect-left) : 0px);
+                        y: root.effect-kind >= 9 && p.page == root.effect-from ? root.tab.reader.page-top * 1px : p.y;
+                        z: root.effect-kind == 10 && p.page == root.effect-from ? 1 : 0;
                         width: p.w;
                         height: p.h;
                         background: root.tab.reader.theme == 1 ? #1E1E20 : root.tab.reader.theme == 2 ? #F4ECD8 : white;
@@ -291,19 +299,17 @@ export component ReaderScreen inherits Rectangle {
                         y: g.y;
                         width: g.w;
                         height: g.h;
-                        Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.guides; stroke: #00A6D6; stroke-width: 1px; }
+                        Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.guides; stroke: root.tab.reader.guide-colour; stroke-width: 1px; }
                         if root.tab.reader.rulers-on: Rectangle {
                             height: 14px;
                             background: #F2F2F2E6;
                             Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.ticks; stroke: #606060; stroke-width: 1px; }
-                            TouchArea { clicked => { ReaderBridge.ruler-clicked(root.id, g.page, true, self.mouse-x / 1px / g.scale); } }
                         }
                         if root.tab.reader.rulers-on: Rectangle {
                             x: 0;
                             width: 14px;
                             background: #F2F2F2E6;
                             Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.ticks; stroke: #606060; stroke-width: 1px; }
-                            TouchArea { clicked => { ReaderBridge.ruler-clicked(root.id, g.page, false, self.mouse-y / 1px / g.scale); } }
                         }
                         for l in g.labels: Text {
                             x: l.across ? l.at + 2px : 2px;
@@ -435,6 +441,30 @@ export component ReaderScreen inherits Rectangle {
                                 return accept;
                             }
                             reject
+                        }
+                    }
+                    // The rulers' clicks, above the pages' pointer area (Sol, 27/10: it took them): one
+                    // on the top ruler makes or takes away an upright guide, on the left one a level guide.
+                    if root.tab.reader.rulers-on: Rectangle {
+                        for g in root.tab.reader.rulers: Rectangle {
+                            x: g.x;
+                            y: g.y;
+                            width: g.w;
+                            height: g.h;
+                            TouchArea {
+                                height: 14px;
+                                y: 0;
+                                mouse-cursor: pointer;
+                                clicked => { ReaderBridge.ruler-clicked(root.id, g.page, true, self.mouse-x / 1px / g.scale); }
+                            }
+                            TouchArea {
+                                x: 0;
+                                y: 14px;
+                                width: 14px;
+                                height: parent.height - 14px;
+                                mouse-cursor: pointer;
+                                clicked => { ReaderBridge.ruler-clicked(root.id, g.page, false, (self.mouse-y + 14px) / 1px / g.scale); }
+                            }
                         }
                     }
                     // Floating bar over a text selection: Copy, Highlight, Underline, Strikethrough.
@@ -684,22 +714,59 @@ export component ReaderScreen inherits Rectangle {
                 // curtain of the window's background drawn back, faded, across or from the middle.
                 if root.bare && root.tab.reader.page-effect > 0: Rectangle {
                     property <int> page: root.tab.viewer-current;
-                    property <float> left: 0;
-                    changed page => { self.left = 1; animate-in.running = true; }
+                    property <int> last: root.tab.viewer-current;
+                    property <float> left: root.effect-left;
+                    property <int> kind: root.tab.reader.page-effect;
+                    changed page => { root.effect-from = self.last; self.last = self.page; root.effect-left = 1; animate-in.running = true; }
                     animate-in := Timer {
                         interval: 16ms;
                         running: false;
                         triggered => {
-                            parent.left = max(0, parent.left - 0.016 / max(0.05, root.tab.reader.page-effect-seconds));
-                            if parent.left <= 0 { self.running = false; }
+                            root.effect-left = max(0, root.effect-left - 0.016 / max(0.05, root.tab.reader.page-effect-seconds));
+                            if root.effect-left <= 0 { self.running = false; }
                         }
                     }
-                    x: sv.x + (root.tab.reader.page-effect == 2 ? sv.width * (1 - self.left) : root.tab.reader.page-effect == 3 ? sv.width * (1 - self.left) / 2 : 0px);
+                    x: sv.x;
                     y: sv.y;
-                    width: root.tab.reader.page-effect == 1 ? sv.width : root.tab.reader.page-effect == 3 ? sv.width * self.left : sv.width * self.left;
+                    width: sv.width;
                     height: sv.height;
-                    background: Theme.content-bg;
-                    opacity: root.tab.reader.page-effect == 1 ? self.left : 1;
+                    // Fade: the window's background over the page, fading out.
+                    if parent.kind == 1: Rectangle { background: Theme.content-bg; opacity: parent.left; }
+                    // Wipe: drawn back left to right.
+                    if parent.kind == 2: Rectangle { x: parent.width * (1 - parent.left); width: parent.width * parent.left; background: Theme.content-bg; }
+                    // Split: two halves drawn back from the middle.
+                    if parent.kind == 3: Rectangle { x: parent.width * (1 - parent.left) / 2; width: parent.width * parent.left; background: Theme.content-bg; }
+                    // Box: a box opening from the middle.
+                    if parent.kind == 4: Rectangle {
+                        Rectangle { height: parent.height * parent.parent.left / 2; y: 0; background: Theme.content-bg; }
+                        Rectangle { height: parent.height * parent.parent.left / 2; y: parent.height - self.height; background: Theme.content-bg; }
+                        Rectangle { width: parent.width * parent.parent.left / 2; x: 0; background: Theme.content-bg; }
+                        Rectangle { width: parent.width * parent.parent.left / 2; x: parent.width - self.width; background: Theme.content-bg; }
+                    }
+                    // Blinds: ten slats closing up together.
+                    if parent.kind == 5: Rectangle {
+                        for k in 10: Rectangle {
+                            y: parent.height * k / 10;
+                            height: parent.height / 10 * parent.parent.left;
+                            background: Theme.content-bg;
+                        }
+                    }
+                    // Dissolve: squares going in a scattered order; Glitter: in a sweep from the left,
+                    // scattered a little.
+                    if parent.kind == 6 || parent.kind == 7: Rectangle {
+                        for k in 192: Rectangle {
+                            property <int> col: Math.mod(k, 16);
+                            property <int> row: Math.floor(k / 16);
+                            property <float> scatter: Math.mod(k * 67 + 29, 192) / 192;
+                            property <float> at: parent.parent.kind == 6 ? scatter : (self.col + self.row / 3) / 20 * 0.8 + scatter * 0.2;
+                            x: parent.width * self.col / 16;
+                            y: parent.height * self.row / 12;
+                            width: parent.width / 16 + 1px;
+                            height: parent.height / 12 + 1px;
+                            background: Theme.content-bg;
+                            visible: parent.parent.left > self.at;
+                        }
+                    }
                 }
                 // Reflow (Acrobat's): the page in view's text on the window's width, at a size of its
                 // own; ‹ › turn pages, A− A+ change the size.

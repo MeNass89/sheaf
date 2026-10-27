@@ -69,6 +69,12 @@ pub fn pdf_rect_to_view(page: &PageBox, render: (f64, f64), r: [f64; 4]) -> [f64
     [x0, y0, x1 - x0, y1 - y0]
 }
 
+/// Whether two marks show at the same place and size on their pages (`[x, y, w, h]` from the
+/// page's top-left, as shown): how a signature's copies placed with Every page are known again.
+pub fn same_place(a: [f64; 4], b: [f64; 4]) -> bool {
+    (0..4).all(|k| (a[k] - b[k]).abs() < 1.0)
+}
+
 /// Two view points (a drag) as a normalised user-space rectangle.
 pub fn view_rect_to_pdf(page: &PageBox, render: (f64, f64), a: (f64, f64), b: (f64, f64)) -> [f64; 4] {
     let p = view_to_pdf(page, render, a.0, a.1);
@@ -444,6 +450,21 @@ impl Viewer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A signature's copies on a Letter page and on an A4 page turned 90°: other boxes in the file,
+    /// the same place as shown (Sol, 27/10: copies were matched by the file's box).
+    #[test]
+    fn copies_at_one_place_are_known_on_pages_of_other_sizes() {
+        let letter = PageBox { crop: [0.0, 0.0, 612.0, 792.0], rotation: 0, unit: 1.0 };
+        let a4 = PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 90, unit: 1.0 };
+        let shown = [100.0, 50.0, 150.0, 40.0];
+        let user = |b: &PageBox| view_rect_to_pdf(b, b.view_size(), (shown[0], shown[1]), (shown[0] + shown[2], shown[1] + shown[3]));
+        let (u1, u2) = (user(&letter), user(&a4));
+        assert!((0..4).any(|k| (u1[k] - u2[k]).abs() > 1.0), "{u1:?} {u2:?}");
+        let (s1, s2) = (pdf_rect_to_view(&letter, letter.view_size(), u1), pdf_rect_to_view(&a4, a4.view_size(), u2));
+        assert!(same_place(s1, s2), "{s1:?} {s2:?}");
+        assert!(!same_place(s1, [100.0, 60.0, 150.0, 40.0]));
+    }
 
     const A4: [f64; 4] = [0.0, 0.0, 595.0, 842.0];
 

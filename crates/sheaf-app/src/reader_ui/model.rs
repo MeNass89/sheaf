@@ -505,11 +505,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         page_top: v.viewer.page_rect(v.current())[1] as f32,
         page_bottom: { let [_, y, _, h] = v.viewer.page_rect(v.current()); (y + h) as f32 },
         page_advance: r.snap.durations.get(v.current()).copied().flatten().unwrap_or(0.0) as f32,
-        page_effect: r.snap.transitions.get(v.current()).cloned().flatten().map_or(0, |(s, _)| match s.as_str() {
-            "Fade" | "Dissolve" | "Glitter" => 1,
-            "Split" | "Box" | "Blinds" => 3,
-            _ => 2,
-        }),
+        page_effect: r.snap.transitions.get(v.current()).cloned().flatten().map_or(0, |(s, _)| reader::effect_code(&s)),
         page_effect_seconds: r.snap.transitions.get(v.current()).cloned().flatten().map_or(0.0, |(_, d)| d) as f32,
         view_turn: i32::from(v.viewer.turn()),
         opacity: (super::tools::opacity_of(r) * 100.0).round() as i32,
@@ -541,6 +537,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         form_grid: r.form_grid,
         form_grids: ModelRc::new(VecModel::from(form_grids)),
         rulers_on: r.rulers,
+        guide_colour: {
+            let [r, g, b] = reader::GUIDE_COLOURS[(crate::home::prefs().guide_colour as usize).min(reader::GUIDE_COLOURS.len() - 1)];
+            slint::Color::from_rgb_u8(r, g, b)
+        },
         rulers: ModelRc::new(VecModel::from(rulers)),
         field_props,
         link_error: r.link_error.clone().into(),

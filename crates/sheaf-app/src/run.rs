@@ -661,6 +661,7 @@ pub fn airdrop(f: &std::path::Path) -> bool {
 }
 
 /// The file Windows's voice reads "pause" or "resume" from while it speaks.
+#[cfg(not(unix))]
 pub fn speech_control() -> std::path::PathBuf {
     std::env::temp_dir().join(format!("sheaf-speech-{}.ctl", std::process::id()))
 }

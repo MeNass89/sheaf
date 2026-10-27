@@ -116,6 +116,8 @@ pub struct Prefs {
     pub reading_voice: Option<String>,
     /// Rulers in centimetres (Acrobat's Page & Ruler Units); inches otherwise.
     pub metric: bool,
+    /// The guides' colour, of [`crate::reader::GUIDE_COLOURS`] (Acrobat's Guide colour).
+    pub guide_colour: u8,
     /// The window drawn by the processor, not the graphics card (Acrobat's Use 2D GPU
     /// acceleration off), from the next start.
     pub no_gpu: bool,

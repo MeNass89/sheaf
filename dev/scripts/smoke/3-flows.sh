@@ -1118,3 +1118,21 @@ click 1127 61 0.8; click 1008 659 0.8; CF=$(at Copy 300x700+880+80); [ -n "$CF" 
 SF=$(cat "$OUT/clip-file" 2>/dev/null)
 check "Copy the file puts the document as it is now on the clipboard (${CF:-no item}; $(basename "$SF"))" "[ -f \"$SF\" ] && qpdf --qdf --object-streams=disable \"$SF\" - 2>/dev/null | grep -aq '/Subtype /Highlight' && ! qpdf --qdf --object-streams=disable \"$OUT/share.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
 quit
+
+# 111. More ▸ More tools ▸ Rulers (Acrobat's): rulers along the page's top and left edge (#F2F2F2 at
+# 90 % over the white page, #F3F3F3); a click on the top ruler makes an upright guide (#00A6D6) across
+# the page, a second click on its mark takes it away.
+cp "$OUT/text.pdf" "$OUT/rulers.pdf"; launch "$OUT/rulers.pdf"; sleep 1
+click 1127 61 0.8; click 1008 659 0.8; RU=$(at Rulers 300x700+880+80); [ -n "$RU" ] && click $RU 1.5
+# The rulers' box: where #F3F3F3 is in the view (the corner the two rulers share is the page's).
+RB=$(import -window root -crop 1000x700+260+90 png:- 2>/dev/null | convert - +repage -fuzz 1% -fill black -opaque '#f3f3f3' -fill white +opaque black -negate -trim -format '%X %Y' info: 2>/dev/null | tr -d '+')
+read RX RY <<< "$RB"
+# A guide is one pixel wide: a few hundred pixels of the view.
+guide() { import -window root -crop 1000x700+260+90 png:- 2>/dev/null | convert - -fuzz 12% -fill black +opaque '#00a6d6' -fill white -opaque '#00a6d6' -format "%[fx:mean>0.0002]" info: 2>/dev/null; }
+G0=$(guide)
+[ -n "$RY" ] && click $(( 260 + RX + 150 )) $(( 90 + RY + 7 )) 1
+G1=$(guide)
+[ -n "$RY" ] && click $(( 260 + RX + 150 )) $(( 90 + RY + 7 )) 1
+G2=$(guide)
+check "a click on the top ruler makes a guide, a second takes it away (${RU:-no item}; ruler at ${RB:-none}; guide $G0 → $G1 → $G2)" "[ \"$G0\" = 0 ] && [ \"$G1\" = 1 ] && [ \"$G2\" = 0 ]"
+quit
