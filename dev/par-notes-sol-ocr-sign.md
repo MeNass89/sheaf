@@ -216,3 +216,29 @@
 
 - Catalog output follows the actual path returned by the atomic writer: an existing name is
   preserved and the new catalog receives a numbered name. The rebuild test checks both files.
+
+## Second pass — C-security-008
+
+- C-security-008: More → More tools → Security policies opens a dedicated manager (Acrobat's
+  Security Policies): create, name, edit, save and delete reusable policies; import JSON for
+  review, export it, then apply the selected saved settings to a protected copy of the open PDF.
+  Permission and metadata checkboxes use the existing house controls. Applying asks for confirmed
+  open/owner passwords; restrictions require a distinct owner password. Unsaved reader changes
+  and read-only documents are refused. Encryption runs off the UI thread; status shows the
+  actual output path or error. Success and switching policies clear the password controls.
+- A local `security-policies/` library stores only typed policy settings, no credentials.
+  Unknown/corrupt entries are reported rather than silently overwritten. Same-name Save updates
+  that policy; a changed name saves another policy, leaving the original available for deletion.
+- Tests written: `a_policy_library_survives_edits_import_export_and_deletion_without_passwords`,
+  `a_corrupt_policy_is_reported_without_overwriting_the_library`,
+  `applying_a_policy_requires_confirmed_passwords_and_a_distinct_owner_for_restrictions`.
+  Existing `an_imported_policy_applies_restrictions_and_leaves_metadata_clear` covers encrypted
+  output. New public app module `security_policies`; no new dependency. Nothing executed.
+- `not automatable: Security policies → create/save/edit, import/export, delete; apply with bad
+  confirmations and a distinct owner password, reopen output and inspect permissions/metadata;
+  verify fields clear after success and policy switch — rule 1 forbids this worker's app runs`.
+- Left: Acrobat's certified/encrypted .acrobatsecuritysettings exchange, certificate policies,
+  trust/signature preferences exchange and live visual/platform verification. This is password
+  policy management; certificate encryption is not claimed.
+- Proposed grade: C-security-008: f7 a7 p8 — library and password-validation tests above,
+  `ui/screens/security-policy.slint`, `reader_ui/security_policy.rs`. No joint 9 claim.

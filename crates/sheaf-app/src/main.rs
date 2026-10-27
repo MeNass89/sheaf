@@ -248,6 +248,10 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_turn_upright(reader_ui::turn_upright);
     rb.on_reflow(reader_ui::reflow);
     wire_global!(ui, rb, on_folder_search, |ui, id, q| reader_ui::folder_search(&ui, id, &q));
+    rb.on_policy_open(reader_ui::policy_open);
+    wire_global!(ui, rb, on_policy_action, |ui, id, action, index| reader_ui::policy_action(&ui, id, action, index));
+    rb.on_policy_save(|id, name, printing, copying, editing, commenting, forms, metadata| reader_ui::policy_save(id, &name, [printing, copying, editing, commenting, forms, metadata]));
+    wire_global!(ui, rb, on_policy_apply, |ui, id, user, confirmation, owner, owner_confirmation| reader_ui::policy_apply(&ui, id, &user, &confirmation, &owner, &owner_confirmation));
     rb.on_catalog_open(reader_ui::catalog_open);
     wire_global!(ui, rb, on_catalog_action, |ui, id, action, index, query| reader_ui::catalog_action(&ui, id, action, index, &query));
     wire_global!(ui, rb, on_review_ocr, |ui, id| reader_ui::review_ocr(&ui, id));

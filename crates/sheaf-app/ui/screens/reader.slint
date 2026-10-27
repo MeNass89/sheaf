@@ -7,6 +7,7 @@
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
+import { SecurityPolicySheet } from "security-policy.slint";
 import { CatalogSheet } from "catalog.slint";
 import { OcrReviewPanel } from "ocr-review.slint";
 import { ReaderPanel } from "reader-panel.slint";
@@ -841,6 +842,10 @@ export component ReaderScreen inherits Rectangle {
     }
 
     // The signature pad.
+    if root.tab.reader.policy-open: SecurityPolicySheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
     if root.tab.reader.catalog-open: CatalogSheet {
         tab: root.tab;
         focus-pages => { keys.focus(); }

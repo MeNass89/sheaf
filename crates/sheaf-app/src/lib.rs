@@ -12,6 +12,7 @@ pub mod prefs;
 pub mod print;
 pub mod reader;
 pub mod saved_options;
+pub mod security_policies;
 pub mod store_file;
 pub mod sign_preview;
 mod signature_store;

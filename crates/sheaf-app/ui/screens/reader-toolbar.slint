@@ -381,6 +381,7 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Share with AirDrop", on: false },
                                 { text: "Correct recognized text…", on: false },
                                 { text: "Search catalog…", on: false },
+                                { text: "Security policies…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -410,6 +411,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 19 { ReaderBridge.share-file(root.id, true); }
                                         if k == 20 { ReaderBridge.review-ocr(root.id); }
                                         if k == 21 { ReaderBridge.catalog-open(root.id); }
+                                        if k == 22 { ReaderBridge.policy-open(root.id); }
                                         root.focus-pages();
                                     }
                                 }

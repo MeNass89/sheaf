@@ -460,6 +460,13 @@ export struct ReaderState {
     // More ▸ Versions… is open; the versions saved in the file; what Undo and Redo would do.
     versions-open: bool,
     // The search panel's In a folder…: the sheet open, still searching, what and where, the results.
+    policy-open: bool,
+    policy-busy: bool,
+    policy-names: [string],
+    policy-name: string,
+    policy-flags: [bool],
+    policy-status: string,
+    policy-seq: int,
     catalog-open: bool,
     catalog-busy: bool,
     catalog-status: string,
@@ -857,6 +864,10 @@ export global ReaderBridge {
     callback remove-images(int);
     callback reflow(int, int);
     callback folder-search(int, string);
+    callback policy-open(int);
+    callback policy-action(int, int, int);
+    callback policy-save(int, string, bool, bool, bool, bool, bool, bool);
+    callback policy-apply(int, string, string, string, string);
     callback catalog-open(int);
     callback catalog-action(int, int, int, string);
     callback review-ocr(int);
