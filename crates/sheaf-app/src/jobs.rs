@@ -390,8 +390,8 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         }
         Job::Office { items, html } => {
             batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(match html {
-                Some(options) if matches!(crate::files::ext(i).as_str(), "html" | "htm") => sheaf_core::html::to_pdf(i, *options, o),
-                _ => crate::files::office_to_pdf(i, o),
+                Some(options) => sheaf_core::html::to_pdf(i, *options, o),
+                None => crate::files::office_to_pdf(i, o),
             })))?
         }
         Job::PageNumbers { items, options } => {

@@ -20,8 +20,21 @@ pub struct Options {
 /// Print a local HTML file using an explicit paper layout. The caller must bypass any cached
 /// default-layout conversion: it represents different page breaks.
 pub fn to_pdf(input: &Path, options: Options, out: &Path) -> Result<PathBuf> {
-    let source = std::fs::read_to_string(input)?;
-    let base = office::file_url(std::fs::canonicalize(input)?.parent().ok_or_else(|| OpdfError::Unsupported("The HTML file has no parent folder".into()))?);
+    match crate::textdocs::kind(input) {
+        Some("postscript") => return Err(OpdfError::Unsupported("PostScript has its own page layout. Choose Original layout to preserve it".into())),
+        Some(_) => return crate::textdocs::to_pdf(input, out, |html, out| to_pdf(html, options, out)),
+        None => {}
+    }
+    let source = std::fs::read_to_string(input).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::InvalidData {
+            OpdfError::Unsupported("Custom HTML layout requires UTF-8 text. Choose Original layout to use the file's encoding".into())
+        } else {
+            e.into()
+        }
+    })?;
+    // As in Office conversion, Windows extended paths (\\?\) aren't file URLs.
+    let absolute = if cfg!(windows) { std::path::absolute(input)? } else { std::fs::canonicalize(input)? };
+    let base = office::file_url(absolute.parent().ok_or_else(|| OpdfError::Unsupported("The HTML file has no parent folder".into()))?);
     let html = print_html(&source, &format!("{base}/"), options)?;
     let dir = tempfile::tempdir()?;
     let prepared = dir.path().join("print.html");
@@ -41,23 +54,58 @@ fn print_html(source: &str, base: &str, options: Options) -> Result<String> {
     let lower = source.to_ascii_lowercase();
     // An explicit base may be relative to the original document; copying it elsewhere would
     // silently change what its pictures and links refer to. Keep that case explicit.
-    if lower.contains("<base") {
+    if opening_tag(&lower, "base").is_some() {
         return Err(OpdfError::Unsupported("This HTML file defines its own base address. Choose Original layout to preserve it".into()));
     }
     let base = base.replace('&', "&amp;").replace('"', "&quot;").replace('<', "&lt;");
     let base = format!("<base href=\"{base}\">");
     let style = format!("<style>@page {{ size: {w:.4}pt {h:.4}pt; margin: {:.4}pt; }}</style>", options.margin);
     // Put the base before existing relative resources; the page rule after existing styles.
-    if let Some(head) = lower.find("<head").and_then(|p| lower[p..].find('>').map(|end| p + end + 1)) {
-        let end = lower[head..].find("</head>").map(|p| p + head).unwrap_or(head);
+    if let Some(head) = opening_tag(&lower, "head") {
+        let end = opening_tag(&lower[head..], "/head").and_then(|end| lower[..head + end].rfind('<')).unwrap_or(head);
         return Ok(format!("{}{}{}{}{}", &source[..head], base, &source[head..end], style, &source[end..]));
     }
     let head = format!("<head><meta charset=\"utf-8\">{base}{style}</head>");
     // A fragment gets a document; an existing doctype stays at the start of the document.
-    let at = lower.find("<html").and_then(|p| lower[p..].find('>').map(|end| p + end + 1))
+    let at = opening_tag(&lower, "html")
         .or_else(|| lower.find("<!doctype").and_then(|p| lower[p..].find('>').map(|end| p + end + 1)))
         .unwrap_or(0);
     Ok(format!("{}{head}{}", &source[..at], &source[at..]))
+}
+
+/// The end of a real opening tag, skipping comments and raw script/style text. A `<header>` or
+/// a string in JavaScript isn't the document's `<head>`.
+fn opening_tag(lower: &str, name: &str) -> Option<usize> {
+    let bytes = lower.as_bytes();
+    let mut from = 0;
+    while let Some(start) = lower[from..].find('<').map(|p| p + from) {
+        if lower[start..].starts_with("<!--") {
+            from = lower[start + 4..].find("-->").map(|p| start + 4 + p + 3)?;
+            continue;
+        }
+        let mut end = start + 1;
+        let mut quote = None;
+        while let Some(&b) = bytes.get(end) {
+            match (quote, b) {
+                (Some(q), b) if b == q => quote = None,
+                (None, b'\'' | b'"') => quote = Some(b),
+                (None, b'>') => break,
+                _ => {}
+            }
+            end += 1;
+        }
+        if end == bytes.len() { return None; }
+        let tag = &lower[start + 1..end];
+        let is = |key: &str| tag.strip_prefix(key).is_some_and(|rest| rest.is_empty() || rest.starts_with(|c: char| c.is_ascii_whitespace() || c == '/'));
+        if is(name) { return Some(end + 1); }
+        if is("script") || is("style") {
+            let close = if is("script") { "</script" } else { "</style" };
+            from = lower[end + 1..].find(close).map(|p| end + 1 + p)?;
+        } else {
+            from = end + 1;
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -81,5 +129,14 @@ mod tests {
             assert!(print_html("body", "file:///", Options { paper: Paper::A4, landscape: false, margin }).is_err());
         }
         assert!(print_html("<head><BASE href='../assets/'></head>", "file:///", Options { paper: Paper::A4, landscape: false, margin: 0.0 }).is_err());
+    }
+
+    #[test]
+    fn html_layout_finds_tags_instead_of_comments_scripts_or_headers() {
+        let source = "<!-- <head> --><html><script>let example = '<head><base>';</script><header>Title</header><p>Text</p></html>";
+        let out = print_html(source, "file:///local/", Options { paper: Paper::A4, landscape: false, margin: 0.0 }).unwrap();
+        assert!(out.contains("<html><head><meta charset=\"utf-8\"><base"));
+        assert!(out.ends_with("<header>Title</header><p>Text</p></html>"));
+        assert_eq!(opening_tag("<head title='a > b'>", "head"), Some(20));
     }
 }

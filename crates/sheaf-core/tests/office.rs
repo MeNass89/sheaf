@@ -23,7 +23,7 @@ fn local_html_prints_on_the_chosen_paper_with_its_relative_picture() {
         let (w, h) = if landscape { (792.0, 612.0) } else { (612.0, 792.0) };
         assert!((number(2) - number(0) - w).abs() < 1.0 && (number(3) - number(1) - h).abs() < 1.0);
         assert!(common::page_texts(&out)[0].contains("Local HTML paper"));
-        assert!(doc.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Subtype").is_ok_and(|s| s.as_name() == Ok(b"Image")))));
+        assert!(doc.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Subtype").is_ok_and(|s| s.as_name().is_ok_and(|n| n == b"Image")))));
         common::qpdf_clean(&out);
     }
 }

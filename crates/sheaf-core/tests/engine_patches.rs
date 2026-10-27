@@ -60,6 +60,25 @@ fn page_hairlines_are_measured_after_transforms_and_undone_in_one_step() {
 }
 
 #[test]
+fn page_hairline_repairs_honour_user_units_and_nonuniform_scaling() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0.1 w 2 0 0 0.5 0 0 cm 30 50 m 100 50 l S"]);
+    let mut pdf = lopdf::Document::load(&path).unwrap();
+    let page = pdf.get_pages()[&1];
+    pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("UserUnit", 2);
+    pdf.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: 0.25 }).unwrap();
+    let out = doc.save(&t.path().join("scaled.pdf")).unwrap();
+    let pdf = lopdf::Document::load(out).unwrap();
+    let ops = lopdf::content::Content::decode(&pdf.get_page_content(pdf.get_pages()[&1])).unwrap().operations;
+    let paint = ops.iter().position(|o| o.operator == "S").unwrap();
+    assert_eq!(ops[paint - 1].operator, "w");
+    assert!((ops[paint - 1].operands[0].as_float().unwrap() - 0.25).abs() < 1e-6, "the narrow scale 0.5 times UserUnit 2 is one point per unit");
+}
+
+#[test]
 fn crop_marks_keep_inherited_page_boxes_and_do_not_invent_bleed() {
     use sheaf_core::{pages::Input, pdfcraft::Doc};
     let t = tempfile::tempdir().unwrap();

@@ -1355,7 +1355,8 @@ mod tests {
         o.margin = 1;
         let input = || vec![Input::new("/a/page.html")];
         let job = build_job(ToolId::HtmlToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
-        assert!(matches!(job, Job::Office { html: Some(sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0 }), .. }));
+        let Job::Office { html, .. } = job else { panic!("an HTML conversion job") };
+        assert_eq!(html, Some(sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0 }));
         let job = build_job(ToolId::WordToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
         assert!(matches!(job, Job::Office { html: None, .. }));
         o.layout = 0;
