@@ -26,6 +26,8 @@ pub mod pages;
 pub mod pdfa;
 pub mod pdfcraft;
 pub mod preflight;
+pub mod flattener_preview;
+pub mod separations;
 pub mod press;
 pub mod paths;
 pub mod portfolio;

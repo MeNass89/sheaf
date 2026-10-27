@@ -795,3 +795,17 @@ for _ in $(seq 1 30); do [ -f "$OUT/fast-ocr-input-ocr.pdf" ] && break; sleep 0.
 OT=$(pdftotext "$OUT/fast-ocr-input-ocr.pdf" - 2>/dev/null | tr '\n' ' ')
 check "344 automatic OCR writes searchable text ($OR; $OT)" "[ -n \"$OR\" ] && echo \"$OT\" | grep -q 'Sheaf OCR' && qpdf --check \"$OUT/fast-ocr-input-ocr.pdf\" >/dev/null 2>&1"
 quit
+
+# 342. Acrobat's Output Preview: the captured page has selectable process ink plates.
+optimize_print_tool() { click 1127 61 0.8; click 1008 659 0.8; local found=; for _ in $(seq 1 12); do found=$(at "$1" 300x690+880+85); [ -n "$found" ] && break; xdotool mousemove 1050 530 click 5 click 5; sleep 0.3; done; [ -n "$found" ] && click $found 1; echo "$found"; }
+INK_SOURCE=$(sha256sum "$OUT/text.pdf" | cut -d" " -f1)
+launch "$OUT/text.pdf"; PP=$(optimize_print_tool preflight)
+PI=$(at Ink); [ -n "$PI" ] && click $PI 1
+for _ in $(seq 1 20); do PC=$(at Cyan 250x650+0+90); [ -n "$PC" ] && break; sleep 0.5; done
+PM=$(at Magenta 250x650+0+90); PY=$(at Yellow 250x650+0+90); PB=$(at Black 250x650+0+90)
+[ -n "$PB" ] && click $PB 0.5
+optimize_ink_dark() { import -window root -crop 500x300+280+260 -depth 8 png:- 2>/dev/null | convert - -threshold 25% -format "%[fx:1-mean]" info:; }
+INK_DARK=$(optimize_ink_dark); key Up; sleep 0.5; INK_YELLOW=$(optimize_ink_dark); key Down; sleep 0.5; INK_RETURN=$(optimize_ink_dark)
+shot 342-ink-plates
+check "342 output preview lists real CMYK plates ($PP; $PI; $PC; $PM; $PY; $PB)" "[ -n \"$PC\" ] && [ -n \"$PM\" ] && [ -n \"$PY\" ] && [ -n \"$PB\" ] && python3 -c \"assert float('$INK_DARK') > float('$INK_YELLOW') + 0.0003 and float('$INK_RETURN') > float('$INK_YELLOW') + 0.0003\" && [ \"$INK_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
+key Escape; quit

@@ -142,3 +142,5 @@ Tesseract explicitly, with the same option in the OCR panel and CLI `--local-eng
 `sheaf-core/src/optimizer_post.rs` runs the explicit offline Ghostscript transparency pass and qpdf Fast Web View after compression, verifies them, and honours cancellation before publication.
 
 `sheaf-core/tests/ocr_scripts.rs` uses the small `tests/fixtures/ocr-{chinese,japanese,korean}.png` scans to verify installed script packs and invisible Unicode text layers. Portable Tesseract packs are found beside the executable (`tessdata/`), in macOS Resources, Linux `share/sheaf/tessdata`, or the explicit `SHEAF_TESSDATA` folder; debug builds also read ignored `vendor/tessdata/`.
+
+`sheaf-core/src/separations.rs` renders a bounded current-page snapshot into real process/spot plates using local Ghostscript. `flattener_preview.rs` compares a page with a real PDF 1.3 conversion without changing its source. The reader's `reader_ui/output_preview.rs` owns the background job/cancellation; `ui/screens/reader-ink-preview.slint` displays individual plate or before/after images.

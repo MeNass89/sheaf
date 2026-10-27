@@ -46,6 +46,11 @@ pub(crate) fn finish(bytes: Vec<u8>, options: &Advanced, progress: &mut dyn FnMu
     finish_pages(bytes, options, None, progress)
 }
 
+/// Acrobat previews the current page; unrelated pages must not make the flattener wait.
+pub(crate) fn page_preview(bytes: Vec<u8>, page: usize, progress: &mut dyn FnMut(f32) -> bool) -> Result<Vec<u8>> {
+    finish_pages(bytes, &Advanced { flatten_transparency: true, ..Default::default() }, Some(page), progress)
+}
+
 fn finish_pages(bytes: Vec<u8>, options: &Advanced, page: Option<usize>, progress: &mut dyn FnMut(f32) -> bool) -> Result<Vec<u8>> {
     if !options.flatten_transparency && !options.linearize { return Ok(bytes); }
     let dir = tempfile::tempdir()?;

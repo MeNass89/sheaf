@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 #[path = "optimizer_post.rs"]
 mod post;
+pub(crate) use post::page_preview as flatten_page_snapshot;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {

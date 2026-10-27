@@ -1,5 +1,6 @@
 // Acrobat's Preflight: profiles above the dated findings, with the report kept for export.
 import { ScrollView } from "std-widgets.slint";
+import { PrintPreviewBridge } from "reader-ink-preview.slint";
 import { Theme } from "../theme.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { SmallButton } from "reader-parts.slint";
@@ -78,6 +79,7 @@ export component PreflightSheet inherits Rectangle {
             }
             HorizontalLayout {
                 spacing: 8px;
+                SmallButton { text: "Ink plates…"; clicked => { PrintPreviewBridge.open(root.id, 0); } }
                 SmallButton { text: "Fix hairlines / boxes…"; clicked => { ReaderBridge.preflight-close(root.id); ReaderBridge.fix-page-hairlines(root.id); } }
                 SmallButton { text: "Save report…"; opacity: root.tab.reader.preflight-ready ? 1 : 0.5; clicked => { if root.tab.reader.preflight-ready { ReaderBridge.preflight-save(root.id); } } }
                 Rectangle { horizontal-stretch: 1; }
