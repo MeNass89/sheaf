@@ -681,7 +681,11 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             update(tab_id, |r, v| jump_dest(r, v, page, &view));
             crate::viewer_ui::request(ui, tab_id);
         }
-        Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("http://") || u.starts_with("https://") || u.starts_with("mailto:") => crate::run::open_detached(&u),
+        // Opened, asked about or refused as Preferences ▸ Security says (Acrobat's Trust Manager).
+        Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("http://") || u.starts_with("https://") || u.starts_with("mailto:") => {
+            let doc = update(tab_id, |r, _| r.path.clone()).unwrap_or_default();
+            crate::settings_ui::open_web_link(ui, &doc, &u);
+        }
         // A link to a local file: a PDF opens in its own tab; any other file opens in its own app once
         // the user agrees (Acrobat asks before launching one).
         Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("file:") => {
@@ -689,9 +693,13 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             match reader::file_link_path(&u, &dir) {
                 Some(p) if p.is_file() && p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) => crate::flow::home_files(ui, vec![p]),
                 Some(p) if p.exists() => {
-                    // It runs in its own app: asked first, as Acrobat does.
-                    ui.set_launch_name(super::file_name(&p).into());
-                    with(|a| a.pending_launch = Some(p));
+                    // It runs in its own app: asked first, as Acrobat does (Preferences ▸ Security may
+                    // refuse it, or trust the document's location).
+                    let doc = update(tab_id, |r, _| r.path.clone()).unwrap_or_default();
+                    if crate::settings_ui::ask_other_app(ui, &doc, &p) {
+                        ui.set_launch_name(super::file_name(&p).into());
+                        with(|a| a.pending_launch = Some(p));
+                    }
                 }
                 _ => crate::flow::toast(ui, "The linked file was not found"),
             }

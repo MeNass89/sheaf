@@ -200,8 +200,11 @@ pub fn attachment_open(ui: &AppWindow, tab_id: i32, i: i32) {
         Err(e) => crate::flow::toast(ui, &format!("Not opened: {e}")),
         Ok(()) if to.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) => crate::flow::home_files(ui, vec![to]),
         Ok(()) => {
-            ui.set_launch_name(file_name(&to).into());
-            with(|a| a.pending_launch = Some(to));
+            let doc = update(tab_id, |r, _| r.path.clone()).unwrap_or_default();
+            if crate::settings_ui::ask_other_app(ui, &doc, &to) {
+                ui.set_launch_name(file_name(&to).into());
+                with(|a| a.pending_launch = Some(to));
+            }
         }
     }
 }

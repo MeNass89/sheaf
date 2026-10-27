@@ -5,6 +5,7 @@ import { Segment } from "../widgets/radio-card.slint";
 import { SecondaryButton } from "dialogs.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { SpellingSection, KeyboardSection, InterfaceSection } from "preferences-platform.slint";
+import { PrintDefaultsSection, SecuritySection, StartupSection } from "preferences-more.slint";
 
 // White card with a section title.
 // A round colour to pick, ringed when chosen.
@@ -464,6 +465,10 @@ export component PreferencesScreen inherits Rectangle {
             InterfaceSection {}
             SpellingSection {}
             KeyboardSection {}
+            // Print defaults, Security and Startup (preferences-more.slint).
+            PrintDefaultsSection {}
+            SecuritySection {}
+            StartupSection {}
         }
     }
 }

@@ -185,6 +185,8 @@ pub struct Prefs {
     pub initials: Option<KeptSignature>,
     /// Spelling, keyboard shortcuts, tools shown and the interface's direction.
     pub platform: crate::platform::PlatformPrefs,
+    /// Print defaults, Security (enhanced security, trusted locations) and Startup.
+    pub settings: crate::settings::SettingsPrefs,
 }
 
 impl Prefs {

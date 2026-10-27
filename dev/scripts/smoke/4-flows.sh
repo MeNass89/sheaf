@@ -783,3 +783,82 @@ read CX _ <<< "$(at Copies 1280x700+0+60)"; read PX _ <<< "$(at Print 1280x700+0
 key Escape; sleep 0.3
 check "right to left mirrors the Tools page's title row and the print sheet (search x ${SX:-?} < Custom tools ${UX:-?}; Copies at x ${CX:-?}, Print title at ${PX:-?})" "[ -n \"$SX\" ] && [ -n \"$UX\" ] && [ \"$SX\" -lt \"$UX\" ] && [ \"${CX:-0}\" -gt 700 ] && [ \"${PX:-0}\" -gt 900 ]"
 quit; platform_reset
+
+# 301. Preferences ▸ Printing (C-preferences-010, iLovePDF's Printer preferences: paper size, grayscale): Grey,
+# Two-sided and A4 chosen are kept, and the print sheet opens with them (Grey and On red); the sheet's Colour then
+# Make default writes colour back.
+settings_val() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1" 2>/dev/null; }
+settings_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.pop("settings", None); json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
+# Red (Sheaf's accent, a selected button) anywhere in a 40×10 box left of a word's centre.
+red_at() { import -window root -crop "40x10+$(( $1 - 30 ))+$(( $2 - 5 ))" -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | python3 -c 'import sys; sys.exit(0 if any(int(c[1:3], 16) > 180 and int(c[3:5], 16) < 90 for c in sys.stdin.read().split()) else 1)'; }
+launch; key ctrl+comma; sleep 0.8
+G=$(pref_find Grey); [ -n "$G" ] && click $G 0.6
+T=$(at Two-sided 1020x700+250+90); [ -n "$T" ] && click $T 0.6
+A=$(at A4 1020x700+250+90); [ -n "$A" ] && click $A 0.6
+P1=$(settings_val 'p["settings"]["print"]')
+quit
+cp "$OUT/text.pdf" "$OUT/printdef.pdf"; launch "$OUT/printdef.pdf"; sleep 1
+key ctrl+p; sleep 1; shot 301-print-defaults
+# White on red does not OCR: the buttons are found from Make default's place (Grey and Colour 38 px above it,
+# two-sided On 120 px above).
+read MX MY <<< "$(at Make 1280x700+0+60)"
+GR=no; OR=no
+if [ -n "$MX" ]; then
+    GX=$(( MX + 25 )); GY=$(( MY - 38 )); OX=$(( MX - 8 )); OY=$(( MY - 120 ))
+    red_at $GX $GY && GR=yes; red_at $OX $OY && OR=yes
+    CL="$(( MX - 43 )) $GY"; click $CL 0.4; MD="$MX $MY"; click $MD 0.6
+fi
+P2=$(settings_val 'p["settings"]["print"]["gray"]')
+key Escape; sleep 0.3
+check "print defaults are kept and the sheet opens with them ($P1; Grey at ${GX:-?},${GY:-?} red $GR, On at ${OX:-?},${OY:-?} red $OR; Colour ${CL:-?}, Make default ${MD:-?}: gray $P2)" "echo \"$P1\" | grep -q \"'two_sided': True\" && echo \"$P1\" | grep -q \"'paper': 1\" && echo \"$P1\" | grep -q \"'gray': True\" && [ $GR = yes ] && [ $OR = yes ] && [ \"$P2\" = False ]"
+quit; settings_reset
+
+# 302. Preferences ▸ Security (C-preferences-014, Acrobat's Enhanced Security and Trust Manager): a document's web
+# link asks first ("Open a page of example.org?"); Block with Remember keeps the site blocked, and the next click
+# opens no question; a folder added as a trusted location is kept.
+launch "$OUT/links.pdf"; key ctrl+9; sleep 0.8
+read VX VY <<< "$(at Visit 1280x700+0+90)"; [ -n "$VX" ] && click $VX $VY 1
+Q1=$(ocr 700x300+290+250); shot 302a-link-question
+# Block, bold in its frame, does not OCR: 193 px right of and 43 px below "Remember for this site".
+read RX RY <<< "$(at Remember 1280x700+0+90)"; R="${RX:-} ${RY:-}"; B=
+if [ -n "$RX" ]; then click $RX $RY 0.4; B="$(( RX + 193 )) $(( RY + 43 ))"; click $B 0.6; fi
+BL=$(settings_val 'p["settings"]["trust"]["blocked_sites"]')
+[ -n "$VX" ] && click $VX $VY 1
+Q2=$(ocr 700x300+290+250)
+quit
+mkdir -p "$OUT/trusted"; answer "$PWD/$OUT/trusted"
+launch; key ctrl+comma; sleep 0.8
+AF=$(pref_find "folder…"); [ -z "$AF" ] && AF=$(pref_find Add); [ -n "$AF" ] && click $AF 1
+LOC=$(settings_val 'p["settings"]["trust"]["locations"]'); shot 302b-trusted
+answer ""
+check "a web link asks first, a blocked site stays blocked, a trusted folder is kept ($(echo "$Q1" | cut -c1-50); Remember ${R:-?}, Block ${B:-?}: $BL; then $(echo "$Q2" | cut -c1-30); $LOC)" "echo \"$Q1\" | grep -q 'example.org' && echo \"$BL\" | grep -q \"'example.org'\" && ! echo \"$Q2\" | grep -q 'Open a page' && echo \"$LOC\" | grep -q 'trusted'"
+quit; settings_reset
+
+# 303. Preferences ▸ Startup (C-preferences-012, iLovePDF's "Open iLovePDF automatically after you log into the
+# computer"): Open Sheaf writes the login item (XDG autostart, pointing at the app), Don't open it removes it.
+launch; key ctrl+comma; sleep 0.8
+# The section's last line ("Sheaf works offline: …") found, the choices are 109 px above it: Open Sheaf 14 px left
+# of "offline:", Don't open it 143 px right.
+read FX FY <<< "$(pref_find offline)"; shot 303-startup; OS=; DO=
+[ -n "$FX" ] && OS="$(( FX - 14 )) $(( FY - 109 ))" && DO="$(( FX + 143 )) $(( FY - 109 ))"
+[ -n "$OS" ] && click $OS 0.8
+AUTO="$OUT/profile/config/autostart/sheaf.desktop"; A1=$(grep -c "^Exec=.*sheaf-app-under-test" "$AUTO" 2>/dev/null)
+[ -n "$DO" ] && click $DO 0.8
+A2=no; [ -e "$AUTO" ] && A2=yes
+check "Open Sheaf at login writes the autostart entry and Don't open it removes it (Open at ${OS:-?}: Exec lines ${A1:-0}; Don't at ${DO:-?}: still there $A2)" "[ \"${A1:-0}\" = 1 ] && [ $A2 = no ]"
+quit; settings_reset
+
+# 304. Help ▸ Report an Issue… (C-platform-003, iLovePDF's Contact us): the message typed and Save report… writes
+# one zip with report.txt holding the subject, the message and the app's details (Sheaf's version).
+export SHEAF_TEST_MENU_BAR=1
+launch; sleep 0.5
+HX=$(at Help 700x34+0+0); [ -n "$HX" ] && click $HX 0.8
+RI=$(at Report 420x300+0+24); [ -n "$RI" ] && click $RI 1
+xdotool type --delay 20 "Saving freezes on big files"; sleep 0.4; shot 304-report
+answer "$PWD/$OUT/report.zip"
+SR=$(at Save 1280x800+0+0); [ -n "$SR" ] && click $SR 1.5
+answer ""
+RT=$(unzip -p "$OUT/report.zip" report.txt 2>/dev/null | tr '\n' ' ')
+check "Report an Issue saves the report as a zip (${RI:-no menu item}; $(echo "$RT" | cut -c1-90))" "echo \"$RT\" | grep -q 'Report a problem: Saving freezes on big files' && echo \"$RT\" | grep -q 'Sheaf [0-9]'"
+quit
+unset SHEAF_TEST_MENU_BAR

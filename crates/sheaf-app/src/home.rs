@@ -359,6 +359,11 @@ pub fn update_platform(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::platform::
     update_prefs(ui, |p| f(&mut p.platform));
 }
 
+/// Print defaults, Security and Startup changed and saved (src/settings_ui.rs).
+pub fn update_settings(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::settings::SettingsPrefs)) {
+    update_prefs(ui, |p| f(&mut p.settings));
+}
+
 fn push_prefs(ui: &AppWindow) {
     let p = prefs();
     ui.set_theme_pref(p.theme.mode());

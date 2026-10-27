@@ -1,3 +1,4 @@
+import { SettingsBridge } from "../settings.slint";
 // The reader's sheets over the pages: the signature pad, the print sheet, document properties, the page background, the versions.
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
@@ -116,14 +117,15 @@ export component PrintSheet inherits Rectangle {
 
     property <int> copies: 1;
     property <int> pages: 0;
-    property <bool> fit: true;
-    property <bool> two-sided: false;
-    property <int> paper: 0;
-    property <int> orientation: 0;
+    // Each choice starts from Preferences ▸ Printing (iLovePDF's Printer preferences).
+    property <bool> fit: SettingsBridge.print-fit;
+    property <bool> two-sided: SettingsBridge.print-two-sided;
+    property <int> paper: SettingsBridge.print-paper;
+    property <int> orientation: SettingsBridge.print-orientation;
     // Pages per sheet: 1, 2, 4, 6, 9, 16, or a booklet (6).
-    property <int> layout: 0;
-    property <bool> gray: false;
-    property <bool> comments: true;
+    property <int> layout: SettingsBridge.print-layout;
+    property <bool> gray: SettingsBridge.print-gray;
+    property <bool> comments: SettingsBridge.print-comments;
     property <bool> ready: root.tab.reader.printers.length > 0;
     property <int> printer: root.tab.reader.printer;
     // The preview follows the choices that change the sheet.
@@ -294,6 +296,8 @@ export component PrintSheet inherits Rectangle {
                 alignment: LayoutAlignment.stretch;
                 spacing: 8px;
                 Rectangle { horizontal-stretch: 1; }
+                // These choices kept as how the sheet opens (Preview's Save Current Settings as Preset).
+                SmallButton { text: "Make default"; clicked => { SettingsBridge.set-print-defaults(two-sided, paper, gray, comments, fit, orientation, layout); } }
                 SmallButton { text: "Cancel"; clicked => { ReaderBridge.print-cancel(root.id); root.focus-pages(); } }
                 ok := SmallButton {
                     text: "Print";
