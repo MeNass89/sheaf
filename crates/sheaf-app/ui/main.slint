@@ -151,6 +151,7 @@ export component AppWindow inherits Window {
     callback set-gpu(bool);
     in property <bool> show-boxes;
     in property <bool> physical-numbers;
+    in property <bool> transparency-grid;
     callback set-page-display(int, bool);
     in property <[string]> digital-ids;
     in property <[string]> trusted-certs;
@@ -213,6 +214,7 @@ export component AppWindow inherits Window {
     callback confirm-cancel-job();
     callback confirm-keep();
     callback open-recent(int);
+    callback open-guide();
     callback reveal-recent(int);
     callback remove-recent(int);
     callback clear-recents();
@@ -401,6 +403,8 @@ export component AppWindow inherits Window {
             title: "Help";
             MenuItem { title: "Keyboard Shortcuts"; shortcut: PlatformBridge.keys[38]; enabled: root.reader-on; activated => { ReaderBridge.show-help(root.reader-id, true); } }
             MenuItem { title: "Customize Shortcuts…"; shortcut: PlatformBridge.keys[39]; activated => { root.show-preferences(); } }
+            // PDF Expert's Welcome document and Acrobat's Help: how to use Sheaf, in a tab.
+            MenuItem { title: "Sheaf Guide"; activated => { root.open-guide(); } }
         }
     }
 
@@ -512,6 +516,7 @@ export component AppWindow inherits Window {
                             set-gpu(on) => { root.set-gpu(on); }
                             show-boxes: root.show-boxes;
                             physical-numbers: root.physical-numbers;
+                            transparency-grid: root.transparency-grid;
                             set-page-display(w, on) => { root.set-page-display(w, on); }
                             digital-ids: root.digital-ids;
                             trusted-certs: root.trusted-certs;

@@ -171,6 +171,10 @@ fn several_pages_go_on_each_sheet() {
     assert_eq!(shown_texts(&book).len(), 4);
     assert!(shown_texts(&book)[0].contains("Page 1") && !shown_texts(&book)[0].contains("Page 2"), "{:?}", shown_texts(&book));
     assert!(impose(&Input::new(&a), 3, false, &t.path().join("x.pdf")).is_err());
+    // Sixteen (CUPS number-up=16, Preview's 16 per sheet): the five pages on one sheet.
+    let sixteen = impose(&Input::new(&a), 16, false, &t.path().join("16.pdf")).unwrap();
+    assert_eq!(shown_texts(&sixteen).len(), 1);
+    assert!(shown_texts(&sixteen)[0].contains("Page 1") && shown_texts(&sixteen)[0].contains("Page 5"), "{:?}", shown_texts(&sixteen));
 }
 #[test]
 fn each_page_is_cut_into_its_two_halves() {

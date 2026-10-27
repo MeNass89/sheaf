@@ -218,6 +218,8 @@ fn adjust_image(s: &mut lopdf::Stream, n: u8, a: &Adjust) -> bool {
             s.set_plain_content(data);
             s.dict.remove(b"Filter");
             s.dict.remove(b"DecodeParms");
+            // The inverted /Decode of Adobe's CMYK JPEGs does not apply to the RGB written here.
+            s.dict.remove(b"Decode");
             s.dict.set("ColorSpace", Object::Name(b"DeviceRGB".to_vec()));
             s.dict.set("BitsPerComponent", 8);
             let _ = s.compress();
@@ -281,17 +283,20 @@ mod tests {
         }
     }
 
-    /// A CMYK JPEG (ImageMagick's, Adobe's inverted CMYK) is inverted too, written back in RGB.
+    /// A CMYK JPEG (ImageMagick's, Adobe's inverted CMYK, with the inverted /Decode PDF producers give
+    /// it) is inverted too, written back in RGB.
     #[test]
     fn a_cmyk_jpeg_is_changed_too() {
         let dir = tempfile::tempdir().unwrap();
         let jpg = dir.path().join("red.jpg");
         let made = std::process::Command::new("convert").args(["-size", "8x8", "xc:red", "-colorspace", "CMYK"]).arg(&jpg).status();
         assert!(made.is_ok_and(|s| s.success()), "ImageMagick's convert makes the CMYK JPEG");
-        let dict = lopdf::dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 8, "Height" => 8, "ColorSpace" => "DeviceCMYK", "BitsPerComponent" => 8, "Filter" => "DCTDecode" };
+        let dict = lopdf::dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 8, "Height" => 8, "ColorSpace" => "DeviceCMYK", "BitsPerComponent" => 8, "Filter" => "DCTDecode",
+            "Decode" => vec![1.into(), 0.into(), 1.into(), 0.into(), 1.into(), 0.into(), 1.into(), 0.into()] };
         let mut s = lopdf::Stream::new(dict, std::fs::read(&jpg).unwrap());
         assert!(adjust_image(&mut s, 4, &Adjust { invert: true, ..Default::default() }));
         assert_eq!(s.dict.get(b"ColorSpace").unwrap().as_name().unwrap(), b"DeviceRGB");
+        assert!(!s.dict.has(b"Decode"), "the CMYK /Decode is dropped with the CMYK data");
         let px = s.decompressed_content().unwrap();
         assert_eq!(px.len(), 8 * 8 * 3);
         // Red inverted: cyan.

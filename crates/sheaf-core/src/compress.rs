@@ -372,17 +372,43 @@ pub(crate) fn image_pixels(s: &Stream, gray: bool) -> Option<DynamicImage> {
     ok.then_some(img)
 }
 
-/// A CMYK JPEG's pixels as RGB (the decoder's conversion, Adobe's inverted CMYK included), for the
-/// tools that recolour pictures; `None` for any other picture, a mask, or a /Decode that is not
-/// the identity.
+/// A CMYK JPEG's pixels as RGB the way PDF viewers show them, for the tools that recolour
+/// pictures; `None` for any other picture, a mask, or a /Decode other than the identity or the
+/// fully inverted `[1 0 1 0 1 0 1 0]`.
+/// PDF viewers (PDFium, Poppler, Ghostscript, checked 27/10) take the JPEG's stored components as
+/// they are, then apply /Decode. Adobe's CMYK JPEGs store their components inverted, so producers
+/// pair them with the inverted /Decode. The JPEG decoder always assumes Adobe's inversion
+/// (r = c·k/255), so its RGB is right for the inverted /Decode only; with the identity the stored
+/// components are read raw and converted here.
 pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
-    if s.dict.has(b"Mask") || single_filter(s) != Some(b"DCTDecode") || !identity_decode(s) || jpeg_components(&s.content)? != 4 {
+    if s.dict.has(b"Mask") || single_filter(s) != Some(b"DCTDecode") || jpeg_components(&s.content)? != 4 {
         return None;
     }
     let w = u32::try_from(s.dict.get(b"Width").and_then(Object::as_i64).ok()?).ok()?;
     let h = u32::try_from(s.dict.get(b"Height").and_then(Object::as_i64).ok()?).ok()?;
-    let img = image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).ok()?.to_rgb8();
+    let img = if identity_decode(s) {
+        let opts = zune_core::options::DecoderOptions::default().jpeg_set_out_colorspace(zune_core::colorspace::ColorSpace::CMYK);
+        let mut dec = zune_jpeg::JpegDecoder::new_with_options(std::io::Cursor::new(&s.content[..]), opts);
+        // YCCK JPEGs cannot be read as raw CMYK: the decoder refuses, and the picture is left alone.
+        let raw = dec.decode().ok()?;
+        if raw.len() != (w as usize).checked_mul(h as usize)?.checked_mul(4)? { return None; }
+        let ink = |v: u8, k: u8| ((255 - u16::from(v)) * (255 - u16::from(k)) / 255) as u8;
+        RgbImage::from_fn(w, h, |x, y| {
+            let p = &raw[(y as usize * w as usize + x as usize) * 4..][..4];
+            image::Rgb([ink(p[0], p[3]), ink(p[1], p[3]), ink(p[2], p[3])])
+        })
+    } else if inverted_cmyk_decode(s) {
+        image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).ok()?.to_rgb8()
+    } else {
+        return None;
+    };
     ((img.width(), img.height()) == (w, h)).then_some(img)
+}
+
+/// True when /Decode is `[1 0 1 0 1 0 1 0]`, the array Adobe's inverted CMYK JPEGs come with.
+fn inverted_cmyk_decode(s: &Stream) -> bool {
+    matches!(s.dict.get(b"Decode"), Ok(Object::Array(a)) if a.len() == 8
+        && a.iter().enumerate().all(|(i, v)| v.as_float().ok() == Some(((i + 1) % 2) as f32)))
 }
 
 /// Number of colour components declared in a JPEG's SOF header (1 gray, 3 YCbCr/RGB, 4 CMYK/YCCK).

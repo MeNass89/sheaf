@@ -618,13 +618,8 @@ pub fn speak(text: &str, speed: u8, voice: Option<&str>) -> Option<std::process:
 }
 
 /// File `f` put on the clipboard as a file (Finder's, Explorer's and file managers' copy), to paste
-/// in a folder, a chat or a mail. Debug builds write its path to `SHEAF_TEST_CLIPFILE` (gui-smoke).
+/// in a folder, a chat or a mail.
 pub fn copy_file_to_clipboard(f: &std::path::Path) -> bool {
-    if cfg!(debug_assertions)
-        && let Some(log) = std::env::var_os("SHEAF_TEST_CLIPFILE")
-    {
-        return std::fs::write(log, f.to_string_lossy().as_bytes()).is_ok();
-    }
     let p = f.to_string_lossy();
     #[cfg(target_os = "macos")]
     return std::process::Command::new("osascript").args(["-e", &format!("set the clipboard to (POSIX file \"{}\")", p.replace('"', "\\\""))]).status().is_ok_and(|s| s.success());

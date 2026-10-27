@@ -127,6 +127,9 @@ pub struct Prefs {
     /// Pages called by their place ("4"), not their own number ("iv"; Preview's Use logical page
     /// numbers off).
     pub physical_numbers: bool,
+    /// Pages drawn over a checkerboard, their transparent parts showing (Acrobat's Show
+    /// transparency grid).
+    pub transparency_grid: bool,
     /// The digital IDs (.p12, .pfx files) signed with, newest first (Acrobat's Identities).
     pub digital_ids: Vec<PathBuf>,
     /// What was typed in form text fields, newest first (Acrobat's Auto-Complete memory; at most

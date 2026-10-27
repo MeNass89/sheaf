@@ -593,6 +593,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_continue_to, |ui, id, tool| run::continue_to(&ui, id, &tool));
     // Recents, history, preferences
     wire!(ui, on_open_recent, |ui, i| home::open_recent(&ui, i));
+    wire!(ui, on_open_guide, |ui| home::open_guide(&ui));
     ui.on_reveal_recent(home::reveal_recent);
     wire!(ui, on_remove_recent, |ui, i| home::remove_recent(&ui, i));
     wire!(ui, on_pin_recent, |ui, i| home::pin_recent(&ui, i));

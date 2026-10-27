@@ -138,7 +138,7 @@ pub fn preview(bytes: &[u8], layout: i32, gray: bool, comments: bool) -> Result<
     let per = [1u8, 2, 4, 6, 9, 16][layout.clamp(0, 5) as usize];
     let b = if layout == 6 {
         booklet(&b)?
-    } else if per > 1 && per != 16 {
+    } else if per > 1 {
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         let (from, to) = (dir.path().join("in.pdf"), dir.path().join("up.pdf"));
         std::fs::write(&from, &b).map_err(|e| e.to_string())?;
@@ -228,6 +228,13 @@ mod tests {
         let (w, h, px) = preview(&bytes, 1, true, true).unwrap();
         assert!(w > h, "two a sheet: wide ({w} × {h})");
         assert!(px.as_chunks::<4>().0.iter().all(|p| p[0] == p[1] && p[1] == p[2]), "grey");
+        // Sixteen a sheet (Sol, 27/10: the preview showed one page where sixteen print): the two
+        // red pages fill two cells of sixteen, not the sheet.
+        let red = |px: &[u8]| px.as_chunks::<4>().0.iter().filter(|p| p[0] > 150 && p[1] < 90).count() as f32 / (px.len() / 4) as f32;
+        let (_, _, one) = preview(&bytes, 0, false, true).unwrap();
+        let (w, h, px) = preview(&bytes, 5, false, true).unwrap();
+        assert!(h > w, "four by four: tall ({w} × {h})");
+        assert!(red(&one) > 0.8 && red(&px) > 0.04 && red(&px) < 0.2, "red: one {} sixteen {}", red(&one), red(&px));
     }
 
     /// Comments off: a highlight and a note go, a form field and a link stay.

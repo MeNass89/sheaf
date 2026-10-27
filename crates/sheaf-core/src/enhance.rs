@@ -84,25 +84,23 @@ fn real_words(ocr: &crate::pdfcraft::engine::ocr::Ocr, img: &image::RgbaImage) -
 /// 180 or 270) that sets it upright, when reading it so finds clearly more words than as it is.
 pub fn scan_upright_turns(bytes: &[u8], password: Option<&str>, pages: &[usize]) -> Vec<(usize, i64)> {
     let Ok(ocr) = crate::ocr::engine() else { return Vec::new() };
-    let shots: Vec<(usize, image::RgbaImage)> = {
+    // One page's picture at a time (Sol, 27/10: every page was rendered first, several GB held for
+    // a big scan). The document is opened again for each page so PDFium's lock is not held while
+    // the page is read.
+    let shot = |p: usize| -> Option<image::RgbaImage> {
         let _g = crate::engine::pdfium_lock();
-        let Ok(doc) = crate::engine::open_pdf_bytes(bytes, password) else { return Vec::new() };
-        pages
-            .iter()
-            .filter_map(|&p| {
-                let page = doc.pages().get(p as i32).ok()?;
-                if !is_scan(&page) {
-                    return None;
-                }
-                // About 110 dpi, enough to read body text.
-                let w = (page.width().value * 1.5).round().clamp(64.0, 2000.0) as i32;
-                let img = page.render_with_config(&PdfRenderConfig::new().set_target_width(w)).ok()?.as_image().ok()?.to_rgba8();
-                Some((p, img))
-            })
-            .collect()
+        let doc = crate::engine::open_pdf_bytes(bytes, password).ok()?;
+        let page = doc.pages().get(p as i32).ok()?;
+        if !is_scan(&page) {
+            return None;
+        }
+        // About 110 dpi, enough to read body text.
+        let w = (page.width().value * 1.5).round().clamp(64.0, 2000.0) as i32;
+        Some(page.render_with_config(&PdfRenderConfig::new().set_target_width(w)).ok()?.as_image().ok()?.to_rgba8())
     };
     let mut out = Vec::new();
-    for (p, img) in shots {
+    for &p in pages {
+        let Some(img) = shot(p) else { continue };
         let as_is = real_words(&ocr, &img);
         let tries = [(90, image::imageops::rotate90(&img)), (180, image::imageops::rotate180(&img)), (270, image::imageops::rotate270(&img))];
         let best = tries.iter().map(|(d, i)| (*d, real_words(&ocr, i))).max_by_key(|t| t.1);

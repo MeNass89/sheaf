@@ -157,6 +157,7 @@ export component PreferencesScreen inherits Rectangle {
     callback set-gpu(bool);
     in property <bool> show-boxes;
     in property <bool> physical-numbers;
+    in property <bool> transparency-grid;
     callback set-page-display(int, bool);
     in property <[string]> digital-ids;
     in property <[string]> trusted-certs;
@@ -242,6 +243,14 @@ export component PreferencesScreen inherits Rectangle {
                     spacing: 8px;
                     Segment { width: 214px; text: "Show art, trim and bleed boxes"; selected: root.show-boxes; clicked => { root.set-page-display(0, !root.show-boxes); } }
                     Segment { width: 214px; text: "Page numbers as printed (iv)"; selected: !root.physical-numbers; clicked => { root.set-page-display(1, !root.physical-numbers); } }
+                }
+                // Acrobat's Show transparency grid.
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: start;
+                    spacing: 8px;
+                    Segment { width: 214px; text: "Show transparency grid"; selected: root.transparency-grid; clicked => { root.set-page-display(2, !root.transparency-grid); } }
                 }
                 // Acrobat's Use 2D GPU acceleration.
                 FlexboxLayout {

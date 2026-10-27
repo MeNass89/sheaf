@@ -312,11 +312,12 @@ check "the accessibility check lists failed rules and its Fix gives the document
 quit
 
 # 110. More ▸ More tools ▸ Copy the file (PDF Expert's Share ▸ Copy): the document as it is now, a highlight
-# not saved yet included, put on the clipboard as a file (debug builds name it in clip-file).
-cp "$OUT/text.pdf" "$OUT/share.pdf"; launch "$OUT/share.pdf"; sleep 1; rm -f "$OUT/clip-file"
+# not saved yet included, put on the clipboard as a file: read back from the X clipboard the way a
+# file manager pastes it (GNOME's x-special/gnome-copied-files: "copy" and the file's URI).
+cp "$OUT/text.pdf" "$OUT/share.pdf"; launch "$OUT/share.pdf"; sleep 1; printf x | xclip -selection clipboard
 key h; read QX QY <<< "$(at quick 1020x700+255+90)"; [ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1 mousemove $(( QX + 60 )) $QY mouseup 1; sleep 1; }; key v
 click 1127 61 0.8; click 1008 659 0.8; CF=$(at Copy 300x700+880+80); [ -n "$CF" ] && click $CF 1.5
-SF=$(cat "$OUT/clip-file" 2>/dev/null)
+SF=$(xclip -o -selection clipboard -t x-special/gnome-copied-files 2>/dev/null | sed -n '1{/^copy$/!q};2{s#^file://##;s/%20/ /g;p}')
 check "Copy the file puts the document as it is now on the clipboard (${CF:-no item}; $(basename "$SF"))" "[ -f \"$SF\" ] && qpdf --qdf --object-streams=disable \"$SF\" - 2>/dev/null | grep -aq '/Subtype /Highlight' && ! qpdf --qdf --object-streams=disable \"$OUT/share.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
 quit
 
