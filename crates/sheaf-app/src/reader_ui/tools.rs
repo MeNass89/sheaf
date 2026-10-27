@@ -159,6 +159,34 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
         }
         return;
     }
+    // Bold or italic with a font of the computer's chosen (More fonts…), for new text, a new text
+    // box or the paragraph open: that font's own bold or italic face (Sol, 27/10: B and I lit up
+    // and the chosen font stayed as it was).
+    if matches!(what, 2 | 3)
+        && let Some(name) = update(tab_id, |r, _| r.text_font.as_ref().map(|f| f.0.clone())).flatten()
+    {
+        use sheaf_core::system_fonts::{face, installed};
+        let fonts = installed();
+        let Some(now) = fonts.iter().find(|f| f.name == name) else { return };
+        let (bold, italic) = if what == 2 { (!now.bold, now.italic) } else { (now.bold, !now.italic) };
+        let Some(next) = face(fonts, &now.family, bold, italic) else {
+            let style = if what == 2 { "bold" } else { "italic" };
+            return crate::flow::toast(ui, &format!("{} has no {style} face installed on this computer", now.family));
+        };
+        let bytes = match std::fs::read(&next.path) {
+            Ok(b) => std::sync::Arc::new(b),
+            Err(e) => return crate::flow::toast(ui, &format!("{} can't be read: {e}", next.name)),
+        };
+        update(tab_id, |r, _| {
+            r.text_font = Some((next.name.clone(), bytes));
+            (r.text_bold, r.text_italic) = (bold, italic);
+            if r.draft.as_ref().is_some_and(|d| d.kind == 2) {
+                let (set, clear) = para_bits(8);
+                r.para_format = (r.para_format | set) & !clear;
+            }
+        });
+        return;
+    }
     // A font of the computer's (`v` in the list), for the open paragraph: its program read now.
     let picked = if what == 8 {
         let Some(f) = sheaf_core::system_fonts::installed().get(v.max(0) as usize) else { return };

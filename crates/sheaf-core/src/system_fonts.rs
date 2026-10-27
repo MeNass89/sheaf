@@ -114,6 +114,12 @@ fn key(name: &str) -> String {
     name.chars().filter(char::is_ascii_alphanumeric).flat_map(|c| c.to_lowercase()).collect()
 }
 
+/// The installed face of `family` that is `bold` and `italic` (the format row's B and I after a
+/// font of the computer's was chosen).
+pub fn face<'a>(fonts: &'a [SystemFont], family: &str, bold: bool, italic: bool) -> Option<&'a SystemFont> {
+    fonts.iter().find(|f| f.bold == bold && f.italic == italic && key(&f.family) == key(family))
+}
+
 /// The installed face of the font `base_font` is drawn in (a `/BaseFont`, "ABCDEF+DejaVuSerif-Bold":
 /// its family is what comes before the style) that is `bold` and `italic`: what the format row's
 /// B and I give a text box in a font of the computer's or the file's own, as PDF Expert's
@@ -157,6 +163,8 @@ mod tests {
         assert_eq!(variant(&fonts, "DejaVuSerif-Bold", false, false).map(|f| f.name.as_str()), Some("DejaVu Serif"));
         assert!(variant(&fonts, "DejaVuSerif", true, true).is_none(), "no bold italic face installed");
         assert_eq!(style_of("ABCDEF+NotoSans-SemiBoldOblique"), (true, true));
+        assert_eq!(face(&fonts, "DejaVu Serif", true, false).map(|f| f.name.as_str()), Some("DejaVu Serif Bold"));
+        assert!(face(&fonts, "DejaVu Sans", false, false).is_none(), "no regular DejaVu Sans here");
     }
 
     #[test]

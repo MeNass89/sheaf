@@ -330,11 +330,15 @@ quit
 # pages in one strip, a page fitting the view's height, page 1 (red) at the strip's start; → brings page 2 (green) to the middle,
 # and a mouse's wheel moves along the strip.
 convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/across.pdf"; launch "$OUT/across.pdf"; sleep 1
-layout_item() { click 1127 61 0.8; click 1008 659 0.8; local m i; m=$(at Scrolling 300x700+880+80); [ -n "$m" ] && click $m 0.8; i=$(at "$1" 340x260+840+70); [ -n "$i" ] && click $i 1.2; echo "${i:-none}"; }
+# More (1127,61) ▸ More tools… (1008,659) ▸ Scrolling, split view, hand ›: the 21st entry, 28 px apart from 100, so
+# at 660 too; then the entry of the small menu starting with the word $1, found by OCR.
+layout_item() { click 1127 61 0.8; click 1008 659 0.8; click 1008 660 0.8; local i; i=$(at "$1" 340x300+840+70); [ -n "$i" ] && click $i 1.2; echo "${i:-none}"; }
+# A pixel's colour at (x, 420) as #RRGGBB (8 bits: colour_at reads 16-bit colours as #RRRRGG on this ImageMagick).
+c8() { import -window root -crop "1x1+$1+420" -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | head -1; }
 greenish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, g = int(v[0:2], 16), int(v[2:4], 16); sys.exit(0 if g > r + 80 else 1)' "$1"; }
 viewsig() { import -window root -crop 1000x700+260+90 png:- 2>/dev/null | md5sum | cut -c1-8; }
 HI=$(layout_item across); sleep 0.5
-H0=$(colour_at 500); key Right; sleep 1; H1=$(colour_at 768)
+H0=$(c8 500); key Right; sleep 1; H1=$(c8 768)
 S0=$(viewsig); xdotool mousemove 768 420 click --repeat 4 5; sleep 1; S1=$(viewsig)
 check "pages run across: page 1 in the middle, → page 2, the wheel moves along ($HI; $H0 → $H1; $S0 → $S1)" "reddish '${H0:-#000000}' && greenish '${H1:-#000000}' && [ \"$S0\" != \"$S1\" ]"
 quit
@@ -344,10 +348,10 @@ quit
 cp "$OUT/across.pdf" "$OUT/split.pdf"; launch "$OUT/split.pdf"; sleep 1
 yellowish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, g, b = (int(v[k:k + 2], 16) for k in (0, 2, 4)); sys.exit(0 if r > 180 and g > 150 and b < 100 else 1)' "$1"; }
 SI=$(layout_item side); sleep 1
-L0=$(colour_at 510); R0=$(colour_at 1020)
-key End; sleep 1; L1=$(colour_at 510); R1=$(colour_at 1020)
+L0=$(c8 510); R0=$(c8 1020)
+key End; sleep 1; L1=$(c8 510); R1=$(c8 1020)
 key Home; sleep 1; SY=$(at Sync 600x80+680+90); [ -n "$SY" ] && click $SY 0.8
-key End; sleep 1; L2=$(colour_at 510); R2=$(colour_at 1020)
+key End; sleep 1; L2=$(c8 510); R2=$(c8 1020)
 check "split view: two panes, each scrolled on its own, then together ($SI; $L0 $R0 → $L1 $R1 → sync ${SY:-none} $L2 $R2)" "reddish '${L0:-#000000}' && reddish '${R0:-#000000}' && yellowish '${L1:-#000000}' && reddish '${R1:-#000000}' && yellowish '${L2:-#000000}' && yellowish '${R2:-#000000}'"
 quit
 
@@ -383,9 +387,9 @@ quit
 # half still showing what it showed.
 cp "$OUT/text.pdf" "$OUT/split4.pdf"; launch "$OUT/split3.pdf" "$OUT/split4.pdf"; sleep 3
 WI=$(layout_item with); sleep 1.5
-D0=$(colour_at 1020); N0=$(ocr 500x60+770+90)
+D0=$(c8 1020); N0=$(ocr 500x60+770+90)
 click 1020 420 1.5
-D1=$(colour_at 1020); L1=$(colour_at 510); N1=$(ocr 500x60+260+90)
+D1=$(c8 1020); L1=$(c8 510); N1=$(ocr 500x60+260+90)
 check "split with another document, then its tab forward with this one beside it ($WI; $D0 '$(echo "$N0" | cut -c1-20)' → $L1 $D1 '$(echo "$N1" | cut -c1-20)')" "reddish '${D0:-#000000}' && echo \"$N0\" | grep -q 'split3' && reddish '${D1:-#000000}' && ! reddish '${L1:-#FF0000}' && echo \"$N1\" | grep -q 'split4'"
 
 # 210. Edit ▸ one object picked ▸ Order ▸ To front (Acrobat's Arrange ▸ Bring to Front): a red square under a blue
@@ -412,8 +416,9 @@ d = sys.stdin.buffer.read(); parts = d.split(maxsplit=4); w, h = int(parts[1]), 
 x, y = $2, 792 - $3; i = (y * w + x) * 3; print(px[i], px[i + 1], px[i + 2])"; }
 O0=$(pixel "$OUT/order.pdf" 175 525)
 launch "$OUT/order.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
-click $(( 264 + 120 * 1000 / 612 )) $(( 100 + (792 - 580) * 1000 / 612 )) 1
-TF=$(at front 1280x400+600+90); [ -n "$TF" ] && click $TF 1.5; key ctrl+s; sleep 1.5
+click $(( 264 + 120 * 1000 / 612 )) $(( 100 + (792 - 580) * 1000 / 612 )) 1; shot 210-picked
+# The card in the view's top-right corner: "To front" is its first button (OCR may join its two words).
+TF=$(at To 680x120+600+90); [ -n "$TF" ] || TF=$(at front 680x120+600+90); [ -n "$TF" ] && click $TF 1.5; shot 210-front; key ctrl+s; sleep 1.5
 O1=$(pixel "$OUT/order.pdf" 175 525)
 check "Order ▸ To front brings the picked square over the other (${TF:-no To front button}; overlap $O0 → $O1)" "[ \"$O0\" = '0 0 255' ] && [ \"$O1\" = '255 0 0' ]"
 quit
@@ -433,12 +438,12 @@ check "U and • underline and bullet the paragraph open (${QK:-no paragraph}; $
 quit
 
 # 212. Edit ▸ a paragraph open ▸ More fonts… (Acrobat's font list): the computer's open fonts listed (DejaVu,
-# Liberation… on this system); the first (its row 40 px under the button) picked, applied and saved, the page
-# embeds it (a Type0 font).
+# Liberation… on this system); the first (its row 38 px under the button, inside the list) picked, applied with
+# Done and saved, the page embeds it (a Type0 font).
 cp "$OUT/text.pdf" "$OUT/morefonts.pdf"; launch "$OUT/morefonts.pdf"; key ctrl+9; sleep 1
 key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
-MF=$(at More 1280x40+0+90); [ -n "$MF" ] && { click $MF 4; set -- $MF; click $(( $1 - 20 )) $(( $2 + 40 )) 1; }
-key ctrl+Return; sleep 2; key Escape; key v; key ctrl+s; sleep 1.5
+shot 212-open; MF=$(at More 1280x40+0+90); [ -n "$MF" ] && { click $MF 4; shot 212-list; set -- $MF; click $(( $1 + 20 )) $(( $2 + 38 )) 1.5; shot 212-picked; }
+DN=$(at Done 1020x700+255+90); if [ -n "$DN" ]; then click $DN 2; else key ctrl+Return; sleep 2; fi; key Escape; key v; key ctrl+s; sleep 1.5
 FT=$(pdffonts -f 1 -l 1 "$OUT/morefonts.pdf" 2>/dev/null | tail -n +3 | awk '{print $1}' | tr '\n' ' ')
 check "More fonts… sets the paragraph in a font of the computer's, embedded (${MF:-no More fonts button}; $FT)" "pdffonts -f 1 -l 1 \"$OUT/morefonts.pdf\" 2>/dev/null | grep -q 'CID TrueType\|Type 0\|CID Type 0C'"
 quit

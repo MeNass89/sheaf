@@ -277,8 +277,8 @@ export component ObjectsArrangeCard inherits Rectangle {
     // Comments selected together instead of objects.
     in property <bool> comments;
     callback focus-pages();
-    // Wide enough for the four Order buttons in one row.
-    width: 340px;
+    // Wide enough for the four Order buttons in one row (340 px cut "To back" off; seen in smoke 210).
+    width: 420px;
     height: col.preferred-height;
     border-radius: Theme.radius-item;
     background: Theme.card;

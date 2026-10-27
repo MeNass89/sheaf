@@ -373,7 +373,8 @@ fn snap(doc: &Doc) -> Snap {
             subtype: a.subtype.clone(),
             color: a.color,
             contents: a.contents.clone().unwrap_or_default(),
-            rect: a.rect.map(f64::from),
+            // A mask's box, picked, moved and resized, is its opening.
+            rect: holes.get(&(a.page, a.index)).copied().unwrap_or(a.rect.map(f64::from)),
             quads: match holes.get(&(a.page, a.index)) {
                 Some(h) => vec![[h[0], h[3], h[2], h[3], h[0], h[1], h[2], h[1]]],
                 None => a.quads.iter().map(|q| q.map(f64::from)).collect(),

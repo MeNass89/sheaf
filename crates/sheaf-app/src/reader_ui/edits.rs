@@ -674,12 +674,13 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let colour = if d.kind == 0 { light_at(r.light) } else { ink_at(r.ink_colour) };
         let callout = matches!(shape, Shape::Callout { .. });
         let annotation = NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 || callout { 1.0 } else { 0.0 }), contents: text, author: author() };
-        // A text box in the font of the format row; a callout in PdfCraft's own (Helvetica).
+        // A text box or a callout in the font of the format row (Sol, 27/10: a callout was
+        // always Helvetica), or in a font of the computer's.
         let align = r.text_align as u8;
         Some((
             d.page,
             match r.text_font.as_ref() {
-                _ if d.kind == 0 || callout => Edit::AddAnnotation(annotation),
+                _ if d.kind == 0 => Edit::AddAnnotation(annotation),
                 // A font of the computer's chosen (More fonts…).
                 Some((_, font)) => Edit::AddTextBoxInFont { annotation, align, font: font.clone() },
                 None => Edit::AddTextBox { annotation, font: super::tools::text_font(r).into(), align },
@@ -727,6 +728,7 @@ pub fn objects_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
             use sheaf_core::pdfcraft::edit::Restack;
             let order = [Restack::Front, Restack::Forward, Restack::Backward, Restack::Back][(how - 20) as usize];
             r.repick = Some((*page, rects));
+            r.repick_earliest = matches!(order, Restack::Backward | Restack::Back);
             return Some((*page, Edit::RestackObjects { page: *page, objects: list.iter().map(|o| o.0).collect(), how: order }));
         }
         let arranged = if how == 9 || how == 10 {

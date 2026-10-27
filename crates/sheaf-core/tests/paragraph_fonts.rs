@@ -103,3 +103,25 @@ fn new_text_and_text_boxes_take_a_font_of_the_computers() {
     let lacking = AddedText { rect: [72.0, 300.0, 400.0, 340.0], text: "日本".into(), size: 12.0, ..Default::default() };
     assert!(doc.apply(Edit::AddTextInFont { page: 0, text: lacking, font }).is_err());
 }
+
+/// A callout takes the format row's family and style, or a font of the computer's, as a text box
+/// does (Sol, 27/10: callouts were always Helvetica).
+#[test]
+fn a_callout_takes_the_chosen_font() {
+    use sheaf_core::pdfcraft::engine::{LineEnding, NewAnnotation, Shape, Style};
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = common::fixture_pdf(dir.path(), "callout.pdf", 1);
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    let callout = || Shape::Callout { rect: [200.0, 500.0, 400.0, 540.0], knee: [150.0, 450.0], point: [100.0, 400.0], font_size: 14.0, ending: LineEnding::OpenArrow };
+    let annotation = |contents: &str| NewAnnotation { page: 0, shape: callout(), style: Style::default_for(&callout()), contents: contents.into(), author: String::new() };
+    doc.apply(Edit::AddTextBox { annotation: annotation("Times bold"), font: "TiBo".into(), align: 1 }).unwrap();
+    doc.apply(Edit::AddTextBoxInFont { annotation: annotation("Great Vibes"), align: 0, font: Arc::new(std::fs::read(great_vibes()).unwrap()) }).unwrap();
+    let out = doc.save(&dir.path().join("callouts.pdf")).unwrap();
+    common::qpdf_clean(&out);
+    let bases = base_fonts(&out);
+    assert!(bases.iter().any(|b| b == "Times-Bold"), "the first in Times Bold: {bases:?}");
+    assert!(bases.iter().any(|b| b.contains("GreatVibes")), "the second in Great Vibes: {bases:?}");
+    let q = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap();
+    let text = String::from_utf8_lossy(&q.stdout);
+    assert_eq!(text.matches("/IT /FreeTextCallout").count(), 2, "both still callouts");
+}
