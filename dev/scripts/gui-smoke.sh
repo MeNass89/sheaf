@@ -21,6 +21,10 @@ shot() { import -window root "$OUT/$1.png" 2>/dev/null; }
 # A display left by an interrupted run is stopped first.
 # Only an Xvfb is stopped (another program's display is left alone: the run fails instead).
 [ -f /tmp/.X$D-lock ] && p=$(tr -d ' ' </tmp/.X$D-lock) && [ "$(ps -o comm= -p "$p" 2>/dev/null)" = Xvfb ] && ! tr '\0' ' ' < /proc/"$p"/cmdline 2>/dev/null | grep -q 1920x1080 && kill "$p" 2>/dev/null && sleep 0.5
+# The class recorder's display (:99) is never touched, and a lock still held by a live process is
+# never removed (27/10: a run took :99 and a class recording was lost).
+[ "$D" = 99 ] && { echo "FAIL display :99 belongs to the class recorder"; exit 1; }
+if [ -f /tmp/.X$D-lock ] && kill -0 "$(tr -d ' ' </tmp/.X$D-lock)" 2>/dev/null; then echo "FAIL display :$D is in use by another program"; exit 1; fi
 rm -f /tmp/.X$D-lock /tmp/.X11-unix/X$D
 # -noreset: an X server resets when its last client leaves; an app launched during the reset
 # cannot connect (intermittent "opened no window" after a quit, 21/10).
