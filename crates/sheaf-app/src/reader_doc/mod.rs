@@ -532,7 +532,6 @@ pub enum Op {
     AccessibilityCheck,
     /// Acrobat's console, evaluated against the reader's current unsaved document.
     RunJavaScript { source: String, page: usize },
-    DocumentScripts,
     EditableScripts,
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
@@ -606,7 +605,6 @@ pub enum Reply {
     Upright(Vec<(usize, i64)>),
     Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
     JavaScript { output: String, changed: bool, requests: Vec<sheaf_core::pdfcraft::engine::js::Request> },
-    DocumentScripts(Vec<(String, String)>),
     EditableScripts(Vec<sheaf_core::pdfcraft::engine::js::ConsoleScript>),
     /// The loupe's area: (width, height, RGBA pixels), or why not.
     Loupe(Result<(u32, u32, Vec<u8>), String>),
@@ -775,7 +773,6 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                     }
                     Op::AccessibilityCheck => reply(Reply::Accessibility(doc.document().accessibility_check(&Default::default()))),
                     Op::EditableScripts => reply(Reply::EditableScripts(doc.document().console_scripts())),
-                    Op::DocumentScripts => reply(Reply::DocumentScripts(doc.document().document_scripts())),
                     Op::RunJavaScript { source, page } => {
                         let id = doc.id();
                         let before = doc.document().bytes.clone();

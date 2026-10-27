@@ -247,12 +247,12 @@ fn javascript_console_returns_local_viewer_requests_and_named_document_scripts()
     }
     ops.send(Op::Apply { edit: Box::new(Edit::SetDocumentScript { name: "Greeting".into(), script: Some("function greeting() { return 'Hello'; }".into()) }), pages: vec![] }).unwrap();
     next(&rx);
-    ops.send(Op::DocumentScripts).unwrap();
+    ops.send(Op::EditableScripts).unwrap();
     match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
-        Reply::DocumentScripts(scripts) => { assert_eq!(scripts.len(), 1); assert_eq!(scripts[0].0, "Greeting"); assert!(scripts[0].1.contains("function greeting")); }
+        Reply::EditableScripts(scripts) => { assert_eq!(scripts.len(), 1); assert_eq!(scripts[0].name, "Greeting"); assert!(scripts[0].source.contains("function greeting")); }
         _ => panic!("named scripts expected"),
     }
     ops.send(Op::Undo { pages: None }).unwrap(); next(&rx);
-    ops.send(Op::DocumentScripts).unwrap();
-    assert!(matches!(rx.recv_timeout(Duration::from_secs(30)).unwrap(), Reply::DocumentScripts(s) if s.is_empty()));
+    ops.send(Op::EditableScripts).unwrap();
+    assert!(matches!(rx.recv_timeout(Duration::from_secs(30)).unwrap(), Reply::EditableScripts(s) if s.is_empty()));
 }

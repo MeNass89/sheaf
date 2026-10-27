@@ -502,3 +502,8 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   still missing from Cargo.lock's sheaf-app package list. Added the existing resolved `zip 4.6.1`
   entry there manually; its version/checksum/transitive packages were already locked. No cargo,
   dependency resolution, install or test was run. This supersedes the prior lock-refresh warning.
+
+- C-platform-005 static follow-up: the EditableScripts document-thread request replaces the old
+  document-only request instead of leaving a production-unused variant. The existing
+  `javascript_console_returns_local_viewer_requests_and_named_document_scripts` regression now
+  exercises that request. Engine Document::document_scripts remains unchanged and compatible.
