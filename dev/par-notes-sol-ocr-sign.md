@@ -350,3 +350,24 @@
   `an_invalid_timestamp_response_never_writes_an_untimestamped_signature` (not executed here).
 - Proposed grade: C-sign-012: f8 a8 p8 — core `sign.rs` and tests above; the real server gap is
   still open. No joint 9 or runtime validation claimed.
+
+## Second pass — C-security-007 (not implemented)
+
+- Re-inspected core `security.rs::protect_with_settings`, COS `security::encrypt_dict`,
+  the locked PdfCraft crypt source `crates/crypt/src/lib.rs::{EncryptDict,SecurityHandler::open}`,
+  and sign source `crates/sign/src/cms.rs` at the Cargo.lock revision d3a91c5. Acrobat's
+  `aapp/Protect_R_RHP.aapp` and `strings/PPKLite.Primary.txt` were read directly from its archive.
+- Verified: the crypt handler still rejects every non-Standard /Filter; the parsed encryption
+  dictionary has no recipient envelopes. The CMS implementation is SignedData for signatures,
+  not recipient EnvelopedData. The app exposes digital IDs for signing, with no private-key
+  recipient-unlock path. Password policy encryption cannot stand in for these contracts.
+- No certificate-encryption implementation was added. A workable next unit must add CMS
+  recipient envelopes plus Adobe.PubSec key derivation and private-key opening, then integrate
+  writer, reader and recipient controls together. An offline OpenSSL envelope writer alone
+  would not make the reader open the resulting PDF. No output or nonfunctional GUI switch added.
+  This is unfinished implementation, not a claim that offline certificate encryption is impossible.
+- Tests: none added for an absent feature. Next verification: recipient A opens, unrelated B
+  fails, multiple recipients open, metadata/attachment encryption modes agree in an independent
+  reader, and Sheaf reopens its own output. The orchestrator must run any eventual tests.
+- Proposed grade: C-security-007: f0 a0 p0 — absence confirmed at crypt
+  `SecurityHandler::open` and COS `encrypt_dict`; no supported certificate-encryption path.
