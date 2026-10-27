@@ -373,10 +373,14 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
         Step::PrepareAccessibility(language) => {
             if Step::from_id("prepare_accessibility", language).is_none() { return Err(EditError::Invalid("Enter a document language such as en-US or fr-FR".into())); }
             let doc = s.get(id).ok_or(EditError::NoDocument)?;
-            let language = doc.accessibility_fix(crate::a11y::Rule::PrimaryLanguage, Some(language)).map_err(EditError::Invalid)?;
             let title = doc.accessibility_fix(crate::a11y::Rule::Title, None).map_err(EditError::Invalid)?;
             let tabs = doc.accessibility_fix(crate::a11y::Rule::TabOrder, None).map_err(EditError::Invalid)?;
-            Edit::Batch { label: "Prepare accessibility (review required)".into(), edits: vec![Edit::AutoTagText, language, title, tabs] }
+            // Each fix writes the whole initial view from the document as it was, so the title's
+            // would put the old (missing) language back: one view carries both, written after it.
+            let mut view = doc.initial_view();
+            view.display_title = true;
+            view.language = Some(language.trim().to_owned());
+            Edit::Batch { label: "Prepare accessibility (review required)".into(), edits: vec![Edit::AutoTagText, title, Edit::SetInitialView(Box::new(view)), tabs] }
         }
         Step::RecognizeText => {
             let found = s.recognize_text(id, &[], crate::ocr::OcrSettings::default()).map_err(EditError::Invalid)?;

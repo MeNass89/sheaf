@@ -15,6 +15,7 @@ pub(super) fn rewrite(bytes: &[u8]) -> Result<Vec<u8>> {
     dict.remove(b"Filter");
     dict.remove(b"DecodeParms");
     pdf.objects.insert(id, Object::Stream(Stream::new(dict, xmp.into_bytes())));
+    drop_opaque_masks(&mut pdf);
     pdf.version = "1.4".into();
     pdf.catalog_mut()?.remove(b"Version");
     // lopdf expands object streams while reading. The rewritten file uses a classic xref table.
@@ -25,6 +26,30 @@ pub(super) fn rewrite(bytes: &[u8]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     pdf.save_to(&mut out)?;
     Ok(out)
+}
+
+/// Soft masks that hide nothing (every sample fully opaque, as PDFium gives pictures it places)
+/// taken off their images: the page looks the same, and PDF/A-1 forbids soft masks. A mask that
+/// hides anything stays, and the check then refuses the file.
+fn drop_opaque_masks(pdf: &mut Document) {
+    let opaque = |pdf: &Document, mask: &Object| -> bool {
+        let Ok((_, Object::Stream(s))) = pdf.dereference(mask) else { return false };
+        if s.dict.has(b"Decode") || s.dict.has(b"Matte") || s.dict.get(b"BitsPerComponent").and_then(Object::as_i64).ok() != Some(8) {
+            return false;
+        }
+        let samples = s.dict.get(b"Width").and_then(Object::as_i64).ok().zip(s.dict.get(b"Height").and_then(Object::as_i64).ok()).and_then(|(w, h)| usize::try_from(w.checked_mul(h)?).ok());
+        let data = if s.dict.has(b"Filter") { s.decompressed_content().ok() } else { Some(s.content.clone()) };
+        data.is_some_and(|d| Some(d.len()) == samples && d.iter().all(|&b| b == 255))
+    };
+    let ids: Vec<_> = pdf.objects.iter().filter_map(|(id, o)| {
+        let s = o.as_stream().ok()?;
+        (s.dict.get(b"Subtype").and_then(Object::as_name).is_ok_and(|n| n == b"Image") && s.dict.get(b"SMask").is_ok_and(|m| opaque(pdf, m))).then_some(*id)
+    }).collect();
+    if ids.is_empty() { return; }
+    for id in ids {
+        if let Ok(Object::Stream(s)) = pdf.get_object_mut(id) { s.dict.remove(b"SMask"); }
+    }
+    pdf.prune_objects();
 }
 
 pub(super) fn issues(pdf: &Document, identified: bool) -> Result<Vec<PdfAIssue>> {
