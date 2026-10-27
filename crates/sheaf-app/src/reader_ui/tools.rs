@@ -198,6 +198,11 @@ fn para_bits(what: i32) -> (u8, u8) {
     }
 }
 
+/// A loupe (Preview's): a circle comment PdfCraft's loupe names so.
+pub(super) fn is_loupe(a: &AnnotEntry) -> bool {
+    a.subtype == "Circle" && a.contents == "Loupe"
+}
+
 /// The computer's fonts for the format row's list (`ReaderBridge.system-fonts`): read on a thread
 /// the first time, then at once.
 fn list_system_fonts(ui: &AppWindow) {
@@ -312,6 +317,14 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
                     };
                     r.poly = None;
                 }
+            }
+            // Loupe: the next magnification (1.5×, 2×, 3×, 4×), for new loupes and the one selected.
+            35 => {
+                use sheaf_core::pdfcraft::engine::loupe_magnifications as steps;
+                let k = steps().iter().position(|m| (*m - r.loupe_magnify).abs() < 1e-9).map_or(1, |k| (k + 1) % steps().len());
+                r.loupe_magnify = steps()[k];
+                let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| is_loupe(a))?;
+                return Some((a.page, Edit::SetLoupeMagnify { page: a.page, index: a.index, magnify: r.loupe_magnify }));
             }
             // Article: the next box starts a new article (Acrobat's End Article).
             33 => {

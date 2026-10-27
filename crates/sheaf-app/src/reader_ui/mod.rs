@@ -232,6 +232,8 @@ pub struct ReaderUi {
     article_thread: Option<usize>,
     /// Shapes ▸ Article: the box picked by a click (article, box), moved, resized or deleted.
     article_box: Option<(usize, usize)>,
+    /// Shapes ▸ Loupe: how much larger a new loupe shows the page (one of `MAGNIFICATIONS`).
+    loupe_magnify: f64,
     shape_fill: bool,
     /// Shapes' fill: a highlight colour (index, the sixth too), or None a tint of the stroke.
     fill_colour: Option<usize>,
@@ -520,6 +522,7 @@ impl ReaderUi {
             shape_special: 0,
             article_thread: None,
             article_box: None,
+            loupe_magnify: 2.0,
             shape_fill: false,
             fill_colour: None,
             shape_end: None,
@@ -1257,8 +1260,8 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
     }
     let size = v.boxes[page].view_size();
     r.annots().iter().enumerate().rev().find_map(|(i, a)| {
-        // A mask (Preview's) covers its page: picked in the Comments panel, not by a click on it.
-        if a.page != page || (a.subtype == "Square" && a.contents == "Mask") {
+        // A mask (Preview's) covers its page: its hit box is its opening (see `reader_doc::snap`).
+        if a.page != page {
             return None;
         }
         let boxes: Vec<[f64; 4]> = if a.quads.is_empty() { vec![a.rect] } else { a.quads.iter().map(|q| sheaf_core::redact::bounds(std::slice::from_ref(q))).collect() };

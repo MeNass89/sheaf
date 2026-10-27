@@ -492,6 +492,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         pen_width: r.pen_width,
         shape_kind: r.shape_kind,
         shape_special: r.shape_special as i32,
+        loupe_magnify: format!("{}×", r.loupe_magnify).into(),
+        selected_loupe: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(super::tools::is_loupe),
         shape_fill: r.shape_fill,
         arrow_head: reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].1.into(),
         arrow_both: r.arrow_both,

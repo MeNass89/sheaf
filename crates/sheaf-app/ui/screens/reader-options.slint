@@ -54,12 +54,19 @@ export component ReaderOptionsBar inherits Rectangle {
             // Preview's Loupe (the page magnified in a circle dragged) and Mask (the page dimmed
             // outside the rectangle or oval dragged).
             if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Loupe"; primary: root.tab.reader.shape-special == 1; clicked => { ReaderBridge.shape-option(root.id, 30, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-special == 1: SmallButton { y: 2px; text: root.tab.reader.loupe-magnify; clicked => { ReaderBridge.shape-option(root.id, 35, 0); root.focus-pages(); } }
             if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Mask"; primary: root.tab.reader.shape-special == 2; clicked => { ReaderBridge.shape-option(root.id, 31, 0); root.focus-pages(); } }
             // Acrobat's Article tool: boxes dragged one after the other make an article's reading
             // order, across columns and pages; End starts the next article; Delete removes one.
             if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Article"; primary: root.tab.reader.shape-special == 3; clicked => { ReaderBridge.shape-option(root.id, 32, 0); root.focus-pages(); } }
             if root.tab.reader.shape-special == 3: SmallButton { y: 2px; text: "End article"; clicked => { ReaderBridge.shape-option(root.id, 33, 0); root.focus-pages(); } }
             if root.tab.reader.shape-special == 3: SmallButton { y: 2px; text: "Delete article"; clicked => { ReaderBridge.shape-option(root.id, 34, 0); root.focus-pages(); } }
+        }
+        // A loupe selected (Preview's): its magnification, a click goes to the next.
+        if root.tab.reader.selected-loupe && root.tab.reader.tool != 10: HorizontalLayout {
+            spacing: 4px;
+            Text { text: "Loupe"; font-size: Theme.fs-caption; color: Theme.text-secondary; vertical-alignment: center; }
+            SmallButton { y: 2px; text: root.tab.reader.loupe-magnify; clicked => { ReaderBridge.shape-option(root.id, 35, 0); root.focus-pages(); } }
         }
         // Link: links of the text's web addresses; new links' look (Acrobat's Link Properties ▸
         // Appearance: invisible by default, else a border in the colour, width and style chosen).

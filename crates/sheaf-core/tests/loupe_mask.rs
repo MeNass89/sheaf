@@ -72,3 +72,35 @@ fn a_mask_dims_the_page_outside_its_opening() {
     assert!(red_at(&doc, dir.path(), 355, 355) < 200, "an oval's corner is outside it");
     assert!(red_at(&doc, dir.path(), 450, 450) > 240, "its middle is open");
 }
+
+/// A loupe's magnification changed (Preview's steps: 1.5, 2, 3, 4), and the page under it
+/// changed: it shows the page as it is now.
+#[test]
+fn a_loupe_follows_its_magnification_and_its_page() {
+    use sheaf_core::pdfcraft::engine::ObjectKind;
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = page(dir.path(), b"0 g 300 400 10 10 re f");
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    assert_eq!(sheaf_core::pdfcraft::engine::loupe_magnifications(), [1.5, 2.0, 3.0, 4.0]);
+    doc.apply(Edit::AddLoupe { page: 0, centre: [305.0, 405.0], radius: 45.0, magnify: 2.0, color: [1.0, 0.0, 0.0], author: String::new() }).unwrap();
+    let around = [255.0, 355.0, 355.0, 455.0];
+    let twice = dark(&doc, dir.path(), around);
+    assert!((300..=500).contains(&twice), "twice as large: {twice}");
+    doc.apply(Edit::SetLoupeMagnify { page: 0, index: 0, magnify: 4.0 }).unwrap();
+    let four = dark(&doc, dir.path(), around);
+    assert!(four > 1200, "four times as large: {four}");
+    // The square deleted with the Edit tool: the loupe shows the page without it.
+    let square = doc.document().editable_objects(0).unwrap().into_iter().find(|o| o.target.kind == ObjectKind::Path).expect("the square").target;
+    doc.apply(Edit::DeleteObjects { page: 0, objects: vec![square] }).unwrap();
+    assert_eq!(dark(&doc, dir.path(), around), 0, "the loupe follows the page");
+}
+
+/// A mask's opening is known, so a click there picks it.
+#[test]
+fn a_masks_opening_is_known() {
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = page(dir.path(), b"");
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    doc.apply(Edit::AddMask { page: 0, hole: [300.0, 100.0, 100.0, 300.0], oval: true, author: String::new() }).unwrap();
+    assert_eq!(doc.document().mask_holes(), [((0, 0), [100.0, 100.0, 300.0, 300.0])]);
+}

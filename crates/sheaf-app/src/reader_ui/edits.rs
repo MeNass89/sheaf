@@ -223,9 +223,6 @@ pub(super) fn add_ink(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f
     }
 }
 
-/// How much larger a loupe shows the page (Preview's starts at about twice).
-const LOUPE_MAGNIFY: f64 = 2.0;
-
 /// A rectangle, oval, line or arrow dragged from `a` to `b` (view points of `page`), in the pen's
 /// colour, width and opacity; a loupe or a mask when one is chosen.
 pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64), b: (f64, f64)) {
@@ -236,13 +233,13 @@ pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64),
         let rect = [pa.0.min(pb.0), pa.1.min(pb.1), pa.0.max(pb.0), pa.1.max(pb.1)];
         let colour = ink_at(r.ink_colour);
         let prov = Provisional { page, rects: Vec::new(), stroke: reader::shape_outline(r.shape_kind, a, b), colour, kind: PEN };
-        // Preview's Loupe: the circle in the oval dragged, the page twice as large in it; its Mask:
+        // Preview's Loupe: the circle in the oval dragged, the page magnified in it; its Mask:
         // the page dimmed outside the rectangle or oval dragged.
         match r.shape_special {
             1 => {
                 let centre = [(rect[0] + rect[2]) / 2.0, (rect[1] + rect[3]) / 2.0];
                 let radius = ((rect[2] - rect[0]).min(rect[3] - rect[1]) / 2.0).max(12.0);
-                return (Edit::AddLoupe { page, centre, radius, magnify: LOUPE_MAGNIFY, color: colour, author: author() }, prov);
+                return (Edit::AddLoupe { page, centre, radius, magnify: r.loupe_magnify, color: colour, author: author() }, prov);
             }
             2 => return (Edit::AddMask { page, hole: rect, oval: r.shape_kind == 1, author: author() }, prov),
             // Acrobat's Article tool: the box after the article's last one, or a new article's first.

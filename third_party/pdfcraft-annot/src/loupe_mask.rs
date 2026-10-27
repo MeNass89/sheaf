@@ -12,7 +12,7 @@
 
 use pdfcraft_cos::{Dict, Document, ObjRef, Object, PdfString, Stream};
 
-use crate::{AnnotError, Meta, Rgb, annots, base_dict, draw_appearance, n, num_array, rgb, set_annots};
+use crate::{AnnotError, Meta, Rgb, annot_dict, annot_ref, annots, base_dict, draw_appearance, n, num_array, redraw_or_restore, rgb, set_annots, touch, unlocked};
 
 /// The dictionary key holding a loupe's magnification, and the page form it magnifies.
 pub const LOUPE: &[u8] = b"PCLoupe";
@@ -75,10 +75,8 @@ fn form(bbox: [f64; 4], content: &[u8], resources: Dict) -> Stream {
     Stream::flate(d, content)
 }
 
-/// The page's content as a form (its streams joined, its resources), for a loupe to magnify.
-fn page_form(doc: &mut Document, page: usize) -> Result<ObjRef, AnnotError> {
-    let p = pdfcraft_model::pages(doc).into_iter().nth(page).ok_or(AnnotError::NoSuchPage(page))?;
-    let media = p.crop(doc);
+/// The page's content streams, decoded and joined.
+fn page_content(doc: &Document, p: &pdfcraft_model::Page) -> Vec<u8> {
     let list: Vec<Object> = match p.dict.get(b"Contents").map(|c| doc.resolve(c)) {
         None => Vec::new(),
         Some(c) => match c.as_ref() {
@@ -93,6 +91,14 @@ fn page_form(doc: &mut Document, page: usize) -> Result<ObjRef, AnnotError> {
             content.push(b'\n');
         }
     }
+    content
+}
+
+/// The page's content as a form (its streams joined, its resources), for a loupe to magnify.
+fn page_form(doc: &mut Document, page: usize) -> Result<ObjRef, AnnotError> {
+    let p = pdfcraft_model::pages(doc).into_iter().nth(page).ok_or(AnnotError::NoSuchPage(page))?;
+    let media = p.crop(doc);
+    let content = page_content(doc, &p);
     let resources = p.dict.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
     Ok(doc.add(Object::Stream(form(media, &content, resources))))
 }
@@ -201,4 +207,79 @@ pub fn add_mask(doc: &mut Document, page: usize, hole: [f64; 4], round: bool, au
     d.set(b"BS".to_vec(), Object::Dict(bs));
     d.set(MASK.to_vec(), num_array(&[hole[0], hole[1], hole[2], hole[3], if round { 1.0 } else { 0.0 }]));
     add(doc, page, d)
+}
+
+/// The magnifications a loupe offers (Preview's loupe grows and shrinks; these are its steps).
+pub const MAGNIFICATIONS: [f64; 4] = [1.5, 2.0, 3.0, 4.0];
+
+/// Sheaf: loupe `index` on `page` (0-based) shows the page `magnify` times as large.
+pub fn set_loupe_magnify(doc: &mut Document, page: usize, index: usize, magnify: f64, meta: &Meta) -> Result<(), AnnotError> {
+    if !(1.1..=16.0).contains(&magnify) {
+        return Err(AnnotError::Invalid("a loupe magnifies 1.1 to 16 times".into()));
+    }
+    let (_, r) = annot_ref(doc, page, index)?;
+    unlocked(doc, r)?;
+    let before = annot_dict(doc, r);
+    if before.get(LOUPE).is_none() {
+        return Err(AnnotError::Invalid("this comment is not a loupe".into()));
+    }
+    doc.update_dict(r, |d| {
+        d.set(LOUPE.to_vec(), Object::Real(magnify));
+        touch(d, meta);
+    })?;
+    redraw_or_restore(doc, r, before)
+}
+
+/// Sheaf: every loupe shows its page as it is now: one whose page's content changed since it was
+/// drawn takes a new copy of it and is drawn again (after an edit of the page's content).
+pub fn refresh_loupes(doc: &mut Document) {
+    let Ok(pages) = crate::page_refs(doc) else { return };
+    // The loupes first (most documents have none: nothing more is read).
+    let view: &Document = doc;
+    let loupes: Vec<(usize, ObjRef, ObjRef)> = pages
+        .iter()
+        .enumerate()
+        .flat_map(|(i, p)| annots(view, *p).into_iter().map(move |e| (i, e)))
+        .filter_map(|(i, e)| {
+            let r = e.as_ref()?;
+            let d = annot_dict(view, r);
+            let source = d.reference(LOUPE_SOURCE).filter(|_| d.get(LOUPE).is_some())?;
+            Some((i, r, source))
+        })
+        .collect();
+    if loupes.is_empty() {
+        return;
+    }
+    let models = pdfcraft_model::pages(doc);
+    for (i, r, source) in loupes {
+        let Some(model) = models.get(i) else { continue };
+        let now = page_content(doc, model);
+        let same = matches!(doc.get(source).as_ref(), Object::Stream(s) if s.decoded().ok().as_deref() == Some(now.as_slice()));
+        if same {
+            continue;
+        }
+        let Ok(fresh) = page_form(doc, i) else { continue };
+        if doc.update_dict(r, |d| d.set(LOUPE_SOURCE.to_vec(), Object::Ref(fresh))).is_ok() {
+            // A loupe that can't be drawn keeps its old appearance.
+            let _ = draw_appearance(doc, r);
+        }
+    }
+}
+
+/// Sheaf: every mask's opening: ((page, index in its `/Annots`), the opening in user space), so
+/// a click there picks the mask.
+pub fn mask_holes(doc: &Document) -> Vec<((usize, usize), [f64; 4])> {
+    let Ok(pages) = crate::page_refs(doc) else { return Vec::new() };
+    let mut out = Vec::new();
+    for (i, p) in pages.iter().enumerate() {
+        for (k, entry) in annots(doc, *p).iter().enumerate() {
+            let d = doc.resolve(entry);
+            let Some(hole) = d.as_dict().and_then(|d| d.get(MASK)).and_then(Object::as_array) else { continue };
+            let v: Vec<f64> = hole.iter().filter_map(Object::as_f64).collect();
+            if let [x0, y0, x1, y1, _] = v[..] {
+                out.push(((i, k), [x0.min(x1), y0.min(y1), x0.max(x1), y0.max(y1)]));
+            }
+        }
+    }
+    out
 }

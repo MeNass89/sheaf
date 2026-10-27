@@ -25,6 +25,9 @@ pub mod copy_image;
 pub mod arrange_objects;
 /// Sheaf: article threads (Acrobat's Article tool).
 pub mod articles;
+/// Sheaf: Preview's Loupe and Mask, as the reader reads them.
+mod loupes;
+pub use loupes::loupe_magnifications;
 pub mod clear_signature;
 pub mod sfn;
 pub mod transitions;
@@ -233,6 +236,7 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::ReplyToAnnotation { .. }
         | Edit::SetAnnotationStatus { .. }
         | Edit::MarkAnnotation { .. }
+        | Edit::SetLoupeMagnify { .. }
         | Edit::LockAnnotation { .. }
         | Edit::ReplaceText { .. }
         | Edit::EraseInk { .. }
@@ -1431,6 +1435,12 @@ pub enum Edit {
         color: Rgb,
         author: String,
     },
+    /// Sheaf: loupe `index` on `page` shows the page `magnify` times as large.
+    SetLoupeMagnify {
+        page: usize,
+        index: usize,
+        magnify: f64,
+    },
     /// Sheaf: Preview's Mask: the page dimmed outside `hole` (user space; an oval in it when `oval`).
     AddMask {
         page: usize,
@@ -2043,6 +2053,7 @@ impl Edit {
             Edit::AddAnnotation(a) => Label::of(add_annotation(&a.shape)),
             Edit::AddTextBox { .. } => Label::of("Add text box"),
             Edit::AddLoupe { .. } => Label::of("Add loupe"),
+            Edit::SetLoupeMagnify { .. } => Label::of("Change loupe"),
             Edit::AddTextInFont { .. } => Label::of("Add text"),
             Edit::AddTextBoxInFont { .. } => Label::of("Add text box"),
             Edit::SetTextBoxFontProgram { .. } => Label::of("Change font"),
@@ -2238,6 +2249,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::ReplyToAnnotation { .. }
         | Edit::SetAnnotationStatus { .. }
         | Edit::MarkAnnotation { .. }
+        | Edit::SetLoupeMagnify { .. }
         | Edit::ReplaceText { .. }
         | Edit::EraseInk { .. }
         | Edit::LockAnnotation { .. }
@@ -2507,6 +2519,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_annot::text_box_font::set_text_box_font_program(doc, annotation.page, index, font, &cx.meta())?;
         }
         Edit::SetTextBoxFontProgram { page, index, font } => pdfcraft_annot::text_box_font::set_text_box_font_program(doc, *page, *index, font, &cx.meta())?,
+        Edit::SetLoupeMagnify { page, index, magnify } => pdfcraft_annot::loupe_mask::set_loupe_magnify(doc, *page, *index, *magnify, &cx.meta())?,
         Edit::AddLoupe { page, centre, radius, magnify, color, author } => {
             pdfcraft_annot::loupe_mask::add_loupe(doc, *page, (*centre, *radius), *magnify, *color, author, &cx.meta())?;
         }
@@ -3869,6 +3882,10 @@ impl Session {
         // `next` is a copy: if the edit fails or crashes, the document is unchanged.
         guard(|| run_edit(&mut next, &edit, &mut cx))
             .unwrap_or_else(|m| Err(EditError::Invalid(format!("{} failed unexpectedly ({m}); the document was not changed", edit.label()))))?;
+        // Sheaf: a loupe shows its page as it is now (the page's content changed under it).
+        if matches!(scope_of(&edit), Scope::Content | Scope::Full) {
+            pdfcraft_annot::loupe_mask::refresh_loupes(&mut next);
+        }
         // Redaction removed what its own interpreter places under the marks. The marks were drawn
         // over the page as the renderer shows it, so the renderer has the last word.
         if let Edit::ApplyRedactions { pages } = &edit {

@@ -404,6 +404,9 @@ export struct ReaderState {
     // Shapes: 1 Preview's Loupe, 2 its Mask, 3 Acrobat's Article box, 0 none (shape-option 30–32;
     // 33 ends the article, 34 deletes it).
     shape-special: int,
+    // Shapes ▸ Loupe: the magnification of new loupes ("2×"); a loupe is the selected comment.
+    loupe-magnify: string,
+    selected-loupe: bool,
     shape-fill: bool,
     // Shapes ▸ Arrow: its head's name and whether both ends carry it.
     arrow-head: string,
