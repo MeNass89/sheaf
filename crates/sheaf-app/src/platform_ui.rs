@@ -88,16 +88,18 @@ fn grammar_key(note: &str, text: &str) -> String {
 /// that reaches the end of the text waits until it is finished.
 fn check_text(text: &str, typing: bool, grammar: bool) -> Checked {
     let ignored = IGNORED_GRAMMAR.lock().map(|g| g.clone()).unwrap_or_default();
-    let found: Vec<sheaf_core::spell::GrammarIssue> = if grammar {
-        sheaf_core::spell::grammar(text)
-            .into_iter()
-            .filter(|g| !(typing && g.start + g.text.len() >= text.trim_end().len()))
-            .filter(|g| !ignored.contains(&grammar_key(g.note, &g.text)))
-            .collect()
-    } else {
-        Vec::new()
-    };
     with_spell(|sp| {
+        // The English rules only with an English dictionary (none: English is assumed).
+        let english = sp.speller.as_ref().map_or(true, Speller::is_english);
+        let found: Vec<sheaf_core::spell::GrammarIssue> = if grammar {
+            sheaf_core::spell::grammar(text, english)
+                .into_iter()
+                .filter(|g| !(typing && g.start + g.text.len() >= text.trim_end().len()))
+                .filter(|g| !ignored.contains(&grammar_key(g.note, &g.text)))
+                .collect()
+        } else {
+            Vec::new()
+        };
         let misspelt = match &sp.speller {
             Ok(speller) => speller.misspelt(text, typing),
             Err(_) => Vec::new(),
@@ -387,7 +389,20 @@ fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
         menu_keys_off(&ui);
         let ctrl = SharedString::from(Key::ControlR);
         let shift_key = SharedString::from(Key::ShiftR);
-        let mut events = vec![WindowEvent::KeyPressed { text: ctrl.clone() }];
+        // Shift, Alt or Super the user still holds (a shortcut such as Ctrl+Shift+U given to Undo)
+        // would change the key sent (⇧⌘Z is Redo): let go for the key, pressed again after it.
+        let held = HELD.load(Ordering::Relaxed);
+        let in_the_way: Vec<(Key, Key)> = [(HELD_SHIFT, Key::Shift, Key::ShiftR), (HELD_ALT, Key::Alt, Key::AltGr), (HELD_META, Key::Meta, Key::MetaR)]
+            .into_iter()
+            .filter(|&(bit, left, _)| held & bit != 0 && !(shift && matches!(left, Key::Shift)))
+            .map(|(_, left, right)| (left, right))
+            .collect();
+        let mut events = Vec::new();
+        for (left, right) in &in_the_way {
+            events.push(WindowEvent::KeyReleased { text: SharedString::from(*left) });
+            events.push(WindowEvent::KeyReleased { text: SharedString::from(*right) });
+        }
+        events.push(WindowEvent::KeyPressed { text: ctrl.clone() });
         if shift {
             events.push(WindowEvent::KeyPressed { text: shift_key.clone() });
         }
@@ -398,11 +413,25 @@ fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
             events.push(WindowEvent::KeyReleased { text: shift_key });
         }
         events.push(WindowEvent::KeyReleased { text: ctrl });
+        for (left, _) in &in_the_way {
+            events.push(WindowEvent::KeyPressed { text: SharedString::from(*left) });
+        }
         for ev in events {
             let _ = ui.window().dispatch_event_with_result(ev);
         }
         push_keys(&ui);
     });
+}
+
+/// The modifiers the user holds now (from the window's own events, main.rs): Shift, Alt, Super.
+static HELD: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+const HELD_SHIFT: u8 = 1;
+const HELD_ALT: u8 = 2;
+const HELD_META: u8 = 4;
+
+/// The window's modifiers changed (winit's ModifiersChanged).
+pub fn modifiers_changed(shift: bool, alt: bool, meta: bool) {
+    HELD.store(u8::from(shift) * HELD_SHIFT | u8::from(alt) * HELD_ALT | u8::from(meta) * HELD_META, Ordering::Relaxed);
 }
 
 /// Edit ▸ Check Spelling… on a document: its texts (comments, replies, form fields), what the
@@ -685,17 +714,16 @@ pub fn install(ui: &AppWindow) {
             return;
         }
         let Some(c) = COMMANDS.get(i.max(0) as usize) else { return };
-        // The default may be taken by now: then it stays as it is, with the reason.
+        // The default may be taken by now, by a command or a tool: then it stays as it is, with
+        // the reason.
         let mut prefs = home::prefs().platform;
-        platform::reset(&mut prefs, Some(c.id));
-        let k = platform::keys(c.keys);
-        let taken = !c.keys.is_empty() && (0..COMMANDS.len()).any(|o| COMMANDS[o].id != c.id && platform::keys(&platform::effective(&prefs, o)) == k);
         let g = ui.global::<PlatformBridge>();
-        if taken {
-            g.set_shortcut_error(format!("{} is taken by another command", platform::display(c.keys)).into());
-        } else {
-            g.set_shortcut_error("".into());
-            update(&ui, |p| *p = prefs);
+        match platform::reset_command(&mut prefs, c.id) {
+            Ok(()) => {
+                g.set_shortcut_error("".into());
+                update(&ui, |p| *p = prefs);
+            }
+            Err(e) => g.set_shortcut_error(e.into()),
         }
     });
     on!(on_reset_shortcuts, |ui| {
