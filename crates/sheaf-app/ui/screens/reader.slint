@@ -522,7 +522,11 @@ export component ReaderScreen inherits Rectangle {
                         pointer-event(e) => {
                             // The hand tool with ⌥ held: up zooms in, down out, around the press.
                             if root.dyn-zooming {
-                                if e.kind == PointerEventKind.move {
+                                // The button let go where this area never heard it (outside the window, a
+                                // dialog over it): the zoom ends at the next move (Sol, 27/10).
+                                if e.kind == PointerEventKind.move && !self.pressed {
+                                    root.dyn-zooming = false;
+                                } else if e.kind == PointerEventKind.move {
                                     root.zoom-around(root.dyn-zoom0 * pow(1.01, (root.dyn-wy0 - (self.absolute-position.y + self.mouse-y)) / 1px), root.dyn-ax, root.dyn-ay);
                                 } else if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
                                     root.dyn-zooming = false;
@@ -1267,7 +1271,8 @@ export component ReaderScreen inherits Rectangle {
         height: 0;
         // A Space let go while the keyboard was elsewhere never arrives: no hand left stuck.
         changed has-focus => {
-            if !self.has-focus { root.space-held = false; root.panned = false; root.panning = false; }
+            // The same for a drag with the hand tool's ⌥ zoom: no zoom left following a button not held.
+            if !self.has-focus { root.space-held = false; root.panned = false; root.panning = false; root.dyn-zooming = false; }
         }
         // Space: held, a drag pans; let go without a drag, it turns the page (see key-pressed).
         key-released(e) => {
