@@ -376,6 +376,31 @@ impl ViewerUi {
         (ax, 0.0, self.left)
     }
 
+    /// The view is `width` × `height`, scrolled to `top`. With pages across, a new size keeps the
+    /// point at the view's top middle on its page (Sol, 27/10: deep in a strip, a window or side
+    /// panel resized slid toward another page: the strip is laid out again at the new width).
+    fn resize(&mut self, width: f64, top: f64, height: f64) {
+        let w = self.viewer.view_width();
+        let anchor = self.viewer.across().then(|| self.viewer.anchor_of(self.left + w / 2.0, self.top));
+        let wide = self.viewer.set_width(width);
+        let high = self.viewer.set_height(height);
+        self.top = top;
+        self.height = height;
+        if let Some(a) = anchor.filter(|_| wide || high) {
+            let (x, y) = self.viewer.point_of(a);
+            let w = self.viewer.view_width();
+            // Down: the same point at the top when the view's top was in the page, else as it was.
+            let y = if a.2 > 0.0 { y } else { self.top };
+            self.scroll = y.clamp(0.0, (self.viewer.content_height() - height).max(0.0));
+            self.top = self.scroll;
+            let left = (x - w / 2.0).clamp(0.0, self.viewer.max_scroll_x());
+            self.scroll_x = Some(left);
+            self.left = left;
+            self.viewer.set_left(left);
+            self.scroll_seq += 1;
+        }
+    }
+
     /// The page under the middle of the viewport.
     pub fn current(&self) -> usize {
         self.single_page.unwrap_or_else(|| self.viewer.current(self.top, self.height))
@@ -593,10 +618,7 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) 
         }
     });
     update(tab_id, |v| {
-        v.viewer.set_width(width as f64);
-        v.viewer.set_height(height as f64);
-        v.top = top as f64;
-        v.height = height as f64;
+        v.resize(width as f64, top as f64, height as f64);
         // One page at a time, scrolled away from its page (the scroll bar dragged): the page now in view.
         if let Some(s) = v.single_page {
             let [_, y, _, h] = v.viewer.page_rect(s);
@@ -1357,6 +1379,27 @@ mod tests {
         assert_eq!(v.zoom_anchor().0, 0.0);
         v.show_page(10, None);
         assert_eq!(v.scroll_x, None);
+    }
+
+    /// Pages across: a window or side panel resized deep in a strip keeps the page in view (Sol, 27/10).
+    #[test]
+    fn a_resize_deep_in_a_strip_keeps_the_page_in_view() {
+        let pages = (0..30).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        v.viewer.set_horizontal(true);
+        v.show_page(22, None);
+        view_left_of(&mut v, v.scroll_x.unwrap());
+        for (w, h) in [(760.0, 700.0), (1240.0, 700.0), (1240.0, 900.0), (1000.0, 700.0)] {
+            v.resize(w, v.top, h);
+            assert_eq!(v.current(), 22, "at {w} × {h}");
+        }
+        // Down a column a resize is as before: the scroll asked for is left alone.
+        v.viewer.set_horizontal(false);
+        let seq = v.scroll_seq;
+        v.resize(800.0, v.top, 700.0);
+        assert_eq!(v.scroll_seq, seq);
     }
 
     /// What [`view_left`] does to a tab's viewer.
