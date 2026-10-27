@@ -81,7 +81,7 @@ fn normal_lang(l: &str) -> String {
 /// (language, aff, dic), sorted by language for a stable choice.
 fn installed(dirs: &[PathBuf]) -> Vec<DictFiles> {
     let mut found = Vec::new();
-    let mut scan = |dir: &Path, found: &mut Vec<DictFiles>| {
+    let scan = |dir: &Path, found: &mut Vec<DictFiles>| {
         let Ok(rd) = std::fs::read_dir(dir) else { return };
         for e in rd.flatten() {
             let p = e.path();
@@ -208,10 +208,10 @@ impl Speller {
     /// list; the error says what to install when there is none.
     pub fn load(langs: &[String], extra_dirs: &[PathBuf]) -> Result<Speller, String> {
         let dirs: Vec<PathBuf> = extra_dirs.iter().cloned().chain(system_dirs()).collect();
-        if let Some(files) = find_dictionary(langs, &dirs) {
-            if let Ok(s) = Speller::from_files(&files) {
-                return Ok(s);
-            }
+        if let Some(files) = find_dictionary(langs, &dirs)
+            && let Ok(s) = Speller::from_files(&files)
+        {
+            return Ok(s);
         }
         if let Some(s) = word_list_paths().iter().filter(|p| p.is_file()).find_map(|p| Speller::from_word_list(p).ok()) {
             return Ok(s);
@@ -271,7 +271,7 @@ impl Speller {
             Kind::Words(w) => out = edits_in(w, word),
         }
         let mut seen = HashSet::new();
-        out.retain(|s| s != word && seen.insert(s.clone()));
+        out.retain(|s| s.as_str() != word && seen.insert(s.clone()));
         out.truncate(max);
         out
     }
@@ -294,7 +294,7 @@ fn edits_in(list: &HashSet<String>, word: &str) -> Vec<String> {
     let chars: Vec<char> = word.to_lowercase().chars().collect();
     let capital = word.chars().next().is_some_and(char::is_uppercase);
     let mut out = Vec::new();
-    let mut push = |c: Vec<char>, out: &mut Vec<String>| {
+    let push = |c: Vec<char>, out: &mut Vec<String>| {
         let s: String = c.into_iter().collect();
         let shown = if capital { let mut it = s.chars(); it.next().map(|f| f.to_uppercase().chain(it).collect()).unwrap_or_default() } else { s.clone() };
         if list.contains(&s) || list.contains(&shown) {
