@@ -83,6 +83,8 @@ export global PlatformBridge {
     in property <bool> check-open;
     in property <string> check-word;
     in property <string> check-where;
+    // What is wrong: "Not in the dictionary", or a grammar finding's ("Repeated word").
+    in property <string> check-note;
     in property <styled-text> check-context;
     in property <[string]> check-suggestions;
     in property <int> check-seq;

@@ -16,7 +16,8 @@ pub enum SpellTarget {
 pub type SpellText = (SpellTarget, String, String, Option<usize>);
 
 /// The comments with text (notes, text boxes, markups' notes; not links, form widgets, popups or
-/// Fill & Sign marks) in page order, then the form text fields the user can type in.
+/// Fill & Sign marks) in page order, each followed by its replies, then the form text fields the
+/// user can type in.
 pub fn spelling_texts(tab_id: i32) -> Vec<SpellText> {
     update(tab_id, |r, _| {
         let mut out: Vec<SpellText> = Vec::new();
@@ -24,6 +25,13 @@ pub fn spelling_texts(tab_id: i32) -> Vec<SpellText> {
         annots.sort_by_key(|a| (a.page, a.index));
         for a in annots {
             out.push((SpellTarget::Comment { page: a.page, index: a.index }, format!("{} on page {}", if a.subtype == "FreeText" { "Text box" } else { "Comment" }, a.page + 1), a.contents.clone(), Some(a.page)));
+            // Its replies ("author: text" as the panel shows them; the text is the reply's own).
+            for (shown, page, index) in &a.replies {
+                let text = reply_text(shown);
+                if !text.trim().is_empty() {
+                    out.push((SpellTarget::Comment { page: *page, index: *index }, format!("Reply on page {}", page + 1), text.to_string(), Some(*page)));
+                }
+            }
         }
         for f in r.snap.fields.iter().filter(|f| f.kind == 0 && !f.read_only) {
             let value = f.value.join("");
@@ -36,6 +44,12 @@ pub fn spelling_texts(tab_id: i32) -> Vec<SpellText> {
     .unwrap_or_default()
 }
 
+/// A reply's own text from its line in the panel, "author: text" (the author is "—" when the file
+/// names none).
+fn reply_text(shown: &str) -> &str {
+    shown.split_once(": ").map_or(shown, |(_, t)| t)
+}
+
 /// A text corrected by the pass, put back where it came from (one undo step each).
 pub fn spelling_set(ui: &AppWindow, tab_id: i32, target: &SpellTarget, text: &str) {
     let (edit, pages) = match target {
@@ -44,4 +58,16 @@ pub fn spelling_set(ui: &AppWindow, tab_id: i32, target: &SpellTarget, text: &st
         SpellTarget::Field { name } => (Edit::SetFieldValue { name: name.clone(), value: FieldValue::Text(text.to_string()) }, vec![]),
     };
     edits::apply(ui, tab_id, edit, &pages, None);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_replys_text_is_checked_without_its_author() {
+        assert_eq!(reply_text("Ada: I agre: twice"), "I agre: twice");
+        assert_eq!(reply_text("—: teh reply"), "teh reply");
+        assert_eq!(reply_text("no author"), "no author");
+    }
 }

@@ -12,6 +12,8 @@ use sheaf_core::tools::ToolId;
 pub struct PlatformPrefs {
     /// Check Spelling While Typing turned off (Edit menu, Preferences ▸ Spelling).
     pub no_spell_check: bool,
+    /// Check Grammar With Spelling turned off (Preview's; Edit menu, Preferences ▸ Spelling).
+    pub no_grammar_check: bool,
     /// Words taught with Learn Spelling, kept between sessions.
     pub learned_words: Vec<String>,
     /// Shortcuts changed by the user: command id ([`COMMANDS`]) and its keys as parts joined

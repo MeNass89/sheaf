@@ -43,7 +43,7 @@ export component SpellingDialog inherits Modal {
             }
         }
         Text {
-            text: "Not in the dictionary: “\{PlatformBridge.check-word}”";
+            text: PlatformBridge.check-note + ": “\{PlatformBridge.check-word}”";
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: Theme.danger;
@@ -64,7 +64,8 @@ export component SpellingDialog inherits Modal {
                 sl := Text {
                     x: 8px;
                     width: parent.width - 16px;
-                    text: s;
+                    // A grammar fix of a single space reads as words.
+                    text: s == " " ? "One space" : s;
                     font-size: Theme.fs-label;
                     color: Theme.text;
                     vertical-alignment: center;

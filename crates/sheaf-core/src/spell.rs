@@ -288,14 +288,196 @@ impl Speller {
     }
 }
 
-impl Speller {
-    /// Check Spelling's next word (Acrobat's dialog): the first misspelt word of `texts[at]` at or
-    /// after byte `from`, else of the texts after it; with the index of its text.
-    pub fn next_issue(&self, texts: &[&str], at: usize, from: usize) -> Option<(usize, Issue)> {
-        (at..texts.len()).find_map(|k| {
-            let from = if k == at { from } else { 0 };
-            self.misspelt(texts[k], false).into_iter().find(|i| i.start >= from).map(|i| (k, i))
-        })
+/// A grammar finding (Preview's Check Grammar With Spelling, kept light and offline): where it
+/// starts (a byte offset), the text it covers, what is wrong and the text to put instead.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GrammarIssue {
+    pub start: usize,
+    pub text: String,
+    pub note: &'static str,
+    pub fix: String,
+}
+
+/// Every run of letters (with apostrophes inside), unfiltered: the grammar rules look at all words.
+fn plain_words(text: &str) -> Vec<(usize, &str)> {
+    let mut out = Vec::new();
+    let mut start: Option<usize> = None;
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+    for (k, &(i, c)) in chars.iter().enumerate() {
+        let apostrophe = (c == '\'' || c == '’') && start.is_some() && chars.get(k + 1).is_some_and(|&(_, n)| n.is_alphabetic());
+        match (c.is_alphanumeric() || apostrophe, start) {
+            (true, None) => start = Some(i),
+            (false, Some(s)) => {
+                out.push((s, &text[s..i]));
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    if let Some(s) = start {
+        out.push((s, &text[s..]));
+    }
+    out
+}
+
+/// Words a full stop ends without ending the sentence.
+const ABBREVIATIONS: &[&str] = &["e.g", "i.e", "etc", "vs", "cf", "mr", "mrs", "ms", "dr", "st", "no", "p", "pp", "fig", "approx", "al", "jr", "sr", "inc", "ltd", "co", "eq", "vol", "ch", "sec", "dept", "est", "min", "max"];
+
+/// Whether `word` starts with a vowel sound, as "an" wants ("an hour", "a unit", "a one-off").
+fn vowel_sound(word: &str) -> bool {
+    let w = word.to_lowercase();
+    if ["hour", "honest", "honor", "honour", "heir"].iter().any(|p| w.starts_with(p)) {
+        return true;
+    }
+    if ["uni", "use", "usu", "uti", "ure", "eu", "ewe", "one", "once", "ufo", "uk", "us"].iter().any(|p| w.starts_with(p)) {
+        return false;
+    }
+    w.starts_with(['a', 'e', 'i', 'o', 'u'])
+}
+
+/// Preview's Check Grammar With Spelling, the part that needs no language model: a word written
+/// twice ("the the"), a sentence that starts small after a full stop, question or exclamation mark
+/// ("done. then"; not after "e.g." or "Dr."), two spaces or more between words, and "a" / "an"
+/// against the next word's sound ("a apple", "an car"; "an hour", "a unit" are right). English
+/// rules: other languages only get the repeated words and spaces.
+pub fn grammar(text: &str) -> Vec<GrammarIssue> {
+    let mut out = Vec::new();
+    // Two spaces or more between two non-spaces on one line.
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b' ' {
+            let j = (i..bytes.len()).find(|&j| bytes[j] != b' ').unwrap_or(bytes.len());
+            if j - i >= 2 && i > 0 && j < bytes.len() && bytes[i - 1] != b'\n' && bytes[j] != b'\n' {
+                out.push(GrammarIssue { start: i, text: text[i..j].to_string(), note: "More than one space", fix: " ".into() });
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    let words = plain_words(text);
+    for pair in words.windows(2) {
+        let ((s1, w1), (s2, w2)) = (pair[0], pair[1]);
+        let between = &text[s1 + w1.len()..s2];
+        let only_space = !between.is_empty() && between.chars().all(|c| c == ' ' || c == '\t');
+        // The same word twice in a row ("had had" and "that that" can be right).
+        if only_space && w1.eq_ignore_ascii_case(w2) && !w1.chars().any(|c| c.is_numeric()) && !["had", "that"].contains(&w1.to_lowercase().as_str()) {
+            out.push(GrammarIssue { start: s1, text: text[s1..s2 + w2.len()].to_string(), note: "Repeated word", fix: w1.to_string() });
+        }
+        // "a" / "an" against the sound of the next word (not before an acronym, a number or a letter).
+        let lower = w1.to_lowercase();
+        let next_plain = w2.chars().count() > 1 && w2.chars().all(char::is_alphabetic) && !w2.chars().all(char::is_uppercase);
+        if only_space && next_plain && (lower == "a" || lower == "an") {
+            let want_an = vowel_sound(w2);
+            if want_an != (lower == "an") {
+                let fix = match (want_an, w1.starts_with(char::is_uppercase)) {
+                    (true, true) => "An",
+                    (true, false) => "an",
+                    (false, true) => "A",
+                    (false, false) => "a",
+                };
+                out.push(GrammarIssue { start: s1, text: w1.to_string(), note: if want_an { "\"an\" before a vowel sound" } else { "\"a\" before a consonant sound" }, fix: fix.into() });
+            }
+        }
+        // A capital after the end of a sentence.
+        let tail = between.trim_end_matches([' ', '\t']);
+        let ends = tail.ends_with(['.', '!', '?']) && !tail.ends_with("..") && between.len() > tail.len() && !tail.contains('\n');
+        let abbreviation = tail.ends_with('.') && (w1.chars().count() == 1 || ABBREVIATIONS.contains(&lower.as_str()) || text[..s1].ends_with('.'));
+        if ends && !abbreviation && w2.starts_with(char::is_lowercase) && !w2.chars().any(|c| c.is_numeric()) {
+            let mut c = w2.chars();
+            let fixed: String = c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default();
+            out.push(GrammarIssue { start: s2, text: w2.to_string(), note: "Capital at the start of a sentence", fix: fixed });
+        }
+    }
+    out.sort_by_key(|g| g.start);
+    out
+}
+
+/// One thing Check Spelling stops at: its text (an index into the texts checked), where it starts
+/// there (a byte offset), the words as written, and for a grammar finding what is wrong and its fix
+/// (a misspelt word has neither: its corrections come from the dictionary).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Finding {
+    pub text: usize,
+    pub start: usize,
+    pub word: String,
+    pub note: Option<&'static str>,
+    pub fix: Option<String>,
+}
+
+/// Acrobat's Check Spelling dialog over many texts (comments, replies, form fields): the texts are
+/// scanned once, when the pass starts (off the UI thread if the caller likes); Next, Ignore, Learn
+/// and Change then only move through that list, never scanning the texts again.
+#[derive(Debug, Clone, Default)]
+pub struct CheckPass {
+    found: Vec<Finding>,
+    at: usize,
+}
+
+impl CheckPass {
+    /// Every misspelt word of `texts`, in order (and, with `grammar`, the grammar findings among
+    /// them, see [`grammar`]).
+    pub fn new(speller: &Speller, texts: &[&str], grammar_too: bool) -> CheckPass {
+        let mut found = Vec::new();
+        for (k, text) in texts.iter().enumerate() {
+            let mut here: Vec<Finding> = speller.misspelt(text, false).into_iter().map(|i| Finding { text: k, start: i.start, word: i.word, note: None, fix: None }).collect();
+            if grammar_too {
+                here.extend(grammar(text).into_iter().map(|g| Finding { text: k, start: g.start, word: g.text, note: Some(g.note), fix: Some(g.fix) }));
+                here.sort_by_key(|f| f.start);
+            }
+            found.extend(here);
+        }
+        CheckPass { found, at: 0 }
+    }
+
+    /// The finding shown now (none: the pass is over).
+    pub fn current(&self) -> Option<&Finding> {
+        self.found.get(self.at)
+    }
+
+    /// Next: this one is left as it is.
+    pub fn skip(&mut self) {
+        self.at += 1;
+    }
+
+    /// Ignore or Learn: this word is passed now and wherever it comes later (any case); a grammar
+    /// finding only here.
+    pub fn pass_word(&mut self) {
+        let Some(f) = self.found.get(self.at) else { return };
+        if f.note.is_none() {
+            let word = f.word.to_lowercase();
+            let at = self.at;
+            let mut k = 0;
+            self.found.retain(|g| {
+                k += 1;
+                k - 1 <= at || g.note.is_some() || g.word.to_lowercase() != word
+            });
+        }
+        self.at += 1;
+    }
+
+    /// Change: the finding shown was replaced by `new` in its text; what comes after it in the same
+    /// text moves by the difference in length, and a finding it overlapped goes.
+    pub fn changed(&mut self, new: &str) {
+        let Some(f) = self.found.get(self.at).cloned() else { return };
+        let end = f.start + f.word.len();
+        let delta = new.len() as isize - f.word.len() as isize;
+        let at = self.at;
+        let mut k = 0;
+        self.found.retain(|g| {
+            k += 1;
+            k - 1 <= at || g.text != f.text || g.start >= end
+        });
+        for g in self.found.iter_mut().skip(at + 1).filter(|g| g.text == f.text) {
+            g.start = (g.start as isize + delta) as usize;
+        }
+        self.at += 1;
+    }
+
+    /// How many findings are left, the one shown included.
+    pub fn left(&self) -> usize {
+        self.found.len().saturating_sub(self.at)
     }
 }
 
@@ -388,9 +570,11 @@ pub fn words(text: &str) -> Vec<(usize, &str)> {
 /// when there is none, the text comes back as it was.
 pub fn replace_word(text: &str, start: usize, old: &str, new: &str) -> String {
     let fits = |i: usize| text.get(i..i + old.len()) == Some(old);
+    // A word's edges must be word boundaries; a run of spaces (a grammar finding) needs none.
+    let edge_letter = |c: Option<char>| c.is_some_and(char::is_alphanumeric);
     let whole = |i: usize| {
-        let before = text[..i].chars().next_back().is_none_or(|c| !c.is_alphanumeric());
-        let after = text[i + old.len()..].chars().next().is_none_or(|c| !c.is_alphanumeric());
+        let before = !edge_letter(old.chars().next()) || text[..i].chars().next_back().is_none_or(|c| !c.is_alphanumeric());
+        let after = !edge_letter(old.chars().next_back()) || text[i + old.len()..].chars().next().is_none_or(|c| !c.is_alphanumeric());
         before && after
     };
     let at = if old.is_empty() {
@@ -441,14 +625,53 @@ mod tests {
 
     #[test]
     fn the_check_pass_goes_word_by_word_through_the_texts() {
-        let mut s = word_list(&["the", "cat", "sat"]);
-        let texts = ["the cat", "teh cat sta", "", "cta"];
-        assert_eq!(s.next_issue(&texts, 0, 0), Some((1, Issue { start: 0, word: "teh".into() })));
-        // Next: after the word shown, in the same text, then in the following ones.
-        assert_eq!(s.next_issue(&texts, 1, 3), Some((1, Issue { start: 8, word: "sta".into() })));
-        assert_eq!(s.next_issue(&texts, 1, 11), Some((3, Issue { start: 0, word: "cta".into() })));
-        s.ignore("cta");
-        assert_eq!(s.next_issue(&texts, 1, 11), None);
+        let s = word_list(&["the", "cat", "sat"]);
+        let texts = ["the cat", "teh cat sta teh", "", "cta"];
+        let mut pass = CheckPass::new(&s, &texts, false);
+        let at = |p: &CheckPass| p.current().map(|f| (f.text, f.start, f.word.clone()));
+        assert_eq!(at(&pass), Some((1, 0, "teh".into())));
+        // Change "teh" to "the": the words after it in that text keep their place in the new text.
+        pass.changed("the");
+        assert_eq!(at(&pass), Some((1, 8, "sta".into())));
+        pass.skip();
+        assert_eq!(at(&pass), Some((1, 12, "teh".into())));
+        // Ignore: the same word later on is passed too.
+        pass.pass_word();
+        assert_eq!(at(&pass), Some((3, 0, "cta".into())));
+        assert_eq!(pass.left(), 1);
+        pass.skip();
+        assert_eq!(pass.current(), None);
+        // A longer correction moves what follows the other way.
+        let mut pass = CheckPass::new(&s, &["ab cd ef"], false);
+        pass.changed("abcd");
+        assert_eq!(at(&pass), Some((0, 5, "cd".into())));
+        let mut pass = CheckPass::new(&s, &["ab ab cd"], false);
+        pass.pass_word();
+        assert_eq!(at(&pass), Some((0, 6, "cd".into())));
+    }
+
+    #[test]
+    fn the_light_grammar_pass() {
+        let g = |t: &str| grammar(t).into_iter().map(|g| (g.start, g.text, g.fix)).collect::<Vec<_>>();
+        assert_eq!(g("We saw the the cat."), [(7, "the the".into(), "the".into())]);
+        assert_eq!(g("It is done. then we go."), [(12, "then".into(), "Then".into())]);
+        // Not after an abbreviation, an initial or an ellipsis; nor across lines or inside numbers.
+        assert!(g("See e.g. this one, Dr. who, J. smith… and so... on. Pi is 3.14 here.").is_empty());
+        assert_eq!(g("Two  spaces"), [(3, "  ".into(), " ".into())]);
+        // Indentation and line ends are not doubled spaces.
+        assert!(g("  indented\nnext  \nline").is_empty());
+        assert_eq!(g("a apple and an car"), [(0, "a".into(), "an".into()), (12, "an".into(), "a".into())]);
+        assert!(g("an hour, a unit, a one-off, an FBI agent, a 3 times").is_empty());
+        assert_eq!(g("A owl"), [(0, "A".into(), "An".into())]);
+        // "had had" can be right.
+        assert!(g("She had had enough.").is_empty());
+        // Replacing a grammar finding at its offset.
+        assert_eq!(replace_word("Two  spaces", 3, "  ", " "), "Two spaces");
+        assert_eq!(replace_word("We saw the the cat.", 7, "the the", "the"), "We saw the cat.");
+        // A pass with grammar: the findings in reading order, spelling ones without a note.
+        let s = word_list(&["we", "saw", "the", "cat"]);
+        let pass = CheckPass::new(&s, &["we saw teh the cat"], true);
+        assert_eq!(pass.current().map(|f| (f.word.as_str(), f.note)), Some(("teh", None)));
     }
 
     #[test]
