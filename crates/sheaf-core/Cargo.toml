@@ -20,6 +20,7 @@ pdfcraft-export.workspace = true
 rust_xlsxwriter.workspace = true
 unicode-normalization.workspace = true
 skrifa.workspace = true
+spellbook.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
