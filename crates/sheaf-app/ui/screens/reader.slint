@@ -167,6 +167,16 @@ export component ReaderScreen inherits Rectangle {
         sv2.content-y = -root.tab.split-scroll;
         sv2.content-x = -root.tab.split-scroll-x;
     }
+    // Sync scroll and zoom: a zoom set both panes' scrolls; neither is sent on to the other.
+    property <int> split-zoom-seq: root.tab.split-zoom-seq;
+    changed split-zoom-seq => {
+        root.last-top = root.tab.viewer-scroll;
+        root.last-left = max(0px, root.tab.viewer-scroll-x);
+        root.last2-top = root.tab.split-scroll;
+        root.last2-left = root.tab.split-scroll-x;
+        sv2.content-y = -root.last2-top;
+        sv2.content-x = -root.last2-left;
+    }
     // The panes swapped: each scroll set again, so each half shows what it showed.
     property <int> split-swap: root.tab.split-swap;
     changed split-swap => {
@@ -359,7 +369,11 @@ export component ReaderScreen inherits Rectangle {
             }
 
             // ---- pages ------------------------------------------------------------------------
-            Rectangle {
+            pages-area := Rectangle {
+                // Split view: the first half's size (the divider dragged; Rust keeps the share).
+                property <float> frac: root.tab.split-frac > 0 ? root.tab.split-frac : 0.5;
+                property <length> first-w: round((self.width - 1px) * self.frac / 1px) * 1px;
+                property <length> first-h: round((self.height - 1px) * self.frac / 1px) * 1px;
                 horizontal-stretch: 1;
                 background: root.tab.reader.backdrop;
                 clip: true;
@@ -371,10 +385,11 @@ export component ReaderScreen inherits Rectangle {
                 }
                 sv := ScrollView {
                     // Split view: half the area, the second pane in the other half (same size).
-                    x: root.split == 1 && root.half == 1 ? self.width + 1px : 0px;
-                    y: root.split == 2 && root.half == 1 ? self.height + 1px : 0px;
-                    width: root.split == 1 ? (parent.width - 1px) / 2 : parent.width;
-                    height: root.split == 2 ? (parent.height - 1px) / 2 : parent.height;
+                    // Split view: the active pane takes its half (`half`), the other pane the rest.
+                    x: root.split == 1 && root.half == 1 ? pages-area.first-w + 1px : 0px;
+                    y: root.split == 2 && root.half == 1 ? pages-area.first-h + 1px : 0px;
+                    width: root.split != 1 ? parent.width : root.half == 0 ? pages-area.first-w : parent.width - 1px - pages-area.first-w;
+                    height: root.split != 2 ? parent.height : root.half == 0 ? pages-area.first-h : parent.height - 1px - pages-area.first-h;
                     content-width: max(root.tab.viewer-width, self.visible-width);
                     content-height: root.tab.viewer-height;
                     for p in root.tab.viewer-pages: Rectangle {
@@ -903,18 +918,11 @@ export component ReaderScreen inherits Rectangle {
                     }
                 }
                 // Split view's other pane: its own pages, zoom and place.
-                if root.split > 0: Rectangle {
-                    x: root.split == 1 ? sv.width : 0px;
-                    y: root.split == 2 ? sv.height : 0px;
-                    width: root.split == 1 ? 1px : parent.width;
-                    height: root.split == 2 ? 1px : parent.height;
-                    background: Theme.sidebar-border;
-                }
                 sv2 := ScrollView {
-                    x: root.split == 1 && root.half == 0 ? sv.width + 1px : 0px;
-                    y: root.split == 2 && root.half == 0 ? sv.height + 1px : 0px;
-                    width: root.split == 0 ? 0px : sv.width;
-                    height: root.split == 0 ? 0px : sv.height;
+                    x: root.split == 1 && root.half == 0 ? pages-area.first-w + 1px : 0px;
+                    y: root.split == 2 && root.half == 0 ? pages-area.first-h + 1px : 0px;
+                    width: root.split == 0 ? 0px : root.split == 2 ? parent.width : root.half == 1 ? pages-area.first-w : parent.width - 1px - pages-area.first-w;
+                    height: root.split == 0 ? 0px : root.split == 1 ? parent.height : root.half == 1 ? pages-area.first-h : parent.height - 1px - pages-area.first-h;
                     visible: root.split > 0;
                     content-width: max(root.tab.split-width, self.visible-width);
                     content-height: root.tab.split-height;
@@ -941,9 +949,18 @@ export component ReaderScreen inherits Rectangle {
                         height: root.tab.split-height;
                         mouse-cursor: root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
                         pointer-event(e) => {
-                            // Another document: its tab comes to the front, this one in its other pane.
+                            // Another document: its tab comes to the front, this one in its other pane, and
+                            // the click goes on to it there, at the same point (a link, a comment, a note
+                            // placed; Sol, 27/10: it was lost). That tab's view then takes the pointer.
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.tab.split-title != "" {
+                                let other = root.tab.split-other;
+                                let x = self.mouse-x;
+                                let y = self.mouse-y;
                                 ReaderBridge.split-focus(root.id);
+                                if other >= 0 {
+                                    ReaderBridge.pressed(other, x, y, e.modifiers.shift ? 17 : 1);
+                                    ReaderBridge.released(other, x, y);
+                                }
                                 return;
                             }
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !root.pane-press {
@@ -961,6 +978,31 @@ export component ReaderScreen inherits Rectangle {
                         }
                         moved => {
                             if root.pane-press { ReaderBridge.moved(root.id, root.main-x(self.absolute-position.x + self.mouse-x), root.main-y(self.absolute-position.y + self.mouse-y)); }
+                        }
+                    }
+                }
+                // The divider, dragged (PDF Expert's): a grip wider than its line, over both panes'
+                // edges; the share kept between a fifth and four fifths.
+                if root.split > 0: Rectangle {
+                    x: root.split == 1 ? pages-area.first-w - 3px : 0px;
+                    y: root.split == 2 ? pages-area.first-h - 3px : 0px;
+                    width: root.split == 1 ? 7px : parent.width;
+                    height: root.split == 2 ? 7px : parent.height;
+                    Rectangle {
+                        x: root.split == 1 ? 3px : 0px;
+                        y: root.split == 2 ? 3px : 0px;
+                        width: root.split == 1 ? 1px : parent.width;
+                        height: root.split == 2 ? 1px : parent.height;
+                        background: divider-ta.has-hover || divider-ta.pressed ? Theme.accent : Theme.sidebar-border;
+                    }
+                    divider-ta := TouchArea {
+                        mouse-cursor: root.split == 1 ? col-resize : row-resize;
+                        moved => {
+                            if self.pressed {
+                                ReaderBridge.split-frac(root.id, root.split == 1
+                                    ? (self.absolute-position.x + self.mouse-x - pages-area.absolute-position.x) / pages-area.width
+                                    : (self.absolute-position.y + self.mouse-y - pages-area.absolute-position.y) / pages-area.height);
+                            }
                         }
                     }
                 }
@@ -982,7 +1024,7 @@ export component ReaderScreen inherits Rectangle {
                     height: 26px;
                     split-bar := HorizontalLayout {
                         spacing: 4px;
-                        SmallButton { text: root.tab.split-sync ? "✓ Sync scroll" : "Sync scroll"; clicked => { ReaderBridge.split-sync(root.id); keys.focus(); } }
+                        SmallButton { text: root.tab.split-sync ? "✓ Sync scroll and zoom" : "Sync scroll and zoom"; clicked => { ReaderBridge.split-sync(root.id); keys.focus(); } }
                         SmallButton { text: "Close"; clicked => { ReaderBridge.split-view(root.id, 0); keys.focus(); } }
                     }
                 }

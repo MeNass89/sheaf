@@ -1443,3 +1443,23 @@ PW=$(at Save 740x180+270+440); [ -n "$PW" ] && click $PW 3
 check "Create portfolio bundles the original instead of merging (${PC:-no Create})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
 quit
 check "kept marks exist in authenticated local storage" "has_secure_marks"
+
+# 205. Split view's Sync scroll and zoom (PDF Expert's): with it on, ⌘= in the first pane zooms the other too; the
+# divider dragged 150 px left moves the end of the first pane's red row (the first pixel that is not red) with it.
+cp "$OUT/across.pdf" "$OUT/split5.pdf"; launch "$OUT/split5.pdf"; sleep 1
+layout_item side >/dev/null; sleep 1.5
+SY=$(at Sync 600x80+680+90); [ -n "$SY" ] && click $SY 0.8
+click 510 420 0.5; ZA0=$(redshare 262); ZB0=$(redshare 772)
+key ctrl+equal; key ctrl+equal; sleep 1.5; ZA1=$(redshare 262); ZB1=$(redshare 772)
+redend() { import -window root -crop 980x1+300+420 txt:- 2>/dev/null | python3 -c '
+import re, sys
+for line in sys.stdin:
+    m = re.match(r"(\d+),0:.*#([0-9A-Fa-f]{6})", line)
+    r, g, b = (int(m[2][k:k + 2], 16) for k in (0, 2, 4)) if m else (0, 0, 0)
+    if m and not (r > 150 and g < 100 and b < 100):
+        print(int(m[1])); break'; }
+E0=$(redend)
+xdotool mousemove 768 500 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 768 - i * 30 )) 500; sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+E1=$(redend)
+check "Sync scroll and zoom zooms both panes; the divider moves (${SY:-no button}; $ZA0 $ZB0 → $ZA1 $ZB1; red row ends at ${E0:-?} → ${E1:-?})" "python3 -c 'import sys; a0, b0, a1, b1, e0, e1 = map(float, sys.argv[1:]); sys.exit(0 if a1 > a0 + 0.03 and b1 > b0 + 0.03 and e1 < e0 - 100 else 1)' ${ZA0:-1} ${ZB0:-1} ${ZA1:-0} ${ZB1:-0} ${E0:-0} ${E1:-0}"
+quit

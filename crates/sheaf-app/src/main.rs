@@ -250,7 +250,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_toggle_horizontal, |ui, id| reader_ui::toggle_horizontal(&ui, id));
     wire_global!(ui, rb, on_split_view, |ui, id, m| split::open(&ui, id, m));
     wire_global!(ui, rb, on_split_focus, |ui, id| split::focus(&ui, id));
-    rb.on_split_sync(split::toggle_sync);
+    wire_global!(ui, rb, on_split_sync, |ui, id| split::toggle_sync(&ui, id));
+    rb.on_split_frac(split::set_frac);
     wire_global!(ui, rb, on_split_with, |ui, id, k| split::open_with(&ui, id, k));
     rb.on_split_names(|id| {
         let names: Vec<slint::SharedString> = split::names(id).into_iter().map(Into::into).collect();
