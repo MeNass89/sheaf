@@ -252,7 +252,7 @@ pub fn booklet_order(n: u32) -> Vec<u32> {
 }
 
 /// Several pages to a sheet (Acrobat's Multiple pages per sheet; iLovePDF's Pages per sheet):
-/// `per_sheet` 2, 4, 6 or 9, or a booklet (2 to a side, in [`booklet_order`]). The sheets are the
+/// `per_sheet` 2, 4, 6, 9 or 16, or a booklet (2 to a side, in [`booklet_order`]). The sheets are the
 /// first page's size, turned for 2 and 6. Written to `out`, not password-protected.
 pub fn impose(input: &Input, per_sheet: u8, booklet: bool, out: &Path) -> Result<PathBuf> {
     let (rows, cols) = match (booklet, per_sheet) {
@@ -260,7 +260,8 @@ pub fn impose(input: &Input, per_sheet: u8, booklet: bool, out: &Path) -> Result
         (_, 4) => (2, 2),
         (_, 6) => (2, 3),
         (_, 9) => (3, 3),
-        (_, n) => return Err(OpdfError::Unsupported(format!("{n} pages to a sheet (choose 2, 4, 6 or 9)"))),
+        (_, 16) => (4, 4),
+        (_, n) => return Err(OpdfError::Unsupported(format!("{n} pages to a sheet (choose 2, 4, 6, 9 or 16)"))),
     };
     let _g = pdfium_lock();
     let src = input.open()?;
