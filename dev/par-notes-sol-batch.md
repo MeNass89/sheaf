@@ -702,3 +702,8 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   mapper must stay a pure string match), and updated the existing preset inventory regression
   from nine to ten, asserting the accessibility prompt. Existing
   `custom_commands_round_trip_and_apply_rotation_and_metadata` covers all Step variants' IDs.
+
+- C-batch-003 static follow-up: native image sets check cancellation before each page, and ZIP
+  stores already-compressed page images without recompressing them. Test
+  `native_action_exports_stop_before_rendering_cancelled_pages` (written, not run); the new
+  recursive intake test also uses the suite's existing no-clone assertion style.

@@ -119,7 +119,7 @@ impl FolderWatch {
             let name = safe_name(&pattern.replace("{name}", &fallback).replace("{title}", title.as_deref().unwrap_or(&fallback)).replace("{counter}", &(sequence + 1).to_string()));
             if !before() { return Err(OpdfError::Cancelled); }
             if revision(path)? != original_revision { return Err(OpdfError::Unsupported("The input changed during processing. It will be retried after it becomes stable.".into())); }
-            let bytes = actions::convert_output(std::sync::Arc::new(std::fs::read(&processed)?), None, &action.output.format)?;
+            let bytes = actions::convert_output(std::sync::Arc::new(std::fs::read(&processed)?), None, &action.output.format, before)?;
             if !before() { return Err(OpdfError::Cancelled); }
             let published = sheaf_core::paths::atomic_write(&output.join(format!("{name}.{}", action.output.format)), |part| {
                 std::fs::write(part, bytes.as_slice())?;

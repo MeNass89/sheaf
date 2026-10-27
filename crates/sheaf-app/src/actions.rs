@@ -244,7 +244,7 @@ pub fn run_file_configured(
     });
     if cancelled { return Err(OpdfError::Cancelled); }
     let bytes = result.map_err(OpdfError::Engine)?.bytes;
-    let bytes = convert_output(bytes, password, &action.output.format)?;
+    let bytes = convert_output(bytes, password, &action.output.format, publish)?;
     if !publish() { return Err(OpdfError::Cancelled); }
     let target = action.output.path(input, out_dir)?;
     std::fs::create_dir_all(target.parent().unwrap_or(Path::new(".")))?;
@@ -266,8 +266,9 @@ pub fn run_file_configured(
 
 /// Save to other formats in Rust, after the entire action succeeds. Image sets are one ZIP so
 /// cancellation or collisions cannot leave a half-published group of page files.
-pub(crate) fn convert_output(bytes: Arc<Vec<u8>>, password: Option<&str>, format: &str) -> Result<Arc<Vec<u8>>> {
+pub(crate) fn convert_output(bytes: Arc<Vec<u8>>, password: Option<&str>, format: &str, proceed: &mut dyn FnMut() -> bool) -> Result<Arc<Vec<u8>>> {
     use sheaf_core::pdfcraft::engine::{Session, compare::OfficeFormat, export::{Exporter, ImageFormat}};
+    if !proceed() { return Err(OpdfError::Cancelled); }
     if format == "pdf" { return Ok(bytes); }
     let mut session = Session::new();
     let id = session.open("Action output.pdf", None, bytes, password).map_err(|e| invalid(e.to_string()))?;
@@ -284,9 +285,10 @@ pub(crate) fn convert_output(bytes: Arc<Vec<u8>>, password: Option<&str>, format
     let mut exporter = Exporter::new(doc);
     let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     for page in 0..doc.info.pages.len() {
+        if !proceed() { return Err(OpdfError::Cancelled); }
         let png = format == "png.zip";
         let data = exporter.image(page, 150.0, if png { ImageFormat::Png } else { ImageFormat::Jpeg { quality: 85 } }).map_err(invalid)?;
-        zip.start_file(format!("page-{:04}.{}", page + 1, if png { "png" } else { "jpg" }), zip::write::SimpleFileOptions::default())
+        zip.start_file(format!("page-{:04}.{}", page + 1, if png { "png" } else { "jpg" }), zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored))
             .map_err(|e| invalid(e.to_string()))?;
         use std::io::Write;
         zip.write_all(&data)?;
@@ -518,10 +520,10 @@ mod tests {
         let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Source", "Original body").unwrap();
         let input = nested.join("input.pdf"); std::fs::write(&input, bytes.as_slice()).unwrap();
         assert!(folder_inputs(dir.path()).is_err());
-        assert_eq!(folder_inputs_recursive(dir.path(), true).unwrap(), [input.clone()]);
+        assert_eq!(folder_inputs_recursive(dir.path(), true).unwrap(), std::slice::from_ref(&input));
         #[cfg(unix)] {
             std::os::unix::fs::symlink(dir.path(), nested.join("loop")).unwrap();
-            assert_eq!(folder_inputs_recursive(dir.path(), true).unwrap(), [input.clone()]);
+            assert_eq!(folder_inputs_recursive(dir.path(), true).unwrap(), std::slice::from_ref(&input));
         }
         let mut action = suggested().remove(3);
         for format in ["txt", "docx", "html", "png.zip", "jpeg.zip"] {
@@ -546,6 +548,12 @@ mod tests {
         }
         set.steps[0].argument = "unknown".into(); assert!(set.validate().is_err());
         set.steps[0].argument = "redact".into(); set.custom_tool = false; assert!(set.validate().is_err());
+    }
+
+    #[test]
+    fn native_action_exports_stop_before_rendering_cancelled_pages() {
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Title", "Body").unwrap();
+        assert!(matches!(convert_output(bytes, None, "png.zip", &mut || false), Err(OpdfError::Cancelled)));
     }
 
 }
