@@ -123,8 +123,8 @@ quit
 echo hello > "$OUT/notes.txt"; echo b > "$OUT/budget.txt"; echo c > "$OUT/contract.txt"; cp "$OUT/text.pdf" "$OUT/annex.pdf"
 qpdf "$OUT/text.pdf" --add-attachment "$OUT/annex.pdf" -- --add-attachment "$OUT/notes.txt" -- --add-attachment "$OUT/budget.txt" -- --add-attachment "$OUT/contract.txt" -- "$OUT/withatt.pdf"
 launch "$OUT/withatt.pdf"; click 211 106 1
-click 160 150 0.5; xdotool type --delay 30 "con"; sleep 0.6; xdotool mousemove 100 400; sleep 0.3; AF=$(ocr 240x140+0+165)
-xdotool key ctrl+a BackSpace; sleep 0.5; click 100 185 2; TB=$(ocr 700x30+0+8)
+click 160 150 0.5; shot 25a; xdotool type --delay 30 "c"; sleep 0.5; shot 25b; xdotool type "o"; sleep 0.5; shot 25c; xdotool type "n"; sleep 0.5; shot 25d; sleep 0.6; xdotool mousemove 100 400; sleep 0.3; AF=$(ocr 240x140+0+165)
+xdotool key ctrl+a; sleep 0.5; shot 25e; xdotool key BackSpace; sleep 0.5; shot 25-list; click 100 185 2; shot 25-after; TB=$(ocr 700x30+0+8)
 check "attachments are found by name and open, a PDF in its own tab ($AF; tabs: $TB)" "echo \"$AF\" | grep -q contract && ! echo \"$AF\" | grep -q budget && echo \"$TB\" | grep -q 'annex.pdf'"
 quit
 
@@ -164,14 +164,17 @@ quit
 
 # The end of the Preferences page (Documents is below Appearance, Identity and output).
 prefs_end() { xdotool mousemove 700 500 click --repeat 12 5; sleep 0.6; }
-# 28. Preferences ▸ Open new documents at Actual size (Preferences 67,193 in Home's menu): a file never
-# opened shows at 100 %.
-launch; click 67 193 1; prefs_end; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $AS 0.6; quit
+# 28. Preferences ▸ Open new documents at Actual size (Preferences in Home's menu, found by its word: Library
+# and Actions came above it): a file never opened shows at 100 %.
+prefs_open() { read PX PY <<< "$(at Preferences 196x400+0+40)"; click "${PX:-0}" "${PY:-0}" 1; }
+# Preferences scrolled until "Open new documents at"'s row shows (Documents is no longer the last section).
+prefs_documents() { for _ in $(seq 1 20); do [ -n "$(at Actual 900x700+200+90)" ] && return; xdotool mousemove 700 500 click --repeat 2 5; sleep 0.3; done; }
+launch; prefs_open; prefs_documents; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $AS 0.6; quit
 cp "$OUT/text.pdf" "$OUT/fresh.pdf"; launch "$OUT/fresh.pdf"; sleep 1.5; ZF=$(zoomval)
 check "a new document opens at the zoom chosen in Preferences (Actual size: $ZF %)" "[ \"$ZF\" = 100 ]"
 quit
 # Fit page: a whole letter page in the 700 px high view, well under fit width (163 %).
-launch; click 67 193 1; prefs_end; FP2=$(import -window root -crop 900x700+200+90 png:- | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="page"{printf "%d %d\n", 200+($7+$9/2)/2, 90+($8+$10/2)/2; exit}'); [ -n "$FP2" ] && click $FP2 0.6; quit
+launch; prefs_open; prefs_documents; FP2=$(import -window root -crop 900x700+200+90 png:- | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="page" && prev=="Fit"{printf "%d %d\n", 200+($7+$9/2)/2, 90+($8+$10/2)/2; exit} {prev=$12}'); [ -n "$FP2" ] && click $FP2 0.6; quit
 cp "$OUT/text.pdf" "$OUT/fresh2.pdf"; launch "$OUT/fresh2.pdf"; sleep 1.5; ZP=$(zoomval)
 check "a new document opens fitted to the page when chosen ($ZP %)" "[ -n \"$ZP\" ] && [ \"$ZP\" -lt 120 ]"
 quit
@@ -211,7 +214,9 @@ python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["panel_width"]
 check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ \"\${TW0:-0}\" -gt 130 ] && [ \"\${TW0:-0}\" -lt 160 ] && [ \"\${TW1:-0}\" -gt 230 ] && [ \"\${TW1:-0}\" -lt 260 ] && [ \"\${TW2:-x}\" = \"\${TW1:-y}\" ]"
 
 # 32. A highlight saved without a note, on a page never shown: the Notes panel (153,106) lists the
-# words it covers (step 1's highlight, its page moved third).
+# words it covers (step 1's highlight, its page moved third; made as step 1 does when this part runs alone).
+[ -f "$OUT/highlighted.pdf" ] || { cp "$OUT/text.pdf" "$OUT/highlighted.pdf"; launch "$OUT/highlighted.pdf"; key ctrl+9
+    xdotool mousemove 330 200 mousedown 1 mousemove 600 201 mousemove 900 201 mouseup 1; sleep 0.4; key h; sleep 1; key ctrl+s; sleep 1.5; quit; }
 qpdf "$OUT/highlighted.pdf" --pages . 2,3,1,4 -- "$OUT/hl-third.pdf"; launch "$OUT/hl-third.pdf"; sleep 1
 click 153 106 1; NT=$(ocr 260x300+0+130)
 check "the Notes panel shows a highlight's words though its page was never shown ($NT)" "echo \"$NT\" | grep -qi 'quick'"
@@ -271,10 +276,10 @@ PM=$(for i in 1 2 3 4 5; do echo -n "$(first_text "$OUT/pagemenu.pdf" $i)|"; don
 check "A thumbnail's menu reverses the pages, inserts and replaces from a file ($PM)" "[ \"$PM\" = 'Page 1|Page 1|Page 3|Page 2|Page 1|' ]"
 quit
 
-# 36. Preferences (67,193 in Home's menu) ▸ Accent colour blue (the second swatch, 38 px right of the first,
+# 36. Preferences (in Home's menu) ▸ Accent colour blue (the second swatch, 38 px right of the first,
 # under its label) and Background behind pages black (the fifth): kept in the preferences, and a document
 # opened then shows black around its page (zoomed out, ⌘-).
-launch; click 67 193 1
+launch; prefs_open
 read AX AY <<< "$(at Accent 1100x700+180+60)"; read SX _ <<< "$(at System 1100x700+180+60)"
 SW0=$(( ${SX:-0} - 44 + 14 )); [ -n "$AY" ] && click $(( SW0 + 38 )) $(( AY + 30 )) 0.5
 read BX BY <<< "$(at Background 1100x700+180+60)"; [ -n "$BY" ] && click $(( SW0 + 4 * 38 )) $(( BY + 30 )) 0.5; quit
@@ -282,7 +287,7 @@ cp "$OUT/text.pdf" "$OUT/backdrop.pdf"; launch "$OUT/backdrop.pdf"; sleep 1; key
 BD=$(import -window root -crop 1x1+300+500 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}')
 check "Preferences keep the accent and the background behind pages (${BD:-?}; $(grep -o '"accent": [0-9]' $OUT/profile/data/Sheaf/prefs.json))" "grep -q '\"accent\": 1' $OUT/profile/data/Sheaf/prefs.json && [ \"$BD\" = '#000000' ]"
 quit
-launch; click 67 193 1; read SX _ <<< "$(at System 1100x700+180+60)"; read AX AY <<< "$(at Accent 1100x700+180+60)"; read BX BY <<< "$(at Background 1100x700+180+60)"
+launch; prefs_open; read SX _ <<< "$(at System 1100x700+180+60)"; read AX AY <<< "$(at Accent 1100x700+180+60)"; read BX BY <<< "$(at Background 1100x700+180+60)"
 SW0=$(( ${SX:-0} - 44 + 14 )); [ -n "$AY" ] && click $SW0 $(( AY + 30 )) 0.5; [ -n "$BY" ] && click $SW0 $(( BY + 30 )) 0.5; quit   # back to the defaults
 
 # 37. A signature used once: Signature tool (S) ▸ New signature (412,109), a click on the page opens the pad;
@@ -359,7 +364,7 @@ quit
 
 # 42. Shapes (R) ▸ Distance: two clicks measure the line between them (Acrobat's Measuring tool); saved, the
 # file has a measuring line (/Measure) labelled in cm.
-cp "$OUT/text.pdf" "$OUT/measure.pdf"; launch "$OUT/measure.pdf"; sleep 1; key r; sleep 0.5
+cp "$OUT/text.pdf" "$OUT/measure.pdf"; launch "$OUT/measure.pdf"; sleep 1; key r; sleep 0.5; shot 42-r
 DS=$(at Distance 1280x40+0+90); [ -n "$DS" ] && click $DS 0.5
 click 400 600 0.4; click 700 600 1.2; key ctrl+s; sleep 1.5
 QM=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)

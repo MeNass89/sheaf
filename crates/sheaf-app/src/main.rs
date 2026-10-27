@@ -743,7 +743,8 @@ fn main() -> Result<(), slint::PlatformError> {
         if let Some(ui) = INBOX.with(|i| i.borrow().1.as_ref().and_then(|w| w.upgrade()))
             && !missing.is_empty()
         {
-            flow::toast(&ui, &format!("Not found: {}", missing.join(", ")));
+            // Timed from before the window's first frame: longer than a toast's 3 s, so it is read.
+            flow::toast_for(&ui, &format!("Not found: {}", missing.join(", ")), 8);
         }
     });
 

@@ -25,11 +25,16 @@ pub fn tool_from_str(s: &str) -> Option<ToolId> {
 }
 
 pub fn toast(ui: &AppWindow, text: &str) {
+    toast_for(ui, text, 3);
+}
+
+/// A toast shown `secs` seconds, for a notice that must outlast a slow first draw.
+pub fn toast_for(ui: &AppWindow, text: &str, secs: u64) {
     ui.set_toast_text(text.into());
     ui.set_toast_visible(true);
     let weak = ui.as_weak();
     let timer = slint::Timer::default();
-    timer.start(slint::TimerMode::SingleShot, Duration::from_secs(3), move || {
+    timer.start(slint::TimerMode::SingleShot, Duration::from_secs(secs), move || {
         if let Some(ui) = weak.upgrade() {
             ui.set_toast_visible(false);
         }
