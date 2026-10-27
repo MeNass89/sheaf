@@ -120,10 +120,6 @@ impl Step {
             Step::AddHeader(_) => "add_header",
             Step::AddFooter(_) => "add_footer",
             Step::SetTitle(_) => "set_title",
-            Step::OpenTool(v) => { if v.is_empty() || v.len() > 64 || !v.bytes().all(|b| b.is_ascii_lowercase() || b == b'_') { return None; } }
-            Step::PrepareAccessibility(v) => {
-                if v.is_empty() || v.len() > 63 || !v.split('-').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_alphanumeric())) { return None; }
-            }
             Step::SetMetadata(_) => "set_metadata",
             Step::RemoveMetadata => "remove_metadata",
             Step::SetAuthor(_) => "set_author",
@@ -200,6 +196,10 @@ impl Step {
         if matches!(&s, Step::ConvertPdfA(v) if !["2b", "3b"].contains(&v.as_str())) { return None; }
         if let Step::PageNumbers(v) = &s { number_settings(v).ok()?; }
         match &s {
+            Step::OpenTool(v) => { if v.is_empty() || v.len() > 64 || !v.bytes().all(|b| b.is_ascii_lowercase() || b == b'_') { return None; } }
+            Step::PrepareAccessibility(v) => {
+                if v.is_empty() || v.len() > 63 || !v.split('-').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_alphanumeric())) { return None; }
+            }
             Step::SetMetadata(_) => { command_edit(&s, 1).ok()?; }
             Step::KeepPages(v) | Step::DeletePages(v) => { page_selection(v, 100_000).ok()?; }
             Step::WatermarkOptions(_) | Step::HeaderFooterOptions(_) => { command_edit(&s, 100_000).ok()?; }

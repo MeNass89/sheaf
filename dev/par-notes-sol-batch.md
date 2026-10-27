@@ -697,3 +697,8 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   action_scripts.rs; JavaScriptBridge/DocumentScriptRow carry original page/link targets.
   not automatable: edit/save/delete a listed page or link script, Undo, reopen; inspect refusal
   for deletion with /Next — app execution forbidden.
+
+- C-batch-005/006 static correction: moved the new argument validation into from_id (the id
+  mapper must stay a pure string match), and updated the existing preset inventory regression
+  from nine to ten, asserting the accessibility prompt. Existing
+  `custom_commands_round_trip_and_apply_rotation_and_metadata` covers all Step variants' IDs.

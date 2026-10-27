@@ -326,7 +326,11 @@ mod tests {
     #[test]
     fn suggested_actions_are_valid_offline_templates_and_survive_copy_edits() {
         let mut presets = suggested();
-        assert_eq!(presets.len(), 9);
+        assert_eq!(presets.len(), 10);
+        let accessibility = presets.iter().find(|a| a.name == "Prepare Accessibility (text-only)").unwrap();
+        assert!(accessibility.steps[0].prompt);
+        assert!(Step::from_id("prepare_accessibility", "fr--FR").is_none());
+        assert!(Step::from_id("open_tool", "bad tool").is_none());
         for preset in &presets { preset.validate().unwrap(); }
         let original = presets[0].clone();
         let mut copy = presets.remove(0);
