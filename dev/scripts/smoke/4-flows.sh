@@ -455,14 +455,18 @@ check "U and • underline and bullet the paragraph open (${QK:-no paragraph}; $
 quit
 
 # 212. Edit ▸ a paragraph open ▸ More fonts… (Acrobat's font list): the computer's open fonts listed (DejaVu,
-# Liberation… on this system); the first (its row 38 px under the button, inside the list) picked, applied with
-# Done and saved, the page embeds it (a Type0 font).
+# Liberation… on this system); the first that can be embedded (those PdfCraft may not embed read "— not
+# embeddable", dimmed) picked, applied with Done and saved, the page embeds it (a Type0 font).
 cp "$OUT/text.pdf" "$OUT/morefonts.pdf"; launch "$OUT/morefonts.pdf"; key ctrl+9; sleep 1
 key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
-shot 212-open; MF=$(at More 1280x40+0+90); [ -n "$MF" ] && { click $MF 4; shot 212-list; set -- $MF; click $(( $1 + 20 )) $(( $2 + 38 )) 1.5; shot 212-picked; }
+# The middle of the list's first row not ending "not embeddable" (OCR lines of the list, under the button).
+first_embeddable() { local x=$1 y=$2; import -window root -crop "260x300+$(( x - 20 ))+$(( y + 22 ))" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null \
+  | awk -F'\t' -v ox=$(( x - 20 )) -v oy=$(( y + 22 )) '$1 == 5 { k = $3 "/" $4 "/" $5; t[k] = t[k] " " $12; if (!(k in top)) { top[k] = $8; h[k] = $10; order[++n] = k } }
+      END { for (i = 1; i <= n; i++) { k = order[i]; if (t[k] !~ /embeddable/ && t[k] ~ /[A-Za-z]/) { printf "%d %d\n", ox + 40, oy + (top[k] + h[k] / 2) / 2; exit } } }'; }
+shot 212-open; MF=$(at More 1280x40+0+90); [ -n "$MF" ] && { click $MF 4; shot 212-list; FE=$(first_embeddable $MF); [ -n "$FE" ] && click $FE 1.5; shot 212-picked; }
 DN=$(at Done 1020x700+255+90); if [ -n "$DN" ]; then click $DN 2; else key ctrl+Return; sleep 2; fi; key Escape; key v; key ctrl+s; sleep 1.5
 FT=$(pdffonts -f 1 -l 1 "$OUT/morefonts.pdf" 2>/dev/null | tail -n +3 | awk '{print $1}' | tr '\n' ' ')
-check "More fonts… sets the paragraph in a font of the computer's, embedded (${MF:-no More fonts button}; $FT)" "pdffonts -f 1 -l 1 \"$OUT/morefonts.pdf\" 2>/dev/null | grep -q 'CID TrueType\|Type 0\|CID Type 0C'"
+check "More fonts… sets the paragraph in a font of the computer's, embedded (${MF:-no More fonts button}; row ${FE:-none}; $FT)" "pdffonts -f 1 -l 1 \"$OUT/morefonts.pdf\" 2>/dev/null | grep -q 'CID TrueType\|Type 0\|CID Type 0C'"
 quit
 
 # 213. Shapes (R) ▸ Loupe and Mask (Preview's): an oval dragged with Loupe on becomes a loupe, a rectangle dragged
