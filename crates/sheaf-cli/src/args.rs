@@ -664,7 +664,7 @@ pub(crate) enum Cmd {
         english_stems: bool,
         /// Maximum intervening words for proximity mode
         #[arg(long, default_value_t = 10)]
-        proximity: usize,
+        proximity: u32,
     },
     /// Describe every command as a JSON schema, for agents
     Tools,

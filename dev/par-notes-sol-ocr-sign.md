@@ -803,3 +803,107 @@ C-security-008: f8 a7 p8 — `tests/security.rs:222` exact PDF permissions/AES c
 
 - Certificate static follow-up: CMS recipient serials must be INTEGERs. The usage regression
   now builds an actually signed signing-only certificate, rather than mutating parsed fields.
+
+- Catalog CLI proximity uses u32, so the existing generated MCP schema advertises an integer
+  (rather than the string fallback for usize). The CLI proximity parsing regression covers it.
+
+## Fourth pass — unchanged accepted components and remaining language gap
+
+- C-optimize-009: unchanged. Counterpart `review-sol-ocr-sign-2.txt` accepted 9 after the
+  orchestrator's round-27 build/unit pass. Proof remains
+  `word_confidence_survives_save_and_corrections_leave_neighboring_words_and_scan_intact`.
+- C-sign-009: behaviour unchanged; three file/key helpers are crate-visible for policy secrets.
+  Counterpart accepted 9. Proof `local_signatures_survive_restart_without_external_tools_or_size_caps`.
+- C-sign-012: unchanged. Counterpart accepted the offline feature at 9; TSA transport and
+  online revocation stay outside this batch, not silently counted as implemented. Proof
+  `a_local_authority_timestamps_visible_and_invisible_certificate_signatures`.
+- C-optimize-007: **gap not closed, no language coverage added in this pass**. A stock install
+  still recognizes Latin with Sheaf's own Rust inference; other scripts require installed
+  Tesseract and matching traineddata. Source inspection confirmed only the Latin model and
+  dictionary in `scripts/fetch-models.sh`; no bundled native non-Latin weights/dictionaries or
+  matching accuracy fixtures are available here. Wrapping the same external program again
+  would not close this gap. Native multilingual coverage needs compatible trained assets plus
+  real scan/geometry/accuracy validation; no language is advertised without an engine able to
+  read it, and no downloader or online feature was added. Existing tests
+  `every_installed_language_pack_is_offered_but_orientation_data_is_not` and
+  `mixed_scripts_use_all_selected_packs_and_refuse_missing_or_conflicting_packs` remain the proof
+  of the explicit optional local fallback. Proposed grade remains f8 a8 p8.
+
+## Fourth-pass Polaroid / orchestrator report
+
+- Project: Sheaf / sol-ocr-sign / fourth pass. Status: source delivery complete, integration
+  pending. Branch `par/sol-ocr-sign`; worktree `/tmp/f5/w-sol-ocr-sign` resolves to
+  `/home/nassim/f5/w-sol-ocr-sign`. This pass started from `ce2a6dc` (the already merged round-27
+  work), not the older `1262028` remote tip. Only this pass's commits are listed below.
+- Commits pushed after each component/follow-up: `bb7e6e9` catalog, `e942def` remembered policy
+  passwords, `4e808bf` certificate encryption, `dc22ee8` OCR work reduction, `174f8f4` / `5369224`
+  catalog Unicode/empty-query regressions, `ed508cc` certificate parsing/real key-usage fixture.
+  A final CLI-schema/documentation commit follows. No unrelated worker changes authored.
+- Checks actually performed: source/primary-reference inspection, `git diff --check` for the
+  entire pass, live branch/remote status reads; Impeccable's static detector returned `[]` for
+  the two changed Slint sheets. **No cargo, rustc, clippy, tests, app, Chrome, Xvfb or codex ran.**
+  The detector is not a render, and written tests are not passed tests.
+- Compile handoff: fetch `rust-stemmers 1.2`; link existing transitive rsa 0.10.0-rc.18 with
+  encoding/std and pdfcraft-cos directly into sheaf-core; enable getrandom sys_rng. Update
+  Cargo.lock in the orchestrator. No native package/version added. New public items and the
+  one-bool policy Apply bridge change are recorded in the component entries above.
+- Not done: non-Latin native assets, release speed measurement, certificate UI/direct-reader
+  credential plumbing/per-recipient restrictions/certificate policies, legacy recipient modes,
+  independent encrypted-PDF interoperability, cross-platform and rendered UI verification.
+- Next: orchestrator integrates and runs its required full compile/lint/unit/GUI checks, the
+  new certificate round-trip and policy-vault tests, and the ignored release MICI benchmark.
+  Then Opus rereviews the changed components. No board closure or fresh joint 9 claimed.
+- Control: mandate covered yes (every gap dispositioned); evidence yes (source/tests/commits);
+  dependencies explicit yes; permitted source work delivered yes. Runtime results remain
+  unknown under the explicit execution ban. Certificate work is partial implementation, not
+  an externally blocked claim that the absent UI has already been delivered.
+
+### Fourth-pass proposed grades
+
+C-optimize-006: f9 a8 p7 — `tests/engine_patches.rs:536` pixel equivalence and
+`tests/ocr.rs:264` release protocol; measured speed still outstanding.
+C-optimize-007: f8 a8 p8 — `src/ocr_local.rs:133` installed-pack filtering; stock native
+non-Latin coverage unchanged.
+C-optimize-009: f9 a9 p9 — `tests/ocr_review.rs:60` confidence/correction/scan preservation;
+previous counterpart AGREE 9, no new behaviour.
+C-optimize-015: f8 a8 p8 — `src/search_index.rs:294` advanced query cases and reload;
+folder selection `reader_ui/catalog.rs:101`; fresh build/UI/performance verification pending.
+C-sign-009: f9 a9 p9 — `src/signature_store.rs:247` restart/no-program/>64K;
+previous counterpart AGREE 9, storage behaviour unchanged.
+C-sign-012: f9 a9 p9 — `tests/sign.rs:476` independent offline TSA identity;
+previous counterpart AGREE 9, network excluded.
+C-security-007: f5 a2 p7 — `tests/certificate_security.rs:42` two recipients/three scopes/
+outsider refusal/engine reopen; CLI only and interoperability unverified.
+C-security-008: f8 a8 p8 — `security_policies/passwords.rs:99`,
+`reader_ui/security_policy.rs:167` local encrypted remember/reuse/forget;
+certificate policies and fresh runtime/UI verification remain.
+
+### Fourth-pass files touched
+
+- `Cargo.toml`
+- `crates/sheaf-app/src/main.rs`
+- `crates/sheaf-app/src/reader_ui/catalog.rs`
+- `crates/sheaf-app/src/reader_ui/model.rs`
+- `crates/sheaf-app/src/reader_ui/security_policy.rs`
+- `crates/sheaf-app/src/security_policies.rs`
+- `crates/sheaf-app/src/security_policies/passwords.rs`
+- `crates/sheaf-app/src/signature_store.rs`
+- `crates/sheaf-app/ui/flow-types.slint`
+- `crates/sheaf-app/ui/screens/catalog.slint`
+- `crates/sheaf-app/ui/screens/security-policy.slint`
+- `crates/sheaf-cli/src/args.rs`
+- `crates/sheaf-cli/src/main.rs`
+- `crates/sheaf-core/Cargo.toml`
+- `crates/sheaf-core/src/certificate_security.rs`
+- `crates/sheaf-core/src/certificate_security/envelope.rs`
+- `crates/sheaf-core/src/certificate_security/objects.rs`
+- `crates/sheaf-core/src/lib.rs`
+- `crates/sheaf-core/src/search_index.rs`
+- `crates/sheaf-core/src/search_index/query.rs`
+- `crates/sheaf-core/tests/certificate_security.rs`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `crates/sheaf-core/tests/ocr.rs`
+- `dev/par-notes-sol-ocr-sign.md`
+- `third_party/pdfcraft-engine/src/ocr.rs`
+- `third_party/pdfcraft-ocr/src/latin.rs`
+- `third_party/pdfcraft-ocr/src/lib.rs`

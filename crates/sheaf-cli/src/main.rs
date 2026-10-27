@@ -411,7 +411,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             let catalog = sheaf_core::search_index::Catalog::load(&index)?;
             let stale = catalog.stale_sources();
             if !stale.is_empty() { note!("{} changed or missing sources excluded; update the catalog", stale.len()); }
-            let hits = catalog.search_with_options(&query, sheaf_core::search_index::SearchOptions { mode: mode.core(), whole_words, case_sensitive: match_case, english_stemming: english_stems, proximity })?;
+            let hits = catalog.search_with_options(&query, sheaf_core::search_index::SearchOptions { mode: mode.core(), whole_words, case_sensitive: match_case, english_stemming: english_stems, proximity: proximity as usize })?;
             agent::set_data(serde_json::to_value(hits).map_err(|e| OpdfError::Engine(e.to_string()))?);
             Ok(vec![])
         }
