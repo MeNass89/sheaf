@@ -135,7 +135,7 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
     if matches!(what, 2 | 3)
         && let Some((page, index, base)) = update(tab_id, |r, _| {
             let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| a.subtype == "FreeText" && !a.fill_sign && !a.font_name.is_empty())?;
-            let standard = FONTS.iter().flatten().any(|f| a.font.is_some_and(|(n, _, _)| n == *f));
+            let standard = a.font.is_some_and(|(n, _, _)| standard_face(n, &a.font_name));
             (!standard).then(|| (a.page, a.index, a.font_name.clone()))
         })
         .flatten()
@@ -267,6 +267,14 @@ fn para_bits(what: i32) -> (u8, u8) {
 /// A loupe (Preview's): a circle comment PdfCraft's loupe names so.
 pub(super) fn is_loupe(a: &AnnotEntry) -> bool {
     a.subtype == "Circle" && a.contents == "Loupe"
+}
+
+/// Whether a text box's font is the standard face its resource name stands for: `/Helv` drawn
+/// in Helvetica is; `/Helv` naming another program's Arial is not, so bold and italic look for
+/// Arial's own faces (Sol, 27/10: an imported /Helv was taken for Helvetica).
+fn standard_face(resource: &str, base_font: &str) -> bool {
+    let base = base_font.rsplit('+').next().unwrap_or(base_font);
+    sheaf_core::pdfcraft::engine::annot_text::TEXT_FONTS.iter().any(|(r, b)| *r == resource && *b == base)
 }
 
 /// The computer's fonts for the format row's list (`ReaderBridge.system-fonts`): read on a thread
@@ -865,6 +873,17 @@ mod tests {
         for bad in ["", "pt", "0", "-3", "abc"] {
             assert_eq!(typed_size(bad), None, "{bad:?}");
         }
+    }
+
+    /// A standard resource name is the standard face only when its font is (an imported /Helv
+    /// holding Arial is not).
+    #[test]
+    fn an_imported_helv_is_not_taken_for_helvetica() {
+        assert!(standard_face("Helv", "Helvetica"));
+        assert!(standard_face("TiBo", "ABCDEF+Times-Bold"));
+        assert!(!standard_face("Helv", "ArialMT"));
+        assert!(!standard_face("Helv", "Helvetica-Bold"), "the face must be the one the name stands for");
+        assert!(!standard_face("", "DejaVuSerif"));
     }
 
     /// Underline, bullets and a font of the computer's change the paragraph open, as size and
