@@ -120,6 +120,13 @@ fn prefs_round_trip_and_corrupt_means_default() {
         signatures: vec![(vec![vec![[0.0, 0.0], [1.0, 0.5]]], None, (1, 2), 0), (Vec::new(), Some("Ada".into()), (0, 1), 2)],
         initials: Some((Vec::new(), Some("AL".into()), (0, 1), 1)),
         pinned_files: vec![PathBuf::from("/docs/starred.pdf")],
+        platform: sheaf_app::platform::PlatformPrefs {
+            no_spell_check: true,
+            learned_words: vec!["Sheaf".into()],
+            shortcuts: vec![("find".into(), "Control+Alt+F".into())],
+            hide_unavailable_tools: true,
+            direction: 2,
+        },
     };
     p.save(dir.path()).unwrap();
     assert_eq!(Prefs::load(dir.path()), p);

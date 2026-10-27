@@ -177,6 +177,8 @@ pub struct Prefs {
     pub signatures: Vec<KeptSignature>,
     /// The initials kept apart from the signatures (Acrobat's Fill & Sign ▸ Add Initials).
     pub initials: Option<KeptSignature>,
+    /// Spelling, keyboard shortcuts, tools shown and the interface's direction.
+    pub platform: crate::platform::PlatformPrefs,
 }
 
 impl Prefs {

@@ -16,6 +16,7 @@ mod viewer_ui;
 mod wm_preview;
 mod reader_ui;
 mod reader_doc;
+mod platform_ui;
 mod windows;
 
 use std::cell::RefCell;
@@ -86,19 +87,21 @@ pub(crate) fn tool_card(t: &ToolInfo) -> ToolCard {
 
 /// The Tools page's grid, sections and favourites: built again when a tool is starred.
 pub(crate) fn install_catalogue(ui: &AppWindow) {
-    let catalogue = tools::catalogue();
-    let all: Vec<ToolCard> = catalogue.iter().map(tool_card).collect();
+    // Preferences ▸ Tools: those that cannot run here left off when asked (Stirling's).
+    let hidden = platform_ui::hidden_tools();
+    let catalogue: Vec<&ToolInfo> = tools::catalogue().iter().filter(|t| !hidden.contains(&t.id)).collect();
+    let all: Vec<ToolCard> = catalogue.iter().copied().map(tool_card).collect();
     let sections: Vec<ToolSection> = Category::ALL
         .iter()
         .map(|c| ToolSection {
             title: c.label().into(),
             collapsed: false,
             tools: ModelRc::new(VecModel::from(
-                catalogue.iter().filter(|t| t.category == *c).map(tool_card).collect::<Vec<_>>(),
+                catalogue.iter().copied().filter(|t| t.category == *c).map(tool_card).collect::<Vec<_>>(),
             )),
         })
         .collect();
-    let favourites: Vec<ToolCard> = home::favourites().iter().filter_map(|id| ToolId::from_str(id)).filter_map(|id| catalogue.iter().find(|t| t.id == id)).map(tool_card).collect();
+    let favourites: Vec<ToolCard> = home::favourites().iter().filter_map(|id| ToolId::from_str(id)).filter_map(|id| catalogue.iter().copied().find(|t| t.id == id)).map(tool_card).collect();
     ui.set_favourite_tools(ModelRc::new(VecModel::from(favourites)));
     ui.set_all_tools(ModelRc::new(VecModel::from(all)));
     ui.set_sections(ModelRc::from(Rc::new(VecModel::from(sections))));
@@ -470,7 +473,8 @@ fn main() -> Result<(), slint::PlatformError> {
     let weak = ui.as_weak();
     ui.on_tool_query(move |q| {
         if let Some(ui) = weak.upgrade() {
-            let found: Vec<ToolCard> = tools::search(&q).into_iter().map(tool_card).collect();
+            let hidden = platform_ui::hidden_tools();
+            let found: Vec<ToolCard> = tools::search(&q).into_iter().filter(|t| !hidden.contains(&t.id)).map(tool_card).collect();
             ui.set_tool_results(ModelRc::new(VecModel::from(found)));
         }
         q.trim().into()
@@ -596,6 +600,8 @@ fn main() -> Result<(), slint::PlatformError> {
     ocr.set_available(sheaf_core::ocr::available());
     ocr.set_default_language(sheaf_core::ocr::default_language(sys_locale::get_locale().as_deref()).into());
     wire_reader(&ui);
+    // Check spelling, the menu bar's shortcuts, tools shown, direction (ui/platform.slint).
+    platform_ui::install(&ui);
     wire!(ui, on_unsaved_answer, |ui, a| flow::unsaved_answer(&ui, a));
     let weak = ui.as_weak();
     ui.window().on_close_requested(move || match weak.upgrade() {

@@ -1,4 +1,5 @@
 import { Theme } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
 
 // One entry of the left task menu. Collapsed = icon only.
 export component MenuItem inherits Rectangle {
@@ -13,16 +14,19 @@ export component MenuItem inherits Rectangle {
     background: selected ? Theme.menu-selected-bg : touch.has-hover ? Theme.menu-hover-bg : transparent;
     animate background { duration: 100ms; }
 
+    // Right to left (Preferences ▸ Direction): the icon on the right, the text against it.
+    property <bool> rtl: PlatformBridge.rtl;
     Image {
-        x: root.collapsed ? (root.width - self.width) / 2 : 12px;
+        x: root.collapsed ? (root.width - self.width) / 2 : root.rtl ? root.width - self.width - 12px : 12px;
         source: root.icon;
         width: Theme.menu-icon;
         height: Theme.menu-icon;
         colorize: root.selected ? Theme.accent : Theme.menu-text;
     }
     Text {
-        x: 12px + Theme.menu-icon + Theme.menu-gap;
-        width: root.width - self.x - 12px;
+        x: root.rtl ? 12px : 12px + Theme.menu-icon + Theme.menu-gap;
+        width: root.width - 24px - Theme.menu-icon - Theme.menu-gap;
+        horizontal-alignment: root.rtl ? right : left;
         visible: !root.collapsed;
         text: root.text;
         font-size: Theme.fs-menu;
@@ -32,9 +36,9 @@ export component MenuItem inherits Rectangle {
         overflow: elide;
     }
 
-    // Selection bar flush with the item's right edge.
+    // Selection bar flush with the item's right edge (its left one, right to left).
     if root.selected: Rectangle {
-        x: root.width - self.width;
+        x: root.rtl ? 0 : root.width - self.width;
         width: 4px;
         height: 18px;
         border-radius: 2px;

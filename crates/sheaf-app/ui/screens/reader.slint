@@ -13,6 +13,8 @@ import { ReaderOptionsBar } from "reader-options.slint";
 import { FormFieldBox, FieldPropsCard, FieldsArrangeCard, ObjectsArrangeCard } from "reader-form.slint";
 import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet, HelpSheet } from "reader-sheets.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
+import { SpellStrip } from "../widgets/spell-strip.slint";
 
 export component ReaderScreen inherits Rectangle {
     in property <ToolTab> tab;
@@ -35,6 +37,24 @@ export component ReaderScreen inherits Rectangle {
     property <bool> over-link: root.link-tip != "";
     // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
     property <bool> narrow: root.width < 1150px;
+    // The text being typed is checked for spelling (not a choice list, a link or a length).
+    property <bool> spell-kind: root.tab.reader.note.kind != 5 && root.tab.reader.note.kind != 8 && root.tab.reader.note.kind != 9 && root.tab.reader.note.kind != 12;
+    // The menu bar's commands this screen runs itself (main.slint): `menu-seq` bumped runs
+    // `menu-command` on the tab shown.
+    in property <int> menu-seq;
+    in property <string> menu-command;
+    changed menu-seq => {
+        if !root.active { return; }
+        if root.menu-command == "find" {
+            root.bare = false;
+            toolbar.focus-search();
+        } else if root.menu-command == "go-to-page" {
+            root.bare = false;
+            toolbar.focus-page-field();
+        } else if root.menu-command == "present" {
+            root.present();
+        }
+    }
     // Pages panel drag: where the press was, and the drop line (−1: no drag).
     property <length> thumb-down-y;
     property <length> drop-line: -1px;
@@ -554,7 +574,7 @@ export component ReaderScreen inherits Rectangle {
                         height: max(root.tab.reader.note.h, inplace-edit.preferred-height + 6px);
                         border-width: 1px;
                         border-color: Theme.accent;
-                        init => { inplace-edit.focus(); }
+                        init => { inplace-edit.focus(); PlatformBridge.spell-reset(); }
                         Timer {
                             interval: 1ms;
                             running: true;
@@ -571,7 +591,7 @@ export component ReaderScreen inherits Rectangle {
                             font-weight: root.tab.reader.note.bold ? 700 : 400;
                             font-italic: root.tab.reader.note.italic;
                             color: root.tab.reader.note.ink;
-                            edited => { ReaderBridge.note-edited(root.id, self.text); }
+                            edited => { ReaderBridge.note-edited(root.id, self.text); PlatformBridge.spell-check(self.text, true); }
                             key-pressed(e) => {
                                 if e.text == Key.Escape || (e.text == Key.Return && e.modifiers.control) {
                                     ReaderBridge.note-commit(root.id, self.text);
@@ -581,12 +601,26 @@ export component ReaderScreen inherits Rectangle {
                                 reject
                             }
                         }
+                        // Check spelling while typing: the misspelt words and their corrections, under the box.
+                        SpellStrip {
+                            x: 0;
+                            y: parent.height + 6px;
+                            width: max(parent.width, 300px);
+                            replace(start, word, correction) => {
+                                inplace-edit.text = PlatformBridge.spell-replace(inplace-edit.text, start, word, correction);
+                                ReaderBridge.note-edited(root.id, inplace-edit.text);
+                                PlatformBridge.spell-check(inplace-edit.text, false);
+                                inplace-edit.focus();
+                            }
+                        }
                     }
                     // A note or text box being typed.
                     if root.tab.reader.note.show && !root.tab.reader.note.inplace: Rectangle {
                         init => {
                             note-edit.text = root.tab.reader.note.text;
                             note-edit.focus();
+                            PlatformBridge.spell-reset();
+                            if root.spell-kind { PlatformBridge.spell-check(note-edit.text, false); }
                         }
                         // Created inside a pointer event, the editor can lose the text set in init:
                         // set it again on the next turn of the event loop.
@@ -606,6 +640,8 @@ export component ReaderScreen inherits Rectangle {
                         changed seq => {
                             note-edit.text = root.tab.reader.note.text;
                             note-edit.focus();
+                            PlatformBridge.spell-reset();
+                            if root.spell-kind { PlatformBridge.spell-check(note-edit.text, false); }
                         }
                         // Kept inside the visible part of the pages.
                         x: min(root.tab.reader.note.x, -sv.content-x + sv.visible-width - self.width - 8px);
@@ -617,6 +653,19 @@ export component ReaderScreen inherits Rectangle {
                         drop-shadow-blur: 12px;
                         drop-shadow-color: #00000044;
                         drop-shadow-offset-y: 2px;
+                        // Check spelling while typing (Acrobat's, Preview's): the misspelt words
+                        // underlined and their corrections, under the card.
+                        if root.spell-kind: SpellStrip {
+                            x: 0;
+                            y: parent.height + 6px;
+                            width: max(parent.width, 300px);
+                            replace(start, word, correction) => {
+                                note-edit.text = PlatformBridge.spell-replace(note-edit.text, start, word, correction);
+                                ReaderBridge.note-edited(root.id, note-edit.text);
+                                PlatformBridge.spell-check(note-edit.text, false);
+                                note-edit.focus();
+                            }
+                        }
                         VerticalLayout {
                             padding: 8px;
                             spacing: 6px;
@@ -653,7 +702,7 @@ export component ReaderScreen inherits Rectangle {
                                 vertical-stretch: 1;
                                 font-size: Theme.fs-label;
                                 wrap: word-wrap;
-                                edited(text) => { ReaderBridge.note-edited(root.id, text); }
+                                edited(text) => { ReaderBridge.note-edited(root.id, text); if root.spell-kind { PlatformBridge.spell-check(text, true); } }
                                 key-pressed(e) => {
                                     if e.text == Key.Escape {
                                         ReaderBridge.note-cancel(root.id);
