@@ -135,6 +135,8 @@ impl Library {
         let parts: Vec<_> = relative.components().collect();
         if parts.len() != 3 { return Ok(false); }
         let id = parts[0].as_os_str().to_string_lossy();
+        // A working copy remains an ordinary editable file after its library item was deleted.
+        if !self.directory(&id)?.exists() { return Ok(false); }
         let mut entry = self.entry(&id)?;
         if path.file_name().is_none_or(|name| name != std::ffi::OsStr::new(&entry.name)) { return Err(invalid("Library working copy name changed")); }
         self.append(&mut entry, path, "Saved in Sheaf")?;
@@ -215,6 +217,7 @@ mod tests {
         assert_ne!(exported, source);
         assert_eq!(std::fs::read(&source).unwrap(), b"two");
         library.delete(&item.id).unwrap();
+        assert!(!library.record_saved(&working).unwrap());
         assert!(library.list().unwrap().is_empty());
         assert_eq!(std::fs::read(source).unwrap(), b"two");
         assert!(library.path("../escape", 0).is_err());

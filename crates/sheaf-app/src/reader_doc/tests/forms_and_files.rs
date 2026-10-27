@@ -210,21 +210,21 @@ fn javascript_console_prints_errors_and_changes_fields_as_one_undo_step() {
     }), pages: vec![0] }).unwrap();
     next(&rx);
     ops.send(Op::RunJavaScript { source: "console.println('pages=' + this.numPages); this.getField('Total').value = '42';".into() }).unwrap();
+    let (snap, error) = next(&rx);
+    assert!(error.is_none());
     match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
         Reply::JavaScript { output, changed } => { assert!(output.contains("pages=1"), "{output}"); assert!(changed); }
         _ => panic!("console output expected"),
     }
-    let (snap, error) = next(&rx);
-    assert!(error.is_none());
     assert_eq!(snap.fields[0].value, ["42"]);
     ops.send(Op::Undo { pages: None }).unwrap();
     let (snap, error) = next(&rx);
     assert!(error.is_none());
     assert!(snap.fields[0].value.is_empty() || snap.fields[0].value == [""]);
     ops.send(Op::RunJavaScript { source: "throw new Error('console failure');".into() }).unwrap();
+    next(&rx);
     match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
         Reply::JavaScript { output, changed } => { assert!(output.contains("console failure"), "{output}"); assert!(!changed); }
         _ => panic!("console error expected"),
     }
-    next(&rx);
 }

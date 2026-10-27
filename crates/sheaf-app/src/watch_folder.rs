@@ -119,6 +119,29 @@ mod tests {
     }
 
     #[test]
+    fn watched_action_uses_the_document_title_and_keeps_existing_outputs() {
+        use sheaf_core::pdfcraft::engine::{Session, actions::Step};
+        use crate::actions::ActionStep;
+        let t = tempfile::tempdir().unwrap();
+        let input = t.path().join("in"); let output = t.path().join("out");
+        std::fs::create_dir(&input).unwrap();
+        std::fs::create_dir(&output).unwrap();
+        let bytes = Session::new().create_from_text("Scan", "Invoice").unwrap();
+        std::fs::write(input.join("scan.pdf"), bytes.as_slice()).unwrap();
+        std::fs::write(output.join("Invoice_2026.pdf"), b"keep this existing output").unwrap();
+        let mut action = SavedAction::empty();
+        action.steps.push(ActionStep::from_engine(&Step::SetTitle("Invoice/2026".into())));
+        let mut watch = FolderWatch::new(&input, &output, true).unwrap();
+        assert!(watch.poll(&action, &mut || true).unwrap().is_empty());
+        let mut results = watch.poll(&action, &mut || true).unwrap();
+        assert_eq!(results.len(), 1);
+        let path = results.remove(0).1.unwrap();
+        assert_eq!(path.file_name().unwrap(), "Invoice_2026 (1).pdf");
+        assert_eq!(std::fs::read(output.join("Invoice_2026.pdf")).unwrap(), b"keep this existing output");
+        assert!(watch.poll(&action, &mut || true).unwrap().is_empty());
+    }
+
+    #[test]
     fn watched_folders_cannot_feed_their_outputs_back_to_the_input() {
         let t = tempfile::tempdir().unwrap();
         assert!(FolderWatch::new(t.path(), t.path(), false).is_err());

@@ -98,7 +98,10 @@ sh scripts/package-linux.sh         # → target/Sheaf-x.y.z-linux-x64.tar.gz
 sh scripts/package-windows.sh       # → target/Sheaf-x.y.z-windows-x64.zip (Git Bash)
 ```
 
+## Architecture
+
 The map of the code (layout, entry points, where to change what): [ARCHITECTURE.md](ARCHITECTURE.md).
+Home's Actions and Library pages are mapped there, along with portfolios and the reader JavaScript console.
 
 ## Support
 

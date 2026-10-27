@@ -30,9 +30,9 @@ fn status(ui: &AppWindow, message: impl AsRef<str>) { ui.global::<ActionBridge>(
 fn rows(ui: &AppWindow) {
     let rows = STATE.with(|state| {
         let s = state.borrow();
-        actions::suggested().iter().enumerate().map(|(i, a)| (i, a, true))
-            .chain(s.saved.iter().enumerate().map(|(i, a)| (i, a, false)))
-            .map(|(_, a, builtin)| ActionRow { name: a.name.as_str().into(), description: a.description.as_str().into(), builtin, custom: a.custom_tool }).collect::<Vec<_>>()
+        actions::suggested().iter().map(|a| (a, true))
+            .chain(s.saved.iter().map(|a| (a, false)))
+            .map(|(a, builtin)| ActionRow { name: a.name.as_str().into(), description: a.description.as_str().into(), builtin, custom: a.custom_tool }).collect::<Vec<_>>()
     });
     ui.global::<ActionBridge>().set_rows(ModelRc::new(VecModel::from(rows)));
 }
@@ -268,7 +268,7 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
             });
             match r {
                 Ok(_) => written += 1,
-                Err(sheaf_core::OpdfError::Cancelled) => break,
+                Err(sheaf_core::OpdfError::Cancelled) => { cancel.store(true, Ordering::Relaxed); break; }
                 Err(e) => errors.push(format!("{}: {e}", file.display())),
             }
         }
@@ -296,6 +296,7 @@ fn watch(ui: &AppWindow) {
             let weak = ui.as_weak();
             std::thread::spawn(move || {
                 let mut written = 0;
+                let mut failure = String::new();
                 while !cancel.load(Ordering::Relaxed) {
                     let message = match watch.poll(&action, &mut || !cancel.load(Ordering::Relaxed)) {
                         Ok(results) if results.is_empty() => None,
@@ -306,7 +307,7 @@ fn watch(ui: &AppWindow) {
                             }
                             Some(format!("Watching {} · {written} file(s) written. {}", input.display(), errors.join(" · ")))
                         }
-                        Err(e) => { cancel.store(true, Ordering::Relaxed); Some(format!("Folder watch stopped: {e}")) }
+                        Err(e) => { cancel.store(true, Ordering::Relaxed); failure = e.to_string(); Some(format!("Folder watch stopped: {e}")) }
                     };
                     if let Some(message) = message
                         && weak.upgrade_in_event_loop(move |ui| status(&ui, message)).is_err() { break; }
@@ -314,7 +315,7 @@ fn watch(ui: &AppWindow) {
                 }
                 let _ = weak.upgrade_in_event_loop(move |ui| {
                     ui.global::<ActionBridge>().set_busy(false);
-                    status(&ui, format!("Folder watch stopped. {written} file(s) written to {}", output.display()));
+                    status(&ui, format!("Folder watch stopped. {written} file(s) written to {}. {failure}", output.display()));
                 });
             });
         });

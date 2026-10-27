@@ -1,5 +1,5 @@
 import { JavaScriptConsole, JavaScriptBridge } from "screens/javascript.slint";
-import { LibraryScreen, LibraryBridge, LibraryRow, LibraryVersionRow } from "screens/library.slint";
+import { LibraryScreen, LibraryDeletePrompt, LibraryBridge, LibraryRow, LibraryVersionRow } from "screens/library.slint";
 import { ActionsScreen, ActionPrompt, ActionBridge, ActionRow, ActionStepRow } from "screens/actions.slint";
 import { Theme } from "theme.slint";
 import { ToolCard } from "widgets/tool-card.slint";
@@ -485,5 +485,6 @@ export component AppWindow inherits Window {
     }
     if ActionBridge.prompt != "": ActionPrompt { }
     if JavaScriptBridge.visible: JavaScriptConsole { }
+    if LibraryBridge.delete-id != "": LibraryDeletePrompt { }
 
 }

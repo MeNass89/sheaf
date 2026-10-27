@@ -788,8 +788,8 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             }
                             Err(e) => { let e = e.to_string(); (format!("Error: {e}"), Some(e)) }
                         };
-                        reply(Reply::JavaScript { output, changed });
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error, applied: false, note: None, preview: false });
+                        reply(Reply::JavaScript { output, changed });
                     }
 
                     // Sol, 26/10: the next save wrote the old name again.

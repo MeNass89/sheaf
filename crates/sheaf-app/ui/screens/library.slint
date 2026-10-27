@@ -1,4 +1,5 @@
 import { Button, ScrollView } from "std-widgets.slint";
+import { Modal } from "dialogs.slint";
 import { Theme } from "../theme.slint";
 
 export struct LibraryRow { id: string, name: string, detail: string }
@@ -9,6 +10,8 @@ export global LibraryBridge {
     in-out property <int> selected: -1;
     in-out property <string> name;
     in-out property <string> selected-id;
+    in-out property <string> delete-id;
+    in-out property <string> delete-name;
     in-out property <string> status;
     in-out property <bool> busy;
     callback command(string, int);
@@ -59,7 +62,7 @@ export component LibraryScreen inherits Rectangle {
                     HorizontalLayout {
                         spacing: 8px;
                         Button { text: "New version…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("update", 0); } }
-                        Button { text: "Delete file and versions"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("delete", 0); } }
+                        Button { text: "Delete file and versions"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("ask-delete", 0); } }
                     }
                     Text { text: "Version history"; color: Theme.text; font-size: Theme.fs-subtitle; }
                     for version in LibraryBridge.versions: Rectangle {
@@ -79,5 +82,15 @@ export component LibraryScreen inherits Rectangle {
             }
         }
         Text { text: LibraryBridge.status; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    }
+}
+
+export component LibraryDeletePrompt inherits Modal {
+    Text { text: "Delete " + LibraryBridge.delete-name + "?"; color: Theme.text; font-size: Theme.fs-subtitle; wrap: word-wrap; }
+    Text { text: "This removes the library copy and every stored version. Your original file stays where it is."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    HorizontalLayout {
+        spacing: 8px;
+        Button { text: "Cancel"; clicked => { LibraryBridge.command("cancel-delete", 0); } }
+        Button { text: "Delete from Library"; clicked => { LibraryBridge.command("delete", 0); } }
     }
 }

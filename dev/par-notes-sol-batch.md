@@ -9,8 +9,13 @@
 
 ## Polaroid
 
-Active: action storage/editor written; compilation and execution intentionally unverified.
-Next: finish each batch component, write its proof names and remaining parity gaps here, push.
+Hand-off: all nine components have implementation, unit/integration tests and GUI smoke steps
+where the debug dialog hook permits them. Static whitespace/shell-syntax checks passed; builds,
+test runs and UI inspection are intentionally unverified under brief rule 1.
+Target: `par/sol-batch`, with one pushed commit per component and a final static close-out.
+Next authorized action belongs to the orchestrator: merge the branch, refresh Cargo.lock for
+app's `zip 4.6.1` dependency, compile, run the suite and inspect the new screens. Report compile
+errors back to this worker; do not grade parity from this implementation report alone.
 
 ## Components
 
@@ -69,7 +74,7 @@ Next: finish each batch component, write its proof names and remaining parity ga
   Tests `library::tests::library_versions_keep_private_copies_and_restore_without_losing_history`,
   `library::tests::unzip_imports_nested_files_and_rejects_escaping_paths_before_any_import`.
   Left: ZIP folders are flattened into file entries; an app already showing Library needs Refresh
-  after reader saves; working-copy cleanup/recovery and a delete confirmation remain to polish.
+  after reader saves; working-copy cleanup/recovery remain to polish. Deleting requires an explicit in-app confirmation.
   New dependency: workspace/app `zip = 4.6.1`, default features off, `deflate` only (pure Rust,
   version already present in Cargo.lock). Orchestrator must update the lockfile's app dependency list.
 - C-platform-005: reader ▸ More ▸ More tools ▸ JavaScript console… edits and runs scripts against
@@ -96,3 +101,24 @@ Next: finish each batch component, write its proof names and remaining parity ga
 - not automatable: dark/light appearance, keyboard traversal, resizing and pause-dialog focus —
   this worker is explicitly forbidden to run/render the GUI; orchestrator visual verification
   remains required, rather than a claimed visual pass.
+- Additional watched-folder integration test:
+  `watch_folder::tests::watched_action_uses_the_document_title_and_keeps_existing_outputs` runs
+  a real action through the poller, checks title naming and suffixing, and checks no repeat run.
+
+## Static close-out
+
+- `git diff --check` and `bash -n dev/scripts/smoke/3-flows.sh` passed. No compile, lint,
+  test execution, app launch, browser or codex process was run.
+- No new engine public API was needed. Existing engine `actions::run_on` now propagates failed
+  edits/scripts; all new model APIs are in app `actions`, `watch_folder`, `library`, and core
+  `portfolio::create`. New Slint globals are exported from main.slint and wired in main.rs.
+- References inspected read-only: Acrobat `aapp/Actions_R_RHP.aapp`, JavaScript/action strings;
+  Stirling `AutomationImportModal.tsx`, `FileGrid.tsx`, `PortfolioService.java`; existing
+  PdfCraft `actions.rs`, `js.rs`, `doc_attachments.rs`, the create/JS APIs and installed Slint
+  TextEdit widget declarations. No competitor code was copied verbatim.
+- Merge seams: small blocks in app `main.rs`, `lib.rs`, `ui/main.slint`, `reader_doc/mod.rs`,
+  `reader_ui/mod.rs`, `reader.slint`, `reader-toolbar.slint`, core `lib.rs`,
+  `tests/engine_patches.rs`, the tail of smoke `3-flows.sh`, workspace/app Cargo manifests.
+- All nine components received implementation and tests. They are **implemented, awaiting
+  compilation and UI verification**, not jointly graded parity. Remaining scope is listed per
+  component above; no component was left completely untouched.

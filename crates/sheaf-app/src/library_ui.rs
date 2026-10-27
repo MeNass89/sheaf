@@ -57,6 +57,19 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             });
         });
     }
+    if what == "cancel-delete" {
+        ui.global::<LibraryBridge>().set_delete_id("".into());
+        return;
+    }
+    if what == "delete" {
+        let id = ui.global::<LibraryBridge>().get_delete_id();
+        if id.is_empty() { return; }
+        ui.global::<LibraryBridge>().set_delete_id("".into());
+        return match library().delete(&id) {
+            Ok(()) => { refresh(ui, None); status(ui, "File and its stored versions deleted. The original is untouched."); },
+            Err(e) => status(ui, e.to_string()),
+        };
+    }
     let Some(entry) = selected(ui) else { return };
     match what {
         "open" => match library().checkout(&entry.id) {
@@ -77,7 +90,10 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         "restore" => match library().restore(&entry.id, index as u32) {
             Ok(()) => { refresh(ui, Some(&entry.id)); status(ui, "Restored as a new version; all later versions kept"); }, Err(e) => status(ui, e.to_string()),
         },
-        "delete" => match library().delete(&entry.id) { Ok(()) => { refresh(ui, None); status(ui, "File and its stored versions deleted. The original is untouched."); }, Err(e) => status(ui, e.to_string()) },
+        "ask-delete" => {
+            ui.global::<LibraryBridge>().set_delete_name(entry.name.into());
+            ui.global::<LibraryBridge>().set_delete_id(entry.id.into());
+        }
         "unzip" => {
             ui.global::<LibraryBridge>().set_busy(true); status(ui, "Unzipping…");
             let weak = ui.as_weak();
