@@ -159,7 +159,7 @@ impl SavedAction {
 pub fn suggested() -> Vec<SavedAction> {
     actions::builtin().into_iter().map(|a| SavedAction {
         version: 1, name: a.name, description: a.description, custom_tool: false, output: OutputOptions::default(),
-        steps: a.steps.iter().map(ActionStep::from_engine).collect(),
+        steps: a.steps.iter().map(|s| { let mut step = ActionStep::from_engine(s); if matches!(s, Step::PrepareAccessibility(_)) { step.prompt = true; step.instruction = "Enter the actual document language (for example fr-FR). Only simple untagged text-only PDFs are supported. Review headings, reading order and accessibility in the output before distributing.".into(); } step }).collect(),
     }).collect()
 }
 

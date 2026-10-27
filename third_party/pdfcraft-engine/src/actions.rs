@@ -10,6 +10,8 @@ use crate::{DocId, Edit, EditError, Session};
 pub enum Step {
     /// Scan & OCR ▸ Recognize text (pages without text).
     RecognizeText,
+    /// Native text-only tagging, title, language and structure tab order; requires review.
+    PrepareAccessibility(String),
     /// Reduce file size.
     ReduceFileSize,
     /// Sheaf native optimization presets; no Ghostscript process.
@@ -61,6 +63,7 @@ impl Step {
     pub fn all() -> Vec<Step> {
         vec![
             Step::RecognizeText,
+            Step::PrepareAccessibility("en-US".into()),
             Step::ReduceFileSize,
             Step::Compress("recommended".into()),
             Step::ConvertPdfA("2b".into()),
@@ -96,6 +99,7 @@ impl Step {
     pub fn id(&self) -> &'static str {
         match self {
             Step::RecognizeText => "recognize_text",
+            Step::PrepareAccessibility(_) => "prepare_accessibility",
             Step::ReduceFileSize => "reduce_file_size",
             Step::Compress(_) => "compress",
             Step::ConvertPdfA(_) => "pdfa",
@@ -112,6 +116,9 @@ impl Step {
             Step::AddHeader(_) => "add_header",
             Step::AddFooter(_) => "add_footer",
             Step::SetTitle(_) => "set_title",
+            Step::PrepareAccessibility(v) => {
+                if v.is_empty() || v.len() > 63 || !v.split('-').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_alphanumeric())) { return None; }
+            }
             Step::SetMetadata(_) => "set_metadata",
             Step::RemoveMetadata => "remove_metadata",
             Step::SetAuthor(_) => "set_author",
@@ -130,6 +137,7 @@ impl Step {
     pub fn label(&self) -> &'static str {
         match self {
             Step::RecognizeText => "Recognize text",
+            Step::PrepareAccessibility(_) => "Prepare accessibility (text-only)",
             Step::ReduceFileSize => "Reduce file size",
             Step::Compress(_) => "Compress PDF",
             Step::ConvertPdfA(_) => "Convert to PDF/A",
@@ -164,14 +172,14 @@ impl Step {
     /// The step's text argument, if it takes one.
     pub fn arg(&self) -> Option<&str> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }
 
     pub fn arg_mut(&mut self) -> Option<&mut String> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }
@@ -265,6 +273,7 @@ pub fn builtin() -> Vec<Action> {
         a("Archive Documents (PDF/A-2b)", "Convert with the native PDF/A engine. Publish only if the built-in conformance check passes; unresolved font or colour issues stop the file.", vec![Step::ConvertPdfA("2b".into())]),
         a("Archive Documents (PDF/A-3b)", "Create a verified PDF/A-3b archive copy. Native conversion may refuse files needing font or colour repair.", vec![Step::ConvertPdfA("3b".into())]),
         a("Prepare a Form", "Detect form fields on the pages. Open the result to review names, positions and reading order before distributing.", vec![Step::DetectFormFields]),
+        a("Prepare Accessibility (text-only)", "Tag simple, untagged text-only documents as paragraphs; set title, document language and structure tab order. Refuses images, forms and existing tags. Review headings, reading order and accessibility before distributing; this is not PDF/UA certification.", vec![Step::PrepareAccessibility("en-US".into())]),
         a("Optimize for Sharing", "Reduce image resolution to 150 ppi and use JPEG quality 70. Keeps tags and document content; does not linearize the PDF for fast web view.", vec![Step::Compress("recommended".into())]),
     ]
 }
@@ -346,6 +355,14 @@ pub fn command_edit(step: &Step, pages: usize) -> Result<Edit, EditError> {
 fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) -> Result<Option<DocId>, EditError> {
     let pages = s.get(id).map_or(0, |d| d.info.pages.len());
     let edit = match step {
+        Step::PrepareAccessibility(language) => {
+            if Step::from_id("prepare_accessibility", language).is_none() { return Err(EditError::Invalid("Enter a document language such as en-US or fr-FR".into())); }
+            let doc = s.get(id).ok_or(EditError::NoDocument)?;
+            let language = doc.accessibility_fix(crate::a11y::Rule::PrimaryLanguage, Some(language)).map_err(EditError::Invalid)?;
+            let title = doc.accessibility_fix(crate::a11y::Rule::Title, None).map_err(EditError::Invalid)?;
+            let tabs = doc.accessibility_fix(crate::a11y::Rule::TabOrder, None).map_err(EditError::Invalid)?;
+            Edit::Batch { label: "Prepare accessibility (review required)".into(), edits: vec![Edit::AutoTagText, language, title, tabs] }
+        }
         Step::RecognizeText => {
             let found = s.recognize_text(id, &[], crate::ocr::OcrSettings::default()).map_err(EditError::Invalid)?;
             log.push(format!("Recognize text: {} words", found.iter().map(|p| p.words.len()).sum::<usize>()));

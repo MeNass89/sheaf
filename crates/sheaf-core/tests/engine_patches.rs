@@ -570,3 +570,18 @@ fn wizard_metadata_steps_replace_clear_and_remove_native_metadata() {
     let pdf = lopdf::Document::load(out).unwrap();
     assert!(pdf.trailer.get(b"Info").is_err() || pdf.get_dictionary(pdf.trailer.get(b"Info").unwrap().as_reference().unwrap()).unwrap().get(b"Author").is_err());
 }
+
+#[test]
+fn accessibility_suggestion_tags_text_and_preserves_existing_tags_by_refusal() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{self, Action, Step}};
+    let bytes = Session::new().create_from_text("Accessible title", "Readable text").unwrap();
+    let action = Action { name: "Prepare".into(), description: String::new(), steps: vec![Step::PrepareAccessibility("fr-FR".into())], builtin: false };
+    let result = actions::run_on(&action, "source.pdf", bytes, |_, _| {}).unwrap();
+    let mut session = Session::new();
+    let id = session.open("prepared.pdf", None, result.bytes.clone(), None).unwrap();
+    let doc = session.get(id).unwrap();
+    assert_eq!(doc.initial_view().language.as_deref(), Some("fr-FR"));
+    assert!(doc.initial_view().display_title); assert!(!doc.tags().is_empty());
+    assert!(actions::run_on(&action, "prepared.pdf", result.bytes, |_, _| {}).is_err());
+    assert!(Step::from_id("prepare_accessibility", "fr--FR").is_none());
+}

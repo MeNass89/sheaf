@@ -624,3 +624,14 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   nonempty date/trapped values and custom metadata maps. These are refused, not guessed.
   No new dependency. not automatable: paste/import each new operation and inspect its draft —
   app execution forbidden. Export back to Stirling still refuses newly inexact conversions.
+
+- C-batch-005: added Prepare Accessibility (text-only), a useful native subset of Acrobat's Make
+  Accessible. Prompts for the real document language, tags simple text PDFs, sets display title
+  and structure tab order in one atomic engine edit. Refuses existing tags, images and forms;
+  description and prompt require heading/reading-order review and do not claim PDF/UA.
+  Test `accessibility_suggestion_tags_text_and_preserves_existing_tags_by_refusal` (not run).
+  Left: full accessibility remediation and Optimize for Web linearization. No linearized writer
+  exists in this engine; setting a flag would not produce hint tables or byte ordering, so no
+  misleading preset was added. No external process or new dependency. Public: Step::PrepareAccessibility.
+  not automatable: copy the suggestion and verify language prompt and visible limitations —
+  app execution forbidden.
