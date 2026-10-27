@@ -839,6 +839,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 }
                 let structural = r.snap.boxes.len() != snap.boxes.len() || r.structure_pending;
                 r.snap = *snap;
+                // An Undo may take away the article being drawn (Sol, 27/10).
+                article_boxes::reconcile(r);
                 r.structure_pending = false;
                 if structural {
                     forget_page_state(r);

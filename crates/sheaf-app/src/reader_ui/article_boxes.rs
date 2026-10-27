@@ -74,6 +74,20 @@ pub(super) fn after_delete(current: Option<usize>, deleted: usize, removed: bool
     }
 }
 
+/// After the document changed (an Undo, a Redo): the article being drawn and the box picked are
+/// forgotten when they no longer exist (Sol, 27/10: Undo of an article's first box left the next
+/// box aimed at it).
+pub(super) fn reconcile(r: &mut ReaderUi) {
+    let (thread, boxed) = settle(r.article_thread, r.article_box, &r.snap.articles.iter().map(|a| a.beads.len()).collect::<Vec<_>>());
+    r.article_thread = thread;
+    r.article_box = boxed;
+}
+
+/// [`reconcile`] on the articles' box counts.
+fn settle(thread: Option<usize>, boxed: Option<(usize, usize)>, beads: &[usize]) -> (Option<usize>, Option<(usize, usize)>) {
+    (thread.filter(|t| *t < beads.len()), boxed.filter(|(t, k)| beads.get(*t).is_some_and(|n| k < n)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,5 +100,13 @@ mod tests {
         assert_eq!(after_delete(Some(0), 1, true), Some(0));
         assert_eq!(after_delete(Some(1), 1, false), Some(1), "a box gone, its article stays");
         assert_eq!(after_delete(None, 0, true), None);
+    }
+
+    /// Undo after an article's first box: the article is gone, so the next box starts a new one.
+    #[test]
+    fn an_undone_article_is_no_longer_drawn() {
+        assert_eq!(settle(Some(0), Some((0, 0)), &[]), (None, None), "its only box undone");
+        assert_eq!(settle(Some(1), Some((1, 2)), &[3, 2]), (Some(1), None), "its third box undone");
+        assert_eq!(settle(Some(0), Some((0, 1)), &[2]), (Some(0), Some((0, 1))), "nothing to change");
     }
 }
