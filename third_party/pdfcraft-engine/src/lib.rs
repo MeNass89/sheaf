@@ -1388,6 +1388,17 @@ pub enum Edit {
     DeleteArticle {
         thread: usize,
     },
+    /// Sheaf: box `bead` of article `thread` moved or resized to `rect` (same page).
+    SetArticleBox {
+        thread: usize,
+        bead: usize,
+        rect: [f64; 4],
+    },
+    /// Sheaf: box `bead` of article `thread` deleted, the article joined around it.
+    DeleteArticleBox {
+        thread: usize,
+        bead: usize,
+    },
     /// Sheaf: Preview's Loupe: a circle of `radius` about `centre` (user space) showing the page
     /// under it `magnify` times as large, ringed in `color` (`pdfcraft_annot::loupe_mask`).
     AddLoupe {
@@ -1998,6 +2009,8 @@ impl Edit {
             Edit::AddArticleBox { thread: None, .. } => Label::of("Add article"),
             Edit::AddArticleBox { .. } => Label::of("Add article box"),
             Edit::DeleteArticle { .. } => Label::of("Delete article"),
+            Edit::SetArticleBox { .. } => Label::of("Move article box"),
+            Edit::DeleteArticleBox { .. } => Label::of("Delete article box"),
             // What was measured is part of the wording too, for the same reason.
             Edit::AddMeasurement(m) => Label::of(match m.kind {
                 pdfcraft_measure::Kind::Distance => "Measure distance",
@@ -2178,7 +2191,9 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::NumberPages { .. }
         | Edit::SetTransition { .. }
         | Edit::AddArticleBox { .. }
-        | Edit::DeleteArticle { .. } => {
+        | Edit::DeleteArticle { .. }
+        | Edit::SetArticleBox { .. }
+        | Edit::DeleteArticleBox { .. } => {
             if p.assemble() {
                 Ok(())
             } else {
@@ -2448,6 +2463,8 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::SetTransition { pages, style, seconds, advance } => transitions::set_transition(doc, pages, style.as_deref(), *seconds, *advance)?,
         Edit::AddArticleBox { thread, title, page, rect } => articles::add_article_box(doc, *thread, title, *page, *rect)?,
         Edit::DeleteArticle { thread } => articles::delete_article(doc, *thread)?,
+        Edit::SetArticleBox { thread, bead, rect } => articles::set_article_box(doc, *thread, *bead, *rect)?,
+        Edit::DeleteArticleBox { thread, bead } => articles::delete_article_box(doc, *thread, *bead)?,
         Edit::AddMeasurement(m) => {
             measure::add(doc, m, &cx.meta())?;
         }

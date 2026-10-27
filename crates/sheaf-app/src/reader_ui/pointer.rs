@@ -395,6 +395,15 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
         if r.tool == SHAPE && r.shape_kind >= 4 {
             return;
         }
+        // Shapes ▸ Article: a box pressed follows the pointer (its corner: resized).
+        if r.tool == SHAPE
+            && r.shape_special == 3
+            && let Some((_, _, [p0, p1], _)) = super::article_boxes::article_drag(r, &v.viewer, page, a, b)
+        {
+            r.shape_end = Some(b);
+            r.stroke = Some((page, reader::shape_outline(0, p0, p1)));
+            return;
+        }
         if r.tool == SHAPE {
             let b = if r.shape_shift { reader::constrained(r.shape_kind, a, b) } else { b };
             r.shape_end = Some(b);
@@ -606,6 +615,17 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             SHAPE if r.shape_kind >= 4 => None,
             SHAPE => {
                 r.stroke = None;
+                // Shapes ▸ Article: a box clicked is picked, one dragged moves or resizes.
+                if r.shape_special == 3
+                    && let Some((page, a)) = press
+                {
+                    let end = r.shape_end;
+                    if let Some(done) = super::article_boxes::article_release(r, &v.viewer, page, a, end) {
+                        r.shape_end = None;
+                        return done;
+                    }
+                    r.article_box = None;
+                }
                 // A click without a drag draws nothing.
                 press.zip(r.shape_end.take()).filter(|((_, a), b)| (a.0 - b.0).hypot(a.1 - b.1) >= 4.0).map(|((page, a), b)| Pending::Shape(page, a, b))
             }

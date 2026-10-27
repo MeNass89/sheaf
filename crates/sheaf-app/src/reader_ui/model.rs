@@ -94,8 +94,15 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     // Shapes ▸ Article (Acrobat's Article tool): the articles' boxes, the one being drawn brighter.
     if r.tool == SHAPE && r.shape_special == 3 {
         for (t, a) in r.snap.articles.iter().enumerate() {
-            for (page, rect) in a.beads.iter().filter(|b| wanted.contains(&b.0)) {
-                marks.push(overlay(v.viewer.overlay(*page, *rect), if r.article_thread == Some(t) { 17 } else { 16 }));
+            for (k, (page, rect)) in a.beads.iter().enumerate().filter(|(_, b)| wanted.contains(&b.0)) {
+                let kind = if r.article_box == Some((t, k)) {
+                    18
+                } else if r.article_thread == Some(t) {
+                    17
+                } else {
+                    16
+                };
+                marks.push(overlay(v.viewer.overlay(*page, *rect), kind));
             }
         }
     }

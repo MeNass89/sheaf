@@ -865,6 +865,10 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     if update(tab_id, |r, _| r.grid_prev.is_some() && !r.page_sel.is_empty()) == Some(true) {
         return super::pages::page_op(ui, tab_id, 2);
     }
+    // Shapes ▸ Article: the box picked (Acrobat's Delete on an article box).
+    if let Some((thread, bead)) = update(tab_id, |r, _| r.article_box.take().filter(|_| r.tool == SHAPE && r.shape_special == 3)).flatten() {
+        return apply(ui, tab_id, Edit::DeleteArticleBox { thread, bead }, &[], None);
+    }
     // Objects picked with the Edit tool (drawings, paragraphs, images): deleted in one step.
     if let Some((page, objects)) = update(tab_id, |r, _| r.picked.take().map(|(p, l)| (p, l.iter().map(|o| o.0).collect::<Vec<_>>()))).flatten() {
         return apply(ui, tab_id, Edit::DeleteObjects { page, objects }, &[page], None);

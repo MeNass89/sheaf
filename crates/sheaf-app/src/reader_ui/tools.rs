@@ -297,6 +297,7 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
             30..=32 => {
                 let special = (what - 29) as u8;
                 r.article_thread = None;
+                r.article_box = None;
                 r.shape_special = if r.shape_special == special { 0 } else { special };
                 if r.shape_special != 0 {
                     r.shape_kind = match special {
@@ -308,9 +309,13 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
                 }
             }
             // Article: the next box starts a new article (Acrobat's End Article).
-            33 => r.article_thread = None,
+            33 => {
+                r.article_thread = None;
+                r.article_box = None;
+            }
             // Article: the article being drawn (else the last) deleted, its boxes with it.
             34 => {
+                r.article_box = None;
                 let t = r.article_thread.take().or_else(|| r.snap.articles.len().checked_sub(1))?;
                 return Some((0, Edit::DeleteArticle { thread: t }));
             }

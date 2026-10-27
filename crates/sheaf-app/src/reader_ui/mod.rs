@@ -230,6 +230,8 @@ pub struct ReaderUi {
     /// Shapes ▸ Article: the article the next box goes at the end of (`Snap::articles`); `None`: a
     /// new one.
     article_thread: Option<usize>,
+    /// Shapes ▸ Article: the box picked by a click (article, box), moved, resized or deleted.
+    article_box: Option<(usize, usize)>,
     shape_fill: bool,
     /// Shapes' fill: a highlight colour (index, the sixth too), or None a tint of the stroke.
     fill_colour: Option<usize>,
@@ -517,6 +519,7 @@ impl ReaderUi {
             shape_kind: 0,
             shape_special: 0,
             article_thread: None,
+            article_box: None,
             shape_fill: false,
             fill_colour: None,
             shape_end: None,
@@ -1288,6 +1291,7 @@ mod look_up;
 mod folder_search;
 mod pages;
 mod tools;
+mod article_boxes;
 mod search;
 mod model;
 pub use pointer::*;

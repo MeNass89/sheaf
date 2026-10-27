@@ -175,6 +175,52 @@ pub fn delete_article(doc: &mut Document, thread: usize) -> Result<(), EditError
     set_list(doc, root, b"Threads", list)
 }
 
+/// Bead `bead` of article `thread` (indexes of [`articles`]).
+fn bead_at(doc: &Document, thread: usize, bead: usize) -> Result<(ObjRef, Vec<ObjRef>), EditError> {
+    let (_, list) = threads(doc);
+    let t = list.get(thread).ok_or_else(|| EditError::Invalid(format!("article {} does not exist", thread + 1)))?;
+    let ring = beads(doc, t);
+    let b = *ring.get(bead).ok_or_else(|| EditError::Invalid(format!("article {} has no box {}", thread + 1, bead + 1)))?;
+    Ok((b, ring))
+}
+
+/// Box `bead` of article `thread` moved or resized to `rect` (user space, same page), as
+/// Acrobat's Article tool drags a box or its corner.
+pub fn set_article_box(doc: &mut Document, thread: usize, bead: usize, rect: [f64; 4]) -> Result<(), EditError> {
+    let rect = [rect[0].min(rect[2]), rect[1].min(rect[3]), rect[0].max(rect[2]), rect[1].max(rect[3])];
+    if !rect.iter().all(|v| v.is_finite()) || rect[2] - rect[0] < 4.0 || rect[3] - rect[1] < 4.0 {
+        return Err(EditError::Invalid("an article box must be at least 4 points wide and high".into()));
+    }
+    let (b, _) = bead_at(doc, thread, bead)?;
+    doc.update_dict(b, |d| d.set(b"R".to_vec(), Object::Array(rect.iter().map(|v| Object::Real(*v)).collect()))).map_err(write)
+}
+
+/// Box `bead` of article `thread` deleted, the boxes before and after it joined (Acrobat's
+/// Delete on a box: the article goes on without it); its last box deletes the article.
+pub fn delete_article_box(doc: &mut Document, thread: usize, bead: usize) -> Result<(), EditError> {
+    let (b, ring) = bead_at(doc, thread, bead)?;
+    if ring.len() == 1 {
+        return delete_article(doc, thread);
+    }
+    let k = ring.iter().position(|r| *r == b).unwrap_or(0);
+    let (prev, next) = (ring[(k + ring.len() - 1) % ring.len()], ring[(k + 1) % ring.len()]);
+    doc.update_dict(prev, |d| d.set(b"N".to_vec(), Object::Ref(next))).map_err(write)?;
+    doc.update_dict(next, |d| d.set(b"V".to_vec(), Object::Ref(prev))).map_err(write)?;
+    let (_, list) = threads(doc);
+    if let Some(t) = list.get(thread).and_then(Object::as_ref) {
+        // The first box gone: the thread starts at the next (which carries its thread).
+        if k == 0 {
+            doc.update_dict(t, |d| d.set(b"F".to_vec(), Object::Ref(next))).map_err(write)?;
+            doc.update_dict(next, |d| d.set(b"T".to_vec(), Object::Ref(t))).map_err(write)?;
+        }
+    }
+    if let Some(p) = doc.get(b).as_dict().and_then(|d| d.reference(b"P")) {
+        let left: Vec<Object> = list_of(doc, p, b"B").into_iter().filter(|o| o.as_ref() != Some(b)).collect();
+        set_list(doc, p, b"B", left)?;
+    }
+    Ok(())
+}
+
 impl crate::Document {
     /// The document's article threads ([`articles`]).
     pub fn articles(&self) -> Vec<Article> {
