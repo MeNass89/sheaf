@@ -100,7 +100,18 @@ export component ReaderScreen inherits Rectangle {
     // over another document's pane, the pinch is left to nothing.
     property <length> pinch-ox;
     property <length> pinch-oy;
-    property <bool> pinch-skip;
+    // A pinch begun over another document's pane: that tab (it comes forward and zooms), the
+    // scale already applied, its horizontal scroll when the pinch began.
+    property <int> pinch-other: -1;
+    property <float> pinch-prev: 1;
+    property <length> pinch-sx0;
+    // A press in another document's pane goes on to that tab, its drag too: the tab, the press in
+    // its content and in the window (the drag's later points are the press's moved as the pointer is).
+    property <int> other-press: -1;
+    property <length> op-cx0;
+    property <length> op-cy0;
+    property <length> op-wx0;
+    property <length> op-wy0;
     // A drag with the hand, Space or the middle button in the other pane moves that pane.
     property <bool> pane-panning;
     property <PointerEventButton> pan2-button;
@@ -398,14 +409,23 @@ export component ReaderScreen inherits Rectangle {
                     started => {
                         let over-other = root.split > 0 && self.center.x >= sv2.x && self.center.x < sv2.x + sv2.width
                             && self.center.y >= sv2.y && self.center.y < sv2.y + sv2.height;
-                        root.pinch-skip = over-other && root.tab.split-title != "";
+                        // Over another document's pane: its tab comes forward and that document zooms, by
+                        // steps of the pinch's scale (Sol, 27/10: the pinch did nothing there).
+                        root.pinch-other = over-other && root.tab.split-title != "" ? root.tab.split-other : -1;
+                        root.pinch-prev = 1;
+                        root.pinch-sx0 = -sv2.content-x;
                         root.pinch-ox = over-other ? sv2.x : sv.x;
                         root.pinch-oy = over-other ? sv2.y : sv.y;
-                        if over-other && !root.pinch-skip { ReaderBridge.split-focus(root.id); }
+                        if over-other { ReaderBridge.split-focus(root.id); }
                         root.pinch-zoom0 = root.tab.viewer-zoom;
                     }
                     updated => {
-                        if !root.pinch-skip { root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x - root.pinch-ox, self.center.y - root.pinch-oy); }
+                        if root.pinch-other >= 0 {
+                            ViewerBridge.zoom-by(root.pinch-other, self.scale / root.pinch-prev, (self.center.x - root.pinch-ox) / 1px, (self.center.y - root.pinch-oy) / 1px, root.pinch-sx0 / 1px);
+                            root.pinch-prev = self.scale;
+                        } else {
+                            root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x - root.pinch-ox, self.center.y - root.pinch-oy);
+                        }
                     }
                 }
                 sv := ScrollView {
@@ -644,7 +664,8 @@ export component ReaderScreen inherits Rectangle {
                             // Pages across: a mouse's wheel moves along the strip when there is nothing to
                             // scroll down (a trackpad sends the sideways movement itself).
                             if root.tab.reader.horizontal && e.delta-x == 0 && e.delta-y != 0 && sv.content-height <= sv.visible-height + 1px {
-                                sv.content-x = clamp(sv.content-x + e.delta-y, min(0px, sv.visible-width - sv.content-width), 0px);
+                                // Right to left: down goes on to later pages, leftward (as Space does).
+                                sv.content-x = clamp(sv.content-x + (root.tab.reader.rtl ? -e.delta-y : e.delta-y), min(0px, sv.visible-width - sv.content-width), 0px);
                                 return accept;
                             }
                             reject
@@ -1026,14 +1047,26 @@ export component ReaderScreen inherits Rectangle {
                             // Another document: its tab comes to the front, this one in its other pane, and
                             // the click goes on to it there, at the same point (a link, a comment, a note
                             // placed; Sol, 27/10: it was lost). That tab's view then takes the pointer.
-                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.tab.split-title != "" {
+                            // Its drag goes on there too, a selection or a comment dragged (Sol, 27/10: the press
+                            // was a click at once). The tab's pages took this pane's place and scroll.
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.tab.split-title != "" && root.other-press < 0 {
                                 let other = root.tab.split-other;
-                                let x = self.mouse-x;
-                                let y = self.mouse-y;
+                                root.op-cx0 = self.mouse-x;
+                                root.op-cy0 = self.mouse-y;
+                                root.op-wx0 = self.absolute-position.x + self.mouse-x;
+                                root.op-wy0 = self.absolute-position.y + self.mouse-y;
                                 ReaderBridge.split-focus(root.id);
                                 if other >= 0 {
-                                    ReaderBridge.pressed(other, x, y, e.modifiers.shift ? 17 : 1);
-                                    ReaderBridge.released(other, x, y);
+                                    root.other-press = other;
+                                    ReaderBridge.pressed(other, root.op-cx0, root.op-cy0, e.modifiers.shift ? 17 : 1);
+                                }
+                                return;
+                            }
+                            if root.other-press >= 0 {
+                                if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                                    let other = root.other-press;
+                                    root.other-press = -1;
+                                    ReaderBridge.released(other, root.op-cx0 + (self.absolute-position.x + self.mouse-x - root.op-wx0), root.op-cy0 + (self.absolute-position.y + self.mouse-y - root.op-wy0));
                                 }
                                 return;
                             }
@@ -1052,16 +1085,19 @@ export component ReaderScreen inherits Rectangle {
                         }
                         moved => {
                             if root.pane-press { ReaderBridge.moved(root.id, root.main-x(self.absolute-position.x + self.mouse-x), root.main-y(self.absolute-position.y + self.mouse-y)); }
+                            if root.other-press >= 0 { ReaderBridge.moved(root.other-press, root.op-cx0 + (self.absolute-position.x + self.mouse-x - root.op-wx0), root.op-cy0 + (self.absolute-position.y + self.mouse-y - root.op-wy0)); }
                         }
                         // ⌘ / Ctrl + wheel zooms this pane around the pointer: it becomes the active one
                         // (Sol, 27/10: it scrolled); the wheel alone scrolls it as it is.
                         scroll-event(e) => {
-                            if e.modifiers.control && e.delta-y != 0 && root.tab.split-title == "" {
+                            // Another document's pane: its tab comes forward and zooms (Sol, 27/10: it scrolled).
+                            if e.modifiers.control && e.delta-y != 0 {
                                 let ax = self.absolute-position.x + self.mouse-x - sv2.absolute-position.x;
                                 let ay = self.absolute-position.y + self.mouse-y - sv2.absolute-position.y;
                                 let sx = -sv2.content-x;
+                                let target = root.tab.split-title == "" ? root.id : root.tab.split-other;
                                 ReaderBridge.split-focus(root.id);
-                                ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), ax / 1px, ay / 1px, sx / 1px);
+                                if target >= 0 { ViewerBridge.zoom-by(target, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), ax / 1px, ay / 1px, sx / 1px); }
                                 return accept;
                             }
                             reject

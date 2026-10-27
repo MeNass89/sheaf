@@ -703,6 +703,27 @@ xdotool mousemove $DV 500 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove 
 xdotool mousemove 1000 650; sleep 0.5; E1=$(redend)
 check "Sync scroll and zoom zooms both panes; the divider moves (${SY:-no button}; $ZA0 $ZB0 → $ZA1 $ZB1; red row ends at ${E0:-?} → ${E1:-?})" "python3 -c 'import sys; a0, b0, a1, b1, e0, e1 = map(float, sys.argv[1:]); sys.exit(0 if a1 > a0 + 0.03 and b1 > b0 + 0.03 and e1 < e0 - 100 else 1)' ${ZA0:-1} ${ZB0:-1} ${ZA1:-0} ${ZB1:-0} ${E0:-0} ${E1:-9999}"
 quit
+
+# 206. … ▸ Split with another document, the other pane's text dragged over (PDF Expert's): the drag goes on to that
+# document, whose tab comes forward; ⌘C then copies the words selected there.
+cp "$OUT/text.pdf" "$OUT/split6t.pdf"; cp "$OUT/across.pdf" "$OUT/split6a.pdf"; launch "$OUT/split6t.pdf" "$OUT/split6a.pdf"; sleep 3
+layout_item with >/dev/null; sleep 1.5
+read QX QY <<< "$(at quick 510x700+770+90)"
+echo -n | xclip -selection clipboard >/dev/null 2>&1
+[ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1; for i in 1 2 3 4; do xdotool mousemove $(( QX + i * 20 )) $QY; sleep 0.05; done; xdotool mouseup 1; sleep 0.8; key ctrl+c; }
+SC6=$(xclip -o -selection clipboard 2>/dev/null | head -1)
+check "a drag in another document's pane selects there (quick at ${QX:-?} ${QY:-?}; copied '$(echo "$SC6" | cut -c1-20)')" "echo \"$SC6\" | grep -q 'quick'"
+quit
+
+# 207. … ▸ Split with another document, ⌘ + wheel over the other pane: that document comes forward and zooms around
+# the pointer (its word "quick" grows), as over the active pane.
+launch "$OUT/split6t.pdf" "$OUT/split6a.pdf"; sleep 3
+layout_item with >/dev/null; sleep 1.5
+read QA QB QY <<< "$(span quick 510x700+770+90)"
+[ -n "$QY" ] && { xdotool mousemove $QA $QY keydown ctrl; for i in 1 2 3; do xdotool click 4; sleep 0.1; done; xdotool keyup ctrl; sleep 1.5; }
+read RA RB RY <<< "$(span quick 510x700+770+90)"
+check "⌘ + wheel over another document's pane zooms that document (quick ${QA:-?}–${QB:-?} → ${RA:-?}–${RB:-?})" "[ -n \"$QB\" ] && [ -n \"$RB\" ] && [ \$(( RB - RA )) -gt \$(( (QB - QA) * 11 / 10 )) ]"
+quit
 # 228. Edit ▸ Undo from the menu bar (C-platform-014) acts on what has the keyboard: in Preferences ▸ Your name,
 # "Ada" typed then Edit ▸ Undo leaves the field empty (the menu is enabled there); on a document's pages, a note
 # added then Edit ▸ Undo takes the note away (saved: no note). The menu shows Undo's Ctrl+Z.
