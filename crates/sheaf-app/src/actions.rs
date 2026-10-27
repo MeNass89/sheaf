@@ -275,7 +275,7 @@ mod tests {
     #[test]
     fn suggested_actions_are_valid_offline_templates_and_survive_copy_edits() {
         let mut presets = suggested();
-        assert_eq!(presets.len(), 5);
+        assert_eq!(presets.len(), 9);
         for preset in &presets { preset.validate().unwrap(); }
         let original = presets[0].clone();
         let mut copy = presets.remove(0);
@@ -436,6 +436,22 @@ mod tests {
         assert_eq!(SavedAction::import(&a.json().unwrap()).unwrap(), a);
         a.output.prefix = "../".into();
         assert!(a.validate().is_err());
+    }
+
+    #[test]
+    fn suggested_archive_form_and_sharing_actions_are_native_editable_copies() {
+        let all = suggested();
+        for (name, tool) in [("Archive Documents (PDF/A-2b)", "pdfa"), ("Archive Documents (PDF/A-3b)", "pdfa"), ("Prepare a Form", "detect_form_fields"), ("Optimize for Sharing", "compress")] {
+            let template = all.iter().find(|a| a.name == name).unwrap();
+            assert_eq!(template.steps[0].tool, tool);
+            assert_eq!(SavedAction::import(&template.json().unwrap()).unwrap(), *template);
+            let mut copy = template.clone();
+            copy.steps[0].instruction = "Review output".into();
+            copy.steps[0].prompt = true;
+            assert_ne!(copy, *template);
+            assert!(suggested().contains(template));
+        }
+        assert!(!all.iter().any(|a| a.name == "Make Accessible"));
     }
 
 }

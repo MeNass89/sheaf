@@ -378,3 +378,11 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   Left: Acrobat .sequ, split/convert/watermark and metadata replacement; these require parsers or
   tool settings beyond the currently supported native equivalents. Import is deliberately explicit
   about approximations rather than claiming lossless interoperability. Tests written, not run.
+
+- C-batch-005: Acrobat's Archive Documents now has native, verification-gated PDF/A-2b and
+  PDF/A-3b presets; Prepare a Form detects fields; Optimize for Sharing uses the native image
+  compression preset. Nine offline suggestions now explain their concrete limits before copying.
+  Test `suggested_archive_form_and_sharing_actions_are_native_editable_copies` and the existing
+  suggestion independence test (written, not run). No dependency or external program.
+  Left: Make Accessible needs real tag/reading-order remediation; Optimize for Web needs genuine
+  linearization. Neither is advertised under a misleading name. Online discovery remains excluded.
