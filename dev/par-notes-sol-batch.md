@@ -612,3 +612,15 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   lose those edits, so that route was not used. No new dependency (existing zip/native exporters).
   not automatable: choose each output format and recursive folder intake, cancel a run — brief
   forbids app execution. Public: OutputOptions::format, actions::folder_inputs_recursive.
+
+- C-batch-004: Stirling Remove/Extract Pages, standard metadata replacement / delete-all, terminal
+  PDF→DOCX/TXT/RTF conversions now translate to native steps and output settings. Omitted standard
+  metadata is cleared, matching MetadataController rather than silently keeping old fields.
+  Test `stirling_page_metadata_and_terminal_conversions_preserve_or_refuse_settings` (not run).
+  Source: Stirling MetadataController, MetadataRequest, PdfToWordRequest/PdfToTextOrRTFRequest,
+  removePages parameters in the reference archive. Added Step::SetMetadata / RemoveMetadata.
+  Left: .sequ (no trustworthy schema/parser), split (multi-output runner needed), tiled watermark
+  (Sheaf has a single mark; translating it would change appearance), other unimplemented tools,
+  nonempty date/trapped values and custom metadata maps. These are refused, not guessed.
+  No new dependency. not automatable: paste/import each new operation and inspect its draft —
+  app execution forbidden. Export back to Stirling still refuses newly inexact conversions.

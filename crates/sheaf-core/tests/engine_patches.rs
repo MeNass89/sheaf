@@ -553,3 +553,20 @@ fn wizard_page_ranges_and_mark_settings_edit_only_selected_pages() {
     let header = Step::HeaderFooterOptions("0|12|Times-Roman|1|Header".into());
     assert!(matches!(actions::command_edit(&header, 3).unwrap(), Edit::AddHeaderFooter { pages, settings, .. } if pages == [0] && settings.text[0] == "Header" && settings.font_size == 12.0));
 }
+
+#[test]
+fn wizard_metadata_steps_replace_clear_and_remove_native_metadata() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::actions::{self, Step}}};
+    let dir = tempfile::tempdir().unwrap();
+    let input = common::fixture_pdf(dir.path(), "metadata.pdf", 1);
+    let mut doc = Doc::open(&Input::new(input)).unwrap();
+    doc.apply(actions::command_edit(&Step::SetMetadata("Title|New title".into()), 1).unwrap()).unwrap();
+    assert_eq!(doc.document().info.title.as_deref(), Some("New title"));
+    doc.apply(actions::command_edit(&Step::SetMetadata("Title|".into()), 1).unwrap()).unwrap();
+    assert!(doc.document().info.title.is_none());
+    doc.apply(actions::command_edit(&Step::SetMetadata("Author|Owner".into()), 1).unwrap()).unwrap();
+    doc.apply(actions::command_edit(&Step::RemoveMetadata, 1).unwrap()).unwrap();
+    let out = doc.save(&dir.path().join("clean.pdf")).unwrap();
+    let pdf = lopdf::Document::load(out).unwrap();
+    assert!(pdf.trailer.get(b"Info").is_err() || pdf.get_dictionary(pdf.trailer.get(b"Info").unwrap().as_reference().unwrap()).unwrap().get(b"Author").is_err());
+}

@@ -39,6 +39,9 @@ pub enum Step {
     AddHeader(String),
     /// Set the document title.
     SetTitle(String),
+    /// Standard metadata key|value; an empty value removes the key.
+    SetMetadata(String),
+    RemoveMetadata,
     SetAuthor(String),
     SetSubject(String),
     SetKeywords(String),
@@ -74,6 +77,8 @@ impl Step {
             Step::AddHeader(String::new()),
             Step::AddFooter(String::new()),
             Step::SetTitle(String::new()),
+            Step::SetMetadata("Creator|".into()),
+            Step::RemoveMetadata,
             Step::SetAuthor(String::new()),
             Step::SetSubject(String::new()),
             Step::SetKeywords(String::new()),
@@ -107,6 +112,8 @@ impl Step {
             Step::AddHeader(_) => "add_header",
             Step::AddFooter(_) => "add_footer",
             Step::SetTitle(_) => "set_title",
+            Step::SetMetadata(_) => "set_metadata",
+            Step::RemoveMetadata => "remove_metadata",
             Step::SetAuthor(_) => "set_author",
             Step::SetSubject(_) => "set_subject",
             Step::SetKeywords(_) => "set_keywords",
@@ -139,6 +146,8 @@ impl Step {
             Step::AddHeader(_) => "Add header",
             Step::AddFooter(_) => "Add footer",
             Step::SetTitle(_) => "Set document title",
+            Step::SetMetadata(_) => "Set metadata key and value",
+            Step::RemoveMetadata => "Remove document metadata",
             Step::SetAuthor(_) => "Set document author",
             Step::SetSubject(_) => "Set document subject",
             Step::SetKeywords(_) => "Set document keywords",
@@ -155,14 +164,14 @@ impl Step {
     /// The step's text argument, if it takes one.
     pub fn arg(&self) -> Option<&str> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }
 
     pub fn arg_mut(&mut self) -> Option<&mut String> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }
@@ -177,6 +186,7 @@ impl Step {
         if matches!(&s, Step::ConvertPdfA(v) if !["2b", "3b"].contains(&v.as_str())) { return None; }
         if let Step::PageNumbers(v) = &s { number_settings(v).ok()?; }
         match &s {
+            Step::SetMetadata(_) => { command_edit(&s, 1).ok()?; }
             Step::KeepPages(v) | Step::DeletePages(v) => { page_selection(v, 100_000).ok()?; }
             Step::WatermarkOptions(_) | Step::HeaderFooterOptions(_) => { command_edit(&s, 100_000).ok()?; }
             _ => {}
@@ -313,6 +323,13 @@ pub fn command_edit(step: &Step, pages: usize) -> Result<Edit, EditError> {
             settings.text[if matches!(step, Step::AddHeader(_)) { 1 } else { 4 }] = t.clone();
             Edit::AddHeaderFooter { pages: all, settings, replace: false }
         }
+        Step::RemoveMetadata => Edit::RemoveHidden { which: vec![crate::Hidden::Metadata, crate::Hidden::PrivateData] },
+        Step::SetMetadata(value) => {
+            let (key, value) = value.split_once('|').ok_or_else(|| EditError::Invalid("Metadata needs key|value".into()))?;
+            if !["Title", "Author", "Subject", "Keywords", "Creator", "Producer", "CreationDate", "ModDate", "Trapped"].contains(&key) { return Err(EditError::Invalid("Unsupported metadata key".into())); }
+            if ["CreationDate", "ModDate", "Trapped"].contains(&key) && !value.is_empty() { return Err(EditError::Invalid("This metadata key can only be cleared in an action".into())); }
+            Edit::SetInfo { key: key.into(), value: value.into() }
+        }
         Step::SetTitle(t) => Edit::SetInfo { key: "Title".into(), value: t.clone() },
         Step::SetAuthor(t) => Edit::SetInfo { key: "Author".into(), value: t.clone() },
         Step::SetSubject(t) => Edit::SetInfo { key: "Subject".into(), value: t.clone() },
@@ -388,6 +405,9 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
         }
         _ => command_edit(step, pages)?,
     };
+    if matches!(&edit, Edit::DeletePages { pages } if pages.is_empty()) {
+        log.push(format!("{}: no pages to remove", step.label())); return Ok(None);
+    }
     // Sheaf: permissions, unsupported content and write failures must stop an action.
     // Flattening an empty set already succeeds in the editor; do not swallow real errors.
     s.apply(id, edit)?;
