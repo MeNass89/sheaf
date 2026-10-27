@@ -36,3 +36,5 @@ tempfile.workspace = true
 pdfium-render.workspace = true
 lopdf.workspace = true
 image.workspace = true
+dirs.workspace = true
+zip.workspace = true
