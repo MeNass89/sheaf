@@ -878,6 +878,11 @@ export component ReaderScreen inherits Rectangle {
                         height: root.tab.split-height;
                         mouse-cursor: root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
                         pointer-event(e) => {
+                            // Another document: its tab comes to the front, this one in its other pane.
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.tab.split-title != "" {
+                                ReaderBridge.split-focus(root.id);
+                                return;
+                            }
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !root.pane-press {
                                 ReaderBridge.split-focus(root.id);
                                 keys.focus();
@@ -895,6 +900,16 @@ export component ReaderScreen inherits Rectangle {
                             if root.pane-press { ReaderBridge.moved(root.id, root.main-x(self.absolute-position.x + self.mouse-x), root.main-y(self.absolute-position.y + self.mouse-y)); }
                         }
                     }
+                }
+                // The other document's name, at the other pane's top left.
+                if root.split > 0 && root.tab.split-title != "": Rectangle {
+                    x: sv2.x + 12px;
+                    y: sv2.y + 8px;
+                    width: min(split-name.preferred-width + 20px, sv2.width / 2);
+                    height: 26px;
+                    border-radius: 13px;
+                    background: Theme.toast-bg;
+                    split-name := Text { x: 10px; width: parent.width - 20px; text: root.tab.split-title; font-size: Theme.fs-caption; color: Theme.on-toast; overflow: elide; vertical-alignment: center; }
                 }
                 // The other pane's own buttons: Sync scroll, Close.
                 if root.split > 0: Rectangle {

@@ -756,6 +756,8 @@ export struct ToolTab {
     split-height: length,
     split-scroll: length,
     split-scroll-x: length,
+    // The other document's name when the other pane shows another tab ("": this document).
+    split-title: string,
     // Redact
     redact-searched: bool,
     redact-busy: bool,
@@ -874,6 +876,9 @@ export global ReaderBridge {
     callback split-view(int, int);
     callback split-focus(int);
     callback split-sync(int);
+    // Split with another open document (the k-th of split-names), and those names.
+    callback split-with(int, int);
+    pure callback split-names(int) -> [string];
     // Rotate View: the pages shown turned a quarter clockwise (1) or back (−1), not the file.
     callback rotate-view(int, int);
     callback toggle-grid(int);

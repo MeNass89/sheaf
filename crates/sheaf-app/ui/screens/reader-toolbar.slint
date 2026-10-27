@@ -23,6 +23,8 @@ export component ReaderToolbar inherits Rectangle {
     // The hand tool: the reading view's own (reader.slint).
     in property <bool> hand;
     callback toggle-hand();
+    // The other open documents a split can show, read as the menu opens.
+    property <[string]> split-names;
 
     property <string> page-text: root.tab.reader.page-text;
     changed page-text => { if !page-in.has-focus { page-in.text = root.page-text; } }
@@ -411,7 +413,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 17 { ReaderBridge.show-help(root.id, true); }
                                         if k == 18 { ReaderBridge.share-file(root.id, false); }
                                         if k == 19 { ReaderBridge.share-file(root.id, true); }
-                                        if k == 20 { layout-menu.show(); return; }
+                                        if k == 20 { root.split-names = ReaderBridge.split-names(root.id); layout-menu.show(); return; }
                                         root.focus-pages();
                                     }
                                 }
@@ -457,6 +459,19 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 2 { ReaderBridge.split-view(root.id, root.tab.split-mode == 2 ? 0 : 2); }
                                         if k == 3 && root.tab.split-mode > 0 { ReaderBridge.split-sync(root.id); }
                                         if k == 4 { root.toggle-hand(); }
+                                        root.focus-pages();
+                                    }
+                                }
+                            }
+                            // PDF Expert's split of two documents: another open tab in the other pane.
+                            for name[k] in root.split-names: Rectangle {
+                                height: 28px;
+                                border-radius: Theme.radius-small;
+                                background: st.has-hover ? Theme.popup-hover : transparent;
+                                Text { x: 10px; width: parent.width - 20px; text: (root.tab.split-title == name ? "✓ " : "") + "Split with " + name; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                                st := TouchArea {
+                                    clicked => {
+                                        ReaderBridge.split-with(root.id, k);
                                         root.focus-pages();
                                     }
                                 }

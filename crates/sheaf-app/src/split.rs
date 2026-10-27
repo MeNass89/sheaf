@@ -3,6 +3,10 @@
 //! viewer, so every tool, click and shortcut works there as it does without a split; the other pane
 //! is [`Split::view`], scrolled on its own or with the active one (Sync scroll). A press in the other
 //! pane swaps the two: it becomes the tab's viewer, and the press goes on to it.
+//!
+//! The other pane may show another open tab's document instead (PDF Expert's split of two documents):
+//! a viewer of that tab's working copy, followed as it changes. A press in it goes to that tab, which
+//! then shows this one in its other pane, each half still showing what it showed.
 
 use sheaf_app::{AppWindow, ToolTab};
 use slint::{ModelRc, VecModel};
@@ -17,6 +21,9 @@ pub struct Split {
     pub half: i32,
     /// The other pane.
     pub view: Box<ViewerUi>,
+    /// The tab whose document the other pane shows, and its name (None: this tab's own document).
+    pub other: Option<i32>,
+    pub title: String,
     /// Sync scroll (PDF Expert's): the panes move together.
     pub sync: bool,
     /// Bumped when the other pane's scroll is set from here (laid out again: kept on its place).
@@ -34,6 +41,7 @@ pub fn fill(tab: &mut ToolTab, t: &TabState) {
     tab.split_sync = s.sync;
     tab.split_seq = s.seq;
     tab.split_swap = s.swap;
+    tab.split_title = s.title.as_str().into();
     tab.split_pages = ModelRc::new(VecModel::from(v.pane_pages()));
     tab.split_width = v.viewer.content_width() as f32;
     tab.split_height = v.viewer.content_height() as f32;
@@ -52,7 +60,39 @@ pub fn open(ui: &AppWindow, tab_id: i32, mode: i32) {
             s.mode = mode.min(2);
         } else if let Some(v) = t.viewer.as_deref() {
             let view = Box::new(v.twin());
-            t.split = Some(Split { mode: mode.min(2), half: 0, view, sync: false, seq: 1, swap: 0 });
+            t.split = Some(Split { mode: mode.min(2), half: 0, view, other: None, title: String::new(), sync: false, seq: 1, swap: 0 });
+        }
+        refresh(a, tab_id);
+    });
+    viewer_ui::request(ui, tab_id);
+}
+
+/// The other open documents a split can show (More ▸ … ▸ Split with): every reader tab but this one.
+fn others(a: &App, tab_id: i32) -> Vec<(i32, String)> {
+    a.tabs
+        .iter()
+        .filter(|t| t.id != tab_id && t.viewer.is_some())
+        .filter_map(|t| Some((t.id, t.reader.as_ref()?.path.file_name()?.to_string_lossy().into_owned())))
+        .collect()
+}
+
+/// The names [`open_with`] offers, in its order.
+pub fn names(tab_id: i32) -> Vec<String> {
+    with(|a| others(a, tab_id).into_iter().map(|(_, n)| n).collect())
+}
+
+/// More ▸ … ▸ Split with `k`-th other document: the other pane shows it, where its tab stands, side
+/// by side (or as the split already is); again, the split closes.
+pub fn open_with(ui: &AppWindow, tab_id: i32, k: i32) {
+    with(|a| {
+        let Some((b, title)) = others(a, tab_id).into_iter().nth(k.max(0) as usize) else { return };
+        let Some(view) = a.tab(b).and_then(|t| t.viewer.as_deref()).map(|v| Box::new(v.twin())) else { return };
+        let Some(t) = a.tab(tab_id) else { return };
+        if t.split.as_ref().is_some_and(|s| s.other == Some(b)) {
+            t.split = None;
+        } else {
+            let mode = t.split.as_ref().map_or(1, |s| s.mode);
+            t.split = Some(Split { mode, half: 0, view, other: Some(b), title, sync: false, seq: 1, swap: 0 });
         }
         refresh(a, tab_id);
     });
@@ -92,13 +132,47 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, left: f32, top: f32, width: f32, he
 /// A press in the other pane: it becomes the active one (the tab's viewer: tools, zoom, the page
 /// field and the thumbnails are its), each pane still showing what it showed.
 pub fn focus(ui: &AppWindow, tab_id: i32) {
-    with(|a| {
-        let Some(t) = a.tab(tab_id) else { return };
-        let (Some(main), Some(s)) = (t.viewer.as_mut(), t.split.as_mut()) else { return };
+    let went = with(|a| {
+        let t = a.tab(tab_id)?;
+        let (Some(main), Some(s)) = (t.viewer.as_mut(), t.split.as_mut()) else { return None };
+        if let Some(b) = s.other {
+            let j = hand_over(a, tab_id, b)?;
+            refresh(a, tab_id);
+            refresh(a, b);
+            return Some((j, b));
+        }
         swap_panes(main, s);
         refresh(a, tab_id);
+        None
     });
-    viewer_ui::request(ui, tab_id);
+    match went {
+        Some((j, b)) => {
+            ui.set_active_tab(j as i32);
+            viewer_ui::request(ui, b);
+        }
+        None => viewer_ui::request(ui, tab_id),
+    }
+}
+
+/// A press in the other pane when it shows tab `b`: `b` becomes the tab in view, its own viewer where
+/// the pane stood and at its size, and this tab's document in its other pane, in the other half.
+/// Returns `b`'s index.
+fn hand_over(a: &mut App, tab_id: i32, b: i32) -> Option<usize> {
+    let (i, j) = (a.tab_index(tab_id)?, a.tab_index(b)?);
+    if a.tabs[j].viewer.is_none() {
+        return None;
+    }
+    let mine = Box::new(a.tabs[i].viewer.as_deref()?.twin());
+    let title = a.tabs[i].reader.as_ref().and_then(|r| r.path.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let s = a.tabs[i].split.take()?;
+    let tb = &mut a.tabs[j];
+    let vb = tb.viewer.as_deref_mut()?;
+    vb.viewer = s.view.viewer.clone();
+    (vb.top, vb.left, vb.height) = (s.view.top, s.view.left, s.view.height);
+    vb.scroll = vb.top;
+    vb.scroll_x = Some(vb.left);
+    tb.split = Some(Split { mode: s.mode, half: 1 - s.half, view: mine, other: Some(tab_id), title, sync: s.sync, seq: 1, swap: s.swap + 1 });
+    Some(j)
 }
 
 /// The panes' viewers change places (see [`focus`]).
@@ -126,9 +200,35 @@ pub fn toggle_sync(tab_id: i32) {
 }
 
 /// The other pane keeps up with the viewer the reader works in (see [`ViewerUi::follow`]).
+/// Another tab's document: that tab's viewer; the split closes with that tab.
 pub fn follow(a: &mut App, tab_id: i32) {
-    let Some(t) = a.tab(tab_id) else { return };
-    if let (Some(main), Some(s)) = (t.viewer.as_deref(), t.split.as_mut())
+    let Some(i) = a.tab_index(tab_id) else { return };
+    let (t, main) = match a.tabs[i].split.as_ref().map(|s| s.other) {
+        None => return,
+        Some(None) => {
+            let t = &mut a.tabs[i];
+            (&mut t.split, t.viewer.as_deref())
+        }
+        Some(Some(b)) => {
+            let Some(j) = a.tab_index(b).filter(|&j| j != i) else {
+                a.tabs[i].split = None;
+                return;
+            };
+            let (t, o) = if i < j {
+                let (x, y) = a.tabs.split_at_mut(j);
+                (&mut x[i], &y[0])
+            } else {
+                let (x, y) = a.tabs.split_at_mut(i);
+                (&mut y[0], &x[j])
+            };
+            (&mut t.split, o.viewer.as_deref())
+        }
+    };
+    let Some(main) = main else {
+        *t = None;
+        return;
+    };
+    if let Some(s) = t.as_mut()
         && s.view.follow(main)
     {
         s.seq += 1;
@@ -154,7 +254,7 @@ mod tests {
     fn the_panes_have_their_own_zoom_and_swap_on_a_press() {
         let mut main = viewer(20);
         main.top = main.viewer.page_rect(5)[1];
-        let mut s = Split { mode: 1, half: 0, view: Box::new(main.twin()), sync: false, seq: 1, swap: 0 };
+        let mut s = Split { mode: 1, half: 0, view: Box::new(main.twin()), other: None, title: String::new(), sync: false, seq: 1, swap: 0 };
         assert!(s.view.pane && !main.pane);
         assert_eq!(s.view.scroll, main.top, "opens on the active pane's place");
         assert_ne!(s.view.load_id, main.load_id, "renders of its own");

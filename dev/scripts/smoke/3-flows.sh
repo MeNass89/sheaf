@@ -1188,3 +1188,14 @@ click 1020 420 0.8; key ctrl+equal; key ctrl+equal; sleep 1.5
 ZL1=$(redshare 262); ZR1=$(redshare 772)
 check "split view: a drag in the other pane selects there, and each pane zooms on its own ($SI; quick at ${QX:-?}; copied '$(echo "$SC" | cut -c1-20)'; red $ZL0 $ZR0 → $ZL1 $ZR1)" "echo \"$SC\" | grep -q 'quick' && python3 -c 'import sys; l0, r0, l1, r1 = map(float, sys.argv[1:]); sys.exit(0 if abs(l0 - r0) < 0.02 and abs(l1 - l0) < 0.02 and r1 > l1 + 0.03 else 1)' ${ZL0:-0} ${ZR0:-1} ${ZL1:-0} ${ZR1:-0}"
 quit
+
+# 204. … ▸ Split with across.pdf (PDF Expert's split of two documents): text.pdf's tab shows across.pdf's red page
+# in the other pane, named; a click there brings across.pdf's tab forward with text.pdf in its other pane, each
+# half still showing what it showed.
+cp "$OUT/text.pdf" "$OUT/split4.pdf"; launch "$OUT/split3.pdf" "$OUT/split4.pdf"; sleep 3
+WI=$(layout_item with); sleep 1.5
+D0=$(colour_at 1020); N0=$(ocr 500x60+770+90)
+click 1020 420 1.5
+D1=$(colour_at 1020); L1=$(colour_at 510); N1=$(ocr 500x60+260+90)
+check "split with another document, then its tab forward with this one beside it ($WI; $D0 '$(echo "$N0" | cut -c1-20)' → $L1 $D1 '$(echo "$N1" | cut -c1-20)')" "reddish '${D0:-#000000}' && echo \"$N0\" | grep -q 'split3' && reddish '${D1:-#000000}' && ! reddish '${L1:-#FF0000}' && echo \"$N1\" | grep -q 'split4'"
+quit
