@@ -95,6 +95,8 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | `wm_preview.rs` | Add watermark's live preview: page 1 marked with the panel's options, redrawn as they change. |
 | `dialog.rs`, `password.rs`, `open_with.rs`, `icons.rs` | File dialogs, password prompt, files opened from outside, icons. |
 | `platform.rs`, `platform_ui.rs` | The menu bar's commands and their shortcuts (the user's, Preferences ▸ Keyboard shortcuts), check spelling while typing (the card under an editor), tools hidden when they cannot run here, the right-to-left interface; the `PlatformBridge` global (`ui/platform.slint`). |
+| `settings.rs`, `settings_ui.rs` | Preferences ▸ Printing (the print sheet's defaults), Security (enhanced security, web link question, trusted locations, remembered sites) and Startup (open at login, quit warning); the `SettingsBridge` global (`ui/settings.slint`), sections in `ui/screens/preferences-more.slint`. |
+| `feedback.rs`, `feedback_ui.rs` | Help ▸ Report an Issue…: the report (subject, message, files, details) saved as a zip, copied or opened as a new issue in the browser; `ui/screens/feedback.slint` (`FeedbackBridge`). |
 
 ## Where to change what
 
@@ -104,7 +106,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | A reader tool, shortcut or panel | `ui/screens/reader.slint` (composition, pages, keys), `reader-toolbar.slint` (top bar: tools, page field, zoom, search, More menu), `reader-options.slint` (the tool's options bar over the pages), `reader-sheets.slint` (signature pad, print, properties), `reader-form.slint` (Prepare form's field boxes and card), `reader-panel.slint` (side panel), `reader-parts.slint` (small controls) + `src/reader_ui/<part>.rs` (behaviour); state fields in `ui/flow-types.slint` (`ReaderState`, `ReaderBridge`) |
 | An edit to the open document | `Op` in `reader_doc/mod.rs`, sent from `reader_ui/edits.rs` |
 | Colours, sizes, fonts | `ui/theme.slint` |
-| A preference | `prefs.rs` + `ui/screens/preferences.slint` (spelling, keyboard, interface: `prefs.rs` `platform` + `preferences-platform.slint`) |
+| A preference | `prefs.rs` + `ui/screens/preferences.slint` (spelling, keyboard, interface: `prefs.rs` `platform` + `preferences-platform.slint`; printing, security, startup: `prefs.rs` `settings` + `preferences-more.slint`) |
 | A menu bar command | `src/platform.rs` `COMMANDS` (at the end) + its `MenuItem` in `ui/main.slint`'s `MenuBar`, reading `PlatformBridge.keys[<its index>]` |
 | A reader tool's letter | `src/platform.rs` `TOOLS` (by tool number; reader.slint asks `PlatformBridge.tool-for-key`) |
 | Right to left for a row | a `FlexboxLayout` with `flex-direction: PlatformBridge.rtl ? row-reverse : row` (Slint's HorizontalLayout has no direction) |
