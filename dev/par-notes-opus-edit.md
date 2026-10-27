@@ -129,3 +129,20 @@ Not built or run here (brief rule 1): the orchestrator compiles and runs the sui
 - C-edit-004: 1. (numbered list, Acrobat's) beside •, for new text and the paragraph open; the two
   replace each other; a list made again is renumbered (tests `lines_become_a_numbered_list_and_back`,
   `para_bits(10)`). Smoke 2c's + moved to 825 (the new button shifts the row by 34 px).
+
+## Round 27 fixes (Sol's second review)
+
+- C-edit-004: B and I after More fonts… pick the chosen font's own bold/italic face (`system_fonts::face`).
+- C-edit-009: after Backward or To back, the picked object (drawn first of its twins) stays picked
+  (`reader::picked_again_from`; test `twins_are_picked_again_in_the_order_the_restack_left_them`).
+- C-annotate-009: a new callout takes the format row's family and style or a font of the computer's
+  (test `a_callout_takes_the_chosen_font`).
+- C-annotate-022: a recolour keeps a rich text's mixed runs, only its text colours change
+  (`recoloured_css`; test `a_recoloured_rich_text_box_keeps_its_mixed_runs`).
+- C-annotate-015: a mask is resized by its opening; its box in the reader is its opening
+  (test `a_resized_mask_resizes_its_opening`).
+- C-edit-024: Undo or Redo forget an article being drawn that no longer exists
+  (`article_boxes::reconcile`; test `an_undone_article_is_no_longer_drawn`).
+- Smoke 210–214 run on the real app (display 111): ALL PASS after fixing 210 (To front found in the
+  card by OCR) and 212 (the list's first row clicked inside the list, applied with Done). The
+  Objects card was too narrow for the Order row ("To back" cut off): now 420 px.

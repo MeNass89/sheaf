@@ -124,3 +124,17 @@ fn a_moved_loupe_shows_its_new_place_and_a_moved_mask_its_new_opening() {
     doc.apply(Edit::MoveAnnotation { page: 0, index: 1, dx: 50.0, dy: 20.0 }).unwrap();
     assert_eq!(doc.document().mask_holes(), [((0, 1), [150.0, 120.0, 250.0, 220.0])]);
 }
+
+/// A mask resized by its opening: the opening takes the new box, the page stays dimmed outside
+/// it (Sol, 27/10: the rectangle changed and the opening stayed).
+#[test]
+fn a_resized_mask_resizes_its_opening() {
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = page(dir.path(), b"");
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    doc.apply(Edit::AddMask { page: 0, hole: [100.0, 100.0, 200.0, 200.0], oval: false, author: String::new() }).unwrap();
+    doc.apply(Edit::ResizeAnnotation { page: 0, index: 0, rect: [100.0, 100.0, 400.0, 300.0] }).unwrap();
+    assert_eq!(doc.document().mask_holes(), [((0, 0), [100.0, 100.0, 400.0, 300.0])]);
+    assert!(red_at(&doc, dir.path(), 350, 250) > 240, "the opening grew");
+    assert!((60..=140).contains(&red_at(&doc, dir.path(), 50, 50)), "the page stays dimmed outside it");
+}
