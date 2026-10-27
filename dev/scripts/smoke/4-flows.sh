@@ -881,7 +881,6 @@ for _ in $(seq 1 20); do [ -f "$OUT/353-source-353.pdf" ] && break; sleep 0.5; d
 shot 353-wizard-output
 check "353 saved multistep action prompts then marks only selected pages (${CT:-no Continue})" "pdfinfo \"$OUT/353-source-353.pdf\" 2>/dev/null | grep -q '^Title:.*Wizard result' && pdftotext -f 2 -l 3 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review' && ! pdftotext -f 1 -l 1 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review'"
 quit
-
 # 354. Acrobat's saved-action run continues after a damaged PDF or missing file, keeps successful
 # results, and lists each failure separately rather than growing an unbounded status paragraph.
 python3 - "$OUT/354-run.json" <<'PY354'
@@ -904,6 +903,38 @@ sleep 1; shot 354-run-report
 RS=$(ocr 1060x240+210+550)
 check "354 saved action reports one output and both per-file failures (${RN:-no Run})" "[ -f \"$OUT/354-valid-354.pdf\" ] && echo \"$RS\" | grep -q '1 of 3' && echo \"$RS\" | grep -q '2 failed' && echo \"$RS\" | grep -q '354-broken' && echo \"$RS\" | grep -q '354-missing' && cmp -s \"$OUT/text.pdf\" \"$OUT/354-valid.pdf\""
 quit
+
+# 355. Stirling's Folder Scanning resumes a saved recursive watch on startup, names outputs,
+# checkpoints handled revisions and does not duplicate them after restarting the real app.
+python3 - "$PWD/$OUT" <<'PY355'
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1]).resolve(); inbox = root / "355-in"; out = root / "355-out"
+(inbox / "nested").mkdir(parents=True, exist_ok=True); out.mkdir(exist_ok=True)
+settings = root / "profile/data/Sheaf"; settings.mkdir(parents=True, exist_ok=True)
+action = {"version":1,"name":"Watched titles","steps":[{"tool":"set_title","argument":"Watched result"}]}
+watch = {"input":str(inbox),"output":str(out),"seen":{},"title_names":False,"recursive":True,
+         "pattern":"{counter}-{name}","archive_inputs":False,"sequence":0}
+(settings / "folder-watch.json").write_text(json.dumps({"version":1,"action":action,"watch":watch}))
+PY355
+launch
+cp "$OUT/text.pdf" "$OUT/355-in/nested/upload.pdf"
+for _ in $(seq 1 40); do [ -f "$OUT/355-out/1-upload.pdf" ] && break; sleep 0.5; done
+check "355 saved recursive watch processes and renames an incoming PDF" "[ -f \"$OUT/355-out/1-upload.pdf\" ] && pdfinfo \"$OUT/355-out/1-upload.pdf\" 2>/dev/null | grep -q '^Title:.*Watched result'"
+quit
+launch
+sleep 5
+N1=$(find "$OUT/355-out" -maxdepth 1 -name '*.pdf' | wc -l)
+cp "$OUT/text.pdf" "$OUT/355-in/second.pdf"
+for _ in $(seq 1 40); do [ -f "$OUT/355-out/2-second.pdf" ] && break; sleep 0.5; done
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+shot 355-watched-restart
+check "355 restarted watch skips its handled revision and continues its naming counter ($N1 existing)" "[ \"$N1\" = 1 ] && [ -f \"$OUT/355-out/2-second.pdf\" ] && [ \"\$(find \"$OUT/355-out\" -maxdepth 1 -name '*.pdf' | wc -l)\" = 2 ]"
+quit
+# Do not resume this smoke's watch in later smoke steps.
+python3 - "$OUT/profile/data/Sheaf" <<'PY355C'
+import pathlib, sys
+for p in pathlib.Path(sys.argv[1]).glob("folder-watch*.json"): p.unlink()
+PY355C
 
 # 356. Acrobat's folder input is gathered off the UI thread, then the selected recursive PDFs
 # run through the saved action. Each original stays intact beside its output copy.
