@@ -497,3 +497,8 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
 - C-batch-002 proof refinement: the native-options regression also extracts the produced page's
   text and asserts Page 7 survives every compression preset, rather than checking only page count
   and configuration parsing. Test written, not run.
+
+- C-files-008 lock correction: static inspection confirmed the older app zip dependency was
+  still missing from Cargo.lock's sheaf-app package list. Added the existing resolved `zip 4.6.1`
+  entry there manually; its version/checksum/transitive packages were already locked. No cargo,
+  dependency resolution, install or test was run. This supersedes the prior lock-refresh warning.
