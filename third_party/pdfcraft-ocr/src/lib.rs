@@ -176,6 +176,12 @@ pub struct Ocr {
 
 impl Ocr {
     pub fn load(models: &Models) -> Result<Ocr, OcrError> {
+        Self::load_with_prepacked_weights(models, true)
+    }
+
+    /// Sheaf: configure recognition weight prepacking for accuracy comparisons and release
+    /// benchmarks. The default packs once at load time, rather than for every scanned line.
+    pub fn load_with_prepacked_weights(models: &Models, prepack: bool) -> Result<Ocr, OcrError> {
         let load = |p: &Path| rten::Model::load_file(p).map_err(|e| OcrError::Load(p.display().to_string(), e.to_string()));
         let params = ocrs::OcrEngineParams {
             detection_model: Some(load(&models.detection)?),
@@ -185,7 +191,7 @@ impl Ocr {
         };
         let engine = ocrs::OcrEngine::new(params).map_err(|e| OcrError::Load("ocr engine".into(), e.to_string()))?;
         let latin = match &models.latin {
-            Some((model, dict)) => Some(latin::Latin::load(model, dict).map_err(|e| OcrError::Load(LATIN_MODEL.into(), e))?),
+            Some((model, dict)) => Some(latin::Latin::load(model, dict, prepack).map_err(|e| OcrError::Load(LATIN_MODEL.into(), e))?),
             None => None,
         };
         Ok(Ocr { engine, latin })

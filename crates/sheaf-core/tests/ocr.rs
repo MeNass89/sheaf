@@ -234,3 +234,19 @@ fn foreign_encrypted_scans_are_read() {
     }
 }
 
+
+
+#[test]
+fn prepacked_recognition_keeps_the_words_and_their_placement() {
+    use sheaf_core::pdfcraft::engine::ocr::{Models, Ocr};
+    let models = Models::find().or_else(|| Models::in_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vendor/models"))).unwrap();
+    assert!(models.reads_accents(), "the Latin model is required for this comparison");
+    let t = tempfile::tempdir().unwrap();
+    let scan = scan_of(t.path(), "Révision OCR 2026");
+    let d = sheaf_core::pdfcraft::Doc::open(&Input::new(scan)).unwrap();
+    let shot = d.render(0, 300.0 / 72.0).unwrap();
+    let ordinary = Ocr::load_with_prepacked_weights(&models, false).unwrap().recognize(&shot.rgba, shot.width, shot.height).unwrap();
+    let packed = Ocr::load(&models).unwrap().recognize(&shot.rgba, shot.width, shot.height).unwrap();
+    assert!(!packed.is_empty());
+    assert_eq!(packed, ordinary, "packing changes matrix layout, not recognition or placement");
+}

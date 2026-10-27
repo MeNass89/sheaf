@@ -26,11 +26,13 @@ pub(crate) struct Latin {
 }
 
 impl Latin {
-    pub(crate) fn load(model: &Path, dict: &Path) -> Result<Latin, String> {
+    pub(crate) fn load(model: &Path, dict: &Path, prepack: bool) -> Result<Latin, String> {
         let text = std::fs::read_to_string(dict).map_err(|e| format!("{}: {e}", dict.display()))?;
         let mut chars: Vec<char> = text.lines().filter_map(|l| l.chars().next()).collect();
         chars.push(' ');
-        let model = rten::Model::load_file(model).map_err(|e| format!("{}: {e}", model.display()))?;
+        // The same recognition weights serve every line. Packing them once avoids repeating
+        // the matrix layout conversion in every inference (the big-scan performance gap).
+        let model = rten::ModelOptions::with_all_ops().prepack_weights(prepack).load_file(model).map_err(|e| format!("{}: {e}", model.display()))?;
         Ok(Latin { model, chars })
     }
 

@@ -18,6 +18,14 @@
   credential store, including locked-store behaviour — requires logged-in desktop/keyring access`.
   Left: platform integration must be run; no runtime parity claim from this unbuilt worker.
 
+- C-optimize-006 (partial): the Latin recognizer now prepacks its matrix weights once when loaded,
+  reusing them for every line instead of packing on each inference. RTen's installed source
+  (`ModelOptions::prepack_weights`) documents this inference optimization. Test
+  `prepacked_recognition_keeps_the_words_and_their_placement` compares packed and unpacked results.
+  New public item: `Ocr::load_with_prepacked_weights` for accuracy/performance comparisons.
+  Left: release timing on the MICI scan against the recorded 15.5 s/page and Tesseract's
+  11.75 s/page; no claim that this closes the performance grade without the orchestrator's run.
+
 ## Polaroid
 
 - Active: eight-component OCR/sign/security batch. Signature storage implementation written and inspected;
