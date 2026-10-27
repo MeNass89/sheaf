@@ -26,6 +26,20 @@
   Left: release timing on the MICI scan against the recorded 15.5 s/page and Tesseract's
   11.75 s/page; no claim that this closes the performance grade without the orchestrator's run.
 
+- C-optimize-007 (partial): the existing OCR language selector offers installed Chinese,
+  Japanese, Korean (horizontal and vertical), Arabic, Hebrew, Cyrillic, Greek, Hindi, Thai and
+  Vietnamese packs through offline Tesseract, as iLovePDF's `LanguageOcrModel.qml` does.
+  The same engine job preserves skip-text, duplicate filtering, page geometry and cancellation.
+  Tests `local_ocr_keeps_cjk_words_lines_and_vertical_geometry`,
+  `malformed_local_ocr_fails_instead_of_losing_a_page_silently`; locale regression updated to
+  account for an installed Japanese pack. New engine public items `Line`, `Word`, `Turn`
+  reexports and `OcrJob::run_with`.
+  Left: Tesseract executable and language packs are optional external runtime requirements,
+  not bundled; scripts absent locally are not offered. This does not reach iLovePDF's roughly
+  100-language bundled/downloadable coverage. No downloads or network code added.
+  `not automatable: select an installed CJK language in the OCR panel and inspect selection
+  against a real scan — needs the orchestrator's app and matching local language pack`.
+
 ## Polaroid
 
 - Active: eight-component OCR/sign/security batch. Signature storage implementation written and inspected;

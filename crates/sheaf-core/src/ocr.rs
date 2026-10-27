@@ -11,10 +11,13 @@ use crate::{pages::Input, OpdfError, Result};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+#[path = "ocr_local.rs"]
+mod local;
+
 /// OCR settings.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OcrOptions {
-    /// A code from [`languages`]. The models read Latin script, whatever the language.
+    /// A code from [`languages`]; extra scripts use installed offline language packs.
     pub language: String,
     /// Also read pages that already contain text (only words not already there are added).
     pub read_text_pages: bool,
@@ -80,7 +83,12 @@ const HAS_TEXT: &str = "the page already contains text";
 
 /// The languages offered: (code, name).
 pub fn languages() -> &'static [(&'static str, &'static str)] {
-    eng::LANGUAGES
+    static LANGUAGES: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
+    LANGUAGES.get_or_init(|| {
+        let mut languages = eng::LANGUAGES.to_vec();
+        languages.extend(local::LANGUAGES.iter().filter(|(code, _, _)| local::supports(code)).map(|(code, name, _)| (*code, *name)));
+        languages
+    })
 }
 
 /// The language to offer first for a system locale ("fr-FR", "de_CH.UTF-8"): its own when the
@@ -174,11 +182,12 @@ pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnM
     if let Some(why) = doc.session().get(doc.id()).and_then(|d| d.read_only_reason.clone()) {
         return Err(OpdfError::Unsupported(why));
     }
-    let ocr = engine()?;
+    let external = local::supports(&opts.language);
+    let ocr = if external { None } else { Some(engine()?) };
     let settings = OcrSettings { dpi: opts.dpi, language: opts.language.clone(), skip_text_pages: !opts.read_text_pages };
     let job = doc.session().ocr_job(doc.id(), &[], settings).ok_or_else(|| OpdfError::Engine("the document could not be read".into()))?;
     let mut stopped = false;
-    let pages = job.run(&ocr, |done, total| {
+    let mut report_progress = |done, total| {
         if stopped {
             return false;
         }
@@ -186,7 +195,11 @@ pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnM
         // The final call (done == total) only reports; a stop there changes nothing.
         stopped = !go && done < total;
         go
-    });
+    };
+    let pages = match ocr {
+        Some(ocr) => job.run(&ocr, &mut report_progress),
+        None => job.run_with(|pixels, width, height| local::recognize(pixels, width, height, &opts.language), &mut report_progress),
+    };
     if stopped {
         return Err(OpdfError::Cancelled);
     }

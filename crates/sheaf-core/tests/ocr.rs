@@ -206,7 +206,8 @@ fn words_beyond_winansi_are_kept_in_the_text_layer() {
 fn the_system_language_is_offered_first() {
     assert_eq!(ocr::default_language(Some("fr-FR")), "fr");
     assert_eq!(ocr::default_language(Some("de_CH.UTF-8")), "de");
-    assert_eq!(ocr::default_language(Some("ja-JP")), "en", "a language the models do not read");
+    let japanese = if ocr::languages().iter().any(|(c, _)| *c == "ja") { "ja" } else { "en" };
+    assert_eq!(ocr::default_language(Some("ja-JP")), japanese, "offer Japanese only with its installed model");
     assert_eq!(ocr::default_language(None), "en");
 }
 
