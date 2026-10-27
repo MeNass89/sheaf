@@ -49,6 +49,14 @@
   shortcuts off while it does; right-hand Ctrl/Shift so a left Ctrl being held stays held). (tests
   `shortcuts_change_conflict_and_reset`, `shortcut_rows_are_searched`, `rebound_commands_stop_their_other_keys`;
   smoke step 228)
+- Fourth pass (Sol's review): C-edit-013, a reply is checked even when its comment has no text (a highlight
+  replied to; `replies_are_checked_even_when_their_comment_has_no_text`). C-reader-060, the grammar's
+  English rules (a/an, a capital after a full stop) apply only with an English dictionary; another
+  language gets repeated words and spaces (`the_light_grammar_pass`: "Il a une idée"). C-platform-014,
+  Shift, Alt or Super still held when Edit ▸ Undo and the like send their keys on (Ctrl+Shift+U given to
+  Undo) are let go for the key and pressed again after (the window's ModifiersChanged, main.rs).
+  C-preferences-013, Reset on a command refuses keys a tool launcher has taken by now
+  (`reset_refuses_keys_a_tool_has_taken`).
 - C-platform-014: a menu bar, File · Edit · View · Go · Tools · Window · Help (Acrobat's and Preview's
   menus; Slint's `MenuBar`: drawn in the window on Linux and Windows, the system menu on macOS). Every
   command shows its shortcut; a command that does not apply where the user is (Save on Home) is disabled, so
