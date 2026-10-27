@@ -1443,3 +1443,24 @@ PW=$(at Save 740x180+270+440); [ -n "$PW" ] && click $PW 3
 check "Create portfolio bundles the original instead of merging (${PC:-no Create})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
 quit
 check "kept marks exist in authenticated local storage" "has_secure_marks"
+
+# 228. Edit ▸ Undo from the menu bar (C-platform-014) acts on what has the keyboard: in Preferences ▸ Your name,
+# "Ada" typed then Edit ▸ Undo leaves the field empty (the menu is enabled there); on a document's pages, a note
+# added then Edit ▸ Undo takes the note away (saved: no note). The menu shows Undo's Ctrl+Z.
+export SHEAF_TEST_MENU_BAR=1
+launch; key ctrl+comma; sleep 0.8
+YN=$(pref_find Your); read YX YY <<< "$YN"; [ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.5; xdotool type --delay 20 "Ada"; sleep 0.4
+read MX _ <<< "$(at Edit 700x34+0+0)"; [ -n "$MX" ] && click $MX 14 0.8
+UM=$(ocr 420x520+$(( ${MX:-20} - 20 ))+24); key Escape; sleep 0.3
+# The field again has the keyboard (Escape closed the menu), then Edit ▸ Undo.
+[ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.3
+U1=$(menu Edit Undo); sleep 0.8
+AU=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("author") or "")' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+quit
+cp "$OUT/text.pdf" "$OUT/undomenu.pdf"; launch "$OUT/undomenu.pdf"; sleep 1
+key n; click 640 420 0.8; xdotool type --delay 10 "undo me"; key ctrl+Return; sleep 0.8; key v
+U2=$(menu Edit Undo); sleep 0.8; key ctrl+s; sleep 1.5
+UN=$(qpdf --qdf --object-streams=disable "$OUT/undomenu.pdf" - 2>/dev/null | grep -ac '/Subtype /Text')
+check "Edit ▸ Undo undoes the focused field's typing and, on the pages, the PDF's last edit ($U1 $U2; author '$AU'; notes $UN; menu: $(echo "$UM" | grep -o 'Undo Ctrl+Z' | head -1))" "[ -z \"$AU\" ] && [ \"$UN\" = 0 ] && echo \"$UM\" | grep -q 'Ctrl+Z'"
+quit
+unset SHEAF_TEST_MENU_BAR

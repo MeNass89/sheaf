@@ -104,7 +104,7 @@ export global PlatformBridge {
     callback check-next();
     callback check-close();
     // Edit ▸ Cut, Copy, Paste, Select All: ⌘ and this key sent to what has the keyboard.
-    callback edit-key(string);
+    callback edit-key(key: string, shift: bool);
     // File ▸ Quit: closes the window as its close button does (unsaved documents asked about).
     callback quit();
 }

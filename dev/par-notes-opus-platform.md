@@ -41,6 +41,14 @@
   its fix, Ignore) and in the Check Spelling dialog. Not covered: agreement, tense, punctuation beyond
   those. (tests `spell::tests::the_light_grammar_pass`, `the_check_pass_goes_word_by_word_through_the_texts`,
   `reader_ui::spelling::tests::a_replys_text_is_checked_without_its_author`)
+- C-platform-014 (third pass, Sol's review): Edit ▸ Undo and Redo now act on what has the keyboard, as
+  Cut/Copy/Paste do: a focused text field undoes its own typing, otherwise the reader's pages undo the
+  PDF's last edit. They are enabled everywhere (Preferences, Home). Undo, Redo, Cut, Copy, Paste and Select
+  All show their usual shortcuts in the menu (Ctrl+Z, Ctrl+Shift+Z, Ctrl+X/C/V/A; ⌘ on a Mac): the menu bar
+  takes those keys first and sends them on to the focused field or the pages (`platform_ui::edit_key`, its
+  shortcuts off while it does; right-hand Ctrl/Shift so a left Ctrl being held stays held). (tests
+  `shortcuts_change_conflict_and_reset`, `shortcut_rows_are_searched`, `rebound_commands_stop_their_other_keys`;
+  smoke step 228)
 - C-platform-014: a menu bar, File · Edit · View · Go · Tools · Window · Help (Acrobat's and Preview's
   menus; Slint's `MenuBar`: drawn in the window on Linux and Windows, the system menu on macOS). Every
   command shows its shortcut; a command that does not apply where the user is (Save on Home) is disabled, so

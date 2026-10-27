@@ -327,26 +327,38 @@ fn record(ui: &AppWindow, i: i32, text: &str, control: bool, alt: bool, shift: b
     true
 }
 
-/// Edit ▸ Cut, Copy, Paste, Select All: ⌘ (Ctrl) and `key` sent to whatever has the keyboard, as
-/// if typed — a text field cuts, copies, pastes or selects its own text; the reader's pages their
-/// selection, picked objects or comment (reader.slint's ⌘C ⌘X ⌘V ⌘A). Sent once the menu has
-/// closed and given the keyboard back. The menu bar has no shortcut on these keys, so they reach
-/// the field or the pages.
-fn edit_key(ui: &AppWindow, key: &str) {
+/// Edit ▸ Undo, Redo, Cut, Copy, Paste, Select All, from the menu or from their keys (which the
+/// menu bar takes first): ⌘ (Ctrl), ⇧ for Redo, and `key` sent to whatever has the keyboard, as if
+/// typed — a text field undoes, cuts, copies, pastes or selects in its own text; the reader's pages
+/// act on the PDF (its history, selection, picked objects or comment; reader.slint's ⌘Z ⌘C ⌘X ⌘V
+/// ⌘A). Sent once a menu opened by the mouse has closed and given the keyboard back, with the menu
+/// bar's shortcuts off meanwhile so these keys go past it. The right-hand Ctrl and Shift are the
+/// ones pressed and let go: a left Ctrl the user is holding stays held.
+fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
     use slint::platform::{Key, WindowEvent};
     let weak = ui.as_weak();
     let key = SharedString::from(key);
     slint::Timer::single_shot(Duration::from_millis(30), move || {
         let Some(ui) = weak.upgrade() else { return };
-        let ctrl = SharedString::from(Key::Control);
-        for ev in [
-            WindowEvent::KeyPressed { text: ctrl.clone() },
-            WindowEvent::KeyPressed { text: key.clone() },
-            WindowEvent::KeyReleased { text: key.clone() },
-            WindowEvent::KeyReleased { text: ctrl },
-        ] {
+        let none: Vec<slint::Keys> = vec![slint::Keys::default(); COMMANDS.len()];
+        ui.global::<PlatformBridge>().set_keys(ModelRc::new(VecModel::from(none)));
+        let ctrl = SharedString::from(Key::ControlR);
+        let shift_key = SharedString::from(Key::ShiftR);
+        let mut events = vec![WindowEvent::KeyPressed { text: ctrl.clone() }];
+        if shift {
+            events.push(WindowEvent::KeyPressed { text: shift_key.clone() });
+        }
+        let text: SharedString = if shift { key.to_uppercase().into() } else { key.clone() };
+        events.push(WindowEvent::KeyPressed { text: text.clone() });
+        events.push(WindowEvent::KeyReleased { text });
+        if shift {
+            events.push(WindowEvent::KeyReleased { text: shift_key });
+        }
+        events.push(WindowEvent::KeyReleased { text: ctrl });
+        for ev in events {
             let _ = ui.window().dispatch_event_with_result(ev);
         }
+        push_keys(&ui);
     });
 }
 
@@ -642,7 +654,7 @@ pub fn install(ui: &AppWindow) {
         crate::install_catalogue(&ui);
     });
     on!(on_set_direction, |ui, d| update(&ui, |p| p.direction = d.clamp(0, 2) as u8));
-    on!(on_edit_key, |ui, key| edit_key(&ui, &key));
+    on!(on_edit_key, |ui, key, shift| edit_key(&ui, &key, shift));
     on!(on_check_start, |ui, tab| check_start(&ui, tab));
     on!(on_check_change, |ui, to| check_change(&ui, &to));
     on!(on_check_next, |ui| check_step(&ui, sheaf_core::spell::CheckPass::skip));

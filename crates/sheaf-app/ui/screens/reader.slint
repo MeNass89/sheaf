@@ -1292,9 +1292,9 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == "[" && !PlatformBridge.rebound[32] /* back */ { ReaderBridge.history(root.id, -1); return accept; }
                 if e.text == "]" && !PlatformBridge.rebound[33] /* forward */ { ReaderBridge.history(root.id, 1); return accept; }
                 // With ⇧ the letter comes upper case.
-                if (e.text == "z" || e.text == "Z") && e.modifiers.shift && !PlatformBridge.rebound[9] /* redo */ { ReaderBridge.redo(root.id); return accept; }
-                if e.text == "z" && !PlatformBridge.rebound[8] /* undo */ { ReaderBridge.undo(root.id); return accept; }
-                if e.text == "y" && !PlatformBridge.rebound[9] /* redo */ { ReaderBridge.redo(root.id); return accept; }
+                if (e.text == "z" || e.text == "Z") && e.modifiers.shift { ReaderBridge.redo(root.id); return accept; }
+                if e.text == "z" { ReaderBridge.undo(root.id); return accept; }
+                if e.text == "y" { ReaderBridge.redo(root.id); return accept; }
                 if (e.text == "s" || e.text == "S") && e.modifiers.shift && !PlatformBridge.rebound[3] /* save-as */ { ReaderBridge.save-as(root.id); return accept; }
                 // ⌥ on a Mac turns w into ∑.
                 if (e.text == "w" && e.modifiers.alt) || e.text == "∑" { ReaderBridge.close-all(root.id); return accept; }
