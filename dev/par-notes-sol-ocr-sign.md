@@ -777,3 +777,22 @@ C-security-008: f8 a7 p8 — `tests/security.rs:222` exact PDF permissions/AES c
   Crypt overrides and nondefault filter names are refused clearly. Independent Acrobat/
   pyHanko interoperability, visual fit, compilation and runtime tests are still unverified.
   Proposed f5 a2 p7; this moves the absent component forward, without a joint 9 claim.
+
+## Fourth pass — C-optimize-006 (partial)
+
+- C-optimize-006: the built-in Rust path now prepacks detection weights as well as recognition
+  weights, skips loading the unused English recognizer whenever Paddle's model is present,
+  and allows a complete detection/Paddle install without that unused file. Line preprocessing
+  caches horizontal bilinear coordinates once per line, fills contiguous BGR channel planes
+  directly and validates malformed buffers before accessing pixels. Scaling arithmetic and
+  recognition geometry are preserved; this is less work, not a claimed measured speedup.
+- Tests written: `paddle_preprocessing_matches_reference_bilinear_pixels_and_rejects_invalid_images`
+  compares every float bit with the prior preprocessing at borders and fractional crops;
+  `paddle_installations_do_not_require_the_unused_english_recognition_file` checks complete/
+  incomplete data; `prepacked_recognition_keeps_the_words_and_their_placement` now also checks
+  real recognition without an English model. New public OCR items `RecognitionInput` and
+  `recognition_input`, reexported by engine::ocr for host integration tests. No new dependency.
+- Left: the original release MICI benchmark and comparison with 11.75 s/page remain **not run**.
+  Rule 1 expressly prohibits this worker from running it. Only an idle host running the ignored
+  `release_ocr_mici_benchmark_reports_cold_load_and_warm_page_time` can close the speed gap.
+  No model assets were present in this worktree during source inspection. Proposed f9 a8 p7.

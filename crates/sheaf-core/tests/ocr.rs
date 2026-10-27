@@ -250,6 +250,10 @@ fn prepacked_recognition_keeps_the_words_and_their_placement() {
     let packed = Ocr::load(&models).unwrap().recognize(&shot.rgba, shot.width, shot.height).unwrap();
     assert!(!packed.is_empty());
     assert_eq!(packed, ordinary, "packing changes matrix layout, not recognition or placement");
+    let mut without_unused_english = models.clone();
+    without_unused_english.recognition = t.path().join("not-installed.rten");
+    let paddle_only = Ocr::load(&without_unused_english).unwrap().recognize(&shot.rgba, shot.width, shot.height).unwrap();
+    assert_eq!(paddle_only, packed, "Paddle recognition must not depend on the unused English model");
 }
 
 /// Opt-in release benchmark for the orchestrator: the worker may write it but must not run it.

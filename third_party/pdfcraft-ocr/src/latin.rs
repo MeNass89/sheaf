@@ -25,6 +25,58 @@ pub(crate) struct Latin {
     chars: Vec<char>,
 }
 
+/// Prepared PaddleOCR line pixels in contiguous BGR/CHW order (48 pixels high).
+/// Exposed so the host can compare preprocessing without loading a recognition model.
+pub struct RecognitionInput {
+    pub width: usize,
+    pub pixels: Vec<f32>,
+    pub crop_left: usize,
+    pub crop_width: usize,
+}
+
+/// Cache horizontal bilinear coordinates once per line, then fill contiguous channel planes.
+/// This preserves the trained model's exact scaling arithmetic without tensor indexing per pixel.
+pub fn recognition_input(rgb: &[u8], width: usize, height: usize, line: [f32; 4]) -> Option<RecognitionInput> {
+    if width == 0 || height == 0 || width.checked_mul(height)?.checked_mul(3)? != rgb.len()
+        || line.iter().any(|v| !v.is_finite()) { return None; }
+    let h = (line[3] - line[1]).max(1.0);
+    let pad = h * 0.25;
+    let x0 = (line[0] - pad).floor().max(0.0) as usize;
+    let x1 = ((line[2] + pad).ceil() as usize).min(width);
+    let y0 = (line[1] - pad).floor().max(0.0) as usize;
+    let y1 = ((line[3] + pad).ceil() as usize).min(height);
+    if x1 <= x0.saturating_add(1) || y1 <= y0.saturating_add(1) { return None; }
+    let (cw, ch) = (x1 - x0, y1 - y0);
+    let w = ((cw as f32 * HEIGHT as f32 / ch as f32).round() as usize).clamp(8, MAX_WIDTH);
+    let (sx, sy) = (cw as f32 / w as f32, ch as f32 / HEIGHT as f32);
+    let xs: Vec<_> = (0..w).map(|x| {
+        let fx = ((x as f32 + 0.5) * sx - 0.5).clamp(0.0, (cw - 1) as f32);
+        let xa = fx.floor() as usize;
+        (xa, (xa + 1).min(cw - 1), fx.fract())
+    }).collect();
+    let plane = HEIGHT * w;
+    let mut pixels = vec![0.0; 3 * plane];
+    for y in 0..HEIGHT {
+        let fy = ((y as f32 + 0.5) * sy - 0.5).clamp(0.0, (ch - 1) as f32);
+        let (ya, dy) = (fy.floor() as usize, fy.fract());
+        let yb = (ya + 1).min(ch - 1);
+        for (x, &(xa, xb, dx)) in xs.iter().enumerate() {
+            let a = ((y0 + ya) * width + x0 + xa) * 3;
+            let b = ((y0 + ya) * width + x0 + xb) * 3;
+            let c = ((y0 + yb) * width + x0 + xa) * 3;
+            let d = ((y0 + yb) * width + x0 + xb) * 3;
+            for channel in 0..3 {
+                let value = f32::from(rgb[a + channel]) * (1.0 - dx) * (1.0 - dy)
+                    + f32::from(rgb[b + channel]) * dx * (1.0 - dy)
+                    + f32::from(rgb[c + channel]) * (1.0 - dx) * dy
+                    + f32::from(rgb[d + channel]) * dx * dy;
+                pixels[(2 - channel) * plane + y * w + x] = value / 127.5 - 1.0;
+            }
+        }
+    }
+    Some(RecognitionInput { width: w, pixels, crop_left: x0, crop_width: cw })
+}
+
 impl Latin {
     pub(crate) fn load(model: &Path, dict: &Path, prepack: bool) -> Result<Latin, String> {
         let text = std::fs::read_to_string(dict).map_err(|e| format!("{}: {e}", dict.display()))?;
@@ -39,36 +91,9 @@ impl Latin {
     /// Reads the line whose box (image pixels, `[left, top, right, bottom]`) is `line` in `rgb`
     /// (3 bytes a pixel, `width` × `height`): its words, left to right.
     pub(crate) fn read_line(&self, rgb: &[u8], width: usize, height: usize, line: [f32; 4]) -> Result<Vec<Read>, String> {
-        // Room around the line, as PaddleOCR's detector leaves (its boxes are about half a line taller).
-        let h = (line[3] - line[1]).max(1.0);
-        let pad = h * 0.25;
-        let x0 = (line[0] - pad).floor().max(0.0) as usize;
-        let x1 = ((line[2] + pad).ceil() as usize).min(width);
-        let y0 = (line[1] - pad).floor().max(0.0) as usize;
-        let y1 = ((line[3] + pad).ceil() as usize).min(height);
-        if x1 <= x0 + 1 || y1 <= y0 + 1 {
-            return Ok(Vec::new());
-        }
-        let (cw, ch) = (x1 - x0, y1 - y0);
-        let w = ((cw as f32 * HEIGHT as f32 / ch as f32).round() as usize).clamp(8, MAX_WIDTH);
-        // Bilinear scaling to 48 px high, BGR as the model was trained (OpenCV), values in [-1, 1].
-        let mut input = rten_tensor::NdTensor::zeros([1, 3, HEIGHT, w]);
-        let (sx, sy) = (cw as f32 / w as f32, ch as f32 / HEIGHT as f32);
-        for y in 0..HEIGHT {
-            let fy = ((y as f32 + 0.5) * sy - 0.5).clamp(0.0, (ch - 1) as f32);
-            let (ya, dy) = (fy.floor() as usize, fy.fract());
-            let yb = (ya + 1).min(ch - 1);
-            for x in 0..w {
-                let fx = ((x as f32 + 0.5) * sx - 0.5).clamp(0.0, (cw - 1) as f32);
-                let (xa, dx) = (fx.floor() as usize, fx.fract());
-                let xb = (xa + 1).min(cw - 1);
-                for c in 0..3 {
-                    let at = |px: usize, py: usize| f32::from(rgb.get(((y0 + py) * width + x0 + px) * 3 + c).copied().unwrap_or(255));
-                    let v = at(xa, ya) * (1.0 - dx) * (1.0 - dy) + at(xb, ya) * dx * (1.0 - dy) + at(xa, yb) * (1.0 - dx) * dy + at(xb, yb) * dx * dy;
-                    input[[0, 2 - c, y, x]] = v / 127.5 - 1.0;
-                }
-            }
-        }
+        let Some(input) = recognition_input(rgb, width, height, line) else { return Ok(Vec::new()); };
+        let (x0, cw, w) = (input.crop_left, input.crop_width, input.width);
+        let input = rten_tensor::NdTensor::from_data([1, 3, HEIGHT, w], input.pixels);
         let out: rten_tensor::Tensor<f32> = self.model.run_one(input.view().into(), None).map_err(|e| e.to_string())?.try_into().map_err(|e| format!("{e:?}"))?;
         let shape = out.shape().to_vec();
         let (steps, classes) = match shape.as_slice() {

@@ -24,6 +24,7 @@ pub const LATIN_MODEL: &str = "latin-recognition.onnx";
 pub const LATIN_DICT: &str = "latin-dict.txt";
 
 mod latin;
+pub use latin::{RecognitionInput, recognition_input};
 
 /// The recognition model's alphabet, as it was trained (ocrs-models' `DEFAULT_ALPHABET`): its
 /// output classes follow this order. The ocrs crate's own copy has an `E` where the training had
@@ -88,12 +89,12 @@ pub struct Models {
 }
 
 impl Models {
-    /// The models in `dir`, if both files are there.
+    /// Detection plus either Paddle recognition/dictionary or the legacy English recognizer.
     pub fn in_dir(dir: &Path) -> Option<Models> {
         let latin = (dir.join(LATIN_MODEL), dir.join(LATIN_DICT));
         let latin = (latin.0.is_file() && latin.1.is_file()).then_some(latin);
         let m = Models { detection: dir.join(DETECTION_MODEL), recognition: dir.join(RECOGNITION_MODEL), latin };
-        (m.detection.is_file() && m.recognition.is_file()).then_some(m)
+        (m.detection.is_file() && (m.recognition.is_file() || m.latin.is_some())).then_some(m)
     }
 
     /// Sheaf: whether accented letters are read (PaddleOCR's Latin model is there).
@@ -184,10 +185,11 @@ impl Ocr {
     /// Sheaf: configure recognition weight prepacking for accuracy comparisons and release
     /// benchmarks. The default packs once at load time, rather than for every scanned line.
     pub fn load_with_prepacked_weights(models: &Models, prepack: bool) -> Result<Ocr, OcrError> {
-        let load = |p: &Path| rten::Model::load_file(p).map_err(|e| OcrError::Load(p.display().to_string(), e.to_string()));
+        let load = |p: &Path| rten::ModelOptions::with_all_ops().prepack_weights(prepack).load_file(p).map_err(|e| OcrError::Load(p.display().to_string(), e.to_string()));
         let params = ocrs::OcrEngineParams {
             detection_model: Some(load(&models.detection)?),
-            recognition_model: Some(load(&models.recognition)?),
+            // Paddle reads every line when installed; the old English recognizer is unused.
+            recognition_model: if models.latin.is_none() { Some(load(&models.recognition)?) } else { None },
             alphabet: Some(ALPHABET.into()),
             ..Default::default()
         };
