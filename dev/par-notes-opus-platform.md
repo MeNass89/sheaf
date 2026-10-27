@@ -164,3 +164,12 @@
   `/usr/share/dict/words`.
 - `crates/sheaf-cli/tests/cli.rs` `every_tool_schema_parses`: 28 → 29 tools (another batch adding a command
   changes the same number).
+
+## Author's grades (third pass, 27/10, not built)
+
+- C-edit-013: f9 a8 p9 — while typing (spell card) and Edit ▸ Check Spelling over comments, replies and form fields, scanned once off the UI thread (`the_check_pass_goes_word_by_word_through_the_texts`, `a_replys_text_is_checked_without_its_author`, smoke 222/227); the underline is in a card under the field (Slint limit).
+- C-reader-060: f8 a8 p9 — spelling plus a light offline grammar pass (`the_light_grammar_pass`); no full grammar model.
+- C-platform-014: f9 a8 p9 — menu bar, Undo/Redo/Cut/Copy/Paste/Select All on the focused field or the PDF, default labels (smoke 220/226/228); macOS/Windows unseen.
+- C-preferences-013: f9 a8 p9 — commands, tool letters and every Tools page tool customisable, conflicts both ways (`every_tool_can_get_keys_that_open_it`, smoke 221/225/229).
+- C-platform-004: f8 a7 p9 — Home, tab bar, reader toolbar, panel, options bar, Preferences, dialogs mirrored (smoke 223/224/230); reader sheets, tool pages and the menu bar still left to right.
+- C-platform-007: f8 a7 p9 — `sheaf bookmark` (CLI, MCP); Shortcuts/AppleScript need a Mac.
