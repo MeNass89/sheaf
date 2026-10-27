@@ -805,9 +805,9 @@ const GUIDE: &[u8] = include_bytes!("../guide/Sheaf Guide.pdf");
 /// Help ▸ Sheaf Guide: the guide written to the data folder (again when this version's differs)
 /// and opened in a tab, as PDF Expert opens its Welcome document.
 pub fn open_guide(ui: &AppWindow) {
-    let p = crate::store_file::data_dir().join("Sheaf Guide.pdf");
+    let p = store_file::data_dir().join("Sheaf Guide.pdf");
     if std::fs::read(&p).ok().as_deref() != Some(GUIDE)
-        && let Err(e) = crate::store_file::replace(&p, GUIDE)
+        && let Err(e) = store_file::replace(&p, GUIDE)
     {
         crate::flow::toast(ui, &format!("The guide could not be opened ({e})"));
         return;
