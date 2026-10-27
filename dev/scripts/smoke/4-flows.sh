@@ -785,3 +785,30 @@ EX=$(at Export 400x60+850+170); [ -n "$EX" ] && click $EX 1
 shot 350-stirling-naming
 check "350 Stirling output naming survives import and export (${IM:-no Import}; ${EX:-no Export})" "python3 -c 'import json; a=json.load(open(\"$OUT/350-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"outputFileName\"] == \"ready-{filename}-Naming review\"; assert any(x[\"output\"][\"prefix\"] == \"ready-\" and x[\"output\"][\"suffix\"] == \"-Naming review\" for x in b)'"
 quit
+
+# 351. Acrobat's suggested action becomes an independent saved copy; the Suggested filter
+# keeps the original and Saved actions contains the copy after reopening the app.
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+SH=$(at Search 220x200+235+240); [ -n "$SH" ] && click $SH 0.3
+xdotool type --clearmodifiers --delay 10 "confidential watermark"; sleep 0.5
+QS=$(ocr 220x400+240+320)
+check "351 suggested-action search matches words in its name and description (${SH:-no Search})" "echo \"$QS\" | grep -q 'Confidential' && ! echo \"$QS\" | grep -q 'Distribution'"
+CA=$(at Confidential 230x600+235+150); [ -n "$CA" ] && click $CA
+SA=$(at Save 600x160+485+400); [ -n "$SA" ] && click $SA 1
+shot 351-suggested-copy
+check "351 Save a copy keeps the suggested watermark configuration (${CA:-no suggestion}; ${SA:-no Save})" "python3 -c 'import json; a=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert any(x[\"name\"] == \"Mark as Confidential (2)\" and x[\"steps\"][0][\"argument\"] == \"CONFIDENTIAL\" for x in a)'"
+# A suggestion's full limitations stay readable, rather than hidden in a one-line description.
+SH=$(at Search 220x200+235+240); [ -n "$SH" ] && click $SH 0.3
+key ctrl+a; xdotool type --clearmodifiers --delay 10 "accessibility"; sleep 0.5
+AS=$(at Accessibility 230x500+235+300); [ -n "$AS" ] && click $AS 0.8
+DS=$(ocr 740x200+500+300); shot 351-suggestion-description
+check "351 suggestion description shows its refusal and certification limits (${AS:-no suggestion})" "echo \"$DS\" | grep -q 'Refuses' && echo \"$DS\" | grep -q 'certification'"
+quit
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+# The list filter is the first combobox in the left column; Home then Down twice selects Saved.
+click 340 273; key Home; key Down; key Down; key Return
+LS=$(ocr 220x450+240+300); shot 351-saved-filter
+check "351 Saved actions filter restores the copied suggestion after restart" "echo \"$LS\" | grep -q 'Confidential' && ! echo \"$LS\" | grep -q 'Suggested'"
+quit

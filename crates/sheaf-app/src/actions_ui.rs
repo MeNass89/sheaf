@@ -55,11 +55,13 @@ fn status(ui: &AppWindow, message: impl AsRef<str>) { ui.global::<ActionBridge>(
 
 fn rows(ui: &AppWindow) {
     let filter = ui.global::<ActionBridge>().get_filter();
+    let query = ui.global::<ActionBridge>().get_query();
     let rows = STATE.with(|state| {
         let s = state.borrow();
         actions::suggested().iter().map(|a| (a, true))
             .chain(s.saved.iter().map(|a| (a, false)))
             .enumerate().filter(|(_, (a, builtin))| match filter { 1 => *builtin, 2 => !*builtin && !a.custom_tool, 3 => !*builtin && a.custom_tool, _ => true })
+            .filter(|(_, (a, _))| a.matches_query(&query))
             .map(|(i, (a, builtin))| ActionRow { name: a.name.as_str().into(), description: a.description.as_str().into(), builtin, custom: a.custom_tool, source: i as i32 }).collect::<Vec<_>>()
     });
     ui.global::<ActionBridge>().set_rows(ModelRc::new(VecModel::from(rows)));

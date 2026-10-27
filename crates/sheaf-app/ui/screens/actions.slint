@@ -23,6 +23,7 @@ export global ActionBridge {
     in-out property <[string]> toolbox;
     in-out property <int> selected: -1;
     in-out property <int> filter;
+    in-out property <string> query;
     in-out property <bool> builtin;
     in-out property <int> step: -1;
     in-out property <string> name;
@@ -101,6 +102,7 @@ export component ActionsScreen inherits Rectangle {
                 VerticalLayout {
                     spacing: 6px; alignment: start;
                     ComboBox { model: ["All actions", "Suggested", "Saved actions", "Custom tools"]; current-index <=> ActionBridge.filter; enabled: !ActionBridge.busy; selected(value) => { ActionBridge.command("filter", 0); } }
+                    search := TextField { placeholder: "Search actions"; text <=> ActionBridge.query; enabled: !ActionBridge.busy; changed text => { ActionBridge.command("filter", 0); } }
                     if ActionBridge.rows.length == 0: Text { text: "No actions in this list yet."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
                     for row in ActionBridge.rows: Rectangle {
                         height: 80px;
@@ -122,7 +124,11 @@ export component ActionsScreen inherits Rectangle {
                     spacing: 12px; alignment: start;
                     if ActionBridge.builtin: Text { text: "Suggested action · save a copy to make it yours."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
                     TextField { label: "Name"; text <=> ActionBridge.name; enabled: !ActionBridge.busy; }
-                    TextField { label: "Description"; text <=> ActionBridge.description; enabled: !ActionBridge.busy; }
+                    VerticalLayout {
+                        spacing: 6px;
+                        Text { text: "Description"; color: Theme.text; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; }
+                        TextEdit { changed has-focus => { PlatformBridge.typing = self.has-focus; } height: 76px; text <=> ActionBridge.description; enabled: !ActionBridge.busy; }
+                    }
                     CheckBox { text: "Custom tool set (run commands individually)"; checked <=> ActionBridge.custom; enabled: !ActionBridge.busy; }
                     HorizontalLayout {
                         spacing: 8px;

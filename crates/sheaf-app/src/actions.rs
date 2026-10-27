@@ -132,6 +132,13 @@ fn portable_size(action: &SavedAction) -> Result<()> {
 }
 
 impl SavedAction {
+    /// Acrobat's suggested actions remain discoverable beside a growing personal library.
+    pub fn matches_query(&self, query: &str) -> bool {
+        if query.trim().is_empty() { return true; }
+        let text = format!("{} {}", self.name, self.description).to_lowercase();
+        query.split_whitespace().all(|word| text.contains(&word.to_lowercase()))
+    }
+
     pub fn empty() -> Self {
         Self { version: 1, name: "Untitled action".into(), description: String::new(), custom_tool: false, output: OutputOptions::default(), steps: vec![] }
     }
@@ -637,6 +644,19 @@ mod tests {
         let stirling = action.stirling_json().unwrap();
         assert!(stirling.len() <= MAX_ACTION_BYTES);
         assert_eq!(SavedAction::import(&stirling).unwrap(), action);
+    }
+
+    #[test]
+    fn suggested_action_search_matches_all_words_in_names_and_descriptions() {
+        let all = suggested();
+        let names = |query: &str| all.iter().filter(|a| a.matches_query(query)).map(|a| a.name.as_str()).collect::<Vec<_>>();
+        assert_eq!(names("  CONFIDENTIAL  watermark "), ["Mark as Confidential"]);
+        assert_eq!(names("paragraphs language"), ["Prepare Accessibility (text-only)"]);
+        assert!(names("confidential archive").is_empty());
+        assert_eq!(names(" ").len(), all.len());
+        let mut own = all[0].clone(); own.name = "Équipe de garde".into();
+        assert!(own.matches_query("ÉQUIPE garde"));
+        own.description = "Dossier révisé".into(); assert!(own.matches_query("révisé équipe"));
     }
 
 }
