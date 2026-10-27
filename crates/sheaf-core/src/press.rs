@@ -118,7 +118,7 @@ pub fn validate(options: &Options) -> Result<u8> {
     profile_channels(&std::fs::read(&options.profile)?)
 }
 
-fn profile_channels(bytes: &[u8]) -> Result<u8> {
+pub(crate) fn profile_channels(bytes: &[u8]) -> Result<u8> {
     let valid = bytes.len() >= 128 && &bytes[36..40] == b"acsp" && &bytes[12..16] == b"prtr"
         && u32::from_be_bytes(bytes[..4].try_into().unwrap_or_default()) as usize == bytes.len();
     if valid {
@@ -263,7 +263,7 @@ fn check_written(path: &Path, channels: u8, expected_profile: &[u8], level: Leve
     Ok(())
 }
 
-fn non_device_colour(object: &lopdf::Object) -> bool {
+pub(crate) fn non_device_colour(object: &lopdf::Object) -> bool {
     use lopdf::Object;
     match object {
         Object::Name(n) => matches!(n.as_slice(), b"DeviceRGB" | b"CalRGB" | b"Lab" | b"ICCBased" | b"DeviceN"),

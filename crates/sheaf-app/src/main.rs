@@ -206,7 +206,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_accessibility_fix, |ui, id, k| reader_ui::accessibility_fix(&ui, id, k));
     wire_global!(ui, rb, on_accessibility_report, |ui, id| reader_ui::accessibility_report(&ui, id));
     wire_global!(ui, rb, on_print_preflight, |ui, id| reader_ui::print_preflight(&ui, id));
-    wire_global!(ui, rb, on_preflight_check, |ui, id, fail, target, bleed| reader_ui::preflight_check(&ui, id, &fail, &target, &bleed));
+    wire_global!(ui, rb, on_preflight_check, |ui, id, fail, target, bleed, preset| reader_ui::preflight_check(&ui, id, &fail, &target, &bleed, preset));
     wire_global!(ui, rb, on_preflight_save, |ui, id| reader_ui::preflight_save(&ui, id));
     rb.on_preflight_close(reader_ui::preflight_close);
     wire_global!(ui, rb, on_preflight_page, |ui, id, page| reader_ui::preflight_page(&ui, id, page));

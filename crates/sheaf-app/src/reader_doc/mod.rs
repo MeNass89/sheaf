@@ -544,7 +544,7 @@ pub enum Op {
     /// Accessibility check: the full check's report.
     AccessibilityCheck,
     /// A measured print-readiness report from the current document (Acrobat's Preflight).
-    PrintPreflight { profile: sheaf_core::preflight::Profile },
+    PrintPreflight { profile: sheaf_core::preflight::Profile, preset: sheaf_core::preflight::Preset },
     ExportPdfX { to: PathBuf, options: sheaf_core::press::Options },
     /// Acrobat’s Correct Recognized Text, on the live working document.
     ReviewOcr,
@@ -972,10 +972,10 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             Err(error) => reply(Reply::PdfXExported(Err(error.to_string()))),
                         }
                     }
-                    Op::PrintPreflight { profile } => {
+                    Op::PrintPreflight { profile, preset } => {
                         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                         let date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
-                        reply(Reply::PrintPreflight(sheaf_core::preflight::report_with_profile(&doc, &name, &date, profile).map_err(|e| e.to_string())));
+                        reply(Reply::PrintPreflight(sheaf_core::preflight::report_with_preset(&doc, &name, &date, profile, preset).map_err(|e| e.to_string())));
                     }
                     Op::ExportFormData { to } => {
                         let id = doc.id();

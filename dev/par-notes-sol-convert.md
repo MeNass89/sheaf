@@ -674,3 +674,19 @@ verification. No network features; no compiler, test, app or Codex invocation. N
   Public engine addition: `Edit::AddPrinterMarks` and `prepress::add_printer_marks`.
   not automatable: both themes, scope, five mark choices/width, repeated use and undo, Type 3
   glyph positions/advances and nested pattern matrices — no app/renderer allowed in this worker.
+
+- C-optimize-012 (partial): Acrobat-style named Digital press / PDF/X-1a readiness / PDF/X-4
+  readiness profiles now run target rules together, beyond the existing resolution/bleed thresholds.
+  They check embedded fonts, explicit trim, a real embedded CMYK/Gray press ICC output intent,
+  encryption and incomplete resource inventory. X-1a additionally flags transparency and conservative
+  unsupported colour declarations. The dated report retains the target and exact thresholds, failure
+  and warning counts. Resource measurements are computed once per report. No document edits.
+  Test WRITTEN, NOT RUN: `named_preflight_profiles_check_target_rules_together_without_editing`.
+  Left: on-page ink toggles, total area coverage, overprint simulation and full PDF/X certification.
+  These require actual compositing/separation rendering; a resource inventory or RGB-to-CMYK guess
+  would not prove the ink on the page, so no imitation preview was added. Existing page-linked
+  inventory and undoable fix links remain. No dependency. Public `preflight::Preset` and
+  `report_with_preset`; `Op::PrintPreflight` now includes the preset. New private core module
+  `preflight_profiles.rs`; `press::profile_channels` / `non_device_colour` are crate-visible only.
+  not automatable: select each target, alter thresholds, inspect page links and save the dated
+  snapshot in both themes — app execution forbidden.

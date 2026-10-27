@@ -18,10 +18,10 @@ pub(super) struct State {
 /// Acrobat's Print Production ▸ Preflight: inspect on the document thread, read here.
 pub fn print_preflight(ui: &AppWindow, tab_id: i32) {
     update(tab_id, |r, _| r.prepress.open = true);
-    preflight_check(ui, tab_id, "150", "300", "2");
+    preflight_check(ui, tab_id, "150", "300", "2", 0);
 }
 
-pub fn preflight_check(ui: &AppWindow, tab_id: i32, fail: &str, target: &str, bleed: &str) {
+pub fn preflight_check(ui: &AppWindow, tab_id: i32, fail: &str, target: &str, bleed: &str, preset: i32) {
     let parse = || -> Option<sheaf_core::preflight::Profile> {
         Some(sheaf_core::preflight::Profile {
             fail_ppi: fail.trim().parse().ok()?,
@@ -33,12 +33,13 @@ pub fn preflight_check(ui: &AppWindow, tab_id: i32, fail: &str, target: &str, bl
         crate::flow::toast(ui, "Use image thresholds from 1 to 9600 ppi (fail ≤ target), and bleed from 0 to 50 mm");
         return;
     };
+    let preset = match preset { 2 => sheaf_core::preflight::Preset::DigitalPress, 3 => sheaf_core::preflight::Preset::PdfX1a, 4 => sheaf_core::preflight::Preset::PdfX4, _ => sheaf_core::preflight::Preset::Custom };
     update(tab_id, |r, _| {
         if r.prepress.busy { return; }
         r.prepress.busy = true;
         r.prepress.report = None;
         r.prepress.rows = ModelRc::default();
-        r.send(Op::PrintPreflight { profile });
+        r.send(Op::PrintPreflight { profile, preset });
     });
 }
 

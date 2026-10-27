@@ -1052,7 +1052,7 @@ export global ReaderBridge {
     callback accessibility-report(int);
     // Print Production ▸ Preflight: a saved report of the current document's print checks.
     callback print-preflight(int);
-    callback preflight-check(int, string, string, string);
+    callback preflight-check(int, string, string, string, int);
     callback preflight-save(int);
     callback preflight-close(int);
     callback preflight-page(int, int);
