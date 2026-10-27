@@ -1141,5 +1141,13 @@ quit
 # 240. Kept signatures and initials belong to the system credential store, never prefs.json.
 # The existing signature/initials steps exercised save, restart and reuse. Their helpers read
 # Secret Service too; this suite needs secret-tool and an unlocked desktop keyring.
-check "signatures and initials are absent from plaintext preferences" "python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); assert not any(k in p for k in ("signature_name","signature_strokes","signatures","initials"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json""
-check "kept marks exist in the system credential store" "secure_marks | python3 -c 'import json,sys; p=json.load(sys.stdin); assert p.get("signatures") or p.get("initials")'"
+no_plain_marks() {
+    python3 - "$PWD/$OUT/profile/data/Sheaf/prefs.json" <<'PYMARKS'
+import json, sys
+p = json.load(open(sys.argv[1]))
+assert not any(k in p for k in ("signature_name", "signature_strokes", "signatures", "initials"))
+PYMARKS
+}
+has_secure_marks() { secure_marks | python3 -c 'import json,sys; p=json.load(sys.stdin); assert p.get("signatures") or p.get("initials")'; }
+check "signatures and initials are absent from plaintext preferences" "no_plain_marks"
+check "kept marks exist in the system credential store" "has_secure_marks"

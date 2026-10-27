@@ -100,7 +100,7 @@ pub fn default_language(locale: Option<&str>) -> &'static str {
 fn language_for_locale(locale: Option<&str>, available: &[(&'static str, &'static str)]) -> &'static str {
     let locale = locale.unwrap_or_default().replace('_', "-").to_ascii_lowercase();
     let code = locale.split(['-', '.']).next().unwrap_or_default();
-    if code == "zh" && ["zh-hant", "zh-tw", "zh-hk", "zh-mo"].iter().any(|prefix| locale.starts_with(prefix))
+    if code == "zh" && ["zh-hant", "zh-tw", "zh-hk", "zh-mo"].iter().any(|prefix| locale.starts_with(*prefix))
         && available.iter().any(|(c, _)| *c == "zh-Hant") {
         return "zh-Hant";
     }
