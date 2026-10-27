@@ -417,3 +417,18 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   not automatable: restart into two configured watches, edit another action, stop watches,
   verify successful inputs moved and failed ones retained — app execution forbidden.
   No new dependency or network service.
+
+- C-files-008: Library now displays a responsive thumbnail grid, with first-page native PDF
+  previews queued on the existing bounded probe pool (256 cached revisions), folder navigation
+  including intermediate ZIP folders, multi-selection, Export selected and confirmed Delete
+  selected. Both batch operations report partial errors and preserve original files; export
+  collisions keep separate copies. Typing/filtering and selecting use the in-memory catalogue;
+  Refresh/reader Save/mutations reload metadata. Test
+  `cached_library_filter_tree_and_batch_actions_keep_versions_and_collisions` covers filtering
+  while metadata is offline, folder hierarchy, deduplicated selections and colliding exports
+  (written, not run). No dependency, LibreOffice process or network.
+  Left: thumbnails for non-PDF/encrypted files (file icon fallback), drag-to-folder organization,
+  virtualized very-large grids and sorting controls. Folder paths show the full hierarchy instead
+  of a collapsible tree. All render/performance grades remain provisional.
+  not automatable: add mixed PDFs/ZIPs, browse folders, filter, multi-select across filters,
+  export/delete and verify thumbnails at minimum size — app launch forbidden by brief rule 1.

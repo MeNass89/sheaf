@@ -1,8 +1,9 @@
-import { Button, ScrollView } from "std-widgets.slint";
+import { Button, CheckBox, ScrollView } from "std-widgets.slint";
 import { Modal } from "dialogs.slint";
+import { Thumb } from "../widgets/file-card.slint";
 import { Theme } from "../theme.slint";
 
-export struct LibraryRow { id: string, name: string, detail: string }
+export struct LibraryRow { id: string, name: string, detail: string, marked: bool, thumb: image, has-thumb: bool }
 export struct LibraryVersionRow { number: int, label: string, detail: string }
 export global LibraryBridge {
     in-out property <[LibraryRow]> rows;
@@ -15,6 +16,9 @@ export global LibraryBridge {
     in-out property <string> status;
     in-out property <bool> busy;
     in-out property <string> query;
+    in-out property <string> folder;
+    in-out property <[string]> folders;
+    in-out property <int> marked-count;
     in-out property <[string]> working;
     callback command(string, int);
 }
@@ -39,25 +43,61 @@ export component LibraryScreen inherits Rectangle {
                 x: 10px; width: parent.width - 20px; text <=> LibraryBridge.query;
                 single-line: true; color: Theme.text; font-size: Theme.fs-body; vertical-alignment: center;
                 accessible-label: "Filter files by name or archive folder";
-                edited => { LibraryBridge.command("refresh", 0); }
+                edited => { LibraryBridge.command("filter", 0); }
             }
         }
         HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Select shown"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("mark-all", 0); } }
+            Button { text: "Clear selection"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("clear-marked", 0); } }
+            Text { text: LibraryBridge.marked-count + " selected"; color: Theme.text-secondary; font-size: Theme.fs-caption; vertical-alignment: center; }
+        }
+        if LibraryBridge.marked-count > 0: HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Export selected…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("export-marked", 0); } }
+            Button { text: "Delete selected…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("ask-delete-marked", 0); } }
+        }
+        if LibraryBridge.rows.length == 0: Text { text: "No files match this folder and filter. Add files or clear the filter."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+        HorizontalLayout {
             spacing: 20px; vertical-stretch: 1;
-            ScrollView {
-                horizontal-stretch: 1;
+            if LibraryBridge.folders.length > 0: ScrollView {
+                width: 155px;
                 VerticalLayout {
                     spacing: 6px; alignment: start;
-                    if LibraryBridge.rows.length == 0: Text { text: "Add files to keep them here, even if their originals move."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+                    Button { text: "All folders"; clicked => { LibraryBridge.folder = ""; LibraryBridge.command("folder", 0); } }
+                    for folder in LibraryBridge.folders: Rectangle {
+                        height: 34px;
+                        background: LibraryBridge.folder == folder ? Theme.menu-selected-bg : transparent;
+                        Text { text: folder; color: Theme.text; font-size: Theme.fs-caption; overflow: elide; vertical-alignment: center; }
+                        TouchArea { clicked => { LibraryBridge.folder = folder; LibraryBridge.command("folder", 0); } }
+                    }
+                }
+            }
+            ScrollView {
+                horizontal-stretch: 2;
+                library-grid := FlexboxLayout {
+                    property <int> columns: max(1, floor((self.width + 10px) / 166px));
+                    property <int> rows: ceil(LibraryBridge.rows.length / self.columns);
+                    height: self.rows * 190px;
+                    spacing: 10px; flex-wrap: wrap;
                     for row[i] in LibraryBridge.rows: Rectangle {
-                        height: 62px; border-radius: Theme.radius-small;
+                        width: 156px; height: 180px; border-radius: Theme.radius-small;
                         background: LibraryBridge.selected == i ? Theme.menu-selected-bg : Theme.card;
-                        VerticalLayout {
-                            padding: 10px; spacing: 4px;
-                            Text { text: row.name; color: Theme.text; font-size: Theme.fs-body; font-weight: 600; overflow: elide; }
-                            Text { text: row.detail; color: Theme.text-secondary; font-size: Theme.fs-caption; }
-                        }
                         TouchArea { enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("select", i); } }
+                        VerticalLayout {
+                            padding: 8px; spacing: 5px;
+                            HorizontalLayout {
+                                alignment: start;
+                                CheckBox { checked: row.marked; enabled: !LibraryBridge.busy; toggled => { LibraryBridge.command("mark", i); } }
+                                Text { text: row.name; color: Theme.text; font-size: Theme.fs-body; font-weight: 600; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                            }
+                            Rectangle {
+                                height: 94px;
+                                if row.has-thumb: Thumb { thumb: row.thumb; has-thumb: true; max-w: 125px; max-h: 94px; }
+                                if !row.has-thumb: Image { width: 32px; height: 40px; source: @image-url("../icons/file-text.svg"); colorize: Theme.text-secondary; }
+                            }
+                            Text { text: row.detail; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; overflow: elide; }
+                        }
                     }
                 }
             }

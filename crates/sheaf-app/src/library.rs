@@ -26,6 +26,28 @@ pub struct UnzipReport { pub imported: Vec<Entry>, pub errors: Vec<String> }
 fn invalid(message: impl Into<String>) -> OpdfError { OpdfError::Unsupported(message.into()) }
 fn now() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() }
 
+/// Filter an already-loaded catalogue. Typing never reopens every entry.json.
+pub fn filter_entries(entries: &[Entry], query: &str, folder: &str) -> Vec<Entry> {
+    let query = query.to_lowercase();
+    entries.iter().filter(|e| (folder.is_empty() || e.folder == folder) &&
+        (query.is_empty() || format!("{} {}", e.name, e.folder).to_lowercase().contains(&query))).cloned().collect()
+}
+
+/// Include intermediate ZIP folders so a nested import has a navigable tree.
+pub fn folders(entries: &[Entry]) -> Vec<String> {
+    let mut paths = std::collections::BTreeSet::new();
+    for entry in entries {
+        let mut path = String::new();
+        for part in entry.folder.split('/').filter(|p| !p.is_empty()) {
+            if !path.is_empty() { path.push('/'); }
+            path.push_str(part); paths.insert(path.clone());
+        }
+    }
+    paths.into_iter().collect()
+}
+
+pub struct BatchReport { pub paths: Vec<PathBuf>, pub completed: usize, pub errors: Vec<String> }
+
 impl Library {
     pub fn new(data: &Path) -> Self { Self { root: data.join("library") } }
 
@@ -191,6 +213,23 @@ impl Library {
         Ok(())
     }
 
+    pub fn export_many(&self, ids: &[String], folder: &Path) -> BatchReport {
+        let mut report = BatchReport { paths: vec![], completed: 0, errors: vec![] };
+        for id in ids.iter().collect::<std::collections::BTreeSet<_>>() {
+            let result = self.entry(id).and_then(|e| self.export(id, 0, &folder.join(e.name)));
+            match result { Ok(path) => { report.paths.push(path); report.completed += 1; }, Err(e) => report.errors.push(format!("{id}: {e}")) }
+        }
+        report
+    }
+
+    pub fn delete_many(&self, ids: &[String]) -> BatchReport {
+        let mut report = BatchReport { paths: vec![], completed: 0, errors: vec![] };
+        for id in ids.iter().collect::<std::collections::BTreeSet<_>>() {
+            match self.delete(id) { Ok(()) => report.completed += 1, Err(e) => report.errors.push(format!("{id}: {e}")) }
+        }
+        report
+    }
+
     /// Unzip into separate library items, keeping the archive folder path as metadata. A preflight refuses paths
     /// escaping the archive and symlinks before adding anything. Expansion is bounded on disk.
     pub fn unzip(&self, id: &str) -> Result<UnzipReport> {
@@ -318,6 +357,30 @@ mod tests {
         assert!(!library.release_checkout(&original).unwrap());
         assert_eq!(std::fs::read(library.path(&item.id, 0).unwrap()).unwrap(), b"saved edit");
         assert_eq!(std::fs::read(original).unwrap(), b"original");
+    }
+
+    #[test]
+    fn cached_library_filter_tree_and_batch_actions_keep_versions_and_collisions() {
+        let dir = tempfile::tempdir().unwrap();
+        let library = Library::new(dir.path());
+        let source = dir.path().join("same.txt"); std::fs::write(&source, b"private original").unwrap();
+        let mut first = library.add(&source).unwrap(); first.folder = "Reports/2026".into(); library.save(&first).unwrap();
+        let second = library.add(&source).unwrap();
+        let entries = library.list().unwrap();
+        assert_eq!(folders(&entries), ["Reports", "Reports/2026"]);
+        // Catalogue filtering remains valid without another metadata read.
+        std::fs::rename(library.directory(&first.id).unwrap().join("entry.json"), dir.path().join("offline.json")).unwrap();
+        assert_eq!(filter_entries(&entries, "SAME", "Reports/2026"), [first.clone()]);
+        std::fs::rename(dir.path().join("offline.json"), library.directory(&first.id).unwrap().join("entry.json")).unwrap();
+        let out = dir.path().join("exports"); std::fs::create_dir(&out).unwrap();
+        let ids = vec![first.id.clone(), second.id.clone(), first.id.clone()];
+        let report = library.export_many(&ids, &out);
+        assert_eq!(report.completed, 2); assert!(report.errors.is_empty());
+        assert_ne!(report.paths[0], report.paths[1]);
+        let report = library.delete_many(&ids);
+        assert_eq!(report.completed, 2); assert!(report.errors.is_empty());
+        assert!(library.list().unwrap().is_empty());
+        assert_eq!(std::fs::read(source).unwrap(), b"private original");
     }
 
 }
