@@ -590,6 +590,12 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_open: r.props_open,
         background_open: r.background_open,
         versions_open: r.versions_open,
+        signature_manager_open: r.signature_manager.is_some(),
+        signature_manager_name: r.signature_manager.as_ref().and_then(|m| m.selected.as_ref()?.1.1.as_deref()).unwrap_or_default().into(),
+        signature_manager_commands: r.signature_manager.as_ref().and_then(|m| m.selected.as_ref()).map(|(_, s)| super::signature_manager::commands(s)).unwrap_or_default().into(),
+        signature_manager_style: ModelRc::new(VecModel::from(r.signature_manager.as_ref().and_then(|m| m.selected.as_ref()).map(|(_, s)| vec![i32::from(s.3), i32::from(s.2.0), i32::from(s.2.1)]).unwrap_or_else(|| vec![0, 0, 1]))),
+        signature_manager_status: r.signature_manager.as_ref().map(|m| m.status.as_str()).unwrap_or_default().into(),
+        signature_manager_seq: r.signature_manager.as_ref().map_or(0, |m| m.seq),
         policy_open: r.policy_panel.is_some(),
         policy_busy: r.policy_panel.as_ref().is_some_and(|p| p.busy),
         policy_names: ModelRc::new(VecModel::from(r.policy_panel.as_ref().map(|p| p.policies.iter().map(|p| slint::SharedString::from(p.name.as_str())).collect::<Vec<_>>()).unwrap_or_default())),
@@ -652,7 +658,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         has_signature: r.tool == SIGN && !r.initials && saved_signature().is_some(),
         initials: r.initials,
         sign_every_page: r.sign_every_page,
-        signatures: ModelRc::new(VecModel::from(if r.tool == SIGN { signature_thumbs() } else { Vec::new() })),
+        signatures: ModelRc::new(VecModel::from(if r.tool == SIGN || r.signature_manager.is_some() { signature_thumbs() } else { Vec::new() })),
         has_form: r.snap.fields.iter().any(|f| f.kind < 4),
         choices: ModelRc::new(VecModel::from(
             r.draft

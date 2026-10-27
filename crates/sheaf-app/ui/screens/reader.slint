@@ -7,6 +7,7 @@
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
+import { SignatureManagerSheet } from "signature-manager.slint";
 import { SecurityPolicySheet } from "security-policy.slint";
 import { CatalogSheet } from "catalog.slint";
 import { OcrReviewPanel } from "ocr-review.slint";
@@ -209,6 +210,7 @@ export component ReaderScreen inherits Rectangle {
             id: root.id;
             is-full-screen: root.is-full-screen;
             narrow: root.narrow;
+            view-height: root.height;
             bare <=> root.bare;
             focus-pages => { keys.focus(); }
             present => { root.present(); }
@@ -842,6 +844,10 @@ export component ReaderScreen inherits Rectangle {
     }
 
     // The signature pad.
+    if root.tab.reader.signature-manager-open: SignatureManagerSheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
     if root.tab.reader.policy-open: SecurityPolicySheet {
         tab: root.tab;
         focus-pages => { keys.focus(); }

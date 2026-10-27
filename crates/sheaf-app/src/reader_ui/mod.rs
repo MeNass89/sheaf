@@ -216,6 +216,7 @@ pub struct ReaderUi {
     /// Signature: where the click was, and whether the pad is open to make one.
     sign_at: Option<(usize, (f64, f64))>,
     sign_open: bool,
+    signature_manager: Option<signature_manager::Manager>,
     /// Print sheet: open, the system's printers and the chosen one.
     print_open: bool,
     printers: Vec<String>,
@@ -502,6 +503,7 @@ impl ReaderUi {
             live_pending: None,
             sign_at: None,
             sign_open: false,
+            signature_manager: None,
             print_open: false,
             printers: Vec::new(),
             printer: 0,
@@ -1268,6 +1270,8 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
 mod pointer;
 mod forms;
 mod sign;
+mod signature_manager;
+pub use signature_manager::{signature_manager, signature_manager_action, signature_manager_save};
 mod print_sheet;
 mod properties;
 mod prepare;

@@ -288,3 +288,27 @@
   prepacking. Optional Tesseract is a user path, not bundled-engine performance parity.
 - Proposed grade: C-optimize-006: f9 a8 p8 — prior OCR integration/placement tests plus engine
   selection tests above; UI in `options.slint`. No performance 9 without the release benchmark.
+
+## Second pass — C-sign-009
+
+- C-sign-009: More → More tools → Manage signatures opens a full manager (PDF Expert's
+  Edit Signature). Preview saved marks, choose the active one, reorder Up/Down, delete,
+  edit a typed name/font/ink/width or a saved drawing, and create a new saved mark (four max,
+  matching the existing library). Saved drawing points are converted back into pad coordinates.
+  Reordering selects the first mark, consistently with the existing reader tray.
+- Updates persist through the same system credential store. A failed manager save/delete restores
+  the previous visible list and reports the error. Unsaved editor changes stay local to the sheet;
+  the existing one-time-use checkbox remains in Fill & Sign. Initials keep their existing editor.
+- Tests written: `signature_edits_preserve_position_and_reject_a_stale_selection`,
+  `saved_drawing_can_be_edited_without_changing_its_normalized_points`.
+  Existing credential migration, failure and plaintext-exclusion tests still apply. No new deps.
+- `not automatable: create/edit/reorder/select/delete saved marks, close/restart and reuse;
+  repeat with a locked/missing keyring and ensure failed deletion remains visible — requires
+  desktop credential stores and app execution prohibited to this worker by rule 1`.
+- Left: platform credential adapters and manager rendering are still unverified on real desktops.
+  The existing four-mark limit remains. No cloud/shared signatures (outside this batch).
+- Proposed grade: C-sign-009: f8 a8 p8 — mutation/drawing tests above, `signature_manager.rs`,
+  `ui/screens/signature-manager.slint`; secure-store tests from pass 1. No joint 9 before runtime.
+
+- More tools now scrolls within the reader's available height, so these added entries remain
+  reachable at the app's 600px minimum height. Runtime menu scrolling is part of GUI handoff.

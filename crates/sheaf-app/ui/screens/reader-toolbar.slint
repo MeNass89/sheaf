@@ -1,5 +1,6 @@
 // The reader's toolbar: side panel, annotation tools, page field, zoom, page theme, search, the
 // More menu, undo/redo/save.
+import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, Divider } from "reader-parts.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
@@ -10,6 +11,7 @@ export component ReaderToolbar inherits Rectangle {
     in property <bool> is-full-screen;
     // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
     in property <bool> narrow;
+    in property <length> view-height: 600px;
     // Too narrow for every tool: the edit group folds into one button (900 px, the window's least,
     // up to where it all fits).
     property <bool> fold-edit: root.width < 1180px;
@@ -335,6 +337,7 @@ export component ReaderToolbar inherits Rectangle {
                     x: parent.width - 240px;
                     y: parent.height + 6px;
                     width: 240px;
+                    height: min(680px, max(200px, root.view-height - 100px));
                     Rectangle {
                         background: Theme.card;
                         border-radius: Theme.radius-small;
@@ -342,6 +345,7 @@ export component ReaderToolbar inherits Rectangle {
                         border-color: Theme.input-border;
                         drop-shadow-blur: 8px;
                         drop-shadow-color: #00000033;
+                        ScrollView {
                         VerticalLayout {
                             padding: 4px;
                             for item[k] in [
@@ -382,6 +386,7 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Correct recognized text…", on: false },
                                 { text: "Search catalog…", on: false },
                                 { text: "Security policies…", on: false },
+                                { text: "Manage signatures…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -412,10 +417,12 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 20 { ReaderBridge.review-ocr(root.id); }
                                         if k == 21 { ReaderBridge.catalog-open(root.id); }
                                         if k == 22 { ReaderBridge.policy-open(root.id); }
+                                        if k == 23 { ReaderBridge.signature-manager(root.id); }
                                         root.focus-pages();
                                     }
                                 }
                             }
+                        }
                         }
                     }
                 }

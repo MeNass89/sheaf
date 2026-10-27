@@ -279,6 +279,22 @@ pub fn signatures() -> Vec<sheaf_app::prefs::KeptSignature> {
     })
 }
 
+/// Manage Signatures: persist the complete ordered list, then publish it to the reader.
+/// A failed credential write leaves the visible list intact, so a failed deletion is not hidden.
+pub fn save_signature_list(list: Vec<sheaf_app::prefs::KeptSignature>) -> Result<(), String> {
+    with(|h| {
+        let before = h.prefs.clone();
+        let first = list.first().cloned().unwrap_or_default();
+        h.prefs.signatures = list;
+        (h.prefs.signature_strokes, h.prefs.signature_name, h.prefs.signature_pen, h.prefs.signature_font) = first;
+        if let Err(error) = h.prefs.save(&h.dir) {
+            h.prefs = before;
+            return Err(error.to_string());
+        }
+        Ok(())
+    })
+}
+
 /// Kept signature `i` becomes the one placed (`remove`: it is forgotten instead).
 pub fn pick_signature(i: usize, remove: bool) {
     let list = signatures();

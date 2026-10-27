@@ -460,6 +460,12 @@ export struct ReaderState {
     // More ▸ Versions… is open; the versions saved in the file; what Undo and Redo would do.
     versions-open: bool,
     // The search panel's In a folder…: the sheet open, still searching, what and where, the results.
+    signature-manager-open: bool,
+    signature-manager-name: string,
+    signature-manager-commands: string,
+    signature-manager-style: [int],
+    signature-manager-status: string,
+    signature-manager-seq: int,
     policy-open: bool,
     policy-busy: bool,
     policy-names: [string],
@@ -865,6 +871,9 @@ export global ReaderBridge {
     callback remove-images(int);
     callback reflow(int, int);
     callback folder-search(int, string);
+    callback signature-manager(int);
+    callback signature-manager-action(int, int, int);
+    callback signature-manager-save(int, string, string, int, int, int);
     callback policy-open(int);
     callback policy-action(int, int, int);
     callback policy-save(int, string, bool, bool, bool, bool, bool, bool);
