@@ -23,10 +23,10 @@ export component OcrReviewPanel inherits Rectangle {
         Text { text: root.tab.reader.ocr-review-position; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
         if root.tab.reader.ocr-review-has-row && !root.tab.reader.ocr-review-busy: VerticalLayout {
             spacing: 12px;
-            Text { text: root.tab.reader.ocr-review-suspect ? "Possible decoding error" : "Review this OCR run"; font-size: Theme.fs-label; color: Theme.text; }
+            Text { text: root.tab.reader.ocr-review-suspect ? "Possible OCR error" : "Review this OCR run"; font-size: Theme.fs-label; color: Theme.text; }
             Text { text: root.tab.reader.ocr-review-text; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; overflow: elide; max-height: 84px; }
         }
-        Check { text: "Possible decoding errors only"; checked: root.tab.reader.ocr-review-suspects-only; toggled => { ReaderBridge.ocr-review-action(root.tab.id, 4, ""); } }
+        Check { text: "OCR suspects only"; checked: root.tab.reader.ocr-review-suspects-only; toggled => { ReaderBridge.ocr-review-action(root.tab.id, 4, ""); } }
         correction := TextField { label: "Correct text"; text: root.tab.reader.ocr-review-text; accepted => { if root.tab.reader.ocr-review-has-row && !root.tab.reader.ocr-review-busy { ReaderBridge.ocr-review-action(root.tab.id, 2, correction.text); } } }
         if root.tab.reader.ocr-review-has-row && !root.tab.reader.ocr-review-busy: VerticalLayout {
             spacing: 8px;

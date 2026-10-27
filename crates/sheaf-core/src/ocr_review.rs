@@ -1,6 +1,6 @@
 //! Review and correct the hidden text over a scan (Acrobat's Correct Recognized Text).
-//! Existing PDFs rarely preserve recognition confidence, so every hidden run is reviewable;
-//! decoding artifacts are flagged as possible errors, never presented as confidence scores.
+//! Sheaf retains per-word confidence in its OCR layers. Older layers remain reviewable
+//! with unknown confidence; decoding artifacts are also flagged as possible errors.
 
 use crate::pdfcraft::{engine::Edit, Doc};
 use crate::{pages::Input, OpdfError, Result};
@@ -14,7 +14,9 @@ pub struct ReviewLine {
     pub line: usize,
     pub rect: [f64; 4],
     pub text: String,
-    /// A decoding artifact (`?`, U+FFFD, control character), not a model-confidence estimate.
+    /// Recognizer confidence (0..1), absent on older/external layers.
+    pub confidence: Option<f32>,
+    /// Low recognition confidence (<0.85) or a decoding artifact.
     pub suspect: bool,
 }
 
@@ -25,14 +27,48 @@ pub fn review(input: &Input) -> Result<Vec<ReviewLine>> {
 
 /// Review the live document, including unsaved changes in the reader.
 pub fn review_document(doc: &crate::pdfcraft::engine::Document) -> Vec<ReviewLine> {
-    let mut out = Vec::new();
-    for page in 0..doc.info.pages.len() {
-        for (line, run) in doc.text_lines(page).into_iter().enumerate().filter(|(_, run)| run.invisible()) {
-            let suspect = run.text.chars().any(|c| c == '?' || c == '\u{fffd}' || (c.is_control() && !c.is_whitespace()));
-            out.push(ReviewLine { page: page + 1, line: line + 1, rect: run.rect, text: run.text, suspect });
+    (0..doc.info.pages.len()).flat_map(|page| review_page(doc, page)).collect()
+}
+
+fn review_page(doc: &crate::pdfcraft::engine::Document, page: usize) -> Vec<ReviewLine> {
+    doc.text_lines(page).into_iter().enumerate().filter(|(_, run)| run.invisible()).map(|(line, run)| {
+        let confidence = run.ocr_confidence;
+        let suspect = confidence.is_some_and(|c| c < 0.85)
+            || run.text.chars().any(|c| c == '?' || c == '\u{fffd}' || (c.is_control() && !c.is_whitespace()));
+        ReviewLine { page: page + 1, line: line + 1, rect: run.rect, text: run.text, confidence, suspect }
+    }).collect()
+}
+
+/// Cache review pages on the document thread. A targeted correction invalidates only its
+/// page; arbitrary edits, undo/redo and page-tree changes invalidate the whole snapshot.
+#[derive(Default)]
+pub struct ReviewCache {
+    generation: Option<u64>,
+    pages: Vec<Option<Vec<ReviewLine>>>,
+}
+
+impl ReviewCache {
+    pub fn review(&mut self, doc: &crate::pdfcraft::engine::Document) -> Vec<ReviewLine> {
+        if self.generation != Some(doc.edit_generation()) || self.pages.len() != doc.info.pages.len() {
+            self.pages = vec![None; doc.info.pages.len()];
+            self.generation = Some(doc.edit_generation());
+        }
+        let mut rows = Vec::new();
+        for (page, cached) in self.pages.iter_mut().enumerate() {
+            rows.extend(cached.get_or_insert_with(|| review_page(doc, page)).iter().cloned());
+        }
+        rows
+    }
+
+    /// Call only after a successful single-page OCR correction, with its previous generation.
+    pub fn corrected(&mut self, doc: &crate::pdfcraft::engine::Document, before: u64, page: usize) {
+        if self.generation == Some(before) && self.pages.len() == doc.info.pages.len() {
+            if let Some(cached) = self.pages.get_mut(page) { *cached = None; }
+            self.generation = Some(doc.edit_generation());
+        } else {
+            self.generation = None;
         }
     }
-    out
 }
 
 /// Replace a hidden OCR run, keeping the scan intact. An empty replacement is Acrobat's

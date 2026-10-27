@@ -44,6 +44,8 @@ pub struct TextLine {
     pub decodable: bool,
     /// Whether the font requires visual-order Indic text.
     pub visual_order: bool,
+    /// Recognition confidence retained by Sheaf OCR; absent for legacy/external layers.
+    pub ocr_confidence: Option<f32>,
     /// The Japanese or Hebrew fallback face the font subsets, when the line is in one (see [`same_font`]).
     face: Option<String>,
     /// The content stream piece the line starts in, and its operators (indices into the page's
@@ -620,6 +622,7 @@ struct Shown {
     extra_ops: Vec<usize>,
     /// Encoded glyphs, not bytes or Unicode characters (a ligature can represent several).
     glyph_count: usize,
+    ocr_confidence: Option<f32>,
     /// Advance in text space, including spacing and TJ adjustments.
     advance: f64,
     /// The text matrix where it starts (text space), and the state there and at its `BT`.
@@ -702,7 +705,7 @@ fn interpret(
             b"BMC" | b"BDC" if marked.len() < 256 => {
                 // Marked text paragraphs/headings are authoritative boundaries. Ignore
                 // artifacts and inner spans, which inherit their enclosing region.
-                let region = matches!(op.name(0), Some(b"P" | b"H" | b"H1" | b"H2" | b"H3" | b"H4" | b"H5" | b"H6" | b"LI" | b"TD" | b"TH"));
+                let region = matches!(op.name(0), Some(b"P" | b"H" | b"H1" | b"H2" | b"H3" | b"H4" | b"H5" | b"H6" | b"LI" | b"TD" | b"TH" | b"SheafOCRWord"));
                 marked.push(if region { Some(i) } else { marked.last().copied().flatten() });
                 let logical = op.operands.get(1).and_then(Object::as_dict).and_then(|d| d.get(b"ActualText")).and_then(|s| match s {
                     Object::String(s) if s.bytes.len() <= 4_000_000 => Some(s.to_text()),
@@ -903,6 +906,11 @@ fn interpret(
                     italic: m.italic,
                     visual_order: m.visual_order,
                     decodable,
+                    ocr_confidence: marked.last().copied().flatten().and_then(|i| ops.get(i))
+                        .filter(|op| op.name(0) == Some(b"SheafOCRWord"))
+                        .and_then(|op| op.operands.get(1)).and_then(Object::as_dict)
+                        .and_then(|d| d.get(b"SheafConfidence")).and_then(Object::as_f64)
+                        .filter(|v| v.is_finite() && (0.0..=1.0).contains(v)).map(|v| v as f32),
                     scope: marked.last().copied().flatten(),
                     logical_order: false,
                     actual_text: false,
@@ -993,6 +1001,7 @@ pub fn text_lines(doc: &Document, page: usize) -> Result<Vec<TextLine>, EditErro
                 color: fill_color(&s.state.fill),
                 decodable: s.decodable,
                 visual_order: s.visual_order,
+                ocr_confidence: s.ocr_confidence,
                 face: s.face.clone(),
                 stream: si,
                 scope: s.scope,
@@ -1093,6 +1102,7 @@ fn add_shown(lines: &mut Vec<TextLine>, last: &mut Option<(usize, f64, f64, f64)
             color: fill_color(&s.state.fill),
             decodable: s.decodable,
             visual_order: s.visual_order,
+            ocr_confidence: s.ocr_confidence,
             face: s.face.clone(),
             stream,
             scope: s.scope,
@@ -1685,7 +1695,16 @@ pub(crate) fn replace_line_with_limit(doc: &mut Document, page: usize, line: usi
     // Rebuild: the line's first operator becomes the replacement, its others go. Copies of the
     // line drawn on the same baseline go too, so the replacement is all that shows.
     let drops = coincident_ops(&lines, &[&target]);
-    let new_data = splice(&pieces, &ops, |i| if i == first { (std::mem::take(&mut replacement), false) } else { (Vec::new(), !drops.contains(&i)) });
+    let new_data = splice(&pieces, &ops, |i| {
+        if Some(i) == target.scope && ops[i].name(0) == Some(b"SheafOCRWord") {
+            let mut reviewed = ops[i].clone();
+            if let Some(Object::Dict(properties)) = reviewed.operands.get_mut(1) {
+                properties.set(b"SheafConfidence".to_vec(), Object::Int(1));
+            }
+            (vec![reviewed], false)
+        } else if i == first { (std::mem::take(&mut replacement), false) }
+        else { (Vec::new(), !drops.contains(&i)) }
+    });
     let contents = rewritten_contents(doc, &streams, new_data);
     let page_ref = p.obj;
     if substituted.is_some() {

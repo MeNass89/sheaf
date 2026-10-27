@@ -112,10 +112,12 @@ fn parse_tsv(tsv: &str, width: u32, height: u32, vertical: bool) -> Result<Vec<L
         let number = |i: usize| columns[i].parse::<f32>().map_err(|_| "Invalid Tesseract word coordinates".to_string());
         let (x, y, w, h) = (number(6)?, number(7)?, number(8)?, number(9)?);
         if ![x, y, w, h].iter().all(|v| v.is_finite()) || x < 0.0 || y < 0.0 || w <= 0.0 || h <= 0.0 || x + w > width as f32 || y + h > height as f32 { return Err("Tesseract word outside the page".into()); }
+        let confidence = number(10)?;
+        if !confidence.is_finite() || !(0.0..=100.0).contains(&confidence) { return Err("Invalid Tesseract word confidence".into()); }
         let key = columns[1..5].join("/");
         if key != previous || lines.is_empty() { lines.push(Line::default()); previous = key; }
         if let Some(line) = lines.last_mut() {
-            line.words.push(Word { text: columns[11].trim().into(), rect: [x, y, x + w, y + h], turn: if vertical { Turn::Down } else { Turn::Upright }, ..Default::default() });
+            line.words.push(Word { confidence: Some(confidence / 100.0), text: columns[11].trim().into(), rect: [x, y, x + w, y + h], turn: if vertical { Turn::Down } else { Turn::Upright }, ..Default::default() });
         }
     }
     Ok(lines)
@@ -154,6 +156,7 @@ mod tests {
         let lines = parse_tsv(&tsv, 100, 120, true).unwrap();
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0].words[0].text, "日本語");
+        assert_eq!(lines[0].words[0].confidence, Some(0.91));
         assert_eq!(lines[1].words[0].rect, [50.0, 60.0, 65.0, 100.0]);
         assert_eq!(lines[0].words[0].turn, Turn::Down);
         assert_eq!(parse_tsv(&tsv, 100, 120, false).unwrap()[0].words[0].turn, Turn::Upright);
@@ -167,4 +170,11 @@ mod tests {
             assert!(parse_tsv(&tsv, 100, 100, false).is_err());
         }
     }
+    #[test]
+    fn local_ocr_preserves_low_confidence_and_refuses_invalid_scores() {
+        let row = |score| format!("{HEADER}5\t1\t1\t1\t1\t1\t10\t20\t30\t12\t{score}\tError\n");
+        assert_eq!(parse_tsv(&row("32"), 100, 100, false).unwrap()[0].words[0].confidence, Some(0.32));
+        for score in ["NaN", "-1", "101", "bad"] { assert!(parse_tsv(&row(score), 100, 100, false).is_err()); }
+    }
+
 }

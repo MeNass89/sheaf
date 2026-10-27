@@ -507,3 +507,26 @@
 - `not automatable: create/reorder/edit/delete/once-only marks, restart with no secret-tool,
   reopen and reuse on Linux/Windows/macOS — app/platform execution forbidden by rule 1`.
 - Proposed grade: C-sign-009: f8 a8 p8 — persistence tests above; no live platform verification.
+
+## Third pass — C-optimize-009
+
+- C-optimize-009: recognition confidence now survives the built-in Latin and Tesseract paths,
+  placement, PDF save/reopen and reader review. Each new OCR word has its own marked-content
+  scope, preventing same-baseline words from merging into one correction target. Suspects now
+  include words below 85% confidence, not just decoding artifacts. Existing external/older
+  layers explicitly show unknown confidence. Corrections set the reviewed word's score to 1;
+  undo restores it. The scan and neighboring words remain untouched.
+- The reader's document thread caches review pages: targeted corrections only reread their
+  page; arbitrary edits and undo/redo invalidate the snapshot. Accept/Previous/filter do not
+  extract PDF text again. UI labels now say OCR suspects; the position shows confidence.
+- Tests written, not run: `word_confidence_survives_save_and_corrections_leave_neighboring_words_and_scan_intact`,
+  `local_ocr_preserves_low_confidence_and_refuses_invalid_scores`, updated CJK TSV test and
+  reader review-state tests. No dependency. Public fields added: OCR `Word::confidence`,
+  `PlacedWord::confidence`, `TextLine::ocr_confidence`, `ReviewLine::confidence`; new core
+  `ocr_review::ReviewCache`. Callers constructing PlacedWord literals must set confidence.
+- Left: old/external OCR layers may still group words in line runs and lack confidence; Sheaf
+  does not invent it. New word grouping may affect OCR text-export line boundaries and must
+  be checked by orchestrator integration tests. Large-file/GUI timing remains unmeasured.
+  `not automatable: OCR a scan, filter suspects, correct one word, accept/next, undo, save/reopen;
+  check confidence labels and highlight — running the app is forbidden by rule 1`.
+- Proposed grade: C-optimize-009: f8 a8 p8 — confidence/neighbor/pixel/undo test above; no joint 9.

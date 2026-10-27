@@ -192,7 +192,7 @@ fn words_beyond_winansi_are_kept_in_the_text_layer() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 1);
     let mut doc = sheaf_core::pdfcraft::Doc::open(&Input::new(&a)).unwrap();
-    let word = |text: &str, x: f64| PlacedWord { text: text.into(), origin: [x, 500.0], across: [40.0, 0.0], up: [0.0, 12.0] };
+    let word = |text: &str, x: f64| PlacedWord { text: text.into(), confidence: None, origin: [x, 500.0], across: [40.0, 0.0], up: [0.0, 12.0] };
     doc.apply(Edit::AddOcrText { page: 0, words: vec![word("anti-TNFα", 100.0), word("→", 150.0), word("élevée", 170.0)] }).unwrap();
     let out = doc.save(&t.path().join("o.pdf")).unwrap();
     let _g = pdfium_lock();

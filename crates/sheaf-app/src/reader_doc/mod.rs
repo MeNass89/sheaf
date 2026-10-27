@@ -641,6 +641,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
             // A preview on the document: the dirty, undo and redo state before it, which the
             // window is shown (a preview is not a change to save or undo).
             let mut preview: Option<(bool, bool, bool)> = None;
+            let mut ocr_review_cache = sheaf_core::ocr_review::ReviewCache::default();
             for op in rx {
                 let t0 = std::time::Instant::now();
                 // Reading the paragraphs (asked after each change, the preview's too) keeps it.
@@ -671,10 +672,12 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         (s.dirty, s.can_undo, s.can_redo) = before;
                         reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: false, note, preview: true });
                     }
-                    Op::ReviewOcr => reply(Reply::OcrReviewed(sheaf_core::ocr_review::review_document(doc.document()))),
+                    Op::ReviewOcr => reply(Reply::OcrReviewed(ocr_review_cache.review(doc.document()))),
                     Op::CorrectOcr { page, line, expected, text } => {
+                        let generation = doc.document().edit_generation();
                         let error = sheaf_core::ocr_review::correction_edit(doc.document(), page, line, &expected, &text)
                             .and_then(|edit| doc.apply(edit)).err().map(|e| e.to_string());
+                        if error.is_none() { ocr_review_cache.corrected(doc.document(), generation, page); }
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(vec![page]), error, applied: true, note: None, preview: false });
                     }
                     Op::Apply { edit, pages } => {
