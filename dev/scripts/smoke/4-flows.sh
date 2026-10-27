@@ -768,3 +768,17 @@ cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
 key r; sleep 0.6; read FX _ <<< "$(at Fill 1280x120+0+80)"
 check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
 quit; platform_reset
+
+# 340. Acrobat's Optimizer: PDF 1.3 transparency flattening followed by Fast Web View.
+# Locate controls in the actual options scroller, then inspect the produced PDF, not just the UI.
+optimize_option() { local found=; for _ in $(seq 1 16); do found=$(at "$1" 310x640+965+90); [ -n "$found" ] && break; xdotool mousemove 1160 500 click 5 click 5; sleep 0.3; done; echo "$found"; }
+cp "$OUT/text.pdf" "$OUT/web.pdf"; launch "$OUT/web.pdf"; sleep 1
+click $WRENCH_X 61 1; xdotool type --delay 20 "compress"; key Return; sleep 2
+OA=$(optimize_option Advanced); [ -n "$OA" ] && click $OA 0.5
+OF=$(optimize_option Flatten); [ -n "$OF" ] && click $OF 0.5
+OW=$(optimize_option Fast); [ -n "$OW" ] && click $OW 0.5
+shot 340-optimizer
+click 1140 755 5
+for _ in $(seq 1 20); do [ -f "$OUT/web-compressed.pdf" ] && break; sleep 0.5; done
+check "340 optimizer saves flattened Fast Web View ($OA; $OF; $OW)" "[ -n \"$OF\" ] && [ -n \"$OW\" ] && head -c 2048 \"$OUT/web-compressed.pdf\" | grep -aq /Linearized && head -c 8 \"$OUT/web-compressed.pdf\" | grep -q %PDF-1.3 && qpdf --check-linearization \"$OUT/web-compressed.pdf\" >/dev/null 2>&1 && [ \"\$(npages \"$OUT/web-compressed.pdf\")\" = 4 ] && pdftotext \"$OUT/web-compressed.pdf\" - | grep -q 'Page 1'"
+quit

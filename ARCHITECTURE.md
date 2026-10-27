@@ -138,3 +138,5 @@ Catalog parsing/search and policy application run off the UI thread. `security_p
 keeps password-free named policy files under the application data folder's `security-policies/`.
 OCR options retain every selected language; `OcrOptions::use_local_engine` selects local
 Tesseract explicitly, with the same option in the OCR panel and CLI `--local-engine`.
+
+`sheaf-core/src/optimizer_post.rs` runs the explicit offline Ghostscript transparency pass and qpdf Fast Web View after compression, verifies them, and honours cancellation before publication.

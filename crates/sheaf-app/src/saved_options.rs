@@ -41,7 +41,7 @@ kept! {
         adjust_brightness, adjust_contrast, adjust_saturation;
     bools:
         pdfa_allow_incomplete, html_long_page,
-        redact_repeat, discard_thumbs, discard_tags, discard_meta, compress_gray, unembed_fonts, adjust_invert,
+        redact_repeat, discard_thumbs, discard_tags, discard_meta, compress_gray, unembed_fonts, flatten_transparency, linearize, adjust_invert,
         hf_replace,
         allow_printing, allow_copying, allow_editing, allow_commenting, allow_filling_forms, remove_blank,
         protect_sanitize, split_one_file, landscape, one_per_image, png, extract_images, num_double, num_cover,
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn options_come_back_as_they_were_without_their_passwords() {
-        let o = ToolOptions { html_screen_width: 1280, html_long_page: true, pdfa_allow_incomplete: true, ocr_local_engine: true, level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
+        let o = ToolOptions { flatten_transparency: true, linearize: true, html_screen_width: 1280, html_long_page: true, pdfa_allow_incomplete: true, ocr_local_engine: true, level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
         let json = to_json(&o);
         let text = serde_json::to_string(&json).unwrap();
         assert!(!text.contains("secret") && !text.contains("boss") && !text.contains("pin"), "{text}");

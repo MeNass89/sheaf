@@ -312,6 +312,8 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 discard_metadata: opts.discard_meta,
                 grayscale: opts.compress_gray,
                 unembed_standard: opts.unembed_fonts,
+                flatten_transparency: opts.flatten_transparency,
+                linearize: opts.linearize,
             },
         },
         ToolId::Protect => Job::Protect {

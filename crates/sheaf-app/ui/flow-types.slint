@@ -595,6 +595,8 @@ export struct ToolOptions {
     discard-tags: bool,      // compress, advanced: structure tags taken out
     discard-meta: bool,      // compress, advanced: document information and XMP taken out
     compress-gray: bool,     // compress: every colour made grey (Stirling's Convert to grayscale)
+    flatten-transparency: bool, // compress: explicit PDF 1.3 copy via local Ghostscript
+    linearize: bool,          // compress: Fast Web View via local qpdf
     unembed-fonts: bool,     // compress, advanced: standard faces' programs taken out
     adjust-brightness: int,  // adjust colours: −100 to 100 (0 as it is)
     adjust-contrast: int,

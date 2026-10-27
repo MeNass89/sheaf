@@ -159,6 +159,9 @@ export component OptionsPanel inherits VerticalLayout {
         root.discard-meta = o.discard-meta;
         root.compress-gray = o.compress-gray;
         root.unembed-fonts = o.unembed-fonts;
+        root.flatten-transparency = o.flatten-transparency;
+        root.linearize = o.linearize;
+        root.compress-advanced = o.flatten-transparency || o.linearize || o.unembed-fonts || o.discard-thumbs || o.discard-tags || o.discard-meta || o.compress-ppi != "" || o.compress-quality != "";
         root.adjust-brightness = o.adjust-brightness;
         root.adjust-contrast = o.adjust-contrast;
         root.adjust-saturation = o.adjust-saturation;
@@ -196,7 +199,7 @@ export component OptionsPanel inherits VerticalLayout {
         compare-mode: root.compare-mode,
         sign-cert: root.sign-cert, sign-p12: root.sign-p12, sign-p12-password: root.sign-p12-password,
         sign-reason: root.sign-reason, sign-location: root.sign-location, sign-certify: root.sign-certify,
-        compress-ppi: root.compress-ppi, compress-quality: root.compress-quality, discard-thumbs: root.discard-thumbs, discard-tags: root.discard-tags, discard-meta: root.discard-meta, compress-gray: root.compress-gray, unembed-fonts: root.unembed-fonts,
+        compress-ppi: root.compress-ppi, compress-quality: root.compress-quality, discard-thumbs: root.discard-thumbs, discard-tags: root.discard-tags, discard-meta: root.discard-meta, compress-gray: root.compress-gray, unembed-fonts: root.unembed-fonts, flatten-transparency: root.flatten-transparency, linearize: root.linearize,
         adjust-brightness: root.adjust-brightness, adjust-contrast: root.adjust-contrast, adjust-saturation: root.adjust-saturation, adjust-invert: root.adjust-invert,
         redact-fill: root.redact-fill, redact-overlay: root.redact-overlay, redact-margin: root.redact-margin, redact-repeat: root.redact-repeat,
     };
@@ -230,6 +233,8 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <bool> discard-meta;
     in-out property <bool> compress-gray;
     in-out property <bool> unembed-fonts;
+    in-out property <bool> flatten-transparency;
+    in-out property <bool> linearize;
     in-out property <int> adjust-brightness;
     in-out property <int> adjust-contrast;
     in-out property <int> adjust-saturation;
@@ -608,6 +613,10 @@ export component OptionsPanel inherits VerticalLayout {
             Check { text: "Remove document information and metadata"; checked <=> root.discard-meta; }
             // Acrobat's Unembed fonts: the faces every reader has (Arial, Times, Courier…).
             Check { text: "Unembed standard fonts (Arial, Times, Courier…)"; checked <=> root.unembed-fonts; }
+            Check { text: "Flatten transparency (PDF 1.3 copy)"; checked <=> root.flatten-transparency; }
+            if root.flatten-transparency: InfoBox { text: "Needs local Ghostscript. Artwork may become images. Use an untagged copy without forms, layers, signatures or attachments."; }
+            Check { text: "Fast Web View (linearize)"; checked <=> root.linearize; }
+            if root.linearize: InfoBox { text: "Needs local qpdf. The first page loads before the rest of the file. These settings may increase file size."; }
         }
         Rectangle { height: 4px; }
         InfoBox { text: root.level == 3 ? "Sheaf tries stronger settings in turn until the file is that size or smaller; if none gets there, it keeps the smallest and says so." : "Recommended and Extreme recompress images; text and vector graphics stay as they are (grey with Convert to grayscale)."; }

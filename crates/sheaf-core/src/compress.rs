@@ -4,6 +4,9 @@ use lopdf::{Object, ObjectId, SaveOptions, Stream};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+#[path = "optimizer_post.rs"]
+mod post;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
     Low,
@@ -46,6 +49,10 @@ pub struct Advanced {
     pub grayscale: bool,
     /// The programs of the standard faces every reader has, taken out (Acrobat's Unembed fonts).
     pub unembed_standard: bool,
+    /// Acrobat's transparency flattener: an explicit PDF 1.3 conversion using local Ghostscript.
+    pub flatten_transparency: bool,
+    /// Acrobat's Fast Web View: qpdf lays out the first page for incremental delivery.
+    pub linearize: bool,
 }
 
 #[derive(Debug)]
@@ -84,12 +91,13 @@ pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn
 
 /// [`compress_with`], with [`Advanced`] settings.
 pub fn compress_advanced(input: &Input, level: Level, adv: &Advanced, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<CompressReport> {
+    let post_factor = if adv.flatten_transparency || adv.linearize { 0.9 } else { 1.0 };
     let (bytes, before, was_encrypted, missed_target, gray_kept) = match level {
         Level::Target(limit) => {
             let n = TARGET_STEPS.len() as f32;
             let mut best: Option<(Vec<u8>, u64, bool, usize)> = None;
             for (k, (max, q)) in TARGET_STEPS.into_iter().enumerate() {
-                let tried = squeeze(input, max, q, adv, &mut |p| progress((k as f32 + p) / n * 0.95))?;
+                let tried = squeeze(input, max, q, adv, &mut |p| progress((k as f32 + p) / n * 0.95 * post_factor))?;
                 let fits = tried.0.len() as u64 <= limit;
                 if best.as_ref().is_none_or(|b| tried.0.len() < b.0.len()) {
                     best = Some(tried);
@@ -107,10 +115,12 @@ pub fn compress_advanced(input: &Input, level: Level, adv: &Advanced, out: &Path
             // Pixels per inch to the long side the level allows: 150 ppi on A4's 11.7 in is 1,755 px.
             let max = adv.max_ppi.map_or(max, |ppi| (ppi.clamp(36, 1200) as f64 * 11.7) as u32);
             let q = adv.quality.map_or(q, |q| q.clamp(1, 100));
-            let (bytes, before, enc, kept) = squeeze(input, max, q, adv, progress)?;
+            let (bytes, before, enc, kept) = squeeze(input, max, q, adv, &mut |p| progress(p * post_factor))?;
             (bytes, before, enc, false, kept)
         }
     };
+    let bytes = post::finish(bytes, adv, progress)?;
+    let missed_target = if let Level::Target(limit) = level { bytes.len() as u64 > limit } else { missed_target };
     let after = bytes.len() as u64;
     if !progress(0.95) { return Err(crate::OpdfError::Cancelled); }
     let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;
@@ -387,15 +397,25 @@ pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
     let w = u32::try_from(s.dict.get(b"Width").and_then(Object::as_i64).ok()?).ok()?;
     let h = u32::try_from(s.dict.get(b"Height").and_then(Object::as_i64).ok()?).ok()?;
     let img = if identity_decode(s) {
-        let opts = zune_core::options::DecoderOptions::default().jpeg_set_out_colorspace(zune_core::colorspace::ColorSpace::CMYK);
-        let mut dec = zune_jpeg::JpegDecoder::new_with_options(std::io::Cursor::new(&s.content[..]), opts);
-        // YCCK JPEGs cannot be read as raw CMYK: the decoder refuses, and the picture is left alone.
+        use zune_core::{colorspace::ColorSpace, options::DecoderOptions};
+        let mut dec = zune_jpeg::JpegDecoder::new(std::io::Cursor::new(&s.content[..]));
+        dec.decode_headers().ok()?;
+        let space = dec.input_colorspace()?;
+        if !matches!(space, ColorSpace::CMYK | ColorSpace::YCCK) { return None; }
+        // Acrobat applies PDF Decode after the JPEG colour transform. Requesting CMYK from
+        // a YCCK decoder fails; read its own four channels, then undo that transform here.
+        dec.set_options(DecoderOptions::default().jpeg_set_out_colorspace(space));
         let raw = dec.decode().ok()?;
         if raw.len() != (w as usize).checked_mul(h as usize)?.checked_mul(4)? { return None; }
         let ink = |v: u8, k: u8| ((255 - u16::from(v)) * (255 - u16::from(k)) / 255) as u8;
         RgbImage::from_fn(w, h, |x, y| {
             let p = &raw[(y as usize * w as usize + x as usize) * 4..][..4];
-            image::Rgb([ink(p[0], p[3]), ink(p[1], p[3]), ink(p[2], p[3])])
+            let [c, m, y] = if space == ColorSpace::YCCK {
+                let (luma, cb, cr) = (f32::from(p[0]), f32::from(p[1]) - 128.0, f32::from(p[2]) - 128.0);
+                [luma + 1.402 * cr, luma - 0.344136 * cb - 0.714136 * cr, luma + 1.772 * cb]
+                    .map(|v| 255 - v.round().clamp(0.0, 255.0) as u8)
+            } else { [p[0], p[1], p[2]] };
+            image::Rgb([ink(c, p[3]), ink(m, p[3]), ink(y, p[3])])
         })
     } else if inverted_cmyk_decode(s) {
         image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).ok()?.to_rgb8()
