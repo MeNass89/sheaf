@@ -65,6 +65,12 @@ pub fn page_durations(doc: &Document) -> Vec<Option<f64>> {
 }
 
 impl crate::Document {
+    /// Whether the document is a PDF Portfolio (its catalog has `/Collection`): its attached files
+    /// are what it holds, its pages only a cover.
+    pub fn is_portfolio(&self) -> bool {
+        self.editor.as_ref().is_some_and(|e| e.cos.root().is_some_and(|r| e.cos.get(r).as_dict().is_some_and(|d| d.get(b"Collection").is_some())))
+    }
+
     /// Each page's time in full screen before the next (`/Dur`), in seconds.
     pub fn page_durations(&self) -> Vec<Option<f64>> {
         self.editor.as_ref().map(|e| page_durations(&e.cos)).unwrap_or_default()

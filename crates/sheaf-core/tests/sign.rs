@@ -14,15 +14,18 @@ fn invoice() -> PathBuf {
 }
 
 /// A throwaway self-signed digital ID made with `openssl` in `dir` (password "secret").
-fn test_id(dir: &Path) -> PathBuf {
+fn test_id(dir: &Path) -> PathBuf { test_identity(dir, false) }
+
+// A TSA has a separate key and a critical, timestamp-only EKU, never the document signer's ID.
+fn test_identity(dir: &Path, timestamp: bool) -> PathBuf {
     let (key, cert, p12) = (dir.join("k.pem"), dir.join("c.pem"), dir.join("id.p12"));
-    let o = Command::new("openssl")
-        .args(["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj", "/CN=Sheaf Test Signer", "-keyout"])
-        .arg(&key)
-        .arg("-out")
-        .arg(&cert)
-        .output()
-        .unwrap();
+    let mut command = Command::new("openssl");
+    command.args(["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj"])
+        .arg(if timestamp { "/CN=Sheaf Test Timestamp Authority" } else { "/CN=Sheaf Test Signer" });
+    if timestamp {
+        command.args(["-addext", "extendedKeyUsage=critical,timeStamping", "-addext", "keyUsage=critical,digitalSignature"]);
+    }
+    let o = command.arg("-keyout").arg(&key).arg("-out").arg(&cert).output().unwrap();
     assert!(o.status.success(), "openssl req: {}", String::from_utf8_lossy(&o.stderr));
     let o = Command::new("openssl").args(["pkcs12", "-export", "-passout", "pass:secret", "-inkey"]).arg(&key).arg("-in").arg(&cert).arg("-out").arg(&p12).output().unwrap();
     assert!(o.status.success(), "openssl pkcs12: {}", String::from_utf8_lossy(&o.stderr));
@@ -430,6 +433,21 @@ fn a_document_is_certified_with_no_signature_shown() {
     assert_eq!(s.certify, Some(1), "no changes allowed");
 }
 
+/// Preferences ▸ Signatures: a certificate in PEM is read, and its DER kept as it is.
+#[test]
+fn a_certificate_file_is_read_in_der_or_pem() {
+    let t = tempfile::tempdir().unwrap();
+    test_id(t.path());
+    let der = t.path().join("c.der");
+    let o = Command::new("openssl").args(["x509", "-outform", "der", "-in"]).arg(t.path().join("c.pem")).arg("-out").arg(&der).output().unwrap();
+    assert!(o.status.success(), "openssl x509: {}", String::from_utf8_lossy(&o.stderr));
+    let der = std::fs::read(der).unwrap();
+    assert_eq!(sheaf_core::pdfcraft::certificate_der(&der).as_deref(), Some(&der[..]), "a .der is kept as it is");
+    let pem = std::fs::read(t.path().join("c.pem")).unwrap();
+    assert_eq!(sheaf_core::pdfcraft::certificate_der(&pem), Some(der), "a .pem decodes to the same DER");
+    assert!(sheaf_core::pdfcraft::certificate_der(b"not a certificate").is_none());
+}
+
 /// Acrobat's Clear Signature: the field stays, unsigned, and its certification goes with it; saved
 /// as an update, so the signed revision is still in the file.
 #[test]
@@ -452,4 +470,51 @@ fn a_cleared_signature_leaves_its_field_unsigned_and_its_certification_gone() {
     let bytes = std::fs::read(&cleared).unwrap();
     assert_eq!(&bytes[..std::fs::metadata(&signed).unwrap().len() as usize], &std::fs::read(&signed).unwrap()[..], "the signed revision is kept");
     assert!(!String::from_utf8_lossy(&bytes[std::fs::metadata(&signed).unwrap().len() as usize..]).contains("/DocMDP"));
+}
+
+#[test]
+fn a_local_authority_timestamps_visible_and_invisible_certificate_signatures() {
+    use sheaf_core::pdfcraft::engine::sign::{self as crypto, DigestAlg, TimestampAuthority};
+    struct LocalAuthority(crypto::DigitalId);
+    impl TimestampAuthority for LocalAuthority {
+        fn timestamp(&self, request: &[u8]) -> Result<Vec<u8>, crypto::SignError> {
+            let query = crypto::timestamp::parse_request(request)?;
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+            crypto::timestamp::respond(&self.0.key, &self.0.certificate, &self.0.chain, DigestAlg::Sha256, &query, "1.2.3.4", crypto::Time::from_unix(now), 1)
+        }
+    }
+    let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
+    let tsa_dir = t.path().join("tsa");
+    std::fs::create_dir(&tsa_dir).unwrap();
+    let tsa_p12 = test_identity(&tsa_dir, true);
+    let authority = LocalAuthority(crypto::pkcs12::open(&std::fs::read(tsa_p12).unwrap(), "secret").unwrap());
+    assert_eq!(authority.0.certificate.extended_key_usage.as_deref(), Some(["1.3.6.1.5.5.7.3.8".to_string()].as_slice()));
+    let signer = crypto::pkcs12::open(&std::fs::read(&p12).unwrap(), "secret").unwrap();
+    assert_ne!(authority.0.certificate.raw, signer.certificate.raw);
+    let digital = digital(&p12, "secret").unwrap();
+    let input = Input::new(invoice());
+    let spec = spec(0, [72.0, 100.0, 240.0, 160.0], Graphic::Typed("Ada".into(), Default::default()), Some(digital.clone()));
+    let visible = sign::sign_with_timestamp(&input, &spec, &t.path().join("visible.pdf"), &authority).unwrap();
+    let invisible = sign::certify_with_timestamp(&input, &digital, &t.path().join("invisible.pdf"), &authority).unwrap();
+    for file in [visible.path, invisible.path] {
+        let doc = Doc::open(&Input::new(file)).unwrap();
+        assert_eq!(doc.document().signatures.len(), 1);
+        assert!(doc.document().signatures[0].timestamp, "the signature contains its RFC 3161 token");
+    }
+}
+
+#[test]
+fn an_invalid_timestamp_response_never_writes_an_untimestamped_signature() {
+    use sheaf_core::pdfcraft::engine::sign::{self as crypto, TimestampAuthority};
+    struct InvalidAuthority;
+    impl TimestampAuthority for InvalidAuthority {
+        fn timestamp(&self, _request: &[u8]) -> Result<Vec<u8>, crypto::SignError> { Ok(vec![0]) }
+    }
+    let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
+    let spec = spec(0, [72.0, 100.0, 240.0, 160.0], Graphic::Typed("Ada".into(), Default::default()), digital(&p12, "secret"));
+    let out = t.path().join("invalid.pdf");
+    assert!(sign::sign_with_timestamp(&Input::new(invoice()), &spec, &out, &InvalidAuthority).is_err());
+    assert!(!out.exists());
 }

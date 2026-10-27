@@ -105,7 +105,8 @@ pub fn set_colour(ui: &AppWindow, tab_id: i32, k: i32) {
 }
 
 /// Text format (added text, text boxes): `what` 0 size step (±1 in `v`, to the next preset), 1
-/// family (`v`), 2 bold toggle, 3 italic toggle, 4 alignment (`v`), 5 size typed (`v` points). With a text box selected (the row then shows its
+/// family (`v`), 2 bold toggle, 3 italic toggle, 4 alignment (`v`), 5 size typed (`v` points), 6 underline and 7 bullets
+/// toggles, 8 a font of the computer's (`v` in `system_fonts::installed`), 9 that list asked for. With a text box selected (the row then shows its
 /// format, see [`select_annot`]), it takes the new format at once; a click that changes nothing
 /// adds no undo step.
 /// A colour picked from the palette or typed (RRGGBB) becomes the row's sixth and is used at once, for
@@ -124,27 +125,111 @@ pub fn set_custom_colour(ui: &AppWindow, tab_id: i32, hex: &str) {
 }
 
 pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
+    // The font list opened: the computer's fonts, read once off the interface thread.
+    if what == 9 {
+        return list_system_fonts(ui);
+    }
+    // Bold or italic on a text box in a font that is not a standard one: the same font's bold or
+    // italic face installed on the computer, as PDF Expert's typeface menu (Sol, 27/10: a
+    // standard family replaced it).
+    if matches!(what, 2 | 3)
+        && let Some((page, index, base)) = update(tab_id, |r, _| {
+            let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| a.subtype == "FreeText" && !a.fill_sign && !a.font_name.is_empty())?;
+            let standard = FONTS.iter().flatten().any(|f| a.font.is_some_and(|(n, _, _)| n == *f));
+            (!standard).then(|| (a.page, a.index, a.font_name.clone()))
+        })
+        .flatten()
+    {
+        use sheaf_core::system_fonts::{installed, style_of, variant};
+        let (bold, italic) = style_of(&base);
+        let (bold, italic) = if what == 2 { (!bold, italic) } else { (bold, !italic) };
+        let family = base.rsplit('+').next().unwrap_or(&base).split(['-', ',']).next().unwrap_or_default().to_string();
+        let Some(face) = variant(installed(), &base, bold, italic) else {
+            let style = match (bold, italic) {
+                (true, true) => "bold italic",
+                (true, false) => "bold",
+                (false, true) => "italic",
+                (false, false) => "regular",
+            };
+            return crate::flow::toast(ui, &format!("No {style} face of {family} is installed on this computer"));
+        };
+        match std::fs::read(&face.path) {
+            Ok(bytes) => apply(ui, tab_id, Edit::SetTextBoxFontProgram { page, index, font: std::sync::Arc::new(bytes) }, &[page], None),
+            Err(e) => crate::flow::toast(ui, &format!("{} can't be read: {e}", face.name)),
+        }
+        return;
+    }
+    // Bold or italic with a font of the computer's chosen (More fonts…), for new text, a new text
+    // box or the paragraph open: that font's own bold or italic face (Sol, 27/10: B and I lit up
+    // and the chosen font stayed as it was).
+    if matches!(what, 2 | 3)
+        && let Some(name) = update(tab_id, |r, _| r.text_font.as_ref().map(|f| f.0.clone())).flatten()
+    {
+        use sheaf_core::system_fonts::{face, installed};
+        let fonts = installed();
+        let Some(now) = fonts.iter().find(|f| f.name == name) else { return };
+        let (bold, italic) = if what == 2 { (!now.bold, now.italic) } else { (now.bold, !now.italic) };
+        let Some(next) = face(fonts, &now.family, bold, italic) else {
+            let style = if what == 2 { "bold" } else { "italic" };
+            return crate::flow::toast(ui, &format!("{} has no {style} face installed on this computer", now.family));
+        };
+        let bytes = match std::fs::read(&next.path) {
+            Ok(b) => std::sync::Arc::new(b),
+            Err(e) => return crate::flow::toast(ui, &format!("{} can't be read: {e}", next.name)),
+        };
+        update(tab_id, |r, _| {
+            r.text_font = Some((next.name.clone(), bytes));
+            (r.text_bold, r.text_italic) = (bold, italic);
+            if r.draft.as_ref().is_some_and(|d| d.kind == 2) {
+                let (set, clear) = para_bits(8);
+                r.para_format = (r.para_format | set) & !clear;
+            }
+        });
+        return;
+    }
+    // A font of the computer's (`v` in the list), for the open paragraph: its program read now.
+    let picked = if what == 8 {
+        let Some(f) = sheaf_core::system_fonts::installed().get(v.max(0) as usize) else { return };
+        match std::fs::read(&f.path) {
+            Ok(bytes) => Some((f.name.clone(), std::sync::Arc::new(bytes))),
+            Err(e) => return crate::flow::toast(ui, &format!("{} can't be read: {e}", f.name)),
+        }
+    } else {
+        None
+    };
     let restyle = update(tab_id, |r, _| {
         match what {
             0 => r.text_pt = step_size(r.text_pt, v),
             5 => r.text_pt = (v as f64).clamp(1.0, 400.0),
-            1 => r.text_family = v.clamp(0, 2),
+            1 => {
+                r.text_family = v.clamp(0, 2);
+                r.text_font = None;
+            }
             2 => r.text_bold = !r.text_bold,
             3 => r.text_italic = !r.text_italic,
             6 => r.text_underline = !r.text_underline,
-            7 => r.text_bullets = !r.text_bullets,
+            7 => {
+                r.text_bullets = !r.text_bullets;
+                r.text_numbers &= !r.text_bullets;
+            }
+            // A numbered list (Acrobat's), in place of bullets.
+            10 => {
+                r.text_numbers = !r.text_numbers;
+                r.text_bullets &= !r.text_numbers;
+            }
+            8 => r.text_font = picked,
             _ => r.text_align = v.clamp(0, 2),
         }
         if r.draft.as_ref().is_some_and(|d| d.kind == 2) {
-            r.para_format |= match what {
-                0 | 5 => 2,
-                1..=3 => 4,
-                // Underline and bullets are for text added on the page.
-                6 | 7 => 0,
-                _ => 8,
-            };
+            let (set, clear) = para_bits(what);
+            r.para_format = (r.para_format | set) & !clear;
         }
         let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| a.subtype == "FreeText" && !a.fill_sign)?;
+        // A font of the computer's for the selected text box: embedded, the box drawn in it.
+        if what == 8 {
+            let font = r.text_font.as_ref()?.1.clone();
+            return Some((a.page, Edit::SetTextBoxFontProgram { page: a.page, index: a.index, font }));
+        }
         let now = a.font.unwrap_or(("Helv", 12.0, 0));
         // Only a family, bold or italic click changes the font: a size or alignment change keeps the
         // box's own (one the row does not list, an embedded one, stays).
@@ -161,6 +246,42 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
     if let Some((page, e)) = restyle {
         apply(ui, tab_id, e, &[page], None);
     }
+}
+
+/// What a click on the format row (`what` as [`text_format`]'s) changes of the open paragraph:
+/// the `para_format` bits it sets and those it clears. Underline and bullets apply to the
+/// paragraph too (Sol, 26/10: only new text took them); a family picked replaces a font of the
+/// computer's, and that font the family.
+fn para_bits(what: i32) -> (u8, u8) {
+    match what {
+        0 | 5 => (2, 0),
+        1 => (4, 64),
+        2 | 3 => (4, 0),
+        6 => (16, 0),
+        7 | 10 => (32, 0),
+        8 => (64, 4),
+        _ => (8, 0),
+    }
+}
+
+/// A loupe (Preview's): a circle comment PdfCraft's loupe names so.
+pub(super) fn is_loupe(a: &AnnotEntry) -> bool {
+    a.subtype == "Circle" && a.contents == "Loupe"
+}
+
+/// The computer's fonts for the format row's list (`ReaderBridge.system-fonts`): read on a thread
+/// the first time, then at once.
+fn list_system_fonts(ui: &AppWindow) {
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let names: Vec<slint::SharedString> = sheaf_core::system_fonts::installed().iter().map(|f| f.name.as_str().into()).collect();
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(ui) = weak.upgrade() {
+                use slint::ComponentHandle as _;
+                ui.global::<sheaf_app::ReaderBridge>().set_system_fonts(slint::ModelRc::new(slint::VecModel::from(names)));
+            }
+        });
+    });
 }
 
 /// A size typed in the format row: its leading number ("16", "16 pt", "10,5"); anything else is
@@ -242,6 +363,46 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
             0 => {
                 r.shape_kind = value.clamp(0, 9);
                 r.poly = None;
+                // A loupe is round; a mask's opening is a rectangle or an oval.
+                if r.shape_special == 1 || (r.shape_special == 2 && r.shape_kind > 1) {
+                    r.shape_special = 0;
+                }
+            }
+            // Preview's Loupe (an oval dragged) and Mask (a rectangle or oval dragged), Acrobat's
+            // Article (rectangles dragged, one after the other): on or off.
+            30..=32 => {
+                let special = (what - 29) as u8;
+                r.article_thread = None;
+                r.article_box = None;
+                r.shape_special = if r.shape_special == special { 0 } else { special };
+                if r.shape_special != 0 {
+                    r.shape_kind = match special {
+                        1 => 1,
+                        2 => r.shape_kind.min(1),
+                        _ => 0,
+                    };
+                    r.poly = None;
+                }
+            }
+            // Loupe: the next magnification (1.5×, 2×, 3×, 4×), for new loupes and the one selected.
+            35 => {
+                use sheaf_core::pdfcraft::engine::loupe_magnifications as steps;
+                let k = steps().iter().position(|m| (*m - r.loupe_magnify).abs() < 1e-9).map_or(1, |k| (k + 1) % steps().len());
+                r.loupe_magnify = steps()[k];
+                let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| is_loupe(a))?;
+                return Some((a.page, Edit::SetLoupeMagnify { page: a.page, index: a.index, magnify: r.loupe_magnify }));
+            }
+            // Article: the next box starts a new article (Acrobat's End Article).
+            33 => {
+                r.article_thread = None;
+                r.article_box = None;
+            }
+            // Article: the article being drawn (else the last) deleted, its boxes with it.
+            34 => {
+                r.article_box = None;
+                let t = r.article_thread.take().or_else(|| r.snap.articles.len().checked_sub(1))?;
+                // Any article after it is renumbered; none is being drawn now (`take` above).
+                return Some((0, Edit::DeleteArticle { thread: t }));
             }
             1 => r.shape_fill = !r.shape_fill,
             3 => {
@@ -704,6 +865,19 @@ mod tests {
         for bad in ["", "pt", "0", "-3", "abc"] {
             assert_eq!(typed_size(bad), None, "{bad:?}");
         }
+    }
+
+    /// Underline, bullets and a font of the computer's change the paragraph open, as size and
+    /// family do; a family and a font of the computer's replace each other.
+    #[test]
+    fn underline_bullets_and_fonts_apply_to_the_paragraph_open() {
+        assert_eq!(para_bits(6), (16, 0));
+        assert_eq!(para_bits(7), (32, 0));
+        assert_eq!(para_bits(10), (32, 0), "numbers change the paragraph's list as bullets do");
+        assert_eq!(para_bits(8), (64, 4));
+        assert_eq!(para_bits(1), (4, 64));
+        assert_eq!(para_bits(0), (2, 0));
+        assert_eq!(para_bits(4), (8, 0));
     }
 }
 

@@ -1,5 +1,5 @@
 # Sourced by dev/scripts/gui-smoke.sh, in name order: shares its helpers, profile and variables.
-# Steps 21 on: tool flows (reorder, Merge, Split, Compare, Protect) and the later reader features.
+# Steps 21–78: tool flows (reorder, Merge, Split, Compare, Protect) and the later reader features.
 
 # 21. A tool's files reorder by drag (iLovePDF, Stirling): three images open in JPG to PDF, a.png's card dragged
 # past c.png's (cards at 101/237/373, 130); the dragged card dims, a bar shows where it goes; the order becomes b c a.
@@ -164,14 +164,17 @@ quit
 
 # The end of the Preferences page (Documents is below Appearance, Identity and output).
 prefs_end() { xdotool mousemove 700 500 click --repeat 12 5; sleep 0.6; }
-# 28. Preferences ▸ Open new documents at Actual size (Preferences 67,193 in Home's menu): a file never
-# opened shows at 100 %.
-launch; click 67 193 1; prefs_end; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $AS 0.6; quit
+# 28. Preferences ▸ Open new documents at Actual size (Preferences in Home's menu, found by its word: Library
+# and Actions came above it): a file never opened shows at 100 %.
+prefs_open() { read PX PY <<< "$(at Preferences 196x400+0+40)"; click "${PX:-0}" "${PY:-0}" 1; }
+# Preferences scrolled until "Open new documents at"'s row shows (Documents is no longer the last section).
+prefs_documents() { for _ in $(seq 1 20); do [ -n "$(at Actual 900x700+200+90)" ] && return; xdotool mousemove 700 500 click --repeat 2 5; sleep 0.3; done; }
+launch; prefs_open; prefs_documents; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $AS 0.6; quit
 cp "$OUT/text.pdf" "$OUT/fresh.pdf"; launch "$OUT/fresh.pdf"; sleep 1.5; ZF=$(zoomval)
 check "a new document opens at the zoom chosen in Preferences (Actual size: $ZF %)" "[ \"$ZF\" = 100 ]"
 quit
 # Fit page: a whole letter page in the 700 px high view, well under fit width (163 %).
-launch; click 67 193 1; prefs_end; FP2=$(import -window root -crop 900x700+200+90 png:- | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="page"{printf "%d %d\n", 200+($7+$9/2)/2, 90+($8+$10/2)/2; exit}'); [ -n "$FP2" ] && click $FP2 0.6; quit
+launch; prefs_open; prefs_documents; FP2=$(import -window root -crop 900x700+200+90 png:- | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="page" && prev=="Fit"{printf "%d %d\n", 200+($7+$9/2)/2, 90+($8+$10/2)/2; exit} {prev=$12}'); [ -n "$FP2" ] && click $FP2 0.6; quit
 cp "$OUT/text.pdf" "$OUT/fresh2.pdf"; launch "$OUT/fresh2.pdf"; sleep 1.5; ZP=$(zoomval)
 check "a new document opens fitted to the page when chosen ($ZP %)" "[ -n \"$ZP\" ] && [ \"$ZP\" -lt 120 ]"
 quit
@@ -184,7 +187,12 @@ key h; xdotool mousemove 330 200 mousedown 1 mousemove 800 201 mouseup 1; sleep 
 read AX _ <<< "$(at ca 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
 read OX OY <<< "$(at Other 1280x300+0+0)"; xdotool mousemove "${OX:-0}" "${OY:-0}" click 1; sleep 1; shot 29-close-other
 PQ=$(ocr 700x300+290+250)
-DS=$(at "Don" 700x300+290+250); [ -n "$DS" ] && click $DS 1
+DS=$(at "Don" 700x300+290+250)
+# OCR sometimes misses "Don’t Save": it sits 153 px left of Cancel on the same row.
+[ -n "$DS" ] || { read CX CY <<< "$(at Cancel 700x300+290+250)"; [ -n "$CY" ] && DS="$(( CX - 153 )) $CY"; }
+[ -n "$DS" ] && click $DS 1
+# The tab goes once the prompt is answered: up to 5 s under load.
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done
 check "Close Other Tabs asks about unsaved edits, Don't Save closes it ($(echo $PQ | cut -c1-60); $(ntabs) tab)" "echo \"$PQ\" | grep -q cb.pdf && [ \"\$(ntabs)\" = 1 ]"
 quit
 
@@ -211,7 +219,9 @@ python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["panel_width"]
 check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ \"\${TW0:-0}\" -gt 130 ] && [ \"\${TW0:-0}\" -lt 160 ] && [ \"\${TW1:-0}\" -gt 230 ] && [ \"\${TW1:-0}\" -lt 260 ] && [ \"\${TW2:-x}\" = \"\${TW1:-y}\" ]"
 
 # 32. A highlight saved without a note, on a page never shown: the Notes panel (153,106) lists the
-# words it covers (step 1's highlight, its page moved third).
+# words it covers (step 1's highlight, its page moved third; made as step 1 does when this part runs alone).
+[ -f "$OUT/highlighted.pdf" ] || { cp "$OUT/text.pdf" "$OUT/highlighted.pdf"; launch "$OUT/highlighted.pdf"; key ctrl+9
+    xdotool mousemove 330 200 mousedown 1 mousemove 600 201 mousemove 900 201 mouseup 1; sleep 0.4; key h; sleep 1; key ctrl+s; sleep 1.5; quit; }
 qpdf "$OUT/highlighted.pdf" --pages . 2,3,1,4 -- "$OUT/hl-third.pdf"; launch "$OUT/hl-third.pdf"; sleep 1
 click 153 106 1; NT=$(ocr 260x300+0+130)
 check "the Notes panel shows a highlight's words though its page was never shown ($NT)" "echo \"$NT\" | grep -qi 'quick'"
@@ -271,10 +281,10 @@ PM=$(for i in 1 2 3 4 5; do echo -n "$(first_text "$OUT/pagemenu.pdf" $i)|"; don
 check "A thumbnail's menu reverses the pages, inserts and replaces from a file ($PM)" "[ \"$PM\" = 'Page 1|Page 1|Page 3|Page 2|Page 1|' ]"
 quit
 
-# 36. Preferences (67,193 in Home's menu) ▸ Accent colour blue (the second swatch, 38 px right of the first,
+# 36. Preferences (in Home's menu) ▸ Accent colour blue (the second swatch, 38 px right of the first,
 # under its label) and Background behind pages black (the fifth): kept in the preferences, and a document
 # opened then shows black around its page (zoomed out, ⌘-).
-launch; click 67 193 1
+launch; prefs_open
 read AX AY <<< "$(at Accent 1100x700+180+60)"; read SX _ <<< "$(at System 1100x700+180+60)"
 SW0=$(( ${SX:-0} - 44 + 14 )); [ -n "$AY" ] && click $(( SW0 + 38 )) $(( AY + 30 )) 0.5
 read BX BY <<< "$(at Background 1100x700+180+60)"; [ -n "$BY" ] && click $(( SW0 + 4 * 38 )) $(( BY + 30 )) 0.5; quit
@@ -282,7 +292,7 @@ cp "$OUT/text.pdf" "$OUT/backdrop.pdf"; launch "$OUT/backdrop.pdf"; sleep 1; key
 BD=$(import -window root -crop 1x1+300+500 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}')
 check "Preferences keep the accent and the background behind pages (${BD:-?}; $(grep -o '"accent": [0-9]' $OUT/profile/data/Sheaf/prefs.json))" "grep -q '\"accent\": 1' $OUT/profile/data/Sheaf/prefs.json && [ \"$BD\" = '#000000' ]"
 quit
-launch; click 67 193 1; read SX _ <<< "$(at System 1100x700+180+60)"; read AX AY <<< "$(at Accent 1100x700+180+60)"; read BX BY <<< "$(at Background 1100x700+180+60)"
+launch; prefs_open; read SX _ <<< "$(at System 1100x700+180+60)"; read AX AY <<< "$(at Accent 1100x700+180+60)"; read BX BY <<< "$(at Background 1100x700+180+60)"
 SW0=$(( ${SX:-0} - 44 + 14 )); [ -n "$AY" ] && click $SW0 $(( AY + 30 )) 0.5; [ -n "$BY" ] && click $SW0 $(( BY + 30 )) 0.5; quit   # back to the defaults
 
 # 37. A signature used once: Signature tool (S) ▸ New signature (412,109), a click on the page opens the pad;
@@ -351,22 +361,22 @@ quit
 # 41. Shapes (R) ▸ Cloud: three clicks and a double-click on the page draw a cloud (Acrobat's Cloud tool); saved,
 # the file has a /Polygon with the cloudy border's intent.
 cp "$OUT/text.pdf" "$OUT/cloud.pdf"; launch "$OUT/cloud.pdf"; sleep 1; key r; sleep 0.5
-CL=$(at Cloud 1280x40+0+90); [ -n "$CL" ] && click $CL 0.5
+CL=$(at Cloud 1280x75+0+90); [ -n "$CL" ] && click $CL 0.5
 click 500 300 0.3; click 700 320 0.3; click 650 480 0.3; xdotool mousemove 520 470 click --repeat 2 --delay 120 1; sleep 1.2; key ctrl+s; sleep 1.5
 QC=$(qpdf --qdf --object-streams=disable "$OUT/cloud.pdf" - 2>/dev/null)
 check "Shapes ▸ Cloud draws a cloud from clicked vertices (${CL:-no Cloud button})" "echo \"\$QC\" | grep -aq '/Subtype /Polygon' && echo \"\$QC\" | grep -aq '/PolygonCloud'"
 quit
 
-# 42. Shapes (R) ▸ Distance: two clicks measure the line between them (Acrobat's Measuring tool); saved, the
+# 42. Shapes (R) ▸ Distance (the options bar's second row, with Cloud): two clicks measure the line between them (Acrobat's Measuring tool); saved, the
 # file has a measuring line (/Measure) labelled in cm.
 cp "$OUT/text.pdf" "$OUT/measure.pdf"; launch "$OUT/measure.pdf"; sleep 1; key r; sleep 0.5
-DS=$(at Distance 1280x40+0+90); [ -n "$DS" ] && click $DS 0.5
+DS=$(at Distance 1280x75+0+90); [ -n "$DS" ] && click $DS 0.5
 click 400 600 0.4; click 700 600 1.2; key ctrl+s; sleep 1.5
 QM=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)
 check "Shapes ▸ Distance measures between two clicks (${DS:-no Distance button})" "echo \"\$QM\" | grep -aq '/Measure' && echo \"\$QM\" | grep -aq ' cm'"
 # Calibrate (Acrobat's, Bluebeam's): a 300 px line said to be 3 m; a line half as long then reads 1.50 m (both from
 # x 560: on the page at Fit page too, where it starts at 504).
-CB=$(at Calibrate 1280x40+0+90); [ -n "$CB" ] && click $CB 0.5
+CB=$(at Calibrate 1280x75+0+90); [ -n "$CB" ] && click $CB 0.5
 click 560 650 0.4; click 860 650 1.2; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "3 m"; key Return; sleep 0.8
 click 560 700 0.4; click 710 700 1.2; key ctrl+s; sleep 1.5
 QC=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)
@@ -534,8 +544,8 @@ quit
 # 60. Text box ▸ Callout (Acrobat's Callout tool): a click at 700,420 (on the page) then "Look here" typed: saved as a callout,
 # a FreeText whose line (/CL) ends at the click, the box up and right of it.
 cp "$OUT/text.pdf" "$OUT/callout.pdf"; launch "$OUT/callout.pdf"; sleep 1
-# Callout ends the format row, 357 px right of Mono (OCR misses it on its grey).
-key t; sleep 0.6; MO=$(at Mono 1280x40+0+90); CO=${MO:+$(set -- $MO; echo $(( $1 + 357 )) $2)}; [ -n "$CO" ] && click $CO 0.5
+# Callout ends the format row, 115 px right of More (More fonts…; OCR misses Callout on its grey).
+key t; sleep 0.6; MO=$(at More 1280x40+0+90); CO=${MO:+$(set -- $MO; echo $(( $1 + 115 )) $2)}; [ -n "$CO" ] && click $CO 0.5
 click 700 420 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Look here"; key ctrl+Return; sleep 1.2
 key v; key ctrl+s; sleep 1.5; shot 60-callout
 CQ=$(qpdf --qdf --object-streams=disable "$OUT/callout.pdf" - 2>/dev/null)
@@ -580,15 +590,17 @@ CT=$(xclip -selection clipboard -t TARGETS -o 2>/dev/null | tr '\n' ' ')
 check "Copy an area puts a picture on the clipboard ($CT)" "echo \"$CT\" | grep -q 'image/png'"
 quit
 
-# 64. More (1127,61) ▸ Scroll automatically (17th item, 1008,547; Acrobat's): "quick" climbs by itself; Escape stops it.
+# 64. More (1127,61) ▸ Scroll automatically (17th item, 1008,547; Acrobat's): "quick" climbs by itself (60 px a
+# second: read after 1.5 s, before it leaves the view); Escape stops it.
 cp "$OUT/text.pdf" "$OUT/autoscroll.pdf"; launch "$OUT/autoscroll.pdf"; sleep 1
-read _ AY0 <<< "$(at quick 1020x700+255+90)"; click 1127 61 0.8; click 1008 547 2.5
-read _ AY1 <<< "$(at quick 1020x700+255+90)"; key Escape; sleep 0.5; read _ AY2 <<< "$(at quick 1020x700+255+90)"; sleep 1; read _ AY3 <<< "$(at quick 1020x700+255+90)"
+read _ AY0 <<< "$(at quick 1020x700+255+90)"; click 1127 61 0.8; click 1008 547 1.2
+# Read above where it was (the next page's "quick" may have come into view below).
+read _ AY1 <<< "$(at quick 1020x$(( ${AY0:-700} - 92 ))+255+90)"; key Escape; sleep 0.5; read _ AY2 <<< "$(at quick 1020x700+255+90)"; sleep 1; read _ AY3 <<< "$(at quick 1020x700+255+90)"
 check "Scroll automatically moves the pages up until Escape (quick at ${AY0:-?}, ${AY1:-?}, then ${AY2:-?} = ${AY3:-?})" "[ -n \"$AY1\" ] && [ \"$AY1\" -lt \$(( ${AY0:-0} - 40 )) ] && [ \"$AY2\" = \"$AY3\" ]"
 quit
 
 # 65. Signature (S) ▸ Initials (Acrobat's Add Initials): a click opens the pad for initials ("Your initials"),
-# "AL" typed and used: kept apart from the signatures (prefs "initials"), placed 60 pt wide.
+# "AL" typed and used: kept apart from the signatures (secure store "initials"), placed 60 pt wide.
 cp "$OUT/text.pdf" "$OUT/initials.pdf"; launch "$OUT/initials.pdf"; sleep 1; key s; sleep 0.5
 IN=$(at Initials 1280x40+0+90); [ -n "$IN" ] && click $IN 0.5; click 640 500 1.2; shot 65-initials-pad
 # The field's placeholder is too faint to read: it sits 37 px under "or type them".
@@ -596,7 +608,7 @@ TT=$(at type 900x700+190+60); TF=${TT:+$(set -- $TT; echo $1 $(( $2 + 37 )))}; [
 # Use (white on red, unread by OCR) is 66 px right of Cancel, on the row about 200 px under "or type them"
 # (read again: the styles typed push the pad up), read on that strip alone.
 TT=$(at type 900x700+190+60); CN=${TT:+$(set -- $TT; at Cancel 240x44+$(( $1 + 180 ))+$(( $2 + 180 )))}; US=${CN:+$(set -- $CN; echo $(( $1 + 66 )) $2)}; [ -n "$US" ] && click $US 1.2; key v; key ctrl+s; sleep 1.5
-IP=$(python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); i = p.get("initials"); print("kept" if i and i[1] == "AL" else "none")' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+IP=$(secure_marks | python3 -c 'import json, sys; i = json.load(sys.stdin).get("initials"); print("kept" if i and i[1] == "AL" else "none")' 2>/dev/null)
 IW=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | python3 -c '
 import re, sys
 d = sys.stdin.buffer.read().decode("latin-1")
@@ -766,7 +778,10 @@ quit
 # The same, Grid (2 × 2 to start, Stirling's sections): sixteen quarter pages.
 cp "$OUT/text.pdf" "$OUT/poster.pdf"; launch "$OUT/poster.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "split"; key Return; sleep 3
-CT=$(at Cut 280x700+1000+40); [ -n "$CT" ] && click $CT 0.6; GR=$(at Grid 280x700+1000+40); [ -n "$GR" ] && click $GR 0.6; click 1140 755 4
+CT=$(at Cut 280x700+1000+40); [ -n "$CT" ] && click $CT 0.6; GR=$(at Grid 280x700+1000+40)
+# Grid's box hugs its word, which OCR may read with the border ("‘Grid"): then 37 px right of "bottom" (Top / bottom).
+[ -z "$GR" ] && read _ BR BY <<< "$(span bottom 280x700+1000+40)" && [ -n "$BY" ] && GR="$(( BR + 37 )) $BY"
+[ -n "$GR" ] && click $GR 0.6; click 1140 755 4
 GV=$(ls -t $OUT/poster-cut*.pdf 2>/dev/null | head -1)
 check "Cut each page into a grid makes sixteen quarter pages (${GR:-no Grid}; ${GV:-no file})" "[ -n \"$GV\" ] && pdfinfo \"$GV\" | grep -q 'Pages: *16'"
 quit
@@ -813,299 +828,3 @@ W0=$(wide "$R0"); W1=$(wide "$R1"); W2=$(wide "$R2")
 check "Rotate view turns the pages shown and back, the file untouched (quick ${W0:-?} → ${W1:-?} → ${W2:-?} px wide)" "[ \"\${W0:-0}\" -gt 20 ] && [ \"\${W1:-0}\" -lt \$(( \${W0:-0} / 2 )) ] && [ \"\${W2:-0}\" -gt 20 ] && [ \"$M0\" = \"$M1\" ]"
 quit
 
-# 79. A document tab's menu (PDF Expert's File menu): Rename… (the Save dialog answered with named.pdf in the same
-# folder) renames the file under the open tab; Move to Trash then sends it to the trash and closes the tab.
-cp "$OUT/text.pdf" "$OUT/toname.pdf"; launch "$OUT/toname.pdf"; sleep 1
-answer "$PWD/$OUT/named.pdf"; read AX _ <<< "$(at toname 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
-RN=$(at Rename 1280x400+0+0); [ -n "$RN" ] && click $RN 1.5; answer ""
-NM=$( [ -f "$OUT/named.pdf" ] && [ ! -e "$OUT/toname.pdf" ] && echo renamed )
-read AX _ <<< "$(at named 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
-MT=$(at Move 1280x400+0+0); [ -n "$MT" ] && click $MT 1.5
-check "a tab's menu renames its file and moves it to the trash (${RN:-no Rename} ${NM:-not renamed}; ${MT:-no Move}; $(ntabs) tabs)" "[ \"$NM\" = renamed ] && [ ! -e \"$OUT/named.pdf\" ] && [ \"\$(ntabs)\" = 0 ]"
-quit
-
-# 80. Document properties (⌘D) ▸ Copy report (Acrobat's PDF info): the clipboard holds the description, the facts and
-# the fonts, each said embedded or not (text.pdf: Helvetica, one of the standard fonts, not embedded).
-cp "$OUT/text.pdf" "$OUT/report.pdf"; launch "$OUT/report.pdf"; sleep 1; key ctrl+d; sleep 2
-# Copy report starts the sheet's bottom row (read on that strip: the dimmed page around confuses tesseract).
-CR=$(at Copy 300x44+400+722); [ -n "$CR" ] && click $CR 1
-RP=$(xclip -selection clipboard -o 2>/dev/null | tr '\n' '|')
-check "Copy report puts the properties and the fonts on the clipboard (${CR:-no button}; $(echo "$RP" | cut -c1-60))" "echo \"\$RP\" | grep -q '^report.pdf|' && echo \"\$RP\" | grep -q 'Pages: 4' && echo \"\$RP\" | grep -q 'Helvetica (not embedded)'"
-quit
-
-# 81. Home ▸ From clipboard with PDF files copied (a file manager's Copy: text/uri-list): they make the new PDF, merged.
-printf 'file://%s\r\nfile://%s\r\n' "$PWD/$OUT/text.pdf" "$PWD/$OUT/single.pdf" | xclip -selection clipboard -t text/uri-list; sleep 0.3
-launch; answer "$PWD/$OUT/clipfiles.pdf"; FC=$(at From 900x120+300+80); [ -n "$FC" ] && click $FC 1; for _ in $(seq 1 12); do [ -f "$OUT/clipfiles.pdf" ] && break; sleep 0.5; done; answer ""
-check "From clipboard merges the PDF files copied (${FC:-no button}; $(npages $OUT/clipfiles.pdf 2>/dev/null) pages)" "[ \"\$(npages $OUT/clipfiles.pdf 2>/dev/null)\" = 5 ]"
-quit
-
-# 82. A thumbnail's menu ▸ Insert a file's pages before… (Acrobat's Before): blank.pdf goes before page 1, so the
-# document's first page is now the blank one and "Page 1" its second.
-cp "$OUT/text.pdf" "$OUT/before.pdf"; launch "$OUT/before.pdf"; sleep 1
-answer "$PWD/$OUT/blank.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; BF=$(at before 300x400+20+200); [ -n "$BF" ] && click $BF 1.5; answer ""; key ctrl+s; sleep 1.5
-check "Insert a file's pages before page 1 (${BF:-no item}; $(npages $OUT/before.pdf) pages, page 2: $(first_text "$OUT/before.pdf" 2))" "[ -z \"\$(first_text $OUT/before.pdf 1)\" ] && [ \"\$(first_text $OUT/before.pdf 2)\" = 'Page 1' ]"
-quit
-
-# 83. A text box typed in place, then another tool picked in the toolbar (the Pen, 234,61): the text is added, not
-# thrown away (Sol, 26/10).
-cp "$OUT/text.pdf" "$OUT/switch.pdf"; launch "$OUT/switch.pdf"; sleep 1
-key t; sleep 0.5; click 700 500 0.8; xdotool type --delay 20 "Kept on switch"; click 234 61 1; key ctrl+s; sleep 1.5
-check "text typed in place is kept when another tool is picked" "qpdf --qdf --object-streams=disable $OUT/switch.pdf - 2>/dev/null | grep -aq 'Kept on switch'"
-quit
-
-# 84. Shapes (R) ▸ "- -" (Acrobat's Dashed line style): a rectangle drawn is saved dashed (/BS /S /D).
-cp "$OUT/text.pdf" "$OUT/dashed.pdf"; launch "$OUT/dashed.pdf"; sleep 1; key r; sleep 0.5
-DD=$(at "-" 1280x40+0+90); [ -n "$DD" ] && click $DD 0.4
-xdotool mousemove 520 420 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 520 + i * 30 )) $(( 420 + i * 20 )); sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
-DQ=$(qpdf --qdf --object-streams=disable "$OUT/dashed.pdf" - 2>/dev/null)
-check "a dashed rectangle is saved dashed (${DD:-no button})" "echo \"\$DQ\" | grep -aq '/S /D'"
-quit
-
-# 85. Organize ▸ Odd, then even (Acrobat's odd-and-even rule): text.pdf's pages come out 1, 3, 2, 4.
-cp "$OUT/text.pdf" "$OUT/oddeven.pdf"; launch "$OUT/oddeven.pdf"; sleep 1
-click $WRENCH_X 61 1.5; xdotool type --delay 20 "organize"; key Return; sleep 3
-OE=$(at Odd 280x700+1000+40); [ -n "$OE" ] && click $OE 0.5; click 1140 755 4
-check "Organize ▸ Odd, then even orders the pages 1, 3, 2, 4 (${OE:-no option}; page 2: $(first_text "$OUT/oddeven-organized.pdf" 2))" "[ \"\$(first_text $OUT/oddeven-organized.pdf 2)\" = 'Page 3' ] && [ \"\$(first_text $OUT/oddeven-organized.pdf 3)\" = 'Page 2' ]"
-quit
-
-# 86. A bookmark's ⋯ menu ▸ Bold, then ▸ Set destination to this view at 200 % (Acrobat's bookmark Appearance and Set
-# Destination): saved, its /F holds bold (2) and its /Dest is /XYZ with a zoom of 2.
-cp "$OUT/text.pdf" "$OUT/markstyle.pdf"; launch "$OUT/markstyle.pdf"; key ctrl+9; sleep 1
-click 95 106 0.8; click 55 149 1
-xdotool mousemove 150 182; sleep 0.5; click 199 182 0.8; BO=$(at Bold 260x400+0+180); [ -n "$BO" ] && click $BO 1
-key ctrl+0; sleep 0.8; xdotool mousemove 150 182; sleep 0.5; click 199 182 0.8; SD=$(at Set 260x400+0+180); [ -n "$SD" ] && click $SD 1
-key ctrl+s; sleep 1.5
-BQ=$(qpdf --qdf --object-streams=disable "$OUT/markstyle.pdf" - 2>/dev/null | python3 -c '
-import re, sys
-d = sys.stdin.buffer.read().decode("latin-1")
-o = [b for b in re.split(r"\nendobj", d) if "/Title" in b and "/Parent" in b]
-print(" ".join(("F" + m.group(1)) if (m := re.search(r"/F (\d+)", b)) else "F0" for b in o), " ".join(re.sub(r"\s+", " ", m.group(1)) for b in o for m in [re.search(r"/Dest \[([^\]]*)\]", b)] if m))')
-check "a bookmark made bold and pointed at a view keeps both (${BO:-no Bold} ${SD:-no Set}; $BQ)" "echo \"$BQ\" | grep -q 'F2' && echo \"$BQ\" | grep -q 'XYZ'"
-quit
-
-# 87. A thumbnail's menu ▸ Replace with a file's pages… from a longer file (text.pdf itself, four pages): the strip under
-# the pages asks from which page (Acrobat's pages … of the file); 3 typed: page 1 is now text.pdf's page 3.
-cp "$OUT/text.pdf" "$OUT/repfrom.pdf"; launch "$OUT/repfrom.pdf"; sleep 1
-answer "$PWD/$OUT/text.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; RP=$(at Replace 300x400+20+200); [ -n "$RP" ] && click $RP 1.5; answer ""
-# The field, Cancel and Replace make the strip's last row, 61 px under its sentence's "from" (Cancel, bold on
-# grey, and the faint placeholder are not read): the field at x 40, Replace at x 200.
-CA=$(at from 248x200+0+560); [ -n "$CA" ] && { set -- $CA; click 40 $(( $2 + 61 )) 0.4; xdotool type --delay 20 "3"; click 200 $(( $2 + 61 )) 1.5; }
-key ctrl+s; sleep 1.5
-check "Replace with a longer file's pages takes the ones chosen (${RP:-no item} ${CA:-no strip}; page 1: $(first_text "$OUT/repfrom.pdf" 1))" "[ \"\$(first_text $OUT/repfrom.pdf 1)\" = 'Page 3' ]"
-quit
-
-# 88. A tab's menu ▸ Move to New Window (PDF Expert's, a browser's): the tab closes and a second Sheaf opens the file
-# in a window of its own (two Sheaf windows on screen). Then, the first window raised, its other tab's menu ▸ Merge All
-# Windows (macOS's Window menu): the second window hands its document over and quits; two tabs here again.
-cp "$OUT/text.pdf" "$OUT/mover.pdf"; cp "$OUT/text.pdf" "$OUT/stayer.pdf"; launch "$OUT/stayer.pdf" "$OUT/mover.pdf"; sleep 1.5
-read AX _ <<< "$(at mover 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
-MW=$(at New 1280x400+0+0); [ -n "$MW" ] && click $MW 0.5
-for _ in $(seq 1 40); do [ "$(xdotool search --name '^Sheaf$' 2>/dev/null | wc -l)" -ge 2 ] && break; sleep 0.25; done; sleep 1.5
-NW=$(xdotool search --name '^Sheaf$' 2>/dev/null | wc -l); MP=$(pgrep -f "mover.pdf" | grep -v "^$APP_PID$" | head -1); NT=$(ntabs)
-check "Move to New Window opens the file in a second window and closes its tab (${MW:-no item}; $NW windows, $NT tab left)" "[ \"$NW\" -ge 2 ] && [ -n \"$MP\" ] && [ \"$NT\" = 1 ]"
-xdotool windowraise "$W"; sleep 0.5
-read AX _ <<< "$(at stayer 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
-MG=$(at Merge 1280x400+0+0); [ -n "$MG" ] && click $MG 0.5
-for _ in $(seq 1 40); do [ -z "$MP" ] || ! kill -0 "$MP" 2>/dev/null && break; sleep 0.25; done; sleep 1
-GONE=$( [ -n "$MP" ] && ! kill -0 "$MP" 2>/dev/null && echo quit )
-check "Merge All Windows brings the other window's document here and closes it (${MG:-no item}; ${GONE:-still open}; $(ntabs) tabs)" "[ \"$GONE\" = quit ] && [ \"\$(ntabs)\" = 2 ]"
-[ -n "$MP" ] && kill "$MP" 2>/dev/null
-quit
-
-# 89. Prepare form: a text field drawn, its card's Copies 3 down × 1 across ▸ Make (Acrobat's Create Multiple Copies):
-# two more separate fields under it, saved (three /T in all). The down box is right of the "Copies" label.
-cp "$OUT/text.pdf" "$OUT/copies.pdf"; launch "$OUT/copies.pdf"; key ctrl+9; sleep 1; key f; sleep 0.6
-xdotool mousemove 500 300 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 40 )) $(( 300 + i * 6 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
-CP=$(at Copies 400x400+490+330); [ -n "$CP" ] && { set -- $CP; click $(( $1 + 48 )) $2 0.4; xdotool type --delay 20 "3"; }
-MK=$(at Make 400x400+490+330); [ -n "$MK" ] && click $MK 1.2; key ctrl+s; sleep 1.5
-CQ=$(qpdf --qdf --object-streams=disable "$OUT/copies.pdf" - 2>/dev/null | grep -ac '/T (Text1')
-check "Copies down make separate fields under the one selected (${CP:-no row} ${MK:-no Make}; ${CQ:-0} fields)" "[ \"\${CQ:-0}\" = 3 ]"
-quit
-
-# 90. Home ▸ From scanner (Acrobat's Create PDF ▸ Scanner): the page scanned (the test seam gives stamp.png, green)
-# becomes a one-page PDF, named in the Save dialog and opened.
-launch; answer "$PWD/$OUT/scanned.pdf"; FN=$(at scanner 1000x120+250+80); [ -n "$FN" ] && click $FN 1
-for _ in $(seq 1 12); do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; answer ""
-SN=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/scanned.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
-check "From scanner makes a PDF of the page scanned and opens it (${FN:-no button}; $SN; $(ntabs) tabs)" "[ \"\$(npages $OUT/scanned.pdf 2>/dev/null)\" = 1 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(ntabs)\" = 1 ]"
-quit
-
-# 91. A form's Export data… (Acrobat's Export Data, as CSV: a header row of field names, a row of values), then a
-# blank copy's Import data… of that file: the value typed in the first is in the second, saved.
-cp "$OUT/form.pdf" "$OUT/data-a.pdf"; cp "$OUT/form.pdf" "$OUT/data-b.pdf"; launch "$OUT/data-a.pdf"; key ctrl+9
-click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+a; xdotool type --delay 10 "Exported value"; key Return; sleep 1
-answer "$PWD/$OUT/data.csv"; EX=$(at Export 1280x40+0+90); [ -n "$EX" ] && click $EX 1.5; answer ""
-quit
-launch "$OUT/data-b.pdf"; key ctrl+9
-answer "$PWD/$OUT/data.csv"; IM=$(at Import 1280x40+0+90); [ -n "$IM" ] && click $IM 1.5; answer ""; key ctrl+s; sleep 1.5
-DV=$(qpdf --json=2 --json-key=acroform "$OUT/data-b.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
-check "form data exported to CSV and imported into a blank copy (${EX:-no Export} ${IM:-no Import}; $(head -c 60 $OUT/data.csv 2>/dev/null | tr '\n' '|'); $DV)" "grep -q 'Exported value' $OUT/data.csv 2>/dev/null && echo \"$DV\" | grep -q 'Exported value'"
-quit
-
-# 92. More ▸ Overlay a PDF… (PDF Expert's overlay): single.pdf chosen is drawn over each page of a copy of text.pdf;
-# saved, page 2 shows its own text and single.pdf's.
-cp "$OUT/text.pdf" "$OUT/overlay.pdf"; launch "$OUT/overlay.pdf"; sleep 1
-answer "$PWD/$OUT/single.pdf"; click 1127 61 0.8; click 1008 659 0.8; OV=$(at Overlay 300x400+880+80); [ -n "$OV" ] && click $OV 1.5; answer ""; key ctrl+s; sleep 1.5
-O2=$(pdftotext -f 2 -l 2 "$OUT/overlay.pdf" - 2>/dev/null | tr '\n' ' '); S1=$(pdftotext -f 1 -l 1 "$OUT/single.pdf" - 2>/dev/null | tr '\n' ' ' | awk '{print $1, $2}')
-check "Overlay a PDF draws its page over each page (${OV:-no item}; page 2: $(echo "$O2" | cut -c1-60))" "echo \"$O2\" | grep -q 'Page 2' && echo \"$O2\" | grep -qF \"$S1\""
-quit
-
-# 93. A tool's job done (the test seam announces every one; a real run, those past 10 s): a system notification
-# names the tool and the file made (Organize ▸ Odd, then even, step 85).
-check "a finished job sends a system notification ($(grep -m1 Organize $OUT/notified 2>/dev/null))" "grep -q 'Organize PDF finished: oddeven-organized.pdf is ready' $OUT/notified"
-
-# 94. More ▸ Read aloud (Acrobat's Read Out Loud): from the page shown to the end, each page's text spoken (the test
-# seam writes what the voice is given).
-cp "$OUT/text.pdf" "$OUT/aloud.pdf"; launch "$OUT/aloud.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8; RD=$(at Read 300x400+880+80); [ -n "$RD" ] && click $RD 3
-check "Read aloud gives every page's text to the voice (${RD:-no item}; $(tr '\n' ' ' < $OUT/spoken 2>/dev/null | cut -c1-60))" "grep -q 'Page 1' $OUT/spoken && grep -q 'Page 4' $OUT/spoken"
-quit
-
-# 95. A thumbnail's menu ▸ Insert from scanner… (Acrobat's Insert ▸ From Scanner; the test seam scans stamp.png) puts
-# the page scanned after page 1, then Insert from clipboard (text copied) a page of that text after it: six pages.
-cp "$OUT/text.pdf" "$OUT/inserted.pdf"; launch "$OUT/inserted.pdf"; sleep 1
-xdotool mousemove 120 230 click 3; sleep 0.8; IS=$(at scanner 300x420+20+200); [ -n "$IS" ] && click $IS 2
-printf 'Pasted words' | xclip -selection clipboard; sleep 0.3
-xdotool mousemove 120 230 click 3; sleep 0.8; IC=$(at clipboard 300x420+20+200); [ -n "$IC" ] && click $IC 2; key ctrl+s; sleep 1.5
-check "Insert from scanner and from clipboard add their pages after page 1 (${IS:-no scanner item} ${IC:-no clipboard item}; $(npages $OUT/inserted.pdf) pages; page 2: $(first_text "$OUT/inserted.pdf" 2))" "[ \"\$(npages $OUT/inserted.pdf)\" = 6 ] && [ \"\$(first_text $OUT/inserted.pdf 2)\" = 'Pasted words' ]"
-quit
-
-# 96. More ▸ Save a flattened copy… (PDF Expert's Export ▸ Flattened Copy): a form filled, its copy has the value drawn
-# into the page and no field left; the document itself keeps its field.
-cp "$OUT/form.pdf" "$OUT/toflat.pdf"; launch "$OUT/toflat.pdf"; key ctrl+9
-click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+a; xdotool type --delay 10 "Drawn in"; key Return; sleep 1
-answer "$PWD/$OUT/flat-copy.pdf"; click 1127 61 0.8; click 1008 659 0.8; FC=$(at flattened 300x400+880+80); [ -n "$FC" ] && click $FC 2; answer ""
-NF=$(qpdf --json=2 --json-key=acroform "$OUT/flat-copy.pdf" 2>/dev/null | python3 -c "import json,sys;print(len(json.load(sys.stdin)['acroform']['fields']))" 2>/dev/null)
-check "Save a flattened copy draws the value in and leaves no field (${FC:-no item}; ${NF:-?} fields; $(pdftotext $OUT/flat-copy.pdf - 2>/dev/null | tr '\n' ' ' | cut -c1-40))" "[ \"\${NF:-1}\" = 0 ] && pdftotext $OUT/flat-copy.pdf - | grep -q 'Drawn in' && [ \"\$(qpdf --json=2 --json-key=acroform $OUT/toflat.pdf | python3 -c 'import json,sys;print(len(json.load(sys.stdin)[\"acroform\"][\"fields\"]))')\" -ge 1 ]"
-quit
-
-# 97. More ▸ Loupe (Acrobat's Loupe tool): the pointer over "Page 1", the panel in the view's bottom-right corner
-# shows those words three times larger.
-cp "$OUT/text.pdf" "$OUT/loupe.pdf"; launch "$OUT/loupe.pdf"; sleep 1
-LW=$(at Page 1020x300+255+80); click 1127 61 0.8; click 1008 659 0.8; LP=$(at Loupe 300x400+880+80); [ -n "$LP" ] && click $LP 0.8
-[ -n "$LW" ] && { set -- $LW; xdotool mousemove $(( $1 - 10 )) $2; sleep 0.3; xdotool mousemove $(( $1 + 20 )) $2; sleep 1.5; }
-LO=$(ocr 400x280+860+500)
-check "the loupe shows the words under the pointer, magnified (${LP:-no item}; $(echo "$LO" | cut -c1-40))" "echo \"$LO\" | grep -q 'Page'"
-quit
-
-# 98. Document properties (⌘D) ▸ Save report… (Acrobat's PDF info report, saved): a JSON file with the facts and fonts.
-cp "$OUT/text.pdf" "$OUT/report2.pdf"; launch "$OUT/report2.pdf"; sleep 1; key ctrl+d; sleep 2
-answer "$PWD/$OUT/report.json"; SR=$(at Save 400x44+400+722); [ -n "$SR" ] && click $SR 1; answer ""
-RJ=$(python3 -c 'import json,sys; v=json.load(open(sys.argv[1])); print(v["file"], v["facts"].get("Pages"), v["fonts"][0]["name"])' "$OUT/report.json" 2>/dev/null)
-check "Save report writes the properties as JSON (${SR:-no button}; $RJ)" "[ \"$RJ\" = 'report2.pdf 4 Helvetica' ]"
-quit
-
-# 99. Preferences ▸ Open PDFs with Sheaf by default (Acrobat's and PDF Expert's prompt): the system is asked (the test
-# seam records the request).
-launch; click 67 193 1; prefs_end; MD=$(at PDFs 900x700+200+90); [ -n "$MD" ] && click $MD 1
-check "Preferences makes Sheaf the default PDF app (${MD:-no button})" "[ \"\$(cat $OUT/made-default 2>/dev/null)\" = default ]"
-quit
-
-# 100. Home ▸ From clipboard with a PDF itself on the clipboard (application/pdf, as Preview and Acrobat copy pages):
-# that PDF becomes the new one.
-xclip -selection clipboard -t application/pdf < "$OUT/single.pdf"; sleep 0.3
-launch; answer "$PWD/$OUT/clippdf.pdf"; FP=$(at From 900x120+300+80); [ -n "$FP" ] && click $FP 1; for _ in $(seq 1 12); do [ -f "$OUT/clippdf.pdf" ] && break; sleep 0.5; done; answer ""
-check "From clipboard takes a PDF copied as data (${FP:-no button}; $(npages $OUT/clippdf.pdf 2>/dev/null) pages, $(first_text "$OUT/clippdf.pdf" 1 2>/dev/null))" "[ \"\$(npages $OUT/clippdf.pdf 2>/dev/null)\" = 1 ] && [ \"\$(first_text $OUT/clippdf.pdf 1)\" = 'Page 1' ]"
-quit
-
-# 101. Merge ▸ Pages: pb.pdf's three page cards all dropped (the fifth card's × three times), then Files and Pages
-# again: the order made is kept, pb.pdf's pages do not come back (Sol, 26/10: they did).
-cp "$OUT/reo/ra.pdf" "$OUT/reo/pa.pdf"; cp "$OUT/reo/rb.pdf" "$OUT/reo/pb.pdf"
-launch "$OUT/reo/pa.pdf" "$OUT/reo/pb.pdf"
-click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; click 460 527 2
-PG=$(at Pages 280x400+1000+60); [ -n "$PG" ] && click $PG 2
-for _ in 1 2 3; do xdotool mousemove $(( 41 + 124 * 4 + 54 )) 140; sleep 0.4; click $(( 41 + 124 * 4 + 93 )) 94 1; done
-FI=$(at Files 280x400+1000+60); [ -n "$FI" ] && click $FI 1.5; PG2=$(at Pages 280x400+1000+60); [ -n "$PG2" ] && click $PG2 2
-# The cards' pictures (124 px apart from x 95, y 150): pa.pdf's four colours, and no fifth card (the area's grey).
-px_at() { import -window root -crop "1x1+$1+150" png:- 2>/dev/null | convert - -format '%[pixel:p{0,0}]' info: 2>/dev/null | tr -d ' '; }
-CARDS="$(px_at 95) $(px_at 219) $(px_at 343) $(px_at 467) $(px_at 591)"; EMPTY=$(px_at 900)
-check "Merge keeps a file's pages dropped through Files and back (${FI:-no Files} ${PG2:-no Pages}; cards $CARDS, area $EMPTY)" "[ \"$(echo $CARDS | wc -w)\" = 5 ] && [ \"$(echo $CARDS | cut -d' ' -f5)\" = \"$EMPTY\" ] && [ \"$(echo $CARDS | cut -d' ' -f4)\" != \"$EMPTY\" ]"
-quit
-
-# 102. A path on the command line that names no file (a PDF moved): said once the window shows, not dropped silently.
-launch "$OUT/moved-away.pdf"; NF=$(ocr 1280x800+0+0)
-check "a missing file asked on the command line is said ($(echo "$NF" | grep -o 'Not found[^|]*' | head -1))" "echo \"$NF\" | grep -q 'Not found: moved-away.pdf'"
-quit
-
-# 103. ⇧⌘S into a folder that cannot be written: the save fails, and the tab is still the original (Sol, 26/10: it
-# took the new name first): opening the original again shows its tab, no second one.
-mkdir -p "$OUT/locked"; chmod 555 "$OUT/locked"; cp "$OUT/text.pdf" "$OUT/keepme.pdf"; launch "$OUT/keepme.pdf"; sleep 1
-answer "$PWD/$OUT/locked/copy.pdf"; key ctrl+shift+s; sleep 2; click 40 21 1; answer "$PWD/$OUT/keepme.pdf"; key ctrl+o; sleep 2; answer ""
-KT=$(ntabs); chmod 755 "$OUT/locked"
-check "a failed Save As leaves the tab the original's ($KT tab)" "[ \"$KT\" = 1 ] && [ ! -e \"$OUT/locked/copy.pdf\" ]"
-quit
-
-# 104. The page grid (More ▸ Page grid): the yellow page (the last) dragged onto the left half of the red one (the
-# first) goes before it (Acrobat's Organize Pages): saved, the first page is yellow.
-convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/griddrag.pdf"; launch "$OUT/griddrag.pdf"; sleep 1
-click 1127 61 0.8; click 1008 267 1.5
-GY=226; GR=$(first_x r $GY); GB=$(first_x b $GY)
-# Yellow is red and green high: the last card, right of the blue one (cards are about as wide as blue's offset).
-GYW=${GB:+$(( GB + (GB - ${GR:-0}) / 2 + 20 ))}
-if [ -n "$GR" ] && [ -n "$GYW" ]; then
-    xdotool mousemove $GYW $GY mousedown 1; for i in 1 2 3 4 5 6 7 8; do xdotool mousemove $(( GYW - (GYW - GR - 10) * i / 8 )) $GY; sleep 0.06; done; xdotool mouseup 1; sleep 1.5
-fi
-key ctrl+s; sleep 1.5
-P1=$(pdftoppm -r 10 -f 1 -l 1 -png "$OUT/griddrag.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
-check "a page dragged in the page grid goes where it is dropped (red ${GR:-?}, from ${GYW:-?}; page 1 $P1)" "echo \"$P1\" | grep -qE 'srgb\\((22[0-9]|2[0-4][0-9]),(19[0-9]|20[0-9]),'"
-quit
-
-# 105. More ▸ More tools ▸ Remove all images (Acrobat's): image.pdf's pictures go, its text stays; saved.
-cp "$OUT/image.pdf" "$OUT/noimages.pdf"; launch "$OUT/noimages.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8; RI=$(at Remove 300x400+880+80); [ -n "$RI" ] && click $RI 1.5; key ctrl+s; sleep 1.5
-NI=$(pdfimages -list "$OUT/noimages.pdf" 2>/dev/null | tail -n +3 | wc -l)
-check "Remove all images takes every picture out (${RI:-no item}; $NI left)" "[ \"$NI\" = 0 ]"
-quit
-
-# 106. More ▸ More tools ▸ Reflow (Acrobat's): the page's text across the window, larger with A+.
-cp "$OUT/text.pdf" "$OUT/reflow.pdf"; launch "$OUT/reflow.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8; RF=$(at Reflow 300x400+880+80); [ -n "$RF" ] && click $RF 1; RT=$(ocr 1020x300+255+90)
-check "Reflow shows the page's text on the window's width (${RF:-no item}; $(echo "$RT" | cut -c1-60))" "echo \"$RT\" | grep -q 'Reflow' && echo \"$RT\" | grep -q 'quick brown fox'"
-quit
-
-# 107. Auto-Complete (Acrobat's): "Smoke Test" typed in step 6's form is remembered; in a copy, "Sm" typed in the field
-# offers it under the field, and a click on it fills the field (saved).
-cp "$OUT/form.pdf" "$OUT/autocomplete.pdf"; launch "$OUT/autocomplete.pdf"; key ctrl+9
-click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+a; xdotool type --delay 10 "Remembered entry"; key Return; sleep 1; key ctrl+s; sleep 1
-click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+a; xdotool type --delay 30 "Rem"; sleep 1
-AC=$(at Remembered 1280x700+0+90); [ -n "$AC" ] && click $AC 1; key ctrl+s; sleep 1.5
-AV=$(qpdf --json=2 --json-key=acroform "$OUT/autocomplete.pdf" | python3 -c "import json,sys;print([f.get('value') for f in json.load(sys.stdin)['acroform']['fields']])")
-check "a form field offers an entry typed before, and a click fills it (${AC:-no suggestion}; $AV)" "echo \"$AV\" | grep -q 'Remembered entry'"
-quit
-
-# 108. Layers panel (Acrobat's Layers pane; the fifth tab, 218,106 (five share the row), shown when the document has layers): a
-# page with a red square in layer Red and a blue one in layer Blue, Blue hidden by the file. A click on Red hides
-# it, Show all shows both; the file keeps its own choice.
-python3 - "$OUT/layers-raw.pdf" <<'PY'
-import sys
-c = b"/OC /R BDC 1 0 0 rg 60 300 200 200 re f EMC /OC /B BDC 0 0 1 rg 340 300 200 200 re f EMC"
-objs = [b"<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [4 0 R 5 0 R] /D << /Order [4 0 R 5 0 R] /OFF [5 0 R] >> >> >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Contents 6 0 R /Resources << /Properties << /R 4 0 R /B 5 0 R >> >> >>",
-        b"<< /Type /OCG /Name (Red) >>", b"<< /Type /OCG /Name (Blue) >>",
-        b"<< /Length %d >>\nstream\n" % len(c) + c + b"\nendstream"]
-open(sys.argv[1], "wb").write(b"%PDF-1.7\n" + b"".join(b"%d 0 obj\n" % (i + 1) + o + b"\nendobj\n" for i, o in enumerate(objs)) + b"trailer\n<< /Root 1 0 R >>\n%%EOF\n")
-PY
-qpdf "$OUT/layers-raw.pdf" "$OUT/layers.pdf" 2>/dev/null; cp "$OUT/layers.pdf" "$OUT/layers-before.pdf"
-launch "$OUT/layers.pdf"; sleep 1
-share() { import -window root -crop 1000x700+260+90 png:- 2>/dev/null | convert - -fuzz 25% -fill black +opaque "$1" -fill white -opaque "$1" -format "%[fx:mean>0.002]" info: 2>/dev/null; }
-L0="$(share '#ff0000')$(share '#0000ff')"
-click 218 106 1; LR=$(at Red 300x300+0+120); [ -n "$LR" ] && click $LR 1.5
-L1="$(share '#ff0000')$(share '#0000ff')"
-LS=$(at Show 300x200+0+110); [ -n "$LS" ] && click $LS 1.5
-L2="$(share '#ff0000')$(share '#0000ff')"
-check "Layers: as the file sets them, Red hidden by a click, Show all (red,blue: $L0 → $L1 → $L2; ${LR:-no Red row})" "[ \"$L0\" = 10 ] && [ \"$L1\" = 00 ] && [ \"$L2\" = 11 ] && cmp -s \"$OUT/layers.pdf\" \"$OUT/layers-before.pdf\""
-quit
-
-# 109. More ▸ More tools ▸ Accessibility check (Acrobat's Full Check): text.pdf has no title, so Title fails; its
-# row's Fix sets one (the file's name) and the check runs again; saved, the file has a title shown in the window.
-cp "$OUT/text.pdf" "$OUT/a11y.pdf"; launch "$OUT/a11y.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8; AK=$(at Accessibility 300x500+880+80); [ -n "$AK" ] && click $AK 3
-A1=$(ocr 640x560+320+120 | tr -s ' ')
-# The Fix on the Title row: the row's y, the Fix button's x (the buttons line up on the right).
-read _ TY <<< "$(at Title 600x520+330+150)"; read FX _ <<< "$(at Fix 640x560+320+120)"
-[ -n "$TY" ] && [ -n "$FX" ] && click $FX $TY 4
-key Escape; key ctrl+s; sleep 1.5
-TT=$(pdfinfo "$OUT/a11y.pdf" 2>/dev/null | sed -n 's/^Title: *//p')
-check "the accessibility check lists failed rules and its Fix gives the document a title (${AK:-no item}; $(echo "$A1" | grep -o '[0-9]* failed' | head -1); $TT)" "echo \"$A1\" | grep -q 'failed' && [ -n \"$TT\" ] && qpdf --qdf --object-streams=disable \"$OUT/a11y.pdf\" - 2>/dev/null | grep -aq '/DisplayDocTitle true'"
-quit

@@ -153,7 +153,35 @@ pub fn document_scripts(cos: &pdfcraft_cos::Document) -> Vec<(String, String)> {
     pdfcraft_forms::document_scripts_named(cos)
 }
 
+/// Editable document and custom field scripts for the console manager.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ConsoleScript {
+    pub name: String,
+    pub source: String,
+    /// None for document scripts; otherwise SetFieldScript's event id.
+    pub event: Option<String>,
+}
+
 impl crate::Document {
+    pub fn console_scripts(&self) -> Vec<ConsoleScript> {
+        let mut result = self.document_scripts().into_iter().map(|(name, source)| ConsoleScript { name, source, event: None }).collect::<Vec<_>>();
+        if let Some(editor) = &self.editor {
+            for field in pdfcraft_forms::fields(&editor.cos) {
+                for (event, source) in [("keystroke", field.actions.scripts.keystroke), ("format", field.actions.scripts.format), ("validate", field.actions.scripts.validate), ("calculate", field.actions.scripts.calculate)] {
+                    if let Some(source) = source { result.push(ConsoleScript { name: field.name.clone(), source, event: Some(event.into()) }); }
+                }
+                if let Ok(actions) = pdfcraft_forms::field_actions(&editor.cos, &field.name) {
+                    for (trigger, action) in actions {
+                        if trigger == pdfcraft_forms::Trigger::MouseUp && let pdfcraft_forms::FieldAction::JavaScript(source) = action {
+                            result.push(ConsoleScript { name: field.name.clone(), source, event: Some("mouse_up".into()) });
+                        }
+                    }
+                }
+            }
+        }
+        result
+    }
+
     /// Field Properties ▸ Actions: field `name`'s action per trigger.
     pub fn field_actions(&self, name: &str) -> Vec<(pdfcraft_forms::Trigger, pdfcraft_forms::FieldAction)> {
         self.editor.as_ref().and_then(|e| pdfcraft_forms::field_actions(&e.cos, name).ok()).unwrap_or_default()
@@ -184,6 +212,11 @@ impl Session {
     /// the console (no target). Field changes and `resetForm` are applied as one undoable step;
     /// everything else the script asked for is returned.
     pub fn run_javascript(&mut self, id: DocId, script: &str, target: Option<&str>) -> Result<Outcome, EditError> {
+        self.run_javascript_at(id, script, target, 0)
+    }
+
+    /// Sheaf's console supplies the visible page, so `this.pageNum` matches the reader.
+    pub fn run_javascript_at(&mut self, id: DocId, script: &str, target: Option<&str>, page: usize) -> Result<Outcome, EditError> {
         if self.js_off {
             return Err(EditError::Invalid("JavaScript is turned off (Preferences ▸ JavaScript)".into()));
         }
@@ -205,7 +238,8 @@ impl Session {
                 ..Default::default()
             });
         }
-        let runner = JsRunner::new(&cos, &doc.name);
+        let mut runner = JsRunner::new(&cos, &doc.name);
+        runner.doc.page = page.min(runner.doc.num_pages.saturating_sub(1));
         let fields = pdfcraft_forms::fields(&cos);
         let states: Vec<_> = fields.iter().map(|f| field_state(&cos, f)).collect();
         let event = match target {

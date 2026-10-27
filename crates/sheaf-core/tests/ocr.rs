@@ -192,7 +192,7 @@ fn words_beyond_winansi_are_kept_in_the_text_layer() {
     let t = tempfile::tempdir().unwrap();
     let a = fixture_pdf(t.path(), "a.pdf", 1);
     let mut doc = sheaf_core::pdfcraft::Doc::open(&Input::new(&a)).unwrap();
-    let word = |text: &str, x: f64| PlacedWord { text: text.into(), origin: [x, 500.0], across: [40.0, 0.0], up: [0.0, 12.0] };
+    let word = |text: &str, x: f64| PlacedWord { text: text.into(), confidence: None, origin: [x, 500.0], across: [40.0, 0.0], up: [0.0, 12.0] };
     doc.apply(Edit::AddOcrText { page: 0, words: vec![word("anti-TNFα", 100.0), word("→", 150.0), word("élevée", 170.0)] }).unwrap();
     let out = doc.save(&t.path().join("o.pdf")).unwrap();
     let _g = pdfium_lock();
@@ -206,7 +206,8 @@ fn words_beyond_winansi_are_kept_in_the_text_layer() {
 fn the_system_language_is_offered_first() {
     assert_eq!(ocr::default_language(Some("fr-FR")), "fr");
     assert_eq!(ocr::default_language(Some("de_CH.UTF-8")), "de");
-    assert_eq!(ocr::default_language(Some("ja-JP")), "en", "a language the models do not read");
+    let japanese = if ocr::languages().iter().any(|(c, _)| *c == "ja") { "ja" } else { "en" };
+    assert_eq!(ocr::default_language(Some("ja-JP")), japanese, "offer Japanese only with its installed model");
     assert_eq!(ocr::default_language(None), "en");
 }
 
@@ -234,3 +235,63 @@ fn foreign_encrypted_scans_are_read() {
     }
 }
 
+
+
+#[test]
+fn prepacked_recognition_keeps_the_words_and_their_placement() {
+    use sheaf_core::pdfcraft::engine::ocr::{Models, Ocr};
+    let models = Models::find().or_else(|| Models::in_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vendor/models"))).unwrap();
+    assert!(models.reads_accents(), "the Latin model is required for this comparison");
+    let t = tempfile::tempdir().unwrap();
+    let scan = scan_of(t.path(), "Révision OCR 2026");
+    let d = sheaf_core::pdfcraft::Doc::open(&Input::new(scan)).unwrap();
+    let shot = d.render(0, 300.0 / 72.0).unwrap();
+    let ordinary = Ocr::load_with_prepacked_weights(&models, false).unwrap().recognize(&shot.rgba, shot.width, shot.height).unwrap();
+    let packed = Ocr::load(&models).unwrap().recognize(&shot.rgba, shot.width, shot.height).unwrap();
+    assert!(!packed.is_empty());
+    assert_eq!(packed, ordinary, "packing changes matrix layout, not recognition or placement");
+}
+
+/// Opt-in release benchmark for the orchestrator: the worker may write it but must not run it.
+/// Set SHEAF_OCR_BENCH_PDF to the original MICI scan, with the bundled Latin models installed.
+/// SHEAF_OCR_SECONDS_PER_PAGE overrides the recorded 11.75 s/page competitor target.
+#[test]
+#[ignore = "release-only OCR timing requires the MICI scan and an otherwise idle benchmark host"]
+fn release_ocr_mici_benchmark_reports_cold_load_and_warm_page_time() {
+    use sheaf_core::pdfcraft::{Doc, engine::ocr::{Models, Ocr, OcrSettings}};
+    use std::time::Instant;
+    if cfg!(debug_assertions) {
+        eprintln!("skip: measure release OCR, never debug timings");
+        return;
+    }
+    let source = std::env::var_os("SHEAF_OCR_BENCH_PDF").map(PathBuf::from).expect("Set SHEAF_OCR_BENCH_PDF to the MICI benchmark scan");
+    let models = Models::find().or_else(|| Models::in_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vendor/models"))).unwrap();
+    assert!(models.reads_accents());
+    let doc = Doc::open(&Input::new(&source)).unwrap();
+    let mut baseline = None;
+    let mut packed_median = 0.0;
+    for packed in [false, true] {
+        let cold = Instant::now();
+        let engine = Ocr::load_with_prepacked_weights(&models, packed).unwrap();
+        let load_seconds = cold.elapsed().as_secs_f64();
+        let mut times = Vec::new();
+        for run in 0..4 {
+            let job = doc.session().ocr_job(doc.id(), &[], OcrSettings::default()).unwrap();
+            let start = Instant::now();
+            let pages = job.run(&engine, |_, _| true);
+            let seconds = start.elapsed().as_secs_f64();
+            assert!(!pages.is_empty() && pages.iter().all(|p| p.skipped.is_none()), "use an image-only MICI scan with no preexisting OCR text");
+            let words: Vec<_> = pages.iter().flat_map(|p| p.words.iter()).map(|w| (w.text.clone(), w.origin, w.across, w.up)).collect();
+            assert!(!words.is_empty());
+            if let Some(expected) = &baseline { assert_eq!(&words, expected, "prepacking must preserve words and placement"); }
+            else { baseline = Some(words); }
+            eprintln!("OCR benchmark: prepacked={packed} run={run} pages={} words={} load_s={load_seconds:.3} page_s={:.3} source={} bytes={}", pages.len(), pages.iter().map(|p| p.words.len()).sum::<usize>(), seconds / pages.len() as f64, source.display(), std::fs::metadata(&source).unwrap().len());
+            if run > 0 { times.push(seconds / pages.len() as f64); }
+        }
+        times.sort_by(f64::total_cmp);
+        eprintln!("OCR benchmark: prepacked={packed} warm_median_page_s={:.3}", times[1]);
+        if packed { packed_median = times[1]; }
+    }
+    let target: f64 = std::env::var("SHEAF_OCR_SECONDS_PER_PAGE").ok().map(|s| s.parse().unwrap()).unwrap_or(11.75);
+    assert!(packed_median <= target, "bundled OCR {packed_median:.3} s/page exceeds the competitor target {target:.3} s/page");
+}

@@ -191,6 +191,11 @@ fn snapped(r: &ReaderUi, p: (f64, f64)) -> (f64, f64) {
 
 /// More tools ▸ Rulers (Acrobat's View ▸ Show/Hide ▸ Rulers & Grids ▸ Rulers): a ruler along each
 /// page's top and left edge, in inches (or centimetres, Preferences' units).
+/// Help ▸ Keyboard shortcuts shown or closed.
+pub fn show_help(tab_id: i32, on: bool) {
+    update(tab_id, |r, _| r.help_open = on);
+}
+
 pub fn rulers(tab_id: i32) {
     update(tab_id, |r, _| r.rulers = !r.rulers);
 }

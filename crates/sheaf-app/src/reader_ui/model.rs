@@ -23,6 +23,17 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     let wanted = v.viewer.wanted(v.top, v.height);
     let cur = v.current();
     let mut marks = Vec::new();
+    // Preferences ▸ Show art, trim and bleed boxes: each that is not the crop box, outlined.
+    if crate::home::show_boxes() {
+        for p in wanted.clone() {
+            let Some(b) = r.snap.page_boxes.get(p) else { continue };
+            for (k, kind) in [(2, 15), (3, 14), (4, 13)] {
+                if (0..4).any(|i| (b[k][i] - b[1][i]).abs() > 0.5) {
+                    marks.push(overlay(v.viewer.overlay(p, b[k]), kind));
+                }
+            }
+        }
+    }
     // The page grid's selection: each page ringed.
     if r.grid_prev.is_some() {
         for &p in &r.page_sel {
@@ -52,6 +63,12 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             }
         }
     }
+    // The OCR run being reviewed: its scan remains visible beside the correction panel.
+    if let Some(row) = r.ocr_review.as_ref().filter(|f| !f.busy).and_then(|f| f.selected())
+        && let Some(page) = row.page.checked_sub(1).filter(|&page| page < v.viewer.page_count())
+    {
+        marks.push(overlay(v.viewer.overlay(page, row.rect), 5));
+    }
     // Annotations on their way to the document thread, drawn as they will look.
     let mut prov_ink = String::new();
     let mut provisional = Vec::new();
@@ -78,6 +95,21 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 h: c[3] as f32,
                 colour: Color::from_argb_u8(alpha, (col[0] * 255.0) as u8, (col[1] * 255.0) as u8, (col[2] * 255.0) as u8),
             });
+        }
+    }
+    // Shapes ▸ Article (Acrobat's Article tool): the articles' boxes, the one being drawn brighter.
+    if r.tool == SHAPE && r.shape_special == 3 {
+        for (t, a) in r.snap.articles.iter().enumerate() {
+            for (k, (page, rect)) in a.beads.iter().enumerate().filter(|(_, b)| wanted.contains(&b.0)) {
+                let kind = if r.article_box == Some((t, k)) {
+                    18
+                } else if r.article_thread == Some(t) {
+                    17
+                } else {
+                    16
+                };
+                marks.push(overlay(v.viewer.overlay(*page, *rect), kind));
+            }
         }
     }
     if r.show_links || r.tool == LINK {
@@ -463,8 +495,12 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         zoom_mode: r.zoom_mode,
         spread: v.viewer.spread() as i32,
         rtl: v.viewer.rtl(),
+        horizontal: v.viewer.horizontal(),
         pen_width: r.pen_width,
         shape_kind: r.shape_kind,
+        shape_special: r.shape_special as i32,
+        loupe_magnify: format!("{}×", r.loupe_magnify).into(),
+        selected_loupe: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(super::tools::is_loupe),
         shape_fill: r.shape_fill,
         arrow_head: reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].1.into(),
         arrow_both: r.arrow_both,
@@ -494,11 +530,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         page_top: v.viewer.page_rect(v.current())[1] as f32,
         page_bottom: { let [_, y, _, h] = v.viewer.page_rect(v.current()); (y + h) as f32 },
         page_advance: r.snap.durations.get(v.current()).copied().flatten().unwrap_or(0.0) as f32,
-        page_effect: r.snap.transitions.get(v.current()).cloned().flatten().map_or(0, |(s, _)| match s.as_str() {
-            "Fade" | "Dissolve" | "Glitter" => 1,
-            "Split" | "Box" | "Blinds" => 3,
-            _ => 2,
-        }),
+        page_effect: r.snap.transitions.get(v.current()).cloned().flatten().map_or(0, |(s, _)| reader::effect_code(&s)),
         page_effect_seconds: r.snap.transitions.get(v.current()).cloned().flatten().map_or(0.0, |(_, d)| d) as f32,
         view_turn: i32::from(v.viewer.turn()),
         opacity: (super::tools::opacity_of(r) * 100.0).round() as i32,
@@ -530,6 +562,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         form_grid: r.form_grid,
         form_grids: ModelRc::new(VecModel::from(form_grids)),
         rulers_on: r.rulers,
+        guide_colour: {
+            let [r, g, b] = reader::GUIDE_COLOURS[(crate::home::prefs().guide_colour as usize).min(reader::GUIDE_COLOURS.len() - 1)];
+            slint::Color::from_rgb_u8(r, g, b)
+        },
         rulers: ModelRc::new(VecModel::from(rulers)),
         field_props,
         link_error: r.link_error.clone().into(),
@@ -550,7 +586,15 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         )),
         layers_changed: r.layers_off.is_some(),
         voices_open: r.voices_open,
+        help_open: r.help_open,
         voices: ModelRc::new(VecModel::from(r.voices.iter().map(|v| slint::SharedString::from(v.as_str())).collect::<Vec<_>>())),
+        press_profile: r.prepress.press_profile.as_ref().map(|p| file_name(p)).unwrap_or_default().into(),
+        press_busy: r.prepress.press_busy,
+        production_open: r.prepress.production_open,
+        preflight_open: r.prepress.open,
+        preflight_busy: r.prepress.busy,
+        preflight_ready: r.prepress.report.is_some() && !r.prepress.busy,
+        preflight_rows: r.prepress.rows.clone(),
         a11y_open: r.a11y_open,
         a11y_busy: r.a11y_busy,
         a11y_summary: r.a11y.as_ref().map_or_else(String::new, |rep| {
@@ -574,6 +618,39 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_open: r.props_open,
         background_open: r.background_open,
         versions_open: r.versions_open,
+        signature_manager_open: r.signature_manager.is_some(),
+        signature_manager_name: r.signature_manager.as_ref().and_then(|m| m.selected.as_ref()?.1.1.as_deref()).unwrap_or_default().into(),
+        signature_manager_commands: r.signature_manager.as_ref().and_then(|m| m.selected.as_ref()).map(|(_, s)| super::signature_manager::commands(s)).unwrap_or_default().into(),
+        signature_manager_style: ModelRc::new(VecModel::from(r.signature_manager.as_ref().and_then(|m| m.selected.as_ref()).map(|(_, s)| vec![i32::from(s.3), i32::from(s.2.0), i32::from(s.2.1)]).unwrap_or_else(|| vec![0, 0, 1]))),
+        signature_manager_status: r.signature_manager.as_ref().map(|m| m.status.as_str()).unwrap_or_default().into(),
+        signature_manager_seq: r.signature_manager.as_ref().map_or(0, |m| m.seq),
+        policy_open: r.policy_panel.is_some(),
+        policy_busy: r.policy_panel.as_ref().is_some_and(|p| p.busy),
+        policy_names: ModelRc::new(VecModel::from(r.policy_panel.as_ref().map(|p| p.policies.iter().map(|p| slint::SharedString::from(p.name.as_str())).collect::<Vec<_>>()).unwrap_or_default())),
+        policy_name: r.policy_panel.as_ref().map(|p| p.draft.name.as_str()).unwrap_or_default().into(),
+        policy_flags: ModelRc::new(VecModel::from(r.policy_panel.as_ref().map(|p| { let f = p.draft.permissions; vec![f.printing, f.copying, f.editing, f.commenting, f.filling_forms, p.draft.encrypt_metadata] }).unwrap_or_default())),
+        policy_choices: ModelRc::new(VecModel::from(r.policy_panel.as_ref().map(|p| {
+            use sheaf_core::security::{PrintQuality, ChangeLevel, EncryptionAlgorithm};
+            let options = p.draft.options;
+            vec![if options.print_quality == PrintQuality::Low { 1 } else { 0 },
+                match options.changes { ChangeLevel::Any => 0, ChangeLevel::None => 1, ChangeLevel::Assemble => 2, ChangeLevel::FillForms => 3, ChangeLevel::CommentForms => 4 },
+                if options.algorithm == EncryptionAlgorithm::Aes128 { 1 } else { 0 }]
+        }).unwrap_or_default())),
+        policy_status: r.policy_panel.as_ref().map(|p| p.status.as_str()).unwrap_or_default().into(),
+        policy_seq: r.policy_panel.as_ref().map_or(0, |p| p.seq),
+        catalog_open: r.catalog_panel.is_some(),
+        catalog_busy: r.catalog_panel.as_ref().is_some_and(|p| p.busy),
+        catalog_status: r.catalog_panel.as_ref().map(|p| p.status.as_str()).unwrap_or_default().into(),
+        catalog_files: ModelRc::new(VecModel::from(r.catalog_panel.as_ref().map(|p| p.files.iter().map(|f| slint::SharedString::from(f.to_string_lossy().as_ref())).collect::<Vec<_>>()).unwrap_or_default())),
+        catalog_hits: ModelRc::new(VecModel::from(r.catalog_panel.as_ref().map(|p| p.results.iter().map(|h| FolderHit { file: h.path.to_string_lossy().as_ref().into(), page: format!("p. {}", h.page + 1).into(), line: h.snippet.as_str().into() }).collect::<Vec<_>>()).unwrap_or_default())),
+        ocr_review_open: r.ocr_review.is_some(),
+        ocr_review_busy: r.ocr_review.as_ref().is_some_and(|f| f.busy),
+        ocr_review_text: r.ocr_review.as_ref().and_then(|f| f.selected()).map(|row| row.text.as_str()).unwrap_or_default().into(),
+        ocr_review_position: r.ocr_review.as_ref().map(|f| f.position()).unwrap_or_default().into(),
+        ocr_review_has_row: r.ocr_review.as_ref().and_then(|f| f.selected()).is_some(),
+        ocr_review_suspects_only: r.ocr_review.as_ref().is_some_and(|f| f.suspects_only),
+        ocr_review_suspect: r.ocr_review.as_ref().and_then(|f| f.selected()).is_some_and(|row| row.suspect),
+        ocr_review_seq: r.ocr_review.as_ref().map_or(0, |f| f.seq),
         folder_open: r.folder_search.is_some(),
         folder_busy: r.folder_search.as_ref().is_some_and(|f| f.busy),
         folder_title: r.folder_search.as_ref().map(|f| format!("“{}” in {}", f.query, f.folder)).unwrap_or_default().into(),
@@ -603,6 +680,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         text_bold: r.text_bold,
         text_underline: r.text_underline,
         text_bullets: r.text_bullets,
+        text_numbers: r.text_numbers,
+        text_font: r.text_font.as_ref().map(|f| f.0.as_str()).unwrap_or_default().into(),
         text_italic: r.text_italic,
         text_align: r.text_align,
         selected_image: r.selected_image.is_some(),
@@ -610,12 +689,14 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         pages_selected: r.page_sel.len() as i32,
         sign_open: r.sign_open,
         print_open: r.print_open,
+        print_preview: r.print_preview.clone().unwrap_or_default(),
+        has_print_preview: r.print_preview.is_some(),
         printers: ModelRc::new(VecModel::from(r.printers.iter().map(slint::SharedString::from).collect::<Vec<_>>())),
         printer: r.printer as i32,
         has_signature: r.tool == SIGN && !r.initials && saved_signature().is_some(),
         initials: r.initials,
         sign_every_page: r.sign_every_page,
-        signatures: ModelRc::new(VecModel::from(if r.tool == SIGN { signature_thumbs() } else { Vec::new() })),
+        signatures: ModelRc::new(VecModel::from(if r.tool == SIGN || r.signature_manager.is_some() { signature_thumbs() } else { Vec::new() })),
         has_form: r.snap.fields.iter().any(|f| f.kind < 4),
         choices: ModelRc::new(VecModel::from(
             r.draft
@@ -761,5 +842,8 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
 
 /// The page's label ("iv") or number, 1-based.
 pub(super) fn label(r: &ReaderUi, p: usize) -> String {
+    if crate::home::physical_numbers() {
+        return (p + 1).to_string();
+    }
     r.snap.labels.get(p).cloned().filter(|l| !l.is_empty()).unwrap_or_else(|| (p + 1).to_string())
 }

@@ -34,6 +34,33 @@ fn page_picture(path: &Path, page: i32) -> image::RgbImage {
     p.render_with_config(&PdfRenderConfig::new().set_target_width(1000)).unwrap().as_image().unwrap().to_rgb8()
 }
 
+/// A scan of a page of text printed upside down (a picture, no text) is found by reading it, and
+/// its turn is half a turn.
+#[test]
+fn a_scan_upside_down_is_found_by_reading_it() {
+    if !sheaf_core::ocr::available() {
+        eprintln!("skip: no OCR models");
+        return;
+    }
+    let t = tempfile::tempdir().unwrap();
+    // Text drawn as a picture: a PDF page of words rendered, turned upside down, made a scan.
+    let png = t.path().join("page.png");
+    {
+        let _g = pdfium_lock();
+        let mut doc = new_document();
+        let font = doc.fonts_mut().helvetica();
+        let mut page = doc.pages_mut().create_page_at_end(PdfPagePaperSize::a4()).unwrap();
+        for k in 0..8 {
+            page.objects_mut().create_text_object(PdfPoints::new(60.0), PdfPoints::new(760.0 - 40.0 * k as f32), "The quick brown fox jumps over the lazy dog", font, PdfPoints::new(18.0)).unwrap();
+        }
+        let img = page.render_with_config(&PdfRenderConfig::new().set_target_width(1200)).unwrap().as_image().unwrap();
+        img.rotate180().save(&png).unwrap();
+    }
+    let scan = sheaf_core::images::images_to_pdf(&[png], sheaf_core::images::PageLayout::FitImage, &t.path().join("scan.pdf")).unwrap();
+    let turns = sheaf_core::enhance::scan_upright_turns(&std::fs::read(&scan).unwrap(), None, &[0]);
+    assert_eq!(turns, [(0, 180)]);
+}
+
 #[test]
 fn a_crooked_scan_comes_out_level_on_white_and_text_pages_are_kept() {
     let t = tempfile::tempdir().unwrap();

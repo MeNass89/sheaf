@@ -19,6 +19,9 @@ pub struct Facts {
     pub custom: Vec<(String, String)>,
     /// The fonts the pages use (Acrobat's Fonts tab), by name, and whether each is embedded.
     pub fonts: Vec<(String, bool)>,
+    /// What takes the file's bytes (Acrobat's PDF Optimizer ▸ Audit Space Usage), largest first:
+    /// images, fonts, page content, attachments, metadata, and the rest of the document.
+    pub space: Vec<(&'static str, u64)>,
 }
 
 /// The /P bits (PDF 32000 table 22) and what each forbids when it is off.
@@ -68,6 +71,7 @@ pub fn read(bytes: &[u8], password: Option<&str>) -> Facts {
     }
     f.pdfa = doc.catalog().ok().and_then(|c| c.get(b"Metadata").ok()).and_then(|m| m.as_reference().ok()).and_then(|r| doc.get_object(r).ok()).and_then(|o| o.as_stream().ok()).and_then(|s| s.decompressed_content().ok().or_else(|| Some(s.content.clone()))).and_then(|x| pdfa_of(&String::from_utf8_lossy(&x)));
     f.fonts = fonts_of(&doc);
+    f.space = space_of(&doc, bytes.len() as u64);
     if let Some((_, &id)) = doc.get_pages().iter().next() {
         let page = |key: &[u8]| inherited(&doc, id, key).and_then(|o| rect(&o));
         let media = page(b"MediaBox");
@@ -89,6 +93,44 @@ pub fn read(bytes: &[u8], password: Option<&str>) -> Facts {
 /// The fonts named in the pages' resources (form XObjects' too, one level down), sorted, each
 /// once: its /BaseFont without the subset tag, embedded when it or its descendant carries a font
 /// file.
+/// The file's bytes by what they hold: each stream's stored size counted to its kind (an image, a
+/// font program, a page's or a form's content, an attached file, XMP metadata); what is left of the
+/// file is its structure (dictionaries, cross-reference, comments' and fields' dictionaries).
+pub fn space_of(doc: &Document, total: u64) -> Vec<(&'static str, u64)> {
+    use std::collections::HashSet;
+    let fonts: HashSet<lopdf::ObjectId> = doc
+        .objects
+        .values()
+        .filter_map(|o| o.as_dict().ok())
+        .flat_map(|d| [&b"FontFile"[..], b"FontFile2", b"FontFile3"].into_iter().filter_map(|k| d.get(k).and_then(Object::as_reference).ok()))
+        .collect();
+    let contents: HashSet<lopdf::ObjectId> = doc.get_pages().values().flat_map(|&p| doc.get_page_contents(p)).collect();
+    let mut by = [0u64; 6];
+    for (id, o) in &doc.objects {
+        let Ok(s) = o.as_stream() else { continue };
+        let name = |k: &[u8]| s.dict.get(k).and_then(Object::as_name).ok();
+        let k = if name(b"Subtype") == Some(b"Image") {
+            0
+        } else if fonts.contains(id) {
+            1
+        } else if contents.contains(id) || name(b"Subtype") == Some(b"Form") {
+            2
+        } else if name(b"Type") == Some(b"EmbeddedFile") {
+            3
+        } else if name(b"Type") == Some(b"Metadata") {
+            4
+        } else {
+            continue;
+        };
+        by[k] += s.content.len() as u64;
+    }
+    by[5] = total.saturating_sub(by[..5].iter().sum());
+    let names = ["Images", "Fonts", "Page content", "Attached files", "Metadata", "Document structure"];
+    let mut out: Vec<(&'static str, u64)> = names.into_iter().zip(by).filter(|(_, n)| *n > 0).collect();
+    out.sort_by_key(|a| std::cmp::Reverse(a.1));
+    out
+}
+
 fn fonts_of(doc: &Document) -> Vec<(String, bool)> {
     let deref = |o: &Object| doc.dereference(o).ok().map(|(_, o)| o.clone());
     let dict = |o: &Object| deref(o).and_then(|o| o.as_dict().ok().cloned());

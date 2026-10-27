@@ -2,16 +2,24 @@
 
 slint::include_modules!();
 
+mod action_import;
+pub mod actions;
+pub mod library;
+pub mod javascript_console;
+pub mod watch_folder;
 pub mod files;
 pub mod history;
 pub mod icons;
 pub mod jobs;
 pub mod open_with;
+pub mod platform;
 pub mod pool;
 pub mod prefs;
 pub mod print;
 pub mod reader;
 pub mod saved_options;
+pub mod security_policies;
 pub mod store_file;
 pub mod sign_preview;
+mod signature_store;
 pub mod viewer;

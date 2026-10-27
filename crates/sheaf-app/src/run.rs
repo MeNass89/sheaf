@@ -89,8 +89,9 @@ pub fn toggle_code(set: &str, code: &str) -> String {
 }
 
 fn ocr_options(opts: &ToolOptions) -> Result<OcrOptions> {
-    let language = opts.ocr_languages.split(',').find(|c| !c.is_empty()).ok_or_else(|| OpdfError::Unsupported("choose a document language".into()))?;
-    Ok(OcrOptions { language: language.into(), read_text_pages: opts.ocr_all_pages, enhance: opts.ocr_enhance, ..Default::default() })
+    let language = opts.ocr_languages.split(',').filter(|c| !c.is_empty()).collect::<Vec<_>>().join("+");
+    if language.is_empty() { return Err(OpdfError::Unsupported("choose a document language".into())); }
+    Ok(OcrOptions { language, use_local_engine: opts.ocr_local_engine, read_text_pages: opts.ocr_all_pages, enhance: opts.ocr_enhance, ..Default::default() })
 }
 
 /// A typed millimetre margin, in points.
@@ -310,6 +311,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 discard_tags: opts.discard_tags,
                 discard_metadata: opts.discard_meta,
                 grayscale: opts.compress_gray,
+                unembed_standard: opts.unembed_fonts,
             },
         },
         ToolId::Protect => Job::Protect {
@@ -345,7 +347,13 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             Job::PdfToJpg { inputs, dpi, quality: (!opts.png).then_some(q), extract: opts.extract_images, out_dir: folder }
         }
         ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf => {
-            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect() }
+            let html = (tool == ToolId::HtmlToPdf && opts.layout != 0).then_some(sheaf_core::html::Options {
+                paper: if opts.layout == 2 { sheaf_core::html::Paper::Letter } else { sheaf_core::html::Paper::A4 },
+                landscape: opts.landscape,
+                long_page: opts.html_long_page,
+                margin: [0.0, 18.0, 36.0][opts.margin.clamp(0, 2) as usize],
+            });
+            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), html, whole_sheets: tool == ToolId::ExcelToPdf && opts.layout == 1, data_sheets: (tool == ToolId::ExcelToPdf && opts.layout == 2).then(|| opts.pages.to_string()) }
         }
         ToolId::PageNumbers => {
             let options = number_options(opts, inputs.len() > 1)?;
@@ -411,7 +419,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             };
             Job::Edit { input: one(inputs)?, items, out: single()? }
         }
-        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
+        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b }, allow_incomplete: opts.pdfa_allow_incomplete },
     })
 }
 
@@ -562,13 +570,19 @@ pub fn speak(text: &str, speed: u8, voice: Option<&str>) -> Option<std::process:
     #[cfg(windows)]
     let mut cmd = {
         let rate = ["0", "-3", "3"][speed.min(2) as usize];
+        // A new reading starts unpaused.
+        let _ = std::fs::remove_file(speech_control());
         let mut c = Command::new("powershell");
         c.args([
             "-NoProfile",
             "-Command",
             &format!(
-                "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = {rate}; {}$s.Speak([Console]::In.ReadToEnd())",
-                voice.map(|v| format!("$s.SelectVoice('{}'); ", v.replace('\'', "''"))).unwrap_or_default()
+                // Spoken asynchronously; the control file says pause or resume (Pause reading).
+                "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = {rate}; {}$null = $s.SpeakAsync([Console]::In.ReadToEnd()); \
+                 $f = '{}'; while ($s.State -ne 'Ready') {{ Start-Sleep -Milliseconds 150; $c = Get-Content $f -ErrorAction SilentlyContinue; \
+                 if ($c -eq 'pause' -and $s.State -eq 'Speaking') {{ $s.Pause() }} elseif ($c -eq 'resume' -and $s.State -eq 'Paused') {{ $s.Resume() }} }}",
+                voice.map(|v| format!("$s.SelectVoice('{}'); ", v.replace('\'', "''"))).unwrap_or_default(),
+                speech_control().display().to_string().replace('\'', "''")
             ),
         ]);
         c
@@ -600,6 +614,63 @@ pub fn speak(text: &str, speed: u8, voice: Option<&str>) -> Option<std::process:
         let _ = stdin.write_all(text.as_bytes());
     });
     Some(child)
+}
+
+/// File `f` put on the clipboard as a file (Finder's, Explorer's and file managers' copy), to paste
+/// in a folder, a chat or a mail. Debug builds write its path to `SHEAF_TEST_CLIPFILE` (gui-smoke).
+pub fn copy_file_to_clipboard(f: &std::path::Path) -> bool {
+    if cfg!(debug_assertions)
+        && let Some(log) = std::env::var_os("SHEAF_TEST_CLIPFILE")
+    {
+        return std::fs::write(log, f.to_string_lossy().as_bytes()).is_ok();
+    }
+    let p = f.to_string_lossy();
+    #[cfg(target_os = "macos")]
+    return std::process::Command::new("osascript").args(["-e", &format!("set the clipboard to (POSIX file \"{}\")", p.replace('"', "\\\""))]).status().is_ok_and(|s| s.success());
+    #[cfg(windows)]
+    return std::process::Command::new("powershell").args(["-NoProfile", "-Command", &format!("Set-Clipboard -Path '{}'", p.replace('\'', "''"))]).status().is_ok_and(|s| s.success());
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        use std::io::Write;
+        let uri = format!("file://{}", p.replace(' ', "%20"));
+        let gnome = format!("copy\n{uri}");
+        let put = |target: &str, text: &str| {
+            std::process::Command::new("xclip")
+                .args(["-selection", "clipboard", "-t", target])
+                .stdin(std::process::Stdio::piped())
+                .spawn()
+                .and_then(|mut c| {
+                    c.stdin.take().map(|mut s| s.write_all(text.as_bytes())).transpose()?;
+                    c.wait()
+                })
+                .is_ok_and(|s| s.success())
+        };
+        // GNOME's file managers read their own target; others the URI list.
+        put("x-special/gnome-copied-files", &gnome) || put("text/uri-list", &uri) || std::process::Command::new("wl-copy").args(["--type", "text/uri-list", &uri]).status().is_ok_and(|s| s.success())
+    }
+}
+
+/// macOS's AirDrop sheet with file `f`; false elsewhere or when it cannot open.
+pub fn airdrop(f: &std::path::Path) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        let script = format!(
+            "ObjC.import('AppKit'); var s = $.NSSharingService.sharingServiceNamed($.NSSharingServiceNameSendViaAirDrop); var u = $.NSURL.fileURLWithPath('{}'); s.canPerformWithItems([u]) ? (s.performWithItems([u]), 'ok') : 'no'",
+            f.display().to_string().replace('\'', "\\'")
+        );
+        return std::process::Command::new("osascript").args(["-l", "JavaScript", "-e", &script]).output().is_ok_and(|o| o.stdout.starts_with(b"ok"));
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = f;
+        false
+    }
+}
+
+/// The file Windows's voice reads "pause" or "resume" from while it speaks.
+#[cfg(not(unix))]
+pub fn speech_control() -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("sheaf-speech-{}.ctl", std::process::id()))
 }
 
 /// The system's voices by name (macOS's `say -v ?`, eSpeak NG's, Windows's installed voices).
@@ -910,7 +981,13 @@ pub fn make_default_pdf_app() -> String {
             &["add", r"HKCU\Software\Classes\.pdf\OpenWithProgids", "/v", "Sheaf.PDF", "/t", "REG_NONE", "/f"],
             &["add", r"HKCU\Software\Classes\Applications\sheaf.exe\SupportedTypes", "/v", ".pdf", "/t", "REG_SZ", "/f"],
         ];
-        let registered = keys.iter().all(|k| ran("reg", k));
+        let mut registered = keys.iter().all(|k| ran("reg", k));
+        // The tools as the PDF's verbs in Explorer's context menu.
+        for (key, label) in sheaf_app::open_with::MENU_TOOLS {
+            let verb = format!(r"HKCU\Software\Classes\SystemFileAssociations\.pdf\shell\Sheaf.{key}");
+            let cmd = format!("\"{exe}\" --tool={key} \"%1\"");
+            registered &= ran("reg", &["add", &verb, "/ve", "/d", label, "/f"]) && ran("reg", &["add", &format!(r"{verb}\command"), "/ve", "/d", &cmd, "/f"]);
+        }
         spawn_detached("explorer", &["ms-settings:defaultapps".as_ref()]);
         return if registered { "Pick Sheaf for .pdf in Default apps".into() } else { "Sheaf could not be registered: pick it with Open with ▸ Choose another app".into() };
     };
@@ -924,7 +1001,7 @@ pub fn make_default_pdf_app() -> String {
         if !system && !entry.exists()
             && let Ok(exe) = std::env::current_exe()
         {
-            let text = format!("[Desktop Entry]\nType=Application\nName=Sheaf\nComment=Private PDF toolbox\nExec=\"{}\" %F\nMimeType=application/pdf;\nCategories=Office;Graphics;\n", exe.display());
+            let text = desktop_entry(&format!("\"{}\"", exe.display()));
             let _ = std::fs::create_dir_all(&apps).and_then(|_| std::fs::write(&entry, text));
             let _ = ran("update-desktop-database", &[&apps.to_string_lossy()]);
         }
@@ -932,6 +1009,20 @@ pub fn make_default_pdf_app() -> String {
     #[cfg(not(any(target_os = "macos", windows)))]
     let done = ran("xdg-mime", &["default", "sheaf.desktop", "application/pdf"]);
     if done { "Sheaf now opens PDFs".into() } else { "Sheaf could not be made the default: choose it in your system's settings".into() }
+}
+
+/// Sheaf's desktop entry, `exec` its program: opens PDFs, its tools as the file manager's actions
+/// (the context menu's Compress with Sheaf…).
+pub fn desktop_entry(exec: &str) -> String {
+    use sheaf_app::open_with::MENU_TOOLS;
+    let mut t = format!(
+        "[Desktop Entry]\nType=Application\nName=Sheaf\nComment=Private PDF toolbox\nExec={exec} %F\nIcon=sheaf\nMimeType=application/pdf;\nCategories=Office;Graphics;\nActions={};\n",
+        MENU_TOOLS.iter().map(|t| t.0).collect::<Vec<_>>().join(";")
+    );
+    for (key, label) in MENU_TOOLS {
+        t.push_str(&format!("\n[Desktop Action {key}]\nName={label}\nExec={exec} --tool={key} %F\n"));
+    }
+    t
 }
 
 /// Opens a file or URL in its default app.
@@ -1058,7 +1149,7 @@ mod tests {
     use std::path::Path;
 
     fn opts() -> ToolOptions {
-        ToolOptions { level: 1, every: 1, degrees: 90, ..Default::default() }
+        ToolOptions { pdfa_allow_incomplete: true, level: 1, every: 1, degrees: 90, ..Default::default() }
     }
 
     #[test]
@@ -1162,15 +1253,18 @@ mod tests {
     fn pdfa_job() {
         let mut o = opts();
         let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
-        let Job::PdfA { items, level } = build_job(ToolId::PdfToPdfA, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
+        let Job::PdfA { items, level, allow_incomplete } = build_job(ToolId::PdfToPdfA, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
         assert_eq!((level, items[1].1.clone()), (PdfALevel::A2b, PathBuf::from("/o/y-pdfa.pdf")));
+        assert!(allow_incomplete);
+        o.pdfa_allow_incomplete = false;
         o.pdfa_level = 1;
-        let Job::PdfA { level, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
+        let Job::PdfA { level, allow_incomplete, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
         assert_eq!(level, PdfALevel::A3b);
+        assert!(!allow_incomplete);
     }
 
     #[test]
-    fn ocr_job_uses_the_first_selected_language() {
+    fn ocr_job_uses_every_selected_language() {
         assert_eq!(toggle_code(",en,", "fr"), ",en,fr,");
         assert_eq!(toggle_code(",en,fr,", "en"), ",fr,");
         assert_eq!(toggle_code(",en,", "en"), ",,");
@@ -1178,8 +1272,10 @@ mod tests {
         let mut o = opts();
         o.ocr_languages = ",fr,en,".into();
         o.ocr_all_pages = true;
+        o.ocr_local_engine = true;
         let Job::Ocr { items, options } = build_job(ToolId::Ocr, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/o.pdf".into())).unwrap() else { panic!() };
-        assert_eq!((options.language.as_str(), options.read_text_pages, items[0].1.clone()), ("fr", true, PathBuf::from("/s/o.pdf")));
+        assert!(options.use_local_engine);
+        assert_eq!((options.language.as_str(), options.read_text_pages, items[0].1.clone()), ("fr+en", true, PathBuf::from("/s/o.pdf")));
         o.ocr_languages = ",,".into();
         assert!(build_job(ToolId::Ocr, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/o.pdf".into())).is_err());
     }
@@ -1256,6 +1352,47 @@ mod tests {
         assert_eq!(parse_mm(""), Some(0.0));
         assert_eq!(parse_mm("-1"), None);
         assert_eq!(parse_mm("x"), None);
+    }
+
+    #[test]
+    fn html_layout_reaches_the_job_without_reusing_the_default_conversion() {
+        let mut o = opts();
+        o.layout = 2;
+        o.landscape = true;
+        o.margin = 1;
+        o.html_long_page = true;
+        let input = || vec![Input::new("/a/page.html")];
+        let job = build_job(ToolId::HtmlToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
+        let Job::Office { html, .. } = job else { panic!("an HTML conversion job") };
+        assert_eq!(html, Some(sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0, long_page: true }));
+        let job = build_job(ToolId::WordToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
+        assert!(matches!(job, Job::Office { html: None, .. }));
+        o.layout = 0;
+        let job = build_job(ToolId::HtmlToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
+        assert!(matches!(job, Job::Office { html: None, .. }));
+    }
+
+    #[test]
+    fn whole_sheet_layout_is_only_used_for_spreadsheets_and_bypasses_html() {
+        let mut o = opts();
+        o.layout = 1;
+        for (tool, expected) in [(ToolId::ExcelToPdf, true), (ToolId::WordToPdf, false), (ToolId::PowerPointToPdf, false)] {
+            let job = build_job(tool, vec![Input::new("/a/book.xlsx")], vec![], &o, Dest::NextToEach).unwrap();
+            assert!(matches!(job, Job::Office { whole_sheets, html: None, .. } if whole_sheets == expected));
+        }
+    }
+
+    #[test]
+    fn native_spreadsheet_choice_keeps_sheet_selection_and_bypasses_the_office_cache() {
+        let mut o = opts();
+        o.layout = 2;
+        o.pages = "3,1-2".into();
+        for tool in [ToolId::ExcelToPdf, ToolId::WordToPdf, ToolId::PowerPointToPdf] {
+            let job = build_job(tool, vec![Input::new("/a/book.xlsx")], vec![], &o, Dest::NextToEach).unwrap();
+            let Job::Office { data_sheets, whole_sheets, .. } = job else { panic!() };
+            assert!(!whole_sheets);
+            assert_eq!(data_sheets.as_deref(), (tool == ToolId::ExcelToPdf).then_some("3,1-2"));
+        }
     }
 
     #[test]

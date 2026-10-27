@@ -94,3 +94,25 @@ fn foreign_encrypted_inputs_convert() {
         common::unprotected_and_clean(&r.path);
     }
 }
+
+#[test]
+fn strict_archival_output_keeps_existing_files_and_publishes_no_failed_copy() {
+    use sheaf_core::pdfa::to_pdfa_with_policy;
+    let t = tempfile::tempdir().unwrap();
+    let source = fixture_pdf(t.path(), "source.pdf", 1);
+    let out = t.path().join("archive.pdf");
+    std::fs::write(&out, "existing archival copy").unwrap();
+    let error = to_pdfa_with_policy(&Input::new(&source), PdfALevel::A2b, false, &out).unwrap_err();
+    assert!(error.to_string().contains("Helvetica") && error.to_string().contains("no output saved"));
+    assert_eq!(std::fs::read_to_string(&out).unwrap(), "existing archival copy");
+    let files: Vec<_> = std::fs::read_dir(t.path()).unwrap().map(|f| f.unwrap().file_name()).collect();
+    assert_eq!(files.len(), 2, "no temporary or neighbouring failed output remains");
+    let permissive = to_pdfa_with_policy(&Input::new(&source), PdfALevel::A2b, true, &out).unwrap();
+    assert_ne!(permissive.path, out);
+    assert!(!permissive.issues.is_empty());
+    assert_eq!(page_texts(&permissive.path), ["Page 1"]);
+    let good = picture_pdf(t.path());
+    let strict = to_pdfa_with_policy(&Input::new(good), PdfALevel::A3b, false, &t.path().join("good.pdf")).unwrap();
+    assert!(strict.issues.is_empty());
+    qpdf_clean(&strict.path);
+}

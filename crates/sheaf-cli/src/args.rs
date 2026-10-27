@@ -120,6 +120,58 @@ pub(crate) enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Save portable security settings without passwords (Acrobat's Security Policies)
+    SaveSecurityPolicy {
+        /// Policy name (1 to 200 characters)
+        name: String,
+        /// Disallow printing
+        #[arg(long)]
+        no_printing: bool,
+        /// Disallow copying or extracting text
+        #[arg(long)]
+        no_copying: bool,
+        /// Disallow editing and assembling pages
+        #[arg(long)]
+        no_editing: bool,
+        /// Disallow comments and annotations
+        #[arg(long)]
+        no_commenting: bool,
+        /// Disallow filling form fields
+        #[arg(long)]
+        no_forms: bool,
+        /// Keep XMP metadata readable without the password
+        #[arg(long)]
+        leave_metadata_clear: bool,
+        /// Print quality when printing is allowed
+        #[arg(long, default_value = "high", value_enum)]
+        print_quality: CliPolicyPrint,
+        /// Maximum changes allowed, further limited by the action switches
+        #[arg(long, default_value = "any", value_enum)]
+        changes: CliPolicyChanges,
+        /// AES compatibility for modern or older readers
+        #[arg(long, default_value = "aes256", value_enum)]
+        algorithm: CliPolicyAlgorithm,
+        /// The settings JSON or protected PDF to write
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Apply imported security settings, asking for passwords separately
+    ApplySecurityPolicy {
+        /// The PDF to protect
+        input: PathBuf,
+        /// A saved security policy JSON file
+        #[arg(long)]
+        policy: PathBuf,
+        /// Password to open the PDF (may be empty with an owner password)
+        #[arg(long, default_value = "")]
+        user_password: String,
+        /// Password to change security settings
+        #[arg(long)]
+        owner_password: Option<String>,
+        /// The settings JSON or protected PDF to write
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Remove the password from a PDF (needs --password)
     Unlock {
         /// The protected PDF
@@ -297,13 +349,45 @@ pub(crate) enum Cmd {
     Ocr {
         /// The scanned PDF
         input: PathBuf,
-        /// Document language code (the models read Latin script)
+        /// Use installed Tesseract instead of bundled recognition, including Latin text
+        #[arg(long)]
+        local_engine: bool,
+        /// Language codes joined with + (for example en+ja); extra scripts need local Tesseract packs
         #[arg(long, default_value = "en")]
         language: String,
         /// Also read pages that already contain text (only new words are added)
         #[arg(long)]
         all_pages: bool,
         /// The searchable PDF to write
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Review the invisible OCR text, with page boxes and possible decoding errors
+    ReviewOcr {
+        /// The PDF whose OCR layer to review or correct
+        input: PathBuf,
+    },
+    /// Correct an OCR run or mark it as not text, without repainting the scan
+    #[command(group = clap::ArgGroup::new("correction").required(true).args(["text", "not_text"]))]
+    CorrectOcr {
+        /// The PDF whose OCR layer to review or correct
+        input: PathBuf,
+        /// Page number from review-ocr (1-based)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+        page: u32,
+        /// Run number from review-ocr (1-based)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+        line: u32,
+        /// The original text from review-ocr; refuses a stale selection
+        #[arg(long)]
+        expected: String,
+        /// Correct text for the selected hidden run
+        #[arg(long)]
+        text: Option<String>,
+        /// Remove the run from the searchable text layer
+        #[arg(long)]
+        not_text: bool,
+        /// The corrected PDF to write
         #[arg(short, long)]
         out: PathBuf,
     },
@@ -479,6 +563,20 @@ pub(crate) enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Add a bookmark that opens a page, after the last top-level one (`info` lists them)
+    Bookmark {
+        /// The PDF to read
+        input: PathBuf,
+        /// The bookmark's title
+        #[arg(long)]
+        title: String,
+        /// The page it opens (1-based)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+        page: u32,
+        /// The PDF to write
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Describe a PDF: page count and sizes, encryption, metadata, forms, bookmarks (JSON)
     Info {
         /// The PDF to read
@@ -506,10 +604,77 @@ pub(crate) enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Build a reusable full-text catalog for a set of PDFs (Acrobat's Catalog)
+    Index {
+        /// PDF files or folders to include recursively in the catalog
+        #[arg(required = true, num_args = 1..)]
+        inputs: Vec<PathBuf>,
+        /// Reuse unchanged pages from this catalog; omitted sources are purged
+        #[arg(long)]
+        update: Option<PathBuf>,
+        /// The catalog JSON file to write
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Search a previously built full-text catalog; rebuild if a source PDF changed
+    SearchIndex {
+        /// A previously built catalog JSON file
+        index: PathBuf,
+        /// Phrase to find, ignoring case and line ends
+        query: String,
+    },
     /// Describe every command as a JSON schema, for agents
     Tools,
     /// Serve every command as a tool over the Model Context Protocol (JSON-RPC on stdio)
     Mcp,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliPolicyPrint {
+    /// Allow high-resolution printing
+    High,
+    /// Allow low-resolution printing only
+    Low,
+}
+impl CliPolicyPrint {
+    pub fn core(self) -> sheaf_core::security::PrintQuality {
+        match self { Self::High => sheaf_core::security::PrintQuality::High, Self::Low => sheaf_core::security::PrintQuality::Low }
+    }
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliPolicyChanges {
+    /// Allow all checked actions
+    Any,
+    /// Disallow all document changes
+    None,
+    /// Allow page assembly only
+    Assemble,
+    /// Allow form filling only
+    FillForms,
+    /// Allow comments and form filling
+    CommentForms,
+}
+impl CliPolicyChanges {
+    pub fn core(self) -> sheaf_core::security::ChangeLevel {
+        use sheaf_core::security::ChangeLevel;
+        match self { Self::Any => ChangeLevel::Any, Self::None => ChangeLevel::None, Self::Assemble => ChangeLevel::Assemble, Self::FillForms => ChangeLevel::FillForms, Self::CommentForms => ChangeLevel::CommentForms }
+    }
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliPolicyAlgorithm {
+    /// AES-256 for modern readers
+    #[value(name = "aes256")]
+    Aes256,
+    /// AES-128 for older readers
+    #[value(name = "aes128")]
+    Aes128,
+}
+impl CliPolicyAlgorithm {
+    pub fn core(self) -> sheaf_core::security::EncryptionAlgorithm {
+        match self { Self::Aes256 => sheaf_core::security::EncryptionAlgorithm::Aes256, Self::Aes128 => sheaf_core::security::EncryptionAlgorithm::Aes128 }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -855,4 +1020,41 @@ mod help_tests {
         let help = Cli::command().find_subcommand_mut("number").unwrap().render_long_help().to_string();
         assert!(help.contains("Page 3 of 10") && help.contains("\"Sheet {page} of {pages}\""), "{help}");
     }
+
+    #[test]
+    fn ocr_correction_requires_one_action_and_positive_review_indexes() {
+        let args = ["sheaf", "correct-ocr", "scan.pdf", "--page", "1", "--line", "1", "--expected", "T?xt", "-o", "fixed.pdf"];
+        assert!(Cli::try_parse_from(args).is_err(), "a correction action is required");
+        let mut remove = args.to_vec();
+        remove.push("--not-text");
+        assert!(Cli::try_parse_from(&remove).is_ok());
+        remove.extend(["--text", "Text"]);
+        assert!(Cli::try_parse_from(&remove).is_err(), "replace and remove are exclusive");
+        let mut zero = args.to_vec();
+        zero[4] = "0";
+        zero.push("--not-text");
+        assert!(Cli::try_parse_from(zero).is_err());
+    }
+
+    #[test]
+    fn catalog_and_security_policy_commands_are_accessible_from_the_cli() {
+        assert!(Cli::try_parse_from(["sheaf", "index", "a.pdf", "b.pdf", "-o", "catalog.json"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "search-index", "catalog.json", "signed invoice"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "save-security-policy", "Review", "--no-copying", "--leave-metadata-clear", "-o", "policy.json"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "apply-security-policy", "a.pdf", "--policy", "policy.json", "--owner-password", "secret", "-o", "protected.pdf"]).is_ok());
+    }
+
+    #[test]
+    fn local_ocr_engine_and_mixed_languages_are_explicit_cli_options() {
+        let cli = Cli::try_parse_from(["sheaf", "ocr", "scan.pdf", "--local-engine", "--language", "en+ja", "-o", "out.pdf"]).unwrap();
+        assert!(matches!(cli.cmd, Cmd::Ocr { local_engine: true, language, .. } if language == "en+ja"));
+    }
+
+    #[test]
+    fn policy_compatibility_choices_and_incremental_folder_index_are_accessible() {
+        assert!(Cli::try_parse_from(["sheaf", "save-security-policy", "Review", "--print-quality", "low", "--changes", "fill-forms", "--algorithm", "aes128", "-o", "policy.json"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "save-security-policy", "Review", "--algorithm", "rc4", "-o", "policy.json"]).is_err());
+        assert!(Cli::try_parse_from(["sheaf", "index", "folder", "--update", "previous.json", "-o", "updated.json"]).is_ok());
+    }
+
 }

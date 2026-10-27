@@ -18,6 +18,10 @@ use pdfcraft_cos::{Dict, Document, ObjRef, Object, PdfString, Stream};
 
 pub mod appearance;
 pub mod links;
+/// Sheaf: Preview's Loupe and Mask.
+pub mod loupe_mask;
+/// Sheaf: a text box in a font of the computer's.
+pub mod text_box_font;
 
 #[cfg(test)]
 mod tests;
@@ -1275,7 +1279,8 @@ pub fn orient_image_stamp(doc: &mut Document, page: usize, index: usize, rotatio
 fn refuse_foreign_text(doc: &Document, d: &Dict) -> Result<(), AnnotError> {
     let drawn_elsewhere =
         d.get(b"AP").is_some_and(|ap| doc.resolve(ap).as_dict().is_some_and(|ap| ap.contains(b"N"))) && pdfcraft_fonts::undrawn_mark(d).is_none();
-    if drawn_elsewhere && let Some((what, c)) = appearance::undrawable_text(d) {
+    // Sheaf: a text box whose own font draws all its text is redrawn with it.
+    if drawn_elsewhere && !drawn_in_own_codes(doc, d) && let Some((what, c)) = appearance::undrawable_text(d) {
         return Err(AnnotError::Undrawable(format!(
             "PdfCraft can't redraw this comment: the standard fonts can't draw \"{}\" (U+{:04X}) in {what}, which would then show as ? (the comment was left as it is)",
             c.escape_debug(),
@@ -1321,21 +1326,26 @@ fn draw_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
 /// Draw the appearance for an annotation dictionary: the expensive half of [`set_appearance`].
 /// Pure from the dictionary and the objects it points at, so [`AppearanceCache`] can reuse it.
 fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
-    let mut stream = appearance::build(d)?;
+    // Sheaf: a loupe or a mask (Preview's) draws itself, whatever the edit.
+    if let Some(stream) = loupe_mask::appearance(doc, d) {
+        return Some(stream);
+    }
     // Sheaf: a text box in a font of the file's own is drawn with it when its old appearance holds
-    // it (WinAnsi-encoded, a simple font; a subset when the text is made of the characters it drew
-    // before): the text is written in WinAnsi.
-    if d.name(b"Subtype") == Some(b"FreeText") {
-        let (name, _) = appearance::text_font(d);
-        if !appearance::TEXT_FONTS.iter().any(|f| f.0 == name)
-            && let Some(own) = old_text_font(doc, d, &name)
-            && let Some(Object::Dict(mut res)) = stream.dict.get(b"Resources").cloned()
-        {
-            let mut fonts = res.get(b"Font").and_then(|f| f.as_dict().cloned()).unwrap_or_default();
-            fonts.set(name.into_bytes(), own);
-            res.set(b"Font".to_vec(), Object::Dict(fonts));
-            stream.dict.set(b"Resources".to_vec(), Object::Dict(res));
-        }
+    // it: a simple WinAnsi-encoded font (a subset when the text is made of the characters it drew
+    // before) with the text written in WinAnsi; any other font (Type0, a custom encoding) that has
+    // a code and a glyph for every character, with the text written in its codes.
+    let own = own_text_font(doc, d);
+    let mut stream = match own.as_ref().and_then(|o| o.2.as_ref()) {
+        Some(metrics) => appearance::build_encoded(d, metrics)?,
+        None => appearance::build(d)?,
+    };
+    if let Some((name, entry, _)) = own
+        && let Some(Object::Dict(mut res)) = stream.dict.get(b"Resources").cloned()
+    {
+        let mut fonts = res.get(b"Font").and_then(|f| f.as_dict().cloned()).unwrap_or_default();
+        fonts.set(name.into_bytes(), entry);
+        res.set(b"Font".to_vec(), Object::Dict(fonts));
+        stream.dict.set(b"Resources".to_vec(), Object::Dict(res));
     }
     // Picture-stamp restyling must retain the placement's page-axis correction.
     if d.get(b"PCPicture").is_some() {
@@ -1350,6 +1360,79 @@ fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
         }
     }
     Some(stream)
+}
+
+/// Sheaf: a text box's font of the file's own (`/DA` names a font outside
+/// [`appearance::TEXT_FONTS`]) that its present appearance holds and that can draw its text:
+/// (resource name, the font's entry, its metrics when the text is written in its own codes rather
+/// than WinAnsi). See [`old_text_font`] and [`encoded_text_font`].
+type OwnFont = (String, Object, Option<pdfcraft_fonts::pdf::Metrics>);
+
+fn own_text_font(doc: &Document, d: &Dict) -> Option<OwnFont> {
+    if d.name(b"Subtype") != Some(b"FreeText") {
+        return None;
+    }
+    let (name, base) = appearance::text_font(d);
+    // A standard resource name (/Helv) is the standard face only when the appearance's font of
+    // that name is: another program may name its own font so (Sol, 27/10: such a box became
+    // Helvetica on a new colour).
+    if appearance::TEXT_FONTS.iter().any(|f| f.0 == name) && !foreign_under_standard_name(doc, d, &name, base) {
+        return None;
+    }
+    if let Some(entry) = old_text_font(doc, d, &name) {
+        return Some((name, entry, None));
+    }
+    let (entry, metrics) = encoded_text_font(doc, d, &name)?;
+    Some((name, entry, Some(metrics)))
+}
+
+/// Sheaf: whether the font a text box's present appearance holds under standard resource name
+/// `name` is another font than `base`, the standard face that name stands for (its `/BaseFont`,
+/// subset tag aside, differs, or it is not a Type1 font).
+fn foreign_under_standard_name(doc: &Document, d: &Dict, name: &str, base: &str) -> bool {
+    let font = || -> Option<Dict> {
+        let ap = doc.resolve(d.get(b"AP")?);
+        let normal = doc.resolve(ap.as_dict()?.get(b"N")?);
+        let Object::Stream(normal) = normal.as_ref() else { return None };
+        let res = doc.resolve(normal.dict.get(b"Resources")?);
+        let fonts = doc.resolve(res.as_dict()?.get(b"Font")?);
+        let entry = fonts.as_dict()?.get(name.as_bytes())?.clone();
+        doc.resolve(&entry).as_dict().cloned()
+    };
+    let Some(f) = font() else { return false };
+    let own_base = f.name(b"BaseFont").map(|b| String::from_utf8_lossy(b).into_owned()).unwrap_or_default();
+    let own_base = own_base.rsplit('+').next().unwrap_or_default();
+    f.name(b"Subtype") != Some(b"Type1") || own_base != base
+}
+
+/// Sheaf: font `name` of a text box's present appearance when it is not a simple WinAnsi font (a
+/// Type0 font, as Acrobat embeds for Japanese or Arabic comments, or a simple font with its own
+/// `/Differences`) and has a code and a glyph for every character of the text (a subset lacks the
+/// glyphs it never drew): the text is then written in its codes (Sol, 26/10: such a font was
+/// replaced on a new size or colour). Type3 fonts are left out (their glyphs are drawings).
+pub fn encoded_text_font(doc: &Document, d: &Dict, name: &str) -> Option<(Object, pdfcraft_fonts::pdf::Metrics)> {
+    let ap = doc.resolve(d.get(b"AP")?);
+    let normal = doc.resolve(ap.as_dict()?.get(b"N")?);
+    let Object::Stream(normal) = normal.as_ref() else { return None };
+    let res = doc.resolve(normal.dict.get(b"Resources")?);
+    let fonts = doc.resolve(res.as_dict()?.get(b"Font")?);
+    let entry = fonts.as_dict()?.get(name.as_bytes())?.clone();
+    let font = doc.resolve(&entry);
+    let f = font.as_dict()?;
+    if !matches!(f.name(b"Subtype"), Some(b"Type0" | b"Type1" | b"TrueType" | b"MMType1")) {
+        return None;
+    }
+    let metrics = pdfcraft_fonts::pdf::Metrics::from_dict(doc, f);
+    let text = d.get(b"Contents").and_then(|o| o.as_string()).map(PdfString::to_text).unwrap_or_default();
+    let shown: String = text.chars().filter(|c| !c.is_control()).collect();
+    metrics.encode(&shown)?;
+    Some((entry, metrics))
+}
+
+/// Sheaf: whether a text box is drawn in a font of the file's own written in its codes
+/// ([`encoded_text_font`]): its characters outside WinAnsi are then drawn, not `?`.
+fn drawn_in_own_codes(doc: &Document, d: &Dict) -> bool {
+    own_text_font(doc, d).is_some_and(|o| o.2.is_some())
 }
 
 /// Sheaf: font `name` of a text box's present appearance, when it can draw its text: a simple font
@@ -1437,8 +1520,9 @@ fn shown_bytes(content: &[u8]) -> std::collections::HashSet<u8> {
 
 /// Store a built appearance on the annotation: the cheap half of [`set_appearance`].
 fn apply_appearance(doc: &mut Document, r: ObjRef, d: &Dict, stream: Stream) -> Result<(), AnnotError> {
-    // Characters the standard fonts can't draw came out as `?`: mark the annotation with the first.
-    let missing = appearance::undrawable_text(d).map(|(_, c)| c);
+    // Characters the standard fonts can't draw came out as `?`: mark the annotation with the first
+    // (Sheaf: none when the text box's own font drew them).
+    let missing = if drawn_in_own_codes(doc, d) { None } else { appearance::undrawable_text(d).map(|(_, c)| c) };
     let ap = doc.add(Object::Stream(stream));
     // A copy (a shared /AP is left alone) that keeps unknown entries; the old down and rollover
     // appearances would show the previous look on press or hover, so they go with the old /N.
@@ -1590,6 +1674,48 @@ fn rich_text(d: &mut Dict) {
     );
     d.set(b"DS".to_vec(), PdfString::text(&format!("font: {weight} {slant} {}pt {family}; text-align:{align}; color:{hex}", n(size))));
     d.set(b"RC".to_vec(), PdfString::text(&rc));
+}
+
+/// Sheaf: every text colour (`color:#RRGGBB` or `color:rgb(…)`, not `background-color`) of a text
+/// box's rich text (`/RC`) and default style (`/DS`) set to `c`, the runs and the rest of their
+/// style kept. False when there is no `/RC` to keep.
+fn recolour_rich_text(d: &mut Dict, c: Rgb) -> bool {
+    let Some(rc) = d.get(b"RC").and_then(Object::as_string).map(PdfString::to_text) else { return false };
+    let hex = format!(
+        "#{:02X}{:02X}{:02X}",
+        (c[0].clamp(0.0, 1.0) * 255.0).round() as u8,
+        (c[1].clamp(0.0, 1.0) * 255.0).round() as u8,
+        (c[2].clamp(0.0, 1.0) * 255.0).round() as u8
+    );
+    d.set(b"RC".to_vec(), PdfString::text(&recoloured_css(&rc, &hex)));
+    if let Some(ds) = d.get(b"DS").and_then(Object::as_string).map(PdfString::to_text) {
+        d.set(b"DS".to_vec(), PdfString::text(&recoloured_css(&ds, &hex)));
+    }
+    true
+}
+
+/// `css` with each `color:` value (not `…-color:`) replaced by `hex`, up to its `;`, `"` or `'`.
+pub fn recoloured_css(css: &str, hex: &str) -> String {
+    let mut out = String::with_capacity(css.len());
+    let mut rest = css;
+    while let Some(at) = rest.find("color") {
+        let (before, after) = rest.split_at(at);
+        out.push_str(before);
+        let named = after["color".len()..].trim_start();
+        let own = !before.ends_with('-') && named.starts_with(':');
+        if !own {
+            out.push_str("color");
+            rest = &after["color".len()..];
+            continue;
+        }
+        let value = named[1..].trim_start();
+        let end = value.find([';', '"', '\'', '}']).unwrap_or(value.len());
+        out.push_str("color:");
+        out.push_str(hex);
+        rest = &value[end..];
+    }
+    out.push_str(rest);
+    out
 }
 
 fn touch(d: &mut Dict, meta: &Meta) {
@@ -1819,7 +1945,18 @@ pub fn move_annotation(doc: &mut Document, page: usize, index: usize, dx: f64, d
         ))
     };
     let popup = annot_dict(doc, r).reference(b"Popup");
+    // Sheaf: a loupe shows what is under it at its new place, and a mask (over its whole page)
+    // moves its opening (Sol, 27/10: a moved loupe carried its old picture).
+    let before = annot_dict(doc, r);
+    let (loupe, mask) = (before.get(loupe_mask::LOUPE).is_some(), before.get(loupe_mask::MASK).is_some());
     doc.update_dict(r, |d| {
+        if mask {
+            if let Some(v) = d.get(loupe_mask::MASK).and_then(|o| shift(o, false)) {
+                d.set(loupe_mask::MASK.to_vec(), v);
+            }
+            touch(d, meta);
+            return;
+        }
         for (k, every) in [(&b"Rect"[..], false), (b"QuadPoints", true), (b"L", false), (b"CL", true), (b"Vertices", true)] {
             if let Some(v) = d.get(k).and_then(|o| shift(o, every)) {
                 d.set(k.to_vec(), v);
@@ -1840,6 +1977,9 @@ pub fn move_annotation(doc: &mut Document, page: usize, index: usize, dx: f64, d
             }
         })?;
     }
+    if loupe || mask {
+        return redraw_or_restore(doc, r, before);
+    }
     Ok(())
 }
 
@@ -1851,6 +1991,20 @@ pub fn set_rect(doc: &mut Document, page: usize, index: usize, rect: [f64; 4], m
     unlocked(doc, r)?;
     let d = annot_dict(doc, r);
     let subtype = String::from_utf8_lossy(d.name(b"Subtype").unwrap_or_default()).into_owned();
+    // Sheaf: a mask (Preview's) is resized by its opening; it still dims its whole page (Sol,
+    // 27/10: its rectangle changed and the opening stayed).
+    if let Some(round) = d.get(loupe_mask::MASK).and_then(Object::as_array).and_then(|a| a.get(4)).and_then(Object::as_f64) {
+        let rect = normalize(rect);
+        if !finite(&rect) || rect[2] - rect[0] < 2.0 || rect[3] - rect[1] < 2.0 {
+            return Err(AnnotError::Invalid("the mask's opening is too small".into()));
+        }
+        let before = d;
+        doc.update_dict(r, |d| {
+            d.set(loupe_mask::MASK.to_vec(), num_array(&[rect[0], rect[1], rect[2], rect[3], round]));
+            touch(d, meta);
+        })?;
+        return redraw_or_restore(doc, r, before);
+    }
     if subtype == "Stamp" {
         let rect = normalize(rect);
         if !finite(&rect) || rect[2] <= rect[0] || rect[3] <= rect[1] {
@@ -1906,7 +2060,9 @@ pub fn turn_stamp(doc: &mut Document, page: usize, index: usize, quarters: i64, 
         return Err(AnnotError::Invalid("only stamps and pictures can be turned".into()));
     }
     let key: &[u8] = if d.get(b"PCPicture").is_some() { b"PCPictureRotate" } else { b"PCStampRotate" };
-    let turn = (d.get(key).and_then(Object::as_int).unwrap_or(0) - 90 * quarters).rem_euclid(360);
+    // The turn it has: its own key, else the one its appearance's matrix draws it with.
+    let now = d.get(key).and_then(Object::as_int).unwrap_or_else(|| matrix_turn(doc, &d));
+    let turn = (now - 90 * quarters).rem_euclid(360);
     let old: Vec<f64> = d.get(b"Rect").map(|o| doc.resolve(o)).and_then(|o| o.as_array().cloned()).unwrap_or_default().iter().filter_map(Object::as_f64).collect();
     let [x0, y0, x1, y1] = normalize(old.try_into().map_err(|_| AnnotError::Invalid("the stamp has no rectangle".into()))?);
     // A quarter turn swaps its width and height, about the same centre.
@@ -1932,6 +2088,28 @@ pub fn turn_stamp(doc: &mut Document, page: usize, index: usize, quarters: i64, 
         return Err(e);
     }
     Ok(())
+}
+
+/// Sheaf: the page turn (0, 90, 180, 270) an annotation's normal appearance is drawn with by its
+/// `/Matrix` (the counter-rotation a picture placed on a turned page gets); 0 when none matches.
+fn matrix_turn(doc: &Document, d: &Dict) -> i64 {
+    let m: Vec<f64> = d
+        .get(b"AP")
+        .map(|a| doc.resolve(a))
+        .and_then(|a| a.as_dict().and_then(|a| a.get(b"N").cloned()))
+        .and_then(|n| n.as_ref())
+        .and_then(|n| match &*doc.get(n) {
+            Object::Stream(s) => s.dict.get(b"Matrix").and_then(|m| m.as_array().map(|a| a.iter().filter_map(Object::as_f64).collect())),
+            _ => None,
+        })
+        .unwrap_or_default();
+    if m.len() != 6 {
+        return 0;
+    }
+    [90, 180, 270].into_iter().find(|&t| {
+        let v = pdfcraft_model::view_matrix_for(t, [0.0; 4]);
+        (0..4).all(|k| (v[k] - m[k]).abs() < 1e-3)
+    }).unwrap_or(0)
 }
 
 /// Sheaf: the normal appearance of `r` turned `quarters` quarter turns clockwise by its `/Matrix`
@@ -2095,7 +2273,11 @@ pub fn set_style(
                 let (font, _) = appearance::text_font(d);
                 let [r, g, b] = c.map(|x| x.clamp(0.0, 1.0));
                 d.set(b"DA".to_vec(), PdfString::literal(format!("{} {} {} rg /{font} {} Tf", n(r), n(g), n(b), n(size)).into_bytes()));
-                rich_text(d);
+                // Sheaf: rich text from another program keeps its runs (bold, italic, sizes), only
+                // its colours change (Sol, 27/10: it was rewritten in one style from /Contents).
+                if !recolour_rich_text(d, [r, g, b]) {
+                    rich_text(d);
+                }
             } else {
                 d.set(b"C".to_vec(), rgb(c));
             }

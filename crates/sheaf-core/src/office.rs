@@ -1,6 +1,6 @@
 //! Office / HTML → PDF through LibreOffice, run headless as a child process.
 //!
-//! LibreOffice is an external dependency: detected at runtime, never bundled.
+//! LibreOffice is detected at runtime, either packaged beside Sheaf or installed separately.
 //! Every conversion gets its own throwaway profile and output directory, so
 //! parallel conversions never collide with each other or with a LibreOffice
 //! the user already has open.
@@ -15,10 +15,13 @@ use std::time::{Duration, Instant};
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 const POLL: Duration = Duration::from_millis(100);
 
-/// Locates `soffice`: `$SHEAF_SOFFICE`, then the standard install location (macOS, Windows),
-/// then `PATH`.
+/// Locates `soffice`: `$SHEAF_SOFFICE`, a packaged runtime, the standard install location
+/// (macOS, Windows), then `PATH`.
 pub fn find_soffice() -> Option<PathBuf> {
     if let Some(p) = std::env::var_os("SHEAF_SOFFICE").map(PathBuf::from).filter(|p| p.is_file()) {
+        return Some(p);
+    }
+    if let Some(p) = std::env::current_exe().ok().and_then(|exe| crate::office_runtime::bundled_soffice(&exe)) {
         return Some(p);
     }
     #[cfg(target_os = "macos")]
@@ -54,6 +57,21 @@ pub fn office_to_pdf(input: &Path, out: &Path) -> Result<PathBuf> {
 /// `None`) and timeout. A missing `soffice` yields [`OpdfError::OfficeMissing`]
 /// before anything is spawned.
 pub fn office_to_pdf_with(soffice: Option<&Path>, input: &Path, out: &Path, timeout: Duration) -> Result<PathBuf> {
+    convert_with_filter(soffice, input, out, timeout, "pdf")
+}
+
+/// iLovePDF's spreadsheet layout choice: one page per whole sheet, including hidden sheets.
+/// This bypasses the ordinary preview cache because it ignores saved paper and print ranges.
+pub fn spreadsheet_to_pdf(input: &Path, out: &Path) -> Result<PathBuf> {
+    if !input.extension().is_some_and(|ext| ["xls", "xlsx", "ods", "csv"].iter().any(|s| ext.eq_ignore_ascii_case(s))) {
+        return Err(OpdfError::Unsupported("Whole-sheet layout requires an Excel, ODS or CSV spreadsheet".into()));
+    }
+    convert_with_filter(None, input, out, DEFAULT_TIMEOUT, WHOLE_SHEETS)
+}
+
+const WHOLE_SHEETS: &str = r#"pdf:calc_pdf_Export:{"SinglePageSheets":{"type":"boolean","value":"true"}}"#;
+
+fn convert_with_filter(soffice: Option<&Path>, input: &Path, out: &Path, timeout: Duration, filter: &str) -> Result<PathBuf> {
     // Markdown and e-mail as a web page set here, PostScript through Ghostscript (`textdocs`).
     if crate::textdocs::kind(input).is_some() {
         return crate::textdocs::to_pdf(input, out, |html, out| office_to_pdf_with(soffice, html, out, timeout));
@@ -71,15 +89,27 @@ pub fn office_to_pdf_with(soffice: Option<&Path>, input: &Path, out: &Path, time
     std::fs::create_dir(&outdir)?;
     let profile = file_url(&tmp.path().join("profile"));
 
-    let mut child = Command::new(&soffice)
+    let mut command = Command::new(&soffice);
+    command
         .arg(format!("-env:UserInstallation={profile}"))
-        .args(["--headless", "--norestore", "--nologo", "--convert-to", "pdf", "--outdir"])
+        .args(["--headless", "--norestore", "--nologo", "--convert-to", filter, "--outdir"])
         .arg(&outdir)
         .arg(&input)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .spawn()?;
+        .stderr(Stdio::piped());
+    // A program just written (an installer's, a test's) can be busy for a moment while another
+    // thread's fork still holds it open (ETXTBSY): tried again a few times.
+    let mut tries = 0;
+    let mut child = loop {
+        match command.spawn() {
+            Err(e) if e.raw_os_error() == Some(26) && tries < 10 => {
+                tries += 1;
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            r => break r?,
+        }
+    };
 
     // Drain stderr on a thread so a chatty soffice can never block on a full pipe.
     let mut pipe = child.stderr.take().expect("stderr is piped");
@@ -156,7 +186,7 @@ fn produced_pdf(outdir: &Path, input: &Path) -> Option<PathBuf> {
 
 /// `file://` URL for an absolute path, percent-encoding every byte outside
 /// RFC 3986 unreserved characters and `/` (Windows: `file:///C:/…`).
-fn file_url(path: &Path) -> String {
+pub(crate) fn file_url(path: &Path) -> String {
     #[cfg(unix)]
     let bytes = std::os::unix::ffi::OsStrExt::as_bytes(path.as_os_str()).to_vec();
     #[cfg(not(unix))]

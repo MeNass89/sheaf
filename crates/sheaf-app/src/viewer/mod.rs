@@ -69,6 +69,12 @@ pub fn pdf_rect_to_view(page: &PageBox, render: (f64, f64), r: [f64; 4]) -> [f64
     [x0, y0, x1 - x0, y1 - y0]
 }
 
+/// Whether two marks show at the same place and size on their pages (`[x, y, w, h]` from the
+/// page's top-left, as shown): how a signature's copies placed with Every page are known again.
+pub fn same_place(a: [f64; 4], b: [f64; 4]) -> bool {
+    (0..4).all(|k| (a[k] - b[k]).abs() < 1.0)
+}
+
 /// Two view points (a drag) as a normalised user-space rectangle.
 pub fn view_rect_to_pdf(page: &PageBox, render: (f64, f64), a: (f64, f64), b: (f64, f64)) -> [f64; 4] {
     let p = view_to_pdf(page, render, a.0, a.1);
@@ -172,6 +178,18 @@ pub struct Viewer {
     /// Rotate View (Acrobat's View ▸ Rotate View): every page shown turned this much more clockwise
     /// than its own /Rotate (0, 90, 180, 270); `boxes` carry it, the file does not.
     turn: u16,
+    /// Pages across (PDF Expert's View ▸ Horizontal scrolling): the rows above laid one after the
+    /// other in a single strip scrolled left to right (right to left with `rtl`). The page grid
+    /// stays a grid.
+    horizontal: bool,
+    /// How far the view is scrolled across (the view reports it): with pages across, it decides
+    /// which pages are in view and rendered, as the vertical scroll does down a column.
+    left: f64,
+    /// Each page's row (a pair of pages shares one), in reading order.
+    row_of: Vec<usize>,
+    content_w: f64,
+    /// The view's height: pages across are centred in it.
+    view_h: f64,
 }
 
 /// The file's page boxes as the view shows them, turned `turn` degrees clockwise more.
@@ -181,7 +199,7 @@ pub fn turned(boxes: &[PageBox], turn: u16) -> Vec<PageBox> {
 
 impl Viewer {
     pub fn new(boxes: Vec<PageBox>) -> Self {
-        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, rtl: false, thumb_width: THUMB_WIDTH, turn: 0 };
+        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, rtl: false, thumb_width: THUMB_WIDTH, turn: 0, horizontal: false, left: 0.0, row_of: Vec::new(), content_w: 0.0, view_h: 0.0 };
         v.relayout();
         v
     }
@@ -218,19 +236,88 @@ impl Viewer {
         };
         let row_w = cols * w + (cols - 1.0) * PAGE_GAP;
         let left = ((self.content_width_for(row_w) - row_w) / 2.0).round();
+        let across = self.across();
+        // Pages across: the strip's width, centred when the view is wider (a short document).
+        let strip_w = rows.len() as f64 * (row_w + PAGE_GAP) + PAGE_GAP;
+        let strip_left = ((self.fit_width - strip_w) / 2.0).max(0.0).round();
+        let tallest = heights.iter().copied().fold(0.0, f64::max);
+        // Pages across: the strip at least the view's height, each page centred down it.
+        let strip_h = (tallest + 2.0 * PAGE_GAP).max(self.view_h);
         let mut rects = vec![[0.0; 4]; n];
+        let mut row_of = vec![0; n];
         let mut y = PAGE_GAP;
-        for row in rows {
+        for (r, row) in rows.iter().enumerate() {
             for (k, &i) in row.iter().enumerate() {
                 let col = if self.spread == 2 && i == 0 { 1.0 } else { k as f64 };
-                let col = if self.rtl { cols - 1.0 - col } else { col };
-                rects[i] = [left + col * (w + PAGE_GAP), y, w, heights[i]];
+                row_of[i] = r;
+                rects[i] = if across {
+                    // Each row keeps its slots (a pair stays a pair, the cover alone on the right),
+                    // pages centred down the view; right to left reads the strip from its right end.
+                    let x = PAGE_GAP + r as f64 * (row_w + PAGE_GAP) + col * (w + PAGE_GAP);
+                    [strip_left + if self.rtl { strip_w - x - w } else { x }, ((strip_h - heights[i]) / 2.0).round(), w, heights[i]]
+                } else {
+                    let col = if self.rtl { cols - 1.0 - col } else { col };
+                    [left + col * (w + PAGE_GAP), y, w, heights[i]]
+                };
             }
             y += row.iter().map(|&i| heights[i]).fold(0.0, f64::max) + PAGE_GAP;
         }
         self.layout = rects.iter().map(|r| (r[1], r[3])).collect();
         self.rects = rects;
-        self.content_h = y;
+        self.row_of = row_of;
+        (self.content_w, self.content_h) = if across { (self.fit_width.max(strip_w), strip_h) } else { (self.content_width_for(row_w), y) };
+    }
+
+    /// Whether the pages run across now (see `horizontal`): never in the page grid, where the
+    /// setting is kept for later but the grid scrolls down.
+    pub fn across(&self) -> bool {
+        self.horizontal && self.spread != 3
+    }
+
+    /// Pages across or down (see `horizontal`); returns whether the layout changed.
+    pub fn set_horizontal(&mut self, on: bool) -> bool {
+        let changed = on != self.horizontal;
+        self.horizontal = on;
+        self.relayout();
+        changed
+    }
+
+    pub fn horizontal(&self) -> bool {
+        self.horizontal
+    }
+
+    /// The view is `height` high (see `view_h`); returns whether the layout changed.
+    pub fn set_height(&mut self, height: f64) -> bool {
+        let changed = (height - self.view_h).abs() >= 0.5;
+        self.view_h = height;
+        if changed && self.across() {
+            self.relayout();
+        }
+        changed && self.across()
+    }
+
+    /// The view is scrolled `left` across (see `left`).
+    pub fn set_left(&mut self, left: f64) {
+        self.left = left;
+    }
+
+    /// Page `i`'s row: pages side by side share one (← and → step a row at a time).
+    pub fn row_of(&self, i: usize) -> usize {
+        self.row_of.get(i).copied().unwrap_or(0)
+    }
+
+    /// With pages across, the horizontal scroll that centres page `i`'s row in the view (its pair
+    /// with it), held to the strip's ends; 0 down a column.
+    pub fn scroll_x_to(&self, i: usize) -> f64 {
+        if !self.across() || i >= self.rects.len() {
+            return 0.0;
+        }
+        let row = self.row_of(i);
+        let (lo, hi) = (0..self.rects.len())
+            .filter(|&j| self.row_of[j] == row)
+            .map(|j| self.rects[j])
+            .fold((f64::MAX, f64::MIN), |(lo, hi), r| (lo.min(r[0]), hi.max(r[0] + r[2])));
+        ((lo + hi) / 2.0 - self.fit_width / 2.0).clamp(0.0, self.max_scroll_x())
     }
 
     fn content_width_for(&self, row_w: f64) -> f64 {
@@ -333,8 +420,7 @@ impl Viewer {
 
     /// Width of the scrolling content: wider than the viewport when zoomed in.
     pub fn content_width(&self) -> f64 {
-        let cols = self.columns();
-        self.content_width_for(cols * self.page_width + (cols - 1.0) * PAGE_GAP)
+        self.content_w
     }
 
     pub fn content_height(&self) -> f64 {
@@ -409,13 +495,43 @@ impl Viewer {
         [px + v[0], py + v[1], v[2], v[3]]
     }
 
-    /// Pages worth rendering for the viewport `[top, top + height)`.
+    /// Pages worth rendering for the viewport `[top, top + height)`, scrolled across as last
+    /// reported ([`Self::set_left`]).
     pub fn wanted(&self, top: f64, height: f64) -> Range<usize> {
-        wanted(&self.layout, top, height)
+        self.wanted_at(self.left, top, height)
     }
 
+    /// [`Self::wanted`] for a view scrolled `left` across (a split view's second pane).
+    pub fn wanted_at(&self, left: f64, top: f64, height: f64) -> Range<usize> {
+        if !self.across() {
+            return wanted(&self.layout, top, height);
+        }
+        // Across: the pages within one view's width either side. They follow in reading order
+        // however the strip runs, so those near make one run of indices.
+        let (lo, hi) = (left - self.fit_width, left + 2.0 * self.fit_width);
+        let near = |i: &usize| {
+            let r = self.rects[*i];
+            r[0] + r[2] >= lo && r[0] <= hi
+        };
+        let first = (0..self.rects.len()).find(near);
+        match (first, (0..self.rects.len()).rev().find(near)) {
+            (Some(a), Some(b)) => a..b + 1,
+            _ => 0..0,
+        }
+    }
+
+    /// The page in view: under the middle of the viewport, the first of its row.
     pub fn current(&self, top: f64, height: f64) -> usize {
-        current(&self.layout, top, height)
+        if !self.across() {
+            return current(&self.layout, top, height);
+        }
+        let mid = self.left + self.fit_width / 2.0;
+        let dist = |i: usize| {
+            let [x, _, w, _] = self.rects[i];
+            (x - mid).max(mid - x - w).max(0.0)
+        };
+        let Some(i) = (0..self.rects.len()).min_by(|a, b| dist(*a).total_cmp(&dist(*b))) else { return 0 };
+        (0..=i).find(|&j| self.row_of[j] == self.row_of[i]).unwrap_or(i)
     }
 
     /// Scroll position that shows page `i` at the top (with its gap above it), or the point
@@ -444,6 +560,21 @@ impl Viewer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A signature's copies on a Letter page and on an A4 page turned 90°: other boxes in the file,
+    /// the same place as shown (Sol, 27/10: copies were matched by the file's box).
+    #[test]
+    fn copies_at_one_place_are_known_on_pages_of_other_sizes() {
+        let letter = PageBox { crop: [0.0, 0.0, 612.0, 792.0], rotation: 0, unit: 1.0 };
+        let a4 = PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 90, unit: 1.0 };
+        let shown = [100.0, 50.0, 150.0, 40.0];
+        let user = |b: &PageBox| view_rect_to_pdf(b, b.view_size(), (shown[0], shown[1]), (shown[0] + shown[2], shown[1] + shown[3]));
+        let (u1, u2) = (user(&letter), user(&a4));
+        assert!((0..4).any(|k| (u1[k] - u2[k]).abs() > 1.0), "{u1:?} {u2:?}");
+        let (s1, s2) = (pdf_rect_to_view(&letter, letter.view_size(), u1), pdf_rect_to_view(&a4, a4.view_size(), u2));
+        assert!(same_place(s1, s2), "{s1:?} {s2:?}");
+        assert!(!same_place(s1, [100.0, 60.0, 150.0, 40.0]));
+    }
 
     const A4: [f64; 4] = [0.0, 0.0, 595.0, 842.0];
 
@@ -692,6 +823,94 @@ mod tests {
             let core = sheaf_core::edit::view_to_user(&info, [x, y]);
             assert!((ours.0 - core[0]).abs() < 1e-3 && (ours.1 - core[1]).abs() < 1e-3, "({x}, {y}): {ours:?} vs {core:?}");
         }
+    }
+
+    /// Pages across (PDF Expert's Horizontal scrolling): one strip, page 2 right of page 1, the
+    /// pages in view and the one under the middle found from the horizontal scroll.
+    #[test]
+    fn pages_run_across_in_one_strip_scrolled_sideways() {
+        let pages = |n| (0..n).map(|_| PageBox { crop: A4, rotation: 0, unit: 1.0 }).collect::<Vec<_>>();
+        let mut v = Viewer::new(pages(40));
+        v.set_width(1000.0);
+        let down = (v.page_rect(1), v.content_height());
+        assert!(v.set_horizontal(true));
+        let (p0, p1, p39) = (v.page_rect(0), v.page_rect(1), v.page_rect(39));
+        assert!(p0[1] == p1[1] && p1[0] > p0[0] + p0[2], "page 2 right of page 1: {p0:?} {p1:?}");
+        assert_eq!(p0[2], down.0[2], "the same width as down a column");
+        assert_eq!(v.content_height(), p0[3] + 2.0 * PAGE_GAP, "one page high");
+        assert_eq!(v.content_width(), p39[0] + p39[2] + PAGE_GAP);
+        assert!(v.max_scroll_x() > 30.0 * p0[2]);
+        // Scrolled to page 21: it and its neighbours are wanted, not page 1; the vertical scroll
+        // plays no part.
+        let x = v.scroll_x_to(20);
+        let r = v.page_rect(20);
+        assert!((x + 500.0 - (r[0] + r[2] / 2.0)).abs() < 1.0, "page 21 centred: {x} {r:?}");
+        v.set_left(x);
+        assert_eq!(v.current(0.0, 700.0), 20);
+        let w = v.wanted(0.0, 700.0);
+        assert!(w.contains(&19) && w.contains(&20) && w.contains(&21) && !w.contains(&0), "{w:?}");
+        assert!(w.len() <= 6, "{w:?}");
+        assert_eq!(v.wanted_at(0.0, 0.0, 700.0).start, 0);
+        // A zoom keeps a point of a page across too.
+        let a = v.anchor_of(x + 300.0, 200.0);
+        assert_eq!(a.0, 20);
+        v.set_zoom(150);
+        let (px, _) = v.point_of(a);
+        assert!(v.anchor_of(px, v.point_of(a).1).0 == 20);
+        v.set_zoom(100);
+        // Two pages: pairs side by side in the strip, a step is a pair.
+        v.set_spread(1);
+        let (q0, q1, q2) = (v.page_rect(0), v.page_rect(1), v.page_rect(2));
+        assert!(q1[0] > q0[0] && q2[0] > q1[0] && q0[1] == q2[1]);
+        assert_eq!((v.row_of(0), v.row_of(1), v.row_of(2)), (0, 0, 1));
+        v.set_left(v.scroll_x_to(3));
+        assert_eq!(v.current(0.0, 700.0), 2, "the pair's first page");
+        // Right to left: the strip starts at its right end.
+        v.set_spread(0);
+        v.set_rtl(true);
+        let (r0, r1) = (v.page_rect(0), v.page_rect(1));
+        assert!(r1[0] + r1[2] < r0[0], "page 2 left of page 1: {r0:?} {r1:?}");
+        assert!(v.scroll_x_to(0) > v.scroll_x_to(39));
+        v.set_left(v.scroll_x_to(5));
+        assert_eq!(v.current(0.0, 700.0), 5);
+        assert!(v.wanted(0.0, 700.0).contains(&5));
+        v.set_rtl(false);
+        // The grid stays a grid; back down the column, as before.
+        v.set_spread(3);
+        assert!(v.page_rect(10)[1] > v.page_rect(0)[1]);
+        v.set_spread(0);
+        assert!(v.set_horizontal(false));
+        assert_eq!((v.page_rect(1), v.content_height()), down);
+        assert_eq!(v.scroll_x_to(5), 0.0);
+    }
+
+    /// Pages across in a view taller than they are: centred down it, as PDF Expert shows them; a page
+    /// taller than another is centred with it.
+    #[test]
+    fn pages_across_are_centred_down_a_taller_view() {
+        let mut v = Viewer::new(vec![PageBox { crop: A4, rotation: 0, unit: 1.0 }, PageBox { crop: [0.0, 0.0, 595.0, 421.0], rotation: 0, unit: 1.0 }]);
+        v.set_width(1000.0);
+        assert!(!v.set_height(2000.0), "down a column: nothing to centre");
+        v.set_horizontal(true);
+        v.set_zoom(50);
+        let (a, b) = (v.page_rect(0), v.page_rect(1));
+        assert_eq!(v.content_height(), 2000.0, "the view's height, no scroll down");
+        assert!((a[1] + a[3] / 2.0 - 1000.0).abs() <= 1.0 && (b[1] + b[3] / 2.0 - 1000.0).abs() <= 1.0, "{a:?} {b:?}");
+        // The view shorter than the page: the strip is the page's height, the page at the top gap.
+        assert!(v.set_height(300.0));
+        assert_eq!((v.page_rect(0)[1], v.content_height()), (PAGE_GAP, v.page_rect(0)[3] + 2.0 * PAGE_GAP));
+    }
+
+    /// A short document across: the strip centred in a wider view.
+    #[test]
+    fn a_short_strip_is_centred() {
+        let mut v = Viewer::new(vec![PageBox { crop: A4, rotation: 0, unit: 1.0 }; 2]);
+        v.set_width(1000.0);
+        v.set_horizontal(true);
+        v.set_zoom(30);
+        let (a, b) = (v.page_rect(0), v.page_rect(1));
+        assert!((a[0] - (1000.0 - (b[0] + b[2]))).abs() <= 1.0, "{a:?} {b:?}");
+        assert_eq!((v.content_width(), v.max_scroll_x()), (1000.0, 0.0));
     }
 
     /// One 200 × 100 pt page with /Rotate 90, written by hand.

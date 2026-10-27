@@ -14,6 +14,7 @@ use pdfcraft_cos::{Dict, Object, PdfString, Stream};
 use pdfcraft_fonts::{first_undrawable, literal, win_ansi};
 pub use pdfcraft_fonts::{helvetica_width as text_width, wrap};
 use pdfcraft_fonts::{Std14, wrap_with};
+use pdfcraft_fonts::pdf::Metrics;
 
 /// Sheaf: the standard fonts a text box can name in `/DA`, by Acrobat's resource names, with
 /// their base font. Upstream drew every text box in Helvetica whatever `/DA` said.
@@ -363,6 +364,24 @@ pub fn undrawable_text(d: &Dict) -> Option<(&'static str, char)> {
 /// Text the standard fonts can't draw comes out as `?`: [`undrawable_text`] says which, and
 /// [`crate::set_appearance`] marks the annotation with it (`pdfcraft_fonts::UNDRAWN_MARK`).
 pub fn build(d: &Dict) -> Option<Stream> {
+    build_in(d, None)
+}
+
+/// Sheaf: [`build`] for a text box drawn in a font of the file's own that is not simple and
+/// WinAnsi-encoded (a Type0 font, a custom `/Differences` encoding): its lines are measured with
+/// the font's widths and written in its own codes, so a new size or colour keeps it (Sol, 26/10:
+/// such a font became Helvetica). The caller checked that `own` can show every character.
+pub fn build_encoded(d: &Dict, own: &Metrics) -> Option<Stream> {
+    build_in(d, Some(own))
+}
+
+/// Sheaf: the width of `s` at `size` in `own`'s widths, or `None` when it can't show it.
+pub fn own_width(own: &Metrics, s: &str, size: f64) -> Option<f64> {
+    let bytes = own.encode(s)?;
+    Some(own.codes(&bytes).iter().map(|(c, _)| own.width(*c)).sum::<f64>() * size)
+}
+
+fn build_in(d: &Dict, own: Option<&Metrics>) -> Option<Stream> {
     // Imported measurement appearances may include leaders, captions and formatting that
     // this builder cannot reproduce. Preserve them rather than silently losing detail.
     if d.contains(b"Measure") && !d.contains(b"PCMeasureValue") {
@@ -789,7 +808,7 @@ pub fn build(d: &Dict) -> Option<Stream> {
             // Sheaf: drawn and measured in the font `/DA` names.
             let (res_name, base) = text_font(d);
             let face = Std14::from_base_font(base).unwrap_or(Std14::Helvetica);
-            let measure = |s: &str, size: f64| face.text_width(s, size);
+            let measure = |s: &str, size: f64| own.and_then(|m| own_width(m, s, size)).unwrap_or_else(|| face.text_width(s, size));
             let pad = 2.0 + bw;
             let width = (rect[2] - rect[0] - 2.0 * pad).max(1.0);
             let q = d.int(b"Q").unwrap_or(0);
@@ -816,7 +835,11 @@ pub fn build(d: &Dict) -> Option<Stream> {
                     _ => rect[0] + pad,
                 };
                 out.extend(format!("1 0 0 1 {} {} Tm ", n(x), n(y)).bytes());
-                out.extend(literal(&win_ansi(&line)));
+                // Sheaf: in the font's own codes (hexadecimal) when it is the file's.
+                match own.and_then(|m| m.encode(&line)) {
+                    Some(codes) => out.extend(format!("<{}>", codes.iter().map(|b| format!("{b:02X}")).collect::<String>()).bytes()),
+                    None => out.extend(literal(&win_ansi(&line))),
+                }
                 out.extend_from_slice(b" Tj\n");
                 y -= size * 1.2;
             }

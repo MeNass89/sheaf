@@ -65,7 +65,11 @@ fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64, conten
     // The rows share the table's height on the page; each at least its largest text and a margin.
     let n = i64::try_from(t.rows.len().max(1)).unwrap_or(1);
     let text_h = t.rows.iter().flatten().map(|c| c.size).filter(|s| s.is_finite()).fold(0.0f64, f64::max).max(6.0) * 1.2 + 4.0;
-    let row_h: i64 = (content_h / n).max(height_emu(text_h.min(24.0)));
+    // Too many rows for the height (Sol, 27/10: 60 rows of 8 pt grew 600 pt into 816): the text
+    // smaller, down to half its size, so they fit.
+    let need = height_emu(text_h.min(24.0)).saturating_mul(n);
+    let k = if content_h > 0 && need > content_h { (content_h as f64 / need as f64).max(0.5) } else { 1.0 };
+    let row_h: i64 = (content_h / n).max((height_emu(text_h.min(24.0)) as f64 * k).round() as i64);
     let table_h: i64 = i64::try_from(t.rows.len()).unwrap_or(i64::MAX).saturating_mul(row_h).min(MAX_ITEM_EMU);
 
     let mut grid_cols = String::new();
@@ -73,7 +77,9 @@ fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64, conten
         grid_cols.push_str(&format!("<a:gridCol w=\"{w}\"/>"));
     }
 
-    const TC_PR: &str = "<a:tcPr>\
+    // Inner margins of 2 pt above and below (the margin `text_h` counts; PowerPoint's own 3.6 pt
+    // would grow every row).
+    const TC_PR: &str = "<a:tcPr marT=\"25400\" marB=\"25400\">\
 <a:lnL w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnL>\
 <a:lnR w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnR>\
 <a:lnT w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnT>\
@@ -85,7 +91,7 @@ fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64, conten
         rows_xml.push_str(&format!("<a:tr h=\"{row_h}\">"));
         for c in row {
             let span = c.span.max(1);
-            let run = run_drawingml(&c.text, c.size, c.bold, c.italic, c.color);
+            let run = run_drawingml(&c.text, c.size * k, c.bold, c.italic, c.color);
             if span > 1 {
                 rows_xml.push_str(&format!("<a:tc gridSpan=\"{span}\"><a:txBody><a:bodyPr/><a:lstStyle/><a:p>{run}</a:p></a:txBody>{TC_PR}</a:tc>"));
                 for _ in 1..span {
@@ -471,6 +477,11 @@ mod tests {
         assert_eq!(xml.matches("<a:tr h=\"254000\">").count(), 10, "ten rows of 20 pt: {}", &xml[..xml.len().min(400)]);
         let (xml, _) = super::pptx_table(2, &t, 0, 0, 300 * 12700, 20 * 12700);
         assert!(!xml.contains("<a:tr h=\"25400\">"), "a row never smaller than its text");
+        // Sixty rows of 8 pt in 600 pt: they keep the 600 pt, their text made smaller to fit.
+        let t = Table { rect: [72.0, 100.0, 372.0, 700.0], cols: vec![72.0, 222.0], rows: (0..60).map(|k| vec![cell(&format!("r{k}")), cell("v")]).collect(), ruled: false };
+        let (xml, h) = super::pptx_table(2, &t, 0, 0, 300 * 12700, 600 * 12700);
+        assert!(h <= 600 * 12700, "{} pt", h / 12700);
+        assert!(xml.contains("sz=\"588\""), "8 pt made 5.88 pt: {}", &xml[..xml.len().min(600)]);
     }
 
     #[test]
@@ -738,7 +749,7 @@ mod tests {
         // The table must contain both the cell and explicit borders
         assert!(slide_xml.contains("<a:tbl>"));
         assert!(slide_xml.contains("+99%"));
-        assert!(slide_xml.contains("<a:tcPr><a:lnL w=\"12700\" cmpd=\"s\">"));
+        assert!(slide_xml.contains("<a:tcPr marT=\"25400\" marB=\"25400\"><a:lnL w=\"12700\" cmpd=\"s\">"));
     }
 
     #[test]

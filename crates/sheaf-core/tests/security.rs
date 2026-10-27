@@ -193,3 +193,48 @@ fn sanitize_removes_the_metadata_the_scripts_and_the_attachments() {
     assert!(!q.contains("Ada Lovelace") && !q.contains("/JavaScript") && !q.contains("/EmbeddedFile"), "{q}");
     assert_eq!(page_texts(&out), ["Page 1"]);
 }
+
+#[test]
+fn an_imported_policy_applies_restrictions_and_leaves_metadata_clear() {
+    use sheaf_core::security_policy::SecurityPolicy;
+    use lopdf::{dictionary, Object, Stream};
+    let t = tempfile::tempdir().unwrap();
+    let source = fixture_pdf(t.path(), "source.pdf", 1);
+    let mut doc = lopdf::Document::load(&source).unwrap();
+    let xml = b"<?xpacket begin=''?><x:xmpmeta xmlns:x='adobe:ns:meta/'>Public catalog metadata</x:xmpmeta><?xpacket end='w'?>";
+    let metadata = doc.add_object(Stream::new(dictionary! { "Type" => "Metadata", "Subtype" => "XML" }, xml.to_vec()));
+    let root = doc.trailer.get(b"Root").unwrap().as_reference().unwrap();
+    doc.get_dictionary_mut(root).unwrap().set("Metadata", Object::Reference(metadata));
+    doc.save(&source).unwrap();
+    let policy = SecurityPolicy::new("Read only".into(), ProtectPermissions { editing: false, copying: false, ..Default::default() }, false).unwrap();
+    let exported = policy.save(&t.path().join("policy.json")).unwrap();
+    let imported = SecurityPolicy::load(&exported).unwrap();
+    let out = imported.apply(&Input::new(&source), "user", Some("owner"), &t.path().join("protected.pdf")).unwrap();
+    let bytes = std::fs::read(&out).unwrap();
+    assert!(bytes.windows(b"Public catalog metadata".len()).any(|w| w == b"Public catalog metadata"));
+    let info = qpdf(&["--show-encryption", "--password=user", out.to_str().unwrap()]);
+    assert!(info.contains("extract for any purpose: not allowed"), "{info}");
+    let unlocked = unlock(&Input { path: out, password: Some("user".into()) }, &t.path().join("unlocked.pdf")).unwrap();
+    assert_eq!(page_texts(&unlocked), ["Page 1"]);
+}
+
+#[test]
+fn policy_print_quality_change_levels_and_aes_compatibility_reach_the_encrypted_pdf() {
+    use sheaf_core::{security::{ProtectionOptions, PrintQuality, ChangeLevel, EncryptionAlgorithm}, security_policy::SecurityPolicy};
+    let t = tempfile::tempdir().unwrap();
+    let source = fixture_pdf(t.path(), "source.pdf", 1);
+    for (i, algorithm) in [EncryptionAlgorithm::Aes128, EncryptionAlgorithm::Aes256].into_iter().enumerate() {
+        let mut policy = SecurityPolicy::new("Forms".into(), ProtectPermissions::default(), true).unwrap();
+        policy.options = ProtectionOptions { print_quality: PrintQuality::Low, changes: ChangeLevel::FillForms, algorithm };
+        let saved = policy.save(&t.path().join(format!("policy-{i}.json"))).unwrap();
+        let policy = SecurityPolicy::load(&saved).unwrap();
+        let output = policy.apply(&Input::new(&source), "user", None, &t.path().join(format!("protected-{i}.pdf"))).unwrap();
+        let info = qpdf(&["--show-encryption", "--password=user", output.to_str().unwrap()]);
+        for expected in ["Supplied password is user password", "print low resolution: allowed", "print high resolution: not allowed", "modify document assembly: not allowed", "modify other: not allowed", "modify forms: allowed", "modify annotations: not allowed"] {
+            assert!(info.contains(expected), "missing {expected}: {info}");
+        }
+        assert!(info.contains(if i == 0 { "AESv2" } else { "AESv3" }), "{info}");
+        let decrypted = unlock(&Input { path: output, password: Some("user".into()) }, &t.path().join(format!("clear-{i}.pdf"))).unwrap();
+        assert_eq!(page_texts(&decrypted), ["Page 1"]);
+    }
+}

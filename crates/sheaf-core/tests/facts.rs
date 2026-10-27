@@ -39,3 +39,18 @@ fn custom_properties_are_read_past_the_standard_ones() {
     let f = sheaf_core::facts::read(&std::fs::read(&a).unwrap(), None);
     assert_eq!(f.custom, [("Client".to_string(), "Acme".to_string())]);
 }
+
+/// Acrobat's Audit Space Usage: a page with a picture spends most of its bytes on the image, and
+/// the parts add up to the file.
+#[test]
+fn the_space_a_file_uses_is_told_by_what_takes_it() {
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("p.png");
+    image::RgbImage::from_fn(400, 300, |x, y| image::Rgb([(x * 7 % 251) as u8, (y * 13 % 241) as u8, ((x ^ y) % 239) as u8])).save(&png).unwrap();
+    let pdf = sheaf_core::images::images_to_pdf(&[png], sheaf_core::images::PageLayout::FitImage, &t.path().join("p.pdf")).unwrap();
+    let bytes = std::fs::read(&pdf).unwrap();
+    let doc = lopdf::Document::load_mem(&bytes).unwrap();
+    let space = sheaf_core::facts::space_of(&doc, bytes.len() as u64);
+    assert_eq!(space[0].0, "Images", "{space:?}");
+    assert_eq!(space.iter().map(|s| s.1).sum::<u64>(), bytes.len() as u64);
+}

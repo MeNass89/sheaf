@@ -40,6 +40,9 @@ pub struct AnnotEntry {
     /// A text box's format: (standard font resource name, "TiBo"; size in points; alignment 0
     /// left, 1 centre, 2 right).
     pub font: Option<(&'static str, f64, u8)>,
+    /// A text box's font as its appearance names it (`/BaseFont`, "ABCDEF+DejaVuSerif"; "" when
+    /// unknown): the format row's bold and italic pick its own faces.
+    pub font_name: String,
 }
 
 /// A paragraph of a page as the edit tool shows it (from PdfCraft's `text_blocks`).
@@ -117,8 +120,18 @@ fn edit_note(d: &sheaf_core::pdfcraft::engine::Document) -> Option<String> {
 /// A bookmark's look: its path, bold, italic, its colour.
 pub type OutlineStyle = (Vec<usize>, bool, bool, Option<[f32; 3]>);
 
-/// Objects copied: their pixels (width, height, RGBA), the PDF of them alone, where they showed.
-pub type CopiedObjects = ((u32, u32, Vec<u8>), Arc<Vec<u8>>, [f64; 4]);
+/// Objects copied with the Edit tool.
+pub struct CopiedObjects {
+    /// Their picture, for other apps: width, height, RGBA.
+    pub pixels: (u32, u32, Vec<u8>),
+    /// The PDF of them alone, and where they showed.
+    pub pdf: Arc<Vec<u8>>,
+    pub shown: [f64; 4],
+    /// Per object, its text when it is a paragraph (pasted as text again).
+    pub texts: Vec<Option<sheaf_core::pdfcraft::engine::AddedText>>,
+    /// The PDF of the objects that are not text, when there are both.
+    pub rest: Option<Arc<Vec<u8>>>,
+}
 
 /// A form field as the reader fills it.
 #[derive(Clone)]
@@ -193,6 +206,12 @@ pub struct Snap {
     pub durations: Arc<Vec<Option<f64>>>,
     /// Each page's transition in full screen: its effect and length.
     pub transitions: Arc<Vec<Option<(String, f64)>>>,
+    /// Each page's boxes: media, crop, bleed, trim, art (in its user space).
+    pub page_boxes: Arc<Vec<[[f64; 4]; 5]>>,
+    /// A PDF Portfolio: it opens on its files.
+    pub portfolio: bool,
+    /// Article threads (Acrobat's Article tool): each one's title and boxes in reading order.
+    pub articles: Arc<Vec<sheaf_core::pdfcraft::engine::articles::Article>>,
 }
 
 /// A certificate name's attribute by its usual short name (RFC 4514's, and E for the e-mail);
@@ -322,6 +341,9 @@ fn snap(doc: &Doc) -> Snap {
     let fonts: std::collections::HashMap<(usize, usize), (&'static str, f64, u8)> =
         if pages.is_empty() { Default::default() } else { doc.session().text_box_fonts(doc.id(), &pages).into_iter().collect() };
     let d = doc.document();
+    // A mask (Preview's) is picked by a click in its opening: the opening is its hit box.
+    let holes: std::collections::HashMap<(usize, usize), [f64; 4]> = d.mask_holes().into_iter().collect();
+    let base_fonts: std::collections::HashMap<(usize, usize), String> = d.text_box_base_fonts().into_iter().collect();
     // Replies and status replies point at their comment's name (/IRT → /NM).
     let mut replies: std::collections::HashMap<&str, Vec<(String, usize, usize)>> = std::collections::HashMap::new();
     let mut status: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
@@ -351,8 +373,12 @@ fn snap(doc: &Doc) -> Snap {
             subtype: a.subtype.clone(),
             color: a.color,
             contents: a.contents.clone().unwrap_or_default(),
-            rect: a.rect.map(f64::from),
-            quads: a.quads.iter().map(|q| q.map(f64::from)).collect(),
+            // A mask's box, picked, moved and resized, is its opening.
+            rect: holes.get(&(a.page, a.index)).copied().unwrap_or(a.rect.map(f64::from)),
+            quads: match holes.get(&(a.page, a.index)) {
+                Some(h) => vec![[h[0], h[3], h[2], h[3], h[0], h[1], h[2], h[1]]],
+                None => a.quads.iter().map(|q| q.map(f64::from)).collect(),
+            },
             fill_sign: a.fill_sign,
             author: a.author.clone().unwrap_or_default(),
             modified: a.modified.clone().unwrap_or_default(),
@@ -361,6 +387,7 @@ fn snap(doc: &Doc) -> Snap {
             status: a.name.as_deref().and_then(|n| status.get(n)).cloned().unwrap_or_default(),
             nm: a.name.clone().unwrap_or_default(),
             font: fonts.get(&(a.page, a.index)).copied(),
+            font_name: base_fonts.get(&(a.page, a.index)).cloned().unwrap_or_default(),
         })
         .collect();
     annots.sort_by_key(|a| (a.page, a.index));
@@ -389,6 +416,9 @@ fn snap(doc: &Doc) -> Snap {
         layer_groups: Arc::new(d.info.layer_groups.clone()),
         durations: Arc::new(d.page_durations()),
         transitions: Arc::new(d.page_transitions()),
+        page_boxes: Arc::new(d.page_boxes()),
+        portfolio: d.is_portfolio(),
+        articles: Arc::new(d.articles()),
     }
 }
 
@@ -514,13 +544,23 @@ pub enum Op {
     UprightTurns,
     /// Accessibility check: the full check's report.
     AccessibilityCheck,
+    /// A measured print-readiness report from the current document (Acrobat's Preflight).
+    PrintPreflight { profile: sheaf_core::preflight::Profile },
+    ExportPdfX { to: PathBuf, options: sheaf_core::press::Options },
+    /// Acrobat’s Correct Recognized Text, on the live working document.
+    ReviewOcr,
+    CorrectOcr { page: usize, line: usize, expected: String, text: String },
+    /// Acrobat's console, evaluated against the reader's current unsaved document.
+    RunJavaScript { source: String, page: usize },
+    EditableScripts,
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
     /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
     LoupeArea { page: usize, rect: [f64; 4] },
     /// Objects picked with the Edit tool on `page` (covering user-space `rect`, shown at display
     /// rect `shown`): as pixels for other apps and as a PDF of them alone to paste as objects.
-    CopyObjects { page: usize, objects: Vec<sheaf_core::pdfcraft::engine::ObjectTarget>, rect: [f64; 4], shown: [f64; 4] },
+    /// `parts`: each object's box (user space), in the order of `objects`.
+    CopyObjects { page: usize, objects: Vec<sheaf_core::pdfcraft::engine::ObjectTarget>, parts: Vec<[f64; 4]>, rect: [f64; 4], shown: [f64; 4] },
     /// Version `n` (1-based) of the file as saved, written to `to` to open on its own.
     SaveVersion { n: usize, to: PathBuf },
     /// Writes the edits: into the file itself as an incremental update, or (`to`) a full copy
@@ -583,7 +623,13 @@ pub enum Reply {
     ImageCopied(Result<(u32, u32, Vec<u8>), String>),
     /// Pages to turn upright: (page, clockwise degrees).
     Upright(Vec<(usize, i64)>),
+    OcrReviewed(Vec<sheaf_core::ocr_review::ReviewLine>),
     Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
+    PrintPreflight(Result<String, String>),
+    PdfXStarted,
+    PdfXExported(Result<PathBuf, String>),
+    JavaScript { output: String, changed: bool, requests: Vec<sheaf_core::pdfcraft::engine::js::Request> },
+    EditableScripts(Vec<sheaf_core::pdfcraft::engine::js::ConsoleScript>),
     /// The loupe's area: (width, height, RGBA pixels), or why not.
     Loupe(Result<(u32, u32, Vec<u8>), String>),
     /// A flattened copy written (`FlatCopy`), or why not.
@@ -603,12 +649,15 @@ pub enum Reply {
 }
 
 /// Starts the document's thread: it opens `input`, then runs the operations sent on the
-/// returned channel, answering each through `reply` (called on that thread).
+/// returned channel, answering through serialized `reply` calls. Slow press exports reply from
+/// their own worker after the document snapshot has been captured.
 pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op> {
     let (tx, rx) = channel::<Op>();
+    let shared_reply = Arc::new(std::sync::Mutex::new(reply));
     std::thread::Builder::new()
         .name("reader-doc".into())
         .spawn(move || {
+            let reply = |message| { if let Ok(send) = shared_reply.lock() { send(message); } };
             let t0 = std::time::Instant::now();
             let mut doc = match sheaf_app::jobs::catching(|| Doc::open(&input)) {
                 Ok(d) => d,
@@ -620,6 +669,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
             // A preview on the document: the dirty, undo and redo state before it, which the
             // window is shown (a preview is not a change to save or undo).
             let mut preview: Option<(bool, bool, bool)> = None;
+            let mut ocr_review_cache = sheaf_core::ocr_review::ReviewCache::default();
             for op in rx {
                 let t0 = std::time::Instant::now();
                 // Reading the paragraphs (asked after each change, the preview's too) keeps it.
@@ -649,6 +699,14 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let mut s = snap(&doc);
                         (s.dirty, s.can_undo, s.can_redo) = before;
                         reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: false, note, preview: true });
+                    }
+                    Op::ReviewOcr => reply(Reply::OcrReviewed(ocr_review_cache.review(doc.document()))),
+                    Op::CorrectOcr { page, line, expected, text } => {
+                        let generation = doc.document().edit_generation();
+                        let error = sheaf_core::ocr_review::correction_edit(doc.document(), page, line, &expected, &text)
+                            .and_then(|edit| doc.apply(edit)).err().map(|e| e.to_string());
+                        if error.is_none() { ocr_review_cache.corrected(doc.document(), generation, page); }
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(vec![page]), error, applied: true, note: None, preview: false });
                     }
                     Op::Apply { edit, pages } => {
                         let sanitize = matches!(*edit, Edit::Sanitize);
@@ -740,13 +798,57 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error: r.err().map(|e| e.to_string()), applied: false, note, preview: false });
                     }
                     Op::CopyArea { page, rect } => reply(Reply::ImageCopied(area_pixels(doc.document(), page, rect, None))),
-                    Op::UprightTurns => reply(Reply::Upright(doc.document().upright_turns())),
+                    Op::UprightTurns => {
+                        // Pages with text by their text's direction; scans with no text by OCR.
+                        let d = doc.document();
+                        let mut turns = d.upright_turns();
+                        let rest: Vec<usize> = (0..d.info.pages.len()).filter(|p| !turns.iter().any(|t| t.0 == *p)).collect();
+                        turns.extend(sheaf_core::enhance::scan_upright_turns(&d.bytes, d.password.as_deref(), &rest));
+                        turns.sort_unstable();
+                        reply(Reply::Upright(turns));
+                    }
                     Op::AccessibilityCheck => reply(Reply::Accessibility(doc.document().accessibility_check(&Default::default()))),
+                    Op::EditableScripts => reply(Reply::EditableScripts(doc.document().console_scripts())),
+                    Op::RunJavaScript { source, page } => {
+                        let id = doc.id();
+                        let before = doc.document().bytes.clone();
+                        let result = doc.session_mut().run_javascript_at(id, &source, None, page);
+                        let changed = !Arc::ptr_eq(&before, &doc.document().bytes);
+                        let (output, error, requests) = match result {
+                            Ok(outcome) => {
+                                let mut lines = outcome.console;
+                                lines.extend(outcome.alerts.into_iter().map(|s| format!("Alert: {s}")));
+                                lines.extend(outcome.result);
+                                lines.extend(outcome.error.into_iter().map(|s| format!("Error: {s}")));
+                                if lines.is_empty() { lines.push("undefined".into()); }
+                                (lines.join("\n"), None, outcome.requests)
+                            }
+                            Err(e) => { let e = e.to_string(); (format!("Error: {e}"), Some(e), vec![]) }
+                        };
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error, applied: false, note: None, preview: false });
+                        reply(Reply::JavaScript { output, changed, requests });
+                    }
+
                     // Sol, 26/10: the next save wrote the old name again.
                     Op::Renamed { to } => path = to,
                     Op::LoupeArea { page, rect } => reply(Reply::Loupe(area_pixels(doc.document(), page, rect, Some(720.0)))),
-                    Op::CopyObjects { page, objects, rect, shown } => {
-                        let made = area_pixels(doc.document(), page, rect, None).and_then(|px| Ok((px, Arc::new(doc.document().objects_pdf(page, &objects, rect)?), shown)));
+                    Op::CopyObjects { page, objects, parts, rect, shown } => {
+                        let d = doc.document();
+                        let texts = d.objects_texts(page, &objects);
+                        let made = area_pixels(d, page, rect, None).and_then(|pixels| {
+                            let pdf = Arc::new(d.objects_pdf(page, &objects, rect)?);
+                            // With paragraphs among them, the rest goes as one item of its own.
+                            let rest: Vec<usize> = (0..objects.len()).filter(|&i| texts.get(i).is_none_or(Option::is_none)).collect();
+                            let rest = match rest.len() {
+                                n if n == objects.len() || n == 0 => None,
+                                _ => {
+                                    let r = rest.iter().filter_map(|&i| parts.get(i).copied()).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]).unwrap_or(rect);
+                                    let targets: Vec<_> = rest.iter().map(|&i| objects[i]).collect();
+                                    Some(Arc::new(d.objects_pdf(page, &targets, r)?))
+                                }
+                            };
+                            Ok(CopiedObjects { pixels, pdf, shown, texts, rest })
+                        });
                         reply(Reply::ObjectsCopied(made));
                     }
                     Op::SaveVersion { n, to } => {
@@ -854,6 +956,28 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             Err(e) => reply(Reply::Exported { to, error: Some(e) }),
                         }
                     }
+                    Op::ExportPdfX { to, options } => {
+                        // Only capturing the working copy belongs on this thread; Ghostscript can
+                        // run for two minutes, during which editing/saving must remain available.
+                        let snapshot = sheaf_core::press::Snapshot::capture(&doc);
+                        reply(Reply::PdfXStarted);
+                        match snapshot {
+                            Ok(snapshot) => {
+                                let done = shared_reply.clone();
+                                let spawned = std::thread::Builder::new().name("press-export".into()).spawn(move || {
+                                    let result = sheaf_app::jobs::catching(|| snapshot.export(&options, &to)).map_err(|e| e.to_string());
+                                    if let Ok(send) = done.lock() { send(Reply::PdfXExported(result)); }
+                                });
+                                if let Err(error) = spawned { reply(Reply::PdfXExported(Err(error.to_string()))); }
+                            }
+                            Err(error) => reply(Reply::PdfXExported(Err(error.to_string()))),
+                        }
+                    }
+                    Op::PrintPreflight { profile } => {
+                        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                        let date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
+                        reply(Reply::PrintPreflight(sheaf_core::preflight::report_with_profile(&doc, &name, &date, profile).map_err(|e| e.to_string())));
+                    }
                     Op::ExportFormData { to } => {
                         let id = doc.id();
                         let ext = to.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_default();
@@ -938,6 +1062,7 @@ fn save(doc: &mut Doc, target: &std::path::Path) -> Result<(), String> {
     doc.session().check_save(id, &bytes).map_err(|e| e.to_string())?;
     let t2 = std::time::Instant::now();
     replace(target, &bytes).map_err(|e| e.to_string())?;
+    sheaf_app::library::Library::new(&sheaf_app::store_file::data_dir()).record_saved(target).map_err(|e| e.to_string())?;
     let t3 = std::time::Instant::now();
     let r = doc.session_mut().mark_saved(id, bytes, Some(target.to_string_lossy().into_owned())).map_err(|e| e.to_string());
     debug(format_args!("save: bytes {:?}, check {:?}, write {:?}, mark saved {:?}", t1 - t, t2 - t1, t3 - t2, t3.elapsed()));

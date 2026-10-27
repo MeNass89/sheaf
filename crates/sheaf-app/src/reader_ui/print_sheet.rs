@@ -12,6 +12,31 @@ pub fn print_open(tab_id: i32) {
     });
 }
 
+/// The print sheet's preview drawn again for `layout`, `gray` and `comments` (off the UI thread).
+pub fn print_preview(ui: &AppWindow, tab_id: i32, layout: i32, gray: bool, comments: bool) {
+    let Some((bytes, password, seq)) = update(tab_id, |r, _| {
+        r.print_seq += 1;
+        (r.snap.bytes.clone(), r.snap.password.clone(), r.print_seq)
+    }) else {
+        return;
+    };
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let bytes = match password {
+            Some(pw) => sheaf_app::print::unlocked(&bytes, &pw),
+            None => Ok(bytes),
+        };
+        let made = bytes.and_then(|b| sheaf_app::print::preview(&b, layout, gray, comments));
+        let _ = weak.upgrade_in_event_loop(move |_| {
+            update(tab_id, |r, _| {
+                if r.print_seq == seq {
+                    r.print_preview = made.ok().map(|(w, h, px)| slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&px, w, h)));
+                }
+            });
+        });
+    });
+}
+
 pub fn print_cancel(tab_id: i32) {
     update(tab_id, |r, _| r.print_open = false);
 }

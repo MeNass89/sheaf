@@ -34,11 +34,11 @@ typing and Edit text).
 
 ## Board status
 
-**331 components, 239 at ≥ 9** jointly (Opus and Sol; 27/10 03:35, after Sol's b29a–b on round 24,
-landed ae4ace5: 12 closed, 12 left open with Sol's gaps in each component's history). Round 25 (16
-queued features and the fixes of those gaps) is on the pushed branch `wip/round25` (worktree
-`/tmp/f5/wt-r25` on vpsn), not built yet; its notes are in `/tmp/f5/round25-notes.md` and go to F-013
-when it lands.
+**331 components, 239 at ≥ 9** jointly before rounds 25–27, landed 27/10 (journals F-013 Round 25, F-015
+parallel batches). Joint reviews of their components are running (Sol batches b30a–c on round 25,
+Sol ↔ Opus pair reviews on the batches: /tmp/f5/par/review-*.txt on vpsn). The inspiration archives
+are in the private repo MeNass-Co/sheaf-re. The GUI smoke runs in three shards at once on a machine
+with 4 cores or more (dev/scripts/gui-parallel.sh, displays 140–142; never :99, the class recorder's).
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
 

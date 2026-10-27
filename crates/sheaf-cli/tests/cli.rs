@@ -568,7 +568,7 @@ fn mcp_lists_and_calls_tools() {
 fn every_tool_schema_parses() {
     let v = json_of(&bin().arg("--json").arg("tools").output().unwrap());
     let tools = v["data"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 28);
+    assert_eq!(tools.len(), 35);
     for t in tools {
         let s = &t["inputSchema"];
         assert_eq!(s["type"], "object");
@@ -601,4 +601,25 @@ fn mcp_offers_prompts_and_reads_resources() {
     let info: serde_json::Value = serde_json::from_str(replies[3]["result"]["contents"][0]["text"].as_str().unwrap()).unwrap();
     assert_eq!(info["ok"], true, "{info}");
     assert_eq!(replies[4]["error"]["code"], -32602, "a prompt without its file is refused");
+}
+
+/// `sheaf bookmark` (C-platform-007, Preview's Shortcuts actions): a script adds a bookmark at a
+/// page; `info` lists it with its page.
+#[test]
+fn bookmark_adds_one_that_info_lists() {
+    let t = tempfile::tempdir().unwrap();
+    let png = t.path().join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    let a = t.path().join("a.pdf");
+    assert!(bin().arg("from-images").arg(&png).arg(&png).arg("-o").arg(&a).status().unwrap().success());
+    let b = t.path().join("b.pdf");
+    let out = bin().arg("bookmark").arg(&a).args(["--title", "Chapter 2", "--page", "2", "-o"]).arg(&b).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let v = json_of(&bin().arg("--json").arg("info").arg(&b).output().unwrap());
+    assert_eq!(v["data"]["bookmarks"][0]["title"], "Chapter 2");
+    assert_eq!(v["data"]["bookmarks"][0]["page"], 2);
+    // A page the file does not have: refused, nothing written.
+    let bad = bin().arg("bookmark").arg(&a).args(["--title", "X", "--page", "5", "-o"]).arg(t.path().join("c.pdf")).output().unwrap();
+    assert!(!bad.status.success());
+    assert!(!t.path().join("c.pdf").exists());
 }

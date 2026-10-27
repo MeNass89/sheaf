@@ -136,7 +136,7 @@ pub fn turn_upright(tab_id: i32) {
 /// Those pages turned, one undo step; or said that every page reads upright.
 pub(super) fn upright(ui: &AppWindow, tab_id: i32, turns: Vec<(usize, i64)>) {
     if turns.is_empty() {
-        return crate::flow::toast(ui, "Every page with text reads upright");
+        return crate::flow::toast(ui, "Every page reads upright");
     }
     let n = turns.len();
     let edits: Vec<Edit> = [90, 180, 270]

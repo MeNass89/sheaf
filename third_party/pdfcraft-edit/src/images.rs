@@ -38,6 +38,11 @@ pub struct PageImage {
 }
 
 impl PageImage {
+    /// Sheaf: where its `Do` is: (content stream, operator in that stream), for Arrange.
+    pub(crate) fn location(&self) -> (usize, usize) {
+        (self.stream, self.op)
+    }
+
     /// Whether a user-space point belongs to the placed artwork and every active clip.
     pub fn contains(&self, point: [f64; 2]) -> bool {
         if !point.iter().all(|v| v.is_finite()) {

@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
-use sheaf_app::{AppWindow, FolderHit, ReaderFieldProps, ReaderFormField, ReaderGrid, ReaderMark, ReaderCheck, ReaderLayer, ReaderProp, ReaderRuler, ReaderRulerLabel, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
+use sheaf_app::{AppWindow, FolderHit, ReaderFieldProps, ReaderFormField, ReaderGrid, ReaderMark, ReaderPrintCheck, ReaderCheck, ReaderLayer, ReaderProp, ReaderRuler, ReaderRulerLabel, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, StampKind, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
@@ -159,6 +159,9 @@ pub struct ReaderUi {
     /// them again in the page read again.
     picked: Option<(usize, Vec<PageObject>)>,
     repick: Option<(usize, Vec<[f64; 4]>)>,
+    /// The objects being picked again were sent backward or to the back: a twin at the same
+    /// place is told by being drawn first.
+    repick_earliest: bool,
     /// A drag of the picked objects (view points, from and to), and a marquee being drawn.
     picked_drag: Option<((f64, f64), (f64, f64))>,
     marquee: Option<PageDrag>,
@@ -216,6 +219,7 @@ pub struct ReaderUi {
     /// Signature: where the click was, and whether the pad is open to make one.
     sign_at: Option<(usize, (f64, f64))>,
     sign_open: bool,
+    signature_manager: Option<signature_manager::Manager>,
     /// Print sheet: open, the system's printers and the chosen one.
     print_open: bool,
     printers: Vec<String>,
@@ -224,6 +228,16 @@ pub struct ReaderUi {
     pen_width: i32,
     /// Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled (rectangle, oval); where the drag is.
     shape_kind: i32,
+    /// Shapes: 1 Preview's Loupe, 2 its Mask (dragged as an oval, or a rectangle or oval), 3
+    /// Acrobat's Article box, 0 none of them.
+    shape_special: u8,
+    /// Shapes ▸ Article: the article the next box goes at the end of (`Snap::articles`); `None`: a
+    /// new one.
+    article_thread: Option<usize>,
+    /// Shapes ▸ Article: the box picked by a click (article, box), moved, resized or deleted.
+    article_box: Option<(usize, usize)>,
+    /// Shapes ▸ Loupe: how much larger a new loupe shows the page (one of `MAGNIFICATIONS`).
+    loupe_magnify: f64,
     shape_fill: bool,
     /// Shapes' fill: a highlight colour (index, the sixth too), or None a tint of the stroke.
     fill_colour: Option<usize>,
@@ -265,6 +279,11 @@ pub struct ReaderUi {
     /// Bulleted list).
     text_underline: bool,
     text_bullets: bool,
+    /// Text added on the page or the paragraph open: each line numbered (Acrobat's Numbered list).
+    text_numbers: bool,
+    /// Edit text: a font of the computer's chosen for the open paragraph (its name and program;
+    /// Acrobat's Edit PDF font list), in place of the family buttons'.
+    text_font: Option<(String, std::sync::Arc<Vec<u8>>)>,
     text_italic: bool,
     text_align: i32,
     /// Pages selected in the Pages panel (empty: the current page is meant).
@@ -294,6 +313,11 @@ pub struct ReaderUi {
     grid_gap: Option<usize>,
     /// ⌘C on a comment: the page it is on, until its copy comes back.
     copy_from: Option<usize>,
+    /// Comments copied together: how many were asked, and those come back so far.
+    comments_asked: usize,
+    comments_copied: Vec<crate::state::CopiedComment>,
+    /// Objects copied: each one's box as shown (display space), until their copy comes back.
+    copy_layout: Vec<[f64; 4]>,
     /// The tool it goes to then (Redact from the edit group), else the Tools page.
     tool_after_save: Option<sheaf_core::tools::ToolId>,
     /// The Link editor's complaint about what was typed (not a page or an address).
@@ -326,7 +350,8 @@ pub struct ReaderUi {
     measure_custom: Option<(f64, &'static str)>,
     calibration_len: f64,
     /// Edit text: what of the format row was changed while a paragraph is open (1 colour, 2 size,
-    /// 4 font, 8 alignment): those apply to it, the rest of its style stays its own.
+    /// 4 font, 8 alignment, 16 underline, 32 bullets, 64 a font of the computer's): those apply
+    /// to it, the rest of its style stays its own.
     para_format: u8,
     form_sel: Option<(usize, [f64; 4])>,
     /// Other fields selected with it (⇧-click), on its page: their rects.
@@ -352,6 +377,12 @@ pub struct ReaderUi {
     /// copies asked for, so only the latest one is shown.
     layers_off: Option<Vec<(u32, u16)>>,
     layers_made: u64,
+    /// More tools ▸ Print preflight: its sheet and dated report.
+    prepress: prepress::State,
+    /// More tools' reusable security settings, search catalogs and live OCR correction.
+    policy_panel: Option<security_policy::PolicyPanel>,
+    catalog_panel: Option<catalog::CatalogPanel>,
+    ocr_review: Option<ocr_review::Review>,
     /// More tools ▸ Accessibility check: its sheet, a check running, the last report.
     a11y_open: bool,
     a11y_busy: bool,
@@ -361,9 +392,13 @@ pub struct ReaderUi {
     /// More tools ▸ Rulers on, and the guides made from them: (page, across, page points from its
     /// top or left).
     rulers: bool,
+    /// The print sheet's preview of its first sheet, and the count of previews asked.
+    print_preview: Option<slint::Image>,
+    print_seq: u64,
     guides: Vec<(usize, bool, f64)>,
     /// More tools ▸ Voice…: the list open, the system's voices.
     voices_open: bool,
+    help_open: bool,
     voices: Vec<String>,
     /// Pen and shapes draw dashed lines (Acrobat's Dashed line style).
     dashed: bool,
@@ -454,6 +489,7 @@ impl ReaderUi {
             objects: HashMap::new(),
             picked: None,
             repick: None,
+            repick_earliest: false,
             picked_drag: None,
             marquee: None,
             para_resize: None,
@@ -490,12 +526,17 @@ impl ReaderUi {
             live_pending: None,
             sign_at: None,
             sign_open: false,
+            signature_manager: None,
             print_open: false,
             printers: Vec::new(),
             printer: 0,
             note_seq: 0,
             pen_width: 1,
             shape_kind: 0,
+            shape_special: 0,
+            article_thread: None,
+            article_box: None,
+            loupe_magnify: 2.0,
             shape_fill: false,
             fill_colour: None,
             shape_end: None,
@@ -518,6 +559,8 @@ impl ReaderUi {
             text_bold: false,
             text_underline: false,
             text_bullets: false,
+            text_numbers: false,
+            text_font: None,
             text_italic: false,
             text_align: 0,
             annot_candidate: None,
@@ -537,6 +580,9 @@ impl ReaderUi {
             folder_search: None,
             grid_gap: None,
             copy_from: None,
+            comments_asked: 0,
+            comments_copied: Vec::new(),
+            copy_layout: Vec::new(),
             tool_after_save: None,
             link_error: String::new(),
             link_visible: false,
@@ -568,13 +614,20 @@ impl ReaderUi {
             loupe_image: None,
             layers_off: None,
             layers_made: 0,
+            prepress: prepress::State::default(),
+            policy_panel: None,
+            catalog_panel: None,
+            ocr_review: None,
             a11y_open: false,
             a11y_busy: false,
             a11y: None,
             window_ask: None,
             rulers: false,
+            print_preview: None,
+            print_seq: 0,
             guides: Vec::new(),
             voices_open: false,
+            help_open: false,
             voices: Vec::new(),
             dashed: false,
             replace_pending: None,
@@ -621,7 +674,7 @@ impl ReaderUi {
 
     fn send(&mut self, op: Op) {
         // A preview is not counted: it never names something another edit is waiting on.
-        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields);
+        let edit = matches!(op, Op::Apply { .. } | Op::CorrectOcr { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields | Op::RunJavaScript { .. });
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
             self.edits_in_flight += usize::from(edit);
@@ -747,7 +800,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     // The copies' and the loupe's answers give back the count `send` took (they left it raised:
     // Undo greyed, and closing asked to save a document untouched).
-    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_)) {
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_) | Reply::PdfXStarted | Reply::EditableScripts(_)) {
         update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
     }
     match reply {
@@ -790,6 +843,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 }
                 let structural = r.snap.boxes.len() != snap.boxes.len() || r.structure_pending;
                 r.snap = *snap;
+                // An Undo may take away the article being drawn (Sol, 27/10).
+                article_boxes::reconcile(r);
                 r.structure_pending = false;
                 if structural {
                     forget_page_state(r);
@@ -812,6 +867,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 // The Edit tool's outlines (paragraphs, images, the selected one) are read again at
                 // once for the pages in view (not a previewed page: kept above); an image just
                 // added is selected then.
+                ocr_review::changed(r, applied, error.is_some());
+                if !preview { ocr_review::refresh(r); }
                 tools::load_blocks(r, v);
                 if let Some((p, _)) = r.select_added {
                     r.blocks(p);
@@ -847,6 +904,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             }
             match (error, name) {
                 (None, Some(n)) => {
+                    let selected = ui.global::<sheaf_app::LibraryBridge>().get_selected_id().to_string();
+                    crate::library_ui::refresh(ui, Some(&selected));
                     // Edits made while this save ran are not in it: save again before closing or
                     // handing the file to a tool.
                     if unsaved_name(id).is_some() && (with(|a| a.closing_after_save.contains(&id)) || tools_waiting(id)) {
@@ -888,6 +947,12 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Loupe(made) => loupe::shown(id, made),
         Reply::Upright(turns) => pages::upright(ui, id, turns),
         Reply::Accessibility(report) => accessibility::checked(id, report),
+        Reply::PrintPreflight(report) => prepress::checked(ui, id, report),
+        Reply::PdfXStarted => {}
+        Reply::PdfXExported(result) => prepress::press_exported(ui, id, result),
+        Reply::OcrReviewed(rows) => ocr_review::reviewed(ui, id, rows),
+        Reply::JavaScript { output, changed, requests } => javascript::finished(ui, id, output, changed, requests),
+        Reply::EditableScripts(scripts) => javascript::scripts(ui, id, scripts),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
@@ -899,15 +964,17 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             }
         }
         Reply::ObjectsCopied(made) => {
-            let from = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?))).flatten();
-            let copied = made.and_then(|((width, height, rgba), pdf, shown)| {
+            let from = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?, std::mem::take(&mut r.copy_layout)))).flatten();
+            let copied = made.and_then(|c| {
+                let (width, height, rgba) = c.pixels;
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
                 arboard::Clipboard::new().and_then(|mut c| c.set_image(image)).map_err(|e| e.to_string())?;
-                Ok((pdf, shown, (width as usize, height as usize)))
+                Ok((c.pdf, c.shown, (width as usize, height as usize), c.texts, c.rest))
             });
             match (copied, from) {
-                (Ok((pdf, shown, pixels)), Some((from, page))) => {
-                    with(|a| a.objects_clip = Some(crate::state::ObjectsClip { pdf, shown, from, page, pixels }));
+                (Ok((pdf, shown, pixels, texts, rest)), Some((from, page, layout))) => {
+                    let (texts, rest) = crate::state::ObjectsClip::split(texts, rest, &layout);
+                    with(|a| a.objects_clip = Some(crate::state::ObjectsClip { pdf, shown, from, page, pixels, texts, rest }));
                     crate::flow::toast(ui, "Objects copied: ⌘V pastes them on a page, or as a picture in another app");
                 }
                 (Err(e), _) => crate::flow::toast(ui, &format!("The objects were not copied: {e}")),
@@ -922,15 +989,27 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             Err(e) => crate::flow::toast(ui, &format!("Pages not copied: {e}")),
         },
         Reply::Copied(element, picture) => {
-            let Some((from, page)) = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?))).flatten() else { return };
-            match element {
-                Some(element) => {
-                    with(|a| a.comment_clip = Some(crate::state::CommentClip { element, picture, from, page }));
+            // Several comments: kept until the last comes back.
+            let done = update(id, |r, _| {
+                if let Some(element) = element {
+                    r.comments_copied.push((element, picture));
+                }
+                r.comments_asked = r.comments_asked.saturating_sub(1);
+                if r.comments_asked > 0 {
+                    return None;
+                }
+                Some((r.path.clone(), r.copy_from.take()?, std::mem::take(&mut r.comments_copied)))
+            });
+            let Some((from, page, items)) = done.flatten() else { return };
+            match items.len() {
+                0 => crate::flow::toast(ui, "This comment could not be copied"),
+                n => {
+                    with(|a| a.comment_clip = Some(crate::state::CommentClip { items, from, page }));
                     // The system clipboard says a comment is copied: anything copied after it wins.
                     let _ = arboard::Clipboard::new().and_then(|mut c| c.set_text(COMMENT_ON_CLIPBOARD));
-                    crate::flow::toast(ui, "Comment copied: ⌘V pastes it on the page shown");
+                    let what = if n == 1 { "Comment copied".to_string() } else { format!("{n} comments copied") };
+                    crate::flow::toast(ui, &format!("{what}: ⌘V pastes on the page shown"));
                 }
-                None => crate::flow::toast(ui, "This comment could not be copied"),
             }
         }
         Reply::Exported { to, error } => {
@@ -971,7 +1050,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 // Objects just moved: picked again where they went.
                 if let Some((p, moved)) = r.repick.take_if(|(p, _)| *p == page) {
                     let rects: Vec<[f64; 4]> = objects.iter().map(|o| o.1).collect();
-                    let again: Vec<_> = reader::picked_again(&moved, &rects).into_iter().map(|i| objects[i]).collect();
+                    let earliest = std::mem::take(&mut r.repick_earliest);
+                    let again: Vec<_> = reader::picked_again_from(&moved, &rects, earliest).into_iter().map(|i| objects[i]).collect();
                     r.picked = (!again.is_empty()).then_some((p, again));
                 }
                 r.objects.insert(page, Arc::new(objects));
@@ -995,6 +1075,7 @@ fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
     if let Some((fit, zoom, spread)) = crate::home::last_view(path) {
         v.viewer.set_spread(spread & 3);
         v.viewer.set_rtl(spread & 0x10 != 0);
+        v.viewer.set_horizontal(spread & 0x20 != 0);
         match fit {
             // Before 25/10: a share of the window's width.
             2 => {
@@ -1060,6 +1141,10 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
         if crate::home::last_view(&path).is_none() {
             properties::open_as_asked(&mut r, &mut v);
         }
+        // A portfolio opens on its files (Acrobat's portfolio view).
+        if r.snap.portfolio && !r.snap.attachments.is_empty() {
+            (r.panel, r.panel_open) = (4, true);
+        }
         // Compare's marked copy opens on its list of differences.
         if NOTES_FIRST.with(|n| n.borrow_mut().remove(&std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone()))) && !r.snap.annots.is_empty() {
             (r.panel, r.panel_open) = (2, true);
@@ -1081,6 +1166,9 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     });
     if ok {
         crate::viewer_ui::request(ui, id);
+        if update(id, |r, _| r.snap.portfolio && !r.snap.attachments.is_empty()) == Some(true) {
+            portfolio::browse(ui, id);
+        }
         let ask = update(id, |r, _| r.window_ask.take().map(|a| (a, r.snap.boxes.first().map_or((612.0, 792.0), |b| b.view_size())))).flatten();
         if let Some(((fit, centre), page)) = ask {
             properties::window_as_asked(ui, fit, centre, page);
@@ -1148,6 +1236,7 @@ fn update<R>(tab_id: i32, f: impl FnOnce(&mut ReaderUi, &mut ViewerUi) -> R) -> 
             r.preview_timer = None;
             r.send(reader_doc::Op::Preview { edit: None, pages: vec![page] });
         }
+        crate::split::follow(a, tab_id);
         refresh(a, tab_id);
         Some(out)
     })
@@ -1205,6 +1294,7 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
     }
     let size = v.boxes[page].view_size();
     r.annots().iter().enumerate().rev().find_map(|(i, a)| {
+        // A mask (Preview's) covers its page: its hit box is its opening (see `reader_doc::snap`).
         if a.page != page {
             return None;
         }
@@ -1221,10 +1311,15 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
 
 // ---- the parts -------------------------------------------------------------------------------
 
+pub mod portfolio;
+pub mod custom_tools;
 mod pointer;
 mod forms;
 mod sign;
+mod signature_manager;
+pub use signature_manager::{signature_manager, signature_manager_action, signature_manager_save};
 mod print_sheet;
+mod prepress;
 mod properties;
 mod prepare;
 mod nav;
@@ -1233,17 +1328,28 @@ mod saving;
 mod speech;
 mod loupe;
 mod accessibility;
+mod ocr_review;
+mod catalog;
+mod security_policy;
+pub use security_policy::{policy_open, policy_action, policy_save, policy_apply};
+pub use catalog::{catalog_open, catalog_action};
+pub use ocr_review::{review_ocr, ocr_review_action};
+pub(crate) mod javascript;
 mod layers;
 mod look_up;
 mod folder_search;
 mod pages;
 mod tools;
+mod article_boxes;
 mod search;
 mod model;
+mod spelling;
+pub use spelling::{spelling_set, spelling_texts, SpellText};
 pub use pointer::*;
 pub use forms::*;
 pub use sign::*;
 pub use print_sheet::*;
+pub use prepress::*;
 pub use properties::*;
 pub use prepare::*;
 pub use nav::*;

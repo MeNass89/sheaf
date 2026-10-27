@@ -7,9 +7,11 @@
 set -u
 cd "$(dirname "$0")/../.."
 APP="${SHEAF_APP:-$HOME/.cache/cargo-target/sheaf/debug/sheaf-app}"   # set by scripts/test.sh
-OUT=dev/.tmp/smoke
+OUT=${SMOKE_OUT:-dev/.tmp/smoke}
 rm -rf "$OUT"; mkdir -p "$OUT"
-export DISPLAY=:98
+# One Xvfb display per run: gui-parallel.sh runs several shards at once, each on its own.
+D=${SMOKE_DISPLAY:-98}
+export DISPLAY=:$D
 fails=0
 pass() { echo "PASS $1"; }
 fail() { echo "FAIL $1"; fails=$((fails + 1)); }
@@ -17,18 +19,23 @@ check() { if eval "$2"; then pass "$1"; else fail "$1"; fi; }
 shot() { import -window root "$OUT/$1.png" 2>/dev/null; }
 
 # A display left by an interrupted run is stopped first.
-[ -f /tmp/.X98-lock ] && kill "$(tr -d ' ' </tmp/.X98-lock)" 2>/dev/null && sleep 0.5
-rm -f /tmp/.X98-lock /tmp/.X11-unix/X98
+# Only an Xvfb is stopped (another program's display is left alone: the run fails instead).
+[ -f /tmp/.X$D-lock ] && p=$(tr -d ' ' </tmp/.X$D-lock) && [ "$(ps -o comm= -p "$p" 2>/dev/null)" = Xvfb ] && ! tr '\0' ' ' < /proc/"$p"/cmdline 2>/dev/null | grep -q 1920x1080 && kill "$p" 2>/dev/null && sleep 0.5
+# The class recorder's display (:99) is never touched, and a lock still held by a live process is
+# never removed (27/10: a run took :99 and a class recording was lost).
+[ "$D" = 99 ] && { echo "FAIL display :99 belongs to the class recorder"; exit 1; }
+if [ -f /tmp/.X$D-lock ] && kill -0 "$(tr -d ' ' </tmp/.X$D-lock)" 2>/dev/null; then echo "FAIL display :$D is in use by another program"; exit 1; fi
+rm -f /tmp/.X$D-lock /tmp/.X11-unix/X$D
 # -noreset: an X server resets when its last client leaves; an app launched during the reset
 # cannot connect (intermittent "opened no window" after a quit, 21/10).
-Xvfb :98 -screen 0 1280x800x24 -nolisten tcp -noreset >"$OUT/xvfb.log" 2>&1 &
+Xvfb :$D -screen 0 1280x800x24 -nolisten tcp -noreset >"$OUT/xvfb.log" 2>&1 &
 XVFB=$!
 APP_PID=
 cleanup() { [ -n "$APP_PID" ] && kill "$APP_PID" 2>/dev/null; kill "$XVFB" 2>/dev/null; }
 trap cleanup EXIT
 # The checks mean nothing without a display: wait for it, or stop here.
 for _ in $(seq 1 40); do xdpyinfo >/dev/null 2>&1 && break; sleep 0.25; done
-xdpyinfo >/dev/null 2>&1 || { echo "FAIL no X display :98 (Xvfb did not start)"; exit 1; }
+xdpyinfo >/dev/null 2>&1 || { echo "FAIL no X display :$D (Xvfb did not start)"; exit 1; }
 
 # Fixtures: a 4-page text PDF ("Page 1" … "Page 4") and a one-page form.
 python3 - "$OUT" <<'PY'
@@ -107,10 +114,10 @@ launch() {
     # profile (it did until 21/10: smoke runs wrote into ~/.local/share/Sheaf).
     # Its own temp folder too: the app is killed, so its temp copies are not removed on exit.
     local p="$PWD/$OUT/profile"; mkdir -p "$p/tmp"
-    TMPDIR="$p/tmp" XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" SHEAF_READER_DEBUG=1 SHEAF_TEST_DIALOG="$PWD/$OUT/dialog-answer" SHEAF_TEST_MAIL="$PWD/$OUT/mail-sent" SHEAF_TEST_SCREENSHOT="$PWD/$OUT/stamp.png" SHEAF_TEST_SCAN="$PWD/$OUT/stamp.png" SHEAF_TEST_NOTIFY="$PWD/$OUT/notified" SHEAF_TEST_SPEECH="$PWD/$OUT/spoken" SHEAF_TEST_DEFAULT="$PWD/$OUT/made-default" "$APP" "$@" >>"$OUT/app.log" 2>&1 &
+    TMPDIR="$p/tmp" XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" SHEAF_READER_DEBUG=1 SHEAF_TEST_DIALOG="$PWD/$OUT/dialog-answer" SHEAF_TEST_MAIL="$PWD/$OUT/mail-sent" SHEAF_TEST_SCREENSHOT="$PWD/$OUT/stamp.png" SHEAF_TEST_SCAN="$PWD/$OUT/stamp.png" SHEAF_TEST_NOTIFY="$PWD/$OUT/notified" SHEAF_TEST_SPEECH="$PWD/$OUT/spoken" SHEAF_TEST_DEFAULT="$PWD/$OUT/made-default" SHEAF_TEST_CLIPFILE="$PWD/$OUT/clip-file" "$APP" "$@" >>"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done
-    [ -n "$W" ] || { echo "FAIL the app opened no window (Xvfb $(kill -0 $XVFB 2>/dev/null && echo alive || echo gone), socket $(ls /tmp/.X11-unix/X98 2>/dev/null || echo missing), $(ls /proc/$XVFB/fd 2>/dev/null | wc -l) fds, $(pgrep -c xclip) xclip):"; tail -3 "$OUT/app.log"; tail -5 "$OUT/xvfb.log"; exit 1; }
+    [ -n "$W" ] || { echo "FAIL the app opened no window (Xvfb $(kill -0 $XVFB 2>/dev/null && echo alive || echo gone), socket $(ls /tmp/.X11-unix/X$D 2>/dev/null || echo missing), $(ls /proc/$XVFB/fd 2>/dev/null | wc -l) fds, $(pgrep -c xclip) xclip):"; tail -3 "$OUT/app.log"; tail -5 "$OUT/xvfb.log"; exit 1; }
     xdotool windowsize "$W" 1280 800
     # Drawn and loaded: wait until the screen is no longer black, then a moment for the pages.
     for _ in $(seq 1 40); do
@@ -148,7 +155,16 @@ print(";".join(" ".join(m.group(1).split()) for m in re.finditer(r"/Rect \[([-\d
 first_text() { pdftotext -f "$2" -l "$2" "$1" - 2>/dev/null | grep -m1 '[^[:space:]]' | cut -d' ' -f1-2; }
 
 # The steps, in order (dev/scripts/smoke/*.sh share this shell: helpers, profile, variables).
-for part in dev/scripts/smoke/*.sh; do   # the cwd is the repository root (above)
+# A shard (gui-parallel.sh) runs some parts only: the helpers the others define come first.
+if [ -n "${SMOKE_PARTS:-}" ]; then
+    # shellcheck source=/dev/null
+    . <(python3 dev/scripts/smoke-helpers.py)
+    # The preferences the earlier parts leave (step 9's author, step 10's outputs next to the
+    # originals, step 11's light theme), so a later part starts where it would have.
+    [ -n "${SMOKE_SEED:-}" ] && mkdir -p "$PWD/$OUT/profile/data/Sheaf" &&
+    printf '{"output": "next_to_original", "theme": "light", "author": "Smoke Author"}' > "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+fi
+for part in ${SMOKE_PARTS:-dev/scripts/smoke/*.sh}; do   # the cwd is the repository root (above)
     . "$part"
 done
 

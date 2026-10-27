@@ -116,6 +116,19 @@ pub struct Prefs {
     pub reading_voice: Option<String>,
     /// Rulers in centimetres (Acrobat's Page & Ruler Units); inches otherwise.
     pub metric: bool,
+    /// The guides' colour, of [`crate::reader::GUIDE_COLOURS`] (Acrobat's Guide colour).
+    pub guide_colour: u8,
+    /// The window drawn by the processor, not the graphics card (Acrobat's Use 2D GPU
+    /// acceleration off), from the next start.
+    pub no_gpu: bool,
+    /// The art (green), trim (blue) and bleed (red) boxes drawn on the pages (Acrobat's Show art,
+    /// trim & bleed boxes).
+    pub show_boxes: bool,
+    /// Pages called by their place ("4"), not their own number ("iv"; Preview's Use logical page
+    /// numbers off).
+    pub physical_numbers: bool,
+    /// The digital IDs (.p12, .pfx files) signed with, newest first (Acrobat's Identities).
+    pub digital_ids: Vec<PathBuf>,
     /// What was typed in form text fields, newest first (Acrobat's Auto-Complete memory; at most
     /// [`ENTRIES`]); offered back while a field is typed in.
     pub form_entries: Vec<String>,
@@ -152,7 +165,9 @@ pub struct Prefs {
     pub pinned_files: Vec<PathBuf>,
     /// The signature made in the reader, reused on every document (PDF Expert keeps it too):
     /// drawn strokes (pad units, y up) or a typed name.
+    #[serde(skip_serializing)]
     pub signature_strokes: Vec<Vec<[f64; 2]>>,
+    #[serde(skip_serializing)]
     pub signature_name: Option<String>,
     /// The signature's pen: colour (index in `reader::SIGNATURE_INKS`) and width (0 fine, 1 medium, 2 bold).
     pub signature_pen: (u8, u8),
@@ -160,20 +175,48 @@ pub struct Prefs {
     pub signature_font: u8,
     /// Signatures made before, newest first (at most four): strokes or a typed name each. The
     /// first is `signature_strokes` / `signature_name`.
-    #[serde(deserialize_with = "kept_signatures")]
+    #[serde(skip_serializing, deserialize_with = "kept_signatures")]
     pub signatures: Vec<KeptSignature>,
     /// The initials kept apart from the signatures (Acrobat's Fill & Sign ▸ Add Initials).
+    #[serde(skip_serializing)]
     pub initials: Option<KeptSignature>,
+    /// Spelling, keyboard shortcuts, tools shown and the interface's direction.
+    pub platform: crate::platform::PlatformPrefs,
 }
 
 impl Prefs {
     /// Loads `<dir>/prefs.json`; missing or corrupt means the defaults.
     pub fn load(dir: &Path) -> Prefs {
-        store_file::read(&dir.join("prefs.json")).unwrap_or_default()
+        let mut prefs = store_file::read::<Prefs>(&dir.join("prefs.json")).unwrap_or_default();
+        let legacy = !crate::signature_store::Marks::from_prefs(&prefs).is_empty();
+        match crate::signature_store::load(dir) {
+            Ok(Some(marks)) => {
+                // A completed credential write wins over an old JSON copy left by a crash.
+                marks.apply(&mut prefs);
+                if legacy { let _ = prefs.save(dir); }
+            }
+            Ok(None) if legacy => {
+                // Migrate only after the credential store accepted the old profile's marks.
+                if crate::signature_store::save(dir, &crate::signature_store::Marks::from_prefs(&prefs)).is_ok() {
+                    let _ = prefs.save(dir);
+                }
+            }
+            Ok(None) => {},
+            Err(e) => eprintln!("sheaf: {e}"),
+        }
+        prefs
     }
 
     pub fn save(&self, dir: &Path) -> io::Result<()> {
         let json = serde_json::to_vec_pretty(self).map_err(io::Error::other)?;
-        store_file::replace(&dir.join("prefs.json"), &json)
+        // Even if the system store is unavailable, never write a mark back to plaintext.
+        let secured = crate::signature_store::save(dir, &crate::signature_store::Marks::from_prefs(self));
+        if secured.is_err() && store_file::read::<Prefs>(&dir.join("prefs.json")).is_some_and(|p| !crate::signature_store::Marks::from_prefs(&p).is_empty()) {
+            // Do not destroy an existing legacy signature when migration is blocked. No new
+            // plaintext is written; the original stays until a secure save succeeds.
+            return secured;
+        }
+        store_file::replace(&dir.join("prefs.json"), &json)?;
+        secured
     }
 }

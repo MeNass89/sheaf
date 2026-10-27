@@ -24,6 +24,8 @@ for _ in $(seq 1 60); do
 done
 avail=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo)
 [ "$avail" -ge 3000 ] || { echo "not enough memory (${avail} MB free); build not started" >&2; exit 3; }
+# One rustc per 2.5 GB free, at most one per core: one on a 7 GB machine, six on a 32 GB one.
+jobs=$(( avail / 2500 )); [ "$jobs" -lt 1 ] && jobs=1; [ "$jobs" -gt "$(nproc)" ] && jobs=$(nproc)
 # With a swap file on (512 MB free at least), idle processes can make room: the cap goes 1.2 GB above
 # what is free (the build itself never swaps and dies first). Without, 700 MB stay free.
 swap=$(awk '/SwapFree/{print int($2/1024)}' /proc/meminfo)
@@ -31,7 +33,7 @@ if [ "${swap:-0}" -ge 512 ]; then cap=$((avail + 1200)); else cap=$((avail - 700
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 systemd-run --user --unit=heavy-build-$$ --collect -q --wait --working-directory="$PWD" \
     -p MemoryMax="${cap}M" -p MemorySwapMax=0 -p OOMScoreAdjust=1000 \
-    --setenv=JOBS=1 --setenv=PATH="$PATH" --setenv=HOME="$HOME" \
+    --setenv=JOBS="$jobs" --setenv=PATH="$PATH" --setenv=HOME="$HOME" \
     -- sh -c "sh dev/scripts/cargo.sh $* > dev/.tmp/build.log 2>&1; echo EXIT \$? >> dev/.tmp/build.log"
 # The build's own exit status is this script's: a layer of scripts/test.sh trusts it.
 code=$(tail -1 dev/.tmp/build.log | sed -n 's/^EXIT //p')

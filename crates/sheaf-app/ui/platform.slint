@@ -1,0 +1,122 @@
+// The window's platform side (src/platform_ui.rs): check spelling while typing, the menu bar's
+// shortcuts and their Preferences (Stirling's Hotkeys), the tools shown, the interface's
+// reading direction.
+
+// A misspelt word of the text being typed: where it starts (a byte offset), the word, up to
+// three corrections.
+export struct SpellIssue {
+    // A grammar finding: what is wrong ("Repeated word"); "" for a misspelt word.
+    note: string,
+    word: string,
+    start: int,
+    suggestions: [string],
+}
+
+// A row of Preferences ▸ Keyboard: the command (index in the menu bar's `keys`), "Menu ▸ Title",
+// its keys as the system writes them, changed from the default.
+export struct ShortcutRow {
+    index: int,
+    name: string,
+    keys: string,
+    custom: bool,
+}
+
+// Tools ▸ Open Tool: a tool of the Tools page and the keys that open it (Stirling's tool hotkeys).
+export struct Launcher {
+    id: string,
+    name: string,
+    keys: keys,
+}
+
+export global PlatformBridge {
+    // Check Spelling While Typing (Edit menu, Preferences ▸ Spelling).
+    in property <bool> spell-on: true;
+    // The misspelt words of the text last checked (at most four) and that text with them
+    // underlined in red.
+    in property <[SpellIssue]> spell-issues;
+    in property <styled-text> spell-marked;
+    // The dictionary in use, or what is missing to have one.
+    in property <string> spell-dictionary;
+    in property <[string]> learned;
+    // The editor's text changed (checked a moment after typing pauses; `typing`: the last word,
+    // still being typed, is left alone); a new editor opened.
+    callback spell-check(text: string, typing: bool);
+    callback spell-reset();
+    // The text with the word at `start` replaced (text, start, word, correction).
+    pure callback spell-replace(string, int, string, string) -> string;
+    callback spell-ignore(string);
+    callback spell-learn(string);
+    callback set-spell-on(bool);
+    // Check Grammar With Spelling (Preview's): on; a grammar finding Ignored (its note and text).
+    in property <bool> grammar-on: true;
+    callback set-grammar-on(bool);
+    callback grammar-ignore(string, string);
+    callback forget-learned();
+
+    // The menu bar's shortcuts, by command (src/platform.rs COMMANDS); emptied while a new one
+    // is recorded so the keys reach the recorder.
+    in property <[keys]> keys;
+    // Tools ▸ Open Tool, every tool on the Tools page with its keys (none unless given).
+    in property <[Launcher]> launchers;
+    // By command: given keys of its own by the user (the reader's and Home's other keys for it
+    // stop), and its keys as written in the help sheet.
+    in property <[bool]> rebound;
+    in property <[string]> key-labels;
+    // The reader's tool letters, upper case, by tool number (src/platform.rs TOOLS; the last is
+    // Marquee Zoom), and the tool a key pressed on the pages picks (-1 none).
+    in property <[string]> tool-letters;
+    pure callback tool-for-key(string) -> int;
+    in property <[ShortcutRow]> shortcut-rows;
+    // Why the keys just pressed were refused ("" when they were taken).
+    in property <string> shortcut-error;
+    callback shortcut-query(string);
+    callback recording(bool);
+    // A key pressed for command `index` (text, ⌘/Ctrl, Alt, ⇧, Meta): true when it ends the
+    // recording (taken or refused), false for a modifier alone.
+    callback record-shortcut(int, string, bool, bool, bool, bool) -> bool;
+    callback clear-shortcut(int);
+    callback reset-shortcut(int);
+    callback reset-shortcuts();
+
+    // Tools that cannot run here left off the Tools page, and which they are.
+    in property <bool> hide-unavailable;
+    in property <string> unavailable-tools;
+    callback set-hide-unavailable(bool);
+
+    // The interface reads right to left; the choice (0 as the system's language, 1 left to
+    // right, 2 right to left).
+    in property <bool> rtl;
+    in property <int> direction;
+    callback set-direction(int);
+
+    // The menu bar shown (debug builds driven by the GUI smoke hide it unless asked: their clicks
+    // are placed for a window without it).
+    in property <bool> menu-bar: true;
+    // Edit ▸ Check Spelling… (spelling-dialog.slint): shown; the misspelt word, where it is, its
+    // sentence with it underlined, its corrections (bumped `check-seq` for each new word); what
+    // the pass did once it is over ("" while a word is shown).
+    in property <bool> check-open;
+    in property <string> check-word;
+    in property <string> check-where;
+    // What is wrong: "Not in the dictionary", or a grammar finding's ("Repeated word").
+    in property <string> check-note;
+    in property <styled-text> check-context;
+    in property <[string]> check-suggestions;
+    in property <int> check-seq;
+    in property <string> check-done;
+    // Starts on a reader tab; Change to the text given, Ignore (this word, until Sheaf quits),
+    // Learn, Next (this one left as it is), close.
+    callback check-start(int);
+    callback check-change(string);
+    callback check-ignore();
+    callback check-learn();
+    callback check-next();
+    callback check-close();
+    // Edit ▸ Cut, Copy, Paste, Select All: ⌘ and this key sent to what has the keyboard.
+    callback edit-key(key: string, shift: bool);
+    // Whether ⇧ is held now: View ▸ Zoom In's keys (Ctrl and +, ⇧ or not) with ⇧ turn the view, as
+    // the reader's own ⇧⌘+ does (the menu bar takes the keys first).
+    callback shift-held() -> bool;
+    // File ▸ Quit: closes the window as its close button does (unsaved documents asked about).
+    callback quit();
+}

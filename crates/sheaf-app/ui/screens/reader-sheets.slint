@@ -7,6 +7,7 @@ import { SortCombo } from "../widgets/sort-combo.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Check } from "../widgets/check.slint";
 import { ToolTab, ReaderBridge } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
 
 // The signature pad (PDF Expert's "Create signature"): draw it, or type a name.
 export component SignatureSheet inherits Rectangle {
@@ -106,6 +107,12 @@ export component PrintSheet inherits Rectangle {
     property <bool> comments: true;
     property <bool> ready: root.tab.reader.printers.length > 0;
     property <int> printer: root.tab.reader.printer;
+    // The preview follows the choices that change the sheet.
+    function preview() { ReaderBridge.print-preview(root.id, layout, gray, comments); }
+    init => { preview(); }
+    changed layout => { preview(); }
+    changed gray => { preview(); }
+    changed comments => { preview(); }
     background: #00000044;
     TouchArea { }
     // Return prints, Escape cancels (the sheet takes the keyboard when it opens).
@@ -118,13 +125,15 @@ export component PrintSheet inherits Rectangle {
         }
     }
     Rectangle {
-        width: 420px;
+        width: 720px;
         height: pl.preferred-height;
         border-radius: Theme.radius-card;
         background: Theme.card;
         drop-shadow-blur: 24px;
         drop-shadow-color: #00000055;
+        HorizontalLayout {
         pl := VerticalLayout {
+            width: 420px;
             padding: 18px;
             spacing: 12px;
             Text { text: "Print"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
@@ -244,6 +253,20 @@ export component PrintSheet inherits Rectangle {
                     }
                 }
             }
+        }
+        // Acrobat's print preview: the first sheet as it will print.
+        Rectangle {
+            width: 300px;
+            Rectangle {
+                y: 18px;
+                width: 264px;
+                height: 340px;
+                background: Theme.panel-bg;
+                border-radius: Theme.radius-small;
+                if root.tab.reader.has-print-preview: Image { width: parent.width - 16px; height: parent.height - 16px; source: root.tab.reader.print-preview; image-fit: contain; }
+                if !root.tab.reader.has-print-preview: Text { text: "Preparing the preview…"; font-size: Theme.fs-caption; color: Theme.text-muted; horizontal-alignment: center; vertical-alignment: center; }
+            }
+        }
         }
     }
 }
@@ -665,6 +688,71 @@ export component VoicesSheet inherits Rectangle {
                 alignment: end;
                 SmallButton { text: "Close"; clicked => { ReaderBridge.voice-pick(root.id, -2); root.focus-pages(); } }
             }
+        }
+    }
+}
+
+// Help ▸ Keyboard shortcuts (Acrobat's and PDF Expert's ⌘/): the reader's keys, by what they do.
+// ⌘ is Ctrl on Linux and Windows.
+export component HelpSheet inherits Rectangle {
+    in property <int> id;
+    callback focus-pages();
+    background: #00000044;
+    TouchArea { clicked => { ReaderBridge.show-help(root.id, false); root.focus-pages(); } }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape || e.text == "?" { ReaderBridge.show-help(root.id, false); root.focus-pages(); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        width: 760px;
+        height: min(vl.preferred-height, root.height - 60px);
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000055;
+        TouchArea { }
+        vl := VerticalLayout {
+            padding: 20px;
+            spacing: 12px;
+            Text { text: "Keyboard shortcuts"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            HorizontalLayout {
+                spacing: 28px;
+                for col in [
+                    [
+                        { k: "", t: "Tools" },
+                        { k: PlatformBridge.tool-letters[0], t: "Select text" }, { k: PlatformBridge.tool-letters[1], t: "Highlight" }, { k: PlatformBridge.tool-letters[2], t: "Underline" }, { k: PlatformBridge.tool-letters[3], t: "Strikethrough" },
+                        { k: PlatformBridge.tool-letters[4], t: "Note" }, { k: PlatformBridge.tool-letters[6], t: "Text box" }, { k: PlatformBridge.tool-letters[5], t: "Pen" }, { k: PlatformBridge.tool-letters[10], t: "Shapes" }, { k: PlatformBridge.tool-letters[11], t: "Eraser" },
+                        { k: PlatformBridge.tool-letters[12], t: "Stamp" }, { k: PlatformBridge.tool-letters[9], t: "Sign" }, { k: PlatformBridge.tool-letters[7], t: "Edit text and objects" }, { k: PlatformBridge.tool-letters[8], t: "Add image" },
+                        { k: PlatformBridge.tool-letters[13], t: "Link" }, { k: PlatformBridge.tool-letters[14], t: "Prepare form" },
+                    ],
+                    [
+                        { k: "", t: "View" },
+                        { k: "⌘ +  ⌘ −", t: "Zoom in, out" }, { k: PlatformBridge.key-labels[18], t: "Actual size" }, { k: PlatformBridge.key-labels[20], t: "Fit width" }, { k: PlatformBridge.key-labels[19], t: "Fit page" },
+                        { k: "⇧⌘ +  ⇧⌘ −", t: "Rotate view" }, { k: PlatformBridge.key-labels[22], t: "One page, two, cover alone" }, { k: PlatformBridge.key-labels[21], t: "Side panel" },
+                        { k: PlatformBridge.key-labels[25], t: "Full screen" }, { k: "Space drag", t: "Move the pages" }, { k: "← →  PgUp PgDn", t: "Previous, next page" },
+                        { k: "Home  End", t: "First, last page" }, { k: PlatformBridge.key-labels[31], t: "Go to page" },
+                    ],
+                    [
+                        { k: "", t: "Document" },
+                        { k: PlatformBridge.key-labels[11], t: "Find" }, { k: "⌘ G  ⇧⌘ G", t: "Next, previous result" }, { k: PlatformBridge.key-labels[2], t: "Save" }, { k: PlatformBridge.key-labels[3], t: "Save as" },
+                        { k: PlatformBridge.key-labels[4], t: "Print" }, { k: PlatformBridge.key-labels[5], t: "Document properties" }, { k: "⌘ Z  ⇧⌘ Z", t: "Undo, redo" },
+                        { k: "⌘ C  ⌘ X  ⌘ V", t: "Copy, cut, paste" }, { k: "⌘ K", t: "Link the selected text" }, { k: "Delete", t: "Delete the selection" },
+                        { k: "⇧⌘ [  ⇧⌘ ]", t: "Previous, next tab" }, { k: PlatformBridge.key-labels[6], t: "Close the tab" }, { k: "?  ⌘ /", t: "These shortcuts" },
+                    ],
+                ]: VerticalLayout {
+                    spacing: 4px;
+                    horizontal-stretch: 1;
+                    for row in col: HorizontalLayout {
+                        spacing: 10px;
+                        if row.k != "": Text { width: 96px; text: row.k; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text-secondary; }
+                        Text { text: row.t; font-size: Theme.fs-label; font-weight: row.k == "" ? Theme.weight-demibold : 400; color: row.k == "" ? Theme.text-heading : Theme.text; }
+                    }
+                }
+            }
+            Text { text: "⌘ is Ctrl on Linux and Windows."; font-size: Theme.fs-caption; color: Theme.text-muted; }
         }
     }
 }

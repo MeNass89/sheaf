@@ -5,14 +5,23 @@
 // zoom are the tab's viewer (ViewerBridge); everything else is ReaderBridge. Coordinates given to
 // Rust are content coordinates of the page scroll.
 import { ScrollView, TextEdit } from "std-widgets.slint";
+import { JavaScriptBridge } from "javascript.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
+import { SignatureManagerSheet } from "signature-manager.slint";
+import { SecurityPolicySheet } from "security-policy.slint";
+import { CatalogSheet } from "catalog.slint";
+import { OcrReviewPanel } from "ocr-review.slint";
 import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
 import { FormFieldBox, FieldPropsCard, FieldsArrangeCard, ObjectsArrangeCard } from "reader-form.slint";
-import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet } from "reader-sheets.slint";
+import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet, HelpSheet } from "reader-sheets.slint";
+import { ProductionSheet } from "reader-production.slint";
+import { PreflightSheet } from "reader-prepress.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
+import { SpellStrip } from "../widgets/spell-strip.slint";
 
 export component ReaderScreen inherits Rectangle {
     in property <ToolTab> tab;
@@ -27,10 +36,32 @@ export component ReaderScreen inherits Rectangle {
     callback open-preferences();
     // The reading view alone, toolbar and panel hidden (View ▸ Hide Toolbar).
     in-out property <bool> bare;
+    // Full screen's transition playing: how much of it is left (1 → 0), the page it came from.
+    property <float> effect-left: 0;
+    property <int> effect-from: -1;
+    property <int> effect-kind: root.bare && root.effect-left > 0 ? root.tab.reader.page-effect : 0;
     property <string> link-tip;
     property <bool> over-link: root.link-tip != "";
     // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
     property <bool> narrow: root.width < 1150px;
+    // The text being typed is checked for spelling (not a choice list, a link or a length).
+    property <bool> spell-kind: root.tab.reader.note.kind != 5 && root.tab.reader.note.kind != 8 && root.tab.reader.note.kind != 9 && root.tab.reader.note.kind != 12;
+    // The menu bar's commands this screen runs itself (main.slint): `menu-seq` bumped runs
+    // `menu-command` on the tab shown.
+    in property <int> menu-seq;
+    in property <string> menu-command;
+    changed menu-seq => {
+        if !root.active { return; }
+        if root.menu-command == "find" {
+            root.bare = false;
+            toolbar.focus-search();
+        } else if root.menu-command == "go-to-page" {
+            root.bare = false;
+            toolbar.focus-page-field();
+        } else if root.menu-command == "present" {
+            root.present();
+        }
+    }
     // Pages panel drag: where the press was, and the drop line (−1: no drag).
     property <length> thumb-down-y;
     property <length> drop-line: -1px;
@@ -65,12 +96,112 @@ export component ReaderScreen inherits Rectangle {
     property <PointerEventButton> pan-button;
     // Pinch: the zoom when the gesture began.
     property <float> pinch-zoom0;
+    // The pane the pinch began over: its place in the pages area (the fingers' centre is the area's);
+    // over another document's pane, the pinch is left to nothing.
+    property <length> pinch-ox;
+    property <length> pinch-oy;
+    property <bool> pinch-skip;
+    // A drag with the hand, Space or the middle button in the other pane moves that pane.
+    property <bool> pane-panning;
+    property <PointerEventButton> pan2-button;
+    property <length> pan2-vx0;
+    property <length> pan2-vy0;
+    property <length> pan2-cx0;
+    property <length> pan2-cy0;
     // ⌘ + wheel: where the pointer is in the window, taken from the first wheel event and kept until
     // the pointer really moves. In the window, not on the pages: the pages move under the still
     // pointer as they zoom, and Slint then sends moves of its own, some before the new scroll is in.
     property <length> pointer-wx;
     property <length> pointer-wy;
     property <bool> wheel-anchored;
+    // The hand tool (PDF Expert's Pan & Zoom, Acrobat's Hand, ⇧H): a drag moves the pages; with ⌥ held,
+    // up zooms in and down out around the press (Acrobat's Dynamic Zoom). Another tool puts it away.
+    in-out property <bool> hand;
+    property <int> tool-now: root.tab.reader.tool;
+    changed tool-now => { root.hand = false; }
+    property <bool> dyn-zooming;
+    property <length> dyn-wy0;
+    property <float> dyn-zoom0;
+    property <length> dyn-ax;
+    property <length> dyn-ay;
+    // Split view (PDF Expert's View ▸ Split View; Rust's `split`): 0 off, 1 the other pane beside the
+    // active one, 2 below it. The active pane is `sv` (the tab's viewer: every tool works there), the
+    // other `sv2`, each with its own zoom; `half` is where the active one is (0 first, 1 second). A
+    // press in the other pane makes it the active one and goes on to it there.
+    property <int> split: root.tab.split-mode;
+    property <int> half: root.tab.split-half;
+    // Sync scroll: a scroll of one pane moves the other in proportion to their lengths; each pane's
+    // last scroll, so a move set by the other is not sent back.
+    property <length> last-top;
+    property <length> last-left;
+    property <length> last2-top;
+    property <length> last2-left;
+    property <float> sync-ratio-y: sv.content-height > 0px ? sv2.content-height / sv.content-height : 1;
+    property <float> sync-ratio-x: sv.content-width > 0px ? sv2.content-width / sv.content-width : 1;
+    // A press in the other pane goes on as a press in the active one, there: the drag that follows
+    // is sent in the active pane's content coordinates (the panes have swapped places by then).
+    property <bool> pane-press;
+    function main-x(wx: length) -> length { return wx - sv.absolute-position.x - sv.content-x; }
+    function main-y(wy: length) -> length { return wy - sv.absolute-position.y - sv.content-y; }
+    function second-report() {
+        if root.split > 0 { ViewerBridge.second-viewport(root.id, -sv2.content-x, -sv2.content-y, sv2.visible-width, sv2.visible-height); }
+    }
+    property <length> second-top: -sv2.content-y;
+    property <length> second-left: -sv2.content-x;
+    property <length> second-w: sv2.visible-width;
+    property <length> second-h: sv2.visible-height;
+    changed second-top => {
+        root.second-report();
+        let d = root.second-top - root.last2-top;
+        root.last2-top = root.second-top;
+        if root.tab.split-sync && abs(d) >= 0.5px {
+            root.last-top = clamp(root.page-top + d / root.sync-ratio-y, 0px, max(0px, sv.content-height - sv.visible-height));
+            sv.content-y = -root.last-top;
+        }
+    }
+    changed second-left => {
+        root.second-report();
+        let d = root.second-left - root.last2-left;
+        root.last2-left = root.second-left;
+        if root.tab.split-sync && abs(d) >= 0.5px {
+            root.last-left = clamp(root.page-left + d / root.sync-ratio-x, 0px, max(0px, sv.content-width - sv.visible-width));
+            sv.content-x = -root.last-left;
+        }
+    }
+    changed second-w => { root.second-report(); }
+    changed second-h => { root.second-report(); }
+    changed split => { root.second-report(); }
+    // Rust set the other pane's scroll (it opened, or was laid out again).
+    property <int> split-seq: root.tab.split-seq;
+    changed split-seq => {
+        root.last2-top = root.tab.split-scroll;
+        root.last2-left = root.tab.split-scroll-x;
+        sv2.content-y = -root.tab.split-scroll;
+        sv2.content-x = -root.tab.split-scroll-x;
+    }
+    // Sync scroll and zoom: a zoom set both panes' scrolls; neither is sent on to the other.
+    property <int> split-zoom-seq: root.tab.split-zoom-seq;
+    changed split-zoom-seq => {
+        root.last-top = root.tab.viewer-scroll;
+        root.last-left = max(0px, root.tab.viewer-scroll-x);
+        root.last2-top = root.tab.split-scroll;
+        root.last2-left = root.tab.split-scroll-x;
+        sv2.content-y = -root.last2-top;
+        sv2.content-x = -root.last2-left;
+    }
+    // The panes swapped: each scroll set again, so each half shows what it showed.
+    property <int> split-swap: root.tab.split-swap;
+    changed split-swap => {
+        root.want-x = -1px;
+        root.last-top = root.tab.viewer-scroll;
+        root.last-left = max(0px, root.tab.viewer-scroll-x);
+        root.last2-top = root.tab.split-scroll;
+        root.last2-left = root.tab.split-scroll-x;
+        sv.content-y = -root.last-top;
+        sv.content-x = -root.last-left;
+        sv2.content-y = -root.last2-top;
+        sv2.content-x = -root.last2-left;
+    }
 
     // Zooms to `pct` percent actual size, the view point (ax, ay) staying on the same point of
     // its page under the pointer or the pinch (Rust works it out; the vertical scroll comes with
@@ -80,13 +211,30 @@ export component ReaderScreen inherits Rectangle {
     }
 
     // Scrolling moves the pages under a still pointer: a link's tooltip no longer applies.
-    changed page-top => { root.link-tip = ""; ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
+    changed page-top => {
+        root.link-tip = "";
+        ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h);
+        let d = root.page-top - root.last-top;
+        root.last-top = root.page-top;
+        if root.split > 0 && root.tab.split-sync && abs(d) >= 0.5px {
+            root.last2-top = clamp(root.second-top + d * root.sync-ratio-y, 0px, max(0px, sv2.content-height - sv2.visible-height));
+            sv2.content-y = -root.last2-top;
+        }
+    }
     property <length> page-left: -sv.content-x;
     // The scroll a zoom wanted is taken: no need to set it again.
     changed page-left => {
         root.link-tip = "";
         ViewerBridge.view-left(root.id, root.page-left);
         if root.want-x >= 0px && abs(root.page-left - root.want-x) < 1px { root.want-x = -1px; }
+        // Pages across: scrolling sideways brings other pages into view, to render.
+        if root.tab.reader.horizontal { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
+        let d = root.page-left - root.last-left;
+        root.last-left = root.page-left;
+        if root.split > 0 && root.tab.split-sync && abs(d) >= 0.5px {
+            root.last2-left = clamp(root.second-left + d * root.sync-ratio-x, 0px, max(0px, sv2.content-width - sv2.visible-width));
+            sv2.content-x = -root.last2-left;
+        }
     }
     changed page-w => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     changed page-h => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
@@ -202,13 +350,22 @@ export component ReaderScreen inherits Rectangle {
             id: root.id;
             is-full-screen: root.is-full-screen;
             narrow: root.narrow;
+            view-height: root.height;
             bare <=> root.bare;
             focus-pages => { keys.focus(); }
             present => { root.present(); }
             toggle-full-screen => { root.full-screen(!root.is-full-screen); root.presenting = false; }
+            hand: root.hand;
+            toggle-hand => { root.hand = !root.hand; }
         }
-        HorizontalLayout {
+        // A flexbox so that right to left (Preferences ▸ Interface ▸ Direction) puts the side panel
+        // on the right of the pages (Slint's rows have no direction of their own).
+        FlexboxLayout {
+            padding-right: root.tab.reader.ocr-review-open ? min(360px, root.width - 24px) : 0px;
             vertical-stretch: 1;
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: stretch;
             // ---- side panel -------------------------------------------------------------------
             panel := ReaderPanel {
                 tab: root.tab;
@@ -224,25 +381,52 @@ export component ReaderScreen inherits Rectangle {
             }
 
             // ---- pages ------------------------------------------------------------------------
-            Rectangle {
+            pages-area := Rectangle {
+                // Split view: the first half's size (the divider dragged; Rust keeps the share).
+                property <float> frac: root.tab.split-frac > 0 ? root.tab.split-frac : 0.5;
+                property <length> first-w: round((self.width - 1px) * self.frac / 1px) * 1px;
+                property <length> first-h: round((self.height - 1px) * self.frac / 1px) * 1px;
                 horizontal-stretch: 1;
                 background: root.tab.reader.backdrop;
                 clip: true;
                 // Trackpad pinch (macOS) and touch screens zoom around the fingers. Under the pages:
                 // everything else passes through to them.
+                // Split view: the pane under the fingers zooms (the other one becomes the active one, as a
+                // press makes it), around the fingers as that pane sees them (Sol, 27/10: the active pane
+                // zoomed, and on the right or below it was anchored by its offset).
                 ScaleRotateGestureHandler {
-                    started => { root.pinch-zoom0 = root.tab.viewer-zoom; }
-                    updated => { root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x, self.center.y); }
+                    started => {
+                        let over-other = root.split > 0 && self.center.x >= sv2.x && self.center.x < sv2.x + sv2.width
+                            && self.center.y >= sv2.y && self.center.y < sv2.y + sv2.height;
+                        root.pinch-skip = over-other && root.tab.split-title != "";
+                        root.pinch-ox = over-other ? sv2.x : sv.x;
+                        root.pinch-oy = over-other ? sv2.y : sv.y;
+                        if over-other && !root.pinch-skip { ReaderBridge.split-focus(root.id); }
+                        root.pinch-zoom0 = root.tab.viewer-zoom;
+                    }
+                    updated => {
+                        if !root.pinch-skip { root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x - root.pinch-ox, self.center.y - root.pinch-oy); }
+                    }
                 }
                 sv := ScrollView {
+                    // Split view: half the area, the second pane in the other half (same size).
+                    // Split view: the active pane takes its half (`half`), the other pane the rest.
+                    x: root.split == 1 && root.half == 1 ? pages-area.first-w + 1px : 0px;
+                    y: root.split == 2 && root.half == 1 ? pages-area.first-h + 1px : 0px;
+                    width: root.split != 1 ? parent.width : root.half == 0 ? pages-area.first-w : parent.width - 1px - pages-area.first-w;
+                    height: root.split != 2 ? parent.height : root.half == 0 ? pages-area.first-h : parent.height - 1px - pages-area.first-h;
                     content-width: max(root.tab.viewer-width, self.visible-width);
                     content-height: root.tab.viewer-height;
                     for p in root.tab.viewer-pages: Rectangle {
                         // One page at a time: the others are not shown, at any zoom (Sol, 26/10: zoomed
                         // out, the pages around it showed).
-                        visible: !root.tab.reader.page-at-a-time || p.page == root.tab.viewer-current;
-                        x: p.x;
-                        y: p.y;
+                        visible: !root.tab.reader.page-at-a-time || p.page == root.tab.viewer-current || (root.effect-kind >= 9 && p.page == root.effect-from);
+                        // Cover, Fly and Push slide the new page in from the right; Push and Uncover move
+                        // the old one out to the left, over the new one for Uncover, where the new one is.
+                        x: p.x + (root.effect-kind >= 8 && root.effect-kind != 10 && p.page == root.tab.viewer-current ? sv.visible-width * root.effect-left
+                            : root.effect-kind >= 9 && p.page == root.effect-from ? -sv.visible-width * (1 - root.effect-left) : 0px);
+                        y: root.effect-kind >= 9 && p.page == root.effect-from ? root.tab.reader.page-top * 1px : p.y;
+                        z: root.effect-kind == 10 && p.page == root.effect-from ? 1 : 0;
                         width: p.w;
                         height: p.h;
                         background: root.tab.reader.theme == 1 ? #1E1E20 : root.tab.reader.theme == 2 ? #F4ECD8 : white;
@@ -271,9 +455,11 @@ export component ReaderScreen inherits Rectangle {
                         width: m.w;
                         height: m.h;
                         border-radius: m.kind == 6 || m.kind == 7 ? 2px : 1px;
-                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : m.kind == 11 ? Theme.info : transparent;
-                        border-width: m.kind == 12 ? 3px : m.kind == 6 ? 1.5px : m.kind == 5 || m.kind == 7 ? 1px : 0px;
-                        border-color: m.kind == 12 ? Theme.accent : m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : #FF9F0A;
+                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : m.kind == 11 ? Theme.info : m.kind == 16 ? #7C3AED14 : m.kind == 17 || m.kind == 18 ? #7C3AED2E : transparent;
+                        border-width: m.kind == 12 ? 3px : m.kind == 6 || m.kind == 18 ? 1.5px : m.kind == 5 || m.kind == 7 || m.kind >= 13 ? 1px : 0px;
+                        // 13 art (green), 14 trim (blue), 15 bleed (red): Preferences ▸ Show art, trim and bleed boxes.
+                        // 16 an article's box, 17 one of the article being drawn, 18 the box picked (Shapes ▸ Article).
+                        border-color: m.kind == 12 ? Theme.accent : m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : m.kind == 13 ? #22A045 : m.kind == 14 ? #2563EB : m.kind == 15 ? #DC2626 : m.kind >= 16 && m.kind <= 18 ? #7C3AED : #FF9F0A;
                     }
                     // Prepare form's grid (Grid on): lines every 9 pt, a stronger one every inch.
                     for g in root.tab.reader.form-grids: Rectangle {
@@ -290,19 +476,17 @@ export component ReaderScreen inherits Rectangle {
                         y: g.y;
                         width: g.w;
                         height: g.h;
-                        Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.guides; stroke: #00A6D6; stroke-width: 1px; }
+                        Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.guides; stroke: root.tab.reader.guide-colour; stroke-width: 1px; }
                         if root.tab.reader.rulers-on: Rectangle {
                             height: 14px;
                             background: #F2F2F2E6;
                             Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.ticks; stroke: #606060; stroke-width: 1px; }
-                            TouchArea { clicked => { ReaderBridge.ruler-clicked(root.id, g.page, true, self.mouse-x / 1px / g.scale); } }
                         }
                         if root.tab.reader.rulers-on: Rectangle {
                             x: 0;
                             width: 14px;
                             background: #F2F2F2E6;
                             Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.ticks; stroke: #606060; stroke-width: 1px; }
-                            TouchArea { clicked => { ReaderBridge.ruler-clicked(root.id, g.page, false, self.mouse-y / 1px / g.scale); } }
                         }
                         for l in g.labels: Text {
                             x: l.across ? l.at + 2px : 2px;
@@ -332,7 +516,7 @@ export component ReaderScreen inherits Rectangle {
                         changed has-hover => { if !self.has-hover { root.link-tip = ""; } }
                         width: max(root.tab.viewer-width, sv.visible-width);
                         height: root.tab.viewer-height;
-                        mouse-cursor: root.panning ? grabbing : root.space-held ? grab : root.over-link && root.tab.reader.tool == 0 ? pointer : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
+                        mouse-cursor: root.panning || root.dyn-zooming ? grabbing : root.space-held || root.hand ? grab : root.over-link && root.tab.reader.tool == 0 ? pointer : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
                         // More ▸ Loupe (Acrobat's Loupe tool): the area under the pointer, magnified, in the
                         // view's bottom-right corner.
                         if root.tab.reader.loupe: Rectangle {
@@ -361,8 +545,32 @@ export component ReaderScreen inherits Rectangle {
                             lt := Text { x: 7px; width: parent.width - 14px; text: root.link-tip; font-size: Theme.fs-caption; color: Theme.on-toast; overflow: elide; vertical-alignment: center; }
                         }
                         pointer-event(e) => {
-                            // A drag with the middle button, or with Space held, moves the pages.
-                            if e.kind == PointerEventKind.down && !root.pressing && !root.panning && (e.button == PointerEventButton.middle || (root.space-held && e.button == PointerEventButton.left)) {
+                            // The hand tool with ⌥ held: up zooms in, down out, around the press.
+                            if root.dyn-zooming {
+                                // The button let go where this area never heard it (outside the window, a
+                                // dialog over it): the zoom ends at the next move (Sol, 27/10).
+                                if e.kind == PointerEventKind.move && !self.pressed {
+                                    root.dyn-zooming = false;
+                                } else if e.kind == PointerEventKind.move {
+                                    root.zoom-around(root.dyn-zoom0 * pow(1.01, (root.dyn-wy0 - (self.absolute-position.y + self.mouse-y)) / 1px), root.dyn-ax, root.dyn-ay);
+                                } else if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                                    root.dyn-zooming = false;
+                                }
+                                return;
+                            }
+                            if e.kind == PointerEventKind.down && root.hand && e.modifiers.alt && e.button == PointerEventButton.left && !root.pressing && !root.panning {
+                                keys.focus();
+                                root.dyn-zooming = true;
+                                // In the window, not on the pages: they move under the pointer as they zoom.
+                                root.dyn-wy0 = self.absolute-position.y + self.mouse-y;
+                                root.dyn-zoom0 = root.tab.viewer-zoom;
+                                root.dyn-ax = self.mouse-x + sv.content-x;
+                                root.dyn-ay = self.mouse-y + sv.content-y;
+                                return;
+                            }
+                            // A drag with the middle button, with Space held or with the hand tool, moves the pages.
+                            if e.kind == PointerEventKind.down && !root.pressing && !root.panning && (e.button == PointerEventButton.middle || ((root.space-held || root.hand) && e.button == PointerEventButton.left)) {
+                                if root.hand { keys.focus(); }
                                 root.panning = true;
                                 root.pan-button = e.button;
                                 root.pan-vx0 = self.mouse-x + sv.content-x;
@@ -433,7 +641,37 @@ export component ReaderScreen inherits Rectangle {
                                 }
                                 return accept;
                             }
+                            // Pages across: a mouse's wheel moves along the strip when there is nothing to
+                            // scroll down (a trackpad sends the sideways movement itself).
+                            if root.tab.reader.horizontal && e.delta-x == 0 && e.delta-y != 0 && sv.content-height <= sv.visible-height + 1px {
+                                sv.content-x = clamp(sv.content-x + e.delta-y, min(0px, sv.visible-width - sv.content-width), 0px);
+                                return accept;
+                            }
                             reject
+                        }
+                    }
+                    // The rulers' clicks, above the pages' pointer area (Sol, 27/10: it took them): one
+                    // on the top ruler makes or takes away an upright guide, on the left one a level guide.
+                    if root.tab.reader.rulers-on: Rectangle {
+                        for g in root.tab.reader.rulers: Rectangle {
+                            x: g.x;
+                            y: g.y;
+                            width: g.w;
+                            height: g.h;
+                            TouchArea {
+                                height: 14px;
+                                y: 0;
+                                mouse-cursor: pointer;
+                                clicked => { ReaderBridge.ruler-clicked(root.id, g.page, true, self.mouse-x / 1px / g.scale); }
+                            }
+                            TouchArea {
+                                x: 0;
+                                y: 14px;
+                                width: 14px;
+                                height: parent.height - 14px;
+                                mouse-cursor: pointer;
+                                clicked => { ReaderBridge.ruler-clicked(root.id, g.page, false, (self.mouse-y + 14px) / 1px / g.scale); }
+                            }
                         }
                     }
                     // Floating bar over a text selection: Copy, Highlight, Underline, Strikethrough.
@@ -482,7 +720,7 @@ export component ReaderScreen inherits Rectangle {
                             }
                         }
                     }
-                    // Edit tool, objects picked together: Align and Distribute, in the view's top-right corner.
+                    // Edit tool, objects picked: Align and Distribute (several), Arrange, in the view's top-right corner.
                     if root.tab.reader.tool == 0 && root.tab.reader.annots-group > 1: ObjectsArrangeCard {
                         x: -sv.content-x + sv.visible-width - self.width - 12px;
                         y: -sv.content-y + 12px;
@@ -491,7 +729,7 @@ export component ReaderScreen inherits Rectangle {
                         id: root.id;
                         focus-pages => { keys.focus(); }
                     }
-                    if root.tab.reader.tool == 7 && root.tab.reader.picked-count > 1: ObjectsArrangeCard {
+                    if root.tab.reader.tool == 7 && root.tab.reader.picked-count > 0: ObjectsArrangeCard {
                         x: -sv.content-x + sv.visible-width - self.width - 12px;
                         y: -sv.content-y + 12px;
                         count: root.tab.reader.picked-count;
@@ -523,7 +761,7 @@ export component ReaderScreen inherits Rectangle {
                         height: max(root.tab.reader.note.h, inplace-edit.preferred-height + 6px);
                         border-width: 1px;
                         border-color: Theme.accent;
-                        init => { inplace-edit.focus(); }
+                        init => { inplace-edit.focus(); PlatformBridge.spell-reset(); }
                         Timer {
                             interval: 1ms;
                             running: true;
@@ -540,7 +778,7 @@ export component ReaderScreen inherits Rectangle {
                             font-weight: root.tab.reader.note.bold ? 700 : 400;
                             font-italic: root.tab.reader.note.italic;
                             color: root.tab.reader.note.ink;
-                            edited => { ReaderBridge.note-edited(root.id, self.text); }
+                            edited => { ReaderBridge.note-edited(root.id, self.text); PlatformBridge.spell-check(self.text, true); }
                             key-pressed(e) => {
                                 if e.text == Key.Escape || (e.text == Key.Return && e.modifiers.control) {
                                     ReaderBridge.note-commit(root.id, self.text);
@@ -550,12 +788,26 @@ export component ReaderScreen inherits Rectangle {
                                 reject
                             }
                         }
+                        // Check spelling while typing: the misspelt words and their corrections, under the box.
+                        SpellStrip {
+                            x: 0;
+                            y: parent.height + 6px;
+                            width: max(parent.width, 300px);
+                            replace(start, word, correction) => {
+                                inplace-edit.text = PlatformBridge.spell-replace(inplace-edit.text, start, word, correction);
+                                ReaderBridge.note-edited(root.id, inplace-edit.text);
+                                PlatformBridge.spell-check(inplace-edit.text, false);
+                                inplace-edit.focus();
+                            }
+                        }
                     }
                     // A note or text box being typed.
                     if root.tab.reader.note.show && !root.tab.reader.note.inplace: Rectangle {
                         init => {
                             note-edit.text = root.tab.reader.note.text;
                             note-edit.focus();
+                            PlatformBridge.spell-reset();
+                            if root.spell-kind { PlatformBridge.spell-check(note-edit.text, false); }
                         }
                         // Created inside a pointer event, the editor can lose the text set in init:
                         // set it again on the next turn of the event loop.
@@ -575,6 +827,8 @@ export component ReaderScreen inherits Rectangle {
                         changed seq => {
                             note-edit.text = root.tab.reader.note.text;
                             note-edit.focus();
+                            PlatformBridge.spell-reset();
+                            if root.spell-kind { PlatformBridge.spell-check(note-edit.text, false); }
                         }
                         // Kept inside the visible part of the pages.
                         x: min(root.tab.reader.note.x, -sv.content-x + sv.visible-width - self.width - 8px);
@@ -586,6 +840,19 @@ export component ReaderScreen inherits Rectangle {
                         drop-shadow-blur: 12px;
                         drop-shadow-color: #00000044;
                         drop-shadow-offset-y: 2px;
+                        // Check spelling while typing (Acrobat's, Preview's): the misspelt words
+                        // underlined and their corrections, under the card.
+                        if root.spell-kind: SpellStrip {
+                            x: 0;
+                            y: parent.height + 6px;
+                            width: max(parent.width, 300px);
+                            replace(start, word, correction) => {
+                                note-edit.text = PlatformBridge.spell-replace(note-edit.text, start, word, correction);
+                                ReaderBridge.note-edited(root.id, note-edit.text);
+                                PlatformBridge.spell-check(note-edit.text, false);
+                                note-edit.focus();
+                            }
+                        }
                         VerticalLayout {
                             padding: 8px;
                             spacing: 6px;
@@ -622,7 +889,7 @@ export component ReaderScreen inherits Rectangle {
                                 vertical-stretch: 1;
                                 font-size: Theme.fs-label;
                                 wrap: word-wrap;
-                                edited(text) => { ReaderBridge.note-edited(root.id, text); }
+                                edited(text) => { ReaderBridge.note-edited(root.id, text); if root.spell-kind { PlatformBridge.spell-check(text, true); } }
                                 key-pressed(e) => {
                                     if e.text == Key.Escape {
                                         ReaderBridge.note-cancel(root.id);
@@ -679,26 +946,247 @@ export component ReaderScreen inherits Rectangle {
                         }
                     }
                 }
+                // Split view's other pane: its own pages, zoom and place.
+                sv2 := ScrollView {
+                    x: root.split == 1 && root.half == 0 ? pages-area.first-w + 1px : 0px;
+                    y: root.split == 2 && root.half == 0 ? pages-area.first-h + 1px : 0px;
+                    width: root.split == 0 ? 0px : root.split == 2 ? parent.width : root.half == 1 ? pages-area.first-w : parent.width - 1px - pages-area.first-w;
+                    height: root.split == 0 ? 0px : root.split == 1 ? parent.height : root.half == 1 ? pages-area.first-h : parent.height - 1px - pages-area.first-h;
+                    visible: root.split > 0;
+                    content-width: max(root.tab.split-width, self.visible-width);
+                    content-height: root.tab.split-height;
+                    for p in root.tab.split-pages: Rectangle {
+                        x: p.x;
+                        y: p.y;
+                        width: p.w;
+                        height: p.h;
+                        background: root.tab.reader.theme == 1 ? #1E1E20 : root.tab.reader.theme == 2 ? #F4ECD8 : white;
+                        drop-shadow-blur: p.w > 1600px ? 0px : 8px;
+                        drop-shadow-color: p.w > 1600px ? transparent : Theme.thumb-shadow;
+                        drop-shadow-offset-y: 1px;
+                        if p.ready: Image {
+                            width: parent.width;
+                            height: parent.height;
+                            source: p.image;
+                            image-fit: fill;
+                        }
+                    }
+                    // A press here makes this pane the active one, and goes on to it: a selection, a
+                    // link, a comment picked work as in the other pane. The wheel scrolls it as it is.
+                    TouchArea {
+                        width: max(root.tab.split-width, sv2.visible-width);
+                        height: root.tab.split-height;
+                        pointer-event(e) => {
+                            // The hand tool's ⌥ zoom begun here (this pane is the active one by then).
+                            if root.dyn-zooming {
+                                if e.kind == PointerEventKind.move && !self.pressed {
+                                    root.dyn-zooming = false;
+                                } else if e.kind == PointerEventKind.move {
+                                    root.zoom-around(root.dyn-zoom0 * pow(1.01, (root.dyn-wy0 - (self.absolute-position.y + self.mouse-y)) / 1px), root.dyn-ax, root.dyn-ay);
+                                } else if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                                    root.dyn-zooming = false;
+                                }
+                                return;
+                            }
+                            // A drag with the middle button, Space held or the hand tool moves this pane, as it
+                            // does the other one (Sol, 27/10: it selected or ran the tool).
+                            if root.pane-panning {
+                                if e.kind == PointerEventKind.move {
+                                    sv2.content-x = clamp(root.pan2-cx0 + (self.mouse-x + sv2.content-x - root.pan2-vx0), min(0px, sv2.visible-width - sv2.content-width), 0px);
+                                    sv2.content-y = clamp(root.pan2-cy0 + (self.mouse-y + sv2.content-y - root.pan2-vy0), min(0px, sv2.visible-height - sv2.content-height), 0px);
+                                    if root.space-held { root.panned = true; }
+                                } else if e.kind == PointerEventKind.up && e.button == root.pan2-button {
+                                    root.pane-panning = false;
+                                }
+                                return;
+                            }
+                            // The hand with ⌥: this pane becomes the active one and zooms around the press
+                            // (Acrobat's Dynamic Zoom), as in the other pane.
+                            if e.kind == PointerEventKind.down && root.hand && e.modifiers.alt && e.button == PointerEventButton.left && root.tab.split-title == "" {
+                                let ax = self.absolute-position.x + self.mouse-x - sv2.absolute-position.x;
+                                let ay = self.absolute-position.y + self.mouse-y - sv2.absolute-position.y;
+                                ReaderBridge.split-focus(root.id);
+                                keys.focus();
+                                root.dyn-zooming = true;
+                                root.dyn-wy0 = self.absolute-position.y + self.mouse-y;
+                                root.dyn-zoom0 = root.tab.viewer-zoom;
+                                root.dyn-ax = ax;
+                                root.dyn-ay = ay;
+                                return;
+                            }
+                            if e.kind == PointerEventKind.down && (e.button == PointerEventButton.middle || ((root.space-held || root.hand) && e.button == PointerEventButton.left)) {
+                                root.pane-panning = true;
+                                root.pan2-button = e.button;
+                                root.pan2-vx0 = self.mouse-x + sv2.content-x;
+                                root.pan2-vy0 = self.mouse-y + sv2.content-y;
+                                root.pan2-cx0 = sv2.content-x;
+                                root.pan2-cy0 = sv2.content-y;
+                                return;
+                            }
+                            // Another document: its tab comes to the front, this one in its other pane, and
+                            // the click goes on to it there, at the same point (a link, a comment, a note
+                            // placed; Sol, 27/10: it was lost). That tab's view then takes the pointer.
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.tab.split-title != "" {
+                                let other = root.tab.split-other;
+                                let x = self.mouse-x;
+                                let y = self.mouse-y;
+                                ReaderBridge.split-focus(root.id);
+                                if other >= 0 {
+                                    ReaderBridge.pressed(other, x, y, e.modifiers.shift ? 17 : 1);
+                                    ReaderBridge.released(other, x, y);
+                                }
+                                return;
+                            }
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !root.pane-press {
+                                ReaderBridge.split-focus(root.id);
+                                keys.focus();
+                                root.pane-press = true;
+                                root.pressing = true;
+                                // This pane's content coordinates are the viewer's it now shows in the active pane.
+                                ReaderBridge.pressed(root.id, self.mouse-x, self.mouse-y, e.modifiers.shift ? 17 : 1);
+                            } else if e.kind == PointerEventKind.up && root.pane-press {
+                                root.pane-press = false;
+                                root.pressing = false;
+                                ReaderBridge.released(root.id, root.main-x(self.absolute-position.x + self.mouse-x), root.main-y(self.absolute-position.y + self.mouse-y));
+                            }
+                        }
+                        moved => {
+                            if root.pane-press { ReaderBridge.moved(root.id, root.main-x(self.absolute-position.x + self.mouse-x), root.main-y(self.absolute-position.y + self.mouse-y)); }
+                        }
+                        // ⌘ / Ctrl + wheel zooms this pane around the pointer: it becomes the active one
+                        // (Sol, 27/10: it scrolled); the wheel alone scrolls it as it is.
+                        scroll-event(e) => {
+                            if e.modifiers.control && e.delta-y != 0 && root.tab.split-title == "" {
+                                let ax = self.absolute-position.x + self.mouse-x - sv2.absolute-position.x;
+                                let ay = self.absolute-position.y + self.mouse-y - sv2.absolute-position.y;
+                                let sx = -sv2.content-x;
+                                ReaderBridge.split-focus(root.id);
+                                ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), ax / 1px, ay / 1px, sx / 1px);
+                                return accept;
+                            }
+                            reject
+                        }
+                        mouse-cursor: root.pane-panning || root.dyn-zooming ? grabbing : root.space-held || root.hand ? grab : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
+                    }
+                }
+                // The divider, dragged (PDF Expert's): a grip wider than its line, over both panes'
+                // edges; the share kept between a fifth and four fifths.
+                if root.split > 0: Rectangle {
+                    x: root.split == 1 ? pages-area.first-w - 3px : 0px;
+                    y: root.split == 2 ? pages-area.first-h - 3px : 0px;
+                    width: root.split == 1 ? 7px : parent.width;
+                    height: root.split == 2 ? 7px : parent.height;
+                    Rectangle {
+                        x: root.split == 1 ? 3px : 0px;
+                        y: root.split == 2 ? 3px : 0px;
+                        width: root.split == 1 ? 1px : parent.width;
+                        height: root.split == 2 ? 1px : parent.height;
+                        background: divider-ta.has-hover || divider-ta.pressed ? Theme.accent : Theme.sidebar-border;
+                    }
+                    divider-ta := TouchArea {
+                        mouse-cursor: root.split == 1 ? col-resize : row-resize;
+                        moved => {
+                            if self.pressed {
+                                ReaderBridge.split-frac(root.id, root.split == 1
+                                    ? (self.absolute-position.x + self.mouse-x - pages-area.absolute-position.x) / pages-area.width
+                                    : (self.absolute-position.y + self.mouse-y - pages-area.absolute-position.y) / pages-area.height);
+                            }
+                        }
+                    }
+                }
+                // The other document's name, at the other pane's top left.
+                if root.split > 0 && root.tab.split-title != "": Rectangle {
+                    x: sv2.x + 12px;
+                    y: sv2.y + 8px;
+                    width: min(split-name.preferred-width + 20px, sv2.width / 2);
+                    height: 26px;
+                    border-radius: 13px;
+                    background: Theme.toast-bg;
+                    split-name := Text { x: 10px; width: parent.width - 20px; text: root.tab.split-title; font-size: Theme.fs-caption; color: Theme.on-toast; overflow: elide; vertical-alignment: center; }
+                }
+                // The other pane's own buttons: Sync scroll, Close.
+                if root.split > 0: Rectangle {
+                    x: sv2.x + sv2.width - self.width - 20px;
+                    y: sv2.y + 8px;
+                    width: split-bar.preferred-width;
+                    height: 26px;
+                    split-bar := HorizontalLayout {
+                        spacing: 4px;
+                        SmallButton { text: root.tab.split-sync ? "✓ Sync scroll and zoom" : "Sync scroll and zoom"; clicked => { ReaderBridge.split-sync(root.id); keys.focus(); } }
+                        SmallButton { text: "Close"; clicked => { ReaderBridge.split-view(root.id, 0); keys.focus(); } }
+                    }
+                }
+                // The hand tool in use, and how to leave it.
+                if root.hand: Rectangle {
+                    y: parent.height - 44px;
+                    x: (parent.width - self.width) / 2;
+                    width: hand-tip.preferred-width + 24px;
+                    height: 28px;
+                    border-radius: 14px;
+                    background: Theme.info-bg;
+                    hand-tip := Text {
+                        text: "Hand tool: drag to move, ⌥ drag to zoom · ⇧H or Escape to leave";
+                        font-size: Theme.fs-caption;
+                        color: Theme.info;
+                    }
+                }
                 // Full screen: the page comes in with its transition (Acrobat's Page Transitions): a
                 // curtain of the window's background drawn back, faded, across or from the middle.
-                if root.bare && root.tab.reader.page-effect > 0: Rectangle {
+                if root.bare && root.tab.reader.page-effect > 0: fx := Rectangle {
                     property <int> page: root.tab.viewer-current;
-                    property <float> left: 0;
-                    changed page => { self.left = 1; animate-in.running = true; }
+                    property <int> last: root.tab.viewer-current;
+                    property <float> left: root.effect-left;
+                    property <int> kind: root.tab.reader.page-effect;
+                    changed page => { root.effect-from = self.last; self.last = self.page; root.effect-left = 1; animate-in.running = true; }
                     animate-in := Timer {
                         interval: 16ms;
                         running: false;
                         triggered => {
-                            parent.left = max(0, parent.left - 0.016 / max(0.05, root.tab.reader.page-effect-seconds));
-                            if parent.left <= 0 { self.running = false; }
+                            root.effect-left = max(0, root.effect-left - 0.016 / max(0.05, root.tab.reader.page-effect-seconds));
+                            if root.effect-left <= 0 { self.running = false; }
                         }
                     }
-                    x: sv.x + (root.tab.reader.page-effect == 2 ? sv.width * (1 - self.left) : root.tab.reader.page-effect == 3 ? sv.width * (1 - self.left) / 2 : 0px);
+                    x: sv.x;
                     y: sv.y;
-                    width: root.tab.reader.page-effect == 1 ? sv.width : root.tab.reader.page-effect == 3 ? sv.width * self.left : sv.width * self.left;
+                    width: sv.width;
                     height: sv.height;
-                    background: Theme.content-bg;
-                    opacity: root.tab.reader.page-effect == 1 ? self.left : 1;
+                    // Fade: the window's background over the page, fading out.
+                    if fx.kind == 1: Rectangle { background: Theme.content-bg; opacity: fx.left; }
+                    // Wipe: drawn back left to right.
+                    if fx.kind == 2: Rectangle { x: parent.width * (1 - fx.left); width: parent.width * fx.left; background: Theme.content-bg; }
+                    // Split: two halves drawn back from the middle.
+                    if fx.kind == 3: Rectangle { x: parent.width * (1 - fx.left) / 2; width: parent.width * fx.left; background: Theme.content-bg; }
+                    // Box: a box opening from the middle.
+                    if fx.kind == 4: Rectangle {
+                        Rectangle { height: parent.height * fx.left / 2; y: 0; background: Theme.content-bg; }
+                        Rectangle { height: parent.height * fx.left / 2; y: parent.height - self.height; background: Theme.content-bg; }
+                        Rectangle { width: parent.width * fx.left / 2; x: 0; background: Theme.content-bg; }
+                        Rectangle { width: parent.width * fx.left / 2; x: parent.width - self.width; background: Theme.content-bg; }
+                    }
+                    // Blinds: ten slats closing up together.
+                    if fx.kind == 5: Rectangle {
+                        for k in 10: Rectangle {
+                            y: parent.height * k / 10;
+                            height: parent.height / 10 * fx.left;
+                            background: Theme.content-bg;
+                        }
+                    }
+                    // Dissolve: squares going in a scattered order; Glitter: in a sweep from the left,
+                    // scattered a little.
+                    if fx.kind == 6 || fx.kind == 7: Rectangle {
+                        for k in 192: Rectangle {
+                            property <int> across: Math.mod(k, 16);
+                            property <int> down: Math.floor(k / 16);
+                            property <float> scatter: Math.mod(k * 67 + 29, 192) / 192;
+                            property <float> at: fx.kind == 6 ? scatter : (self.across + self.down / 3) / 20 * 0.8 + scatter * 0.2;
+                            x: parent.width * self.across / 16;
+                            y: parent.height * self.down / 12;
+                            width: parent.width / 16 + 1px;
+                            height: parent.height / 12 + 1px;
+                            background: Theme.content-bg;
+                            visible: fx.left > self.at;
+                        }
+                    }
                 }
                 // Reflow (Acrobat's): the page in view's text on the window's width, at a size of its
                 // own; ‹ › turn pages, A− A+ change the size.
@@ -735,9 +1223,12 @@ export component ReaderScreen inherits Rectangle {
                 // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
                 // pages never move when a tool is picked.
                 if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
-                    x: 12px;
+                    // Right to left it floats at the top right of the pages, at its full width: when it
+                    // is wider than the pages, the pages' clip cuts its far (left) end, as left to right
+                    // cuts its right one (a reversed flexbox too narrow would overflow on the right).
+                    x: PlatformBridge.rtl ? parent.width - self.width - 12px : 12px;
                     y: 8px;
-                    width: min(parent.width - 24px, self.bar-width);
+                    width: PlatformBridge.rtl ? self.bar-width : min(parent.width - 24px, self.bar-width);
                     tab: root.tab;
                     id: root.id;
                     light-colours: root.light-colours;
@@ -771,6 +1262,26 @@ export component ReaderScreen inherits Rectangle {
     }
 
     // The signature pad.
+    if root.tab.reader.signature-manager-open: SignatureManagerSheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.policy-open: SecurityPolicySheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.catalog-open: CatalogSheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.ocr-review-open: OcrReviewPanel {
+        x: parent.width - self.width;
+        y: 46px;
+        width: min(360px, parent.width - 24px);
+        height: parent.height - self.y;
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
     if root.tab.reader.sign-open: SignatureSheet {
         tab: root.tab;
         id: root.id;
@@ -789,7 +1300,21 @@ export component ReaderScreen inherits Rectangle {
         id: root.id;
         focus-pages => { keys.focus(); }
     }
+    if root.tab.reader.help-open: HelpSheet {
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
     if root.tab.reader.voices-open: VoicesSheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.production-open: ProductionSheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.preflight-open: PreflightSheet {
         tab: root.tab;
         id: root.id;
         focus-pages => { keys.focus(); }
@@ -833,7 +1358,8 @@ export component ReaderScreen inherits Rectangle {
         height: 0;
         // A Space let go while the keyboard was elsewhere never arrives: no hand left stuck.
         changed has-focus => {
-            if !self.has-focus { root.space-held = false; root.panned = false; root.panning = false; }
+            // The same for a drag with the hand tool's ⌥ zoom: no zoom left following a button not held.
+            if !self.has-focus { root.space-held = false; root.panned = false; root.panning = false; root.dyn-zooming = false; root.pane-panning = false; }
         }
         // Space: held, a drag pans; let go without a drag, it turns the page (see key-pressed).
         key-released(e) => {
@@ -847,27 +1373,33 @@ export component ReaderScreen inherits Rectangle {
         }
         key-pressed(e) => {
             if e.modifiers.control {
+                // The keys below that are also a menu command's (src/platform.rs COMMANDS) answer only
+                // while that command keeps its own keys: given new ones in Preferences, the old stop
+                // (`rebound[i]`; the menu bar takes the keys first anyway, these catch the variants).
                 // ⌘K: link the selected text (as in Word, Pages and PDF Expert).
                 if e.text == "k" && root.tab.reader.has-selection { ReaderBridge.link-selection(root.id); return accept; }
+                // ⌘/: the keyboard shortcuts (PDF Expert's).
+                if e.text == "/" && !PlatformBridge.rebound[38] /* shortcuts */ { ReaderBridge.show-help(root.id, true); return accept; }
                 // Acrobat's Rotate View: ⇧⌘+ clockwise, ⇧⌘− back.
-                if e.modifiers.shift && (e.text == "+" || e.text == "=") { ReaderBridge.rotate-view(root.id, 1); return accept; }
-                if e.modifiers.shift && (e.text == "_" || e.text == "-") { ReaderBridge.rotate-view(root.id, -1); return accept; }
-                if e.text == "+" || e.text == "=" { ViewerBridge.zoom-step(root.id, 1); return accept; }
-                if e.text == "-" { ViewerBridge.zoom-step(root.id, -1); return accept; }
+                if e.modifiers.shift && (e.text == "+" || e.text == "=") && !PlatformBridge.rebound[23] /* rotate-right */ { ReaderBridge.rotate-view(root.id, 1); return accept; }
+                if e.modifiers.shift && (e.text == "_" || e.text == "-") && !PlatformBridge.rebound[24] /* rotate-left */ { ReaderBridge.rotate-view(root.id, -1); return accept; }
+                if (e.text == "+" || e.text == "=") && !PlatformBridge.rebound[16] /* zoom-in */ { ViewerBridge.zoom-step(root.id, 1); return accept; }
+                if e.text == "-" && !PlatformBridge.rebound[17] /* zoom-out */ { ViewerBridge.zoom-step(root.id, -1); return accept; }
                 // PDF Expert's shortcuts: ⌘0 100 %, ⌘9 fit width, ⌘8 fit page, ⌃⌘F full screen,
                 // ⇧⌘[ ⇧⌘] previous / next tab, ⌥⌘G go to page, ⌥⌘0 left panel.
-                if e.text == "0" && e.modifiers.alt { ReaderBridge.toggle-panel(root.id); return accept; }
+                if e.text == "0" && e.modifiers.alt && !PlatformBridge.rebound[21] /* panel */ { ReaderBridge.toggle-panel(root.id); return accept; }
                 // ⌥⌘2: one column → two pages → cover alone (⌥2 types ™ on a Mac keyboard).
-                if (e.text == "2" || e.text == "™") && e.modifiers.alt { ReaderBridge.cycle-spread(root.id); return accept; }
-                if e.text == "0" { ReaderBridge.zoom-fit(root.id, 2); return accept; }
-                if e.text == "9" { ReaderBridge.zoom-fit(root.id, 0); return accept; }
-                if e.text == "8" { ReaderBridge.zoom-fit(root.id, 1); return accept; }
-                if (e.text == "f" || e.text == "F") && e.modifiers.meta { root.full-screen(!root.is-full-screen); return accept; }
-                if (e.text == "g" || e.text == "©") && e.modifiers.alt { toolbar.focus-page-field(); return accept; }
-                if (e.text == "[" || e.text == "{") && e.modifiers.shift { root.switch-tab(-1); return accept; }
-                if (e.text == "]" || e.text == "}") && e.modifiers.shift { root.switch-tab(1); return accept; }
-                if e.text == "f" { toolbar.focus-search(); return accept; }
-                if e.text == "g" || e.text == "G" { ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
+                if (e.text == "2" || e.text == "™") && e.modifiers.alt && !PlatformBridge.rebound[22] /* two-pages */ { ReaderBridge.cycle-spread(root.id); return accept; }
+                if e.text == "0" && !PlatformBridge.rebound[18] /* actual-size */ { ReaderBridge.zoom-fit(root.id, 2); return accept; }
+                if e.text == "9" && !PlatformBridge.rebound[20] /* fit-width */ { ReaderBridge.zoom-fit(root.id, 0); return accept; }
+                if e.text == "8" && !PlatformBridge.rebound[19] /* fit-page */ { ReaderBridge.zoom-fit(root.id, 1); return accept; }
+                if (e.text == "f" || e.text == "F") && e.modifiers.meta && !PlatformBridge.rebound[25] /* full-screen */ { root.full-screen(!root.is-full-screen); return accept; }
+                if (e.text == "g" || e.text == "©") && e.modifiers.alt && !PlatformBridge.rebound[31] /* go-to-page */ { toolbar.focus-page-field(); return accept; }
+                if (e.text == "[" || e.text == "{") && e.modifiers.shift && !PlatformBridge.rebound[36] /* previous-tab */ { root.switch-tab(-1); return accept; }
+                if (e.text == "]" || e.text == "}") && e.modifiers.shift && !PlatformBridge.rebound[35] /* next-tab */ { root.switch-tab(1); return accept; }
+                if e.text == "j" { JavaScriptBridge.open(root.id); return accept; }
+                if e.text == "f" && !PlatformBridge.rebound[11] /* find */ { toolbar.focus-search(); return accept; }
+                if (e.text == "g" || e.text == "G") && (e.modifiers.shift ? !PlatformBridge.rebound[13] /* find-previous */ : !PlatformBridge.rebound[12] /* find-next */) { ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
                 if e.text == "c" && root.tab.reader.has-selection {
                     clip.text = root.tab.reader.selected-text;
                     clip.select-all();
@@ -891,28 +1423,28 @@ export component ReaderScreen inherits Rectangle {
                 }
                 if e.text == "a" { ReaderBridge.select-all(root.id); return accept; }
                 if e.text == "v" { ReaderBridge.paste(root.id); return accept; }
-                if e.text == "[" { ReaderBridge.history(root.id, -1); return accept; }
-                if e.text == "]" { ReaderBridge.history(root.id, 1); return accept; }
+                if e.text == "[" && !PlatformBridge.rebound[32] /* back */ { ReaderBridge.history(root.id, -1); return accept; }
+                if e.text == "]" && !PlatformBridge.rebound[33] /* forward */ { ReaderBridge.history(root.id, 1); return accept; }
                 // With ⇧ the letter comes upper case.
                 if (e.text == "z" || e.text == "Z") && e.modifiers.shift { ReaderBridge.redo(root.id); return accept; }
                 if e.text == "z" { ReaderBridge.undo(root.id); return accept; }
                 if e.text == "y" { ReaderBridge.redo(root.id); return accept; }
-                if (e.text == "s" || e.text == "S") && e.modifiers.shift { ReaderBridge.save-as(root.id); return accept; }
+                if (e.text == "s" || e.text == "S") && e.modifiers.shift && !PlatformBridge.rebound[3] /* save-as */ { ReaderBridge.save-as(root.id); return accept; }
                 // ⌥ on a Mac turns w into ∑.
                 if (e.text == "w" && e.modifiers.alt) || e.text == "∑" { ReaderBridge.close-all(root.id); return accept; }
-                if e.text == "w" { ReaderBridge.close(root.id); return accept; }
-                if e.text == "s" { ReaderBridge.save(root.id); return accept; }
-                if e.text == "P" || (e.text == "p" && e.modifiers.shift) { root.present(); return accept; }
+                if e.text == "w" && !PlatformBridge.rebound[6] /* close */ { ReaderBridge.close(root.id); return accept; }
+                if e.text == "s" && !PlatformBridge.rebound[2] /* save */ { ReaderBridge.save(root.id); return accept; }
+                if (e.text == "P" || (e.text == "p" && e.modifiers.shift)) && !PlatformBridge.rebound[26] /* present */ { root.present(); return accept; }
                 if e.text == "L" || (e.text == "l" && e.modifiers.shift) { ReaderBridge.toggle-links(root.id); return accept; }
-                if e.text == "p" { ReaderBridge.print-open(root.id); return accept; }
+                if e.text == "p" && !PlatformBridge.rebound[4] /* print */ { ReaderBridge.print-open(root.id); return accept; }
                 if (e.text == "e" || e.text == "E") && e.modifiers.shift && root.tab.reader.has-selection {
                     // The field and the results show again if the toolbar was hidden (⇧T).
                     root.bare = false;
                     toolbar.search-for(root.tab.reader.selected-text);
                     return accept;
                 }
-                if e.text == "d" { ReaderBridge.props-open(root.id); return accept; }
-                if e.text == "," { root.open-preferences(); return accept; }
+                if e.text == "d" && !PlatformBridge.rebound[5] /* properties */ { ReaderBridge.props-open(root.id); return accept; }
+                if e.text == "," && !PlatformBridge.rebound[15] /* preferences */ { root.open-preferences(); return accept; }
                 if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
                 return reject;
@@ -926,9 +1458,12 @@ export component ReaderScreen inherits Rectangle {
             if root.presenting && (e.text == " " || e.text == Key.RightArrow || e.text == Key.DownArrow || e.text == Key.PageDown) { ReaderBridge.page-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
             if root.presenting && (e.text == Key.LeftArrow || e.text == Key.UpArrow || e.text == Key.PageUp) { ReaderBridge.page-step(root.id, -1); return accept; }
             if e.text == Key.Escape && root.bare { root.bare = false; return accept; }
+            if e.text == Key.Escape && root.hand { root.hand = false; return accept; }
             if e.text == Key.Escape { ReaderBridge.escape(root.id); return accept; }
             // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).
             if e.text == "T" || (e.text == "t" && e.modifiers.shift) { root.bare = !root.bare; return accept; }
+            // ⇧H: the hand tool (PDF Expert's Pan & Zoom; H alone is Highlight).
+            if e.text == "H" || (e.text == "h" && e.modifiers.shift) { root.hand = !root.hand; return accept; }
             if e.text == Key.Delete || e.text == Key.Backspace { ReaderBridge.delete-selected(root.id); return accept; }
             if root.tab.reader.page-at-a-time && (e.text == Key.UpArrow || e.text == Key.DownArrow) { ReaderBridge.page-step(root.id, e.text == Key.UpArrow ? -1 : 1); return accept; }
             if root.tab.reader.auto-scroll && e.text == Key.UpArrow { root.scroll-speed = max(1, root.scroll-speed - 1); return accept; }
@@ -960,23 +1495,15 @@ export component ReaderScreen inherits Rectangle {
             if e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
             if e.text == Key.DownArrow { ReaderBridge.scroll-by(root.id, 48px); return accept; }
             if e.text == Key.UpArrow { ReaderBridge.scroll-by(root.id, -48px); return accept; }
-            if e.text == "v" { ReaderBridge.set-tool(root.id, 0); return accept; }
-            if e.text == "h" { ReaderBridge.set-tool(root.id, 1); return accept; }
-            if e.text == "u" { ReaderBridge.set-tool(root.id, 2); return accept; }
-            if e.text == "k" { ReaderBridge.set-tool(root.id, 3); return accept; }
-            if e.text == "n" { ReaderBridge.set-tool(root.id, 4); return accept; }
-            if e.text == "p" { ReaderBridge.set-tool(root.id, 5); return accept; }
-            if e.text == "r" { ReaderBridge.set-tool(root.id, 10); return accept; }
-            if e.text == "x" { ReaderBridge.set-tool(root.id, 11); return accept; }
-            if e.text == "m" { ReaderBridge.set-tool(root.id, 12); return accept; }
-            if e.text == "t" { ReaderBridge.set-tool(root.id, 6); return accept; }
-            if e.text == "e" { ReaderBridge.set-tool(root.id, 7); return accept; }
-            if e.text == "i" { ReaderBridge.set-tool(root.id, 8); return accept; }
-            if e.text == "s" { ReaderBridge.set-tool(root.id, 9); return accept; }
-            if e.text == "l" { ReaderBridge.set-tool(root.id, 13); return accept; }
-            if e.text == "f" { ReaderBridge.set-tool(root.id, 14); return accept; }
-            // Acrobat's Marquee Zoom: the next box dragged fills the view.
-            if e.text == "z" { ReaderBridge.zoom-area(root.id); return accept; }
+            // ?: the keyboard shortcuts.
+            if e.text == "?" { ReaderBridge.show-help(root.id, true); return accept; }
+            // The tools' letters (V select, H highlight… Z Marquee Zoom; Acrobat's and PDF Expert's),
+            // the user's own from Preferences ▸ Keyboard shortcuts (src/platform.rs TOOLS).
+            if !e.modifiers.alt && !e.modifiers.meta {
+                let tool = PlatformBridge.tool-for-key(e.text);
+                if tool == 15 { ReaderBridge.zoom-area(root.id); return accept; }
+                if tool >= 0 { ReaderBridge.set-tool(root.id, tool); return accept; }
+            }
             reject
         }
     }

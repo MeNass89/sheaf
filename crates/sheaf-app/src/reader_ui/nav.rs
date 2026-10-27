@@ -25,7 +25,8 @@ pub fn remember_position(tab_id: i32) {
             2 => (3, (v.viewer.actual_percent(v.current()) * 10.0).round() as u32),
             m => (m, v.viewer.zoom()),
         };
-        Some((r.path.clone(), v.current(), fit, zoom, spread | (v.viewer.rtl() as u8) << 4))
+        // Pages across rides on bit 5.
+        Some((r.path.clone(), v.current(), fit, zoom, spread | (v.viewer.rtl() as u8) << 4 | (v.viewer.horizontal() as u8) << 5))
     }) {
         crate::home::remember_page(&path, page);
         crate::home::remember_view(&path, fit, zoom, spread);
@@ -126,22 +127,33 @@ pub fn page_step(tab_id: i32, step: i32) {
         match step {
             10 => v.show_page(n - 1, None),
             -10 => v.show_page(0, None),
+            // Pages across: Space and Page Down move a view's width across.
+            // Not in the page grid: it scrolls down, the setting kept for after (Sol, 27/10).
+            2 | -2 if v.viewer.across() => {
+                let w = v.viewer.view_width() * 0.9;
+                v.scroll_x = Some((v.left + if step > 0 { w } else { -w }).clamp(0.0, v.viewer.max_scroll_x()));
+                v.scroll = v.top;
+                v.scroll_seq += 1;
+            }
             2 | -2 => {
                 let h = v.height * 0.9;
                 v.scroll = (v.top + if step > 0 { h } else { -h }).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
+                // Down only: an earlier jump's horizontal scroll is not put back (pages across).
+                v.scroll_x = None;
                 v.scroll_seq += 1;
             }
             s => {
                 // From the top of the current page: ← goes to its start when it is scrolled into.
-                // A step is a row: with two pages side by side, → goes to the next pair.
-                let row_y = |i: usize| v.viewer.page_rect(i)[1];
-                let top_of = row_y(cur) - viewer::PAGE_GAP;
-                let target = if s < 0 && v.top > top_of + 4.0 {
+                // A step is a row: with two pages side by side, → goes to the next pair (across
+                // too, where every page shares the strip's top).
+                let row = |i: usize| v.viewer.row_of(i);
+                let top_of = v.viewer.page_rect(cur)[1] - viewer::PAGE_GAP;
+                let target = if s < 0 && !v.viewer.across() && v.top > top_of + 4.0 {
                     cur
                 } else if s > 0 {
-                    (cur + 1..n).find(|&i| row_y(i) > row_y(cur)).unwrap_or(n - 1)
+                    (cur + 1..n).find(|&i| row(i) > row(cur)).unwrap_or(n - 1)
                 } else {
-                    (0..cur).rev().find(|&i| row_y(i) < row_y(cur)).map(|i| (0..=i).find(|&j| row_y(j) == row_y(i)).unwrap_or(i)).unwrap_or(0)
+                    (0..cur).rev().find(|&i| row(i) < row(cur)).map(|i| (0..=i).find(|&j| row(j) == row(i)).unwrap_or(i)).unwrap_or(0)
                 };
                 v.show_page(target, None);
             }
@@ -152,6 +164,7 @@ pub fn page_step(tab_id: i32, step: i32) {
 pub fn scroll_by(tab_id: i32, dy: f32) {
     update(tab_id, |_, v| {
         v.scroll = (v.top + dy as f64).clamp(0.0, (v.viewer.content_height() - v.height).max(0.0));
+        v.scroll_x = None;
         v.scroll_seq += 1;
     });
 }
@@ -258,6 +271,28 @@ pub fn toggle_rtl(ui: &AppWindow, tab_id: i32) {
         let cur = v.current();
         let rtl = !v.viewer.rtl();
         v.viewer.set_rtl(rtl);
+        v.show_page(cur, None);
+    });
+    if done.is_some() {
+        crate::viewer_ui::request(ui, tab_id);
+    }
+}
+
+/// More ▸ More tools ▸ Scroll pages across (PDF Expert's View ▸ Horizontal scrolling): the pages in
+/// one strip, left to right (right to left with Right to left), a page fitting the view's height as
+/// PDF Expert shows them; again, back down a column. The page in view stays in view.
+pub fn toggle_horizontal(ui: &AppWindow, tab_id: i32) {
+    let done = update(tab_id, |r, v| {
+        let cur = v.current();
+        let on = !v.viewer.horizontal();
+        v.viewer.set_horizontal(on);
+        if on {
+            r.zoom_mode = 1;
+            v.pending_fit = false;
+            v.pending_actual = None;
+            let z = v.viewer.fit_page_zoom(v.height, cur..cur + 1);
+            v.viewer.set_zoom(z);
+        }
         v.show_page(cur, None);
     });
     if done.is_some() {

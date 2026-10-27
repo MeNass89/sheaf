@@ -1,8 +1,10 @@
+import { PlatformBridge } from "../platform.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Segment } from "../widgets/radio-card.slint";
 import { SecondaryButton } from "dialogs.slint";
 import { TextField } from "../widgets/text-field.slint";
+import { SpellingSection, KeyboardSection, InterfaceSection } from "preferences-platform.slint";
 
 // White card with a section title.
 // A round colour to pick, ringed when chosen.
@@ -36,6 +38,7 @@ component Section inherits Rectangle {
         padding: 18px;
         spacing: 12px;
         Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: root.title;
             font-size: Theme.fs-body-large;
             font-weight: Theme.weight-demibold;
@@ -50,10 +53,13 @@ component Radio inherits Rectangle {
     in property <bool> selected;
     callback clicked();
     height: 26px;
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
         spacing: 10px;
         Rectangle {
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: CrossAxisAlignment.center;
             width: 16px;
             height: 16px;
             border-radius: 8px;
@@ -68,6 +74,7 @@ component Radio inherits Rectangle {
             }
         }
         Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: root.text;
             font-size: Theme.fs-body;
             color: Theme.text;
@@ -144,6 +151,16 @@ export component PreferencesScreen inherits Rectangle {
     callback set-stamp-date(int);
     in property <bool> metric;
     callback set-metric(bool);
+    in property <int> guide-colour;
+    callback set-guide-colour(int);
+    in property <bool> gpu;
+    callback set-gpu(bool);
+    in property <bool> show-boxes;
+    in property <bool> physical-numbers;
+    callback set-page-display(int, bool);
+    in property <[string]> digital-ids;
+    in property <[string]> trusted-certs;
+    callback signature-prefs(int, int);
     background: Theme.content-bg;
 
     scroll := ScrollView {
@@ -155,6 +172,7 @@ export component PreferencesScreen inherits Rectangle {
             spacing: 16px;
             alignment: start;
             Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 height: 36px;
                 text: "Preferences";
                 font-size: Theme.fs-page-title;
@@ -164,7 +182,9 @@ export component PreferencesScreen inherits Rectangle {
             }
             Section {
                 title: "Appearance";
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
                     for label[i] in ["System", "Light", "Dark"]: Segment {
@@ -174,8 +194,10 @@ export component PreferencesScreen inherits Rectangle {
                         clicked => { root.set-theme(i); }
                     }
                 }
-                Text { text: "Accent colour"; font-size: Theme.fs-label; color: Theme.text-secondary; }
-                HorizontalLayout {
+                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Accent colour"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 10px;
                     for c[i] in [#E5322D, #1F6FEB, #1A7F37, #8250DF, #D9730D, #57606A]: Swatch {
@@ -184,8 +206,10 @@ export component PreferencesScreen inherits Rectangle {
                         clicked => { root.set-accent(i); }
                     }
                 }
-                Text { text: "Background behind pages"; font-size: Theme.fs-label; color: Theme.text-secondary; }
-                HorizontalLayout {
+                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Background behind pages"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 10px;
                     for c[i] in [Theme.content-bg, #E4E4E7, #9A9AA0, #2B2B2E, #000000]: Swatch {
@@ -198,7 +222,9 @@ export component PreferencesScreen inherits Rectangle {
             // Acrobat's Page Display ▸ Rendering: smoothing off draws sharper, rougher edges.
             Section {
                 title: "Rendering";
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
                     for label[i] in ["Smooth text", "Smooth line art", "Smooth images"]: Segment {
@@ -207,6 +233,24 @@ export component PreferencesScreen inherits Rectangle {
                         selected: root.smooth[i];
                         clicked => { root.set-smoothing(i, !root.smooth[i]); }
                     }
+                }
+                // Acrobat's Page Display: the boxes a printer works with, and how pages are numbered.
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: start;
+                    spacing: 8px;
+                    Segment { width: 214px; text: "Show art, trim and bleed boxes"; selected: root.show-boxes; clicked => { root.set-page-display(0, !root.show-boxes); } }
+                    Segment { width: 214px; text: "Page numbers as printed (iv)"; selected: !root.physical-numbers; clicked => { root.set-page-display(1, !root.physical-numbers); } }
+                }
+                // Acrobat's Use 2D GPU acceleration.
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: start;
+                    spacing: 8px;
+                    Segment { width: 214px; text: "Use the graphics card"; selected: root.gpu; clicked => { root.set-gpu(true); } }
+                    Segment { width: 214px; text: "Draw with the processor"; selected: !root.gpu; clicked => { root.set-gpu(false); } }
                 }
             }
             Section {
@@ -218,6 +262,7 @@ export component PreferencesScreen inherits Rectangle {
                     changed text => { root.set-author(self.text); }
                 }
                 Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                     text: "Signs your comments, and is the author of the PDFs Sheaf makes from images and documents.";
                     font-size: Theme.fs-caption;
                     color: Theme.text-muted;
@@ -236,7 +281,10 @@ export component PreferencesScreen inherits Rectangle {
                     selected: root.output-mode == 1;
                     clicked => { root.set-output(1); }
                 }
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: LayoutAlignment.stretch;
                     spacing: 12px;
                     Radio {
                         horizontal-stretch: 1;
@@ -252,9 +300,13 @@ export component PreferencesScreen inherits Rectangle {
             }
             Section {
                 title: "After processing";
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: LayoutAlignment.stretch;
                     spacing: 12px;
                     Text {
+                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                         horizontal-stretch: 1;
                         text: "Open the output folder when done";
                         font-size: Theme.fs-body;
@@ -269,16 +321,21 @@ export component PreferencesScreen inherits Rectangle {
             }
             Section {
                 title: "Documents";
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     Segment { width: 260px; text: "Open PDFs with Sheaf by default"; clicked => { root.make-default(); } }
                 }
                 Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                     text: "Open new documents at";
                     font-size: Theme.fs-body;
                     color: Theme.text;
                 }
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
                     for label[i] in ["Fit width", "Fit page", "Actual size"]: Segment {
@@ -288,7 +345,9 @@ export component PreferencesScreen inherits Rectangle {
                         clicked => { root.set-default-zoom(i); }
                     }
                 }
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
                     for label[i] in ["One page", "Two pages", "Two, cover alone"]: Segment {
@@ -299,22 +358,28 @@ export component PreferencesScreen inherits Rectangle {
                     }
                 }
                 Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                     text: "Reopen documents";
                     font-size: Theme.fs-body;
                     color: Theme.text;
                 }
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
                     Segment { width: 180px; text: "Where I left off"; selected: !root.open-first-page; clicked => { root.set-open-first-page(false); } }
                     Segment { width: 180px; text: "On the first page"; selected: root.open-first-page; clicked => { root.set-open-first-page(true); } }
                 }
                 Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                     text: "Dated stamps write the time as";
                     font-size: Theme.fs-body;
                     color: Theme.text;
                 }
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
                     for label[i] in ["2:05 pm, Oct 25, 2026", "25/10/2026 14:05", "2026-10-25 14:05"]: Segment {
@@ -326,17 +391,70 @@ export component PreferencesScreen inherits Rectangle {
                 }
                 // Acrobat's Units & Guides: the rulers' units.
                 Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                     text: "Rulers measure in";
                     font-size: Theme.fs-body;
                     color: Theme.text;
                 }
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
                     Segment { width: 140px; text: "Inches"; selected: !root.metric; clicked => { root.set-metric(false); } }
                     Segment { width: 140px; text: "Centimetres"; selected: root.metric; clicked => { root.set-metric(true); } }
                 }
+                // Acrobat's Guide colour.
+                Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                    text: "Guides in";
+                    font-size: Theme.fs-body;
+                    color: Theme.text;
+                }
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: start;
+                    spacing: 8px;
+                    for c[k] in [{ name: "Cyan", col: #00A6D6 }, { name: "Magenta", col: #E0218A }, { name: "Green", col: #2EA043 }, { name: "Orange", col: #F08C00 }]: Segment {
+                        width: 100px;
+                        text: c.name;
+                        selected: root.guide-colour == k;
+                        clicked => { root.set-guide-colour(k); }
+                        Rectangle { x: 8px; y: (parent.height - 10px) / 2; width: 10px; height: 10px; border-radius: 5px; background: c.col; }
+                    }
+                }
             }
+            // Acrobat's Signatures ▸ Identities & Trusted Certificates.
+            Section {
+                title: "Signatures";
+                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Digital IDs signed with"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                if root.digital-ids.length == 0: Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "None yet: one picked to sign is kept here."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                for d[k] in root.digital-ids: FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: LayoutAlignment.stretch;
+                    spacing: 8px;
+                    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: d; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                    SecondaryButton { text: "Remove"; clicked => { root.signature-prefs(1, k); } }
+                }
+                FlexboxLayout { flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row; flex-wrap: FlexboxLayoutWrap.no-wrap; alignment: start; SecondaryButton { text: "Add a digital ID…"; clicked => { root.signature-prefs(0, 0); } } }
+                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Certificates trusted"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                if root.trusted-certs.length == 0: Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "None: a signature's certificate is trusted from Document properties, or added here."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+                for c[k] in root.trusted-certs: FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: LayoutAlignment.stretch;
+                    spacing: 8px;
+                    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: c; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                    SecondaryButton { text: "Remove"; clicked => { root.signature-prefs(3, k); } }
+                }
+                FlexboxLayout { flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row; flex-wrap: FlexboxLayoutWrap.no-wrap; alignment: start; SecondaryButton { text: "Trust a certificate…"; clicked => { root.signature-prefs(2, 0); } } }
+            }
+            // Spelling, keyboard shortcuts, tools shown, direction (preferences-platform.slint).
+            InterfaceSection {}
+            SpellingSection {}
+            KeyboardSection {}
         }
     }
 }

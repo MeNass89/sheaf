@@ -3,6 +3,57 @@ use sheaf_core::{office::*, OpdfError};
 use std::time::Duration;
 
 #[test]
+fn local_html_prints_on_the_chosen_paper_with_its_relative_picture() {
+    if find_soffice().is_none() {
+        eprintln!("skip: no LibreOffice");
+        return;
+    }
+    let t = tempfile::tempdir().unwrap();
+    let source = t.path().join("source folder");
+    std::fs::create_dir(&source).unwrap();
+    image::RgbImage::from_pixel(64, 64, image::Rgb([0, 0, 0])).save(source.join("picture.png")).unwrap();
+    let html = source.join("page.html");
+    std::fs::write(&html, "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><p>Local HTML paper</p><img src=\"picture.png\" width=\"64\" height=\"64\"></body></html>").unwrap();
+    for landscape in [false, true] {
+        let out = sheaf_core::html::to_pdf(&html, sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape, margin: 18.0, long_page: false }, &t.path().join(format!("page-{landscape}.pdf"))).unwrap();
+        let doc = lopdf::Document::load(&out).unwrap();
+        let id = doc.get_pages()[&1];
+        let media = doc.get_dictionary(id).unwrap().get(b"MediaBox").unwrap().as_array().unwrap();
+        let number = |i: usize| media[i].as_float().unwrap() as f64;
+        let (w, h) = if landscape { (792.0, 612.0) } else { (612.0, 792.0) };
+        assert!((number(2) - number(0) - w).abs() < 1.0 && (number(3) - number(1) - h).abs() < 1.0);
+        assert!(common::page_texts(&out)[0].contains("Local HTML paper"));
+        assert!(doc.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Subtype").is_ok_and(|s| s.as_name().is_ok_and(|n| n == b"Image")))));
+        common::qpdf_clean(&out);
+    }
+}
+
+#[test]
+fn markdown_and_mail_use_the_chosen_html_paper_and_keep_attachments() {
+    if find_soffice().is_none() {
+        eprintln!("skip: no LibreOffice");
+        return;
+    }
+    let t = tempfile::tempdir().unwrap();
+    let md = t.path().join("notes.md");
+    std::fs::write(&md, "# Paper settings\n\nMarkdown on Letter paper.\n").unwrap();
+    let mail = t.path().join("mail.eml");
+    std::fs::write(&mail, "Subject: Paper settings\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nMail on Letter paper.\r\n--b\r\nContent-Disposition: attachment; filename=\"figures.csv\"\r\n\r\na,b\r\n--b--\r\n").unwrap();
+    for source in [&md, &mail] {
+        let out = sheaf_core::html::to_pdf(source, sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0, long_page: false }, &source.with_extension("pdf")).unwrap();
+        let doc = lopdf::Document::load(&out).unwrap();
+        let page = doc.get_dictionary(doc.get_pages()[&1]).unwrap();
+        let media = page.get(b"MediaBox").unwrap().as_array().unwrap();
+        assert!((media[2].as_float().unwrap() - media[0].as_float().unwrap() - 792.0).abs() < 1.0);
+        assert!((media[3].as_float().unwrap() - media[1].as_float().unwrap() - 612.0).abs() < 1.0);
+        assert!(common::page_texts(&out)[0].contains("Paper settings"));
+        if source == &mail {
+            assert!(std::fs::read(&out).unwrap().windows(11).any(|w| w == b"figures.csv"));
+        }
+    }
+}
+
+#[test]
 fn missing_soffice_is_reported() {
     let t = tempfile::tempdir().unwrap();
     let f = t.path().join("a.txt");
@@ -219,4 +270,63 @@ fn a_markdown_file_a_mail_and_postscript_become_pdfs() {
         let out = office_to_pdf(&ps, &t.path().join("page.pdf")).unwrap();
         assert!(common::page_texts(&out)[0].contains("PostScript page"));
     }
+}
+
+#[test]
+fn whole_sheet_export_keeps_outside_print_area_and_hidden_sheet_content() {
+    if find_soffice().is_none() { return; }
+    // LibreOffice without Calc (Ubuntu's libreoffice-writer-nogui) loads no workbook.
+    if !["/usr/lib/libreoffice/program/libsclo.so", "/Applications/LibreOffice.app/Contents/Frameworks/libsclo.dylib"].iter().any(|p| std::path::Path::new(p).exists()) {
+        eprintln!("skip: LibreOffice Calc is not installed");
+        return;
+    }
+    let t = tempfile::tempdir().unwrap();
+    let source = t.path().join("workbook.xlsx");
+    let mut book = rust_xlsxwriter::Workbook::new();
+    let sheet = book.add_worksheet();
+    sheet.write_string(0, 0, "InsidePrintArea").unwrap();
+    sheet.write_string(0, 20, "OutsidePrintArea").unwrap();
+    sheet.set_print_area(0, 0, 0, 0).unwrap();
+    let hidden = book.add_worksheet();
+    hidden.write_string(0, 0, "HiddenSheetContent").unwrap();
+    hidden.set_hidden(true);
+    book.save(&source).unwrap();
+    let original = std::fs::read(&source).unwrap();
+    let regular = office_to_pdf(&source, &t.path().join("saved-layout.pdf")).unwrap();
+    let regular_text = common::page_texts(&regular).join(" ");
+    assert!(regular_text.contains("InsidePrintArea"));
+    assert!(!regular_text.contains("OutsidePrintArea") && !regular_text.contains("HiddenSheetContent"));
+    let whole = spreadsheet_to_pdf(&source, &t.path().join("whole.pdf")).unwrap();
+    let text = common::page_texts(&whole);
+    assert_eq!(text.len(), 2);
+    assert!(text[0].contains("InsidePrintArea") && text[0].contains("OutsidePrintArea"));
+    assert!(text[1].contains("HiddenSheetContent"));
+    assert_eq!(std::fs::read(source).unwrap(), original);
+    common::qpdf_clean(&whole);
+}
+
+#[test]
+fn whole_sheet_export_does_not_apply_calc_settings_to_a_word_file() {
+    let t = tempfile::tempdir().unwrap();
+    let out = t.path().join("out.pdf");
+    assert!(matches!(spreadsheet_to_pdf(&t.path().join("file.docx"), &out), Err(OpdfError::Unsupported(_))));
+    assert!(!out.exists());
+}
+
+#[test]
+fn legacy_html_with_its_own_relative_base_keeps_its_text_and_local_picture() {
+    if find_soffice().is_none() { return; }
+    let t = tempfile::tempdir().unwrap();
+    let pages = t.path().join("pages");
+    let assets = t.path().join("assets");
+    std::fs::create_dir(&pages).unwrap();
+    std::fs::create_dir(&assets).unwrap();
+    image::RgbImage::from_pixel(40, 40, image::Rgb([0, 0, 0])).save(assets.join("picture.png")).unwrap();
+    let source = pages.join("legacy.html");
+    std::fs::write(&source, b"<html><head><meta charset=windows-1252><base href='../assets/'></head><body><p>caf\xe9 \x80</p><img src='picture.png'></body></html>").unwrap();
+    let out = sheaf_core::html::to_pdf(&source, sheaf_core::html::Options { paper: sheaf_core::html::Paper::A4, landscape: false, margin: 18.0, long_page: false }, &t.path().join("legacy.pdf")).unwrap();
+    assert!(common::page_texts(&out).join(" ").contains("café €"));
+    let pdf = lopdf::Document::load(&out).unwrap();
+    assert!(pdf.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Subtype").is_ok_and(|s| s.as_name().is_ok_and(|n| n == b"Image")))));
+    common::qpdf_clean(&out);
 }

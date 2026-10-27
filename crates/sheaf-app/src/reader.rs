@@ -180,6 +180,54 @@ pub fn bulleted(text: &str) -> String {
     text.lines().map(|l| if l.trim().is_empty() || l.starts_with("• ") { l.to_string() } else { format!("• {l}") }).collect::<Vec<_>>().join("\n")
 }
 
+/// Sheaf: `text` with the bullet [`bulleted`] puts at the start of each line taken away (a
+/// paragraph's list turned off).
+pub fn unbulleted(text: &str) -> String {
+    text.lines().map(|l| l.strip_prefix("• ").or_else(|| l.strip_prefix('•')).unwrap_or(l)).collect::<Vec<_>>().join("\n")
+}
+
+/// Sheaf: whether every line of `text` with words starts with a bullet (the format row's • lit
+/// for a bulleted paragraph opened).
+pub fn is_bulleted(text: &str) -> bool {
+    let mut lines = text.lines().filter(|l| !l.trim().is_empty()).peekable();
+    lines.peek().is_some() && lines.all(|l| l.trim_start().starts_with('•'))
+}
+
+/// Sheaf: a line's list number and its separator ("12. ", "3) "), if it starts with one.
+fn number_prefix(l: &str) -> Option<usize> {
+    let digits = l.chars().take_while(char::is_ascii_digit).count();
+    let rest = l.get(digits..)?;
+    (digits > 0 && digits <= 4 && (rest.starts_with(". ") || rest.starts_with(") "))).then_some(digits + 2)
+}
+
+/// Sheaf: text as a numbered list (Acrobat's Numbered list): each line not empty starts with its
+/// number ("1. ", "2. "…), counted again after the numbers it had.
+pub fn numbered(text: &str) -> String {
+    let mut n = 0;
+    text.lines()
+        .map(|l| {
+            if l.trim().is_empty() {
+                return l.to_string();
+            }
+            n += 1;
+            let bare = number_prefix(l).map_or(l, |k| &l[k..]);
+            format!("{n}. {bare}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Sheaf: `text` without the numbers [`numbered`] puts at the start of its lines.
+pub fn unnumbered(text: &str) -> String {
+    text.lines().map(|l| number_prefix(l).map_or(l, |k| &l[k..])).collect::<Vec<_>>().join("\n")
+}
+
+/// Sheaf: whether every line of `text` with words starts with a list number.
+pub fn is_numbered(text: &str) -> bool {
+    let mut lines = text.lines().map(str::trim_start).filter(|l| !l.is_empty()).peekable();
+    lines.peek().is_some() && lines.all(|l| number_prefix(l).is_some())
+}
+
 /// A point of a page shown `size` (`w`, `h`; view space, y down), where it lies once the page is
 /// turned `quarters` quarter turns clockwise (Rotate view).
 pub fn turned_point(p: [f32; 2], size: (f32, f32), quarters: u16) -> [f32; 2] {
@@ -283,13 +331,25 @@ pub fn objects_in(rects: &[[f64; 4]], m: [f64; 4]) -> Vec<usize> {
 /// After a move, the objects now where the picked ones went: for each of `moved` (their boxes
 /// moved by the offset), the one of `rects` (the page read again) overlapping it most, if by half.
 pub fn picked_again(moved: &[[f64; 4]], rects: &[[f64; 4]]) -> Vec<usize> {
+    picked_again_from(moved, rects, false)
+}
+
+/// [`picked_again`], an object overlapping as much as another (a twin at the same place) taken
+/// the first in drawing order when `earliest` (after Send backward or to back, the object picked
+/// is now drawn before its twin), else the last (Sol, 27/10: the twin was picked instead).
+pub fn picked_again_from(moved: &[[f64; 4]], rects: &[[f64; 4]], earliest: bool) -> Vec<usize> {
     let overlap = |a: &[f64; 4], b: &[f64; 4]| {
         let (w, h) = (a[2].min(b[2]) - a[0].max(b[0]), a[3].min(b[3]) - a[1].max(b[1]));
         if w <= 0.0 || h <= 0.0 { 0.0 } else { w * h / ((a[2] - a[0]) * (a[3] - a[1])).max((b[2] - b[0]) * (b[3] - b[1])).max(1e-9) }
     };
     moved
         .iter()
-        .filter_map(|m| rects.iter().enumerate().map(|(i, r)| (i, overlap(m, r))).filter(|(_, o)| *o >= 0.5).max_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, _)| i))
+        .filter_map(|m| {
+            let found = rects.iter().enumerate().map(|(i, r)| (i, overlap(m, r))).filter(|(_, o)| *o >= 0.5);
+            // `max_by` keeps the last of equals; the first is kept by comparing the other way.
+            let best = if earliest { found.min_by(|a, b| b.1.total_cmp(&a.1)) } else { found.max_by(|a, b| a.1.total_cmp(&b.1)) };
+            best.map(|(i, _)| i)
+        })
         .collect()
 }
 
@@ -660,6 +720,27 @@ pub fn file_link_path(uri: &str, doc_dir: &std::path::Path) -> Option<std::path:
     (!path.as_os_str().is_empty()).then(|| if path.is_absolute() { path } else { doc_dir.join(path) })
 }
 
+/// The guides' colours (Preferences ▸ Guides): cyan (Acrobat's), magenta, green, orange.
+pub const GUIDE_COLOURS: [[u8; 3]; 4] = [[0x00, 0xA6, 0xD6], [0xE0, 0x21, 0x8A], [0x2E, 0xA0, 0x43], [0xF0, 0x8C, 0x00]];
+
+/// How full screen plays a page's transition (`/Trans /S`): 0 none (Replace), 1 Fade, 2 Wipe,
+/// 3 Split, 4 Box, 5 Blinds, 6 Dissolve, 7 Glitter, 8 Cover or Fly, 9 Push, 10 Uncover.
+pub fn effect_code(style: &str) -> i32 {
+    match style {
+        "R" | "Replace" => 0,
+        "Fade" => 1,
+        "Split" => 3,
+        "Box" => 4,
+        "Blinds" => 5,
+        "Dissolve" => 6,
+        "Glitter" => 7,
+        "Cover" | "Fly" => 8,
+        "Push" => 9,
+        "Uncover" => 10,
+        _ => 2,
+    }
+}
+
 /// Prepare form's arrangement of the fields selected together (Acrobat's Align, Center, Distribute
 /// and Match Size), in user space (y up). The first rectangle is the one the others follow:
 /// 0 left edges, 1 centres in a column, 2 right edges, 3 top edges, 4 centres in a row, 5 bottom
@@ -855,6 +936,11 @@ pub fn fill_tint(c: [f64; 3]) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn every_transition_plays_as_itself() {
+        let codes: Vec<i32> = ["Fade", "Wipe", "Split", "Box", "Blinds", "Dissolve", "Glitter", "Cover", "Push", "Uncover", "R"].iter().map(|s| super::effect_code(s)).collect();
+        assert_eq!(codes, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]);
+    }
 
     #[test]
     fn words_are_replaced_by_case_and_whole_words() {
@@ -1018,6 +1104,35 @@ mod tests {
     #[test]
     fn lines_become_a_bulleted_list_once() {
         assert_eq!(bulleted("Milk\n\nEggs\n• Bread"), "• Milk\n\n• Eggs\n• Bread");
+    }
+
+    /// Twins at the same place: the first or the last in drawing order, as the restack left them.
+    #[test]
+    fn twins_are_picked_again_in_the_order_the_restack_left_them() {
+        let r = [10.0, 10.0, 50.0, 50.0];
+        assert_eq!(picked_again_from(&[r], &[r, r], false), [1]);
+        assert_eq!(picked_again_from(&[r], &[r, r], true), [0]);
+        assert_eq!(picked_again(&[r], &[[0.0, 0.0, 5.0, 5.0], r]), [1]);
+    }
+
+    /// A numbered list (Acrobat's), renumbered when made again, undone and told (Sol, 27/10: only
+    /// bullets were offered).
+    #[test]
+    fn lines_become_a_numbered_list_and_back() {
+        assert_eq!(numbered("Milk\n\nEggs\nBread"), "1. Milk\n\n2. Eggs\n3. Bread");
+        assert_eq!(numbered("3. Milk\n7) Eggs"), "1. Milk\n2. Eggs");
+        assert_eq!(unnumbered("1. Milk\n2) Eggs\n2024 was a year"), "Milk\nEggs\n2024 was a year");
+        assert!(is_numbered("1. Milk\n\n 2. Eggs"));
+        assert!(!is_numbered("1. Milk\nEggs") && !is_numbered(""));
+    }
+
+    /// An existing paragraph's list turned off, and told from plain text when opened.
+    #[test]
+    fn a_bulleted_list_is_undone_and_told() {
+        assert_eq!(unbulleted("• Milk\n\n• Eggs\n•Bread"), "Milk\n\nEggs\nBread");
+        assert_eq!(unbulleted(&bulleted("Milk\nEggs")), "Milk\nEggs");
+        assert!(is_bulleted("• Milk\n\n  • Eggs"));
+        assert!(!is_bulleted("• Milk\nEggs") && !is_bulleted(""));
     }
 
     #[test]

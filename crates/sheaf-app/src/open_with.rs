@@ -95,8 +95,33 @@ fn to_pdf_tool(p: &Path) -> Option<sheaf_core::tools::ToolId> {
 }
 
 /// Command-line arguments that name files (macOS may add a `-psn_…` switch on old systems).
+/// The tool `--tool=<key>` asks for on the command line (the context menu's Compress with Sheaf…).
+pub fn launch_tool(args: impl IntoIterator<Item = std::ffi::OsString>) -> Option<sheaf_core::tools::ToolId> {
+    let key = args.into_iter().find_map(|a| a.to_string_lossy().strip_prefix("--tool=").map(str::to_string))?;
+    sheaf_core::tools::catalogue().iter().map(|t| t.id).find(|id| id.as_str() == key)
+}
+
+/// The tools offered in the system's context menu on a PDF: (key, menu label).
+pub const MENU_TOOLS: [(&str, &str); 6] =
+    [("compress", "Compress with Sheaf"), ("merge", "Merge with Sheaf"), ("pdf_to_word", "Convert to Word with Sheaf"), ("protect", "Protect with Sheaf"), ("sign", "Sign with Sheaf"), ("ocr", "Make searchable with Sheaf")];
+
 pub fn launch_args(args: impl IntoIterator<Item = std::ffi::OsString>) -> Vec<PathBuf> {
     args.into_iter().filter(|a| !a.to_string_lossy().starts_with('-')).map(PathBuf::from).collect()
+}
+
+#[cfg(test)]
+mod tool_tests {
+    #[test]
+    fn a_tool_is_asked_for_on_the_command_line() {
+        let args = |v: &[&str]| v.iter().map(std::ffi::OsString::from).collect::<Vec<_>>();
+        assert_eq!(super::launch_tool(args(&["--tool=compress", "a.pdf"])), Some(sheaf_core::tools::ToolId::Compress));
+        assert_eq!(super::launch_tool(args(&["a.pdf"])), None);
+        assert_eq!(super::launch_tool(args(&["--tool=nothing"])), None);
+        // Every tool of the menu exists.
+        for (key, _) in super::MENU_TOOLS {
+            assert!(super::launch_tool(args(&[&format!("--tool={key}")])).is_some(), "{key}");
+        }
+    }
 }
 
 /// Canonical paths (absolute when the file is missing), so a file named relatively on the

@@ -411,6 +411,22 @@ fn advanced_settings_take_out_what_was_asked() {
     assert_eq!(common::page_texts(&out).len(), 2);
 }
 
+/// Compress ▸ Advanced ▸ Unembed standard fonts (Acrobat's): a whole Arial's program goes, a subset's
+/// stays.
+#[test]
+fn standard_fonts_are_unembedded_and_subsets_kept() {
+    let mut d = Document::with_version("1.7");
+    let prog = |d: &mut Document| d.add_object(Stream::new(dictionary! {}, vec![0u8; 100]));
+    let (p1, p2) = (prog(&mut d), prog(&mut d));
+    let fd1 = d.add_object(dictionary! { "Type" => "FontDescriptor", "FontFile2" => p1 });
+    let fd2 = d.add_object(dictionary! { "Type" => "FontDescriptor", "FontFile2" => p2 });
+    d.add_object(dictionary! { "Type" => "Font", "Subtype" => "TrueType", "BaseFont" => "ArialMT", "FontDescriptor" => fd1 });
+    d.add_object(dictionary! { "Type" => "Font", "Subtype" => "TrueType", "BaseFont" => "ABCDEF+ArialMT", "FontDescriptor" => fd2 });
+    assert_eq!(unembed_standard(&mut d), 1);
+    assert!(!d.get_dictionary(fd1).unwrap().has(b"FontFile2"), "the whole Arial's program is out");
+    assert!(d.get_dictionary(fd2).unwrap().has(b"FontFile2"), "the subset keeps its own");
+}
+
 /// Compress ▸ Convert to grayscale (Stirling's): a red square drawn in the page, a photo and text
 /// all come out grey, the text still text.
 #[test]

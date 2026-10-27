@@ -199,3 +199,61 @@ fn attachments_kept_in_a_nested_name_tree_are_renamed_and_kept() {
     names.sort_unstable();
     assert_eq!(names, ["a.txt", "renamed.txt"], "the other attachment kept");
 }
+
+#[test]
+fn javascript_console_prints_errors_and_changes_fields_as_one_undo_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 1);
+    let (ops, rx, _) = started(&path);
+    ops.send(Op::Apply { edit: Box::new(Edit::AddField {
+        page: 0, rect: [72.0, 600.0, 222.0, 622.0], kind: NewField::Text { multiline: false }, name: Some("Total".into()),
+    }), pages: vec![0] }).unwrap();
+    next(&rx);
+    ops.send(Op::RunJavaScript { page: 0, source: "console.println('pages=' + this.numPages); this.getField('Total').value = '42';".into() }).unwrap();
+    let (snap, error) = next(&rx);
+    assert!(error.is_none());
+    match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+        Reply::JavaScript { output, changed, .. } => { assert!(output.contains("pages=1"), "{output}"); assert!(changed); }
+        _ => panic!("console output expected"),
+    }
+    assert_eq!(snap.fields[0].value, ["42"]);
+    ops.send(Op::Undo { pages: None }).unwrap();
+    let (snap, error) = next(&rx);
+    assert!(error.is_none());
+    assert!(snap.fields[0].value.is_empty() || snap.fields[0].value == [""]);
+    ops.send(Op::RunJavaScript { page: 0, source: "throw new Error('console failure');".into() }).unwrap();
+    next(&rx);
+    match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+        Reply::JavaScript { output, changed, .. } => { assert!(output.contains("console failure"), "{output}"); assert!(!changed); }
+        _ => panic!("console error expected"),
+    }
+}
+
+#[test]
+fn javascript_console_returns_local_viewer_requests_and_named_document_scripts() {
+    use sheaf_core::pdfcraft::engine::js::Request;
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 2);
+    let (ops, rx, _) = started(&path);
+    ops.send(Op::RunJavaScript { page: 1, source: "console.println(this.pageNum); this.pageNum = 0; this.print();".into() }).unwrap();
+    next(&rx);
+    match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+        Reply::JavaScript { output, requests, changed } => {
+            assert!(output.contains('1'), "{output}"); assert!(!changed);
+            assert!(requests.contains(&Request::GoToPage(0)));
+            // `app.execMenuItem` is XFA's (PdfCraft's js crate): a plain form's console has none.
+            assert!(requests.contains(&Request::Print));
+        }
+        _ => panic!("console requests expected"),
+    }
+    ops.send(Op::Apply { edit: Box::new(Edit::SetDocumentScript { name: "Greeting".into(), script: Some("function greeting() { return 'Hello'; }".into()) }), pages: vec![] }).unwrap();
+    next(&rx);
+    ops.send(Op::EditableScripts).unwrap();
+    match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+        Reply::EditableScripts(scripts) => { assert_eq!(scripts.len(), 1); assert_eq!(scripts[0].name, "Greeting"); assert!(scripts[0].source.contains("function greeting")); }
+        _ => panic!("named scripts expected"),
+    }
+    ops.send(Op::Undo { pages: None }).unwrap(); next(&rx);
+    ops.send(Op::EditableScripts).unwrap();
+    assert!(matches!(rx.recv_timeout(Duration::from_secs(30)).unwrap(), Reply::EditableScripts(s) if s.is_empty()));
+}

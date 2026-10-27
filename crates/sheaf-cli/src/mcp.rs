@@ -379,9 +379,12 @@ mod tests {
                 let r = r.as_str().unwrap();
                 base.insert(r.into(), if r == "items" { json!([{ "text": "a", "at": "1,1" }]) } else { sample(r, &props[r]) });
             }
-            // A command whose group needs one of several arguments gets the first.
+            // A command whose group needs one of several arguments gets the first; each other
+            // member is tried in its place.
+            let mut group: Vec<String> = Vec::new();
             if let Some(g) = t["description"].as_str().unwrap().split("Give exactly one of: ").nth(1) {
-                let first = g.split([',', '.']).next().unwrap().trim();
+                group = g.split('.').next().unwrap().split(',').map(|m| m.trim().to_string()).collect();
+                let first = group[0].as_str();
                 base.insert(first.into(), sample(first, &props[first]));
             }
             let parse = |args: &Map<String, Value>| {
@@ -395,6 +398,9 @@ mod tests {
                     continue;
                 }
                 let mut a = base.clone();
+                if group.iter().skip(1).any(|m| m == k) {
+                    a.remove(&group[0]);
+                }
                 a.insert(k.clone(), sample(k, p));
                 if k.starts_with("p12_") || k == "reason" || k == "location" {
                     a.insert("p12".into(), json!("id.p12"));

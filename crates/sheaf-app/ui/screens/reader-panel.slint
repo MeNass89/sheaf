@@ -4,6 +4,7 @@
 import { ScrollView, ListView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolTab, ReaderBridge, Parse } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
 import { ToolButton, PanelTab, SmallButton, PanelField } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
 import { Check } from "../widgets/check.slint";
@@ -50,7 +51,10 @@ export component ReaderPanel inherits Rectangle {
         width: root.tab.reader.panel-open && !root.bare ? root.panel-width : 0px;
         background: Theme.panel-bg;
         VerticalLayout {
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 padding: 8px;
                 spacing: 2px;
                 PanelTab { text: "Pages"; icon: @image-url("../icons/layout-grid.svg"); selected: root.tab.reader.panel == 0; clicked => { ReaderBridge.set-panel(root.id, 0); } }
@@ -64,7 +68,10 @@ export component ReaderPanel inherits Rectangle {
                 vertical-stretch: 1;
                 if root.tab.reader.panel == 3: VerticalLayout {
                     // The search options on one row, how many results and where on the next.
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: LayoutAlignment.stretch;
                         padding: 10px;
                         padding-bottom: 4px;
                         spacing: 6px;
@@ -80,17 +87,21 @@ export component ReaderPanel inherits Rectangle {
                         }
                         Rectangle { horizontal-stretch: 1; }
                         if root.tab.reader.search-history.length > 1: ToolButton {
-                            y: -2px;
+                            cross-axis-self-alignment: CrossAxisAlignment.center;
                             icon: @image-url("../icons/history.svg");
                             tip: "Recent searches";
                             clicked => { recent.show(); }
                         }
                     }
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: LayoutAlignment.stretch;
                         padding-left: 12px;
                         padding-right: 10px;
                         padding-bottom: 6px;
                         Text {
+                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                             text: root.tab.reader.search-count == "None" ? "No results" : root.tab.reader.results.length + (root.tab.reader.search-busy ? "+ results" : root.tab.reader.results.length == 1 ? " result" : " results")
                                 + (root.tab.reader.search-pages > 1 ? " on \{root.tab.reader.search-pages} pages" : "");
                             font-size: Theme.fs-caption;
@@ -101,6 +112,7 @@ export component ReaderPanel inherits Rectangle {
                         }
                         // Acrobat's Advanced Search ▸ All PDF documents in a folder: the same words there.
                         Text {
+                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                             text: "In a folder…";
                             font-size: Theme.fs-caption;
                             color: Theme.accent;
@@ -115,7 +127,9 @@ export component ReaderPanel inherits Rectangle {
                         padding-bottom: 6px;
                         spacing: 6px;
                         replace-in := PanelField { placeholder: "Replace with"; }
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
                             spacing: 6px;
                             alignment: start;
                             // Acrobat's Replace: the match in view only.
@@ -137,6 +151,7 @@ export component ReaderPanel inherits Rectangle {
                             VerticalLayout {
                                 padding: 4px;
                                 Text {
+                                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                                     text: "Recent searches";
                                     font-size: Theme.fs-caption;
                                     color: Theme.text-muted;
@@ -149,6 +164,7 @@ export component ReaderPanel inherits Rectangle {
                                     border-radius: 3px;
                                     background: qt.has-hover ? Theme.popup-hover : transparent;
                                     Text {
+                                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                                         x: 6px;
                                         width: parent.width - 12px;
                                         text: q;
@@ -171,7 +187,7 @@ export component ReaderPanel inherits Rectangle {
                             for h[i] in root.tab.reader.results: Rectangle {
                                 height: hl.preferred-height + 2px;
                                 Rectangle {
-                                x: 6px;
+                                x: PlatformBridge.rtl ? parent.width - (6px) - self.width : 6px;
                                 width: parent.width - 12px;
                                 height: parent.height - 2px;
                                 border-radius: Theme.radius-button;
@@ -182,6 +198,7 @@ export component ReaderPanel inherits Rectangle {
                                     spacing: 2px;
                                     // The page heads its results (PDF Expert groups them by page).
                                     if h.first: Text {
+                                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                                         text: h.page-label;
                                         font-size: Theme.fs-caption;
                                         font-weight: Theme.weight-demibold;
@@ -207,7 +224,8 @@ export component ReaderPanel inherits Rectangle {
                     }
                 }
                 if root.tab.reader.panel == 1 && root.tab.reader.outline-empty: Text {
-                    x: 16px;
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                    x: PlatformBridge.rtl ? parent.width - (16px) - self.width : 16px;
                     y: 50px;
                     width: parent.width - 32px;
                     text: "No bookmarks yet: + Bookmark adds the page in view.";
@@ -216,7 +234,9 @@ export component ReaderPanel inherits Rectangle {
                     wrap: word-wrap;
                 }
                 if root.tab.reader.panel == 1: VerticalLayout {
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
                         padding: 8px;
                         padding-bottom: 0px;
                         alignment: start;
@@ -262,8 +282,11 @@ export component ReaderPanel inherits Rectangle {
                                 double-clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); }
                                 // On hover: rename, delete, and the rest in a menu (Acrobat's bookmark context menu); inside
                                 // the TouchArea so reaching them keeps the row hovered.
-                                if ot.has-hover && !r.editing: HorizontalLayout {
-                                    x: parent.width - 34px - 90px;
+                                if ot.has-hover && !r.editing: FlexboxLayout {
+                                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                    alignment: LayoutAlignment.stretch;
+                                    x: PlatformBridge.rtl ? parent.width - (parent.width - 34px - 90px) - self.width : parent.width - 34px - 90px;
                                     width: 90px;
                                     ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Rename"; clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); } }
                                     ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete bookmark"; clicked => { ReaderBridge.outline-op(root.id, i, 4, ""); root.focus-pages(); } }
@@ -271,7 +294,7 @@ export component ReaderPanel inherits Rectangle {
                                 }
                             }
                             if r.has-children: Rectangle {
-                                x: 6px + r.depth * 14px;
+                                x: PlatformBridge.rtl ? parent.width - (6px + r.depth * 14px) - self.width : 6px + r.depth * 14px;
                                 width: 18px;
                                 Image {
                                     width: 12px;
@@ -286,8 +309,9 @@ export component ReaderPanel inherits Rectangle {
                                 }
                             }
                             if !r.editing: Text {
-                                x: 26px + r.depth * 14px;
-                                width: parent.width - self.x - (ot.has-hover ? 84px : 40px);
+                                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                                x: PlatformBridge.rtl ? parent.width - (26px + r.depth * 14px) - self.width : 26px + r.depth * 14px;
+                                width: parent.width - (26px + r.depth * 14px) - (ot.has-hover ? 84px : 40px);
                                 text: r.title;
                                 font-size: Theme.fs-label;
                                 // Its own look when it has one (bold, italic, colour), as Acrobat shows it.
@@ -299,15 +323,15 @@ export component ReaderPanel inherits Rectangle {
                             }
                             // Renamed in place: ↩ keeps the new title, Escape the old one.
                             if r.editing: Rectangle {
-                                x: 22px + r.depth * 14px;
-                                width: parent.width - self.x - 40px;
+                                x: PlatformBridge.rtl ? parent.width - (22px + r.depth * 14px) - self.width : 22px + r.depth * 14px;
+                                width: parent.width - (22px + r.depth * 14px) - 40px;
                                 height: 24px;
                                 border-radius: Theme.radius-small;
                                 border-width: 1px;
                                 border-color: Theme.text-secondary;
                                 background: Theme.input-bg;
                                 rename := TextInput {
-                                    x: 4px;
+                                    x: PlatformBridge.rtl ? parent.width - (4px) - self.width : 4px;
                                     width: parent.width - 8px;
                                     text: r.title;
                                     font-size: Theme.fs-label;
@@ -323,7 +347,7 @@ export component ReaderPanel inherits Rectangle {
                                 }
                             }
                             Text {
-                                x: parent.width - 34px;
+                                x: PlatformBridge.rtl ? parent.width - (parent.width - 34px) - self.width : parent.width - 34px;
                                 width: 26px;
                                 text: r.page-label;
                                 font-size: Theme.fs-caption;
@@ -342,7 +366,10 @@ export component ReaderPanel inherits Rectangle {
                 if root.tab.reader.panel == 5: VerticalLayout {
                     padding: 8px;
                     spacing: 4px;
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: LayoutAlignment.stretch;
                         spacing: 6px;
                         SmallButton { text: "Show all"; clicked => { ReaderBridge.layers-all(root.id, 0); } }
                         SmallButton { text: "Hide all"; clicked => { ReaderBridge.layers-all(root.id, 1); } }
@@ -350,6 +377,7 @@ export component ReaderPanel inherits Rectangle {
                         Rectangle { horizontal-stretch: 1; }
                     }
                     if root.tab.reader.layers.length == 0: Text {
+                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                         text: "No layers.";
                         font-size: Theme.fs-label;
                         color: Theme.text-muted;
@@ -358,18 +386,21 @@ export component ReaderPanel inherits Rectangle {
                         height: 30px;
                         border-radius: Theme.radius-item;
                         background: la.has-hover ? Theme.popup-hover : transparent;
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: LayoutAlignment.stretch;
                             padding-left: 8px;
                             padding-right: 8px;
                             spacing: 8px;
                             Image {
-                                y: 8px;
+                                cross-axis-self-alignment: CrossAxisAlignment.center;
                                 width: 14px;
                                 height: 14px;
                                 source: l.shown ? @image-url("../icons/eye.svg") : @image-url("../icons/eye-off.svg");
                                 colorize: l.shown ? Theme.text-secondary : Theme.text-muted;
                             }
-                            Text { text: l.name; font-size: Theme.fs-label; color: l.shown ? Theme.text : Theme.text-muted; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+                            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: l.name; font-size: Theme.fs-label; color: l.shown ? Theme.text : Theme.text-muted; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
                         }
                         la := TouchArea {
                             mouse-cursor: pointer;
@@ -381,7 +412,10 @@ export component ReaderPanel inherits Rectangle {
                 if root.tab.reader.panel == 4: VerticalLayout {
                     padding: 8px;
                     spacing: 4px;
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: LayoutAlignment.stretch;
                         spacing: 6px;
                         SmallButton { text: "Attach…"; clicked => { ReaderBridge.attachment-add(root.id); } }
                         if root.tab.reader.attachments.length <= 3: Rectangle { horizontal-stretch: 1; }
@@ -392,6 +426,7 @@ export component ReaderPanel inherits Rectangle {
                         }
                     }
                     if root.tab.reader.attachments.length == 0: Text {
+                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                         text: "No attached files.";
                         font-size: Theme.fs-label;
                         color: Theme.text-muted;
@@ -401,22 +436,28 @@ export component ReaderPanel inherits Rectangle {
                         height: self.visible ? 34px : 0px;
                         border-radius: Theme.radius-item;
                         background: fa.has-hover ? Theme.popup-hover : transparent;
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: LayoutAlignment.stretch;
                             padding-left: 8px;
                             padding-right: 8px;
                             spacing: 8px;
-                            Image { y: 10px; width: 14px; height: 14px; source: @image-url("../icons/paperclip.svg"); colorize: Theme.text-secondary; }
-                            Text { text: f.name; font-size: Theme.fs-label; color: Theme.text; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+                            Image { cross-axis-self-alignment: CrossAxisAlignment.center; width: 14px; height: 14px; source: @image-url("../icons/paperclip.svg"); colorize: Theme.text-secondary; }
+                            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: f.name; font-size: Theme.fs-label; color: Theme.text; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
                             // Its size gives way to the buttons on hover.
-                            Text { text: f.value; opacity: fa.has-hover ? 0 : 1; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: f.value; opacity: fa.has-hover ? 0 : 1; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
                             Rectangle { width: 22px; }
                         }
                         fa := TouchArea {
                             mouse-cursor: pointer;
                             clicked => { ReaderBridge.attachment-open(root.id, i); }
                             // On hover (Acrobat's Attachments pane): save a copy, rename, delete.
-                            if fa.has-hover && root.att-renaming != i: HorizontalLayout {
-                                x: parent.width - 92px;
+                            if fa.has-hover && root.att-renaming != i: FlexboxLayout {
+                                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                alignment: LayoutAlignment.stretch;
+                                x: PlatformBridge.rtl ? parent.width - (parent.width - 92px) - self.width : parent.width - 92px;
                                 y: 2px;
                                 width: 90px;
                                 ToolButton { icon: @image-url("../icons/download.svg"); tip: "Save a copy…"; clicked => { ReaderBridge.attachment-save(root.id, i); } }
@@ -425,7 +466,7 @@ export component ReaderPanel inherits Rectangle {
                             }
                         }
                         if root.att-renaming == i: Rectangle {
-                            x: 28px;
+                            x: PlatformBridge.rtl ? parent.width - (28px) - self.width : 28px;
                             width: parent.width - 36px;
                             height: 24px;
                             background: Theme.input-bg;
@@ -433,7 +474,7 @@ export component ReaderPanel inherits Rectangle {
                             border-width: 1px;
                             border-color: Theme.accent;
                             att-name := TextInput {
-                                x: 5px;
+                                x: PlatformBridge.rtl ? parent.width - (5px) - self.width : 5px;
                                 width: parent.width - 10px;
                                 text: f.name;
                                 font-size: Theme.fs-label;
@@ -453,7 +494,8 @@ export component ReaderPanel inherits Rectangle {
                     Rectangle { vertical-stretch: 1; }
                 }
                 if root.tab.reader.panel == 2 && root.tab.reader.annots.length == 0: Text {
-                    x: 16px;
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                    x: PlatformBridge.rtl ? parent.width - (16px) - self.width : 16px;
                     y: 86px;
                     width: parent.width - 32px;
                     text: "No annotations yet. Select text and pick Highlight, or choose a tool above.";
@@ -463,19 +505,25 @@ export component ReaderPanel inherits Rectangle {
                 }
                 if root.tab.reader.panel == 2: VerticalLayout {
                     // Acrobat's comment list actions: hide all, a summary, remove all (⌘Z undoes it).
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: LayoutAlignment.stretch;
                         padding: 8px;
                         padding-bottom: 0px;
                         spacing: 6px;
                         SmallButton { text: root.tab.reader.comments-hidden ? "Show all" : "Hide all"; clicked => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
-                        ToolButton { y: -2px; icon: @image-url("../icons/file-text.svg"); tip: "Summary of comments…"; clicked => { ReaderBridge.notes-action(root.id, 1); } }
-                        ToolButton { y: -2px; icon: @image-url("../icons/file-output.svg"); tip: "Export comments (XFDF, FDF)…"; clicked => { ReaderBridge.notes-action(root.id, 3); } }
-                        ToolButton { y: -2px; icon: @image-url("../icons/file-input.svg"); tip: "Import comments…"; clicked => { ReaderBridge.notes-action(root.id, 4); } }
+                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-text.svg"); tip: "Summary of comments…"; clicked => { ReaderBridge.notes-action(root.id, 1); } }
+                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-output.svg"); tip: "Export comments (XFDF, FDF)…"; clicked => { ReaderBridge.notes-action(root.id, 3); } }
+                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-input.svg"); tip: "Import comments…"; clicked => { ReaderBridge.notes-action(root.id, 4); } }
                         Rectangle { horizontal-stretch: 1; }
-                        if root.tab.reader.annots.length > 0: ToolButton { y: -2px; icon: @image-url("../icons/trash-2.svg"); tip: "Remove all comments"; clicked => { ReaderBridge.notes-action(root.id, 2); root.focus-pages(); } }
+                        if root.tab.reader.annots.length > 0: ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/trash-2.svg"); tip: "Remove all comments"; clicked => { ReaderBridge.notes-action(root.id, 2); root.focus-pages(); } }
                     }
                     // Which comments, in which order (Acrobat's comment list filter and sort).
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        alignment: LayoutAlignment.stretch;
                         padding: 8px;
                         padding-bottom: 0px;
                         spacing: 6px;
@@ -509,7 +557,7 @@ export component ReaderPanel inherits Rectangle {
                                     clicked => { ReaderBridge.annot-clicked(root.id, a.index); root.focus-pages(); }
                                 }
                                 Rectangle {
-                                    x: 0;
+                                    x: PlatformBridge.rtl ? parent.width - (0) - self.width : 0;
                                     width: 4px;
                                     border-radius: 2px;
                                     background: a.colour;
@@ -518,10 +566,14 @@ export component ReaderPanel inherits Rectangle {
                                     padding: 10px;
                                     padding-left: 14px;
                                     spacing: 4px;
-                                    HorizontalLayout {
+                                    FlexboxLayout {
+                                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                        alignment: LayoutAlignment.stretch;
                                         // Room for the delete button that shows on hover.
                                         padding-right: 22px;
                                         Text {
+                                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                                             text: a.kind;
                                             font-size: Theme.fs-caption;
                                             font-weight: Theme.weight-demibold;
@@ -529,12 +581,14 @@ export component ReaderPanel inherits Rectangle {
                                         }
                                         Rectangle { horizontal-stretch: 1; }
                                         Text {
+                                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                                             text: a.page-label;
                                             font-size: Theme.fs-caption;
                                             color: Theme.text-muted;
                                         }
                                     }
                                     if a.text != "": Text {
+                                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                                         text: a.text;
                                         font-size: Theme.fs-label;
                                         color: Theme.text;
@@ -543,6 +597,7 @@ export component ReaderPanel inherits Rectangle {
                                         max-height: 60px;
                                     }
                                     if a.meta != "": Text {
+                                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                                         text: a.meta + (a.status != "" ? " · " + a.status : "");
                                         font-size: Theme.fs-caption;
                                         color: Theme.text-muted;
@@ -554,7 +609,8 @@ export component ReaderPanel inherits Rectangle {
                                         height: max(rl.preferred-height, 20px);
                                         rt := TouchArea {}
                                         rl := Text {
-                                            x: 0;
+                                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                                            x: PlatformBridge.rtl ? parent.width - (0) - self.width : 0;
                                             width: parent.width - 24px;
                                             text: rp.text;
                                             font-size: Theme.fs-caption;
@@ -562,7 +618,7 @@ export component ReaderPanel inherits Rectangle {
                                             wrap: word-wrap;
                                         }
                                         if rt.has-hover || rd.has-hover: Rectangle {
-                                            x: parent.width - 20px;
+                                            x: PlatformBridge.rtl ? parent.width - (parent.width - 20px) - self.width : parent.width - 20px;
                                             y: 0;
                                             width: 20px;
                                             height: 20px;
@@ -576,7 +632,7 @@ export component ReaderPanel inherits Rectangle {
                                             }
                                         }
                                         rd := TouchArea {
-                                            x: parent.width - 20px;
+                                            x: PlatformBridge.rtl ? parent.width - (parent.width - 20px) - self.width : parent.width - 20px;
                                             width: 20px;
                                             height: 20px;
                                             y: 0;
@@ -584,7 +640,9 @@ export component ReaderPanel inherits Rectangle {
                                             clicked => { ReaderBridge.reply-delete(root.id, rp.page, rp.index); }
                                         }
                                     }
-                                    if a.selected: HorizontalLayout {
+                                    if a.selected: FlexboxLayout {
+                                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                        flex-wrap: FlexboxLayoutWrap.no-wrap;
                                         alignment: start;
                                         spacing: 6px;
                                         SmallButton { text: "Reply"; clicked => { ReaderBridge.annot-reply(root.id, a.index); } }
@@ -599,7 +657,7 @@ export component ReaderPanel inherits Rectangle {
                                     }
                                 }
                                 if at.has-hover || a.selected: Rectangle {
-                                    x: parent.width - 28px;
+                                    x: PlatformBridge.rtl ? parent.width - (parent.width - 28px) - self.width : parent.width - 28px;
                                     y: 6px;
                                     width: 22px;
                                     height: 22px;
@@ -640,7 +698,7 @@ export component ReaderPanel inherits Rectangle {
                             drop-shadow-color: Theme.thumb-shadow;
                             drop-shadow-offset-y: 1px;
                             if t.ready: Image {
-                                x: 2px;
+                                x: PlatformBridge.rtl ? parent.width - (2px) - self.width : 2px;
                                 y: 2px;
                                 width: parent.width - 4px;
                                 height: parent.height - 4px;
@@ -684,7 +742,7 @@ export component ReaderPanel inherits Rectangle {
                                           { t: "Transitions…", k: -1 }, { t: "Delete", k: 2 }]: Rectangle {
                                     height: 30px;
                                     background: pm.has-hover ? Theme.popup-hover : transparent;
-                                    Text { x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }
+                                    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }
                                     pm := TouchArea {
                                         clicked => {
                                             if o.k < 0 { root.transition-open = true; root.number-open = false; root.extract-open = false; } else { ReaderBridge.page-op(root.id, o.k); }
@@ -764,6 +822,7 @@ export component ReaderPanel inherits Rectangle {
                         drop-shadow-blur: 6px;
                         drop-shadow-color: #00000033;
                         ghost := Text {
+                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                             text: root.tab.reader.pages-selected <= 1 ? "1 page" : root.tab.reader.pages-selected + " pages";
                             font-size: Theme.fs-caption;
                             font-weight: Theme.weight-demibold;
@@ -771,7 +830,7 @@ export component ReaderPanel inherits Rectangle {
                         }
                     }
                     if root.drop-line >= 0: Rectangle {
-                        x: 12px;
+                        x: PlatformBridge.rtl ? parent.width - (12px) - self.width : 12px;
                         y: root.drop-line - 1.5px;
                         width: strip.visible-width - 24px;
                         height: 3px;
@@ -785,7 +844,9 @@ export component ReaderPanel inherits Rectangle {
                     height: 44px;
                     background: Theme.panel-bg;
                     Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
                         padding: 7px;
                         spacing: 2px;
                         alignment: center;
@@ -807,6 +868,7 @@ export component ReaderPanel inherits Rectangle {
                         padding: 10px;
                         spacing: 6px;
                         Text {
+                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                             text: "Number " + (root.tab.reader.pages-selected <= 1 ? "this page" : "the " + root.tab.reader.pages-selected + " pages") + (root.number-through != "" ? " through page " + root.number-through : root.tab.reader.pages-selected <= 1 ? " and the next ones" : "");
                             font-size: Theme.fs-caption;
                             color: Theme.text-secondary;
@@ -816,14 +878,19 @@ export component ReaderPanel inherits Rectangle {
                             current-index <=> root.number-style;
                             chevron: @image-url("../icons/chevron-down.svg");
                         }
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: LayoutAlignment.stretch;
                             spacing: 6px;
                             PanelField { placeholder: "Prefix"; text <=> root.number-prefix; }
                             PanelField { width: 70px; placeholder: "Start: 1"; text <=> root.number-start; }
                             // Acrobat's Pages from … to …: the last page numbered so (empty: as selected).
                             PanelField { width: 86px; placeholder: "Through: end"; text <=> root.number-through; }
                         }
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: end;
                             spacing: 6px;
                             SmallButton { text: "Cancel"; clicked => { root.number-open = false; } }
@@ -847,6 +914,7 @@ export component ReaderPanel inherits Rectangle {
                         padding: 10px;
                         spacing: 6px;
                         Text {
+                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                             text: "In full screen, " + (root.tab.reader.pages-selected <= 1 ? "this page comes" : "the " + root.tab.reader.pages-selected + " pages come") + " in with";
                             font-size: Theme.fs-caption;
                             color: Theme.text-secondary;
@@ -857,7 +925,9 @@ export component ReaderPanel inherits Rectangle {
                             chevron: @image-url("../icons/chevron-down.svg");
                         }
                         PanelField { placeholder: "Next page after (seconds): when turned"; text <=> root.transition-advance; }
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: end;
                             spacing: 6px;
                             SmallButton { text: "Cancel"; clicked => { root.transition-open = false; } }
@@ -881,8 +951,11 @@ export component ReaderPanel inherits Rectangle {
                     VerticalLayout {
                         padding: 10px;
                         spacing: 6px;
-                        Text { text: root.tab.reader.replace-ask; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
-                        HorizontalLayout {
+                        Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: root.tab.reader.replace-ask; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                        FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: LayoutAlignment.stretch;
                             spacing: 6px;
                             from-in := PanelField { placeholder: "1"; }
                             SmallButton { text: "Cancel"; clicked => { ReaderBridge.replace-from(root.id, ""); root.focus-pages(); } }
@@ -900,7 +973,9 @@ export component ReaderPanel inherits Rectangle {
                         spacing: 6px;
                         Check { text: "One file per page"; checked <=> root.extract-each; }
                         Check { text: "Delete pages after extracting"; checked <=> root.extract-delete; }
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: end;
                             spacing: 6px;
                             SmallButton { text: "Cancel"; clicked => { root.extract-open = false; } }
@@ -917,20 +992,22 @@ export component ReaderPanel inherits Rectangle {
                 }
             }
         }
+        // The edge next to the pages: the panel's right, its left right to left.
         Rectangle {
-            x: parent.width - 1px;
+            x: PlatformBridge.rtl ? 0 : parent.width - 1px;
             width: 1px;
             background: edge.has-hover || edge.pressed ? Theme.accent : Theme.sidebar-border;
         }
         // The edge drags to resize the panel (PDF Expert's sidebar), 200–480 px; the thumbnails
         // take the new width once it is let go.
         edge := TouchArea {
-            x: parent.width - 4px;
+            x: PlatformBridge.rtl ? -3px : parent.width - 4px;
             width: 7px;
             mouse-cursor: ew-resize;
             moved => {
                 if self.pressed {
-                    ReaderBridge.panel-width = clamp(self.absolute-position.x + self.mouse-x - root.absolute-position.x, 200px, 480px);
+                    // Right to left the panel's right edge stays put (the window's) and its left one is dragged.
+                    ReaderBridge.panel-width = clamp(PlatformBridge.rtl ? root.absolute-position.x + root.width - (self.absolute-position.x + self.mouse-x) : self.absolute-position.x + self.mouse-x - root.absolute-position.x, 200px, 480px);
                 }
             }
             pointer-event(e) => {
@@ -977,7 +1054,7 @@ export component ReaderPanel inherits Rectangle {
                     height: 30px;
                     border-radius: Theme.radius-small;
                     background: mt.has-hover ? Theme.popup-hover : transparent;
-                    Text { x: 10px; text: item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: 10px; text: item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
                     mt := TouchArea { clicked => { ReaderBridge.outline-op(root.id, root.mark-row, item.op, ""); root.focus-pages(); } }
                 }
             }

@@ -26,7 +26,7 @@ T1=$(copied); key ctrl+shift+bracketleft; sleep 0.8; T2=$(copied); shot 08-tabs
 check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})" "[ -n \"$T1\" ] && [ -n \"$T2\" ] && [ \"$T1\" != \"$T2\" ]"
 # 9. Home ▸ Preferences ▸ Identity ▸ Your name: what is typed is kept.
 # The field sits 30 px below its "Your name" label.
-click 50 21 0.8; click 90 192 0.8; AN=$(at Your 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
+click 50 21 0.8; PF=$(at Preferences 196x400+0+40); [ -n "$PF" ] && click $PF 0.8; AN=$(at Your 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Author"; sleep 0.8; shot 09-preferences
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.

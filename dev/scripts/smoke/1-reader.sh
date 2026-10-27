@@ -54,7 +54,20 @@ A2=$(annots "$OUT/text.pdf")
 check "the kept signature is placed again with one click ($A1 → $A2)" "[ $A2 -gt $A1 ]"
 # New signature (412,109 in the Signature tool's bar) keeps the first: two in the list, the new one
 # first; a click on the second thumbnail (382,109) brings the first back.
-sigs() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(len(p.get("signatures", [])), "".join(map(str, p.get("signature_pen", []))))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"; }
+# Smoke-only inspection; python cryptography is needed by the smoke environment, not Sheaf.
+secure_marks() {
+    python3 - "$PWD/$OUT/profile/data/Sheaf" <<'PYSECURE'
+from pathlib import Path
+import sys
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+p = Path(sys.argv[1])
+b = (p / "signatures.secure").read_bytes()
+h = b"SheafMarks\x02"
+assert b.startswith(h)
+print(ChaCha20Poly1305((p / "signatures.key").read_bytes()).decrypt(b[len(h):len(h)+12], b[len(h)+12:], h).decode())
+PYSECURE
+}
+sigs() { secure_marks | python3 -c 'import json, sys; p = json.load(sys.stdin); print(len(p.get("signatures", [])), "".join(map(str, p.get("current", [[], None, [0, 0], 0])[2])))'; }
 S1=$(sigs); click 412 109 0.8; click 700 620 1
 xdotool mousemove 520 400 mousedown 1; for i in $(seq 0 10); do xdotool mousemove $((520 + i * 10)) $((380 + i * 6)); done; xdotool mouseup 1; sleep 0.3
 # The second one in black (the pad's first ink, 448,314); the first kept its blue.
@@ -116,11 +129,11 @@ xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Added by s
 key Escape; key v; key ctrl+s; sleep 1.5
 check "text added with the Edit tool is in the page content" "pdftotext -f 1 -l 1 $OUT/text.pdf - | grep -q 'Added by smoke'"
 # The format row: Serif, bold, two sizes up → the page gains Times-Bold.
-# The row (from its left, x 272): Sans 299, Serif 359, Mono 421, B 470, I 502, U 534, • 568, align
-# left 601 / centre 636 / right 670, − 704, the size field 748, + 791 (y 110). A click on the size
+# The row (from its left, x 272): Sans 299, Serif 359, Mono 421, B 470, I 502, U 534, • 568, 1. 602,
+# align left 635 / centre 670 / right 704, − 738, the size field 782, + 825 (y 110). A click on the size
 # field would keep the keyboard: the + is found from Mono (OCR reads it; the red Sans it does not).
 key e; sleep 0.8; MX=$(at Mono 1280x40+0+90 | cut -d' ' -f1); DX=$(( ${MX:-421} - 421 ))
-click $(( 359 + DX )) 110 0.3; click $(( 470 + DX )) 110 0.3; click $(( 791 + DX )) 110 0.3; click $(( 791 + DX )) 110 0.3
+click $(( 359 + DX )) 110 0.3; click $(( 470 + DX )) 110 0.3; click $(( 825 + DX )) 110 0.3; click $(( 825 + DX )) 110 0.3
 click 640 680 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Serif bold"; key ctrl+Return; sleep 1.2
 key Escape; key v; key ctrl+s; sleep 1.5; shot 02c-text-format
 check "added text takes the chosen font (Times-Bold)" "pdffonts -f 1 -l 1 $OUT/text.pdf 2>/dev/null | grep -q 'Times-Bold'"

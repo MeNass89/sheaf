@@ -323,7 +323,13 @@ fn gray_image(s: &mut Stream, n: u8) -> bool {
             let g = rgb.pixels().map(|p| (luma(p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0) * 255.0).round() as u8).collect();
             image::GrayImage::from_raw(rgb.width(), rgb.height(), g)
         })
-    } else if !jpeg && s.dict.get(b"BitsPerComponent").and_then(Object::as_i64).ok() == Some(8) && !s.dict.has(b"Decode") {
+    } else if jpeg {
+        // A CMYK JPEG, read as RGB by the decoder (Sol, 27/10: it stayed in colour).
+        crate::compress::cmyk_jpeg_rgb(s).and_then(|rgb| {
+            let g = rgb.pixels().map(|p| (luma(p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0) * 255.0).round() as u8).collect();
+            image::GrayImage::from_raw(rgb.width(), rgb.height(), g)
+        })
+    } else if s.dict.get(b"BitsPerComponent").and_then(Object::as_i64).ok() == Some(8) && !s.dict.has(b"Decode") {
         let w = s.dict.get(b"Width").and_then(Object::as_i64).ok().and_then(|v| u32::try_from(v).ok());
         let h = s.dict.get(b"Height").and_then(Object::as_i64).ok().and_then(|v| u32::try_from(v).ok());
         w.zip(h).and_then(|(w, h)| {
@@ -409,5 +415,21 @@ mod tests {
         let s = doc.get_object(id).unwrap().as_stream().unwrap();
         assert_eq!(s.dict.get(b"ColorSpace").unwrap().as_name().unwrap(), b"DeviceGray");
         assert_eq!(s.decompressed_content().unwrap(), vec![76u8; 4], "red's lightness");
+    }
+
+    /// A CMYK JPEG made grey: a grey JPEG of the same picture.
+    #[test]
+    fn a_cmyk_jpeg_is_made_grey() {
+        let dir = tempfile::tempdir().unwrap();
+        let jpg = dir.path().join("red.jpg");
+        let made = std::process::Command::new("convert").args(["-size", "8x8", "xc:red", "-colorspace", "CMYK"]).arg(&jpg).status();
+        assert!(made.is_ok_and(|s| s.success()), "ImageMagick's convert makes the CMYK JPEG");
+        let dict = dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 8, "Height" => 8, "ColorSpace" => "DeviceCMYK", "BitsPerComponent" => 8, "Filter" => "DCTDecode" };
+        let mut s = Stream::new(dict, std::fs::read(&jpg).unwrap());
+        assert!(gray_image(&mut s, 4));
+        assert_eq!(s.dict.get(b"ColorSpace").unwrap().as_name().unwrap(), b"DeviceGray");
+        let g = image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).unwrap().to_luma8();
+        // Red's lightness, give or take the JPEG.
+        assert!(g.pixels().all(|p| p[0].abs_diff(76) <= 12), "{:?}", g.get_pixel(0, 0));
     }
 }
