@@ -2,7 +2,7 @@
 resolver = "3"
 members = ["crates/sheaf-core", "crates/sheaf-cli", "crates/sheaf-app", "crates/sheaf-ui"]
 # Patched third-party code, built as a dependency only (not linted or tested as ours).
-exclude = ["third_party/pdfcraft-annot", "third_party/pdfcraft-cos", "third_party/pdfcraft-edit", "third_party/pdfcraft-engine", "third_party/pdfcraft-export"]
+exclude = ["third_party/pdfcraft-annot", "third_party/pdfcraft-cos", "third_party/pdfcraft-edit", "third_party/pdfcraft-engine", "third_party/pdfcraft-export", "third_party/pdfcraft-preflight"]
 
 [workspace.package]
 version = "0.2.1"
@@ -74,6 +74,7 @@ strip = true
 
 # PdfCraft patched for speed on large files and for text box fonts (third_party/README.md).
 [patch."https://github.com/storytold/pdfcraft"]
+pdfcraft-preflight = { path = "third_party/pdfcraft-preflight" }
 pdfcraft-annot = { path = "third_party/pdfcraft-annot" }
 pdfcraft-cos = { path = "third_party/pdfcraft-cos" }
 pdfcraft-edit = { path = "third_party/pdfcraft-edit" }

@@ -801,3 +801,34 @@ key ctrl+shift+z; sleep 0.8; key ctrl+s; sleep 1; N3=$(npages "$OUT/driver-inser
 shot 331-scanner-insert
 check "331 Insert from scanner preserves pixels, page order and Undo/Redo ($N1/$N2/$N3; $SN)" "[ \"$N1/$N2/$N3\" = 5/4/5 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(first_text $OUT/driver-insert.pdf 1)\" = 'Page 1' ] && [ \"\$(first_text $OUT/driver-insert.pdf 3)\" = 'Page 2' ] && [ \"\$(first_text $OUT/driver-insert.pdf 5)\" = 'Page 4' ]"
 quit; scanner_restore
+
+# 335. iLovePDF's complete PDF/A selector: a Unicode profile produces the selected identifier,
+# not a b-level file with the wrong success label. Pictures contain no unmapped text.
+convert -size 120x80 xc:'#2a9d4b' "$OUT/unicode-archive.pdf"
+launch "$OUT/unicode-archive.pdf"; sleep 1
+click $WRENCH_X 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+CB=$(at PDF/A- 1000x700+250+90); [ -n "$CB" ] && click $CB 0.5
+shot 335-pdfa-levels
+xdotool key --clearmodifiers --delay 150 Up Up Up Up Up Up Up Up Down Down Down Return; sleep 0.8
+shot 335-pdfa-unicode-options
+click 1140 755 2
+for _ in $(seq 1 20); do [ -f "$OUT/unicode-archive-pdfa.pdf" ] && break; sleep 0.5; done
+UQ=$(qpdf --qdf --object-streams=disable "$OUT/unicode-archive-pdfa.pdf" - 2>/dev/null)
+shot 335-pdfa-unicode-result
+check "335 PDF/A-2u selection writes the actual U/2 identifier" "echo \"\$UQ\" | grep -aq 'pdfaid:conformance>U<' && echo \"\$UQ\" | grep -aq 'pdfaid:part>2<' && [ \"\$(npages $OUT/unicode-archive-pdfa.pdf 2>/dev/null)\" = 1 ]"
+quit
+
+# 336. An a-level needs tags. With Keep a copy unchecked, an untagged input is refused and no
+# falsely conforming output appears; the source stays readable.
+convert -size 120x80 xc:'#2a9d4b' "$OUT/untagged-archive.pdf"
+launch "$OUT/untagged-archive.pdf"; sleep 1
+click $WRENCH_X 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+CB=$(at PDF/A- 1000x700+250+90); [ -n "$CB" ] && click $CB 0.5
+xdotool key --clearmodifiers --delay 150 Up Up Up Up Up Up Up Up Down Down Down Down Return; sleep 0.8
+KC=$(at Keep 1000x700+250+90); [ -n "$KC" ] && click $KC 0.6
+STRICT=$(ocr 1000x700+250+90)
+shot 336-pdfa-strict-options
+click 1140 755 3
+AR=$(ocr 1280x800+0+0); shot 336-pdfa-strict-result
+check "336 strict PDF/A-2a refuses untagged content without saving a false archive" "[ -n \"$KC\" ] && echo \"\$STRICT\" | grep -qi 'PDF/A-2a' && echo \"\$STRICT\" | grep -qi 'no output' && [ ! -e $OUT/untagged-archive-pdfa.pdf ] && [ \"\$(npages $OUT/untagged-archive.pdf 2>/dev/null)\" = 1 ] && echo \"\$AR\" | grep -qi 'did not pass'"
+quit

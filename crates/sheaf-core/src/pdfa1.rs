@@ -23,6 +23,8 @@ pub(super) fn rewrite(bytes: &[u8]) -> Result<Vec<u8>> {
     pdf.reference_table.cross_reference_type = lopdf::xref::XrefType::CrossReferenceTable;
     pdf.trailer.remove(b"Prev");
     pdf.trailer.remove(b"XRefStm");
+    // Deleted object/xref streams must not leave /Size beyond the actual object inventory.
+    pdf.max_id = pdf.objects.keys().map(|id| id.0).max().unwrap_or(0);
     let mut out = Vec::new();
     pdf.save_to(&mut out)?;
     Ok(out)

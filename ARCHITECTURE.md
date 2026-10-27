@@ -28,6 +28,10 @@ Scanner acquisition is shared in `crates/sheaf-core/src/scanner.rs`: local SANE 
 `crates/sheaf-core/src/textdocs.rs` renders CommonMark with local image resources, keeping the original
 Markdown file URL as the base for the temporary HTML passed to either PDF layout converter.
 
+Archival profiles live in core `pdfa.rs`: `pdfa1.rs` checks PDF 1.4 restrictions,
+`pdfa_profiles.rs` preserves a/u metadata and checks existing tags, and `pdfa_unicode.rs`
+follows actual text codes through page/Form/annotation resources, with bounded CMap validation.
+
 ## Guided actions
 
 - `crates/sheaf-app/src/action_import.rs`: supported Stirling Automate/Folder Scanning translation with explicit native-conversion limits.

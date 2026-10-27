@@ -896,6 +896,21 @@ pub(crate) enum CliPdfA {
     /// PDF/A-3b (allows attachments)
     #[value(name = "3b")]
     A3b,
+    /// PDF/A-1a (older archive, existing tags and Unicode required)
+    #[value(name = "1a")]
+    A1a,
+    /// PDF/A-2u (Unicode text)
+    #[value(name = "2u")]
+    A2u,
+    /// PDF/A-3u (Unicode text, attachments allowed)
+    #[value(name = "3u")]
+    A3u,
+    /// PDF/A-2a (existing tags and Unicode required)
+    #[value(name = "2a")]
+    A2a,
+    /// PDF/A-3a (existing tags and Unicode, attachments allowed)
+    #[value(name = "3a")]
+    A3a,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
