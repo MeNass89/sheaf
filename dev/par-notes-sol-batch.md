@@ -478,3 +478,9 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   default page numbering. Stirling export also refuses command labels/separators it cannot keep.
   These cases extend `stirling_native_import_keeps_order_and_discloses_conversion_limits`.
   Backend PageNumbersController confirms {n}/{total}; native font/margin differences stay disclosed.
+
+- C-batch-008 static follow-up: recheck revisions after a completed scan, before publication and
+  after the archival copy. An input changed during processing remains in the inbox for its next
+  stable revision; it is not deleted as if it were the processed revision. Test
+  `a_watch_never_archives_or_publishes_an_input_changed_during_its_run` (written, not run).
+  Revision identity remains size/mtime; same-size rewrites preserving timestamps are not detected.

@@ -11,6 +11,11 @@ use sheaf_core::{OpdfError, Result};
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct Stamp { len: u64, modified: SystemTime }
 
+fn revision(path: &Path) -> Result<Stamp> {
+    let metadata = std::fs::metadata(path)?;
+    Ok(Stamp { len: metadata.len(), modified: metadata.modified()? })
+}
+
 #[derive(Serialize, Deserialize)]
 struct Observed { stamp: Stamp, handled: bool }
 
@@ -76,6 +81,7 @@ impl FolderWatch {
         let mut staged_action = action.clone();
         staged_action.output = actions::OutputOptions::default();
         let result = self.poll_with(&mut |path| {
+            let original_revision = revision(path)?;
             if !before() { return Err(OpdfError::Cancelled); }
             let temp = tempfile::tempdir()?;
             let processed = actions::run_file(&staged_action, path, temp.path(), &mut |_, _| before())?;
@@ -86,6 +92,7 @@ impl FolderWatch {
             let fallback = path.file_stem().unwrap_or_default().to_string_lossy();
             let name = safe_name(&pattern.replace("{name}", &fallback).replace("{title}", title.as_deref().unwrap_or(&fallback)).replace("{counter}", &(sequence + 1).to_string()));
             if !before() { return Err(OpdfError::Cancelled); }
+            if revision(path)? != original_revision { return Err(OpdfError::Unsupported("The input changed during processing. It will be retried after it becomes stable.".into())); }
             let published = sheaf_core::paths::atomic_write(&output.join(format!("{name}.pdf")), |part| {
                 std::fs::copy(&processed, part)?;
                 Ok(())
@@ -95,6 +102,10 @@ impl FolderWatch {
                 let archived = (|| {
                     std::fs::create_dir_all(&archive)?;
                     let target = sheaf_core::paths::atomic_write(&archive.join(path.file_name().unwrap_or_default()), |part| { std::fs::copy(path, part)?; Ok(()) })?;
+                    if revision(path)? != original_revision {
+                        let _ = std::fs::remove_file(target);
+                        return Err(OpdfError::Unsupported("The input changed during archiving; the newer input was kept".into()));
+                    }
                     if let Err(e) = std::fs::remove_file(path) { let _ = std::fs::remove_file(target); return Err(e.into()); }
                     Ok::<_, OpdfError>(())
                 })();
@@ -146,6 +157,8 @@ impl FolderWatch {
             match self.seen.get(&path) {
                 Some(old) if old.stamp == stamp && old.handled => continue,
                 Some(old) if old.stamp == stamp => {
+                    let latest = revision(&path)?;
+                    if latest != stamp { self.seen.insert(path, Observed { stamp: latest, handled: false }); continue; }
                     let result = process(&path);
                     // Cancellation leaves this file eligible after a later resume/poll.
                     let handled = !matches!(&result, Err(OpdfError::Cancelled));
@@ -357,6 +370,25 @@ mod tests {
         assert_eq!(incremental.seen.len(), 600);
         SavedWatch::forget(dir.path()).unwrap();
         assert!(SavedWatch::load_all(dir.path()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_watch_never_archives_or_publishes_an_input_changed_during_its_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("in"); let out = dir.path().join("out"); std::fs::create_dir(&inbox).unwrap();
+        let input = inbox.join("input.pdf");
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Keep").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
+        let mut watch = FolderWatch::new(&inbox, &out, false).unwrap(); watch.configure_outputs("{name}", true).unwrap();
+        let action = actions::suggested().remove(3);
+        watch.poll(&action, &mut || true).unwrap();
+        let mut calls = 0;
+        let changed = b"new upload still being written";
+        let results = watch.poll(&action, &mut || { calls += 1; if calls == 3 { std::fs::write(&input, changed).unwrap(); } true }).unwrap();
+        assert!(results[0].1.is_err());
+        assert_eq!(std::fs::read(input).unwrap(), changed);
+        assert!(!out.join("input.pdf").exists());
+        assert!(!out.join("Processed inputs").exists());
     }
 
 }
