@@ -809,3 +809,14 @@ INK_DARK=$(optimize_ink_dark); key Up; sleep 0.5; INK_YELLOW=$(optimize_ink_dark
 shot 342-ink-plates
 check "342 output preview lists real CMYK plates ($PP; $PI; $PC; $PM; $PY; $PB)" "[ -n \"$PC\" ] && [ -n \"$PM\" ] && [ -n \"$PY\" ] && [ -n \"$PB\" ] && python3 -c \"assert float('$INK_DARK') > float('$INK_YELLOW') + 0.0003 and float('$INK_RETURN') > float('$INK_YELLOW') + 0.0003\" && [ \"$INK_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
 key Escape; quit
+
+# 343. Acrobat's Flattener Preview: compare the working page and actual PDF 1.3 conversion.
+launch "$OUT/text.pdf"; PF=$(optimize_print_tool hairlines)
+FP=
+for _ in $(seq 1 14); do FP=$(at Flattener 700x660+0+80); [ -n "$FP" ] && break; xdotool mousemove 400 500 click 5 click 5; sleep 0.3; done
+[ -n "$FP" ] && click $FP 1
+for _ in $(seq 1 20); do FA=$(at Flattened 300x650+0+90); [ -n "$FA" ] && break; sleep 0.5; done
+FO=$(at Original 300x650+0+90); [ -n "$FA" ] && click $FA 0.5
+shot 343-flattener-preview
+check "343 flattener preview compares original and converted page ($PF; $FP; $FO; $FA)" "[ -n \"$FO\" ] && [ -n \"$FA\" ]"
+key Escape; quit
