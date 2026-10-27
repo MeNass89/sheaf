@@ -41,14 +41,16 @@ pub struct OutputOptions {
     pub prefix: String,
     pub suffix: String,
     pub overwrite: bool,
+    pub format: String,
 }
 
 impl Default for OutputOptions {
-    fn default() -> Self { Self { same_folder: false, prefix: String::new(), suffix: " - processed".into(), overwrite: false } }
+    fn default() -> Self { Self { same_folder: false, prefix: String::new(), suffix: " - processed".into(), overwrite: false, format: "pdf".into() } }
 }
 
 impl OutputOptions {
     fn validate(&self) -> Result<()> {
+        if !["pdf", "docx", "pptx", "html", "rtf", "txt", "md", "png.zip", "jpeg.zip"].contains(&self.format.as_str()) { return Err(invalid("Choose a supported output format")); }
         for part in [&self.prefix, &self.suffix] {
             if part.len() > 100 || part.chars().any(|c| c.is_control() || "<>:\"/\\|?*".contains(c)) {
                 return Err(invalid("Output prefix and suffix need up to 100 bytes without path characters"));
@@ -62,19 +64,32 @@ impl OutputOptions {
         let dir = if self.same_folder { input.parent().unwrap_or(Path::new(".")) } else { out };
         let stem = input.file_stem().unwrap_or_default().to_string_lossy();
         let name = crate::watch_folder::safe_name(&format!("{}{stem}{}", self.prefix, self.suffix));
-        Ok(dir.join(format!("{name}.pdf")))
+        Ok(dir.join(format!("{name}.{}", self.format)))
     }
 }
 
 /// Folder inputs are bounded and never follow symbolic links, as Folder Scanning does.
 pub fn folder_inputs(folder: &Path) -> Result<Vec<PathBuf>> {
+    folder_inputs_recursive(folder, false)
+}
+
+/// Recursive intake is bounded by entries and depth, and never follows symbolic links.
+pub fn folder_inputs_recursive(folder: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
-    for entry in std::fs::read_dir(folder)? {
-        let entry = entry?;
-        if entry.file_type()?.is_file() && entry.path().extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
-            paths.push(entry.path());
+    let mut pending = vec![(folder.to_path_buf(), 0)];
+    let mut visited = 0;
+    while let Some((folder, depth)) = pending.pop() {
+        for entry in std::fs::read_dir(folder)? {
+            let entry = entry?;
+            visited += 1;
+            if visited > 100_000 { return Err(invalid("Choose a folder with at most 100000 entries")); }
+            let kind = entry.file_type()?;
+            if kind.is_file() && entry.path().extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) { paths.push(entry.path()); }
+            if recursive && kind.is_dir() {
+                if depth >= 64 { return Err(invalid("Folder nesting exceeds 64 levels")); }
+                pending.push((entry.path(), depth + 1));
+            }
         }
-        if paths.len() > 100_000 { return Err(invalid("Choose a folder with at most 100000 PDFs")); }
     }
     paths.sort();
     if paths.is_empty() { return Err(invalid("This folder has no PDF files")); }
@@ -228,6 +243,7 @@ pub fn run_file_configured(
     });
     if cancelled { return Err(OpdfError::Cancelled); }
     let bytes = result.map_err(OpdfError::Engine)?.bytes;
+    let bytes = convert_output(bytes, password, &action.output.format)?;
     if !publish() { return Err(OpdfError::Cancelled); }
     let target = action.output.path(input, out_dir)?;
     std::fs::create_dir_all(target.parent().unwrap_or(Path::new(".")))?;
@@ -245,6 +261,36 @@ pub fn run_file_configured(
         std::fs::write(part, bytes.as_slice())?;
         Ok(())
     })
+}
+
+/// Save to other formats in Rust, after the entire action succeeds. Image sets are one ZIP so
+/// cancellation or collisions cannot leave a half-published group of page files.
+pub(crate) fn convert_output(bytes: Arc<Vec<u8>>, password: Option<&str>, format: &str) -> Result<Arc<Vec<u8>>> {
+    use sheaf_core::pdfcraft::engine::{Session, compare::OfficeFormat, export::{Exporter, ImageFormat}};
+    if format == "pdf" { return Ok(bytes); }
+    let mut session = Session::new();
+    let id = session.open("Action output.pdf", None, bytes, password).map_err(|e| invalid(e.to_string()))?;
+    let doc = session.get(id).ok_or_else(|| invalid("The action output is unavailable"))?;
+    if !doc.allows_copying() { return Err(invalid("This PDF does not allow copying or export")); }
+    let office = match format {
+        "docx" => Some(OfficeFormat::Docx), "pptx" => Some(OfficeFormat::Pptx),
+        "html" => Some(OfficeFormat::Html), "rtf" => Some(OfficeFormat::Rtf),
+        "txt" => Some(OfficeFormat::Text), "md" => Some(OfficeFormat::Markdown),
+        "png.zip" | "jpeg.zip" => None,
+        _ => return Err(invalid("Unsupported action output format")),
+    };
+    if let Some(office) = office { return Ok(Arc::new(doc.export_office(office))); }
+    let mut exporter = Exporter::new(doc);
+    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for page in 0..doc.info.pages.len() {
+        let png = format == "png.zip";
+        let data = exporter.image(page, 150.0, if png { ImageFormat::Png } else { ImageFormat::Jpeg { quality: 85 } }).map_err(invalid)?;
+        zip.start_file(format!("page-{:04}.{}", page + 1, if png { "png" } else { "jpg" }), zip::write::SimpleFileOptions::default())
+            .map_err(|e| invalid(e.to_string()))?;
+        use std::io::Write;
+        zip.write_all(&data)?;
+    }
+    Ok(Arc::new(zip.finish().map_err(|e| invalid(e.to_string()))?.into_inner()))
 }
 
 #[cfg(test)]
@@ -432,7 +478,7 @@ mod tests {
         std::fs::write(dir.path().join("skip.txt"), b"skip").unwrap();
         assert_eq!(folder_inputs(dir.path()).unwrap(), std::slice::from_ref(&input));
         let mut a = suggested().remove(3);
-        a.output = OutputOptions { same_folder: true, prefix: "review-".into(), suffix: "-done".into(), overwrite: false };
+        a.output = OutputOptions { same_folder: true, prefix: "review-".into(), suffix: "-done".into(), overwrite: false, ..Default::default() };
         let out = run_file(&a, &input, &dir.path().join("unused"), &mut |_, _| true).unwrap();
         assert_eq!(out, dir.path().join("review-input-done.pdf"));
         assert_eq!(std::fs::read(&input).unwrap(), *bytes);
@@ -458,6 +504,30 @@ mod tests {
             assert!(suggested().contains(template));
         }
         assert!(!all.iter().any(|a| a.name == "Make Accessible"));
+    }
+
+    #[test]
+    fn action_save_to_formats_use_native_writers_and_recursive_inputs_skip_symlinks() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("nested"); std::fs::create_dir(&nested).unwrap();
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Source", "Original body").unwrap();
+        let input = nested.join("input.pdf"); std::fs::write(&input, bytes.as_slice()).unwrap();
+        assert!(folder_inputs(dir.path()).is_err());
+        assert_eq!(folder_inputs_recursive(dir.path(), true).unwrap(), [input.clone()]);
+        #[cfg(unix)] {
+            std::os::unix::fs::symlink(dir.path(), nested.join("loop")).unwrap();
+            assert_eq!(folder_inputs_recursive(dir.path(), true).unwrap(), [input.clone()]);
+        }
+        let mut action = suggested().remove(3);
+        for format in ["txt", "docx", "html", "png.zip", "jpeg.zip"] {
+            action.output.format = format.into();
+            let output = run_file(&action, &input, dir.path(), &mut |_, _| true).unwrap();
+            assert!(output.to_string_lossy().ends_with(format));
+            let data = std::fs::read(output).unwrap();
+            if format == "txt" || format == "html" { assert!(String::from_utf8(data).unwrap().contains("Original body")); }
+            else { assert!(data.starts_with(b"PK")); }
+        }
+        action.output.format = "unsupported".into(); assert!(action.validate().is_err());
     }
 
 }

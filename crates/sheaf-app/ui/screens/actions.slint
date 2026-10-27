@@ -50,6 +50,7 @@ export global ActionBridge {
     in-out property <string> password;
     in-out property <bool> same-folder;
     in-out property <bool> overwrite;
+    in-out property <string> output-format: "pdf";
     in-out property <string> output-prefix;
     in-out property <string> output-suffix: " - processed";
     in-out property <[string]> outputs;
@@ -179,6 +180,8 @@ export component ActionsScreen inherits Rectangle {
                         }
                     }
                     Text { text: "Save to"; color: Theme.text; font-size: Theme.fs-subtitle; }
+                    ComboBox { model: ["pdf", "docx", "pptx", "html", "rtf", "txt", "md", "png.zip", "jpeg.zip"]; current-value <=> ActionBridge.output-format; enabled: !ActionBridge.busy; }
+                    Text { text: "Word and text exports retain editable content with approximate layout. Images: all pages at 150 dpi in one ZIP. Uses native Rust; no Office installation needed."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
                     CheckBox { text: "Use each input file's folder"; checked <=> ActionBridge.same-folder; enabled: !ActionBridge.busy; }
                     TextField { label: "Output name prefix"; text <=> ActionBridge.output-prefix; enabled: !ActionBridge.busy; }
                     TextField { label: "Output name suffix"; text <=> ActionBridge.output-suffix; enabled: !ActionBridge.busy; }
@@ -186,7 +189,7 @@ export component ActionsScreen inherits Rectangle {
                     TextField { label: "Password for this run (optional, never saved)"; password: true; allow-reveal: true; text <=> ActionBridge.password; enabled: !ActionBridge.busy; }
                     CheckBox { text: "Ask for a separate password for each input"; checked <=> ActionBridge.per-file-password; enabled: !ActionBridge.busy; }
                     CheckBox { text: "Name watched outputs from the document title"; checked <=> ActionBridge.title-names; enabled: !ActionBridge.busy; }
-                    CheckBox { text: "Include subfolders in the watch"; checked <=> ActionBridge.recursive; enabled: !ActionBridge.busy; }
+                    CheckBox { text: "Include subfolders (folder runs and watches)"; checked <=> ActionBridge.recursive; enabled: !ActionBridge.busy; }
                     TextField { label: "Watch output pattern: {name}, {title}, {counter} (blank = above)"; text <=> ActionBridge.watch-pattern; enabled: !ActionBridge.busy; }
                     CheckBox { text: "Move successful inputs to output / Processed inputs"; checked <=> ActionBridge.archive-inputs; enabled: !ActionBridge.busy; }
                     if ActionBridge.watch-active > 0: HorizontalLayout {

@@ -89,6 +89,7 @@ fn draft(ui: &AppWindow) {
         b.set_output_prefix(s.draft.output.prefix.as_str().into());
         b.set_output_suffix(s.draft.output.suffix.as_str().into());
         b.set_overwrite(s.draft.output.overwrite);
+        b.set_output_format(s.draft.output.format.as_str().into());
         b.set_step(s.step);
         b.set_steps(ModelRc::new(VecModel::from(s.draft.steps.iter().map(|step| ActionStepRow {
             label: step.engine().map(|s| s.label()).unwrap_or("Unknown tool").into(),
@@ -119,7 +120,7 @@ fn flush(ui: &AppWindow) {
         s.draft.name = b.get_name().to_string();
         s.draft.description = b.get_description().to_string();
         s.draft.custom_tool = b.get_custom();
-        s.draft.output = actions::OutputOptions { same_folder: b.get_same_folder(), prefix: b.get_output_prefix().to_string(), suffix: b.get_output_suffix().to_string(), overwrite: b.get_overwrite() };
+        s.draft.output = actions::OutputOptions { same_folder: b.get_same_folder(), prefix: b.get_output_prefix().to_string(), suffix: b.get_output_suffix().to_string(), overwrite: b.get_overwrite(), format: b.get_output_format().to_string() };
         let index = s.step;
         if let Some(step) = usize::try_from(index).ok().and_then(|i| s.draft.steps.get_mut(i)) {
             step.argument = if step.tool == "page_numbers" {
@@ -274,7 +275,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             let action = STATE.with(|s| s.borrow().draft.clone());
             if let Err(e) = action.validate() { return status(ui, e.to_string()); }
             let d = crate::dialog::new(ui).set_title("Choose the input PDF folder");
-            crate::dialog::pick_folder(ui, d, move |ui, folder| match actions::folder_inputs(&folder) {
+            crate::dialog::pick_folder(ui, d, move |ui, folder| match actions::folder_inputs_recursive(&folder, ui.global::<ActionBridge>().get_recursive()) {
                 Ok(files) => pick_output(ui, action, files), Err(e) => status(ui, e.to_string()),
             });
             return;

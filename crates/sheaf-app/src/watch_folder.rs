@@ -93,8 +93,10 @@ impl FolderWatch {
             let name = safe_name(&pattern.replace("{name}", &fallback).replace("{title}", title.as_deref().unwrap_or(&fallback)).replace("{counter}", &(sequence + 1).to_string()));
             if !before() { return Err(OpdfError::Cancelled); }
             if revision(path)? != original_revision { return Err(OpdfError::Unsupported("The input changed during processing. It will be retried after it becomes stable.".into())); }
-            let published = sheaf_core::paths::atomic_write(&output.join(format!("{name}.pdf")), |part| {
-                std::fs::copy(&processed, part)?;
+            let bytes = actions::convert_output(std::sync::Arc::new(std::fs::read(&processed)?), None, &action.output.format)?;
+            if !before() { return Err(OpdfError::Cancelled); }
+            let published = sheaf_core::paths::atomic_write(&output.join(format!("{name}.{}", action.output.format)), |part| {
+                std::fs::write(part, bytes.as_slice())?;
                 Ok(())
             })?;
             if archive_inputs {
@@ -389,6 +391,24 @@ mod tests {
         assert_eq!(std::fs::read(input).unwrap(), changed);
         assert!(!out.join("input.pdf").exists());
         assert!(!out.join("Processed inputs").exists());
+    }
+
+    #[test]
+    fn watched_exports_keep_the_selected_format_and_updated_title() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("in"); let out = dir.path().join("out");
+        std::fs::create_dir(&inbox).unwrap(); std::fs::create_dir(&out).unwrap();
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Old", "Body").unwrap();
+        std::fs::write(inbox.join("source.pdf"), bytes.as_slice()).unwrap();
+        let mut action = actions::SavedAction::empty();
+        action.steps = vec![actions::ActionStep::from_engine(&sheaf_core::pdfcraft::engine::actions::Step::SetTitle("New title".into()))];
+        action.output.format = "txt".into();
+        let mut watch = FolderWatch::new(&inbox, &out, true).unwrap();
+        assert!(watch.poll(&action, &mut || true).unwrap().is_empty());
+        let results = watch.poll(&action, &mut || true).unwrap();
+        let path = results[0].1.as_ref().unwrap();
+        assert_eq!(path.file_name().unwrap(), "New title.txt");
+        assert!(std::fs::read_to_string(path).unwrap().contains("Body"));
     }
 
 }

@@ -602,3 +602,13 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   not automatable: add these four steps, edit settings, save/reopen and run on mixed page counts —
   execution forbidden by the brief. No new dependency. Public: Step's four new variants,
   actions::page_selection. Native font dependency was already present.
+
+- C-batch-003: Save to PDF, Word, PowerPoint, HTML, RTF, text, Markdown or an all-pages PNG/JPEG
+  ZIP. Native existing writers/renderers, 150 dpi images, one atomic archive publication; Office
+  layout remains approximate and this is stated in the editor. Folder runs optionally recurse,
+  refuse excessive depth/entry counts and skip symlinks. Test
+  `action_save_to_formats_use_native_writers_and_recursive_inputs_skip_symlinks` (written, not run).
+  Left: run whole actions over all open unsaved reader documents; extracting a disk copy would
+  lose those edits, so that route was not used. No new dependency (existing zip/native exporters).
+  not automatable: choose each output format and recursive folder intake, cancel a run — brief
+  forbids app execution. Public: OutputOptions::format, actions::folder_inputs_recursive.
