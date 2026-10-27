@@ -49,6 +49,14 @@
   shortcuts off while it does; right-hand Ctrl/Shift so a left Ctrl being held stays held). (tests
   `shortcuts_change_conflict_and_reset`, `shortcut_rows_are_searched`, `rebound_commands_stop_their_other_keys`;
   smoke step 228)
+- Fourth pass (Sol's review): C-edit-013, a reply is checked even when its comment has no text (a highlight
+  replied to; `replies_are_checked_even_when_their_comment_has_no_text`). C-reader-060, the grammar's
+  English rules (a/an, a capital after a full stop) apply only with an English dictionary; another
+  language gets repeated words and spaces (`the_light_grammar_pass`: "Il a une idée"). C-platform-014,
+  Shift, Alt or Super still held when Edit ▸ Undo and the like send their keys on (Ctrl+Shift+U given to
+  Undo) are let go for the key and pressed again after (the window's ModifiersChanged, main.rs).
+  C-preferences-013, Reset on a command refuses keys a tool launcher has taken by now
+  (`reset_refuses_keys_a_tool_has_taken`).
 - C-platform-014: a menu bar, File · Edit · View · Go · Tools · Window · Help (Acrobat's and Preview's
   menus; Slint's `MenuBar`: drawn in the window on Linux and Windows, the system menu on macOS). Every
   command shows its shortcut; a command that does not apply where the user is (Save on Home) is disabled, so
@@ -126,15 +134,28 @@
   direction-aware FlexboxLayouts by a brace-aware script (a row's default stretch kept, a child's `y`
   nudge turned into `cross-axis-self-alignment: center`; scripts kept in /tmp/f5/opus-scripts, not in the
   repo). Smoke step 230.
+- C-platform-004 (fourth pass, Sol's review): right to left also mirrors the side panel (its tabs
+  Pages/Outline/Notes/Files/Layers, every row, the outline's indentation, the hover buttons and page
+  labels, the notes and attachments rows) and the tool pages (the file area and the options panel swap
+  sides, the + and sort buttons move to the left, the options' rows and labels, the result page). Rows
+  became direction-aware flexboxes as before; placed items have `x: rtl ? parent.width - (x) -
+  self.width : x` (a width written from `self.x` rewritten from the same x, so they do not depend on
+  each other); popups, centred, mouse- or drag-placed items are left as they are (scripts
+  /tmp/f5/opus-scripts/mirror.py, mirror_x.py, flexify.py).
 - C-platform-004, what Slint 1.18 blocks or what is left: (1) Slint has no window-wide layout direction, so
-  each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, side panel position, tool
-  options bar, Preferences, the dialogs; left: the side panel's own rows, the reader's sheets (print,
-  properties, signature), the tool-flow pages and the Home pages other than Preferences).
+  each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, side panel with its tabs and
+  rows, tool options bar, tool pages, result page, Preferences, the dialogs; left: the reader's sheets
+  (print, properties, signature), Home's Recents, Tools and History pages).
   (2) Text alignment: `Text`'s default `horizontal-alignment` is `start`, which follows each string's own
-  script (an Arabic string sits right, an English one left); Sheaf has no translations, so its English labels
-  stay left-aligned except where set to `right` here (sidebar, tabs). (3) The `MenuBar` element has no
-  direction: its menus stay File … Help from the left. (4) Icons are not flipped (the Side panel icon still
-  points left): Slint has no mirrored image drawing short of a second icon file.
+  script (an Arabic string sits right, an English one left); Sheaf has no translations, so labels are set
+  to `right` explicitly where mirrored. (3) The `MenuBar` element has no direction: Slint draws it with its
+  own MenuBarImpl (std-widgets common/menus.slint), a row of entries from the left with no direction or
+  alignment property, so the menus cannot start at the right; reversing their order alone would need
+  every Menu written twice behind `if PlatformBridge.rtl` and would still be left-aligned (on macOS the
+  system menu bar follows the system's language). (4) Icons are not flipped (the Side panel icon still
+  points left): Slint has no mirrored image drawing short of a second icon file. (5) A tool page's file
+  cards keep their left-to-right order: their drag-and-drop slots are computed from the pointer in
+  left-to-right columns (tool-flow.slint `drop-col`).
 - C-platform-007: Shortcuts / AppleScript actions need macOS (App Intents, a Mac build): not done, as the
   brief says. Linux and Windows have no system automation of that kind; the CLI and the MCP server are it.
 
