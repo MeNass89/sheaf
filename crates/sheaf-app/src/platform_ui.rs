@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use sheaf_app::platform::{self, PlatformPrefs, COMMANDS};
+use sheaf_app::platform::{self, PlatformPrefs, COMMANDS, TOOLS};
 use sheaf_app::{AppWindow, PlatformBridge, ShortcutRow, SpellIssue};
 use sheaf_core::spell::Speller;
 use sheaf_core::tools::ToolId;
@@ -44,6 +44,8 @@ thread_local! {
     static LAST: RefCell<(String, bool)> = RefCell::default();
     /// Preferences ▸ Keyboard's search.
     static QUERY: RefCell<String> = RefCell::default();
+    /// The tools' letters (pushed with the keys): looked up on every key pressed on the pages.
+    static TOOL_KEYS: RefCell<PlatformPrefs> = RefCell::default();
 }
 
 /// Runs `f` with the dictionary, read on first use.
@@ -187,7 +189,12 @@ fn unavailable_text() -> String {
 fn push_keys(ui: &AppWindow) {
     let p = home::prefs().platform;
     let keys: Vec<slint::Keys> = (0..COMMANDS.len()).map(|i| platform::keys(&platform::effective(&p, i))).collect();
-    ui.global::<PlatformBridge>().set_keys(ModelRc::new(VecModel::from(keys)));
+    let g = ui.global::<PlatformBridge>();
+    g.set_keys(ModelRc::new(VecModel::from(keys)));
+    g.set_rebound(ModelRc::new(VecModel::from((0..COMMANDS.len()).map(|i| platform::rebound(&p, i)).collect::<Vec<_>>())));
+    g.set_key_labels(ModelRc::new(VecModel::from((0..COMMANDS.len()).map(|i| SharedString::from(platform::label(&p, i))).collect::<Vec<_>>())));
+    TOOL_KEYS.with(|t| t.borrow_mut().tool_keys = p.tool_keys.clone());
+    g.set_tool_letters(ModelRc::new(VecModel::from((0..TOOLS.len()).map(|k| SharedString::from(platform::tool_key(&p, k).to_uppercase())).collect::<Vec<_>>())));
 }
 
 fn push_rows(ui: &AppWindow) {
@@ -226,9 +233,35 @@ fn load_dictionary(ui: &AppWindow) {
 /// A key pressed while Preferences ▸ Keyboard records command `i`'s shortcut: true when the
 /// recording ends. Escape alone cancels, Backspace or Delete alone removes the shortcut.
 fn record(ui: &AppWindow, i: i32, text: &str, control: bool, alt: bool, shift: bool, meta: bool) -> bool {
-    let Some(c) = COMMANDS.get(i.max(0) as usize) else { return true };
     let g = ui.global::<PlatformBridge>();
     let bare = !(control || alt || shift || meta);
+    // A tool's letter (rows after the commands): one key alone, as typed on the pages.
+    if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len()) {
+        let key = match text {
+            "\u{1b}" if bare => {
+                g.set_shortcut_error("".into());
+                return true;
+            }
+            "\u{8}" | "\u{7f}" if bare => "",
+            // A modifier alone: still waiting for the key.
+            t if t.chars().next().is_some_and(|c| ('\u{10}'..='\u{18}').contains(&c)) => return false,
+            t if bare => t,
+            _ => {
+                g.set_shortcut_error("A tool's key is one letter or digit alone, without ⌘/Ctrl, Alt or ⇧".into());
+                return true;
+            }
+        };
+        let mut prefs = home::prefs().platform;
+        match platform::assign_tool(&mut prefs, k, key) {
+            Ok(()) => {
+                g.set_shortcut_error("".into());
+                update(ui, |p| *p = prefs);
+            }
+            Err(e) => g.set_shortcut_error(e.into()),
+        }
+        return true;
+    }
+    let Some(c) = COMMANDS.get(i.max(0) as usize) else { return true };
     let parts = match text {
         "\u{1b}" if bare => {
             g.set_shortcut_error("".into());
@@ -321,7 +354,15 @@ pub fn install(ui: &AppWindow) {
     });
     let weak = ui.as_weak();
     g.on_record_shortcut(move |i, text, control, alt, shift, meta| weak.upgrade().is_none_or(|ui| record(&ui, i, &text, control, alt, shift, meta)));
+    g.on_tool_for_key(|text| TOOL_KEYS.with(|t| platform::tool_for_key(&t.borrow(), &text).map_or(-1, |k| k as i32)));
     on!(on_clear_shortcut, |ui, i| {
+        if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len()) {
+            let mut prefs = home::prefs().platform;
+            if platform::assign_tool(&mut prefs, k, "").is_ok() {
+                update(&ui, |p| *p = prefs);
+            }
+            return;
+        }
         let Some(c) = COMMANDS.get(i.max(0) as usize) else { return };
         let mut prefs = home::prefs().platform;
         if platform::assign(&mut prefs, c.id, "").is_ok() {
@@ -329,6 +370,18 @@ pub fn install(ui: &AppWindow) {
         }
     });
     on!(on_reset_shortcut, |ui, i| {
+        if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len()) {
+            let mut prefs = home::prefs().platform;
+            let own = TOOLS.get(k).map_or("", |t| t.2);
+            match platform::assign_tool(&mut prefs, k, own) {
+                Ok(()) => {
+                    ui.global::<PlatformBridge>().set_shortcut_error("".into());
+                    update(&ui, |p| *p = prefs);
+                }
+                Err(e) => ui.global::<PlatformBridge>().set_shortcut_error(e.into()),
+            }
+            return;
+        }
         let Some(c) = COMMANDS.get(i.max(0) as usize) else { return };
         // The default may be taken by now: then it stays as it is, with the reason.
         let mut prefs = home::prefs().platform;
@@ -345,7 +398,10 @@ pub fn install(ui: &AppWindow) {
     });
     on!(on_reset_shortcuts, |ui| {
         ui.global::<PlatformBridge>().set_shortcut_error("".into());
-        update(&ui, |p| platform::reset(p, None));
+        update(&ui, |p| {
+            platform::reset(p, None);
+            p.tool_keys.clear();
+        });
     });
     ui.global::<PlatformBridge>().set_unavailable_tools(unavailable_text().into());
     on!(on_set_hide_unavailable, |ui, on| {

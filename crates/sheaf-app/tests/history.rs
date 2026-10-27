@@ -126,6 +126,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             shortcuts: vec![("find".into(), "Control+Alt+F".into())],
             hide_unavailable_tools: true,
             direction: 2,
+            tool_keys: vec![("note".into(), "q".into())],
         },
     };
     p.save(dir.path()).unwrap();

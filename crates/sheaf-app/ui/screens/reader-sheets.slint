@@ -7,6 +7,7 @@ import { SortCombo } from "../widgets/sort-combo.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Check } from "../widgets/check.slint";
 import { ToolTab, ReaderBridge } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
 
 // The signature pad (PDF Expert's "Create signature"): draw it, or type a name.
 export component SignatureSheet inherits Rectangle {
@@ -722,24 +723,24 @@ export component HelpSheet inherits Rectangle {
                 for col in [
                     [
                         { k: "", t: "Tools" },
-                        { k: "V", t: "Select text" }, { k: "H", t: "Highlight" }, { k: "U", t: "Underline" }, { k: "K", t: "Strikethrough" },
-                        { k: "N", t: "Note" }, { k: "T", t: "Text box" }, { k: "P", t: "Pen" }, { k: "R", t: "Shapes" }, { k: "X", t: "Eraser" },
-                        { k: "M", t: "Stamp" }, { k: "S", t: "Sign" }, { k: "E", t: "Edit text and objects" }, { k: "I", t: "Add image" },
-                        { k: "L", t: "Link" }, { k: "F", t: "Prepare form" },
+                        { k: PlatformBridge.tool-letters[0], t: "Select text" }, { k: PlatformBridge.tool-letters[1], t: "Highlight" }, { k: PlatformBridge.tool-letters[2], t: "Underline" }, { k: PlatformBridge.tool-letters[3], t: "Strikethrough" },
+                        { k: PlatformBridge.tool-letters[4], t: "Note" }, { k: PlatformBridge.tool-letters[6], t: "Text box" }, { k: PlatformBridge.tool-letters[5], t: "Pen" }, { k: PlatformBridge.tool-letters[10], t: "Shapes" }, { k: PlatformBridge.tool-letters[11], t: "Eraser" },
+                        { k: PlatformBridge.tool-letters[12], t: "Stamp" }, { k: PlatformBridge.tool-letters[9], t: "Sign" }, { k: PlatformBridge.tool-letters[7], t: "Edit text and objects" }, { k: PlatformBridge.tool-letters[8], t: "Add image" },
+                        { k: PlatformBridge.tool-letters[13], t: "Link" }, { k: PlatformBridge.tool-letters[14], t: "Prepare form" },
                     ],
                     [
                         { k: "", t: "View" },
-                        { k: "⌘ +  ⌘ −", t: "Zoom in, out" }, { k: "⌘ 0", t: "Actual size" }, { k: "⌘ 9", t: "Fit width" }, { k: "⌘ 8", t: "Fit page" },
-                        { k: "⇧⌘ +  ⇧⌘ −", t: "Rotate view" }, { k: "⌥⌘ 2", t: "One page, two, cover alone" }, { k: "⌥⌘ 0", t: "Side panel" },
-                        { k: "⌃⌘ F", t: "Full screen" }, { k: "Space drag", t: "Move the pages" }, { k: "← →  PgUp PgDn", t: "Previous, next page" },
-                        { k: "Home  End", t: "First, last page" }, { k: "⌥⌘ G", t: "Go to page" },
+                        { k: "⌘ +  ⌘ −", t: "Zoom in, out" }, { k: PlatformBridge.key-labels[18], t: "Actual size" }, { k: PlatformBridge.key-labels[20], t: "Fit width" }, { k: PlatformBridge.key-labels[19], t: "Fit page" },
+                        { k: "⇧⌘ +  ⇧⌘ −", t: "Rotate view" }, { k: PlatformBridge.key-labels[22], t: "One page, two, cover alone" }, { k: PlatformBridge.key-labels[21], t: "Side panel" },
+                        { k: PlatformBridge.key-labels[25], t: "Full screen" }, { k: "Space drag", t: "Move the pages" }, { k: "← →  PgUp PgDn", t: "Previous, next page" },
+                        { k: "Home  End", t: "First, last page" }, { k: PlatformBridge.key-labels[31], t: "Go to page" },
                     ],
                     [
                         { k: "", t: "Document" },
-                        { k: "⌘ F", t: "Find" }, { k: "⌘ G  ⇧⌘ G", t: "Next, previous result" }, { k: "⌘ S", t: "Save" }, { k: "⇧⌘ S", t: "Save as" },
-                        { k: "⌘ P", t: "Print" }, { k: "⌘ D", t: "Document properties" }, { k: "⌘ Z  ⇧⌘ Z", t: "Undo, redo" },
+                        { k: PlatformBridge.key-labels[11], t: "Find" }, { k: "⌘ G  ⇧⌘ G", t: "Next, previous result" }, { k: PlatformBridge.key-labels[2], t: "Save" }, { k: PlatformBridge.key-labels[3], t: "Save as" },
+                        { k: PlatformBridge.key-labels[4], t: "Print" }, { k: PlatformBridge.key-labels[5], t: "Document properties" }, { k: "⌘ Z  ⇧⌘ Z", t: "Undo, redo" },
                         { k: "⌘ C  ⌘ X  ⌘ V", t: "Copy, cut, paste" }, { k: "⌘ K", t: "Link the selected text" }, { k: "Delete", t: "Delete the selection" },
-                        { k: "⇧⌘ [  ⇧⌘ ]", t: "Previous, next tab" }, { k: "⌘ W", t: "Close the tab" }, { k: "?  ⌘ /", t: "These shortcuts" },
+                        { k: "⇧⌘ [  ⇧⌘ ]", t: "Previous, next tab" }, { k: PlatformBridge.key-labels[6], t: "Close the tab" }, { k: "?  ⌘ /", t: "These shortcuts" },
                     ],
                 ]: VerticalLayout {
                     spacing: 4px;

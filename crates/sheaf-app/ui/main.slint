@@ -370,12 +370,13 @@ export component AppWindow inherits Window {
     // browsers and PDF Expert do (⌘8 and ⌘9 stay the reader's zooms).
     app-keys := FocusScope {
         key-pressed(e) => {
-            if e.modifiers.control && e.text == "," { root.show-preferences(); return accept; }
-            if e.modifiers.control && (e.text == "o" || e.text == "O") { root.open-file(); return accept; }
-            if e.modifiers.control && (e.text == "w" || e.text == "W") && root.active-tab >= 0 { root.close-active-tab(); return accept; }
-            if e.text == Key.Tab && e.modifiers.control { root.step-tab(e.modifiers.shift ? -1 : 1); return accept; }
+            // Menu commands too: only while they keep their own keys (see reader.slint).
+            if e.modifiers.control && e.text == "," && !PlatformBridge.rebound[15] /* preferences */ { root.show-preferences(); return accept; }
+            if e.modifiers.control && (e.text == "o" || e.text == "O") && !PlatformBridge.rebound[1] /* open */ { root.open-file(); return accept; }
+            if e.modifiers.control && (e.text == "w" || e.text == "W") && root.active-tab >= 0 && !PlatformBridge.rebound[6] /* close */ { root.close-active-tab(); return accept; }
+            if e.text == Key.Tab && e.modifiers.control && (e.modifiers.shift ? !PlatformBridge.rebound[36] /* previous-tab */ : !PlatformBridge.rebound[35] /* next-tab */) { root.step-tab(e.modifiers.shift ? -1 : 1); return accept; }
             // ⌘F on the Tools page: its search.
-            if e.modifiers.control && e.text == "f" && root.active-tab == -1 && root.page == Page.tools { root.search-seq += 1; return accept; }
+            if e.modifiers.control && e.text == "f" && root.active-tab == -1 && root.page == Page.tools && !PlatformBridge.rebound[11] /* find */ { root.search-seq += 1; return accept; }
             reject
         }
         VerticalLayout {

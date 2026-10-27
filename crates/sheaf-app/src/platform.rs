@@ -22,6 +22,9 @@ pub struct PlatformPrefs {
     pub hide_unavailable_tools: bool,
     /// The interface's direction: 0 as the system's language, 1 left to right, 2 right to left.
     pub direction: u8,
+    /// The reader's tool letters changed by the user: tool id ([`TOOLS`]) and its key, a lower-case
+    /// letter or digit ("" none).
+    pub tool_keys: Vec<(String, String)>,
 }
 
 /// A command of the menu bar: its stable id, menu, title and default keys (parts joined by "+",
@@ -226,20 +229,105 @@ pub fn reset(p: &mut PlatformPrefs, id: Option<&str>) {
     }
 }
 
-/// A row of Preferences ▸ Keyboard: command index, "Menu ▸ Title", keys shown, changed.
+/// Whether the user gave command `i` keys of its own: then the keys the reader and Home answer
+/// besides the menu bar's (⌘= for Zoom In, ⇧⌘] for Next Tab, ⌘Z on the pages for Undo) stop
+/// (`PlatformBridge.rebound[i]` in reader.slint and main.slint).
+pub fn rebound(p: &PlatformPrefs, i: usize) -> bool {
+    COMMANDS.get(i).is_some_and(|c| p.shortcuts.iter().any(|(id, _)| id == c.id))
+}
+
+/// The keys the reader answers itself on its pages for a command that has none in the menu bar
+/// (they would stop typing there): shown in Preferences while the command keeps them.
+fn page_keys(id: &str) -> Option<&'static str> {
+    match id {
+        "undo" => Some("Control+Z"),
+        "redo" => Some("Control+Shift+Z"),
+        "select-all" => Some("Control+A"),
+        _ => None,
+    }
+}
+
+/// A command's keys as Preferences and the help sheet write them ("" none).
+pub fn label(p: &PlatformPrefs, i: usize) -> String {
+    let k = effective(p, i);
+    match COMMANDS.get(i).and_then(|c| page_keys(c.id)) {
+        Some(pk) if k.is_empty() && !rebound(p, i) => format!("{} on the pages", display(pk)),
+        _ => display(&k),
+    }
+}
+
+/// The reader's tools by their number (`ReaderBridge.set-tool`), with Acrobat's and PDF Expert's
+/// one-letter keys; the last, Marquee Zoom, is not a tool but has its letter too. Pressed on the
+/// pages only (in a field they are typed).
+pub const TOOLS: &[(&str, &str, &str)] = &[
+    ("select", "Select Text", "v"),
+    ("highlight", "Highlight", "h"),
+    ("underline", "Underline", "u"),
+    ("strikethrough", "Strikethrough", "k"),
+    ("note", "Note", "n"),
+    ("pen", "Pen", "p"),
+    ("text-box", "Text Box", "t"),
+    ("edit", "Edit Text and Objects", "e"),
+    ("image", "Add Image", "i"),
+    ("sign", "Sign", "s"),
+    ("shapes", "Shapes", "r"),
+    ("eraser", "Eraser", "x"),
+    ("stamp", "Stamp", "m"),
+    ("link", "Link", "l"),
+    ("form", "Prepare Form", "f"),
+    ("zoom-area", "Marquee Zoom", "z"),
+];
+
+/// Tool `k`'s key now ("" none).
+pub fn tool_key(p: &PlatformPrefs, k: usize) -> String {
+    let Some(t) = TOOLS.get(k) else { return String::new() };
+    p.tool_keys.iter().find(|(id, _)| id == t.0).map(|(_, key)| key.clone()).unwrap_or_else(|| t.2.to_string())
+}
+
+/// The tool a key pressed on the pages picks (its number), if any. Case counts: ⇧ with a letter is
+/// another command (⇧T hides the toolbar).
+pub fn tool_for_key(p: &PlatformPrefs, text: &str) -> Option<usize> {
+    if text.is_empty() {
+        return None;
+    }
+    (0..TOOLS.len()).find(|&k| tool_key(p, k) == text)
+}
+
+/// Gives tool `k` the key `key` (a letter or digit alone, as typed; "" none). Refused when another
+/// tool has it, with the reason.
+pub fn assign_tool(p: &mut PlatformPrefs, k: usize, key: &str) -> Result<(), String> {
+    let Some(t) = TOOLS.get(k) else { return Err(format!("No tool {k}")) };
+    let key = key.to_lowercase();
+    let mut chars = key.chars();
+    let one = matches!((chars.next(), chars.next()), (Some(c), None) if c.is_alphanumeric());
+    if !key.is_empty() && !one {
+        return Err("A tool's key is one letter or digit, without ⌘/Ctrl, Alt or ⇧".into());
+    }
+    if let Some(other) = (0..TOOLS.len()).find(|&o| o != k && !key.is_empty() && tool_key(p, o) == key) {
+        return Err(format!("{} is already Tools ▸ {}", key.to_uppercase(), TOOLS[other].1));
+    }
+    p.tool_keys.retain(|(id, _)| id != t.0);
+    if key != t.2 {
+        p.tool_keys.push((t.0.to_string(), key));
+    }
+    Ok(())
+}
+
+/// A row of Preferences ▸ Keyboard: its index (a command's, then `COMMANDS.len()` + a tool's),
+/// "Menu ▸ Title", keys shown, changed.
 pub type ShortcutRow = (usize, String, String, bool);
 
 /// The rows whose menu, title or keys contain `query` (Stirling's Search tools), all of them
-/// when it is empty.
+/// when it is empty: the menu bar's commands, then the reader's tool letters.
 pub fn shortcut_rows(p: &PlatformPrefs, query: &str) -> Vec<ShortcutRow> {
     let q = query.trim().to_lowercase();
-    COMMANDS
-        .iter()
-        .enumerate()
-        .map(|(i, c)| {
-            let k = effective(p, i);
-            (i, format!("{} ▸ {}", c.menu, c.title), display(&k), k != c.keys)
-        })
+    let commands = COMMANDS.iter().enumerate().map(|(i, c)| (i, format!("{} ▸ {}", c.menu, c.title), label(p, i), rebound(p, i)));
+    let tools = TOOLS.iter().enumerate().map(|(k, t)| {
+        let key = tool_key(p, k);
+        (COMMANDS.len() + k, format!("Tools ▸ {} (on the pages)", t.1), key.to_uppercase(), key != t.2)
+    });
+    commands
+        .chain(tools)
         .filter(|(_, name, k, _)| q.is_empty() || name.to_lowercase().contains(&q) || k.to_lowercase().contains(&q))
         .collect()
 }
@@ -399,7 +487,11 @@ mod tests {
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[0].1, "Edit ▸ Find…");
         assert!(rows[0].3 && !rows[1].3);
-        assert_eq!(shortcut_rows(&p, "").len(), COMMANDS.len());
+        assert_eq!(shortcut_rows(&p, "").len(), COMMANDS.len() + TOOLS.len());
+        // Undo has no menu keys (they would stop typing) but the pages answer ⌘Z: shown so.
+        let undo = shortcut_rows(&p, "undo");
+        assert!(undo[0].2.ends_with("on the pages"), "{}", undo[0].2);
+        assert_eq!(shortcut_rows(&p, "highlight")[0].2, "H");
         assert!(shortcut_rows(&p, "zzz").is_empty());
     }
 
@@ -431,5 +523,48 @@ mod tests {
         // Slint reads it without an error.
         assert!(slint::StyledText::from_markdown(&md).is_ok());
         assert!(slint::StyledText::from_markdown(&marked_markdown("1. a # b", &[], "#e5322d")).is_ok());
+    }
+
+    #[test]
+    fn tool_letters_change_and_conflict() {
+        let mut p = PlatformPrefs::default();
+        assert_eq!(tool_for_key(&p, "h"), Some(1));
+        assert_eq!(tool_for_key(&p, "H"), None);
+        assert_eq!(tool_for_key(&p, "z"), Some(TOOLS.len() - 1));
+        // Highlight's H given to Note: refused, Highlight has it.
+        assert!(assign_tool(&mut p, 4, "H").unwrap_err().contains("Highlight"));
+        assert!(assign_tool(&mut p, 4, "ctrl").is_err());
+        assign_tool(&mut p, 4, "Q").unwrap();
+        assert_eq!((tool_for_key(&p, "q"), tool_for_key(&p, "n")), (Some(4), None));
+        // N is free now; none at all is allowed; back to its own: nothing kept.
+        assign_tool(&mut p, 1, "n").unwrap();
+        assign_tool(&mut p, 2, "").unwrap();
+        assert_eq!(tool_for_key(&p, "u"), None);
+        assign_tool(&mut p, 4, "n").unwrap_err();
+        assign_tool(&mut p, 1, "h").unwrap();
+        assign_tool(&mut p, 4, "n").unwrap();
+        assign_tool(&mut p, 2, "u").unwrap();
+        assert!(p.tool_keys.is_empty());
+    }
+
+    #[test]
+    fn rebound_commands_stop_their_other_keys() {
+        // reader.slint and main.slint guard each such key with `!PlatformBridge.rebound[i] /* id */`:
+        // the index must be that command's.
+        for ui in [include_str!("../ui/screens/reader.slint"), include_str!("../ui/main.slint")] {
+            for part in ui.split("PlatformBridge.rebound[").skip(1) {
+                let (i, rest) = part.split_once("] /* ").expect("rebound[i] /* id */");
+                let id = rest.split(" */").next().unwrap();
+                assert_eq!(COMMANDS[i.parse::<usize>().unwrap()].id, id);
+            }
+        }
+        let mut p = PlatformPrefs::default();
+        let zoom = command_index("zoom-in").unwrap();
+        assert!(!rebound(&p, zoom));
+        assign(&mut p, "zoom-in", "Control+Alt+Plus").unwrap();
+        assert!(rebound(&p, zoom));
+        // Undo given keys of its own: ⌘Z on the pages stops, and the row shows the new keys.
+        assign(&mut p, "undo", "Control+Alt+U").unwrap();
+        assert!(!label(&p, command_index("undo").unwrap()).contains("pages"));
     }
 }

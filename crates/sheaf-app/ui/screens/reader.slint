@@ -973,29 +973,32 @@ export component ReaderScreen inherits Rectangle {
         }
         key-pressed(e) => {
             if e.modifiers.control {
+                // The keys below that are also a menu command's (src/platform.rs COMMANDS) answer only
+                // while that command keeps its own keys: given new ones in Preferences, the old stop
+                // (`rebound[i]`; the menu bar takes the keys first anyway, these catch the variants).
                 // ⌘K: link the selected text (as in Word, Pages and PDF Expert).
                 if e.text == "k" && root.tab.reader.has-selection { ReaderBridge.link-selection(root.id); return accept; }
                 // ⌘/: the keyboard shortcuts (PDF Expert's).
-                if e.text == "/" { ReaderBridge.show-help(root.id, true); return accept; }
+                if e.text == "/" && !PlatformBridge.rebound[38] /* shortcuts */ { ReaderBridge.show-help(root.id, true); return accept; }
                 // Acrobat's Rotate View: ⇧⌘+ clockwise, ⇧⌘− back.
-                if e.modifiers.shift && (e.text == "+" || e.text == "=") { ReaderBridge.rotate-view(root.id, 1); return accept; }
-                if e.modifiers.shift && (e.text == "_" || e.text == "-") { ReaderBridge.rotate-view(root.id, -1); return accept; }
-                if e.text == "+" || e.text == "=" { ViewerBridge.zoom-step(root.id, 1); return accept; }
-                if e.text == "-" { ViewerBridge.zoom-step(root.id, -1); return accept; }
+                if e.modifiers.shift && (e.text == "+" || e.text == "=") && !PlatformBridge.rebound[23] /* rotate-right */ { ReaderBridge.rotate-view(root.id, 1); return accept; }
+                if e.modifiers.shift && (e.text == "_" || e.text == "-") && !PlatformBridge.rebound[24] /* rotate-left */ { ReaderBridge.rotate-view(root.id, -1); return accept; }
+                if (e.text == "+" || e.text == "=") && !PlatformBridge.rebound[16] /* zoom-in */ { ViewerBridge.zoom-step(root.id, 1); return accept; }
+                if e.text == "-" && !PlatformBridge.rebound[17] /* zoom-out */ { ViewerBridge.zoom-step(root.id, -1); return accept; }
                 // PDF Expert's shortcuts: ⌘0 100 %, ⌘9 fit width, ⌘8 fit page, ⌃⌘F full screen,
                 // ⇧⌘[ ⇧⌘] previous / next tab, ⌥⌘G go to page, ⌥⌘0 left panel.
-                if e.text == "0" && e.modifiers.alt { ReaderBridge.toggle-panel(root.id); return accept; }
+                if e.text == "0" && e.modifiers.alt && !PlatformBridge.rebound[21] /* panel */ { ReaderBridge.toggle-panel(root.id); return accept; }
                 // ⌥⌘2: one column → two pages → cover alone (⌥2 types ™ on a Mac keyboard).
-                if (e.text == "2" || e.text == "™") && e.modifiers.alt { ReaderBridge.cycle-spread(root.id); return accept; }
-                if e.text == "0" { ReaderBridge.zoom-fit(root.id, 2); return accept; }
-                if e.text == "9" { ReaderBridge.zoom-fit(root.id, 0); return accept; }
-                if e.text == "8" { ReaderBridge.zoom-fit(root.id, 1); return accept; }
-                if (e.text == "f" || e.text == "F") && e.modifiers.meta { root.full-screen(!root.is-full-screen); return accept; }
-                if (e.text == "g" || e.text == "©") && e.modifiers.alt { toolbar.focus-page-field(); return accept; }
-                if (e.text == "[" || e.text == "{") && e.modifiers.shift { root.switch-tab(-1); return accept; }
-                if (e.text == "]" || e.text == "}") && e.modifiers.shift { root.switch-tab(1); return accept; }
-                if e.text == "f" { toolbar.focus-search(); return accept; }
-                if e.text == "g" || e.text == "G" { ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
+                if (e.text == "2" || e.text == "™") && e.modifiers.alt && !PlatformBridge.rebound[22] /* two-pages */ { ReaderBridge.cycle-spread(root.id); return accept; }
+                if e.text == "0" && !PlatformBridge.rebound[18] /* actual-size */ { ReaderBridge.zoom-fit(root.id, 2); return accept; }
+                if e.text == "9" && !PlatformBridge.rebound[20] /* fit-width */ { ReaderBridge.zoom-fit(root.id, 0); return accept; }
+                if e.text == "8" && !PlatformBridge.rebound[19] /* fit-page */ { ReaderBridge.zoom-fit(root.id, 1); return accept; }
+                if (e.text == "f" || e.text == "F") && e.modifiers.meta && !PlatformBridge.rebound[25] /* full-screen */ { root.full-screen(!root.is-full-screen); return accept; }
+                if (e.text == "g" || e.text == "©") && e.modifiers.alt && !PlatformBridge.rebound[31] /* go-to-page */ { toolbar.focus-page-field(); return accept; }
+                if (e.text == "[" || e.text == "{") && e.modifiers.shift && !PlatformBridge.rebound[36] /* previous-tab */ { root.switch-tab(-1); return accept; }
+                if (e.text == "]" || e.text == "}") && e.modifiers.shift && !PlatformBridge.rebound[35] /* next-tab */ { root.switch-tab(1); return accept; }
+                if e.text == "f" && !PlatformBridge.rebound[11] /* find */ { toolbar.focus-search(); return accept; }
+                if (e.text == "g" || e.text == "G") && (e.modifiers.shift ? !PlatformBridge.rebound[13] /* find-previous */ : !PlatformBridge.rebound[12] /* find-next */) { ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
                 if e.text == "c" && root.tab.reader.has-selection {
                     clip.text = root.tab.reader.selected-text;
                     clip.select-all();
@@ -1017,30 +1020,30 @@ export component ReaderScreen inherits Rectangle {
                     ReaderBridge.copy-pages(root.id);
                     return accept;
                 }
-                if e.text == "a" { ReaderBridge.select-all(root.id); return accept; }
+                if e.text == "a" && !PlatformBridge.rebound[10] /* select-all */ { ReaderBridge.select-all(root.id); return accept; }
                 if e.text == "v" { ReaderBridge.paste(root.id); return accept; }
-                if e.text == "[" { ReaderBridge.history(root.id, -1); return accept; }
-                if e.text == "]" { ReaderBridge.history(root.id, 1); return accept; }
+                if e.text == "[" && !PlatformBridge.rebound[32] /* back */ { ReaderBridge.history(root.id, -1); return accept; }
+                if e.text == "]" && !PlatformBridge.rebound[33] /* forward */ { ReaderBridge.history(root.id, 1); return accept; }
                 // With ⇧ the letter comes upper case.
-                if (e.text == "z" || e.text == "Z") && e.modifiers.shift { ReaderBridge.redo(root.id); return accept; }
-                if e.text == "z" { ReaderBridge.undo(root.id); return accept; }
-                if e.text == "y" { ReaderBridge.redo(root.id); return accept; }
-                if (e.text == "s" || e.text == "S") && e.modifiers.shift { ReaderBridge.save-as(root.id); return accept; }
+                if (e.text == "z" || e.text == "Z") && e.modifiers.shift && !PlatformBridge.rebound[9] /* redo */ { ReaderBridge.redo(root.id); return accept; }
+                if e.text == "z" && !PlatformBridge.rebound[8] /* undo */ { ReaderBridge.undo(root.id); return accept; }
+                if e.text == "y" && !PlatformBridge.rebound[9] /* redo */ { ReaderBridge.redo(root.id); return accept; }
+                if (e.text == "s" || e.text == "S") && e.modifiers.shift && !PlatformBridge.rebound[3] /* save-as */ { ReaderBridge.save-as(root.id); return accept; }
                 // ⌥ on a Mac turns w into ∑.
                 if (e.text == "w" && e.modifiers.alt) || e.text == "∑" { ReaderBridge.close-all(root.id); return accept; }
-                if e.text == "w" { ReaderBridge.close(root.id); return accept; }
-                if e.text == "s" { ReaderBridge.save(root.id); return accept; }
-                if e.text == "P" || (e.text == "p" && e.modifiers.shift) { root.present(); return accept; }
+                if e.text == "w" && !PlatformBridge.rebound[6] /* close */ { ReaderBridge.close(root.id); return accept; }
+                if e.text == "s" && !PlatformBridge.rebound[2] /* save */ { ReaderBridge.save(root.id); return accept; }
+                if (e.text == "P" || (e.text == "p" && e.modifiers.shift)) && !PlatformBridge.rebound[26] /* present */ { root.present(); return accept; }
                 if e.text == "L" || (e.text == "l" && e.modifiers.shift) { ReaderBridge.toggle-links(root.id); return accept; }
-                if e.text == "p" { ReaderBridge.print-open(root.id); return accept; }
+                if e.text == "p" && !PlatformBridge.rebound[4] /* print */ { ReaderBridge.print-open(root.id); return accept; }
                 if (e.text == "e" || e.text == "E") && e.modifiers.shift && root.tab.reader.has-selection {
                     // The field and the results show again if the toolbar was hidden (⇧T).
                     root.bare = false;
                     toolbar.search-for(root.tab.reader.selected-text);
                     return accept;
                 }
-                if e.text == "d" { ReaderBridge.props-open(root.id); return accept; }
-                if e.text == "," { root.open-preferences(); return accept; }
+                if e.text == "d" && !PlatformBridge.rebound[5] /* properties */ { ReaderBridge.props-open(root.id); return accept; }
+                if e.text == "," && !PlatformBridge.rebound[15] /* preferences */ { root.open-preferences(); return accept; }
                 if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
                 return reject;
@@ -1090,23 +1093,13 @@ export component ReaderScreen inherits Rectangle {
             if e.text == Key.UpArrow { ReaderBridge.scroll-by(root.id, -48px); return accept; }
             // ?: the keyboard shortcuts.
             if e.text == "?" { ReaderBridge.show-help(root.id, true); return accept; }
-            if e.text == "v" { ReaderBridge.set-tool(root.id, 0); return accept; }
-            if e.text == "h" { ReaderBridge.set-tool(root.id, 1); return accept; }
-            if e.text == "u" { ReaderBridge.set-tool(root.id, 2); return accept; }
-            if e.text == "k" { ReaderBridge.set-tool(root.id, 3); return accept; }
-            if e.text == "n" { ReaderBridge.set-tool(root.id, 4); return accept; }
-            if e.text == "p" { ReaderBridge.set-tool(root.id, 5); return accept; }
-            if e.text == "r" { ReaderBridge.set-tool(root.id, 10); return accept; }
-            if e.text == "x" { ReaderBridge.set-tool(root.id, 11); return accept; }
-            if e.text == "m" { ReaderBridge.set-tool(root.id, 12); return accept; }
-            if e.text == "t" { ReaderBridge.set-tool(root.id, 6); return accept; }
-            if e.text == "e" { ReaderBridge.set-tool(root.id, 7); return accept; }
-            if e.text == "i" { ReaderBridge.set-tool(root.id, 8); return accept; }
-            if e.text == "s" { ReaderBridge.set-tool(root.id, 9); return accept; }
-            if e.text == "l" { ReaderBridge.set-tool(root.id, 13); return accept; }
-            if e.text == "f" { ReaderBridge.set-tool(root.id, 14); return accept; }
-            // Acrobat's Marquee Zoom: the next box dragged fills the view.
-            if e.text == "z" { ReaderBridge.zoom-area(root.id); return accept; }
+            // The tools' letters (V select, H highlight… Z Marquee Zoom; Acrobat's and PDF Expert's),
+            // the user's own from Preferences ▸ Keyboard shortcuts (src/platform.rs TOOLS).
+            if !e.modifiers.alt && !e.modifiers.meta {
+                let tool = PlatformBridge.tool-for-key(e.text);
+                if tool == 15 { ReaderBridge.zoom-area(root.id); return accept; }
+                if tool >= 0 { ReaderBridge.set-tool(root.id, tool); return accept; }
+            }
             reject
         }
     }

@@ -43,6 +43,14 @@ export global PlatformBridge {
     // The menu bar's shortcuts, by command (src/platform.rs COMMANDS); emptied while a new one
     // is recorded so the keys reach the recorder.
     in property <[keys]> keys;
+    // By command: given keys of its own by the user (the reader's and Home's other keys for it
+    // stop), and its keys as written in the help sheet.
+    in property <[bool]> rebound;
+    in property <[string]> key-labels;
+    // The reader's tool letters, upper case, by tool number (src/platform.rs TOOLS; the last is
+    // Marquee Zoom), and the tool a key pressed on the pages picks (-1 none).
+    in property <[string]> tool-letters;
+    pure callback tool-for-key(string) -> int;
     in property <[ShortcutRow]> shortcut-rows;
     // Why the keys just pressed were refused ("" when they were taken).
     in property <string> shortcut-error;

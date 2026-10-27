@@ -38,7 +38,15 @@
   arrows. The menu bar takes the new keys at once (while keys are recorded it has none, so they reach the
   recorder). Preferences ▸ Interface ▸ Hide tools that can't run here (Stirling's): Word, PowerPoint, Excel and
   HTML to PDF without LibreOffice, OCR without its models, left off the Tools page and its search; the page
-  says which and why. (tests `platform::tests::a_pressed_key_becomes_shortcut_parts`,
+  says which and why. Second pass: the reader's one-letter tool keys (V Select, H Highlight … F Prepare
+  Form, Z Marquee Zoom) are listed there too ("Tools ▸ Highlight (on the pages)") and changed the same way
+  (one letter or digit alone; refused when another tool has it); the reader's key handler asks
+  `PlatformBridge.tool-for-key`, and the toolbar's tips, the More menu and the ? help sheet show the user's
+  letters and keys. A command given new keys stops answering its old ones: every key the reader or Home
+  handled besides the menu bar (⌘= for Zoom In, ⇧⌘] for Next Tab, ⌘Z on the pages for Undo…) is guarded by
+  `!PlatformBridge.rebound[i]`. Undo, Redo and Select All show "Ctrl+Z on the pages" while they keep them.
+  (tests `tool_letters_change_and_conflict`, `rebound_commands_stop_their_other_keys` (each guard's index
+  is its command's); smoke step 225) (tests `platform::tests::a_pressed_key_becomes_shortcut_parts`,
   `shortcuts_that_would_stop_typing_are_refused`, `shortcuts_change_conflict_and_reset`,
   `shortcut_rows_are_searched`, `tools_that_cannot_run_here`; `history.rs` prefs literal; smoke step 221)
 - C-platform-004: Preferences ▸ Interface ▸ Direction (iLovePDF's right-to-left interface): as the system's
@@ -69,10 +77,8 @@
   selected and uses a hidden field in reader.slint; the keys still work). The reader's one-letter tool keys
   (V, H, U…) are not shown as menu shortcuts: a menu bar shortcut is taken before any text field, so a bare
   letter would stop typing. The menu bar is not mirrored right to left (Slint draws it left to right).
-- C-preferences-013: the reader's one-letter tool keys are not customizable (they live in reader.slint's key
-  handler). A command given new keys still answers its old ones where the reader or Home handled them
-  itself (⌘S in a reader tab, ⌘O, ⌘W, ⌘,): those handlers were left as they are. "API output handling"
-  (Stirling) is a server setting with no meaning offline.
+- C-preferences-013: "API output handling" (Stirling) is a server setting with no meaning offline. The
+  reader's other plain keys (arrows, Space, Delete, ⇧T, ?) are not customizable.
 - C-platform-004, what Slint 1.18 blocks or what is left: (1) Slint has no window-wide layout direction, so
   each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, reader side panel; left: the
   tool options bar over the pages, the side panel's own rows, the sheets and dialogs, the tool-flow pages).
@@ -97,7 +103,7 @@
   `static Mutex` (needs `Send`).
 - New modules: `sheaf_core::spell`, `sheaf_core::bookmarks`; `sheaf_app::platform` (lib); `platform_ui` (bin,
   `mod platform_ui;` in main.rs, `platform_ui::install(&ui)` after `wire_reader`); `home::update_platform`.
-- New Prefs field `platform: sheaf_app::platform::PlatformPrefs` (added to `tests/history.rs`'s literal).
+- New Prefs field `platform: sheaf_app::platform::PlatformPrefs` (added to `tests/history.rs`'s literal, `tool_keys` included).
 - New Slint files: `ui/platform.slint` (`PlatformBridge`, `SpellIssue`, `ShortcutRow`, exported from
   main.slint by a separate `export { … }` line), `ui/widgets/spell-strip.slint`,
   `ui/screens/preferences-platform.slint`. `main.slint` imports the sidebar's `MenuItem` as `SideMenuItem`

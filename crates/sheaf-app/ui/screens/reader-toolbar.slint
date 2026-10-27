@@ -25,6 +25,10 @@ export component ReaderToolbar inherits Rectangle {
     property <string> page-text: root.tab.reader.page-text;
     changed page-text => { if !page-in.has-focus { page-in.text = root.page-text; } }
 
+    // " (H)": a tool's letter for its tip, the user's own (Preferences ▸ Keyboard shortcuts).
+    function key-hint(tool: int) -> string {
+        return PlatformBridge.tool-letters[tool] == "" ? "" : " (" + PlatformBridge.tool-letters[tool] + ")";
+    }
     // ⌥⌘G: the page field, its text selected.
     public function focus-page-field() { page-in.focus(); page-in.select-all(); }
     // ⌘F: the search field, its text selected.
@@ -58,24 +62,24 @@ export component ReaderToolbar inherits Rectangle {
             Rectangle { width: 6px; }
             Divider { y: 5px; }
             Rectangle { width: 6px; }
-            ToolButton { icon: @image-url("../icons/mouse-pointer-2.svg"); tip: "Select text (V)"; active: root.tab.reader.tool == 0; clicked => { ReaderBridge.set-tool(root.id, 0); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight (H)"; active: root.tab.reader.tool == 1; clicked => { ReaderBridge.set-tool(root.id, 1); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline (U)"; active: root.tab.reader.tool == 2; clicked => { ReaderBridge.set-tool(root.id, 2); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough (K)"; active: root.tab.reader.tool == 3; clicked => { ReaderBridge.set-tool(root.id, 3); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/sticky-note.svg"); tip: "Note (N)"; active: root.tab.reader.tool == 4; clicked => { ReaderBridge.set-tool(root.id, 4); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Pen (P)"; active: root.tab.reader.tool == 5; clicked => { ReaderBridge.set-tool(root.id, 5); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/shapes.svg"); tip: "Shapes (R)"; active: root.tab.reader.tool == 10; clicked => { ReaderBridge.set-tool(root.id, 10); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/eraser.svg"); tip: "Eraser (X)"; active: root.tab.reader.tool == 11; clicked => { ReaderBridge.set-tool(root.id, 11); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/stamp.svg"); tip: "Stamp (M)"; active: root.tab.reader.tool == 12; clicked => { ReaderBridge.set-tool(root.id, 12); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/type.svg"); tip: "Text box (T)"; active: root.tab.reader.tool == 6; clicked => { ReaderBridge.set-tool(root.id, 6); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/mouse-pointer-2.svg"); tip: "Select text" + root.key-hint(0); active: root.tab.reader.tool == 0; clicked => { ReaderBridge.set-tool(root.id, 0); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight" + root.key-hint(1); active: root.tab.reader.tool == 1; clicked => { ReaderBridge.set-tool(root.id, 1); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline" + root.key-hint(2); active: root.tab.reader.tool == 2; clicked => { ReaderBridge.set-tool(root.id, 2); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough" + root.key-hint(3); active: root.tab.reader.tool == 3; clicked => { ReaderBridge.set-tool(root.id, 3); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/sticky-note.svg"); tip: "Note" + root.key-hint(4); active: root.tab.reader.tool == 4; clicked => { ReaderBridge.set-tool(root.id, 4); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Pen" + root.key-hint(5); active: root.tab.reader.tool == 5; clicked => { ReaderBridge.set-tool(root.id, 5); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/shapes.svg"); tip: "Shapes" + root.key-hint(10); active: root.tab.reader.tool == 10; clicked => { ReaderBridge.set-tool(root.id, 10); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/eraser.svg"); tip: "Eraser" + root.key-hint(11); active: root.tab.reader.tool == 11; clicked => { ReaderBridge.set-tool(root.id, 11); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/stamp.svg"); tip: "Stamp" + root.key-hint(12); active: root.tab.reader.tool == 12; clicked => { ReaderBridge.set-tool(root.id, 12); root.focus-pages(); } }
+            ToolButton { icon: @image-url("../icons/type.svg"); tip: "Text box" + root.key-hint(6); active: root.tab.reader.tool == 6; clicked => { ReaderBridge.set-tool(root.id, 6); root.focus-pages(); } }
             Rectangle { width: 6px; }
             Divider { y: 5px; }
             Rectangle { width: 6px; }
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text (E)"; active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); root.focus-pages(); } }
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image (I)"; active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); root.focus-pages(); } }
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link (L)"; active: root.tab.reader.tool == 13; clicked => { ReaderBridge.set-tool(root.id, 13); root.focus-pages(); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text" + root.key-hint(7); active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); root.focus-pages(); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image" + root.key-hint(8); active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); root.focus-pages(); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link" + root.key-hint(13); active: root.tab.reader.tool == 13; clicked => { ReaderBridge.set-tool(root.id, 13); root.focus-pages(); } }
             if !root.fold-edit: ToolButton { icon: @image-url("../icons/eye-off.svg"); tip: "Redact…"; clicked => { ReaderBridge.redact(root.id); } }
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/signature.svg"); tip: "Sign (S)"; active: root.tab.reader.tool == 9; clicked => { ReaderBridge.set-tool(root.id, 9); root.focus-pages(); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/signature.svg"); tip: "Sign" + root.key-hint(9); active: root.tab.reader.tool == 9; clicked => { ReaderBridge.set-tool(root.id, 9); root.focus-pages(); } }
             // A narrow window folds the edit group into one button with its menu (Acrobat's toolbar
             // overflow), so no tool falls off the bar.
             if root.fold-edit: Rectangle {
@@ -438,18 +442,18 @@ export component ReaderToolbar inherits Rectangle {
                         VerticalLayout {
                             padding: 4px;
                             for item[k] in [
-                                { text: "Presentation", keys: "⇧⌘P", on: false },
-                                { text: "Full screen", keys: "⌃⌘F", on: root.is-full-screen },
+                                { text: "Presentation", keys: PlatformBridge.key-labels[26], on: false },
+                                { text: "Full screen", keys: PlatformBridge.key-labels[25], on: root.is-full-screen },
                                 { text: "Hide toolbar", keys: "⇧T", on: root.bare },
                                 { text: "Highlight links", keys: "⇧⌘L", on: root.tab.reader.show-links },
                                 { text: "Highlight form fields", keys: "", on: root.tab.reader.show-fields },
-                                { text: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide", keys: "⌥⌘2", on: false },
+                                { text: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide", keys: PlatformBridge.key-labels[22], on: false },
                                 { text: "Page grid", keys: "", on: root.tab.reader.spread == 3 },
                                 { text: "Right to left", keys: "", on: root.tab.reader.rtl },
-                                { text: "Print…", keys: "⌘P", on: false },
-                                { text: "Document properties…", keys: "⌘D", on: false },
+                                { text: "Print…", keys: PlatformBridge.key-labels[4], on: false },
+                                { text: "Document properties…", keys: PlatformBridge.key-labels[5], on: false },
                                 // Acrobat's Prepare a Form, among its tools: add, move and set up fields.
-                                { text: "Prepare form", keys: "F", on: root.tab.reader.tool == 14 },
+                                { text: "Prepare form", keys: PlatformBridge.tool-letters[14], on: root.tab.reader.tool == 14 },
                                 // Acrobat's Protect ▸ Sanitize Document: hidden information removed, ⌘Z undoes it.
                                 { text: "Sanitize document", keys: "", on: false },
                                 // Acrobat's Edit a PDF ▸ Background.
@@ -457,7 +461,7 @@ export component ReaderToolbar inherits Rectangle {
                                 // Acrobat's File ▸ Revert, and the versions an incremental save keeps.
                                 { text: "Versions…", keys: "", on: false },
                                 // Acrobat's Marquee Zoom.
-                                { text: "Zoom to area", keys: "Z", on: false },
+                                { text: "Zoom to area", keys: PlatformBridge.tool-letters[15], on: false },
                                 // Acrobat's Snapshot tool.
                                 { text: "Copy an area as a picture", keys: "", on: false },
                                 // Acrobat's Automatically Scroll.
