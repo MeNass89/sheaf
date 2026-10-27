@@ -340,6 +340,9 @@ pub(crate) enum Cmd {
     Ocr {
         /// The scanned PDF
         input: PathBuf,
+        /// Use installed Tesseract instead of bundled recognition, including Latin text
+        #[arg(long)]
+        local_engine: bool,
         /// Language codes joined with + (for example en+ja); extra scripts need local Tesseract packs
         #[arg(long, default_value = "en")]
         language: String,
@@ -965,6 +968,12 @@ mod help_tests {
         assert!(Cli::try_parse_from(["sheaf", "search-index", "catalog.json", "signed invoice"]).is_ok());
         assert!(Cli::try_parse_from(["sheaf", "save-security-policy", "Review", "--no-copying", "--leave-metadata-clear", "-o", "policy.json"]).is_ok());
         assert!(Cli::try_parse_from(["sheaf", "apply-security-policy", "a.pdf", "--policy", "policy.json", "--owner-password", "secret", "-o", "protected.pdf"]).is_ok());
+    }
+
+    #[test]
+    fn local_ocr_engine_and_mixed_languages_are_explicit_cli_options() {
+        let cli = Cli::try_parse_from(["sheaf", "ocr", "scan.pdf", "--local-engine", "--language", "en+ja", "-o", "out.pdf"]).unwrap();
+        assert!(matches!(cli.cmd, Cmd::Ocr { local_engine: true, language, .. } if language == "en+ja"));
     }
 
 }

@@ -19,6 +19,8 @@ mod local;
 pub struct OcrOptions {
     /// Codes from [`languages`], joined with + for mixed pages; extra scripts use local packs.
     pub language: String,
+    /// Use installed Tesseract even for Latin text, without loading the bundled model.
+    pub use_local_engine: bool,
     /// Also read pages that already contain text (only words not already there are added).
     pub read_text_pages: bool,
     /// Resolution pages are read at (a scan is read at its own resolution, up to this).
@@ -30,7 +32,7 @@ pub struct OcrOptions {
 
 impl Default for OcrOptions {
     fn default() -> Self {
-        OcrOptions { language: "en".into(), read_text_pages: false, dpi: 300.0, enhance: false }
+        OcrOptions { language: "en".into(), use_local_engine: false, read_text_pages: false, dpi: 300.0, enhance: false }
     }
 }
 
@@ -165,6 +167,10 @@ pub fn ocr(input: &Input, opts: &OcrOptions, out: &Path, progress: &mut dyn FnMu
     Ok(report)
 }
 
+fn use_local_engine(opts: &OcrOptions, bundled_models: bool) -> bool {
+    opts.use_local_engine || !bundled_models || opts.language.split('+').any(|selected| !eng::LANGUAGES.iter().any(|(code, _)| *code == selected))
+}
+
 /// What recognition found, before it is written.
 pub(crate) struct Recognized {
     words: usize,
@@ -191,7 +197,7 @@ pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnM
     if let Some(why) = doc.session().get(doc.id()).and_then(|d| d.read_only_reason.clone()) {
         return Err(OpdfError::Unsupported(why));
     }
-    let external = opts.language.split('+').any(|selected| !eng::LANGUAGES.iter().any(|(code, _)| *code == selected)) || models().is_none();
+    let external = use_local_engine(opts, models().is_some());
     if external { local::validate_selection(&opts.language).map_err(OpdfError::Unsupported)?; }
     let ocr = if external { None } else { Some(engine()?) };
     let settings = OcrSettings { dpi: opts.dpi, language: opts.language.clone(), skip_text_pages: !opts.read_text_pages };
@@ -266,6 +272,20 @@ mod tests {
         assert_eq!(language_for_locale(Some("zh-CN"), both), "zh");
         assert_eq!(language_for_locale(Some("ja-JP"), both), "en");
         assert_eq!(language_for_locale(Some("zh-TW"), &[("en", "English")]), "en");
+    }
+
+    #[test]
+    fn local_ocr_is_explicit_for_latin_and_automatic_for_extra_scripts() {
+        let mut opts = OcrOptions::default();
+        assert!(!use_local_engine(&opts, true));
+        opts.use_local_engine = true;
+        assert!(use_local_engine(&opts, true));
+        opts.use_local_engine = false;
+        opts.language = "en+ja".into();
+        assert!(use_local_engine(&opts, true));
+        opts.language = "fr+en".into();
+        assert!(!use_local_engine(&opts, true));
+        assert!(use_local_engine(&opts, false));
     }
 
 }

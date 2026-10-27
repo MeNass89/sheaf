@@ -91,7 +91,7 @@ pub fn toggle_code(set: &str, code: &str) -> String {
 fn ocr_options(opts: &ToolOptions) -> Result<OcrOptions> {
     let language = opts.ocr_languages.split(',').filter(|c| !c.is_empty()).collect::<Vec<_>>().join("+");
     if language.is_empty() { return Err(OpdfError::Unsupported("choose a document language".into())); }
-    Ok(OcrOptions { language: language.into(), read_text_pages: opts.ocr_all_pages, enhance: opts.ocr_enhance, ..Default::default() })
+    Ok(OcrOptions { language, use_local_engine: opts.ocr_local_engine, read_text_pages: opts.ocr_all_pages, enhance: opts.ocr_enhance, ..Default::default() })
 }
 
 /// A typed millimetre margin, in points.
@@ -1263,7 +1263,9 @@ mod tests {
         let mut o = opts();
         o.ocr_languages = ",fr,en,".into();
         o.ocr_all_pages = true;
+        o.ocr_local_engine = true;
         let Job::Ocr { items, options } = build_job(ToolId::Ocr, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/o.pdf".into())).unwrap() else { panic!() };
+        assert!(options.use_local_engine);
         assert_eq!((options.language.as_str(), options.read_text_pages, items[0].1.clone()), ("fr+en", true, PathBuf::from("/s/o.pdf")));
         o.ocr_languages = ",,".into();
         assert!(build_job(ToolId::Ocr, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/o.pdf".into())).is_err());

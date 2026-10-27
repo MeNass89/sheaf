@@ -265,3 +265,26 @@
   packs are discovered once at process startup, so local installation requires an app restart.
 - Proposed grade: C-optimize-007: f8 a8 p8 — selection/pack tests above, `ocr_local.rs`,
   `run.rs::ocr_options`, `ui/screens/options.slint`. Live multilingual accuracy unverified.
+
+## Second pass — C-optimize-006
+
+- C-optimize-006: OCR options now offer Use installed Tesseract, mirrored by CLI
+  `ocr --local-engine`. Latin scans can use the already-supported local engine without loading
+  the bundled recognizer; page skipping, duplicate filtering, progress and output geometry use
+  the same engine job. It is an explicit alternative for big scans, not an unmeasured speed claim.
+  The selected engine survives Run again/history; absent local packs fail with a clear message.
+- Inspected the profile in F-006 and DECISIONS 24/10: 89% of inference time was Conv, detection
+  0.8s vs recognition 18.3s; native ONNX Runtime was deliberately deferred. Adding more unrelated
+  detection tweaks cannot demonstrate closing this gap. No new native library or int8 model added.
+- Tests written/updated: `local_ocr_is_explicit_for_latin_and_automatic_for_extra_scripts`,
+  `local_ocr_engine_and_mixed_languages_are_explicit_cli_options`,
+  `ocr_job_uses_every_selected_language`,
+  `options_come_back_as_they_were_without_their_passwords`.
+  Public `OcrOptions` gains `use_local_engine: bool` (default false); no dependency added.
+- `not automatable: time the same MICI scan in release with bundled recognition and with Use
+  installed Tesseract/fra, compare text accuracy and word placement, measure cold and warm RSS —
+  no builds, OCR or app execution allowed by rule 1; orchestrator owns this benchmark`.
+- Left: native bundled recognition's 15.5s/page vs 11.75s/page baseline remains unmeasured after
+  prepacking. Optional Tesseract is a user path, not bundled-engine performance parity.
+- Proposed grade: C-optimize-006: f9 a8 p8 — prior OCR integration/placement tests plus engine
+  selection tests above; UI in `options.slint`. No performance 9 without the release benchmark.

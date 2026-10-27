@@ -45,7 +45,7 @@ kept! {
         allow_printing, allow_copying, allow_editing, allow_commenting, allow_filling_forms, remove_blank,
         protect_sanitize, split_one_file, landscape, one_per_image, png, extract_images, num_double, num_cover,
         num_bold, num_italic, num_underline, wm_image_mode, wm_bold, wm_italic, wm_underline, wm_mosaic, wm_below,
-        wm_replace, wm_remove, ocr_all_pages, ocr_enhance, export_ocr, export_exact, sign_cert;
+        wm_replace, wm_remove, ocr_local_engine, ocr_all_pages, ocr_enhance, export_ocr, export_exact, sign_cert;
     strings:
         redact_overlay, redact_margin, compress_ppi, compress_quality,
         organize_order,
@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn options_come_back_as_they_were_without_their_passwords() {
-        let o = ToolOptions { level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
+        let o = ToolOptions { ocr_local_engine: true, level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
         let json = to_json(&o);
         let text = serde_json::to_string(&json).unwrap();
         assert!(!text.contains("secret") && !text.contains("boss") && !text.contains("pin"), "{text}");

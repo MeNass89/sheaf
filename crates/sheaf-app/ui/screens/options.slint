@@ -134,6 +134,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.crop-right = o.crop-right;
         root.pdfa-level = o.pdfa-level;
         root.ocr-languages = o.ocr-languages;
+        root.ocr-local-engine = o.ocr-local-engine;
         root.ocr-all-pages = o.ocr-all-pages;
         root.ocr-enhance = o.ocr-enhance;
         root.export-ocr = o.export-ocr;
@@ -185,7 +186,7 @@ export component OptionsPanel inherits VerticalLayout {
         crop-mode: root.crop-mode, crop-paper: root.crop-paper, per-sheet: root.per-sheet, crop-top: root.crop-top, crop-bottom: root.crop-bottom,
         crop-left: root.crop-left, crop-right: root.crop-right,
         pdfa-level: root.pdfa-level,
-        ocr-languages: root.ocr-languages, ocr-all-pages: root.ocr-all-pages, ocr-enhance: root.ocr-enhance,
+        ocr-languages: root.ocr-languages, ocr-local-engine: root.ocr-local-engine, ocr-all-pages: root.ocr-all-pages, ocr-enhance: root.ocr-enhance,
         export-ocr: root.export-ocr, export-exact: root.export-exact, excel-layout: root.excel-layout, text-format: root.text-format,
         compare-mode: root.compare-mode,
         sign-cert: root.sign-cert, sign-p12: root.sign-p12, sign-p12-password: root.sign-p12-password,
@@ -325,6 +326,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> crop-right: "10";
     in-out property <int> pdfa-level: 0;
     in-out property <string> ocr-languages: "," + OcrInfo.default-language + ",";
+    in-out property <bool> ocr-local-engine;
     in-out property <bool> ocr-all-pages;
     in-out property <bool> ocr-enhance;
     in-out property <bool> export-ocr;
@@ -935,6 +937,8 @@ export component OptionsPanel inherits VerticalLayout {
             }
         }
         InfoBox { text: "Select every language on the page. Latin text uses built-in recognition; other scripts use installed Tesseract packs. Mixed scripts need a local pack for each selected language. Horizontal and vertical packs run in separate jobs."; }
+        Check { text: "Use installed Tesseract"; checked <=> root.ocr-local-engine; }
+        InfoBox { text: "An alternative for large scans. Uses local language packs instead of the built-in model. Speed depends on your computer and the installed packs."; }
         Check { text: "Also read pages with text"; checked <=> root.ocr-all-pages; }
         // Acrobat's Enhance scanned pages, before it reads them.
         Check { text: "Straighten and clean scans first"; checked <=> root.ocr-enhance; }

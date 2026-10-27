@@ -239,8 +239,8 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             };
             warned(crop::crop(&input(i), p.as_deref(), &spec, &out))
         }
-        Cmd::Ocr { input: i, language, all_pages, out } => {
-            let opts = OcrOptions { language, read_text_pages: all_pages, ..Default::default() };
+        Cmd::Ocr { input: i, language, local_engine, all_pages, out } => {
+            let opts = OcrOptions { language, use_local_engine: local_engine, read_text_pages: all_pages, ..Default::default() };
             let r = ocr::ocr(&input(i), &opts, &out, &mut |_| true)?;
             note!("{}", ocr::summary(r.pages_read, r.words, r.pages_skipped));
             if let Some(w) = r.failure_warning() {
