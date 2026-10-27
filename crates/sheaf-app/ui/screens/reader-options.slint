@@ -217,6 +217,47 @@ export component ReaderOptionsBar inherits Rectangle {
             SmallButton { y: 2px; text: "Sans"; primary: root.tab.reader.text-family == 0 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
             SmallButton { y: 2px; text: "Serif"; primary: root.tab.reader.text-family == 1 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
             SmallButton { y: 2px; text: "Mono"; primary: root.tab.reader.text-family == 2 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
+            SmallButton { y: 2px; text: "B"; primary: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
+            SmallButton { y: 2px; text: "I"; primary: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
+            // Text added on the page, or the paragraph open: underlined, a bulleted list (Acrobat's Edit
+            // PDF format panel).
+            if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "U"; primary: root.tab.reader.text-underline; clicked => { ReaderBridge.text-format(root.id, 6, 0); } }
+            if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "•"; primary: root.tab.reader.text-bullets; clicked => { ReaderBridge.text-format(root.id, 7, 0); } }
+            for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {
+                icon: icon;
+                tip: ["Align left", "Centre", "Align right"][k];
+                active: root.tab.reader.text-align == k;
+                clicked => { ReaderBridge.text-format(root.id, 4, k); }
+            }
+            SmallButton { y: 2px; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
+            // The size: − and + step through the presets; any size can be typed (↩).
+            Rectangle {
+                property <int> shown: root.tab.reader.text-size;
+                changed shown => { if !size-field.has-focus { size-field.text = self.shown + " pt"; } }
+                init => { size-field.text = self.shown + " pt"; }
+                width: 48px;
+                height: 26px;
+                y: 2px;
+                border-radius: Theme.radius-small;
+                border-width: size-field.has-focus || size-hover.has-hover ? 1px : 0px;
+                border-color: Theme.input-border;
+                background: size-field.has-focus ? Theme.input-bg : transparent;
+                size-hover := TouchArea { }
+                size-field := TextInput {
+                    font-size: Theme.fs-label;
+                    color: Theme.text;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    single-line: true;
+                    accepted => {
+                        ReaderBridge.text-size-typed(root.id, self.text);
+                        self.text = root.tab.reader.text-size + " pt";
+                        root.focus-pages();
+                    }
+                }
+            }
+            SmallButton { y: 2px; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
+            // Last in the row, so the buttons before it keep their places.
             // One of the computer's fonts, for the paragraph open, new text or a text box
             // (Acrobat's font list).
             Rectangle {
@@ -261,46 +302,6 @@ export component ReaderOptionsBar inherits Rectangle {
                     }
                 }
             }
-            SmallButton { y: 2px; text: "B"; primary: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
-            SmallButton { y: 2px; text: "I"; primary: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
-            // Text added on the page, or the paragraph open: underlined, a bulleted list (Acrobat's Edit
-            // PDF format panel).
-            if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "U"; primary: root.tab.reader.text-underline; clicked => { ReaderBridge.text-format(root.id, 6, 0); } }
-            if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "•"; primary: root.tab.reader.text-bullets; clicked => { ReaderBridge.text-format(root.id, 7, 0); } }
-            for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {
-                icon: icon;
-                tip: ["Align left", "Centre", "Align right"][k];
-                active: root.tab.reader.text-align == k;
-                clicked => { ReaderBridge.text-format(root.id, 4, k); }
-            }
-            SmallButton { y: 2px; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
-            // The size: − and + step through the presets; any size can be typed (↩).
-            Rectangle {
-                property <int> shown: root.tab.reader.text-size;
-                changed shown => { if !size-field.has-focus { size-field.text = self.shown + " pt"; } }
-                init => { size-field.text = self.shown + " pt"; }
-                width: 48px;
-                height: 26px;
-                y: 2px;
-                border-radius: Theme.radius-small;
-                border-width: size-field.has-focus || size-hover.has-hover ? 1px : 0px;
-                border-color: Theme.input-border;
-                background: size-field.has-focus ? Theme.input-bg : transparent;
-                size-hover := TouchArea { }
-                size-field := TextInput {
-                    font-size: Theme.fs-label;
-                    color: Theme.text;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    single-line: true;
-                    accepted => {
-                        ReaderBridge.text-size-typed(root.id, self.text);
-                        self.text = root.tab.reader.text-size + " pt";
-                        root.focus-pages();
-                    }
-                }
-            }
-            SmallButton { y: 2px; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
             // Acrobat's Callout: the text box points at where the click was, by a line with an arrow.
             if root.tab.reader.tool == 6 && !root.tab.reader.selected-text-box: SmallButton { y: 2px; text: "Callout"; primary: root.tab.reader.callout; clicked => { ReaderBridge.shape-option(root.id, 11, 0); root.focus-pages(); } }
         }
