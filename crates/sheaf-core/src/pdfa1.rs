@@ -18,7 +18,10 @@ pub(super) fn rewrite(bytes: &[u8]) -> Result<Vec<u8>> {
     pdf.version = "1.4".into();
     pdf.catalog_mut()?.remove(b"Version");
     // lopdf expands object streams while reading. The rewritten file uses a classic xref table.
-    pdf.objects.retain(|_, o| !o.as_dict().is_ok_and(|d| d.get(b"Type").is_ok_and(|t| t.as_name().is_ok_and(|n| n == b"ObjStm" || n == b"XRef"))));
+    pdf.objects.retain(|_, o| !o.type_name().is_ok_and(|n| n == b"ObjStm" || n == b"XRef"));
+    pdf.reference_table.cross_reference_type = lopdf::xref::XrefType::CrossReferenceTable;
+    pdf.trailer.remove(b"Prev");
+    pdf.trailer.remove(b"XRefStm");
     let mut out = Vec::new();
     pdf.save_to(&mut out)?;
     Ok(out)
@@ -27,6 +30,9 @@ pub(super) fn rewrite(bytes: &[u8]) -> Result<Vec<u8>> {
 pub(super) fn issues(pdf: &Document) -> Result<Vec<PdfAIssue>> {
     let mut problems = std::collections::BTreeSet::new();
     if pdf.version != "1.4" { problems.insert("The PDF/A-1 file must use PDF 1.4".to_string()); }
+    if pdf.reference_table.cross_reference_type != lopdf::xref::XrefType::CrossReferenceTable {
+        problems.insert("Cross-reference streams are not allowed in PDF/A-1".into());
+    }
     let cat = pdf.catalog()?;
     let metadata = cat.get(b"Metadata").and_then(Object::as_reference).and_then(|id| pdf.get_object(id)).and_then(Object::as_stream).ok()
         .and_then(|s| s.get_plain_content().ok()).and_then(|b| String::from_utf8(b).ok()).unwrap_or_default();
@@ -59,7 +65,7 @@ fn inspect(pdf: &Document, object: &Object, depth: usize, problems: &mut std::co
     if alpha || mask || blend || name(b"S", b"Transparency") {
         problems.insert("Transparency is not allowed in PDF/A-1; choose PDF/A-2b to preserve it (flattening is not performed)".into());
     }
-    if dict.has(b"SMaskInData") || name(b"Subtype", b"OpenType") {
+    if dict.has(b"SMaskInData") || name(b"Subtype", b"OpenType") || name(b"Type", b"ObjStm") || name(b"Type", b"XRef") {
         problems.insert("A PDF 1.5+ image or font feature cannot be preserved in PDF/A-1".into());
     }
     if let Some(filters) = value(b"Filter") {

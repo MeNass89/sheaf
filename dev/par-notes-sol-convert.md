@@ -718,3 +718,9 @@ verification. No network features; no compiler, test, app or Codex invocation. N
   Browser reference read: https://developer.chrome.com/docs/automation-and-testing/headless .
   not automatable: both themes, widths, absent Chromium/absent LibreOffice, saved history, relative
   CSS/images/fonts, grid/flex, screen-vs-print CSS and one continuous page — no app/Chrome allowed.
+
+- C-convert-018 source-review follow-up: lopdf preserves an input's xref-stream choice even after
+  changing the PDF header. Native 1b now explicitly selects a classic xref table and removes old
+  object/xref containers and trailer offsets. Verification inspects the actual written input bytes,
+  not a fresh engine serialization. The native 1b regression also asserts the xref-table type.
+  Still source-only: no compiler or test was run.
