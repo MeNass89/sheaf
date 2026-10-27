@@ -788,3 +788,16 @@ SN=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/driver-scan.pdf" 2>/dev/null | convert 
 shot 330-scanner-driver
 check "330 From scanner invokes SANE at 300 dpi and opens the scanned pixels ($SN)" "[ \"\$(npages $OUT/driver-scan.pdf 2>/dev/null)\" = 1 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && grep -qx -- '--format=png' $OUT/scanner-args && grep -qx '300' $OUT/scanner-args && [ \"\$(ntabs)\" = 1 ]"
 quit; scanner_restore
+
+# 331. Preview's Insert from Scanner through the same process adapter: after page 1, one Undo,
+# Redo restores it and the remaining original pages retain their order.
+scanner_driver
+cp "$OUT/text.pdf" "$OUT/driver-insert.pdf"; launch "$OUT/driver-insert.pdf"; sleep 1
+xdotool mousemove 120 230 click 3; sleep 0.8; IS=$(at scanner 300x420+20+200); [ -n "$IS" ] && click $IS 2
+key ctrl+s; sleep 1.5; N1=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
+SN=$(pdftoppm -r 20 -f 2 -l 2 -png "$OUT/driver-insert.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
+key ctrl+z; sleep 0.8; key ctrl+s; sleep 1; N2=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
+key ctrl+shift+z; sleep 0.8; key ctrl+s; sleep 1; N3=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
+shot 331-scanner-insert
+check "331 Insert from scanner preserves pixels, page order and Undo/Redo ($N1/$N2/$N3; $SN)" "[ \"$N1/$N2/$N3\" = 5/4/5 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(first_text $OUT/driver-insert.pdf 1)\" = 'Page 1' ] && [ \"\$(first_text $OUT/driver-insert.pdf 3)\" = 'Page 2' ] && [ \"\$(first_text $OUT/driver-insert.pdf 5)\" = 'Page 4' ]"
+quit; scanner_restore
