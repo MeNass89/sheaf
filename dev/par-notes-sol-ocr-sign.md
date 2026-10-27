@@ -63,6 +63,16 @@
   New public core module `security_policy` and `security::protect_with_settings`.
   Left: dedicated GUI policy manager and Acrobat policy-file compatibility.
 
+- C-sign-012 (partial): Sheaf's visible signing and invisible certification APIs now accept
+  an explicit offline `TimestampAuthority` and invoke the engine's `sign_with_timestamp`
+  (Acrobat's signature timestamp / PAdES B-T). Invalid/mismatched responses fail before writing;
+  no silent fallback to an untimestamped signature. Tests
+  `a_local_authority_timestamps_visible_and_invisible_certificate_signatures`,
+  `an_invalid_timestamp_response_never_writes_an_untimestamped_signature` use a local authority.
+  New public core items `sign::sign_with_timestamp`, `sign::certify_with_timestamp`.
+  Left: TSA server selection and transport remain absent: brief rule 3 explicitly prohibits
+  network features. A local adapter does not confer trust on a self-signed TSA. No GUI claim.
+
 ## Polaroid
 
 - Active: eight-component OCR/sign/security batch. Signature storage implementation written and inspected;
