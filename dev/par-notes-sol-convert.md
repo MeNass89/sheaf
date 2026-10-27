@@ -475,3 +475,29 @@ LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
   reopen production to see Converting, and inspect final/error toasts in both themes — runtime
   forbidden. Cancellation remains the existing bounded 120-second subprocess timeout.
 - Grade: f4 a7 p7, partial. LIGNES : max 4 (press requirements) · cases > 6 : aucune.
+
+## Pass 3 — C-convert-005
+
+- C-convert-005: local HTML on explicit A4/Letter layouts can Stack pages into one long page.
+  LibreOffice still prints the HTML; Sheaf's Rust stacks those paper pages as Form XObjects,
+  retaining vector/searchable content, resources, transparency groups, URI links, positioned
+  link rectangles/QuadPoints and internal/named/bookmark destinations. Tall outputs use UserUnit
+  instead of clipping at PDF's 14,400 default-unit dimension limit. Source/output collision
+  handling stays atomic. The choice is saved/restored with Run again and bypasses preview cache.
+- This is explicitly **paper stacking**, preserving print breaks/margins. It does not claim
+  iLovePDF's browser layout or continuous browser content. Unsupported rotated/UserUnit/tagged/
+  form layouts and non-link annotations fail clearly with Turn off Stack guidance; no partial
+  result is published. Limits: 1000 pages, 32 MB decoded per paper page, 1,000,000 pt tall.
+- Tests `long_local_output_keeps_vector_content_link_rectangles_and_internal_destinations`,
+  `very_long_local_output_scales_page_units_and_rejects_unsupported_rotation_atomically` are
+  pure Rust and never skip for missing LibreOffice. Expanded
+  `html_layout_reaches_the_job_without_reusing_the_default_conversion` and saved-options test
+  cover dispatch/restoration. Written only, no execution permitted by rule 1.
+- Integration: new `html::Options.long_page: bool` and `ToolOptions.html_long_page`; every known
+  literal/restore/export/history site updated. No preference or dependency added.
+- Left: URL capture remains **out under rule 3 (network)** and needs Nassim's decision.
+  Browser viewport width, screen media, JavaScript and real browser-continuous layout remain
+  unimplemented; LibreOffice is a print engine. No URL-first parity claim or joint-9 request.
+- not automatable: check both themes, long HTML with pictures and internal/URI links in multiple
+  viewers, very tall output and Run again — app/test execution forbidden.
+- Grade: f7 a8 p8, partial. LIGNES : max 4 (long-page information) · cases > 6 : aucune.

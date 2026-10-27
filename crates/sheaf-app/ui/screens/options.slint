@@ -75,6 +75,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.degrees = o.degrees;
         root.layout = o.layout;
         root.landscape = o.landscape;
+        root.html-long-page = o.html-long-page;
         root.merge-images = !o.one-per-image;
         root.margin = o.margin;
         root.quality = o.quality;
@@ -169,7 +170,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
         pages: root.pages, remove-blank: root.remove-blank, blank-level: root.blank-level, rotate-parity: root.rotate-parity, rotate-orientation: root.rotate-orientation, protect-sanitize: root.protect-sanitize, compare-old-pages: root.compare-old-pages, compare-new-pages: root.compare-new-pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size, split-cols: root.split-cols, split-rows: root.split-rows, organize-order: root.organize-order,
-        degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
+        html-long-page: root.html-long-page, degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
         num-position: root.num-position, num-double: root.num-double, num-cover: root.num-cover,
@@ -268,6 +269,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> degrees: 90;
     in-out property <int> layout: 0;
     in-out property <bool> landscape: false;
+    in-out property <bool> html-long-page: false;
     in-out property <bool> merge-images: true;
     in-out property <int> margin: 0;
     in-out property <int> quality: 0;
@@ -694,6 +696,12 @@ export component OptionsPanel inherits VerticalLayout {
             padding-top: 6px;
             Check { text: "Merge all images into one PDF file"; checked <=> root.merge-images; }
         }
+    }
+
+    if root.tool == "html_to_pdf" && root.layout != 0: VerticalLayout {
+        spacing: 10px;
+        Check { text: "Stack pages into one long page"; checked <=> root.html-long-page; }
+        if root.html-long-page: InfoBox { text: "Keeps text, pictures and links.\nPaper page breaks and margins remain.\nThis is not a browser screen layout."; }
     }
 
     if root.tool == "html_to_pdf": InfoBox {

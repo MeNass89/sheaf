@@ -15,7 +15,7 @@ fn local_html_prints_on_the_chosen_paper_with_its_relative_picture() {
     let html = source.join("page.html");
     std::fs::write(&html, "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><p>Local HTML paper</p><img src=\"picture.png\" width=\"64\" height=\"64\"></body></html>").unwrap();
     for landscape in [false, true] {
-        let out = sheaf_core::html::to_pdf(&html, sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape, margin: 18.0 }, &t.path().join(format!("page-{landscape}.pdf"))).unwrap();
+        let out = sheaf_core::html::to_pdf(&html, sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape, margin: 18.0, long_page: false }, &t.path().join(format!("page-{landscape}.pdf"))).unwrap();
         let doc = lopdf::Document::load(&out).unwrap();
         let id = doc.get_pages()[&1];
         let media = doc.get_dictionary(id).unwrap().get(b"MediaBox").unwrap().as_array().unwrap();
@@ -40,7 +40,7 @@ fn markdown_and_mail_use_the_chosen_html_paper_and_keep_attachments() {
     let mail = t.path().join("mail.eml");
     std::fs::write(&mail, "Subject: Paper settings\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nMail on Letter paper.\r\n--b\r\nContent-Disposition: attachment; filename=\"figures.csv\"\r\n\r\na,b\r\n--b--\r\n").unwrap();
     for source in [&md, &mail] {
-        let out = sheaf_core::html::to_pdf(source, sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0 }, &source.with_extension("pdf")).unwrap();
+        let out = sheaf_core::html::to_pdf(source, sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0, long_page: false }, &source.with_extension("pdf")).unwrap();
         let doc = lopdf::Document::load(&out).unwrap();
         let page = doc.get_dictionary(doc.get_pages()[&1]).unwrap();
         let media = page.get(b"MediaBox").unwrap().as_array().unwrap();
@@ -319,7 +319,7 @@ fn legacy_html_with_its_own_relative_base_keeps_its_text_and_local_picture() {
     image::RgbImage::from_pixel(40, 40, image::Rgb([0, 0, 0])).save(assets.join("picture.png")).unwrap();
     let source = pages.join("legacy.html");
     std::fs::write(&source, b"<html><head><meta charset=windows-1252><base href='../assets/'></head><body><p>caf\xe9 \x80</p><img src='picture.png'></body></html>").unwrap();
-    let out = sheaf_core::html::to_pdf(&source, sheaf_core::html::Options { paper: sheaf_core::html::Paper::A4, landscape: false, margin: 18.0 }, &t.path().join("legacy.pdf")).unwrap();
+    let out = sheaf_core::html::to_pdf(&source, sheaf_core::html::Options { paper: sheaf_core::html::Paper::A4, landscape: false, margin: 18.0, long_page: false }, &t.path().join("legacy.pdf")).unwrap();
     assert!(common::page_texts(&out).join(" ").contains("café €"));
     let pdf = lopdf::Document::load(&out).unwrap();
     assert!(pdf.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Subtype").is_ok_and(|s| s.as_name().is_ok_and(|n| n == b"Image")))));
