@@ -964,6 +964,16 @@ pub fn make_default_pdf_app() -> String {
         "osascript",
         &["-l", "JavaScript", "-e", "ObjC.import('CoreServices'); $.LSSetDefaultRoleHandlerForContentType($('com.adobe.pdf'), $.kLSRolesAll, $('app.sheaf.Sheaf')) === 0"],
     );
+    // The tools as Finder's Quick Actions (right-click ▸ Quick Actions, and Services), as
+    // iLovePDF's context menu: one Automator bundle per tool, then the Services list refreshed.
+    #[cfg(target_os = "macos")]
+    {
+        if let (Some(home), Ok(exe)) = (dirs::home_dir(), std::env::current_exe())
+            && sheaf_app::quick_actions::install(&home.join("Library/Services"), &exe).is_ok()
+        {
+            let _ = ran("/System/Library/CoreServices/pbs", &["-update"]);
+        }
+    }
     // Windows asks the user itself; Sheaf is first registered for this user as an app that opens
     // PDFs (its ProgID and .pdf's Open with list), so it is there to pick even from the portable
     // folder (Sol, 26/10: Default apps did not list it).

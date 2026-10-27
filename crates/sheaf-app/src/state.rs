@@ -295,6 +295,8 @@ pub struct ObjectsClip {
     pub pixels: (usize, usize),
     /// The paragraphs among them, each as text in its box as shown: pasted as text again.
     pub texts: Vec<sheaf_core::pdfcraft::engine::AddedText>,
+    /// Per paragraph of `texts`, its own font in `pdf` (pasted in it), or `None`.
+    pub fonts: Vec<Option<String>>,
     /// With paragraphs, the other objects: their PDF and where they showed.
     pub rest: Option<CopiedRest>,
 }

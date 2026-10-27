@@ -62,6 +62,17 @@ fn deliver(paths: Vec<PathBuf>) {
     for (tool, files) in plan.convert {
         flow::open_tool(&ui, tool, files);
     }
+    // Texts and pictures shown in the reader to browse (Stirling's non-PDF viewer).
+    for p in plan.preview {
+        let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        match sheaf_app::file_preview::preview_pdf(&p) {
+            Ok(pdf) => {
+                reader_ui::open(&ui, pdf, None);
+                flow::toast(&ui, &format!("Preview of {name}: Save As keeps it as a PDF"));
+            }
+            Err(e) => flow::toast(&ui, &format!("Can't preview {name}: {e}")),
+        }
+    }
     if let Some(msg) = plan.notice {
         flow::toast(&ui, &msg);
     }

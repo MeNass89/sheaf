@@ -936,3 +936,24 @@ fn a_folders_pdfs_are_searched_page_by_page() {
     assert_eq!(found.len(), 2, "{found:?}");
     assert!(found.iter().all(|(_, page, line)| *page == 1 && line.contains("Page 2")), "{found:?}");
 }
+
+/// Every PDF of a folder is searched, past the 500 the search used to stop at without a word (Sol,
+/// 27/10), and a search that stops at its limit of pages found says so.
+#[test]
+fn a_folders_search_reads_every_pdf_and_says_when_it_stops() {
+    let dir = tempfile::tempdir().unwrap();
+    let one = fixture(dir.path(), 2);
+    // 600 copies; the only one holding "Page 2" sorts last.
+    for i in 0..600 {
+        std::fs::write(dir.path().join(format!("a{i:03}.pdf")), b"%PDF-1.4 not a real file").unwrap();
+    }
+    std::fs::rename(&one, dir.path().join("z-last.pdf")).unwrap();
+    let found = crate::reader_ui::folder_search_for_test(dir.path(), "page 2");
+    assert_eq!(found.len(), 1, "the 601st PDF is read: {found:?}");
+    assert!(found[0].0.ends_with("z-last.pdf"));
+    let (n, status) = crate::reader_ui::folder_search_status_for_test(dir.path(), "page 2", 2000);
+    assert_eq!((n, status.as_str()), (1, "1 page found in 601 PDFs"));
+    let (n, status) = crate::reader_ui::folder_search_status_for_test(dir.path(), "page", 1);
+    assert_eq!(n, 1);
+    assert!(status.starts_with("Stopped at the first 1 page found, after 601 PDFs"), "{status}");
+}

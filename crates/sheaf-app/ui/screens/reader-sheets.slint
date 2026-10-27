@@ -538,9 +538,10 @@ export component FolderSearchSheet inherits Rectangle {
             spacing: 10px;
             Text { text: root.tab.reader.folder-title; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; overflow: elide; }
             Text {
-                text: root.tab.reader.folder-busy ? "Searching…" : root.tab.reader.folder-results.length == 0 ? "Not found in the folder's PDFs." : root.tab.reader.folder-results.length + " pages found";
+                text: root.tab.reader.folder-status;
                 font-size: Theme.fs-caption;
                 color: Theme.text-muted;
+                wrap: word-wrap;
             }
             ScrollView {
                 min-height: min(root.tab.reader.folder-results.length * 40px, 420px);

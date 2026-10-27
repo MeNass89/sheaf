@@ -837,3 +837,58 @@ fn wizard_protection_encrypts_the_final_output_with_only_the_prompted_password()
     assert!(session.open("output.pdf", None, output.bytes.clone(), None).is_err());
     assert!(session.open("output.pdf", None, output.bytes, Some("runtime secret")).is_ok());
 }
+
+/// A paragraph set in an embedded font (Great Vibes), copied with the Edit tool and pasted on
+/// another page, is written there in that very font, its lines as they broke: the font is copied
+/// in with its program, the text reads back and is page text again (PDF Expert's paste; Sol,
+/// 27/10: pasted paragraphs became Helvetica, Times or Courier).
+#[test]
+fn a_pasted_paragraph_keeps_its_embedded_font() {
+    use sheaf_core::pages::Input;
+    use sheaf_core::pdfcraft::engine::{AddedText, ObjectKind};
+    use sheaf_core::pdfcraft::Doc;
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = common::fixture_pdf(dir.path(), "two.pdf", 2);
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    let vibes = std::sync::Arc::new(std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/fonts/GreatVibes-Regular.ttf")).unwrap());
+    let text = AddedText { rect: [72.0, 500.0, 500.0, 560.0], text: "Kind regards\nAda Lovelace".into(), size: 24.0, ..Default::default() };
+    doc.apply(Edit::AddTextInFont { page: 0, text, font: vibes }).unwrap();
+    let made = doc.save(&dir.path().join("vibes.pdf")).unwrap();
+    let doc = Doc::open(&Input::new(&made)).unwrap();
+    let d = doc.document();
+    let objects = d.editable_objects(0).unwrap();
+    let para: Vec<_> = objects.iter().filter(|o| o.target.kind == ObjectKind::Text && o.text.as_deref().is_some_and(|t| t.contains("regards"))).collect();
+    assert_eq!(para.len(), 1, "{:?}", objects.iter().map(|o| &o.text).collect::<Vec<_>>());
+    let targets = [para[0].target];
+    let fonts = d.objects_text_fonts(0, &targets);
+    let (font, lines) = fonts[0].clone().expect("Great Vibes writes its own text again");
+    assert_eq!(lines, "Kind regards\nAda Lovelace");
+    let copied = std::sync::Arc::new(d.objects_pdf(0, &targets, para[0].rect).unwrap());
+    let mut text = d.objects_texts(0, &targets)[0].clone().unwrap();
+    text.text = lines;
+    text.rect = [72.0, 300.0, 500.0, 360.0];
+    let mut doc = doc;
+    doc.apply(Edit::AddTextInCopiedFont { page: 1, text, pdf: copied, font }).unwrap();
+    let out = doc.save(&dir.path().join("pasted.pdf")).unwrap();
+    common::qpdf_clean(&out);
+    // Page 2's fonts: Great Vibes, embedded.
+    let l = lopdf::Document::load(&out).unwrap();
+    let page2 = l.get_pages()[&2];
+    let fonts = l.get_page_fonts(page2).unwrap();
+    let vibes: Vec<_> = fonts.values().filter(|f| f.get(b"BaseFont").ok().and_then(|b| b.as_name().ok()).is_some_and(|b| String::from_utf8_lossy(b).contains("GreatVibes"))).collect();
+    assert_eq!(vibes.len(), 1, "page 2's fonts: {:?}", fonts.keys().map(|k| String::from_utf8_lossy(k).into_owned()).collect::<Vec<_>>());
+    let embedded = |f: &&lopdf::Dictionary| {
+        let desc = |d: &lopdf::Dictionary| d.get(b"FontDescriptor").ok().and_then(|r| l.dereference(r).ok()).and_then(|(_, o)| o.as_dict().ok().cloned());
+        let own = desc(f).or_else(|| {
+            let kids = l.dereference(f.get(b"DescendantFonts").ok()?).ok()?.1.as_array().ok()?.clone();
+            desc(l.dereference(kids.first()?).ok()?.1.as_dict().ok()?)
+        });
+        own.is_some_and(|d| d.has(b"FontFile2") || d.has(b"FontFile3") || d.has(b"FontFile"))
+    };
+    assert!(vibes.iter().all(|f| embedded(f)), "the program is copied too");
+    let shown = common::shown_texts(&out);
+    assert!(shown[1].contains("Kind regards") && shown[1].contains("Ada Lovelace"), "{shown:?}");
+    // Page text again, a paragraph the Edit tool edits.
+    let again = Doc::open(&Input::new(&out)).unwrap();
+    assert!(again.document().text_blocks(1).iter().any(|b| b.text.contains("regards") && b.base_font.contains("GreatVibes")), "{:?}", again.document().text_blocks(1).iter().map(|b| (&b.text, &b.base_font)).collect::<Vec<_>>());
+}
