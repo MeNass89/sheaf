@@ -114,6 +114,23 @@ pub struct SavedAction {
 
 fn invalid(message: impl Into<String>) -> OpdfError { OpdfError::Unsupported(message.into()) }
 
+pub(crate) const MAX_ACTION_BYTES: usize = 10 * 1024 * 1024;
+
+/// Stirling's shareable pipeline file must be accepted again by its importer. Measure the actual
+/// escaped, pretty JSON without allocating another potentially enormous action string.
+fn portable_size(action: &SavedAction) -> Result<()> {
+    struct Limit(usize);
+    impl std::io::Write for Limit {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self.0.checked_sub(bytes.len()).ok_or_else(|| std::io::Error::other("Action JSON exceeds 10 MB"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    }
+    serde_json::to_writer_pretty(Limit(MAX_ACTION_BYTES), action)
+        .map_err(|_| invalid("Action JSON exceeds 10 MB. Shorten the descriptions, instructions or step text before saving or exporting"))
+}
+
 impl SavedAction {
     pub fn empty() -> Self {
         Self { version: 1, name: "Untitled action".into(), description: String::new(), custom_tool: false, output: OutputOptions::default(), steps: vec![] }
@@ -130,7 +147,7 @@ impl SavedAction {
             if step.tool == "open_tool" && (!self.custom_tool || sheaf_core::tools::ToolId::from_str(&step.argument).is_none() || step.prompt) { return Err(invalid("Toolbox shortcuts belong in custom tool sets and need an existing tool without an action prompt")); }
             if step.label.len() > 256 || step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
         }
-        Ok(())
+        portable_size(self)
     }
 
     /// Duplicate beside the original, retaining its prompt and configuration (Action Wizard).
@@ -142,7 +159,7 @@ impl SavedAction {
     }
 
     pub fn import(text: &str) -> Result<Self> {
-        if text.len() > 10 * 1024 * 1024 { return Err(invalid("An action file must be smaller than 10 MB")); }
+        if text.len() > MAX_ACTION_BYTES { return Err(invalid("An action file must be smaller than 10 MB")); }
         let value: serde_json::Value = serde_json::from_str(text).map_err(|e| invalid(format!("Invalid action JSON: {e}")))?;
         if value.get("steps").is_none() { return crate::action_import::stirling(value); }
         let action: Self = serde_json::from_value(value).map_err(|e| invalid(format!("Invalid action JSON: {e}")))?;
@@ -190,7 +207,7 @@ pub fn save(dir: &Path, all: &[SavedAction]) -> Result<()> {
 /// Recover partial drafts, including a new action with no steps yet.
 pub fn load_draft(dir: &Path) -> Result<Option<SavedAction>> {
     match std::fs::read(dir.join("action-draft.json")) {
-        Ok(bytes) if bytes.len() <= 10 * 1024 * 1024 => serde_json::from_slice(&bytes).map(Some).map_err(|e| invalid(e.to_string())),
+        Ok(bytes) if bytes.len() <= MAX_ACTION_BYTES => serde_json::from_slice(&bytes).map(Some).map_err(|e| invalid(e.to_string())),
         Ok(_) => Err(invalid("The saved draft exceeds 10 MB")),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None), Err(e) => Err(e.into()),
     }
@@ -599,6 +616,27 @@ mod tests {
         assert!(load_draft(dir.path()).unwrap().unwrap().steps[0].argument.is_empty());
         action.steps[0].argument.clear(); action.steps[0].prompt = false; assert!(action.validate().is_err());
         action.steps[0].prompt = true; action.output.format = "docx".into(); assert!(action.validate().is_err());
+    }
+
+    #[test]
+    fn every_exported_action_fits_the_import_limit_including_json_escaping() {
+        let mut action = SavedAction::empty();
+        action.steps.push(ActionStep::from_engine(&Step::RotateClockwise));
+        // Escaping doubles these bytes: measuring only the raw fields would accept a file
+        // larger than the importer's limit, including for an action with just one step.
+        action.description = "\n".repeat(MAX_ACTION_BYTES / 2);
+        assert!(action.validate().unwrap_err().to_string().contains("10 MB"));
+        assert!(action.json().is_err());
+        let dir = tempfile::tempdir().unwrap();
+        assert!(save(dir.path(), std::slice::from_ref(&action)).is_err());
+        assert!(!dir.path().join("actions.json").exists());
+        action.description.truncate(MAX_ACTION_BYTES / 2 - 4096);
+        let portable = action.json().unwrap();
+        assert!(portable.len() <= MAX_ACTION_BYTES);
+        assert_eq!(SavedAction::import(&portable).unwrap(), action);
+        let stirling = action.stirling_json().unwrap();
+        assert!(stirling.len() <= MAX_ACTION_BYTES);
+        assert_eq!(SavedAction::import(&stirling).unwrap(), action);
     }
 
 }

@@ -768,3 +768,20 @@ cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
 key r; sleep 0.6; read FX _ <<< "$(at Fill 1280x120+0+80)"
 check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
 quit; platform_reset
+
+# 350. Stirling Folder Scanning's outputFileName survives import, and Export Stirling retains
+# it in a portable file. Inspection checks both the saved action and the exported pipeline.
+python3 - "$OUT/350-pipeline.json" <<'PY350'
+import json, sys
+json.dump({"name":"Naming review", "pipeline":[{"operation":"rotate","parameters":{"angle":90}}],
+           "outputDir":"httpWebRequest", "outputFileName":"ready-{filename}-{pipelineName}"}, open(sys.argv[1], "w"))
+PY350
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+answer "$PWD/$OUT/350-pipeline.json"
+IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM 1
+answer "$PWD/$OUT/350-export.json"
+EX=$(at Export 400x60+850+170); [ -n "$EX" ] && click $EX 1
+shot 350-stirling-naming
+check "350 Stirling output naming survives import and export (${IM:-no Import}; ${EX:-no Export})" "python3 -c 'import json; a=json.load(open(\"$OUT/350-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"outputFileName\"] == \"ready-{filename}-Naming review\"; assert any(x[\"output\"][\"prefix\"] == \"ready-\" and x[\"output\"][\"suffix\"] == \"-Naming review\" for x in b)'"
+quit
