@@ -1342,10 +1342,12 @@ mod tests {
         let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
         v.viewer.set_horizontal(true);
         v.show_page(20, None);
-        view_left_of(&mut v, v.scroll_x.unwrap());
+        let sx = v.scroll_x.unwrap();
+        view_left_of(&mut v, sx);
         assert_eq!(v.current(), 20);
         for z in [150, 60, 100] {
-            let sx = v.zoom_around(z, v.zoom_anchor()).expect("the zoom changed");
+            let anchor = v.zoom_anchor();
+            let sx = v.zoom_around(z, anchor).expect("the zoom changed");
             view_left_of(&mut v, sx);
             assert_eq!(v.current(), 20, "at {z} %");
             v.zoom_settling = false;
