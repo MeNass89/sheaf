@@ -65,3 +65,19 @@ Not built or run here (brief rule 1): the orchestrator compiles and runs the tes
 - C-reader-010: an ⌥-drag zoom with the hand tool ends when the keyboard focus goes, or at the next move once the
   button is no longer held (let go outside the window).
   not automatable: focus taken away mid-drag under Xvfb (no second window to take it while the button is held).
+
+## Round 27 (Sol's second review; smoke run on round 27's app)
+
+- Bug, found running smoke 200 in the real app: More ▸ More tools ▸ Scrolling, split view, hand › never opened. The
+  merge that wrapped More tools' list in a ScrollView left layout-menu inside the more-tools popup, which closed it
+  with itself; pages across, split view and the hand entry were unreachable from the menu (reader-toolbar.slint, one
+  closing brace moved). Steps 200, 201, 203–205 fail until the app is rebuilt with it.
+- C-reader-003: a window or side panel resized deep in a strip keeps the page in view (ViewerUi::resize; test
+  `a_resize_deep_in_a_strip_keeps_the_page_in_view`).
+- C-reader-045: ⌘ / Ctrl + wheel over the other pane makes it the active one and zooms it around the pointer; a drag
+  there with the middle button, Space or the hand moves that pane; the hand with ⌥ zooms it.
+- C-reader-010: a pinch that starts over the other pane zooms that pane; every pinch's centre is taken in its own
+  pane (the right or lower pane's offset was missing).
+- Smoke (edited in round 27's tree, dev/scripts/smoke/4-flows.sh): `layout_item` clicks the submenu entry by its
+  place (OCR missed it under the hover), and the steps read colours with `c8` (8-bit: `colour_at` reads this
+  ImageMagick's 16-bit output as #RRRRGG, so green showed as #2020A0).
