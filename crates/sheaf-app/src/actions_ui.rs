@@ -110,6 +110,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             let action = SavedAction::import(ui.global::<ActionBridge>().get_import_text().as_str());
             return imported(ui, action);
         }
+        "watch" => return watch(ui),
         "import" => return import(ui),
         "export" => return export(ui),
         "run" | "run-step" => {
@@ -272,5 +273,49 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
         }
         let message = format!("{}{} file(s) written to {}. {}", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, out.display(), errors.join(" · "));
         let _ = weak.upgrade_in_event_loop(move |ui| { ui.global::<ActionBridge>().set_busy(false); ui.global::<ActionBridge>().set_prompt("".into()); status(&ui, message); });
+    });
+}
+
+fn watch(ui: &AppWindow) {
+    let action = STATE.with(|s| s.borrow().draft.clone());
+    if let Err(e) = action.validate() { return status(ui, e.to_string()); }
+    if action.steps.iter().any(|s| s.prompt) { return status(ui, "Folder actions cannot pause. Turn off the step prompts first."); }
+    let title_names = ui.global::<ActionBridge>().get_title_names();
+    let d = crate::dialog::new(ui).set_title("Choose the folder to watch");
+    crate::dialog::pick_folder(ui, d, move |ui, input| {
+        let d = crate::dialog::new(ui).set_title("Choose a separate output folder");
+        crate::dialog::pick_folder(ui, d, move |ui, output| {
+            let mut watch = match sheaf_app::watch_folder::FolderWatch::new(&input, &output, title_names) {
+                Ok(watch) => watch, Err(e) => return status(ui, e.to_string()),
+            };
+            let cancel = Arc::new(AtomicBool::new(false));
+            STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
+            ui.global::<ActionBridge>().set_busy(true);
+            status(ui, format!("Watching {} while Sheaf is open. Outputs: {}", input.display(), output.display()));
+            let weak = ui.as_weak();
+            std::thread::spawn(move || {
+                let mut written = 0;
+                while !cancel.load(Ordering::Relaxed) {
+                    let message = match watch.poll(&action, &mut || !cancel.load(Ordering::Relaxed)) {
+                        Ok(results) if results.is_empty() => None,
+                        Ok(results) => {
+                            let mut errors = Vec::new();
+                            for (path, result) in results {
+                                match result { Ok(_) => written += 1, Err(e) => errors.push(format!("{}: {e}", path.display())) }
+                            }
+                            Some(format!("Watching {} · {written} file(s) written. {}", input.display(), errors.join(" · ")))
+                        }
+                        Err(e) => { cancel.store(true, Ordering::Relaxed); Some(format!("Folder watch stopped: {e}")) }
+                    };
+                    if let Some(message) = message
+                        && weak.upgrade_in_event_loop(move |ui| status(&ui, message)).is_err() { break; }
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
+                let _ = weak.upgrade_in_event_loop(move |ui| {
+                    ui.global::<ActionBridge>().set_busy(false);
+                    status(&ui, format!("Folder watch stopped. {written} file(s) written to {}", output.display()));
+                });
+            });
+        });
     });
 }

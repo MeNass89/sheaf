@@ -20,6 +20,7 @@ export global ActionBridge {
     in-out property <bool> pause;
     in-out property <bool> has-argument;
     in-out property <bool> busy;
+    in-out property <bool> title-names;
     in-out property <string> status;
     in-out property <string> prompt;
     in-out property <string> import-text;
@@ -117,8 +118,10 @@ export component ActionsScreen inherits Rectangle {
                             Button { text: "Remove step"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("remove", 0); } }
                         }
                     }
+                    CheckBox { text: "Name watched outputs from the document title"; checked <=> ActionBridge.title-names; enabled: !ActionBridge.busy; }
                     HorizontalLayout {
                         spacing: 8px;
+                        Button { text: "Watch folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("watch", 0); } }
                         Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
                         Button { text: "Stop"; enabled: ActionBridge.busy; clicked => { ActionBridge.command("stop", 0); } }
                     }

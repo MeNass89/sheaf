@@ -46,3 +46,11 @@ Next: finish each batch component, write its proof names and remaining parity ga
   covers copy independence, custom kind persistence, edits and deletion.
   Left: pinning custom sets to the reader toolbar; the picker currently offers the twelve
   Action Wizard commands exposed by the engine, not every toolbox command.
+- C-batch-008: Watch folder… automatically runs the draft action on stable PDFs, once per
+  size/mtime revision, into a separate folder (Stirling's Folder Scanning). Optional title-based
+  naming strips path characters and reserved device names. Stop ends the watch. Partial uploads,
+  subfolders and symlinks are skipped; failures stay visible and retry on file changes. Tests
+  `watch_folder::tests::watched_pdfs_wait_until_stable_run_once_and_retry_after_change`,
+  `watch_folder::tests::watched_folders_cannot_feed_their_outputs_back_to_the_input`.
+  Left: watches run while this app process stays open, without restart recovery, recursive
+  folders or a background daemon. Prompted actions are refused for unattended watching.

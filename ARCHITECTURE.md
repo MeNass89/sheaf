@@ -28,6 +28,9 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 - `crates/sheaf-app/src/actions_ui.rs` and `ui/screens/actions.slint`: Home's Actions page,
   step editor, saved/custom tool lists, import/export and worker-thread progress and pauses.
 
+- `crates/sheaf-app/src/watch_folder.rs`: stable-file polling, duplicate suppression and
+  optional title-based output names for local watched folders.
+
 ## Entry points
 
 - GUI: `crates/sheaf-app/src/main.rs` builds the window from `ui/main.slint` and wires every callback.
