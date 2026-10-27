@@ -28,11 +28,13 @@ thread_local! { static STATE: RefCell<State> = RefCell::new(State::default()); }
 fn status(ui: &AppWindow, message: impl AsRef<str>) { ui.global::<ActionBridge>().set_status(message.as_ref().into()); }
 
 fn rows(ui: &AppWindow) {
+    let filter = ui.global::<ActionBridge>().get_filter();
     let rows = STATE.with(|state| {
         let s = state.borrow();
         actions::suggested().iter().map(|a| (a, true))
             .chain(s.saved.iter().map(|a| (a, false)))
-            .map(|(a, builtin)| ActionRow { name: a.name.as_str().into(), description: a.description.as_str().into(), builtin, custom: a.custom_tool }).collect::<Vec<_>>()
+            .enumerate().filter(|(_, (a, builtin))| match filter { 1 => *builtin, 2 => !*builtin && !a.custom_tool, 3 => !*builtin && a.custom_tool, _ => true })
+            .map(|(i, (a, builtin))| ActionRow { name: a.name.as_str().into(), description: a.description.as_str().into(), builtin, custom: a.custom_tool, source: i as i32 }).collect::<Vec<_>>()
     });
     ui.global::<ActionBridge>().set_rows(ModelRc::new(VecModel::from(rows)));
     let commands = STATE.with(|state| {
@@ -51,6 +53,7 @@ fn draft(ui: &AppWindow) {
         let s = state.borrow();
         let b = ui.global::<ActionBridge>();
         b.set_selected(s.selected);
+        b.set_builtin(s.selected >= 0 && s.selected < actions::suggested().len() as i32);
         b.set_name(s.draft.name.as_str().into());
         b.set_description(s.draft.description.as_str().into());
         b.set_custom(s.draft.custom_tool);
@@ -115,6 +118,7 @@ pub fn install(ui: &AppWindow) {
 }
 
 fn command(ui: &AppWindow, what: &str, index: i32) {
+    if what == "filter" { rows(ui); return; }
     if what == "custom-tools" {
         rows(ui);
         ui.global::<ActionBridge>().set_tools_visible(true);
@@ -215,7 +219,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
                 }
                 let mut next = s.saved.clone();
                 let own = (s.selected >= offset).then_some((s.selected - offset) as usize);
-                if next.iter().enumerate().any(|(i, a)| Some(i) != own && a.name.eq_ignore_ascii_case(&s.draft.name)) {
+                if next.iter().enumerate().any(|(i, a)| Some(i) != own && a.name.to_lowercase() == s.draft.name.to_lowercase()) {
                     return Err(sheaf_core::OpdfError::Unsupported("An action already has that name. Choose another name.".into()));
                 }
                 if let Some(i) = own { next[i] = s.draft.clone(); } else { next.push(s.draft.clone()); }

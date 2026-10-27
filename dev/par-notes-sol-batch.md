@@ -210,3 +210,11 @@ errors back to this worker; do not grade parity from this implementation report 
   field focus on checkbox/radio (text and choice fields supported).
   not automatable: execute page navigation/focus, Print, Save As; manage a document script and Undo
   — UI launch forbidden by brief rule 1.
+
+- C-batch-005: Actions now separates Suggested, Saved actions and Custom tools through a list
+  filter, retaining stable source selection through filtering. Suggestions explicitly explain
+  Save a copy. Unicode names at the 256-byte limit can be copied without invalidating the saved
+  action. Test `copied_names_remain_valid_at_the_unicode_name_limit` (written, not run). The five
+  first-pass offline templates remain immutable; online discovery stays excluded by brief rule 3.
+  not automatable: filter to Suggested, view a preset, save a renamed copy, find it under Saved
+  and confirm the original preset remains — app execution prohibited by rule 1.

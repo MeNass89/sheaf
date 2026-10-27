@@ -116,9 +116,14 @@ pub fn save(dir: &Path, all: &[SavedAction]) -> Result<()> {
 
 /// Give a copied/imported action a name that leaves the existing ones alone.
 pub fn unused_name(name: &str, all: &[SavedAction]) -> String {
-    let taken = |name: &str| all.iter().any(|a| a.name.eq_ignore_ascii_case(name));
+    let taken = |name: &str| all.iter().any(|a| a.name.to_lowercase() == name.to_lowercase());
     if !taken(name) { return name.into(); }
-    (2..).map(|n| format!("{name} ({n})")).find(|n| !taken(n)).unwrap()
+    (2..).map(|n| {
+        let suffix = format!(" ({n})");
+        let mut end = name.len().min(256 - suffix.len());
+        while !name.is_char_boundary(end) { end -= 1; }
+        format!("{}{suffix}", &name[..end])
+    }).find(|n| !taken(n)).unwrap()
 }
 
 /// Run steps sequentially, pausing before each prompted step. No output is published until
@@ -217,6 +222,18 @@ mod tests {
         assert_eq!(load(dir.path()).unwrap(), tools);
         save(dir.path(), &[]).unwrap();
         assert!(load(dir.path()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn copied_names_remain_valid_at_the_unicode_name_limit() {
+        let mut a = suggested().remove(0);
+        a.name = "é".repeat(128);
+        let name = unused_name(&a.name, std::slice::from_ref(&a));
+        assert!(name.len() <= 256); assert!(name.ends_with(" (2)"));
+        a.name = name;
+        a.validate().unwrap();
+        let second = unused_name(&a.name.to_uppercase(), std::slice::from_ref(&a));
+        assert_ne!(second.to_lowercase(), a.name.to_lowercase());
     }
 
     #[test]

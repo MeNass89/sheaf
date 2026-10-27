@@ -3,7 +3,7 @@ import { Theme } from "../theme.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Modal } from "dialogs.slint";
 
-export struct ActionRow { name: string, description: string, builtin: bool, custom: bool }
+export struct ActionRow { name: string, description: string, builtin: bool, custom: bool, source: int }
 export struct ActionCommandRow { label: string, action: int, step: int }
 export struct ActionStepRow { label: string, detail: string }
 
@@ -14,6 +14,8 @@ export global ActionBridge {
     in-out property <[ActionStepRow]> steps;
     in-out property <[string]> tools;
     in-out property <int> selected: -1;
+    in-out property <int> filter;
+    in-out property <bool> builtin;
     in-out property <int> step: -1;
     in-out property <string> name;
     in-out property <string> description;
@@ -76,9 +78,11 @@ export component ActionsScreen inherits Rectangle {
                 width: 220px;
                 VerticalLayout {
                     spacing: 6px; alignment: start;
-                    for row[i] in ActionBridge.rows: Rectangle {
+                    ComboBox { model: ["All actions", "Suggested", "Saved actions", "Custom tools"]; current-index <=> ActionBridge.filter; enabled: !ActionBridge.busy; selected(i) => { ActionBridge.filter = i; ActionBridge.command("filter", 0); } }
+                    if ActionBridge.rows.length == 0: Text { text: "No actions in this list yet."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+                    for row in ActionBridge.rows: Rectangle {
                         height: 80px;
-                        background: ActionBridge.selected == i ? Theme.menu-selected-bg : Theme.card;
+                        background: ActionBridge.selected == row.source ? Theme.menu-selected-bg : Theme.card;
                         border-radius: Theme.radius-small;
                         VerticalLayout {
                             padding: 10px; spacing: 4px;
@@ -86,7 +90,7 @@ export component ActionsScreen inherits Rectangle {
                             Text { text: row.builtin ? "Suggested · copy to edit" : row.custom ? "Custom tool" : "Saved action"; color: Theme.text-secondary; font-size: Theme.fs-caption; }
                             Text { text: row.description; color: Theme.text-secondary; font-size: Theme.fs-caption; overflow: elide; }
                         }
-                        TouchArea { enabled: !ActionBridge.busy; clicked => { ActionBridge.command("select", i); } }
+                        TouchArea { enabled: !ActionBridge.busy; clicked => { ActionBridge.command("select", row.source); } }
                     }
                 }
             }
@@ -94,14 +98,15 @@ export component ActionsScreen inherits Rectangle {
                 horizontal-stretch: 1;
                 VerticalLayout {
                     spacing: 12px; alignment: start;
+                    if ActionBridge.builtin: Text { text: "Suggested action · save a copy to make it yours."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
                     TextField { label: "Name"; text <=> ActionBridge.name; enabled: !ActionBridge.busy; }
                     TextField { label: "Description"; text <=> ActionBridge.description; enabled: !ActionBridge.busy; }
                     CheckBox { text: "Custom tool set (run commands individually)"; checked <=> ActionBridge.custom; enabled: !ActionBridge.busy; }
                     HorizontalLayout {
                         spacing: 8px;
-                        Button { text: ActionBridge.selected >= 0 && ActionBridge.rows[ActionBridge.selected].builtin ? "Save a copy" : "Save action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("save", 0); } }
+                        Button { text: ActionBridge.selected >= 0 && ActionBridge.builtin ? "Save a copy" : "Save action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("save", 0); } }
                         Button { text: "Copy"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("copy", 0); } }
-                        Button { text: "Delete"; enabled: !ActionBridge.busy && ActionBridge.selected >= 0 && !ActionBridge.rows[ActionBridge.selected].builtin; clicked => { ActionBridge.command("delete", 0); } }
+                        Button { text: "Delete"; enabled: !ActionBridge.busy && ActionBridge.selected >= 0 && !ActionBridge.builtin; clicked => { ActionBridge.command("delete", 0); } }
                     }
                     Text { text: "Steps"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
                     HorizontalLayout {
