@@ -39,7 +39,7 @@ fn render(ui: &AppWindow, select: Option<&str>) {
         has_thumb: CATALOG.with(|c| c.borrow().thumbs.get(&thumb_key(e)).is_some_and(Option::is_some)),
         detail: format!("{} version(s) · {} bytes{}", e.versions.len(), e.versions.last().map_or(0, |v| v.size), if e.folder.is_empty() { String::new() } else { format!(" · {}", e.folder) }).into(),
     }).collect::<Vec<_>>())));
-    for entry in entries.iter().take(256) { thumbnail(ui, entry); }
+    if ui.get_page() == sheaf_app::Page::Library { for entry in entries.iter().take(256) { thumbnail(ui, entry); } }
     let at = select.and_then(|id| entries.iter().position(|e| e.id == id));
     b.set_selected(at.map_or(-1, |i| i as i32));
     let entry = at.and_then(|i| entries.get(i));

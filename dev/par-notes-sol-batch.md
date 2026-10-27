@@ -484,3 +484,8 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   stable revision; it is not deleted as if it were the processed revision. Test
   `a_watch_never_archives_or_publishes_an_input_changed_during_its_run` (written, not run).
   Revision identity remains size/mtime; same-size rewrites preserving timestamps are not detected.
+
+- C-files-008 static follow-up: catalogue initialization and saves while Library is hidden no
+  longer enqueue its thumbnails; first visible opening does. The existing bounded probe pool
+  remains the only thumbnail worker path. not automatable: start on Home and open Library to
+  verify deferred previews — app execution forbidden.
