@@ -522,7 +522,11 @@ case "$KF" in ''|*[!0-9]*) KF=0 ;; esac
 # Find Next's row is the next one, 42 px lower.
 KG=$(( ${KF:-0} + 42 )); [ "$KG" -gt 42 ] && click 1157 $KG 0.5; key ctrl+s; sleep 1.2; shot 221-shortcuts
 KE=$(ocr 1020x700+250+90)
-KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+# The preferences are written a moment after the keys (up to 3 s under load).
+for _ in 1 2 3 4 5 6; do
+    KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+    echo "$KP" | grep -q "'find'" && break; sleep 0.5
+done
 check "a shortcut recorded in Preferences is kept, one already used is refused (rows at $KF, $KG; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
 quit; platform_reset
 
