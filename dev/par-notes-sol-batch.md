@@ -659,3 +659,15 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   there is no cross-process input lock. No new dependency/public API.
   not automatable: launch three saved inboxes, restart, then stop during a queued scan — execution
   forbidden. Poll interval remains 3 s after a completed scan, 100 ms between scan slices.
+
+- C-files-008: library sorting by name/date/size in either direction, native raster thumbnails,
+  explicit movement of selected files into folders, and bounded 96-card pages. Filtering/sorting
+  resets to page one; selection uses stable file IDs and batch selection spans pages. Moving
+  catalogue membership leaves file bytes and version history untouched; errors report completed
+  moves. Test `library_sort_move_and_raster_thumbnail_keep_file_versions` (written, not run).
+  Left: pointer drag/drop between folders and content thumbnails for Office/text files. Pagination
+  bounds rendered cards rather than implementing a virtualized Slint grid; catalogue sorting still
+  uses the in-memory catalogue. No new dependency. Public: library::sort_entries,
+  raster_thumbnail, Library::move_to_folder; LibraryBridge sort/page/total/move-folder fields.
+  not automatable: >1000 files, sort both ways, next/previous, mark across pages and move into a
+  folder, verify thumbnail fallback — app execution forbidden.
