@@ -835,6 +835,53 @@ P4=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
 check "352 custom page-range command applies to the open PDF and undoes (${AP:-no Apply}; pages ${P2:-?} then ${P4:-?})" "[ \"$P2\" = 2 ] && [ \"$P4\" = 4 ] && [ \"$T2\" = \"Page 2\" ] && [ \"$T3\" = \"Page 3\" ]"
 quit
 
+# 353. Acrobat's Specify Settings: edit labelled watermark fields, preserve the next step and
+# its prompt, save, run, and inspect real output. The serialized text includes a literal pipe.
+python3 - "$OUT/353-wizard.json" <<'PY353'
+import json, sys
+json.dump({"version":1,"name":"Wizard settings","steps":[
+    {"tool":"watermark_options","argument":"36|0.5|45|0|0|Helvetica|all|Before","prompt":True,"instruction":"Review each output"},
+    {"tool":"set_title","argument":"Wizard result"}],"output":{"same_folder":True,"suffix":"-353"}}, open(sys.argv[1], "w"))
+PY353
+cp "$OUT/text.pdf" "$OUT/353-source.pdf"
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+answer "$PWD/$OUT/353-wizard.json"
+IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+ED=$(at Edit 200x250+1040+450); [ -n "$ED" ] && click $ED
+# Labelled fields can be below the editor's fold; scroll only that editor until the label is visible.
+batch_label() {
+    local point
+    for _ in $(seq 1 30); do
+        point=$(at "$1" 740x440+500+290)
+        if [ -n "$point" ]; then echo "$point"; return; fi
+        xdotool mousemove 1245 650 click 5; sleep 0.15
+    done
+}
+batch_field() {
+    local bx by
+    read bx by <<< "$(batch_label "$1")"
+    [ -n "$by" ] && click "$bx" $(( by + 32 )) 0.2
+    key ctrl+a; xdotool type --clearmodifiers --delay 5 "$2"; sleep 0.3
+}
+batch_field Mark "After | review"
+batch_field Font "24"
+batch_field Pages "2-3"
+batch_field Opacity "0.35"
+batch_field Rotation "-30"
+shot 353-labelled-settings
+xdotool mousemove 1245 450; for _ in $(seq 1 50); do xdotool click 4; done; sleep 0.6
+SA=$(at Save 600x180+485+380); [ -n "$SA" ] && click $SA 1
+check "353 labelled mark controls preserve text, range, appearance, order and per-step instructions" "python3 -c 'import json; a=next(x for x in json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")) if x[\"name\"] == \"Wizard settings\"); assert a[\"steps\"][0][\"argument\"] == \"24|0.35|-30|0|0|Helvetica|2-3|After | review\"; assert a[\"steps\"][0][\"prompt\"] and a[\"steps\"][0][\"instruction\"] == \"Review each output\"; assert a[\"steps\"][1][\"tool\"] == \"set_title\"'"
+xdotool mousemove 1245 650; for _ in $(seq 1 65); do xdotool click 5; done; sleep 0.8
+answer "$PWD/$OUT/353-source.pdf"
+RN=$(at Run 350x120+900+60); [ -n "$RN" ] && click $RN 1
+CT=$(at Continue 600x450+340+200); [ -n "$CT" ] && click $CT 2
+for _ in $(seq 1 20); do [ -f "$OUT/353-source-353.pdf" ] && break; sleep 0.5; done
+shot 353-wizard-output
+check "353 saved multistep action prompts then marks only selected pages (${CT:-no Continue})" "pdfinfo \"$OUT/353-source-353.pdf\" 2>/dev/null | grep -q '^Title:.*Wizard result' && pdftotext -f 2 -l 3 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review' && ! pdftotext -f 1 -l 1 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review'"
+quit
+
 # 354. Acrobat's saved-action run continues after a damaged PDF or missing file, keeps successful
 # results, and lists each failure separately rather than growing an unbounded status paragraph.
 python3 - "$OUT/354-run.json" <<'PY354'

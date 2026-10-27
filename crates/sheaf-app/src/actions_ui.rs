@@ -109,6 +109,14 @@ fn draft(ui: &AppWindow) {
             b.set_number_size(fields.get(2).copied().unwrap_or("8").into());
             b.set_argument(fields.get(3).copied().unwrap_or("Page <<1>> of <<n>>").into());
         } else { b.set_argument(argument.into()); }
+        if let Some(step) = step.filter(|s| matches!(s.tool.as_str(), "watermark_options" | "header_footer_options")) {
+            let settings = sheaf_app::action_settings::MarkSettings::decode(step.tool.as_str(), argument);
+            b.set_mark_text(settings.text.into()); b.set_mark_size(settings.size.into());
+            b.set_mark_opacity(settings.opacity.into()); b.set_mark_rotation(settings.rotation.into());
+            b.set_mark_x(settings.x.into()); b.set_mark_y(settings.y.into());
+            b.set_mark_font(settings.font.into()); b.set_mark_pages(settings.pages.into());
+            b.set_mark_position(settings.position);
+        }
         b.set_command_label(step.map(|s| s.label.as_str()).unwrap_or_default().into());
         b.set_separator(step.is_some_and(|s| s.separator));
         b.set_instruction(step.map(|s| s.instruction.as_str()).unwrap_or_default().into());
@@ -129,6 +137,11 @@ fn flush(ui: &AppWindow) {
         if let Some(step) = usize::try_from(index).ok().and_then(|i| s.draft.steps.get_mut(i)) {
             step.argument = if step.tool == "protect" { String::new() } else if step.tool == "page_numbers" {
                 format!("{}|{}|{}|{}", b.get_number_position(), b.get_number_start(), b.get_number_size(), b.get_argument())
+            } else if matches!(step.tool.as_str(), "watermark_options" | "header_footer_options") {
+                sheaf_app::action_settings::MarkSettings { text: b.get_mark_text().to_string(), size: b.get_mark_size().to_string(),
+                    opacity: b.get_mark_opacity().to_string(), rotation: b.get_mark_rotation().to_string(),
+                    x: b.get_mark_x().to_string(), y: b.get_mark_y().to_string(), font: b.get_mark_font().to_string(),
+                    pages: b.get_mark_pages().to_string(), position: b.get_mark_position() }.encode(&step.tool)
             } else { b.get_argument().to_string() };
             step.instruction = b.get_instruction().to_string();
             step.label = b.get_command_label().to_string();

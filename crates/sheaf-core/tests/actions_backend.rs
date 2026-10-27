@@ -14,5 +14,8 @@ mod action_import;
 #[path = "../../sheaf-app/src/actions.rs"]
 mod actions;
 #[allow(dead_code)]
+#[path = "../../sheaf-app/src/action_settings.rs"]
+mod action_settings;
+#[allow(dead_code)]
 #[path = "../../sheaf-app/src/watch_folder.rs"]
 mod watch_folder;
