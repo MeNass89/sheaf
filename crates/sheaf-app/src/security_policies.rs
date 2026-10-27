@@ -28,7 +28,8 @@ pub fn load(dir: &Path) -> Result<Vec<SecurityPolicy>, String> {
 
 /// A named policy is updated deliberately; credentials cannot be represented in this type.
 pub fn save(dir: &Path, policy: &SecurityPolicy) -> Result<(), String> {
-    let checked = SecurityPolicy::new(policy.name.clone(), policy.permissions, policy.encrypt_metadata).map_err(|e| e.to_string())?;
+    policy.validate().map_err(|e| e.to_string())?;
+    let checked = policy.clone();
     if let Some((path, _)) = entries(dir)?.into_iter().find(|(_, p)| p.name == checked.name) {
         let bytes = serde_json::to_vec_pretty(&checked).map_err(|e| e.to_string())?;
         return crate::store_file::replace(&path, &bytes).map_err(|e| e.to_string());
@@ -53,6 +54,9 @@ mod tests {
         let t = tempfile::tempdir().unwrap();
         let mut policy = SecurityPolicy::new("External review".into(), ProtectPermissions::default(), true).unwrap();
         save(t.path(), &policy).unwrap();
+        policy.options.print_quality = sheaf_core::security::PrintQuality::Low;
+        policy.options.changes = sheaf_core::security::ChangeLevel::FillForms;
+        policy.options.algorithm = sheaf_core::security::EncryptionAlgorithm::Aes128;
         policy.permissions.copying = false;
         policy.encrypt_metadata = false;
         save(t.path(), &policy).unwrap();

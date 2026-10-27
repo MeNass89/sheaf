@@ -1,7 +1,7 @@
 //! Acrobat's Security Policies: local named settings, exchange, and protected copies.
 use super::*;
 use sheaf_app::{security_policies, store_file};
-use sheaf_core::security::ProtectPermissions;
+use sheaf_core::security::{ProtectPermissions, ProtectionOptions, PrintQuality, ChangeLevel, EncryptionAlgorithm};
 use sheaf_core::security_policy::SecurityPolicy;
 
 pub(super) struct PolicyPanel {
@@ -61,10 +61,11 @@ pub fn policy_action(ui: &AppWindow, id: i32, action: i32, index: i32) {
     }
 }
 
-pub fn policy_save(id: i32, name: &str, flags: [bool; 6]) {
+pub fn policy_save(id: i32, name: &str, flags: [bool; 6], choices: [i32; 3]) {
     if update(id, |r, _| r.policy_panel.as_ref().is_none_or(|p| p.busy)).unwrap_or(true) { return; }
     let result = SecurityPolicy::new(name.into(), ProtectPermissions { printing: flags[0], copying: flags[1], editing: flags[2], commenting: flags[3], filling_forms: flags[4] }, flags[5])
-        .map_err(|e| e.to_string()).and_then(|policy| {
+        .map_err(|e| e.to_string()).and_then(|mut policy| {
+            policy.options = choices_to_options(choices)?;
             security_policies::save(&store_file::data_dir(), &policy)?;
             Ok((policy, security_policies::load(&store_file::data_dir())?))
         });
@@ -72,6 +73,15 @@ pub fn policy_save(id: i32, name: &str, flags: [bool; 6]) {
         Ok((policy, policies)) => { update(id, |r, _| { if let Some(p) = r.policy_panel.as_mut() { p.status = format!("Saved {}", policy.name); p.draft = policy; p.policies = policies; p.seq = p.seq.wrapping_add(1); } }); }
         Err(error) => status(id, format!("Policy not saved: {error}")),
     }
+}
+
+fn choices_to_options(choices: [i32; 3]) -> Result<ProtectionOptions, String> {
+    let [quality, changes, algorithm] = choices;
+    Ok(ProtectionOptions {
+        print_quality: match quality { 0 => PrintQuality::High, 1 => PrintQuality::Low, _ => return Err("Choose a print quality".into()) },
+        changes: match changes { 0 => ChangeLevel::Any, 1 => ChangeLevel::None, 2 => ChangeLevel::Assemble, 3 => ChangeLevel::FillForms, 4 => ChangeLevel::CommentForms, _ => return Err("Choose the allowed changes".into()) },
+        algorithm: match algorithm { 0 => EncryptionAlgorithm::Aes256, 1 => EncryptionAlgorithm::Aes128, _ => return Err("Choose AES-256 or AES-128 compatibility".into()) },
+    })
 }
 
 fn checked_passwords(user: &str, confirmation: &str, owner: &str, owner_confirmation: &str, permissions: ProtectPermissions) -> Result<(), String> {
@@ -84,6 +94,8 @@ fn checked_passwords(user: &str, confirmation: &str, owner: &str, owner_confirma
 pub fn policy_apply(ui: &AppWindow, id: i32, user: &str, confirmation: &str, owner: &str, owner_confirmation: &str) {
     let Some(policy) = update(id, |r, _| r.policy_panel.as_ref().map(|p| p.draft.clone())).flatten() else { return };
     if let Err(error) = checked_passwords(user, confirmation, owner, owner_confirmation, policy.permissions) { return status(id, error); }
+    if (policy.options.print_quality == PrintQuality::Low || policy.options.changes != ChangeLevel::Any)
+        && (owner.is_empty() || owner == user) { return status(id, "Restrictions need a separate owner password".into()); }
     if unsaved_name(id).is_some() { return status(id, "Save the PDF's edits first, then apply the policy.".into()); }
     let Some(input) = update(id, |r, _| (r.snap.read_only.is_empty()).then(|| Input { path: r.path.clone(), password: r.password() })).flatten() else {
         return status(id, "Open this PDF with permission to change its security first.".into());
@@ -119,4 +131,14 @@ mod tests {
         assert!(checked_passwords("open", "open", "owner", "owner", restricted).is_ok());
         assert!(checked_passwords("", "", "owner", "owner", restricted).is_ok());
     }
+    #[test]
+    fn policy_choice_indexes_map_to_exact_print_change_and_algorithm_settings() {
+        assert_eq!(choices_to_options([0, 0, 0]).unwrap(), ProtectionOptions::default());
+        let options = choices_to_options([1, 3, 1]).unwrap();
+        assert_eq!(options.print_quality, PrintQuality::Low);
+        assert_eq!(options.changes, ChangeLevel::FillForms);
+        assert_eq!(options.algorithm, EncryptionAlgorithm::Aes128);
+        assert!(choices_to_options([0, 5, 0]).is_err());
+    }
+
 }

@@ -2,7 +2,7 @@
 //! Save/export and load/import use the same versioned JSON format. Passwords are supplied
 //! only when applying a policy, so exchanging a policy cannot expose a document password.
 
-use crate::security::{protect_with_settings, ProtectPermissions};
+use crate::security::{protect_with_options, ProtectPermissions, ProtectionOptions};
 use crate::{pages::Input, paths::atomic_write, OpdfError, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -14,16 +14,18 @@ pub struct SecurityPolicy {
     pub name: String,
     pub permissions: ProtectPermissions,
     pub encrypt_metadata: bool,
+    #[serde(default)]
+    pub options: ProtectionOptions,
 }
 
 impl SecurityPolicy {
     pub fn new(name: String, permissions: ProtectPermissions, encrypt_metadata: bool) -> Result<Self> {
-        let policy = Self { version: 1, name: name.trim().into(), permissions, encrypt_metadata };
+        let policy = Self { version: 1, name: name.trim().into(), permissions, encrypt_metadata, options: ProtectionOptions::default() };
         policy.validate()?;
         Ok(policy)
     }
 
-    fn validate(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         if self.version != 1 { return Err(OpdfError::Unsupported("Unsupported security policy version".into())); }
         if self.name.trim().is_empty() || self.name.chars().count() > 200 || self.name.chars().any(char::is_control) {
             return Err(OpdfError::Unsupported("A security policy needs a name of 1 to 200 characters".into()));
@@ -46,11 +48,11 @@ impl SecurityPolicy {
         Ok(policy)
     }
 
-    /// AES-256 encryption with this policy's permissions and metadata choice. A policy never
+    /// AES encryption with this policy's permissions, compatibility and metadata choice. A policy never
     /// weakens its settings implicitly when a required password is missing.
     pub fn apply(&self, input: &Input, user_password: &str, owner_password: Option<&str>, out: &Path) -> Result<PathBuf> {
         self.validate()?;
-        protect_with_settings(input, user_password, owner_password, self.permissions, self.encrypt_metadata, out)
+        protect_with_options(input, user_password, owner_password, self.permissions, self.encrypt_metadata, self.options, out)
     }
 }
 
@@ -84,4 +86,18 @@ mod tests {
         assert!(SecurityPolicy::load(&path).is_err());
         assert!(SecurityPolicy::new(" ".into(), ProtectPermissions::default(), true).is_err());
     }
+    #[test]
+    fn old_policies_keep_defaults_and_unknown_compatibility_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let policy = SecurityPolicy::new("Legacy".into(), ProtectPermissions::default(), true).unwrap();
+        let mut value = serde_json::to_value(&policy).unwrap();
+        value.as_object_mut().unwrap().remove("options");
+        let path = dir.path().join("policy.json");
+        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        assert_eq!(SecurityPolicy::load(&path).unwrap(), policy);
+        value["options"] = serde_json::json!({"algorithm": "rc4"});
+        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        assert!(SecurityPolicy::load(&path).is_err());
+    }
+
 }

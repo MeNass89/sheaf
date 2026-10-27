@@ -14,15 +14,18 @@ fn invoice() -> PathBuf {
 }
 
 /// A throwaway self-signed digital ID made with `openssl` in `dir` (password "secret").
-fn test_id(dir: &Path) -> PathBuf {
+fn test_id(dir: &Path) -> PathBuf { test_identity(dir, false) }
+
+// A TSA has a separate key and a critical, timestamp-only EKU, never the document signer's ID.
+fn test_identity(dir: &Path, timestamp: bool) -> PathBuf {
     let (key, cert, p12) = (dir.join("k.pem"), dir.join("c.pem"), dir.join("id.p12"));
-    let o = Command::new("openssl")
-        .args(["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj", "/CN=Sheaf Test Signer", "-keyout"])
-        .arg(&key)
-        .arg("-out")
-        .arg(&cert)
-        .output()
-        .unwrap();
+    let mut command = Command::new("openssl");
+    command.args(["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-subj"])
+        .arg(if timestamp { "/CN=Sheaf Test Timestamp Authority" } else { "/CN=Sheaf Test Signer" });
+    if timestamp {
+        command.args(["-addext", "extendedKeyUsage=critical,timeStamping", "-addext", "keyUsage=critical,digitalSignature"]);
+    }
+    let o = command.arg("-keyout").arg(&key).arg("-out").arg(&cert).output().unwrap();
     assert!(o.status.success(), "openssl req: {}", String::from_utf8_lossy(&o.stderr));
     let o = Command::new("openssl").args(["pkcs12", "-export", "-passout", "pass:secret", "-inkey"]).arg(&key).arg("-in").arg(&cert).arg("-out").arg(&p12).output().unwrap();
     assert!(o.status.success(), "openssl pkcs12: {}", String::from_utf8_lossy(&o.stderr));
@@ -482,7 +485,13 @@ fn a_local_authority_timestamps_visible_and_invisible_certificate_signatures() {
     }
     let t = tempfile::tempdir().unwrap();
     let p12 = test_id(t.path());
-    let authority = LocalAuthority(crypto::pkcs12::open(&std::fs::read(&p12).unwrap(), "secret").unwrap());
+    let tsa_dir = t.path().join("tsa");
+    std::fs::create_dir(&tsa_dir).unwrap();
+    let tsa_p12 = test_identity(&tsa_dir, true);
+    let authority = LocalAuthority(crypto::pkcs12::open(&std::fs::read(tsa_p12).unwrap(), "secret").unwrap());
+    assert_eq!(authority.0.certificate.extended_key_usage.as_deref(), Some(["1.3.6.1.5.5.7.3.8".to_string()].as_slice()));
+    let signer = crypto::pkcs12::open(&std::fs::read(&p12).unwrap(), "secret").unwrap();
+    assert_ne!(authority.0.certificate.raw, signer.certificate.raw);
     let digital = digital(&p12, "secret").unwrap();
     let input = Input::new(invoice());
     let spec = spec(0, [72.0, 100.0, 240.0, 160.0], Graphic::Typed("Ada".into(), Default::default()), Some(digital.clone()));

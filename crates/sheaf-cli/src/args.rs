@@ -142,6 +142,15 @@ pub(crate) enum Cmd {
         /// Keep XMP metadata readable without the password
         #[arg(long)]
         leave_metadata_clear: bool,
+        /// Print quality when printing is allowed
+        #[arg(long, default_value = "high", value_enum)]
+        print_quality: CliPolicyPrint,
+        /// Maximum changes allowed, further limited by the action switches
+        #[arg(long, default_value = "any", value_enum)]
+        changes: CliPolicyChanges,
+        /// AES compatibility for modern or older readers
+        #[arg(long, default_value = "aes256", value_enum)]
+        algorithm: CliPolicyAlgorithm,
         /// The settings JSON or protected PDF to write
         #[arg(short, long)]
         out: PathBuf,
@@ -597,9 +606,12 @@ pub(crate) enum Cmd {
     },
     /// Build a reusable full-text catalog for a set of PDFs (Acrobat's Catalog)
     Index {
-        /// PDF files to include in the catalog
+        /// PDF files or folders to include recursively in the catalog
         #[arg(required = true, num_args = 1..)]
         inputs: Vec<PathBuf>,
+        /// Reuse unchanged pages from this catalog; omitted sources are purged
+        #[arg(long)]
+        update: Option<PathBuf>,
         /// The catalog JSON file to write
         #[arg(short, long)]
         out: PathBuf,
@@ -615,6 +627,54 @@ pub(crate) enum Cmd {
     Tools,
     /// Serve every command as a tool over the Model Context Protocol (JSON-RPC on stdio)
     Mcp,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliPolicyPrint {
+    /// Allow high-resolution printing
+    High,
+    /// Allow low-resolution printing only
+    Low,
+}
+impl CliPolicyPrint {
+    pub fn core(self) -> sheaf_core::security::PrintQuality {
+        match self { Self::High => sheaf_core::security::PrintQuality::High, Self::Low => sheaf_core::security::PrintQuality::Low }
+    }
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliPolicyChanges {
+    /// Allow all checked actions
+    Any,
+    /// Disallow all document changes
+    None,
+    /// Allow page assembly only
+    Assemble,
+    /// Allow form filling only
+    FillForms,
+    /// Allow comments and form filling
+    CommentForms,
+}
+impl CliPolicyChanges {
+    pub fn core(self) -> sheaf_core::security::ChangeLevel {
+        use sheaf_core::security::ChangeLevel;
+        match self { Self::Any => ChangeLevel::Any, Self::None => ChangeLevel::None, Self::Assemble => ChangeLevel::Assemble, Self::FillForms => ChangeLevel::FillForms, Self::CommentForms => ChangeLevel::CommentForms }
+    }
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliPolicyAlgorithm {
+    /// AES-256 for modern readers
+    #[value(name = "aes256")]
+    Aes256,
+    /// AES-128 for older readers
+    #[value(name = "aes128")]
+    Aes128,
+}
+impl CliPolicyAlgorithm {
+    pub fn core(self) -> sheaf_core::security::EncryptionAlgorithm {
+        match self { Self::Aes256 => sheaf_core::security::EncryptionAlgorithm::Aes256, Self::Aes128 => sheaf_core::security::EncryptionAlgorithm::Aes128 }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -988,6 +1048,13 @@ mod help_tests {
     fn local_ocr_engine_and_mixed_languages_are_explicit_cli_options() {
         let cli = Cli::try_parse_from(["sheaf", "ocr", "scan.pdf", "--local-engine", "--language", "en+ja", "-o", "out.pdf"]).unwrap();
         assert!(matches!(cli.cmd, Cmd::Ocr { local_engine: true, language, .. } if language == "en+ja"));
+    }
+
+    #[test]
+    fn policy_compatibility_choices_and_incremental_folder_index_are_accessible() {
+        assert!(Cli::try_parse_from(["sheaf", "save-security-policy", "Review", "--print-quality", "low", "--changes", "fill-forms", "--algorithm", "aes128", "-o", "policy.json"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "save-security-policy", "Review", "--algorithm", "rc4", "-o", "policy.json"]).is_err());
+        assert!(Cli::try_parse_from(["sheaf", "index", "folder", "--update", "previous.json", "-o", "updated.json"]).is_ok());
     }
 
 }

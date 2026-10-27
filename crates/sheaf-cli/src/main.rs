@@ -163,9 +163,14 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         Cmd::Protect { input: i, user_password, owner_password, out } => {
             one(security::protect(&input(i), &user_password, owner_password.as_deref(), &out))
         }
-        Cmd::SaveSecurityPolicy { name, no_printing, no_copying, no_editing, no_commenting, no_forms, leave_metadata_clear, out } => {
+        Cmd::SaveSecurityPolicy { name, no_printing, no_copying, no_editing, no_commenting, no_forms, leave_metadata_clear, print_quality, changes, algorithm, out } => {
             let permissions = security::ProtectPermissions { printing: !no_printing, copying: !no_copying, editing: !no_editing, commenting: !no_commenting, filling_forms: !no_forms };
-            let policy = sheaf_core::security_policy::SecurityPolicy::new(name, permissions, !leave_metadata_clear)?;
+            let mut policy = sheaf_core::security_policy::SecurityPolicy::new(name, permissions, !leave_metadata_clear)?;
+            policy.options = security::ProtectionOptions {
+                print_quality: print_quality.core(),
+                changes: changes.core(),
+                algorithm: algorithm.core(),
+            };
             one(policy.save(&out))
         }
         Cmd::ApplySecurityPolicy { input: i, policy, user_password, owner_password, out } => {
@@ -379,12 +384,19 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             Ok(vec![])
         }
         Cmd::Render { input: i, page, dpi, out } => one(images::render_png(&input(i), page as usize - 1, dpi, &out)),
-        Cmd::Index { inputs, out } => {
+        Cmd::Index { inputs, update, out } => {
             let inputs: Vec<Input> = inputs.into_iter().map(input).collect();
-            one(sheaf_core::search_index::Catalog::build(&inputs, &mut |_, _| true)?.save(&out))
+            let catalog = match update {
+                Some(path) => sheaf_core::search_index::Catalog::load(&path)?.update(&inputs, &mut |_, _| true)?,
+                None => sheaf_core::search_index::Catalog::build(&inputs, &mut |_, _| true)?,
+            };
+            one(catalog.save(&out))
         }
         Cmd::SearchIndex { index, query } => {
-            let hits = sheaf_core::search_index::Catalog::load(&index)?.search(&query)?;
+            let catalog = sheaf_core::search_index::Catalog::load(&index)?;
+            let stale = catalog.stale_sources();
+            if !stale.is_empty() { note!("{} changed or missing sources excluded; update the catalog", stale.len()); }
+            let hits = catalog.search(&query)?;
             agent::set_data(serde_json::to_value(hits).map_err(|e| OpdfError::Engine(e.to_string()))?);
             Ok(vec![])
         }

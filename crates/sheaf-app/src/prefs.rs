@@ -187,7 +187,7 @@ pub struct Prefs {
 impl Prefs {
     /// Loads `<dir>/prefs.json`; missing or corrupt means the defaults.
     pub fn load(dir: &Path) -> Prefs {
-        let Some(mut prefs) = store_file::read::<Prefs>(&dir.join("prefs.json")) else { return Prefs::default() };
+        let mut prefs = store_file::read::<Prefs>(&dir.join("prefs.json")).unwrap_or_default();
         let legacy = !crate::signature_store::Marks::from_prefs(&prefs).is_empty();
         match crate::signature_store::load(dir) {
             Ok(Some(marks)) => {

@@ -55,3 +55,40 @@ fn live_ocr_review_sees_unsaved_corrections_and_undo_and_refuses_missing_pages()
     assert_eq!(ocr_review::review_document(doc.document()), before);
     assert_eq!(ocr_review::review(&Input::new(&scan)).unwrap(), before, "review does not save over the source");
 }
+
+#[test]
+fn word_confidence_survives_save_and_corrections_leave_neighboring_words_and_scan_intact() {
+    use sheaf_core::pdfcraft::{Doc, engine::{Edit, ocr::PlacedWord}};
+    let t = tempfile::tempdir().unwrap();
+    let source = common::fixture_pdf(t.path(), "source.pdf", 2);
+    let mut doc = Doc::open(&Input::new(&source)).unwrap();
+    let word = |text: &str, x: f64, confidence| PlacedWord {
+        text: text.into(), confidence, origin: [x, 500.0], across: [40.0, 0.0], up: [0.0, 12.0],
+    };
+    doc.apply(Edit::AddOcrText { page: 0, words: vec![word("Clear", 100.0, Some(0.99)), word("Errar", 145.0, Some(0.42))] }).unwrap();
+    doc.apply(Edit::AddOcrText { page: 1, words: vec![word("Other", 100.0, Some(0.95))] }).unwrap();
+    let path = doc.save_unprotected(&t.path().join("ocr.pdf")).unwrap().0;
+    let pixels = common::render(&path, 0);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    let mut cache = ocr_review::ReviewCache::default();
+    let rows = cache.review(doc.document());
+    assert_eq!(rows.len(), 3, "adjacent OCR words retain separate edit targets");
+    assert_eq!(rows.iter().filter(|r| r.suspect).count(), 1);
+    let suspect = rows.iter().find(|r| r.suspect).unwrap();
+    assert_eq!(suspect.text.trim(), "Errar");
+    assert!((suspect.confidence.unwrap() - 0.42).abs() < 0.001);
+    let generation = doc.document().edit_generation();
+    let edit = ocr_review::correction_edit(doc.document(), 0, suspect.line - 1, &suspect.text, "Error").unwrap();
+    doc.apply(edit).unwrap();
+    cache.corrected(doc.document(), generation, 0);
+    let corrected = cache.review(doc.document());
+    assert_eq!(corrected[0], rows[0], "neighbor remains untouched");
+    assert_eq!(corrected[2], rows[2], "other page remains untouched");
+    assert_eq!(corrected[1].text.trim(), "Error");
+    assert!(!corrected[1].suspect, "manual correction clears the recognition suspect");
+    let fixed = doc.save_unprotected(&t.path().join("fixed.pdf")).unwrap().0;
+    assert_eq!(common::render(&fixed, 0), pixels);
+    let id = doc.id();
+    doc.session_mut().undo(id).unwrap();
+    assert_eq!(cache.review(doc.document()), rows, "undo invalidates cached confidence too");
+}

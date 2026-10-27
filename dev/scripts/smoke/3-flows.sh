@@ -1385,9 +1385,9 @@ CN=$(qpdf --qdf --object-streams=disable "$OUT/checkpass.pdf" - 2>/dev/null | gr
 check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $CN)" "echo \"$CW\" | grep -q 'teh' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat'"
 quit
 
-# 240. Kept signatures and initials belong to the system credential store, never prefs.json.
+# 240. Kept signatures and initials belong to authenticated local storage, never prefs.json.
 # The existing signature/initials steps exercised save, restart and reuse. Their helpers read
-# Secret Service too; this suite needs secret-tool and an unlocked desktop keyring.
+# the encrypted local store too; smoke inspection needs Python cryptography.
 no_plain_marks() {
     python3 - "$PWD/$OUT/profile/data/Sheaf/prefs.json" <<'PYMARKS'
 import json, sys
@@ -1442,3 +1442,4 @@ PA=$(at Add 740x180+270+440); [ -n "$PA" ] && click $PA
 PW=$(at Save 740x180+270+440); [ -n "$PW" ] && click $PW 3
 check "Create portfolio bundles the original instead of merging (${PC:-no Create})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
 quit
+check "kept marks exist in authenticated local storage" "has_secure_marks"

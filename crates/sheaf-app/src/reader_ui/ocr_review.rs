@@ -19,9 +19,12 @@ impl Review {
     pub(super) fn position(&self) -> String {
         if self.busy { return "Reading the OCR layer…".into(); }
         match self.selected() {
-            Some(row) => format!("Run {} of {} · Page {}", self.at + 1, self.count(), row.page),
+            Some(row) => {
+                let confidence = row.confidence.map_or_else(|| "Confidence unavailable".into(), |c| format!("Confidence {:.0}%", c * 100.0));
+                format!("Run {} of {} · Page {} · {confidence}", self.at + 1, self.count(), row.page)
+            },
             None if self.rows.is_empty() => "No hidden OCR text. Run OCR first.".into(),
-            None if self.suspects_only && self.count() == 0 => "No possible decoding errors. Turn off the filter to review every run.".into(),
+            None if self.suspects_only && self.count() == 0 => "No OCR suspects. Turn off the filter to review every run.".into(),
             None => format!("Review complete · {} runs", self.count()),
         }
     }
@@ -116,8 +119,8 @@ mod tests {
     fn review_completion_and_empty_layer_are_distinct() {
         let mut review = Review::default();
         assert!(review.position().contains("Run OCR first"));
-        review.rows.push(ReviewLine { page: 3, line: 1, rect: [0.0; 4], text: "Scan".into(), suspect: false });
-        assert_eq!(review.position(), "Run 1 of 1 · Page 3");
+        review.rows.push(ReviewLine { page: 3, line: 1, rect: [0.0; 4], text: "Scan".into(), confidence: None, suspect: false });
+        assert_eq!(review.position(), "Run 1 of 1 · Page 3 · Confidence unavailable");
         review.at = 1;
         assert!(review.selected().is_none());
         assert!(review.position().contains("Review complete"));
@@ -125,15 +128,15 @@ mod tests {
     #[test]
     fn suspect_filter_preserves_the_original_page_and_line_targets() {
         let mut review = Review { rows: vec![
-            ReviewLine { page: 1, line: 1, rect: [0.0; 4], text: "Fine".into(), suspect: false },
-            ReviewLine { page: 4, line: 7, rect: [0.0; 4], text: "T?xt".into(), suspect: true },
+            ReviewLine { page: 1, line: 1, rect: [0.0; 4], text: "Fine".into(), confidence: None, suspect: false },
+            ReviewLine { page: 4, line: 7, rect: [0.0; 4], text: "T?xt".into(), confidence: None, suspect: true },
         ], ..Default::default() };
         assert_eq!(review.count(), 2);
         review.suspects_only = true;
         assert_eq!(review.count(), 1);
         assert_eq!((review.selected().unwrap().page, review.selected().unwrap().line), (4, 7));
         review.rows[1].suspect = false;
-        assert!(review.position().contains("No possible decoding errors"));
+        assert!(review.position().contains("No OCR suspects"));
     }
 
 }

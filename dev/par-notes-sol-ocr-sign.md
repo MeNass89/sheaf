@@ -468,3 +468,238 @@
 - `crates/sheaf-core/tests/ocr_review.rs`
 - `crates/sheaf-core/tests/search_index.rs`
 - `dev/par-notes-sol-ocr-sign.md`
+
+## Third pass — C-optimize-015
+
+- C-optimize-015: phrase search uses an in-memory trigram index and cached normalized pages,
+  including CJK substrings and punctuation; no source-byte hashing or whole-vocabulary scan
+  per query. Source freshness uses size + modification time. Changed/missing PDFs are excluded
+  individually and the manager reports their count; `validate` remains an explicit byte audit.
+- Build accepts recursive local folders (symlink directories excluded). `index --update OLD`
+  and rebuilding in the manager reuse unchanged pages, add/replace changed sources and purge
+  omitted sources. Failures/cancellation keep the old catalog. No new dependencies.
+- Tests written (not run): `indexed_substrings_and_incremental_reuse_do_not_require_a_readable_pdf_body`,
+  `incremental_folder_catalog_reuses_unchanged_sources_and_purges_removed_ones`, updated
+  `a_saved_catalog_finds_unicode_phrases_and_excludes_changed_sources` and real PDF integration.
+- Left: no PDX interchange; GUI recursive folder picker absent (CLI accepts directories).
+  Metadata-preserving edits require explicit `validate`; no release benchmark under rule 1.
+  `not automatable: reopen/build a catalog, change/delete one source, search the others, then
+  rebuild and inspect stale-source feedback — app execution forbidden to this worker`.
+- Proposed grade: C-optimize-015: f8 a7 p8 — tests above; actual large-catalog timing unverified.
+
+## Third pass — C-sign-009
+
+- C-sign-009: new saves use Rust ChaCha20-Poly1305 authenticated local storage, without
+  secret-tool/security/PowerShell writes or read-back subprocesses on the UI thread. Each
+  save has a fresh nonce; the separate random per-profile key and ciphertext are owner-only
+  on Unix, atomically replaced. No 64K-character Windows payload limit. Legacy system-vault
+  profiles migrate after successful reads; unreadable legacy data is never overwritten.
+- This supersedes the earlier mandatory-keyring design. The key is local and protects against
+  other local accounts (Windows inherits profile ACLs); it does not claim Keychain-equivalent
+  isolation from the signed-in account. Legacy migration may still invoke its old vault once
+  at startup. Future saves and normal local loads need no outside program or unlock prompt.
+- New dependency: workspace + sheaf-app `chacha20poly1305 = 0.10`, alloc only (pure Rust,
+  orchestrator must fetch/update lockfile); existing workspace getrandom linked by sheaf-app.
+- Tests written, not run: `local_signatures_survive_restart_without_external_tools_or_size_caps`
+  (>64K drawn data, restart, ciphertext and Unix permissions),
+  `damaged_or_missing_signature_keys_never_clear_a_saved_library`; previous migration guards.
+  Smoke helpers now decrypt the local file using Python cryptography (smoke-only requirement).
+- `not automatable: create/reorder/edit/delete/once-only marks, restart with no secret-tool,
+  reopen and reuse on Linux/Windows/macOS — app/platform execution forbidden by rule 1`.
+- Proposed grade: C-sign-009: f8 a8 p8 — persistence tests above; no live platform verification.
+
+## Third pass — C-optimize-009
+
+- C-optimize-009: recognition confidence now survives the built-in Latin and Tesseract paths,
+  placement, PDF save/reopen and reader review. Each new OCR word has its own marked-content
+  scope, preventing same-baseline words from merging into one correction target. Suspects now
+  include words below 85% confidence, not just decoding artifacts. Existing external/older
+  layers explicitly show unknown confidence. Corrections set the reviewed word's score to 1;
+  undo restores it. The scan and neighboring words remain untouched.
+- The reader's document thread caches review pages: targeted corrections only reread their
+  page; arbitrary edits and undo/redo invalidate the snapshot. Accept/Previous/filter do not
+  extract PDF text again. UI labels now say OCR suspects; the position shows confidence.
+- Tests written, not run: `word_confidence_survives_save_and_corrections_leave_neighboring_words_and_scan_intact`,
+  `local_ocr_preserves_low_confidence_and_refuses_invalid_scores`, updated CJK TSV test and
+  reader review-state tests. No dependency. Public fields added: OCR `Word::confidence`,
+  `PlacedWord::confidence`, `TextLine::ocr_confidence`, `ReviewLine::confidence`; new core
+  `ocr_review::ReviewCache`. Callers constructing PlacedWord literals must set confidence.
+- Left: old/external OCR layers may still group words in line runs and lack confidence; Sheaf
+  does not invent it. New word grouping may affect OCR text-export line boundaries and must
+  be checked by orchestrator integration tests. Large-file/GUI timing remains unmeasured.
+  `not automatable: OCR a scan, filter suspects, correct one word, accept/next, undo, save/reopen;
+  check confidence labels and highlight — running the app is forbidden by rule 1`.
+- Proposed grade: C-optimize-009: f8 a8 p8 — confidence/neighbor/pixel/undo test above; no joint 9.
+
+## Third pass — C-security-008
+
+- C-security-008: policies now retain high/low print resolution, changes allowed (none,
+  page assembly, forms, comments+forms, all checked actions), and AES-128/AES-256 compatibility.
+  These choices are editable in the existing GUI and CLI (`--print-quality`, `--changes`,
+  `--algorithm`), survive the local library/import/export, and reach actual PDF permission
+  bits and crypt filters. Existing booleans can further restrict, never broaden, the choices.
+  Restricted output gets a distinct generated owner password if none is supplied by CLI;
+  the GUI requires a separate confirmed owner password. PDF headers meet the AES minimum.
+- Old v1 policies default to their original settings; unknown algorithms/options are refused.
+  No new dependency. New core public types `ProtectionOptions`, `PrintQuality`, `ChangeLevel`,
+  `EncryptionAlgorithm`; function `security::protect_with_options`; public policy `validate`.
+  Slint policy-save callback has three appended choice indexes; model gets policy-choices.
+- Tests written (not run): `policy_print_quality_change_levels_and_aes_compatibility_reach_the_encrypted_pdf`,
+  `every_changes_allowed_level_only_removes_the_requested_pdf_permissions`,
+  `old_policies_keep_defaults_and_unknown_compatibility_is_refused`,
+  `policy_choice_indexes_map_to_exact_print_change_and_algorithm_settings`,
+  `policy_compatibility_choices_and_incremental_folder_index_are_accessible`, plus expanded
+  policy-library round-trip test (ensures saving an imported advanced policy cannot reset it).
+- Left: no certificate policies, stored-password option, Acrobat proprietary settings exchange
+  or trust-settings exchange. Passwords are still asked per apply; AES only, no legacy RC4.
+  `not automatable: create/import advanced policy, save/edit/export/reopen, inspect print quality,
+  changes and compatibility on protected output — app and tests forbidden by rule 1`.
+- Proposed grade: C-security-008: f8 a7 p8 — PDF-output/round-trip tests above, unrun.
+
+## Third pass — C-optimize-006
+
+- C-optimize-006: fixed the review's inference risk by annotating the progress closure's
+  `usize` arguments. Added ignored release benchmark
+  `release_ocr_mici_benchmark_reports_cold_load_and_warm_page_time`: the same supplied MICI
+  scan, bundled engine only, prepacked/unpacked variants loaded sequentially, cold model load
+  recorded, one warm-up and three timed runs each, warm median per page, word/placement
+  equivalence, explicit failure above the recorded 11.75 s/page target (overridable for host).
+- Orchestrator must set `SHEAF_OCR_BENCH_PDF` to the original MICI scan and explicitly run the
+  ignored test in release mode on an idle benchmark host. This worker did NOT execute it.
+  No compiler/test/app invoked and no performance result fabricated. No new dependency.
+- Left: the actual 15.5 vs 11.75 s/page gap is still UNMEASURED after prepacking; a test harness
+  is not a measured optimization or parity proof. Further inference work depends on that run.
+- Proposed grade unchanged from counterpart: C-optimize-006: f9 a8 p7 — existing accuracy
+  coverage and new benchmark protocol; the speed gap remains open.
+
+## Third pass — C-sign-012
+
+- C-sign-012 remains partial: no app/CLI TSA transport. The caller-supplied offline API alone
+  is not user-facing certified timestamping, as the counterpart correctly points out. A
+  network TSA client/server selection is explicitly excluded by this batch's rule 3; none added.
+- Fixed the timestamp fixture: separate TSA identity/key, critical timeStamping-only EKU and
+  digitalSignature key usage, with assertions that it is not the document signer's certificate.
+  Test `a_local_authority_timestamps_visible_and_invisible_certificate_signatures` is still
+  not run. This proves only the intended offline adapter contract once executed; no trust
+  or certified-clock claim. Existing invalid-response/no-output test remains.
+- Proposed grade: C-sign-012: f7 a8 p8 — offline API and corrected fixture; user-facing
+  certified timestamping remains open pending authorized TSA transport. No dependencies.
+
+## Third pass — C-optimize-007 (gap not closed)
+
+- Rechecked `scripts/fetch-models.sh` and `third_party/pdfcraft-ocr/src/lib.rs`: shipped asset
+  declarations are text detection, unaccented recognition and the accented Latin model/dictionary.
+  There is no Japanese/Chinese/Korean model manifest or asset in this worktree (`vendor/models`
+  is absent here). The current non-Latin route still requires installed Tesseract + traineddata.
+- No extra CJK label, unverifiable model adapter or download was added to pretend that a stock
+  user can recognize Japanese. A real native route needs a pinned licensed compatible model,
+  dictionary/token decoding, packaging and real multilingual accuracy/geometry fixtures.
+  Those assets and runtime validation are not available in this worker's permitted environment.
+  Network features stay out; no automatic language downloads introduced.
+- Existing selection/TSV/vertical tests remain; this pass additionally retained TSV confidence
+  under C-optimize-009. No separate implementation or new dependency for stock language coverage.
+- Proposed grade unchanged: C-optimize-007: f8 a8 p8 —
+  `mixed_scripts_use_all_selected_packs_and_refuse_missing_or_conflicting_packs`,
+  `local_ocr_keeps_cjk_words_lines_and_vertical_geometry`; these are parsing/selection proof,
+  not proof of bundled Japanese recognition. The counterpart's stock-install gap stays open.
+
+## Third pass — C-security-007 (not implemented)
+
+- Rechecked the locked crypt reader: `crates/crypt/src/lib.rs:147` rejects non-Standard
+  filters; the local COS EncryptDict route still has no recipient-envelope read/write contract.
+  Existing signing CMS primitives do not provide PDF public-key encryption by themselves.
+- Certificate encryption remains absent. Closing it requires CMS EnvelopedData recipient
+  envelopes, Adobe.PubSec key derivation/crypt filters, recipient private-key unlocking and
+  reader support together. An output-only path would create a PDF Sheaf cannot reopen; none
+  added. This is a substantial unimplemented native Rust feature, not a network dependency.
+  No new API, dependency, test or certificate-encryption UI claimed.
+- Proposed grade: C-security-007: f0 a0 p0 — no implementation. The original gap stays open.
+
+- C-sign-009 follow-up: independent mark storage is also loaded when prefs.json is absent or
+  corrupt; resetting unrelated preferences cannot hide saved signatures. Added unrun tests
+  `kept_marks_load_even_when_unrelated_preferences_are_missing` and
+  `changing_ciphertext_is_detected_before_replacing_any_kept_marks` (AEAD tamper refusal,
+  no empty-library overwrite). Grade remains f8 a8 p8 until platform/runtime checks.
+
+- C-optimize-015 follow-up: CLI catalog searches also report changed/missing exclusions;
+  stale sources no longer masquerade as a complete no-match response. Existing stale-source
+  search tests cover exclusion; this only wires the already-tested count into CLI notes.
+
+## Third-pass handoff / Polaroid — 27/10/2026
+
+- Project: Sheaf, sol-ocr-sign, branch `par/sol-ocr-sign`, third pass. Status: handed off for
+  orchestrator compilation/runtime review; no component declared jointly closed.
+- Implemented this pass: catalog search/index updates, reliable encrypted local marks,
+  retained OCR word confidence + correction-page cache, detailed password-policy choices.
+  Narrow fixes: OCR closure typing + ignored release benchmark, distinct TSA test identity.
+- Unclosed: bundled OCR speed (not measured), stock non-Latin models (not shipped), older OCR
+  line granularity/unknown confidence, GUI/platform execution, certified timestamp transport
+  (network excluded), certificate encryption (unimplemented), certificate/proprietary policies.
+- Code/evidence commits `018b9b5` through `ac49aaa` pushed after each component/follow-up.
+  Documentation-only receipts for C-optimize-007 and C-security-007 explicitly record no closure.
+- Actually checked: aggregate `git diff 5353386..HEAD --check`, shell syntax with `bash -n` for
+  both touched smoke scripts, source/API inspection at locked revisions, Slint static detector
+  for the two edited sheets (both returned `[]`). No build, lint, tests, app, browser or codex run.
+- Compilation handoff: fetch new pure-Rust workspace/sheaf-app dependency chacha20poly1305 0.10
+  (alloc only) and update Cargo.lock; link the existing getrandom workspace entry to sheaf-app.
+  `PlacedWord` literals now require `confidence`; all local occurrences were updated. Also
+  new `Word::confidence`, `TextLine::ocr_confidence`, `ReviewLine::confidence`, `ReviewCache`,
+  Catalog `update`/`stale_sources`/`collect_inputs`, advanced protection enums/options and
+  `protect_with_options`. Policy-save Slint callback appends three integer choice indexes.
+- Runtime handoff: new marks need no outside save program; retain both signatures.secure and
+  signatures.key on backup/move. Legacy vault migration can still need the old platform tool.
+  The smoke environment needs Python cryptography for ciphertext inspection, not the app.
+  Tesseract + local traineddata remain optional for extra scripts. No network features added.
+- Next: orchestrator merges, fetches dependency, compiles/lints and runs the written tests and
+  GUI flows; run the ignored release OCR benchmark on the original MICI scan, then counterpart
+  reviews. No timing, rendering, cross-platform or test success is asserted by this worker.
+- Delivery control: all eight component gaps explicitly dispositioned; source/test evidence
+  linked below/above. Remaining feature work is distinguished from forbidden runtime checks.
+  No external authorization requested or inferred. This is source delivery, not proven parity.
+
+### Third-pass changed files (complete)
+
+- `ARCHITECTURE.md`
+- `Cargo.toml`
+- `crates/sheaf-app/Cargo.toml`
+- `crates/sheaf-app/src/main.rs`
+- `crates/sheaf-app/src/prefs.rs`
+- `crates/sheaf-app/src/reader_doc/mod.rs`
+- `crates/sheaf-app/src/reader_ui/catalog.rs`
+- `crates/sheaf-app/src/reader_ui/model.rs`
+- `crates/sheaf-app/src/reader_ui/ocr_review.rs`
+- `crates/sheaf-app/src/reader_ui/security_policy.rs`
+- `crates/sheaf-app/src/security_policies.rs`
+- `crates/sheaf-app/src/signature_store.rs`
+- `crates/sheaf-app/ui/flow-types.slint`
+- `crates/sheaf-app/ui/screens/ocr-review.slint`
+- `crates/sheaf-app/ui/screens/security-policy.slint`
+- `crates/sheaf-cli/src/args.rs`
+- `crates/sheaf-cli/src/main.rs`
+- `crates/sheaf-core/src/ocr.rs`
+- `crates/sheaf-core/src/ocr_local.rs`
+- `crates/sheaf-core/src/ocr_review.rs`
+- `crates/sheaf-core/src/search_index.rs`
+- `crates/sheaf-core/src/security.rs`
+- `crates/sheaf-core/src/security_policy.rs`
+- `crates/sheaf-core/tests/ocr.rs`
+- `crates/sheaf-core/tests/ocr_review.rs`
+- `crates/sheaf-core/tests/search_index.rs`
+- `crates/sheaf-core/tests/security.rs`
+- `crates/sheaf-core/tests/sign.rs`
+- `dev/par-notes-sol-ocr-sign.md`
+- `dev/scripts/smoke/1-reader.sh`
+- `dev/scripts/smoke/3-flows.sh`
+- `third_party/pdfcraft-edit/src/text.rs`
+- `third_party/pdfcraft-ocr/src/lib.rs`
+
+### Third-pass proposed grades (tests written, not executed)
+
+C-optimize-006: f9 a8 p7 — `tests/ocr.rs:260` release benchmark protocol; speed gap unmeasured.
+C-optimize-007: f8 a8 p8 — `ocr_local.rs` mixed-script/TSV tests; non-Latin packs still external.
+C-optimize-009: f8 a8 p8 — `tests/ocr_review.rs:60` confidence/save/neighbor/pixels/undo contract.
+C-optimize-015: f8 a7 p8 — `search_index.rs:244`, `tests/search_index.rs:48` memory search/reuse/purge.
+C-sign-009: f8 a8 p8 — `signature_store.rs:247` restart/>64K/no-tool contract; platform checks pending.
+C-sign-012: f7 a8 p8 — `tests/sign.rs:476` distinct TSA fixture; no user-facing TSA transport.
+C-security-007: f0 a0 p0 — no implementation; Standard-only reader still blocks PubSec reopening.
+C-security-008: f8 a7 p8 — `tests/security.rs:222` exact PDF permissions/AES compatibility contract.

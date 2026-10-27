@@ -142,6 +142,8 @@ pub struct Word {
     /// is placed turned back by `tilt` about it, where the scan draws it.
     pub tilt: f32,
     pub pivot: [f32; 2],
+    /// Mean character recognition confidence, when supplied by the recognizer (0..1).
+    pub confidence: Option<f32>,
 }
 
 /// Sheaf: the way a word reads on the page.
@@ -338,7 +340,7 @@ impl Ocr {
                 }
                 let score = read.iter().map(|r| r.2).sum::<f32>() / read.len() as f32;
                 if score >= 0.8 && best.as_ref().is_none_or(|(s, _, _)| score > *s) {
-                    best = Some((score, score * letters as f32, read.into_iter().map(|(text, at, _)| Word { text, rect: back(at), turn, ..Default::default() }).collect()));
+                    best = Some((score, score * letters as f32, read.into_iter().map(|(text, at, confidence)| Word { text, rect: back(at), confidence: Some(confidence), turn, ..Default::default() }).collect()));
                 }
             }
             let inside = |w: &Word| {
@@ -579,14 +581,14 @@ fn place_words(read: Vec<latin::Read>, found: &[[f32; 4]]) -> Vec<Word> {
     let mut sorted = found.to_vec();
     sorted.sort_by(|a, b| a[0].total_cmp(&b[0]));
     if read.len() == sorted.len() {
-        return read.into_iter().zip(sorted).map(|((text, _, _), rect)| Word { text, rect, ..Default::default() }).collect();
+        return read.into_iter().zip(sorted).map(|((text, _, confidence), rect)| Word { text, rect, confidence: Some(confidence), ..Default::default() }).collect();
     }
     read.into_iter()
-        .map(|(text, at, _)| {
+        .map(|(text, at, confidence)| {
             let over = sorted.iter().filter(|b| b[0] < at[2] && b[2] > at[0]);
             let (top, bottom) = over.fold((f32::MAX, f32::MIN), |(t, d), b| (t.min(b[1]), d.max(b[3])));
             let rect = if top < bottom { [at[0], top, at[2], bottom] } else { at };
-            Word { text, rect, ..Default::default() }
+            Word { text, rect, confidence: Some(confidence), ..Default::default() }
         })
         .collect()
 }
@@ -596,6 +598,7 @@ fn place_words(read: Vec<latin::Read>, found: &[[f32; 4]]) -> Vec<Word> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlacedWord {
     pub text: String,
+    pub confidence: Option<f32>,
     pub origin: [f64; 2],
     pub across: [f64; 2],
     pub up: [f64; 2],
@@ -622,7 +625,7 @@ impl PlacedWord {
         let o = on_scan(ox, oy);
         let br = on_scan(ex, ey);
         let tl = on_scan(ux, uy);
-        PlacedWord { text: word.text.clone(), origin: o, across: [br[0] - o[0], br[1] - o[1]], up: [tl[0] - o[0], tl[1] - o[1]] }
+        PlacedWord { text: word.text.clone(), confidence: word.confidence, origin: o, across: [br[0] - o[0], br[1] - o[1]], up: [tl[0] - o[0], tl[1] - o[1]] }
     }
 }
 
@@ -679,6 +682,11 @@ pub fn text_layer(words: &[PlacedWord]) -> Vec<u8> {
         let ax = [w.across[0] / width, w.across[1] / width];
         let o = [w.origin[0] - em[0] * bottom, w.origin[1] - em[1] * bottom];
         let m = [ax[0], ax[1], em[0], em[1], o[0], o[1]];
+        // Separate marked scopes retain confidence and prevent adjacent OCR words being
+        // merged into a single editable line (Acrobat's word-by-word suspects).
+        let properties = w.confidence.filter(|c| c.is_finite() && (0.0..=1.0).contains(c))
+            .map_or_else(String::new, |c| format!(" /SheafConfidence {}", num(c as f64)));
+        out.extend_from_slice(format!("/SheafOCRWord <<{properties} >> BDC\n").as_bytes());
         let nums: Vec<String> = m.iter().map(|v| num(*v)).collect();
         out.extend_from_slice(nums.join(" ").as_bytes());
         out.extend_from_slice(b" Tm ");
@@ -691,7 +699,7 @@ pub fn text_layer(words: &[PlacedWord]) -> Vec<u8> {
         }
         // Sheaf: a space after it, where it ends, so a reader of the text need not guess where words
         // part (on a tilted scan, pdftotext ran some together: "causeinconnue").
-        out.extend_from_slice(if uni { b" Tj <0020> Tj\n" } else { b" Tj ( ) Tj\n" });
+        out.extend_from_slice(if uni { b" Tj <0020> Tj\nEMC\n" } else { b" Tj ( ) Tj\nEMC\n" });
     }
     out.extend_from_slice(b"ET\nEMC\n");
     out
@@ -805,7 +813,7 @@ mod tests {
 
     #[test]
     fn text_layer_is_invisible_text_fitted_to_each_box() {
-        let w = PlacedWord { text: "Hi".into(), origin: [10.0, 20.0], across: [30.0, 0.0], up: [0.0, 9.3] };
+        let w = PlacedWord { text: "Hi".into(), confidence: None, origin: [10.0, 20.0], across: [30.0, 0.0], up: [0.0, 9.3] };
         let s = String::from_utf8(text_layer(&[w])).unwrap();
         assert!(s.contains("3 Tr") && s.contains("/PCHelv 1 Tf"), "{s}");
         let width = helvetica_width("Hi", 1.0);
@@ -825,7 +833,7 @@ mod tests {
         assert_eq!(ink_extent("Gallus.Ze@camtel.cm"), (CAP_HEIGHT, 0.0));
         assert_eq!(ink_extent("Corporation"), (CAP_HEIGHT, -DESCENT));
         assert_eq!(ink_extent("--"), (BOX_EM - DESCENT, -DESCENT));
-        let w = PlacedWord { text: "gap".into(), origin: [0.0, 100.0], across: [20.0, 0.0], up: [0.0, 7.3] };
+        let w = PlacedWord { text: "gap".into(), confidence: None, origin: [0.0, 100.0], across: [20.0, 0.0], up: [0.0, 7.3] };
         let s = String::from_utf8(text_layer(&[w])).unwrap();
         let em = 7.3 / (X_HEIGHT + DESCENT);
         assert!(s.contains(&format!(" 0 0 {} 0 {} Tm (gap) Tj", num(em), num(100.0 + em * DESCENT))), "{s}");

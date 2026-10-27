@@ -629,6 +629,13 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         policy_names: ModelRc::new(VecModel::from(r.policy_panel.as_ref().map(|p| p.policies.iter().map(|p| slint::SharedString::from(p.name.as_str())).collect::<Vec<_>>()).unwrap_or_default())),
         policy_name: r.policy_panel.as_ref().map(|p| p.draft.name.as_str()).unwrap_or_default().into(),
         policy_flags: ModelRc::new(VecModel::from(r.policy_panel.as_ref().map(|p| { let f = p.draft.permissions; vec![f.printing, f.copying, f.editing, f.commenting, f.filling_forms, p.draft.encrypt_metadata] }).unwrap_or_default())),
+        policy_choices: ModelRc::new(VecModel::from(r.policy_panel.as_ref().map(|p| {
+            use sheaf_core::security::{PrintQuality, ChangeLevel, EncryptionAlgorithm};
+            let options = p.draft.options;
+            vec![if options.print_quality == PrintQuality::Low { 1 } else { 0 },
+                match options.changes { ChangeLevel::Any => 0, ChangeLevel::None => 1, ChangeLevel::Assemble => 2, ChangeLevel::FillForms => 3, ChangeLevel::CommentForms => 4 },
+                if options.algorithm == EncryptionAlgorithm::Aes128 { 1 } else { 0 }]
+        }).unwrap_or_default())),
         policy_status: r.policy_panel.as_ref().map(|p| p.status.as_str()).unwrap_or_default().into(),
         policy_seq: r.policy_panel.as_ref().map_or(0, |p| p.seq),
         catalog_open: r.catalog_panel.is_some(),

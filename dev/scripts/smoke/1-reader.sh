@@ -54,7 +54,19 @@ A2=$(annots "$OUT/text.pdf")
 check "the kept signature is placed again with one click ($A1 → $A2)" "[ $A2 -gt $A1 ]"
 # New signature (412,109 in the Signature tool's bar) keeps the first: two in the list, the new one
 # first; a click on the second thumbnail (382,109) brings the first back.
-secure_marks() { secret-tool lookup application Sheaf profile "$PWD/$OUT/profile/data/Sheaf"; }
+# Smoke-only inspection; python cryptography is needed by the smoke environment, not Sheaf.
+secure_marks() {
+    python3 - "$PWD/$OUT/profile/data/Sheaf" <<'PYSECURE'
+from pathlib import Path
+import sys
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+p = Path(sys.argv[1])
+b = (p / "signatures.secure").read_bytes()
+h = b"SheafMarks\x02"
+assert b.startswith(h)
+print(ChaCha20Poly1305((p / "signatures.key").read_bytes()).decrypt(b[len(h):len(h)+12], b[len(h)+12:], h).decode())
+PYSECURE
+}
 sigs() { secure_marks | python3 -c 'import json, sys; p = json.load(sys.stdin); print(len(p.get("signatures", [])), "".join(map(str, p.get("current", [[], None, [0, 0], 0])[2])))'; }
 S1=$(sigs); click 412 109 0.8; click 700 620 1
 xdotool mousemove 520 400 mousedown 1; for i in $(seq 0 10); do xdotool mousemove $((520 + i * 10)) $((380 + i * 6)); done; xdotool mouseup 1; sleep 0.3
