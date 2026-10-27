@@ -156,7 +156,7 @@ if [ -n "${SMOKE_PARTS:-}" ]; then
     . <(python3 dev/scripts/smoke-helpers.py)
     # The preferences the earlier parts leave (step 9's author, step 10's outputs next to the
     # originals, step 11's light theme), so a later part starts where it would have.
-    mkdir -p "$PWD/$OUT/profile/data/Sheaf"
+    [ -n "${SMOKE_SEED:-}" ] && mkdir -p "$PWD/$OUT/profile/data/Sheaf" &&
     printf '{"output": "next_to_original", "theme": "light", "author": "Smoke Author"}' > "$PWD/$OUT/profile/data/Sheaf/prefs.json"
 fi
 for part in ${SMOKE_PARTS:-dev/scripts/smoke/*.sh}; do   # the cwd is the repository root (above)
