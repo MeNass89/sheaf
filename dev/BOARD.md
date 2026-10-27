@@ -25,67 +25,67 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 16 | C-convert-011 | normal | Convert PDF to PowerPoint | ilovepdf | 8 · 8 · 9 → **8** | layout fidelity |
 | 17 | C-convert-018 | normal | Convert PDF to PDF/A | ilovepdf | 8 · 9 · 9 → **8** | PDF/A-1b, accessible levels |
 | 18 | C-edit-004 | normal | Format text font, size and style | acrobat | 8 · 9 · 9 → **8** | font family, bold/italic, alignment, non-Latin text |
-| 19 | C-edit-010 | normal | Cut, copy, paste and delete objects | pdfexpert | 8 · 8 · 9 → **8** | copy/paste and Delete key |
+| 19 | C-edit-010 | normal | Cut, copy, paste and delete objects | pdfexpert | 8 · 9 · 9 → **8** | copy/paste and Delete key |
 | 20 | C-output-009 | normal | Share a document | pdfexpert | 8 · 9 · 9 → **8** | OS share (macOS only) |
 | 21 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
 | 22 | C-sign-007 | normal | Repeat a signature on several pages | ilovepdf | 8 · 9 · 9 → **8** | after core |
-| 23 | C-sign-016 | normal | Validate signatures | acrobat | 8 · 9 · 9 → **8** | engine signatures panel |
-| 24 | C-ai-001 | light | Open the AI assistant | pdfexpert | 0 · 0 · 0 → **0** | MCP server covers agent access |
-| 25 | C-ai-002 | light | Ask AI about the document | acrobat | 0 · 0 · 0 → **0** | light |
-| 26 | C-ai-003 | light | Summarize with AI | pdfexpert | 0 · 0 · 0 → **0** | light |
-| 27 | C-ai-004 | light | Translate with AI | pdfexpert | 0 · 0 · 0 → **0** | light |
-| 28 | C-ai-005 | light | Generate podcast or presentation | acrobat | 0 · 0 · 0 → **0** | light |
-| 29 | C-ai-006 | light | Group documents in AI spaces | acrobat | 0 · 0 · 0 → **0** | light |
-| 30 | C-ai-007 | light | Classify documents with AI | stirling | 0 · 0 · 0 → **0** | light |
-| 31 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
-| 32 | C-batch-002 | light | Build a multi-step action | acrobat | 0 · 0 · 0 → **0** | after core |
-| 33 | C-batch-003 | light | Run a saved action | acrobat | 0 · 0 · 0 → **0** | after core |
-| 34 | C-batch-004 | light | Import or export an action | stirling | 0 · 0 · 0 → **0** | light |
-| 35 | C-batch-005 | light | Use suggested actions | acrobat | 0 · 0 · 0 → **0** | light |
-| 36 | C-batch-006 | light | Create a custom tool | acrobat | 0 · 0 · 0 → **0** | light |
-| 37 | C-batch-008 | light | Automate a watched folder | stirling | 0 · 0 · 0 → **0** | light; CLI covers scripting |
-| 38 | C-convert-019 | light | Save as PDF/X or PDF/E | acrobat | 0 · 0 · 0 → **0** | light |
-| 39 | C-edit-013 | light | Spell check | acrobat | 0 · 0 · 0 → **0** | after core |
-| 40 | C-files-008 | light | Local file library | stirling | 0 · 0 · 0 → **0** | light |
-| 41 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
-| 42 | C-optimize-012 | light | Run preflight and output preview | acrobat | 0 · 0 · 0 → **0** | light |
-| 43 | C-optimize-014 | light | Prepare for print production | acrobat | 0 · 0 · 0 → **0** | light |
-| 44 | C-optimize-015 | light | Create a full-text index | acrobat | 0 · 0 · 0 → **0** | light |
-| 45 | C-organize-024 | light | Create a PDF portfolio | acrobat | 0 · 0 · 0 → **0** | light |
-| 46 | C-platform-003 | light | Send feedback or report issue | ilovepdf | 0 · 0 · 0 → **0** | light |
-| 47 | C-platform-005 | light | Run JavaScript | acrobat | 0 · 0 · 0 → **0** | light |
-| 48 | C-platform-006 | light | Manage plugins | acrobat | 0 · 0 · 0 → **0** | light |
-| 49 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
-| 50 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 0 · 0 · 0 → **0** | light |
-| 51 | C-preferences-013 | light | Customize tool shortcuts and list | stirling | 0 · 0 · 0 → **0** | light |
-| 52 | C-reader-003 | light | Horizontal page scrolling | pdfexpert | 0 · 0 · 0 → **0** | scroll-direction option in the view menu |
-| 53 | C-reader-060 | light | Check spelling | preview | 0 · 0 · 0 → **0** | after core |
-| 54 | C-security-007 | light | Encrypt with certificates | acrobat | 0 · 0 · 0 → **0** | light |
-| 55 | C-security-008 | light | Security policies and settings exchange | acrobat | 0 · 0 · 0 → **0** | light |
-| 56 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
-| 57 | C-convert-020 | light | Choose online or offline conversion | ilovepdf | 6 · 9 · 9 → **6** | — |
-| 58 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
-| 59 | C-platform-002 | light | Onboarding and help guides | ilovepdf | 6 · 9 · 9 → **6** | light |
-| 60 | C-platform-004 | light | Accessibility check and RTL | acrobat | 6 · 9 · 9 → **6** | light |
+| 23 | C-sign-016 | normal | Validate signatures | acrobat | 8 · 8 · 9 → **8** | engine signatures panel |
+| 24 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
+| 25 | C-batch-002 | light | Build a multi-step action | acrobat | 0 · 0 · 0 → **0** | after core |
+| 26 | C-batch-003 | light | Run a saved action | acrobat | 0 · 0 · 0 → **0** | after core |
+| 27 | C-batch-004 | light | Import or export an action | stirling | 0 · 0 · 0 → **0** | light |
+| 28 | C-batch-005 | light | Use suggested actions | acrobat | 0 · 0 · 0 → **0** | light |
+| 29 | C-batch-006 | light | Create a custom tool | acrobat | 0 · 0 · 0 → **0** | light |
+| 30 | C-batch-008 | light | Automate a watched folder | stirling | 0 · 0 · 0 → **0** | light; CLI covers scripting |
+| 31 | C-convert-019 | light | Save as PDF/X or PDF/E | acrobat | 0 · 0 · 0 → **0** | light |
+| 32 | C-edit-013 | light | Spell check | acrobat | 0 · 0 · 0 → **0** | after core |
+| 33 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
+| 34 | C-optimize-012 | light | Run preflight and output preview | acrobat | 0 · 0 · 0 → **0** | light |
+| 35 | C-optimize-014 | light | Prepare for print production | acrobat | 0 · 0 · 0 → **0** | light |
+| 36 | C-optimize-015 | light | Create a full-text index | acrobat | 0 · 0 · 0 → **0** | light |
+| 37 | C-platform-005 | light | Run JavaScript | acrobat | 0 · 0 · 0 → **0** | light |
+| 38 | C-platform-006 | light | Manage plugins | acrobat | 0 · 0 · 0 → **0** | light |
+| 39 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
+| 40 | C-preferences-013 | light | Customize tool shortcuts and list | stirling | 0 · 0 · 0 → **0** | light |
+| 41 | C-reader-003 | light | Horizontal page scrolling | pdfexpert | 0 · 0 · 0 → **0** | scroll-direction option in the view menu |
+| 42 | C-reader-060 | light | Check spelling | preview | 0 · 0 · 0 → **0** | after core |
+| 43 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
+| 44 | C-ai-005 | light | Generate podcast or presentation | acrobat | 7 · 6 · 8 → **6** | light |
+| 45 | C-ai-006 | light | Group documents in AI spaces | acrobat | 6 · 6 · 7 → **6** | light |
+| 46 | C-ai-007 | light | Classify documents with AI | stirling | 7 · 6 · 7 → **6** | light |
+| 47 | C-convert-020 | light | Choose online or offline conversion | ilovepdf | 6 · 9 · 9 → **6** | — |
+| 48 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
+| 49 | C-platform-002 | light | Onboarding and help guides | ilovepdf | 6 · 9 · 9 → **6** | light |
+| 50 | C-ai-001 | light | Open the AI assistant | pdfexpert | 7 · 7 · 8 → **7** | MCP server covers agent access |
+| 51 | C-ai-002 | light | Ask AI about the document | acrobat | 8 · 7 · 8 → **7** | light |
+| 52 | C-ai-003 | light | Summarize with AI | pdfexpert | 8 · 7 · 8 → **7** | light |
+| 53 | C-ai-004 | light | Translate with AI | pdfexpert | 8 · 7 · 8 → **7** | light |
+| 54 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 55 | C-platform-007 | light | OS automation of PDF actions | preview | 7 · 7 · 9 → **7** | CLI and MCP cover scripting |
+| 56 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 57 | C-sign-013 | light | Manage digital IDs | acrobat | 7 · 8 · 9 → **7** | light |
+| 58 | C-convert-007 | light | Convert other formats to PDF | stirling | 8 · 8 · 9 → **8** | light |
+| 59 | C-edit-009 | light | Align and arrange objects | acrobat | 8 · 9 · 9 → **8** | after core |
+| 60 | C-edit-028 | light | Adjust or invert colours | stirling | 8 · 9 · 9 → **8** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
 |---|---|---|---|
-| ai | 7 | 0.0 | 0 |
+| ai | 7 | 6.6 | 0 |
 | annotate | 38 | 8.7 | 35 |
 | batch | 9 | 3.0 | 3 |
 | compare | 7 | 9.0 | 7 |
 | convert | 20 | 7.9 | 12 |
 | edit | 29 | 8.6 | 24 |
-| files | 19 | 7.9 | 15 |
+| files | 19 | 8.3 | 15 |
 | forms | 17 | 8.4 | 15 |
 | optimize | 15 | 6.9 | 8 |
-| organize | 27 | 8.5 | 24 |
+| organize | 27 | 8.8 | 24 |
 | output | 15 | 8.9 | 13 |
-| platform | 14 | 4.6 | 4 |
-| preferences | 14 | 6.6 | 7 |
+| platform | 14 | 5.3 | 4 |
+| preferences | 14 | 7.3 | 7 |
 | reader | 64 | 8.5 | 58 |
-| security | 18 | 8.0 | 16 |
+| security | 18 | 8.9 | 16 |
 | sign | 18 | 7.8 | 12 |
 
 ## Closed
