@@ -114,6 +114,25 @@ fn crop_marks_keep_inherited_page_boxes_and_do_not_invent_bleed() {
 }
 
 #[test]
+fn print_box_margins_use_each_media_origin_and_failed_changes_leave_it_intact() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::{BoxSpec, PageBox}}};
+    let t = tempfile::tempdir().unwrap();
+    let source = prepress_pdf(t.path(), &[b"0 g 30 50 60 70 re f"]);
+    let mut doc = Doc::open(&Input::new(&source)).unwrap();
+    let before = doc.document().page_boxes();
+    doc.apply(Edit::SetPageBox { pages: vec![0], which: PageBox::Trim, spec: BoxSpec::Margins([5.0, 10.0, 15.0, 20.0]) }).unwrap();
+    let boxes = doc.document().page_boxes();
+    assert_eq!(boxes[0][3], [15.0, 30.0, 295.0, 400.0]);
+    assert_eq!(boxes[0][0], before[0][0]);
+    assert_eq!(boxes[0][1], before[0][1]);
+    assert!(doc.apply(Edit::SetPageBox { pages: vec![0], which: PageBox::Trim, spec: BoxSpec::Margins([500.0; 4]) }).is_err());
+    assert_eq!(doc.document().page_boxes(), boxes);
+    let id = doc.id();
+    doc.session_mut().undo(id).unwrap();
+    assert_eq!(doc.document().page_boxes(), before);
+}
+
+#[test]
 fn notation_reads_each_field_as_a_number() {
     assert_eq!(
         sfn::notation_js("(Price + Tax\\ rate) * Qty.1"),

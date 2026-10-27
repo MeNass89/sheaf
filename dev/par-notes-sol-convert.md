@@ -151,3 +151,25 @@
 - LIGNES : max 5 (preflight finding, one title + four lines) · cases > 6 : aucune.
 - Provisional author grade: f6 a7 p7; source-only evidence, no parity claim. Independent counterpart
   review belongs after orchestrator merge/build/full green suite.
+
+## Pass 2 — C-optimize-014
+
+- C-optimize-014: More tools ▸ Fix hairlines / page boxes… and Add printer marks… open a proper
+  Print production sheet (Acrobat's Print Production). The user chooses selected/current or all
+  pages, types the minimum stroke (0.01–10 pt), or sets/resets Crop/Trim/Bleed/Art margins relative
+  to each MediaBox in unrotated PDF units. Artwork is not moved. Crop marks remain black, outside
+  existing bleed, with the sheet enlarged. Every action uses the permission/undo document path.
+  The sheet explicitly says grouped art, text and comments are not hairline-repaired, and boxes
+  should be set before adding marks. No new hidden CLI-only operation.
+- Tests `print_boxes_preserve_margin_order_and_reject_bad_numbers` and
+  `print_box_margins_use_each_media_origin_and_failed_changes_leave_it_intact`; existing stroke,
+  UserUnit and crop-mark tests remain. Written only. No dependency or new engine edit.
+- Left: Form/pattern/text/appearance hairlines, registration marks, colour bars, configurable mark
+  dimensions, trapping and transparency flattening preview. Existing marks must be undone before
+  changing trim/bleed then re-added; this pass does not reposition previously added marks.
+- Preflight rows are now prepared once when its report arrives and shared with Slint (rather than
+  rewrapping a large report on every reader model update).
+- not automatable: light/dark production sheet, invalid stroke/margins, selection/all scope,
+  changed boxes and one-step undo — runtime forbidden by rule 1.
+- LIGNES : max 4 (Set page boxes / Crop marks, title + three lines) · cases > 6 : aucune.
+- Provisional author grade: f5 a7 p7; source-only, not rendered or executed, no parity claim.

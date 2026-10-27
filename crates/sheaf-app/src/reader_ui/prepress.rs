@@ -6,8 +6,10 @@ use super::*;
 #[derive(Default)]
 pub(super) struct State {
     pub open: bool,
+    pub production_open: bool,
     pub busy: bool,
     pub report: Option<String>,
+    pub rows: ModelRc<ReaderPrintCheck>,
 }
 
 /// Acrobat's Print Production ▸ Preflight: inspect on the document thread, read here.
@@ -32,6 +34,7 @@ pub fn preflight_check(ui: &AppWindow, tab_id: i32, fail: &str, target: &str, bl
         if r.prepress.busy { return; }
         r.prepress.busy = true;
         r.prepress.report = None;
+        r.prepress.rows = ModelRc::default();
         r.in_flight += 1;
         r.send(Op::PrintPreflight { profile });
     });
@@ -42,6 +45,7 @@ pub(super) fn checked(ui: &AppWindow, tab_id: i32, report: Result<String, String
     update(tab_id, |r, _| {
         r.prepress.busy = false;
         r.prepress.report = report.ok();
+        r.prepress.rows = ModelRc::new(VecModel::from(rows(r.prepress.report.as_deref().unwrap_or_default())));
     });
     if let Some(error) = error { crate::flow::toast(ui, &format!("Preflight could not finish: {error}")); }
 }
@@ -98,18 +102,64 @@ pub(super) fn rows(report: &str) -> Vec<ReaderPrintCheck> {
     rows
 }
 
-/// Fix the selected pages, or the page shown. One click is one undo step; Form artwork and
-/// annotation appearances are left alone (the command says "page hairlines").
-pub fn fix_page_hairlines(ui: &AppWindow, tab_id: i32) {
-    let Some(pages) = update(tab_id, |r, v| super::pages::op_pages(r, v)) else { return };
-    apply(ui, tab_id, Edit::FixPageHairlines { pages: pages.clone(), minimum: 0.25 }, &pages, None);
-    crate::flow::toast(ui, "Fixing page strokes only; grouped artwork and comments are unchanged");
+/// Both print commands open the same settings sheet before changing the document.
+pub fn fix_page_hairlines(_ui: &AppWindow, tab_id: i32) {
+    update(tab_id, |r, _| r.prepress.production_open = true);
 }
 
-/// Acrobat's Add Printer Marks: black crop marks outside the bleed, with a larger sheet.
 pub fn add_crop_marks(ui: &AppWindow, tab_id: i32) {
-    let Some(pages) = update(tab_id, |r, v| super::pages::op_pages(r, v)) else { return };
+    fix_page_hairlines(ui, tab_id);
+}
+
+pub fn production_close(tab_id: i32) {
+    update(tab_id, |r, _| r.prepress.production_open = false);
+}
+
+fn production_pages(tab_id: i32, all: bool) -> Option<Vec<usize>> {
+    update(tab_id, |r, v| if all { (0..v.viewer.page_count()).collect() } else { super::pages::op_pages(r, v) })
+}
+
+pub fn production_hairlines(ui: &AppWindow, tab_id: i32, minimum: &str, all: bool) {
+    let minimum = minimum.trim().parse::<f64>().ok().filter(|v| v.is_finite() && (0.01..=10.0).contains(v));
+    let Some(minimum) = minimum else {
+        crate::flow::toast(ui, "Use a minimum stroke from 0.01 to 10 points");
+        return;
+    };
+    let Some(pages) = production_pages(tab_id, all) else { return };
+    production_close(tab_id);
+    apply(ui, tab_id, Edit::FixPageHairlines { pages: pages.clone(), minimum }, &pages, None);
+}
+
+pub fn production_marks(ui: &AppWindow, tab_id: i32, all: bool) {
+    let Some(pages) = production_pages(tab_id, all) else { return };
+    production_close(tab_id);
     apply(ui, tab_id, Edit::AddCropMarks { pages: pages.clone() }, &pages, None);
+}
+
+/// Acrobat's Set Page Boxes: margins refer to each sheet's media box, before page rotation.
+fn box_edit(pages: Vec<usize>, which: i32, margins: [&str; 4], reset: bool) -> Result<Edit, String> {
+    use sheaf_core::pdfcraft::engine::{BoxSpec, PageBox};
+    let which = match which { 0 => PageBox::Crop, 1 => PageBox::Trim, 2 => PageBox::Bleed, 3 => PageBox::Art, _ => return Err("Choose crop, trim, bleed or art box".into()) };
+    let spec = if reset { BoxSpec::Remove } else {
+        let mut values = [0.0; 4];
+        for (i, text) in margins.into_iter().enumerate() {
+            values[i] = text.trim().parse::<f64>().ok().filter(|v| v.is_finite() && *v >= 0.0)
+                .ok_or("Margins must be finite numbers, zero or more")?;
+        }
+        BoxSpec::Margins(values)
+    };
+    Ok(Edit::SetPageBox { pages, which, spec })
+}
+
+pub fn production_box(ui: &AppWindow, tab_id: i32, which: i32, margins: [&str; 4], reset: bool, all: bool) {
+    let Some(pages) = production_pages(tab_id, all) else { return };
+    match box_edit(pages.clone(), which, margins, reset) {
+        Ok(edit) => {
+            production_close(tab_id);
+            apply(ui, tab_id, edit, &pages, None);
+        }
+        Err(error) => crate::flow::toast(ui, &error),
+    }
 }
 
 #[cfg(test)]
@@ -125,4 +175,17 @@ mod tests {
         assert!(rows.iter().all(|r| r.detail.lines().all(|l| l.chars().count() <= 40)));
         assert_eq!(rows.iter().map(|r| r.detail.as_str()).collect::<Vec<_>>().join(" ").split_whitespace().collect::<Vec<_>>(), text.split_whitespace().collect::<Vec<_>>());
     }
+    #[test]
+    fn print_boxes_preserve_margin_order_and_reject_bad_numbers() {
+        use sheaf_core::pdfcraft::engine::{BoxSpec, PageBox};
+        let edit = box_edit(vec![1, 4], 1, ["10", "20", "30", "40"], false).unwrap();
+        let Edit::SetPageBox { pages, which, spec } = edit else { panic!("page box edit") };
+        assert_eq!(pages, [1, 4]);
+        assert_eq!(which, PageBox::Trim);
+        assert_eq!(spec, BoxSpec::Margins([10.0, 20.0, 30.0, 40.0]));
+        assert!(box_edit(vec![0], 0, ["NaN", "0", "0", "0"], false).is_err());
+        assert!(box_edit(vec![0], 0, ["-1", "0", "0", "0"], false).is_err());
+        assert!(matches!(box_edit(vec![0], 2, ["", "", "", ""], true).unwrap(), Edit::SetPageBox { which: PageBox::Bleed, spec: BoxSpec::Remove, .. }));
+    }
+
 }
