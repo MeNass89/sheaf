@@ -61,6 +61,7 @@ impl Cmd {
             | Cmd::Organize { input, .. }
             | Cmd::Rotate { input, .. }
             | Cmd::Repair { input, .. }
+            | Cmd::Bookmark { input, .. }
             | Cmd::ToJpg { input, .. } => vec![input],
             // These report it themselves (from the engine), like Compress.
             Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } | Cmd::Ocr { .. } |
@@ -103,6 +104,7 @@ impl Cmd {
             | Cmd::Redact { out, .. }
             | Cmd::Sign { out, .. }
             | Cmd::Edit { out, .. }
+            | Cmd::Bookmark { out, .. }
             | Cmd::Office { out, .. } => out.parent().filter(|p| !p.as_os_str().is_empty()),
         }
     }
@@ -336,6 +338,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             note!("{}", r.summary());
             warned(Ok((r.path, r.was_encrypted)))
         }
+        Cmd::Bookmark { input: i, title, page, out } => one(sheaf_core::bookmarks::add(&input(i), &title, page, &out)),
         Cmd::Info { input: i } => {
             agent::set_data(agent::info(&input(i))?);
             Ok(vec![])

@@ -479,6 +479,20 @@ pub(crate) enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Add a bookmark that opens a page, after the last top-level one (`info` lists them)
+    Bookmark {
+        /// The PDF to read
+        input: PathBuf,
+        /// The bookmark's title
+        #[arg(long)]
+        title: String,
+        /// The page it opens (1-based)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+        page: u32,
+        /// The PDF to write
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Describe a PDF: page count and sizes, encryption, metadata, forms, bookmarks (JSON)
     Info {
         /// The PDF to read
