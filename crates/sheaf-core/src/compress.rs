@@ -387,11 +387,24 @@ pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
     let w = u32::try_from(s.dict.get(b"Width").and_then(Object::as_i64).ok()?).ok()?;
     let h = u32::try_from(s.dict.get(b"Height").and_then(Object::as_i64).ok()?).ok()?;
     let img = if identity_decode(s) {
-        let opts = zune_core::options::DecoderOptions::default().jpeg_set_out_colorspace(zune_core::colorspace::ColorSpace::CMYK);
+        use zune_core::colorspace::ColorSpace;
+        // The components as stored: CMYK as it is, or YCCK (Adobe's transform 2) taken back to CMYK
+        // with the JPEG colour transform, as PDF viewers' DCT decoders do.
+        let mut dec = zune_jpeg::JpegDecoder::new(std::io::Cursor::new(&s.content[..]));
+        dec.decode_headers().ok()?;
+        let input = dec.input_colorspace()?;
+        if !matches!(input, ColorSpace::CMYK | ColorSpace::YCCK) { return None; }
+        let opts = zune_core::options::DecoderOptions::default().jpeg_set_out_colorspace(input);
         let mut dec = zune_jpeg::JpegDecoder::new_with_options(std::io::Cursor::new(&s.content[..]), opts);
-        // YCCK JPEGs cannot be read as raw CMYK: the decoder refuses, and the picture is left alone.
-        let raw = dec.decode().ok()?;
+        let mut raw = dec.decode().ok()?;
         if raw.len() != (w as usize).checked_mul(h as usize)?.checked_mul(4)? { return None; }
+        if input == ColorSpace::YCCK {
+            for p in raw.as_chunks_mut::<4>().0 {
+                let (y, cb, cr) = (f32::from(p[0]), f32::from(p[1]) - 128.0, f32::from(p[2]) - 128.0);
+                let c = |v: f32| v.round().clamp(0.0, 255.0) as u8;
+                [p[0], p[1], p[2]] = [c(y + 1.402 * cr), c(y - 0.344_136 * cb - 0.714_136 * cr), c(y + 1.772 * cb)];
+            }
+        }
         let ink = |v: u8, k: u8| ((255 - u16::from(v)) * (255 - u16::from(k)) / 255) as u8;
         RgbImage::from_fn(w, h, |x, y| {
             let p = &raw[(y as usize * w as usize + x as usize) * 4..][..4];
