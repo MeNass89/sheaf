@@ -206,17 +206,18 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_accessibility_fix, |ui, id, k| reader_ui::accessibility_fix(&ui, id, k));
     wire_global!(ui, rb, on_accessibility_report, |ui, id| reader_ui::accessibility_report(&ui, id));
     wire_global!(ui, rb, on_print_preflight, |ui, id| reader_ui::print_preflight(&ui, id));
-    wire_global!(ui, rb, on_preflight_check, |ui, id, fail, target, bleed| reader_ui::preflight_check(&ui, id, &fail, &target, &bleed));
+    wire_global!(ui, rb, on_preflight_check, |ui, id, fail, target, bleed, preset| reader_ui::preflight_check(&ui, id, &fail, &target, &bleed, preset));
     wire_global!(ui, rb, on_preflight_save, |ui, id| reader_ui::preflight_save(&ui, id));
     rb.on_preflight_close(reader_ui::preflight_close);
     wire_global!(ui, rb, on_preflight_page, |ui, id, page| reader_ui::preflight_page(&ui, id, page));
     wire_global!(ui, rb, on_fix_page_hairlines, |ui, id| reader_ui::fix_page_hairlines(&ui, id));
     wire_global!(ui, rb, on_add_crop_marks, |ui, id| reader_ui::add_crop_marks(&ui, id));
     wire_global!(ui, rb, on_press_profile, |ui, id| reader_ui::press_profile(&ui, id));
-    wire_global!(ui, rb, on_press_export, |ui, id, condition| reader_ui::press_export(&ui, id, &condition));
+    wire_global!(ui, rb, on_press_export, |ui, id, condition, level| reader_ui::press_export(&ui, id, &condition, level));
+    wire_global!(ui, rb, on_press_preset, |ui, id, preset| reader_ui::press_preset(&ui, id, preset));
     rb.on_production_close(reader_ui::production_close);
     wire_global!(ui, rb, on_production_hairlines, |ui, id, minimum, all| reader_ui::production_hairlines(&ui, id, &minimum, all));
-    wire_global!(ui, rb, on_production_marks, |ui, id, all| reader_ui::production_marks(&ui, id, all));
+    wire_global!(ui, rb, on_production_marks, |ui, id, all, style, width| reader_ui::production_marks(&ui, id, all, style, &width));
     wire_global!(ui, rb, on_production_box, |ui, id, which, left, bottom, right, top, reset, all| reader_ui::production_box(&ui, id, which, [&left, &bottom, &right, &top], reset, all));
     wire_global!(ui, rb, on_page_transition, |ui, id, style, advance| reader_ui::page_transition(&ui, id, style, &advance));
     wire_global!(ui, rb, on_fields_nudge, |ui, id, dx, dy| reader_ui::fields_nudge(&ui, id, dx, dy));
@@ -683,6 +684,10 @@ fn main() -> Result<(), slint::PlatformError> {
         winit::event::WindowEvent::ModifiersChanged(m) => {
             let s = m.state();
             platform_ui::modifiers_changed(s.shift_key(), s.alt_key(), s.super_key(), s.control_key());
+            EventResult::Propagate
+        }
+        winit::event::WindowEvent::Focused(true) => {
+            state::refresh_office_runtime();
             EventResult::Propagate
         }
         winit::event::WindowEvent::HoveredFile(path) => {

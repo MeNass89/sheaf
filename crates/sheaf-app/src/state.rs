@@ -723,6 +723,26 @@ pub fn move_in_order(from: usize, to: usize) {
     }
 }
 
+/// Recheck once on returning from an installer, rather than probing on every model refresh.
+pub fn refresh_office_runtime() {
+    let available = sheaf_core::office::find_soffice().is_some()
+        && !(cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some());
+    with(|app| {
+        let mut changed = Vec::new();
+        for tab in &mut app.tabs {
+            if update_office_runtime(tab, available) { changed.push(tab.id); }
+        }
+        for id in changed { refresh(app, id); }
+    });
+}
+
+fn update_office_runtime(tab: &mut TabState, available: bool) -> bool {
+    if !matches!(tab.tool, ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf)
+        || tab.office_missing != available { return false; }
+    tab.office_missing = !available;
+    true
+}
+
 /// Pushes the tab `id` into its model row.
 pub fn refresh(app: &App, id: i32) {
     if let Some(i) = app.tab_index(id) {
@@ -736,6 +756,20 @@ pub fn refresh(app: &App, id: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn office_runtime_refresh_enables_existing_tabs_after_install_and_disables_after_removal() {
+        let mut tab = TabState::new(1, ToolId::WordToPdf);
+        tab.office_missing = true;
+        assert!(update_office_runtime(&mut tab, true));
+        assert!(!tab.office_missing);
+        assert!(!update_office_runtime(&mut tab, true));
+        assert!(update_office_runtime(&mut tab, false));
+        assert!(tab.office_missing);
+        tab.tool = ToolId::Merge;
+        assert!(!update_office_runtime(&mut tab, true));
+        assert!(tab.office_missing);
+    }
 
     #[test]
     fn edit_items_are_dropped_when_the_file_changes_or_is_removed() {

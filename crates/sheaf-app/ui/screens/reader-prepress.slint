@@ -9,6 +9,7 @@ export component PreflightSheet inherits Rectangle {
     in property <ToolTab> tab;
     in property <int> id;
     callback focus-pages();
+    property <int> preset: 0;
     background: #00000044;
     TouchArea { }
     FocusScope {
@@ -32,9 +33,17 @@ export component PreflightSheet inherits Rectangle {
             Text { text: "Inspect the current document"; font-size: Theme.fs-caption; color: Theme.text-muted; }
             HorizontalLayout {
                 spacing: 8px;
-                SmallButton { text: "Close-up print"; clicked => { fail.text = "150"; target.text = "300"; bleed.text = "2"; } }
-                SmallButton { text: "Large format"; clicked => { fail.text = "72"; target.text = "150"; bleed.text = "3"; } }
+                SmallButton { text: "Close-up print"; primary: root.preset == 0; clicked => { root.preset = 0; fail.text = "150"; target.text = "300"; bleed.text = "2"; } }
+                SmallButton { text: "Large format"; primary: root.preset == 1; clicked => { root.preset = 1; fail.text = "72"; target.text = "150"; bleed.text = "3"; } }
             }
+            HorizontalLayout {
+                spacing: 8px;
+                for name[k] in ["Digital press", "PDF/X-1a", "PDF/X-4"]: SmallButton {
+                    text: name; primary: root.preset == k + 2;
+                    clicked => { root.preset = k + 2; fail.text = "150"; target.text = "300"; bleed.text = "3"; }
+                }
+            }
+            if root.preset >= 2: Text { text: "Also checks fonts, trim and press ICC.\nX-1a flags transparency and colour spaces.\nThreshold changes keep these target rules."; font-size: Theme.fs-caption; color: Theme.text-muted; }
             HorizontalLayout {
                 spacing: 10px;
                 fail := TextField { label: "Fail below (ppi)"; text: "150"; }
@@ -47,7 +56,7 @@ export component PreflightSheet inherits Rectangle {
                     text: root.tab.reader.preflight-busy ? "Checking…" : "Run preflight";
                     opacity: root.tab.reader.preflight-busy ? 0.5 : 1;
                     primary: true;
-                    clicked => { if !root.tab.reader.preflight-busy { ReaderBridge.preflight-check(root.id, fail.text, target.text, bleed.text); } }
+                    clicked => { if !root.tab.reader.preflight-busy { ReaderBridge.preflight-check(root.id, fail.text, target.text, bleed.text, root.preset); } }
                 }
                 Text { text: "Results keep the thresholds checked"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
             }

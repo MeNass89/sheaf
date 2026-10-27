@@ -690,9 +690,10 @@ export struct ToolOptions {
     crop-left: string,
     crop-right: string,
     // PDF to PDF/A
-    pdfa-level: int,     // 0 PDF/A-2b, 1 PDF/A-3b
+    pdfa-level: int,     // 0 PDF/A-2b, 1 PDF/A-3b, 2 PDF/A-1b
     pdfa-allow-incomplete: bool,
     html-long-page: bool,
+    html-screen-width: int,
     // OCR
     ocr-languages: string, // selected language codes, ",en,fr," (all selected codes are used)
     ocr-local-engine: bool,
@@ -1052,17 +1053,18 @@ export global ReaderBridge {
     callback accessibility-report(int);
     // Print Production ▸ Preflight: a saved report of the current document's print checks.
     callback print-preflight(int);
-    callback preflight-check(int, string, string, string);
+    callback preflight-check(int, string, string, string, int);
     callback preflight-save(int);
     callback preflight-close(int);
     callback preflight-page(int, int);
     callback fix-page-hairlines(int);
     callback add-crop-marks(int);
     callback press-profile(int);
-    callback press-export(int, string);
+    callback press-export(int, string, int);
+    callback press-preset(int, int);
     callback production-close(int);
     callback production-hairlines(int, string, bool);
-    callback production-marks(int, bool);
+    callback production-marks(int, bool, int, string);
     callback production-box(int, int, string, string, string, string, bool, bool);
     callback form-grid(int);
     callback fields-nudge(int, float, float);

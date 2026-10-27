@@ -571,3 +571,101 @@ fn a_recoloured_rich_text_box_keeps_its_mixed_runs() {
     assert!(rc.contains("background-color:#FFFF00"), "a background colour is not a text colour: {rc}");
     assert!(ds.contains("color:#FF0000"), "{ds}");
 }
+
+#[test]
+fn pattern_and_type3_hairlines_are_private_per_use_and_leave_shared_pages_unchanged() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"q /Pattern cs /Tiles scn 30 40 100 100 re f Q BT /Glyphs 10 Tf 1 0 0 1 40 100 Tm (A) Tj /Glyphs 20 Tf (A) Tj ET"]);
+    let mut pdf = lopdf::Document::load(&path).unwrap();
+    let pattern = pdf.add_object(Stream::new(dictionary! {
+        "Type" => "Pattern", "PatternType" => 1, "PaintType" => 1, "TilingType" => 1,
+        "BBox" => vec![0.into(), 0.into(), 10.into(), 10.into()], "XStep" => 10, "YStep" => 10,
+        "Matrix" => vec![0.5.into(), 0.into(), 0.into(), 0.5.into(), 0.into(), 0.into()], "Resources" => dictionary! {}
+    }, b"0 w 0 0 m 10 10 l S".to_vec()));
+    let glyph = pdf.add_object(Stream::new(dictionary! {}, b"500 0 0 0 500 500 d1 0 w 0 0 m 500 500 l S".to_vec()));
+    let font = pdf.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type3", "FontBBox" => vec![0.into(), 0.into(), 500.into(), 500.into()],
+        "FontMatrix" => vec![0.001.into(), 0.into(), 0.into(), 0.001.into(), 0.into(), 0.into()],
+        "FirstChar" => 65, "LastChar" => 65, "Widths" => vec![500.into()],
+        "Encoding" => dictionary! { "Type" => "Encoding", "Differences" => vec![65.into(), Object::Name(b"A".to_vec())] },
+        "CharProcs" => dictionary! { "A" => glyph }, "Resources" => dictionary! {}
+    });
+    let resources = dictionary! { "Pattern" => dictionary! { "Tiles" => pattern }, "Font" => dictionary! { "Glyphs" => font } };
+    let page = pdf.get_pages()[&1];
+    pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("Resources", resources.clone());
+    let parent = pdf.get_dictionary(page).unwrap().get(b"Parent").unwrap().as_reference().unwrap();
+    let content = pdf.get_dictionary(page).unwrap().get(b"Contents").unwrap().clone();
+    let other = pdf.add_object(dictionary! { "Type" => "Page", "Parent" => parent, "Contents" => content, "Resources" => resources });
+    let pages = pdf.get_object_mut(parent).unwrap().as_dict_mut().unwrap();
+    pages.set("Kids", vec![page.into(), other.into()]); pages.set("Count", 2);
+    let before_other = pdf.get_page_content(other);
+    pdf.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: 0.25 }).unwrap();
+    let out = doc.save(&t.path().join("fixed-artwork.pdf")).unwrap();
+    let pdf = lopdf::Document::load(out).unwrap();
+    assert_eq!(pdf.get_page_content(pdf.get_pages()[&2]), before_other);
+    let res = pdf.get_dictionary(pdf.get_pages()[&1]).unwrap().get(b"Resources").unwrap().as_dict().unwrap();
+    let patterns = res.get(b"Pattern").unwrap().as_dict().unwrap();
+    let copied = patterns.iter().find(|(name, _)| name.starts_with(b"SheafHairlinePattern")).unwrap().1.as_reference().unwrap();
+    let width_before_stroke = |data: &[u8]| {
+        let ops = lopdf::content::Content::decode(data).unwrap().operations;
+        let stroke = ops.iter().position(|o| o.operator == "S").unwrap();
+        assert_eq!(ops[stroke - 1].operator, "w");
+        ops[stroke - 1].operands[0].as_float().unwrap()
+    };
+    assert!((width_before_stroke(&pdf.get_object(copied).unwrap().as_stream().unwrap().get_plain_content().unwrap()) - 0.5).abs() < 1e-5);
+    let fonts = res.get(b"Font").unwrap().as_dict().unwrap();
+    let mut widths: Vec<_> = fonts.iter().filter(|(n, _)| n.starts_with(b"SheafHairlineFont")).map(|(_, f)| {
+        let font = pdf.get_dictionary(f.as_reference().unwrap()).unwrap();
+        let charprocs = font.get(b"CharProcs").unwrap().as_dict().unwrap();
+        let glyph = pdf.get_object(charprocs.get(b"A").unwrap().as_reference().unwrap()).unwrap().as_stream().unwrap();
+        width_before_stroke(&glyph.get_plain_content().unwrap())
+    }).collect();
+    widths.sort_by(f32::total_cmp);
+    assert_eq!(widths.len(), 2);
+    assert!((widths[0] - 12.5).abs() < 1e-4 && (widths[1] - 25.0).abs() < 1e-4);
+    let old = pdf.get_dictionary(pdf.get_pages()[&2]).unwrap().get(b"Resources").unwrap().as_dict().unwrap();
+    let old_font = old.get(b"Font").unwrap().as_dict().unwrap().get(b"Glyphs").unwrap().as_reference().unwrap();
+    let old_font = pdf.get_dictionary(old_font).unwrap();
+    let old_glyph = old_font.get(b"CharProcs").unwrap().as_dict().unwrap().get(b"A").unwrap().as_reference().unwrap();
+    assert_eq!(pdf.get_object(old_glyph).unwrap().as_stream().unwrap().get_plain_content().unwrap(), b"500 0 0 0 500 500 d1 0 w 0 0 m 500 500 l S");
+    let id = doc.id(); doc.session_mut().undo(id).unwrap();
+    let undone = doc.save(&t.path().join("undone-artwork.pdf")).unwrap();
+    let undone = lopdf::Document::load(undone).unwrap();
+    assert_eq!(undone.get_page_content(undone.get_pages()[&1]), before_other);
+}
+
+#[test]
+fn printer_marks_include_all_plate_registration_process_bars_and_embedded_page_info() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 g 0 0 500 500 re f"]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    let edit = || Edit::AddPrinterMarks { pages: vec![0], registration: true, colour_bars: true, page_information: true, width: 0.5 };
+    doc.apply(edit()).unwrap();
+    let out = doc.save(&t.path().join("production-marks.pdf")).unwrap();
+    let pdf = lopdf::Document::load(&out).unwrap();
+    let page = pdf.get_pages()[&1];
+    let dict = pdf.get_dictionary(page).unwrap();
+    let content = pdf.get_page_content(page);
+    let text = String::from_utf8_lossy(&content);
+    assert!(text.contains("0.5 w") && text.contains("1 SCN") && text.contains("/Artifact BMC"));
+    let resources = dict.get(b"Resources").unwrap().as_dict().unwrap();
+    let separation = resources.get(b"ColorSpace").unwrap().as_dict().unwrap().iter().find(|(name, _)| name.starts_with(b"SheafRegistration")).unwrap().1.as_array().unwrap();
+    assert_eq!(separation[1].as_name().unwrap(), b"All");
+    assert_eq!(dict.get(b"TrimBox").unwrap().as_array().unwrap()[0].as_float().unwrap(), 30.0);
+    let ops = lopdf::content::Content::decode(&content).unwrap().operations;
+    assert_eq!(ops.iter().filter(|o| o.operator == "k").count(), 7);
+    assert!(common::shown_texts(&out)[0].contains("Page 1 / 1"));
+    assert!(doc.document().print_readiness().fonts_not_embedded.is_empty());
+    doc.apply(edit()).unwrap();
+    let again = doc.save(&t.path().join("again-marks.pdf")).unwrap();
+    let again = lopdf::Document::load(again).unwrap();
+    assert_eq!(again.get_page_content(again.get_pages()[&1]), content);
+    let id = doc.id(); doc.session_mut().undo(id).unwrap(); doc.session_mut().undo(id).unwrap();
+    let undone = doc.save(&t.path().join("undone-marks.pdf")).unwrap();
+    let undone = lopdf::Document::load(undone).unwrap();
+    assert_eq!(undone.get_page_content(undone.get_pages()[&1]), b"0 g 0 0 500 500 re f\n");
+}

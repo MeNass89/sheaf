@@ -135,6 +135,22 @@ pub(super) fn prepare(source: &str, original: &str) -> Result<String> {
     Ok(out)
 }
 
+/// Local browser printing must not follow a meta refresh out of the supplied file.
+pub(super) fn without_refresh(source: &str) -> String {
+    let lower = source.to_ascii_lowercase();
+    let mut remove = Vec::new();
+    let mut from = 0;
+    while let Some(span) = super::tag_span(&lower[from..], "meta") {
+        let span = from + span.start..from + span.end;
+        let tag = &source[span.clone()];
+        if attributes(tag).iter().any(|a| a.name.eq_ignore_ascii_case("http-equiv") && tag[a.value.clone()].trim().eq_ignore_ascii_case("refresh")) { remove.push(span.clone()); }
+        from = span.end;
+    }
+    let mut out = source.to_owned();
+    for span in remove.into_iter().rev() { out.replace_range(span, ""); }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

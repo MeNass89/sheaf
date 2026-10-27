@@ -91,3 +91,31 @@ fn preflight_inventories_nested_press_resources_without_claiming_ink_simulation(
     let report = preflight::report_with_profile(&doc, "resources.pdf", "now", preflight::Profile { fail_ppi: 72.0, warn_ppi: 150.0, min_bleed_mm: 3.0 }).unwrap();
     assert!(report.contains("Profile: Large format"));
 }
+
+#[test]
+fn named_preflight_profiles_check_target_rules_together_without_editing() {
+    let t = tempfile::tempdir().unwrap();
+    let path = t.path().join("targets.pdf");
+    let mut pdf = lopdf::Document::with_version("1.7");
+    let pages = pdf.new_object_id();
+    let page = pdf.add_object(dictionary! { "Type" => "Page", "Parent" => pages,
+        "MediaBox" => vec![0.into(), 0.into(), 100.into(), 100.into()],
+        "Resources" => dictionary! { "ExtGState" => dictionary! { "Alpha" => dictionary! { "ca" => 0.5 } } }
+    });
+    pdf.objects.insert(pages, dictionary! { "Type" => "Pages", "Count" => 1, "Kids" => vec![page.into()] }.into());
+    let root = pdf.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    pdf.trailer.set("Root", root); pdf.save(&path).unwrap();
+    let doc = Doc::open(&Input::new(&path)).unwrap();
+    let before = doc.full_bytes().unwrap();
+    for preset in [preflight::Preset::DigitalPress, preflight::Preset::PdfX1a, preflight::Preset::PdfX4] {
+        let report = preflight::report_with_preset(&doc, "targets.pdf", "now", Default::default(), preset).unwrap();
+        assert!(report.contains(preset.label()));
+        assert!(report.contains("[fail] Every page needs an explicit TrimBox"));
+        assert!(report.contains("[fail] An embedded CMYK or Gray press ICC"));
+        assert!(report.contains("Profile result:"));
+        let target = report.split("Target checks (not full ISO validation):").nth(1).unwrap();
+        assert_eq!(target.contains("[fail] Page 1 declares transparency"), preset == preflight::Preset::PdfX1a);
+        assert!(report.contains("Not checked by target profiles: painted ink coverage"));
+    }
+    assert_eq!(doc.full_bytes().unwrap().as_slice(), before.as_slice());
+}
