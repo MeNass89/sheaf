@@ -29,7 +29,7 @@ pub fn create(files: &[PathBuf], title: &str, out: &Path) -> Result<PathBuf> {
     let mut doc = lopdf::Document::load_mem(&bytes)?;
     let mut used = BTreeSet::new();
     let mut entries = Vec::new();
-    for path in files {
+    for (index, path) in files.iter().enumerate() {
         let name = path.file_name().ok_or_else(|| OpdfError::Unsupported("A portfolio item needs a file name".into()))?.to_string_lossy();
         let name = unique_name(&name, &used);
         used.insert(name.clone());
@@ -37,7 +37,7 @@ pub fn create(files: &[PathBuf], title: &str, out: &Path) -> Result<PathBuf> {
         let mut stream = Stream::new(dictionary! { "Type" => "EmbeddedFile", "Params" => dictionary! { "Size" => data.len() as i64 } }, data);
         stream.compress()?;
         let embedded = doc.add_object(stream);
-        let spec = doc.add_object(dictionary! { "Type" => "Filespec", "F" => text(&name), "UF" => text(&name), "Desc" => text(&format!("Portfolio item: {name}")), "EF" => dictionary! { "F" => embedded, "UF" => embedded } });
+        let spec = doc.add_object(dictionary! { "Type" => "Filespec", "F" => text(&name), "UF" => text(&name), "Desc" => text(&format!("Portfolio item: {name}")), "CI" => dictionary! { "Type" => "CollectionItem", "Order" => index as i64 }, "EF" => dictionary! { "F" => embedded, "UF" => embedded } });
         entries.push((name, spec));
     }
     let first = entries[0].0.clone();
@@ -45,9 +45,9 @@ pub fn create(files: &[PathBuf], title: &str, out: &Path) -> Result<PathBuf> {
     let names: Vec<Object> = entries.into_iter().flat_map(|(name, spec)| [text(&name), spec.into()]).collect();
     let tree = doc.add_object(dictionary! { "Names" => names });
     let field = |subtype: &str, name: &str, order: i64| dictionary! { "Type" => "CollectionField", "Subtype" => Object::Name(subtype.as_bytes().to_vec()), "N" => text(name), "O" => order, "V" => true };
-    let schema = dictionary! { "Type" => "CollectionSchema", "Name" => field("F", "Name", 0), "Description" => field("Desc", "Description", 1), "Size" => field("Size", "Size", 2) };
+    let schema = dictionary! { "Type" => "CollectionSchema", "Name" => field("F", "Name", 0), "Description" => field("Desc", "Description", 1), "Size" => field("Size", "Size", 2), "Order" => dictionary! { "Type" => "CollectionField", "Subtype" => "N", "N" => text("Order"), "O" => 3, "V" => false } };
     let catalog = doc.catalog_mut()?;
-    catalog.set("Collection", dictionary! { "Type" => "Collection", "View" => "D", "D" => text(&first), "Schema" => schema });
+    catalog.set("Collection", dictionary! { "Type" => "Collection", "View" => "D", "D" => text(&first), "Schema" => schema, "Sort" => dictionary! { "S" => "Order", "A" => true } });
     catalog.set("Names", dictionary! { "EmbeddedFiles" => tree });
     catalog.set("PageMode", Object::Name(b"UseAttachments".to_vec()));
     atomic_write(out, |part| { doc.save(part)?; Ok(()) })

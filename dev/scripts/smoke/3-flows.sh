@@ -1176,6 +1176,8 @@ cp "$OUT/text.pdf" "$OUT/portfolio-source.pdf"
 launch
 AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
 answer "$PWD/$OUT/portfolio-source.pdf"
-PC=$(at Create 1050x160+220+35); [ -n "$PC" ] && click $PC 3
+PC=$(at Create 1050x160+220+35); [ -n "$PC" ] && click $PC
+PA=$(at Add 800x600+200+100); [ -n "$PA" ] && click $PA
+PW=$(at Create 800x600+200+100); [ -n "$PW" ] && click $PW 3
 check "Create portfolio bundles the original instead of merging (${PC:-no Create})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
 quit

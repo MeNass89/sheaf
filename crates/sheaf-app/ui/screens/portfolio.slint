@@ -1,0 +1,54 @@
+import { Button, ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Modal } from "dialogs.slint";
+
+export struct PortfolioRow { name: string, detail: string }
+export global PortfolioBridge {
+    in-out property <bool> visible;
+    in-out property <bool> busy;
+    in-out property <bool> browsing;
+    in-out property <int> tab: -1;
+    in-out property <string> title: "PDF Portfolio";
+    in-out property <[PortfolioRow]> files;
+    in-out property <string> status;
+    callback open();
+    callback browse(int);
+    callback command(string, int);
+}
+
+// Acrobat's portfolio file list: originals stay distinct, with a named cover and chosen order.
+export component PortfolioPanel inherits Modal {
+    card-width: min(720px, self.width - 32px);
+    Text { text: PortfolioBridge.browsing ? "Portfolio files" : "Create PDF Portfolio"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
+    if !PortfolioBridge.browsing: TextField { label: "Cover title"; text <=> PortfolioBridge.title; enabled: !PortfolioBridge.busy; }
+    Text { text: PortfolioBridge.browsing ? "Open an original file or save a separate copy." : "Bundle original files without merging their pages."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    ScrollView {
+        height: min(280px, max(70px, PortfolioBridge.files.length * 62px));
+        VerticalLayout {
+            spacing: 6px; alignment: start;
+            if PortfolioBridge.files.length == 0: Text { text: "Add files to start your portfolio."; color: Theme.text-secondary; font-size: Theme.fs-body; }
+            for row[i] in PortfolioBridge.files: HorizontalLayout {
+                spacing: 8px;
+                VerticalLayout {
+                    horizontal-stretch: 1; spacing: 4px;
+                    Text { text: row.name; color: Theme.text; font-size: Theme.fs-body; overflow: elide; }
+                    Text { text: row.detail; color: Theme.text-secondary; font-size: Theme.fs-caption; overflow: elide; }
+                }
+                if !PortfolioBridge.browsing: Button { text: "Up"; enabled: !PortfolioBridge.busy && i > 0; clicked => { PortfolioBridge.command("up", i); } }
+                if !PortfolioBridge.browsing: Button { text: "Down"; enabled: !PortfolioBridge.busy && i + 1 < PortfolioBridge.files.length; clicked => { PortfolioBridge.command("down", i); } }
+                if !PortfolioBridge.browsing: Button { text: "Remove"; enabled: !PortfolioBridge.busy; clicked => { PortfolioBridge.command("remove", i); } }
+                if PortfolioBridge.browsing: Button { text: "Open"; clicked => { PortfolioBridge.command("open-item", i); } }
+                if PortfolioBridge.browsing: Button { text: "Save copy…"; clicked => { PortfolioBridge.command("save-item", i); } }
+            }
+        }
+    }
+    Text { text: PortfolioBridge.status; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    HorizontalLayout {
+        spacing: 8px;
+        if !PortfolioBridge.browsing: Button { text: "Add files…"; enabled: !PortfolioBridge.busy; clicked => { PortfolioBridge.command("add", 0); } }
+        if !PortfolioBridge.browsing: Button { text: PortfolioBridge.busy ? "Creating…" : "Create portfolio…"; enabled: !PortfolioBridge.busy && PortfolioBridge.files.length > 0; clicked => { PortfolioBridge.command("create", 0); } }
+        Rectangle { horizontal-stretch: 1; }
+        Button { text: "Close"; enabled: !PortfolioBridge.busy; clicked => { PortfolioBridge.visible = false; } }
+    }
+}

@@ -1,3 +1,4 @@
+import { PortfolioBridge } from "portfolio.slint";
 import { ActionBridge } from "actions.slint";
 // The reader's toolbar: side panel, annotation tools, page field, zoom, page theme, search, the
 // More menu, undo/redo/save.
@@ -385,6 +386,8 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "JavaScript console…", on: false },
                                 { text: "Guided actions…", on: false },
                                 { text: "Library…", on: false },
+                                { text: "Create portfolio…", on: false },
+                                { text: "Browse embedded files…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -415,6 +418,8 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 20 { JavaScriptBridge.open(root.id); }
                                         if k == 21 { ActionBridge.open-page("actions"); return; }
                                         if k == 22 { ActionBridge.open-page("library"); return; }
+                                        if k == 23 { PortfolioBridge.open(); return; }
+                                        if k == 24 { PortfolioBridge.browse(root.id); return; }
                                         root.focus-pages();
                                     }
                                 }

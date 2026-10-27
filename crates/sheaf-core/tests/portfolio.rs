@@ -45,3 +45,19 @@ fn a_missing_portfolio_input_does_not_publish_a_partial_bundle() {
     assert!(portfolio::create(&[t.path().join("missing")], "", &out).is_err());
     assert!(!out.exists());
 }
+
+#[test]
+fn a_portfolio_keeps_the_chosen_order_separate_from_the_sorted_name_tree() {
+    let t = tempfile::tempdir().unwrap();
+    let z = t.path().join("z.txt"); let a = t.path().join("a.txt");
+    std::fs::write(&z, b"first").unwrap(); std::fs::write(&a, b"second").unwrap();
+    let out = portfolio::create(&[z, a], "Chosen cover title", &t.path().join("out.pdf")).unwrap();
+    let doc = lopdf::Document::load(out).unwrap();
+    let collection = doc.catalog().unwrap().get(b"Collection").unwrap().as_dict().unwrap();
+    assert_eq!(collection.get(b"Sort").unwrap().as_dict().unwrap().get(b"S").unwrap().as_name().unwrap(), b"Order");
+    let tree = doc.catalog().unwrap().get(b"Names").unwrap().as_dict().unwrap().get(b"EmbeddedFiles").unwrap().as_reference().unwrap();
+    let names = doc.get_dictionary(tree).unwrap().get(b"Names").unwrap().as_array().unwrap();
+    let order = |at: usize| doc.get_dictionary(names[at].as_reference().unwrap()).unwrap().get(b"CI").unwrap().as_dict().unwrap().get(b"Order").unwrap().as_i64().unwrap();
+    assert_eq!(order(1), 1); // a.txt sorts first but was chosen second.
+    assert_eq!(order(3), 0);
+}

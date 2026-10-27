@@ -33,7 +33,9 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
   optional title-based output names for local watched folders.
 
 - `crates/sheaf-core/src/portfolio.rs`: PDF Collection catalog, readable cover, original
-  embedded files and duplicate-name handling; Actions ▸ Create portfolio… is its entry point.
+  embedded files, chosen order and duplicate-name handling; `src/portfolio_ui.rs` and
+  `ui/screens/portfolio.slint` compose files from Tools/Actions/reader, and
+  `src/reader_ui/portfolio.rs` browses embedded originals with Open and Save copy.
 
 - `crates/sheaf-app/src/library.rs`, `src/library_ui.rs` and `ui/screens/library.slint`:
   private local files, immutable versions, reader working copies, export, restore and bounded

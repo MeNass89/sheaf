@@ -161,7 +161,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             let action = SavedAction::import(ui.global::<ActionBridge>().get_import_text().as_str());
             return imported(ui, action);
         }
-        "portfolio" => return portfolio(ui),
+        "portfolio" => { ui.global::<sheaf_app::PortfolioBridge>().invoke_open(); return; }
         "watch" => return watch(ui),
         "resume-watch" => {
             match sheaf_app::watch_folder::SavedWatch::load(&store_file::data_dir()) {
@@ -419,29 +419,6 @@ fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
         let _ = weak.upgrade_in_event_loop(move |ui| {
             ui.global::<ActionBridge>().set_busy(false);
             status(&ui, format!("Folder watch stopped. {written} file(s) written. {failure}"));
-        });
-    });
-}
-
-fn portfolio(ui: &AppWindow) {
-    let d = crate::dialog::new(ui).set_title("Choose files to bundle, without merging");
-    crate::dialog::pick_files(ui, d, |ui, files| {
-        let d = crate::dialog::new(ui).set_file_name("Portfolio.pdf").add_filter("PDF Portfolio", &["pdf"]);
-        crate::dialog::save_file(ui, d, move |ui, out| {
-            let title = out.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-            ui.global::<ActionBridge>().set_busy(true);
-            status(ui, "Creating portfolio…");
-            let weak = ui.as_weak();
-            std::thread::spawn(move || {
-                let result = sheaf_core::portfolio::create(&files, &title, &out);
-                let _ = weak.upgrade_in_event_loop(move |ui| {
-                    ui.global::<ActionBridge>().set_busy(false);
-                    match result {
-                        Ok(path) => { status(&ui, format!("Portfolio saved to {}", path.display())); crate::reader_ui::open(&ui, path, None); }
-                        Err(e) => status(&ui, format!("Portfolio not created: {e}")),
-                    }
-                });
-            });
         });
     });
 }

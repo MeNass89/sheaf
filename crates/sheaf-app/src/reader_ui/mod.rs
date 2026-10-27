@@ -1260,6 +1260,7 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
 
 // ---- the parts -------------------------------------------------------------------------------
 
+pub mod portfolio;
 mod pointer;
 mod forms;
 mod sign;

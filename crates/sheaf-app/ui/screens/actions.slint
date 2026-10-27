@@ -50,6 +50,10 @@ export component ActionsScreen inherits Rectangle {
             spacing: 8px;
             Button { text: "New action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new", 0); } }
             Button { text: "New custom tool"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new-tool", 0); } }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        HorizontalLayout {
+            spacing: 8px;
             Button { text: "Import…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("import", 0); } }
             Button { text: "Paste JSON"; enabled: !ActionBridge.busy; clicked => { root.paste-open = !root.paste-open; } }
             Button { text: "Export…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("export", 0); } }

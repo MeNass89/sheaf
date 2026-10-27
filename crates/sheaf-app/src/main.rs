@@ -5,6 +5,7 @@
 
 mod actions_ui;
 mod library_ui;
+mod portfolio_ui;
 mod dest;
 mod dialog;
 mod flow;
@@ -384,6 +385,7 @@ fn main() -> Result<(), slint::PlatformError> {
     home::install(&ui, forced);
     actions_ui::install(&ui);
     library_ui::install(&ui);
+    portfolio_ui::install(&ui);
     reader_ui::javascript::install(&ui);
     install_catalogue(&ui);
     state::install_tabs_model(&ui);

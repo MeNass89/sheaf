@@ -188,3 +188,13 @@ errors back to this worker; do not grade parity from this implementation report 
   from Save As or whole-process exit remain recoverable, without automatic age-based deletion.
   not automatable: save a library PDF, return to Library, observe the new version and working copy;
   close the tab and check its working folder is gone — app launch prohibited by rule 1.
+
+- C-organize-024: Create portfolio now opens a Slint composition panel with a cover title, Add,
+  Remove and Up/Down before saving. Tools and reader ▸ More tools reach it directly. A second
+  reader entry opens an embedded-file browser with Open/Save copy. Collection items carry their
+  chosen order independently of the PDF name tree's required lexical sort. Test
+  `a_portfolio_keeps_the_chosen_order_separate_from_the_sorted_name_tree`; smoke 253 updated for
+  composition (written, not run). New modules portfolio_ui, reader_ui/portfolio and portfolio.slint.
+  Left: embedded previews, folders and portfolio layout themes. The browser reuses the attachment
+  safeguards for non-PDF launch. not automatable: compose mixed files, reorder, name the cover,
+  create, browse and open/save the originals — app execution forbidden by rule 1.
