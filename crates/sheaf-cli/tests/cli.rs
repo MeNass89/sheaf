@@ -568,7 +568,7 @@ fn mcp_lists_and_calls_tools() {
 fn every_tool_schema_parses() {
     let v = json_of(&bin().arg("--json").arg("tools").output().unwrap());
     let tools = v["data"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 35);
+    assert_eq!(tools.len(), 36);
     for t in tools {
         let s = &t["inputSchema"];
         assert_eq!(s["type"], "object");
@@ -622,4 +622,23 @@ fn bookmark_adds_one_that_info_lists() {
     let bad = bin().arg("bookmark").arg(&a).args(["--title", "X", "--page", "5", "-o"]).arg(t.path().join("c.pdf")).output().unwrap();
     assert!(!bad.status.success());
     assert!(!t.path().join("c.pdf").exists());
+}
+
+/// `sheaf actions` (C-platform-007, Preview's Shortcuts actions): the PDF actions listed with their
+/// commands; `sheaf search` finds a word's pages.
+#[test]
+fn actions_are_listed_and_search_finds_the_pages() {
+    let v = json_of(&bin().arg("--json").arg("actions").output().unwrap());
+    let names: Vec<&str> = v["data"]["actions"].as_array().unwrap().iter().map(|a| a["name"].as_str().unwrap()).collect();
+    for want in ["Rotate Pages", "Insert Pages", "Delete Pages", "Get Pages", "Add Bookmark", "Search"] {
+        assert!(names.contains(&want), "{want} missing from {names:?}");
+    }
+    let t = tempfile::tempdir().unwrap();
+    let a = t.path().join("a.pdf");
+    let png = t.path().join("x.png");
+    std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
+    assert!(bin().arg("from-images").arg(&png).arg("-o").arg(&a).status().unwrap().success());
+    let s = json_of(&bin().arg("--json").arg("search").arg(&a).args(["--query", "nothing like this"]).output().unwrap());
+    assert_eq!(s["ok"], true);
+    assert!(s["data"]["pages"].as_array().unwrap().is_empty());
 }
