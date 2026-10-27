@@ -21,6 +21,61 @@ pub(super) const LANGUAGES: &[(&str, &str, &str)] = &[
     ("th", "Thai", "tha"), ("vi", "Vietnamese", "vie"),
 ];
 
+// ISO language codes and traineddata names differ; mixed Latin/non-Latin pages need both.
+const LATIN_PACKS: &[(&str, &str)] = &[
+    ("en", "eng"), ("fr", "fra"), ("de", "deu"), ("es", "spa"), ("it", "ita"),
+    ("pt", "por"), ("nl", "nld"), ("pl", "pol"), ("cs", "ces"), ("sk", "slk"),
+    ("hr", "hrv"), ("sl", "slv"), ("da", "dan"), ("no", "nor"), ("sv", "swe"),
+    ("is", "isl"), ("et", "est"), ("lt", "lit"), ("hu", "hun"), ("sq", "sqi"),
+    ("cy", "cym"), ("ga", "gle"), ("tr", "tur"), ("id", "ind"), ("ms", "msa"),
+    ("af", "afr"), ("sw", "swa"), ("tl", "tgl"), ("la", "lat"),
+];
+
+pub(super) struct Language { pub code: String, pub name: String, model: String }
+
+fn valid_model(model: &str) -> bool {
+    !model.is_empty() && !model.starts_with('/') && model != "osd" && model != "equ"
+        && model.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '/')
+}
+
+fn offered(packs: &HashSet<String>) -> Vec<Language> {
+    let mut out: Vec<Language> = LANGUAGES.iter().filter(|(_, _, model)| packs.contains(*model))
+        .map(|(code, name, model)| Language { code: (*code).into(), name: (*name).into(), model: (*model).into() }).collect();
+    for model in packs.iter().filter(|model| valid_model(model)) {
+        if LANGUAGES.iter().any(|(_, _, m)| *m == model.as_str()) || LATIN_PACKS.iter().any(|(_, m)| *m == model.as_str()) { continue; }
+        // Do not hide installed packs merely because Sheaf has no translated display name.
+        out.push(Language { code: format!("local-{model}"), name: format!("Installed pack: {model}"), model: model.clone() });
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+pub(super) fn languages() -> &'static [Language] {
+    static LANGUAGES: OnceLock<Vec<Language>> = OnceLock::new();
+    LANGUAGES.get_or_init(|| offered(installed()))
+}
+
+pub(super) fn available() -> bool { installed().iter().any(|m| valid_model(m)) }
+
+fn selection_models(selection: &str, languages: &[Language], packs: &HashSet<String>) -> Result<(String, bool), String> {
+    let mut models = Vec::new();
+    let mut orientations = HashSet::new();
+    for code in selection.split('+') {
+        let model = languages.iter().find(|l| l.code == code).map(|l| l.model.as_str())
+            .or_else(|| LATIN_PACKS.iter().find(|(c, _)| *c == code).map(|(_, model)| *model))
+            .filter(|model| packs.contains(*model))
+            .ok_or_else(|| format!("Mixed-script OCR needs the installed Tesseract pack for {code}. Install it locally or select another language."))?;
+        orientations.insert(model.ends_with("_vert"));
+        if !models.contains(&model) { models.push(model); }
+    }
+    if orientations.len() > 1 { return Err("Recognize horizontal and vertical language packs in separate OCR jobs".into()); }
+    Ok((models.join("+"), orientations.contains(&true)))
+}
+
+pub(super) fn validate_selection(selection: &str) -> Result<(), String> {
+    selection_models(selection, languages(), installed()).map(|_| ())
+}
+
 fn installed() -> &'static HashSet<String> {
     static INSTALLED: OnceLock<HashSet<String>> = OnceLock::new();
     INSTALLED.get_or_init(|| {
@@ -29,22 +84,18 @@ fn installed() -> &'static HashSet<String> {
     })
 }
 
-pub(super) fn supports(code: &str) -> bool {
-    LANGUAGES.iter().any(|(c, _, model)| *c == code && installed().contains(*model))
-}
-
 pub(super) fn recognize(pixels: &[u8], width: u32, height: u32, code: &str) -> Result<Vec<Line>, OcrError> {
-    let model = LANGUAGES.iter().find(|(c, _, _)| *c == code).map(|(_, _, m)| *m).ok_or_else(|| OcrError::Recognize(format!("Unsupported OCR language {code}")))?;
+    let (model, vertical) = selection_models(code, languages(), installed()).map_err(OcrError::Recognize)?;
     let run = || -> Result<Vec<Line>, String> {
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         let image = dir.path().join("page.png");
         image::save_buffer(&image, pixels, width, height, image::ColorType::Rgba8).map_err(|e| e.to_string())?;
         let mut command = Command::new("tesseract");
-        command.arg(&image).args(["stdout", "-l", model]);
-        if code.ends_with("-vert") { command.args(["--psm", "5"]); }
+        command.arg(&image).args(["stdout", "-l", model.as_str()]);
+        if vertical { command.args(["--psm", "5"]); }
         let output = command.arg("tsv").output().map_err(|e| format!("Tesseract: {e}"))?;
         if !output.status.success() { return Err(format!("Tesseract: {}", String::from_utf8_lossy(&output.stderr).trim())); }
-        parse_tsv(&String::from_utf8_lossy(&output.stdout), width, height, code.ends_with("-vert"))
+        parse_tsv(&String::from_utf8_lossy(&output.stdout), width, height, vertical)
     };
     run().map_err(OcrError::Recognize)
 }
@@ -75,6 +126,27 @@ mod tests {
     use super::*;
 
     const HEADER: &str = "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n";
+
+    #[test]
+    fn every_installed_language_pack_is_offered_but_orientation_data_is_not() {
+        let packs = ["eng", "jpn", "tam", "script/Devanagari", "osd", "equ", "../bad"].into_iter().map(str::to_string).collect();
+        let offered = offered(&packs);
+        assert!(offered.iter().any(|l| l.code == "ja"));
+        assert!(offered.iter().any(|l| l.code == "local-tam"));
+        assert!(offered.iter().any(|l| l.code == "local-script/Devanagari"));
+        assert_eq!(offered.len(), 3);
+    }
+
+    #[test]
+    fn mixed_scripts_use_all_selected_packs_and_refuse_missing_or_conflicting_packs() {
+        let mut packs: HashSet<String> = ["eng", "jpn", "jpn_vert"].into_iter().map(str::to_string).collect();
+        let offered = offered(&packs);
+        assert_eq!(selection_models("en+ja+en", &offered, &packs).unwrap(), ("eng+jpn".into(), false));
+        assert_eq!(selection_models("ja-vert", &offered, &packs).unwrap(), ("jpn_vert".into(), true));
+        assert!(selection_models("en+ja-vert", &offered, &packs).is_err());
+        packs.remove("eng");
+        assert!(selection_models("en+ja", &offered, &packs).unwrap_err().contains("for en"));
+    }
 
     #[test]
     fn local_ocr_keeps_cjk_words_lines_and_vertical_geometry() {

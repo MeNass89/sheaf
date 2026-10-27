@@ -1,4 +1,4 @@
-import { Slider } from "std-widgets.slint";
+import { Slider, ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolOptions, Parse, OcrInfo, SignBridge, Picked } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
@@ -29,7 +29,7 @@ export component OptionsPanel inherits VerticalLayout {
         : root.tool == "page_numbers" ? (root.num-text != 3 || (root.num-custom != "" && Parse.custom-text-error(root.num-custom) == "")) && Parse.colour-error(root.num-hex) == ""
             && (root.num-text != 4 || root.hf-tl != "" || root.hf-tc != "" || root.hf-tr != "" || root.hf-bl != "" || root.hf-bc != "" || root.hf-br != "")
         : root.tool == "watermark" ? (root.wm-remove || (root.wm-image-mode ? root.wm-image != "" : root.wm-text != "" && Parse.colour-error(root.wm-hex) == ""))
-        : root.tool == "ocr" ? OcrInfo.available && root.ocr-languages != ","
+        : root.tool == "ocr" ? OcrInfo.available && root.ocr-languages != "," && root.ocr-languages != ",," && root.ocr-languages != ""
         : root.tool == "pdf_to_word" || root.tool == "pdf_to_powerpoint" || root.tool == "pdf_to_excel" || root.tool == "pdf_to_text" ? !root.export-ocr || OcrInfo.available
         : root.tool == "crop" ? (root.crop-mode >= 2 || ((root.crop-mode == 0 || root.pages != "")
             && Parse.mm(root.crop-top) + Parse.mm(root.crop-bottom) + Parse.mm(root.crop-left) + Parse.mm(root.crop-right) > 0))
@@ -923,19 +923,25 @@ export component OptionsPanel inherits VerticalLayout {
     if root.tool == "ocr": VerticalLayout {
         spacing: 10px;
         SectionLabel { text: "Document languages"; }
-        for l in OcrInfo.languages: Check {
-            text: l.name;
-            checked: Parse.has-code(root.ocr-languages, l.code);
-            toggled => { root.ocr-languages = Parse.toggle-code(root.ocr-languages, l.code); }
+        ScrollView {
+            height: 216px;
+            VerticalLayout {
+                spacing: 4px;
+                for l in OcrInfo.languages: Check {
+                    text: l.name;
+                    checked: Parse.has-code(root.ocr-languages, l.code);
+                    toggled => { root.ocr-languages = Parse.toggle-code(root.ocr-languages, l.code); }
+                }
+            }
         }
-        InfoBox { text: "Recognises Latin-script text (English, French, Spanish, German, …). The accuracy of detection is increased by correctly selecting the document's languages."; }
+        InfoBox { text: "Select every language on the page. Latin text uses built-in recognition; other scripts use installed Tesseract packs. Mixed scripts need a local pack for each selected language. Horizontal and vertical packs run in separate jobs."; }
         Check { text: "Also read pages with text"; checked <=> root.ocr-all-pages; }
         // Acrobat's Enhance scanned pages, before it reads them.
         Check { text: "Straighten and clean scans first"; checked <=> root.ocr-enhance; }
         InfoBox { text: "The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable. Pages that already contain text are left alone unless you tick the box above; then only words not already there are added. Straightened and cleaned, a scanned page is drawn again level, its paper white and its ink dark."; }
         if !OcrInfo.available: InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");
-            text: "The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR.";
+            text: "No OCR models or local language packs were found. Reinstall Sheaf or install Tesseract and language packs locally, then restart Sheaf.";
         }
     }
 

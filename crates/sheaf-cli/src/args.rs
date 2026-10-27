@@ -340,7 +340,7 @@ pub(crate) enum Cmd {
     Ocr {
         /// The scanned PDF
         input: PathBuf,
-        /// Document language code (extra scripts require installed Tesseract packs)
+        /// Language codes joined with + (for example en+ja); extra scripts need local Tesseract packs
         #[arg(long, default_value = "en")]
         language: String,
         /// Also read pages that already contain text (only new words are added)

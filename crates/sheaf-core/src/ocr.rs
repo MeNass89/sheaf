@@ -17,7 +17,7 @@ mod local;
 /// OCR settings.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OcrOptions {
-    /// A code from [`languages`]; extra scripts use installed offline language packs.
+    /// Codes from [`languages`], joined with + for mixed pages; extra scripts use local packs.
     pub language: String,
     /// Also read pages that already contain text (only words not already there are added).
     pub read_text_pages: bool,
@@ -86,7 +86,7 @@ pub fn languages() -> &'static [(&'static str, &'static str)] {
     static LANGUAGES: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
     LANGUAGES.get_or_init(|| {
         let mut languages = eng::LANGUAGES.to_vec();
-        languages.extend(local::LANGUAGES.iter().filter(|(code, _, _)| local::supports(code)).map(|(code, name, _)| (*code, *name)));
+        languages.extend(local::languages().iter().map(|language| (language.code.as_str(), language.name.as_str())));
         languages
     })
 }
@@ -131,7 +131,7 @@ const MISSING_MODELS: &str = if cfg!(debug_assertions) {
 
 /// Whether the recognition models are installed.
 pub fn available() -> bool {
-    models().is_some()
+    models().is_some() || local::available()
 }
 
 /// The recogniser, loaded once (it takes a moment) and shared by every job.
@@ -185,13 +185,14 @@ impl Recognized {
 /// Pages that could not be read fail the whole job ("OCR failed on page N: …") unless some
 /// other page was read.
 pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnMut(f32) -> bool) -> Result<Recognized> {
-    if !languages().iter().any(|(code, _)| *code == opts.language) {
+    if !opts.language.split('+').all(|selected| languages().iter().any(|(code, _)| *code == selected)) {
         return Err(OpdfError::Unsupported(format!("OCR language \"{}\"", opts.language)));
     }
     if let Some(why) = doc.session().get(doc.id()).and_then(|d| d.read_only_reason.clone()) {
         return Err(OpdfError::Unsupported(why));
     }
-    let external = local::supports(&opts.language);
+    let external = opts.language.split('+').any(|selected| !eng::LANGUAGES.iter().any(|(code, _)| *code == selected)) || models().is_none();
+    if external { local::validate_selection(&opts.language).map_err(OpdfError::Unsupported)?; }
     let ocr = if external { None } else { Some(engine()?) };
     let settings = OcrSettings { dpi: opts.dpi, language: opts.language.clone(), skip_text_pages: !opts.read_text_pages };
     let job = doc.session().ocr_job(doc.id(), &[], settings).ok_or_else(|| OpdfError::Engine("the document could not be read".into()))?;

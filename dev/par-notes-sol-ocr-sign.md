@@ -242,3 +242,26 @@
   policy management; certificate encryption is not claimed.
 - Proposed grade: C-security-008: f7 a7 p8 — library and password-validation tests above,
   `ui/screens/security-policy.slint`, `reader_ui/security_policy.rs`. No joint 9 claim.
+
+## Second pass — C-optimize-007
+
+- C-optimize-007: all installed Tesseract traineddata packs are now offered, including packs
+  outside the initial script list. Known languages retain readable names; unlisted/custom packs
+  show their exact installed pack name. Orientation/equation data and unsafe pack names are
+  excluded. Nothing downloaded or bundled. The OCR panel's language list scrolls separately.
+- Every checked language now reaches recognition (previously only the first was used).
+  Built-in Latin languages share the multilingual Latin model; mixed scripts use a single
+  Tesseract call with all selected installed packs (e.g. `eng+jpn`). Missing Latin packs in a
+  mixed selection are reported before OCR starts. Horizontal/vertical packs must be run in
+  separate jobs; they cannot silently assign one orientation to the other's words.
+  CLI accepts `--language en+ja`. Local Tesseract can also run when bundled models are missing.
+- Tests written/updated: `every_installed_language_pack_is_offered_but_orientation_data_is_not`,
+  `mixed_scripts_use_all_selected_packs_and_refuse_missing_or_conflicting_packs`,
+  `ocr_job_uses_every_selected_language`. No new dependency or public item.
+- `not automatable: OCR panel → select English + installed Japanese, run a mixed scan; verify
+  searchable text in both scripts, missing-pack feedback, vertical-only geometry and scrolling
+  through 100 installed languages — app/OCR execution forbidden by rule 1`.
+- Left: no pack download/bundling; names of unknown packs are their identifiers. Available
+  packs are discovered once at process startup, so local installation requires an app restart.
+- Proposed grade: C-optimize-007: f8 a8 p8 — selection/pack tests above, `ocr_local.rs`,
+  `run.rs::ocr_options`, `ui/screens/options.slint`. Live multilingual accuracy unverified.
