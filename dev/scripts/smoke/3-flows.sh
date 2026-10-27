@@ -187,9 +187,12 @@ key h; xdotool mousemove 330 200 mousedown 1 mousemove 800 201 mouseup 1; sleep 
 read AX _ <<< "$(at ca 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
 read OX OY <<< "$(at Other 1280x300+0+0)"; xdotool mousemove "${OX:-0}" "${OY:-0}" click 1; sleep 1; shot 29-close-other
 PQ=$(ocr 700x300+290+250)
-DS=$(at "Don" 700x300+290+250); [ -n "$DS" ] && click $DS 1
+DS=$(at "Don" 700x300+290+250)
+# OCR sometimes misses "Don’t Save": it sits 153 px left of Cancel on the same row.
+[ -n "$DS" ] || { read CX CY <<< "$(at Cancel 700x300+290+250)"; [ -n "$CY" ] && DS="$(( CX - 153 )) $CY"; }
+[ -n "$DS" ] && click $DS 1
 # The tab goes once the prompt is answered: up to 5 s under load.
-for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; shot 29-after
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done
 check "Close Other Tabs asks about unsaved edits, Don't Save closes it ($(echo $PQ | cut -c1-60); $(ntabs) tab)" "echo \"$PQ\" | grep -q cb.pdf && [ \"\$(ntabs)\" = 1 ]"
 quit
 
