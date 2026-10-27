@@ -118,10 +118,11 @@ fn a_callout_takes_the_chosen_font() {
     doc.apply(Edit::AddTextBoxInFont { annotation: annotation("Great Vibes"), align: 0, font: Arc::new(std::fs::read(great_vibes()).unwrap()) }).unwrap();
     let out = doc.save(&dir.path().join("callouts.pdf")).unwrap();
     common::qpdf_clean(&out);
-    let bases = base_fonts(&out);
-    assert!(bases.iter().any(|b| b == "Times-Bold"), "the first in Times Bold: {bases:?}");
-    assert!(bases.iter().any(|b| b.contains("GreatVibes")), "the second in Great Vibes: {bases:?}");
+    // A standard font sits in its appearance's resources directly, not as an object of its own:
+    // read the whole file.
     let q = std::process::Command::new("qpdf").args(["--qdf", "--object-streams=disable"]).arg(&out).arg("-").output().unwrap();
     let text = String::from_utf8_lossy(&q.stdout);
+    assert!(text.contains("/BaseFont /Times-Bold"), "the first in Times Bold");
+    assert!(base_fonts(&out).iter().any(|b| b.contains("GreatVibes")), "the second in Great Vibes: {:?}", base_fonts(&out));
     assert_eq!(text.matches("/IT /FreeTextCallout").count(), 2, "both still callouts");
 }
