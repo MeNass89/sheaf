@@ -100,6 +100,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         no_gpu: true,
         show_boxes: true,
         physical_numbers: true,
+        transparency_grid: true,
         digital_ids: vec![PathBuf::from("/ids/ada.p12")],
         form_entries: vec!["Ada Lovelace".into()],
         rough: 5,
