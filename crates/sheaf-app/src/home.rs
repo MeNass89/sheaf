@@ -825,6 +825,9 @@ pub fn last_options(tool: ToolId) -> Option<sheaf_app::ToolOptions> {
     (o.pages, o.ranges, o.organize_order, o.compare_old_pages, o.compare_new_pages, o.out_name) = (d.pages.clone(), d.ranges.clone(), d.organize_order.clone(), d.compare_old_pages.clone(), d.compare_new_pages.clone(), d.out_name.clone());
     (o.from_page, o.to_page, o.crop_top, o.crop_bottom, o.crop_left, o.crop_right) = (d.from_page.clone(), d.to_page.clone(), d.crop_top.clone(), d.crop_bottom.clone(), d.crop_left.clone(), d.crop_right.clone());
     (o.sign_p12, o.redact_overlay) = (d.sign_p12.clone(), d.redact_overlay.clone());
+    // A sheet layout (pages per sheet, booklet) makes another kind of document: it is chosen each
+    // time, not carried over (Organize would put four pages on one sheet unasked).
+    o.per_sheet = d.per_sheet;
     Some(o)
 }
 
