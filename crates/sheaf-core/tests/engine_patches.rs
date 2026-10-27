@@ -531,3 +531,43 @@ fn console_manager_lists_and_edits_document_and_field_scripts_with_undo() {
     s.undo(id).unwrap();
     assert!(s.get(id).unwrap().console_scripts().iter().any(|s| s.name == "Amount"));
 }
+
+/// A text box in rich text with mixed runs (a bold word, a larger one), as Acrobat writes it:
+/// recoloured, its runs keep their weight and size, only their colours change (Sol, 27/10: the
+/// rich text was rewritten in one style from /Contents).
+#[test]
+fn a_recoloured_rich_text_box_keeps_its_mixed_runs() {
+    let t = tempfile::tempdir().unwrap();
+    let path = t.path().join("rich.pdf");
+    let mut doc = lopdf::Document::with_version("1.7");
+    let rc = "<?xml version=\"1.0\"?><body xmlns=\"http://www.w3.org/1999/xhtml\" style=\"font-size:12pt;color:#000000\"><p>A <span style=\"font-weight:bold;color:#000000\">bold</span> and <span style=\"font-size:18pt;background-color:#FFFF00\">large</span> word</p></body>";
+    let annot = doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "FreeText", "Rect" => vec![72.into(), 650.into(), 372.into(), 700.into()],
+        "Contents" => Object::string_literal("A bold and large word"), "DA" => Object::string_literal("0 0 0 rg /Helv 12 Tf"),
+        "RC" => Object::string_literal(rc), "DS" => Object::string_literal("font: 12pt Helvetica; color:#000000"),
+    });
+    let pages = doc.new_object_id();
+    let content = doc.add_object(Stream::new(dictionary! {}, Vec::new()));
+    let page = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()], "Contents" => content, "Annots" => vec![annot.into()] });
+    doc.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    doc.trailer.set("Root", catalog);
+    doc.save(&path).unwrap();
+    let mut d = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input::new(&path)).unwrap();
+    d.apply(Edit::StyleAnnotation { page: 0, index: 0, color: Some([1.0, 0.0, 0.0]), opacity: None, width: None, endings: None }).unwrap();
+    let out = d.save(&t.path().join("rich-out.pdf")).unwrap();
+    let saved = lopdf::Document::load(&out).unwrap();
+    let page = *saved.get_pages().values().next().unwrap();
+    let annots = saved.get_dictionary(page).unwrap().get(b"Annots").unwrap().as_array().unwrap().clone();
+    let a = saved.get_dictionary(annots[0].as_reference().unwrap()).unwrap();
+    let text = |key: &[u8]| {
+        let s = a.get(key).unwrap().as_str().unwrap();
+        // UTF-16 with a byte-order mark, or PDFDocEncoding.
+        if s.starts_with(&[0xFE, 0xFF]) { String::from_utf16(&s[2..].chunks(2).map(|c| u16::from_be_bytes([c[0], c[1]])).collect::<Vec<_>>()).unwrap() } else { String::from_utf8_lossy(s).into_owned() }
+    };
+    let (rc, ds) = (text(b"RC"), text(b"DS"));
+    assert!(rc.contains("font-weight:bold") && rc.contains("font-size:18pt"), "its runs are kept: {rc}");
+    assert!(rc.contains("color:#FF0000") && !rc.contains("color:#000000"), "every text colour is the new one: {rc}");
+    assert!(rc.contains("background-color:#FFFF00"), "a background colour is not a text colour: {rc}");
+    assert!(ds.contains("color:#FF0000"), "{ds}");
+}

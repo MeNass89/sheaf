@@ -1676,6 +1676,48 @@ fn rich_text(d: &mut Dict) {
     d.set(b"RC".to_vec(), PdfString::text(&rc));
 }
 
+/// Sheaf: every text colour (`color:#RRGGBB` or `color:rgb(…)`, not `background-color`) of a text
+/// box's rich text (`/RC`) and default style (`/DS`) set to `c`, the runs and the rest of their
+/// style kept. False when there is no `/RC` to keep.
+fn recolour_rich_text(d: &mut Dict, c: Rgb) -> bool {
+    let Some(rc) = d.get(b"RC").and_then(Object::as_string).map(PdfString::to_text) else { return false };
+    let hex = format!(
+        "#{:02X}{:02X}{:02X}",
+        (c[0].clamp(0.0, 1.0) * 255.0).round() as u8,
+        (c[1].clamp(0.0, 1.0) * 255.0).round() as u8,
+        (c[2].clamp(0.0, 1.0) * 255.0).round() as u8
+    );
+    d.set(b"RC".to_vec(), PdfString::text(&recoloured_css(&rc, &hex)));
+    if let Some(ds) = d.get(b"DS").and_then(Object::as_string).map(PdfString::to_text) {
+        d.set(b"DS".to_vec(), PdfString::text(&recoloured_css(&ds, &hex)));
+    }
+    true
+}
+
+/// `css` with each `color:` value (not `…-color:`) replaced by `hex`, up to its `;`, `"` or `'`.
+pub fn recoloured_css(css: &str, hex: &str) -> String {
+    let mut out = String::with_capacity(css.len());
+    let mut rest = css;
+    while let Some(at) = rest.find("color") {
+        let (before, after) = rest.split_at(at);
+        out.push_str(before);
+        let named = after["color".len()..].trim_start();
+        let own = !before.ends_with('-') && named.starts_with(':');
+        if !own {
+            out.push_str("color");
+            rest = &after["color".len()..];
+            continue;
+        }
+        let value = named[1..].trim_start();
+        let end = value.find([';', '"', '\'', '}']).unwrap_or(value.len());
+        out.push_str("color:");
+        out.push_str(hex);
+        rest = &value[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
 fn touch(d: &mut Dict, meta: &Meta) {
     if let Some(date) = &meta.date {
         d.set(b"M".to_vec(), PdfString::literal(date.as_bytes().to_vec()));
@@ -2231,7 +2273,11 @@ pub fn set_style(
                 let (font, _) = appearance::text_font(d);
                 let [r, g, b] = c.map(|x| x.clamp(0.0, 1.0));
                 d.set(b"DA".to_vec(), PdfString::literal(format!("{} {} {} rg /{font} {} Tf", n(r), n(g), n(b), n(size)).into_bytes()));
-                rich_text(d);
+                // Sheaf: rich text from another program keeps its runs (bold, italic, sizes), only
+                // its colours change (Sol, 27/10: it was rewritten in one style from /Contents).
+                if !recolour_rich_text(d, [r, g, b]) {
+                    rich_text(d);
+                }
             } else {
                 d.set(b"C".to_vec(), rgb(c));
             }
