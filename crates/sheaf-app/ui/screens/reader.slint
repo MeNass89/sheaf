@@ -1139,10 +1139,12 @@ export component ReaderScreen inherits Rectangle {
                 // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
                 // pages never move when a tool is picked.
                 if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
-                    // Right to left it floats at the top right of the pages.
+                    // Right to left it floats at the top right of the pages, at its full width: when it
+                    // is wider than the pages, the pages' clip cuts its far (left) end, as left to right
+                    // cuts its right one (a reversed flexbox too narrow would overflow on the right).
                     x: PlatformBridge.rtl ? parent.width - self.width - 12px : 12px;
                     y: 8px;
-                    width: min(parent.width - 24px, self.bar-width);
+                    width: PlatformBridge.rtl ? self.bar-width : min(parent.width - 24px, self.bar-width);
                     tab: root.tab;
                     id: root.id;
                     light-colours: root.light-colours;
