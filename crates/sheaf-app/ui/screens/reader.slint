@@ -768,6 +768,8 @@ export component ReaderScreen inherits Rectangle {
                             triggered => { inplace-edit.focus(); self.running = false; }
                         }
                         inplace-edit := TextInput {
+                            // Tools page tools' keys wait while a field has the keyboard.
+                            changed has-focus => { PlatformBridge.typing = self.has-focus; }
                             x: 3px;
                             y: 3px;
                             width: parent.width - 6px;
@@ -882,6 +884,8 @@ export component ReaderScreen inherits Rectangle {
                                 }
                             }
                             note-edit := TextEdit {
+                                // Tools page tools' keys wait while a field has the keyboard.
+                                changed has-focus => { PlatformBridge.typing = self.has-focus; }
                                 // Hidden for a choice list; otherwise it takes the room left.
                                 visible: root.tab.reader.note.kind != 5;
                                 min-height: root.tab.reader.note.kind == 5 ? 0px : 28px;
@@ -1343,6 +1347,8 @@ export component ReaderScreen inherits Rectangle {
 
     // Copy goes through a hidden text field: Slint's clipboard is a text input's.
     clip := TextInput {
+        // Tools page tools' keys wait while a field has the keyboard.
+        changed has-focus => { PlatformBridge.typing = self.has-focus; }
         x: -1000px;
         width: 10px;
         height: 10px;
@@ -1358,6 +1364,8 @@ export component ReaderScreen inherits Rectangle {
         height: 0;
         // A Space let go while the keyboard was elsewhere never arrives: no hand left stuck.
         changed has-focus => {
+            // The pages have the keyboard: no field has it (a field closed while focused said nothing).
+            if self.has-focus { PlatformBridge.typing = false; }
             // The same for a drag with the hand tool's ⌥ zoom: no zoom left following a button not held.
             if !self.has-focus { root.space-held = false; root.panned = false; root.panning = false; root.dyn-zooming = false; root.pane-panning = false; }
         }

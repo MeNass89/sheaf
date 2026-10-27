@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { PrimaryButton } from "../widgets/button.slint";
 import { Check as CheckBox } from "../widgets/check.slint";
 import { TextField } from "../widgets/text-field.slint";
@@ -36,6 +37,8 @@ export component JavaScriptConsole inherits Modal {
         height: 190px; background: Theme.input-bg; border-width: 1px; border-color: Theme.input-border; border-radius: Theme.radius-small;
         editor-scroll := ScrollView {
             source-edit := TextInput {
+                // Tools page tools' keys wait while a field has the keyboard.
+                changed has-focus => { PlatformBridge.typing = self.has-focus; }
                 text <=> JavaScriptBridge.source; enabled: !JavaScriptBridge.busy;
                 width: editor-scroll.visible-width; height: max(editor-scroll.visible-height, self.preferred-height);
                 single-line: false; wrap: word-wrap; color: Theme.text; font-size: Theme.fs-body; font-family: Theme.mono-family;
@@ -63,7 +66,7 @@ export component JavaScriptConsole inherits Modal {
         if JavaScriptBridge.script-page >= 0: Text { text: JavaScriptBridge.script-name + " · Edit source or delete this event. New starts a document script."; wrap: word-wrap; color: Theme.text-secondary; font-size: Theme.fs-caption; }
         if JavaScriptBridge.script-field: ComboBox { model: ["keystroke", "format", "validate", "calculate", "mouse_up"]; current-value <=> JavaScriptBridge.script-event; enabled: !JavaScriptBridge.busy; }
         TextField { label: JavaScriptBridge.script-field ? "Field name" : "Document script name"; text <=> JavaScriptBridge.script-name; enabled: !JavaScriptBridge.busy && JavaScriptBridge.script-page < 0; }
-        TextEdit { height: 130px; text <=> JavaScriptBridge.script-source; enabled: !JavaScriptBridge.busy; font-family: Theme.mono-family; }
+        TextEdit { changed has-focus => { PlatformBridge.typing = self.has-focus; } height: 130px; text <=> JavaScriptBridge.script-source; enabled: !JavaScriptBridge.busy; font-family: Theme.mono-family; }
         HorizontalLayout {
             spacing: 8px;
             Button { text: "New"; clicked => { JavaScriptBridge.script-command("new", 0); } }
@@ -85,6 +88,6 @@ export component JavaScriptConsole inherits Modal {
         Button { text: "Close"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.visible = false; } }
     }
     Text { text: "Output"; color: Theme.text; font-size: Theme.fs-label; }
-    TextEdit { height: JavaScriptBridge.scripts-open ? 70px : 150px; text: JavaScriptBridge.output; read-only: true; font-family: Theme.mono-family; }
+    TextEdit { changed has-focus => { PlatformBridge.typing = self.has-focus; } height: JavaScriptBridge.scripts-open ? 70px : 150px; text: JavaScriptBridge.output; read-only: true; font-family: Theme.mono-family; }
     Text { text: "Control Enter runs the selection or the full script. Changes can be undone. Save the document to keep them. Page and link action sources are editable in Scripts. Breakpoints and stepping are not available."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
 }

@@ -172,6 +172,8 @@ export component PrintSheet inherits Rectangle {
                     background: Theme.input-bg;
                     if range.text == "": Text { x: 8px; text: "1-3, 5"; font-size: Theme.fs-label; color: Theme.text-muted; }
                     range := TextInput {
+                        // Tools page tools' keys wait while a field has the keyboard.
+                        changed has-focus => { PlatformBridge.typing = self.has-focus; }
                         x: 8px;
                         width: parent.width - 16px;
                         font-size: Theme.fs-label;

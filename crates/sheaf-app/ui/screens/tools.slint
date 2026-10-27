@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { ActionBridge } from "actions.slint";
 import { SecondaryButton } from "dialogs.slint";
 import { ScrollView } from "std-widgets.slint";
@@ -87,6 +88,8 @@ export component ToolsScreen inherits Rectangle {
                 background: Theme.input-bg;
                 if search.text == "": Text { x: 10px; text: "Search tools"; font-size: Theme.fs-button; color: Theme.text-muted; vertical-alignment: center; }
                 search := TextInput {
+                    // Tools page tools' keys wait while a field has the keyboard.
+                    changed has-focus => { PlatformBridge.typing = self.has-focus; }
                     x: 10px;
                     width: parent.width - 20px;
                     font-size: Theme.fs-button;

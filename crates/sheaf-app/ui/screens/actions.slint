@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { PrimaryButton } from "../widgets/button.slint";
 import { Check as CheckBox } from "../widgets/check.slint";
 import { ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
@@ -90,7 +91,7 @@ export component ActionsScreen inherits Rectangle {
         }
         if root.paste-open: VerticalLayout {
             spacing: 8px;
-            TextEdit { height: 100px; text <=> ActionBridge.import-text; enabled: !ActionBridge.busy; }
+            TextEdit { changed has-focus => { PlatformBridge.typing = self.has-focus; } height: 100px; text <=> ActionBridge.import-text; enabled: !ActionBridge.busy; }
             Button { text: "Import pasted action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("paste", 0); } }
         }
         HorizontalLayout {
@@ -164,7 +165,7 @@ export component ActionsScreen inherits Rectangle {
                         if ActionBridge.has-argument && ActionBridge.tool-id != "protect" && ActionBridge.tool-id != "open_tool" && ActionBridge.tool-id != "compress" && ActionBridge.tool-id != "pdfa" && ActionBridge.tool-id != "page_numbers": VerticalLayout {
                             spacing: 6px;
                             Text { text: ActionBridge.tool-id == "prepare_accessibility" ? "Document language (for example fr-FR)" : ActionBridge.tool-id == "set_metadata" ? "Metadata key | value (blank value clears the field)" : ActionBridge.tool-id == "keep_pages" || ActionBridge.tool-id == "delete_pages" ? "Pages: 1-3,5 or all" : ActionBridge.tool-id == "watermark_options" ? "Size | opacity | rotation | X | Y | font | pages | text" : ActionBridge.tool-id == "header_footer_options" ? "Position (0–5) | size | font | pages | text" : "Text or JavaScript for this step"; color: Theme.text; font-size: Theme.fs-label; }
-                            TextEdit { height: 90px; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
+                            TextEdit { changed has-focus => { PlatformBridge.typing = self.has-focus; } height: 90px; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
                         }
                         if ActionBridge.tool-id == "watermark_options" || ActionBridge.tool-id == "header_footer_options": Text { text: "Sizes and offsets are in points. Fonts: Helvetica, Times-Roman, Courier. Pages: all or 1-3,5. Positions: top left/centre/right (0–2), bottom left/centre/right (3–5)."; wrap: word-wrap; color: Theme.text-secondary; font-size: Theme.fs-caption; }
                         if ActionBridge.custom: TextField { label: "Command label (optional)"; text <=> ActionBridge.command-label; enabled: !ActionBridge.busy; }
@@ -249,7 +250,7 @@ export component ActionPrompt inherits Modal {
         if ActionBridge.prompt-has-argument && !ActionBridge.prompt-password: VerticalLayout {
             spacing: 6px;
             Text { text: "Settings for this file only"; color: Theme.text; font-size: Theme.fs-label; }
-            TextEdit { height: 110px; text <=> ActionBridge.prompt-argument; }
+            TextEdit { changed has-focus => { PlatformBridge.typing = self.has-focus; } height: 110px; text <=> ActionBridge.prompt-argument; }
         }
         HorizontalLayout {
             spacing: 8px;

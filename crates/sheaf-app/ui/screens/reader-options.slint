@@ -279,6 +279,8 @@ export component ReaderOptionsBar inherits Rectangle {
                 background: size-field.has-focus ? Theme.input-bg : transparent;
                 size-hover := TouchArea { }
                 size-field := TextInput {
+                    // Tools page tools' keys wait while a field has the keyboard.
+                    changed has-focus => { PlatformBridge.typing = self.has-focus; }
                     font-size: Theme.fs-label;
                     color: Theme.text;
                     horizontal-alignment: center;
@@ -463,6 +465,8 @@ export component ReaderOptionsBar inherits Rectangle {
                                     vertical-alignment: center;
                                 }
                                 hex-in := TextInput {
+                                    // Tools page tools' keys wait while a field has the keyboard.
+                                    changed has-focus => { PlatformBridge.typing = self.has-focus; }
                                     x: 6px;
                                     width: parent.width - 12px;
                                     font-size: Theme.fs-caption;

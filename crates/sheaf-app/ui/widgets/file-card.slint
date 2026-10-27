@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { Theme } from "../theme.slint";
 import { FileItem, PageItem } from "../flow-types.slint";
 
@@ -210,6 +211,8 @@ export component FileCardView inherits Rectangle {
                     reject
                 }
                 changed has-focus => {
+                    // Tools page tools' keys wait while a field has the keyboard.
+                    PlatformBridge.typing = self.has-focus;
                     if !self.has-focus && root.editing {
                         root.set-pages(self.text);
                         root.editing = false;

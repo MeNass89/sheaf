@@ -25,6 +25,8 @@ export struct ShortcutRow {
 export struct Launcher {
     id: string,
     name: string,
+    // Its keys as the system writes them ("" none), shown in the menu.
+    label: string,
     keys: keys,
 }
 
@@ -68,6 +70,11 @@ export global PlatformBridge {
     in property <[keys]> keys;
     // Tools ▸ Open Tool, every tool on the Tools page with its keys (none unless given).
     in property <[Launcher]> launchers;
+    // The tool a key opens ("" none), asked only while no text field has the keyboard (Stirling
+    // leaves its hotkeys to the field being typed in): every TextInput and TextEdit sets `typing`
+    // as it takes and loses the keyboard.
+    pure callback launcher-for(string, bool, bool, bool, bool) -> string;
+    in-out property <bool> typing;
     // By command: given keys of its own by the user (the reader's and Home's other keys for it
     // stop), and its keys as written in the help sheet.
     in property <[bool]> rebound;

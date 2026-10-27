@@ -34,6 +34,8 @@ export component Stepper inherits FlexboxLayout {
         border-width: 1px;
         border-color: n.has-focus ? Theme.text-secondary : Theme.option-border;
         n := TextInput {
+            // Tools page tools' keys wait while a field has the keyboard.
+            changed has-focus => { PlatformBridge.typing = self.has-focus; }
             width: parent.width - 12px;
             text: root.value;
             font-size: Theme.fs-label;

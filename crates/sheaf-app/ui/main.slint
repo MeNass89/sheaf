@@ -360,9 +360,10 @@ export component AppWindow inherits Window {
             // shortcuts, Stirling's tool hotkeys).
             Menu {
                 title: "Open Tool";
+                // Their keys are not menu shortcuts (those are taken even in a text field): main's
+                // key scope answers them, only where no field has the keyboard.
                 for t in PlatformBridge.launchers: MenuItem {
-                    title: t.name;
-                    shortcut: t.keys;
+                    title: t.label == "" ? t.name : t.name + "    " + t.label;
                     activated => { root.open-tool(t.id); }
                 }
             }
@@ -407,7 +408,15 @@ export component AppWindow inherits Window {
     // ⌘, Preferences, ⌘O Open, ⌘W close the tab shown, ⌃Tab and ⌃⇧Tab the next and previous tab, as
     // browsers and PDF Expert do (⌘8 and ⌘9 stay the reader's zooms).
     app-keys := FocusScope {
+        // Its own keyboard: no field has it (a field closed while focused said nothing).
+        changed has-focus => { if self.has-focus { PlatformBridge.typing = false; } }
         key-pressed(e) => {
+            // A Tools page tool's keys, unless a text field has the keyboard (it lets Ctrl and Alt
+            // keys go by, but no tool opens while typing, as in Stirling).
+            if !PlatformBridge.typing && PlatformBridge.launcher-for(e.text, e.modifiers.control, e.modifiers.alt, e.modifiers.shift, e.modifiers.meta) != "" {
+                root.open-tool(PlatformBridge.launcher-for(e.text, e.modifiers.control, e.modifiers.alt, e.modifiers.shift, e.modifiers.meta));
+                return accept;
+            }
             // Menu commands too: only while they keep their own keys (see reader.slint).
             if e.modifiers.control && e.text == "," && !PlatformBridge.rebound[15] /* preferences */ { root.show-preferences(); return accept; }
             if e.modifiers.control && (e.text == "o" || e.text == "O") && !PlatformBridge.rebound[1] /* open */ { root.open-file(); return accept; }

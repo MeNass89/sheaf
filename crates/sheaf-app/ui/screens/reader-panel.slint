@@ -331,6 +331,8 @@ export component ReaderPanel inherits Rectangle {
                                 border-color: Theme.text-secondary;
                                 background: Theme.input-bg;
                                 rename := TextInput {
+                                    // Tools page tools' keys wait while a field has the keyboard.
+                                    changed has-focus => { PlatformBridge.typing = self.has-focus; }
                                     x: PlatformBridge.rtl ? parent.width - (4px) - self.width : 4px;
                                     width: parent.width - 8px;
                                     text: r.title;
@@ -474,6 +476,8 @@ export component ReaderPanel inherits Rectangle {
                             border-width: 1px;
                             border-color: Theme.accent;
                             att-name := TextInput {
+                                // Tools page tools' keys wait while a field has the keyboard.
+                                changed has-focus => { PlatformBridge.typing = self.has-focus; }
                                 x: PlatformBridge.rtl ? parent.width - (5px) - self.width : 5px;
                                 width: parent.width - 10px;
                                 text: f.name;

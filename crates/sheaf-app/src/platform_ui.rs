@@ -275,7 +275,10 @@ fn push_keys(ui: &AppWindow) {
         .into_iter()
         .enumerate()
         .filter(|(_, (id, _))| !hidden.iter().any(|h| h.as_str() == *id))
-        .map(|(k, (id, name))| Launcher { id: id.into(), name: name.into(), keys: platform::keys(&platform::launch_key(&p, k)) })
+        .map(|(k, (id, name))| {
+            let own = platform::launch_key(&p, k);
+            Launcher { id: id.into(), name: name.into(), label: platform::display(&own).into(), keys: platform::keys(&own) }
+        })
         .collect();
     ui.global::<PlatformBridge>().set_launchers(ModelRc::new(VecModel::from(launchers)));
     let keys: Vec<slint::Keys> = (0..COMMANDS.len()).map(|i| platform::keys(&platform::effective(&p, i))).collect();
@@ -283,7 +286,11 @@ fn push_keys(ui: &AppWindow) {
     g.set_keys(ModelRc::new(VecModel::from(keys)));
     g.set_rebound(ModelRc::new(VecModel::from((0..COMMANDS.len()).map(|i| platform::rebound(&p, i)).collect::<Vec<_>>())));
     g.set_key_labels(ModelRc::new(VecModel::from((0..COMMANDS.len()).map(|i| SharedString::from(platform::label(&p, i))).collect::<Vec<_>>())));
-    TOOL_KEYS.with(|t| t.borrow_mut().tool_keys = p.tool_keys.clone());
+    TOOL_KEYS.with(|t| {
+        let mut t = t.borrow_mut();
+        t.tool_keys = p.tool_keys.clone();
+        t.launch_keys = p.launch_keys.clone();
+    });
     g.set_tool_letters(ModelRc::new(VecModel::from((0..TOOLS.len()).map(|k| SharedString::from(platform::tool_key(&p, k).to_uppercase())).collect::<Vec<_>>())));
 }
 
@@ -460,16 +467,15 @@ fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
     slint::Timer::single_shot(Duration::from_millis(wait), send);
 }
 
-/// The modifiers the user holds now (from the window's own events, main.rs): Shift, Alt, Super, Ctrl.
+/// The modifiers the user holds now, as Slint names them (from the window's own events, main.rs):
+/// Shift, Alt, Meta, Control.
 static HELD: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
-const HELD_SHIFT: u8 = 1;
-const HELD_ALT: u8 = 2;
-const HELD_META: u8 = 4;
-const HELD_CTRL: u8 = 8;
+use platform::{HELD_ALT, HELD_CTRL, HELD_META, HELD_SHIFT};
 
-/// The window's modifiers changed (winit's ModifiersChanged).
-pub fn modifiers_changed(shift: bool, alt: bool, meta: bool, ctrl: bool) {
-    HELD.store((u8::from(shift) * HELD_SHIFT) | (u8::from(alt) * HELD_ALT) | (u8::from(meta) * HELD_META) | (u8::from(ctrl) * HELD_CTRL), Ordering::Relaxed);
+/// The window's modifiers changed (winit's ModifiersChanged: physical keys, Super being the Windows
+/// key or a Mac's Command).
+pub fn modifiers_changed(shift: bool, alt: bool, super_key: bool, control: bool) {
+    HELD.store(platform::held_modifiers(shift, alt, control, super_key, cfg!(target_os = "macos")), Ordering::Relaxed);
 }
 
 /// Edit ▸ Check Spelling… on a document: its texts (comments, replies, form fields), what the
@@ -741,6 +747,10 @@ pub fn install(ui: &AppWindow) {
     });
     let weak = ui.as_weak();
     g.on_record_shortcut(move |i, text, control, alt, shift, meta| weak.upgrade().is_none_or(|ui| record(&ui, i, &text, control, alt, shift, meta)));
+    // A key no field took, where no text field has the keyboard: the tool it opens, if any.
+    g.on_launcher_for(|text, control, alt, shift, meta| {
+        TOOL_KEYS.with(|t| platform::launcher_for(&t.borrow(), &text, control, alt, shift, meta).and_then(|k| platform::launchers().get(k).map(|l| SharedString::from(l.0))).unwrap_or_default())
+    });
     g.on_tool_for_key(|text| TOOL_KEYS.with(|t| platform::tool_for_key(&t.borrow(), &text).map_or(-1, |k| k as i32)));
     on!(on_clear_shortcut, |ui, i| {
         if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len() + TOOLS.len()) {
