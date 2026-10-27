@@ -27,3 +27,10 @@ Next: finish each batch component, write its proof names and remaining parity ga
   `an_action_stops_on_a_script_error_before_later_steps` in core `engine_patches.rs`.
   Left: password entry for encrypted inputs; per-file output links; editing prompted settings
   while paused (settings are edited before Run). Engine cancellation is between steps.
+- C-batch-004: import a JSON file or paste its contents; export the action as portable JSON
+  including arguments, prompts and instructions (Stirling's Import automation / Export).
+  Invalid versions/tools/empty actions are refused before touching saved actions; name conflicts
+  get a fresh name. Tests `actions::tests::import_rejects_unknown_tools_versions_and_empty_actions`,
+  `actions::tests::action_round_trip_keeps_order_arguments_instructions_and_prompts`.
+  Left: drag-and-drop and translating Stirling/Acrobat's proprietary action formats; currently
+  the portable format is Sheaf JSON only, rather than claiming silent compatibility.

@@ -106,6 +106,10 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     if ui.global::<ActionBridge>().get_busy() { return; }
     flush(ui);
     match what {
+        "paste" => {
+            let action = SavedAction::import(ui.global::<ActionBridge>().get_import_text().as_str());
+            return imported(ui, action);
+        }
         "import" => return import(ui),
         "export" => return export(ui),
         "run" | "run-step" => {
@@ -172,21 +176,31 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     match result { Ok(()) => { rows(ui); draft(ui); if what == "save" { status(ui, "Action saved"); } }, Err(e) => status(ui, e.to_string()) }
 }
 
+fn imported(ui: &AppWindow, action: sheaf_core::Result<SavedAction>) {
+    let result = action.and_then(|mut a| {
+        STATE.with(|state| {
+            let mut s = state.borrow_mut();
+            let all: Vec<_> = actions::suggested().into_iter().chain(s.saved.clone()).collect();
+            a.name = actions::unused_name(&a.name, &all);
+            let mut next = s.saved.clone(); next.push(a.clone());
+            actions::save(&store_file::data_dir(), &next)?;
+            s.saved = next; s.draft = a; s.selected = (actions::suggested().len() + s.saved.len() - 1) as i32; s.step = -1;
+            Ok(())
+        })
+    });
+    match result { Ok(()) => { rows(ui); draft(ui); status(ui, "Action imported"); }, Err(e) => status(ui, e.to_string()) }
+}
+
 fn import(ui: &AppWindow) {
     let d = crate::dialog::new(ui).add_filter("Sheaf action JSON", &["json"]);
     crate::dialog::pick_file(ui, d, |ui, path| {
-        let result = std::fs::read_to_string(path).map_err(sheaf_core::OpdfError::from).and_then(|text| SavedAction::import(&text)).and_then(|mut a| {
-            STATE.with(|state| {
-                let mut s = state.borrow_mut();
-                let all: Vec<_> = actions::suggested().into_iter().chain(s.saved.clone()).collect();
-                a.name = actions::unused_name(&a.name, &all);
-                let mut next = s.saved.clone(); next.push(a.clone());
-                actions::save(&store_file::data_dir(), &next)?;
-                s.saved = next; s.draft = a; s.selected = (actions::suggested().len() + s.saved.len() - 1) as i32; s.step = -1;
-                Ok(())
-            })
-        });
-        match result { Ok(()) => { rows(ui); draft(ui); status(ui, "Action imported"); }, Err(e) => status(ui, e.to_string()) }
+        let result = (|| {
+            if std::fs::metadata(&path)?.len() > 10 * 1024 * 1024 {
+                return Err(sheaf_core::OpdfError::Unsupported("An action file must be smaller than 10 MB".into()));
+            }
+            SavedAction::import(&std::fs::read_to_string(path)?)
+        })();
+        imported(ui, result);
     });
 }
 

@@ -22,12 +22,14 @@ export global ActionBridge {
     in-out property <bool> busy;
     in-out property <string> status;
     in-out property <string> prompt;
+    in-out property <string> import-text;
     callback command(string, int);
     callback answer(bool);
 }
 
 // Acrobat's Action Wizard: the saved list stays beside the ordered steps being edited.
 export component ActionsScreen inherits Rectangle {
+    property <bool> paste-open;
     background: Theme.content-bg;
     VerticalLayout {
         padding: 24px; spacing: 16px;
@@ -37,8 +39,14 @@ export component ActionsScreen inherits Rectangle {
             spacing: 8px;
             Button { text: "New action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new", 0); } }
             Button { text: "Import…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("import", 0); } }
+            Button { text: "Paste JSON"; enabled: !ActionBridge.busy; clicked => { root.paste-open = !root.paste-open; } }
             Button { text: "Export…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("export", 0); } }
             Rectangle { horizontal-stretch: 1; }
+        }
+        if root.paste-open: VerticalLayout {
+            spacing: 8px;
+            TextEdit { height: 100px; text <=> ActionBridge.import-text; enabled: !ActionBridge.busy; }
+            Button { text: "Import pasted action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("paste", 0); } }
         }
         HorizontalLayout {
             spacing: 20px; vertical-stretch: 1;
