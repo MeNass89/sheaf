@@ -179,10 +179,10 @@ fn a_groups_picture_goes_and_its_text_stays() {
     assert!(common::shown_texts(&out)[0].contains("Kept text"), "its text stayed");
 }
 
-/// A text box another program wrote, in font `font` (named `/Own` by its `/DA` and appearance,
+/// A text box another program wrote, in font `font` (named `/{name}` by its `/DA` and appearance,
 /// with `to_unicode` as its `/ToUnicode` CMap when given), showing `contents` with the appearance's
 /// `shown` string; saved to `path`.
-fn text_box_in_own_font(path: &std::path::Path, mut font: lopdf::Dictionary, to_unicode: Option<Vec<u8>>, contents: &str, shown: &str) {
+fn text_box_in_own_font(path: &std::path::Path, name: &str, mut font: lopdf::Dictionary, to_unicode: Option<Vec<u8>>, contents: &str, shown: &str) {
     let mut doc = lopdf::Document::with_version("1.7");
     if let Some(cmap) = to_unicode {
         font.set("ToUnicode", doc.add_object(Stream::new(dictionary! {}, cmap)));
@@ -190,14 +190,14 @@ fn text_box_in_own_font(path: &std::path::Path, mut font: lopdf::Dictionary, to_
     let font = doc.add_object(font);
     let rect = || vec![72.into(), 700.into(), 272.into(), 730.into()];
     let ap = doc.add_object(Stream::new(
-        dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => rect(), "Resources" => dictionary! { "Font" => dictionary! { "Own" => font } } },
-        format!("BT /Own 12 Tf 74 712 Td {shown} Tj ET").into_bytes(),
+        dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => rect(), "Resources" => dictionary! { "Font" => dictionary! { name => font } } },
+        format!("BT /{name} 12 Tf 74 712 Td {shown} Tj ET").into_bytes(),
     ));
     let mut text = vec![0xFE, 0xFF];
     text.extend(contents.encode_utf16().flat_map(u16::to_be_bytes));
     let annot = doc.add_object(dictionary! {
         "Type" => "Annot", "Subtype" => "FreeText", "Rect" => rect(), "Contents" => Object::String(text, lopdf::StringFormat::Hexadecimal),
-        "DA" => Object::string_literal("0 0 0 rg /Own 12 Tf"), "AP" => dictionary! { "N" => ap },
+        "DA" => Object::string_literal(format!("0 0 0 rg /{name} 12 Tf")), "AP" => dictionary! { "N" => ap },
     });
     let pages = doc.new_object_id();
     let content = doc.add_object(Stream::new(dictionary! {}, Vec::new()));
@@ -208,8 +208,8 @@ fn text_box_in_own_font(path: &std::path::Path, mut font: lopdf::Dictionary, to_
     doc.save(path).unwrap();
 }
 
-/// The first annotation's normal appearance in `path`: (its content, its font `/Own`'s `/BaseFont`).
-fn own_font_appearance(path: &std::path::Path) -> (String, String) {
+/// The first annotation's normal appearance in `path`: (its content, its font `/{name}`'s `/BaseFont`).
+fn own_font_appearance(path: &std::path::Path, name: &str) -> (String, String) {
     let doc = lopdf::Document::load(path).unwrap();
     let page = *doc.get_pages().values().next().unwrap();
     let annots = doc.get_dictionary(page).unwrap().get(b"Annots").unwrap().as_array().unwrap().clone();
@@ -218,7 +218,7 @@ fn own_font_appearance(path: &std::path::Path) -> (String, String) {
     let Object::Stream(s) = doc.get_object(ap).unwrap() else { panic!("no appearance stream") };
     let content = String::from_utf8_lossy(&s.decompressed_content().unwrap_or_else(|_| s.content.clone())).into_owned();
     let fonts = s.dict.get(b"Resources").and_then(Object::as_dict).unwrap().get(b"Font").and_then(Object::as_dict).unwrap();
-    let own = fonts.get(b"Own").unwrap();
+    let own = fonts.get(name.as_bytes()).unwrap();
     let own = match own {
         Object::Reference(r) => doc.get_dictionary(*r).unwrap(),
         o => o.as_dict().unwrap(),
@@ -251,17 +251,43 @@ fn a_text_box_in_a_type0_or_custom_encoded_font_keeps_it_through_a_new_size_and_
         (greek, None, "ΑΒ", "(AB)", "GHIJKL+Greek", "<4142>"),
     ] {
         let path = t.path().join(format!("{base}.pdf"));
-        text_box_in_own_font(&path, font, to_unicode, contents, shown);
+        text_box_in_own_font(&path, "Own", font, to_unicode, contents, shown);
         let mut d = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input::new(&path)).unwrap();
         // A new size (the format row passes the box's own font on as ""), then a new colour.
         d.apply(Edit::SetTextFont { page: 0, index: 0, font: String::new(), size: Some(18.0), align: None }).unwrap();
         d.apply(Edit::StyleAnnotation { page: 0, index: 0, color: Some([0.8, 0.1, 0.1]), opacity: None, width: None, endings: None }).unwrap();
         let out = d.save(&t.path().join(format!("{base}-out.pdf"))).unwrap();
-        let (content, font) = own_font_appearance(&out);
+        let (content, font) = own_font_appearance(&out, "Own");
         assert_eq!(font, base, "drawn in the file's font");
         assert!(content.contains("/Own 18 Tf") && content.contains("0.8 0.1 0.1 rg"), "new size and colour: {content}");
         assert!(content.contains(codes) && !content.contains('?'), "written in the font's codes: {content}");
     }
+}
+
+/// A text box whose own font (Japanese, Type0) another program put under a standard resource
+/// name, `/Helv`: recoloured, it keeps that font and its Japanese text (Sol, 27/10: it became
+/// Helvetica, or the recolour was refused for the text).
+#[test]
+fn a_text_box_whose_own_font_is_named_helv_keeps_it_through_a_new_colour() {
+    let t = tempfile::tempdir().unwrap();
+    let cmap = b"/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /Adobe-Identity-UCS def /CMapType 2 def\n1 begincodespacerange <0000> <FFFF> endcodespacerange\n3 beginbfchar <0001> <65E5> <0002> <672C> <0003> <8A9E> endbfchar\nendcmap CMapName currentdict /CMap defineresource pop end end".to_vec();
+    let cid = dictionary! {
+        "Type" => "Font", "Subtype" => "CIDFontType2", "BaseFont" => "ABCDEF+KozMin",
+        "CIDSystemInfo" => dictionary! { "Registry" => Object::string_literal("Adobe"), "Ordering" => Object::string_literal("Identity"), "Supplement" => 0 },
+        "DW" => 1000, "W" => vec![1.into(), Object::Array(vec![1000.into(), 1000.into(), 1000.into()])],
+    };
+    let type0 = dictionary! {
+        "Type" => "Font", "Subtype" => "Type0", "BaseFont" => "ABCDEF+KozMin", "Encoding" => "Identity-H",
+        "DescendantFonts" => vec![Object::Dictionary(cid)],
+    };
+    let path = t.path().join("helv.pdf");
+    text_box_in_own_font(&path, "Helv", type0, Some(cmap), "日本語", "<000100020003>");
+    let mut d = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input::new(&path)).unwrap();
+    d.apply(Edit::StyleAnnotation { page: 0, index: 0, color: Some([0.8, 0.1, 0.1]), opacity: None, width: None, endings: None }).unwrap();
+    let out = d.save(&t.path().join("helv-out.pdf")).unwrap();
+    let (content, font) = own_font_appearance(&out, "Helv");
+    assert_eq!(font, "ABCDEF+KozMin", "still the file's font, not Helvetica");
+    assert!(content.contains("0.8 0.1 0.1 rg") && content.contains("<000100020003>"), "recoloured, in its codes: {content}");
 }
 
 #[test]
