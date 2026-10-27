@@ -92,7 +92,9 @@ export component PasswordDialog inherits Modal {
         wrap: word-wrap;
     }
     // Escape skips, as Cancel does in every password prompt (the field leaves the key to it).
-    if root.certificate: HorizontalLayout {
+    if root.certificate: FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         spacing: 10px;
         Text {
             text: root.id-name == "" ? "Choose the digital ID it was sent to" : "Digital ID: " + root.id-name;

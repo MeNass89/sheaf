@@ -465,7 +465,9 @@ export component PreferencesScreen inherits Rectangle {
                     id-password := TextField { label: "Password (6 characters or more)"; password: true; allow-reveal: true; }
                     id-confirm := TextField { label: "Confirm password"; password: true; }
                     id-encrypt := Check { text: "Use it for certificate encryption too"; checked: true; }
-                    HorizontalLayout {
+                    FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
                         alignment: start;
                         SecondaryButton {
                             text: "Create and save…";
