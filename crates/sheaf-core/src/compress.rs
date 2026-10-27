@@ -380,49 +380,6 @@ pub(crate) fn image_pixels(s: &Stream, gray: bool) -> Option<DynamicImage> {
 /// pair them with the inverted /Decode. The JPEG decoder always assumes Adobe's inversion
 /// (r = c·k/255), so its RGB is right for the inverted /Decode only; with the identity the stored
 /// components are read raw and converted here.
-/// True when /Decode is absent or the identity mapping ([0 1] per component).
-fn identity_decode(s: &Stream) -> bool {
-    match s.dict.get(b"Decode") {
-        Err(_) => true,
-        Ok(Object::Array(a)) => a.iter().enumerate().all(|(i, v)| v.as_float().ok() == Some((i % 2) as f32)),
-        Ok(_) => false,
-    }
-}
-
-/// Decodes an image XObject we can re-encode faithfully, or `None` to leave it alone:
-/// 8-bit, `gray` (1 component) or RGB (3), no /Mask or /ImageMask, identity Decode,
-/// Flate-family or plain DCT data, /DecodeParms lopdf reads faithfully. An /SMask is allowed: it is a separate stream we never touch.
-pub(crate) fn image_pixels(s: &Stream, gray: bool) -> Option<DynamicImage> {
-    if s.dict.has(b"Mask") || s.dict.get(b"ImageMask").and_then(Object::as_bool).unwrap_or(false) { return None; }
-    if s.dict.get(b"BitsPerComponent").and_then(Object::as_i64).ok() != Some(8) || !identity_decode(s) { return None; }
-    if !decode_parms_supported(s) { return None; }
-    let w = u32::try_from(s.dict.get(b"Width").and_then(Object::as_i64).ok()?).ok()?;
-    let h = u32::try_from(s.dict.get(b"Height").and_then(Object::as_i64).ok()?).ok()?;
-    let img = if single_filter(s) == Some(b"DCTDecode") {
-        // CMYK/YCCK JPEGs would be silently converted to RGB by the decoder (and image 0.25's
-        // `original_color_type()` reports the converted type), so check the header's component count.
-        if jpeg_components(&s.content)? != if gray { 1 } else { 3 } { return None; }
-        image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).ok()?
-    } else {
-        let expected = (w as usize).checked_mul(h as usize)?.checked_mul(if gray { 1 } else { 3 })?;
-        let data = s.decompressed_content_with_limit(expected).ok()?;
-        if data.len() != expected { return None; }
-        if gray { DynamicImage::ImageLuma8(GrayImage::from_raw(w, h, data)?) } else { DynamicImage::ImageRgb8(RgbImage::from_raw(w, h, data)?) }
-    };
-    // The decoded data must agree with the dictionary, or we would change what the page shows.
-    let ok = (img.width(), img.height()) == (w, h)
-        && matches!((&img, gray), (DynamicImage::ImageLuma8(_), true) | (DynamicImage::ImageRgb8(_), false));
-    ok.then_some(img)
-}
-
-/// A CMYK JPEG's pixels as RGB the way PDF viewers show them, for the tools that recolour
-/// pictures; `None` for any other picture, a mask, or a /Decode other than the identity or the
-/// fully inverted `[1 0 1 0 1 0 1 0]`.
-/// PDF viewers (PDFium, Poppler, Ghostscript, checked 27/10) take the JPEG's stored components as
-/// they are, then apply /Decode. Adobe's CMYK JPEGs store their components inverted, so producers
-/// pair them with the inverted /Decode. The JPEG decoder always assumes Adobe's inversion
-/// (r = c·k/255), so its RGB is right for the inverted /Decode only; with the identity the stored
-/// components are read raw and converted here.
 pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
     if s.dict.has(b"Mask") || single_filter(s) != Some(b"DCTDecode") || jpeg_components(&s.content)? != 4 {
         return None;
@@ -439,16 +396,7 @@ pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
         if !matches!(input, ColorSpace::CMYK | ColorSpace::YCCK) { return None; }
         let opts = zune_core::options::DecoderOptions::default().jpeg_set_out_colorspace(input);
         let mut dec = zune_jpeg::JpegDecoder::new_with_options(std::io::Cursor::new(&s.content[..]), opts);
-<<<<<<< HEAD
-        // The decoder cannot convert YCCK directly to raw CMYK. Keep its native four samples,
-        // then apply PDF's identity Decode rather than Adobe's inverted interpretation.
-        dec.decode_headers().ok()?;
-        let ycck = dec.input_colorspace() == Some(zune_core::colorspace::ColorSpace::YCCK);
-        if ycck { dec.set_options(dec.options().jpeg_set_out_colorspace(zune_core::colorspace::ColorSpace::YCCK)); }
-        let raw = dec.decode().ok()?;
-=======
         let mut raw = dec.decode().ok()?;
->>>>>>> dev/round29
         if raw.len() != (w as usize).checked_mul(h as usize)?.checked_mul(4)? { return None; }
         if input == ColorSpace::YCCK {
             for p in raw.as_chunks_mut::<4>().0 {
@@ -460,17 +408,7 @@ pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
         let ink = |v: u8, k: u8| ((255 - u16::from(v)) * (255 - u16::from(k)) / 255) as u8;
         RgbImage::from_fn(w, h, |x, y| {
             let p = &raw[(y as usize * w as usize + x as usize) * 4..][..4];
-            if ycck {
-                let y = f32::from(p[0]);
-                let cb = f32::from(p[1]) - 128.0;
-                let cr = f32::from(p[2]) - 128.0;
-                // YCbCr gives the complement of stored Adobe CMY; /Decode identity then
-                // multiplies that complement by the complement of stored K.
-                let light = |v: f32| (v.clamp(0.0, 255.0) * f32::from(255 - p[3]) / 255.0).round() as u8;
-                image::Rgb([light(y + 1.402 * cr), light(y - 0.344_136 * cb - 0.714_136 * cr), light(y + 1.772 * cb)])
-            } else {
-                image::Rgb([ink(p[0], p[3]), ink(p[1], p[3]), ink(p[2], p[3])])
-            }
+            image::Rgb([ink(p[0], p[3]), ink(p[1], p[3]), ink(p[2], p[3])])
         })
     } else if inverted_cmyk_decode(s) {
         image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).ok()?.to_rgb8()
