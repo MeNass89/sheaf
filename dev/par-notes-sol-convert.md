@@ -620,3 +620,16 @@ LIGNES : max 5 (preflight finding / data-report information) · cases > 6 : aucu
 
 Polaroid: Pass 4 targets the five DISAGREEs plus the accepted Office refresh nit; source-only
 verification. No network features; no compiler, test, app or Codex invocation. Next: PDF/A levels.
+
+- C-convert-018 (partial): PDF/A-1b is selectable in GUI/history and CLI `--level 1b`, written
+  natively in Rust after the existing baseline repairs. Classic PDF 1.4 output, part-1 XMP,
+  explicit checks for transparency (including indirect alpha), layers, attachments and newer
+  stream/font features. Strict mode publishes nothing on failure; permissive mode reports the
+  unresolved issues. Test WRITTEN, NOT RUN:
+  `native_pdfa1_writes_pdf14_and_checks_transparency_before_publication`; `pdfa_job` extended.
+  Left: accessible a/u levels require semantic tagging/Unicode validation; automatic downgrade
+  needs a reported actual output level and explicit policy. Neither is simulated by relabeling.
+  Native 1b is a conservative structural subset, not a full ISO validator or flattening engine.
+  No dependency. New public variant `PdfALevel::A1b`; orchestrator must update exhaustive matches
+  in concurrent branches if any. New private core module `pdfa1.rs`.
+  not automatable: check new level, history, strict failure and report in both themes — no app runs.

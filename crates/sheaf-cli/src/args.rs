@@ -798,6 +798,9 @@ impl CliFont {
 
 #[derive(Clone, Copy, ValueEnum)]
 pub(crate) enum CliPdfA {
+    /// PDF/A-1b (older archives; no transparency or attachments)
+    #[value(name = "1b")]
+    A1b,
     /// PDF/A-2b (recommended)
     #[value(name = "2b")]
     A2b,

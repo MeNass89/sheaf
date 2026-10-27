@@ -419,7 +419,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             };
             Job::Edit { input: one(inputs)?, items, out: single()? }
         }
-        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b }, allow_incomplete: opts.pdfa_allow_incomplete },
+        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: match opts.pdfa_level { 1 => PdfALevel::A3b, 2 => PdfALevel::A1b, _ => PdfALevel::A2b }, allow_incomplete: opts.pdfa_allow_incomplete },
     })
 }
 
@@ -1261,6 +1261,9 @@ mod tests {
         let Job::PdfA { level, allow_incomplete, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
         assert_eq!(level, PdfALevel::A3b);
         assert!(!allow_incomplete);
+        o.pdfa_level = 2;
+        let Job::PdfA { level, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
+        assert_eq!(level, PdfALevel::A1b);
     }
 
     #[test]

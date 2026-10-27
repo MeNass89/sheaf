@@ -1126,6 +1126,13 @@ export component OptionsPanel inherits VerticalLayout {
             selected: root.pdfa-level == 1;
             clicked => { root.pdfa-level = 1; }
         }
+        RadioCard {
+            title: "PDF/A-1b";
+            description: "Older archives; no transparency or attachments";
+            selected: root.pdfa-level == 2;
+            clicked => { root.pdfa-level = 2; }
+        }
+        if root.pdfa-level == 2: InfoBox { text: "Created in Sheaf, without another program.\nTransparency and layers are reported.\nChoose 2b to keep those features.\nAccessible a/u levels are not available."; }
         Check { text: "Keep a copy even if checks fail"; checked <=> root.pdfa-allow-incomplete; }
         InfoBox { text: "The written PDF is checked before saving.\nUnfixed issues appear in the results.\nChecks cover structure, not full ISO validation."; }
         if !root.pdfa-allow-incomplete: InfoBox { text: "If a check fails, no output is saved.\nThe source file is kept."; }

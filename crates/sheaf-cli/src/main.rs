@@ -410,6 +410,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         }
         Cmd::Pdfa { input: i, level, out } => {
             let level = match level {
+                CliPdfA::A1b => PdfALevel::A1b,
                 CliPdfA::A2b => PdfALevel::A2b,
                 CliPdfA::A3b => PdfALevel::A3b,
             };
