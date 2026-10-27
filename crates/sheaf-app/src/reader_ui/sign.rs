@@ -188,6 +188,24 @@ pub fn signature_preview(name: slint::SharedString, font: i32) -> slint::Image {
         .unwrap_or_default()
 }
 
+/// Whether two copies of a signature (`[x, y, w, h]` as shown, on pages of view size `pa`, `pb`)
+/// can come from one Every page placement: `place_graphic` centres each copy on the click, pulled
+/// inside a page smaller than it (`at.min(page - 1)`), and narrows it to 60 % of a narrow page.
+/// iLovePDF's repeated signatures go together; Sol, 27/10: a copy pulled up on a shorter page
+/// escaped the group delete, which wanted the same place on every page.
+pub(super) fn placed_together(a: [f64; 4], pa: (f64, f64), b: [f64; 4], pb: (f64, f64)) -> bool {
+    // The click (or the full width) a copy allows: exactly its own, or anything past the limit it was held to.
+    let range = |value: f64, limit: f64, slack: f64| if value >= limit - slack { (limit - slack, f64::INFINITY) } else { (value, value) };
+    let meet = |x: (f64, f64), y: (f64, f64), tol: f64| x.0 <= y.1 + tol && y.0 <= x.1 + tol;
+    let (ca, cb) = ([a[0] + a[2] / 2.0, a[1] + a[3] / 2.0], [b[0] + b[2] / 2.0, b[1] + b[3] / 2.0]);
+    let same_shape = (a[3] * b[2] - b[3] * a[2]).abs() <= 0.03 * (a[2] * b[3]).abs().max(1.0);
+    same_shape
+        && meet(range(ca[0], pa.0 - 1.0, 1.0), range(cb[0], pb.0 - 1.0, 1.0), 1.0)
+        && meet(range(ca[1], pa.1 - 1.0, 1.0), range(cb[1], pb.1 - 1.0, 1.0), 1.0)
+        // Drawn ink is inset by its pen on both copies: a few points of slack on the width.
+        && meet(range(a[2], pa.0 * 0.6, 3.0), range(b[2], pb.0 * 0.6, 3.0), 3.0)
+}
+
 #[cfg(test)]
 mod manager_preview_tests {
     #[test]
@@ -195,5 +213,22 @@ mod manager_preview_tests {
         let invalid = (Vec::new(), None, (0, 1), 0);
         let thumbnails = super::thumbnails_for(&[invalid.clone(), invalid]);
         assert_eq!(thumbnails.len(), 2, "an absent preview must not shift Edit/Delete indexes");
+    }
+
+    #[test]
+    fn every_page_copies_pulled_inside_smaller_pages_still_go_together() {
+        use super::placed_together;
+        let letter = (612.0, 792.0);
+        // Clicked at (300, 700): on a 500-high page the copy is pulled up to y 499.
+        let a = [225.0, 675.0, 150.0, 50.0];
+        assert!(placed_together(a, letter, [225.0, 474.0, 150.0, 50.0], (612.0, 500.0)));
+        assert!(placed_together([225.0, 474.0, 150.0, 50.0], (612.0, 500.0), a, letter));
+        // Narrow page: 60 % of 200 wide, same height-to-width shape, centre pulled in to x 199.
+        assert!(placed_together(a, letter, [139.0, 680.0, 120.0, 40.0], (200.0, 792.0)));
+        // Another signature elsewhere on a page of the same size is not a copy.
+        assert!(!placed_together(a, letter, [100.0, 100.0, 150.0, 50.0], letter));
+        // A copy moved by hand on a shorter page is not either (its centre was not pulled to the edge).
+        assert!(!placed_together(a, letter, [225.0, 300.0, 150.0, 50.0], (612.0, 500.0)));
+        assert!(placed_together(a, letter, a, letter));
     }
 }
