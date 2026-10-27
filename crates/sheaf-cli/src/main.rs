@@ -67,10 +67,10 @@ impl Cmd {
             Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } | Cmd::Compare { .. } | Cmd::Redact { .. } |
             // Sign refuses protected inputs.
             Cmd::Sign { .. } |
-            Cmd::Edit { .. } |
+            Cmd::Edit { .. } | Cmd::CorrectOcr { .. } | Cmd::ApplySecurityPolicy { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
             // They write no PDF.
-            Cmd::ReviewOcr { .. } | Cmd::CorrectOcr { .. } | Cmd::SaveSecurityPolicy { .. } | Cmd::ApplySecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
+            Cmd::ReviewOcr { .. } | Cmd::SaveSecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
         }
     }
 

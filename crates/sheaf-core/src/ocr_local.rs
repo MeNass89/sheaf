@@ -39,7 +39,10 @@ pub(super) fn recognize(pixels: &[u8], width: u32, height: u32, code: &str) -> R
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         let image = dir.path().join("page.png");
         image::save_buffer(&image, pixels, width, height, image::ColorType::Rgba8).map_err(|e| e.to_string())?;
-        let output = Command::new("tesseract").arg(&image).args(["stdout", "-l", model]).args(if code.ends_with("-vert") { vec!["--psm", "5", "tsv"] } else { vec!["tsv"] }).output().map_err(|e| format!("Tesseract: {e}"))?;
+        let mut command = Command::new("tesseract");
+        command.arg(&image).args(["stdout", "-l", model]);
+        if code.ends_with("-vert") { command.args(["--psm", "5"]); }
+        let output = command.arg("tsv").output().map_err(|e| format!("Tesseract: {e}"))?;
         if !output.status.success() { return Err(format!("Tesseract: {}", String::from_utf8_lossy(&output.stderr).trim())); }
         parse_tsv(&String::from_utf8_lossy(&output.stdout), width, height, code.ends_with("-vert"))
     };

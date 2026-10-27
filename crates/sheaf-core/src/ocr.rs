@@ -94,8 +94,17 @@ pub fn languages() -> &'static [(&'static str, &'static str)] {
 /// The language to offer first for a system locale ("fr-FR", "de_CH.UTF-8"): its own when the
 /// models read it, else English.
 pub fn default_language(locale: Option<&str>) -> &'static str {
-    let code = locale.unwrap_or_default().split(['-', '_', '.']).next().unwrap_or_default().to_ascii_lowercase();
-    languages().iter().find(|(c, _)| *c == code).map_or("en", |(c, _)| c)
+    language_for_locale(locale, languages())
+}
+
+fn language_for_locale(locale: Option<&str>, available: &[(&'static str, &'static str)]) -> &'static str {
+    let locale = locale.unwrap_or_default().replace('_', "-").to_ascii_lowercase();
+    let code = locale.split(['-', '.']).next().unwrap_or_default();
+    if code == "zh" && ["zh-hant", "zh-tw", "zh-hk", "zh-mo"].iter().any(|prefix| locale.starts_with(prefix))
+        && available.iter().any(|(c, _)| *c == "zh-Hant") {
+        return "zh-Hant";
+    }
+    available.iter().find(|(c, _)| *c == code).map_or("en", |(c, _)| c)
 }
 
 /// The source tree's models, for debug builds only: release builds carry no build path.
@@ -247,4 +256,15 @@ mod tests {
         // Pages that already had text are not failures.
         assert_eq!(tally(&[page(0, Some(HAS_TEXT))]).unwrap(), (0, 1, vec![]));
     }
+
+    #[test]
+    fn chinese_locales_choose_the_installed_script() {
+        let both = &[("en", "English"), ("zh", "Chinese"), ("zh-Hant", "Traditional Chinese")];
+        assert_eq!(language_for_locale(Some("zh_TW.UTF-8"), both), "zh-Hant");
+        assert_eq!(language_for_locale(Some("zh-Hant-HK"), both), "zh-Hant");
+        assert_eq!(language_for_locale(Some("zh-CN"), both), "zh");
+        assert_eq!(language_for_locale(Some("ja-JP"), both), "en");
+        assert_eq!(language_for_locale(Some("zh-TW"), &[("en", "English")]), "en");
+    }
+
 }
