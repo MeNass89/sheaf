@@ -63,10 +63,9 @@ export component ResultScreen inherits Rectangle {
             color: Theme.text;
         }
 
-        FlexboxLayout {
-            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-            flex-wrap: FlexboxLayoutWrap.no-wrap;
-            alignment: LayoutAlignment.stretch;
+        // Left to right in both directions: a flexbox here (its notes wrapping to its width) is a
+        // binding loop in Slint 1.18.
+        HorizontalLayout {
             vertical-stretch: 1;
             spacing: 16px;
 
