@@ -199,7 +199,9 @@ pub fn load_draft(dir: &Path) -> Result<Option<SavedAction>> {
 pub fn save_draft(dir: &Path, draft: Option<&SavedAction>) -> Result<()> {
     let path = dir.join("action-draft.json");
     if let Some(draft) = draft {
-        let bytes = serde_json::to_vec(draft).map_err(|e| invalid(e.to_string()))?;
+        let mut draft = draft.clone();
+        for step in &mut draft.steps { if step.tool == "protect" { step.argument.clear(); step.prompt = true; } }
+        let bytes = serde_json::to_vec(&draft).map_err(|e| invalid(e.to_string()))?;
         crate::store_file::replace(&path, &bytes)?;
     } else {
         match std::fs::remove_file(path) { Ok(()) => {}, Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}, Err(e) => return Err(e.into()) }
@@ -592,6 +594,9 @@ mod tests {
         assert!(action.steps[0].prompt); assert!(action.steps[0].argument.is_empty());
         assert!(!action.json().unwrap().contains("must not persist"));
         action.steps[0].argument = "secret".into(); assert!(action.json().is_err());
+        let dir = tempfile::tempdir().unwrap(); save_draft(dir.path(), Some(&action)).unwrap();
+        assert!(!std::fs::read_to_string(dir.path().join("action-draft.json")).unwrap().contains("secret"));
+        assert!(load_draft(dir.path()).unwrap().unwrap().steps[0].argument.is_empty());
         action.steps[0].argument.clear(); action.steps[0].prompt = false; assert!(action.validate().is_err());
         action.steps[0].prompt = true; action.output.format = "docx".into(); assert!(action.validate().is_err());
     }

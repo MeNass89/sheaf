@@ -3,7 +3,7 @@ use super::*;
 use sheaf_app::{PortfolioBridge, PortfolioRow};
 
 pub fn browse(ui: &AppWindow, id: i32) {
-    let Some(files) = update(id, |r, _| {
+    let Some(mut files) = update(id, |r, _| {
         r.snap.attachments.iter().enumerate().map(|(i, a)| PortfolioRow {
             source: i as i32,
             name: a.name.as_str().into(), detail: a.description.as_deref().unwrap_or_default().into(),
@@ -22,6 +22,7 @@ pub fn browse(ui: &AppWindow, id: i32) {
     let folders = files.iter().filter(|f| !f.folder.is_empty()).map(|f| f.folder.to_string()).collect::<std::collections::BTreeSet<_>>();
     b.set_folders(ModelRc::new(VecModel::from(folders.into_iter().map(slint::SharedString::from).collect::<Vec<_>>())));
     b.set_status(format!("{} embedded file(s)", files.len()).into());
+    sort_rows(&mut files, 0, false);
     b.set_files(ModelRc::new(VecModel::from(files)));
 }
 

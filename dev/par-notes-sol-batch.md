@@ -726,3 +726,7 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   within a sequence, direct mark-setting controls. Public: Step::Protect. No new dependency.
   not automatable: use different passwords for two outputs, cancel the password prompt, inspect
   exported action/draft JSON and reopen outputs — app execution forbidden.
+
+- Final static hardening: the draft serializer itself clears Protect arguments (not only the
+  UI flush), extending `password_actions_prompt_per_file_and_never_persist_passwords` to draft
+  recovery. Portfolio browse applies the displayed initial A–Z order before its first click.
