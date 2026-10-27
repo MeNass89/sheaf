@@ -335,6 +335,7 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
             34 => {
                 r.article_box = None;
                 let t = r.article_thread.take().or_else(|| r.snap.articles.len().checked_sub(1))?;
+                // Any article after it is renumbered; none is being drawn now (`take` above).
                 return Some((0, Edit::DeleteArticle { thread: t }));
             }
             1 => r.shape_fill = !r.shape_fill,

@@ -876,7 +876,16 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
         return super::pages::page_op(ui, tab_id, 2);
     }
     // Shapes ▸ Article: the box picked (Acrobat's Delete on an article box).
-    if let Some((thread, bead)) = update(tab_id, |r, _| r.article_box.take().filter(|_| r.tool == SHAPE && r.shape_special == 3)).flatten() {
+    if let Some((thread, bead)) = update(tab_id, |r, _| {
+        let picked = r.article_box.take().filter(|_| r.tool == SHAPE && r.shape_special == 3)?;
+        // Its article's last box takes the article: the article being drawn is renumbered or
+        // gone (Sol, 27/10: the next box went to a stale article number).
+        let removed = r.snap.articles.get(picked.0).is_some_and(|a| a.beads.len() <= 1);
+        r.article_thread = super::article_boxes::after_delete(r.article_thread, picked.0, removed);
+        Some(picked)
+    })
+    .flatten()
+    {
         return apply(ui, tab_id, Edit::DeleteArticleBox { thread, bead }, &[], None);
     }
     // Objects picked with the Edit tool (drawings, paragraphs, images): deleted in one step.
