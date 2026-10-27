@@ -401,3 +401,19 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   progress jobs, so they are not applied as if they were ordinary reader edits.
   not automatable: edit a document, apply custom metadata/rotation and Undo without losing earlier
   edits — app launch forbidden by brief rule 1.
+
+- C-batch-008: saved folder watches now resume on launch; up to two independent inboxes run
+  concurrently without locking the Actions editor. Stop folder watches is separate from Stop
+  batch. Each inbox has an independent checkpoint, naming pattern ({name}, {title}, {counter})
+  and optional successful-input archiving under output/Processed inputs; failed inputs remain.
+  Directory scans yield every 512 entries and poll completed inbox snapshots every three seconds,
+  avoiding a 100000-file traversal every second. The watcher stages privately even if the saved
+  action asks to overwrite or use the input folder. New test
+  `watches_keep_independent_patterns_archive_inputs_and_scan_incrementally` covers naming,
+  original-byte archiving, separate saved configs and bounded scan snapshots (written, not run).
+  Left: watches still require the Sheaf process (no OS service/daemon); at most two simultaneous
+  watches on this memory-constrained app; polling, not OS file notifications. A crash between
+  output publication and checkpoint can duplicate an output; collisions remain unique copies.
+  not automatable: restart into two configured watches, edit another action, stop watches,
+  verify successful inputs moved and failed ones retained — app execution forbidden.
+  No new dependency or network service.

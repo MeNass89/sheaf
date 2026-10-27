@@ -22,11 +22,13 @@ struct State {
     answer: Option<Sender<Option<String>>>,
     autosave: slint::Timer,
     checkpoint: String,
+    watches: Vec<Arc<AtomicBool>>,
+    watch_ids: std::collections::HashSet<String>,
 }
 
 impl Default for State {
     fn default() -> Self {
-        Self { saved: vec![], baseline: SavedAction::empty(), pending: None, approved: false, draft: SavedAction::empty(), selected: -1, step: -1, cancel: Arc::new(AtomicBool::new(false)), answer: None, autosave: slint::Timer::default(), checkpoint: String::new() }
+        Self { saved: vec![], baseline: SavedAction::empty(), pending: None, approved: false, draft: SavedAction::empty(), selected: -1, step: -1, cancel: Arc::new(AtomicBool::new(false)), answer: None, autosave: slint::Timer::default(), checkpoint: String::new(), watches: Vec::new(), watch_ids: std::collections::HashSet::new() }
     }
 }
 
@@ -158,9 +160,9 @@ pub fn install(ui: &AppWindow) {
         });
         if let Err(e) = result { status(&ui, format!("Draft could not be saved: {e}")); }
     }));
-    match sheaf_app::watch_folder::SavedWatch::load(&store_file::data_dir()) {
-        Ok(Some(saved)) => ui.global::<ActionBridge>().set_saved_watch(saved.description().into()),
-        Ok(None) => {}, Err(e) => status(ui, e.to_string()),
+    match sheaf_app::watch_folder::SavedWatch::load_all(&store_file::data_dir()) {
+        Ok(saved) => { for watch in saved { start_watch(ui, watch); } }
+        Err(e) => status(ui, format!("Saved folder watches could not resume: {e}")),
     }
     let weak = ui.as_weak();
     ui.global::<ActionBridge>().on_open_page(move |page| {
@@ -220,6 +222,10 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         }
         return;
     }
+    if what == "stop-watches" {
+        STATE.with(|s| { for cancel in &s.borrow().watches { cancel.store(true, Ordering::Relaxed); } });
+        return;
+    }
     if what == "stop" {
         STATE.with(|s| {
             let mut s = s.borrow_mut();
@@ -250,12 +256,13 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         "portfolio" => { ui.global::<sheaf_app::PortfolioBridge>().invoke_open(); return; }
         "watch" => return watch(ui),
         "resume-watch" => {
-            match sheaf_app::watch_folder::SavedWatch::load(&store_file::data_dir()) {
-                Ok(Some(saved)) => start_watch(ui, saved), Ok(None) => status(ui, "No saved watch"), Err(e) => status(ui, e.to_string()),
+            match sheaf_app::watch_folder::SavedWatch::load_all(&store_file::data_dir()) {
+                Ok(saved) => { for watch in saved { start_watch(ui, watch); } }, Err(e) => status(ui, e.to_string()),
             }
             return;
         }
         "forget-watch" => {
+            if ui.global::<ActionBridge>().get_watch_active() > 0 { return status(ui, "Stop the active folder watches before forgetting them."); }
             match sheaf_app::watch_folder::SavedWatch::forget(&store_file::data_dir()) {
                 Ok(()) => ui.global::<ActionBridge>().set_saved_watch("".into()), Err(e) => status(ui, e.to_string()),
             }
@@ -495,6 +502,8 @@ fn watch(ui: &AppWindow) {
     if action.steps.iter().any(|s| s.prompt) { return status(ui, "Folder actions cannot pause. Turn off the step prompts first."); }
     let title_names = ui.global::<ActionBridge>().get_title_names();
     let recursive = ui.global::<ActionBridge>().get_recursive();
+    let pattern = ui.global::<ActionBridge>().get_watch_pattern().to_string();
+    let archive_inputs = ui.global::<ActionBridge>().get_archive_inputs();
     let d = crate::dialog::new(ui).set_title("Choose the folder to watch");
     crate::dialog::pick_folder(ui, d, move |ui, input| {
         let d = crate::dialog::new(ui).set_title("Choose a separate output folder");
@@ -503,6 +512,7 @@ fn watch(ui: &AppWindow) {
                 Ok(watch) => watch, Err(e) => return status(ui, e.to_string()),
             };
             watch.include_subfolders(recursive);
+            if let Err(e) = watch.configure_outputs(&pattern, archive_inputs) { return status(ui, e.to_string()); }
             let saved = match sheaf_app::watch_folder::SavedWatch::new(action, watch) {
                 Ok(saved) => saved, Err(e) => return status(ui, e.to_string()),
             };
@@ -512,12 +522,14 @@ fn watch(ui: &AppWindow) {
 }
 
 fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
+    let identity = saved.identity();
+    let allowed = STATE.with(|s| { let s = s.borrow(); !s.watch_ids.contains(&identity) && s.watch_ids.len() < 2 });
+    if !allowed { status(ui, "This inbox is already active, or two watches are running. Stop watches before starting another."); return; }
     if let Err(e) = saved.save(&store_file::data_dir()) { return status(ui, e.to_string()); }
     let description = saved.description();
     ui.global::<ActionBridge>().set_saved_watch(description.clone().into());
     let cancel = Arc::new(AtomicBool::new(false));
-    STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
-    ui.global::<ActionBridge>().set_busy(true);
+    STATE.with(|s| { let mut s = s.borrow_mut(); s.watches.retain(|c| !c.load(Ordering::Relaxed)); s.watches.push(cancel.clone()); s.watch_ids.insert(identity.clone()); ui.global::<ActionBridge>().set_watch_active(s.watch_ids.len() as i32); });
     status(ui, format!("Watching while Sheaf is open. {description}"));
     let weak = ui.as_weak();
     std::thread::spawn(move || {
@@ -542,10 +554,10 @@ fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
             };
             if let Some(message) = message
                 && weak.upgrade_in_event_loop(move |ui| status(&ui, message)).is_err() { break; }
-            std::thread::sleep(std::time::Duration::from_secs(1));
+            std::thread::sleep(std::time::Duration::from_millis(if saved.watch.scan_in_progress() { 100 } else { 3000 }));
         }
         let _ = weak.upgrade_in_event_loop(move |ui| {
-            ui.global::<ActionBridge>().set_busy(false);
+            STATE.with(|s| { let mut s = s.borrow_mut(); s.watch_ids.remove(&identity); ui.global::<ActionBridge>().set_watch_active(s.watch_ids.len() as i32); });
             status(&ui, format!("Folder watch stopped. {written} file(s) written. {failure}"));
         });
     });

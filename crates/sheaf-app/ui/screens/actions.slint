@@ -36,6 +36,9 @@ export global ActionBridge {
     in-out property <bool> title-names;
     in-out property <bool> recursive;
     in-out property <string> saved-watch;
+    in-out property <int> watch-active;
+    in-out property <string> watch-pattern;
+    in-out property <bool> archive-inputs;
     in-out property <string> status;
     in-out property <string> prompt;
     in-out property <string> prompt-argument;
@@ -181,13 +184,20 @@ export component ActionsScreen inherits Rectangle {
                     CheckBox { text: "Ask for a separate password for each input"; checked <=> ActionBridge.per-file-password; enabled: !ActionBridge.busy; }
                     CheckBox { text: "Name watched outputs from the document title"; checked <=> ActionBridge.title-names; enabled: !ActionBridge.busy; }
                     CheckBox { text: "Include subfolders in the watch"; checked <=> ActionBridge.recursive; enabled: !ActionBridge.busy; }
+                    TextField { label: "Watch output pattern: {name}, {title}, {counter} (blank = above)"; text <=> ActionBridge.watch-pattern; enabled: !ActionBridge.busy; }
+                    CheckBox { text: "Move successful inputs to output / Processed inputs"; checked <=> ActionBridge.archive-inputs; enabled: !ActionBridge.busy; }
+                    if ActionBridge.watch-active > 0: HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: ActionBridge.watch-active + " active watch(es) · automatically resume on launch"; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+                        Button { text: "Stop folder watches"; clicked => { ActionBridge.command("stop-watches", 0); } }
+                    }
                     if ActionBridge.saved-watch != "": VerticalLayout {
                         spacing: 6px;
                         Text { text: ActionBridge.saved-watch; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
                         HorizontalLayout {
                             spacing: 8px;
-                            Button { text: "Resume saved watch"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("resume-watch", 0); } }
-                            Button { text: "Forget watch"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("forget-watch", 0); } }
+                            Button { text: "Resume saved watches"; enabled: !ActionBridge.busy && ActionBridge.watch-active == 0; clicked => { ActionBridge.command("resume-watch", 0); } }
+                            Button { text: "Forget saved watches"; enabled: !ActionBridge.busy && ActionBridge.watch-active == 0; clicked => { ActionBridge.command("forget-watch", 0); } }
                         }
                     }
                     Button { text: "Run on a folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run-folder", 0); } }

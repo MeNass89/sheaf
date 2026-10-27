@@ -1,7 +1,7 @@
 //! Stirling's watched folders, locally while Sheaf is open. A PDF must have the same size and
 //! modification time on two consecutive polls before processing; outputs live outside the inbox.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,22 @@ pub struct FolderWatch {
     title_names: bool,
     #[serde(default)]
     recursive: bool,
+    #[serde(default)]
+    pattern: String,
+    #[serde(default)]
+    archive_inputs: bool,
+    #[serde(default)]
+    sequence: u64,
+    #[serde(skip)]
+    folders: VecDeque<PathBuf>,
+    #[serde(skip)]
+    directory: Option<std::fs::ReadDir>,
+    #[serde(skip)]
+    current: BTreeMap<PathBuf, Stamp>,
+    #[serde(skip)]
+    visited: usize,
+    #[serde(skip)]
+    scanning: bool,
 }
 
 impl FolderWatch {
@@ -34,54 +50,96 @@ impl FolderWatch {
         if !input.is_dir() || input.starts_with(&output) || output.starts_with(&input) {
             return Err(OpdfError::Unsupported("Choose separate input and output folders, neither inside the other".into()));
         }
-        Ok(Self { input, output, seen: BTreeMap::new(), title_names, recursive: false })
+        Ok(Self { input, output, seen: BTreeMap::new(), title_names, recursive: false, pattern: String::new(), archive_inputs: false, sequence: 0, folders: VecDeque::new(), directory: None, current: BTreeMap::new(), visited: 0, scanning: false })
     }
 
     pub fn include_subfolders(&mut self, recursive: bool) { self.recursive = recursive; }
+
+    pub fn configure_outputs(&mut self, pattern: &str, archive_inputs: bool) -> Result<()> {
+        let rest = pattern.replace("{name}", "").replace("{title}", "").replace("{counter}", "");
+        if pattern.len() > 256 || rest.contains(['{', '}']) { return Err(OpdfError::Unsupported("Use {name}, {title} and {counter} in the output naming pattern (up to 256 bytes)".into())); }
+        self.pattern = pattern.into(); self.archive_inputs = archive_inputs;
+        Ok(())
+    }
+
+    pub fn scan_in_progress(&self) -> bool { self.scanning }
 
     /// One poll. Failed inputs are tried again only once their bytes' size/time changes, so a
     /// locked or damaged file does not flood the user with the same error every second.
     pub fn poll(&mut self, action: &SavedAction, before: &mut dyn FnMut() -> bool) -> Result<PollResults> {
         let output = self.output.clone();
-        let title_names = self.title_names;
-        self.poll_with(&mut |path| {
+        let pattern = if self.pattern.is_empty() { if self.title_names { "{title}" } else { "{name}" } } else { &self.pattern }.to_string();
+        let archive_inputs = self.archive_inputs;
+        let mut sequence = self.sequence;
+        // The watch owns its destination; a saved action's same-folder or overwrite option
+        // must never bypass the private staging directory or alter the inbox in place.
+        let mut staged_action = action.clone();
+        staged_action.output = actions::OutputOptions::default();
+        let result = self.poll_with(&mut |path| {
             if !before() { return Err(OpdfError::Cancelled); }
             let temp = tempfile::tempdir()?;
-            let processed = actions::run_file(action, path, temp.path(), &mut |_, _| before())?;
-            let name = if title_names {
+            let processed = actions::run_file(&staged_action, path, temp.path(), &mut |_, _| before())?;
+            let title = if pattern.contains("{title}") {
                 let doc = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input::new(&processed))?;
                 doc.document().info.title.clone().filter(|t| !t.trim().is_empty())
             } else { None };
             let fallback = path.file_stem().unwrap_or_default().to_string_lossy();
-            let name = safe_name(name.as_deref().unwrap_or(&fallback));
-            sheaf_core::paths::atomic_write(&output.join(format!("{name}.pdf")), |part| {
+            let name = safe_name(&pattern.replace("{name}", &fallback).replace("{title}", title.as_deref().unwrap_or(&fallback)).replace("{counter}", &(sequence + 1).to_string()));
+            if !before() { return Err(OpdfError::Cancelled); }
+            let published = sheaf_core::paths::atomic_write(&output.join(format!("{name}.pdf")), |part| {
                 std::fs::copy(&processed, part)?;
                 Ok(())
-            })
-        })
+            })?;
+            if archive_inputs {
+                let archive = output.join("Processed inputs");
+                let archived = (|| {
+                    std::fs::create_dir_all(&archive)?;
+                    let target = sheaf_core::paths::atomic_write(&archive.join(path.file_name().unwrap_or_default()), |part| { std::fs::copy(path, part)?; Ok(()) })?;
+                    if let Err(e) = std::fs::remove_file(path) { let _ = std::fs::remove_file(target); return Err(e.into()); }
+                    Ok::<_, OpdfError>(())
+                })();
+                if let Err(e) = archived {
+                    return Err(OpdfError::Unsupported(format!("Output saved to {}, but the input could not be archived: {e}", published.display())));
+                }
+            }
+            sequence += 1;
+            Ok(published)
+        });
+        self.sequence = sequence;
+        result
     }
 
     fn poll_with(&mut self, process: &mut dyn FnMut(&Path) -> Result<PathBuf>) -> Result<PollResults> {
-        let mut current = BTreeMap::new();
-        let mut folders = vec![self.input.clone()];
-        let mut visited = 0;
-        while let Some(folder) = folders.pop() {
-            visited += 1;
-            if visited > 10_000 { return Err(OpdfError::Unsupported("This watch exceeds 10,000 folders. Choose a smaller inbox.".into())); }
-            for entry in std::fs::read_dir(folder)? {
-                let entry = entry?;
-                let kind = entry.file_type()?;
-                // Never follow a symlink into the output or outside the selected inbox.
-                if kind.is_dir() && self.recursive { folders.push(entry.path()); }
-                if !kind.is_file() { continue; }
-                let path = entry.path();
-                if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) { continue; }
-                let meta = entry.metadata()?;
-                if meta.len() == 0 { continue; }
-                current.insert(path, Stamp { len: meta.len(), modified: meta.modified()? });
-                if current.len() > 100_000 { return Err(OpdfError::Unsupported("This watch exceeds 100,000 PDFs. Choose a smaller inbox.".into())); }
-            }
+        if !self.scanning {
+            self.folders.push_back(self.input.clone());
+            self.current.clear(); self.visited = 0; self.scanning = true;
         }
+        // Incremental traversal: even a huge flat inbox yields after 512 directory entries.
+        // A completed snapshot alone updates stability/handled stamps; partial scans cannot
+        // forget already handled inputs or mistake an unfinished upload for a stable file.
+        let mut budget: usize = 512;
+        while budget > 0 {
+            if self.directory.is_none() {
+                let Some(folder) = self.folders.pop_front() else { self.scanning = false; break };
+                self.visited += 1; budget -= 1;
+                if self.visited > 10_000 { return Err(OpdfError::Unsupported("This watch exceeds 10,000 folders. Choose a smaller inbox.".into())); }
+                self.directory = Some(std::fs::read_dir(folder)?);
+            }
+            let Some(entry) = self.directory.as_mut().and_then(Iterator::next) else { self.directory = None; continue };
+            budget = budget.saturating_sub(1);
+            let entry = entry?;
+            let kind = entry.file_type()?;
+            if kind.is_dir() && self.recursive { self.folders.push_back(entry.path()); }
+            if !kind.is_file() { continue; }
+            let path = entry.path();
+            if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) { continue; }
+            let meta = entry.metadata()?;
+            if meta.len() == 0 { continue; }
+            self.current.insert(path, Stamp { len: meta.len(), modified: meta.modified()? });
+            if self.current.len() > 100_000 { return Err(OpdfError::Unsupported("This watch exceeds 100,000 PDFs. Choose a smaller inbox.".into())); }
+        }
+        if self.scanning { return Ok(vec![]); }
+        let current = std::mem::take(&mut self.current);
         self.seen.retain(|p, _| current.contains_key(p));
         let mut results = Vec::new();
         for (path, stamp) in current {
@@ -121,35 +179,56 @@ impl SavedWatch {
 
     pub fn description(&self) -> String { format!("{} → {} · {}{}", self.watch.input.display(), self.watch.output.display(), self.action.name, if self.watch.recursive { " · subfolders included" } else { "" }) }
 
+    pub fn identity(&self) -> String {
+        let hash = self.watch.input.to_string_lossy().bytes().fold(0xcbf29ce484222325u64, |n, b| (n ^ u64::from(b)).wrapping_mul(0x100000001b3));
+        format!("{hash:016x}")
+    }
+
     pub fn save(&self, dir: &Path) -> Result<()> {
         let bytes = serde_json::to_vec(self).map_err(|e| OpdfError::Unsupported(e.to_string()))?;
-        crate::store_file::replace(&dir.join("folder-watch.json"), &bytes)?;
+        crate::store_file::replace(&dir.join(format!("folder-watch-{}.json", self.identity())), &bytes)?;
         Ok(())
     }
 
-    pub fn load(dir: &Path) -> Result<Option<Self>> {
-        let bytes = match std::fs::read(dir.join("folder-watch.json")) {
-            Ok(bytes) => bytes,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(e) => return Err(e.into()),
+    pub fn load(dir: &Path) -> Result<Option<Self>> { Ok(Self::load_all(dir)?.into_iter().next()) }
+
+    pub fn load_all(dir: &Path) -> Result<Vec<Self>> {
+        let entries = match std::fs::read_dir(dir) {
+            Ok(entries) => entries, Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]), Err(e) => return Err(e.into()),
         };
-        let saved: Self = serde_json::from_slice(&bytes).map_err(|e| OpdfError::Unsupported(format!("Cannot read saved folder watch: {e}")))?;
-        if saved.version != 1 { return Err(OpdfError::Unsupported("Unsupported folder watch version".into())); }
-        saved.action.validate()?;
-        if saved.action.steps.iter().any(|s| s.prompt) { return Err(OpdfError::Unsupported("Folder actions cannot pause".into())); }
-        // Resolve again: the folders must still be separate at resume, even after being moved.
-        let watch = FolderWatch::new(&saved.watch.input, &saved.watch.output, saved.watch.title_names)?;
-        if watch.input != saved.watch.input || watch.output != saved.watch.output {
-            return Err(OpdfError::Unsupported("The watched folder moved. Configure the watch again.".into()));
+        let mut paths = Vec::new();
+        for entry in entries {
+            let entry = entry?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name == "folder-watch.json" || (name.starts_with("folder-watch-") && name.ends_with(".json")) { paths.push(entry.path()); }
         }
-        Ok(Some(saved))
+        paths.sort();
+        let mut result: Vec<Self> = Vec::new();
+        for path in paths {
+            let saved: Self = serde_json::from_slice(&std::fs::read(path)?).map_err(|e| OpdfError::Unsupported(format!("Cannot read saved folder watch: {e}")))?;
+            if saved.version != 1 { return Err(OpdfError::Unsupported("Unsupported folder watch version".into())); }
+            saved.action.validate()?;
+            if saved.action.steps.iter().any(|s| s.prompt) { return Err(OpdfError::Unsupported("Folder actions cannot pause".into())); }
+            let mut watch = FolderWatch::new(&saved.watch.input, &saved.watch.output, saved.watch.title_names)?;
+            watch.configure_outputs(&saved.watch.pattern, saved.watch.archive_inputs)?;
+            if watch.input != saved.watch.input || watch.output != saved.watch.output { return Err(OpdfError::Unsupported("The watched folder moved. Configure the watch again.".into())); }
+            if result.iter().all(|w| w.identity() != saved.identity()) { result.push(saved); }
+        }
+        Ok(result)
     }
 
     pub fn forget(dir: &Path) -> Result<()> {
+        // Only remove this feature's settings, retaining action/library stores.
+        for saved in Self::load_all(dir)? {
+            match std::fs::remove_file(dir.join(format!("folder-watch-{}.json", saved.identity()))) {
+                Ok(()) => {}, Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}, Err(e) => return Err(e.into()),
+            }
+        }
         match std::fs::remove_file(dir.join("folder-watch.json")) {
             Ok(()) => Ok(()), Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()), Err(e) => Err(e.into()),
         }
     }
+
 }
 
 /// A title becomes a portable file name, never a path or a Windows device name.
@@ -243,6 +322,41 @@ mod tests {
         assert_eq!(resumed.watch.poll_with(&mut |_| Ok(output.join("done2.pdf"))).unwrap().len(), 1);
         SavedWatch::forget(t.path()).unwrap();
         assert!(SavedWatch::load(t.path()).unwrap().is_none());
+    }
+
+    #[test]
+    fn watches_keep_independent_patterns_archive_inputs_and_scan_incrementally() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("in"); let output = dir.path().join("out");
+        std::fs::create_dir(&inbox).unwrap();
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Document title", "Keep").unwrap();
+        let original = inbox.join("original.pdf");
+        std::fs::write(&original, bytes.as_slice()).unwrap();
+        let mut action = actions::suggested().remove(3);
+        action.output.same_folder = true; action.output.overwrite = true;
+        let mut watch = FolderWatch::new(&inbox, &output, false).unwrap();
+        assert!(watch.configure_outputs("{unknown}", false).is_err());
+        watch.configure_outputs("{counter}-{name}-{title}", true).unwrap();
+        assert!(watch.poll(&action, &mut || true).unwrap().is_empty());
+        let results = watch.poll(&action, &mut || true).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1.as_ref().unwrap().file_name().unwrap(), "1-original-Document title.pdf");
+        assert!(!original.exists());
+        assert_eq!(std::fs::read(output.join("Processed inputs/original.pdf")).unwrap(), *bytes);
+        let saved = SavedWatch::new(action.clone(), watch).unwrap();
+        saved.save(dir.path()).unwrap();
+        let second = dir.path().join("second"); std::fs::create_dir(&second).unwrap();
+        SavedWatch::new(action, FolderWatch::new(&second, &output, false).unwrap()).unwrap().save(dir.path()).unwrap();
+        assert_eq!(SavedWatch::load_all(dir.path()).unwrap().len(), 2);
+        for i in 0..600 { std::fs::write(inbox.join(format!("{i}.pdf")), b"partial").unwrap(); }
+        let mut incremental = FolderWatch::new(&inbox, &output, false).unwrap();
+        assert!(incremental.poll_with(&mut |_| panic!("First snapshot cannot process")).unwrap().is_empty());
+        assert!(incremental.scan_in_progress());
+        assert!(incremental.seen.is_empty());
+        assert!(incremental.poll_with(&mut |_| panic!("Still the first snapshot")).unwrap().is_empty());
+        assert_eq!(incremental.seen.len(), 600);
+        SavedWatch::forget(dir.path()).unwrap();
+        assert!(SavedWatch::load_all(dir.path()).unwrap().is_empty());
     }
 
 }
