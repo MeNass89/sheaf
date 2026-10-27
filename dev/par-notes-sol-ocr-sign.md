@@ -584,3 +584,21 @@
   or certified-clock claim. Existing invalid-response/no-output test remains.
 - Proposed grade: C-sign-012: f7 a8 p8 — offline API and corrected fixture; user-facing
   certified timestamping remains open pending authorized TSA transport. No dependencies.
+
+## Third pass — C-optimize-007 (gap not closed)
+
+- Rechecked `scripts/fetch-models.sh` and `third_party/pdfcraft-ocr/src/lib.rs`: shipped asset
+  declarations are text detection, unaccented recognition and the accented Latin model/dictionary.
+  There is no Japanese/Chinese/Korean model manifest or asset in this worktree (`vendor/models`
+  is absent here). The current non-Latin route still requires installed Tesseract + traineddata.
+- No extra CJK label, unverifiable model adapter or download was added to pretend that a stock
+  user can recognize Japanese. A real native route needs a pinned licensed compatible model,
+  dictionary/token decoding, packaging and real multilingual accuracy/geometry fixtures.
+  Those assets and runtime validation are not available in this worker's permitted environment.
+  Network features stay out; no automatic language downloads introduced.
+- Existing selection/TSV/vertical tests remain; this pass additionally retained TSV confidence
+  under C-optimize-009. No separate implementation or new dependency for stock language coverage.
+- Proposed grade unchanged: C-optimize-007: f8 a8 p8 —
+  `mixed_scripts_use_all_selected_packs_and_refuse_missing_or_conflicting_packs`,
+  `local_ocr_keeps_cjk_words_lines_and_vertical_geometry`; these are parsing/selection proof,
+  not proof of bundled Japanese recognition. The counterpart's stock-install gap stays open.
