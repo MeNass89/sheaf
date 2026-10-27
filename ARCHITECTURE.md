@@ -31,6 +31,9 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 - `crates/sheaf-app/src/watch_folder.rs`: stable-file polling, duplicate suppression and
   optional title-based output names for local watched folders.
 
+- `crates/sheaf-core/src/portfolio.rs`: PDF Collection catalog, readable cover, original
+  embedded files and duplicate-name handling; Actions ▸ Create portfolio… is its entry point.
+
 ## Entry points
 
 - GUI: `crates/sheaf-app/src/main.rs` builds the window from `ui/main.slint` and wires every callback.

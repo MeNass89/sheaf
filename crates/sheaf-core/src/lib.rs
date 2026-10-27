@@ -21,6 +21,7 @@ pub mod pages;
 pub mod pdfa;
 pub mod pdfcraft;
 pub mod paths;
+pub mod portfolio;
 pub mod ranges;
 pub mod redact;
 pub mod repair;

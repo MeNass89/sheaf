@@ -43,6 +43,7 @@ export component ActionsScreen inherits Rectangle {
             Button { text: "Import…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("import", 0); } }
             Button { text: "Paste JSON"; enabled: !ActionBridge.busy; clicked => { root.paste-open = !root.paste-open; } }
             Button { text: "Export…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("export", 0); } }
+            Button { text: "Create portfolio…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("portfolio", 0); } }
             Rectangle { horizontal-stretch: 1; }
         }
         if root.paste-open: VerticalLayout {

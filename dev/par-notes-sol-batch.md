@@ -54,3 +54,10 @@ Next: finish each batch component, write its proof names and remaining parity ga
   `watch_folder::tests::watched_folders_cannot_feed_their_outputs_back_to_the_input`.
   Left: watches run while this app process stays open, without restart recovery, recursive
   folders or a background daemon. Prompted actions are refused for unattended watching.
+- C-organize-024: Actions ▸ Create portfolio… bundles selected files verbatim into a PDF with a
+  readable cover, `/Collection` details view, schema and attachment-pane fallback (Acrobat's PDF
+  Portfolio; Stirling's cover). Duplicate basenames keep both originals, and an existing output
+  is never replaced. The portfolio opens in the reader, where Attachments can open/save its items.
+  Tests `a_portfolio_keeps_original_files_and_duplicate_basenames_instead_of_merging`,
+  `a_missing_portfolio_input_does_not_publish_a_partial_bundle` in core `tests/portfolio.rs`.
+  Left: a dedicated portfolio visual browser; Sheaf currently exposes the files in Attachments.
