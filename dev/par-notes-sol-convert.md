@@ -509,3 +509,9 @@ LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
   decode explicitly with a 32 MB total page bound rather than the image helper's silent empty
   fallback on decode errors; corrupt content cannot masquerade as a fully inspected page.
   The existing atomic-edit refusal test covers rollback; no test was executed.
+
+### Pass 3 static follow-up — C-convert-005
+
+- Long-page UserUnit also scales link border widths/radii/dashes, including the implicit default
+  border, so very tall output does not thicken link outlines. The very-long-page Rust test now
+  checks the physical border width as well as the physical page size. Written, not executed.

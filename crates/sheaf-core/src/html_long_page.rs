@@ -95,6 +95,23 @@ pub(super) fn stack(input: &Path, out: &Path) -> Result<PathBuf> {
                     let moved = quads.iter().enumerate().map(|(i, v)| Ok(Object::Real(((number(v)? + if i % 2 == 0 { p.dx } else { p.dy }) / unit) as f32))).collect::<Result<Vec<_>>>()?;
                     annotation.set("QuadPoints", moved);
                 }
+                // Border lengths are in page units too; UserUnit must not make them heavier.
+                if let Ok(border) = annotation.get(b"Border") {
+                    let mut border = pdf.dereference(border)?.1.as_array()?.clone();
+                    if border.len() < 3 { return Err(unsupported()); }
+                    for value in border.iter_mut().take(3) { *value = Object::Real((number(value)? / unit) as f32); }
+                    if let Some(dash) = border.get_mut(3) { scale_dash(dash, unit)?; }
+                    annotation.set("Border", border);
+                } else if !annotation.has(b"BS") {
+                    annotation.set("Border", vec![0.into(), 0.into(), Object::Real((1.0 / unit) as f32)]);
+                }
+                if let Ok(style) = annotation.get(b"BS") {
+                    let mut style = pdf.dereference(style)?.1.as_dict()?.clone();
+                    let width = style.get(b"W").map(number).unwrap_or(Ok(1.0))?;
+                    style.set("W", Object::Real((width / unit) as f32));
+                    if let Ok(dash) = style.get_mut(b"D") { scale_dash(dash, unit)?; }
+                    annotation.set("BS", style);
+                }
                 annotation.set("P", long_page);
                 annotations.push(pdf.add_object(annotation).into());
             }
@@ -114,6 +131,11 @@ pub(super) fn stack(input: &Path, out: &Path) -> Result<PathBuf> {
     pdf.version = "1.7".into();
     pdf.prune_objects();
     atomic_write(out, |part| { pdf.save(part)?; Ok(()) })
+}
+
+fn scale_dash(value: &mut Object, unit: f64) -> Result<()> {
+    for value in value.as_array_mut()? { *value = Object::Real((number(value)? / unit) as f32); }
+    Ok(())
 }
 
 fn move_destinations(object: &mut Object, pages: &BTreeMap<ObjectId, Placement>, target: ObjectId, unit: f64, depth: usize) -> Result<()> {
@@ -222,6 +244,10 @@ mod tests {
         let media = rect(page.get(b"MediaBox").unwrap()).unwrap();
         assert!((media[3] * unit - 16_000.0).abs() < 0.1);
         assert!(media[3] <= 14_400.0 && unit > 1.0);
+        let annotations = page.get(b"Annots").unwrap().as_array().unwrap();
+        let link = pdf.get_dictionary(annotations[0].as_reference().unwrap()).unwrap();
+        let border = link.get(b"Border").unwrap().as_array().unwrap();
+        assert!((f64::from(border[2].as_float().unwrap()) * unit - 1.0).abs() < 1e-6);
         let mut pdf = Document::load(&input).unwrap();
         let page = pdf.get_pages()[&1];
         pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("Rotate", 90);
