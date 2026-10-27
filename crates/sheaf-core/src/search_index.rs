@@ -84,6 +84,11 @@ impl Catalog {
         Self { version: 1, sources, postings }
     }
 
+    /// Saved sources and their page counts for Acrobat's Catalog manager.
+    pub fn sources(&self) -> Vec<(PathBuf, usize)> {
+        self.sources.iter().map(|s| (s.path.clone(), s.pages.len())).collect()
+    }
+
     /// Write a catalog, never overwriting an existing one. Rebuild to a new name, then replace
     /// the old catalog explicitly if desired; a failed build cannot damage the previous one.
     pub fn save(&self, out: &Path) -> Result<PathBuf> {

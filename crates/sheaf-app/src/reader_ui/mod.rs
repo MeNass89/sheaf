@@ -358,6 +358,7 @@ pub struct ReaderUi {
     layers_off: Option<Vec<(u32, u16)>>,
     layers_made: u64,
     /// More tools ▸ Accessibility check: its sheet, a check running, the last report.
+    catalog_panel: Option<catalog::CatalogPanel>,
     ocr_review: Option<ocr_review::Review>,
     a11y_open: bool,
     a11y_busy: bool,
@@ -581,6 +582,7 @@ impl ReaderUi {
             loupe_image: None,
             layers_off: None,
             layers_made: 0,
+            catalog_panel: None,
             ocr_review: None,
             a11y_open: false,
             a11y_busy: false,
@@ -1274,6 +1276,8 @@ mod speech;
 mod loupe;
 mod accessibility;
 mod ocr_review;
+mod catalog;
+pub use catalog::{catalog_open, catalog_action};
 pub use ocr_review::{review_ocr, ocr_review_action};
 mod layers;
 mod look_up;

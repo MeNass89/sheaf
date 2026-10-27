@@ -1,0 +1,91 @@
+// Acrobat's Catalog: source management and reusable search in the reader's sheet style.
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { PanelButton } from "../widgets/panel-button.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
+
+export component CatalogSheet inherits Rectangle {
+    in property <ToolTab> tab;
+    callback focus-pages();
+    background: #00000044;
+    TouchArea { }
+    Rectangle {
+        width: min(780px, root.width - 32px);
+        height: min(640px, root.height - 32px);
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        VerticalLayout {
+            padding: 18px;
+            spacing: 12px;
+            Text { text: "Search catalog"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: "Index saved PDFs once, then search their text. Protected files are excluded."; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
+            HorizontalLayout {
+                spacing: 8px;
+                PanelButton { text: "Add PDFs…"; enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 1, 0, ""); } }
+                PanelButton { text: "Open catalog…"; enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 4, 0, ""); } }
+                PanelButton { text: "Build and save…"; primary: true; enabled: !root.tab.reader.catalog-busy && root.tab.reader.catalog-files.length > 0; clicked => { ReaderBridge.catalog-action(root.tab.id, 3, 0, ""); } }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                query := TextField { placeholder: "Words or phrase"; horizontal-stretch: 1; accepted => { ReaderBridge.catalog-action(root.tab.id, 5, 0, query.text); } }
+                PanelButton { text: "Search"; enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 5, 0, query.text); } }
+            }
+            HorizontalLayout {
+                spacing: 16px;
+                VerticalLayout {
+                    width: 240px;
+                    spacing: 8px;
+                    Text { text: "Sources · " + root.tab.reader.catalog-files.length; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    ScrollView {
+                        VerticalLayout {
+                            spacing: 6px;
+                            for path[k] in root.tab.reader.catalog-files: Rectangle {
+                                height: 68px;
+                                border-width: 1px;
+                                border-color: Theme.input-border;
+                                border-radius: Theme.radius-small;
+                                VerticalLayout {
+                                    padding: 6px;
+                                    spacing: 4px;
+                                    Text { text: path; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
+                                    PanelButton { text: "Remove"; enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 2, k, ""); } }
+                                }
+                            }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 8px;
+                    horizontal-stretch: 1;
+                    Text { text: "Results"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    ScrollView {
+                        VerticalLayout {
+                            spacing: 6px;
+                            for hit[k] in root.tab.reader.catalog-hits: Rectangle {
+                                height: 90px;
+                                border-width: 1px;
+                                border-color: Theme.input-border;
+                                border-radius: Theme.radius-small;
+                                VerticalLayout {
+                                    padding: 6px;
+                                    spacing: 4px;
+                                    Text { text: hit.file + " · " + hit.page; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
+                                    Text { text: hit.line; font-size: Theme.fs-label; color: Theme.text; overflow: elide; }
+                                    PanelButton { text: "Open page"; clicked => { ReaderBridge.catalog-action(root.tab.id, 6, k, ""); } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Text { text: root.tab.reader.catalog-status; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; max-height: 54px; overflow: elide; }
+            HorizontalLayout {
+                spacing: 8px;
+                if root.tab.reader.catalog-busy: PanelButton { text: "Cancel operation"; clicked => { ReaderBridge.catalog-action(root.tab.id, 7, 0, ""); } }
+                Rectangle { horizontal-stretch: 1; }
+                PanelButton { text: "Close"; clicked => { ReaderBridge.catalog-action(root.tab.id, 0, 0, ""); root.focus-pages(); } }
+            }
+        }
+    }
+}

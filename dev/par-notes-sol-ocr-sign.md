@@ -191,3 +191,25 @@
   labelled as such. Panel rendering, keyboard traversal and large-document timing unverified.
 - Proposed grade: C-optimize-009: f8 a7 p7 — live correction/undo test above, panel in
   `ui/screens/ocr-review.slint`, thread validation in `reader_doc/mod.rs`. No joint 9 claim.
+
+## Second pass — C-optimize-015
+
+- C-optimize-015: More → More tools → Search catalog opens a dedicated manager (Acrobat's
+  Catalog). Add/remove saved PDFs, build/save a JSON catalog, open/import an existing catalog,
+  search phrases, and open a result at its page, including an already-open PDF. Source paths
+  distinguish equal file names. Rebuild saves to a new file; source changes invalidate old hits.
+  Build progress, cancellation, missing/changed sources, errors and no results have visible states.
+  Work runs off the UI thread; closing drops late replies. Folder Search still reuses a catalog
+  saved as `.sheaf-index.json` in its folder.
+- Tests written: `catalog_manager_can_reopen_sources_and_rebuild_after_a_removal`,
+  `closing_a_catalog_cancels_work_and_reopening_cannot_accept_its_reply`,
+  `catalog_selection_deduplicates_sources_in_order`. New public helper `Catalog::sources`.
+  No new dependency; tests not run under rule 1.
+- `not automatable: More tools → Search catalog; add two PDFs, remove/readd one, build, search,
+  open a result, reopen the catalog, cancel a build, then change a source and search again —
+  app execution forbidden to this worker; orchestrator must check small/large windows too`.
+- Left: no Acrobat PDX interchange, folder picker/recursive catalog creation, or incremental
+  updates; rebuild rereads sources. Catalog search cancellation discards the reply but does not
+  interrupt an in-progress file fingerprint. Large catalogs and visual fit remain unmeasured.
+- Proposed grade: C-optimize-015: f8 a7 p7 — manager/rebuild tests above,
+  `ui/screens/catalog.slint`, `reader_ui/catalog.rs`. No joint 9 claim.

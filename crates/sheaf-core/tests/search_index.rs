@@ -24,3 +24,20 @@ fn protected_sources_and_cancelled_catalog_builds_are_refused() {
     let protected = security::protect(&Input::new(&source), "secret", None, &t.path().join("protected.pdf")).unwrap();
     assert!(Catalog::build(&[Input { path: protected, password: Some("secret".into()) }], &mut |_, _| true).unwrap_err().to_string().contains("protected text"));
 }
+
+#[test]
+fn catalog_manager_can_reopen_sources_and_rebuild_after_a_removal() {
+    let t = tempfile::tempdir().unwrap();
+    let a = common::fixture_pdf(t.path(), "a.pdf", 2);
+    let b = common::fixture_pdf(t.path(), "b.pdf", 1);
+    let catalog = Catalog::build(&[Input::new(&a), Input::new(&b)], &mut |_, _| true).unwrap();
+    let path = catalog.save(&t.path().join("catalog.json")).unwrap();
+    let reopened = Catalog::load(&path).unwrap();
+    assert_eq!(reopened.sources(), [(a.canonicalize().unwrap(), 2), (b.canonicalize().unwrap(), 1)]);
+    let remaining: Vec<_> = reopened.sources().into_iter().skip(1).map(|(path, _)| Input::new(path)).collect();
+    let rebuilt = Catalog::build(&remaining, &mut |_, _| true).unwrap();
+    assert_eq!(rebuilt.search("Page 1").unwrap().len(), 1);
+    assert!(rebuilt.search("Page 2").unwrap().is_empty());
+    assert!(rebuilt.save(&path).is_err(), "a failed rebuild cannot replace the previous catalog");
+    assert_eq!(Catalog::load(&path).unwrap().sources().len(), 2);
+}
