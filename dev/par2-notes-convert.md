@@ -1,0 +1,44 @@
+# Round 30 — convert
+
+## Tatouages
+
+- 2026-10-27: `/tmp/f5/v2/brief.md` and `convert.json` define this batch. Work only in `/tmp/f5/w2-convert`, branch `par2/convert`. Display :113 only; no network features; one build command at a time. One commit and push per component. Mac-only verification must be disclosed.
+- The task-specific brief supersedes the general dev startup full GUI suite and shared-file splitting: use the prescribed worker build and scoped smoke steps, keep shared-file changes small.
+
+## Polaroid
+
+Active: finish PDF/A a/u integration, app build, smoke 330/331/335/336 and final lint/unit. Excel/PPTX/Markdown/SANE targeted tests are green. App bootstrap exceeded the 6 GB cap; retry serially after the final Slint change. Current core test run: run-u4605 (session 21669), rebuilt preflight after fixing binary font streams mistaken for CMYK. No GUI result is claimed yet. Prerequisite YCCK/job-budget fix pushed as e6db6d8.
+
+## Components
+
+- C-convert-010: iLovePDF-style two-row text tables use alignment and wide gutters, without a capital-letter requirement. Lowercase and uncased scripts are covered by `two_row_text_tables_accept_lowercase_and_uncased_cells`; the generated XLSX is reopened by `two_lowercase_text_rows_are_exported_as_four_separate_cells` in both sheet modes. Verified: Excel 10/10 and core library 113/113 (`run-u4441`), with a failing pre-fix control (`run-u4430`).
+- C-convert-011: iLovePDF-style editable slide tables retain the source height even below the former half-scale floor. Padding is tightened before reducing the font; there is no 50% floor (`pptx_dense_small_type_table_has_no_half_scale_floor_or_fixed_margins`). Verification pending. Very small rows below DrawingML's 1 pt text limit remain a practical limitation; no claim of full arbitrary-density parity.
+- C-convert-007: Stirling-style CommonMark image syntax, reference pictures, nested link/image syntax, escaped alt text and original source-base resolution. `markdown_images_are_images_with_escaped_alt_and_nested_destinations`, `markdown_conversion_keeps_source_base_and_refuses_remote_pictures`, `markdown_relative_and_reference_pictures_survive_original_and_paper_conversion`. Verification pending. Remote images are refused under the brief's offline-only requirement. ZIP Markdown bundles/ebook input remain absent: searched `epub|mobi|ebook|azw` in app/core; `export.rs` only provides EPUB output. This closes the named image gap, not every Stirling other-format input.
+- C-convert-006: Acrobat's Scan to PDF now has a SANE path on macOS instead of unconditional refusal; Finder can find Homebrew/MacPorts installations. WIA and SANE share decoded-image validation, remove stale/partial output and preserve driver error text. `sane_scans_at_300_dpi_to_a_path_with_spaces_and_rejects_driver_failures`, `success_without_a_page_or_with_invalid_pixels_is_refused`, `finder_without_a_shell_path_finds_an_installed_scanner`, smoke 330. Verification pending. not automatable: native macOS Image Capture/scanner hardware — this Linux worker cannot build/run Apple's framework or attach the device; SANE fallback is implemented, native Image Capture integration is not. No claim of native Preview/Acrobat parity.
+- C-organize-011: Preview's Insert from Scanner uses that same adapter. Smoke 331 covers real process invocation (fake driver, no image-copy seam), saved inserted pixels, original page order and Undo/Redo. Verification pending. Native Image Capture integration remains absent; clipboard path unchanged.
+- C-convert-018: in progress. Existing 1b/2b/3b conversion is verified (8 tests). New a/u profile modules and tests are written but not yet compiled: preserve tags, check all used text codes including Form/annotation appearances, validate missing tags/language/alt text, keep requested metadata and gate publication on the strict policy. Supplementary Unicode and ligatures are covered; unsupported composite encodings/inherited CMaps and excessive complexity must report an issue rather than claim conformance. Source: [PDF Association, Appendix A](https://pdfa.org/wp-content/uploads/2024/06/Understanding-private-data-in-PDFA.pdf). UI/CLI registration and live verification pending.
+- C-convert-019: not completed against full Acrobat parity. Inspected `press.rs`, `reader_ui/prepress.rs`, `preflight_profiles.rs`, press tests and Acrobat Standards plugin inventory. Existing local PDF/X-1a, X-3, X-4 exports, ICC selection and structural validation were found; PDF/E conversion is absent. A new engineering-standard converter and validator are beyond these targeted fixes; PDF/X markers are not a substitute. Existing press tests will be run in the final suites.
+- C-convert-020: deliberately excluded by the task brief, hard rule 4 (no online services). Inspected `options.slint`'s local-processing/LibreOffice labels and job routing. Online/local switching would contradict the mandate. Existing offline behaviour is retained; no full iLovePDF choice parity claimed.
+
+## References inspected
+
+- iLovePDF `tools/PdfToExcelTool.qml`, `tools/PdfToPowerPointTool.qml`, `tools/PdfToPdfATool.qml`, `models/ConformanceModel.qml`; Stirling `ConvertMarkdownToPdf.java` (CommonMark and image resources); Preview scanner resource inventory; Acrobat Standards/Scan plugin inventory. Archives read in place, none extracted wholesale.
+
+## Dependencies and hygiene
+
+- Quota checked from the live worker session: 20% of the weekly window consumed (the local `oai-usage.py` probe was unavailable; session rate-limit event used).
+
+- New direct dependency: `pulldown-cmark` 0.13.4 (already transitive), HTML rendering feature; new transitive `pulldown-cmark-escape` 0.11.0. Pure Rust, local parsing, no runtime service or download. The former ad-hoc Markdown parser is deleted.
+- Startup hygiene: 58.4 GB free; three findings: orchestrator's 18 worktrees, active test temp files, pre-existing oversized `run.rs`. Scanner logic is moved to its own module and `run.rs` becomes smaller. Other workers' trees/caches and recorder untouched.
+- Wrapper observation: `/tmp/f5/v2/wbuild.sh` streams child output to the systemd journal and its targeted-test pipeline can report EXIT 0 even after cargo termination. Targeted runs will be checked against the actual cargo test verdict, not just the wrapper exit. Suite commands preserve their own verdicts.
+
+## Verification observations
+
+- Red controls observed on pre-fix code: Excel lowercase table reports 0 tables instead of 1 (`run-u4430`); Markdown image test renders `!<a>` (`run-u4431`); PPTX 100-row table reports 560 pt instead of 500 pt (`run-u4432`). Production fixes restored after each control.
+- First core library run: 112 passed / 1 pre-existing CMYK grayscale failure. Root cause is `compress::cmyk_jpeg_rgb` refusing YCCK output in its identity-Decode branch; the existing test generates YCCK via ImageMagick. Added native YCCK passthrough plus YCbCr-to-CMYK interpretation without changing the test. This prerequisite fix needs a separate commit; orchestrator should reconcile it with the optimize worker's CMYK work.
+- Excel's legacy letter fixture placed four short words in the exact wide aligned geometry of a 2×2 table, and depended on the removed case rule to reject it. That same x=220 fixture is retained and now asserts one table and the exact four cell values under the requested geometric rule; a second x=110 prose-sized-gap fixture still asserts zero tables. No fixture was dropped and no salutation dictionary or case heuristic was added. This geometry cannot distinguish a deliberately spaced salutation from a 2×2 table without semantic source tags.
+
+- Targeted green after the prerequisite fix and the documented Excel fixture correction: core library 113/113; Excel 10/10; Office/Markdown 16/16 (including painted red pixels); existing PDF/A 8/8 (`run-u4441`); pdfcraft-export 45/45, including dense PPTX and package checks (`run-u4437`). The later a/u tests were not part of this run.
+
+- Impress is not installed (`libsdlo.so` absent): the pre-existing `pptx_opens_in_libreoffice` check skips at runtime. PPTX geometry and OOXML package tests ran; no PowerPoint/Impress visual opening is claimed. not automatable: open the dense exported deck in PowerPoint/Impress — that application is unavailable on this worker.
+- PDF/A reporting will say “Checks passed” / “did not pass checks”: unsupported validation is not proof of an ISO violation, and passing built-in structural checks is not full ISO certification. The same producer is used by CLI and app; existing exact-wording tests are updated with the new result copy.
