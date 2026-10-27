@@ -359,6 +359,11 @@ pub fn update_platform(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::platform::
     update_prefs(ui, |p| f(&mut p.platform));
 }
 
+/// Preferences ▸ AI changed and saved (src/ai_ui.rs).
+pub fn update_ai(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::ai_store::AiPrefs)) {
+    update_prefs(ui, |p| f(&mut p.ai));
+}
+
 fn push_prefs(ui: &AppWindow) {
     let p = prefs();
     ui.set_theme_pref(p.theme.mode());

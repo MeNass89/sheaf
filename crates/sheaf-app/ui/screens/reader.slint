@@ -12,6 +12,8 @@ import { SignatureManagerSheet } from "signature-manager.slint";
 import { SecurityPolicySheet } from "security-policy.slint";
 import { CatalogSheet } from "catalog.slint";
 import { OcrReviewPanel } from "ocr-review.slint";
+import { AiPanel } from "ai-panel.slint";
+import { AiBridge } from "../ai.slint";
 import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
@@ -1312,6 +1314,14 @@ export component ReaderScreen inherits Rectangle {
     }
     if root.tab.reader.catalog-open: CatalogSheet {
         tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
+    if AiBridge.open && AiBridge.tab == root.tab.id: AiPanel {
+        x: parent.width - self.width;
+        y: 46px;
+        width: min(380px, parent.width - 24px);
+        height: parent.height - self.y;
+        id: root.tab.id;
         focus-pages => { keys.focus(); }
     }
     if root.tab.reader.ocr-review-open: OcrReviewPanel {

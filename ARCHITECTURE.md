@@ -51,6 +51,17 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
   `third_party/pdfcraft-engine/src/action_scripts.rs` inventories and edits page/link JavaScript
   targets without replacing other actions; `js::ActionScriptTarget` identifies each event.
 
+## AI
+
+- `crates/sheaf-core/src/ai/`: providers (OpenAI, Anthropic, Gemini, Mistral, xAI, OpenAI-compatible,
+  Ollama, llama.cpp), their requests and errors over `ureq` (`mod.rs`); chunking and map-reduce for
+  ask, summarize, translate, podcast, slides and classify (`tasks.rs`); slides to PDF or PPTX
+  (`deck.rs`); AI spaces (`spaces.rs`). Only text is sent. Tests: `tests/ai.rs` (mock server).
+- `crates/sheaf-app/src/ai_store.rs` (Preferences ▸ AI, keys encrypted in `ai-keys.secure`),
+  `src/ai_ui.rs` (the panel and preferences, requests on a worker thread),
+  `src/reader_ui/ai_doc.rs` (the open document's text and selection), `ui/ai.slint` (`AiBridge`),
+  `ui/screens/ai-panel.slint`, `ui/screens/preferences-ai.slint`. CLI: `sheaf ask | summarize | translate`.
+
 ## Entry points
 
 - GUI: `crates/sheaf-app/src/main.rs` builds the window from `ui/main.slint` and wires every callback.

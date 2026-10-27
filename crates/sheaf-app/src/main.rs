@@ -21,6 +21,7 @@ mod wm_preview;
 mod reader_ui;
 mod reader_doc;
 mod platform_ui;
+mod ai_ui;
 mod windows;
 
 use std::cell::RefCell;
@@ -647,6 +648,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire_reader(&ui);
     // Check spelling, the menu bar's shortcuts, tools shown, direction (ui/platform.slint).
     platform_ui::install(&ui);
+    ai_ui::install(&ui);
     wire!(ui, on_unsaved_answer, |ui, a| flow::unsaved_answer(&ui, a));
     let weak = ui.as_weak();
     ui.window().on_close_requested(move || match weak.upgrade() {
