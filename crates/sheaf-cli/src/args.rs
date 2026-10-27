@@ -604,6 +604,34 @@ pub(crate) enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Encrypt a PDF for local recipients using RSA certificates and AES-256
+    EncryptCertificates {
+        /// The unsigned PDF to encrypt
+        input: PathBuf,
+        /// Recipient X.509 certificate files (PEM or DER); include your own to reopen
+        #[arg(long = "recipient", required = true, num_args = 1..)]
+        recipients: Vec<PathBuf>,
+        /// Encrypt all contents, leave metadata clear, or encrypt embedded files only
+        #[arg(long, value_enum, default_value = "all")]
+        scope: CliCertificateScope,
+        /// The certificate-encrypted PDF to write
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Save an authorized unprotected copy using a local PKCS#12 recipient digital ID
+    UnlockCertificate {
+        /// The Adobe.PubSec S5 AES-256 PDF to unlock
+        input: PathBuf,
+        /// A recipient's local PKCS#12 digital ID file (.p12 or .pfx)
+        #[arg(long)]
+        identity: PathBuf,
+        /// Password for the digital ID file
+        #[arg(long)]
+        id_password: String,
+        /// The unprotected PDF copy to write; the encrypted original is retained
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Build a reusable full-text catalog for a set of PDFs (Acrobat's Catalog)
     Index {
         /// PDF files or folders to include recursively in the catalog
@@ -642,6 +670,22 @@ pub(crate) enum Cmd {
     Tools,
     /// Serve every command as a tool over the Model Context Protocol (JSON-RPC on stdio)
     Mcp,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliCertificateScope {
+    /// Encrypt every string and content stream
+    All,
+    /// Encrypt contents, leaving XMP metadata readable
+    ExceptMetadata,
+    /// Encrypt embedded file streams while leaving page contents readable
+    Attachments,
+}
+impl CliCertificateScope {
+    pub fn core(self) -> sheaf_core::certificate_security::Scope {
+        use sheaf_core::certificate_security::Scope;
+        match self { Self::All => Scope::All, Self::ExceptMetadata => Scope::ExceptMetadata, Self::Attachments => Scope::Attachments }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -1029,6 +1073,13 @@ mod help_tests {
     use clap::CommandFactory;
 
     /// Every option, input and enumerated value of every command says what it is in `--help`.
+    #[test]
+    fn offline_certificate_commands_require_recipients_identity_and_explicit_scope() {
+        assert!(Cli::try_parse_from(["sheaf", "encrypt-certificates", "input.pdf", "--recipient", "alice.cer", "bob.pem", "--scope", "except-metadata", "-o", "encrypted.pdf"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "encrypt-certificates", "input.pdf", "-o", "encrypted.pdf"]).is_err());
+        assert!(Cli::try_parse_from(["sheaf", "unlock-certificate", "encrypted.pdf", "--identity", "alice.p12", "--id-password", "secret", "-o", "copy.pdf"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "unlock-certificate", "encrypted.pdf", "-o", "copy.pdf"]).is_err());
+    }
     #[test]
     fn catalog_advanced_cli_modes_and_conflicting_case_options_are_validated() {
         assert!(Cli::try_parse_from(["sheaf", "search-index", "catalog.json", "red AND blue", "--mode", "boolean", "--whole-words"]).is_ok());

@@ -746,3 +746,34 @@ C-security-008: f8 a7 p8 — `tests/security.rs:222` exact PDF permissions/AES c
 - Left: certificate policies depend on C-security-007; Acrobat settings-file interoperability,
   runtime and visual verification remain. Network features remain out. Proposed f9 a8 p8 for
   password policies; f8 a8 p8 overall while certificate policies are unavailable.
+
+## Fourth pass — C-security-007 (partial implementation)
+
+- C-security-007: `sheaf encrypt-certificates FILE --recipient alice.cer bob.pem --scope
+  all|except-metadata|attachments -o encrypted.pdf` now writes Adobe.PubSec S5 AES-256 PDFs
+  with CMS RSA key-transport envelopes. Include the sender as a recipient to retain access.
+  `unlock-certificate FILE --identity alice.p12 --id-password … -o copy.pdf` uses the authorized
+  private key in Rust and produces a copy the existing Sheaf reader can open. No OpenSSL,
+  Ghostscript, keyring command, or network is needed at runtime. X.509 DER/PEM imports reuse
+  the existing parser; signing-only, non-RSA, short-key, expired and unknown-critical-extension
+  certificates are refused. Full saves avoid obsolete object streams and never overwrite.
+- Tests written: `certificate_encryption_reopens_for_each_recipient_and_preserves_every_content_scope`
+  (two recipients, outsider denial/no output, all three scopes, text/metadata/attachment roundtrip,
+  engine reopen) and `certificate_encryption_refuses_wrong_usage_invalid_inputs_and_does_not_overwrite`.
+  Test identities and real signed X.509 encryption certificates are made in Rust, with no
+  subprocess fixture dependency. CLI test `offline_certificate_commands_require_recipients_identity_and_explicit_scope`.
+- New public core module `certificate_security::{Scope, encrypt, unlock}`. Existing transitive
+  pure-Rust `rsa = 0.10.0-rc.18` (encoding/std) and `pdfcraft-cos` are now direct dependencies
+  in workspace/sheaf-core; getrandom gains `sys_rng`. No new native dependency or new version
+  of an existing package. Orchestrator updates the dependency edges in Cargo.lock.
+- Format reference (ideas translated, no copied implementation): pyHanko's public-key handler,
+  `https://github.com/MatthiasValvekens/pyHanko/blob/master/pkgs/pyhanko/src/pyhanko/pdf_utils/crypt/pubkey.py`
+  and permissions.py: SHA-256(seed + encoded envelopes + optional metadata marker), big-endian
+  permission word, one CMS string for an attachment-only nondefault crypt filter. CMS is
+  encoded through the existing DER writer and AES uses lopdf's existing Rust crypt filter.
+- Left: CLI only, all recipients have full permissions, no certificate policy library or direct
+  private-key prompt in the reader. Opening an authorized copy is explicit, not transparent.
+  Legacy S3/S4/RC4/AES-128, EC key agreement, external encrypted object streams, named stream
+  Crypt overrides and nondefault filter names are refused clearly. Independent Acrobat/
+  pyHanko interoperability, visual fit, compilation and runtime tests are still unverified.
+  Proposed f5 a2 p7; this moves the absent component forward, without a joint 9 claim.

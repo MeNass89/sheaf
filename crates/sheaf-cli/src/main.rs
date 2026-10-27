@@ -67,7 +67,7 @@ impl Cmd {
             Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } | Cmd::Ocr { .. } |
             Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } | Cmd::Compare { .. } | Cmd::Redact { .. } |
             // Sign refuses protected inputs.
-            Cmd::Sign { .. } |
+            Cmd::Sign { .. } | Cmd::EncryptCertificates { .. } | Cmd::UnlockCertificate { .. } |
             Cmd::Edit { .. } | Cmd::CorrectOcr { .. } | Cmd::ApplySecurityPolicy { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
             // They write no PDF.
@@ -81,7 +81,9 @@ impl Cmd {
         match self {
             Cmd::Split { out, .. } | Cmd::ToJpg { out, .. } => Some(out),
             Cmd::ReviewOcr { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Tools | Cmd::Mcp => None,
-            Cmd::CorrectOcr { out, .. }
+            Cmd::EncryptCertificates { out, .. }
+            | Cmd::UnlockCertificate { out, .. }
+            | Cmd::CorrectOcr { out, .. }
             | Cmd::SaveSecurityPolicy { out, .. }
             | Cmd::ApplySecurityPolicy { out, .. }
             | Cmd::Index { out, .. }
@@ -384,6 +386,19 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             Ok(vec![])
         }
         Cmd::Render { input: i, page, dpi, out } => one(images::render_png(&input(i), page as usize - 1, dpi, &out)),
+        Cmd::EncryptCertificates { input: source, recipients, scope, out } => {
+            let certificates = recipients.iter().map(|path| {
+                let bytes = std::fs::read(path)?;
+                let der = sheaf_core::pdfcraft::certificate_der(&bytes).ok_or_else(|| OpdfError::Unsupported(format!("{} is not an X.509 certificate", path.display())))?;
+                sheaf_core::pdfcraft::engine::sign::Certificate::parse(&der).map_err(|e| OpdfError::Unsupported(e.to_string()))
+            }).collect::<sheaf_core::Result<Vec<_>>>()?;
+            note!("Offline RSA/AES-256 encryption. All recipients have full permissions; include the sender's certificate to reopen. Reopen via unlock-certificate; external object streams are not supported yet.");
+            one(sheaf_core::certificate_security::encrypt(&input(source), &certificates, scope.core(), &out))
+        }
+        Cmd::UnlockCertificate { input, identity, id_password, out } => {
+            let identity = sheaf_core::pdfcraft::engine::sign::pkcs12::open(&std::fs::read(identity)?, &id_password).map_err(|e| OpdfError::Unsupported(e.to_string()))?;
+            one(sheaf_core::certificate_security::unlock(&input, &identity, &out))
+        }
         Cmd::Index { inputs, update, out } => {
             let inputs: Vec<Input> = inputs.into_iter().map(input).collect();
             let catalog = match update {
