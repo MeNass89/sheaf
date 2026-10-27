@@ -23,9 +23,10 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 
 ## Guided actions
 
-- `crates/sheaf-app/src/action_import.rs`: lossless supported Stirling Automate/Folder Scanning JSON translation.
+- `crates/sheaf-app/src/action_import.rs`: supported Stirling Automate/Folder Scanning translation with explicit native-conversion limits.
 - `crates/sheaf-app/src/actions.rs`: portable action JSON, ordered tool configurations,
-  suggested actions, persistence and sequential execution without replacing originals.
+  suggested actions, persistence and sequential execution without replacing originals; native
+  output formats and run-from-working-bytes snapshots preserve unsaved reader edits.
 - `crates/sheaf-app/src/actions_ui.rs` and `ui/screens/actions.slint`: Home's Actions page,
   step editor, filtered suggested/saved/custom lists, reader custom palette, import/export,
   worker-thread progress and editable pauses. Guided actions is reachable from Tools and the reader.
@@ -41,11 +42,14 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 - `crates/sheaf-app/src/library.rs`, `src/library_ui.rs` and `ui/screens/library.slint`:
   private local files, immutable versions, reader working copies, export, restore and bounded
   ZIP imports with retained folder metadata, file filters and recoverable working copies.
+  Catalogue sorting, folder moves, native raster thumbnails and 96-card pages live in the same modules.
   The reader Save hook checkpoints files and refreshes the list; tab closure releases its checkout.
 
 - `crates/sheaf-app/src/reader_ui/javascript.rs` and `ui/screens/javascript.slint`: active
-  document JavaScript console and named document scripts; `reader_doc` executes at the visible
+  document JavaScript console and document/field/page/link script editing; `reader_doc` executes at the visible
   page and returns output, form changes and local viewer requests for navigation/focus/print/Save As.
+  `third_party/pdfcraft-engine/src/action_scripts.rs` inventories and edits page/link JavaScript
+  targets without replacing other actions; `js::ActionScriptTarget` identifies each event.
 
 ## Entry points
 

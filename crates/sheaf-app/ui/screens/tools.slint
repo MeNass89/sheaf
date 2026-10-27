@@ -1,3 +1,5 @@
+import { ActionBridge } from "actions.slint";
+import { SecondaryButton } from "dialogs.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolCard, ToolCardView } from "../widgets/tool-card.slint";
@@ -73,6 +75,7 @@ export component ToolsScreen inherits Rectangle {
                 vertical-alignment: center;
                 horizontal-stretch: 1;
             }
+            SecondaryButton { text: "Custom tools"; clicked => { ActionBridge.command("custom-tools", 0); } }
             // Search tools (Stirling's tool search): a name, a word, or letters in order.
             Rectangle {
                 y: (parent.height - self.height) / 2;

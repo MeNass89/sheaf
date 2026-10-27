@@ -1,6 +1,6 @@
 import { PrimaryButton } from "../widgets/button.slint";
 import { Check as CheckBox } from "../widgets/check.slint";
-import { ScrollView } from "std-widgets.slint";
+import { ComboBox, ScrollView } from "std-widgets.slint";
 import { Modal, SecondaryButton as Button } from "dialogs.slint";
 import { Thumb } from "../widgets/file-card.slint";
 import { Theme } from "../theme.slint";
@@ -20,6 +20,11 @@ export global LibraryBridge {
     in-out property <string> query;
     in-out property <string> folder;
     in-out property <[string]> folders;
+    in-out property <int> sort;
+    in-out property <int> page-index;
+    in-out property <int> page-count: 1;
+    in-out property <int> total;
+    in-out property <string> move-folder;
     in-out property <int> marked-count;
     in-out property <[string]> working;
     callback command(string, int);
@@ -35,6 +40,7 @@ export component LibraryScreen inherits Rectangle {
         HorizontalLayout {
             spacing: 8px;
             PrimaryButton { text: "Add files…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("add", 0); } }
+            ComboBox { model: ["Name A–Z", "Name Z–A", "Newest", "Oldest", "Largest", "Smallest"]; current-index <=> LibraryBridge.sort; enabled: !LibraryBridge.busy; selected(value) => { LibraryBridge.command("sort", 0); } }
             Button { text: "Refresh"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("refresh", 0); } }
             Rectangle { horizontal-stretch: 1; }
         }
@@ -58,6 +64,19 @@ export component LibraryScreen inherits Rectangle {
             spacing: 8px;
             Button { text: "Export selected…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("export-marked", 0); } }
             Button { text: "Delete selected…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("ask-delete-marked", 0); } }
+        }
+        if LibraryBridge.marked-count > 0: HorizontalLayout {
+            spacing: 8px;
+            Rectangle { height: Theme.field-height; horizontal-stretch: 1; background: Theme.input-bg; border-width: 1px; border-color: Theme.input-border; border-radius: Theme.radius-small;
+                TextInput { x: 10px; width: parent.width - 20px; text <=> LibraryBridge.move-folder; single-line: true; color: Theme.text; accessible-label: "Destination folder, blank for root"; vertical-alignment: center; }
+            }
+            Button { text: "Move selected to folder"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("move-marked", 0); } }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Previous"; enabled: LibraryBridge.page-index > 0 && !LibraryBridge.busy; clicked => { LibraryBridge.page-index -= 1; LibraryBridge.command("page", 0); } }
+            Text { text: "Page " + (LibraryBridge.page-index + 1) + " of " + LibraryBridge.page-count + " · " + LibraryBridge.total + " files"; color: Theme.text-secondary; font-size: Theme.fs-caption; vertical-alignment: center; }
+            Button { text: "Next"; enabled: LibraryBridge.page-index + 1 < LibraryBridge.page-count && !LibraryBridge.busy; clicked => { LibraryBridge.page-index += 1; LibraryBridge.command("page", 0); } }
         }
         if LibraryBridge.rows.length == 0: Text { text: "No files match this folder and filter. Add files or clear the filter."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
         HorizontalLayout {

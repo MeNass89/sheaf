@@ -27,8 +27,14 @@ pub fn refresh(ui: &AppWindow, select: Option<&str>) {
 }
 
 fn render(ui: &AppWindow, select: Option<&str>) {
-    let entries = CATALOG.with(|c| sheaf_app::library::filter_entries(&c.borrow().entries, ui.global::<LibraryBridge>().get_query().as_str(), ui.global::<LibraryBridge>().get_folder().as_str()));
+    let mut entries = CATALOG.with(|c| sheaf_app::library::filter_entries(&c.borrow().entries, ui.global::<LibraryBridge>().get_query().as_str(), ui.global::<LibraryBridge>().get_folder().as_str()));
     let b = ui.global::<LibraryBridge>();
+    sheaf_app::library::sort_entries(&mut entries, b.get_sort());
+    let total = entries.len();
+    let pages = total.div_ceil(96).max(1);
+    let page = (b.get_page_index().max(0) as usize).min(pages - 1);
+    b.set_page_index(page as i32); b.set_page_count(pages as i32); b.set_total(total as i32);
+    let entries = entries.into_iter().skip(page * 96).take(96).collect::<Vec<_>>();
     b.set_marked_count(CATALOG.with(|c| c.borrow().marked.len()) as i32);
     let folders = CATALOG.with(|c| sheaf_app::library::folders(&c.borrow().entries));
     b.set_folders(ModelRc::new(VecModel::from(folders.into_iter().map(slint::SharedString::from).collect::<Vec<_>>())));
@@ -54,7 +60,8 @@ fn render(ui: &AppWindow, select: Option<&str>) {
 fn thumb_key(entry: &Entry) -> String { format!("{}:{}", entry.id, entry.versions.last().map_or(0, |v| v.number)) }
 
 fn thumbnail(ui: &AppWindow, entry: &Entry) {
-    if !entry.name.to_lowercase().ends_with(".pdf") { return; }
+    let ext = std::path::Path::new(&entry.name).extension().unwrap_or_default().to_string_lossy().to_lowercase();
+    if !["pdf", "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff"].contains(&ext.as_str()) { return; }
     let key = thumb_key(entry);
     let needed = CATALOG.with(|c| {
         let mut c = c.borrow_mut();
@@ -66,7 +73,11 @@ fn thumbnail(ui: &AppWindow, entry: &Entry) {
     let Ok(path) = library().path(&entry.id, 0) else { return };
     let weak = ui.as_weak();
     sheaf_app::pool::probes().submit(move || {
-        let result = sheaf_app::viewer::render_page(&sheaf_core::pages::Input::new(path), 0, 120);
+        let result = if ext == "pdf" {
+            sheaf_app::viewer::render_page(&sheaf_core::pages::Input::new(path), 0, 120)
+        } else {
+            sheaf_app::library::raster_thumbnail(&path).map(|(w, h, rgba)| slint::SharedPixelBuffer::clone_from_slice(&rgba, w, h)).map_err(|e| e.to_string())
+        };
         let _ = weak.upgrade_in_event_loop(move |ui| {
             if let Ok(pixels) = result {
                 let image = slint::Image::from_rgba8(pixels);
@@ -97,7 +108,15 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         }
         return;
     }
-    if what == "filter" || what == "folder" { return render(ui, selected(ui).as_ref().map(|e| e.id.as_str())); }
+    if matches!(what, "filter" | "folder" | "sort") { ui.global::<LibraryBridge>().set_page_index(0); return render(ui, selected(ui).as_ref().map(|e| e.id.as_str())); }
+    if what == "page" { return render(ui, selected(ui).as_ref().map(|e| e.id.as_str())); }
+    if what == "move-marked" {
+        let folder = ui.global::<LibraryBridge>().get_move_folder().to_string();
+        let ids = CATALOG.with(|c| c.borrow().marked.iter().cloned().collect::<Vec<_>>());
+        let mut completed = 0; let mut errors = Vec::new();
+        for id in ids { match library().move_to_folder(&id, &folder) { Ok(_) => completed += 1, Err(e) => errors.push(e.to_string()) } }
+        refresh(ui, None); status(ui, format!("Moved {completed} file(s). {}", errors.join(" · "))); return;
+    }
     if what == "mark" {
         if let Some(row) = ui.global::<LibraryBridge>().get_rows().row_data(index as usize) {
             CATALOG.with(|c| { let mut c = c.borrow_mut(); if !c.marked.remove(row.id.as_str()) { c.marked.insert(row.id.to_string()); } });

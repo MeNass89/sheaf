@@ -721,3 +721,104 @@ fn paddle_installations_do_not_require_the_unused_english_recognition_file() {
     std::fs::write(dir.path().join("text-recognition.rten"), []).unwrap();
     assert!(!Models::in_dir(dir.path()).unwrap().reads_accents());
 }
+
+#[test]
+fn wizard_page_ranges_and_mark_settings_edit_only_selected_pages() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::actions::{self, Step}}};
+    let dir = tempfile::tempdir().unwrap();
+    let input = common::fixture_pdf(dir.path(), "pages.pdf", 3);
+    let mut doc = Doc::open(&Input::new(&input)).unwrap();
+    let step = Step::from_id("watermark_options", "24|0.25|0|10|-20|Courier|2|REVIEW").unwrap();
+    doc.apply(actions::command_edit(&step, 3).unwrap()).unwrap();
+    let output = doc.save(&dir.path().join("marked.pdf")).unwrap();
+    let text = common::page_texts(&output);
+    assert!(!text[0].contains("REVIEW")); assert!(text[1].contains("REVIEW")); assert!(!text[2].contains("REVIEW"));
+    doc.apply(actions::command_edit(&Step::KeepPages("1,3".into()), 3).unwrap()).unwrap();
+    let output = doc.save(&dir.path().join("kept.pdf")).unwrap();
+    let text = common::page_texts(&output);
+    assert_eq!(text.len(), 2); assert!(text[0].contains("Page 1")); assert!(text[1].contains("Page 3"));
+    assert!(actions::command_edit(&Step::DeletePages("all".into()), 2).is_err());
+    for bad in ["0", "4", "2-1", "1,", ""] { assert!(actions::page_selection(bad, 3).is_err()); }
+    assert!(Step::from_id("watermark_options", "24|NaN|0|0|0|Courier|all|Bad").is_none());
+    let header = Step::HeaderFooterOptions("0|12|Times-Roman|1|Header".into());
+    assert!(matches!(actions::command_edit(&header, 3).unwrap(), Edit::AddHeaderFooter { pages, settings, .. } if pages == [0] && settings.text[0] == "Header" && settings.font_size == 12.0));
+}
+
+#[test]
+fn wizard_metadata_steps_replace_clear_and_remove_native_metadata() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::actions::{self, Step}}};
+    let dir = tempfile::tempdir().unwrap();
+    let input = common::fixture_pdf(dir.path(), "metadata.pdf", 1);
+    let mut doc = Doc::open(&Input::new(input)).unwrap();
+    doc.apply(actions::command_edit(&Step::SetMetadata("Title|New title".into()), 1).unwrap()).unwrap();
+    assert_eq!(doc.document().info.title.as_deref(), Some("New title"));
+    doc.apply(actions::command_edit(&Step::SetMetadata("Title|".into()), 1).unwrap()).unwrap();
+    assert!(doc.document().info.title.is_none());
+    doc.apply(actions::command_edit(&Step::SetMetadata("Author|Owner".into()), 1).unwrap()).unwrap();
+    doc.apply(actions::command_edit(&Step::RemoveMetadata, 1).unwrap()).unwrap();
+    let out = doc.save(&dir.path().join("clean.pdf")).unwrap();
+    let pdf = lopdf::Document::load(out).unwrap();
+    assert!(pdf.trailer.get(b"Info").is_err() || pdf.get_dictionary(pdf.trailer.get(b"Info").unwrap().as_reference().unwrap()).unwrap().get(b"Author").is_err());
+}
+
+#[test]
+fn accessibility_suggestion_tags_text_and_preserves_existing_tags_by_refusal() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{self, Action, Step}};
+    let bytes = Session::new().create_from_text("Accessible title", "Readable text").unwrap();
+    let action = Action { name: "Prepare".into(), description: String::new(), steps: vec![Step::PrepareAccessibility("fr-FR".into())], builtin: false };
+    let result = actions::run_on(&action, "source.pdf", bytes, |_, _| {}).unwrap();
+    let mut session = Session::new();
+    let id = session.open("prepared.pdf", None, result.bytes.clone(), None).unwrap();
+    let doc = session.get(id).unwrap();
+    assert_eq!(doc.initial_view().language.as_deref(), Some("fr-FR"));
+    assert!(doc.initial_view().display_title); assert!(!doc.tags().is_empty());
+    assert!(actions::run_on(&action, "prepared.pdf", result.bytes, |_, _| {}).is_err());
+    assert!(Step::from_id("prepare_accessibility", "fr--FR").is_none());
+}
+
+#[test]
+fn console_edits_page_and_link_scripts_preserving_other_events_chains_and_undo() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::js::ActionScriptTarget}};
+    let dir = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(dir.path(), &[b"BT ET"]);
+    let mut pdf = lopdf::Document::load(&path).unwrap(); let page = pdf.get_pages()[&1];
+    let close = pdf.add_object(Stream::new(dictionary! {}, b"console.println('close');".to_vec()));
+    let link = pdf.add_object(dictionary! {"Type":"Annot", "Subtype":"Link", "Rect":vec![10.into(),20.into(),100.into(),60.into()],
+        "A": dictionary! {"S":"JavaScript", "JS":Object::string_literal("console.println('link');"), "Next":dictionary! {"S":"URI","URI":Object::string_literal("https://example.test")}},
+        "AA":dictionary! {"E":dictionary! {"S":"JavaScript","JS":Object::string_literal("console.println('enter');")}}
+    });
+    let pd = pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap();
+    pd.set("AA", dictionary! {"O":dictionary! {"S":"JavaScript","JS":Object::string_literal("console.println('open');")}, "C":dictionary! {"S":"JavaScript","JS":close}});
+    pd.set("Annots", vec![link.into()]); pdf.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(path)).unwrap();
+    let scripts = doc.document().console_scripts(); assert_eq!(scripts.iter().filter(|s| s.target.is_some()).count(), 4);
+    assert!(scripts.iter().any(|s| s.source.contains("close")));
+    let open = ActionScriptTarget {page:0, link:None, event:"O".into()};
+    doc.apply(Edit::SetActionScript {target:open.clone(), script:Some("console.println('updated');".into())}).unwrap();
+    assert!(doc.document().console_scripts().iter().any(|s| s.target.as_ref() == Some(&open) && s.source.contains("updated")));
+    let activate = ActionScriptTarget {page:0, link:Some(0), event:"A".into()};
+    doc.apply(Edit::SetActionScript {target:activate.clone(), script:Some("console.println('é');".into())}).unwrap();
+    let output = doc.save(&dir.path().join("edited.pdf")).unwrap();
+    let saved = lopdf::Document::load(output).unwrap();
+    let action = saved.get_dictionary(link).unwrap().get(b"A").unwrap().as_dict().unwrap();
+    assert!(action.get(b"Next").is_ok(), "editing a source preserves its chained action");
+    assert!(doc.apply(Edit::SetActionScript {target:activate.clone(), script:None}).is_err());
+    let id = doc.id(); doc.session_mut().undo(id).unwrap();
+    assert!(doc.document().console_scripts().iter().any(|s| s.target.as_ref() == Some(&activate) && s.source.contains("link")));
+    doc.apply(Edit::SetActionScript {target:open.clone(), script:None}).unwrap();
+    assert!(!doc.document().console_scripts().iter().any(|s| s.target.as_ref() == Some(&open)));
+    assert!(doc.document().console_scripts().iter().any(|s| s.source.contains("close")));
+    assert!(doc.document().console_scripts().iter().any(|s| s.source.contains("enter")));
+}
+
+#[test]
+fn wizard_protection_encrypts_the_final_output_with_only_the_prompted_password() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{self, Action, Step}};
+    let bytes = Session::new().create_from_text("Title", "Body").unwrap();
+    let action = Action { name: "Protect".into(), description: String::new(), builtin: false, steps: vec![Step::Protect(String::new())] };
+    assert!(actions::run_on(&action, "input.pdf", bytes.clone(), |_, _| {}).is_err());
+    let output = actions::run_guided(&action, "input.pdf", bytes, None, |_, _| Some(Step::Protect("runtime secret".into()))).unwrap();
+    let mut session = Session::new();
+    assert!(session.open("output.pdf", None, output.bytes.clone(), None).is_err());
+    assert!(session.open("output.pdf", None, output.bytes, Some("runtime secret")).is_ok());
+}

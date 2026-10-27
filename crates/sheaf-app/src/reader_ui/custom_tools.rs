@@ -12,3 +12,19 @@ pub fn apply(ui: &AppWindow, id: i32, step: &sheaf_app::actions::ActionStep) -> 
     apply_structure(ui, id, edit);
     Ok(())
 }
+
+/// Capture completed reader edits on the UI thread. Arc bytes remain valid if a tab closes or
+/// changes during the batch; opening the file path again would lose those unsaved edits.
+pub fn open_inputs() -> Result<Vec<sheaf_app::actions::ActionInput>, String> {
+    with(|a| {
+        let mut inputs = Vec::new();
+        for tab in &a.tabs {
+            let Some(reader) = &tab.reader else { continue };
+            if reader.edits_in_flight > 0 || reader.structure_pending { return Err("An open PDF is busy. Finish its edit before running the action.".into()); }
+            let path = tab.reader_file.clone().unwrap_or_else(|| PathBuf::from(&reader.name));
+            inputs.push(sheaf_app::actions::ActionInput { path, bytes: reader.snap.bytes.clone(), password: reader.snap.password.clone() });
+        }
+        if inputs.is_empty() { return Err("Open at least one PDF in the reader first".into()); }
+        Ok(inputs)
+    })
+}

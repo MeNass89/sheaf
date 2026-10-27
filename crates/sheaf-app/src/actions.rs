@@ -25,7 +25,8 @@ pub struct ActionStep {
 
 impl ActionStep {
     pub fn from_engine(step: &Step) -> Self {
-        Self { tool: step.id().into(), argument: step.arg().unwrap_or_default().into(), instruction: String::new(), prompt: false, label: String::new(), separator: false }
+        let secret = matches!(step, Step::Protect(_));
+        Self { tool: step.id().into(), argument: if secret { String::new() } else { step.arg().unwrap_or_default().into() }, instruction: if secret { "Enter an open password for this output PDF. It is used only for this file and is never saved in the action.".into() } else { String::new() }, prompt: secret, label: String::new(), separator: false }
     }
 
     pub fn engine(&self) -> Result<Step> {
@@ -41,14 +42,16 @@ pub struct OutputOptions {
     pub prefix: String,
     pub suffix: String,
     pub overwrite: bool,
+    pub format: String,
 }
 
 impl Default for OutputOptions {
-    fn default() -> Self { Self { same_folder: false, prefix: String::new(), suffix: " - processed".into(), overwrite: false } }
+    fn default() -> Self { Self { same_folder: false, prefix: String::new(), suffix: " - processed".into(), overwrite: false, format: "pdf".into() } }
 }
 
 impl OutputOptions {
     fn validate(&self) -> Result<()> {
+        if !["pdf", "docx", "pptx", "html", "rtf", "txt", "md", "png.zip", "jpeg.zip"].contains(&self.format.as_str()) { return Err(invalid("Choose a supported output format")); }
         for part in [&self.prefix, &self.suffix] {
             if part.len() > 100 || part.chars().any(|c| c.is_control() || "<>:\"/\\|?*".contains(c)) {
                 return Err(invalid("Output prefix and suffix need up to 100 bytes without path characters"));
@@ -62,19 +65,32 @@ impl OutputOptions {
         let dir = if self.same_folder { input.parent().unwrap_or(Path::new(".")) } else { out };
         let stem = input.file_stem().unwrap_or_default().to_string_lossy();
         let name = crate::watch_folder::safe_name(&format!("{}{stem}{}", self.prefix, self.suffix));
-        Ok(dir.join(format!("{name}.pdf")))
+        Ok(dir.join(format!("{name}.{}", self.format)))
     }
 }
 
 /// Folder inputs are bounded and never follow symbolic links, as Folder Scanning does.
 pub fn folder_inputs(folder: &Path) -> Result<Vec<PathBuf>> {
+    folder_inputs_recursive(folder, false)
+}
+
+/// Recursive intake is bounded by entries and depth, and never follows symbolic links.
+pub fn folder_inputs_recursive(folder: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
-    for entry in std::fs::read_dir(folder)? {
-        let entry = entry?;
-        if entry.file_type()?.is_file() && entry.path().extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
-            paths.push(entry.path());
+    let mut pending = vec![(folder.to_path_buf(), 0)];
+    let mut visited = 0;
+    while let Some((folder, depth)) = pending.pop() {
+        for entry in std::fs::read_dir(folder)? {
+            let entry = entry?;
+            visited += 1;
+            if visited > 100_000 { return Err(invalid("Choose a folder with at most 100000 entries")); }
+            let kind = entry.file_type()?;
+            if kind.is_file() && entry.path().extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) { paths.push(entry.path()); }
+            if recursive && kind.is_dir() {
+                if depth >= 64 { return Err(invalid("Folder nesting exceeds 64 levels")); }
+                pending.push((entry.path(), depth + 1));
+            }
         }
-        if paths.len() > 100_000 { return Err(invalid("Choose a folder with at most 100000 PDFs")); }
     }
     paths.sort();
     if paths.is_empty() { return Err(invalid("This folder has no PDF files")); }
@@ -108,8 +124,10 @@ impl SavedAction {
         if self.name.trim().is_empty() || self.name.len() > 256 { return Err(invalid("Give the action a name (up to 256 bytes)")); }
         if self.steps.is_empty() || self.steps.len() > 100 { return Err(invalid("An action needs 1–100 steps")); }
         self.output.validate()?;
-        for step in &self.steps {
+        for (index, step) in self.steps.iter().enumerate() {
             step.engine()?;
+            if step.tool == "protect" && (!step.argument.is_empty() || !step.prompt || index + 1 != self.steps.len() || self.output.format != "pdf") { return Err(invalid("Protection must be the final step of PDF output and ask for a password at runtime; saved actions cannot contain passwords")); }
+            if step.tool == "open_tool" && (!self.custom_tool || sheaf_core::tools::ToolId::from_str(&step.argument).is_none() || step.prompt) { return Err(invalid("Toolbox shortcuts belong in custom tool sets and need an existing tool without an action prompt")); }
             if step.label.len() > 256 || step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
         }
         Ok(())
@@ -144,7 +162,7 @@ impl SavedAction {
 pub fn suggested() -> Vec<SavedAction> {
     actions::builtin().into_iter().map(|a| SavedAction {
         version: 1, name: a.name, description: a.description, custom_tool: false, output: OutputOptions::default(),
-        steps: a.steps.iter().map(ActionStep::from_engine).collect(),
+        steps: a.steps.iter().map(|s| { let mut step = ActionStep::from_engine(s); if matches!(s, Step::PrepareAccessibility(_)) { step.prompt = true; step.instruction = "Enter the actual document language (for example fr-FR). Only simple untagged text-only PDFs are supported. Review headings, reading order and accessibility in the output before distributing.".into(); } step }).collect(),
     }).collect()
 }
 
@@ -181,7 +199,9 @@ pub fn load_draft(dir: &Path) -> Result<Option<SavedAction>> {
 pub fn save_draft(dir: &Path, draft: Option<&SavedAction>) -> Result<()> {
     let path = dir.join("action-draft.json");
     if let Some(draft) = draft {
-        let bytes = serde_json::to_vec(draft).map_err(|e| invalid(e.to_string()))?;
+        let mut draft = draft.clone();
+        for step in &mut draft.steps { if step.tool == "protect" { step.argument.clear(); step.prompt = true; } }
+        let bytes = serde_json::to_vec(&draft).map_err(|e| invalid(e.to_string()))?;
         crate::store_file::replace(&path, &bytes)?;
     } else {
         match std::fs::remove_file(path) { Ok(()) => {}, Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}, Err(e) => return Err(e.into()) }
@@ -213,8 +233,20 @@ pub fn run_file_configured(
     before: &mut dyn FnMut(usize, &mut ActionStep) -> bool,
     publish: &mut dyn FnMut() -> bool,
 ) -> Result<PathBuf> {
-    action.validate()?;
     let bytes = Arc::new(std::fs::read(input)?);
+    run_bytes_configured(action, input, bytes, out_dir, password, before, publish)
+}
+
+/// A reader's immutable working state, including applied edits not yet saved to its disk file.
+pub struct ActionInput { pub path: PathBuf, pub bytes: Arc<Vec<u8>>, pub password: Option<String> }
+
+/// Run from an open document snapshot instead of reopening its older disk file.
+pub fn run_bytes_configured(
+    action: &SavedAction, input: &Path, bytes: Arc<Vec<u8>>, out_dir: &Path, password: Option<&str>,
+    before: &mut dyn FnMut(usize, &mut ActionStep) -> bool,
+    publish: &mut dyn FnMut() -> bool,
+) -> Result<PathBuf> {
+    action.validate()?;
     let name = input.file_name().ok_or_else(|| invalid("The input needs a file name"))?.to_string_lossy().into_owned();
     let engine = Action { name: action.name.clone(), description: action.description.clone(),
         steps: action.steps.iter().map(ActionStep::engine).collect::<Result<Vec<_>>>()?, builtin: false };
@@ -228,6 +260,7 @@ pub fn run_file_configured(
     });
     if cancelled { return Err(OpdfError::Cancelled); }
     let bytes = result.map_err(OpdfError::Engine)?.bytes;
+    let bytes = convert_output(bytes, password, &action.output.format, publish)?;
     if !publish() { return Err(OpdfError::Cancelled); }
     let target = action.output.path(input, out_dir)?;
     std::fs::create_dir_all(target.parent().unwrap_or(Path::new(".")))?;
@@ -245,6 +278,38 @@ pub fn run_file_configured(
         std::fs::write(part, bytes.as_slice())?;
         Ok(())
     })
+}
+
+/// Save to other formats in Rust, after the entire action succeeds. Image sets are one ZIP so
+/// cancellation or collisions cannot leave a half-published group of page files.
+pub(crate) fn convert_output(bytes: Arc<Vec<u8>>, password: Option<&str>, format: &str, proceed: &mut dyn FnMut() -> bool) -> Result<Arc<Vec<u8>>> {
+    use sheaf_core::pdfcraft::engine::{Session, compare::OfficeFormat, export::{Exporter, ImageFormat}};
+    if !proceed() { return Err(OpdfError::Cancelled); }
+    if format == "pdf" { return Ok(bytes); }
+    let mut session = Session::new();
+    let id = session.open("Action output.pdf", None, bytes, password).map_err(|e| invalid(e.to_string()))?;
+    let doc = session.get(id).ok_or_else(|| invalid("The action output is unavailable"))?;
+    if !doc.allows_copying() { return Err(invalid("This PDF does not allow copying or export")); }
+    let office = match format {
+        "docx" => Some(OfficeFormat::Docx), "pptx" => Some(OfficeFormat::Pptx),
+        "html" => Some(OfficeFormat::Html), "rtf" => Some(OfficeFormat::Rtf),
+        "txt" => Some(OfficeFormat::Text), "md" => Some(OfficeFormat::Markdown),
+        "png.zip" | "jpeg.zip" => None,
+        _ => return Err(invalid("Unsupported action output format")),
+    };
+    if let Some(office) = office { return Ok(Arc::new(doc.export_office(office))); }
+    let mut exporter = Exporter::new(doc);
+    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for page in 0..doc.info.pages.len() {
+        if !proceed() { return Err(OpdfError::Cancelled); }
+        let png = format == "png.zip";
+        let data = exporter.image(page, 150.0, if png { ImageFormat::Png } else { ImageFormat::Jpeg { quality: 85 } }).map_err(invalid)?;
+        zip.start_file(format!("page-{:04}.{}", page + 1, if png { "png" } else { "jpg" }), zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored))
+            .map_err(|e| invalid(e.to_string()))?;
+        use std::io::Write;
+        zip.write_all(&data)?;
+    }
+    Ok(Arc::new(zip.finish().map_err(|e| invalid(e.to_string()))?.into_inner()))
 }
 
 #[cfg(test)]
@@ -279,7 +344,11 @@ mod tests {
     #[test]
     fn suggested_actions_are_valid_offline_templates_and_survive_copy_edits() {
         let mut presets = suggested();
-        assert_eq!(presets.len(), 9);
+        assert_eq!(presets.len(), 10);
+        let accessibility = presets.iter().find(|a| a.name == "Prepare Accessibility (text-only)").unwrap();
+        assert!(accessibility.steps[0].prompt);
+        assert!(Step::from_id("prepare_accessibility", "fr--FR").is_none());
+        assert!(Step::from_id("open_tool", "bad tool").is_none());
         for preset in &presets { preset.validate().unwrap(); }
         let original = presets[0].clone();
         let mut copy = presets.remove(0);
@@ -432,7 +501,7 @@ mod tests {
         std::fs::write(dir.path().join("skip.txt"), b"skip").unwrap();
         assert_eq!(folder_inputs(dir.path()).unwrap(), std::slice::from_ref(&input));
         let mut a = suggested().remove(3);
-        a.output = OutputOptions { same_folder: true, prefix: "review-".into(), suffix: "-done".into(), overwrite: false };
+        a.output = OutputOptions { same_folder: true, prefix: "review-".into(), suffix: "-done".into(), overwrite: false, ..Default::default() };
         let out = run_file(&a, &input, &dir.path().join("unused"), &mut |_, _| true).unwrap();
         assert_eq!(out, dir.path().join("review-input-done.pdf"));
         assert_eq!(std::fs::read(&input).unwrap(), *bytes);
@@ -458,6 +527,78 @@ mod tests {
             assert!(suggested().contains(template));
         }
         assert!(!all.iter().any(|a| a.name == "Make Accessible"));
+    }
+
+    #[test]
+    fn action_save_to_formats_use_native_writers_and_recursive_inputs_skip_symlinks() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("nested"); std::fs::create_dir(&nested).unwrap();
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Source", "Original body").unwrap();
+        let input = nested.join("input.pdf"); std::fs::write(&input, bytes.as_slice()).unwrap();
+        assert!(folder_inputs(dir.path()).is_err());
+        assert_eq!(folder_inputs_recursive(dir.path(), true).unwrap(), std::slice::from_ref(&input));
+        #[cfg(unix)] {
+            std::os::unix::fs::symlink(dir.path(), nested.join("loop")).unwrap();
+            assert_eq!(folder_inputs_recursive(dir.path(), true).unwrap(), std::slice::from_ref(&input));
+        }
+        let mut action = suggested().remove(3);
+        for format in ["txt", "docx", "html", "png.zip", "jpeg.zip"] {
+            action.output.format = format.into();
+            let output = run_file(&action, &input, dir.path(), &mut |_, _| true).unwrap();
+            assert!(output.to_string_lossy().ends_with(format));
+            let data = std::fs::read(output).unwrap();
+            if format == "txt" || format == "html" { assert!(String::from_utf8(data).unwrap().contains("Original body")); }
+            else { assert!(data.starts_with(b"PK")); }
+        }
+        action.output.format = "unsupported".into(); assert!(action.validate().is_err());
+    }
+
+    #[test]
+    fn custom_toolbox_shortcuts_validate_real_tools_and_never_run_as_batch_edits() {
+        let mut set = SavedAction::empty(); set.custom_tool = true;
+        for tool in sheaf_core::tools::catalogue() {
+            set.steps = vec![ActionStep::from_engine(&Step::OpenTool(tool.id.as_str().into()))];
+            set.validate().unwrap();
+            assert_eq!(SavedAction::import(&set.json().unwrap()).unwrap(), set);
+            assert!(actions::command_edit(&set.steps[0].engine().unwrap(), 1).is_err());
+        }
+        set.steps[0].argument = "unknown".into(); assert!(set.validate().is_err());
+        set.steps[0].argument = "redact".into(); set.custom_tool = false; assert!(set.validate().is_err());
+    }
+
+    #[test]
+    fn native_action_exports_stop_before_rendering_cancelled_pages() {
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Title", "Body").unwrap();
+        assert!(matches!(convert_output(bytes, None, "png.zip", &mut || false), Err(OpdfError::Cancelled)));
+    }
+
+    #[test]
+    fn actions_on_open_documents_use_unsaved_working_bytes_and_keep_disk_originals() {
+        let dir = tempfile::tempdir().unwrap();
+        let session = sheaf_core::pdfcraft::engine::Session::new();
+        let disk = session.create_from_text("Saved", "Saved body").unwrap();
+        let working = session.create_from_text("Working", "Unsaved body").unwrap();
+        let input = dir.path().join("input.pdf"); std::fs::write(&input, disk.as_slice()).unwrap();
+        let action = suggested().remove(3);
+        let output = run_bytes_configured(&action, &input, working, dir.path(), None, &mut |_, _| true, &mut || true).unwrap();
+        let doc = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input::new(output)).unwrap();
+        let text = doc.document().export_office(sheaf_core::pdfcraft::engine::compare::OfficeFormat::Text);
+        assert!(String::from_utf8(text).unwrap().contains("Unsaved body"));
+        assert_eq!(std::fs::read(input).unwrap(), *disk);
+    }
+
+    #[test]
+    fn password_actions_prompt_per_file_and_never_persist_passwords() {
+        let mut action = SavedAction::empty();
+        action.steps = vec![ActionStep::from_engine(&Step::Protect("must not persist".into()))];
+        assert!(action.steps[0].prompt); assert!(action.steps[0].argument.is_empty());
+        assert!(!action.json().unwrap().contains("must not persist"));
+        action.steps[0].argument = "secret".into(); assert!(action.json().is_err());
+        let dir = tempfile::tempdir().unwrap(); save_draft(dir.path(), Some(&action)).unwrap();
+        assert!(!std::fs::read_to_string(dir.path().join("action-draft.json")).unwrap().contains("secret"));
+        assert!(load_draft(dir.path()).unwrap().unwrap().steps[0].argument.is_empty());
+        action.steps[0].argument.clear(); action.steps[0].prompt = false; assert!(action.validate().is_err());
+        action.steps[0].prompt = true; action.output.format = "docx".into(); assert!(action.validate().is_err());
     }
 
 }
