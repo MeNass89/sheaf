@@ -1136,3 +1136,57 @@ G1=$(guide)
 G2=$(guide)
 check "a click on the top ruler makes a guide, a second takes it away (${RU:-no item}; ruler at ${RB:-none}; guide $G0 → $G1 → $G2)" "[ \"$G0\" = 0 ] && [ \"$G1\" = 1 ] && [ \"$G2\" = 0 ]"
 quit
+
+# 220. The menu bar (C-platform-014; Acrobat's and Preview's menus), shown on request (the steps above click where
+# a window without it puts things): File to Help along the top; File lists Save with its shortcut; Window ▸ Home
+# from a reader tab shows Home.
+export SHEAF_TEST_MENU_BAR=1
+cp "$OUT/text.pdf" "$OUT/menubar.pdf"; launch "$OUT/menubar.pdf"; sleep 1
+MB=$(ocr 700x34+0+0)
+FX=$(at File 400x34+0+0); [ -n "$FX" ] && click $FX 0.8
+FM=$(ocr 420x420+0+24); key Escape; sleep 0.4
+read WX _ <<< "$(at Window 700x34+0+0)"
+[ -n "$WX" ] && click $WX 14 0.8
+HM=$(at Home 320x160+$(( ${WX:-20} - 20 ))+24); [ -n "$HM" ] && click $HM 1.2
+HR=$(at Recents 400x400+0+40)
+check "the menu bar shows File to Help, File lists Save with Ctrl+S, Window ▸ Home goes Home ($MB; $(echo "$FM" | grep -o 'Ctrl+S' | head -1); ${HM:-no Home item}; ${HR:-no Recents})" "echo \"$MB\" | grep -q 'File' && echo \"$MB\" | grep -q 'Help' && echo \"$FM\" | grep -q 'Ctrl+S' && [ -n \"$HR\" ]"
+quit
+unset SHEAF_TEST_MENU_BAR
+
+# Preferences scrolled until a word shows in the page (the platform sections are below Signatures).
+pref_find() { local f=""; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
+# The steps below change the platform preferences: put back as they were.
+platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.pop("platform", None); json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
+
+# 221. Preferences ▸ Keyboard shortcuts (C-preferences-013, Stirling's Hotkeys): "find" searched, Find's Ctrl+F
+# clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
+launch; key ctrl+comma; sleep 0.8
+SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "find"; sleep 0.8
+KF=$(at Ctrl+F 1020x700+250+90); [ -n "$KF" ] && click $KF 0.5; key ctrl+alt+f; sleep 0.8
+KG=$(at Ctrl+G 1020x700+250+90); [ -n "$KG" ] && click $KG 0.5; key ctrl+s; sleep 0.8
+KE=$(ocr 1020x700+250+90)
+KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+check "a shortcut recorded in Preferences is kept, one already used is refused (${SQ:-no search}; ${KF:-no Ctrl+F}; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
+quit; platform_reset
+
+# 222. Check spelling while typing (C-edit-013, C-reader-060; Acrobat's and Preview's): a note typed with two
+# misspelt words shows them under the card with corrections, Ignore and Learn; the correction clicked goes in
+# the note (saved). Needs a Hunspell English dictionary (hunspell-en-us) or /usr/share/dict/words.
+cp "$OUT/text.pdf" "$OUT/spelling.pdf"; launch "$OUT/spelling.pdf"; sleep 1
+key n; click 640 400 0.8; xdotool type --delay 15 "A mispelt sentnce here "; sleep 1.5
+SP=$(ocr 1280x710+0+90)
+SC=$(at sentence 1280x710+0+90); [ -n "$SC" ] && click $SC 0.8
+key ctrl+Return; sleep 0.6; key ctrl+s; sleep 1.5
+SN=$(qpdf --qdf --object-streams=disable "$OUT/spelling.pdf" - 2>/dev/null | grep -ao '/Contents ([^)]*)' | tail -1)
+check "misspelt words show under the note with corrections, and one clicked goes in the note (${SC:-no sentence chip}; $SN)" "echo \"$SP\" | grep -q 'Ignore' && echo \"$SP\" | grep -q 'Learn' && echo \"$SN\" | grep -q 'sentence here'"
+quit
+
+# 223. Preferences ▸ Interface ▸ Right to left (C-platform-004, iLovePDF's right-to-left interface): Home's
+# sidebar moves to the window's right edge, back on the left with Left to right.
+launch; key ctrl+comma; sleep 0.8
+RL=$(pref_find Right); [ -n "$RL" ] && click $RL 0.8
+read RX _ <<< "$(at Recents 1280x300+0+40)"
+LR=$(at Left 1280x710+0+90); [ -n "$LR" ] && click $LR 0.8
+read LX _ <<< "$(at Recents 1280x300+0+40)"
+check "right to left puts Home's sidebar on the right, left to right back on the left (Recents at x ${RX:-?}, then ${LX:-?})" "[ \"${RX:-0}\" -gt 1050 ] && [ \"${LX:-9999}\" -lt 250 ]"
+quit; platform_reset

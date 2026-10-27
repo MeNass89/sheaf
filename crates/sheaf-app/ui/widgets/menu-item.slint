@@ -26,7 +26,7 @@ export component MenuItem inherits Rectangle {
     Text {
         x: root.rtl ? 12px : 12px + Theme.menu-icon + Theme.menu-gap;
         width: root.width - 24px - Theme.menu-icon - Theme.menu-gap;
-        horizontal-alignment: root.rtl ? right : left;
+        horizontal-alignment: root.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         visible: !root.collapsed;
         text: root.text;
         font-size: Theme.fs-menu;
