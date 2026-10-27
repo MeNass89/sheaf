@@ -27,6 +27,9 @@ pub struct PlatformPrefs {
     /// The reader's tool letters changed by the user: tool id ([`TOOLS`]) and its key, a lower-case
     /// letter or digit ("" none).
     pub tool_keys: Vec<(String, String)>,
+    /// The spelling dictionaries chosen, in order (language codes, "fr_FR"); none: the system's
+    /// language, then English (Acrobat's dictionary list).
+    pub dictionaries: Vec<String>,
     /// Keys that open a tool of the Tools page (Stirling's tool hotkeys): its `ToolId::as_str` and
     /// the keys as parts ("Control+Alt+M"). None by default.
     pub launch_keys: Vec<(String, String)>,
@@ -297,6 +300,31 @@ pub fn reset_command(p: &mut PlatformPrefs, id: &str) -> Result<(), String> {
     }
     *p = next;
     Ok(())
+}
+
+/// The dictionaries as Preferences ▸ Spelling lists them: those chosen first, in their order, then
+/// the others installed, by language: (code, chosen).
+pub fn dictionary_rows(p: &PlatformPrefs, installed: &[String]) -> Vec<(String, bool)> {
+    let chosen = p.dictionaries.iter().filter(|l| installed.contains(l)).map(|l| (l.clone(), true));
+    let rest = installed.iter().filter(|l| !p.dictionaries.contains(l)).map(|l| (l.clone(), false));
+    chosen.chain(rest).collect()
+}
+
+/// A dictionary ticked or unticked (it goes last among those chosen), or moved up (-1) or down (+1)
+/// among them.
+pub fn dictionary_change(p: &mut PlatformPrefs, lang: &str, step: i32) {
+    let at = p.dictionaries.iter().position(|l| l == lang);
+    match (at, step) {
+        (Some(i), 0) => {
+            p.dictionaries.remove(i);
+        }
+        (None, 0) => p.dictionaries.push(lang.to_string()),
+        (Some(i), _) => {
+            let to = (i as i32 + step).clamp(0, p.dictionaries.len() as i32 - 1) as usize;
+            p.dictionaries.swap(i, to);
+        }
+        (None, _) => {}
+    }
 }
 
 /// Back to the default keys: one command, or all of them (`None`).
@@ -683,5 +711,22 @@ mod tests {
         assign_launch(&mut p, merge, "").unwrap();
         reset_command(&mut p, "save").unwrap();
         assert_eq!(effective(&p, command_index("save").unwrap()), "Control+S");
+    }
+
+    #[test]
+    fn dictionaries_are_chosen_and_ordered() {
+        let installed = ["de_DE".to_string(), "en_US".to_string(), "fr_FR".to_string()];
+        let mut p = PlatformPrefs::default();
+        assert!(dictionary_rows(&p, &installed).iter().all(|(_, on)| !on));
+        dictionary_change(&mut p, "fr_FR", 0);
+        dictionary_change(&mut p, "en_US", 0);
+        assert_eq!(dictionary_rows(&p, &installed), [("fr_FR".into(), true), ("en_US".into(), true), ("de_DE".into(), false)]);
+        // English first, then French; French unticked; a dictionary no longer installed is not shown.
+        dictionary_change(&mut p, "en_US", -1);
+        assert_eq!(p.dictionaries, ["en_US", "fr_FR"]);
+        dictionary_change(&mut p, "fr_FR", 0);
+        p.dictionaries.push("it_IT".into());
+        assert_eq!(dictionary_rows(&p, &installed)[0], ("en_US".into(), true));
+        assert_eq!(dictionary_rows(&p, &installed).len(), 3);
     }
 }

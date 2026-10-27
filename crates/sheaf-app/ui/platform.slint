@@ -28,6 +28,13 @@ export struct Launcher {
     keys: keys,
 }
 
+// Preferences ▸ Spelling: an installed dictionary, chosen or not (those chosen first, in order).
+export struct DictionaryRow {
+    lang: string,
+    name: string,
+    chosen: bool,
+}
+
 export global PlatformBridge {
     // Check Spelling While Typing (Edit menu, Preferences ▸ Spelling).
     in property <bool> spell-on: true;
@@ -38,6 +45,9 @@ export global PlatformBridge {
     // The dictionary in use, or what is missing to have one.
     in property <string> spell-dictionary;
     in property <[string]> learned;
+    // The dictionaries installed; one ticked or unticked (0) or moved up (-1) or down (+1).
+    in property <[DictionaryRow]> dictionaries;
+    callback dictionary-change(string, int);
     // The editor's text changed (checked a moment after typing pauses; `typing`: the last word,
     // still being typed, is left alone); a new editor opened.
     callback spell-check(text: string, typing: bool);
@@ -108,6 +118,7 @@ export global PlatformBridge {
     // Learn, Next (this one left as it is), close.
     callback check-start(int);
     callback check-change(string);
+    callback check-change-all(string);
     callback check-ignore();
     callback check-learn();
     callback check-next();

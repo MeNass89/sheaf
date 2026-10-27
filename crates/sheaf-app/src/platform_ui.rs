@@ -14,7 +14,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use sheaf_app::platform::{self, PlatformPrefs, COMMANDS, TOOLS};
-use sheaf_app::{AppWindow, Launcher, PlatformBridge, ShortcutRow, SpellIssue};
+use sheaf_app::{AppWindow, DictionaryRow, Launcher, PlatformBridge, ShortcutRow, SpellIssue};
 use sheaf_core::spell::Speller;
 use sheaf_core::tools::ToolId;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
@@ -54,7 +54,12 @@ fn with_spell<R>(f: impl FnOnce(&mut Spell) -> R) -> R {
     let spell = guard.get_or_insert_with(|| {
         let langs: Vec<String> = sys_locale::get_locales().take(3).collect();
         let dirs = [sheaf_app::store_file::data_dir().join("dictionaries")];
-        let mut speller = Speller::load(&langs, &dirs);
+        // The dictionaries chosen in Preferences, in their order; else the system's language.
+        let chosen = CHOSEN.lock().map(|c| c.clone()).unwrap_or_default();
+        let mut speller = match Speller::load_chosen(&chosen, &dirs) {
+            Some(s) => Ok(s),
+            None => Speller::load(&langs, &dirs),
+        };
         if let Ok(s) = speller.as_mut() {
             for w in &learned_at_start() {
                 s.learn(w);
@@ -63,6 +68,32 @@ fn with_spell<R>(f: impl FnOnce(&mut Spell) -> R) -> R {
         Spell { speller, corrections: HashMap::new() }
     });
     f(spell)
+}
+
+/// The dictionaries chosen (Preferences ▸ Spelling), for the worker that loads them.
+static CHOSEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// The dictionaries listed in Preferences ▸ Spelling, chosen first.
+fn push_dictionaries(ui: &AppWindow) {
+    let p = home::prefs().platform;
+    let dirs = [sheaf_app::store_file::data_dir().join("dictionaries")];
+    let installed: Vec<String> = sheaf_core::spell::installed_dictionaries(&dirs).into_iter().map(|d| d.lang).collect();
+    let rows: Vec<DictionaryRow> = platform::dictionary_rows(&p, &installed)
+        .into_iter()
+        .map(|(lang, chosen)| DictionaryRow { name: format!("{} · {lang}", sheaf_core::spell::language_name(&lang)).into(), lang: lang.into(), chosen })
+        .collect();
+    ui.global::<PlatformBridge>().set_dictionaries(ModelRc::new(VecModel::from(rows)));
+}
+
+/// The choice of dictionaries changed: read again (the corrections found so far go too).
+fn reload_dictionaries(ui: &AppWindow) {
+    if let Ok(mut c) = CHOSEN.lock() {
+        *c = home::prefs().platform.dictionaries;
+    }
+    *SPELL.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    push_dictionaries(ui);
+    load_dictionary(ui);
+    check_again(ui);
 }
 
 /// The learned words, read on the UI thread when the window starts (the worker cannot reach
@@ -577,6 +608,35 @@ fn check_change(ui: &AppWindow, to: &str) {
     check_advance(ui);
 }
 
+/// Change All (Acrobat's): the misspelt word shown becomes `to` wherever it comes in the comments,
+/// replies and fields still to check, one undo step per text changed.
+fn check_change_all(ui: &AppWindow, to: &str) {
+    if to.trim().is_empty() {
+        return check_change(ui, to);
+    }
+    let put = PASS.with(|p| {
+        let mut p = p.borrow_mut();
+        let pass = p.as_mut()?;
+        let check = pass.check.as_mut()?;
+        let before = check.left();
+        let mut texts: Vec<String> = pass.texts.iter().map(|t| t.2.clone()).collect();
+        let changed = check.change_all(&mut texts, to);
+        pass.changed += before.saturating_sub(check.left());
+        let mut out = Vec::new();
+        for k in changed {
+            pass.texts[k].2 = texts[k].clone();
+            out.push((pass.texts[k].0.clone(), texts[k].clone()));
+        }
+        Some((pass.tab, out))
+    });
+    if let Some((tab, changed)) = put {
+        for (target, text) in changed {
+            crate::reader_ui::spelling_set(ui, tab, &target, &text);
+        }
+    }
+    check_advance(ui);
+}
+
 /// Starts the pass on a reader tab: its texts collected, then scanned on a worker thread.
 fn check_start(ui: &AppWindow, tab: i32) {
     let texts = crate::reader_ui::spelling_texts(tab);
@@ -604,6 +664,10 @@ fn check_start(ui: &AppWindow, tab: i32) {
 /// Wires the global and fills it.
 pub fn install(ui: &AppWindow) {
     let _ = LEARNED.set(home::prefs().platform.learned_words);
+    if let Ok(mut c) = CHOSEN.lock() {
+        *c = home::prefs().platform.dictionaries;
+    }
+    push_dictionaries(ui);
     push(ui);
     load_dictionary(ui);
     let g = ui.global::<PlatformBridge>();
@@ -751,6 +815,12 @@ pub fn install(ui: &AppWindow) {
     g.on_shift_held(|| HELD.load(Ordering::Relaxed) & HELD_SHIFT != 0);
     on!(on_check_start, |ui, tab| check_start(&ui, tab));
     on!(on_check_change, |ui, to| check_change(&ui, &to));
+    on!(on_check_change_all, |ui, to| check_change_all(&ui, &to));
+    on!(on_dictionary_change, |ui, lang, step| {
+        let lang = lang.to_string();
+        update(&ui, |p| platform::dictionary_change(p, &lang, step));
+        reload_dictionaries(&ui);
+    });
     on!(on_check_next, |ui| check_step(&ui, sheaf_core::spell::CheckPass::skip));
     on!(on_check_ignore, |ui| {
         if let Some(word) = shown_misspelt() {
