@@ -160,7 +160,8 @@ export component ActionsScreen inherits Rectangle {
                             TextField { label: "Format (<<1>> = page, <<n>> = count)"; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
                         }
                         if ActionBridge.tool-id == "open_tool": ComboBox { model: ActionBridge.toolbox; current-value <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
-                        if ActionBridge.has-argument && ActionBridge.tool-id != "open_tool" && ActionBridge.tool-id != "compress" && ActionBridge.tool-id != "pdfa" && ActionBridge.tool-id != "page_numbers": VerticalLayout {
+                        if ActionBridge.tool-id == "protect": Text { text: "AES-256 open-password encryption. Put this last and save as PDF. The password is requested separately for each file and never stored in this action."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+                        if ActionBridge.has-argument && ActionBridge.tool-id != "protect" && ActionBridge.tool-id != "open_tool" && ActionBridge.tool-id != "compress" && ActionBridge.tool-id != "pdfa" && ActionBridge.tool-id != "page_numbers": VerticalLayout {
                             spacing: 6px;
                             Text { text: ActionBridge.tool-id == "prepare_accessibility" ? "Document language (for example fr-FR)" : ActionBridge.tool-id == "set_metadata" ? "Metadata key | value (blank value clears the field)" : ActionBridge.tool-id == "keep_pages" || ActionBridge.tool-id == "delete_pages" ? "Pages: 1-3,5 or all" : ActionBridge.tool-id == "watermark_options" ? "Size | opacity | rotation | X | Y | font | pages | text" : ActionBridge.tool-id == "header_footer_options" ? "Position (0–5) | size | font | pages | text" : "Text or JavaScript for this step"; color: Theme.text; font-size: Theme.fs-label; }
                             TextEdit { height: 90px; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
@@ -169,7 +170,7 @@ export component ActionsScreen inherits Rectangle {
                         if ActionBridge.custom: TextField { label: "Command label (optional)"; text <=> ActionBridge.command-label; enabled: !ActionBridge.busy; }
                         if ActionBridge.custom: CheckBox { text: "Separator before this command"; checked <=> ActionBridge.separator; enabled: !ActionBridge.busy; }
                         TextField { label: "Instructions shown before this step"; text <=> ActionBridge.instruction; enabled: !ActionBridge.busy; }
-                        CheckBox { text: "Pause and ask before running this step"; checked <=> ActionBridge.pause; enabled: !ActionBridge.busy; }
+                        CheckBox { text: "Pause and ask before running this step"; checked <=> ActionBridge.pause; enabled: !ActionBridge.busy && ActionBridge.tool-id != "protect"; }
                         HorizontalLayout {
                             spacing: 8px;
                             Button { text: "Move up"; enabled: !ActionBridge.busy && ActionBridge.step > 0; clicked => { ActionBridge.command("up", 0); } }

@@ -16,6 +16,8 @@ pub enum Step {
     PrepareAccessibility(String),
     /// Reduce file size.
     ReduceFileSize,
+    /// Runtime-only open password. Saved actions must keep this empty and prompt for each file.
+    Protect(String),
     /// Sheaf native optimization presets; no Ghostscript process.
     Compress(String),
     /// Native PDF/A conversion, refused if verification still finds nonconformities.
@@ -68,6 +70,7 @@ impl Step {
             Step::OpenTool("redact".into()),
             Step::PrepareAccessibility("en-US".into()),
             Step::ReduceFileSize,
+            Step::Protect(String::new()),
             Step::Compress("recommended".into()),
             Step::ConvertPdfA("2b".into()),
             Step::PageNumbers("4|1|8|Page <<1>> of <<n>>".into()),
@@ -105,6 +108,7 @@ impl Step {
             Step::OpenTool(_) => "open_tool",
             Step::PrepareAccessibility(_) => "prepare_accessibility",
             Step::ReduceFileSize => "reduce_file_size",
+            Step::Protect(_) => "protect",
             Step::Compress(_) => "compress",
             Step::ConvertPdfA(_) => "pdfa",
             Step::PageNumbers(_) => "page_numbers",
@@ -141,6 +145,7 @@ impl Step {
             Step::OpenTool(_) => "Open toolbox tool (interactive)",
             Step::PrepareAccessibility(_) => "Prepare accessibility (text-only)",
             Step::ReduceFileSize => "Reduce file size",
+            Step::Protect(_) => "Protect with open password (AES-256)",
             Step::Compress(_) => "Compress PDF",
             Step::ConvertPdfA(_) => "Convert to PDF/A",
             Step::PageNumbers(_) => "Add page numbers",
@@ -174,14 +179,14 @@ impl Step {
     /// The step's text argument, if it takes one.
     pub fn arg(&self) -> Option<&str> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::OpenTool(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::Protect(s) | Step::OpenTool(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }
 
     pub fn arg_mut(&mut self) -> Option<&mut String> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::OpenTool(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::Protect(s) | Step::OpenTool(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }
@@ -337,6 +342,10 @@ pub fn command_edit(step: &Step, pages: usize) -> Result<Edit, EditError> {
             let mut settings = crate::HeaderFooter::default();
             settings.text[if matches!(step, Step::AddHeader(_)) { 1 } else { 4 }] = t.clone();
             Edit::AddHeaderFooter { pages: all, settings, replace: false }
+        }
+        Step::Protect(password) => {
+            if password.is_empty() { return Err(EditError::Invalid("Enter a nonempty open password when prompted; passwords are never stored in actions".into())); }
+            Edit::Protect(crate::Protection { open_password: Some(password.clone()), ..Default::default() })
         }
         Step::RemoveMetadata => Edit::RemoveHidden { which: vec![crate::Hidden::Metadata, crate::Hidden::PrivateData] },
         Step::SetMetadata(value) => {

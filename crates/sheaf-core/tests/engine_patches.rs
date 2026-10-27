@@ -620,3 +620,15 @@ fn console_edits_page_and_link_scripts_preserving_other_events_chains_and_undo()
     assert!(doc.document().console_scripts().iter().any(|s| s.source.contains("close")));
     assert!(doc.document().console_scripts().iter().any(|s| s.source.contains("enter")));
 }
+
+#[test]
+fn wizard_protection_encrypts_the_final_output_with_only_the_prompted_password() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{self, Action, Step}};
+    let bytes = Session::new().create_from_text("Title", "Body").unwrap();
+    let action = Action { name: "Protect".into(), description: String::new(), builtin: false, steps: vec![Step::Protect(String::new())] };
+    assert!(actions::run_on(&action, "input.pdf", bytes.clone(), |_, _| {}).is_err());
+    let output = actions::run_guided(&action, "input.pdf", bytes, None, |_, _| Some(Step::Protect("runtime secret".into()))).unwrap();
+    let mut session = Session::new();
+    assert!(session.open("output.pdf", None, output.bytes.clone(), None).is_err());
+    assert!(session.open("output.pdf", None, output.bytes, Some("runtime secret")).is_ok());
+}

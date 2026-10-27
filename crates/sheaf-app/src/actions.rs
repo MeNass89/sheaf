@@ -25,7 +25,8 @@ pub struct ActionStep {
 
 impl ActionStep {
     pub fn from_engine(step: &Step) -> Self {
-        Self { tool: step.id().into(), argument: step.arg().unwrap_or_default().into(), instruction: String::new(), prompt: false, label: String::new(), separator: false }
+        let secret = matches!(step, Step::Protect(_));
+        Self { tool: step.id().into(), argument: if secret { String::new() } else { step.arg().unwrap_or_default().into() }, instruction: if secret { "Enter an open password for this output PDF. It is used only for this file and is never saved in the action.".into() } else { String::new() }, prompt: secret, label: String::new(), separator: false }
     }
 
     pub fn engine(&self) -> Result<Step> {
@@ -123,8 +124,9 @@ impl SavedAction {
         if self.name.trim().is_empty() || self.name.len() > 256 { return Err(invalid("Give the action a name (up to 256 bytes)")); }
         if self.steps.is_empty() || self.steps.len() > 100 { return Err(invalid("An action needs 1–100 steps")); }
         self.output.validate()?;
-        for step in &self.steps {
+        for (index, step) in self.steps.iter().enumerate() {
             step.engine()?;
+            if step.tool == "protect" && (!step.argument.is_empty() || !step.prompt || index + 1 != self.steps.len() || self.output.format != "pdf") { return Err(invalid("Protection must be the final step of PDF output and ask for a password at runtime; saved actions cannot contain passwords")); }
             if step.tool == "open_tool" && (!self.custom_tool || sheaf_core::tools::ToolId::from_str(&step.argument).is_none() || step.prompt) { return Err(invalid("Toolbox shortcuts belong in custom tool sets and need an existing tool without an action prompt")); }
             if step.label.len() > 256 || step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
         }
@@ -581,6 +583,17 @@ mod tests {
         let text = doc.document().export_office(sheaf_core::pdfcraft::engine::compare::OfficeFormat::Text);
         assert!(String::from_utf8(text).unwrap().contains("Unsaved body"));
         assert_eq!(std::fs::read(input).unwrap(), *disk);
+    }
+
+    #[test]
+    fn password_actions_prompt_per_file_and_never_persist_passwords() {
+        let mut action = SavedAction::empty();
+        action.steps = vec![ActionStep::from_engine(&Step::Protect("must not persist".into()))];
+        assert!(action.steps[0].prompt); assert!(action.steps[0].argument.is_empty());
+        assert!(!action.json().unwrap().contains("must not persist"));
+        action.steps[0].argument = "secret".into(); assert!(action.json().is_err());
+        action.steps[0].argument.clear(); action.steps[0].prompt = false; assert!(action.validate().is_err());
+        action.steps[0].prompt = true; action.output.format = "docx".into(); assert!(action.validate().is_err());
     }
 
 }

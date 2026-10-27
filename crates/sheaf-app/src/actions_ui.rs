@@ -125,7 +125,7 @@ fn flush(ui: &AppWindow) {
         s.draft.output = actions::OutputOptions { same_folder: b.get_same_folder(), prefix: b.get_output_prefix().to_string(), suffix: b.get_output_suffix().to_string(), overwrite: b.get_overwrite(), format: b.get_output_format().to_string() };
         let index = s.step;
         if let Some(step) = usize::try_from(index).ok().and_then(|i| s.draft.steps.get_mut(i)) {
-            step.argument = if step.tool == "page_numbers" {
+            step.argument = if step.tool == "protect" { String::new() } else if step.tool == "page_numbers" {
                 format!("{}|{}|{}|{}", b.get_number_position(), b.get_number_start(), b.get_number_size(), b.get_argument())
             } else { b.get_argument().to_string() };
             step.instruction = b.get_instruction().to_string();
@@ -477,13 +477,14 @@ fn start_with_snapshots(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>
                 let message = if !step.instruction.is_empty() { format!("{message} · {}", step.instruction) } else { message };
                 let (tx, rx) = mpsc::channel();
                 let pause = step.prompt;
+                let secret = step.tool == "protect";
                 let argument = step.argument.clone();
                 let has_argument = step.engine().is_ok_and(|s| s.arg().is_some());
                 if weak.upgrade_in_event_loop(move |ui| {
                     status(&ui, &message);
                     if pause {
                         STATE.with(|s| s.borrow_mut().answer = Some(tx));
-                        ui.global::<ActionBridge>().set_prompt_password(false);
+                        ui.global::<ActionBridge>().set_prompt_password(secret);
                         ui.global::<ActionBridge>().set_prompt_argument(argument.into());
                         ui.global::<ActionBridge>().set_prompt_has_argument(has_argument);
                         ui.global::<ActionBridge>().set_prompt(prompt.into());

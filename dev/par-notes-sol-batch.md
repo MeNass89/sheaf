@@ -716,3 +716,13 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   This supersedes the earlier Pass 4 "all open unsaved documents" leftover. Public: ActionInput,
   actions::run_bytes_configured. not automatable: edit two open PDFs without saving, run an
   action, check outputs contain both edits and originals stay unchanged — execution forbidden.
+
+- C-batch-002 final follow-up adds native AES-256 Protect as a final PDF step. A masked prompt
+  requests each file's open password at runtime; saved actions must have an empty password and
+  cannot disable that prompt. Draft flush clears its argument too. Native encryption uses the
+  existing engine, without Ghostscript. Tests `password_actions_prompt_per_file_and_never_persist_passwords`
+  and `wizard_protection_encrypts_the_final_output_with_only_the_prompted_password` (not run).
+  This supersedes "encrypt absent" above. Left: permission-password settings, insert/split tools
+  within a sequence, direct mark-setting controls. Public: Step::Protect. No new dependency.
+  not automatable: use different passwords for two outputs, cancel the password prompt, inspect
+  exported action/draft JSON and reopen outputs — app execution forbidden.
