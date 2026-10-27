@@ -349,6 +349,11 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
                     let name = i.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                     notes.push(format!("{name}: {:.1} MB is as small as it gets without spoiling its pages", rep.after as f64 / 1_048_576.0));
                 }
+                // Grayscale: what stayed in colour is said (Sol, 26/10: it was not).
+                if rep.gray_kept > 0 {
+                    let name = i.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    notes.push(format!("{name}: {} left in colour (spot colours, sampled gradients or pictures Sheaf cannot read)", sheaf_core::tools::count(rep.gray_kept, "item")));
+                }
                 Ok(vec![rep.path])
             }))?
         }

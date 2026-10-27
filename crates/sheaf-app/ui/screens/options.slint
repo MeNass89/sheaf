@@ -158,6 +158,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.adjust-saturation = o.adjust-saturation;
         root.adjust-invert = o.adjust-invert;
         root.redact-overlay = o.redact-overlay;
+        root.redact-margin = o.redact-margin;
         root.redact-repeat = o.redact-repeat;
     }
     out property <ToolOptions> options: {
@@ -190,7 +191,7 @@ export component OptionsPanel inherits VerticalLayout {
         sign-reason: root.sign-reason, sign-location: root.sign-location, sign-certify: root.sign-certify,
         compress-ppi: root.compress-ppi, compress-quality: root.compress-quality, discard-thumbs: root.discard-thumbs, discard-tags: root.discard-tags, discard-meta: root.discard-meta, compress-gray: root.compress-gray,
         adjust-brightness: root.adjust-brightness, adjust-contrast: root.adjust-contrast, adjust-saturation: root.adjust-saturation, adjust-invert: root.adjust-invert,
-        redact-fill: root.redact-fill, redact-overlay: root.redact-overlay, redact-repeat: root.redact-repeat,
+        redact-fill: root.redact-fill, redact-overlay: root.redact-overlay, redact-margin: root.redact-margin, redact-repeat: root.redact-repeat,
     };
     callback insert-blank();
     // Crop: the page previewed, of how many; ‹ › step through them.
@@ -227,6 +228,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <bool> adjust-invert;
     property <bool> compress-advanced;
     in-out property <string> redact-overlay;
+    in-out property <string> redact-margin;
     in-out property <bool> redact-repeat;
     in-out property <int> level: 1;
     in-out property <string> compress-target;
@@ -1110,6 +1112,12 @@ export component OptionsPanel inherits VerticalLayout {
             label: "Text over each box (optional)";
             placeholder: "Redacted";
             text <=> root.redact-overlay;
+        }
+        // Acrobat's margins round each redaction: accents and descenders go too.
+        TextField {
+            label: "Margin round each mark (points, optional)";
+            placeholder: "0";
+            text <=> root.redact-margin;
         }
         if root.redact-overlay != "": Check {
             text: "Repeat it to fill the box";

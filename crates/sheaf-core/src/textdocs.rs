@@ -263,6 +263,18 @@ fn base64(data: &[u8]) -> Vec<u8> {
     out
 }
 
+fn base64_encode(data: &[u8]) -> String {
+    const A: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
+    for c in data.chunks(3) {
+        let n = c.iter().enumerate().fold(0u32, |n, (i, &b)| n | u32::from(b) << (16 - 8 * i));
+        for k in 0..4 {
+            out.push(if k <= c.len() { A[(n >> (18 - 6 * k) & 63) as usize] as char } else { '=' });
+        }
+    }
+    out
+}
+
 fn quoted_printable(data: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(data.len());
     let mut i = 0;
@@ -316,7 +328,10 @@ fn decode_words(s: &str) -> String {
 }
 
 /// The parts that show (text and pictures inline) and the attachments, depth first.
-fn walk(p: Part, texts: &mut Vec<(String, String)>, files: &mut Vec<(String, Vec<u8>)>) {
+/// A picture an HTML part shows by `cid:` (its Content-ID, its type, its bytes).
+type Inline = (String, String, Vec<u8>);
+
+fn walk(p: Part, texts: &mut Vec<(String, String)>, files: &mut Vec<(String, Vec<u8>)>, inline: &mut Vec<Inline>) {
     let mime = p.mime();
     if mime.starts_with("multipart/") {
         let kids = p.children();
@@ -325,18 +340,21 @@ fn walk(p: Part, texts: &mut Vec<(String, String)>, files: &mut Vec<(String, Vec
             let pick = kids.iter().rposition(|k| k.mime() == "text/html").or_else(|| kids.iter().rposition(|k| k.mime() == "text/plain"));
             if let Some(i) = pick {
                 let kid = kids.into_iter().nth(i).unwrap_or(Part { headers: Vec::new(), body: Vec::new() });
-                walk(kid, texts, files);
+                walk(kid, texts, files, inline);
             }
             return;
         }
         for k in kids {
-            walk(k, texts, files);
+            walk(k, texts, files, inline);
         }
         return;
     }
     let attached = p.header("content-disposition").is_some_and(|d| d.trim_start().to_ascii_lowercase().starts_with("attachment"));
     if !attached && (mime == "text/plain" || mime == "text/html") {
         texts.push((mime, crate::pdfcraft::engine::decode_text(&p.decoded())));
+    } else if let Some(cid) = p.header("content-id").map(|c| c.trim().trim_start_matches('<').trim_end_matches('>').to_string()).filter(|_| !attached && mime.starts_with("image/")) {
+        // A picture the message shows in its text (`<img src="cid:…">`), not an attachment.
+        inline.push((cid, mime, p.decoded()));
     } else if attached || p.filename().is_some() {
         files.push((p.filename().unwrap_or_else(|| format!("attachment {}", files.len() + 1)), p.decoded()));
     }
@@ -354,7 +372,8 @@ pub fn mail_to_html(bytes: &[u8]) -> (String, Vec<(String, Vec<u8>)>) {
     }
     let subject = top.header("subject").map(decode_words).unwrap_or_default();
     let (mut texts, mut files) = (Vec::new(), Vec::new());
-    walk(top, &mut texts, &mut files);
+    let mut inline = Vec::new();
+    walk(top, &mut texts, &mut files, &mut inline);
     let mut body = String::new();
     for (mime, text) in texts {
         if mime == "text/html" {
@@ -362,7 +381,12 @@ pub fn mail_to_html(bytes: &[u8]) -> (String, Vec<(String, Vec<u8>)>) {
             let lower = text.to_ascii_lowercase();
             let from = lower.find("<body").and_then(|b| lower[b..].find('>').map(|e| b + e + 1)).unwrap_or(0);
             let to = lower.rfind("</body>").unwrap_or(text.len()).max(from);
-            body.push_str(&text[from..to]);
+            // Its pictures in place (Sol, 26/10: they came as attachments, the page showing none).
+            let mut part = text[from..to].to_string();
+            for (cid, mime, data) in &inline {
+                part = part.replace(&format!("cid:{cid}"), &format!("data:{mime};base64,{}", base64_encode(data)));
+            }
+            body.push_str(&part);
         } else {
             body.push_str(&format!("<pre style=\"white-space:pre-wrap;font-family:sans-serif\">{}</pre>", escape(&text)));
         }
@@ -427,5 +451,11 @@ mod tests {
         assert!(html.contains("<p>Rich <b>text</b></p>") && !html.contains("Plain café"), "the HTML part, not the plain one: {html}");
         assert_eq!(files, vec![("a.pdf".to_string(), b"%PDF-1.4".to_vec())]);
         assert!(html.contains("a.pdf (1 KB)"));
+        // A picture shown in the text by its Content-ID is drawn there, not attached (Sol, 26/10).
+        let related = "Subject: Logo\r\nContent-Type: multipart/related; boundary=R\r\n\r\n--R\r\nContent-Type: text/html\r\n\r\n<p>See <img src=\"cid:logo1@x\"></p>\r\n--R\r\nContent-Type: image/png\r\nContent-ID: <logo1@x>\r\nContent-Transfer-Encoding: base64\r\n\r\niVBORw0KGgo=\r\n--R--\r\n";
+        let (html, files) = mail_to_html(related.as_bytes());
+        assert!(files.is_empty(), "{files:?}");
+        assert!(html.contains("src=\"data:image/png;base64,iVBORw0KGgo=\""), "{html}");
+        assert_eq!(base64_encode(b"%PDF-1.4"), "JVBERi0xLjQ=");
     }
 }

@@ -179,6 +179,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_link_urls, |ui, id| reader_ui::link_urls(&ui, id));
     rb.on_field_kind(reader_ui::field_kind);
     rb.on_form_grid(reader_ui::form_grid);
+    rb.on_rulers(reader_ui::rulers);
+    rb.on_ruler_clicked(reader_ui::ruler_clicked);
     wire_global!(ui, rb, on_detect_fields, |ui, id| reader_ui::detect_fields(&ui, id));
     wire_global!(ui, rb, on_tab_order, |ui, id, o| reader_ui::tab_order(&ui, id, o));
     wire_global!(ui, rb, on_copy_image, |ui, id, cut| reader_ui::copy_image(&ui, id, cut));
@@ -189,6 +191,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_field_copies, |ui, id, rows, cols| reader_ui::field_copies(&ui, id, rows, cols));
     wire_global!(ui, rb, on_fields_arrange, |ui, id, how| reader_ui::fields_arrange(&ui, id, how));
     wire_global!(ui, rb, on_objects_arrange, |ui, id, how| reader_ui::objects_arrange(&ui, id, how));
+    wire_global!(ui, rb, on_annots_arrange, |ui, id, how| reader_ui::annots_arrange(&ui, id, how));
     wire_global!(ui, rb, on_look_up, |ui, words| reader_ui::look_up(&ui, words));
     rb.on_accessibility_check(reader_ui::accessibility_check);
     wire_global!(ui, rb, on_accessibility_fix, |ui, id, k| reader_ui::accessibility_fix(&ui, id, k));
@@ -558,6 +561,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_open_first_page, |ui, f| home::set_open_first_page(&ui, f));
     wire!(ui, on_set_smoothing, |ui, k, on| home::set_smoothing(&ui, k, on));
     wire!(ui, on_set_stamp_date, |ui, f| home::set_stamp_date(&ui, f));
+    wire!(ui, on_set_metric, |ui, m| home::set_metric(&ui, m));
     wire!(ui, on_make_default, |ui| flow::toast(&ui, &run::make_default_pdf_app()));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));

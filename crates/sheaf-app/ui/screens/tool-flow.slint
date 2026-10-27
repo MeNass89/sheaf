@@ -641,7 +641,8 @@ export component ToolFlowScreen inherits Rectangle {
                     && (!root.compare || (root.has-original && root.has-changed))
                     && (!root.organize || root.tab.pages.length > 0)
                     && (!root.redact || root.tab.redact-marks.length > 0)
-                    && (!root.sign || (root.tab.sign-has-graphic && root.tab.sign-placed))
+                    // Certifying with a digital ID needs no signature placed (Sol, 26/10: the button stayed off).
+                    && (!root.sign || (root.tab.sign-has-graphic && root.tab.sign-placed) || (opts.options.sign-cert && opts.options.sign-certify > 0))
                     && (!root.edit || root.tab.edit-ready);
                 clicked => { root.run(opts.options); }
             }

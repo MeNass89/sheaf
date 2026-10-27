@@ -57,6 +57,9 @@ pub struct CompressReport {
     pub grew: bool,
     /// [`Level::Target`]: even the strongest settings left the file larger than asked.
     pub missed_target: bool,
+    /// Convert to grayscale: the colour settings and pictures left in colour (spot colours,
+    /// sampled gradients, pictures it cannot read), said to the user.
+    pub gray_kept: usize,
 }
 
 /// Re-encodes 8-bit RGB/gray images (Device or Cal colour spaces, the latter kept as they are) as JPEG,
@@ -79,10 +82,10 @@ pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn
 
 /// [`compress_with`], with [`Advanced`] settings.
 pub fn compress_advanced(input: &Input, level: Level, adv: &Advanced, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<CompressReport> {
-    let (bytes, before, was_encrypted, missed_target) = match level {
+    let (bytes, before, was_encrypted, missed_target, gray_kept) = match level {
         Level::Target(limit) => {
             let n = TARGET_STEPS.len() as f32;
-            let mut best: Option<(Vec<u8>, u64, bool)> = None;
+            let mut best: Option<(Vec<u8>, u64, bool, usize)> = None;
             for (k, (max, q)) in TARGET_STEPS.into_iter().enumerate() {
                 let tried = squeeze(input, max, q, adv, &mut |p| progress((k as f32 + p) / n * 0.95))?;
                 let fits = tried.0.len() as u64 <= limit;
@@ -93,24 +96,24 @@ pub fn compress_advanced(input: &Input, level: Level, adv: &Advanced, out: &Path
                     break;
                 }
             }
-            let (bytes, before, enc) = best.ok_or_else(|| crate::OpdfError::Unsupported("nothing to compress".into()))?;
+            let (bytes, before, enc, kept) = best.ok_or_else(|| crate::OpdfError::Unsupported("nothing to compress".into()))?;
             let missed = bytes.len() as u64 > limit;
-            (bytes, before, enc, missed)
+            (bytes, before, enc, missed, kept)
         }
         level => {
             let (max, q) = level.params();
             // Pixels per inch to the long side the level allows: 150 ppi on A4's 11.7 in is 1,755 px.
             let max = adv.max_ppi.map_or(max, |ppi| (ppi.clamp(36, 1200) as f64 * 11.7) as u32);
             let q = adv.quality.map_or(q, |q| q.clamp(1, 100));
-            let (bytes, before, enc) = squeeze(input, max, q, adv, progress)?;
-            (bytes, before, enc, false)
+            let (bytes, before, enc, kept) = squeeze(input, max, q, adv, progress)?;
+            (bytes, before, enc, false, kept)
         }
     };
     let after = bytes.len() as u64;
     if !progress(0.95) { return Err(crate::OpdfError::Cancelled); }
     let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;
     progress(1.0);
-    Ok(CompressReport { path, before, after, already_optimal: after >= before && *adv == Advanced::default(), was_encrypted, grew: after > before, missed_target })
+    Ok(CompressReport { path, before, after, already_optimal: after >= before && *adv == Advanced::default(), was_encrypted, grew: after > before, missed_target, gray_kept })
 }
 
 /// The file recompressed with pictures at most `max` pixels on their long side and JPEG quality
@@ -149,15 +152,13 @@ fn discard(doc: &mut lopdf::Document, adv: &Advanced) {
     }
 }
 
-fn squeeze(input: &Input, max: u32, q: u8, adv: &Advanced, progress: &mut dyn FnMut(f32) -> bool) -> Result<(Vec<u8>, u64, bool)> {
+fn squeeze(input: &Input, max: u32, q: u8, adv: &Advanced, progress: &mut dyn FnMut(f32) -> bool) -> Result<(Vec<u8>, u64, bool, usize)> {
     let original = std::fs::read(&input.path)?;
     let mut doc = input.load_lopdf()?;
     let was_encrypted = doc.was_encrypted();
     let mut plain = was_encrypted.then(|| doc.clone());
     discard(&mut doc, adv);
-    if adv.grayscale {
-        crate::grayscale::to_gray(&mut doc);
-    }
+    let gray_kept = if adv.grayscale { crate::grayscale::to_gray(&mut doc).kept } else { 0 };
     dedupe_streams(&mut doc);
     let masks = mask_targets(&doc);
     let kinds: HashMap<ObjectId, bool> = doc.objects.iter()
@@ -203,7 +204,7 @@ fn squeeze(input: &Input, max: u32, q: u8, adv: &Advanced, progress: &mut dyn Fn
             if b.len() < buf.len() { b } else { buf }
         }
     };
-    Ok((bytes, original.len() as u64, was_encrypted))
+    Ok((bytes, original.len() as u64, was_encrypted, gray_kept))
 }
 
 /// Identical streams (the same picture or font program embedded again for each page, as some

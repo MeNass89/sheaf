@@ -180,7 +180,92 @@ pub const GRID: f64 = 9.0;
 /// A page point (points from the page's top-left corner, as shown) on the nearest grid crossing
 /// when the grid is on.
 fn snapped(r: &ReaderUi, p: (f64, f64)) -> (f64, f64) {
+    // A guide near wins over the grid (Acrobat's Snap to guides).
+    let page = r.form_sel.map_or(0, |s| s.0);
+    let g = to_guides(r, page, p);
+    if g != p {
+        return g;
+    }
     if r.form_grid { ((p.0 / GRID).round() * GRID, (p.1 / GRID).round() * GRID) } else { p }
+}
+
+/// More tools ▸ Rulers (Acrobat's View ▸ Show/Hide ▸ Rulers & Grids ▸ Rulers): a ruler along each
+/// page's top and left edge, in inches (or centimetres, Preferences' units).
+pub fn rulers(tab_id: i32) {
+    update(tab_id, |r, _| r.rulers = !r.rulers);
+}
+
+/// A click on a page's ruler (`across` the top ruler, else the left one) at `at` page points from
+/// the page's top-left: a guide there, across the whole page (Acrobat's Guides); a click on a
+/// guide's mark (within 3 pt) takes it away.
+pub fn ruler_clicked(tab_id: i32, page: i32, across: bool, at: f32) {
+    update(tab_id, |r, _| toggle_guide(&mut r.guides, page.max(0) as usize, across, f64::from(at)));
+}
+
+/// A guide of `page` at `at` added (to the half point), or the one within 3 pt taken away.
+pub(super) fn toggle_guide(guides: &mut Vec<(usize, bool, f64)>, page: usize, across: bool, at: f64) {
+    match guides.iter().position(|g| g.0 == page && g.1 == across && (g.2 - at).abs() <= 3.0) {
+        Some(k) => {
+            guides.remove(k);
+        }
+        None => guides.push((page, across, (at * 2.0).round() / 2.0)),
+    }
+}
+
+/// The rulers and guides over each page in view: (page box in content pixels, the ruler ticks and
+/// the guides as path commands in that box's pixels, the labels every inch or centimetre).
+pub(super) fn ruler_overlay(r: &ReaderUi, v: &ViewerUi, in_view: impl Fn(usize) -> bool) -> Vec<ReaderRuler> {
+    if !r.rulers && r.guides.is_empty() {
+        return Vec::new();
+    }
+    let cm = crate::home::prefs().metric;
+    let unit = if cm { 72.0 / 2.54 } else { 72.0 };
+    let tick = unit / if cm { 2.0 } else { 8.0 };
+    (0..v.viewer.page_count())
+        .filter(|p| in_view(*p))
+        .map(|p| {
+            let [x, y, w, h] = v.viewer.page_rect(p);
+            let k = w / v.viewer.boxes[p].view_size().0.max(1e-9);
+            let (mut ticks, mut guides, mut labels) = (String::new(), String::new(), Vec::new());
+            if r.rulers {
+                for (len, across) in [(w, true), (h, false)] {
+                    let n = (len / (tick * k)).ceil() as usize;
+                    for i in 1..n {
+                        let at = i as f64 * tick * k;
+                        let size = if (i as f64 * tick / unit).fract().abs() < 1e-6 { 10.0 } else if i % 2 == 0 { 6.0 } else { 3.5 };
+                        let _ = if across { write!(ticks, "M {at:.1} 0 L {at:.1} {size} ") } else { write!(ticks, "M 0 {at:.1} L {size} {at:.1} ") };
+                        if size == 10.0 {
+                            labels.push(ReaderRulerLabel { across, at: at as f32, text: format!("{}", (i as f64 * tick / unit).round()).into() });
+                        }
+                    }
+                }
+            }
+            for g in r.guides.iter().filter(|g| g.0 == p) {
+                let at = g.2 * k;
+                let _ = if g.1 { write!(guides, "M {at:.1} 0 L {at:.1} {h:.1} ") } else { write!(guides, "M 0 {at:.1} L {w:.1} {at:.1} ") };
+            }
+            ReaderRuler { page: p as i32, x: x as f32, y: y as f32, w: w as f32, h: h as f32, scale: k as f32, ticks: ticks.into(), guides: guides.into(), labels: slint::ModelRc::new(slint::VecModel::from(labels)) }
+        })
+        .collect()
+}
+
+/// A page point on the nearest guide of `page` within 4 pt, else as it is.
+pub(super) fn to_guides(r: &ReaderUi, page: usize, p: (f64, f64)) -> (f64, f64) {
+    let near = |across: bool, v: f64| r.guides.iter().filter(|g| g.0 == page && g.1 == across).map(|g| g.2).find(|g| (g - v).abs() <= 4.0).unwrap_or(v);
+    (near(true, p.0), near(false, p.1))
+}
+
+#[cfg(test)]
+mod ruler_tests {
+    #[test]
+    fn a_guide_is_made_by_a_click_on_a_ruler_and_taken_away_by_another() {
+        let mut guides: Vec<(usize, bool, f64)> = Vec::new();
+        super::toggle_guide(&mut guides, 0, true, 100.2);
+        super::toggle_guide(&mut guides, 0, false, 50.0);
+        assert_eq!(guides, [(0, true, 100.0), (0, false, 50.0)]);
+        super::toggle_guide(&mut guides, 0, true, 101.5);
+        assert_eq!(guides, [(0, false, 50.0)], "a click on its mark takes it away");
+    }
 }
 
 /// The options bar's Grid, and More ▸ Grid in any tool (Acrobat's View ▸ Show/Hide ▸ Grid): shown

@@ -256,7 +256,9 @@ key r; drag 500 300 180 120
 xdotool keydown shift; drag 260 650 160 50; xdotool keyup shift
 # Opacity opens its slider and quick values: 75 % picked.
 # The opacity button found by its "100 %" (the bar's width depends on the shape's options).
-click 317 109; click 413 109; OP=$(at 100 800x40+380+90); [ -n "$OP" ] && click $OP 0.6
+# The oval (317,109), then its Fill found by its word (the bar's width depends on its options).
+click 317 109 0.8; FL=$(at Fill 800x40+260+90); [ -z "$FL" ] && { click 317 109 1; FL=$(at Fill 800x40+260+90); }
+[ -n "$FL" ] && click $FL 0.5; OP=$(at 100 800x40+380+90); [ -n "$OP" ] && click $OP 0.6
 P75=$(at 75 600x160+400+120); [ -n "$P75" ] && click $P75 0.5; drag 500 600 200 100
 click 376 109; drag 900 300 150 -100
 key ctrl+s; sleep 1.5; shot 06c-shapes

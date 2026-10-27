@@ -223,6 +223,13 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             marks.push(overlay([c[0] + dx + w - 4.0, c[1] + dy + h - 4.0, 9.0, 9.0], 11));
         }
     }
+    // Comments selected with it (⇧-click): outlined too.
+    if r.selected_annot.is_some() {
+        for a in r.annots_also.iter().filter_map(|&i| r.annots().get(i)) {
+            let c = v.viewer.overlay(a.page, a.rect);
+            marks.push(overlay([c[0] - 2.0, c[1] - 2.0, c[2] + 4.0, c[3] + 4.0], 6));
+        }
+    }
     // Edit tool: the selected image, its four corners to pull (the box follows a pull).
     if let Some((page, i)) = r.selected_image
         && let Some(&(vis, _)) = r.images.get(&page).and_then(|im| im.get(i))
@@ -336,6 +343,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     let (results, search_pages) = results;
     let (form_fields, field_props) = super::prepare::form_overlay(r, v, |p| wanted.contains(&p));
     let form_grids = super::prepare::grid_overlay(r, v, |p| wanted.contains(&p));
+    let rulers = super::prepare::ruler_overlay(r, v, |p| wanted.contains(&p));
     let note = match &r.draft {
         Some(d) => {
             let (mut x, mut y) = view_to_content(&v.viewer, d.page, d.at);
@@ -486,6 +494,12 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         page_top: v.viewer.page_rect(v.current())[1] as f32,
         page_bottom: { let [_, y, _, h] = v.viewer.page_rect(v.current()); (y + h) as f32 },
         page_advance: r.snap.durations.get(v.current()).copied().flatten().unwrap_or(0.0) as f32,
+        page_effect: r.snap.transitions.get(v.current()).cloned().flatten().map_or(0, |(s, _)| match s.as_str() {
+            "Fade" | "Dissolve" | "Glitter" => 1,
+            "Split" | "Box" | "Blinds" => 3,
+            _ => 2,
+        }),
+        page_effect_seconds: r.snap.transitions.get(v.current()).cloned().flatten().map_or(0.0, |(_, d)| d) as f32,
         view_turn: i32::from(v.viewer.turn()),
         opacity: (super::tools::opacity_of(r) * 100.0).round() as i32,
         fill_colour: r.fill_colour.map_or(-1, |k| k as i32),
@@ -515,11 +529,14 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         form_fields: ModelRc::new(VecModel::from(form_fields)),
         form_grid: r.form_grid,
         form_grids: ModelRc::new(VecModel::from(form_grids)),
+        rulers_on: r.rulers,
+        rulers: ModelRc::new(VecModel::from(rulers)),
         field_props,
         link_error: r.link_error.clone().into(),
         link_visible: r.link_visible,
         has_picked: r.picked.is_some(),
         picked_count: r.picked.as_ref().map_or(0, |p| p.1.len() as i32),
+        annots_group: if r.selected_annot.is_some() { 1 + r.annots_also.len() as i32 } else { 0 },
         link_dashed: r.link_dashed,
         attachments: ModelRc::new(VecModel::from(
             r.snap

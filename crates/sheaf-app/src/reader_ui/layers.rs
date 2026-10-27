@@ -14,8 +14,19 @@ pub(super) fn shown(r: &ReaderUi) -> Vec<bool> {
 pub fn layer_set(ui: &AppWindow, tab_id: i32, index: i32, on: bool) {
     choose(ui, tab_id, |r| {
         let mut shown = shown(r);
-        if let Some(s) = usize::try_from(index).ok().and_then(|i| shown.get_mut(i)) {
+        let i = usize::try_from(index).ok()?;
+        if let Some(s) = shown.get_mut(i) {
             *s = on;
+        }
+        // A layer of a radio-button group shown: the others of its group hidden (Sol, 26/10).
+        if on && let Some(id) = r.snap.layers.get(i).map(|l| l.id) {
+            for g in r.snap.layer_groups.iter().filter(|g| g.contains(&id)) {
+                for (k, l) in r.snap.layers.iter().enumerate() {
+                    if l.id != id && g.contains(&l.id) {
+                        shown[k] = false;
+                    }
+                }
+            }
         }
         Some(shown)
     });

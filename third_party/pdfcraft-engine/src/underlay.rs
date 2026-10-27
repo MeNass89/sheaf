@@ -9,8 +9,21 @@ use crate::EditError;
 /// Form `form` (drawn in the unit square) under everything on page `page_ref`.
 pub fn underlay(doc: &mut Document, page_ref: ObjRef, form: ObjRef) -> Result<(), EditError> {
     let page = doc.get(page_ref).as_dict().cloned().ok_or_else(|| EditError::Invalid("the page can't be read".into()))?;
-    let boxes = |key: &[u8]| page.get(key).map(|b| doc.resolve(b)).and_then(|b| b.as_array().map(|a| a.iter().filter_map(Object::as_f64).collect::<Vec<_>>())).filter(|b| b.len() == 4);
-    let b = boxes(b"CropBox").or_else(|| boxes(b"MediaBox")).unwrap_or_else(|| vec![0.0, 0.0, 612.0, 792.0]);
+    // The page's boxes, its own or inherited from its parents (Sol, 26/10: an inherited box fell
+    // back to Letter).
+    let inherited = |key: &[u8]| {
+        let mut d = Some(page.clone());
+        // At most a few levels up: a page tree is shallow, a loop in a broken one is not followed.
+        for _ in 0..32 {
+            let Some(cur) = d else { break };
+            if let Some(b) = cur.get(key).map(|b| doc.resolve(b)).and_then(|b| b.as_array().map(|a| a.iter().filter_map(Object::as_f64).collect::<Vec<_>>())).filter(|b| b.len() == 4) {
+                return Some(b);
+            }
+            d = cur.reference(b"Parent").and_then(|p| doc.get(p).as_dict().cloned());
+        }
+        None
+    };
+    let b = inherited(b"CropBox").or_else(|| inherited(b"MediaBox")).unwrap_or_else(|| vec![0.0, 0.0, 612.0, 792.0]);
     let (x0, y0, w, h) = (b[0].min(b[2]), b[1].min(b[3]), (b[2] - b[0]).abs(), (b[3] - b[1]).abs());
     // The page's resources (its own, else its parents'), as a copy of its own with the form.
     let mut res = page.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned());

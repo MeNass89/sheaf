@@ -246,12 +246,40 @@ pub struct Appearance {
     pub fill: [f64; 3],
     pub overlay: String,
     pub repeat: bool,
+    /// Points added round each mark (not whole pages), so letters' edges and accents go too.
+    pub margin: f64,
 }
 
 impl Default for Appearance {
     fn default() -> Self {
-        Self { fill: [0.0; 3], overlay: String::new(), repeat: false }
+        Self { fill: [0.0; 3], overlay: String::new(), repeat: false, margin: 0.0 }
     }
+}
+
+/// `marks` each grown by `margin` points on every side (its quads' box), whole pages as they are.
+pub fn grown(marks: &[Mark], margin: f64) -> Vec<Mark> {
+    if margin <= 0.0 {
+        return marks.to_vec();
+    }
+    marks
+        .iter()
+        .map(|m| {
+            if m.whole_page {
+                return m.clone();
+            }
+            let quads = m
+                .quads
+                .iter()
+                .map(|q| {
+                    let (xs, ys) = ([q[0], q[2], q[4], q[6]], [q[1], q[3], q[5], q[7]]);
+                    let lo = |v: [f64; 4]| v.into_iter().fold(f64::INFINITY, f64::min);
+                    let hi = |v: [f64; 4]| v.into_iter().fold(f64::NEG_INFINITY, f64::max);
+                    rect_quad([lo(xs) - margin, lo(ys) - margin, hi(xs) + margin, hi(ys) + margin])
+                })
+                .collect();
+            Mark { quads, ..m.clone() }
+        })
+        .collect()
 }
 
 /// [`apply_with`] black boxes and no text over them.
@@ -266,6 +294,7 @@ pub fn apply(input: &Input, marks: &[Mark], searched: &[Needle], out: &Path) -> 
 /// The bytes are audited ([`verify`]) under their temporary name; any finding fails the call
 /// and nothing is written.
 pub fn apply_with(input: &Input, marks: &[Mark], searched: &[Needle], look: &Appearance, out: &Path) -> Result<RedactReport> {
+    let marks = &grown(marks, look.margin.clamp(0.0, 36.0))[..];
     if marks.is_empty() {
         return Err(OpdfError::Unsupported("nothing is marked for redaction".into()));
     }

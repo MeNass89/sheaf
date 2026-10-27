@@ -1524,7 +1524,7 @@ pub enum Edit {
         change: ImageEdit,
     },
     /// Sheaf: every picture of `pages` taken out (Acrobat's Remove all images; Smallpdf's), one
-    /// step; grouped artwork that holds a picture goes too.
+    /// step; grouped artwork that is pictures only goes too, one with text or drawings stays.
     RemoveImages {
         pages: Vec<usize>,
     },
@@ -2496,7 +2496,12 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::SetFieldProps { name, props } => {
             pdfcraft_forms::set_props(doc, name, props)?;
             if let Some(pdfcraft_forms::af::Calculate::Notation(expr)) = &props.calculate {
-                sfn::write_notation(doc, name, expr)?;
+                // Under its new name when it was renamed in the same step (Sol, 26/10).
+                let now = props.name.as_deref().filter(|n| !n.is_empty()).map(|n| match name.rsplit_once('.') {
+                    Some((parent, _)) if !n.contains('.') => format!("{parent}.{n}"),
+                    _ => n.to_string(),
+                });
+                sfn::write_notation(doc, now.as_deref().unwrap_or(name), expr)?;
             }
         }
         Edit::DuplicateField { name, pages } => {
@@ -2573,9 +2578,17 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::RemoveImages { pages } => {
             let mut removed = 0;
             for &page in pages {
-                // Last first: deleting one keeps the indices before it.
-                let n = pdfcraft_edit::page_images(doc, page)?.len();
+                // Last first: deleting one keeps the indices before it. A group that also holds
+                // text or drawings stays whole (Sol, 26/10: it went, its text with it).
+                let images = pdfcraft_edit::page_images(doc, page)?;
+                let n = images.len();
                 for i in (0..n).rev() {
+                    if let Some(o) = images[i].object.filter(|_| images[i].is_form) {
+                        let (pictures, text, paths) = copy_image::drawing(doc, o);
+                        if pictures == 0 || text || paths {
+                            continue;
+                        }
+                    }
                     pdfcraft_edit::change_image(doc, page, i, &pdfcraft_edit::ImageChange::Delete)?;
                     removed += 1;
                 }
@@ -2721,7 +2734,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::Flatten { comments, fields } => {
             let n = pdfcraft_model::pages(doc).len();
             if *fields {
-                draw_missing_field_appearances(doc);
+                draw_missing_field_appearances(doc)?;
             }
             pdfcraft_edit::flatten(doc, &(0..n).collect::<Vec<_>>(), *comments, *fields)?;
         }
@@ -2885,8 +2898,9 @@ pub fn guard<T>(f: impl FnOnce() -> T) -> Result<T, String> {
 /// (its matrix scaled by 1 / its size), so an added item can show it in any box.
 /// Sheaf: the text and choice fields that hold a value but have no appearance (a viewer was asked
 /// to draw them: `/NeedAppearances`) drawn, so flattening keeps their value (Sol, 26/10: they were
-/// removed, their value lost).
-fn draw_missing_field_appearances(doc: &mut pdfcraft_cos::Document) {
+/// removed, their value lost). A value its font cannot draw is refused, said, rather than flattened
+/// as `?` (Sol, 26/10).
+fn draw_missing_field_appearances(doc: &mut pdfcraft_cos::Document) -> Result<(), EditError> {
     use pdfcraft_cos::{Dict, Object};
     use pdfcraft_forms::FieldKind;
     for f in pdfcraft_forms::fields(doc) {
@@ -2898,7 +2912,10 @@ fn draw_missing_field_appearances(doc: &mut pdfcraft_cos::Document) {
             if has {
                 continue;
             }
-            let stream = pdfcraft_forms::appearance::field_appearance(doc, &f, w, &f.value);
+            let (stream, undrawn) = pdfcraft_forms::appearance::field_appearance_drawn(doc, &f, w, &f.value, true);
+            if let Some(c) = undrawn {
+                return Err(EditError::Invalid(format!("the field {} holds “{c}”, which its font cannot draw: flattened, it would show “?” (give the field a font that has it first)", f.name)));
+            }
             let n = doc.add(Object::Stream(stream));
             let _ = doc.update_dict(w.obj, |d| {
                 let mut ap = Dict::new();
@@ -2907,6 +2924,7 @@ fn draw_missing_field_appearances(doc: &mut pdfcraft_cos::Document) {
             });
         }
     }
+    Ok(())
 }
 
 fn unit_form(doc: &mut pdfcraft_cos::Document, src: &pdfcraft_cos::Document, page: usize) -> Result<pdfcraft_cos::ObjRef, EditError> {

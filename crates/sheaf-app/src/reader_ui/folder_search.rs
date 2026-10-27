@@ -61,13 +61,12 @@ pub(super) fn search_folder(folder: &std::path::Path, query: &str) -> Vec<(PathB
             }
         }
     }
-    let q = query.to_lowercase();
     let mut out = Vec::new();
     for f in files {
         let Ok(pages) = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&f), &[]) else { continue };
         for (page, text) in pages.iter().enumerate() {
-            for line in text.lines().filter(|l| l.to_lowercase().contains(&q)) {
-                out.push((f.clone(), page, line.trim().chars().take(120).collect()));
+            for snippet in page_matches(text, query) {
+                out.push((f.clone(), page, snippet));
                 if out.len() >= MAX_RESULTS {
                     return out;
                 }
@@ -75,6 +74,52 @@ pub(super) fn search_folder(folder: &std::path::Path, query: &str) -> Vec<(PathB
         }
     }
     out
+}
+
+/// A word as compared: lower case, its common English endings taken off ("forms", "formed",
+/// "forming" → "form"), as Acrobat's search matches a word's forms (Sol, 26/10: exact only).
+fn stem(w: &str) -> String {
+    let w = w.to_lowercase();
+    for end in ["ing", "ed", "es", "s"] {
+        if let Some(s) = w.strip_suffix(end).filter(|s| s.chars().count() >= 3) {
+            return s.to_string();
+        }
+    }
+    w
+}
+
+/// Where `query` is on a page's `text`: its words in a row (across line ends: Sol, 26/10), each in
+/// any of its forms; failing that, all its words within 8 words of each other. The words around
+/// each place found, at most 120 characters.
+pub(crate) fn page_matches(text: &str, query: &str) -> Vec<String> {
+    // The page as one run of words (a hyphen at a line's end joins the word).
+    let joined = text.replace("-\n", "").replace('\n', " ");
+    let words: Vec<&str> = joined.split_whitespace().collect();
+    let clean = |w: &str| w.trim_matches(|c: char| !c.is_alphanumeric()).to_string();
+    let stems: Vec<String> = words.iter().map(|w| stem(&clean(w))).collect();
+    let q: Vec<String> = query.split_whitespace().map(|w| stem(&clean(w))).filter(|w| !w.is_empty()).collect();
+    if q.is_empty() {
+        return Vec::new();
+    }
+    let around = |at: usize, len: usize| {
+        let from = at.saturating_sub(6);
+        let to = (at + len + 6).min(words.len());
+        words[from..to].join(" ").chars().take(120).collect::<String>()
+    };
+    let phrase: Vec<usize> = (0..stems.len().saturating_sub(q.len() - 1)).filter(|&i| stems[i..i + q.len()] == q[..]).collect();
+    if !phrase.is_empty() {
+        return phrase.into_iter().map(|i| around(i, q.len())).collect();
+    }
+    // Near each other: a window of 8 words holding them all, once.
+    if q.len() > 1 {
+        for i in 0..stems.len() {
+            let window = &stems[i..(i + 8).min(stems.len())];
+            if window.first().is_some_and(|w| q.contains(w)) && q.iter().all(|w| window.contains(w)) {
+                return vec![around(i, 8)];
+            }
+        }
+    }
+    Vec::new()
 }
 
 /// A result clicked (`k`), or the sheet closed (−1): its file opens at its page.
@@ -99,4 +144,17 @@ pub fn folder_result(ui: &AppWindow, tab_id: i32, k: i32) {
 #[cfg(test)]
 pub fn folder_search_for_test(folder: &std::path::Path, query: &str) -> Vec<(PathBuf, usize, String)> {
     search_folder(folder, query)
+}
+
+#[cfg(test)]
+mod match_tests {
+    #[test]
+    fn a_phrase_is_found_across_lines_in_any_of_its_forms_or_its_words_near_each_other() {
+        let page = "The invoice was\nsigned by both parties.\nPayment terms are thirty days after delivery of the goods.";
+        assert_eq!(super::page_matches(page, "was signed").len(), 1, "across the line end");
+        assert_eq!(super::page_matches(page, "sign").len(), 1, "signed is a form of sign");
+        assert_eq!(super::page_matches(page, "payment days").len(), 1, "near each other");
+        assert!(super::page_matches(page, "payment goods parties").is_empty(), "too far apart");
+        assert!(super::page_matches("A hyphen-\nated word", "hyphenated")[0].contains("hyphenated"));
+    }
 }

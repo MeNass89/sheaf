@@ -821,3 +821,55 @@ unbound variable). Run at last, they found real defects as well as their own:
   `a_document_is_certified_with_no_signature_shown`); Replace all leaves OCR words even on a page with
   a typed header (C-reader-038); a two-row table of words in three columns or more (C-convert-010).
 - Auto-Complete offers an entry remembered in two cases once (a test caught it).
+
+
+### Round 24 (26–27/10, Sol's b28 gaps)
+
+- C-convert-007: an e-mail's pictures shown by `cid:` in its HTML drawn in the page, not attached
+  (test in `textdocs::tests::a_mail_shows_its_headers_its_text_and_lists_its_attachments`).
+- C-convert-011: PDF to PowerPoint's tables keep their height on the slide, their rows sharing it,
+  none smaller than its text (test `pptx_table_rows_share_the_tables_height`).
+- C-annotate-026: a turned picture stamp is copied as it shows, turned (`copy_image::turned`).
+- C-preferences-011 (round 23, not in its notes): on Windows, Sheaf is registered for this user as an
+  app that opens PDFs (its ProgID, `.pdf`'s Open with list) before Default apps opens.
+- C-forms-013: a field renamed and given a calculation in the same Done: the script is written under
+  its new name.
+- C-edit-020: Underlay a PDF… fits pages whose boxes are inherited from the page tree (they fell back
+  to Letter).
+- C-edit-028: Adjust colours changes CMYK pictures too (read as RGB, written back in RGB).
+- C-optimize-013: indexed pictures' palettes made grey; what stays in colour is said when Compress
+  ends (test `an_indexed_pictures_palette_is_made_grey`).
+- C-edit-029: Remove all images leaves a group that holds text or drawings (only groups of pictures
+  go with the pictures).
+- C-annotate-028: comments ⇧-clicked join the selection (on its page, outlined); a card in the view's
+  corner aligns them or spaces them evenly, one step; Delete removes them all, one step.
+- C-organize-022: files sorted in Files merge whole, in that order (the order made in Pages is
+  dropped, as when a file is moved).
+- C-organize-001: in the page grid, a page pressed inside a selection of several keeps it: dragged,
+  they all move; let go without a drag, that page alone is selected.
+- C-preferences-004: the zoom a document asks for (fit width, actual size, a percent) stands over
+  Preferences' fit to the page on its first opening.
+- C-reader-012: the loupe shows its area turned as Rotate view turns the pages.
+- C-reader-017: a search still reading pages when the view is turned starts again, turned.
+- C-output-011: flattening a field whose value its font cannot draw is refused, said, rather than
+  written as "?".
+- C-sign-014: the Sign tool's button is on with a digital ID chosen to certify and no signature placed.
+- C-sign-007: drawn signatures (ink) placed on several pages are deleted together too.
+- C-preferences-011: on Linux, Open PDFs with Sheaf by default writes the user's `sheaf.desktop`
+  (Exec this program) when no package installed one, then sets it.
+- C-reader-029: showing a layer of a radio-button group (`/RBGroups`) hides the others of its group.
+- C-reader-044: More tools ▸ Rulers: a ruler along each page's top and left edge (inches or
+  centimetres), a click on one makes a guide across the page, a click on its mark takes it away;
+  fields placed snap to a guide near (Acrobat's Snap to guides). C-preferences-007: Preferences ▸
+  Rulers measure in inches or centimetres.
+- C-security-014: Redact ▸ Margin round each mark (points): each box grows by it on every side, whole
+  pages as they are (test `marks_grow_by_the_margin_asked`).
+- C-organize-026: in Sheaf's full screen, a page comes in with its transition played over its length:
+  fading (Fade, Dissolve, Glitter), a curtain drawn back across (Wipe, Push, Cover, Uncover, Fly) or
+  from the middle (Split, Box, Blinds) (`Document::page_transitions`).
+  not automatable: an animation's frames under Xvfb.
+- C-reader-037: the folder search reads each page as one text (a phrase cut by a line end is found,
+  hyphenated words joined), a word in any of its forms (s, es, ed, ing), and failing the phrase its
+  words within 8 of each other (test `a_phrase_is_found_across_lines_in_any_of_its_forms_or_its_words_near_each_other`).
+- Bug: Scroll automatically crept at half speed when frames were dropped (a slow renderer): its step
+  is now the time since the last one, 30 px a second per speed step.

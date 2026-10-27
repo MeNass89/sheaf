@@ -200,6 +200,7 @@ pub(super) fn text_font(r: &ReaderUi) -> &'static str {
 /// Expert's row shows the selected box's format.
 pub(super) fn select_annot(r: &mut ReaderUi, i: usize) {
     r.selected_annot = Some(i);
+    r.annots_also.clear();
     let Some((font, size, align)) = r.annots().get(i).and_then(|a| a.font) else { return };
     r.text_align = align as i32;
     if let Some((family, style)) = FONTS.iter().enumerate().find_map(|(f, row)| row.iter().position(|n| *n == font).map(|s| (f, s))) {

@@ -240,7 +240,13 @@ pub fn rotate_view(ui: &AppWindow, tab_id: i32, dir: i32) {
         r.sel = None;
         v.all_changed();
         v.show_page(cur, None);
+        // A search still reading pages is started again: its later pages would come unturned
+        // (Sol, 26/10).
+        r.search.busy.then(|| r.search.query.clone())
     });
+    if let Some(q) = done.clone().flatten() {
+        super::search(ui, tab_id, &q);
+    }
     if done.is_some() {
         crate::viewer_ui::request(ui, tab_id);
     }

@@ -114,6 +114,8 @@ pub struct Prefs {
     pub reading_speed: u8,
     /// Read aloud's voice by the system's name for it (None: the system's default).
     pub reading_voice: Option<String>,
+    /// Rulers in centimetres (Acrobat's Page & Ruler Units); inches otherwise.
+    pub metric: bool,
     /// What was typed in form text fields, newest first (Acrobat's Auto-Complete memory; at most
     /// [`ENTRIES`]); offered back while a field is typed in.
     pub form_entries: Vec<String>,

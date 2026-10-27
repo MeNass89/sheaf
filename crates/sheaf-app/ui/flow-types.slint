@@ -168,6 +168,27 @@ export struct ReaderNote {
 // Reader: everything a document tab shows besides the pages (ToolTab.viewer-*).
 // Prepare form: a field drawn over its page, named; the selected one is outlined in the accent.
 // Prepare form's grid over a page (content pixels): its minor and major lines as path commands.
+// A label of a page's ruler: on the top ruler (`across`) or the left one, at `at` px from the corner.
+export struct ReaderRulerLabel {
+    across: bool,
+    at: length,
+    text: string,
+}
+
+// A page's rulers and guides (More tools ▸ Rulers): its box, its points' scale, the ticks and the
+// guides as path commands in its pixels, the rulers' labels.
+export struct ReaderRuler {
+    page: int,
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    scale: float,
+    ticks: string,
+    guides: string,
+    labels: [ReaderRulerLabel],
+}
+
 export struct ReaderGrid {
     x: length,
     y: length,
@@ -348,6 +369,8 @@ export struct ReaderState {
     // Prepare form: Grid on (fields snap to it) and its lines over the pages in view.
     form-grid: bool,
     form-grids: [ReaderGrid],
+    rulers-on: bool,
+    rulers: [ReaderRuler],
     field-props: ReaderFieldProps,
     // The Link editor's complaint about what was typed.
     link-error: string,
@@ -355,6 +378,8 @@ export struct ReaderState {
     has-picked: bool,
     // How many (Align and Distribute show from two).
     picked-count: int,
+    // Comments selected together (⇧-click): how many (Align shows from two).
+    annots-group: int,
     // New links' look: a visible border, dashed.
     link-visible: bool,
     link-dashed: bool,
@@ -404,6 +429,10 @@ export struct ReaderState {
     page-bottom: float,
     // The page shown's seconds in full screen before the next (its transition's /Dur; 0 none).
     page-advance: float,
+    // The page shown's transition in full screen: 0 none, 1 a fade (Fade, Dissolve, Glitter), 2 a
+    // curtain across (Wipe, Push, Cover, Uncover, Fly), 3 from the middle (Split, Box, Blinds); its length.
+    page-effect: int,
+    page-effect-seconds: float,
     // Rotate View: how far the pages shown are turned clockwise (0, 90, 180, 270).
     view-turn: int,
     // The Signature tool places the initials; on every page at once.
@@ -623,6 +652,7 @@ export struct ToolOptions {
     sign-certify: int,       // sign: 0 approve; certify allowing 1 no changes, 2 forms and signing, 3 also comments
     redact-fill: int,        // redact: the boxes' colour, 0 black, 1 white, 2 grey, 3 red
     redact-overlay: string,  // redact: text over each box ("" none)
+    redact-margin: string,   // redact: points added round each mark ("" none)
     redact-repeat: bool,     // redact: that text repeated to fill the box
 }
 
@@ -890,6 +920,11 @@ export global ReaderBridge {
     callback fields-arrange(int, int);
     // Edit tool, several objects picked ▸ Align or Distribute (codes as fields-arrange's, no sizes).
     callback objects-arrange(int, int);
+    // Comments selected together ▸ Align or Distribute (codes as fields-arrange's).
+    callback annots-arrange(int, int);
+    // More tools ▸ Rulers; a click on a page's ruler (top: across) at page points: a guide added or taken away.
+    callback rulers(int);
+    callback ruler-clicked(int, int, bool, float);
     // A text selection ▸ Look up: the words in the system's dictionary.
     callback look-up(string);
     // Pages panel ▸ Transitions: the selected pages' (or the one shown's) effect (index of

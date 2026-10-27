@@ -372,6 +372,8 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Read the selection", on: false },
                                 { text: "Pause or resume reading", on: false },
                                 { text: "Voice…", on: false },
+                                // Acrobat's Rulers; a click on one makes a guide.
+                                { text: "Rulers", on: root.tab.reader.rulers-on },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -395,6 +397,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 13 { ReaderBridge.read-aloud(root.id, 3); }
                                         if k == 14 { ReaderBridge.read-aloud(root.id, 4); }
                                         if k == 15 { ReaderBridge.read-aloud(root.id, 5); }
+                                        if k == 16 { ReaderBridge.rulers(root.id); }
                                         root.focus-pages();
                                     }
                                 }

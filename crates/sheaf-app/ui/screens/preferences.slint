@@ -142,6 +142,8 @@ export component PreferencesScreen inherits Rectangle {
     // How dated stamps write the time (0 Acrobat's, 1 day first, 2 ISO).
     in property <int> stamp-date;
     callback set-stamp-date(int);
+    in property <bool> metric;
+    callback set-metric(bool);
     background: Theme.content-bg;
 
     scroll := ScrollView {
@@ -321,6 +323,18 @@ export component PreferencesScreen inherits Rectangle {
                         selected: root.stamp-date == i;
                         clicked => { root.set-stamp-date(i); }
                     }
+                }
+                // Acrobat's Units & Guides: the rulers' units.
+                Text {
+                    text: "Rulers measure in";
+                    font-size: Theme.fs-body;
+                    color: Theme.text;
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    spacing: 8px;
+                    Segment { width: 140px; text: "Inches"; selected: !root.metric; clicked => { root.set-metric(false); } }
+                    Segment { width: 140px; text: "Centimetres"; selected: root.metric; clicked => { root.set-metric(true); } }
                 }
             }
         }

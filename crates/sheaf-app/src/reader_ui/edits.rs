@@ -697,6 +697,32 @@ pub fn objects_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
     }
 }
 
+/// Comments selected together (⇧-click) ▸ Align or Distribute (`how` as [`reader::arrange`], after
+/// the first one selected, as fields are): each moved, one step (Sol, 26/10: comments could only be
+/// moved one at a time).
+pub fn annots_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
+    let edit = update(tab_id, |r, _| {
+        let first = r.selected_annot?;
+        let all: Vec<reader_doc::AnnotEntry> = std::iter::once(first).chain(r.annots_also.iter().copied()).filter_map(|i| r.annots().get(i).cloned()).collect();
+        if all.len() < 2 {
+            return None;
+        }
+        let rects: Vec<[f64; 4]> = all.iter().map(|a| a.rect).collect();
+        let moved = reader::arrange(&rects, how);
+        let edits: Vec<Edit> = all
+            .iter()
+            .zip(moved)
+            .filter(|(a, m)| (m[0] - a.rect[0]).abs() > 1e-3 || (m[1] - a.rect[1]).abs() > 1e-3)
+            .map(|(a, m)| Edit::MoveAnnotation { page: a.page, index: a.index, dx: m[0] - a.rect[0], dy: m[1] - a.rect[1] })
+            .collect();
+        (!edits.is_empty()).then(|| (all[0].page, Edit::Batch { label: "Arrange comments".into(), edits }))
+    })
+    .flatten();
+    if let Some((page, e)) = edit {
+        apply(ui, tab_id, e, &[page], None);
+    }
+}
+
 pub fn note_cancel(tab_id: i32) {
     update(tab_id, |r, _| {
         r.draft = None;
@@ -792,12 +818,30 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     if update(tab_id, |r, _| r.selected_image.is_some()) == Some(true) {
         return image_action(ui, tab_id, 4);
     }
+    // Comments selected together: deleted together, one step.
+    let group = update(tab_id, |r, _| {
+        let first = r.selected_annot?;
+        if r.annots_also.is_empty() {
+            return None;
+        }
+        let mut all: Vec<(usize, usize)> = std::iter::once(first).chain(std::mem::take(&mut r.annots_also)).filter_map(|i| r.annots().get(i).map(|a| (a.page, a.index))).collect();
+        r.selected_annot = None;
+        // Last first on the page: deleting one keeps the indices before it.
+        all.sort_by(|a, b| b.cmp(a));
+        let page = all[0].0;
+        Some((page, Edit::Batch { label: "Delete comments".into(), edits: all.into_iter().map(|(page, index)| Edit::DeleteAnnotation { page, index }).collect() }))
+    })
+    .flatten();
+    if let Some((page, e)) = group {
+        return apply(ui, tab_id, e, &[page], None);
+    }
     let edit = update(tab_id, |r, _| {
         let i = r.selected_annot.take()?;
         let a = r.annots().get(i)?;
         // A signature or initials placed on several pages at once (Every page): the copies go
         // together, one undo step (Sol, 26/10: only the one selected went).
-        let twins: Vec<(usize, usize)> = if a.fill_sign && a.subtype == "Stamp" {
+        // Drawn signatures are ink, picture and typed ones stamps (Sol, 26/10: ink was left).
+        let twins: Vec<(usize, usize)> = if a.fill_sign && matches!(a.subtype.as_str(), "Stamp" | "Ink") {
             let same = |b: &reader_doc::AnnotEntry| b.page != a.page && b.subtype == a.subtype && b.fill_sign && b.contents == a.contents && (0..4).all(|k| (b.rect[k] - a.rect[k]).abs() < 0.5);
             r.annots().iter().filter(|b| same(b)).map(|b| (b.page, b.index)).collect()
         } else {

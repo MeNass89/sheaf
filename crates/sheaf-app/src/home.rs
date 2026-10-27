@@ -353,6 +353,7 @@ fn push_prefs(ui: &AppWindow) {
     rb.set_panel_width(panel_width());
     rb.set_thumb_width(crate::reader_ui::reader_thumb(panel_width()) as f32);
     ui.set_stamp_date(p.stamp_date);
+    ui.set_metric(p.metric);
 }
 
 /// Preferences ▸ Appearance ▸ Accent colour.
@@ -427,6 +428,11 @@ pub fn set_open_after(ui: &AppWindow, v: bool) {
 }
 
 /// Preferences ▸ Dated stamps (0 Acrobat's, 1 day first, 2 ISO).
+/// Preferences ▸ Units: the rulers in inches (false) or centimetres (true).
+pub fn set_metric(ui: &AppWindow, metric: bool) {
+    update_prefs(ui, |p| p.metric = metric);
+}
+
 pub fn set_stamp_date(ui: &AppWindow, f: i32) {
     update_prefs(ui, |p| p.stamp_date = f.clamp(0, 2));
 }

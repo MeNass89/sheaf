@@ -50,6 +50,19 @@ pub(super) fn shown(tab_id: i32, made: Result<(u32, u32, Vec<u8>), String>) {
             return;
         }
         if let Ok((w, h, rgba)) = made {
+            // Rotate View: the area turned as the pages are (Sol, 26/10: it showed the file's way up).
+            let (w, h, rgba) = match image::RgbaImage::from_raw(w, h, rgba) {
+                Some(img) if r.turn % 4 != 0 => {
+                    let t = match r.turn % 4 {
+                        1 => image::imageops::rotate90(&img),
+                        2 => image::imageops::rotate180(&img),
+                        _ => image::imageops::rotate270(&img),
+                    };
+                    (t.width(), t.height(), t.into_raw())
+                }
+                Some(img) => (img.width(), img.height(), img.into_raw()),
+                None => return,
+            };
             r.loupe_image = Some(slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&rgba, w, h)));
         }
         if let Some((page, rect)) = r.loupe_next.take() {

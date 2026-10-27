@@ -119,6 +119,8 @@ export component AppWindow inherits Window {
     in property <int> default-zoom;
     in property <int> stamp-date;
     callback set-stamp-date(int);
+    in property <bool> metric;
+    callback set-metric(bool);
     callback make-default();
     callback set-default-zoom(int);
     in property <int> default-spread;
@@ -318,6 +320,8 @@ export component AppWindow inherits Window {
                             default-zoom: root.default-zoom;
                             stamp-date: root.stamp-date;
                             set-stamp-date(f) => { root.set-stamp-date(f); }
+                            metric: root.metric;
+                            set-metric(m) => { root.set-metric(m); }
                             make-default => { root.make-default(); }
                             set-default-zoom(z) => { root.set-default-zoom(z); }
                             default-spread: root.default-spread;

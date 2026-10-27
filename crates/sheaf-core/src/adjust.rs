@@ -6,7 +6,7 @@
 //! `sc`/`scn` in grey, RGB or CMYK spaces; CMYK written as RGB) and the 8-bit grey and RGB pictures
 //! are changed alike. The paper and the default black change too: each page is painted first in
 //! what white becomes and starts drawing in what black becomes, so an inverted page is light on
-//! dark. Left as they are, and counted: gradients, spot and indexed colours, CMYK pictures.
+//! dark. Left as they are, and counted: gradients, spot and indexed colours, CMYK JPEGs.
 
 use crate::grayscale::{components, luma, num, page_resources};
 use crate::pages::Input;
@@ -131,7 +131,7 @@ pub fn adjust_doc(doc: &mut Document, a: &Adjust) -> usize {
         }) else {
             continue;
         };
-        let done = (n == 1 || n == 3) && doc.get_object_mut(id).and_then(Object::as_stream_mut).is_ok_and(|s| adjust_image(s, n, a));
+        let done = matches!(n, 1 | 3 | 4) && doc.get_object_mut(id).and_then(Object::as_stream_mut).is_ok_and(|s| adjust_image(s, n, a));
         if !done {
             kept += 1;
         }
@@ -208,6 +208,24 @@ fn adjust_ops(doc: &Document, res: Option<&Dictionary>, ops: Vec<Operation>, a: 
 
 /// A grey or RGB picture's pixels changed (stored losslessly); false when it cannot be read.
 fn adjust_image(s: &mut lopdf::Stream, n: u8, a: &Adjust) -> bool {
+    // CMYK (8 bits, not a JPEG): read as its RGB, written back in RGB (Sol, 26/10: CMYK pictures
+    // were left, so an inverted page mixed both).
+    if n == 4 {
+        let jpeg = crate::compress::single_filter(s) == Some(b"DCTDecode");
+        let (w, h) = (s.dict.get(b"Width").and_then(Object::as_i64).unwrap_or(0), s.dict.get(b"Height").and_then(Object::as_i64).unwrap_or(0));
+        if jpeg || s.dict.get(b"BitsPerComponent").and_then(Object::as_i64).ok() != Some(8) || s.dict.has(b"Decode") {
+            return false;
+        }
+        let Ok(raw) = s.decompressed_content() else { return false };
+        if w <= 0 || h <= 0 || raw.len() != (w * h * 4) as usize {
+            return false;
+        }
+        let data: Vec<u8> = raw.as_chunks::<4>().0.iter().flat_map(|p| a.rgb(cmyk_rgb(p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0, p[3] as f32 / 255.0)).map(|c| (c * 255.0).round() as u8)).collect();
+        s.set_plain_content(data);
+        s.dict.set("ColorSpace", Object::Name(b"DeviceRGB".to_vec()));
+        let _ = s.compress();
+        return true;
+    }
     let Some(img) = crate::compress::image_pixels(s, n == 1) else { return false };
     let data: Vec<u8> = if n == 1 {
         img.to_luma8().into_raw().into_iter().map(|g| (a.gray(g as f32 / 255.0) * 255.0).round() as u8).collect()

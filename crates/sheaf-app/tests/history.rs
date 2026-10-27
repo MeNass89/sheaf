@@ -95,6 +95,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         stamp_date: 2,
         reading_speed: 2,
         reading_voice: Some("Alex".into()),
+        metric: true,
         form_entries: vec!["Ada Lovelace".into()],
         rough: 5,
         default_zoom: 1,

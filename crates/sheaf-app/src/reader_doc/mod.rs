@@ -187,8 +187,12 @@ pub struct Snap {
     pub attachments: Arc<Vec<sheaf_core::pdfcraft::render::Attachment>>,
     /// The document's layers (optional content groups), shown or not as the file sets them.
     pub layers: Arc<Vec<sheaf_core::pdfcraft::render::Layer>>,
+    /// Layers of which one at most shows (`/RBGroups`, radio-button groups).
+    pub layer_groups: Arc<Vec<Vec<(u32, u16)>>>,
     /// Each page's seconds in full screen before the next (Page transitions), when set.
     pub durations: Arc<Vec<Option<f64>>>,
+    /// Each page's transition in full screen: its effect and length.
+    pub transitions: Arc<Vec<Option<(String, f64)>>>,
 }
 
 /// A certificate name's attribute by its usual short name (RFC 4514's, and E for the e-mail);
@@ -382,7 +386,9 @@ fn snap(doc: &Doc) -> Snap {
         props: Arc::new(props(d)),
         attachments: Arc::new(d.info.attachments.clone()),
         layers: Arc::new(d.info.layers.clone()),
+        layer_groups: Arc::new(d.info.layer_groups.clone()),
         durations: Arc::new(d.page_durations()),
+        transitions: Arc::new(d.page_transitions()),
     }
 }
 

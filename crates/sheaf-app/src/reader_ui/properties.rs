@@ -213,13 +213,26 @@ pub(super) fn open_as_asked(r: &mut ReaderUi, v: &mut ViewerUi) {
         L::TwoUpCoverPage | L::TwoUpContinuousCoverPage => v.viewer.set_spread(2),
         L::Default => false,
     };
+    // The document's zoom over Preferences' (Sol, 26/10: a fit to the page asked by the
+    // preferences took over a document asking for its width or actual size).
     match o.magnification {
-        M::FitPage | M::FitVisible | M::FitHeight => v.pending_fit = true,
-        M::FitWidth => {
-            v.viewer.set_zoom(100);
+        M::FitPage | M::FitVisible | M::FitHeight => {
+            (v.pending_fit, v.pending_actual) = (true, None);
+            r.zoom_mode = 1;
         }
-        M::ActualSize => v.pending_actual = Some(100.0),
-        M::Percent(p) if p > 0.0 => v.pending_actual = Some(p),
+        M::FitWidth => {
+            (v.pending_fit, v.pending_actual) = (false, None);
+            v.viewer.set_zoom(100);
+            r.zoom_mode = 0;
+        }
+        M::ActualSize => {
+            (v.pending_fit, v.pending_actual) = (false, Some(100.0));
+            r.zoom_mode = 2;
+        }
+        M::Percent(p) if p > 0.0 => {
+            (v.pending_fit, v.pending_actual) = (false, Some(p));
+            r.zoom_mode = 2;
+        }
         _ => {}
     }
     if o.page > 0 {

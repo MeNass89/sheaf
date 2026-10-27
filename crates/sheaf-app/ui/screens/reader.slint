@@ -124,10 +124,19 @@ export component ReaderScreen inherits Rectangle {
     // Scroll automatically (Acrobat's View ▸ Page Display ▸ Automatically Scroll): the pages move
     // up by themselves, ↑ ↓ slower and faster, Escape stops; the view moves here, not in Rust.
     property <int> scroll-speed: 2;
+    // The last step's time: each step moves by the time gone since (30 px a second a speed step).
+    property <duration> scroll-tick: 0ms;
+    changed scroll-on => { root.scroll-tick = animation-tick(); }
+    property <bool> scroll-on: root.tab.reader.auto-scroll;
     Timer {
         interval: 16ms;
         running: root.tab.reader.auto-scroll;
-        triggered => { sv.content-y = max(sv.visible-height - sv.content-height, sv.content-y - root.scroll-speed * 0.5px); }
+        triggered => {
+            let now = animation-tick();
+            let dt = min(250ms, now - root.scroll-tick);
+            root.scroll-tick = now;
+            sv.content-y = max(sv.visible-height - sv.content-height, sv.content-y - root.scroll-speed * 30px * (dt / 1s));
+        }
     }
     // Full screen (Acrobat's): a page with a time of its own (Page transitions) turns to the next.
     Timer {
@@ -274,6 +283,34 @@ export component ReaderScreen inherits Rectangle {
                         height: g.h;
                         Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.minor; stroke: #3B82F61F; stroke-width: 1px; }
                         Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.major; stroke: #3B82F647; stroke-width: 1px; }
+                    }
+                    // Rulers along each page's top and left edge, and the guides made from them (Acrobat's).
+                    for g in root.tab.reader.rulers: Rectangle {
+                        x: g.x;
+                        y: g.y;
+                        width: g.w;
+                        height: g.h;
+                        Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.guides; stroke: #00A6D6; stroke-width: 1px; }
+                        if root.tab.reader.rulers-on: Rectangle {
+                            height: 14px;
+                            background: #F2F2F2E6;
+                            Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.ticks; stroke: #606060; stroke-width: 1px; }
+                            TouchArea { clicked => { ReaderBridge.ruler-clicked(root.id, g.page, true, self.mouse-x / 1px / g.scale); } }
+                        }
+                        if root.tab.reader.rulers-on: Rectangle {
+                            x: 0;
+                            width: 14px;
+                            background: #F2F2F2E6;
+                            Path { width: parent.width; height: parent.height; viewbox-width: self.width / 1px; viewbox-height: self.height / 1px; commands: g.ticks; stroke: #606060; stroke-width: 1px; }
+                            TouchArea { clicked => { ReaderBridge.ruler-clicked(root.id, g.page, false, self.mouse-y / 1px / g.scale); } }
+                        }
+                        for l in g.labels: Text {
+                            x: l.across ? l.at + 2px : 2px;
+                            y: l.across ? 1px : l.at + 1px;
+                            text: l.text;
+                            font-size: 8px;
+                            color: #404040;
+                        }
                     }
                     // Prepare form: every field, named (its card is above the pages' pointer area, below).
                     for f in root.tab.reader.form-fields: FormFieldBox { field: f; }
@@ -446,6 +483,14 @@ export component ReaderScreen inherits Rectangle {
                         }
                     }
                     // Edit tool, objects picked together: Align and Distribute, in the view's top-right corner.
+                    if root.tab.reader.tool == 0 && root.tab.reader.annots-group > 1: ObjectsArrangeCard {
+                        x: -sv.content-x + sv.visible-width - self.width - 12px;
+                        y: -sv.content-y + 12px;
+                        count: root.tab.reader.annots-group;
+                        comments: true;
+                        id: root.id;
+                        focus-pages => { keys.focus(); }
+                    }
                     if root.tab.reader.tool == 7 && root.tab.reader.picked-count > 1: ObjectsArrangeCard {
                         x: -sv.content-x + sv.visible-width - self.width - 12px;
                         y: -sv.content-y + 12px;
@@ -633,6 +678,27 @@ export component ReaderScreen inherits Rectangle {
                             }
                         }
                     }
+                }
+                // Full screen: the page comes in with its transition (Acrobat's Page Transitions): a
+                // curtain of the window's background drawn back, faded, across or from the middle.
+                if root.bare && root.tab.reader.page-effect > 0: Rectangle {
+                    property <int> page: root.tab.viewer-current;
+                    property <float> left: 0;
+                    changed page => { self.left = 1; animate-in.running = true; }
+                    animate-in := Timer {
+                        interval: 16ms;
+                        running: false;
+                        triggered => {
+                            parent.left = max(0, parent.left - 0.016 / max(0.05, root.tab.reader.page-effect-seconds));
+                            if parent.left <= 0 { self.running = false; }
+                        }
+                    }
+                    x: sv.x + (root.tab.reader.page-effect == 2 ? sv.width * (1 - self.left) : root.tab.reader.page-effect == 3 ? sv.width * (1 - self.left) / 2 : 0px);
+                    y: sv.y;
+                    width: root.tab.reader.page-effect == 1 ? sv.width : root.tab.reader.page-effect == 3 ? sv.width * self.left : sv.width * self.left;
+                    height: sv.height;
+                    background: Theme.content-bg;
+                    opacity: root.tab.reader.page-effect == 1 ? self.left : 1;
                 }
                 // Reflow (Acrobat's): the page in view's text on the window's width, at a size of its
                 // own; ‹ › turn pages, A− A+ change the size.

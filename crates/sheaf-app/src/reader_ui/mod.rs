@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use sheaf_app::reader::{self, PageTheme, COLOURS, INK};
 use sheaf_app::viewer::{self, Viewer};
-use sheaf_app::{AppWindow, FolderHit, ReaderFieldProps, ReaderFormField, ReaderGrid, ReaderMark, ReaderCheck, ReaderLayer, ReaderProp, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
+use sheaf_app::{AppWindow, FolderHit, ReaderFieldProps, ReaderFormField, ReaderGrid, ReaderMark, ReaderCheck, ReaderLayer, ReaderProp, ReaderRuler, ReaderRulerLabel, ReaderResultRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderOutlineRow, ReaderState, ToolTab, ViewerOverlay};
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::engine::{AddedText, Edit, FieldValue, LineEnding, Markup, NewAnnotation, NoteIcon, Shape, StampKind, Style};
 use sheaf_core::pdfcraft::render::{self, PageText};
@@ -187,6 +187,9 @@ pub struct ReaderUi {
     toggled: HashSet<Vec<usize>>,
     rows: Vec<reader::OutlineRow>,
     selected_annot: Option<usize>,
+    /// Other comments selected with it (⇧-click), on its page; a ⇧-press waiting for its release.
+    annots_also: Vec<usize>,
+    annots_shift: bool,
     search: Search,
     stroke: Option<(usize, Vec<(f64, f64)>)>,
     draft: Option<Draft>,
@@ -355,6 +358,10 @@ pub struct ReaderUi {
     a11y: Option<sheaf_core::pdfcraft::engine::a11y::Report>,
     /// When opened ▸ fit the window to the page, centre it (Acrobat's): asked once it is shown.
     window_ask: Option<(bool, bool)>,
+    /// More tools ▸ Rulers on, and the guides made from them: (page, across, page points from its
+    /// top or left).
+    rulers: bool,
+    guides: Vec<(usize, bool, f64)>,
     /// More tools ▸ Voice…: the list open, the system's voices.
     voices_open: bool,
     voices: Vec<String>,
@@ -466,6 +473,8 @@ impl ReaderUi {
             toggled: HashSet::new(),
             rows: Vec::new(),
             selected_annot: None,
+            annots_also: Vec::new(),
+            annots_shift: false,
             search: Search { query: String::new(), hits: Vec::new(), snippets: Vec::new(), case_sensitive: false, whole_words: false, current: None, busy: false, generation: 0 },
             stroke: None,
             draft: None,
@@ -563,6 +572,8 @@ impl ReaderUi {
             a11y_busy: false,
             a11y: None,
             window_ask: None,
+            rulers: false,
+            guides: Vec::new(),
             voices_open: false,
             voices: Vec::new(),
             dashed: false,
@@ -1053,7 +1064,11 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
         if NOTES_FIRST.with(|n| n.borrow_mut().remove(&std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone()))) && !r.snap.annots.is_empty() {
             (r.panel, r.panel_open) = (2, true);
         }
-        r.zoom_mode = crate::home::last_view(&path).map_or(crate::home::prefs().default_zoom.clamp(0, 2), |(fit, ..)| fit.clamp(0, 2));
+        // The zoom the document asks for (When opened) stands on a first opening.
+        let asked = crate::home::last_view(&path).is_none() && !matches!(r.snap.opening.magnification, sheaf_core::pdfcraft::engine::Magnification::Default);
+        if !asked {
+            r.zoom_mode = crate::home::last_view(&path).map_or(crate::home::prefs().default_zoom.clamp(0, 2), |(fit, ..)| fit.clamp(0, 2));
+        }
         r.theme = PageTheme::from_index(crate::home::prefs().reader_theme);
         v.theme = r.theme;
         // Same file, same pixels: what is rendered stays; later renders come from the working copy.

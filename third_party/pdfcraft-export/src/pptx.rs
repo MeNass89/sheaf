@@ -52,7 +52,9 @@ fn run_drawingml(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3
 }
 
 /// Generates a DrawingML table inside a `<p:graphicFrame>` with explicit cell borders.
-fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64) -> (String, i64) {
+/// `content_h`: the height the table has on the page (Sol, 26/10: rows were 24 pt each whatever
+/// the source, so dense tables ran off the slide); its rows share it, none smaller than its text.
+fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64, content_h: i64) -> (String, i64) {
     let mut edges = t.cols.clone();
     edges.push(t.rect[2]);
     let widths_pt: Vec<f64> = edges.windows(2).map(|w| (w[1] - w[0]).max(20.0)).collect();
@@ -60,7 +62,10 @@ fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64) -> (St
     let scale = if total_pt > 0.0 { (content_w as f64 / (total_pt * 12700.0)).min(1.0) } else { 1.0 };
     let widths: Vec<i64> = widths_pt.iter().map(|w| (w * scale * 12700.0).round().max(127000.0) as i64).collect();
     let table_w: i64 = widths.iter().fold(0i64, |sum, w| sum.saturating_add(*w));
-    let row_h: i64 = height_emu(24.0);
+    // The rows share the table's height on the page; each at least its largest text and a margin.
+    let n = i64::try_from(t.rows.len().max(1)).unwrap_or(1);
+    let text_h = t.rows.iter().flatten().map(|c| c.size).filter(|s| s.is_finite()).fold(0.0f64, f64::max).max(6.0) * 1.2 + 4.0;
+    let row_h: i64 = (content_h / n).max(height_emu(text_h.min(24.0)));
     let table_h: i64 = i64::try_from(t.rows.len()).unwrap_or(i64::MAX).saturating_mul(row_h).min(MAX_ITEM_EMU);
 
     let mut grid_cols = String::new();
@@ -203,8 +208,8 @@ pub fn pptx(pages: &[Page], title: &str) -> Vec<u8> {
                     shape_id += 1;
                 }
                 SlideBodyItem::Table(t) => {
-                    let (x, y, cx, _) = place(t.rect);
-                    let (table_xml, _) = pptx_table(shape_id, t, x, y, cx);
+                    let (x, y, cx, cy) = place(t.rect);
+                    let (table_xml, _) = pptx_table(shape_id, t, x, y, cx, cy);
                     shapes.push_str(&table_xml);
                     shape_id += 1;
                 }
@@ -452,6 +457,20 @@ mod tests {
         assert_eq!(tx, (title.rect[0] * 12700.0).round() as i64);
         assert_eq!(ty, ((p.height - title.rect[3]) * 12700.0).round() as i64);
         assert!(by > ty && bx >= 0, "the body below the title: {by} vs {ty}");
+    }
+
+    /// Sheaf: a dense table keeps its height on the slide, its rows sharing it (Sol, 26/10: 24 pt
+    /// each ran it off the slide); no row smaller than its text.
+    #[test]
+    fn pptx_table_rows_share_the_tables_height() {
+        use crate::Cell;
+        let cell = |t: &str| Cell { text: t.into(), size: 8.0, span: 1, ..Default::default() };
+        let t = Table { rect: [72.0, 100.0, 372.0, 220.0], cols: vec![72.0, 222.0], rows: (0..10).map(|k| vec![cell(&format!("r{k}")), cell("v")]).collect(), ruled: false };
+        // 200 pt for ten rows: 20 pt each.
+        let (xml, _) = super::pptx_table(2, &t, 0, 0, 300 * 12700, 200 * 12700);
+        assert_eq!(xml.matches("<a:tr h=\"254000\">").count(), 10, "ten rows of 20 pt: {}", &xml[..xml.len().min(400)]);
+        let (xml, _) = super::pptx_table(2, &t, 0, 0, 300 * 12700, 20 * 12700);
+        assert!(!xml.contains("<a:tr h=\"25400\">"), "a row never smaller than its text");
     }
 
     #[test]

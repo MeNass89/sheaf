@@ -444,6 +444,8 @@ pub fn sort_files(tab_id: i32) {
             if ascending {
                 t.files.reverse();
             }
+            // Files sorted merge whole, in that order (Sol, 26/10: an order made in Pages won).
+            t.merge_kept = None;
         }
         refresh(a, tab_id);
     });

@@ -47,7 +47,7 @@ kept! {
         num_bold, num_italic, num_underline, wm_image_mode, wm_bold, wm_italic, wm_underline, wm_mosaic, wm_below,
         wm_replace, wm_remove, ocr_all_pages, ocr_enhance, export_ocr, export_exact, sign_cert;
     strings:
-        redact_overlay, compress_ppi, compress_quality,
+        redact_overlay, redact_margin, compress_ppi, compress_quality,
         organize_order,
         hf_tl, hf_tc, hf_tr, hf_bl, hf_bc, hf_br, bates_prefix, bates_start, compress_target,
         pages, compare_old_pages, compare_new_pages, ranges, split_size, out_name, from_page, to_page, num_start,

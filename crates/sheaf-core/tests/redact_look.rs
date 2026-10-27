@@ -28,7 +28,7 @@ fn redactions_take_the_colour_and_the_text_chosen() {
     let mut marks = redact::mark_pages(&pdf, &[1]).unwrap();
     let hits = redact::find(&pdf, &Query::Literal { text: "secret".into(), case_insensitive: true, whole_word: false }).unwrap();
     marks.extend(redact::mark_text(&hits));
-    let look = redact::Appearance { fill: [1.0, 1.0, 1.0], overlay: "Redacted".into(), repeat: false };
+    let look = redact::Appearance { fill: [1.0, 1.0, 1.0], overlay: "Redacted".into(), repeat: false, margin: 0.0 };
     let r = redact::apply_with(&pdf, &marks, &[], &look, &t.path().join("out.pdf")).unwrap();
     let pages = common::page_texts(&r.path);
     // The word is gone and the overlay text is in its place; page 2 is all white, not black.
@@ -36,4 +36,17 @@ fn redactions_take_the_colour_and_the_text_chosen() {
     assert_eq!(common::dark_in(&render(&r.path, 1), 0.0, 1.0, 0.0, 1.0), 0, "page 2 white");
     // The independent check passes with "Redacted" on the boxes: the overlay is no leak.
     redact::verify_with(&r.path, &marks, "Redacted").unwrap();
+}
+
+/// A margin round each mark (Acrobat's): the box grows by it on every side, whole pages stay.
+#[test]
+fn marks_grow_by_the_margin_asked() {
+    let m = redact::Mark { page: 0, quads: vec![[10.0, 20.0, 50.0, 20.0, 50.0, 30.0, 10.0, 30.0]], ..Default::default() };
+    let whole = redact::Mark { whole_page: true, ..m.clone() };
+    let g = redact::grown(&[m, whole.clone()], 2.0);
+    let q = g[0].quads[0];
+    let (xs, ys) = ([q[0], q[2], q[4], q[6]], [q[1], q[3], q[5], q[7]]);
+    assert_eq!((xs.iter().copied().fold(f64::MAX, f64::min), xs.iter().copied().fold(f64::MIN, f64::max)), (8.0, 52.0));
+    assert_eq!((ys.iter().copied().fold(f64::MAX, f64::min), ys.iter().copied().fold(f64::MIN, f64::max)), (18.0, 32.0));
+    assert_eq!(g[1].quads, whole.quads);
 }

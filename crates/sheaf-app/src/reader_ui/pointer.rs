@@ -12,6 +12,9 @@ fn grid_pressed(r: &mut ReaderUi, v: &mut ViewerUi, page: Option<usize>, clicks:
     match (clicks >= 2, shift, r.page_anchor) {
         (true, _, _) => super::nav::open_from_grid(r, v, p),
         (false, true, Some(a)) => r.page_sel = (a.min(p)..=a.max(p)).collect(),
+        // A page of a selection of several keeps the selection: it may be dragged with the others
+        // (Sol, 26/10); a click without a drag selects it alone on release.
+        (false, false, _) if r.page_sel.len() > 1 && r.page_sel.contains(&p) => r.page_anchor = Some(p),
         _ => {
             r.page_sel = [p].into_iter().collect();
             r.page_anchor = Some(p);
@@ -230,7 +233,12 @@ pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
                 // A click (no drag) on an annotation with the select tool selects it on release;
                 // a drag that starts on one selects the text under it, as in PDF Expert.
                 r.annot_candidate = if r.tool == SELECT { annot_at(r, &v.viewer, page, p) } else { None };
-                r.selected_annot = None;
+                // ⇧-click: another comment of the page joins the selection (to align them).
+                r.annots_shift = shift && r.annot_candidate.is_some() && r.selected_annot.is_some_and(|s| r.annots().get(s).is_some_and(|a| a.page == page));
+                if !r.annots_shift {
+                    r.selected_annot = None;
+                    r.annots_also.clear();
+                }
                 r.sel = None;
                 false
             }
@@ -430,6 +438,10 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     // The page grid: the pages dragged (the selection, when the page pressed is in it) go to the gap.
     let grid = update(tab_id, |r, _| {
         let (p, _, dragged) = r.grid_drag.take()?;
+        // Pressed in a selection of several and let go without a drag: that page alone.
+        if !dragged && r.page_sel.len() > 1 && r.page_sel.contains(&p) {
+            r.page_sel = [p].into_iter().collect();
+        }
         let gap = r.grid_gap.take().filter(|_| dragged)?;
         let mut pages: Vec<usize> = if r.page_sel.contains(&p) { r.page_sel.iter().copied().collect() } else { vec![p] };
         pages.sort_unstable();
@@ -540,6 +552,17 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         if let Some(i) = r.annot_candidate.take()
             && r.sel.is_none()
         {
+            if std::mem::take(&mut r.annots_shift) {
+                if r.selected_annot != Some(i) {
+                    match r.annots_also.iter().position(|&k| k == i) {
+                        Some(k) => {
+                            r.annots_also.remove(k);
+                        }
+                        None => r.annots_also.push(i),
+                    }
+                }
+                return None;
+            }
             select_annot(r, i);
             // A note or text box opens to read and edit its text, as PDF Expert's pop-ups do.
             if let Some(a) = r.annots().get(i)

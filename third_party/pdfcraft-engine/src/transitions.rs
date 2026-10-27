@@ -69,4 +69,21 @@ impl crate::Document {
     pub fn page_durations(&self) -> Vec<Option<f64>> {
         self.editor.as_ref().map(|e| page_durations(&e.cos)).unwrap_or_default()
     }
+
+    /// Each page's transition: its effect (a name of [`STYLES`], `/S`) and length in seconds (`/D`).
+    pub fn page_transitions(&self) -> Vec<Option<(String, f64)>> {
+        let Some(e) = self.editor.as_ref() else { return Vec::new() };
+        let doc = &e.cos;
+        pdfcraft_annot::page_refs(doc)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|r| {
+                let t = doc.get(r).as_dict()?.get(b"Trans").map(|t| doc.resolve(t))?;
+                let t = t.as_dict()?;
+                let s = String::from_utf8_lossy(t.name(b"S")?).into_owned();
+                let d = t.get(b"D").and_then(Object::as_f64).unwrap_or(1.0).clamp(0.0, 60.0);
+                (s != "R").then_some((s, d))
+            })
+            .collect()
+    }
 }

@@ -273,6 +273,8 @@ export component FieldsArrangeCard inherits Rectangle {
 export component ObjectsArrangeCard inherits Rectangle {
     in property <int> count;
     in property <int> id;
+    // Comments selected together instead of objects.
+    in property <bool> comments;
     callback focus-pages();
     width: 300px;
     height: col.preferred-height;
@@ -286,7 +288,7 @@ export component ObjectsArrangeCard inherits Rectangle {
         padding: 12px;
         spacing: 8px;
         Text {
-            text: root.count + " objects selected";
+            text: root.count + (root.comments ? " comments selected" : " objects selected");
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: Theme.text-heading;
@@ -299,7 +301,13 @@ export component ObjectsArrangeCard inherits Rectangle {
         ]: HorizontalLayout {
             spacing: 4px;
             Text { width: 44px; text: row.label; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-            for b in row.items: SmallButton { text: b.t; clicked => { ReaderBridge.objects-arrange(root.id, b.k); root.focus-pages(); } }
+            for b in row.items: SmallButton {
+                text: b.t;
+                clicked => {
+                    if root.comments { ReaderBridge.annots-arrange(root.id, b.k); } else { ReaderBridge.objects-arrange(root.id, b.k); }
+                    root.focus-pages();
+                }
+            }
         }
     }
 }

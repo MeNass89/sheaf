@@ -79,7 +79,9 @@ impl Document {
             if nm.is_empty() { same_rect(d) } else { named.as_deref() == Some(nm) }
         })?;
         let ap = stamp.get(b"AP").map(|a| cos.resolve(a))?.as_dict()?.get(b"N")?.as_ref()?;
-        if drawing(cos, ap) != (1, false, false) {
+        // A turned picture is copied as it shows ([`Self::stamp_alone_pdf`]): its bitmap alone would
+        // lose the turn (Sol, 26/10).
+        if drawing(cos, ap) != (1, false, false) || turned(cos, &stamp, ap) {
             return None;
         }
         let picture = picture_in_form(cos, ap)?;
@@ -102,10 +104,12 @@ impl Document {
                 && if nm.is_empty() { r.len() == 4 && r.iter().zip(rect).all(|(a, b)| (a - b).abs() < 0.5) } else { named.as_deref() == Some(nm) }
         };
         let stamp = annots.into_iter().find(|a| out.resolve(a).as_dict().is_some_and(is_it))?;
-        let ap = out.resolve(&stamp).as_dict()?.get(b"AP").map(|a| out.resolve(a))?.as_dict()?.get(b"N")?.as_ref()?;
-        // A lone picture, or text alone (XFDF redraws it): not here.
+        let sd = out.resolve(&stamp).as_dict()?.clone();
+        let ap = sd.get(b"AP").map(|a| out.resolve(a))?.as_dict()?.get(b"N")?.as_ref()?;
+        // A lone picture not turned, or text alone (XFDF redraws it): not here.
         match drawing(&out, ap) {
-            (1, false, false) | (0, true, false) => return None,
+            (1, false, false) if !turned(&out, &sd, ap) => return None,
+            (0, true, false) => return None,
             _ => {}
         }
         let r = rect.iter().map(|v| Object::Real(*v)).collect::<Vec<_>>();
@@ -144,9 +148,20 @@ impl Document {
     }
 }
 
+/// Whether a stamp is shown turned: a turn of its own (`/PCPictureRotate`, `/PCStampRotate`) or
+/// an appearance matrix that is not upright.
+fn turned(cos: &Cos, stamp: &Dict, ap: ObjRef) -> bool {
+    let own = [&b"PCPictureRotate"[..], b"PCStampRotate"].iter().any(|k| stamp.get(k).and_then(Object::as_int).is_some_and(|t| t.rem_euclid(360) != 0));
+    let matrix = match &*cos.get(ap) {
+        Object::Stream(s) => s.dict.get(b"Matrix").and_then(|m| m.as_array().map(|a| a.iter().filter_map(Object::as_f64).collect::<Vec<_>>())),
+        _ => None,
+    };
+    own || matrix.is_some_and(|m| m.len() == 6 && (m[1].abs() > 1e-6 || m[2].abs() > 1e-6 || m[0] < 0.0 || m[3] < 0.0))
+}
+
 /// What Form `form` draws, nested Forms included: (raster images, whether it shows text, whether
 /// it paints paths: Sol, 26/10, a picture with a drawing was taken for the picture alone).
-fn drawing(cos: &Cos, form: ObjRef) -> (usize, bool, bool) {
+pub(crate) fn drawing(cos: &Cos, form: ObjRef) -> (usize, bool, bool) {
     fn walk(cos: &Cos, form: ObjRef, depth: usize, seen: &mut HashSet<ObjRef>, acc: &mut (usize, bool, bool)) {
         if depth > MAX_FORM_DEPTH || !seen.insert(form) {
             return;

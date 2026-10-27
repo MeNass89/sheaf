@@ -82,10 +82,46 @@ pub fn to_gray(doc: &mut Document) -> GrayReport {
                     report.kept += 1;
                 }
             }
+            // Indexed colours: the palette made grey (Sol, 26/10: they stayed in colour).
+            _ if gray_indexed(doc, id) => report.images += 1,
             _ => report.kept += 1,
         }
     }
     report
+}
+
+/// An indexed picture (`[/Indexed base hival lookup]`, base RGB or CMYK) with its palette made grey:
+/// `[/Indexed /DeviceGray hival greys]`; false when it is no such picture.
+fn gray_indexed(doc: &mut Document, id: ObjectId) -> bool {
+    let Some(cs) = doc.get_object(id).ok().and_then(|o| o.as_stream().ok()).and_then(|s| s.dict.get(b"ColorSpace").ok()).and_then(|c| doc.dereference(c).ok()).and_then(|(_, c)| c.as_array().ok().cloned()) else { return false };
+    if cs.len() != 4 || cs[0].as_name().ok() != Some(b"Indexed".as_slice()) {
+        return false;
+    }
+    let Some(n) = components(doc, &cs[1]).filter(|n| matches!(n, 3 | 4)) else { return false };
+    let lookup: Vec<u8> = match doc.dereference(&cs[3]).ok().map(|(_, o)| o) {
+        Some(Object::String(b, _)) => b.clone(),
+        Some(Object::Stream(st)) => match st.decompressed_content() {
+            Ok(b) => b,
+            Err(_) => return false,
+        },
+        _ => return false,
+    };
+    let greys: Vec<u8> = lookup
+        .chunks_exact(n as usize)
+        .map(|c| {
+            let v: Vec<f32> = c.iter().map(|&b| b as f32 / 255.0).collect();
+            let g = if n == 3 { luma(v[0], v[1], v[2]) } else { cmyk_gray(v[0], v[1], v[2], v[3]) };
+            (g * 255.0).round() as u8
+        })
+        .collect();
+    let new = vec![Object::Name(b"Indexed".to_vec()), Object::Name(b"DeviceGray".to_vec()), cs[2].clone(), Object::String(greys, lopdf::StringFormat::Hexadecimal)];
+    match doc.get_object_mut(id).and_then(Object::as_stream_mut) {
+        Ok(s) => {
+            s.dict.set("ColorSpace", Object::Array(new));
+            true
+        }
+        Err(_) => false,
+    }
 }
 
 /// Object `id` when it is a shading (a gradient, alone or a pattern's): made grey when its colours
@@ -348,6 +384,17 @@ mod tests {
         assert_eq!(d.get(b"ColorSpace").unwrap().as_name().unwrap(), b"DeviceGray");
         let c0 = doc.get_dictionary(f).unwrap().get(b"C0").unwrap().as_array().unwrap()[0].as_float().unwrap();
         assert!((c0 - 0.299).abs() < 1e-4, "red's lightness: {c0}");
+    }
+
+    #[test]
+    fn an_indexed_pictures_palette_is_made_grey() {
+        let mut doc = Document::with_version("1.7");
+        let cs = vec![Object::Name(b"Indexed".to_vec()), Object::Name(b"DeviceRGB".to_vec()), Object::Integer(1), Object::String(vec![255, 0, 0, 0, 0, 255], lopdf::StringFormat::Literal)];
+        let id = doc.add_object(Stream::new(dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 2, "Height" => 1, "ColorSpace" => cs, "BitsPerComponent" => 8 }, vec![0, 1]));
+        assert_eq!(to_gray(&mut doc).images, 1);
+        let cs = doc.get_object(id).unwrap().as_stream().unwrap().dict.get(b"ColorSpace").unwrap().as_array().unwrap().clone();
+        assert_eq!(cs[1].as_name().unwrap(), b"DeviceGray");
+        assert_eq!(cs[3].as_str().unwrap(), &[76, 29], "red's and blue's lightness");
     }
 
     #[test]

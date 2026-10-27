@@ -387,7 +387,8 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 return Err(OpdfError::Unsupported("Mark something for redaction first".into()));
             }
             let fill = [[0.0; 3], [1.0; 3], [0.5; 3], [0.85, 0.1, 0.1]][opts.redact_fill.clamp(0, 3) as usize];
-            let look = sheaf_core::redact::Appearance { fill, overlay: opts.redact_overlay.to_string(), repeat: opts.redact_repeat };
+            let margin = opts.redact_margin.trim().trim_end_matches("pt").trim().replace(',', ".").parse::<f64>().unwrap_or(0.0);
+            let look = sheaf_core::redact::Appearance { fill, overlay: opts.redact_overlay.to_string(), repeat: opts.redact_repeat, margin };
             Job::Redact { input: one(inputs)?, marks, look, out: single()? }
         }
         ToolId::Sign => {
@@ -913,6 +914,21 @@ pub fn make_default_pdf_app() -> String {
         spawn_detached("explorer", &["ms-settings:defaultapps".as_ref()]);
         return if registered { "Pick Sheaf for .pdf in Default apps".into() } else { "Sheaf could not be registered: pick it with Open with ▸ Choose another app".into() };
     };
+    // The desktop entry xdg-mime names, written for this user when no package installed one (a
+    // folder unpacked from the archive: Sol, 26/10), its Exec this very program.
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        let apps = dirs::data_dir().unwrap_or_default().join("applications");
+        let entry = apps.join("sheaf.desktop");
+        let system = ["/usr/share/applications/sheaf.desktop", "/usr/local/share/applications/sheaf.desktop"].iter().any(|p| std::path::Path::new(p).exists());
+        if !system && !entry.exists()
+            && let Ok(exe) = std::env::current_exe()
+        {
+            let text = format!("[Desktop Entry]\nType=Application\nName=Sheaf\nComment=Private PDF toolbox\nExec=\"{}\" %F\nMimeType=application/pdf;\nCategories=Office;Graphics;\n", exe.display());
+            let _ = std::fs::create_dir_all(&apps).and_then(|_| std::fs::write(&entry, text));
+            let _ = ran("update-desktop-database", &[&apps.to_string_lossy()]);
+        }
+    }
     #[cfg(not(any(target_os = "macos", windows)))]
     let done = ran("xdg-mime", &["default", "sheaf.desktop", "application/pdf"]);
     if done { "Sheaf now opens PDFs".into() } else { "Sheaf could not be made the default: choose it in your system's settings".into() }
