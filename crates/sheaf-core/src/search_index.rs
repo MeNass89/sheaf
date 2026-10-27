@@ -324,6 +324,7 @@ mod tests {
         assert!(catalog.search_with_options(&"term ".repeat(200), options).is_err());
         assert!(catalog.search_with_options("run", SearchOptions { case_sensitive: true, english_stemming: true, ..Default::default() }).is_err());
         assert!(catalog.search_with_options("run", SearchOptions { mode: SearchMode::Proximity, ..Default::default() }).is_err());
+        assert!(catalog.search("-\n").is_err());
     }
 
 }

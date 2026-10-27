@@ -49,7 +49,7 @@ pub(super) fn words(text: &str) -> impl Iterator<Item = (usize, &str)> {
     if let Some(start) = start { out.push((start, &text[start..])); }
     out.into_iter()
 }
-fn word_char(ch: char) -> bool { ch.is_alphanumeric() || ch == '_' }
+fn word_char(ch: char) -> bool { ch.is_alphanumeric() || unicode_normalization::char::is_combining_mark(ch) || ch == '_' }
 fn invalid(message: &str) -> OpdfError { OpdfError::Unsupported(message.into()) }
 
 fn tokens(query: &str) -> Result<Vec<Token>> {
@@ -150,6 +150,7 @@ impl Query {
             stemmer: options.english_stemming.then(|| Stemmer::create(Algorithm::English)),
         };
         let text = if options.case_sensitive { super::canonical(query) } else { super::normalized(query) };
+        if text.is_empty() { return Err(invalid("Type the words to find")); }
         prepared.expr = match options.mode {
             SearchMode::Boolean => {
                 let mut parser = Parser { tokens: tokens(&super::canonical(query))?, at: 0 };

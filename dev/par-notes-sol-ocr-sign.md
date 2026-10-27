@@ -796,3 +796,7 @@ C-security-008: f8 a7 p8 — `tests/security.rs:222` exact PDF permissions/AES c
   Rule 1 expressly prohibits this worker from running it. Only an idle host running the ignored
   `release_ocr_mici_benchmark_reports_cold_load_and_warm_page_time` can close the speed gap.
   No model assets were present in this worktree during source inspection. Proposed f9 a8 p7.
+
+- Catalog static follow-up: normalization-only empty queries are rejected before matching;
+  combining marks remain part of whole words instead of being treated as punctuation.
+  The invalid-query regression covers a dehyphenated empty input.
