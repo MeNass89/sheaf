@@ -140,6 +140,10 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             }
             "save" => {
                 s.draft.validate()?;
+                if s.selected >= 0 && s.selected < offset {
+                    let all: Vec<_> = builtins.iter().cloned().chain(s.saved.clone()).collect();
+                    s.draft.name = actions::unused_name(&s.draft.name, &all);
+                }
                 let mut next = s.saved.clone();
                 let own = (s.selected >= offset).then_some((s.selected - offset) as usize);
                 if next.iter().enumerate().any(|(i, a)| Some(i) != own && a.name.eq_ignore_ascii_case(&s.draft.name)) {

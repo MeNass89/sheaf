@@ -158,6 +158,19 @@ mod tests {
     }
 
     #[test]
+    fn suggested_actions_are_valid_offline_templates_and_survive_copy_edits() {
+        let mut presets = suggested();
+        assert_eq!(presets.len(), 5);
+        for preset in &presets { preset.validate().unwrap(); }
+        let original = presets[0].clone();
+        let mut copy = presets.remove(0);
+        copy.steps.clear();
+        copy.steps.push(ActionStep::from_engine(&Step::SetTitle("My workflow".into())));
+        assert_eq!(suggested()[0], original);
+        assert_ne!(copy.steps, suggested()[0].steps);
+    }
+
+    #[test]
     fn suggested_copies_and_custom_tools_are_independent() {
         let original = suggested();
         let mut copy = original[0].clone();

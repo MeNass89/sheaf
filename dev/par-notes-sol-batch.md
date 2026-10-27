@@ -34,3 +34,9 @@ Next: finish each batch component, write its proof names and remaining parity ga
   `actions::tests::action_round_trip_keeps_order_arguments_instructions_and_prompts`.
   Left: drag-and-drop and translating Stirling/Acrobat's proprietary action formats; currently
   the portable format is Sheaf JSON only, rather than claiming silent compatibility.
+- C-batch-005: five suggested actions can be browsed and copied: Prepare for Distribution,
+  Optimize Scanned Documents, Add Page Numbers, Mark as Confidential and Sanitize Documents
+  (Acrobat's Suggested actions, Stirling's presets). Saving a suggestion creates a user copy;
+  the suggestion stays unchanged. Test
+  `actions::tests::suggested_actions_are_valid_offline_templates_and_survive_copy_edits`.
+  Online action discovery is deliberately excluded by brief rule 3.

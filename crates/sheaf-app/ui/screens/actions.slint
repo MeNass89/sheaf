@@ -77,7 +77,7 @@ export component ActionsScreen inherits Rectangle {
                     CheckBox { text: "Custom tool set (run commands individually)"; checked <=> ActionBridge.custom; enabled: !ActionBridge.busy; }
                     HorizontalLayout {
                         spacing: 8px;
-                        Button { text: "Save action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("save", 0); } }
+                        Button { text: ActionBridge.selected >= 0 && ActionBridge.rows[ActionBridge.selected].builtin ? "Save a copy" : "Save action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("save", 0); } }
                         Button { text: "Copy"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("copy", 0); } }
                         Button { text: "Delete"; enabled: !ActionBridge.busy && ActionBridge.selected >= 0 && !ActionBridge.rows[ActionBridge.selected].builtin; clicked => { ActionBridge.command("delete", 0); } }
                     }
