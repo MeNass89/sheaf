@@ -463,16 +463,27 @@ mod tests {
 
     #[test]
     fn watched_exports_recheck_inputs_after_native_conversion() {
-        let dir = tempfile::tempdir().unwrap(); let inbox = dir.path().join("in"); let out = dir.path().join("out");
-        std::fs::create_dir(&inbox).unwrap();
-        let input = inbox.join("input.pdf");
         let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Body").unwrap();
-        std::fs::write(&input, bytes.as_slice()).unwrap();
         let mut action = actions::suggested().remove(3); action.output.format = "txt".into();
-        let mut watch = FolderWatch::new(&inbox, &out, false).unwrap();
-        watch.poll(&action, &mut || true).unwrap();
+        let watched = |dir: &Path| {
+            let (inbox, out) = (dir.join("in"), dir.join("out"));
+            std::fs::create_dir(&inbox).unwrap();
+            std::fs::write(inbox.join("input.pdf"), bytes.as_slice()).unwrap();
+            let mut watch = FolderWatch::new(&inbox, &out, false).unwrap();
+            watch.poll(&action, &mut || true).unwrap();
+            (watch, inbox.join("input.pdf"), out)
+        };
+        // A first run counts the checks the job makes; the input then changes at the last, after
+        // the conversion to text and before it is published (the step count changes with the
+        // action, so it is not written in here).
+        let dry = tempfile::tempdir().unwrap();
+        let (mut watch, _, _) = watched(dry.path());
+        let mut last = 0;
+        assert!(watch.poll(&action, &mut || { last += 1; true }).unwrap()[0].1.is_ok());
+        let dir = tempfile::tempdir().unwrap();
+        let (mut watch, input, out) = watched(dir.path());
         let mut calls = 0;
-        let result = watch.poll(&action, &mut || { calls += 1; if calls == 6 { std::fs::write(&input, b"New input during conversion").unwrap(); } true }).unwrap();
+        let result = watch.poll(&action, &mut || { calls += 1; if calls == last { std::fs::write(&input, b"New input during conversion").unwrap(); } true }).unwrap();
         assert!(result[0].1.is_err()); assert!(!out.join("input.txt").exists());
         assert_eq!(std::fs::read(input).unwrap(), b"New input during conversion");
     }

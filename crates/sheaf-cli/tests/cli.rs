@@ -568,7 +568,7 @@ fn mcp_lists_and_calls_tools() {
 fn every_tool_schema_parses() {
     let v = json_of(&bin().arg("--json").arg("tools").output().unwrap());
     let tools = v["data"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 35);
+    assert_eq!(tools.len(), 37);
     for t in tools {
         let s = &t["inputSchema"];
         assert_eq!(s["type"], "object");

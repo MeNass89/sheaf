@@ -15,7 +15,10 @@ impl Level {
     pub fn label(self) -> &'static str { match self { Self::X1a => "PDF/X-1a:2001", Self::X3 => "PDF/X-3:2002", Self::X4 => "PDF/X-4" } }
     fn marker(self) -> &'static str { match self { Self::X1a => "PDF/X-1:2001", _ => self.label() } }
     fn pdf_version(self) -> &'static str { if self == Self::X4 { "1.6" } else { "1.3" } }
-    fn switch(self) -> &'static str { match self { Self::X1a => "-dPDFX=1", Self::X3 => "-dPDFX=3", Self::X4 => "-dPDFX=4" } }
+    /// Ghostscript's PDF/X switch. Older Ghostscript (10.02.1 here, 27/10) takes `-dPDFX` as true or
+    /// false, meaning X-3, and refuses the numbered form (X-1a, X-4) with a rangecheck; newer
+    /// versions take both.
+    fn switch(self) -> &'static str { match self { Self::X1a => "-dPDFX=1", Self::X3 => "-dPDFX", Self::X4 => "-dPDFX=4" } }
 }
 
 #[derive(Clone, Debug)]
@@ -189,6 +192,9 @@ pub fn to_pdfx3_with(doc: &Doc, options: &Options, out: &Path, gs: &Path, timeou
     tail.extend(stderr.join().unwrap_or_default());
     if !status.success() {
         let text = String::from_utf8_lossy(&tail);
+        if options.level != Level::X3 && text.contains("rangecheck in .putdeviceprops") {
+            return Err(OpdfError::Conversion(format!("{} needs a newer Ghostscript; this one makes PDF/X-3 only", options.level.label())));
+        }
         return Err(OpdfError::Conversion(format!("Ghostscript did not create PDF/X ({status}): {}", text.trim())));
     }
     check_written(&rendered, channels, &bytes, options.level)?;
