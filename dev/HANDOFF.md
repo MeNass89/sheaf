@@ -34,7 +34,7 @@ typing and Edit text).
 
 ## Board status
 
-**331 components, 239 at ≥ 9** jointly before rounds 25–27, landed 27/10 (journals F-013 Round 25, F-015
+**331 components, 243 at ≥ 9** jointly (27/10, after landing rounds 25–27 e83625e and the four joint 9s of the parallel batches (journals F-013 Round 25, F-015
 parallel batches). Joint reviews of their components are running (Sol batches b30a–c on round 25,
 Sol ↔ Opus pair reviews on the batches: /tmp/f5/par/review-*.txt on vpsn). The inspiration archives
 are in the private repo MeNass-Co/sheaf-re. The GUI smoke runs in three shards at once on a machine

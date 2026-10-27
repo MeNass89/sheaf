@@ -5835,14 +5835,14 @@
    88
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "needs LibreOffice installed; no sheet/print-area options",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -5887,6 +5887,17 @@
      "overall": 8
     },
     "proof": "Sol b26-built 26/10: La conversion nécessite toujours une installation séparée de LibreOffice ; crates/sheaf-app/ui/screens/options.slint:1093."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10"
    }
   ]
  },
@@ -14624,14 +14635,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -14643,6 +14654,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10"
    }
   ]
  },
@@ -30144,12 +30166,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -30207,6 +30229,17 @@
      "overall": 8
     },
     "proof": "Sol b25-built 26/10: Les signatures conservées restent sérialisées en clair dans `prefs.json`, sans stockage sécurisé : crates/sheaf-app/src/prefs.rs:160."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10"
    }
   ]
  },
@@ -30442,14 +30475,14 @@
    149
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "timestamp server; validation",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -30472,6 +30505,17 @@
      "overall": 8
     },
     "proof": "Sol b25-built 26/10: L’horodatage certifié reste inaccessible : les options ne prévoient aucun serveur TSA et la signature appelle uniquement `sign` : crates/sheaf-core/src/sign.rs:32 ; crates/sheaf-core/src/sign.rs:288."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10"
    }
   ]
  },

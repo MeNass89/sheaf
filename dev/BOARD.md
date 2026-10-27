@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 239 · open 92, closed 239
+331 components · at parity (≥9): 243 · open 88, closed 243
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -9,64 +9,64 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 |---|---|---|---|---|---|---|
 | 1 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | macOS notarisation (needs Nassim's Apple account) |
 | 2 | C-annotate-022 | strong | Change annotation colour | pdfexpert | 8 · 8 · 9 → **8** | — |
-| 3 | C-convert-002 | strong | Convert Office documents to PDF | ilovepdf | 8 · 9 · 9 → **8** | needs LibreOffice installed; no sheet/print-area options |
-| 4 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |
-| 5 | C-reader-010 | strong | Gesture zoom and pan | pdfexpert | 8 · 8 · 8 → **8** | pinch zoom and drag-pan (hand tool / space-drag) |
-| 6 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
-| 7 | C-output-009 | normal | Share a document | pdfexpert | 0 · 0 · 0 → **0** | OS share (macOS only) |
-| 8 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | light; release channel decision is Nassim's |
-| 9 | C-preferences-003 | normal | Choose interface language | ilovepdf | 0 · 0 · 0 → **0** | localisation (after core) |
-| 10 | C-reader-045 | normal | Split view | pdfexpert | 0 · 0 · 0 → **0** | after core |
-| 11 | C-platform-014 | normal | Native menu bar and shortcuts | ours | 2 · 4 · 9 → **2** | menu bar and shortcuts (File/Edit/View/Go/Tools) |
-| 12 | C-sign-011 | normal | Request signatures from others | acrobat | 2 · 4 · 8 → **2** | out of local-first scope (cloud); light |
-| 13 | C-convert-005 | normal | Convert a web page or HTML to PDF | ilovepdf | 5 · 6 · 7 → **5** | URL input |
-| 14 | C-annotate-026 | normal | Undo, redo, cut and paste annotations | preview | 7 · 9 · 9 → **7** | engine undo/redo, copy/paste |
-| 15 | C-convert-006 | normal | Create PDF from scanner or screenshot | acrobat | 7 · 9 · 9 → **7** | light |
-| 16 | C-optimize-007 | normal | Choose OCR language and level | ilovepdf | 7 · 9 · 9 → **7** | more languages than English |
-| 17 | C-annotate-009 | normal | Change text annotation font | pdfexpert | 8 · 8 · 9 → **8** | — |
-| 18 | C-convert-010 | normal | Convert PDF to Excel | ilovepdf | 8 · 9 · 9 → **8** | table detection |
-| 19 | C-convert-011 | normal | Convert PDF to PowerPoint | ilovepdf | 8 · 8 · 9 → **8** | layout fidelity |
-| 20 | C-convert-018 | normal | Convert PDF to PDF/A | ilovepdf | 8 · 9 · 9 → **8** | PDF/A-1b, accessible levels |
-| 21 | C-edit-004 | normal | Format text font, size and style | acrobat | 8 · 9 · 9 → **8** | font family, bold/italic, alignment, non-Latin text |
-| 22 | C-edit-010 | normal | Cut, copy, paste and delete objects | pdfexpert | 8 · 9 · 9 → **8** | copy/paste and Delete key |
-| 23 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
-| 24 | C-sign-007 | normal | Repeat a signature on several pages | ilovepdf | 8 · 9 · 9 → **8** | after core |
-| 25 | C-sign-009 | normal | Save and manage signatures | pdfexpert | 8 · 9 · 9 → **8** | — |
-| 26 | C-sign-012 | normal | Sign with a digital certificate | acrobat | 8 · 9 · 9 → **8** | timestamp server; validation |
-| 27 | C-sign-016 | normal | Validate signatures | acrobat | 8 · 9 · 9 → **8** | engine signatures panel |
-| 28 | C-ai-001 | light | Open the AI assistant | pdfexpert | 0 · 0 · 0 → **0** | MCP server covers agent access |
-| 29 | C-ai-002 | light | Ask AI about the document | acrobat | 0 · 0 · 0 → **0** | light |
-| 30 | C-ai-003 | light | Summarize with AI | pdfexpert | 0 · 0 · 0 → **0** | light |
-| 31 | C-ai-004 | light | Translate with AI | pdfexpert | 0 · 0 · 0 → **0** | light |
-| 32 | C-ai-005 | light | Generate podcast or presentation | acrobat | 0 · 0 · 0 → **0** | light |
-| 33 | C-ai-006 | light | Group documents in AI spaces | acrobat | 0 · 0 · 0 → **0** | light |
-| 34 | C-ai-007 | light | Classify documents with AI | stirling | 0 · 0 · 0 → **0** | light |
-| 35 | C-annotate-015 | light | Add loupe or mask | preview | 0 · 0 · 0 → **0** | after core |
-| 36 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
-| 37 | C-batch-002 | light | Build a multi-step action | acrobat | 0 · 0 · 0 → **0** | after core |
-| 38 | C-batch-003 | light | Run a saved action | acrobat | 0 · 0 · 0 → **0** | after core |
-| 39 | C-batch-004 | light | Import or export an action | stirling | 0 · 0 · 0 → **0** | light |
-| 40 | C-batch-005 | light | Use suggested actions | acrobat | 0 · 0 · 0 → **0** | light |
-| 41 | C-batch-006 | light | Create a custom tool | acrobat | 0 · 0 · 0 → **0** | light |
-| 42 | C-batch-008 | light | Automate a watched folder | stirling | 0 · 0 · 0 → **0** | light; CLI covers scripting |
-| 43 | C-convert-019 | light | Save as PDF/X or PDF/E | acrobat | 0 · 0 · 0 → **0** | light |
-| 44 | C-edit-013 | light | Spell check | acrobat | 0 · 0 · 0 → **0** | after core |
-| 45 | C-edit-024 | light | Create article threads | acrobat | 0 · 0 · 0 → **0** | light |
-| 46 | C-files-008 | light | Local file library | stirling | 0 · 0 · 0 → **0** | light |
-| 47 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
-| 48 | C-optimize-009 | light | Correct recognized text | acrobat | 0 · 0 · 0 → **0** | light |
-| 49 | C-optimize-012 | light | Run preflight and output preview | acrobat | 0 · 0 · 0 → **0** | light |
-| 50 | C-optimize-014 | light | Prepare for print production | acrobat | 0 · 0 · 0 → **0** | light |
-| 51 | C-optimize-015 | light | Create a full-text index | acrobat | 0 · 0 · 0 → **0** | light |
-| 52 | C-organize-024 | light | Create a PDF portfolio | acrobat | 0 · 0 · 0 → **0** | light |
-| 53 | C-platform-002 | light | Onboarding and help guides | ilovepdf | 0 · 0 · 0 → **0** | light |
-| 54 | C-platform-003 | light | Send feedback or report issue | ilovepdf | 0 · 0 · 0 → **0** | light |
-| 55 | C-platform-005 | light | Run JavaScript | acrobat | 0 · 0 · 0 → **0** | light |
-| 56 | C-platform-006 | light | Manage plugins | acrobat | 0 · 0 · 0 → **0** | light |
-| 57 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
-| 58 | C-preferences-006 | light | Set page display options | pdfexpert | 0 · 0 · 0 → **0** | with reader |
-| 59 | C-preferences-010 | light | Set default tool options | ilovepdf | 0 · 0 · 0 → **0** | light |
-| 60 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 0 · 0 · 0 → **0** | light |
+| 3 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |
+| 4 | C-reader-010 | strong | Gesture zoom and pan | pdfexpert | 8 · 8 · 8 → **8** | pinch zoom and drag-pan (hand tool / space-drag) |
+| 5 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
+| 6 | C-output-009 | normal | Share a document | pdfexpert | 0 · 0 · 0 → **0** | OS share (macOS only) |
+| 7 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | light; release channel decision is Nassim's |
+| 8 | C-preferences-003 | normal | Choose interface language | ilovepdf | 0 · 0 · 0 → **0** | localisation (after core) |
+| 9 | C-reader-045 | normal | Split view | pdfexpert | 0 · 0 · 0 → **0** | after core |
+| 10 | C-platform-014 | normal | Native menu bar and shortcuts | ours | 2 · 4 · 9 → **2** | menu bar and shortcuts (File/Edit/View/Go/Tools) |
+| 11 | C-sign-011 | normal | Request signatures from others | acrobat | 2 · 4 · 8 → **2** | out of local-first scope (cloud); light |
+| 12 | C-convert-005 | normal | Convert a web page or HTML to PDF | ilovepdf | 5 · 6 · 7 → **5** | URL input |
+| 13 | C-annotate-026 | normal | Undo, redo, cut and paste annotations | preview | 7 · 9 · 9 → **7** | engine undo/redo, copy/paste |
+| 14 | C-convert-006 | normal | Create PDF from scanner or screenshot | acrobat | 7 · 9 · 9 → **7** | light |
+| 15 | C-optimize-007 | normal | Choose OCR language and level | ilovepdf | 7 · 9 · 9 → **7** | more languages than English |
+| 16 | C-annotate-009 | normal | Change text annotation font | pdfexpert | 8 · 8 · 9 → **8** | — |
+| 17 | C-convert-010 | normal | Convert PDF to Excel | ilovepdf | 8 · 9 · 9 → **8** | table detection |
+| 18 | C-convert-011 | normal | Convert PDF to PowerPoint | ilovepdf | 8 · 8 · 9 → **8** | layout fidelity |
+| 19 | C-convert-018 | normal | Convert PDF to PDF/A | ilovepdf | 8 · 9 · 9 → **8** | PDF/A-1b, accessible levels |
+| 20 | C-edit-004 | normal | Format text font, size and style | acrobat | 8 · 9 · 9 → **8** | font family, bold/italic, alignment, non-Latin text |
+| 21 | C-edit-010 | normal | Cut, copy, paste and delete objects | pdfexpert | 8 · 9 · 9 → **8** | copy/paste and Delete key |
+| 22 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
+| 23 | C-sign-007 | normal | Repeat a signature on several pages | ilovepdf | 8 · 9 · 9 → **8** | after core |
+| 24 | C-sign-016 | normal | Validate signatures | acrobat | 8 · 9 · 9 → **8** | engine signatures panel |
+| 25 | C-ai-001 | light | Open the AI assistant | pdfexpert | 0 · 0 · 0 → **0** | MCP server covers agent access |
+| 26 | C-ai-002 | light | Ask AI about the document | acrobat | 0 · 0 · 0 → **0** | light |
+| 27 | C-ai-003 | light | Summarize with AI | pdfexpert | 0 · 0 · 0 → **0** | light |
+| 28 | C-ai-004 | light | Translate with AI | pdfexpert | 0 · 0 · 0 → **0** | light |
+| 29 | C-ai-005 | light | Generate podcast or presentation | acrobat | 0 · 0 · 0 → **0** | light |
+| 30 | C-ai-006 | light | Group documents in AI spaces | acrobat | 0 · 0 · 0 → **0** | light |
+| 31 | C-ai-007 | light | Classify documents with AI | stirling | 0 · 0 · 0 → **0** | light |
+| 32 | C-annotate-015 | light | Add loupe or mask | preview | 0 · 0 · 0 → **0** | after core |
+| 33 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
+| 34 | C-batch-002 | light | Build a multi-step action | acrobat | 0 · 0 · 0 → **0** | after core |
+| 35 | C-batch-003 | light | Run a saved action | acrobat | 0 · 0 · 0 → **0** | after core |
+| 36 | C-batch-004 | light | Import or export an action | stirling | 0 · 0 · 0 → **0** | light |
+| 37 | C-batch-005 | light | Use suggested actions | acrobat | 0 · 0 · 0 → **0** | light |
+| 38 | C-batch-006 | light | Create a custom tool | acrobat | 0 · 0 · 0 → **0** | light |
+| 39 | C-batch-008 | light | Automate a watched folder | stirling | 0 · 0 · 0 → **0** | light; CLI covers scripting |
+| 40 | C-convert-019 | light | Save as PDF/X or PDF/E | acrobat | 0 · 0 · 0 → **0** | light |
+| 41 | C-edit-013 | light | Spell check | acrobat | 0 · 0 · 0 → **0** | after core |
+| 42 | C-edit-024 | light | Create article threads | acrobat | 0 · 0 · 0 → **0** | light |
+| 43 | C-files-008 | light | Local file library | stirling | 0 · 0 · 0 → **0** | light |
+| 44 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
+| 45 | C-optimize-012 | light | Run preflight and output preview | acrobat | 0 · 0 · 0 → **0** | light |
+| 46 | C-optimize-014 | light | Prepare for print production | acrobat | 0 · 0 · 0 → **0** | light |
+| 47 | C-optimize-015 | light | Create a full-text index | acrobat | 0 · 0 · 0 → **0** | light |
+| 48 | C-organize-024 | light | Create a PDF portfolio | acrobat | 0 · 0 · 0 → **0** | light |
+| 49 | C-platform-002 | light | Onboarding and help guides | ilovepdf | 0 · 0 · 0 → **0** | light |
+| 50 | C-platform-003 | light | Send feedback or report issue | ilovepdf | 0 · 0 · 0 → **0** | light |
+| 51 | C-platform-005 | light | Run JavaScript | acrobat | 0 · 0 · 0 → **0** | light |
+| 52 | C-platform-006 | light | Manage plugins | acrobat | 0 · 0 · 0 → **0** | light |
+| 53 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
+| 54 | C-preferences-006 | light | Set page display options | pdfexpert | 0 · 0 · 0 → **0** | with reader |
+| 55 | C-preferences-010 | light | Set default tool options | ilovepdf | 0 · 0 · 0 → **0** | light |
+| 56 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 0 · 0 · 0 → **0** | light |
+| 57 | C-preferences-013 | light | Customize tool shortcuts and list | stirling | 0 · 0 · 0 → **0** | light |
+| 58 | C-preferences-014 | light | Other preference panels | acrobat | 0 · 0 · 0 → **0** | light |
+| 59 | C-reader-003 | light | Horizontal page scrolling | pdfexpert | 0 · 0 · 0 → **0** | scroll-direction option in the view menu |
+| 60 | C-reader-060 | light | Check spelling | preview | 0 · 0 · 0 → **0** | after core |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
@@ -75,18 +75,18 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | annotate | 38 | 8.4 | 31 |
 | batch | 9 | 3.0 | 3 |
 | compare | 7 | 9.0 | 7 |
-| convert | 20 | 7.8 | 11 |
+| convert | 20 | 7.9 | 12 |
 | edit | 29 | 8.2 | 22 |
 | files | 19 | 7.7 | 15 |
 | forms | 17 | 8.4 | 15 |
-| optimize | 15 | 6.2 | 7 |
+| optimize | 15 | 6.8 | 8 |
 | organize | 27 | 8.4 | 23 |
 | output | 15 | 8.3 | 13 |
 | platform | 14 | 4.1 | 4 |
 | preferences | 14 | 4.9 | 6 |
 | reader | 64 | 8.4 | 56 |
 | security | 18 | 8.0 | 16 |
-| sign | 18 | 7.3 | 10 |
+| sign | 18 | 7.4 | 12 |
 
 ## Closed
 | id | component | overall | last proof |
@@ -133,6 +133,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-compare-006 | Browse differences and summary | 9 | Joint 9: Opus (round 11, 8d1346d) and Sol AGREE 9 (re-review b15c-round11, 25/10) |
 | C-compare-007 | Download a change report | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27a-round22, 26/10) |
 | C-convert-001 | Open the conversion hub | 9 | Joint 9: Opus (round 6–7 and earlier, eca24df/70417de) and Sol AGREE 9 (re-review b13c-round6, 25/10) |
+| C-convert-002 | Convert Office documents to PDF | 9 | Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10 |
 | C-convert-003 | Convert images to PDF | 9 | iLovePDF's options: Fit / A4 / US Letter, orientation and margin for paper, Merge all images into one PDF (off: a PDF next to each image); PNG JPEG WebP TIF/TIFF BMP GIF; images opened from outside open the tool; JPEGs embedded as they are, EXIF rotation applied. Tests: images (Letter landscape, tif+gif), run, dest, open_with, route_drop; gui-smoke 16. Reviewer (Opus) agreed 9/9/9. |
 | C-convert-004 | Create PDF from clipboard | 9 | Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28a-round23, 26/10) |
 | C-convert-008 | Create an empty document | 9 | Joint 9: Opus (rounds 9–10, 8d1346d) and Sol AGREE 9 (re-review b15a-round9-10, 25/10) |
@@ -200,6 +201,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-optimize-003 | Compress to a target size | 9 | Joint 9: Opus (Built earlier, first joint review (9d585a0)) and Sol AGREE 9 (re-review b25-built, 26/10) |
 | C-optimize-004 | Batch compress files | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27b-round22, 26/10) |
 | C-optimize-008 | OCR multiple files | 9 | OCR takes several files, per-file progress and cancel (jobs.rs each()); Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed |
+| C-optimize-009 | Correct recognized text | 9 | Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10 |
 | C-optimize-010 | Enhance scanned pages | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27b-round22, 26/10) |
 | C-optimize-011 | Repair a damaged PDF | 9 | Joint 9: Opus (round 11, 8d1346d) and Sol AGREE 9 (re-review b15c-round11, 25/10) |
 | C-organize-001 | Open page organizer grid | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29a-round24, 27/10) |
@@ -326,7 +328,9 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-sign-005 | Place a signature on the page | 9 | Select a placed signature, drag its corner handle: scales from its top-left with proportions kept (pull projected on the diagonal); several placements per run with the kept signature. gui-smoke checks the saved Ink Rect; dev/re/evidence/F-002/41-signature-resized.png |
 | C-sign-006 | Add initials | 9 | Joint 9: Opus (Built earlier, first joint review (9d585a0)) and Sol AGREE 9 (re-review b25-built, 26/10) |
 | C-sign-008 | Delete a placed signature | 9 | Click a placed signature, Delete (or the Notes panel's delete): gone from the saved file (gui-smoke) |
+| C-sign-009 | Save and manage signatures | 9 | Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10 |
 | C-sign-010 | Add marks to fill a form | 9 | 41b1756: Sol AGREE 9 (round 3 25/10); F-013 round 3 |
+| C-sign-012 | Sign with a digital certificate | 9 | Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10 |
 | C-sign-014 | Certify a document | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29b-round24, 27/10) |
 | C-sign-017 | Inspect signature and certificate details | 9 | Joint 9: Opus (Rounds 20–21 (9d585a0)) and Sol AGREE 9 (re-review b24-round20b, 26/10) |
 | C-sign-018 | Clear a certificate signature | 9 | Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28d-round23, 26/10) |
