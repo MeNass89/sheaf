@@ -487,8 +487,8 @@ export component ReaderToolbar inherits Rectangle {
                                 // PDF Expert's Split View: two places of the document at once.
                                 { text: "Split view side by side", keys: "", on: root.tab.split-mode == 1 },
                                 { text: "Split view one above the other", keys: "", on: root.tab.split-mode == 2 },
-                                // PDF Expert's Sync Scroll: the panes move together.
-                                { text: "Sync scroll", keys: "", on: root.tab.split-sync },
+                                // PDF Expert's Sync Scroll and Zoom: the panes move and zoom together.
+                                { text: "Sync scroll and zoom", keys: "", on: root.tab.split-sync },
                                 // PDF Expert's Pan & Zoom tool, Acrobat's Hand and Dynamic Zoom (⌥ drag).
                                 { text: "Hand tool (⌥ drag zooms)", keys: "⇧H", on: root.hand },
                             ]: Rectangle {

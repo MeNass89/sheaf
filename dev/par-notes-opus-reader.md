@@ -1,6 +1,6 @@
 # Parallel batch opus-reader (27/10) — notes
 
-Not built or run here (brief rule 1): the orchestrator compiles and runs the tests and smoke steps 200–204.
+Not built or run here (brief rule 1): the orchestrator compiles and runs the tests and smoke steps 200–205.
 
 - C-reader-003: More ▸ More tools ▸ Scrolling, split view, hand ▸ Scroll pages across (PDF Expert's View ▸
   Horizontal scrolling): the pages in one strip scrolled sideways, a page fitting the view's height (Fit page,
@@ -49,3 +49,19 @@ Not built or run here (brief rule 1): the orchestrator compiles and runs the tes
   `second-viewport`), `src/main.rs` (`mod split;`, wirings), `reader_ui/mod.rs` (one line in `restore_view`, one in
   `update`), `reader_ui/model.rs` (one field), `state.rs` (TabState `split`, one line in `build`).
 - `Viewer::content_width` now returns a width computed in `relayout` (same value down a column).
+
+## After Sol's review (27/10)
+
+- C-reader-003: ⌘+ / ⌘−, a typed zoom and Fit keep the page in view deep in a strip (the zoom anchored on the
+  strip's start, sx 0, and jumped back toward page 1): `zoom_to` now anchors on the view's top middle at the
+  current horizontal scroll (test `a_zoom_deep_in_a_strip_stays_on_the_page_in_view`). In the page grid, Page
+  Down / Space and jumps scroll down again: they follow `Viewer::across`, false there, not the kept setting.
+- C-reader-045: Sync scroll and zoom (PDF Expert's): on, the other pane also takes the active pane's zoom, as an
+  actual size (another document's pages may be another size), on the same point of its page (test
+  `sync_scroll_and_zoom_takes_the_active_panes_zoom`; smoke 205). A click in another document's pane brings its
+  tab forward and goes on to it at the same point (a link, a comment, a note placed); a drag that starts there
+  starts after. The divider drags (a 7 px grip, the share kept from a fifth to four fifths, carried with the
+  hand-over; smoke 205).
+- C-reader-010: an ⌥-drag zoom with the hand tool ends when the keyboard focus goes, or at the next move once the
+  button is no longer held (let go outside the window).
+  not automatable: focus taken away mid-drag under Xvfb (no second window to take it while the button is held).

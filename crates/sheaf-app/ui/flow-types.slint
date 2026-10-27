@@ -808,8 +808,13 @@ export struct ToolTab {
     split-height: length,
     split-scroll: length,
     split-scroll-x: length,
-    // The other document's name when the other pane shows another tab ("": this document).
+    // The other document's name when the other pane shows another tab ("": this document), and that
+    // tab's id (−1); the share of the area the first half takes (the divider dragged).
     split-title: string,
+    split-other: int,
+    split-frac: float,
+    // Bumped when Sync scroll and zoom zoomed the other pane (both scrolls taken as they are).
+    split-zoom-seq: int,
     // Redact
     redact-searched: bool,
     redact-busy: bool,
@@ -943,6 +948,8 @@ export global ReaderBridge {
     callback split-view(int, int);
     callback split-focus(int);
     callback split-sync(int);
+    // The divider dragged: the first half's share of the area (0.2 to 0.8).
+    callback split-frac(int, float);
     // Split with another open document (the k-th of split-names), and those names.
     callback split-with(int, int);
     pure callback split-names(int) -> [string];

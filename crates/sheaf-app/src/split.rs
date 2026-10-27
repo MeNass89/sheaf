@@ -24,8 +24,15 @@ pub struct Split {
     /// The tab whose document the other pane shows, and its name (None: this tab's own document).
     pub other: Option<i32>,
     pub title: String,
-    /// Sync scroll (PDF Expert's): the panes move together.
+    /// Sync scroll and zoom (PDF Expert's): the panes move together, and the other pane takes the
+    /// active one's zoom; the active pane's zoom it last took.
     pub sync: bool,
+    pub zoom_seen: Option<u32>,
+    /// The share of the area the first half takes (the divider dragged), 0.2 to 0.8.
+    pub frac: f32,
+    /// Bumped when Sync scroll and zoom zoomed the other pane: the view takes both scrolls as they
+    /// are, without sending one on to the other.
+    pub zoom_seq: i32,
     /// Bumped when the other pane's scroll is set from here (laid out again: kept on its place).
     pub seq: i32,
     /// Bumped when the panes swap: the view sets both scrolls again, each pane showing what it showed.
@@ -42,6 +49,9 @@ pub fn fill(tab: &mut ToolTab, t: &TabState) {
     tab.split_seq = s.seq;
     tab.split_swap = s.swap;
     tab.split_title = s.title.as_str().into();
+    tab.split_other = s.other.unwrap_or(-1);
+    tab.split_frac = s.frac;
+    tab.split_zoom_seq = s.zoom_seq;
     tab.split_pages = ModelRc::new(VecModel::from(v.pane_pages()));
     tab.split_width = v.viewer.content_width() as f32;
     tab.split_height = v.viewer.content_height() as f32;
@@ -60,7 +70,7 @@ pub fn open(ui: &AppWindow, tab_id: i32, mode: i32) {
             s.mode = mode.min(2);
         } else if let Some(v) = t.viewer.as_deref() {
             let view = Box::new(v.twin());
-            t.split = Some(Split { mode: mode.min(2), half: 0, view, other: None, title: String::new(), sync: false, seq: 1, swap: 0 });
+            t.split = Some(Split { mode: mode.min(2), half: 0, view, other: None, title: String::new(), sync: false, zoom_seen: None, frac: 0.5, zoom_seq: 0, seq: 1, swap: 0 });
         }
         refresh(a, tab_id);
     });
@@ -92,7 +102,7 @@ pub fn open_with(ui: &AppWindow, tab_id: i32, k: i32) {
             t.split = None;
         } else {
             let mode = t.split.as_ref().map_or(1, |s| s.mode);
-            t.split = Some(Split { mode, half: 0, view, other: Some(b), title, sync: false, seq: 1, swap: 0 });
+            t.split = Some(Split { mode, half: 0, view, other: Some(b), title, sync: false, zoom_seen: None, frac: 0.5, zoom_seq: 0, seq: 1, swap: 0 });
         }
         refresh(a, tab_id);
     });
@@ -169,7 +179,7 @@ fn hand_over(a: &mut App, tab_id: i32, b: i32) -> Option<usize> {
     (vb.top, vb.left, vb.height) = (s.view.top, s.view.left, s.view.height);
     vb.scroll = vb.top;
     vb.scroll_x = Some(vb.left);
-    tb.split = Some(Split { mode: s.mode, half: 1 - s.half, view: mine, other: Some(tab_id), title, sync: s.sync, seq: 1, swap: s.swap + 1 });
+    tb.split = Some(Split { mode: s.mode, half: 1 - s.half, view: mine, other: Some(tab_id), title, sync: s.sync, zoom_seen: None, frac: s.frac, zoom_seq: 0, seq: 1, swap: s.swap + 1 });
     Some(j)
 }
 
@@ -187,25 +197,39 @@ fn swap_panes(main: &mut Box<ViewerUi>, s: &mut Split) {
     s.swap += 1;
 }
 
-/// The other pane's Sync scroll button.
-pub fn toggle_sync(tab_id: i32) {
+/// The other pane's Sync scroll and zoom button: on, the other pane takes the active one's zoom.
+pub fn toggle_sync(ui: &AppWindow, tab_id: i32) {
     with(|a| {
         if let Some(s) = a.tab(tab_id).and_then(|t| t.split.as_mut()) {
             s.sync = !s.sync;
+            s.zoom_seen = None;
+        }
+        follow(a, tab_id);
+        refresh(a, tab_id);
+    });
+    viewer_ui::request(ui, tab_id);
+}
+
+/// The divider dragged: the first half takes `frac` of the area.
+pub fn set_frac(tab_id: i32, frac: f32) {
+    with(|a| {
+        if let Some(s) = a.tab(tab_id).and_then(|t| t.split.as_mut()) {
+            s.frac = frac.clamp(0.2, 0.8);
         }
         refresh(a, tab_id);
     });
 }
 
 /// The other pane keeps up with the viewer the reader works in (see [`ViewerUi::follow`]).
-/// Another tab's document: that tab's viewer; the split closes with that tab.
+/// Another tab's document: that tab's viewer; the split closes with that tab. With Sync scroll and
+/// zoom on, the other pane also takes the active pane's zoom.
 pub fn follow(a: &mut App, tab_id: i32) {
     let Some(i) = a.tab_index(tab_id) else { return };
-    let (t, main) = match a.tabs[i].split.as_ref().map(|s| s.other) {
+    let (t, main, active) = match a.tabs[i].split.as_ref().map(|s| s.other) {
         None => return,
         Some(None) => {
             let t = &mut a.tabs[i];
-            (&mut t.split, t.viewer.as_deref())
+            (&mut t.split, t.viewer.as_deref(), t.viewer.as_deref())
         }
         Some(Some(b)) => {
             let Some(j) = a.tab_index(b).filter(|&j| j != i) else {
@@ -219,17 +243,39 @@ pub fn follow(a: &mut App, tab_id: i32) {
                 let (x, y) = a.tabs.split_at_mut(i);
                 (&mut y[0], &x[j])
             };
-            (&mut t.split, o.viewer.as_deref())
+            (&mut t.split, o.viewer.as_deref(), t.viewer.as_deref())
         }
     };
     let Some(main) = main else {
         *t = None;
         return;
     };
-    if let Some(s) = t.as_mut()
-        && s.view.follow(main)
-    {
+    let Some(s) = t.as_mut() else { return };
+    if s.view.follow(main) {
         s.seq += 1;
+    }
+    let Some(active) = active else { return };
+    if !s.sync {
+        s.zoom_seen = None;
+        return;
+    }
+    let zoom = active.viewer.zoom();
+    if s.zoom_seen == Some(zoom) {
+        return;
+    }
+    s.zoom_seen = Some(zoom);
+    // As an actual size: another document's pages may be of another size. On the same point of its page.
+    let v = &mut s.view;
+    let z = v.viewer.zoom_for_actual(v.current(), active.viewer.actual_percent(active.current()));
+    let place = v.place();
+    if v.viewer.set_zoom(z) {
+        v.go_to_place(place);
+        v.top = v.scroll;
+        if let Some(x) = v.scroll_x {
+            v.left = x;
+            v.viewer.set_left(x);
+        }
+        s.zoom_seq += 1;
     }
 }
 
@@ -252,7 +298,7 @@ mod tests {
     fn the_panes_have_their_own_zoom_and_swap_on_a_press() {
         let mut main = viewer(20);
         main.top = main.viewer.page_rect(5)[1];
-        let mut s = Split { mode: 1, half: 0, view: Box::new(main.twin()), other: None, title: String::new(), sync: false, seq: 1, swap: 0 };
+        let mut s = Split { mode: 1, half: 0, view: Box::new(main.twin()), other: None, title: String::new(), sync: false, zoom_seen: None, frac: 0.5, zoom_seq: 0, seq: 1, swap: 0 };
         assert!(s.view.pane && !main.pane);
         assert_eq!(s.view.scroll, main.top, "opens on the active pane's place");
         assert_ne!(s.view.load_id, main.load_id, "renders of its own");
@@ -287,6 +333,26 @@ mod tests {
         assert_eq!((other.viewer.page_count(), other.viewer.zoom()), (9, 150));
     }
 
+    /// Sync scroll and zoom (PDF Expert's): on, a zoom of the active pane is the other pane's too;
+    /// off, each keeps its own.
+    #[test]
+    fn sync_scroll_and_zoom_takes_the_active_panes_zoom() {
+        let mut a = App::default();
+        let mut t = TabState::new(1, sheaf_core::tools::ToolId::Redact);
+        t.viewer = Some(viewer(10));
+        let view = Box::new(t.viewer.as_ref().unwrap().twin());
+        t.split = Some(Split { mode: 1, half: 0, view, other: None, title: String::new(), sync: true, zoom_seen: None, frac: 0.5, zoom_seq: 0, seq: 1, swap: 0 });
+        a.tabs.push(t);
+        a.tabs[0].viewer.as_mut().unwrap().viewer.set_zoom(200);
+        follow(&mut a, 1);
+        let s = a.tabs[0].split.as_ref().unwrap();
+        assert_eq!((s.view.viewer.zoom(), s.zoom_seen, s.zoom_seq, s.seq), (200, Some(200), 1, 1));
+        a.tabs[0].split.as_mut().unwrap().sync = false;
+        a.tabs[0].viewer.as_mut().unwrap().viewer.set_zoom(300);
+        follow(&mut a, 1);
+        assert_eq!(a.tabs[0].split.as_ref().unwrap().view.viewer.zoom(), 200, "unsynced, its own zoom");
+    }
+
     /// Two documents: tab 1's other pane shows tab 2's, follows it, and a press there hands over: tab 2
     /// in view where the pane stood, tab 1's document in its other pane, in the other half; the split
     /// closes with the other tab.
@@ -299,7 +365,7 @@ mod tests {
             a.tabs.push(t);
         }
         let view = Box::new(a.tabs[1].viewer.as_ref().unwrap().twin());
-        a.tabs[0].split = Some(Split { mode: 1, half: 0, view, other: Some(2), title: "b.pdf".into(), sync: false, seq: 1, swap: 0 });
+        a.tabs[0].split = Some(Split { mode: 1, half: 0, view, other: Some(2), title: "b.pdf".into(), sync: false, zoom_seen: None, frac: 0.5, zoom_seq: 0, seq: 1, swap: 0 });
         follow(&mut a, 1);
         assert_eq!(a.tabs[0].split.as_ref().unwrap().seq, 1, "nothing changed");
         // Tab 2 loses a page: the pane is laid out again.

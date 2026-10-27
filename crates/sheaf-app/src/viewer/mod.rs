@@ -268,8 +268,9 @@ impl Viewer {
         (self.content_w, self.content_h) = if across { (self.fit_width.max(strip_w), strip_h) } else { (self.content_width_for(row_w), y) };
     }
 
-    /// Whether the pages run across (see `horizontal`): never in the page grid.
-    fn across(&self) -> bool {
+    /// Whether the pages run across now (see `horizontal`): never in the page grid, where the
+    /// setting is kept for later but the grid scrolls down.
+    pub fn across(&self) -> bool {
         self.horizontal && self.spread != 3
     }
 
