@@ -288,6 +288,17 @@ impl Speller {
     }
 }
 
+impl Speller {
+    /// Check Spelling's next word (Acrobat's dialog): the first misspelt word of `texts[at]` at or
+    /// after byte `from`, else of the texts after it; with the index of its text.
+    pub fn next_issue(&self, texts: &[&str], at: usize, from: usize) -> Option<(usize, Issue)> {
+        (at..texts.len()).find_map(|k| {
+            let from = if k == at { from } else { 0 };
+            self.misspelt(texts[k], false).into_iter().find(|i| i.start >= from).map(|i| (k, i))
+        })
+    }
+}
+
 /// Words of a word list one edit away from `word` (a letter dropped, swapped, changed or added),
 /// as a list without Hunspell's rules can suggest.
 fn edits_in(list: &HashSet<String>, word: &str) -> Vec<String> {
@@ -426,6 +437,18 @@ mod tests {
         assert!(s.misspelt("teh sheaf sat", false).is_empty());
         s.forget_learned();
         assert_eq!(s.misspelt("sheaf", false).len(), 1);
+    }
+
+    #[test]
+    fn the_check_pass_goes_word_by_word_through_the_texts() {
+        let mut s = word_list(&["the", "cat", "sat"]);
+        let texts = ["the cat", "teh cat sta", "", "cta"];
+        assert_eq!(s.next_issue(&texts, 0, 0), Some((1, Issue { start: 0, word: "teh".into() })));
+        // Next: after the word shown, in the same text, then in the following ones.
+        assert_eq!(s.next_issue(&texts, 1, 3), Some((1, Issue { start: 8, word: "sta".into() })));
+        assert_eq!(s.next_issue(&texts, 1, 11), Some((3, Issue { start: 0, word: "cta".into() })));
+        s.ignore("cta");
+        assert_eq!(s.next_issue(&texts, 1, 11), None);
     }
 
     #[test]

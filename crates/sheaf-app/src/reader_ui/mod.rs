@@ -1276,6 +1276,8 @@ mod pages;
 mod tools;
 mod search;
 mod model;
+mod spelling;
+pub use spelling::{spelling_set, spelling_texts, SpellTarget, SpellText};
 pub use pointer::*;
 pub use forms::*;
 pub use sign::*;

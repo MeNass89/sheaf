@@ -14,6 +14,7 @@ import { ReaderScreen } from "screens/reader.slint";
 import { ResultScreen } from "screens/result.slint";
 import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, Toast } from "screens/dialogs.slint";
 import { PlatformBridge, SpellIssue, ShortcutRow } from "platform.slint";
+import { SpellingDialog } from "screens/spelling-dialog.slint";
 
 export { Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
@@ -299,6 +300,7 @@ export component AppWindow inherits Window {
             MenuItem { title: "Find Next"; shortcut: PlatformBridge.keys[12]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, 1); } }
             MenuItem { title: "Find Previous"; shortcut: PlatformBridge.keys[13]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, -1); } }
             MenuSeparator {}
+            MenuItem { title: "Check Spelling…"; shortcut: PlatformBridge.keys[43]; enabled: root.reader-on; activated => { PlatformBridge.check-start(root.reader-id); } }
             MenuItem { title: PlatformBridge.spell-on ? "Stop Checking Spelling While Typing" : "Check Spelling While Typing"; shortcut: PlatformBridge.keys[14]; activated => { PlatformBridge.set-spell-on(!PlatformBridge.spell-on); } }
             MenuSeparator {}
             MenuItem { title: "Preferences…"; shortcut: PlatformBridge.keys[15]; activated => { root.show-preferences(); } }
@@ -592,6 +594,8 @@ export component AppWindow inherits Window {
         name: root.launch-name;
         answer(yes) => { root.launch-answer(yes); }
     }
+    // Edit ▸ Check Spelling… over the document's comments and fields.
+    if PlatformBridge.check-open: SpellingDialog {}
     if root.confirm-visible: ConfirmCloseDialog {
         cancel-job => { root.confirm-cancel-job(); }
         keep => { root.confirm-keep(); }

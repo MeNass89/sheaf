@@ -310,6 +310,111 @@ fn edit_key(ui: &AppWindow, key: &str) {
     });
 }
 
+/// Edit ▸ Check Spelling… on a document: its texts, the one being checked (`at`), where in it the
+/// next word is looked for (`from`, a byte offset), the word shown, and the changes made.
+struct Pass {
+    tab: i32,
+    texts: Vec<crate::reader_ui::SpellText>,
+    at: usize,
+    from: usize,
+    word: Option<(usize, String)>,
+    changed: usize,
+}
+
+thread_local! {
+    static PASS: RefCell<Option<Pass>> = const { RefCell::new(None) };
+}
+
+/// The next misspelt word from where the pass is, shown in the dialog; none left: what was done.
+fn check_advance(ui: &AppWindow) {
+    let g = ui.global::<PlatformBridge>();
+    let shown = PASS.with(|p| {
+        let mut p = p.borrow_mut();
+        let pass = p.as_mut()?;
+        pass.word = None;
+        let texts: Vec<&str> = pass.texts.iter().map(|t| t.2.as_str()).collect();
+        let found = with_spell(|sp| {
+            let Ok(s) = &sp.speller else { return None };
+            let (k, issue) = s.next_issue(&texts, pass.at, pass.from)?;
+            let c = sp.corrections.entry(issue.word.clone()).or_insert_with(|| s.suggest(&issue.word, 5)).clone();
+            Some((k, issue, c))
+        });
+        let Some((k, issue, corrections)) = found else {
+            pass.at = pass.texts.len();
+            return None;
+        };
+        pass.at = k;
+        pass.word = Some((issue.start, issue.word.clone()));
+        let (_, where_, text, page) = &pass.texts[k];
+        Some((pass.tab, where_.clone(), text.clone(), issue, corrections, *page))
+    });
+    match shown {
+        Some((tab, where_, text, issue, corrections, page)) => {
+            if let Some(page) = page {
+                crate::reader_ui::go_to_page(tab, &(page + 1).to_string());
+            }
+            let red = ui.global::<sheaf_app::Theme>().get_danger();
+            let colour = format!("#{:02x}{:02x}{:02x}", red.red(), red.green(), red.blue());
+            let md = platform::marked_markdown(&text, &[(issue.start, issue.word.as_str())], &colour);
+            g.set_check_context(slint::StyledText::from_markdown(&md).unwrap_or_else(|_| slint::StyledText::from_plain_text(&text)));
+            g.set_check_where(where_.into());
+            g.set_check_word(issue.word.into());
+            g.set_check_suggestions(ModelRc::new(VecModel::from(corrections.into_iter().map(SharedString::from).collect::<Vec<_>>())));
+            g.set_check_seq(g.get_check_seq() + 1);
+        }
+        None => {
+            let said = PASS.with(|p| p.borrow().as_ref().map(|pass| (pass.texts.len(), pass.changed)));
+            let missing = with_spell(|sp| sp.speller.as_ref().err().cloned());
+            g.set_check_word("".into());
+            g.set_check_done(
+                match (missing, said) {
+                    (Some(why), _) => why,
+                    (None, Some((0, _))) => "This document has no comments or form fields with text to check.".to_string(),
+                    (None, Some((n, 0))) => format!("Spelling check complete: {n} {} checked, nothing to change.", if n == 1 { "text" } else { "texts" }),
+                    (None, Some((n, c))) => format!("Spelling check complete: {n} {} checked, {c} {} changed.", if n == 1 { "text" } else { "texts" }, if c == 1 { "word" } else { "words" }),
+                    (None, None) => String::new(),
+                }
+                .into(),
+            );
+        }
+    }
+}
+
+/// The word shown is left as it is: the pass goes on after it.
+fn check_skip() {
+    PASS.with(|p| {
+        if let Some(pass) = p.borrow_mut().as_mut()
+            && let Some((start, word)) = pass.word.take()
+        {
+            pass.from = start + word.len();
+        }
+    });
+}
+
+/// Change: the word shown becomes `to` in its comment or field (one undo step), and the pass goes
+/// on after it.
+fn check_change(ui: &AppWindow, to: &str) {
+    let to = to.trim();
+    let put = PASS.with(|p| {
+        let mut p = p.borrow_mut();
+        let pass = p.as_mut()?;
+        let (start, word) = pass.word.take()?;
+        if to.is_empty() || to == word {
+            pass.from = start + word.len();
+            return None;
+        }
+        let item = pass.texts.get_mut(pass.at)?;
+        item.2 = sheaf_core::spell::replace_word(&item.2, start, &word, to);
+        pass.from = start + to.len();
+        pass.changed += 1;
+        Some((pass.tab, item.0.clone(), item.2.clone()))
+    });
+    if let Some((tab, target, text)) = put {
+        crate::reader_ui::spelling_set(ui, tab, &target, &text);
+    }
+    check_advance(ui);
+}
+
 /// Wires the global and fills it.
 pub fn install(ui: &AppWindow) {
     let _ = LEARNED.set(home::prefs().platform.learned_words);
@@ -433,6 +538,42 @@ pub fn install(ui: &AppWindow) {
     });
     on!(on_set_direction, |ui, d| update(&ui, |p| p.direction = d.clamp(0, 2) as u8));
     on!(on_edit_key, |ui, key| edit_key(&ui, &key));
+    on!(on_check_start, |ui, tab| {
+        let texts = crate::reader_ui::spelling_texts(tab);
+        PASS.with(|p| *p.borrow_mut() = Some(Pass { tab, texts, at: 0, from: 0, word: None, changed: 0 }));
+        ui.global::<PlatformBridge>().set_check_open(true);
+        check_advance(&ui);
+    });
+    on!(on_check_change, |ui, to| check_change(&ui, &to));
+    on!(on_check_next, |ui| {
+        check_skip();
+        check_advance(&ui);
+    });
+    on!(on_check_ignore, |ui| {
+        if let Some(word) = PASS.with(|p| p.borrow().as_ref().and_then(|pass| pass.word.as_ref().map(|w| w.1.clone()))) {
+            with_spell(|sp| if let Ok(s) = sp.speller.as_mut() { s.ignore(&word) });
+        }
+        check_skip();
+        check_advance(&ui);
+    });
+    on!(on_check_learn, |ui| {
+        if let Some(word) = PASS.with(|p| p.borrow().as_ref().and_then(|pass| pass.word.as_ref().map(|w| w.1.clone()))) {
+            with_spell(|sp| if let Ok(s) = sp.speller.as_mut() { s.learn(&word) });
+            update(&ui, |p| {
+                if !p.learned_words.iter().any(|w| w.eq_ignore_ascii_case(&word)) {
+                    p.learned_words.push(word);
+                }
+            });
+        }
+        check_skip();
+        check_advance(&ui);
+    });
+    on!(on_check_close, |ui| {
+        PASS.with(|p| *p.borrow_mut() = None);
+        let g = ui.global::<PlatformBridge>();
+        g.set_check_open(false);
+        g.set_check_word("".into());
+    });
     // File ▸ Quit: as the window's close button (unsaved documents are asked about first).
     on!(on_quit, |ui| {
         let _ = ui.window().dispatch_event_with_result(slint::platform::WindowEvent::CloseRequested);

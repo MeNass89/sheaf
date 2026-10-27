@@ -77,6 +77,24 @@ export global PlatformBridge {
     // The menu bar shown (debug builds driven by the GUI smoke hide it unless asked: their clicks
     // are placed for a window without it).
     in property <bool> menu-bar: true;
+    // Edit ▸ Check Spelling… (spelling-dialog.slint): shown; the misspelt word, where it is, its
+    // sentence with it underlined, its corrections (bumped `check-seq` for each new word); what
+    // the pass did once it is over ("" while a word is shown).
+    in property <bool> check-open;
+    in property <string> check-word;
+    in property <string> check-where;
+    in property <styled-text> check-context;
+    in property <[string]> check-suggestions;
+    in property <int> check-seq;
+    in property <string> check-done;
+    // Starts on a reader tab; Change to the text given, Ignore (this word, until Sheaf quits),
+    // Learn, Next (this one left as it is), close.
+    callback check-start(int);
+    callback check-change(string);
+    callback check-ignore();
+    callback check-learn();
+    callback check-next();
+    callback check-close();
     // Edit ▸ Cut, Copy, Paste, Select All: ⌘ and this key sent to what has the keyboard.
     callback edit-key(string);
     // File ▸ Quit: closes the window as its close button does (unsaved documents asked about).

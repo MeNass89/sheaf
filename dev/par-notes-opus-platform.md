@@ -20,6 +20,15 @@
   `dictionaries_are_found_by_language_then_english`, `latin1_dictionaries_are_decoded`,
   `a_hunspell_dictionary_checks_and_suggests`, `the_system_english_dictionary_when_installed`;
   `platform::tests::misspelt_words_are_underlined_and_the_rest_shown_as_typed`; smoke step 222)
+- C-edit-013 (second pass): Edit ▸ Check Spelling… (F7; Acrobat's Check Spelling in comments and form
+  fields): a dialog goes word by word through every comment with text (notes, text boxes, markups' notes, in
+  page order; the page shown follows) then every text field the user can fill. For each misspelt word: where
+  it is ("Comment on page 3", "Form field “Name”"), its sentence with the word underlined in red, up to five
+  corrections (a click puts one in Change to, which can be typed), and Change (the comment or field gets the
+  corrected text, one undo step each), Ignore (this word until Sheaf quits), Learn (kept), Next (left as it
+  is). At the end: how many texts were checked and words changed; no dictionary: what to install.
+  (`reader_ui/spelling.rs`, `platform_ui` `Pass`; tests `spell::tests::the_check_pass_goes_word_by_word_through_the_texts`;
+  smoke step 227)
 - C-platform-014: a menu bar, File · Edit · View · Go · Tools · Window · Help (Acrobat's and Preview's
   menus; Slint's `MenuBar`: drawn in the window on Linux and Windows, the system menu on macOS). Every
   command shows its shortcut; a command that does not apply where the user is (Save on Home) is disabled, so
@@ -72,9 +81,9 @@
 
 ## Left, and why
 
-- C-edit-013: Acrobat's Check Spelling *dialog* (one pass over every comment and form field of the
-  document, issues listed in a panel) is not done; only while typing. The underline is in the card under
-  the editor, not inside the field: Slint's TextInput/TextEdit cannot style part of their own text.
+- C-edit-013: the underline while typing is in the card under the editor, not inside the field: Slint's
+  TextInput/TextEdit cannot style part of their own text. The pass does not check replies (they are listed
+  inside their comment as "author: text") nor the page's own text (Acrobat checks only editable text too).
 - C-reader-060: grammar (Preview's Spelling and Grammar) is not checked: no offline grammar checker that is
   pure Rust and small.
 - C-platform-014: the reader's one-letter tool keys are not shown as menu shortcuts (Tools ▸ Annotate lists the
@@ -106,10 +115,10 @@
   `crates/sheaf-core/Cargo.toml`). Its API as used: `spellbook::Dictionary::new(&aff, &dic) -> Result<_, impl
   Display>`, `.check(&str) -> bool`, `.suggest(&str, &mut Vec<String>)`; the `Dictionary` held in a
   `static Mutex` (needs `Send`).
-- New modules: `sheaf_core::spell`, `sheaf_core::bookmarks`; `sheaf_app::platform` (lib); `platform_ui` (bin,
+- New modules: `reader_ui/spelling.rs` (`mod spelling;` + `pub use` in reader_ui/mod.rs), `sheaf_core::spell`, `sheaf_core::bookmarks`; `sheaf_app::platform` (lib); `platform_ui` (bin,
   `mod platform_ui;` in main.rs, `platform_ui::install(&ui)` after `wire_reader`); `home::update_platform`.
 - New Prefs field `platform: sheaf_app::platform::PlatformPrefs` (added to `tests/history.rs`'s literal, `tool_keys` included).
-- New Slint files: `ui/platform.slint` (`PlatformBridge`, `SpellIssue`, `ShortcutRow`, exported from
+- New Slint files: `ui/screens/spelling-dialog.slint`, `ui/platform.slint` (`PlatformBridge`, `SpellIssue`, `ShortcutRow`, exported from
   main.slint by a separate `export { … }` line), `ui/widgets/spell-strip.slint`,
   `ui/screens/preferences-platform.slint`. `main.slint` imports the sidebar's `MenuItem` as `SideMenuItem`
   (the name is the menu bar's own element there).

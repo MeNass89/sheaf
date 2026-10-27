@@ -1233,3 +1233,19 @@ check "Edit ▸ Select All, Copy, Paste act on the pages and on a text field ($E
 quit
 unset SHEAF_TEST_MENU_BAR
 python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["author"] = None; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+
+# 227. Edit ▸ Check Spelling… (F7; C-edit-013, Acrobat's Check Spelling in comments and form fields): a note "teh cat
+# sat" left on the page; the pass shows "teh" with its corrections, "the" clicked and Change: the pass ends (nothing
+# else misspelt) and the note, saved, reads "the cat sat".
+cp "$OUT/text.pdf" "$OUT/checkpass.pdf"; launch "$OUT/checkpass.pdf"; sleep 1
+key n; click 640 400 0.8; xdotool type --delay 15 "teh cat sat"; key ctrl+Return; sleep 0.8; key v
+key F7; sleep 1.2
+CW=$(ocr 1020x700+250+90)
+TH=$(at_word the); [ -n "$TH" ] && click $TH 0.4
+CH=$(at Change 1020x700+250+90); [ -n "$CH" ] && click $CH 1.2
+CD=$(ocr 1020x700+250+90)
+DN=$(at Done 1020x700+250+90); [ -n "$DN" ] && click $DN 0.6
+key ctrl+s; sleep 1.5
+CN=$(qpdf --qdf --object-streams=disable "$OUT/checkpass.pdf" - 2>/dev/null | grep -ao '/Contents ([^)]*)' | tail -1)
+check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $CN)" "echo \"$CW\" | grep -q 'teh' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat'"
+quit

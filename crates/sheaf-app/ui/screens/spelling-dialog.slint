@@ -1,0 +1,104 @@
+// Edit ▸ Check Spelling… (Acrobat's Check Spelling in comments and form fields): word by word
+// through every comment and text field of the document shown, the misspelt word in its sentence,
+// what to change it to (a correction picked or typed), and Change, Ignore, Learn, Next.
+import { Theme } from "../theme.slint";
+import { PrimaryButton } from "../widgets/button.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Modal, SecondaryButton } from "dialogs.slint";
+import { PlatformBridge } from "../platform.slint";
+
+export component SpellingDialog inherits Modal {
+    card-width: 460px;
+    Text {
+        text: "Check spelling";
+        font-size: Theme.fs-body-large;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+    }
+    if PlatformBridge.check-word != "": VerticalLayout {
+        spacing: 10px;
+        // The corrections' first, or one clicked, ready to Change; it can be typed over. A new word
+        // puts its own first correction in.
+        property <string> first: PlatformBridge.check-suggestions.length > 0 ? PlatformBridge.check-suggestions[0] : "";
+        property <int> seq: PlatformBridge.check-seq;
+        changed seq => { to.text = self.first; }
+        init => { to.text = self.first; }
+        Text {
+            text: PlatformBridge.check-where;
+            font-size: Theme.fs-caption;
+            color: Theme.text-muted;
+        }
+        // The sentence, the word underlined.
+        Rectangle {
+            border-radius: Theme.radius-small;
+            background: Theme.pill-bg;
+            height: ctx.preferred-height + 16px;
+            ctx := StyledText {
+                x: 8px;
+                width: parent.width - 16px;
+                text: PlatformBridge.check-context;
+                max-lines: 4;
+                default-color: Theme.text;
+                default-font-size: Theme.fs-label;
+            }
+        }
+        Text {
+            text: "Not in the dictionary: “\{PlatformBridge.check-word}”";
+            font-size: Theme.fs-label;
+            font-weight: Theme.weight-demibold;
+            color: Theme.danger;
+        }
+        to := TextField {
+            label: "Change to";
+            placeholder: PlatformBridge.check-word;
+            accepted => { PlatformBridge.check-change(self.text); }
+        }
+        if PlatformBridge.check-suggestions.length > 0: HorizontalLayout {
+            spacing: 6px;
+            alignment: start;
+            for s in PlatformBridge.check-suggestions: Rectangle {
+                height: 24px;
+                width: min(sl.preferred-width + 16px, 140px);
+                border-radius: Theme.radius-small;
+                background: st.has-hover || to.text == s ? Theme.popup-hover : Theme.pill-bg;
+                sl := Text {
+                    x: 8px;
+                    width: parent.width - 16px;
+                    text: s;
+                    font-size: Theme.fs-label;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                st := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { to.text = s; }
+                }
+            }
+        }
+        if PlatformBridge.check-suggestions.length == 0: Text {
+            text: "No suggestions: type the word as it should be.";
+            font-size: Theme.fs-caption;
+            color: Theme.text-muted;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: end;
+            SecondaryButton { text: "Next"; clicked => { PlatformBridge.check-next(); } }
+            SecondaryButton { text: "Learn"; clicked => { PlatformBridge.check-learn(); } }
+            SecondaryButton { text: "Ignore"; clicked => { PlatformBridge.check-ignore(); } }
+            PrimaryButton { text: "Change"; clicked => { PlatformBridge.check-change(to.text); } }
+        }
+    }
+    // Every comment and field checked (or none to check, or no dictionary): what was done.
+    if PlatformBridge.check-word == "": Text {
+        text: PlatformBridge.check-done;
+        font-size: Theme.fs-label;
+        color: Theme.text-secondary;
+        wrap: word-wrap;
+    }
+    HorizontalLayout {
+        alignment: end;
+        SecondaryButton { text: PlatformBridge.check-word == "" ? "Done" : "Stop"; clicked => { PlatformBridge.check-close(); } }
+    }
+}
