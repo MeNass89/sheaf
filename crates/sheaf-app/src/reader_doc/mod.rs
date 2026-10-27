@@ -544,6 +544,9 @@ pub enum Op {
     /// Acrobat’s Correct Recognized Text, on the live working document.
     ReviewOcr,
     CorrectOcr { page: usize, line: usize, expected: String, text: String },
+    /// Acrobat's console, evaluated against the reader's current unsaved document.
+    RunJavaScript { source: String, page: usize },
+    DocumentScripts,
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
     /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
@@ -618,6 +621,8 @@ pub enum Reply {
     Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
     PrintPreflight(Result<String, String>),
     PdfXExported(Result<PathBuf, String>),
+    JavaScript { output: String, changed: bool, requests: Vec<sheaf_core::pdfcraft::engine::js::Request> },
+    DocumentScripts(Vec<(String, String)>),
     /// The loupe's area: (width, height, RGBA pixels), or why not.
     Loupe(Result<(u32, u32, Vec<u8>), String>),
     /// A flattened copy written (`FlatCopy`), or why not.
@@ -790,6 +795,31 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         reply(Reply::Upright(turns));
                     }
                     Op::AccessibilityCheck => reply(Reply::Accessibility(doc.document().accessibility_check(&Default::default()))),
+                    Op::DocumentScripts => reply(Reply::DocumentScripts(doc.document().document_scripts())),
+                    Op::RunJavaScript { source, page } => {
+                        let id = doc.id();
+                        let before = doc.document().bytes.clone();
+                        let result = doc.session_mut().run_javascript_at(id, &source, None, page);
+                        let changed = !Arc::ptr_eq(&before, &doc.document().bytes);
+                        let (output, error, requests) = match result {
+                            Ok(outcome) => {
+                                let mut lines = outcome.console;
+                                lines.extend(outcome.alerts.into_iter().map(|s| format!("Alert: {s}")));
+                                lines.extend(outcome.result);
+                                lines.extend(outcome.error.into_iter().map(|s| format!("Error: {s}")));
+                                // Network requests remain outside the local console's scope.
+                                lines.extend(outcome.requests.iter().filter(|r| matches!(r,
+                                    sheaf_core::pdfcraft::engine::js::Request::LaunchUrl(_) | sheaf_core::pdfcraft::engine::js::Request::Submit(_)
+                                )).map(|r| format!("Network request (not executed): {r:?}")));
+                                if lines.is_empty() { lines.push("undefined".into()); }
+                                (lines.join("\n"), None, outcome.requests)
+                            }
+                            Err(e) => { let e = e.to_string(); (format!("Error: {e}"), Some(e), vec![]) }
+                        };
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error, applied: false, note: None, preview: false });
+                        reply(Reply::JavaScript { output, changed, requests });
+                    }
+
                     // Sol, 26/10: the next save wrote the old name again.
                     Op::Renamed { to } => path = to,
                     Op::LoupeArea { page, rect } => reply(Reply::Loupe(area_pixels(doc.document(), page, rect, Some(720.0)))),
@@ -1009,6 +1039,7 @@ fn save(doc: &mut Doc, target: &std::path::Path) -> Result<(), String> {
     doc.session().check_save(id, &bytes).map_err(|e| e.to_string())?;
     let t2 = std::time::Instant::now();
     replace(target, &bytes).map_err(|e| e.to_string())?;
+    sheaf_app::library::Library::new(&sheaf_app::store_file::data_dir()).record_saved(target).map_err(|e| e.to_string())?;
     let t3 = std::time::Instant::now();
     let r = doc.session_mut().mark_saved(id, bytes, Some(target.to_string_lossy().into_owned())).map_err(|e| e.to_string());
     debug(format_args!("save: bytes {:?}, check {:?}, write {:?}, mark saved {:?}", t1 - t, t2 - t1, t3 - t2, t3.elapsed()));

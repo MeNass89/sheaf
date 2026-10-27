@@ -1,3 +1,7 @@
+import { PortfolioPanel, PortfolioBridge, PortfolioRow } from "screens/portfolio.slint";
+import { JavaScriptConsole, JavaScriptBridge, DocumentScriptRow } from "screens/javascript.slint";
+import { LibraryScreen, LibraryDeletePrompt, LibraryBridge, LibraryRow, LibraryVersionRow } from "screens/library.slint";
+import { ActionsScreen, ActionPrompt, ActionDiscardPrompt, CustomToolsPanel, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow } from "screens/actions.slint";
 import { Theme } from "theme.slint";
 import { ToolCard } from "widgets/tool-card.slint";
 // The sidebar's entries, renamed: `MenuItem` is the menu bar's own element in this file.
@@ -16,11 +20,11 @@ import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, To
 import { PlatformBridge, SpellIssue, ShortcutRow } from "platform.slint";
 import { SpellingDialog } from "screens/spelling-dialog.slint";
 
-export { Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
+export { PortfolioBridge, PortfolioRow, JavaScriptBridge, DocumentScriptRow, LibraryBridge, LibraryRow, LibraryVersionRow, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
 export { PlatformBridge, SpellIssue, ShortcutRow }
 
-export enum Page { recents, tools, history, preferences }
+export enum Page { recents, tools, history, preferences, actions, library }
 
 component Sidebar inherits Rectangle {
     in-out property <Page> page;
@@ -54,6 +58,20 @@ component Sidebar inherits Rectangle {
             collapsed: root.collapsed;
             selected: root.page == Page.history;
             clicked => { root.page = Page.history; }
+        }
+        SideMenuItem {
+            icon: @image-url("icons/folder.svg");
+            text: "Library";
+            collapsed: root.collapsed;
+            selected: root.page == Page.library;
+            clicked => { root.page = Page.library; }
+        }
+        SideMenuItem {
+            icon: @image-url("icons/list-ordered.svg");
+            text: "Actions";
+            collapsed: root.collapsed;
+            selected: root.page == Page.actions;
+            clicked => { root.page = Page.actions; }
         }
         SideMenuItem {
             icon: @image-url("icons/settings.svg");
@@ -446,6 +464,8 @@ export component AppWindow inherits Window {
                         star(id) => { root.star-tool(id); }
                         favourites: root.favourite-tools;
                         }
+                        if root.page == Page.actions: ActionsScreen { }
+                        if root.page == Page.library: LibraryScreen { }
                         if root.page == Page.history: HistoryScreen {
                             rows: root.history;
                             reveal(i) => { root.reveal-history(i); }
@@ -600,4 +620,11 @@ export component AppWindow inherits Window {
         cancel-job => { root.confirm-cancel-job(); }
         keep => { root.confirm-keep(); }
     }
+    if ActionBridge.tools-visible: CustomToolsPanel { }
+    if ActionBridge.prompt != "": ActionPrompt { }
+    if ActionBridge.discard-visible: ActionDiscardPrompt { }
+    if JavaScriptBridge.visible: JavaScriptConsole { }
+    if PortfolioBridge.visible: PortfolioPanel { }
+    if LibraryBridge.delete-id != "": LibraryDeletePrompt { }
+
 }

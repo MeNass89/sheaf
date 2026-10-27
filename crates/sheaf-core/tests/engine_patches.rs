@@ -285,4 +285,60 @@ fn an_offline_ocr_adapter_keeps_skips_cancellation_and_unicode_placement() {
     let out = doc.save(&t.path().join("with-japanese.pdf")).unwrap();
     let text = common::shown_texts(&out).join(" ");
     assert!(text.contains("日本語") && text.contains("Page 1"), "{text}");
+#[test]
+fn an_action_stops_on_a_script_error_before_later_steps() {
+    use sheaf_core::pdfcraft::engine::actions::{Action, Step, run_on};
+    let t = tempfile::tempdir().unwrap();
+    let path = common::fixture_pdf(t.path(), "action.pdf", 1);
+    let a = Action { name: "Stop on failure".into(), description: String::new(), builtin: false,
+        steps: vec![Step::RunJavaScript("throw new Error('stop here');".into()), Step::SetTitle("Must not run".into())] };
+    let mut visited = Vec::new();
+    let result = run_on(&a, "action.pdf", std::sync::Arc::new(std::fs::read(path).unwrap()), |i, _| visited.push(i));
+    assert!(result.unwrap_err().contains("stop here"));
+    assert_eq!(visited, [0]);
+}
+
+#[test]
+fn a_guided_action_opens_encrypted_input_and_keeps_its_protection() {
+    use sheaf_core::pdfcraft::engine::{Session, Protection, actions::{Action, Step, run_guided}};
+    let mut session = Session::new();
+    let bytes = session.create_from_text("Original", "Keep").unwrap();
+    let id = session.open("encrypted.pdf", None, bytes, None).unwrap();
+    session.apply(id, Edit::Protect(Protection { open_password: Some("secret".into()), ..Default::default() })).unwrap();
+    let bytes = session.save_full_bytes(id).unwrap();
+    let action = Action { name: "Title".into(), description: String::new(), builtin: false,
+        steps: vec![Step::SetTitle("Saved".into())] };
+    assert!(run_guided(&action, "encrypted.pdf", bytes.clone(), None, |_, s| Some(s.clone())).is_err());
+    let out = run_guided(&action, "encrypted.pdf", bytes, Some("secret"), |_, s| Some(s.clone())).unwrap();
+    let mut check = Session::new();
+    assert!(check.open("out.pdf", None, out.bytes.clone(), None).is_err());
+    let id = check.open("out.pdf", None, out.bytes, Some("secret")).unwrap();
+    assert_eq!(check.get(id).unwrap().info.title.as_deref(), Some("Saved"));
+}
+
+#[test]
+fn custom_commands_round_trip_and_apply_rotation_and_metadata() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{Action, Step, run_on}};
+    for step in Step::all() {
+        assert_eq!(Step::from_id(step.id(), step.arg().unwrap_or_default()), Some(step));
+    }
+    let bytes = Session::new().create_from_text("Original", "Keep").unwrap();
+    let action = Action { name: "Custom".into(), description: String::new(), builtin: false,
+        steps: vec![Step::RotateClockwise, Step::SetAuthor("A. Writer".into()), Step::SetSubject("Review".into()), Step::SetKeywords("local".into()), Step::RemoveLinks] };
+    let out = run_on(&action, "in.pdf", bytes, |_, _| {}).unwrap();
+    let mut session = Session::new();
+    let id = session.open("out.pdf", None, out.bytes, None).unwrap();
+    assert_eq!(session.get(id).unwrap().info.author.as_deref(), Some("A. Writer"));
+    assert_eq!(session.get(id).unwrap().info.pages[0].rotation, 90);
+    assert_eq!(out.log.len(), 5);
+}
+
+#[test]
+fn console_page_context_matches_the_reader_and_clamps_out_of_range_pages() {
+    use sheaf_core::pdfcraft::engine::Session;
+    let bytes = Session::new().create_from_text("Original", "Keep").unwrap();
+    let mut session = Session::new(); let id = session.open("in.pdf", None, bytes, None).unwrap();
+    let out = session.run_javascript_at(id, "console.println(this.pageNum); this.pageNum = 0;", None, 999).unwrap();
+    assert_eq!(out.console, ["0"]);
+    assert!(out.requests.contains(&sheaf_core::pdfcraft::engine::js::Request::GoToPage(0)));
 }

@@ -26,6 +26,14 @@ pub enum Step {
     AddHeader(String),
     /// Set the document title.
     SetTitle(String),
+    SetAuthor(String),
+    SetSubject(String),
+    SetKeywords(String),
+    RotateClockwise,
+    RotateCounterclockwise,
+    RotateHalfTurn,
+    RemoveImages,
+    RemoveLinks,
     /// Prepare a form: detect fields.
     DetectFormFields,
     /// Run a JavaScript (console context).
@@ -46,6 +54,14 @@ impl Step {
             Step::AddHeader(String::new()),
             Step::AddFooter(String::new()),
             Step::SetTitle(String::new()),
+            Step::SetAuthor(String::new()),
+            Step::SetSubject(String::new()),
+            Step::SetKeywords(String::new()),
+            Step::RotateClockwise,
+            Step::RotateCounterclockwise,
+            Step::RotateHalfTurn,
+            Step::RemoveImages,
+            Step::RemoveLinks,
             Step::DetectFormFields,
             Step::RunJavaScript(String::new()),
         ]
@@ -64,6 +80,14 @@ impl Step {
             Step::AddHeader(_) => "add_header",
             Step::AddFooter(_) => "add_footer",
             Step::SetTitle(_) => "set_title",
+            Step::SetAuthor(_) => "set_author",
+            Step::SetSubject(_) => "set_subject",
+            Step::SetKeywords(_) => "set_keywords",
+            Step::RotateClockwise => "rotate_clockwise",
+            Step::RotateCounterclockwise => "rotate_counterclockwise",
+            Step::RotateHalfTurn => "rotate_half_turn",
+            Step::RemoveImages => "remove_images",
+            Step::RemoveLinks => "remove_links",
             Step::DetectFormFields => "detect_form_fields",
             Step::RunJavaScript(_) => "run_javascript",
         }
@@ -81,6 +105,14 @@ impl Step {
             Step::AddHeader(_) => "Add header",
             Step::AddFooter(_) => "Add footer",
             Step::SetTitle(_) => "Set document title",
+            Step::SetAuthor(_) => "Set document author",
+            Step::SetSubject(_) => "Set document subject",
+            Step::SetKeywords(_) => "Set document keywords",
+            Step::RotateClockwise => "Rotate pages clockwise",
+            Step::RotateCounterclockwise => "Rotate pages counterclockwise",
+            Step::RotateHalfTurn => "Turn pages upside down",
+            Step::RemoveImages => "Remove all images",
+            Step::RemoveLinks => "Remove all links",
             Step::DetectFormFields => "Detect form fields",
             Step::RunJavaScript(_) => "Run a JavaScript",
         }
@@ -89,14 +121,14 @@ impl Step {
     /// The step's text argument, if it takes one.
     pub fn arg(&self) -> Option<&str> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::RunJavaScript(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) => Some(s),
             _ => None,
         }
     }
 
     pub fn arg_mut(&mut self) -> Option<&mut String> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::RunJavaScript(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) => Some(s),
             _ => None,
         }
     }
@@ -160,8 +192,9 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
             let before = s.get(id).map_or(0, |d| d.bytes.len());
             log.push(format!("Reduce file size: {} → {} bytes", before, bytes.len()));
             let name = s.get(id).map(|d| d.name.clone()).unwrap_or_default();
+            let password = s.get(id).and_then(|d| d.editor.as_ref()).and_then(|e| e.keys.reopen.clone());
             s.close(id);
-            let new = s.open(name, None, bytes, None).map_err(|e| EditError::Reopen(e.to_string()))?;
+            let new = s.open(name, None, bytes, password.as_deref()).map_err(|e| EditError::Reopen(e.to_string()))?;
             return Ok(Some(new));
         }
         Step::RemoveHiddenInformation => Edit::RemoveHidden { which: crate::HIDDEN.to_vec() },
@@ -177,6 +210,14 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
             Edit::AddHeaderFooter { pages: all, settings, replace: false }
         }
         Step::SetTitle(t) => Edit::SetInfo { key: "Title".into(), value: t.clone() },
+        Step::SetAuthor(t) => Edit::SetInfo { key: "Author".into(), value: t.clone() },
+        Step::SetSubject(t) => Edit::SetInfo { key: "Subject".into(), value: t.clone() },
+        Step::SetKeywords(t) => Edit::SetInfo { key: "Keywords".into(), value: t.clone() },
+        Step::RotateClockwise => Edit::RotatePages { pages: all, degrees: 90 },
+        Step::RotateCounterclockwise => Edit::RotatePages { pages: all, degrees: 270 },
+        Step::RotateHalfTurn => Edit::RotatePages { pages: all, degrees: 180 },
+        Step::RemoveImages => Edit::RemoveImages { pages: all },
+        Step::RemoveLinks => Edit::RemoveLinks { pages: None },
         Step::DetectFormFields => {
             let n = s.auto_detect_fields(id, &[])?.len();
             log.push(format!("Detect form fields: {n}"));
@@ -184,33 +225,47 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
         }
         Step::RunJavaScript(js) => {
             let o = s.run_javascript(id, js, None)?;
-            log.push(match o.error {
-                Some(e) => format!("Run a JavaScript: {e}"),
-                None => "Run a JavaScript".into(),
-            });
+            if let Some(e) = o.error { return Err(EditError::Invalid(e)); }
+            log.push("Run a JavaScript".into());
             return Ok(None);
         }
     };
-    // Steps that find nothing to do (no comments to flatten, …) aren't failures.
-    match s.apply(id, edit) {
-        Ok(()) => log.push(step.label().to_string()),
-        Err(e) => log.push(format!("{}: {e}", step.label())),
-    }
+    // Sheaf: permissions, unsupported content and write failures must stop an action.
+    // Flattening an empty set already succeeds in the editor; do not swallow real errors.
+    s.apply(id, edit)?;
+    log.push(step.label().to_string());
     Ok(None)
 }
 
 /// Run `action` on one file. `progress(step, steps)` is called before each step.
 pub fn run_on(action: &Action, name: &str, bytes: Arc<Vec<u8>>, mut progress: impl FnMut(usize, usize)) -> Result<FileResult, String> {
+    run_guided(action, name, bytes, None, |i, step| {
+        progress(i, action.steps.len());
+        Some(step.clone())
+    })
+}
+
+/// Sheaf's guided runner keeps the document open for the sequence. A prompt can replace a
+/// step's settings or cancel; passwords stay in memory and are never part of an action file.
+pub fn run_guided(
+    action: &Action, name: &str, bytes: Arc<Vec<u8>>, password: Option<&str>,
+    mut before: impl FnMut(usize, &Step) -> Option<Step>,
+) -> Result<FileResult, String> {
     let mut s = Session::new();
-    let mut id = s.open(name, None, bytes, None).map_err(|e| e.to_string())?;
+    let mut id = s.open(name, None, bytes, password).map_err(|e| e.to_string())?;
     if let Some(why) = s.get(id).and_then(|d| d.read_only_reason.clone()) {
         return Err(why);
     }
     let mut log = Vec::new();
     for (i, step) in action.steps.iter().enumerate() {
-        progress(i, action.steps.len());
-        if let Some(new) = apply_step(&mut s, id, step, &mut log).map_err(|e| format!("{}: {e}", step.label()))? {
+        let step = before(i, step).ok_or("Action cancelled")?;
+        if let Some(new) = apply_step(&mut s, id, &step, &mut log).map_err(|e| format!("{}: {e}", step.label()))? {
             id = new;
+        }
+        // Batch outputs cannot be undone in this private session. Drop prior revisions now,
+        // rather than retaining up to 100 full document states until the last step.
+        if let Ok(doc) = s.doc_mut(id) && let Some(editor) = doc.editor.as_mut() {
+            editor.undo.clear(); editor.redo.clear();
         }
     }
     let d = s.get(id).ok_or("the document was lost")?;

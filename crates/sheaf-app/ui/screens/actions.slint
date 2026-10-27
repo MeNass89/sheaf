@@ -1,0 +1,242 @@
+import { Button, CheckBox, ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Modal } from "dialogs.slint";
+
+export struct ActionRow { name: string, description: string, builtin: bool, custom: bool, source: int }
+export struct ActionCommandRow { label: string, action: int, step: int }
+export struct ActionStepRow { label: string, detail: string }
+
+export global ActionBridge {
+    in-out property <[ActionRow]> rows;
+    in-out property <[ActionCommandRow]> commands;
+    in-out property <bool> tools-visible;
+    in-out property <bool> discard-visible;
+    in-out property <[ActionStepRow]> steps;
+    in-out property <[string]> tools;
+    in-out property <int> selected: -1;
+    in-out property <int> filter;
+    in-out property <bool> builtin;
+    in-out property <int> step: -1;
+    in-out property <string> name;
+    in-out property <string> description;
+    in-out property <bool> custom;
+    in-out property <string> argument;
+    in-out property <string> instruction;
+    in-out property <bool> pause;
+    in-out property <bool> has-argument;
+    in-out property <bool> busy;
+    in-out property <bool> title-names;
+    in-out property <bool> recursive;
+    in-out property <string> saved-watch;
+    in-out property <string> status;
+    in-out property <string> prompt;
+    in-out property <string> prompt-argument;
+    in-out property <bool> prompt-has-argument;
+    in-out property <string> password;
+    in-out property <[string]> outputs;
+    in-out property <string> import-text;
+    callback open-page(string);
+    callback command(string, int);
+    callback answer(bool);
+}
+
+// Acrobat's Action Wizard: the saved list stays beside the ordered steps being edited.
+export component ActionsScreen inherits Rectangle {
+    property <bool> paste-open;
+    background: Theme.content-bg;
+    VerticalLayout {
+        padding: 24px; spacing: 16px;
+        Text { text: "Actions"; color: Theme.text; font-size: Theme.fs-title; font-weight: 600; }
+        Text { text: "Save a sequence, then run it on PDFs. Originals stay untouched."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "New action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new", 0); } }
+            Button { text: "New custom tool"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new-tool", 0); } }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Import…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("import", 0); } }
+            Button { text: "Paste JSON"; enabled: !ActionBridge.busy; clicked => { root.paste-open = !root.paste-open; } }
+            Button { text: "Export…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("export", 0); } }
+            Button { text: "Create portfolio…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("portfolio", 0); } }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: "Import Sheaf or Stirling JSON: choose, paste or drop a file here."; color: Theme.text-secondary; font-size: Theme.fs-caption; horizontal-stretch: 1; vertical-alignment: center; wrap: word-wrap; }
+            Button { text: "Export Stirling…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("export-stirling", 0); } }
+        }
+        if root.paste-open: VerticalLayout {
+            spacing: 8px;
+            TextEdit { height: 100px; text <=> ActionBridge.import-text; enabled: !ActionBridge.busy; }
+            Button { text: "Import pasted action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("paste", 0); } }
+        }
+        HorizontalLayout {
+            spacing: 20px; vertical-stretch: 1;
+            ScrollView {
+                width: 220px;
+                VerticalLayout {
+                    spacing: 6px; alignment: start;
+                    ComboBox { model: ["All actions", "Suggested", "Saved actions", "Custom tools"]; current-index <=> ActionBridge.filter; enabled: !ActionBridge.busy; selected(i) => { ActionBridge.filter = i; ActionBridge.command("filter", 0); } }
+                    if ActionBridge.rows.length == 0: Text { text: "No actions in this list yet."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+                    for row in ActionBridge.rows: Rectangle {
+                        height: 80px;
+                        background: ActionBridge.selected == row.source ? Theme.menu-selected-bg : Theme.card;
+                        border-radius: Theme.radius-small;
+                        VerticalLayout {
+                            padding: 10px; spacing: 4px;
+                            Text { text: row.name; color: Theme.text; font-size: Theme.fs-body; font-weight: 600; overflow: elide; }
+                            Text { text: row.builtin ? "Suggested · copy to edit" : row.custom ? "Custom tool" : "Saved action"; color: Theme.text-secondary; font-size: Theme.fs-caption; }
+                            Text { text: row.description; color: Theme.text-secondary; font-size: Theme.fs-caption; overflow: elide; }
+                        }
+                        TouchArea { enabled: !ActionBridge.busy; clicked => { ActionBridge.command("select", row.source); } }
+                    }
+                }
+            }
+            ScrollView {
+                horizontal-stretch: 1;
+                VerticalLayout {
+                    spacing: 12px; alignment: start;
+                    if ActionBridge.builtin: Text { text: "Suggested action · save a copy to make it yours."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+                    TextField { label: "Name"; text <=> ActionBridge.name; enabled: !ActionBridge.busy; }
+                    TextField { label: "Description"; text <=> ActionBridge.description; enabled: !ActionBridge.busy; }
+                    CheckBox { text: "Custom tool set (run commands individually)"; checked <=> ActionBridge.custom; enabled: !ActionBridge.busy; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Button { text: ActionBridge.selected >= 0 && ActionBridge.builtin ? "Save a copy" : "Save action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("save", 0); } }
+                        Button { text: "Copy"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("copy", 0); } }
+                        Button { text: "Delete"; enabled: !ActionBridge.busy && ActionBridge.selected >= 0 && !ActionBridge.builtin; clicked => { ActionBridge.command("delete", 0); } }
+                    }
+                    Text { text: "Steps"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        picker := ComboBox { model: ActionBridge.tools; horizontal-stretch: 1; enabled: !ActionBridge.busy; }
+                        Button { text: "Add step"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("add", picker.current-index); } }
+                    }
+                    for row[i] in ActionBridge.steps: Rectangle {
+                        height: 46px;
+                        background: ActionBridge.step == i ? Theme.menu-selected-bg : Theme.card;
+                        border-radius: Theme.radius-small;
+                        HorizontalLayout {
+                            padding: 8px; spacing: 8px;
+                            Text { text: (i + 1) + ". " + row.label; color: Theme.text; font-size: Theme.fs-body; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                            Text { text: row.detail; color: Theme.text-secondary; font-size: Theme.fs-caption; vertical-alignment: center; }
+                            Button { text: "Edit"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("step", i); } }
+                            if ActionBridge.custom: Button { text: "Run"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("run-step", i); } }
+                        }
+                    }
+                    if ActionBridge.steps.length == 0: Text { text: "Add the first step above."; color: Theme.text-secondary; font-size: Theme.fs-body; }
+                    if ActionBridge.step >= 0: VerticalLayout {
+                        spacing: 8px;
+                        if ActionBridge.has-argument: VerticalLayout {
+                            spacing: 6px;
+                            Text { text: "Text or JavaScript for this step"; color: Theme.text; font-size: Theme.fs-label; }
+                            TextEdit { height: 90px; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
+                        }
+                        TextField { label: "Instructions shown before this step"; text <=> ActionBridge.instruction; enabled: !ActionBridge.busy; }
+                        CheckBox { text: "Pause and ask before running this step"; checked <=> ActionBridge.pause; enabled: !ActionBridge.busy; }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Button { text: "Move up"; enabled: !ActionBridge.busy && ActionBridge.step > 0; clicked => { ActionBridge.command("up", 0); } }
+                            Button { text: "Move down"; enabled: !ActionBridge.busy && ActionBridge.step + 1 < ActionBridge.steps.length; clicked => { ActionBridge.command("down", 0); } }
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Button { text: "Duplicate step"; enabled: !ActionBridge.busy && ActionBridge.steps.length < 100; clicked => { ActionBridge.command("duplicate", 0); } }
+                            Button { text: "Remove step"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("remove", 0); } }
+                        }
+                    }
+                    TextField { label: "Password for this run (optional, never saved)"; password: true; allow-reveal: true; text <=> ActionBridge.password; enabled: !ActionBridge.busy; }
+                    CheckBox { text: "Name watched outputs from the document title"; checked <=> ActionBridge.title-names; enabled: !ActionBridge.busy; }
+                    CheckBox { text: "Include subfolders in the watch"; checked <=> ActionBridge.recursive; enabled: !ActionBridge.busy; }
+                    if ActionBridge.saved-watch != "": VerticalLayout {
+                        spacing: 6px;
+                        Text { text: ActionBridge.saved-watch; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Button { text: "Resume saved watch"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("resume-watch", 0); } }
+                            Button { text: "Forget watch"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("forget-watch", 0); } }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Button { text: "Watch folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("watch", 0); } }
+                        Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
+                    }
+                }
+            }
+        }
+        if ActionBridge.outputs.length > 0: ScrollView {
+            height: min(130px, ActionBridge.outputs.length * 36px);
+            VerticalLayout {
+                alignment: start; spacing: 4px;
+                for output[i] in ActionBridge.outputs: HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: output; color: Theme.text-secondary; font-size: Theme.fs-caption; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                    Button { text: "Open"; clicked => { ActionBridge.command("open-output", i); } }
+                    Button { text: "Show in folder"; clicked => { ActionBridge.command("reveal-output", i); } }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: ActionBridge.status; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; horizontal-stretch: 1; vertical-alignment: center; }
+            if ActionBridge.busy: Button { text: "Stop"; clicked => { ActionBridge.command("stop", 0); } }
+        }
+    }
+}
+
+export component ActionPrompt inherits Modal {
+    card-width: 480px;
+    VerticalLayout {
+        spacing: 16px;
+        Text { text: ActionBridge.prompt; color: Theme.text; font-size: Theme.fs-body; wrap: word-wrap; }
+        if ActionBridge.prompt-has-argument: VerticalLayout {
+            spacing: 6px;
+            Text { text: "Settings for this file only"; color: Theme.text; font-size: Theme.fs-label; }
+            TextEdit { height: 110px; text <=> ActionBridge.prompt-argument; }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Cancel action"; clicked => { ActionBridge.answer(false); } }
+            Button { text: "Continue"; clicked => { ActionBridge.answer(true); } }
+        }
+    }
+}
+
+// Acrobat's custom command palette, reachable directly from the reader toolbar.
+export component CustomToolsPanel inherits Modal {
+    card-width: min(620px, self.width - 32px);
+    Text { text: "Custom tools"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
+    Text { text: "Run a saved command on chosen PDFs. Originals stay untouched."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    ScrollView {
+        height: min(350px, max(70px, ActionBridge.commands.length * 44px));
+        VerticalLayout {
+            spacing: 8px; alignment: start;
+            if ActionBridge.commands.length == 0: Text { text: "Create a custom tool set in Guided actions to add commands here."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+            for row[i] in ActionBridge.commands: HorizontalLayout {
+                spacing: 8px;
+                Text { text: row.label; color: Theme.text; font-size: Theme.fs-body; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("custom-command", i); } }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        Button { text: "Manage custom tools"; clicked => { ActionBridge.tools-visible = false; ActionBridge.open-page("actions"); } }
+        Rectangle { horizontal-stretch: 1; }
+        Button { text: "Close"; clicked => { ActionBridge.tools-visible = false; } }
+    }
+}
+
+export component ActionDiscardPrompt inherits Modal {
+    Text { text: "Keep your action changes?"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
+    Text { text: "This action has unsaved changes. Save it first, or discard the draft before switching."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    HorizontalLayout {
+        spacing: 8px;
+        Button { text: "Keep editing"; clicked => { ActionBridge.command("keep-draft", 0); } }
+        Button { text: "Discard changes"; clicked => { ActionBridge.command("discard-draft", 0); } }
+    }
+}

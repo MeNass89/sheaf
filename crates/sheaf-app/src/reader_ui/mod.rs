@@ -667,7 +667,7 @@ impl ReaderUi {
 
     fn send(&mut self, op: Op) {
         // A preview is not counted: it never names something another edit is waiting on.
-        let edit = matches!(op, Op::Apply { .. } | Op::CorrectOcr { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields);
+        let edit = matches!(op, Op::Apply { .. } | Op::CorrectOcr { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields | Op::RunJavaScript { .. });
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
             self.edits_in_flight += usize::from(edit);
@@ -793,7 +793,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     // The copies' and the loupe's answers give back the count `send` took (they left it raised:
     // Undo greyed, and closing asked to save a document untouched).
-    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_)) {
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_) | Reply::DocumentScripts(_)) {
         update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
     }
     match reply {
@@ -895,6 +895,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             }
             match (error, name) {
                 (None, Some(n)) => {
+                    let selected = ui.global::<sheaf_app::LibraryBridge>().get_selected_id().to_string();
+                    crate::library_ui::refresh(ui, Some(&selected));
                     // Edits made while this save ran are not in it: save again before closing or
                     // handing the file to a tool.
                     if unsaved_name(id).is_some() && (with(|a| a.closing_after_save.contains(&id)) || tools_waiting(id)) {
@@ -939,6 +941,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::PrintPreflight(report) => prepress::checked(ui, id, report),
         Reply::PdfXExported(result) => prepress::press_exported(ui, id, result),
         Reply::OcrReviewed(rows) => ocr_review::reviewed(ui, id, rows),
+        Reply::JavaScript { output, changed, requests } => javascript::finished(ui, id, output, changed, requests),
+        Reply::DocumentScripts(scripts) => javascript::scripts(ui, id, scripts),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
@@ -1296,6 +1300,7 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
 
 // ---- the parts -------------------------------------------------------------------------------
 
+pub mod portfolio;
 mod pointer;
 mod forms;
 mod sign;
@@ -1317,6 +1322,7 @@ mod security_policy;
 pub use security_policy::{policy_open, policy_action, policy_save, policy_apply};
 pub use catalog::{catalog_open, catalog_action};
 pub use ocr_review::{review_ocr, ocr_review_action};
+pub(crate) mod javascript;
 mod layers;
 mod look_up;
 mod folder_search;

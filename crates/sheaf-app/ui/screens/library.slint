@@ -1,0 +1,127 @@
+import { Button, ScrollView } from "std-widgets.slint";
+import { Modal } from "dialogs.slint";
+import { Theme } from "../theme.slint";
+
+export struct LibraryRow { id: string, name: string, detail: string }
+export struct LibraryVersionRow { number: int, label: string, detail: string }
+export global LibraryBridge {
+    in-out property <[LibraryRow]> rows;
+    in-out property <[LibraryVersionRow]> versions;
+    in-out property <int> selected: -1;
+    in-out property <string> name;
+    in-out property <string> selected-id;
+    in-out property <string> delete-id;
+    in-out property <string> delete-name;
+    in-out property <string> status;
+    in-out property <bool> busy;
+    in-out property <string> query;
+    in-out property <[string]> working;
+    callback command(string, int);
+}
+
+export component LibraryScreen inherits Rectangle {
+    init => { LibraryBridge.command("refresh", 0); }
+    background: Theme.content-bg;
+    VerticalLayout {
+        padding: 24px; spacing: 16px;
+        Text { text: "Library"; color: Theme.text; font-size: Theme.fs-title; font-weight: 600; }
+        Text { text: "Private file copies. Each save in Sheaf keeps a new version."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Add files…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("add", 0); } }
+            Button { text: "Refresh"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("refresh", 0); } }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        Rectangle {
+            height: Theme.field-height; border-width: 1px; border-color: Theme.input-border; border-radius: Theme.radius-small; background: Theme.input-bg;
+            if LibraryBridge.query == "": Text { x: 10px; text: "Filter by name or archive folder"; color: Theme.text-muted; font-size: Theme.fs-body; vertical-alignment: center; }
+            TextInput {
+                x: 10px; width: parent.width - 20px; text <=> LibraryBridge.query;
+                single-line: true; color: Theme.text; font-size: Theme.fs-body; vertical-alignment: center;
+                accessible-label: "Filter files by name or archive folder";
+                edited => { LibraryBridge.command("refresh", 0); }
+            }
+        }
+        HorizontalLayout {
+            spacing: 20px; vertical-stretch: 1;
+            ScrollView {
+                horizontal-stretch: 1;
+                VerticalLayout {
+                    spacing: 6px; alignment: start;
+                    if LibraryBridge.rows.length == 0: Text { text: "Add files to keep them here, even if their originals move."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+                    for row[i] in LibraryBridge.rows: Rectangle {
+                        height: 62px; border-radius: Theme.radius-small;
+                        background: LibraryBridge.selected == i ? Theme.menu-selected-bg : Theme.card;
+                        VerticalLayout {
+                            padding: 10px; spacing: 4px;
+                            Text { text: row.name; color: Theme.text; font-size: Theme.fs-body; font-weight: 600; overflow: elide; }
+                            Text { text: row.detail; color: Theme.text-secondary; font-size: Theme.fs-caption; }
+                        }
+                        TouchArea { enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("select", i); } }
+                    }
+                }
+            }
+            if LibraryBridge.selected >= 0: ScrollView {
+                horizontal-stretch: 1;
+                VerticalLayout {
+                    spacing: 12px; alignment: start;
+                    Text { text: LibraryBridge.name; color: Theme.text; font-size: Theme.fs-subtitle; overflow: elide; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Button { text: "Open"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("open", 0); } }
+                        Button { text: "Save a copy…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("export", 0); } }
+                        Button { text: "Unzip"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("unzip", 0); } }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Button { text: "New version…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("update", 0); } }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Button { text: "Delete file and versions"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("ask-delete", 0); } }
+                    }
+                    Text { text: "Version history"; color: Theme.text; font-size: Theme.fs-subtitle; }
+                    for version in LibraryBridge.versions: Rectangle {
+                        height: 74px; background: Theme.card;
+                        VerticalLayout {
+                            padding: 8px; spacing: 6px;
+                            Text { text: "Version " + version.number + " · " + version.label; color: Theme.text; font-size: Theme.fs-body; overflow: elide; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text { text: version.detail; color: Theme.text-secondary; font-size: Theme.fs-caption; horizontal-stretch: 1; vertical-alignment: center; }
+                                Button { text: "Save copy…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("export", version.number); } }
+                                Button { text: "Restore"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("restore", version.number); } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if LibraryBridge.working.length > 0: VerticalLayout {
+            spacing: 6px;
+            Text { text: "Working copies · reopen after an interruption"; color: Theme.text; font-size: Theme.fs-label; }
+            ScrollView {
+                height: min(100px, LibraryBridge.working.length * 36px);
+                VerticalLayout {
+                    spacing: 4px; alignment: start;
+                    for path[i] in LibraryBridge.working: HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: path; color: Theme.text-secondary; font-size: Theme.fs-caption; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                        Button { text: "Open working copy"; clicked => { LibraryBridge.command("open-working", i); } }
+                    }
+                }
+            }
+        }
+        Text { text: LibraryBridge.status; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    }
+}
+
+export component LibraryDeletePrompt inherits Modal {
+    Text { text: "Delete " + LibraryBridge.delete-name + "?"; color: Theme.text; font-size: Theme.fs-subtitle; wrap: word-wrap; }
+    Text { text: "This removes the library copy and every stored version. Your original file stays where it is."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    HorizontalLayout {
+        spacing: 8px;
+        Button { text: "Cancel"; clicked => { LibraryBridge.command("cancel-delete", 0); } }
+        Button { text: "Delete from Library"; clicked => { LibraryBridge.command("delete", 0); } }
+    }
+}

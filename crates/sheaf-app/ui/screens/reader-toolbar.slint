@@ -1,6 +1,9 @@
+import { PortfolioBridge } from "portfolio.slint";
+import { ActionBridge } from "actions.slint";
 // The reader's toolbar: side panel, annotation tools, page field, zoom, page theme, search, the
 // More menu, undo/redo/save.
 import { ScrollView } from "std-widgets.slint";
+import { JavaScriptBridge } from "javascript.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, Divider } from "reader-parts.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
@@ -65,6 +68,7 @@ export component ReaderToolbar inherits Rectangle {
             alignment: start;
             padding-top: 8px;
             padding-bottom: 8px;
+            if ActionBridge.commands.length > 0: ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: "Custom tools"; clicked => { ActionBridge.command("custom-tools", 0); } }
             ToolButton { icon: @image-url("../icons/panel-left.svg"); tip: "Side panel"; active: root.tab.reader.panel-open; clicked => { ReaderBridge.toggle-panel(root.id); } }
             Rectangle { width: 6px; }
             Divider { y: 5px; }
@@ -412,6 +416,11 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Search catalog…", on: false },
                                 { text: "Security policies…", on: false },
                                 { text: "Manage signatures…", on: false },
+                                { text: "JavaScript console…", on: false },
+                                { text: "Guided actions…", on: false },
+                                { text: "Library…", on: false },
+                                { text: "Create portfolio…", on: false },
+                                { text: "Browse embedded files…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -447,6 +456,11 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 25 { ReaderBridge.catalog-open(root.id); }
                                         if k == 26 { ReaderBridge.policy-open(root.id); }
                                         if k == 27 { ReaderBridge.signature-manager(root.id); }
+                                        if k == 28 { JavaScriptBridge.open(root.id); }
+                                        if k == 29 { ActionBridge.open-page("actions"); return; }
+                                        if k == 30 { ActionBridge.open-page("library"); return; }
+                                        if k == 31 { PortfolioBridge.open(); return; }
+                                        if k == 32 { PortfolioBridge.browse(root.id); return; }
                                         root.focus-pages();
                                     }
                                 }

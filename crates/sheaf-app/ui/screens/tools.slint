@@ -1,4 +1,6 @@
-import { ScrollView } from "std-widgets.slint";
+import { PortfolioBridge } from "portfolio.slint";
+import { ActionBridge } from "actions.slint";
+import { Button, ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolCard, ToolCardView } from "../widgets/tool-card.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
@@ -112,6 +114,15 @@ export component ToolsScreen inherits Rectangle {
                 current-index <=> root.sort;
                 chevron: root.chevron;
             }
+        }
+
+        HorizontalLayout {
+            padding-left: Theme.content-padding; padding-right: Theme.content-padding; spacing: 8px;
+            Button { text: "Guided actions…"; clicked => { ActionBridge.open-page("actions"); } }
+            Button { text: "Create portfolio…"; clicked => { PortfolioBridge.open(); } }
+            Button { text: "Library…"; clicked => { ActionBridge.open-page("library"); } }
+            Button { text: "Custom tools…"; clicked => { ActionBridge.command("custom-tools", 0); } }
+            Rectangle { horizontal-stretch: 1; }
         }
 
         scroll := ScrollView {

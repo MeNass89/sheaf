@@ -184,6 +184,11 @@ impl Session {
     /// the console (no target). Field changes and `resetForm` are applied as one undoable step;
     /// everything else the script asked for is returned.
     pub fn run_javascript(&mut self, id: DocId, script: &str, target: Option<&str>) -> Result<Outcome, EditError> {
+        self.run_javascript_at(id, script, target, 0)
+    }
+
+    /// Sheaf's console supplies the visible page, so `this.pageNum` matches the reader.
+    pub fn run_javascript_at(&mut self, id: DocId, script: &str, target: Option<&str>, page: usize) -> Result<Outcome, EditError> {
         if self.js_off {
             return Err(EditError::Invalid("JavaScript is turned off (Preferences ▸ JavaScript)".into()));
         }
@@ -205,7 +210,8 @@ impl Session {
                 ..Default::default()
             });
         }
-        let runner = JsRunner::new(&cos, &doc.name);
+        let mut runner = JsRunner::new(&cos, &doc.name);
+        runner.doc.page = page.min(runner.doc.num_pages.saturating_sub(1));
         let fields = pdfcraft_forms::fields(&cos);
         let states: Vec<_> = fields.iter().map(|f| field_state(&cos, f)).collect();
         let event = match target {

@@ -21,6 +21,32 @@ Password fields can opt into the reveal control in `ui/widgets/text-field.slint`
 Recents exclusions are saved separately from task history by `history.rs` (`hidden-recents.json`).
 The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 
+## Guided actions
+
+- `crates/sheaf-app/src/action_import.rs`: lossless supported Stirling Automate/Folder Scanning JSON translation.
+- `crates/sheaf-app/src/actions.rs`: portable action JSON, ordered tool configurations,
+  suggested actions, persistence and sequential execution without replacing originals.
+- `crates/sheaf-app/src/actions_ui.rs` and `ui/screens/actions.slint`: Home's Actions page,
+  step editor, filtered suggested/saved/custom lists, reader custom palette, import/export,
+  worker-thread progress and editable pauses. Guided actions is reachable from Tools and the reader.
+
+- `crates/sheaf-app/src/watch_folder.rs`: stable-file polling, duplicate suppression and
+  optional title-based output names, recursive scanning and persisted resume checkpoints.
+
+- `crates/sheaf-core/src/portfolio.rs`: PDF Collection catalog, readable cover, original
+  embedded files, chosen order and duplicate-name handling; `src/portfolio_ui.rs` and
+  `ui/screens/portfolio.slint` compose files from Tools/Actions/reader, and
+  `src/reader_ui/portfolio.rs` browses embedded originals with Open and Save copy.
+
+- `crates/sheaf-app/src/library.rs`, `src/library_ui.rs` and `ui/screens/library.slint`:
+  private local files, immutable versions, reader working copies, export, restore and bounded
+  ZIP imports with retained folder metadata, file filters and recoverable working copies.
+  The reader Save hook checkpoints files and refreshes the list; tab closure releases its checkout.
+
+- `crates/sheaf-app/src/reader_ui/javascript.rs` and `ui/screens/javascript.slint`: active
+  document JavaScript console and named document scripts; `reader_doc` executes at the visible
+  page and returns output, form changes and local viewer requests for navigation/focus/print/Save As.
+
 ## Entry points
 
 - GUI: `crates/sheaf-app/src/main.rs` builds the window from `ui/main.slint` and wires every callback.

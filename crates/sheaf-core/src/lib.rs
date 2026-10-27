@@ -27,6 +27,7 @@ pub mod pdfcraft;
 pub mod preflight;
 pub mod press;
 pub mod paths;
+pub mod portfolio;
 pub mod ranges;
 pub mod redact;
 pub mod repair;
