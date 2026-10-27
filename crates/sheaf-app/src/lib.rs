@@ -2,6 +2,7 @@
 
 slint::include_modules!();
 
+pub mod actions;
 pub mod files;
 pub mod history;
 pub mod icons;

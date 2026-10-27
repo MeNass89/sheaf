@@ -1,0 +1,254 @@
+//! Action Wizard's editor and runner. The saved list and each draft are separate: a suggested
+//! action becomes the user's only when saved, and importing never replaces an existing action.
+
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}, mpsc::{self, Sender}};
+use slint::{ComponentHandle, ModelRc, VecModel};
+use sheaf_app::{ActionBridge, ActionRow, ActionStepRow, AppWindow, actions::{self, ActionStep, SavedAction}, store_file};
+use sheaf_core::pdfcraft::engine::actions::Step;
+
+struct State {
+    saved: Vec<SavedAction>,
+    draft: SavedAction,
+    selected: i32,
+    step: i32,
+    cancel: Arc<AtomicBool>,
+    answer: Option<Sender<bool>>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self { saved: vec![], draft: SavedAction::empty(), selected: -1, step: -1, cancel: Arc::new(AtomicBool::new(false)), answer: None }
+    }
+}
+
+thread_local! { static STATE: RefCell<State> = RefCell::new(State::default()); }
+
+fn status(ui: &AppWindow, message: impl AsRef<str>) { ui.global::<ActionBridge>().set_status(message.as_ref().into()); }
+
+fn rows(ui: &AppWindow) {
+    let rows = STATE.with(|state| {
+        let s = state.borrow();
+        actions::suggested().iter().enumerate().map(|(i, a)| (i, a, true))
+            .chain(s.saved.iter().enumerate().map(|(i, a)| (i, a, false)))
+            .map(|(_, a, builtin)| ActionRow { name: a.name.as_str().into(), description: a.description.as_str().into(), builtin, custom: a.custom_tool }).collect::<Vec<_>>()
+    });
+    ui.global::<ActionBridge>().set_rows(ModelRc::new(VecModel::from(rows)));
+}
+
+fn draft(ui: &AppWindow) {
+    STATE.with(|state| {
+        let s = state.borrow();
+        let b = ui.global::<ActionBridge>();
+        b.set_selected(s.selected);
+        b.set_name(s.draft.name.as_str().into());
+        b.set_description(s.draft.description.as_str().into());
+        b.set_custom(s.draft.custom_tool);
+        b.set_step(s.step);
+        b.set_steps(ModelRc::new(VecModel::from(s.draft.steps.iter().map(|step| ActionStepRow {
+            label: step.engine().map(|s| s.label()).unwrap_or("Unknown tool").into(),
+            detail: if step.prompt { "Pauses for you" } else if !step.instruction.is_empty() { "Instructions" } else { "" }.into(),
+        }).collect::<Vec<_>>())));
+        let step = usize::try_from(s.step).ok().and_then(|i| s.draft.steps.get(i));
+        b.set_argument(step.map(|s| s.argument.as_str()).unwrap_or_default().into());
+        b.set_instruction(step.map(|s| s.instruction.as_str()).unwrap_or_default().into());
+        b.set_pause(step.is_some_and(|s| s.prompt));
+        b.set_has_argument(step.and_then(|s| s.engine().ok()).is_some_and(|s| s.arg().is_some()));
+    });
+}
+
+fn flush(ui: &AppWindow) {
+    let b = ui.global::<ActionBridge>();
+    STATE.with(|state| {
+        let mut s = state.borrow_mut();
+        s.draft.name = b.get_name().to_string();
+        s.draft.description = b.get_description().to_string();
+        s.draft.custom_tool = b.get_custom();
+        let index = s.step;
+        if let Some(step) = usize::try_from(index).ok().and_then(|i| s.draft.steps.get_mut(i)) {
+            step.argument = b.get_argument().to_string();
+            step.instruction = b.get_instruction().to_string();
+            step.prompt = b.get_pause();
+        }
+    });
+}
+
+pub fn install(ui: &AppWindow) {
+    match actions::load(&store_file::data_dir()) {
+        Ok(saved) => STATE.with(|s| s.borrow_mut().saved = saved),
+        Err(e) => status(ui, format!("{e}. Your saved file has been left unchanged.")),
+    }
+    ui.global::<ActionBridge>().set_tools(ModelRc::new(VecModel::from(Step::all().iter().map(|s| s.label().into()).collect::<Vec<slint::SharedString>>())));
+    rows(ui);
+    draft(ui);
+    let weak = ui.as_weak();
+    ui.global::<ActionBridge>().on_command(move |what, index| {
+        if let Some(ui) = weak.upgrade() { command(&ui, &what, index); }
+    });
+    let weak = ui.as_weak();
+    ui.global::<ActionBridge>().on_answer(move |yes| {
+        STATE.with(|s| { if let Some(tx) = s.borrow_mut().answer.take() { let _ = tx.send(yes); } });
+        if let Some(ui) = weak.upgrade() { ui.global::<ActionBridge>().set_prompt("".into()); }
+    });
+}
+
+fn command(ui: &AppWindow, what: &str, index: i32) {
+    if what == "stop" {
+        STATE.with(|s| {
+            let mut s = s.borrow_mut();
+            s.cancel.store(true, Ordering::Relaxed);
+            if let Some(tx) = s.answer.take() { let _ = tx.send(false); }
+        });
+        ui.global::<ActionBridge>().set_prompt("".into());
+        return;
+    }
+    if ui.global::<ActionBridge>().get_busy() { return; }
+    flush(ui);
+    match what {
+        "import" => return import(ui),
+        "export" => return export(ui),
+        "run" | "run-step" => {
+            let mut action = STATE.with(|s| s.borrow().draft.clone());
+            if what == "run-step" {
+                let Some(step) = usize::try_from(index).ok().and_then(|i| action.steps.get(i)).cloned() else { return };
+                action.steps = vec![step];
+            }
+            return pick_run(ui, action);
+        }
+        _ => {}
+    }
+    let result: sheaf_core::Result<()> = STATE.with(|state| {
+        let mut s = state.borrow_mut();
+        let builtins = actions::suggested();
+        let offset = builtins.len() as i32;
+        match what {
+            "new" => { s.draft = SavedAction::empty(); s.selected = -1; s.step = -1; }
+            "select" => {
+                if let Some(a) = builtins.iter().chain(s.saved.iter()).nth(index as usize).cloned() {
+                    s.draft = a; s.selected = index; s.step = -1;
+                }
+            }
+            "copy" => {
+                let all: Vec<_> = builtins.into_iter().chain(s.saved.clone()).collect();
+                s.draft.name = actions::unused_name(&s.draft.name, &all);
+                s.selected = -1;
+            }
+            "save" => {
+                s.draft.validate()?;
+                let mut next = s.saved.clone();
+                let own = (s.selected >= offset).then_some((s.selected - offset) as usize);
+                if next.iter().enumerate().any(|(i, a)| Some(i) != own && a.name.eq_ignore_ascii_case(&s.draft.name)) {
+                    return Err(sheaf_core::OpdfError::Unsupported("An action already has that name. Choose another name.".into()));
+                }
+                if let Some(i) = own { next[i] = s.draft.clone(); } else { next.push(s.draft.clone()); }
+                actions::save(&store_file::data_dir(), &next)?;
+                s.selected = own.unwrap_or(next.len() - 1) as i32 + offset;
+                s.saved = next;
+            }
+            "delete" if s.selected >= offset => {
+                let mut next = s.saved.clone();
+                next.remove((s.selected - offset) as usize);
+                actions::save(&store_file::data_dir(), &next)?;
+                s.saved = next; s.draft = SavedAction::empty(); s.selected = -1; s.step = -1;
+            }
+            "add" => {
+                if let Some(step) = Step::all().get(index as usize) {
+                    s.draft.steps.push(ActionStep::from_engine(step));
+                    s.step = s.draft.steps.len() as i32 - 1;
+                }
+            }
+            "step" => s.step = index,
+            "remove" if s.step >= 0 => { let i = s.step as usize; s.draft.steps.remove(i); s.step = -1; }
+            "up" | "down" if s.step >= 0 => {
+                let from = s.step as usize;
+                let to = s.step + if what == "up" { -1 } else { 1 };
+                if to >= 0 && (to as usize) < s.draft.steps.len() { s.draft.steps.swap(from, to as usize); s.step = to; }
+            }
+            _ => {}
+        }
+        Ok(())
+    });
+    match result { Ok(()) => { rows(ui); draft(ui); if what == "save" { status(ui, "Action saved"); } }, Err(e) => status(ui, e.to_string()) }
+}
+
+fn import(ui: &AppWindow) {
+    let d = crate::dialog::new(ui).add_filter("Sheaf action JSON", &["json"]);
+    crate::dialog::pick_file(ui, d, |ui, path| {
+        let result = std::fs::read_to_string(path).map_err(sheaf_core::OpdfError::from).and_then(|text| SavedAction::import(&text)).and_then(|mut a| {
+            STATE.with(|state| {
+                let mut s = state.borrow_mut();
+                let all: Vec<_> = actions::suggested().into_iter().chain(s.saved.clone()).collect();
+                a.name = actions::unused_name(&a.name, &all);
+                let mut next = s.saved.clone(); next.push(a.clone());
+                actions::save(&store_file::data_dir(), &next)?;
+                s.saved = next; s.draft = a; s.selected = (actions::suggested().len() + s.saved.len() - 1) as i32; s.step = -1;
+                Ok(())
+            })
+        });
+        match result { Ok(()) => { rows(ui); draft(ui); status(ui, "Action imported"); }, Err(e) => status(ui, e.to_string()) }
+    });
+}
+
+fn export(ui: &AppWindow) {
+    let json = match STATE.with(|s| s.borrow().draft.json()) { Ok(json) => json, Err(e) => return status(ui, e.to_string()) };
+    let d = crate::dialog::new(ui).set_file_name("action.json").add_filter("Sheaf action JSON", &["json"]);
+    crate::dialog::save_file(ui, d, move |ui, path| {
+        let result = sheaf_core::paths::atomic_write(&path, |part| { std::fs::write(part, &json)?; Ok(()) });
+        match result { Ok(p) => status(ui, format!("Action exported to {}", p.display())), Err(e) => status(ui, e.to_string()) }
+    });
+}
+
+fn pick_run(ui: &AppWindow, action: SavedAction) {
+    if let Err(e) = action.validate() { return status(ui, e.to_string()); }
+    let d = crate::dialog::new(ui).add_filter("PDF", &["pdf"]);
+    crate::dialog::pick_files(ui, d, move |ui, files| {
+        let d = crate::dialog::new(ui).set_title("Choose the output folder");
+        crate::dialog::pick_folder(ui, d, move |ui, out| start(ui, action, files, out));
+    });
+}
+
+fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf) {
+    let cancel = Arc::new(AtomicBool::new(false));
+    STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
+    ui.global::<ActionBridge>().set_busy(true);
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let mut written = 0;
+        let mut errors = Vec::new();
+        for (file_index, file) in files.iter().enumerate() {
+            if cancel.load(Ordering::Relaxed) { break; }
+            let r = actions::run_file(&action, file, &out, &mut |i, step| {
+                if cancel.load(Ordering::Relaxed) { return false; }
+                let message = format!("File {}/{} · Step {}/{} · {}", file_index + 1, files.len(), i + 1, action.steps.len(), step.engine().map(|s| s.label()).unwrap_or("Step"));
+                let prompt = if step.prompt { format!("{message}\n{}", step.instruction) } else { String::new() };
+                let message = if !step.instruction.is_empty() { format!("{message} · {}", step.instruction) } else { message };
+                let (tx, rx) = mpsc::channel();
+                let pause = step.prompt;
+                if weak.upgrade_in_event_loop(move |ui| {
+                    status(&ui, &message);
+                    if pause {
+                        STATE.with(|s| s.borrow_mut().answer = Some(tx));
+                        ui.global::<ActionBridge>().set_prompt(prompt.into());
+                    }
+                }).is_err() { return false; }
+                if !pause { return !cancel.load(Ordering::Relaxed); }
+                loop {
+                    match rx.recv_timeout(std::time::Duration::from_millis(200)) {
+                        Ok(yes) => return yes && !cancel.load(Ordering::Relaxed),
+                        Err(mpsc::RecvTimeoutError::Disconnected) => return false,
+                        Err(mpsc::RecvTimeoutError::Timeout) if cancel.load(Ordering::Relaxed) => return false,
+                        Err(_) => {}
+                    }
+                }
+            });
+            match r {
+                Ok(_) => written += 1,
+                Err(sheaf_core::OpdfError::Cancelled) => break,
+                Err(e) => errors.push(format!("{}: {e}", file.display())),
+            }
+        }
+        let message = format!("{}{} file(s) written to {}. {}", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, out.display(), errors.join(" · "));
+        let _ = weak.upgrade_in_event_loop(move |ui| { ui.global::<ActionBridge>().set_busy(false); ui.global::<ActionBridge>().set_prompt("".into()); status(&ui, message); });
+    });
+}

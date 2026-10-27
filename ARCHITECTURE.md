@@ -21,6 +21,13 @@ Password fields can opt into the reveal control in `ui/widgets/text-field.slint`
 Recents exclusions are saved separately from task history by `history.rs` (`hidden-recents.json`).
 The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 
+## Guided actions
+
+- `crates/sheaf-app/src/actions.rs`: portable action JSON, ordered tool configurations,
+  suggested actions, persistence and sequential execution without replacing originals.
+- `crates/sheaf-app/src/actions_ui.rs` and `ui/screens/actions.slint`: Home's Actions page,
+  step editor, saved/custom tool lists, import/export and worker-thread progress and pauses.
+
 ## Entry points
 
 - GUI: `crates/sheaf-app/src/main.rs` builds the window from `ui/main.slint` and wires every callback.

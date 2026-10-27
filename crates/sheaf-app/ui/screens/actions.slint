@@ -1,0 +1,134 @@
+import { Button, CheckBox, ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Modal } from "dialogs.slint";
+
+export struct ActionRow { name: string, description: string, builtin: bool, custom: bool }
+export struct ActionStepRow { label: string, detail: string }
+
+export global ActionBridge {
+    in-out property <[ActionRow]> rows;
+    in-out property <[ActionStepRow]> steps;
+    in-out property <[string]> tools;
+    in-out property <int> selected: -1;
+    in-out property <int> step: -1;
+    in-out property <string> name;
+    in-out property <string> description;
+    in-out property <bool> custom;
+    in-out property <string> argument;
+    in-out property <string> instruction;
+    in-out property <bool> pause;
+    in-out property <bool> has-argument;
+    in-out property <bool> busy;
+    in-out property <string> status;
+    in-out property <string> prompt;
+    callback command(string, int);
+    callback answer(bool);
+}
+
+// Acrobat's Action Wizard: the saved list stays beside the ordered steps being edited.
+export component ActionsScreen inherits Rectangle {
+    background: Theme.content-bg;
+    VerticalLayout {
+        padding: 24px; spacing: 16px;
+        Text { text: "Actions"; color: Theme.text; font-size: Theme.fs-title; font-weight: 600; }
+        Text { text: "Save a sequence, then run it on PDFs. Originals stay untouched."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "New action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new", 0); } }
+            Button { text: "Import…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("import", 0); } }
+            Button { text: "Export…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("export", 0); } }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        HorizontalLayout {
+            spacing: 20px; vertical-stretch: 1;
+            ScrollView {
+                width: 220px;
+                VerticalLayout {
+                    spacing: 6px; alignment: start;
+                    for row[i] in ActionBridge.rows: Rectangle {
+                        height: 80px;
+                        background: ActionBridge.selected == i ? Theme.menu-selected-bg : Theme.card;
+                        border-radius: Theme.radius-small;
+                        VerticalLayout {
+                            padding: 10px; spacing: 4px;
+                            Text { text: row.name; color: Theme.text; font-size: Theme.fs-body; font-weight: 600; overflow: elide; }
+                            Text { text: row.builtin ? "Suggested · copy to edit" : row.custom ? "Custom tool" : "Saved action"; color: Theme.text-secondary; font-size: Theme.fs-caption; }
+                            Text { text: row.description; color: Theme.text-secondary; font-size: Theme.fs-caption; overflow: elide; }
+                        }
+                        TouchArea { enabled: !ActionBridge.busy; clicked => { ActionBridge.command("select", i); } }
+                    }
+                }
+            }
+            ScrollView {
+                horizontal-stretch: 1;
+                VerticalLayout {
+                    spacing: 12px; alignment: start;
+                    TextField { label: "Name"; text <=> ActionBridge.name; }
+                    TextField { label: "Description"; text <=> ActionBridge.description; }
+                    CheckBox { text: "Custom tool set (run commands individually)"; checked <=> ActionBridge.custom; enabled: !ActionBridge.busy; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Button { text: "Save action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("save", 0); } }
+                        Button { text: "Copy"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("copy", 0); } }
+                        Button { text: "Delete"; enabled: !ActionBridge.busy && ActionBridge.selected >= 0 && !ActionBridge.rows[ActionBridge.selected].builtin; clicked => { ActionBridge.command("delete", 0); } }
+                    }
+                    Text { text: "Steps"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        picker := ComboBox { model: ActionBridge.tools; horizontal-stretch: 1; enabled: !ActionBridge.busy; }
+                        Button { text: "Add step"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("add", picker.current-index); } }
+                    }
+                    for row[i] in ActionBridge.steps: Rectangle {
+                        height: 46px;
+                        background: ActionBridge.step == i ? Theme.menu-selected-bg : Theme.card;
+                        border-radius: Theme.radius-small;
+                        HorizontalLayout {
+                            padding: 8px; spacing: 8px;
+                            Text { text: (i + 1) + ". " + row.label; color: Theme.text; font-size: Theme.fs-body; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                            Text { text: row.detail; color: Theme.text-secondary; font-size: Theme.fs-caption; vertical-alignment: center; }
+                            Button { text: "Edit"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("step", i); } }
+                            if ActionBridge.custom: Button { text: "Run"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("run-step", i); } }
+                        }
+                    }
+                    if ActionBridge.steps.length == 0: Text { text: "Add the first step above."; color: Theme.text-secondary; font-size: Theme.fs-body; }
+                    if ActionBridge.step >= 0: VerticalLayout {
+                        spacing: 8px;
+                        if ActionBridge.has-argument: VerticalLayout {
+                            spacing: 6px;
+                            Text { text: "Text or JavaScript for this step"; color: Theme.text; font-size: Theme.fs-label; }
+                            TextEdit { height: 90px; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
+                        }
+                        TextField { label: "Instructions shown before this step"; text <=> ActionBridge.instruction; }
+                        CheckBox { text: "Pause and ask before running this step"; checked <=> ActionBridge.pause; enabled: !ActionBridge.busy; }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Button { text: "Move up"; enabled: !ActionBridge.busy && ActionBridge.step > 0; clicked => { ActionBridge.command("up", 0); } }
+                            Button { text: "Move down"; enabled: !ActionBridge.busy && ActionBridge.step + 1 < ActionBridge.steps.length; clicked => { ActionBridge.command("down", 0); } }
+                            Button { text: "Remove step"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("remove", 0); } }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
+                        Button { text: "Stop"; enabled: ActionBridge.busy; clicked => { ActionBridge.command("stop", 0); } }
+                    }
+                }
+            }
+        }
+        Text { text: ActionBridge.status; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    }
+}
+
+export component ActionPrompt inherits Modal {
+    card-width: 480px;
+    VerticalLayout {
+        spacing: 16px;
+        Text { text: ActionBridge.prompt; color: Theme.text; font-size: Theme.fs-body; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Cancel action"; clicked => { ActionBridge.answer(false); } }
+            Button { text: "Continue"; clicked => { ActionBridge.answer(true); } }
+        }
+    }
+}
