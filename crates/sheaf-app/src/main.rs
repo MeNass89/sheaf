@@ -33,7 +33,7 @@ use std::rc::Rc;
 use sheaf_app::icons::{icon_image, tile_colour};
 use sheaf_app::open_with::Inbox;
 use sheaf_app::prefs::ThemePref;
-use sheaf_app::{jobs, store_file, AppWindow, ToolCard, ToolSection};
+use sheaf_app::{jobs, AppWindow, ToolCard, ToolSection};
 use sheaf_core::tools::{self, Category, ToolId, ToolInfo};
 use slint::winit_030::{winit, EventResult, WinitWindowAccessor};
 use slint::{ComponentHandle, ModelRc, VecModel};

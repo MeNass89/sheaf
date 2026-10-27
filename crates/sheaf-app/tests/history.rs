@@ -140,6 +140,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             notice_seen: vec!["mistral".into()],
             auto_open: true,
             language: Some("French".into()),
+        },
         settings: sheaf_app::settings::SettingsPrefs {
             print: sheaf_app::settings::PrintDefaults { two_sided: true, paper: 1, gray: true, ..Default::default() },
             trust: sheaf_app::settings::TrustPrefs { web: 2, locations: vec![PathBuf::from("/docs/trusted")], ..Default::default() },
