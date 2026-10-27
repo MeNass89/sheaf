@@ -1147,7 +1147,7 @@ mod tests {
     use std::path::Path;
 
     fn opts() -> ToolOptions {
-        ToolOptions { level: 1, every: 1, degrees: 90, ..Default::default() }
+        ToolOptions { pdfa_allow_incomplete: true, level: 1, every: 1, degrees: 90, ..Default::default() }
     }
 
     #[test]
@@ -1253,12 +1253,12 @@ mod tests {
         let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
         let Job::PdfA { items, level, allow_incomplete } = build_job(ToolId::PdfToPdfA, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
         assert_eq!((level, items[1].1.clone()), (PdfALevel::A2b, PathBuf::from("/o/y-pdfa.pdf")));
-        assert!(!allow_incomplete);
-        o.pdfa_allow_incomplete = true;
+        assert!(allow_incomplete);
+        o.pdfa_allow_incomplete = false;
         o.pdfa_level = 1;
         let Job::PdfA { level, allow_incomplete, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
         assert_eq!(level, PdfALevel::A3b);
-        assert!(allow_incomplete);
+        assert!(!allow_incomplete);
     }
 
     #[test]

@@ -373,3 +373,16 @@ UI crates/sheaf-app/ui/screens/reader-production.slint:8. Advanced print-product
 
 All cited tests are WRITTEN, NOT RUN. These numbers are not joint grades or closure requests.
 LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
+
+## Pass 3 — C-convert-018
+
+- C-convert-018: restored the previous copy-plus-issues default, including old task history
+  without the new policy field (iLovePDF's permissive conversion choice). Explicit strict mode
+  still prevents publication and survives Run again. UI now starts checked; `pdfa_job` checks
+  permissive then strict, and `archival_history_keeps_the_old_copy_and_issues_default_but_honours_strict`
+  covers migration and strict round-trip. Tests written, not run (brief rule 1).
+- Left: PDF/A-1b and a/u conversion, valid level downgrade, full ISO validator. The pinned Rust
+  preflight supports 2b/3b only; no relabelled output or unsupported certification added.
+- No dependency. not automatable: fresh PDF/A screen has Keep a copy checked; Run again restores
+  an explicitly unchecked strict choice — worker cannot launch the application.
+- Grade: f7 a8 p8, partial; fixes the regression, does not close standard-level parity.

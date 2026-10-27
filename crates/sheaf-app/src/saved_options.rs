@@ -19,7 +19,7 @@ macro_rules! kept {
 
         /// Options read back from [`to_json`]; a key missing or of another type keeps its default.
         pub fn from_json(m: &Map<String, Value>) -> ToolOptions {
-            let mut o = ToolOptions::default();
+            let mut o = ToolOptions { pdfa_allow_incomplete: true, ..Default::default() };
             $(if let Some(v) = m.get(stringify!($i)).and_then(Value::as_i64) { o.$i = v as i32; })*
             $(if let Some(v) = m.get(stringify!($b)).and_then(Value::as_bool) { o.$b = v; })*
             $(if let Some(v) = m.get(stringify!($s)).and_then(Value::as_str) { o.$s = v.into(); })*
@@ -59,6 +59,16 @@ kept! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn archival_history_keeps_the_old_copy_and_issues_default_but_honours_strict() {
+        let mut old = Map::new();
+        assert!(from_json(&old).pdfa_allow_incomplete);
+        old.insert("pdfa_allow_incomplete".into(), false.into());
+        assert!(!from_json(&old).pdfa_allow_incomplete);
+        let strict = from_json(&old);
+        assert!(!from_json(&to_json(&strict)).pdfa_allow_incomplete);
+    }
 
     #[test]
     fn options_come_back_as_they_were_without_their_passwords() {
