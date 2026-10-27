@@ -752,7 +752,10 @@ export component OptionsPanel inherits VerticalLayout {
     if root.tool == "html_to_pdf" && root.layout != 0: VerticalLayout {
         spacing: 10px;
         SectionLabel { text: "Layout engine and screen width"; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.start;
             spacing: 8px;
             Segment { text: "LibreOffice"; selected: root.html-screen-width == 0; clicked => { root.html-screen-width = 0; } }
             for width in [800, 1280, 1920]: Segment { text: width + " px"; selected: root.html-screen-width == width; clicked => { root.html-screen-width = width; } }

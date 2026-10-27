@@ -768,3 +768,18 @@ cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
 key r; sleep 0.6; read FX _ <<< "$(at Fill 1280x120+0+80)"
 check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
 quit; platform_reset
+
+# 300. Right to left on Home's Tools page and the reader's print sheet (C-platform-004, iLovePDF's right-to-left
+# interface): the Tools page's title row reads from the right (the search field left of Custom tools), and the print sheet's
+# options sit right of its preview (Copies past the middle, the preview's note left of it).
+prefs_set 'p.setdefault("platform", {})["direction"] = 2'
+launch; sleep 0.5
+TL=$(at Tools 300x300+980+40); [ -n "$TL" ] && click $TL 0.8
+read SX _ <<< "$(at Search 1280x80+0+40)"; read UX _ <<< "$(at Custom 1280x80+0+40)"; shot 300a-rtl-tools
+quit
+cp "$OUT/text.pdf" "$OUT/rtlprint.pdf"; launch "$OUT/rtlprint.pdf"; sleep 1
+key ctrl+p; sleep 1; shot 300b-rtl-print
+read CX _ <<< "$(at Copies 1280x700+0+60)"; read PX _ <<< "$(at Print 1280x700+0+60)"
+key Escape; sleep 0.3
+check "right to left mirrors the Tools page's title row and the print sheet (search x ${SX:-?} < Custom tools ${UX:-?}; Copies at x ${CX:-?}, Print title at ${PX:-?})" "[ -n \"$SX\" ] && [ -n \"$UX\" ] && [ \"$SX\" -lt \"$UX\" ] && [ \"${CX:-0}\" -gt 700 ] && [ \"${PX:-0}\" -gt 900 ]"
+quit; platform_reset
