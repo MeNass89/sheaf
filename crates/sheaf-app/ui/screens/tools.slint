@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { ActionBridge } from "actions.slint";
 import { SecondaryButton } from "dialogs.slint";
 import { ScrollView } from "std-widgets.slint";
@@ -12,6 +13,8 @@ export struct ToolSection {
 }
 
 component CardGrid inherits FlexboxLayout {
+    // Right to left, the cards flow from the right.
+    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
     in property <[ToolCard]> tools;
     callback open-tool(string);
     callback star(string);
@@ -62,12 +65,16 @@ export component ToolsScreen inherits Rectangle {
         padding-top: Theme.content-padding;
         spacing: 4px;
 
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             padding-left: Theme.content-padding;
             padding-right: Theme.content-padding;
             height: 36px;
             spacing: 12px;
             Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: "Tools";
                 font-size: Theme.fs-page-title;
                 font-weight: Theme.weight-bold;
@@ -78,16 +85,18 @@ export component ToolsScreen inherits Rectangle {
             SecondaryButton { text: "Custom tools"; clicked => { ActionBridge.command("custom-tools", 0); } }
             // Search tools (Stirling's tool search): a name, a word, or letters in order.
             Rectangle {
-                y: (parent.height - self.height) / 2;
+                cross-axis-self-alignment: CrossAxisAlignment.center;
                 width: 220px;
                 height: 32px;
                 border-radius: Theme.radius-small;
                 border-width: 1px;
                 border-color: search.has-focus ? Theme.text-secondary : Theme.input-border;
                 background: Theme.input-bg;
-                if search.text == "": Text { x: 10px; text: "Search tools"; font-size: Theme.fs-button; color: Theme.text-muted; vertical-alignment: center; }
+                if search.text == "": Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: PlatformBridge.rtl ? parent.width - (10px) - self.width : 10px; text: "Search tools"; font-size: Theme.fs-button; color: Theme.text-muted; vertical-alignment: center; }
                 search := TextInput {
-                    x: 10px;
+                    // Tools page tools' keys wait while a field has the keyboard.
+                    changed has-focus => { PlatformBridge.typing = self.has-focus; }
+                    x: PlatformBridge.rtl ? parent.width - (10px) - self.width : 10px;
                     width: parent.width - 20px;
                     font-size: Theme.fs-button;
                     color: Theme.text;
@@ -104,13 +113,14 @@ export component ToolsScreen inherits Rectangle {
                 }
             }
             Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: "Sort";
                 font-size: Theme.fs-button;
                 color: Theme.text-secondary;
                 vertical-alignment: center;
             }
             SortCombo {
-                y: (parent.height - self.height) / 2;
+                cross-axis-self-alignment: CrossAxisAlignment.center;
                 options: ["Categories", "All"];
                 current-index <=> root.sort;
                 chevron: root.chevron;
@@ -135,6 +145,7 @@ export component ToolsScreen inherits Rectangle {
                     padding-top: 12px;
                     spacing: 4px;
                     if root.results.length == 0: Text {
+                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                         height: 60px;
                         text: "No tool matches \"" + root.typed + "\".";
                         font-size: Theme.fs-body;
@@ -145,18 +156,21 @@ export component ToolsScreen inherits Rectangle {
                         height: 52px;
                         border-radius: Theme.radius-item;
                         background: i == root.chosen ? Theme.menu-selected-bg : rt.has-hover ? Theme.popup-hover : transparent;
-                        HorizontalLayout {
+                        FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            alignment: LayoutAlignment.stretch;
                             padding-left: 10px;
                             spacing: 12px;
                             Rectangle {
-                                y: 10px;
+                                cross-axis-self-alignment: CrossAxisAlignment.center;
                                 width: 32px;
                                 height: 32px;
                                 border-radius: 6px;
                                 background: tool.tile;
                                 Image { source: tool.icon; width: 18px; height: 18px; colorize: white; }
                             }
-                            Text { text: tool.name; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; }
+                            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: tool.name; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; }
                         }
                         rt := TouchArea {
                             mouse-cursor: pointer;
@@ -166,6 +180,7 @@ export component ToolsScreen inherits Rectangle {
                 }
                 if root.favourites.length > 0 && root.typed == "": VerticalLayout {
                     Text {
+                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                         height: Theme.section-header-height;
                         text: "Favourites";
                         font-size: Theme.fs-section;
@@ -183,10 +198,13 @@ export component ToolsScreen inherits Rectangle {
                     for section in root.sections: VerticalLayout {
                         Rectangle {
                             height: Theme.section-header-height;
-                            HorizontalLayout {
+                            FlexboxLayout {
+                                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                flex-wrap: FlexboxLayoutWrap.no-wrap;
                                 alignment: start;
                                 spacing: 6px;
                                 Text {
+                                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                                     text: section.title;
                                     font-size: Theme.fs-section;
                                     font-weight: Theme.weight-demibold;
@@ -197,7 +215,7 @@ export component ToolsScreen inherits Rectangle {
                                     source: root.chevron;
                                     width: 12px;
                                     height: 12px;
-                                    y: (parent.height - self.height) / 2 + 1px;
+                                    cross-axis-self-alignment: CrossAxisAlignment.center;
                                     colorize: Theme.text-secondary;
                                     transform-rotation: section.collapsed ? -90deg : 0deg;
                                     animate transform-rotation { duration: 120ms; }

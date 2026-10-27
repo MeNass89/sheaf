@@ -27,6 +27,9 @@ pub struct PlatformPrefs {
     /// The reader's tool letters changed by the user: tool id ([`TOOLS`]) and its key, a lower-case
     /// letter or digit ("" none).
     pub tool_keys: Vec<(String, String)>,
+    /// The spelling dictionaries chosen, in order (language codes, "fr_FR"); none: the system's
+    /// language, then English (Acrobat's dictionary list).
+    pub dictionaries: Vec<String>,
     /// Keys that open a tool of the Tools page (Stirling's tool hotkeys): its `ToolId::as_str` and
     /// the keys as parts ("Control+Alt+M"). None by default.
     pub launch_keys: Vec<(String, String)>,
@@ -270,6 +273,20 @@ pub fn launch_key(p: &PlatformPrefs, k: usize) -> String {
     p.launch_keys.iter().find(|(t, _)| t == id).map(|(_, keys)| keys.clone()).unwrap_or_default()
 }
 
+/// The tool launcher a key pressed opens, if any (its index): compared as recorded, so the same
+/// keys match. Asked only where no text field has the keyboard (main.slint's app scope).
+pub fn launcher_for(p: &PlatformPrefs, text: &str, control: bool, alt: bool, shift: bool, meta: bool) -> Option<usize> {
+    let parts = parts_of_event(text, control, alt, shift, meta);
+    if parts.is_empty() {
+        return None;
+    }
+    let wanted = keys(&parts);
+    (0..launchers().len()).find(|&k| {
+        let own = launch_key(p, k);
+        !own.is_empty() && keys(&own) == wanted
+    })
+}
+
 /// Gives launcher `k` the keys `parts` ("" none), with the same rules as a command's (a modifier,
 /// not a text field's keys, not already someone's).
 pub fn assign_launch(p: &mut PlatformPrefs, k: usize, parts: &str) -> Result<(), String> {
@@ -297,6 +314,46 @@ pub fn reset_command(p: &mut PlatformPrefs, id: &str) -> Result<(), String> {
     }
     *p = next;
     Ok(())
+}
+
+/// The dictionaries as Preferences ▸ Spelling lists them: those chosen first, in their order, then
+/// the others installed, by language: (code, chosen).
+pub fn dictionary_rows(p: &PlatformPrefs, installed: &[String]) -> Vec<(String, bool)> {
+    let chosen = p.dictionaries.iter().filter(|l| installed.contains(l)).map(|l| (l.clone(), true));
+    let rest = installed.iter().filter(|l| !p.dictionaries.contains(l)).map(|l| (l.clone(), false));
+    chosen.chain(rest).collect()
+}
+
+/// A dictionary ticked or unticked (it goes last among those chosen), or moved up (-1) or down (+1)
+/// among them.
+pub fn dictionary_change(p: &mut PlatformPrefs, lang: &str, step: i32) {
+    let at = p.dictionaries.iter().position(|l| l == lang);
+    match (at, step) {
+        (Some(i), 0) => {
+            p.dictionaries.remove(i);
+        }
+        (None, 0) => p.dictionaries.push(lang.to_string()),
+        (Some(i), _) => {
+            let to = (i as i32 + step).clamp(0, p.dictionaries.len() as i32 - 1) as usize;
+            p.dictionaries.swap(i, to);
+        }
+        (None, _) => {}
+    }
+}
+
+/// The modifiers held, as Slint names them (bits): Shift, Alt, Meta, Control. Slint calls a Mac's
+/// Command key Control and its Control key Meta: on a Mac Command is restored as the Control the
+/// Edit keys are sent with (never let go and pressed again as Meta, which would leave a Control
+/// stuck), elsewhere Super (the Windows key) is Meta.
+pub const HELD_SHIFT: u8 = 1;
+pub const HELD_ALT: u8 = 2;
+pub const HELD_META: u8 = 4;
+pub const HELD_CTRL: u8 = 8;
+
+/// The bits for the physical keys held (`super_key`: the Windows key, a Mac's Command).
+pub fn held_modifiers(shift: bool, alt: bool, control: bool, super_key: bool, mac: bool) -> u8 {
+    let (slint_control, slint_meta) = if mac { (super_key, control) } else { (control, super_key) };
+    (u8::from(shift) * HELD_SHIFT) | (u8::from(alt) * HELD_ALT) | (u8::from(slint_meta) * HELD_META) | (u8::from(slint_control) * HELD_CTRL)
 }
 
 /// Back to the default keys: one command, or all of them (`None`).
@@ -683,5 +740,133 @@ mod tests {
         assign_launch(&mut p, merge, "").unwrap();
         reset_command(&mut p, "save").unwrap();
         assert_eq!(effective(&p, command_index("save").unwrap()), "Control+S");
+    }
+
+    #[test]
+    fn dictionaries_are_chosen_and_ordered() {
+        let installed = ["de_DE".to_string(), "en_US".to_string(), "fr_FR".to_string()];
+        let mut p = PlatformPrefs::default();
+        assert!(dictionary_rows(&p, &installed).iter().all(|(_, on)| !on));
+        dictionary_change(&mut p, "fr_FR", 0);
+        dictionary_change(&mut p, "en_US", 0);
+        assert_eq!(dictionary_rows(&p, &installed), [("fr_FR".into(), true), ("en_US".into(), true), ("de_DE".into(), false)]);
+        // English first, then French; French unticked; a dictionary no longer installed is not shown.
+        dictionary_change(&mut p, "en_US", -1);
+        assert_eq!(p.dictionaries, ["en_US", "fr_FR"]);
+        dictionary_change(&mut p, "fr_FR", 0);
+        p.dictionaries.push("it_IT".into());
+        assert_eq!(dictionary_rows(&p, &installed)[0], ("en_US".into(), true));
+        assert_eq!(dictionary_rows(&p, &installed).len(), 3);
+    }
+
+    #[test]
+    fn a_macs_command_key_is_slints_control_and_stays_held() {
+        // Cmd+Shift+U given to Undo on a Mac: Shift is in the way, Command is the Control kept.
+        assert_eq!(held_modifiers(true, false, false, true, true), HELD_SHIFT | HELD_CTRL);
+        // A Mac's Control key is Slint's Meta (the one let go and pressed again).
+        assert_eq!(held_modifiers(false, false, true, false, true), HELD_META);
+        // Elsewhere Super is Meta, Control is Control.
+        assert_eq!(held_modifiers(false, true, true, true, false), HELD_ALT | HELD_META | HELD_CTRL);
+        assert_eq!(held_modifiers(false, false, true, false, false), HELD_CTRL);
+    }
+
+    #[test]
+    fn a_tools_keys_are_found_from_the_key_pressed() {
+        let mut p = PlatformPrefs::default();
+        let merge = launchers().iter().position(|(id, _)| *id == "merge").unwrap();
+        assign_launch(&mut p, merge, "Control+Alt+M").unwrap();
+        assert_eq!(launcher_for(&p, "m", true, true, false, false), Some(merge));
+        assert_eq!(launcher_for(&p, "m", true, false, false, false), None);
+        assert_eq!(launcher_for(&p, "\u{11}", true, true, false, false), None);
+        assert_eq!(launcher_for(&PlatformPrefs::default(), "m", true, true, false, false), None);
+        // Where they are asked: main.slint asks only when its own scope or the pages have the keyboard.
+        let ui = include_str!("../ui/main.slint");
+        assert!(ui.contains("if !PlatformBridge.typing && PlatformBridge.launcher-for("));
+    }
+
+    #[test]
+    fn every_text_field_says_when_it_has_the_keyboard() {
+        // A Tools page tool's keys wait while one has it (main.slint asks `PlatformBridge.typing`).
+        for ui in [
+            include_str!("../ui/screens/reader-parts.slint"),
+            include_str!("../ui/screens/actions.slint"),
+            include_str!("../ui/screens/library.slint"),
+            include_str!("../ui/screens/reader-form.slint"),
+            include_str!("../ui/screens/javascript.slint"),
+            include_str!("../ui/screens/reader-options.slint"),
+            include_str!("../ui/screens/options-parts.slint"),
+            include_str!("../ui/screens/tools.slint"),
+            include_str!("../ui/screens/reader-toolbar.slint"),
+            include_str!("../ui/screens/reader-sheets.slint"),
+            include_str!("../ui/screens/reader-panel.slint"),
+            include_str!("../ui/screens/reader.slint"),
+            include_str!("../ui/widgets/file-card.slint"),
+            include_str!("../ui/widgets/text-field.slint"),
+        ] {
+            let fields = ui.matches("TextInput {").count() + ui.matches("TextEdit {").count();
+            assert_eq!(fields, ui.matches("PlatformBridge.typing = self.has-focus").count());
+        }
+    }
+
+    /// The positions of every `HorizontalLayout {` of a .slint text not inside a PopupWindow.
+    fn rows_outside_popups(ui: &str) -> Vec<usize> {
+        let mut open: Vec<bool> = Vec::new();
+        let mut out = Vec::new();
+        let b = ui.as_bytes();
+        let mut i = 0;
+        let mut in_string = false;
+        while i < b.len() {
+            match b[i] {
+                b'"' => in_string = !in_string,
+                b'/' if !in_string && b.get(i + 1) == Some(&b'/') => {
+                    while i < b.len() && b[i] != b'\n' {
+                        i += 1;
+                    }
+                    continue;
+                }
+                b'{' if !in_string => {
+                    let head = ui[..i].trim_end();
+                    let popup = head.ends_with("PopupWindow") || open.last().copied().unwrap_or(false);
+                    if head.ends_with("HorizontalLayout") && !popup {
+                        out.push(i);
+                    }
+                    open.push(popup);
+                }
+                b'}' if !in_string => {
+                    open.pop();
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        out
+    }
+
+    #[test]
+    fn right_to_left_screens_have_no_row_that_cannot_reverse() {
+        // Mirrored screens use direction-aware FlexboxLayouts; a HorizontalLayout is left only inside
+        // a popup menu.
+        for (name, ui) in [
+            ("screens/reader-sheets", include_str!("../ui/screens/reader-sheets.slint")),
+            ("screens/recents", include_str!("../ui/screens/recents.slint")),
+            ("screens/tools", include_str!("../ui/screens/tools.slint")),
+            ("screens/history", include_str!("../ui/screens/history.slint")),
+            ("screens/preferences", include_str!("../ui/screens/preferences.slint")),
+            ("screens/preferences-platform", include_str!("../ui/screens/preferences-platform.slint")),
+            ("screens/dialogs", include_str!("../ui/screens/dialogs.slint")),
+            ("screens/reader-options", include_str!("../ui/screens/reader-options.slint")),
+            ("screens/reader-panel", include_str!("../ui/screens/reader-panel.slint")),
+            ("screens/tool-flow", include_str!("../ui/screens/tool-flow.slint")),
+            ("screens/options", include_str!("../ui/screens/options.slint")),
+            ("screens/options-parts", include_str!("../ui/screens/options-parts.slint")),
+            ("screens/result", include_str!("../ui/screens/result.slint")),
+            ("screens/spelling-dialog", include_str!("../ui/screens/spelling-dialog.slint")),
+            ("screens/reader-toolbar", include_str!("../ui/screens/reader-toolbar.slint")),
+        ] {
+            assert!(rows_outside_popups(ui).is_empty(), "{name} has a HorizontalLayout outside a popup");
+            assert!(ui.contains("PlatformBridge.rtl"), "{name} does not follow the direction");
+        }
+        assert_eq!(rows_outside_popups("Rectangle { HorizontalLayout { } }").len(), 1);
+        assert!(rows_outside_popups("menu := PopupWindow { VerticalLayout { HorizontalLayout { } } }").is_empty());
     }
 }

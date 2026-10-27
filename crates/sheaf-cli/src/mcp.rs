@@ -11,7 +11,7 @@ use serde_json::{json, Map, Value};
 use std::io::{BufRead, Write};
 
 /// Commands that are not tools.
-const SKIP: &[&str] = &["tools", "mcp", "help"];
+const SKIP: &[&str] = &["tools", "mcp", "help", "actions"];
 
 const PROTOCOL: &str = "2025-06-18";
 

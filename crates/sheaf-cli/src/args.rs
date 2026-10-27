@@ -666,6 +666,16 @@ pub(crate) enum Cmd {
         #[arg(long, default_value_t = 10)]
         proximity: u32,
     },
+    /// Find a word or phrase in a PDF: the pages it is on, how often, and around it (JSON)
+    Search {
+        /// The PDF to read
+        input: PathBuf,
+        /// The words to find (case ignored)
+        #[arg(long)]
+        query: String,
+    },
+    /// List the PDF actions a script or the system's automation can run, with their commands (JSON)
+    Actions,
     /// Describe every command as a JSON schema, for agents
     Tools,
     /// Serve every command as a tool over the Model Context Protocol (JSON-RPC on stdio)

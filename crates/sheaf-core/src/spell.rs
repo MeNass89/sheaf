@@ -34,6 +34,9 @@ enum Kind {
 /// session (Ignore Spelling).
 pub struct Speller {
     kind: Kind,
+    /// More dictionaries chosen after the first (Acrobat's dictionary list, in its order): a word
+    /// any of them knows is right; corrections come from the first, then the others.
+    more: Vec<(String, Kind)>,
     /// The dictionary's language code ("en_US"), "" for a plain word list.
     pub lang: String,
     /// Where it was read from, to tell the user.
@@ -191,7 +194,7 @@ impl Speller {
         let dic = std::fs::read(&files.dic).map_err(|e| format!("{}: {e}", files.dic.display()))?;
         let enc = aff_encoding(&aff);
         let dict = spellbook::Dictionary::new(&decode(&aff, &enc), &decode(&dic, &enc)).map_err(|e| format!("{}: {e}", files.dic.display()))?;
-        Ok(Speller { kind: Kind::Hunspell(Box::new(dict)), lang: files.lang.clone(), source: files.dic.clone(), learned: HashSet::new(), ignored: HashSet::new() })
+        Ok(Speller { kind: Kind::Hunspell(Box::new(dict)), more: Vec::new(), lang: files.lang.clone(), source: files.dic.clone(), learned: HashSet::new(), ignored: HashSet::new() })
     }
 
     /// Reads a plain word list, one word per line.
@@ -201,7 +204,7 @@ impl Speller {
         if words.is_empty() {
             return Err(format!("{}: no words", path.display()));
         }
-        Ok(Speller { kind: Kind::Words(words), lang: String::new(), source: path.to_path_buf(), learned: HashSet::new(), ignored: HashSet::new() })
+        Ok(Speller { kind: Kind::Words(words), more: Vec::new(), lang: String::new(), source: path.to_path_buf(), learned: HashSet::new(), ignored: HashSet::new() })
     }
 
     /// The best dictionary for `langs` in `extra_dirs` then the system's folders, else a word
@@ -233,11 +236,35 @@ impl Speller {
     /// The dictionary's language as a reader would say it ("English (United States)"), or the
     /// word list's file.
     pub fn describe(&self) -> String {
-        if self.lang.is_empty() {
-            format!("Word list {}", self.source.display())
-        } else {
-            format!("{} · {}", language_name(&self.lang), self.source.display())
+        let first = if self.lang.is_empty() { format!("Word list {}", self.source.display()) } else { format!("{} · {}", language_name(&self.lang), self.source.display()) };
+        if self.more.is_empty() {
+            return first;
         }
+        let then: Vec<String> = self.more.iter().map(|(l, _)| language_name(l)).collect();
+        format!("{first}, then {}", then.join(", "))
+    }
+
+    /// Another dictionary after those already here (its learned and ignored words are not kept).
+    pub fn add_dictionary(&mut self, other: Speller) {
+        self.more.push((other.lang, other.kind));
+        self.more.extend(other.more);
+    }
+
+    /// The dictionaries chosen, in order (Preferences ▸ Spelling, by language code), from those
+    /// installed; `None` when none of them is installed (the caller then picks one itself).
+    pub fn load_chosen(chosen: &[String], extra_dirs: &[PathBuf]) -> Option<Speller> {
+        let dirs: Vec<PathBuf> = extra_dirs.iter().cloned().chain(system_dirs()).collect();
+        let all = installed(&dirs);
+        let mut out: Option<Speller> = None;
+        for lang in chosen {
+            let Some(files) = all.iter().find(|d| d.lang == *lang) else { continue };
+            let Ok(s) = Speller::from_files(files) else { continue };
+            match out.as_mut() {
+                Some(first) => first.add_dictionary(s),
+                None => out = Some(s),
+            }
+        }
+        out
     }
 
     /// Learn Spelling: the word is right from now on (kept by the caller between sessions).
@@ -263,18 +290,24 @@ impl Speller {
         }
         // A typographic apostrophe is checked as a straight one (the dictionaries list "don't").
         let word = word.replace('’', "'");
-        match &self.kind {
-            Kind::Hunspell(d) => d.check(&word),
-            Kind::Words(w) => w.contains(&word) || w.contains(&word.to_lowercase()),
-        }
+        std::iter::once(&self.kind).chain(self.more.iter().map(|(_, k)| k)).any(|k| kind_knows(k, &word))
     }
 
     /// Up to `max` corrections for a misspelt word, best first.
     pub fn suggest(&self, word: &str, max: usize) -> Vec<String> {
         let mut out = Vec::new();
-        match &self.kind {
-            Kind::Hunspell(d) => d.suggest(&word.replace('’', "'"), &mut out),
-            Kind::Words(w) => out = edits_in(w, word),
+        for k in std::iter::once(&self.kind).chain(self.more.iter().map(|(_, k)| k)) {
+            if out.len() >= max {
+                break;
+            }
+            match k {
+                Kind::Hunspell(d) => {
+                    let mut found = Vec::new();
+                    d.suggest(&word.replace('’', "'"), &mut found);
+                    out.extend(found);
+                }
+                Kind::Words(w) => out.extend(edits_in(w, word)),
+            }
         }
         let mut seen = HashSet::new();
         out.retain(|s| s.as_str() != word && seen.insert(s.clone()));
@@ -341,12 +374,14 @@ fn vowel_sound(word: &str) -> bool {
     w.starts_with(['a', 'e', 'i', 'o', 'u'])
 }
 
-/// Preview's Check Grammar With Spelling, the part that needs no language model: a word written
-/// twice ("the the"), a sentence that starts small after a full stop, question or exclamation mark
-/// ("done. then"; not after "e.g." or "Dr."), two spaces or more between words, and "a" / "an"
-/// against the next word's sound ("a apple", "an car"; "an hour", "a unit" are right). English
-/// rules, applied only when `english` (the dictionary's language): other languages get only the
-/// repeated words and spaces (French, say, has no "a"/"an" and other abbreviations).
+/// Preview's Check Grammar With Spelling, the part that needs no language model. In every language:
+/// a word written twice ("the the"), two spaces or more between words, a space before a comma or a
+/// full stop ("word ,"), and no space after a comma between two words ("one,two"). In English only
+/// (`english`, the dictionary's language): a sentence that starts small after a full stop, question
+/// or exclamation mark ("done. then"; not after "e.g." or "Dr."), "a" / "an" against the next word's
+/// sound ("a apple", "an car"; "an hour", "a unit" are right), a space before ; : ! ? (French puts
+/// one there), the pronoun "i" in small letters, and "could of" for "could have". Not checked:
+/// agreement, tense, word order, style.
 pub fn grammar(text: &str, english: bool) -> Vec<GrammarIssue> {
     let mut out = Vec::new();
     // Two spaces or more between two non-spaces on one line.
@@ -363,7 +398,37 @@ pub fn grammar(text: &str, english: bool) -> Vec<GrammarIssue> {
             i += 1;
         }
     }
+    // Spaces before punctuation, and none after a comma between two words.
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+    for (k, &(i, c)) in chars.iter().enumerate() {
+        let english_only = matches!(c, ';' | ':' | '!' | '?');
+        if matches!(c, ',' | '.') || (english && english_only) {
+            // The spaces right before it, after a letter or digit on the same line.
+            let mut j = k;
+            while j > 0 && chars[j - 1].1 == ' ' {
+                j -= 1;
+            }
+            let next = chars.get(k + 1).map(|&(_, n)| n);
+            let ellipsis = c == '.' && next == Some('.');
+            if j < k && j > 0 && chars[j - 1].1.is_alphanumeric() && !ellipsis {
+                let start = chars[j].0;
+                out.push(GrammarIssue { start, text: text[start..i + c.len_utf8()].to_string(), note: "Space before punctuation", fix: c.to_string() });
+            }
+        }
+        if c == ',' && k > 0 && chars[k - 1].1.is_alphabetic() && chars.get(k + 1).is_some_and(|&(_, n)| n.is_alphabetic()) {
+            out.push(GrammarIssue { start: i, text: ",".into(), note: "Space after a comma", fix: ", ".into() });
+        }
+    }
     let words = plain_words(text);
+    // English: "i" for "I", also in "i'm", "i've".
+    if english {
+        for &(s1, w) in &words {
+            let lower = w.replace('’', "'");
+            if w.starts_with('i') && (w.len() == 1 || ["i'm", "i've", "i'll", "i'd"].contains(&lower.as_str())) {
+                out.push(GrammarIssue { start: s1, text: w.to_string(), note: "\"I\" in capitals", fix: format!("I{}", &w[1..]) });
+            }
+        }
+    }
     for pair in words.windows(2) {
         let ((s1, w1), (s2, w2)) = (pair[0], pair[1]);
         let between = &text[s1 + w1.len()..s2];
@@ -371,6 +436,11 @@ pub fn grammar(text: &str, english: bool) -> Vec<GrammarIssue> {
         // The same word twice in a row ("had had" and "that that" can be right).
         if only_space && w1.eq_ignore_ascii_case(w2) && !w1.chars().any(|c| c.is_numeric()) && !["had", "that"].contains(&w1.to_lowercase().as_str()) {
             out.push(GrammarIssue { start: s1, text: text[s1..s2 + w2.len()].to_string(), note: "Repeated word", fix: w1.to_string() });
+        }
+        // English: "could of" for "could have".
+        let lower1 = w1.to_lowercase();
+        if english && only_space && w2.eq_ignore_ascii_case("of") && ["could", "would", "should", "must", "might"].contains(&lower1.as_str()) {
+            out.push(GrammarIssue { start: s1, text: text[s1..s2 + w2.len()].to_string(), note: "\"have\", not \"of\"", fix: format!("{w1} have") });
         }
         // "a" / "an" against the sound of the next word (not before an acronym, a number or a letter).
         let lower = w1.to_lowercase();
@@ -482,10 +552,66 @@ impl CheckPass {
         self.at += 1;
     }
 
+    /// Change All (Acrobat's): the misspelt word shown becomes `new` here and wherever it comes
+    /// later, in every text; `texts` are changed in place, what follows each change moves by the
+    /// difference in length. The texts changed come back (their indices), each once.
+    pub fn change_all(&mut self, texts: &mut [String], new: &str) -> Vec<usize> {
+        let Some(f) = self.found.get(self.at).cloned() else { return Vec::new() };
+        if f.note.is_some() {
+            // A grammar finding is changed where it is only.
+            if let Some(t) = texts.get_mut(f.text) {
+                *t = replace_word(t, f.start, &f.word, new);
+            }
+            self.changed(new);
+            return vec![f.text];
+        }
+        let delta = new.len() as isize - f.word.len() as isize;
+        let (done, rest) = self.found.split_at(self.at);
+        let mut kept: Vec<Finding> = done.to_vec();
+        let mut changed: Vec<usize> = Vec::new();
+        // The occurrences to change, by text, last first so the earlier offsets stay right.
+        let mut targets: Vec<&Finding> = rest.iter().filter(|g| g.note.is_none() && g.word == f.word).collect();
+        targets.sort_by_key(|g| std::cmp::Reverse((g.text, g.start)));
+        for g in &targets {
+            if let Some(t) = texts.get_mut(g.text) {
+                let replaced = replace_word(t, g.start, &g.word, new);
+                if replaced != *t && !changed.contains(&g.text) {
+                    changed.push(g.text);
+                }
+                *t = replaced;
+            }
+        }
+        for g in rest {
+            if g.note.is_none() && g.word == f.word {
+                continue;
+            }
+            let shifted = targets.iter().filter(|c| c.text == g.text && c.start < g.start).count() as isize;
+            kept.push(Finding { start: (g.start as isize + shifted * delta) as usize, ..g.clone() });
+        }
+        self.found = kept;
+        changed.sort_unstable();
+        changed
+    }
+
     /// How many findings are left, the one shown included.
     pub fn left(&self) -> usize {
         self.found.len().saturating_sub(self.at)
     }
+}
+
+/// Whether one dictionary knows the word (a word list also in lower case: "The" at a sentence start).
+fn kind_knows(k: &Kind, word: &str) -> bool {
+    match k {
+        Kind::Hunspell(d) => d.check(word),
+        Kind::Words(w) => w.contains(word) || w.contains(&word.to_lowercase()),
+    }
+}
+
+/// The Hunspell dictionaries installed in `extra_dirs` and the system's folders, one per language,
+/// by language (Preferences ▸ Spelling lists them to choose from).
+pub fn installed_dictionaries(extra_dirs: &[PathBuf]) -> Vec<DictFiles> {
+    let dirs: Vec<PathBuf> = extra_dirs.iter().cloned().chain(system_dirs()).collect();
+    installed(&dirs)
 }
 
 /// Words of a word list one edit away from `word` (a letter dropped, swapped, changed or added),
@@ -602,7 +728,7 @@ mod tests {
     use super::*;
 
     fn word_list(words: &[&str]) -> Speller {
-        Speller { kind: Kind::Words(words.iter().map(|w| w.to_string()).collect()), lang: String::new(), source: PathBuf::new(), learned: HashSet::new(), ignored: HashSet::new() }
+        Speller { kind: Kind::Words(words.iter().map(|w| w.to_string()).collect()), more: Vec::new(), lang: String::new(), source: PathBuf::new(), learned: HashSet::new(), ignored: HashSet::new() }
     }
 
     #[test]
@@ -672,6 +798,15 @@ mod tests {
         assert_eq!(g("A owl"), [(0, "A".into(), "An".into())]);
         // "had had" can be right.
         assert!(g("She had had enough.").is_empty());
+        // The cheap ones added: spaces around punctuation, "i", "could of".
+        assert_eq!(g("Yes , no ."), [(3, " ,".into(), ",".into()), (8, " .".into(), ".".into())]);
+        assert_eq!(g("one,two and 3,14"), [(3, ",".into(), ", ".into())]);
+        assert_eq!(g("Then i said i'm fine"), [(5, "i".into(), "I".into()), (12, "i'm".into(), "I'm".into())]);
+        assert_eq!(g("We could of gone"), [(3, "could of".into(), "could have".into())]);
+        assert!(g("Wait... what? Yes!").is_empty());
+        // French keeps its space before ; : ! ? and has no "i" or "a"/"an" rule.
+        assert!(grammar("Quoi ? Oui !", false).is_empty());
+        assert_eq!(grammar("Oui , non", false).len(), 1);
         // Another language: repeated words and spaces only ("Il a une idée", "Fini. ensuite").
         assert!(grammar("Il a une idée. ensuite on part.", false).is_empty());
         assert_eq!(grammar("Il a a  une idée", false).into_iter().map(|g| g.note).collect::<Vec<_>>(), ["Repeated word", "More than one space"]);
@@ -682,6 +817,55 @@ mod tests {
         let s = word_list(&["we", "saw", "the", "cat"]);
         let pass = CheckPass::new(&s, &["we saw teh the cat"], true);
         assert_eq!(pass.current().map(|f| (f.word.as_str(), f.note)), Some(("teh", None)));
+    }
+
+    #[test]
+    fn change_all_changes_the_word_in_every_text_and_keeps_the_rest_in_place() {
+        let s = word_list(&["the", "cat", "sat", "on", "mat"]);
+        let mut texts = vec!["teh cat teh mat".to_string(), "the mat".to_string(), "on teh xx".to_string()];
+        let refs: Vec<&str> = texts.iter().map(String::as_str).collect();
+        let mut pass = CheckPass::new(&s, &refs, false);
+        assert_eq!(pass.current().map(|f| f.word.as_str()), Some("teh"));
+        let changed = pass.change_all(&mut texts, "the");
+        assert_eq!(changed, [0, 2]);
+        assert_eq!(texts, ["the cat the mat", "the mat", "on the xx"]);
+        // The next finding is the one left, at its place in the changed text.
+        let f = pass.current().cloned().unwrap();
+        assert_eq!((f.text, f.start, f.word.as_str()), (2, 7, "xx"));
+        assert_eq!(&texts[2][f.start..f.start + 2], "xx");
+        // A longer correction moves what follows.
+        let mut texts = vec!["ab xy ab cd".to_string()];
+        let refs: Vec<&str> = texts.iter().map(String::as_str).collect();
+        let mut pass = CheckPass::new(&s, &refs, false);
+        pass.change_all(&mut texts, "abab");
+        assert_eq!(texts[0], "abab xy abab cd");
+        let left: Vec<(usize, String)> = std::iter::from_fn(|| { let f = pass.current().cloned(); pass.skip(); f }).map(|f| (f.start, f.word)).collect();
+        assert_eq!(left, [(5, "xy".to_string()), (13, "cd".to_string())]);
+    }
+
+    #[test]
+    fn chosen_dictionaries_are_used_in_their_order() {
+        let mut en = word_list(&["the", "cat"]);
+        en.lang = "en_US".into();
+        let mut fr = word_list(&["le", "chat"]);
+        fr.lang = "fr_FR".into();
+        en.add_dictionary(fr);
+        // A word either knows is right; corrections from the first, then the next.
+        assert!(en.check("chat") && en.check("cat") && !en.check("chien"));
+        assert_eq!(en.suggest("cht", 3), ["cat", "chat"]);
+        assert!(en.describe().ends_with("then French"));
+        assert!(en.is_english());
+        assert!(Speller::load_chosen(&["xx_XX".into()], &[]).is_none());
+        // Chosen from a folder: French first.
+        let dir = tempfile::tempdir().unwrap();
+        for (name, word) in [("en_US", "hello"), ("fr_FR", "bonjour")] {
+            std::fs::write(dir.path().join(format!("{name}.aff")), "SET UTF-8\nTRY esianrtolcdugmfphbyvkw\n").unwrap();
+            std::fs::write(dir.path().join(format!("{name}.dic")), format!("1\n{word}\n")).unwrap();
+        }
+        let both = Speller::load_chosen(&["fr_FR".into(), "en_US".into()], &[dir.path().to_path_buf()]).unwrap();
+        assert_eq!(both.lang, "fr_FR");
+        assert!(both.check("bonjour") && both.check("hello") && !both.is_english());
+        assert!(installed_dictionaries(&[dir.path().to_path_buf()]).iter().any(|d| d.lang == "fr_FR"));
     }
 
     #[test]

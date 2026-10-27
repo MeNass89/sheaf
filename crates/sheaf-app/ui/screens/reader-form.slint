@@ -1,6 +1,7 @@
 // Prepare form: the fields drawn over their pages, the selected field's properties card (Acrobat's
 // Field Properties, in short: name, tooltip, required, read-only, several lines, items) and the
 // card of several fields selected together (Acrobat's Align, Center, Distribute, Match Size).
+import { PlatformBridge } from "../platform.slint";
 import { Theme } from "../theme.slint";
 import { SmallButton, PanelField } from "reader-parts.slint";
 import { Check } from "../widgets/check.slint";
@@ -108,6 +109,8 @@ export component FieldPropsCard inherits Rectangle {
             spacing: 4px;
             Text { text: "Items, one per line"; font-size: Theme.fs-caption; color: Theme.text-muted; }
             items-edit := TextEdit {
+                // Tools page tools' keys wait while a field has the keyboard.
+                changed has-focus => { PlatformBridge.typing = self.has-focus; }
                 height: 84px;
                 font-size: Theme.fs-label;
                 text <=> items.text;

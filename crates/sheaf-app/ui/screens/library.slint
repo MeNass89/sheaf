@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { PrimaryButton } from "../widgets/button.slint";
 import { Check as CheckBox } from "../widgets/check.slint";
 import { ComboBox, ScrollView } from "std-widgets.slint";
@@ -48,6 +49,8 @@ export component LibraryScreen inherits Rectangle {
             height: Theme.field-height; border-width: 1px; border-color: Theme.input-border; border-radius: Theme.radius-small; background: Theme.input-bg;
             if LibraryBridge.query == "": Text { x: 10px; text: "Filter by name or archive folder"; color: Theme.text-muted; font-size: Theme.fs-body; vertical-alignment: center; }
             TextInput {
+                // Tools page tools' keys wait while a field has the keyboard.
+                changed has-focus => { PlatformBridge.typing = self.has-focus; }
                 x: 10px; width: parent.width - 20px; text <=> LibraryBridge.query;
                 single-line: true; color: Theme.text; font-size: Theme.fs-body; vertical-alignment: center;
                 accessible-label: "Filter files by name or archive folder";
@@ -68,7 +71,7 @@ export component LibraryScreen inherits Rectangle {
         if LibraryBridge.marked-count > 0: HorizontalLayout {
             spacing: 8px;
             Rectangle { height: Theme.field-height; horizontal-stretch: 1; background: Theme.input-bg; border-width: 1px; border-color: Theme.input-border; border-radius: Theme.radius-small;
-                TextInput { x: 10px; width: parent.width - 20px; text <=> LibraryBridge.move-folder; single-line: true; color: Theme.text; accessible-label: "Destination folder, blank for root"; vertical-alignment: center; }
+                TextInput { changed has-focus => { PlatformBridge.typing = self.has-focus; } x: 10px; width: parent.width - 20px; text <=> LibraryBridge.move-folder; single-line: true; color: Theme.text; accessible-label: "Destination folder, blank for root"; vertical-alignment: center; }
             }
             Button { text: "Move selected to folder"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("move-marked", 0); } }
         }

@@ -4,6 +4,7 @@
 import { Theme } from "../theme.slint";
 import { Segment } from "../widgets/radio-card.slint";
 import { SecondaryButton } from "dialogs.slint";
+import { Check } from "../widgets/check.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { PlatformBridge } from "../platform.slint";
 
@@ -50,7 +51,7 @@ export component SpellingSection inherits Card {
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "Grammar: a word written twice, a capital after a full stop, two spaces, and “a” or “an” (English).";
+        text: "Grammar, every language: a word written twice, two spaces, a space before a comma or full stop, none after a comma. English only: a capital after a full stop, “a” or “an”, a space before ; : ! ?, “i” for “I”, “could of”. Not checked: agreement, tense, word order.";
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
         wrap: word-wrap;
@@ -61,6 +62,33 @@ export component SpellingSection inherits Card {
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
         wrap: word-wrap;
+    }
+    // Acrobat's dictionary list: those ticked are used, in their order (a word any of them knows is
+    // right); none ticked, the system's language.
+    if PlatformBridge.dictionaries.length > 1: Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: "Dictionaries (ticked ones are used, in this order; none: your system's language)";
+        font-size: Theme.fs-body;
+        color: Theme.text;
+        wrap: word-wrap;
+    }
+    if PlatformBridge.dictionaries.length > 1: VerticalLayout {
+        spacing: 4px;
+        for d in PlatformBridge.dictionaries: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
+            spacing: 8px;
+            height: 30px;
+            Check {
+                horizontal-stretch: 1;
+                text: d.name;
+                checked: d.chosen;
+                toggled => { PlatformBridge.dictionary-change(d.lang, 0); }
+            }
+            if d.chosen: SecondaryButton { text: "Up"; clicked => { PlatformBridge.dictionary-change(d.lang, -1); } }
+            if d.chosen: SecondaryButton { text: "Down"; clicked => { PlatformBridge.dictionary-change(d.lang, 1); } }
+        }
     }
     if PlatformBridge.learned.length > 0: FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;

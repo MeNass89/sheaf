@@ -597,23 +597,22 @@ unset SHEAF_TEST_MENU_BAR
 python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["author"] = None; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
 
 # 227. Edit ▸ Check Spelling… (F7; C-edit-013, Acrobat's Check Spelling in comments and form fields): a note "teh cat
-# sat" left on the page; the pass shows "teh" with its corrections, "the" clicked and Change: the pass ends (nothing
-# else misspelt) and the note, saved, reads "the cat sat".
+# sat teh" left on the page; the pass shows "teh" with its corrections, "the" clicked and Change All: both go, the
+# pass ends (nothing else misspelt) and the note, saved, reads "the cat sat the".
 cp "$OUT/text.pdf" "$OUT/checkpass.pdf"; launch "$OUT/checkpass.pdf"; sleep 1
-key n; click 640 400 0.8; xdotool type --delay 15 "teh cat sat"; key ctrl+Return; sleep 0.8; key v
+key n; click 640 400 0.8; xdotool type --delay 15 "teh cat sat teh"; key ctrl+Return; sleep 0.8; key v
 key F7; sleep 1.2
 # The texts are scanned on a worker: the first word may take a moment to show (its red note and the
 # underlined word do not OCR; the comment it is in and Change to do).
 for _ in 1 2 3 4 5 6; do CW=$(ocr 1020x700+250+90); echo "$CW" | grep -q 'Change' && break; sleep 0.5; done; shot 227-dialog
 TH=$(at_word the); [ -n "$TH" ] && click $TH 0.4
-# The Change button (white on red, which OCR does not read): 185 px right of Learn, on its row.
-read IX IY <<< "$(at Learn 1020x700+250+90)"; CH="$(( ${IX:-0} + 185 )) ${IY:-0}"
-[ -n "$IX" ] && click $CH 1.2; shot 227-after-change
+# Change All, the button before Change (the word All is only on it).
+CH=$(at All 1020x700+250+90); [ -n "$CH" ] && click $CH 1.2; shot 227-after-change
 CD=$(ocr 1020x700+250+90)
 DN=$(at Done 1020x700+250+90); [ -n "$DN" ] && click $DN 0.6
 key ctrl+s; sleep 1.5
 CN=$(qpdf --qdf --object-streams=disable "$OUT/checkpass.pdf" - 2>/dev/null | grep -ao '/Contents ([^)]*)' | tail -1)
-check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $(echo "$CW" | grep -o 'Comment on page [0-9]*' | head -1); $(echo "$CD" | grep -o 'check complete' | head -1); $CN)" "echo \"$CW\" | grep -q 'Comment on page 1' && echo \"$CW\" | grep -q 'Change to' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat'"
+check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $(echo "$CW" | grep -o 'Comment on page [0-9]*' | head -1); $(echo "$CD" | grep -o 'check complete' | head -1); $CN)" "echo \"$CW\" | grep -q 'Comment on page 1' && echo \"$CW\" | grep -q 'Change to' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat the'"
 quit
 
 # 240. Kept signatures and initials belong to authenticated local storage, never prefs.json.

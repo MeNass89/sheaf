@@ -129,6 +129,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             direction: 2,
             tool_keys: vec![("note".into(), "q".into())],
             launch_keys: vec![("merge".into(), "Control+Alt+M".into())],
+            dictionaries: vec!["fr_FR".into(), "en_US".into()],
         },
     };
     p.save(dir.path()).unwrap();

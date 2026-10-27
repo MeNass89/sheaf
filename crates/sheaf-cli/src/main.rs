@@ -9,6 +9,7 @@
 mod agent;
 mod args;
 mod mcp;
+mod actions;
 
 use args::{edit_items, Cli, CliCompare, CliPdfA, CliSheets, Cmd, NumberFormat, WmPosition};
 use clap::{CommandFactory, FromArgMatches};
@@ -71,7 +72,7 @@ impl Cmd {
             Cmd::Edit { .. } | Cmd::CorrectOcr { .. } | Cmd::ApplySecurityPolicy { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
             // They write no PDF.
-            Cmd::ReviewOcr { .. } | Cmd::SaveSecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
+            Cmd::ReviewOcr { .. } | Cmd::SaveSecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Search { .. } | Cmd::Actions | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
         }
     }
 
@@ -80,7 +81,7 @@ impl Cmd {
     fn out_dir(&self) -> Option<&Path> {
         match self {
             Cmd::Split { out, .. } | Cmd::ToJpg { out, .. } => Some(out),
-            Cmd::ReviewOcr { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Tools | Cmd::Mcp => None,
+            Cmd::ReviewOcr { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Search { .. } | Cmd::Actions | Cmd::Tools | Cmd::Mcp => None,
             Cmd::EncryptCertificates { out, .. }
             | Cmd::UnlockCertificate { out, .. }
             | Cmd::CorrectOcr { out, .. }
@@ -383,6 +384,14 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 None => vec![],
             };
             agent::set_text(sheaf_core::text::page_texts(&i, &pages)?);
+            Ok(vec![])
+        }
+        Cmd::Search { input: i, query } => {
+            agent::set_data(actions::search(&sheaf_core::text::page_texts(&input(i), &[])?, &query));
+            Ok(vec![])
+        }
+        Cmd::Actions => {
+            agent::set_data(actions::json());
             Ok(vec![])
         }
         Cmd::Render { input: i, page, dpi, out } => one(images::render_png(&input(i), page as usize - 1, dpi, &out)),
