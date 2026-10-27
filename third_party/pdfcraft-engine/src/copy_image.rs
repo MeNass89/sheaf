@@ -187,6 +187,32 @@ impl Document {
             })
             .collect()
     }
+
+    /// Sheaf: per target, the font resource its paragraph is set in when it can be pasted in that
+    /// very font (one font for all its lines, which maps back every character, as an embedded subset
+    /// does for the characters it showed), with the paragraph's lines as they break; `None` to paste
+    /// it in the nearest standard family. PDF Expert pastes a paragraph in its own font (Sol, 27/10:
+    /// pasted paragraphs became Helvetica, Times or Courier).
+    pub fn objects_text_fonts(&self, page: usize, targets: &[pdfcraft_edit::ObjectTarget]) -> Vec<Option<(String, String)>> {
+        let Some(editor) = self.editor.as_ref() else { return vec![None; targets.len()] };
+        let blocks = self.text_blocks(page);
+        let lines = self.text_lines(page);
+        targets
+            .iter()
+            .map(|t| {
+                if t.kind != pdfcraft_edit::ObjectKind::Text {
+                    return None;
+                }
+                let b = blocks.get(t.index).filter(|b| b.rotation.abs() < 0.5 && !b.invisible)?;
+                let mut fonts = b.lines.iter().map(|&i| lines.get(i).filter(|l| l.decodable).map(|l| l.font.clone()));
+                let first = fonts.next()??;
+                if !fonts.all(|f| f.as_deref() == Some(first.as_str())) {
+                    return None;
+                }
+                pdfcraft_edit::font_writes(&editor.cos, page, &first, &b.editor_text).then(|| (first, b.editor_text.clone()))
+            })
+            .collect()
+    }
 }
 
 /// Whether a stamp is shown turned: a turn of its own (`/PCPictureRotate`, `/PCStampRotate`) or

@@ -129,6 +129,9 @@ pub struct CopiedObjects {
     pub shown: [f64; 4],
     /// Per object, its text when it is a paragraph (pasted as text again).
     pub texts: Vec<Option<sheaf_core::pdfcraft::engine::AddedText>>,
+    /// Per object, the font of `pdf`'s page its paragraph is pasted in again (its own, embedded),
+    /// when it can be; `None`: its nearest standard family.
+    pub fonts: Vec<Option<String>>,
     /// The PDF of the objects that are not text, when there are both.
     pub rest: Option<Arc<Vec<u8>>>,
 }
@@ -834,7 +837,18 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                     Op::LoupeArea { page, rect } => reply(Reply::Loupe(area_pixels(doc.document(), page, rect, Some(720.0)))),
                     Op::CopyObjects { page, objects, parts, rect, shown } => {
                         let d = doc.document();
-                        let texts = d.objects_texts(page, &objects);
+                        let mut texts = d.objects_texts(page, &objects);
+                        // A paragraph in a font that writes its text again keeps that font and its lines.
+                        let fonts: Vec<Option<String>> = d
+                            .objects_text_fonts(page, &objects)
+                            .into_iter()
+                            .zip(texts.iter_mut())
+                            .map(|(f, t)| {
+                                let (font, lines) = f?;
+                                t.as_mut()?.text = lines;
+                                Some(font)
+                            })
+                            .collect();
                         let made = area_pixels(d, page, rect, None).and_then(|pixels| {
                             let pdf = Arc::new(d.objects_pdf(page, &objects, rect)?);
                             // With paragraphs among them, the rest goes as one item of its own.
@@ -847,7 +861,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                                     Some(Arc::new(d.objects_pdf(page, &targets, r)?))
                                 }
                             };
-                            Ok(CopiedObjects { pixels, pdf, shown, texts, rest })
+                            Ok(CopiedObjects { pixels, pdf, shown, texts, fonts, rest })
                         });
                         reply(Reply::ObjectsCopied(made));
                     }

@@ -812,7 +812,7 @@ mod restack;
 pub use restack::{Restack, restack_objects};
 /// Sheaf: new text in a font of the computer's.
 mod text_in_font;
-pub use text_in_font::add_text_in_font;
+pub use text_in_font::{add_text_in_copied_font, add_text_in_font, font_writes};
 pub mod prepress;
 pub use images::{ImageChange, PageImage, change_image, page_images, reading_images, rect_to_rect, turn_about_centre};
 pub mod bidi;

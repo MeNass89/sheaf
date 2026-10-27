@@ -969,12 +969,14 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 let (width, height, rgba) = c.pixels;
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
                 arboard::Clipboard::new().and_then(|mut c| c.set_image(image)).map_err(|e| e.to_string())?;
-                Ok((c.pdf, c.shown, (width as usize, height as usize), c.texts, c.rest))
+                Ok((c.pdf, c.shown, (width as usize, height as usize), c.texts, c.fonts, c.rest))
             });
             match (copied, from) {
-                (Ok((pdf, shown, pixels, texts, rest)), Some((from, page, layout))) => {
+                (Ok((pdf, shown, pixels, texts, fonts, rest)), Some((from, page, layout))) => {
+                    // The fonts of the paragraphs kept, in the order split keeps them.
+                    let fonts = if layout.len() == texts.len() { texts.iter().zip(fonts).filter(|(t, _)| t.is_some()).map(|(_, f)| f).collect() } else { Vec::new() };
                     let (texts, rest) = crate::state::ObjectsClip::split(texts, rest, &layout);
-                    with(|a| a.objects_clip = Some(crate::state::ObjectsClip { pdf, shown, from, page, pixels, texts, rest }));
+                    with(|a| a.objects_clip = Some(crate::state::ObjectsClip { pdf, shown, from, page, pixels, texts, fonts, rest }));
                     crate::flow::toast(ui, "Objects copied: ⌘V pastes them on a page, or as a picture in another app");
                 }
                 (Err(e), _) => crate::flow::toast(ui, &format!("The objects were not copied: {e}")),

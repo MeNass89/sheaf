@@ -1079,10 +1079,14 @@ pub(super) fn paste_objects(ui: &AppWindow, tab_id: i32) -> bool {
         }
         // Paragraphs come back as text, editable (Acrobat's); the rest as one item. One undo step.
         let rest = clip.rest.iter().map(|(pdf, s)| Edit::AddArtwork { page: to, rect: moved(*s), pdf: pdf.clone() });
-        let texts = clip.texts.iter().map(|t| {
+        // Each in its own embedded font when it has one that writes it (PDF Expert's).
+        let texts = clip.texts.iter().enumerate().map(|(k, t)| {
             let mut text = t.clone();
             text.rect = moved(t.rect);
-            Edit::AddText { page: to, text }
+            match clip.fonts.get(k).cloned().flatten() {
+                Some(font) => Edit::AddTextInCopiedFont { page: to, text, pdf: clip.pdf.clone(), font },
+                None => Edit::AddText { page: to, text },
+            }
         });
         (to, Edit::Batch { label: "Paste objects".into(), edits: rest.chain(texts).collect() })
     });

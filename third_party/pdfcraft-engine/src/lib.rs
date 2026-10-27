@@ -266,6 +266,7 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::RemoveImages { .. }
         | Edit::AddText { .. }
         | Edit::AddTextInFont { .. }
+        | Edit::AddTextInCopiedFont { .. }
         | Edit::AddImage { .. }
         | Edit::AddArtwork { .. }
         | Edit::OverlayPdf { .. }
@@ -1716,6 +1717,15 @@ pub enum Edit {
         rect: [f64; 4],
         pdf: Arc<Vec<u8>>,
     },
+    /// Sheaf: a copied paragraph pasted as page text in its own font: font `font` of page 1 of
+    /// `pdf` (the copied objects' PDF) copied in, then `text` written in it (PDF Expert's paste
+    /// keeps the paragraph's font; pdfcraft-edit's `add_text_in_copied_font`).
+    AddTextInCopiedFont {
+        page: usize,
+        text: AddedText,
+        pdf: Arc<Vec<u8>>,
+        font: String,
+    },
     /// Sheaf: another PDF's pages drawn over `pages` (Acrobat's and PDF Expert's overlay): its
     /// page 1 on the first, 2 on the second…, its last again past its end; each an added item the
     /// size of the page, still vector and text.
@@ -2066,6 +2076,7 @@ impl Edit {
             Edit::AddLoupe { .. } => Label::of("Add loupe"),
             Edit::SetLoupeMagnify { .. } => Label::of("Change loupe"),
             Edit::AddTextInFont { .. } => Label::of("Add text"),
+            Edit::AddTextInCopiedFont { .. } => Label::of("Paste text"),
             Edit::AddTextBoxInFont { .. } => Label::of("Add text box"),
             Edit::SetTextBoxFontProgram { .. } => Label::of("Change font"),
             Edit::AddMask { .. } => Label::of("Add mask"),
@@ -2307,6 +2318,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::ApplyRedactions { .. }
         | Edit::AddText { .. }
         | Edit::AddTextInFont { .. }
+        | Edit::AddTextInCopiedFont { .. }
         | Edit::AddImage { .. }
         | Edit::AddArtwork { .. }
         | Edit::OverlayPdf { .. }
@@ -2532,6 +2544,10 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_annot::add_annotation(doc, a, &cx.meta())?;
         }
         Edit::AddTextInFont { page, text, font } => pdfcraft_edit::add_text_in_font(doc, *page, text, font)?,
+        Edit::AddTextInCopiedFont { page, text, pdf, font } => {
+            let src = open_source("Copied objects", pdf)?;
+            pdfcraft_edit::add_text_in_copied_font(doc, *page, text, &src, 0, font)?;
+        }
         Edit::AddTextBoxInFont { annotation, align, font } => {
             let index = pdfcraft_annot::add_annotation(doc, annotation, &cx.meta())?;
             pdfcraft_annot::set_text_font(doc, annotation.page, index, "Helv", None, Some(*align), &cx.meta())?;
