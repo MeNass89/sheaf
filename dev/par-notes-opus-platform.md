@@ -119,9 +119,17 @@
   fields answer those keys themselves.
 - C-preferences-013: "API output handling" (Stirling) is a server setting with no meaning offline. The
   reader's other plain keys (arrows, Space, Delete, ⇧T, ?) are not customizable.
+- C-platform-004 (third pass, Sol's review): right to left also mirrors the reader's tool options bar
+  (its options reversed, the bar at the top right of the pages), Preferences (every row reversed, labels
+  and section titles right-aligned) and the dialogs (password, unsaved changes, close a running task,
+  launch a file, Check Spelling: text right-aligned, buttons from the left). The rows were turned into
+  direction-aware FlexboxLayouts by a brace-aware script (a row's default stretch kept, a child's `y`
+  nudge turned into `cross-axis-self-alignment: center`; scripts kept in /tmp/f5/opus-scripts, not in the
+  repo). Smoke step 230.
 - C-platform-004, what Slint 1.18 blocks or what is left: (1) Slint has no window-wide layout direction, so
-  each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, reader side panel; left: the
-  tool options bar over the pages, the side panel's own rows, the sheets and dialogs, the tool-flow pages).
+  each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, side panel position, tool
+  options bar, Preferences, the dialogs; left: the side panel's own rows, the reader's sheets (print,
+  properties, signature), the tool-flow pages and the Home pages other than Preferences).
   (2) Text alignment: `Text`'s default `horizontal-alignment` is `start`, which follows each string's own
   script (an Arabic string sits right, an English one left); Sheaf has no translations, so its English labels
   stay left-aligned except where set to `right` here (sidebar, tabs). (3) The `MenuBar` element has no

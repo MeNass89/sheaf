@@ -1475,3 +1475,15 @@ key Escape; key ctrl+alt+m; sleep 1.2
 MT=$(ocr 1280x80+0+0)
 check "keys given to a Tools page tool open it ($LK; tab bar: $(echo "$MT" | cut -c1-60))" "echo \"$LK\" | grep -q \"'merge', 'Control+Alt+M'\" && echo \"$MT\" | grep -q 'Merge'"
 quit; platform_reset
+
+# 230. Right to left beyond Home and the reader's bars (C-platform-004): Preferences' rows read from the right
+# (Rulers measure in: Centimetres left of Inches), and the reader's tool options bar sits at the top right of the
+# pages with its options reversed (Shapes: Fill on the right of the bar's left half, the bar past the middle).
+python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.setdefault("platform", {})["direction"] = 2; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+launch; key ctrl+comma; sleep 0.8
+CM=$(pref_find Centimetres); read CX _ <<< "$CM"; read IX _ <<< "$(at Inches 1280x710+0+90)"
+quit
+cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
+key r; sleep 0.6; read FX _ <<< "$(at Fill 1280x120+0+80)"
+check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
+quit; platform_reset

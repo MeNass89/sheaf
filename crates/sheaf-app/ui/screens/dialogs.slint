@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { Theme } from "../theme.slint";
 import { PrimaryButton } from "../widgets/button.slint";
 import { TextField } from "../widgets/text-field.slint";
@@ -77,6 +78,7 @@ export component PasswordDialog inherits Modal {
     shake: root.wrong && root.since < 400ms ? 8px * sin(root.since / 400ms * 6 * 360deg) : 0px;
 
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: root.file-name + " is password protected";
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
@@ -99,7 +101,9 @@ export component PasswordDialog inherits Modal {
             }
         }
     }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: end;
         spacing: 10px;
         SecondaryButton {
@@ -120,18 +124,22 @@ export component ConfirmCloseDialog inherits Modal {
     callback cancel-job();
     callback keep();
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: "A task is still running";
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
     }
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: "Closing this tab cancels it. Files already written are kept.";
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
         wrap: word-wrap;
     }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: end;
         spacing: 10px;
         SecondaryButton {
@@ -151,6 +159,7 @@ export component LaunchFileDialog inherits Modal {
     in property <string> name;
     callback answer(bool);
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: "Open “\{root.name}”?";
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
@@ -158,12 +167,15 @@ export component LaunchFileDialog inherits Modal {
         wrap: word-wrap;
     }
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: "The document links to this file. It opens in the app your system uses for it; open it only if you trust the document.";
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
         wrap: word-wrap;
     }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: end;
         spacing: 10px;
         SecondaryButton {
@@ -187,6 +199,7 @@ export component UnsavedDialog inherits Modal {
     callback discard();
     callback cancel();
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: root.redact-marks > 0 ? "Close “" + root.file-name + "” without redacting?" : "Save changes to “" + root.file-name + "”?";
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
@@ -194,6 +207,7 @@ export component UnsavedDialog inherits Modal {
         wrap: word-wrap;
     }
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: root.redact-marks == 1 ? "1 mark is not applied: Redact applies it."
             : root.redact-marks > 1 ? root.redact-marks + " marks are not applied: Redact applies them."
             : "Your annotations will be lost if you don’t save them.";
@@ -201,7 +215,10 @@ export component UnsavedDialog inherits Modal {
         color: Theme.text-secondary;
         wrap: word-wrap;
     }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
         spacing: 10px;
         if root.redact-marks == 0: SecondaryButton {
             text: "Don’t Save";
