@@ -50,18 +50,9 @@ fn step(operation: &Value) -> Result<Vec<Step>> {
             }
             Ok(vec![Step::FlattenFields])
         }
-        "changeMetadata" | "/api/v1/misc/update-metadata" => {
-            let p = parameters(operation, &["title", "author", "subject", "keywords"])?;
-            let mut steps = Vec::new();
-            for key in ["title", "author", "subject", "keywords"] {
-                if let Some(value) = p.get(key) {
-                    let value = value.as_str().ok_or_else(|| invalid(format!("Metadata {key} must be text")))?.to_owned();
-                    steps.push(match key { "title" => Step::SetTitle(value), "author" => Step::SetAuthor(value), "subject" => Step::SetSubject(value), _ => Step::SetKeywords(value) });
-                }
-            }
-            if steps.is_empty() { return Err(invalid("No supported metadata settings")); }
-            Ok(steps)
-        }
+        "changeMetadata" | "/api/v1/misc/update-metadata" => Err(invalid(
+            "Stirling replaces all standard metadata, including omitted fields. Use a Sheaf metadata action to choose what to keep."
+        )),
         _ => Err(invalid(format!("Unsupported Stirling operation: {id}. No steps have been saved."))),
     }
 }
@@ -77,10 +68,6 @@ pub fn export(action: &SavedAction) -> Result<String> {
             Step::RotateCounterclockwise => ("rotate", json!({"angle":270})),
             Step::RotateHalfTurn => ("rotate", json!({"angle":180})),
             Step::FlattenFields => ("flatten", json!({"flattenOnlyForms":true})),
-            Step::SetTitle(t) => ("changeMetadata", json!({"title":t})),
-            Step::SetAuthor(t) => ("changeMetadata", json!({"author":t})),
-            Step::SetSubject(t) => ("changeMetadata", json!({"subject":t})),
-            Step::SetKeywords(t) => ("changeMetadata", json!({"keywords":t})),
             _ => return Err(invalid(format!("{} has no lossless Stirling export. Use Sheaf JSON.", s.engine()?.label()))),
         };
         Ok(json!({"operation":operation, "parameters":parameters}))
@@ -97,7 +84,7 @@ mod tests {
     fn stirling_export_import_preserves_equivalent_settings_and_order() {
         let mut a = SavedAction::empty();
         a.name = "Prepare forms".into();
-        a.steps = [Step::RotateClockwise, Step::SetTitle("Review".into()), Step::FlattenFields].iter().map(ActionStep::from_engine).collect();
+        a.steps = [Step::RotateClockwise, Step::RotateCounterclockwise, Step::FlattenFields].iter().map(ActionStep::from_engine).collect();
         let json = export(&a).unwrap();
         assert_eq!(SavedAction::import(&json).unwrap(), a);
         // Folder Scanning is the same canonical export with endpoint names and automated input.
@@ -120,6 +107,7 @@ mod tests {
         assert!(stirling(make("rotate", json!({"angle":90,"pages":"1"}))).is_err());
         assert!(stirling(make("flatten", json!({"flattenOnlyForms":false}))).is_err());
         assert!(stirling(make("changeMetadata", json!({"deleteAll":true}))).is_err());
+        assert!(stirling(make("changeMetadata", json!({"title":"Keep other metadata"}))).is_err());
         assert!(stirling(make("rotate", json!({"angle":45}))).is_err());
     }
 }

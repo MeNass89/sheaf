@@ -158,8 +158,8 @@ errors back to this worker; do not grade parity from this implementation report 
   sets and launch one command from the reader's palette — app execution prohibited by rule 1.
 
 - C-batch-004: Actions accepts dropped JSON files as well as choose/paste; native Stirling
-  Automate and Folder Scanning imports translate equivalent rotation, form flattening and four
-  metadata fields, with a Stirling export button for the same subset. Unknown tools/settings and
+  Automate and Folder Scanning imports translate equivalent rotation and form flattening,
+  with a Stirling export button for the same subset. Unknown tools/settings and
   rasterization are refused by step number before saving, never silently discarded. Source:
   Stirling `utils/automationConverter.ts`, `useRotateOperation.ts`, `useFlattenOperation.ts`,
   `useChangeMetadataOperation.ts`. Tests `stirling_export_import_preserves_equivalent_settings_and_order`,
@@ -218,3 +218,9 @@ errors back to this worker; do not grade parity from this implementation report 
   first-pass offline templates remain immutable; online discovery stays excluded by brief rule 3.
   not automatable: filter to Suggested, view a preset, save a renamed copy, find it under Saved
   and confirm the original preset remains — app execution prohibited by rule 1.
+
+- C-batch-004 source correction: backend `MetadataController.java:174–184` replaces **all**
+  standard metadata even when fields are omitted. The initial frontend-only mapping would have
+  preserved omitted fields, which is not equivalent. Metadata import/export is now explicitly
+  refused; its rejection joins the regression test. Rotation and form flattening remain exact
+  supported translations. No unsupported operation is silently converted or dropped.
