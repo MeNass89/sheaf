@@ -1,18 +1,23 @@
 // The controls the tools' options are made of: section labels, a stepper, the position grid, page
 // ranges, the crop preview, font and colour rows.
+import { PlatformBridge } from "../platform.slint";
 import { Theme } from "../theme.slint";
 import { Parse } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Segment } from "../widgets/radio-card.slint";
 
 export component SectionLabel inherits Text {
+    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
     font-size: Theme.fs-label;
     font-weight: Theme.weight-demibold;
     color: Theme.text;
 }
 
 // -/+ number picker, or typed (Split "every N pages").
-export component Stepper inherits HorizontalLayout {
+export component Stepper inherits FlexboxLayout {
+    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+    flex-wrap: FlexboxLayoutWrap.no-wrap;
+    alignment: LayoutAlignment.stretch;
     in-out property <int> value: 1;
     in property <int> minimum: 1;
     spacing: 8px;
@@ -83,7 +88,10 @@ export component PositionGrid inherits Rectangle {
 }
 
 // Two page fields side by side ("From page" / "To page").
-export component PageRange inherits HorizontalLayout {
+export component PageRange inherits FlexboxLayout {
+    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+    flex-wrap: FlexboxLayoutWrap.no-wrap;
+    alignment: LayoutAlignment.stretch;
     in-out property <string> from;
     in-out property <string> to;
     spacing: 10px;
@@ -120,6 +128,7 @@ export component CropPreview inherits Rectangle {
     background: Theme.filearea-bg;
     border-radius: Theme.radius-small;
     if !root.ready: Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: "Preview…";
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
@@ -174,16 +183,22 @@ export component FontRow inherits VerticalLayout {
     in property <string> size-placeholder;
     spacing: 10px;
     SectionLabel { text: "Font"; }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
         spacing: 6px;
         Segment { text: "Sans"; selected: root.family == 0; clicked => { root.family = 0; } }
         Segment { text: "Serif"; label-family: Theme.serif-family; selected: root.family == 1; clicked => { root.family = 1; } }
         Segment { text: "Mono"; label-family: Theme.mono-family; selected: root.family == 2; clicked => { root.family = 2; } }
     }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
         spacing: 6px;
         TextField { placeholder: root.size-placeholder; text <=> root.size; }
-        Text { text: "pt"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+        Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "pt"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
         Segment { width: 32px; text: "B"; label-bold: true; selected: root.bold; clicked => { root.bold = !root.bold; } }
         Segment { width: 32px; text: "I"; label-italic: true; selected: root.italic; clicked => { root.italic = !root.italic; } }
         Segment { width: 32px; text: "U"; label-underline: true; selected: root.underline; clicked => { root.underline = !root.underline; } }
@@ -196,7 +211,10 @@ export component ColourRow inherits VerticalLayout {
     in-out property <string> hex;
     spacing: 10px;
     SectionLabel { text: "Colour"; }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
         spacing: 6px;
         for c[k] in ["Black", "Grey", "Red", "Blue"]: Segment {
             text: c;
@@ -204,7 +222,10 @@ export component ColourRow inherits VerticalLayout {
             clicked => { root.colour = k; root.hex = ""; }
         }
     }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
         spacing: 8px;
         TextField { placeholder: "Custom: RRGGBB"; text <=> root.hex; error: Parse.colour-error(root.hex); }
         // The colour the text will take.

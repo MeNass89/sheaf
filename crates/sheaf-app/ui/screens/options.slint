@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { Slider, ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolOptions, Parse, OcrInfo, SignBridge, Picked } from "../flow-types.slint";
@@ -351,7 +352,10 @@ export component OptionsPanel inherits VerticalLayout {
     }
     // Merge: the files as cards, or opened out into their pages to put in any order (Acrobat's
     // Combine Files ▸ Expand all).
-    if root.tool == "merge" && root.file-count > 0: HorizontalLayout {
+    if root.tool == "merge" && root.file-count > 0: FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
         spacing: 8px;
         Segment { width: 100px; text: "Files"; selected: !root.merge-pages; clicked => { root.show-pages(false); } }
         Segment { width: 100px; text: "Pages"; selected: root.merge-pages; clicked => { root.show-pages(true); } }
@@ -392,7 +396,10 @@ export component OptionsPanel inherits VerticalLayout {
             selected: root.split-mode == 4;
             clicked => { root.split-mode = 4; }
         }
-        if root.split-mode == 4: HorizontalLayout {
+        if root.split-mode == 4: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             Segment { text: "Left | right"; selected: root.split-cols == 2 && root.split-rows == 1; clicked => { root.split-cols = 2; root.split-rows = 1; } }
             Segment { text: "Top / bottom"; selected: root.split-cols == 1 && root.split-rows == 2; clicked => { root.split-cols = 1; root.split-rows = 2; } }
@@ -403,11 +410,14 @@ export component OptionsPanel inherits VerticalLayout {
             }
         }
         // Stirling PDF's sections: any grid, across then down.
-        if root.split-mode == 4 && !(root.split-cols == 2 && root.split-rows == 1) && !(root.split-cols == 1 && root.split-rows == 2): HorizontalLayout {
+        if root.split-mode == 4 && !(root.split-cols == 2 && root.split-rows == 1) && !(root.split-cols == 1 && root.split-rows == 2): FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Text { text: "Across"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Across"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             Stepper { value <=> root.split-cols; minimum: 1; }
-            Text { text: "Down"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Down"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             Stepper { value <=> root.split-rows; minimum: 1; }
         }
         Rectangle { height: 4px; }
@@ -445,7 +455,10 @@ export component OptionsPanel inherits VerticalLayout {
         // Acrobat's Remove Blank Pages: no text and nothing drawn but specks.
         if root.tool == "remove_pages": Check { text: "The blank pages (found for you)"; checked <=> root.remove-blank; }
         // How blank (Stirling's threshold): a scan's grey paper needs the lenient step.
-        if root.tool == "remove_pages" && root.remove-blank: HorizontalLayout {
+        if root.tool == "remove_pages" && root.remove-blank: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             for label[i] in ["Strict", "Normal", "Scans"]: Segment {
                 width: 96px;
@@ -471,19 +484,28 @@ export component OptionsPanel inherits VerticalLayout {
         InfoBox { text: "Hover a page to move it with the arrows or drop it with ×. The blank page is added at the end."; }
         // Acrobat's custom order and its odd-and-even and duplex rules: typed, it replaces the grid's.
         TextField { label: "Or an order"; placeholder: "3,1,2,5-4"; text <=> root.organize-order; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 6px;
             Segment { text: "Odd, then even"; selected: root.organize-order == "odd,even"; clicked => { root.organize-order = "odd,even"; } }
             Segment { text: "Collate a 2-sided scan"; selected: root.organize-order == "collate"; clicked => { root.organize-order = "collate"; } }
         }
         // Acrobat's Multiple pages per sheet and Booklet; iLovePDF's Pages per sheet.
         SectionLabel { text: "Pages per sheet"; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 6px;
             for l[i] in ["1", "2", "4", "6", "9"]: Segment { width: 40px; text: l; selected: root.per-sheet == i; clicked => { root.per-sheet = i; } }
         }
         // Folded, or every page on one (Acrobat's Booklet, Stirling's Single large page).
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 6px;
             Segment { text: "Booklet"; selected: root.per-sheet == 5; clicked => { root.per-sheet = 5; } }
             Segment { text: "One long page"; selected: root.per-sheet == 6; clicked => { root.per-sheet = 6; } }
@@ -496,14 +518,20 @@ export component OptionsPanel inherits VerticalLayout {
         spacing: 10px;
         SectionLabel { text: "Rotation"; }
         // Acrobat's directions; the files' cards show page 1 turned as chosen.
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             Segment { text: "Left 90°"; selected: root.degrees == 270; clicked => { root.degrees = 270; } }
             Segment { text: "Right 90°"; selected: root.degrees == 90; clicked => { root.degrees = 90; } }
             Segment { text: "180°"; selected: root.degrees == 180; clicked => { root.degrees = 180; } }
         }
         // A mirror image of the pages (for transfers and printing on film).
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             Segment { text: "Flip ↔"; selected: root.degrees == -1; clicked => { root.degrees = -1; } }
             Segment { text: "Flip ↕"; selected: root.degrees == -2; clicked => { root.degrees = -2; } }
@@ -515,11 +543,17 @@ export component OptionsPanel inherits VerticalLayout {
             text <=> root.pages;
         }
         // Acrobat's Rotate Pages: of those, the even or odd ones, the portrait or landscape ones.
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             for label[i] in ["All pages", "Odd", "Even"]: Segment { text: label; selected: root.rotate-parity == i; clicked => { root.rotate-parity = i; } }
         }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             for label[i] in ["Any shape", "Portrait", "Landscape"]: Segment { text: label; selected: root.rotate-orientation == i; clicked => { root.rotate-orientation = i; } }
         }
@@ -559,7 +593,10 @@ export component OptionsPanel inherits VerticalLayout {
         Check { text: "Advanced settings"; checked <=> root.compress-advanced; }
         if root.compress-advanced: VerticalLayout {
             spacing: 8px;
-            if root.level != 3: HorizontalLayout {
+            if root.level != 3: FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 8px;
                 TextField { label: "Images at most (ppi)"; placeholder: "150"; text <=> root.compress-ppi; }
                 TextField { label: "JPEG quality (1–100)"; placeholder: "70"; text <=> root.compress-quality; }
@@ -589,7 +626,10 @@ export component OptionsPanel inherits VerticalLayout {
         if root.require-open && root.password != "": meter := VerticalLayout {
             spacing: 4px;
             property <int> strength: Parse.password-strength(root.password);
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 4px;
                 for i in 3: Rectangle {
                     height: 4px;
@@ -600,6 +640,7 @@ export component OptionsPanel inherits VerticalLayout {
                 }
             }
             Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: meter.strength == 0 ? "Weak" : meter.strength == 1 ? "Fair" : "Strong";
                 font-size: Theme.fs-caption;
                 color: Theme.text-secondary;
@@ -681,13 +722,19 @@ export component OptionsPanel inherits VerticalLayout {
             spacing: 10px;
             padding-top: 6px;
             SectionLabel { text: "Orientation"; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 8px;
                 Segment { text: "Portrait"; selected: !root.landscape; clicked => { root.landscape = false; } }
                 Segment { text: "Landscape"; selected: root.landscape; clicked => { root.landscape = true; } }
             }
             SectionLabel { text: "Margin"; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 8px;
                 Segment { text: "None"; selected: root.margin == 0; clicked => { root.margin = 0; } }
                 Segment { text: "Small"; selected: root.margin == 1; clicked => { root.margin = 1; } }
@@ -712,7 +759,10 @@ export component OptionsPanel inherits VerticalLayout {
 
     if root.tool == "pdf_to_jpg": VerticalLayout {
         spacing: 10px;
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             Segment { text: "Page to image"; selected: !root.extract-images; clicked => { root.extract-images = false; } }
             Segment { text: "Extract images"; selected: root.extract-images; clicked => { root.extract-images = true; } }
@@ -740,7 +790,10 @@ export component OptionsPanel inherits VerticalLayout {
             }
         }
         SectionLabel { text: "Format"; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             Segment { text: "JPG"; selected: !root.png; clicked => { root.png = false; } }
             Segment { text: "PNG (lossless)"; selected: root.png; clicked => { root.png = true; } }
@@ -750,13 +803,19 @@ export component OptionsPanel inherits VerticalLayout {
     if root.tool == "page_numbers": VerticalLayout {
         spacing: 10px;
         SectionLabel { text: "Page mode"; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             Segment { text: "Single page"; selected: !root.num-double; clicked => { root.num-double = false; } }
             Segment { text: "Double-sided"; selected: root.num-double; clicked => { root.num-double = true; } }
         }
         Check { text: "First page is cover page"; checked <=> root.num-cover; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 14px;
             VerticalLayout {
                 spacing: 6px;
@@ -797,29 +856,41 @@ export component OptionsPanel inherits VerticalLayout {
         ColourRow { colour <=> root.num-color; hex <=> root.num-hex; }
         // Acrobat's Header & Footer: text in any of the six places, Bates numbers among it.
         SectionLabel { text: "Header and footer"; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 6px;
-            Text { width: 48px; text: "Top"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: "Top"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             TextField { placeholder: "Left"; text <=> root.hf-tl; error: Parse.custom-text-error(root.hf-tl); }
             TextField { placeholder: "Centre"; text <=> root.hf-tc; error: Parse.custom-text-error(root.hf-tc); }
             TextField { placeholder: "Right"; text <=> root.hf-tr; error: Parse.custom-text-error(root.hf-tr); }
         }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 6px;
-            Text { width: 48px; text: "Bottom"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: "Bottom"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             TextField { placeholder: "Left"; text <=> root.hf-bl; error: Parse.custom-text-error(root.hf-bl); }
             TextField { placeholder: "Centre"; text <=> root.hf-bc; error: Parse.custom-text-error(root.hf-bc); }
             TextField { placeholder: "Right"; text <=> root.hf-br; error: Parse.custom-text-error(root.hf-br); }
         }
         InfoBox { text: "{n} page number, {p} page count, {date} today, {bates} the Bates number below."; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             TextField { label: "Bates prefix"; placeholder: "ACME-"; text <=> root.bates-prefix; }
             TextField { width: 80px; label: "From"; placeholder: "1"; text <=> root.bates-start; }
         }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Text { text: "Digits"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Digits"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             Stepper { value <=> root.bates-digits; minimum: 3; }
         }
         Check { text: "Replace existing headers, footers"; checked <=> root.hf-replace; }
@@ -827,7 +898,10 @@ export component OptionsPanel inherits VerticalLayout {
 
     if root.tool == "watermark": VerticalLayout {
         spacing: 10px;
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             Segment { text: "Place Text"; selected: !root.wm-remove && !root.wm-image-mode; clicked => { root.wm-image-mode = false; root.wm-remove = false; } }
             Segment { text: "Place Image"; selected: !root.wm-remove && root.wm-image-mode; clicked => { root.wm-image-mode = true; root.wm-remove = false; } }
@@ -856,13 +930,17 @@ export component OptionsPanel inherits VerticalLayout {
                     }
                 }
                 if root.wm-image != "": Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                     text: root.wm-image;
                     font-size: Theme.fs-caption;
                     color: Theme.text-muted;
                     overflow: elide;
                 }
                 SectionLabel { text: "Size"; }
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: LayoutAlignment.stretch;
                     spacing: 6px;
                     Segment { text: "25%"; selected: root.wm-scale == 25; clicked => { root.wm-scale = 25; } }
                     Segment { text: "50%"; selected: root.wm-scale == 50; clicked => { root.wm-scale = 50; } }
@@ -870,7 +948,10 @@ export component OptionsPanel inherits VerticalLayout {
                     Segment { text: "100%"; selected: root.wm-scale == 100; clicked => { root.wm-scale = 100; } }
                 }
             }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 14px;
                 VerticalLayout {
                     spacing: 6px;
@@ -887,7 +968,10 @@ export component OptionsPanel inherits VerticalLayout {
                 }
             }
             SectionLabel { text: "Transparency"; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 6px;
                 Segment { text: "No"; selected: root.wm-transparency == 0; clicked => { root.wm-transparency = 0; } }
                 Segment { text: "25%"; selected: root.wm-transparency == 1; clicked => { root.wm-transparency = 1; } }
@@ -895,13 +979,19 @@ export component OptionsPanel inherits VerticalLayout {
                 Segment { text: "75%"; selected: root.wm-transparency == 3; clicked => { root.wm-transparency = 3; } }
             }
             SectionLabel { text: "Rotate"; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 6px;
                 Segment { text: "None"; selected: root.wm-rotation == 0; clicked => { root.wm-rotation = 0; } }
                 Segment { text: "45°"; selected: root.wm-rotation == 1; clicked => { root.wm-rotation = 1; } }
                 Segment { text: "90°"; selected: root.wm-rotation == 2; clicked => { root.wm-rotation = 2; } }
             }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 6px;
                 Segment { text: "180°"; selected: root.wm-rotation == 3; clicked => { root.wm-rotation = 3; } }
                 Segment { text: "270°"; selected: root.wm-rotation == 4; clicked => { root.wm-rotation = 4; } }
@@ -922,7 +1012,10 @@ export component OptionsPanel inherits VerticalLayout {
         RadioCard { title: "Remove white margins"; description: "Cut each page to what is drawn on it"; selected: root.crop-mode == 3; clicked => { root.crop-mode = 3; } }
         // Acrobat's Set Page Boxes ▸ Change Page Size.
         RadioCard { title: "Change page size"; description: "Scale every page to a paper size"; selected: root.crop-mode == 4; clicked => { root.crop-mode = 4; } }
-        if root.crop-mode == 4: HorizontalLayout {
+        if root.crop-mode == 4: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 6px;
             for p[i] in ["A4", "Letter", "A3", "A5", "Legal"]: Segment { width: 46px; text: p; selected: root.crop-paper == i; clicked => { root.crop-paper = i; } }
         }
@@ -930,12 +1023,18 @@ export component OptionsPanel inherits VerticalLayout {
         if root.crop-mode < 2: VerticalLayout {
             spacing: 10px;
             SectionLabel { text: "Margins to cut (mm)"; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 10px;
                 TextField { width: (parent.width - 10px) / 2; label: "Top"; placeholder: "0"; text <=> root.crop-top; }
                 TextField { width: (parent.width - 10px) / 2; label: "Bottom"; placeholder: "0"; text <=> root.crop-bottom; }
             }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 10px;
                 TextField { width: (parent.width - 10px) / 2; label: "Left"; placeholder: "0"; text <=> root.crop-left; }
                 TextField { width: (parent.width - 10px) / 2; label: "Right"; placeholder: "0"; text <=> root.crop-right; }
@@ -958,11 +1057,13 @@ export component OptionsPanel inherits VerticalLayout {
                 }
             }
             // Any page to draw on (a cover differs from the pages after it).
-            if root.preview-pages > 1: HorizontalLayout {
+            if root.preview-pages > 1: FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: center;
                 spacing: 8px;
                 Segment { width: 32px; text: "‹"; clicked => { root.preview-step(-1); } }
-                Text { text: "Page " + root.preview-page + " of " + root.preview-pages; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Page " + root.preview-page + " of " + root.preview-pages; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                 Segment { width: 32px; text: "›"; clicked => { root.preview-step(1); } }
             }
         }
@@ -1030,7 +1131,10 @@ export component OptionsPanel inherits VerticalLayout {
             spacing: 10px;
             padding-top: 4px;
             SectionLabel { text: "Layout:"; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 8px;
                 Segment { text: "Flowing text"; selected: !root.export-exact; clicked => { root.export-exact = false; } }
                 Segment { text: "Page layout"; selected: root.export-exact; clicked => { root.export-exact = true; } }
@@ -1045,7 +1149,10 @@ export component OptionsPanel inherits VerticalLayout {
             spacing: 10px;
             padding-top: 4px;
             SectionLabel { text: "Layout:"; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 8px;
                 Segment { text: "One sheet"; selected: root.excel-layout == 0; clicked => { root.excel-layout = 0; } }
                 Segment { text: "Multiple sheets"; selected: root.excel-layout == 1; clicked => { root.excel-layout = 1; } }
@@ -1057,7 +1164,10 @@ export component OptionsPanel inherits VerticalLayout {
             spacing: 10px;
             padding-top: 4px;
             SectionLabel { text: "Format:"; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: 8px;
                 for label[i] in ["Web page", "Markdown", "Rich text", "Plain text", "XML", "Ebook"]: Segment {
                     text: label;
@@ -1138,9 +1248,12 @@ export component OptionsPanel inherits VerticalLayout {
             { label: "Brightness", value: root.adjust-brightness },
             { label: "Contrast", value: root.adjust-contrast },
             { label: "Saturation", value: root.adjust-saturation },
-        ]: HorizontalLayout {
+        ]: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 10px;
-            Text { width: 80px; text: a.label; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 80px; text: a.label; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             Slider {
                 minimum: -100;
                 maximum: 100;
@@ -1161,7 +1274,9 @@ export component OptionsPanel inherits VerticalLayout {
     if root.tool == "redact": VerticalLayout {
         spacing: 10px;
         SectionLabel { text: "Boxes"; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 6px;
             alignment: start;
             for c[i] in ["Black", "White", "Grey", "Red"]: Chip {
@@ -1199,6 +1314,7 @@ export component OptionsPanel inherits VerticalLayout {
         if root.sign-cert: VerticalLayout {
             spacing: 10px;
             Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: "Signs the document digitally with your digital ID, so changes made after signing can be detected.";
                 font-size: Theme.fs-caption;
                 color: Theme.text-muted;
@@ -1211,6 +1327,7 @@ export component OptionsPanel inherits VerticalLayout {
                 }
             }
             if root.sign-p12 != "": Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: root.sign-p12;
                 font-size: Theme.fs-caption;
                 color: Theme.text-muted;
@@ -1234,8 +1351,10 @@ export component OptionsPanel inherits VerticalLayout {
             }
             // Acrobat's Certify (a certification signature): the first signature, saying which
             // changes stay allowed after it.
-            Text { text: "Certify the document, allowing"; font-size: Theme.fs-caption; color: Theme.text-muted; }
-            HorizontalLayout {
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Certify the document, allowing"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 spacing: 6px;
                 alignment: start;
                 for c[i] in ["Not certified", "No changes", "Forms, signing", "And comments"]: Chip {
@@ -1253,16 +1372,20 @@ export component OptionsPanel inherits VerticalLayout {
     }
     // Every tool runs here, offline (iLovePDF Desktop's offline tools): said at the foot of the
     // options; Office conversion says it above, with LibreOffice.
-    if !(root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf" || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): HorizontalLayout {
+    if !(root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf" || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
         spacing: 6px;
         Image {
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: CrossAxisAlignment.center;
             width: 12px;
             height: 12px;
             source: @image-url("../icons/lock.svg");
             colorize: Theme.text-muted;
         }
         Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: "Runs on this computer. Nothing is uploaded.";
             font-size: Theme.fs-caption;
             color: Theme.text-muted;

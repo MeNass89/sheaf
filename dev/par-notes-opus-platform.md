@@ -126,6 +126,14 @@
   direction-aware FlexboxLayouts by a brace-aware script (a row's default stretch kept, a child's `y`
   nudge turned into `cross-axis-self-alignment: center`; scripts kept in /tmp/f5/opus-scripts, not in the
   repo). Smoke step 230.
+- C-platform-004 (fourth pass, Sol's review): right to left also mirrors the side panel (its tabs
+  Pages/Outline/Notes/Files/Layers, every row, the outline's indentation, the hover buttons and page
+  labels, the notes and attachments rows) and the tool pages (the file area and the options panel swap
+  sides, the + and sort buttons move to the left, the options' rows and labels, the result page). Rows
+  became direction-aware flexboxes as before; placed items have `x: rtl ? parent.width - (x) -
+  self.width : x` (a width written from `self.x` rewritten from the same x, so they do not depend on
+  each other); popups, centred, mouse- or drag-placed items are left as they are (scripts
+  /tmp/f5/opus-scripts/mirror.py, mirror_x.py, flexify.py).
 - C-platform-004, what Slint 1.18 blocks or what is left: (1) Slint has no window-wide layout direction, so
   each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, side panel position, tool
   options bar, Preferences, the dialogs; left: the side panel's own rows, the reader's sheets (print,
