@@ -173,3 +173,28 @@
   changed boxes and one-step undo — runtime forbidden by rule 1.
 - LIGNES : max 4 (Set page boxes / Crop marks, title + three lines) · cases > 6 : aucune.
 - Provisional author grade: f5 a7 p7; source-only, not rendered or executed, no parity claim.
+
+## Pass 2 — C-convert-002
+
+- C-convert-002: Tools ▸ Excel to PDF now offers saved print layout or one whole sheet per PDF page
+  (iLovePDF's spreadsheet conversion layout). Saved layout keeps the original cached conversion;
+  whole sheets use Calc's real `SinglePageSheets` export and bypass that cache. The app explicitly
+  says hidden sheets are included and saved paper/print areas are ignored. Batch semantics,
+  isolated temporary Office profile, timeout and atomic free output name are preserved.
+- Primary evidence: installed LibreOffice `share/registry/main.xcd`'s `SinglePageSheets`, and
+  [LibreOffice PDF CLI parameters](https://help.libreoffice.org/latest/en-US/text/shared/guide/pdf_params.html).
+  Test `whole_sheet_export_keeps_outside_print_area_and_hidden_sheet_content` builds a real XLSX
+  with a print area and hidden sheet, checks both layouts' text/pages, source preservation and
+  qpdf cleanliness. `whole_sheet_export_does_not_apply_calc_settings_to_a_word_file` rejects a
+  wrong source type. `whole_sheet_layout_is_only_used_for_spreadsheets_and_bypasses_html` checks
+  the app job route. Written, not run; integration requires LibreOffice and PDFium.
+- Left: sheet-by-name selection and editing cell print ranges inside Sheaf; a real Word/PPT fidelity
+  corpus and font substitutions. The previous pass's packaged-runtime discovery is present, but
+  bundling/distributing LibreOffice remains Nassim's reserved decision (HANDOFF), not implemented.
+- Integration: `Job::Office.whole_sheets: bool` added; constructors updated. New public core
+  `office::spreadsheet_to_pdf`. No dependency or preference field added. Whole-sheet layout may
+  require a second conversion after the ordinary card preview; the default still uses its cache.
+- not automatable: Excel tool's layout choice in both themes and compare wide/hidden sheets on
+  output — app execution forbidden by rule 1.
+- LIGNES : max 3 (whole-sheet layout radio card and its information) · cases > 6 : aucune.
+- Provisional author grade: f8 a8 p8; unexecuted source and tests, no parity claim.

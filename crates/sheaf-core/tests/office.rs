@@ -271,3 +271,39 @@ fn a_markdown_file_a_mail_and_postscript_become_pdfs() {
         assert!(common::page_texts(&out)[0].contains("PostScript page"));
     }
 }
+
+#[test]
+fn whole_sheet_export_keeps_outside_print_area_and_hidden_sheet_content() {
+    if find_soffice().is_none() { return; }
+    let t = tempfile::tempdir().unwrap();
+    let source = t.path().join("workbook.xlsx");
+    let mut book = rust_xlsxwriter::Workbook::new();
+    let sheet = book.add_worksheet();
+    sheet.write_string(0, 0, "InsidePrintArea").unwrap();
+    sheet.write_string(0, 20, "OutsidePrintArea").unwrap();
+    sheet.set_print_area(0, 0, 0, 0).unwrap();
+    let hidden = book.add_worksheet();
+    hidden.write_string(0, 0, "HiddenSheetContent").unwrap();
+    hidden.set_hidden(true);
+    book.save(&source).unwrap();
+    let original = std::fs::read(&source).unwrap();
+    let regular = office_to_pdf(&source, &t.path().join("saved-layout.pdf")).unwrap();
+    let regular_text = common::page_texts(&regular).join(" ");
+    assert!(regular_text.contains("InsidePrintArea"));
+    assert!(!regular_text.contains("OutsidePrintArea") && !regular_text.contains("HiddenSheetContent"));
+    let whole = spreadsheet_to_pdf(&source, &t.path().join("whole.pdf")).unwrap();
+    let text = common::page_texts(&whole);
+    assert_eq!(text.len(), 2);
+    assert!(text[0].contains("InsidePrintArea") && text[0].contains("OutsidePrintArea"));
+    assert!(text[1].contains("HiddenSheetContent"));
+    assert_eq!(std::fs::read(source).unwrap(), original);
+    common::qpdf_clean(&whole);
+}
+
+#[test]
+fn whole_sheet_export_does_not_apply_calc_settings_to_a_word_file() {
+    let t = tempfile::tempdir().unwrap();
+    let out = t.path().join("out.pdf");
+    assert!(matches!(spreadsheet_to_pdf(&t.path().join("file.docx"), &out), Err(OpdfError::Unsupported(_))));
+    assert!(!out.exists());
+}

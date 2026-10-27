@@ -57,6 +57,21 @@ pub fn office_to_pdf(input: &Path, out: &Path) -> Result<PathBuf> {
 /// `None`) and timeout. A missing `soffice` yields [`OpdfError::OfficeMissing`]
 /// before anything is spawned.
 pub fn office_to_pdf_with(soffice: Option<&Path>, input: &Path, out: &Path, timeout: Duration) -> Result<PathBuf> {
+    convert_with_filter(soffice, input, out, timeout, "pdf")
+}
+
+/// iLovePDF's spreadsheet layout choice: one page per whole sheet, including hidden sheets.
+/// This bypasses the ordinary preview cache because it ignores saved paper and print ranges.
+pub fn spreadsheet_to_pdf(input: &Path, out: &Path) -> Result<PathBuf> {
+    if !input.extension().is_some_and(|ext| ["xls", "xlsx", "ods", "csv"].iter().any(|s| ext.eq_ignore_ascii_case(s))) {
+        return Err(OpdfError::Unsupported("Whole-sheet layout requires an Excel, ODS or CSV spreadsheet".into()));
+    }
+    convert_with_filter(None, input, out, DEFAULT_TIMEOUT, WHOLE_SHEETS)
+}
+
+const WHOLE_SHEETS: &str = r#"pdf:calc_pdf_Export:{"SinglePageSheets":{"type":"boolean","value":"true"}}"#;
+
+fn convert_with_filter(soffice: Option<&Path>, input: &Path, out: &Path, timeout: Duration, filter: &str) -> Result<PathBuf> {
     // Markdown and e-mail as a web page set here, PostScript through Ghostscript (`textdocs`).
     if crate::textdocs::kind(input).is_some() {
         return crate::textdocs::to_pdf(input, out, |html, out| office_to_pdf_with(soffice, html, out, timeout));
@@ -76,7 +91,7 @@ pub fn office_to_pdf_with(soffice: Option<&Path>, input: &Path, out: &Path, time
 
     let mut child = Command::new(&soffice)
         .arg(format!("-env:UserInstallation={profile}"))
-        .args(["--headless", "--norestore", "--nologo", "--convert-to", "pdf", "--outdir"])
+        .args(["--headless", "--norestore", "--nologo", "--convert-to", filter, "--outdir"])
         .arg(&outdir)
         .arg(&input)
         .stdin(Stdio::null())

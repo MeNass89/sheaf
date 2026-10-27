@@ -632,6 +632,25 @@ export component OptionsPanel inherits VerticalLayout {
         text: "The file is rebuilt from what can still be read. Keep the original until you have checked the copy.";
     }
 
+    // iLovePDF's Excel to PDF: use saved print areas or one complete sheet per page.
+    if root.tool == "excel_to_pdf": VerticalLayout {
+        spacing: 10px;
+        SectionLabel { text: "Spreadsheet layout"; }
+        RadioCard {
+            title: "Saved print layout";
+            description: "Use the workbook's paper and print areas";
+            selected: root.layout != 1;
+            clicked => { root.layout = 0; }
+        }
+        RadioCard {
+            title: "One page per whole sheet";
+            description: "Page size grows to fit each sheet";
+            selected: root.layout == 1;
+            clicked => { root.layout = 1; }
+        }
+        if root.layout == 1: InfoBox { text: "Includes hidden sheets. Saved paper sizes and print areas are ignored."; }
+    }
+
     if root.tool == "jpg_to_pdf" || root.tool == "html_to_pdf": VerticalLayout {
         spacing: 10px;
         // iLovePDF's options: page size, orientation (for paper), margin, one PDF or one each.
