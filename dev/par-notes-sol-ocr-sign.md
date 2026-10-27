@@ -73,6 +73,16 @@
   Left: TSA server selection and transport remain absent: brief rule 3 explicitly prohibits
   network features. A local adapter does not confer trust on a self-signed TSA. No GUI claim.
 
+- C-optimize-009 (partial): `sheaf review-ocr FILE` lists hidden OCR runs with their page
+  boxes and possible decoding artifacts; `correct-ocr FILE --page N --line N --expected OLD
+  --text NEW -o fixed.pdf` corrects the hidden text, or `--not-text` removes it (Acrobat's
+  Correct Recognized Text / This is not text). Visible text and stale review rows are refused.
+  Tests `corrected_and_rejected_ocr_runs_change_search_text_but_never_the_scan`,
+  `ocr_correction_refuses_visible_text_and_stale_review_rows` check scan pixels and searchable text.
+  New public items core `ocr_review::{ReviewLine, review, correct}`, `TextLine::invisible`.
+  Left: GUI suspect highlighting, per-suspect Accept/Next and retained model confidence are
+  absent. This is an accessible CLI correction workflow, not Acrobat GUI parity.
+
 ## Polaroid
 
 - Active: eight-component OCR/sign/security batch. Signature storage implementation written and inspected;

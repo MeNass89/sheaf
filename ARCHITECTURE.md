@@ -92,3 +92,5 @@ Core `ocr_local.rs` supplies installed offline Tesseract script packs to the exi
 Core `search_index.rs` builds/searches versioned catalogs (`sheaf index` / `search-index`); folder search consumes a `.sheaf-index.json` catalog when present.
 
 Core `security_policy.rs` imports/exports reusable AES-256 settings, applied by `security::protect_with_settings` (`save-security-policy` / `apply-security-policy` in the CLI).
+
+Core `ocr_review.rs` lists hidden runs and corrects/removes their searchable text without repainting the scan (`review-ocr` / `correct-ocr`).

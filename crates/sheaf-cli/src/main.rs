@@ -70,7 +70,7 @@ impl Cmd {
             Cmd::Edit { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
             // They write no PDF.
-            Cmd::SaveSecurityPolicy { .. } | Cmd::ApplySecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
+            Cmd::ReviewOcr { .. } | Cmd::CorrectOcr { .. } | Cmd::SaveSecurityPolicy { .. } | Cmd::ApplySecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
         }
     }
 
@@ -79,8 +79,9 @@ impl Cmd {
     fn out_dir(&self) -> Option<&Path> {
         match self {
             Cmd::Split { out, .. } | Cmd::ToJpg { out, .. } => Some(out),
-            Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Tools | Cmd::Mcp => None,
-            Cmd::SaveSecurityPolicy { out, .. }
+            Cmd::ReviewOcr { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Tools | Cmd::Mcp => None,
+            Cmd::CorrectOcr { out, .. }
+            | Cmd::SaveSecurityPolicy { out, .. }
             | Cmd::ApplySecurityPolicy { out, .. }
             | Cmd::Index { out, .. }
             | Cmd::Merge { out, .. }
@@ -246,6 +247,17 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 note!("warning: {w}");
             }
             warned(Ok((r.path, r.was_encrypted)))
+        }
+        Cmd::ReviewOcr { input: i } => {
+            let lines = sheaf_core::ocr_review::review(&input(i))?;
+            agent::set_data(serde_json::to_value(lines).map_err(|e| OpdfError::Engine(e.to_string()))?);
+            Ok(vec![])
+        }
+        Cmd::CorrectOcr { input: i, page, line, expected, text, not_text, out } => {
+            let i = input(i);
+            let replacement = if not_text { "" } else { text.as_deref().ok_or_else(|| OpdfError::Unsupported("Supply --text or --not-text".into()))? };
+            let path = sheaf_core::ocr_review::correct(&i, page as usize - 1, line as usize - 1, &expected, replacement, &out)?;
+            warned(Ok((path, i.is_encrypted())))
         }
         Cmd::ToWord { input: i, ocr, out } => office_export(&input(i), Office::Word, ocr, &out),
         Cmd::ToPowerpoint { input: i, ocr, out } => office_export(&input(i), Office::PowerPoint, ocr, &out),

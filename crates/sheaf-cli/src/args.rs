@@ -337,6 +337,29 @@ pub(crate) enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Review the invisible OCR text, with page boxes and possible decoding errors
+    ReviewOcr {
+        input: PathBuf,
+    },
+    /// Correct an OCR run or mark it as not text, without repainting the scan
+    #[command(group = clap::ArgGroup::new("correction").required(true).args(["text", "not_text"]))]
+    CorrectOcr {
+        input: PathBuf,
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+        page: u32,
+        /// Run number from review-ocr (1-based)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+        line: u32,
+        /// The original text from review-ocr; refuses a stale selection
+        #[arg(long)]
+        expected: String,
+        #[arg(long)]
+        text: Option<String>,
+        #[arg(long)]
+        not_text: bool,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Export to an editable Word document (.docx); the layout is approximate
     ToWord {
         /// The PDF to read

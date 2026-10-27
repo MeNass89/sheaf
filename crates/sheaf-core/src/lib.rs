@@ -17,6 +17,7 @@ pub mod layers;
 pub mod office;
 pub mod numbers;
 pub mod ocr;
+pub mod ocr_review;
 pub mod pages;
 pub mod pdfa;
 pub mod pdfcraft;
