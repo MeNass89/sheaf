@@ -387,10 +387,7 @@ pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
     let w = u32::try_from(s.dict.get(b"Width").and_then(Object::as_i64).ok()?).ok()?;
     let h = u32::try_from(s.dict.get(b"Height").and_then(Object::as_i64).ok()?).ok()?;
     let img = if identity_decode(s) {
-        let opts = zune_core::options::DecoderOptions::default().jpeg_set_out_colorspace(zune_core::colorspace::ColorSpace::CMYK);
-        let mut dec = zune_jpeg::JpegDecoder::new_with_options(std::io::Cursor::new(&s.content[..]), opts);
-        // YCCK JPEGs cannot be read as raw CMYK: the decoder refuses, and the picture is left alone.
-        let raw = dec.decode().ok()?;
+        let raw = jpeg_stored_cmyk(&s.content)?;
         if raw.len() != (w as usize).checked_mul(h as usize)?.checked_mul(4)? { return None; }
         let ink = |v: u8, k: u8| ((255 - u16::from(v)) * (255 - u16::from(k)) / 255) as u8;
         RgbImage::from_fn(w, h, |x, y| {
@@ -403,6 +400,35 @@ pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
         return None;
     };
     ((img.width(), img.height()) == (w, h)).then_some(img)
+}
+
+/// A 4-component JPEG's stored components as CMYK bytes, before any inversion: read as they are,
+/// or, for a YCCK JPEG (Adobe transform 2, what ImageMagick and Photoshop write), its YCC turned
+/// back into the stored C, M and Y as libjpeg does (C = 255 − R of the YCC's RGB), K as it is
+/// (Sol, 27/10: such JPEGs without /Decode were left out of Invert and grey).
+fn jpeg_stored_cmyk(data: &[u8]) -> Option<Vec<u8>> {
+    use zune_core::colorspace::ColorSpace;
+    let read = |out: ColorSpace| {
+        let opts = zune_core::options::DecoderOptions::default().jpeg_set_out_colorspace(out);
+        let mut dec = zune_jpeg::JpegDecoder::new_with_options(std::io::Cursor::new(data), opts);
+        let r = dec.decode();
+        (r, dec.input_colorspace())
+    };
+    match read(ColorSpace::CMYK) {
+        (Ok(raw), _) => Some(raw),
+        (Err(_), Some(ColorSpace::YCCK)) => {
+            let mut raw = read(ColorSpace::YCCK).0.ok()?;
+            for p in raw.as_chunks_mut::<4>().0 {
+                let (y, cb, cr) = (f32::from(p[0]), f32::from(p[1]) - 128.0, f32::from(p[2]) - 128.0);
+                let rgb = [y + 1.402 * cr, y - 0.344_136 * cb - 0.714_136 * cr, y + 1.772 * cb];
+                for (c, v) in p.iter_mut().zip(rgb) {
+                    *c = 255 - v.round().clamp(0.0, 255.0) as u8;
+                }
+            }
+            Some(raw)
+        }
+        _ => None,
+    }
 }
 
 /// True when /Decode is `[1 0 1 0 1 0 1 0]`, the array Adobe's inverted CMYK JPEGs come with.
