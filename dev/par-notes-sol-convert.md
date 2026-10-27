@@ -7,7 +7,7 @@
   are written for the orchestrator, never reported as passing.
 - No network features. Do not choose LibreOffice bundling on Nassim's behalf (HANDOFF).
 
-## Components
+## Components — pass 1
 
 - C-convert-002 (partial): Office conversion can discover a packaged LibreOffice runtime beside
   Sheaf, ahead of a system installation (iLovePDF's offline Office conversion; test
@@ -82,7 +82,7 @@
   colour/transparency/font rules; PDF/E needs a separate standards implementation. This batch does
   not supply them. No test added because no PDF/X or PDF/E conversion was implemented.
 
-## Integration
+## Integration — pass 1
 
 - No new dependency, no Cargo manifest or lockfile change.
 - `Job::Office` now has `html: Option<sheaf_core::html::Options>`; its constructor in
@@ -102,7 +102,7 @@
   Impeccable static detector returned `[]` for the changed Slint targets; no rendered UI was judged.
 - No board grades changed. None of the six components is claimed at parity or 9/10.
 
-## Polaroid — handoff
+## Polaroid — pass 1 handoff (superseded below)
 
 - Status: worker implementation finished; ready for the orchestrator's compilation and review.
 - Delivered: four partial implementations and their tests; two standards components inspected
@@ -251,3 +251,35 @@
   option restored and light/dark options — runtime forbidden by rule 1.
 - LIGNES : max 3 (archival-check information) · cases > 6 : aucune.
 - Provisional author grade: f8 a8 p8; standard-level gap remains, source-only, no parity claim.
+
+## Pass 2 — C-convert-019
+
+- C-convert-019 (partial, replaces pass 1's no implementation): Print production now offers
+  Save as PDF/X-3:2002, an offline Ghostscript conversion of the whole current working document.
+  The operator chooses a CMYK/Gray **output** ICC profile and names the press condition. Profile
+  header/class/channels/size are checked. The source document and its encryption/undo state are
+  untouched; a temporary copy is converted, with bounded log tails and a 120-second child timeout.
+  An existing destination is kept through atomic_write. Output is explicitly unprotected.
+- The actual written file must have PDF 1.3, PDF/X-3:2002 metadata, GTS_PDFX output intent with
+  the right channel count, and no unembedded fonts in the engine check before publication.
+  These are limited structural checks, **not full ISO conformance validation**; the Slint panel
+  and export completion say so. PDF/E, PDF/X-1 and PDF/X-4 are **not implemented**.
+- Primary evidence: Acrobat `aapp/Standards_R_RHP.aapp`, engine catalog/commands, installed
+  Ghostscript `PDFX_def.ps`, ICC header of the installed FOGRA39L profile, and
+  [Ghostscript's documented PDF/X route](https://ghostscript.readthedocs.io/en/gs10.05.1/VectorDevices.html#creating-a-pdf-x-document).
+  A full PDF/X validator was not found (`command -v verapdf` returned no path; veraPDF alone
+  would not supply general PDF/X/PDF/E verification anyway). No Ghostscript executable was run.
+- Tests `press_profiles_reject_rgb_and_postscript_strings_cannot_escape`,
+  `pdfx3_uses_the_chosen_press_profile_and_preserves_the_working_document`,
+  `a_converter_that_claims_success_without_pdfx_and_a_timeout_publish_nothing`. All written,
+  not run. The real export test requires Ghostscript and a real CMYK profile (environment
+  `SHEAF_TEST_PRESS_PROFILE`, else the known Linux FOGRA39L profile), plus PDFium/poppler/qpdf.
+- Public core module `press`, APIs `Options`, `validate`, `find_ghostscript`, `to_pdfx3`,
+  `to_pdfx3_with`. Reader `Op::ExportPdfX` and `Reply::PdfXExported` handle the document thread.
+  No new menu index, no crate dependency. External runtime: Ghostscript from PATH or
+  SHEAF_GHOSTSCRIPT; macOS Homebrew's normal paths also detected. Ghostscript is not bundled.
+- not automatable: choose ICC/condition, export unsaved changes, wrong/RGB ICC, missing runtime,
+  existing destination, password/permission cases and both themes — rule 1 forbids execution.
+- LIGNES : max 4 (PDF/X section, title + three lines) · cases > 6 : aucune.
+- Provisional author grade: f4 a7 p6; genuine conversion code, but unexecuted and no standards
+  validator, PDF/E, or full Acrobat parity. Counterpart must review after the green merged suite.

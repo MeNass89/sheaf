@@ -7,6 +7,8 @@ use super::*;
 pub(super) struct State {
     pub open: bool,
     pub production_open: bool,
+    pub press_profile: Option<PathBuf>,
+    pub press_busy: bool,
     pub busy: bool,
     pub report: Option<String>,
     pub rows: ModelRc<ReaderPrintCheck>,
@@ -159,6 +161,43 @@ pub fn production_box(ui: &AppWindow, tab_id: i32, which: i32, margins: [&str; 4
             apply(ui, tab_id, edit, &pages, None);
         }
         Err(error) => crate::flow::toast(ui, &error),
+    }
+}
+
+/// Acrobat's Save as PDF/X: the operator supplies the actual press profile and condition.
+pub fn press_profile(ui: &AppWindow, tab_id: i32) {
+    let d = crate::dialog::new(ui).set_title("Choose press ICC profile").add_filter("ICC profile", &["icc", "icm"]);
+    crate::dialog::pick_file(ui, d, move |_, path| { update(tab_id, |r, _| r.prepress.press_profile = Some(path)); });
+}
+
+pub fn press_export(ui: &AppWindow, tab_id: i32, condition: &str) {
+    let Some((dir, stem, profile, busy)) = update(tab_id, |r, _| {
+        (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(), r.prepress.press_profile.clone(), r.prepress.press_busy)
+    }) else { return };
+    if busy { return; }
+    let Some(profile) = profile else { crate::flow::toast(ui, "Choose the press's CMYK or Gray ICC profile first"); return };
+    let options = sheaf_core::press::Options { profile, condition: condition.to_string() };
+    if options.condition.trim().is_empty() { crate::flow::toast(ui, "Name the press output condition"); return; }
+    let d = crate::dialog::new(ui).set_title("Save PDF/X-3 copy").set_directory(&dir).set_file_name(format!("{stem} - PDFX-3.pdf")).add_filter("PDF", &["pdf"]);
+    crate::dialog::save_file(ui, d, move |_, to| {
+        update(tab_id, |r, _| {
+            if r.prepress.press_busy { return; }
+            r.prepress.press_busy = true;
+            r.prepress.production_open = false;
+            r.in_flight += 1;
+            r.send(Op::ExportPdfX { to, options });
+        });
+    });
+}
+
+pub(super) fn press_exported(ui: &AppWindow, tab_id: i32, result: Result<PathBuf, String>) {
+    update(tab_id, |r, _| {
+        r.prepress.press_busy = false;
+        r.in_flight = r.in_flight.saturating_sub(1);
+    });
+    match result {
+        Ok(path) => crate::flow::toast(ui, &format!("PDF/X-3 copy saved as {}; full ISO validation was not performed", file_name(&path))),
+        Err(error) => crate::flow::toast(ui, &format!("PDF/X-3 copy was not saved: {error}")),
     }
 }
 

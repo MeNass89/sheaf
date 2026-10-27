@@ -205,6 +205,8 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_preflight_page, |ui, id, page| reader_ui::preflight_page(&ui, id, page));
     wire_global!(ui, rb, on_fix_page_hairlines, |ui, id| reader_ui::fix_page_hairlines(&ui, id));
     wire_global!(ui, rb, on_add_crop_marks, |ui, id| reader_ui::add_crop_marks(&ui, id));
+    wire_global!(ui, rb, on_press_profile, |ui, id| reader_ui::press_profile(&ui, id));
+    wire_global!(ui, rb, on_press_export, |ui, id, condition| reader_ui::press_export(&ui, id, &condition));
     rb.on_production_close(reader_ui::production_close);
     wire_global!(ui, rb, on_production_hairlines, |ui, id, minimum, all| reader_ui::production_hairlines(&ui, id, &minimum, all));
     wire_global!(ui, rb, on_production_marks, |ui, id, all| reader_ui::production_marks(&ui, id, all));

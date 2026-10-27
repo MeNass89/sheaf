@@ -869,6 +869,7 @@ export component ReaderScreen inherits Rectangle {
         focus-pages => { keys.focus(); }
     }
     if root.tab.reader.production-open: ProductionSheet {
+        tab: root.tab;
         id: root.id;
         focus-pages => { keys.focus(); }
     }

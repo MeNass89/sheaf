@@ -532,6 +532,7 @@ pub enum Op {
     AccessibilityCheck,
     /// A measured print-readiness report from the current document (Acrobat's Preflight).
     PrintPreflight { profile: sheaf_core::preflight::Profile },
+    ExportPdfX { to: PathBuf, options: sheaf_core::press::Options },
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
     /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
@@ -604,6 +605,7 @@ pub enum Reply {
     Upright(Vec<(usize, i64)>),
     Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
     PrintPreflight(Result<String, String>),
+    PdfXExported(Result<PathBuf, String>),
     /// The loupe's area: (width, height, RGBA pixels), or why not.
     Loupe(Result<(u32, u32, Vec<u8>), String>),
     /// A flattened copy written (`FlatCopy`), or why not.
@@ -896,6 +898,9 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             Ok(to) => reply(Reply::Exported { to, error: None }),
                             Err(e) => reply(Reply::Exported { to, error: Some(e) }),
                         }
+                    }
+                    Op::ExportPdfX { to, options } => {
+                        reply(Reply::PdfXExported(sheaf_core::press::to_pdfx3(&doc, &options, &to).map_err(|e| e.to_string())));
                     }
                     Op::PrintPreflight { profile } => {
                         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();

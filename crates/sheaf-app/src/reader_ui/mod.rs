@@ -907,6 +907,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Upright(turns) => pages::upright(ui, id, turns),
         Reply::Accessibility(report) => accessibility::checked(id, report),
         Reply::PrintPreflight(report) => prepress::checked(ui, id, report),
+        Reply::PdfXExported(result) => prepress::press_exported(ui, id, result),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };

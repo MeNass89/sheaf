@@ -23,6 +23,7 @@ pub mod pages;
 pub mod pdfa;
 pub mod pdfcraft;
 pub mod preflight;
+pub mod press;
 pub mod paths;
 pub mod ranges;
 pub mod redact;

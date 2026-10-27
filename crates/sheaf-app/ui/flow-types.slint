@@ -363,6 +363,8 @@ export struct ReaderState {
     help-open: bool,
     voices: [string],
     // More tools ▸ Print preflight: measured results, split without dropping conditions.
+    press-profile: string,
+    press-busy: bool,
     production-open: bool,
     preflight-open: bool,
     preflight-busy: bool,
@@ -968,6 +970,8 @@ export global ReaderBridge {
     callback preflight-page(int, int);
     callback fix-page-hairlines(int);
     callback add-crop-marks(int);
+    callback press-profile(int);
+    callback press-export(int, string);
     callback production-close(int);
     callback production-hairlines(int, string, bool);
     callback production-marks(int, bool);

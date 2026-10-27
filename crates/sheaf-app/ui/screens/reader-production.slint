@@ -3,9 +3,10 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { SmallButton } from "reader-parts.slint";
-import { ReaderBridge } from "../flow-types.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
 
 export component ProductionSheet inherits Rectangle {
+    in property <ToolTab> tab;
     in property <int> id;
     callback focus-pages();
     property <bool> all: false;
@@ -70,10 +71,26 @@ export component ProductionSheet inherits Rectangle {
                     HorizontalLayout {
                         SmallButton { text: "Add crop marks"; clicked => { ReaderBridge.production-marks(root.id, root.all); root.focus-pages(); } }
                     }
+                    Rectangle { height: 1px; background: Theme.separator; }
+                    Text { text: "Save as PDF/X-3:2002"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    Text { text: "Whole document; no password protection.\nNeeds a local Ghostscript installation.\nUse the press's CMYK or Gray ICC profile."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    HorizontalLayout {
+                        SmallButton { text: root.tab.reader.press-profile == "" ? "Choose ICC profile…" : "Change ICC profile…"; clicked => { ReaderBridge.press-profile(root.id); } }
+                    }
+                    if root.tab.reader.press-profile != "": Text { text: root.tab.reader.press-profile; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
+                    condition := TextField { label: "Output condition"; placeholder: "For example, FOGRA39 coated"; }
+                    Text { text: "Checks output markers and embedded fonts.\nFull ISO validation is not included.\nNo PDF/E or other PDF/X levels."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    HorizontalLayout {
+                        SmallButton {
+                            text: root.tab.reader.press-busy ? "Converting…" : "Save PDF/X-3 copy…";
+                            opacity: root.tab.reader.press-busy ? 0.5 : 1;
+                            clicked => { if !root.tab.reader.press-busy { ReaderBridge.press-export(root.id, condition.text); } }
+                        }
+                    }
                 }
             }
             HorizontalLayout {
-                Text { text: "Each change can be undone"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                Text { text: "Page edits can be undone"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; }
                 SmallButton { text: "Close"; clicked => { ReaderBridge.production-close(root.id); root.focus-pages(); } }
             }
