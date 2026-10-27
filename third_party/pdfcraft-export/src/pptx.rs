@@ -749,7 +749,7 @@ mod tests {
         // The table must contain both the cell and explicit borders
         assert!(slide_xml.contains("<a:tbl>"));
         assert!(slide_xml.contains("+99%"));
-        assert!(slide_xml.contains("<a:tcPr><a:lnL w=\"12700\" cmpd=\"s\">"));
+        assert!(slide_xml.contains("<a:tcPr marT=\"25400\" marB=\"25400\"><a:lnL w=\"12700\" cmpd=\"s\">"));
     }
 
     #[test]

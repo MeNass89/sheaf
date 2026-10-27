@@ -68,7 +68,15 @@ pub fn enhance(input: &Input, out: &Path, progress: &mut dyn FnMut(f32) -> bool)
 fn real_words(ocr: &crate::pdfcraft::engine::ocr::Ocr, img: &image::RgbaImage) -> usize {
     let vowel = |w: &str| w.chars().any(|c| "aeiouyAEIOUYàâéèêëîïôûüÀÂÉÈÊËÎÏÔÛÜ".contains(c));
     ocr.recognize(img.as_raw(), img.width(), img.height())
-        .map(|lines| lines.iter().flat_map(|l| &l.words).filter(|w| w.text.chars().filter(|c| c.is_alphabetic()).count() >= 3 && vowel(&w.text)).count())
+        // Upright only: the reader also reads words standing on their side, so a page turned a
+        // quarter would count as many as one set straight.
+        .map(|lines| {
+            lines
+                .iter()
+                .flat_map(|l| &l.words)
+                .filter(|w| matches!(w.turn, crate::pdfcraft::engine::ocr::Turn::Upright) && w.text.chars().filter(|c| c.is_alphabetic()).count() >= 3 && vowel(&w.text))
+                .count()
+        })
         .unwrap_or(0)
 }
 
