@@ -225,6 +225,8 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::AddTextBox { .. }
         | Edit::AddLoupe { .. }
         | Edit::AddMask { .. }
+        | Edit::AddTextBoxInFont { .. }
+        | Edit::SetTextBoxFontProgram { .. }
         | Edit::AddCustomStamp { .. }
         | Edit::DeleteAnnotation { .. }
         | Edit::SetAnnotationContents { .. }
@@ -255,6 +257,7 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::EditPageImage { .. }
         | Edit::RemoveImages { .. }
         | Edit::AddText { .. }
+        | Edit::AddTextInFont { .. }
         | Edit::AddImage { .. }
         | Edit::AddArtwork { .. }
         | Edit::OverlayPdf { .. }
@@ -1399,6 +1402,25 @@ pub enum Edit {
         thread: usize,
         bead: usize,
     },
+    /// Sheaf: new text written in a font of the computer's (an open-licensed full font program,
+    /// embedded first; pdfcraft-edit's `add_text_in_font`): page content, not an added item.
+    AddTextInFont {
+        page: usize,
+        text: AddedText,
+        font: Arc<Vec<u8>>,
+    },
+    /// Sheaf: a text box added (`annotation`, a `Shape::TextBox`) in a font of the computer's.
+    AddTextBoxInFont {
+        annotation: NewAnnotation,
+        align: u8,
+        font: Arc<Vec<u8>>,
+    },
+    /// Sheaf: text box `index` on `page` set in a font of the computer's (`text_box_font.rs`).
+    SetTextBoxFontProgram {
+        page: usize,
+        index: usize,
+        font: Arc<Vec<u8>>,
+    },
     /// Sheaf: Preview's Loupe: a circle of `radius` about `centre` (user space) showing the page
     /// under it `magnify` times as large, ringed in `color` (`pdfcraft_annot::loupe_mask`).
     AddLoupe {
@@ -2021,6 +2043,9 @@ impl Edit {
             Edit::AddAnnotation(a) => Label::of(add_annotation(&a.shape)),
             Edit::AddTextBox { .. } => Label::of("Add text box"),
             Edit::AddLoupe { .. } => Label::of("Add loupe"),
+            Edit::AddTextInFont { .. } => Label::of("Add text"),
+            Edit::AddTextBoxInFont { .. } => Label::of("Add text box"),
+            Edit::SetTextBoxFontProgram { .. } => Label::of("Change font"),
             Edit::AddMask { .. } => Label::of("Add mask"),
             Edit::AddCustomStamp { .. } => Label::of("Add stamp"),
             Edit::DeleteAnnotation { .. } => Label::of("Delete comment"),
@@ -2205,6 +2230,8 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::AddTextBox { .. }
         | Edit::AddLoupe { .. }
         | Edit::AddMask { .. }
+        | Edit::AddTextBoxInFont { .. }
+        | Edit::SetTextBoxFontProgram { .. }
         | Edit::AddCustomStamp { .. }
         | Edit::DeleteAnnotation { .. }
         | Edit::SetAnnotationContents { .. }
@@ -2252,6 +2279,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::AddField { .. }
         | Edit::ApplyRedactions { .. }
         | Edit::AddText { .. }
+        | Edit::AddTextInFont { .. }
         | Edit::AddImage { .. }
         | Edit::AddArtwork { .. }
         | Edit::OverlayPdf { .. }
@@ -2472,6 +2500,13 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::AddAnnotation(a) => {
             pdfcraft_annot::add_annotation(doc, a, &cx.meta())?;
         }
+        Edit::AddTextInFont { page, text, font } => pdfcraft_edit::add_text_in_font(doc, *page, text, font)?,
+        Edit::AddTextBoxInFont { annotation, align, font } => {
+            let index = pdfcraft_annot::add_annotation(doc, annotation, &cx.meta())?;
+            pdfcraft_annot::set_text_font(doc, annotation.page, index, "Helv", None, Some(*align), &cx.meta())?;
+            pdfcraft_annot::text_box_font::set_text_box_font_program(doc, annotation.page, index, font, &cx.meta())?;
+        }
+        Edit::SetTextBoxFontProgram { page, index, font } => pdfcraft_annot::text_box_font::set_text_box_font_program(doc, *page, *index, font, &cx.meta())?,
         Edit::AddLoupe { page, centre, radius, magnify, color, author } => {
             pdfcraft_annot::loupe_mask::add_loupe(doc, *page, (*centre, *radius), *magnify, *color, author, &cx.meta())?;
         }

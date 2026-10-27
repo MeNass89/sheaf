@@ -624,9 +624,8 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             let rect = [x0, size.1 - (d.at.1 + h), x0 + w + pt, size.1 - d.at.1];
             return Some((
                 d.page,
-                Edit::AddText {
-                    page: d.page,
-                    text: AddedText {
+                {
+                    let added = AddedText {
                         rect,
                         text: if r.text_bullets { reader::bulleted(&text) } else { text.clone() },
                         size: pt,
@@ -636,7 +635,12 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
                         italic: r.text_italic,
                         align: TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize],
                         underline: r.text_underline,
-                    },
+                    };
+                    // In a font of the computer's when one is chosen (More fonts…).
+                    match r.text_font.as_ref() {
+                        Some((_, font)) => Edit::AddTextInFont { page: d.page, text: added, font: font.clone() },
+                        None => Edit::AddText { page: d.page, text: added },
+                    }
                 },
             ));
         }
@@ -668,7 +672,16 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let callout = matches!(shape, Shape::Callout { .. });
         let annotation = NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 || callout { 1.0 } else { 0.0 }), contents: text, author: author() };
         // A text box in the font of the format row; a callout in PdfCraft's own (Helvetica).
-        Some((d.page, if d.kind == 0 || callout { Edit::AddAnnotation(annotation) } else { Edit::AddTextBox { annotation, font: super::tools::text_font(r).into(), align: r.text_align as u8 } }))
+        let align = r.text_align as u8;
+        Some((
+            d.page,
+            match r.text_font.as_ref() {
+                _ if d.kind == 0 || callout => Edit::AddAnnotation(annotation),
+                // A font of the computer's chosen (More fonts…).
+                Some((_, font)) => Edit::AddTextBoxInFont { annotation, align, font: font.clone() },
+                None => Edit::AddTextBox { annotation, font: super::tools::text_font(r).into(), align },
+            },
+        ))
     })
     .flatten();
     if let Some((page, e)) = edit {

@@ -65,3 +65,41 @@ fn a_paragraph_is_set_in_a_font_of_the_computers_and_underlined() {
     doc.session_mut().undo(id).unwrap();
     assert!(doc.document().editable_objects(0).unwrap().iter().all(|o| o.target.kind != ObjectKind::Path), "one undo takes it all back");
 }
+
+/// Every `/BaseFont` of the saved file.
+fn base_fonts(path: &Path) -> Vec<String> {
+    let saved = lopdf::Document::load(path).unwrap();
+    saved
+        .objects
+        .values()
+        .filter_map(|o| o.as_dict().ok())
+        .filter_map(|d| d.get(b"BaseFont").ok().and_then(|b| b.as_name().ok()).map(|b| String::from_utf8_lossy(b).into_owned()))
+        .collect()
+}
+
+/// New text and a new text box in a font of the computer's (More fonts…): embedded, read back;
+/// the text box keeps the font through a new size; an existing text box takes it too.
+#[test]
+fn new_text_and_text_boxes_take_a_font_of_the_computers() {
+    use sheaf_core::pdfcraft::engine::{AddedText, NewAnnotation, Shape, Style};
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = common::fixture_pdf(dir.path(), "blank.pdf", 1);
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    let font = Arc::new(std::fs::read(great_vibes()).unwrap());
+    let text = AddedText { rect: [72.0, 600.0, 400.0, 640.0], text: "Added in Great Vibes".into(), size: 24.0, underline: true, ..Default::default() };
+    doc.apply(Edit::AddTextInFont { page: 0, text, font: font.clone() }).unwrap();
+    let shape = Shape::TextBox { rect: [72.0, 400.0, 300.0, 440.0], font_size: 14.0 };
+    let style = Style { color: [0.0; 3], width: 0.0, ..Style::default_for(&shape) };
+    let annotation = NewAnnotation { page: 0, shape, style, contents: "Boxed".into(), author: String::new() };
+    doc.apply(Edit::AddTextBoxInFont { annotation, align: 0, font: font.clone() }).unwrap();
+    // A new size keeps the box's font (its own, by `/DA`, passed on as "").
+    doc.apply(Edit::SetTextFont { page: 0, index: 0, font: String::new(), size: Some(20.0), align: None }).unwrap();
+    let out = doc.save(&dir.path().join("fonts.pdf")).unwrap();
+    common::qpdf_clean(&out);
+    assert!(base_fonts(&out).iter().filter(|b| b.contains("GreatVibes")).count() >= 2, "{:?}", base_fonts(&out));
+    let shown = common::shown_texts(&out)[0].clone();
+    assert!(shown.contains("Added in Great Vibes"), "{shown}");
+    // A character the font lacks: refused, the page as it was.
+    let lacking = AddedText { rect: [72.0, 300.0, 400.0, 340.0], text: "日本".into(), size: 12.0, ..Default::default() };
+    assert!(doc.apply(Edit::AddTextInFont { page: 0, text: lacking, font }).is_err());
+}

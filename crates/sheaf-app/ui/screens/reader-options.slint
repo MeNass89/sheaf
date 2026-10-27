@@ -210,9 +210,9 @@ export component ReaderOptionsBar inherits Rectangle {
             SmallButton { y: 2px; text: "Sans"; primary: root.tab.reader.text-family == 0 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
             SmallButton { y: 2px; text: "Serif"; primary: root.tab.reader.text-family == 1 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
             SmallButton { y: 2px; text: "Mono"; primary: root.tab.reader.text-family == 2 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
-            // Edit tool, a paragraph open: set in one of the computer's fonts (Acrobat's Edit PDF
-            // font list).
-            if root.tab.reader.tool == 7 && root.tab.reader.note.show && root.tab.reader.note.kind == 2: Rectangle {
+            // One of the computer's fonts, for the paragraph open, new text or a text box
+            // (Acrobat's font list).
+            Rectangle {
                 width: font-button.preferred-width;
                 font-button := SmallButton {
                     y: 2px;

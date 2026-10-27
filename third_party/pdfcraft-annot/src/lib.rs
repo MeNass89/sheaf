@@ -20,6 +20,8 @@ pub mod appearance;
 pub mod links;
 /// Sheaf: Preview's Loupe and Mask.
 pub mod loupe_mask;
+/// Sheaf: a text box in a font of the computer's.
+pub mod text_box_font;
 
 #[cfg(test)]
 mod tests;

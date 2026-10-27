@@ -159,6 +159,11 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
             r.para_format = (r.para_format | set) & !clear;
         }
         let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| a.subtype == "FreeText" && !a.fill_sign)?;
+        // A font of the computer's for the selected text box: embedded, the box drawn in it.
+        if what == 8 {
+            let font = r.text_font.as_ref()?.1.clone();
+            return Some((a.page, Edit::SetTextBoxFontProgram { page: a.page, index: a.index, font }));
+        }
         let now = a.font.unwrap_or(("Helv", 12.0, 0));
         // Only a family, bold or italic click changes the font: a size or alignment change keeps the
         // box's own (one the row does not list, an embedded one, stays).
