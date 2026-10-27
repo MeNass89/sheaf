@@ -1,5 +1,5 @@
 use crate::{pages::Input, paths::atomic_write, Result};
-use lopdf::encryption::crypt_filters::{Aes256CryptFilter, CryptFilter};
+use lopdf::encryption::crypt_filters::{Aes128CryptFilter, Aes256CryptFilter, CryptFilter};
 use lopdf::{EncryptionState, EncryptionVersion, Permissions};
 use std::{collections::BTreeMap, path::{Path, PathBuf}, sync::Arc};
 
@@ -37,6 +37,27 @@ pub struct ProtectPermissions {
     pub filling_forms: bool,
 }
 
+/// Acrobat's print quality and changes-allowed choices. Defaults preserve old policies.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PrintQuality { Low, #[default] High }
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ChangeLevel { None, Assemble, FillForms, CommentForms, #[default] Any }
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EncryptionAlgorithm { Aes128, #[default] Aes256 }
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ProtectionOptions {
+    pub print_quality: PrintQuality,
+    pub changes: ChangeLevel,
+    pub algorithm: EncryptionAlgorithm,
+}
+
 impl Default for ProtectPermissions {
     fn default() -> Self {
         Self { printing: true, copying: true, editing: true, commenting: true, filling_forms: true }
@@ -44,14 +65,22 @@ impl Default for ProtectPermissions {
 }
 
 impl ProtectPermissions {
-    fn flags(self) -> Permissions {
+    fn flags(self, options: ProtectionOptions) -> Permissions {
         let mut flags = Permissions::all();
-        flags.set(Permissions::PRINTABLE | Permissions::PRINTABLE_IN_HIGH_QUALITY, self.printing);
+        flags.set(Permissions::PRINTABLE, self.printing);
+        flags.set(Permissions::PRINTABLE_IN_HIGH_QUALITY, self.printing && options.print_quality == PrintQuality::High);
         flags.set(Permissions::COPYABLE, self.copying);
         // Page assembly is a separate PDF bit, but belongs to the Editing control.
         flags.set(Permissions::MODIFIABLE | Permissions::ASSEMBLABLE, self.editing);
         flags.set(Permissions::ANNOTABLE, self.commenting);
         flags.set(Permissions::FILLABLE, self.filling_forms);
+        match options.changes {
+            ChangeLevel::Any => {},
+            ChangeLevel::CommentForms => { flags.remove(Permissions::MODIFIABLE | Permissions::ASSEMBLABLE); },
+            ChangeLevel::FillForms => { flags.remove(Permissions::MODIFIABLE | Permissions::ASSEMBLABLE | Permissions::ANNOTABLE); },
+            ChangeLevel::Assemble => { flags.remove(Permissions::MODIFIABLE | Permissions::ANNOTABLE | Permissions::FILLABLE); },
+            ChangeLevel::None => { flags.remove(Permissions::MODIFIABLE | Permissions::ASSEMBLABLE | Permissions::ANNOTABLE | Permissions::FILLABLE); },
+        }
         flags
     }
 }
@@ -75,6 +104,11 @@ pub fn protect_with_permissions(input: &Input, user_pw: &str, owner_pw: Option<&
 
 /// Acrobat's Encrypt all document contents except metadata: XMP stays readable to a catalog.
 pub fn protect_with_settings(input: &Input, user_pw: &str, owner_pw: Option<&str>, permissions: ProtectPermissions, encrypt_metadata: bool, out: &Path) -> Result<PathBuf> {
+    protect_with_options(input, user_pw, owner_pw, permissions, encrypt_metadata, ProtectionOptions::default(), out)
+}
+
+/// Apply exact print quality, changes-allowed and AES compatibility choices in Rust.
+pub fn protect_with_options(input: &Input, user_pw: &str, owner_pw: Option<&str>, permissions: ProtectPermissions, encrypt_metadata: bool, options: ProtectionOptions, out: &Path) -> Result<PathBuf> {
     // No open password is allowed when an owner password restricts the file (Acrobat's "Restrict
     // editing and printing" alone): it opens for anyone, with those restrictions.
     if user_pw.is_empty() && owner_pw.is_none_or(str::is_empty) { return Err(crate::OpdfError::Unsupported("password must not be empty".into())); }
@@ -87,7 +121,7 @@ pub fn protect_with_settings(input: &Input, user_pw: &str, owner_pw: Option<&str
     let generated: String;
     let owner = match owner_pw.filter(|pw| !pw.is_empty()) {
         Some(pw) => pw,
-        None if permissions != ProtectPermissions::default() => {
+        None if permissions.flags(options) != Permissions::all() => {
             let mut b = [0u8; 24];
             getrandom::fill(&mut b).map_err(|e| crate::OpdfError::Conversion(format!("rng: {e}")))?;
             generated = b.iter().map(|x| format!("{x:02x}")).collect();
@@ -95,20 +129,29 @@ pub fn protect_with_settings(input: &Input, user_pw: &str, owner_pw: Option<&str
         }
         None => user_pw,
     };
-    let cf: Arc<dyn CryptFilter> = Arc::new(Aes256CryptFilter);
-    let version = EncryptionVersion::V5 {
-        encrypt_metadata,
-        crypt_filters: BTreeMap::from([(b"StdCF".to_vec(), cf)]),
-        file_encryption_key: &key,
-        stream_filter: b"StdCF".to_vec(),
-        string_filter: b"StdCF".to_vec(),
-        owner_password: owner,
-        user_password: user_pw,
-        permissions: permissions.flags(),
+    let state = match options.algorithm {
+        EncryptionAlgorithm::Aes128 => {
+            let cf: Arc<dyn CryptFilter> = Arc::new(Aes128CryptFilter);
+            EncryptionState::try_from(EncryptionVersion::V4 {
+                document: &doc, encrypt_metadata,
+                crypt_filters: BTreeMap::from([(b"StdCF".to_vec(), cf)]),
+                stream_filter: b"StdCF".to_vec(), string_filter: b"StdCF".to_vec(),
+                owner_password: owner, user_password: user_pw, permissions: permissions.flags(options),
+            })?
+        }
+        EncryptionAlgorithm::Aes256 => {
+            let cf: Arc<dyn CryptFilter> = Arc::new(Aes256CryptFilter);
+            EncryptionState::try_from(EncryptionVersion::V5 {
+                encrypt_metadata, crypt_filters: BTreeMap::from([(b"StdCF".to_vec(), cf)]),
+                file_encryption_key: &key, stream_filter: b"StdCF".to_vec(), string_filter: b"StdCF".to_vec(),
+                owner_password: owner, user_password: user_pw, permissions: permissions.flags(options),
+            })?
+        }
     };
-    let state = EncryptionState::try_from(version)?;
+    let minimum = match options.algorithm { EncryptionAlgorithm::Aes128 => "1.6", EncryptionAlgorithm::Aes256 => "2.0" };
+    if doc.version.as_str() < minimum { doc.version = minimum.into(); }
     doc.encrypt(&state)?;
-    set_aes256_key_length(&mut doc)?;
+    if options.algorithm == EncryptionAlgorithm::Aes256 { set_aes256_key_length(&mut doc)?; }
     for obj in doc.objects.values_mut() { hex_strings(obj); }
     atomic_write(out, |part| { doc.save(part)?; Ok(()) })
 }
@@ -162,7 +205,8 @@ fn set_aes256_key_length(doc: &mut lopdf::Document) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{password_strength, PasswordStrength::*};
+    use super::*;
+    use super::PasswordStrength::*;
 
     #[test]
     fn strength_uses_length_and_character_classes() {
@@ -177,4 +221,22 @@ mod tests {
             assert_eq!(password_strength(password), expected, "{password:?}");
         }
     }
+    #[test]
+    fn every_changes_allowed_level_only_removes_the_requested_pdf_permissions() {
+        let p = ProtectPermissions::default();
+        for (changes, assemble, fill, comment, edit) in [
+            (ChangeLevel::None, false, false, false, false),
+            (ChangeLevel::Assemble, true, false, false, false),
+            (ChangeLevel::FillForms, false, true, false, false),
+            (ChangeLevel::CommentForms, false, true, true, false),
+            (ChangeLevel::Any, true, true, true, true),
+        ] {
+            let flags = p.flags(ProtectionOptions { changes, ..Default::default() });
+            for (bit, expected) in [(Permissions::ASSEMBLABLE, assemble), (Permissions::FILLABLE, fill), (Permissions::ANNOTABLE, comment), (Permissions::MODIFIABLE, edit)] {
+                assert_eq!(flags.contains(bit), expected, "{changes:?}");
+            }
+            assert!(flags.contains(Permissions::COPYABLE | Permissions::COPYABLE_FOR_ACCESSIBILITY));
+        }
+    }
+
 }

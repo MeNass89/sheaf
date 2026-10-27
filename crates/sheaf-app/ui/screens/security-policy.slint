@@ -3,6 +3,7 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { PanelButton } from "../widgets/panel-button.slint";
 import { TextField } from "../widgets/text-field.slint";
+import { SortCombo } from "../widgets/sort-combo.slint";
 import { Check } from "../widgets/check.slint";
 import { ToolTab, ReaderBridge } from "../flow-types.slint";
 
@@ -13,12 +14,16 @@ export component SecurityPolicySheet inherits Rectangle {
     property <bool> changed-settings: name.text != root.tab.reader.policy-name
         || printing.checked != root.tab.reader.policy-flags[0] || copying.checked != root.tab.reader.policy-flags[1]
         || editing.checked != root.tab.reader.policy-flags[2] || commenting.checked != root.tab.reader.policy-flags[3]
-        || forms.checked != root.tab.reader.policy-flags[4] || metadata.checked != root.tab.reader.policy-flags[5];
+        || forms.checked != root.tab.reader.policy-flags[4] || metadata.checked != root.tab.reader.policy-flags[5]
+        || quality.current-index != root.tab.reader.policy-choices[0] || changes.current-index != root.tab.reader.policy-choices[1]
+        || algorithm.current-index != root.tab.reader.policy-choices[2];
     changed sequence => {
         name.text = root.tab.reader.policy-name;
         printing.checked = root.tab.reader.policy-flags[0]; copying.checked = root.tab.reader.policy-flags[1];
         editing.checked = root.tab.reader.policy-flags[2]; commenting.checked = root.tab.reader.policy-flags[3];
         forms.checked = root.tab.reader.policy-flags[4]; metadata.checked = root.tab.reader.policy-flags[5];
+        quality.current-index = root.tab.reader.policy-choices[0]; changes.current-index = root.tab.reader.policy-choices[1];
+        algorithm.current-index = root.tab.reader.policy-choices[2];
         user.text = ""; confirmation.text = ""; owner.text = ""; owner-confirmation.text = "";
     }
     background: #00000044;
@@ -73,13 +78,19 @@ export component SecurityPolicySheet inherits Rectangle {
                         commenting := Check { text: "Commenting"; checked: root.tab.reader.policy-flags[3]; }
                         forms := Check { text: "Filling forms"; checked: root.tab.reader.policy-flags[4]; }
                         metadata := Check { text: "Encrypt document metadata"; checked: root.tab.reader.policy-flags[5]; }
+                        Text { text: "Print quality (when printing is allowed)"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                        quality := SortCombo { width: 240px; options: ["High resolution", "Low resolution only"]; current-index: root.tab.reader.policy-choices[0]; chevron: @image-url("../icons/chevron-down.svg"); }
+                        Text { text: "Maximum changes allowed"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                        changes := SortCombo { width: 240px; options: ["All checked actions", "No changes", "Page assembly only", "Form filling only", "Comments and form filling"]; current-index: root.tab.reader.policy-choices[1]; chevron: @image-url("../icons/chevron-down.svg"); }
+                        Text { text: "Encryption compatibility"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                        algorithm := SortCombo { width: 240px; options: ["AES-256 (modern readers)", "AES-128 (older readers)"]; current-index: root.tab.reader.policy-choices[2]; chevron: @image-url("../icons/chevron-down.svg"); }
                         PanelButton {
                             text: "Save policy";
                             enabled: !root.tab.reader.policy-busy;
-                            clicked => { ReaderBridge.policy-save(root.tab.id, name.text, printing.checked, copying.checked, editing.checked, commenting.checked, forms.checked, metadata.checked); }
+                            clicked => { ReaderBridge.policy-save(root.tab.id, name.text, printing.checked, copying.checked, editing.checked, commenting.checked, forms.checked, metadata.checked, quality.current-index, changes.current-index, algorithm.current-index); }
                         }
                         Text { text: "Apply to this PDF"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                        Text { text: root.changed-settings ? "Save the settings before applying or exporting." : "AES-256 protected copy. Restrictions need a separate owner password."; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                        Text { text: root.changed-settings ? "Save the settings before applying or exporting." : "Protected copy with the saved encryption settings. Restrictions need a separate owner password."; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
                         user := TextField { label: "Open password (optional)"; password: true; allow-reveal: true; }
                         confirmation := TextField { label: "Confirm open password"; password: true; }
                         owner := TextField { label: "Owner password"; password: true; allow-reveal: true; }

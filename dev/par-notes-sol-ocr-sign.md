@@ -530,3 +530,28 @@
   `not automatable: OCR a scan, filter suspects, correct one word, accept/next, undo, save/reopen;
   check confidence labels and highlight — running the app is forbidden by rule 1`.
 - Proposed grade: C-optimize-009: f8 a8 p8 — confidence/neighbor/pixel/undo test above; no joint 9.
+
+## Third pass — C-security-008
+
+- C-security-008: policies now retain high/low print resolution, changes allowed (none,
+  page assembly, forms, comments+forms, all checked actions), and AES-128/AES-256 compatibility.
+  These choices are editable in the existing GUI and CLI (`--print-quality`, `--changes`,
+  `--algorithm`), survive the local library/import/export, and reach actual PDF permission
+  bits and crypt filters. Existing booleans can further restrict, never broaden, the choices.
+  Restricted output gets a distinct generated owner password if none is supplied by CLI;
+  the GUI requires a separate confirmed owner password. PDF headers meet the AES minimum.
+- Old v1 policies default to their original settings; unknown algorithms/options are refused.
+  No new dependency. New core public types `ProtectionOptions`, `PrintQuality`, `ChangeLevel`,
+  `EncryptionAlgorithm`; function `security::protect_with_options`; public policy `validate`.
+  Slint policy-save callback has three appended choice indexes; model gets policy-choices.
+- Tests written (not run): `policy_print_quality_change_levels_and_aes_compatibility_reach_the_encrypted_pdf`,
+  `every_changes_allowed_level_only_removes_the_requested_pdf_permissions`,
+  `old_policies_keep_defaults_and_unknown_compatibility_is_refused`,
+  `policy_choice_indexes_map_to_exact_print_change_and_algorithm_settings`,
+  `policy_compatibility_choices_and_incremental_folder_index_are_accessible`, plus expanded
+  policy-library round-trip test (ensures saving an imported advanced policy cannot reset it).
+- Left: no certificate policies, stored-password option, Acrobat proprietary settings exchange
+  or trust-settings exchange. Passwords are still asked per apply; AES only, no legacy RC4.
+  `not automatable: create/import advanced policy, save/edit/export/reopen, inspect print quality,
+  changes and compatibility on protected output — app and tests forbidden by rule 1`.
+- Proposed grade: C-security-008: f8 a7 p8 — PDF-output/round-trip tests above, unrun.

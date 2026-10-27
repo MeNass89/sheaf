@@ -253,7 +253,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_signature_manager_save(|id, commands, name, font, ink, pen| reader_ui::signature_manager_save(id, &commands, &name, font, ink, pen));
     rb.on_policy_open(reader_ui::policy_open);
     wire_global!(ui, rb, on_policy_action, |ui, id, action, index| reader_ui::policy_action(&ui, id, action, index));
-    rb.on_policy_save(|id, name, printing, copying, editing, commenting, forms, metadata| reader_ui::policy_save(id, &name, [printing, copying, editing, commenting, forms, metadata]));
+    rb.on_policy_save(|id, name, printing, copying, editing, commenting, forms, metadata, quality, changes, algorithm| reader_ui::policy_save(id, &name, [printing, copying, editing, commenting, forms, metadata], [quality, changes, algorithm]));
     wire_global!(ui, rb, on_policy_apply, |ui, id, user, confirmation, owner, owner_confirmation| reader_ui::policy_apply(&ui, id, &user, &confirmation, &owner, &owner_confirmation));
     rb.on_catalog_open(reader_ui::catalog_open);
     wire_global!(ui, rb, on_catalog_action, |ui, id, action, index, query| reader_ui::catalog_action(&ui, id, action, index, &query));

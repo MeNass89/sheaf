@@ -471,6 +471,7 @@ export struct ReaderState {
     policy-names: [string],
     policy-name: string,
     policy-flags: [bool],
+    policy-choices: [int],
     policy-status: string,
     policy-seq: int,
     catalog-open: bool,
@@ -877,7 +878,7 @@ export global ReaderBridge {
     callback signature-manager-save(int, string, string, int, int, int);
     callback policy-open(int);
     callback policy-action(int, int, int);
-    callback policy-save(int, string, bool, bool, bool, bool, bool, bool);
+    callback policy-save(int, string, bool, bool, bool, bool, bool, bool, int, int, int);
     callback policy-apply(int, string, string, string, string);
     callback catalog-open(int);
     callback catalog-action(int, int, int, string);

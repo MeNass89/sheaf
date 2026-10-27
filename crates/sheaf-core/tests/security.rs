@@ -217,3 +217,24 @@ fn an_imported_policy_applies_restrictions_and_leaves_metadata_clear() {
     let unlocked = unlock(&Input { path: out, password: Some("user".into()) }, &t.path().join("unlocked.pdf")).unwrap();
     assert_eq!(page_texts(&unlocked), ["Page 1"]);
 }
+
+#[test]
+fn policy_print_quality_change_levels_and_aes_compatibility_reach_the_encrypted_pdf() {
+    use sheaf_core::{security::{ProtectionOptions, PrintQuality, ChangeLevel, EncryptionAlgorithm}, security_policy::SecurityPolicy};
+    let t = tempfile::tempdir().unwrap();
+    let source = fixture_pdf(t.path(), "source.pdf", 1);
+    for (i, algorithm) in [EncryptionAlgorithm::Aes128, EncryptionAlgorithm::Aes256].into_iter().enumerate() {
+        let mut policy = SecurityPolicy::new("Forms".into(), ProtectPermissions::default(), true).unwrap();
+        policy.options = ProtectionOptions { print_quality: PrintQuality::Low, changes: ChangeLevel::FillForms, algorithm };
+        let saved = policy.save(&t.path().join(format!("policy-{i}.json"))).unwrap();
+        let policy = SecurityPolicy::load(&saved).unwrap();
+        let output = policy.apply(&Input::new(&source), "user", None, &t.path().join(format!("protected-{i}.pdf"))).unwrap();
+        let info = qpdf(&["--show-encryption", "--password=user", output.to_str().unwrap()]);
+        for expected in ["Supplied password is user password", "print low resolution: allowed", "print high resolution: not allowed", "modify document assembly: not allowed", "modify other: not allowed", "modify forms: allowed", "modify annotations: not allowed"] {
+            assert!(info.contains(expected), "missing {expected}: {info}");
+        }
+        assert!(info.contains(if i == 0 { "AESv2" } else { "AESv3" }), "{info}");
+        let decrypted = unlock(&Input { path: output, password: Some("user".into()) }, &t.path().join(format!("clear-{i}.pdf"))).unwrap();
+        assert_eq!(page_texts(&decrypted), ["Page 1"]);
+    }
+}
