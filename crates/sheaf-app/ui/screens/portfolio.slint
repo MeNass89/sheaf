@@ -3,7 +3,7 @@ import { Theme } from "../theme.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Modal } from "dialogs.slint";
 
-export struct PortfolioRow { name: string, detail: string }
+export struct PortfolioRow { name: string, detail: string, description: string, size: string, kind: string, folder: string }
 export global PortfolioBridge {
     in-out property <bool> visible;
     in-out property <bool> busy;
@@ -12,6 +12,13 @@ export global PortfolioBridge {
     in-out property <string> title: "PDF Portfolio";
     in-out property <[PortfolioRow]> files;
     in-out property <string> status;
+    in-out property <int> selected: -1;
+    in-out property <string> folder;
+    in-out property <[string]> folders;
+    in-out property <bool> preview-busy;
+    in-out property <bool> has-preview;
+    in-out property <image> preview;
+    in-out property <string> preview-text;
     callback open();
     callback browse(int);
     callback command(string, int);
@@ -50,5 +57,72 @@ export component PortfolioPanel inherits Modal {
         if !PortfolioBridge.browsing: Button { text: PortfolioBridge.busy ? "Creating…" : "Save portfolio…"; enabled: !PortfolioBridge.busy && PortfolioBridge.files.length > 0; clicked => { PortfolioBridge.command("create", 0); } }
         Rectangle { horizontal-stretch: 1; }
         Button { text: "Close"; enabled: !PortfolioBridge.busy; clicked => { PortfolioBridge.visible = false; } }
+    }
+}
+
+// Portfolio browsing is a document surface, not a cover-page attachment dialog.
+export component PortfolioBrowser inherits Rectangle {
+    background: Theme.content-bg;
+    VerticalLayout {
+        padding: 24px; spacing: 16px;
+        HorizontalLayout {
+            spacing: 12px;
+            Text { text: "PDF Portfolio"; color: Theme.text; font-size: Theme.fs-title; font-weight: 600; horizontal-stretch: 1; }
+            Button { text: "View cover"; clicked => { PortfolioBridge.visible = false; } }
+        }
+        Text { text: PortfolioBridge.status; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 20px; vertical-stretch: 1;
+            if PortfolioBridge.folders.length > 0: ScrollView {
+                width: 130px;
+                VerticalLayout {
+                    spacing: 6px; alignment: start;
+                    Button { text: "All files"; clicked => { PortfolioBridge.folder = ""; } }
+                    for folder in PortfolioBridge.folders: Button { text: folder; clicked => { PortfolioBridge.folder = folder; } }
+                }
+            }
+            ScrollView {
+                horizontal-stretch: 3;
+                VerticalLayout {
+                    spacing: 6px; alignment: start;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Text { text: "Name"; horizontal-stretch: 2; color: Theme.text-secondary; font-size: Theme.fs-label; }
+                        Text { text: "Description"; horizontal-stretch: 2; color: Theme.text-secondary; font-size: Theme.fs-label; }
+                        Text { text: "Size"; width: 80px; color: Theme.text-secondary; font-size: Theme.fs-label; }
+                    }
+                    for row[i] in PortfolioBridge.files: Rectangle {
+                        visible: PortfolioBridge.folder == "" || PortfolioBridge.folder == row.folder;
+                        height: self.visible ? 86px : 0px;
+                        border-radius: Theme.radius-small;
+                        background: PortfolioBridge.selected == i ? Theme.menu-selected-bg : Theme.card;
+                        VerticalLayout {
+                            padding: 10px; spacing: 8px;
+                            HorizontalLayout {
+                                spacing: 10px;
+                                Text { text: row.name; horizontal-stretch: 2; color: Theme.text; font-size: Theme.fs-body; overflow: elide; }
+                                Text { text: row.description; horizontal-stretch: 2; color: Theme.text-secondary; font-size: Theme.fs-caption; overflow: elide; }
+                                Text { text: row.size; width: 80px; color: Theme.text-secondary; font-size: Theme.fs-caption; }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Button { text: "Preview"; clicked => { PortfolioBridge.command("preview-item", i); } }
+                                Button { text: "Open"; clicked => { PortfolioBridge.command("open-item", i); } }
+                                Button { text: "Save copy…"; clicked => { PortfolioBridge.command("save-item", i); } }
+                            }
+                        }
+                    }
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 2; background: Theme.card; border-radius: Theme.radius-small;
+                VerticalLayout {
+                    padding: 16px; spacing: 12px;
+                    Text { text: PortfolioBridge.preview-busy ? "Loading preview…" : "Preview"; color: Theme.text; font-size: Theme.fs-subtitle; }
+                    if PortfolioBridge.has-preview: Image { source: PortfolioBridge.preview; image-fit: contain; vertical-stretch: 1; }
+                    if !PortfolioBridge.has-preview: ScrollView { vertical-stretch: 1; Text { text: PortfolioBridge.preview-text; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; } }
+                }
+            }
+        }
     }
 }

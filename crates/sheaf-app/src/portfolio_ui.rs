@@ -9,6 +9,7 @@ fn rows(ui: &AppWindow) {
     let rows = FILES.with(|files| files.borrow().iter().map(|p| PortfolioRow {
         name: p.file_name().unwrap_or_default().to_string_lossy().as_ref().into(),
         detail: format!("{} bytes · {}", std::fs::metadata(p).map_or(0, |m| m.len()), p.display()).into(),
+        ..Default::default()
     }).collect::<Vec<_>>());
     ui.global::<PortfolioBridge>().set_files(ModelRc::new(VecModel::from(rows)));
 }
@@ -38,6 +39,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     if b.get_busy() { return; }
     if b.get_browsing() {
         let id = b.get_tab();
+        if what == "preview-item" { crate::reader_ui::portfolio::preview(ui, id, index); }
         if what == "open-item" { b.set_visible(false); crate::reader_ui::attachment_open(ui, id, index); }
         if what == "save-item" { crate::reader_ui::attachment_save(ui, id, index); }
         return;

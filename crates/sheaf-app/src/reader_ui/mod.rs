@@ -1119,7 +1119,7 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     if ok {
         crate::viewer_ui::request(ui, id);
         if update(id, |r, _| r.snap.portfolio && !r.snap.attachments.is_empty()) == Some(true) {
-            crate::flow::toast(ui, "A PDF Portfolio: its files are listed in Files, a click opens one");
+            portfolio::browse(ui, id);
         }
         let ask = update(id, |r, _| r.window_ask.take().map(|a| (a, r.snap.boxes.first().map_or((612.0, 792.0), |b| b.view_size())))).flatten();
         if let Some(((fit, centre), page)) = ask {

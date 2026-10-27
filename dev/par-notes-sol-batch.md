@@ -432,3 +432,17 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   of a collapsible tree. All render/performance grades remain provisional.
   not automatable: add mixed PDFs/ZIPs, browse folders, filter, multi-select across filters,
   export/delete and verify thumbnails at minimum size — app launch forbidden by brief rule 1.
+
+- C-organize-024: a portfolio now opens directly in a full document browser rather than only
+  its cover/attachment modal. Name, Description and Size are distinct columns sourced from
+  embedded-file metadata; folders present in item names can be filtered. Preview renders the
+  first PDF page, bounded images or the first 64 KiB of text entirely locally; unsupported Office
+  and other formats explain Open/Save copy without spawning LibreOffice. View cover returns to
+  the reader. Decoded previews cap files at 32 MB and image allocation at 64 MB.
+  Test `portfolio_browser_uses_embedded_description_size_and_native_text_preview` proves metadata
+  and original text preview (written, not run), alongside the existing core portfolio tests.
+  Left: editing arbitrary collection-schema fields, real PDF Collection folder creation, sorting,
+  multi-page previews and themes. Existing generated file order and original-byte preservation
+  remain covered by core tests. No dependency, external conversion program or network.
+  not automatable: open a portfolio, preview PDF/image/text/Office, check description/size columns,
+  Save copy and View cover — app launch/render forbidden by brief rule 1.
