@@ -8,6 +8,7 @@ pub(super) struct State {
     pub open: bool,
     pub production_open: bool,
     pub press_profile: Option<PathBuf>,
+    pub press_condition: String,
     pub press_busy: bool,
     pub busy: bool,
     pub report: Option<String>,
@@ -169,18 +170,30 @@ pub fn production_box(ui: &AppWindow, tab_id: i32, which: i32, margins: [&str; 4
 /// Acrobat's Save as PDF/X: the operator supplies the actual press profile and condition.
 pub fn press_profile(ui: &AppWindow, tab_id: i32) {
     let d = crate::dialog::new(ui).set_title("Choose press ICC profile").add_filter("ICC profile", &["icc", "icm"]);
-    crate::dialog::pick_file(ui, d, move |_, path| { update(tab_id, |r, _| r.prepress.press_profile = Some(path)); });
+    crate::dialog::pick_file(ui, d, move |_, path| { update(tab_id, |r, _| { r.prepress.press_profile = Some(path); r.prepress.press_condition.clear(); }); });
 }
 
-pub fn press_export(ui: &AppWindow, tab_id: i32, condition: &str) {
-    let Some((dir, stem, profile, busy)) = update(tab_id, |r, _| {
-        (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(), r.prepress.press_profile.clone(), r.prepress.press_busy)
+pub fn press_preset(ui: &AppWindow, tab_id: i32, preset: i32) {
+    use sheaf_core::press::{Preset, installed_profile};
+    let preset = match preset { 0 => Preset::Fogra39, 1 => Preset::Gracol, 2 => Preset::Swop, _ => return };
+    let Some(path) = installed_profile(preset) else {
+        crate::flow::toast(ui, &format!("{} is not installed. Install its ICC locally, or choose the press's ICC file", preset.label()));
+        return;
+    };
+    update(tab_id, |r, _| { r.prepress.press_profile = Some(path); r.prepress.press_condition = preset.label().into(); });
+}
+
+pub fn press_export(ui: &AppWindow, tab_id: i32, condition: &str, level: i32) {
+    let Some((dir, stem, profile, preset_condition, busy)) = update(tab_id, |r, _| {
+        (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(), r.prepress.press_profile.clone(), r.prepress.press_condition.clone(), r.prepress.press_busy)
     }) else { return };
     if busy { return; }
     let Some(profile) = profile else { crate::flow::toast(ui, "Choose the press's CMYK or Gray ICC profile first"); return };
-    let options = sheaf_core::press::Options { profile, condition: condition.to_string() };
+    let level = match level { 0 => sheaf_core::press::Level::X3, 1 => sheaf_core::press::Level::X1a, 2 => sheaf_core::press::Level::X4, _ => return };
+    let condition = if condition.trim().is_empty() { preset_condition } else { condition.to_string() };
+    let options = sheaf_core::press::Options { level, profile, condition };
     if options.condition.trim().is_empty() { crate::flow::toast(ui, "Name the press output condition"); return; }
-    let d = crate::dialog::new(ui).set_title("Save PDF/X-3 copy").set_directory(&dir).set_file_name(format!("{stem} - PDFX-3.pdf")).add_filter("PDF", &["pdf"]);
+    let d = crate::dialog::new(ui).set_title(format!("Save {} copy", level.label())).set_directory(&dir).set_file_name(format!("{stem} - {}.pdf", level.label().replace('/', "").replace(':', "-"))).add_filter("PDF", &["pdf"]);
     crate::dialog::save_file(ui, d, move |ui, to| {
         update(tab_id, |r, _| {
             if r.prepress.press_busy { return; }
@@ -197,8 +210,8 @@ pub(super) fn press_exported(ui: &AppWindow, tab_id: i32, result: Result<PathBuf
         r.prepress.press_busy = false;
     });
     match result {
-        Ok(path) => crate::flow::toast(ui, &format!("PDF/X-3 copy saved as {}; full ISO validation was not performed", file_name(&path))),
-        Err(error) => crate::flow::toast(ui, &format!("PDF/X-3 copy was not saved: {error}")),
+        Ok(path) => crate::flow::toast(ui, &format!("PDF/X copy saved as {}; full ISO validation was not performed", file_name(&path))),
+        Err(error) => crate::flow::toast(ui, &format!("PDF/X copy was not saved: {error}")),
     }
 }
 

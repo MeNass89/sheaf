@@ -633,3 +633,25 @@ verification. No network features; no compiler, test, app or Codex invocation. N
   No dependency. New public variant `PdfALevel::A1b`; orchestrator must update exhaustive matches
   in concurrent branches if any. New private core module `pdfa1.rs`.
   not automatable: check new level, history, strict failure and report in both themes — no app runs.
+
+- C-convert-019 (partial): Acrobat's Save as PDF/X now offers X-1a:2001, X-3:2002 and X-4.
+  Ghostscript gets the explicit variant and PDF version; Sheaf checks exact variant markers,
+  X-1a conformance, exact ICC bytes, embedded fonts, forbidden colour spaces (X-1a), and
+  transparency (allowed only for X-4). An old converter's wrong output is refused, never relabeled.
+  Named FOGRA39 / GRACoL / SWOP buttons find validated CMYK profiles already installed in bounded
+  local directories (`SHEAF_ICC_DIR` supported); absent profiles get a recovery message and the
+  manual ICC picker. No profile is fabricated or downloaded. PDF/E remains unavailable: no engine
+  or validator for its engineering-specific restrictions. No new dependency.
+  Tests WRITTEN, NOT RUN:
+  `press_levels_require_the_requested_markers_and_allow_transparency_only_in_x4`,
+  `named_press_profiles_require_a_real_matching_installed_cmyk_profile`; existing snapshot,
+  wrong-output, timeout, ICC-substitution and transparency tests updated/preserved.
+  Public additions: `press::Level`, `Preset`, `installed_profile`; `Options.level` is required.
+  Existing `to_pdfx3[_with]` names retained for compatibility but now honor `Options.level`.
+  Runtime reference checked: https://ghostscript.readthedocs.io/en/latest/VectorDevices.html
+  (`-dPDFX=1/3/4`; its older "Creating a PDF/X" warning contradicts the updated option section).
+  Installed 10.02.1 sample only demonstrates X-3; real-runtime X-1a/X-4 corpus validation remains
+  mandatory, and unsupported runtimes must publish nothing. Profile files are not bundled.
+  not automatable: both themes, three levels, absent profile/runtime recovery, background snapshot
+  — app execution is forbidden. Source reference: Acrobat's `PrintProduction_R_RHP.aapp` and
+  `Standards_R_RHP.aapp` read directly from the archive.

@@ -14,7 +14,7 @@ fn pdfx3_uses_the_chosen_press_profile_and_preserves_the_working_document() {
     let source = common::fixture_pdf(t.path(), "source.pdf", 1);
     let doc = Doc::open(&Input::new(&source)).unwrap();
     let before = doc.full_bytes().unwrap();
-    let options = Options { profile, condition: "FOGRA39 coated test condition".into() };
+    let options = Options { level: press::Level::X3, profile, condition: "FOGRA39 coated test condition".into() };
     let out = t.path().join("press.pdf");
     std::fs::write(&out, "existing press copy").unwrap();
     let written = press::to_pdfx3_with(&doc, &options, &out, &gs, Duration::from_secs(120)).unwrap();
@@ -48,7 +48,7 @@ fn a_converter_that_claims_success_without_pdfx_and_a_timeout_publish_nothing() 
     header[36..40].copy_from_slice(b"acsp");
     let profile = t.path().join("fake.icc");
     std::fs::write(&profile, header).unwrap();
-    let options = Options { profile, condition: "Test only".into() };
+    let options = Options { level: press::Level::X3, profile, condition: "Test only".into() };
     let fake = t.path().join("fake-gs");
     // Produces an ordinary PDF with exit 0: a successful process alone is not a press export.
     std::fs::write(&fake, r#"#!/bin/sh
