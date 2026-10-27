@@ -21,4 +21,6 @@ accepted = [
     "CC0-1.0",
     "0BSD",
     "Unlicense",
+    # webpki-roots: the Mozilla root certificates the AI providers' HTTPS is checked against.
+    "CDLA-Permissive-2.0",
 ]
