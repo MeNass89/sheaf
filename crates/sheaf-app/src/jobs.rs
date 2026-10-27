@@ -85,7 +85,7 @@ pub enum Job {
     Watermark { items: Vec<(Input, PathBuf)>, options: WatermarkOptions },
     /// `pages`: "1-3,5", or `None` for every page.
     Crop { input: Input, pages: Option<String>, spec: CropSpec, out: PathBuf },
-    PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel },
+    PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel, allow_incomplete: bool },
     Ocr { items: Vec<(Input, PathBuf)>, options: OcrOptions },
     Export { items: Vec<(Input, PathBuf)>, kind: ExportKind, options: ExportOptions },
     /// `pages`: the pages of the original and of the changed document compared (none: all).
@@ -540,11 +540,11 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             vec![r.path]
         }
-        Job::PdfA { items, level } => {
+        Job::PdfA { items, level, allow_incomplete } => {
             let many = items.len() > 1;
             let mut conforming = 0;
             let outs = batch(each(items, cancel, progress, pair, |(i, o)| {
-                let r = pdfa::to_pdfa(i, *level, o)?;
+                let r = pdfa::to_pdfa_with_policy(i, *level, *allow_incomplete, o)?;
                 was_encrypted |= r.was_encrypted;
                 if r.issues.is_empty() {
                     conforming += 1;

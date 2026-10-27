@@ -227,3 +227,27 @@
   base and pictures in both themes — app/test execution forbidden by rule 1.
 - LIGNES : max 3 (local-files information) · cases > 6 : aucune.
 - Provisional author grade: f7 a8 p8; source-only, no full browser parity claim.
+
+## Pass 2 — C-convert-018
+
+- C-convert-018 (partial): PDF to PDF/A now refuses to publish a copy with unresolved built-in
+  checks by default. The Slint options expose Keep a copy even if checks fail; opt in to keep the
+  previous salvage behaviour and its clause/message report. The choice survives Run again.
+  A failed strict conversion deletes its temporary file and preserves existing output files.
+  New `pdfa::to_pdfa_with_policy`; existing `to_pdfa` keeps its public/CLI compatibility behaviour.
+- Tests `strict_archival_output_keeps_existing_files_and_publishes_no_failed_copy`, expanded
+  `pdfa_job`, and `options_come_back_as_they_were_without_their_passwords`. Written, not run.
+  App job fixtures explicitly select their old permissive policy; normal app jobs default strict.
+- Inspected again: pinned preflight `Level`, `verify`, `convert`; core `pdfa.rs` and its tests;
+  iLovePDF's `PdfToPdfATool.qml` (Allow Downgrade); local Ghostscript's `PDFA_def.ps` prefix.
+  The new choice controls unresolved issues, **not** iLovePDF's valid lower-conformance downgrade.
+  Levels remain 2b/3b. PDF/A-1b and a/u conversion/validation are still **not implemented**.
+  Ghostscript could provide a separate 1b conversion route, but needs profile/runtime discovery,
+  execution safeguards and an independent standards validator; none was added or claimed run.
+- Integration: `Job::PdfA.allow_incomplete` and `ToolOptions.pdfa_allow_incomplete` added, with job
+  constructors, Slint restore/export and task-history serialization updated. No new preference
+  or dependency for this component. The app explicitly calls its check structural, not full ISO.
+- not automatable: strict failure, permissive partial result, batch mixed failures, Run again's
+  option restored and light/dark options — runtime forbidden by rule 1.
+- LIGNES : max 3 (archival-check information) · cases > 6 : aucune.
+- Provisional author grade: f8 a8 p8; standard-level gap remains, source-only, no parity claim.

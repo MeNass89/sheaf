@@ -133,6 +133,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.crop-left = o.crop-left;
         root.crop-right = o.crop-right;
         root.pdfa-level = o.pdfa-level;
+        root.pdfa-allow-incomplete = o.pdfa-allow-incomplete;
         root.ocr-languages = o.ocr-languages;
         root.ocr-all-pages = o.ocr-all-pages;
         root.ocr-enhance = o.ocr-enhance;
@@ -185,6 +186,7 @@ export component OptionsPanel inherits VerticalLayout {
         crop-mode: root.crop-mode, crop-paper: root.crop-paper, per-sheet: root.per-sheet, crop-top: root.crop-top, crop-bottom: root.crop-bottom,
         crop-left: root.crop-left, crop-right: root.crop-right,
         pdfa-level: root.pdfa-level,
+        pdfa-allow-incomplete: root.pdfa-allow-incomplete,
         ocr-languages: root.ocr-languages, ocr-all-pages: root.ocr-all-pages, ocr-enhance: root.ocr-enhance,
         export-ocr: root.export-ocr, export-exact: root.export-exact, excel-layout: root.excel-layout, text-format: root.text-format,
         compare-mode: root.compare-mode,
@@ -324,6 +326,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> crop-left: "10";
     in-out property <string> crop-right: "10";
     in-out property <int> pdfa-level: 0;
+    in-out property <bool> pdfa-allow-incomplete: false;
     in-out property <string> ocr-languages: "," + OcrInfo.default-language + ",";
     in-out property <bool> ocr-all-pages;
     in-out property <bool> ocr-enhance;
@@ -1093,7 +1096,9 @@ export component OptionsPanel inherits VerticalLayout {
             selected: root.pdfa-level == 1;
             clicked => { root.pdfa-level = 1; }
         }
-        InfoBox { text: "Metadata, a colour profile and the other required parts are added, then the file is checked. Anything that cannot be fixed (a font that is not embedded, for example) is listed on the result page."; }
+        Check { text: "Keep a copy even if checks fail"; checked <=> root.pdfa-allow-incomplete; }
+        InfoBox { text: "The written PDF is checked before saving.\nUnfixed issues appear in the results.\nChecks cover structure, not full ISO validation."; }
+        if !root.pdfa-allow-incomplete: InfoBox { text: "If a check fails, no output is saved.\nThe source file is kept."; }
     }
 
     // Stirling's Adjust Colours/Contrast, Preview's Adjust Color: −100 to 100 each, or inverted.

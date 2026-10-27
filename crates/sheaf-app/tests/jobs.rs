@@ -331,14 +331,14 @@ fn pdfa_job_reports_conformance_or_the_rules_still_broken() {
     let dir = tempfile::tempdir().unwrap();
     let src = two_page_pdf(dir.path());
     let no = AtomicBool::new(false);
-    let o = run(&Job::PdfA { items: vec![(Input::new(&src), dir.path().join("a-pdfa.pdf"))], level: PdfALevel::A2b }, &no, &|_| {}).unwrap();
+    let o = run(&Job::PdfA { items: vec![(Input::new(&src), dir.path().join("a-pdfa.pdf"))], level: PdfALevel::A2b, allow_incomplete: true }, &no, &|_| {}).unwrap();
     assert_eq!(o.summary, "Conforms to PDF/A-2b");
     assert!(o.notes.is_empty() && !o.was_encrypted);
     // Text in a font that is not embedded cannot be fixed: the rule is listed.
     let text = helvetica_pdf(dir.path());
     let prot = sheaf_core::security::protect(&Input::new(&text), "pw", None, &dir.path().join("p.pdf")).unwrap();
     let locked = Input { path: prot, password: Some("pw".into()) };
-    let o = run(&Job::PdfA { items: vec![(locked, dir.path().join("p-pdfa.pdf"))], level: PdfALevel::A3b }, &no, &|_| {}).unwrap();
+    let o = run(&Job::PdfA { items: vec![(locked, dir.path().join("p-pdfa.pdf"))], level: PdfALevel::A3b, allow_incomplete: true }, &no, &|_| {}).unwrap();
     assert!(o.was_encrypted);
     assert_eq!(o.summary, "1 file does not fully conform to PDF/A-3b");
     assert!(o.notes.iter().any(|n| n.starts_with("6.2.11.4: ")), "{:?}", o.notes);
