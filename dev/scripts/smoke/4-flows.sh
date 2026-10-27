@@ -777,3 +777,17 @@ TB=$(ocr 1280x80+0+0); PG=$(ocr 900x500+190+90)
 shot 310-text-preview
 check "a .txt opens in the reader (tab: $(echo "$TB" | grep -o 'notes[^ ]*' | head -1); page: $(echo "$PG" | grep -o 'Shopping list' | head -1))" "echo \"$PG\" | grep -q 'Shopping list' && echo \"$PG\" | grep -q 'Milk' && ls \"$OUT\"/profile/tmp/sheaf-previews/*/notes.txt.pdf >/dev/null 2>&1 && [ \"\$(cat \"$OUT/notes.txt\")\" = \"\$(printf 'Shopping list\nMilk and bread')\" ]"
 quit
+
+# 311. Search ▸ In a folder… (C-reader-037, Acrobat's Advanced Search ▸ All PDF documents in a folder) reads every
+# PDF of the folder: "quick" is found in the copy of text.pdf that sorts after 600 other PDFs, and the sheet says
+# how many PDFs it read.
+mkdir -p "$OUT/many"; for i in $(seq -w 1 600); do printf '%%PDF-1.4 empty\n' > "$OUT/many/a$i.pdf"; done
+cp "$OUT/text.pdf" "$OUT/many/z-last.pdf"
+launch "$OUT/text.pdf"
+key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
+answer "$PWD/$OUT/many"
+FS=$(at folder 300x30+0+160); [ -n "$FS" ] && click $FS 4
+FT=$(ocr 800x560+240+100)
+shot 311-folder-search
+check "In a folder… reads all 601 PDFs (link at ${FS:-?}; sheet: $(echo "$FT" | grep -o '[0-9]* page[s]* found in [0-9]* PDFs' | head -1))" "echo \"$FT\" | grep -q 'found in 601 PDFs' && echo \"$FT\" | grep -q 'z-last'"
+quit

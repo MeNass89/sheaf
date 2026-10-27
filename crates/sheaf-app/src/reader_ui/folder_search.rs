@@ -4,9 +4,10 @@
 
 use super::*;
 
-/// How many files and results one search reads and lists at most.
-const MAX_FILES: usize = 500;
-const MAX_RESULTS: usize = 500;
+/// How many results one search lists at most. Every PDF of the folder is read, as Acrobat's Advanced
+/// Search does (Sol, 27/10: only the first 500 files were, silently); a search stopped at this many
+/// pages found says so, and how many files it had read.
+const MAX_RESULTS: usize = 2000;
 
 /// A folder searched: its name, the words, the search still running, and the results (file, page
 /// 0-based, the line around the words).
@@ -16,6 +17,34 @@ pub(super) struct FolderSearch {
     pub(super) query: String,
     pub(super) busy: bool,
     pub(super) results: Vec<(PathBuf, usize, String)>,
+    /// PDFs read, and whether the search stopped at `MAX_RESULTS` before the last one.
+    pub(super) files: usize,
+    pub(super) stopped: bool,
+}
+
+impl FolderSearch {
+    /// The line under the title: searching, nothing, or how many pages in how many PDFs, and that it
+    /// stopped early when it did.
+    pub(super) fn status(&self) -> String {
+        let pdfs = |n: usize| if n == 1 { "1 PDF".to_string() } else { format!("{n} PDFs") };
+        let pages = |n: usize| if n == 1 { "1 page".to_string() } else { format!("{n} pages") };
+        if self.busy {
+            "Searching…".into()
+        } else if self.results.is_empty() {
+            format!("Not found in the folder's {}.", pdfs(self.files))
+        } else if self.stopped {
+            format!("Stopped at the first {} found, after {} — type more words to narrow it.", pages(self.results.len()), pdfs(self.files))
+        } else {
+            format!("{} found in {}", pages(self.results.len()), pdfs(self.files))
+        }
+    }
+}
+
+/// What one search found: the pages, the PDFs read, and whether it stopped at `MAX_RESULTS`.
+pub(super) struct Found {
+    pub(super) results: Vec<(PathBuf, usize, String)>,
+    pub(super) files: usize,
+    pub(super) stopped: bool,
 }
 
 /// In a folder…: a folder chosen, the search panel's words searched in it off the UI thread.
@@ -28,16 +57,18 @@ pub fn folder_search(ui: &AppWindow, tab_id: i32, query: &str) {
     let d = crate::dialog::new(ui).set_title("Search the PDFs of a folder").set_directory(&dir);
     crate::dialog::pick_folder(ui, d, move |ui, folder| {
         update(tab_id, |r, _| {
-            r.folder_search = Some(FolderSearch { folder: file_name(&folder), query: query.clone(), busy: true, results: Vec::new() });
+            r.folder_search = Some(FolderSearch { folder: file_name(&folder), query: query.clone(), busy: true, ..Default::default() });
         });
         let weak = ui.as_weak();
         std::thread::spawn(move || {
-            let results = search_folder(&folder, &query);
+            let found = search_folder(&folder, &query, MAX_RESULTS);
             let _ = weak.upgrade_in_event_loop(move |_| {
                 update(tab_id, |r, _| {
                     if let Some(f) = r.folder_search.as_mut() {
                         f.busy = false;
-                        f.results = results;
+                        f.results = found.results;
+                        f.files = found.files;
+                        f.stopped = found.stopped;
                     }
                 });
             });
@@ -45,8 +76,8 @@ pub fn folder_search(ui: &AppWindow, tab_id: i32, query: &str) {
     });
 }
 
-/// The pages of the PDFs under `folder` holding `query` (any case), in file order.
-pub(super) fn search_folder(folder: &std::path::Path, query: &str) -> Vec<(PathBuf, usize, String)> {
+/// The pages of every PDF under `folder` holding `query` (any case), in file order, at most `max`.
+pub(super) fn search_folder(folder: &std::path::Path, query: &str, max: usize) -> Found {
     let mut files = Vec::new();
     let mut dirs = vec![folder.to_path_buf()];
     while let Some(d) = dirs.pop() {
@@ -56,7 +87,7 @@ pub(super) fn search_folder(folder: &std::path::Path, query: &str) -> Vec<(PathB
         for p in entries {
             if p.is_dir() {
                 dirs.push(p);
-            } else if p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) && files.len() < MAX_FILES {
+            } else if p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
                 files.push(p);
             }
         }
@@ -65,7 +96,8 @@ pub(super) fn search_folder(folder: &std::path::Path, query: &str) -> Vec<(PathB
     // PDF parsing. Changed or unindexed files are read normally, never omitted.
     let catalog = sheaf_core::search_index::Catalog::load(&folder.join(".sheaf-index.json")).ok();
     let mut out = Vec::new();
-    for f in files {
+    let total = files.len();
+    for (read, f) in files.into_iter().enumerate() {
         let cached = catalog.as_ref().and_then(|c| c.texts(&f));
         let pages = match cached {
             Some(pages) => pages.to_vec(),
@@ -73,14 +105,14 @@ pub(super) fn search_folder(folder: &std::path::Path, query: &str) -> Vec<(PathB
         };
         for (page, text) in pages.iter().enumerate() {
             for snippet in page_matches(text, query) {
-                out.push((f.clone(), page, snippet));
-                if out.len() >= MAX_RESULTS {
-                    return out;
+                if out.len() >= max {
+                    return Found { results: out, files: read + 1, stopped: true };
                 }
+                out.push((f.clone(), page, snippet));
             }
         }
     }
-    out
+    Found { results: out, files: total, stopped: false }
 }
 
 /// A word as compared: lower case, its common English endings taken off ("forms", "formed",
@@ -173,7 +205,15 @@ pub fn folder_result(ui: &AppWindow, tab_id: i32, k: i32) {
 
 #[cfg(test)]
 pub fn folder_search_for_test(folder: &std::path::Path, query: &str) -> Vec<(PathBuf, usize, String)> {
-    search_folder(folder, query)
+    search_folder(folder, query, MAX_RESULTS).results
+}
+
+/// The search with its own limit, and the status line it ends on.
+#[cfg(test)]
+pub fn folder_search_status_for_test(folder: &std::path::Path, query: &str, max: usize) -> (usize, String) {
+    let found = search_folder(folder, query, max);
+    let f = FolderSearch { folder: String::new(), query: query.into(), busy: false, results: found.results, files: found.files, stopped: found.stopped };
+    (f.results.len(), f.status())
 }
 
 #[cfg(test)]

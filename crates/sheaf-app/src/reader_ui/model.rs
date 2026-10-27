@@ -655,6 +655,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         folder_open: r.folder_search.is_some(),
         folder_busy: r.folder_search.as_ref().is_some_and(|f| f.busy),
         folder_title: r.folder_search.as_ref().map(|f| format!("“{}” in {}", f.query, f.folder)).unwrap_or_default().into(),
+        folder_status: r.folder_search.as_ref().map(|f| f.status()).unwrap_or_default().into(),
         folder_results: ModelRc::new(VecModel::from(
             r.folder_search
                 .as_ref()

@@ -1362,7 +1362,7 @@ pub use layers::{layer_set, layers_all};
 pub use look_up::look_up;
 pub use folder_search::{folder_result, folder_search};
 #[cfg(test)]
-pub use folder_search::folder_search_for_test;
+pub use folder_search::{folder_search_for_test, folder_search_status_for_test};
 pub use pages::*;
 pub use tools::*;
 pub use search::*;
