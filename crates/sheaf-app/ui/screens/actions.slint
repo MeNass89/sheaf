@@ -4,13 +4,16 @@ import { TextField } from "../widgets/text-field.slint";
 import { Modal } from "dialogs.slint";
 
 export struct ActionRow { name: string, description: string, builtin: bool, custom: bool, source: int }
-export struct ActionCommandRow { label: string, action: int, step: int }
+export struct ActionCommandRow { label: string, action: int, step: int, separator: bool, current: bool }
 export struct ActionStepRow { label: string, detail: string }
 
 export global ActionBridge {
     in-out property <[ActionRow]> rows;
     in-out property <[ActionCommandRow]> commands;
     in-out property <bool> tools-visible;
+    in-out property <int> current-tab: -1;
+    in-out property <string> command-label;
+    in-out property <bool> separator;
     in-out property <bool> discard-visible;
     in-out property <[ActionStepRow]> steps;
     in-out property <[string]> tools;
@@ -154,6 +157,8 @@ export component ActionsScreen inherits Rectangle {
                             Text { text: "Text or JavaScript for this step"; color: Theme.text; font-size: Theme.fs-label; }
                             TextEdit { height: 90px; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
                         }
+                        if ActionBridge.custom: TextField { label: "Command label (optional)"; text <=> ActionBridge.command-label; enabled: !ActionBridge.busy; }
+                        if ActionBridge.custom: CheckBox { text: "Separator before this command"; checked <=> ActionBridge.separator; enabled: !ActionBridge.busy; }
                         TextField { label: "Instructions shown before this step"; text <=> ActionBridge.instruction; enabled: !ActionBridge.busy; }
                         CheckBox { text: "Pause and ask before running this step"; checked <=> ActionBridge.pause; enabled: !ActionBridge.busy; }
                         HorizontalLayout {
@@ -189,7 +194,7 @@ export component ActionsScreen inherits Rectangle {
                     HorizontalLayout {
                         spacing: 8px;
                         Button { text: "Watch folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("watch", 0); } }
-                        Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
+                Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
                     }
                 }
             }
@@ -237,19 +242,25 @@ export component ActionPrompt inherits Modal {
 export component CustomToolsPanel inherits Modal {
     card-width: min(620px, self.width - 32px);
     Text { text: "Custom tools"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
-    Text { text: "Run a saved command on chosen PDFs. Originals stay untouched."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    Text { text: "Apply a command to the open document, or process chosen PDFs. Export and recognition jobs use Run on PDFs."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
     ScrollView {
-        height: min(350px, max(70px, ActionBridge.commands.length * 44px));
+        height: min(350px, max(70px, ActionBridge.commands.length * 80px));
         VerticalLayout {
             spacing: 8px; alignment: start;
-            if ActionBridge.commands.length == 0: Text { text: "Create a custom tool set in Guided actions to add commands here."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
-            for row[i] in ActionBridge.commands: HorizontalLayout {
+            if ActionBridge.commands.length == 0: Text { text: "Create a custom tool set in Actions to add commands here."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+            for row[i] in ActionBridge.commands: VerticalLayout {
+                spacing: 6px;
+                if row.separator: Rectangle { height: 1px; background: Theme.input-border; }
+                HorizontalLayout {
                 spacing: 8px;
                 Text { text: row.label; color: Theme.text; font-size: Theme.fs-body; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                Button { text: "Apply to open PDF"; enabled: !ActionBridge.busy && ActionBridge.current-tab >= 0 && row.current; clicked => { ActionBridge.command("custom-current", i); } }
                 Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("custom-command", i); } }
+                }
             }
         }
     }
+    Text { text: ActionBridge.status; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
     HorizontalLayout {
         spacing: 8px;
         Button { text: "Manage custom tools"; clicked => { ActionBridge.tools-visible = false; ActionBridge.open-page("actions"); } }

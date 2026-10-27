@@ -17,11 +17,15 @@ pub struct ActionStep {
     pub instruction: String,
     #[serde(default)]
     pub prompt: bool,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub separator: bool,
 }
 
 impl ActionStep {
     pub fn from_engine(step: &Step) -> Self {
-        Self { tool: step.id().into(), argument: step.arg().unwrap_or_default().into(), instruction: String::new(), prompt: false }
+        Self { tool: step.id().into(), argument: step.arg().unwrap_or_default().into(), instruction: String::new(), prompt: false, label: String::new(), separator: false }
     }
 
     pub fn engine(&self) -> Result<Step> {
@@ -106,7 +110,7 @@ impl SavedAction {
         self.output.validate()?;
         for step in &self.steps {
             step.engine()?;
-            if step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
+            if step.label.len() > 256 || step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
         }
         Ok(())
     }
@@ -291,6 +295,8 @@ mod tests {
         let mut copy = original[0].clone();
         copy.name = unused_name(&copy.name, &original);
         copy.custom_tool = true;
+        copy.steps[0].label = "Prepare recipient copy".into();
+        copy.steps[0].separator = true;
         copy.steps.reverse();
         assert_ne!(copy.steps, original[0].steps);
         assert_eq!(copy.name, "Prepare for Distribution (2)");

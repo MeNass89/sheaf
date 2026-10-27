@@ -64,7 +64,9 @@ fn rows(ui: &AppWindow) {
     let commands = STATE.with(|state| {
         state.borrow().saved.iter().enumerate().filter(|(_, a)| a.custom_tool).flat_map(|(i, a)| {
             a.steps.iter().enumerate().map(move |(j, step)| ActionCommandRow {
-                label: format!("{} · {}", a.name, step.engine().map(|s| s.label()).unwrap_or("Step")).into(),
+                label: format!("{} · {}", a.name, if step.label.is_empty() { step.engine().map(|s| s.label()).unwrap_or("Step") } else { &step.label }).into(),
+                separator: step.separator,
+                current: !step.prompt && step.engine().is_ok_and(|s| sheaf_core::pdfcraft::engine::actions::command_edit(&s, 1).is_ok()),
                 action: i as i32, step: j as i32,
             })
         }).collect::<Vec<_>>()
@@ -100,6 +102,8 @@ fn draft(ui: &AppWindow) {
             b.set_number_size(fields.get(2).copied().unwrap_or("8").into());
             b.set_argument(fields.get(3).copied().unwrap_or("Page <<1>> of <<n>>").into());
         } else { b.set_argument(argument.into()); }
+        b.set_command_label(step.map(|s| s.label.as_str()).unwrap_or_default().into());
+        b.set_separator(step.is_some_and(|s| s.separator));
         b.set_instruction(step.map(|s| s.instruction.as_str()).unwrap_or_default().into());
         b.set_pause(step.is_some_and(|s| s.prompt));
         b.set_has_argument(step.and_then(|s| s.engine().ok()).is_some_and(|s| s.arg().is_some()));
@@ -120,6 +124,8 @@ fn flush(ui: &AppWindow) {
                 format!("{}|{}|{}|{}", b.get_number_position(), b.get_number_start(), b.get_number_size(), b.get_argument())
             } else { b.get_argument().to_string() };
             step.instruction = b.get_instruction().to_string();
+            step.label = b.get_command_label().to_string();
+            step.separator = b.get_separator();
             step.prompt = b.get_pause();
         }
     });
@@ -187,10 +193,11 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     if what == "filter" { rows(ui); return; }
     if what == "custom-tools" {
         rows(ui);
+        ui.global::<ActionBridge>().set_current_tab(ui.get_active_tab());
         ui.global::<ActionBridge>().set_tools_visible(true);
         return;
     }
-    if what == "custom-command" && !ui.global::<ActionBridge>().get_busy() {
+    if matches!(what, "custom-command" | "custom-current") && !ui.global::<ActionBridge>().get_busy() {
         use slint::Model;
         if let Some(row) = ui.global::<ActionBridge>().get_commands().row_data(index as usize) {
             let action = STATE.with(|state| {
@@ -200,6 +207,12 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
                 Some(action)
             });
             if let Some(action) = action {
+                if what == "custom-current" {
+                    match crate::reader_ui::custom_tools::apply(ui, ui.global::<ActionBridge>().get_current_tab(), &action.steps[0]) {
+                        Ok(()) => ui.global::<ActionBridge>().set_tools_visible(false), Err(e) => status(ui, e),
+                    }
+                    return;
+                }
                 ui.global::<ActionBridge>().set_tools_visible(false);
                 ui.set_active_tab(-1); ui.set_page(sheaf_app::Page::Actions);
                 pick_run(ui, action);

@@ -214,16 +214,45 @@ pub struct FileResult {
     pub log: Vec<String>,
 }
 
+/// Commands which can be applied to the open reader document as one undoable edit.
+/// Replacement/export jobs must keep their own progress and publication flow.
+pub fn command_edit(step: &Step, pages: usize) -> Result<Edit, EditError> {
+    let all: Vec<usize> = (0..pages).collect();
+    Ok(match step {
+        Step::PageNumbers(value) => Edit::AddHeaderFooter { pages: all, settings: number_settings(value)?, replace: false },
+        Step::RemoveHiddenInformation => Edit::RemoveHidden { which: crate::HIDDEN.to_vec() },
+        Step::Sanitize => Edit::Sanitize,
+        Step::FlattenComments => Edit::Flatten { comments: true, fields: false },
+        Step::FlattenFields => Edit::Flatten { comments: false, fields: true },
+        Step::AddWatermark(t) => {
+            Edit::AddWatermark { pages: all, settings: crate::Watermark { text: t.clone(), ..Default::default() }, replace: false, file: None }
+        }
+        Step::AddHeader(t) | Step::AddFooter(t) => {
+            let mut settings = crate::HeaderFooter::default();
+            settings.text[if matches!(step, Step::AddHeader(_)) { 1 } else { 4 }] = t.clone();
+            Edit::AddHeaderFooter { pages: all, settings, replace: false }
+        }
+        Step::SetTitle(t) => Edit::SetInfo { key: "Title".into(), value: t.clone() },
+        Step::SetAuthor(t) => Edit::SetInfo { key: "Author".into(), value: t.clone() },
+        Step::SetSubject(t) => Edit::SetInfo { key: "Subject".into(), value: t.clone() },
+        Step::SetKeywords(t) => Edit::SetInfo { key: "Keywords".into(), value: t.clone() },
+        Step::RotateClockwise => Edit::RotatePages { pages: all, degrees: 90 },
+        Step::RotateCounterclockwise => Edit::RotatePages { pages: all, degrees: 270 },
+        Step::RotateHalfTurn => Edit::RotatePages { pages: all, degrees: 180 },
+        Step::RemoveImages => Edit::RemoveImages { pages: all },
+        Step::RemoveLinks => Edit::RemoveLinks { pages: None },
+        _ => return Err(EditError::Invalid(format!("{} requires Run on PDFs or its dedicated reader tool", step.label()))),
+    })
+}
+
 fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) -> Result<Option<DocId>, EditError> {
     let pages = s.get(id).map_or(0, |d| d.info.pages.len());
-    let all: Vec<usize> = (0..pages).collect();
     let edit = match step {
         Step::RecognizeText => {
             let found = s.recognize_text(id, &[], crate::ocr::OcrSettings::default()).map_err(EditError::Invalid)?;
             log.push(format!("Recognize text: {} words", found.iter().map(|p| p.words.len()).sum::<usize>()));
             return Ok(None);
         }
-        Step::PageNumbers(value) => Edit::AddHeaderFooter { pages: all, settings: number_settings(value)?, replace: false },
         Step::ConvertPdfA(value) => {
             let level = match value.as_str() {
                 "2b" => crate::pdfa::Level::A2b, "3b" => crate::pdfa::Level::A3b,
@@ -259,27 +288,6 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
             let new = s.open(name, None, bytes, password.as_deref()).map_err(|e| EditError::Reopen(e.to_string()))?;
             return Ok(Some(new));
         }
-        Step::RemoveHiddenInformation => Edit::RemoveHidden { which: crate::HIDDEN.to_vec() },
-        Step::Sanitize => Edit::Sanitize,
-        Step::FlattenComments => Edit::Flatten { comments: true, fields: false },
-        Step::FlattenFields => Edit::Flatten { comments: false, fields: true },
-        Step::AddWatermark(t) => {
-            Edit::AddWatermark { pages: all, settings: crate::Watermark { text: t.clone(), ..Default::default() }, replace: false, file: None }
-        }
-        Step::AddHeader(t) | Step::AddFooter(t) => {
-            let mut settings = crate::HeaderFooter::default();
-            settings.text[if matches!(step, Step::AddHeader(_)) { 1 } else { 4 }] = t.clone();
-            Edit::AddHeaderFooter { pages: all, settings, replace: false }
-        }
-        Step::SetTitle(t) => Edit::SetInfo { key: "Title".into(), value: t.clone() },
-        Step::SetAuthor(t) => Edit::SetInfo { key: "Author".into(), value: t.clone() },
-        Step::SetSubject(t) => Edit::SetInfo { key: "Subject".into(), value: t.clone() },
-        Step::SetKeywords(t) => Edit::SetInfo { key: "Keywords".into(), value: t.clone() },
-        Step::RotateClockwise => Edit::RotatePages { pages: all, degrees: 90 },
-        Step::RotateCounterclockwise => Edit::RotatePages { pages: all, degrees: 270 },
-        Step::RotateHalfTurn => Edit::RotatePages { pages: all, degrees: 180 },
-        Step::RemoveImages => Edit::RemoveImages { pages: all },
-        Step::RemoveLinks => Edit::RemoveLinks { pages: None },
         Step::DetectFormFields => {
             let n = s.auto_detect_fields(id, &[])?.len();
             log.push(format!("Detect form fields: {n}"));
@@ -291,6 +299,7 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
             log.push("Run a JavaScript".into());
             return Ok(None);
         }
+        _ => command_edit(step, pages)?,
     };
     // Sheaf: permissions, unsupported content and write failures must stop an action.
     // Flattening an empty set already succeeds in the editor; do not swallow real errors.

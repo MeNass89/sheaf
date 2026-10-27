@@ -386,3 +386,18 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   suggestion independence test (written, not run). No dependency or external program.
   Left: Make Accessible needs real tag/reading-order remediation; Optimize for Web needs genuine
   linearization. Neither is advertised under a misleading name. Online discovery remains excluded.
+
+- C-batch-006: custom commands now apply to the open unsaved PDF through the reader's existing
+  undoable edit path (metadata, rotations, watermark/header/footer/numbering, flattening, removal
+  and sanitization). The palette enables Apply to open PDF only for supported commands and a
+  live reader tab; export/recognition/PDF-A and prompted jobs retain their batch flow, visibly
+  explained in the panel. Commands can have custom labels and separators, saved/imported with
+  their set. Naming is consistently Actions, including the palette help.
+  Tests `custom_tool_commands_edit_the_current_document_and_undo` (engine via core tests),
+  `suggested_copies_and_custom_tools_are_independent` (label/separator round-trip), written not run.
+  Public engine helper `actions::command_edit`. New reader_ui/custom_tools.rs, no dependency.
+  Left: arbitrary toolbox tools, icons and dedicated named panels on Tools; running multiple
+  commands together on the unsaved document. Current-document OCR/compression need their existing
+  progress jobs, so they are not applied as if they were ordinary reader edits.
+  not automatable: edit a document, apply custom metadata/rotation and Undo without losing earlier
+  edits — app launch forbidden by brief rule 1.

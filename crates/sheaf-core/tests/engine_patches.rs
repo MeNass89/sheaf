@@ -133,3 +133,18 @@ fn wizard_native_options_validate_and_number_pages_before_compression() {
         assert_eq!(out.log.len(), 2);
     }
 }
+
+#[test]
+fn custom_tool_commands_edit_the_current_document_and_undo() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{Step, command_edit}};
+    let mut s = Session::new();
+    let bytes = s.create_from_text("Unsaved title", "Keep").unwrap();
+    let id = s.open("current.pdf", None, bytes, None).unwrap();
+    s.apply(id, Edit::SetInfo { key: "Author".into(), value: "Already editing".into() }).unwrap();
+    s.apply(id, command_edit(&Step::SetTitle("Custom command".into()), 1).unwrap()).unwrap();
+    assert_eq!(s.get(id).unwrap().info.title.as_deref(), Some("Custom command"));
+    s.undo(id).unwrap();
+    assert_eq!(s.get(id).unwrap().info.title.as_deref(), Some("Unsaved title"));
+    assert_eq!(s.get(id).unwrap().info.author.as_deref(), Some("Already editing"));
+    assert!(command_edit(&Step::Compress("recommended".into()), 1).is_err());
+}
