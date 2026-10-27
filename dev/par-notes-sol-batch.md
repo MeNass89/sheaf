@@ -365,3 +365,16 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   open unsaved documents. Password retry is a new run after the per-file failure.
   not automatable: same-folder run, overwrite toggle, two differently encrypted inputs and
   Cancel at password prompt — GUI execution forbidden by brief rule 1.
+
+- C-batch-004: Stirling Automate/Folder Scanning import now also translates compression quality,
+  header/footer page numbering and English skip-text OCR. Order, page position/start/size/text
+  and unsupported-setting refusal have written coverage in
+  `stirling_native_import_keeps_order_and_discloses_conversion_limits`. Import notes persist in
+  the description and appear in status: native compression/OCR differ from Ghostscript/Tesseract,
+  numbering uses Sheaf margins/Helvetica. Linearization, target size, image cleanup, middle-page
+  numbering, padding, selected pages and unknown tokens are refused. Export refuses output settings
+  it cannot preserve. References: Stirling useCompressOperation/useOCROperation/
+  useAddPageNumbersParameters and CompressController. No external programs or network added.
+  Left: Acrobat .sequ, split/convert/watermark and metadata replacement; these require parsers or
+  tool settings beyond the currently supported native equivalents. Import is deliberately explicit
+  about approximations rather than claiming lossless interoperability. Tests written, not run.

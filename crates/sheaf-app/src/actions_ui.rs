@@ -348,7 +348,7 @@ fn imported(ui: &AppWindow, action: sheaf_core::Result<SavedAction>) {
             s.saved = next; s.baseline = a.clone(); s.draft = a; s.selected = (actions::suggested().len() + s.saved.len() - 1) as i32; s.step = -1;
             Ok(())
     });
-    match result { Ok(()) => { rows(ui); draft(ui); status(ui, "Action imported"); }, Err(e) => status(ui, e.to_string()) }
+    match result { Ok(()) => { rows(ui); draft(ui); let note = STATE.with(|s| s.borrow().draft.description.clone()); status(ui, if note.contains("Import notes:") { format!("Action imported. Review its description before running: {note}") } else { "Action imported".into() }); }, Err(e) => status(ui, e.to_string()) }
 }
 
 fn import(ui: &AppWindow) {
