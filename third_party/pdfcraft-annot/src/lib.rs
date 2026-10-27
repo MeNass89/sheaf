@@ -1949,6 +1949,20 @@ pub fn set_rect(doc: &mut Document, page: usize, index: usize, rect: [f64; 4], m
     unlocked(doc, r)?;
     let d = annot_dict(doc, r);
     let subtype = String::from_utf8_lossy(d.name(b"Subtype").unwrap_or_default()).into_owned();
+    // Sheaf: a mask (Preview's) is resized by its opening; it still dims its whole page (Sol,
+    // 27/10: its rectangle changed and the opening stayed).
+    if let Some(round) = d.get(loupe_mask::MASK).and_then(Object::as_array).and_then(|a| a.get(4)).and_then(Object::as_f64) {
+        let rect = normalize(rect);
+        if !finite(&rect) || rect[2] - rect[0] < 2.0 || rect[3] - rect[1] < 2.0 {
+            return Err(AnnotError::Invalid("the mask's opening is too small".into()));
+        }
+        let before = d;
+        doc.update_dict(r, |d| {
+            d.set(loupe_mask::MASK.to_vec(), num_array(&[rect[0], rect[1], rect[2], rect[3], round]));
+            touch(d, meta);
+        })?;
+        return redraw_or_restore(doc, r, before);
+    }
     if subtype == "Stamp" {
         let rect = normalize(rect);
         if !finite(&rect) || rect[2] <= rect[0] || rect[3] <= rect[1] {
