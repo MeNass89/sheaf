@@ -35,3 +35,23 @@ fn ocr_correction_refuses_visible_text_and_stale_review_rows() {
     assert!(ocr_review::correct(&Input::new(scan), 0, rows[0].line - 1, "Old review", "Fixed", &out).unwrap_err().to_string().contains("changed"));
     assert!(!out.exists());
 }
+
+#[test]
+fn live_ocr_review_sees_unsaved_corrections_and_undo_and_refuses_missing_pages() {
+    let t = tempfile::tempdir().unwrap();
+    let source = common::fixture_pdf(t.path(), "source.pdf", 1);
+    let scan = t.path().join("hidden.pdf");
+    common::add_invisible_text(&source, "T?xt", &scan);
+    let mut doc = sheaf_core::pdfcraft::Doc::open(&Input::new(&scan)).unwrap();
+    let before = ocr_review::review_document(doc.document());
+    let row = &before[0];
+    let edit = ocr_review::correction_edit(doc.document(), row.page - 1, row.line - 1, &row.text, "Text").unwrap();
+    doc.apply(edit).unwrap();
+    assert_eq!(ocr_review::review_document(doc.document())[0].text, "Text");
+    assert!(ocr_review::correction_edit(doc.document(), 0, row.line - 1, &row.text, "Stale").is_err());
+    assert!(ocr_review::correction_edit(doc.document(), 99, 0, "", "Missing").is_err());
+    let id = doc.id();
+    doc.session_mut().undo(id).unwrap();
+    assert_eq!(ocr_review::review_document(doc.document()), before);
+    assert_eq!(ocr_review::review(&Input::new(&scan)).unwrap(), before, "review does not save over the source");
+}

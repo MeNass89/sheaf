@@ -460,6 +460,13 @@ export struct ReaderState {
     // More ▸ Versions… is open; the versions saved in the file; what Undo and Redo would do.
     versions-open: bool,
     // The search panel's In a folder…: the sheet open, still searching, what and where, the results.
+    ocr-review-open: bool,
+    ocr-review-busy: bool,
+    ocr-review-text: string,
+    ocr-review-position: string,
+    ocr-review-has-row: bool,
+    ocr-review-suspect: bool,
+    ocr-review-seq: int,
     folder-open: bool,
     folder-busy: bool,
     folder-title: string,
@@ -845,6 +852,9 @@ export global ReaderBridge {
     callback remove-images(int);
     callback reflow(int, int);
     callback folder-search(int, string);
+    callback review-ocr(int);
+    // -1 close, 0 previous, 1 accept/next, 2 correct, 3 not text.
+    callback ocr-review-action(int, int, string);
     callback folder-result(int, int);
     callback field-scripts(int, int, string, string, string);
     callback outline-drop(int, int, int, bool);

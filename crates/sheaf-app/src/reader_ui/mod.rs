@@ -358,6 +358,7 @@ pub struct ReaderUi {
     layers_off: Option<Vec<(u32, u16)>>,
     layers_made: u64,
     /// More tools ▸ Accessibility check: its sheet, a check running, the last report.
+    ocr_review: Option<ocr_review::Review>,
     a11y_open: bool,
     a11y_busy: bool,
     a11y: Option<sheaf_core::pdfcraft::engine::a11y::Report>,
@@ -580,6 +581,7 @@ impl ReaderUi {
             loupe_image: None,
             layers_off: None,
             layers_made: 0,
+            ocr_review: None,
             a11y_open: false,
             a11y_busy: false,
             a11y: None,
@@ -636,7 +638,7 @@ impl ReaderUi {
 
     fn send(&mut self, op: Op) {
         // A preview is not counted: it never names something another edit is waiting on.
-        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields);
+        let edit = matches!(op, Op::Apply { .. } | Op::CorrectOcr { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields);
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
             self.edits_in_flight += usize::from(edit);
@@ -762,7 +764,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     // The copies' and the loupe's answers give back the count `send` took (they left it raised:
     // Undo greyed, and closing asked to save a document untouched).
-    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_)) {
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::OcrReviewed(_)) {
         update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
     }
     match reply {
@@ -827,6 +829,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 // The Edit tool's outlines (paragraphs, images, the selected one) are read again at
                 // once for the pages in view (not a previewed page: kept above); an image just
                 // added is selected then.
+                if !preview { ocr_review::refresh(r); }
                 tools::load_blocks(r, v);
                 if let Some((p, _)) = r.select_added {
                     r.blocks(p);
@@ -903,6 +906,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Loupe(made) => loupe::shown(id, made),
         Reply::Upright(turns) => pages::upright(ui, id, turns),
         Reply::Accessibility(report) => accessibility::checked(id, report),
+        Reply::OcrReviewed(rows) => ocr_review::reviewed(ui, id, rows),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
@@ -1269,6 +1273,8 @@ mod saving;
 mod speech;
 mod loupe;
 mod accessibility;
+mod ocr_review;
+pub use ocr_review::{review_ocr, ocr_review_action};
 mod layers;
 mod look_up;
 mod folder_search;

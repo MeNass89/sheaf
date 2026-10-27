@@ -379,6 +379,7 @@ export component ReaderToolbar inherits Rectangle {
                                 // PDF Expert's Share ▸ Copy, macOS's AirDrop.
                                 { text: "Copy the file", on: false },
                                 { text: "Share with AirDrop", on: false },
+                                { text: "Correct recognized text…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -406,6 +407,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 17 { ReaderBridge.show-help(root.id, true); }
                                         if k == 18 { ReaderBridge.share-file(root.id, false); }
                                         if k == 19 { ReaderBridge.share-file(root.id, true); }
+                                        if k == 20 { ReaderBridge.review-ocr(root.id); }
                                         root.focus-pages();
                                     }
                                 }

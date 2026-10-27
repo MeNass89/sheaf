@@ -1,0 +1,41 @@
+// Acrobat's Correct Recognized Text, beside the scan in the reader's existing panel style.
+import { Theme } from "../theme.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { PanelButton } from "../widgets/panel-button.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
+
+export component OcrReviewPanel inherits Rectangle {
+    in property <ToolTab> tab;
+    callback focus-pages();
+    background: Theme.card;
+    border-width: 1px;
+    border-color: Theme.input-border;
+    property <int> sequence: root.tab.reader.ocr-review-seq;
+    changed sequence => { correction.text = root.tab.reader.ocr-review-text; }
+    TouchArea { }
+    VerticalLayout {
+        padding: 18px;
+        spacing: 12px;
+        Text { text: "Correct recognized text"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; wrap: word-wrap; }
+        Text { text: root.tab.reader.ocr-review-position; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
+        if root.tab.reader.ocr-review-has-row && !root.tab.reader.ocr-review-busy: VerticalLayout {
+            spacing: 12px;
+            Text { text: root.tab.reader.ocr-review-suspect ? "Possible decoding error" : "Review this OCR run"; font-size: Theme.fs-label; color: Theme.text; }
+            Text { text: root.tab.reader.ocr-review-text; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; overflow: elide; max-height: 84px; }
+        }
+        correction := TextField { label: "Correct text"; text: root.tab.reader.ocr-review-text; accepted => { if root.tab.reader.ocr-review-has-row && !root.tab.reader.ocr-review-busy { ReaderBridge.ocr-review-action(root.tab.id, 2, correction.text); } } }
+        if root.tab.reader.ocr-review-has-row && !root.tab.reader.ocr-review-busy: VerticalLayout {
+            spacing: 8px;
+            PanelButton { text: "Correct and next"; primary: true; clicked => { ReaderBridge.ocr-review-action(root.tab.id, 2, correction.text); } }
+            PanelButton { text: "Accept and next"; clicked => { ReaderBridge.ocr-review-action(root.tab.id, 1, ""); } }
+            PanelButton { text: "This is not text"; clicked => { ReaderBridge.ocr-review-action(root.tab.id, 3, ""); } }
+        }
+        Text { text: "Only the hidden text changes. Save the PDF to keep corrections."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+        Rectangle { vertical-stretch: 1; }
+        HorizontalLayout {
+            spacing: 8px;
+            PanelButton { text: "Previous"; clicked => { ReaderBridge.ocr-review-action(root.tab.id, 0, ""); } }
+            PanelButton { text: "Close"; clicked => { ReaderBridge.ocr-review-action(root.tab.id, -1, ""); root.focus-pages(); } }
+        }
+    }
+}

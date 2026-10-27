@@ -20,14 +20,19 @@ pub struct ReviewLine {
 
 pub fn review(input: &Input) -> Result<Vec<ReviewLine>> {
     let doc = Doc::open(input)?;
+    Ok(review_document(doc.document()))
+}
+
+/// Review the live document, including unsaved changes in the reader.
+pub fn review_document(doc: &crate::pdfcraft::engine::Document) -> Vec<ReviewLine> {
     let mut out = Vec::new();
-    for page in 0..doc.document().info.pages.len() {
-        for (line, run) in doc.document().text_lines(page).into_iter().enumerate().filter(|(_, run)| run.invisible()) {
+    for page in 0..doc.info.pages.len() {
+        for (line, run) in doc.text_lines(page).into_iter().enumerate().filter(|(_, run)| run.invisible()) {
             let suspect = run.text.chars().any(|c| c == '?' || c == '\u{fffd}' || (c.is_control() && !c.is_whitespace()));
             out.push(ReviewLine { page: page + 1, line: line + 1, rect: run.rect, text: run.text, suspect });
         }
     }
-    Ok(out)
+    out
 }
 
 /// Replace a hidden OCR run, keeping the scan intact. An empty replacement is Acrobat's
@@ -35,11 +40,18 @@ pub fn review(input: &Input) -> Result<Vec<ReviewLine>> {
 /// stale review row. A visible run is always refused, even if its index and text match.
 pub fn correct(input: &Input, page: usize, line: usize, expected: &str, replacement: &str, out: &Path) -> Result<PathBuf> {
     let mut doc = Doc::open(input)?;
+    let edit = correction_edit(doc.document(), page, line, expected, replacement)?;
+    doc.apply(edit)?;
+    Ok(doc.save_unprotected(out)?.0)
+}
+
+/// Validate against the live text before returning an undoable correction.
+pub fn correction_edit(doc: &crate::pdfcraft::engine::Document, page: usize, line: usize, expected: &str, replacement: &str) -> Result<Edit> {
+    if page >= doc.info.pages.len() { return Err(OpdfError::Unsupported("The OCR page no longer exists; review again".into())); }
     if replacement.contains(['\n', '\r']) { return Err(OpdfError::Unsupported("Correct one OCR run at a time, without line breaks".into())); }
-    let lines = doc.document().text_lines(page);
+    let lines = doc.text_lines(page);
     let run = lines.get(line).ok_or_else(|| OpdfError::Unsupported("The OCR run no longer exists; review the page again".into()))?;
     if !run.invisible() { return Err(OpdfError::Unsupported("The selected text is visible artwork, not an OCR layer".into())); }
     if run.text != expected { return Err(OpdfError::Unsupported("The OCR text changed; review the page again".into())); }
-    doc.apply(Edit::EditTextLine { page, line, text: replacement.into() })?;
-    Ok(doc.save_unprotected(out)?.0)
+    Ok(Edit::EditTextLine { page, line, text: replacement.into() })
 }

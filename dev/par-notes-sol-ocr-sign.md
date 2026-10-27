@@ -172,3 +172,22 @@
 - `third_party/pdfcraft-engine/src/ocr.rs`
 - `third_party/pdfcraft-ocr/src/latin.rs`
 - `third_party/pdfcraft-ocr/src/lib.rs`
+
+## Second pass — C-optimize-009
+
+- C-optimize-009: More → More tools → Correct recognized text opens a reader panel beside
+  the scan (Acrobat's Correct Recognized Text). Previous, Accept and next, Correct and next,
+  and This is not text operate on the live working document, with a highlighted run and page
+  navigation. Corrections use the reader's undo/redo/save pipeline; stale text and visible runs
+  are checked on the document thread. Other document changes refresh the review.
+  Tests written: `live_ocr_review_sees_unsaved_corrections_and_undo_and_refuses_missing_pages`,
+  `review_completion_and_empty_layer_are_distinct`; existing pixel-preservation tests still apply.
+  New public core helpers: `ocr_review::review_document`, `ocr_review::correction_edit`.
+  No new dependency. Not run (brief rule 1).
+- `not automatable: More tools → Correct recognized text on an OCR scan; check the highlighted
+  run, Accept/Previous, correct, reject, undo/redo, save/reopen and empty/finished states at
+  small and large window sizes — app execution forbidden to this worker; orchestrator must run`.
+- Left: recognition confidence and suspect-only filtering are absent; decoding artifacts are
+  labelled as such. Panel rendering, keyboard traversal and large-document timing unverified.
+- Proposed grade: C-optimize-009: f8 a7 p7 — live correction/undo test above, panel in
+  `ui/screens/ocr-review.slint`, thread validation in `reader_doc/mod.rs`. No joint 9 claim.

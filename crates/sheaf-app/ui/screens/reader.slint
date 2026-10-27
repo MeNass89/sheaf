@@ -7,6 +7,7 @@
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
+import { OcrReviewPanel } from "ocr-review.slint";
 import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
@@ -839,6 +840,14 @@ export component ReaderScreen inherits Rectangle {
     }
 
     // The signature pad.
+    if root.tab.reader.ocr-review-open: OcrReviewPanel {
+        x: parent.width - self.width;
+        y: 78px;
+        width: min(360px, parent.width - 24px);
+        height: parent.height - self.y;
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
     if root.tab.reader.sign-open: SignatureSheet {
         tab: root.tab;
         id: root.id;

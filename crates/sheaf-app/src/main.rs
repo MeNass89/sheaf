@@ -248,6 +248,8 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_turn_upright(reader_ui::turn_upright);
     rb.on_reflow(reader_ui::reflow);
     wire_global!(ui, rb, on_folder_search, |ui, id, q| reader_ui::folder_search(&ui, id, &q));
+    wire_global!(ui, rb, on_review_ocr, |ui, id| reader_ui::review_ocr(&ui, id));
+    wire_global!(ui, rb, on_ocr_review_action, |ui, id, action, text| reader_ui::ocr_review_action(&ui, id, action, &text));
     wire_global!(ui, rb, on_folder_result, |ui, id, k| reader_ui::folder_result(&ui, id, k));
     wire_global!(ui, rb, on_remove_images, |ui, id| reader_ui::remove_images(&ui, id));
     wire_global!(ui, rb, on_outline_drop, |ui, id, from, to, inside| reader_ui::outline_drop(&ui, id, from, to, inside));

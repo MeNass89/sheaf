@@ -63,6 +63,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             }
         }
     }
+    // The OCR run being reviewed: its scan remains visible beside the correction panel.
+    if let Some(row) = r.ocr_review.as_ref().and_then(|f| f.selected()) {
+        marks.push(overlay(v.viewer.overlay(row.page - 1, row.rect), 5));
+    }
     // Annotations on their way to the document thread, drawn as they will look.
     let mut prov_ink = String::new();
     let mut provisional = Vec::new();
@@ -586,6 +590,13 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_open: r.props_open,
         background_open: r.background_open,
         versions_open: r.versions_open,
+        ocr_review_open: r.ocr_review.is_some(),
+        ocr_review_busy: r.ocr_review.as_ref().is_some_and(|f| f.busy),
+        ocr_review_text: r.ocr_review.as_ref().and_then(|f| f.selected()).map(|row| row.text.as_str()).unwrap_or_default().into(),
+        ocr_review_position: r.ocr_review.as_ref().map(|f| f.position()).unwrap_or_default().into(),
+        ocr_review_has_row: r.ocr_review.as_ref().and_then(|f| f.selected()).is_some(),
+        ocr_review_suspect: r.ocr_review.as_ref().and_then(|f| f.selected()).is_some_and(|row| row.suspect),
+        ocr_review_seq: r.ocr_review.as_ref().map_or(0, |f| f.seq),
         folder_open: r.folder_search.is_some(),
         folder_busy: r.folder_search.as_ref().is_some_and(|f| f.busy),
         folder_title: r.folder_search.as_ref().map(|f| format!("“{}” in {}", f.query, f.folder)).unwrap_or_default().into(),
