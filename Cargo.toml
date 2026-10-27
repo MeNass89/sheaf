@@ -15,6 +15,9 @@ pdfium-render = "0.9.4"
 lopdf = "0.45"
 # Glyph outlines of the bundled handwriting fonts (the version PdfCraft uses).
 skrifa = "0.44"
+# Raw CMYK from JPEGs (image always applies Adobe's inversion); the version image uses.
+zune-jpeg = "0.5"
+zune-core = "0.5"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "tiff", "bmp", "gif"] }
 thiserror = "2"
 tempfile = "3"
