@@ -620,13 +620,48 @@ pub(crate) enum Cmd {
     SearchIndex {
         /// A previously built catalog JSON file
         index: PathBuf,
-        /// Phrase to find, ignoring case and line ends
+        /// Words, phrase, or Boolean expression to find
         query: String,
+        /// Phrase, all words, any words, Boolean expression, or unordered proximity
+        #[arg(long, value_enum, default_value = "phrase")]
+        mode: CliCatalogMode,
+        /// Match complete words rather than substrings in phrase mode
+        #[arg(long)]
+        whole_words: bool,
+        /// Match letter case (cannot combine with English stemming)
+        #[arg(long, conflicts_with = "english_stems")]
+        match_case: bool,
+        /// Match English word inflections using Snowball stemming
+        #[arg(long)]
+        english_stems: bool,
+        /// Maximum intervening words for proximity mode
+        #[arg(long, default_value_t = 10)]
+        proximity: usize,
     },
     /// Describe every command as a JSON schema, for agents
     Tools,
     /// Serve every command as a tool over the Model Context Protocol (JSON-RPC on stdio)
     Mcp,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliCatalogMode {
+    /// Exact phrase, including across line ends
+    Phrase,
+    /// Every word on the same page, in any order
+    AllWords,
+    /// At least one word on the page
+    AnyWords,
+    /// AND, OR, NOT, parentheses and quoted phrases
+    Boolean,
+    /// Words near each other in any order
+    Proximity,
+}
+impl CliCatalogMode {
+    pub fn core(self) -> sheaf_core::search_index::SearchMode {
+        use sheaf_core::search_index::SearchMode;
+        match self { Self::Phrase => SearchMode::Phrase, Self::AllWords => SearchMode::AllWords, Self::AnyWords => SearchMode::AnyWords, Self::Boolean => SearchMode::Boolean, Self::Proximity => SearchMode::Proximity }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -994,6 +1029,12 @@ mod help_tests {
     use clap::CommandFactory;
 
     /// Every option, input and enumerated value of every command says what it is in `--help`.
+    #[test]
+    fn catalog_advanced_cli_modes_and_conflicting_case_options_are_validated() {
+        assert!(Cli::try_parse_from(["sheaf", "search-index", "catalog.json", "red AND blue", "--mode", "boolean", "--whole-words"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "search-index", "catalog.json", "red blue", "--mode", "proximity", "--proximity", "3", "--english-stems"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "search-index", "catalog.json", "red", "--match-case", "--english-stems"]).is_err());
+    }
     #[test]
     fn every_option_and_value_has_help() {
         let cli = Cli::command();

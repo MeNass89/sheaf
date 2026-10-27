@@ -703,3 +703,22 @@ C-sign-009: f8 a8 p8 — `signature_store.rs:247` restart/>64K/no-tool contract;
 C-sign-012: f7 a8 p8 — `tests/sign.rs:476` distinct TSA fixture; no user-facing TSA transport.
 C-security-007: f0 a0 p0 — no implementation; Standard-only reader still blocks PubSec reopening.
 C-security-008: f8 a7 p8 — `tests/security.rs:222` exact PDF permissions/AES compatibility contract.
+
+## Fourth pass — C-optimize-015
+
+- C-optimize-015: Acrobat's Advanced Search options now reach catalog searches in the reader
+  and CLI: whole words, match case, all/any words, bounded Boolean AND/OR/NOT with grouping and
+  quoted phrases, unordered proximity (10 intervening words in the UI, configurable in CLI),
+  and explicitly English Snowball stemming. Inverted word/stem/trigram postings prune page
+  candidates; Boolean negation never complements an approximate posting set. The manager's
+  Add folder includes subfolders through the existing recursive incremental builder.
+- Tests written: `catalog_advanced_queries_cover_case_words_boolean_stems_and_proximity`,
+  `catalog_refuses_invalid_or_excessive_boolean_queries_and_conflicting_options`,
+  `catalog_search_controls_keep_mode_and_independent_options`.
+- New small pure-Rust offline dependency: `rust-stemmers = 1.2` in workspace and sheaf-core.
+  Orchestrator must fetch/update Cargo.lock. New public items `SearchMode`, `SearchOptions`,
+  `Catalog::search_with_options`. Old catalog files and `Catalog::search` retain phrase defaults.
+- `not automatable: Catalog → Add folder, build, run each search mode and checkbox, malformed
+  Boolean query, open hit and cancel; check narrow/wide layouts — rule 1 forbids app execution`.
+- Left: PDX interchange and non-English stemming; render, memory/time and compilation unverified.
+  No network code. Proposed grade f9 a8 p8 (static evidence only; no joint closure claim).

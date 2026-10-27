@@ -21,6 +21,7 @@ pdfcraft-edit.workspace = true
 pdfcraft-export.workspace = true
 rust_xlsxwriter.workspace = true
 unicode-normalization.workspace = true
+rust-stemmers.workspace = true
 encoding_rs.workspace = true
 calamine.workspace = true
 skrifa.workspace = true
