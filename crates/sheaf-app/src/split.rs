@@ -288,4 +288,39 @@ mod tests {
         assert!(other.follow(&main));
         assert_eq!((other.viewer.page_count(), other.viewer.zoom()), (9, 150));
     }
+
+    /// Two documents: tab 1's other pane shows tab 2's, follows it, and a press there hands over: tab 2
+    /// in view where the pane stood, tab 1's document in its other pane, in the other half; the split
+    /// closes with the other tab.
+    #[test]
+    fn a_split_with_another_document_hands_over_and_closes_with_its_tab() {
+        let mut a = App::default();
+        for (id, n) in [(1, 10), (2, 20)] {
+            let mut t = TabState::new(id, sheaf_core::tools::ToolId::Redact);
+            t.viewer = Some(viewer(n));
+            a.tabs.push(t);
+        }
+        let view = Box::new(a.tabs[1].viewer.as_ref().unwrap().twin());
+        a.tabs[0].split = Some(Split { mode: 1, half: 0, view, other: Some(2), title: "b.pdf".into(), sync: false, seq: 1, swap: 0 });
+        follow(&mut a, 1);
+        assert_eq!(a.tabs[0].split.as_ref().unwrap().seq, 1, "nothing changed");
+        // Tab 2 loses a page: the pane is laid out again.
+        let boxes = a.tabs[1].viewer.as_ref().unwrap().viewer.boxes[..19].to_vec();
+        a.tabs[1].viewer.as_mut().unwrap().viewer = Viewer::new(boxes);
+        follow(&mut a, 1);
+        let s = a.tabs[0].split.as_mut().unwrap();
+        assert_eq!((s.seq, s.view.viewer.page_count()), (2, 19));
+        s.view.top = s.view.viewer.page_rect(12)[1];
+        let pane_top = s.view.top;
+        assert_eq!(hand_over(&mut a, 1, 2), Some(1));
+        assert!(a.tabs[0].split.is_none());
+        let (v2, s2) = (a.tabs[1].viewer.as_ref().unwrap(), a.tabs[1].split.as_ref().unwrap());
+        assert_eq!((v2.top, v2.scroll), (pane_top, pane_top), "tab 2 where the pane stood");
+        assert_eq!((s2.other, s2.half, s2.swap), (Some(1), 1, 1));
+        assert!(s2.view.pane && s2.view.viewer.page_count() == 10, "tab 1's document in the other pane");
+        // Tab 1 closed: tab 2's split goes.
+        a.tabs.remove(0);
+        follow(&mut a, 2);
+        assert!(a.tabs[0].split.is_none());
+    }
 }

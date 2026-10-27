@@ -241,6 +241,8 @@ impl Viewer {
         let strip_w = rows.len() as f64 * (row_w + PAGE_GAP) + PAGE_GAP;
         let strip_left = ((self.fit_width - strip_w) / 2.0).max(0.0).round();
         let tallest = heights.iter().copied().fold(0.0, f64::max);
+        // Pages across: the strip at least the view's height, each page centred down it.
+        let strip_h = (tallest + 2.0 * PAGE_GAP).max(self.view_h);
         let mut rects = vec![[0.0; 4]; n];
         let mut row_of = vec![0; n];
         let mut y = PAGE_GAP;
@@ -250,9 +252,9 @@ impl Viewer {
                 row_of[i] = r;
                 rects[i] = if across {
                     // Each row keeps its slots (a pair stays a pair, the cover alone on the right),
-                    // pages aligned at the top; right to left reads the strip from its right end.
+                    // pages centred down the view; right to left reads the strip from its right end.
                     let x = PAGE_GAP + r as f64 * (row_w + PAGE_GAP) + col * (w + PAGE_GAP);
-                    [strip_left + if self.rtl { strip_w - x - w } else { x }, PAGE_GAP, w, heights[i]]
+                    [strip_left + if self.rtl { strip_w - x - w } else { x }, ((strip_h - heights[i]) / 2.0).round(), w, heights[i]]
                 } else {
                     let col = if self.rtl { cols - 1.0 - col } else { col };
                     [left + col * (w + PAGE_GAP), y, w, heights[i]]
@@ -263,7 +265,7 @@ impl Viewer {
         self.layout = rects.iter().map(|r| (r[1], r[3])).collect();
         self.rects = rects;
         self.row_of = row_of;
-        (self.content_w, self.content_h) = if across { (self.fit_width.max(strip_w), tallest + 2.0 * PAGE_GAP) } else { (self.content_width_for(row_w), y) };
+        (self.content_w, self.content_h) = if across { (self.fit_width.max(strip_w), strip_h) } else { (self.content_width_for(row_w), y) };
     }
 
     /// Whether the pages run across (see `horizontal`): never in the page grid.
@@ -879,6 +881,23 @@ mod tests {
         assert!(v.set_horizontal(false));
         assert_eq!((v.page_rect(1), v.content_height()), down);
         assert_eq!(v.scroll_x_to(5), 0.0);
+    }
+
+    /// Pages across in a view taller than they are: centred down it, as PDF Expert shows them; a page
+    /// taller than another is centred with it.
+    #[test]
+    fn pages_across_are_centred_down_a_taller_view() {
+        let mut v = Viewer::new(vec![PageBox { crop: A4, rotation: 0, unit: 1.0 }, PageBox { crop: [0.0, 0.0, 595.0, 421.0], rotation: 0, unit: 1.0 }]);
+        v.set_width(1000.0);
+        assert!(!v.set_height(2000.0), "down a column: nothing to centre");
+        v.set_horizontal(true);
+        v.set_zoom(50);
+        let (a, b) = (v.page_rect(0), v.page_rect(1));
+        assert_eq!(v.content_height(), 2000.0, "the view's height, no scroll down");
+        assert!((a[1] + a[3] / 2.0 - 1000.0).abs() <= 1.0 && (b[1] + b[3] / 2.0 - 1000.0).abs() <= 1.0, "{a:?} {b:?}");
+        // The view shorter than the page: the strip is the page's height, the page at the top gap.
+        assert!(v.set_height(300.0));
+        assert_eq!((v.page_rect(0)[1], v.content_height()), (PAGE_GAP, v.page_rect(0)[3] + 2.0 * PAGE_GAP));
     }
 
     /// A short document across: the strip centred in a wider view.
