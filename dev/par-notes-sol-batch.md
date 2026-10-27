@@ -682,3 +682,18 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   PortfolioBridge sort/descending/preview-page/preview-pages added.
   not automatable: sort each column, open the selected original after sorting, navigate every
   preview page and switch attachments while a preview loads — app execution forbidden.
+
+- C-platform-005: Edit All JavaScripts now lists and edits existing page open/close and link
+  activation/additional-event scripts as well as document/field scripts. String or stream sources,
+  including Unicode, use bounded native PDF decoding. Edits preserve unrelated event actions and
+  /Next chains; deleting a chained action refuses instead of destroying the rest of the chain.
+  Every mutation uses Edit::SetActionScript with normal permissions/Undo. New resets the target
+  before creating a document script. Test
+  `console_edits_page_and_link_scripts_preserving_other_events_chains_and_undo` (not run).
+  Left: debugger, breakpoints, stepping, adding new page/link targets via UI, editing scripts
+  deeper in /Next chains. Engine lacks a suspend/resume debugger; an editor highlight would not
+  provide execution debugging. Network requests remain visibly unexecuted. No new dependency.
+  Public: js::ActionScriptTarget, ConsoleScript::target, Edit::SetActionScript. New private module
+  action_scripts.rs; JavaScriptBridge/DocumentScriptRow carry original page/link targets.
+  not automatable: edit/save/delete a listed page or link script, Undo, reopen; inspect refusal
+  for deletion with /Next — app execution forbidden.

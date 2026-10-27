@@ -585,3 +585,38 @@ fn accessibility_suggestion_tags_text_and_preserves_existing_tags_by_refusal() {
     assert!(actions::run_on(&action, "prepared.pdf", result.bytes, |_, _| {}).is_err());
     assert!(Step::from_id("prepare_accessibility", "fr--FR").is_none());
 }
+
+#[test]
+fn console_edits_page_and_link_scripts_preserving_other_events_chains_and_undo() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::js::ActionScriptTarget}};
+    let dir = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(dir.path(), &[b"BT ET"]);
+    let mut pdf = lopdf::Document::load(&path).unwrap(); let page = pdf.get_pages()[&1];
+    let close = pdf.add_object(Stream::new(dictionary! {}, b"console.println('close');".to_vec()));
+    let link = pdf.add_object(dictionary! {"Type":"Annot", "Subtype":"Link", "Rect":vec![10.into(),20.into(),100.into(),60.into()],
+        "A": dictionary! {"S":"JavaScript", "JS":Object::string_literal("console.println('link');"), "Next":dictionary! {"S":"URI","URI":Object::string_literal("https://example.test")}},
+        "AA":dictionary! {"E":dictionary! {"S":"JavaScript","JS":Object::string_literal("console.println('enter');")}}
+    });
+    let pd = pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap();
+    pd.set("AA", dictionary! {"O":dictionary! {"S":"JavaScript","JS":Object::string_literal("console.println('open');")}, "C":dictionary! {"S":"JavaScript","JS":close}});
+    pd.set("Annots", vec![link.into()]); pdf.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(path)).unwrap();
+    let scripts = doc.document().console_scripts(); assert_eq!(scripts.iter().filter(|s| s.target.is_some()).count(), 4);
+    assert!(scripts.iter().any(|s| s.source.contains("close")));
+    let open = ActionScriptTarget {page:0, link:None, event:"O".into()};
+    doc.apply(Edit::SetActionScript {target:open.clone(), script:Some("console.println('updated');".into())}).unwrap();
+    assert!(doc.document().console_scripts().iter().any(|s| s.target.as_ref() == Some(&open) && s.source.contains("updated")));
+    let activate = ActionScriptTarget {page:0, link:Some(0), event:"A".into()};
+    doc.apply(Edit::SetActionScript {target:activate.clone(), script:Some("console.println('é');".into())}).unwrap();
+    let output = doc.save(&dir.path().join("edited.pdf")).unwrap();
+    let saved = lopdf::Document::load(output).unwrap();
+    let action = saved.get_dictionary(link).unwrap().get(b"A").unwrap().as_dict().unwrap();
+    assert!(action.get(b"Next").is_ok(), "editing a source preserves its chained action");
+    assert!(doc.apply(Edit::SetActionScript {target:activate.clone(), script:None}).is_err());
+    let id = doc.id(); doc.session_mut().undo(id).unwrap();
+    assert!(doc.document().console_scripts().iter().any(|s| s.target.as_ref() == Some(&activate) && s.source.contains("link")));
+    doc.apply(Edit::SetActionScript {target:open.clone(), script:None}).unwrap();
+    assert!(!doc.document().console_scripts().iter().any(|s| s.target.as_ref() == Some(&open)));
+    assert!(doc.document().console_scripts().iter().any(|s| s.source.contains("close")));
+    assert!(doc.document().console_scripts().iter().any(|s| s.source.contains("enter")));
+}

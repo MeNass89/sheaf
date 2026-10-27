@@ -46,6 +46,8 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 - `crates/sheaf-app/src/reader_ui/javascript.rs` and `ui/screens/javascript.slint`: active
   document JavaScript console and named document scripts; `reader_doc` executes at the visible
   page and returns output, form changes and local viewer requests for navigation/focus/print/Save As.
+  `third_party/pdfcraft-engine/src/action_scripts.rs` inventories and edits page/link JavaScript
+  targets without replacing other actions; `js::ActionScriptTarget` identifies each event.
 
 ## Entry points
 
