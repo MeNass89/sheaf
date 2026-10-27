@@ -217,7 +217,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_press_preset, |ui, id, preset| reader_ui::press_preset(&ui, id, preset));
     rb.on_production_close(reader_ui::production_close);
     wire_global!(ui, rb, on_production_hairlines, |ui, id, minimum, all| reader_ui::production_hairlines(&ui, id, &minimum, all));
-    wire_global!(ui, rb, on_production_marks, |ui, id, all| reader_ui::production_marks(&ui, id, all));
+    wire_global!(ui, rb, on_production_marks, |ui, id, all, style, width| reader_ui::production_marks(&ui, id, all, style, &width));
     wire_global!(ui, rb, on_production_box, |ui, id, which, left, bottom, right, top, reset, all| reader_ui::production_box(&ui, id, which, [&left, &bottom, &right, &top], reset, all));
     wire_global!(ui, rb, on_page_transition, |ui, id, style, advance| reader_ui::page_transition(&ui, id, style, &advance));
     wire_global!(ui, rb, on_fields_nudge, |ui, id, dx, dy| reader_ui::fields_nudge(&ui, id, dx, dy));

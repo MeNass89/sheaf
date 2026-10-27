@@ -655,3 +655,22 @@ verification. No network features; no compiler, test, app or Codex invocation. N
   not automatable: both themes, three levels, absent profile/runtime recovery, background snapshot
   — app execution is forbidden. Source reference: Acrobat's `PrintProduction_R_RHP.aapp` and
   `Standards_R_RHP.aapp` read directly from the archive.
+
+- C-optimize-014 (partial): Acrobat's Fix Hairlines now traverses selected tiling patterns and
+  Type 3 charprocs as well as Forms. Each pattern selection/text show gets private resources;
+  glyph scale includes FontMatrix, text size, horizontal scale, text matrix and page transform.
+  The source font's encoding, advances and originals for other pages stay untouched. Depth,
+  operator and decode bounds also cover patterns/glyphs; damaged content is refused.
+  Add Printer Marks offers crop / all / registration / CMYK bars / page information and a physical
+  mark width. Registration uses Separation All, including spot plates. Information includes page
+  number/count and trim dimensions in a shared embedded Inter font. Extra marks get 30 pt outside
+  bleed; crop-only keeps 18 pt. Existing trim/bleed/art and original cropping remain; repeat calls
+  do not duplicate a mark type; each operation is undoable. No external program or dependency.
+  Tests WRITTEN, NOT RUN:
+  `pattern_and_type3_hairlines_are_private_per_use_and_leave_shared_pages_unchanged`,
+  `printer_marks_include_all_plate_registration_process_bars_and_embedded_page_info`.
+  Left: trap presets (no trapping engine), flattener preview (no compositing comparison/render
+  path); UI explicitly says so. Ordinary-font stroked text and annotation appearances remain.
+  Public engine addition: `Edit::AddPrinterMarks` and `prepress::add_printer_marks`.
+  not automatable: both themes, scope, five mark choices/width, repeated use and undo, Type 3
+  glyph positions/advances and nested pattern matrices — no app/renderer allowed in this worker.

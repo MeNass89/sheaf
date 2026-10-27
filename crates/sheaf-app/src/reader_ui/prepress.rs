@@ -135,10 +135,15 @@ pub fn production_hairlines(ui: &AppWindow, tab_id: i32, minimum: &str, all: boo
     apply(ui, tab_id, Edit::FixPageHairlines { pages: pages.clone(), minimum }, &pages, None);
 }
 
-pub fn production_marks(ui: &AppWindow, tab_id: i32, all: bool) {
+pub fn production_marks(ui: &AppWindow, tab_id: i32, all: bool, style: i32, width: &str) {
+    let width = width.trim().parse::<f64>().ok().filter(|v| v.is_finite() && (0.1..=2.0).contains(v));
+    let Some(width) = width else { crate::flow::toast(ui, "Use a mark width from 0.1 to 2 points"); return };
     let Some(pages) = production_pages(tab_id, all) else { return };
     production_close(tab_id);
-    apply(ui, tab_id, Edit::AddCropMarks { pages: pages.clone() }, &pages, None);
+    apply(ui, tab_id, Edit::AddPrinterMarks {
+        pages: pages.clone(), registration: style == 1 || style == 2,
+        colour_bars: style == 1 || style == 3, page_information: style == 1 || style == 4, width,
+    }, &pages, None);
 }
 
 /// Acrobat's Set Page Boxes: margins refer to each sheet's media box, before page rotation.

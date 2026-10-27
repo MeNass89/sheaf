@@ -12,6 +12,7 @@ export component ProductionSheet inherits Rectangle {
     property <bool> all: false;
     property <int> box: 0;
     property <int> press-level: 0;
+    property <int> mark-style: 0;
     background: #00000044;
     TouchArea { }
     FocusScope {
@@ -42,7 +43,7 @@ export component ProductionSheet inherits Rectangle {
                 VerticalLayout {
                     spacing: 12px;
                     Text { text: "Fix page hairlines"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                    Text { text: "Raises page and grouped Form strokes.\nPatterns, text and comments stay as they are."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Text { text: "Raises page, Form and pattern strokes.\nType 3 glyph strokes are included.\nOther font outlines and comments stay."; font-size: Theme.fs-caption; color: Theme.text-muted; }
                     minimum := TextField { label: "Minimum stroke (points)"; text: "0.25"; }
                     HorizontalLayout {
                         SmallButton { text: "Fix hairlines"; clicked => { ReaderBridge.production-hairlines(root.id, minimum.text, root.all); root.focus-pages(); } }
@@ -67,11 +68,17 @@ export component ProductionSheet inherits Rectangle {
                         SmallButton { text: "Reset box"; clicked => { ReaderBridge.production-box(root.id, root.box, "", "", "", "", true, root.all); root.focus-pages(); } }
                     }
                     Rectangle { height: 1px; background: Theme.separator; }
-                    Text { text: "Crop marks"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                    Text { text: "Black marks outside the existing bleed.\nThe sheet grows; hidden art stays clipped.\nNo bleed artwork is created."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Text { text: "Printer marks"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    Text { text: "Marks stay outside the existing bleed.\nThe sheet grows; hidden art stays clipped.\nRegistration targets print on every plate."; font-size: Theme.fs-caption; color: Theme.text-muted; }
                     HorizontalLayout {
-                        SmallButton { text: "Add crop marks"; clicked => { ReaderBridge.production-marks(root.id, root.all); root.focus-pages(); } }
+                        spacing: 8px;
+                        for name[k] in ["Crop", "All", "Register", "Bars", "Page info"]: SmallButton { text: name; primary: root.mark-style == k; clicked => { root.mark-style = k; } }
                     }
+                    mark-width := TextField { label: "Mark width (points)"; text: "0.25"; }
+                    HorizontalLayout {
+                        SmallButton { text: "Add printer marks"; clicked => { ReaderBridge.production-marks(root.id, root.all, root.mark-style, mark-width.text); root.focus-pages(); } }
+                    }
+                    Text { text: "Trapping and flattener preview unavailable.\nTransparency is kept; no flattening occurs."; font-size: Theme.fs-caption; color: Theme.text-muted; }
                     Rectangle { height: 1px; background: Theme.separator; }
                     Text { text: "Save as PDF/X"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
                     Text { text: "Whole document; no password protection.\nNeeds a local Ghostscript installation.\nUse the press's CMYK or Gray ICC profile."; font-size: Theme.fs-caption; color: Theme.text-muted; }
