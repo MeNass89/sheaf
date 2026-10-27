@@ -296,6 +296,9 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_policy_open(reader_ui::policy_open);
     wire_global!(ui, rb, on_policy_action, |ui, id, action, index| reader_ui::policy_action(&ui, id, action, index));
     rb.on_policy_save(|id, name, printing, copying, editing, commenting, forms, metadata, quality, changes, algorithm| reader_ui::policy_save(id, &name, [printing, copying, editing, commenting, forms, metadata], [quality, changes, algorithm]));
+    rb.on_cert_open(reader_ui::cert_open);
+    wire_global!(ui, rb, on_cert_action, |ui, id, action, index, password| reader_ui::cert_action(&ui, id, action, index, &password));
+    rb.on_cert_flag(reader_ui::cert_flag);
     wire_global!(ui, rb, on_policy_apply, |ui, id, user, confirmation, owner, owner_confirmation, remember| reader_ui::policy_apply(&ui, id, &user, &confirmation, &owner, &owner_confirmation, remember));
     rb.on_catalog_open(reader_ui::catalog_open);
     wire_global!(ui, rb, on_catalog_action, |ui, id, action, index, query| reader_ui::catalog_action(&ui, id, action, index, &query));
@@ -416,6 +419,8 @@ fn main() -> Result<(), slint::PlatformError> {
     };
     // The window opens in the saved appearance; `home::install` keeps it in sync afterwards.
     let saved = sheaf_app::prefs::Prefs::load(&sheaf_app::store_file::data_dir());
+    // Decrypted copies of certificate-encrypted files a crashed session left behind.
+    reader_doc::certificate::sweep(&sheaf_app::store_file::data_dir());
     let initial = forced.unwrap_or(saved.theme);
     let winit_theme = match initial {
         ThemePref::Light => Some(WinitTheme::Light),
@@ -593,6 +598,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_insert_blank(|id| flow::edit_pages(id, |o| o.push(0)));
     wire!(ui, on_pw_unlock, |ui, pw| password::entered(&ui, pw.into()));
     wire!(ui, on_pw_skip, |ui| password::skipped(&ui));
+    wire!(ui, on_pw_choose_id, |ui| reader_ui::certificate::choose_id(&ui));
 
     // Run and result
     wire!(ui, on_run_tool, |ui, id, opts| run::run_tool(&ui, id, opts));
@@ -631,6 +637,10 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_gpu, |ui, on| home::set_gpu(&ui, on));
     wire!(ui, on_set_page_display, |ui, what, on| home::set_page_display(&ui, what, on));
     wire!(ui, on_signature_prefs, |ui, what, k| home::signature_prefs(&ui, what, k));
+    wire!(ui, on_create_digital_id, |ui, name, unit, org, email, country, password, confirm, encryption| {
+        let spec = sheaf_core::digital_id::NewId { name: name.into(), unit: unit.into(), organization: org.into(), email: email.into(), country: country.into(), encryption };
+        home::create_digital_id(&ui, spec, password.into(), &confirm);
+    });
     wire!(ui, on_make_default, |ui| flow::toast(&ui, &run::make_default_pdf_app()));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));

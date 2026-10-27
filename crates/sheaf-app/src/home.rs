@@ -471,6 +471,33 @@ pub fn remember_digital_id(ui: &AppWindow, p: &std::path::Path) {
     });
 }
 
+/// Preferences ▸ Signatures ▸ Create a digital ID… (Acrobat's Add Digital ID ▸ A new digital
+/// ID ▸ New PKCS#12 file): saved where the user chooses, with its certificate (.cer) beside it
+/// to send to people who encrypt for them, and kept in the list of IDs.
+pub fn create_digital_id(ui: &AppWindow, spec: sheaf_core::digital_id::NewId, password: String, confirm: &str) {
+    if password != confirm { return crate::flow::toast(ui, "The two passwords differ"); }
+    if spec.name.trim().is_empty() { return crate::flow::toast(ui, "Type the name the digital ID is issued to"); }
+    let d = crate::dialog::new(ui).set_title("Save the new digital ID").set_file_name(format!("{}.p12", spec.name.trim())).add_filter("Digital ID", &["p12", "pfx"]);
+    crate::dialog::save_file(ui, d, move |ui, out| {
+        crate::flow::toast(ui, "Creating the digital ID…");
+        let weak = ui.as_weak();
+        std::thread::spawn(move || {
+            let made = sheaf_core::digital_id::create_file(&spec, &password, &out).and_then(|p12| {
+                let id = sheaf_core::pdfcraft::engine::sign::pkcs12::open(&std::fs::read(&p12)?, &password).map_err(|e| sheaf_core::OpdfError::Engine(e.to_string()))?;
+                let cer = sheaf_core::digital_id::export_certificate(&id, &p12.with_extension("cer"))?;
+                Ok((p12, cer))
+            });
+            let _ = weak.upgrade_in_event_loop(move |ui| match made {
+                Ok((p12, cer)) => {
+                    remember_digital_id(&ui, &p12);
+                    crate::flow::toast(&ui, &format!("Digital ID created: {} (certificate to share: {})", p12.display(), cer.file_name().unwrap_or_default().to_string_lossy()));
+                }
+                Err(e) => crate::flow::toast(&ui, &format!("Digital ID not created: {e}")),
+            });
+        });
+    });
+}
+
 /// Preferences ▸ Signatures: `what` 0 a digital ID added from a file, 1 digital ID `k` taken off
 /// the list, 2 a trusted certificate added from a file, 3 trusted certificate `k` removed.
 pub fn signature_prefs(ui: &AppWindow, what: i32, k: i32) {

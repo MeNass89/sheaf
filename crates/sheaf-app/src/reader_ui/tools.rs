@@ -401,6 +401,8 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
                     r.poly = None;
                 }
             }
+            // Prepare form ▸ Barcode: the next error correction (Low, Medium, Quartile, High).
+            61 => r.barcode_ecc = (r.barcode_ecc + 1) % 4,
             // Loupe: the next magnification (1.5×, 2×, 3×, 4×), for new loupes and the one selected.
             35 => {
                 use sheaf_core::pdfcraft::engine::loupe_magnifications as steps;

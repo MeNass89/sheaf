@@ -799,4 +799,73 @@ FS=$(at folder 300x30+0+160); [ -n "$FS" ] && click $FS 4
 FT=$(ocr 800x560+240+100)
 shot 311-folder-search
 check "In a folder… reads all 601 PDFs (link at ${FS:-?}; sheet: $(echo "$FT" | grep -o '[0-9]* page[s]* found in [0-9]* PDFs' | head -1))" "echo \"$FT\" | grep -q 'found in 601 PDFs' && echo \"$FT\" | grep -q 'z-last'"
+# 320. More ▸ More tools ▸ Encrypt with certificates… (C-security-007, Acrobat's Encrypt with Certificate): my digital
+# ID added with its password (full rights) and a colleague's certificate (read only by default), saved as an
+# encrypted copy (Adobe.PubSec, one envelope per permission set). Opened again, the copy asks for the digital ID it
+# was sent to: a wrong password is refused, the right one opens it in place (its tab named after it, its words shown).
+CD="$PWD/$OUT/certs"; mkdir -p "$CD"
+for n in me colleague; do openssl req -x509 -newkey rsa:2048 -nodes -keyout "$CD/$n.key" -out "$CD/$n.pem" -days 2 -subj "/CN=Smoke $n" -addext keyUsage=digitalSignature,keyEncipherment >/dev/null 2>&1; done
+openssl pkcs12 -export -passout pass:smokepw -inkey "$CD/me.key" -in "$CD/me.pem" -out "$CD/me.p12" >/dev/null 2>&1
+cp "$OUT/text.pdf" "$OUT/certsrc.pdf"; rm -f "$OUT/certenc.pdf"; launch "$OUT/certsrc.pdf"; sleep 1
+click 1127 61 0.8; click 1008 659 0.8
+for i in 1 2 3 4 5 6; do xdotool mousemove 1000 500 click 5; sleep 0.1; done; sleep 0.5
+EC=$(at Encrypt 300x700+880+80); [ -n "$EC" ] && click $EC 1.2
+# The sheet is 760 × 680 in the middle of the window: its buttons are at fixed places.
+click 705 189 0.4; xdotool type --delay 20 smokepw
+answer "$CD/me.p12"; click 507 187 1.5
+answer "$CD/colleague.pem"; click 348 187 1
+shot 320-recipients
+RL=$(ocr 760x420+260+79)
+answer "$PWD/$OUT/certenc.pdf"; click 908 725 4; answer ""
+quit
+ENV=$(python3 -c 'import re, sys; b = open(sys.argv[1], "rb").read(); m = re.search(rb"/Recipients\s*\[(.*?)\]", b, re.S); print(len(re.findall(rb"<", m.group(1))) if m and b"Adobe.PubSec" in b else 0)' "$OUT/certenc.pdf" 2>/dev/null)
+launch "$OUT/certenc.pdf"; sleep 2
+xdotool type --delay 20 wrongpw; key Return; sleep 3
+shot 320-wrong; WR=$(ocr 380x40+455+432)
+key ctrl+a; xdotool type --delay 20 smokepw; key Return; sleep 4
+shot 320-opened
+TB=$(ocr 1280x80+0+0); QK=$(at quick 1020x700+250+90)
+check "Encrypt with certificates writes a copy for two recipients that opens in place with the digital ID (recipients: $(echo "$RL" | grep -o 'Smoke [a-z]*' | sort -u | tr '\n' ' '); envelopes ${ENV:-none}; wrong password: $(echo "$WR" | grep -o 'Wrong password' | head -1); tab: $(echo "$TB" | cut -c1-50); quick at ${QK:-nowhere})" "[ \"${ENV:-0}\" = 2 ] && echo \"$RL\" | grep -q 'Smoke colleague' && echo \"$RL\" | grep -q 'Smoke me' && echo \"$WR\" | grep -q 'Wrong password' && echo \"$TB\" | grep -q certenc && [ -n \"$QK\" ]"
+quit
+
+# 321. Preferences ▸ Signatures ▸ Create a digital ID… (C-sign-013, Acrobat's Add Digital ID ▸ A new digital ID): a
+# name and a password typed twice, Create and save: a self-signed .p12 (it opens with that password) and its .cer
+# beside it, issued to that name with key encipherment (usable for certificate encryption), kept in the list of IDs.
+rm -f "$OUT/smoke-id.p12" "$OUT/smoke-id.cer"
+launch; key ctrl+comma; sleep 0.8
+read CX CY <<< "$(pref_find Create)"; [ -n "$CY" ] && click $CX $CY 0.8
+# The Name field is under its label, just below the button and the line about the file.
+[ -n "$CY" ] && { click 700 $(( CY + 89 )) 0.4; xdotool type --delay 20 "Smoke Signer"; }
+# The form's labels start at x 234, left of pref_find's crop: the same scroll and find, from x 226.
+form_find() { local f=""; for _ in $(seq 1 10); do f=$(at "$1" 1040x700+226+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
+read _ PY <<< "$(form_find Password)"; [ -n "$PY" ] && { click 700 $(( PY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
+read _ QY <<< "$(form_find Confirm)"; [ -n "$QY" ] && { click 700 $(( QY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
+shot 321-form
+# Create and save… sits under the "Use it for certificate encryption too" box.
+xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.4
+answer "$PWD/$OUT/smoke-id.p12"; read _ SY <<< "$(form_find Use)"; [ -n "$SY" ] && click 310 $(( SY + 34 )) 0.5
+for _ in $(seq 1 30); do [ -f "$OUT/smoke-id.cer" ] && break; sleep 0.5; done; sleep 0.5; answer ""
+IDS=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("digital_ids"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+SUBJ=$(openssl pkcs12 -in "$OUT/smoke-id.p12" -passin pass:smokepw1 -nokeys 2>/dev/null | openssl x509 -noout -subject -ext keyUsage 2>/dev/null | tr '\n' ' ')
+check "Create a digital ID writes a self-signed .p12 and its .cer, kept in the list (${CY:+button at $CY}; $SUBJ; ids $IDS)" "[ -f \"$OUT/smoke-id.cer\" ] && echo \"$SUBJ\" | grep -q 'CN *= *Smoke Signer' && echo \"$SUBJ\" | grep -q 'Key Encipherment' && echo \"$IDS\" | grep -q smoke-id.p12"
+quit
+
+# 322. Prepare form ▸ Barcode (C-forms-011, Acrobat's barcode field): its error correction set to Quartile on the
+# options bar, a text field and a barcode field placed; back on the page, "Ada" typed in the text field: the barcode
+# is drawn again with it (a QR Code: dark modules filling its square) and saved with Acrobat's /PMD, the data in its value.
+cp "$OUT/plain.pdf" "$OUT/barcode.pdf"; launch "$OUT/barcode.pdf"; key ctrl+9; sleep 1; key Home; sleep 0.5; key f; sleep 0.6
+BK=$(at Barcode 1280x60+0+80); [ -n "$BK" ] && click $BK 0.6
+EK=$(at Error 1280x60+0+80); [ -n "$EK" ] && click $EK 0.4
+EC=$(ocr 1280x60+0+80)
+TK=$(at Text 1280x60+0+80); [ -n "$TK" ] && click $TK 0.5
+click 500 300 1.2; key Escape; sleep 0.3
+[ -n "$BK" ] && click $BK 0.5
+click 700 400 1.5; key Escape; sleep 0.3; key v; sleep 0.5
+click 540 311 0.6; xdotool type --delay 30 "Ada"; key Tab; sleep 1.5
+shot 322-barcode
+# The barcode's square (108 pt from its top-left corner at 700,400, at the zoom ⌘9 set): dark share of its pixels.
+DK=$(import -window root -crop 100x100+705+405 png:- 2>/dev/null | convert - -colorspace gray -threshold 50% -format '%[fx:1-mean]' info: 2>/dev/null)
+key ctrl+s; sleep 1.5
+BQ=$(qpdf --qdf --object-streams=disable "$OUT/barcode.pdf" - 2>/dev/null)
+check "a barcode field draws the form's data as a QR Code and follows the typing (${BK:-no Barcode kind}; $(echo "$EC" | grep -o 'Error correction: [A-Za-z]*'); dark ${DK:-?}; $(echo "$BQ" | grep -ao '/ECC [0-9]' | head -1); value $(echo "$BQ" | grep -ao '/V (Text1[^)]*)' | head -1))" "echo \"$EC\" | grep -q 'Quartile' && echo \"\$BQ\" | grep -aq '/Symbology /QRCode' && echo \"\$BQ\" | grep -aq '/ECC 2' && echo \"\$BQ\" | grep -aq '/V (Text1.nAda)' && python3 -c 'import sys; sys.exit(0 if 0.25 < float(sys.argv[1]) < 0.75 else 1)' ${DK:-0}"
 quit

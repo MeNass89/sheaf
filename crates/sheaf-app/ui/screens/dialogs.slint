@@ -68,6 +68,12 @@ export component PasswordDialog inherits Modal {
     in property <bool> wrong;
     // Bumped by Rust on each wrong attempt to replay the shake.
     in property <int> attempt;
+    // Acrobat opens a certificate-encrypted file with the recipient's digital ID: which one,
+    // Choose… for another, and the ID's own password.
+    in property <bool> certificate;
+    in property <string> id-name;
+    in property <string> error-text;
+    callback choose-id();
     callback unlock(string);
     callback skip();
 
@@ -79,13 +85,28 @@ export component PasswordDialog inherits Modal {
 
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: root.file-name + " is password protected";
+        text: root.certificate ? root.file-name + " is encrypted for certificates" : root.file-name + " is password protected";
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
         wrap: word-wrap;
     }
     // Escape skips, as Cancel does in every password prompt (the field leaves the key to it).
+    if root.certificate: HorizontalLayout {
+        spacing: 10px;
+        Text {
+            text: root.id-name == "" ? "Choose the digital ID it was sent to" : "Digital ID: " + root.id-name;
+            font-size: Theme.fs-label;
+            color: Theme.text-secondary;
+            overflow: elide;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        SecondaryButton {
+            text: "Choose…";
+            clicked => { root.choose-id(); }
+        }
+    }
     FocusScope {
         key-pressed(e) => {
             if e.text == Key.Escape { root.skip(); return accept; }
@@ -94,9 +115,9 @@ export component PasswordDialog inherits Modal {
         VerticalLayout {
             field := TextField {
                 password: true;
-                placeholder: "Password";
+                placeholder: root.certificate ? "Digital ID password" : "Password";
                 text <=> root.pw;
-                error: root.wrong ? "Wrong password" : "";
+                error: root.error-text != "" ? root.error-text : root.wrong ? "Wrong password" : "";
                 accepted => { root.unlock(root.pw); }
             }
         }
@@ -111,8 +132,8 @@ export component PasswordDialog inherits Modal {
             clicked => { root.skip(); }
         }
         PrimaryButton {
-            text: "Unlock";
-            enabled: root.pw != "";
+            text: root.certificate ? "Open" : "Unlock";
+            enabled: root.pw != "" || root.certificate;
             clicked => { root.unlock(root.pw); }
         }
     }

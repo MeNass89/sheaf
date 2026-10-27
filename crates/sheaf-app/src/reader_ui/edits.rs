@@ -940,7 +940,9 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
         // Drawn signatures are ink, picture and typed ones stamps (Sol, 26/10: ink was left).
         let twins: Vec<(usize, usize)> = if a.fill_sign && matches!(a.subtype.as_str(), "Stamp" | "Ink") {
             let same = |b: &reader_doc::AnnotEntry| {
-                b.page != a.page && b.subtype == a.subtype && b.fill_sign && b.contents == a.contents && shown(b).zip(at).is_some_and(|(p, q)| viewer::same_place(p, q))
+                let size = |p: usize| v.viewer.boxes.get(p).map(|bx| bx.view_size());
+                b.page != a.page && b.subtype == a.subtype && b.fill_sign && b.contents == a.contents
+                    && shown(b).zip(at).zip(size(b.page).zip(size(a.page))).is_some_and(|((p, q), (pb, pa))| super::sign::placed_together(q, pa, p, pb))
             };
             r.annots().iter().filter(|b| same(b)).map(|b| (b.page, b.index)).collect()
         } else {

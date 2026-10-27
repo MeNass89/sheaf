@@ -540,6 +540,7 @@ pub fn edit_pages(tab_id: i32, f: impl FnOnce(&mut Vec<u32>)) {
 pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
     let Some(i) = with(|a| a.tab_index(tab_id)) else { return };
     let checkout = with(|a| a.tabs[i].reader_file.clone());
+    let working = with(|a| a.tabs[i].viewer.as_ref().map(|v| v.input.path.clone()));
     crate::reader_ui::remember_position(tab_id);
     crate::reader_ui::stop_work(tab_id);
     crate::wm_preview::forget(tab_id);
@@ -552,6 +553,8 @@ pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
         a.tabs.remove(i);
         a.pw_queue.retain(|(t, _)| *t != tab_id);
     });
+    // A certificate-encrypted file's decrypted copy leaves the disk with its tab.
+    if let Some(w) = working { crate::reader_doc::certificate::forget(&w); }
     if let Some(path) = checkout
         && let Err(e) = sheaf_app::library::Library::new(&sheaf_app::store_file::data_dir()).release_checkout(&path) {
         toast(ui, &format!("The library working copy was kept: {e}"));

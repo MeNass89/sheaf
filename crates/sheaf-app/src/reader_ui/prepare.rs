@@ -8,7 +8,7 @@ use sheaf_core::pdfcraft::engine::{FieldAction, FieldProps, FieldTrigger, NewFie
 use std::fmt::Write as _;
 
 /// The field kinds the options bar offers, in its order (Acrobat's Prepare Form toolbar).
-pub const FIELD_KINDS: [&str; 9] = ["Text", "Check box", "Radio", "Dropdown", "List", "Date", "Button", "Signature", "Image"];
+pub const FIELD_KINDS: [&str; 10] = ["Text", "Check box", "Radio", "Dropdown", "List", "Date", "Button", "Signature", "Image", "Barcode"];
 
 /// A field placed by a click, not a drag: Acrobat's default size for its kind, in points.
 pub(super) fn default_size(kind: i32) -> (f64, f64) {
@@ -19,6 +19,8 @@ pub(super) fn default_size(kind: i32) -> (f64, f64) {
         6 => (80.0, 22.0),
         7 => (180.0, 40.0),
         8 => (100.0, 100.0),
+        // Acrobat's barcode field starts square, about an inch and a half.
+        9 => (108.0, 108.0),
         _ => (150.0, 22.0),
     }
 }
@@ -171,6 +173,13 @@ pub(super) fn form_released(r: &mut ReaderUi, v: &Viewer, press: Option<(usize, 
     };
     let kind = new_field(r);
     r.form_sel = Some((page, rect));
+    // Acrobat's barcode field: a text field holding the form's data, drawn as a QR Code.
+    if r.field_kind == 9 {
+        let name = (1..).map(|k| format!("Barcode{k}")).find(|n| !r.snap.fields.iter().any(|f| f.name == *n)).unwrap_or_default();
+        let settings = sheaf_core::pdfcraft::engine::barcode::BarcodeSettings { ecc: r.barcode_ecc, names: true };
+        let edits = vec![Edit::AddField { page, rect, kind, name: Some(name.clone()) }, Edit::SetBarcode { name, settings }];
+        return Some(Pending::Move(page, Box::new(Edit::Batch { label: "Add barcode field".into(), edits })));
+    }
     Some(Pending::Move(page, Box::new(Edit::AddField { page, rect, kind, name: None })))
 }
 

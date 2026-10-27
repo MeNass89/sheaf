@@ -93,12 +93,14 @@ export component ReaderOptionsBar inherits Rectangle {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 2px;
-            for k[i] in ["Text", "Check box", "Radio", "Dropdown", "List", "Date", "Button", "Signature", "Image"]: SmallButton {
+            for k[i] in ["Text", "Check box", "Radio", "Dropdown", "List", "Date", "Button", "Signature", "Image", "Barcode"]: SmallButton {
                 cross-axis-self-alignment: CrossAxisAlignment.center;
                 text: k;
                 primary: root.tab.reader.field-kind == i;
                 clicked => { ReaderBridge.field-kind(root.id, i); root.focus-pages(); }
             }
+            // Acrobat's barcode field: a QR Code of the form's data; its error correction, Low to High.
+            if root.tab.reader.field-kind == 9: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Error correction: " + root.tab.reader.barcode-ecc; clicked => { ReaderBridge.shape-option(root.id, 61, 0); root.focus-pages(); } }
             Rectangle { width: 8px; }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Detect fields"; clicked => { ReaderBridge.detect-fields(root.id); root.focus-pages(); } }
             // Acrobat's View ▸ Grid with Snap to Grid: lines every 9 pt; fields placed or moved land on them.

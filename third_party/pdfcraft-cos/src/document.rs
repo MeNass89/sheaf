@@ -127,6 +127,9 @@ pub struct Document {
     /// The handler and `/Encrypt` object number that saves use, when encryption changed.
     out_security: Option<Arc<pdfcraft_crypt::SecurityHandler>>,
     out_encrypt_num: Option<u32>,
+    /// Sheaf: what a certificate recipient may do when the document was opened from a decrypted
+    /// Adobe.PubSec copy (Acrobat enforces the recipient's envelope permissions the same way).
+    restricted: Option<pdfcraft_crypt::Permissions>,
 }
 
 /// A temporary reader for whole-document work. Its caches never populate the editor or
@@ -251,6 +254,7 @@ impl Document {
             encryption_changed: false,
             full_save: false,
             out_security: None,
+            restricted: None,
             out_encrypt_num: None,
         };
         let mut pages = Dict::new();
@@ -315,6 +319,7 @@ impl Document {
             encryption_changed: false,
             full_save: false,
             out_security: None,
+            restricted: None,
             out_encrypt_num: None,
         };
         let mut log = Vec::new();
@@ -424,7 +429,17 @@ impl Document {
 
     /// What the opening password allows (`None` for unencrypted documents: everything).
     pub fn permissions(&self) -> Option<pdfcraft_crypt::Permissions> {
-        self.security().map(|s| s.permissions())
+        self.restricted.or_else(|| self.security().map(|s| s.permissions()))
+    }
+
+    /// Sheaf: apply a certificate recipient's permissions to a decrypted working copy.
+    pub fn restrict(&mut self, permissions: pdfcraft_crypt::Permissions) {
+        self.restricted = Some(permissions);
+    }
+
+    /// Sheaf: the certificate recipient's permissions set by [`Self::restrict`].
+    pub fn restricted(&self) -> Option<pdfcraft_crypt::Permissions> {
+        self.restricted
     }
 
     /// Make the next save a full rewrite: earlier revisions (which still hold what an edit
