@@ -513,7 +513,7 @@ export component ReaderScreen inherits Rectangle {
                             }
                         }
                     }
-                    // Edit tool, objects picked together: Align and Distribute, in the view's top-right corner.
+                    // Edit tool, objects picked: Align and Distribute (several), Arrange, in the view's top-right corner.
                     if root.tab.reader.tool == 0 && root.tab.reader.annots-group > 1: ObjectsArrangeCard {
                         x: -sv.content-x + sv.visible-width - self.width - 12px;
                         y: -sv.content-y + 12px;
@@ -522,7 +522,7 @@ export component ReaderScreen inherits Rectangle {
                         id: root.id;
                         focus-pages => { keys.focus(); }
                     }
-                    if root.tab.reader.tool == 7 && root.tab.reader.picked-count > 1: ObjectsArrangeCard {
+                    if root.tab.reader.tool == 7 && root.tab.reader.picked-count > 0: ObjectsArrangeCard {
                         x: -sv.content-x + sv.visible-width - self.width - 12px;
                         y: -sv.content-y + 12px;
                         count: root.tab.reader.picked-count;

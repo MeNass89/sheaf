@@ -243,6 +243,7 @@ fn scope_of(edit: &Edit) -> Scope {
         // fields, links and document metadata are untouched (see `refresh_content`).
         Edit::MoveObjects { .. }
         | Edit::ArrangeObjects { .. }
+        | Edit::RestackObjects { .. }
         | Edit::DeleteObjects { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
@@ -1542,6 +1543,13 @@ pub enum Edit {
         page: usize,
         moves: Vec<(ObjectTarget, [f64; 2])>,
     },
+    /// Sheaf: the objects picked with the Edit tool brought to the front, forward, backward or
+    /// sent to the back (Acrobat's Arrange; pdfcraft-edit's `restack.rs`), one step.
+    RestackObjects {
+        page: usize,
+        objects: Vec<ObjectTarget>,
+        how: pdfcraft_edit::Restack,
+    },
     /// Sheaf: delete the objects picked with the Edit tool (drawings, paragraphs, images, added
     /// items) in one step.
     DeleteObjects {
@@ -2006,6 +2014,12 @@ impl Edit {
             Edit::RegisterTextFont { .. } => Label::of("Load document font"),
             Edit::MoveObjects { objects, .. } => plural("Move object", "Move objects", objects.len()),
             Edit::ArrangeObjects { .. } => Label::of("Arrange objects"),
+            Edit::RestackObjects { how, .. } => Label::of(match how {
+                pdfcraft_edit::Restack::Front => "Bring to front",
+                pdfcraft_edit::Restack::Forward => "Bring forward",
+                pdfcraft_edit::Restack::Backward => "Send backward",
+                pdfcraft_edit::Restack::Back => "Send to back",
+            }),
             Edit::DeleteObjects { objects, .. } => plural("Delete object", "Delete objects", objects.len()),
             Edit::EditPageImage { change, .. } => Label::of(match change {
                 ImageEdit::Move(_) => "Move image",
@@ -2177,6 +2191,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::UpdateContent { .. }
         | Edit::MoveObjects { .. }
         | Edit::ArrangeObjects { .. }
+        | Edit::RestackObjects { .. }
         | Edit::DeleteObjects { .. }
         | Edit::DeleteContent { .. }
         | Edit::ReplaceImage { .. }
@@ -2605,6 +2620,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::MoveObjects { page, objects, offset } => pdfcraft_edit::move_objects(doc, *page, objects, *offset)?,
         Edit::ArrangeObjects { page, moves } => arrange_objects::arrange_objects(doc, *page, moves)?,
+        Edit::RestackObjects { page, objects, how } => pdfcraft_edit::restack_objects(doc, *page, objects, *how)?,
         Edit::DeleteObjects { page, objects } => pdfcraft_edit::delete_objects(doc, *page, objects)?,
         Edit::EditTextBlock { page, block, text, style } => {
             cx.substituted = pdfcraft_edit::rewrite_block(doc, *page, *block, Some(text), style)?.substituted;
@@ -4038,7 +4054,7 @@ impl Session {
             matches!(
                 e,
                 Edit::AddText { .. } | Edit::AddImage { .. } | Edit::AddArtwork { .. } | Edit::OverlayPdf { .. } | Edit::UpdateContent { .. } | Edit::DeleteContent { .. } | Edit::ReplaceImage { .. }
-            ) || matches!(e, Edit::MoveObjects { objects, .. } | Edit::DeleteObjects { objects, .. } if objects.iter().any(|o| o.kind == ObjectKind::Added))
+            ) || matches!(e, Edit::MoveObjects { objects, .. } | Edit::DeleteObjects { objects, .. } | Edit::RestackObjects { objects, .. } if objects.iter().any(|o| o.kind == ObjectKind::Added))
                 || matches!(e, Edit::ArrangeObjects { moves, .. } if moves.iter().any(|(o, _)| o.kind == ObjectKind::Added))
         });
         let touches_marks = edit.is_none_or(|e| {

@@ -927,7 +927,8 @@ export global ReaderBridge {
     callback field-copies(int, int, int);
     // Fields selected together: align, match size or space them (reader::arrange); the arrow keys move them.
     callback fields-arrange(int, int);
-    // Edit tool, several objects picked ▸ Align or Distribute (codes as fields-arrange's, no sizes).
+    // Edit tool, several objects picked ▸ Align or Distribute (codes as fields-arrange's, no sizes);
+    // one or more ▸ Arrange: 20 to front, 21 forward, 22 backward, 23 to back.
     callback objects-arrange(int, int);
     // Comments selected together ▸ Align or Distribute (codes as fields-arrange's).
     callback annots-arrange(int, int);

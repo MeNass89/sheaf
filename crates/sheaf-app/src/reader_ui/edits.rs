@@ -49,6 +49,7 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::DeleteLink { .. }
         | Edit::MoveObjects { .. }
         | Edit::ArrangeObjects { .. }
+        | Edit::RestackObjects { .. }
         | Edit::DeleteObjects { .. }
         | Edit::EditPageImage { .. }
         | Edit::RenameBookmark { .. }
@@ -673,6 +674,7 @@ pub fn nudge(ui: &AppWindow, tab_id: i32, dx: f32, dy: f32) {
 
 /// Edit tool, several objects picked ▸ Align or Distribute (`how` as [`reader::arrange`]; Acrobat's
 /// Align Objects): lined up on the selection's outer edge or centre, or spaced evenly; one step.
+/// `how` 20–23, one object or more: Bring to front, Bring forward, Send backward, Send to back.
 pub fn objects_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
     let edit = update(tab_id, |r, _| {
         if r.edits_in_flight > 0 || r.repick.is_some() {
@@ -680,6 +682,13 @@ pub fn objects_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
         }
         let (page, list) = r.picked.as_ref()?;
         let rects: Vec<[f64; 4]> = list.iter().map(|o| o.1).collect();
+        // 20–23: the stacking order (Acrobat's Arrange); the objects stay where they are, picked.
+        if (20..=23).contains(&how) {
+            use sheaf_core::pdfcraft::edit::Restack;
+            let order = [Restack::Front, Restack::Forward, Restack::Backward, Restack::Back][(how - 20) as usize];
+            r.repick = Some((*page, rects));
+            return Some((*page, Edit::RestackObjects { page: *page, objects: list.iter().map(|o| o.0).collect(), how: order }));
+        }
         let arranged = if how == 9 || how == 10 {
             reader::arrange(&rects, how)
         } else {

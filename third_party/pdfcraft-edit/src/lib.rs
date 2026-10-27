@@ -807,6 +807,9 @@ pub use flatten::{flatten, flatten_fill_sign};
 pub mod images;
 /// Sheaf: drawings (vector paths) as objects of Edit a PDF.
 mod paths;
+/// Sheaf: the stacking order of objects (Acrobat's Arrange).
+mod restack;
+pub use restack::{Restack, restack_objects};
 pub use images::{ImageChange, PageImage, change_image, page_images, reading_images, rect_to_rect, turn_about_centre};
 pub mod bidi;
 pub mod indic;
