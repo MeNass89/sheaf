@@ -664,6 +664,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                 Err(e) => return reply(Reply::OpenFailed(e)),
             };
             debug(format_args!("document opened in {:?}", t0.elapsed()));
+            certificate::restrict(&mut doc, &input.path);
             reply(Reply::Opened(Box::new(snap(&doc))));
             let mut path = input.path.clone();
             // A preview on the document: the dirty, undo and redo state before it, which the
@@ -910,6 +911,12 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         // An undo step was counted for it by the window: `applied` even when refused, so it is taken back.
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: true, note, preview: false });
                     }
+                    // A certificate-encrypted file saves encrypted again, its working copy stays.
+                    Op::Save { to } if certificate::original(&path).is_some() => {
+                        let target = to.clone().or_else(|| certificate::original(&path)).unwrap_or_else(|| path.clone());
+                        let error = certificate::save(&mut doc, &path, &target).err();
+                        reply(Reply::Saved { snap: Box::new(snap(&doc)), to: target, error });
+                    }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());
                         let error = save(&mut doc, &target).err();
@@ -1097,6 +1104,8 @@ pub fn debug(args: std::fmt::Arguments) {
         eprintln!("reader: {args}");
     }
 }
+
+pub mod certificate;
 
 #[cfg(test)]
 mod tests;

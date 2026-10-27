@@ -4379,8 +4379,11 @@ impl Session {
             appended = bytes.len() > before.len() && bytes[..before.len()] == before[..] && !editor.cos.encryption_changed();
             // An encrypted file needs the password it is protected with now (the owner
             // password when known, so saving never downgrades this session's rights).
+            let restricted = editor.cos.restricted();
             editor.cos = pdfcraft_cos::Document::open_with_password(bytes.clone(), editor.keys.reopen.as_deref())
                 .map_err(|e| EditError::Reopen(e.to_string()))?;
+            // Sheaf: a certificate recipient keeps their permissions after a save.
+            if let Some(p) = restricted { editor.cos.restrict(p); }
         }
         if let Some(p) = path {
             doc.name = std::path::Path::new(&p).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.clone());
@@ -4442,7 +4445,9 @@ impl Session {
             .into_iter()
             .find_map(|k| pdfcraft_cos::Document::open_with_password(base.clone(), k.reopen.as_deref()).ok().map(|c| (c, k)))
             .ok_or_else(|| EditError::Reopen("the saved file can't be opened".into()))?;
+        let restricted = editor.cos.restricted();
         editor.cos = cos;
+        if let Some(p) = restricted { editor.cos.restrict(p); }
         editor.keys = keys;
         editor.undo.clear();
         editor.redo.clear();
@@ -5078,6 +5083,17 @@ impl Session {
 
     pub fn close(&mut self, id: DocId) {
         self.docs.retain(|d| d.id != id);
+    }
+
+    /// Sheaf: hold document `id` to a certificate recipient's permissions (Acrobat's
+    /// Encrypt with Certificate): edits, printing and copying then refuse as for a restricted
+    /// password. `bits` is the envelope's permission word (Table 22). False when the document
+    /// has no editor (opened read only).
+    pub fn restrict(&mut self, id: DocId, bits: i32) -> bool {
+        match self.docs.iter_mut().find(|d| d.id == id).and_then(|d| d.editor.as_mut()) {
+            Some(editor) => { editor.cos.restrict(pdfcraft_cos::Permissions { bits, owner: false }); true }
+            None => false,
+        }
     }
 
     pub fn get(&self, id: DocId) -> Option<&Document> {

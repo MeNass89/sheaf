@@ -285,6 +285,9 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_policy_open(reader_ui::policy_open);
     wire_global!(ui, rb, on_policy_action, |ui, id, action, index| reader_ui::policy_action(&ui, id, action, index));
     rb.on_policy_save(|id, name, printing, copying, editing, commenting, forms, metadata, quality, changes, algorithm| reader_ui::policy_save(id, &name, [printing, copying, editing, commenting, forms, metadata], [quality, changes, algorithm]));
+    rb.on_cert_open(reader_ui::cert_open);
+    wire_global!(ui, rb, on_cert_action, |ui, id, action, index, password| reader_ui::cert_action(&ui, id, action, index, &password));
+    rb.on_cert_flag(reader_ui::cert_flag);
     wire_global!(ui, rb, on_policy_apply, |ui, id, user, confirmation, owner, owner_confirmation, remember| reader_ui::policy_apply(&ui, id, &user, &confirmation, &owner, &owner_confirmation, remember));
     rb.on_catalog_open(reader_ui::catalog_open);
     wire_global!(ui, rb, on_catalog_action, |ui, id, action, index, query| reader_ui::catalog_action(&ui, id, action, index, &query));
@@ -405,6 +408,8 @@ fn main() -> Result<(), slint::PlatformError> {
     };
     // The window opens in the saved appearance; `home::install` keeps it in sync afterwards.
     let saved = sheaf_app::prefs::Prefs::load(&sheaf_app::store_file::data_dir());
+    // Decrypted copies of certificate-encrypted files a crashed session left behind.
+    reader_doc::certificate::sweep(&sheaf_app::store_file::data_dir());
     let initial = forced.unwrap_or(saved.theme);
     let winit_theme = match initial {
         ThemePref::Light => Some(WinitTheme::Light),
@@ -582,6 +587,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_insert_blank(|id| flow::edit_pages(id, |o| o.push(0)));
     wire!(ui, on_pw_unlock, |ui, pw| password::entered(&ui, pw.into()));
     wire!(ui, on_pw_skip, |ui| password::skipped(&ui));
+    wire!(ui, on_pw_choose_id, |ui| reader_ui::certificate::choose_id(&ui));
 
     // Run and result
     wire!(ui, on_run_tool, |ui, id, opts| run::run_tool(&ui, id, opts));

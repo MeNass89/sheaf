@@ -114,6 +114,11 @@ export component AppWindow inherits Window {
     // Password dialog
     in property <bool> pw-visible;
     in property <string> pw-file;
+    // A certificate-encrypted file: the digital ID that opens it, and why the last try failed.
+    in property <bool> pw-certificate;
+    in property <string> pw-id;
+    in property <string> pw-error;
+    callback pw-choose-id();
     in property <bool> pw-wrong;
     in property <int> pw-attempt;
     // Closing a tab with a running job
@@ -620,6 +625,10 @@ export component AppWindow inherits Window {
         file-name: root.pw-file;
         wrong: root.pw-wrong;
         attempt: root.pw-attempt;
+        certificate: root.pw-certificate;
+        id-name: root.pw-id;
+        error-text: root.pw-error;
+        choose-id => { root.pw-choose-id(); }
         unlock(pw) => { root.pw-unlock(pw); }
         skip => { root.pw-skip(); }
     }

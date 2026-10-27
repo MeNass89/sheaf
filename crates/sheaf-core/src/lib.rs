@@ -36,6 +36,7 @@ pub mod script;
 pub mod rotate;
 pub mod security;
 pub mod certificate_security;
+pub mod certificate_policy;
 pub mod security_policy;
 pub mod search_index;
 pub mod sign;

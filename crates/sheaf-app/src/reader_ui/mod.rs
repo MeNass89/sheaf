@@ -381,6 +381,8 @@ pub struct ReaderUi {
     prepress: prepress::State,
     /// More tools' reusable security settings, search catalogs and live OCR correction.
     policy_panel: Option<security_policy::PolicyPanel>,
+    /// More tools ▸ Encrypt with certificates: its recipients.
+    cert_panel: Option<certificate::CertPanel>,
     catalog_panel: Option<catalog::CatalogPanel>,
     ocr_review: Option<ocr_review::Review>,
     /// More tools ▸ Accessibility check: its sheet, a check running, the last report.
@@ -616,6 +618,7 @@ impl ReaderUi {
             layers_made: 0,
             prepress: prepress::State::default(),
             policy_panel: None,
+            cert_panel: None,
             catalog_panel: None,
             ocr_review: None,
             a11y_open: false,
@@ -733,7 +736,13 @@ pub fn open_on_notes(ui: &AppWindow, path: PathBuf) {
 
 /// Opens `path` in a new reader tab and shows it. A file already open is brought forward.
 pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
-    let canon = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+    open_as(ui, path.clone(), password, &path);
+}
+
+/// Open `path` in a tab that shows and saves `shown` (a certificate-encrypted file's decrypted
+/// working copy shows as the file itself).
+pub(crate) fn open_as(ui: &AppWindow, path: PathBuf, password: Option<String>, shown: &std::path::Path) {
+    let canon = std::fs::canonicalize(shown).unwrap_or_else(|_| shown.to_path_buf());
     // One tab per file, a tab still loading included: two tabs saving one file would overwrite
     // each other's edits.
     let existing = with(|a| a.tabs.iter().position(|t| t.reader_file.as_ref() == Some(&canon)));
@@ -745,7 +754,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
     let id = with(|a| {
         a.next_id += 1;
         let mut t = TabState::new(a.next_id, sheaf_core::tools::ToolId::Edit);
-        t.reader_loading = Some(file_name(&path));
+        t.reader_loading = Some(file_name(shown));
         t.reader_file = Some(canon.clone());
         crate::state::push_tab_row(&t);
         a.tabs.push(t);
@@ -809,6 +818,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             let Some((_, input)) = with(|a| a.tab(id).and_then(|t| t.reader_ops.take())) else { return };
             crate::flow::remove_tab(ui, id);
             match e {
+                // Acrobat asks for the digital ID a certificate-encrypted file was sent to.
+                _ if sheaf_core::certificate_security::is_certificate_encrypted(&input.path) => certificate::ask(ui, input.path, ""),
                 sheaf_core::OpdfError::PasswordRequired(_) | sheaf_core::OpdfError::WrongPassword(_) => crate::password::ask_reader(ui, input.path, input.password.is_some()),
                 // A damaged PDF goes to Repair PDF, ready to rebuild it (Acrobat repairs as it opens;
                 // Sol 25/10: the tab just closed).
@@ -1116,7 +1127,7 @@ fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
 
 fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     let Some((ops, input)) = with(|a| a.tab(id).and_then(|t| t.reader_ops.take())) else { return };
-    let path = input.path.clone();
+    let path = crate::reader_doc::certificate::original(&input.path).unwrap_or_else(|| input.path.clone());
     crate::home::record_open(&path);
     let scale = ui.window().scale_factor() as f64;
     let ok = with(|a| {
@@ -1331,7 +1342,9 @@ mod accessibility;
 mod ocr_review;
 mod catalog;
 mod security_policy;
+pub mod certificate;
 pub use security_policy::{policy_open, policy_action, policy_save, policy_apply};
+pub use certificate::{cert_open, cert_action, cert_flag};
 pub use catalog::{catalog_open, catalog_action};
 pub use ocr_review::{review_ocr, ocr_review_action};
 pub(crate) mod javascript;

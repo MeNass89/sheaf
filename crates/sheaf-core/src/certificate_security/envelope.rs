@@ -9,13 +9,12 @@ const ENVELOPED: &str = "1.2.840.113549.1.7.3";
 const RSA: &str = "1.2.840.113549.1.1.1";
 const AES256: &str = "2.16.840.1.101.3.4.1.42";
 
-pub(super) fn seal(certificates: &[&Certificate], seed: &[u8; 20]) -> Result<Vec<u8>> {
+pub(super) fn seal(certificates: &[&Certificate], seed: &[u8; 20], permissions: u32) -> Result<Vec<u8>> {
     let mut envelope_key = [0u8; 32];
     getrandom::fill(&mut envelope_key).map_err(crypto)?;
     let mut rng = getrandom::rand_core::UnwrapErr(getrandom::SysRng);
-    // PubSec stores a 20-byte seed and a big-endian permission word. All recipients have
-    // full permissions in this first offline workflow, including changing security.
-    let payload = [seed.as_slice(), &u32::MAX.to_be_bytes()].concat();
+    // PubSec stores a 20-byte seed and the big-endian permission word of this envelope's recipients.
+    let payload = [seed.as_slice(), &permissions.to_be_bytes()].concat();
     let ciphertext = Aes256CryptFilter.encrypt(&envelope_key, &payload).map_err(crypto)?;
     let mut recipients = Vec::new();
     for cert in certificates {

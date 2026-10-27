@@ -639,6 +639,18 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         policy_status: r.policy_panel.as_ref().map(|p| p.status.as_str()).unwrap_or_default().into(),
         policy_remembered: r.policy_panel.as_ref().is_some_and(|p| p.remembered),
         policy_seq: r.policy_panel.as_ref().map_or(0, |p| p.seq),
+        cert_open: r.cert_panel.is_some(),
+        cert_busy: r.cert_panel.as_ref().is_some_and(|p| p.busy),
+        cert_recipients: ModelRc::new(VecModel::from(r.cert_panel.as_ref().map(|p| p.recipients.iter().map(|rec| sheaf_app::CertRecipient {
+            name: super::certificate::name(&rec.certificate).into(),
+            detail: super::certificate::detail(&rec.certificate).into(),
+            flags: ModelRc::new(VecModel::from(super::certificate::flags(rec.permissions).to_vec())),
+        }).collect::<Vec<_>>()).unwrap_or_default())),
+        cert_status: r.cert_panel.as_ref().map(|p| p.status.as_str()).unwrap_or_default().into(),
+        cert_policies: ModelRc::new(VecModel::from(r.cert_panel.as_ref().map(|p| p.policies.iter().map(|(_, c)| slint::SharedString::from(c.name.as_str())).collect::<Vec<_>>()).unwrap_or_default())),
+        cert_scope: r.cert_panel.as_ref().map_or(0, |p| p.scope),
+        cert_seq: r.cert_panel.as_ref().map_or(0, |p| p.seq),
+        cert_name: r.cert_panel.as_ref().map(|p| p.name.as_str()).unwrap_or_default().into(),
         catalog_open: r.catalog_panel.is_some(),
         catalog_busy: r.catalog_panel.as_ref().is_some_and(|p| p.busy),
         catalog_status: r.catalog_panel.as_ref().map(|p| p.status.as_str()).unwrap_or_default().into(),
@@ -675,7 +687,14 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             ModelRc::new(VecModel::from(vec![p, l, z, n, w]))
         },
         props_custom: r.facts.as_ref().map(|f| super::properties::custom_text(&f.custom)).unwrap_or_default().into(),
-        props_about: ModelRc::new(VecModel::from(super::properties::about_rows(&r.snap.props.about, r.facts.as_ref()).into_iter().map(|(n, v)| ReaderProp { name: n.into(), value: v.into() }).collect::<Vec<_>>())),
+        props_about: {
+            // A certificate-encrypted file opened here: its working copy reads as unencrypted.
+            let note = super::certificate::security_note(&v.input.path);
+            ModelRc::new(VecModel::from(super::properties::about_rows(&r.snap.props.about, r.facts.as_ref()).into_iter().map(|(n, value)| {
+                let value = if n == "Security" { note.clone().unwrap_or(value) } else { value };
+                ReaderProp { name: n.into(), value: value.into() }
+            }).collect::<Vec<_>>()))
+        },
         text_size: r.text_pt.round() as i32,
         text_family: r.text_family,
         text_bold: r.text_bold,

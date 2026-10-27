@@ -251,6 +251,13 @@ export struct ReaderFieldProps {
 }
 
 // A page found by In a folder…: its file, its page ("p. 3") and the line around the words.
+// Encrypt with certificates: one recipient, and Print, Copy, Edit, Comment, Fill forms, Change security.
+export struct CertRecipient {
+    name: string,
+    detail: string,
+    flags: [bool],
+}
+
 export struct FolderHit {
     file: string,
     page: string,
@@ -500,6 +507,14 @@ export struct ReaderState {
     policy-status: string,
     policy-seq: int,
     policy-remembered: bool,
+    cert-open: bool,
+    cert-busy: bool,
+    cert-recipients: [CertRecipient],
+    cert-status: string,
+    cert-policies: [string],
+    cert-scope: int,
+    cert-seq: int,
+    cert-name: string,
     catalog-open: bool,
     catalog-busy: bool,
     catalog-status: string,
@@ -934,6 +949,11 @@ export global ReaderBridge {
     callback policy-action(int, int, int);
     callback policy-save(int, string, bool, bool, bool, bool, bool, bool, int, int, int);
     callback policy-apply(int, string, string, string, string, bool);
+    // Encrypt with certificates: 0 close, 1 add certificate, 2 add digital ID (password), 3 remove k, 4 save with scope k,
+    // 5 save as policy (name, scope k), 6 use policy k, 7 delete policy k, 8 import policy, 9 export policy (name, scope k).
+    callback cert-open(int);
+    callback cert-action(int, int, int, string);
+    callback cert-flag(int, int, int, bool);
     callback catalog-open(int);
     callback catalog-action(int, int, int, string);
     callback review-ocr(int);

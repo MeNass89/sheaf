@@ -428,6 +428,7 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Library…", on: false },
                                 { text: "Create portfolio…", on: false },
                                 { text: "Browse embedded files…", on: false },
+                                { text: "Encrypt with certificates…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -468,6 +469,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 30 { ActionBridge.open-page("library"); return; }
                                         if k == 31 { PortfolioBridge.open(); return; }
                                         if k == 32 { PortfolioBridge.browse(root.id); return; }
+                                        if k == 33 { ReaderBridge.cert-open(root.id); }
                                         root.focus-pages();
                                     }
                                 }

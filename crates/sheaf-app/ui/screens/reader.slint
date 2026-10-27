@@ -10,6 +10,7 @@ import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
 import { SignatureManagerSheet } from "signature-manager.slint";
 import { SecurityPolicySheet } from "security-policy.slint";
+import { CertificateEncryptSheet } from "certificate-encrypt.slint";
 import { CatalogSheet } from "catalog.slint";
 import { OcrReviewPanel } from "ocr-review.slint";
 import { ReaderPanel } from "reader-panel.slint";
@@ -1307,6 +1308,10 @@ export component ReaderScreen inherits Rectangle {
         focus-pages => { keys.focus(); }
     }
     if root.tab.reader.policy-open: SecurityPolicySheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.cert-open: CertificateEncryptSheet {
         tab: root.tab;
         focus-pages => { keys.focus(); }
     }

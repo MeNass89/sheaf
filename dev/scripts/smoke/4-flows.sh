@@ -768,3 +768,32 @@ cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
 key r; sleep 0.6; read FX _ <<< "$(at Fill 1280x120+0+80)"
 check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
 quit; platform_reset
+
+# 320. More ▸ More tools ▸ Encrypt with certificates… (C-security-007, Acrobat's Encrypt with Certificate): my digital
+# ID added with its password (full rights) and a colleague's certificate (read only by default), saved as an
+# encrypted copy (Adobe.PubSec, one envelope per permission set). Opened again, the copy asks for the digital ID it
+# was sent to: a wrong password is refused, the right one opens it in place (its tab named after it, its words shown).
+CD="$PWD/$OUT/certs"; mkdir -p "$CD"
+for n in me colleague; do openssl req -x509 -newkey rsa:2048 -nodes -keyout "$CD/$n.key" -out "$CD/$n.pem" -days 2 -subj "/CN=Smoke $n" -addext keyUsage=digitalSignature,keyEncipherment >/dev/null 2>&1; done
+openssl pkcs12 -export -passout pass:smokepw -inkey "$CD/me.key" -in "$CD/me.pem" -out "$CD/me.p12" >/dev/null 2>&1
+cp "$OUT/text.pdf" "$OUT/certsrc.pdf"; rm -f "$OUT/certenc.pdf"; launch "$OUT/certsrc.pdf"; sleep 1
+click 1127 61 0.8; click 1008 659 0.8
+for i in 1 2 3 4 5 6; do xdotool mousemove 1000 500 click 5; sleep 0.1; done; sleep 0.5
+EC=$(at Encrypt 300x700+880+80); [ -n "$EC" ] && click $EC 1.2
+# The sheet is 760 × 680 in the middle of the window: its buttons are at fixed places.
+click 705 189 0.4; xdotool type --delay 20 smokepw
+answer "$CD/me.p12"; click 507 187 1.5
+answer "$CD/colleague.pem"; click 348 187 1
+shot 320-recipients
+RL=$(ocr 760x420+260+79)
+answer "$PWD/$OUT/certenc.pdf"; click 908 725 4; answer ""
+quit
+ENV=$(python3 -c 'import re, sys; b = open(sys.argv[1], "rb").read(); m = re.search(rb"/Recipients\s*\[(.*?)\]", b, re.S); print(len(re.findall(rb"<", m.group(1))) if m and b"Adobe.PubSec" in b else 0)' "$OUT/certenc.pdf" 2>/dev/null)
+launch "$OUT/certenc.pdf"; sleep 2
+xdotool type --delay 20 wrongpw; key Return; sleep 3
+shot 320-wrong; WR=$(ocr 380x40+455+432)
+key ctrl+a; xdotool type --delay 20 smokepw; key Return; sleep 4
+shot 320-opened
+TB=$(ocr 1280x80+0+0); QK=$(at quick 1020x700+250+90)
+check "Encrypt with certificates writes a copy for two recipients that opens in place with the digital ID (recipients: $(echo "$RL" | grep -o 'Smoke [a-z]*' | sort -u | tr '\n' ' '); envelopes ${ENV:-none}; wrong password: $(echo "$WR" | grep -o 'Wrong password' | head -1); tab: $(echo "$TB" | cut -c1-50); quick at ${QK:-nowhere})" "[ \"${ENV:-0}\" = 2 ] && echo \"$RL\" | grep -q 'Smoke colleague' && echo \"$RL\" | grep -q 'Smoke me' && echo \"$WR\" | grep -q 'Wrong password' && echo \"$TB\" | grep -q certenc && [ -n \"$QK\" ]"
+quit

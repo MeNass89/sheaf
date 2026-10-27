@@ -837,3 +837,27 @@ fn wizard_protection_encrypts_the_final_output_with_only_the_prompted_password()
     assert!(session.open("output.pdf", None, output.bytes.clone(), None).is_err());
     assert!(session.open("output.pdf", None, output.bytes, Some("runtime secret")).is_ok());
 }
+
+/// A certificate recipient's permissions (Acrobat's Encrypt with Certificate) hold the decrypted
+/// working copy the way a restricted password would, and survive a save.
+#[test]
+fn a_certificate_recipients_permissions_refuse_edits_printing_and_copying_after_saves_too() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 0 m 10 10 l S"]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    let id = doc.id();
+    // Comment and fill forms only: no printing, copying or page changes.
+    let comment_only = sheaf_core::certificate_security::Permissions::new(false, false, false, true, true, false);
+    assert!(doc.session_mut().restrict(id, comment_only.0 as i32));
+    let check = |doc: &Doc| {
+        let d = doc.session().get(id).unwrap();
+        assert!(!d.allows_printing() && !d.allows_copying());
+        assert!(d.permissions().is_some_and(|p| p.annotate() && !p.assemble()));
+    };
+    check(&doc);
+    assert!(doc.apply(Edit::RotatePages { pages: vec![0], degrees: 90 }).unwrap_err().to_string().contains("page changes"));
+    let bytes = doc.session().save_bytes(id).unwrap();
+    doc.session_mut().mark_saved(id, bytes, None).unwrap();
+    check(&doc);
+}
