@@ -288,7 +288,12 @@ export component AppWindow inherits Window {
             title: "Edit";
             MenuItem { title: "Undo"; shortcut: PlatformBridge.keys[8]; enabled: root.reader-on; activated => { ReaderBridge.undo(root.reader-id); } }
             MenuItem { title: "Redo"; shortcut: PlatformBridge.keys[9]; enabled: root.reader-on; activated => { ReaderBridge.redo(root.reader-id); } }
-            MenuItem { title: "Select All"; shortcut: PlatformBridge.keys[10]; enabled: root.reader-on; activated => { ReaderBridge.select-all(root.reader-id); } }
+            MenuSeparator {}
+            // Sent as their keys to what has the keyboard: a text field, or the reader's pages (src/platform.rs EDIT_KEYS).
+            MenuItem { title: "Cut"; shortcut: PlatformBridge.keys[40]; activated => { PlatformBridge.edit-key("x"); } }
+            MenuItem { title: "Copy"; shortcut: PlatformBridge.keys[41]; activated => { PlatformBridge.edit-key("c"); } }
+            MenuItem { title: "Paste"; shortcut: PlatformBridge.keys[42]; activated => { PlatformBridge.edit-key("v"); } }
+            MenuItem { title: "Select All"; shortcut: PlatformBridge.keys[10]; activated => { PlatformBridge.edit-key("a"); } }
             MenuSeparator {}
             MenuItem { title: "Find…"; shortcut: PlatformBridge.keys[11]; enabled: root.reader-on || (root.active-tab == -1 && root.page == Page.tools); activated => { if root.reader-on { root.reader-command("find"); } else { root.search-seq += 1; } } }
             MenuItem { title: "Find Next"; shortcut: PlatformBridge.keys[12]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, 1); } }

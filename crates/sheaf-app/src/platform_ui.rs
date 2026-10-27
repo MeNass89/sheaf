@@ -287,6 +287,29 @@ fn record(ui: &AppWindow, i: i32, text: &str, control: bool, alt: bool, shift: b
     true
 }
 
+/// Edit ▸ Cut, Copy, Paste, Select All: ⌘ (Ctrl) and `key` sent to whatever has the keyboard, as
+/// if typed — a text field cuts, copies, pastes or selects its own text; the reader's pages their
+/// selection, picked objects or comment (reader.slint's ⌘C ⌘X ⌘V ⌘A). Sent once the menu has
+/// closed and given the keyboard back. The menu bar has no shortcut on these keys, so they reach
+/// the field or the pages.
+fn edit_key(ui: &AppWindow, key: &str) {
+    use slint::platform::{Key, WindowEvent};
+    let weak = ui.as_weak();
+    let key = SharedString::from(key);
+    slint::Timer::single_shot(Duration::from_millis(30), move || {
+        let Some(ui) = weak.upgrade() else { return };
+        let ctrl = SharedString::from(Key::Control);
+        for ev in [
+            WindowEvent::KeyPressed { text: ctrl.clone() },
+            WindowEvent::KeyPressed { text: key.clone() },
+            WindowEvent::KeyReleased { text: key.clone() },
+            WindowEvent::KeyReleased { text: ctrl },
+        ] {
+            let _ = ui.window().dispatch_event_with_result(ev);
+        }
+    });
+}
+
 /// Wires the global and fills it.
 pub fn install(ui: &AppWindow) {
     let _ = LEARNED.set(home::prefs().platform.learned_words);
@@ -409,6 +432,7 @@ pub fn install(ui: &AppWindow) {
         crate::install_catalogue(&ui);
     });
     on!(on_set_direction, |ui, d| update(&ui, |p| p.direction = d.clamp(0, 2) as u8));
+    on!(on_edit_key, |ui, key| edit_key(&ui, &key));
     // File ▸ Quit: as the window's close button (unsaved documents are asked about first).
     on!(on_quit, |ui| {
         let _ = ui.window().dispatch_event_with_result(slint::platform::WindowEvent::CloseRequested);

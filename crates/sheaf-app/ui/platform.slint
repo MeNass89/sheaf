@@ -77,6 +77,8 @@ export global PlatformBridge {
     // The menu bar shown (debug builds driven by the GUI smoke hide it unless asked: their clicks
     // are placed for a window without it).
     in property <bool> menu-bar: true;
+    // Edit ▸ Cut, Copy, Paste, Select All: ⌘ and this key sent to what has the keyboard.
+    callback edit-key(string);
     // File ▸ Quit: closes the window as its close button does (unsaved documents asked about).
     callback quit();
 }

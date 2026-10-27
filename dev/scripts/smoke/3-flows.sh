@@ -1215,3 +1215,21 @@ cp "$OUT/text.pdf" "$OUT/toolkey.pdf"; launch "$OUT/toolkey.pdf"; sleep 1
 key q; read QX QY <<< "$(at quick 1020x700+255+90)"; [ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1 mousemove $(( QX + 60 )) $QY mouseup 1; sleep 1; }; key v; key ctrl+s; sleep 1.5
 check "a tool's letter changed in Preferences picks it on the pages ($TK)" "echo \"$TK\" | grep -q \"'highlight', 'q'\" && qpdf --qdf --object-streams=disable \"$OUT/toolkey.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
 quit; platform_reset
+
+# 226. Edit ▸ Copy, Select All and Paste from the menu bar (C-platform-014): on the reader's pages, Select All then
+# Copy puts the page's text on the clipboard; in a text field (Preferences ▸ Identity ▸ Your name, "Ada"), Select
+# All, Copy, then Paste at its end makes "AdaAda" (kept as the author's name).
+menu() { local m; read m _ <<< "$(at "$1" 700x34+0+0)"; [ -n "$m" ] && click $m 14 0.8; local it; it=$(at "$2" 320x520+$(( ${m:-20} - 20 ))+24); [ -n "$it" ] && click $it 0.8; echo "${it:-no $2}"; }
+export SHEAF_TEST_MENU_BAR=1
+cp "$OUT/text.pdf" "$OUT/editmenu.pdf"; launch "$OUT/editmenu.pdf"; sleep 1
+echo -n | xclip -selection clipboard >/dev/null 2>&1
+E1=$(menu Edit Select); E2=$(menu Edit Copy); sleep 0.4
+CP=$(xclip -o -selection clipboard 2>/dev/null | head -1)
+key ctrl+comma; sleep 0.8
+YN=$(pref_find Your); read YX YY <<< "$YN"; [ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.5; xdotool type --delay 20 "Ada"; sleep 0.3
+E3=$(menu Edit Select); E4=$(menu Edit Copy); key End; E5=$(menu Edit Paste); sleep 0.6
+AU=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("author"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+check "Edit ▸ Select All, Copy, Paste act on the pages and on a text field ($E1 $E2 $E5; clipboard '$(echo "$CP" | cut -c1-20)'; author $AU)" "echo \"$CP\" | grep -q 'quick brown fox' && [ \"$AU\" = AdaAda ]"
+quit
+unset SHEAF_TEST_MENU_BAR
+python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["author"] = None; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"

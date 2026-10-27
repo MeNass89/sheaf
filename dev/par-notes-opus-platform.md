@@ -29,8 +29,12 @@
   Preferences. View: zooms and fits, side panel, page layout, rotate view, Full Screen (F11; ⌃⌘F on a Mac),
   Present. Go: pages, Go to Page, Back, Forward. Tools: All Tools, the reader's Annotate and Edit PDF tools,
   the starred tools. Window: tabs, Home. Help: Keyboard Shortcuts, Customize Shortcuts. Hidden in full
-  screen. (tests `platform::tests::the_menu_bar_reads_each_command_at_its_index` (each MenuItem in
-  main.slint reads its own COMMANDS index; every default is a valid, unique shortcut); smoke step 220)
+  screen. Second pass: Edit ▸ Cut, Copy, Paste and Select All act on what has the keyboard: they send ⌘X
+  ⌘C ⌘V ⌘A (Ctrl on Linux and Windows) to the window once the menu has closed, so a focused text field
+  cuts, copies, pastes or selects its own text and the reader's pages their selection, picked objects or
+  selected comment, exactly as the keys do (`platform_ui::edit_key`). (tests
+  `platform::tests::the_menu_bar_reads_each_command_at_its_index` (each MenuItem in
+  main.slint reads its own COMMANDS index; every default is a valid, unique shortcut); smoke steps 220, 226)
 - C-preferences-013: Preferences ▸ Keyboard shortcuts (Stirling's Hotkeys card): search the commands or keys,
   click a shortcut and press the new keys (Esc cancels, Backspace removes it), Reset one, Reset all. Refused
   with the reason: keys another command has ("Ctrl+S is already File ▸ Save"), a key without ⌘/Ctrl or Alt
@@ -73,10 +77,11 @@
   the editor, not inside the field: Slint's TextInput/TextEdit cannot style part of their own text.
 - C-reader-060: grammar (Preview's Spelling and Grammar) is not checked: no offline grammar checker that is
   pure Rust and small.
-- C-platform-014: Edit ▸ Cut / Copy / Paste are not in the menu (the reader's ⌘C depends on what is
-  selected and uses a hidden field in reader.slint; the keys still work). The reader's one-letter tool keys
-  (V, H, U…) are not shown as menu shortcuts: a menu bar shortcut is taken before any text field, so a bare
-  letter would stop typing. The menu bar is not mirrored right to left (Slint draws it left to right).
+- C-platform-014: the reader's one-letter tool keys are not shown as menu shortcuts (Tools ▸ Annotate lists the
+  tools without them): a menu bar shortcut is taken before any text field, so a bare letter would stop
+  typing; Preferences lists them instead. The menu bar is not mirrored right to left (Slint draws it left
+  to right). Cut, Copy, Paste and Select All keep ⌘X ⌘C ⌘V ⌘A whatever keys the user adds: Slint's text
+  fields answer those keys themselves.
 - C-preferences-013: "API output handling" (Stirling) is a server setting with no meaning offline. The
   reader's other plain keys (arrows, Space, Delete, ⇧T, ?) are not customizable.
 - C-platform-004, what Slint 1.18 blocks or what is left: (1) Slint has no window-wide layout direction, so

@@ -1020,7 +1020,7 @@ export component ReaderScreen inherits Rectangle {
                     ReaderBridge.copy-pages(root.id);
                     return accept;
                 }
-                if e.text == "a" && !PlatformBridge.rebound[10] /* select-all */ { ReaderBridge.select-all(root.id); return accept; }
+                if e.text == "a" { ReaderBridge.select-all(root.id); return accept; }
                 if e.text == "v" { ReaderBridge.paste(root.id); return accept; }
                 if e.text == "[" && !PlatformBridge.rebound[32] /* back */ { ReaderBridge.history(root.id, -1); return accept; }
                 if e.text == "]" && !PlatformBridge.rebound[33] /* forward */ { ReaderBridge.history(root.id, 1); return accept; }

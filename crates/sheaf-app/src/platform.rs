@@ -93,7 +93,17 @@ pub const COMMANDS: &[Command] = &[
     cmd("home", "Window", "Home", ""),
     cmd("shortcuts", "Help", "Keyboard Shortcuts", "Control+Slash"),
     cmd("customize", "Help", "Customize Shortcuts…", ""),
+    // Edit ▸ Cut, Copy, Paste: ⌘X ⌘C ⌘V sent to what has the keyboard (see `EDIT_KEYS`).
+    cmd("cut", "Edit", "Cut", ""),
+    cmd("copy", "Edit", "Copy", ""),
+    cmd("paste", "Edit", "Paste", ""),
 ];
+
+/// Commands that act by sending their usual keys (⌘X ⌘C ⌘V ⌘A) to whatever has the keyboard: a
+/// text field edits its own text, the reader's pages their selection, objects or comments. Those
+/// keys keep working whatever the user gives the command (a text field answers them itself, which
+/// Slint cannot turn off), and cannot be given to another command.
+pub const EDIT_KEYS: &[(&str, &str)] = &[("cut", "x"), ("copy", "c"), ("paste", "v"), ("select-all", "a")];
 
 /// The index of a command by id.
 pub fn command_index(id: &str) -> Option<usize> {
@@ -238,20 +248,27 @@ pub fn rebound(p: &PlatformPrefs, i: usize) -> bool {
 
 /// The keys the reader answers itself on its pages for a command that has none in the menu bar
 /// (they would stop typing there): shown in Preferences while the command keeps them.
-fn page_keys(id: &str) -> Option<&'static str> {
+fn page_keys(id: &str) -> Option<(&'static str, &'static str)> {
     match id {
-        "undo" => Some("Control+Z"),
-        "redo" => Some("Control+Shift+Z"),
-        "select-all" => Some("Control+A"),
+        "undo" => Some(("Control+Z", " on the pages")),
+        "redo" => Some(("Control+Shift+Z", " on the pages")),
+        "cut" => Some(("Control+X", "")),
+        "copy" => Some(("Control+C", "")),
+        "paste" => Some(("Control+V", "")),
+        "select-all" => Some(("Control+A", "")),
         _ => None,
     }
 }
 
-/// A command's keys as Preferences and the help sheet write them ("" none).
+/// A command's keys as Preferences and the help sheet write them ("" none). Cut, Copy, Paste and
+/// Select All keep their usual keys besides any the user gives them.
 pub fn label(p: &PlatformPrefs, i: usize) -> String {
     let k = effective(p, i);
-    match COMMANDS.get(i).and_then(|c| page_keys(c.id)) {
-        Some(pk) if k.is_empty() && !rebound(p, i) => format!("{} on the pages", display(pk)),
+    let Some((pk, where_)) = COMMANDS.get(i).and_then(|c| page_keys(c.id)) else { return display(&k) };
+    let always = where_.is_empty();
+    match (k.is_empty(), rebound(p, i)) {
+        (true, false) => format!("{}{where_}", display(pk)),
+        (false, _) if always => format!("{}, {}", display(&k), display(pk)),
         _ => display(&k),
     }
 }
@@ -566,5 +583,9 @@ mod tests {
         // Undo given keys of its own: ⌘Z on the pages stops, and the row shows the new keys.
         assign(&mut p, "undo", "Control+Alt+U").unwrap();
         assert!(!label(&p, command_index("undo").unwrap()).contains("pages"));
+        // Copy keeps ⌘C besides its new keys (fields answer it themselves).
+        assign(&mut p, "copy", "F6").unwrap();
+        assert!(label(&p, command_index("copy").unwrap()).ends_with(&display("Control+C")));
+        assert!(EDIT_KEYS.iter().all(|(id, _)| command_index(id).is_some()));
     }
 }
