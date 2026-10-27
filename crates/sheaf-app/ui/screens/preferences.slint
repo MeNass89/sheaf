@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 import { Segment } from "../widgets/radio-card.slint";
 import { SecondaryButton } from "dialogs.slint";
 import { TextField } from "../widgets/text-field.slint";
+import { Check } from "../widgets/check.slint";
 import { SpellingSection, KeyboardSection, InterfaceSection } from "preferences-platform.slint";
 
 // White card with a section title.
@@ -162,6 +163,9 @@ export component PreferencesScreen inherits Rectangle {
     in property <[string]> digital-ids;
     in property <[string]> trusted-certs;
     callback signature-prefs(int, int);
+    // Acrobat's Add Digital ID ▸ A new digital ID: name, unit, organization, email, country, password twice, for encryption too.
+    callback create-digital-id(string, string, string, string, string, string, string, bool);
+    property <bool> creating-id;
     background: Theme.content-bg;
 
     scroll := ScrollView {
@@ -447,7 +451,26 @@ export component PreferencesScreen inherits Rectangle {
                     Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: d; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
                     SecondaryButton { text: "Remove"; clicked => { root.signature-prefs(1, k); } }
                 }
-                FlexboxLayout { flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row; flex-wrap: FlexboxLayoutWrap.no-wrap; alignment: start; SecondaryButton { text: "Add a digital ID…"; clicked => { root.signature-prefs(0, 0); } } }
+                FlexboxLayout { flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row; flex-wrap: FlexboxLayoutWrap.no-wrap; alignment: start; spacing: 8px; SecondaryButton { text: "Add a digital ID…"; clicked => { root.signature-prefs(0, 0); } } SecondaryButton { text: "Create a digital ID…"; clicked => { root.creating-id = !root.creating-id; } } }
+                if root.creating-id: VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "A self-signed digital ID saved in a password-protected file (.p12), valid five years. Send its certificate to people who encrypt for you."; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                    id-name := TextField { label: "Name"; }
+                    id-unit := TextField { label: "Organizational unit (optional)"; }
+                    id-org := TextField { label: "Organization (optional)"; }
+                    id-email := TextField { label: "Email (optional)"; }
+                    id-country := TextField { label: "Country code (optional, such as BE)"; }
+                    id-password := TextField { label: "Password (6 characters or more)"; password: true; allow-reveal: true; }
+                    id-confirm := TextField { label: "Confirm password"; password: true; }
+                    id-encrypt := Check { text: "Use it for certificate encryption too"; checked: true; }
+                    HorizontalLayout {
+                        alignment: start;
+                        SecondaryButton {
+                            text: "Create and save…";
+                            clicked => { root.create-digital-id(id-name.text, id-unit.text, id-org.text, id-email.text, id-country.text, id-password.text, id-confirm.text, id-encrypt.checked); }
+                        }
+                    }
+                }
                 Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Certificates trusted"; font-size: Theme.fs-label; color: Theme.text-secondary; }
                 if root.trusted-certs.length == 0: Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "None: a signature's certificate is trusted from Document properties, or added here."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
                 for c[k] in root.trusted-certs: FlexboxLayout {

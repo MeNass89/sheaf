@@ -797,3 +797,21 @@ shot 320-opened
 TB=$(ocr 1280x80+0+0); QK=$(at quick 1020x700+250+90)
 check "Encrypt with certificates writes a copy for two recipients that opens in place with the digital ID (recipients: $(echo "$RL" | grep -o 'Smoke [a-z]*' | sort -u | tr '\n' ' '); envelopes ${ENV:-none}; wrong password: $(echo "$WR" | grep -o 'Wrong password' | head -1); tab: $(echo "$TB" | cut -c1-50); quick at ${QK:-nowhere})" "[ \"${ENV:-0}\" = 2 ] && echo \"$RL\" | grep -q 'Smoke colleague' && echo \"$RL\" | grep -q 'Smoke me' && echo \"$WR\" | grep -q 'Wrong password' && echo \"$TB\" | grep -q certenc && [ -n \"$QK\" ]"
 quit
+
+# 321. Preferences ▸ Signatures ▸ Create a digital ID… (C-sign-013, Acrobat's Add Digital ID ▸ A new digital ID): a
+# name and a password typed twice, Create and save: a self-signed .p12 (it opens with that password) and its .cer
+# beside it, issued to that name with key encipherment (usable for certificate encryption), kept in the list of IDs.
+rm -f "$OUT/smoke-id.p12" "$OUT/smoke-id.cer"
+launch; key ctrl+comma; sleep 0.8
+read CX CY <<< "$(pref_find Create)"; [ -n "$CY" ] && click $CX $CY 0.8
+# The Name field is under its label, just below the button and the line about the file.
+[ -n "$CY" ] && { click 700 $(( CY + 89 )) 0.4; xdotool type --delay 20 "Smoke Signer"; }
+read _ PY <<< "$(pref_find Password)"; [ -n "$PY" ] && { click 700 $(( PY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
+read _ QY <<< "$(pref_find Confirm)"; [ -n "$QY" ] && { click 700 $(( QY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
+shot 321-form
+answer "$PWD/$OUT/smoke-id.p12"; read SX SY <<< "$(at Create 1020x$(( 790 - ${QY:-400} ))+250+${QY:-400})"; [ -n "$SY" ] && click $SX $SY 0.5
+for _ in $(seq 1 30); do [ -f "$OUT/smoke-id.cer" ] && break; sleep 0.5; done; sleep 0.5; answer ""
+IDS=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("digital_ids"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+SUBJ=$(openssl pkcs12 -in "$OUT/smoke-id.p12" -passin pass:smokepw1 -nokeys 2>/dev/null | openssl x509 -noout -subject -ext keyUsage 2>/dev/null | tr '\n' ' ')
+check "Create a digital ID writes a self-signed .p12 and its .cer, kept in the list (${CY:+button at $CY}; $SUBJ; ids $IDS)" "[ -f \"$OUT/smoke-id.cer\" ] && echo \"$SUBJ\" | grep -q 'CN *= *Smoke Signer' && echo \"$SUBJ\" | grep -q 'Key Encipherment' && echo \"$IDS\" | grep -q smoke-id.p12"
+quit

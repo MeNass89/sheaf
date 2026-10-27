@@ -626,6 +626,10 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_gpu, |ui, on| home::set_gpu(&ui, on));
     wire!(ui, on_set_page_display, |ui, what, on| home::set_page_display(&ui, what, on));
     wire!(ui, on_signature_prefs, |ui, what, k| home::signature_prefs(&ui, what, k));
+    wire!(ui, on_create_digital_id, |ui, name, unit, org, email, country, password, confirm, encryption| {
+        let spec = sheaf_core::digital_id::NewId { name: name.into(), unit: unit.into(), organization: org.into(), email: email.into(), country: country.into(), encryption };
+        home::create_digital_id(&ui, spec, password.into(), &confirm);
+    });
     wire!(ui, on_make_default, |ui| flow::toast(&ui, &run::make_default_pdf_app()));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));

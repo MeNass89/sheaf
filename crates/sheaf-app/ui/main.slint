@@ -161,6 +161,7 @@ export component AppWindow inherits Window {
     in property <[string]> digital-ids;
     in property <[string]> trusted-certs;
     callback signature-prefs(int, int);
+    callback create-digital-id(string, string, string, string, string, string, string, bool);
     callback make-default();
     callback set-default-zoom(int);
     in property <int> default-spread;
@@ -526,6 +527,7 @@ export component AppWindow inherits Window {
                             digital-ids: root.digital-ids;
                             trusted-certs: root.trusted-certs;
                             signature-prefs(w, k) => { root.signature-prefs(w, k); }
+                            create-digital-id(n, u, o, e, c, p, q, x) => { root.create-digital-id(n, u, o, e, c, p, q, x); }
                             make-default => { root.make-default(); }
                             set-default-zoom(z) => { root.set-default-zoom(z); }
                             default-spread: root.default-spread;
