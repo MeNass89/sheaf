@@ -98,6 +98,10 @@ pub struct ViewerUi {
     // Sign: where the signature is centred (page, view-space point of the displayed page, in
     // points), and its height-to-width ratio once a graphic is made.
     pub sign_at: Option<(usize, f64, f64)>,
+    /// Split view's second pane (PDF Expert's Split View): how far across and down it is scrolled,
+    /// and its height. It shows the same pages laid out alike (the panes are the same size), so it
+    /// only adds the pages it needs to those rendered.
+    pub second: Option<(f64, f64, f64)>,
 }
 
 impl ViewerUi {
@@ -109,6 +113,11 @@ impl ViewerUi {
 
     fn wanted_pages(&self) -> std::ops::Range<usize> {
         self.viewer.wanted(self.top, self.height)
+    }
+
+    /// The pages either pane shows (see `second`).
+    fn shown_pages(&self) -> Vec<usize> {
+        viewer::pages_in_view(self.wanted_pages(), self.second.map(|(l, t, h)| self.viewer.wanted_at(l, t, h)))
     }
 
     fn wanted_thumbs(&self) -> std::ops::Range<usize> {
@@ -159,6 +168,7 @@ impl ViewerUi {
             last_double: None,
             text_renderer: None,
             sign_at: None,
+            second: None,
         }
     }
 
@@ -204,7 +214,8 @@ impl ViewerUi {
         }
         self.scroll = self.viewer.scroll_to(page, focus, self.height);
         self.scroll_seq += 1;
-        self.scroll_x = None;
+        // Pages across: the page's row centred in the view.
+        self.scroll_x = self.viewer.horizontal().then(|| self.viewer.scroll_x_to(page));
     }
 
     /// Shows a destination as Acrobat does: at its zoom when it has one (/XYZ's, 1.0 = actual
@@ -398,7 +409,7 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
         let v = a.tab(tab_id)?.viewer.as_deref()?;
         let mut keys: Vec<RenderKey> = Vec::new();
         if !v.zoom_settling {
-            keys.extend(v.wanted_pages().map(|p| v.page_key(p)).filter(|k| !v.pages.contains(k)));
+            keys.extend(v.shown_pages().into_iter().map(|p| v.page_key(p)).filter(|k| !v.pages.contains(k)));
         }
         keys.extend(v.wanted_thumbs().map(|p| v.thumb_key(p)).filter(|k| !v.thumbs.contains(k)));
         let rough = crate::home::rough();
@@ -473,7 +484,16 @@ pub fn redact_pending(tab_id: i32) -> Option<(String, usize)> {
 
 /// The view scrolled across to `left` (its own scroll or one asked for).
 pub fn view_left(tab_id: i32, left: f32) {
-    update(tab_id, |v| v.left = left as f64);
+    update(tab_id, |v| {
+        v.left = left as f64;
+        v.viewer.set_left(left as f64);
+    });
+}
+
+/// Split view's second pane scrolled or resized: `height` 0 when it closes (see `second`).
+pub fn second_viewport(ui: &AppWindow, tab_id: i32, left: f32, top: f32, height: f32) {
+    update(tab_id, |v| v.second = (height > 0.0).then_some((left as f64, top as f64, height as f64)));
+    request(ui, tab_id);
 }
 
 pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) {
@@ -539,7 +559,7 @@ pub fn thumb_clicked(tab_id: i32, page: i32) {
     update(tab_id, |v| {
         v.scroll = v.viewer.scroll_to(page.max(0) as usize, None, v.height);
         v.scroll_seq += 1;
-        v.scroll_x = None;
+        v.scroll_x = v.viewer.horizontal().then(|| v.viewer.scroll_x_to(page.max(0) as usize));
     });
 }
 
@@ -952,8 +972,9 @@ fn page_label(p: usize) -> slint::SharedString {
 /// The viewer and Redact fields of `tab`.
 pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     let wanted = v.wanted_pages();
-    let pages: Vec<ViewerPage> = wanted
-        .clone()
+    let pages: Vec<ViewerPage> = v
+        .shown_pages()
+        .into_iter()
         .map(|i| {
             let [x, y, w, h] = v.viewer.page_rect(i);
             let image = v.any_page_image(i).cloned();
@@ -1205,5 +1226,35 @@ mod tests {
             ]
         );
         assert!(queries("  ", ",,").is_empty());
+    }
+
+    /// Pages across: a jump centres the page across (the vertical scroll alone left it where it was),
+    /// and the pages rendered follow the horizontal scroll; a split view's second pane adds its own.
+    #[test]
+    fn pages_across_are_gone_to_and_rendered_from_the_horizontal_scroll() {
+        let pages = (0..30).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        v.show_page(12, None);
+        assert_eq!(v.scroll_x, None, "down a column, nothing across");
+        v.viewer.set_horizontal(true);
+        v.show_page(12, None);
+        let sx = v.scroll_x.expect("scrolled across");
+        assert_eq!(sx, v.viewer.scroll_x_to(12));
+        view_left_of(&mut v, sx);
+        assert_eq!(v.current(), 12);
+        let shown = v.shown_pages();
+        assert!(shown.contains(&12) && !shown.contains(&0), "{shown:?}");
+        v.second = Some((0.0, 0.0, 700.0));
+        let shown = v.shown_pages();
+        assert!(shown.contains(&0) && shown.contains(&12), "{shown:?}");
+        assert_eq!(shown.len(), shown.iter().collect::<HashSet<_>>().len(), "each page once");
+    }
+
+    /// What [`view_left`] does to a tab's viewer.
+    fn view_left_of(v: &mut ViewerUi, left: f64) {
+        v.left = left;
+        v.viewer.set_left(left);
     }
 }

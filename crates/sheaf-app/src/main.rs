@@ -227,6 +227,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_shape_option, |ui, id, w, v| reader_ui::shape_option(&ui, id, w, v));
     wire_global!(ui, rb, on_cycle_spread, |ui, id| reader_ui::cycle_spread(&ui, id));
     wire_global!(ui, rb, on_toggle_rtl, |ui, id| reader_ui::toggle_rtl(&ui, id));
+    wire_global!(ui, rb, on_toggle_horizontal, |ui, id| reader_ui::toggle_horizontal(&ui, id));
     wire_global!(ui, rb, on_rotate_view, |ui, id, dir| reader_ui::rotate_view(&ui, id, dir));
     wire_global!(ui, rb, on_toggle_grid, |ui, id| reader_ui::toggle_grid(&ui, id));
     wire_global!(ui, rb, on_set_spread, |ui, id, m| reader_ui::set_spread(&ui, id, m));
@@ -303,6 +304,7 @@ fn wire_viewer(ui: &AppWindow) {
     }
     with_ui!(on_viewport, |ui, id, w, top, h| viewer_ui::viewport(&ui, id, w, top, h));
     vb.on_view_left(viewer_ui::view_left);
+    with_ui!(on_second_viewport, |ui, id, left, top, h| viewer_ui::second_viewport(&ui, id, left, top, h));
     with_ui!(on_strip_viewport, |ui, id, top, h| viewer_ui::strip_viewport(&ui, id, top, h));
     vb.on_pressed(viewer_ui::pressed);
     vb.on_released(viewer_ui::released);

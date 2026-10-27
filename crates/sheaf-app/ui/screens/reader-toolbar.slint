@@ -20,6 +20,14 @@ export component ReaderToolbar inherits Rectangle {
     callback focus-pages();
     callback present();
     callback toggle-full-screen();
+    // Split view (0 off, 1 side by side, 2 one above the other), its sync, and the hand tool: the
+    // reading view's own (reader.slint).
+    in property <int> split;
+    in property <bool> split-sync;
+    in property <bool> hand;
+    callback set-split(int);
+    callback toggle-split-sync();
+    callback toggle-hand();
 
     property <string> page-text: root.tab.reader.page-text;
     changed page-text => { if !page-in.has-focus { page-in.text = root.page-text; } }
@@ -379,6 +387,8 @@ export component ReaderToolbar inherits Rectangle {
                                 // PDF Expert's Share ▸ Copy, macOS's AirDrop.
                                 { text: "Copy the file", on: false },
                                 { text: "Share with AirDrop", on: false },
+                                // PDF Expert's View ▸ Horizontal scrolling and Split View, its Pan & Zoom tool.
+                                { text: "Scrolling, split view, hand ›", on: root.tab.reader.horizontal || root.split > 0 || root.hand },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -406,6 +416,52 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 17 { ReaderBridge.show-help(root.id, true); }
                                         if k == 18 { ReaderBridge.share-file(root.id, false); }
                                         if k == 19 { ReaderBridge.share-file(root.id, true); }
+                                        if k == 20 { layout-menu.show(); return; }
+                                        root.focus-pages();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // More ▸ More tools ▸ Scrolling, split view, hand: how the pages run and how they are moved.
+                layout-menu := PopupWindow {
+                    x: parent.width - 260px;
+                    y: parent.height + 6px;
+                    width: 260px;
+                    Rectangle {
+                        background: Theme.card;
+                        border-radius: Theme.radius-small;
+                        border-width: 1px;
+                        border-color: Theme.input-border;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: #00000033;
+                        VerticalLayout {
+                            padding: 4px;
+                            for item[k] in [
+                                // PDF Expert's Horizontal scrolling: the pages in one strip, left to right.
+                                { text: "Scroll pages across", keys: "", on: root.tab.reader.horizontal },
+                                // PDF Expert's Split View: two places of the document at once.
+                                { text: "Split view side by side", keys: "", on: root.split == 1 },
+                                { text: "Split view one above the other", keys: "", on: root.split == 2 },
+                                // PDF Expert's Sync Scroll: the panes move together.
+                                { text: "Sync scroll", keys: "", on: root.split-sync },
+                                // PDF Expert's Pan & Zoom tool, Acrobat's Hand and Dynamic Zoom (⌥ drag).
+                                { text: "Hand tool (⌥ drag zooms)", keys: "⇧H", on: root.hand },
+                            ]: Rectangle {
+                                height: 28px;
+                                border-radius: Theme.radius-small;
+                                background: lt.has-hover ? Theme.popup-hover : transparent;
+                                opacity: k == 3 && root.split == 0 ? 0.45 : 1;
+                                Text { x: 10px; text: (item.on ? "✓ " : "") + item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
+                                Text { x: parent.width - self.width - 10px; text: item.keys; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                                lt := TouchArea {
+                                    clicked => {
+                                        if k == 0 { ReaderBridge.toggle-horizontal(root.id); }
+                                        if k == 1 { root.set-split(root.split == 1 ? 0 : 1); }
+                                        if k == 2 { root.set-split(root.split == 2 ? 0 : 2); }
+                                        if k == 3 && root.split > 0 { root.toggle-split-sync(); }
+                                        if k == 4 { root.toggle-hand(); }
                                         root.focus-pages();
                                     }
                                 }

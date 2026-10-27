@@ -1024,6 +1024,7 @@ fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
     if let Some((fit, zoom, spread)) = crate::home::last_view(path) {
         v.viewer.set_spread(spread & 3);
         v.viewer.set_rtl(spread & 0x10 != 0);
+        v.viewer.set_horizontal(spread & 0x20 != 0);
         match fit {
             // Before 25/10: a share of the window's width.
             2 => {

@@ -397,6 +397,8 @@ export struct ReaderState {
     spread: int,
     // Pairs read right to left.
     rtl: bool,
+    // Pages across in one strip (PDF Expert's Horizontal scrolling).
+    horizontal: bool,
     // Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled; opacity of shapes and pen (%).
     shape-kind: int,
     shape-fill: bool,
@@ -852,6 +854,8 @@ export global ReaderBridge {
     // One column → two pages → two pages with the cover alone.
     callback cycle-spread(int);
     callback toggle-rtl(int);
+    // Pages across in one strip, or back down a column.
+    callback toggle-horizontal(int);
     // Rotate View: the pages shown turned a quarter clockwise (1) or back (−1), not the file.
     callback rotate-view(int, int);
     callback toggle-grid(int);
@@ -1055,6 +1059,8 @@ export global ViewerBridge {
     callback viewport(int, length, length, length);
     // How far the view is scrolled across (⌘[ comes back to it).
     callback view-left(int, length);
+    // Split view's second pane scrolled (left, top) or resized (height; 0: closed).
+    callback second-viewport(int, length, length, length);
     callback strip-viewport(int, length, length);
     callback pressed(int, length, length);
     // The pointer moved with the button held (Redact shows the text a drag selects as it goes).
