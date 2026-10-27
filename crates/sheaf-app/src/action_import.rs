@@ -22,6 +22,23 @@ pub fn stirling(value: Value) -> Result<SavedAction> {
     let mut action = SavedAction::empty();
     action.name = value.get("name").and_then(Value::as_str).ok_or_else(|| invalid("The automation needs a name"))?.into();
     action.description = value.get("description").and_then(Value::as_str).unwrap_or_default().into();
+    // Stirling's Folder Scanning applies the naming pattern after all operations. Silently
+    // dropping it changes the user's outputs; retain the portable subset or refuse the import.
+    if let Some(pattern) = value.get("outputFileName") {
+        let pattern = pattern.as_str().ok_or_else(|| invalid("outputFileName must be text"))?;
+        let pattern = pattern.replace("{pipelineName}", &action.name);
+        let (prefix, suffix) = pattern.split_once("{filename}")
+            .ok_or_else(|| invalid("Output naming needs exactly one {filename} token"))?;
+        if prefix.contains(['{', '}']) || suffix.contains(['{', '}']) {
+            return Err(invalid("Only {filename} and {pipelineName} are supported in imported output names"));
+        }
+        action.output.prefix = prefix.into();
+        action.output.suffix = suffix.into();
+    }
+    if let Some(dir) = value.get("outputDir")
+        && !matches!(dir.as_str(), Some("httpWebRequest" | "{outputFolder}")) {
+        return Err(invalid("Stirling output folders cannot travel with an action. Remove outputDir and choose the destination when running in Sheaf"));
+    }
     let operations = value.get("operations").or_else(|| value.get("pipeline")).and_then(Value::as_array)
         .ok_or_else(|| invalid("Expected Sheaf steps, Stirling operations or a Folder Scanning pipeline"))?;
     if operations.len() > 100 { return Err(invalid("An action supports up to 100 steps")); }
@@ -156,10 +173,11 @@ fn step(operation: &Value, warnings: &mut Vec<String>) -> Result<Vec<Step>> {
 
 pub fn export(action: &SavedAction) -> Result<String> {
     action.validate()?;
-    if action.output != crate::actions::OutputOptions::default() { return Err(invalid("Stirling cannot preserve Sheaf output naming and overwrite options. Use Sheaf JSON.")); }
+    if action.output.same_folder || action.output.overwrite || action.output.format != "pdf" { return Err(invalid("Stirling cannot preserve Sheaf output folders, formats or overwrite options. Use Sheaf JSON.")); }
     if action.custom_tool || action.steps.iter().any(|s| s.prompt || !s.instruction.is_empty() || !s.label.is_empty() || s.separator) {
         return Err(invalid("Stirling cannot preserve custom tools, prompts or instructions. Use Sheaf JSON."));
     }
+    if action.output.prefix.contains(['{', '}']) || action.output.suffix.contains(['{', '}']) { return Err(invalid("Literal braces in output names cannot be preserved in Stirling. Use Sheaf JSON.")); }
     let operations = action.steps.iter().map(|s| {
         let (operation, parameters) = match s.engine()? {
             Step::RotateClockwise => ("rotate", json!({"angle":90})),
@@ -170,8 +188,10 @@ pub fn export(action: &SavedAction) -> Result<String> {
         };
         Ok(json!({"operation":operation, "parameters":parameters}))
     }).collect::<Result<Vec<_>>>()?;
-    serde_json::to_string_pretty(&json!({"name":action.name,"description":action.description,"operations":operations}))
-        .map_err(|e| invalid(e.to_string()))
+    let text = serde_json::to_string_pretty(&json!({"name":action.name,"description":action.description,"operations":operations,"outputDir":"httpWebRequest","outputFileName":format!("{}{{filename}}{}", action.output.prefix, action.output.suffix)}))
+        .map_err(|e| invalid(e.to_string()))?;
+    if text.len() > crate::actions::MAX_ACTION_BYTES { return Err(invalid("Exported action JSON exceeds the 10 MB import limit")); }
+    Ok(text)
 }
 
 #[cfg(test)]
@@ -249,6 +269,29 @@ mod tests {
         assert_eq!(only.output.format, "txt"); assert_eq!(only.steps[0].argument, "all");
         assert!(stirling(json!({"name":"Unsupported date", "operations":[{"operation":"changeMetadata","parameters":{"creationDate":"2024/01/01 12:00:00"}}]})).is_err());
         assert!(stirling(json!({"name":"No reordering", "operations":[{"operation":"extractPages","parameters":{"pageNumbers":"3,1"}}]})).is_err());
+    }
+
+    #[test]
+    fn stirling_naming_round_trips_without_silently_dropping_pipeline_settings() {
+        let value = json!({"name":"Review", "pipeline":[{"operation":"rotate","parameters":{"angle":90}}],
+            "outputDir":"httpWebRequest", "outputFileName":"ready-{filename}-{pipelineName}"});
+        let action = stirling(value.clone()).unwrap();
+        assert_eq!(action.output.prefix, "ready-");
+        assert_eq!(action.output.suffix, "-Review");
+        assert_eq!(SavedAction::import(&export(&action).unwrap()).unwrap(), action);
+        // Stirling's default Folder Scanning fixtures use the destination chosen for this run.
+        let mut folder = value.clone(); folder["outputDir"] = "{outputFolder}".into();
+        assert_eq!(stirling(folder).unwrap(), action);
+        for pattern in ["{filename}-{date}", "{filename}-{time}", "{filename}-{filename}", "fixed", "../{filename}"] {
+            let mut bad = value.clone(); bad["outputFileName"] = pattern.into();
+            assert!(stirling(bad).is_err(), "must not silently lose {pattern}");
+        }
+        for dir in [json!("/other/computer"), json!("{outputFolder}/{folderName}"), json!(null), json!(42)] {
+            let mut bad = value.clone(); bad["outputDir"] = dir;
+            assert!(stirling(bad).is_err());
+        }
+        let mut braces = action; braces.output.prefix = "{date}".into();
+        assert!(export(&braces).is_err());
     }
 
 }

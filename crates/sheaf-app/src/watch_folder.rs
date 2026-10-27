@@ -163,17 +163,31 @@ impl FolderWatch {
                 let Some(folder) = self.folders.pop_front() else { self.scanning = false; break };
                 self.visited += 1; budget -= 1;
                 if self.visited > 10_000 { return Err(OpdfError::Unsupported("This watch exceeds 10,000 folders. Choose a smaller inbox.".into())); }
-                self.directory = Some(std::fs::read_dir(folder)?);
+                self.directory = match std::fs::read_dir(&folder) {
+                    Ok(directory) => Some(directory),
+                    // Stirling's inbox can be changed by its producer while a scan is sliced.
+                    // Losing a nested folder must not stop the other watched inputs.
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound && folder != self.input => continue,
+                    Err(e) => return Err(e.into()),
+                };
             }
             let Some(entry) = self.directory.as_mut().and_then(Iterator::next) else { self.directory = None; continue };
             budget = budget.saturating_sub(1);
             let entry = entry?;
-            let kind = entry.file_type()?;
+            let kind = match entry.file_type() {
+                Ok(kind) => kind,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(e) => return Err(e.into()),
+            };
             if kind.is_dir() && self.recursive { self.folders.push_back(entry.path()); }
             if !kind.is_file() { continue; }
             let path = entry.path();
             if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) { continue; }
-            let stamp = revision(&path)?;
+            let stamp = match revision(&path) {
+                Ok(stamp) => stamp,
+                Err(OpdfError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(e) => return Err(e),
+            };
             if stamp.len == 0 { continue; }
             self.current.insert(path, stamp);
             if self.current.len() > 100_000 { return Err(OpdfError::Unsupported("This watch exceeds 100,000 PDFs. Choose a smaller inbox.".into())); }
@@ -186,7 +200,11 @@ impl FolderWatch {
             match self.seen.get(&path) {
                 Some(old) if old.stamp == stamp && old.handled => continue,
                 Some(old) if old.stamp == stamp => {
-                    let latest = revision(&path)?;
+                    let latest = match revision(&path) {
+                        Ok(stamp) => stamp,
+                        Err(OpdfError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => { self.seen.remove(&path); continue; }
+                        Err(e) => return Err(e),
+                    };
                     if latest != stamp { self.seen.insert(path, Observed { stamp: latest, handled: false }); continue; }
                     let result = process(&path);
                     // Cancellation leaves this file eligible after a later resume/poll.
@@ -486,6 +504,42 @@ mod tests {
         let result = watch.poll(&action, &mut || { calls += 1; if calls == last { std::fs::write(&input, b"New input during conversion").unwrap(); } true }).unwrap();
         assert!(result[0].1.is_err()); assert!(!out.join("input.txt").exists());
         assert_eq!(std::fs::read(input).unwrap(), b"New input during conversion");
+    }
+
+    #[test]
+    fn a_disappearing_upload_does_not_stop_other_files_or_the_next_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("in"); let out = dir.path().join("out");
+        std::fs::create_dir(&inbox).unwrap();
+        for name in ["a.pdf", "b.pdf", "c.pdf"] { std::fs::write(inbox.join(name), b"ready").unwrap(); }
+        let mut watch = FolderWatch::new(&inbox, &out, false).unwrap();
+        assert!(watch.poll_with(&mut |_| panic!("wait for stability")).unwrap().is_empty());
+        let results = watch.poll_with(&mut |path| {
+            if path.ends_with("a.pdf") { std::fs::remove_file(inbox.join("b.pdf")).unwrap(); }
+            Ok(out.join(path.file_name().unwrap()))
+        }).unwrap();
+        assert_eq!(results.iter().map(|(p, _)| p.file_name().unwrap().to_str().unwrap()).collect::<Vec<_>>(), ["a.pdf", "c.pdf"]);
+        assert!(results.iter().all(|(_, result)| result.is_ok()));
+        assert!(watch.poll_with(&mut |_| panic!("handled inputs stay handled")).unwrap().is_empty());
+        std::fs::write(inbox.join("b.pdf"), b"new upload").unwrap();
+        assert!(watch.poll_with(&mut |_| panic!("new upload must settle")).unwrap().is_empty());
+        assert_eq!(watch.poll_with(&mut |path| Ok(out.join(path.file_name().unwrap()))).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_removed_nested_folder_is_skipped_between_scan_slices() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("in"); let out = dir.path().join("out");
+        std::fs::create_dir_all(inbox.join("removed")).unwrap();
+        let mut watch = FolderWatch::new(&inbox, &out, false).unwrap(); watch.include_subfolders(true);
+        // Resume a scan slice after its producer removed a queued directory.
+        watch.scanning = true;
+        watch.folders.push_back(inbox.join("removed"));
+        std::fs::remove_dir(inbox.join("removed")).unwrap();
+        assert!(watch.poll_with(&mut |_| panic!("no files")).unwrap().is_empty());
+        assert!(!watch.scan_in_progress());
+        std::fs::remove_dir(inbox).unwrap();
+        assert!(watch.poll_with(&mut |_| panic!("root folder missing")).is_err());
     }
 
 }

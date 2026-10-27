@@ -27,6 +27,7 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 - `crates/sheaf-app/src/actions.rs`: portable action JSON, ordered tool configurations,
   suggested actions, persistence and sequential execution without replacing originals; native
   output formats and run-from-working-bytes snapshots preserve unsaved reader edits.
+- `crates/sheaf-app/src/action_settings.rs`: labelled mark controls round-trip portable watermark/header settings, including literal separators in text.
 - `crates/sheaf-app/src/actions_ui.rs` and `ui/screens/actions.slint`: Home's Actions page,
   step editor, filtered suggested/saved/custom lists, reader custom palette, import/export,
   worker-thread progress and editable pauses. Guided actions is reachable from Tools and the reader.

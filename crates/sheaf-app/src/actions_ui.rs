@@ -55,22 +55,24 @@ fn status(ui: &AppWindow, message: impl AsRef<str>) { ui.global::<ActionBridge>(
 
 fn rows(ui: &AppWindow) {
     let filter = ui.global::<ActionBridge>().get_filter();
+    let query = ui.global::<ActionBridge>().get_query();
     let rows = STATE.with(|state| {
         let s = state.borrow();
         actions::suggested().iter().map(|a| (a, true))
             .chain(s.saved.iter().map(|a| (a, false)))
             .enumerate().filter(|(_, (a, builtin))| match filter { 1 => *builtin, 2 => !*builtin && !a.custom_tool, 3 => !*builtin && a.custom_tool, _ => true })
+            .filter(|(_, (a, _))| a.matches_query(&query))
             .map(|(i, (a, builtin))| ActionRow { name: a.name.as_str().into(), description: a.description.as_str().into(), builtin, custom: a.custom_tool, source: i as i32 }).collect::<Vec<_>>()
     });
     ui.global::<ActionBridge>().set_rows(ModelRc::new(VecModel::from(rows)));
     let commands = STATE.with(|state| {
         state.borrow().saved.iter().enumerate().filter(|(_, a)| a.custom_tool).flat_map(|(i, a)| {
             a.steps.iter().enumerate().map(move |(j, step)| ActionCommandRow {
-                label: format!("{} · {}", a.name, if step.label.is_empty() { step.engine().map(|s| s.label()).unwrap_or("Step") } else { &step.label }).into(),
+                label: format!("{} · {}", a.name, step.display_label()).into(),
                 icon: sheaf_core::tools::ToolId::from_str(&step.argument).filter(|_| step.tool == "open_tool").map(|id| sheaf_app::icons::icon_image(sheaf_core::tools::find(id).icon)).unwrap_or_default(),
                 interactive: step.tool == "open_tool",
                 separator: step.separator,
-                current: !step.prompt && step.engine().is_ok_and(|s| sheaf_core::pdfcraft::engine::actions::command_edit(&s, 1).is_ok()),
+                current: step.supports_current_document(),
                 action: i as i32, step: j as i32,
             })
         }).collect::<Vec<_>>()
@@ -94,7 +96,7 @@ fn draft(ui: &AppWindow) {
         b.set_output_format(s.draft.output.format.as_str().into());
         b.set_step(s.step);
         b.set_steps(ModelRc::new(VecModel::from(s.draft.steps.iter().map(|step| ActionStepRow {
-            label: step.engine().map(|s| s.label()).unwrap_or("Unknown tool").into(),
+            label: step.display_label().into(),
             detail: if step.prompt { "Pauses for you" } else if !step.instruction.is_empty() { "Instructions" } else { "" }.into(),
         }).collect::<Vec<_>>())));
         let step = usize::try_from(s.step).ok().and_then(|i| s.draft.steps.get(i));
@@ -107,6 +109,14 @@ fn draft(ui: &AppWindow) {
             b.set_number_size(fields.get(2).copied().unwrap_or("8").into());
             b.set_argument(fields.get(3).copied().unwrap_or("Page <<1>> of <<n>>").into());
         } else { b.set_argument(argument.into()); }
+        if let Some(step) = step.filter(|s| matches!(s.tool.as_str(), "watermark_options" | "header_footer_options")) {
+            let settings = sheaf_app::action_settings::MarkSettings::decode(step.tool.as_str(), argument);
+            b.set_mark_text(settings.text.into()); b.set_mark_size(settings.size.into());
+            b.set_mark_opacity(settings.opacity.into()); b.set_mark_rotation(settings.rotation.into());
+            b.set_mark_x(settings.x.into()); b.set_mark_y(settings.y.into());
+            b.set_mark_font(settings.font.into()); b.set_mark_pages(settings.pages.into());
+            b.set_mark_position(settings.position);
+        }
         b.set_command_label(step.map(|s| s.label.as_str()).unwrap_or_default().into());
         b.set_separator(step.is_some_and(|s| s.separator));
         b.set_instruction(step.map(|s| s.instruction.as_str()).unwrap_or_default().into());
@@ -127,6 +137,11 @@ fn flush(ui: &AppWindow) {
         if let Some(step) = usize::try_from(index).ok().and_then(|i| s.draft.steps.get_mut(i)) {
             step.argument = if step.tool == "protect" { String::new() } else if step.tool == "page_numbers" {
                 format!("{}|{}|{}|{}", b.get_number_position(), b.get_number_start(), b.get_number_size(), b.get_argument())
+            } else if matches!(step.tool.as_str(), "watermark_options" | "header_footer_options") {
+                sheaf_app::action_settings::MarkSettings { text: b.get_mark_text().to_string(), size: b.get_mark_size().to_string(),
+                    opacity: b.get_mark_opacity().to_string(), rotation: b.get_mark_rotation().to_string(),
+                    x: b.get_mark_x().to_string(), y: b.get_mark_y().to_string(), font: b.get_mark_font().to_string(),
+                    pages: b.get_mark_pages().to_string(), position: b.get_mark_position() }.encode(&step.tool)
             } else { b.get_argument().to_string() };
             step.instruction = b.get_instruction().to_string();
             step.label = b.get_command_label().to_string();
@@ -199,7 +214,9 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     if what == "filter" { rows(ui); return; }
     if what == "custom-tools" {
         rows(ui);
-        ui.global::<ActionBridge>().set_current_tab(ui.get_active_tab());
+        // Acrobat's custom commands follow the reader's stable tab ID, not its list position.
+        let reader = crate::flow::active_tool(ui).map(|(id, _)| id).filter(|id| crate::reader_ui::is_reader(*id));
+        ui.global::<ActionBridge>().set_current_tab(reader.unwrap_or(-1));
         ui.global::<ActionBridge>().set_tools_visible(true);
         return;
     }
@@ -297,8 +314,21 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             let action = STATE.with(|s| s.borrow().draft.clone());
             if let Err(e) = action.validate() { return status(ui, e.to_string()); }
             let d = crate::dialog::new(ui).set_title("Choose the input PDF folder");
-            crate::dialog::pick_folder(ui, d, move |ui, folder| match actions::folder_inputs_recursive(&folder, ui.global::<ActionBridge>().get_recursive()) {
-                Ok(files) => pick_output(ui, action, files), Err(e) => status(ui, e.to_string()),
+            crate::dialog::pick_folder(ui, d, move |ui, folder| {
+                let recursive = ui.global::<ActionBridge>().get_recursive();
+                let cancel = Arc::new(AtomicBool::new(false));
+                STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
+                ui.global::<ActionBridge>().set_busy(true);
+                status(ui, "Finding PDFs in the input folder…");
+                let weak = ui.as_weak();
+                std::thread::spawn(move || {
+                    let files = actions::folder_inputs_cancellable(&folder, recursive, &mut || !cancel.load(Ordering::Relaxed));
+                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                        ui.global::<ActionBridge>().set_busy(false);
+                        if cancel.load(Ordering::Relaxed) { status(&ui, "Folder search stopped. No files were processed."); return; }
+                        match files { Ok(files) => pick_output(&ui, action, files), Err(e) => status(&ui, e.to_string()) }
+                    });
+                });
             });
             return;
         }
@@ -444,6 +474,7 @@ fn start_with_snapshots(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>
     let per_file_password = ui.global::<ActionBridge>().get_per_file_password();
     ui.global::<ActionBridge>().set_password("".into());
     ui.global::<ActionBridge>().set_outputs(ModelRc::new(VecModel::default()));
+    ui.global::<ActionBridge>().set_failures(ModelRc::new(VecModel::default()));
     let cancel = Arc::new(AtomicBool::new(false));
     STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
     ui.global::<ActionBridge>().set_busy(true);
@@ -514,8 +545,13 @@ fn start_with_snapshots(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>
                 Err(e) => errors.push(format!("{}: {e}", file.display())),
             }
         }
-        let message = format!("{}{} file(s) written to {}. {}", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, if action.output.same_folder { "the input folders".to_string() } else { out.display().to_string() }, errors.join(" · "));
-        let _ = weak.upgrade_in_event_loop(move |ui| { ui.global::<ActionBridge>().set_busy(false); ui.global::<ActionBridge>().set_prompt("".into()); status(&ui, message); });
+        let message = format!("{}{} of {} file(s) written · {} failed", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, files.len(), errors.len());
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            let b = ui.global::<ActionBridge>();
+            b.set_busy(false); b.set_prompt("".into());
+            b.set_failures(ModelRc::new(VecModel::from(errors.iter().map(|e| slint::SharedString::from(e.as_str())).collect::<Vec<_>>())));
+            status(&ui, message);
+        });
     });
 }
 

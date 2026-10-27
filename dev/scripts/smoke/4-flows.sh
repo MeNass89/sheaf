@@ -1077,3 +1077,191 @@ FO=$(at Original 300x650+0+90); [ -n "$FA" ] && click $FA 0.5
 shot 343-flattener-preview
 check "343 flattener preview compares original and converted page ($PF; $FP; $FO; $FA)" "[ -n \"$FO\" ] && [ -n \"$FA\" ]"
 key Escape; quit
+# 350. Stirling Folder Scanning's outputFileName survives import, and Export Stirling retains
+# it in a portable file. Inspection checks both the saved action and the exported pipeline.
+python3 - "$OUT/350-pipeline.json" <<'PY350'
+import json, sys
+json.dump({"name":"Naming review", "pipeline":[{"operation":"rotate","parameters":{"angle":90}}],
+           "outputDir":"{outputFolder}", "outputFileName":"ready-{filename}-{pipelineName}"}, open(sys.argv[1], "w"))
+PY350
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+answer "$PWD/$OUT/350-pipeline.json"
+IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM 1
+answer "$PWD/$OUT/350-export.json"
+EX=$(at Export 400x60+850+170); [ -n "$EX" ] && click $EX 1
+shot 350-stirling-naming
+check "350 Stirling output naming survives import and export (${IM:-no Import}; ${EX:-no Export})" "python3 -c 'import json; a=json.load(open(\"$OUT/350-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"outputFileName\"] == \"ready-{filename}-Naming review\"; assert any(x[\"output\"][\"prefix\"] == \"ready-\" and x[\"output\"][\"suffix\"] == \"-Naming review\" for x in b)'"
+quit
+
+# 351. Acrobat's suggested action becomes an independent saved copy; the Suggested filter
+# keeps the original and Saved actions contains the copy after reopening the app.
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+SH=$(at Search 220x200+235+240); [ -n "$SH" ] && click $SH 0.3
+xdotool type --clearmodifiers --delay 10 "confidential watermark"; sleep 0.5
+QS=$(ocr 220x400+240+320)
+check "351 suggested-action search matches words in its name and description (${SH:-no Search})" "echo \"$QS\" | grep -q 'Confidential' && ! echo \"$QS\" | grep -q 'Distribution'"
+CA=$(at Confidential 230x600+235+150); [ -n "$CA" ] && click $CA
+SA=$(at Save 600x160+485+400); [ -n "$SA" ] && click $SA 1
+shot 351-suggested-copy
+check "351 Save a copy keeps the suggested watermark configuration (${CA:-no suggestion}; ${SA:-no Save})" "python3 -c 'import json; a=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert any(x[\"name\"] == \"Mark as Confidential (2)\" and x[\"steps\"][0][\"argument\"] == \"CONFIDENTIAL\" for x in a)'"
+# A suggestion's full limitations stay readable, rather than hidden in a one-line description.
+SH=$(at Search 220x200+235+240); [ -n "$SH" ] && click $SH 0.3
+key ctrl+a; xdotool type --clearmodifiers --delay 10 "accessibility"; sleep 0.5
+AS=$(at Accessibility 230x500+235+300); [ -n "$AS" ] && click $AS 0.8
+DS=$(ocr 740x200+500+300); shot 351-suggestion-description
+check "351 suggestion description shows its refusal and certification limits (${AS:-no suggestion})" "echo \"$DS\" | grep -q 'Refuses' && echo \"$DS\" | grep -q 'certification'"
+quit
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+# The list filter is the first combobox in the left column; Home then Down twice selects Saved.
+click 340 273; key Home; key Down; key Down; key Return
+LS=$(ocr 220x450+240+300); shot 351-saved-filter
+check "351 Saved actions filter restores the copied suggestion after restart" "echo \"$LS\" | grep -q 'Confidential' && ! echo \"$LS\" | grep -q 'Suggested'"
+quit
+
+# 352. Acrobat's custom command applies Keep pages 2-3 to the real four-page reader. The
+# command must be enabled, save the two pages, and remain one ordinary undoable reader edit.
+python3 - "$OUT/profile/data/Sheaf/actions.json" <<'PY352'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]); p.parent.mkdir(parents=True, exist_ok=True)
+a = json.loads(p.read_text()) if p.exists() else []
+a.append({"version":1,"name":"Reader page tools","custom_tool":True,"steps":[{"tool":"keep_pages","argument":"2-3","label":"Keep middle pages"}]})
+p.write_text(json.dumps(a))
+PY352
+cp "$OUT/text.pdf" "$OUT/352-custom.pdf"
+launch "$OUT/352-custom.pdf"
+click 24 62 0.8
+AP=$(at Apply 620x440+330+180); [ -n "$AP" ] && click $AP 1.5
+shot 352-custom-pages
+key ctrl+s; sleep 1.5
+P2=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
+T2=$(first_text "$OUT/352-custom.pdf" 1); T3=$(first_text "$OUT/352-custom.pdf" 2)
+key ctrl+z; sleep 1; key ctrl+s; sleep 1.5
+P4=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
+check "352 custom page-range command applies to the open PDF and undoes (${AP:-no Apply}; pages ${P2:-?} then ${P4:-?})" "[ \"$P2\" = 2 ] && [ \"$P4\" = 4 ] && [ \"$T2\" = \"Page 2\" ] && [ \"$T3\" = \"Page 3\" ]"
+quit
+
+# 353. Acrobat's Specify Settings: edit labelled watermark fields, preserve the next step and
+# its prompt, save, run, and inspect real output. The serialized text includes a literal pipe.
+python3 - "$OUT/353-wizard.json" <<'PY353'
+import json, sys
+json.dump({"version":1,"name":"Wizard settings","steps":[
+    {"tool":"watermark_options","argument":"36|0.5|45|0|0|Helvetica|all|Before","prompt":True,"instruction":"Review each output"},
+    {"tool":"set_title","argument":"Wizard result"}],"output":{"same_folder":True,"suffix":"-353"}}, open(sys.argv[1], "w"))
+PY353
+cp "$OUT/text.pdf" "$OUT/353-source.pdf"
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+answer "$PWD/$OUT/353-wizard.json"
+IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+ED=$(at Edit 200x250+1040+450); [ -n "$ED" ] && click $ED
+# Labelled fields can be below the editor's fold; scroll only that editor until the label is visible.
+batch_label() {
+    local point
+    for _ in $(seq 1 30); do
+        point=$(at "$1" 740x440+500+290)
+        if [ -n "$point" ]; then echo "$point"; return; fi
+        xdotool mousemove 1245 650 click 5; sleep 0.15
+    done
+}
+batch_field() {
+    local bx by
+    read bx by <<< "$(batch_label "$1")"
+    [ -n "$by" ] && click "$bx" $(( by + 32 )) 0.2
+    key ctrl+a; xdotool type --clearmodifiers --delay 5 "$2"; sleep 0.3
+}
+batch_field Mark "After | review"
+batch_field Font "24"
+batch_field Pages "2-3"
+batch_field Opacity "0.35"
+batch_field Rotation "-30"
+shot 353-labelled-settings
+xdotool mousemove 1245 450; for _ in $(seq 1 50); do xdotool click 4; done; sleep 0.6
+SA=$(at Save 600x180+485+380); [ -n "$SA" ] && click $SA 1
+check "353 labelled mark controls preserve text, range, appearance, order and per-step instructions" "python3 -c 'import json; a=next(x for x in json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")) if x[\"name\"] == \"Wizard settings\"); assert a[\"steps\"][0][\"argument\"] == \"24|0.35|-30|0|0|Helvetica|2-3|After | review\"; assert a[\"steps\"][0][\"prompt\"] and a[\"steps\"][0][\"instruction\"] == \"Review each output\"; assert a[\"steps\"][1][\"tool\"] == \"set_title\"'"
+xdotool mousemove 1245 650; for _ in $(seq 1 65); do xdotool click 5; done; sleep 0.8
+answer "$PWD/$OUT/353-source.pdf"
+RN=$(at Run 350x120+900+60); [ -n "$RN" ] && click $RN 1
+CT=$(at Continue 600x450+340+200); [ -n "$CT" ] && click $CT 2
+for _ in $(seq 1 20); do [ -f "$OUT/353-source-353.pdf" ] && break; sleep 0.5; done
+shot 353-wizard-output
+check "353 saved multistep action prompts then marks only selected pages (${CT:-no Continue})" "pdfinfo \"$OUT/353-source-353.pdf\" 2>/dev/null | grep -q '^Title:.*Wizard result' && pdftotext -f 2 -l 3 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review' && ! pdftotext -f 1 -l 1 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review'"
+quit
+# 354. Acrobat's saved-action run continues after a damaged PDF or missing file, keeps successful
+# results, and lists each failure separately rather than growing an unbounded status paragraph.
+python3 - "$OUT/354-run.json" <<'PY354'
+import json, sys
+json.dump({"version":1,"name":"Mixed input run","steps":[{"tool":"set_title","argument":"Batch success"}],
+           "output":{"same_folder":True,"suffix":"-354"}}, open(sys.argv[1], "w"))
+PY354
+cp "$OUT/text.pdf" "$OUT/354-valid.pdf"
+printf 'Not a PDF' > "$OUT/354-broken.pdf"
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+answer "$PWD/$OUT/354-run.json"
+IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+# Run is at the end of the right editor's scroll area.
+xdotool mousemove 1245 650; for _ in $(seq 1 35); do xdotool click 5; done; sleep 1
+answer "$PWD/$OUT/354-valid.pdf|$PWD/$OUT/354-broken.pdf|$PWD/$OUT/354-missing.pdf"
+RN=$(at Run 350x120+900+60); [ -n "$RN" ] && click $RN 2
+for _ in $(seq 1 20); do [ -f "$OUT/354-valid-354.pdf" ] && break; sleep 0.5; done
+sleep 1; shot 354-run-report
+RS=$(ocr 1060x240+210+550)
+check "354 saved action reports one output and both per-file failures (${RN:-no Run})" "[ -f \"$OUT/354-valid-354.pdf\" ] && echo \"$RS\" | grep -q '1 of 3' && echo \"$RS\" | grep -q '2 failed' && echo \"$RS\" | grep -q '354-broken' && echo \"$RS\" | grep -q '354-missing' && cmp -s \"$OUT/text.pdf\" \"$OUT/354-valid.pdf\""
+quit
+
+# 355. Stirling's Folder Scanning resumes a saved recursive watch on startup, names outputs,
+# checkpoints handled revisions and does not duplicate them after restarting the real app.
+python3 - "$PWD/$OUT" <<'PY355'
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1]).resolve(); inbox = root / "355-in"; out = root / "355-out"
+(inbox / "nested").mkdir(parents=True, exist_ok=True); out.mkdir(exist_ok=True)
+settings = root / "profile/data/Sheaf"; settings.mkdir(parents=True, exist_ok=True)
+action = {"version":1,"name":"Watched titles","steps":[{"tool":"set_title","argument":"Watched result"}]}
+watch = {"input":str(inbox),"output":str(out),"seen":{},"title_names":False,"recursive":True,
+         "pattern":"{counter}-{name}","archive_inputs":False,"sequence":0}
+(settings / "folder-watch.json").write_text(json.dumps({"version":1,"action":action,"watch":watch}))
+PY355
+launch
+cp "$OUT/text.pdf" "$OUT/355-in/nested/upload.pdf"
+for _ in $(seq 1 40); do [ -f "$OUT/355-out/1-upload.pdf" ] && break; sleep 0.5; done
+check "355 saved recursive watch processes and renames an incoming PDF" "[ -f \"$OUT/355-out/1-upload.pdf\" ] && pdfinfo \"$OUT/355-out/1-upload.pdf\" 2>/dev/null | grep -q '^Title:.*Watched result'"
+quit
+launch
+sleep 5
+N1=$(find "$OUT/355-out" -maxdepth 1 -name '*.pdf' | wc -l)
+cp "$OUT/text.pdf" "$OUT/355-in/second.pdf"
+for _ in $(seq 1 40); do [ -f "$OUT/355-out/2-second.pdf" ] && break; sleep 0.5; done
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+shot 355-watched-restart
+check "355 restarted watch skips its handled revision and continues its naming counter ($N1 existing)" "[ \"$N1\" = 1 ] && [ -f \"$OUT/355-out/2-second.pdf\" ] && [ \"\$(find \"$OUT/355-out\" -maxdepth 1 -name '*.pdf' | wc -l)\" = 2 ]"
+quit
+# Do not resume this smoke's watch in later smoke steps.
+python3 - "$OUT/profile/data/Sheaf" <<'PY355C'
+import pathlib, sys
+for p in pathlib.Path(sys.argv[1]).glob("folder-watch*.json"): p.unlink()
+PY355C
+
+# 356. Acrobat's folder input is gathered off the UI thread, then the selected recursive PDFs
+# run through the saved action. Each original stays intact beside its output copy.
+python3 - "$OUT/356-folder-action.json" <<'PY356'
+import json, sys
+json.dump({"version":1,"name":"Folder run","steps":[{"tool":"set_title","argument":"Folder result"}],
+           "output":{"same_folder":True,"suffix":"-356"}}, open(sys.argv[1], "w"))
+PY356
+mkdir -p "$OUT/356-input/nested"
+cp "$OUT/text.pdf" "$OUT/356-input/first.pdf"; cp "$OUT/text.pdf" "$OUT/356-input/nested/second.pdf"
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+answer "$PWD/$OUT/356-folder-action.json"
+IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+xdotool mousemove 1245 650; for _ in $(seq 1 45); do xdotool click 5; done; sleep 0.8
+IN=$(at Include 740x440+500+290); [ -n "$IN" ] && click $IN 0.3
+answer "$PWD/$OUT/356-input"
+RF=$(at Run 740x80+500+640); [ -n "$RF" ] && click $RF 2
+for _ in $(seq 1 20); do [ -f "$OUT/356-input/nested/second-356.pdf" ] && break; sleep 0.5; done
+shot 356-folder-results
+check "356 recursive folder intake processes both PDFs into new copies (${IN:-no Include}; ${RF:-no Run})" "pdfinfo \"$OUT/356-input/first-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && pdfinfo \"$OUT/356-input/nested/second-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/first.pdf\" && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/nested/second.pdf\""
+quit

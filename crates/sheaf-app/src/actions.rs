@@ -29,8 +29,32 @@ impl ActionStep {
         Self { tool: step.id().into(), argument: if secret { String::new() } else { step.arg().unwrap_or_default().into() }, instruction: if secret { "Enter an open password for this output PDF. It is used only for this file and is never saved in the action.".into() } else { String::new() }, prompt: secret, label: String::new(), separator: false }
     }
 
+    /// Acrobat's custom tool palette uses the real tool name unless the user supplied a label.
+    /// Resolving by ID also keeps a draft's tool recognizable while its settings are invalid.
+    pub fn display_label(&self) -> &str {
+        if !self.label.is_empty() { return &self.label; }
+        if self.tool == "open_tool" && let Some(id) = sheaf_core::tools::ToolId::from_str(&self.argument) {
+            return sheaf_core::tools::find(id).name;
+        }
+        Step::all().iter().find(|step| step.id() == self.tool).map(|step| step.label()).unwrap_or("Unknown tool")
+    }
+
+    /// Acrobat's custom tools enable native reader commands before knowing the active page
+    /// count. Check the real range when applying, rather than testing against a fictitious page.
+    pub fn supports_current_document(&self) -> bool {
+        !self.prompt && self.engine().is_ok_and(|step| !matches!(step,
+            Step::RecognizeText | Step::OpenTool(_) | Step::PrepareAccessibility(_) |
+            Step::ReduceFileSize | Step::Protect(_) | Step::Compress(_) | Step::ConvertPdfA(_) |
+            Step::DetectFormFields | Step::RunJavaScript(_)))
+    }
+
     pub fn engine(&self) -> Result<Step> {
-        Step::from_id(&self.tool, &self.argument).ok_or_else(|| invalid(format!("Unknown action tool: {}", self.tool)))
+        Step::from_id(&self.tool, &self.argument).ok_or_else(|| {
+            match Step::all().iter().find(|step| step.id() == self.tool) {
+                Some(step) => invalid(format!("Invalid settings for {}. Check its fields and page range.", step.label())),
+                None => invalid(format!("Unknown action tool: {}", self.tool)),
+            }
+        })
     }
 }
 
@@ -76,11 +100,18 @@ pub fn folder_inputs(folder: &Path) -> Result<Vec<PathBuf>> {
 
 /// Recursive intake is bounded by entries and depth, and never follows symbolic links.
 pub fn folder_inputs_recursive(folder: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
+    folder_inputs_cancellable(folder, recursive, &mut || true)
+}
+
+/// Acrobat's folder intake stays cancellable before the first PDF starts processing.
+pub fn folder_inputs_cancellable(folder: &Path, recursive: bool, proceed: &mut dyn FnMut() -> bool) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     let mut pending = vec![(folder.to_path_buf(), 0)];
     let mut visited = 0;
     while let Some((folder, depth)) = pending.pop() {
+        if !proceed() { return Err(OpdfError::Cancelled); }
         for entry in std::fs::read_dir(folder)? {
+            if !proceed() { return Err(OpdfError::Cancelled); }
             let entry = entry?;
             visited += 1;
             if visited > 100_000 { return Err(invalid("Choose a folder with at most 100000 entries")); }
@@ -93,6 +124,7 @@ pub fn folder_inputs_recursive(folder: &Path, recursive: bool) -> Result<Vec<Pat
         }
     }
     paths.sort();
+    if !proceed() { return Err(OpdfError::Cancelled); }
     if paths.is_empty() { return Err(invalid("This folder has no PDF files")); }
     Ok(paths)
 }
@@ -114,7 +146,31 @@ pub struct SavedAction {
 
 fn invalid(message: impl Into<String>) -> OpdfError { OpdfError::Unsupported(message.into()) }
 
+pub(crate) const MAX_ACTION_BYTES: usize = 10 * 1024 * 1024;
+
+/// Stirling's shareable pipeline file must be accepted again by its importer. Measure the actual
+/// escaped, pretty JSON without allocating another potentially enormous action string.
+fn portable_size(action: &SavedAction) -> Result<()> {
+    struct Limit(usize);
+    impl std::io::Write for Limit {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self.0.checked_sub(bytes.len()).ok_or_else(|| std::io::Error::other("Action JSON exceeds 10 MB"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    }
+    serde_json::to_writer_pretty(Limit(MAX_ACTION_BYTES), action)
+        .map_err(|_| invalid("Action JSON exceeds 10 MB. Shorten the descriptions, instructions or step text before saving or exporting"))
+}
+
 impl SavedAction {
+    /// Acrobat's suggested actions remain discoverable beside a growing personal library.
+    pub fn matches_query(&self, query: &str) -> bool {
+        if query.trim().is_empty() { return true; }
+        let text = format!("{} {}", self.name, self.description).to_lowercase();
+        query.split_whitespace().all(|word| text.contains(&word.to_lowercase()))
+    }
+
     pub fn empty() -> Self {
         Self { version: 1, name: "Untitled action".into(), description: String::new(), custom_tool: false, output: OutputOptions::default(), steps: vec![] }
     }
@@ -130,7 +186,7 @@ impl SavedAction {
             if step.tool == "open_tool" && (!self.custom_tool || sheaf_core::tools::ToolId::from_str(&step.argument).is_none() || step.prompt) { return Err(invalid("Toolbox shortcuts belong in custom tool sets and need an existing tool without an action prompt")); }
             if step.label.len() > 256 || step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
         }
-        Ok(())
+        portable_size(self)
     }
 
     /// Duplicate beside the original, retaining its prompt and configuration (Action Wizard).
@@ -142,7 +198,7 @@ impl SavedAction {
     }
 
     pub fn import(text: &str) -> Result<Self> {
-        if text.len() > 10 * 1024 * 1024 { return Err(invalid("An action file must be smaller than 10 MB")); }
+        if text.len() > MAX_ACTION_BYTES { return Err(invalid("An action file must be smaller than 10 MB")); }
         let value: serde_json::Value = serde_json::from_str(text).map_err(|e| invalid(format!("Invalid action JSON: {e}")))?;
         if value.get("steps").is_none() { return crate::action_import::stirling(value); }
         let action: Self = serde_json::from_value(value).map_err(|e| invalid(format!("Invalid action JSON: {e}")))?;
@@ -190,7 +246,7 @@ pub fn save(dir: &Path, all: &[SavedAction]) -> Result<()> {
 /// Recover partial drafts, including a new action with no steps yet.
 pub fn load_draft(dir: &Path) -> Result<Option<SavedAction>> {
     match std::fs::read(dir.join("action-draft.json")) {
-        Ok(bytes) if bytes.len() <= 10 * 1024 * 1024 => serde_json::from_slice(&bytes).map(Some).map_err(|e| invalid(e.to_string())),
+        Ok(bytes) if bytes.len() <= MAX_ACTION_BYTES => serde_json::from_slice(&bytes).map(Some).map_err(|e| invalid(e.to_string())),
         Ok(_) => Err(invalid("The saved draft exceeds 10 MB")),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None), Err(e) => Err(e.into()),
     }
@@ -251,14 +307,16 @@ pub fn run_bytes_configured(
     let engine = Action { name: action.name.clone(), description: action.description.clone(),
         steps: action.steps.iter().map(ActionStep::engine).collect::<Result<Vec<_>>>()?, builtin: false };
     let mut cancelled = false;
+    let mut invalid_step = None;
     let result = actions::run_guided(&engine, &name, bytes, password, |i, _| {
         let mut step = action.steps[i].clone();
         if !before(i, &mut step) { cancelled = true; return None; }
         // The caller can edit the argument, never replace a tool with an unvalidated command.
-        if step.argument.len() > 1_000_000 { return None; }
-        step.engine().ok()
+        if step.argument.len() > 1_000_000 { invalid_step = Some(invalid("The prompted step text exceeds 1 MB")); return None; }
+        match step.engine() { Ok(step) => Some(step), Err(e) => { invalid_step = Some(e); None } }
     });
     if cancelled { return Err(OpdfError::Cancelled); }
+    if let Some(error) = invalid_step { return Err(error); }
     let bytes = result.map_err(OpdfError::Engine)?.bytes;
     let bytes = convert_output(bytes, password, &action.output.format, publish)?;
     if !publish() { return Err(OpdfError::Cancelled); }
@@ -559,6 +617,7 @@ mod tests {
         for tool in sheaf_core::tools::catalogue() {
             set.steps = vec![ActionStep::from_engine(&Step::OpenTool(tool.id.as_str().into()))];
             set.validate().unwrap();
+            assert_eq!(set.steps[0].display_label(), tool.name);
             assert_eq!(SavedAction::import(&set.json().unwrap()).unwrap(), set);
             assert!(actions::command_edit(&set.steps[0].engine().unwrap(), 1).is_err());
         }
@@ -599,6 +658,96 @@ mod tests {
         assert!(load_draft(dir.path()).unwrap().unwrap().steps[0].argument.is_empty());
         action.steps[0].argument.clear(); action.steps[0].prompt = false; assert!(action.validate().is_err());
         action.steps[0].prompt = true; action.output.format = "docx".into(); assert!(action.validate().is_err());
+    }
+
+    #[test]
+    fn every_exported_action_fits_the_import_limit_including_json_escaping() {
+        let mut action = SavedAction::empty();
+        action.steps.push(ActionStep::from_engine(&Step::RotateClockwise));
+        // Escaping doubles these bytes: measuring only the raw fields would accept a file
+        // larger than the importer's limit, including for an action with just one step.
+        action.description = "\n".repeat(MAX_ACTION_BYTES / 2);
+        assert!(action.validate().unwrap_err().to_string().contains("10 MB"));
+        assert!(action.json().is_err());
+        let dir = tempfile::tempdir().unwrap();
+        assert!(save(dir.path(), std::slice::from_ref(&action)).is_err());
+        assert!(!dir.path().join("actions.json").exists());
+        action.description.truncate(MAX_ACTION_BYTES / 2 - 4096);
+        let portable = action.json().unwrap();
+        assert!(portable.len() <= MAX_ACTION_BYTES);
+        assert_eq!(SavedAction::import(&portable).unwrap(), action);
+        let stirling = action.stirling_json().unwrap();
+        assert!(stirling.len() <= MAX_ACTION_BYTES);
+        assert_eq!(SavedAction::import(&stirling).unwrap(), action);
+    }
+
+    #[test]
+    fn suggested_action_search_matches_all_words_in_names_and_descriptions() {
+        let all = suggested();
+        let names = |query: &str| all.iter().filter(|a| a.matches_query(query)).map(|a| a.name.as_str()).collect::<Vec<_>>();
+        assert_eq!(names("  CONFIDENTIAL  watermark "), ["Mark as Confidential"]);
+        assert_eq!(names("paragraphs language"), ["Prepare Accessibility (text-only)"]);
+        assert!(names("confidential archive").is_empty());
+        assert_eq!(names(" ").len(), all.len());
+        let mut own = all[0].clone(); own.name = "Équipe de garde".into();
+        assert!(own.matches_query("ÉQUIPE garde"));
+        own.description = "Dossier révisé".into(); assert!(own.matches_query("révisé équipe"));
+    }
+
+    #[test]
+    fn custom_page_commands_are_available_then_validate_against_the_real_document() {
+        for step in [Step::KeepPages("2-3".into()), Step::DeletePages("2-3".into()),
+            Step::WatermarkOptions("24|0.5|45|0|0|Helvetica|2-3|Review".into()),
+            Step::HeaderFooterOptions("4|8|Helvetica|2-3|Review".into())] {
+            let mut command = ActionStep::from_engine(&step);
+            assert!(command.supports_current_document(), "{} must not assume one page", command.tool);
+            assert!(actions::command_edit(&command.engine().unwrap(), 4).is_ok());
+            assert!(actions::command_edit(&command.engine().unwrap(), 1).is_err());
+            command.prompt = true; assert!(!command.supports_current_document());
+            command.argument = "bad settings".into();
+            assert_eq!(command.display_label(), step.label());
+            command.label = "My page command".into(); assert_eq!(command.display_label(), "My page command");
+        }
+        for step in [Step::Compress("recommended".into()), Step::OpenTool("redact".into()),
+            Step::RecognizeText, Step::PrepareAccessibility("fr-FR".into()), Step::Protect(String::new())] {
+            let mut command = ActionStep::from_engine(&step);
+            assert!(!command.supports_current_document());
+            command.prompt = false;
+            assert!(!command.supports_current_document());
+        }
+    }
+
+    #[test]
+    fn cancelled_folder_intake_returns_no_partial_batch_and_can_be_started_again() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("nested")).unwrap();
+        for name in ["first.pdf", "second.pdf", "nested/third.pdf"] {
+            std::fs::write(dir.path().join(name), b"unchanged input").unwrap();
+        }
+        let mut checks = 0;
+        assert!(matches!(folder_inputs_cancellable(dir.path(), true, &mut || { checks += 1; checks < 3 }), Err(OpdfError::Cancelled)));
+        let files = folder_inputs_recursive(dir.path(), true).unwrap();
+        assert_eq!(files.len(), 3);
+        for path in files { assert_eq!(std::fs::read(path).unwrap(), b"unchanged input"); }
+        assert!(matches!(folder_inputs_cancellable(&dir.path().join("missing"), true, &mut || false), Err(OpdfError::Cancelled)));
+    }
+
+    #[test]
+    fn invalid_prompted_settings_report_the_tool_without_claiming_cancellation_or_publishing() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("source.pdf");
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Keep").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
+        let mut action = SavedAction::empty();
+        let mut step = ActionStep::from_engine(&Step::PageNumbers("4|1|8|Page <<1>>".into()));
+        step.prompt = true; action.steps.push(step);
+        let out = dir.path().join("outputs");
+        let error = run_file_configured(&action, &input, &out, None, &mut |_, step| { step.argument = "bad settings".into(); true }, &mut || true).unwrap_err();
+        assert!(error.to_string().contains("Invalid settings for Add page numbers"));
+        assert!(!matches!(error, OpdfError::Cancelled));
+        assert!(!out.exists());
+        assert_eq!(std::fs::read(input).unwrap(), *bytes);
+        assert_eq!(action.steps[0].argument, "4|1|8|Page <<1>>");
     }
 
 }

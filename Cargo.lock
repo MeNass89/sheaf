@@ -6863,6 +6863,7 @@ name = "sheaf-core"
 version = "0.2.1"
 dependencies = [
  "calamine",
+ "dirs",
  "encoding_rs",
  "getrandom 0.4.3",
  "image",
@@ -6887,6 +6888,7 @@ dependencies = [
  "thiserror 2.0.21",
  "unicode-normalization",
  "ureq",
+ "zip 4.6.1",
  "zune-core",
  "zune-jpeg",
 ]
