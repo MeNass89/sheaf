@@ -1046,6 +1046,233 @@ undo; cyclic/corrupt refusal tests at 239/259. Patterns/marks/trapping/flattenin
 All cited tests are WRITTEN, NOT RUN. No aesthetic render or performance benchmark was performed.
 LIGNES : max 5 (preflight finding / data-report information) · cases > 6 : aucune.
 
+## Pass 4 — review-sol-convert-2 (active)
+
+- C-convert-002: Returning to Sheaf after installing/removing LibreOffice now refreshes existing
+  Office/HTML tabs once on window focus (iLovePDF's offline conversion). The built-in Excel report
+  remains available without LibreOffice. Test WRITTEN, NOT RUN:
+  `office_runtime_refresh_enables_existing_tabs_after_install_and_disables_after_removal`.
+  No bundling or new dependency; corpus fidelity still needs the orchestrator's real runtime.
+  not automatable: open a Word tab without LibreOffice, install it, focus Sheaf, verify Run becomes
+  available without a new tab — worker forbidden to launch the app.
+
+Polaroid: Pass 4 targets the five DISAGREEs plus the accepted Office refresh nit; source-only
+verification. No network features; no compiler, test, app or Codex invocation. Next: PDF/A levels.
+
+- C-convert-018 (partial): PDF/A-1b is selectable in GUI/history and CLI `--level 1b`, written
+  natively in Rust after the existing baseline repairs. Classic PDF 1.4 output, part-1 XMP,
+  explicit checks for transparency (including indirect alpha), layers, attachments and newer
+  stream/font features. Strict mode publishes nothing on failure; permissive mode reports the
+  unresolved issues. Test WRITTEN, NOT RUN:
+  `native_pdfa1_writes_pdf14_and_checks_transparency_before_publication`; `pdfa_job` extended.
+  Left: accessible a/u levels require semantic tagging/Unicode validation; automatic downgrade
+  needs a reported actual output level and explicit policy. Neither is simulated by relabeling.
+  Native 1b is a conservative structural subset, not a full ISO validator or flattening engine.
+  No dependency. New public variant `PdfALevel::A1b`; orchestrator must update exhaustive matches
+  in concurrent branches if any. New private core module `pdfa1.rs`.
+  not automatable: check new level, history, strict failure and report in both themes — no app runs.
+
+- C-convert-019 (partial): Acrobat's Save as PDF/X now offers X-1a:2001, X-3:2002 and X-4.
+  Ghostscript gets the explicit variant and PDF version; Sheaf checks exact variant markers,
+  X-1a conformance, exact ICC bytes, embedded fonts, forbidden colour spaces (X-1a), and
+  transparency (allowed only for X-4). An old converter's wrong output is refused, never relabeled.
+  Named FOGRA39 / GRACoL / SWOP buttons find validated CMYK profiles already installed in bounded
+  local directories (`SHEAF_ICC_DIR` supported); absent profiles get a recovery message and the
+  manual ICC picker. No profile is fabricated or downloaded. PDF/E remains unavailable: no engine
+  or validator for its engineering-specific restrictions. No new dependency.
+  Tests WRITTEN, NOT RUN:
+  `press_levels_require_the_requested_markers_and_allow_transparency_only_in_x4`,
+  `named_press_profiles_require_a_real_matching_installed_cmyk_profile`; existing snapshot,
+  wrong-output, timeout, ICC-substitution and transparency tests updated/preserved.
+  Public additions: `press::Level`, `Preset`, `installed_profile`; `Options.level` is required.
+  Existing `to_pdfx3[_with]` names retained for compatibility but now honor `Options.level`.
+  Runtime reference checked: https://ghostscript.readthedocs.io/en/latest/VectorDevices.html
+  (`-dPDFX=1/3/4`; its older "Creating a PDF/X" warning contradicts the updated option section).
+  Installed 10.02.1 sample only demonstrates X-3; real-runtime X-1a/X-4 corpus validation remains
+  mandatory, and unsupported runtimes must publish nothing. Profile files are not bundled.
+  not automatable: both themes, three levels, absent profile/runtime recovery, background snapshot
+  — app execution is forbidden. Source reference: Acrobat's `PrintProduction_R_RHP.aapp` and
+  `Standards_R_RHP.aapp` read directly from the archive.
+
+- C-optimize-014 (partial): Acrobat's Fix Hairlines now traverses selected tiling patterns and
+  Type 3 charprocs as well as Forms. Each pattern selection/text show gets private resources;
+  glyph scale includes FontMatrix, text size, horizontal scale, text matrix and page transform.
+  The source font's encoding, advances and originals for other pages stay untouched. Depth,
+  operator and decode bounds also cover patterns/glyphs; damaged content is refused.
+  Add Printer Marks offers crop / all / registration / CMYK bars / page information and a physical
+  mark width. Registration uses Separation All, including spot plates. Information includes page
+  number/count and trim dimensions in a shared embedded Inter font. Extra marks get 30 pt outside
+  bleed; crop-only keeps 18 pt. Existing trim/bleed/art and original cropping remain; repeat calls
+  do not duplicate a mark type; each operation is undoable. No external program or dependency.
+  Tests WRITTEN, NOT RUN:
+  `pattern_and_type3_hairlines_are_private_per_use_and_leave_shared_pages_unchanged`,
+  `printer_marks_include_all_plate_registration_process_bars_and_embedded_page_info`.
+  Left: trap presets (no trapping engine), flattener preview (no compositing comparison/render
+  path); UI explicitly says so. Ordinary-font stroked text and annotation appearances remain.
+  Public engine addition: `Edit::AddPrinterMarks` and `prepress::add_printer_marks`.
+  not automatable: both themes, scope, five mark choices/width, repeated use and undo, Type 3
+  glyph positions/advances and nested pattern matrices — no app/renderer allowed in this worker.
+
+- C-optimize-012 (partial): Acrobat-style named Digital press / PDF/X-1a readiness / PDF/X-4
+  readiness profiles now run target rules together, beyond the existing resolution/bleed thresholds.
+  They check embedded fonts, explicit trim, a real embedded CMYK/Gray press ICC output intent,
+  encryption and incomplete resource inventory. X-1a additionally flags transparency and conservative
+  unsupported colour declarations. The dated report retains the target and exact thresholds, failure
+  and warning counts. Resource measurements are computed once per report. No document edits.
+  Test WRITTEN, NOT RUN: `named_preflight_profiles_check_target_rules_together_without_editing`.
+  Left: on-page ink toggles, total area coverage, overprint simulation and full PDF/X certification.
+  These require actual compositing/separation rendering; a resource inventory or RGB-to-CMYK guess
+  would not prove the ink on the page, so no imitation preview was added. Existing page-linked
+  inventory and undoable fix links remain. No dependency. Public `preflight::Preset` and
+  `report_with_preset`; `Op::PrintPreflight` now includes the preset. New private core module
+  `preflight_profiles.rs`; `press::profile_channels` / `non_device_colour` are crate-visible only.
+  not automatable: select each target, alter thresholds, inspect page links and save the dated
+  snapshot in both themes — app execution forbidden.
+
+- C-convert-005 (partial, material gap addressed): Local HTML now has optional Chromium screen
+  layout at 800 / 1280 / 1920 CSS px and a genuine continuous-page option. Rust prepares local
+  resources/encoding/base, disables meta refresh, bounds the source, measures at the chosen width,
+  invokes the isolated local browser with bounded pipes/timeouts, verifies a nonempty PDF and (for
+  continuous mode) exactly one page of the measured width/height, then atomically publishes it.
+  Screen-media rules are frozen before printing (grid/flex stay screen layouts), print-only rules
+  are disabled; paper breaks are suppressed rather than stacked. Margins occur only at the page
+  edges. A failed measurement, extra pages or wrong dimensions publishes nothing, with recovery
+  instructions. Source JavaScript is off. CSP allows local/data images/fonts and local CSS only.
+  No URL capture, downloading, cloud or other network feature; browser background networking and
+  DNS resolution disabled. Chromium/Chrome/Edge is discovered locally, or `SHEAF_CHROMIUM` supplies
+  the binary. If absent, the error offers installation or explicit LibreOffice paper layout; it
+  never silently falls back. Native Rust retains Office paper/stacked output for the old mode.
+  Saved options keep width and long-page choice; screen mode does not require LibreOffice.
+  Tests WRITTEN, NOT RUN:
+  `screen_html_freezes_media_and_uses_one_measured_page_without_network_resources`,
+  `browser_long_page_checks_reject_pagination_and_wrong_dimensions`, extended HTML job/history,
+  `real_local_screen_grid_has_no_paper_breaks_when_a_browser_is_explicitly_supplied` (opt-in via
+  SHEAF_TEST_CHROMIUM; a skip is not a pass). Worker never launched any browser.
+  Left: a bundled/native browser-class CSS layout engine is absent; source scripts are disabled;
+  continuous output is conservatively limited to 200 inches and 100k DOM elements. Actual local
+  CSS/font/link fidelity and process behavior require the orchestrator's real-browser corpus.
+  No dependency (existing getrandom/serde_json/tempfile only). New public `html::Options.screen_width`
+  and `ToolOptions.html_screen_width`; new private `html_browser.rs`.
+  Browser reference read: https://developer.chrome.com/docs/automation-and-testing/headless .
+  not automatable: both themes, widths, absent Chromium/absent LibreOffice, saved history, relative
+  CSS/images/fonts, grid/flex, screen-vs-print CSS and one continuous page — no app/Chrome allowed.
+
+- C-convert-018 source-review follow-up: lopdf preserves an input's xref-stream choice even after
+  changing the PDF header. Native 1b now explicitly selects a classic xref table and removes old
+  object/xref containers and trailer offsets. Verification inspects the actual written input bytes,
+  not a fresh engine serialization. The native 1b regression also asserts the xref-table type.
+  Still source-only: no compiler or test was run.
+
+- C-convert-018 final static audit: xref type uses pattern matching (upstream enum has no
+  PartialEq); part-1 identification reuses the engine's RDF parser, including attribute-form XMP,
+  now covered in the native 1b regression. Indirect filter names and a newer catalog version are
+  checked too. These are source/API checks, not executed test results.
+
+## Pass 4 handoff — source work complete; integration pending
+
+Tatouages unchanged: one batch/worktree; no compiler/build/test/app/Chrome/Codex invocation;
+network features excluded; no copied competitor code and no new dependency.
+
+Polaroid — Sheaf / sol-convert / pass 4: active pending orchestrator integration. All six components
+have a feature commit pushed to `origin/par/sol-convert`; additional native PDF/A source-audit fixes
+were pushed separately. The starting merged tree was `ce2a6dc` (the worktree had already fast-forwarded
+from pass 3 to `origin/wip/round27` before this pass's first commit). Review input remains
+`/tmp/f5/par/review-sol-convert-2.txt`. No component is declared jointly closed by this source pass.
+
+Fait: code, regression tests and notes authored/re-read; per-component commits pushed. Static
+`git diff ce2a6dc..HEAD --check` clean; Impeccable detector returned `[]` for the four changed Slint
+files. Source APIs checked against the actual cached PdfCraft/lopdf revision (including the xref
+writer and enum). These checks prove neither compilation, rendered aesthetics nor runtime speed.
+
+Pas fait: every new/modified test is WRITTEN, NOT RUN. All six components need orchestrator build,
+full suite and counterpart review. Runtime-dependent checks must distinguish SKIP from PASS.
+Specifically: real Office fidelity, all three Ghostscript PDF/X variants with actual ICC files,
+real Chromium flex/grid/screen CSS and one-page output, native 1b against an independent validator,
+Type 3 advances/pattern matrix renders, mark placement/undo and both Slint themes.
+
+Prochain pas: merge the small shared-file blocks, build Slint/Rust once in the orchestrator, run the
+named regressions/full suite, enable `SHEAF_TEST_CHROMIUM` for the opt-in browser corpus, then request
+Opus's read-only review. Outside runtimes/profiles are not bundled. Any unavailable runtime must
+fail clearly; there is no network/download fallback.
+
+Integrator interface changes (no Cargo.toml/lockfile change):
+- `PdfALevel::A1b`, CLI `CliPdfA::A1b`; update any concurrent exhaustive matches.
+- `press::Options.level` required; `press::Level`, `Preset`, `installed_profile` added.
+- `html::Options.screen_width: Option<u32>` required; `ToolOptions.html_screen_width` saved.
+- `preflight::Preset`, `report_with_preset`; reader `Op::PrintPreflight` includes `preset`.
+- `Edit::AddPrinterMarks`, engine `prepress::add_printer_marks` added; label/permission/apply arms
+  included. Existing `AddCropMarks` retained.
+- Slint `preflight-check`, `press-export`, `production-marks` have additional arguments;
+  `press-preset` added. Rust handlers and wiring changed together. No new Prefs field.
+
+### Pass 4 touched files (relative to ce2a6dc)
+
+- `crates/sheaf-app/src/main.rs`
+- `crates/sheaf-app/src/reader_doc/mod.rs`
+- `crates/sheaf-app/src/reader_ui/prepress.rs`
+- `crates/sheaf-app/src/run.rs`
+- `crates/sheaf-app/src/saved_options.rs`
+- `crates/sheaf-app/src/state.rs`
+- `crates/sheaf-app/ui/flow-types.slint`
+- `crates/sheaf-app/ui/screens/options.slint`
+- `crates/sheaf-app/ui/screens/reader-prepress.slint`
+- `crates/sheaf-app/ui/screens/reader-production.slint`
+- `crates/sheaf-cli/src/args.rs`
+- `crates/sheaf-cli/src/main.rs`
+- `crates/sheaf-core/src/html.rs`
+- `crates/sheaf-core/src/html_browser.rs`
+- `crates/sheaf-core/src/html_source.rs`
+- `crates/sheaf-core/src/pdfa.rs`
+- `crates/sheaf-core/src/pdfa1.rs`
+- `crates/sheaf-core/src/preflight.rs`
+- `crates/sheaf-core/src/preflight_profiles.rs`
+- `crates/sheaf-core/src/press.rs`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `crates/sheaf-core/tests/office.rs`
+- `crates/sheaf-core/tests/pdfa.rs`
+- `crates/sheaf-core/tests/preflight.rs`
+- `crates/sheaf-core/tests/press.rs`
+- `dev/par-notes-sol-convert.md`
+- `third_party/pdfcraft-edit/src/prepress.rs`
+- `third_party/pdfcraft-engine/src/lib.rs`
+- `third_party/pdfcraft-engine/src/prepress.rs`
+
+### Pass 4 provisional author grades — source evidence, not joint closure
+
+C-convert-002: f9 a9 p9 — counterpart's existing AGREE 9 preserved; refresh nit addressed by
+`office_runtime_refresh_enables_existing_tabs_after_install_and_disables_after_removal`,
+`crates/sheaf-app/src/state.rs:761` (written). Native Excel / original Office conversion unchanged.
+
+C-convert-005: f8 a8 p7 — `screen_html_freezes_media_and_uses_one_measured_page_without_network_resources`
+and `browser_long_page_checks_reject_pagination_and_wrong_dimensions`,
+`crates/sheaf-core/src/html_browser.rs:187/204` (written). Actual browser-grid corpus opt-in at 221;
+no browser-class native engine or source-script execution; real browser behavior unverified.
+
+C-convert-018: f8 a8 p8 — `native_pdfa1_writes_pdf14_and_checks_transparency_before_publication`,
+`crates/sheaf-core/tests/pdfa.rs:121` (written): part 1, classic xref, attribute XMP and strict refusal.
+a/u levels and automatic downgrade remain absent; structural checking is not full ISO validation.
+
+C-convert-019: f7 a8 p7 — `press_levels_require_the_requested_markers_and_allow_transparency_only_in_x4`,
+`named_press_profiles_require_a_real_matching_installed_cmyk_profile`,
+`crates/sheaf-core/src/press.rs:300/322` (written). X-1a/X-4 runtime fidelity still unverified;
+PDF/E unsupported and named profiles require real installed ICC files.
+
+C-optimize-012: f7 a8 p7 — `named_preflight_profiles_check_target_rules_together_without_editing`,
+`crates/sheaf-core/tests/preflight.rs:96` (written). Named profiles add real grouped target checks;
+ink toggles, coverage and overprint simulation require a separation/compositing renderer, absent.
+
+C-optimize-014: f8 a8 p7 — `pattern_and_type3_hairlines_are_private_per_use_and_leave_shared_pages_unchanged`,
+`printer_marks_include_all_plate_registration_process_bars_and_embedded_page_info`,
+`crates/sheaf-core/tests/engine_patches.rs:536/601` (written). Trap presets/flattener preview remain
+absent (no trapping/compositing path); ordinary-font stroked text/comments remain outside repair.
+
+Contrôle: mandat oui (six components addressed; unresolved gaps explicitly retained); preuves oui
+(source/diff/remote evidence, no invented runtime proof); dépendances oui (runtime/profile checks
+identified, native-engine gaps stated as implementation gaps); parties indépendantes oui (the
+selected meaningful fixes and their regression coverage are authored and pushed).
+
+LIGNES : max 5 (preflight finding) · cases > 6 : aucune.
+
 ## Batch sol-ocr-sign
 
 
@@ -1753,6 +1980,210 @@ C-sign-012: f7 a8 p8 — `tests/sign.rs:476` distinct TSA fixture; no user-facin
 C-security-007: f0 a0 p0 — no implementation; Standard-only reader still blocks PubSec reopening.
 C-security-008: f8 a7 p8 — `tests/security.rs:222` exact PDF permissions/AES compatibility contract.
 
+## Fourth pass — C-optimize-015
+
+- C-optimize-015: Acrobat's Advanced Search options now reach catalog searches in the reader
+  and CLI: whole words, match case, all/any words, bounded Boolean AND/OR/NOT with grouping and
+  quoted phrases, unordered proximity (10 intervening words in the UI, configurable in CLI),
+  and explicitly English Snowball stemming. Inverted word/stem/trigram postings prune page
+  candidates; Boolean negation never complements an approximate posting set. The manager's
+  Add folder includes subfolders through the existing recursive incremental builder.
+- Tests written: `catalog_advanced_queries_cover_case_words_boolean_stems_and_proximity`,
+  `catalog_refuses_invalid_or_excessive_boolean_queries_and_conflicting_options`,
+  `catalog_search_controls_keep_mode_and_independent_options`.
+- New small pure-Rust offline dependency: `rust-stemmers = 1.2` in workspace and sheaf-core.
+  Orchestrator must fetch/update Cargo.lock. New public items `SearchMode`, `SearchOptions`,
+  `Catalog::search_with_options`. Old catalog files and `Catalog::search` retain phrase defaults.
+- `not automatable: Catalog → Add folder, build, run each search mode and checkbox, malformed
+  Boolean query, open hit and cancel; check narrow/wide layouts — rule 1 forbids app execution`.
+- Left: PDX interchange and non-English stemming; render, memory/time and compilation unverified.
+  No network code. Proposed grade f9 a8 p8 (static evidence only; no joint closure claim).
+
+## Fourth pass — C-security-008
+
+- C-security-008: Acrobat's Save passwords with the policy is available beside Apply. After
+  a protected copy succeeds, the optional local credentials are encrypted/authenticated in
+  `policy-passwords.secure` using the profile's existing random `signatures.key`. Neither
+  settings JSON nor exports receive passwords. Selecting the saved policy and leaving fields
+  empty reuses its passwords; Forget saved passwords and deleting the policy remove them.
+  Credential binding includes the entire typed policy, so changed settings require new values.
+  A damaged vault/missing key refuses replacement; writes across document tabs are serialized.
+- Tests written: `remembered_policy_passwords_survive_restart_but_never_export_or_follow_changed_settings`,
+  `corrupt_policy_passwords_are_never_replaced_and_forgetting_preserves_other_policies`,
+  `missing_policy_password_key_refuses_new_saves_without_destroying_existing_credentials`,
+  `a_saved_policy_applies_without_retyping_passwords_and_edits_require_new_credentials`.
+- No new dependency. New public app items `security_policies::{Passwords, saved_passwords,
+  remember_passwords, forget_passwords}`. Policy Apply bridge gains one bool; ReaderTab gains
+  policy-remembered. Three existing signature-store file/key helpers become crate-visible;
+  signature persistence behaviour is unchanged. Unix temp files remain owner-only.
+- `not automatable: save a policy, apply with Save passwords checked, restart, select and apply
+  with blank fields, forget/delete, export and inspect no passwords, damage the key and retry —
+  rule 1 prohibits this worker's app execution; orchestrator must also verify the panel fit`.
+- Left: certificate policies depend on C-security-007; Acrobat settings-file interoperability,
+  runtime and visual verification remain. Network features remain out. Proposed f9 a8 p8 for
+  password policies; f8 a8 p8 overall while certificate policies are unavailable.
+
+## Fourth pass — C-security-007 (partial implementation)
+
+- C-security-007: `sheaf encrypt-certificates FILE --recipient alice.cer bob.pem --scope
+  all|except-metadata|attachments -o encrypted.pdf` now writes Adobe.PubSec S5 AES-256 PDFs
+  with CMS RSA key-transport envelopes. Include the sender as a recipient to retain access.
+  `unlock-certificate FILE --identity alice.p12 --id-password … -o copy.pdf` uses the authorized
+  private key in Rust and produces a copy the existing Sheaf reader can open. No OpenSSL,
+  Ghostscript, keyring command, or network is needed at runtime. X.509 DER/PEM imports reuse
+  the existing parser; signing-only, non-RSA, short-key, expired and unknown-critical-extension
+  certificates are refused. Full saves avoid obsolete object streams and never overwrite.
+- Tests written: `certificate_encryption_reopens_for_each_recipient_and_preserves_every_content_scope`
+  (two recipients, outsider denial/no output, all three scopes, text/metadata/attachment roundtrip,
+  engine reopen) and `certificate_encryption_refuses_wrong_usage_invalid_inputs_and_does_not_overwrite`.
+  Test identities and real signed X.509 encryption certificates are made in Rust, with no
+  subprocess fixture dependency. CLI test `offline_certificate_commands_require_recipients_identity_and_explicit_scope`.
+- New public core module `certificate_security::{Scope, encrypt, unlock}`. Existing transitive
+  pure-Rust `rsa = 0.10.0-rc.18` (encoding/std) and `pdfcraft-cos` are now direct dependencies
+  in workspace/sheaf-core; getrandom gains `sys_rng`. No new native dependency or new version
+  of an existing package. Orchestrator updates the dependency edges in Cargo.lock.
+- Format reference (ideas translated, no copied implementation): pyHanko's public-key handler,
+  `https://github.com/MatthiasValvekens/pyHanko/blob/master/pkgs/pyhanko/src/pyhanko/pdf_utils/crypt/pubkey.py`
+  and permissions.py: SHA-256(seed + encoded envelopes + optional metadata marker), big-endian
+  permission word, one CMS string for an attachment-only nondefault crypt filter. CMS is
+  encoded through the existing DER writer and AES uses lopdf's existing Rust crypt filter.
+- Left: CLI only, all recipients have full permissions, no certificate policy library or direct
+  private-key prompt in the reader. Opening an authorized copy is explicit, not transparent.
+  Legacy S3/S4/RC4/AES-128, EC key agreement, external encrypted object streams, named stream
+  Crypt overrides and nondefault filter names are refused clearly. Independent Acrobat/
+  pyHanko interoperability, visual fit, compilation and runtime tests are still unverified.
+  Proposed f5 a2 p7; this moves the absent component forward, without a joint 9 claim.
+
+## Fourth pass — C-optimize-006 (partial)
+
+- C-optimize-006: the built-in Rust path now prepacks detection weights as well as recognition
+  weights, skips loading the unused English recognizer whenever Paddle's model is present,
+  and allows a complete detection/Paddle install without that unused file. Line preprocessing
+  caches horizontal bilinear coordinates once per line, fills contiguous BGR channel planes
+  directly and validates malformed buffers before accessing pixels. Scaling arithmetic and
+  recognition geometry are preserved; this is less work, not a claimed measured speedup.
+- Tests written: `paddle_preprocessing_matches_reference_bilinear_pixels_and_rejects_invalid_images`
+  compares every float bit with the prior preprocessing at borders and fractional crops;
+  `paddle_installations_do_not_require_the_unused_english_recognition_file` checks complete/
+  incomplete data; `prepacked_recognition_keeps_the_words_and_their_placement` now also checks
+  real recognition without an English model. New public OCR items `RecognitionInput` and
+  `recognition_input`, reexported by engine::ocr for host integration tests. No new dependency.
+- Left: the original release MICI benchmark and comparison with 11.75 s/page remain **not run**.
+  Rule 1 expressly prohibits this worker from running it. Only an idle host running the ignored
+  `release_ocr_mici_benchmark_reports_cold_load_and_warm_page_time` can close the speed gap.
+  No model assets were present in this worktree during source inspection. Proposed f9 a8 p7.
+
+- Catalog static follow-up: normalization-only empty queries are rejected before matching;
+  combining marks remain part of whole words instead of being treated as punctuation.
+  The invalid-query regression covers a dehyphenated empty input.
+
+- Certificate static follow-up: CMS recipient serials must be INTEGERs. The usage regression
+  now builds an actually signed signing-only certificate, rather than mutating parsed fields.
+
+- Catalog CLI proximity uses u32, so the existing generated MCP schema advertises an integer
+  (rather than the string fallback for usize). The CLI proximity parsing regression covers it.
+
+## Fourth pass — unchanged accepted components and remaining language gap
+
+- C-optimize-009: unchanged. Counterpart `review-sol-ocr-sign-2.txt` accepted 9 after the
+  orchestrator's round-27 build/unit pass. Proof remains
+  `word_confidence_survives_save_and_corrections_leave_neighboring_words_and_scan_intact`.
+- C-sign-009: behaviour unchanged; three file/key helpers are crate-visible for policy secrets.
+  Counterpart accepted 9. Proof `local_signatures_survive_restart_without_external_tools_or_size_caps`.
+- C-sign-012: unchanged. Counterpart accepted the offline feature at 9; TSA transport and
+  online revocation stay outside this batch, not silently counted as implemented. Proof
+  `a_local_authority_timestamps_visible_and_invisible_certificate_signatures`.
+- C-optimize-007: **gap not closed, no language coverage added in this pass**. A stock install
+  still recognizes Latin with Sheaf's own Rust inference; other scripts require installed
+  Tesseract and matching traineddata. Source inspection confirmed only the Latin model and
+  dictionary in `scripts/fetch-models.sh`; no bundled native non-Latin weights/dictionaries or
+  matching accuracy fixtures are available here. Wrapping the same external program again
+  would not close this gap. Native multilingual coverage needs compatible trained assets plus
+  real scan/geometry/accuracy validation; no language is advertised without an engine able to
+  read it, and no downloader or online feature was added. Existing tests
+  `every_installed_language_pack_is_offered_but_orientation_data_is_not` and
+  `mixed_scripts_use_all_selected_packs_and_refuse_missing_or_conflicting_packs` remain the proof
+  of the explicit optional local fallback. Proposed grade remains f8 a8 p8.
+
+## Fourth-pass Polaroid / orchestrator report
+
+- Project: Sheaf / sol-ocr-sign / fourth pass. Status: source delivery complete, integration
+  pending. Branch `par/sol-ocr-sign`; worktree `/tmp/f5/w-sol-ocr-sign` resolves to
+  `/home/nassim/f5/w-sol-ocr-sign`. This pass started from `ce2a6dc` (the already merged round-27
+  work), not the older `1262028` remote tip. Only this pass's commits are listed below.
+- Commits pushed after each component/follow-up: `bb7e6e9` catalog, `e942def` remembered policy
+  passwords, `4e808bf` certificate encryption, `dc22ee8` OCR work reduction, `174f8f4` / `5369224`
+  catalog Unicode/empty-query regressions, `ed508cc` certificate parsing/real key-usage fixture.
+  A final CLI-schema/documentation commit follows. No unrelated worker changes authored.
+- Checks actually performed: source/primary-reference inspection, `git diff --check` for the
+  entire pass, live branch/remote status reads; Impeccable's static detector returned `[]` for
+  the two changed Slint sheets. **No cargo, rustc, clippy, tests, app, Chrome, Xvfb or codex ran.**
+  The detector is not a render, and written tests are not passed tests.
+- Compile handoff: fetch `rust-stemmers 1.2`; link existing transitive rsa 0.10.0-rc.18 with
+  encoding/std and pdfcraft-cos directly into sheaf-core; enable getrandom sys_rng. Update
+  Cargo.lock in the orchestrator. No native package/version added. New public items and the
+  one-bool policy Apply bridge change are recorded in the component entries above.
+- Not done: non-Latin native assets, release speed measurement, certificate UI/direct-reader
+  credential plumbing/per-recipient restrictions/certificate policies, legacy recipient modes,
+  independent encrypted-PDF interoperability, cross-platform and rendered UI verification.
+- Next: orchestrator integrates and runs its required full compile/lint/unit/GUI checks, the
+  new certificate round-trip and policy-vault tests, and the ignored release MICI benchmark.
+  Then Opus rereviews the changed components. No board closure or fresh joint 9 claimed.
+- Control: mandate covered yes (every gap dispositioned); evidence yes (source/tests/commits);
+  dependencies explicit yes; permitted source work delivered yes. Runtime results remain
+  unknown under the explicit execution ban. Certificate work is partial implementation, not
+  an externally blocked claim that the absent UI has already been delivered.
+
+### Fourth-pass proposed grades
+
+C-optimize-006: f9 a8 p7 — `tests/engine_patches.rs:536` pixel equivalence and
+`tests/ocr.rs:264` release protocol; measured speed still outstanding.
+C-optimize-007: f8 a8 p8 — `src/ocr_local.rs:133` installed-pack filtering; stock native
+non-Latin coverage unchanged.
+C-optimize-009: f9 a9 p9 — `tests/ocr_review.rs:60` confidence/correction/scan preservation;
+previous counterpart AGREE 9, no new behaviour.
+C-optimize-015: f8 a8 p8 — `src/search_index.rs:294` advanced query cases and reload;
+folder selection `reader_ui/catalog.rs:101`; fresh build/UI/performance verification pending.
+C-sign-009: f9 a9 p9 — `src/signature_store.rs:247` restart/no-program/>64K;
+previous counterpart AGREE 9, storage behaviour unchanged.
+C-sign-012: f9 a9 p9 — `tests/sign.rs:476` independent offline TSA identity;
+previous counterpart AGREE 9, network excluded.
+C-security-007: f5 a2 p7 — `tests/certificate_security.rs:42` two recipients/three scopes/
+outsider refusal/engine reopen; CLI only and interoperability unverified.
+C-security-008: f8 a8 p8 — `security_policies/passwords.rs:99`,
+`reader_ui/security_policy.rs:167` local encrypted remember/reuse/forget;
+certificate policies and fresh runtime/UI verification remain.
+
+### Fourth-pass files touched
+
+- `Cargo.toml`
+- `crates/sheaf-app/src/main.rs`
+- `crates/sheaf-app/src/reader_ui/catalog.rs`
+- `crates/sheaf-app/src/reader_ui/model.rs`
+- `crates/sheaf-app/src/reader_ui/security_policy.rs`
+- `crates/sheaf-app/src/security_policies.rs`
+- `crates/sheaf-app/src/security_policies/passwords.rs`
+- `crates/sheaf-app/src/signature_store.rs`
+- `crates/sheaf-app/ui/flow-types.slint`
+- `crates/sheaf-app/ui/screens/catalog.slint`
+- `crates/sheaf-app/ui/screens/security-policy.slint`
+- `crates/sheaf-cli/src/args.rs`
+- `crates/sheaf-cli/src/main.rs`
+- `crates/sheaf-core/Cargo.toml`
+- `crates/sheaf-core/src/certificate_security.rs`
+- `crates/sheaf-core/src/certificate_security/envelope.rs`
+- `crates/sheaf-core/src/certificate_security/objects.rs`
+- `crates/sheaf-core/src/lib.rs`
+- `crates/sheaf-core/src/search_index.rs`
+- `crates/sheaf-core/src/search_index/query.rs`
+- `crates/sheaf-core/tests/certificate_security.rs`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `crates/sheaf-core/tests/ocr.rs`
+- `dev/par-notes-sol-ocr-sign.md`
+- `third_party/pdfcraft-engine/src/ocr.rs`
+- `third_party/pdfcraft-ocr/src/latin.rs`
+- `third_party/pdfcraft-ocr/src/lib.rs`
+
 ## Batch sol-batch
 
 
@@ -2338,3 +2769,220 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
 - C-files-008: f8 a7 p7 — library.rs:363 `cached_library_filter_tree_and_batch_actions_keep_versions_and_collisions` covers offline metadata filtering, folders, multi-file export/delete and collisions. Non-PDF previews and grid virtualization remain absent.
 - C-organize-024: f8 a7 p8 — reader_ui/portfolio.rs:87 `portfolio_browser_uses_embedded_description_size_and_native_text_preview` covers metadata and text preview; existing core portfolio tests cover originals/order. Real collection folders/arbitrary schema editing remain absent.
 - C-platform-005: f8 a7 p8 — javascript_console.rs:24 `run_selection_keeps_unicode_boundaries_reverse_ranges_and_visible_network_refusals`; engine_patches.rs:157 `console_manager_lists_and_edits_document_and_field_scripts_with_undo`. No debugger or page/link script editor.
+
+## Pass 4 · 27 October · author fixes after Opus review 2
+
+### Tatouages
+- Scope: sol-batch only, par/sol-batch. Brief rule 1 forbids compilation, tests, app and codex.
+- No network features. Native Rust first; no Ghostscript or LibreOffice invocation.
+
+### Polaroid
+- Fourth-pass implementation complete; awaiting the orchestrator suite and Opus review. Each
+  component is committed and pushed independently. Static review only;
+  the orchestrator owns compilation, runtime, visual checks and the joint grade.
+
+- C-batch-002: Action Wizard now offers Keep/Delete selected pages and configurable watermark /
+  header-footer steps: font, size, page ranges, watermark opacity, angle and offsets, six header
+  positions. Existing plain-text steps stay compatible. Test
+  `wizard_page_ranges_and_mark_settings_edit_only_selected_pages` (written, not run).
+  Left: encrypt, insert, split and export as intermediate tools; direct controls rather than the
+  compact settings text are still needed. This closes the mark-settings engine gap, not all tools.
+  not automatable: add these four steps, edit settings, save/reopen and run on mixed page counts —
+  execution forbidden by the brief. No new dependency. Public: Step's four new variants,
+  actions::page_selection. Native font dependency was already present.
+
+- C-batch-003: Save to PDF, Word, PowerPoint, HTML, RTF, text, Markdown or an all-pages PNG/JPEG
+  ZIP. Native existing writers/renderers, 150 dpi images, one atomic archive publication; Office
+  layout remains approximate and this is stated in the editor. Folder runs optionally recurse,
+  refuse excessive depth/entry counts and skip symlinks. Test
+  `action_save_to_formats_use_native_writers_and_recursive_inputs_skip_symlinks` (written, not run).
+  Left: run whole actions over all open unsaved reader documents; extracting a disk copy would
+  lose those edits, so that route was not used. No new dependency (existing zip/native exporters).
+  not automatable: choose each output format and recursive folder intake, cancel a run — brief
+  forbids app execution. Public: OutputOptions::format, actions::folder_inputs_recursive.
+
+- C-batch-004: Stirling Remove/Extract Pages, standard metadata replacement / delete-all, terminal
+  PDF→DOCX/TXT/RTF conversions now translate to native steps and output settings. Omitted standard
+  metadata is cleared, matching MetadataController rather than silently keeping old fields.
+  Test `stirling_page_metadata_and_terminal_conversions_preserve_or_refuse_settings` (not run).
+  Source: Stirling MetadataController, MetadataRequest, PdfToWordRequest/PdfToTextOrRTFRequest,
+  removePages parameters in the reference archive. Added Step::SetMetadata / RemoveMetadata.
+  Left: .sequ (no trustworthy schema/parser), split (multi-output runner needed), tiled watermark
+  (Sheaf has a single mark; translating it would change appearance), other unimplemented tools,
+  nonempty date/trapped values and custom metadata maps. These are refused, not guessed.
+  No new dependency. not automatable: paste/import each new operation and inspect its draft —
+  app execution forbidden. Export back to Stirling still refuses newly inexact conversions.
+
+- C-batch-005: added Prepare Accessibility (text-only), a useful native subset of Acrobat's Make
+  Accessible. Prompts for the real document language, tags simple text PDFs, sets display title
+  and structure tab order in one atomic engine edit. Refuses existing tags, images and forms;
+  description and prompt require heading/reading-order review and do not claim PDF/UA.
+  Test `accessibility_suggestion_tags_text_and_preserves_existing_tags_by_refusal` (not run).
+  Left: full accessibility remediation and Optimize for Web linearization. No linearized writer
+  exists in this engine; setting a flag would not produce hint tables or byte ordering, so no
+  misleading preset was added. No external process or new dependency. Public: Step::PrepareAccessibility.
+  not automatable: copy the suggestion and verify language prompt and visible limitations —
+  app execution forbidden.
+
+- C-batch-006: custom sets can now include every existing toolbox tool (Redact, Compare, Organize,
+  Edit, conversion…) with the tool's real Lucide icon, label and separator. A Custom tools button
+  on Tools opens their panel. Interactive shortcuts open the real dedicated tool and are refused
+  in unattended sequences; native edit commands still apply to unsaved reader documents.
+  Test `custom_toolbox_shortcuts_validate_real_tools_and_never_run_as_batch_edits` (not run).
+  Left: dedicated persistent custom panels / user-selected icons; toolbox shortcuts require their
+  normal file selection rather than claiming to modify unsaved reader bytes. No new dependency.
+  Public: Step::OpenTool; ActionCommandRow icon/interactive and ActionBridge toolbox model.
+  not automatable: create a mixed custom set, open its tools from Tools and reader, verify icons
+  and the unattended refusal — app execution forbidden.
+
+- C-batch-008: removed the two-inbox cap. Concurrent inbox workers serialize native scan/process
+  jobs so adding watches cannot multiply OCR/render memory. Unix revision identity includes
+  nanosecond ctime, detecting same-size mtime-preserving rewrites without rereading entire PDFs;
+  other platforms stream a content fingerprint through a 64 KB buffer. Old checkpoints migrate
+  conservatively as new revisions. Interactive custom tools are refused for unattended watches.
+  Test `watch_detects_same_size_rewrites_with_restored_modification_time` (written, not run).
+  Left: OS notifications, out-of-process service and any-number scalability measurements. The
+  poller still runs only while Sheaf is open; portable event APIs/service installers are outside
+  this correction. Windows hashing adds disk reads each scan. A writer can still race publication;
+  there is no cross-process input lock. No new dependency/public API.
+  not automatable: launch three saved inboxes, restart, then stop during a queued scan — execution
+  forbidden. Poll interval remains 3 s after a completed scan, 100 ms between scan slices.
+
+- C-files-008: library sorting by name/date/size in either direction, native raster thumbnails,
+  explicit movement of selected files into folders, and bounded 96-card pages. Filtering/sorting
+  resets to page one; selection uses stable file IDs and batch selection spans pages. Moving
+  catalogue membership leaves file bytes and version history untouched; errors report completed
+  moves. Test `library_sort_move_and_raster_thumbnail_keep_file_versions` (written, not run).
+  Left: pointer drag/drop between folders and content thumbnails for Office/text files. Pagination
+  bounds rendered cards rather than implementing a virtualized Slint grid; catalogue sorting still
+  uses the in-memory catalogue. No new dependency. Public: library::sort_entries,
+  raster_thumbnail, Library::move_to_folder; LibraryBridge sort/page/total/move-folder fields.
+  not automatable: >1000 files, sort both ways, next/previous, mark across pages and move into a
+  folder, verify thumbnail fallback — app execution forbidden.
+
+- C-organize-024: portfolio browser columns now sort both directions (size numerically), preserving
+  original attachment IDs for Open/Save/Preview after sorting. Embedded PDFs have previous/next
+  preview navigation with page count and stale-result guards, rather than first-page-only viewing.
+  Test `portfolio_sort_keeps_attachment_identity_and_previews_every_pdf_page` (written, not run).
+  Left: real /Collection folder creation/tree and arbitrary schema editing. Existing slash-name
+  filtering is not presented as a /Folders tree; implementing that needs a schema-aware document
+  mutation path, not an attachment-name rewrite. No new dependency. PortfolioRow::source and
+  PortfolioBridge sort/descending/preview-page/preview-pages added.
+  not automatable: sort each column, open the selected original after sorting, navigate every
+  preview page and switch attachments while a preview loads — app execution forbidden.
+
+- C-platform-005: Edit All JavaScripts now lists and edits existing page open/close and link
+  activation/additional-event scripts as well as document/field scripts. String or stream sources,
+  including Unicode, use bounded native PDF decoding. Edits preserve unrelated event actions and
+  /Next chains; deleting a chained action refuses instead of destroying the rest of the chain.
+  Every mutation uses Edit::SetActionScript with normal permissions/Undo. New resets the target
+  before creating a document script. Test
+  `console_edits_page_and_link_scripts_preserving_other_events_chains_and_undo` (not run).
+  Left: debugger, breakpoints, stepping, adding new page/link targets via UI, editing scripts
+  deeper in /Next chains. Engine lacks a suspend/resume debugger; an editor highlight would not
+  provide execution debugging. Network requests remain visibly unexecuted. No new dependency.
+  Public: js::ActionScriptTarget, ConsoleScript::target, Edit::SetActionScript. New private module
+  action_scripts.rs; JavaScriptBridge/DocumentScriptRow carry original page/link targets.
+  not automatable: edit/save/delete a listed page or link script, Undo, reopen; inspect refusal
+  for deletion with /Next — app execution forbidden.
+
+- C-batch-005/006 static correction: moved the new argument validation into from_id (the id
+  mapper must stay a pure string match), and updated the existing preset inventory regression
+  from nine to ten, asserting the accessibility prompt. Existing
+  `custom_commands_round_trip_and_apply_rotation_and_metadata` covers all Step variants' IDs.
+
+- C-batch-003 static follow-up: native image sets check cancellation before each page, and ZIP
+  stores already-compressed page images without recompressing them. Test
+  `native_action_exports_stop_before_rendering_cancelled_pages` (written, not run); the new
+  recursive intake test also uses the suite's existing no-clone assertion style.
+
+- C-batch-003 final follow-up closes the open-document input gap: Run on open PDFs snapshots each
+  reader's actual working bytes/password (after completed edits), processes those bytes, and
+  saves new output copies in the chosen folder. It does not reopen stale disk files or change
+  open tabs. Busy readers refuse capture; immutable Arc snapshots survive subsequent tab changes.
+  Test `actions_on_open_documents_use_unsaved_working_bytes_and_keep_disk_originals` (not run).
+  This supersedes the earlier Pass 4 "all open unsaved documents" leftover. Public: ActionInput,
+  actions::run_bytes_configured. not automatable: edit two open PDFs without saving, run an
+  action, check outputs contain both edits and originals stay unchanged — execution forbidden.
+
+- C-batch-002 final follow-up adds native AES-256 Protect as a final PDF step. A masked prompt
+  requests each file's open password at runtime; saved actions must have an empty password and
+  cannot disable that prompt. Draft flush clears its argument too. Native encryption uses the
+  existing engine, without Ghostscript. Tests `password_actions_prompt_per_file_and_never_persist_passwords`
+  and `wizard_protection_encrypts_the_final_output_with_only_the_prompted_password` (not run).
+  This supersedes "encrypt absent" above. Left: permission-password settings, insert/split tools
+  within a sequence, direct mark-setting controls. Public: Step::Protect. No new dependency.
+  not automatable: use different passwords for two outputs, cancel the password prompt, inspect
+  exported action/draft JSON and reopen outputs — app execution forbidden.
+
+- Final static hardening: the draft serializer itself clears Protect arguments (not only the
+  UI flush), extending `password_actions_prompt_per_file_and_never_persist_passwords` to draft
+  recovery. Portfolio browse applies the displayed initial A–Z order before its first click.
+
+- C-batch-008 static follow-up: recheck the input revision after native format conversion and
+  immediately before publication. `watched_exports_recheck_inputs_after_native_conversion`
+  covers a writer changing the input during that new export phase (written, not run).
+
+## Pass 4 · final hand-off
+
+- All nine components received implementation changes; none was left untouched. The changes are
+  ready for orchestration, not certified as running. All nine remain partial against full main-
+  competitor parity; the specific remaining gaps and reasons are recorded above. No joint 9.
+- Rule 1 respected: no cargo/rustc/clippy/test suite/app/Chrome/Xvfb/codex execution. New tests
+  are written only. GUI cases have not-automatable entries above, with the execution prohibition.
+- Static verification: full-pass `git diff --check` clean; Impeccable's mechanical detector clean
+  on the modified Slint surfaces. No visual, performance or end-to-end validation was possible
+  within this worker's mandate; those grades below are estimates for the counterpart to assess.
+- No network features, service/daemon, Ghostscript or LibreOffice process added. Native Rust
+  export, compression, encryption, tagging, image decode and PDF rendering are used. Office
+  exports disclose approximate layout; unsupported semantics refuse instead of silently changing.
+- No dependency, manifest or Cargo.lock change in this pass. All used libraries were already
+  present. No dependency fetch is needed for these changes.
+- Public engine additions: Step::{KeepPages, DeletePages, WatermarkOptions, HeaderFooterOptions,
+  SetMetadata, RemoveMetadata, PrepareAccessibility, OpenTool, Protect}; actions::page_selection;
+  js::ActionScriptTarget; ConsoleScript::target; Edit::SetActionScript. New private engine module
+  action_scripts.rs is registered in lib.rs and mapped in ARCHITECTURE.md.
+- Public app additions: ActionInput, actions::run_bytes_configured, actions::folder_inputs_recursive,
+  OutputOptions::format; library::{sort_entries,raster_thumbnail}, Library::move_to_folder.
+  Slint models carry command icons/interactive kind, output format/toolbox choices, library sort/
+  pages, portfolio source indices/sort/preview pages and JavaScript page/link event targets.
+- Merge seams: small engine lib.rs enum/label/permission/dispatch blocks and expanded Step enum;
+  reader_ui/JavaScriptBridge/PortfolioRow models and core engine_patches.rs integration tests.
+  App snapshots use Snap::bytes (working file), not Snap::display (display-only appearances).
+
+Files touched in this pass:
+
+- `ARCHITECTURE.md`
+- `crates/sheaf-app/src/action_import.rs`
+- `crates/sheaf-app/src/actions.rs`
+- `crates/sheaf-app/src/actions_ui.rs`
+- `crates/sheaf-app/src/library.rs`
+- `crates/sheaf-app/src/library_ui.rs`
+- `crates/sheaf-app/src/portfolio_ui.rs`
+- `crates/sheaf-app/src/reader_ui/custom_tools.rs`
+- `crates/sheaf-app/src/reader_ui/javascript.rs`
+- `crates/sheaf-app/src/reader_ui/portfolio.rs`
+- `crates/sheaf-app/src/watch_folder.rs`
+- `crates/sheaf-app/ui/screens/actions.slint`
+- `crates/sheaf-app/ui/screens/javascript.slint`
+- `crates/sheaf-app/ui/screens/library.slint`
+- `crates/sheaf-app/ui/screens/portfolio.slint`
+- `crates/sheaf-app/ui/screens/tools.slint`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `dev/par-notes-sol-batch.md`
+- `third_party/pdfcraft-engine/src/action_scripts.rs`
+- `third_party/pdfcraft-engine/src/actions.rs`
+- `third_party/pdfcraft-engine/src/js.rs`
+- `third_party/pdfcraft-engine/src/lib.rs`
+
+Author grades (source estimates; all named tests are written, not run):
+
+- C-batch-002: f8 a7 p8 — `crates/sheaf-core/tests/engine_patches.rs:536` `wizard_page_ranges_and_mark_settings_edit_only_selected_pages`: selected pages/mark settings; wizard_protection_encrypts_the_final_output_with_only_the_prompted_password covers native encryption.
+- C-batch-003: f8 a7 p8 — `crates/sheaf-app/src/actions.rs:576` `actions_on_open_documents_use_unsaved_working_bytes_and_keep_disk_originals`: working bytes rather than disk; action_save_to_formats_use_native_writers_and_recursive_inputs_skip_symlinks covers formats/recursive inputs.
+- C-batch-004: f7 a7 p8 — `crates/sheaf-app/src/action_import.rs:237` `stirling_page_metadata_and_terminal_conversions_preserve_or_refuse_settings`: page/metadata translation, terminal conversion and explicit refusals.
+- C-batch-005: f8 a7 p8 — `crates/sheaf-core/tests/engine_patches.rs:575` `accessibility_suggestion_tags_text_and_preserves_existing_tags_by_refusal`: text-only tagging, real language, displayed title and existing-tag refusal.
+- C-batch-006: f8 a7 p8 — `crates/sheaf-app/src/actions.rs:557` `custom_toolbox_shortcuts_validate_real_tools_and_never_run_as_batch_edits`: all current catalogue tools round-trip as interactive shortcuts.
+- C-batch-008: f8 a7 p7 — `crates/sheaf-app/src/watch_folder.rs:442` `watch_detects_same_size_rewrites_with_restored_modification_time`: same-size/time rewrite detection and checkpoint persistence; watched_exports_recheck_inputs_after_native_conversion guards late changes.
+- C-files-008: f8 a7 p8 — `crates/sheaf-app/src/library.rs:417` `library_sort_move_and_raster_thumbnail_keep_file_versions`: sort orders, native image thumbnail, folder move retains immutable versions.
+- C-organize-024: f8 a7 p8 — `crates/sheaf-app/src/reader_ui/portfolio.rs:142` `portfolio_sort_keeps_attachment_identity_and_previews_every_pdf_page`: numeric sort and stable attachment IDs, second-page preview and bounds.
+- C-platform-005: f8 a7 p8 — `crates/sheaf-core/tests/engine_patches.rs:590` `console_edits_page_and_link_scripts_preserving_other_events_chains_and_undo`: page/link source edits preserve other events, chains and Undo.
