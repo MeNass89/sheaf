@@ -108,7 +108,7 @@ fn a_text_box_in_a_type0_or_custom_encoded_font_keeps_it_through_a_new_size_and_
     let cid = dictionary! {
         "Type" => "Font", "Subtype" => "CIDFontType2", "BaseFont" => "ABCDEF+KozMin",
         "CIDSystemInfo" => dictionary! { "Registry" => Object::string_literal("Adobe"), "Ordering" => Object::string_literal("Identity"), "Supplement" => 0 },
-        "DW" => 1000, "W" => vec![1.into(), vec![1000.into(), 1000.into(), 1000.into()].into()],
+        "DW" => 1000, "W" => vec![1.into(), Object::Array(vec![1000.into(), 1000.into(), 1000.into()])],
     };
     let type0 = dictionary! {
         "Type" => "Font", "Subtype" => "Type0", "BaseFont" => "ABCDEF+KozMin", "Encoding" => "Identity-H",

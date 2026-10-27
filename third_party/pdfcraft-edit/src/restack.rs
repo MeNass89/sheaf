@@ -335,7 +335,7 @@ fn text_body(ops: &[Op], (a, b): (usize, usize), mine: &BTreeSet<usize>, (tlm, t
     let along = dx.abs() > 1e-6;
     let shift = along && dy.abs() < 1e-6 && unit.abs() > 1e-9;
     body.push(Op::new("Tm", if along && !shift { tm } else { tlm }.0.iter().map(|v| num(*v)).collect()));
-    let mut shift_left = shift.then(|| -dx * 1000.0 / unit);
+    let mut shift_left = shift.then_some(-dx * 1000.0 / unit);
     for (i, op) in ops.iter().enumerate().take(b + 1).skip(a) {
         let name = op.op.as_slice();
         let keep = match name {
