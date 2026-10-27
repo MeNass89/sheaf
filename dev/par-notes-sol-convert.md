@@ -501,3 +501,11 @@ LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
 - not automatable: check both themes, long HTML with pictures and internal/URI links in multiple
   viewers, very tall output and Run again — app/test execution forbidden.
 - Grade: f7 a8 p8, partial. LIGNES : max 4 (long-page information) · cases > 6 : aucune.
+
+### Pass 3 static follow-up — C-optimize-014
+
+- Source API inspection found lopdf's `get_page_content` appends a stream separator newline;
+  corrected the unselected-page test's expected bytes to include it. Hairline page streams now
+  decode explicitly with a 32 MB total page bound rather than the image helper's silent empty
+  fallback on decode errors; corrupt content cannot masquerade as a fully inspected page.
+  The existing atomic-edit refusal test covers rollback; no test was executed.

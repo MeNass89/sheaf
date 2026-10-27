@@ -39,7 +39,24 @@ pub fn fix_page_hairlines(doc: &mut Document, pages: &[usize], minimum: f64) -> 
         let p = all.get(page).ok_or(EditError::NoSuchPage(page))?;
         let unit = p.dict.get(b"UserUnit").map(|v| doc.resolve(v)).and_then(|v| v.as_f64()).filter(|v| v.is_finite() && *v > 0.0).unwrap_or(1.0).min(pdfcraft_model::MAX_USER_UNIT);
         let resources = p.dict.get(b"Resources").and_then(|r| doc.dict(r)).unwrap_or_default();
-        let streams = crate::images::page_streams(doc, &p.dict);
+        let objects = match p.dict.get(b"Contents") {
+            None => Vec::new(),
+            Some(value) => match &*doc.resolve(value) {
+                Object::Array(values) => values.clone(),
+                _ => vec![value.clone()],
+            },
+        };
+        let mut streams = Vec::new();
+        let mut remaining = 32 * 1024 * 1024;
+        for object in objects {
+            let value = doc.resolve(&object);
+            let Object::Stream(stream) = &*value else {
+                return Err(EditError::Invalid("page contents are not readable streams; no hairline repair was applied".into()));
+            };
+            let bytes = stream.decoded_within(remaining)?;
+            remaining -= bytes.len();
+            streams.push((object, bytes));
+        }
         let data = streams.iter().map(|s| s.1.as_slice()).collect::<Vec<_>>();
         let mut context = Context { minimum, unit, remaining: 1_000_000 };
         let repair = context.repair(doc, &data, resources, Stroke { matrix: Matrix::IDENTITY, width: 1.0 }, 0)?;
