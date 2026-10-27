@@ -707,3 +707,12 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   stores already-compressed page images without recompressing them. Test
   `native_action_exports_stop_before_rendering_cancelled_pages` (written, not run); the new
   recursive intake test also uses the suite's existing no-clone assertion style.
+
+- C-batch-003 final follow-up closes the open-document input gap: Run on open PDFs snapshots each
+  reader's actual working bytes/password (after completed edits), processes those bytes, and
+  saves new output copies in the chosen folder. It does not reopen stale disk files or change
+  open tabs. Busy readers refuse capture; immutable Arc snapshots survive subsequent tab changes.
+  Test `actions_on_open_documents_use_unsaved_working_bytes_and_keep_disk_originals` (not run).
+  This supersedes the earlier Pass 4 "all open unsaved documents" leftover. Public: ActionInput,
+  actions::run_bytes_configured. not automatable: edit two open PDFs without saving, run an
+  action, check outputs contain both edits and originals stay unchanged — execution forbidden.

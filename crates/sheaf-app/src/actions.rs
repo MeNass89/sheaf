@@ -229,8 +229,20 @@ pub fn run_file_configured(
     before: &mut dyn FnMut(usize, &mut ActionStep) -> bool,
     publish: &mut dyn FnMut() -> bool,
 ) -> Result<PathBuf> {
-    action.validate()?;
     let bytes = Arc::new(std::fs::read(input)?);
+    run_bytes_configured(action, input, bytes, out_dir, password, before, publish)
+}
+
+/// A reader's immutable working state, including applied edits not yet saved to its disk file.
+pub struct ActionInput { pub path: PathBuf, pub bytes: Arc<Vec<u8>>, pub password: Option<String> }
+
+/// Run from an open document snapshot instead of reopening its older disk file.
+pub fn run_bytes_configured(
+    action: &SavedAction, input: &Path, bytes: Arc<Vec<u8>>, out_dir: &Path, password: Option<&str>,
+    before: &mut dyn FnMut(usize, &mut ActionStep) -> bool,
+    publish: &mut dyn FnMut() -> bool,
+) -> Result<PathBuf> {
+    action.validate()?;
     let name = input.file_name().ok_or_else(|| invalid("The input needs a file name"))?.to_string_lossy().into_owned();
     let engine = Action { name: action.name.clone(), description: action.description.clone(),
         steps: action.steps.iter().map(ActionStep::engine).collect::<Result<Vec<_>>>()?, builtin: false };
@@ -554,6 +566,21 @@ mod tests {
     fn native_action_exports_stop_before_rendering_cancelled_pages() {
         let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Title", "Body").unwrap();
         assert!(matches!(convert_output(bytes, None, "png.zip", &mut || false), Err(OpdfError::Cancelled)));
+    }
+
+    #[test]
+    fn actions_on_open_documents_use_unsaved_working_bytes_and_keep_disk_originals() {
+        let dir = tempfile::tempdir().unwrap();
+        let session = sheaf_core::pdfcraft::engine::Session::new();
+        let disk = session.create_from_text("Saved", "Saved body").unwrap();
+        let working = session.create_from_text("Working", "Unsaved body").unwrap();
+        let input = dir.path().join("input.pdf"); std::fs::write(&input, disk.as_slice()).unwrap();
+        let action = suggested().remove(3);
+        let output = run_bytes_configured(&action, &input, working, dir.path(), None, &mut |_, _| true, &mut || true).unwrap();
+        let doc = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input::new(output)).unwrap();
+        let text = doc.document().export_office(sheaf_core::pdfcraft::engine::compare::OfficeFormat::Text);
+        assert!(String::from_utf8(text).unwrap().contains("Unsaved body"));
+        assert_eq!(std::fs::read(input).unwrap(), *disk);
     }
 
 }

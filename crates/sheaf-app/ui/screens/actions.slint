@@ -208,6 +208,8 @@ export component ActionsScreen inherits Rectangle {
                             Button { text: "Forget saved watches"; enabled: !ActionBridge.busy && ActionBridge.watch-active == 0; clicked => { ActionBridge.command("forget-watch", 0); } }
                         }
                     }
+                    Button { text: "Run on open PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run-open", 0); } }
+                    Text { text: "Open PDFs: process their current edits into new copies in a chosen folder."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
                     Button { text: "Run on a folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run-folder", 0); } }
                     HorizontalLayout {
                         spacing: 8px;

@@ -281,6 +281,18 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         }
         "import" => return import(ui),
         "export" | "export-stirling" => return export(ui, what == "export-stirling"),
+        "run-open" => {
+            let action = STATE.with(|s| s.borrow().draft.clone());
+            if let Err(e) = action.validate() { return status(ui, e.to_string()); }
+            if action.steps.iter().any(|s| s.tool == "open_tool") { return status(ui, "Choose an interactive command in Custom tools instead of running this set unattended."); }
+            let inputs = match crate::reader_ui::custom_tools::open_inputs() { Ok(inputs) => inputs, Err(e) => return status(ui, e) };
+            let files = inputs.iter().map(|i| i.path.clone()).collect();
+            // Output copies have an explicit destination; never replace an open reader's file.
+            let mut action = action; action.output.same_folder = false; action.output.overwrite = false;
+            let d = crate::dialog::new(ui).set_title("Save action results from open PDFs");
+            crate::dialog::pick_folder(ui, d, move |ui, out| start_with_snapshots(ui, action, files, out, Some(inputs)));
+            return;
+        }
         "run-folder" => {
             let action = STATE.with(|s| s.borrow().draft.clone());
             if let Err(e) = action.validate() { return status(ui, e.to_string()); }
@@ -424,6 +436,10 @@ fn pick_output(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>) {
 }
 
 fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf) {
+    start_with_snapshots(ui, action, files, out, None);
+}
+
+fn start_with_snapshots(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf, snapshots: Option<Vec<actions::ActionInput>>) {
     let password = ui.global::<ActionBridge>().get_password().to_string();
     let per_file_password = ui.global::<ActionBridge>().get_per_file_password();
     ui.global::<ActionBridge>().set_password("".into());
@@ -437,6 +453,11 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
         let mut errors = Vec::new();
         for (file_index, file) in files.iter().enumerate() {
             if cancel.load(Ordering::Relaxed) { break; }
+            let snapshot = snapshots.as_ref().and_then(|sources| sources.get(file_index));
+            let input_bytes = match snapshot {
+                Some(snapshot) => snapshot.bytes.clone(),
+                None => match std::fs::read(file) { Ok(bytes) => Arc::new(bytes), Err(e) => { errors.push(format!("{}: {e}", file.display())); continue; } },
+            };
             let file_password = if per_file_password {
                 let (tx, rx) = mpsc::channel();
                 let prompt = format!("Password for {} (leave blank for an unprotected PDF)", file.display());
@@ -448,8 +469,8 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
                 }).is_err() { break; }
                 let Some(answer) = wait_answer(&rx, &cancel) else { cancel.store(true, Ordering::Relaxed); break };
                 answer
-            } else { password.clone() };
-            let r = actions::run_file_configured(&action, file, &out, (!file_password.is_empty()).then_some(file_password.as_str()), &mut |i, step| {
+            } else { snapshot.and_then(|s| s.password.clone()).unwrap_or_else(|| password.clone()) };
+            let r = actions::run_bytes_configured(&action, file, input_bytes, &out, (!file_password.is_empty()).then_some(file_password.as_str()), &mut |i, step| {
                 if cancel.load(Ordering::Relaxed) { return false; }
                 let message = format!("File {}/{} · Step {}/{} · {}", file_index + 1, files.len(), i + 1, action.steps.len(), step.engine().map(|s| s.label()).unwrap_or("Step"));
                 let prompt = if step.prompt { format!("{message}\n{}", step.instruction) } else { String::new() };
