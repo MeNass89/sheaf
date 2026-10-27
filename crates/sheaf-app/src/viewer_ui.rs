@@ -278,7 +278,7 @@ impl ViewerUi {
         self.scroll = self.viewer.scroll_to(page, focus, self.height);
         self.scroll_seq += 1;
         // Pages across: the page's row centred in the view.
-        self.scroll_x = self.viewer.horizontal().then(|| self.viewer.scroll_x_to(page));
+        self.scroll_x = self.viewer.across().then(|| self.viewer.scroll_x_to(page));
     }
 
     /// Shows a destination as Acrobat does: at its zoom when it has one (/XYZ's, 1.0 = actual
@@ -366,6 +366,14 @@ impl ViewerUi {
         self.scroll_seq += 1;
         self.zoom_settling = true;
         self.scroll_x
+    }
+
+    /// Where ⌘+ / ⌘−, a zoom typed and Fit keep the view: its top edge, scrolled across as it is, at
+    /// its middle when pages run across (Sol, 27/10: deep in a strip, a zoom anchored on the strip's
+    /// start and jumped back toward page 1).
+    fn zoom_anchor(&self) -> (f64, f64, f64) {
+        let ax = if self.viewer.across() { self.viewer.view_width() / 2.0 } else { 0.0 };
+        (ax, 0.0, self.left)
     }
 
     /// The page under the middle of the viewport.
@@ -642,7 +650,7 @@ pub fn thumb_clicked(tab_id: i32, page: i32) {
     update(tab_id, |v| {
         v.scroll = v.viewer.scroll_to(page.max(0) as usize, None, v.height);
         v.scroll_seq += 1;
-        v.scroll_x = v.viewer.horizontal().then(|| v.viewer.scroll_x_to(page.max(0) as usize));
+        v.scroll_x = v.viewer.across().then(|| v.viewer.scroll_x_to(page.max(0) as usize));
     });
 }
 
@@ -697,7 +705,8 @@ pub fn zoom_by(ui: &AppWindow, tab_id: i32, factor: f32, ax: f32, ay: f32, sx: f
 /// Sets the zoom to `z` percent of the fit width, keeping the same part of the document in view;
 /// pages render at the new size once the zoom has settled.
 pub fn zoom_to(ui: &AppWindow, tab_id: i32, z: u32) {
-    zoom_to_at(ui, tab_id, z, (0.0, 0.0, 0.0));
+    let at = with(|a| a.tab(tab_id)?.viewer.as_deref().map(ViewerUi::zoom_anchor)).unwrap_or_default();
+    zoom_to_at(ui, tab_id, z, at);
 }
 
 /// [`zoom_to`], keeping the point (ax, ay) of the view, scrolled `sx` across, on the same point
@@ -1321,6 +1330,31 @@ mod tests {
         assert_eq!(v.current(), 12);
         let shown: Vec<i32> = v.pane_pages().iter().map(|p| p.page).collect();
         assert!(shown.contains(&12) && !shown.contains(&0), "{shown:?}");
+    }
+
+    /// ⌘+ deep in a strip of pages across stays on the page in view (Sol, 27/10: it jumped back
+    /// toward page 1, the zoom anchored on the strip's start).
+    #[test]
+    fn a_zoom_deep_in_a_strip_stays_on_the_page_in_view() {
+        let pages = (0..30).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        v.viewer.set_horizontal(true);
+        v.show_page(20, None);
+        view_left_of(&mut v, v.scroll_x.unwrap());
+        assert_eq!(v.current(), 20);
+        for z in [150, 60, 100] {
+            let sx = v.zoom_around(z, v.zoom_anchor()).expect("the zoom changed");
+            view_left_of(&mut v, sx);
+            assert_eq!(v.current(), 20, "at {z} %");
+            v.zoom_settling = false;
+        }
+        // The page grid keeps the setting but scrolls down: nothing across.
+        v.viewer.set_spread(3);
+        assert_eq!(v.zoom_anchor().0, 0.0);
+        v.show_page(10, None);
+        assert_eq!(v.scroll_x, None);
     }
 
     /// What [`view_left`] does to a tab's viewer.

@@ -128,7 +128,8 @@ pub fn page_step(tab_id: i32, step: i32) {
             10 => v.show_page(n - 1, None),
             -10 => v.show_page(0, None),
             // Pages across: Space and Page Down move a view's width across.
-            2 | -2 if v.viewer.horizontal() => {
+            // Not in the page grid: it scrolls down, the setting kept for after (Sol, 27/10).
+            2 | -2 if v.viewer.across() => {
                 let w = v.viewer.view_width() * 0.9;
                 v.scroll_x = Some((v.left + if step > 0 { w } else { -w }).clamp(0.0, v.viewer.max_scroll_x()));
                 v.scroll = v.top;
@@ -147,7 +148,7 @@ pub fn page_step(tab_id: i32, step: i32) {
                 // too, where every page shares the strip's top).
                 let row = |i: usize| v.viewer.row_of(i);
                 let top_of = v.viewer.page_rect(cur)[1] - viewer::PAGE_GAP;
-                let target = if s < 0 && !v.viewer.horizontal() && v.top > top_of + 4.0 {
+                let target = if s < 0 && !v.viewer.across() && v.top > top_of + 4.0 {
                     cur
                 } else if s > 0 {
                     (cur + 1..n).find(|&i| row(i) > row(cur)).unwrap_or(n - 1)
