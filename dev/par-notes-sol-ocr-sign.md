@@ -371,3 +371,6 @@
   reader, and Sheaf reopens its own output. The orchestrator must run any eventual tests.
 - Proposed grade: C-security-007: f0 a0 p0 — absence confirmed at crypt
   `SecurityHandler::open` and COS `encrypt_dict`; no supported certificate-encryption path.
+
+- The OCR review controls scroll at short window heights; Close and correction actions cannot
+  be stranded below the 600px app minimum. This remains a written GUI smoke check, not a render.

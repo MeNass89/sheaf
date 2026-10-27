@@ -124,11 +124,10 @@ mod tests {
     }
     #[test]
     fn suspect_filter_preserves_the_original_page_and_line_targets() {
-        let mut review = Review::default();
-        review.rows = vec![
+        let mut review = Review { rows: vec![
             ReviewLine { page: 1, line: 1, rect: [0.0; 4], text: "Fine".into(), suspect: false },
             ReviewLine { page: 4, line: 7, rect: [0.0; 4], text: "T?xt".into(), suspect: true },
-        ];
+        ], ..Default::default() };
         assert_eq!(review.count(), 2);
         review.suspects_only = true;
         assert_eq!(review.count(), 1);

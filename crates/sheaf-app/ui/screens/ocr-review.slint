@@ -1,4 +1,5 @@
 // Acrobat's Correct Recognized Text, beside the scan in the reader's existing panel style.
+import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Check } from "../widgets/check.slint";
 import { TextField } from "../widgets/text-field.slint";
@@ -14,6 +15,7 @@ export component OcrReviewPanel inherits Rectangle {
     property <int> sequence: root.tab.reader.ocr-review-seq;
     changed sequence => { correction.text = root.tab.reader.ocr-review-text; }
     TouchArea { }
+    ScrollView {
     VerticalLayout {
         padding: 18px;
         spacing: 12px;
@@ -39,5 +41,6 @@ export component OcrReviewPanel inherits Rectangle {
             PanelButton { text: "Previous"; clicked => { ReaderBridge.ocr-review-action(root.tab.id, 0, ""); } }
             PanelButton { text: "Close"; clicked => { ReaderBridge.ocr-review-action(root.tab.id, -1, ""); root.focus-pages(); } }
         }
+    }
     }
 }
