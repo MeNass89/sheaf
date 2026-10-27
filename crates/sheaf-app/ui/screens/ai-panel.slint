@@ -89,7 +89,7 @@ export component AiPanel inherits Rectangle {
                 chevron: @image-url("../icons/chevron-down.svg");
                 selected(k) => { AiBridge.space-act("select", k); }
             }
-            PanelButton { text: "New space"; enabled: !AiBridge.busy; clicked => { AiBridge.space-act("new", 0); } }
+            PanelButton { width: 104px; text: "New space"; enabled: !AiBridge.busy; clicked => { AiBridge.space-act("new", 0); } }
         }
         if AiBridge.space > 0: VerticalLayout {
             spacing: 4px;
@@ -132,17 +132,17 @@ export component AiPanel inherits Rectangle {
         HorizontalLayout {
             spacing: 6px;
             lang := SortCombo { horizontal-stretch: 1; options: AiBridge.languages; current-index: AiBridge.language; chevron: @image-url("../icons/chevron-down.svg"); }
-            PanelButton { text: "Translate"; enabled: root.ready; clicked => { AiBridge.act(root.id, "translate", AiBridge.languages[lang.current-index], root.scope, root.pages-typed); } }
+            PanelButton { width: 104px; text: "Translate"; enabled: root.ready; clicked => { AiBridge.act(root.id, "translate", AiBridge.languages[lang.current-index], root.scope, root.pages-typed); } }
         }
         // Stirling's Classify: the space's PDFs (or PDFs picked) sorted into categories.
         HorizontalLayout {
             spacing: 6px;
             cats := TextField { placeholder: "Categories, e.g. Invoice, Contract"; horizontal-stretch: 1; }
-            PanelButton { text: AiBridge.space > 0 ? "Classify space" : "Classify PDFs…"; enabled: root.ready; clicked => { AiBridge.act(root.id, "classify", cats.text, 0, ""); } }
+            PanelButton { width: 124px; text: AiBridge.space > 0 ? "Classify space" : "Classify PDFs…"; enabled: root.ready; clicked => { AiBridge.act(root.id, "classify", cats.text, 0, ""); } }
         }
         ScrollView {
             vertical-stretch: 1;
-            viewport-y: min(0px, self.visible-height - self.viewport-height);
+            content-y: min(0px, self.visible-height - self.content-height);
             VerticalLayout {
                 spacing: 8px;
                 alignment: start;
@@ -185,7 +185,7 @@ export component AiPanel inherits Rectangle {
                 horizontal-stretch: 1;
                 accepted => { if question.text != "" { AiBridge.act(root.id, "ask", question.text, root.scope, root.pages-typed); question.text = ""; } }
             }
-            PanelButton { text: "Ask"; primary: true; enabled: root.ready; clicked => { if question.text != "" { AiBridge.act(root.id, "ask", question.text, root.scope, root.pages-typed); question.text = ""; } } }
+            PanelButton { width: 64px; text: "Ask"; primary: true; enabled: root.ready; clicked => { if question.text != "" { AiBridge.act(root.id, "ask", question.text, root.scope, root.pages-typed); question.text = ""; } } }
         }
     }
 }
