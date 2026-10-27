@@ -14,6 +14,7 @@ pub mod jobs;
 pub mod open_with;
 pub mod platform;
 pub mod pool;
+pub mod quick_actions;
 pub mod prefs;
 pub mod print;
 pub mod reader;
