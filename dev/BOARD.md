@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 251 · open 80, closed 251
+331 components · at parity (≥9): 253 · open 78, closed 253
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -37,46 +37,46 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 28 | C-ai-005 | light | Generate podcast or presentation | acrobat | 0 · 0 · 0 → **0** | light |
 | 29 | C-ai-006 | light | Group documents in AI spaces | acrobat | 0 · 0 · 0 → **0** | light |
 | 30 | C-ai-007 | light | Classify documents with AI | stirling | 0 · 0 · 0 → **0** | light |
-| 31 | C-annotate-015 | light | Add loupe or mask | preview | 0 · 0 · 0 → **0** | after core |
-| 32 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
-| 33 | C-batch-002 | light | Build a multi-step action | acrobat | 0 · 0 · 0 → **0** | after core |
-| 34 | C-batch-003 | light | Run a saved action | acrobat | 0 · 0 · 0 → **0** | after core |
-| 35 | C-batch-004 | light | Import or export an action | stirling | 0 · 0 · 0 → **0** | light |
-| 36 | C-batch-005 | light | Use suggested actions | acrobat | 0 · 0 · 0 → **0** | light |
-| 37 | C-batch-006 | light | Create a custom tool | acrobat | 0 · 0 · 0 → **0** | light |
-| 38 | C-batch-008 | light | Automate a watched folder | stirling | 0 · 0 · 0 → **0** | light; CLI covers scripting |
-| 39 | C-convert-019 | light | Save as PDF/X or PDF/E | acrobat | 0 · 0 · 0 → **0** | light |
-| 40 | C-edit-013 | light | Spell check | acrobat | 0 · 0 · 0 → **0** | after core |
-| 41 | C-edit-024 | light | Create article threads | acrobat | 0 · 0 · 0 → **0** | light |
-| 42 | C-files-008 | light | Local file library | stirling | 0 · 0 · 0 → **0** | light |
-| 43 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
-| 44 | C-optimize-012 | light | Run preflight and output preview | acrobat | 0 · 0 · 0 → **0** | light |
-| 45 | C-optimize-014 | light | Prepare for print production | acrobat | 0 · 0 · 0 → **0** | light |
-| 46 | C-optimize-015 | light | Create a full-text index | acrobat | 0 · 0 · 0 → **0** | light |
-| 47 | C-organize-024 | light | Create a PDF portfolio | acrobat | 0 · 0 · 0 → **0** | light |
-| 48 | C-platform-003 | light | Send feedback or report issue | ilovepdf | 0 · 0 · 0 → **0** | light |
-| 49 | C-platform-005 | light | Run JavaScript | acrobat | 0 · 0 · 0 → **0** | light |
-| 50 | C-platform-006 | light | Manage plugins | acrobat | 0 · 0 · 0 → **0** | light |
-| 51 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
-| 52 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 0 · 0 · 0 → **0** | light |
-| 53 | C-preferences-013 | light | Customize tool shortcuts and list | stirling | 0 · 0 · 0 → **0** | light |
-| 54 | C-reader-003 | light | Horizontal page scrolling | pdfexpert | 0 · 0 · 0 → **0** | scroll-direction option in the view menu |
-| 55 | C-reader-060 | light | Check spelling | preview | 0 · 0 · 0 → **0** | after core |
-| 56 | C-security-007 | light | Encrypt with certificates | acrobat | 0 · 0 · 0 → **0** | light |
-| 57 | C-security-008 | light | Security policies and settings exchange | acrobat | 0 · 0 · 0 → **0** | light |
-| 58 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
-| 59 | C-convert-020 | light | Choose online or offline conversion | ilovepdf | 6 · 9 · 9 → **6** | — |
-| 60 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
+| 31 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
+| 32 | C-batch-002 | light | Build a multi-step action | acrobat | 0 · 0 · 0 → **0** | after core |
+| 33 | C-batch-003 | light | Run a saved action | acrobat | 0 · 0 · 0 → **0** | after core |
+| 34 | C-batch-004 | light | Import or export an action | stirling | 0 · 0 · 0 → **0** | light |
+| 35 | C-batch-005 | light | Use suggested actions | acrobat | 0 · 0 · 0 → **0** | light |
+| 36 | C-batch-006 | light | Create a custom tool | acrobat | 0 · 0 · 0 → **0** | light |
+| 37 | C-batch-008 | light | Automate a watched folder | stirling | 0 · 0 · 0 → **0** | light; CLI covers scripting |
+| 38 | C-convert-019 | light | Save as PDF/X or PDF/E | acrobat | 0 · 0 · 0 → **0** | light |
+| 39 | C-edit-013 | light | Spell check | acrobat | 0 · 0 · 0 → **0** | after core |
+| 40 | C-files-008 | light | Local file library | stirling | 0 · 0 · 0 → **0** | light |
+| 41 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
+| 42 | C-optimize-012 | light | Run preflight and output preview | acrobat | 0 · 0 · 0 → **0** | light |
+| 43 | C-optimize-014 | light | Prepare for print production | acrobat | 0 · 0 · 0 → **0** | light |
+| 44 | C-optimize-015 | light | Create a full-text index | acrobat | 0 · 0 · 0 → **0** | light |
+| 45 | C-organize-024 | light | Create a PDF portfolio | acrobat | 0 · 0 · 0 → **0** | light |
+| 46 | C-platform-003 | light | Send feedback or report issue | ilovepdf | 0 · 0 · 0 → **0** | light |
+| 47 | C-platform-005 | light | Run JavaScript | acrobat | 0 · 0 · 0 → **0** | light |
+| 48 | C-platform-006 | light | Manage plugins | acrobat | 0 · 0 · 0 → **0** | light |
+| 49 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
+| 50 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 0 · 0 · 0 → **0** | light |
+| 51 | C-preferences-013 | light | Customize tool shortcuts and list | stirling | 0 · 0 · 0 → **0** | light |
+| 52 | C-reader-003 | light | Horizontal page scrolling | pdfexpert | 0 · 0 · 0 → **0** | scroll-direction option in the view menu |
+| 53 | C-reader-060 | light | Check spelling | preview | 0 · 0 · 0 → **0** | after core |
+| 54 | C-security-007 | light | Encrypt with certificates | acrobat | 0 · 0 · 0 → **0** | light |
+| 55 | C-security-008 | light | Security policies and settings exchange | acrobat | 0 · 0 · 0 → **0** | light |
+| 56 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
+| 57 | C-convert-020 | light | Choose online or offline conversion | ilovepdf | 6 · 9 · 9 → **6** | — |
+| 58 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
+| 59 | C-platform-002 | light | Onboarding and help guides | ilovepdf | 6 · 9 · 9 → **6** | light |
+| 60 | C-platform-004 | light | Accessibility check and RTL | acrobat | 6 · 9 · 9 → **6** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
 |---|---|---|---|
 | ai | 7 | 0.0 | 0 |
-| annotate | 38 | 8.5 | 34 |
+| annotate | 38 | 8.7 | 35 |
 | batch | 9 | 3.0 | 3 |
 | compare | 7 | 9.0 | 7 |
 | convert | 20 | 7.9 | 12 |
-| edit | 29 | 8.2 | 23 |
+| edit | 29 | 8.6 | 24 |
 | files | 19 | 7.9 | 15 |
 | forms | 17 | 8.4 | 15 |
 | optimize | 15 | 6.9 | 8 |
@@ -104,6 +104,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-annotate-012 | Draw rectangle or oval | 9 | 85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013 |
 | C-annotate-013 | Draw line or arrow | 9 | Joint 9: Opus (round 11, 8d1346d) and Sol AGREE 9 (re-review b15c-round11, 25/10) |
 | C-annotate-014 | Draw polygon, polyline or cloud | 9 | Joint 9: Opus (round 8, 17ac802) and Sol AGREE 9 (re-review b14-round8, 25/10) |
+| C-annotate-015 | Add loupe or mask | 9 | Joint 9: Sol AGREE 9 (review-opus-edit, 27/10) and Opus edit regraded 9 after smoke 213/214 passed on the round 27 app |
 | C-annotate-016 | Place a stamp | 9 | Stamp tool (M): Acrobat's 22 stamps (standard, sign here, dynamic) from a list in the options bar, placed with a click, 160 × 42 pt; moved and resized like other comments; gui-smoke places Approved and a dated Received |
 | C-annotate-017 | Create a custom stamp | 9 | Joint 9: Opus (Sol b16a-round12 25/10) and Sol AGREE 9 (re-review b16a-round12, 25/10) |
 | C-annotate-018 | Add check, cross or symbol | 9 | Stamp tool list starts with Acrobat's Fill & Sign marks (✓ ✗ • —), placed with a click at 18 pt; gui-smoke places a checkmark |
@@ -166,6 +167,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-edit-021 | Add and edit links | 9 | 6edfb12: Sol AGREE 9 (round 2 25/10); F-013 round 2 |
 | C-edit-022 | Manage file attachments | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27a-round22, 26/10) |
 | C-edit-023 | Edit bookmarks and table of contents | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27b-round22, 26/10) |
+| C-edit-024 | Create article threads | 9 | Joint 9: Sol AGREE 9 (review-opus-edit, 27/10) and Opus edit regraded 9 after smoke 213/214 passed on the round 27 app |
 | C-edit-025 | Edit page labels | 9 | Joint 9: Opus (Sol b16c-round13 25/10) and Sol AGREE 9 (re-review b16c-round13, 25/10) |
 | C-edit-026 | Insert a blank page while editing | 9 | Pages panel: Insert blank page after the selection; gui-smoke checks an empty page 2 in the saved file and that ⌘Z removes it |
 | C-edit-027 | Restrict editing | 9 | Joint 9: Opus (round 6–7 and earlier, eca24df/70417de) and Sol AGREE 9 (re-review b13c-round6, 25/10) |
