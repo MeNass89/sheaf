@@ -123,10 +123,14 @@ fn wizard_native_options_validate_and_number_pages_before_compression() {
     assert_eq!(settings.font_size, 14.0);
     assert_eq!(settings.text[5], "Page <<1>> of <<n>>");
     let bytes = Session::new().create_from_text("Original", "Keep text").unwrap();
+    let dir = tempfile::tempdir().unwrap();
     for level in ["low", "recommended", "extreme", "lossless"] {
         let action = Action { name: "Native".into(), description: String::new(), builtin: false,
             steps: vec![Step::PageNumbers("4|7|12|Page <<1>>".into()), Step::Compress(level.into())] };
         let out = run_on(&action, "input.pdf", bytes.clone(), |_, _| {}).unwrap();
+        let path = dir.path().join(format!("{level}.pdf"));
+        std::fs::write(&path, out.bytes.as_slice()).unwrap();
+        assert!(common::shown_texts(&path)[0].contains("Page 7"));
         let mut check = Session::new();
         let id = check.open("out.pdf", None, out.bytes, None).unwrap();
         assert_eq!(check.get(id).unwrap().info.pages.len(), 1);

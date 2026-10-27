@@ -493,3 +493,7 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
 - C-organize-024 static follow-up: the full portfolio browser catches clicks on blank areas,
   keeping them from reaching the covered reader. not automatable: click browser margins while
   the reader has an active drawing tool — app execution forbidden.
+
+- C-batch-002 proof refinement: the native-options regression also extracts the produced page's
+  text and asserts Page 7 survives every compression preset, rather than checking only page count
+  and configuration parsing. Test written, not run.
