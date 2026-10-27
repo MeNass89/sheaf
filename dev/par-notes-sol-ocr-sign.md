@@ -800,3 +800,6 @@ C-security-008: f8 a7 p8 — `tests/security.rs:222` exact PDF permissions/AES c
 - Catalog static follow-up: normalization-only empty queries are rejected before matching;
   combining marks remain part of whole words instead of being treated as punctuation.
   The invalid-query regression covers a dehyphenated empty input.
+
+- Certificate static follow-up: CMS recipient serials must be INTEGERs. The usage regression
+  now builds an actually signed signing-only certificate, rather than mutating parsed fields.

@@ -50,7 +50,8 @@ pub(super) fn open(bytes: &[u8], id: &DigitalId) -> Result<Option<([u8; 20], u32
         if fields.len() != 4 || fields[0].u64().map_err(crypto)? != 0 { return Err(unsupported("Only issuer-and-serial RSA recipients are supported")); }
         let rid = children(fields[1], tag::SEQUENCE)?;
         if rid.len() != 2 { return Err(unsupported("Invalid recipient certificate identifier")); }
-        if rid[0].raw != id.certificate.issuer.raw || rid[1].uint_bytes() != id.certificate.serial { continue; }
+        let serial = rid[1].expect(tag::INTEGER, "recipient serial number").map_err(crypto)?;
+        if rid[0].raw != id.certificate.issuer.raw.as_slice() || serial.uint_bytes() != id.certificate.serial.as_slice() { continue; }
         let algorithm = children(fields[2], tag::SEQUENCE)?;
         if algorithm.is_empty() || algorithm[0].oid().map_err(crypto)? != RSA { return Err(unsupported("This envelope does not use RSA PKCS#1 key transport")); }
         let private = RsaPrivateKey::from_pkcs8_der(id.key.pkcs8()).map_err(crypto)?;

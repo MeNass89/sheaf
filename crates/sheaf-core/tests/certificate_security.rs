@@ -3,14 +3,16 @@ use lopdf::{dictionary, Object, Stream};
 use std::path::{Path, PathBuf};
 
 // A real, signed RSA encryption certificate, generated in Rust without an outside program.
-fn identity(name: &str, serial: u8) -> DigitalId {
+fn identity(name: &str, serial: u8) -> DigitalId { identity_with_usage(name, serial, 0x20) }
+
+fn identity_with_usage(name: &str, serial: u8, usage: u8) -> DigitalId {
     let key = PrivateKey::generate_rsa(2048).unwrap();
     let name = Name::build(name, "", "Sheaf test", "", "");
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
     let from = Time::from_unix(now - 60);
     let until = Time::from_unix(now + 86400);
     let algorithm = key.signature_algorithm(sign::DigestAlg::Sha256);
-    let usage = der::seq(&[&der::oid("2.5.29.15"), &der::boolean(true), &der::octets(&der::tlv(der::tag::BIT_STRING, &[5, 0x20]))]);
+    let usage = der::seq(&[&der::oid("2.5.29.15"), &der::boolean(true), &der::octets(&der::tlv(der::tag::BIT_STRING, &[usage.trailing_zeros() as u8, usage]))]);
     let tbs = der::seq(&[
         &der::explicit(0, &der::int(2)), &der::uint(&[serial]), &algorithm, &name.raw,
         &der::seq(&[&from.encode(), &until.encode()]), &name.raw, &key.public_key().spki(),
@@ -72,13 +74,12 @@ fn certificate_encryption_reopens_for_each_recipient_and_preserves_every_content
 fn certificate_encryption_refuses_wrong_usage_invalid_inputs_and_does_not_overwrite() {
     let dir = tempfile::tempdir().unwrap();
     let source = source(dir.path());
-    let mut id = identity("Alice", 4);
+    let id = identity("Alice", 4);
+    let signing_only = identity_with_usage("Signing only", 5, 0x80);
     let out = dir.path().join("encrypted.pdf");
     assert!(certificate_security::encrypt(&Input::new(&source), &[], Scope::All, &out).is_err());
-    id.certificate.key_usage = Some(1); // Explicit signing-only keys cannot transport file keys.
-    assert!(certificate_security::encrypt(&Input::new(&source), &[id.certificate.clone()], Scope::All, &out).is_err());
+    assert!(certificate_security::encrypt(&Input::new(&source), &[signing_only.certificate], Scope::All, &out).unwrap_err().to_string().contains("key encipherment"));
     assert!(!out.exists());
-    id.certificate.key_usage = Some(1 << 2);
     std::fs::write(&out, b"keep existing output").unwrap();
     let written = certificate_security::encrypt(&Input::new(&source), &[id.certificate.clone(), id.certificate.clone()], Scope::All, &out).unwrap();
     assert_ne!(written, out);
