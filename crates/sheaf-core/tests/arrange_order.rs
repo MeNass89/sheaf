@@ -18,7 +18,8 @@ fn page(dir: &Path, name: &str, content: &[u8]) -> PathBuf {
     let content = doc.add_object(Stream::new(dictionary! {}, content.to_vec()));
     let page = doc.add_object(dictionary! {
         "Type" => "Page", "Parent" => pages, "Contents" => content, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
-        "Resources" => dictionary! { "Font" => dictionary! { "F1" => font } },
+        // G0 sets a 1-point line width (an ExtGState), for the order of gs and explicit widths.
+        "Resources" => dictionary! { "Font" => dictionary! { "F1" => font }, "ExtGState" => dictionary! { "G0" => dictionary! { "Type" => "ExtGState", "LW" => 1 } } },
     });
     doc.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
     let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
@@ -136,4 +137,24 @@ fn twin_drawings_at_the_same_place_pass_each_other() {
     // Now drawn last, the red one is the second; it steps back under the blue one.
     doc.apply(Edit::RestackObjects { page: 0, objects: vec![paths(&doc)[1]], how: Restack::Backward }).unwrap();
     assert_eq!(colour_at(&doc, dir.path(), 150, 150), BLUE, "and back under its twin");
+}
+
+/// A line drawn 5 points wide by an explicit `5 w` after a `gs` that set 1 point: brought to the
+/// front, it is still 5 points wide (Sol, 27/10: the gs was replayed after the width).
+#[test]
+fn a_drawing_brought_to_the_front_keeps_a_width_set_after_its_gs() {
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = page(dir.path(), "width.pdf", b"/G0 gs 5 w 0 G 300 100 m 300 300 l S 1 0 0 rg 280 150 40 40 re f");
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    // The line's dark pixels away from the square: x 290–310, y 200–290 (page), y down in the image.
+    let ink = |doc: &Doc| {
+        let out = doc.save(&dir.path().join("width-out.pdf")).unwrap();
+        common::dark_in(&common::render(&out, 0), 290.0 / 612.0, 310.0 / 612.0, (792.0 - 290.0) / 792.0, (792.0 - 200.0) / 792.0)
+    };
+    let before = ink(&doc);
+    assert!(before > 300, "5 points wide at first: {before}");
+    let line = doc.document().editable_objects(0).unwrap().into_iter().find(|o| o.target.kind == ObjectKind::Path && o.rect[3] - o.rect[1] > 150.0).expect("the line").target;
+    doc.apply(Edit::RestackObjects { page: 0, objects: vec![line], how: Restack::Front }).unwrap();
+    let after = ink(&doc);
+    assert!(after > 300 && after.abs_diff(before) < 60, "still 5 points wide: {before} → {after}");
 }
