@@ -129,11 +129,11 @@ xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Added by s
 key Escape; key v; key ctrl+s; sleep 1.5
 check "text added with the Edit tool is in the page content" "pdftotext -f 1 -l 1 $OUT/text.pdf - | grep -q 'Added by smoke'"
 # The format row: Serif, bold, two sizes up → the page gains Times-Bold.
-# The row (from its left, x 272): Sans 299, Serif 359, Mono 421, B 470, I 502, U 534, • 568, align
-# left 601 / centre 636 / right 670, − 704, the size field 748, + 791 (y 110). A click on the size
+# The row (from its left, x 272): Sans 299, Serif 359, Mono 421, B 470, I 502, U 534, • 568, 1. 602,
+# align left 635 / centre 670 / right 704, − 738, the size field 782, + 825 (y 110). A click on the size
 # field would keep the keyboard: the + is found from Mono (OCR reads it; the red Sans it does not).
 key e; sleep 0.8; MX=$(at Mono 1280x40+0+90 | cut -d' ' -f1); DX=$(( ${MX:-421} - 421 ))
-click $(( 359 + DX )) 110 0.3; click $(( 470 + DX )) 110 0.3; click $(( 791 + DX )) 110 0.3; click $(( 791 + DX )) 110 0.3
+click $(( 359 + DX )) 110 0.3; click $(( 470 + DX )) 110 0.3; click $(( 825 + DX )) 110 0.3; click $(( 825 + DX )) 110 0.3
 click 640 680 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Serif bold"; key ctrl+Return; sleep 1.2
 key Escape; key v; key ctrl+s; sleep 1.5; shot 02c-text-format
 check "added text takes the chosen font (Times-Bold)" "pdffonts -f 1 -l 1 $OUT/text.pdf 2>/dev/null | grep -q 'Times-Bold'"

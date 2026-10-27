@@ -276,6 +276,8 @@ pub struct ReaderUi {
     /// Bulleted list).
     text_underline: bool,
     text_bullets: bool,
+    /// Text added on the page or the paragraph open: each line numbered (Acrobat's Numbered list).
+    text_numbers: bool,
     /// Edit text: a font of the computer's chosen for the open paragraph (its name and program;
     /// Acrobat's Edit PDF font list), in place of the family buttons'.
     text_font: Option<(String, std::sync::Arc<Vec<u8>>)>,
@@ -553,6 +555,7 @@ impl ReaderUi {
             text_bold: false,
             text_underline: false,
             text_bullets: false,
+            text_numbers: false,
             text_font: None,
             text_italic: false,
             text_align: 0,

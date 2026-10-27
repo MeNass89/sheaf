@@ -180,7 +180,15 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
             2 => r.text_bold = !r.text_bold,
             3 => r.text_italic = !r.text_italic,
             6 => r.text_underline = !r.text_underline,
-            7 => r.text_bullets = !r.text_bullets,
+            7 => {
+                r.text_bullets = !r.text_bullets;
+                r.text_numbers &= !r.text_bullets;
+            }
+            // A numbered list (Acrobat's), in place of bullets.
+            10 => {
+                r.text_numbers = !r.text_numbers;
+                r.text_bullets &= !r.text_numbers;
+            }
             8 => r.text_font = picked,
             _ => r.text_align = v.clamp(0, 2),
         }
@@ -222,7 +230,7 @@ fn para_bits(what: i32) -> (u8, u8) {
         1 => (4, 64),
         2 | 3 => (4, 0),
         6 => (16, 0),
-        7 => (32, 0),
+        7 | 10 => (32, 0),
         8 => (64, 4),
         _ => (8, 0),
     }
@@ -837,6 +845,7 @@ mod tests {
     fn underline_bullets_and_fonts_apply_to_the_paragraph_open() {
         assert_eq!(para_bits(6), (16, 0));
         assert_eq!(para_bits(7), (32, 0));
+        assert_eq!(para_bits(10), (32, 0), "numbers change the paragraph's list as bullets do");
         assert_eq!(para_bits(8), (64, 4));
         assert_eq!(para_bits(1), (4, 64));
         assert_eq!(para_bits(0), (2, 0));
