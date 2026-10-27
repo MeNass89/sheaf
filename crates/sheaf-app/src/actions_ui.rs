@@ -68,11 +68,11 @@ fn rows(ui: &AppWindow) {
     let commands = STATE.with(|state| {
         state.borrow().saved.iter().enumerate().filter(|(_, a)| a.custom_tool).flat_map(|(i, a)| {
             a.steps.iter().enumerate().map(move |(j, step)| ActionCommandRow {
-                label: format!("{} · {}", a.name, if step.label.is_empty() { step.engine().map(|s| s.label()).unwrap_or("Step") } else { &step.label }).into(),
+                label: format!("{} · {}", a.name, step.display_label()).into(),
                 icon: sheaf_core::tools::ToolId::from_str(&step.argument).filter(|_| step.tool == "open_tool").map(|id| sheaf_app::icons::icon_image(sheaf_core::tools::find(id).icon)).unwrap_or_default(),
                 interactive: step.tool == "open_tool",
                 separator: step.separator,
-                current: !step.prompt && step.engine().is_ok_and(|s| sheaf_core::pdfcraft::engine::actions::command_edit(&s, 1).is_ok()),
+                current: step.supports_current_document(),
                 action: i as i32, step: j as i32,
             })
         }).collect::<Vec<_>>()
@@ -96,7 +96,7 @@ fn draft(ui: &AppWindow) {
         b.set_output_format(s.draft.output.format.as_str().into());
         b.set_step(s.step);
         b.set_steps(ModelRc::new(VecModel::from(s.draft.steps.iter().map(|step| ActionStepRow {
-            label: step.engine().map(|s| s.label()).unwrap_or("Unknown tool").into(),
+            label: step.display_label().into(),
             detail: if step.prompt { "Pauses for you" } else if !step.instruction.is_empty() { "Instructions" } else { "" }.into(),
         }).collect::<Vec<_>>())));
         let step = usize::try_from(s.step).ok().and_then(|i| s.draft.steps.get(i));
@@ -201,7 +201,9 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     if what == "filter" { rows(ui); return; }
     if what == "custom-tools" {
         rows(ui);
-        ui.global::<ActionBridge>().set_current_tab(ui.get_active_tab());
+        // Acrobat's custom commands follow the reader's stable tab ID, not its list position.
+        let reader = crate::flow::active_tool(ui).map(|(id, _)| id).filter(|id| crate::reader_ui::is_reader(*id));
+        ui.global::<ActionBridge>().set_current_tab(reader.unwrap_or(-1));
         ui.global::<ActionBridge>().set_tools_visible(true);
         return;
     }

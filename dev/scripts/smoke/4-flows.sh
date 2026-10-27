@@ -812,3 +812,25 @@ click 340 273; key Home; key Down; key Down; key Return
 LS=$(ocr 220x450+240+300); shot 351-saved-filter
 check "351 Saved actions filter restores the copied suggestion after restart" "echo \"$LS\" | grep -q 'Confidential' && ! echo \"$LS\" | grep -q 'Suggested'"
 quit
+
+# 352. Acrobat's custom command applies Keep pages 2-3 to the real four-page reader. The
+# command must be enabled, save the two pages, and remain one ordinary undoable reader edit.
+python3 - "$OUT/profile/data/Sheaf/actions.json" <<'PY352'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]); p.parent.mkdir(parents=True, exist_ok=True)
+a = json.loads(p.read_text()) if p.exists() else []
+a.append({"version":1,"name":"Reader page tools","custom_tool":True,"steps":[{"tool":"keep_pages","argument":"2-3","label":"Keep middle pages"}]})
+p.write_text(json.dumps(a))
+PY352
+cp "$OUT/text.pdf" "$OUT/352-custom.pdf"
+launch "$OUT/352-custom.pdf"
+click 24 62 0.8
+AP=$(at Apply 620x440+330+180); [ -n "$AP" ] && click $AP 1.5
+shot 352-custom-pages
+key ctrl+s; sleep 1.5
+P2=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
+T2=$(first_text "$OUT/352-custom.pdf" 1); T3=$(first_text "$OUT/352-custom.pdf" 2)
+key ctrl+z; sleep 1; key ctrl+s; sleep 1.5
+P4=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
+check "352 custom page-range command applies to the open PDF and undoes (${AP:-no Apply}; pages ${P2:-?} then ${P4:-?})" "[ \"$P2\" = 2 ] && [ \"$P4\" = 4 ] && [ \"$T2\" = \"Page 2\" ] && [ \"$T3\" = \"Page 3\" ]"
+quit

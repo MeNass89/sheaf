@@ -29,6 +29,25 @@ impl ActionStep {
         Self { tool: step.id().into(), argument: if secret { String::new() } else { step.arg().unwrap_or_default().into() }, instruction: if secret { "Enter an open password for this output PDF. It is used only for this file and is never saved in the action.".into() } else { String::new() }, prompt: secret, label: String::new(), separator: false }
     }
 
+    /// Acrobat's custom tool palette uses the real tool name unless the user supplied a label.
+    /// Resolving by ID also keeps a draft's tool recognizable while its settings are invalid.
+    pub fn display_label(&self) -> &str {
+        if !self.label.is_empty() { return &self.label; }
+        if self.tool == "open_tool" && let Some(id) = sheaf_core::tools::ToolId::from_str(&self.argument) {
+            return sheaf_core::tools::find(id).name;
+        }
+        Step::all().iter().find(|step| step.id() == self.tool).map(|step| step.label()).unwrap_or("Unknown tool")
+    }
+
+    /// Acrobat's custom tools enable native reader commands before knowing the active page
+    /// count. Check the real range when applying, rather than testing against a fictitious page.
+    pub fn supports_current_document(&self) -> bool {
+        !self.prompt && self.engine().is_ok_and(|step| !matches!(step,
+            Step::RecognizeText | Step::OpenTool(_) | Step::PrepareAccessibility(_) |
+            Step::ReduceFileSize | Step::Protect(_) | Step::Compress(_) | Step::ConvertPdfA(_) |
+            Step::DetectFormFields | Step::RunJavaScript(_)))
+    }
+
     pub fn engine(&self) -> Result<Step> {
         Step::from_id(&self.tool, &self.argument).ok_or_else(|| invalid(format!("Unknown action tool: {}", self.tool)))
     }
@@ -583,6 +602,7 @@ mod tests {
         for tool in sheaf_core::tools::catalogue() {
             set.steps = vec![ActionStep::from_engine(&Step::OpenTool(tool.id.as_str().into()))];
             set.validate().unwrap();
+            assert_eq!(set.steps[0].display_label(), tool.name);
             assert_eq!(SavedAction::import(&set.json().unwrap()).unwrap(), set);
             assert!(actions::command_edit(&set.steps[0].engine().unwrap(), 1).is_err());
         }
@@ -657,6 +677,29 @@ mod tests {
         let mut own = all[0].clone(); own.name = "Équipe de garde".into();
         assert!(own.matches_query("ÉQUIPE garde"));
         own.description = "Dossier révisé".into(); assert!(own.matches_query("révisé équipe"));
+    }
+
+    #[test]
+    fn custom_page_commands_are_available_then_validate_against_the_real_document() {
+        for step in [Step::KeepPages("2-3".into()), Step::DeletePages("2-3".into()),
+            Step::WatermarkOptions("24|0.5|45|0|0|Helvetica|2-3|Review".into()),
+            Step::HeaderFooterOptions("4|8|Helvetica|2-3|Review".into())] {
+            let mut command = ActionStep::from_engine(&step);
+            assert!(command.supports_current_document(), "{} must not assume one page", command.tool);
+            assert!(actions::command_edit(&command.engine().unwrap(), 4).is_ok());
+            assert!(actions::command_edit(&command.engine().unwrap(), 1).is_err());
+            command.prompt = true; assert!(!command.supports_current_document());
+            command.argument = "bad settings".into();
+            assert_eq!(command.display_label(), step.label());
+            command.label = "My page command".into(); assert_eq!(command.display_label(), "My page command");
+        }
+        for step in [Step::Compress("recommended".into()), Step::OpenTool("redact".into()),
+            Step::RecognizeText, Step::PrepareAccessibility("fr-FR".into()), Step::Protect(String::new())] {
+            let mut command = ActionStep::from_engine(&step);
+            assert!(!command.supports_current_document());
+            command.prompt = false;
+            assert!(!command.supports_current_document());
+        }
     }
 
 }
