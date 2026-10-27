@@ -537,7 +537,7 @@ fn request_for(ui: &AppWindow, tab_id: i32, pane: bool) {
             keys.extend(v.wanted_thumbs().map(|p| v.thumb_key(p)).filter(|k| !v.thumbs.contains(k)));
         }
         let rough = crate::home::rough();
-        let look = viewer::PageLook { theme: v.theme, comments: !v.hide_comments, turn: v.viewer.turn(), smooth: [0, 1, 2].map(|k| rough & (1 << k) == 0) };
+        let look = viewer::PageLook { theme: v.theme, comments: !v.hide_comments, turn: v.viewer.turn(), smooth: [0, 1, 2].map(|k| rough & (1 << k) == 0), grid: crate::home::transparency_grid() };
         Some((v.load_id, keys, v.input.clone(), v.source.clone(), look))
     });
     let Some((load_id, keys, input, source, look)) = todo else { return };

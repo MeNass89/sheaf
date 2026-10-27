@@ -151,6 +151,7 @@ export component AppWindow inherits Window {
     callback set-gpu(bool);
     in property <bool> show-boxes;
     in property <bool> physical-numbers;
+    in property <bool> transparency-grid;
     callback set-page-display(int, bool);
     in property <[string]> digital-ids;
     in property <[string]> trusted-certs;
@@ -503,6 +504,7 @@ export component AppWindow inherits Window {
                             set-gpu(on) => { root.set-gpu(on); }
                             show-boxes: root.show-boxes;
                             physical-numbers: root.physical-numbers;
+                            transparency-grid: root.transparency-grid;
                             set-page-display(w, on) => { root.set-page-display(w, on); }
                             digital-ids: root.digital-ids;
                             trusted-certs: root.trusted-certs;

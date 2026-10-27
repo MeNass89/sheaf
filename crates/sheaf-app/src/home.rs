@@ -386,6 +386,7 @@ fn push_prefs(ui: &AppWindow) {
         sheaf_core::pdfcraft::trusted_certificates().iter().map(|c| slint::SharedString::from(format!("{} (until {}-{:02})", c.display_name(), c.not_after.year, c.not_after.month))).collect::<Vec<_>>(),
     )));
     ui.set_physical_numbers(p.physical_numbers);
+    ui.set_transparency_grid(p.transparency_grid);
 }
 
 /// Preferences ▸ Appearance ▸ Accent colour.
@@ -517,9 +518,18 @@ pub fn physical_numbers() -> bool {
     with(|h| h.prefs.physical_numbers)
 }
 
-/// Preferences ▸ Page display: `what` 0 the boxes shown, 1 pages called by their place.
+pub fn transparency_grid() -> bool {
+    with(|h| h.prefs.transparency_grid)
+}
+
+/// Preferences ▸ Page display: `what` 0 the boxes shown, 1 pages called by their place, 2 the
+/// transparency grid.
 pub fn set_page_display(ui: &AppWindow, what: i32, on: bool) {
-    update_prefs(ui, |p| if what == 0 { p.show_boxes = on } else { p.physical_numbers = on });
+    update_prefs(ui, |p| match what {
+        0 => p.show_boxes = on,
+        1 => p.physical_numbers = on,
+        _ => p.transparency_grid = on,
+    });
     crate::viewer_ui::redraw_all(ui);
 }
 
