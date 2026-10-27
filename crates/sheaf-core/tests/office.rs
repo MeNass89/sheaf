@@ -3,6 +3,32 @@ use sheaf_core::{office::*, OpdfError};
 use std::time::Duration;
 
 #[test]
+fn local_html_prints_on_the_chosen_paper_with_its_relative_picture() {
+    if find_soffice().is_none() {
+        eprintln!("skip: no LibreOffice");
+        return;
+    }
+    let t = tempfile::tempdir().unwrap();
+    let source = t.path().join("source folder");
+    std::fs::create_dir(&source).unwrap();
+    image::RgbImage::from_pixel(64, 64, image::Rgb([0, 0, 0])).save(source.join("picture.png")).unwrap();
+    let html = source.join("page.html");
+    std::fs::write(&html, "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><p>Local HTML paper</p><img src=\"picture.png\" width=\"64\" height=\"64\"></body></html>").unwrap();
+    for landscape in [false, true] {
+        let out = sheaf_core::html::to_pdf(&html, sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape, margin: 18.0 }, &t.path().join(format!("page-{landscape}.pdf"))).unwrap();
+        let doc = lopdf::Document::load(&out).unwrap();
+        let id = doc.get_pages()[&1];
+        let media = doc.get_dictionary(id).unwrap().get(b"MediaBox").unwrap().as_array().unwrap();
+        let number = |i: usize| media[i].as_float().unwrap() as f64;
+        let (w, h) = if landscape { (792.0, 612.0) } else { (612.0, 792.0) };
+        assert!((number(2) - number(0) - w).abs() < 1.0 && (number(3) - number(1) - h).abs() < 1.0);
+        assert!(common::page_texts(&out)[0].contains("Local HTML paper"));
+        assert!(doc.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Subtype").is_ok_and(|s| s.as_name() == Ok(b"Image")))));
+        common::qpdf_clean(&out);
+    }
+}
+
+#[test]
 fn missing_soffice_is_reported() {
     let t = tempfile::tempdir().unwrap();
     let f = t.path().join("a.txt");

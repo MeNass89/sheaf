@@ -159,7 +159,7 @@ fn produced_pdf(outdir: &Path, input: &Path) -> Option<PathBuf> {
 
 /// `file://` URL for an absolute path, percent-encoding every byte outside
 /// RFC 3986 unreserved characters and `/` (Windows: `file:///C:/…`).
-fn file_url(path: &Path) -> String {
+pub(crate) fn file_url(path: &Path) -> String {
     #[cfg(unix)]
     let bytes = std::os::unix::ffi::OsStrExt::as_bytes(path.as_os_str()).to_vec();
     #[cfg(not(unix))]

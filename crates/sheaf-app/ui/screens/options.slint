@@ -632,11 +632,11 @@ export component OptionsPanel inherits VerticalLayout {
         text: "The file is rebuilt from what can still be read. Keep the original until you have checked the copy.";
     }
 
-    if root.tool == "jpg_to_pdf": VerticalLayout {
+    if root.tool == "jpg_to_pdf" || root.tool == "html_to_pdf": VerticalLayout {
         spacing: 10px;
         // iLovePDF's options: page size, orientation (for paper), margin, one PDF or one each.
         SectionLabel { text: "Page size"; }
-        RadioCard { title: "Fit"; description: "Same page size as image"; selected: root.layout == 0; clicked => { root.layout = 0; } }
+        RadioCard { title: root.tool == "html_to_pdf" ? "Original layout" : "Fit"; description: root.tool == "html_to_pdf" ? "Use the file's print settings" : "Same page size as image"; selected: root.layout == 0; clicked => { root.layout = 0; } }
         RadioCard { title: "A4"; description: "210 × 297 mm"; selected: root.layout == 1; clicked => { root.layout = 1; } }
         RadioCard { title: "US Letter"; description: "8.5 × 11 in"; selected: root.layout == 2; clicked => { root.layout = 2; } }
         if root.layout != 0: VerticalLayout {
@@ -656,7 +656,7 @@ export component OptionsPanel inherits VerticalLayout {
                 Segment { text: "Big"; selected: root.margin == 2; clicked => { root.margin = 2; } }
             }
         }
-        if root.file-count > 1: VerticalLayout {
+        if root.tool == "jpg_to_pdf" && root.file-count > 1: VerticalLayout {
             padding-top: 6px;
             Check { text: "Merge all images into one PDF file"; checked <=> root.merge-images; }
         }

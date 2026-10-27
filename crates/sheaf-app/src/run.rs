@@ -346,7 +346,12 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             Job::PdfToJpg { inputs, dpi, quality: (!opts.png).then_some(q), extract: opts.extract_images, out_dir: folder }
         }
         ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf => {
-            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect() }
+            let html = (tool == ToolId::HtmlToPdf && opts.layout != 0).then_some(sheaf_core::html::Options {
+                paper: if opts.layout == 2 { sheaf_core::html::Paper::Letter } else { sheaf_core::html::Paper::A4 },
+                landscape: opts.landscape,
+                margin: [0.0, 18.0, 36.0][opts.margin.clamp(0, 2) as usize],
+            });
+            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), html }
         }
         ToolId::PageNumbers => {
             let options = number_options(opts, inputs.len() > 1)?;
@@ -1340,6 +1345,22 @@ mod tests {
         assert_eq!(parse_mm(""), Some(0.0));
         assert_eq!(parse_mm("-1"), None);
         assert_eq!(parse_mm("x"), None);
+    }
+
+    #[test]
+    fn html_layout_reaches_the_job_without_reusing_the_default_conversion() {
+        let mut o = opts();
+        o.layout = 2;
+        o.landscape = true;
+        o.margin = 1;
+        let input = || vec![Input::new("/a/page.html")];
+        let job = build_job(ToolId::HtmlToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
+        assert!(matches!(job, Job::Office { html: Some(sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0 }), .. }));
+        let job = build_job(ToolId::WordToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
+        assert!(matches!(job, Job::Office { html: None, .. }));
+        o.layout = 0;
+        let job = build_job(ToolId::HtmlToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
+        assert!(matches!(job, Job::Office { html: None, .. }));
     }
 
     #[test]

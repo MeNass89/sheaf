@@ -12,6 +12,7 @@ pub mod form_scan;
 pub mod grayscale;
 pub mod crop;
 pub mod images;
+pub mod html;
 pub mod info;
 pub mod layers;
 pub mod office;
