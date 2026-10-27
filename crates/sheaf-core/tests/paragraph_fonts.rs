@@ -22,9 +22,13 @@ fn the_computers_open_fonts_are_listed_by_name() {
     std::fs::create_dir_all(dir.path().join("truetype/greatvibes")).unwrap();
     std::fs::copy(great_vibes(), dir.path().join("truetype/greatvibes/GreatVibes-Regular.ttf")).unwrap();
     std::fs::write(dir.path().join("broken.ttf"), b"not a font").unwrap();
+    // Caveat is a variable font: PdfCraft embeds static faces only. Listed, with the reason.
+    std::fs::copy(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fonts/Caveat.ttf"), dir.path().join("Caveat.ttf")).unwrap();
     let fonts = sheaf_core::system_fonts::list_fonts(&[dir.path().to_path_buf()]);
-    assert_eq!(fonts.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(), ["Great Vibes"], "{fonts:?}");
-    assert!(fonts[0].path.ends_with("GreatVibes-Regular.ttf"));
+    assert_eq!(fonts.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(), ["Caveat", "Great Vibes"], "{fonts:?}");
+    let great = &fonts[1];
+    assert!(great.path.ends_with("GreatVibes-Regular.ttf") && great.why_not.is_none(), "{great:?}");
+    assert!(fonts[0].why_not.as_deref().is_some_and(|w| w.contains("variable")), "said why: {:?}", fonts[0].why_not);
 }
 
 /// A Helvetica paragraph set in Great Vibes and underlined: the font is embedded and named on the

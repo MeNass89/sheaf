@@ -190,6 +190,11 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
     // A font of the computer's (`v` in the list), for the open paragraph: its program read now.
     let picked = if what == 8 {
         let Some(f) = sheaf_core::system_fonts::installed().get(v.max(0) as usize) else { return };
+        // One PdfCraft may not embed: said why, nothing changes (Sol, 27/10: such fonts were left
+        // out of the list without a word).
+        if let Some(why) = &f.why_not {
+            return crate::flow::toast(ui, &format!("{} can't be used: {why}", f.name));
+        }
         match std::fs::read(&f.path) {
             Ok(bytes) => Some((f.name.clone(), std::sync::Arc::new(bytes))),
             Err(e) => return crate::flow::toast(ui, &format!("{} can't be read: {e}", f.name)),
@@ -282,11 +287,15 @@ fn standard_face(resource: &str, base_font: &str) -> bool {
 fn list_system_fonts(ui: &AppWindow) {
     let weak = ui.as_weak();
     std::thread::spawn(move || {
-        let names: Vec<slint::SharedString> = sheaf_core::system_fonts::installed().iter().map(|f| f.name.as_str().into()).collect();
+        let fonts = sheaf_core::system_fonts::installed();
+        let names: Vec<slint::SharedString> = fonts.iter().map(|f| f.name.as_str().into()).collect();
+        let why: Vec<slint::SharedString> = fonts.iter().map(|f| f.why_not.as_deref().unwrap_or_default().into()).collect();
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(ui) = weak.upgrade() {
                 use slint::ComponentHandle as _;
-                ui.global::<sheaf_app::ReaderBridge>().set_system_fonts(slint::ModelRc::new(slint::VecModel::from(names)));
+                let bridge = ui.global::<sheaf_app::ReaderBridge>();
+                bridge.set_system_fonts_why(slint::ModelRc::new(slint::VecModel::from(why)));
+                bridge.set_system_fonts(slint::ModelRc::new(slint::VecModel::from(names)));
             }
         });
     });

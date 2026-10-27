@@ -887,6 +887,8 @@ export global ReaderBridge {
     // The computer's fonts a paragraph can be set in (Acrobat's Edit PDF font list), read when the
     // list is first opened (text-format 9).
     in property <[string]> system-fonts;
+    // For each of those, why it can't be embedded ("": it can): listed dimmed, said when picked.
+    in property <[string]> system-fonts-why;
     callback panel-resized(length);
     // Print: open the sheet; print with printer, copies, pages (0 all, 1 current, 2 range),
     // the range typed, fit to paper, two-sided, paper (0 the printer's, 1 A4, 2 Letter, 3 Legal),
