@@ -861,3 +861,133 @@ fn a_certificate_recipients_permissions_refuse_edits_printing_and_copying_after_
     doc.session_mut().mark_saved(id, bytes, None).unwrap();
     check(&doc);
 }
+
+/// Acrobat's barcode field: the form's data, tab-delimited under the field names, is drawn as a QR
+/// Code in the field and drawn again when a field changes; the error correction chosen sets its
+/// density. Read back from the rendered page with a QR reader.
+#[test]
+fn a_barcode_field_draws_the_forms_data_as_a_qr_code_and_follows_every_change() {
+    use sheaf_core::pdfcraft::engine::{barcode::BarcodeSettings, FieldValue, NewField};
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 0 m 10 10 l S"]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::AddField { page: 0, rect: [40.0, 300.0, 200.0, 320.0], kind: NewField::Text { multiline: false }, name: Some("Name".into()) }).unwrap();
+    doc.apply(Edit::AddField { page: 0, rect: [40.0, 260.0, 60.0, 280.0], kind: NewField::CheckBox, name: Some("Agree".into()) }).unwrap();
+    doc.apply(Edit::AddField { page: 0, rect: [100.0, 60.0, 250.0, 210.0], kind: NewField::Text { multiline: false }, name: Some("Code".into()) }).unwrap();
+    doc.apply(Edit::SetBarcode { name: "Code".into(), settings: BarcodeSettings { ecc: 1, names: true } }).unwrap();
+    let read = |doc: &Doc| {
+        let r = doc.render(0, 3.0).unwrap();
+        let (w, h) = (r.width as usize, r.height as usize);
+        let mut img = rqrr::PreparedImage::prepare_from_greyscale(w, h, |x, y| r.rgba[(y * w + x) * 4]);
+        let grids = img.detect_grids();
+        assert_eq!(grids.len(), 1, "one QR Code on the page");
+        let (meta, text) = grids[0].decode().unwrap();
+        (meta.ecc_level, text)
+    };
+    let (_, first) = read(&doc);
+    assert_eq!(first, "Name\tAgree\n\t", "the other fields' names, then their (empty) values");
+    doc.apply(Edit::SetFieldValue { name: "Name".into(), value: FieldValue::Text("Ada Lovelace".into()) }).unwrap();
+    doc.apply(Edit::SetFieldValue { name: "Agree".into(), value: FieldValue::Check(true) }).unwrap();
+    let (ecc, after) = read(&doc);
+    assert!(after.starts_with("Name\tAgree\nAda Lovelace\t"), "{after:?}");
+    // Saved and reopened, the barcode and its settings stay.
+    let out = doc.save(&t.path().join("barcode.pdf")).unwrap();
+    let mut doc = Doc::open(&Input::new(&out)).unwrap();
+    assert_eq!(read(&doc).1, after);
+    doc.apply(Edit::SetBarcode { name: "Code".into(), settings: BarcodeSettings { ecc: 3, names: false } }).unwrap();
+    let (high, values) = read(&doc);
+    assert!(values.starts_with("Ada Lovelace\t") && !values.contains("Name"), "{values:?}");
+    assert_ne!(ecc, high, "error correction chosen is the one drawn");
+    // Only a text field can become a barcode field.
+    assert!(doc.apply(Edit::SetBarcode { name: "Agree".into(), settings: BarcodeSettings::default() }).is_err());
+}
+
+/// A signature carrying its own revocation evidence (Acrobat's `adbe-revocationInfoArchival`
+/// signed attribute, the CRL Acrobat embeds when it signs) is judged with it offline: a CRL that
+/// revokes the signer makes the signature invalid; one that does not says so. Nothing is fetched.
+#[test]
+fn revocation_evidence_inside_a_signature_is_checked_offline() {
+    use sheaf_core::pdfcraft::engine::sign::{der, pkcs12, DigestAlg, Time};
+    use sheaf_core::pdfcraft::engine::{revocation_archive, SignatureStatus};
+    use sheaf_core::{pages::Input, pdfcraft::Doc, sign};
+    let t = tempfile::tempdir().unwrap();
+    let spec = sheaf_core::digital_id::NewId { name: "Archive Signer".into(), ..Default::default() };
+    let p12 = sheaf_core::digital_id::create_file(&spec, "secret-pw", &t.path().join("id.p12")).unwrap();
+    let id = pkcs12::open(&std::fs::read(&p12).unwrap(), "secret-pw").unwrap();
+    let invoice = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/invoice.pdf");
+    let digital = sign::DigitalSpec { p12: p12.clone(), password: "secret-pw".into(), reason: None, location: None, certify: None };
+    let signed = sign::sign(&Input::new(&invoice), &sign::SignSpec { page: 0, rect: [72.0, 72.0, 272.0, 132.0], graphic: sign::Graphic::Typed("Ada".into(), Default::default()), digital: Some(digital) }, &t.path().join("signed.pdf")).unwrap().path;
+    let bytes = std::fs::read(&signed).unwrap();
+
+    // The signer's own CRL (self-signed ID), its window around now; `revoked` lists its serial.
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+    let crl = |revoked: bool| {
+        let alg = id.key.signature_algorithm(DigestAlg::Sha256);
+        let entry = der::seq(&[&der::seq(&[&der::uint(&id.certificate.serial), &Time::from_unix(now - 3600).encode()])]);
+        let mut parts: Vec<&[u8]> = vec![&[2, 1, 1][..], &alg, &id.certificate.subject.raw];
+        let (this, next) = (Time::from_unix(now - 86_400).encode(), Time::from_unix(now + 86_400).encode());
+        parts.extend([this.as_slice(), next.as_slice()]);
+        if revoked { parts.push(&entry); }
+        let tbs = der::seq(&parts);
+        der::seq(&[&tbs, &alg, &der::bit_string(&id.key.sign(DigestAlg::Sha256, &tbs).unwrap())])
+    };
+    // The signature's CMS rebuilt with the archive attribute among its signed attributes, signed
+    // again; the PDF bytes it signs are unchanged.
+    let with_archive = |crl: &[u8]| -> Vec<u8> {
+        // The placeholder is the gap the /ByteRange leaves: "<" hex ">".
+        let (start, end) = {
+            let at = bytes.windows(10).position(|w| w == b"/ByteRange").unwrap();
+            let open = at + bytes[at..].iter().position(|b| *b == b'[').unwrap();
+            let close = open + bytes[open..].iter().position(|b| *b == b']').unwrap();
+            let n: Vec<usize> = std::str::from_utf8(&bytes[open + 1..close]).unwrap().split_whitespace().map(|v| v.parse().unwrap()).collect();
+            (n[1] + 1, n[2] - 1)
+        };
+        let hex = std::str::from_utf8(&bytes[start..end]).unwrap();
+        let cms: Vec<u8> = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect();
+        let (ci, _) = der::Tlv::parse_ber(&cms).unwrap();
+        let ci_parts = ci.children().unwrap();
+        let sd = ci_parts[1].inner().unwrap();
+        let mut sd_parts: Vec<Vec<u8>> = sd.children().unwrap().iter().map(|c| c.raw.to_vec()).collect();
+        let signer_set = der::Tlv::parse_all(sd_parts.last().unwrap()).unwrap();
+        let signer = signer_set.children().unwrap()[0];
+        let mut fields: Vec<Vec<u8>> = signer.children().unwrap().iter().map(|c| c.raw.to_vec()).collect();
+        let attrs_at = fields.iter().position(|f| f[0] == 0xA0).unwrap();
+        let attrs = der::Tlv::parse_all(&fields[attrs_at]).unwrap();
+        let archive = der::seq(&[&der::oid("1.2.840.113583.1.1.8"), &der::set_of(&[&der::seq(&[&der::explicit(0, &der::seq(&[crl]))])])]);
+        let mut list: Vec<Vec<u8>> = attrs.children().unwrap().iter().map(|a| a.raw.to_vec()).collect();
+        list.push(archive);
+        let refs: Vec<&[u8]> = list.iter().map(Vec::as_slice).collect();
+        let set = der::set_of(&refs);
+        fields[attrs_at] = [&[0xA0][..], &set[1..]].concat();
+        let sig_at = fields.iter().rposition(|f| f[0] == der::tag::OCTET_STRING).unwrap();
+        fields[sig_at] = der::octets(&id.key.sign(DigestAlg::Sha256, &set).unwrap());
+        let refs: Vec<&[u8]> = fields.iter().map(Vec::as_slice).collect();
+        let signer = der::seq(&refs);
+        *sd_parts.last_mut().unwrap() = der::set_of(&[&signer]);
+        let refs: Vec<&[u8]> = sd_parts.iter().map(Vec::as_slice).collect();
+        let cms = der::seq(&[ci_parts[0].raw, &der::explicit(0, &der::seq(&refs))]);
+        let mut hex: String = cms.iter().map(|b| format!("{b:02X}")).collect();
+        assert!(hex.len() <= end - start, "fits the placeholder");
+        hex.extend(std::iter::repeat_n('0', end - start - hex.len()));
+        let mut out = bytes.clone();
+        out[start..end].copy_from_slice(hex.as_bytes());
+        out
+    };
+    let judged = |name: &str, pdf: Vec<u8>| {
+        let path = t.path().join(name);
+        std::fs::write(&path, pdf).unwrap();
+        let doc = Doc::open(&Input::new(&path)).unwrap();
+        doc.document().signatures.iter().find(|s| s.signed).cloned().unwrap()
+    };
+    let plain = judged("plain.pdf", bytes.clone());
+    assert_eq!(plain.status, SignatureStatus::Unknown, "{:?}", plain.details);
+    let good = judged("good.pdf", with_archive(&crl(false)));
+    assert_eq!(good.status, SignatureStatus::Unknown, "a self-signed ID stays untrusted: {:?}", good.details);
+    assert!(good.details.iter().any(|d| d.message.contains("has not been revoked")), "{:?}", good.details);
+    let revoked = judged("revoked.pdf", with_archive(&crl(true)));
+    assert_eq!(revoked.status, SignatureStatus::Invalid, "{:?}", revoked.details);
+    assert!(revoked.details.iter().any(|d| d.message.contains("revoked (CRL in the signature")), "{:?}", revoked.details);
+    let (crls, ocsps) = revocation_archive::evidence(&[0x30, 0x00]);
+    assert!(crls.is_empty() && ocsps.is_empty(), "no archive, no evidence");
+}

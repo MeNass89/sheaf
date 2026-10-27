@@ -391,6 +391,8 @@ export struct ReaderState {
     show-fields: bool,
     // Prepare form: the kind of field to add, every field drawn over its page, the selected one's card.
     field-kind: int,
+    // Prepare form ▸ Barcode: the error correction of new barcode fields, as said.
+    barcode-ecc: string,
     form-fields: [ReaderFormField],
     // Prepare form: Grid on (fields snap to it) and its lines over the pages in view.
     form-grid: bool,

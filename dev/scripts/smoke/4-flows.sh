@@ -819,3 +819,23 @@ IDS=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("digi
 SUBJ=$(openssl pkcs12 -in "$OUT/smoke-id.p12" -passin pass:smokepw1 -nokeys 2>/dev/null | openssl x509 -noout -subject -ext keyUsage 2>/dev/null | tr '\n' ' ')
 check "Create a digital ID writes a self-signed .p12 and its .cer, kept in the list (${CY:+button at $CY}; $SUBJ; ids $IDS)" "[ -f \"$OUT/smoke-id.cer\" ] && echo \"$SUBJ\" | grep -q 'CN *= *Smoke Signer' && echo \"$SUBJ\" | grep -q 'Key Encipherment' && echo \"$IDS\" | grep -q smoke-id.p12"
 quit
+
+# 322. Prepare form ▸ Barcode (C-forms-011, Acrobat's barcode field): its error correction set to Quartile on the
+# options bar, a text field and a barcode field placed; back on the page, "Ada" typed in the text field: the barcode
+# is drawn again with it (a QR Code: dark modules filling its square) and saved with Acrobat's /PMD, the data in its value.
+cp "$OUT/plain.pdf" "$OUT/barcode.pdf"; launch "$OUT/barcode.pdf"; key ctrl+9; sleep 1; key Home; sleep 0.5; key f; sleep 0.6
+BK=$(at Barcode 1280x60+0+80); [ -n "$BK" ] && click $BK 0.6
+EK=$(at Error 1280x60+0+80); [ -n "$EK" ] && click $EK 0.4
+EC=$(ocr 1280x60+0+80)
+TK=$(at Text 1280x60+0+80); [ -n "$TK" ] && click $TK 0.5
+click 500 300 1.2; key Escape; sleep 0.3
+[ -n "$BK" ] && click $BK 0.5
+click 700 400 1.5; key Escape; sleep 0.3; key v; sleep 0.5
+click 540 311 0.6; xdotool type --delay 30 "Ada"; key Tab; sleep 1.5
+shot 322-barcode
+# The barcode's square (108 pt from its top-left corner at 700,400, at the zoom ⌘9 set): dark share of its pixels.
+DK=$(import -window root -crop 100x100+705+405 png:- 2>/dev/null | convert - -colorspace gray -threshold 50% -format '%[fx:1-mean]' info: 2>/dev/null)
+key ctrl+s; sleep 1.5
+BQ=$(qpdf --qdf --object-streams=disable "$OUT/barcode.pdf" - 2>/dev/null)
+check "a barcode field draws the form's data as a QR Code and follows the typing (${BK:-no Barcode kind}; $(echo "$EC" | grep -o 'Error correction: [A-Za-z]*'); dark ${DK:-?}; $(echo "$BQ" | grep -ao '/ECC [0-9]' | head -1); value $(echo "$BQ" | grep -ao '/V (Text1[^)]*)' | head -1))" "echo \"$EC\" | grep -q 'Quartile' && echo \"\$BQ\" | grep -aq '/Symbology /QRCode' && echo \"\$BQ\" | grep -aq '/ECC 2' && echo \"\$BQ\" | grep -aq '/V (Text1.nAda)' && python3 -c 'import sys; sys.exit(0 if 0.25 < float(sys.argv[1]) < 0.75 else 1)' ${DK:-0}"
+quit

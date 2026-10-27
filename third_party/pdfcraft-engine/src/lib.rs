@@ -13,6 +13,10 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod actions;
+/// Sheaf: barcode form fields.
+pub mod barcode;
+/// Sheaf: revocation evidence embedded in a signature's CMS.
+pub mod revocation_archive;
 pub mod autotag;
 pub mod build_info;
 pub mod camera;
@@ -252,7 +256,7 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::DashAnnotation { .. }
         | Edit::SetTextFont { .. }
         | Edit::SetAnnotationInfo { .. } => Scope::Comments,
-        Edit::SetFieldValue { .. } | Edit::ResetForm { .. } | Edit::SetFieldImage { .. } | Edit::ApplyScriptChanges { .. } => Scope::Form,
+        Edit::SetFieldValue { .. } | Edit::ResetForm { .. } | Edit::SetFieldImage { .. } | Edit::ApplyScriptChanges { .. } | Edit::SetBarcode { .. } => Scope::Form,
         // Page content, resources and added content/marks only: the page tree, annotations,
         // fields, links and document metadata are untouched (see `refresh_content`).
         Edit::MoveObjects { .. }
@@ -1505,6 +1509,12 @@ pub enum Edit {
         name: String,
         image: Arc<Vec<u8>>,
     },
+    /// Sheaf: make a text field Acrobat's barcode field (its value and QR Code drawn from the
+    /// form's data, again after every change to the form).
+    SetBarcode {
+        name: String,
+        settings: barcode::BarcodeSettings,
+    },
     /// Duplicate a field onto other pages (same field, shared value).
     DuplicateField {
         name: String,
@@ -2096,6 +2106,7 @@ impl Edit {
             }
             Edit::SetFieldValue { name, .. } => Label::with("Fill in {name}", name.as_str()),
             Edit::SetFieldImage { name, .. } => Label::with("Set the image of {name}", name.as_str()),
+            Edit::SetBarcode { .. } => Label::of("Change barcode field"),
             Edit::ResetForm { .. } => Label::of("Clear form"),
             Edit::AddField { .. } => Label::of("Add field"),
             Edit::SetFieldProps { .. } => Label::of("Change field properties"),
@@ -2304,6 +2315,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::AddBackground { .. }
         | Edit::RemoveMarks { .. }
         | Edit::AddField { .. }
+        | Edit::SetBarcode { .. }
         | Edit::ApplyRedactions { .. }
         | Edit::AddText { .. }
         | Edit::AddTextInFont { .. }
@@ -2452,6 +2464,15 @@ impl EditCtx {
             b & 0xffff_ffff_ffff
         );
         pdfcraft_annot::Meta { date: self.date.clone(), id }
+    }
+}
+
+/// Sheaf: an edit that may change a field's value, or which fields there are.
+fn changes_fields(edit: &Edit) -> bool {
+    match edit {
+        Edit::Batch { edits, .. } => edits.iter().any(changes_fields),
+        Edit::AddField { .. } | Edit::SetFieldProps { .. } | Edit::DeleteField { .. } | Edit::DuplicateField { .. } | Edit::CopyField { .. } => true,
+        e => scope_of(e) == Scope::Form,
     }
 }
 
@@ -2654,6 +2675,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::AddField { page, rect, kind, name } => {
             pdfcraft_forms::add_field(doc, *page, *rect, kind, name.as_deref())?;
         }
+        Edit::SetBarcode { name, settings } => barcode::make(doc, name, *settings).map_err(EditError::Invalid)?,
         Edit::SetFieldProps { name, props } => {
             pdfcraft_forms::set_props(doc, name, props)?;
             if let Some(pdfcraft_forms::af::Calculate::Notation(expr)) = &props.calculate {
@@ -3511,7 +3533,10 @@ fn xfa_values_from_datasets(doc: &mut pdfcraft_cos::Document) -> Result<Vec<Stri
 
 /// Validate the signature fields of `cos` (written as `bytes`).
 fn signatures_of(cos: &pdfcraft_cos::Document, bytes: &[u8], trust: &TrustStore, cache: &pdfcraft_sign::DigestCache) -> Arc<Vec<SignatureInfo>> {
-    Arc::new(pdfcraft_sign::pdf::list_cached(cos, bytes, trust, cache))
+    let mut list = pdfcraft_sign::pdf::list_cached(cos, bytes, trust, cache);
+    // Sheaf: the revocation evidence a signature carries in its own CMS (Acrobat's archive).
+    revocation_archive::apply(cos, &mut list);
+    Arc::new(list)
 }
 
 impl Session {
@@ -3907,6 +3932,10 @@ impl Session {
         // `next` is a copy: if the edit fails or crashes, the document is unchanged.
         guard(|| run_edit(&mut next, &edit, &mut cx))
             .unwrap_or_else(|m| Err(EditError::Invalid(format!("{} failed unexpectedly ({m}); the document was not changed", edit.label()))))?;
+        // Sheaf: barcode fields encode the form as it is now (Acrobat recalculates them).
+        if changes_fields(&edit) {
+            barcode::refresh(&mut next).map_err(EditError::Invalid)?;
+        }
         // Sheaf: a loupe shows its page as it is now (the page's content changed under it).
         if matches!(scope_of(&edit), Scope::Content | Scope::Full) {
             pdfcraft_annot::loupe_mask::refresh_loupes(&mut next);

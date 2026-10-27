@@ -335,6 +335,8 @@ pub struct ReaderUi {
     /// a selected field being dragged (page, from, to; view points).
     field_kind: i32,
     radio_group: Option<String>,
+    /// Prepare form ▸ Barcode: the error correction new barcode fields get (0 Low … 3 High).
+    barcode_ecc: u8,
     /// Shapes ▸ Arrow: its head (`reader::ARROW_HEADS`) and whether both ends carry one.
     arrow_head: usize,
     arrow_both: bool,
@@ -593,6 +595,7 @@ impl ReaderUi {
             replace_quads: Vec::new(),
             field_kind: 0,
             radio_group: None,
+            barcode_ecc: 1,
             arrow_head: 0,
             arrow_both: false,
             callout: false,

@@ -558,6 +558,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         show_links: r.show_links || r.tool == LINK,
         show_fields: r.show_fields,
         field_kind: r.field_kind,
+        barcode_ecc: ["Low", "Medium", "Quartile", "High"][usize::from(r.barcode_ecc.min(3))].into(),
         form_fields: ModelRc::new(VecModel::from(form_fields)),
         form_grid: r.form_grid,
         form_grids: ModelRc::new(VecModel::from(form_grids)),

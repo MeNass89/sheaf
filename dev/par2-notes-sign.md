@@ -28,6 +28,18 @@
 - C-sign-007: deleting one copy of a signature placed on several pages takes every copy, also those pulled inside a
   shorter or narrower page by the placement (the match now follows the placement rule instead of wanting the same
   geometry everywhere). iLovePDF's repeated signatures (`every_page_copies_pulled_inside_smaller_pages_still_go_together`).
+- C-forms-011: Prepare form ▸ Barcode places Acrobat's barcode field: a read-only text field with Acrobat's paper
+  metadata (`/PMD`: QR Code, error correction, field names), its value the other fields' data tab-delimited under
+  their names, drawn as a QR Code (vector modules, four-module quiet zone) at the size dragged. The engine draws it
+  again after every change to the form (typing, check boxes, reset, fields added or removed); the options bar sets
+  the error correction (Low, Medium, Quartile, High). Acrobat's barcode field
+  (`a_barcode_field_draws_the_forms_data_as_a_qr_code_and_follows_every_change`, which reads the rendered page back
+  with a QR reader; smoke 322).
+- C-sign-016: a signature's own revocation evidence, Acrobat's `adbe-revocationInfoArchival` signed attribute (the
+  CRLs and OCSP responses Acrobat embeds when it signs), is now checked offline next to the catalog's DSS (which
+  PdfCraft already checked: CRLs and OCSPs, verified revocation wins): a revoking CRL makes the signature invalid
+  ("revoked (CRL in the signature, date)"), a covering good answer is said in the details
+  (`revocation_evidence_inside_a_signature_is_checked_offline`). Nothing is fetched.
 
 ## Left, and why
 
@@ -36,10 +48,13 @@
   (macOS Keychain, Windows certificate store; PdfCraft has both readers, behind those OSes). Not wired here: needs a
   Mac and a Windows machine to build and test.
 - C-sign-004 (camera capture), C-sign-011 (request signatures, Acrobat's cloud), C-sign-015 (trusted time stamp
-  from a TSA), C-sign-016 (OCSP/CRL fetch), C-forms-016 (distribute and track): each needs a camera driver or the
-  network; out of scope by Nassim's decision (no network features) or needing a non-pure dependency.
-- C-forms-011: a barcode field needs a QR/PDF417 encoder; none is in the offline registry, and writing one was not
-  possible in this round.
+  from a TSA), C-forms-016 (distribute and track): each needs a camera driver or the network; out of scope by
+  Nassim's decision (no network features) or needing a non-pure dependency.
+- C-sign-016: OCSP/CRL fetching waits on Nassim's decision; only the signer's certificate is checked against the
+  evidence (Acrobat also checks the intermediate CAs).
+- C-forms-011: QR Code only; Acrobat also offers PDF417 and Data Matrix (the `pdf417` crate has no licence, `rxing`
+  is large). Error correction is chosen for new barcode fields; changing it on an existing one goes through the engine
+  edit (`SetBarcode`), not yet a properties card; XML encoding and a custom calculation script are not offered.
 
 ## For the orchestrator
 
@@ -49,4 +64,6 @@
 
 ## New dependencies
 
-None.
+- `qrcode` 0.14 (MIT/Apache-2.0, pure Rust, default features off: no image) in `third_party/pdfcraft-engine`.
+- `rqrr` 0.11 (MIT/Apache-2.0 and ISC, pure Rust, default features off) as a sheaf-core dev-dependency, to read the
+  QR Code back in the test.

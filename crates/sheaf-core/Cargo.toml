@@ -32,6 +32,8 @@ skrifa.workspace = true
 spellbook.workspace = true
 
 [dev-dependencies]
+# Reads the QR Codes barcode form fields draw (tests only, pure Rust).
+rqrr = { version = "0.11", default-features = false }
 tempfile.workspace = true
 pdfium-render.workspace = true
 lopdf.workspace = true
