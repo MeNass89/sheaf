@@ -8,6 +8,7 @@ import { Theme } from "../theme.slint";
 import { ToolButton, Divider } from "reader-parts.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
+import { AiBridge } from "../ai.slint";
 
 export component ReaderToolbar inherits Rectangle {
     in property <ToolTab> tab;
@@ -622,6 +623,8 @@ export component ReaderToolbar inherits Rectangle {
             // Named as Acrobat's Edit menu names them: "Undo Add highlight".
             ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: root.tab.reader.can-undo && root.tab.reader.undo-label != "" ? "Undo " + root.tab.reader.undo-label + " (⌘Z)" : "Undo (⌘Z)"; enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
             ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: root.tab.reader.can-redo && root.tab.reader.redo-label != "" ? "Redo " + root.tab.reader.redo-label + " (⇧⌘Z)" : "Redo (⇧⌘Z)"; enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
+            // PDF Expert's AI Copilot, Acrobat's AI Assistant: the AI panel beside the pages.
+            ToolButton { icon: @image-url("../icons/sparkles.svg"); tip: "AI Assistant"; active: AiBridge.open && AiBridge.tab == root.id; clicked => { AiBridge.toggle(root.id); } }
             ToolButton { icon: @image-url("../icons/wrench.svg"); tip: "Use a tool on this PDF"; clicked => { ReaderBridge.to-tools(root.id); } }
             ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? "Save (⌘S)" : "Saved"; enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
         }

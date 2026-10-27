@@ -869,3 +869,67 @@ key ctrl+s; sleep 1.5
 BQ=$(qpdf --qdf --object-streams=disable "$OUT/barcode.pdf" - 2>/dev/null)
 check "a barcode field draws the form's data as a QR Code and follows the typing (${BK:-no Barcode kind}; $(echo "$EC" | grep -o 'Error correction: [A-Za-z]*'); dark ${DK:-?}; $(echo "$BQ" | grep -ao '/ECC [0-9]' | head -1); value $(echo "$BQ" | grep -ao '/V (Text1[^)]*)' | head -1))" "echo \"$EC\" | grep -q 'Quartile' && echo \"\$BQ\" | grep -aq '/Symbology /QRCode' && echo \"\$BQ\" | grep -aq '/ECC 2' && echo \"\$BQ\" | grep -aq '/V (Text1.nAda)' && python3 -c 'import sys; sys.exit(0 if 0.25 < float(sys.argv[1]) < 0.75 else 1)' ${DK:-0}"
 quit
+# The AI steps' provider: a mock OpenAI-compatible server (smoke/ai-mock.py) on a free local port, set as
+# Preferences ▸ AI ▸ OpenAI-compatible server; each request it gets is logged in $OUT/ai-requests.jsonl.
+ai_mock() { ai_stop; rm -f "$OUT/ai-port" "$OUT/ai-requests.jsonl"; touch "$OUT/ai-requests.jsonl"; python3 dev/scripts/smoke/ai-mock.py "$OUT/ai-port" "$OUT/ai-requests.jsonl" >/dev/null 2>&1 & AI_MOCK=$!; for _ in $(seq 1 20); do [ -s "$OUT/ai-port" ] && break; sleep 0.2; done; prefs_set "p['ai'] = {'provider': 'compatible', 'base_urls': {'compatible': 'http://127.0.0.1:$(cat "$OUT/ai-port")/v1'}, 'notice_seen': ['compatible'] if '${1:-}' == 'seen' else []}"; }
+ai_stop() { [ -n "${AI_MOCK:-}" ] && kill "$AI_MOCK" 2>/dev/null; AI_MOCK=; prefs_set "p.pop('ai', None)"; }
+# ✦ AI Assistant, left of the wrench in the reader's toolbar.
+ai_open() { click 1204 61 1.5; }
+ai_text() { ocr 380x700+900+100; }
+ai_wait() { for _ in $(seq 1 30); do ai_text | grep -q "$1" && break; sleep 0.5; done; }
+ai_chip() { local c; c=$(at "$1" 380x700+900+100); [ -n "$c" ] && click $c 0.5; echo "${c:-no $1}"; }
+ai_requests() { wc -l < "$OUT/ai-requests.jsonl" 2>/dev/null || echo 0; }
+
+# 360. The AI panel (C-ai-001, C-ai-002; PDF Expert's AI Copilot, Acrobat's AI Assistant): ✦ in the toolbar opens it
+# beside the pages, naming the provider; the first request waits on the note that only the text is sent (OK
+# sends it); a question typed is answered from the pages: the request carries page 1's text and the question.
+ai_mock
+cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; T1=$(ai_text)
+QF=$(at Ask 380x120+900+680); read QX QY <<< "$QF"; [ -n "$QY" ] && click $(( QX + 60 )) $QY 0.4
+xdotool type --delay 15 "Who jumps?"; key Return; sleep 1
+N0=$(ai_requests)
+# OK sits left of Turn off AI (white on red, which OCR does not read).
+read TX TY <<< "$(at Turn 380x500+900+100)"; [ -n "$TY" ] && click $(( TX - 60 )) $TY 0.5
+ai_wait Mockanswer; T2=$(ai_text); shot ai-360
+SEEN=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["ai"]["notice_seen"])' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+tail -1 "$OUT/ai-requests.jsonl" > "$OUT/ai-last.json" 2>/dev/null
+check "the AI panel names the provider, holds the first request for the note, then answers from the pages (note: $(echo "$T1" | grep -o 'never the file' | head -1); held: $N0 requests; seen $SEEN; answer: $(echo "$T2" | grep -o 'Mockanswer[a-z ]*' | head -1))" \
+    "echo \"$T1\" | grep -q 'Assistant' && echo \"$T1\" | grep -q 'never the file' && [ \"$N0\" = 0 ] && echo \"$SEEN\" | grep -q compatible && echo \"$T2\" | grep -q Mockanswer && grep -q 'Who jumps' $OUT/ai-last.json && grep -q 'p. 1' $OUT/ai-last.json && grep -q 'quick brown fox' $OUT/ai-last.json"
+quit; ai_stop
+
+# 361. Summarize and translate (C-ai-003, C-ai-004; PDF Expert's): the Main points chip and Translate (French) each
+# send the pages' text with their own request, and their answers show in the panel.
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; N1=$(ai_requests)
+P1=$(ai_chip Main); ai_wait Mockpoint
+P2=$(ai_chip Translate); ai_wait renard; T3=$(ai_text); shot ai-361
+RQ=$(tail -2 "$OUT/ai-requests.jsonl" 2>/dev/null | tr -d "'")
+check "Main points and Translate ask the provider and show the answers (chips $P1 / $P2; requests $N1 → $(ai_requests); $(echo "$T3" | grep -o 'Mockpoint\|renard' | tr '\n' ' '))" \
+    "echo \"$T3\" | grep -q Mockpoint && echo \"$T3\" | grep -q renard && echo '$RQ' | grep -q 'main points' && echo '$RQ' | grep -q 'Translate into English'"
+quit; ai_stop
+
+# 362. Slides (C-ai-005, Acrobat's Generate presentation): Slides (PDF) asks for an outline, saves it as a deck
+# (the dialog answered $OUT/ai-deck.pdf) of one 16:9 page per slide holding the outline's titles.
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; rm -f "$OUT/ai-deck.pdf"; echo "$PWD/$OUT/ai-deck.pdf" > "$OUT/dialog-answer"
+launch "$OUT/ai.pdf"; sleep 1
+ai_open; S1=$(ai_chip "(PDF"); for _ in $(seq 1 30); do [ -s "$OUT/ai-deck.pdf" ] && break; sleep 0.5; done; sleep 0.5; shot ai-362
+DP=$(pdfinfo "$OUT/ai-deck.pdf" 2>/dev/null | awk '/^Pages/ { print $2 } /^Page size/ { print $3 "x" $5 }' | tr '\n' ' ')
+DT=$(pdftotext "$OUT/ai-deck.pdf" - 2>/dev/null | tr '\n' ' ')
+check "Slides (PDF) writes the outline as a 16:9 deck (chip $S1; $DP; $(echo "$DT" | cut -c1-40))" "[ \"\$(echo $DP | cut -d' ' -f1)\" = 2 ] && echo '$DP' | grep -q '960x540' && echo \"$DT\" | grep -q 'Mock deck' && echo \"$DT\" | grep -q 'Second slide'"
+quit; rm -f "$OUT/dialog-answer"; ai_stop
+
+# 363. AI spaces and Classify (C-ai-006, C-ai-007; Acrobat's AI spaces, Stirling's Classify): New space holds the
+# open PDF, Add PDFs… a second; Classify space with "Animals, Invoices" asks once per PDF and groups them; the space
+# is kept in ai-spaces.json with its two files.
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; cp "$OUT/text.pdf" "$OUT/ai-two.pdf"; echo "$PWD/$OUT/ai-two.pdf" > "$OUT/dialog-answer"
+launch "$OUT/ai.pdf"; sleep 1
+# New space sits at the right of the spaces list ("This document"), Add PDFs… left of Delete space.
+ai_open; read _ NS <<< "$(at This 380x300+900+100)"; [ -n "$NS" ] && click 1214 $NS 0.8
+read _ A1 <<< "$(at Delete 380x400+900+100)"; [ -n "$A1" ] && click 955 $A1 1
+CF=$(at Categories 380x700+900+100); read CX CY <<< "$CF"; [ -n "$CY" ] && click $CX $CY 0.4; xdotool type --delay 15 "Animals, Invoices"
+N2=$(ai_requests); C1=$(ai_chip Classify); ai_wait 'Animals:'; T4=$(ai_text); shot ai-363
+SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(s[0]["name"], len(s[0]["files"]))' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
+check "a space holds two PDFs and Classify sorts them (new $NS, add $A1, classify $C1; requests $N2 → $(ai_requests); space: $SP; $(echo "$T4" | grep -o 'Animals: [a-z.,-]*' | head -1))" \
+    "[ \"$SP\" = 'Space 2' ] && [ \$(( \$(ai_requests) - $N2 )) = 2 ] && echo \"$T4\" | grep -q 'Animals: ai'"
+quit; rm -f "$OUT/dialog-answer"; ai_stop

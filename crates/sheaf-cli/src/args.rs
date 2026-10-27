@@ -2,7 +2,7 @@
 //! arguments ([`Cmd`]), the value enums and value parsers they use, and `sheaf edit`'s items
 //! regrouped by position ([`edit_items`]). `main.rs` dispatches what is parsed here.
 
-use clap::{ArgMatches, Parser, Subcommand, ValueEnum};
+use clap::{ArgMatches, Args, Parser, Subcommand, ValueEnum};
 use sheaf_core::compress::Level;
 use sheaf_core::numbers::Std14;
 use sheaf_core::redact::Pattern;
@@ -590,6 +590,48 @@ pub(crate) enum Cmd {
         #[arg(long)]
         pages: Option<String>,
     },
+    /// Ask AI a question about a PDF (Acrobat's AI Assistant); only its text is sent
+    Ask {
+        /// The PDF to ask about
+        input: PathBuf,
+        /// The question
+        #[arg(short, long)]
+        question: String,
+        /// Pages to send, e.g. "1-3,5" (default: all)
+        #[arg(long)]
+        pages: Option<String>,
+        #[command(flatten)]
+        ai: AiArgs,
+    },
+    /// Summarize a PDF with AI (PDF Expert's Summarize); only its text is sent
+    Summarize {
+        /// The PDF to summarize
+        input: PathBuf,
+        /// Pages to summarize, e.g. "1-3,5" (default: all)
+        #[arg(long)]
+        pages: Option<String>,
+        /// The main points as a list instead of paragraphs
+        #[arg(long)]
+        points: bool,
+        #[command(flatten)]
+        ai: AiArgs,
+    },
+    /// Translate a PDF's text with AI (PDF Expert's Translate); only its text is sent
+    Translate {
+        /// The PDF to translate
+        input: PathBuf,
+        /// The language to translate into, e.g. French
+        #[arg(long)]
+        to: String,
+        /// Pages to translate, e.g. "1-3,5" (default: all)
+        #[arg(long)]
+        pages: Option<String>,
+        /// Write the translation to this file (.txt, or .pdf for Western languages) instead of printing it
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+        #[command(flatten)]
+        ai: AiArgs,
+    },
     /// Render one page to a PNG, to look at a result
     Render {
         /// The PDF to read
@@ -680,6 +722,25 @@ pub(crate) enum Cmd {
     Tools,
     /// Serve every command as a tool over the Model Context Protocol (JSON-RPC on stdio)
     Mcp,
+}
+
+/// The AI provider of `ask`, `summarize` and `translate`; each falls back on an environment
+/// variable (SHEAF_AI_PROVIDER, SHEAF_AI_MODEL, SHEAF_AI_BASE_URL, SHEAF_AI_KEY or the provider's
+/// own, such as OPENAI_API_KEY), then on a local Ollama or llama.cpp server.
+#[derive(Args, Clone, Default)]
+pub(crate) struct AiArgs {
+    /// openai, anthropic, gemini, mistral, xai, compatible, ollama or llamacpp (env SHEAF_AI_PROVIDER)
+    #[arg(long)]
+    pub(crate) provider: Option<String>,
+    /// The model's name (env SHEAF_AI_MODEL; default: the provider's usual one)
+    #[arg(long)]
+    pub(crate) model: Option<String>,
+    /// The provider's address, e.g. http://localhost:1234/v1 (env SHEAF_AI_BASE_URL)
+    #[arg(long)]
+    pub(crate) base_url: Option<String>,
+    /// The API key (env SHEAF_AI_KEY or the provider's own variable)
+    #[arg(long)]
+    pub(crate) api_key: Option<String>,
 }
 
 #[derive(Clone, Copy, ValueEnum)]

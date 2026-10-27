@@ -30,6 +30,7 @@ encoding_rs.workspace = true
 calamine.workspace = true
 skrifa.workspace = true
 spellbook.workspace = true
+ureq.workspace = true
 
 [dev-dependencies]
 # Reads the QR Codes barcode form fields draw (tests only, pure Rust).

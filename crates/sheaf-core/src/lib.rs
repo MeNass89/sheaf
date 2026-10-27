@@ -1,4 +1,5 @@
 pub mod compare;
+pub mod ai;
 pub mod adjust;
 pub mod bookmarks;
 pub mod compress;

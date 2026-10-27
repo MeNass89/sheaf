@@ -132,6 +132,15 @@ fn prefs_round_trip_and_corrupt_means_default() {
             launch_keys: vec![("merge".into(), "Control+Alt+M".into())],
             dictionaries: vec!["fr_FR".into(), "en_US".into()],
         },
+        ai: sheaf_app::ai_store::AiPrefs {
+            provider: Some("mistral".into()),
+            models: [("mistral".to_string(), "mistral-large-latest".to_string())].into(),
+            base_urls: [("compatible".to_string(), "http://localhost:1234/v1".to_string())].into(),
+            off: false,
+            notice_seen: vec!["mistral".into()],
+            auto_open: true,
+            language: Some("French".into()),
+        },
     };
     p.save(dir.path()).unwrap();
     assert_eq!(Prefs::load(dir.path()), p);

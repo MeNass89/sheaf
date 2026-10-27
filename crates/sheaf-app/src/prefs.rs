@@ -185,6 +185,9 @@ pub struct Prefs {
     pub initials: Option<KeptSignature>,
     /// Spelling, keyboard shortcuts, tools shown and the interface's direction.
     pub platform: crate::platform::PlatformPrefs,
+    /// Preferences ▸ AI: the provider, its model and address, the panel's auto-open (keys are
+    /// kept apart, encrypted: `ai_store.rs`).
+    pub ai: crate::ai_store::AiPrefs,
 }
 
 impl Prefs {

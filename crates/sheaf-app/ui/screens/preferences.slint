@@ -6,6 +6,7 @@ import { SecondaryButton } from "dialogs.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Check } from "../widgets/check.slint";
 import { SpellingSection, KeyboardSection, InterfaceSection } from "preferences-platform.slint";
+import { AiSection } from "preferences-ai.slint";
 
 // White card with a section title.
 // A round colour to pick, ringed when chosen.
@@ -487,6 +488,8 @@ export component PreferencesScreen inherits Rectangle {
             InterfaceSection {}
             SpellingSection {}
             KeyboardSection {}
+            // Preferences ▸ AI (preferences-ai.slint).
+            AiSection {}
         }
     }
 }

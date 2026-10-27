@@ -73,6 +73,7 @@ impl Cmd {
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
             // They write no PDF.
             Cmd::ReviewOcr { .. } | Cmd::SaveSecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Search { .. } | Cmd::Actions | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
+            Cmd::Ask { .. } | Cmd::Summarize { .. } | Cmd::Translate { .. } => vec![],
         }
     }
 
@@ -82,6 +83,8 @@ impl Cmd {
         match self {
             Cmd::Split { out, .. } | Cmd::ToJpg { out, .. } => Some(out),
             Cmd::ReviewOcr { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Search { .. } | Cmd::Actions | Cmd::Tools | Cmd::Mcp => None,
+            Cmd::Ask { .. } | Cmd::Summarize { .. } => None,
+            Cmd::Translate { out, .. } => out.as_deref().and_then(Path::parent).filter(|p| !p.as_os_str().is_empty()),
             Cmd::EncryptCertificates { out, .. }
             | Cmd::UnlockCertificate { out, .. }
             | Cmd::CorrectOcr { out, .. }
@@ -129,6 +132,28 @@ fn run(cli: Cli) -> sheaf_core::Result<Vec<PathBuf>> {
         note!("{NOT_PROTECTED}");
     }
     r
+}
+
+/// The AI setup from flags and environment, and the pages' text as labelled sources.
+fn ai_input(i: &Input, pages: Option<&str>, a: &args::AiArgs) -> sheaf_core::Result<(sheaf_core::ai::Config, Vec<sheaf_core::ai::tasks::Source>)> {
+    let cfg = sheaf_core::ai::config_from(a.provider.as_deref(), a.model.as_deref(), a.base_url.as_deref(), a.api_key.as_deref(), &|k| std::env::var(k).ok())
+        .map_err(OpdfError::Unsupported)?;
+    let n = sheaf_core::pdfcraft::Doc::open(i)?.document().info.pages.len() as u32;
+    let wanted: Vec<usize> = match pages {
+        Some(spec) => sheaf_core::ranges::parse_ranges(spec, n)?.into_iter().flatten().map(|p| p as usize - 1).collect(),
+        None => (0..n as usize).collect(),
+    };
+    let texts = sheaf_core::text::page_texts(i, &wanted)?;
+    let src = wanted.iter().zip(texts).filter(|(_, t)| !t.trim().is_empty()).map(|(p, t)| sheaf_core::ai::tasks::Source { label: format!("p. {}", p + 1), text: t.trim().to_string() }).collect();
+    Ok((cfg, src))
+}
+
+fn ai_error(e: sheaf_core::ai::AiError) -> OpdfError {
+    match e {
+        sheaf_core::ai::AiError::Cancelled => OpdfError::Cancelled,
+        // The app's wording points at Preferences; here the flags are the place.
+        e => OpdfError::Engine(e.to_string().replace("in Preferences ▸ AI", "with --api-key or SHEAF_AI_KEY").replace("Preferences ▸ AI", "--provider and --base-url")),
+    }
 }
 
 const NOT_PROTECTED: &str = "note: the output is not password-protected";
@@ -385,6 +410,32 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             };
             agent::set_text(sheaf_core::text::page_texts(&i, &pages)?);
             Ok(vec![])
+        }
+        Cmd::Ask { input: i, question, pages, ai } => {
+            let (cfg, src) = ai_input(&input(i), pages.as_deref(), &ai)?;
+            agent::set_text(vec![sheaf_core::ai::tasks::ask(&cfg, &src, None, &question, &[], &mut |_, _| true).map_err(ai_error)?]);
+            Ok(vec![])
+        }
+        Cmd::Summarize { input: i, pages, points, ai } => {
+            let (cfg, src) = ai_input(&input(i), pages.as_deref(), &ai)?;
+            let form = if points { sheaf_core::ai::tasks::Summary::MainPoints } else { sheaf_core::ai::tasks::Summary::Paragraphs };
+            agent::set_text(vec![sheaf_core::ai::tasks::summarize(&cfg, &src, form, &mut |_, _| true).map_err(ai_error)?]);
+            Ok(vec![])
+        }
+        Cmd::Translate { input: i, to, pages, out, ai } => {
+            let i = input(i);
+            let (cfg, src) = ai_input(&i, pages.as_deref(), &ai)?;
+            let text = sheaf_core::ai::tasks::translate(&cfg, &src, &to, &mut |_, _| true).map_err(ai_error)?;
+            match out {
+                None => {
+                    agent::set_text(vec![text]);
+                    Ok(vec![])
+                }
+                Some(out) => {
+                    let title = format!("{} ({to})", i.path.file_stem().unwrap_or_default().to_string_lossy());
+                    one(sheaf_core::ai::write_text(&title, &text, &out))
+                }
+            }
         }
         Cmd::Search { input: i, query } => {
             agent::set_data(actions::search(&sheaf_core::text::page_texts(&input(i), &[])?, &query));

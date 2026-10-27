@@ -1189,6 +1189,8 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
         if let Some(((fit, centre), page)) = ask {
             properties::window_as_asked(ui, fit, centre, page);
         }
+        // Preferences ▸ AI ▸ Open the AI panel with every document (PDF Expert's).
+        crate::ai_ui::auto_open(ui, id);
     }
 }
 
@@ -1355,6 +1357,8 @@ pub use ocr_review::{review_ocr, ocr_review_action};
 pub(crate) mod javascript;
 mod layers;
 mod look_up;
+mod ai_doc;
+pub use ai_doc::{ai_doc, ai_page_texts};
 mod folder_search;
 mod pages;
 mod tools;

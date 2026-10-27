@@ -44,6 +44,8 @@ calamine = { version = "0.31", default-features = false }
 spellbook = "0.4"
 # Existing transitive pure-Rust crypto/parser crates, now used by offline PubSec encryption.
 rsa = { version = "=0.10.0-rc.18", default-features = false, features = ["std", "encoding"] }
+# The AI panel's requests (sheaf-core/src/ai): a small blocking HTTP client, TLS by rustls.
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 pdfcraft-cos = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-engine = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-edit = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
