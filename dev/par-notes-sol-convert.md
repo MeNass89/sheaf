@@ -521,3 +521,89 @@ LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
 - `unreadable_page_streams_cannot_be_silently_skipped_by_hairline_repair` explicitly covers a
   corrupt Flate stream after a repairable stroke: the edit must fail without changing the
   working snapshot. Written, not run; no external program or optional-runtime skip.
+
+## Polaroid — pass 3 handoff (current)
+
+- Project Sheaf, batch sol-convert, branch `par/sol-convert`, status **partial / ready for
+  orchestrator integration**. All six reviewed components received changes and per-component
+  commits pushed immediately. No component is claimed closed or at joint 9.
+- Closed subgaps: PDF/A's regressed default; native spreadsheet data pages without LibreOffice
+  with sheet selection; nested Form hairlines; press-resource inventory and report-to-fixups
+  navigation; PDF/X document-thread blocking and weak ICC/transparency checks; local printed
+  HTML long-page stacking. These are source implementations with written tests, not runtime proof.
+- Remaining deciding gaps: faithful Office runtime/bundling and full fidelity; network URL capture
+  (explicitly excluded), browser screen/continuous layout; extra PDF/A levels and real downgrade;
+  PDF/X/E engines/levels, ICC distribution and ISO validation; actual output preview/ink coverage,
+  fixup profiles/audit history; pattern/Type 3/annotation hairlines, richer marks/traps/flattening.
+- No cargo, rustc, clippy, test suite, app, Chrome, Xvfb or codex executed. Verification performed:
+  pinned Rust API/source inspection, all known changed constructors/callbacks searched,
+  `git diff 4d5e12b..HEAD --check`, Impeccable static detector `[]`, clean worktree and actual
+  `git ls-remote` head equality after feature pushes. These do not prove compilation or behaviour.
+- No new package/version or lockfile change. Existing pure-Rust `calamine` is now a regular core
+  dependency (formerly dev-only). New public `spreadsheet::to_pdf`, `press::Snapshot::capture`
+  and `Snapshot::export`; new `Job::Office.data_sheets`, `html::Options.long_page`,
+  `ToolOptions.html_long_page`, and `Reply::PdfXStarted`. No Prefs field or reader menu index added.
+- Integrator: reconcile small shared-file blocks, build Slint/Rust, run full suite and all named
+  tests; then manually check both themes, absent-LibreOffice native mode, saved options,
+  PDF/X editing during export, and long-page links/UserUnit in actual viewers. Real LO/GS/ICC
+  tests still require those runtimes; their skips are not passes. Validate whether Ghostscript
+  preserves the chosen ICC bytes exactly on all supported versions; mismatch must publish nothing.
+- Next authorized action is the orchestrator's merge/build/test and independent Opus re-review.
+  Author grades below remain provisional and source-only, replacing earlier pass grades.
+
+### Pass 3 complete changed-file list
+
+- `crates/sheaf-app/src/jobs.rs`
+- `crates/sheaf-app/src/reader_doc/mod.rs`
+- `crates/sheaf-app/src/reader_ui/mod.rs`
+- `crates/sheaf-app/src/reader_ui/prepress.rs`
+- `crates/sheaf-app/src/run.rs`
+- `crates/sheaf-app/src/saved_options.rs`
+- `crates/sheaf-app/tests/jobs.rs`
+- `crates/sheaf-app/ui/flow-types.slint`
+- `crates/sheaf-app/ui/screens/options.slint`
+- `crates/sheaf-app/ui/screens/reader-prepress.slint`
+- `crates/sheaf-app/ui/screens/reader-production.slint`
+- `crates/sheaf-core/Cargo.toml`
+- `crates/sheaf-core/src/html.rs`
+- `crates/sheaf-core/src/html_long_page.rs`
+- `crates/sheaf-core/src/lib.rs`
+- `crates/sheaf-core/src/preflight.rs`
+- `crates/sheaf-core/src/press.rs`
+- `crates/sheaf-core/src/spreadsheet.rs`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `crates/sheaf-core/tests/office.rs`
+- `crates/sheaf-core/tests/preflight.rs`
+- `dev/par-notes-sol-convert.md`
+- `third_party/pdfcraft-edit/src/prepress.rs`
+- `third_party/pdfcraft-engine/src/print_resources.rs`
+- `third_party/pdfcraft-engine/src/printcheck.rs`
+
+### Pass 3 author grades — not joint closure
+
+C-convert-002: f8 a8 p8 — `native_data_report_selects_sheets_preserves_cells_and_needs_no_office_runtime`,
+`crates/sheaf-core/src/spreadsheet.rs:100`: visible/explicit sheets, addresses, values and source kept;
+faithful Office import/runtime gap stays open.
+
+C-convert-005: f7 a8 p8 — `long_local_output_keeps_vector_content_link_rectangles_and_internal_destinations`,
+`crates/sheaf-core/src/html_long_page.rs:202`: preserved vector forms and link/destination geometry;
+URL/browser-continuous rendering stays absent.
+
+C-convert-018: f7 a8 p8 — `archival_history_keeps_the_old_copy_and_issues_default_but_honours_strict`,
+`crates/sheaf-app/src/saved_options.rs:64`, UI `screens/options.slint:331`: default/history regression
+repaired while strict opt-in survives; extra conformance levels stay absent.
+
+C-convert-019: f4 a7 p7 — `press_snapshot_keeps_unsaved_changes_separate_from_later_edits`,
+`crates/sheaf-core/src/press.rs:224`, plus `written_press_checks_reject_substituted_icc_and_transparency_without_ghostscript:241`:
+independent snapshot and stronger local checks; conversion still external and only X-3.
+
+C-optimize-012: f6 a7 p7 — `preflight_inventories_nested_press_resources_without_claiming_ink_simulation`,
+`crates/sheaf-core/tests/preflight.rs:62`: page-scoped declarations, preset labels, unchanged source;
+output/separations simulation and audit/fixup-profile gaps stay open.
+
+C-optimize-014: f6 a7 p7 — `grouped_hairlines_use_private_forms_per_scale_and_leave_unselected_pages_unchanged`,
+`crates/sheaf-core/tests/engine_patches.rs:183`: private scaled nested Forms, unselected content and
+undo; cyclic/corrupt refusal tests at 239/259. Patterns/marks/trapping/flattening gaps stay open.
+
+All cited tests are WRITTEN, NOT RUN. No aesthetic render or performance benchmark was performed.
+LIGNES : max 5 (preflight finding / data-report information) · cases > 6 : aucune.
