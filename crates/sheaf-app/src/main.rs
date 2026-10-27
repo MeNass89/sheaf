@@ -679,6 +679,10 @@ fn main() -> Result<(), slint::PlatformError> {
     // Drag and drop from Finder.
     let weak = ui.as_weak();
     ui.window().on_winit_window_event(move |_, ev| match ev {
+        winit::event::WindowEvent::Focused(true) => {
+            state::refresh_office_runtime();
+            EventResult::Propagate
+        }
         winit::event::WindowEvent::HoveredFile(path) => {
             if let Some(ui) = weak.upgrade() {
                 let (hint, refused) = flow::drop_hint(&ui, path);

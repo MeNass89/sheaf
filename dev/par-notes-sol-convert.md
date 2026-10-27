@@ -607,3 +607,16 @@ undo; cyclic/corrupt refusal tests at 239/259. Patterns/marks/trapping/flattenin
 
 All cited tests are WRITTEN, NOT RUN. No aesthetic render or performance benchmark was performed.
 LIGNES : max 5 (preflight finding / data-report information) · cases > 6 : aucune.
+
+## Pass 4 — review-sol-convert-2 (active)
+
+- C-convert-002: Returning to Sheaf after installing/removing LibreOffice now refreshes existing
+  Office/HTML tabs once on window focus (iLovePDF's offline conversion). The built-in Excel report
+  remains available without LibreOffice. Test WRITTEN, NOT RUN:
+  `office_runtime_refresh_enables_existing_tabs_after_install_and_disables_after_removal`.
+  No bundling or new dependency; corpus fidelity still needs the orchestrator's real runtime.
+  not automatable: open a Word tab without LibreOffice, install it, focus Sheaf, verify Run becomes
+  available without a new tab — worker forbidden to launch the app.
+
+Polaroid: Pass 4 targets the five DISAGREEs plus the accepted Office refresh nit; source-only
+verification. No network features; no compiler, test, app or Codex invocation. Next: PDF/A levels.
