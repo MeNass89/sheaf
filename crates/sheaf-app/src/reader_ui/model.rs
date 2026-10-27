@@ -64,8 +64,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         }
     }
     // The OCR run being reviewed: its scan remains visible beside the correction panel.
-    if let Some(row) = r.ocr_review.as_ref().and_then(|f| f.selected()) {
-        marks.push(overlay(v.viewer.overlay(row.page - 1, row.rect), 5));
+    if let Some(row) = r.ocr_review.as_ref().filter(|f| !f.busy).and_then(|f| f.selected())
+        && let Some(page) = row.page.checked_sub(1).filter(|&page| page < v.viewer.page_count())
+    {
+        marks.push(overlay(v.viewer.overlay(page, row.rect), 5));
     }
     // Annotations on their way to the document thread, drawn as they will look.
     let mut prov_ink = String::new();

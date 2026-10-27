@@ -324,3 +324,7 @@
   `suspect_filter_preserves_the_original_page_and_line_targets`.
 - GUI handoff additionally checks sidebar restoration, scan fit beside the panel, filtering,
   failed-correction position and Correct/Next within the filtered set. No execution here.
+
+- OCR review hides its old highlight while refreshing and bounds-checks page navigation, so
+  deleting/reordering pages cannot render an obsolete review target. GUI handoff includes
+  removing the reviewed page while the panel is open and confirming the refresh is safe.

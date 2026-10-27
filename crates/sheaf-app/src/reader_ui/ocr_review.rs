@@ -45,8 +45,10 @@ pub(super) fn refresh(r: &mut ReaderUi) {
 }
 
 fn show(r: &ReaderUi, v: &mut ViewerUi) {
-    if let Some(row) = r.ocr_review.as_ref().and_then(|f| f.selected()) {
-        v.show_page(row.page - 1, None);
+    if let Some(row) = r.ocr_review.as_ref().filter(|f| !f.busy).and_then(|f| f.selected())
+        && let Some(page) = row.page.checked_sub(1).filter(|&page| page < v.viewer.page_count())
+    {
+        v.show_page(page, None);
     }
 }
 
