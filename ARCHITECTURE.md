@@ -21,6 +21,10 @@ Password fields can opt into the reveal control in `ui/widgets/text-field.slint`
 Recents exclusions are saved separately from task history by `history.rs` (`hidden-recents.json`).
 The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 
+Scanner acquisition is shared in `crates/sheaf-core/src/scanner.rs`: local SANE on Linux/macOS
+(including Finder's missing Homebrew PATH), WIA on Windows, decoded pixels before accepting a scan.
+`run::scan_page` supplies the GUI test seam; Home and the reader's Insert from Scanner use this adapter.
+
 `crates/sheaf-core/src/textdocs.rs` renders CommonMark with local image resources, keeping the original
 Markdown file URL as the base for the temporary HTML passed to either PDF layout converter.
 

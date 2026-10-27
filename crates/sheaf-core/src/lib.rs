@@ -32,6 +32,7 @@ pub mod portfolio;
 pub mod ranges;
 pub mod redact;
 pub mod repair;
+pub mod scanner;
 pub mod script;
 pub mod rotate;
 pub mod security;

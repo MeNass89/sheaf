@@ -768,3 +768,23 @@ cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
 key r; sleep 0.6; read FX _ <<< "$(at Fill 1280x120+0+80)"
 check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
 quit; platform_reset
+
+# 330. Acrobat's Create PDF from Scanner through the real process adapter: the fake SANE driver
+# returns pixels, not SHEAF_TEST_SCAN's image-copy seam. Also used by the macOS SANE fallback.
+scanner_driver() {
+    SCANNER_APP=$APP; SCANNER_PATH=$PATH
+    mkdir -p "$OUT/scanner-bin"
+    convert -size 80x40 xc:'#2a9d4b' "$OUT/scanner-source.png"
+    printf '#!/bin/sh\nprintf "%%s\\n" "$@" > "%s/scanner-args"\ncp "%s/scanner-source.png" "$5"\n' "$PWD/$OUT" "$PWD/$OUT" > "$OUT/scanner-bin/scanimage"
+    printf '#!/bin/sh\nunset SHEAF_TEST_SCAN\nexec "%s" "$@"\n' "$APP" > "$OUT/scanner-app"
+    chmod +x "$OUT/scanner-bin/scanimage" "$OUT/scanner-app"
+    export PATH="$PWD/$OUT/scanner-bin:$PATH"; APP="$PWD/$OUT/scanner-app"
+}
+scanner_restore() { APP=$SCANNER_APP; export PATH=$SCANNER_PATH; }
+scanner_driver
+launch; answer "$PWD/$OUT/driver-scan.pdf"; FN=$(at scanner 1000x120+250+80); [ -n "$FN" ] && click $FN 1
+for _ in $(seq 1 20); do [ -f "$OUT/driver-scan.pdf" ] && break; sleep 0.5; done; answer ""
+SN=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/driver-scan.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
+shot 330-scanner-driver
+check "330 From scanner invokes SANE at 300 dpi and opens the scanned pixels ($SN)" "[ \"\$(npages $OUT/driver-scan.pdf 2>/dev/null)\" = 1 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && grep -qx -- '--format=png' $OUT/scanner-args && grep -qx '300' $OUT/scanner-args && [ \"\$(ntabs)\" = 1 ]"
+quit; scanner_restore
