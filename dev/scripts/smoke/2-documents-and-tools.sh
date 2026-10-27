@@ -26,7 +26,7 @@ T1=$(copied); key ctrl+shift+bracketleft; sleep 0.8; T2=$(copied); shot 08-tabs
 check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})" "[ -n \"$T1\" ] && [ -n \"$T2\" ] && [ \"$T1\" != \"$T2\" ]"
 # 9. Home ▸ Preferences ▸ Identity ▸ Your name: what is typed is kept.
 # The field sits 30 px below its "Your name" label.
-click 50 21 0.8; click 90 192 0.8; AN=$(at Your 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
+click 50 21 0.8; PF=$(at Preferences 196x400+0+40); [ -n "$PF" ] && click $PF 0.8; AN=$(at Your 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Author"; sleep 0.8; shot 09-preferences
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.
@@ -39,7 +39,10 @@ TB1=$(ocr 1280x30+0+6)
 check "tool search: 'pdf to', ↓, ↩ opens PDF to Word ($TB1)" "echo \"$TB1\" | tr -d ' ' | grep -qi 'PDFtoWord' && ! echo \"$TB0\" | tr -d ' ' | grep -qi 'PDFtoWord'"
 # The star on Compress's card (shown on hover, at 233,318): saved as a favourite, a Favourites row on top.
 # The search still holds "pdf to" (the page was not left): cleared with Escape in the field first.
-click 40 21 0.8; click 90 112 0.8; click 990 76 0.4; key Escape; sleep 0.5; shot 09c-before-star; xdotool mousemove 270 350; sleep 0.4; click 233 318 1
+click 40 21 0.8; click 90 112 0.8; click 990 76 0.4; key Escape; sleep 0.5; shot 09c-before-star
+# The card found by its name (rows above the categories may move it): the star sits 38 px left of
+# and 55 px above the name's centre, shown while the card is hovered.
+read CX CY <<< "$(at Compress 1060x700+200+90)"; [ -n "$CY" ] && { xdotool mousemove $CX $(( CY - 63 )); sleep 0.4; click $(( CX - 38 )) $(( CY - 55 )) 1; }
 check "starring a tool puts it in the preferences' favourites" "grep -rqs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
 # ⌘, opens Preferences from a tool tab and from a document (keys go up to the app).
 key ctrl+comma; sleep 1; PT1=$(ocr 500x60+200+40)
