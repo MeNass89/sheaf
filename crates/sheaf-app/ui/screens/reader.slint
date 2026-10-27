@@ -231,8 +231,13 @@ export component ReaderScreen inherits Rectangle {
             present => { root.present(); }
             toggle-full-screen => { root.full-screen(!root.is-full-screen); root.presenting = false; }
         }
-        HorizontalLayout {
+        // A flexbox so that right to left (Preferences ▸ Interface ▸ Direction) puts the side panel
+        // on the right of the pages (Slint's rows have no direction of their own).
+        FlexboxLayout {
             vertical-stretch: 1;
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: stretch;
             // ---- side panel -------------------------------------------------------------------
             panel := ReaderPanel {
                 tab: root.tab;

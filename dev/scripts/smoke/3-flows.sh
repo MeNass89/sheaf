@@ -1190,3 +1190,14 @@ LR=$(at Left 1280x710+0+90); [ -n "$LR" ] && click $LR 0.8
 read LX _ <<< "$(at Recents 1280x300+0+40)"
 check "right to left puts Home's sidebar on the right, left to right back on the left (Recents at x ${RX:-?}, then ${LX:-?})" "[ \"${RX:-0}\" -gt 1050 ] && [ \"${LX:-9999}\" -lt 250 ]"
 quit; platform_reset
+
+# 224. A document right to left (C-platform-004): the tab bar starts on the right (Home at the right edge, the
+# document's tab to its left), and the side panel goes to the right of the pages: the page's words move left by
+# about the panel's width from where they were left to right.
+cp "$OUT/text.pdf" "$OUT/mirrored.pdf"; launch "$OUT/mirrored.pdf"; sleep 1
+read QL _ <<< "$(at quick 1280x700+0+90)"; quit
+python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.setdefault("platform", {})["direction"] = 2; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+launch "$OUT/mirrored.pdf"; sleep 1
+read HX _ <<< "$(at Home 1280x40+0+0)"; read DX _ <<< "$(at mirrored 1280x40+0+0)"; read QR _ <<< "$(at quick 1280x700+0+90)"
+check "right to left mirrors the tab bar and puts the side panel right of the pages (Home at x ${HX:-?}, the document at ${DX:-?}; 'quick' at ${QL:-?} then ${QR:-?})" "[ \"${HX:-0}\" -gt 1100 ] && [ -n \"$DX\" ] && [ \"$DX\" -lt \"$HX\" ] && [ -n \"$QL\" ] && [ \"${QR:-9999}\" -lt \"$(( QL - 150 ))\" ]"
+quit; platform_reset

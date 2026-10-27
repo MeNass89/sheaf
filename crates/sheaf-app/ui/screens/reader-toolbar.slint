@@ -3,6 +3,7 @@
 import { Theme } from "../theme.slint";
 import { ToolButton, Divider } from "reader-parts.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
 
 export component ReaderToolbar inherits Rectangle {
     in property <ToolTab> tab;
@@ -37,12 +38,18 @@ export component ReaderToolbar inherits Rectangle {
     height: root.bare ? 0px : 46px;
     visible: !root.bare;
     background: Theme.panel-bg;
-    HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 10px;
+    // Flexboxes, not HorizontalLayouts, so that right to left (Preferences ▸ Interface ▸ Direction)
+    // reverses the groups and the buttons in each (Slint's rows have no direction of their own).
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        padding-left: PlatformBridge.rtl ? 10px : 8px;
+        padding-right: PlatformBridge.rtl ? 8px : 10px;
         spacing: 4px;
         alignment: stretch;
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 2px;
             alignment: start;
             padding-top: 8px;
@@ -120,7 +127,9 @@ export component ReaderToolbar inherits Rectangle {
         }
         Rectangle { horizontal-stretch: 1; }
         // Page field and zoom
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 4px;
             alignment: center;
             padding-top: 9px;
@@ -237,7 +246,9 @@ export component ReaderToolbar inherits Rectangle {
             if !root.fold-edit: ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
         }
         Rectangle { horizontal-stretch: 1; }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 2px;
             alignment: end;
             padding-top: 8px;

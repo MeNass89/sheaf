@@ -42,10 +42,15 @@
   `shortcuts_that_would_stop_typing_are_refused`, `shortcuts_change_conflict_and_reset`,
   `shortcut_rows_are_searched`, `tools_that_cannot_run_here`; `history.rs` prefs literal; smoke step 221)
 - C-platform-004: Preferences ▸ Interface ▸ Direction (iLovePDF's right-to-left interface): as the system's
-  language (Arabic, Hebrew, Persian, Urdu… right to left), Left to right, Right to left. Right to left,
+  language (Arabic, Hebrew, Persian, Urdu… right to left), Left to right, Right to left. Right to left:
   Home's sidebar goes to the window's right edge, its entries mirrored (icon right, text against it,
-  selection bar on the left). (test `platform::tests::right_to_left_follows_the_language_unless_chosen`;
-  smoke step 223)
+  selection bar on the left); the tab bar starts at the right (Home at the right edge, tabs going left,
+  each tab's icon on its right and × on its left, a drag to the left moves a tab along, the drop line and
+  keep-in-view scrolling mirrored); the reader's toolbar groups and the buttons in each are reversed; the
+  side panel sits right of the pages, its border and drag edge on its left (dragged leftwards it widens).
+  The rows mirrored are FlexboxLayouts with `flex-direction: row-reverse` (Slint 1.18's HorizontalLayout has
+  no direction). (test `platform::tests::right_to_left_follows_the_language_unless_chosen`; smoke steps 223,
+  224)
 - C-platform-007: `sheaf bookmark <pdf> --title <t> --page <n> -o <out>` adds a bookmark opening a page after
   the last top-level one (UTF-16 titles when not ASCII); the MCP server offers it as a tool (generated from
   clap), `sheaf info` lists it. This closes Sol's "no command adds a bookmark" (Preview's App Intents,
@@ -68,9 +73,14 @@
   handler). A command given new keys still answers its old ones where the reader or Home handled them
   itself (⌘S in a reader tab, ⌘O, ⌘W, ⌘,): those handlers were left as they are. "API output handling"
   (Stirling) is a server setting with no meaning offline.
-- C-platform-004: only Home's sidebar is mirrored; the tab bar, the reader's toolbar and side panel, the
-  tool pages and text alignment elsewhere still read left to right (Slint has no layout direction; each
-  screen needs its own mirroring).
+- C-platform-004, what Slint 1.18 blocks or what is left: (1) Slint has no window-wide layout direction, so
+  each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, reader side panel; left: the
+  tool options bar over the pages, the side panel's own rows, the sheets and dialogs, the tool-flow pages).
+  (2) Text alignment: `Text`'s default `horizontal-alignment` is `start`, which follows each string's own
+  script (an Arabic string sits right, an English one left); Sheaf has no translations, so its English labels
+  stay left-aligned except where set to `right` here (sidebar, tabs). (3) The `MenuBar` element has no
+  direction: its menus stay File … Help from the left. (4) Icons are not flipped (the Side panel icon still
+  points left): Slint has no mirrored image drawing short of a second icon file.
 - C-platform-007: Shortcuts / AppleScript actions need macOS (App Intents, a Mac build): not done, as the
   brief says. Linux and Windows have no system automation of that kind; the CLI and the MCP server are it.
 
