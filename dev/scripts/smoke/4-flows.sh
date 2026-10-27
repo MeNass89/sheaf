@@ -517,11 +517,12 @@ platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])
 # clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
 launch; key ctrl+comma; sleep 0.8
 shortcut_search "find"
-KF=$(keybox Find); sleep 0.5; key ctrl+alt+f; sleep 1
-# keybox prints the row's y, or words when the row was not found: only a number goes on.
-case "$KF" in ''|*[!0-9]*) KF=0 ;; esac
-# Find Next's row is the next one, 42 px lower.
-KG=$(( ${KF:-0} + 42 )); [ "$KG" -gt 42 ] && click 1157 $KG 0.5; key ctrl+s; sleep 1.2; shot 221-shortcuts
+# Rows are found from Find Next's "Next" (OCR reads "Find…" with its ellipsis, so "Find" alone
+# matched Find Next's row); Find's row is the one above, 42 px higher.
+read _ KG <<< "$(at Next 1020x700+250+90)"
+case "$KG" in ''|*[!0-9]*) KG=0 ;; esac
+KF=$(( KG - 42 )); [ "$KF" -gt 0 ] && click 1157 $KF 0.5; sleep 0.5; key ctrl+alt+f; sleep 1
+[ "$KF" -gt 0 ] && click 1157 $KG 0.5; key ctrl+s; sleep 1.2; shot 221-shortcuts
 KE=$(ocr 1020x700+250+90)
 # The preferences are written a moment after the keys (up to 3 s under load).
 for _ in 1 2 3 4 5 6; do

@@ -6829,6 +6829,8 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "unicode-normalization",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]
