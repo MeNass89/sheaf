@@ -56,8 +56,8 @@ export component SpellStrip inherits Rectangle {
             spacing: 4px;
             alignment: start;
             Text {
-                text: issue.word;
-                max-width: 110px;
+                text: issue.note == "" ? issue.word : issue.note;
+                max-width: 160px;
                 font-size: Theme.fs-caption;
                 font-weight: Theme.weight-demibold;
                 color: Theme.danger;
@@ -71,15 +71,18 @@ export component SpellStrip inherits Rectangle {
                 vertical-alignment: center;
             }
             for s in issue.suggestions: SpellChip {
-                text: s;
+                // A grammar fix of a single space reads as words.
+                text: s == " " ? "One space" : s;
                 strong: true;
                 clicked => { root.replace(issue.start, issue.word, s); }
             }
             SpellChip {
                 text: "Ignore";
-                clicked => { PlatformBridge.spell-ignore(issue.word); }
+                clicked => {
+                    if issue.note == "" { PlatformBridge.spell-ignore(issue.word); } else { PlatformBridge.grammar-ignore(issue.note, issue.word); }
+                }
             }
-            SpellChip {
+            if issue.note == "": SpellChip {
                 text: "Learn";
                 clicked => { PlatformBridge.spell-learn(issue.word); }
             }

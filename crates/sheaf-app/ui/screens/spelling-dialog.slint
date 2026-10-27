@@ -10,6 +10,7 @@ import { PlatformBridge } from "../platform.slint";
 export component SpellingDialog inherits Modal {
     card-width: 460px;
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: "Check spelling";
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
@@ -24,6 +25,7 @@ export component SpellingDialog inherits Modal {
         changed seq => { to.text = self.first; }
         init => { to.text = self.first; }
         Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: PlatformBridge.check-where;
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
@@ -43,7 +45,8 @@ export component SpellingDialog inherits Modal {
             }
         }
         Text {
-            text: "Not in the dictionary: “\{PlatformBridge.check-word}”";
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+            text: PlatformBridge.check-note + ": “\{PlatformBridge.check-word}”";
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: Theme.danger;
@@ -53,7 +56,9 @@ export component SpellingDialog inherits Modal {
             placeholder: PlatformBridge.check-word;
             accepted => { PlatformBridge.check-change(self.text); }
         }
-        if PlatformBridge.check-suggestions.length > 0: HorizontalLayout {
+        if PlatformBridge.check-suggestions.length > 0: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 6px;
             alignment: start;
             for s in PlatformBridge.check-suggestions: Rectangle {
@@ -62,9 +67,11 @@ export component SpellingDialog inherits Modal {
                 border-radius: Theme.radius-small;
                 background: st.has-hover || to.text == s ? Theme.popup-hover : Theme.pill-bg;
                 sl := Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                     x: 8px;
                     width: parent.width - 16px;
-                    text: s;
+                    // A grammar fix of a single space reads as words.
+                    text: s == " " ? "One space" : s;
                     font-size: Theme.fs-label;
                     color: Theme.text;
                     vertical-alignment: center;
@@ -77,11 +84,14 @@ export component SpellingDialog inherits Modal {
             }
         }
         if PlatformBridge.check-suggestions.length == 0: Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: "No suggestions: type the word as it should be.";
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
         }
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 8px;
             alignment: end;
             SecondaryButton { text: "Next"; clicked => { PlatformBridge.check-next(); } }
@@ -92,12 +102,15 @@ export component SpellingDialog inherits Modal {
     }
     // Every comment and field checked (or none to check, or no dictionary): what was done.
     if PlatformBridge.check-word == "": Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: PlatformBridge.check-done;
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
         wrap: word-wrap;
     }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: end;
         SecondaryButton { text: PlatformBridge.check-word == "" ? "Done" : "Stop"; clicked => { PlatformBridge.check-close(); } }
     }

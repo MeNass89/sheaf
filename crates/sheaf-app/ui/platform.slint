@@ -5,6 +5,8 @@
 // A misspelt word of the text being typed: where it starts (a byte offset), the word, up to
 // three corrections.
 export struct SpellIssue {
+    // A grammar finding: what is wrong ("Repeated word"); "" for a misspelt word.
+    note: string,
     word: string,
     start: int,
     suggestions: [string],
@@ -17,6 +19,13 @@ export struct ShortcutRow {
     name: string,
     keys: string,
     custom: bool,
+}
+
+// Tools ▸ Open Tool: a tool of the Tools page and the keys that open it (Stirling's tool hotkeys).
+export struct Launcher {
+    id: string,
+    name: string,
+    keys: keys,
 }
 
 export global PlatformBridge {
@@ -38,11 +47,17 @@ export global PlatformBridge {
     callback spell-ignore(string);
     callback spell-learn(string);
     callback set-spell-on(bool);
+    // Check Grammar With Spelling (Preview's): on; a grammar finding Ignored (its note and text).
+    in property <bool> grammar-on: true;
+    callback set-grammar-on(bool);
+    callback grammar-ignore(string, string);
     callback forget-learned();
 
     // The menu bar's shortcuts, by command (src/platform.rs COMMANDS); emptied while a new one
     // is recorded so the keys reach the recorder.
     in property <[keys]> keys;
+    // Tools ▸ Open Tool, every tool on the Tools page with its keys (none unless given).
+    in property <[Launcher]> launchers;
     // By command: given keys of its own by the user (the reader's and Home's other keys for it
     // stop), and its keys as written in the help sheet.
     in property <[bool]> rebound;
@@ -83,6 +98,8 @@ export global PlatformBridge {
     in property <bool> check-open;
     in property <string> check-word;
     in property <string> check-where;
+    // What is wrong: "Not in the dictionary", or a grammar finding's ("Repeated word").
+    in property <string> check-note;
     in property <styled-text> check-context;
     in property <[string]> check-suggestions;
     in property <int> check-seq;
@@ -96,7 +113,7 @@ export global PlatformBridge {
     callback check-next();
     callback check-close();
     // Edit ▸ Cut, Copy, Paste, Select All: ⌘ and this key sent to what has the keyboard.
-    callback edit-key(string);
+    callback edit-key(key: string, shift: bool);
     // File ▸ Quit: closes the window as its close button does (unsaved documents asked about).
     callback quit();
 }

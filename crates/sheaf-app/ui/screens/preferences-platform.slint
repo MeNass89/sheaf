@@ -17,6 +17,7 @@ component Card inherits Rectangle {
         padding: 18px;
         spacing: 12px;
         Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: root.title;
             font-size: Theme.fs-body-large;
             font-weight: Theme.weight-demibold;
@@ -29,21 +30,45 @@ component Card inherits Rectangle {
 // Acrobat's Preferences ▸ Spelling: check while typing, the dictionary used, the words learned.
 export component SpellingSection inherits Card {
     title: "Spelling";
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
         Segment { width: 214px; text: "Check spelling while typing"; selected: PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(true); } }
         Segment { width: 214px; text: "Don't check spelling"; selected: !PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(false); } }
     }
+    // Preview's Check Grammar With Spelling: repeated words, a capital after a full stop, double
+    // spaces, "a" or "an".
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.start;
+        spacing: 8px;
+        Segment { width: 214px; text: "Check grammar too"; selected: PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(true); } }
+        Segment { width: 214px; text: "Spelling only"; selected: !PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(false); } }
+    }
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: "Grammar: a word written twice, a capital after a full stop, two spaces, and “a” or “an” (English).";
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+        wrap: word-wrap;
+    }
+    Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: PlatformBridge.spell-dictionary == "" ? "Looking for a dictionary…" : PlatformBridge.spell-dictionary;
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
         wrap: word-wrap;
     }
-    if PlatformBridge.learned.length > 0: HorizontalLayout {
+    if PlatformBridge.learned.length > 0: FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
         spacing: 8px;
         Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: PlatformBridge.learned.length == 1 ? "1 word learned (Learn in the spelling card)" : "\{PlatformBridge.learned.length} words learned (Learn in the spelling card)";
             font-size: Theme.fs-body;
             color: Theme.text;
@@ -80,26 +105,34 @@ export component KeyboardSection inherits Card {
         }
     }
     if PlatformBridge.shortcut-error != "": Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: PlatformBridge.shortcut-error;
         font-size: Theme.fs-caption;
         color: Theme.danger;
         wrap: word-wrap;
     }
-    if !root.all && root.query == "": HorizontalLayout {
+    if !root.all && root.query == "": FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         SecondaryButton { text: "Show all \{PlatformBridge.shortcut-rows.length} shortcuts"; clicked => { root.all = true; } }
     }
     if root.query != "" && PlatformBridge.shortcut-rows.length == 0: Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: "No command or keys match.";
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }
     if root.all || root.query != "": VerticalLayout {
         spacing: 12px;
-        for row in PlatformBridge.shortcut-rows: HorizontalLayout {
+        for row in PlatformBridge.shortcut-rows: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             spacing: 8px;
             height: 30px;
             Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: row.name;
                 font-size: Theme.fs-body;
                 color: Theme.text;
@@ -114,6 +147,7 @@ export component KeyboardSection inherits Card {
                 border-color: Theme.accent;
                 background: keys-touch.has-hover ? Theme.popup-hover : Theme.pill-bg;
                 Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                     text: root.recording == row.index ? "Press the keys…" : row.keys == "" ? "None" : row.keys;
                     font-size: Theme.fs-label;
                     font-weight: row.custom ? Theme.weight-demibold : 400;
@@ -127,11 +161,14 @@ export component KeyboardSection inherits Card {
             if row.custom: SecondaryButton { text: "Reset"; clicked => { root.stop(); PlatformBridge.reset-shortcut(row.index); } }
         }
     }
-    HorizontalLayout {
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 12px;
         SecondaryButton { text: "Reset all"; clicked => { root.stop(); PlatformBridge.reset-shortcuts(); } }
         Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: "Click a shortcut, then press the new keys. Esc cancels, Backspace removes it.";
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
@@ -159,21 +196,26 @@ export component KeyboardSection inherits Card {
 // right-to-left interface.
 export component InterfaceSection inherits Card {
     title: "Interface";
-    Text { text: "Tools page"; font-size: Theme.fs-body; color: Theme.text; }
-    HorizontalLayout {
+    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Tools page"; font-size: Theme.fs-body; color: Theme.text; }
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
         Segment { width: 214px; text: "Show every tool"; selected: !PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(false); } }
         Segment { width: 254px; text: "Hide tools that can't run here"; selected: PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(true); } }
     }
     Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: PlatformBridge.unavailable-tools == "" ? "Every tool can run on this computer." : "Can't run here: " + PlatformBridge.unavailable-tools + ".";
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
         wrap: word-wrap;
     }
-    Text { text: "Direction"; font-size: Theme.fs-body; color: Theme.text; }
-    HorizontalLayout {
+    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Direction"; font-size: Theme.fs-body; color: Theme.text; }
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
         for label[i] in ["As the system's language", "Left to right", "Right to left"]: Segment {

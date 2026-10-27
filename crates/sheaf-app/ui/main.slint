@@ -17,12 +17,12 @@ import { ToolFlowScreen } from "screens/tool-flow.slint";
 import { ReaderScreen } from "screens/reader.slint";
 import { ResultScreen } from "screens/result.slint";
 import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, Toast } from "screens/dialogs.slint";
-import { PlatformBridge, SpellIssue, ShortcutRow } from "platform.slint";
+import { PlatformBridge, SpellIssue, ShortcutRow, Launcher } from "platform.slint";
 import { SpellingDialog } from "screens/spelling-dialog.slint";
 
 export { PortfolioBridge, PortfolioRow, JavaScriptBridge, DocumentScriptRow, LibraryBridge, LibraryRow, LibraryVersionRow, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
-export { PlatformBridge, SpellIssue, ShortcutRow }
+export { PlatformBridge, SpellIssue, ShortcutRow, Launcher }
 
 export enum Page { recents, tools, history, preferences, actions, library }
 
@@ -305,20 +305,23 @@ export component AppWindow inherits Window {
         }
         Menu {
             title: "Edit";
-            MenuItem { title: "Undo"; shortcut: PlatformBridge.keys[8]; enabled: root.reader-on; activated => { ReaderBridge.undo(root.reader-id); } }
-            MenuItem { title: "Redo"; shortcut: PlatformBridge.keys[9]; enabled: root.reader-on; activated => { ReaderBridge.redo(root.reader-id); } }
+            // Undo and Redo, Cut, Copy, Paste, Select All: sent as their keys to what has the keyboard,
+            // a text field (its own text) or the reader's pages (the PDF; src/platform.rs EDIT_KEYS).
+            MenuItem { title: "Undo"; shortcut: PlatformBridge.keys[8]; activated => { PlatformBridge.edit-key("z", false); } }
+            MenuItem { title: "Redo"; shortcut: PlatformBridge.keys[9]; activated => { PlatformBridge.edit-key("z", true); } }
             MenuSeparator {}
             // Sent as their keys to what has the keyboard: a text field, or the reader's pages (src/platform.rs EDIT_KEYS).
-            MenuItem { title: "Cut"; shortcut: PlatformBridge.keys[40]; activated => { PlatformBridge.edit-key("x"); } }
-            MenuItem { title: "Copy"; shortcut: PlatformBridge.keys[41]; activated => { PlatformBridge.edit-key("c"); } }
-            MenuItem { title: "Paste"; shortcut: PlatformBridge.keys[42]; activated => { PlatformBridge.edit-key("v"); } }
-            MenuItem { title: "Select All"; shortcut: PlatformBridge.keys[10]; activated => { PlatformBridge.edit-key("a"); } }
+            MenuItem { title: "Cut"; shortcut: PlatformBridge.keys[40]; activated => { PlatformBridge.edit-key("x", false); } }
+            MenuItem { title: "Copy"; shortcut: PlatformBridge.keys[41]; activated => { PlatformBridge.edit-key("c", false); } }
+            MenuItem { title: "Paste"; shortcut: PlatformBridge.keys[42]; activated => { PlatformBridge.edit-key("v", false); } }
+            MenuItem { title: "Select All"; shortcut: PlatformBridge.keys[10]; activated => { PlatformBridge.edit-key("a", false); } }
             MenuSeparator {}
             MenuItem { title: "Find…"; shortcut: PlatformBridge.keys[11]; enabled: root.reader-on || (root.active-tab == -1 && root.page == Page.tools); activated => { if root.reader-on { root.reader-command("find"); } else { root.search-seq += 1; } } }
             MenuItem { title: "Find Next"; shortcut: PlatformBridge.keys[12]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, 1); } }
             MenuItem { title: "Find Previous"; shortcut: PlatformBridge.keys[13]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, -1); } }
             MenuSeparator {}
             MenuItem { title: "Check Spelling…"; shortcut: PlatformBridge.keys[43]; enabled: root.reader-on; activated => { PlatformBridge.check-start(root.reader-id); } }
+            MenuItem { title: PlatformBridge.grammar-on ? "Stop Checking Grammar With Spelling" : "Check Grammar With Spelling"; shortcut: PlatformBridge.keys[44]; activated => { PlatformBridge.set-grammar-on(!PlatformBridge.grammar-on); } }
             MenuItem { title: PlatformBridge.spell-on ? "Stop Checking Spelling While Typing" : "Check Spelling While Typing"; shortcut: PlatformBridge.keys[14]; activated => { PlatformBridge.set-spell-on(!PlatformBridge.spell-on); } }
             MenuSeparator {}
             MenuItem { title: "Preferences…"; shortcut: PlatformBridge.keys[15]; activated => { root.show-preferences(); } }
@@ -353,6 +356,16 @@ export component AppWindow inherits Window {
         Menu {
             title: "Tools";
             MenuItem { title: "All Tools"; shortcut: PlatformBridge.keys[34]; activated => { root.active-tab = -1; root.page = Page.tools; } }
+            // Every tool of the Tools page, with the keys the user gave it (Preferences ▸ Keyboard
+            // shortcuts, Stirling's tool hotkeys).
+            Menu {
+                title: "Open Tool";
+                for t in PlatformBridge.launchers: MenuItem {
+                    title: t.name;
+                    shortcut: t.keys;
+                    activated => { root.open-tool(t.id); }
+                }
+            }
             // The reader's tools (their letters work on the pages; not here, so typing keeps them).
             Menu {
                 title: "Annotate";

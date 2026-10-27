@@ -14,10 +14,10 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use sheaf_app::platform::{self, PlatformPrefs, COMMANDS, TOOLS};
-use sheaf_app::{AppWindow, PlatformBridge, ShortcutRow, SpellIssue};
+use sheaf_app::{AppWindow, Launcher, PlatformBridge, ShortcutRow, SpellIssue};
 use sheaf_core::spell::Speller;
 use sheaf_core::tools::ToolId;
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
 use crate::home;
 
@@ -73,23 +73,60 @@ fn learned_at_start() -> Vec<String> {
 }
 
 /// Every misspelt word (offset, word), and the first [`SHOWN`] with their corrections.
-type Checked = (Vec<(usize, String)>, Vec<(usize, String, Vec<String>)>);
+/// (Grammar findings carry what is wrong; misspelt words an empty note.)
+type Checked = (Vec<(usize, String)>, Vec<(usize, String, Vec<String>, &'static str)>);
 
-fn check_text(text: &str, typing: bool) -> Checked {
+/// Grammar findings Ignored this session, by what is wrong and the text ("Repeated word|the the").
+static IGNORED_GRAMMAR: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn grammar_key(note: &str, text: &str) -> String {
+    format!("{note}|{}", text.to_lowercase())
+}
+
+/// The misspelt words of `text` and, with `grammar`, its grammar findings (Preview's Check Grammar
+/// With Spelling), in reading order; the first [`SHOWN`] with their fixes. While typing, a finding
+/// that reaches the end of the text waits until it is finished.
+fn check_text(text: &str, typing: bool, grammar: bool) -> Checked {
+    let ignored = IGNORED_GRAMMAR.lock().map(|g| g.clone()).unwrap_or_default();
+    let found: Vec<sheaf_core::spell::GrammarIssue> = if grammar {
+        sheaf_core::spell::grammar(text)
+            .into_iter()
+            .filter(|g| !(typing && g.start + g.text.len() >= text.trim_end().len()))
+            .filter(|g| !ignored.contains(&grammar_key(g.note, &g.text)))
+            .collect()
+    } else {
+        Vec::new()
+    };
     with_spell(|sp| {
-        let Ok(speller) = &sp.speller else { return (Vec::new(), Vec::new()) };
-        let issues = speller.misspelt(text, typing);
+        let misspelt = match &sp.speller {
+            Ok(speller) => speller.misspelt(text, typing),
+            Err(_) => Vec::new(),
+        };
+        let mut all: Vec<(usize, String, Option<sheaf_core::spell::GrammarIssue>)> = misspelt.into_iter().map(|i| (i.start, i.word, None)).collect();
+        all.extend(found.into_iter().map(|g| (g.start, g.text.clone(), Some(g))));
+        all.sort_by_key(|f| f.0);
         let mut shown = Vec::new();
-        for i in issues.iter().take(SHOWN) {
-            let c = sp.corrections.entry(i.word.clone()).or_insert_with(|| speller.suggest(&i.word, CORRECTIONS)).clone();
-            shown.push((i.start, i.word.clone(), c));
+        for (start, word, g) in all.iter().take(SHOWN) {
+            match g {
+                Some(g) => shown.push((*start, word.clone(), vec![g.fix.clone()], g.note)),
+                None => {
+                    let Ok(speller) = &sp.speller else { continue };
+                    let c = sp.corrections.entry(word.clone()).or_insert_with(|| speller.suggest(word, CORRECTIONS)).clone();
+                    shown.push((*start, word.clone(), c, ""));
+                }
+            }
         }
-        (issues.into_iter().map(|i| (i.start, i.word)).collect(), shown)
+        (all.into_iter().map(|(s, w, _)| (s, w)).collect(), shown)
     })
 }
 
 fn spell_on() -> bool {
     !home::prefs().platform.no_spell_check
+}
+
+/// Check Grammar With Spelling (Preview's), on unless turned off.
+fn grammar_on() -> bool {
+    !home::prefs().platform.no_grammar_check
 }
 
 fn clear(ui: &AppWindow) {
@@ -111,7 +148,8 @@ fn show(ui: &AppWindow, text: &str, (all, shown): Checked) {
     g.set_spell_marked(slint::StyledText::from_markdown(&md).unwrap_or_else(|_| slint::StyledText::from_plain_text(text)));
     let rows: Vec<SpellIssue> = shown
         .into_iter()
-        .map(|(start, word, c)| SpellIssue {
+        .map(|(start, word, c, note)| SpellIssue {
+            note: note.into(),
             word: word.into(),
             start: start as i32,
             suggestions: ModelRc::new(VecModel::from(c.into_iter().map(SharedString::from).collect::<Vec<_>>())),
@@ -130,11 +168,12 @@ fn spell_check(ui: &AppWindow, text: &str, typing: bool) {
     }
     let weak = ui.as_weak();
     let text = text.to_string();
+    let grammar = grammar_on();
     TIMER.with(|t| {
         t.start(slint::TimerMode::SingleShot, PAUSE, move || {
             let (weak, text) = (weak.clone(), text.clone());
             std::thread::spawn(move || {
-                let checked = check_text(&text, typing);
+                let checked = check_text(&text, typing, grammar);
                 let _ = weak.upgrade_in_event_loop(move |ui| {
                     if LATEST.load(Ordering::Relaxed) == seq {
                         show(&ui, &text, checked);
@@ -186,8 +225,26 @@ fn unavailable_text() -> String {
     groups.iter().map(|(why, names)| format!("{} ({why})", names.join(", "))).collect::<Vec<_>>().join("; ")
 }
 
+/// The menu bar's shortcuts, the tool launchers' included, off: a shortcut being recorded, or keys
+/// sent on by Edit ▸ Copy and the like, go past it. [`push_keys`] puts them back.
+fn menu_keys_off(ui: &AppWindow) {
+    let g = ui.global::<PlatformBridge>();
+    g.set_keys(ModelRc::new(VecModel::from(vec![slint::Keys::default(); COMMANDS.len()])));
+    let launchers: Vec<Launcher> = g.get_launchers().iter().map(|l| Launcher { keys: slint::Keys::default(), ..l }).collect();
+    g.set_launchers(ModelRc::new(VecModel::from(launchers)));
+}
+
 fn push_keys(ui: &AppWindow) {
     let p = home::prefs().platform;
+    // Tools ▸ Open Tool: every tool shown on the Tools page, with the keys that open it.
+    let hidden = hidden_tools();
+    let launchers: Vec<Launcher> = platform::launchers()
+        .into_iter()
+        .enumerate()
+        .filter(|(_, (id, _))| !hidden.iter().any(|h| h.as_str() == *id))
+        .map(|(k, (id, name))| Launcher { id: id.into(), name: name.into(), keys: platform::keys(&platform::launch_key(&p, k)) })
+        .collect();
+    ui.global::<PlatformBridge>().set_launchers(ModelRc::new(VecModel::from(launchers)));
     let keys: Vec<slint::Keys> = (0..COMMANDS.len()).map(|i| platform::keys(&platform::effective(&p, i))).collect();
     let g = ui.global::<PlatformBridge>();
     g.set_keys(ModelRc::new(VecModel::from(keys)));
@@ -209,6 +266,7 @@ fn push(ui: &AppWindow) {
     let p = home::prefs().platform;
     let g = ui.global::<PlatformBridge>();
     g.set_spell_on(!p.no_spell_check);
+    g.set_grammar_on(!p.no_grammar_check);
     g.set_learned(ModelRc::new(VecModel::from(p.learned_words.iter().map(|w| SharedString::from(w.as_str())).collect::<Vec<_>>())));
     g.set_hide_unavailable(p.hide_unavailable_tools);
     g.set_direction(i32::from(p.direction));
@@ -235,6 +293,32 @@ fn load_dictionary(ui: &AppWindow) {
 fn record(ui: &AppWindow, i: i32, text: &str, control: bool, alt: bool, shift: bool, meta: bool) -> bool {
     let g = ui.global::<PlatformBridge>();
     let bare = !(control || alt || shift || meta);
+    // A tool launcher (rows after the tool letters): keys as a command's.
+    if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len() + TOOLS.len()) {
+        let parts = match text {
+            "\u{1b}" if bare => {
+                g.set_shortcut_error("".into());
+                return true;
+            }
+            "\u{8}" | "\u{7f}" if bare => String::new(),
+            _ => {
+                let p = platform::parts_of_event(text, control, alt, shift, meta);
+                if p.is_empty() {
+                    return false;
+                }
+                p
+            }
+        };
+        let mut prefs = home::prefs().platform;
+        match platform::assign_launch(&mut prefs, k, &parts) {
+            Ok(()) => {
+                g.set_shortcut_error("".into());
+                update(ui, |p| *p = prefs);
+            }
+            Err(e) => g.set_shortcut_error(e.into()),
+        }
+        return true;
+    }
     // A tool's letter (rows after the commands): one key alone, as typed on the pages.
     if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len()) {
         let key = match text {
@@ -287,125 +371,167 @@ fn record(ui: &AppWindow, i: i32, text: &str, control: bool, alt: bool, shift: b
     true
 }
 
-/// Edit ▸ Cut, Copy, Paste, Select All: ⌘ (Ctrl) and `key` sent to whatever has the keyboard, as
-/// if typed — a text field cuts, copies, pastes or selects its own text; the reader's pages their
-/// selection, picked objects or comment (reader.slint's ⌘C ⌘X ⌘V ⌘A). Sent once the menu has
-/// closed and given the keyboard back. The menu bar has no shortcut on these keys, so they reach
-/// the field or the pages.
-fn edit_key(ui: &AppWindow, key: &str) {
+/// Edit ▸ Undo, Redo, Cut, Copy, Paste, Select All, from the menu or from their keys (which the
+/// menu bar takes first): ⌘ (Ctrl), ⇧ for Redo, and `key` sent to whatever has the keyboard, as if
+/// typed — a text field undoes, cuts, copies, pastes or selects in its own text; the reader's pages
+/// act on the PDF (its history, selection, picked objects or comment; reader.slint's ⌘Z ⌘C ⌘X ⌘V
+/// ⌘A). Sent once a menu opened by the mouse has closed and given the keyboard back, with the menu
+/// bar's shortcuts off meanwhile so these keys go past it. The right-hand Ctrl and Shift are the
+/// ones pressed and let go: a left Ctrl the user is holding stays held.
+fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
     use slint::platform::{Key, WindowEvent};
     let weak = ui.as_weak();
     let key = SharedString::from(key);
     slint::Timer::single_shot(Duration::from_millis(30), move || {
         let Some(ui) = weak.upgrade() else { return };
-        let ctrl = SharedString::from(Key::Control);
-        for ev in [
-            WindowEvent::KeyPressed { text: ctrl.clone() },
-            WindowEvent::KeyPressed { text: key.clone() },
-            WindowEvent::KeyReleased { text: key.clone() },
-            WindowEvent::KeyReleased { text: ctrl },
-        ] {
+        menu_keys_off(&ui);
+        let ctrl = SharedString::from(Key::ControlR);
+        let shift_key = SharedString::from(Key::ShiftR);
+        let mut events = vec![WindowEvent::KeyPressed { text: ctrl.clone() }];
+        if shift {
+            events.push(WindowEvent::KeyPressed { text: shift_key.clone() });
+        }
+        let text: SharedString = if shift { key.to_uppercase().into() } else { key.clone() };
+        events.push(WindowEvent::KeyPressed { text: text.clone() });
+        events.push(WindowEvent::KeyReleased { text });
+        if shift {
+            events.push(WindowEvent::KeyReleased { text: shift_key });
+        }
+        events.push(WindowEvent::KeyReleased { text: ctrl });
+        for ev in events {
             let _ = ui.window().dispatch_event_with_result(ev);
         }
+        push_keys(&ui);
     });
 }
 
-/// Edit ▸ Check Spelling… on a document: its texts, the one being checked (`at`), where in it the
-/// next word is looked for (`from`, a byte offset), the word shown, and the changes made.
+/// Edit ▸ Check Spelling… on a document: its texts (comments, replies, form fields), what the
+/// pass found in them (scanned once, on a worker thread, when it starts), and the changes made.
 struct Pass {
     tab: i32,
     texts: Vec<crate::reader_ui::SpellText>,
-    at: usize,
-    from: usize,
-    word: Option<(usize, String)>,
+    /// `None` while the texts are being scanned.
+    check: Option<sheaf_core::spell::CheckPass>,
     changed: usize,
 }
 
 thread_local! {
     static PASS: RefCell<Option<Pass>> = const { RefCell::new(None) };
 }
+/// The finding shown: its corrections, looked up off the UI thread, are kept only if it is still
+/// the one shown when they come back.
+static SHOWN_SEQ: AtomicU64 = AtomicU64::new(0);
 
-/// The next misspelt word from where the pass is, shown in the dialog; none left: what was done.
+/// The finding the pass is at, shown in the dialog; none left: what was done.
 fn check_advance(ui: &AppWindow) {
     let g = ui.global::<PlatformBridge>();
     let shown = PASS.with(|p| {
-        let mut p = p.borrow_mut();
-        let pass = p.as_mut()?;
-        pass.word = None;
-        let texts: Vec<&str> = pass.texts.iter().map(|t| t.2.as_str()).collect();
-        let found = with_spell(|sp| {
-            let Ok(s) = &sp.speller else { return None };
-            let (k, issue) = s.next_issue(&texts, pass.at, pass.from)?;
-            let c = sp.corrections.entry(issue.word.clone()).or_insert_with(|| s.suggest(&issue.word, 5)).clone();
-            Some((k, issue, c))
-        });
-        let Some((k, issue, corrections)) = found else {
-            pass.at = pass.texts.len();
-            return None;
-        };
-        pass.at = k;
-        pass.word = Some((issue.start, issue.word.clone()));
-        let (_, where_, text, page) = &pass.texts[k];
-        Some((pass.tab, where_.clone(), text.clone(), issue, corrections, *page))
+        let p = p.borrow();
+        let pass = p.as_ref()?;
+        let f = pass.check.as_ref()?.current()?.clone();
+        let (_, where_, text, page) = pass.texts.get(f.text)?;
+        Some((pass.tab, where_.clone(), text.clone(), f, *page))
     });
-    match shown {
-        Some((tab, where_, text, issue, corrections, page)) => {
-            if let Some(page) = page {
-                crate::reader_ui::go_to_page(tab, &(page + 1).to_string());
+    let scanning = PASS.with(|p| p.borrow().as_ref().is_some_and(|pass| pass.check.is_none()));
+    if scanning {
+        g.set_check_word("".into());
+        g.set_check_done("Checking the comments and form fields…".into());
+        return;
+    }
+    let Some((tab, where_, text, f, page)) = shown else {
+        let said = PASS.with(|p| p.borrow().as_ref().map(|pass| (pass.texts.len(), pass.changed)));
+        let missing = with_spell(|sp| sp.speller.as_ref().err().cloned());
+        let plural = |n: usize, one: &str, many: &str| if n == 1 { one.to_string() } else { many.to_string() };
+        g.set_check_word("".into());
+        g.set_check_done(
+            match (missing, said) {
+                (Some(why), _) => why,
+                (None, Some((0, _))) => "This document has no comments, replies or form fields with text to check.".to_string(),
+                (None, Some((n, 0))) => format!("Spelling check complete: {n} {} checked, nothing to change.", plural(n, "text", "texts")),
+                (None, Some((n, c))) => format!("Spelling check complete: {n} {} checked, {c} {} changed.", plural(n, "text", "texts"), plural(c, "word", "words")),
+                (None, None) => String::new(),
             }
-            let red = ui.global::<sheaf_app::Theme>().get_danger();
-            let colour = format!("#{:02x}{:02x}{:02x}", red.red(), red.green(), red.blue());
-            let md = platform::marked_markdown(&text, &[(issue.start, issue.word.as_str())], &colour);
-            g.set_check_context(slint::StyledText::from_markdown(&md).unwrap_or_else(|_| slint::StyledText::from_plain_text(&text)));
-            g.set_check_where(where_.into());
-            g.set_check_word(issue.word.into());
-            g.set_check_suggestions(ModelRc::new(VecModel::from(corrections.into_iter().map(SharedString::from).collect::<Vec<_>>())));
+            .into(),
+        );
+        return;
+    };
+    if let Some(page) = page {
+        crate::reader_ui::go_to_page(tab, &(page + 1).to_string());
+    }
+    let red = ui.global::<sheaf_app::Theme>().get_danger();
+    let colour = format!("#{:02x}{:02x}{:02x}", red.red(), red.green(), red.blue());
+    let md = platform::marked_markdown(&text, &[(f.start, f.word.as_str())], &colour);
+    g.set_check_context(slint::StyledText::from_markdown(&md).unwrap_or_else(|_| slint::StyledText::from_plain_text(&text)));
+    g.set_check_where(where_.into());
+    g.set_check_note(f.note.unwrap_or("Not in the dictionary").into());
+    g.set_check_word(f.word.clone().into());
+    let seq = SHOWN_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
+    match f.fix {
+        // A grammar finding brings its own fix.
+        Some(fix) => {
+            g.set_check_suggestions(ModelRc::new(VecModel::from(vec![SharedString::from(fix)])));
             g.set_check_seq(g.get_check_seq() + 1);
         }
+        // A misspelt word: its corrections from the dictionary, off the UI thread.
         None => {
-            let said = PASS.with(|p| p.borrow().as_ref().map(|pass| (pass.texts.len(), pass.changed)));
-            let missing = with_spell(|sp| sp.speller.as_ref().err().cloned());
-            g.set_check_word("".into());
-            g.set_check_done(
-                match (missing, said) {
-                    (Some(why), _) => why,
-                    (None, Some((0, _))) => "This document has no comments or form fields with text to check.".to_string(),
-                    (None, Some((n, 0))) => format!("Spelling check complete: {n} {} checked, nothing to change.", if n == 1 { "text" } else { "texts" }),
-                    (None, Some((n, c))) => format!("Spelling check complete: {n} {} checked, {c} {} changed.", if n == 1 { "text" } else { "texts" }, if c == 1 { "word" } else { "words" }),
-                    (None, None) => String::new(),
-                }
-                .into(),
-            );
+            g.set_check_suggestions(ModelRc::new(VecModel::from(Vec::<SharedString>::new())));
+            g.set_check_seq(g.get_check_seq() + 1);
+            let weak = ui.as_weak();
+            let word = f.word;
+            std::thread::spawn(move || {
+                let corrections = with_spell(|sp| {
+                    let Ok(s) = &sp.speller else { return Vec::new() };
+                    sp.corrections.entry(word.clone()).or_insert_with(|| s.suggest(&word, 5)).clone()
+                });
+                let _ = weak.upgrade_in_event_loop(move |ui| {
+                    if SHOWN_SEQ.load(Ordering::Relaxed) != seq {
+                        return;
+                    }
+                    let g = ui.global::<PlatformBridge>();
+                    g.set_check_suggestions(ModelRc::new(VecModel::from(corrections.into_iter().map(SharedString::from).collect::<Vec<_>>())));
+                    g.set_check_seq(g.get_check_seq() + 1);
+                });
+            });
         }
     }
 }
 
-/// The word shown is left as it is: the pass goes on after it.
-fn check_skip() {
+/// The pass moved on (Next, Ignore, Learn): `step` on its findings, then the next one shown.
+fn check_step(ui: &AppWindow, step: impl FnOnce(&mut sheaf_core::spell::CheckPass)) {
     PASS.with(|p| {
-        if let Some(pass) = p.borrow_mut().as_mut()
-            && let Some((start, word)) = pass.word.take()
-        {
-            pass.from = start + word.len();
+        if let Some(check) = p.borrow_mut().as_mut().and_then(|pass| pass.check.as_mut()) {
+            step(check);
         }
     });
+    check_advance(ui);
 }
 
-/// Change: the word shown becomes `to` in its comment or field (one undo step), and the pass goes
-/// on after it.
+/// The word shown, if it is a misspelt one (Ignore and Learn act on those).
+fn shown_misspelt() -> Option<String> {
+    PASS.with(|p| p.borrow().as_ref()?.check.as_ref()?.current().filter(|f| f.note.is_none()).map(|f| f.word.clone()))
+}
+
+/// Change: the finding shown becomes `to` in its comment, reply or field (one undo step), and the
+/// pass goes on after it.
 fn check_change(ui: &AppWindow, to: &str) {
-    let to = to.trim();
+    let to = if to.trim().is_empty() { "" } else { to };
     let put = PASS.with(|p| {
         let mut p = p.borrow_mut();
         let pass = p.as_mut()?;
-        let (start, word) = pass.word.take()?;
-        if to.is_empty() || to == word {
-            pass.from = start + word.len();
+        let check = pass.check.as_mut()?;
+        let f = check.current()?.clone();
+        if to.is_empty() || to == f.word {
+            check.skip();
             return None;
         }
-        let item = pass.texts.get_mut(pass.at)?;
-        item.2 = sheaf_core::spell::replace_word(&item.2, start, &word, to);
-        pass.from = start + to.len();
+        let item = pass.texts.get_mut(f.text)?;
+        let before = item.2.clone();
+        item.2 = sheaf_core::spell::replace_word(&item.2, f.start, &f.word, to);
+        if item.2 == before {
+            check.skip();
+            return None;
+        }
+        check.changed(to);
         pass.changed += 1;
         Some((pass.tab, item.0.clone(), item.2.clone()))
     });
@@ -413,6 +539,30 @@ fn check_change(ui: &AppWindow, to: &str) {
         crate::reader_ui::spelling_set(ui, tab, &target, &text);
     }
     check_advance(ui);
+}
+
+/// Starts the pass on a reader tab: its texts collected, then scanned on a worker thread.
+fn check_start(ui: &AppWindow, tab: i32) {
+    let texts = crate::reader_ui::spelling_texts(tab);
+    let words: Vec<String> = texts.iter().map(|t| t.2.clone()).collect();
+    let grammar = grammar_on();
+    PASS.with(|p| *p.borrow_mut() = Some(Pass { tab, texts, check: None, changed: 0 }));
+    ui.global::<PlatformBridge>().set_check_open(true);
+    check_advance(ui);
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let refs: Vec<&str> = words.iter().map(String::as_str).collect();
+        let check = with_spell(|sp| match &sp.speller {
+            Ok(s) => sheaf_core::spell::CheckPass::new(s, &refs, grammar),
+            Err(_) => sheaf_core::spell::CheckPass::default(),
+        });
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            let kept = PASS.with(|p| p.borrow_mut().as_mut().filter(|pass| pass.tab == tab && pass.check.is_none()).map(|pass| pass.check = Some(check)).is_some());
+            if kept {
+                check_advance(&ui);
+            }
+        });
+    });
 }
 
 /// Wires the global and fills it.
@@ -463,6 +613,16 @@ pub fn install(ui: &AppWindow) {
         update(&ui, |p| p.learned_words.clear());
         check_again(&ui);
     });
+    on!(on_grammar_ignore, |ui, note, text| {
+        if let Ok(mut g) = IGNORED_GRAMMAR.lock() {
+            g.push(grammar_key(&note, &text));
+        }
+        check_again(&ui);
+    });
+    on!(on_set_grammar_on, |ui, on| {
+        update(&ui, |p| p.no_grammar_check = !on);
+        check_again(&ui);
+    });
     on!(on_set_spell_on, |ui, on| {
         update(&ui, |p| p.no_spell_check = !on);
         check_again(&ui);
@@ -474,8 +634,7 @@ pub fn install(ui: &AppWindow) {
     // While a shortcut is recorded the menu bar has none, so the keys reach the recorder.
     on!(on_recording, |ui, on| {
         if on {
-            let none: Vec<slint::Keys> = vec![slint::Keys::default(); COMMANDS.len()];
-            ui.global::<PlatformBridge>().set_keys(ModelRc::new(VecModel::from(none)));
+            menu_keys_off(&ui);
         } else {
             push_keys(&ui);
         }
@@ -484,6 +643,13 @@ pub fn install(ui: &AppWindow) {
     g.on_record_shortcut(move |i, text, control, alt, shift, meta| weak.upgrade().is_none_or(|ui| record(&ui, i, &text, control, alt, shift, meta)));
     g.on_tool_for_key(|text| TOOL_KEYS.with(|t| platform::tool_for_key(&t.borrow(), &text).map_or(-1, |k| k as i32)));
     on!(on_clear_shortcut, |ui, i| {
+        if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len() + TOOLS.len()) {
+            let mut prefs = home::prefs().platform;
+            if platform::assign_launch(&mut prefs, k, "").is_ok() {
+                update(&ui, |p| *p = prefs);
+            }
+            return;
+        }
         if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len()) {
             let mut prefs = home::prefs().platform;
             if platform::assign_tool(&mut prefs, k, "").is_ok() {
@@ -498,6 +664,14 @@ pub fn install(ui: &AppWindow) {
         }
     });
     on!(on_reset_shortcut, |ui, i| {
+        // A launcher has no keys of its own to go back to: Reset removes them.
+        if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len() + TOOLS.len()) {
+            let mut prefs = home::prefs().platform;
+            if platform::assign_launch(&mut prefs, k, "").is_ok() {
+                update(&ui, |p| *p = prefs);
+            }
+            return;
+        }
         if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len()) {
             let mut prefs = home::prefs().platform;
             let own = TOOLS.get(k).map_or("", |t| t.2);
@@ -529,6 +703,7 @@ pub fn install(ui: &AppWindow) {
         update(&ui, |p| {
             platform::reset(p, None);
             p.tool_keys.clear();
+            p.launch_keys.clear();
         });
     });
     ui.global::<PlatformBridge>().set_unavailable_tools(unavailable_text().into());
@@ -537,27 +712,18 @@ pub fn install(ui: &AppWindow) {
         crate::install_catalogue(&ui);
     });
     on!(on_set_direction, |ui, d| update(&ui, |p| p.direction = d.clamp(0, 2) as u8));
-    on!(on_edit_key, |ui, key| edit_key(&ui, &key));
-    on!(on_check_start, |ui, tab| {
-        let texts = crate::reader_ui::spelling_texts(tab);
-        PASS.with(|p| *p.borrow_mut() = Some(Pass { tab, texts, at: 0, from: 0, word: None, changed: 0 }));
-        ui.global::<PlatformBridge>().set_check_open(true);
-        check_advance(&ui);
-    });
+    on!(on_edit_key, |ui, key, shift| edit_key(&ui, &key, shift));
+    on!(on_check_start, |ui, tab| check_start(&ui, tab));
     on!(on_check_change, |ui, to| check_change(&ui, &to));
-    on!(on_check_next, |ui| {
-        check_skip();
-        check_advance(&ui);
-    });
+    on!(on_check_next, |ui| check_step(&ui, sheaf_core::spell::CheckPass::skip));
     on!(on_check_ignore, |ui| {
-        if let Some(word) = PASS.with(|p| p.borrow().as_ref().and_then(|pass| pass.word.as_ref().map(|w| w.1.clone()))) {
+        if let Some(word) = shown_misspelt() {
             with_spell(|sp| if let Ok(s) = sp.speller.as_mut() { s.ignore(&word) });
         }
-        check_skip();
-        check_advance(&ui);
+        check_step(&ui, sheaf_core::spell::CheckPass::pass_word);
     });
     on!(on_check_learn, |ui| {
-        if let Some(word) = PASS.with(|p| p.borrow().as_ref().and_then(|pass| pass.word.as_ref().map(|w| w.1.clone()))) {
+        if let Some(word) = shown_misspelt() {
             with_spell(|sp| if let Ok(s) = sp.speller.as_mut() { s.learn(&word) });
             update(&ui, |p| {
                 if !p.learned_words.iter().any(|w| w.eq_ignore_ascii_case(&word)) {
@@ -565,8 +731,7 @@ pub fn install(ui: &AppWindow) {
                 }
             });
         }
-        check_skip();
-        check_advance(&ui);
+        check_step(&ui, sheaf_core::spell::CheckPass::pass_word);
     });
     on!(on_check_close, |ui| {
         PASS.with(|p| *p.borrow_mut() = None);

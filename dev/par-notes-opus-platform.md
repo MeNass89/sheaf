@@ -29,6 +29,26 @@
   is). At the end: how many texts were checked and words changed; no dictionary: what to install.
   (`reader_ui/spelling.rs`, `platform_ui` `Pass`; tests `spell::tests::the_check_pass_goes_word_by_word_through_the_texts`;
   smoke step 227)
+- C-edit-013, C-reader-060 (third pass, Sol's review): Check Spelling also goes through each comment's
+  replies ("Reply on page 2"). The pass scans every text once, on a worker thread, when it starts
+  (`sheaf_core::spell::CheckPass`); Next, Ignore, Learn and Change only move through that list (a Change
+  shifts what follows in the same text), and a word's corrections are looked up off the UI thread. Check
+  Grammar With Spelling (Preview's; Edit menu and Preferences ▸ Spelling, on by default), light and
+  offline: a word written twice ("the the"; not "had had", "that that"), a small letter after a full stop,
+  question or exclamation mark (not after "e.g.", "Dr.", an initial or "…"), two spaces or more between
+  words, and "a"/"an" against the next word's sound ("an hour", "a unit" are right). English rules; other
+  languages get the repeated words and spaces. Grammar findings show in the typing card ("Repeated word",
+  its fix, Ignore) and in the Check Spelling dialog. Not covered: agreement, tense, punctuation beyond
+  those. (tests `spell::tests::the_light_grammar_pass`, `the_check_pass_goes_word_by_word_through_the_texts`,
+  `reader_ui::spelling::tests::a_replys_text_is_checked_without_its_author`)
+- C-platform-014 (third pass, Sol's review): Edit ▸ Undo and Redo now act on what has the keyboard, as
+  Cut/Copy/Paste do: a focused text field undoes its own typing, otherwise the reader's pages undo the
+  PDF's last edit. They are enabled everywhere (Preferences, Home). Undo, Redo, Cut, Copy, Paste and Select
+  All show their usual shortcuts in the menu (Ctrl+Z, Ctrl+Shift+Z, Ctrl+X/C/V/A; ⌘ on a Mac): the menu bar
+  takes those keys first and sends them on to the focused field or the pages (`platform_ui::edit_key`, its
+  shortcuts off while it does; right-hand Ctrl/Shift so a left Ctrl being held stays held). (tests
+  `shortcuts_change_conflict_and_reset`, `shortcut_rows_are_searched`, `rebound_commands_stop_their_other_keys`;
+  smoke step 228)
 - C-platform-014: a menu bar, File · Edit · View · Go · Tools · Window · Help (Acrobat's and Preview's
   menus; Slint's `MenuBar`: drawn in the window on Linux and Windows, the system menu on macOS). Every
   command shows its shortcut; a command that does not apply where the user is (Save on Home) is disabled, so
@@ -62,6 +82,12 @@
   is its command's); smoke step 225) (tests `platform::tests::a_pressed_key_becomes_shortcut_parts`,
   `shortcuts_that_would_stop_typing_are_refused`, `shortcuts_change_conflict_and_reset`,
   `shortcut_rows_are_searched`, `tools_that_cannot_run_here`; `history.rs` prefs literal; smoke step 221)
+- C-preferences-013 (third pass, Sol's review): every tool of the Tools page (Merge PDF, Split PDF,
+  Compress… all of `sheaf_core::tools::catalogue`) can be given keys that open it, as Stirling's tool
+  hotkeys: rows "Tools page ▸ Merge PDF" in Preferences ▸ Keyboard shortcuts, the same recording, rules
+  and conflict check as the commands (both ways: a command cannot take a tool's keys, nor a tool a
+  command's), Reset removes them. Tools ▸ Open Tool lists every tool shown on the Tools page with its keys.
+  (tests `every_tool_can_get_keys_that_open_it`, `shortcut_rows_are_searched`; history.rs literal; smoke 229)
 - C-platform-004: Preferences ▸ Interface ▸ Direction (iLovePDF's right-to-left interface): as the system's
   language (Arabic, Hebrew, Persian, Urdu… right to left), Left to right, Right to left. Right to left:
   Home's sidebar goes to the window's right edge, its entries mirrored (icon right, text against it,
@@ -93,9 +119,17 @@
   fields answer those keys themselves.
 - C-preferences-013: "API output handling" (Stirling) is a server setting with no meaning offline. The
   reader's other plain keys (arrows, Space, Delete, ⇧T, ?) are not customizable.
+- C-platform-004 (third pass, Sol's review): right to left also mirrors the reader's tool options bar
+  (its options reversed, the bar at the top right of the pages), Preferences (every row reversed, labels
+  and section titles right-aligned) and the dialogs (password, unsaved changes, close a running task,
+  launch a file, Check Spelling: text right-aligned, buttons from the left). The rows were turned into
+  direction-aware FlexboxLayouts by a brace-aware script (a row's default stretch kept, a child's `y`
+  nudge turned into `cross-axis-self-alignment: center`; scripts kept in /tmp/f5/opus-scripts, not in the
+  repo). Smoke step 230.
 - C-platform-004, what Slint 1.18 blocks or what is left: (1) Slint has no window-wide layout direction, so
-  each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, reader side panel; left: the
-  tool options bar over the pages, the side panel's own rows, the sheets and dialogs, the tool-flow pages).
+  each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, side panel position, tool
+  options bar, Preferences, the dialogs; left: the side panel's own rows, the reader's sheets (print,
+  properties, signature), the tool-flow pages and the Home pages other than Preferences).
   (2) Text alignment: `Text`'s default `horizontal-alignment` is `start`, which follows each string's own
   script (an Arabic string sits right, an English one left); Sheaf has no translations, so its English labels
   stay left-aligned except where set to `right` here (sidebar, tabs). (3) The `MenuBar` element has no
@@ -130,3 +164,12 @@
   `/usr/share/dict/words`.
 - `crates/sheaf-cli/tests/cli.rs` `every_tool_schema_parses`: 28 → 29 tools (another batch adding a command
   changes the same number).
+
+## Author's grades (third pass, 27/10, not built)
+
+- C-edit-013: f9 a8 p9 — while typing (spell card) and Edit ▸ Check Spelling over comments, replies and form fields, scanned once off the UI thread (`the_check_pass_goes_word_by_word_through_the_texts`, `a_replys_text_is_checked_without_its_author`, smoke 222/227); the underline is in a card under the field (Slint limit).
+- C-reader-060: f8 a8 p9 — spelling plus a light offline grammar pass (`the_light_grammar_pass`); no full grammar model.
+- C-platform-014: f9 a8 p9 — menu bar, Undo/Redo/Cut/Copy/Paste/Select All on the focused field or the PDF, default labels (smoke 220/226/228); macOS/Windows unseen.
+- C-preferences-013: f9 a8 p9 — commands, tool letters and every Tools page tool customisable, conflicts both ways (`every_tool_can_get_keys_that_open_it`, smoke 221/225/229).
+- C-platform-004: f8 a7 p9 — Home, tab bar, reader toolbar, panel, options bar, Preferences, dialogs mirrored (smoke 223/224/230); reader sheets, tool pages and the menu bar still left to right.
+- C-platform-007: f8 a7 p9 — `sheaf bookmark` (CLI, MCP); Shortcuts/AppleScript need a Mac.

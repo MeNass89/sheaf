@@ -122,11 +122,13 @@ fn prefs_round_trip_and_corrupt_means_default() {
         pinned_files: vec![PathBuf::from("/docs/starred.pdf")],
         platform: sheaf_app::platform::PlatformPrefs {
             no_spell_check: true,
+            no_grammar_check: true,
             learned_words: vec!["Sheaf".into()],
             shortcuts: vec![("find".into(), "Control+Alt+F".into())],
             hide_unavailable_tools: true,
             direction: 2,
             tool_keys: vec![("note".into(), "q".into())],
+            launch_keys: vec![("merge".into(), "Control+Alt+M".into())],
         },
     };
     p.save(dir.path()).unwrap();

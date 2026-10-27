@@ -1463,3 +1463,46 @@ xdotool mousemove 768 500 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove 
 E1=$(redend)
 check "Sync scroll and zoom zooms both panes; the divider moves (${SY:-no button}; $ZA0 $ZB0 → $ZA1 $ZB1; red row ends at ${E0:-?} → ${E1:-?})" "python3 -c 'import sys; a0, b0, a1, b1, e0, e1 = map(float, sys.argv[1:]); sys.exit(0 if a1 > a0 + 0.03 and b1 > b0 + 0.03 and e1 < e0 - 100 else 1)' ${ZA0:-1} ${ZB0:-1} ${ZA1:-0} ${ZB1:-0} ${E0:-0} ${E1:-0}"
 quit
+# 228. Edit ▸ Undo from the menu bar (C-platform-014) acts on what has the keyboard: in Preferences ▸ Your name,
+# "Ada" typed then Edit ▸ Undo leaves the field empty (the menu is enabled there); on a document's pages, a note
+# added then Edit ▸ Undo takes the note away (saved: no note). The menu shows Undo's Ctrl+Z.
+export SHEAF_TEST_MENU_BAR=1
+launch; key ctrl+comma; sleep 0.8
+YN=$(pref_find Your); read YX YY <<< "$YN"; [ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.5; xdotool type --delay 20 "Ada"; sleep 0.4
+read MX _ <<< "$(at Edit 700x34+0+0)"; [ -n "$MX" ] && click $MX 14 0.8
+UM=$(ocr 420x520+$(( ${MX:-20} - 20 ))+24); key Escape; sleep 0.3
+# The field again has the keyboard (Escape closed the menu), then Edit ▸ Undo.
+[ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.3
+U1=$(menu Edit Undo); sleep 0.8
+AU=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("author") or "")' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+quit
+cp "$OUT/text.pdf" "$OUT/undomenu.pdf"; launch "$OUT/undomenu.pdf"; sleep 1
+key n; click 640 420 0.8; xdotool type --delay 10 "undo me"; key ctrl+Return; sleep 0.8; key v
+U2=$(menu Edit Undo); sleep 0.8; key ctrl+s; sleep 1.5
+UN=$(qpdf --qdf --object-streams=disable "$OUT/undomenu.pdf" - 2>/dev/null | grep -ac '/Subtype /Text')
+check "Edit ▸ Undo undoes the focused field's typing and, on the pages, the PDF's last edit ($U1 $U2; author '$AU'; notes $UN; menu: $(echo "$UM" | grep -o 'Undo Ctrl+Z' | head -1))" "[ -z \"$AU\" ] && [ \"$UN\" = 0 ] && echo \"$UM\" | grep -q 'Ctrl+Z'"
+quit
+unset SHEAF_TEST_MENU_BAR
+
+# 229. A Tools page tool given keys that open it (C-preferences-013, Stirling's tool hotkeys): Preferences ▸ Keyboard
+# shortcuts, "merge" searched, Merge PDF's None clicked and Ctrl+Alt+M pressed; on Home, Ctrl+Alt+M opens Merge PDF.
+launch; key ctrl+comma; sleep 0.8
+SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "merge pdf"; sleep 0.8
+KM=$(at_word None); [ -n "$KM" ] && click $KM 0.5; key ctrl+alt+m; sleep 0.8
+LK=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("launch_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+key Escape; key ctrl+alt+m; sleep 1.2
+MT=$(ocr 1280x80+0+0)
+check "keys given to a Tools page tool open it ($LK; tab bar: $(echo "$MT" | cut -c1-60))" "echo \"$LK\" | grep -q \"'merge', 'Control+Alt+M'\" && echo \"$MT\" | grep -q 'Merge'"
+quit; platform_reset
+
+# 230. Right to left beyond Home and the reader's bars (C-platform-004): Preferences' rows read from the right
+# (Rulers measure in: Centimetres left of Inches), and the reader's tool options bar sits at the top right of the
+# pages with its options reversed (Shapes: Fill on the right of the bar's left half, the bar past the middle).
+python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.setdefault("platform", {})["direction"] = 2; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+launch; key ctrl+comma; sleep 0.8
+CM=$(pref_find Centimetres); read CX _ <<< "$CM"; read IX _ <<< "$(at Inches 1280x710+0+90)"
+quit
+cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
+key r; sleep 0.6; read FX _ <<< "$(at Fill 1280x120+0+80)"
+check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
+quit; platform_reset
