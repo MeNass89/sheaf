@@ -22,6 +22,24 @@
 - Active: implement the remaining independent local conversion and print-production work.
 - Verification: source inspection only; build and execution belong to the orchestrator.
 
+- C-optimize-014 (partial): More ▸ More tools ▸ Fix page hairlines (0.25 pt) raises strokes in the
+  selected pages' own content, or the current page (Acrobat's Fix Hairlines). It measures the
+  width at painting time through the current transform, honours saved graphics state, ExtGState
+  widths and UserUnit, and restores the width after painting. Add black crop marks (Acrobat's Add
+  Printer Marks) enlarges the sheet, preserves effective trim/bleed/art boxes, clips the original
+  content to its previous crop, and adds eight black crop marks outside the bleed. Repeated clicks
+  add no duplicate marks. Each command is undoable. Tests
+  `page_hairlines_are_measured_after_transforms_and_undone_in_one_step`,
+  `crop_marks_keep_inherited_page_boxes_and_do_not_invent_bleed` in `tests/engine_patches.rs`.
+  Left: hairlines inside grouped Form artwork, patterns, text strokes and annotation appearances;
+  configurable widths, general page-box editor, registration marks/colour bars, trapping and
+  flattening preview. Inspected Acrobat `PrintProduction_R_RHP.aapp`, PdfCraft organize boxes,
+  content parser, page-stream splice helpers, and engine edit/permission/undo handling.
+  New public engine edits `FixPageHairlines`, `AddCropMarks`; public modules
+  `pdfcraft_edit::prepress`, `pdfcraft_engine::prepress`. No dependency added.
+  not automatable: verify both menu commands, page selection and undo in both themes — app
+  execution forbidden in this worker.
+
 - C-optimize-012 (partial): More ▸ More tools ▸ Print preflight report… saves Acrobat's Preflight
   style findings from the document **as edited**, on the document thread: effective image ppi,
   media/crop/trim/bleed boxes, bleed margins, output intents, unembedded fonts and structural

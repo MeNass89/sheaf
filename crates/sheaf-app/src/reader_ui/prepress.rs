@@ -13,3 +13,17 @@ pub fn print_preflight(ui: &AppWindow, tab_id: i32) {
         });
     });
 }
+
+/// Fix the selected pages, or the page shown. One click is one undo step; Form artwork and
+/// annotation appearances are left alone (the command says "page hairlines").
+pub fn fix_page_hairlines(ui: &AppWindow, tab_id: i32) {
+    let Some(pages) = update(tab_id, |r, v| super::pages::op_pages(r, v)) else { return };
+    apply(ui, tab_id, Edit::FixPageHairlines { pages: pages.clone(), minimum: 0.25 }, &pages, None);
+    crate::flow::toast(ui, "Fixing page strokes only; grouped artwork and comments are unchanged");
+}
+
+/// Acrobat's Add Printer Marks: black crop marks outside the bleed, with a larger sheet.
+pub fn add_crop_marks(ui: &AppWindow, tab_id: i32) {
+    let Some(pages) = update(tab_id, |r, v| super::pages::op_pages(r, v)) else { return };
+    apply(ui, tab_id, Edit::AddCropMarks { pages: pages.clone() }, &pages, None);
+}

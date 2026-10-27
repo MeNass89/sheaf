@@ -949,6 +949,8 @@ export global ReaderBridge {
     callback accessibility-report(int);
     // Print Production ▸ Preflight: a saved report of the current document's print checks.
     callback print-preflight(int);
+    callback fix-page-hairlines(int);
+    callback add-crop-marks(int);
     callback form-grid(int);
     callback fields-nudge(int, float, float);
     callback link-selection(int);

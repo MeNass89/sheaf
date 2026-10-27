@@ -38,6 +38,7 @@ pub mod links;
 pub mod ocr;
 pub mod optimizer;
 pub mod printcheck;
+pub mod prepress;
 mod scan_colours;
 pub mod signature_image;
 pub mod signature_scan;
@@ -1493,6 +1494,10 @@ pub enum Edit {
     ConvertPdfA {
         level: pdfcraft_preflight::Level,
     },
+    /// Sheaf: raise thin strokes in the page's own content (Acrobat's Fix Hairlines).
+    FixPageHairlines { pages: Vec<usize>, minimum: f64 },
+    /// Sheaf: black crop marks outside the existing bleed (Acrobat's Add Printer Marks).
+    AddCropMarks { pages: Vec<usize> },
     /// What a script (button or console) changed in form fields: values, read-only, required
     /// and visibility.
     ApplyScriptChanges {
@@ -1999,6 +2004,8 @@ impl Edit {
             Edit::XfaEvent { .. } => Label::of("Run form script"),
             // The level is the standard's own name ("PDF/A-2b"), so it goes in as it stands.
             Edit::ConvertPdfA { level } => Label::with("Save as {level}", level.label()),
+            Edit::FixPageHairlines { .. } => Label::of("Fix page hairlines"),
+            Edit::AddCropMarks { .. } => Label::of("Add crop marks"),
             Edit::SetFieldScript { name, .. } => Label::with("Edit script of {name}", name.as_str()),
             Edit::SetDocumentScript { script: None, .. } => Label::of("Delete document JavaScript"),
             Edit::SetDocumentScript { .. } => Label::of("Edit document JavaScript"),
@@ -2206,6 +2213,8 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetDocumentScript { .. }
         | Edit::SetFieldScript { .. }
         | Edit::ConvertPdfA { .. }
+        | Edit::FixPageHairlines { .. }
+        | Edit::AddCropMarks { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
         | Edit::RegisterTextFont { .. }
@@ -2544,6 +2553,10 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::ConvertPdfA { level } => {
             pdfcraft_preflight::convert(doc, *level).map_err(|e| EditError::Invalid(e.to_string()))?;
         }
+        Edit::FixPageHairlines { pages, minimum } => {
+            pdfcraft_edit::prepress::fix_page_hairlines(doc, pages, *minimum)?;
+        }
+        Edit::AddCropMarks { pages } => prepress::add_crop_marks(doc, pages)?,
         Edit::SetDocumentScript { name, script } => pdfcraft_forms::set_document_script(doc, name, script.as_deref())?,
         Edit::AddOcrText { page, words } => {
             pdfcraft_edit::stamp(doc, *page, "OCR", pdfcraft_ocr::text_layer(words))?;

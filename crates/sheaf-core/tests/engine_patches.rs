@@ -4,6 +4,96 @@ mod common;
 use lopdf::{dictionary, Object, Stream};
 use sheaf_core::pdfcraft::engine::{copy_image, sfn, Edit};
 
+fn prepress_pdf(dir: &std::path::Path, contents: &[&[u8]]) -> std::path::PathBuf {
+    let mut pdf = lopdf::Document::with_version("1.7");
+    let pages = pdf.new_object_id();
+    let streams: Vec<Object> = contents.iter().map(|c| Object::Reference(pdf.add_object(Stream::new(dictionary! {}, c.to_vec())))).collect();
+    let page = pdf.add_object(dictionary! {
+        "Type" => "Page", "Parent" => pages, "Contents" => streams,
+        "TrimBox" => vec![30.into(), 40.into(), 290.into(), 400.into()],
+        "BleedBox" => vec![25.into(), 35.into(), 295.into(), 405.into()],
+        "Resources" => dictionary! { "ExtGState" => dictionary! { "Thin" => dictionary! { "LW" => 0.1 } } }
+    });
+    pdf.objects.insert(pages, Object::Dictionary(dictionary! {
+        "Type" => "Pages", "Count" => 1, "Kids" => vec![page.into()],
+        "MediaBox" => vec![10.into(), 20.into(), 310.into(), 420.into()],
+        "CropBox" => vec![20.into(), 30.into(), 300.into(), 410.into()]
+    }));
+    let root = pdf.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    pdf.trailer.set("Root", root);
+    let path = dir.join("prepress.pdf");
+    pdf.save(&path).unwrap();
+    path
+}
+
+#[test]
+fn page_hairlines_are_measured_after_transforms_and_undone_in_one_step() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    // A path and its graphics state cross a content-stream boundary.
+    let path = prepress_pdf(t.path(), &[
+        b"q 0.2 w 0.5 0 0 0.5 0 0 cm 30 50 m",
+        b"100 50 l S Q 0 w 30 60 m 100 60 l S 2 w 30 70 m 100 70 l S q /Thin gs 30 80 m 100 80 l S Q",
+    ]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: 0.25 }).unwrap();
+    let out = doc.save(&t.path().join("fixed.pdf")).unwrap();
+    let pdf = lopdf::Document::load(&out).unwrap();
+    let ops = lopdf::content::Content::decode(&pdf.get_page_content(pdf.get_pages()[&1])).unwrap().operations;
+    let strokes: Vec<usize> = ops.iter().enumerate().filter_map(|(i, op)| (op.operator == "S").then_some(i)).collect();
+    assert_eq!(strokes.len(), 4);
+    let width = |i: usize| ops[i].operands[0].as_float().unwrap();
+    assert_eq!(ops[strokes[0] - 1].operator, "w");
+    assert!((width(strokes[0] - 1) - 0.5).abs() < 1e-6, "0.5 local points makes 0.25 on the page");
+    assert!((width(strokes[0] + 1) - 0.2).abs() < 1e-6, "the original width is restored");
+    assert!((width(strokes[1] - 1) - 0.25).abs() < 1e-6, "a zero-width hairline is made printable");
+    assert_eq!(ops[strokes[2] - 1].operator, "l", "a thick stroke was not touched");
+    assert!((width(strokes[3] - 1) - 0.25).abs() < 1e-6, "ExtGState line widths are read too");
+    common::qpdf_clean(&out);
+    let id = doc.id();
+    doc.session_mut().undo(id).unwrap();
+    let undone = doc.save(&t.path().join("undone.pdf")).unwrap();
+    let original = lopdf::Document::load(&path).unwrap();
+    let undone = lopdf::Document::load(undone).unwrap();
+    assert_eq!(undone.get_page_content(undone.get_pages()[&1]), original.get_page_content(original.get_pages()[&1]));
+    assert!(doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: f64::NAN }).is_err());
+}
+
+#[test]
+fn crop_marks_keep_inherited_page_boxes_and_do_not_invent_bleed() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 g 0 0 500 500 re f"]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::AddCropMarks { pages: vec![0] }).unwrap();
+    let out = doc.save(&t.path().join("marks.pdf")).unwrap();
+    let pdf = lopdf::Document::load(&out).unwrap();
+    let page = pdf.get_pages()[&1];
+    let dict = pdf.get_dictionary(page).unwrap();
+    let rect = |key: &[u8]| dict.get(key).unwrap().as_array().unwrap().iter().map(|v| v.as_float().unwrap() as f64).collect::<Vec<_>>();
+    assert_eq!(rect(b"TrimBox"), [30.0, 40.0, 290.0, 400.0]);
+    assert_eq!(rect(b"BleedBox"), [25.0, 35.0, 295.0, 405.0]);
+    assert_eq!(rect(b"MediaBox"), [7.0, 17.0, 313.0, 423.0]);
+    assert_eq!(rect(b"CropBox"), rect(b"MediaBox"), "the added marks are visible on the expanded sheet");
+    let content = pdf.get_page_content(page);
+    let text = String::from_utf8_lossy(&content);
+    assert!(text.contains("20 30 280 380 re W n"), "expanding the paper cannot reveal previously cropped artwork");
+    let ops = lopdf::content::Content::decode(&content).unwrap().operations;
+    assert_eq!(ops.iter().filter(|o| o.operator == "S").count(), 8, "two crop marks per corner");
+    assert!(text.contains("/Artifact BMC"));
+    common::qpdf_clean(&out);
+    doc.apply(Edit::AddCropMarks { pages: vec![0] }).unwrap();
+    let again = doc.save(&t.path().join("again.pdf")).unwrap();
+    let again = lopdf::Document::load(again).unwrap();
+    assert_eq!(again.get_page_content(again.get_pages()[&1]), content, "repeated clicks add no duplicate marks");
+    let id = doc.id();
+    doc.session_mut().undo(id).unwrap();
+    doc.session_mut().undo(id).unwrap();
+    let undone = doc.save(&t.path().join("unmarked.pdf")).unwrap();
+    let undone = lopdf::Document::load(undone).unwrap();
+    assert!(!undone.get_dictionary(undone.get_pages()[&1]).unwrap().has(b"SheafCropMarks"));
+}
+
 #[test]
 fn notation_reads_each_field_as_a_number() {
     assert_eq!(

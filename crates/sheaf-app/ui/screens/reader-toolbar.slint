@@ -380,6 +380,8 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Copy the file", on: false },
                                 { text: "Share with AirDrop", on: false },
                                 { text: "Print preflight report…", on: false },
+                                { text: "Fix page hairlines (0.25 pt)", on: false },
+                                { text: "Add black crop marks", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -408,6 +410,8 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 18 { ReaderBridge.share-file(root.id, false); }
                                         if k == 19 { ReaderBridge.share-file(root.id, true); }
                                         if k == 20 { ReaderBridge.print-preflight(root.id); }
+                                        if k == 21 { ReaderBridge.fix-page-hairlines(root.id); }
+                                        if k == 22 { ReaderBridge.add-crop-marks(root.id); }
                                         root.focus-pages();
                                     }
                                 }
