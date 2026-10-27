@@ -120,6 +120,36 @@ pub(crate) enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Save portable security settings without passwords (Acrobat's Security Policies)
+    SaveSecurityPolicy {
+        name: String,
+        #[arg(long)]
+        no_printing: bool,
+        #[arg(long)]
+        no_copying: bool,
+        #[arg(long)]
+        no_editing: bool,
+        #[arg(long)]
+        no_commenting: bool,
+        #[arg(long)]
+        no_forms: bool,
+        #[arg(long)]
+        leave_metadata_clear: bool,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Apply imported security settings, asking for passwords separately
+    ApplySecurityPolicy {
+        input: PathBuf,
+        #[arg(long)]
+        policy: PathBuf,
+        #[arg(long, default_value = "")]
+        user_password: String,
+        #[arg(long)]
+        owner_password: Option<String>,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
     /// Remove the password from a PDF (needs --password)
     Unlock {
         /// The protected PDF

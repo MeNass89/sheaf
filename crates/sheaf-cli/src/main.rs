@@ -70,7 +70,7 @@ impl Cmd {
             Cmd::Edit { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
             // They write no PDF.
-            Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
+            Cmd::SaveSecurityPolicy { .. } | Cmd::ApplySecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
         }
     }
 
@@ -80,7 +80,9 @@ impl Cmd {
         match self {
             Cmd::Split { out, .. } | Cmd::ToJpg { out, .. } => Some(out),
             Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Tools | Cmd::Mcp => None,
-            Cmd::Index { out, .. }
+            Cmd::SaveSecurityPolicy { out, .. }
+            | Cmd::ApplySecurityPolicy { out, .. }
+            | Cmd::Index { out, .. }
             | Cmd::Merge { out, .. }
             | Cmd::Render { out, .. }
             | Cmd::Extract { out, .. }
@@ -157,6 +159,14 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         }
         Cmd::Protect { input: i, user_password, owner_password, out } => {
             one(security::protect(&input(i), &user_password, owner_password.as_deref(), &out))
+        }
+        Cmd::SaveSecurityPolicy { name, no_printing, no_copying, no_editing, no_commenting, no_forms, leave_metadata_clear, out } => {
+            let permissions = security::ProtectPermissions { printing: !no_printing, copying: !no_copying, editing: !no_editing, commenting: !no_commenting, filling_forms: !no_forms };
+            let policy = sheaf_core::security_policy::SecurityPolicy::new(name, permissions, !leave_metadata_clear)?;
+            one(policy.save(&out))
+        }
+        Cmd::ApplySecurityPolicy { input: i, policy, user_password, owner_password, out } => {
+            one(sheaf_core::security_policy::SecurityPolicy::load(&policy)?.apply(&input(i), &user_password, owner_password.as_deref(), &out))
         }
         Cmd::Unlock { input: i, out } => one(security::unlock(&input(i), &out)),
         Cmd::Repair { input: i, out } => one(repair::repair(&input(i), &out)),

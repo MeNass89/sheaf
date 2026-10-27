@@ -51,6 +51,18 @@
   Existing workspace dependencies serde and serde_json now also linked by sheaf-core (no new
   version/package). Left: a dedicated GUI catalog manager; no Acrobat `.pdx` interchange.
 
+- C-security-008: reusable named security policies are saved/exported as versioned JSON,
+  imported with strict validation, and applied to PDFs with passwords supplied separately
+  (Acrobat's Security Policies). CLI `save-security-policy NAME --no-copying … -o policy.json`
+  and `apply-security-policy FILE --policy policy.json --user-password … -o protected.pdf`.
+  Permissions and the encrypt-metadata choice survive exchange; unknown security fields and
+  versions are refused. No passwords saved in policies. Tests
+  `policies_exchange_permissions_and_metadata_but_never_credentials`,
+  `a_policy_with_unknown_security_fields_or_versions_is_refused`,
+  `an_imported_policy_applies_restrictions_and_leaves_metadata_clear`.
+  New public core module `security_policy` and `security::protect_with_settings`.
+  Left: dedicated GUI policy manager and Acrobat policy-file compatibility.
+
 ## Polaroid
 
 - Active: eight-component OCR/sign/security batch. Signature storage implementation written and inspected;
