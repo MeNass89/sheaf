@@ -553,45 +553,50 @@ pub fn restack_objects(doc: &mut Document, page: usize, targets: &[ObjectTarget]
             pg.write(&mut work, plan)?;
         }
         Restack::Forward | Restack::Backward => {
-            // One at a time, each found again by its kind and place (the others renumber).
-            let start = read_page(&work, page)?;
-            let mut chosen: Vec<Item> = targets.iter().map(|t| start.items.iter().find(|i| i.target == *t).cloned().ok_or_else(gone)).collect::<Result<_, _>>()?;
-            chosen.sort_by_key(|i| if how == Restack::Forward { usize::MAX - i.first } else { i.first });
-            let picked: Vec<(ObjectKind, [f64; 4])> = chosen.iter().map(|i| (i.target.kind, i.rect)).collect();
-            let off = |a: [f64; 4], b: [f64; 4]| a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max);
-            let mut moved = 0;
-            for (kind, rect) in &picked {
-                let pg = read_page(&work, page)?;
-                let item = pg.items.iter().filter(|i| i.target.kind == *kind).min_by(|a, b| off(a.rect, *rect).total_cmp(&off(b.rect, *rect))).filter(|i| off(i.rect, *rect) < 0.5).ok_or_else(gone)?;
-                // The nearest object it overlaps, above (forward) or below, not one of those picked.
-                let others = pg.items.iter().filter(|o| o.target != item.target && overlap(o.rect, item.rect) && !picked.iter().any(|(k, r)| o.target.kind == *k && off(o.rect, *r) < 0.5));
-                let next = if how == Restack::Forward { others.filter(|o| o.first > item.last).min_by_key(|o| o.first) } else { others.filter(|o| o.last < item.first).max_by_key(|o| o.last) };
-                let Some(next) = next else { continue };
-                // The object past its neighbour, or else the neighbour past the object.
-                let tries = if how == Restack::Forward {
-                    [(item, pg.outside_text(next.last + 1, false)), (next, pg.outside_text(item.first, true))]
-                } else {
-                    [(item, pg.outside_text(next.first, true)), (next, pg.outside_text(item.last + 1, false))]
-                };
-                let mut done = false;
-                for (who, place) in tries {
-                    let mut plan = Plan::default();
-                    pg.take_out(&mut plan, who);
-                    let Some(unit) = pg.unit(who, pg.state(place)) else { continue };
+            // The objects picked, as they are (no finding again by place: two objects of the same
+            // kind and size at the same place are told apart; Sol, 27/10), move together past the
+            // nearest object one of them overlaps, keeping their own order.
+            let pg = read_page(&work, page)?;
+            let mut chosen: Vec<&Item> = targets.iter().map(|t| pg.items.iter().find(|i| i.target == *t).ok_or_else(gone)).collect::<Result<_, _>>()?;
+            chosen.sort_by_key(|i| i.first);
+            chosen.dedup_by_key(|i| i.target);
+            let picked = |o: &Item| chosen.iter().any(|c| c.target == o.target);
+            let forward = how == Restack::Forward;
+            // The nearest object above (forward) or below one picked object that it overlaps.
+            let next = pg
+                .items
+                .iter()
+                .filter(|o| !picked(o))
+                .filter(|o| chosen.iter().any(|c| overlap(o.rect, c.rect) && if forward { o.first > c.last } else { o.last < c.first }));
+            let next = if forward { next.min_by_key(|o| o.first) } else { next.max_by_key(|o| o.last) };
+            let Some(next) = next else {
+                return Err(invalid(if forward { "nothing above the selection overlaps it" } else { "nothing below the selection overlaps it" }));
+            };
+            // The picked objects on the other side of it: those that move.
+            let moving: Vec<&Item> = chosen.iter().copied().filter(|c| if forward { c.last < next.first } else { c.first > next.last }).collect();
+            let (low, high) = (moving.iter().map(|c| c.first).min().unwrap_or(next.first), moving.iter().map(|c| c.last).max().unwrap_or(next.last));
+            // They go past their neighbour, or else the neighbour goes past them.
+            let tries: [(Vec<&Item>, Place); 2] = if forward {
+                [(moving, pg.outside_text(next.last + 1, false)), (vec![next], pg.outside_text(low, true))]
+            } else {
+                [(moving, pg.outside_text(next.first, true)), (vec![next], pg.outside_text(high + 1, false))]
+            };
+            let mut done = false;
+            'tries: for (who, place) in tries {
+                let mut plan = Plan::default();
+                for item in &who {
+                    pg.take_out(&mut plan, item);
+                    let Some(unit) = pg.unit(item, pg.state(place)) else { continue 'tries };
                     if pg.put(&mut plan, place, unit).is_none() {
-                        continue;
+                        continue 'tries;
                     }
-                    pg.write(&mut work, plan)?;
-                    done = true;
-                    break;
                 }
-                if !done {
-                    return Err(invalid("this object and the one it overlaps are drawn in different clipped groups; they can't change places"));
-                }
-                moved += 1;
+                pg.write(&mut work, plan)?;
+                done = true;
+                break;
             }
-            if moved == 0 {
-                return Err(invalid(if how == Restack::Forward { "nothing above the selection overlaps it" } else { "nothing below the selection overlaps it" }));
+            if !done {
+                return Err(invalid("these objects and the one they overlap are drawn in different clipped groups; they can't change places"));
             }
         }
     }

@@ -27,6 +27,8 @@ pub mod arrange_objects;
 pub mod articles;
 /// Sheaf: Preview's Loupe and Mask, as the reader reads them.
 mod loupes;
+/// Sheaf: the fonts text boxes are drawn in.
+mod text_box_faces;
 pub use loupes::loupe_magnifications;
 pub mod clear_signature;
 pub mod sfn;

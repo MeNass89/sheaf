@@ -62,3 +62,29 @@ pub(super) fn article_release(r: &mut ReaderUi, v: &Viewer, page: usize, a: (f64
         }
     }
 }
+
+/// The article being drawn (`current`, an index of `Snap::articles`) after a box of article
+/// `deleted` goes: unchanged when its article stays (`removed` false); when that box was its
+/// article's last, the article goes and those after it move down one place.
+pub(super) fn after_delete(current: Option<usize>, deleted: usize, removed: bool) -> Option<usize> {
+    match current {
+        Some(t) if removed && t == deleted => None,
+        Some(t) if removed && t > deleted => Some(t - 1),
+        other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Sol, 27/10: deleting an article's last box left the next box aimed at its old number.
+    #[test]
+    fn the_article_being_drawn_follows_a_deleted_article() {
+        assert_eq!(after_delete(Some(1), 1, true), None, "its own article went: a new one starts");
+        assert_eq!(after_delete(Some(2), 1, true), Some(1), "an article after it moves down");
+        assert_eq!(after_delete(Some(0), 1, true), Some(0));
+        assert_eq!(after_delete(Some(1), 1, false), Some(1), "a box gone, its article stays");
+        assert_eq!(after_delete(None, 0, true), None);
+    }
+}

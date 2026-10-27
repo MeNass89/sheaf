@@ -108,3 +108,24 @@ Not built or run here (brief rule 1): the orchestrator compiles and runs the sui
 - Shared files touched (small blocks): `ui/flow-types.slint`, `ui/screens/reader.slint` (the
   marks' colours for kinds 16/17, the card's condition), `reader_ui/mod.rs`,
   `third_party/pdfcraft-engine/src/lib.rs`, `crates/sheaf-core/tests/engine_patches.rs` (appended).
+
+## Fixes after Sol's review (27/10, on dev/round26)
+
+- C-edit-024: deleting an article's last box renumbers the article being drawn (gone: the next
+  box starts a new article; an article after it moves down one place) (`article_boxes::after_delete`,
+  test `the_article_being_drawn_follows_a_deleted_article`).
+- C-edit-009: Forward/Backward take the picked objects as they are (no finding again by kind and
+  place) and move them together past the nearest object one of them overlaps; twins of the same
+  kind and size at the same place pass each other (test `twin_drawings_at_the_same_place_pass_each_other`).
+- C-annotate-022: a text box whose own font sits under a standard resource name (`/Helv` pointing
+  at another font) keeps it through a recolour, its non-WinAnsi text in the font's codes
+  (`foreign_under_standard_name`; test `a_text_box_whose_own_font_is_named_helv_keeps_it_through_a_new_colour`).
+- C-annotate-009: B and I on a text box in a font that is not a standard one pick that font's own
+  bold or italic face installed on the computer (`system_fonts::variant`, the box's `/BaseFont`
+  now in `AnnotEntry.font_name`, `Document::text_box_base_fonts`); none installed: said
+  (test `bold_and_italic_pick_the_fonts_own_faces`).
+- C-annotate-015: a moved loupe is drawn again from its new place; a moved mask moves its opening
+  (`move_annotation`; test `a_moved_loupe_shows_its_new_place_and_a_moved_mask_its_new_opening`).
+- C-edit-004: 1. (numbered list, Acrobat's) beside •, for new text and the paragraph open; the two
+  replace each other; a list made again is renumbered (tests `lines_become_a_numbered_list_and_back`,
+  `para_bits(10)`). Smoke 2c's + moved to 825 (the new button shifts the row by 34 px).

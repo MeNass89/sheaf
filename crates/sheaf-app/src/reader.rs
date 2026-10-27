@@ -193,6 +193,41 @@ pub fn is_bulleted(text: &str) -> bool {
     lines.peek().is_some() && lines.all(|l| l.trim_start().starts_with('•'))
 }
 
+/// Sheaf: a line's list number and its separator ("12. ", "3) "), if it starts with one.
+fn number_prefix(l: &str) -> Option<usize> {
+    let digits = l.chars().take_while(char::is_ascii_digit).count();
+    let rest = l.get(digits..)?;
+    (digits > 0 && digits <= 4 && (rest.starts_with(". ") || rest.starts_with(") "))).then_some(digits + 2)
+}
+
+/// Sheaf: text as a numbered list (Acrobat's Numbered list): each line not empty starts with its
+/// number ("1. ", "2. "…), counted again after the numbers it had.
+pub fn numbered(text: &str) -> String {
+    let mut n = 0;
+    text.lines()
+        .map(|l| {
+            if l.trim().is_empty() {
+                return l.to_string();
+            }
+            n += 1;
+            let bare = number_prefix(l).map_or(l, |k| &l[k..]);
+            format!("{n}. {bare}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Sheaf: `text` without the numbers [`numbered`] puts at the start of its lines.
+pub fn unnumbered(text: &str) -> String {
+    text.lines().map(|l| number_prefix(l).map_or(l, |k| &l[k..])).collect::<Vec<_>>().join("\n")
+}
+
+/// Sheaf: whether every line of `text` with words starts with a list number.
+pub fn is_numbered(text: &str) -> bool {
+    let mut lines = text.lines().map(str::trim_start).filter(|l| !l.is_empty()).peekable();
+    lines.peek().is_some() && lines.all(|l| number_prefix(l).is_some())
+}
+
 /// A point of a page shown `size` (`w`, `h`; view space, y down), where it lies once the page is
 /// turned `quarters` quarter turns clockwise (Rotate view).
 pub fn turned_point(p: [f32; 2], size: (f32, f32), quarters: u16) -> [f32; 2] {
@@ -1057,6 +1092,17 @@ mod tests {
     #[test]
     fn lines_become_a_bulleted_list_once() {
         assert_eq!(bulleted("Milk\n\nEggs\n• Bread"), "• Milk\n\n• Eggs\n• Bread");
+    }
+
+    /// A numbered list (Acrobat's), renumbered when made again, undone and told (Sol, 27/10: only
+    /// bullets were offered).
+    #[test]
+    fn lines_become_a_numbered_list_and_back() {
+        assert_eq!(numbered("Milk\n\nEggs\nBread"), "1. Milk\n\n2. Eggs\n3. Bread");
+        assert_eq!(numbered("3. Milk\n7) Eggs"), "1. Milk\n2. Eggs");
+        assert_eq!(unnumbered("1. Milk\n2) Eggs\n2024 was a year"), "Milk\nEggs\n2024 was a year");
+        assert!(is_numbered("1. Milk\n\n 2. Eggs"));
+        assert!(!is_numbered("1. Milk\nEggs") && !is_numbered(""));
     }
 
     /// An existing paragraph's list turned off, and told from plain text when opened.

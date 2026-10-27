@@ -1372,8 +1372,11 @@ fn own_text_font(doc: &Document, d: &Dict) -> Option<OwnFont> {
     if d.name(b"Subtype") != Some(b"FreeText") {
         return None;
     }
-    let (name, _) = appearance::text_font(d);
-    if appearance::TEXT_FONTS.iter().any(|f| f.0 == name) {
+    let (name, base) = appearance::text_font(d);
+    // A standard resource name (/Helv) is the standard face only when the appearance's font of
+    // that name is: another program may name its own font so (Sol, 27/10: such a box became
+    // Helvetica on a new colour).
+    if appearance::TEXT_FONTS.iter().any(|f| f.0 == name) && !foreign_under_standard_name(doc, d, &name, base) {
         return None;
     }
     if let Some(entry) = old_text_font(doc, d, &name) {
@@ -1381,6 +1384,25 @@ fn own_text_font(doc: &Document, d: &Dict) -> Option<OwnFont> {
     }
     let (entry, metrics) = encoded_text_font(doc, d, &name)?;
     Some((name, entry, Some(metrics)))
+}
+
+/// Sheaf: whether the font a text box's present appearance holds under standard resource name
+/// `name` is another font than `base`, the standard face that name stands for (its `/BaseFont`,
+/// subset tag aside, differs, or it is not a Type1 font).
+fn foreign_under_standard_name(doc: &Document, d: &Dict, name: &str, base: &str) -> bool {
+    let font = || -> Option<Dict> {
+        let ap = doc.resolve(d.get(b"AP")?);
+        let normal = doc.resolve(ap.as_dict()?.get(b"N")?);
+        let Object::Stream(normal) = normal.as_ref() else { return None };
+        let res = doc.resolve(normal.dict.get(b"Resources")?);
+        let fonts = doc.resolve(res.as_dict()?.get(b"Font")?);
+        let entry = fonts.as_dict()?.get(name.as_bytes())?.clone();
+        doc.resolve(&entry).as_dict().cloned()
+    };
+    let Some(f) = font() else { return false };
+    let own_base = f.name(b"BaseFont").map(|b| String::from_utf8_lossy(b).into_owned()).unwrap_or_default();
+    let own_base = own_base.rsplit('+').next().unwrap_or_default();
+    f.name(b"Subtype") != Some(b"Type1") || own_base != base
 }
 
 /// Sheaf: font `name` of a text box's present appearance when it is not a simple WinAnsi font (a
@@ -1881,7 +1903,18 @@ pub fn move_annotation(doc: &mut Document, page: usize, index: usize, dx: f64, d
         ))
     };
     let popup = annot_dict(doc, r).reference(b"Popup");
+    // Sheaf: a loupe shows what is under it at its new place, and a mask (over its whole page)
+    // moves its opening (Sol, 27/10: a moved loupe carried its old picture).
+    let before = annot_dict(doc, r);
+    let (loupe, mask) = (before.get(loupe_mask::LOUPE).is_some(), before.get(loupe_mask::MASK).is_some());
     doc.update_dict(r, |d| {
+        if mask {
+            if let Some(v) = d.get(loupe_mask::MASK).and_then(|o| shift(o, false)) {
+                d.set(loupe_mask::MASK.to_vec(), v);
+            }
+            touch(d, meta);
+            return;
+        }
         for (k, every) in [(&b"Rect"[..], false), (b"QuadPoints", true), (b"L", false), (b"CL", true), (b"Vertices", true)] {
             if let Some(v) = d.get(k).and_then(|o| shift(o, every)) {
                 d.set(k.to_vec(), v);
@@ -1901,6 +1934,9 @@ pub fn move_annotation(doc: &mut Document, page: usize, index: usize, dx: f64, d
                 d.set(b"Rect".to_vec(), v);
             }
         })?;
+    }
+    if loupe || mask {
+        return redraw_or_restore(doc, r, before);
     }
     Ok(())
 }

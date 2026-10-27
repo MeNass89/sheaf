@@ -223,6 +223,7 @@ export component ReaderOptionsBar inherits Rectangle {
             // PDF format panel).
             if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "U"; primary: root.tab.reader.text-underline; clicked => { ReaderBridge.text-format(root.id, 6, 0); } }
             if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "•"; primary: root.tab.reader.text-bullets; clicked => { ReaderBridge.text-format(root.id, 7, 0); } }
+            if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "1."; primary: root.tab.reader.text-numbers; clicked => { ReaderBridge.text-format(root.id, 10, 0); } }
             for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {
                 icon: icon;
                 tip: ["Align left", "Centre", "Align right"][k];

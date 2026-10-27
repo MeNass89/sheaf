@@ -118,3 +118,22 @@ fn words_are_brought_in_front_of_a_box() {
     doc.apply(Edit::RestackObjects { page: 0, objects: vec![after.target], how: Restack::Backward }).unwrap();
     assert!(light(&doc) < 50, "one step backward: under the box again");
 }
+
+/// Two squares of the same size at the same place (a red one under a blue one): the red one picked
+/// steps forward past its twin, then back under it (Sol, 27/10: the twin was taken for the one
+/// picked, so neither could pass the other).
+#[test]
+fn twin_drawings_at_the_same_place_pass_each_other() {
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = page(dir.path(), "twins.pdf", b"1 0 0 rg 100 100 100 100 re f 0 0 1 rg 100 100 100 100 re f");
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    let paths = |doc: &Doc| doc.document().editable_objects(0).unwrap().into_iter().filter(|o| o.target.kind == ObjectKind::Path).map(|o| o.target).collect::<Vec<_>>();
+    assert_eq!(paths(&doc).len(), 2);
+    assert_eq!(colour_at(&doc, dir.path(), 150, 150), BLUE);
+    // The first drawn is the red one.
+    doc.apply(Edit::RestackObjects { page: 0, objects: vec![paths(&doc)[0]], how: Restack::Forward }).unwrap();
+    assert_eq!(colour_at(&doc, dir.path(), 150, 150), RED, "the red twin stepped forward");
+    // Now drawn last, the red one is the second; it steps back under the blue one.
+    doc.apply(Edit::RestackObjects { page: 0, objects: vec![paths(&doc)[1]], how: Restack::Backward }).unwrap();
+    assert_eq!(colour_at(&doc, dir.path(), 150, 150), BLUE, "and back under its twin");
+}

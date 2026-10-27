@@ -40,6 +40,9 @@ pub struct AnnotEntry {
     /// A text box's format: (standard font resource name, "TiBo"; size in points; alignment 0
     /// left, 1 centre, 2 right).
     pub font: Option<(&'static str, f64, u8)>,
+    /// A text box's font as its appearance names it (`/BaseFont`, "ABCDEF+DejaVuSerif"; "" when
+    /// unknown): the format row's bold and italic pick its own faces.
+    pub font_name: String,
 }
 
 /// A paragraph of a page as the edit tool shows it (from PdfCraft's `text_blocks`).
@@ -340,6 +343,7 @@ fn snap(doc: &Doc) -> Snap {
     let d = doc.document();
     // A mask (Preview's) is picked by a click in its opening: the opening is its hit box.
     let holes: std::collections::HashMap<(usize, usize), [f64; 4]> = d.mask_holes().into_iter().collect();
+    let base_fonts: std::collections::HashMap<(usize, usize), String> = d.text_box_base_fonts().into_iter().collect();
     // Replies and status replies point at their comment's name (/IRT → /NM).
     let mut replies: std::collections::HashMap<&str, Vec<(String, usize, usize)>> = std::collections::HashMap::new();
     let mut status: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
@@ -382,6 +386,7 @@ fn snap(doc: &Doc) -> Snap {
             status: a.name.as_deref().and_then(|n| status.get(n)).cloned().unwrap_or_default(),
             nm: a.name.clone().unwrap_or_default(),
             font: fonts.get(&(a.page, a.index)).copied(),
+            font_name: base_fonts.get(&(a.page, a.index)).cloned().unwrap_or_default(),
         })
         .collect();
     annots.sort_by_key(|a| (a.page, a.index));

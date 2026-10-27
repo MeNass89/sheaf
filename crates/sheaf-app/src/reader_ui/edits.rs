@@ -624,7 +624,13 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
                 {
                     let added = AddedText {
                         rect,
-                        text: if r.text_bullets { reader::bulleted(&text) } else { text.clone() },
+                        text: if r.text_bullets {
+                            reader::bulleted(&text)
+                        } else if r.text_numbers {
+                            reader::numbered(&text)
+                        } else {
+                            text.clone()
+                        },
                         size: pt,
                         color: ink_at(r.ink_colour),
                         family,
@@ -805,11 +811,19 @@ fn paragraph_edit(r: &ReaderUi, d: &Draft, text: &str) -> Option<(usize, Edit)> 
         underline: (f & 16 != 0).then_some(r.text_underline),
         ..Default::default()
     };
-    // Bullets: each line of the paragraph starts with one, or none does (Acrobat's Bulleted list).
-    let text = match (f & 32 != 0, r.text_bullets) {
-        (true, true) => reader::bulleted(text),
-        (true, false) => reader::unbulleted(text),
-        _ => text.to_string(),
+    // A list: each line of the paragraph starts with a bullet or its number, or none does
+    // (Acrobat's Bulleted and Numbered lists).
+    let text = if f & 32 != 0 {
+        let plain = reader::unnumbered(&reader::unbulleted(text));
+        if r.text_bullets {
+            reader::bulleted(&plain)
+        } else if r.text_numbers {
+            reader::numbered(&plain)
+        } else {
+            plain
+        }
+    } else {
+        text.to_string()
     };
     if let Some((_, font)) = r.text_font.as_ref().filter(|_| f & 64 != 0) {
         return Some((d.page, Edit::EditTextBlockInFont { page: d.page, block: *block, text, style, font: font.clone() }));
@@ -876,7 +890,16 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
         return super::pages::page_op(ui, tab_id, 2);
     }
     // Shapes ▸ Article: the box picked (Acrobat's Delete on an article box).
-    if let Some((thread, bead)) = update(tab_id, |r, _| r.article_box.take().filter(|_| r.tool == SHAPE && r.shape_special == 3)).flatten() {
+    if let Some((thread, bead)) = update(tab_id, |r, _| {
+        let picked = r.article_box.take().filter(|_| r.tool == SHAPE && r.shape_special == 3)?;
+        // Its article's last box takes the article: the article being drawn is renumbered or
+        // gone (Sol, 27/10: the next box went to a stale article number).
+        let removed = r.snap.articles.get(picked.0).is_some_and(|a| a.beads.len() <= 1);
+        r.article_thread = super::article_boxes::after_delete(r.article_thread, picked.0, removed);
+        Some(picked)
+    })
+    .flatten()
+    {
         return apply(ui, tab_id, Edit::DeleteArticleBox { thread, bead }, &[], None);
     }
     // Objects picked with the Edit tool (drawings, paragraphs, images): deleted in one step.
