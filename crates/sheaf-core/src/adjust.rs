@@ -208,10 +208,21 @@ fn adjust_ops(doc: &Document, res: Option<&Dictionary>, ops: Vec<Operation>, a: 
 
 /// A grey or RGB picture's pixels changed (stored losslessly); false when it cannot be read.
 fn adjust_image(s: &mut lopdf::Stream, n: u8, a: &Adjust) -> bool {
-    // CMYK (8 bits, not a JPEG): read as its RGB, written back in RGB (Sol, 26/10: CMYK pictures
-    // were left, so an inverted page mixed both).
+    // CMYK: read as its RGB, written back in RGB (Sol, 26/10: CMYK pictures were left, so an
+    // inverted page mixed both; 27/10: CMYK JPEGs too).
     if n == 4 {
         let jpeg = crate::compress::single_filter(s) == Some(b"DCTDecode");
+        if jpeg {
+            let Some(img) = crate::compress::cmyk_jpeg_rgb(s) else { return false };
+            let data: Vec<u8> = img.pixels().flat_map(|p| a.rgb([p[0], p[1], p[2]].map(|c| c as f32 / 255.0)).map(|c| (c * 255.0).round() as u8)).collect();
+            s.set_plain_content(data);
+            s.dict.remove(b"Filter");
+            s.dict.remove(b"DecodeParms");
+            s.dict.set("ColorSpace", Object::Name(b"DeviceRGB".to_vec()));
+            s.dict.set("BitsPerComponent", 8);
+            let _ = s.compress();
+            return true;
+        }
         let (w, h) = (s.dict.get(b"Width").and_then(Object::as_i64).unwrap_or(0), s.dict.get(b"Height").and_then(Object::as_i64).unwrap_or(0));
         if jpeg || s.dict.get(b"BitsPerComponent").and_then(Object::as_i64).ok() != Some(8) || s.dict.has(b"Decode") {
             return false;
@@ -268,5 +279,22 @@ mod tests {
         for want in ["0 1 1 rg", "1 G", "1 1 1 rg", "1 1 0 sc", "/P0 scn"] {
             assert!(text.contains(want), "{want} in {text}");
         }
+    }
+
+    /// A CMYK JPEG (ImageMagick's, Adobe's inverted CMYK) is inverted too, written back in RGB.
+    #[test]
+    fn a_cmyk_jpeg_is_changed_too() {
+        let dir = tempfile::tempdir().unwrap();
+        let jpg = dir.path().join("red.jpg");
+        let made = std::process::Command::new("convert").args(["-size", "8x8", "xc:red", "-colorspace", "CMYK"]).arg(&jpg).status();
+        assert!(made.is_ok_and(|s| s.success()), "ImageMagick's convert makes the CMYK JPEG");
+        let dict = lopdf::dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 8, "Height" => 8, "ColorSpace" => "DeviceCMYK", "BitsPerComponent" => 8, "Filter" => "DCTDecode" };
+        let mut s = lopdf::Stream::new(dict, std::fs::read(&jpg).unwrap());
+        assert!(adjust_image(&mut s, 4, &Adjust { invert: true, ..Default::default() }));
+        assert_eq!(s.dict.get(b"ColorSpace").unwrap().as_name().unwrap(), b"DeviceRGB");
+        let px = s.decompressed_content().unwrap();
+        assert_eq!(px.len(), 8 * 8 * 3);
+        // Red inverted: cyan.
+        assert!(px[0] < 60 && px[1] > 200 && px[2] > 200, "{:?}", &px[..3]);
     }
 }

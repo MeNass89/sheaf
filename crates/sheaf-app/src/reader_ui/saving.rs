@@ -321,6 +321,27 @@ pub fn email(ui: &AppWindow, tab_id: i32) {
     }
 }
 
+/// More tools ▸ Copy the file (`airdrop` false) or Share with AirDrop (macOS): the document as it is
+/// now, unsaved edits included, under its own name (a copy in the temporary folder).
+pub fn share_file(ui: &AppWindow, tab_id: i32, airdrop: bool) {
+    let Some((name, bytes)) = update(tab_id, |r, _| (r.name.clone(), r.snap.bytes.clone())) else { return };
+    let dir = std::env::temp_dir().join("sheaf-share");
+    let copy = std::fs::create_dir_all(&dir).and_then(|()| {
+        let to = dir.join(&name);
+        std::fs::write(&to, bytes.as_slice()).map(|()| to)
+    });
+    let msg = match copy {
+        Ok(to) if airdrop => {
+            if crate::run::airdrop(&to) { format!("{name}: choose who gets it") } else { "AirDrop is not available here".into() }
+        }
+        Ok(to) => {
+            if crate::run::copy_file_to_clipboard(&to) { format!("{name} copied: paste it in a folder, a chat or a mail") } else { "The clipboard could not take the file".into() }
+        }
+        Err(e) => format!("Not shared: {e}"),
+    };
+    crate::flow::toast(ui, &msg);
+}
+
 /// More ▸ Save a flattened copy… and Email a flattened copy (Acrobat's Print to PDF of a marked-up
 /// file, PDF Expert's Export ▸ Flattened Copy): comments and fields drawn into the pages of a copy;
 /// the document keeps them editable.

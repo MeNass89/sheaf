@@ -106,6 +106,12 @@ export component PrintSheet inherits Rectangle {
     property <bool> comments: true;
     property <bool> ready: root.tab.reader.printers.length > 0;
     property <int> printer: root.tab.reader.printer;
+    // The preview follows the choices that change the sheet.
+    function preview() { ReaderBridge.print-preview(root.id, layout, gray, comments); }
+    init => { preview(); }
+    changed layout => { preview(); }
+    changed gray => { preview(); }
+    changed comments => { preview(); }
     background: #00000044;
     TouchArea { }
     // Return prints, Escape cancels (the sheet takes the keyboard when it opens).
@@ -118,13 +124,15 @@ export component PrintSheet inherits Rectangle {
         }
     }
     Rectangle {
-        width: 420px;
+        width: 720px;
         height: pl.preferred-height;
         border-radius: Theme.radius-card;
         background: Theme.card;
         drop-shadow-blur: 24px;
         drop-shadow-color: #00000055;
+        HorizontalLayout {
         pl := VerticalLayout {
+            width: 420px;
             padding: 18px;
             spacing: 12px;
             Text { text: "Print"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
@@ -244,6 +252,20 @@ export component PrintSheet inherits Rectangle {
                     }
                 }
             }
+        }
+        // Acrobat's print preview: the first sheet as it will print.
+        Rectangle {
+            width: 300px;
+            Rectangle {
+                y: 18px;
+                width: 264px;
+                height: 340px;
+                background: Theme.panel-bg;
+                border-radius: Theme.radius-small;
+                if root.tab.reader.has-print-preview: Image { width: parent.width - 16px; height: parent.height - 16px; source: root.tab.reader.print-preview; image-fit: contain; }
+                if !root.tab.reader.has-print-preview: Text { text: "Preparing the preview…"; font-size: Theme.fs-caption; color: Theme.text-muted; horizontal-alignment: center; vertical-alignment: center; }
+            }
+        }
         }
     }
 }
@@ -665,6 +687,71 @@ export component VoicesSheet inherits Rectangle {
                 alignment: end;
                 SmallButton { text: "Close"; clicked => { ReaderBridge.voice-pick(root.id, -2); root.focus-pages(); } }
             }
+        }
+    }
+}
+
+// Help ▸ Keyboard shortcuts (Acrobat's and PDF Expert's ⌘/): the reader's keys, by what they do.
+// ⌘ is Ctrl on Linux and Windows.
+export component HelpSheet inherits Rectangle {
+    in property <int> id;
+    callback focus-pages();
+    background: #00000044;
+    TouchArea { clicked => { ReaderBridge.show-help(root.id, false); root.focus-pages(); } }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape || e.text == "?" { ReaderBridge.show-help(root.id, false); root.focus-pages(); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        width: 760px;
+        height: min(vl.preferred-height, root.height - 60px);
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000055;
+        TouchArea { }
+        vl := VerticalLayout {
+            padding: 20px;
+            spacing: 12px;
+            Text { text: "Keyboard shortcuts"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            HorizontalLayout {
+                spacing: 28px;
+                for col in [
+                    [
+                        { k: "", t: "Tools" },
+                        { k: "V", t: "Select text" }, { k: "H", t: "Highlight" }, { k: "U", t: "Underline" }, { k: "K", t: "Strikethrough" },
+                        { k: "N", t: "Note" }, { k: "T", t: "Text box" }, { k: "P", t: "Pen" }, { k: "R", t: "Shapes" }, { k: "X", t: "Eraser" },
+                        { k: "M", t: "Stamp" }, { k: "S", t: "Sign" }, { k: "E", t: "Edit text and objects" }, { k: "I", t: "Add image" },
+                        { k: "L", t: "Link" }, { k: "F", t: "Prepare form" },
+                    ],
+                    [
+                        { k: "", t: "View" },
+                        { k: "⌘ +  ⌘ −", t: "Zoom in, out" }, { k: "⌘ 0", t: "Actual size" }, { k: "⌘ 9", t: "Fit width" }, { k: "⌘ 8", t: "Fit page" },
+                        { k: "⇧⌘ +  ⇧⌘ −", t: "Rotate view" }, { k: "⌥⌘ 2", t: "One page, two, cover alone" }, { k: "⌥⌘ 0", t: "Side panel" },
+                        { k: "⌃⌘ F", t: "Full screen" }, { k: "Space drag", t: "Move the pages" }, { k: "← →  PgUp PgDn", t: "Previous, next page" },
+                        { k: "Home  End", t: "First, last page" }, { k: "⌥⌘ G", t: "Go to page" },
+                    ],
+                    [
+                        { k: "", t: "Document" },
+                        { k: "⌘ F", t: "Find" }, { k: "⌘ G  ⇧⌘ G", t: "Next, previous result" }, { k: "⌘ S", t: "Save" }, { k: "⇧⌘ S", t: "Save as" },
+                        { k: "⌘ P", t: "Print" }, { k: "⌘ D", t: "Document properties" }, { k: "⌘ Z  ⇧⌘ Z", t: "Undo, redo" },
+                        { k: "⌘ C  ⌘ X  ⌘ V", t: "Copy, cut, paste" }, { k: "⌘ K", t: "Link the selected text" }, { k: "Delete", t: "Delete the selection" },
+                        { k: "⇧⌘ [  ⇧⌘ ]", t: "Previous, next tab" }, { k: "⌘ W", t: "Close the tab" }, { k: "?  ⌘ /", t: "These shortcuts" },
+                    ],
+                ]: VerticalLayout {
+                    spacing: 4px;
+                    horizontal-stretch: 1;
+                    for row in col: HorizontalLayout {
+                        spacing: 10px;
+                        if row.k != "": Text { width: 96px; text: row.k; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text-secondary; }
+                        Text { text: row.t; font-size: Theme.fs-label; font-weight: row.k == "" ? Theme.weight-demibold : 400; color: row.k == "" ? Theme.text-heading : Theme.text; }
+                    }
+                }
+            }
+            Text { text: "⌘ is Ctrl on Linux and Windows."; font-size: Theme.fs-caption; color: Theme.text-muted; }
         }
     }
 }

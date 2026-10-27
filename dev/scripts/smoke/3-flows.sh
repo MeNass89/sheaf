@@ -1109,3 +1109,12 @@ key Escape; key ctrl+s; sleep 1.5
 TT=$(pdfinfo "$OUT/a11y.pdf" 2>/dev/null | sed -n 's/^Title: *//p')
 check "the accessibility check lists failed rules and its Fix gives the document a title (${AK:-no item}; $(echo "$A1" | grep -o '[0-9]* failed' | head -1); $TT)" "echo \"$A1\" | grep -q 'failed' && [ -n \"$TT\" ] && qpdf --qdf --object-streams=disable \"$OUT/a11y.pdf\" - 2>/dev/null | grep -aq '/DisplayDocTitle true'"
 quit
+
+# 110. More ▸ More tools ▸ Copy the file (PDF Expert's Share ▸ Copy): the document as it is now, a highlight
+# not saved yet included, put on the clipboard as a file (debug builds name it in clip-file).
+cp "$OUT/text.pdf" "$OUT/share.pdf"; launch "$OUT/share.pdf"; sleep 1; rm -f "$OUT/clip-file"
+key h; read QX QY <<< "$(at quick 1020x700+255+90)"; [ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1 mousemove $(( QX + 60 )) $QY mouseup 1; sleep 1; }; key v
+click 1127 61 0.8; click 1008 659 0.8; CF=$(at Copy 300x700+880+80); [ -n "$CF" ] && click $CF 1.5
+SF=$(cat "$OUT/clip-file" 2>/dev/null)
+check "Copy the file puts the document as it is now on the clipboard (${CF:-no item}; $(basename "$SF"))" "[ -f \"$SF\" ] && qpdf --qdf --object-streams=disable \"$SF\" - 2>/dev/null | grep -aq '/Subtype /Highlight' && ! qpdf --qdf --object-streams=disable \"$OUT/share.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
+quit

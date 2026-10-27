@@ -48,7 +48,7 @@ pub fn active_tool(ui: &AppWindow) -> Option<(i32, ToolId)> {
 
 /// Opens `tool` in a new tab, preloaded with `files` (those it accepts), and shows it.
 pub fn open_tool(ui: &AppWindow, tool: ToolId, preload: Vec<PathBuf>) {
-    open_tool_with(ui, tool, preload, None);
+    open_tool_with(ui, tool, preload, crate::home::last_options(tool));
 }
 
 /// [`open_tool`], its options starting from `options` (Run again) instead of the defaults.

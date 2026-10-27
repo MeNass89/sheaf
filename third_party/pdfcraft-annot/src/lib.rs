@@ -1906,7 +1906,9 @@ pub fn turn_stamp(doc: &mut Document, page: usize, index: usize, quarters: i64, 
         return Err(AnnotError::Invalid("only stamps and pictures can be turned".into()));
     }
     let key: &[u8] = if d.get(b"PCPicture").is_some() { b"PCPictureRotate" } else { b"PCStampRotate" };
-    let turn = (d.get(key).and_then(Object::as_int).unwrap_or(0) - 90 * quarters).rem_euclid(360);
+    // The turn it has: its own key, else the one its appearance's matrix draws it with.
+    let now = d.get(key).and_then(Object::as_int).unwrap_or_else(|| matrix_turn(doc, &d));
+    let turn = (now - 90 * quarters).rem_euclid(360);
     let old: Vec<f64> = d.get(b"Rect").map(|o| doc.resolve(o)).and_then(|o| o.as_array().cloned()).unwrap_or_default().iter().filter_map(Object::as_f64).collect();
     let [x0, y0, x1, y1] = normalize(old.try_into().map_err(|_| AnnotError::Invalid("the stamp has no rectangle".into()))?);
     // A quarter turn swaps its width and height, about the same centre.
@@ -1932,6 +1934,28 @@ pub fn turn_stamp(doc: &mut Document, page: usize, index: usize, quarters: i64, 
         return Err(e);
     }
     Ok(())
+}
+
+/// Sheaf: the page turn (0, 90, 180, 270) an annotation's normal appearance is drawn with by its
+/// `/Matrix` (the counter-rotation a picture placed on a turned page gets); 0 when none matches.
+fn matrix_turn(doc: &Document, d: &Dict) -> i64 {
+    let m: Vec<f64> = d
+        .get(b"AP")
+        .map(|a| doc.resolve(a))
+        .and_then(|a| a.as_dict().and_then(|a| a.get(b"N").cloned()))
+        .and_then(|n| n.as_ref())
+        .and_then(|n| match &*doc.get(n) {
+            Object::Stream(s) => s.dict.get(b"Matrix").and_then(|m| m.as_array().map(|a| a.iter().filter_map(Object::as_f64).collect())),
+            _ => None,
+        })
+        .unwrap_or_default();
+    if m.len() != 6 {
+        return 0;
+    }
+    [90, 180, 270].into_iter().find(|&t| {
+        let v = pdfcraft_model::view_matrix_for(t, [0.0; 4]);
+        (0..4).all(|k| (v[k] - m[k]).abs() < 1e-3)
+    }).unwrap_or(0)
 }
 
 /// Sheaf: the normal appearance of `r` turned `quarters` quarter turns clockwise by its `/Matrix`

@@ -701,17 +701,28 @@ pub fn objects_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
 /// the first one selected, as fields are): each moved, one step (Sol, 26/10: comments could only be
 /// moved one at a time).
 pub fn annots_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
-    let edit = update(tab_id, |r, _| {
+    let edit = update(tab_id, |r, v| {
         let first = r.selected_annot?;
         let all: Vec<reader_doc::AnnotEntry> = std::iter::once(first).chain(r.annots_also.iter().copied()).filter_map(|i| r.annots().get(i).cloned()).collect();
         if all.len() < 2 {
             return None;
         }
-        let rects: Vec<[f64; 4]> = all.iter().map(|a| a.rect).collect();
-        let moved = reader::arrange(&rects, how);
+        // Arranged as the page shows (Sol, 27/10: on a page turned 90°, Left lined them up along
+        // the file's x), y up; each moved box back in the file's space.
+        let b = v.viewer.boxes.get(all[0].page)?;
+        let size = b.view_size();
+        let shown: Vec<[f64; 4]> = all
+            .iter()
+            .map(|a| {
+                let [x, y, w, h] = viewer::pdf_rect_to_view(b, size, a.rect);
+                [x, size.1 - (y + h), x + w, size.1 - y]
+            })
+            .collect();
+        let moved = reader::arrange(&shown, how);
         let edits: Vec<Edit> = all
             .iter()
             .zip(moved)
+            .map(|(a, d)| (a, viewer::view_rect_to_pdf(b, size, (d[0], size.1 - d[3]), (d[2], size.1 - d[1]))))
             .filter(|(a, m)| (m[0] - a.rect[0]).abs() > 1e-3 || (m[1] - a.rect[1]).abs() > 1e-3)
             .map(|(a, m)| Edit::MoveAnnotation { page: a.page, index: a.index, dx: m[0] - a.rect[0], dy: m[1] - a.rect[1] })
             .collect();
@@ -872,10 +883,15 @@ pub const COMMENT_ON_CLIPBOARD: &str = "(Sheaf comment)";
 /// page of any document open (⌘V).
 pub fn copy_comment(ui: &AppWindow, tab_id: i32, cut: bool) {
     let sent = update(tab_id, |r, _| {
-        let a = r.selected_annot.and_then(|i| r.annots().get(i))?;
-        let (nm, page, rect) = (a.nm.clone(), a.page, a.rect);
-        r.copy_from = Some(page);
-        r.send(Op::CopyComment { nm, page, rect });
+        // The comment selected and those ⇧-clicked with it (Sol, 27/10: a cut copied the first only).
+        let first = r.selected_annot?;
+        let all: Vec<(String, usize, [f64; 4])> = std::iter::once(first).chain(r.annots_also.iter().copied()).filter_map(|i| r.annots().get(i).map(|a| (a.nm.clone(), a.page, a.rect))).collect();
+        r.copy_from = Some(all.first()?.1);
+        r.comments_asked = all.len();
+        r.comments_copied.clear();
+        for (nm, page, rect) in all {
+            r.send(Op::CopyComment { nm, page, rect });
+        }
         Some(())
     })
     .flatten();
@@ -899,10 +915,14 @@ pub fn copy_image(ui: &AppWindow, tab_id: i32, cut: bool) {
         let rect = list.iter().map(|o| o.1).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])?;
         let b = v.viewer.boxes.get(*page)?;
         let size = b.view_size();
-        let [x, y, w, h] = viewer::pdf_rect_to_view(b, size, rect);
-        let shown = [x, size.1 - (y + h), x + w, size.1 - y];
+        let shown_of = |rect| {
+            let [x, y, w, h] = viewer::pdf_rect_to_view(b, size, rect);
+            [x, size.1 - (y + h), x + w, size.1 - y]
+        };
+        let shown = shown_of(rect);
         r.copy_from = Some(*page);
-        r.send(Op::CopyObjects { page: *page, objects: list.iter().map(|o| o.0).collect(), rect, shown });
+        r.copy_layout = list.iter().map(|o| shown_of(o.1)).collect();
+        r.send(Op::CopyObjects { page: *page, objects: list.iter().map(|o| o.0).collect(), parts: list.iter().map(|o| o.1).collect(), rect, shown });
         Some(false)
     })
     .flatten();
@@ -925,18 +945,32 @@ pub(super) fn paste_comment(ui: &AppWindow, tab_id: i32) -> bool {
         return false;
     };
     let (dx, dy) = if same { (12.0, -12.0) } else { (0.0, 0.0) };
-    // A picture stamp is placed again from its picture, in the same box (XFDF would bring it back blank).
-    if let (Some((name, bytes)), Some(r)) = (clip.picture, reader::xfdf_rect(&clip.element)) {
-        let rect = [r[0] + dx, r[1] + dy, r[2] + dx, r[3] + dy];
-        let stem = reader::xfdf_attr(&clip.element, "subject").unwrap_or_else(|| "Stamp".into());
-        let author = reader::xfdf_attr(&clip.element, "title").unwrap_or_else(author);
-        let file = sheaf_core::pdfcraft::engine::MarkFile { name, bytes, page: 0 };
-        apply(ui, tab_id, Edit::AddCustomStamp { page: to, rect, name: stem, file, author }, &[to], None);
-        return true;
-    }
-    let nm = format!("sheaf-{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos()));
-    let xfdf = reader::paste_xfdf(&clip.element, to, (dx, dy), &nm);
-    apply(ui, tab_id, Edit::ImportData { name: "Paste comment".into(), bytes: Arc::new(xfdf.into_bytes()) }, &[to], None);
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
+    let mut edits: Vec<Edit> = clip
+        .items
+        .into_iter()
+        .enumerate()
+        .map(|(k, (element, picture))| match (picture, reader::xfdf_rect(&element)) {
+            // A picture stamp is placed again from its picture, in the same box (XFDF would bring it back blank).
+            (Some((name, bytes)), Some(r)) => {
+                let rect = [r[0] + dx, r[1] + dy, r[2] + dx, r[3] + dy];
+                let stem = reader::xfdf_attr(&element, "subject").unwrap_or_else(|| "Stamp".into());
+                let author = reader::xfdf_attr(&element, "title").unwrap_or_else(author);
+                let file = sheaf_core::pdfcraft::engine::MarkFile { name, bytes, page: 0 };
+                Edit::AddCustomStamp { page: to, rect, name: stem, file, author }
+            }
+            _ => {
+                let xfdf = reader::paste_xfdf(&element, to, (dx, dy), &format!("sheaf-{now:x}-{k}"));
+                Edit::ImportData { name: "Paste comment".into(), bytes: Arc::new(xfdf.into_bytes()) }
+            }
+        })
+        .collect();
+    let edit = match edits.len() {
+        0 => return false,
+        1 => edits.remove(0),
+        _ => Edit::Batch { label: "Paste comments".into(), edits },
+    };
+    apply(ui, tab_id, edit, &[to], None);
     true
 }
 
@@ -949,10 +983,20 @@ pub(super) fn paste_objects(ui: &AppWindow, tab_id: i32) -> bool {
     let edit = update(tab_id, |r, v| {
         let to = v.current();
         let (dx, dy) = if r.path == clip.from && to == clip.page { (12.0, -12.0) } else { (0.0, 0.0) };
-        let s = clip.shown;
+        let moved = |s: [f64; 4]| [s[0] + dx, s[1] + dy, s[2] + dx, s[3] + dy];
         r.select_added = Some((to, r.images.get(&to).map_or(0, |im| im.len())));
         r.tool = EDIT_TEXT;
-        (to, Edit::AddArtwork { page: to, rect: [s[0] + dx, s[1] + dy, s[2] + dx, s[3] + dy], pdf: clip.pdf.clone() })
+        if clip.texts.is_empty() {
+            return (to, Edit::AddArtwork { page: to, rect: moved(clip.shown), pdf: clip.pdf.clone() });
+        }
+        // Paragraphs come back as text, editable (Acrobat's); the rest as one item. One undo step.
+        let rest = clip.rest.iter().map(|(pdf, s)| Edit::AddArtwork { page: to, rect: moved(*s), pdf: pdf.clone() });
+        let texts = clip.texts.iter().map(|t| {
+            let mut text = t.clone();
+            text.rect = moved(t.rect);
+            Edit::AddText { page: to, text }
+        });
+        (to, Edit::Batch { label: "Paste objects".into(), edits: rest.chain(texts).collect() })
     });
     let Some((to, e)) = edit else { return false };
     apply(ui, tab_id, e, &[to], None);

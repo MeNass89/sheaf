@@ -180,6 +180,8 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_field_kind(reader_ui::field_kind);
     rb.on_form_grid(reader_ui::form_grid);
     rb.on_rulers(reader_ui::rulers);
+    rb.on_show_help(reader_ui::show_help);
+    wire_global!(ui, rb, on_share_file, |ui, id, airdrop| reader_ui::share_file(&ui, id, airdrop));
     rb.on_ruler_clicked(reader_ui::ruler_clicked);
     wire_global!(ui, rb, on_detect_fields, |ui, id| reader_ui::detect_fields(&ui, id));
     wire_global!(ui, rb, on_tab_order, |ui, id, o| reader_ui::tab_order(&ui, id, o));
@@ -281,6 +283,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_trust_signature(reader_ui::trust_signature);
     wire_global!(ui, rb, on_clear_signature, |ui, id, k| reader_ui::clear_signature(&ui, id, k));
     rb.on_print_cancel(reader_ui::print_cancel);
+    wire_global!(ui, rb, on_print_preview, |ui, id, layout, gray, comments| reader_ui::print_preview(&ui, id, layout, gray, comments));
     wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t, paper, o, layout, gray, comments| reader_ui::print(&ui, id, p, c, m, &r, f, t, paper, o, layout, gray, comments));
     wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));
 }
@@ -358,16 +361,18 @@ fn main() -> Result<(), slint::PlatformError> {
         _ => None,
     };
     // The window opens in the saved appearance; `home::install` keeps it in sync afterwards.
-    let initial = forced.unwrap_or(sheaf_app::prefs::Prefs::load(&sheaf_app::store_file::data_dir()).theme);
+    let saved = sheaf_app::prefs::Prefs::load(&sheaf_app::store_file::data_dir());
+    let initial = forced.unwrap_or(saved.theme);
     let winit_theme = match initial {
         ThemePref::Light => Some(WinitTheme::Light),
         ThemePref::Dark => Some(WinitTheme::Dark),
         ThemePref::System => None,
     };
-    slint::BackendSelector::new()
-        .backend_name("winit".into())
-        .with_winit_window_attributes_hook(move |attrs| attrs.with_theme(winit_theme))
-        .select()?;
+    // Preferences ▸ Rendering: drawn by the graphics card (OpenGL) unless turned off; a machine
+    // without it falls back to the processor.
+    let selector = slint::BackendSelector::new().backend_name("winit".into()).with_winit_window_attributes_hook(move |attrs| attrs.with_theme(winit_theme));
+    let selector = if saved.no_gpu { selector.renderer_name("software".into()) } else { selector };
+    selector.select()?;
 
     let ui = AppWindow::new()?;
     // Installed serif and monospace families for labels shown in their font.
@@ -562,6 +567,9 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_smoothing, |ui, k, on| home::set_smoothing(&ui, k, on));
     wire!(ui, on_set_stamp_date, |ui, f| home::set_stamp_date(&ui, f));
     wire!(ui, on_set_metric, |ui, m| home::set_metric(&ui, m));
+    wire!(ui, on_set_gpu, |ui, on| home::set_gpu(&ui, on));
+    wire!(ui, on_set_page_display, |ui, what, on| home::set_page_display(&ui, what, on));
+    wire!(ui, on_signature_prefs, |ui, what, k| home::signature_prefs(&ui, what, k));
     wire!(ui, on_make_default, |ui| flow::toast(&ui, &run::make_default_pdf_app()));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
@@ -611,6 +619,7 @@ fn main() -> Result<(), slint::PlatformError> {
             g.set_tab(tab);
             g.set_p12(p.to_string_lossy().into_owned().into());
             g.set_p12_seq(g.get_p12_seq() + 1);
+            home::remember_digital_id(ui, &p);
         });
     });
     ui.on_get_libreoffice(|| {
@@ -649,6 +658,16 @@ fn main() -> Result<(), slint::PlatformError> {
     // Command-line entries that are not existing files are dropped silently: AppKit-style
     // switches (`-AppleLanguages (fr)`) carry values that are not files.
     let mut args = sheaf_app::open_with::launch_args(std::env::args_os().skip(1));
+    // The system's context menu: a tool asked for opens with the files instead of the reader.
+    if let Some(tool) = sheaf_app::open_with::launch_tool(std::env::args_os().skip(1)) {
+        let files = sheaf_app::open_with::absolute(std::mem::take(&mut args).into_iter().filter(|p| p.is_file()).collect());
+        let weak = ui.as_weak();
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(ui) = weak.upgrade() {
+                flow::open_tool(&ui, tool, files);
+            }
+        });
+    }
     // Paths that name no file (a PDF moved, a typo) are said once the window shows (Sol, 26/10:
     // they were dropped without a word); the switches' values are not paths.
     let missing: Vec<String> = args

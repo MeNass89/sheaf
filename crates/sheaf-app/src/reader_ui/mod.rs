@@ -294,6 +294,11 @@ pub struct ReaderUi {
     grid_gap: Option<usize>,
     /// ⌘C on a comment: the page it is on, until its copy comes back.
     copy_from: Option<usize>,
+    /// Comments copied together: how many were asked, and those come back so far.
+    comments_asked: usize,
+    comments_copied: Vec<(String, Option<(String, Arc<Vec<u8>>)>)>,
+    /// Objects copied: each one's box as shown (display space), until their copy comes back.
+    copy_layout: Vec<[f64; 4]>,
     /// The tool it goes to then (Redact from the edit group), else the Tools page.
     tool_after_save: Option<sheaf_core::tools::ToolId>,
     /// The Link editor's complaint about what was typed (not a page or an address).
@@ -361,9 +366,13 @@ pub struct ReaderUi {
     /// More tools ▸ Rulers on, and the guides made from them: (page, across, page points from its
     /// top or left).
     rulers: bool,
+    /// The print sheet's preview of its first sheet, and the count of previews asked.
+    print_preview: Option<slint::Image>,
+    print_seq: u64,
     guides: Vec<(usize, bool, f64)>,
     /// More tools ▸ Voice…: the list open, the system's voices.
     voices_open: bool,
+    help_open: bool,
     voices: Vec<String>,
     /// Pen and shapes draw dashed lines (Acrobat's Dashed line style).
     dashed: bool,
@@ -537,6 +546,9 @@ impl ReaderUi {
             folder_search: None,
             grid_gap: None,
             copy_from: None,
+            comments_asked: 0,
+            comments_copied: Vec::new(),
+            copy_layout: Vec::new(),
             tool_after_save: None,
             link_error: String::new(),
             link_visible: false,
@@ -573,8 +585,11 @@ impl ReaderUi {
             a11y: None,
             window_ask: None,
             rulers: false,
+            print_preview: None,
+            print_seq: 0,
             guides: Vec::new(),
             voices_open: false,
+            help_open: false,
             voices: Vec::new(),
             dashed: false,
             replace_pending: None,
@@ -899,15 +914,17 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             }
         }
         Reply::ObjectsCopied(made) => {
-            let from = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?))).flatten();
-            let copied = made.and_then(|((width, height, rgba), pdf, shown)| {
+            let from = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?, std::mem::take(&mut r.copy_layout)))).flatten();
+            let copied = made.and_then(|c| {
+                let (width, height, rgba) = c.pixels;
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
                 arboard::Clipboard::new().and_then(|mut c| c.set_image(image)).map_err(|e| e.to_string())?;
-                Ok((pdf, shown, (width as usize, height as usize)))
+                Ok((c.pdf, c.shown, (width as usize, height as usize), c.texts, c.rest))
             });
             match (copied, from) {
-                (Ok((pdf, shown, pixels)), Some((from, page))) => {
-                    with(|a| a.objects_clip = Some(crate::state::ObjectsClip { pdf, shown, from, page, pixels }));
+                (Ok((pdf, shown, pixels, texts, rest)), Some((from, page, layout))) => {
+                    let (texts, rest) = crate::state::ObjectsClip::split(texts, rest, &layout);
+                    with(|a| a.objects_clip = Some(crate::state::ObjectsClip { pdf, shown, from, page, pixels, texts, rest }));
                     crate::flow::toast(ui, "Objects copied: ⌘V pastes them on a page, or as a picture in another app");
                 }
                 (Err(e), _) => crate::flow::toast(ui, &format!("The objects were not copied: {e}")),
@@ -922,15 +939,27 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             Err(e) => crate::flow::toast(ui, &format!("Pages not copied: {e}")),
         },
         Reply::Copied(element, picture) => {
-            let Some((from, page)) = update(id, |r, _| Some((r.path.clone(), r.copy_from.take()?))).flatten() else { return };
-            match element {
-                Some(element) => {
-                    with(|a| a.comment_clip = Some(crate::state::CommentClip { element, picture, from, page }));
+            // Several comments: kept until the last comes back.
+            let done = update(id, |r, _| {
+                if let Some(element) = element {
+                    r.comments_copied.push((element, picture));
+                }
+                r.comments_asked = r.comments_asked.saturating_sub(1);
+                if r.comments_asked > 0 {
+                    return None;
+                }
+                Some((r.path.clone(), r.copy_from.take()?, std::mem::take(&mut r.comments_copied)))
+            });
+            let Some((from, page, items)) = done.flatten() else { return };
+            match items.len() {
+                0 => crate::flow::toast(ui, "This comment could not be copied"),
+                n => {
+                    with(|a| a.comment_clip = Some(crate::state::CommentClip { items, from, page }));
                     // The system clipboard says a comment is copied: anything copied after it wins.
                     let _ = arboard::Clipboard::new().and_then(|mut c| c.set_text(COMMENT_ON_CLIPBOARD));
-                    crate::flow::toast(ui, "Comment copied: ⌘V pastes it on the page shown");
+                    let what = if n == 1 { "Comment copied".to_string() } else { format!("{n} comments copied") };
+                    crate::flow::toast(ui, &format!("{what}: ⌘V pastes on the page shown"));
                 }
-                None => crate::flow::toast(ui, "This comment could not be copied"),
             }
         }
         Reply::Exported { to, error } => {
@@ -1060,6 +1089,10 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
         if crate::home::last_view(&path).is_none() {
             properties::open_as_asked(&mut r, &mut v);
         }
+        // A portfolio opens on its files (Acrobat's portfolio view).
+        if r.snap.portfolio && !r.snap.attachments.is_empty() {
+            (r.panel, r.panel_open) = (4, true);
+        }
         // Compare's marked copy opens on its list of differences.
         if NOTES_FIRST.with(|n| n.borrow_mut().remove(&std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone()))) && !r.snap.annots.is_empty() {
             (r.panel, r.panel_open) = (2, true);
@@ -1081,6 +1114,9 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     });
     if ok {
         crate::viewer_ui::request(ui, id);
+        if update(id, |r, _| r.snap.portfolio && !r.snap.attachments.is_empty()) == Some(true) {
+            crate::flow::toast(ui, "A PDF Portfolio: its files are listed in Files, a click opens one");
+        }
         let ask = update(id, |r, _| r.window_ask.take().map(|a| (a, r.snap.boxes.first().map_or((612.0, 792.0), |b| b.view_size())))).flatten();
         if let Some(((fit, centre), page)) = ask {
             properties::window_as_asked(ui, fit, centre, page);

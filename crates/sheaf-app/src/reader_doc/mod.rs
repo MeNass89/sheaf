@@ -117,8 +117,18 @@ fn edit_note(d: &sheaf_core::pdfcraft::engine::Document) -> Option<String> {
 /// A bookmark's look: its path, bold, italic, its colour.
 pub type OutlineStyle = (Vec<usize>, bool, bool, Option<[f32; 3]>);
 
-/// Objects copied: their pixels (width, height, RGBA), the PDF of them alone, where they showed.
-pub type CopiedObjects = ((u32, u32, Vec<u8>), Arc<Vec<u8>>, [f64; 4]);
+/// Objects copied with the Edit tool.
+pub struct CopiedObjects {
+    /// Their picture, for other apps: width, height, RGBA.
+    pub pixels: (u32, u32, Vec<u8>),
+    /// The PDF of them alone, and where they showed.
+    pub pdf: Arc<Vec<u8>>,
+    pub shown: [f64; 4],
+    /// Per object, its text when it is a paragraph (pasted as text again).
+    pub texts: Vec<Option<sheaf_core::pdfcraft::engine::AddedText>>,
+    /// The PDF of the objects that are not text, when there are both.
+    pub rest: Option<Arc<Vec<u8>>>,
+}
 
 /// A form field as the reader fills it.
 #[derive(Clone)]
@@ -193,6 +203,10 @@ pub struct Snap {
     pub durations: Arc<Vec<Option<f64>>>,
     /// Each page's transition in full screen: its effect and length.
     pub transitions: Arc<Vec<Option<(String, f64)>>>,
+    /// Each page's boxes: media, crop, bleed, trim, art (in its user space).
+    pub page_boxes: Arc<Vec<[[f64; 4]; 5]>>,
+    /// A PDF Portfolio: it opens on its files.
+    pub portfolio: bool,
 }
 
 /// A certificate name's attribute by its usual short name (RFC 4514's, and E for the e-mail);
@@ -389,6 +403,8 @@ fn snap(doc: &Doc) -> Snap {
         layer_groups: Arc::new(d.info.layer_groups.clone()),
         durations: Arc::new(d.page_durations()),
         transitions: Arc::new(d.page_transitions()),
+        page_boxes: Arc::new(d.page_boxes()),
+        portfolio: d.is_portfolio(),
     }
 }
 
@@ -520,7 +536,8 @@ pub enum Op {
     LoupeArea { page: usize, rect: [f64; 4] },
     /// Objects picked with the Edit tool on `page` (covering user-space `rect`, shown at display
     /// rect `shown`): as pixels for other apps and as a PDF of them alone to paste as objects.
-    CopyObjects { page: usize, objects: Vec<sheaf_core::pdfcraft::engine::ObjectTarget>, rect: [f64; 4], shown: [f64; 4] },
+    /// `parts`: each object's box (user space), in the order of `objects`.
+    CopyObjects { page: usize, objects: Vec<sheaf_core::pdfcraft::engine::ObjectTarget>, parts: Vec<[f64; 4]>, rect: [f64; 4], shown: [f64; 4] },
     /// Version `n` (1-based) of the file as saved, written to `to` to open on its own.
     SaveVersion { n: usize, to: PathBuf },
     /// Writes the edits: into the file itself as an incremental update, or (`to`) a full copy
@@ -740,13 +757,36 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error: r.err().map(|e| e.to_string()), applied: false, note, preview: false });
                     }
                     Op::CopyArea { page, rect } => reply(Reply::ImageCopied(area_pixels(doc.document(), page, rect, None))),
-                    Op::UprightTurns => reply(Reply::Upright(doc.document().upright_turns())),
+                    Op::UprightTurns => {
+                        // Pages with text by their text's direction; scans with no text by OCR.
+                        let d = doc.document();
+                        let mut turns = d.upright_turns();
+                        let rest: Vec<usize> = (0..d.info.pages.len()).filter(|p| !turns.iter().any(|t| t.0 == *p)).collect();
+                        turns.extend(sheaf_core::enhance::scan_upright_turns(&d.bytes, d.password.as_deref(), &rest));
+                        turns.sort_unstable();
+                        reply(Reply::Upright(turns));
+                    }
                     Op::AccessibilityCheck => reply(Reply::Accessibility(doc.document().accessibility_check(&Default::default()))),
                     // Sol, 26/10: the next save wrote the old name again.
                     Op::Renamed { to } => path = to,
                     Op::LoupeArea { page, rect } => reply(Reply::Loupe(area_pixels(doc.document(), page, rect, Some(720.0)))),
-                    Op::CopyObjects { page, objects, rect, shown } => {
-                        let made = area_pixels(doc.document(), page, rect, None).and_then(|px| Ok((px, Arc::new(doc.document().objects_pdf(page, &objects, rect)?), shown)));
+                    Op::CopyObjects { page, objects, parts, rect, shown } => {
+                        let d = doc.document();
+                        let texts = d.objects_texts(page, &objects);
+                        let made = area_pixels(d, page, rect, None).and_then(|pixels| {
+                            let pdf = Arc::new(d.objects_pdf(page, &objects, rect)?);
+                            // With paragraphs among them, the rest goes as one item of its own.
+                            let rest: Vec<usize> = (0..objects.len()).filter(|&i| texts.get(i).is_none_or(Option::is_none)).collect();
+                            let rest = match rest.len() {
+                                n if n == objects.len() || n == 0 => None,
+                                _ => {
+                                    let r = rest.iter().filter_map(|&i| parts.get(i).copied()).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]).unwrap_or(rect);
+                                    let targets: Vec<_> = rest.iter().map(|&i| objects[i]).collect();
+                                    Some(Arc::new(d.objects_pdf(page, &targets, r)?))
+                                }
+                            };
+                            Ok(CopiedObjects { pixels, pdf, shown, texts, rest })
+                        });
                         reply(Reply::ObjectsCopied(made));
                     }
                     Op::SaveVersion { n, to } => {

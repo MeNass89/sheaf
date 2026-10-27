@@ -116,6 +116,17 @@ pub struct Prefs {
     pub reading_voice: Option<String>,
     /// Rulers in centimetres (Acrobat's Page & Ruler Units); inches otherwise.
     pub metric: bool,
+    /// The window drawn by the processor, not the graphics card (Acrobat's Use 2D GPU
+    /// acceleration off), from the next start.
+    pub no_gpu: bool,
+    /// The art (green), trim (blue) and bleed (red) boxes drawn on the pages (Acrobat's Show art,
+    /// trim & bleed boxes).
+    pub show_boxes: bool,
+    /// Pages called by their place ("4"), not their own number ("iv"; Preview's Use logical page
+    /// numbers off).
+    pub physical_numbers: bool,
+    /// The digital IDs (.p12, .pfx files) signed with, newest first (Acrobat's Identities).
+    pub digital_ids: Vec<PathBuf>,
     /// What was typed in form text fields, newest first (Acrobat's Auto-Complete memory; at most
     /// [`ENTRIES`]); offered back while a field is typed in.
     pub form_entries: Vec<String>,

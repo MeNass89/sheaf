@@ -354,6 +354,13 @@ fn push_prefs(ui: &AppWindow) {
     rb.set_thumb_width(crate::reader_ui::reader_thumb(panel_width()) as f32);
     ui.set_stamp_date(p.stamp_date);
     ui.set_metric(p.metric);
+    ui.set_gpu(!p.no_gpu);
+    ui.set_show_boxes(p.show_boxes);
+    ui.set_digital_ids(ModelRc::new(VecModel::from(p.digital_ids.iter().map(|d| slint::SharedString::from(d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())).collect::<Vec<_>>())));
+    ui.set_trusted_certs(ModelRc::new(VecModel::from(
+        sheaf_core::pdfcraft::trusted_certificates().iter().map(|c| slint::SharedString::from(format!("{} (until {}-{:02})", c.display_name(), c.not_after.year, c.not_after.month))).collect::<Vec<_>>(),
+    )));
+    ui.set_physical_numbers(p.physical_numbers);
 }
 
 /// Preferences ▸ Appearance ▸ Accent colour.
@@ -428,6 +435,75 @@ pub fn set_open_after(ui: &AppWindow, v: bool) {
 }
 
 /// Preferences ▸ Dated stamps (0 Acrobat's, 1 day first, 2 ISO).
+/// A digital ID signed with kept at the top of Preferences ▸ Signatures's list (at most 10).
+pub fn remember_digital_id(ui: &AppWindow, p: &std::path::Path) {
+    let p = p.to_path_buf();
+    update_prefs(ui, |pr| {
+        pr.digital_ids.retain(|q| *q != p);
+        pr.digital_ids.insert(0, p);
+        pr.digital_ids.truncate(10);
+    });
+}
+
+/// Preferences ▸ Signatures: `what` 0 a digital ID added from a file, 1 digital ID `k` taken off
+/// the list, 2 a trusted certificate added from a file, 3 trusted certificate `k` removed.
+pub fn signature_prefs(ui: &AppWindow, what: i32, k: i32) {
+    match what {
+        0 => {
+            let d = crate::dialog::new(ui).set_title("A digital ID").add_filter("Digital ID", &["p12", "pfx"]);
+            crate::dialog::pick_file(ui, d, |ui, p| remember_digital_id(ui, &p));
+        }
+        1 => update_prefs(ui, |pr| {
+            if let Some(i) = usize::try_from(k).ok().filter(|i| *i < pr.digital_ids.len()) {
+                pr.digital_ids.remove(i);
+            }
+        }),
+        2 => {
+            let d = crate::dialog::new(ui).set_title("A certificate to trust").add_filter("Certificate", &["cer", "crt", "der", "pem"]);
+            crate::dialog::pick_file(ui, d, |ui, p| {
+                let msg = match std::fs::read(&p).ok().and_then(|b| sheaf_core::pdfcraft::certificate_der(&b)) {
+                    Some(der) => match sheaf_core::pdfcraft::trust_certificate(&der) {
+                        Ok(true) => "Certificate trusted: its signatures validate".to_string(),
+                        Ok(false) => "That certificate is trusted already".to_string(),
+                        Err(e) => format!("Not trusted: {e}"),
+                    },
+                    None => "That file holds no certificate".to_string(),
+                };
+                crate::flow::toast(ui, &msg);
+                push_prefs(ui);
+            });
+        }
+        3 => {
+            if let Some(c) = usize::try_from(k).ok().and_then(|i| sheaf_core::pdfcraft::trusted_certificates().into_iter().nth(i)) {
+                let _ = sheaf_core::pdfcraft::untrust_certificate(&c.raw);
+            }
+            push_prefs(ui);
+        }
+        _ => {}
+    }
+}
+
+/// Preferences ▸ Page display, read on every refresh: boxes shown, pages by their place.
+pub fn show_boxes() -> bool {
+    with(|h| h.prefs.show_boxes)
+}
+
+pub fn physical_numbers() -> bool {
+    with(|h| h.prefs.physical_numbers)
+}
+
+/// Preferences ▸ Page display: `what` 0 the boxes shown, 1 pages called by their place.
+pub fn set_page_display(ui: &AppWindow, what: i32, on: bool) {
+    update_prefs(ui, |p| if what == 0 { p.show_boxes = on } else { p.physical_numbers = on });
+    crate::viewer_ui::redraw_all(ui);
+}
+
+/// Preferences ▸ Rendering ▸ Use the graphics card: kept for the next start, said.
+pub fn set_gpu(ui: &AppWindow, on: bool) {
+    update_prefs(ui, |p| p.no_gpu = !on);
+    crate::flow::toast(ui, "Takes effect when Sheaf starts again");
+}
+
 /// Preferences ▸ Units: the rulers in inches (false) or centimetres (true).
 pub fn set_metric(ui: &AppWindow, metric: bool) {
     update_prefs(ui, |p| p.metric = metric);
@@ -706,6 +782,19 @@ pub fn reveal_recent(i: i32) {
     if let Some(p) = recent(i) {
         crate::run::reveal(&p);
     }
+}
+
+/// The settings `tool` last ran with, to start it from (iLovePDF's and Acrobat's remembered
+/// settings): what belongs to the files it ran on (pages, ranges, order, names, crops, texts typed
+/// for them, the certificate file) left at its defaults.
+pub fn last_options(tool: ToolId) -> Option<sheaf_app::ToolOptions> {
+    let m = with(|h| h.store.list().iter().find(|e| e.tool == tool.as_str() && !e.options.is_empty()).map(|e| e.options.clone()))?;
+    let mut o = sheaf_app::saved_options::from_json(&m);
+    let d = sheaf_app::ToolOptions::default();
+    (o.pages, o.ranges, o.organize_order, o.compare_old_pages, o.compare_new_pages, o.out_name) = (d.pages.clone(), d.ranges.clone(), d.organize_order.clone(), d.compare_old_pages.clone(), d.compare_new_pages.clone(), d.out_name.clone());
+    (o.from_page, o.to_page, o.crop_top, o.crop_bottom, o.crop_left, o.crop_right) = (d.from_page.clone(), d.to_page.clone(), d.crop_top.clone(), d.crop_bottom.clone(), d.crop_left.clone(), d.crop_right.clone());
+    (o.sign_p12, o.redact_overlay) = (d.sign_p12.clone(), d.redact_overlay.clone());
+    Some(o)
 }
 
 /// The tool, files and options of a history entry, when it can run again: the tool is known and

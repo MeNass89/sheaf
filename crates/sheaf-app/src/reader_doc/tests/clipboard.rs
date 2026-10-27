@@ -171,9 +171,30 @@ fn objects_copied_are_pasted_as_objects_without_what_lay_between_them() {
     let picked: Vec<_> = objects.iter().filter(|o| o.1[1] > 690.0 || o.1[3] < 520.0).cloned().collect();
     assert_eq!(picked.len(), 2, "{objects:?}");
     let rect = picked.iter().map(|o| o.1).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]).unwrap();
-    ops.send(Op::CopyObjects { page: 0, objects: picked.iter().map(|o| o.0).collect(), rect, shown: rect }).unwrap();
+    ops.send(Op::CopyObjects { page: 0, objects: picked.iter().map(|o| o.0).collect(), parts: picked.iter().map(|o| o.1).collect(), rect, shown: rect }).unwrap();
     let (pdf, at) = match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
-        Reply::ObjectsCopied(Ok((_, pdf, at))) => (pdf, at),
+        Reply::ObjectsCopied(Ok(c)) => {
+            // Both paragraphs come back as text too, in Helvetica 14 pt, nothing else to paste apart.
+            let texts: Vec<_> = c.texts.iter().flatten().map(|t| (t.text.as_str(), t.size.round(), t.family)).collect();
+            assert_eq!(texts, [("Picked first", 14.0, sheaf_core::pdfcraft::engine::FontFamily::Helvetica), ("Picked last", 14.0, sheaf_core::pdfcraft::engine::FontFamily::Helvetica)]);
+            assert!(c.rest.is_none());
+            // Pasted as text: two added text items, the editor's own.
+            let (texts, _) = crate::state::ObjectsClip::split(c.texts.clone(), c.rest.clone(), &picked.iter().map(|o| o.1).collect::<Vec<_>>());
+            let edits = texts.into_iter().map(|text| Edit::AddText { page: 1, text }).collect();
+            ops.send(Op::Apply { edit: Box::new(Edit::Batch { label: "Paste objects".into(), edits }), pages: vec![1] }).unwrap();
+            let (_, err) = next(&rx);
+            assert!(err.is_none(), "{err:?}");
+            ops.send(Op::Blocks(1)).unwrap();
+            let on2 = loop {
+                if let Reply::Blocks(1, _, _, objects) = rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+                    break objects;
+                }
+            };
+            assert_eq!(on2.iter().map(|o| o.0.kind).collect::<Vec<_>>(), [sheaf_core::pdfcraft::engine::ObjectKind::Added; 2], "{on2:?}");
+            ops.send(Op::Undo { pages: Some(vec![1]) }).unwrap();
+            assert!(next(&rx).1.is_none());
+            (c.pdf, c.shown)
+        }
         Reply::ObjectsCopied(Err(e)) => panic!("{e}"),
         _ => panic!("expected ObjectsCopied"),
     };

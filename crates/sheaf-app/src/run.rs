@@ -310,6 +310,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 discard_tags: opts.discard_tags,
                 discard_metadata: opts.discard_meta,
                 grayscale: opts.compress_gray,
+                unembed_standard: opts.unembed_fonts,
             },
         },
         ToolId::Protect => Job::Protect {
@@ -562,13 +563,19 @@ pub fn speak(text: &str, speed: u8, voice: Option<&str>) -> Option<std::process:
     #[cfg(windows)]
     let mut cmd = {
         let rate = ["0", "-3", "3"][speed.min(2) as usize];
+        // A new reading starts unpaused.
+        let _ = std::fs::remove_file(speech_control());
         let mut c = Command::new("powershell");
         c.args([
             "-NoProfile",
             "-Command",
             &format!(
-                "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = {rate}; {}$s.Speak([Console]::In.ReadToEnd())",
-                voice.map(|v| format!("$s.SelectVoice('{}'); ", v.replace('\'', "''"))).unwrap_or_default()
+                // Spoken asynchronously; the control file says pause or resume (Pause reading).
+                "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = {rate}; {}$null = $s.SpeakAsync([Console]::In.ReadToEnd()); \
+                 $f = '{}'; while ($s.State -ne 'Ready') {{ Start-Sleep -Milliseconds 150; $c = Get-Content $f -ErrorAction SilentlyContinue; \
+                 if ($c -eq 'pause' -and $s.State -eq 'Speaking') {{ $s.Pause() }} elseif ($c -eq 'resume' -and $s.State -eq 'Paused') {{ $s.Resume() }} }}",
+                voice.map(|v| format!("$s.SelectVoice('{}'); ", v.replace('\'', "''"))).unwrap_or_default(),
+                speech_control().display().to_string().replace('\'', "''")
             ),
         ]);
         c
@@ -600,6 +607,62 @@ pub fn speak(text: &str, speed: u8, voice: Option<&str>) -> Option<std::process:
         let _ = stdin.write_all(text.as_bytes());
     });
     Some(child)
+}
+
+/// File `f` put on the clipboard as a file (Finder's, Explorer's and file managers' copy), to paste
+/// in a folder, a chat or a mail. Debug builds write its path to `SHEAF_TEST_CLIPFILE` (gui-smoke).
+pub fn copy_file_to_clipboard(f: &std::path::Path) -> bool {
+    if cfg!(debug_assertions)
+        && let Some(log) = std::env::var_os("SHEAF_TEST_CLIPFILE")
+    {
+        return std::fs::write(log, f.to_string_lossy().as_bytes()).is_ok();
+    }
+    let p = f.to_string_lossy();
+    #[cfg(target_os = "macos")]
+    return std::process::Command::new("osascript").args(["-e", &format!("set the clipboard to (POSIX file \"{}\")", p.replace('"', "\\\""))]).status().is_ok_and(|s| s.success());
+    #[cfg(windows)]
+    return std::process::Command::new("powershell").args(["-NoProfile", "-Command", &format!("Set-Clipboard -Path '{}'", p.replace('\'', "''"))]).status().is_ok_and(|s| s.success());
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        use std::io::Write;
+        let uri = format!("file://{}", p.replace(' ', "%20"));
+        let gnome = format!("copy\n{uri}");
+        let put = |target: &str, text: &str| {
+            std::process::Command::new("xclip")
+                .args(["-selection", "clipboard", "-t", target])
+                .stdin(std::process::Stdio::piped())
+                .spawn()
+                .and_then(|mut c| {
+                    c.stdin.take().map(|mut s| s.write_all(text.as_bytes())).transpose()?;
+                    c.wait()
+                })
+                .is_ok_and(|s| s.success())
+        };
+        // GNOME's file managers read their own target; others the URI list.
+        put("x-special/gnome-copied-files", &gnome) || put("text/uri-list", &uri) || std::process::Command::new("wl-copy").args(["--type", "text/uri-list", &uri]).status().is_ok_and(|s| s.success())
+    }
+}
+
+/// macOS's AirDrop sheet with file `f`; false elsewhere or when it cannot open.
+pub fn airdrop(f: &std::path::Path) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        let script = format!(
+            "ObjC.import('AppKit'); var s = $.NSSharingService.sharingServiceNamed($.NSSharingServiceNameSendViaAirDrop); var u = $.NSURL.fileURLWithPath('{}'); s.canPerformWithItems([u]) ? (s.performWithItems([u]), 'ok') : 'no'",
+            f.display().to_string().replace('\'', "\\'")
+        );
+        return std::process::Command::new("osascript").args(["-l", "JavaScript", "-e", &script]).output().is_ok_and(|o| o.stdout.starts_with(b"ok"));
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = f;
+        false
+    }
+}
+
+/// The file Windows's voice reads "pause" or "resume" from while it speaks.
+pub fn speech_control() -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("sheaf-speech-{}.ctl", std::process::id()))
 }
 
 /// The system's voices by name (macOS's `say -v ?`, eSpeak NG's, Windows's installed voices).
@@ -910,7 +973,13 @@ pub fn make_default_pdf_app() -> String {
             &["add", r"HKCU\Software\Classes\.pdf\OpenWithProgids", "/v", "Sheaf.PDF", "/t", "REG_NONE", "/f"],
             &["add", r"HKCU\Software\Classes\Applications\sheaf.exe\SupportedTypes", "/v", ".pdf", "/t", "REG_SZ", "/f"],
         ];
-        let registered = keys.iter().all(|k| ran("reg", k));
+        let mut registered = keys.iter().all(|k| ran("reg", k));
+        // The tools as the PDF's verbs in Explorer's context menu.
+        for (key, label) in sheaf_app::open_with::MENU_TOOLS {
+            let verb = format!(r"HKCU\Software\Classes\SystemFileAssociations\.pdf\shell\Sheaf.{key}");
+            let cmd = format!("\"{exe}\" --tool={key} \"%1\"");
+            registered &= ran("reg", &["add", &verb, "/ve", "/d", label, "/f"]) && ran("reg", &["add", &format!(r"{verb}\command"), "/ve", "/d", &cmd, "/f"]);
+        }
         spawn_detached("explorer", &["ms-settings:defaultapps".as_ref()]);
         return if registered { "Pick Sheaf for .pdf in Default apps".into() } else { "Sheaf could not be registered: pick it with Open with ▸ Choose another app".into() };
     };
@@ -924,7 +993,7 @@ pub fn make_default_pdf_app() -> String {
         if !system && !entry.exists()
             && let Ok(exe) = std::env::current_exe()
         {
-            let text = format!("[Desktop Entry]\nType=Application\nName=Sheaf\nComment=Private PDF toolbox\nExec=\"{}\" %F\nMimeType=application/pdf;\nCategories=Office;Graphics;\n", exe.display());
+            let text = desktop_entry(&format!("\"{}\"", exe.display()));
             let _ = std::fs::create_dir_all(&apps).and_then(|_| std::fs::write(&entry, text));
             let _ = ran("update-desktop-database", &[&apps.to_string_lossy()]);
         }
@@ -932,6 +1001,20 @@ pub fn make_default_pdf_app() -> String {
     #[cfg(not(any(target_os = "macos", windows)))]
     let done = ran("xdg-mime", &["default", "sheaf.desktop", "application/pdf"]);
     if done { "Sheaf now opens PDFs".into() } else { "Sheaf could not be made the default: choose it in your system's settings".into() }
+}
+
+/// Sheaf's desktop entry, `exec` its program: opens PDFs, its tools as the file manager's actions
+/// (the context menu's Compress with Sheaf…).
+pub fn desktop_entry(exec: &str) -> String {
+    use sheaf_app::open_with::MENU_TOOLS;
+    let mut t = format!(
+        "[Desktop Entry]\nType=Application\nName=Sheaf\nComment=Private PDF toolbox\nExec={exec} %F\nIcon=sheaf\nMimeType=application/pdf;\nCategories=Office;Graphics;\nActions={};\n",
+        MENU_TOOLS.iter().map(|t| t.0).collect::<Vec<_>>().join(";")
+    );
+    for (key, label) in MENU_TOOLS {
+        t.push_str(&format!("\n[Desktop Action {key}]\nName={label}\nExec={exec} --tool={key} %F\n"));
+    }
+    t
 }
 
 /// Opens a file or URL in its default app.

@@ -63,6 +63,51 @@ pub fn enhance(input: &Input, out: &Path, progress: &mut dyn FnMut(f32) -> bool)
     Ok(EnhanceReport { path, enhanced, kept })
 }
 
+/// How many words a recogniser reads in `img` that look like words (three letters or more, a vowel
+/// among them): an upside-down or sideways scan reads few.
+fn real_words(ocr: &crate::pdfcraft::engine::ocr::Ocr, img: &image::RgbaImage) -> usize {
+    let vowel = |w: &str| w.chars().any(|c| "aeiouyAEIOUYàâéèêëîïôûüÀÂÉÈÊËÎÏÔÛÜ".contains(c));
+    ocr.recognize(img.as_raw(), img.width(), img.height())
+        .map(|lines| lines.iter().flat_map(|l| &l.words).filter(|w| w.text.chars().filter(|c| c.is_alphabetic()).count() >= 3 && vowel(&w.text)).count())
+        .unwrap_or(0)
+}
+
+/// For each scanned page among `pages` (a picture and no text: [`is_scan`]), the clockwise turn (90,
+/// 180 or 270) that sets it upright, when reading it so finds clearly more words than as it is.
+pub fn scan_upright_turns(bytes: &[u8], password: Option<&str>, pages: &[usize]) -> Vec<(usize, i64)> {
+    let Ok(ocr) = crate::ocr::engine() else { return Vec::new() };
+    let shots: Vec<(usize, image::RgbaImage)> = {
+        let _g = crate::engine::pdfium_lock();
+        let Ok(doc) = crate::engine::open_pdf_bytes(bytes, password) else { return Vec::new() };
+        pages
+            .iter()
+            .filter_map(|&p| {
+                let page = doc.pages().get(p as i32).ok()?;
+                if !is_scan(&page) {
+                    return None;
+                }
+                // About 110 dpi, enough to read body text.
+                let w = (page.width().value * 1.5).round().clamp(64.0, 2000.0) as i32;
+                let img = page.render_with_config(&PdfRenderConfig::new().set_target_width(w)).ok()?.as_image().ok()?.to_rgba8();
+                Some((p, img))
+            })
+            .collect()
+    };
+    let mut out = Vec::new();
+    for (p, img) in shots {
+        let as_is = real_words(&ocr, &img);
+        let tries = [(90, image::imageops::rotate90(&img)), (180, image::imageops::rotate180(&img)), (270, image::imageops::rotate270(&img))];
+        let best = tries.iter().map(|(d, i)| (*d, real_words(&ocr, i))).max_by_key(|t| t.1);
+        if let Some((d, n)) = best
+            && n >= 5
+            && n * 2 > as_is * 3
+        {
+            out.push((p, d));
+        }
+    }
+    out
+}
+
 /// Which pages of PDF `bytes` are scans ([`is_scan`]), in order; all false when it cannot be read.
 pub fn scanned_pages(bytes: &[u8], password: Option<&str>) -> Vec<bool> {
     let _g = crate::engine::pdfium_lock();

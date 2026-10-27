@@ -41,6 +41,13 @@ pub(super) fn about_rows(about: &[(String, String)], facts: Option<&sheaf_core::
         }
     }
     rows.extend(f.boxes.iter().map(|(n, v)| (n.to_string(), v.clone())));
+    // Acrobat's Audit Space Usage: what takes the file's bytes.
+    let total: u64 = f.space.iter().map(|s| s.1).sum();
+    if total > 0 {
+        let size = |n: u64| if n >= 1 << 20 { format!("{:.1} MB", n as f64 / 1_048_576.0) } else { format!("{} KB", n.div_ceil(1024)) };
+        let parts: Vec<String> = f.space.iter().map(|(what, n)| format!("{what} {} ({}%)", size(*n), n * 100 / total)).collect();
+        rows.push(("Space used".into(), parts.join(", ")));
+    }
     rows.extend(signatures);
     rows
 }

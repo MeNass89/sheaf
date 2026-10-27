@@ -268,8 +268,8 @@ pub struct App {
 /// XFDF carries no appearance, Sol 25/10), the file and page it came from.
 #[derive(Clone)]
 pub struct CommentClip {
-    pub element: String,
-    pub picture: Option<(String, std::sync::Arc<Vec<u8>>)>,
+    /// Each comment copied: its XFDF element, and a picture stamp's picture.
+    pub items: Vec<(String, Option<(String, std::sync::Arc<Vec<u8>>)>)>,
     pub from: PathBuf,
     pub page: usize,
 }
@@ -283,6 +283,36 @@ pub struct ObjectsClip {
     pub from: PathBuf,
     pub page: usize,
     pub pixels: (usize, usize),
+    /// The paragraphs among them, each as text in its box as shown: pasted as text again.
+    pub texts: Vec<sheaf_core::pdfcraft::engine::AddedText>,
+    /// With paragraphs, the other objects: their PDF and where they showed.
+    pub rest: Option<(std::sync::Arc<Vec<u8>>, [f64; 4])>,
+}
+
+impl ObjectsClip {
+    /// The paragraphs copied, placed in their box as shown (`layout`, one per object; a little
+    /// wider so the text keeps its lines in another font), and the rest's box as shown.
+    pub fn split(
+        texts: Vec<Option<sheaf_core::pdfcraft::engine::AddedText>>,
+        rest: Option<std::sync::Arc<Vec<u8>>>,
+        layout: &[[f64; 4]],
+    ) -> (Vec<sheaf_core::pdfcraft::engine::AddedText>, Option<(std::sync::Arc<Vec<u8>>, [f64; 4])>) {
+        if layout.len() != texts.len() || texts.iter().all(Option::is_none) {
+            return (Vec::new(), None);
+        }
+        let union = |a: [f64; 4], b: [f64; 4]| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])];
+        let rest_box = texts.iter().zip(layout).filter(|(t, _)| t.is_none()).map(|(_, r)| *r).reduce(union);
+        let texts = texts
+            .into_iter()
+            .zip(layout)
+            .filter_map(|(t, r)| {
+                let mut t = t?;
+                t.rect = [r[0], r[1], r[2] + 0.04 * (r[2] - r[0]) + 2.0, r[3]];
+                Some(t)
+            })
+            .collect();
+        (texts, rest.zip(rest_box))
+    }
 }
 
 impl App {

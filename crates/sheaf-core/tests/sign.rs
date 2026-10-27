@@ -430,6 +430,21 @@ fn a_document_is_certified_with_no_signature_shown() {
     assert_eq!(s.certify, Some(1), "no changes allowed");
 }
 
+/// Preferences ▸ Signatures: a certificate in PEM is read, and its DER kept as it is.
+#[test]
+fn a_certificate_file_is_read_in_der_or_pem() {
+    let t = tempfile::tempdir().unwrap();
+    test_id(t.path());
+    let der = t.path().join("c.der");
+    let o = Command::new("openssl").args(["x509", "-outform", "der", "-in"]).arg(t.path().join("c.pem")).arg("-out").arg(&der).output().unwrap();
+    assert!(o.status.success(), "openssl x509: {}", String::from_utf8_lossy(&o.stderr));
+    let der = std::fs::read(der).unwrap();
+    assert_eq!(sheaf_core::pdfcraft::certificate_der(&der).as_deref(), Some(&der[..]), "a .der is kept as it is");
+    let pem = std::fs::read(t.path().join("c.pem")).unwrap();
+    assert_eq!(sheaf_core::pdfcraft::certificate_der(&pem), Some(der), "a .pem decodes to the same DER");
+    assert!(sheaf_core::pdfcraft::certificate_der(b"not a certificate").is_none());
+}
+
 /// Acrobat's Clear Signature: the field stays, unsigned, and its certification goes with it; saved
 /// as an update, so the signed revision is still in the file.
 #[test]

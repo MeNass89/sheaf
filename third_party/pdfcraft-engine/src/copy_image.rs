@@ -146,6 +146,47 @@ impl Document {
         .map_err(|e| e.to_string())?;
         pdfcraft_cos::write_full(&out, &pdfcraft_cos::SaveOptions::default()).map_err(|e| e.to_string())
     }
+
+    /// Sheaf: the paragraphs among `targets` as text to add again, in their order (`None` for what
+    /// is not text, or text drawn turned): their words, font, size and colour. Acrobat pastes
+    /// copied paragraphs as text, still editable (Sol, 26/10: they became one drawn item). Their
+    /// box is the caller's to place.
+    pub fn objects_texts(&self, page: usize, targets: &[pdfcraft_edit::ObjectTarget]) -> Vec<Option<pdfcraft_edit::AddedText>> {
+        use pdfcraft_edit::{Content, Family, ObjectKind};
+        let blocks = self.text_blocks(page);
+        let added: Vec<_> = self.editor.as_ref().map(|e| pdfcraft_edit::list_added(&e.cos).into_iter().filter(|a| a.page == page).collect()).unwrap_or_default();
+        let family = |font: &str| {
+            let f = font.to_ascii_lowercase();
+            if ["times", "serif", "georgia", "garamond", "roman"].iter().any(|k| f.contains(k)) && !f.contains("sans") {
+                Family::Times
+            } else if ["courier", "mono", "consol"].iter().any(|k| f.contains(k)) {
+                Family::Courier
+            } else {
+                Family::Helvetica
+            }
+        };
+        targets
+            .iter()
+            .map(|t| match t.kind {
+                ObjectKind::Text => blocks.get(t.index).filter(|b| b.rotation.abs() < 0.5 && !b.text.trim().is_empty()).map(|b| pdfcraft_edit::AddedText {
+                    rect: b.rect,
+                    text: b.text.clone(),
+                    family: family(&b.base_font),
+                    bold: b.bold,
+                    italic: b.italic,
+                    size: b.size,
+                    color: b.color,
+                    align: Default::default(),
+                    underline: false,
+                }),
+                ObjectKind::Added => match added.get(t.index).map(|a| &a.content) {
+                    Some(Content::Text(x)) => Some(x.clone()),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect()
+    }
 }
 
 /// Whether a stamp is shown turned: a turn of its own (`/PCPictureRotate`, `/PCStampRotate`) or

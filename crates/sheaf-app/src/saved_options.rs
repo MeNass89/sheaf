@@ -40,7 +40,7 @@ kept! {
         wm_transparency, wm_rotation, crop_mode, pdfa_level, excel_layout, text_format, compare_mode,
         adjust_brightness, adjust_contrast, adjust_saturation;
     bools:
-        redact_repeat, discard_thumbs, discard_tags, discard_meta, compress_gray, adjust_invert,
+        redact_repeat, discard_thumbs, discard_tags, discard_meta, compress_gray, unembed_fonts, adjust_invert,
         hf_replace,
         allow_printing, allow_copying, allow_editing, allow_commenting, allow_filling_forms, remove_blank,
         protect_sanitize, split_one_file, landscape, one_per_image, png, extract_images, num_double, num_cover,

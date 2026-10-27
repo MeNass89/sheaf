@@ -44,6 +44,8 @@ pub struct Advanced {
     pub discard_metadata: bool,
     /// Every colour made grey ([`crate::grayscale`]; Stirling's Convert to grayscale).
     pub grayscale: bool,
+    /// The programs of the standard faces every reader has, taken out (Acrobat's Unembed fonts).
+    pub unembed_standard: bool,
 }
 
 #[derive(Debug)]
@@ -150,6 +152,41 @@ fn discard(doc: &mut lopdf::Document, adv: &Advanced) {
     if adv.discard_metadata {
         doc.trailer.remove(b"Info");
     }
+    if adv.unembed_standard {
+        unembed_standard(doc);
+    }
+}
+
+/// Whether a font's base name is a standard face a reader draws without its program.
+fn standard_face(base: &[u8]) -> bool {
+    let b = String::from_utf8_lossy(base);
+    let family = b.split([',', '-']).next().unwrap_or("");
+    matches!(family, "Helvetica" | "Times" | "Courier" | "Symbol" | "ZapfDingbats" | "Arial" | "ArialMT" | "TimesNewRoman" | "TimesNewRomanPSMT" | "CourierNew" | "CourierNewPSMT")
+}
+
+/// The embedded programs of whole (not subset), simple (Type1 or TrueType) standard faces taken out
+/// of their descriptors; returns how many. A subset or a composite font keeps its program: its
+/// glyphs may not be where a reader's own face has them.
+pub fn unembed_standard(doc: &mut lopdf::Document) -> usize {
+    let fonts: Vec<(ObjectId, ObjectId)> = doc
+        .objects
+        .iter()
+        .filter_map(|(id, o)| {
+            let d = o.as_dict().ok()?;
+            let simple = matches!(d.get(b"Subtype").and_then(Object::as_name).ok()?, b"Type1" | b"TrueType");
+            let base = d.get(b"BaseFont").and_then(Object::as_name).ok()?;
+            let whole = base.get(6) != Some(&b'+');
+            (d.get(b"Type").and_then(Object::as_name).ok() == Some(b"Font") && simple && whole && standard_face(base)).then(|| Some((*id, d.get(b"FontDescriptor").and_then(Object::as_reference).ok()?)))?
+        })
+        .collect();
+    let mut n = 0;
+    for (_, fd) in fonts {
+        if let Ok(d) = doc.get_object_mut(fd).and_then(Object::as_dict_mut) {
+            let had = [&b"FontFile"[..], b"FontFile2", b"FontFile3"].iter().filter(|k| d.remove(k).is_some()).count();
+            n += usize::from(had > 0);
+        }
+    }
+    n
 }
 
 fn squeeze(input: &Input, max: u32, q: u8, adv: &Advanced, progress: &mut dyn FnMut(f32) -> bool) -> Result<(Vec<u8>, u64, bool, usize)> {
@@ -333,6 +370,19 @@ pub(crate) fn image_pixels(s: &Stream, gray: bool) -> Option<DynamicImage> {
     let ok = (img.width(), img.height()) == (w, h)
         && matches!((&img, gray), (DynamicImage::ImageLuma8(_), true) | (DynamicImage::ImageRgb8(_), false));
     ok.then_some(img)
+}
+
+/// A CMYK JPEG's pixels as RGB (the decoder's conversion, Adobe's inverted CMYK included), for the
+/// tools that recolour pictures; `None` for any other picture, a mask, or a /Decode that is not
+/// the identity.
+pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
+    if s.dict.has(b"Mask") || single_filter(s) != Some(b"DCTDecode") || !identity_decode(s) || jpeg_components(&s.content)? != 4 {
+        return None;
+    }
+    let w = u32::try_from(s.dict.get(b"Width").and_then(Object::as_i64).ok()?).ok()?;
+    let h = u32::try_from(s.dict.get(b"Height").and_then(Object::as_i64).ok()?).ok()?;
+    let img = image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).ok()?.to_rgb8();
+    ((img.width(), img.height()) == (w, h)).then_some(img)
 }
 
 /// Number of colour components declared in a JPEG's SOF header (1 gray, 3 YCbCr/RGB, 4 CMYK/YCCK).

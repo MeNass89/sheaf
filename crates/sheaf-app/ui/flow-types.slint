@@ -353,6 +353,8 @@ export struct ReaderState {
     layers-changed: bool,
     // More tools ▸ Voice…: the list open, the system's voices.
     voices-open: bool,
+    // The keyboard shortcuts sheet.
+    help-open: bool,
     voices: [string],
     // More tools ▸ Accessibility check: the sheet, a check running, its count, its rules.
     a11y-open: bool,
@@ -449,6 +451,9 @@ export struct ReaderState {
     selected-turnable: bool,
     // Print sheet: open, the system's printers, the chosen one.
     print-open: bool,
+    // The print sheet's first sheet as it will print.
+    print-preview: image,
+    has-print-preview: bool,
     // More ▸ Background… is open.
     background-open: bool,
     // More ▸ Versions… is open; the versions saved in the file; what Undo and Redo would do.
@@ -536,6 +541,7 @@ export struct ToolOptions {
     discard-tags: bool,      // compress, advanced: structure tags taken out
     discard-meta: bool,      // compress, advanced: document information and XMP taken out
     compress-gray: bool,     // compress: every colour made grey (Stirling's Convert to grayscale)
+    unembed-fonts: bool,     // compress, advanced: standard faces' programs taken out
     adjust-brightness: int,  // adjust colours: −100 to 100 (0 as it is)
     adjust-contrast: int,
     adjust-saturation: int,
@@ -805,6 +811,8 @@ export global ReaderBridge {
     // the range typed, fit to paper, two-sided, paper (0 the printer's, 1 A4, 2 Letter, 3 Legal),
     // orientation (0 auto, 1 portrait, 2 landscape); cancel.
     callback print-open(int);
+    // The print sheet's preview for a layout (0–6), grey or not, with comments or not.
+    callback print-preview(int, int, bool, bool);
     // More ▸ Background…: open; then apply (action 0, colour and opacity as chosen), a picture (1),
     // remove the backgrounds (2) or cancel (3).
     callback background-open(int);
@@ -924,6 +932,10 @@ export global ReaderBridge {
     callback annots-arrange(int, int);
     // More tools ▸ Rulers; a click on a page's ruler (top: across) at page points: a guide added or taken away.
     callback rulers(int);
+    // The keyboard shortcuts sheet shown (true) or closed.
+    callback show-help(int, bool);
+    // More tools ▸ Copy the file (false), Share with AirDrop (true).
+    callback share-file(int, bool);
     callback ruler-clicked(int, int, bool, float);
     // A text selection ▸ Look up: the words in the system's dictionary.
     callback look-up(string);

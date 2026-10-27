@@ -102,12 +102,13 @@ fn pause(ui: &AppWindow) {
         PAUSED.store(paused, Ordering::SeqCst);
         crate::flow::toast(ui, if paused { "Reading paused: Pause reading again resumes" } else { "Reading resumed" });
     }
+    // Windows: the voice follows its control file, and keeps its place.
     #[cfg(not(unix))]
     {
-        let _ = (child, paused);
-        drop(slot);
-        stop();
-        crate::flow::toast(ui, "Reading stopped");
+        let _ = child;
+        let _ = std::fs::write(crate::run::speech_control(), if paused { "pause" } else { "resume" });
+        PAUSED.store(paused, Ordering::SeqCst);
+        crate::flow::toast(ui, if paused { "Reading paused: Pause reading again resumes" } else { "Reading resumed" });
     }
 }
 

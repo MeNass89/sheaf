@@ -23,6 +23,17 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     let wanted = v.viewer.wanted(v.top, v.height);
     let cur = v.current();
     let mut marks = Vec::new();
+    // Preferences ▸ Show art, trim and bleed boxes: each that is not the crop box, outlined.
+    if crate::home::show_boxes() {
+        for p in wanted.clone() {
+            let Some(b) = r.snap.page_boxes.get(p) else { continue };
+            for (k, kind) in [(2, 15), (3, 14), (4, 13)] {
+                if (0..4).any(|i| (b[k][i] - b[1][i]).abs() > 0.5) {
+                    marks.push(overlay(v.viewer.overlay(p, b[k]), kind));
+                }
+            }
+        }
+    }
     // The page grid's selection: each page ringed.
     if r.grid_prev.is_some() {
         for &p in &r.page_sel {
@@ -550,6 +561,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         )),
         layers_changed: r.layers_off.is_some(),
         voices_open: r.voices_open,
+        help_open: r.help_open,
         voices: ModelRc::new(VecModel::from(r.voices.iter().map(|v| slint::SharedString::from(v.as_str())).collect::<Vec<_>>())),
         a11y_open: r.a11y_open,
         a11y_busy: r.a11y_busy,
@@ -610,6 +622,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         pages_selected: r.page_sel.len() as i32,
         sign_open: r.sign_open,
         print_open: r.print_open,
+        print_preview: r.print_preview.clone().unwrap_or_default(),
+        has_print_preview: r.print_preview.is_some(),
         printers: ModelRc::new(VecModel::from(r.printers.iter().map(slint::SharedString::from).collect::<Vec<_>>())),
         printer: r.printer as i32,
         has_signature: r.tool == SIGN && !r.initials && saved_signature().is_some(),
@@ -761,5 +775,8 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
 
 /// The page's label ("iv") or number, 1-based.
 pub(super) fn label(r: &ReaderUi, p: usize) -> String {
+    if crate::home::physical_numbers() {
+        return (p + 1).to_string();
+    }
     r.snap.labels.get(p).cloned().filter(|l| !l.is_empty()).unwrap_or_else(|| (p + 1).to_string())
 }

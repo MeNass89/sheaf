@@ -374,6 +374,11 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Voice…", on: false },
                                 // Acrobat's Rulers; a click on one makes a guide.
                                 { text: "Rulers", on: root.tab.reader.rulers-on },
+                                // Acrobat's and PDF Expert's keyboard shortcuts list (? or ⌘/).
+                                { text: "Keyboard shortcuts", on: false },
+                                // PDF Expert's Share ▸ Copy, macOS's AirDrop.
+                                { text: "Copy the file", on: false },
+                                { text: "Share with AirDrop", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -398,6 +403,9 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 14 { ReaderBridge.read-aloud(root.id, 4); }
                                         if k == 15 { ReaderBridge.read-aloud(root.id, 5); }
                                         if k == 16 { ReaderBridge.rulers(root.id); }
+                                        if k == 17 { ReaderBridge.show-help(root.id, true); }
+                                        if k == 18 { ReaderBridge.share-file(root.id, false); }
+                                        if k == 19 { ReaderBridge.share-file(root.id, true); }
                                         root.focus-pages();
                                     }
                                 }

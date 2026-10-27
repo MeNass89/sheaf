@@ -198,7 +198,12 @@ fn table(run: &[Vec<Segment>]) -> Option<Table> {
         let figure = rows[1].iter().any(|c| parse_number(c).is_some());
         // Or words only, in three columns or more of short cells (a heading and a row of names: Sol,
         // 26/10); two columns of words stay prose.
-        let words = cols.len() >= 3 && rows.iter().flatten().all(|c| c.split_whitespace().count() <= 3);
+        // In two columns, the cells are short and the columns wide apart (a gutter of three text
+        // heights or more: two columns of prose sit closer, and their lines run longer).
+        let short = rows.iter().flatten().all(|c| c.split_whitespace().count() <= 3);
+        let text_h = run.iter().flatten().map(|s| s.rect[3] - s.rect[1]).fold(0.0, f64::max);
+        let apart = cols.windows(2).all(|w| w[1].0 - w[0].1 >= 3.0 * text_h);
+        let words = short && (cols.len() >= 3 || apart);
         return (line_up.iter().all(|n| *n >= 2) && full && heading && (figure || words)).then_some(Table { rect, rows });
     }
     let lined_up = line_up.iter().any(|n| *n >= MIN_ROWS) && line_up.iter().all(|n| *n >= 2);
@@ -604,6 +609,17 @@ mod tests {
         let t = tables(&lines(&w));
         assert_eq!(t.len(), 1);
         assert_eq!(t[0].rows, vec![vec!["A".to_string(), "B".into()], vec!["C".into(), "".into()], vec!["D".into(), "E".into()]]);
+    }
+
+    #[test]
+    fn a_heading_over_one_row_of_words_in_two_columns_is_a_table() {
+        let w = words(&[(72.0, 700.0, "Name"), (250.0, 700.0, "Role"), (72.0, 680.0, "Ada Lovelace"), (250.0, 680.0, "Engineer")]);
+        let t = tables(&lines(&w));
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].rows, vec![vec!["Name".to_string(), "Role".into()], vec!["Ada Lovelace".into(), "Engineer".into()]]);
+        // Two short lines side by side, close together, stay prose.
+        let w = words(&[(72.0, 700.0, "Dear friends"), (170.0, 700.0, "and family"), (72.0, 680.0, "thank you"), (170.0, 680.0, "for coming")]);
+        assert!(tables(&lines(&w)).is_empty());
     }
 
     #[test]

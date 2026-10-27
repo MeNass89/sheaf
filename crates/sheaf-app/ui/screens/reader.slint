@@ -11,7 +11,7 @@ import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
 import { FormFieldBox, FieldPropsCard, FieldsArrangeCard, ObjectsArrangeCard } from "reader-form.slint";
-import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet } from "reader-sheets.slint";
+import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet, HelpSheet } from "reader-sheets.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 
 export component ReaderScreen inherits Rectangle {
@@ -272,8 +272,9 @@ export component ReaderScreen inherits Rectangle {
                         height: m.h;
                         border-radius: m.kind == 6 || m.kind == 7 ? 2px : 1px;
                         background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : m.kind == 11 ? Theme.info : transparent;
-                        border-width: m.kind == 12 ? 3px : m.kind == 6 ? 1.5px : m.kind == 5 || m.kind == 7 ? 1px : 0px;
-                        border-color: m.kind == 12 ? Theme.accent : m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : #FF9F0A;
+                        border-width: m.kind == 12 ? 3px : m.kind == 6 ? 1.5px : m.kind == 5 || m.kind == 7 || m.kind >= 13 ? 1px : 0px;
+                        // 13 art (green), 14 trim (blue), 15 bleed (red): Preferences ▸ Show art, trim and bleed boxes.
+                        border-color: m.kind == 12 ? Theme.accent : m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : m.kind == 13 ? #22A045 : m.kind == 14 ? #2563EB : m.kind == 15 ? #DC2626 : #FF9F0A;
                     }
                     // Prepare form's grid (Grid on): lines every 9 pt, a stronger one every inch.
                     for g in root.tab.reader.form-grids: Rectangle {
@@ -789,6 +790,10 @@ export component ReaderScreen inherits Rectangle {
         id: root.id;
         focus-pages => { keys.focus(); }
     }
+    if root.tab.reader.help-open: HelpSheet {
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
     if root.tab.reader.voices-open: VoicesSheet {
         tab: root.tab;
         id: root.id;
@@ -849,6 +854,8 @@ export component ReaderScreen inherits Rectangle {
             if e.modifiers.control {
                 // ⌘K: link the selected text (as in Word, Pages and PDF Expert).
                 if e.text == "k" && root.tab.reader.has-selection { ReaderBridge.link-selection(root.id); return accept; }
+                // ⌘/: the keyboard shortcuts (PDF Expert's).
+                if e.text == "/" { ReaderBridge.show-help(root.id, true); return accept; }
                 // Acrobat's Rotate View: ⇧⌘+ clockwise, ⇧⌘− back.
                 if e.modifiers.shift && (e.text == "+" || e.text == "=") { ReaderBridge.rotate-view(root.id, 1); return accept; }
                 if e.modifiers.shift && (e.text == "_" || e.text == "-") { ReaderBridge.rotate-view(root.id, -1); return accept; }
@@ -960,6 +967,8 @@ export component ReaderScreen inherits Rectangle {
             if e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
             if e.text == Key.DownArrow { ReaderBridge.scroll-by(root.id, 48px); return accept; }
             if e.text == Key.UpArrow { ReaderBridge.scroll-by(root.id, -48px); return accept; }
+            // ?: the keyboard shortcuts.
+            if e.text == "?" { ReaderBridge.show-help(root.id, true); return accept; }
             if e.text == "v" { ReaderBridge.set-tool(root.id, 0); return accept; }
             if e.text == "h" { ReaderBridge.set-tool(root.id, 1); return accept; }
             if e.text == "u" { ReaderBridge.set-tool(root.id, 2); return accept; }

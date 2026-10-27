@@ -131,6 +131,30 @@ pub fn without_comments(bytes: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+/// The first sheet `bytes` prints with `layout` (0–5 one, 2, 4, 6, 9, 16 pages a sheet; 6 a booklet),
+/// in `gray` or not, with or without `comments`: a picture about 300 px wide (RGBA, width, height).
+pub fn preview(bytes: &[u8], layout: i32, gray: bool, comments: bool) -> Result<(u32, u32, Vec<u8>), String> {
+    let b = if comments { bytes.to_vec() } else { without_comments(bytes)? };
+    let per = [1u8, 2, 4, 6, 9, 16][layout.clamp(0, 5) as usize];
+    let b = if layout == 6 {
+        booklet(&b)?
+    } else if per > 1 && per != 16 {
+        let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+        let (from, to) = (dir.path().join("in.pdf"), dir.path().join("up.pdf"));
+        std::fs::write(&from, &b).map_err(|e| e.to_string())?;
+        sheaf_core::pages::impose(&sheaf_core::pages::Input::new(&from), per, false, &to).map_err(|e| e.to_string())?;
+        std::fs::read(&to).map_err(|e| e.to_string())?
+    } else {
+        b
+    };
+    let png = sheaf_core::images::page_png_bytes(&b, 0.5).map_err(|e| e.to_string())?;
+    let img = image::load_from_memory(&png).map_err(|e| e.to_string())?;
+    let img = img.thumbnail(300, 300);
+    let img = if gray { image::DynamicImage::ImageLuma8(img.to_luma8()) } else { img };
+    let rgba = img.to_rgba8();
+    Ok((rgba.width(), rgba.height(), rgba.into_raw()))
+}
+
 /// `bytes` imposed as a booklet (`sheaf_core::pages::impose`).
 pub fn booklet(bytes: &[u8]) -> Result<Vec<u8>, String> {
     let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
@@ -188,6 +212,22 @@ mod tests {
         assert!(a.windows(2).any(|w| w == ["-o", "number-up=4"]) && a.windows(2).any(|w| w == ["-o", "print-color-mode=monochrome"]), "{a:?}");
         let a = lp_args(&Job { per_sheet: 4, booklet: true, ..job }, Path::new("/tmp/x/Book.pdf"));
         assert!(a.windows(2).any(|w| w == ["-o", "sides=two-sided-short-edge"]) && !a.iter().any(|s| s.starts_with("number-up")), "{a:?}");
+    }
+
+    /// The preview of two pages a sheet is wider than tall (the pages side by side), in grey all its
+    /// pixels grey.
+    #[test]
+    fn the_preview_shows_the_sheet_as_it_will_print() {
+        let t = tempfile::tempdir().unwrap();
+        let png = t.path().join("p.png");
+        image::RgbImage::from_pixel(300, 400, image::Rgb([220, 30, 30])).save(&png).unwrap();
+        let pdf = sheaf_core::images::images_to_pdf(&[png.clone(), png], sheaf_core::images::PageLayout::FitImage, &t.path().join("two.pdf")).unwrap();
+        let bytes = std::fs::read(pdf).unwrap();
+        let (w, h, _) = preview(&bytes, 0, false, true).unwrap();
+        assert!(h > w, "one page: tall ({w} × {h})");
+        let (w, h, px) = preview(&bytes, 1, true, true).unwrap();
+        assert!(w > h, "two a sheet: wide ({w} × {h})");
+        assert!(px.as_chunks::<4>().0.iter().all(|p| p[0] == p[1] && p[1] == p[2]), "grey");
     }
 
     /// Comments off: a highlight and a note go, a form field and a link stay.

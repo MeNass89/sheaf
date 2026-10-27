@@ -335,9 +335,11 @@ fn walk(p: Part, texts: &mut Vec<(String, String)>, files: &mut Vec<(String, Vec
     let mime = p.mime();
     if mime.starts_with("multipart/") {
         let kids = p.children();
-        // An alternative: its richest part only (HTML over plain text).
+        // An alternative: its richest part only (HTML, or HTML with its pictures in a
+        // multipart/related, over plain text; Sol, 27/10: the related branch was passed over).
         if mime == "multipart/alternative" {
-            let pick = kids.iter().rposition(|k| k.mime() == "text/html").or_else(|| kids.iter().rposition(|k| k.mime() == "text/plain"));
+            let rich = |k: &Part| k.mime() == "text/html" || k.mime().starts_with("multipart/");
+            let pick = kids.iter().rposition(rich).or_else(|| kids.iter().rposition(|k| k.mime() == "text/plain"));
             if let Some(i) = pick {
                 let kid = kids.into_iter().nth(i).unwrap_or(Part { headers: Vec::new(), body: Vec::new() });
                 walk(kid, texts, files, inline);
@@ -457,5 +459,10 @@ mod tests {
         assert!(files.is_empty(), "{files:?}");
         assert!(html.contains("src=\"data:image/png;base64,iVBORw0KGgo=\""), "{html}");
         assert_eq!(base64_encode(b"%PDF-1.4"), "JVBERi0xLjQ=");
+        // The same HTML and picture as the rich branch of an alternative: chosen over the plain text.
+        let alt = "Subject: Logo\r\nContent-Type: multipart/alternative; boundary=A\r\n\r\n--A\r\nContent-Type: text/plain\r\n\r\nPlain only\r\n--A\r\nContent-Type: multipart/related; boundary=R\r\n\r\n--R\r\nContent-Type: text/html\r\n\r\n<p>See <img src=\"cid:logo1@x\"></p>\r\n--R\r\nContent-Type: image/png\r\nContent-ID: <logo1@x>\r\nContent-Transfer-Encoding: base64\r\n\r\niVBORw0KGgo=\r\n--R--\r\n--A--\r\n";
+        let (html, files) = mail_to_html(alt.as_bytes());
+        assert!(files.is_empty() && !html.contains("Plain only"), "{html}");
+        assert!(html.contains("src=\"data:image/png;base64,iVBORw0KGgo=\""), "{html}");
     }
 }

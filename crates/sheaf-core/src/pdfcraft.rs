@@ -158,6 +158,47 @@ pub fn trust_certificate(der: &[u8]) -> Result<bool> {
     Ok(true)
 }
 
+/// Stops trusting certificate `der` (Acrobat's Trusted Certificates ▸ Remove): its file taken out of
+/// the trust folder. Returns whether it was there.
+pub fn untrust_certificate(der: &[u8]) -> Result<bool> {
+    let Some(dir) = TRUST_DIR.get() else { return Ok(false) };
+    let mut gone = false;
+    for p in std::fs::read_dir(dir).map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).collect::<Vec<_>>()).unwrap_or_default() {
+        if std::fs::read(&p).is_ok_and(|b| b == der) {
+            std::fs::remove_file(&p)?;
+            gone = true;
+        }
+    }
+    Ok(gone)
+}
+
+/// A certificate file's DER (a .cer or .der as it is, a .pem's first certificate decoded).
+pub fn certificate_der(bytes: &[u8]) -> Option<Vec<u8>> {
+    let text = String::from_utf8_lossy(bytes);
+    let der = match (text.find("-----BEGIN CERTIFICATE-----"), text.find("-----END CERTIFICATE-----")) {
+        (Some(a), Some(b)) if b > a => {
+            let body: String = text[a + 27..b].chars().filter(|c| !c.is_whitespace()).collect();
+            let val = |c: u8| match c {
+                b'A'..=b'Z' => Some(c - b'A'),
+                b'a'..=b'z' => Some(c - b'a' + 26),
+                b'0'..=b'9' => Some(c - b'0' + 52),
+                b'+' => Some(62),
+                b'/' => Some(63),
+                _ => None,
+            };
+            let digits: Vec<u8> = body.bytes().filter_map(val).collect();
+            let mut out = Vec::new();
+            for chunk in digits.chunks(4) {
+                let n = chunk.iter().enumerate().fold(0u32, |n, (i, &d)| n | u32::from(d) << (18 - 6 * i));
+                out.extend_from_slice(&n.to_be_bytes()[1..chunk.len()]);
+            }
+            out
+        }
+        _ => bytes.to_vec(),
+    };
+    engine::sign::Certificate::parse(&der).ok().map(|_| der)
+}
+
 fn open_in(session: &mut Session, input: &Input) -> Result<DocId> {
     let bytes = Arc::new(std::fs::read(&input.path)?);
     let name = input.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "document.pdf".into());
