@@ -293,7 +293,7 @@ mod tests {
                 assert!(path.ends_with("autostart/sheaf.desktop"), "{path:?}");
                 assert!(text.contains("Exec=\"/opt/Sheaf App/sheaf\"\n") && text.starts_with("[Desktop Entry]\n"), "{text}");
             }
-            None => assert!(cfg!(windows)),
+            None => assert_eq!(std::env::consts::OS, "windows", "only Windows has no login item file"),
         }
         let on = login_registry_args(Path::new(r"C:\Sheaf\sheaf.exe"), true);
         assert_eq!(on, ["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "Sheaf", "/t", "REG_SZ", "/d", "\"C:\\Sheaf\\sheaf.exe\"", "/f"]);
