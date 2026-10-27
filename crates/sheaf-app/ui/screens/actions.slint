@@ -57,10 +57,53 @@ export global ActionBridge {
     in-out property <string> output-prefix;
     in-out property <string> output-suffix: " - processed";
     in-out property <[string]> outputs;
+    in-out property <[string]> failures;
     in-out property <string> import-text;
     callback open-page(string);
     callback command(string, int);
     callback answer(bool);
+}
+
+// Separate the output controls from Acrobat's ordered step editor.
+component ActionOutputSettings inherits Rectangle {
+    background: transparent;
+    VerticalLayout {
+        spacing: 12px; alignment: start;
+        Text { text: "Save to"; color: Theme.text; font-size: Theme.fs-subtitle; }
+        ComboBox { model: ["pdf", "docx", "pptx", "html", "rtf", "txt", "md", "png.zip", "jpeg.zip"]; current-value <=> ActionBridge.output-format; enabled: !ActionBridge.busy; }
+        Text { text: "Word and text exports retain editable content with approximate layout. Images: all pages at 150 dpi in one ZIP. Uses native Rust; no Office installation needed."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+        CheckBox { text: "Use each input file's folder"; checked <=> ActionBridge.same-folder; enabled: !ActionBridge.busy; }
+        TextField { label: "Output name prefix"; text <=> ActionBridge.output-prefix; enabled: !ActionBridge.busy; }
+        TextField { label: "Output name suffix"; text <=> ActionBridge.output-suffix; enabled: !ActionBridge.busy; }
+        CheckBox { text: "Replace matching output names (including originals)"; checked <=> ActionBridge.overwrite; enabled: !ActionBridge.busy; }
+        TextField { label: "Password for this run (optional, never saved)"; password: true; allow-reveal: true; text <=> ActionBridge.password; enabled: !ActionBridge.busy; }
+        CheckBox { text: "Ask for a separate password for each input"; checked <=> ActionBridge.per-file-password; enabled: !ActionBridge.busy; }
+        CheckBox { text: "Name watched outputs from the document title"; checked <=> ActionBridge.title-names; enabled: !ActionBridge.busy; }
+        CheckBox { text: "Include subfolders (folder runs and watches)"; checked <=> ActionBridge.recursive; enabled: !ActionBridge.busy; }
+        TextField { label: "Watch output pattern: {name}, {title}, {counter} (blank = above)"; text <=> ActionBridge.watch-pattern; enabled: !ActionBridge.busy; }
+        CheckBox { text: "Move successful inputs to output / Processed inputs"; checked <=> ActionBridge.archive-inputs; enabled: !ActionBridge.busy; }
+        if ActionBridge.watch-active > 0: HorizontalLayout {
+            spacing: 8px;
+            Text { text: ActionBridge.watch-active + " active watch(es) · automatically resume on launch"; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+            Button { text: "Stop folder watches"; clicked => { ActionBridge.command("stop-watches", 0); } }
+        }
+        if ActionBridge.saved-watch != "": VerticalLayout {
+            spacing: 6px;
+            Text { text: ActionBridge.saved-watch; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+            HorizontalLayout {
+                spacing: 8px;
+                Button { text: "Resume saved watches"; enabled: !ActionBridge.busy && ActionBridge.watch-active == 0; clicked => { ActionBridge.command("resume-watch", 0); } }
+                Button { text: "Forget saved watches"; enabled: !ActionBridge.busy && ActionBridge.watch-active == 0; clicked => { ActionBridge.command("forget-watch", 0); } }
+            }
+        }
+        Button { text: "Run on open PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run-open", 0); } }
+        Text { text: "Open PDFs: process their current edits into new copies in a chosen folder."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+        Button { text: "Run on a folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run-folder", 0); } }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "Watch folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("watch", 0); } }
+        }
+    }
 }
 
 // Acrobat's Action Wizard: the saved list stays beside the ordered steps being edited.
@@ -76,6 +119,7 @@ export component ActionsScreen inherits Rectangle {
             Button { text: "New action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new", 0); } }
             Button { text: "New custom tool"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new-tool", 0); } }
             Rectangle { horizontal-stretch: 1; }
+            PrimaryButton { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
         }
         HorizontalLayout {
             spacing: 8px;
@@ -189,41 +233,7 @@ export component ActionsScreen inherits Rectangle {
                             Button { text: "Remove step"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("remove", 0); } }
                         }
                     }
-                    Text { text: "Save to"; color: Theme.text; font-size: Theme.fs-subtitle; }
-                    ComboBox { model: ["pdf", "docx", "pptx", "html", "rtf", "txt", "md", "png.zip", "jpeg.zip"]; current-value <=> ActionBridge.output-format; enabled: !ActionBridge.busy; }
-                    Text { text: "Word and text exports retain editable content with approximate layout. Images: all pages at 150 dpi in one ZIP. Uses native Rust; no Office installation needed."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
-                    CheckBox { text: "Use each input file's folder"; checked <=> ActionBridge.same-folder; enabled: !ActionBridge.busy; }
-                    TextField { label: "Output name prefix"; text <=> ActionBridge.output-prefix; enabled: !ActionBridge.busy; }
-                    TextField { label: "Output name suffix"; text <=> ActionBridge.output-suffix; enabled: !ActionBridge.busy; }
-                    CheckBox { text: "Replace matching output names (including originals)"; checked <=> ActionBridge.overwrite; enabled: !ActionBridge.busy; }
-                    TextField { label: "Password for this run (optional, never saved)"; password: true; allow-reveal: true; text <=> ActionBridge.password; enabled: !ActionBridge.busy; }
-                    CheckBox { text: "Ask for a separate password for each input"; checked <=> ActionBridge.per-file-password; enabled: !ActionBridge.busy; }
-                    CheckBox { text: "Name watched outputs from the document title"; checked <=> ActionBridge.title-names; enabled: !ActionBridge.busy; }
-                    CheckBox { text: "Include subfolders (folder runs and watches)"; checked <=> ActionBridge.recursive; enabled: !ActionBridge.busy; }
-                    TextField { label: "Watch output pattern: {name}, {title}, {counter} (blank = above)"; text <=> ActionBridge.watch-pattern; enabled: !ActionBridge.busy; }
-                    CheckBox { text: "Move successful inputs to output / Processed inputs"; checked <=> ActionBridge.archive-inputs; enabled: !ActionBridge.busy; }
-                    if ActionBridge.watch-active > 0: HorizontalLayout {
-                        spacing: 8px;
-                        Text { text: ActionBridge.watch-active + " active watch(es) · automatically resume on launch"; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
-                        Button { text: "Stop folder watches"; clicked => { ActionBridge.command("stop-watches", 0); } }
-                    }
-                    if ActionBridge.saved-watch != "": VerticalLayout {
-                        spacing: 6px;
-                        Text { text: ActionBridge.saved-watch; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
-                        HorizontalLayout {
-                            spacing: 8px;
-                            Button { text: "Resume saved watches"; enabled: !ActionBridge.busy && ActionBridge.watch-active == 0; clicked => { ActionBridge.command("resume-watch", 0); } }
-                            Button { text: "Forget saved watches"; enabled: !ActionBridge.busy && ActionBridge.watch-active == 0; clicked => { ActionBridge.command("forget-watch", 0); } }
-                        }
-                    }
-                    Button { text: "Run on open PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run-open", 0); } }
-                    Text { text: "Open PDFs: process their current edits into new copies in a chosen folder."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
-                    Button { text: "Run on a folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run-folder", 0); } }
-                    HorizontalLayout {
-                        spacing: 8px;
-                        Button { text: "Watch folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("watch", 0); } }
-                        PrimaryButton { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
-                    }
+                    ActionOutputSettings { }
                 }
             }
         }
@@ -237,6 +247,13 @@ export component ActionsScreen inherits Rectangle {
                     Button { text: "Open"; clicked => { ActionBridge.command("open-output", i); } }
                     Button { text: "Show in folder"; clicked => { ActionBridge.command("reveal-output", i); } }
                 }
+            }
+        }
+        if ActionBridge.failures.length > 0: ScrollView {
+            height: min(130px, ActionBridge.failures.length * 54px);
+            VerticalLayout {
+                alignment: start; spacing: 8px;
+                for failure in ActionBridge.failures: Text { text: failure; color: Theme.danger; font-size: Theme.fs-caption; wrap: word-wrap; }
             }
         }
         HorizontalLayout {

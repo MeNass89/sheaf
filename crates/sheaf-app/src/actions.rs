@@ -49,7 +49,12 @@ impl ActionStep {
     }
 
     pub fn engine(&self) -> Result<Step> {
-        Step::from_id(&self.tool, &self.argument).ok_or_else(|| invalid(format!("Unknown action tool: {}", self.tool)))
+        Step::from_id(&self.tool, &self.argument).ok_or_else(|| {
+            match Step::all().iter().find(|step| step.id() == self.tool) {
+                Some(step) => invalid(format!("Invalid settings for {}. Check its fields and page range.", step.label())),
+                None => invalid(format!("Unknown action tool: {}", self.tool)),
+            }
+        })
     }
 }
 
@@ -95,11 +100,18 @@ pub fn folder_inputs(folder: &Path) -> Result<Vec<PathBuf>> {
 
 /// Recursive intake is bounded by entries and depth, and never follows symbolic links.
 pub fn folder_inputs_recursive(folder: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
+    folder_inputs_cancellable(folder, recursive, &mut || true)
+}
+
+/// Acrobat's folder intake stays cancellable before the first PDF starts processing.
+pub fn folder_inputs_cancellable(folder: &Path, recursive: bool, proceed: &mut dyn FnMut() -> bool) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     let mut pending = vec![(folder.to_path_buf(), 0)];
     let mut visited = 0;
     while let Some((folder, depth)) = pending.pop() {
+        if !proceed() { return Err(OpdfError::Cancelled); }
         for entry in std::fs::read_dir(folder)? {
+            if !proceed() { return Err(OpdfError::Cancelled); }
             let entry = entry?;
             visited += 1;
             if visited > 100_000 { return Err(invalid("Choose a folder with at most 100000 entries")); }
@@ -112,6 +124,7 @@ pub fn folder_inputs_recursive(folder: &Path, recursive: bool) -> Result<Vec<Pat
         }
     }
     paths.sort();
+    if !proceed() { return Err(OpdfError::Cancelled); }
     if paths.is_empty() { return Err(invalid("This folder has no PDF files")); }
     Ok(paths)
 }
@@ -294,14 +307,16 @@ pub fn run_bytes_configured(
     let engine = Action { name: action.name.clone(), description: action.description.clone(),
         steps: action.steps.iter().map(ActionStep::engine).collect::<Result<Vec<_>>>()?, builtin: false };
     let mut cancelled = false;
+    let mut invalid_step = None;
     let result = actions::run_guided(&engine, &name, bytes, password, |i, _| {
         let mut step = action.steps[i].clone();
         if !before(i, &mut step) { cancelled = true; return None; }
         // The caller can edit the argument, never replace a tool with an unvalidated command.
-        if step.argument.len() > 1_000_000 { return None; }
-        step.engine().ok()
+        if step.argument.len() > 1_000_000 { invalid_step = Some(invalid("The prompted step text exceeds 1 MB")); return None; }
+        match step.engine() { Ok(step) => Some(step), Err(e) => { invalid_step = Some(e); None } }
     });
     if cancelled { return Err(OpdfError::Cancelled); }
+    if let Some(error) = invalid_step { return Err(error); }
     let bytes = result.map_err(OpdfError::Engine)?.bytes;
     let bytes = convert_output(bytes, password, &action.output.format, publish)?;
     if !publish() { return Err(OpdfError::Cancelled); }
@@ -700,6 +715,39 @@ mod tests {
             command.prompt = false;
             assert!(!command.supports_current_document());
         }
+    }
+
+    #[test]
+    fn cancelled_folder_intake_returns_no_partial_batch_and_can_be_started_again() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("nested")).unwrap();
+        for name in ["first.pdf", "second.pdf", "nested/third.pdf"] {
+            std::fs::write(dir.path().join(name), b"unchanged input").unwrap();
+        }
+        let mut checks = 0;
+        assert!(matches!(folder_inputs_cancellable(dir.path(), true, &mut || { checks += 1; checks < 3 }), Err(OpdfError::Cancelled)));
+        let files = folder_inputs_recursive(dir.path(), true).unwrap();
+        assert_eq!(files.len(), 3);
+        for path in files { assert_eq!(std::fs::read(path).unwrap(), b"unchanged input"); }
+        assert!(matches!(folder_inputs_cancellable(&dir.path().join("missing"), true, &mut || false), Err(OpdfError::Cancelled)));
+    }
+
+    #[test]
+    fn invalid_prompted_settings_report_the_tool_without_claiming_cancellation_or_publishing() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("source.pdf");
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Keep").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
+        let mut action = SavedAction::empty();
+        let mut step = ActionStep::from_engine(&Step::PageNumbers("4|1|8|Page <<1>>".into()));
+        step.prompt = true; action.steps.push(step);
+        let out = dir.path().join("outputs");
+        let error = run_file_configured(&action, &input, &out, None, &mut |_, step| { step.argument = "bad settings".into(); true }, &mut || true).unwrap_err();
+        assert!(error.to_string().contains("Invalid settings for Add page numbers"));
+        assert!(!matches!(error, OpdfError::Cancelled));
+        assert!(!out.exists());
+        assert_eq!(std::fs::read(input).unwrap(), *bytes);
+        assert_eq!(action.steps[0].argument, "4|1|8|Page <<1>>");
     }
 
 }

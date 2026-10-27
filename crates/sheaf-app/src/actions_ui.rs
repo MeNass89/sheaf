@@ -301,8 +301,21 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             let action = STATE.with(|s| s.borrow().draft.clone());
             if let Err(e) = action.validate() { return status(ui, e.to_string()); }
             let d = crate::dialog::new(ui).set_title("Choose the input PDF folder");
-            crate::dialog::pick_folder(ui, d, move |ui, folder| match actions::folder_inputs_recursive(&folder, ui.global::<ActionBridge>().get_recursive()) {
-                Ok(files) => pick_output(ui, action, files), Err(e) => status(ui, e.to_string()),
+            crate::dialog::pick_folder(ui, d, move |ui, folder| {
+                let recursive = ui.global::<ActionBridge>().get_recursive();
+                let cancel = Arc::new(AtomicBool::new(false));
+                STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
+                ui.global::<ActionBridge>().set_busy(true);
+                status(ui, "Finding PDFs in the input folder…");
+                let weak = ui.as_weak();
+                std::thread::spawn(move || {
+                    let files = actions::folder_inputs_cancellable(&folder, recursive, &mut || !cancel.load(Ordering::Relaxed));
+                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                        ui.global::<ActionBridge>().set_busy(false);
+                        if cancel.load(Ordering::Relaxed) { status(&ui, "Folder search stopped. No files were processed."); return; }
+                        match files { Ok(files) => pick_output(&ui, action, files), Err(e) => status(&ui, e.to_string()) }
+                    });
+                });
             });
             return;
         }
@@ -448,6 +461,7 @@ fn start_with_snapshots(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>
     let per_file_password = ui.global::<ActionBridge>().get_per_file_password();
     ui.global::<ActionBridge>().set_password("".into());
     ui.global::<ActionBridge>().set_outputs(ModelRc::new(VecModel::default()));
+    ui.global::<ActionBridge>().set_failures(ModelRc::new(VecModel::default()));
     let cancel = Arc::new(AtomicBool::new(false));
     STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
     ui.global::<ActionBridge>().set_busy(true);
@@ -518,8 +532,13 @@ fn start_with_snapshots(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>
                 Err(e) => errors.push(format!("{}: {e}", file.display())),
             }
         }
-        let message = format!("{}{} file(s) written to {}. {}", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, if action.output.same_folder { "the input folders".to_string() } else { out.display().to_string() }, errors.join(" · "));
-        let _ = weak.upgrade_in_event_loop(move |ui| { ui.global::<ActionBridge>().set_busy(false); ui.global::<ActionBridge>().set_prompt("".into()); status(&ui, message); });
+        let message = format!("{}{} of {} file(s) written · {} failed", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, files.len(), errors.len());
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            let b = ui.global::<ActionBridge>();
+            b.set_busy(false); b.set_prompt("".into());
+            b.set_failures(ModelRc::new(VecModel::from(errors.iter().map(|e| slint::SharedString::from(e.as_str())).collect::<Vec<_>>())));
+            status(&ui, message);
+        });
     });
 }
 

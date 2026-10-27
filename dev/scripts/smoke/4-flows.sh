@@ -834,3 +834,48 @@ key ctrl+z; sleep 1; key ctrl+s; sleep 1.5
 P4=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
 check "352 custom page-range command applies to the open PDF and undoes (${AP:-no Apply}; pages ${P2:-?} then ${P4:-?})" "[ \"$P2\" = 2 ] && [ \"$P4\" = 4 ] && [ \"$T2\" = \"Page 2\" ] && [ \"$T3\" = \"Page 3\" ]"
 quit
+
+# 354. Acrobat's saved-action run continues after a damaged PDF or missing file, keeps successful
+# results, and lists each failure separately rather than growing an unbounded status paragraph.
+python3 - "$OUT/354-run.json" <<'PY354'
+import json, sys
+json.dump({"version":1,"name":"Mixed input run","steps":[{"tool":"set_title","argument":"Batch success"}],
+           "output":{"same_folder":True,"suffix":"-354"}}, open(sys.argv[1], "w"))
+PY354
+cp "$OUT/text.pdf" "$OUT/354-valid.pdf"
+printf 'Not a PDF' > "$OUT/354-broken.pdf"
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+answer "$PWD/$OUT/354-run.json"
+IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+# Run is at the end of the right editor's scroll area.
+xdotool mousemove 1245 650; for _ in $(seq 1 35); do xdotool click 5; done; sleep 1
+answer "$PWD/$OUT/354-valid.pdf|$PWD/$OUT/354-broken.pdf|$PWD/$OUT/354-missing.pdf"
+RN=$(at Run 350x120+900+60); [ -n "$RN" ] && click $RN 2
+for _ in $(seq 1 20); do [ -f "$OUT/354-valid-354.pdf" ] && break; sleep 0.5; done
+sleep 1; shot 354-run-report
+RS=$(ocr 1060x240+210+550)
+check "354 saved action reports one output and both per-file failures (${RN:-no Run})" "[ -f \"$OUT/354-valid-354.pdf\" ] && echo \"$RS\" | grep -q '1 of 3' && echo \"$RS\" | grep -q '2 failed' && echo \"$RS\" | grep -q '354-broken' && echo \"$RS\" | grep -q '354-missing' && cmp -s \"$OUT/text.pdf\" \"$OUT/354-valid.pdf\""
+quit
+
+# 356. Acrobat's folder input is gathered off the UI thread, then the selected recursive PDFs
+# run through the saved action. Each original stays intact beside its output copy.
+python3 - "$OUT/356-folder-action.json" <<'PY356'
+import json, sys
+json.dump({"version":1,"name":"Folder run","steps":[{"tool":"set_title","argument":"Folder result"}],
+           "output":{"same_folder":True,"suffix":"-356"}}, open(sys.argv[1], "w"))
+PY356
+mkdir -p "$OUT/356-input/nested"
+cp "$OUT/text.pdf" "$OUT/356-input/first.pdf"; cp "$OUT/text.pdf" "$OUT/356-input/nested/second.pdf"
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+answer "$PWD/$OUT/356-folder-action.json"
+IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+xdotool mousemove 1245 650; for _ in $(seq 1 45); do xdotool click 5; done; sleep 0.8
+IN=$(at Include 740x440+500+290); [ -n "$IN" ] && click $IN 0.3
+answer "$PWD/$OUT/356-input"
+RF=$(at Run 740x80+500+640); [ -n "$RF" ] && click $RF 2
+for _ in $(seq 1 20); do [ -f "$OUT/356-input/nested/second-356.pdf" ] && break; sleep 0.5; done
+shot 356-folder-results
+check "356 recursive folder intake processes both PDFs into new copies (${IN:-no Include}; ${RF:-no Run})" "pdfinfo \"$OUT/356-input/first-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && pdfinfo \"$OUT/356-input/nested/second-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/first.pdf\" && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/nested/second.pdf\""
+quit
