@@ -376,9 +376,13 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             Ok(vec![])
         }
         Cmd::Render { input: i, page, dpi, out } => one(images::render_png(&input(i), page as usize - 1, dpi, &out)),
-        Cmd::Index { inputs, out } => {
+        Cmd::Index { inputs, update, out } => {
             let inputs: Vec<Input> = inputs.into_iter().map(input).collect();
-            one(sheaf_core::search_index::Catalog::build(&inputs, &mut |_, _| true)?.save(&out))
+            let catalog = match update {
+                Some(path) => sheaf_core::search_index::Catalog::load(&path)?.update(&inputs, &mut |_, _| true)?,
+                None => sheaf_core::search_index::Catalog::build(&inputs, &mut |_, _| true)?,
+            };
+            one(catalog.save(&out))
         }
         Cmd::SearchIndex { index, query } => {
             let hits = sheaf_core::search_index::Catalog::load(&index)?.search(&query)?;

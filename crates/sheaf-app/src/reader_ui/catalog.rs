@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub(super) struct CatalogPanel {
     pub(super) files: Vec<PathBuf>,
     catalog: Option<Arc<Catalog>>,
+    previous: Option<Arc<Catalog>>,
     pub(super) results: Vec<Hit>,
     pub(super) status: String,
     pub(super) busy: bool,
@@ -67,7 +68,7 @@ pub fn catalog_action(ui: &AppWindow, id: i32, action: i32, index: i32, query: &
                 update(id, |r, _| {
                     if let Some(panel) = r.catalog_panel.as_mut().filter(|p| !p.busy) {
                         add_files(&mut panel.files, paths);
-                        panel.catalog = None;
+                        panel.previous = panel.catalog.take().or_else(|| panel.previous.take());
                         panel.results.clear();
                         panel.status = "Sources changed. Build the catalog to search.".into();
                     }
@@ -77,7 +78,7 @@ pub fn catalog_action(ui: &AppWindow, id: i32, action: i32, index: i32, query: &
         2 => { update(id, |r, _| {
             if let Some(panel) = r.catalog_panel.as_mut() && let Ok(k) = usize::try_from(index) && k < panel.files.len() {
                 panel.files.remove(k);
-                panel.catalog = None;
+                panel.previous = panel.catalog.take().or_else(|| panel.previous.take());
                 panel.results.clear();
                 panel.status = "Sources changed. Build the catalog to search.".into();
             }
@@ -106,13 +107,14 @@ pub fn catalog_action(ui: &AppWindow, id: i32, action: i32, index: i32, query: &
 fn build(ui: &AppWindow, id: i32) {
     let Some(files) = update(id, |r, _| r.catalog_panel.as_ref().map(|p| p.files.clone())).flatten() else { return };
     if files.is_empty() { return crate::flow::toast(ui, "Add at least one PDF first"); }
+    let previous = update(id, |r, _| r.catalog_panel.as_ref().and_then(|p| p.catalog.clone().or_else(|| p.previous.clone()))).flatten();
     let d = crate::dialog::new(ui).set_title("Build search catalog").set_file_name(".sheaf-index.json").add_filter("Sheaf search catalog", &["json"]);
     crate::dialog::save_file(ui, d, move |ui, out| {
         let Some(cancel) = start(id, "Building the catalog…") else { return };
         let weak = ui.as_weak();
         std::thread::spawn(move || {
             let inputs: Vec<_> = files.iter().map(Input::new).collect();
-            let result = Catalog::build(&inputs, &mut |at, total| {
+            let mut progress = |at: usize, total: usize| {
                 let progress = format!("Indexing PDF {at} of {total}…");
                 let flag = cancel.clone();
                 let _ = weak.upgrade_in_event_loop(move |_| {
@@ -121,7 +123,11 @@ fn build(ui: &AppWindow, id: i32) {
                     });
                 });
                 !cancel.load(Ordering::Relaxed)
-            }).and_then(|catalog| {
+            };
+            let result = match previous {
+                Some(catalog) => catalog.update(&inputs, &mut progress),
+                None => Catalog::build(&inputs, &mut progress),
+            }.and_then(|catalog| {
                 if cancel.load(Ordering::Relaxed) { return Err(sheaf_core::OpdfError::Cancelled); }
                 let saved = catalog.save(&out)?;
                 Ok((catalog, saved))
@@ -157,6 +163,7 @@ fn load(ui: &AppWindow, id: i32) {
                     p.busy = false;
                     match result {
                         Ok(catalog) => {
+                            p.previous = None;
                             p.files = catalog.sources().into_iter().map(|(path, _)| path).collect();
                             p.catalog = Some(Arc::new(catalog));
                             p.status = format!("Opened {} · {} PDFs", path.display(), p.files.len());
@@ -186,6 +193,8 @@ fn search(ui: &AppWindow, id: i32, query: &str) {
                 match result {
                     Ok(mut hits) => {
                         p.status = if hits.len() > 500 { format!("{} pages found · first 500 shown", hits.len()) } else { format!("{} pages found", hits.len()) };
+                        let stale = catalog.stale_sources().len();
+                        if stale > 0 { p.status.push_str(&format!(" · {stale} changed/missing PDFs excluded; update the catalog")); }
                         hits.truncate(500);
                         p.results = hits;
                     }

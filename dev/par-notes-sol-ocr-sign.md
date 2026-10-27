@@ -468,3 +468,21 @@
 - `crates/sheaf-core/tests/ocr_review.rs`
 - `crates/sheaf-core/tests/search_index.rs`
 - `dev/par-notes-sol-ocr-sign.md`
+
+## Third pass — C-optimize-015
+
+- C-optimize-015: phrase search uses an in-memory trigram index and cached normalized pages,
+  including CJK substrings and punctuation; no source-byte hashing or whole-vocabulary scan
+  per query. Source freshness uses size + modification time. Changed/missing PDFs are excluded
+  individually and the manager reports their count; `validate` remains an explicit byte audit.
+- Build accepts recursive local folders (symlink directories excluded). `index --update OLD`
+  and rebuilding in the manager reuse unchanged pages, add/replace changed sources and purge
+  omitted sources. Failures/cancellation keep the old catalog. No new dependencies.
+- Tests written (not run): `indexed_substrings_and_incremental_reuse_do_not_require_a_readable_pdf_body`,
+  `incremental_folder_catalog_reuses_unchanged_sources_and_purges_removed_ones`, updated
+  `a_saved_catalog_finds_unicode_phrases_and_excludes_changed_sources` and real PDF integration.
+- Left: no PDX interchange; GUI recursive folder picker absent (CLI accepts directories).
+  Metadata-preserving edits require explicit `validate`; no release benchmark under rule 1.
+  `not automatable: reopen/build a catalog, change/delete one source, search the others, then
+  rebuild and inspect stale-source feedback — app execution forbidden to this worker`.
+- Proposed grade: C-optimize-015: f8 a7 p8 — tests above; actual large-catalog timing unverified.

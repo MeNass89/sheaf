@@ -583,9 +583,12 @@ pub(crate) enum Cmd {
     },
     /// Build a reusable full-text catalog for a set of PDFs (Acrobat's Catalog)
     Index {
-        /// PDF files to include in the catalog
+        /// PDF files or folders to include recursively in the catalog
         #[arg(required = true, num_args = 1..)]
         inputs: Vec<PathBuf>,
+        /// Reuse unchanged pages from this catalog; omitted sources are purged
+        #[arg(long)]
+        update: Option<PathBuf>,
         /// The catalog JSON file to write
         #[arg(short, long)]
         out: PathBuf,

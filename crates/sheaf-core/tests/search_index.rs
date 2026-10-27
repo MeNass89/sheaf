@@ -13,7 +13,7 @@ fn a_catalog_build_reads_real_pdfs_and_reuses_only_unchanged_pages() {
     let saved = catalog.save(&t.path().join("catalog.json")).unwrap();
     assert_eq!(Catalog::load(&saved).unwrap().search("page 2").unwrap().len(), 1);
     std::fs::remove_file(&a).unwrap();
-    assert!(Catalog::load(&saved).unwrap().search("page 1").is_err());
+    assert_eq!(Catalog::load(&saved).unwrap().search("page 1").unwrap().len(), 1);
 }
 
 #[test]
@@ -42,4 +42,21 @@ fn catalog_manager_can_reopen_sources_and_rebuild_after_a_removal() {
     assert_ne!(rebuilt_path, path, "an existing catalog gets a fresh output name");
     assert_eq!(Catalog::load(&rebuilt_path).unwrap().sources().len(), 1);
     assert_eq!(Catalog::load(&path).unwrap().sources().len(), 2);
+}
+
+#[test]
+fn incremental_folder_catalog_reuses_unchanged_sources_and_purges_removed_ones() {
+    let t = tempfile::tempdir().unwrap();
+    let folder = t.path().join("collection");
+    std::fs::create_dir(&folder).unwrap();
+    let a = common::fixture_pdf(&folder, "a.pdf", 1);
+    let b = common::fixture_pdf(&folder, "b.pdf", 2);
+    let catalog = Catalog::build(&[Input::new(&folder)], &mut |_, _| true).unwrap();
+    std::fs::remove_file(&a).unwrap();
+    let updated = catalog.update(&[Input::new(&folder)], &mut |_, _| true).unwrap();
+    assert_eq!(updated.sources(), [(b.canonicalize().unwrap(), 2)]);
+    assert_eq!(updated.search("page 2").unwrap().len(), 1);
+    assert_eq!(catalog.search("page 1").unwrap().len(), 1);
+    assert_eq!(catalog.stale_sources(), [a]);
+    assert!(matches!(catalog.update(&[Input::new(&folder)], &mut |_, _| false), Err(OpdfError::Cancelled)));
 }
