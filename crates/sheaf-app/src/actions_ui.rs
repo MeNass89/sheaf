@@ -535,8 +535,8 @@ fn watch(ui: &AppWindow) {
 
 fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
     let identity = saved.identity();
-    let allowed = STATE.with(|s| { let s = s.borrow(); !s.watch_ids.contains(&identity) && s.watch_ids.len() < 2 });
-    if !allowed { status(ui, "This inbox is already active, or two watches are running. Stop watches before starting another."); return; }
+    let allowed = STATE.with(|s| { let s = s.borrow(); !s.watch_ids.contains(&identity) });
+    if !allowed { status(ui, "This inbox is already active. Stop its watch before starting another action on it."); return; }
     if let Err(e) = saved.save(&store_file::data_dir()) { return status(ui, e.to_string()); }
     let description = saved.description();
     ui.global::<ActionBridge>().set_saved_watch(description.clone().into());
@@ -548,6 +548,10 @@ fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
         let mut written = 0;
         let mut failure = String::new();
         while !cancel.load(Ordering::Relaxed) {
+            // One native watch job at a time: many inboxes must not launch many OCR/render jobs.
+            static WATCH_WORK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+            let work = WATCH_WORK.lock().unwrap_or_else(|e| e.into_inner());
+            if cancel.load(Ordering::Relaxed) { break; }
             let message = match saved.watch.poll(&saved.action, &mut || !cancel.load(Ordering::Relaxed)) {
                 Ok(results) if results.is_empty() => None,
                 Ok(results) => {
@@ -564,6 +568,7 @@ fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
                 }
                 Err(e) => { cancel.store(true, Ordering::Relaxed); failure = e.to_string(); Some(format!("Folder watch stopped: {e}")) }
             };
+            drop(work);
             if let Some(message) = message
                 && weak.upgrade_in_event_loop(move |ui| status(&ui, message)).is_err() { break; }
             std::thread::sleep(std::time::Duration::from_millis(if saved.watch.scan_in_progress() { 100 } else { 3000 }));

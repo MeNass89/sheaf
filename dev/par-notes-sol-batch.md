@@ -646,3 +646,16 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   Public: Step::OpenTool; ActionCommandRow icon/interactive and ActionBridge toolbox model.
   not automatable: create a mixed custom set, open its tools from Tools and reader, verify icons
   and the unattended refusal — app execution forbidden.
+
+- C-batch-008: removed the two-inbox cap. Concurrent inbox workers serialize native scan/process
+  jobs so adding watches cannot multiply OCR/render memory. Unix revision identity includes
+  nanosecond ctime, detecting same-size mtime-preserving rewrites without rereading entire PDFs;
+  other platforms stream a content fingerprint through a 64 KB buffer. Old checkpoints migrate
+  conservatively as new revisions. Interactive custom tools are refused for unattended watches.
+  Test `watch_detects_same_size_rewrites_with_restored_modification_time` (written, not run).
+  Left: OS notifications, out-of-process service and any-number scalability measurements. The
+  poller still runs only while Sheaf is open; portable event APIs/service installers are outside
+  this correction. Windows hashing adds disk reads each scan. A writer can still race publication;
+  there is no cross-process input lock. No new dependency/public API.
+  not automatable: launch three saved inboxes, restart, then stop during a queued scan — execution
+  forbidden. Poll interval remains 3 s after a completed scan, 100 ms between scan slices.
