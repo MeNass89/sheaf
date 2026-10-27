@@ -722,3 +722,27 @@ C-security-008: f8 a7 p8 — `tests/security.rs:222` exact PDF permissions/AES c
   Boolean query, open hit and cancel; check narrow/wide layouts — rule 1 forbids app execution`.
 - Left: PDX interchange and non-English stemming; render, memory/time and compilation unverified.
   No network code. Proposed grade f9 a8 p8 (static evidence only; no joint closure claim).
+
+## Fourth pass — C-security-008
+
+- C-security-008: Acrobat's Save passwords with the policy is available beside Apply. After
+  a protected copy succeeds, the optional local credentials are encrypted/authenticated in
+  `policy-passwords.secure` using the profile's existing random `signatures.key`. Neither
+  settings JSON nor exports receive passwords. Selecting the saved policy and leaving fields
+  empty reuses its passwords; Forget saved passwords and deleting the policy remove them.
+  Credential binding includes the entire typed policy, so changed settings require new values.
+  A damaged vault/missing key refuses replacement; writes across document tabs are serialized.
+- Tests written: `remembered_policy_passwords_survive_restart_but_never_export_or_follow_changed_settings`,
+  `corrupt_policy_passwords_are_never_replaced_and_forgetting_preserves_other_policies`,
+  `missing_policy_password_key_refuses_new_saves_without_destroying_existing_credentials`,
+  `a_saved_policy_applies_without_retyping_passwords_and_edits_require_new_credentials`.
+- No new dependency. New public app items `security_policies::{Passwords, saved_passwords,
+  remember_passwords, forget_passwords}`. Policy Apply bridge gains one bool; ReaderTab gains
+  policy-remembered. Three existing signature-store file/key helpers become crate-visible;
+  signature persistence behaviour is unchanged. Unix temp files remain owner-only.
+- `not automatable: save a policy, apply with Save passwords checked, restart, select and apply
+  with blank fields, forget/delete, export and inspect no passwords, damage the key and retry —
+  rule 1 prohibits this worker's app execution; orchestrator must also verify the panel fit`.
+- Left: certificate policies depend on C-security-007; Acrobat settings-file interoperability,
+  runtime and visual verification remain. Network features remain out. Proposed f9 a8 p8 for
+  password policies; f8 a8 p8 overall while certificate policies are unavailable.

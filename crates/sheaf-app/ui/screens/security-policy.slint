@@ -24,6 +24,7 @@ export component SecurityPolicySheet inherits Rectangle {
         forms.checked = root.tab.reader.policy-flags[4]; metadata.checked = root.tab.reader.policy-flags[5];
         quality.current-index = root.tab.reader.policy-choices[0]; changes.current-index = root.tab.reader.policy-choices[1];
         algorithm.current-index = root.tab.reader.policy-choices[2];
+        remember.checked = root.tab.reader.policy-remembered;
         user.text = ""; confirmation.text = ""; owner.text = ""; owner-confirmation.text = "";
     }
     background: #00000044;
@@ -37,7 +38,7 @@ export component SecurityPolicySheet inherits Rectangle {
             padding: 18px;
             spacing: 12px;
             Text { text: "Security policies"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-            Text { text: "Reuse password security settings. Policies contain no passwords."; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
+            Text { text: "Reuse security settings. Exported policies contain no passwords."; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
             HorizontalLayout {
                 spacing: 8px;
                 PanelButton { text: "New policy"; enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 1, 0); } }
@@ -95,11 +96,14 @@ export component SecurityPolicySheet inherits Rectangle {
                         confirmation := TextField { label: "Confirm open password"; password: true; }
                         owner := TextField { label: "Owner password"; password: true; allow-reveal: true; }
                         owner-confirmation := TextField { label: "Confirm owner password"; password: true; }
+                        remember := Check { text: "Save passwords with this policy on this computer"; checked: root.tab.reader.policy-remembered; enabled: !root.tab.reader.policy-busy; }
+                        if root.tab.reader.policy-remembered: Text { text: "Leave password fields empty to reuse saved passwords."; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                        if root.tab.reader.policy-remembered: PanelButton { text: "Forget saved passwords"; enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 6, 0); } }
                         PanelButton {
                             text: "Save protected copy…";
                             primary: true;
                             enabled: !root.tab.reader.policy-busy && !root.changed-settings;
-                            clicked => { ReaderBridge.policy-apply(root.tab.id, user.text, confirmation.text, owner.text, owner-confirmation.text); }
+                            clicked => { ReaderBridge.policy-apply(root.tab.id, user.text, confirmation.text, owner.text, owner-confirmation.text, remember.checked); }
                         }
                     }
                 }

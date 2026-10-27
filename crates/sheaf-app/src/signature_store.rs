@@ -101,7 +101,7 @@ fn credential(_dir: &Path, _data: Option<&[u8]>) -> io::Result<Vec<u8>> {
 
 const HEADER: &[u8] = b"SheafMarks\x02";
 
-fn private_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
+pub(crate) fn private_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let dir = path.parent().ok_or_else(|| io::Error::other("Signature store has no directory"))?;
     std::fs::create_dir_all(dir)?;
     let mut file = tempfile::NamedTempFile::new_in(dir)?;
@@ -111,7 +111,7 @@ fn private_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
     Ok(())
 }
 
-fn read_key(dir: &Path) -> io::Result<[u8; 32]> {
+pub(crate) fn read_key(dir: &Path) -> io::Result<[u8; 32]> {
     let path = dir.join("signatures.key");
     let metadata = std::fs::symlink_metadata(&path)?;
     if !metadata.is_file() { return Err(io::Error::other("Invalid signature key file")); }
@@ -125,7 +125,7 @@ fn read_key(dir: &Path) -> io::Result<[u8; 32]> {
     std::fs::read(path)?.try_into().map_err(|_| io::Error::other("Invalid signature key length"))
 }
 
-fn create_key(dir: &Path) -> io::Result<[u8; 32]> {
+pub(crate) fn create_key(dir: &Path) -> io::Result<[u8; 32]> {
     if dir.join("signatures.key").exists() { return read_key(dir); }
     std::fs::create_dir_all(dir)?;
     let mut key = [0u8; 32];
