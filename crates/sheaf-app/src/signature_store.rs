@@ -5,7 +5,9 @@
 use crate::prefs::{KeptSignature, Prefs};
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::collections::BTreeMap;
+use std::sync::Mutex;
 use std::process::{Command, Stdio};
 
 #[derive(Default, Clone, Serialize, Deserialize, PartialEq, Debug)]
@@ -82,7 +84,8 @@ fn credential(dir: &Path, data: Option<&[u8]>) -> io::Result<Vec<u8>> {
         Some(bytes) => ("$ErrorActionPreference='Stop'; $s=[Console]::In.ReadToEnd(); $v=ConvertTo-SecureString $s -AsPlainText -Force; [Console]::Out.Write((ConvertFrom-SecureString $v))", bytes.to_vec()),
         None => ("$ErrorActionPreference='Stop'; $s=[Console]::In.ReadToEnd(); $v=ConvertTo-SecureString $s; $p=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($v); try {[Console]::Out.Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($p))} finally {[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($p)}", std::fs::read(dir.join("signatures.secure"))?),
     };
-    let result = run(Command::new("powershell.exe").args(["-NoProfile", "-NonInteractive", "-Command", script]), Some(&input))?;
+    let script = format!("[Console]::InputEncoding=[Text.UTF8Encoding]::new($false); [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); {script}");
+    let result = run(Command::new("powershell.exe").args(["-NoProfile", "-NonInteractive", "-Command", &script]), Some(&input))?;
     if data.is_some() { crate::store_file::replace(&dir.join("signatures.secure"), &result)?; }
     Ok(result)
 }
@@ -92,20 +95,36 @@ fn credential(_dir: &Path, _data: Option<&[u8]>) -> io::Result<Vec<u8>> {
     Err(io::Error::other("No secure signature store on this platform"))
 }
 
+// Besides avoiding credential-store calls on every ordinary preference save, this records
+// that the profile actually loaded its marks. A failed startup read must not turn into a
+// deletion when the keyring becomes available later in the session.
+static LOADED: Mutex<BTreeMap<PathBuf, Marks>> = Mutex::new(BTreeMap::new());
+
 pub(crate) fn load(dir: &Path) -> io::Result<Option<Marks>> {
     if !dir.join("signatures.secure").exists() { return Ok(None); }
     if !dir.join("signatures.secure").is_file() { return Err(io::Error::other("Invalid signature store marker")); }
     let data = credential(dir, None)?;
-    serde_json::from_slice(&data).map(Some).map_err(io::Error::other)
+    let marks: Marks = serde_json::from_slice(&data).map_err(io::Error::other)?;
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).insert(dir.to_path_buf(), marks.clone());
+    Ok(Some(marks))
 }
 
 pub(crate) fn save(dir: &Path, marks: &Marks) -> io::Result<()> {
-    let old = load(dir)?; // A locked store must not be overwritten with an empty selection.
-    if old.as_ref() == Some(marks) || (old.is_none() && marks.is_empty()) { return Ok(()); }
+    let old = LOADED.lock().unwrap_or_else(|e| e.into_inner()).get(dir).cloned();
+    if old.as_ref() == Some(marks) { return Ok(()); }
+    if old.is_none() {
+        if dir.join("signatures.secure").exists() {
+            return Err(io::Error::other("Reload Sheaf after unlocking the signature store; the saved marks have not been changed"));
+        }
+        if marks.is_empty() { return Ok(()); }
+    }
     let data = serde_json::to_vec(marks).map_err(io::Error::other)?;
     credential(dir, Some(&data))?;
+    let saved: Marks = serde_json::from_slice(&credential(dir, None)?).map_err(io::Error::other)?;
+    if &saved != marks { return Err(io::Error::other("The secure signature store did not keep the signature")); }
     #[cfg(not(target_os = "windows"))]
     crate::store_file::replace(&dir.join("signatures.secure"), b"system-credential-store-v1")?;
+    LOADED.lock().unwrap_or_else(|e| e.into_inner()).insert(dir.to_path_buf(), marks.clone());
     Ok(())
 }
 
@@ -132,4 +151,14 @@ mod tests {
         assert!(save(dir.path(), &Marks::default()).is_err());
         assert!(dir.path().join("signatures.secure").is_dir());
     }
+
+    #[test]
+    fn an_unloaded_profile_cannot_clear_a_store_that_later_becomes_available() {
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join("signatures.secure");
+        std::fs::write(&marker, b"system-credential-store-v1").unwrap();
+        assert!(save(dir.path(), &Marks::default()).unwrap_err().to_string().contains("Reload"));
+        assert_eq!(std::fs::read(marker).unwrap(), b"system-credential-store-v1");
+    }
+
 }

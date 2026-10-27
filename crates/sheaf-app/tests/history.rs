@@ -247,9 +247,8 @@ fn recent_tools_are_the_newest_distinct_runs() {
 
 #[test]
 fn signatures_kept_before_handwriting_fonts_still_load() {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("prefs.json"), r#"{"signatures": [[[], "Ada", [0, 1]], [[], "Bo", [1, 0], 3]]}"#).unwrap();
-    let p = Prefs::load(dir.path());
+    // Schema migration is independent of access to the developer's real credential store.
+    let p: Prefs = serde_json::from_str(r#"{"signatures": [[[], "Ada", [0, 1]], [[], "Bo", [1, 0], 3]]}"#).unwrap();
     assert_eq!(p.signatures, vec![(Vec::new(), Some("Ada".into()), (0, 1), 0), (Vec::new(), Some("Bo".into()), (1, 0), 3)]);
 }
 

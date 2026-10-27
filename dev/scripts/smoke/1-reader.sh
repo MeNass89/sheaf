@@ -54,7 +54,8 @@ A2=$(annots "$OUT/text.pdf")
 check "the kept signature is placed again with one click ($A1 → $A2)" "[ $A2 -gt $A1 ]"
 # New signature (412,109 in the Signature tool's bar) keeps the first: two in the list, the new one
 # first; a click on the second thumbnail (382,109) brings the first back.
-sigs() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(len(p.get("signatures", [])), "".join(map(str, p.get("signature_pen", []))))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"; }
+secure_marks() { secret-tool lookup application Sheaf profile "$PWD/$OUT/profile/data/Sheaf"; }
+sigs() { secure_marks | python3 -c 'import json, sys; p = json.load(sys.stdin); print(len(p.get("signatures", [])), "".join(map(str, p.get("current", [[], None, [0, 0], 0])[2])))'; }
 S1=$(sigs); click 412 109 0.8; click 700 620 1
 xdotool mousemove 520 400 mousedown 1; for i in $(seq 0 10); do xdotool mousemove $((520 + i * 10)) $((380 + i * 6)); done; xdotool mouseup 1; sleep 0.3
 # The second one in black (the pad's first ink, 448,314); the first kept its blue.
