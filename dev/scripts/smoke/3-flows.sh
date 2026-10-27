@@ -187,7 +187,7 @@ key h; xdotool mousemove 330 200 mousedown 1 mousemove 800 201 mouseup 1; sleep 
 read AX _ <<< "$(at ca 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
 read OX OY <<< "$(at Other 1280x300+0+0)"; xdotool mousemove "${OX:-0}" "${OY:-0}" click 1; sleep 1; shot 29-close-other
 PQ=$(ocr 700x300+290+250)
-DS=$(at "Don" 700x300+290+250); [ -n "$DS" ] && click $DS 1
+DS=$(at "Don" 700x300+290+250); [ -n "$DS" ] && click $DS 2
 check "Close Other Tabs asks about unsaved edits, Don't Save closes it ($(echo $PQ | cut -c1-60); $(ntabs) tab)" "echo \"$PQ\" | grep -q cb.pdf && [ \"\$(ntabs)\" = 1 ]"
 quit
 
@@ -588,8 +588,9 @@ quit
 # 64. More (1127,61) ▸ Scroll automatically (17th item, 1008,547; Acrobat's): "quick" climbs by itself (60 px a
 # second: read after 1.5 s, before it leaves the view); Escape stops it.
 cp "$OUT/text.pdf" "$OUT/autoscroll.pdf"; launch "$OUT/autoscroll.pdf"; sleep 1
-read _ AY0 <<< "$(at quick 1020x700+255+90)"; click 1127 61 0.8; click 1008 547 1.5
-read _ AY1 <<< "$(at quick 1020x700+255+90)"; key Escape; sleep 0.5; read _ AY2 <<< "$(at quick 1020x700+255+90)"; sleep 1; read _ AY3 <<< "$(at quick 1020x700+255+90)"
+read _ AY0 <<< "$(at quick 1020x700+255+90)"; click 1127 61 0.8; click 1008 547 1.2
+# Read above where it was (the next page's "quick" may have come into view below).
+read _ AY1 <<< "$(at quick 1020x$(( ${AY0:-700} - 92 ))+255+90)"; key Escape; sleep 0.5; read _ AY2 <<< "$(at quick 1020x700+255+90)"; sleep 1; read _ AY3 <<< "$(at quick 1020x700+255+90)"
 check "Scroll automatically moves the pages up until Escape (quick at ${AY0:-?}, ${AY1:-?}, then ${AY2:-?} = ${AY3:-?})" "[ -n \"$AY1\" ] && [ \"$AY1\" -lt \$(( ${AY0:-0} - 40 )) ] && [ \"$AY2\" = \"$AY3\" ]"
 quit
 

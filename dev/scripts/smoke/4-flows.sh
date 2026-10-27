@@ -44,9 +44,10 @@ check "text typed in place is kept when another tool is picked" "qpdf --qdf --ob
 quit
 
 # 84. Shapes (R) ▸ "- -" (Acrobat's Dashed line style): a rectangle drawn is saved dashed (/BS /S /D).
-cp "$OUT/text.pdf" "$OUT/dashed.pdf"; launch "$OUT/dashed.pdf"; sleep 1; key r; sleep 0.5
-# "- -" sits just left of the opacity's "100 %" (tesseract reads it merged with the width dots before it).
-OP=$(at 100 1280x40+0+90); DD=$([ -n "$OP" ] && set -- $OP && echo "$(( $1 - 46 )) $2"); [ -n "$DD" ] && click $DD 0.4
+cp "$OUT/text.pdf" "$OUT/dashed.pdf"; launch "$OUT/dashed.pdf"; sleep 1; key r; sleep 1
+# "- -" sits just left of the opacity's "100 %" (tesseract reads it merged with the width dots before it);
+# the Shapes options take two rows.
+OP=$(at 100 1280x90+0+90); DD=$([ -n "$OP" ] && set -- $OP && echo "$(( $1 - 46 )) $2"); [ -n "$DD" ] && click $DD 0.4
 xdotool mousemove 520 420 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 520 + i * 30 )) $(( 420 + i * 20 )); sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
 DQ=$(qpdf --qdf --object-streams=disable "$OUT/dashed.pdf" - 2>/dev/null)
 check "a dashed rectangle is saved dashed (${DD:-no button})" "echo \"\$DQ\" | grep -aq '/S /D'"
@@ -515,11 +516,11 @@ platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])
 # clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
 launch; key ctrl+comma; sleep 0.8
 shortcut_search "find"
-KF=$(keybox Find); key ctrl+alt+f; sleep 0.8
+KF=$(keybox Find); sleep 0.5; key ctrl+alt+f; sleep 1
 # keybox prints the row's y, or words when the row was not found: only a number goes on.
 case "$KF" in ''|*[!0-9]*) KF=0 ;; esac
 # Find Next's row is the next one, 42 px lower.
-KG=$(( ${KF:-0} + 42 )); [ "$KG" -gt 42 ] && click 1157 $KG 0.5; key ctrl+s; sleep 0.8; shot 221-shortcuts
+KG=$(( ${KF:-0} + 42 )); [ "$KG" -gt 42 ] && click 1157 $KG 0.5; key ctrl+s; sleep 1.2; shot 221-shortcuts
 KE=$(ocr 1020x700+250+90)
 KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 check "a shortcut recorded in Preferences is kept, one already used is refused (rows at $KF, $KG; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
