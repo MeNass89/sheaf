@@ -530,6 +530,8 @@ pub enum Op {
     UprightTurns,
     /// Accessibility check: the full check's report.
     AccessibilityCheck,
+    /// A measured print-readiness report from the current document (Acrobat's Preflight).
+    PrintPreflight { to: PathBuf },
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
     /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
@@ -892,6 +894,14 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         match r {
                             Ok(to) => reply(Reply::Exported { to, error: None }),
                             Err(e) => reply(Reply::Exported { to, error: Some(e) }),
+                        }
+                    }
+                    Op::PrintPreflight { to } => {
+                        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                        let date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
+                        match sheaf_core::preflight::save_report(&doc, &name, &date, &to) {
+                            Ok(to) => reply(Reply::Exported { to, error: None }),
+                            Err(e) => reply(Reply::Exported { to, error: Some(e.to_string()) }),
                         }
                     }
                     Op::ExportFormData { to } => {

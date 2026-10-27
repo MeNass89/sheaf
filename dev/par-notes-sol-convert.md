@@ -22,6 +22,18 @@
 - Active: implement the remaining independent local conversion and print-production work.
 - Verification: source inspection only; build and execution belong to the orchestrator.
 
+- C-optimize-012 (partial): More ▸ More tools ▸ Print preflight report… saves Acrobat's Preflight
+  style findings from the document **as edited**, on the document thread: effective image ppi,
+  media/crop/trim/bleed boxes, bleed margins, output intents, unembedded fonts and structural
+  PDF/A-2b issues. The report records source, check time, profile and its thresholds, and lists
+  checks not performed. An existing report is kept. Test
+  `print_preflight_reports_low_resolution_and_keeps_the_document_unchanged` exercises the engine
+  check through sheaf-core (engine crate tests are excluded). Left: ink separations/output preview,
+  editable profiles, automatic fixups and a full audit trail. Inspected PdfCraft `printcheck.rs`
+  and Acrobat `PrintProduction_R_RHP.aapp`. No dependency added.
+  not automatable: More tools ▸ Print preflight report… opens Save, writes and announces the report
+  from an unsaved document — GUI execution forbidden in this worker.
+
 - C-convert-005 (partial): HTML to PDF offers Original layout, A4 and Letter, portrait/landscape,
   and none/small/big margins (iLovePDF's HTML page settings). Explicit layouts insert print CSS
   after existing styles and preserve relative local resources with a file base. The output bypasses
