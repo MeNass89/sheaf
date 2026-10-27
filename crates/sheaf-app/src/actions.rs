@@ -60,6 +60,14 @@ impl SavedAction {
         Ok(())
     }
 
+    /// Duplicate beside the original, retaining its prompt and configuration (Action Wizard).
+    pub fn duplicate_step(&mut self, index: usize) -> Result<()> {
+        if self.steps.len() >= 100 { return Err(invalid("An action supports up to 100 steps")); }
+        let step = self.steps.get(index).cloned().ok_or_else(|| invalid("No such action step"))?;
+        self.steps.insert(index + 1, step);
+        Ok(())
+    }
+
     pub fn import(text: &str) -> Result<Self> {
         if text.len() > 10 * 1024 * 1024 { return Err(invalid("An action file must be smaller than 10 MB")); }
         let action: Self = serde_json::from_str(text).map_err(|e| invalid(format!("Invalid action JSON: {e}")))?;
@@ -190,6 +198,21 @@ mod tests {
         assert_eq!(load(dir.path()).unwrap(), tools);
         save(dir.path(), &[]).unwrap();
         assert!(load(dir.path()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn duplicate_step_keeps_configuration_and_enforces_the_step_limit() {
+        let mut a = suggested().remove(3);
+        a.steps[0].prompt = true;
+        a.steps[0].instruction = "Review text".into();
+        a.duplicate_step(0).unwrap();
+        assert_eq!(a.steps[0], a.steps[1]);
+        a.steps[1].argument = "Copy".into();
+        assert_eq!(a.steps[0].argument, "CONFIDENTIAL");
+        assert!(a.duplicate_step(99).is_err());
+        while a.steps.len() < 100 { a.duplicate_step(0).unwrap(); }
+        assert!(a.duplicate_step(0).is_err());
+        assert_eq!(a.steps.len(), 100);
     }
 
     #[test]

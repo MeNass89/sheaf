@@ -1,4 +1,5 @@
-import { ScrollView } from "std-widgets.slint";
+import { ActionBridge } from "actions.slint";
+import { Button, ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolCard, ToolCardView } from "../widgets/tool-card.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
@@ -112,6 +113,12 @@ export component ToolsScreen inherits Rectangle {
                 current-index <=> root.sort;
                 chevron: root.chevron;
             }
+        }
+
+        HorizontalLayout {
+            padding-left: Theme.content-padding; padding-right: Theme.content-padding; spacing: 8px;
+            Button { text: "Guided actions…"; clicked => { ActionBridge.open-page("actions"); } }
+            Rectangle { horizontal-stretch: 1; }
         }
 
         scroll := ScrollView {

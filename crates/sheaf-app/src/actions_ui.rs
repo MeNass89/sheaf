@@ -83,6 +83,13 @@ pub fn install(ui: &AppWindow) {
     rows(ui);
     draft(ui);
     let weak = ui.as_weak();
+    ui.global::<ActionBridge>().on_open_page(move |_| {
+        if let Some(ui) = weak.upgrade() {
+            ui.set_active_tab(-1);
+            ui.set_page(sheaf_app::Page::Actions);
+        }
+    });
+    let weak = ui.as_weak();
     ui.global::<ActionBridge>().on_command(move |what, index| {
         if let Some(ui) = weak.upgrade() { command(&ui, &what, index); }
     });
@@ -168,10 +175,12 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             }
             "add" => {
                 if let Some(step) = Step::all().get(index as usize) {
+                    if s.draft.steps.len() >= 100 { return Err(sheaf_core::OpdfError::Unsupported("An action supports up to 100 steps".into())); }
                     s.draft.steps.push(ActionStep::from_engine(step));
                     s.step = s.draft.steps.len() as i32 - 1;
                 }
             }
+            "duplicate" => { let at = usize::try_from(s.step).ok(); if let Some(at) = at { s.draft.duplicate_step(at)?; s.step += 1; } }
             "step" => s.step = index,
             "remove" if s.step >= 0 => { let i = s.step as usize; s.draft.steps.remove(i); s.step = -1; }
             "up" | "down" if s.step >= 0 => {

@@ -122,3 +122,15 @@ errors back to this worker; do not grade parity from this implementation report 
 - All nine components received implementation and tests. They are **implemented, awaiting
   compilation and UI verification**, not jointly graded parity. Remaining scope is listed per
   component above; no component was left completely untouched.
+
+## Pass 2 · active
+
+- C-batch-002: Tools and reader ▸ More tools now reach Guided actions. Duplicate step keeps
+  configuration, instructions and prompts beside the original; the editor enforces 100 steps
+  before adding, and freezes all configuration fields during execution. Acrobat reference:
+  `aapp/Actions_R_RHP.aapp` CreateWorkflowRdr / ManageWorkflowsRdr. Test
+  `duplicate_step_keeps_configuration_and_enforces_the_step_limit` (written, not run).
+  not automatable: open Guided actions from Tools and the reader; duplicate, reorder and edit a
+  prompted step — brief rule 1 forbids this worker from launching the app.
+- Reference lookup correction: archive paths start at `aapp/` and `frontend/`, without the app-name
+  prefix given in the board. Listing those archives established the paths before reading them.

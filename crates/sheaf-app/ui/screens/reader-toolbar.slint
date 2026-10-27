@@ -1,3 +1,4 @@
+import { ActionBridge } from "actions.slint";
 // The reader's toolbar: side panel, annotation tools, page field, zoom, page theme, search, the
 // More menu, undo/redo/save.
 import { JavaScriptBridge } from "javascript.slint";
@@ -381,6 +382,7 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Copy the file", on: false },
                                 { text: "Share with AirDrop", on: false },
                                 { text: "JavaScript console…", on: false },
+                                { text: "Guided actions…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -409,6 +411,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 18 { ReaderBridge.share-file(root.id, false); }
                                         if k == 19 { ReaderBridge.share-file(root.id, true); }
                                         if k == 20 { JavaScriptBridge.open(root.id); }
+                                        if k == 21 { ActionBridge.open-page("actions"); return; }
                                         root.focus-pages();
                                     }
                                 }
