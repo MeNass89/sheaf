@@ -79,7 +79,7 @@ export component ProductionSheet inherits Rectangle {
                     }
                     if root.tab.reader.press-profile != "": Text { text: root.tab.reader.press-profile; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
                     condition := TextField { label: "Output condition"; placeholder: "For example, FOGRA39 coated"; }
-                    Text { text: "Checks output markers and embedded fonts.\nFull ISO validation is not included.\nNo PDF/E or other PDF/X levels."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Text { text: "Checks ICC bytes, fonts and transparency.\nFull ISO validation is not included.\nNo PDF/E or other PDF/X levels."; font-size: Theme.fs-caption; color: Theme.text-muted; }
                     HorizontalLayout {
                         SmallButton {
                             text: root.tab.reader.press-busy ? "Converting…" : "Save PDF/X-3 copy…";

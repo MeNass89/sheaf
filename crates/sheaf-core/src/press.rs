@@ -13,6 +13,30 @@ pub struct Options {
     pub condition: String,
 }
 
+/// A press export owns the exact unsaved document snapshot; later edits remain independent.
+/// Capture on the document thread, then export on a separate worker (Acrobat's background jobs).
+pub struct Snapshot {
+    bytes: std::sync::Arc<Vec<u8>>,
+    password: Option<String>,
+}
+
+impl Snapshot {
+    pub fn capture(doc: &Doc) -> Result<Self> {
+        if !doc.document().allows_modification() {
+            return Err(OpdfError::Unsupported("This document's permissions do not allow a print-standard conversion".into()));
+        }
+        Ok(Self { bytes: doc.full_bytes()?, password: doc.document().password.clone() })
+    }
+
+    pub fn export(self, options: &Options, out: &Path) -> Result<PathBuf> {
+        let tmp = tempfile::tempdir()?;
+        let path = tmp.path().join("snapshot.pdf");
+        std::fs::write(&path, self.bytes.as_slice())?;
+        let doc = Doc::open(&Input { path, password: self.password })?;
+        to_pdfx3(&doc, options, out)
+    }
+}
+
 /// A console Ghostscript on PATH, or an explicit local installation.
 pub fn find_ghostscript() -> Option<PathBuf> {
     if let Some(path) = std::env::var_os("SHEAF_GHOSTSCRIPT").map(PathBuf::from).filter(|p| p.is_file()) { return Some(path); }
@@ -72,7 +96,7 @@ pub fn to_pdfx3_with(doc: &Doc, options: &Options, out: &Path, gs: &Path, timeou
     let profile = tmp.path().join("press.icc");
     let bytes = std::fs::read(&options.profile)?;
     if profile_channels(&bytes)? != channels { return Err(OpdfError::Conversion("The press profile changed; choose it again".into())); }
-    std::fs::write(&profile, bytes)?;
+    std::fs::write(&profile, &bytes)?;
     let definition = tmp.path().join("condition.ps");
     std::fs::write(&definition, prefix(&profile, &options.condition, channels))?;
     let rendered = tmp.path().join("press.pdf");
@@ -108,7 +132,7 @@ pub fn to_pdfx3_with(doc: &Doc, options: &Options, out: &Path, gs: &Path, timeou
         let text = String::from_utf8_lossy(&tail);
         return Err(OpdfError::Conversion(format!("Ghostscript did not create PDF/X ({status}): {}", text.trim())));
     }
-    check_written(&rendered, channels)?;
+    check_written(&rendered, channels, &bytes)?;
     atomic_write(out, |part| { std::fs::copy(&rendered, part)?; Ok(()) })
 }
 
@@ -147,8 +171,11 @@ fn prefix(profile: &Path, condition: &str, channels: u8) -> String {
 }
 
 /// Check the actual generated file, not just the child process's exit code.
-fn check_written(path: &Path, channels: u8) -> Result<()> {
+fn check_written(path: &Path, channels: u8, expected_profile: &[u8]) -> Result<()> {
     let pdf = lopdf::Document::load(path)?;
+    if pdf.is_encrypted() {
+        return Err(OpdfError::Conversion("The PDF/X output is encrypted; no output saved".into()));
+    }
     let info = pdf.trailer.get(b"Info").and_then(lopdf::Object::as_reference).and_then(|id| pdf.get_dictionary(id))?;
     let version = info.get(b"GTS_PDFXVersion").and_then(lopdf::Object::as_str)?;
     let intents = pdf.catalog()?.get(b"OutputIntents")?.as_array()?;
@@ -158,10 +185,15 @@ fn check_written(path: &Path, channels: u8) -> Result<()> {
         .and_then(|id| pdf.get_object(id).ok()).and_then(|obj| obj.as_stream().ok());
     let valid = version == b"PDF/X-3:2002" && pdf.version == "1.3"
         && profile.is_some_and(|s| s.dict.get(b"N").is_ok_and(|n| n.as_i64().is_ok_and(|n| n == i64::from(channels))));
-    if !valid { return Err(OpdfError::Conversion("Ghostscript output did not contain the requested PDF/X-3 press markers; no output saved".into())); }
+    let same_profile = profile.and_then(|s| s.get_plain_content().ok()).is_some_and(|bytes| bytes == expected_profile);
+    if !valid || !same_profile { return Err(OpdfError::Conversion("Ghostscript output did not contain the requested PDF/X-3 markers and exact press ICC; no output saved".into())); }
     let checked = Doc::open(&Input::new(path))?;
-    if !checked.document().print_readiness().fonts_not_embedded.is_empty() {
+    let readiness = checked.document().print_readiness();
+    if !readiness.fonts_not_embedded.is_empty() {
         return Err(OpdfError::Conversion("The PDF/X output still has unembedded fonts; no output saved".into()));
+    }
+    if readiness.findings.iter().any(|f| f.id == "transparency" || f.id == "resource-inventory-incomplete") {
+        return Err(OpdfError::Conversion("The PDF/X-3 output still declares transparency, or its resource inventory is incomplete; no output saved".into()));
     }
     Ok(())
 }
@@ -169,6 +201,53 @@ fn check_written(path: &Path, channels: u8) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn press_fixture(path: &Path, profile: &[u8], alpha: f32) {
+        use lopdf::{dictionary, Object, Stream};
+        let mut pdf = lopdf::Document::with_version("1.3");
+        let pages = pdf.new_object_id();
+        let page = pdf.add_object(dictionary! {
+            "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 100.into(), 100.into()],
+            "Resources" => dictionary! { "ExtGState" => dictionary! { "Alpha" => dictionary! { "ca" => alpha } } }
+        });
+        pdf.objects.insert(pages, dictionary! { "Type" => "Pages", "Count" => 1, "Kids" => vec![page.into()] }.into());
+        let icc = pdf.add_object(Stream::new(dictionary! { "N" => 4 }, profile.to_vec()));
+        let intent = pdf.add_object(dictionary! { "S" => "GTS_PDFX", "DestOutputProfile" => icc });
+        let root = pdf.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages, "OutputIntents" => vec![intent.into()] });
+        let info = pdf.add_object(dictionary! { "GTS_PDFXVersion" => Object::string_literal("PDF/X-3:2002"), "Title" => Object::string_literal("First edit") });
+        pdf.trailer.set("Root", root);
+        pdf.trailer.set("Info", info);
+        pdf.save(path).unwrap();
+    }
+
+    #[test]
+    fn press_snapshot_keeps_unsaved_changes_separate_from_later_edits() {
+        let t = tempfile::tempdir().unwrap();
+        let path = t.path().join("source.pdf");
+        press_fixture(&path, b"test profile", 1.0);
+        let mut doc = Doc::open(&Input::new(path)).unwrap();
+        doc.apply(crate::pdfcraft::engine::Edit::SetInfo { key: "Title".into(), value: "Unsaved edit".into() }).unwrap();
+        let snapshot = Snapshot::capture(&doc).unwrap();
+        let before = snapshot.bytes.clone();
+        doc.apply(crate::pdfcraft::engine::Edit::SetInfo { key: "Title".into(), value: "Later edit".into() }).unwrap();
+        assert_eq!(snapshot.bytes.as_slice(), before.as_slice());
+        let captured = lopdf::Document::load_mem(snapshot.bytes.as_slice()).unwrap();
+        let info = captured.get_dictionary(captured.trailer.get(b"Info").unwrap().as_reference().unwrap()).unwrap();
+        assert_eq!(info.get(b"Title").unwrap().as_str().unwrap(), b"Unsaved edit");
+        assert_ne!(doc.full_bytes().unwrap().as_slice(), snapshot.bytes.as_slice());
+    }
+
+    #[test]
+    fn written_press_checks_reject_substituted_icc_and_transparency_without_ghostscript() {
+        let t = tempfile::tempdir().unwrap();
+        let path = t.path().join("written.pdf");
+        // Synthetic ICC bytes exercise the structural checker, not ICC colour science.
+        press_fixture(&path, b"chosen profile", 1.0);
+        assert!(check_written(&path, 4, b"different profile").unwrap_err().to_string().contains("exact press ICC"));
+        check_written(&path, 4, b"chosen profile").unwrap();
+        press_fixture(&path, b"chosen profile", 0.5);
+        assert!(check_written(&path, 4, b"chosen profile").unwrap_err().to_string().contains("transparency"));
+    }
 
     #[test]
     fn press_profiles_reject_rgb_and_postscript_strings_cannot_escape() {

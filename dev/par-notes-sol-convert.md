@@ -449,3 +449,29 @@ LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
 - not automatable: results-to-fixups link and both-theme sheet layout — rule 1 forbids the app.
 - Grade: f6 a7 p7, partial. Existing report row splitter still limits each block to title + four
   40-character lines. LIGNES : max 5 (preflight finding) · cases > 6 : aucune.
+
+## Pass 3 — C-convert-019
+
+- C-convert-019: PDF/X captures the current unsaved document on its owner thread, then performs
+  the external conversion on a separate worker (Acrobat's background export). `PdfXStarted`
+  releases the reader operation count; later edits/save/undo remain available. The original
+  snapshot, source protection and undo state stay independent of subsequent edits. Spawn errors,
+  panics and conversion failures still return a final result and clear the press busy flag.
+- Rust now compares the **actual embedded ICC bytes** with the chosen profile, in addition to
+  PDF version/X markers/channel count/fonts. Encrypted output, declared transparency and an
+  incomplete resource inventory are rejected before publication. These are conservative local
+  checks, not ISO certification. No external tool is needed to run these structural checks.
+- Tests `press_snapshot_keeps_unsaved_changes_separate_from_later_edits` and
+  `written_press_checks_reject_substituted_icc_and_transparency_without_ghostscript` have no
+  Ghostscript/ICC-install skip. Synthetic profile bytes are explicitly only a checker fixture;
+  they do not prove a usable colour profile. Existing real-GS integration remains necessary.
+- New public core `press::Snapshot` with `capture`/`export`; app `Reply::PdfXStarted` added.
+  Reply callbacks are mutex-serialized so the new worker requires no stronger Sync API from
+  callers. No dependency. Written tests only; worker does not run code under brief rule 1.
+- Left: actual conversion still needs Ghostscript and a real user-supplied press ICC. No bundled
+  FOGRA/GRACoL, native colour/transparency converter, PDF/X-1a/X-4, PDF/E or full ISO validator.
+  These missing engines are not substituted with labels or metadata-only conversion.
+- not automatable: start a long PDF/X conversion; edit/save/undo while it runs, close the tab,
+  reopen production to see Converting, and inspect final/error toasts in both themes — runtime
+  forbidden. Cancellation remains the existing bounded 120-second subprocess timeout.
+- Grade: f4 a7 p7, partial. LIGNES : max 4 (press requirements) · cases > 6 : aucune.

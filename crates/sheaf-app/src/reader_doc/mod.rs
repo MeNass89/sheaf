@@ -605,6 +605,7 @@ pub enum Reply {
     Upright(Vec<(usize, i64)>),
     Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
     PrintPreflight(Result<String, String>),
+    PdfXStarted,
     PdfXExported(Result<PathBuf, String>),
     /// The loupe's area: (width, height, RGBA pixels), or why not.
     Loupe(Result<(u32, u32, Vec<u8>), String>),
@@ -625,12 +626,15 @@ pub enum Reply {
 }
 
 /// Starts the document's thread: it opens `input`, then runs the operations sent on the
-/// returned channel, answering each through `reply` (called on that thread).
+/// returned channel, answering through serialized `reply` calls. Slow press exports reply from
+/// their own worker after the document snapshot has been captured.
 pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op> {
     let (tx, rx) = channel::<Op>();
+    let shared_reply = Arc::new(std::sync::Mutex::new(reply));
     std::thread::Builder::new()
         .name("reader-doc".into())
         .spawn(move || {
+            let reply = |message| { if let Ok(send) = shared_reply.lock() { send(message); } };
             let t0 = std::time::Instant::now();
             let mut doc = match sheaf_app::jobs::catching(|| Doc::open(&input)) {
                 Ok(d) => d,
@@ -900,7 +904,21 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         }
                     }
                     Op::ExportPdfX { to, options } => {
-                        reply(Reply::PdfXExported(sheaf_core::press::to_pdfx3(&doc, &options, &to).map_err(|e| e.to_string())));
+                        // Only capturing the working copy belongs on this thread; Ghostscript can
+                        // run for two minutes, during which editing/saving must remain available.
+                        let snapshot = sheaf_core::press::Snapshot::capture(&doc);
+                        reply(Reply::PdfXStarted);
+                        match snapshot {
+                            Ok(snapshot) => {
+                                let done = shared_reply.clone();
+                                let spawned = std::thread::Builder::new().name("press-export".into()).spawn(move || {
+                                    let result = sheaf_app::jobs::catching(|| snapshot.export(&options, &to)).map_err(|e| e.to_string());
+                                    if let Ok(send) = done.lock() { send(Reply::PdfXExported(result)); }
+                                });
+                                if let Err(error) = spawned { reply(Reply::PdfXExported(Err(error.to_string()))); }
+                            }
+                            Err(error) => reply(Reply::PdfXExported(Err(error.to_string()))),
+                        }
                     }
                     Op::PrintPreflight { profile } => {
                         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
