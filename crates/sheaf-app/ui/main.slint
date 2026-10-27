@@ -319,6 +319,7 @@ export component AppWindow inherits Window {
             MenuItem { title: "Find Previous"; shortcut: PlatformBridge.keys[13]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, -1); } }
             MenuSeparator {}
             MenuItem { title: "Check Spelling…"; shortcut: PlatformBridge.keys[43]; enabled: root.reader-on; activated => { PlatformBridge.check-start(root.reader-id); } }
+            MenuItem { title: PlatformBridge.grammar-on ? "Stop Checking Grammar With Spelling" : "Check Grammar With Spelling"; shortcut: PlatformBridge.keys[44]; activated => { PlatformBridge.set-grammar-on(!PlatformBridge.grammar-on); } }
             MenuItem { title: PlatformBridge.spell-on ? "Stop Checking Spelling While Typing" : "Check Spelling While Typing"; shortcut: PlatformBridge.keys[14]; activated => { PlatformBridge.set-spell-on(!PlatformBridge.spell-on); } }
             MenuSeparator {}
             MenuItem { title: "Preferences…"; shortcut: PlatformBridge.keys[15]; activated => { root.show-preferences(); } }

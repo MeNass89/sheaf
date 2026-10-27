@@ -73,18 +73,50 @@ fn learned_at_start() -> Vec<String> {
 }
 
 /// Every misspelt word (offset, word), and the first [`SHOWN`] with their corrections.
-type Checked = (Vec<(usize, String)>, Vec<(usize, String, Vec<String>)>);
+/// (Grammar findings carry what is wrong; misspelt words an empty note.)
+type Checked = (Vec<(usize, String)>, Vec<(usize, String, Vec<String>, &'static str)>);
 
-fn check_text(text: &str, typing: bool) -> Checked {
+/// Grammar findings Ignored this session, by what is wrong and the text ("Repeated word|the the").
+static IGNORED_GRAMMAR: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+fn grammar_key(note: &str, text: &str) -> String {
+    format!("{note}|{}", text.to_lowercase())
+}
+
+/// The misspelt words of `text` and, with `grammar`, its grammar findings (Preview's Check Grammar
+/// With Spelling), in reading order; the first [`SHOWN`] with their fixes. While typing, a finding
+/// that reaches the end of the text waits until it is finished.
+fn check_text(text: &str, typing: bool, grammar: bool) -> Checked {
+    let ignored = IGNORED_GRAMMAR.lock().map(|g| g.clone()).unwrap_or_default();
+    let found: Vec<sheaf_core::spell::GrammarIssue> = if grammar {
+        sheaf_core::spell::grammar(text)
+            .into_iter()
+            .filter(|g| !(typing && g.start + g.text.len() >= text.trim_end().len()))
+            .filter(|g| !ignored.contains(&grammar_key(g.note, &g.text)))
+            .collect()
+    } else {
+        Vec::new()
+    };
     with_spell(|sp| {
-        let Ok(speller) = &sp.speller else { return (Vec::new(), Vec::new()) };
-        let issues = speller.misspelt(text, typing);
+        let misspelt = match &sp.speller {
+            Ok(speller) => speller.misspelt(text, typing),
+            Err(_) => Vec::new(),
+        };
+        let mut all: Vec<(usize, String, Option<sheaf_core::spell::GrammarIssue>)> = misspelt.into_iter().map(|i| (i.start, i.word, None)).collect();
+        all.extend(found.into_iter().map(|g| (g.start, g.text.clone(), Some(g))));
+        all.sort_by_key(|f| f.0);
         let mut shown = Vec::new();
-        for i in issues.iter().take(SHOWN) {
-            let c = sp.corrections.entry(i.word.clone()).or_insert_with(|| speller.suggest(&i.word, CORRECTIONS)).clone();
-            shown.push((i.start, i.word.clone(), c));
+        for (start, word, g) in all.iter().take(SHOWN) {
+            match g {
+                Some(g) => shown.push((*start, word.clone(), vec![g.fix.clone()], g.note)),
+                None => {
+                    let Ok(speller) = &sp.speller else { continue };
+                    let c = sp.corrections.entry(word.clone()).or_insert_with(|| speller.suggest(word, CORRECTIONS)).clone();
+                    shown.push((*start, word.clone(), c, ""));
+                }
+            }
         }
-        (issues.into_iter().map(|i| (i.start, i.word)).collect(), shown)
+        (all.into_iter().map(|(s, w, _)| (s, w)).collect(), shown)
     })
 }
 
@@ -116,7 +148,8 @@ fn show(ui: &AppWindow, text: &str, (all, shown): Checked) {
     g.set_spell_marked(slint::StyledText::from_markdown(&md).unwrap_or_else(|_| slint::StyledText::from_plain_text(text)));
     let rows: Vec<SpellIssue> = shown
         .into_iter()
-        .map(|(start, word, c)| SpellIssue {
+        .map(|(start, word, c, note)| SpellIssue {
+            note: note.into(),
             word: word.into(),
             start: start as i32,
             suggestions: ModelRc::new(VecModel::from(c.into_iter().map(SharedString::from).collect::<Vec<_>>())),
@@ -135,11 +168,12 @@ fn spell_check(ui: &AppWindow, text: &str, typing: bool) {
     }
     let weak = ui.as_weak();
     let text = text.to_string();
+    let grammar = grammar_on();
     TIMER.with(|t| {
         t.start(slint::TimerMode::SingleShot, PAUSE, move || {
             let (weak, text) = (weak.clone(), text.clone());
             std::thread::spawn(move || {
-                let checked = check_text(&text, typing);
+                let checked = check_text(&text, typing, grammar);
                 let _ = weak.upgrade_in_event_loop(move |ui| {
                     if LATEST.load(Ordering::Relaxed) == seq {
                         show(&ui, &text, checked);
@@ -214,6 +248,7 @@ fn push(ui: &AppWindow) {
     let p = home::prefs().platform;
     let g = ui.global::<PlatformBridge>();
     g.set_spell_on(!p.no_spell_check);
+    g.set_grammar_on(!p.no_grammar_check);
     g.set_learned(ModelRc::new(VecModel::from(p.learned_words.iter().map(|w| SharedString::from(w.as_str())).collect::<Vec<_>>())));
     g.set_hide_unavailable(p.hide_unavailable_tools);
     g.set_direction(i32::from(p.direction));
@@ -521,6 +556,16 @@ pub fn install(ui: &AppWindow) {
     on!(on_forget_learned, |ui| {
         with_spell(|sp| if let Ok(s) = sp.speller.as_mut() { s.forget_learned() });
         update(&ui, |p| p.learned_words.clear());
+        check_again(&ui);
+    });
+    on!(on_grammar_ignore, |ui, note, text| {
+        if let Ok(mut g) = IGNORED_GRAMMAR.lock() {
+            g.push(grammar_key(&note, &text));
+        }
+        check_again(&ui);
+    });
+    on!(on_set_grammar_on, |ui, on| {
+        update(&ui, |p| p.no_grammar_check = !on);
         check_again(&ui);
     });
     on!(on_set_spell_on, |ui, on| {

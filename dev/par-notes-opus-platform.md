@@ -29,6 +29,18 @@
   is). At the end: how many texts were checked and words changed; no dictionary: what to install.
   (`reader_ui/spelling.rs`, `platform_ui` `Pass`; tests `spell::tests::the_check_pass_goes_word_by_word_through_the_texts`;
   smoke step 227)
+- C-edit-013, C-reader-060 (third pass, Sol's review): Check Spelling also goes through each comment's
+  replies ("Reply on page 2"). The pass scans every text once, on a worker thread, when it starts
+  (`sheaf_core::spell::CheckPass`); Next, Ignore, Learn and Change only move through that list (a Change
+  shifts what follows in the same text), and a word's corrections are looked up off the UI thread. Check
+  Grammar With Spelling (Preview's; Edit menu and Preferences ▸ Spelling, on by default), light and
+  offline: a word written twice ("the the"; not "had had", "that that"), a small letter after a full stop,
+  question or exclamation mark (not after "e.g.", "Dr.", an initial or "…"), two spaces or more between
+  words, and "a"/"an" against the next word's sound ("an hour", "a unit" are right). English rules; other
+  languages get the repeated words and spaces. Grammar findings show in the typing card ("Repeated word",
+  its fix, Ignore) and in the Check Spelling dialog. Not covered: agreement, tense, punctuation beyond
+  those. (tests `spell::tests::the_light_grammar_pass`, `the_check_pass_goes_word_by_word_through_the_texts`,
+  `reader_ui::spelling::tests::a_replys_text_is_checked_without_its_author`)
 - C-platform-014: a menu bar, File · Edit · View · Go · Tools · Window · Help (Acrobat's and Preview's
   menus; Slint's `MenuBar`: drawn in the window on Linux and Windows, the system menu on macOS). Every
   command shows its shortcut; a command that does not apply where the user is (Save on Home) is disabled, so

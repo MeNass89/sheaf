@@ -101,6 +101,8 @@ pub const COMMANDS: &[Command] = &[
     cmd("paste", "Edit", "Paste", ""),
     // Acrobat's Edit ▸ Check Spelling ▸ In Comments, Fields, & Editable Text (F7, as Acrobat and Word).
     cmd("check-spelling", "Edit", "Check Spelling…", "F7"),
+    // Preview's Edit ▸ Spelling and Grammar ▸ Check Grammar With Spelling.
+    cmd("grammar", "Edit", "Check Grammar With Spelling", ""),
 ];
 
 /// Commands that act by sending their usual keys (⌘X ⌘C ⌘V ⌘A) to whatever has the keyboard: a

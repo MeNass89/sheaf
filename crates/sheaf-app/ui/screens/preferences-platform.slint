@@ -35,6 +35,20 @@ export component SpellingSection inherits Card {
         Segment { width: 214px; text: "Check spelling while typing"; selected: PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(true); } }
         Segment { width: 214px; text: "Don't check spelling"; selected: !PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(false); } }
     }
+    // Preview's Check Grammar With Spelling: repeated words, a capital after a full stop, double
+    // spaces, "a" or "an".
+    HorizontalLayout {
+        alignment: LayoutAlignment.start;
+        spacing: 8px;
+        Segment { width: 214px; text: "Check grammar too"; selected: PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(true); } }
+        Segment { width: 214px; text: "Spelling only"; selected: !PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(false); } }
+    }
+    Text {
+        text: "Grammar: a word written twice, a capital after a full stop, two spaces, and “a” or “an” (English).";
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+        wrap: word-wrap;
+    }
     Text {
         text: PlatformBridge.spell-dictionary == "" ? "Looking for a dictionary…" : PlatformBridge.spell-dictionary;
         font-size: Theme.fs-caption;
