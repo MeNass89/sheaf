@@ -729,3 +729,108 @@ verification. No network features; no compiler, test, app or Codex invocation. N
   PartialEq); part-1 identification reuses the engine's RDF parser, including attribute-form XMP,
   now covered in the native 1b regression. Indirect filter names and a newer catalog version are
   checked too. These are source/API checks, not executed test results.
+
+## Pass 4 handoff — source work complete; integration pending
+
+Tatouages unchanged: one batch/worktree; no compiler/build/test/app/Chrome/Codex invocation;
+network features excluded; no copied competitor code and no new dependency.
+
+Polaroid — Sheaf / sol-convert / pass 4: active pending orchestrator integration. All six components
+have a feature commit pushed to `origin/par/sol-convert`; additional native PDF/A source-audit fixes
+were pushed separately. The starting merged tree was `ce2a6dc` (the worktree had already fast-forwarded
+from pass 3 to `origin/wip/round27` before this pass's first commit). Review input remains
+`/tmp/f5/par/review-sol-convert-2.txt`. No component is declared jointly closed by this source pass.
+
+Fait: code, regression tests and notes authored/re-read; per-component commits pushed. Static
+`git diff ce2a6dc..HEAD --check` clean; Impeccable detector returned `[]` for the four changed Slint
+files. Source APIs checked against the actual cached PdfCraft/lopdf revision (including the xref
+writer and enum). These checks prove neither compilation, rendered aesthetics nor runtime speed.
+
+Pas fait: every new/modified test is WRITTEN, NOT RUN. All six components need orchestrator build,
+full suite and counterpart review. Runtime-dependent checks must distinguish SKIP from PASS.
+Specifically: real Office fidelity, all three Ghostscript PDF/X variants with actual ICC files,
+real Chromium flex/grid/screen CSS and one-page output, native 1b against an independent validator,
+Type 3 advances/pattern matrix renders, mark placement/undo and both Slint themes.
+
+Prochain pas: merge the small shared-file blocks, build Slint/Rust once in the orchestrator, run the
+named regressions/full suite, enable `SHEAF_TEST_CHROMIUM` for the opt-in browser corpus, then request
+Opus's read-only review. Outside runtimes/profiles are not bundled. Any unavailable runtime must
+fail clearly; there is no network/download fallback.
+
+Integrator interface changes (no Cargo.toml/lockfile change):
+- `PdfALevel::A1b`, CLI `CliPdfA::A1b`; update any concurrent exhaustive matches.
+- `press::Options.level` required; `press::Level`, `Preset`, `installed_profile` added.
+- `html::Options.screen_width: Option<u32>` required; `ToolOptions.html_screen_width` saved.
+- `preflight::Preset`, `report_with_preset`; reader `Op::PrintPreflight` includes `preset`.
+- `Edit::AddPrinterMarks`, engine `prepress::add_printer_marks` added; label/permission/apply arms
+  included. Existing `AddCropMarks` retained.
+- Slint `preflight-check`, `press-export`, `production-marks` have additional arguments;
+  `press-preset` added. Rust handlers and wiring changed together. No new Prefs field.
+
+### Pass 4 touched files (relative to ce2a6dc)
+
+- `crates/sheaf-app/src/main.rs`
+- `crates/sheaf-app/src/reader_doc/mod.rs`
+- `crates/sheaf-app/src/reader_ui/prepress.rs`
+- `crates/sheaf-app/src/run.rs`
+- `crates/sheaf-app/src/saved_options.rs`
+- `crates/sheaf-app/src/state.rs`
+- `crates/sheaf-app/ui/flow-types.slint`
+- `crates/sheaf-app/ui/screens/options.slint`
+- `crates/sheaf-app/ui/screens/reader-prepress.slint`
+- `crates/sheaf-app/ui/screens/reader-production.slint`
+- `crates/sheaf-cli/src/args.rs`
+- `crates/sheaf-cli/src/main.rs`
+- `crates/sheaf-core/src/html.rs`
+- `crates/sheaf-core/src/html_browser.rs`
+- `crates/sheaf-core/src/html_source.rs`
+- `crates/sheaf-core/src/pdfa.rs`
+- `crates/sheaf-core/src/pdfa1.rs`
+- `crates/sheaf-core/src/preflight.rs`
+- `crates/sheaf-core/src/preflight_profiles.rs`
+- `crates/sheaf-core/src/press.rs`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `crates/sheaf-core/tests/office.rs`
+- `crates/sheaf-core/tests/pdfa.rs`
+- `crates/sheaf-core/tests/preflight.rs`
+- `crates/sheaf-core/tests/press.rs`
+- `dev/par-notes-sol-convert.md`
+- `third_party/pdfcraft-edit/src/prepress.rs`
+- `third_party/pdfcraft-engine/src/lib.rs`
+- `third_party/pdfcraft-engine/src/prepress.rs`
+
+### Pass 4 provisional author grades — source evidence, not joint closure
+
+C-convert-002: f9 a9 p9 — counterpart's existing AGREE 9 preserved; refresh nit addressed by
+`office_runtime_refresh_enables_existing_tabs_after_install_and_disables_after_removal`,
+`crates/sheaf-app/src/state.rs:761` (written). Native Excel / original Office conversion unchanged.
+
+C-convert-005: f8 a8 p7 — `screen_html_freezes_media_and_uses_one_measured_page_without_network_resources`
+and `browser_long_page_checks_reject_pagination_and_wrong_dimensions`,
+`crates/sheaf-core/src/html_browser.rs:187/204` (written). Actual browser-grid corpus opt-in at 221;
+no browser-class native engine or source-script execution; real browser behavior unverified.
+
+C-convert-018: f8 a8 p8 — `native_pdfa1_writes_pdf14_and_checks_transparency_before_publication`,
+`crates/sheaf-core/tests/pdfa.rs:121` (written): part 1, classic xref, attribute XMP and strict refusal.
+a/u levels and automatic downgrade remain absent; structural checking is not full ISO validation.
+
+C-convert-019: f7 a8 p7 — `press_levels_require_the_requested_markers_and_allow_transparency_only_in_x4`,
+`named_press_profiles_require_a_real_matching_installed_cmyk_profile`,
+`crates/sheaf-core/src/press.rs:300/322` (written). X-1a/X-4 runtime fidelity still unverified;
+PDF/E unsupported and named profiles require real installed ICC files.
+
+C-optimize-012: f7 a8 p7 — `named_preflight_profiles_check_target_rules_together_without_editing`,
+`crates/sheaf-core/tests/preflight.rs:96` (written). Named profiles add real grouped target checks;
+ink toggles, coverage and overprint simulation require a separation/compositing renderer, absent.
+
+C-optimize-014: f8 a8 p7 — `pattern_and_type3_hairlines_are_private_per_use_and_leave_shared_pages_unchanged`,
+`printer_marks_include_all_plate_registration_process_bars_and_embedded_page_info`,
+`crates/sheaf-core/tests/engine_patches.rs:536/601` (written). Trap presets/flattener preview remain
+absent (no trapping/compositing path); ordinary-font stroked text/comments remain outside repair.
+
+Contrôle: mandat oui (six components addressed; unresolved gaps explicitly retained); preuves oui
+(source/diff/remote evidence, no invented runtime proof); dépendances oui (runtime/profile checks
+identified, native-engine gaps stated as implementation gaps); parties indépendantes oui (the
+selected meaningful fixes and their regression coverage are authored and pushed).
+
+LIGNES : max 5 (preflight finding) · cases > 6 : aucune.
