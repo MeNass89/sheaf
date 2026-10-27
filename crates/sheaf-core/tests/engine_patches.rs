@@ -561,7 +561,7 @@ fn a_recoloured_rich_text_box_keeps_its_mixed_runs() {
     let annots = saved.get_dictionary(page).unwrap().get(b"Annots").unwrap().as_array().unwrap().clone();
     let a = saved.get_dictionary(annots[0].as_reference().unwrap()).unwrap();
     let text = |key: &[u8]| {
-        let s = a.get(key).unwrap().as_str().unwrap();
+        let Object::String(s, _) = a.get(key).unwrap() else { panic!("not a string") };
         // UTF-16 with a byte-order mark, or PDFDocEncoding.
         if s.starts_with(&[0xFE, 0xFF]) { String::from_utf16(&s[2..].chunks(2).map(|c| u16::from_be_bytes([c[0], c[1]])).collect::<Vec<_>>()).unwrap() } else { String::from_utf8_lossy(s).into_owned() }
     };
