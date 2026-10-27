@@ -446,6 +446,7 @@ fn main() -> Result<(), slint::PlatformError> {
     library_ui::install(&ui);
     portfolio_ui::install(&ui);
     reader_ui::javascript::install(&ui);
+    reader_ui::output_preview::install(&ui);
     install_catalogue(&ui);
     state::install_tabs_model(&ui);
 

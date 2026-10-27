@@ -349,7 +349,7 @@ pub(crate) enum Cmd {
     Ocr {
         /// The scanned PDF
         input: PathBuf,
-        /// Use installed Tesseract instead of bundled recognition, including Latin text
+        /// Require installed Tesseract (default: prefer complete local packs, then bundled Latin)
         #[arg(long)]
         local_engine: bool,
         /// Language codes joined with + (for example en+ja); extra scripts need local Tesseract packs

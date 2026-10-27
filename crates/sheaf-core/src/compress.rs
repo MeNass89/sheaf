@@ -4,6 +4,10 @@ use lopdf::{Object, ObjectId, SaveOptions, Stream};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+#[path = "optimizer_post.rs"]
+mod post;
+pub(crate) use post::page_preview as flatten_page_snapshot;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
     Low,
@@ -46,6 +50,10 @@ pub struct Advanced {
     pub grayscale: bool,
     /// The programs of the standard faces every reader has, taken out (Acrobat's Unembed fonts).
     pub unembed_standard: bool,
+    /// Acrobat's transparency flattener: an explicit PDF 1.3 conversion using local Ghostscript.
+    pub flatten_transparency: bool,
+    /// Acrobat's Fast Web View: qpdf lays out the first page for incremental delivery.
+    pub linearize: bool,
 }
 
 #[derive(Debug)]
@@ -84,12 +92,13 @@ pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn
 
 /// [`compress_with`], with [`Advanced`] settings.
 pub fn compress_advanced(input: &Input, level: Level, adv: &Advanced, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<CompressReport> {
+    let post_factor = if adv.flatten_transparency || adv.linearize { 0.9 } else { 1.0 };
     let (bytes, before, was_encrypted, missed_target, gray_kept) = match level {
         Level::Target(limit) => {
             let n = TARGET_STEPS.len() as f32;
             let mut best: Option<(Vec<u8>, u64, bool, usize)> = None;
             for (k, (max, q)) in TARGET_STEPS.into_iter().enumerate() {
-                let tried = squeeze(input, max, q, adv, &mut |p| progress((k as f32 + p) / n * 0.95))?;
+                let tried = squeeze(input, max, q, adv, &mut |p| progress((k as f32 + p) / n * 0.95 * post_factor))?;
                 let fits = tried.0.len() as u64 <= limit;
                 if best.as_ref().is_none_or(|b| tried.0.len() < b.0.len()) {
                     best = Some(tried);
@@ -107,10 +116,12 @@ pub fn compress_advanced(input: &Input, level: Level, adv: &Advanced, out: &Path
             // Pixels per inch to the long side the level allows: 150 ppi on A4's 11.7 in is 1,755 px.
             let max = adv.max_ppi.map_or(max, |ppi| (ppi.clamp(36, 1200) as f64 * 11.7) as u32);
             let q = adv.quality.map_or(q, |q| q.clamp(1, 100));
-            let (bytes, before, enc, kept) = squeeze(input, max, q, adv, progress)?;
+            let (bytes, before, enc, kept) = squeeze(input, max, q, adv, &mut |p| progress(p * post_factor))?;
             (bytes, before, enc, false, kept)
         }
     };
+    let bytes = post::finish(bytes, adv, progress)?;
+    let missed_target = if let Level::Target(limit) = level { bytes.len() as u64 > limit } else { missed_target };
     let after = bytes.len() as u64;
     if !progress(0.95) { return Err(crate::OpdfError::Cancelled); }
     let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;

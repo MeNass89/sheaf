@@ -1,5 +1,6 @@
 // Acrobat's Print Production: choose a scope, then an undoable fix or page-box change.
 import { ScrollView } from "std-widgets.slint";
+import { PrintPreviewBridge } from "reader-ink-preview.slint";
 import { Theme } from "../theme.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { SmallButton } from "reader-parts.slint";
@@ -78,7 +79,8 @@ export component ProductionSheet inherits Rectangle {
                     HorizontalLayout {
                         SmallButton { text: "Add printer marks"; clicked => { ReaderBridge.production-marks(root.id, root.all, root.mark-style, mark-width.text); root.focus-pages(); } }
                     }
-                    Text { text: "Trapping and flattener preview unavailable.\nTransparency is kept; no flattening occurs."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    HorizontalLayout { SmallButton { text: "Flattener preview…"; clicked => { PrintPreviewBridge.open(root.id, 1); } } }
+                    Text { text: "Preview compares the current page with PDF 1.3.\nThe working document stays unchanged.\nTrapping is unavailable."; font-size: Theme.fs-caption; color: Theme.text-muted; }
                     Rectangle { height: 1px; background: Theme.separator; }
                     Text { text: "Save as PDF/X"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
                     Text { text: "Whole document; no password protection.\nNeeds a local Ghostscript installation.\nUse the press's CMYK or Gray ICC profile."; font-size: Theme.fs-caption; color: Theme.text-muted; }

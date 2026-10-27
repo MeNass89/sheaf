@@ -22,6 +22,7 @@ import { FormFieldBox, FieldPropsCard, FieldsArrangeCard, ObjectsArrangeCard } f
 import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet, HelpSheet } from "reader-sheets.slint";
 import { ProductionSheet } from "reader-production.slint";
 import { PreflightSheet } from "reader-prepress.slint";
+import { InkPreviewSheet, PrintPreviewBridge } from "reader-ink-preview.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
 import { SpellStrip } from "../widgets/spell-strip.slint";
@@ -1367,6 +1368,9 @@ export component ReaderScreen inherits Rectangle {
     if root.tab.reader.production-open: ProductionSheet {
         tab: root.tab;
         id: root.id;
+        focus-pages => { keys.focus(); }
+    }
+    if PrintPreviewBridge.visible && PrintPreviewBridge.tab == root.tab.id: InkPreviewSheet {
         focus-pages => { keys.focus(); }
     }
     if root.tab.reader.preflight-open: PreflightSheet {

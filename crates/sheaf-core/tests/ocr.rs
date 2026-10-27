@@ -299,3 +299,32 @@ fn release_ocr_mici_benchmark_reports_cold_load_and_warm_page_time() {
     let target: f64 = std::env::var("SHEAF_OCR_SECONDS_PER_PAGE").ok().map(|s| s.parse().unwrap()).unwrap_or(11.75);
     assert!(packed_median <= target, "bundled OCR {packed_median:.3} s/page exceeds the competitor target {target:.3} s/page");
 }
+
+
+/// The fast installed path must produce a searchable PDF, rather than just return TSV.
+#[test]
+fn automatic_installed_ocr_matches_explicit_local_text_and_preserves_scan() {
+    if !std::process::Command::new("tesseract").arg("--list-langs").output()
+        .is_ok_and(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).lines().any(|l| l == "eng")) {
+        eprintln!("not available: local Tesseract English pack");
+        return;
+    }
+    let t = tempfile::tempdir().unwrap();
+    let scan = scanned_pdf(t.path());
+    let before = std::fs::read(&scan).unwrap();
+    let started = std::time::Instant::now();
+    let automatic = ocr::ocr(&Input::new(&scan), &OcrOptions::default(), &t.path().join("auto.pdf"), &mut no_cancel()).unwrap();
+    let auto_seconds = started.elapsed().as_secs_f64();
+    let started = std::time::Instant::now();
+    let explicit = ocr::ocr(&Input::new(&scan), &OcrOptions { use_local_engine: true, ..Default::default() }, &t.path().join("local.pdf"), &mut no_cancel()).unwrap();
+    eprintln!("Installed OCR short-page check: automatic={auto_seconds:.3}s explicit={:.3}s; {} words (not the MICI timing corpus)", started.elapsed().as_secs_f64(), automatic.words);
+    assert_eq!(page_texts(&automatic.path), page_texts(&explicit.path));
+    assert!(page_texts(&automatic.path).join(" ").contains("Sheaf OCR"));
+    let render = |path: &Path| {
+        let doc = sheaf_core::pdfcraft::Doc::open(&Input::new(path)).unwrap();
+        doc.render(0, 1.0).unwrap().rgba
+    };
+    assert!(render(&scan) == render(&automatic.path), "the automatic OCR text layer repainted the scan");
+    assert_eq!(std::fs::read(scan).unwrap(), before);
+    qpdf_clean(&automatic.path);
+}

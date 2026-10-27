@@ -4,6 +4,7 @@
 use super::eng::{Line, OcrError, Turn, Word};
 use std::collections::HashSet;
 use std::process::Command;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 pub(super) const LANGUAGES: &[(&str, &str, &str)] = &[
@@ -76,10 +77,37 @@ pub(super) fn validate_selection(selection: &str) -> Result<(), String> {
     selection_models(selection, languages(), installed()).map(|_| ())
 }
 
+/// iLovePDF's OCR Languages Folder: portable offline packs travel with the installation.
+/// The explicit folder wins; an absent portable folder leaves system Tesseract unchanged.
+fn data_dir() -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("SHEAF_TESSDATA") { return Some(PathBuf::from(path)); }
+    let mut candidates = Vec::new();
+    if let Ok(exe) = std::env::current_exe() && let Some(dir) = exe.parent() {
+        candidates.extend(dirs_beside_exe(dir));
+    }
+    #[cfg(debug_assertions)]
+    candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vendor/tessdata"));
+    candidates.into_iter().find(|path| has_language_packs(path))
+}
+
+fn dirs_beside_exe(dir: &Path) -> [PathBuf; 3] {
+    [dir.join("tessdata"), dir.join("../Resources/tessdata"), dir.join("../share/sheaf/tessdata")]
+}
+
+fn has_language_packs(path: &Path) -> bool {
+    std::fs::read_dir(path).is_ok_and(|entries| entries.flatten().any(|e| e.path().extension().is_some_and(|ext| ext == "traineddata")))
+}
+
+fn command() -> Command {
+    let mut command = Command::new("tesseract");
+    if let Some(dir) = data_dir() { command.arg("--tessdata-dir").arg(dir); }
+    command
+}
+
 fn installed() -> &'static HashSet<String> {
     static INSTALLED: OnceLock<HashSet<String>> = OnceLock::new();
     INSTALLED.get_or_init(|| {
-        Command::new("tesseract").arg("--list-langs").output().ok().filter(|o| o.status.success())
+        command().arg("--list-langs").output().ok().filter(|o| o.status.success())
             .map(|o| String::from_utf8_lossy(&o.stdout).lines().map(str::trim).map(str::to_string).collect()).unwrap_or_default()
     })
 }
@@ -90,10 +118,12 @@ pub(super) fn recognize(pixels: &[u8], width: u32, height: u32, code: &str) -> R
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         let image = dir.path().join("page.png");
         image::save_buffer(&image, pixels, width, height, image::ColorType::Rgba8).map_err(|e| e.to_string())?;
-        let mut command = Command::new("tesseract");
+        let mut command = command();
         command.arg(&image).args(["stdout", "-l", model.as_str()]);
         if vertical { command.args(["--psm", "5"]); }
-        let output = command.arg("tsv").output().map_err(|e| format!("Tesseract: {e}"))?;
+        // A portable language folder may contain only traineddata, without configs/tsv.
+        // Request TSV directly instead of relying on that system configuration file.
+        let output = command.args(["-c", "tessedit_create_tsv=1"]).output().map_err(|e| format!("Tesseract: {e}"))?;
         if !output.status.success() { return Err(format!("Tesseract: {}", String::from_utf8_lossy(&output.stderr).trim())); }
         parse_tsv(&String::from_utf8_lossy(&output.stdout), width, height, vertical)
     };
@@ -175,6 +205,39 @@ mod tests {
         let row = |score| format!("{HEADER}5\t1\t1\t1\t1\t1\t10\t20\t30\t12\t{score}\tError\n");
         assert_eq!(parse_tsv(&row("32"), 100, 100, false).unwrap()[0].words[0].confidence, Some(0.32));
         for score in ["NaN", "-1", "101", "bad"] { assert!(parse_tsv(&row(score), 100, 100, false).is_err()); }
+    }
+
+    #[test]
+    fn portable_ocr_language_folders_accept_real_packs_and_reject_empty_folders() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!has_language_packs(dir.path()));
+        std::fs::write(dir.path().join("README.txt"), b"packs go here").unwrap();
+        assert!(!has_language_packs(dir.path()));
+        std::fs::write(dir.path().join("jpn.traineddata"), b"fixture").unwrap();
+        assert!(has_language_packs(dir.path()));
+        let packs = ["chi_sim", "chi_tra", "jpn", "kor"].into_iter().map(str::to_string).collect();
+        let list = offered(&packs);
+        for code in ["zh", "zh-Hant", "ja", "ko"] {
+            assert!(list.iter().any(|l| l.code == code));
+            assert!(selection_models(code, &list, &packs).is_ok());
+        }
+    }
+
+    #[test]
+    fn portable_cjk_packs_are_found_in_windows_macos_and_linux_layouts() {
+        let base = tempfile::tempdir().unwrap();
+        for (layout, exe, packs) in [("windows", "Sheaf", "Sheaf/tessdata"),
+            ("macos", "Sheaf.app/Contents/MacOS", "Sheaf.app/Contents/Resources/tessdata"),
+            ("linux", "usr/bin", "usr/share/sheaf/tessdata")] {
+            let root = base.path().join(layout);
+            let exe = root.join(exe);
+            let packs = root.join(packs);
+            std::fs::create_dir_all(&exe).unwrap();
+            std::fs::create_dir_all(&packs).unwrap();
+            std::fs::write(packs.join("jpn.traineddata"), b"fixture").unwrap();
+            let found = dirs_beside_exe(&exe).into_iter().find(|p| has_language_packs(p)).unwrap();
+            assert_eq!(found.canonicalize().unwrap(), packs.canonicalize().unwrap(), "{layout}");
+        }
     }
 
 }

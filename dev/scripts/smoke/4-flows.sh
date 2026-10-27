@@ -1026,3 +1026,54 @@ RT=$(unzip -p "$OUT/report.zip" report.txt 2>/dev/null | tr '\n' ' ')
 check "Report an Issue saves the report as a zip (${RI:-no menu item}; $(echo "$RT" | cut -c1-90))" "echo \"$RT\" | grep -q 'Report a problem: Saving freezes on big files' && echo \"$RT\" | grep -q 'Sheaf [0-9]'"
 quit
 unset SHEAF_TEST_MENU_BAR
+# 340. Acrobat's Optimizer: PDF 1.3 transparency flattening followed by Fast Web View.
+# Locate controls in the actual options scroller, then inspect the produced PDF, not just the UI.
+optimize_option() { local found=; for _ in $(seq 1 16); do found=$(at "$1" 310x640+965+90); [ -n "$found" ] && break; xdotool mousemove 1160 500 click 5 click 5; sleep 0.3; done; echo "$found"; }
+cp "$OUT/text.pdf" "$OUT/web.pdf"; launch "$OUT/web.pdf"; sleep 1
+click $WRENCH_X 61 1; xdotool type --delay 20 "compress"; key Return; sleep 2
+OA=$(optimize_option Advanced); [ -n "$OA" ] && click $OA 0.5
+OF=$(optimize_option Flatten); [ -n "$OF" ] && click $OF 0.5
+OW=$(optimize_option Fast); [ -n "$OW" ] && click $OW 0.5
+shot 340-optimizer
+click 1140 755 5
+for _ in $(seq 1 20); do [ -f "$OUT/web-compressed.pdf" ] && break; sleep 0.5; done
+check "340 optimizer saves flattened Fast Web View ($OA; $OF; $OW)" "[ -n \"$OF\" ] && [ -n \"$OW\" ] && head -c 2048 \"$OUT/web-compressed.pdf\" | grep -aq /Linearized && head -c 8 \"$OUT/web-compressed.pdf\" | grep -q %PDF-1.3 && qpdf --check-linearization \"$OUT/web-compressed.pdf\" >/dev/null 2>&1 && [ \"\$(npages \"$OUT/web-compressed.pdf\")\" = 4 ] && pdftotext \"$OUT/web-compressed.pdf\" - | grep -q 'Page 1'"
+quit
+
+# 344. iLovePDF's searchable OCR: automatic backend from the real options panel, with local packs.
+convert -size 1000x200 xc:white -font DejaVu-Sans -pointsize 64 -fill black -gravity center -annotate 0 "Sheaf OCR test 2026" "$OUT/fast-ocr-input.png"
+convert "$OUT/fast-ocr-input.png" "$OUT/fast-ocr-input.pdf"
+launch "$OUT/fast-ocr-input.pdf"; sleep 1
+click $WRENCH_X 61 1; xdotool type --delay 20 "ocr"; key Return; sleep 2
+OR=$(optimize_option Require)
+shot 344-ocr-options
+click 1140 755 4
+for _ in $(seq 1 30); do [ -f "$OUT/fast-ocr-input-ocr.pdf" ] && break; sleep 0.5; done
+OT=$(pdftotext "$OUT/fast-ocr-input-ocr.pdf" - 2>/dev/null | tr '\n' ' ')
+check "344 automatic OCR writes searchable text ($OR; $OT)" "[ -n \"$OR\" ] && echo \"$OT\" | grep -q 'Sheaf OCR' && qpdf --check \"$OUT/fast-ocr-input-ocr.pdf\" >/dev/null 2>&1"
+quit
+
+# 342. Acrobat's Output Preview: the captured page has selectable process ink plates.
+optimize_print_tool() { click 1127 61 0.8; click 1008 659 0.8; local found=; for _ in $(seq 1 12); do found=$(at "$1" 300x690+880+85); [ -n "$found" ] && break; xdotool mousemove 1050 530 click 5 click 5; sleep 0.3; done; [ -n "$found" ] && click $found 1; echo "$found"; }
+INK_SOURCE=$(sha256sum "$OUT/text.pdf" | cut -d" " -f1)
+launch "$OUT/text.pdf"; PP=$(optimize_print_tool preflight)
+PI=$(at Ink); [ -n "$PI" ] && click $PI 1
+for _ in $(seq 1 20); do PC=$(at Cyan 250x650+0+90); [ -n "$PC" ] && break; sleep 0.5; done
+PM=$(at Magenta 250x650+0+90); PY=$(at Yellow 250x650+0+90); PB=$(at Black 250x650+0+90)
+[ -n "$PB" ] && click $PB 0.5
+optimize_ink_dark() { import -window root -crop 500x300+280+260 -depth 8 png:- 2>/dev/null | convert - -threshold 25% -format "%[fx:1-mean]" info:; }
+INK_DARK=$(optimize_ink_dark); key Up; sleep 0.5; INK_YELLOW=$(optimize_ink_dark); key Down; sleep 0.5; INK_RETURN=$(optimize_ink_dark)
+shot 342-ink-plates
+check "342 output preview lists real CMYK plates ($PP; $PI; $PC; $PM; $PY; $PB)" "[ -n \"$PC\" ] && [ -n \"$PM\" ] && [ -n \"$PY\" ] && [ -n \"$PB\" ] && python3 -c \"assert float('$INK_DARK') > float('$INK_YELLOW') + 0.0003 and float('$INK_RETURN') > float('$INK_YELLOW') + 0.0003\" && [ \"$INK_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
+key Escape; quit
+
+# 343. Acrobat's Flattener Preview: compare the working page and actual PDF 1.3 conversion.
+launch "$OUT/text.pdf"; PF=$(optimize_print_tool hairlines)
+FP=
+for _ in $(seq 1 14); do FP=$(at Flattener 700x660+0+80); [ -n "$FP" ] && break; xdotool mousemove 400 500 click 5 click 5; sleep 0.3; done
+[ -n "$FP" ] && click $FP 1
+for _ in $(seq 1 20); do FA=$(at Flattened 300x650+0+90); [ -n "$FA" ] && break; sleep 0.5; done
+FO=$(at Original 300x650+0+90); [ -n "$FA" ] && click $FA 0.5
+shot 343-flattener-preview
+check "343 flattener preview compares original and converted page ($PF; $FP; $FO; $FA)" "[ -n \"$FO\" ] && [ -n \"$FA\" ]"
+key Escape; quit
