@@ -476,6 +476,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         rtl: v.viewer.rtl(),
         pen_width: r.pen_width,
         shape_kind: r.shape_kind,
+        shape_special: r.shape_special as i32,
         shape_fill: r.shape_fill,
         arrow_head: reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].1.into(),
         arrow_both: r.arrow_both,

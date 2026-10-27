@@ -224,6 +224,8 @@ pub struct ReaderUi {
     pen_width: i32,
     /// Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled (rectangle, oval); where the drag is.
     shape_kind: i32,
+    /// Shapes: 1 Preview's Loupe, 2 its Mask (dragged as an oval, or a rectangle or oval), 0 neither.
+    shape_special: u8,
     shape_fill: bool,
     /// Shapes' fill: a highlight colour (index, the sixth too), or None a tint of the stroke.
     fill_colour: Option<usize>,
@@ -509,6 +511,7 @@ impl ReaderUi {
             note_seq: 0,
             pen_width: 1,
             shape_kind: 0,
+            shape_special: 0,
             shape_fill: false,
             fill_colour: None,
             shape_end: None,
@@ -1246,7 +1249,8 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
     }
     let size = v.boxes[page].view_size();
     r.annots().iter().enumerate().rev().find_map(|(i, a)| {
-        if a.page != page {
+        // A mask (Preview's) covers its page: picked in the Comments panel, not by a click on it.
+        if a.page != page || (a.subtype == "Square" && a.contents == "Mask") {
             return None;
         }
         let boxes: Vec<[f64; 4]> = if a.quads.is_empty() { vec![a.rect] } else { a.quads.iter().map(|q| sheaf_core::redact::bounds(std::slice::from_ref(q))).collect() };

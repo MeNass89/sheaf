@@ -287,6 +287,19 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
             0 => {
                 r.shape_kind = value.clamp(0, 9);
                 r.poly = None;
+                // A loupe is round; a mask's opening is a rectangle or an oval.
+                if r.shape_special == 1 || (r.shape_special == 2 && r.shape_kind > 1) {
+                    r.shape_special = 0;
+                }
+            }
+            // Preview's Loupe (an oval dragged) and Mask (a rectangle or oval dragged): on or off.
+            30 | 31 => {
+                let special = (what - 29) as u8;
+                r.shape_special = if r.shape_special == special { 0 } else { special };
+                if r.shape_special != 0 {
+                    r.shape_kind = if special == 1 { 1 } else { r.shape_kind.min(1) };
+                    r.poly = None;
+                }
             }
             1 => r.shape_fill = !r.shape_fill,
             3 => {

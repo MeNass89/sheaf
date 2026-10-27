@@ -401,6 +401,8 @@ export struct ReaderState {
     rtl: bool,
     // Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled; opacity of shapes and pen (%).
     shape-kind: int,
+    // Shapes: 1 Preview's Loupe, 2 its Mask, 0 neither (shape-option 30, 31).
+    shape-special: int,
     shape-fill: bool,
     // Shapes ▸ Arrow: its head's name and whether both ends carry it.
     arrow-head: string,

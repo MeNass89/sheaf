@@ -51,6 +51,10 @@ export component ReaderOptionsBar inherits Rectangle {
             // The arrow's head (a click goes to the next) and both ends (Acrobat's Line Ends).
             if root.tab.reader.shape-kind == 3: SmallButton { y: 2px; text: root.tab.reader.arrow-head; clicked => { ReaderBridge.shape-option(root.id, 8, 0); root.focus-pages(); } }
             if root.tab.reader.shape-kind == 3: SmallButton { y: 2px; text: "Both ends"; primary: root.tab.reader.arrow-both; clicked => { ReaderBridge.shape-option(root.id, 9, 0); root.focus-pages(); } }
+            // Preview's Loupe (the page magnified in a circle dragged) and Mask (the page dimmed
+            // outside the rectangle or oval dragged).
+            if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Loupe"; primary: root.tab.reader.shape-special == 1; clicked => { ReaderBridge.shape-option(root.id, 30, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 2: SmallButton { y: 2px; text: "Mask"; primary: root.tab.reader.shape-special == 2; clicked => { ReaderBridge.shape-option(root.id, 31, 0); root.focus-pages(); } }
         }
         // Link: links of the text's web addresses; new links' look (Acrobat's Link Properties ▸
         // Appearance: invisible by default, else a border in the colour, width and style chosen).

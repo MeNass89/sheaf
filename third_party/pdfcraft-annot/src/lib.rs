@@ -18,6 +18,8 @@ use pdfcraft_cos::{Dict, Document, ObjRef, Object, PdfString, Stream};
 
 pub mod appearance;
 pub mod links;
+/// Sheaf: Preview's Loupe and Mask.
+pub mod loupe_mask;
 
 #[cfg(test)]
 mod tests;
@@ -1322,6 +1324,10 @@ fn draw_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
 /// Draw the appearance for an annotation dictionary: the expensive half of [`set_appearance`].
 /// Pure from the dictionary and the objects it points at, so [`AppearanceCache`] can reuse it.
 fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
+    // Sheaf: a loupe or a mask (Preview's) draws itself, whatever the edit.
+    if let Some(stream) = loupe_mask::appearance(doc, d) {
+        return Some(stream);
+    }
     // Sheaf: a text box in a font of the file's own is drawn with it when its old appearance holds
     // it: a simple WinAnsi-encoded font (a subset when the text is made of the characters it drew
     // before) with the text written in WinAnsi; any other font (Type0, a custom encoding) that has

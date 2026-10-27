@@ -221,6 +221,8 @@ fn scope_of(edit: &Edit) -> Scope {
         Edit::AddMeasurement(_)
         | Edit::AddAnnotation(_)
         | Edit::AddTextBox { .. }
+        | Edit::AddLoupe { .. }
+        | Edit::AddMask { .. }
         | Edit::AddCustomStamp { .. }
         | Edit::DeleteAnnotation { .. }
         | Edit::SetAnnotationContents { .. }
@@ -1372,6 +1374,23 @@ pub enum Edit {
         index: usize,
         quarters: i64,
     },
+    /// Sheaf: Preview's Loupe: a circle of `radius` about `centre` (user space) showing the page
+    /// under it `magnify` times as large, ringed in `color` (`pdfcraft_annot::loupe_mask`).
+    AddLoupe {
+        page: usize,
+        centre: [f64; 2],
+        radius: f64,
+        magnify: f64,
+        color: Rgb,
+        author: String,
+    },
+    /// Sheaf: Preview's Mask: the page dimmed outside `hole` (user space; an oval in it when `oval`).
+    AddMask {
+        page: usize,
+        hole: [f64; 4],
+        oval: bool,
+        author: String,
+    },
     /// Sheaf: a text box (`annotation`, a `Shape::TextBox`) added in `font` (a resource name of
     /// `pdfcraft_annot::appearance::TEXT_FONTS`), as one step.
     AddTextBox {
@@ -1971,6 +1990,8 @@ impl Edit {
             Edit::SetMeasurementScale { .. } => Label::of("Set measurement scale"),
             Edit::AddAnnotation(a) => Label::of(add_annotation(&a.shape)),
             Edit::AddTextBox { .. } => Label::of("Add text box"),
+            Edit::AddLoupe { .. } => Label::of("Add loupe"),
+            Edit::AddMask { .. } => Label::of("Add mask"),
             Edit::AddCustomStamp { .. } => Label::of("Add stamp"),
             Edit::DeleteAnnotation { .. } => Label::of("Delete comment"),
             Edit::SetAnnotationContents { .. } => Label::of("Edit comment"),
@@ -2148,6 +2169,8 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         Edit::AddMeasurement(_)
         | Edit::AddAnnotation(_)
         | Edit::AddTextBox { .. }
+        | Edit::AddLoupe { .. }
+        | Edit::AddMask { .. }
         | Edit::AddCustomStamp { .. }
         | Edit::DeleteAnnotation { .. }
         | Edit::SetAnnotationContents { .. }
@@ -2410,6 +2433,12 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::SetMeasurementScale { page, bbox, name, scale } => measure::set_scale(doc, *page, *bbox, name, scale)?,
         Edit::AddAnnotation(a) => {
             pdfcraft_annot::add_annotation(doc, a, &cx.meta())?;
+        }
+        Edit::AddLoupe { page, centre, radius, magnify, color, author } => {
+            pdfcraft_annot::loupe_mask::add_loupe(doc, *page, (*centre, *radius), *magnify, *color, author, &cx.meta())?;
+        }
+        Edit::AddMask { page, hole, oval, author } => {
+            pdfcraft_annot::loupe_mask::add_mask(doc, *page, *hole, *oval, author, &cx.meta())?;
         }
         Edit::AddTextBox { annotation, font, align } => {
             let index = pdfcraft_annot::add_annotation(doc, annotation, &cx.meta())?;
