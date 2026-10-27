@@ -50,3 +50,16 @@ fn a_groups_picture_goes_and_its_text_stays() {
     assert_eq!(picture(&out), 0, "its picture went");
     assert!(common::shown_texts(&out)[0].contains("Kept text"), "its text stayed");
 }
+
+#[test]
+fn an_action_stops_on_a_script_error_before_later_steps() {
+    use sheaf_core::pdfcraft::engine::actions::{Action, Step, run_on};
+    let t = tempfile::tempdir().unwrap();
+    let path = common::fixture_pdf(t.path(), "action.pdf", 1);
+    let a = Action { name: "Stop on failure".into(), description: String::new(), builtin: false,
+        steps: vec![Step::RunJavaScript("throw new Error('stop here');".into()), Step::SetTitle("Must not run".into())] };
+    let mut visited = Vec::new();
+    let result = run_on(&a, "action.pdf", std::sync::Arc::new(std::fs::read(path).unwrap()), |i, _| visited.push(i));
+    assert!(result.unwrap_err().contains("stop here"));
+    assert_eq!(visited, [0]);
+}

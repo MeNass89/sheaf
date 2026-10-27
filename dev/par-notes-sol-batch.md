@@ -18,3 +18,12 @@ Next: finish each batch component, write its proof names and remaining parity ga
   pauses (Acrobat's Action Wizard), saved independently of suggested actions. Tests
   `actions::tests::action_round_trip_keeps_order_arguments_instructions_and_prompts`,
   `actions::tests::unreadable_saved_actions_are_not_overwritten`.
+- C-batch-003: Run on PDFs… executes each saved step in order, off the UI thread, with file/step
+  progress, instruction pauses, Stop, per-file errors and a count of successful outputs. Copy,
+  rename (edit Name then Save), Delete and duplicate-safe names manage the saved list (Acrobat's
+  Manage Actions). A script or edit failure stops that file instead of claiming success. Tests
+  `actions::tests::saved_action_runs_in_order_and_never_replaces_originals_or_outputs`,
+  `actions::tests::cancelled_action_does_not_publish_a_file`,
+  `an_action_stops_on_a_script_error_before_later_steps` in core `engine_patches.rs`.
+  Left: password entry for encrypted inputs; per-file output links; editing prompted settings
+  while paused (settings are edited before Run). Engine cancellation is between steps.

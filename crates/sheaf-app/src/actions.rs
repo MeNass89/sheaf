@@ -178,6 +178,26 @@ mod tests {
     }
 
     #[test]
+    fn saved_action_runs_in_order_and_never_replaces_originals_or_outputs() {
+        use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::Session}};
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("input.pdf");
+        let bytes = Session::new().create_from_text("Original", "Keep this page").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
+        let mut a = SavedAction::empty();
+        a.steps = vec![ActionStep::from_engine(&Step::SetTitle("First".into())), ActionStep::from_engine(&Step::SetTitle("Last".into()))];
+        a.steps[1].prompt = true;
+        let out = dir.path().join("outputs");
+        let mut visited = Vec::new();
+        let first = run_file(&a, &input, &out, &mut |i, step| { visited.push((i, step.prompt)); true }).unwrap();
+        assert_eq!(visited, [(0, false), (1, true)]);
+        let second = run_file(&a, &input, &out, &mut |_, _| true).unwrap();
+        assert_ne!(first, second);
+        assert_eq!(std::fs::read(&input).unwrap(), *bytes);
+        assert_eq!(Doc::open(&Input::new(first)).unwrap().document().info.title.as_deref(), Some("Last"));
+    }
+
+    #[test]
     fn cancelled_action_does_not_publish_a_file() {
         let dir = tempfile::tempdir().unwrap();
         let input = dir.path().join("input.pdf");

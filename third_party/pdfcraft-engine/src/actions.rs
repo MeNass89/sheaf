@@ -184,18 +184,15 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
         }
         Step::RunJavaScript(js) => {
             let o = s.run_javascript(id, js, None)?;
-            log.push(match o.error {
-                Some(e) => format!("Run a JavaScript: {e}"),
-                None => "Run a JavaScript".into(),
-            });
+            if let Some(e) = o.error { return Err(EditError::Invalid(e)); }
+            log.push("Run a JavaScript".into());
             return Ok(None);
         }
     };
-    // Steps that find nothing to do (no comments to flatten, …) aren't failures.
-    match s.apply(id, edit) {
-        Ok(()) => log.push(step.label().to_string()),
-        Err(e) => log.push(format!("{}: {e}", step.label())),
-    }
+    // Sheaf: permissions, unsupported content and write failures must stop an action.
+    // Flattening an empty set already succeeds in the editor; do not swallow real errors.
+    s.apply(id, edit)?;
+    log.push(step.label().to_string());
     Ok(None)
 }
 
