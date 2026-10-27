@@ -299,6 +299,12 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
             log.push("Run a JavaScript".into());
             return Ok(None);
         }
+        // A document with no links has nothing to remove: the step is done, not failed (Acrobat's
+        // Remove all links in an action).
+        Step::RemoveLinks if s.get(id).is_some_and(|d| d.info.links.is_empty()) => {
+            log.push(format!("{}: none", step.label()));
+            return Ok(None);
+        }
         _ => command_edit(step, pages)?,
     };
     // Sheaf: permissions, unsupported content and write failures must stop an action.

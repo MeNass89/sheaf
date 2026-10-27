@@ -392,8 +392,12 @@ fn grouped_hairlines_use_private_forms_per_scale_and_leave_unselected_pages_unch
         let paint = ops.iter().position(|o| o.operator == "S").unwrap();
         assert!((ops[paint - 1].operands[0].as_float().unwrap() - expected).abs() < 1e-6);
     }
-    assert_eq!(pdf.get_object(leaf).unwrap().as_stream().unwrap().get_plain_content().unwrap(), b"0 w 0 0 m 100 0 l S");
-    assert_eq!(pdf.get_object(shared).unwrap().as_stream().unwrap().get_plain_content().unwrap(), b"/Leaf Do");
+    // The originals stay as they were for the page not chosen (the saved file numbers its objects
+    // anew: they are found by their content).
+    let streams: Vec<Vec<u8>> = pdf.objects.values().filter_map(|o| o.as_stream().ok()).filter_map(|s| s.get_plain_content().ok()).collect();
+    assert!(streams.iter().any(|c| c == b"0 w 0 0 m 100 0 l S"), "the original hairline form is kept");
+    assert!(streams.iter().any(|c| c == b"/Leaf Do"), "the original group is kept");
+    let _ = (leaf, shared);
     assert_eq!(pdf.get_page_content(pdf.get_pages()[&2]), b"q 0.5 0 0 0.5 0 0 cm /Shared Do Q q 2 0 0 2 100 0 cm /Shared Do Q\n");
     let id = doc.id();
     doc.session_mut().undo(id).unwrap();

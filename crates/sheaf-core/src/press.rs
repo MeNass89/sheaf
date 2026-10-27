@@ -103,8 +103,9 @@ pub fn to_pdfx3_with(doc: &Doc, options: &Options, out: &Path, gs: &Path, timeou
     let mut child = Command::new(gs)
         .args(["-dSAFER", "-dBATCH", "-dNOPAUSE", "-dPDFX", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.3", "-dAutoRotatePages=/None", "-dPDFACompatibilityPolicy=2"])
         .arg(if channels == 4 { "-sColorConversionStrategy=CMYK" } else { "-sColorConversionStrategy=Gray" })
+        // The press profile reaches the file through the PDF/X definition's OutputIntent (Ghostscript
+        // 10's pdfwrite refuses -sOutputICCProfile: "undefined in .putdeviceprops").
         .arg(format!("--permit-file-read={}", profile.display()))
-        .arg(format!("-sOutputICCProfile={}", profile.display()))
         .arg(format!("-sOutputFile={}", rendered.display()))
         .arg(&definition).arg(&source)
         .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;

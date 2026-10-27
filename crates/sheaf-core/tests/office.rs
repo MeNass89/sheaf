@@ -275,6 +275,11 @@ fn a_markdown_file_a_mail_and_postscript_become_pdfs() {
 #[test]
 fn whole_sheet_export_keeps_outside_print_area_and_hidden_sheet_content() {
     if find_soffice().is_none() { return; }
+    // LibreOffice without Calc (Ubuntu's libreoffice-writer-nogui) loads no workbook.
+    if !["/usr/lib/libreoffice/program/libsclo.so", "/Applications/LibreOffice.app/Contents/Frameworks/libsclo.dylib"].iter().any(|p| std::path::Path::new(p).exists()) {
+        eprintln!("skip: LibreOffice Calc is not installed");
+        return;
+    }
     let t = tempfile::tempdir().unwrap();
     let source = t.path().join("workbook.xlsx");
     let mut book = rust_xlsxwriter::Workbook::new();

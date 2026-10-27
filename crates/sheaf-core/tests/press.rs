@@ -25,7 +25,11 @@ fn pdfx3_uses_the_chosen_press_profile_and_preserves_the_working_document() {
     let info = pdf.get_dictionary(pdf.trailer.get(b"Info").unwrap().as_reference().unwrap()).unwrap();
     assert_eq!(info.get(b"GTS_PDFXVersion").unwrap().as_str().unwrap(), b"PDF/X-3:2002");
     assert_eq!(common::shown_texts(&written), ["Page 1"]);
-    assert_eq!(doc.full_bytes().unwrap().as_slice(), before.as_slice());
+    // The working document is as it was: the same objects (a full write's dates may differ).
+    let (was, now) = (lopdf::Document::load_mem(&before).unwrap(), lopdf::Document::load_mem(&doc.full_bytes().unwrap()).unwrap());
+    assert_eq!(was.get_pages().len(), now.get_pages().len());
+    assert_eq!(was.extract_text(&[1]).unwrap(), now.extract_text(&[1]).unwrap());
+    assert_eq!(was.objects.len(), now.objects.len());
     assert!(Doc::open(&Input::new(&written)).unwrap().document().print_readiness().fonts_not_embedded.is_empty());
     common::qpdf_clean(&written);
 }

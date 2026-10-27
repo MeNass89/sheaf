@@ -89,15 +89,27 @@ fn convert_with_filter(soffice: Option<&Path>, input: &Path, out: &Path, timeout
     std::fs::create_dir(&outdir)?;
     let profile = file_url(&tmp.path().join("profile"));
 
-    let mut child = Command::new(&soffice)
+    let mut command = Command::new(&soffice);
+    command
         .arg(format!("-env:UserInstallation={profile}"))
         .args(["--headless", "--norestore", "--nologo", "--convert-to", filter, "--outdir"])
         .arg(&outdir)
         .arg(&input)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .spawn()?;
+        .stderr(Stdio::piped());
+    // A program just written (an installer's, a test's) can be busy for a moment while another
+    // thread's fork still holds it open (ETXTBSY): tried again a few times.
+    let mut tries = 0;
+    let mut child = loop {
+        match command.spawn() {
+            Err(e) if e.raw_os_error() == Some(26) && tries < 10 => {
+                tries += 1;
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            r => break r?,
+        }
+    };
 
     // Drain stderr on a thread so a chatty soffice can never block on a full pipe.
     let mut pipe = child.stderr.take().expect("stderr is piped");

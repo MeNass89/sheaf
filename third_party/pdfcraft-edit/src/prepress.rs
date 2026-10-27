@@ -54,6 +54,11 @@ pub fn fix_page_hairlines(doc: &mut Document, pages: &[usize], minimum: f64) -> 
                 return Err(EditError::Invalid("page contents are not readable streams; no hairline repair was applied".into()));
             };
             let bytes = stream.decoded_within(remaining)?;
+            // A stream that decodes to nothing from bytes that are there is damaged: refused, not
+            // written back empty (its drawing would be lost without a word).
+            if bytes.is_empty() && !stream.raw.is_empty() {
+                return Err(EditError::Invalid("a page's content cannot be read; no hairline repair was applied".into()));
+            }
             remaining -= bytes.len();
             streams.push((object, bytes));
         }

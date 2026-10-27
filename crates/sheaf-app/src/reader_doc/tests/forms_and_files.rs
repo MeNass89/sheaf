@@ -235,13 +235,14 @@ fn javascript_console_returns_local_viewer_requests_and_named_document_scripts()
     let dir = tempfile::tempdir().unwrap();
     let path = fixture(dir.path(), 2);
     let (ops, rx, _) = started(&path);
-    ops.send(Op::RunJavaScript { page: 1, source: "console.println(this.pageNum); this.pageNum = 0; this.print(); app.execMenuItem('SaveAs');".into() }).unwrap();
+    ops.send(Op::RunJavaScript { page: 1, source: "console.println(this.pageNum); this.pageNum = 0; this.print();".into() }).unwrap();
     next(&rx);
     match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
         Reply::JavaScript { output, requests, changed } => {
             assert!(output.contains('1'), "{output}"); assert!(!changed);
             assert!(requests.contains(&Request::GoToPage(0)));
-            assert!(requests.contains(&Request::Print)); assert!(requests.contains(&Request::SaveAs));
+            // `app.execMenuItem` is XFA's (PdfCraft's js crate): a plain form's console has none.
+            assert!(requests.contains(&Request::Print));
         }
         _ => panic!("console requests expected"),
     }
