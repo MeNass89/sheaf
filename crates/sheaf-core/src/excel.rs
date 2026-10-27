@@ -203,7 +203,10 @@ fn table(run: &[Vec<Segment>]) -> Option<Table> {
         let short = rows.iter().flatten().all(|c| c.split_whitespace().count() <= 3);
         let text_h = run.iter().flatten().map(|s| s.rect[3] - s.rect[1]).fold(0.0, f64::max);
         let apart = cols.windows(2).all(|w| w[1].0 - w[0].1 >= 3.0 * text_h);
-        let words = short && (cols.len() >= 3 || apart);
+        // Two columns: their cells start with a capital or a figure, as table cells do ("Dear
+        // client / Kind regards" are a letter's words).
+        let capitals = rows.iter().flatten().all(|c| c.chars().next().is_some_and(|ch| ch.is_uppercase() || ch.is_ascii_digit()));
+        let words = short && (cols.len() >= 3 || (apart && capitals));
         return (line_up.iter().all(|n| *n >= 2) && full && heading && (figure || words)).then_some(Table { rect, rows });
     }
     let lined_up = line_up.iter().any(|n| *n >= MIN_ROWS) && line_up.iter().all(|n| *n >= 2);
