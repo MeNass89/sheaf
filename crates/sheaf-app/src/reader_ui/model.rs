@@ -474,6 +474,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         zoom_mode: r.zoom_mode,
         spread: v.viewer.spread() as i32,
         rtl: v.viewer.rtl(),
+        horizontal: v.viewer.horizontal(),
         pen_width: r.pen_width,
         shape_kind: r.shape_kind,
         shape_fill: r.shape_fill,

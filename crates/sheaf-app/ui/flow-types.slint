@@ -397,6 +397,8 @@ export struct ReaderState {
     spread: int,
     // Pairs read right to left.
     rtl: bool,
+    // Pages across in one strip (PDF Expert's Horizontal scrolling).
+    horizontal: bool,
     // Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled; opacity of shapes and pen (%).
     shape-kind: int,
     shape-fill: bool,
@@ -741,6 +743,21 @@ export struct ToolTab {
     // The horizontal scroll set with viewer-scroll after a zoom around a point (negative: unchanged).
     viewer-scroll-x: length,
     viewer-scroll-seq: int,
+    // Split view (the reader's): 0 off, 1 side by side, 2 one above the other; the half the active
+    // pane takes (0 first, 1 second); Sync scroll; the other pane's scroll set (seq) and the panes
+    // swapped (swap); its pages, content size and scroll.
+    split-mode: int,
+    split-half: int,
+    split-sync: bool,
+    split-seq: int,
+    split-swap: int,
+    split-pages: [ViewerPage],
+    split-width: length,
+    split-height: length,
+    split-scroll: length,
+    split-scroll-x: length,
+    // The other document's name when the other pane shows another tab ("": this document).
+    split-title: string,
     // Redact
     redact-searched: bool,
     redact-busy: bool,
@@ -852,6 +869,16 @@ export global ReaderBridge {
     // One column → two pages → two pages with the cover alone.
     callback cycle-spread(int);
     callback toggle-rtl(int);
+    // Pages across in one strip, or back down a column.
+    callback toggle-horizontal(int);
+    // Split view: 0 off, 1 side by side, 2 one above the other; a press in the other pane makes it the
+    // active one; its Sync scroll.
+    callback split-view(int, int);
+    callback split-focus(int);
+    callback split-sync(int);
+    // Split with another open document (the k-th of split-names), and those names.
+    callback split-with(int, int);
+    pure callback split-names(int) -> [string];
     // Rotate View: the pages shown turned a quarter clockwise (1) or back (−1), not the file.
     callback rotate-view(int, int);
     callback toggle-grid(int);
@@ -1055,6 +1082,8 @@ export global ViewerBridge {
     callback viewport(int, length, length, length);
     // How far the view is scrolled across (⌘[ comes back to it).
     callback view-left(int, length);
+    // Split view's other pane scrolled (left, top) or resized (width, height).
+    callback second-viewport(int, length, length, length, length);
     callback strip-viewport(int, length, length);
     callback pressed(int, length, length);
     // The pointer moved with the button held (Redact shows the text a drag selects as it goes).

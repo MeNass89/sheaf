@@ -98,6 +98,8 @@ pub struct ViewerUi {
     // Sign: where the signature is centred (page, view-space point of the displayed page, in
     // points), and its height-to-width ratio once a graphic is made.
     pub sign_at: Option<(usize, f64, f64)>,
+    /// A split view's other pane (see `crate::split`): no thumbnails of its own.
+    pub pane: bool,
 }
 
 impl ViewerUi {
@@ -159,7 +161,78 @@ impl ViewerUi {
             last_double: None,
             text_renderer: None,
             sign_at: None,
+            pane: false,
         }
+    }
+
+    /// A viewer of the same document at the same place, zoom and look, rendering on its own: a split
+    /// view's other pane (PDF Expert's Split View). Its pages come from its own renders.
+    pub fn twin(&self) -> ViewerUi {
+        let mut t = ViewerUi::new(self.input.clone(), self.viewer.clone(), self.scale, (0.0, self.top as f32, self.height as f32), (0.0, 0.0));
+        t.left = self.left;
+        t.source = self.source.clone();
+        t.theme = self.theme;
+        t.hide_comments = self.hide_comments;
+        t.revs = self.revs.clone();
+        t.base_rev = self.base_rev;
+        t.next_rev = self.next_rev;
+        t.scroll = self.top;
+        t.scroll_x = Some(self.left);
+        t.pane = true;
+        t
+    }
+
+    /// A twin keeps up with `main`, the viewer the reader works in: the working copy and its
+    /// revisions (an edit renders again in both panes), the look, and the pages themselves (some
+    /// deleted, inserted or the view turned: laid out again at this pane's own zoom and place).
+    /// Returns whether it was laid out again (its scroll is then set anew).
+    pub fn follow(&mut self, main: &ViewerUi) -> bool {
+        if !self.source.as_ref().zip(main.source.as_ref()).is_some_and(|(a, b)| Arc::ptr_eq(a, b)) {
+            self.source = main.source.clone();
+            self.text_renderer = None;
+            self.texts.clear();
+        }
+        self.theme = main.theme;
+        self.hide_comments = main.hide_comments;
+        if self.revs != main.revs || self.base_rev != main.base_rev {
+            self.revs = main.revs.clone();
+            self.base_rev = main.base_rev;
+        }
+        self.next_rev = self.next_rev.max(main.next_rev);
+        if self.viewer.boxes != main.viewer.boxes {
+            let place = self.place();
+            let mut v = main.viewer.clone();
+            v.set_width(self.viewer.view_width());
+            v.set_height(self.height);
+            v.set_spread(self.viewer.spread());
+            v.set_rtl(self.viewer.rtl());
+            v.set_horizontal(self.viewer.horizontal());
+            v.set_zoom(self.viewer.zoom());
+            v.set_left(self.left);
+            self.viewer = v;
+            self.go_to_place((place.0.min(self.viewer.page_count().saturating_sub(1)), place.1, place.2));
+            return true;
+        }
+        false
+    }
+
+    /// A split view's panes swapped (see `crate::split`): the thumbnails strip, its place and its
+    /// renders, stay with the active pane.
+    pub fn swap_strip(&mut self, other: &mut ViewerUi) {
+        std::mem::swap(&mut self.strip_top, &mut other.strip_top);
+        std::mem::swap(&mut self.strip_height, &mut other.strip_height);
+        std::mem::swap(&mut self.thumbs, &mut other.thumbs);
+    }
+
+    /// The pages in view, placed and with their renders (the newest one while the right one is made).
+    pub fn pane_pages(&self) -> Vec<ViewerPage> {
+        self.wanted_pages()
+            .map(|i| {
+                let [x, y, w, h] = self.viewer.page_rect(i);
+                let image = self.any_page_image(i).cloned();
+                ViewerPage { page: i as i32, x: len(x), y: len(y), w: len(w), h: len(h), ready: image.is_some(), image: image.unwrap_or_default() }
+            })
+            .collect()
     }
 
     /// Page `page`'s text (read once).
@@ -204,7 +277,8 @@ impl ViewerUi {
         }
         self.scroll = self.viewer.scroll_to(page, focus, self.height);
         self.scroll_seq += 1;
-        self.scroll_x = None;
+        // Pages across: the page's row centred in the view.
+        self.scroll_x = self.viewer.horizontal().then(|| self.viewer.scroll_x_to(page));
     }
 
     /// Shows a destination as Acrobat does: at its zoom when it has one (/XYZ's, 1.0 = actual
@@ -375,9 +449,28 @@ pub fn load(ui: &AppWindow, tab_id: i32, input: Input) {
 fn update<R>(tab_id: i32, f: impl FnOnce(&mut ViewerUi) -> R) -> Option<R> {
     with(|a| {
         let r = a.tab(tab_id).and_then(|t| t.viewer.as_deref_mut()).map(f);
+        crate::split::follow(a, tab_id);
         refresh(a, tab_id);
         r
     })
+}
+
+/// Runs `f` on whichever viewer of tab `tab_id` renders load `doc` (its own or its split view's
+/// other pane), then pushes the tab to the UI; a render of an earlier document is dropped.
+fn update_doc(tab_id: i32, doc: u64, f: impl FnOnce(&mut ViewerUi)) {
+    with(|a| {
+        if let Some(t) = a.tab(tab_id) {
+            let own = t.viewer.as_deref_mut().filter(|v| v.load_id == doc);
+            let v = match own {
+                Some(v) => Some(v),
+                None => t.split.as_mut().map(|s| &mut *s.view).filter(|v| v.load_id == doc),
+            };
+            if let Some(v) = v {
+                f(v);
+            }
+        }
+        refresh(a, tab_id);
+    });
 }
 
 fn image_bytes(i: &Image) -> usize {
@@ -392,15 +485,24 @@ pub fn redraw_all(ui: &AppWindow) {
     }
 }
 
-/// Queues the renders the viewport needs and drops queued ones it no longer needs.
+/// Queues the renders the viewport needs and drops queued ones it no longer needs: the tab's viewer
+/// and a split view's other pane, each its own renders.
 pub fn request(ui: &AppWindow, tab_id: i32) {
+    request_for(ui, tab_id, false);
+    request_for(ui, tab_id, true);
+}
+
+fn request_for(ui: &AppWindow, tab_id: i32, pane: bool) {
     let todo = with(|a| {
-        let v = a.tab(tab_id)?.viewer.as_deref()?;
+        let t = a.tab(tab_id)?;
+        let v: &ViewerUi = if pane { &t.split.as_ref()?.view } else { t.viewer.as_deref()? };
         let mut keys: Vec<RenderKey> = Vec::new();
         if !v.zoom_settling {
             keys.extend(v.wanted_pages().map(|p| v.page_key(p)).filter(|k| !v.pages.contains(k)));
         }
-        keys.extend(v.wanted_thumbs().map(|p| v.thumb_key(p)).filter(|k| !v.thumbs.contains(k)));
+        if !v.pane {
+            keys.extend(v.wanted_thumbs().map(|p| v.thumb_key(p)).filter(|k| !v.thumbs.contains(k)));
+        }
         let rough = crate::home::rough();
         let look = viewer::PageLook { theme: v.theme, comments: !v.hide_comments, turn: v.viewer.turn(), smooth: [0, 1, 2].map(|k| rough & (1 << k) == 0) };
         Some((v.load_id, keys, v.input.clone(), v.source.clone(), look))
@@ -422,10 +524,7 @@ pub fn request(ui: &AppWindow, tab_id: i32) {
             let Ok(px) = px else { return };
             let _ = weak.upgrade_in_event_loop(move |_| {
                 let image = Image::from_rgba8(px);
-                update(tab_id, |v| {
-                    if v.load_id != key.doc {
-                        return;
-                    }
+                update_doc(tab_id, key.doc, |v| {
                     if key.thumb {
                         v.thumbs.retain(|k| k.page != key.page || k.rev >= key.rev);
                         v.thumbs.put(key, image);
@@ -473,7 +572,10 @@ pub fn redact_pending(tab_id: i32) -> Option<(String, usize)> {
 
 /// The view scrolled across to `left` (its own scroll or one asked for).
 pub fn view_left(tab_id: i32, left: f32) {
-    update(tab_id, |v| v.left = left as f64);
+    update(tab_id, |v| {
+        v.left = left as f64;
+        v.viewer.set_left(left as f64);
+    });
 }
 
 pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) {
@@ -484,6 +586,7 @@ pub fn viewport(ui: &AppWindow, tab_id: i32, width: f32, top: f32, height: f32) 
     });
     update(tab_id, |v| {
         v.viewer.set_width(width as f64);
+        v.viewer.set_height(height as f64);
         v.top = top as f64;
         v.height = height as f64;
         // One page at a time, scrolled away from its page (the scroll bar dragged): the page now in view.
@@ -539,7 +642,7 @@ pub fn thumb_clicked(tab_id: i32, page: i32) {
     update(tab_id, |v| {
         v.scroll = v.viewer.scroll_to(page.max(0) as usize, None, v.height);
         v.scroll_seq += 1;
-        v.scroll_x = None;
+        v.scroll_x = v.viewer.horizontal().then(|| v.viewer.scroll_x_to(page.max(0) as usize));
     });
 }
 
@@ -952,14 +1055,7 @@ fn page_label(p: usize) -> slint::SharedString {
 /// The viewer and Redact fields of `tab`.
 pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     let wanted = v.wanted_pages();
-    let pages: Vec<ViewerPage> = wanted
-        .clone()
-        .map(|i| {
-            let [x, y, w, h] = v.viewer.page_rect(i);
-            let image = v.any_page_image(i).cloned();
-            ViewerPage { page: i as i32, x: len(x), y: len(y), w: len(w), h: len(h), ready: image.is_some(), image: image.unwrap_or_default() }
-        })
-        .collect();
+    let pages = v.pane_pages();
     let tl = v.viewer.thumb_layout();
     let thumbs: Vec<ViewerThumb> = v
         .wanted_thumbs()
@@ -1205,5 +1301,31 @@ mod tests {
             ]
         );
         assert!(queries("  ", ",,").is_empty());
+    }
+
+    /// Pages across: a jump centres the page across (the vertical scroll alone left it where it was),
+    /// and the pages rendered follow the horizontal scroll.
+    #[test]
+    fn pages_across_are_gone_to_and_rendered_from_the_horizontal_scroll() {
+        let pages = (0..30).map(|_| viewer::PageBox { crop: [0.0, 0.0, 595.0, 842.0], rotation: 0, unit: 1.0 }).collect();
+        let mut viewer = Viewer::new(pages);
+        viewer.set_width(1000.0);
+        let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
+        v.show_page(12, None);
+        assert_eq!(v.scroll_x, None, "down a column, nothing across");
+        v.viewer.set_horizontal(true);
+        v.show_page(12, None);
+        let sx = v.scroll_x.expect("scrolled across");
+        assert_eq!(sx, v.viewer.scroll_x_to(12));
+        view_left_of(&mut v, sx);
+        assert_eq!(v.current(), 12);
+        let shown: Vec<i32> = v.pane_pages().iter().map(|p| p.page).collect();
+        assert!(shown.contains(&12) && !shown.contains(&0), "{shown:?}");
+    }
+
+    /// What [`view_left`] does to a tab's viewer.
+    fn view_left_of(v: &mut ViewerUi, left: f64) {
+        v.left = left;
+        v.viewer.set_left(left);
     }
 }

@@ -1024,6 +1024,7 @@ fn restore_view(v: &mut ViewerUi, path: &std::path::Path, width: f32) {
     if let Some((fit, zoom, spread)) = crate::home::last_view(path) {
         v.viewer.set_spread(spread & 3);
         v.viewer.set_rtl(spread & 0x10 != 0);
+        v.viewer.set_horizontal(spread & 0x20 != 0);
         match fit {
             // Before 25/10: a share of the window's width.
             2 => {
@@ -1184,6 +1185,7 @@ fn update<R>(tab_id: i32, f: impl FnOnce(&mut ReaderUi, &mut ViewerUi) -> R) -> 
             r.preview_timer = None;
             r.send(reader_doc::Op::Preview { edit: None, pages: vec![page] });
         }
+        crate::split::follow(a, tab_id);
         refresh(a, tab_id);
         Some(out)
     })

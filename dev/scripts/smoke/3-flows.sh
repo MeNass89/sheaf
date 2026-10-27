@@ -1136,3 +1136,66 @@ G1=$(guide)
 G2=$(guide)
 check "a click on the top ruler makes a guide, a second takes it away (${RU:-no item}; ruler at ${RB:-none}; guide $G0 → $G1 → $G2)" "[ \"$G0\" = 0 ] && [ \"$G1\" = 1 ] && [ \"$G2\" = 0 ]"
 quit
+
+# 200. More ▸ More tools ▸ Scrolling, split view, hand ▸ Scroll pages across (PDF Expert's Horizontal scrolling): the
+# pages in one strip, a page fitting the view's height, page 1 (red) at the strip's start; → brings page 2 (green) to the middle,
+# and a mouse's wheel moves along the strip.
+convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/across.pdf"; launch "$OUT/across.pdf"; sleep 1
+layout_item() { click 1127 61 0.8; click 1008 659 0.8; local m i; m=$(at Scrolling 300x700+880+80); [ -n "$m" ] && click $m 0.8; i=$(at "$1" 340x260+840+70); [ -n "$i" ] && click $i 1.2; echo "${i:-none}"; }
+greenish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, g = int(v[0:2], 16), int(v[2:4], 16); sys.exit(0 if g > r + 80 else 1)' "$1"; }
+viewsig() { import -window root -crop 1000x700+260+90 png:- 2>/dev/null | md5sum | cut -c1-8; }
+HI=$(layout_item across); sleep 0.5
+H0=$(colour_at 500); key Right; sleep 1; H1=$(colour_at 768)
+S0=$(viewsig); xdotool mousemove 768 420 click --repeat 4 5; sleep 1; S1=$(viewsig)
+check "pages run across: page 1 in the middle, → page 2, the wheel moves along ($HI; $H0 → $H1; $S0 → $S1)" "reddish '${H0:-#000000}' && greenish '${H1:-#000000}' && [ \"$S0\" != \"$S1\" ]"
+quit
+
+# 201. … ▸ Split view side by side (PDF Expert's Split View): both panes on page 1; End moves the first pane only,
+# to page 4 (yellow); with Sync scroll on, End moves the second pane with it.
+cp "$OUT/across.pdf" "$OUT/split.pdf"; launch "$OUT/split.pdf"; sleep 1
+yellowish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, g, b = (int(v[k:k + 2], 16) for k in (0, 2, 4)); sys.exit(0 if r > 180 and g > 150 and b < 100 else 1)' "$1"; }
+SI=$(layout_item side); sleep 1
+L0=$(colour_at 510); R0=$(colour_at 1020)
+key End; sleep 1; L1=$(colour_at 510); R1=$(colour_at 1020)
+key Home; sleep 1; SY=$(at Sync 600x80+680+90); [ -n "$SY" ] && click $SY 0.8
+key End; sleep 1; L2=$(colour_at 510); R2=$(colour_at 1020)
+check "split view: two panes, each scrolled on its own, then together ($SI; $L0 $R0 → $L1 $R1 → sync ${SY:-none} $L2 $R2)" "reddish '${L0:-#000000}' && reddish '${R0:-#000000}' && yellowish '${L1:-#000000}' && reddish '${R1:-#000000}' && yellowish '${L2:-#000000}' && yellowish '${R2:-#000000}'"
+quit
+
+# 202. The hand tool (⇧H, PDF Expert's Pan & Zoom): its note shows, a plain drag moves the page (no text selected),
+# ⌥ + drag up zooms in (Acrobat's Dynamic Zoom), Escape puts it away.
+cp "$OUT/text.pdf" "$OUT/hand.pdf"; launch "$OUT/hand.pdf"; sleep 1
+key shift+h; sleep 0.5; HT=$(ocr 1020x80+260+700)
+P0=$(viewsig); xdotool mousemove 760 500 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove 760 $(( 500 - i * 30 )); sleep 0.05; done; xdotool mouseup 1; sleep 1; P1=$(viewsig)
+xdotool keydown alt mousemove 760 500 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove 760 $(( 500 - i * 20 )); sleep 0.08; done; xdotool mouseup 1 keyup alt; sleep 1.5; P2=$(viewsig)
+key Escape; sleep 0.5; HE=$(ocr 1020x80+260+700)
+check "the hand tool drags and ⌥-drag zooms the pages, Escape ends it ($P0 → $P1 → $P2; $(echo "$HT" | cut -c1-30) / $(echo "$HE" | cut -c1-20))" "echo \"$HT\" | grep -q 'Hand tool' && ! echo \"$HE\" | grep -q 'Hand tool' && [ \"$P0\" != \"$P1\" ] && [ \"$P1\" != \"$P2\" ]"
+quit
+
+# 203. Split view, each pane its own (PDF Expert's): a press in the other pane makes it the active one and goes on
+# to it (text dragged over there is selected and copied), and ⌘+ then zooms that pane only.
+cp "$OUT/text.pdf" "$OUT/split2.pdf"; launch "$OUT/split2.pdf"; sleep 1
+SI=$(layout_item side); sleep 1.5
+read QX QY <<< "$(at quick 510x700+770+90)"
+echo -n | xclip -selection clipboard >/dev/null 2>&1
+[ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1; for i in 1 2 3 4; do xdotool mousemove $(( QX + i * 20 )) $QY; sleep 0.05; done; xdotool mouseup 1; sleep 0.8; key ctrl+c; }
+SC=$(xclip -o -selection clipboard 2>/dev/null | head -1)
+cp "$OUT/across.pdf" "$OUT/split3.pdf"; quit; launch "$OUT/split3.pdf"; sleep 1
+layout_item side >/dev/null; sleep 1.5
+redshare() { import -window root -crop 500x1+$1+420 png:- 2>/dev/null | convert - -fx '(r>0.6&&g<0.4&&b<0.4)?1:0' -format '%[fx:mean]' info: 2>/dev/null; }
+ZL0=$(redshare 262); ZR0=$(redshare 772)
+click 1020 420 0.8; key ctrl+equal; key ctrl+equal; sleep 1.5
+ZL1=$(redshare 262); ZR1=$(redshare 772)
+check "split view: a drag in the other pane selects there, and each pane zooms on its own ($SI; quick at ${QX:-?}; copied '$(echo "$SC" | cut -c1-20)'; red $ZL0 $ZR0 → $ZL1 $ZR1)" "echo \"$SC\" | grep -q 'quick' && python3 -c 'import sys; l0, r0, l1, r1 = map(float, sys.argv[1:]); sys.exit(0 if abs(l0 - r0) < 0.02 and abs(l1 - l0) < 0.02 and r1 > l1 + 0.03 else 1)' ${ZL0:-0} ${ZR0:-1} ${ZL1:-0} ${ZR1:-0}"
+quit
+
+# 204. … ▸ Split with across.pdf (PDF Expert's split of two documents): text.pdf's tab shows across.pdf's red page
+# in the other pane, named; a click there brings across.pdf's tab forward with text.pdf in its other pane, each
+# half still showing what it showed.
+cp "$OUT/text.pdf" "$OUT/split4.pdf"; launch "$OUT/split3.pdf" "$OUT/split4.pdf"; sleep 3
+WI=$(layout_item with); sleep 1.5
+D0=$(colour_at 1020); N0=$(ocr 500x60+770+90)
+click 1020 420 1.5
+D1=$(colour_at 1020); L1=$(colour_at 510); N1=$(ocr 500x60+260+90)
+check "split with another document, then its tab forward with this one beside it ($WI; $D0 '$(echo "$N0" | cut -c1-20)' → $L1 $D1 '$(echo "$N1" | cut -c1-20)')" "reddish '${D0:-#000000}' && echo \"$N0\" | grep -q 'split3' && reddish '${D1:-#000000}' && ! reddish '${L1:-#FF0000}' && echo \"$N1\" | grep -q 'split4'"
+quit
