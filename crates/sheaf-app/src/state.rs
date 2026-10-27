@@ -264,12 +264,19 @@ pub struct App {
     pub objects_clip: Option<ObjectsClip>,
 }
 
-/// A comment copied (⌘C): its XFDF element, the picture of a picture stamp (file name, bytes:
-/// XFDF carries no appearance, Sol 25/10), the file and page it came from.
+/// A picture stamp's picture: its name and bytes.
+pub type Picture = (String, std::sync::Arc<Vec<u8>>);
+/// A comment copied: its XFDF element, and a picture stamp's picture.
+pub type CopiedComment = (String, Option<Picture>);
+/// Objects copied that are not text: their PDF and where they showed.
+pub type CopiedRest = (std::sync::Arc<Vec<u8>>, [f64; 4]);
+
+/// A comment copied (⌘C): each comment copied (its XFDF element, the picture of a picture stamp (file name, bytes:
+/// XFDF carries no appearance, Sol 25/10)), the file and page it came from.
 #[derive(Clone)]
 pub struct CommentClip {
     /// Each comment copied: its XFDF element, and a picture stamp's picture.
-    pub items: Vec<(String, Option<(String, std::sync::Arc<Vec<u8>>)>)>,
+    pub items: Vec<CopiedComment>,
     pub from: PathBuf,
     pub page: usize,
 }
@@ -286,7 +293,7 @@ pub struct ObjectsClip {
     /// The paragraphs among them, each as text in its box as shown: pasted as text again.
     pub texts: Vec<sheaf_core::pdfcraft::engine::AddedText>,
     /// With paragraphs, the other objects: their PDF and where they showed.
-    pub rest: Option<(std::sync::Arc<Vec<u8>>, [f64; 4])>,
+    pub rest: Option<CopiedRest>,
 }
 
 impl ObjectsClip {
@@ -296,7 +303,7 @@ impl ObjectsClip {
         texts: Vec<Option<sheaf_core::pdfcraft::engine::AddedText>>,
         rest: Option<std::sync::Arc<Vec<u8>>>,
         layout: &[[f64; 4]],
-    ) -> (Vec<sheaf_core::pdfcraft::engine::AddedText>, Option<(std::sync::Arc<Vec<u8>>, [f64; 4])>) {
+    ) -> (Vec<sheaf_core::pdfcraft::engine::AddedText>, Option<CopiedRest>) {
         if layout.len() != texts.len() || texts.iter().all(Option::is_none) {
             return (Vec::new(), None);
         }

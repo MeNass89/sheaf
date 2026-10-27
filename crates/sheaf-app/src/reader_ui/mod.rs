@@ -296,7 +296,7 @@ pub struct ReaderUi {
     copy_from: Option<usize>,
     /// Comments copied together: how many were asked, and those come back so far.
     comments_asked: usize,
-    comments_copied: Vec<(String, Option<(String, Arc<Vec<u8>>)>)>,
+    comments_copied: Vec<crate::state::CopiedComment>,
     /// Objects copied: each one's box as shown (display space), until their copy comes back.
     copy_layout: Vec<[f64; 4]>,
     /// The tool it goes to then (Redact from the edit group), else the Tools page.

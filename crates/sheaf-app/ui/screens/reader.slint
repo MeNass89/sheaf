@@ -712,7 +712,7 @@ export component ReaderScreen inherits Rectangle {
                 }
                 // Full screen: the page comes in with its transition (Acrobat's Page Transitions): a
                 // curtain of the window's background drawn back, faded, across or from the middle.
-                if root.bare && root.tab.reader.page-effect > 0: Rectangle {
+                if root.bare && root.tab.reader.page-effect > 0: fx := Rectangle {
                     property <int> page: root.tab.viewer-current;
                     property <int> last: root.tab.viewer-current;
                     property <float> left: root.effect-left;
@@ -731,40 +731,40 @@ export component ReaderScreen inherits Rectangle {
                     width: sv.width;
                     height: sv.height;
                     // Fade: the window's background over the page, fading out.
-                    if parent.kind == 1: Rectangle { background: Theme.content-bg; opacity: parent.left; }
+                    if fx.kind == 1: Rectangle { background: Theme.content-bg; opacity: fx.left; }
                     // Wipe: drawn back left to right.
-                    if parent.kind == 2: Rectangle { x: parent.width * (1 - parent.left); width: parent.width * parent.left; background: Theme.content-bg; }
+                    if fx.kind == 2: Rectangle { x: parent.width * (1 - fx.left); width: parent.width * fx.left; background: Theme.content-bg; }
                     // Split: two halves drawn back from the middle.
-                    if parent.kind == 3: Rectangle { x: parent.width * (1 - parent.left) / 2; width: parent.width * parent.left; background: Theme.content-bg; }
+                    if fx.kind == 3: Rectangle { x: parent.width * (1 - fx.left) / 2; width: parent.width * fx.left; background: Theme.content-bg; }
                     // Box: a box opening from the middle.
-                    if parent.kind == 4: Rectangle {
-                        Rectangle { height: parent.height * parent.parent.left / 2; y: 0; background: Theme.content-bg; }
-                        Rectangle { height: parent.height * parent.parent.left / 2; y: parent.height - self.height; background: Theme.content-bg; }
-                        Rectangle { width: parent.width * parent.parent.left / 2; x: 0; background: Theme.content-bg; }
-                        Rectangle { width: parent.width * parent.parent.left / 2; x: parent.width - self.width; background: Theme.content-bg; }
+                    if fx.kind == 4: Rectangle {
+                        Rectangle { height: parent.height * fx.left / 2; y: 0; background: Theme.content-bg; }
+                        Rectangle { height: parent.height * fx.left / 2; y: parent.height - self.height; background: Theme.content-bg; }
+                        Rectangle { width: parent.width * fx.left / 2; x: 0; background: Theme.content-bg; }
+                        Rectangle { width: parent.width * fx.left / 2; x: parent.width - self.width; background: Theme.content-bg; }
                     }
                     // Blinds: ten slats closing up together.
-                    if parent.kind == 5: Rectangle {
+                    if fx.kind == 5: Rectangle {
                         for k in 10: Rectangle {
                             y: parent.height * k / 10;
-                            height: parent.height / 10 * parent.parent.left;
+                            height: parent.height / 10 * fx.left;
                             background: Theme.content-bg;
                         }
                     }
                     // Dissolve: squares going in a scattered order; Glitter: in a sweep from the left,
                     // scattered a little.
-                    if parent.kind == 6 || parent.kind == 7: Rectangle {
+                    if fx.kind == 6 || fx.kind == 7: Rectangle {
                         for k in 192: Rectangle {
-                            property <int> col: Math.mod(k, 16);
-                            property <int> row: Math.floor(k / 16);
+                            property <int> across: Math.mod(k, 16);
+                            property <int> down: Math.floor(k / 16);
                             property <float> scatter: Math.mod(k * 67 + 29, 192) / 192;
-                            property <float> at: parent.parent.kind == 6 ? scatter : (self.col + self.row / 3) / 20 * 0.8 + scatter * 0.2;
-                            x: parent.width * self.col / 16;
-                            y: parent.height * self.row / 12;
+                            property <float> at: fx.kind == 6 ? scatter : (self.across + self.down / 3) / 20 * 0.8 + scatter * 0.2;
+                            x: parent.width * self.across / 16;
+                            y: parent.height * self.down / 12;
                             width: parent.width / 16 + 1px;
                             height: parent.height / 12 + 1px;
                             background: Theme.content-bg;
-                            visible: parent.parent.left > self.at;
+                            visible: fx.left > self.at;
                         }
                     }
                 }
