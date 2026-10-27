@@ -54,7 +54,9 @@ layer lint cargo_ clippy --workspace --all-targets -- -D warnings
 layer unit bash -c 'cargo_ test --workspace --no-fail-fast && cargo_ test -p pdfcraft-edit --lib && cargo_ test -p pdfcraft-export --lib && cargo_ test -p pdfcraft-ocr --lib'
 # The reader driven for real (Xvfb + xdotool), checked on the files it writes.
 if command -v Xvfb >/dev/null && command -v xdotool >/dev/null && command -v qpdf >/dev/null; then
-    layer gui bash -c 'cargo_ build -p sheaf-app && bash dev/scripts/gui-smoke.sh'
+    # Four cores or more: three shards at once (gui-parallel.sh), each on its own display.
+    if [ "$(nproc)" -ge 4 ]; then smoke=gui-parallel.sh; else smoke=gui-smoke.sh; fi
+    layer gui bash -c "cargo_ build -p sheaf-app && bash dev/scripts/$smoke"
 else
     skip gui "needs Xvfb, xdotool and qpdf"
 fi

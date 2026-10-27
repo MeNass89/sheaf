@@ -104,7 +104,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | A menu bar command | `src/platform.rs` `COMMANDS` (at the end) + its `MenuItem` in `ui/main.slint`'s `MenuBar`, reading `PlatformBridge.keys[<its index>]` |
 | A reader tool's letter | `src/platform.rs` `TOOLS` (by tool number; reader.slint asks `PlatformBridge.tool-for-key`) |
 | Right to left for a row | a `FlexboxLayout` with `flex-direction: PlatformBridge.rtl ? row-reverse : row` (Slint's HorizontalLayout has no direction) |
-| A test | a layer already exists for it in `scripts/test.sh`: unit tests next to the code or in `crates/*/tests/`, GUI checks in `dev/scripts/smoke/*.sh` (the steps, in order; `dev/scripts/gui-smoke.sh` holds the setup and helpers and runs them) |
+| A test | a layer already exists for it in `scripts/test.sh`: unit tests next to the code or in `crates/*/tests/`, GUI checks in `dev/scripts/smoke/*.sh` (the steps, in order; `dev/scripts/gui-smoke.sh` holds the setup and helpers and runs them; `dev/scripts/gui-parallel.sh` runs them in three shards on their own displays on a machine with 4 cores or more, `dev/scripts/smoke-helpers.py` gathering the helpers each part defines) |
 | PDF to Word quality | `dev/scripts/word-corpus.py`: Word originals → PDF → Sheaf's export, measured against the original (words in order, tables, no text boxes, pages); not in the suite (needs LibreOffice and python-docx) |
 
 ## Vocabulary
