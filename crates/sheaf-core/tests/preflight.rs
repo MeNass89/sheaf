@@ -57,3 +57,37 @@ fn preflight_profiles_reject_thresholds_that_would_hide_failures() {
     }
     assert!(preflight::validate(Default::default()).is_ok());
 }
+
+#[test]
+fn preflight_inventories_nested_press_resources_without_claiming_ink_simulation() {
+    let t = tempfile::tempdir().unwrap();
+    let source = t.path().join("resources.pdf");
+    let mut pdf = lopdf::Document::with_version("1.7");
+    let pages = pdf.new_object_id();
+    let colour = pdf.add_object(Object::Array(vec![Object::Name(b"Separation".to_vec()), Object::Name(b"BrandOrange".to_vec()), Object::Name(b"DeviceCMYK".to_vec()), dictionary! { "FunctionType" => 2, "Domain" => vec![0.into(), 1.into()], "C0" => vec![0.into(), 0.into(), 0.into(), 0.into()], "C1" => vec![0.into(), 0.5.into(), 1.into(), 0.into()], "N" => 1 }.into()]));
+    let group = pdf.add_object(Stream::new(dictionary! {
+        "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 100.into(), 100.into()],
+        "Group" => dictionary! { "S" => "Transparency" },
+        "Resources" => dictionary! { "ColorSpace" => dictionary! { "Brand" => colour }, "ExtGState" => dictionary! { "Press" => dictionary! { "OP" => true, "ca" => 0.5 } } }
+    }, Vec::new()));
+    let page = pdf.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 300.into(), 400.into()], "Resources" => dictionary! { "XObject" => dictionary! { "Group" => group } } });
+    let plain = pdf.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 300.into(), 400.into()], "Resources" => dictionary! {} });
+    pdf.objects.insert(pages, dictionary! { "Type" => "Pages", "Count" => 2, "Kids" => vec![page.into(), plain.into()] }.into());
+    let root = pdf.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    pdf.trailer.set("Root", root);
+    pdf.save(&source).unwrap();
+    let doc = Doc::open(&Input::new(&source)).unwrap();
+    let before = doc.full_bytes().unwrap();
+    let readiness = doc.document().print_readiness();
+    for id in ["spot-colour", "overprint", "transparency"] {
+        assert!(readiness.findings.iter().any(|f| f.id == id && f.page == Some(1)), "{id}");
+        assert!(!readiness.findings.iter().any(|f| f.id == id && f.page == Some(2)), "{id} leaked to the plain page");
+    }
+    assert!(readiness.findings.iter().any(|f| f.id == "spot-colour" && f.message.contains("BrandOrange") && f.message.contains("unused")));
+    let report = preflight::report(&doc, "resources.pdf", "2026-10-27 UTC");
+    assert!(report.contains("Profile: Close-up print"));
+    assert!(report.contains("overprint simulation") && report.contains("separations preview"));
+    assert_eq!(doc.full_bytes().unwrap().as_slice(), before.as_slice());
+    let report = preflight::report_with_profile(&doc, "resources.pdf", "now", preflight::Profile { fail_ppi: 72.0, warn_ppi: 150.0, min_bleed_mm: 3.0 }).unwrap();
+    assert!(report.contains("Profile: Large format"));
+}

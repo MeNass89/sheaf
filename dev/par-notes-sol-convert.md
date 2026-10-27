@@ -429,3 +429,23 @@ LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
 - not automatable: both-theme production sheet, grouped-art repair on a selected page and undo —
   rule 1 forbids app execution. Grade: f6 a7 p7, provisional source evidence only.
 - LIGNES : max 3 (hairline description, title + two lines) · cases > 6 : aucune.
+
+## Pass 3 — C-optimize-012
+
+- C-optimize-012: Print preflight now inventories nested resource declarations for spot colours
+  (Separation/DeviceN), enabled overprint, alpha, soft masks, blend modes and transparency groups
+  in Rust. Findings identify each page and explicitly include potentially unused resources;
+  the report does not equate this inventory with painted ink simulation. Cyclic references are
+  visited once and depth/work limits produce an incomplete-inventory warning rather than a pass.
+- Reports identify Close-up print / Large format presets by their actual thresholds, keeping
+  custom thresholds named custom. The results sheet links directly to the existing undoable
+  hairline/page-box fixups, rather than requiring the reader to rediscover More tools.
+- Test `preflight_inventories_nested_press_resources_without_claiming_ink_simulation` covers
+  nested, indirect, unused spot/overprint/transparency resources, isolation of an unaffected
+  page, named profiles, stated simulation limits and no source mutation. Written, not run.
+- Left: actual separations/total area coverage/overprint preview, profile-specific automatic
+  fixups, ISO PDF/X validation and durable successive-run audit history. Opening production
+  controls is not a claim of automatic fixes for every finding. No dependency/new public API.
+- not automatable: results-to-fixups link and both-theme sheet layout — rule 1 forbids the app.
+- Grade: f6 a7 p7, partial. Existing report row splitter still limits each block to title + four
+  40-character lines. LIGNES : max 5 (preflight finding) · cases > 6 : aucune.

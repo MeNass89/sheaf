@@ -12,6 +12,9 @@ use pdfcraft_preflight::{Issue, Level};
 
 use crate::Document as OpenDocument;
 
+#[path = "print_resources.rs"]
+mod resources;
+
 /// Acrobat's Preflight profiles: thresholds depend on the intended press job.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Profile {
@@ -133,7 +136,7 @@ impl PrintReadiness {
                 out.push_str(&format!("- [{}] {}\n", finding.severity, finding.message));
             }
         }
-        out.push_str("Not checked: PDF/X, overprint, total area coverage, spot colours, transparency flattening.\n");
+        out.push_str("Resource checks inventory declarations, including unused resources; they do not simulate output.\nNot checked: PDF/X, overprint simulation, total area coverage, separations preview, transparency flattening.\n");
         out
     }
 }
@@ -177,7 +180,7 @@ fn inspect(doc: &Document, profile: Profile) -> PrintReadiness {
     let model_pages = pdfcraft_model::pages(doc);
     let pages = page_reports(doc, &model_pages);
     let (images, resolution_unknown) = image_reports(doc, &model_pages);
-    let mut findings = Vec::new();
+    let mut findings = resources::findings(doc, &model_pages);
     // Without a TrimBox the trim, the bleed and the crop are the same box, so there is no bleed to
     // measure. That is a property of the document, not a fault on every page: report it once.
     let untrimmed = pages.iter().filter(|page| !page.trim_set).count();
