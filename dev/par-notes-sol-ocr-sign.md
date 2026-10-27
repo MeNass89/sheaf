@@ -602,3 +602,15 @@
   `mixed_scripts_use_all_selected_packs_and_refuse_missing_or_conflicting_packs`,
   `local_ocr_keeps_cjk_words_lines_and_vertical_geometry`; these are parsing/selection proof,
   not proof of bundled Japanese recognition. The counterpart's stock-install gap stays open.
+
+## Third pass — C-security-007 (not implemented)
+
+- Rechecked the locked crypt reader: `crates/crypt/src/lib.rs:147` rejects non-Standard
+  filters; the local COS EncryptDict route still has no recipient-envelope read/write contract.
+  Existing signing CMS primitives do not provide PDF public-key encryption by themselves.
+- Certificate encryption remains absent. Closing it requires CMS EnvelopedData recipient
+  envelopes, Adobe.PubSec key derivation/crypt filters, recipient private-key unlocking and
+  reader support together. An output-only path would create a PDF Sheaf cannot reopen; none
+  added. This is a substantial unimplemented native Rust feature, not a network dependency.
+  No new API, dependency, test or certificate-encryption UI claimed.
+- Proposed grade: C-security-007: f0 a0 p0 — no implementation. The original gap stays open.
