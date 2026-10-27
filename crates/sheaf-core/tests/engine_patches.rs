@@ -95,6 +95,7 @@ fn custom_commands_round_trip_and_apply_rotation_and_metadata() {
     let mut session = Session::new();
     let id = session.open("out.pdf", None, out.bytes, None).unwrap();
     assert_eq!(session.get(id).unwrap().info.author.as_deref(), Some("A. Writer"));
+    assert_eq!(session.get(id).unwrap().info.pages[0].rotation, 90);
     assert_eq!(out.log.len(), 5);
 }
 

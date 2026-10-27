@@ -129,13 +129,14 @@ pub fn unused_name(name: &str, all: &[SavedAction]) -> String {
 /// Run steps sequentially, pausing before each prompted step. No output is published until
 /// every step succeeds; a failure leaves the input untouched. `before` returns false to cancel.
 pub fn run_file(action: &SavedAction, input: &Path, out_dir: &Path, before: &mut dyn FnMut(usize, &ActionStep) -> bool) -> Result<PathBuf> {
-    run_file_configured(action, input, out_dir, None, &mut |i, step| before(i, step))
+    run_file_configured(action, input, out_dir, None, &mut |i, step| before(i, step), &mut || true)
 }
 
 /// Password and prompted edits apply only to this run, leaving the saved template untouched.
 pub fn run_file_configured(
     action: &SavedAction, input: &Path, out_dir: &Path, password: Option<&str>,
     before: &mut dyn FnMut(usize, &mut ActionStep) -> bool,
+    publish: &mut dyn FnMut() -> bool,
 ) -> Result<PathBuf> {
     action.validate()?;
     let bytes = Arc::new(std::fs::read(input)?);
@@ -152,6 +153,7 @@ pub fn run_file_configured(
     });
     if cancelled { return Err(OpdfError::Cancelled); }
     let bytes = result.map_err(OpdfError::Engine)?.bytes;
+    if !publish() { return Err(OpdfError::Cancelled); }
     std::fs::create_dir_all(out_dir)?;
     let stem = input.file_stem().unwrap_or_default().to_string_lossy();
     sheaf_core::paths::atomic_write(&out_dir.join(format!("{stem} - processed.pdf")), |part| {
@@ -291,9 +293,23 @@ mod tests {
         action.steps[0].prompt = true;
         let output = run_file_configured(&action, &input, dir.path(), None, &mut |_, step| {
             step.argument = "Title entered at the pause".into(); true
-        }).unwrap();
+        }, &mut || true).unwrap();
         assert_eq!(Doc::open(&Input::new(output)).unwrap().document().info.title.as_deref(), Some("Title entered at the pause"));
         assert_eq!(action.steps[0].argument, "Template title");
+        assert_eq!(std::fs::read(input).unwrap(), *bytes);
+    }
+
+    #[test]
+    fn stopping_during_the_last_step_does_not_publish_its_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("input.pdf");
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Keep").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
+        let mut action = SavedAction::empty();
+        action.steps.push(ActionStep::from_engine(&Step::SetTitle("Changed".into())));
+        let output = dir.path().join("outputs");
+        assert!(matches!(run_file_configured(&action, &input, &output, None, &mut |_, _| true, &mut || false), Err(OpdfError::Cancelled)));
+        assert!(!output.exists());
         assert_eq!(std::fs::read(input).unwrap(), *bytes);
     }
 

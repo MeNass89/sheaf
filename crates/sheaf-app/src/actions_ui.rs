@@ -346,7 +346,7 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
                         Err(_) => {}
                     }
                 }
-            });
+            }, &mut || !cancel.load(Ordering::Relaxed));
             match r {
                 Ok(path) => {
                     written += 1;

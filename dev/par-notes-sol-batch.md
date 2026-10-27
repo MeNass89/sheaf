@@ -139,7 +139,8 @@ errors back to this worker; do not grade parity from this implementation report 
   passwords can be entered in a masked field before Run and are cleared from the UI, never
   serialized. Each completed output has Open and Show in folder. The runner now keeps one
   engine session for the entire sequence instead of writing/reopening once per step, preserving
-  password authentication and undo state between steps. New public engine API `actions::run_guided`;
+  password authentication between steps. Private batch undo revisions are discarded after each
+  step to avoid retaining up to 100 full-document histories. New public engine API `actions::run_guided`;
   app `actions::run_file_configured`. Existing `run_on` / `run_file` remain compatible wrappers.
   Tests `prompted_settings_affect_this_run_without_changing_the_saved_action`,
   `a_guided_action_opens_encrypted_input_and_keeps_its_protection`; cancellation regression now
@@ -224,3 +225,8 @@ errors back to this worker; do not grade parity from this implementation report 
   preserved omitted fields, which is not equivalent. Metadata import/export is now explicitly
   refused; its rejection joins the regression test. Rotation and form flattening remain exact
   supported translations. No unsupported operation is silently converted or dropped.
+
+- C-batch-003 final boundary: cancellation is checked again after the last engine step, before
+  publishing the unique output. Test `stopping_during_the_last_step_does_not_publish_its_output`
+  (written, not run). The configured runner takes an explicit `publish` predicate; the GUI's
+  Stop token supplies it, while the compatible unattended wrapper always permits publication.

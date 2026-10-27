@@ -262,6 +262,11 @@ pub fn run_guided(
         if let Some(new) = apply_step(&mut s, id, &step, &mut log).map_err(|e| format!("{}: {e}", step.label()))? {
             id = new;
         }
+        // Batch outputs cannot be undone in this private session. Drop prior revisions now,
+        // rather than retaining up to 100 full document states until the last step.
+        if let Ok(doc) = s.doc_mut(id) && let Some(editor) = doc.editor.as_mut() {
+            editor.undo.clear(); editor.redo.clear();
+        }
     }
     let d = s.get(id).ok_or("the document was lost")?;
     // A signed file keeps its signatures: incremental. Otherwise a clean full rewrite.
