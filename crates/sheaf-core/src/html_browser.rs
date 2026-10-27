@@ -43,10 +43,10 @@ fn to_pdf_with(html: &str, options: Options, out: &Path, browser: &Path) -> Resu
     let dom = run(browser, &source, tmp.path(), width, None)?;
     let measured = measurement(&dom, &nonce)?;
     let height = if options.long_page { Some(measured) } else { None };
-    if let Some(height) = height {
-        if f64::from(height) * 0.75 + options.margin * 2.0 > 14_400.0 {
-            return Err(OpdfError::Unsupported("This screen layout exceeds a 200-inch PDF page. Choose paper pages or a wider screen width".into()));
-        }
+    if let Some(height) = height
+        && f64::from(height) * 0.75 + options.margin * 2.0 > 14_400.0
+    {
+        return Err(OpdfError::Unsupported("This screen layout exceeds a 200-inch PDF page. Choose paper pages or a wider screen width".into()));
     }
     std::fs::write(&source, prepare(html, width, options.margin, &nonce, height)?)?;
     let printed = tmp.path().join("screen.pdf");

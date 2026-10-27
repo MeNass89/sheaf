@@ -85,7 +85,7 @@ fn to_pdfa_checked(input: &Input, level: PdfALevel, allow_incomplete: bool, out:
     let bytes = if level == PdfALevel::A1b { std::sync::Arc::new(part1::rewrite(bytes.as_slice())?) } else { bytes };
     let mut issues = Vec::new();
     let path = atomic_write(out, |part| {
-        std::fs::write(part, &bytes)?;
+        std::fs::write(part, bytes.as_slice())?;
         issues = check(&Input::new(part), level)?;
         if !allow_incomplete && !issues.is_empty() {
             let detail = issues.iter().map(|i| format!("{}: {}", i.clause, i.message)).collect::<Vec<_>>().join("\n");

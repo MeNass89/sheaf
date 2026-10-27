@@ -5511,9 +5511,9 @@ checksum = "ad78bf43dcf80e8f950c92b84f938a0fc7590b7f6866fbcbeca781609c115590"
 
 [[package]]
 name = "pkcs1"
-version = "0.8.0-rc.5"
+version = "0.8.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f485dbafe293ea6ccaa7d82bc591651a796eb8a9aec3df040b057b706073dbc3"
+checksum = "986d2e952779af96ea048f160fd9194e1751b4faea78bcf3ceb456efe008088e"
 dependencies = [
  "der 0.8.2",
  "spki 0.8.1",
@@ -6216,6 +6216,7 @@ dependencies = [
  "pkcs8",
  "rand_core 0.10.1",
  "signature 3.0.0",
+ "spki 0.8.1",
  "zeroize",
 ]
 
@@ -6347,6 +6348,16 @@ checksum = "1007f05160f9ea2ce4e9c67324e5bafb27ae1e5302d0c6b1ea4db0d35fed78ee"
 dependencies = [
  "rten-base",
  "rten-simd",
+]
+
+[[package]]
+name = "rust-stemmers"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e46a2036019fdb888131db7a4c847a1063a7493f971ed94ea82c67eada63ca54"
+dependencies = [
+ "serde",
+ "serde_derive",
 ]
 
 [[package]]
@@ -6801,12 +6812,15 @@ dependencies = [
  "image",
  "lopdf",
  "parking_lot",
+ "pdfcraft-cos",
  "pdfcraft-edit",
  "pdfcraft-engine",
  "pdfcraft-export",
  "pdfcraft-fonts",
  "pdfcraft-render",
  "pdfium-render",
+ "rsa",
+ "rust-stemmers",
  "rust_xlsxwriter",
  "serde",
  "serde_json",

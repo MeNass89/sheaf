@@ -783,12 +783,12 @@ fn console_edits_page_and_link_scripts_preserving_other_events_chains_and_undo()
     let path = prepress_pdf(dir.path(), &[b"BT ET"]);
     let mut pdf = lopdf::Document::load(&path).unwrap(); let page = pdf.get_pages()[&1];
     let close = pdf.add_object(Stream::new(dictionary! {}, b"console.println('close');".to_vec()));
-    let link = pdf.add_object(dictionary! {"Type":"Annot", "Subtype":"Link", "Rect":vec![10.into(),20.into(),100.into(),60.into()],
-        "A": dictionary! {"S":"JavaScript", "JS":Object::string_literal("console.println('link');"), "Next":dictionary! {"S":"URI","URI":Object::string_literal("https://example.test")}},
-        "AA":dictionary! {"E":dictionary! {"S":"JavaScript","JS":Object::string_literal("console.println('enter');")}}
+    let link = pdf.add_object(dictionary! {"Type" => "Annot", "Subtype" => "Link", "Rect" => vec![10.into(),20.into(),100.into(),60.into()],
+        "A" =>  dictionary! {"S" => "JavaScript", "JS" => Object::string_literal("console.println('link');"), "Next" => dictionary! {"S" => "URI","URI" => Object::string_literal("https://example.test")}},
+        "AA" => dictionary! {"E" => dictionary! {"S" => "JavaScript","JS" => Object::string_literal("console.println('enter');")}}
     });
     let pd = pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap();
-    pd.set("AA", dictionary! {"O":dictionary! {"S":"JavaScript","JS":Object::string_literal("console.println('open');")}, "C":dictionary! {"S":"JavaScript","JS":close}});
+    pd.set("AA", dictionary! {"O" => dictionary! {"S" => "JavaScript","JS" => Object::string_literal("console.println('open');")}, "C" => dictionary! {"S" => "JavaScript","JS" => close}});
     pd.set("Annots", vec![link.into()]); pdf.save(&path).unwrap();
     let mut doc = Doc::open(&Input::new(path)).unwrap();
     let scripts = doc.document().console_scripts(); assert_eq!(scripts.iter().filter(|s| s.target.is_some()).count(), 4);

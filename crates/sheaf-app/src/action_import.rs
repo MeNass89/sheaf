@@ -127,7 +127,7 @@ fn step(operation: &Value, warnings: &mut Vec<String>) -> Result<Vec<Step>> {
             if tool == "keep_pages" {
                 let mut last = 0;
                 for part in pages.split(',') {
-                    let (start, end) = part.trim().split_once('-').map_or((part.trim(), part.trim()), |p| p);
+                    let (start, end) = part.trim().split_once('-').unwrap_or((part.trim(), part.trim()));
                     let start = start.trim().parse::<usize>().map_err(|_| invalid("Invalid extract page range"))?;
                     let end = end.trim().parse::<usize>().map_err(|_| invalid("Invalid extract page range"))?;
                     if start <= last || end < start { return Err(invalid("Reordered or duplicate extraction ranges cannot be imported yet")); }

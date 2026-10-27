@@ -303,8 +303,8 @@ mod tests {
         assert!(pages("दी", SearchOptions { whole_words: true, ..Default::default() }).is_empty());
         assert_eq!(pages("(signed OR invoice) AND NOT unsigned", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [0]);
         assert_eq!(pages("signed OR invoice AND NOT pending", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [0]);
-        assert_eq!(pages("NOT "red blue" AND green", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [6]);
-        assert_eq!(pages(""état du contrat" AND signed", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [0]);
+        assert_eq!(pages(r#"NOT "red blue" AND green"#, SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [6]);
+        assert_eq!(pages(r#""état du contrat" AND signed"#, SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [0]);
         assert_eq!(pages("runs", SearchOptions { english_stemming: true, ..Default::default() }), [0]);
         assert_eq!(pages("red blue", SearchOptions { mode: SearchMode::Proximity, proximity: 1, ..Default::default() }), [3]);
         assert_eq!(pages("go go", SearchOptions { mode: SearchMode::Proximity, proximity: 1, ..Default::default() }), [5]);
