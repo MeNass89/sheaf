@@ -21,7 +21,7 @@ export component OptionsPanel inherits VerticalLayout {
     in property <bool> has-preview;
     in property <float> preview-w;
     in property <float> preview-h;
-    out property <bool> valid: (!root.office-missing || (root.tool == "excel_to_pdf" && root.layout == 2)) && (
+    out property <bool> valid: (!root.office-missing || (root.tool == "excel_to_pdf" && root.layout == 2) || (root.tool == "html_to_pdf" && root.layout != 0 && root.html-screen-width > 0)) && (
         root.tool == "protect" ? (root.require-open ? root.password != "" && root.password == root.confirm : root.owner != "")
         : root.tool == "remove_pages" ? root.pages != "" || root.remove-blank
         : root.tool == "extract_pages" ? root.pages != ""
@@ -76,6 +76,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.layout = o.layout;
         root.landscape = o.landscape;
         root.html-long-page = o.html-long-page;
+        root.html-screen-width = o.html-screen-width;
         root.merge-images = !o.one-per-image;
         root.margin = o.margin;
         root.quality = o.quality;
@@ -171,7 +172,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
         pages: root.pages, remove-blank: root.remove-blank, blank-level: root.blank-level, rotate-parity: root.rotate-parity, rotate-orientation: root.rotate-orientation, protect-sanitize: root.protect-sanitize, compare-old-pages: root.compare-old-pages, compare-new-pages: root.compare-new-pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size, split-cols: root.split-cols, split-rows: root.split-rows, organize-order: root.organize-order,
-        html-long-page: root.html-long-page, degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
+        html-screen-width: root.html-screen-width, html-long-page: root.html-long-page, degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
         num-position: root.num-position, num-double: root.num-double, num-cover: root.num-cover,
@@ -271,6 +272,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> layout: 0;
     in-out property <bool> landscape: false;
     in-out property <bool> html-long-page: false;
+    in-out property <int> html-screen-width: 0;
     in-out property <bool> merge-images: true;
     in-out property <int> margin: 0;
     in-out property <int> quality: 0;
@@ -702,12 +704,19 @@ export component OptionsPanel inherits VerticalLayout {
 
     if root.tool == "html_to_pdf" && root.layout != 0: VerticalLayout {
         spacing: 10px;
-        Check { text: "Stack pages into one long page"; checked <=> root.html-long-page; }
-        if root.html-long-page: InfoBox { text: "Keeps text, pictures and links.\nPaper page breaks and margins remain.\nThis is not a browser screen layout."; }
+        SectionLabel { text: "Layout engine and screen width"; }
+        HorizontalLayout {
+            spacing: 8px;
+            Segment { text: "LibreOffice"; selected: root.html-screen-width == 0; clicked => { root.html-screen-width = 0; } }
+            for width in [800, 1280, 1920]: Segment { text: width + " px"; selected: root.html-screen-width == width; clicked => { root.html-screen-width = width; } }
+        }
+        Check { text: root.html-screen-width > 0 ? "One continuous screen page" : "Stack printed paper pages"; checked <=> root.html-long-page; }
+        if root.html-screen-width > 0: InfoBox { text: "Uses local Chromium, Chrome or Edge.\nKeeps screen CSS, grid and flex layout.\nLocal images and styles only; scripts off.\nNothing is downloaded or uploaded."; }
+        if root.html-long-page && root.html-screen-width == 0: InfoBox { text: "Keeps text, pictures and links.\nPaper page breaks and margins remain.\nThis is not a browser screen layout."; }
     }
 
     if root.tool == "html_to_pdf": InfoBox {
-        text: "Local HTML, Markdown or email.\nPictures use the source base address.\nNo URL capture or browser screen mode.";
+        text: "Local HTML, Markdown or email.\nPictures use the source base address.\nNo URL capture.\nScreen mode uses local resources only.";
     }
 
     if root.tool == "pdf_to_jpg": VerticalLayout {
@@ -1255,7 +1264,7 @@ export component OptionsPanel inherits VerticalLayout {
     }
 
     if !root.office-missing && (root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf"
-            || (root.tool == "excel_to_pdf" && root.layout != 2) || root.tool == "html_to_pdf"): InfoBox {
+            || (root.tool == "excel_to_pdf" && root.layout != 2) || (root.tool == "html_to_pdf" && (root.layout == 0 || root.html-screen-width == 0))): InfoBox {
         text: "Converted with LibreOffice on this computer. Nothing is uploaded.";
     }
     // Every tool runs here, offline (iLovePDF Desktop's offline tools): said at the foot of the
@@ -1277,7 +1286,7 @@ export component OptionsPanel inherits VerticalLayout {
     }
 
     if root.tool == "excel_to_pdf" && root.layout == 2: InfoBox { text: "Created in Sheaf. Nothing is uploaded."; }
-    if root.office-missing && !(root.tool == "excel_to_pdf" && root.layout == 2): VerticalLayout {
+    if root.office-missing && !(root.tool == "excel_to_pdf" && root.layout == 2) && !(root.tool == "html_to_pdf" && root.layout != 0 && root.html-screen-width > 0): VerticalLayout {
         spacing: 10px;
         InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");

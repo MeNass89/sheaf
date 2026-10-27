@@ -690,3 +690,31 @@ verification. No network features; no compiler, test, app or Codex invocation. N
   `preflight_profiles.rs`; `press::profile_channels` / `non_device_colour` are crate-visible only.
   not automatable: select each target, alter thresholds, inspect page links and save the dated
   snapshot in both themes — app execution forbidden.
+
+- C-convert-005 (partial, material gap addressed): Local HTML now has optional Chromium screen
+  layout at 800 / 1280 / 1920 CSS px and a genuine continuous-page option. Rust prepares local
+  resources/encoding/base, disables meta refresh, bounds the source, measures at the chosen width,
+  invokes the isolated local browser with bounded pipes/timeouts, verifies a nonempty PDF and (for
+  continuous mode) exactly one page of the measured width/height, then atomically publishes it.
+  Screen-media rules are frozen before printing (grid/flex stay screen layouts), print-only rules
+  are disabled; paper breaks are suppressed rather than stacked. Margins occur only at the page
+  edges. A failed measurement, extra pages or wrong dimensions publishes nothing, with recovery
+  instructions. Source JavaScript is off. CSP allows local/data images/fonts and local CSS only.
+  No URL capture, downloading, cloud or other network feature; browser background networking and
+  DNS resolution disabled. Chromium/Chrome/Edge is discovered locally, or `SHEAF_CHROMIUM` supplies
+  the binary. If absent, the error offers installation or explicit LibreOffice paper layout; it
+  never silently falls back. Native Rust retains Office paper/stacked output for the old mode.
+  Saved options keep width and long-page choice; screen mode does not require LibreOffice.
+  Tests WRITTEN, NOT RUN:
+  `screen_html_freezes_media_and_uses_one_measured_page_without_network_resources`,
+  `browser_long_page_checks_reject_pagination_and_wrong_dimensions`, extended HTML job/history,
+  `real_local_screen_grid_has_no_paper_breaks_when_a_browser_is_explicitly_supplied` (opt-in via
+  SHEAF_TEST_CHROMIUM; a skip is not a pass). Worker never launched any browser.
+  Left: a bundled/native browser-class CSS layout engine is absent; source scripts are disabled;
+  continuous output is conservatively limited to 200 inches and 100k DOM elements. Actual local
+  CSS/font/link fidelity and process behavior require the orchestrator's real-browser corpus.
+  No dependency (existing getrandom/serde_json/tempfile only). New public `html::Options.screen_width`
+  and `ToolOptions.html_screen_width`; new private `html_browser.rs`.
+  Browser reference read: https://developer.chrome.com/docs/automation-and-testing/headless .
+  not automatable: both themes, widths, absent Chromium/absent LibreOffice, saved history, relative
+  CSS/images/fonts, grid/flex, screen-vs-print CSS and one continuous page — no app/Chrome allowed.
