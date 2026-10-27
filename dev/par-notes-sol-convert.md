@@ -127,3 +127,27 @@
 - Vendored code: `third_party/pdfcraft-edit/src/lib.rs`, `prepress.rs`;
   `third_party/pdfcraft-engine/src/lib.rs`, `prepress.rs`.
 - Notes: `dev/par-notes-sol-convert.md`.
+
+## Pass 2 — C-optimize-012
+
+- C-optimize-012: More ▸ More tools ▸ Print preflight… now opens a Slint sheet in the reader's
+  house style (Acrobat's Preflight). Close-up / large-format presets and custom image/bleed
+  thresholds change the actual checks, not just a report label. Results include source, time,
+  the measured image/box/font/intent findings, and checks not performed. Page findings jump to
+  their page. Save report keeps exactly the inspected snapshot, using a free name atomically.
+  Test `print_preflight_reports_low_resolution_and_keeps_the_document_unchanged` now contrasts
+  real findings under two profiles; `preflight_profiles_reject_thresholds_that_would_hide_failures`
+  rejects invalid comparisons; `preflight_rows_keep_every_condition_and_split_long_findings`
+  preserves all diagnostic words across rows of at most four lines plus a title.
+- Left: ink separations, output simulation, editable fixup profiles, automatic corrections and a
+  durable history of successive runs. Existing unembedded fonts cannot be repaired by this check.
+- New engine API: `printcheck::Profile`, `Document::print_readiness_with`. `Op::PrintPreflight`
+  now checks and replies with a report instead of writing a file; export writes the saved snapshot.
+- No dependency. Tests written, not executed. Static inspection corrected calls to the engine's
+  private inspector in its existing tests too. Reference inspected: Acrobat's real archive path
+  `aapp/PrintProduction_R_RHP.aapp` (the input's prefixed path is not an archive member).
+- not automatable: inspect light/dark sheet, presets, invalid values, page navigation, report Save,
+  and an unsaved edit before rerun — worker app/build/test execution forbidden by rule 1.
+- LIGNES : max 5 (preflight finding, one title + four lines) · cases > 6 : aucune.
+- Provisional author grade: f6 a7 p7; source-only evidence, no parity claim. Independent counterpart
+  review belongs after orchestrator merge/build/full green suite.

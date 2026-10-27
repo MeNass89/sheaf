@@ -1,0 +1,78 @@
+// Acrobat's Preflight: profiles above the dated findings, with the report kept for export.
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { SmallButton } from "reader-parts.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
+
+export component PreflightSheet inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    callback focus-pages();
+    background: #00000044;
+    TouchArea { }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape { ReaderBridge.preflight-close(root.id); root.focus-pages(); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        width: min(660px, root.width - 32px);
+        height: min(700px, root.height - 40px);
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #00000055;
+        VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+            Text { text: "Print preflight"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: "Inspect the current document"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            HorizontalLayout {
+                spacing: 8px;
+                SmallButton { text: "Close-up print"; clicked => { fail.text = "150"; target.text = "300"; bleed.text = "2"; } }
+                SmallButton { text: "Large format"; clicked => { fail.text = "72"; target.text = "150"; bleed.text = "3"; } }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                fail := TextField { label: "Fail below (ppi)"; text: "150"; }
+                target := TextField { label: "Target (ppi)"; text: "300"; }
+                bleed := TextField { label: "Minimum bleed (mm)"; text: "2"; }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                SmallButton {
+                    text: root.tab.reader.preflight-busy ? "Checking…" : "Run preflight";
+                    opacity: root.tab.reader.preflight-busy ? 0.5 : 1;
+                    primary: true;
+                    clicked => { if !root.tab.reader.preflight-busy { ReaderBridge.preflight-check(root.id, fail.text, target.text, bleed.text); } }
+                }
+                Text { text: "Results keep the thresholds checked"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+            }
+            Rectangle { height: 1px; background: Theme.separator; }
+            ScrollView {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    spacing: 10px;
+                    for row in root.tab.reader.preflight-rows: VerticalLayout {
+                        spacing: 4px;
+                        HorizontalLayout {
+                            Text { text: row.title; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                            Rectangle { horizontal-stretch: 1; }
+                            if row.page > 0: SmallButton { text: "Page " + row.page; clicked => { ReaderBridge.preflight-page(root.id, row.page); root.focus-pages(); } }
+                        }
+                        Text { text: row.detail; font-size: Theme.fs-caption; color: Theme.text-secondary; }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                SmallButton { text: "Save report…"; opacity: root.tab.reader.preflight-ready ? 1 : 0.5; clicked => { if root.tab.reader.preflight-ready { ReaderBridge.preflight-save(root.id); } } }
+                Rectangle { horizontal-stretch: 1; }
+                SmallButton { text: "Close"; clicked => { ReaderBridge.preflight-close(root.id); root.focus-pages(); } }
+            }
+        }
+    }
+}

@@ -106,8 +106,14 @@ export struct ReaderProp {
     value: string,
 }
 
-// A rule of the accessibility check: its name, 0 failed, 1 to check by hand, 2 passed, where and
-// why, and whether it has a fix here.
+// One complete diagnostic or its continuation, with a 1-based page (0 for the document).
+export struct ReaderPrintCheck {
+    title: string,
+    detail: string,
+    page: int,
+}
+
+// Accessibility rule, status, finding and whether it has a fix.
 export struct ReaderCheck {
     name: string,
     status: int,
@@ -356,7 +362,12 @@ export struct ReaderState {
     // The keyboard shortcuts sheet.
     help-open: bool,
     voices: [string],
-    // More tools ▸ Accessibility check: the sheet, a check running, its count, its rules.
+    // More tools ▸ Print preflight: measured results, split without dropping conditions.
+    preflight-open: bool,
+    preflight-busy: bool,
+    preflight-ready: bool,
+    preflight-rows: [ReaderPrintCheck],
+    // More tools ▸ Accessibility check.
     a11y-open: bool,
     a11y-busy: bool,
     a11y-summary: string,
@@ -949,6 +960,10 @@ export global ReaderBridge {
     callback accessibility-report(int);
     // Print Production ▸ Preflight: a saved report of the current document's print checks.
     callback print-preflight(int);
+    callback preflight-check(int, string, string, string);
+    callback preflight-save(int);
+    callback preflight-close(int);
+    callback preflight-page(int, int);
     callback fix-page-hairlines(int);
     callback add-crop-marks(int);
     callback form-grid(int);

@@ -563,6 +563,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         voices_open: r.voices_open,
         help_open: r.help_open,
         voices: ModelRc::new(VecModel::from(r.voices.iter().map(|v| slint::SharedString::from(v.as_str())).collect::<Vec<_>>())),
+        preflight_open: r.prepress.open,
+        preflight_busy: r.prepress.busy,
+        preflight_ready: r.prepress.report.is_some() && !r.prepress.busy,
+        preflight_rows: ModelRc::new(VecModel::from(super::prepress::rows(r.prepress.report.as_deref().unwrap_or_default()))),
         a11y_open: r.a11y_open,
         a11y_busy: r.a11y_busy,
         a11y_summary: r.a11y.as_ref().map_or_else(String::new, |rep| {

@@ -199,6 +199,10 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_accessibility_fix, |ui, id, k| reader_ui::accessibility_fix(&ui, id, k));
     wire_global!(ui, rb, on_accessibility_report, |ui, id| reader_ui::accessibility_report(&ui, id));
     wire_global!(ui, rb, on_print_preflight, |ui, id| reader_ui::print_preflight(&ui, id));
+    wire_global!(ui, rb, on_preflight_check, |ui, id, fail, target, bleed| reader_ui::preflight_check(&ui, id, &fail, &target, &bleed));
+    wire_global!(ui, rb, on_preflight_save, |ui, id| reader_ui::preflight_save(&ui, id));
+    rb.on_preflight_close(reader_ui::preflight_close);
+    wire_global!(ui, rb, on_preflight_page, |ui, id, page| reader_ui::preflight_page(&ui, id, page));
     wire_global!(ui, rb, on_fix_page_hairlines, |ui, id| reader_ui::fix_page_hairlines(&ui, id));
     wire_global!(ui, rb, on_add_crop_marks, |ui, id| reader_ui::add_crop_marks(&ui, id));
     wire_global!(ui, rb, on_page_transition, |ui, id, style, advance| reader_ui::page_transition(&ui, id, style, &advance));

@@ -12,6 +12,7 @@ import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
 import { FormFieldBox, FieldPropsCard, FieldsArrangeCard, ObjectsArrangeCard } from "reader-form.slint";
 import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet, HelpSheet } from "reader-sheets.slint";
+import { PreflightSheet } from "reader-prepress.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 
 export component ReaderScreen inherits Rectangle {
@@ -862,6 +863,11 @@ export component ReaderScreen inherits Rectangle {
         focus-pages => { keys.focus(); }
     }
     if root.tab.reader.voices-open: VoicesSheet {
+        tab: root.tab;
+        id: root.id;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.preflight-open: PreflightSheet {
         tab: root.tab;
         id: root.id;
         focus-pages => { keys.focus(); }

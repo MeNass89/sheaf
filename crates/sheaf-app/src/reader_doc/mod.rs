@@ -531,7 +531,7 @@ pub enum Op {
     /// Accessibility check: the full check's report.
     AccessibilityCheck,
     /// A measured print-readiness report from the current document (Acrobat's Preflight).
-    PrintPreflight { to: PathBuf },
+    PrintPreflight { profile: sheaf_core::preflight::Profile },
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
     /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
@@ -603,6 +603,7 @@ pub enum Reply {
     /// Pages to turn upright: (page, clockwise degrees).
     Upright(Vec<(usize, i64)>),
     Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
+    PrintPreflight(Result<String, String>),
     /// The loupe's area: (width, height, RGBA pixels), or why not.
     Loupe(Result<(u32, u32, Vec<u8>), String>),
     /// A flattened copy written (`FlatCopy`), or why not.
@@ -896,13 +897,10 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             Err(e) => reply(Reply::Exported { to, error: Some(e) }),
                         }
                     }
-                    Op::PrintPreflight { to } => {
+                    Op::PrintPreflight { profile } => {
                         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                         let date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
-                        match sheaf_core::preflight::save_report(&doc, &name, &date, &to) {
-                            Ok(to) => reply(Reply::Exported { to, error: None }),
-                            Err(e) => reply(Reply::Exported { to, error: Some(e.to_string()) }),
-                        }
+                        reply(Reply::PrintPreflight(sheaf_core::preflight::report_with_profile(&doc, &name, &date, profile).map_err(|e| e.to_string())));
                     }
                     Op::ExportFormData { to } => {
                         let id = doc.id();
