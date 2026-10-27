@@ -123,18 +123,18 @@ fn build(ui: &AppWindow, id: i32) {
                 !cancel.load(Ordering::Relaxed)
             }).and_then(|catalog| {
                 if cancel.load(Ordering::Relaxed) { return Err(sheaf_core::OpdfError::Cancelled); }
-                catalog.save(&out)?;
-                Ok(catalog)
+                let saved = catalog.save(&out)?;
+                Ok((catalog, saved))
             });
             let _ = weak.upgrade_in_event_loop(move |_| {
                 update(id, |r, _| {
                     let Some(p) = r.catalog_panel.as_mut().filter(|p| current(p, &cancel)) else { return };
                     p.busy = false;
                     match result {
-                        Ok(catalog) => {
+                        Ok((catalog, saved)) => {
                             p.files = catalog.sources().into_iter().map(|(path, _)| path).collect();
                             p.catalog = Some(Arc::new(catalog));
-                            p.status = format!("Saved {} · {} PDFs", out.display(), p.files.len());
+                            p.status = format!("Saved {} · {} PDFs", saved.display(), p.files.len());
                         }
                         Err(error) => p.status = format!("Catalog not built: {error}"),
                     }

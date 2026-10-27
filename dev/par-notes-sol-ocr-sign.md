@@ -213,3 +213,6 @@
   interrupt an in-progress file fingerprint. Large catalogs and visual fit remain unmeasured.
 - Proposed grade: C-optimize-015: f8 a7 p7 — manager/rebuild tests above,
   `ui/screens/catalog.slint`, `reader_ui/catalog.rs`. No joint 9 claim.
+
+- Catalog output follows the actual path returned by the atomic writer: an existing name is
+  preserved and the new catalog receives a numbered name. The rebuild test checks both files.

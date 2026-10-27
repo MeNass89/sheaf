@@ -38,6 +38,8 @@ fn catalog_manager_can_reopen_sources_and_rebuild_after_a_removal() {
     let rebuilt = Catalog::build(&remaining, &mut |_, _| true).unwrap();
     assert_eq!(rebuilt.search("Page 1").unwrap().len(), 1);
     assert!(rebuilt.search("Page 2").unwrap().is_empty());
-    assert!(rebuilt.save(&path).is_err(), "a failed rebuild cannot replace the previous catalog");
+    let rebuilt_path = rebuilt.save(&path).unwrap();
+    assert_ne!(rebuilt_path, path, "an existing catalog gets a fresh output name");
+    assert_eq!(Catalog::load(&rebuilt_path).unwrap().sources().len(), 1);
     assert_eq!(Catalog::load(&path).unwrap().sources().len(), 2);
 }
