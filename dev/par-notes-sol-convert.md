@@ -515,3 +515,9 @@ LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
 - Long-page UserUnit also scales link border widths/radii/dashes, including the implicit default
   border, so very tall output does not thicken link outlines. The very-long-page Rust test now
   checks the physical border width as well as the physical page size. Written, not executed.
+
+### Pass 3 test follow-up — C-optimize-014
+
+- `unreadable_page_streams_cannot_be_silently_skipped_by_hairline_repair` explicitly covers a
+  corrupt Flate stream after a repairable stroke: the edit must fail without changing the
+  working snapshot. Written, not run; no external program or optional-runtime skip.

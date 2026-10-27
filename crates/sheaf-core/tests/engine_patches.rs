@@ -254,3 +254,20 @@ fn cyclic_grouped_artwork_fails_without_publishing_partial_hairline_repairs() {
     assert!(doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: 0.25 }).unwrap_err().to_string().contains("cyclic"));
     assert_eq!(doc.full_bytes().unwrap().as_slice(), before.as_slice());
 }
+
+#[test]
+fn unreadable_page_streams_cannot_be_silently_skipped_by_hairline_repair() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 w 30 50 m 100 50 l S"]);
+    let mut pdf = lopdf::Document::load(&path).unwrap();
+    let broken = pdf.add_object(Stream::new(dictionary! { "Filter" => "FlateDecode" }, vec![0xff, 0x00]));
+    let page = pdf.get_pages()[&1];
+    let contents = pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().get_mut(b"Contents").unwrap().as_array_mut().unwrap();
+    contents.push(broken.into());
+    pdf.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(path)).unwrap();
+    let before = doc.full_bytes().unwrap();
+    assert!(doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: 0.25 }).is_err());
+    assert_eq!(doc.full_bytes().unwrap().as_slice(), before.as_slice());
+}
