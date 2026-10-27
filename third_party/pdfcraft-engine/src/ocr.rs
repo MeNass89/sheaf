@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use pdfcraft_render::{PageInfo, PageRenderer, RenderConfig, RenderRequest, RequestKind};
 
-pub use pdfcraft_ocr::{LANGUAGES, Models, Ocr, OcrError, PlacedWord};
+pub use pdfcraft_ocr::{LANGUAGES, Line, Models, Ocr, OcrError, PlacedWord, Turn, Word};
 
 use crate::{DocId, Edit, EditError, Session};
 
@@ -101,6 +101,16 @@ impl OcrJob {
     /// Read the pages. `progress(done, total)` is called before each page; returning `false`
     /// stops (the pages read so far are returned).
     pub fn run(self, ocr: &Ocr, mut progress: impl FnMut(usize, usize) -> bool) -> Vec<OcrPage> {
+        self.run_with(|pixels, width, height| ocr.recognize(pixels, width, height), &mut progress)
+    }
+
+    /// Sheaf: use an installed offline recognizer while keeping page rendering, permissions,
+    /// cancellation and duplicate-text filtering identical to the bundled recognizer.
+    pub fn run_with(
+        self,
+        mut recognize: impl FnMut(&[u8], u32, u32) -> Result<Vec<Line>, OcrError>,
+        mut progress: impl FnMut(usize, usize) -> bool,
+    ) -> Vec<OcrPage> {
         let config = RenderConfig { password: self.password.as_deref().map(Arc::from), ..Default::default() };
         let mut r = PageRenderer::new(self.bytes.clone(), config);
         let mut out = Vec::new();
@@ -130,7 +140,7 @@ impl OcrJob {
                 out.push(skip(&e));
                 continue;
             }
-            let lines = match ocr.recognize(&shot.rgba, shot.width, shot.height) {
+            let lines = match recognize(&shot.rgba, shot.width, shot.height) {
                 Ok(l) => l,
                 Err(e) => {
                     out.push(skip(&e.to_string()));

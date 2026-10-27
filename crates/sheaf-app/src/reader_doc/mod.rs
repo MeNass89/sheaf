@@ -541,6 +541,9 @@ pub enum Op {
     /// A measured print-readiness report from the current document (Acrobat's Preflight).
     PrintPreflight { profile: sheaf_core::preflight::Profile },
     ExportPdfX { to: PathBuf, options: sheaf_core::press::Options },
+    /// Acrobat’s Correct Recognized Text, on the live working document.
+    ReviewOcr,
+    CorrectOcr { page: usize, line: usize, expected: String, text: String },
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
     /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
@@ -611,6 +614,7 @@ pub enum Reply {
     ImageCopied(Result<(u32, u32, Vec<u8>), String>),
     /// Pages to turn upright: (page, clockwise degrees).
     Upright(Vec<(usize, i64)>),
+    OcrReviewed(Vec<sheaf_core::ocr_review::ReviewLine>),
     Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
     PrintPreflight(Result<String, String>),
     PdfXExported(Result<PathBuf, String>),
@@ -679,6 +683,12 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let mut s = snap(&doc);
                         (s.dirty, s.can_undo, s.can_redo) = before;
                         reply(Reply::Changed { snap: Box::new(s), pages: Some(pages), error, applied: false, note, preview: true });
+                    }
+                    Op::ReviewOcr => reply(Reply::OcrReviewed(sheaf_core::ocr_review::review_document(doc.document()))),
+                    Op::CorrectOcr { page, line, expected, text } => {
+                        let error = sheaf_core::ocr_review::correction_edit(doc.document(), page, line, &expected, &text)
+                            .and_then(|edit| doc.apply(edit)).err().map(|e| e.to_string());
+                        reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(vec![page]), error, applied: true, note: None, preview: false });
                     }
                     Op::Apply { edit, pages } => {
                         let sanitize = matches!(*edit, Edit::Sanitize);

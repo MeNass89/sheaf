@@ -7,6 +7,10 @@
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
+import { SignatureManagerSheet } from "signature-manager.slint";
+import { SecurityPolicySheet } from "security-policy.slint";
+import { CatalogSheet } from "catalog.slint";
+import { OcrReviewPanel } from "ocr-review.slint";
 import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
@@ -324,6 +328,7 @@ export component ReaderScreen inherits Rectangle {
             id: root.id;
             is-full-screen: root.is-full-screen;
             narrow: root.narrow;
+            view-height: root.height;
             bare <=> root.bare;
             focus-pages => { keys.focus(); }
             present => { root.present(); }
@@ -334,6 +339,7 @@ export component ReaderScreen inherits Rectangle {
         // A flexbox so that right to left (Preferences ▸ Interface ▸ Direction) puts the side panel
         // on the right of the pages (Slint's rows have no direction of their own).
         FlexboxLayout {
+            padding-right: root.tab.reader.ocr-review-open ? min(360px, root.width - 24px) : 0px;
             vertical-stretch: 1;
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
@@ -1123,6 +1129,26 @@ export component ReaderScreen inherits Rectangle {
     }
 
     // The signature pad.
+    if root.tab.reader.signature-manager-open: SignatureManagerSheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.policy-open: SecurityPolicySheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.catalog-open: CatalogSheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
+    if root.tab.reader.ocr-review-open: OcrReviewPanel {
+        x: parent.width - self.width;
+        y: 46px;
+        width: min(360px, parent.width - 24px);
+        height: parent.height - self.y;
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
     if root.tab.reader.sign-open: SignatureSheet {
         tab: root.tab;
         id: root.id;

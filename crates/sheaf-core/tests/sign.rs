@@ -468,3 +468,44 @@ fn a_cleared_signature_leaves_its_field_unsigned_and_its_certification_gone() {
     assert_eq!(&bytes[..std::fs::metadata(&signed).unwrap().len() as usize], &std::fs::read(&signed).unwrap()[..], "the signed revision is kept");
     assert!(!String::from_utf8_lossy(&bytes[std::fs::metadata(&signed).unwrap().len() as usize..]).contains("/DocMDP"));
 }
+
+#[test]
+fn a_local_authority_timestamps_visible_and_invisible_certificate_signatures() {
+    use sheaf_core::pdfcraft::engine::sign::{self as crypto, DigestAlg, TimestampAuthority};
+    struct LocalAuthority(crypto::DigitalId);
+    impl TimestampAuthority for LocalAuthority {
+        fn timestamp(&self, request: &[u8]) -> Result<Vec<u8>, crypto::SignError> {
+            let query = crypto::timestamp::parse_request(request)?;
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+            crypto::timestamp::respond(&self.0.key, &self.0.certificate, &self.0.chain, DigestAlg::Sha256, &query, "1.2.3.4", crypto::Time::from_unix(now), 1)
+        }
+    }
+    let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
+    let authority = LocalAuthority(crypto::pkcs12::open(&std::fs::read(&p12).unwrap(), "secret").unwrap());
+    let digital = digital(&p12, "secret").unwrap();
+    let input = Input::new(invoice());
+    let spec = spec(0, [72.0, 100.0, 240.0, 160.0], Graphic::Typed("Ada".into(), Default::default()), Some(digital.clone()));
+    let visible = sign::sign_with_timestamp(&input, &spec, &t.path().join("visible.pdf"), &authority).unwrap();
+    let invisible = sign::certify_with_timestamp(&input, &digital, &t.path().join("invisible.pdf"), &authority).unwrap();
+    for file in [visible.path, invisible.path] {
+        let doc = Doc::open(&Input::new(file)).unwrap();
+        assert_eq!(doc.document().signatures.len(), 1);
+        assert!(doc.document().signatures[0].timestamp, "the signature contains its RFC 3161 token");
+    }
+}
+
+#[test]
+fn an_invalid_timestamp_response_never_writes_an_untimestamped_signature() {
+    use sheaf_core::pdfcraft::engine::sign::{self as crypto, TimestampAuthority};
+    struct InvalidAuthority;
+    impl TimestampAuthority for InvalidAuthority {
+        fn timestamp(&self, _request: &[u8]) -> Result<Vec<u8>, crypto::SignError> { Ok(vec![0]) }
+    }
+    let t = tempfile::tempdir().unwrap();
+    let p12 = test_id(t.path());
+    let spec = spec(0, [72.0, 100.0, 240.0, 160.0], Graphic::Typed("Ada".into(), Default::default()), digital(&p12, "secret"));
+    let out = t.path().join("invalid.pdf");
+    assert!(sign::sign_with_timestamp(&Input::new(invoice()), &spec, &out, &InvalidAuthority).is_err());
+    assert!(!out.exists());
+}

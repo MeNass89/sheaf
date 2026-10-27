@@ -88,3 +88,23 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 - **Snapshot** (`Snap`): what the document thread reports after each change; the UI draws from it.
 - **Provisional**: drawn at once by the UI before the engine confirms an edit.
 - **Job**: one tool run off the UI thread.
+
+`signature_store.rs` keeps signature and initials payloads in Secret Service / Keychain / Windows DPAPI, with plaintext profile migration in `prefs.rs`.
+
+Core `ocr_local.rs` supplies installed offline Tesseract script packs to the existing OCR render/apply pipeline.
+
+Core `search_index.rs` builds/searches versioned catalogs (`sheaf index` / `search-index`); folder search consumes a `.sheaf-index.json` catalog when present.
+
+Core `security_policy.rs` imports/exports reusable AES-256 settings, applied by `security::protect_with_settings` (`save-security-policy` / `apply-security-policy` in the CLI).
+
+Core `ocr_review.rs` lists hidden runs and corrects/removes their searchable text without repainting the scan (`review-ocr` / `correct-ocr`).
+
+The reader's More → More tools menu also opens `reader_ui/ocr_review.rs`, `catalog.rs`,
+`security_policy.rs` and `signature_manager.rs`; their Slint surfaces are in `ui/screens/`
+(`ocr-review.slint`, `catalog.slint`, `security-policy.slint`, `signature-manager.slint`).
+Callbacks and state travel through `ReaderBridge`/`ReaderState` in `ui/flow-types.slint`.
+OCR review uses document-thread operations, so corrections participate in Undo/Redo/Save.
+Catalog parsing/search and policy application run off the UI thread. `security_policies.rs`
+keeps password-free named policy files under the application data folder's `security-policies/`.
+OCR options retain every selected language; `OcrOptions::use_local_engine` selects local
+Tesseract explicitly, with the same option in the OCR panel and CLI `--local-engine`.

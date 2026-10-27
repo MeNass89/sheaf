@@ -11,11 +11,16 @@ use crate::{pages::Input, OpdfError, Result};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+#[path = "ocr_local.rs"]
+mod local;
+
 /// OCR settings.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OcrOptions {
-    /// A code from [`languages`]. The models read Latin script, whatever the language.
+    /// Codes from [`languages`], joined with + for mixed pages; extra scripts use local packs.
     pub language: String,
+    /// Use installed Tesseract even for Latin text, without loading the bundled model.
+    pub use_local_engine: bool,
     /// Also read pages that already contain text (only words not already there are added).
     pub read_text_pages: bool,
     /// Resolution pages are read at (a scan is read at its own resolution, up to this).
@@ -27,7 +32,7 @@ pub struct OcrOptions {
 
 impl Default for OcrOptions {
     fn default() -> Self {
-        OcrOptions { language: "en".into(), read_text_pages: false, dpi: 300.0, enhance: false }
+        OcrOptions { language: "en".into(), use_local_engine: false, read_text_pages: false, dpi: 300.0, enhance: false }
     }
 }
 
@@ -80,14 +85,28 @@ const HAS_TEXT: &str = "the page already contains text";
 
 /// The languages offered: (code, name).
 pub fn languages() -> &'static [(&'static str, &'static str)] {
-    eng::LANGUAGES
+    static LANGUAGES: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
+    LANGUAGES.get_or_init(|| {
+        let mut languages = eng::LANGUAGES.to_vec();
+        languages.extend(local::languages().iter().map(|language| (language.code.as_str(), language.name.as_str())));
+        languages
+    })
 }
 
 /// The language to offer first for a system locale ("fr-FR", "de_CH.UTF-8"): its own when the
 /// models read it, else English.
 pub fn default_language(locale: Option<&str>) -> &'static str {
-    let code = locale.unwrap_or_default().split(['-', '_', '.']).next().unwrap_or_default().to_ascii_lowercase();
-    languages().iter().find(|(c, _)| *c == code).map_or("en", |(c, _)| c)
+    language_for_locale(locale, languages())
+}
+
+fn language_for_locale(locale: Option<&str>, available: &[(&'static str, &'static str)]) -> &'static str {
+    let locale = locale.unwrap_or_default().replace('_', "-").to_ascii_lowercase();
+    let code = locale.split(['-', '.']).next().unwrap_or_default();
+    if code == "zh" && ["zh-hant", "zh-tw", "zh-hk", "zh-mo"].iter().any(|prefix| locale.starts_with(*prefix))
+        && available.iter().any(|(c, _)| *c == "zh-Hant") {
+        return "zh-Hant";
+    }
+    available.iter().find(|(c, _)| *c == code).map_or("en", |(c, _)| c)
 }
 
 /// The source tree's models, for debug builds only: release builds carry no build path.
@@ -114,7 +133,7 @@ const MISSING_MODELS: &str = if cfg!(debug_assertions) {
 
 /// Whether the recognition models are installed.
 pub fn available() -> bool {
-    models().is_some()
+    models().is_some() || local::available()
 }
 
 /// The recogniser, loaded once (it takes a moment) and shared by every job.
@@ -148,6 +167,10 @@ pub fn ocr(input: &Input, opts: &OcrOptions, out: &Path, progress: &mut dyn FnMu
     Ok(report)
 }
 
+fn use_local_engine(opts: &OcrOptions, bundled_models: bool) -> bool {
+    opts.use_local_engine || !bundled_models || opts.language.split('+').any(|selected| !eng::LANGUAGES.iter().any(|(code, _)| *code == selected))
+}
+
 /// What recognition found, before it is written.
 pub(crate) struct Recognized {
     words: usize,
@@ -168,17 +191,19 @@ impl Recognized {
 /// Pages that could not be read fail the whole job ("OCR failed on page N: …") unless some
 /// other page was read.
 pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnMut(f32) -> bool) -> Result<Recognized> {
-    if !languages().iter().any(|(code, _)| *code == opts.language) {
+    if !opts.language.split('+').all(|selected| languages().iter().any(|(code, _)| *code == selected)) {
         return Err(OpdfError::Unsupported(format!("OCR language \"{}\"", opts.language)));
     }
     if let Some(why) = doc.session().get(doc.id()).and_then(|d| d.read_only_reason.clone()) {
         return Err(OpdfError::Unsupported(why));
     }
-    let ocr = engine()?;
+    let external = use_local_engine(opts, models().is_some());
+    if external { local::validate_selection(&opts.language).map_err(OpdfError::Unsupported)?; }
+    let ocr = if external { None } else { Some(engine()?) };
     let settings = OcrSettings { dpi: opts.dpi, language: opts.language.clone(), skip_text_pages: !opts.read_text_pages };
     let job = doc.session().ocr_job(doc.id(), &[], settings).ok_or_else(|| OpdfError::Engine("the document could not be read".into()))?;
     let mut stopped = false;
-    let pages = job.run(&ocr, |done, total| {
+    let mut report_progress = |done, total| {
         if stopped {
             return false;
         }
@@ -186,7 +211,11 @@ pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnM
         // The final call (done == total) only reports; a stop there changes nothing.
         stopped = !go && done < total;
         go
-    });
+    };
+    let pages = match ocr {
+        Some(ocr) => job.run(&ocr, &mut report_progress),
+        None => job.run_with(|pixels, width, height| local::recognize(pixels, width, height, &opts.language), &mut report_progress),
+    };
     if stopped {
         return Err(OpdfError::Cancelled);
     }
@@ -234,4 +263,29 @@ mod tests {
         // Pages that already had text are not failures.
         assert_eq!(tally(&[page(0, Some(HAS_TEXT))]).unwrap(), (0, 1, vec![]));
     }
+
+    #[test]
+    fn chinese_locales_choose_the_installed_script() {
+        let both = &[("en", "English"), ("zh", "Chinese"), ("zh-Hant", "Traditional Chinese")];
+        assert_eq!(language_for_locale(Some("zh_TW.UTF-8"), both), "zh-Hant");
+        assert_eq!(language_for_locale(Some("zh-Hant-HK"), both), "zh-Hant");
+        assert_eq!(language_for_locale(Some("zh-CN"), both), "zh");
+        assert_eq!(language_for_locale(Some("ja-JP"), both), "en");
+        assert_eq!(language_for_locale(Some("zh-TW"), &[("en", "English")]), "en");
+    }
+
+    #[test]
+    fn local_ocr_is_explicit_for_latin_and_automatic_for_extra_scripts() {
+        let mut opts = OcrOptions::default();
+        assert!(!use_local_engine(&opts, true));
+        opts.use_local_engine = true;
+        assert!(use_local_engine(&opts, true));
+        opts.use_local_engine = false;
+        opts.language = "en+ja".into();
+        assert!(use_local_engine(&opts, true));
+        opts.language = "fr+en".into();
+        assert!(!use_local_engine(&opts, true));
+        assert!(use_local_engine(&opts, false));
+    }
+
 }

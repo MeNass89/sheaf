@@ -274,6 +274,17 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_turn_upright(reader_ui::turn_upright);
     rb.on_reflow(reader_ui::reflow);
     wire_global!(ui, rb, on_folder_search, |ui, id, q| reader_ui::folder_search(&ui, id, &q));
+    rb.on_signature_manager(reader_ui::signature_manager);
+    rb.on_signature_manager_action(reader_ui::signature_manager_action);
+    rb.on_signature_manager_save(|id, commands, name, font, ink, pen| reader_ui::signature_manager_save(id, &commands, &name, font, ink, pen));
+    rb.on_policy_open(reader_ui::policy_open);
+    wire_global!(ui, rb, on_policy_action, |ui, id, action, index| reader_ui::policy_action(&ui, id, action, index));
+    rb.on_policy_save(|id, name, printing, copying, editing, commenting, forms, metadata| reader_ui::policy_save(id, &name, [printing, copying, editing, commenting, forms, metadata]));
+    wire_global!(ui, rb, on_policy_apply, |ui, id, user, confirmation, owner, owner_confirmation| reader_ui::policy_apply(&ui, id, &user, &confirmation, &owner, &owner_confirmation));
+    rb.on_catalog_open(reader_ui::catalog_open);
+    wire_global!(ui, rb, on_catalog_action, |ui, id, action, index, query| reader_ui::catalog_action(&ui, id, action, index, &query));
+    wire_global!(ui, rb, on_review_ocr, |ui, id| reader_ui::review_ocr(&ui, id));
+    wire_global!(ui, rb, on_ocr_review_action, |ui, id, action, text| reader_ui::ocr_review_action(&ui, id, action, &text));
     wire_global!(ui, rb, on_folder_result, |ui, id, k| reader_ui::folder_result(&ui, id, k));
     wire_global!(ui, rb, on_remove_images, |ui, id| reader_ui::remove_images(&ui, id));
     wire_global!(ui, rb, on_outline_drop, |ui, id, from, to, inside| reader_ui::outline_drop(&ui, id, from, to, inside));

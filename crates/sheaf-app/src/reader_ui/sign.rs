@@ -146,29 +146,33 @@ thread_local! {
     static THUMBS: std::cell::RefCell<(Vec<sheaf_app::prefs::KeptSignature>, Vec<slint::Image>)> = Default::default();
 }
 
+fn thumbnails_for(list: &[sheaf_app::prefs::KeptSignature]) -> Vec<slint::Image> {
+    list.iter().map(|(strokes, name, pen, font)| {
+        let preview = || {
+            let graphic = if strokes.is_empty() {
+                sheaf_core::sign::Graphic::Typed(name.clone()?, ScriptFont::from_index(*font as usize))
+            } else {
+                sheaf_core::sign::Graphic::Drawn(strokes.clone())
+            };
+            let mut picture = sheaf_app::sign_preview::render(&graphic, 120, 40)?;
+            let ink = reader::SIGNATURE_INKS[(pen.0 as usize).min(2)].map(|c| (c * 255.0) as u8);
+            for pixel in picture.rgba.chunks_mut(4).filter(|pixel| pixel[3] > 0) {
+                pixel[..3].copy_from_slice(&ink);
+            }
+            Some(slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&picture.rgba, picture.w, picture.h)))
+        };
+        // Skipping a failed preview would make Edit/Delete act on the following signature.
+        preview().unwrap_or_default()
+    }).collect()
+}
+
 /// The kept signatures as small pictures (ink on transparent), newest first.
 pub(super) fn signature_thumbs() -> Vec<slint::Image> {
     let list = crate::home::signatures();
     THUMBS.with(|t| {
         let mut t = t.borrow_mut();
         if t.0 != list {
-            let images = list
-                .iter()
-                .filter_map(|(strokes, name, pen, font)| {
-                    let g = if strokes.is_empty() {
-                        sheaf_core::sign::Graphic::Typed(name.clone()?, ScriptFont::from_index(*font as usize))
-                    } else {
-                        sheaf_core::sign::Graphic::Drawn(strokes.clone())
-                    };
-                    let mut p = sheaf_app::sign_preview::render(&g, 120, 40)?;
-                    // In its own ink, as it will be placed.
-                    let ink = reader::SIGNATURE_INKS[(pen.0 as usize).min(2)].map(|c| (c * 255.0) as u8);
-                    for px in p.rgba.chunks_mut(4).filter(|px| px[3] > 0) {
-                        px[..3].copy_from_slice(&ink);
-                    }
-                    Some(slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&p.rgba, p.w, p.h)))
-                })
-                .collect();
+            let images = thumbnails_for(&list);
             *t = (list, images);
         }
         t.1.clone()
@@ -182,4 +186,14 @@ pub fn signature_preview(name: slint::SharedString, font: i32) -> slint::Image {
     sheaf_app::sign_preview::render(&g, 480, 96)
         .map(|p| slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&p.rgba, p.w, p.h)))
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod manager_preview_tests {
+    #[test]
+    fn unrenderable_saved_signatures_keep_their_library_positions() {
+        let invalid = (Vec::new(), None, (0, 1), 0);
+        let thumbnails = super::thumbnails_for(&[invalid.clone(), invalid]);
+        assert_eq!(thumbnails.len(), 2, "an absent preview must not shift Edit/Delete indexes");
+    }
 }

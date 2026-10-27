@@ -262,4 +262,27 @@ fn a_text_box_in_a_type0_or_custom_encoded_font_keeps_it_through_a_new_size_and_
         assert!(content.contains("/Own 18 Tf") && content.contains("0.8 0.1 0.1 rg"), "new size and colour: {content}");
         assert!(content.contains(codes) && !content.contains('?'), "written in the font's codes: {content}");
     }
+#[test]
+fn an_offline_ocr_adapter_keeps_skips_cancellation_and_unicode_placement() {
+    use sheaf_core::pdfcraft::engine::ocr::{Line, OcrSettings, Word};
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let source = common::fixture_pdf(t.path(), "ocr-source.pdf", 1);
+    let mut doc = Doc::open(&Input::new(source)).unwrap();
+    let id = doc.id();
+    let skipped = doc.session().ocr_job(id, &[], OcrSettings::default()).unwrap().run_with(|_, _, _| {
+        Err(sheaf_core::pdfcraft::engine::ocr::OcrError::Recognize("must not run on a skipped page".into()))
+    }, |_, _| true);
+    assert_eq!(skipped[0].skipped.as_deref(), Some("the page already contains text"));
+    let settings = OcrSettings { dpi: 72.0, skip_text_pages: false, language: "ja".into() };
+    let cancelled = doc.session().ocr_job(id, &[], settings.clone()).unwrap().run_with(|_, _, _| Ok(vec![]), |_, _| false);
+    assert!(cancelled.is_empty());
+    let found = doc.session().ocr_job(id, &[], settings).unwrap().run_with(|_, _, _| {
+        Ok(vec![Line { words: vec![Word { text: "日本語".into(), rect: [20.0, 50.0, 120.0, 75.0], ..Default::default() }] }])
+    }, |_, _| true);
+    assert_eq!(found[0].words.len(), 1);
+    assert_eq!(doc.session_mut().apply_ocr(id, &found).unwrap(), 1);
+    let out = doc.save(&t.path().join("with-japanese.pdf")).unwrap();
+    let text = common::shown_texts(&out).join(" ");
+    assert!(text.contains("日本語") && text.contains("Page 1"), "{text}");
 }

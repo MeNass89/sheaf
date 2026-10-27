@@ -27,7 +27,8 @@ pub fn password_strength(password: &str) -> PasswordStrength {
 }
 
 /// Operations a reader may perform with the open password. All are allowed by default.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProtectPermissions {
     pub printing: bool,
     pub copying: bool,
@@ -69,6 +70,11 @@ pub fn protect(input: &Input, user_pw: &str, owner_pw: Option<&str>, out: &Path)
 }
 
 pub fn protect_with_permissions(input: &Input, user_pw: &str, owner_pw: Option<&str>, permissions: ProtectPermissions, out: &Path) -> Result<PathBuf> {
+    protect_with_settings(input, user_pw, owner_pw, permissions, true, out)
+}
+
+/// Acrobat's Encrypt all document contents except metadata: XMP stays readable to a catalog.
+pub fn protect_with_settings(input: &Input, user_pw: &str, owner_pw: Option<&str>, permissions: ProtectPermissions, encrypt_metadata: bool, out: &Path) -> Result<PathBuf> {
     // No open password is allowed when an owner password restricts the file (Acrobat's "Restrict
     // editing and printing" alone): it opens for anyone, with those restrictions.
     if user_pw.is_empty() && owner_pw.is_none_or(str::is_empty) { return Err(crate::OpdfError::Unsupported("password must not be empty".into())); }
@@ -91,7 +97,7 @@ pub fn protect_with_permissions(input: &Input, user_pw: &str, owner_pw: Option<&
     };
     let cf: Arc<dyn CryptFilter> = Arc::new(Aes256CryptFilter);
     let version = EncryptionVersion::V5 {
-        encrypt_metadata: true,
+        encrypt_metadata,
         crypt_filters: BTreeMap::from([(b"StdCF".to_vec(), cf)]),
         file_encryption_key: &key,
         stream_filter: b"StdCF".to_vec(),

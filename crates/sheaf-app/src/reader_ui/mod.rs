@@ -216,6 +216,7 @@ pub struct ReaderUi {
     /// Signature: where the click was, and whether the pad is open to make one.
     sign_at: Option<(usize, (f64, f64))>,
     sign_open: bool,
+    signature_manager: Option<signature_manager::Manager>,
     /// Print sheet: open, the system's printers and the chosen one.
     print_open: bool,
     printers: Vec<String>,
@@ -373,6 +374,10 @@ pub struct ReaderUi {
     layers_made: u64,
     /// More tools ▸ Print preflight: its sheet and dated report.
     prepress: prepress::State,
+    /// More tools' reusable security settings, search catalogs and live OCR correction.
+    policy_panel: Option<security_policy::PolicyPanel>,
+    catalog_panel: Option<catalog::CatalogPanel>,
+    ocr_review: Option<ocr_review::Review>,
     /// More tools ▸ Accessibility check: its sheet, a check running, the last report.
     a11y_open: bool,
     a11y_busy: bool,
@@ -515,6 +520,7 @@ impl ReaderUi {
             live_pending: None,
             sign_at: None,
             sign_open: false,
+            signature_manager: None,
             print_open: false,
             printers: Vec::new(),
             printer: 0,
@@ -602,6 +608,9 @@ impl ReaderUi {
             layers_off: None,
             layers_made: 0,
             prepress: prepress::State::default(),
+            policy_panel: None,
+            catalog_panel: None,
+            ocr_review: None,
             a11y_open: false,
             a11y_busy: false,
             a11y: None,
@@ -658,7 +667,7 @@ impl ReaderUi {
 
     fn send(&mut self, op: Op) {
         // A preview is not counted: it never names something another edit is waiting on.
-        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields);
+        let edit = matches!(op, Op::Apply { .. } | Op::CorrectOcr { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields);
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
             self.edits_in_flight += usize::from(edit);
@@ -784,7 +793,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     // The copies' and the loupe's answers give back the count `send` took (they left it raised:
     // Undo greyed, and closing asked to save a document untouched).
-    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_)) {
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_)) {
         update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
     }
     match reply {
@@ -849,6 +858,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 // The Edit tool's outlines (paragraphs, images, the selected one) are read again at
                 // once for the pages in view (not a previewed page: kept above); an image just
                 // added is selected then.
+                ocr_review::changed(r, applied, error.is_some());
+                if !preview { ocr_review::refresh(r); }
                 tools::load_blocks(r, v);
                 if let Some((p, _)) = r.select_added {
                     r.blocks(p);
@@ -927,6 +938,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Accessibility(report) => accessibility::checked(id, report),
         Reply::PrintPreflight(report) => prepress::checked(ui, id, report),
         Reply::PdfXExported(result) => prepress::press_exported(ui, id, result),
+        Reply::OcrReviewed(rows) => ocr_review::reviewed(ui, id, rows),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
@@ -1287,6 +1299,8 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
 mod pointer;
 mod forms;
 mod sign;
+mod signature_manager;
+pub use signature_manager::{signature_manager, signature_manager_action, signature_manager_save};
 mod print_sheet;
 mod prepress;
 mod properties;
@@ -1297,6 +1311,12 @@ mod saving;
 mod speech;
 mod loupe;
 mod accessibility;
+mod ocr_review;
+mod catalog;
+mod security_policy;
+pub use security_policy::{policy_open, policy_action, policy_save, policy_apply};
+pub use catalog::{catalog_open, catalog_action};
+pub use ocr_review::{review_ocr, ocr_review_action};
 mod layers;
 mod look_up;
 mod folder_search;

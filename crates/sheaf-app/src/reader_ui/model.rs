@@ -63,6 +63,12 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             }
         }
     }
+    // The OCR run being reviewed: its scan remains visible beside the correction panel.
+    if let Some(row) = r.ocr_review.as_ref().filter(|f| !f.busy).and_then(|f| f.selected())
+        && let Some(page) = row.page.checked_sub(1).filter(|&page| page < v.viewer.page_count())
+    {
+        marks.push(overlay(v.viewer.overlay(page, row.rect), 5));
+    }
     // Annotations on their way to the document thread, drawn as they will look.
     let mut prov_ink = String::new();
     let mut provisional = Vec::new();
@@ -612,6 +618,32 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_open: r.props_open,
         background_open: r.background_open,
         versions_open: r.versions_open,
+        signature_manager_open: r.signature_manager.is_some(),
+        signature_manager_name: r.signature_manager.as_ref().and_then(|m| m.selected.as_ref()?.1.1.as_deref()).unwrap_or_default().into(),
+        signature_manager_commands: r.signature_manager.as_ref().and_then(|m| m.selected.as_ref()).map(|(_, s)| super::signature_manager::commands(s)).unwrap_or_default().into(),
+        signature_manager_style: ModelRc::new(VecModel::from(r.signature_manager.as_ref().and_then(|m| m.selected.as_ref()).map(|(_, s)| vec![i32::from(s.3), i32::from(s.2.0), i32::from(s.2.1)]).unwrap_or_else(|| vec![0, 0, 1]))),
+        signature_manager_status: r.signature_manager.as_ref().map(|m| m.status.as_str()).unwrap_or_default().into(),
+        signature_manager_seq: r.signature_manager.as_ref().map_or(0, |m| m.seq),
+        policy_open: r.policy_panel.is_some(),
+        policy_busy: r.policy_panel.as_ref().is_some_and(|p| p.busy),
+        policy_names: ModelRc::new(VecModel::from(r.policy_panel.as_ref().map(|p| p.policies.iter().map(|p| slint::SharedString::from(p.name.as_str())).collect::<Vec<_>>()).unwrap_or_default())),
+        policy_name: r.policy_panel.as_ref().map(|p| p.draft.name.as_str()).unwrap_or_default().into(),
+        policy_flags: ModelRc::new(VecModel::from(r.policy_panel.as_ref().map(|p| { let f = p.draft.permissions; vec![f.printing, f.copying, f.editing, f.commenting, f.filling_forms, p.draft.encrypt_metadata] }).unwrap_or_default())),
+        policy_status: r.policy_panel.as_ref().map(|p| p.status.as_str()).unwrap_or_default().into(),
+        policy_seq: r.policy_panel.as_ref().map_or(0, |p| p.seq),
+        catalog_open: r.catalog_panel.is_some(),
+        catalog_busy: r.catalog_panel.as_ref().is_some_and(|p| p.busy),
+        catalog_status: r.catalog_panel.as_ref().map(|p| p.status.as_str()).unwrap_or_default().into(),
+        catalog_files: ModelRc::new(VecModel::from(r.catalog_panel.as_ref().map(|p| p.files.iter().map(|f| slint::SharedString::from(f.to_string_lossy().as_ref())).collect::<Vec<_>>()).unwrap_or_default())),
+        catalog_hits: ModelRc::new(VecModel::from(r.catalog_panel.as_ref().map(|p| p.results.iter().map(|h| FolderHit { file: h.path.to_string_lossy().as_ref().into(), page: format!("p. {}", h.page + 1).into(), line: h.snippet.as_str().into() }).collect::<Vec<_>>()).unwrap_or_default())),
+        ocr_review_open: r.ocr_review.is_some(),
+        ocr_review_busy: r.ocr_review.as_ref().is_some_and(|f| f.busy),
+        ocr_review_text: r.ocr_review.as_ref().and_then(|f| f.selected()).map(|row| row.text.as_str()).unwrap_or_default().into(),
+        ocr_review_position: r.ocr_review.as_ref().map(|f| f.position()).unwrap_or_default().into(),
+        ocr_review_has_row: r.ocr_review.as_ref().and_then(|f| f.selected()).is_some(),
+        ocr_review_suspects_only: r.ocr_review.as_ref().is_some_and(|f| f.suspects_only),
+        ocr_review_suspect: r.ocr_review.as_ref().and_then(|f| f.selected()).is_some_and(|row| row.suspect),
+        ocr_review_seq: r.ocr_review.as_ref().map_or(0, |f| f.seq),
         folder_open: r.folder_search.is_some(),
         folder_busy: r.folder_search.as_ref().is_some_and(|f| f.busy),
         folder_title: r.folder_search.as_ref().map(|f| format!("“{}” in {}", f.query, f.folder)).unwrap_or_default().into(),
@@ -656,7 +688,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         has_signature: r.tool == SIGN && !r.initials && saved_signature().is_some(),
         initials: r.initials,
         sign_every_page: r.sign_every_page,
-        signatures: ModelRc::new(VecModel::from(if r.tool == SIGN { signature_thumbs() } else { Vec::new() })),
+        signatures: ModelRc::new(VecModel::from(if r.tool == SIGN || r.signature_manager.is_some() { signature_thumbs() } else { Vec::new() })),
         has_form: r.snap.fields.iter().any(|f| f.kind < 4),
         choices: ModelRc::new(VecModel::from(
             r.draft

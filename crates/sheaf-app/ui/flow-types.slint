@@ -484,6 +484,32 @@ export struct ReaderState {
     // More ▸ Versions… is open; the versions saved in the file; what Undo and Redo would do.
     versions-open: bool,
     // The search panel's In a folder…: the sheet open, still searching, what and where, the results.
+    signature-manager-open: bool,
+    signature-manager-name: string,
+    signature-manager-commands: string,
+    signature-manager-style: [int],
+    signature-manager-status: string,
+    signature-manager-seq: int,
+    policy-open: bool,
+    policy-busy: bool,
+    policy-names: [string],
+    policy-name: string,
+    policy-flags: [bool],
+    policy-status: string,
+    policy-seq: int,
+    catalog-open: bool,
+    catalog-busy: bool,
+    catalog-status: string,
+    catalog-files: [string],
+    catalog-hits: [FolderHit],
+    ocr-review-open: bool,
+    ocr-review-busy: bool,
+    ocr-review-text: string,
+    ocr-review-position: string,
+    ocr-review-has-row: bool,
+    ocr-review-suspect: bool,
+    ocr-review-suspects-only: bool,
+    ocr-review-seq: int,
     folder-open: bool,
     folder-busy: bool,
     folder-title: string,
@@ -665,7 +691,8 @@ export struct ToolOptions {
     pdfa-level: int,     // 0 PDF/A-2b, 1 PDF/A-3b
     pdfa-allow-incomplete: bool,
     // OCR
-    ocr-languages: string, // selected language codes, ",en,fr," (the first one is used)
+    ocr-languages: string, // selected language codes, ",en,fr," (all selected codes are used)
+    ocr-local-engine: bool,
     ocr-all-pages: bool,   // also read pages that already contain text
     ocr-enhance: bool,     // straighten and clean scanned pages first (Acrobat's Enhance)
     // PDF to Word / PowerPoint / Excel
@@ -888,6 +915,18 @@ export global ReaderBridge {
     callback remove-images(int);
     callback reflow(int, int);
     callback folder-search(int, string);
+    callback signature-manager(int);
+    callback signature-manager-action(int, int, int);
+    callback signature-manager-save(int, string, string, int, int, int);
+    callback policy-open(int);
+    callback policy-action(int, int, int);
+    callback policy-save(int, string, bool, bool, bool, bool, bool, bool);
+    callback policy-apply(int, string, string, string, string);
+    callback catalog-open(int);
+    callback catalog-action(int, int, int, string);
+    callback review-ocr(int);
+    // -1 close, 0 previous, 1 accept/next, 2 correct, 3 not text, 4 filter.
+    callback ocr-review-action(int, int, string);
     callback folder-result(int, int);
     callback field-scripts(int, int, string, string, string);
     callback outline-drop(int, int, int, bool);

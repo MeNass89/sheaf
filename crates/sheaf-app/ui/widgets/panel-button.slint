@@ -1,0 +1,33 @@
+// Keyboard and screen-reader accessible action in the reader's panel style.
+import { Theme } from "../theme.slint";
+export component PanelButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 32px;
+    min-width: label.preferred-width + 20px;
+    border-radius: Theme.radius-button;
+    border-width: focus.has-focus ? 1px : 0px;
+    border-color: Theme.text;
+    background: !root.enabled ? Theme.input-bg : root.primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent) : touch.has-hover ? Theme.popup-hover : Theme.pill-bg;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    label := Text {
+        text: root.text;
+        font-size: Theme.fs-label;
+        font-weight: Theme.weight-demibold;
+        color: !root.enabled ? Theme.text-disabled : root.primary ? Theme.on-accent : Theme.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == " " || event.text == Key.Return { root.clicked(); return accept; }
+            reject
+        }
+    }
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { focus.focus(); root.clicked(); } }
+}

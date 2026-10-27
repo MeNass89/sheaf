@@ -68,6 +68,11 @@ pub struct TextLine {
 }
 
 impl TextLine {
+    /// Sheaf: invisible OCR text can be corrected without changing the scanned artwork.
+    pub fn invisible(&self) -> bool {
+        self.origin.state.render_mode == 3
+    }
+
     /// Origin of the source baseline in PDF user space, independent of font ascent/descent.
     pub fn baseline(&self) -> [f64; 2] {
         [self.origin.x, self.origin.baseline]

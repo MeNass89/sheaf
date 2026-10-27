@@ -252,6 +252,7 @@ pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>, font: u8
         h.prefs.signature_font = font;
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");
+            if let Some(ui) = h.ui.upgrade() { crate::flow::toast(&ui, &e.to_string()); }
         }
     });
 }
@@ -263,6 +264,7 @@ pub fn set_initials(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>, font: u8)
         h.prefs.initials = (!strokes.is_empty() || name.is_some()).then_some((strokes, name, pen, font));
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");
+            if let Some(ui) = h.ui.upgrade() { crate::flow::toast(&ui, &e.to_string()); }
         }
     });
 }
@@ -274,6 +276,22 @@ pub fn signatures() -> Vec<sheaf_app::prefs::KeptSignature> {
             return vec![(h.prefs.signature_strokes.clone(), h.prefs.signature_name.clone(), h.prefs.signature_pen, h.prefs.signature_font)];
         }
         h.prefs.signatures.clone()
+    })
+}
+
+/// Manage Signatures: persist the complete ordered list, then publish it to the reader.
+/// A failed credential write leaves the visible list intact, so a failed deletion is not hidden.
+pub fn save_signature_list(list: Vec<sheaf_app::prefs::KeptSignature>) -> Result<(), String> {
+    with(|h| {
+        let before = h.prefs.clone();
+        let first = list.first().cloned().unwrap_or_default();
+        h.prefs.signatures = list;
+        (h.prefs.signature_strokes, h.prefs.signature_name, h.prefs.signature_pen, h.prefs.signature_font) = first;
+        if let Err(error) = h.prefs.save(&h.dir) {
+            h.prefs = before;
+            return Err(error.to_string());
+        }
+        Ok(())
     })
 }
 
@@ -302,6 +320,7 @@ pub fn pick_signature(i: usize, remove: bool) {
         }
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");
+            if let Some(ui) = h.ui.upgrade() { crate::flow::toast(&ui, &e.to_string()); }
         }
     });
 }

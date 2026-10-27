@@ -588,7 +588,7 @@ check "Scroll automatically moves the pages up until Escape (quick at ${AY0:-?},
 quit
 
 # 65. Signature (S) ▸ Initials (Acrobat's Add Initials): a click opens the pad for initials ("Your initials"),
-# "AL" typed and used: kept apart from the signatures (prefs "initials"), placed 60 pt wide.
+# "AL" typed and used: kept apart from the signatures (secure store "initials"), placed 60 pt wide.
 cp "$OUT/text.pdf" "$OUT/initials.pdf"; launch "$OUT/initials.pdf"; sleep 1; key s; sleep 0.5
 IN=$(at Initials 1280x40+0+90); [ -n "$IN" ] && click $IN 0.5; click 640 500 1.2; shot 65-initials-pad
 # The field's placeholder is too faint to read: it sits 37 px under "or type them".
@@ -596,7 +596,7 @@ TT=$(at type 900x700+190+60); TF=${TT:+$(set -- $TT; echo $1 $(( $2 + 37 )))}; [
 # Use (white on red, unread by OCR) is 66 px right of Cancel, on the row about 200 px under "or type them"
 # (read again: the styles typed push the pad up), read on that strip alone.
 TT=$(at type 900x700+190+60); CN=${TT:+$(set -- $TT; at Cancel 240x44+$(( $1 + 180 ))+$(( $2 + 180 )))}; US=${CN:+$(set -- $CN; echo $(( $1 + 66 )) $2)}; [ -n "$US" ] && click $US 1.2; key v; key ctrl+s; sleep 1.5
-IP=$(python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); i = p.get("initials"); print("kept" if i and i[1] == "AL" else "none")' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+IP=$(secure_marks | python3 -c 'import json, sys; i = json.load(sys.stdin).get("initials"); print("kept" if i and i[1] == "AL" else "none")' 2>/dev/null)
 IW=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | python3 -c '
 import re, sys
 d = sys.stdin.buffer.read().decode("latin-1")
@@ -1384,3 +1384,17 @@ key ctrl+s; sleep 1.5
 CN=$(qpdf --qdf --object-streams=disable "$OUT/checkpass.pdf" - 2>/dev/null | grep -ao '/Contents ([^)]*)' | tail -1)
 check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $CN)" "echo \"$CW\" | grep -q 'teh' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat'"
 quit
+
+# 240. Kept signatures and initials belong to the system credential store, never prefs.json.
+# The existing signature/initials steps exercised save, restart and reuse. Their helpers read
+# Secret Service too; this suite needs secret-tool and an unlocked desktop keyring.
+no_plain_marks() {
+    python3 - "$PWD/$OUT/profile/data/Sheaf/prefs.json" <<'PYMARKS'
+import json, sys
+p = json.load(open(sys.argv[1]))
+assert not any(k in p for k in ("signature_name", "signature_strokes", "signatures", "initials"))
+PYMARKS
+}
+has_secure_marks() { secure_marks | python3 -c 'import json,sys; p=json.load(sys.stdin); assert p.get("signatures") or p.get("initials")'; }
+check "signatures and initials are absent from plaintext preferences" "no_plain_marks"
+check "kept marks exist in the system credential store" "has_secure_marks"

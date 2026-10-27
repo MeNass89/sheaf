@@ -236,6 +236,18 @@ fn open(input: &Input) -> Result<Doc> {
 /// written when anything fails: a wrong certificate password is
 /// [`OpdfError::CertificatePassword`], checked before the document is touched.
 pub fn sign(input: &Input, spec: &SignSpec, out: &Path) -> Result<SignReport> {
+    sign_inner(input, spec, out, None)
+}
+
+/// Acrobat's signature timestamp (PAdES B-T), supplied by an explicit local authority adapter.
+/// The caller owns the transport; this API never opens a socket or invents a trusted time.
+/// A failed or mismatched authority response fails signing before any output is written.
+pub fn sign_with_timestamp(input: &Input, spec: &SignSpec, out: &Path, authority: &dyn engine::sign::TimestampAuthority) -> Result<SignReport> {
+    if spec.digital.is_none() { return Err(OpdfError::Unsupported("A signature timestamp needs a digital certificate".into())); }
+    sign_inner(input, spec, out, Some(authority))
+}
+
+fn sign_inner(input: &Input, spec: &SignSpec, out: &Path, authority: Option<&dyn engine::sign::TimestampAuthority>) -> Result<SignReport> {
     let ready = Ready::new(&spec.graphic)?;
     let id = match &spec.digital {
         Some(d) => Some(digital_id(d)?),
@@ -289,7 +301,10 @@ pub fn sign(input: &Input, spec: &SignSpec, out: &Path) -> Result<SignReport> {
         graphic,
         ..SignOptions::default()
     };
-    let bytes = doc.session().sign(doc.id(), id, opts).map_err(|e| OpdfError::Engine(format!("signing failed: {e}")))?;
+    let bytes = match authority {
+        Some(tsa) => doc.session().sign_with_timestamp(doc.id(), id, opts, tsa),
+        None => doc.session().sign(doc.id(), id, opts),
+    }.map_err(|e| OpdfError::Engine(format!("signing failed: {e}")))?;
     // Written exactly as PdfCraft produced them: any re-save would invalidate the signature.
     let path = atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?))?;
     Ok(SignReport { path, signer: Some(id.certificate.display_name()) })
@@ -299,11 +314,23 @@ pub fn sign(input: &Input, spec: &SignSpec, out: &Path) -> Result<SignReport> {
 /// `certify` permissions, else no changes), with no signature shown on a page (Sol, 26/10: a
 /// certification needed a signature placed).
 pub fn certify_invisible(input: &Input, d: &DigitalSpec, out: &Path) -> Result<SignReport> {
+    certify_inner(input, d, out, None)
+}
+
+/// Invisible certification with the same explicit offline timestamp adapter as [`sign_with_timestamp`].
+pub fn certify_with_timestamp(input: &Input, d: &DigitalSpec, out: &Path, authority: &dyn engine::sign::TimestampAuthority) -> Result<SignReport> {
+    certify_inner(input, d, out, Some(authority))
+}
+
+fn certify_inner(input: &Input, d: &DigitalSpec, out: &Path, authority: Option<&dyn engine::sign::TimestampAuthority>) -> Result<SignReport> {
     let id = digital_id(d)?;
     let doc = open(input)?;
     let some = |s: &Option<String>| s.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(str::to_string);
     let opts = SignOptions { page: 0, rect: None, reason: some(&d.reason), location: some(&d.location), certify: Some(d.certify.unwrap_or(1).clamp(1, 3)), ..SignOptions::default() };
-    let bytes = doc.session().sign(doc.id(), &id, opts).map_err(|e| OpdfError::Engine(format!("certifying failed: {e}")))?;
+    let bytes = match authority {
+        Some(tsa) => doc.session().sign_with_timestamp(doc.id(), &id, opts, tsa),
+        None => doc.session().sign(doc.id(), &id, opts),
+    }.map_err(|e| OpdfError::Engine(format!("certifying failed: {e}")))?;
     let path = atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?))?;
     Ok(SignReport { path, signer: Some(id.certificate.display_name()) })
 }
