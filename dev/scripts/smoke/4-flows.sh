@@ -502,10 +502,14 @@ quit
 unset SHEAF_TEST_MENU_BAR
 
 # Preferences scrolled until a word shows in the page (the platform sections are below Signatures).
-pref_find() { local f=""; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
+# Once found, read again until the place holds: the scroll is still easing when the word first shows
+# (rows came out 42 px low on 27/10).
+pref_find() { local f="" g; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; for _ in 1 2 3 4 5; do [ -n "$f" ] || break; sleep 0.4; g=$(at "$1" 1020x700+250+90); [ "$g" = "$f" ] && break; f=$g; done; echo "$f"; }
 # Preferences ▸ Keyboard shortcuts' search field (its grey placeholder does not OCR): 93 px above Reset all,
 # the section's last row; then what is typed is searched.
-shortcut_search() { local r; read _ r <<< "$(pref_find Reset)"; [ -n "$r" ] && click 500 $(( r - 93 )) 0.5; xdotool type --delay 20 "$1"; sleep 0.8; }
+# SR keeps Reset all's place before the search: the rows found then start 45 px below the field,
+# 42 px apart (row 1 at SR - 48, row 2 at SR - 6).
+shortcut_search() { local r; read _ r <<< "$(pref_find Reset)"; SR=${r:-0}; [ -n "$r" ] && click 500 $(( r - 93 )) 0.5; xdotool type --delay 20 "$1"; sleep 0.8; }
 # A row of the shortcuts list found by a word of its name: its keys box (right-aligned, x 1157) clicked.
 keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5; echo "${y:-no $1 row}"; }
 # The preferences file, written even when no earlier step made it.
@@ -517,13 +521,14 @@ platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])
 # clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
 launch; key ctrl+comma; sleep 0.8
 shortcut_search "find"
-# Rows are found from Find Next's "Next" (OCR reads "Find…" with its ellipsis, so "Find" alone
-# matched Find Next's row); Find's row is the one above, 42 px higher.
-read _ KG <<< "$(at Next 1020x700+250+90)"
-case "$KG" in ''|*[!0-9]*) KG=0 ;; esac
-KF=$(( KG - 42 )); [ "$KF" -gt 0 ] && click 1157 $KF 0.5; sleep 0.5; key ctrl+alt+f; sleep 1
+# The rows' places come from the search field's (OCR found "Find…" and "Next" a row off while the
+# list was still laying out): Find… first, Find Next second.
+KF=$(( SR - 48 )); KG=$(( SR - 6 ))
+[ "$SR" -gt 48 ] && click 1157 $KF 0.5; sleep 0.5; key ctrl+alt+f; sleep 1
 [ "$KF" -gt 0 ] && click 1157 $KG 0.5; key ctrl+s; sleep 1.2; shot 221-shortcuts
-KE=$(ocr 1020x700+250+90)
+# Quotes and other shell characters are taken out of the read text: the grammar line above the
+# shortcuts quotes "a" and "an", which broke the check below.
+KE=$(ocr 1020x700+250+90 | tr -d '"`$\\')
 # The preferences are written a moment after the keys (up to 3 s under load).
 for _ in 1 2 3 4 5 6; do
     KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
