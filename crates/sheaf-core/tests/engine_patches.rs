@@ -541,10 +541,17 @@ fn a_recoloured_rich_text_box_keeps_its_mixed_runs() {
     let path = t.path().join("rich.pdf");
     let mut doc = lopdf::Document::with_version("1.7");
     let rc = "<?xml version=\"1.0\"?><body xmlns=\"http://www.w3.org/1999/xhtml\" style=\"font-size:12pt;color:#000000\"><p>A <span style=\"font-weight:bold;color:#000000\">bold</span> and <span style=\"font-size:18pt;background-color:#FFFF00\">large</span> word</p></body>";
+    // Drawn by that program: a bold run and an 18-point run, each in its own font and size.
+    let helv = doc.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding" });
+    let bold = doc.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica-Bold", "Encoding" => "WinAnsiEncoding" });
+    let ap = doc.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![72.into(), 650.into(), 372.into(), 700.into()], "Resources" => dictionary! { "Font" => dictionary! { "Helv" => helv, "HeBo" => bold } } },
+        b"1 1 0 rg 160 660 40 20 re f BT /Helv 12 Tf 0 g 74 680 Td (A ) Tj /HeBo 12 Tf (bold) Tj /Helv 12 Tf ( and ) Tj /Helv 18 Tf (large) Tj /Helv 12 Tf ( word) Tj ET".to_vec(),
+    ));
     let annot = doc.add_object(dictionary! {
         "Type" => "Annot", "Subtype" => "FreeText", "Rect" => vec![72.into(), 650.into(), 372.into(), 700.into()],
         "Contents" => Object::string_literal("A bold and large word"), "DA" => Object::string_literal("0 0 0 rg /Helv 12 Tf"),
-        "RC" => Object::string_literal(rc), "DS" => Object::string_literal("font: 12pt Helvetica; color:#000000"),
+        "RC" => Object::string_literal(rc), "DS" => Object::string_literal("font: 12pt Helvetica; color:#000000"), "AP" => dictionary! { "N" => ap },
     });
     let pages = doc.new_object_id();
     let content = doc.add_object(Stream::new(dictionary! {}, Vec::new()));
@@ -570,6 +577,14 @@ fn a_recoloured_rich_text_box_keeps_its_mixed_runs() {
     assert!(rc.contains("color:#FF0000") && !rc.contains("color:#000000"), "every text colour is the new one: {rc}");
     assert!(rc.contains("background-color:#FFFF00"), "a background colour is not a text colour: {rc}");
     assert!(ds.contains("color:#FF0000"), "{ds}");
+    // What shows: the same runs, in their own fonts and sizes, now red; the yellow behind kept
+    // (Sol, 27/10: the box was redrawn from its plain text in one font and size).
+    let n = a.get(b"AP").unwrap().as_dict().unwrap().get(b"N").unwrap().as_reference().unwrap();
+    let Object::Stream(st) = saved.get_object(n).unwrap() else { panic!("no appearance stream") };
+    let drawn = String::from_utf8_lossy(&st.decompressed_content().unwrap_or_else(|_| st.content.clone())).into_owned();
+    assert!(drawn.contains("/HeBo 12 Tf") && drawn.contains("/Helv 18 Tf"), "its runs are drawn as before: {drawn}");
+    assert!(drawn.contains("1 0 0 rg") && !drawn.contains(" 0 g "), "its text red: {drawn}");
+    assert!(drawn.contains("1 1 0 rg 160 660 40 20 re f"), "the background as it was: {drawn}");
 }
 
 #[test]

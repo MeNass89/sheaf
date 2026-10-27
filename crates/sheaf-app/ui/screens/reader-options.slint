@@ -330,7 +330,9 @@ export component ReaderOptionsBar inherits Rectangle {
                                 height: 28px;
                                 background: font-ta.has-hover ? Theme.popup-hover : transparent;
                                 // Each name in its own face when the system has it, as Acrobat's list.
-                                Text { x: 10px; width: parent.width - 20px; text: name; font-family: name; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                                // One that can't be embedded is dimmed; picked, the reason is said.
+                                property <bool> locked: ReaderBridge.system-fonts-why[k] != "";
+                                Text { x: 10px; width: parent.width - 20px; text: parent.locked ? name + " — not embeddable" : name; font-family: name; font-size: Theme.fs-label; color: parent.locked ? Theme.text-muted : Theme.text; vertical-alignment: center; overflow: elide; }
                                 font-ta := TouchArea { clicked => { ReaderBridge.text-format(root.id, 8, k); font-menu.close(); } }
                             }
                         }

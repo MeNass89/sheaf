@@ -135,7 +135,7 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
     if matches!(what, 2 | 3)
         && let Some((page, index, base)) = update(tab_id, |r, _| {
             let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| a.subtype == "FreeText" && !a.fill_sign && !a.font_name.is_empty())?;
-            let standard = FONTS.iter().flatten().any(|f| a.font.is_some_and(|(n, _, _)| n == *f));
+            let standard = a.font.is_some_and(|(n, _, _)| standard_face(n, &a.font_name));
             (!standard).then(|| (a.page, a.index, a.font_name.clone()))
         })
         .flatten()
@@ -190,6 +190,11 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
     // A font of the computer's (`v` in the list), for the open paragraph: its program read now.
     let picked = if what == 8 {
         let Some(f) = sheaf_core::system_fonts::installed().get(v.max(0) as usize) else { return };
+        // One PdfCraft may not embed: said why, nothing changes (Sol, 27/10: such fonts were left
+        // out of the list without a word).
+        if let Some(why) = &f.why_not {
+            return crate::flow::toast(ui, &format!("{} can't be used: {why}", f.name));
+        }
         match std::fs::read(&f.path) {
             Ok(bytes) => Some((f.name.clone(), std::sync::Arc::new(bytes))),
             Err(e) => return crate::flow::toast(ui, &format!("{} can't be read: {e}", f.name)),
@@ -269,16 +274,28 @@ pub(super) fn is_loupe(a: &AnnotEntry) -> bool {
     a.subtype == "Circle" && a.contents == "Loupe"
 }
 
+/// Whether a text box's font is the standard face its resource name stands for: `/Helv` drawn
+/// in Helvetica is; `/Helv` naming another program's Arial is not, so bold and italic look for
+/// Arial's own faces (Sol, 27/10: an imported /Helv was taken for Helvetica).
+fn standard_face(resource: &str, base_font: &str) -> bool {
+    let base = base_font.rsplit('+').next().unwrap_or(base_font);
+    sheaf_core::pdfcraft::engine::annot_text::TEXT_FONTS.iter().any(|(r, b)| *r == resource && *b == base)
+}
+
 /// The computer's fonts for the format row's list (`ReaderBridge.system-fonts`): read on a thread
 /// the first time, then at once.
 fn list_system_fonts(ui: &AppWindow) {
     let weak = ui.as_weak();
     std::thread::spawn(move || {
-        let names: Vec<slint::SharedString> = sheaf_core::system_fonts::installed().iter().map(|f| f.name.as_str().into()).collect();
+        let fonts = sheaf_core::system_fonts::installed();
+        let names: Vec<slint::SharedString> = fonts.iter().map(|f| f.name.as_str().into()).collect();
+        let why: Vec<slint::SharedString> = fonts.iter().map(|f| f.why_not.as_deref().unwrap_or_default().into()).collect();
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(ui) = weak.upgrade() {
                 use slint::ComponentHandle as _;
-                ui.global::<sheaf_app::ReaderBridge>().set_system_fonts(slint::ModelRc::new(slint::VecModel::from(names)));
+                let bridge = ui.global::<sheaf_app::ReaderBridge>();
+                bridge.set_system_fonts_why(slint::ModelRc::new(slint::VecModel::from(why)));
+                bridge.set_system_fonts(slint::ModelRc::new(slint::VecModel::from(names)));
             }
         });
     });
@@ -865,6 +882,17 @@ mod tests {
         for bad in ["", "pt", "0", "-3", "abc"] {
             assert_eq!(typed_size(bad), None, "{bad:?}");
         }
+    }
+
+    /// A standard resource name is the standard face only when its font is (an imported /Helv
+    /// holding Arial is not).
+    #[test]
+    fn an_imported_helv_is_not_taken_for_helvetica() {
+        assert!(standard_face("Helv", "Helvetica"));
+        assert!(standard_face("TiBo", "ABCDEF+Times-Bold"));
+        assert!(!standard_face("Helv", "ArialMT"));
+        assert!(!standard_face("Helv", "Helvetica-Bold"), "the face must be the one the name stands for");
+        assert!(!standard_face("", "DejaVuSerif"));
     }
 
     /// Underline, bullets and a font of the computer's change the paragraph open, as size and

@@ -1,14 +1,15 @@
-//! Fonts installed on the computer that a paragraph edited with the Edit tool can be set in
-//! (Acrobat's Edit PDF font list, which lists the system's fonts): the TrueType and OpenType files
-//! of the system's font folders that PdfCraft may embed, a static face whose own name table
-//! declares an open licence (OFL, Apache, Ubuntu, Bitstream Vera, MIT: DejaVu, Liberation, Noto,
-//! Ubuntu…). Read once, off the interface thread.
+//! Fonts installed on the computer that text can be set in (Acrobat's font list, which lists the
+//! system's fonts): every TrueType and OpenType file of the system's font folders, and for each
+//! whether PdfCraft may embed it (a static face whose own name table declares an open licence:
+//! OFL, Apache, Ubuntu, Bitstream Vera, MIT; DejaVu, Liberation, Noto, Ubuntu…) or why not, so the
+//! list shows the others too, said (Sol, 27/10: they were left out without a word). Read once,
+//! off the interface thread.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 /// One installed face: its name as shown ("DejaVu Serif Bold"), its file, its family ("DejaVu
-/// Serif") and whether it is bold or italic.
+/// Serif"), whether it is bold or italic, and why it can't be embedded (`None`: it can).
 #[derive(Clone, Debug, PartialEq)]
 pub struct SystemFont {
     pub name: String,
@@ -16,6 +17,7 @@ pub struct SystemFont {
     pub family: String,
     pub bold: bool,
     pub italic: bool,
+    pub why_not: Option<String>,
 }
 
 /// The folders fonts are installed in on this system (those that exist).
@@ -44,7 +46,8 @@ pub fn font_dirs() -> Vec<PathBuf> {
 const MAX_FILES: usize = 3_000;
 const MAX_BYTES: u64 = 16 << 20;
 
-/// The fonts of `dirs` (searched a few folders deep) PdfCraft may embed, by name, each name once.
+/// The fonts of `dirs` (searched a few folders deep), by name, each name once; those PdfCraft
+/// may not embed say why.
 pub fn list_fonts(dirs: &[PathBuf]) -> Vec<SystemFont> {
     let mut files = Vec::new();
     for d in dirs {
@@ -55,12 +58,13 @@ pub fn list_fonts(dirs: &[PathBuf]) -> Vec<SystemFont> {
         .into_iter()
         .take(MAX_FILES)
         .filter_map(|path| {
-            let (name, family) = embeddable_name(&path)?;
+            let (name, family, why_not) = font_name(&path)?;
             let (bold, italic) = style_of(&name);
-            Some(SystemFont { name, path, family, bold, italic })
+            Some(SystemFont { name, path, family, bold, italic, why_not })
         })
         .collect();
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.path.cmp(&b.path)));
+    // The same name twice: the one that can be embedded kept.
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.why_not.is_some().cmp(&b.why_not.is_some())).then(a.path.cmp(&b.path)));
     out.dedup_by(|a, b| a.name == b.name);
     out
 }
@@ -87,18 +91,38 @@ fn font_files(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// A font file's name as shown, when PdfCraft may embed it: its family, and its style when not
-/// the regular one, from its PostScript name ("DejaVuSerif-BoldItalic" → "DejaVu Serif Bold
-/// Italic"); and its family.
-fn embeddable_name(path: &Path) -> Option<(String, String)> {
+/// A font file's name as shown: its family, and its style when not the regular one, from its
+/// PostScript name ("DejaVuSerif-BoldItalic" → "DejaVu Serif Bold Italic"); its family; and why
+/// PdfCraft may not embed it. `None` for a file that is no font.
+fn font_name(path: &Path) -> Option<(String, String, Option<String>)> {
+    use skrifa::{FontRef, MetadataProvider, string::StringId};
     let bytes = std::fs::read(path).ok()?;
-    pdfcraft_fonts::embedding::validate_document_input(&bytes).ok()?;
-    let (family, postscript) = pdfcraft_fonts::embedding::names(&bytes).ok()?;
+    let font = FontRef::new(&bytes).ok()?;
+    let name = |id| font.localized_strings(id).find(|s| s.language() == Some("en")).or_else(|| font.localized_strings(id).next()).map(|s| s.to_string()).filter(|s| !s.is_empty());
+    let family = name(StringId::FAMILY_NAME).or_else(|| path.file_stem().map(|s| s.to_string_lossy().into_owned()))?;
+    let postscript = name(StringId::POSTSCRIPT_NAME).unwrap_or_else(|| family.replace(' ', ""));
+    let why_not = pdfcraft_fonts::embedding::validate_document_input(&bytes).err().map(|e| why_not(&e));
     let style = postscript.rsplit_once('-').map(|(_, s)| s).filter(|s| !s.is_empty() && !s.eq_ignore_ascii_case("regular") && !s.eq_ignore_ascii_case("roman"));
     Some(match style {
-        Some(s) => (format!("{family} {}", spaced(s)), family),
-        None => (family.clone(), family),
+        Some(s) => (format!("{family} {}", spaced(s)), family, why_not),
+        None => (family.clone(), family, why_not),
     })
+}
+
+/// PdfCraft's refusal to embed a font, said shortly for the font list.
+fn why_not(refusal: &str) -> String {
+    let r = refusal.to_ascii_lowercase();
+    if r.contains("licen") {
+        "its licence is not declared open, so it is not embedded".into()
+    } else if r.contains("permission") {
+        "its maker does not allow embedding it".into()
+    } else if r.contains("variable") {
+        "a variable font: only a static face is embedded".into()
+    } else if r.contains("adobe") || r.contains("asset policy") {
+        "not embedded by Sheaf's font policy".into()
+    } else {
+        refusal.to_string()
+    }
 }
 
 /// Whether a font's name says bold and italic ("DejaVuSerif-BoldItalic", "Arial,Bold",
@@ -117,7 +141,7 @@ fn key(name: &str) -> String {
 /// The installed face of `family` that is `bold` and `italic` (the format row's B and I after a
 /// font of the computer's was chosen).
 pub fn face<'a>(fonts: &'a [SystemFont], family: &str, bold: bool, italic: bool) -> Option<&'a SystemFont> {
-    fonts.iter().find(|f| f.bold == bold && f.italic == italic && key(&f.family) == key(family))
+    fonts.iter().filter(|f| f.why_not.is_none()).find(|f| f.bold == bold && f.italic == italic && key(&f.family) == key(family))
 }
 
 /// The installed face of the font `base_font` is drawn in (a `/BaseFont`, "ABCDEF+DejaVuSerif-Bold":
@@ -129,7 +153,7 @@ pub fn variant<'a>(fonts: &'a [SystemFont], base_font: &str, bold: bool, italic:
     let family = key(plain.split(['-', ',']).next().unwrap_or(plain));
     // "ArialMT" is Arial's family as PostScript names it.
     let family = family.strip_suffix("mt").filter(|f| !f.is_empty()).map_or(family.clone(), str::to_string);
-    fonts.iter().filter(|f| f.bold == bold && f.italic == italic).find(|f| key(&f.family) == family)
+    fonts.iter().filter(|f| f.why_not.is_none() && f.bold == bold && f.italic == italic).find(|f| key(&f.family) == family)
 }
 
 /// "BoldItalic" → "Bold Italic".
@@ -155,7 +179,7 @@ mod tests {
     fn bold_and_italic_pick_the_fonts_own_faces() {
         let font = |name: &str, family: &str| {
             let (bold, italic) = style_of(name);
-            SystemFont { name: name.into(), path: PathBuf::from(format!("{name}.ttf")), family: family.into(), bold, italic }
+            SystemFont { name: name.into(), path: PathBuf::from(format!("{name}.ttf")), family: family.into(), bold, italic, why_not: None }
         };
         let fonts = [font("DejaVu Serif", "DejaVu Serif"), font("DejaVu Serif Bold", "DejaVu Serif"), font("DejaVu Serif Italic", "DejaVu Serif"), font("DejaVu Sans Bold", "DejaVu Sans")];
         assert_eq!(variant(&fonts, "ABCDEF+DejaVuSerif", true, false).map(|f| f.name.as_str()), Some("DejaVu Serif Bold"));
@@ -165,6 +189,11 @@ mod tests {
         assert_eq!(style_of("ABCDEF+NotoSans-SemiBoldOblique"), (true, true));
         assert_eq!(face(&fonts, "DejaVu Serif", true, false).map(|f| f.name.as_str()), Some("DejaVu Serif Bold"));
         assert!(face(&fonts, "DejaVu Sans", false, false).is_none(), "no regular DejaVu Sans here");
+        // A face that can't be embedded is not picked.
+        let mut locked = fonts.to_vec();
+        locked[1].why_not = Some("its licence is not declared open, so it is not embedded".into());
+        assert!(face(&locked, "DejaVu Serif", true, false).is_none());
+        assert_eq!(why_not("select an openly licensed font whose name table declares its licence (OFL…)"), "its licence is not declared open, so it is not embedded");
     }
 
     #[test]
