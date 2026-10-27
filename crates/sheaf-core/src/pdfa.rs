@@ -61,10 +61,16 @@ pub struct PdfAReport {
 /// file is re-opened and checked against `level` before it gets its final name: when that
 /// check cannot run, nothing is written.
 pub fn to_pdfa(input: &Input, level: PdfALevel, out: &Path) -> Result<PdfAReport> {
-    to_pdfa_checked(input, level, out, verify)
+    to_pdfa_with_policy(input, level, true, out)
 }
 
-fn to_pdfa_checked(input: &Input, level: PdfALevel, out: &Path, check: impl FnOnce(&Input, PdfALevel) -> Result<Vec<PdfAIssue>>) -> Result<PdfAReport> {
+/// Control incomplete archival copies: when false, unresolved built-in checks prevent
+/// publication. This is a structural check, not a full ISO certification or level downgrade.
+pub fn to_pdfa_with_policy(input: &Input, level: PdfALevel, allow_incomplete: bool, out: &Path) -> Result<PdfAReport> {
+    to_pdfa_checked(input, level, allow_incomplete, out, verify)
+}
+
+fn to_pdfa_checked(input: &Input, level: PdfALevel, allow_incomplete: bool, out: &Path, check: impl FnOnce(&Input, PdfALevel) -> Result<Vec<PdfAIssue>>) -> Result<PdfAReport> {
     let mut doc = Doc::open(input)?;
     // Read before converting: PDF/A forbids encryption, so the conversion may drop it itself.
     let was_encrypted = doc.was_encrypted();
@@ -75,6 +81,10 @@ fn to_pdfa_checked(input: &Input, level: PdfALevel, out: &Path, check: impl FnOn
     let path = atomic_write(out, |part| {
         std::fs::write(part, bytes.as_slice())?;
         issues = check(&Input::new(part), level)?;
+        if !allow_incomplete && !issues.is_empty() {
+            let detail = issues.iter().map(|i| format!("{}: {}", i.clause, i.message)).collect::<Vec<_>>().join("\n");
+            return Err(crate::OpdfError::Conversion(format!("{} did not pass the built-in checks; no output saved.\n{detail}", level.label())));
+        }
         Ok(())
     })?;
     Ok(PdfAReport { path, was_encrypted, issues })
@@ -103,7 +113,7 @@ mod tests {
         d.save(&src).unwrap();
         let out = t.path().join("a-pdfa.pdf");
         let mut checked = None;
-        let r = to_pdfa_checked(&Input::new(&src), PdfALevel::A2b, &out, |i, _| {
+        let r = to_pdfa_checked(&Input::new(&src), PdfALevel::A2b, true, &out, |i, _| {
             checked = Some(i.path.clone());
             Err(crate::OpdfError::Engine("the written file could not be read".into()))
         });

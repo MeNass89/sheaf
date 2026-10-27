@@ -6722,6 +6722,7 @@ name = "sheaf-core"
 version = "0.2.1"
 dependencies = [
  "calamine",
+ "encoding_rs",
  "getrandom 0.4.3",
  "image",
  "lopdf",

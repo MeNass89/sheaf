@@ -346,7 +346,12 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             Job::PdfToJpg { inputs, dpi, quality: (!opts.png).then_some(q), extract: opts.extract_images, out_dir: folder }
         }
         ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf => {
-            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect() }
+            let html = (tool == ToolId::HtmlToPdf && opts.layout != 0).then_some(sheaf_core::html::Options {
+                paper: if opts.layout == 2 { sheaf_core::html::Paper::Letter } else { sheaf_core::html::Paper::A4 },
+                landscape: opts.landscape,
+                margin: [0.0, 18.0, 36.0][opts.margin.clamp(0, 2) as usize],
+            });
+            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), html, whole_sheets: tool == ToolId::ExcelToPdf && opts.layout == 1 }
         }
         ToolId::PageNumbers => {
             let options = number_options(opts, inputs.len() > 1)?;
@@ -412,7 +417,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             };
             Job::Edit { input: one(inputs)?, items, out: single()? }
         }
-        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b } },
+        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b }, allow_incomplete: opts.pdfa_allow_incomplete },
     })
 }
 
@@ -1246,11 +1251,14 @@ mod tests {
     fn pdfa_job() {
         let mut o = opts();
         let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
-        let Job::PdfA { items, level } = build_job(ToolId::PdfToPdfA, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
+        let Job::PdfA { items, level, allow_incomplete } = build_job(ToolId::PdfToPdfA, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
         assert_eq!((level, items[1].1.clone()), (PdfALevel::A2b, PathBuf::from("/o/y-pdfa.pdf")));
+        assert!(!allow_incomplete);
+        o.pdfa_allow_incomplete = true;
         o.pdfa_level = 1;
-        let Job::PdfA { level, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
+        let Job::PdfA { level, allow_incomplete, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
         assert_eq!(level, PdfALevel::A3b);
+        assert!(allow_incomplete);
     }
 
     #[test]
@@ -1340,6 +1348,33 @@ mod tests {
         assert_eq!(parse_mm(""), Some(0.0));
         assert_eq!(parse_mm("-1"), None);
         assert_eq!(parse_mm("x"), None);
+    }
+
+    #[test]
+    fn html_layout_reaches_the_job_without_reusing_the_default_conversion() {
+        let mut o = opts();
+        o.layout = 2;
+        o.landscape = true;
+        o.margin = 1;
+        let input = || vec![Input::new("/a/page.html")];
+        let job = build_job(ToolId::HtmlToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
+        let Job::Office { html, .. } = job else { panic!("an HTML conversion job") };
+        assert_eq!(html, Some(sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0 }));
+        let job = build_job(ToolId::WordToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
+        assert!(matches!(job, Job::Office { html: None, .. }));
+        o.layout = 0;
+        let job = build_job(ToolId::HtmlToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
+        assert!(matches!(job, Job::Office { html: None, .. }));
+    }
+
+    #[test]
+    fn whole_sheet_layout_is_only_used_for_spreadsheets_and_bypasses_html() {
+        let mut o = opts();
+        o.layout = 1;
+        for (tool, expected) in [(ToolId::ExcelToPdf, true), (ToolId::WordToPdf, false), (ToolId::PowerPointToPdf, false)] {
+            let job = build_job(tool, vec![Input::new("/a/book.xlsx")], vec![], &o, Dest::NextToEach).unwrap();
+            assert!(matches!(job, Job::Office { whole_sheets, html: None, .. } if whole_sheets == expected));
+        }
     }
 
     #[test]

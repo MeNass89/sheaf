@@ -78,14 +78,14 @@ pub enum Job {
     /// `extract`: the pictures in the pages instead of the pages (iLovePDF's Extract images).
     PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: Option<u8>, extract: bool, out_dir: PathBuf },
     /// Word / PowerPoint / Excel / HTML → PDF through LibreOffice.
-    Office { items: Vec<(PathBuf, PathBuf)> },
+    Office { items: Vec<(PathBuf, PathBuf)>, html: Option<sheaf_core::html::Options>, whole_sheets: bool },
     /// JPG to PDF with "Merge all images" off: a PDF for each image.
     ImagesEach { items: Vec<(PathBuf, PathBuf)>, layout: PageLayout },
     PageNumbers { items: Vec<(Input, PathBuf)>, options: NumberOptions },
     Watermark { items: Vec<(Input, PathBuf)>, options: WatermarkOptions },
     /// `pages`: "1-3,5", or `None` for every page.
     Crop { input: Input, pages: Option<String>, spec: CropSpec, out: PathBuf },
-    PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel },
+    PdfA { items: Vec<(Input, PathBuf)>, level: PdfALevel, allow_incomplete: bool },
     Ocr { items: Vec<(Input, PathBuf)>, options: OcrOptions },
     Export { items: Vec<(Input, PathBuf)>, kind: ExportKind, options: ExportOptions },
     /// `pages`: the pages of the original and of the changed document compared (none: all).
@@ -138,7 +138,7 @@ impl Job {
             | Job::Repair { items }
             | Job::AdjustColours { items, .. } => items.iter().map(|(i, _)| i.path.as_path()).collect(),
             Job::JpgToPdf { images, .. } => images.iter().map(|p| p.as_path()).collect(),
-            Job::Office { items } | Job::ImagesEach { items, .. } => items.iter().map(|(i, _)| i.as_path()).collect(),
+            Job::Office { items, .. } | Job::ImagesEach { items, .. } => items.iter().map(|(i, _)| i.as_path()).collect(),
         }
     }
 }
@@ -388,8 +388,12 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::ImagesEach { items, layout } => {
             batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(images::images_to_pdf(std::slice::from_ref(i), *layout, o))))?
         }
-        Job::Office { items } => {
-            batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(crate::files::office_to_pdf(i, o))))?
+        Job::Office { items, html, whole_sheets } => {
+            batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(match html {
+                Some(options) => sheaf_core::html::to_pdf(i, *options, o),
+                None if *whole_sheets => sheaf_core::office::spreadsheet_to_pdf(i, o),
+                None => crate::files::office_to_pdf(i, o),
+            })))?
         }
         Job::PageNumbers { items, options } => {
             // Bates numbers run on from one file to the next, as Acrobat's batch does (Sol, 26/10: each
@@ -536,11 +540,11 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             vec![r.path]
         }
-        Job::PdfA { items, level } => {
+        Job::PdfA { items, level, allow_incomplete } => {
             let many = items.len() > 1;
             let mut conforming = 0;
             let outs = batch(each(items, cancel, progress, pair, |(i, o)| {
-                let r = pdfa::to_pdfa(i, *level, o)?;
+                let r = pdfa::to_pdfa_with_policy(i, *level, *allow_incomplete, o)?;
                 was_encrypted |= r.was_encrypted;
                 if r.issues.is_empty() {
                     conforming += 1;

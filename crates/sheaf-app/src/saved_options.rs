@@ -40,6 +40,7 @@ kept! {
         wm_transparency, wm_rotation, crop_mode, pdfa_level, excel_layout, text_format, compare_mode,
         adjust_brightness, adjust_contrast, adjust_saturation;
     bools:
+        pdfa_allow_incomplete,
         redact_repeat, discard_thumbs, discard_tags, discard_meta, compress_gray, unembed_fonts, adjust_invert,
         hf_replace,
         allow_printing, allow_copying, allow_editing, allow_commenting, allow_filling_forms, remove_blank,
@@ -61,7 +62,7 @@ mod tests {
 
     #[test]
     fn options_come_back_as_they_were_without_their_passwords() {
-        let o = ToolOptions { level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
+        let o = ToolOptions { pdfa_allow_incomplete: true, level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
         let json = to_json(&o);
         let text = serde_json::to_string(&json).unwrap();
         assert!(!text.contains("secret") && !text.contains("boss") && !text.contains("pin"), "{text}");

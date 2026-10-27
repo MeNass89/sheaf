@@ -401,6 +401,9 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Share with AirDrop", on: false },
                                 // PDF Expert's View ▸ Horizontal scrolling and Split View, its Pan & Zoom tool.
                                 { text: "Scrolling, split view, hand ›", on: root.tab.reader.horizontal || root.tab.split-mode > 0 || root.hand },
+                                { text: "Print preflight…", on: false },
+                                { text: "Fix hairlines / page boxes…", on: false },
+                                { text: "Add printer marks…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -429,6 +432,9 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 18 { ReaderBridge.share-file(root.id, false); }
                                         if k == 19 { ReaderBridge.share-file(root.id, true); }
                                         if k == 20 { root.split-names = ReaderBridge.split-names(root.id); layout-menu.show(); return; }
+                                        if k == 21 { ReaderBridge.print-preflight(root.id); }
+                                        if k == 22 { ReaderBridge.fix-page-hairlines(root.id); }
+                                        if k == 23 { ReaderBridge.add-crop-marks(root.id); }
                                         root.focus-pages();
                                     }
                                 }

@@ -12,12 +12,19 @@ use pdfcraft_preflight::{Issue, Level};
 
 use crate::Document as OpenDocument;
 
-/// Below this, ordinary sheet printing cannot hold the picture. Large-format work sometimes can.
-const FAIL_PPI: f64 = 150.0;
-/// Ordinary close-up print. Between this and [`FAIL_PPI`] the picture is usable but soft.
-const WARN_PPI: f64 = 300.0;
-/// Less than this past the trim, on the tightest side, is not a normal 3 mm bleed.
-const MIN_BLEED_MM: f64 = 2.0;
+/// Acrobat's Preflight profiles: thresholds depend on the intended press job.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Profile {
+    pub fail_ppi: f64,
+    pub warn_ppi: f64,
+    pub min_bleed_mm: f64,
+}
+
+impl Default for Profile {
+    fn default() -> Self {
+        Self { fail_ppi: 150.0, warn_ppi: 300.0, min_bleed_mm: 2.0 }
+    }
+}
 
 /// One thing a printer should see, without the file having been rewritten.
 #[derive(Clone, Debug, PartialEq)]
@@ -134,8 +141,13 @@ impl PrintReadiness {
 impl OpenDocument {
     /// A print-readiness report. Reads the file and does not edit it.
     pub fn print_readiness(&self) -> PrintReadiness {
+        self.print_readiness_with(Profile::default())
+    }
+
+    /// Reads the same measurements using the caller's validated print thresholds.
+    pub fn print_readiness_with(&self, profile: Profile) -> PrintReadiness {
         match &self.editor {
-            Some(editor) => inspect(&editor.cos),
+            Some(editor) => inspect(&editor.cos, profile),
             None => PrintReadiness {
                 pages: Vec::new(),
                 images: Vec::new(),
@@ -154,7 +166,7 @@ impl OpenDocument {
     }
 }
 
-fn inspect(doc: &Document) -> PrintReadiness {
+fn inspect(doc: &Document, profile: Profile) -> PrintReadiness {
     let declared = pdfcraft_preflight::declared(doc);
     let pdfa_issues = pdfcraft_preflight::verify(doc, Level::A2b);
     let fonts_not_embedded = pdfa_issues
@@ -183,7 +195,7 @@ fn inspect(doc: &Document) -> PrintReadiness {
     }
     for page in pages.iter().filter(|page| page.trim_set) {
         let tight = page.bleed_margin_mm.into_iter().fold(f64::INFINITY, f64::min);
-        if tight < MIN_BLEED_MM {
+        if tight < profile.min_bleed_mm {
             findings.push(Finding {
                 id: "page-bleed",
                 severity: "warn",
@@ -197,23 +209,23 @@ fn inspect(doc: &Document) -> PrintReadiness {
         }
     }
     for image in &images {
-        if image.ppi < FAIL_PPI {
+        if image.ppi < profile.fail_ppi {
             findings.push(Finding {
                 id: "image-ppi",
                 severity: "fail",
                 message: format!(
                     "Image {} on page {} is drawn at {:.0} ppi, below {:.0}. Enlarging it would not add detail.",
-                    image.name, image.page, image.ppi, FAIL_PPI
+                    image.name, image.page, image.ppi, profile.fail_ppi
                 ),
                 page: Some(image.page),
             });
-        } else if image.ppi < WARN_PPI {
+        } else if image.ppi < profile.warn_ppi {
             findings.push(Finding {
                 id: "image-ppi",
                 severity: "warn",
                 message: format!(
                     "Image {} on page {} is drawn at {:.0} ppi, below {:.0} for close-up print.",
-                    image.name, image.page, image.ppi, WARN_PPI
+                    image.name, image.page, image.ppi, profile.warn_ppi
                 ),
                 page: Some(image.page),
             });
@@ -415,7 +427,7 @@ mod tests {
         })
         .unwrap();
 
-        let report = inspect(&doc);
+        let report = inspect(&doc, Profile::default());
         let soft = report.images.iter().find(|image| image.name == "Soft").unwrap();
         let sharp = report.images.iter().find(|image| image.name == "Sharp").unwrap();
         assert!((soft.ppi - 50.0).abs() < 0.5, "{}", soft.ppi);
@@ -440,7 +452,7 @@ mod tests {
         for _ in 0..3 {
             page(&mut doc, "Im", img, "q 72 0 0 72 36 36 cm /Im Do Q");
         }
-        let report = inspect(&doc);
+        let report = inspect(&doc, Profile::default());
         let notes: Vec<_> = report.findings.iter().filter(|f| f.id.starts_with("page-")).collect();
         assert_eq!(notes.len(), 1, "{notes:?}");
         assert_eq!(notes[0].message, "No page has a TrimBox, so bleed can't be measured.");
@@ -448,7 +460,7 @@ mod tests {
         // A TrimBox 1 pt inside the crop, with no BleedBox: 0.35 mm of bleed is a real warning.
         let tight = page(&mut doc, "Im", img, "q 72 0 0 72 36 36 cm /Im Do Q");
         doc.update_dict(tight, |d| d.set(b"TrimBox".to_vec(), Object::Array(vec![1.into(), 1.into(), 611.into(), 791.into()]))).unwrap();
-        let report = inspect(&doc);
+        let report = inspect(&doc, Profile::default());
         assert!(report.findings.iter().any(|f| f.id == "page-bleed" && f.severity == "warn" && f.page == Some(4)));
         assert_eq!(report.findings.iter().filter(|f| f.id == "page-bleed").count(), 1);
     }
@@ -467,7 +479,7 @@ mod tests {
         let img = image(&mut doc, 100, 100);
         let huge = format!("1{}", "0".repeat(400));
         page(&mut doc, "Im", img, &format!("q {huge} 0 0 {huge} 0 0 cm 0 1 1 0 0 0 cm /Im Do Q"));
-        let report = inspect(&doc);
+        let report = inspect(&doc, Profile::default());
         assert!(report.images.iter().all(|image| image.ppi.is_finite()), "{:?}", report.images);
         assert!(!report.findings.iter().any(|f| f.id == "image-ppi"), "{:?}", report.findings);
     }
