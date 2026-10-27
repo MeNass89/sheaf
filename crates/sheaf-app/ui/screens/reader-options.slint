@@ -1,6 +1,6 @@
 // The reader's options bar, floating over the top of the pages: the tool in use's options (stamp,
 // shapes, pen widths, opacity, text format, signatures, colours) and the form's actions.
-import { Slider } from "std-widgets.slint";
+import { Slider, ListView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, ColourDot, PanelField } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
@@ -198,12 +198,57 @@ export component ReaderOptionsBar inherits Rectangle {
         // the page (Edit text).
         if !root.tab.reader.selected-image && (root.tab.reader.tool == 6 || root.tab.reader.tool == 7 || root.tab.reader.selected-text-box): HorizontalLayout {
             spacing: 4px;
-            SmallButton { y: 2px; text: "Sans"; primary: root.tab.reader.text-family == 0; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
-            SmallButton { y: 2px; text: "Serif"; primary: root.tab.reader.text-family == 1; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
-            SmallButton { y: 2px; text: "Mono"; primary: root.tab.reader.text-family == 2; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
+            SmallButton { y: 2px; text: "Sans"; primary: root.tab.reader.text-family == 0 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
+            SmallButton { y: 2px; text: "Serif"; primary: root.tab.reader.text-family == 1 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
+            SmallButton { y: 2px; text: "Mono"; primary: root.tab.reader.text-family == 2 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
+            // Edit tool, a paragraph open: set in one of the computer's fonts (Acrobat's Edit PDF
+            // font list).
+            if root.tab.reader.tool == 7 && root.tab.reader.note.show && root.tab.reader.note.kind == 2: Rectangle {
+                width: font-button.preferred-width;
+                font-button := SmallButton {
+                    y: 2px;
+                    text: root.tab.reader.text-font == "" ? "More fonts…" : root.tab.reader.text-font;
+                    primary: root.tab.reader.text-font != "";
+                    clicked => { ReaderBridge.text-format(root.id, 9, 0); font-menu.show(); }
+                }
+                font-menu := PopupWindow {
+                    y: 34px;
+                    width: 260px;
+                    height: 320px;
+                    Rectangle {
+                        background: Theme.card;
+                        border-radius: Theme.radius-small;
+                        border-width: 1px;
+                        border-color: Theme.input-border;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: #00000022;
+                        if ReaderBridge.system-fonts.length == 0: Text {
+                            text: "Finding the computer's fonts…";
+                            font-size: Theme.fs-label;
+                            color: Theme.text-secondary;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        ListView {
+                            x: 4px;
+                            y: 4px;
+                            width: parent.width - 8px;
+                            height: parent.height - 8px;
+                            for name[k] in ReaderBridge.system-fonts: Rectangle {
+                                height: 28px;
+                                background: font-ta.has-hover ? Theme.popup-hover : transparent;
+                                // Each name in its own face when the system has it, as Acrobat's list.
+                                Text { x: 10px; width: parent.width - 20px; text: name; font-family: name; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; overflow: elide; }
+                                font-ta := TouchArea { clicked => { ReaderBridge.text-format(root.id, 8, k); font-menu.close(); } }
+                            }
+                        }
+                    }
+                }
+            }
             SmallButton { y: 2px; text: "B"; primary: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
             SmallButton { y: 2px; text: "I"; primary: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
-            // Text added on the page: underlined, a bulleted list (Acrobat's Edit PDF format panel).
+            // Text added on the page, or the paragraph open: underlined, a bulleted list (Acrobat's Edit
+            // PDF format panel).
             if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "U"; primary: root.tab.reader.text-underline; clicked => { ReaderBridge.text-format(root.id, 6, 0); } }
             if root.tab.reader.tool == 7: SmallButton { y: 2px; text: "•"; primary: root.tab.reader.text-bullets; clicked => { ReaderBridge.text-format(root.id, 7, 0); } }
             for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {

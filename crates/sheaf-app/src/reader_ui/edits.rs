@@ -45,6 +45,7 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::SetAnnotationStatus { .. }
         | Edit::ReplyToAnnotation { .. }
         | Edit::EditTextBlock { .. }
+        | Edit::EditTextBlockInFont { .. }
         | Edit::SetLink { .. }
         | Edit::DeleteLink { .. }
         | Edit::MoveObjects { .. }
@@ -768,9 +769,19 @@ fn paragraph_edit(r: &ReaderUi, d: &Draft, text: &str) -> Option<(usize, Edit)> 
         size: (f & 2 != 0).then_some(r.text_pt),
         family: (f & 4 != 0).then_some((family, r.text_bold, r.text_italic)),
         align: (f & 8 != 0).then(|| TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize]),
+        underline: (f & 16 != 0).then_some(r.text_underline),
         ..Default::default()
     };
-    Some((d.page, Edit::EditTextBlock { page: d.page, block: *block, text: text.to_string(), style }))
+    // Bullets: each line of the paragraph starts with one, or none does (Acrobat's Bulleted list).
+    let text = match (f & 32 != 0, r.text_bullets) {
+        (true, true) => reader::bulleted(text),
+        (true, false) => reader::unbulleted(text),
+        _ => text.to_string(),
+    };
+    if let Some((_, font)) = r.text_font.as_ref().filter(|_| f & 64 != 0) {
+        return Some((d.page, Edit::EditTextBlockInFont { page: d.page, block: *block, text, style, font: font.clone() }));
+    }
+    Some((d.page, Edit::EditTextBlock { page: d.page, block: *block, text, style }))
 }
 
 /// How long typing pauses before the paragraph is shown on its page as typed.

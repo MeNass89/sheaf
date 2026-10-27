@@ -615,6 +615,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         text_bold: r.text_bold,
         text_underline: r.text_underline,
         text_bullets: r.text_bullets,
+        text_font: r.text_font.as_ref().map(|f| f.0.as_str()).unwrap_or_default().into(),
         text_italic: r.text_italic,
         text_align: r.text_align,
         selected_image: r.selected_image.is_some(),

@@ -247,6 +247,7 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::DeleteObjects { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
+        | Edit::EditTextBlockInFont { .. }
         | Edit::EditPageImage { .. }
         | Edit::RemoveImages { .. }
         | Edit::AddText { .. }
@@ -1565,6 +1566,15 @@ pub enum Edit {
         /// Formatting changes (font, size, colour, alignment); default keeps the paragraph's.
         style: pdfcraft_edit::BlockStyle,
     },
+    /// Sheaf: [`Edit::EditTextBlock`] in a font of the computer's (an open-licensed full font
+    /// program, embedded first; Acrobat's Edit PDF font list), one step.
+    EditTextBlockInFont {
+        page: usize,
+        block: usize,
+        text: String,
+        style: pdfcraft_edit::BlockStyle,
+        font: Arc<Vec<u8>>,
+    },
     /// An explicit open-licensed full font program, completing subsets or selected by a user.
     RegisterTextFont {
         page: usize,
@@ -2010,7 +2020,7 @@ impl Edit {
             Edit::SetFieldScript { name, .. } => Label::with("Edit script of {name}", name.as_str()),
             Edit::SetDocumentScript { script: None, .. } => Label::of("Delete document JavaScript"),
             Edit::SetDocumentScript { .. } => Label::of("Edit document JavaScript"),
-            Edit::EditTextLine { .. } | Edit::EditTextBlock { .. } => Label::of("Edit text"),
+            Edit::EditTextLine { .. } | Edit::EditTextBlock { .. } | Edit::EditTextBlockInFont { .. } => Label::of("Edit text"),
             Edit::RegisterTextFont { .. } => Label::of("Load document font"),
             Edit::MoveObjects { objects, .. } => plural("Move object", "Move objects", objects.len()),
             Edit::ArrangeObjects { .. } => Label::of("Arrange objects"),
@@ -2223,6 +2233,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::ConvertPdfA { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
+        | Edit::EditTextBlockInFont { .. }
         | Edit::RegisterTextFont { .. }
         | Edit::EditPageImage { .. }
         | Edit::RemoveImages { .. }
@@ -2627,6 +2638,13 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::RegisterTextFont { page, bytes } => {
             pdfcraft_edit::text::register_text_font(doc, *page, bytes)?;
+        }
+        Edit::EditTextBlockInFont { page, block, text, style, font } => {
+            // The font goes into the page's resources, then the paragraph is set in it (a family,
+            // bold or italic asked for gives way to it).
+            let resource = pdfcraft_edit::text::register_text_font(doc, *page, font)?;
+            let style = pdfcraft_edit::BlockStyle { resource: Some(resource), family: None, bold: None, ..style.clone() };
+            cx.substituted = pdfcraft_edit::rewrite_block(doc, *page, *block, Some(text), &style)?.substituted;
         }
         Edit::MarkDecorative { figure } => {
             let r = pdfcraft_cos::ObjRef::new(*figure, doc.generation(*figure));

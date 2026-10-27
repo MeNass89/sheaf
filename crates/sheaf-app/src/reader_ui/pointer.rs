@@ -517,6 +517,9 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                 (EditTarget::Block(i, text, _, rect, at), false) => {
                     r.preview_text = text.trim().to_string();
                     r.para_format = 0;
+                    // The row shows the paragraph's list, and no font of the computer's yet.
+                    r.text_bullets = reader::is_bulleted(&text);
+                    r.text_font = None;
                     r.draft = Some(Draft { page: e.page, at, kind: 2, block: Some((i, text, rect)), field: None });
                     r.note_seq += 1;
                 }

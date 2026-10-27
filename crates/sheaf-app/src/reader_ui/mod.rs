@@ -265,6 +265,9 @@ pub struct ReaderUi {
     /// Bulleted list).
     text_underline: bool,
     text_bullets: bool,
+    /// Edit text: a font of the computer's chosen for the open paragraph (its name and program;
+    /// Acrobat's Edit PDF font list), in place of the family buttons'.
+    text_font: Option<(String, std::sync::Arc<Vec<u8>>)>,
     text_italic: bool,
     text_align: i32,
     /// Pages selected in the Pages panel (empty: the current page is meant).
@@ -331,7 +334,8 @@ pub struct ReaderUi {
     measure_custom: Option<(f64, &'static str)>,
     calibration_len: f64,
     /// Edit text: what of the format row was changed while a paragraph is open (1 colour, 2 size,
-    /// 4 font, 8 alignment): those apply to it, the rest of its style stays its own.
+    /// 4 font, 8 alignment, 16 underline, 32 bullets, 64 a font of the computer's): those apply
+    /// to it, the rest of its style stays its own.
     para_format: u8,
     form_sel: Option<(usize, [f64; 4])>,
     /// Other fields selected with it (⇧-click), on its page: their rects.
@@ -527,6 +531,7 @@ impl ReaderUi {
             text_bold: false,
             text_underline: false,
             text_bullets: false,
+            text_font: None,
             text_italic: false,
             text_align: 0,
             annot_candidate: None,

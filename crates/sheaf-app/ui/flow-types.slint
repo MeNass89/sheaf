@@ -311,6 +311,8 @@ export struct ReaderState {
     text-italic: bool,
     text-underline: bool,
     text-bullets: bool,
+    // Edit text: the computer's font the open paragraph is to be set in ("": the family buttons').
+    text-font: string,
     text-align: int,
     // The selected annotation is a text box: the text format row restyles it.
     selected-text-box: bool,
@@ -807,6 +809,9 @@ export global ReaderBridge {
     in-out property <length> panel-width: 248px;
     // The thumbnails' width, set once the edge is let go (their heights come with it).
     in property <length> thumb-width: 150px;
+    // The computer's fonts a paragraph can be set in (Acrobat's Edit PDF font list), read when the
+    // list is first opened (text-format 9).
+    in property <[string]> system-fonts;
     callback panel-resized(length);
     // Print: open the sheet; print with printer, copies, pages (0 all, 1 current, 2 range),
     // the range typed, fit to paper, two-sided, paper (0 the printer's, 1 A4, 2 Letter, 3 Legal),
