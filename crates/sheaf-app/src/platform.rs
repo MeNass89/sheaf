@@ -285,6 +285,20 @@ pub fn assign_launch(p: &mut PlatformPrefs, k: usize, parts: &str) -> Result<(),
     Ok(())
 }
 
+/// Reset on one command: back to its default keys, unless a command or a tool launcher has them by
+/// now (then nothing changes, and the reason comes back).
+pub fn reset_command(p: &mut PlatformPrefs, id: &str) -> Result<(), String> {
+    let Some(i) = command_index(id) else { return Err(format!("No command {id}")) };
+    let own = COMMANDS[i].keys;
+    let mut next = p.clone();
+    reset(&mut next, Some(id));
+    if let Some(who) = taken_by(&next, own, Some(i), None) {
+        return Err(format!("{} is already {who}", display(own)));
+    }
+    *p = next;
+    Ok(())
+}
+
 /// Back to the default keys: one command, or all of them (`None`).
 pub fn reset(p: &mut PlatformPrefs, id: Option<&str>) {
     match id {
@@ -655,5 +669,19 @@ mod tests {
         assert!(rows[0].3);
         assign_launch(&mut p, merge, "").unwrap();
         assert!(p.launch_keys.is_empty());
+    }
+
+    #[test]
+    fn reset_refuses_keys_a_tool_has_taken() {
+        let mut p = PlatformPrefs::default();
+        let merge = launchers().iter().position(|(id, _)| *id == "merge").unwrap();
+        assign(&mut p, "save", "Control+Alt+S").unwrap();
+        assign_launch(&mut p, merge, "Control+S").unwrap();
+        // Save's own Ctrl+S is Merge PDF's now: Reset says so and changes nothing.
+        assert!(reset_command(&mut p, "save").unwrap_err().contains("Merge PDF"));
+        assert_eq!(effective(&p, command_index("save").unwrap()), "Control+Alt+S");
+        assign_launch(&mut p, merge, "").unwrap();
+        reset_command(&mut p, "save").unwrap();
+        assert_eq!(effective(&p, command_index("save").unwrap()), "Control+S");
     }
 }

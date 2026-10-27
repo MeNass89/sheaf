@@ -1,4 +1,7 @@
 //! Local password-policy library, separate from credentials (Acrobat's Security Policies).
+mod passwords;
+pub use passwords::Passwords;
+
 use sheaf_core::security_policy::SecurityPolicy;
 use std::path::{Path, PathBuf};
 
@@ -42,8 +45,21 @@ pub fn save(dir: &Path, policy: &SecurityPolicy) -> Result<(), String> {
 
 pub fn remove(dir: &Path, name: &str) -> Result<(), String> {
     let (path, _) = entries(dir)?.into_iter().find(|(_, p)| p.name == name).ok_or("That saved policy no longer exists")?;
+    passwords::forget(dir, name)?;
     std::fs::remove_file(path).map_err(|e| e.to_string())
 }
+
+/// Local credentials bound to the exact saved settings. Policy JSON never contains them.
+pub fn saved_passwords(dir: &Path, policy: &SecurityPolicy) -> Result<Option<Passwords>, String> {
+    passwords::get(dir, policy)
+}
+
+pub fn remember_passwords(dir: &Path, policy: &SecurityPolicy, value: Passwords) -> Result<(), String> {
+    if !load(dir)?.iter().any(|saved| saved == policy) { return Err("Save the policy settings before remembering passwords".into()); }
+    passwords::save(dir, policy, value)
+}
+
+pub fn forget_passwords(dir: &Path, name: &str) -> Result<(), String> { passwords::forget(dir, name) }
 
 #[cfg(test)]
 mod tests {

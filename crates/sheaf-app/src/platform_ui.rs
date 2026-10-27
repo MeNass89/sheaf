@@ -88,16 +88,18 @@ fn grammar_key(note: &str, text: &str) -> String {
 /// that reaches the end of the text waits until it is finished.
 fn check_text(text: &str, typing: bool, grammar: bool) -> Checked {
     let ignored = IGNORED_GRAMMAR.lock().map(|g| g.clone()).unwrap_or_default();
-    let found: Vec<sheaf_core::spell::GrammarIssue> = if grammar {
-        sheaf_core::spell::grammar(text)
-            .into_iter()
-            .filter(|g| !(typing && g.start + g.text.len() >= text.trim_end().len()))
-            .filter(|g| !ignored.contains(&grammar_key(g.note, &g.text)))
-            .collect()
-    } else {
-        Vec::new()
-    };
     with_spell(|sp| {
+        // The English rules only with an English dictionary (none: English is assumed).
+        let english = sp.speller.as_ref().map_or(true, Speller::is_english);
+        let found: Vec<sheaf_core::spell::GrammarIssue> = if grammar {
+            sheaf_core::spell::grammar(text, english)
+                .into_iter()
+                .filter(|g| !(typing && g.start + g.text.len() >= text.trim_end().len()))
+                .filter(|g| !ignored.contains(&grammar_key(g.note, &g.text)))
+                .collect()
+        } else {
+            Vec::new()
+        };
         let misspelt = match &sp.speller {
             Ok(speller) => speller.misspelt(text, typing),
             Err(_) => Vec::new(),
@@ -376,18 +378,33 @@ fn record(ui: &AppWindow, i: i32, text: &str, control: bool, alt: bool, shift: b
 /// typed — a text field undoes, cuts, copies, pastes or selects in its own text; the reader's pages
 /// act on the PDF (its history, selection, picked objects or comment; reader.slint's ⌘Z ⌘C ⌘X ⌘V
 /// ⌘A). Sent once a menu opened by the mouse has closed and given the keyboard back, with the menu
-/// bar's shortcuts off meanwhile so these keys go past it. The right-hand Ctrl and Shift are the
-/// ones pressed and let go: a left Ctrl the user is holding stays held.
+/// bar's shortcuts off meanwhile so these keys go past it. From the keys themselves (Ctrl or ⌘
+/// held: no menu open) they are sent without the wait, so the keys typed next come after them (a
+/// letter typed right after ⌘A was replaced by the selection made after it, 27/10). The right-hand Ctrl and Shift
+/// are the ones pressed and let go: a left Ctrl the user is holding stays held.
 fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
     use slint::platform::{Key, WindowEvent};
     let weak = ui.as_weak();
     let key = SharedString::from(key);
-    slint::Timer::single_shot(Duration::from_millis(30), move || {
+    let send = move || {
         let Some(ui) = weak.upgrade() else { return };
         menu_keys_off(&ui);
         let ctrl = SharedString::from(Key::ControlR);
         let shift_key = SharedString::from(Key::ShiftR);
-        let mut events = vec![WindowEvent::KeyPressed { text: ctrl.clone() }];
+        // Shift, Alt or Super the user still holds (a shortcut such as Ctrl+Shift+U given to Undo)
+        // would change the key sent (⇧⌘Z is Redo): let go for the key, pressed again after it.
+        let held = HELD.load(Ordering::Relaxed);
+        let in_the_way: Vec<(Key, Key)> = [(HELD_SHIFT, Key::Shift, Key::ShiftR), (HELD_ALT, Key::Alt, Key::AltGr), (HELD_META, Key::Meta, Key::MetaR)]
+            .into_iter()
+            .filter(|&(bit, left, _)| held & bit != 0 && !(shift && matches!(left, Key::Shift)))
+            .map(|(_, left, right)| (left, right))
+            .collect();
+        let mut events = Vec::new();
+        for (left, right) in &in_the_way {
+            events.push(WindowEvent::KeyReleased { text: SharedString::from(*left) });
+            events.push(WindowEvent::KeyReleased { text: SharedString::from(*right) });
+        }
+        events.push(WindowEvent::KeyPressed { text: ctrl.clone() });
         if shift {
             events.push(WindowEvent::KeyPressed { text: shift_key.clone() });
         }
@@ -398,11 +415,30 @@ fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
             events.push(WindowEvent::KeyReleased { text: shift_key });
         }
         events.push(WindowEvent::KeyReleased { text: ctrl });
+        for (left, _) in &in_the_way {
+            events.push(WindowEvent::KeyPressed { text: SharedString::from(*left) });
+        }
         for ev in events {
             let _ = ui.window().dispatch_event_with_result(ev);
         }
         push_keys(&ui);
-    });
+    };
+    // Not from inside the menu bar's own key handling (Slint's menu is borrowed there): on the next
+    // turn of the event loop, before keys typed even a few milliseconds later.
+    let wait = if HELD.load(Ordering::Relaxed) & (HELD_CTRL | HELD_META) != 0 { 0 } else { 30 };
+    slint::Timer::single_shot(Duration::from_millis(wait), send);
+}
+
+/// The modifiers the user holds now (from the window's own events, main.rs): Shift, Alt, Super, Ctrl.
+static HELD: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+const HELD_SHIFT: u8 = 1;
+const HELD_ALT: u8 = 2;
+const HELD_META: u8 = 4;
+const HELD_CTRL: u8 = 8;
+
+/// The window's modifiers changed (winit's ModifiersChanged).
+pub fn modifiers_changed(shift: bool, alt: bool, meta: bool, ctrl: bool) {
+    HELD.store((u8::from(shift) * HELD_SHIFT) | (u8::from(alt) * HELD_ALT) | (u8::from(meta) * HELD_META) | (u8::from(ctrl) * HELD_CTRL), Ordering::Relaxed);
 }
 
 /// Edit ▸ Check Spelling… on a document: its texts (comments, replies, form fields), what the
@@ -685,17 +721,16 @@ pub fn install(ui: &AppWindow) {
             return;
         }
         let Some(c) = COMMANDS.get(i.max(0) as usize) else { return };
-        // The default may be taken by now: then it stays as it is, with the reason.
+        // The default may be taken by now, by a command or a tool: then it stays as it is, with
+        // the reason.
         let mut prefs = home::prefs().platform;
-        platform::reset(&mut prefs, Some(c.id));
-        let k = platform::keys(c.keys);
-        let taken = !c.keys.is_empty() && (0..COMMANDS.len()).any(|o| COMMANDS[o].id != c.id && platform::keys(&platform::effective(&prefs, o)) == k);
         let g = ui.global::<PlatformBridge>();
-        if taken {
-            g.set_shortcut_error(format!("{} is taken by another command", platform::display(c.keys)).into());
-        } else {
-            g.set_shortcut_error("".into());
-            update(&ui, |p| *p = prefs);
+        match platform::reset_command(&mut prefs, c.id) {
+            Ok(()) => {
+                g.set_shortcut_error("".into());
+                update(&ui, |p| *p = prefs);
+            }
+            Err(e) => g.set_shortcut_error(e.into()),
         }
     });
     on!(on_reset_shortcuts, |ui| {
@@ -713,6 +748,7 @@ pub fn install(ui: &AppWindow) {
     });
     on!(on_set_direction, |ui, d| update(&ui, |p| p.direction = d.clamp(0, 2) as u8));
     on!(on_edit_key, |ui, key, shift| edit_key(&ui, &key, shift));
+    g.on_shift_held(|| HELD.load(Ordering::Relaxed) & HELD_SHIFT != 0);
     on!(on_check_start, |ui, tab| check_start(&ui, tab));
     on!(on_check_change, |ui, to| check_change(&ui, &to));
     on!(on_check_next, |ui| check_step(&ui, sheaf_core::spell::CheckPass::skip));

@@ -19,7 +19,12 @@ check() { if eval "$2"; then pass "$1"; else fail "$1"; fi; }
 shot() { import -window root "$OUT/$1.png" 2>/dev/null; }
 
 # A display left by an interrupted run is stopped first.
-[ -f /tmp/.X$D-lock ] && kill "$(tr -d ' ' </tmp/.X$D-lock)" 2>/dev/null && sleep 0.5
+# Only an Xvfb is stopped (another program's display is left alone: the run fails instead).
+[ -f /tmp/.X$D-lock ] && p=$(tr -d ' ' </tmp/.X$D-lock) && [ "$(ps -o comm= -p "$p" 2>/dev/null)" = Xvfb ] && ! tr '\0' ' ' < /proc/"$p"/cmdline 2>/dev/null | grep -q 1920x1080 && kill "$p" 2>/dev/null && sleep 0.5
+# The class recorder's display (:99) is never touched, and a lock still held by a live process is
+# never removed (27/10: a run took :99 and a class recording was lost).
+[ "$D" = 99 ] && { echo "FAIL display :99 belongs to the class recorder"; exit 1; }
+if [ -f /tmp/.X$D-lock ] && kill -0 "$(tr -d ' ' </tmp/.X$D-lock)" 2>/dev/null; then echo "FAIL display :$D is in use by another program"; exit 1; fi
 rm -f /tmp/.X$D-lock /tmp/.X11-unix/X$D
 # -noreset: an X server resets when its last client leaves; an app launched during the reset
 # cannot connect (intermittent "opened no window" after a quit, 21/10).
@@ -156,7 +161,7 @@ if [ -n "${SMOKE_PARTS:-}" ]; then
     . <(python3 dev/scripts/smoke-helpers.py)
     # The preferences the earlier parts leave (step 9's author, step 10's outputs next to the
     # originals, step 11's light theme), so a later part starts where it would have.
-    mkdir -p "$PWD/$OUT/profile/data/Sheaf"
+    [ -n "${SMOKE_SEED:-}" ] && mkdir -p "$PWD/$OUT/profile/data/Sheaf" &&
     printf '{"output": "next_to_original", "theme": "light", "author": "Smoke Author"}' > "$PWD/$OUT/profile/data/Sheaf/prefs.json"
 fi
 for part in ${SMOKE_PARTS:-dev/scripts/smoke/*.sh}; do   # the cwd is the repository root (above)

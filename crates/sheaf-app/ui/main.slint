@@ -328,7 +328,7 @@ export component AppWindow inherits Window {
         }
         Menu {
             title: "View";
-            MenuItem { title: "Zoom In"; shortcut: PlatformBridge.keys[16]; enabled: root.reader-on; activated => { ViewerBridge.zoom-step(root.reader-id, 1); } }
+            MenuItem { title: "Zoom In"; shortcut: PlatformBridge.keys[16]; enabled: root.reader-on; activated => { if PlatformBridge.shift-held() && !PlatformBridge.rebound[16] /* zoom-in */ && !PlatformBridge.rebound[23] /* rotate-right */ { ReaderBridge.rotate-view(root.reader-id, 1); } else { ViewerBridge.zoom-step(root.reader-id, 1); } } }
             MenuItem { title: "Zoom Out"; shortcut: PlatformBridge.keys[17]; enabled: root.reader-on; activated => { ViewerBridge.zoom-step(root.reader-id, -1); } }
             MenuItem { title: "Actual Size"; shortcut: PlatformBridge.keys[18]; enabled: root.reader-on; activated => { ReaderBridge.zoom-fit(root.reader-id, 2); } }
             MenuItem { title: "Zoom to Fit Page"; shortcut: PlatformBridge.keys[19]; enabled: root.reader-on; activated => { ReaderBridge.zoom-fit(root.reader-id, 1); } }

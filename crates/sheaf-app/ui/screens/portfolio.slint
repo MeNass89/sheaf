@@ -4,7 +4,7 @@ import { Theme } from "../theme.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Modal, SecondaryButton as Button } from "dialogs.slint";
 
-export struct PortfolioRow { name: string, detail: string, description: string, size: string, kind: string, folder: string }
+export struct PortfolioRow { name: string, detail: string, description: string, size: string, kind: string, folder: string, source: int }
 export global PortfolioBridge {
     in-out property <bool> visible;
     in-out property <bool> busy;
@@ -20,6 +20,10 @@ export global PortfolioBridge {
     in-out property <bool> has-preview;
     in-out property <image> preview;
     in-out property <string> preview-text;
+    in-out property <int> preview-page;
+    in-out property <int> preview-pages: 1;
+    in-out property <int> sort;
+    in-out property <bool> descending;
     callback open();
     callback browse(int);
     callback command(string, int);
@@ -89,15 +93,15 @@ export component PortfolioBrowser inherits Rectangle {
                     spacing: 6px; alignment: start;
                     HorizontalLayout {
                         spacing: 10px;
-                        Text { text: "Name"; horizontal-stretch: 2; color: Theme.text-secondary; font-size: Theme.fs-label; }
-                        Text { text: "Description"; horizontal-stretch: 2; color: Theme.text-secondary; font-size: Theme.fs-label; }
-                        Text { text: "Size"; width: 80px; color: Theme.text-secondary; font-size: Theme.fs-label; }
+                        Button { text: PortfolioBridge.sort == 0 ? (PortfolioBridge.descending ? "Name Z–A" : "Name A–Z") : "Name"; horizontal-stretch: 2; clicked => { PortfolioBridge.command("sort", 0); } }
+                        Button { text: "Description"; horizontal-stretch: 2; clicked => { PortfolioBridge.command("sort", 1); } }
+                        Button { text: "Size"; width: 80px; clicked => { PortfolioBridge.command("sort", 2); } }
                     }
                     for row[i] in PortfolioBridge.files: Rectangle {
                         visible: PortfolioBridge.folder == "" || PortfolioBridge.folder == row.folder;
                         height: self.visible ? 86px : 0px;
                         border-radius: Theme.radius-small;
-                        background: PortfolioBridge.selected == i ? Theme.menu-selected-bg : Theme.card;
+                        background: PortfolioBridge.selected == row.source ? Theme.menu-selected-bg : Theme.card;
                         VerticalLayout {
                             padding: 10px; spacing: 8px;
                             HorizontalLayout {
@@ -108,9 +112,9 @@ export component PortfolioBrowser inherits Rectangle {
                             }
                             HorizontalLayout {
                                 spacing: 8px;
-                                Button { text: "Preview"; clicked => { PortfolioBridge.command("preview-item", i); } }
-                                Button { text: "Open"; clicked => { PortfolioBridge.command("open-item", i); } }
-                                Button { text: "Save copy…"; clicked => { PortfolioBridge.command("save-item", i); } }
+                                Button { text: "Preview"; clicked => { PortfolioBridge.command("preview-item", row.source); } }
+                                Button { text: "Open"; clicked => { PortfolioBridge.command("open-item", row.source); } }
+                                Button { text: "Save copy…"; clicked => { PortfolioBridge.command("save-item", row.source); } }
                             }
                         }
                     }
@@ -121,6 +125,12 @@ export component PortfolioBrowser inherits Rectangle {
                 VerticalLayout {
                     padding: 16px; spacing: 12px;
                     Text { text: PortfolioBridge.preview-busy ? "Loading preview…" : "Preview"; color: Theme.text; font-size: Theme.fs-subtitle; }
+                    if PortfolioBridge.preview-pages > 1: HorizontalLayout {
+                        spacing: 6px;
+                        Button { text: "Previous page"; enabled: !PortfolioBridge.preview-busy && PortfolioBridge.preview-page > 0; clicked => { PortfolioBridge.command("preview-page", PortfolioBridge.preview-page - 1); } }
+                        Text { text: (PortfolioBridge.preview-page + 1) + " / " + PortfolioBridge.preview-pages; color: Theme.text-secondary; font-size: Theme.fs-caption; vertical-alignment: center; }
+                        Button { text: "Next page"; enabled: !PortfolioBridge.preview-busy && PortfolioBridge.preview-page + 1 < PortfolioBridge.preview-pages; clicked => { PortfolioBridge.command("preview-page", PortfolioBridge.preview-page + 1); } }
+                    }
                     if PortfolioBridge.has-preview: Image { source: PortfolioBridge.preview; image-fit: contain; vertical-stretch: 1; }
                     if !PortfolioBridge.has-preview: ScrollView { vertical-stretch: 1; Text { text: PortfolioBridge.preview-text; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; } }
                 }

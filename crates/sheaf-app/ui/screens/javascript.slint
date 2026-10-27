@@ -5,7 +5,7 @@ import { ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Modal, SecondaryButton as Button } from "dialogs.slint";
 
-export struct DocumentScriptRow { name: string, source: string, label: string, field: bool, event: string }
+export struct DocumentScriptRow { name: string, source: string, label: string, field: bool, event: string, page: int, link: int }
 export global JavaScriptBridge {
     in-out property <bool> visible;
     in-out property <bool> busy;
@@ -22,6 +22,8 @@ export global JavaScriptBridge {
     in-out property <string> script-name;
     in-out property <string> script-source;
     in-out property <bool> script-field;
+    in-out property <int> script-page: -1;
+    in-out property <int> script-link: -1;
     in-out property <string> script-event: "keystroke";
     callback script-command(string, int);
 }
@@ -53,13 +55,14 @@ export component JavaScriptConsole inherits Modal {
             height: min(90px, max(34px, JavaScriptBridge.scripts.length * 34px));
             VerticalLayout {
                 spacing: 4px; alignment: start;
-                if JavaScriptBridge.scripts.length == 0: Text { text: "No document or custom field scripts. Add one below."; color: Theme.text-secondary; font-size: Theme.fs-caption; }
+                if JavaScriptBridge.scripts.length == 0: Text { text: "No document, field, page or link scripts. Add a document script below."; color: Theme.text-secondary; font-size: Theme.fs-caption; }
                 for script[i] in JavaScriptBridge.scripts: Button { text: script.label; clicked => { JavaScriptBridge.script-command("select", i); } }
             }
         }
-        CheckBox { text: "Field script (enter the existing field name below)"; checked <=> JavaScriptBridge.script-field; enabled: !JavaScriptBridge.busy; }
+        CheckBox { text: "Field script (enter the existing field name below)"; checked <=> JavaScriptBridge.script-field; enabled: !JavaScriptBridge.busy && JavaScriptBridge.script-page < 0; }
+        if JavaScriptBridge.script-page >= 0: Text { text: JavaScriptBridge.script-name + " · Edit source or delete this event. New starts a document script."; wrap: word-wrap; color: Theme.text-secondary; font-size: Theme.fs-caption; }
         if JavaScriptBridge.script-field: ComboBox { model: ["keystroke", "format", "validate", "calculate", "mouse_up"]; current-value <=> JavaScriptBridge.script-event; enabled: !JavaScriptBridge.busy; }
-        TextField { label: JavaScriptBridge.script-field ? "Field name" : "Document script name"; text <=> JavaScriptBridge.script-name; enabled: !JavaScriptBridge.busy; }
+        TextField { label: JavaScriptBridge.script-field ? "Field name" : "Document script name"; text <=> JavaScriptBridge.script-name; enabled: !JavaScriptBridge.busy && JavaScriptBridge.script-page < 0; }
         TextEdit { height: 130px; text <=> JavaScriptBridge.script-source; enabled: !JavaScriptBridge.busy; font-family: Theme.mono-family; }
         HorizontalLayout {
             spacing: 8px;
@@ -83,5 +86,5 @@ export component JavaScriptConsole inherits Modal {
     }
     Text { text: "Output"; color: Theme.text; font-size: Theme.fs-label; }
     TextEdit { height: JavaScriptBridge.scripts-open ? 70px : 150px; text: JavaScriptBridge.output; read-only: true; font-family: Theme.mono-family; }
-    Text { text: "Control Enter runs the selection or the full script. Changes can be undone. Save the document to keep them. Page/link scripts and debugging are not available here."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+    Text { text: "Control Enter runs the selection or the full script. Changes can be undone. Save the document to keep them. Page and link action sources are editable in Scripts. Breakpoints and stepping are not available."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
 }

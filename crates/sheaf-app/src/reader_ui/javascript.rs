@@ -42,17 +42,19 @@ pub fn install(ui: &AppWindow) {
         if what == "list" { b.set_busy(true); if update(id, |r, _| r.send(Op::EditableScripts)).is_none() { b.set_busy(false); } return; }
         if what == "select" {
             use slint::Model;
-            if let Some(row) = b.get_scripts().row_data(index as usize) { b.set_script_name(row.name); b.set_script_source(row.source); b.set_script_field(row.field); b.set_script_event(row.event); }
+            if let Some(row) = b.get_scripts().row_data(index as usize) { b.set_script_name(row.name); b.set_script_source(row.source); b.set_script_field(row.field); b.set_script_event(row.event); b.set_script_page(row.page); b.set_script_link(row.link); }
             return;
         }
-        if what == "new" { b.set_script_name("".into()); b.set_script_source("".into()); return; }
+        if what == "new" { b.set_script_field(false); b.set_script_page(-1); b.set_script_link(-1); b.set_script_name("".into()); b.set_script_source("".into()); return; }
         let name = b.get_script_name().trim().to_string();
         let source = b.get_script_source().to_string();
         if name.is_empty() || name.len() > 256 || source.len() > 1_000_000 {
             b.set_output("Enter a script name (up to 256 bytes) and source no larger than 1 MB.".into()); return;
         }
         if what == "save" || what == "delete" {
-            apply_structure(&ui, id, if b.get_script_field() { Edit::SetFieldScript { name, event: b.get_script_event().to_string(), script: (what == "save").then_some(source) } } else { Edit::SetDocumentScript { name, script: (what == "save").then_some(source) } });
+            apply_structure(&ui, id, if b.get_script_page() >= 0 {
+                Edit::SetActionScript { target: sheaf_core::pdfcraft::engine::js::ActionScriptTarget { page: b.get_script_page() as usize, link: (b.get_script_link() >= 0).then_some(b.get_script_link() as usize), event: b.get_script_event().to_string() }, script: (what == "save").then_some(source) }
+            } else if b.get_script_field() { Edit::SetFieldScript { name, event: b.get_script_event().to_string(), script: (what == "save").then_some(source) } } else { Edit::SetDocumentScript { name, script: (what == "save").then_some(source) } });
             b.set_busy(true);
             if update(id, |r, _| r.send(Op::EditableScripts)).is_none() { b.set_busy(false); }
             b.set_output("Script change requested. Undo reverses it; save the PDF to keep it.".into());
@@ -82,8 +84,10 @@ pub(super) fn scripts(ui: &AppWindow, id: i32, scripts: Vec<sheaf_core::pdfcraft
     if b.get_tab() != id { return; }
     b.set_busy(false);
     b.set_scripts(ModelRc::new(VecModel::from(scripts.into_iter().map(|script| DocumentScriptRow {
-        label: script.event.as_ref().map(|e| format!("Field · {} · {e}", script.name)).unwrap_or_else(|| format!("Document · {}", script.name)).into(),
-        name: script.name.into(), source: script.source.into(), field: script.event.is_some(), event: script.event.unwrap_or_else(|| "keystroke".into()).into(),
+        page: script.target.as_ref().map_or(-1, |t| t.page as i32),
+        link: script.target.as_ref().and_then(|t| t.link).map_or(-1, |i| i as i32),
+        label: if script.target.is_some() { script.name.clone() } else { script.event.as_ref().map(|e| format!("Field · {} · {e}", script.name)).unwrap_or_else(|| format!("Document · {}", script.name)) }.into(),
+        name: script.name.into(), source: script.source.into(), field: script.event.is_some(), event: script.target.map(|t| t.event).or(script.event).unwrap_or_else(|| "keystroke".into()).into(),
     }).collect::<Vec<_>>())));
 }
 

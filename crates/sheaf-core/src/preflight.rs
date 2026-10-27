@@ -4,6 +4,9 @@ use crate::pdfcraft::Doc;
 use crate::{paths::atomic_write, OpdfError, Result};
 
 pub use crate::pdfcraft::engine::printcheck::Profile;
+#[path = "preflight_profiles.rs"]
+mod profiles;
+pub use profiles::{Preset, report_with_preset};
 use std::path::{Path, PathBuf};
 
 /// A report with its profile and source identified, suitable for keeping beside a print job.
@@ -26,13 +29,18 @@ pub fn validate(profile: Profile) -> Result<()> {
 /// A measured report with the exact thresholds kept beside the findings, as Acrobat's audit trail.
 pub fn report_with_profile(doc: &Doc, name: &str, checked_at: &str, profile: Profile) -> Result<String> {
     validate(profile)?;
+    let readiness = doc.document().print_readiness_with(profile);
+    Ok(measured_report(name, checked_at, profile, &readiness))
+}
+
+fn measured_report(name: &str, checked_at: &str, profile: Profile, readiness: &crate::pdfcraft::engine::printcheck::PrintReadiness) -> String {
     let profile_name = if profile == Profile::default() { "Close-up print" }
         else if profile == (Profile { fail_ppi: 72.0, warn_ppi: 150.0, min_bleed_mm: 3.0 }) { "Large format" }
         else { "Custom print thresholds" };
-    Ok(format!(
+    format!(
         "Sheaf print preflight\nDocument: {name}\nChecked: {checked_at}\nProfile: {profile_name}\nImage thresholds: fail below {} ppi; warn below {} ppi\nBleed: warn below {} mm on any trim edge\n\n{}",
-        profile.fail_ppi, profile.warn_ppi, profile.min_bleed_mm, doc.document().print_readiness_with(profile).text()
-    ))
+        profile.fail_ppi, profile.warn_ppi, profile.min_bleed_mm, readiness.text()
+    )
 }
 
 /// Write a complete report or leave no file. An existing report gets a free neighbouring name.

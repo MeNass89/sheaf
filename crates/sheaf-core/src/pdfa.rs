@@ -5,9 +5,14 @@ use crate::pdfcraft::Doc;
 use crate::{pages::Input, paths::atomic_write, Result};
 use std::path::{Path, PathBuf};
 
+#[path = "pdfa1.rs"]
+mod part1;
+
 /// The PDF/A conformance levels offered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PdfALevel {
+    /// PDF/A-1b: PDF 1.4 without transparency, layers or attachments.
+    A1b,
     /// PDF/A-2b: the recommended archival level.
     #[default]
     A2b,
@@ -18,14 +23,14 @@ pub enum PdfALevel {
 impl PdfALevel {
     fn engine(self) -> pdfa::Level {
         match self {
-            PdfALevel::A2b => pdfa::Level::A2b,
+            PdfALevel::A1b | PdfALevel::A2b => pdfa::Level::A2b,
             PdfALevel::A3b => pdfa::Level::A3b,
         }
     }
 
-    /// "PDF/A-2b" or "PDF/A-3b".
+    /// The requested archival identifier.
     pub fn label(self) -> &'static str {
-        self.engine().label()
+        match self { Self::A1b => "PDF/A-1b", _ => self.engine().label() }
     }
 }
 
@@ -77,6 +82,7 @@ fn to_pdfa_checked(input: &Input, level: PdfALevel, allow_incomplete: bool, out:
     doc.apply(Edit::ConvertPdfA { level: level.engine() })?;
     let (bytes, _) = doc.unprotected_bytes()?;
     drop(doc);
+    let bytes = if level == PdfALevel::A1b { std::sync::Arc::new(part1::rewrite(bytes.as_slice())?) } else { bytes };
     let mut issues = Vec::new();
     let path = atomic_write(out, |part| {
         std::fs::write(part, bytes.as_slice())?;
@@ -93,7 +99,15 @@ fn to_pdfa_checked(input: &Input, level: PdfALevel, allow_incomplete: bool, out:
 /// The rules of `level` that `input` breaks, as PdfCraft's preflight sees them.
 pub fn verify(input: &Input, level: PdfALevel) -> Result<Vec<PdfAIssue>> {
     let doc = Doc::open(input)?;
-    Ok(doc.document().pdfa_verify(level.engine()).into_iter().map(|i| PdfAIssue { clause: i.clause.to_string(), message: i.message }).collect())
+    let mut issues: Vec<_> = doc.document().pdfa_verify(level.engine()).into_iter()
+        // Part 1 has its own identifier check below; all other baseline checks still apply.
+        .filter(|i| level != PdfALevel::A1b || i.pattern != "The metadata doesn't identify the file as {}")
+        .map(|i| PdfAIssue { clause: i.clause.to_string(), message: i.message }).collect();
+    if level == PdfALevel::A1b {
+        let identified = doc.document().standards().pdfa.is_some_and(|(part, conformance)| part == 1 && conformance == "B");
+        issues.extend(part1::issues(&lopdf::Document::load(&input.path)?, identified)?);
+    }
+    Ok(issues)
 }
 
 #[cfg(test)]

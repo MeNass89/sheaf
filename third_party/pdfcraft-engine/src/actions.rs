@@ -10,14 +10,27 @@ use crate::{DocId, Edit, EditError, Session};
 pub enum Step {
     /// Scan & OCR ▸ Recognize text (pages without text).
     RecognizeText,
+    /// Interactive toolbox shortcut; deliberately refused by unattended file runners.
+    OpenTool(String),
+    /// Native text-only tagging, title, language and structure tab order; requires review.
+    PrepareAccessibility(String),
     /// Reduce file size.
     ReduceFileSize,
+    /// Runtime-only open password. Saved actions must keep this empty and prompt for each file.
+    Protect(String),
     /// Sheaf native optimization presets; no Ghostscript process.
     Compress(String),
     /// Native PDF/A conversion, refused if verification still finds nonconformities.
     ConvertPdfA(String),
     /// position|start|size|format, configured by the Action Wizard controls.
     PageNumbers(String),
+    /// One-based page ranges, e.g. 1-3,5. Keeps the source order.
+    KeepPages(String),
+    DeletePages(String),
+    /// size|opacity|rotation|x|y|font|pages|text (points, degrees, 0–1 opacity).
+    WatermarkOptions(String),
+    /// position|size|font|pages|text (positions 0–5).
+    HeaderFooterOptions(String),
     /// Remove hidden information (every category).
     RemoveHiddenInformation,
     /// Sanitize document.
@@ -32,6 +45,9 @@ pub enum Step {
     AddHeader(String),
     /// Set the document title.
     SetTitle(String),
+    /// Standard metadata key|value; an empty value removes the key.
+    SetMetadata(String),
+    RemoveMetadata,
     SetAuthor(String),
     SetSubject(String),
     SetKeywords(String),
@@ -51,10 +67,17 @@ impl Step {
     pub fn all() -> Vec<Step> {
         vec![
             Step::RecognizeText,
+            Step::OpenTool("redact".into()),
+            Step::PrepareAccessibility("en-US".into()),
             Step::ReduceFileSize,
+            Step::Protect(String::new()),
             Step::Compress("recommended".into()),
             Step::ConvertPdfA("2b".into()),
             Step::PageNumbers("4|1|8|Page <<1>> of <<n>>".into()),
+            Step::KeepPages("1".into()),
+            Step::DeletePages("1".into()),
+            Step::WatermarkOptions("36|0.5|45|0|0|Helvetica|all|CONFIDENTIAL".into()),
+            Step::HeaderFooterOptions("4|8|Helvetica|all|Page <<1>> of <<n>>".into()),
             Step::RemoveHiddenInformation,
             Step::Sanitize,
             Step::FlattenComments,
@@ -63,6 +86,8 @@ impl Step {
             Step::AddHeader(String::new()),
             Step::AddFooter(String::new()),
             Step::SetTitle(String::new()),
+            Step::SetMetadata("Creator|".into()),
+            Step::RemoveMetadata,
             Step::SetAuthor(String::new()),
             Step::SetSubject(String::new()),
             Step::SetKeywords(String::new()),
@@ -80,10 +105,17 @@ impl Step {
     pub fn id(&self) -> &'static str {
         match self {
             Step::RecognizeText => "recognize_text",
+            Step::OpenTool(_) => "open_tool",
+            Step::PrepareAccessibility(_) => "prepare_accessibility",
             Step::ReduceFileSize => "reduce_file_size",
+            Step::Protect(_) => "protect",
             Step::Compress(_) => "compress",
             Step::ConvertPdfA(_) => "pdfa",
             Step::PageNumbers(_) => "page_numbers",
+            Step::KeepPages(_) => "keep_pages",
+            Step::DeletePages(_) => "delete_pages",
+            Step::WatermarkOptions(_) => "watermark_options",
+            Step::HeaderFooterOptions(_) => "header_footer_options",
             Step::RemoveHiddenInformation => "remove_hidden_information",
             Step::Sanitize => "sanitize",
             Step::FlattenComments => "flatten_comments",
@@ -92,6 +124,8 @@ impl Step {
             Step::AddHeader(_) => "add_header",
             Step::AddFooter(_) => "add_footer",
             Step::SetTitle(_) => "set_title",
+            Step::SetMetadata(_) => "set_metadata",
+            Step::RemoveMetadata => "remove_metadata",
             Step::SetAuthor(_) => "set_author",
             Step::SetSubject(_) => "set_subject",
             Step::SetKeywords(_) => "set_keywords",
@@ -108,10 +142,17 @@ impl Step {
     pub fn label(&self) -> &'static str {
         match self {
             Step::RecognizeText => "Recognize text",
+            Step::OpenTool(_) => "Open toolbox tool (interactive)",
+            Step::PrepareAccessibility(_) => "Prepare accessibility (text-only)",
             Step::ReduceFileSize => "Reduce file size",
+            Step::Protect(_) => "Protect with open password (AES-256)",
             Step::Compress(_) => "Compress PDF",
             Step::ConvertPdfA(_) => "Convert to PDF/A",
             Step::PageNumbers(_) => "Add page numbers",
+            Step::KeepPages(_) => "Keep selected pages",
+            Step::DeletePages(_) => "Delete selected pages",
+            Step::WatermarkOptions(_) => "Watermark with settings",
+            Step::HeaderFooterOptions(_) => "Header or footer with settings",
             Step::RemoveHiddenInformation => "Remove hidden information",
             Step::Sanitize => "Sanitize document",
             Step::FlattenComments => "Flatten comments",
@@ -120,6 +161,8 @@ impl Step {
             Step::AddHeader(_) => "Add header",
             Step::AddFooter(_) => "Add footer",
             Step::SetTitle(_) => "Set document title",
+            Step::SetMetadata(_) => "Set metadata key and value",
+            Step::RemoveMetadata => "Remove document metadata",
             Step::SetAuthor(_) => "Set document author",
             Step::SetSubject(_) => "Set document subject",
             Step::SetKeywords(_) => "Set document keywords",
@@ -136,14 +179,14 @@ impl Step {
     /// The step's text argument, if it takes one.
     pub fn arg(&self) -> Option<&str> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::Protect(s) | Step::OpenTool(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }
 
     pub fn arg_mut(&mut self) -> Option<&mut String> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::Protect(s) | Step::OpenTool(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }
@@ -157,6 +200,16 @@ impl Step {
         if matches!(&s, Step::Compress(v) if !["low", "recommended", "extreme", "lossless"].contains(&v.as_str())) { return None; }
         if matches!(&s, Step::ConvertPdfA(v) if !["2b", "3b"].contains(&v.as_str())) { return None; }
         if let Step::PageNumbers(v) = &s { number_settings(v).ok()?; }
+        match &s {
+            Step::OpenTool(v) => { if v.is_empty() || v.len() > 64 || !v.bytes().all(|b| b.is_ascii_lowercase() || b == b'_') { return None; } }
+            Step::PrepareAccessibility(v) => {
+                if v.is_empty() || v.len() > 63 || !v.split('-').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_alphanumeric())) { return None; }
+            }
+            Step::SetMetadata(_) => { command_edit(&s, 1).ok()?; }
+            Step::KeepPages(v) | Step::DeletePages(v) => { page_selection(v, 100_000).ok()?; }
+            Step::WatermarkOptions(_) | Step::HeaderFooterOptions(_) => { command_edit(&s, 100_000).ok()?; }
+            _ => {}
+        }
         Some(s)
     }
 }
@@ -173,6 +226,36 @@ pub fn number_settings(value: &str) -> Result<crate::HeaderFooter, EditError> {
     let mut settings = crate::HeaderFooter { start_number: start, font_size: size, ..Default::default() };
     settings.text[position] = fields[3].into();
     Ok(settings)
+}
+
+/// Strict one-based page ranges for guided actions. Bounds are checked again for each input.
+pub fn page_selection(value: &str, count: usize) -> Result<Vec<usize>, EditError> {
+    let bad = || EditError::Invalid("Use page ranges such as 1-3,5 or all, within this document".into());
+    if value == "all" { return Ok((0..count).collect()); }
+    if value.is_empty() || value.len() > 16_384 { return Err(bad()); }
+    let mut selected = std::collections::BTreeSet::new();
+    for part in value.split(',') {
+        let (start, end) = part.trim().split_once('-').map_or((part.trim(), part.trim()), |p| p);
+        let start = start.trim().parse::<usize>().map_err(|_| bad())?;
+        let end = end.trim().parse::<usize>().map_err(|_| bad())?;
+        if start == 0 || start > end || end > count { return Err(bad()); }
+        selected.extend(start - 1..end);
+    }
+    Ok(selected.into_iter().collect())
+}
+
+fn option_number(value: &str, min: f64, max: f64) -> Result<f64, EditError> {
+    value.parse::<f64>().ok().filter(|v| v.is_finite() && *v >= min && *v <= max)
+        .ok_or_else(|| EditError::Invalid(format!("Expected a number from {min} to {max}")))
+}
+
+fn option_font(value: &str) -> Result<Option<pdfcraft_fonts::Std14>, EditError> {
+    use pdfcraft_fonts::Std14;
+    Ok(Some(match value {
+        "Helvetica" => Std14::Helvetica, "Times-Roman" => Std14::TimesRoman,
+        "Courier" => Std14::Courier,
+        _ => return Err(EditError::Invalid("Choose Helvetica, Times-Roman or Courier".into())),
+    }))
 }
 
 /// A named action.
@@ -201,6 +284,7 @@ pub fn builtin() -> Vec<Action> {
         a("Archive Documents (PDF/A-2b)", "Convert with the native PDF/A engine. Publish only if the built-in conformance check passes; unresolved font or colour issues stop the file.", vec![Step::ConvertPdfA("2b".into())]),
         a("Archive Documents (PDF/A-3b)", "Create a verified PDF/A-3b archive copy. Native conversion may refuse files needing font or colour repair.", vec![Step::ConvertPdfA("3b".into())]),
         a("Prepare a Form", "Detect form fields on the pages. Open the result to review names, positions and reading order before distributing.", vec![Step::DetectFormFields]),
+        a("Prepare Accessibility (text-only)", "Tag simple, untagged text-only documents as paragraphs; set title, document language and structure tab order. Refuses images, forms and existing tags. Review headings, reading order and accessibility before distributing; this is not PDF/UA certification.", vec![Step::PrepareAccessibility("en-US".into())]),
         a("Optimize for Sharing", "Reduce image resolution to 150 ppi and use JPEG quality 70. Keeps tags and document content; does not linearize the PDF for fast web view.", vec![Step::Compress("recommended".into())]),
     ]
 }
@@ -219,6 +303,33 @@ pub struct FileResult {
 pub fn command_edit(step: &Step, pages: usize) -> Result<Edit, EditError> {
     let all: Vec<usize> = (0..pages).collect();
     Ok(match step {
+        Step::KeepPages(value) | Step::DeletePages(value) => {
+            let selected = page_selection(value, pages)?;
+            let remove = if matches!(step, Step::KeepPages(_)) {
+                all.into_iter().filter(|p| selected.binary_search(p).is_err()).collect::<Vec<_>>()
+            } else { selected };
+            if remove.len() == pages { return Err(EditError::Invalid("An action must leave at least one page".into())); }
+            Edit::DeletePages { pages: remove }
+        }
+        Step::WatermarkOptions(value) => {
+            let f: Vec<_> = value.splitn(8, '|').collect();
+            if f.len() != 8 || f[7].is_empty() { return Err(EditError::Invalid("Watermark needs size|opacity|rotation|x|y|font|pages|text".into())); }
+            let settings = crate::Watermark {
+                text: f[7].into(), font_size: option_number(f[0], 4.0, 144.0)?,
+                opacity: option_number(f[1], 0.0, 1.0)?, rotation: option_number(f[2], -360.0, 360.0)?,
+                offset: [option_number(f[3], -10000.0, 10000.0)?, option_number(f[4], -10000.0, 10000.0)?],
+                font: option_font(f[5])?, ..Default::default()
+            };
+            Edit::AddWatermark { pages: page_selection(f[6], pages)?, settings, replace: false, file: None }
+        }
+        Step::HeaderFooterOptions(value) => {
+            let f: Vec<_> = value.splitn(5, '|').collect();
+            if f.len() != 5 || f[4].is_empty() { return Err(EditError::Invalid("Header/footer needs position|size|font|pages|text".into())); }
+            let position = f[0].parse::<usize>().ok().filter(|p| *p < 6).ok_or_else(|| EditError::Invalid("Position must be 0–5".into()))?;
+            let mut settings = crate::HeaderFooter { font_size: option_number(f[1], 4.0, 144.0)?, font: option_font(f[2])?, ..Default::default() };
+            settings.text[position] = f[4].into();
+            Edit::AddHeaderFooter { pages: page_selection(f[3], pages)?, settings, replace: false }
+        }
         Step::PageNumbers(value) => Edit::AddHeaderFooter { pages: all, settings: number_settings(value)?, replace: false },
         Step::RemoveHiddenInformation => Edit::RemoveHidden { which: crate::HIDDEN.to_vec() },
         Step::Sanitize => Edit::Sanitize,
@@ -231,6 +342,17 @@ pub fn command_edit(step: &Step, pages: usize) -> Result<Edit, EditError> {
             let mut settings = crate::HeaderFooter::default();
             settings.text[if matches!(step, Step::AddHeader(_)) { 1 } else { 4 }] = t.clone();
             Edit::AddHeaderFooter { pages: all, settings, replace: false }
+        }
+        Step::Protect(password) => {
+            if password.is_empty() { return Err(EditError::Invalid("Enter a nonempty open password when prompted; passwords are never stored in actions".into())); }
+            Edit::Protect(crate::Protection { open_password: Some(password.clone()), ..Default::default() })
+        }
+        Step::RemoveMetadata => Edit::RemoveHidden { which: vec![crate::Hidden::Metadata, crate::Hidden::PrivateData] },
+        Step::SetMetadata(value) => {
+            let (key, value) = value.split_once('|').ok_or_else(|| EditError::Invalid("Metadata needs key|value".into()))?;
+            if !["Title", "Author", "Subject", "Keywords", "Creator", "Producer", "CreationDate", "ModDate", "Trapped"].contains(&key) { return Err(EditError::Invalid("Unsupported metadata key".into())); }
+            if ["CreationDate", "ModDate", "Trapped"].contains(&key) && !value.is_empty() { return Err(EditError::Invalid("This metadata key can only be cleared in an action".into())); }
+            Edit::SetInfo { key: key.into(), value: value.into() }
         }
         Step::SetTitle(t) => Edit::SetInfo { key: "Title".into(), value: t.clone() },
         Step::SetAuthor(t) => Edit::SetInfo { key: "Author".into(), value: t.clone() },
@@ -248,6 +370,14 @@ pub fn command_edit(step: &Step, pages: usize) -> Result<Edit, EditError> {
 fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) -> Result<Option<DocId>, EditError> {
     let pages = s.get(id).map_or(0, |d| d.info.pages.len());
     let edit = match step {
+        Step::PrepareAccessibility(language) => {
+            if Step::from_id("prepare_accessibility", language).is_none() { return Err(EditError::Invalid("Enter a document language such as en-US or fr-FR".into())); }
+            let doc = s.get(id).ok_or(EditError::NoDocument)?;
+            let language = doc.accessibility_fix(crate::a11y::Rule::PrimaryLanguage, Some(language)).map_err(EditError::Invalid)?;
+            let title = doc.accessibility_fix(crate::a11y::Rule::Title, None).map_err(EditError::Invalid)?;
+            let tabs = doc.accessibility_fix(crate::a11y::Rule::TabOrder, None).map_err(EditError::Invalid)?;
+            Edit::Batch { label: "Prepare accessibility (review required)".into(), edits: vec![Edit::AutoTagText, language, title, tabs] }
+        }
         Step::RecognizeText => {
             let found = s.recognize_text(id, &[], crate::ocr::OcrSettings::default()).map_err(EditError::Invalid)?;
             log.push(format!("Recognize text: {} words", found.iter().map(|p| p.words.len()).sum::<usize>()));
@@ -307,6 +437,9 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
         }
         _ => command_edit(step, pages)?,
     };
+    if matches!(&edit, Edit::DeletePages { pages } if pages.is_empty()) {
+        log.push(format!("{}: no pages to remove", step.label())); return Ok(None);
+    }
     // Sheaf: permissions, unsupported content and write failures must stop an action.
     // Flattening an empty set already succeeds in the editor; do not swallow real errors.
     s.apply(id, edit)?;

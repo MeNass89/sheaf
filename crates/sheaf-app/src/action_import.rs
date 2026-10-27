@@ -27,6 +27,13 @@ pub fn stirling(value: Value) -> Result<SavedAction> {
     if operations.len() > 100 { return Err(invalid("An action supports up to 100 steps")); }
     let mut warnings = Vec::new();
     for (i, operation) in operations.iter().enumerate() {
+        if let Some(format) = terminal_format(operation)? {
+            if i + 1 != operations.len() { return Err(invalid(format!("Stirling step {}: format conversion must be last", i + 1))); }
+            action.output.format = format.into();
+            if action.steps.is_empty() { action.steps.push(ActionStep::from_engine(&Step::KeepPages("all".into()))); }
+            warnings.push("Conversion uses Sheaf's native Rust writers; editable Office layout and bytes differ from LibreOffice. Image exports are 150 dpi page files inside one ZIP".into());
+            continue;
+        }
         let result = step(operation, &mut warnings).map_err(|e| invalid(format!("Stirling step {}: {e}", i + 1)))?;
         action.steps.extend(result.iter().map(ActionStep::from_engine));
     }
@@ -35,6 +42,19 @@ pub fn stirling(value: Value) -> Result<SavedAction> {
     }
     action.validate()?;
     Ok(action)
+}
+
+fn terminal_format(operation: &Value) -> Result<Option<&'static str>> {
+    let id = operation.get("operation").and_then(Value::as_str).unwrap_or_default();
+    let word = ["pdfToWord", "/api/v1/convert/pdf/word"].contains(&id);
+    let text = ["pdfToText", "pdfToTextOrRTF", "/api/v1/convert/pdf/text"].contains(&id);
+    if !word && !text { return Ok(None); }
+    let p = parameters(operation, &["outputFormat"])?;
+    let format = p.get("outputFormat").and_then(Value::as_str).ok_or_else(|| invalid("Conversion needs outputFormat"))?;
+    match (word, format) {
+        (true, "docx") => Ok(Some("docx")), (false, "txt") => Ok(Some("txt")), (false, "rtf") => Ok(Some("rtf")),
+        _ => Err(invalid(format!("Sheaf cannot retain Stirling's {format} conversion; use docx, txt or rtf"))),
+    }
 }
 
 fn step(operation: &Value, warnings: &mut Vec<String>) -> Result<Vec<Step>> {
@@ -100,9 +120,36 @@ fn step(operation: &Value, warnings: &mut Vec<String>) -> Result<Vec<Step>> {
             warnings.push("Page numbering keeps position, start, size and text; uses Sheaf's Helvetica font and 0.5/1 inch margins. Review the settings before running".into());
             Ok(vec![step])
         }
-        "changeMetadata" | "/api/v1/misc/update-metadata" => Err(invalid(
-            "Stirling replaces all standard metadata, including omitted fields. Use a Sheaf metadata action to choose what to keep."
-        )),
+        "removePages" | "/api/v1/general/remove-pages" | "extractPages" | "/api/v1/general/extract-pages" => {
+            let p = parameters(operation, &["pageNumbers"])?;
+            let pages = p.get("pageNumbers").and_then(Value::as_str).ok_or_else(|| invalid("Page selection needs pageNumbers"))?;
+            let tool = if id.contains("remove") || id == "removePages" { "delete_pages" } else { "keep_pages" };
+            if tool == "keep_pages" {
+                let mut last = 0;
+                for part in pages.split(',') {
+                    let (start, end) = part.trim().split_once('-').unwrap_or((part.trim(), part.trim()));
+                    let start = start.trim().parse::<usize>().map_err(|_| invalid("Invalid extract page range"))?;
+                    let end = end.trim().parse::<usize>().map_err(|_| invalid("Invalid extract page range"))?;
+                    if start <= last || end < start { return Err(invalid("Reordered or duplicate extraction ranges cannot be imported yet")); }
+                    last = end;
+                }
+            }
+            Ok(vec![Step::from_id(tool, pages).ok_or_else(|| invalid("Use page ranges such as 1-3,5"))?])
+        }
+        "changeMetadata" | "/api/v1/misc/update-metadata" => {
+            let p = parameters(operation, &["deleteAll", "title", "author", "subject", "keywords", "creator", "producer", "creationDate", "modificationDate", "trapped", "allRequestParams"])?;
+            if p.get("deleteAll").is_some_and(|v| !v.is_boolean()) { return Err(invalid("deleteAll must be true or false")); }
+            if p.get("allRequestParams").is_some_and(|v| !v.is_null() && v.as_object().is_none_or(|o| !o.is_empty())) { return Err(invalid("Custom metadata map entries are not imported yet")); }
+            if p.get("deleteAll") == Some(&Value::Bool(true)) { return Ok(vec![Step::RemoveMetadata]); }
+            let mut result = Vec::new();
+            for (key, native) in [("title", "Title"), ("author", "Author"), ("subject", "Subject"), ("keywords", "Keywords"), ("creator", "Creator"), ("producer", "Producer"), ("creationDate", "CreationDate"), ("modificationDate", "ModDate"), ("trapped", "Trapped")] {
+                let value = match p.get(key) { None | Some(Value::Null) => "", Some(Value::String(v)) => if v == "undefined" { "" } else { v }, _ => return Err(invalid(format!("{key} must be text"))) };
+                let arg = format!("{native}|{value}");
+                result.push(Step::from_id("set_metadata", &arg).ok_or_else(|| invalid(format!("Cannot retain Stirling {key}; date and trapped values can only be cleared")))?);
+            }
+            warnings.push("Metadata import replaces all standard fields, clearing omitted fields as Stirling does; unrelated custom fields stay intact".into());
+            Ok(result)
+        }
         _ => Err(invalid(format!("Unsupported Stirling operation: {id}. No steps have been saved."))),
     }
 }
@@ -157,8 +204,8 @@ mod tests {
         assert!(stirling(make("merge", json!({}))).is_err());
         assert!(stirling(make("rotate", json!({"angle":90,"pages":"1"}))).is_err());
         assert!(stirling(make("flatten", json!({"flattenOnlyForms":false}))).is_err());
-        assert!(stirling(make("changeMetadata", json!({"deleteAll":true}))).is_err());
-        assert!(stirling(make("changeMetadata", json!({"title":"Keep other metadata"}))).is_err());
+        assert_eq!(stirling(make("changeMetadata", json!({"deleteAll":true}))).unwrap().steps[0].tool, "remove_metadata");
+        assert_eq!(stirling(make("changeMetadata", json!({"title":"Replace standard metadata"}))).unwrap().steps.len(), 9);
         assert!(stirling(make("rotate", json!({"angle":45}))).is_err());
     }
     #[test]
@@ -184,6 +231,24 @@ mod tests {
         exact.steps.push(ActionStep::from_engine(&Step::RotateClockwise));
         exact.output.same_folder = true;
         assert!(export(&exact).is_err());
+    }
+
+    #[test]
+    fn stirling_page_metadata_and_terminal_conversions_preserve_or_refuse_settings() {
+        let action = stirling(json!({"name":"Publish", "operations":[
+            {"operation":"removePages", "parameters":{"pageNumbers":"2-3"}},
+            {"operation":"changeMetadata", "parameters":{"title":"Review","author":"Owner"}},
+            {"operation":"pdfToWord", "parameters":{"outputFormat":"docx"}}
+        ]})).unwrap();
+        assert_eq!(action.steps[0].tool, "delete_pages"); assert_eq!(action.steps[0].argument, "2-3");
+        assert_eq!(action.steps[1].argument, "Title|Review");
+        assert_eq!(action.steps[3].argument, "Subject|"); assert_eq!(action.output.format, "docx");
+        let convert = json!({"operation":"pdfToText", "parameters":{"outputFormat":"txt"}});
+        assert!(stirling(json!({"name":"Wrong order", "operations":[convert.clone(), {"operation":"rotate", "parameters":{"angle":90}}]})).is_err());
+        let only = stirling(json!({"name":"Text", "operations":[convert]})).unwrap();
+        assert_eq!(only.output.format, "txt"); assert_eq!(only.steps[0].argument, "all");
+        assert!(stirling(json!({"name":"Unsupported date", "operations":[{"operation":"changeMetadata","parameters":{"creationDate":"2024/01/01 12:00:00"}}]})).is_err());
+        assert!(stirling(json!({"name":"No reordering", "operations":[{"operation":"extractPages","parameters":{"pageNumbers":"3,1"}}]})).is_err());
     }
 
 }

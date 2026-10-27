@@ -41,6 +41,7 @@ pub mod dates;
 pub mod doc_attachments;
 pub mod export;
 pub mod js;
+mod action_scripts;
 pub mod links;
 pub mod ocr;
 pub mod optimizer;
@@ -1556,8 +1557,9 @@ pub enum Edit {
     MarkDecorative {
         figure: u32,
     },
-    /// Document JavaScripts: add, replace (`script`) or remove (`None`) the document-level
-    /// script `name`.
+    /// Edit a page or link event, preserving unrelated actions and undo history.
+    SetActionScript { target: js::ActionScriptTarget, script: Option<String> },
+    /// Document JavaScripts: add, replace (`script`) or remove (`None`) script `name`.
     SetDocumentScript {
         name: String,
         script: Option<String>,
@@ -1578,6 +1580,8 @@ pub enum Edit {
     FixPageHairlines { pages: Vec<usize>, minimum: f64 },
     /// Sheaf: black crop marks outside the existing bleed (Acrobat's Add Printer Marks).
     AddCropMarks { pages: Vec<usize> },
+    /// Sheaf: selected printer marks and physical line style, one undoable operation.
+    AddPrinterMarks { pages: Vec<usize>, registration: bool, colour_bars: bool, page_information: bool, width: f64 },
     /// What a script (button or console) changed in form fields: values, read-only, required
     /// and visibility.
     ApplyScriptChanges {
@@ -2113,7 +2117,9 @@ impl Edit {
             Edit::ConvertPdfA { level } => Label::with("Save as {level}", level.label()),
             Edit::FixPageHairlines { .. } => Label::of("Fix page hairlines"),
             Edit::AddCropMarks { .. } => Label::of("Add crop marks"),
+            Edit::AddPrinterMarks { .. } => Label::of("Add printer marks"),
             Edit::SetFieldScript { name, .. } => Label::with("Edit script of {name}", name.as_str()),
+            Edit::SetActionScript { .. } => Label::of("Edit page or link JavaScript"),
             Edit::SetDocumentScript { script: None, .. } => Label::of("Delete document JavaScript"),
             Edit::SetDocumentScript { .. } => Label::of("Edit document JavaScript"),
             Edit::EditTextLine { .. } | Edit::EditTextBlock { .. } | Edit::EditTextBlockInFont { .. } => Label::of("Edit text"),
@@ -2334,11 +2340,13 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::MoveTag { .. }
         | Edit::MarkDecorative { .. }
         | Edit::AddOcrText { .. }
+        | Edit::SetActionScript { .. }
         | Edit::SetDocumentScript { .. }
         | Edit::SetFieldScript { .. }
         | Edit::ConvertPdfA { .. }
         | Edit::FixPageHairlines { .. }
         | Edit::AddCropMarks { .. }
+        | Edit::AddPrinterMarks { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
         | Edit::EditTextBlockInFont { .. }
@@ -2700,6 +2708,8 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_edit::prepress::fix_page_hairlines(doc, pages, *minimum)?;
         }
         Edit::AddCropMarks { pages } => prepress::add_crop_marks(doc, pages)?,
+        Edit::AddPrinterMarks { pages, registration, colour_bars, page_information, width } => prepress::add_printer_marks(doc, pages, *registration, *colour_bars, *page_information, *width)?,
+        Edit::SetActionScript { target, script } => action_scripts::set(doc, target, script.as_deref()).map_err(EditError::Invalid)?,
         Edit::SetDocumentScript { name, script } => pdfcraft_forms::set_document_script(doc, name, script.as_deref())?,
         Edit::AddOcrText { page, words } => {
             pdfcraft_edit::stamp(doc, *page, "OCR", pdfcraft_ocr::text_layer(words))?;

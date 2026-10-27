@@ -33,6 +33,30 @@ pub fn filter_entries(entries: &[Entry], query: &str, folder: &str) -> Vec<Entry
         (query.is_empty() || format!("{} {}", e.name, e.folder).to_lowercase().contains(&query))).cloned().collect()
 }
 
+/// Stable library sorting uses catalogue values only; no filesystem reads per comparison.
+pub fn sort_entries(entries: &mut [Entry], order: i32) {
+    entries.sort_by(|a, b| {
+        let newest = |e: &Entry| e.versions.last().map_or(0, |v| v.created);
+        let size = |e: &Entry| e.versions.last().map_or(0, |v| v.size);
+        let names = || a.name.to_lowercase().cmp(&b.name.to_lowercase());
+        match order {
+            1 => names().reverse(), 2 => newest(b).cmp(&newest(a)),
+            3 => newest(a).cmp(&newest(b)), 4 => size(b).cmp(&size(a)),
+            5 => size(a).cmp(&size(b)), _ => names(),
+        }.then_with(names).then_with(|| a.id.cmp(&b.id))
+    });
+}
+
+/// Decode raster thumbnails with explicit allocation limits; Office files keep their icon.
+pub fn raster_thumbnail(path: &Path) -> Result<(u32, u32, Vec<u8>)> {
+    let mut reader = image::ImageReader::open(path)?.with_guessed_format()?;
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(12000); limits.max_image_height = Some(12000);
+    limits.max_alloc = Some(64 * 1024 * 1024); reader.limits(limits);
+    let image = reader.decode().map_err(|e| invalid(format!("Thumbnail unavailable: {e}")))?.thumbnail(120, 120).into_rgba8();
+    Ok((image.width(), image.height(), image.into_raw()))
+}
+
 /// Include intermediate ZIP folders so a nested import has a navigable tree.
 pub fn folders(entries: &[Entry]) -> Vec<String> {
     let mut paths = std::collections::BTreeSet::new();
@@ -71,6 +95,12 @@ impl Library {
         }
         entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.id.cmp(&b.id)));
         Ok(entries)
+    }
+
+    /// Move catalogue membership only: immutable file versions stay byte-for-byte unchanged.
+    pub fn move_to_folder(&self, id: &str, folder: &str) -> Result<Entry> {
+        if folder.len() > 1024 || (!folder.is_empty() && folder.split('/').any(|p| p.is_empty() || p == "." || p == ".." || crate::watch_folder::safe_name(p) != p)) { return Err(invalid("Use folder names separated by / without path characters or ..")); }
+        let mut entry = self.entry(id)?; entry.folder = folder.into(); self.save(&entry)?; Ok(entry)
     }
 
     pub fn entry(&self, id: &str) -> Result<Entry> {
@@ -381,6 +411,27 @@ mod tests {
         assert_eq!(report.completed, 2); assert!(report.errors.is_empty());
         assert!(library.list().unwrap().is_empty());
         assert_eq!(std::fs::read(source).unwrap(), b"private original");
+    }
+
+    #[test]
+    fn library_sort_move_and_raster_thumbnail_keep_file_versions() {
+        let dir = tempfile::tempdir().unwrap(); let library = Library::new(dir.path());
+        let source = dir.path().join("small.png");
+        image::RgbaImage::from_pixel(400, 200, image::Rgba([255, 0, 0, 255])).save(&source).unwrap();
+        let first = library.add(&source).unwrap();
+        let moved = library.move_to_folder(&first.id, "Reports/2026").unwrap();
+        assert_eq!(moved.versions, first.versions); assert_eq!(moved.folder, "Reports/2026");
+        assert_eq!(std::fs::read(library.path(&first.id, 0).unwrap()).unwrap(), std::fs::read(&source).unwrap());
+        assert!(library.move_to_folder(&first.id, "../escape").is_err());
+        let (w, h, rgba) = raster_thumbnail(&source).unwrap(); assert_eq!((w, h), (120, 60)); assert_eq!(&rgba[..4], &[255, 0, 0, 255]);
+        let mut a = first.clone(); a.name = "Zeta".into(); a.versions.last_mut().unwrap().size = 1;
+        let mut b = first; b.name = "alpha".into(); b.versions.last_mut().unwrap().size = 2;
+        let mut entries = vec![a, b]; sort_entries(&mut entries, 0); assert_eq!(entries[0].name, "alpha");
+        sort_entries(&mut entries, 1); assert_eq!(entries[0].name, "Zeta");
+        sort_entries(&mut entries, 4); assert_eq!(entries[0].name, "alpha");
+        entries[0].versions.last_mut().unwrap().created = 100;
+        entries[1].versions.last_mut().unwrap().created = 1;
+        sort_entries(&mut entries, 3); assert_eq!(entries[0].name, "Zeta");
     }
 
 }

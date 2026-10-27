@@ -20,19 +20,10 @@ pub type SpellText = (SpellTarget, String, String, Option<usize>);
 /// user can type in.
 pub fn spelling_texts(tab_id: i32) -> Vec<SpellText> {
     update(tab_id, |r, _| {
-        let mut out: Vec<SpellText> = Vec::new();
-        let mut annots: Vec<&AnnotEntry> = r.snap.annots.iter().filter(|a| !a.fill_sign && !a.contents.trim().is_empty() && !matches!(a.subtype.as_str(), "Link" | "Widget" | "Popup")).collect();
+        let mut annots: Vec<&AnnotEntry> = r.snap.annots.iter().filter(|a| !a.fill_sign && !matches!(a.subtype.as_str(), "Link" | "Widget" | "Popup")).collect();
         annots.sort_by_key(|a| (a.page, a.index));
-        for a in annots {
-            out.push((SpellTarget::Comment { page: a.page, index: a.index }, format!("{} on page {}", if a.subtype == "FreeText" { "Text box" } else { "Comment" }, a.page + 1), a.contents.clone(), Some(a.page)));
-            // Its replies ("author: text" as the panel shows them; the text is the reply's own).
-            for (shown, page, index) in &a.replies {
-                let text = reply_text(shown);
-                if !text.trim().is_empty() {
-                    out.push((SpellTarget::Comment { page: *page, index: *index }, format!("Reply on page {}", page + 1), text.to_string(), Some(*page)));
-                }
-            }
-        }
+        let comments: Vec<Comment> = annots.iter().map(|a| (a.page, a.index, a.subtype.as_str(), a.contents.as_str(), a.replies.as_slice())).collect();
+        let mut out = comment_texts(&comments);
         for f in r.snap.fields.iter().filter(|f| f.kind == 0 && !f.read_only) {
             let value = f.value.join("");
             if !value.trim().is_empty() {
@@ -42,6 +33,28 @@ pub fn spelling_texts(tab_id: i32) -> Vec<SpellText> {
         out
     })
     .unwrap_or_default()
+}
+
+/// A comment as the pass reads it: page, index there, subtype, its text, its replies ("author:
+/// text", page, index).
+type Comment<'a> = (usize, usize, &'a str, &'a str, &'a [(String, usize, usize)]);
+
+/// The comments' texts to check, each followed by its replies. A comment whose own text is empty
+/// (a highlight without a note) is skipped, its replies are not.
+fn comment_texts(comments: &[Comment]) -> Vec<SpellText> {
+    let mut out = Vec::new();
+    for &(page, index, subtype, contents, replies) in comments {
+        if !contents.trim().is_empty() {
+            out.push((SpellTarget::Comment { page, index }, format!("{} on page {}", if subtype == "FreeText" { "Text box" } else { "Comment" }, page + 1), contents.to_string(), Some(page)));
+        }
+        for (shown, page, index) in replies {
+            let text = reply_text(shown);
+            if !text.trim().is_empty() {
+                out.push((SpellTarget::Comment { page: *page, index: *index }, format!("Reply on page {}", page + 1), text.to_string(), Some(*page)));
+            }
+        }
+    }
+    out
 }
 
 /// A reply's own text from its line in the panel, "author: text" (the author is "—" when the file
@@ -63,6 +76,15 @@ pub fn spelling_set(ui: &AppWindow, tab_id: i32, target: &SpellTarget, text: &st
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replies_are_checked_even_when_their_comment_has_no_text() {
+        let replies = vec![("Ada: teh reply".to_string(), 0, 3)];
+        let texts = comment_texts(&[(0, 2, "Highlight", "", replies.as_slice()), (1, 0, "Text", "  ", &[]), (1, 1, "FreeText", "a box", &[])]);
+        let got: Vec<(&str, &str)> = texts.iter().map(|t| (t.1.as_str(), t.2.as_str())).collect();
+        assert_eq!(got, [("Reply on page 1", "teh reply"), ("Text box on page 2", "a box")]);
+        assert_eq!(texts[0].0, SpellTarget::Comment { page: 0, index: 3 });
+    }
 
     #[test]
     fn a_replys_text_is_checked_without_its_author() {

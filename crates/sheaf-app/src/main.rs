@@ -206,17 +206,18 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_accessibility_fix, |ui, id, k| reader_ui::accessibility_fix(&ui, id, k));
     wire_global!(ui, rb, on_accessibility_report, |ui, id| reader_ui::accessibility_report(&ui, id));
     wire_global!(ui, rb, on_print_preflight, |ui, id| reader_ui::print_preflight(&ui, id));
-    wire_global!(ui, rb, on_preflight_check, |ui, id, fail, target, bleed| reader_ui::preflight_check(&ui, id, &fail, &target, &bleed));
+    wire_global!(ui, rb, on_preflight_check, |ui, id, fail, target, bleed, preset| reader_ui::preflight_check(&ui, id, &fail, &target, &bleed, preset));
     wire_global!(ui, rb, on_preflight_save, |ui, id| reader_ui::preflight_save(&ui, id));
     rb.on_preflight_close(reader_ui::preflight_close);
     wire_global!(ui, rb, on_preflight_page, |ui, id, page| reader_ui::preflight_page(&ui, id, page));
     wire_global!(ui, rb, on_fix_page_hairlines, |ui, id| reader_ui::fix_page_hairlines(&ui, id));
     wire_global!(ui, rb, on_add_crop_marks, |ui, id| reader_ui::add_crop_marks(&ui, id));
     wire_global!(ui, rb, on_press_profile, |ui, id| reader_ui::press_profile(&ui, id));
-    wire_global!(ui, rb, on_press_export, |ui, id, condition| reader_ui::press_export(&ui, id, &condition));
+    wire_global!(ui, rb, on_press_export, |ui, id, condition, level| reader_ui::press_export(&ui, id, &condition, level));
+    wire_global!(ui, rb, on_press_preset, |ui, id, preset| reader_ui::press_preset(&ui, id, preset));
     rb.on_production_close(reader_ui::production_close);
     wire_global!(ui, rb, on_production_hairlines, |ui, id, minimum, all| reader_ui::production_hairlines(&ui, id, &minimum, all));
-    wire_global!(ui, rb, on_production_marks, |ui, id, all| reader_ui::production_marks(&ui, id, all));
+    wire_global!(ui, rb, on_production_marks, |ui, id, all, style, width| reader_ui::production_marks(&ui, id, all, style, &width));
     wire_global!(ui, rb, on_production_box, |ui, id, which, left, bottom, right, top, reset, all| reader_ui::production_box(&ui, id, which, [&left, &bottom, &right, &top], reset, all));
     wire_global!(ui, rb, on_page_transition, |ui, id, style, advance| reader_ui::page_transition(&ui, id, style, &advance));
     wire_global!(ui, rb, on_fields_nudge, |ui, id, dx, dy| reader_ui::fields_nudge(&ui, id, dx, dy));
@@ -284,7 +285,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_policy_open(reader_ui::policy_open);
     wire_global!(ui, rb, on_policy_action, |ui, id, action, index| reader_ui::policy_action(&ui, id, action, index));
     rb.on_policy_save(|id, name, printing, copying, editing, commenting, forms, metadata, quality, changes, algorithm| reader_ui::policy_save(id, &name, [printing, copying, editing, commenting, forms, metadata], [quality, changes, algorithm]));
-    wire_global!(ui, rb, on_policy_apply, |ui, id, user, confirmation, owner, owner_confirmation| reader_ui::policy_apply(&ui, id, &user, &confirmation, &owner, &owner_confirmation));
+    wire_global!(ui, rb, on_policy_apply, |ui, id, user, confirmation, owner, owner_confirmation, remember| reader_ui::policy_apply(&ui, id, &user, &confirmation, &owner, &owner_confirmation, remember));
     rb.on_catalog_open(reader_ui::catalog_open);
     wire_global!(ui, rb, on_catalog_action, |ui, id, action, index, query| reader_ui::catalog_action(&ui, id, action, index, &query));
     wire_global!(ui, rb, on_review_ocr, |ui, id| reader_ui::review_ocr(&ui, id));
@@ -679,6 +680,16 @@ fn main() -> Result<(), slint::PlatformError> {
     // Drag and drop from Finder.
     let weak = ui.as_weak();
     ui.window().on_winit_window_event(move |_, ev| match ev {
+        // The modifiers held, for Edit ▸ Undo and the like sending their keys on (platform_ui).
+        winit::event::WindowEvent::ModifiersChanged(m) => {
+            let s = m.state();
+            platform_ui::modifiers_changed(s.shift_key(), s.alt_key(), s.super_key(), s.control_key());
+            EventResult::Propagate
+        }
+        winit::event::WindowEvent::Focused(true) => {
+            state::refresh_office_runtime();
+            EventResult::Propagate
+        }
         winit::event::WindowEvent::HoveredFile(path) => {
             if let Some(ui) = weak.upgrade() {
                 let (hint, refused) = flow::drop_hint(&ui, path);
@@ -737,7 +748,8 @@ fn main() -> Result<(), slint::PlatformError> {
         if let Some(ui) = INBOX.with(|i| i.borrow().1.as_ref().and_then(|w| w.upgrade()))
             && !missing.is_empty()
         {
-            flow::toast(&ui, &format!("Not found: {}", missing.join(", ")));
+            // Timed from before the window's first frame: longer than a toast's 3 s, so it is read.
+            flow::toast_for(&ui, &format!("Not found: {}", missing.join(", ")), 8);
         }
     });
 

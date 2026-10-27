@@ -39,6 +39,8 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     if b.get_busy() { return; }
     if b.get_browsing() {
         let id = b.get_tab();
+        if what == "sort" { crate::reader_ui::portfolio::sort(ui, index); }
+        if what == "preview-page" { crate::reader_ui::portfolio::preview_page(ui, id, index); }
         if what == "preview-item" { crate::reader_ui::portfolio::preview(ui, id, index); }
         if what == "open-item" { b.set_visible(false); crate::reader_ui::attachment_open(ui, id, index); }
         if what == "save-item" { crate::reader_ui::attachment_save(ui, id, index); }

@@ -23,6 +23,7 @@ check "Copy report puts the properties and the fonts on the clipboard (${CR:-no 
 quit
 
 # 81. Home ▸ From clipboard with PDF files copied (a file manager's Copy: text/uri-list): they make the new PDF, merged.
+qpdf "$OUT/text.pdf" --pages . 1 -- "$OUT/single.pdf"   # part 3's one-page fixture, made here for a shard of its own
 printf 'file://%s\r\nfile://%s\r\n' "$PWD/$OUT/text.pdf" "$PWD/$OUT/single.pdf" | xclip -selection clipboard -t text/uri-list; sleep 0.3
 launch; answer "$PWD/$OUT/clipfiles.pdf"; FC=$(at From 900x120+300+80); [ -n "$FC" ] && click $FC 1; for _ in $(seq 1 12); do [ -f "$OUT/clipfiles.pdf" ] && break; sleep 0.5; done; answer ""
 check "From clipboard merges the PDF files copied (${FC:-no button}; $(npages $OUT/clipfiles.pdf 2>/dev/null) pages)" "[ \"\$(npages $OUT/clipfiles.pdf 2>/dev/null)\" = 5 ]"
@@ -30,7 +31,7 @@ quit
 
 # 82. A thumbnail's menu ▸ Insert a file's pages before… (Acrobat's Before): blank.pdf goes before page 1, so the
 # document's first page is now the blank one and "Page 1" its second.
-cp "$OUT/text.pdf" "$OUT/before.pdf"; launch "$OUT/before.pdf"; sleep 1
+convert -size 612x792 xc:white "$OUT/blank.pdf"; cp "$OUT/text.pdf" "$OUT/before.pdf"; launch "$OUT/before.pdf"; sleep 1
 answer "$PWD/$OUT/blank.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; BF=$(at before 300x400+20+200); [ -n "$BF" ] && click $BF 1.5; answer ""; key ctrl+s; sleep 1.5
 check "Insert a file's pages before page 1 (${BF:-no item}; $(npages $OUT/before.pdf) pages, page 2: $(first_text "$OUT/before.pdf" 2))" "[ -z \"\$(first_text $OUT/before.pdf 1)\" ] && [ \"\$(first_text $OUT/before.pdf 2)\" = 'Page 1' ]"
 quit
@@ -43,8 +44,10 @@ check "text typed in place is kept when another tool is picked" "qpdf --qdf --ob
 quit
 
 # 84. Shapes (R) ▸ "- -" (Acrobat's Dashed line style): a rectangle drawn is saved dashed (/BS /S /D).
-cp "$OUT/text.pdf" "$OUT/dashed.pdf"; launch "$OUT/dashed.pdf"; sleep 1; key r; sleep 0.5
-DD=$(at "-" 1280x40+0+90); [ -n "$DD" ] && click $DD 0.4
+cp "$OUT/text.pdf" "$OUT/dashed.pdf"; launch "$OUT/dashed.pdf"; sleep 1; key r; sleep 1
+# "- -" sits just left of the opacity's "100 %" (tesseract reads it merged with the width dots before it);
+# the Shapes options take two rows.
+OP=$(at 100 1280x90+0+90); DD=$([ -n "$OP" ] && set -- $OP && echo "$(( $1 - 46 )) $2"); [ -n "$DD" ] && click $DD 0.4
 xdotool mousemove 520 420 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 520 + i * 30 )) $(( 420 + i * 20 )); sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
 DQ=$(qpdf --qdf --object-streams=disable "$OUT/dashed.pdf" - 2>/dev/null)
 check "a dashed rectangle is saved dashed (${DD:-no button})" "echo \"\$DQ\" | grep -aq '/S /D'"
@@ -76,9 +79,9 @@ quit
 # the pages asks from which page (Acrobat's pages … of the file); 3 typed: page 1 is now text.pdf's page 3.
 cp "$OUT/text.pdf" "$OUT/repfrom.pdf"; launch "$OUT/repfrom.pdf"; sleep 1
 answer "$PWD/$OUT/text.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; RP=$(at Replace 300x400+20+200); [ -n "$RP" ] && click $RP 1.5; answer ""
-# The field, Cancel and Replace make the strip's last row, 61 px under its sentence's "from" (Cancel, bold on
-# grey, and the faint placeholder are not read): the field at x 40, Replace at x 200.
-CA=$(at from 248x200+0+560); [ -n "$CA" ] && { set -- $CA; click 40 $(( $2 + 61 )) 0.4; xdotool type --delay 20 "3"; click 200 $(( $2 + 61 )) 1.5; }
+# The field, Cancel and Replace make the strip's last row, 44 px under the "from page" that ends its sentence
+# (Cancel, bold on grey, and the faint placeholder are not read): the field at x 40, Replace at x 200.
+CA=$(at from 248x200+0+560); [ -n "$CA" ] && { set -- $CA; click 40 $(( $2 + 44 )) 0.4; xdotool type --delay 20 "3"; click 200 $(( $2 + 44 )) 1.5; }
 key ctrl+s; sleep 1.5
 check "Replace with a longer file's pages takes the ones chosen (${RP:-no item} ${CA:-no strip}; page 1: $(first_text "$OUT/repfrom.pdf" 1))" "[ \"\$(first_text $OUT/repfrom.pdf 1)\" = 'Page 3' ]"
 quit
@@ -113,7 +116,7 @@ quit
 
 # 90. Home ▸ From scanner (Acrobat's Create PDF ▸ Scanner): the page scanned (the test seam gives stamp.png, green)
 # becomes a one-page PDF, named in the Save dialog and opened.
-launch; answer "$PWD/$OUT/scanned.pdf"; FN=$(at scanner 1000x120+250+80); [ -n "$FN" ] && click $FN 1
+convert -size 80x40 xc:'#2a9d4b' "$OUT/stamp.png"; launch; answer "$PWD/$OUT/scanned.pdf"; FN=$(at scanner 1000x120+250+80); [ -n "$FN" ] && click $FN 1
 for _ in $(seq 1 12); do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; answer ""
 SN=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/scanned.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
 check "From scanner makes a PDF of the page scanned and opens it (${FN:-no button}; $SN; $(ntabs) tabs)" "[ \"\$(npages $OUT/scanned.pdf 2>/dev/null)\" = 1 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(ntabs)\" = 1 ]"
@@ -131,12 +134,15 @@ DV=$(qpdf --json=2 --json-key=acroform "$OUT/data-b.pdf" | python3 -c "import js
 check "form data exported to CSV and imported into a blank copy (${EX:-no Export} ${IM:-no Import}; $(head -c 60 $OUT/data.csv 2>/dev/null | tr '\n' '|'); $DV)" "grep -q 'Exported value' $OUT/data.csv 2>/dev/null && echo \"$DV\" | grep -q 'Exported value'"
 quit
 
-# 92. More ▸ Overlay a PDF… (PDF Expert's overlay): single.pdf chosen is drawn over each page of a copy of text.pdf;
-# saved, page 2 shows its own text and single.pdf's.
+# 92. More ▸ Overlay a PDF… (PDF Expert's overlay): stamp-text.pdf chosen (one Letter page, "Overlay mark" near its
+# foot, clear of text.pdf's line: text drawn on text.pdf's own words is read mixed with them) is drawn over each page
+# of a copy of text.pdf; saved, page 2 shows its own text and the overlay's.
+printf '%%PDF-1.4\n1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj\n2 0 obj <</Type /Pages /Kids [3 0 R] /Count 1>> endobj\n3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 5 0 R>>>> /Contents 4 0 R>> endobj\n4 0 obj <</Length 44>> stream\nBT /F1 24 Tf 72 100 Td (Overlay mark) Tj ET\nendstream endobj\n5 0 obj <</Type /Font /Subtype /Type1 /BaseFont /Helvetica>> endobj\ntrailer <</Size 6 /Root 1 0 R>>\n%%%%EOF\n' > "$OUT/stamp-text.raw"
+qpdf "$OUT/stamp-text.raw" "$OUT/stamp-text.pdf" 2>/dev/null
 cp "$OUT/text.pdf" "$OUT/overlay.pdf"; launch "$OUT/overlay.pdf"; sleep 1
-answer "$PWD/$OUT/single.pdf"; click 1127 61 0.8; click 1008 659 0.8; OV=$(at Overlay 300x400+880+80); [ -n "$OV" ] && click $OV 1.5; answer ""; key ctrl+s; sleep 1.5
-O2=$(pdftotext -f 2 -l 2 "$OUT/overlay.pdf" - 2>/dev/null | tr '\n' ' '); S1=$(pdftotext -f 1 -l 1 "$OUT/single.pdf" - 2>/dev/null | tr '\n' ' ' | awk '{print $1, $2}')
-check "Overlay a PDF draws its page over each page (${OV:-no item}; page 2: $(echo "$O2" | cut -c1-60))" "echo \"$O2\" | grep -q 'Page 2' && echo \"$O2\" | grep -qF \"$S1\""
+answer "$PWD/$OUT/stamp-text.pdf"; click 1127 61 0.8; click 1008 659 0.8; OV=$(at Overlay 300x400+880+80); [ -n "$OV" ] && click $OV 1.5; answer ""; key ctrl+s; sleep 1.5
+O2=$(pdftotext -f 2 -l 2 "$OUT/overlay.pdf" - 2>/dev/null | tr '\n' ' '); S1=$(pdftotext -f 1 -l 1 "$OUT/stamp-text.pdf" - 2>/dev/null | tr '\n' ' ' | awk '{print $1, $2}')
+check "Overlay a PDF draws its page over each page (${OV:-no item}; overlay: ${S1:-none}; page 2: $(echo "$O2" | cut -c1-60))" "[ \"$S1\" = 'Overlay mark' ] && echo \"$O2\" | grep -q 'Page 2 the quick' && echo \"$O2\" | grep -qF \"$S1\""
 quit
 
 # 93. A tool's job done (the test seam announces every one; a real run, those past 10 s): a system notification
@@ -152,7 +158,7 @@ quit
 
 # 95. A thumbnail's menu ▸ Insert from scanner… (Acrobat's Insert ▸ From Scanner; the test seam scans stamp.png) puts
 # the page scanned after page 1, then Insert from clipboard (text copied) a page of that text after it: six pages.
-cp "$OUT/text.pdf" "$OUT/inserted.pdf"; launch "$OUT/inserted.pdf"; sleep 1
+convert -size 80x40 xc:'#2a9d4b' "$OUT/stamp.png"; cp "$OUT/text.pdf" "$OUT/inserted.pdf"; launch "$OUT/inserted.pdf"; sleep 1
 xdotool mousemove 120 230 click 3; sleep 0.8; IS=$(at scanner 300x420+20+200); [ -n "$IS" ] && click $IS 2
 printf 'Pasted words' | xclip -selection clipboard; sleep 0.3
 xdotool mousemove 120 230 click 3; sleep 0.8; IC=$(at clipboard 300x420+20+200); [ -n "$IC" ] && click $IC 2; key ctrl+s; sleep 1.5
@@ -172,7 +178,9 @@ quit
 # shows those words three times larger.
 cp "$OUT/text.pdf" "$OUT/loupe.pdf"; launch "$OUT/loupe.pdf"; sleep 1
 LW=$(at Page 1020x300+255+80); click 1127 61 0.8; click 1008 659 0.8; LP=$(at Loupe 300x400+880+80); [ -n "$LP" ] && click $LP 0.8
-[ -n "$LW" ] && { set -- $LW; xdotool mousemove $(( $1 - 10 )) $2; sleep 0.3; xdotool mousemove $(( $1 + 20 )) $2; sleep 1.5; }
+# The pointer ends on the word's middle: magnified three times, the whole word fits the panel (at the view's
+# 163 %, 20 px to its right cut the P off).
+[ -n "$LW" ] && { set -- $LW; xdotool mousemove $(( $1 - 10 )) $2; sleep 0.3; xdotool mousemove $1 $2; sleep 1.5; }
 LO=$(ocr 400x280+860+500)
 check "the loupe shows the words under the pointer, magnified (${LP:-no item}; $(echo "$LO" | cut -c1-40))" "echo \"$LO\" | grep -q 'Page'"
 quit
@@ -186,20 +194,24 @@ quit
 
 # 99. Preferences ▸ Open PDFs with Sheaf by default (Acrobat's and PDF Expert's prompt): the system is asked (the test
 # seam records the request).
-launch; click 67 193 1; prefs_end; MD=$(at PDFs 900x700+200+90); [ -n "$MD" ] && click $MD 1
+# Its button heads the Documents section, mid-page since Preferences gained sections: scrolled to a few rows at a
+# time, then read in the strip under that title (Identity's note also says "PDFs").
+launch; prefs_open; MD=
+for _ in $(seq 1 10); do DT=$(at Documents 900x620+200+90); [ -n "$DT" ] && { set -- $DT; MD=$(at PDFs 900x60+200+$(( $2 + 8 ))); break; }; xdotool mousemove 700 500 click --repeat 3 5; sleep 0.5; done
+[ -n "$MD" ] && click $MD 1
 check "Preferences makes Sheaf the default PDF app (${MD:-no button})" "[ \"\$(cat $OUT/made-default 2>/dev/null)\" = default ]"
 quit
 
 # 100. Home ▸ From clipboard with a PDF itself on the clipboard (application/pdf, as Preview and Acrobat copy pages):
 # that PDF becomes the new one.
-xclip -selection clipboard -t application/pdf < "$OUT/single.pdf"; sleep 0.3
+qpdf "$OUT/text.pdf" --pages . 1 -- "$OUT/single.pdf"; xclip -selection clipboard -t application/pdf < "$OUT/single.pdf"; sleep 0.3
 launch; answer "$PWD/$OUT/clippdf.pdf"; FP=$(at From 900x120+300+80); [ -n "$FP" ] && click $FP 1; for _ in $(seq 1 12); do [ -f "$OUT/clippdf.pdf" ] && break; sleep 0.5; done; answer ""
 check "From clipboard takes a PDF copied as data (${FP:-no button}; $(npages $OUT/clippdf.pdf 2>/dev/null) pages, $(first_text "$OUT/clippdf.pdf" 1 2>/dev/null))" "[ \"\$(npages $OUT/clippdf.pdf 2>/dev/null)\" = 1 ] && [ \"\$(first_text $OUT/clippdf.pdf 1)\" = 'Page 1' ]"
 quit
 
 # 101. Merge ▸ Pages: pb.pdf's three page cards all dropped (the fifth card's × three times), then Files and Pages
 # again: the order made is kept, pb.pdf's pages do not come back (Sol, 26/10: they did).
-cp "$OUT/reo/ra.pdf" "$OUT/reo/pa.pdf"; cp "$OUT/reo/rb.pdf" "$OUT/reo/pb.pdf"
+mkdir -p "$OUT/reo"; convert -size 200x260 xc:'#dd2222' xc:'#22aa22' xc:'#2222dd' xc:'#dddd22' "$OUT/reo/pa.pdf"; convert -size 200x260 xc:'#111111' xc:'#777777' xc:'#bbbbbb' "$OUT/reo/pb.pdf"
 launch "$OUT/reo/pa.pdf" "$OUT/reo/pb.pdf"
 click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; click 460 527 2
 PG=$(at Pages 280x400+1000+60); [ -n "$PG" ] && click $PG 2
@@ -350,7 +362,7 @@ yellowish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, g, b = (in
 SI=$(layout_item side); sleep 1
 L0=$(c8 510); R0=$(c8 1020)
 key End; sleep 1; L1=$(c8 510); R1=$(c8 1020)
-key Home; sleep 1; SY=$(at Sync 600x80+680+90); [ -n "$SY" ] && click $SY 0.8
+key Home; sleep 1; SY=$(at Sync 400x44+880+84); [ -n "$SY" ] && click $SY 0.8
 key End; sleep 1; L2=$(c8 510); R2=$(c8 1020)
 check "split view: two panes, each scrolled on its own, then together ($SI; $L0 $R0 → $L1 $R1 → sync ${SY:-none} $L2 $R2)" "reddish '${L0:-#000000}' && reddish '${R0:-#000000}' && yellowish '${L1:-#000000}' && reddish '${R1:-#000000}' && yellowish '${L2:-#000000}' && yellowish '${R2:-#000000}'"
 quit
@@ -387,10 +399,14 @@ quit
 # half still showing what it showed.
 cp "$OUT/text.pdf" "$OUT/split4.pdf"; launch "$OUT/split3.pdf" "$OUT/split4.pdf"; sleep 3
 WI=$(layout_item with); sleep 1.5
-D0=$(c8 1020); N0=$(ocr 500x60+770+90)
+# The other pane's name: a small chip (white on dark) 12 px into the pane's top-left corner, read as one line
+# (the whole strip with its red page and buttons does not OCR).
+chip() { import -window root -crop "100x34+$1+88" png:- 2>/dev/null | convert - +repage -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr '\n' ' '; }
+D0=$(c8 1020); N0=$(chip 767)
 click 1020 420 1.5
-D1=$(c8 1020); L1=$(c8 510); N1=$(ocr 500x60+260+90)
+D1=$(c8 1020); L1=$(c8 510); N1=$(chip 250)
 check "split with another document, then its tab forward with this one beside it ($WI; $D0 '$(echo "$N0" | cut -c1-20)' → $L1 $D1 '$(echo "$N1" | cut -c1-20)')" "reddish '${D0:-#000000}' && echo \"$N0\" | grep -q 'split3' && reddish '${D1:-#000000}' && ! reddish '${L1:-#FF0000}' && echo \"$N1\" | grep -q 'split4'"
+quit
 
 # 210. Edit ▸ one object picked ▸ Order ▸ To front (Acrobat's Arrange ▸ Bring to Front): a red square under a blue
 # one (their overlap at 150–200 pt) is picked by a press on its own corner (fit width: 612 pt shown 1000 px wide
@@ -466,6 +482,8 @@ drag 350 250 250 150; drag 650 250 250 150; click 760 320 0.8; key Delete; sleep
 QA=$(qpdf --qdf --object-streams=disable "$OUT/article.pdf" - 2>/dev/null)
 NB=$(echo "$QA" | grep -ac '/Type /Bead')
 check "Shapes ▸ Article chains boxes into an article; a box picked is deleted alone (${AR:-no Article button}; $NB bead)" "echo \"\$QA\" | grep -aq '/Threads' && [ \"$NB\" = 1 ]"
+quit
+
 # 220. The menu bar (C-platform-014; Acrobat's and Preview's menus), shown on request (the steps above click where
 # a window without it puts things): File to Help along the top; File lists Save with its shortcut; Window ▸ Home
 # from a reader tab shows Home.
@@ -484,18 +502,32 @@ unset SHEAF_TEST_MENU_BAR
 
 # Preferences scrolled until a word shows in the page (the platform sections are below Signatures).
 pref_find() { local f=""; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
+# Preferences ▸ Keyboard shortcuts' search field (its grey placeholder does not OCR): 93 px above Reset all,
+# the section's last row; then what is typed is searched.
+shortcut_search() { local r; read _ r <<< "$(pref_find Reset)"; [ -n "$r" ] && click 500 $(( r - 93 )) 0.5; xdotool type --delay 20 "$1"; sleep 0.8; }
+# A row of the shortcuts list found by a word of its name: its keys box (right-aligned, x 1157) clicked.
+keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5; echo "${y:-no $1 row}"; }
+# The preferences file, written even when no earlier step made it.
+prefs_set() { python3 -c 'import json, os, sys; f = sys.argv[1]; p = json.load(open(f)) if os.path.exists(f) else {}; exec(sys.argv[2]); os.makedirs(os.path.dirname(f), exist_ok=True); json.dump(p, open(f, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1"; }
 # The steps below change the platform preferences: put back as they were.
 platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.pop("platform", None); json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
 
 # 221. Preferences ▸ Keyboard shortcuts (C-preferences-013, Stirling's Hotkeys): "find" searched, Find's Ctrl+F
 # clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
 launch; key ctrl+comma; sleep 0.8
-SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "find"; sleep 0.8
-KF=$(at Ctrl+F 1020x700+250+90); [ -n "$KF" ] && click $KF 0.5; key ctrl+alt+f; sleep 0.8
-KG=$(at Ctrl+G 1020x700+250+90); [ -n "$KG" ] && click $KG 0.5; key ctrl+s; sleep 0.8
+shortcut_search "find"
+KF=$(keybox Find); sleep 0.5; key ctrl+alt+f; sleep 1
+# keybox prints the row's y, or words when the row was not found: only a number goes on.
+case "$KF" in ''|*[!0-9]*) KF=0 ;; esac
+# Find Next's row is the next one, 42 px lower.
+KG=$(( ${KF:-0} + 42 )); [ "$KG" -gt 42 ] && click 1157 $KG 0.5; key ctrl+s; sleep 1.2; shot 221-shortcuts
 KE=$(ocr 1020x700+250+90)
-KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
-check "a shortcut recorded in Preferences is kept, one already used is refused (${SQ:-no search}; ${KF:-no Ctrl+F}; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
+# The preferences are written a moment after the keys (up to 3 s under load).
+for _ in 1 2 3 4 5 6; do
+    KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+    echo "$KP" | grep -q "'find'" && break; sleep 0.5
+done
+check "a shortcut recorded in Preferences is kept, one already used is refused (rows at $KF, $KG; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
 quit; platform_reset
 
 # 222. Check spelling while typing (C-edit-013, C-reader-060; Acrobat's and Preview's): a note typed with two
@@ -525,7 +557,7 @@ quit; platform_reset
 # about the panel's width from where they were left to right.
 cp "$OUT/text.pdf" "$OUT/mirrored.pdf"; launch "$OUT/mirrored.pdf"; sleep 1
 read QL _ <<< "$(at quick 1280x700+0+90)"; quit
-python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.setdefault("platform", {})["direction"] = 2; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+prefs_set 'p.setdefault("platform", {})["direction"] = 2'
 launch "$OUT/mirrored.pdf"; sleep 1
 read HX _ <<< "$(at Home 1280x40+0+0)"; read DX _ <<< "$(at mirrored 1280x40+0+0)"; read QR _ <<< "$(at quick 1280x700+0+90)"
 check "right to left mirrors the tab bar and puts the side panel right of the pages (Home at x ${HX:-?}, the document at ${DX:-?}; 'quick' at ${QL:-?} then ${QR:-?})" "[ \"${HX:-0}\" -gt 1100 ] && [ -n \"$DX\" ] && [ \"$DX\" -lt \"$HX\" ] && [ -n \"$QL\" ] && [ \"${QR:-9999}\" -lt \"$(( QL - 150 ))\" ]"
@@ -534,15 +566,15 @@ quit; platform_reset
 # 225. A reader tool's letter changed (C-preferences-013): Preferences ▸ Keyboard shortcuts, "highlight" searched,
 # its H clicked and Q pressed; in a document Q then picks Highlight (a drag over the words highlights them, saved).
 launch; key ctrl+comma; sleep 0.8
-SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "highlight"; sleep 0.8
+shortcut_search "highlight"
 # The key's box holds "H" alone (at() matches the start of a word, and "Highlight" starts with H).
 at_word() { import -window root -crop 1020x700+250+90 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '$12 == w { printf "%d %d\n", 250 + ($7 + $9 / 2) / 2, 90 + ($8 + $10 / 2) / 2; exit }'; }
-KH=$(at_word H); [ -n "$KH" ] && click $KH 0.5; key q; sleep 0.8
+KH=$(keybox Highlight); key q; sleep 0.8
 TK=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("tool_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 quit
 cp "$OUT/text.pdf" "$OUT/toolkey.pdf"; launch "$OUT/toolkey.pdf"; sleep 1
 key q; read QX QY <<< "$(at quick 1020x700+255+90)"; [ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1 mousemove $(( QX + 60 )) $QY mouseup 1; sleep 1; }; key v; key ctrl+s; sleep 1.5
-check "a tool's letter changed in Preferences picks it on the pages ($TK)" "echo \"$TK\" | grep -q \"'highlight', 'q'\" && qpdf --qdf --object-streams=disable \"$OUT/toolkey.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
+check "a tool's letter changed in Preferences picks it on the pages (row at $KH; $TK)" "echo \"$TK\" | grep -q \"'highlight', 'q'\" && qpdf --qdf --object-streams=disable \"$OUT/toolkey.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
 quit; platform_reset
 
 # 226. Edit ▸ Copy, Select All and Paste from the menu bar (C-platform-014): on the reader's pages, Select All then
@@ -555,7 +587,8 @@ echo -n | xclip -selection clipboard >/dev/null 2>&1
 E1=$(menu Edit Select); E2=$(menu Edit Copy); sleep 0.4
 CP=$(xclip -o -selection clipboard 2>/dev/null | head -1)
 key ctrl+comma; sleep 0.8
-YN=$(pref_find Your); read YX YY <<< "$YN"; [ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.5; xdotool type --delay 20 "Ada"; sleep 0.3
+# Identity's field, 32 px under its label "Your name" ("Your" is read with the label's bold); emptied first.
+read _ YY <<< "$(pref_find name)"; [ -n "$YY" ] && click 500 $(( YY + 32 )) 0.5; key ctrl+a; key BackSpace; xdotool type --delay 20 "Ada"; sleep 0.3
 E3=$(menu Edit Select); E4=$(menu Edit Copy); key End; E5=$(menu Edit Paste); sleep 0.6
 AU=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("author"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 check "Edit ▸ Select All, Copy, Paste act on the pages and on a text field ($E1 $E2 $E5; clipboard '$(echo "$CP" | cut -c1-20)'; author $AU)" "echo \"$CP\" | grep -q 'quick brown fox' && [ \"$AU\" = AdaAda ]"
@@ -569,14 +602,18 @@ python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["author"] = No
 cp "$OUT/text.pdf" "$OUT/checkpass.pdf"; launch "$OUT/checkpass.pdf"; sleep 1
 key n; click 640 400 0.8; xdotool type --delay 15 "teh cat sat"; key ctrl+Return; sleep 0.8; key v
 key F7; sleep 1.2
-CW=$(ocr 1020x700+250+90)
+# The texts are scanned on a worker: the first word may take a moment to show (its red note and the
+# underlined word do not OCR; the comment it is in and Change to do).
+for _ in 1 2 3 4 5 6; do CW=$(ocr 1020x700+250+90); echo "$CW" | grep -q 'Change' && break; sleep 0.5; done; shot 227-dialog
 TH=$(at_word the); [ -n "$TH" ] && click $TH 0.4
-CH=$(at Change 1020x700+250+90); [ -n "$CH" ] && click $CH 1.2
+# The Change button (white on red, which OCR does not read): 185 px right of Learn, on its row.
+read IX IY <<< "$(at Learn 1020x700+250+90)"; CH="$(( ${IX:-0} + 185 )) ${IY:-0}"
+[ -n "$IX" ] && click $CH 1.2; shot 227-after-change
 CD=$(ocr 1020x700+250+90)
 DN=$(at Done 1020x700+250+90); [ -n "$DN" ] && click $DN 0.6
 key ctrl+s; sleep 1.5
 CN=$(qpdf --qdf --object-streams=disable "$OUT/checkpass.pdf" - 2>/dev/null | grep -ao '/Contents ([^)]*)' | tail -1)
-check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $CN)" "echo \"$CW\" | grep -q 'teh' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat'"
+check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $(echo "$CW" | grep -o 'Comment on page [0-9]*' | head -1); $(echo "$CD" | grep -o 'check complete' | head -1); $CN)" "echo \"$CW\" | grep -q 'Comment on page 1' && echo \"$CW\" | grep -q 'Change to' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat'"
 quit
 
 # 240. Kept signatures and initials belong to authenticated local storage, never prefs.json.
@@ -590,6 +627,12 @@ assert not any(k in p for k in ("signature_name", "signature_strokes", "signatur
 PYMARKS
 }
 has_secure_marks() { secure_marks | python3 -c 'import json,sys; p=json.load(sys.stdin); assert p.get("signatures") or p.get("initials")'; }
+# A signature kept in this part (the shard starts with none): S, a click, drawn on the pad, Use (as step 2b).
+cp "$OUT/text.pdf" "$OUT/marks.pdf"; launch "$OUT/marks.pdf"; sleep 1
+key Escape; key s; click 700 500 1
+xdotool mousemove 520 420 mousedown 1; for i in $(seq 0 20); do xdotool mousemove $((520 + i * 12)) $((420 + (i % 3) * 8)); done; xdotool mouseup 1; sleep 0.3
+click 818 555 1.2; key ctrl+s; sleep 1.5
+quit
 check "signatures and initials are absent from plaintext preferences" "no_plain_marks"
 check "kept marks exist in the system credential store" "has_secure_marks"
 # 250. Acrobat's JavaScript Console: Ctrl+J opens it for the active document. Run's output must
@@ -629,12 +672,13 @@ quit
 # original PDF stays intact, the unique output gets a Collection and its original embedded file.
 cp "$OUT/text.pdf" "$OUT/portfolio-source.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC 1
 answer "$PWD/$OUT/portfolio-source.pdf"
-PC=$(at Create 1050x260+220+35); [ -n "$PC" ] && click $PC
-PA=$(at Add 740x180+270+440); [ -n "$PA" ] && click $PA
-PW=$(at Save 740x180+270+440); [ -n "$PW" ] && click $PW 3
-check "Create portfolio bundles the original instead of merging (${PC:-no Create})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
+PC=$(at Create 1050x260+220+35); [ -n "$PC" ] && click $PC 1
+# The dialog's bottom row (OCR reads its buttons on that strip only).
+PA=$(at Add 700x44+295+504); [ -n "$PA" ] && click $PA 1.5
+PW=$(at Save 700x44+295+504); [ -n "$PW" ] && click $PW 3
+check "Create portfolio bundles the original instead of merging (${PC:-no Create}; ${PA:-no Add}; ${PW:-no Save})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
 quit
 check "kept marks exist in authenticated local storage" "has_secure_marks"
 
@@ -642,20 +686,22 @@ check "kept marks exist in authenticated local storage" "has_secure_marks"
 # divider dragged 150 px left moves the end of the first pane's red row (the first pixel that is not red) with it.
 cp "$OUT/across.pdf" "$OUT/split5.pdf"; launch "$OUT/split5.pdf"; sleep 1
 layout_item side >/dev/null; sleep 1.5
-SY=$(at Sync 600x80+680+90); [ -n "$SY" ] && click $SY 0.8
+SY=$(at Sync 400x44+880+84); [ -n "$SY" ] && click $SY 0.8
 click 510 420 0.5; ZA0=$(redshare 262); ZB0=$(redshare 772)
 key ctrl+equal; key ctrl+equal; sleep 1.5; ZA1=$(redshare 262); ZB1=$(redshare 772)
-redend() { import -window root -crop 980x1+300+420 txt:- 2>/dev/null | python3 -c '
+redend() { import -window root -crop 980x1+300+420 -depth 8 txt:- 2>/dev/null | python3 -c '
 import re, sys
 for line in sys.stdin:
     m = re.match(r"(\d+),0:.*#([0-9A-Fa-f]{6})", line)
     r, g, b = (int(m[2][k:k + 2], 16) for k in (0, 2, 4)) if m else (0, 0, 0)
     if m and not (r > 150 and g < 100 and b < 100):
         print(int(m[1])); break'; }
-E0=$(redend)
-xdotool mousemove 768 500 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 768 - i * 30 )) 500; sleep 0.05; done; xdotool mouseup 1; sleep 1.5
-E1=$(redend)
-check "Sync scroll and zoom zooms both panes; the divider moves (${SY:-no button}; $ZA0 $ZB0 → $ZA1 $ZB1; red row ends at ${E0:-?} → ${E1:-?})" "python3 -c 'import sys; a0, b0, a1, b1, e0, e1 = map(float, sys.argv[1:]); sys.exit(0 if a1 > a0 + 0.03 and b1 > b0 + 0.03 and e1 < e0 - 100 else 1)' ${ZA0:-1} ${ZB0:-1} ${ZA1:-0} ${ZB1:-0} ${E0:-0} ${E1:-0}"
+# The divider is that first pixel that is not red (its 1 px line, the grip 3 px either side): pressed there.
+E0=$(redend); DV=$(( 300 + ${E0:-468} ))
+xdotool mousemove $DV 500 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( DV - i * 30 )) 500; sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+# The pointer off the divider: hovered, its line takes the accent red and the red row would not end there.
+xdotool mousemove 1000 650; sleep 0.5; E1=$(redend)
+check "Sync scroll and zoom zooms both panes; the divider moves (${SY:-no button}; $ZA0 $ZB0 → $ZA1 $ZB1; red row ends at ${E0:-?} → ${E1:-?})" "python3 -c 'import sys; a0, b0, a1, b1, e0, e1 = map(float, sys.argv[1:]); sys.exit(0 if a1 > a0 + 0.03 and b1 > b0 + 0.03 and e1 < e0 - 100 else 1)' ${ZA0:-1} ${ZB0:-1} ${ZA1:-0} ${ZB1:-0} ${E0:-0} ${E1:-9999}"
 quit
 # 228. Edit ▸ Undo from the menu bar (C-platform-014) acts on what has the keyboard: in Preferences ▸ Your name,
 # "Ada" typed then Edit ▸ Undo leaves the field empty (the menu is enabled there); on a document's pages, a note
@@ -681,18 +727,18 @@ unset SHEAF_TEST_MENU_BAR
 # 229. A Tools page tool given keys that open it (C-preferences-013, Stirling's tool hotkeys): Preferences ▸ Keyboard
 # shortcuts, "merge" searched, Merge PDF's None clicked and Ctrl+Alt+M pressed; on Home, Ctrl+Alt+M opens Merge PDF.
 launch; key ctrl+comma; sleep 0.8
-SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "merge pdf"; sleep 0.8
-KM=$(at_word None); [ -n "$KM" ] && click $KM 0.5; key ctrl+alt+m; sleep 0.8
+shortcut_search "merge pdf"
+KM=$(keybox Merge); key ctrl+alt+m; sleep 0.8
 LK=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("launch_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 key Escape; key ctrl+alt+m; sleep 1.2
 MT=$(ocr 1280x80+0+0)
-check "keys given to a Tools page tool open it ($LK; tab bar: $(echo "$MT" | cut -c1-60))" "echo \"$LK\" | grep -q \"'merge', 'Control+Alt+M'\" && echo \"$MT\" | grep -q 'Merge'"
+check "keys given to a Tools page tool open it (row at $KM; $LK; tab bar: $(echo "$MT" | cut -c1-60))" "echo \"$LK\" | grep -q \"'merge', 'Control+Alt+M'\" && echo \"$MT\" | grep -q 'Merge'"
 quit; platform_reset
 
 # 230. Right to left beyond Home and the reader's bars (C-platform-004): Preferences' rows read from the right
 # (Rulers measure in: Centimetres left of Inches), and the reader's tool options bar sits at the top right of the
 # pages with its options reversed (Shapes: Fill on the right of the bar's left half, the bar past the middle).
-python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.setdefault("platform", {})["direction"] = 2; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+prefs_set 'p.setdefault("platform", {})["direction"] = 2'
 launch; key ctrl+comma; sleep 0.8
 CM=$(pref_find Centimetres); read CX _ <<< "$CM"; read IX _ <<< "$(at Inches 1280x710+0+90)"
 quit

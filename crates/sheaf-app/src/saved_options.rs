@@ -30,7 +30,7 @@ macro_rules! kept {
 
 kept! {
     ints:
-        redact_fill, sign_certify,
+        redact_fill, sign_certify, html_screen_width,
         split_cols, split_rows,
         per_sheet,
         crop_paper,
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn options_come_back_as_they_were_without_their_passwords() {
-        let o = ToolOptions { html_long_page: true, pdfa_allow_incomplete: true, ocr_local_engine: true, level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
+        let o = ToolOptions { html_screen_width: 1280, html_long_page: true, pdfa_allow_incomplete: true, ocr_local_engine: true, level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
         let json = to_json(&o);
         let text = serde_json::to_string(&json).unwrap();
         assert!(!text.contains("secret") && !text.contains("boss") && !text.contains("pin"), "{text}");

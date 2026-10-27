@@ -16,11 +16,11 @@ export component ReaderOptionsBar inherits Rectangle {
     in property <[color]> ink-colours;
     in property <bool> light-tool;
     // The width the bar's content asks for.
-    out property <length> bar-width: optbar.preferred-width;
+    out property <length> bar-width: root.tab.reader.tool == 10 ? max(optbar.preferred-width, shapes2.preferred-width) : optbar.preferred-width;
     // The keyboard back to the pages.
     callback focus-pages();
 
-    height: 36px;
+    height: root.tab.reader.tool == 10 ? 69px : 36px;
     border-radius: Theme.radius-item;
     background: Theme.card;
     drop-shadow-blur: 10px;
@@ -29,6 +29,10 @@ export component ReaderOptionsBar inherits Rectangle {
     // Flexboxes, not HorizontalLayouts, so that right to left (Preferences ▸ Interface ▸ Direction)
     // reverses the options; an item centred across replaces the small `y` nudge a row allowed.
     optbar := FlexboxLayout {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: 36px;
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.stretch;
@@ -487,27 +491,6 @@ export component ReaderOptionsBar inherits Rectangle {
             primary: root.tab.reader.stamp-image != "";
             clicked => { ReaderBridge.stamp-image(root.id); root.focus-pages(); }
         }
-        if root.tab.reader.tool == 10: FlexboxLayout {
-            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-            flex-wrap: FlexboxLayoutWrap.no-wrap;
-            alignment: LayoutAlignment.stretch;
-            spacing: 0px;
-            padding-left: 6px;
-            // Clicked out vertex by vertex, a double-click to end (Acrobat's Polygon, Cloud, Polygonal Line);
-            // hidden while measuring, so the scale and Calibrate fit (a shape icon brings them back).
-            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Polygon"; primary: root.tab.reader.shape-kind == 4; clicked => { ReaderBridge.shape-option(root.id, 0, 4); root.focus-pages(); } }
-            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Cloud"; primary: root.tab.reader.shape-kind == 5; clicked => { ReaderBridge.shape-option(root.id, 0, 5); root.focus-pages(); } }
-            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Polyline"; primary: root.tab.reader.shape-kind == 6; clicked => { ReaderBridge.shape-option(root.id, 0, 6); root.focus-pages(); } }
-            // Acrobat's Measuring tools, in true size or at a scale.
-            Rectangle { width: 6px; }
-            for m[k] in ["Distance", "Perimeter", "Area"]: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: m; primary: root.tab.reader.shape-kind == 7 + k; clicked => { ReaderBridge.shape-option(root.id, 0, 7 + k); root.focus-pages(); } }
-            // The scale they measure at (Acrobat's Scale Ratio): a click goes to the next.
-            if root.tab.reader.shape-kind >= 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: root.tab.reader.measure-scale; clicked => { ReaderBridge.shape-option(root.id, 10, 0); root.focus-pages(); } }
-            // Acrobat's Precision: the decimals the measures are written with.
-            if root.tab.reader.shape-kind >= 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: root.tab.reader.measure-decimals == 0 ? "1" : root.tab.reader.measure-decimals == 1 ? "0.1" : root.tab.reader.measure-decimals == 2 ? "0.01" : "0.001"; clicked => { ReaderBridge.shape-option(root.id, 18, 0); root.focus-pages(); } }
-            // Acrobat's and Bluebeam's Calibrate: measure a length you know, type it.
-            if root.tab.reader.shape-kind == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Calibrate"; primary: root.tab.reader.calibrating; clicked => { ReaderBridge.shape-option(root.id, 12, 0); root.focus-pages(); } }
-        }
         Rectangle { horizontal-stretch: 1; }
         // Filling's form actions; Prepare form has its own row (the two did not fit the window).
         if root.tab.reader.has-form && root.tab.reader.tool != 14: FlexboxLayout {
@@ -538,6 +521,42 @@ export component ReaderOptionsBar inherits Rectangle {
             // Acrobat's Export Data and Import Data (XFDF, FDF, XML, CSV, text).
             if !root.confirm-clear: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Export data…"; clicked => { ReaderBridge.form-op(root.id, 3); } }
             if !root.confirm-clear: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Import data…"; clicked => { ReaderBridge.form-op(root.id, 4); } }
+        }
+    }
+    // The Shapes tool's second row (Loupe, Mask and Article in the first pushed the measuring tools
+    // out of a 1280 px window, 27/10): shapes clicked out vertex by vertex, and the measuring tools.
+    shapes2 := FlexboxLayout {
+        x: 0px;
+        y: 33px;
+        width: root.width;
+        height: 36px;
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.start;
+        padding-left: 6px;
+        padding-right: 12px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        if root.tab.reader.tool == 10: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
+            spacing: 0px;
+            padding-left: 6px;
+            // Clicked out vertex by vertex, a double-click to end (Acrobat's Polygon, Cloud, Polygonal Line);
+            // hidden while measuring, so the scale and Calibrate fit (a shape icon brings them back).
+            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Polygon"; primary: root.tab.reader.shape-kind == 4; clicked => { ReaderBridge.shape-option(root.id, 0, 4); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Cloud"; primary: root.tab.reader.shape-kind == 5; clicked => { ReaderBridge.shape-option(root.id, 0, 5); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Polyline"; primary: root.tab.reader.shape-kind == 6; clicked => { ReaderBridge.shape-option(root.id, 0, 6); root.focus-pages(); } }
+            // Acrobat's Measuring tools, in true size or at a scale.
+            Rectangle { width: 6px; }
+            for m[k] in ["Distance", "Perimeter", "Area"]: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: m; primary: root.tab.reader.shape-kind == 7 + k; clicked => { ReaderBridge.shape-option(root.id, 0, 7 + k); root.focus-pages(); } }
+            // The scale they measure at (Acrobat's Scale Ratio): a click goes to the next.
+            if root.tab.reader.shape-kind >= 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: root.tab.reader.measure-scale; clicked => { ReaderBridge.shape-option(root.id, 10, 0); root.focus-pages(); } }
+            // Acrobat's Precision: the decimals the measures are written with.
+            if root.tab.reader.shape-kind >= 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: root.tab.reader.measure-decimals == 0 ? "1" : root.tab.reader.measure-decimals == 1 ? "0.1" : root.tab.reader.measure-decimals == 2 ? "0.01" : "0.001"; clicked => { ReaderBridge.shape-option(root.id, 18, 0); root.focus-pages(); } }
+            // Acrobat's and Bluebeam's Calibrate: measure a length you know, type it.
+            if root.tab.reader.shape-kind == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "Calibrate"; primary: root.tab.reader.calibrating; clicked => { ReaderBridge.shape-option(root.id, 12, 0); root.focus-pages(); } }
         }
     }
 }

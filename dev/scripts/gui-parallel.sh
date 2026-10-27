@@ -8,9 +8,20 @@ set -u
 cd "$(dirname "$0")/../.."
 S=dev/scripts/smoke
 shards=("$S/1-reader.sh $S/2-documents-and-tools.sh" "$S/3-flows.sh" "$S/4-flows.sh")
+# Displays 140–142: low numbers belong to others on this machine (the class recorder's Xvfb is :99;
+# a shard on it killed a class's recording, 27/10). During a class being recorded, a machine under
+# 8 cores waits; a larger one runs at the lowest priority, leaving the recording its share.
+if pgrep -f '[j]oin_teams\.py' >/dev/null; then
+    if [ "$(nproc)" -lt 8 ]; then
+        while pgrep -f '[j]oin_teams\.py' >/dev/null; do echo "waiting: a class is being recorded" >&2; sleep 60; done
+    else
+        renice -n 19 $$ >/dev/null
+    fi
+fi
 pids=()
 for i in "${!shards[@]}"; do
-    SMOKE_DISPLAY=$((98 + i)) SMOKE_OUT="dev/.tmp/smoke-$i" SMOKE_PARTS="${shards[$i]}" \
+    # Every shard but the first starts from the preferences the earlier parts leave.
+    SMOKE_SEED=$([ "$i" -gt 0 ] && echo 1) SMOKE_DISPLAY=$((140 + i)) SMOKE_OUT="dev/.tmp/smoke-$i" SMOKE_PARTS="${shards[$i]}" \
         bash dev/scripts/gui-smoke.sh > "dev/.tmp/gui-shard-$i.log" 2>&1 &
     pids+=($!)
     sleep 2   # the displays start one after the other

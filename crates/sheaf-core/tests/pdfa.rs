@@ -116,3 +116,45 @@ fn strict_archival_output_keeps_existing_files_and_publishes_no_failed_copy() {
     assert!(strict.issues.is_empty());
     qpdf_clean(&strict.path);
 }
+
+#[test]
+fn native_pdfa1_writes_pdf14_and_checks_transparency_before_publication() {
+    use sheaf_core::pdfa::to_pdfa_with_policy;
+    let t = tempfile::tempdir().unwrap();
+    let source = picture_pdf(t.path());
+    let out = t.path().join("part1.pdf");
+    let report = to_pdfa_with_policy(&Input::new(&source), PdfALevel::A1b, false, &out).unwrap();
+    assert!(report.issues.is_empty(), "{:?}", report.issues);
+    assert!(declares_part(&out, 1));
+    let mut pdf = lopdf::Document::load(&out).unwrap();
+    assert_eq!(pdf.version, "1.4");
+    assert!(matches!(pdf.reference_table.cross_reference_type, lopdf::xref::XrefType::CrossReferenceTable));
+    assert_eq!(pdf.get_pages().len(), 2);
+    assert!(verify(&Input::new(&out), PdfALevel::A1b).unwrap().is_empty());
+    // Identification may be in RDF attributes, not only the converter's element form.
+    let metadata = pdf.catalog().unwrap().get(b"Metadata").unwrap().as_reference().unwrap();
+    let stream = pdf.get_object(metadata).unwrap().as_stream().unwrap();
+    let text = String::from_utf8(stream.get_plain_content().unwrap()).unwrap()
+        .replace("<pdfaid:part>1</pdfaid:part>", "")
+        .replace("<pdfaid:conformance>B</pdfaid:conformance>", "")
+        .replace("rdf:about=\"\"", "rdf:about=\"\" pdfaid:part=\"1\" pdfaid:conformance=\"B\"");
+    let mut dict = stream.dict.clone(); dict.remove(b"Filter"); dict.remove(b"DecodeParms");
+    pdf.objects.insert(metadata, lopdf::Object::Stream(lopdf::Stream::new(dict, text.into_bytes())));
+    pdf.save(&out).unwrap();
+    assert!(verify(&Input::new(&out), PdfALevel::A1b).unwrap().is_empty());
+    let alpha = pdf.add_object(lopdf::Object::Real(0.5));
+    let page = *pdf.get_pages().get(&1).unwrap();
+    pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("Resources", lopdf::dictionary! {
+        "ExtGState" => lopdf::dictionary! { "Alpha" => lopdf::dictionary! { "ca" => alpha } }
+    });
+    let transparent = t.path().join("transparent.pdf");
+    pdf.save(&transparent).unwrap();
+    let failed = t.path().join("failed.pdf");
+    let error = to_pdfa_with_policy(&Input::new(&transparent), PdfALevel::A1b, false, &failed).unwrap_err();
+    assert!(error.to_string().contains("Transparency"));
+    assert!(!failed.exists());
+    let incomplete = to_pdfa_with_policy(&Input::new(&transparent), PdfALevel::A1b, true, &failed).unwrap();
+    assert!(incomplete.issues.iter().any(|i| i.message.contains("Transparency")));
+    // No downgrade or removal of artwork is silently substituted for the requested level.
+    assert!(declares_part(&failed, 1));
+}
