@@ -121,6 +121,7 @@ impl FolderWatch {
             if revision(path)? != original_revision { return Err(OpdfError::Unsupported("The input changed during processing. It will be retried after it becomes stable.".into())); }
             let bytes = actions::convert_output(std::sync::Arc::new(std::fs::read(&processed)?), None, &action.output.format, before)?;
             if !before() { return Err(OpdfError::Cancelled); }
+            if revision(path)? != original_revision { return Err(OpdfError::Unsupported("The input changed during format conversion. It will be retried after it becomes stable.".into())); }
             let published = sheaf_core::paths::atomic_write(&output.join(format!("{name}.{}", action.output.format)), |part| {
                 std::fs::write(part, bytes.as_slice())?;
                 Ok(())
@@ -458,6 +459,22 @@ mod tests {
         let encoded = serde_json::to_string(&watch).unwrap();
         let mut resumed: FolderWatch = serde_json::from_str(&encoded).unwrap();
         assert!(resumed.poll_with(&mut |_| panic!("handled revision must survive restart")).unwrap().is_empty());
+    }
+
+    #[test]
+    fn watched_exports_recheck_inputs_after_native_conversion() {
+        let dir = tempfile::tempdir().unwrap(); let inbox = dir.path().join("in"); let out = dir.path().join("out");
+        std::fs::create_dir(&inbox).unwrap();
+        let input = inbox.join("input.pdf");
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Body").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
+        let mut action = actions::suggested().remove(3); action.output.format = "txt".into();
+        let mut watch = FolderWatch::new(&inbox, &out, false).unwrap();
+        watch.poll(&action, &mut || true).unwrap();
+        let mut calls = 0;
+        let result = watch.poll(&action, &mut || { calls += 1; if calls == 6 { std::fs::write(&input, b"New input during conversion").unwrap(); } true }).unwrap();
+        assert!(result[0].1.is_err()); assert!(!out.join("input.txt").exists());
+        assert_eq!(std::fs::read(input).unwrap(), b"New input during conversion");
     }
 
 }

@@ -730,3 +730,7 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
 - Final static hardening: the draft serializer itself clears Protect arguments (not only the
   UI flush), extending `password_actions_prompt_per_file_and_never_persist_passwords` to draft
   recovery. Portfolio browse applies the displayed initial A–Z order before its first click.
+
+- C-batch-008 static follow-up: recheck the input revision after native format conversion and
+  immediately before publication. `watched_exports_recheck_inputs_after_native_conversion`
+  covers a writer changing the input during that new export phase (written, not run).
