@@ -186,17 +186,21 @@ impl Prefs {
     /// Loads `<dir>/prefs.json`; missing or corrupt means the defaults.
     pub fn load(dir: &Path) -> Prefs {
         let Some(mut prefs) = store_file::read::<Prefs>(&dir.join("prefs.json")) else { return Prefs::default() };
-        if !crate::signature_store::Marks::from_prefs(&prefs).is_empty() {
-            // Migrate old plaintext marks only after the credential store accepted them.
-            if crate::signature_store::save(dir, &crate::signature_store::Marks::from_prefs(&prefs)).is_ok() {
-                let _ = prefs.save(dir);
+        let legacy = !crate::signature_store::Marks::from_prefs(&prefs).is_empty();
+        match crate::signature_store::load(dir) {
+            Ok(Some(marks)) => {
+                // A completed credential write wins over an old JSON copy left by a crash.
+                marks.apply(&mut prefs);
+                if legacy { let _ = prefs.save(dir); }
             }
-        } else {
-            match crate::signature_store::load(dir) {
-                Ok(Some(marks)) => marks.apply(&mut prefs),
-                Ok(None) => {},
-                Err(e) => eprintln!("sheaf: {e}"),
+            Ok(None) if legacy => {
+                // Migrate only after the credential store accepted the old profile's marks.
+                if crate::signature_store::save(dir, &crate::signature_store::Marks::from_prefs(&prefs)).is_ok() {
+                    let _ = prefs.save(dir);
+                }
             }
+            Ok(None) => {},
+            Err(e) => eprintln!("sheaf: {e}"),
         }
         prefs
     }
@@ -205,6 +209,11 @@ impl Prefs {
         let json = serde_json::to_vec_pretty(self).map_err(io::Error::other)?;
         // Even if the system store is unavailable, never write a mark back to plaintext.
         let secured = crate::signature_store::save(dir, &crate::signature_store::Marks::from_prefs(self));
+        if secured.is_err() && store_file::read::<Prefs>(&dir.join("prefs.json")).is_some_and(|p| !crate::signature_store::Marks::from_prefs(&p).is_empty()) {
+            // Do not destroy an existing legacy signature when migration is blocked. No new
+            // plaintext is written; the original stays until a secure save succeeds.
+            return secured;
+        }
         store_file::replace(&dir.join("prefs.json"), &json)?;
         secured
     }

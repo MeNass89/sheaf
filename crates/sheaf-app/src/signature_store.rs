@@ -161,4 +161,17 @@ mod tests {
         assert_eq!(std::fs::read(marker).unwrap(), b"system-credential-store-v1");
     }
 
+
+    #[test]
+    fn failed_migration_preserves_an_existing_legacy_signature_without_writing_new_plaintext() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("prefs.json");
+        let original = br#"{"signature_name":"Legacy signature"}"#;
+        std::fs::write(&path, original).unwrap();
+        std::fs::create_dir(dir.path().join("signatures.secure")).unwrap();
+        let changed = Prefs { signature_name: Some("New signature".into()), ..Default::default() };
+        assert!(changed.save(dir.path()).is_err());
+        assert_eq!(std::fs::read(path).unwrap(), original);
+    }
+
 }
