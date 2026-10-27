@@ -620,3 +620,7 @@
   `kept_marks_load_even_when_unrelated_preferences_are_missing` and
   `changing_ciphertext_is_detected_before_replacing_any_kept_marks` (AEAD tamper refusal,
   no empty-library overwrite). Grade remains f8 a8 p8 until platform/runtime checks.
+
+- C-optimize-015 follow-up: CLI catalog searches also report changed/missing exclusions;
+  stale sources no longer masquerade as a complete no-match response. Existing stale-source
+  search tests cover exclusion; this only wires the already-tested count into CLI notes.

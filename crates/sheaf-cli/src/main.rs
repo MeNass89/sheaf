@@ -390,7 +390,10 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             one(catalog.save(&out))
         }
         Cmd::SearchIndex { index, query } => {
-            let hits = sheaf_core::search_index::Catalog::load(&index)?.search(&query)?;
+            let catalog = sheaf_core::search_index::Catalog::load(&index)?;
+            let stale = catalog.stale_sources();
+            if !stale.is_empty() { note!("{} changed or missing sources excluded; update the catalog", stale.len()); }
+            let hits = catalog.search(&query)?;
             agent::set_data(serde_json::to_value(hits).map_err(|e| OpdfError::Engine(e.to_string()))?);
             Ok(vec![])
         }
