@@ -217,8 +217,9 @@
   remain, and `html_print_settings_reject_invalid_margins_and_existing_bases` was renamed to
   `html_print_settings_reject_invalid_margins` because ordinary bases now work. All unexecuted.
 - New direct dependency: `encoding_rs = "0.8"` in workspace and core manifests. Pure Rust, already
-  present transitively in Cargo.lock and the worker's registry. The orchestrator must refresh the
-  lock's sheaf-core dependency list (no cargo or lock generator executed by this worker).
+  present transitively in Cargo.lock and the worker's registry. The direct sheaf-core lock edge
+  was added by hand to that existing locked package; no version resolution, cargo or lock
+  generator was executed.
 - Left: browser viewport/screen media, JavaScript rendering and one-long-page mode. Network URL
   capture remains deliberately out of scope. Inspected iLovePDF's actual archive member
   `code/rcc/iLovePDF/tools/HtmlToPdfTool.qml` (screen size and One long page controls) and the
@@ -283,3 +284,15 @@
 - LIGNES : max 4 (PDF/X section, title + three lines) · cases > 6 : aucune.
 - Provisional author grade: f4 a7 p6; genuine conversion code, but unexecuted and no standards
   validator, PDF/E, or full Acrobat parity. Counterpart must review after the green merged suite.
+
+## Pass 2 — final static integration audit
+
+- ReaderUi::send already increments in_flight. Removed the extra manual increments from the
+  new preflight/PDF-X paths; their replies now balance exactly one send count. Do not copy the
+  older accessibility caller's extra increment into these paths.
+- Preflight page links also recognize structural-check `- page N:` and bleed `- [warn] Page N`
+  diagnostics. Expanded the row test for those forms and for a document title containing "page".
+- Added only the direct encoding_rs edge to sheaf-core in Cargo.lock, using the already locked
+  package/version/checksum. No cargo invocation, dependency resolver or compiler was run.
+- not automatable: preflight and PDF/X on a previously clean document must leave it clean after
+  completion, with Undo/close state restored — runtime execution forbidden by rule 1.

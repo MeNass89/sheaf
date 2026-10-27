@@ -37,7 +37,6 @@ pub fn preflight_check(ui: &AppWindow, tab_id: i32, fail: &str, target: &str, bl
         r.prepress.busy = true;
         r.prepress.report = None;
         r.prepress.rows = ModelRc::default();
-        r.in_flight += 1;
         r.send(Op::PrintPreflight { profile });
     });
 }
@@ -82,8 +81,11 @@ pub fn preflight_save(ui: &AppWindow, tab_id: i32) {
 pub(super) fn rows(report: &str) -> Vec<ReaderPrintCheck> {
     let mut rows = Vec::new();
     for line in report.lines().filter(|l| !l.is_empty()) {
-        let page = line.strip_prefix("Page ").or_else(|| line.split_once(" on page ").map(|(_, rest)| rest))
-            .and_then(|n| n.split(|c: char| !c.is_ascii_digit()).next()?.parse::<i32>().ok()).unwrap_or(0);
+        let mut words = line.split_ascii_whitespace();
+        let page = if line.starts_with("Page ") || line.starts_with("Image ") || line.starts_with("- ") {
+            words.find(|w| w.eq_ignore_ascii_case("page"))
+                .and_then(|_| words.next()?.trim_end_matches(':').parse::<i32>().ok()).unwrap_or(0)
+        } else { 0 };
         let mut wrapped = Vec::new();
         let mut current = String::new();
         for word in line.split_whitespace() {
@@ -184,7 +186,6 @@ pub fn press_export(ui: &AppWindow, tab_id: i32, condition: &str) {
             if r.prepress.press_busy { return; }
             r.prepress.press_busy = true;
             r.prepress.production_open = false;
-            r.in_flight += 1;
             r.send(Op::ExportPdfX { to, options });
         });
     });
@@ -211,6 +212,9 @@ mod tests {
         let rows = rows(text);
         assert!(rows.len() > 1);
         assert!(rows.iter().all(|r| r.page == 12 && r.detail.lines().count() <= 4));
+        assert_eq!(super::rows("- page 2: a missing appearance")[0].page, 2);
+        assert_eq!(super::rows("- [warn] Page 3 has too little bleed")[0].page, 3);
+        assert_eq!(super::rows("Document: page 9")[0].page, 0);
         assert!(rows.iter().all(|r| r.detail.lines().all(|l| l.chars().count() <= 40)));
         assert_eq!(rows.iter().map(|r| r.detail.as_str()).collect::<Vec<_>>().join(" ").split_whitespace().collect::<Vec<_>>(), text.split_whitespace().collect::<Vec<_>>());
     }
