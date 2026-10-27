@@ -8,7 +8,9 @@ use crate::actions::{SavedAction, ActionStep};
 fn invalid(message: impl Into<String>) -> OpdfError { OpdfError::Unsupported(message.into()) }
 
 fn parameters(value: &Value, allowed: &[&str]) -> Result<Map<String, Value>> {
-    let p = value.get("parameters").and_then(Value::as_object).cloned().unwrap_or_default();
+    let p = match value.get("parameters") {
+        None => Map::new(), Some(Value::Object(p)) => p.clone(), _ => return Err(invalid("Operation parameters must be a JSON object")),
+    };
     for key in p.keys() {
         if key == "fileInput" && p[key] == "automated" { continue; }
         if !allowed.contains(&key.as_str()) { return Err(invalid(format!("Unsupported Stirling setting: {key}"))); }
@@ -82,6 +84,11 @@ fn step(operation: &Value, warnings: &mut Vec<String>) -> Result<Vec<Step>> {
             if p.get("pagesToNumber").is_some_and(|v| v.as_str() != Some("")) || p.get("zeroPad").is_some_and(|v| v.as_u64() != Some(0)) {
                 return Err(invalid("Numbering selected pages or zero-padding is not supported by action import"));
             }
+            for key in ["position", "startingNumber", "zeroPad"] {
+                if p.get(key).is_some_and(|v| v.as_u64().is_none()) { return Err(invalid(format!("{key} must be a nonnegative whole number"))); }
+            }
+            if p.get("fontSize").is_some_and(|v| v.as_f64().is_none()) || p.get("customText").is_some_and(|v| v.as_str().is_none()) { return Err(invalid("Font size must be a number and page-number text must be text")); }
+            if p.get("fontType").is_some_and(|v| !["Times", "Helvetica", "Courier", "times", "helvetica", "courier"].contains(&v.as_str().unwrap_or_default())) || p.get("customMargin").is_some_and(|v| !["small", "medium", "large", "x-large"].contains(&v.as_str().unwrap_or_default())) { return Err(invalid("Unknown page-number font or margin")); }
             let position = match p.get("position").and_then(Value::as_u64).unwrap_or(8) { 1 => 0, 2 => 1, 3 => 2, 7 => 3, 8 => 4, 9 => 5, _ => return Err(invalid("Only header/footer page-number positions can be imported")) };
             let start = p.get("startingNumber").and_then(Value::as_u64).unwrap_or(1);
             let size = p.get("fontSize").and_then(Value::as_f64).unwrap_or(12.0);
@@ -103,7 +110,7 @@ fn step(operation: &Value, warnings: &mut Vec<String>) -> Result<Vec<Step>> {
 pub fn export(action: &SavedAction) -> Result<String> {
     action.validate()?;
     if action.output != crate::actions::OutputOptions::default() { return Err(invalid("Stirling cannot preserve Sheaf output naming and overwrite options. Use Sheaf JSON.")); }
-    if action.custom_tool || action.steps.iter().any(|s| s.prompt || !s.instruction.is_empty()) {
+    if action.custom_tool || action.steps.iter().any(|s| s.prompt || !s.instruction.is_empty() || !s.label.is_empty() || s.separator) {
         return Err(invalid("Stirling cannot preserve custom tools, prompts or instructions. Use Sheaf JSON."));
     }
     let operations = action.steps.iter().map(|s| {
@@ -170,6 +177,9 @@ mod tests {
         assert_eq!(SavedAction::import(&a.json().unwrap()).unwrap(), a);
         let unsupported = json!({"name":"No loss", "operations":[{"operation":"compress","parameters":{"optimizeLevel":5,"linearize":true}}]});
         assert!(stirling(unsupported).unwrap_err().to_string().contains("step 1"));
+        for parameters in [json!({"startingNumber":-1}), json!({"fontSize":"large"}), json!({"customText":5}), json!("not an object")] {
+            assert!(stirling(json!({"name":"Bad settings", "operations":[{"operation":"addPageNumbers", "parameters":parameters}]})).is_err());
+        }
         let mut exact = SavedAction::empty();
         exact.steps.push(ActionStep::from_engine(&Step::RotateClockwise));
         exact.output.same_folder = true;

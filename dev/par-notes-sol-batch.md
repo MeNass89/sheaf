@@ -473,3 +473,8 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
 - not automatable: keyboard traversal, disabled controls, minimum-size layouts and light/dark
   comparison against Tools/reader — this worker must not launch or render the app under brief
   rule 1. The shared SecondaryButton/Check changes need merge care and orchestrator UI checks.
+
+- C-batch-004 static follow-up: malformed parameter objects/types now fail instead of becoming
+  default page numbering. Stirling export also refuses command labels/separators it cannot keep.
+  These cases extend `stirling_native_import_keeps_order_and_discloses_conversion_limits`.
+  Backend PageNumbersController confirms {n}/{total}; native font/margin differences stay disclosed.
