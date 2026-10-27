@@ -262,6 +262,8 @@ fn a_text_box_in_a_type0_or_custom_encoded_font_keeps_it_through_a_new_size_and_
         assert!(content.contains("/Own 18 Tf") && content.contains("0.8 0.1 0.1 rg"), "new size and colour: {content}");
         assert!(content.contains(codes) && !content.contains('?'), "written in the font's codes: {content}");
     }
+}
+
 #[test]
 fn an_offline_ocr_adapter_keeps_skips_cancellation_and_unicode_placement() {
     use sheaf_core::pdfcraft::engine::ocr::{Line, OcrSettings, Word};
@@ -285,6 +287,8 @@ fn an_offline_ocr_adapter_keeps_skips_cancellation_and_unicode_placement() {
     let out = doc.save(&t.path().join("with-japanese.pdf")).unwrap();
     let text = common::shown_texts(&out).join(" ");
     assert!(text.contains("日本語") && text.contains("Page 1"), "{text}");
+}
+
 #[test]
 fn an_action_stops_on_a_script_error_before_later_steps() {
     use sheaf_core::pdfcraft::engine::actions::{Action, Step, run_on};
@@ -341,6 +345,8 @@ fn console_page_context_matches_the_reader_and_clamps_out_of_range_pages() {
     let out = session.run_javascript_at(id, "console.println(this.pageNum); this.pageNum = 0;", None, 999).unwrap();
     assert_eq!(out.console, ["0"]);
     assert!(out.requests.contains(&sheaf_core::pdfcraft::engine::js::Request::GoToPage(0)));
+}
+
 #[test]
 fn grouped_hairlines_use_private_forms_per_scale_and_leave_unselected_pages_unchanged() {
     use sheaf_core::{pages::Input, pdfcraft::Doc};

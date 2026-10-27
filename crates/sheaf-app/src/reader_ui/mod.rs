@@ -793,7 +793,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     // The copies' and the loupe's answers give back the count `send` took (they left it raised:
     // Undo greyed, and closing asked to save a document untouched).
-    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_) | Reply::DocumentScripts(_) | Reply::PdfXStarted | Reply::EditableScripts(_)) {
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_) | Reply::PdfXStarted | Reply::EditableScripts(_)) {
         update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
     }
     match reply {
@@ -1334,7 +1334,7 @@ mod article_boxes;
 mod search;
 mod model;
 mod spelling;
-pub use spelling::{spelling_set, spelling_texts, SpellTarget, SpellText};
+pub use spelling::{spelling_set, spelling_texts, SpellText};
 pub use pointer::*;
 pub use forms::*;
 pub use sign::*;

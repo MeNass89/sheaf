@@ -71,7 +71,7 @@ export component ReaderToolbar inherits Rectangle {
             if ActionBridge.commands.length > 0: ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: "Custom tools"; clicked => { ActionBridge.command("custom-tools", 0); } }
             ToolButton { icon: @image-url("../icons/panel-left.svg"); tip: "Side panel"; active: root.tab.reader.panel-open; clicked => { ReaderBridge.toggle-panel(root.id); } }
             Rectangle { width: 6px; }
-            Divider { y: 5px; }
+            Divider { }
             Rectangle { width: 6px; }
             ToolButton { icon: @image-url("../icons/mouse-pointer-2.svg"); tip: "Select text" + root.key-hint(0); active: root.tab.reader.tool == 0; clicked => { ReaderBridge.set-tool(root.id, 0); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight" + root.key-hint(1); active: root.tab.reader.tool == 1; clicked => { ReaderBridge.set-tool(root.id, 1); root.focus-pages(); } }
@@ -84,7 +84,7 @@ export component ReaderToolbar inherits Rectangle {
             ToolButton { icon: @image-url("../icons/stamp.svg"); tip: "Stamp" + root.key-hint(12); active: root.tab.reader.tool == 12; clicked => { ReaderBridge.set-tool(root.id, 12); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/type.svg"); tip: "Text box" + root.key-hint(6); active: root.tab.reader.tool == 6; clicked => { ReaderBridge.set-tool(root.id, 6); root.focus-pages(); } }
             Rectangle { width: 6px; }
-            Divider { y: 5px; }
+            Divider { }
             Rectangle { width: 6px; }
             if !root.fold-edit: ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: "Edit text" + root.key-hint(7); active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); root.focus-pages(); } }
             if !root.fold-edit: ToolButton { icon: @image-url("../icons/image.svg"); tip: "Add image" + root.key-hint(8); active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); root.focus-pages(); } }
@@ -180,7 +180,7 @@ export component ReaderToolbar inherits Rectangle {
                 vertical-alignment: center;
             }
             Rectangle { width: 8px; }
-            if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-out.svg"); tip: "Zoom out (⌘−)"; clicked => { ViewerBridge.zoom-step(root.id, -1); } }
+            if !root.narrow: ToolButton { icon: @image-url("../icons/zoom-out.svg"); tip: "Zoom out (⌘−)"; clicked => { ViewerBridge.zoom-step(root.id, -1); } }
             // The zoom: type a percentage (↩), or pick one from the list (PDF Expert's zoom menu).
             Rectangle {
                 property <int> shown: root.tab.viewer-zoom;
@@ -248,17 +248,16 @@ export component ReaderToolbar inherits Rectangle {
                     }
                 }
             }
-            if !root.narrow: ToolButton { y: -2px; icon: @image-url("../icons/zoom-in.svg"); tip: "Zoom in (⌘+)"; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
+            if !root.narrow: ToolButton { icon: @image-url("../icons/zoom-in.svg"); tip: "Zoom in (⌘+)"; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
             // Narrow: in the More menu only (its "Two pages" entry).
             if !root.fold-edit: ToolButton {
-                y: -2px;
                 icon: @image-url("../icons/columns-2.svg");
                 active: root.tab.reader.spread > 0;
                 tip: (root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide") + " (⌥⌘2)";
                 clicked => { ReaderBridge.cycle-spread(root.id); root.focus-pages(); }
             }
             // Narrow: Fit width / Fit page stay in the zoom list (and ⌘9 / ⌘8).
-            if !root.fold-edit: ToolButton { y: -2px; icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
+            if !root.fold-edit: ToolButton { icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? "Fit width (⌘9)" : "Fit page (⌘8)"; clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
         }
         Rectangle { horizontal-stretch: 1; }
         FlexboxLayout {

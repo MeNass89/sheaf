@@ -20,7 +20,15 @@ impl Drop for CatalogPanel {
 
 pub fn catalog_open(tab_id: i32) {
     update(tab_id, |r, _| {
-        r.catalog_panel.get_or_insert_with(|| CatalogPanel { files: vec![r.path.clone()], status: "Choose saved PDFs, then build a catalog.".into(), ..Default::default() });
+        let path = r.path.clone();
+        r.catalog_panel.get_or_insert_with(|| {
+            // The panel stops its search when dropped (Drop), so no struct update.
+            #[allow(clippy::field_reassign_with_default)]
+            let mut panel = CatalogPanel::default();
+            panel.files = vec![path];
+            panel.status = "Choose saved PDFs, then build a catalog.".into();
+            panel
+        });
     });
 }
 

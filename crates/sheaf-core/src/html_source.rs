@@ -101,10 +101,10 @@ fn resolve(base: &str, href: &str) -> String {
     if first.contains(':') { return href.into(); }
     if href.starts_with("//") { return format!("file:{href}"); }
     if href.is_empty() || href.starts_with('#') || href.starts_with('?') { return format!("{base}{href}"); }
-    if href.starts_with('/') {
+    if let Some(rest) = href.strip_prefix('/') {
         // A Windows file URL's root-relative reference keeps its drive.
-        let drive = base.strip_prefix("file:///").filter(|s| s.as_bytes().get(1) == Some(&b':')).map(|s| &s[..2]).unwrap_or_default();
-        return format!("file:///{drive}{}", if drive.is_empty() { &href[1..] } else { href });
+        let drive = base.strip_prefix("file:///").filter(|s| s.as_bytes().get(1) == Some(&b':')).and_then(|s| s.get(..2)).unwrap_or_default();
+        return format!("file:///{drive}{}", if drive.is_empty() { rest } else { href });
     }
     let directory = base.rsplit_once('/').map_or(base, |(dir, _)| dir);
     format!("{directory}/{href}")

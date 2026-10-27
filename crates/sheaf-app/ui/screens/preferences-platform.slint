@@ -30,7 +30,7 @@ component Card inherits Rectangle {
 export component SpellingSection inherits Card {
     title: "Spelling";
     HorizontalLayout {
-        alignment: start;
+        alignment: LayoutAlignment.start;
         spacing: 8px;
         Segment { width: 214px; text: "Check spelling while typing"; selected: PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(true); } }
         Segment { width: 214px; text: "Don't check spelling"; selected: !PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(false); } }
@@ -86,7 +86,7 @@ export component KeyboardSection inherits Card {
         wrap: word-wrap;
     }
     if !root.all && root.query == "": HorizontalLayout {
-        alignment: start;
+        alignment: LayoutAlignment.start;
         SecondaryButton { text: "Show all \{PlatformBridge.shortcut-rows.length} shortcuts"; clicked => { root.all = true; } }
     }
     if root.query != "" && PlatformBridge.shortcut-rows.length == 0: Text {
@@ -128,7 +128,7 @@ export component KeyboardSection inherits Card {
         }
     }
     HorizontalLayout {
-        alignment: start;
+        alignment: LayoutAlignment.start;
         spacing: 12px;
         SecondaryButton { text: "Reset all"; clicked => { root.stop(); PlatformBridge.reset-shortcuts(); } }
         Text {
@@ -161,7 +161,7 @@ export component InterfaceSection inherits Card {
     title: "Interface";
     Text { text: "Tools page"; font-size: Theme.fs-body; color: Theme.text; }
     HorizontalLayout {
-        alignment: start;
+        alignment: LayoutAlignment.start;
         spacing: 8px;
         Segment { width: 214px; text: "Show every tool"; selected: !PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(false); } }
         Segment { width: 254px; text: "Hide tools that can't run here"; selected: PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(true); } }
@@ -174,7 +174,7 @@ export component InterfaceSection inherits Card {
     }
     Text { text: "Direction"; font-size: Theme.fs-body; color: Theme.text; }
     HorizontalLayout {
-        alignment: start;
+        alignment: LayoutAlignment.start;
         spacing: 8px;
         for label[i] in ["As the system's language", "Left to right", "Right to left"]: Segment {
             width: 190px;

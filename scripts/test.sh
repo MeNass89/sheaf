@@ -37,6 +37,14 @@ if [ -z "${CI:-}" ] && command -v systemd-run >/dev/null && [ "$mem_gb" -lt 10 ]
     cargo_() { sh dev/scripts/build-safe.sh "$@"; }
     # The target dir is shared by every worktree: the GUI layer runs its own copy of this build.
     export SHEAF_APP="$PWD/dev/.tmp/sheaf-app-under-test" SHEAF_COPY_APP="$PWD/dev/.tmp/sheaf-app-under-test"
+elif [ -z "${CI:-}" ] && [ -f dev/scripts/cargo.sh ]; then
+    # A larger development machine: the same shared target dir and lean debug settings, one rustc
+    # per 2.5 GB free (at most one per core), uncapped.
+    jobs=$(( $(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo) / 2500 )); [ "$jobs" -lt 1 ] && jobs=1; [ "$jobs" -gt "$(nproc)" ] && jobs=$(nproc)
+    export JOBS="$jobs" CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target/sheaf}"
+    # The GUI layer runs its own copy of the app built, so another worktree's build can share the dir.
+    cargo_() { sh dev/scripts/cargo.sh "$@" || return; [ "$1" != build ] || { mkdir -p dev/.tmp && cp "$CARGO_TARGET_DIR/debug/sheaf-app" dev/.tmp/sheaf-app-under-test; }; }
+    export SHEAF_APP="$PWD/dev/.tmp/sheaf-app-under-test"
 else
     cargo_() { cargo "$@"; }
     export SHEAF_APP="${CARGO_TARGET_DIR:-target}/debug/sheaf-app"

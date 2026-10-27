@@ -20,7 +20,7 @@ fn boxes_are_chained_into_an_article_across_columns_and_pages() {
     doc.apply(Edit::AddArticleBox { thread: Some(0), title: String::new(), page: 0, rect: right }).unwrap();
     doc.apply(Edit::AddArticleBox { thread: Some(0), title: String::new(), page: 1, rect: next }).unwrap();
     let story = Article { title: "Story".into(), beads: vec![(0, left), (0, right), (1, next)] };
-    assert_eq!(doc.document().articles(), [story.clone()]);
+    assert_eq!(doc.document().articles(), std::slice::from_ref(&story));
     // A second article, of one box.
     doc.apply(Edit::AddArticleBox { thread: None, title: "Sidebar".into(), page: 1, rect: [72.0, 100.0, 200.0, 300.0] }).unwrap();
     assert_eq!(doc.document().articles().len(), 2);

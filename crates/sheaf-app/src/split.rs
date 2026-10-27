@@ -159,9 +159,7 @@ pub fn focus(ui: &AppWindow, tab_id: i32) {
 /// Returns `b`'s index.
 fn hand_over(a: &mut App, tab_id: i32, b: i32) -> Option<usize> {
     let (i, j) = (a.tab_index(tab_id)?, a.tab_index(b)?);
-    if a.tabs[j].viewer.is_none() {
-        return None;
-    }
+    a.tabs[j].viewer.as_ref()?;
     let mine = Box::new(a.tabs[i].viewer.as_deref()?.twin());
     let title = a.tabs[i].reader.as_ref().and_then(|r| r.path.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let s = a.tabs[i].split.take()?;

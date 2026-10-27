@@ -236,7 +236,7 @@ mod tests {
         assert!(catalog.search("missing").unwrap().is_empty());
         std::fs::write(&pdf, b"edited source bytes").unwrap();
         assert!(catalog.search("contrat").unwrap().is_empty());
-        assert_eq!(catalog.stale_sources(), [pdf.clone()]);
+        assert_eq!(catalog.stale_sources(), std::slice::from_ref(&pdf));
         assert!(catalog.validate().is_err());
         assert!(catalog.texts(&pdf).is_none());
     }

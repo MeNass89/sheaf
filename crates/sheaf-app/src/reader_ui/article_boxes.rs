@@ -24,10 +24,14 @@ pub(super) fn article_hit(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) 
     hits.into_iter().min_by(|a, b| (a.2[2] * a.2[3]).total_cmp(&(b.2[2] * b.2[3])))
 }
 
+/// An article box dragged: its thread, its index, the view rectangle it would take (two corners),
+/// the user-space rectangle.
+type ArticleDrag = (usize, usize, [(f64, f64); 2], [f64; 4]);
+
 /// A box pressed at `a` and dragged to `b` (view points of `page`): (article, box, the view
 /// rectangle it would take as two corners, the user-space rectangle). Moved, or resized from its
 /// bottom-right corner; `None` when the press is on no box.
-pub(super) fn article_drag(r: &ReaderUi, v: &Viewer, page: usize, a: (f64, f64), b: (f64, f64)) -> Option<(usize, usize, [(f64, f64); 2], [f64; 4])> {
+pub(super) fn article_drag(r: &ReaderUi, v: &Viewer, page: usize, a: (f64, f64), b: (f64, f64)) -> Option<ArticleDrag> {
     let (t, k, [x, y, w, h], corner) = article_hit(r, v, page, a)?;
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let (p0, p1) = if corner { ((x, y), (x + w + dx, y + h + dy)) } else { ((x + dx, y + dy), (x + w + dx, y + h + dy)) };

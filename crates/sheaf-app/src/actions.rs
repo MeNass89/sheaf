@@ -430,7 +430,7 @@ mod tests {
         let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Keep").unwrap();
         std::fs::write(&input, bytes.as_slice()).unwrap();
         std::fs::write(dir.path().join("skip.txt"), b"skip").unwrap();
-        assert_eq!(folder_inputs(dir.path()).unwrap(), [input.clone()]);
+        assert_eq!(folder_inputs(dir.path()).unwrap(), std::slice::from_ref(&input));
         let mut a = suggested().remove(3);
         a.output = OutputOptions { same_folder: true, prefix: "review-".into(), suffix: "-done".into(), overwrite: false };
         let out = run_file(&a, &input, &dir.path().join("unused"), &mut |_, _| true).unwrap();
