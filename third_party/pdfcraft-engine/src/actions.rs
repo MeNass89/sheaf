@@ -10,6 +10,8 @@ use crate::{DocId, Edit, EditError, Session};
 pub enum Step {
     /// Scan & OCR ▸ Recognize text (pages without text).
     RecognizeText,
+    /// Interactive toolbox shortcut; deliberately refused by unattended file runners.
+    OpenTool(String),
     /// Native text-only tagging, title, language and structure tab order; requires review.
     PrepareAccessibility(String),
     /// Reduce file size.
@@ -63,6 +65,7 @@ impl Step {
     pub fn all() -> Vec<Step> {
         vec![
             Step::RecognizeText,
+            Step::OpenTool("redact".into()),
             Step::PrepareAccessibility("en-US".into()),
             Step::ReduceFileSize,
             Step::Compress("recommended".into()),
@@ -99,6 +102,7 @@ impl Step {
     pub fn id(&self) -> &'static str {
         match self {
             Step::RecognizeText => "recognize_text",
+            Step::OpenTool(_) => "open_tool",
             Step::PrepareAccessibility(_) => "prepare_accessibility",
             Step::ReduceFileSize => "reduce_file_size",
             Step::Compress(_) => "compress",
@@ -116,6 +120,7 @@ impl Step {
             Step::AddHeader(_) => "add_header",
             Step::AddFooter(_) => "add_footer",
             Step::SetTitle(_) => "set_title",
+            Step::OpenTool(v) => { if v.is_empty() || v.len() > 64 || !v.bytes().all(|b| b.is_ascii_lowercase() || b == b'_') { return None; } }
             Step::PrepareAccessibility(v) => {
                 if v.is_empty() || v.len() > 63 || !v.split('-').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_alphanumeric())) { return None; }
             }
@@ -137,6 +142,7 @@ impl Step {
     pub fn label(&self) -> &'static str {
         match self {
             Step::RecognizeText => "Recognize text",
+            Step::OpenTool(_) => "Open toolbox tool (interactive)",
             Step::PrepareAccessibility(_) => "Prepare accessibility (text-only)",
             Step::ReduceFileSize => "Reduce file size",
             Step::Compress(_) => "Compress PDF",
@@ -172,14 +178,14 @@ impl Step {
     /// The step's text argument, if it takes one.
     pub fn arg(&self) -> Option<&str> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::OpenTool(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }
 
     pub fn arg_mut(&mut self) -> Option<&mut String> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::OpenTool(s) | Step::PrepareAccessibility(s) | Step::SetMetadata(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) | Step::KeepPages(s) | Step::DeletePages(s) | Step::WatermarkOptions(s) | Step::HeaderFooterOptions(s) => Some(s),
             _ => None,
         }
     }

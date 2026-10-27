@@ -67,6 +67,8 @@ fn rows(ui: &AppWindow) {
         state.borrow().saved.iter().enumerate().filter(|(_, a)| a.custom_tool).flat_map(|(i, a)| {
             a.steps.iter().enumerate().map(move |(j, step)| ActionCommandRow {
                 label: format!("{} · {}", a.name, if step.label.is_empty() { step.engine().map(|s| s.label()).unwrap_or("Step") } else { &step.label }).into(),
+                icon: sheaf_core::tools::ToolId::from_str(&step.argument).filter(|_| step.tool == "open_tool").map(|id| sheaf_app::icons::icon_image(sheaf_core::tools::find(id).icon)).unwrap_or_default(),
+                interactive: step.tool == "open_tool",
                 separator: step.separator,
                 current: !step.prompt && step.engine().is_ok_and(|s| sheaf_core::pdfcraft::engine::actions::command_edit(&s, 1).is_ok()),
                 action: i as i32, step: j as i32,
@@ -139,6 +141,7 @@ pub fn install(ui: &AppWindow) {
         Ok(saved) => STATE.with(|s| s.borrow_mut().saved = saved),
         Err(e) => status(ui, format!("{e}. Your saved file has been left unchanged.")),
     }
+    ui.global::<ActionBridge>().set_toolbox(ModelRc::new(VecModel::from(sheaf_core::tools::catalogue().iter().map(|t| slint::SharedString::from(t.id.as_str())).collect::<Vec<_>>())));
     ui.global::<ActionBridge>().set_tools(ModelRc::new(VecModel::from(Step::all().iter().map(|s| s.label().into()).collect::<Vec<slint::SharedString>>())));
     match actions::load_draft(&store_file::data_dir()) {
         Ok(Some(recovered)) => { STATE.with(|s| { let mut s = s.borrow_mut(); s.draft = recovered; s.baseline = SavedAction::empty(); }); status(ui, "Recovered your action draft. Save it to keep it in your actions."); }
@@ -210,6 +213,13 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
                 Some(action)
             });
             if let Some(action) = action {
+                if let Some(step) = action.steps.first().filter(|s| s.tool == "open_tool") {
+                    let Some(tool) = crate::flow::tool_from_str(&step.argument) else { return status(ui, "This toolbox tool is unavailable"); };
+                    ui.global::<ActionBridge>().set_tools_visible(false);
+                    if !step.instruction.is_empty() { crate::flow::toast(ui, &step.instruction); }
+                    crate::flow::open_tool(ui, tool, Vec::new());
+                    return;
+                }
                 if what == "custom-current" {
                     match crate::reader_ui::custom_tools::apply(ui, ui.global::<ActionBridge>().get_current_tab(), &action.steps[0]) {
                         Ok(()) => ui.global::<ActionBridge>().set_tools_visible(false), Err(e) => status(ui, e),
@@ -400,6 +410,7 @@ fn export(ui: &AppWindow, stirling: bool) {
 
 fn pick_run(ui: &AppWindow, action: SavedAction) {
     if let Err(e) = action.validate() { return status(ui, e.to_string()); }
+    if action.steps.iter().any(|s| s.tool == "open_tool") { return status(ui, "This set contains interactive toolbox shortcuts. Open Custom tools and choose a command; it cannot run unattended on PDFs."); }
     let d = crate::dialog::new(ui).add_filter("PDF", &["pdf"]);
     crate::dialog::pick_files(ui, d, move |ui, files| {
         pick_output(ui, action, files);

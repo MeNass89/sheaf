@@ -125,6 +125,7 @@ impl SavedAction {
         self.output.validate()?;
         for step in &self.steps {
             step.engine()?;
+            if step.tool == "open_tool" && (!self.custom_tool || sheaf_core::tools::ToolId::from_str(&step.argument).is_none() || step.prompt) { return Err(invalid("Toolbox shortcuts belong in custom tool sets and need an existing tool without an action prompt")); }
             if step.label.len() > 256 || step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
         }
         Ok(())
@@ -528,6 +529,19 @@ mod tests {
             else { assert!(data.starts_with(b"PK")); }
         }
         action.output.format = "unsupported".into(); assert!(action.validate().is_err());
+    }
+
+    #[test]
+    fn custom_toolbox_shortcuts_validate_real_tools_and_never_run_as_batch_edits() {
+        let mut set = SavedAction::empty(); set.custom_tool = true;
+        for tool in sheaf_core::tools::catalogue() {
+            set.steps = vec![ActionStep::from_engine(&Step::OpenTool(tool.id.as_str().into()))];
+            set.validate().unwrap();
+            assert_eq!(SavedAction::import(&set.json().unwrap()).unwrap(), set);
+            assert!(actions::command_edit(&set.steps[0].engine().unwrap(), 1).is_err());
+        }
+        set.steps[0].argument = "unknown".into(); assert!(set.validate().is_err());
+        set.steps[0].argument = "redact".into(); set.custom_tool = false; assert!(set.validate().is_err());
     }
 
 }

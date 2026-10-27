@@ -6,7 +6,7 @@ import { TextField } from "../widgets/text-field.slint";
 import { Modal, SecondaryButton as Button } from "dialogs.slint";
 
 export struct ActionRow { name: string, description: string, builtin: bool, custom: bool, source: int }
-export struct ActionCommandRow { label: string, action: int, step: int, separator: bool, current: bool }
+export struct ActionCommandRow { label: string, action: int, step: int, separator: bool, current: bool, icon: image, interactive: bool }
 export struct ActionStepRow { label: string, detail: string }
 
 export global ActionBridge {
@@ -19,6 +19,7 @@ export global ActionBridge {
     in-out property <bool> discard-visible;
     in-out property <[ActionStepRow]> steps;
     in-out property <[string]> tools;
+    in-out property <[string]> toolbox;
     in-out property <int> selected: -1;
     in-out property <int> filter;
     in-out property <bool> builtin;
@@ -158,7 +159,8 @@ export component ActionsScreen inherits Rectangle {
                             TextField { label: "Font size (points, 4–144)"; text <=> ActionBridge.number-size; enabled: !ActionBridge.busy; }
                             TextField { label: "Format (<<1>> = page, <<n>> = count)"; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
                         }
-                        if ActionBridge.has-argument && ActionBridge.tool-id != "compress" && ActionBridge.tool-id != "pdfa" && ActionBridge.tool-id != "page_numbers": VerticalLayout {
+                        if ActionBridge.tool-id == "open_tool": ComboBox { model: ActionBridge.toolbox; current-value <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
+                        if ActionBridge.has-argument && ActionBridge.tool-id != "open_tool" && ActionBridge.tool-id != "compress" && ActionBridge.tool-id != "pdfa" && ActionBridge.tool-id != "page_numbers": VerticalLayout {
                             spacing: 6px;
                             Text { text: ActionBridge.tool-id == "prepare_accessibility" ? "Document language (for example fr-FR)" : ActionBridge.tool-id == "set_metadata" ? "Metadata key | value (blank value clears the field)" : ActionBridge.tool-id == "keep_pages" || ActionBridge.tool-id == "delete_pages" ? "Pages: 1-3,5 or all" : ActionBridge.tool-id == "watermark_options" ? "Size | opacity | rotation | X | Y | font | pages | text" : ActionBridge.tool-id == "header_footer_options" ? "Position (0–5) | size | font | pages | text" : "Text or JavaScript for this step"; color: Theme.text; font-size: Theme.fs-label; }
                             TextEdit { height: 90px; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
@@ -267,11 +269,11 @@ export component CustomToolsPanel inherits Modal {
             for row[i] in ActionBridge.commands: VerticalLayout {
                 spacing: 6px;
                 if row.separator: Rectangle { height: 1px; background: Theme.input-border; }
-                Text { text: row.label; color: Theme.text; font-size: Theme.fs-body; overflow: elide; }
+                HorizontalLayout { spacing: 8px; if row.interactive: Image { source: row.icon; width: 20px; height: 20px; image-fit: contain; } Text { text: row.label; color: Theme.text; font-size: Theme.fs-body; overflow: elide; } }
                 HorizontalLayout {
                     spacing: 8px;
-                    Button { text: "Apply to open PDF"; enabled: !ActionBridge.busy && ActionBridge.current-tab >= 0 && row.current; clicked => { ActionBridge.command("custom-current", i); } }
-                    Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("custom-command", i); } }
+                    if !row.interactive: Button { text: "Apply to open PDF"; enabled: !ActionBridge.busy && ActionBridge.current-tab >= 0 && row.current; clicked => { ActionBridge.command("custom-current", i); } }
+                    Button { text: row.interactive ? "Open tool…" : "Run on PDFs…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("custom-command", i); } }
                     Rectangle { horizontal-stretch: 1; }
                 }
             }

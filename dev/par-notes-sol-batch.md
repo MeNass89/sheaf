@@ -635,3 +635,14 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   misleading preset was added. No external process or new dependency. Public: Step::PrepareAccessibility.
   not automatable: copy the suggestion and verify language prompt and visible limitations —
   app execution forbidden.
+
+- C-batch-006: custom sets can now include every existing toolbox tool (Redact, Compare, Organize,
+  Edit, conversion…) with the tool's real Lucide icon, label and separator. A Custom tools button
+  on Tools opens their panel. Interactive shortcuts open the real dedicated tool and are refused
+  in unattended sequences; native edit commands still apply to unsaved reader documents.
+  Test `custom_toolbox_shortcuts_validate_real_tools_and_never_run_as_batch_edits` (not run).
+  Left: dedicated persistent custom panels / user-selected icons; toolbox shortcuts require their
+  normal file selection rather than claiming to modify unsaved reader bytes. No new dependency.
+  Public: Step::OpenTool; ActionCommandRow icon/interactive and ActionBridge toolbox model.
+  not automatable: create a mixed custom set, open its tools from Tools and reader, verify icons
+  and the unattended refusal — app execution forbidden.
