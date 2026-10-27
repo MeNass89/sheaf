@@ -252,6 +252,7 @@ pub fn set_signature(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>, font: u8
         h.prefs.signature_font = font;
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");
+            if let Some(ui) = h.ui.upgrade() { crate::flow::toast(&ui, &e.to_string()); }
         }
     });
 }
@@ -263,6 +264,7 @@ pub fn set_initials(strokes: Vec<Vec<[f64; 2]>>, name: Option<String>, font: u8)
         h.prefs.initials = (!strokes.is_empty() || name.is_some()).then_some((strokes, name, pen, font));
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");
+            if let Some(ui) = h.ui.upgrade() { crate::flow::toast(&ui, &e.to_string()); }
         }
     });
 }
@@ -302,6 +304,7 @@ pub fn pick_signature(i: usize, remove: bool) {
         }
         if let Err(e) = h.prefs.save(&h.dir) {
             eprintln!("sheaf: cannot save preferences: {e}");
+            if let Some(ui) = h.ui.upgrade() { crate::flow::toast(&ui, &e.to_string()); }
         }
     });
 }

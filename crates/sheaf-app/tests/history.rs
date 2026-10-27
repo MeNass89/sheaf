@@ -113,12 +113,12 @@ fn prefs_round_trip_and_corrupt_means_default() {
         last_views: vec![(PathBuf::from("/tmp/a.pdf"), 2, 150, 1)],
         tool_styles: vec![(5, 2, 1, 0)],
         favourite_tools: vec!["compress".into()],
-        signature_strokes: vec![vec![[0.0, 0.0], [1.0, 0.5]]],
+        signature_strokes: Vec::new(),
         signature_name: None,
         signature_pen: (1, 2),
         signature_font: 0,
-        signatures: vec![(vec![vec![[0.0, 0.0], [1.0, 0.5]]], None, (1, 2), 0), (Vec::new(), Some("Ada".into()), (0, 1), 2)],
-        initials: Some((Vec::new(), Some("AL".into()), (0, 1), 1)),
+        signatures: Vec::new(),
+        initials: None,
         pinned_files: vec![PathBuf::from("/docs/starred.pdf")],
     };
     p.save(dir.path()).unwrap();

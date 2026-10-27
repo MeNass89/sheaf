@@ -14,4 +14,5 @@ pub mod reader;
 pub mod saved_options;
 pub mod store_file;
 pub mod sign_preview;
+mod signature_store;
 pub mod viewer;

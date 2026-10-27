@@ -165,7 +165,9 @@ pub struct Prefs {
     pub pinned_files: Vec<PathBuf>,
     /// The signature made in the reader, reused on every document (PDF Expert keeps it too):
     /// drawn strokes (pad units, y up) or a typed name.
+    #[serde(skip_serializing)]
     pub signature_strokes: Vec<Vec<[f64; 2]>>,
+    #[serde(skip_serializing)]
     pub signature_name: Option<String>,
     /// The signature's pen: colour (index in `reader::SIGNATURE_INKS`) and width (0 fine, 1 medium, 2 bold).
     pub signature_pen: (u8, u8),
@@ -173,20 +175,37 @@ pub struct Prefs {
     pub signature_font: u8,
     /// Signatures made before, newest first (at most four): strokes or a typed name each. The
     /// first is `signature_strokes` / `signature_name`.
-    #[serde(deserialize_with = "kept_signatures")]
+    #[serde(skip_serializing, deserialize_with = "kept_signatures")]
     pub signatures: Vec<KeptSignature>,
     /// The initials kept apart from the signatures (Acrobat's Fill & Sign ▸ Add Initials).
+    #[serde(skip_serializing)]
     pub initials: Option<KeptSignature>,
 }
 
 impl Prefs {
     /// Loads `<dir>/prefs.json`; missing or corrupt means the defaults.
     pub fn load(dir: &Path) -> Prefs {
-        store_file::read(&dir.join("prefs.json")).unwrap_or_default()
+        let Some(mut prefs) = store_file::read::<Prefs>(&dir.join("prefs.json")) else { return Prefs::default() };
+        if !crate::signature_store::Marks::from_prefs(&prefs).is_empty() {
+            // Migrate old plaintext marks only after the credential store accepted them.
+            if crate::signature_store::save(dir, &crate::signature_store::Marks::from_prefs(&prefs)).is_ok() {
+                let _ = prefs.save(dir);
+            }
+        } else {
+            match crate::signature_store::load(dir) {
+                Ok(Some(marks)) => marks.apply(&mut prefs),
+                Ok(None) => {},
+                Err(e) => eprintln!("sheaf: {e}"),
+            }
+        }
+        prefs
     }
 
     pub fn save(&self, dir: &Path) -> io::Result<()> {
         let json = serde_json::to_vec_pretty(self).map_err(io::Error::other)?;
-        store_file::replace(&dir.join("prefs.json"), &json)
+        // Even if the system store is unavailable, never write a mark back to plaintext.
+        let secured = crate::signature_store::save(dir, &crate::signature_store::Marks::from_prefs(self));
+        store_file::replace(&dir.join("prefs.json"), &json)?;
+        secured
     }
 }

@@ -84,3 +84,5 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 - **Snapshot** (`Snap`): what the document thread reports after each change; the UI draws from it.
 - **Provisional**: drawn at once by the UI before the engine confirms an edit.
 - **Job**: one tool run off the UI thread.
+
+`signature_store.rs` keeps signature and initials payloads in Secret Service / Keychain / Windows DPAPI, with plaintext profile migration in `prefs.rs`.
