@@ -671,3 +671,14 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
   raster_thumbnail, Library::move_to_folder; LibraryBridge sort/page/total/move-folder fields.
   not automatable: >1000 files, sort both ways, next/previous, mark across pages and move into a
   folder, verify thumbnail fallback — app execution forbidden.
+
+- C-organize-024: portfolio browser columns now sort both directions (size numerically), preserving
+  original attachment IDs for Open/Save/Preview after sorting. Embedded PDFs have previous/next
+  preview navigation with page count and stale-result guards, rather than first-page-only viewing.
+  Test `portfolio_sort_keeps_attachment_identity_and_previews_every_pdf_page` (written, not run).
+  Left: real /Collection folder creation/tree and arbitrary schema editing. Existing slash-name
+  filtering is not presented as a /Folders tree; implementing that needs a schema-aware document
+  mutation path, not an attachment-name rewrite. No new dependency. PortfolioRow::source and
+  PortfolioBridge sort/descending/preview-page/preview-pages added.
+  not automatable: sort each column, open the selected original after sorting, navigate every
+  preview page and switch attachments while a preview loads — app execution forbidden.
