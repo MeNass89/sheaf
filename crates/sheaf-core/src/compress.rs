@@ -389,13 +389,27 @@ pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
     let img = if identity_decode(s) {
         let opts = zune_core::options::DecoderOptions::default().jpeg_set_out_colorspace(zune_core::colorspace::ColorSpace::CMYK);
         let mut dec = zune_jpeg::JpegDecoder::new_with_options(std::io::Cursor::new(&s.content[..]), opts);
-        // YCCK JPEGs cannot be read as raw CMYK: the decoder refuses, and the picture is left alone.
+        // The decoder cannot convert YCCK directly to raw CMYK. Keep its native four samples,
+        // then apply PDF's identity Decode rather than Adobe's inverted interpretation.
+        dec.decode_headers().ok()?;
+        let ycck = dec.input_colorspace() == Some(zune_core::colorspace::ColorSpace::YCCK);
+        if ycck { dec.set_options(dec.options().jpeg_set_out_colorspace(zune_core::colorspace::ColorSpace::YCCK)); }
         let raw = dec.decode().ok()?;
         if raw.len() != (w as usize).checked_mul(h as usize)?.checked_mul(4)? { return None; }
         let ink = |v: u8, k: u8| ((255 - u16::from(v)) * (255 - u16::from(k)) / 255) as u8;
         RgbImage::from_fn(w, h, |x, y| {
             let p = &raw[(y as usize * w as usize + x as usize) * 4..][..4];
-            image::Rgb([ink(p[0], p[3]), ink(p[1], p[3]), ink(p[2], p[3])])
+            if ycck {
+                let y = f32::from(p[0]);
+                let cb = f32::from(p[1]) - 128.0;
+                let cr = f32::from(p[2]) - 128.0;
+                // YCbCr gives the complement of stored Adobe CMY; /Decode identity then
+                // multiplies that complement by the complement of stored K.
+                let light = |v: f32| (v.clamp(0.0, 255.0) * f32::from(255 - p[3]) / 255.0).round() as u8;
+                image::Rgb([light(y + 1.402 * cr), light(y - 0.344_136 * cb - 0.714_136 * cr), light(y + 1.772 * cb)])
+            } else {
+                image::Rgb([ink(p[0], p[3]), ink(p[1], p[3]), ink(p[2], p[3])])
+            }
         })
     } else if inverted_cmyk_decode(s) {
         image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).ok()?.to_rgb8()
