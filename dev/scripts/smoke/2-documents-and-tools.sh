@@ -39,10 +39,7 @@ TB1=$(ocr 1280x30+0+6)
 check "tool search: 'pdf to', ↓, ↩ opens PDF to Word ($TB1)" "echo \"$TB1\" | tr -d ' ' | grep -qi 'PDFtoWord' && ! echo \"$TB0\" | tr -d ' ' | grep -qi 'PDFtoWord'"
 # The star on Compress's card (shown on hover, at 233,318): saved as a favourite, a Favourites row on top.
 # The search still holds "pdf to" (the page was not left): cleared with Escape in the field first.
-click 40 21 0.8; click 90 112 0.8; click 990 76 0.4; key Escape; sleep 0.5; shot 09c-before-star
-# The card found by its name (rows above the categories may move it): the star sits 38 px left of
-# and 55 px above the name's centre, shown while the card is hovered.
-read CX CY <<< "$(at Compress 1060x700+200+90)"; [ -n "$CY" ] && { xdotool mousemove $CX $(( CY - 63 )); sleep 0.4; click $(( CX - 38 )) $(( CY - 55 )) 1; }
+click 40 21 0.8; click 90 112 0.8; click 990 76 0.4; key Escape; sleep 0.5; shot 09c-before-star; xdotool mousemove 270 350; sleep 0.4; click 233 318 1
 check "starring a tool puts it in the preferences' favourites" "grep -rqs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
 # ⌘, opens Preferences from a tool tab and from a document (keys go up to the app).
 key ctrl+comma; sleep 1; PT1=$(ocr 500x60+200+40)
