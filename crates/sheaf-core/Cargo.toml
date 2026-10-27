@@ -30,6 +30,7 @@ encoding_rs.workspace = true
 calamine.workspace = true
 skrifa.workspace = true
 spellbook.workspace = true
+ureq.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
