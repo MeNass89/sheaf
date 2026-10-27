@@ -446,3 +446,18 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   remain covered by core tests. No dependency, external conversion program or network.
   not automatable: open a portfolio, preview PDF/image/text/Office, check description/size columns,
   Save copy and View cover — app launch/render forbidden by brief rule 1.
+
+- C-platform-005: console adds Run selection and Ctrl/Cmd+Enter (selection if present, whole
+  script otherwise), with UTF-8 byte-boundary validation. Its script manager now lists/edits/
+  deletes document scripts and custom field keystroke/format/validate/calculate/mouse-up scripts
+  through existing undoable edits. New engine `js::ConsoleScript`, `Document::console_scripts`,
+  document-thread EditableScripts request/reply. Network LaunchUrl/Submit are explicitly explained
+  by the UI dispatcher, without execution; multiple dialog requests also explain the skipped one.
+  Console output survives reopening on the same document.
+  Tests `run_selection_keeps_unicode_boundaries_reverse_ranges_and_visible_network_refusals`,
+  `console_manager_lists_and_edits_document_and_field_scripts_with_undo` (written, not run).
+  Left: debugger/breakpoints (the engine exposes no debugger), page/link action editing and the
+  complete Edit All JavaScripts inventory. The manager explicitly says these are absent instead
+  of presenting the subset as Acrobat's complete tool. No new dependency; network stays excluded.
+  not automatable: select multiline/Unicode code, Ctrl+Enter, save/delete a field script and Undo,
+  issue LaunchUrl/Submit plus two dialog requests — app execution forbidden by brief rule 1.

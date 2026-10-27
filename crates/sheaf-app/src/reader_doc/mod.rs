@@ -533,6 +533,7 @@ pub enum Op {
     /// Acrobat's console, evaluated against the reader's current unsaved document.
     RunJavaScript { source: String, page: usize },
     DocumentScripts,
+    EditableScripts,
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
     /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
@@ -606,6 +607,7 @@ pub enum Reply {
     Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
     JavaScript { output: String, changed: bool, requests: Vec<sheaf_core::pdfcraft::engine::js::Request> },
     DocumentScripts(Vec<(String, String)>),
+    EditableScripts(Vec<sheaf_core::pdfcraft::engine::js::ConsoleScript>),
     /// The loupe's area: (width, height, RGBA pixels), or why not.
     Loupe(Result<(u32, u32, Vec<u8>), String>),
     /// A flattened copy written (`FlatCopy`), or why not.
@@ -772,6 +774,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         reply(Reply::Upright(turns));
                     }
                     Op::AccessibilityCheck => reply(Reply::Accessibility(doc.document().accessibility_check(&Default::default()))),
+                    Op::EditableScripts => reply(Reply::EditableScripts(doc.document().console_scripts())),
                     Op::DocumentScripts => reply(Reply::DocumentScripts(doc.document().document_scripts())),
                     Op::RunJavaScript { source, page } => {
                         let id = doc.id();
@@ -784,10 +787,6 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                                 lines.extend(outcome.alerts.into_iter().map(|s| format!("Alert: {s}")));
                                 lines.extend(outcome.result);
                                 lines.extend(outcome.error.into_iter().map(|s| format!("Error: {s}")));
-                                // Network requests remain outside the local console's scope.
-                                lines.extend(outcome.requests.iter().filter(|r| matches!(r,
-                                    sheaf_core::pdfcraft::engine::js::Request::LaunchUrl(_) | sheaf_core::pdfcraft::engine::js::Request::Submit(_)
-                                )).map(|r| format!("Network request (not executed): {r:?}")));
                                 if lines.is_empty() { lines.push("undefined".into()); }
                                 (lines.join("\n"), None, outcome.requests)
                             }

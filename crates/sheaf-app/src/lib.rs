@@ -5,6 +5,7 @@ slint::include_modules!();
 mod action_import;
 pub mod actions;
 pub mod library;
+pub mod javascript_console;
 pub mod watch_folder;
 pub mod files;
 pub mod history;

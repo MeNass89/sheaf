@@ -148,3 +148,21 @@ fn custom_tool_commands_edit_the_current_document_and_undo() {
     assert_eq!(s.get(id).unwrap().info.author.as_deref(), Some("Already editing"));
     assert!(command_edit(&Step::Compress("recommended".into()), 1).is_err());
 }
+
+#[test]
+fn console_manager_lists_and_edits_document_and_field_scripts_with_undo() {
+    use sheaf_core::pdfcraft::engine::{Session, NewField};
+    let mut s = Session::new();
+    let bytes = s.create_from_text("Scripts", "Keep").unwrap();
+    let id = s.open("scripts.pdf", None, bytes, None).unwrap();
+    s.apply(id, Edit::AddField { page: 0, rect: [72.0, 600.0, 210.0, 625.0], kind: NewField::Text { multiline: false }, name: Some("Amount".into()) }).unwrap();
+    s.apply(id, Edit::SetDocumentScript { name: "Helpers".into(), script: Some("function twice(x) { return x * 2; }".into()) }).unwrap();
+    s.apply(id, Edit::SetFieldScript { name: "Amount".into(), event: "keystroke".into(), script: Some("console.println('field');".into()) }).unwrap();
+    let scripts = s.get(id).unwrap().console_scripts();
+    assert!(scripts.iter().any(|s| s.name == "Helpers" && s.event.is_none()));
+    assert!(scripts.iter().any(|s| s.name == "Amount" && s.event.as_deref() == Some("keystroke") && s.source.contains("field")));
+    s.apply(id, Edit::SetFieldScript { name: "Amount".into(), event: "keystroke".into(), script: None }).unwrap();
+    assert!(!s.get(id).unwrap().console_scripts().iter().any(|s| s.name == "Amount"));
+    s.undo(id).unwrap();
+    assert!(s.get(id).unwrap().console_scripts().iter().any(|s| s.name == "Amount"));
+}

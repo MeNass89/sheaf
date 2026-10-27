@@ -12,14 +12,18 @@ pub fn install(ui: &AppWindow) {
         let Some(name) = update(id, |r, _| r.name.clone()) else { return };
         let b = ui.global::<JavaScriptBridge>();
         if b.get_busy() { return; }
-        b.set_tab(id); b.set_document(name.into()); b.set_visible(true); b.set_output("".into()); b.set_scripts_open(false);
+        if b.get_tab() != id { b.set_output("".into()); }
+        b.set_tab(id); b.set_document(name.into()); b.set_visible(true); b.set_scripts_open(false);
     });
     let weak = ui.as_weak();
-    ui.global::<JavaScriptBridge>().on_run(move || {
+    ui.global::<JavaScriptBridge>().on_run(move |selected| {
         let Some(ui) = weak.upgrade() else { return };
         let b = ui.global::<JavaScriptBridge>();
         if b.get_busy() { return; }
         let source = b.get_source().to_string();
+        let source = if selected {
+            match sheaf_app::javascript_console::selection(&source, b.get_selection_anchor(), b.get_selection_cursor()) { Ok(s) => s.into(), Err(e) => { b.set_output(e.into()); return; } }
+        } else { source };
         if source.len() > 1_000_000 { b.set_output("The script exceeds 1 MB. Shorten it before running.".into()); return; }
         let sent = update(b.get_tab(), |r, v| {
             if r.edits_in_flight > 0 || r.structure_pending { return false; }
@@ -35,10 +39,10 @@ pub fn install(ui: &AppWindow) {
         let b = ui.global::<JavaScriptBridge>();
         if b.get_busy() { return; }
         let id = b.get_tab();
-        if what == "list" { b.set_busy(true); if update(id, |r, _| r.send(Op::DocumentScripts)).is_none() { b.set_busy(false); } return; }
+        if what == "list" { b.set_busy(true); if update(id, |r, _| r.send(Op::EditableScripts)).is_none() { b.set_busy(false); } return; }
         if what == "select" {
             use slint::Model;
-            if let Some(row) = b.get_scripts().row_data(index as usize) { b.set_script_name(row.name); b.set_script_source(row.source); }
+            if let Some(row) = b.get_scripts().row_data(index as usize) { b.set_script_name(row.name); b.set_script_source(row.source); b.set_script_field(row.field); b.set_script_event(row.event); }
             return;
         }
         if what == "new" { b.set_script_name("".into()); b.set_script_source("".into()); return; }
@@ -48,10 +52,10 @@ pub fn install(ui: &AppWindow) {
             b.set_output("Enter a script name (up to 256 bytes) and source no larger than 1 MB.".into()); return;
         }
         if what == "save" || what == "delete" {
-            apply_structure(&ui, id, Edit::SetDocumentScript { name, script: (what == "save").then_some(source) });
+            apply_structure(&ui, id, if b.get_script_field() { Edit::SetFieldScript { name, event: b.get_script_event().to_string(), script: (what == "save").then_some(source) } } else { Edit::SetDocumentScript { name, script: (what == "save").then_some(source) } });
             b.set_busy(true);
-            if update(id, |r, _| r.send(Op::DocumentScripts)).is_none() { b.set_busy(false); }
-            b.set_output("Document script change requested. Undo reverses it; save the PDF to keep it.".into());
+            if update(id, |r, _| r.send(Op::EditableScripts)).is_none() { b.set_busy(false); }
+            b.set_output("Script change requested. Undo reverses it; save the PDF to keep it.".into());
         }
     });
 
@@ -64,7 +68,8 @@ pub(super) fn finished(ui: &AppWindow, id: i32, output: String, changed: bool, r
             r.redo_pages.clear();
         });
     }
-    dispatch(ui, id, requests);
+    let notices = dispatch(ui, id, requests);
+    let output = if notices.is_empty() { output } else { format!("{output}\n{}", notices.join("\n")) };
     let b = ui.global::<JavaScriptBridge>();
     if b.get_tab() != id { return; }
     let previous = b.get_output();
@@ -72,16 +77,21 @@ pub(super) fn finished(ui: &AppWindow, id: i32, output: String, changed: bool, r
     b.set_busy(false);
 }
 
-pub(super) fn scripts(ui: &AppWindow, id: i32, scripts: Vec<(String, String)>) {
+pub(super) fn scripts(ui: &AppWindow, id: i32, scripts: Vec<sheaf_core::pdfcraft::engine::js::ConsoleScript>) {
     let b = ui.global::<JavaScriptBridge>();
     if b.get_tab() != id { return; }
     b.set_busy(false);
-    b.set_scripts(ModelRc::new(VecModel::from(scripts.into_iter().map(|(name, source)| DocumentScriptRow { name: name.into(), source: source.into() }).collect::<Vec<_>>())));
+    b.set_scripts(ModelRc::new(VecModel::from(scripts.into_iter().map(|script| DocumentScriptRow {
+        label: script.event.as_ref().map(|e| format!("Field · {} · {e}", script.name)).unwrap_or_else(|| format!("Document · {}", script.name)).into(),
+        name: script.name.into(), source: script.source.into(), field: script.event.is_some(), event: script.event.unwrap_or_else(|| "keystroke".into()).into(),
+    }).collect::<Vec<_>>())));
 }
 
-fn dispatch(ui: &AppWindow, id: i32, requests: Vec<Request>) {
+fn dispatch(ui: &AppWindow, id: i32, requests: Vec<Request>) -> Vec<String> {
     let mut dialog_open = false;
+    let mut notices = Vec::new();
     for request in requests {
+        if let Some(notice) = sheaf_app::javascript_console::request_notice(&request) { notices.push(notice); continue; }
         match request {
             Request::GoToPage(page) => {
                 update(id, |r, v| {
@@ -105,7 +115,9 @@ fn dispatch(ui: &AppWindow, id: i32, requests: Vec<Request>) {
                 if matches!(request, Request::Print) { print_open(id); } else { save_as(ui, id); }
             }
             Request::Beep => crate::flow::toast(ui, "JavaScript: beep"),
-            _ => {},
+            Request::Print | Request::SaveAs => notices.push("A second dialog request was not opened. Run it separately after closing the first dialog.".into()),
+            Request::LaunchUrl(_) | Request::Submit(_) | Request::Reset(_) => {},
         }
     }
+    notices
 }
