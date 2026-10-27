@@ -571,3 +571,16 @@
   is not a measured optimization or parity proof. Further inference work depends on that run.
 - Proposed grade unchanged from counterpart: C-optimize-006: f9 a8 p7 — existing accuracy
   coverage and new benchmark protocol; the speed gap remains open.
+
+## Third pass — C-sign-012
+
+- C-sign-012 remains partial: no app/CLI TSA transport. The caller-supplied offline API alone
+  is not user-facing certified timestamping, as the counterpart correctly points out. A
+  network TSA client/server selection is explicitly excluded by this batch's rule 3; none added.
+- Fixed the timestamp fixture: separate TSA identity/key, critical timeStamping-only EKU and
+  digitalSignature key usage, with assertions that it is not the document signer's certificate.
+  Test `a_local_authority_timestamps_visible_and_invisible_certificate_signatures` is still
+  not run. This proves only the intended offline adapter contract once executed; no trust
+  or certified-clock claim. Existing invalid-response/no-output test remains.
+- Proposed grade: C-sign-012: f7 a8 p8 — offline API and corrected fixture; user-facing
+  certified timestamping remains open pending authorized TSA transport. No dependencies.
