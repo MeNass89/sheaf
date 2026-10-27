@@ -330,3 +330,32 @@ fn legacy_html_with_its_own_relative_base_keeps_its_text_and_local_picture() {
     assert!(pdf.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Subtype").is_ok_and(|s| s.as_name().is_ok_and(|n| n == b"Image")))));
     common::qpdf_clean(&out);
 }
+
+/// Stirling's Markdown pictures are rendered, including a reference image beside the .md file.
+#[test]
+fn markdown_relative_and_reference_pictures_survive_original_and_paper_conversion() {
+    if find_soffice().is_none() {
+        eprintln!("skip: no LibreOffice");
+        return;
+    }
+    let t = tempfile::tempdir().unwrap();
+    let source = t.path().join("source folder");
+    std::fs::create_dir(&source).unwrap();
+    image::RgbImage::from_pixel(64, 64, image::Rgb([210, 20, 30])).save(source.join("logo (1).png")).unwrap();
+    let md = source.join("notes.md");
+    std::fs::write(&md, "# Illustrated notes\n\n![local](<logo (1).png>)\n\n![reference][logo]\n\n[logo]: <logo (1).png> \"Red logo\"\n").unwrap();
+    let original = office_to_pdf(&md, &t.path().join("original.pdf")).unwrap();
+    let paper = sheaf_core::html::to_pdf(&md, sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: false, margin: 18.0, long_page: false, screen_width: None }, &t.path().join("paper.pdf")).unwrap();
+    for out in [original, paper] {
+        let doc = lopdf::Document::load(&out).unwrap();
+        assert!(common::page_texts(&out)[0].contains("Illustrated notes"));
+        let images = doc.objects.values().filter(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Subtype").is_ok_and(|s| s.as_name().is_ok_and(|n| n == b"Image")))).count();
+        assert!(images >= 1, "the PDF has an embedded picture, not just the alt text: {}", out.display());
+        let _g = sheaf_core::engine::pdfium_lock();
+        let pdf = sheaf_core::engine::open_pdf(&out, None).unwrap();
+        let page = pdf.pages().get(0).unwrap();
+        let pixels = page.render_with_config(&pdfium_render::prelude::PdfRenderConfig::new().set_target_width(612)).unwrap().as_image().unwrap().to_rgb8();
+        assert!(pixels.pixels().filter(|p| p[0] > 150 && p[1] < 60 && p[2] < 70).count() > 1000, "the red picture is painted on the page");
+        common::qpdf_clean(&out);
+    }
+}

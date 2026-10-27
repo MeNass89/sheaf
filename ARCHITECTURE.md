@@ -21,6 +21,9 @@ Password fields can opt into the reveal control in `ui/widgets/text-field.slint`
 Recents exclusions are saved separately from task history by `history.rs` (`hidden-recents.json`).
 The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 
+`crates/sheaf-core/src/textdocs.rs` renders CommonMark with local image resources, keeping the original
+Markdown file URL as the base for the temporary HTML passed to either PDF layout converter.
+
 ## Guided actions
 
 - `crates/sheaf-app/src/action_import.rs`: supported Stirling Automate/Folder Scanning translation with explicit native-conversion limits.
