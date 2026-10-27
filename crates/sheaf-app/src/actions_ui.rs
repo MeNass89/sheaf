@@ -91,6 +91,10 @@ pub fn install(ui: &AppWindow) {
     ui.global::<ActionBridge>().set_tools(ModelRc::new(VecModel::from(Step::all().iter().map(|s| s.label().into()).collect::<Vec<slint::SharedString>>())));
     rows(ui);
     draft(ui);
+    match sheaf_app::watch_folder::SavedWatch::load(&store_file::data_dir()) {
+        Ok(Some(saved)) => ui.global::<ActionBridge>().set_saved_watch(saved.description().into()),
+        Ok(None) => {}, Err(e) => status(ui, e.to_string()),
+    }
     let weak = ui.as_weak();
     ui.global::<ActionBridge>().on_open_page(move |_| {
         if let Some(ui) = weak.upgrade() {
@@ -158,6 +162,18 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         }
         "portfolio" => return portfolio(ui),
         "watch" => return watch(ui),
+        "resume-watch" => {
+            match sheaf_app::watch_folder::SavedWatch::load(&store_file::data_dir()) {
+                Ok(Some(saved)) => start_watch(ui, saved), Ok(None) => status(ui, "No saved watch"), Err(e) => status(ui, e.to_string()),
+            }
+            return;
+        }
+        "forget-watch" => {
+            match sheaf_app::watch_folder::SavedWatch::forget(&store_file::data_dir()) {
+                Ok(()) => ui.global::<ActionBridge>().set_saved_watch("".into()), Err(e) => status(ui, e.to_string()),
+            }
+            return;
+        }
         "import" => return import(ui),
         "export" | "export-stirling" => return export(ui, what == "export-stirling"),
         "run" | "run-step" => {
@@ -349,6 +365,7 @@ fn watch(ui: &AppWindow) {
     if let Err(e) = action.validate() { return status(ui, e.to_string()); }
     if action.steps.iter().any(|s| s.prompt) { return status(ui, "Folder actions cannot pause. Turn off the step prompts first."); }
     let title_names = ui.global::<ActionBridge>().get_title_names();
+    let recursive = ui.global::<ActionBridge>().get_recursive();
     let d = crate::dialog::new(ui).set_title("Choose the folder to watch");
     crate::dialog::pick_folder(ui, d, move |ui, input| {
         let d = crate::dialog::new(ui).set_title("Choose a separate output folder");
@@ -356,35 +373,51 @@ fn watch(ui: &AppWindow) {
             let mut watch = match sheaf_app::watch_folder::FolderWatch::new(&input, &output, title_names) {
                 Ok(watch) => watch, Err(e) => return status(ui, e.to_string()),
             };
-            let cancel = Arc::new(AtomicBool::new(false));
-            STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
-            ui.global::<ActionBridge>().set_busy(true);
-            status(ui, format!("Watching {} while Sheaf is open. Outputs: {}", input.display(), output.display()));
-            let weak = ui.as_weak();
-            std::thread::spawn(move || {
-                let mut written = 0;
-                let mut failure = String::new();
-                while !cancel.load(Ordering::Relaxed) {
-                    let message = match watch.poll(&action, &mut || !cancel.load(Ordering::Relaxed)) {
-                        Ok(results) if results.is_empty() => None,
-                        Ok(results) => {
-                            let mut errors = Vec::new();
-                            for (path, result) in results {
-                                match result { Ok(_) => written += 1, Err(e) => errors.push(format!("{}: {e}", path.display())) }
-                            }
-                            Some(format!("Watching {} · {written} file(s) written. {}", input.display(), errors.join(" · ")))
-                        }
-                        Err(e) => { cancel.store(true, Ordering::Relaxed); failure = e.to_string(); Some(format!("Folder watch stopped: {e}")) }
-                    };
-                    if let Some(message) = message
-                        && weak.upgrade_in_event_loop(move |ui| status(&ui, message)).is_err() { break; }
-                    std::thread::sleep(std::time::Duration::from_secs(1));
+            watch.include_subfolders(recursive);
+            let saved = match sheaf_app::watch_folder::SavedWatch::new(action, watch) {
+                Ok(saved) => saved, Err(e) => return status(ui, e.to_string()),
+            };
+            start_watch(ui, saved);
+        });
+    });
+}
+
+fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
+    if let Err(e) = saved.save(&store_file::data_dir()) { return status(ui, e.to_string()); }
+    let description = saved.description();
+    ui.global::<ActionBridge>().set_saved_watch(description.clone().into());
+    let cancel = Arc::new(AtomicBool::new(false));
+    STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
+    ui.global::<ActionBridge>().set_busy(true);
+    status(ui, format!("Watching while Sheaf is open. {description}"));
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let mut written = 0;
+        let mut failure = String::new();
+        while !cancel.load(Ordering::Relaxed) {
+            let message = match saved.watch.poll(&saved.action, &mut || !cancel.load(Ordering::Relaxed)) {
+                Ok(results) if results.is_empty() => None,
+                Ok(results) => {
+                    let mut errors = Vec::new();
+                    for (path, result) in results {
+                        match result { Ok(_) => written += 1, Err(e) => errors.push(format!("{}: {e}", path.display())) }
+                    }
+                    if let Err(e) = saved.save(&store_file::data_dir()) {
+                        failure = format!("Cannot checkpoint this watch: {e}");
+                        cancel.store(true, Ordering::Relaxed);
+                        errors.push(failure.clone());
+                    }
+                    Some(format!("Watching · {written} file(s) written. {}", errors.join(" · ")))
                 }
-                let _ = weak.upgrade_in_event_loop(move |ui| {
-                    ui.global::<ActionBridge>().set_busy(false);
-                    status(&ui, format!("Folder watch stopped. {written} file(s) written to {}. {failure}", output.display()));
-                });
-            });
+                Err(e) => { cancel.store(true, Ordering::Relaxed); failure = e.to_string(); Some(format!("Folder watch stopped: {e}")) }
+            };
+            if let Some(message) = message
+                && weak.upgrade_in_event_loop(move |ui| status(&ui, message)).is_err() { break; }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            ui.global::<ActionBridge>().set_busy(false);
+            status(&ui, format!("Folder watch stopped. {written} file(s) written. {failure}"));
         });
     });
 }

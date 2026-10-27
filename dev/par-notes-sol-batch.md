@@ -167,3 +167,13 @@ errors back to this worker; do not grade parity from this implementation report 
   Left: unsupported Stirling tools/settings, Acrobat sequ files. No dependency.
   not automatable: drop the exported JSON onto Actions and verify the independent named copy —
   actual drop delivery requires running the app (brief rule 1).
+
+- C-batch-008: a watch now persists its action, folders, naming options and handled size/time
+  revisions in `folder-watch.json`. Resume saved watch and Forget watch live in Actions; recursive
+  watching is optional, never follows symlinks, and is bounded to 10,000 folders / 100,000 PDFs.
+  Completed polls checkpoint; a checkpoint failure stops visibly instead of repeatedly processing.
+  Test `a_saved_recursive_watch_resumes_without_repeating_handled_revisions` covers default exclusion,
+  recursion, save/load, no repeat, changed-file retry and Forget (written, not run).
+  Left: one watch at a time, explicit Resume after reopening, no background daemon. A crash after
+  publishing but before checkpoint can produce another uniquely named output on resume.
+  not automatable: configure, Stop, restart, Resume, drop nested PDFs, Forget — app launch forbidden.
