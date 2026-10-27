@@ -8,6 +8,7 @@ pub mod library;
 pub mod javascript_console;
 pub mod watch_folder;
 pub mod files;
+pub mod file_preview;
 pub mod history;
 pub mod icons;
 pub mod jobs;

@@ -768,3 +768,12 @@ cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
 key r; sleep 0.6; read FX _ <<< "$(at Fill 1280x120+0+80)"
 check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
 quit; platform_reset
+
+# 310. A text file opened with Sheaf (C-reader-064, Stirling's non-PDF viewer): it opens in the reader to browse, its
+# lines on the page, as a preview PDF in Sheaf's temporary folder (the .txt itself unchanged), not refused.
+printf 'Shopping list\nMilk and bread\n' > "$OUT/notes.txt"
+launch "$OUT/notes.txt"; sleep 3
+TB=$(ocr 1280x80+0+0); PG=$(ocr 900x500+190+90)
+shot 310-text-preview
+check "a .txt opens in the reader (tab: $(echo "$TB" | grep -o 'notes[^ ]*' | head -1); page: $(echo "$PG" | grep -o 'Shopping list' | head -1))" "echo \"$PG\" | grep -q 'Shopping list' && echo \"$PG\" | grep -q 'Milk' && ls \"$OUT\"/profile/tmp/sheaf-previews/*/notes.txt.pdf >/dev/null 2>&1 && [ \"\$(cat \"$OUT/notes.txt\")\" = \"\$(printf 'Shopping list\nMilk and bread')\" ]"
+quit
