@@ -306,6 +306,14 @@ impl Viewer {
         self.row_of.get(i).copied().unwrap_or(0)
     }
 
+    /// With pages across, the horizontal scroll after a step of `frac` of the view's width forward
+    /// (`dir` > 0: Space, Page Down) or back, from `left`: forward runs toward the strip's end, to the
+    /// left when it reads right to left (Sol, 27/10: Space at page 1, on the right end, stayed there).
+    pub fn across_step(&self, left: f64, dir: i32, frac: f64) -> f64 {
+        let d = self.fit_width * frac * f64::from(dir.signum());
+        (left + if self.rtl { -d } else { d }).clamp(0.0, self.max_scroll_x())
+    }
+
     /// With pages across, the horizontal scroll that centres page `i`'s row in the view (its pair
     /// with it), held to the strip's ends; 0 down a column.
     pub fn scroll_x_to(&self, i: usize) -> f64 {
@@ -899,6 +907,28 @@ mod tests {
         // The view shorter than the page: the strip is the page's height, the page at the top gap.
         assert!(v.set_height(300.0));
         assert_eq!((v.page_rect(0)[1], v.content_height()), (PAGE_GAP, v.page_rect(0)[3] + 2.0 * PAGE_GAP));
+    }
+
+    /// Space and Page Down go forward along the strip whichever way it reads: rightward, or leftward from
+    /// page 1 at the right end when right to left (Sol, 27/10).
+    #[test]
+    fn a_step_across_goes_forward_in_reading_order() {
+        let mut v = Viewer::new(vec![PageBox { crop: A4, rotation: 0, unit: 1.0 }; 10]);
+        v.set_width(1000.0);
+        v.set_horizontal(true);
+        let start = v.scroll_x_to(0);
+        assert_eq!(start, 0.0);
+        assert_eq!(v.across_step(start, 2, 0.9), 900.0);
+        assert_eq!(v.across_step(900.0, -2, 0.9), 0.0);
+        v.set_rtl(true);
+        let start = v.scroll_x_to(0);
+        assert_eq!(start, v.max_scroll_x(), "page 1 at the right end");
+        let next = v.across_step(start, 2, 0.9);
+        assert_eq!(next, start - 900.0);
+        v.set_left(next);
+        assert!(v.current(0.0, 700.0) >= 1, "forward is a later page");
+        assert_eq!(v.across_step(start, -2, 0.9), start, "back from page 1 stays at the end");
+        assert_eq!(v.across_step(500.0, 2, 0.9), 0.0, "held to the strip's start");
     }
 
     /// A short document across: the strip centred in a wider view.

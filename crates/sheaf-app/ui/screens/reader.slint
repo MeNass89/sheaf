@@ -644,7 +644,8 @@ export component ReaderScreen inherits Rectangle {
                             // Pages across: a mouse's wheel moves along the strip when there is nothing to
                             // scroll down (a trackpad sends the sideways movement itself).
                             if root.tab.reader.horizontal && e.delta-x == 0 && e.delta-y != 0 && sv.content-height <= sv.visible-height + 1px {
-                                sv.content-x = clamp(sv.content-x + e.delta-y, min(0px, sv.visible-width - sv.content-width), 0px);
+                                // Right to left: down goes on to later pages, leftward (as Space does).
+                                sv.content-x = clamp(sv.content-x + (root.tab.reader.rtl ? -e.delta-y : e.delta-y), min(0px, sv.visible-width - sv.content-width), 0px);
                                 return accept;
                             }
                             reject
