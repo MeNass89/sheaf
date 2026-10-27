@@ -15,6 +15,7 @@ pub mod images;
 pub mod info;
 pub mod layers;
 pub mod office;
+pub mod office_runtime;
 pub mod numbers;
 pub mod ocr;
 pub mod pages;

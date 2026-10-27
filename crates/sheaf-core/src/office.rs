@@ -1,6 +1,6 @@
 //! Office / HTML → PDF through LibreOffice, run headless as a child process.
 //!
-//! LibreOffice is an external dependency: detected at runtime, never bundled.
+//! LibreOffice is detected at runtime, either packaged beside Sheaf or installed separately.
 //! Every conversion gets its own throwaway profile and output directory, so
 //! parallel conversions never collide with each other or with a LibreOffice
 //! the user already has open.
@@ -15,10 +15,13 @@ use std::time::{Duration, Instant};
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 const POLL: Duration = Duration::from_millis(100);
 
-/// Locates `soffice`: `$SHEAF_SOFFICE`, then the standard install location (macOS, Windows),
-/// then `PATH`.
+/// Locates `soffice`: `$SHEAF_SOFFICE`, a packaged runtime, the standard install location
+/// (macOS, Windows), then `PATH`.
 pub fn find_soffice() -> Option<PathBuf> {
     if let Some(p) = std::env::var_os("SHEAF_SOFFICE").map(PathBuf::from).filter(|p| p.is_file()) {
+        return Some(p);
+    }
+    if let Some(p) = std::env::current_exe().ok().and_then(|exe| crate::office_runtime::bundled_soffice(&exe)) {
         return Some(p);
     }
     #[cfg(target_os = "macos")]
