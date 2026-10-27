@@ -5,7 +5,7 @@
 - Worktree `/tmp/f5/w-sol-batch`, branch `par/sol-batch`; only this batch's files.
 - Brief rule 1: no cargo, rustc, clippy, tests, app, browser or codex execution. The orchestrator
   owns compilation, the suite and visual verification. No score of 9 is claimed here.
-- Inputs have no DISAGREE entry: all nine are phase-4 zero baselines. Their definitions are the targets.
+- Pass 3 input: `/tmp/f5/par/review-sol-batch.txt`, Opus DISAGREE for all nine. Close evidenced gaps without claiming unrun parity.
 
 ## Polaroid
 
@@ -338,3 +338,18 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
 - `dev/scripts/smoke/3-flows.sh`
 - `third_party/pdfcraft-engine/src/actions.rs`
 - `third_party/pdfcraft-engine/src/js.rs`
+
+## Pass 3 · active
+
+- C-batch-002: Acrobat Action Wizard now offers native Rust compression presets (low,
+  recommended, extreme, lossless), configured page numbers (six positions, starting number,
+  size and token format), and PDF/A-2b/3b conversion. PDF/A refuses publication when the native
+  verifier still finds issues, with their first cause; it never claims Ghostscript-level repair.
+  Dedicated controls replace the free-text setting for those tools. The list filter's string-to-int
+  Slint error is fixed. Drafts checkpoint every two seconds and recover after restart, including
+  incomplete new actions. Tests `wizard_native_options_validate_and_number_pages_before_compression`,
+  `partial_action_drafts_recover_without_becoming_saved_actions` (written, not run).
+  Left: Protect, Split, Word/image export and arbitrary toolbox settings; last two seconds of
+  typing may be lost on immediate process death. Output controls follow in C-batch-003.
+  not automatable: choose each native option, restart and recover draft; compile/render is
+  forbidden by brief rule 1. No new dependency, network or external executable.

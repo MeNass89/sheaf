@@ -20,11 +20,13 @@ struct State {
     step: i32,
     cancel: Arc<AtomicBool>,
     answer: Option<Sender<Option<String>>>,
+    autosave: slint::Timer,
+    checkpoint: String,
 }
 
 impl Default for State {
     fn default() -> Self {
-        Self { saved: vec![], baseline: SavedAction::empty(), pending: None, approved: false, draft: SavedAction::empty(), selected: -1, step: -1, cancel: Arc::new(AtomicBool::new(false)), answer: None }
+        Self { saved: vec![], baseline: SavedAction::empty(), pending: None, approved: false, draft: SavedAction::empty(), selected: -1, step: -1, cancel: Arc::new(AtomicBool::new(false)), answer: None, autosave: slint::Timer::default(), checkpoint: String::new() }
     }
 }
 
@@ -85,7 +87,15 @@ fn draft(ui: &AppWindow) {
             detail: if step.prompt { "Pauses for you" } else if !step.instruction.is_empty() { "Instructions" } else { "" }.into(),
         }).collect::<Vec<_>>())));
         let step = usize::try_from(s.step).ok().and_then(|i| s.draft.steps.get(i));
-        b.set_argument(step.map(|s| s.argument.as_str()).unwrap_or_default().into());
+        b.set_tool_id(step.map(|s| s.tool.as_str()).unwrap_or_default().into());
+        let argument = step.map(|s| s.argument.as_str()).unwrap_or_default();
+        if step.is_some_and(|s| s.tool == "page_numbers") {
+            let fields: Vec<_> = argument.splitn(4, '|').collect();
+            b.set_number_position(fields.first().and_then(|v| v.parse().ok()).unwrap_or(4));
+            b.set_number_start(fields.get(1).copied().unwrap_or("1").into());
+            b.set_number_size(fields.get(2).copied().unwrap_or("8").into());
+            b.set_argument(fields.get(3).copied().unwrap_or("Page <<1>> of <<n>>").into());
+        } else { b.set_argument(argument.into()); }
         b.set_instruction(step.map(|s| s.instruction.as_str()).unwrap_or_default().into());
         b.set_pause(step.is_some_and(|s| s.prompt));
         b.set_has_argument(step.and_then(|s| s.engine().ok()).is_some_and(|s| s.arg().is_some()));
@@ -101,7 +111,9 @@ fn flush(ui: &AppWindow) {
         s.draft.custom_tool = b.get_custom();
         let index = s.step;
         if let Some(step) = usize::try_from(index).ok().and_then(|i| s.draft.steps.get_mut(i)) {
-            step.argument = b.get_argument().to_string();
+            step.argument = if step.tool == "page_numbers" {
+                format!("{}|{}|{}|{}", b.get_number_position(), b.get_number_start(), b.get_number_size(), b.get_argument())
+            } else { b.get_argument().to_string() };
             step.instruction = b.get_instruction().to_string();
             step.prompt = b.get_pause();
         }
@@ -114,8 +126,27 @@ pub fn install(ui: &AppWindow) {
         Err(e) => status(ui, format!("{e}. Your saved file has been left unchanged.")),
     }
     ui.global::<ActionBridge>().set_tools(ModelRc::new(VecModel::from(Step::all().iter().map(|s| s.label().into()).collect::<Vec<slint::SharedString>>())));
+    match actions::load_draft(&store_file::data_dir()) {
+        Ok(Some(recovered)) => { STATE.with(|s| { let mut s = s.borrow_mut(); s.draft = recovered; s.baseline = SavedAction::empty(); }); status(ui, "Recovered your action draft. Save it to keep it in your actions."); }
+        Ok(None) => {}, Err(e) => status(ui, format!("Draft recovery: {e}")),
+    }
     rows(ui);
     draft(ui);
+    let weak = ui.as_weak();
+    STATE.with(|s| s.borrow().autosave.start(slint::TimerMode::Repeated, std::time::Duration::from_secs(2), move || {
+        let Some(ui) = weak.upgrade() else { return };
+        if ui.global::<ActionBridge>().get_busy() { return; }
+        flush(&ui);
+        let result = STATE.with(|s| {
+            let mut s = s.borrow_mut();
+            let checkpoint = format!("{}:{}", s.changed(), serde_json::to_string(&s.draft).unwrap_or_default());
+            if checkpoint == s.checkpoint { return Ok(()); }
+            actions::save_draft(&store_file::data_dir(), s.changed().then_some(&s.draft))?;
+            s.checkpoint = checkpoint;
+            Ok::<_, sheaf_core::OpdfError>(())
+        });
+        if let Err(e) = result { status(&ui, format!("Draft could not be saved: {e}")); }
+    }));
     match sheaf_app::watch_folder::SavedWatch::load(&store_file::data_dir()) {
         Ok(Some(saved)) => ui.global::<ActionBridge>().set_saved_watch(saved.description().into()),
         Ok(None) => {}, Err(e) => status(ui, e.to_string()),

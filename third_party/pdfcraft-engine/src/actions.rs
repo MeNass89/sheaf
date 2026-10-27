@@ -12,6 +12,12 @@ pub enum Step {
     RecognizeText,
     /// Reduce file size.
     ReduceFileSize,
+    /// Sheaf native optimization presets; no Ghostscript process.
+    Compress(String),
+    /// Native PDF/A conversion, refused if verification still finds nonconformities.
+    ConvertPdfA(String),
+    /// position|start|size|format, configured by the Action Wizard controls.
+    PageNumbers(String),
     /// Remove hidden information (every category).
     RemoveHiddenInformation,
     /// Sanitize document.
@@ -46,6 +52,9 @@ impl Step {
         vec![
             Step::RecognizeText,
             Step::ReduceFileSize,
+            Step::Compress("recommended".into()),
+            Step::ConvertPdfA("2b".into()),
+            Step::PageNumbers("4|1|8|Page <<1>> of <<n>>".into()),
             Step::RemoveHiddenInformation,
             Step::Sanitize,
             Step::FlattenComments,
@@ -72,6 +81,9 @@ impl Step {
         match self {
             Step::RecognizeText => "recognize_text",
             Step::ReduceFileSize => "reduce_file_size",
+            Step::Compress(_) => "compress",
+            Step::ConvertPdfA(_) => "pdfa",
+            Step::PageNumbers(_) => "page_numbers",
             Step::RemoveHiddenInformation => "remove_hidden_information",
             Step::Sanitize => "sanitize",
             Step::FlattenComments => "flatten_comments",
@@ -97,6 +109,9 @@ impl Step {
         match self {
             Step::RecognizeText => "Recognize text",
             Step::ReduceFileSize => "Reduce file size",
+            Step::Compress(_) => "Compress PDF",
+            Step::ConvertPdfA(_) => "Convert to PDF/A",
+            Step::PageNumbers(_) => "Add page numbers",
             Step::RemoveHiddenInformation => "Remove hidden information",
             Step::Sanitize => "Sanitize document",
             Step::FlattenComments => "Flatten comments",
@@ -121,14 +136,14 @@ impl Step {
     /// The step's text argument, if it takes one.
     pub fn arg(&self) -> Option<&str> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) => Some(s),
             _ => None,
         }
     }
 
     pub fn arg_mut(&mut self) -> Option<&mut String> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) | Step::Compress(s) | Step::ConvertPdfA(s) | Step::PageNumbers(s) => Some(s),
             _ => None,
         }
     }
@@ -139,8 +154,25 @@ impl Step {
         if let Some(a) = s.arg_mut() {
             *a = arg.to_string();
         }
+        if matches!(&s, Step::Compress(v) if !["low", "recommended", "extreme", "lossless"].contains(&v.as_str())) { return None; }
+        if matches!(&s, Step::ConvertPdfA(v) if !["2b", "3b"].contains(&v.as_str())) { return None; }
+        if let Step::PageNumbers(v) = &s { number_settings(v).ok()?; }
         Some(s)
     }
+}
+
+/// Parse the Wizard's bounded page-number options before changing any pages.
+pub fn number_settings(value: &str) -> Result<crate::HeaderFooter, EditError> {
+    let fields: Vec<_> = value.splitn(4, '|').collect();
+    let bad = || EditError::Invalid("Page numbers need position 0–5, start 1–1000000, size 4–144 and text".into());
+    if fields.len() != 4 { return Err(bad()); }
+    let position = fields[0].parse::<usize>().map_err(|_| bad())?;
+    let start = fields[1].parse::<u32>().map_err(|_| bad())?;
+    let size = fields[2].parse::<f64>().map_err(|_| bad())?;
+    if position > 5 || !(1..=1_000_000).contains(&start) || !size.is_finite() || !(4.0..=144.0).contains(&size) || fields[3].is_empty() { return Err(bad()); }
+    let mut settings = crate::HeaderFooter { start_number: start, font_size: size, ..Default::default() };
+    settings.text[position] = fields[3].into();
+    Ok(settings)
 }
 
 /// A named action.
@@ -187,8 +219,34 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
             log.push(format!("Recognize text: {} words", found.iter().map(|p| p.words.len()).sum::<usize>()));
             return Ok(None);
         }
-        Step::ReduceFileSize => {
-            let (bytes, _) = s.optimized_bytes(id, &crate::optimize::Settings::default(), &[])?;
+        Step::PageNumbers(value) => Edit::AddHeaderFooter { pages: all, settings: number_settings(value)?, replace: false },
+        Step::ConvertPdfA(value) => {
+            let level = match value.as_str() {
+                "2b" => crate::pdfa::Level::A2b, "3b" => crate::pdfa::Level::A3b,
+                _ => return Err(EditError::Invalid("Choose PDF/A-2b or PDF/A-3b".into())),
+            };
+            s.apply(id, Edit::ConvertPdfA { level })?;
+            let issues = s.get(id).ok_or(EditError::NoDocument)?.pdfa_verify(level);
+            if !issues.is_empty() {
+                return Err(EditError::Invalid(format!("Native PDF/A conversion still has {} conformance issue(s): {}. No output was published.", issues.len(), issues[0].message)));
+            }
+            log.push(format!("Verified PDF/A-{value}"));
+            return Ok(None);
+        }
+        Step::ReduceFileSize | Step::Compress(_) => {
+            let mut settings = crate::optimize::Settings::default();
+            if let Step::Compress(level) = step {
+                let (ppi, quality) = match level.as_str() {
+                    "low" => (300.0, crate::optimize::Compression::Jpeg(85)),
+                    "recommended" => (150.0, crate::optimize::Compression::Jpeg(70)),
+                    "extreme" => (96.0, crate::optimize::Compression::Jpeg(45)),
+                    "lossless" => (300.0, crate::optimize::Compression::Flate),
+                    _ => return Err(EditError::Invalid("Choose low, recommended, extreme or lossless compression".into())),
+                };
+                settings.color = crate::optimize::ImageSettings { downsample: level != "lossless", target_ppi: ppi, above_ppi: ppi * 1.5, compression: quality };
+                settings.gray = settings.color;
+            }
+            let (bytes, _) = s.optimized_bytes(id, &settings, &[])?;
             let before = s.get(id).map_or(0, |d| d.bytes.len());
             log.push(format!("Reduce file size: {} → {} bytes", before, bytes.len()));
             let name = s.get(id).map(|d| d.name.clone()).unwrap_or_default();

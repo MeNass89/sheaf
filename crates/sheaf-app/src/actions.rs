@@ -114,6 +114,26 @@ pub fn save(dir: &Path, all: &[SavedAction]) -> Result<()> {
     Ok(())
 }
 
+/// Recover partial drafts, including a new action with no steps yet.
+pub fn load_draft(dir: &Path) -> Result<Option<SavedAction>> {
+    match std::fs::read(dir.join("action-draft.json")) {
+        Ok(bytes) if bytes.len() <= 10 * 1024 * 1024 => serde_json::from_slice(&bytes).map(Some).map_err(|e| invalid(e.to_string())),
+        Ok(_) => Err(invalid("The saved draft exceeds 10 MB")),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None), Err(e) => Err(e.into()),
+    }
+}
+
+pub fn save_draft(dir: &Path, draft: Option<&SavedAction>) -> Result<()> {
+    let path = dir.join("action-draft.json");
+    if let Some(draft) = draft {
+        let bytes = serde_json::to_vec(draft).map_err(|e| invalid(e.to_string()))?;
+        crate::store_file::replace(&path, &bytes)?;
+    } else {
+        match std::fs::remove_file(path) { Ok(()) => {}, Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}, Err(e) => return Err(e.into()) }
+    }
+    Ok(())
+}
+
 /// Give a copied/imported action a name that leaves the existing ones alone.
 pub fn unused_name(name: &str, all: &[SavedAction]) -> String {
     let taken = |name: &str| all.iter().any(|a| a.name.to_lowercase() == name.to_lowercase());
@@ -324,4 +344,16 @@ mod tests {
         assert!(!out.exists());
         assert_eq!(std::fs::read(input).unwrap(), *bytes);
     }
+    #[test]
+    fn partial_action_drafts_recover_without_becoming_saved_actions() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut draft = SavedAction::empty();
+        draft.name = "Still writing".into();
+        save_draft(dir.path(), Some(&draft)).unwrap();
+        assert_eq!(load_draft(dir.path()).unwrap(), Some(draft));
+        assert!(load(dir.path()).unwrap().is_empty());
+        save_draft(dir.path(), None).unwrap();
+        assert_eq!(load_draft(dir.path()).unwrap(), None);
+    }
+
 }

@@ -108,3 +108,28 @@ fn console_page_context_matches_the_reader_and_clamps_out_of_range_pages() {
     assert_eq!(out.console, ["0"]);
     assert!(out.requests.contains(&sheaf_core::pdfcraft::engine::js::Request::GoToPage(0)));
 }
+
+#[test]
+fn wizard_native_options_validate_and_number_pages_before_compression() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{Action, Step, number_settings, run_on}};
+    for value in ["6|1|8|<<1>>", "4|0|8|<<1>>", "4|1|NaN|<<1>>", "4|1|3|<<1>>", "bad"] {
+        assert!(number_settings(value).is_err(), "{value}");
+        assert!(Step::from_id("page_numbers", value).is_none());
+    }
+    assert!(Step::from_id("compress", "unknown").is_none());
+    assert!(Step::from_id("pdfa", "1a").is_none());
+    let settings = number_settings("5|12|14|Page <<1>> of <<n>>").unwrap();
+    assert_eq!(settings.start_number, 12);
+    assert_eq!(settings.font_size, 14.0);
+    assert_eq!(settings.text[5], "Page <<1>> of <<n>>");
+    let bytes = Session::new().create_from_text("Original", "Keep text").unwrap();
+    for level in ["low", "recommended", "extreme", "lossless"] {
+        let action = Action { name: "Native".into(), description: String::new(), builtin: false,
+            steps: vec![Step::PageNumbers("4|7|12|Page <<1>>".into()), Step::Compress(level.into())] };
+        let out = run_on(&action, "input.pdf", bytes.clone(), |_, _| {}).unwrap();
+        let mut check = Session::new();
+        let id = check.open("out.pdf", None, out.bytes, None).unwrap();
+        assert_eq!(check.get(id).unwrap().info.pages.len(), 1);
+        assert_eq!(out.log.len(), 2);
+    }
+}

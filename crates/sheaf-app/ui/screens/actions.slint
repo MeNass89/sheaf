@@ -25,6 +25,10 @@ export global ActionBridge {
     in-out property <string> instruction;
     in-out property <bool> pause;
     in-out property <bool> has-argument;
+    in-out property <string> tool-id;
+    in-out property <int> number-position: 4;
+    in-out property <string> number-start: "1";
+    in-out property <string> number-size: "8";
     in-out property <bool> busy;
     in-out property <bool> title-names;
     in-out property <bool> recursive;
@@ -79,7 +83,7 @@ export component ActionsScreen inherits Rectangle {
                 width: 220px;
                 VerticalLayout {
                     spacing: 6px; alignment: start;
-                    ComboBox { model: ["All actions", "Suggested", "Saved actions", "Custom tools"]; current-index <=> ActionBridge.filter; enabled: !ActionBridge.busy; selected(i) => { ActionBridge.filter = i; ActionBridge.command("filter", 0); } }
+                    ComboBox { model: ["All actions", "Suggested", "Saved actions", "Custom tools"]; current-index <=> ActionBridge.filter; enabled: !ActionBridge.busy; selected(value) => { ActionBridge.command("filter", 0); } }
                     if ActionBridge.rows.length == 0: Text { text: "No actions in this list yet."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
                     for row in ActionBridge.rows: Rectangle {
                         height: 80px;
@@ -130,7 +134,16 @@ export component ActionsScreen inherits Rectangle {
                     if ActionBridge.steps.length == 0: Text { text: "Add the first step above."; color: Theme.text-secondary; font-size: Theme.fs-body; }
                     if ActionBridge.step >= 0: VerticalLayout {
                         spacing: 8px;
-                        if ActionBridge.has-argument: VerticalLayout {
+                        if ActionBridge.tool-id == "compress": ComboBox { model: ["low", "recommended", "extreme", "lossless"]; current-value <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
+                        if ActionBridge.tool-id == "pdfa": ComboBox { model: ["2b", "3b"]; current-value <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
+                        if ActionBridge.tool-id == "page_numbers": VerticalLayout {
+                            spacing: 6px;
+                            ComboBox { model: ["Header left", "Header centre", "Header right", "Footer left", "Footer centre", "Footer right"]; current-index <=> ActionBridge.number-position; enabled: !ActionBridge.busy; }
+                            TextField { label: "Starting number"; text <=> ActionBridge.number-start; enabled: !ActionBridge.busy; }
+                            TextField { label: "Font size (points, 4–144)"; text <=> ActionBridge.number-size; enabled: !ActionBridge.busy; }
+                            TextField { label: "Format (<<1>> = page, <<n>> = count)"; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
+                        }
+                        if ActionBridge.has-argument && ActionBridge.tool-id != "compress" && ActionBridge.tool-id != "pdfa" && ActionBridge.tool-id != "page_numbers": VerticalLayout {
                             spacing: 6px;
                             Text { text: "Text or JavaScript for this step"; color: Theme.text; font-size: Theme.fs-label; }
                             TextEdit { height: 90px; text <=> ActionBridge.argument; enabled: !ActionBridge.busy; }
