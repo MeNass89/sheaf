@@ -1154,8 +1154,8 @@ launch
 AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
 CA=$(at Confidential 230x600+235+150); [ -n "$CA" ] && click $CA
 answer "$PWD/$OUT/action-export.json"
-EX=$(at Export 1000x140+220+35); [ -n "$EX" ] && click $EX
-IM=$(at Import 1000x140+220+35); [ -n "$IM" ] && click $IM
+EX=$(at Export 1000x260+220+35); [ -n "$EX" ] && click $EX
+IM=$(at Import 1000x260+220+35); [ -n "$IM" ] && click $IM
 check "suggested action exports and imports as an independent saved action (${CA:-no suggestion})" "python3 -c 'import json; a=json.load(open(\"$OUT/action-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"steps\"][0][\"tool\"] == \"add_watermark\"; assert a[\"steps\"][0][\"argument\"] == \"CONFIDENTIAL\"; assert any(x[\"name\"] != a[\"name\"] and x[\"steps\"] == a[\"steps\"] for x in b)'"
 quit
 
@@ -1166,7 +1166,7 @@ LI=$(at Library 210x400+0+30); [ -n "$LI" ] && click $LI
 answer "$PWD/$OUT/text.pdf"
 LA=$(at Add 1000x160+220+35); [ -n "$LA" ] && click $LA 2
 answer "$PWD/$OUT/library-export.pdf"
-LE=$(at Save 600x180+650+100); [ -n "$LE" ] && click $LE
+LE=$(at Save 600x300+650+100); [ -n "$LE" ] && click $LE
 check "Library keeps a private copy and exports it (${LA:-no Add}; ${LE:-no Save copy})" "cmp -s \"$OUT/text.pdf\" \"$OUT/library-export.pdf\" && python3 -c 'import pathlib,json; root=pathlib.Path(\"$OUT/profile/data/Sheaf/library\"); items=[json.loads(p.read_text()) for p in root.glob(\"*/entry.json\")]; assert any(e[\"name\"] == \"text.pdf\" and len(e[\"versions\"]) == 1 for e in items)'"
 quit
 
@@ -1176,8 +1176,8 @@ cp "$OUT/text.pdf" "$OUT/portfolio-source.pdf"
 launch
 AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
 answer "$PWD/$OUT/portfolio-source.pdf"
-PC=$(at Create 1050x160+220+35); [ -n "$PC" ] && click $PC
-PA=$(at Add 800x600+200+100); [ -n "$PA" ] && click $PA
-PW=$(at Create 800x600+200+100); [ -n "$PW" ] && click $PW 3
+PC=$(at Create 1050x260+220+35); [ -n "$PC" ] && click $PC
+PA=$(at Add 740x180+270+440); [ -n "$PA" ] && click $PA
+PW=$(at Save 740x180+270+440); [ -n "$PW" ] && click $PW 3
 check "Create portfolio bundles the original instead of merging (${PC:-no Create})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
 quit

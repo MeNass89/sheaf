@@ -34,6 +34,7 @@ export component LibraryScreen inherits Rectangle {
         }
         Rectangle {
             height: Theme.field-height; border-width: 1px; border-color: Theme.input-border; border-radius: Theme.radius-small; background: Theme.input-bg;
+            if LibraryBridge.query == "": Text { x: 10px; text: "Filter by name or archive folder"; color: Theme.text-muted; font-size: Theme.fs-body; vertical-alignment: center; }
             TextInput {
                 x: 10px; width: parent.width - 20px; text <=> LibraryBridge.query;
                 single-line: true; color: Theme.text; font-size: Theme.fs-body; vertical-alignment: center;
@@ -74,6 +75,9 @@ export component LibraryScreen inherits Rectangle {
                     HorizontalLayout {
                         spacing: 8px;
                         Button { text: "New version…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("update", 0); } }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
                         Button { text: "Delete file and versions"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("ask-delete", 0); } }
                     }
                     Text { text: "Version history"; color: Theme.text; font-size: Theme.fs-subtitle; }

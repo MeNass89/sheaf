@@ -277,3 +277,64 @@ historical baseline; the Pass 2 entries supersede their corresponding Left notes
   Left: recovering an unsaved action draft after quitting the whole process.
   not automatable: edit, switch, Keep editing; import a file, Discard; reopen the saved template —
   app execution prohibited by brief rule 1.
+
+## Provisional author grades · pass 2
+
+Static assessment only: the named tests exist but have not run; all aesthetics need rendering,
+all performance scores need measurement. No 9 is proposed; no joint closure is requested yet.
+
+- C-batch-002: f8 a6 p7 — `duplicate_step_keeps_configuration_and_enforces_the_step_limit`,
+  `crates/sheaf-app/src/actions.rs:242`; `draft_guard_detects_edits_and_unsaved_copies_but_allows_unchanged_templates`,
+  `crates/sheaf-app/src/actions_ui.rs:471`: step bounds, independent copies, unsaved-draft detection.
+- C-batch-003: f8 a6 p7 — `prompted_settings_affect_this_run_without_changing_the_saved_action`,
+  `crates/sheaf-app/src/actions.rs:285`; `stopping_during_the_last_step_does_not_publish_its_output`: isolated prompt edits and final cancellation.
+  `a_guided_action_opens_encrypted_input_and_keeps_its_protection`, `crates/sheaf-core/tests/engine_patches.rs:68`: password/protection regression.
+- C-batch-004: f5 a6 p7 — `stirling_export_import_preserves_equivalent_settings_and_order`,
+  `crates/sheaf-app/src/action_import.rs:84`; `stirling_import_refuses_unknown_tools_settings_and_rasterization`: exact supported subset, rejected incompatible semantics.
+- C-batch-005: f8 a6 p7 — `copied_names_remain_valid_at_the_unicode_name_limit`,
+  `crates/sheaf-app/src/actions.rs:230`; first-pass `suggested_actions_are_valid_offline_templates_and_survive_copy_edits`: valid independent offline copies.
+- C-batch-006: f7 a6 p7 — `custom_commands_round_trip_and_apply_rotation_and_metadata`,
+  `crates/sheaf-core/tests/engine_patches.rs:86`: all 20 command IDs round-trip, rotation/author apply; reader palette in actions.slint.
+- C-batch-008: f7 a6 p7 — `a_saved_recursive_watch_resumes_without_repeating_handled_revisions`,
+  `crates/sheaf-app/src/watch_folder.rs:221`: recursion, persisted handled revisions, change retry, Forget.
+- C-files-008: f8 a6 p7 — `checkout_recovery_and_release_keep_versions_and_other_checkouts`,
+  `crates/sheaf-app/src/library.rs:303`: working-copy recovery, immutable saved versions, isolated cleanup.
+- C-organize-024: f8 a6 p6 — `a_portfolio_keeps_the_chosen_order_separate_from_the_sorted_name_tree`,
+  `crates/sheaf-core/tests/portfolio.rs:50`: Collection sort/order; composition and embedded-file browser in portfolio.slint.
+- C-platform-005: f8 a6 p7 — `javascript_console_returns_local_viewer_requests_and_named_document_scripts`,
+  `crates/sheaf-app/src/reader_doc/tests/forms_and_files.rs:233`: page context, local requests, named scripts and Undo;
+  `console_page_context_matches_the_reader_and_clamps_out_of_range_pages`, `crates/sheaf-core/tests/engine_patches.rs:103`: page clamp.
+
+## Files touched in pass 2
+
+- `ARCHITECTURE.md`
+- `crates/sheaf-app/src/action_import.rs`
+- `crates/sheaf-app/src/actions.rs`
+- `crates/sheaf-app/src/actions_ui.rs`
+- `crates/sheaf-app/src/flow.rs`
+- `crates/sheaf-app/src/lib.rs`
+- `crates/sheaf-app/src/library.rs`
+- `crates/sheaf-app/src/library_ui.rs`
+- `crates/sheaf-app/src/main.rs`
+- `crates/sheaf-app/src/portfolio_ui.rs`
+- `crates/sheaf-app/src/reader_doc/mod.rs`
+- `crates/sheaf-app/src/reader_doc/tests/forms_and_files.rs`
+- `crates/sheaf-app/src/reader_ui/javascript.rs`
+- `crates/sheaf-app/src/reader_ui/mod.rs`
+- `crates/sheaf-app/src/reader_ui/portfolio.rs`
+- `crates/sheaf-app/src/watch_folder.rs`
+- `crates/sheaf-app/ui/main.slint`
+- `crates/sheaf-app/ui/screens/actions.slint`
+- `crates/sheaf-app/ui/screens/javascript.slint`
+- `crates/sheaf-app/ui/screens/library.slint`
+- `crates/sheaf-app/ui/screens/portfolio.slint`
+- `crates/sheaf-app/ui/screens/reader-toolbar.slint`
+- `crates/sheaf-app/ui/screens/tools.slint`
+- `crates/sheaf-app/ui/widgets/text-field.slint`
+- `crates/sheaf-core/src/portfolio.rs`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `crates/sheaf-core/tests/portfolio.rs`
+- `dev/par-notes-sol-batch.md`
+- `dev/scripts/smoke/3-flows.sh`
+- `third_party/pdfcraft-engine/src/actions.rs`
+- `third_party/pdfcraft-engine/src/js.rs`

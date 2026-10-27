@@ -27,10 +27,11 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 - `crates/sheaf-app/src/actions.rs`: portable action JSON, ordered tool configurations,
   suggested actions, persistence and sequential execution without replacing originals.
 - `crates/sheaf-app/src/actions_ui.rs` and `ui/screens/actions.slint`: Home's Actions page,
-  step editor, saved/custom tool lists, import/export and worker-thread progress and pauses.
+  step editor, filtered suggested/saved/custom lists, reader custom palette, import/export,
+  worker-thread progress and editable pauses. Guided actions is reachable from Tools and the reader.
 
 - `crates/sheaf-app/src/watch_folder.rs`: stable-file polling, duplicate suppression and
-  optional title-based output names for local watched folders.
+  optional title-based output names, recursive scanning and persisted resume checkpoints.
 
 - `crates/sheaf-core/src/portfolio.rs`: PDF Collection catalog, readable cover, original
   embedded files, chosen order and duplicate-name handling; `src/portfolio_ui.rs` and
@@ -39,7 +40,8 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 
 - `crates/sheaf-app/src/library.rs`, `src/library_ui.rs` and `ui/screens/library.slint`:
   private local files, immutable versions, reader working copies, export, restore and bounded
-  ZIP imports. The reader Save hook checkpoints library working files after each save.
+  ZIP imports with retained folder metadata, file filters and recoverable working copies.
+  The reader Save hook checkpoints files and refreshes the list; tab closure releases its checkout.
 
 - `crates/sheaf-app/src/reader_ui/javascript.rs` and `ui/screens/javascript.slint`: active
   document JavaScript console and named document scripts; `reader_doc` executes at the visible

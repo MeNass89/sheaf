@@ -47,7 +47,7 @@ export component PortfolioPanel inherits Modal {
     HorizontalLayout {
         spacing: 8px;
         if !PortfolioBridge.browsing: Button { text: "Add files…"; enabled: !PortfolioBridge.busy; clicked => { PortfolioBridge.command("add", 0); } }
-        if !PortfolioBridge.browsing: Button { text: PortfolioBridge.busy ? "Creating…" : "Create portfolio…"; enabled: !PortfolioBridge.busy && PortfolioBridge.files.length > 0; clicked => { PortfolioBridge.command("create", 0); } }
+        if !PortfolioBridge.browsing: Button { text: PortfolioBridge.busy ? "Creating…" : "Save portfolio…"; enabled: !PortfolioBridge.busy && PortfolioBridge.files.length > 0; clicked => { PortfolioBridge.command("create", 0); } }
         Rectangle { horizontal-stretch: 1; }
         Button { text: "Close"; enabled: !PortfolioBridge.busy; clicked => { PortfolioBridge.visible = false; } }
     }

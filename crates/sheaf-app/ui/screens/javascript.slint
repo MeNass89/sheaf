@@ -54,5 +54,5 @@ export component JavaScriptConsole inherits Modal {
     }
     Text { text: "Output"; color: Theme.text; font-size: Theme.fs-label; }
     TextEdit { height: JavaScriptBridge.scripts-open ? 70px : 150px; text: JavaScriptBridge.output; read-only: true; font-family: Theme.mono-family; }
-    Text { text: "Field changes can be undone. Save the document to keep them."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+    Text { text: "Changes can be undone. Save the document to keep them."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
 }
