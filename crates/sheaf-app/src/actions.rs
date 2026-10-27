@@ -120,14 +120,29 @@ pub fn unused_name(name: &str, all: &[SavedAction]) -> String {
 /// Run steps sequentially, pausing before each prompted step. No output is published until
 /// every step succeeds; a failure leaves the input untouched. `before` returns false to cancel.
 pub fn run_file(action: &SavedAction, input: &Path, out_dir: &Path, before: &mut dyn FnMut(usize, &ActionStep) -> bool) -> Result<PathBuf> {
+    run_file_configured(action, input, out_dir, None, &mut |i, step| before(i, step))
+}
+
+/// Password and prompted edits apply only to this run, leaving the saved template untouched.
+pub fn run_file_configured(
+    action: &SavedAction, input: &Path, out_dir: &Path, password: Option<&str>,
+    before: &mut dyn FnMut(usize, &mut ActionStep) -> bool,
+) -> Result<PathBuf> {
     action.validate()?;
-    let mut bytes = Arc::new(std::fs::read(input)?);
+    let bytes = Arc::new(std::fs::read(input)?);
     let name = input.file_name().ok_or_else(|| invalid("The input needs a file name"))?.to_string_lossy().into_owned();
-    for (index, step) in action.steps.iter().enumerate() {
-        if !before(index, step) { return Err(OpdfError::Cancelled); }
-        let one = Action { name: action.name.clone(), description: String::new(), steps: vec![step.engine()?], builtin: false };
-        bytes = actions::run_on(&one, &name, bytes, |_, _| {}).map_err(OpdfError::Engine)?.bytes;
-    }
+    let engine = Action { name: action.name.clone(), description: action.description.clone(),
+        steps: action.steps.iter().map(ActionStep::engine).collect::<Result<Vec<_>>>()?, builtin: false };
+    let mut cancelled = false;
+    let result = actions::run_guided(&engine, &name, bytes, password, |i, _| {
+        let mut step = action.steps[i].clone();
+        if !before(i, &mut step) { cancelled = true; return None; }
+        // The caller can edit the argument, never replace a tool with an unvalidated command.
+        if step.argument.len() > 1_000_000 { return None; }
+        step.engine().ok()
+    });
+    if cancelled { return Err(OpdfError::Cancelled); }
+    let bytes = result.map_err(OpdfError::Engine)?.bytes;
     std::fs::create_dir_all(out_dir)?;
     let stem = input.file_stem().unwrap_or_default().to_string_lossy();
     sheaf_core::paths::atomic_write(&out_dir.join(format!("{stem} - processed.pdf")), |part| {
@@ -244,13 +259,32 @@ mod tests {
     }
 
     #[test]
+    fn prompted_settings_affect_this_run_without_changing_the_saved_action() {
+        use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::Session}};
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("input.pdf");
+        let bytes = Session::new().create_from_text("Original", "Keep").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
+        let mut action = SavedAction::empty();
+        action.steps = vec![ActionStep::from_engine(&Step::SetTitle("Template title".into()))];
+        action.steps[0].prompt = true;
+        let output = run_file_configured(&action, &input, dir.path(), None, &mut |_, step| {
+            step.argument = "Title entered at the pause".into(); true
+        }).unwrap();
+        assert_eq!(Doc::open(&Input::new(output)).unwrap().document().info.title.as_deref(), Some("Title entered at the pause"));
+        assert_eq!(action.steps[0].argument, "Template title");
+        assert_eq!(std::fs::read(input).unwrap(), *bytes);
+    }
+
+    #[test]
     fn cancelled_action_does_not_publish_a_file() {
         let dir = tempfile::tempdir().unwrap();
         let input = dir.path().join("input.pdf");
-        std::fs::write(&input, b"not opened before the pause").unwrap();
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Keep").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
         let out = dir.path().join("outputs");
         assert!(matches!(run_file(&suggested()[0], &input, &out, &mut |_, _| false), Err(OpdfError::Cancelled)));
         assert!(!out.exists());
-        assert_eq!(std::fs::read(input).unwrap(), b"not opened before the pause");
+        assert_eq!(std::fs::read(input).unwrap(), *bytes);
     }
 }

@@ -160,8 +160,9 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
             let before = s.get(id).map_or(0, |d| d.bytes.len());
             log.push(format!("Reduce file size: {} → {} bytes", before, bytes.len()));
             let name = s.get(id).map(|d| d.name.clone()).unwrap_or_default();
+            let password = s.get(id).and_then(|d| d.editor.as_ref()).and_then(|e| e.keys.reopen.clone());
             s.close(id);
-            let new = s.open(name, None, bytes, None).map_err(|e| EditError::Reopen(e.to_string()))?;
+            let new = s.open(name, None, bytes, password.as_deref()).map_err(|e| EditError::Reopen(e.to_string()))?;
             return Ok(Some(new));
         }
         Step::RemoveHiddenInformation => Edit::RemoveHidden { which: crate::HIDDEN.to_vec() },
@@ -198,15 +199,27 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
 
 /// Run `action` on one file. `progress(step, steps)` is called before each step.
 pub fn run_on(action: &Action, name: &str, bytes: Arc<Vec<u8>>, mut progress: impl FnMut(usize, usize)) -> Result<FileResult, String> {
+    run_guided(action, name, bytes, None, |i, step| {
+        progress(i, action.steps.len());
+        Some(step.clone())
+    })
+}
+
+/// Sheaf's guided runner keeps the document open for the sequence. A prompt can replace a
+/// step's settings or cancel; passwords stay in memory and are never part of an action file.
+pub fn run_guided(
+    action: &Action, name: &str, bytes: Arc<Vec<u8>>, password: Option<&str>,
+    mut before: impl FnMut(usize, &Step) -> Option<Step>,
+) -> Result<FileResult, String> {
     let mut s = Session::new();
-    let mut id = s.open(name, None, bytes, None).map_err(|e| e.to_string())?;
+    let mut id = s.open(name, None, bytes, password).map_err(|e| e.to_string())?;
     if let Some(why) = s.get(id).and_then(|d| d.read_only_reason.clone()) {
         return Err(why);
     }
     let mut log = Vec::new();
     for (i, step) in action.steps.iter().enumerate() {
-        progress(i, action.steps.len());
-        if let Some(new) = apply_step(&mut s, id, step, &mut log).map_err(|e| format!("{}: {e}", step.label()))? {
+        let step = before(i, step).ok_or("Action cancelled")?;
+        if let Some(new) = apply_step(&mut s, id, &step, &mut log).map_err(|e| format!("{}: {e}", step.label()))? {
             id = new;
         }
     }

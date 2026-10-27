@@ -63,3 +63,21 @@ fn an_action_stops_on_a_script_error_before_later_steps() {
     assert!(result.unwrap_err().contains("stop here"));
     assert_eq!(visited, [0]);
 }
+
+#[test]
+fn a_guided_action_opens_encrypted_input_and_keeps_its_protection() {
+    use sheaf_core::pdfcraft::engine::{Session, Protection, actions::{Action, Step, run_guided}};
+    let mut session = Session::new();
+    let bytes = session.create_from_text("Original", "Keep").unwrap();
+    let id = session.open("encrypted.pdf", None, bytes, None).unwrap();
+    session.apply(id, Edit::Protect(Protection { open_password: Some("secret".into()), ..Default::default() })).unwrap();
+    let bytes = session.save_full_bytes(id).unwrap();
+    let action = Action { name: "Title".into(), description: String::new(), builtin: false,
+        steps: vec![Step::SetTitle("Saved".into())] };
+    assert!(run_guided(&action, "encrypted.pdf", bytes.clone(), None, |_, s| Some(s.clone())).is_err());
+    let out = run_guided(&action, "encrypted.pdf", bytes, Some("secret"), |_, s| Some(s.clone())).unwrap();
+    let mut check = Session::new();
+    assert!(check.open("out.pdf", None, out.bytes.clone(), None).is_err());
+    let id = check.open("out.pdf", None, out.bytes, Some("secret")).unwrap();
+    assert_eq!(check.get(id).unwrap().info.title.as_deref(), Some("Saved"));
+}

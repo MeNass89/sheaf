@@ -2,6 +2,7 @@ import { Theme } from "../theme.slint";
 
 // Single-line input with an optional label above and an error line below.
 export component TextField inherits VerticalLayout {
+    in property <bool> enabled: true;
     in property <string> label;
     in property <string> placeholder;
     in property <string> error;
@@ -37,6 +38,7 @@ export component TextField inherits VerticalLayout {
             vertical-alignment: center;
         }
         input := TextInput {
+            enabled: root.enabled;
             x: 10px;
             width: parent.width - (root.password && root.allow-reveal ? 52px : 20px);
             text <=> root.text;
@@ -79,6 +81,7 @@ export component TextField inherits VerticalLayout {
                 }
             }
             eye := TouchArea {
+                enabled: root.enabled;
                 mouse-cursor: pointer;
                 clicked => { root.revealed = !root.revealed; }
             }

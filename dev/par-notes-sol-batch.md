@@ -134,3 +134,16 @@ errors back to this worker; do not grade parity from this implementation report 
   prompted step — brief rule 1 forbids this worker from launching the app.
 - Reference lookup correction: archive paths start at `aapp/` and `frontend/`, without the app-name
   prefix given in the board. Listing those archives established the paths before reading them.
+
+- C-batch-003: prompted text/JavaScript can be changed for the current file in the pause panel;
+  passwords can be entered in a masked field before Run and are cleared from the UI, never
+  serialized. Each completed output has Open and Show in folder. The runner now keeps one
+  engine session for the entire sequence instead of writing/reopening once per step, preserving
+  password authentication and undo state between steps. New public engine API `actions::run_guided`;
+  app `actions::run_file_configured`. Existing `run_on` / `run_file` remain compatible wrappers.
+  Tests `prompted_settings_affect_this_run_without_changing_the_saved_action`,
+  `a_guided_action_opens_encrypted_input_and_keeps_its_protection`; cancellation regression now
+  uses a valid canonical engine-created PDF. Tests written, not run. No dependency.
+  Left: different passwords for individual inputs require separate runs; cancellation remains
+  between steps. not automatable: enter a password, edit the prompted watermark text, open each
+  completed output — app launch prohibited by brief rule 1.

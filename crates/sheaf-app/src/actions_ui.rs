@@ -14,7 +14,7 @@ struct State {
     selected: i32,
     step: i32,
     cancel: Arc<AtomicBool>,
-    answer: Option<Sender<bool>>,
+    answer: Option<Sender<Option<String>>>,
 }
 
 impl Default for State {
@@ -95,7 +95,7 @@ pub fn install(ui: &AppWindow) {
     });
     let weak = ui.as_weak();
     ui.global::<ActionBridge>().on_answer(move |yes| {
-        STATE.with(|s| { if let Some(tx) = s.borrow_mut().answer.take() { let _ = tx.send(yes); } });
+        STATE.with(|s| { if let Some(tx) = s.borrow_mut().answer.take() { let argument = weak.upgrade().map(|ui| ui.global::<ActionBridge>().get_prompt_argument().to_string()).unwrap_or_default(); let _ = tx.send(yes.then_some(argument)); } });
         if let Some(ui) = weak.upgrade() { ui.global::<ActionBridge>().set_prompt("".into()); }
     });
 }
@@ -105,9 +105,17 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         STATE.with(|s| {
             let mut s = s.borrow_mut();
             s.cancel.store(true, Ordering::Relaxed);
-            if let Some(tx) = s.answer.take() { let _ = tx.send(false); }
+            if let Some(tx) = s.answer.take() { let _ = tx.send(None); }
         });
         ui.global::<ActionBridge>().set_prompt("".into());
+        return;
+    }
+    if what == "open-output" || what == "reveal-output" {
+        use slint::Model;
+        if let Some(path) = ui.global::<ActionBridge>().get_outputs().row_data(index as usize) {
+            let path = PathBuf::from(path.as_str());
+            if what == "open-output" { crate::deliver(vec![path]); } else { crate::run::reveal(&path); }
+        }
         return;
     }
     if ui.global::<ActionBridge>().get_busy() { return; }
@@ -242,6 +250,9 @@ fn pick_run(ui: &AppWindow, action: SavedAction) {
 }
 
 fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf) {
+    let password = ui.global::<ActionBridge>().get_password().to_string();
+    ui.global::<ActionBridge>().set_password("".into());
+    ui.global::<ActionBridge>().set_outputs(ModelRc::new(VecModel::default()));
     let cancel = Arc::new(AtomicBool::new(false));
     STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
     ui.global::<ActionBridge>().set_busy(true);
@@ -251,24 +262,29 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
         let mut errors = Vec::new();
         for (file_index, file) in files.iter().enumerate() {
             if cancel.load(Ordering::Relaxed) { break; }
-            let r = actions::run_file(&action, file, &out, &mut |i, step| {
+            let r = actions::run_file_configured(&action, file, &out, (!password.is_empty()).then_some(password.as_str()), &mut |i, step| {
                 if cancel.load(Ordering::Relaxed) { return false; }
                 let message = format!("File {}/{} · Step {}/{} · {}", file_index + 1, files.len(), i + 1, action.steps.len(), step.engine().map(|s| s.label()).unwrap_or("Step"));
                 let prompt = if step.prompt { format!("{message}\n{}", step.instruction) } else { String::new() };
                 let message = if !step.instruction.is_empty() { format!("{message} · {}", step.instruction) } else { message };
                 let (tx, rx) = mpsc::channel();
                 let pause = step.prompt;
+                let argument = step.argument.clone();
+                let has_argument = step.engine().is_ok_and(|s| s.arg().is_some());
                 if weak.upgrade_in_event_loop(move |ui| {
                     status(&ui, &message);
                     if pause {
                         STATE.with(|s| s.borrow_mut().answer = Some(tx));
+                        ui.global::<ActionBridge>().set_prompt_argument(argument.into());
+                        ui.global::<ActionBridge>().set_prompt_has_argument(has_argument);
                         ui.global::<ActionBridge>().set_prompt(prompt.into());
                     }
                 }).is_err() { return false; }
                 if !pause { return !cancel.load(Ordering::Relaxed); }
                 loop {
                     match rx.recv_timeout(std::time::Duration::from_millis(200)) {
-                        Ok(yes) => return yes && !cancel.load(Ordering::Relaxed),
+                        Ok(Some(argument)) if !cancel.load(Ordering::Relaxed) => { step.argument = argument; return true; }
+                        Ok(_) => return false,
                         Err(mpsc::RecvTimeoutError::Disconnected) => return false,
                         Err(mpsc::RecvTimeoutError::Timeout) if cancel.load(Ordering::Relaxed) => return false,
                         Err(_) => {}
@@ -276,7 +292,14 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
                 }
             });
             match r {
-                Ok(_) => written += 1,
+                Ok(path) => {
+                    written += 1;
+                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                        use slint::Model;
+                        let model = ui.global::<ActionBridge>().get_outputs();
+                        if let Some(model) = model.as_any().downcast_ref::<VecModel<slint::SharedString>>() { model.push(path.to_string_lossy().as_ref().into()); }
+                    });
+                },
                 Err(sheaf_core::OpdfError::Cancelled) => { cancel.store(true, Ordering::Relaxed); break; }
                 Err(e) => errors.push(format!("{}: {e}", file.display())),
             }
