@@ -79,7 +79,7 @@ export component ActionsScreen inherits Rectangle {
                 width: 220px;
                 VerticalLayout {
                     spacing: 6px; alignment: start;
-                    ComboBox { model: ["All actions", "Suggested", "Saved actions", "Custom tools"]; current-index <=> ActionBridge.filter; enabled: !ActionBridge.busy; selected(i) => { ActionBridge.filter = i; ActionBridge.command("filter", 0); } }
+                    ComboBox { model: ["All actions", "Suggested", "Saved actions", "Custom tools"]; current-index <=> ActionBridge.filter; enabled: !ActionBridge.busy; selected(i) => { ActionBridge.command("filter", 0); } }
                     if ActionBridge.rows.length == 0: Text { text: "No actions in this list yet."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
                     for row in ActionBridge.rows: Rectangle {
                         height: 80px;
