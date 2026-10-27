@@ -29,6 +29,31 @@ fn local_html_prints_on_the_chosen_paper_with_its_relative_picture() {
 }
 
 #[test]
+fn markdown_and_mail_use_the_chosen_html_paper_and_keep_attachments() {
+    if find_soffice().is_none() {
+        eprintln!("skip: no LibreOffice");
+        return;
+    }
+    let t = tempfile::tempdir().unwrap();
+    let md = t.path().join("notes.md");
+    std::fs::write(&md, "# Paper settings\n\nMarkdown on Letter paper.\n").unwrap();
+    let mail = t.path().join("mail.eml");
+    std::fs::write(&mail, "Subject: Paper settings\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nMail on Letter paper.\r\n--b\r\nContent-Disposition: attachment; filename=\"figures.csv\"\r\n\r\na,b\r\n--b--\r\n").unwrap();
+    for source in [&md, &mail] {
+        let out = sheaf_core::html::to_pdf(source, sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0 }, &source.with_extension("pdf")).unwrap();
+        let doc = lopdf::Document::load(&out).unwrap();
+        let page = doc.get_dictionary(doc.get_pages()[&1]).unwrap();
+        let media = page.get(b"MediaBox").unwrap().as_array().unwrap();
+        assert!((media[2].as_float().unwrap() - media[0].as_float().unwrap() - 792.0).abs() < 1.0);
+        assert!((media[3].as_float().unwrap() - media[1].as_float().unwrap() - 612.0).abs() < 1.0);
+        assert!(common::page_texts(&out)[0].contains("Paper settings"));
+        if source == &mail {
+            assert!(std::fs::read(&out).unwrap().windows(11).any(|w| w == b"figures.csv"));
+        }
+    }
+}
+
+#[test]
 fn missing_soffice_is_reported() {
     let t = tempfile::tempdir().unwrap();
     let f = t.path().join("a.txt");

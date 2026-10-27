@@ -139,4 +139,18 @@ mod tests {
         assert!(out.ends_with("<header>Title</header><p>Text</p></html>"));
         assert_eq!(opening_tag("<head title='a > b'>", "head"), Some(20));
     }
+
+    #[test]
+    fn custom_html_layout_explains_unsupported_encodings_and_postscript() {
+        let t = tempfile::tempdir().unwrap();
+        let input = t.path().join("legacy.html");
+        std::fs::write(&input, [0xff, 0xfe, 0x00]).unwrap();
+        let options = Options { paper: Paper::Letter, landscape: true, margin: 18.0 };
+        let out = t.path().join("out.pdf");
+        for source in [input, t.path().join("page.ps")] {
+            let error = to_pdf(&source, options, &out).unwrap_err();
+            assert!(matches!(error, OpdfError::Unsupported(message) if message.contains("Original layout")));
+            assert!(!out.exists());
+        }
+    }
 }
