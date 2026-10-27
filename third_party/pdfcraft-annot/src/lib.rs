@@ -1903,7 +1903,18 @@ pub fn move_annotation(doc: &mut Document, page: usize, index: usize, dx: f64, d
         ))
     };
     let popup = annot_dict(doc, r).reference(b"Popup");
+    // Sheaf: a loupe shows what is under it at its new place, and a mask (over its whole page)
+    // moves its opening (Sol, 27/10: a moved loupe carried its old picture).
+    let before = annot_dict(doc, r);
+    let (loupe, mask) = (before.get(loupe_mask::LOUPE).is_some(), before.get(loupe_mask::MASK).is_some());
     doc.update_dict(r, |d| {
+        if mask {
+            if let Some(v) = d.get(loupe_mask::MASK).and_then(|o| shift(o, false)) {
+                d.set(loupe_mask::MASK.to_vec(), v);
+            }
+            touch(d, meta);
+            return;
+        }
         for (k, every) in [(&b"Rect"[..], false), (b"QuadPoints", true), (b"L", false), (b"CL", true), (b"Vertices", true)] {
             if let Some(v) = d.get(k).and_then(|o| shift(o, every)) {
                 d.set(k.to_vec(), v);
@@ -1923,6 +1934,9 @@ pub fn move_annotation(doc: &mut Document, page: usize, index: usize, dx: f64, d
                 d.set(b"Rect".to_vec(), v);
             }
         })?;
+    }
+    if loupe || mask {
+        return redraw_or_restore(doc, r, before);
     }
     Ok(())
 }

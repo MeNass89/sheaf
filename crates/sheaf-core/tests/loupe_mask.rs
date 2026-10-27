@@ -104,3 +104,23 @@ fn a_masks_opening_is_known() {
     doc.apply(Edit::AddMask { page: 0, hole: [300.0, 100.0, 100.0, 300.0], oval: true, author: String::new() }).unwrap();
     assert_eq!(doc.document().mask_holes(), [((0, 0), [100.0, 100.0, 300.0, 300.0])]);
 }
+
+/// A loupe moved shows what is under it at its new place, and a mask moved moves its opening
+/// (Sol, 27/10: a moved loupe carried its old picture).
+#[test]
+fn a_moved_loupe_shows_its_new_place_and_a_moved_mask_its_new_opening() {
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = page(dir.path(), b"0 g 300 400 10 10 re f");
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    // Placed over blank paper, then moved over the square.
+    doc.apply(Edit::AddLoupe { page: 0, centre: [105.0, 105.0], radius: 45.0, magnify: 2.0, color: [1.0, 0.0, 0.0], author: String::new() }).unwrap();
+    assert_eq!(dark(&doc, dir.path(), [55.0, 55.0, 155.0, 155.0]), 0, "blank where it was placed");
+    doc.apply(Edit::MoveAnnotation { page: 0, index: 0, dx: 200.0, dy: 300.0 }).unwrap();
+    let there = dark(&doc, dir.path(), [255.0, 355.0, 355.0, 455.0]);
+    assert!((300..=500).contains(&there), "the square twice as large at its new place: {there}");
+    assert_eq!(dark(&doc, dir.path(), [55.0, 55.0, 155.0, 155.0]), 0, "nothing left behind");
+    // A mask moved: its opening moves, the dimmed page stays the page.
+    doc.apply(Edit::AddMask { page: 0, hole: [100.0, 100.0, 200.0, 200.0], oval: false, author: String::new() }).unwrap();
+    doc.apply(Edit::MoveAnnotation { page: 0, index: 1, dx: 50.0, dy: 20.0 }).unwrap();
+    assert_eq!(doc.document().mask_holes(), [((0, 1), [150.0, 120.0, 250.0, 220.0])]);
+}
