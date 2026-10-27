@@ -145,3 +145,7 @@ Catalog parsing/search and policy application run off the UI thread. `security_p
 keeps password-free named policy files under the application data folder's `security-policies/`.
 OCR options retain every selected language; `OcrOptions::use_local_engine` selects local
 Tesseract explicitly, with the same option in the OCR panel and CLI `--local-engine`.
+
+`crates/sheaf-ui` compiles the canonical Slint files in `sheaf-app/ui` and exports the generated
+bindings. `sheaf-app` re-exports them, preserving callers. Isolating generated code keeps the PDF
+engine and application modules out of the same rustc invocation; existing app tests still run.

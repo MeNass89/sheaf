@@ -9,6 +9,13 @@ set -eu
 # No incremental cache, and no debug info for the app (Slint generates one huge module): rustc on
 # sheaf-app otherwise needs more than 2.5 GB.
 export CARGO_INCREMENTAL=0
+# Bound glibc's per-thread allocation arenas on memory-capped builders. This only affects
+# build/test processes, not the app a user launches; an explicit caller setting takes precedence.
+export MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-1}"
+# Keep large compiler buffers separately releasable instead of growing glibc's adaptive
+# mmap/trim thresholds during a long Slint compile. These are bytes (128 KiB).
+export MALLOC_MMAP_THRESHOLD_="${MALLOC_MMAP_THRESHOLD_:-131072}"
+export MALLOC_TRIM_THRESHOLD_="${MALLOC_TRIM_THRESHOLD_:-131072}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target/sheaf}"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 # The faces for text WinAnsi cannot write (scripts/fetch-fonts.sh), embedded by PdfCraft when present.

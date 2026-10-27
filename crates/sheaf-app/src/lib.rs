@@ -1,6 +1,6 @@
 //! Sheaf desktop app: the Slint UI, the job runner and file helpers.
 
-slint::include_modules!();
+pub use sheaf_ui::*;
 
 mod action_import;
 pub mod actions;

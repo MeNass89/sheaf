@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/sheaf-core", "crates/sheaf-cli", "crates/sheaf-app"]
+members = ["crates/sheaf-core", "crates/sheaf-cli", "crates/sheaf-app", "crates/sheaf-ui"]
 # Patched third-party code, built as a dependency only (not linted or tested as ours).
 exclude = ["third_party/pdfcraft-annot", "third_party/pdfcraft-cos", "third_party/pdfcraft-edit", "third_party/pdfcraft-engine", "third_party/pdfcraft-export"]
 
@@ -61,6 +61,11 @@ hayro-interpret = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c
 hayro-syntax = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 hayro-jbig2 = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 lopdf = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+
+# Generated Slint code is isolated from the PDF/application graph to fit worker memory caps.
+[profile.dev.package.sheaf-ui]
+debug = false
+opt-level = 1
 
 [profile.release]
 lto = "thin"
