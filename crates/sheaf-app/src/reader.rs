@@ -347,7 +347,8 @@ pub fn picked_again_from(moved: &[[f64; 4]], rects: &[[f64; 4]], earliest: bool)
         .filter_map(|m| {
             let found = rects.iter().enumerate().map(|(i, r)| (i, overlap(m, r))).filter(|(_, o)| *o >= 0.5);
             // `max_by` keeps the last of equals; the first is kept by comparing the other way.
-            if earliest { found.min_by(|a, b| b.1.total_cmp(&a.1)) } else { found.max_by(|a, b| a.1.total_cmp(&b.1)) }.map(|(i, _)| i)
+            let best = if earliest { found.min_by(|a, b| b.1.total_cmp(&a.1)) } else { found.max_by(|a, b| a.1.total_cmp(&b.1)) };
+            best.map(|(i, _)| i)
         })
         .collect()
 }
