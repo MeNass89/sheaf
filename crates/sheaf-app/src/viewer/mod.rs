@@ -124,13 +124,6 @@ pub fn current(layout: &[(f64, f64)], top: f64, height: f64) -> usize {
     (0..=i).rev().take_while(|&j| layout[j].0 == row).last().unwrap_or(i)
 }
 
-/// The pages a split view shows (PDF Expert's Split View): the main pane's, then those of the
-/// second pane (another place of the same pages, laid out alike) not among them, in order.
-pub fn pages_in_view(main: Range<usize>, second: Option<Range<usize>>) -> Vec<usize> {
-    let extra = second.into_iter().flatten().filter(|p| !main.contains(p));
-    main.clone().chain(extra).collect()
-}
-
 /// Zoom steps offered by ⌘+ / ⌘− (percent of the fit width), PDF Expert's range.
 pub const ZOOMS: [u32; 12] = [25, 33, 50, 67, 80, 100, 125, 150, 200, 250, 300, 400];
 pub const MIN_ZOOM: u32 = 25;
@@ -195,6 +188,8 @@ pub struct Viewer {
     /// Each page's row (a pair of pages shares one), in reading order.
     row_of: Vec<usize>,
     content_w: f64,
+    /// The view's height: pages across are centred in it.
+    view_h: f64,
 }
 
 /// The file's page boxes as the view shows them, turned `turn` degrees clockwise more.
@@ -204,7 +199,7 @@ pub fn turned(boxes: &[PageBox], turn: u16) -> Vec<PageBox> {
 
 impl Viewer {
     pub fn new(boxes: Vec<PageBox>) -> Self {
-        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, rtl: false, thumb_width: THUMB_WIDTH, turn: 0, horizontal: false, left: 0.0, row_of: Vec::new(), content_w: 0.0 };
+        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, rtl: false, thumb_width: THUMB_WIDTH, turn: 0, horizontal: false, left: 0.0, row_of: Vec::new(), content_w: 0.0, view_h: 0.0 };
         v.relayout();
         v
     }
@@ -286,6 +281,16 @@ impl Viewer {
 
     pub fn horizontal(&self) -> bool {
         self.horizontal
+    }
+
+    /// The view is `height` high (see `view_h`); returns whether the layout changed.
+    pub fn set_height(&mut self, height: f64) -> bool {
+        let changed = (height - self.view_h).abs() >= 0.5;
+        self.view_h = height;
+        if changed && self.across() {
+            self.relayout();
+        }
+        changed && self.across()
     }
 
     /// The view is scrolled `left` across (see `left`).
@@ -886,16 +891,6 @@ mod tests {
         let (a, b) = (v.page_rect(0), v.page_rect(1));
         assert!((a[0] - (1000.0 - (b[0] + b[2]))).abs() <= 1.0, "{a:?} {b:?}");
         assert_eq!((v.content_width(), v.max_scroll_x()), (1000.0, 0.0));
-    }
-
-    /// Split view: both panes' pages are drawn, each once.
-    #[test]
-    fn a_split_view_shows_both_panes_pages_once() {
-        assert_eq!(pages_in_view(3..6, None), vec![3, 4, 5]);
-        assert_eq!(pages_in_view(3..6, Some(40..42)), vec![3, 4, 5, 40, 41]);
-        assert_eq!(pages_in_view(3..6, Some(5..8)), vec![3, 4, 5, 6, 7]);
-        assert_eq!(pages_in_view(3..6, Some(4..5)), vec![3, 4, 5]);
-        assert!(pages_in_view(0..0, Some(0..0)).is_empty());
     }
 
     /// One 200 × 100 pt page with /Rotate 90, written by hand.

@@ -81,6 +81,8 @@ pub struct TabState {
     pub viewer: Option<Box<crate::viewer_ui::ViewerUi>>,
     /// Redact: why the viewer could not open the file.
     pub viewer_error: Option<String>,
+    /// The reader's split view: its other pane (see `crate::split`).
+    pub split: Option<crate::split::Split>,
     /// The viewer widget's last viewport (width, top, height) and strip (top, height), kept
     /// for a document that finishes loading after the widget reported them.
     pub viewport: (f32, f32, f32),
@@ -129,6 +131,7 @@ impl TabState {
             sign: crate::sign_ui::SignState::new(),
             viewer: None,
             viewer_error: None,
+            split: None,
             viewport: (600.0, 0.0, 800.0),
             strip: (0.0, 800.0),
             reader: None,
@@ -506,6 +509,7 @@ pub fn build(t: &TabState) -> ToolTab {
     if let (Some(r), Some(v)) = (&t.reader, &t.viewer) {
         crate::viewer_ui::fill(&mut tab, v);
         crate::reader_ui::fill(&mut tab, r, v);
+        crate::split::fill(&mut tab, t);
         tab.tool = "read".into();
         tab.icon = crate::state::reader_icon();
         return tab;

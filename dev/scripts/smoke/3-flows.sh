@@ -1171,3 +1171,20 @@ xdotool keydown alt mousemove 760 500 mousedown 1; for i in 1 2 3 4 5; do xdotoo
 key Escape; sleep 0.5; HE=$(ocr 1020x80+260+700)
 check "the hand tool drags and ⌥-drag zooms the pages, Escape ends it ($P0 → $P1 → $P2; $(echo "$HT" | cut -c1-30) / $(echo "$HE" | cut -c1-20))" "echo \"$HT\" | grep -q 'Hand tool' && ! echo \"$HE\" | grep -q 'Hand tool' && [ \"$P0\" != \"$P1\" ] && [ \"$P1\" != \"$P2\" ]"
 quit
+
+# 203. Split view, each pane its own (PDF Expert's): a press in the other pane makes it the active one and goes on
+# to it (text dragged over there is selected and copied), and ⌘+ then zooms that pane only.
+cp "$OUT/text.pdf" "$OUT/split2.pdf"; launch "$OUT/split2.pdf"; sleep 1
+SI=$(layout_item side); sleep 1.5
+read QX QY <<< "$(at quick 510x700+770+90)"
+echo -n | xclip -selection clipboard >/dev/null 2>&1
+[ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1; for i in 1 2 3 4; do xdotool mousemove $(( QX + i * 20 )) $QY; sleep 0.05; done; xdotool mouseup 1; sleep 0.8; key ctrl+c; }
+SC=$(xclip -o -selection clipboard 2>/dev/null | head -1)
+cp "$OUT/across.pdf" "$OUT/split3.pdf"; quit; launch "$OUT/split3.pdf"; sleep 1
+layout_item side >/dev/null; sleep 1.5
+redshare() { import -window root -crop 500x1+$1+420 png:- 2>/dev/null | convert - -fx '(r>0.6&&g<0.4&&b<0.4)?1:0' -format '%[fx:mean]' info: 2>/dev/null; }
+ZL0=$(redshare 262); ZR0=$(redshare 772)
+click 1020 420 0.8; key ctrl+equal; key ctrl+equal; sleep 1.5
+ZL1=$(redshare 262); ZR1=$(redshare 772)
+check "split view: a drag in the other pane selects there, and each pane zooms on its own ($SI; quick at ${QX:-?}; copied '$(echo "$SC" | cut -c1-20)'; red $ZL0 $ZR0 → $ZL1 $ZR1)" "echo \"$SC\" | grep -q 'quick' && python3 -c 'import sys; l0, r0, l1, r1 = map(float, sys.argv[1:]); sys.exit(0 if abs(l0 - r0) < 0.02 and abs(l1 - l0) < 0.02 and r1 > l1 + 0.03 else 1)' ${ZL0:-0} ${ZR0:-1} ${ZL1:-0} ${ZR1:-0}"
+quit

@@ -1185,6 +1185,7 @@ fn update<R>(tab_id: i32, f: impl FnOnce(&mut ReaderUi, &mut ViewerUi) -> R) -> 
             r.preview_timer = None;
             r.send(reader_doc::Op::Preview { edit: None, pages: vec![page] });
         }
+        crate::split::follow(a, tab_id);
         refresh(a, tab_id);
         Some(out)
     })

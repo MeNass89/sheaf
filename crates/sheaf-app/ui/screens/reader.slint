@@ -85,51 +85,74 @@ export component ReaderScreen inherits Rectangle {
     property <float> dyn-zoom0;
     property <length> dyn-ax;
     property <length> dyn-ay;
-    // Split view (PDF Expert's View ▸ Split View): 0 off, 1 a second pane beside the first, 2 below
-    // it. The panes are the same size, so the pages are laid out alike and rendered once for both;
-    // each scrolls on its own, or with the other (Sync scroll) at the distance it had when synced.
-    property <int> split;
-    property <bool> split-sync;
-    property <length> split-dx;
-    property <length> split-dy;
-    function set-split(mode: int) {
-        let was = root.split;
-        root.split = mode;
-        root.split-sync = false;
-        // It opens on the place the first pane shows, once both have their new size.
-        if was == 0 && mode > 0 { split-open-timer.running = true; }
-        root.second-report();
-        keys.focus();
-    }
-    function toggle-split-sync() {
-        root.split-sync = !root.split-sync;
-        root.split-dx = sv2.content-x - sv.content-x;
-        root.split-dy = sv2.content-y - sv.content-y;
-    }
-    // Rust renders the second pane's pages too: where it stands (height 0: closed).
+    // Split view (PDF Expert's View ▸ Split View; Rust's `split`): 0 off, 1 the other pane beside the
+    // active one, 2 below it. The active pane is `sv` (the tab's viewer: every tool works there), the
+    // other `sv2`, each with its own zoom; `half` is where the active one is (0 first, 1 second). A
+    // press in the other pane makes it the active one and goes on to it there.
+    property <int> split: root.tab.split-mode;
+    property <int> half: root.tab.split-half;
+    // Sync scroll: a scroll of one pane moves the other in proportion to their lengths; each pane's
+    // last scroll, so a move set by the other is not sent back.
+    property <length> last-top;
+    property <length> last-left;
+    property <length> last2-top;
+    property <length> last2-left;
+    property <float> sync-ratio-y: sv.content-height > 0px ? sv2.content-height / sv.content-height : 1;
+    property <float> sync-ratio-x: sv.content-width > 0px ? sv2.content-width / sv.content-width : 1;
+    // A press in the other pane goes on as a press in the active one, there: the drag that follows
+    // is sent in the active pane's content coordinates (the panes have swapped places by then).
+    property <bool> pane-press;
+    function main-x(wx: length) -> length { return wx - sv.absolute-position.x - sv.content-x; }
+    function main-y(wy: length) -> length { return wy - sv.absolute-position.y - sv.content-y; }
     function second-report() {
-        ViewerBridge.second-viewport(root.id, -sv2.content-x, -sv2.content-y, root.split > 0 ? sv2.visible-height : 0px);
+        if root.split > 0 { ViewerBridge.second-viewport(root.id, -sv2.content-x, -sv2.content-y, sv2.visible-width, sv2.visible-height); }
     }
     property <length> second-top: -sv2.content-y;
     property <length> second-left: -sv2.content-x;
+    property <length> second-w: sv2.visible-width;
     property <length> second-h: sv2.visible-height;
     changed second-top => {
         root.second-report();
-        if root.split-sync { sv.content-y = clamp(sv2.content-y - root.split-dy, min(0px, sv.visible-height - sv.content-height), 0px); }
+        let d = root.second-top - root.last2-top;
+        root.last2-top = root.second-top;
+        if root.tab.split-sync && abs(d) >= 0.5px {
+            root.last-top = clamp(root.page-top + d / root.sync-ratio-y, 0px, max(0px, sv.content-height - sv.visible-height));
+            sv.content-y = -root.last-top;
+        }
     }
     changed second-left => {
         root.second-report();
-        if root.split-sync { sv.content-x = clamp(sv2.content-x - root.split-dx, min(0px, sv.visible-width - sv.content-width), 0px); }
-    }
-    changed second-h => { root.second-report(); }
-    split-open-timer := Timer {
-        interval: 60ms;
-        running: false;
-        triggered => {
-            self.running = false;
-            sv2.content-x = sv.content-x;
-            sv2.content-y = sv.content-y;
+        let d = root.second-left - root.last2-left;
+        root.last2-left = root.second-left;
+        if root.tab.split-sync && abs(d) >= 0.5px {
+            root.last-left = clamp(root.page-left + d / root.sync-ratio-x, 0px, max(0px, sv.content-width - sv.visible-width));
+            sv.content-x = -root.last-left;
         }
+    }
+    changed second-w => { root.second-report(); }
+    changed second-h => { root.second-report(); }
+    changed split => { root.second-report(); }
+    // Rust set the other pane's scroll (it opened, or was laid out again).
+    property <int> split-seq: root.tab.split-seq;
+    changed split-seq => {
+        root.last2-top = root.tab.split-scroll;
+        root.last2-left = root.tab.split-scroll-x;
+        sv2.content-y = -root.tab.split-scroll;
+        sv2.content-x = -root.tab.split-scroll-x;
+    }
+    // The panes swapped: each scroll set again, so each half shows what it showed.
+    property <int> split-swap: root.tab.split-swap;
+    changed split-swap => {
+        root.want-x = -1px;
+        root.last-top = root.tab.viewer-scroll;
+        root.last-left = max(0px, root.tab.viewer-scroll-x);
+        root.last2-top = root.tab.split-scroll;
+        root.last2-left = root.tab.split-scroll-x;
+        sv.content-y = -root.last-top;
+        sv.content-x = -root.last-left;
+        sv2.content-y = -root.last2-top;
+        sv2.content-x = -root.last2-left;
+    }
     }
 
     // Zooms to `pct` percent actual size, the view point (ax, ay) staying on the same point of
@@ -143,7 +166,12 @@ export component ReaderScreen inherits Rectangle {
     changed page-top => {
         root.link-tip = "";
         ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h);
-        if root.split-sync { sv2.content-y = clamp(sv.content-y + root.split-dy, min(0px, sv2.visible-height - sv2.content-height), 0px); }
+        let d = root.page-top - root.last-top;
+        root.last-top = root.page-top;
+        if root.split > 0 && root.tab.split-sync && abs(d) >= 0.5px {
+            root.last2-top = clamp(root.second-top + d * root.sync-ratio-y, 0px, max(0px, sv2.content-height - sv2.visible-height));
+            sv2.content-y = -root.last2-top;
+        }
     }
     property <length> page-left: -sv.content-x;
     // The scroll a zoom wanted is taken: no need to set it again.
@@ -153,7 +181,12 @@ export component ReaderScreen inherits Rectangle {
         if root.want-x >= 0px && abs(root.page-left - root.want-x) < 1px { root.want-x = -1px; }
         // Pages across: scrolling sideways brings other pages into view, to render.
         if root.tab.reader.horizontal { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
-        if root.split-sync { sv2.content-x = clamp(sv.content-x + root.split-dx, min(0px, sv2.visible-width - sv2.content-width), 0px); }
+        let d = root.page-left - root.last-left;
+        root.last-left = root.page-left;
+        if root.split > 0 && root.tab.split-sync && abs(d) >= 0.5px {
+            root.last2-left = clamp(root.second-left + d * root.sync-ratio-x, 0px, max(0px, sv2.content-width - sv2.visible-width));
+            sv2.content-x = -root.last2-left;
+        }
     }
     changed page-w => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
     changed page-h => { ViewerBridge.viewport(root.id, root.page-w, root.page-top, root.page-h); }
@@ -273,11 +306,7 @@ export component ReaderScreen inherits Rectangle {
             focus-pages => { keys.focus(); }
             present => { root.present(); }
             toggle-full-screen => { root.full-screen(!root.is-full-screen); root.presenting = false; }
-            split: root.split;
-            split-sync: root.split-sync;
             hand: root.hand;
-            set-split(m) => { root.set-split(m); }
-            toggle-split-sync => { root.toggle-split-sync(); }
             toggle-hand => { root.hand = !root.hand; }
         }
         HorizontalLayout {
@@ -309,8 +338,8 @@ export component ReaderScreen inherits Rectangle {
                 }
                 sv := ScrollView {
                     // Split view: half the area, the second pane in the other half (same size).
-                    x: 0;
-                    y: 0;
+                    x: root.split == 1 && root.half == 1 ? self.width + 1px : 0px;
+                    y: root.split == 2 && root.half == 1 ? self.height + 1px : 0px;
                     width: root.split == 1 ? (parent.width - 1px) / 2 : parent.width;
                     height: root.split == 2 ? (parent.height - 1px) / 2 : parent.height;
                     content-width: max(root.tab.viewer-width, self.visible-width);
@@ -810,8 +839,7 @@ export component ReaderScreen inherits Rectangle {
                         }
                     }
                 }
-                // Split view's second pane: the same pages at another place (comments, as drawn in the
-                // pages, show; tools act in the first pane).
+                // Split view's other pane: its own pages, zoom and place.
                 if root.split > 0: Rectangle {
                     x: root.split == 1 ? sv.width : 0px;
                     y: root.split == 2 ? sv.height : 0px;
@@ -820,14 +848,14 @@ export component ReaderScreen inherits Rectangle {
                     background: Theme.sidebar-border;
                 }
                 sv2 := ScrollView {
-                    x: root.split == 1 ? sv.width + 1px : 0px;
-                    y: root.split == 2 ? sv.height + 1px : 0px;
+                    x: root.split == 1 && root.half == 0 ? sv.width + 1px : 0px;
+                    y: root.split == 2 && root.half == 0 ? sv.height + 1px : 0px;
                     width: root.split == 0 ? 0px : sv.width;
                     height: root.split == 0 ? 0px : sv.height;
                     visible: root.split > 0;
-                    content-width: sv.content-width;
-                    content-height: sv.content-height;
-                    for p in root.tab.viewer-pages: Rectangle {
+                    content-width: max(root.tab.split-width, self.visible-width);
+                    content-height: root.tab.split-height;
+                    for p in root.tab.split-pages: Rectangle {
                         x: p.x;
                         y: p.y;
                         width: p.w;
@@ -843,8 +871,32 @@ export component ReaderScreen inherits Rectangle {
                             image-fit: fill;
                         }
                     }
+                    // A press here makes this pane the active one, and goes on to it: a selection, a
+                    // link, a comment picked work as in the other pane. The wheel scrolls it as it is.
+                    TouchArea {
+                        width: max(root.tab.split-width, sv2.visible-width);
+                        height: root.tab.split-height;
+                        mouse-cursor: root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
+                        pointer-event(e) => {
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !root.pane-press {
+                                ReaderBridge.split-focus(root.id);
+                                keys.focus();
+                                root.pane-press = true;
+                                root.pressing = true;
+                                // This pane's content coordinates are the viewer's it now shows in the active pane.
+                                ReaderBridge.pressed(root.id, self.mouse-x, self.mouse-y, e.modifiers.shift ? 17 : 1);
+                            } else if e.kind == PointerEventKind.up && root.pane-press {
+                                root.pane-press = false;
+                                root.pressing = false;
+                                ReaderBridge.released(root.id, root.main-x(self.absolute-position.x + self.mouse-x), root.main-y(self.absolute-position.y + self.mouse-y));
+                            }
+                        }
+                        moved => {
+                            if root.pane-press { ReaderBridge.moved(root.id, root.main-x(self.absolute-position.x + self.mouse-x), root.main-y(self.absolute-position.y + self.mouse-y)); }
+                        }
+                    }
                 }
-                // The second pane's own buttons: sync it with the first, close it.
+                // The other pane's own buttons: Sync scroll, Close.
                 if root.split > 0: Rectangle {
                     x: sv2.x + sv2.width - self.width - 20px;
                     y: sv2.y + 8px;
@@ -852,8 +904,8 @@ export component ReaderScreen inherits Rectangle {
                     height: 26px;
                     split-bar := HorizontalLayout {
                         spacing: 4px;
-                        SmallButton { text: root.split-sync ? "✓ Sync scroll" : "Sync scroll"; clicked => { root.toggle-split-sync(); keys.focus(); } }
-                        SmallButton { text: "Close"; clicked => { root.set-split(0); } }
+                        SmallButton { text: root.tab.split-sync ? "✓ Sync scroll" : "Sync scroll"; clicked => { ReaderBridge.split-sync(root.id); keys.focus(); } }
+                        SmallButton { text: "Close"; clicked => { ReaderBridge.split-view(root.id, 0); keys.focus(); } }
                     }
                 }
                 // The hand tool in use, and how to leave it.
