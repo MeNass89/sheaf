@@ -285,6 +285,7 @@ mod tests {
                 "blue one two three four red.".into(),
                 "go stop go".into(),
                 "red unrelated green unrelated blue".into(),
+                "हिन्दी भाषा".into(),
             ],
         }])
     }
@@ -298,6 +299,8 @@ mod tests {
         assert_eq!(pages("cat", SearchOptions::default()), [2]);
         assert!(pages("concaten", SearchOptions { whole_words: true, ..Default::default() }).is_empty());
         assert_eq!(pages("cat", SearchOptions { whole_words: true, ..Default::default() }), [2]);
+        assert_eq!(pages("हिन्दी", SearchOptions { whole_words: true, ..Default::default() }), [7]);
+        assert!(pages("दी", SearchOptions { whole_words: true, ..Default::default() }).is_empty());
         assert_eq!(pages("(signed OR invoice) AND NOT unsigned", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [0]);
         assert_eq!(pages("signed OR invoice AND NOT pending", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [0]);
         assert_eq!(pages("NOT "red blue" AND green", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [6]);
