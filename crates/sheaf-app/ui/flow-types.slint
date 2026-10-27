@@ -499,6 +499,7 @@ export struct ReaderState {
     policy-choices: [int],
     policy-status: string,
     policy-seq: int,
+    policy-remembered: bool,
     catalog-open: bool,
     catalog-busy: bool,
     catalog-status: string,
@@ -930,7 +931,7 @@ export global ReaderBridge {
     callback policy-open(int);
     callback policy-action(int, int, int);
     callback policy-save(int, string, bool, bool, bool, bool, bool, bool, int, int, int);
-    callback policy-apply(int, string, string, string, string);
+    callback policy-apply(int, string, string, string, string, bool);
     callback catalog-open(int);
     callback catalog-action(int, int, int, string);
     callback review-ocr(int);

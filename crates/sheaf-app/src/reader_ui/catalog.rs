@@ -1,6 +1,6 @@
 //! Acrobat's Catalog: manage a saved collection and search it without reparsing its PDFs.
 use super::*;
-use sheaf_core::search_index::{Catalog, Hit};
+use sheaf_core::search_index::{Catalog, Hit, SearchMode, SearchOptions};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Default)]
@@ -93,7 +93,23 @@ pub fn catalog_action(ui: &AppWindow, id: i32, action: i32, index: i32, query: &
         }); }
         3 => build(ui, id),
         4 => load(ui, id),
-        5 => search(ui, id, query.trim()),
+        5 => match search_options(index) {
+            Ok(options) => search(ui, id, query.trim(), options),
+            Err(error) => crate::flow::toast(ui, error),
+        },
+        8 => {
+            let d = crate::dialog::new(ui).set_title("Add a folder of PDFs (including subfolders)");
+            crate::dialog::pick_folder(ui, d, move |_, folder| {
+                update(id, |r, _| {
+                    if let Some(panel) = r.catalog_panel.as_mut().filter(|p| !p.busy) {
+                        add_files(&mut panel.files, vec![folder]);
+                        panel.previous = panel.catalog.take().or_else(|| panel.previous.take());
+                        panel.results.clear();
+                        panel.status = "Folder added, including subfolders. Build to index its PDFs.".into();
+                    }
+                });
+            });
+        },
         6 => {
             let hit = update(id, |r, _| r.catalog_panel.as_ref()?.results.get(usize::try_from(index).ok()?).cloned()).flatten();
             if let Some(hit) = hit {
@@ -184,7 +200,15 @@ fn load(ui: &AppWindow, id: i32) {
     });
 }
 
-fn search(ui: &AppWindow, id: i32, query: &str) {
+fn search_options(flags: i32) -> Result<SearchOptions, &'static str> {
+    Ok(SearchOptions {
+        mode: match flags & 7 { 0 => SearchMode::Phrase, 1 => SearchMode::AllWords, 2 => SearchMode::AnyWords, 3 => SearchMode::Boolean, 4 => SearchMode::Proximity, _ => return Err("Choose a search mode") },
+        whole_words: flags & 8 != 0, case_sensitive: flags & 16 != 0, english_stemming: flags & 32 != 0,
+        ..Default::default()
+    })
+}
+
+fn search(ui: &AppWindow, id: i32, query: &str, options: SearchOptions) {
     if query.is_empty() { return crate::flow::toast(ui, "Type the words to find first"); }
     let Some(catalog) = update(id, |r, _| r.catalog_panel.as_ref()?.catalog.clone()).flatten() else {
         return crate::flow::toast(ui, "Build or open a catalog first");
@@ -193,7 +217,7 @@ fn search(ui: &AppWindow, id: i32, query: &str) {
     let query = query.to_owned();
     let weak = ui.as_weak();
     std::thread::spawn(move || {
-        let result = catalog.search(&query);
+        let result = catalog.search_with_options(&query, options);
         let _ = weak.upgrade_in_event_loop(move |_| {
             update(id, |r, _| {
                 let Some(p) = r.catalog_panel.as_mut().filter(|p| current(p, &cancel)) else { return };
@@ -216,6 +240,14 @@ fn search(ui: &AppWindow, id: i32, query: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn catalog_search_controls_keep_mode_and_independent_options() {
+        let options = search_options(4 + 8 + 32).unwrap();
+        assert_eq!(options.mode, SearchMode::Proximity);
+        assert!(options.whole_words && options.english_stemming && !options.case_sensitive);
+        assert_eq!(options.proximity, 10);
+        assert!(search_options(7).is_err());
+    }
     #[test]
     fn closing_a_catalog_cancels_work_and_reopening_cannot_accept_its_reply() {
         let panel = CatalogPanel::default();

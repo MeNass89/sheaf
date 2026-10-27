@@ -637,6 +637,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 if options.algorithm == EncryptionAlgorithm::Aes128 { 1 } else { 0 }]
         }).unwrap_or_default())),
         policy_status: r.policy_panel.as_ref().map(|p| p.status.as_str()).unwrap_or_default().into(),
+        policy_remembered: r.policy_panel.as_ref().is_some_and(|p| p.remembered),
         policy_seq: r.policy_panel.as_ref().map_or(0, |p| p.seq),
         catalog_open: r.catalog_panel.is_some(),
         catalog_busy: r.catalog_panel.as_ref().is_some_and(|p| p.busy),

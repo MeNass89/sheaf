@@ -669,3 +669,55 @@ fn printer_marks_include_all_plate_registration_process_bars_and_embedded_page_i
     let undone = lopdf::Document::load(undone).unwrap();
     assert_eq!(undone.get_page_content(undone.get_pages()[&1]), b"0 g 0 0 500 500 re f\n");
 }
+
+#[test]
+fn paddle_preprocessing_matches_reference_bilinear_pixels_and_rejects_invalid_images() {
+    use sheaf_core::pdfcraft::engine::ocr::recognition_input;
+    let (width, height) = (37usize, 19usize);
+    let rgb: Vec<u8> = (0..width * height * 3).map(|n| (n * 17 % 256) as u8).collect();
+    for line in [[0.0, 0.0, 37.0, 19.0], [4.5, 3.0, 28.0, 14.5], [-3.0, -2.0, 15.0, 8.0]] {
+        let input = recognition_input(&rgb, width, height, line).unwrap();
+        let pad = (line[3] - line[1]).max(1.0) * 0.25;
+        let x0 = (line[0] - pad).floor().max(0.0) as usize;
+        let y0 = (line[1] - pad).floor().max(0.0) as usize;
+        let x1 = ((line[2] + pad).ceil() as usize).min(width);
+        let y1 = ((line[3] + pad).ceil() as usize).min(height);
+        let (cw, ch) = (x1 - x0, y1 - y0);
+        let w = ((cw as f32 * 48.0 / ch as f32).round() as usize).clamp(8, 4000);
+        let (sx, sy) = (cw as f32 / w as f32, ch as f32 / 48.0);
+        assert_eq!((input.width, input.crop_left, input.crop_width), (w, x0, cw));
+        assert_eq!(input.pixels.len(), 3 * 48 * w);
+        for y in 0..48 {
+            let fy = ((y as f32 + 0.5) * sy - 0.5).clamp(0.0, (ch - 1) as f32);
+            let (ya, dy) = (fy.floor() as usize, fy.fract());
+            let yb = (ya + 1).min(ch - 1);
+            for x in 0..w {
+                let fx = ((x as f32 + 0.5) * sx - 0.5).clamp(0.0, (cw - 1) as f32);
+                let (xa, dx) = (fx.floor() as usize, fx.fract());
+                let xb = (xa + 1).min(cw - 1);
+                for channel in 0..3 {
+                    let at = |px: usize, py: usize| f32::from(rgb[((y0 + py) * width + x0 + px) * 3 + channel]);
+                    let v = at(xa, ya) * (1.0 - dx) * (1.0 - dy) + at(xb, ya) * dx * (1.0 - dy) + at(xa, yb) * (1.0 - dx) * dy + at(xb, yb) * dx * dy;
+                    assert_eq!(input.pixels[(2 - channel) * 48 * w + y * w + x].to_bits(), (v / 127.5 - 1.0).to_bits());
+                }
+            }
+        }
+    }
+    for pixels in [&[][..], &rgb[..rgb.len() - 1]] { assert!(recognition_input(pixels, width, height, [0.0, 0.0, 20.0, 10.0]).is_none()); }
+    assert!(recognition_input(&rgb, width, height, [f32::NAN, 0.0, 20.0, 10.0]).is_none());
+    assert!(recognition_input(&rgb, width, height, [50.0, 20.0, 60.0, 25.0]).is_none());
+}
+
+#[test]
+fn paddle_installations_do_not_require_the_unused_english_recognition_file() {
+    use sheaf_core::pdfcraft::engine::ocr::Models;
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["text-detection.rten", "latin-recognition.onnx", "latin-dict.txt"] {
+        std::fs::write(dir.path().join(name), []).unwrap();
+    }
+    assert!(Models::in_dir(dir.path()).unwrap().reads_accents());
+    std::fs::remove_file(dir.path().join("latin-dict.txt")).unwrap();
+    assert!(Models::in_dir(dir.path()).is_none(), "incomplete Paddle data must not be offered");
+    std::fs::write(dir.path().join("text-recognition.rten"), []).unwrap();
+    assert!(!Models::in_dir(dir.path()).unwrap().reads_accents());
+}

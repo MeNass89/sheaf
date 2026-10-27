@@ -2,6 +2,9 @@
 //! The catalog holds normalized page text and word postings. Source fingerprints prevent a
 //! search from returning old text after a PDF is replaced, edited or deleted.
 
+mod query;
+pub use query::{SearchMode, SearchOptions};
+
 use crate::{pages::Input, paths::atomic_write, OpdfError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -36,12 +39,20 @@ pub struct Catalog {
     sources: Vec<Source>,
     postings: BTreeMap<String, BTreeSet<(usize, usize)>>,
     #[serde(skip)]
-    grams: BTreeMap<String, BTreeSet<(usize, usize)>>,
+    grams: query::Index,
+    #[serde(skip)]
+    words: query::Index,
+    #[serde(skip)]
+    stems: query::Index,
+    #[serde(skip)]
+    pages: query::Pages,
 }
 
-fn normalized(text: &str) -> String {
-    text.replace("-\r\n", "").replace("-\n", "").nfkc().collect::<String>().to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
+fn canonical(text: &str) -> String {
+    text.replace("-\r\n", "").replace("-\n", "").nfkc().collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ")
 }
+
+fn normalized(text: &str) -> String { canonical(text).to_lowercase() }
 
 fn stamp(path: &Path) -> Option<(u64, u128)> {
     let metadata = std::fs::metadata(path).ok()?;
@@ -125,15 +136,24 @@ impl Catalog {
     }
 
     fn from_sources(mut sources: Vec<Source>) -> Self {
-        let mut index: BTreeMap<String, BTreeSet<(usize, usize)>> = BTreeMap::new();
+        let mut index: query::Index = BTreeMap::new();
+        let mut words: query::Index = BTreeMap::new();
+        let mut stems: query::Index = BTreeMap::new();
+        let stemmer = rust_stemmers::Stemmer::create(rust_stemmers::Algorithm::English);
         for (file, source) in sources.iter_mut().enumerate() {
             source.normalized = source.pages.iter().map(|s| normalized(s)).collect();
             for (page, text) in source.normalized.iter().enumerate() {
                 for gram in grams(text) { index.entry(gram).or_default().insert((file, page)); }
+                for (_, word) in query::words(text) {
+                    words.entry(word.into()).or_default().insert((file, page));
+                }
             }
         }
+        // Stem each distinct word once, never every page on every query.
+        for (word, pages) in &words { stems.entry(stemmer.stem(word).into_owned()).or_default().extend(pages); }
         // The v1 postings field remains readable; only page text is authoritative.
-        Self { version: 1, sources, postings: BTreeMap::new(), grams: index }
+        let pages = sources.iter().enumerate().flat_map(|(file, source)| (0..source.pages.len()).map(move |page| (file, page))).collect();
+        Self { version: 1, sources, postings: BTreeMap::new(), grams: index, words, stems, pages }
     }
 
     /// Saved sources and their page counts for Acrobat's Catalog manager.
@@ -189,27 +209,22 @@ impl Catalog {
 
     /// Find a phrase across line ends, ignoring case and Unicode compatibility differences.
     pub fn search(&self, query: &str) -> Result<Vec<Hit>> {
-        let query = normalized(query);
-        if query.is_empty() { return Err(OpdfError::Unsupported("Type the words to find".into())); }
+        self.search_with_options(query, SearchOptions::default())
+    }
+
+    /// Acrobat's indexed phrase, word, Boolean, proximity and English stemming searches.
+    /// Case and whole-word filtering are checked against authoritative page text after pruning.
+    pub fn search_with_options(&self, query: &str, options: SearchOptions) -> Result<Vec<Hit>> {
+        let query = query::Query::compile(query, options)?;
         let fresh: Vec<bool> = self.sources.iter().map(|s| s.stamp.is_some() && stamp(&s.path) == s.stamp).collect();
-        let query_grams = grams(&query);
-        let mut postings = Vec::new();
-        for gram in &query_grams {
-            let Some(pages) = self.grams.get(gram) else { return Ok(Vec::new()); };
-            postings.push(pages);
-        }
-        postings.sort_by_key(|pages| pages.len());
-        let candidates: BTreeSet<_> = if let Some(first) = postings.first() {
-            first.iter().copied().filter(|p| postings.iter().skip(1).all(|pages| pages.contains(p))).collect()
-        } else {
-            self.sources.iter().enumerate().flat_map(|(file, source)| (0..source.pages.len()).map(move |page| (file, page))).collect()
-        };
+        let candidates = query.candidates(&self.grams, &self.words, &self.stems, &self.pages);
         let mut out = Vec::new();
         for (file, page) in candidates {
             if !fresh[file] { continue; }
             let source = &self.sources[file];
-            let text = &source.normalized[page];
-            if let Some(at) = text.find(&query) {
+            let case_text;
+            let text = if options.case_sensitive { case_text = canonical(&source.pages[page]); &case_text } else { &source.normalized[page] };
+            if let Some(at) = query.matches(text) {
                 let before = text[..at].chars().rev().take(40).collect::<Vec<_>>().into_iter().rev().collect::<String>();
                 let after = text[at..].chars().take(100).collect::<String>();
                 out.push(Hit { path: source.path.clone(), page, snippet: before + &after });
@@ -255,6 +270,64 @@ mod tests {
         let updated = catalog.update(&[Input::new(&path)], &mut |_, _| true).unwrap();
         assert_eq!(updated.search("contract").unwrap().len(), 1);
         assert!(updated.search("unrelated").unwrap().is_empty());
+    }
+
+    fn advanced_catalog(dir: &Path) -> Catalog {
+        let path = dir.join("source.pdf");
+        std::fs::write(&path, b"unchanged source").unwrap();
+        Catalog::from_sources(vec![Source {
+            fingerprint: fingerprint(&path).unwrap(), stamp: stamp(&path), path,
+            normalized: Vec::new(), pages: vec![
+                "Contract signed. Running runners run. État du contrat.".into(),
+                "contract unsigned; invoice pending.".into(),
+                "Cat concatenate dog.".into(),
+                "red one two blue. BLUE near red.".into(),
+                "blue one two three four red.".into(),
+                "go stop go".into(),
+                "red unrelated green unrelated blue".into(),
+                "हिन्दी भाषा".into(),
+            ],
+        }])
+    }
+
+    #[test]
+    fn catalog_advanced_queries_cover_case_words_boolean_stems_and_proximity() {
+        let dir = tempfile::tempdir().unwrap();
+        let catalog = advanced_catalog(dir.path());
+        let pages = |query, options| catalog.search_with_options(query, options).unwrap().into_iter().map(|h| h.page).collect::<Vec<_>>();
+        assert_eq!(pages("Contract", SearchOptions { case_sensitive: true, ..Default::default() }), [0]);
+        assert_eq!(pages("cat", SearchOptions::default()), [2]);
+        assert!(pages("concaten", SearchOptions { whole_words: true, ..Default::default() }).is_empty());
+        assert_eq!(pages("cat", SearchOptions { whole_words: true, ..Default::default() }), [2]);
+        assert_eq!(pages("हिन्दी", SearchOptions { whole_words: true, ..Default::default() }), [7]);
+        assert!(pages("दी", SearchOptions { whole_words: true, ..Default::default() }).is_empty());
+        assert_eq!(pages("(signed OR invoice) AND NOT unsigned", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [0]);
+        assert_eq!(pages("signed OR invoice AND NOT pending", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [0]);
+        assert_eq!(pages("NOT "red blue" AND green", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [6]);
+        assert_eq!(pages(""état du contrat" AND signed", SearchOptions { mode: SearchMode::Boolean, ..Default::default() }), [0]);
+        assert_eq!(pages("runs", SearchOptions { english_stemming: true, ..Default::default() }), [0]);
+        assert_eq!(pages("red blue", SearchOptions { mode: SearchMode::Proximity, proximity: 1, ..Default::default() }), [3]);
+        assert_eq!(pages("go go", SearchOptions { mode: SearchMode::Proximity, proximity: 1, ..Default::default() }), [5]);
+        assert!(pages("go go", SearchOptions { mode: SearchMode::Proximity, proximity: 0, ..Default::default() }).is_empty());
+        assert_eq!(pages("signed invoice", SearchOptions { mode: SearchMode::AnyWords, ..Default::default() }), [0, 1]);
+        assert!(pages("signed invoice", SearchOptions { mode: SearchMode::AllWords, ..Default::default() }).is_empty());
+        let saved = catalog.save(&dir.path().join("index.json")).unwrap();
+        assert_eq!(Catalog::load(&saved).unwrap().search_with_options("runs", SearchOptions { english_stemming: true, ..Default::default() }).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn catalog_refuses_invalid_or_excessive_boolean_queries_and_conflicting_options() {
+        let dir = tempfile::tempdir().unwrap();
+        let catalog = advanced_catalog(dir.path());
+        let options = SearchOptions { mode: SearchMode::Boolean, ..Default::default() };
+        for bad in ["AND signed", "signed OR", "(signed", "signed)", "\"signed", "signed AND ()", "\"\""] {
+            assert!(catalog.search_with_options(bad, options).is_err(), "{bad}");
+        }
+        assert!(catalog.search_with_options(&format!("{}signed{}", "(".repeat(40), ")".repeat(40)), options).is_err());
+        assert!(catalog.search_with_options(&"term ".repeat(200), options).is_err());
+        assert!(catalog.search_with_options("run", SearchOptions { case_sensitive: true, english_stemming: true, ..Default::default() }).is_err());
+        assert!(catalog.search_with_options("run", SearchOptions { mode: SearchMode::Proximity, ..Default::default() }).is_err());
+        assert!(catalog.search("-\n").is_err());
     }
 
 }
