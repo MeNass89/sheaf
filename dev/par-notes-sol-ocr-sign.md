@@ -312,3 +312,15 @@
 
 - More tools now scrolls within the reader's available height, so these added entries remain
   reachable at the app's 600px minimum height. Runtime menu scrolling is part of GUI handoff.
+
+## Second pass — C-optimize-009 follow-up
+
+- The correction panel now reserves space in the reader rather than covering the scan; it
+  temporarily closes the left sidebar and restores it on closing. Failed corrections keep
+  the current run instead of advancing past an unresolved error.
+- Added Possible decoding errors only, retaining each run's original page/line target. This
+  supersedes the earlier second-pass note that suspect filtering was absent. It is explicitly
+  a decoding-artifact filter, not recognition confidence. Test written:
+  `suspect_filter_preserves_the_original_page_and_line_targets`.
+- GUI handoff additionally checks sidebar restoration, scan fit beside the panel, filtering,
+  failed-correction position and Correct/Next within the filtered set. No execution here.

@@ -217,6 +217,7 @@ export component ReaderScreen inherits Rectangle {
             toggle-full-screen => { root.full-screen(!root.is-full-screen); root.presenting = false; }
         }
         HorizontalLayout {
+            padding-right: root.tab.reader.ocr-review-open ? min(360px, root.width - 24px) : 0px;
             vertical-stretch: 1;
             // ---- side panel -------------------------------------------------------------------
             panel := ReaderPanel {
@@ -858,7 +859,7 @@ export component ReaderScreen inherits Rectangle {
     }
     if root.tab.reader.ocr-review-open: OcrReviewPanel {
         x: parent.width - self.width;
-        y: 78px;
+        y: 46px;
         width: min(360px, parent.width - 24px);
         height: parent.height - self.y;
         tab: root.tab;

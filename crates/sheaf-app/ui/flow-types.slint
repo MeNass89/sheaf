@@ -484,6 +484,7 @@ export struct ReaderState {
     ocr-review-position: string,
     ocr-review-has-row: bool,
     ocr-review-suspect: bool,
+    ocr-review-suspects-only: bool,
     ocr-review-seq: int,
     folder-open: bool,
     folder-busy: bool,
@@ -881,7 +882,7 @@ export global ReaderBridge {
     callback catalog-open(int);
     callback catalog-action(int, int, int, string);
     callback review-ocr(int);
-    // -1 close, 0 previous, 1 accept/next, 2 correct, 3 not text.
+    // -1 close, 0 previous, 1 accept/next, 2 correct, 3 not text, 4 filter.
     callback ocr-review-action(int, int, string);
     callback folder-result(int, int);
     callback field-scripts(int, int, string, string, string);

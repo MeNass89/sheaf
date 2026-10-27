@@ -835,6 +835,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 // The Edit tool's outlines (paragraphs, images, the selected one) are read again at
                 // once for the pages in view (not a previewed page: kept above); an image just
                 // added is selected then.
+                ocr_review::changed(r, applied, error.is_some());
                 if !preview { ocr_review::refresh(r); }
                 tools::load_blocks(r, v);
                 if let Some((p, _)) = r.select_added {

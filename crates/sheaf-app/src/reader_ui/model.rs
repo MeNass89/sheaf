@@ -613,6 +613,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         ocr_review_text: r.ocr_review.as_ref().and_then(|f| f.selected()).map(|row| row.text.as_str()).unwrap_or_default().into(),
         ocr_review_position: r.ocr_review.as_ref().map(|f| f.position()).unwrap_or_default().into(),
         ocr_review_has_row: r.ocr_review.as_ref().and_then(|f| f.selected()).is_some(),
+        ocr_review_suspects_only: r.ocr_review.as_ref().is_some_and(|f| f.suspects_only),
         ocr_review_suspect: r.ocr_review.as_ref().and_then(|f| f.selected()).is_some_and(|row| row.suspect),
         ocr_review_seq: r.ocr_review.as_ref().map_or(0, |f| f.seq),
         folder_open: r.folder_search.is_some(),

@@ -1,5 +1,6 @@
 // Acrobat's Correct Recognized Text, beside the scan in the reader's existing panel style.
 import { Theme } from "../theme.slint";
+import { Check } from "../widgets/check.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { PanelButton } from "../widgets/panel-button.slint";
 import { ToolTab, ReaderBridge } from "../flow-types.slint";
@@ -23,6 +24,7 @@ export component OcrReviewPanel inherits Rectangle {
             Text { text: root.tab.reader.ocr-review-suspect ? "Possible decoding error" : "Review this OCR run"; font-size: Theme.fs-label; color: Theme.text; }
             Text { text: root.tab.reader.ocr-review-text; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; overflow: elide; max-height: 84px; }
         }
+        Check { text: "Possible decoding errors only"; checked: root.tab.reader.ocr-review-suspects-only; toggled => { ReaderBridge.ocr-review-action(root.tab.id, 4, ""); } }
         correction := TextField { label: "Correct text"; text: root.tab.reader.ocr-review-text; accepted => { if root.tab.reader.ocr-review-has-row && !root.tab.reader.ocr-review-busy { ReaderBridge.ocr-review-action(root.tab.id, 2, correction.text); } } }
         if root.tab.reader.ocr-review-has-row && !root.tab.reader.ocr-review-busy: VerticalLayout {
             spacing: 8px;
