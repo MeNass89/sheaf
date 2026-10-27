@@ -17,11 +17,6 @@
   `files.rs`, `tests/office.rs`, `dev/HANDOFF.md` and iLovePDF's `WordToPdfTool.qml`. The handoff
   explicitly reserves the distribution decision to Nassim. No dependency added.
 
-## Polaroid
-
-- Active: implement the remaining independent local conversion and print-production work.
-- Verification: source inspection only; build and execution belong to the orchestrator.
-
 - C-optimize-014 (partial): More ▸ More tools ▸ Fix page hairlines (0.25 pt) raises strokes in the
   selected pages' own content, or the current page (Acrobat's Fix Hairlines). It measures the
   width at painting time through the current transform, honours saved graphics state, ExtGState
@@ -30,6 +25,7 @@
   content to its previous crop, and adds eight black crop marks outside the bleed. Repeated clicks
   add no duplicate marks. Each command is undoable. Tests
   `page_hairlines_are_measured_after_transforms_and_undone_in_one_step`,
+  `page_hairline_repairs_honour_user_units_and_nonuniform_scaling`,
   `crop_marks_keep_inherited_page_boxes_and_do_not_invent_bleed` in `tests/engine_patches.rs`.
   Left: hairlines inside grouped Form artwork, patterns, text strokes and annotation appearances;
   configurable widths, general page-box editor, registration marks/colour bars, trapping and
@@ -55,12 +51,79 @@
 - C-convert-005 (partial): HTML to PDF offers Original layout, A4 and Letter, portrait/landscape,
   and none/small/big margins (iLovePDF's HTML page settings). Explicit layouts insert print CSS
   after existing styles and preserve relative local resources with a file base. The output bypasses
-  the default-layout preview cache. Markdown/mail/PostScript retain their existing converters.
+  the default-layout preview cache. Markdown and mail use the same layout through their existing
+  HTML converter (mail attachments kept); PostScript explicitly asks for Original layout.
   Tests `html_print_settings_keep_resources_and_override_the_page_rule`,
   `html_print_settings_reject_invalid_margins_and_existing_bases`,
+  `html_layout_finds_tags_instead_of_comments_scripts_or_headers`,
+  `custom_html_layout_explains_unsupported_encodings_and_postscript`,
   `html_layout_reaches_the_job_without_reusing_the_default_conversion`,
-  `local_html_prints_on_the_chosen_paper_with_its_relative_picture` (requires LibreOffice).
+  `local_html_prints_on_the_chosen_paper_with_its_relative_picture`,
+  `markdown_and_mail_use_the_chosen_html_paper_and_keep_attachments` (both require LibreOffice).
   Left: URL capture and screen mode; URL capture is a network feature forbidden by the batch brief.
   Files with an explicit `<base>` require Original layout; non-UTF-8 HTML requires Original layout.
   Inspected iLovePDF `HtmlToPdfTool.qml` and the existing Office pipeline. No dependency added.
   not automatable: visually check the HTML controls in both themes — app execution forbidden in this worker.
+
+- C-convert-018 (**not implemented**): PDF/A remains 2b/3b. Inspected the core `pdfa.rs`, its
+  integration tests, the app's `PdfToPdfA` job and level cards, the actual pinned
+  `crates/preflight/src/lib.rs` (Level, verify and convert) and `xmp.rs`, plus iLovePDF's
+  `PdfToPdfATool.qml` and Acrobat's `Standards_R_RHP.aapp`. The pinned engine implements only
+  A2b/A3b. PDF/A-1b needs PDF 1.4 restrictions and transparency handling; a/u levels require real
+  tagging/Unicode checks and repairs. A new label or XMP part number would not implement those
+  standards. No converter or test was added for these absent levels. Ghostscript is installed on
+  this worker but veraPDF is not; neither was executed. No claim of full standards validation.
+
+- C-convert-019 (**not implemented**): no Save as PDF/X or PDF/E was added. Inspected Acrobat's
+  `Standards_R_RHP.aapp` and `PrintProduction_R_RHP.aapp`, engine `catalog.rs`/`commands.rs`, and the
+  pinned preflight crate. PDF/X is only a planned catalogue item in PdfCraft; there is no converter
+  to expose, and the existing print-readiness report explicitly excludes PDF/X, overprint, spot
+  colours and flattening. Real PDF/X needs a chosen press profile, output intent and version-specific
+  colour/transparency/font rules; PDF/E needs a separate standards implementation. This batch does
+  not supply them. No test added because no PDF/X or PDF/E conversion was implemented.
+
+## Integration
+
+- No new dependency, no Cargo manifest or lockfile change.
+- `Job::Office` now has `html: Option<sheaf_core::html::Options>`; its constructor in
+  `crates/sheaf-app/tests/jobs.rs` was updated. Other workers adding Office jobs must supply it.
+- Public core modules added: `office_runtime`, `html`, `preflight`. Engine edits added:
+  `FixPageHairlines`, `AddCropMarks`; new public `prepress` modules in edit and engine.
+- Reader More tools appends indices 20–22. Reconcile indices with any other worker appending to
+  that array. Slint callbacks and main.rs wiring are in small adjacent blocks.
+- New engine/edit behaviour is exercised from `crates/sheaf-core/tests/engine_patches.rs`, not
+  from the excluded vendored crate tests.
+- All named tests are **written, not run**. The HTML integration test requires LibreOffice and
+  skips when absent; integration tests using rendering need the existing PDFium setup. The
+  orchestrator must compile and run the suite and perform the GUI checks above. In particular,
+  confirm LibreOffice honours HTML print CSS on the supported platforms.
+- Static checks performed: `git diff --check`; read API signatures from the actual pinned source;
+  searched all Office job constructors; inspected undo/permissions/page-box refresh paths. The
+  Impeccable static detector returned `[]` for the changed Slint targets; no rendered UI was judged.
+- No board grades changed. None of the six components is claimed at parity or 9/10.
+
+## Polaroid — handoff
+
+- Status: worker implementation finished; ready for the orchestrator's compilation and review.
+- Delivered: four partial implementations and their tests; two standards components inspected
+  without an implementation. Constraints and all remaining gaps are recorded above.
+- Verification limit: source inspection only. No cargo, rustc, clippy, tests, app, Chrome, Xvfb or
+  codex executed. The remaining runtime checks belong to the orchestrator under the common brief.
+- Next action: merge this branch with the other batches, reconcile shared Slint menu indices and
+  callback blocks, then compile and run the actual tests and inspect the GUI.
+- Problem-solving control: mandate **partial** (all six examined; four changed); evidence **yes**
+  (code, tests, commit history); external dependency **yes** for Office packaging/network capture,
+  **no** for absent standards implementations (not delivered, not disguised as an external block);
+  independent work **partial** (printing/conversion subsets delivered; advanced gaps listed).
+
+## Changed files
+
+- App Rust: `crates/sheaf-app/src/jobs.rs`, `main.rs`, `run.rs`, `reader_doc/mod.rs`,
+  `reader_ui/mod.rs`, `reader_ui/prepress.rs`; app integration test `crates/sheaf-app/tests/jobs.rs`.
+- Slint: `crates/sheaf-app/ui/flow-types.slint`, `screens/options.slint`,
+  `screens/reader-toolbar.slint`.
+- Core: `crates/sheaf-core/src/lib.rs`, `office.rs`, `office_runtime.rs`, `html.rs`, `preflight.rs`;
+  tests `crates/sheaf-core/tests/office.rs`, `preflight.rs`, `engine_patches.rs`.
+- Vendored code: `third_party/pdfcraft-edit/src/lib.rs`, `prepress.rs`;
+  `third_party/pdfcraft-engine/src/lib.rs`, `prepress.rs`.
+- Notes: `dev/par-notes-sol-convert.md`.
