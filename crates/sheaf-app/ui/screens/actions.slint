@@ -54,6 +54,11 @@ export component ActionsScreen inherits Rectangle {
             Button { text: "Create portfolio…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("portfolio", 0); } }
             Rectangle { horizontal-stretch: 1; }
         }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: "Import Sheaf or Stirling JSON: choose, paste or drop a file here."; color: Theme.text-secondary; font-size: Theme.fs-caption; horizontal-stretch: 1; vertical-alignment: center; wrap: word-wrap; }
+            Button { text: "Export Stirling…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("export-stirling", 0); } }
+        }
         if root.paste-open: VerticalLayout {
             spacing: 8px;
             TextEdit { height: 100px; text <=> ActionBridge.import-text; enabled: !ActionBridge.busy; }

@@ -23,6 +23,7 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 
 ## Guided actions
 
+- `crates/sheaf-app/src/action_import.rs`: lossless supported Stirling Automate/Folder Scanning JSON translation.
 - `crates/sheaf-app/src/actions.rs`: portable action JSON, ordered tool configurations,
   suggested actions, persistence and sequential execution without replacing originals.
 - `crates/sheaf-app/src/actions_ui.rs` and `ui/screens/actions.slint`: Home's Actions page,

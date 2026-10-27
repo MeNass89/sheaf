@@ -724,6 +724,11 @@ pub fn quit_or_ask(ui: &AppWindow) -> slint::CloseRequestResponse {
 
 /// A file dropped anywhere on the window.
 pub fn dropped(ui: &AppWindow, path: PathBuf) {
+    if ui.get_active_tab() == -1 && ui.get_page() == Page::Actions
+        && path.extension().is_some_and(|e| e.eq_ignore_ascii_case("json")) {
+        if !ui.global::<sheaf_app::ActionBridge>().get_busy() { crate::actions_ui::import_path(ui, &path); }
+        return;
+    }
     // On a document tab, a PDF dropped opens in its own tab.
     if let Some((id, _)) = active_tool(ui)
         && crate::reader_ui::is_reader(id)
@@ -745,6 +750,11 @@ pub fn dropped(ui: &AppWindow, path: PathBuf) {
 /// What dropping `path` here would do, said while it is dragged over the window; true when the
 /// tab shown refuses it (said in the warning colour, as the drop would toast).
 pub fn drop_hint(ui: &AppWindow, path: &std::path::Path) -> (String, bool) {
+    if ui.get_active_tab() == -1 && ui.get_page() == Page::Actions
+        && path.extension().is_some_and(|e| e.eq_ignore_ascii_case("json")) {
+        let busy = ui.global::<sheaf_app::ActionBridge>().get_busy();
+        return ((if busy { "Wait for the action to finish before importing" } else { "Drop to import an action JSON file" }).into(), busy);
+    }
     let active = active_tool(ui);
     let pdf = files::kind_of(path) == Kind::Pdf;
     if active.is_some_and(|(id, _)| crate::reader_ui::is_reader(id)) {

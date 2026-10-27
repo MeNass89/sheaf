@@ -156,3 +156,14 @@ errors back to this worker; do not grade parity from this implementation report 
   Left: commands act on chosen files and publish copies; applying a set to the current unsaved
   reader state and arbitrary toolbox tools are still absent. not automatable: create two custom
   sets and launch one command from the reader's palette — app execution prohibited by rule 1.
+
+- C-batch-004: Actions accepts dropped JSON files as well as choose/paste; native Stirling
+  Automate and Folder Scanning imports translate equivalent rotation, form flattening and four
+  metadata fields, with a Stirling export button for the same subset. Unknown tools/settings and
+  rasterization are refused by step number before saving, never silently discarded. Source:
+  Stirling `utils/automationConverter.ts`, `useRotateOperation.ts`, `useFlattenOperation.ts`,
+  `useChangeMetadataOperation.ts`. Tests `stirling_export_import_preserves_equivalent_settings_and_order`,
+  `stirling_import_refuses_unknown_tools_settings_and_rasterization` (written, not run).
+  Left: unsupported Stirling tools/settings, Acrobat sequ files. No dependency.
+  not automatable: drop the exported JSON onto Actions and verify the independent named copy —
+  actual drop delivery requires running the app (brief rule 1).

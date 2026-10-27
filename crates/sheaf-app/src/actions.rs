@@ -70,10 +70,14 @@ impl SavedAction {
 
     pub fn import(text: &str) -> Result<Self> {
         if text.len() > 10 * 1024 * 1024 { return Err(invalid("An action file must be smaller than 10 MB")); }
-        let action: Self = serde_json::from_str(text).map_err(|e| invalid(format!("Invalid action JSON: {e}")))?;
+        let value: serde_json::Value = serde_json::from_str(text).map_err(|e| invalid(format!("Invalid action JSON: {e}")))?;
+        if value.get("steps").is_none() { return crate::action_import::stirling(value); }
+        let action: Self = serde_json::from_value(value).map_err(|e| invalid(format!("Invalid action JSON: {e}")))?;
         action.validate()?;
         Ok(action)
     }
+
+    pub fn stirling_json(&self) -> Result<String> { crate::action_import::export(self) }
 
     pub fn json(&self) -> Result<String> {
         self.validate()?;

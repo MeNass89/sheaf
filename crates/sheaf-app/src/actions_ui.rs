@@ -159,7 +159,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         "portfolio" => return portfolio(ui),
         "watch" => return watch(ui),
         "import" => return import(ui),
-        "export" => return export(ui),
+        "export" | "export-stirling" => return export(ui, what == "export-stirling"),
         "run" | "run-step" => {
             let mut action = STATE.with(|s| s.borrow().draft.clone());
             if what == "run-step" {
@@ -250,21 +250,25 @@ fn imported(ui: &AppWindow, action: sheaf_core::Result<SavedAction>) {
 }
 
 fn import(ui: &AppWindow) {
-    let d = crate::dialog::new(ui).add_filter("Sheaf action JSON", &["json"]);
+    let d = crate::dialog::new(ui).add_filter("Sheaf or Stirling action JSON", &["json"]);
     crate::dialog::pick_file(ui, d, |ui, path| {
-        let result = (|| {
-            if std::fs::metadata(&path)?.len() > 10 * 1024 * 1024 {
-                return Err(sheaf_core::OpdfError::Unsupported("An action file must be smaller than 10 MB".into()));
-            }
-            SavedAction::import(&std::fs::read_to_string(path)?)
-        })();
-        imported(ui, result);
+        import_path(ui, &path);
     });
 }
 
-fn export(ui: &AppWindow) {
-    let json = match STATE.with(|s| s.borrow().draft.json()) { Ok(json) => json, Err(e) => return status(ui, e.to_string()) };
-    let d = crate::dialog::new(ui).set_file_name("action.json").add_filter("Sheaf action JSON", &["json"]);
+pub fn import_path(ui: &AppWindow, path: &std::path::Path) {
+    let result = (|| {
+        if std::fs::metadata(path)?.len() > 10 * 1024 * 1024 {
+            return Err(sheaf_core::OpdfError::Unsupported("An action file must be smaller than 10 MB".into()));
+        }
+        SavedAction::import(&std::fs::read_to_string(path)?)
+    })();
+    imported(ui, result);
+}
+
+fn export(ui: &AppWindow, stirling: bool) {
+    let json = match STATE.with(|s| if stirling { s.borrow().draft.stirling_json() } else { s.borrow().draft.json() }) { Ok(json) => json, Err(e) => return status(ui, e.to_string()) };
+    let d = crate::dialog::new(ui).set_file_name(if stirling { "action.automate.json" } else { "action.json" }).add_filter("Action JSON", &["json"]);
     crate::dialog::save_file(ui, d, move |ui, path| {
         let result = sheaf_core::paths::atomic_write(&path, |part| { std::fs::write(part, &json)?; Ok(()) });
         match result { Ok(p) => status(ui, format!("Action exported to {}", p.display())), Err(e) => status(ui, e.to_string()) }
