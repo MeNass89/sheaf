@@ -1,3 +1,4 @@
+import { LibraryScreen, LibraryBridge, LibraryRow, LibraryVersionRow } from "screens/library.slint";
 import { ActionsScreen, ActionPrompt, ActionBridge, ActionRow, ActionStepRow } from "screens/actions.slint";
 import { Theme } from "theme.slint";
 import { ToolCard } from "widgets/tool-card.slint";
@@ -14,9 +15,9 @@ import { ReaderScreen } from "screens/reader.slint";
 import { ResultScreen } from "screens/result.slint";
 import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, Toast } from "screens/dialogs.slint";
 
-export { ActionBridge, ActionRow, ActionStepRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
+export { LibraryBridge, LibraryRow, LibraryVersionRow, ActionBridge, ActionRow, ActionStepRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
-export enum Page { recents, tools, history, preferences, actions }
+export enum Page { recents, tools, history, preferences, actions, library }
 
 component Sidebar inherits Rectangle {
     in-out property <Page> page;
@@ -50,6 +51,13 @@ component Sidebar inherits Rectangle {
             collapsed: root.collapsed;
             selected: root.page == Page.history;
             clicked => { root.page = Page.history; }
+        }
+        MenuItem {
+            icon: @image-url("icons/folder.svg");
+            text: "Library";
+            collapsed: root.collapsed;
+            selected: root.page == Page.library;
+            clicked => { root.page = Page.library; }
         }
         MenuItem {
             icon: @image-url("icons/list-ordered.svg");
@@ -323,6 +331,7 @@ export component AppWindow inherits Window {
                         favourites: root.favourite-tools;
                         }
                         if root.page == Page.actions: ActionsScreen { }
+                        if root.page == Page.library: LibraryScreen { }
                         if root.page == Page.history: HistoryScreen {
                             rows: root.history;
                             reveal(i) => { root.reveal-history(i); }

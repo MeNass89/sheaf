@@ -61,3 +61,14 @@ Next: finish each batch component, write its proof names and remaining parity ga
   Tests `a_portfolio_keeps_original_files_and_duplicate_basenames_instead_of_merging`,
   `a_missing_portfolio_input_does_not_publish_a_partial_bundle` in core `tests/portfolio.rs`.
   Left: a dedicated portfolio visual browser; Sheaf currently exposes the files in Attachments.
+- C-files-008: Home ▸ Library keeps private file copies, deletes them without touching originals,
+  exports current/older versions, unzips archives into library items and restores an older version
+  as a new one (Stirling's local file manager). Open uses a working copy; the reader's Save hook
+  records a new immutable version. New version… also accepts external edits. ZIP preflight
+  rejects escaping paths/symlinks and bounds expansion; partial imports report successes/errors.
+  Tests `library::tests::library_versions_keep_private_copies_and_restore_without_losing_history`,
+  `library::tests::unzip_imports_nested_files_and_rejects_escaping_paths_before_any_import`.
+  Left: ZIP folders are flattened into file entries; an app already showing Library needs Refresh
+  after reader saves; working-copy cleanup/recovery and a delete confirmation remain to polish.
+  New dependency: workspace/app `zip = 4.6.1`, default features off, `deflate` only (pure Rust,
+  version already present in Cargo.lock). Orchestrator must update the lockfile's app dependency list.

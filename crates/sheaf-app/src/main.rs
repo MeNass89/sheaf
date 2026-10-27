@@ -4,6 +4,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod actions_ui;
+mod library_ui;
 mod dest;
 mod dialog;
 mod flow;
@@ -382,6 +383,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.global::<sheaf_app::Theme>().set_mono_family(mono.into());
     home::install(&ui, forced);
     actions_ui::install(&ui);
+    library_ui::install(&ui);
     install_catalogue(&ui);
     state::install_tabs_model(&ui);
 

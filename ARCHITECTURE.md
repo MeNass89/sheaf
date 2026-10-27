@@ -34,6 +34,10 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 - `crates/sheaf-core/src/portfolio.rs`: PDF Collection catalog, readable cover, original
   embedded files and duplicate-name handling; Actions ▸ Create portfolio… is its entry point.
 
+- `crates/sheaf-app/src/library.rs`, `src/library_ui.rs` and `ui/screens/library.slint`:
+  private local files, immutable versions, reader working copies, export, restore and bounded
+  ZIP imports. The reader Save hook checkpoints library working files after each save.
+
 ## Entry points
 
 - GUI: `crates/sheaf-app/src/main.rs` builds the window from `ui/main.slint` and wires every callback.

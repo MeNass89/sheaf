@@ -3,6 +3,7 @@
 slint::include_modules!();
 
 pub mod actions;
+pub mod library;
 pub mod watch_folder;
 pub mod files;
 pub mod history;

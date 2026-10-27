@@ -978,6 +978,7 @@ fn save(doc: &mut Doc, target: &std::path::Path) -> Result<(), String> {
     doc.session().check_save(id, &bytes).map_err(|e| e.to_string())?;
     let t2 = std::time::Instant::now();
     replace(target, &bytes).map_err(|e| e.to_string())?;
+    sheaf_app::library::Library::new(&sheaf_app::store_file::data_dir()).record_saved(target).map_err(|e| e.to_string())?;
     let t3 = std::time::Instant::now();
     let r = doc.session_mut().mark_saved(id, bytes, Some(target.to_string_lossy().into_owned())).map_err(|e| e.to_string());
     debug(format_args!("save: bytes {:?}, check {:?}, write {:?}, mark saved {:?}", t1 - t, t2 - t1, t3 - t2, t3.elapsed()));
