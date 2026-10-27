@@ -1,7 +1,7 @@
 import { PortfolioPanel, PortfolioBridge, PortfolioRow } from "screens/portfolio.slint";
 import { JavaScriptConsole, JavaScriptBridge, DocumentScriptRow } from "screens/javascript.slint";
 import { LibraryScreen, LibraryDeletePrompt, LibraryBridge, LibraryRow, LibraryVersionRow } from "screens/library.slint";
-import { ActionsScreen, ActionPrompt, CustomToolsPanel, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow } from "screens/actions.slint";
+import { ActionsScreen, ActionPrompt, ActionDiscardPrompt, CustomToolsPanel, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow } from "screens/actions.slint";
 import { Theme } from "theme.slint";
 import { ToolCard } from "widgets/tool-card.slint";
 import { MenuItem } from "widgets/menu-item.slint";
@@ -486,6 +486,7 @@ export component AppWindow inherits Window {
     }
     if ActionBridge.tools-visible: CustomToolsPanel { }
     if ActionBridge.prompt != "": ActionPrompt { }
+    if ActionBridge.discard-visible: ActionDiscardPrompt { }
     if JavaScriptBridge.visible: JavaScriptConsole { }
     if PortfolioBridge.visible: PortfolioPanel { }
     if LibraryBridge.delete-id != "": LibraryDeletePrompt { }

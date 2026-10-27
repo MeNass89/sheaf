@@ -11,6 +11,7 @@ export global ActionBridge {
     in-out property <[ActionRow]> rows;
     in-out property <[ActionCommandRow]> commands;
     in-out property <bool> tools-visible;
+    in-out property <bool> discard-visible;
     in-out property <[ActionStepRow]> steps;
     in-out property <[string]> tools;
     in-out property <int> selected: -1;
@@ -140,6 +141,9 @@ export component ActionsScreen inherits Rectangle {
                             spacing: 8px;
                             Button { text: "Move up"; enabled: !ActionBridge.busy && ActionBridge.step > 0; clicked => { ActionBridge.command("up", 0); } }
                             Button { text: "Move down"; enabled: !ActionBridge.busy && ActionBridge.step + 1 < ActionBridge.steps.length; clicked => { ActionBridge.command("down", 0); } }
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
                             Button { text: "Duplicate step"; enabled: !ActionBridge.busy && ActionBridge.steps.length < 100; clicked => { ActionBridge.command("duplicate", 0); } }
                             Button { text: "Remove step"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("remove", 0); } }
                         }
@@ -160,7 +164,6 @@ export component ActionsScreen inherits Rectangle {
                         spacing: 8px;
                         Button { text: "Watch folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("watch", 0); } }
                         Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
-                        Button { text: "Stop"; enabled: ActionBridge.busy; clicked => { ActionBridge.command("stop", 0); } }
                     }
                 }
             }
@@ -177,7 +180,11 @@ export component ActionsScreen inherits Rectangle {
                 }
             }
         }
-        Text { text: ActionBridge.status; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: ActionBridge.status; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; horizontal-stretch: 1; vertical-alignment: center; }
+            if ActionBridge.busy: Button { text: "Stop"; clicked => { ActionBridge.command("stop", 0); } }
+        }
     }
 }
 
@@ -221,5 +228,15 @@ export component CustomToolsPanel inherits Modal {
         Button { text: "Manage custom tools"; clicked => { ActionBridge.tools-visible = false; ActionBridge.open-page("actions"); } }
         Rectangle { horizontal-stretch: 1; }
         Button { text: "Close"; clicked => { ActionBridge.tools-visible = false; } }
+    }
+}
+
+export component ActionDiscardPrompt inherits Modal {
+    Text { text: "Keep your action changes?"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
+    Text { text: "This action has unsaved changes. Save it first, or discard the draft before switching."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    HorizontalLayout {
+        spacing: 8px;
+        Button { text: "Keep editing"; clicked => { ActionBridge.command("keep-draft", 0); } }
+        Button { text: "Discard changes"; clicked => { ActionBridge.command("discard-draft", 0); } }
     }
 }

@@ -8,8 +8,13 @@ use slint::{ComponentHandle, ModelRc, VecModel};
 use sheaf_app::{ActionBridge, ActionRow, ActionStepRow, ActionCommandRow, AppWindow, actions::{self, ActionStep, SavedAction}, store_file};
 use sheaf_core::pdfcraft::engine::actions::Step;
 
+enum Pending { Command(String, i32), Import(SavedAction) }
+
 struct State {
     saved: Vec<SavedAction>,
+    baseline: SavedAction,
+    pending: Option<Pending>,
+    approved: bool,
     draft: SavedAction,
     selected: i32,
     step: i32,
@@ -19,8 +24,25 @@ struct State {
 
 impl Default for State {
     fn default() -> Self {
-        Self { saved: vec![], draft: SavedAction::empty(), selected: -1, step: -1, cancel: Arc::new(AtomicBool::new(false)), answer: None }
+        Self { saved: vec![], baseline: SavedAction::empty(), pending: None, approved: false, draft: SavedAction::empty(), selected: -1, step: -1, cancel: Arc::new(AtomicBool::new(false)), answer: None }
     }
+}
+
+impl State {
+    fn changed(&self) -> bool {
+        self.draft != self.baseline || (self.selected < 0 && !self.draft.steps.is_empty())
+    }
+}
+
+fn guard(ui: &AppWindow, pending: Pending) -> bool {
+    let changed = STATE.with(|s| {
+        let mut s = s.borrow_mut();
+        if std::mem::take(&mut s.approved) || !s.changed() { return false; }
+        s.pending = Some(pending);
+        true
+    });
+    if changed { ui.global::<ActionBridge>().set_discard_visible(true); }
+    changed
 }
 
 thread_local! { static STATE: RefCell<State> = RefCell::new(State::default()); }
@@ -118,6 +140,14 @@ pub fn install(ui: &AppWindow) {
 }
 
 fn command(ui: &AppWindow, what: &str, index: i32) {
+    if what == "keep-draft" || what == "discard-draft" {
+        let pending = STATE.with(|s| { let mut s = s.borrow_mut(); s.approved = what == "discard-draft" && s.pending.is_some(); s.pending.take() });
+        ui.global::<ActionBridge>().set_discard_visible(false);
+        if what == "discard-draft" && let Some(pending) = pending {
+            match pending { Pending::Command(what, index) => command(ui, &what, index), Pending::Import(action) => imported(ui, Ok(action)) }
+        }
+        return;
+    }
     if what == "filter" { rows(ui); return; }
     if what == "custom-tools" {
         rows(ui);
@@ -160,6 +190,9 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     }
     if ui.global::<ActionBridge>().get_busy() { return; }
     flush(ui);
+    if what == "select" && STATE.with(|s| s.borrow().selected == index) { return; }
+    if matches!(what, "new" | "new-tool" | "select")
+        && guard(ui, Pending::Command(what.into(), index)) { return; }
     match what {
         "paste" => {
             let action = SavedAction::import(ui.global::<ActionBridge>().get_import_text().as_str());
@@ -199,11 +232,12 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             "new" | "new-tool" => {
                 s.draft = SavedAction::empty(); s.draft.custom_tool = what == "new-tool";
                 if s.draft.custom_tool { s.draft.name = "Untitled custom tool".into(); }
+                s.baseline = s.draft.clone();
                 s.selected = -1; s.step = -1;
             }
             "select" => {
                 if let Some(a) = builtins.iter().chain(s.saved.iter()).nth(index as usize).cloned() {
-                    s.draft = a; s.selected = index; s.step = -1;
+                    s.baseline = a.clone(); s.draft = a; s.selected = index; s.step = -1;
                 }
             }
             "copy" => {
@@ -225,13 +259,13 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
                 if let Some(i) = own { next[i] = s.draft.clone(); } else { next.push(s.draft.clone()); }
                 actions::save(&store_file::data_dir(), &next)?;
                 s.selected = own.unwrap_or(next.len() - 1) as i32 + offset;
-                s.saved = next;
+                s.saved = next; s.baseline = s.draft.clone();
             }
             "delete" if s.selected >= offset => {
                 let mut next = s.saved.clone();
                 next.remove((s.selected - offset) as usize);
                 actions::save(&store_file::data_dir(), &next)?;
-                s.saved = next; s.draft = SavedAction::empty(); s.selected = -1; s.step = -1;
+                s.saved = next; s.draft = SavedAction::empty(); s.baseline = s.draft.clone(); s.selected = -1; s.step = -1;
             }
             "add" => {
                 if let Some(step) = Step::all().get(index as usize) {
@@ -256,16 +290,18 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
 }
 
 fn imported(ui: &AppWindow, action: sheaf_core::Result<SavedAction>) {
-    let result = action.and_then(|mut a| {
-        STATE.with(|state| {
+    flush(ui);
+    let action = match action { Ok(a) => a, Err(e) => return status(ui, e.to_string()) };
+    if guard(ui, Pending::Import(action.clone())) { return; }
+    let mut a = action;
+    let result: sheaf_core::Result<()> = STATE.with(|state| {
             let mut s = state.borrow_mut();
             let all: Vec<_> = actions::suggested().into_iter().chain(s.saved.clone()).collect();
             a.name = actions::unused_name(&a.name, &all);
             let mut next = s.saved.clone(); next.push(a.clone());
             actions::save(&store_file::data_dir(), &next)?;
-            s.saved = next; s.draft = a; s.selected = (actions::suggested().len() + s.saved.len() - 1) as i32; s.step = -1;
+            s.saved = next; s.baseline = a.clone(); s.draft = a; s.selected = (actions::suggested().len() + s.saved.len() - 1) as i32; s.step = -1;
             Ok(())
-        })
     });
     match result { Ok(()) => { rows(ui); draft(ui); status(ui, "Action imported"); }, Err(e) => status(ui, e.to_string()) }
 }
@@ -425,4 +461,24 @@ fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
             status(&ui, format!("Folder watch stopped. {written} file(s) written. {failure}"));
         });
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn draft_guard_detects_edits_and_unsaved_copies_but_allows_unchanged_templates() {
+        let mut state = State::default();
+        assert!(!state.changed());
+        state.draft = actions::suggested().remove(0);
+        state.baseline = state.draft.clone(); state.selected = 0;
+        assert!(!state.changed());
+        state.draft.steps[0].instruction = "Review this file".into();
+        assert!(state.changed());
+        state.draft = state.baseline.clone(); assert!(!state.changed());
+        state.selected = -1; assert!(state.changed());
+        state.draft = SavedAction::empty(); state.baseline = state.draft.clone();
+        assert!(!state.changed());
+    }
 }

@@ -9,13 +9,17 @@
 
 ## Polaroid
 
-Hand-off: all nine components have implementation, unit/integration tests and GUI smoke steps
-where the debug dialog hook permits them. Static whitespace/shell-syntax checks passed; builds,
-test runs and UI inspection are intentionally unverified under brief rule 1.
-Target: `par/sol-batch`, with one pushed commit per component and a final static close-out.
-Next authorized action belongs to the orchestrator: merge the branch, refresh Cargo.lock for
-app's `zip 4.6.1` dependency, compile, run the suite and inspect the new screens. Report compile
-errors back to this worker; do not grade parity from this implementation report alone.
+Sheaf sol-batch pass 2, 27/10, hand-off active on `par/sol-batch` in this worktree.
+All nine components have a second implementation pass, one pushed commit per component and
+follow-up fixes. The app has Tools/reader entry points for all of this batch's features; no
+feature was added to the CLI alone. No network service was added.
+Static whitespace and shell-syntax checks are the only executed verification. Compilation,
+unit/integration/smoke execution, rendering, performance measurement and counterpart review are
+still pending with the orchestrator under brief rule 1. Do not infer a joint 9 from this report.
+Next: merge, refresh the first-pass app `zip` lock dependency if needed, compile, run the single
+suite, check the new panels at minimum size/light/dark, then let opus-platform review read-only.
+Send any compile errors or DISAGREE proof back to this worker. Pass-1 descriptions below are a
+historical baseline; the Pass 2 entries supersede their corresponding Left notes.
 
 ## Components
 
@@ -230,3 +234,46 @@ errors back to this worker; do not grade parity from this implementation report 
   publishing the unique output. Test `stopping_during_the_last_step_does_not_publish_its_output`
   (written, not run). The configured runner takes an explicit `publish` predicate; the GUI's
   Stop token supplies it, while the compatible unattended wrapper always permits publication.
+
+## Pass 2 static hand-off
+
+- Fixed Stop remains visible outside the editor's scroll; step controls split into two rows at
+  the minimum width. Library has a visible search prompt and separates its long Delete action.
+  Portfolio composition says Save portfolio to distinguish its button from the panel heading.
+  Smoke 251–253 selectors were adjusted to the new header/panel arrangement, not executed.
+- New dependencies this pass: none. First-pass app `zip 4.6.1` (`deflate`, no default features)
+  still needs inclusion in the app's Cargo.lock dependency list when the orchestrator builds.
+- New public engine APIs: `actions::run_guided`, `Session::run_javascript_at`. Existing
+  `run_on` / `run_javascript` signatures remain compatible. New Step variants are handled by
+  IDs/labels/arguments/apply in engine actions. App's configured runner additionally takes a
+  final publication predicate. `Op::RunJavaScript` now carries a page; JavaScript replies carry
+  requests. All local callers/tests were updated. No CLI-only commands were added.
+- New files: `src/action_import.rs`, `src/portfolio_ui.rs`, `src/reader_ui/portfolio.rs`,
+  `ui/screens/portfolio.slint` (all under sheaf-app). ARCHITECTURE.md maps them.
+- Merge seams: the small exported-struct/global blocks in main.slint; install/module blocks in
+  main.rs; reader_doc Op/Reply/match cases; reader_ui reply cases and one public portfolio module;
+  reader toolbar entries at the end of More tools; Tools' new shortcut row; flow's JSON drop and
+  checkout-close hooks; TextField's optional enabled property; engine actions/js wrappers;
+  tails of engine_patches/portfolio/form tests and smoke 251–253. Preserve other batches' edits.
+- Remaining scope: engine command subset and draft recovery after quitting (002); passwords
+  per input, progress inside engine steps (003); most Stirling tools and Acrobat sequ (004);
+  online suggestion discovery excluded by mandate (005); current unsaved-document custom runs
+  and arbitrary toolbox commands (006); daemon/multiple watches/automatic resume and encrypted
+  inbox passwords (008); folder-tree view and whole-process checkout cleanup (files-008);
+  portfolio embedded previews/folders/themes (organize-024); debugging, audible Beep and non-text
+  field focus (platform-005). No component was impossible or left untouched in this pass.
+- `git diff --check` and `bash -n dev/scripts/smoke/3-flows.sh` pass; no cargo/rustc/clippy/test,
+  app, browser, Xvfb or codex invocation occurred. Functional tests are written proofs awaiting
+  execution, aesthetic scores are provisional code review, and performance is unmeasured.
+- Problem-solving close-out: original mandate addressed on all nine components; evidence is in
+  pushed diffs and named tests; pending validation is genuinely external because brief rule 1
+  forbids it here. Remaining implementation is listed separately above and is not described as
+  a validation dependency.
+
+- C-batch-002 draft guard: switching/new/import (including a dropped file) detects unsaved edits
+  or unsaved copies and offers Keep editing / Discard changes. Invalid imports leave the draft
+  alone. Saved suggested templates remain independent. Test
+  `draft_guard_detects_edits_and_unsaved_copies_but_allows_unchanged_templates` (written, not run).
+  Left: recovering an unsaved action draft after quitting the whole process.
+  not automatable: edit, switch, Keep editing; import a file, Discard; reopen the saved template —
+  app execution prohibited by brief rule 1.
