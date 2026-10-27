@@ -140,7 +140,7 @@ quit
 printf '%%PDF-1.4\n1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj\n2 0 obj <</Type /Pages /Kids [3 0 R] /Count 1>> endobj\n3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources <</Font <</F1 5 0 R>>>> /Contents 4 0 R>> endobj\n4 0 obj <</Length 44>> stream\nBT /F1 24 Tf 72 100 Td (Overlay mark) Tj ET\nendstream endobj\n5 0 obj <</Type /Font /Subtype /Type1 /BaseFont /Helvetica>> endobj\ntrailer <</Size 6 /Root 1 0 R>>\n%%%%EOF\n' > "$OUT/stamp-text.raw"
 qpdf "$OUT/stamp-text.raw" "$OUT/stamp-text.pdf" 2>/dev/null
 cp "$OUT/text.pdf" "$OUT/overlay.pdf"; launch "$OUT/overlay.pdf"; sleep 1
-answer "$PWD/$OUT/stamp-text.pdf"; click 1127 61 0.8; click 1008 659 0.8; OV=$(at Overlay 300x400+880+80); [ -n "$OV" ] && click $OV 1.5; answer ""; key ctrl+s; sleep 1.5
+answer "$PWD/$OUT/stamp-text.pdf"; click 1108 61 0.8; click 1008 659 0.8; OV=$(at Overlay 300x400+880+80); [ -n "$OV" ] && click $OV 1.5; answer ""; key ctrl+s; sleep 1.5
 O2=$(pdftotext -f 2 -l 2 "$OUT/overlay.pdf" - 2>/dev/null | tr '\n' ' '); S1=$(pdftotext -f 1 -l 1 "$OUT/stamp-text.pdf" - 2>/dev/null | tr '\n' ' ' | awk '{print $1, $2}')
 check "Overlay a PDF draws its page over each page (${OV:-no item}; overlay: ${S1:-none}; page 2: $(echo "$O2" | cut -c1-60))" "[ \"$S1\" = 'Overlay mark' ] && echo \"$O2\" | grep -q 'Page 2 the quick' && echo \"$O2\" | grep -qF \"$S1\""
 quit
@@ -152,7 +152,7 @@ check "a finished job sends a system notification ($(grep -m1 Organize $OUT/noti
 # 94. More ▸ Read aloud (Acrobat's Read Out Loud): from the page shown to the end, each page's text spoken (the test
 # seam writes what the voice is given).
 cp "$OUT/text.pdf" "$OUT/aloud.pdf"; launch "$OUT/aloud.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8; RD=$(at Read 300x400+880+80); [ -n "$RD" ] && click $RD 3
+click 1108 61 0.8; click 1008 659 0.8; RD=$(at Read 300x400+880+80); [ -n "$RD" ] && click $RD 3
 check "Read aloud gives every page's text to the voice (${RD:-no item}; $(tr '\n' ' ' < $OUT/spoken 2>/dev/null | cut -c1-60))" "grep -q 'Page 1' $OUT/spoken && grep -q 'Page 4' $OUT/spoken"
 quit
 
@@ -169,7 +169,7 @@ quit
 # into the page and no field left; the document itself keeps its field.
 cp "$OUT/form.pdf" "$OUT/toflat.pdf"; launch "$OUT/toflat.pdf"; key ctrl+9
 click 640 300 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+a; xdotool type --delay 10 "Drawn in"; key Return; sleep 1
-answer "$PWD/$OUT/flat-copy.pdf"; click 1127 61 0.8; click 1008 659 0.8; FC=$(at flattened 300x400+880+80); [ -n "$FC" ] && click $FC 2; answer ""
+answer "$PWD/$OUT/flat-copy.pdf"; click 1108 61 0.8; click 1008 659 0.8; FC=$(at flattened 300x400+880+80); [ -n "$FC" ] && click $FC 2; answer ""
 NF=$(qpdf --json=2 --json-key=acroform "$OUT/flat-copy.pdf" 2>/dev/null | python3 -c "import json,sys;print(len(json.load(sys.stdin)['acroform']['fields']))" 2>/dev/null)
 check "Save a flattened copy draws the value in and leaves no field (${FC:-no item}; ${NF:-?} fields; $(pdftotext $OUT/flat-copy.pdf - 2>/dev/null | tr '\n' ' ' | cut -c1-40))" "[ \"\${NF:-1}\" = 0 ] && pdftotext $OUT/flat-copy.pdf - | grep -q 'Drawn in' && [ \"\$(qpdf --json=2 --json-key=acroform $OUT/toflat.pdf | python3 -c 'import json,sys;print(len(json.load(sys.stdin)[\"acroform\"][\"fields\"]))')\" -ge 1 ]"
 quit
@@ -177,7 +177,7 @@ quit
 # 97. More ▸ Loupe (Acrobat's Loupe tool): the pointer over "Page 1", the panel in the view's bottom-right corner
 # shows those words three times larger.
 cp "$OUT/text.pdf" "$OUT/loupe.pdf"; launch "$OUT/loupe.pdf"; sleep 1
-LW=$(at Page 1020x300+255+80); click 1127 61 0.8; click 1008 659 0.8; LP=$(at Loupe 300x400+880+80); [ -n "$LP" ] && click $LP 0.8
+LW=$(at Page 1020x300+255+80); click 1108 61 0.8; click 1008 659 0.8; LP=$(at Loupe 300x400+880+80); [ -n "$LP" ] && click $LP 0.8
 # The pointer ends on the word's middle: magnified three times, the whole word fits the panel (at the view's
 # 163 %, 20 px to its right cut the P off).
 [ -n "$LW" ] && { set -- $LW; xdotool mousemove $(( $1 - 10 )) $2; sleep 0.3; xdotool mousemove $1 $2; sleep 1.5; }
@@ -239,7 +239,7 @@ quit
 # 104. The page grid (More ▸ Page grid): the yellow page (the last) dragged onto the left half of the red one (the
 # first) goes before it (Acrobat's Organize Pages): saved, the first page is yellow.
 convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/griddrag.pdf"; launch "$OUT/griddrag.pdf"; sleep 1
-click 1127 61 0.8; click 1008 267 1.5
+click 1108 61 0.8; click 1008 267 1.5
 GY=226; GR=$(first_x r $GY); GB=$(first_x b $GY)
 # Yellow is red and green high: the last card, right of the blue one (cards are about as wide as blue's offset).
 GYW=${GB:+$(( GB + (GB - ${GR:-0}) / 2 + 20 ))}
@@ -253,14 +253,14 @@ quit
 
 # 105. More ▸ More tools ▸ Remove all images (Acrobat's): image.pdf's pictures go, its text stays; saved.
 cp "$OUT/image.pdf" "$OUT/noimages.pdf"; launch "$OUT/noimages.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8; RI=$(at Remove 300x400+880+80); [ -n "$RI" ] && click $RI 1.5; key ctrl+s; sleep 1.5
+click 1108 61 0.8; click 1008 659 0.8; RI=$(at Remove 300x400+880+80); [ -n "$RI" ] && click $RI 1.5; key ctrl+s; sleep 1.5
 NI=$(pdfimages -list "$OUT/noimages.pdf" 2>/dev/null | tail -n +3 | wc -l)
 check "Remove all images takes every picture out (${RI:-no item}; $NI left)" "[ \"$NI\" = 0 ]"
 quit
 
 # 106. More ▸ More tools ▸ Reflow (Acrobat's): the page's text across the window, larger with A+.
 cp "$OUT/text.pdf" "$OUT/reflow.pdf"; launch "$OUT/reflow.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8; RF=$(at Reflow 300x400+880+80); [ -n "$RF" ] && click $RF 1; RT=$(ocr 1020x300+255+90)
+click 1108 61 0.8; click 1008 659 0.8; RF=$(at Reflow 300x400+880+80); [ -n "$RF" ] && click $RF 1; RT=$(ocr 1020x300+255+90)
 check "Reflow shows the page's text on the window's width (${RF:-no item}; $(echo "$RT" | cut -c1-60))" "echo \"$RT\" | grep -q 'Reflow' && echo \"$RT\" | grep -q 'quick brown fox'"
 quit
 
@@ -301,7 +301,7 @@ quit
 # 109. More ▸ More tools ▸ Accessibility check (Acrobat's Full Check): text.pdf has no title, so Title fails; its
 # row's Fix sets one (the file's name) and the check runs again; saved, the file has a title shown in the window.
 cp "$OUT/text.pdf" "$OUT/a11y.pdf"; launch "$OUT/a11y.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8; AK=$(at Accessibility 300x500+880+80); [ -n "$AK" ] && click $AK 3
+click 1108 61 0.8; click 1008 659 0.8; AK=$(at Accessibility 300x500+880+80); [ -n "$AK" ] && click $AK 3
 A1=$(ocr 640x560+320+120 | tr -s ' ')
 # The Fix on the Title row: the row's y, the Fix button's x (the buttons line up on the right).
 read _ TY <<< "$(at Title 600x520+330+150)"; read FX _ <<< "$(at Fix 640x560+320+120)"
@@ -316,7 +316,7 @@ quit
 # file manager pastes it (GNOME's x-special/gnome-copied-files: "copy" and the file's URI).
 cp "$OUT/text.pdf" "$OUT/share.pdf"; launch "$OUT/share.pdf"; sleep 1; printf x | xclip -selection clipboard
 key h; read QX QY <<< "$(at quick 1020x700+255+90)"; [ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1 mousemove $(( QX + 60 )) $QY mouseup 1; sleep 1; }; key v
-click 1127 61 0.8; click 1008 659 0.8; CF=$(at Copy 300x700+880+80); [ -n "$CF" ] && click $CF 1.5
+click 1108 61 0.8; click 1008 659 0.8; CF=$(at Copy 300x700+880+80); [ -n "$CF" ] && click $CF 1.5
 SF=$(xclip -o -selection clipboard -t x-special/gnome-copied-files 2>/dev/null | sed -n '1{/^copy$/!q};2{s#^file://##;s/%20/ /g;p}')
 check "Copy the file puts the document as it is now on the clipboard (${CF:-no item}; $(basename "$SF"))" "[ -f \"$SF\" ] && qpdf --qdf --object-streams=disable \"$SF\" - 2>/dev/null | grep -aq '/Subtype /Highlight' && ! qpdf --qdf --object-streams=disable \"$OUT/share.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
 quit
@@ -325,7 +325,7 @@ quit
 # 90 % over the white page, #F3F3F3); a click on the top ruler makes an upright guide (#00A6D6) across
 # the page, a second click on its mark takes it away.
 cp "$OUT/text.pdf" "$OUT/rulers.pdf"; launch "$OUT/rulers.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8; RU=$(at Rulers 300x700+880+80); [ -n "$RU" ] && click $RU 1.5
+click 1108 61 0.8; click 1008 659 0.8; RU=$(at Rulers 300x700+880+80); [ -n "$RU" ] && click $RU 1.5
 # The rulers' box: where #F3F3F3 is in the view (the corner the two rulers share is the page's).
 RB=$(import -window root -crop 1000x700+260+90 png:- 2>/dev/null | convert - +repage -fuzz 1% -fill black -opaque '#f3f3f3' -fill white +opaque black -negate -trim -format '%X %Y' info: 2>/dev/null | tr -d '+')
 read RX RY <<< "$RB"
@@ -345,7 +345,7 @@ quit
 convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/across.pdf"; launch "$OUT/across.pdf"; sleep 1
 # More (1127,61) ▸ More tools… (1008,659) ▸ Scrolling, split view, hand ›: the 21st entry, 28 px apart from 100, so
 # at 660 too; then the entry of the small menu starting with the word $1, found by OCR.
-layout_item() { click 1127 61 0.8; click 1008 659 0.8; click 1008 660 0.8; local i; i=$(at "$1" 340x300+840+70); [ -n "$i" ] && click $i 1.2; echo "${i:-none}"; }
+layout_item() { click 1108 61 0.8; click 1008 659 0.8; click 1008 660 0.8; local i; i=$(at "$1" 340x300+840+70); [ -n "$i" ] && click $i 1.2; echo "${i:-none}"; }
 # A pixel's colour at (x, 420) as #RRGGBB (8 bits: colour_at reads 16-bit colours as #RRRRGG on this ImageMagick).
 c8() { import -window root -crop "1x1+$1+420" -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | head -1; }
 greenish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, g = int(v[0:2], 16), int(v[2:4], 16); sys.exit(0 if g > r + 80 else 1)' "$1"; }
@@ -807,7 +807,7 @@ CD="$PWD/$OUT/certs"; mkdir -p "$CD"
 for n in me colleague; do openssl req -x509 -newkey rsa:2048 -nodes -keyout "$CD/$n.key" -out "$CD/$n.pem" -days 2 -subj "/CN=Smoke $n" -addext keyUsage=digitalSignature,keyEncipherment >/dev/null 2>&1; done
 openssl pkcs12 -export -passout pass:smokepw -inkey "$CD/me.key" -in "$CD/me.pem" -out "$CD/me.p12" >/dev/null 2>&1
 cp "$OUT/text.pdf" "$OUT/certsrc.pdf"; rm -f "$OUT/certenc.pdf"; launch "$OUT/certsrc.pdf"; sleep 1
-click 1127 61 0.8; click 1008 659 0.8
+click 1108 61 0.8; click 1008 659 0.8
 for i in 1 2 3 4 5 6; do xdotool mousemove 1000 500 click 5; sleep 0.1; done; sleep 0.5
 EC=$(at Encrypt 300x700+880+80); [ -n "$EC" ] && click $EC 1.2
 # The sheet is 760 × 680 in the middle of the window: its buttons are at fixed places.
@@ -1054,7 +1054,7 @@ check "344 automatic OCR writes searchable text ($OR; $OT)" "[ -n \"$OR\" ] && e
 quit
 
 # 342. Acrobat's Output Preview: the captured page has selectable process ink plates.
-optimize_print_tool() { click 1127 61 0.8; click 1008 659 0.8; local found=; for _ in $(seq 1 12); do found=$(at "$1" 300x690+880+85); [ -n "$found" ] && break; xdotool mousemove 1050 530 click 5 click 5; sleep 0.3; done; [ -n "$found" ] && click $found 1; echo "$found"; }
+optimize_print_tool() { click 1108 61 0.8; click 1008 659 0.8; local found=; for _ in $(seq 1 12); do found=$(at "$1" 300x690+880+85); [ -n "$found" ] && break; xdotool mousemove 1050 530 click 5 click 5; sleep 0.3; done; [ -n "$found" ] && click $found 1; echo "$found"; }
 INK_SOURCE=$(sha256sum "$OUT/text.pdf" | cut -d" " -f1)
 launch "$OUT/text.pdf"; PP=$(optimize_print_tool preflight)
 PI=$(at Ink); [ -n "$PI" ] && click $PI 1
