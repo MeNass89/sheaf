@@ -486,3 +486,24 @@
   `not automatable: reopen/build a catalog, change/delete one source, search the others, then
   rebuild and inspect stale-source feedback — app execution forbidden to this worker`.
 - Proposed grade: C-optimize-015: f8 a7 p8 — tests above; actual large-catalog timing unverified.
+
+## Third pass — C-sign-009
+
+- C-sign-009: new saves use Rust ChaCha20-Poly1305 authenticated local storage, without
+  secret-tool/security/PowerShell writes or read-back subprocesses on the UI thread. Each
+  save has a fresh nonce; the separate random per-profile key and ciphertext are owner-only
+  on Unix, atomically replaced. No 64K-character Windows payload limit. Legacy system-vault
+  profiles migrate after successful reads; unreadable legacy data is never overwritten.
+- This supersedes the earlier mandatory-keyring design. The key is local and protects against
+  other local accounts (Windows inherits profile ACLs); it does not claim Keychain-equivalent
+  isolation from the signed-in account. Legacy migration may still invoke its old vault once
+  at startup. Future saves and normal local loads need no outside program or unlock prompt.
+- New dependency: workspace + sheaf-app `chacha20poly1305 = 0.10`, alloc only (pure Rust,
+  orchestrator must fetch/update lockfile); existing workspace getrandom linked by sheaf-app.
+- Tests written, not run: `local_signatures_survive_restart_without_external_tools_or_size_caps`
+  (>64K drawn data, restart, ciphertext and Unix permissions),
+  `damaged_or_missing_signature_keys_never_clear_a_saved_library`; previous migration guards.
+  Smoke helpers now decrypt the local file using Python cryptography (smoke-only requirement).
+- `not automatable: create/reorder/edit/delete/once-only marks, restart with no secret-tool,
+  reopen and reuse on Linux/Windows/macOS — app/platform execution forbidden by rule 1`.
+- Proposed grade: C-sign-009: f8 a8 p8 — persistence tests above; no live platform verification.

@@ -1,8 +1,12 @@
-//! Kept signatures in the system credential store (Preview's Keychain), never in preferences.
-//! Linux uses Secret Service's `secret-tool`; Windows uses the current user's DPAPI. A locked
-//! or missing store is an error: it must never cause a plaintext fallback or erase a saved mark.
+//! Reliable local signature storage (PDF Expert's saved signatures).
+//! New payloads use authenticated encryption and a separate per-profile key. On Unix both
+//! files are owner-only. This protects other local accounts, not a compromised user account;
+//! unlike Keychain it does not require an unlock prompt or an external program to save.
+//! Earlier credential-store profiles are read once and migrated; a locked legacy store is
+//! never replaced with an empty library.
 
 use crate::prefs::{KeptSignature, Prefs};
+use chacha20poly1305::{aead::{Aead, Payload}, ChaCha20Poly1305, KeyInit};
 use serde::{Deserialize, Serialize};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -95,16 +99,86 @@ fn credential(_dir: &Path, _data: Option<&[u8]>) -> io::Result<Vec<u8>> {
     Err(io::Error::other("No secure signature store on this platform"))
 }
 
-// Besides avoiding credential-store calls on every ordinary preference save, this records
-// that the profile actually loaded its marks. A failed startup read must not turn into a
-// deletion when the keyring becomes available later in the session.
+const HEADER: &[u8] = b"SheafMarks\x02";
+
+fn private_write(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let dir = path.parent().ok_or_else(|| io::Error::other("Signature store has no directory"))?;
+    std::fs::create_dir_all(dir)?;
+    let mut file = tempfile::NamedTempFile::new_in(dir)?;
+    file.write_all(bytes)?;
+    file.as_file().sync_all()?;
+    file.persist(path).map_err(|e| e.error)?;
+    Ok(())
+}
+
+fn read_key(dir: &Path) -> io::Result<[u8; 32]> {
+    let path = dir.join("signatures.key");
+    let metadata = std::fs::symlink_metadata(&path)?;
+    if !metadata.is_file() { return Err(io::Error::other("Invalid signature key file")); }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if metadata.permissions().mode() & 0o077 != 0 {
+            return Err(io::Error::other("Signature key must be readable only by its owner (chmod 600 signatures.key)"));
+        }
+    }
+    std::fs::read(path)?.try_into().map_err(|_| io::Error::other("Invalid signature key length"))
+}
+
+fn create_key(dir: &Path) -> io::Result<[u8; 32]> {
+    if dir.join("signatures.key").exists() { return read_key(dir); }
+    std::fs::create_dir_all(dir)?;
+    let mut key = [0u8; 32];
+    getrandom::fill(&mut key).map_err(io::Error::other)?;
+    let mut file = tempfile::NamedTempFile::new_in(dir)?;
+    file.write_all(&key)?;
+    file.as_file().sync_all()?;
+    match file.persist_noclobber(dir.join("signatures.key")) {
+        Ok(_) => Ok(key),
+        Err(e) if e.error.kind() == io::ErrorKind::AlreadyExists => read_key(dir),
+        Err(e) => Err(e.error),
+    }
+}
+
+fn write_local(dir: &Path, marks: &Marks) -> io::Result<()> {
+    let key = create_key(dir)?;
+    let cipher = ChaCha20Poly1305::new((&key).into());
+    let mut nonce = [0u8; 12];
+    getrandom::fill(&mut nonce).map_err(io::Error::other)?;
+    let data = serde_json::to_vec(marks).map_err(io::Error::other)?;
+    let encrypted = cipher.encrypt((&nonce).into(), Payload { msg: &data, aad: HEADER })
+        .map_err(|_| io::Error::other("Cannot encrypt saved signatures"))?;
+    let mut output = HEADER.to_vec();
+    output.extend_from_slice(&nonce);
+    output.extend_from_slice(&encrypted);
+    private_write(&dir.join("signatures.secure"), &output)
+}
+
+fn read_local(dir: &Path, bytes: &[u8]) -> io::Result<Marks> {
+    let payload = bytes.strip_prefix(HEADER).filter(|p| p.len() >= 28)
+        .ok_or_else(|| io::Error::other("Invalid encrypted signature file"))?;
+    let key = read_key(dir)?;
+    let cipher = ChaCha20Poly1305::new((&key).into());
+    let data = cipher.decrypt((&payload[..12]).into(), Payload { msg: &payload[12..], aad: HEADER })
+        .map_err(|_| io::Error::other("Saved signatures cannot be decrypted; keep signatures.secure and signatures.key together"))?;
+    serde_json::from_slice(&data).map_err(io::Error::other)
+}
+
+// Remember successful loads so a startup error cannot later erase an unread library.
 static LOADED: Mutex<BTreeMap<PathBuf, Marks>> = Mutex::new(BTreeMap::new());
 
 pub(crate) fn load(dir: &Path) -> io::Result<Option<Marks>> {
-    if !dir.join("signatures.secure").exists() { return Ok(None); }
-    if !dir.join("signatures.secure").is_file() { return Err(io::Error::other("Invalid signature store marker")); }
-    let data = credential(dir, None)?;
-    let marks: Marks = serde_json::from_slice(&data).map_err(io::Error::other)?;
+    let path = dir.join("signatures.secure");
+    if !path.exists() { return Ok(None); }
+    let bytes = std::fs::read(&path)?;
+    let marks = if bytes.starts_with(HEADER) {
+        read_local(dir, &bytes)?
+    } else {
+        let marks: Marks = serde_json::from_slice(&credential(dir, None)?).map_err(io::Error::other)?;
+        // Complete the local write before changing the legacy marker. Failure leaves it intact.
+        write_local(dir, &marks)?;
+        marks
+    };
     LOADED.lock().unwrap_or_else(|e| e.into_inner()).insert(dir.to_path_buf(), marks.clone());
     Ok(Some(marks))
 }
@@ -118,12 +192,7 @@ pub(crate) fn save(dir: &Path, marks: &Marks) -> io::Result<()> {
         }
         if marks.is_empty() { return Ok(()); }
     }
-    let data = serde_json::to_vec(marks).map_err(io::Error::other)?;
-    credential(dir, Some(&data))?;
-    let saved: Marks = serde_json::from_slice(&credential(dir, None)?).map_err(io::Error::other)?;
-    if &saved != marks { return Err(io::Error::other("The secure signature store did not keep the signature")); }
-    #[cfg(not(target_os = "windows"))]
-    crate::store_file::replace(&dir.join("signatures.secure"), b"system-credential-store-v1")?;
+    write_local(dir, marks)?;
     LOADED.lock().unwrap_or_else(|e| e.into_inner()).insert(dir.to_path_buf(), marks.clone());
     Ok(())
 }
@@ -172,6 +241,41 @@ mod tests {
         let changed = Prefs { signature_name: Some("New signature".into()), ..Default::default() };
         assert!(changed.save(dir.path()).is_err());
         assert_eq!(std::fs::read(path).unwrap(), original);
+    }
+
+    #[test]
+    fn local_signatures_survive_restart_without_external_tools_or_size_caps() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Prefs { signature_name: Some("Private Name".into()), signature_strokes: vec![vec![[0.2, 0.3]; 20_000]], ..Default::default() };
+        let marks = Marks::from_prefs(&p);
+        save(dir.path(), &marks).unwrap();
+        LOADED.lock().unwrap().remove(dir.path());
+        assert_eq!(load(dir.path()).unwrap(), Some(marks));
+        let bytes = std::fs::read(dir.path().join("signatures.secure")).unwrap();
+        assert!(bytes.starts_with(HEADER));
+        assert!(!bytes.windows(12).any(|s| s == b"Private Name"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            for name in ["signatures.secure", "signatures.key"] {
+                assert_eq!(std::fs::metadata(dir.path().join(name)).unwrap().permissions().mode() & 0o077, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn damaged_or_missing_signature_keys_never_clear_a_saved_library() {
+        let dir = tempfile::tempdir().unwrap();
+        let marks = Marks::from_prefs(&Prefs { signature_name: Some("Kept".into()), ..Default::default() });
+        save(dir.path(), &marks).unwrap();
+        let original = std::fs::read(dir.path().join("signatures.secure")).unwrap();
+        LOADED.lock().unwrap().remove(dir.path());
+        std::fs::remove_file(dir.path().join("signatures.key")).unwrap();
+        assert!(load(dir.path()).is_err());
+        assert!(save(dir.path(), &Marks::default()).is_err());
+        assert_eq!(std::fs::read(dir.path().join("signatures.secure")).unwrap(), original);
+        std::fs::write(dir.path().join("signatures.key"), [0u8; 32]).unwrap();
+        assert!(load(dir.path()).is_err());
     }
 
 }

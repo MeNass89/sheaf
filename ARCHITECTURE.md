@@ -85,7 +85,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 - **Provisional**: drawn at once by the UI before the engine confirms an edit.
 - **Job**: one tool run off the UI thread.
 
-`signature_store.rs` keeps signature and initials payloads in Secret Service / Keychain / Windows DPAPI, with plaintext profile migration in `prefs.rs`.
+`signature_store.rs` keeps signature and initials payloads in an authenticated encrypted local file with a separate per-profile key (owner-only on Unix). Legacy Secret Service / Keychain / Windows DPAPI profiles and plaintext preferences migrate on successful read; new saves need no external program.
 
 Core `ocr_local.rs` supplies installed offline Tesseract script packs to the existing OCR render/apply pipeline.
 

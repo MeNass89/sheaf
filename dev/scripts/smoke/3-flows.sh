@@ -1138,9 +1138,9 @@ check "a click on the top ruler makes a guide, a second takes it away (${RU:-no 
 quit
 
 
-# 240. Kept signatures and initials belong to the system credential store, never prefs.json.
+# 240. Kept signatures and initials belong to authenticated local storage, never prefs.json.
 # The existing signature/initials steps exercised save, restart and reuse. Their helpers read
-# Secret Service too; this suite needs secret-tool and an unlocked desktop keyring.
+# the encrypted local store too; smoke inspection needs Python cryptography.
 no_plain_marks() {
     python3 - "$PWD/$OUT/profile/data/Sheaf/prefs.json" <<'PYMARKS'
 import json, sys
@@ -1150,4 +1150,4 @@ PYMARKS
 }
 has_secure_marks() { secure_marks | python3 -c 'import json,sys; p=json.load(sys.stdin); assert p.get("signatures") or p.get("initials")'; }
 check "signatures and initials are absent from plaintext preferences" "no_plain_marks"
-check "kept marks exist in the system credential store" "has_secure_marks"
+check "kept marks exist in authenticated local storage" "has_secure_marks"
