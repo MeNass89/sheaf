@@ -153,11 +153,11 @@ mod tests {
     /// Bold and italic pick the same family's faces (Sol, 27/10: a standard family came instead).
     #[test]
     fn bold_and_italic_pick_the_fonts_own_faces() {
-        let face = |name: &str, family: &str| {
+        let font = |name: &str, family: &str| {
             let (bold, italic) = style_of(name);
             SystemFont { name: name.into(), path: PathBuf::from(format!("{name}.ttf")), family: family.into(), bold, italic }
         };
-        let fonts = [face("DejaVu Serif", "DejaVu Serif"), face("DejaVu Serif Bold", "DejaVu Serif"), face("DejaVu Serif Italic", "DejaVu Serif"), face("DejaVu Sans Bold", "DejaVu Sans")];
+        let fonts = [font("DejaVu Serif", "DejaVu Serif"), font("DejaVu Serif Bold", "DejaVu Serif"), font("DejaVu Serif Italic", "DejaVu Serif"), font("DejaVu Sans Bold", "DejaVu Sans")];
         assert_eq!(variant(&fonts, "ABCDEF+DejaVuSerif", true, false).map(|f| f.name.as_str()), Some("DejaVu Serif Bold"));
         assert_eq!(variant(&fonts, "DejaVuSerif-Bold", false, true).map(|f| f.name.as_str()), Some("DejaVu Serif Italic"));
         assert_eq!(variant(&fonts, "DejaVuSerif-Bold", false, false).map(|f| f.name.as_str()), Some("DejaVu Serif"));

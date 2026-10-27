@@ -1390,9 +1390,11 @@ mod tests {
         let mut v = ViewerUi::new(Input::new("x.pdf"), viewer, 1.0, (1000.0, 0.0, 700.0), (0.0, 0.0));
         v.viewer.set_horizontal(true);
         v.show_page(22, None);
-        view_left_of(&mut v, v.scroll_x.unwrap());
+        let sx = v.scroll_x.unwrap();
+        view_left_of(&mut v, sx);
         for (w, h) in [(760.0, 700.0), (1240.0, 700.0), (1240.0, 900.0), (1000.0, 700.0)] {
-            v.resize(w, v.top, h);
+            let top = v.top;
+            v.resize(w, top, h);
             assert_eq!(v.current(), 22, "at {w} × {h}");
         }
         // Down a column a resize is as before: the scroll asked for is left alone.

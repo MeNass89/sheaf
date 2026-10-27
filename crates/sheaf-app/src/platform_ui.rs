@@ -438,7 +438,7 @@ const HELD_CTRL: u8 = 8;
 
 /// The window's modifiers changed (winit's ModifiersChanged).
 pub fn modifiers_changed(shift: bool, alt: bool, meta: bool, ctrl: bool) {
-    HELD.store(u8::from(shift) * HELD_SHIFT | u8::from(alt) * HELD_ALT | u8::from(meta) * HELD_META | u8::from(ctrl) * HELD_CTRL, Ordering::Relaxed);
+    HELD.store((u8::from(shift) * HELD_SHIFT) | (u8::from(alt) * HELD_ALT) | (u8::from(meta) * HELD_META) | (u8::from(ctrl) * HELD_CTRL), Ordering::Relaxed);
 }
 
 /// Edit ▸ Check Spelling… on a document: its texts (comments, replies, form fields), what the
