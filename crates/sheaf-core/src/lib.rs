@@ -27,6 +27,7 @@ pub mod repair;
 pub mod script;
 pub mod rotate;
 pub mod security;
+pub mod search_index;
 pub mod sign;
 pub mod text;
 pub mod textdocs;

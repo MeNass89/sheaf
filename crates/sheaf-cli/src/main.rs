@@ -70,7 +70,7 @@ impl Cmd {
             Cmd::Edit { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
             // They write no PDF.
-            Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
+            Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
         }
     }
 
@@ -79,8 +79,9 @@ impl Cmd {
     fn out_dir(&self) -> Option<&Path> {
         match self {
             Cmd::Split { out, .. } | Cmd::ToJpg { out, .. } => Some(out),
-            Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Tools | Cmd::Mcp => None,
-            Cmd::Merge { out, .. }
+            Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Tools | Cmd::Mcp => None,
+            Cmd::Index { out, .. }
+            | Cmd::Merge { out, .. }
             | Cmd::Render { out, .. }
             | Cmd::Extract { out, .. }
             | Cmd::Remove { out, .. }
@@ -353,6 +354,15 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             Ok(vec![])
         }
         Cmd::Render { input: i, page, dpi, out } => one(images::render_png(&input(i), page as usize - 1, dpi, &out)),
+        Cmd::Index { inputs, out } => {
+            let inputs: Vec<Input> = inputs.into_iter().map(input).collect();
+            one(sheaf_core::search_index::Catalog::build(&inputs, &mut |_, _| true)?.save(&out))
+        }
+        Cmd::SearchIndex { index, query } => {
+            let hits = sheaf_core::search_index::Catalog::load(&index)?.search(&query)?;
+            agent::set_data(serde_json::to_value(hits).map_err(|e| OpdfError::Engine(e.to_string()))?);
+            Ok(vec![])
+        }
         Cmd::Tools => {
             agent::set_data(serde_json::json!({ "tools": mcp::tools() }));
             Ok(vec![])

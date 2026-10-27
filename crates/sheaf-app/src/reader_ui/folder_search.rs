@@ -61,9 +61,16 @@ pub(super) fn search_folder(folder: &std::path::Path, query: &str) -> Vec<(PathB
             }
         }
     }
+    // An optional catalog built with `sheaf index … -o .sheaf-index.json` skips repeated
+    // PDF parsing. Changed or unindexed files are read normally, never omitted.
+    let catalog = sheaf_core::search_index::Catalog::load(&folder.join(".sheaf-index.json")).ok();
     let mut out = Vec::new();
     for f in files {
-        let Ok(pages) = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&f), &[]) else { continue };
+        let cached = catalog.as_ref().and_then(|c| c.texts(&f));
+        let pages = match cached {
+            Some(pages) => pages.to_vec(),
+            None => match sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&f), &[]) { Ok(pages) => pages, Err(_) => continue },
+        };
         for (page, text) in pages.iter().enumerate() {
             for snippet in page_matches(text, query) {
                 out.push((f.clone(), page, snippet));

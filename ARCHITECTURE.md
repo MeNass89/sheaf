@@ -88,3 +88,5 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 `signature_store.rs` keeps signature and initials payloads in Secret Service / Keychain / Windows DPAPI, with plaintext profile migration in `prefs.rs`.
 
 Core `ocr_local.rs` supplies installed offline Tesseract script packs to the existing OCR render/apply pipeline.
+
+Core `search_index.rs` builds/searches versioned catalogs (`sheaf index` / `search-index`); folder search consumes a `.sheaf-index.json` catalog when present.

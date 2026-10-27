@@ -40,6 +40,17 @@
   `not automatable: select an installed CJK language in the OCR panel and inspect selection
   against a real scan — needs the orchestrator's app and matching local language pack`.
 
+- C-optimize-015: a set of PDFs gets a reusable, versioned full-text catalog (Acrobat's
+  Catalog / Add search index), built by `sheaf index a.pdf b.pdf -o catalog.json`, searched by
+  `sheaf search-index catalog.json "phrase"`. Rebuild by rerunning Index to a fresh output;
+  delete or exchange the JSON as an ordinary file. Unicode phrases cross line ends; changed,
+  replaced or removed sources invalidate searches. Folder Search uses a `.sheaf-index.json`
+  beside the chosen folder when available and falls back to parsing changed/new PDFs.
+  Protected files are refused to avoid leaking their text. Test
+  `a_saved_catalog_finds_unicode_phrases_and_refuses_changed_sources`.
+  Existing workspace dependencies serde and serde_json now also linked by sheaf-core (no new
+  version/package). Left: a dedicated GUI catalog manager; no Acrobat `.pdx` interchange.
+
 ## Polaroid
 
 - Active: eight-component OCR/sign/security batch. Signature storage implementation written and inspected;

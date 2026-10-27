@@ -506,6 +506,18 @@ pub(crate) enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
+    /// Build a reusable full-text catalog for a set of PDFs (Acrobat's Catalog)
+    Index {
+        #[arg(required = true, num_args = 1..)]
+        inputs: Vec<PathBuf>,
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Search a previously built full-text catalog; rebuild if a source PDF changed
+    SearchIndex {
+        index: PathBuf,
+        query: String,
+    },
     /// Describe every command as a JSON schema, for agents
     Tools,
     /// Serve every command as a tool over the Model Context Protocol (JSON-RPC on stdio)
