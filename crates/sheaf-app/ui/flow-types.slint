@@ -401,7 +401,8 @@ export struct ReaderState {
     rtl: bool,
     // Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled; opacity of shapes and pen (%).
     shape-kind: int,
-    // Shapes: 1 Preview's Loupe, 2 its Mask, 0 neither (shape-option 30, 31).
+    // Shapes: 1 Preview's Loupe, 2 its Mask, 3 Acrobat's Article box, 0 none (shape-option 30–32;
+    // 33 ends the article, 34 deletes it).
     shape-special: int,
     shape-fill: bool,
     // Shapes ▸ Arrow: its head's name and whether both ends carry it.

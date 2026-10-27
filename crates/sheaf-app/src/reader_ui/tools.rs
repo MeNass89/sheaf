@@ -292,14 +292,27 @@ pub fn shape_option(ui: &AppWindow, tab_id: i32, what: i32, value: i32) {
                     r.shape_special = 0;
                 }
             }
-            // Preview's Loupe (an oval dragged) and Mask (a rectangle or oval dragged): on or off.
-            30 | 31 => {
+            // Preview's Loupe (an oval dragged) and Mask (a rectangle or oval dragged), Acrobat's
+            // Article (rectangles dragged, one after the other): on or off.
+            30..=32 => {
                 let special = (what - 29) as u8;
+                r.article_thread = None;
                 r.shape_special = if r.shape_special == special { 0 } else { special };
                 if r.shape_special != 0 {
-                    r.shape_kind = if special == 1 { 1 } else { r.shape_kind.min(1) };
+                    r.shape_kind = match special {
+                        1 => 1,
+                        2 => r.shape_kind.min(1),
+                        _ => 0,
+                    };
                     r.poly = None;
                 }
+            }
+            // Article: the next box starts a new article (Acrobat's End Article).
+            33 => r.article_thread = None,
+            // Article: the article being drawn (else the last) deleted, its boxes with it.
+            34 => {
+                let t = r.article_thread.take().or_else(|| r.snap.articles.len().checked_sub(1))?;
+                return Some((0, Edit::DeleteArticle { thread: t }));
             }
             1 => r.shape_fill = !r.shape_fill,
             3 => {

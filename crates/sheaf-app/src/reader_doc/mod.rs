@@ -207,6 +207,8 @@ pub struct Snap {
     pub page_boxes: Arc<Vec<[[f64; 4]; 5]>>,
     /// A PDF Portfolio: it opens on its files.
     pub portfolio: bool,
+    /// Article threads (Acrobat's Article tool): each one's title and boxes in reading order.
+    pub articles: Arc<Vec<sheaf_core::pdfcraft::engine::articles::Article>>,
 }
 
 /// A certificate name's attribute by its usual short name (RFC 4514's, and E for the e-mail);
@@ -405,6 +407,7 @@ fn snap(doc: &Doc) -> Snap {
         transitions: Arc::new(d.page_transitions()),
         page_boxes: Arc::new(d.page_boxes()),
         portfolio: d.is_portfolio(),
+        articles: Arc::new(d.articles()),
     }
 }
 

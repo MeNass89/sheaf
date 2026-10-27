@@ -23,6 +23,8 @@ pub mod commands;
 pub mod compare;
 pub mod copy_image;
 pub mod arrange_objects;
+/// Sheaf: article threads (Acrobat's Article tool).
+pub mod articles;
 pub mod clear_signature;
 pub mod sfn;
 pub mod transitions;
@@ -1374,6 +1376,18 @@ pub enum Edit {
         index: usize,
         quarters: i64,
     },
+    /// Sheaf: a box on `page` at the end of article `thread` (an index of `Document::articles`), or
+    /// the first of a new article titled `title` (`None`): Acrobat's Article tool (`articles.rs`).
+    AddArticleBox {
+        thread: Option<usize>,
+        title: String,
+        page: usize,
+        rect: [f64; 4],
+    },
+    /// Sheaf: article `thread` deleted, its boxes with it.
+    DeleteArticle {
+        thread: usize,
+    },
     /// Sheaf: Preview's Loupe: a circle of `radius` about `centre` (user space) showing the page
     /// under it `magnify` times as large, ringed in `color` (`pdfcraft_annot::loupe_mask`).
     AddLoupe {
@@ -1981,6 +1995,9 @@ impl Edit {
             Edit::BookmarksFromStructure => Label::of("New bookmarks from structure"),
             Edit::NumberPages { .. } => Label::of("Number pages"),
             Edit::SetTransition { .. } => Label::of("Set page transitions"),
+            Edit::AddArticleBox { thread: None, .. } => Label::of("Add article"),
+            Edit::AddArticleBox { .. } => Label::of("Add article box"),
+            Edit::DeleteArticle { .. } => Label::of("Delete article"),
             // What was measured is part of the wording too, for the same reason.
             Edit::AddMeasurement(m) => Label::of(match m.kind {
                 pdfcraft_measure::Kind::Distance => "Measure distance",
@@ -2159,7 +2176,9 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetBookmarkStyle { .. }
         | Edit::BookmarksFromStructure
         | Edit::NumberPages { .. }
-        | Edit::SetTransition { .. } => {
+        | Edit::SetTransition { .. }
+        | Edit::AddArticleBox { .. }
+        | Edit::DeleteArticle { .. } => {
             if p.assemble() {
                 Ok(())
             } else {
@@ -2427,6 +2446,8 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::NumberPages { from, to, style, prefix, first } => pdfcraft_organize::number_pages(doc, *from, *to, *style, prefix, *first)?,
         Edit::SetTransition { pages, style, seconds, advance } => transitions::set_transition(doc, pages, style.as_deref(), *seconds, *advance)?,
+        Edit::AddArticleBox { thread, title, page, rect } => articles::add_article_box(doc, *thread, title, *page, *rect)?,
+        Edit::DeleteArticle { thread } => articles::delete_article(doc, *thread)?,
         Edit::AddMeasurement(m) => {
             measure::add(doc, m, &cx.meta())?;
         }

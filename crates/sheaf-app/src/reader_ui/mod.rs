@@ -224,8 +224,12 @@ pub struct ReaderUi {
     pen_width: i32,
     /// Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled (rectangle, oval); where the drag is.
     shape_kind: i32,
-    /// Shapes: 1 Preview's Loupe, 2 its Mask (dragged as an oval, or a rectangle or oval), 0 neither.
+    /// Shapes: 1 Preview's Loupe, 2 its Mask (dragged as an oval, or a rectangle or oval), 3
+    /// Acrobat's Article box, 0 none of them.
     shape_special: u8,
+    /// Shapes ▸ Article: the article the next box goes at the end of (`Snap::articles`); `None`: a
+    /// new one.
+    article_thread: Option<usize>,
     shape_fill: bool,
     /// Shapes' fill: a highlight colour (index, the sixth too), or None a tint of the stroke.
     fill_colour: Option<usize>,
@@ -512,6 +516,7 @@ impl ReaderUi {
             pen_width: 1,
             shape_kind: 0,
             shape_special: 0,
+            article_thread: None,
             shape_fill: false,
             fill_colour: None,
             shape_end: None,

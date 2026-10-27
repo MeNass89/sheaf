@@ -245,6 +245,15 @@ pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64),
                 return (Edit::AddLoupe { page, centre, radius, magnify: LOUPE_MAGNIFY, color: colour, author: author() }, prov);
             }
             2 => return (Edit::AddMask { page, hole: rect, oval: r.shape_kind == 1, author: author() }, prov),
+            // Acrobat's Article tool: the box after the article's last one, or a new article's first.
+            3 => {
+                let thread = r.article_thread;
+                let title = format!("Article {}", r.snap.articles.len() + 1);
+                if thread.is_none() {
+                    r.article_thread = Some(r.snap.articles.len());
+                }
+                return (Edit::AddArticleBox { thread, title, page, rect }, prov);
+            }
             _ => {}
         }
         let shape = match r.shape_kind {
