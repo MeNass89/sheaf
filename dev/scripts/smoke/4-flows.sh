@@ -782,3 +782,16 @@ click 1140 755 5
 for _ in $(seq 1 20); do [ -f "$OUT/web-compressed.pdf" ] && break; sleep 0.5; done
 check "340 optimizer saves flattened Fast Web View ($OA; $OF; $OW)" "[ -n \"$OF\" ] && [ -n \"$OW\" ] && head -c 2048 \"$OUT/web-compressed.pdf\" | grep -aq /Linearized && head -c 8 \"$OUT/web-compressed.pdf\" | grep -q %PDF-1.3 && qpdf --check-linearization \"$OUT/web-compressed.pdf\" >/dev/null 2>&1 && [ \"\$(npages \"$OUT/web-compressed.pdf\")\" = 4 ] && pdftotext \"$OUT/web-compressed.pdf\" - | grep -q 'Page 1'"
 quit
+
+# 344. iLovePDF's searchable OCR: automatic backend from the real options panel, with local packs.
+convert -size 1000x200 xc:white -font DejaVu-Sans -pointsize 64 -fill black -gravity center -annotate 0 "Sheaf OCR test 2026" "$OUT/fast-ocr-input.png"
+convert "$OUT/fast-ocr-input.png" "$OUT/fast-ocr-input.pdf"
+launch "$OUT/fast-ocr-input.pdf"; sleep 1
+click $WRENCH_X 61 1; xdotool type --delay 20 "ocr"; key Return; sleep 2
+OR=$(optimize_option Require)
+shot 344-ocr-options
+click 1140 755 4
+for _ in $(seq 1 30); do [ -f "$OUT/fast-ocr-input-ocr.pdf" ] && break; sleep 0.5; done
+OT=$(pdftotext "$OUT/fast-ocr-input-ocr.pdf" - 2>/dev/null | tr '\n' ' ')
+check "344 automatic OCR writes searchable text ($OR; $OT)" "[ -n \"$OR\" ] && echo \"$OT\" | grep -q 'Sheaf OCR' && qpdf --check \"$OUT/fast-ocr-input-ocr.pdf\" >/dev/null 2>&1"
+quit

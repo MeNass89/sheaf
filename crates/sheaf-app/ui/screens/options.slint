@@ -1101,9 +1101,10 @@ export component OptionsPanel inherits VerticalLayout {
                 }
             }
         }
-        InfoBox { text: "Select every language on the page. Latin text uses built-in recognition; other scripts use installed Tesseract packs. Mixed scripts need a local pack for each selected language. Horizontal and vertical packs run in separate jobs."; }
-        Check { text: "Use installed Tesseract"; checked <=> root.ocr-local-engine; }
-        InfoBox { text: "An alternative for large scans. Uses local language packs instead of the built-in model. Speed depends on your computer and the installed packs."; }
+        InfoBox { text: "Select every language on the page. Installed Tesseract packs are preferred. Latin text can use built-in recognition."; }
+        InfoBox { text: "Mixed scripts need a local pack for every selected language. Run horizontal and vertical packs in separate jobs."; }
+        Check { text: "Require installed Tesseract"; checked <=> root.ocr-local-engine; }
+        InfoBox { text: "When required, a missing local pack stops the job. Leave this off to allow built-in Latin recognition when local packs are unavailable."; }
         Check { text: "Also read pages with text"; checked <=> root.ocr-all-pages; }
         // Acrobat's Enhance scanned pages, before it reads them.
         Check { text: "Straighten and clean scans first"; checked <=> root.ocr-enhance; }
