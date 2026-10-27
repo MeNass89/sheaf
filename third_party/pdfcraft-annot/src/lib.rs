@@ -1275,7 +1275,8 @@ pub fn orient_image_stamp(doc: &mut Document, page: usize, index: usize, rotatio
 fn refuse_foreign_text(doc: &Document, d: &Dict) -> Result<(), AnnotError> {
     let drawn_elsewhere =
         d.get(b"AP").is_some_and(|ap| doc.resolve(ap).as_dict().is_some_and(|ap| ap.contains(b"N"))) && pdfcraft_fonts::undrawn_mark(d).is_none();
-    if drawn_elsewhere && let Some((what, c)) = appearance::undrawable_text(d) {
+    // Sheaf: a text box whose own font draws all its text is redrawn with it.
+    if drawn_elsewhere && !drawn_in_own_codes(doc, d) && let Some((what, c)) = appearance::undrawable_text(d) {
         return Err(AnnotError::Undrawable(format!(
             "PdfCraft can't redraw this comment: the standard fonts can't draw \"{}\" (U+{:04X}) in {what}, which would then show as ? (the comment was left as it is)",
             c.escape_debug(),
@@ -1321,21 +1322,22 @@ fn draw_appearance(doc: &mut Document, r: ObjRef) -> Result<(), AnnotError> {
 /// Draw the appearance for an annotation dictionary: the expensive half of [`set_appearance`].
 /// Pure from the dictionary and the objects it points at, so [`AppearanceCache`] can reuse it.
 fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
-    let mut stream = appearance::build(d)?;
     // Sheaf: a text box in a font of the file's own is drawn with it when its old appearance holds
-    // it (WinAnsi-encoded, a simple font; a subset when the text is made of the characters it drew
-    // before): the text is written in WinAnsi.
-    if d.name(b"Subtype") == Some(b"FreeText") {
-        let (name, _) = appearance::text_font(d);
-        if !appearance::TEXT_FONTS.iter().any(|f| f.0 == name)
-            && let Some(own) = old_text_font(doc, d, &name)
-            && let Some(Object::Dict(mut res)) = stream.dict.get(b"Resources").cloned()
-        {
-            let mut fonts = res.get(b"Font").and_then(|f| f.as_dict().cloned()).unwrap_or_default();
-            fonts.set(name.into_bytes(), own);
-            res.set(b"Font".to_vec(), Object::Dict(fonts));
-            stream.dict.set(b"Resources".to_vec(), Object::Dict(res));
-        }
+    // it: a simple WinAnsi-encoded font (a subset when the text is made of the characters it drew
+    // before) with the text written in WinAnsi; any other font (Type0, a custom encoding) that has
+    // a code and a glyph for every character, with the text written in its codes.
+    let own = own_text_font(doc, d);
+    let mut stream = match own.as_ref().and_then(|o| o.2.as_ref()) {
+        Some(metrics) => appearance::build_encoded(d, metrics)?,
+        None => appearance::build(d)?,
+    };
+    if let Some((name, entry, _)) = own
+        && let Some(Object::Dict(mut res)) = stream.dict.get(b"Resources").cloned()
+    {
+        let mut fonts = res.get(b"Font").and_then(|f| f.as_dict().cloned()).unwrap_or_default();
+        fonts.set(name.into_bytes(), entry);
+        res.set(b"Font".to_vec(), Object::Dict(fonts));
+        stream.dict.set(b"Resources".to_vec(), Object::Dict(res));
     }
     // Picture-stamp restyling must retain the placement's page-axis correction.
     if d.get(b"PCPicture").is_some() {
@@ -1350,6 +1352,57 @@ fn build_appearance(doc: &Document, d: &Dict) -> Option<Stream> {
         }
     }
     Some(stream)
+}
+
+/// Sheaf: a text box's font of the file's own (`/DA` names a font outside
+/// [`appearance::TEXT_FONTS`]) that its present appearance holds and that can draw its text:
+/// (resource name, the font's entry, its metrics when the text is written in its own codes rather
+/// than WinAnsi). See [`old_text_font`] and [`encoded_text_font`].
+type OwnFont = (String, Object, Option<pdfcraft_fonts::pdf::Metrics>);
+
+fn own_text_font(doc: &Document, d: &Dict) -> Option<OwnFont> {
+    if d.name(b"Subtype") != Some(b"FreeText") {
+        return None;
+    }
+    let (name, _) = appearance::text_font(d);
+    if appearance::TEXT_FONTS.iter().any(|f| f.0 == name) {
+        return None;
+    }
+    if let Some(entry) = old_text_font(doc, d, &name) {
+        return Some((name, entry, None));
+    }
+    let (entry, metrics) = encoded_text_font(doc, d, &name)?;
+    Some((name, entry, Some(metrics)))
+}
+
+/// Sheaf: font `name` of a text box's present appearance when it is not a simple WinAnsi font (a
+/// Type0 font, as Acrobat embeds for Japanese or Arabic comments, or a simple font with its own
+/// `/Differences`) and has a code and a glyph for every character of the text (a subset lacks the
+/// glyphs it never drew): the text is then written in its codes (Sol, 26/10: such a font was
+/// replaced on a new size or colour). Type3 fonts are left out (their glyphs are drawings).
+pub fn encoded_text_font(doc: &Document, d: &Dict, name: &str) -> Option<(Object, pdfcraft_fonts::pdf::Metrics)> {
+    let ap = doc.resolve(d.get(b"AP")?);
+    let normal = doc.resolve(ap.as_dict()?.get(b"N")?);
+    let Object::Stream(normal) = normal.as_ref() else { return None };
+    let res = doc.resolve(normal.dict.get(b"Resources")?);
+    let fonts = doc.resolve(res.as_dict()?.get(b"Font")?);
+    let entry = fonts.as_dict()?.get(name.as_bytes())?.clone();
+    let font = doc.resolve(&entry);
+    let f = font.as_dict()?;
+    if !matches!(f.name(b"Subtype"), Some(b"Type0" | b"Type1" | b"TrueType" | b"MMType1")) {
+        return None;
+    }
+    let metrics = pdfcraft_fonts::pdf::Metrics::from_dict(doc, f);
+    let text = d.get(b"Contents").and_then(|o| o.as_string()).map(PdfString::to_text).unwrap_or_default();
+    let shown: String = text.chars().filter(|c| !c.is_control()).collect();
+    metrics.encode(&shown)?;
+    Some((entry, metrics))
+}
+
+/// Sheaf: whether a text box is drawn in a font of the file's own written in its codes
+/// ([`encoded_text_font`]): its characters outside WinAnsi are then drawn, not `?`.
+fn drawn_in_own_codes(doc: &Document, d: &Dict) -> bool {
+    own_text_font(doc, d).is_some_and(|o| o.2.is_some())
 }
 
 /// Sheaf: font `name` of a text box's present appearance, when it can draw its text: a simple font
@@ -1437,8 +1490,9 @@ fn shown_bytes(content: &[u8]) -> std::collections::HashSet<u8> {
 
 /// Store a built appearance on the annotation: the cheap half of [`set_appearance`].
 fn apply_appearance(doc: &mut Document, r: ObjRef, d: &Dict, stream: Stream) -> Result<(), AnnotError> {
-    // Characters the standard fonts can't draw came out as `?`: mark the annotation with the first.
-    let missing = appearance::undrawable_text(d).map(|(_, c)| c);
+    // Characters the standard fonts can't draw came out as `?`: mark the annotation with the first
+    // (Sheaf: none when the text box's own font drew them).
+    let missing = if drawn_in_own_codes(doc, d) { None } else { appearance::undrawable_text(d).map(|(_, c)| c) };
     let ap = doc.add(Object::Stream(stream));
     // A copy (a shared /AP is left alone) that keeps unknown entries; the old down and rollover
     // appearances would show the previous look on press or hover, so they go with the old /N.
