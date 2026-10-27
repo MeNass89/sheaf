@@ -489,3 +489,7 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   longer enqueue its thumbnails; first visible opening does. The existing bounded probe pool
   remains the only thumbnail worker path. not automatable: start on Home and open Library to
   verify deferred previews — app execution forbidden.
+
+- C-organize-024 static follow-up: the full portfolio browser catches clicks on blank areas,
+  keeping them from reaching the covered reader. not automatable: click browser margins while
+  the reader has an active drawing tool — app execution forbidden.
