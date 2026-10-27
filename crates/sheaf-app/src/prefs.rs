@@ -188,6 +188,8 @@ pub struct Prefs {
     /// Preferences ▸ AI: the provider, its model and address, the panel's auto-open (keys are
     /// kept apart, encrypted: `ai_store.rs`).
     pub ai: crate::ai_store::AiPrefs,
+    /// Print defaults, Security (enhanced security, trusted locations) and Startup.
+    pub settings: crate::settings::SettingsPrefs,
 }
 
 impl Prefs {

@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { Theme } from "../theme.slint";
 import { ToolCard, ToolCardView } from "../widgets/tool-card.slint";
 import { PrimaryButton } from "../widgets/button.slint";
@@ -21,7 +22,7 @@ component PageSketch inherits Rectangle {
         border-color: Theme.art-stroke;
         background: Theme.art-page;
         for i in 5: Rectangle {
-            x: 14px;
+            x: PlatformBridge.rtl ? parent.width - (14px) - self.width : 14px;
             y: 22px + i * 16px;
             width: i == 4 ? 36px : 64px;
             height: 1.5px;
@@ -71,7 +72,9 @@ export component RecentsScreen inherits Rectangle {
             VerticalLayout {
                 alignment: center;
                 spacing: 8px;
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: center;
                     spacing: 8px;
                     PrimaryButton {
@@ -112,6 +115,7 @@ export component RecentsScreen inherits Rectangle {
             padding-top: 24px;
             spacing: 14px;
             Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 height: Theme.button-height;
                 text: "Recent tools";
                 font-size: Theme.fs-subtitle;
@@ -121,6 +125,8 @@ export component RecentsScreen inherits Rectangle {
             }
             // Wraps at narrow widths (six cards are wider than the window's minimum).
             FlexboxLayout {
+                // Right to left, the cards flow from the right.
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: wrap;
                 spacing: Theme.grid-spacing;
                 for t in root.recent-tools: ToolCardView {
@@ -134,10 +140,14 @@ export component RecentsScreen inherits Rectangle {
         if root.recents.length > 0 || root.query != "": VerticalLayout {
             padding-top: 24px;
             spacing: 14px;
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 height: Theme.button-height;
                 spacing: 10px;
                 Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                     text: "Recent files";
                     font-size: Theme.fs-subtitle;
                     font-weight: Theme.weight-demibold;
@@ -176,6 +186,8 @@ export component RecentsScreen inherits Rectangle {
                 }
             }
             FlexboxLayout {
+                // Right to left, the cards flow from the right.
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: wrap;
                 spacing: 14px;
                 for f[i] in root.recents: RecentCard {

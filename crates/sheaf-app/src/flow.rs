@@ -715,7 +715,10 @@ pub fn close_requested(ui: &AppWindow) -> slint::CloseRequestResponse {
 pub fn quit_or_ask(ui: &AppWindow) -> slint::CloseRequestResponse {
     // Unsaved edits, and Redact's marks not applied (Sol, 25/10: quitting dropped them unasked).
     let dirty = with(|a| a.tabs.iter().map(|t| t.id).collect::<Vec<_>>()).into_iter().find(|id| crate::reader_ui::unsaved_name(*id).is_some() || crate::viewer_ui::redact_pending(*id).is_some());
-    match dirty {
+    // A task still running is asked about too (iLovePDF's warning when exiting a task that is
+    // still processing; Preferences ▸ Startup turns it off).
+    let running = || with(|a| a.tabs.iter().find(|t| matches!(t.phase, Phase::Running)).map(|t| t.id)).filter(|_| crate::settings_ui::quit_warning());
+    match dirty.or_else(running) {
         Some(id) => {
             if let Some(i) = with(|a| a.tab_index(id)) {
                 ui.set_active_tab(i as i32);

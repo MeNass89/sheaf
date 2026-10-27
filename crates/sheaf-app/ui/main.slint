@@ -20,11 +20,15 @@ import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, To
 import { PlatformBridge, SpellIssue, ShortcutRow, Launcher, DictionaryRow } from "platform.slint";
 import { SpellingDialog } from "screens/spelling-dialog.slint";
 import { AiBridge, AiMessage } from "ai.slint";
+import { SettingsBridge } from "settings.slint";
+import { LinkWarningDialog } from "screens/preferences-more.slint";
+import { FeedbackBridge, ReportIssueDialog } from "screens/feedback.slint";
 
 export { PortfolioBridge, PortfolioRow, JavaScriptBridge, DocumentScriptRow, LibraryBridge, LibraryRow, LibraryVersionRow, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
 export { PlatformBridge, SpellIssue, ShortcutRow, Launcher, DictionaryRow }
 export { AiBridge, AiMessage }
+export { SettingsBridge, FeedbackBridge }
 
 export enum Page { recents, tools, history, preferences, actions, library }
 
@@ -413,6 +417,8 @@ export component AppWindow inherits Window {
             MenuItem { title: "Customize Shortcuts…"; shortcut: PlatformBridge.keys[39]; activated => { root.show-preferences(); } }
             // PDF Expert's Welcome document and Acrobat's Help: how to use Sheaf, in a tab.
             MenuItem { title: "Sheaf Guide"; activated => { root.open-guide(); } }
+            // iLovePDF's Contact us: a problem or an idea, saved or opened as an issue.
+            MenuItem { title: "Report an Issue…"; activated => { FeedbackBridge.subject = 0; FeedbackBridge.open = true; } }
         }
     }
 
@@ -656,6 +662,9 @@ export component AppWindow inherits Window {
     }
     // Edit ▸ Check Spelling… over the document's comments and fields.
     if PlatformBridge.check-open: SpellingDialog {}
+    // A document's web link under Preferences ▸ Security, and Help ▸ Report an Issue.
+    if SettingsBridge.ask-url != "": LinkWarningDialog {}
+    if FeedbackBridge.open: ReportIssueDialog {}
     if root.confirm-visible: ConfirmCloseDialog {
         cancel-job => { root.confirm-cancel-job(); }
         keep => { root.confirm-keep(); }

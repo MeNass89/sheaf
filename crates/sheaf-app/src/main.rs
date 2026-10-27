@@ -22,6 +22,8 @@ mod reader_ui;
 mod reader_doc;
 mod platform_ui;
 mod ai_ui;
+mod settings_ui;
+mod feedback_ui;
 mod windows;
 
 use std::cell::RefCell;
@@ -559,7 +561,11 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_close_active_tab, |ui| flow::close_active_tab(&ui));
     wire!(ui, on_close_tabs_around, |ui, id, which| flow::close_tabs_around(&ui, id, which));
     wire!(ui, on_confirm_keep, |ui| {
-        state::with(|a| a.pending_close = None);
+        // Keeping the task running stops a quit too.
+        state::with(|a| {
+            a.pending_close = None;
+            a.quitting = false;
+        });
         ui.set_confirm_visible(false);
     });
     wire!(ui, on_confirm_cancel_job, |ui| {
@@ -567,6 +573,9 @@ fn main() -> Result<(), slint::PlatformError> {
         if let Some(id) = state::with(|a| a.pending_close.take()) {
             jobs::cancel(id);
             flow::remove_tab(&ui, id);
+        }
+        if state::with(|a| a.quitting) {
+            flow::quit_or_ask(&ui);
         }
     });
 
@@ -670,6 +679,8 @@ fn main() -> Result<(), slint::PlatformError> {
     // Check spelling, the menu bar's shortcuts, tools shown, direction (ui/platform.slint).
     platform_ui::install(&ui);
     ai_ui::install(&ui);
+    settings_ui::install(&ui);
+    feedback_ui::install(&ui);
     wire!(ui, on_unsaved_answer, |ui, a| flow::unsaved_answer(&ui, a));
     let weak = ui.as_weak();
     ui.window().on_close_requested(move || match weak.upgrade() {
