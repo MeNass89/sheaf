@@ -332,3 +332,21 @@
 - Signature preview slots now preserve the saved list's cardinality even for an unreadable
   legacy mark; Edit/Delete cannot shift onto the following entry because its thumbnail failed.
   Test written: `unrenderable_saved_signatures_keep_their_library_positions`.
+
+## Second pass — C-sign-012 (no further implementation)
+
+- Re-inspected core `sign.rs::sign_inner`/`certify_inner`, engine
+  `Session::sign_with_timestamp`/`timestamp_document`, the sign crate's
+  `TimestampAuthority::timestamp(request)`, and both local-authority integration tests.
+  Visible and invisible signing already route the supplied authority through the engine, and
+  an invalid response prevents writing. Reason, location and visible certificate appearance
+  keep their existing GUI. No new CLI-only signature capability was added in pass 1 or pass 2.
+- The outstanding reviewer gap is a timestamp server. It remains excluded by the user's
+  no-network instruction. A preselected response file is not a substitute: RFC 3161 responses
+  must match the newly signed bytes' request. A self-signed local clock is not a trusted server.
+  No server field, fabricated certified time, or misleading file-picker switch was added.
+- No code change or new test for this component in pass 2. Existing written tests:
+  `a_local_authority_timestamps_visible_and_invisible_certificate_signatures`,
+  `an_invalid_timestamp_response_never_writes_an_untimestamped_signature` (not executed here).
+- Proposed grade: C-sign-012: f8 a8 p8 — core `sign.rs` and tests above; the real server gap is
+  still open. No joint 9 or runtime validation claimed.
