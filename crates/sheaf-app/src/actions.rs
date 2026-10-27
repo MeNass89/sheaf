@@ -180,6 +180,16 @@ mod tests {
         assert_ne!(copy.steps, original[0].steps);
         assert_eq!(copy.name, "Prepare for Distribution (2)");
         assert_eq!(SavedAction::import(&copy.json().unwrap()).unwrap(), copy);
+        let dir = tempfile::tempdir().unwrap();
+        save(dir.path(), std::slice::from_ref(&copy)).unwrap();
+        let mut tools = load(dir.path()).unwrap();
+        assert!(tools[0].custom_tool);
+        tools[0].name = "My commands".into();
+        tools[0].steps.remove(0);
+        save(dir.path(), &tools).unwrap();
+        assert_eq!(load(dir.path()).unwrap(), tools);
+        save(dir.path(), &[]).unwrap();
+        assert!(load(dir.path()).unwrap().is_empty());
     }
 
     #[test]

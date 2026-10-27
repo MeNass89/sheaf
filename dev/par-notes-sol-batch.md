@@ -40,3 +40,9 @@ Next: finish each batch component, write its proof names and remaining parity ga
   the suggestion stays unchanged. Test
   `actions::tests::suggested_actions_are_valid_offline_templates_and_survive_copy_edits`.
   Online action discovery is deliberately excluded by brief rule 3.
+- C-batch-006: New custom tool builds a named command set; edit, reorder, copy, rename, delete,
+  import/export it, or launch any configured command independently with its Run button
+  (Acrobat's Custom Tools). Test `actions::tests::suggested_copies_and_custom_tools_are_independent`
+  covers copy independence, custom kind persistence, edits and deletion.
+  Left: pinning custom sets to the reader toolbar; the picker currently offers the twelve
+  Action Wizard commands exposed by the engine, not every toolbox command.

@@ -127,7 +127,11 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         let builtins = actions::suggested();
         let offset = builtins.len() as i32;
         match what {
-            "new" => { s.draft = SavedAction::empty(); s.selected = -1; s.step = -1; }
+            "new" | "new-tool" => {
+                s.draft = SavedAction::empty(); s.draft.custom_tool = what == "new-tool";
+                if s.draft.custom_tool { s.draft.name = "Untitled custom tool".into(); }
+                s.selected = -1; s.step = -1;
+            }
             "select" => {
                 if let Some(a) = builtins.iter().chain(s.saved.iter()).nth(index as usize).cloned() {
                     s.draft = a; s.selected = index; s.step = -1;
