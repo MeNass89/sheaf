@@ -774,7 +774,7 @@ quit; platform_reset
 python3 - "$OUT/350-pipeline.json" <<'PY350'
 import json, sys
 json.dump({"name":"Naming review", "pipeline":[{"operation":"rotate","parameters":{"angle":90}}],
-           "outputDir":"httpWebRequest", "outputFileName":"ready-{filename}-{pipelineName}"}, open(sys.argv[1], "w"))
+           "outputDir":"{outputFolder}", "outputFileName":"ready-{filename}-{pipelineName}"}, open(sys.argv[1], "w"))
 PY350
 launch
 AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC

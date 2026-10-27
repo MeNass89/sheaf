@@ -36,7 +36,7 @@ pub fn stirling(value: Value) -> Result<SavedAction> {
         action.output.suffix = suffix.into();
     }
     if let Some(dir) = value.get("outputDir")
-        && dir.as_str() != Some("httpWebRequest") {
+        && !matches!(dir.as_str(), Some("httpWebRequest" | "{outputFolder}")) {
         return Err(invalid("Stirling output folders cannot travel with an action. Remove outputDir and choose the destination when running in Sheaf"));
     }
     let operations = value.get("operations").or_else(|| value.get("pipeline")).and_then(Value::as_array)
@@ -279,6 +279,9 @@ mod tests {
         assert_eq!(action.output.prefix, "ready-");
         assert_eq!(action.output.suffix, "-Review");
         assert_eq!(SavedAction::import(&export(&action).unwrap()).unwrap(), action);
+        // Stirling's default Folder Scanning fixtures use the destination chosen for this run.
+        let mut folder = value.clone(); folder["outputDir"] = "{outputFolder}".into();
+        assert_eq!(stirling(folder).unwrap(), action);
         for pattern in ["{filename}-{date}", "{filename}-{time}", "{filename}-{filename}", "fixed", "../{filename}"] {
             let mut bad = value.clone(); bad["outputFileName"] = pattern.into();
             assert!(stirling(bad).is_err(), "must not silently lose {pattern}");
