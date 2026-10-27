@@ -555,3 +555,19 @@
   `not automatable: create/import advanced policy, save/edit/export/reopen, inspect print quality,
   changes and compatibility on protected output — app and tests forbidden by rule 1`.
 - Proposed grade: C-security-008: f8 a7 p8 — PDF-output/round-trip tests above, unrun.
+
+## Third pass — C-optimize-006
+
+- C-optimize-006: fixed the review's inference risk by annotating the progress closure's
+  `usize` arguments. Added ignored release benchmark
+  `release_ocr_mici_benchmark_reports_cold_load_and_warm_page_time`: the same supplied MICI
+  scan, bundled engine only, prepacked/unpacked variants loaded sequentially, cold model load
+  recorded, one warm-up and three timed runs each, warm median per page, word/placement
+  equivalence, explicit failure above the recorded 11.75 s/page target (overridable for host).
+- Orchestrator must set `SHEAF_OCR_BENCH_PDF` to the original MICI scan and explicitly run the
+  ignored test in release mode on an idle benchmark host. This worker did NOT execute it.
+  No compiler/test/app invoked and no performance result fabricated. No new dependency.
+- Left: the actual 15.5 vs 11.75 s/page gap is still UNMEASURED after prepacking; a test harness
+  is not a measured optimization or parity proof. Further inference work depends on that run.
+- Proposed grade unchanged from counterpart: C-optimize-006: f9 a8 p7 — existing accuracy
+  coverage and new benchmark protocol; the speed gap remains open.

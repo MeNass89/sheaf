@@ -203,7 +203,7 @@ pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnM
     let settings = OcrSettings { dpi: opts.dpi, language: opts.language.clone(), skip_text_pages: !opts.read_text_pages };
     let job = doc.session().ocr_job(doc.id(), &[], settings).ok_or_else(|| OpdfError::Engine("the document could not be read".into()))?;
     let mut stopped = false;
-    let mut report_progress = |done, total| {
+    let mut report_progress = |done: usize, total: usize| {
         if stopped {
             return false;
         }
