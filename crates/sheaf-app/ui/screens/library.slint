@@ -14,10 +14,13 @@ export global LibraryBridge {
     in-out property <string> delete-name;
     in-out property <string> status;
     in-out property <bool> busy;
+    in-out property <string> query;
+    in-out property <[string]> working;
     callback command(string, int);
 }
 
 export component LibraryScreen inherits Rectangle {
+    init => { LibraryBridge.command("refresh", 0); }
     background: Theme.content-bg;
     VerticalLayout {
         padding: 24px; spacing: 16px;
@@ -28,6 +31,15 @@ export component LibraryScreen inherits Rectangle {
             Button { text: "Add files…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("add", 0); } }
             Button { text: "Refresh"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("refresh", 0); } }
             Rectangle { horizontal-stretch: 1; }
+        }
+        Rectangle {
+            height: Theme.field-height; border-width: 1px; border-color: Theme.input-border; border-radius: Theme.radius-small; background: Theme.input-bg;
+            TextInput {
+                x: 10px; width: parent.width - 20px; text <=> LibraryBridge.query;
+                single-line: true; color: Theme.text; font-size: Theme.fs-body; vertical-alignment: center;
+                accessible-label: "Filter files by name or archive folder";
+                edited => { LibraryBridge.command("refresh", 0); }
+            }
         }
         HorizontalLayout {
             spacing: 20px; vertical-stretch: 1;
@@ -77,6 +89,21 @@ export component LibraryScreen inherits Rectangle {
                                 Button { text: "Restore"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("restore", version.number); } }
                             }
                         }
+                    }
+                }
+            }
+        }
+        if LibraryBridge.working.length > 0: VerticalLayout {
+            spacing: 6px;
+            Text { text: "Working copies · reopen after an interruption"; color: Theme.text; font-size: Theme.fs-label; }
+            ScrollView {
+                height: min(100px, LibraryBridge.working.length * 36px);
+                VerticalLayout {
+                    spacing: 4px; alignment: start;
+                    for path[i] in LibraryBridge.working: HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: path; color: Theme.text-secondary; font-size: Theme.fs-caption; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                        Button { text: "Open working copy"; clicked => { LibraryBridge.command("open-working", i); } }
                     }
                 }
             }

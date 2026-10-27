@@ -9,11 +9,17 @@ fn selected(ui: &AppWindow) -> Option<Entry> {
     library().entry(ui.global::<LibraryBridge>().get_selected_id().as_str()).ok()
 }
 
-fn refresh(ui: &AppWindow, select: Option<&str>) {
-    let entries = match library().list() { Ok(entries) => entries, Err(e) => return status(ui, e.to_string()) };
+pub fn refresh(ui: &AppWindow, select: Option<&str>) {
+    let mut entries = match library().list() { Ok(entries) => entries, Err(e) => return status(ui, e.to_string()) };
     let b = ui.global::<LibraryBridge>();
+    let query = b.get_query().to_lowercase();
+    entries.retain(|e| query.is_empty() || format!("{} {}", e.name, e.folder).to_lowercase().contains(&query));
+    match library().working_copies() {
+        Ok(paths) => b.set_working(ModelRc::new(VecModel::from(paths.iter().map(|p| p.to_string_lossy().as_ref().into()).collect::<Vec<slint::SharedString>>()))),
+        Err(e) => status(ui, e.to_string()),
+    }
     b.set_rows(ModelRc::new(VecModel::from(entries.iter().map(|e| LibraryRow {
-        id: e.id.as_str().into(), name: e.name.as_str().into(), detail: format!("{} version(s) · {} bytes", e.versions.len(), e.versions.last().map_or(0, |v| v.size)).into(),
+        id: e.id.as_str().into(), name: e.name.as_str().into(), detail: format!("{} version(s) · {} bytes{}", e.versions.len(), e.versions.last().map_or(0, |v| v.size), if e.folder.is_empty() { String::new() } else { format!(" · {}", e.folder) }).into(),
     }).collect::<Vec<_>>())));
     let at = select.and_then(|id| entries.iter().position(|e| e.id == id));
     b.set_selected(at.map_or(-1, |i| i as i32));
@@ -34,6 +40,12 @@ pub fn install(ui: &AppWindow) {
 
 fn command(ui: &AppWindow, what: &str, index: i32) {
     if ui.global::<LibraryBridge>().get_busy() { return; }
+    if what == "open-working" {
+        if let Some(path) = ui.global::<LibraryBridge>().get_working().row_data(index as usize) {
+            crate::deliver(vec![std::path::PathBuf::from(path.as_str())]);
+        }
+        return;
+    }
     if what == "select" {
         let id = ui.global::<LibraryBridge>().get_rows().row_data(index as usize).map(|row| row.id.to_string());
         return refresh(ui, id.as_deref());

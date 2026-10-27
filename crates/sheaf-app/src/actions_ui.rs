@@ -96,10 +96,11 @@ pub fn install(ui: &AppWindow) {
         Ok(None) => {}, Err(e) => status(ui, e.to_string()),
     }
     let weak = ui.as_weak();
-    ui.global::<ActionBridge>().on_open_page(move |_| {
+    ui.global::<ActionBridge>().on_open_page(move |page| {
         if let Some(ui) = weak.upgrade() {
             ui.set_active_tab(-1);
-            ui.set_page(sheaf_app::Page::Actions);
+            if page == "library" { ui.set_page(sheaf_app::Page::Library); }
+            else { ui.set_page(sheaf_app::Page::Actions); }
         }
     });
     let weak = ui.as_weak();

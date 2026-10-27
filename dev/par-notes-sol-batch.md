@@ -177,3 +177,14 @@ errors back to this worker; do not grade parity from this implementation report 
   Left: one watch at a time, explicit Resume after reopening, no background daemon. A crash after
   publishing but before checkpoint can produce another uniquely named output on resume.
   not automatable: configure, Stop, restart, Resume, drop nested PDFs, Forget — app launch forbidden.
+
+- C-files-008: Library is reachable from Tools and reader ▸ More tools; filters by name/archive
+  folder, preserves ZIP folders in entry metadata, refreshes versions after reader Save and on
+  opening the page. Working copies from interruptions are listed with Open working copy; normal
+  tab closure removes only its own checkout. Test `checkout_recovery_and_release_keep_versions_and_other_checkouts`
+  covers recovery discovery, saved versions and cleanup isolation; ZIP regression checks folder
+  retention. Tests written, not run. Older entry.json files load with an empty folder value.
+  Left: no nested folder tree UI; ZIP folders appear in file details and search. Working copies
+  from Save As or whole-process exit remain recoverable, without automatic age-based deletion.
+  not automatable: save a library PDF, return to Library, observe the new version and working copy;
+  close the tab and check its working folder is gone — app launch prohibited by rule 1.

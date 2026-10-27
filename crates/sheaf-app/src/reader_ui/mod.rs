@@ -862,6 +862,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             }
             match (error, name) {
                 (None, Some(n)) => {
+                    let selected = ui.global::<sheaf_app::LibraryBridge>().get_selected_id().to_string();
+                    crate::library_ui::refresh(ui, Some(&selected));
                     // Edits made while this save ran are not in it: save again before closing or
                     // handing the file to a tool.
                     if unsaved_name(id).is_some() && (with(|a| a.closing_after_save.contains(&id)) || tools_waiting(id)) {

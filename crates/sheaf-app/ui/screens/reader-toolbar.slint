@@ -384,6 +384,7 @@ export component ReaderToolbar inherits Rectangle {
                                 { text: "Share with AirDrop", on: false },
                                 { text: "JavaScript console…", on: false },
                                 { text: "Guided actions…", on: false },
+                                { text: "Library…", on: false },
                             ]: Rectangle {
                                 height: 28px;
                                 border-radius: Theme.radius-small;
@@ -413,6 +414,7 @@ export component ReaderToolbar inherits Rectangle {
                                         if k == 19 { ReaderBridge.share-file(root.id, true); }
                                         if k == 20 { JavaScriptBridge.open(root.id); }
                                         if k == 21 { ActionBridge.open-page("actions"); return; }
+                                        if k == 22 { ActionBridge.open-page("library"); return; }
                                         root.focus-pages();
                                     }
                                 }

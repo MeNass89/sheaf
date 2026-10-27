@@ -534,6 +534,7 @@ pub fn edit_pages(tab_id: i32, f: impl FnOnce(&mut Vec<u32>)) {
 /// Removes a tab and returns to the one before it.
 pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
     let Some(i) = with(|a| a.tab_index(tab_id)) else { return };
+    let checkout = with(|a| a.tabs[i].reader_file.clone());
     crate::reader_ui::remember_position(tab_id);
     crate::reader_ui::stop_work(tab_id);
     crate::wm_preview::forget(tab_id);
@@ -546,6 +547,10 @@ pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
         a.tabs.remove(i);
         a.pw_queue.retain(|(t, _)| *t != tab_id);
     });
+    if let Some(path) = checkout
+        && let Err(e) = sheaf_app::library::Library::new(&sheaf_app::store_file::data_dir()).release_checkout(&path) {
+        toast(ui, &format!("The library working copy was kept: {e}"));
+    }
     // The tab before it in the bar takes over (Home after the first).
     let before = state::tab_order().iter().take_while(|r| *r != i as i32).last();
     state::remove_tab_row(i);

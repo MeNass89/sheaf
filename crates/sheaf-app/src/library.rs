@@ -12,7 +12,11 @@ use crate::store_file;
 pub struct Version { pub number: u32, pub created: u64, pub size: u64, pub label: String }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Entry { pub id: String, pub name: String, pub versions: Vec<Version> }
+pub struct Entry {
+    pub id: String, pub name: String, pub versions: Vec<Version>,
+    #[serde(default)]
+    pub folder: String,
+}
 
 #[derive(Clone)]
 pub struct Library { root: PathBuf }
@@ -75,7 +79,7 @@ impl Library {
                 Err(e) => return Err(e.into()),
             }
         };
-        let mut entry = Entry { id: id.clone(), name, versions: vec![] };
+        let mut entry = Entry { id: id.clone(), name, versions: vec![], folder: String::new() };
         let result = self.append(&mut entry, source, "Imported");
         if result.is_err() { let _ = std::fs::remove_dir_all(self.directory(&id)?); }
         result.map(|()| entry)
@@ -143,13 +147,51 @@ impl Library {
         Ok(true)
     }
 
+    /// Working files from interrupted sessions remain discoverable; normal tab closure removes
+    /// only its own checkout, never a stored version or the imported original.
+    pub fn working_copies(&self) -> Result<Vec<PathBuf>> {
+        let root = self.root.parent().unwrap_or(Path::new(".")).join("library-work");
+        let entries = match std::fs::read_dir(&root) {
+            Ok(entries) => entries, Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]), Err(e) => return Err(e.into()),
+        };
+        let mut paths = Vec::new();
+        for entry in entries {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() { continue; }
+            for checkout in std::fs::read_dir(entry.path())? {
+                let checkout = checkout?;
+                if !checkout.file_type()?.is_dir() { continue; }
+                for file in std::fs::read_dir(checkout.path())? {
+                    let file = file?;
+                    if file.file_type()?.is_file() { paths.push(file.path()); }
+                }
+            }
+        }
+        paths.sort();
+        Ok(paths)
+    }
+
+    pub fn release_checkout(&self, path: &Path) -> Result<bool> {
+        let root = self.root.parent().unwrap_or(Path::new(".")).join("library-work");
+        let Ok(relative) = path.strip_prefix(&root) else { return Ok(false) };
+        let parts: Vec<_> = relative.components().collect();
+        if parts.len() != 3 || !parts.iter().all(|p| matches!(p, std::path::Component::Normal(_))) { return Ok(false); }
+        if !parts[0].as_os_str().to_string_lossy().bytes().all(|b| b.is_ascii_digit()) { return Ok(false); }
+        let folder = path.parent().ok_or_else(|| invalid("Invalid checkout path"))?;
+        if root.join(parts[0].as_os_str()).symlink_metadata()?.file_type().is_symlink() || folder.symlink_metadata()?.file_type().is_symlink() || folder.canonicalize()?.parent() != Some(root.join(parts[0].as_os_str()).canonicalize()?.as_path()) {
+            return Err(invalid("The checkout folder moved"));
+        }
+        std::fs::remove_dir_all(folder)?;
+        Ok(true)
+    }
+
     pub fn delete(&self, id: &str) -> Result<()> {
         self.entry(id)?;
         std::fs::remove_dir_all(self.directory(id)?)?;
         Ok(())
     }
 
-    /// Unzip into separate library items, flattening folder paths. A preflight refuses paths
+    /// Unzip into separate library items, keeping the archive folder path as metadata. A preflight refuses paths
     /// escaping the archive and symlinks before adding anything. Expansion is bounded on disk.
     pub fn unzip(&self, id: &str) -> Result<UnzipReport> {
         let file = std::fs::File::open(self.path(id, 0)?)?;
@@ -172,7 +214,8 @@ impl Library {
             let item = archive.by_index(i).map_err(|e| invalid(e.to_string()))?;
             if item.is_dir() { continue; }
             let name = item.enclosed_name().and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned())).ok_or_else(|| invalid("Invalid ZIP file name"))?;
-            let result = (|| {
+            let folder = item.enclosed_name().and_then(|p| p.parent().map(|p| p.to_string_lossy().replace('\\', "/"))).unwrap_or_default();
+            let result: Result<Entry> = (|| {
                 let temp = tempfile::tempdir()?;
                 let path = temp.path().join(crate::watch_folder::safe_name(&name));
                 let mut out = std::fs::File::create(&path)?;
@@ -181,7 +224,10 @@ impl Library {
                 let copied = std::io::copy(&mut limited, &mut out)?;
                 out.flush()?;
                 if copied > limit { return Err(invalid("ZIP file exceeded its declared size")); }
-                self.add(&path)
+                let mut entry = self.add(&path)?;
+                entry.folder = folder;
+                self.save(&entry)?;
+                Ok(entry)
             })();
             match result { Ok(entry) => report.imported.push(entry), Err(e) => report.errors.push(format!("{name}: {e}")) }
         }
@@ -242,6 +288,7 @@ mod tests {
         let result = library.unzip(&archive.id).unwrap();
         assert_eq!(result.imported.len(), 2);
         assert!(result.errors.is_empty());
+        assert!(result.imported.iter().any(|e| e.folder == "folder"));
         for entry in result.imported {
             assert_eq!(std::fs::read(library.path(&entry.id, 0).unwrap()).unwrap(), b"original archive item");
         }
@@ -252,4 +299,25 @@ mod tests {
         assert_eq!(library.list().unwrap().len(), before);
         assert!(!t.path().join("escape.txt").exists());
     }
+    #[test]
+    fn checkout_recovery_and_release_keep_versions_and_other_checkouts() {
+        let t = tempfile::tempdir().unwrap();
+        let original = t.path().join("notes.txt");
+        std::fs::write(&original, b"original").unwrap();
+        let library = Library::new(t.path());
+        let item = library.add(&original).unwrap();
+        let first = library.checkout(&item.id).unwrap();
+        let second = library.checkout(&item.id).unwrap();
+        assert_eq!(library.working_copies().unwrap().len(), 2);
+        std::fs::write(&first, b"saved edit").unwrap();
+        assert!(library.record_saved(&first).unwrap());
+        assert_eq!(library.entry(&item.id).unwrap().versions.len(), 2);
+        assert!(library.release_checkout(&first).unwrap());
+        assert!(!first.exists());
+        assert_eq!(library.working_copies().unwrap(), [second]);
+        assert!(!library.release_checkout(&original).unwrap());
+        assert_eq!(std::fs::read(library.path(&item.id, 0).unwrap()).unwrap(), b"saved edit");
+        assert_eq!(std::fs::read(original).unwrap(), b"original");
+    }
+
 }
