@@ -26,8 +26,11 @@ pub fn validate(profile: Profile) -> Result<()> {
 /// A measured report with the exact thresholds kept beside the findings, as Acrobat's audit trail.
 pub fn report_with_profile(doc: &Doc, name: &str, checked_at: &str, profile: Profile) -> Result<String> {
     validate(profile)?;
+    let profile_name = if profile == Profile::default() { "Close-up print" }
+        else if profile == (Profile { fail_ppi: 72.0, warn_ppi: 150.0, min_bleed_mm: 3.0 }) { "Large format" }
+        else { "Custom print thresholds" };
     Ok(format!(
-        "Sheaf print preflight\nDocument: {name}\nChecked: {checked_at}\nProfile: custom print thresholds\nImage thresholds: fail below {} ppi; warn below {} ppi\nBleed: warn below {} mm on any trim edge\n\n{}",
+        "Sheaf print preflight\nDocument: {name}\nChecked: {checked_at}\nProfile: {profile_name}\nImage thresholds: fail below {} ppi; warn below {} ppi\nBleed: warn below {} mm on any trim edge\n\n{}",
         profile.fail_ppi, profile.warn_ppi, profile.min_bleed_mm, doc.document().print_readiness_with(profile).text()
     ))
 }

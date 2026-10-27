@@ -373,3 +373,237 @@ UI crates/sheaf-app/ui/screens/reader-production.slint:8. Advanced print-product
 
 All cited tests are WRITTEN, NOT RUN. These numbers are not joint grades or closure requests.
 LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
+
+## Pass 3 — C-convert-018
+
+- C-convert-018: restored the previous copy-plus-issues default, including old task history
+  without the new policy field (iLovePDF's permissive conversion choice). Explicit strict mode
+  still prevents publication and survives Run again. UI now starts checked; `pdfa_job` checks
+  permissive then strict, and `archival_history_keeps_the_old_copy_and_issues_default_but_honours_strict`
+  covers migration and strict round-trip. Tests written, not run (brief rule 1).
+- Left: PDF/A-1b and a/u conversion, valid level downgrade, full ISO validator. The pinned Rust
+  preflight supports 2b/3b only; no relabelled output or unsupported certification added.
+- No dependency. not automatable: fresh PDF/A screen has Keep a copy checked; Run again restores
+  an explicitly unchecked strict choice — worker cannot launch the application.
+- Grade: f7 a8 p8, partial; fixes the regression, does not close standard-level parity.
+
+## Pass 3 — C-convert-002
+
+- C-convert-002: Excel to PDF has an explicit Built-in data report, entirely Rust (no runtime
+  discovery, child process or network). XLS/XLSX/XLSB/ODS data pages keep cell addresses, stored
+  values and accents; long values wrap and paginate. Visible sheets by default, numbered sheet
+  ranges select hidden sheets deliberately and preserve order. Existing outputs and sources
+  stay intact. The app permits this mode without LibreOffice and bypasses the preview cache.
+- Tests `native_data_report_selects_sheets_preserves_cells_and_needs_no_office_runtime`,
+  `native_data_report_wraps_long_values_and_refuses_missing_glyphs_atomically`,
+  `native_spreadsheet_choice_keeps_sheet_selection_and_bypasses_the_office_cache`. None skips
+  for missing LibreOffice; written, not run. Uses lopdf assertions without external PDF tools.
+- Dependency: existing pure-Rust `calamine` moved from dev to regular core dependencies; already
+  workspace-declared and locked, no new package/version or lock change. New public module
+  `sheaf_core::spreadsheet`; `Job::Office.data_sheets: Option<String>` added and constructors
+  updated. No preference field.
+- Left: faithful Office import still requires LibreOffice (unbundled); Word/PowerPoint options,
+  sheet selection in the faithful converter, charts/styles/formula recalculation in the native
+  report. Native mode reports raw dates and supports Western European text only; other glyphs
+  fail clearly with Saved print layout guidance, without publishing a damaged PDF. Not parity.
+- not automatable: without LibreOffice select data report, choose sheets, Run, inspect both themes
+  and confirm Run again restores layout/ranges — app execution forbidden.
+- Grade: f8 a8 p8 (partial). LIGNES : max 5 (data-report information) · cases > 6 : aucune.
+
+## Pass 3 — C-optimize-014
+
+- C-optimize-014: Fix Hairlines now descends into nested Form XObjects (Acrobat's grouped
+  artwork). Each repaired placement receives a private Form/resource copy, accounting for
+  inherited line width, each Form Matrix, placement transforms and UserUnit. Shared Forms on
+  unselected pages stay intact. Width is restored after painting, preserving inherited state.
+  Cycles/depth >16, unreadable operators and excessive work fail through the existing atomic
+  engine edit path; the document and undo history are not partially changed.
+- Tests `grouped_hairlines_use_private_forms_per_scale_and_leave_unselected_pages_unchanged`
+  checks two scales, nested Forms, untouched originals/unselected content and undo;
+  `cyclic_grouped_artwork_fails_without_publishing_partial_hairline_repairs` checks atomic
+  refusal. Existing page-stroke tests continue to cover ExtGState, UserUnit and saved state.
+  All written, not executed. No dependency or new public API.
+- Left: hairlines in tiling patterns, Type 3 glyphs, text and annotation appearances; configurable
+  registration/colour/page marks, trapping, flattening preview. Crop marks remain fixed black
+  0.25 pt. These are not implemented, and this partial pass does not claim Acrobat parity.
+- not automatable: both-theme production sheet, grouped-art repair on a selected page and undo —
+  rule 1 forbids app execution. Grade: f6 a7 p7, provisional source evidence only.
+- LIGNES : max 3 (hairline description, title + two lines) · cases > 6 : aucune.
+
+## Pass 3 — C-optimize-012
+
+- C-optimize-012: Print preflight now inventories nested resource declarations for spot colours
+  (Separation/DeviceN), enabled overprint, alpha, soft masks, blend modes and transparency groups
+  in Rust. Findings identify each page and explicitly include potentially unused resources;
+  the report does not equate this inventory with painted ink simulation. Cyclic references are
+  visited once and depth/work limits produce an incomplete-inventory warning rather than a pass.
+- Reports identify Close-up print / Large format presets by their actual thresholds, keeping
+  custom thresholds named custom. The results sheet links directly to the existing undoable
+  hairline/page-box fixups, rather than requiring the reader to rediscover More tools.
+- Test `preflight_inventories_nested_press_resources_without_claiming_ink_simulation` covers
+  nested, indirect, unused spot/overprint/transparency resources, isolation of an unaffected
+  page, named profiles, stated simulation limits and no source mutation. Written, not run.
+- Left: actual separations/total area coverage/overprint preview, profile-specific automatic
+  fixups, ISO PDF/X validation and durable successive-run audit history. Opening production
+  controls is not a claim of automatic fixes for every finding. No dependency/new public API.
+- not automatable: results-to-fixups link and both-theme sheet layout — rule 1 forbids the app.
+- Grade: f6 a7 p7, partial. Existing report row splitter still limits each block to title + four
+  40-character lines. LIGNES : max 5 (preflight finding) · cases > 6 : aucune.
+
+## Pass 3 — C-convert-019
+
+- C-convert-019: PDF/X captures the current unsaved document on its owner thread, then performs
+  the external conversion on a separate worker (Acrobat's background export). `PdfXStarted`
+  releases the reader operation count; later edits/save/undo remain available. The original
+  snapshot, source protection and undo state stay independent of subsequent edits. Spawn errors,
+  panics and conversion failures still return a final result and clear the press busy flag.
+- Rust now compares the **actual embedded ICC bytes** with the chosen profile, in addition to
+  PDF version/X markers/channel count/fonts. Encrypted output, declared transparency and an
+  incomplete resource inventory are rejected before publication. These are conservative local
+  checks, not ISO certification. No external tool is needed to run these structural checks.
+- Tests `press_snapshot_keeps_unsaved_changes_separate_from_later_edits` and
+  `written_press_checks_reject_substituted_icc_and_transparency_without_ghostscript` have no
+  Ghostscript/ICC-install skip. Synthetic profile bytes are explicitly only a checker fixture;
+  they do not prove a usable colour profile. Existing real-GS integration remains necessary.
+- New public core `press::Snapshot` with `capture`/`export`; app `Reply::PdfXStarted` added.
+  Reply callbacks are mutex-serialized so the new worker requires no stronger Sync API from
+  callers. No dependency. Written tests only; worker does not run code under brief rule 1.
+- Left: actual conversion still needs Ghostscript and a real user-supplied press ICC. No bundled
+  FOGRA/GRACoL, native colour/transparency converter, PDF/X-1a/X-4, PDF/E or full ISO validator.
+  These missing engines are not substituted with labels or metadata-only conversion.
+- not automatable: start a long PDF/X conversion; edit/save/undo while it runs, close the tab,
+  reopen production to see Converting, and inspect final/error toasts in both themes — runtime
+  forbidden. Cancellation remains the existing bounded 120-second subprocess timeout.
+- Grade: f4 a7 p7, partial. LIGNES : max 4 (press requirements) · cases > 6 : aucune.
+
+## Pass 3 — C-convert-005
+
+- C-convert-005: local HTML on explicit A4/Letter layouts can Stack pages into one long page.
+  LibreOffice still prints the HTML; Sheaf's Rust stacks those paper pages as Form XObjects,
+  retaining vector/searchable content, resources, transparency groups, URI links, positioned
+  link rectangles/QuadPoints and internal/named/bookmark destinations. Tall outputs use UserUnit
+  instead of clipping at PDF's 14,400 default-unit dimension limit. Source/output collision
+  handling stays atomic. The choice is saved/restored with Run again and bypasses preview cache.
+- This is explicitly **paper stacking**, preserving print breaks/margins. It does not claim
+  iLovePDF's browser layout or continuous browser content. Unsupported rotated/UserUnit/tagged/
+  form layouts and non-link annotations fail clearly with Turn off Stack guidance; no partial
+  result is published. Limits: 1000 pages, 32 MB decoded per paper page, 1,000,000 pt tall.
+- Tests `long_local_output_keeps_vector_content_link_rectangles_and_internal_destinations`,
+  `very_long_local_output_scales_page_units_and_rejects_unsupported_rotation_atomically` are
+  pure Rust and never skip for missing LibreOffice. Expanded
+  `html_layout_reaches_the_job_without_reusing_the_default_conversion` and saved-options test
+  cover dispatch/restoration. Written only, no execution permitted by rule 1.
+- Integration: new `html::Options.long_page: bool` and `ToolOptions.html_long_page`; every known
+  literal/restore/export/history site updated. No preference or dependency added.
+- Left: URL capture remains **out under rule 3 (network)** and needs Nassim's decision.
+  Browser viewport width, screen media, JavaScript and real browser-continuous layout remain
+  unimplemented; LibreOffice is a print engine. No URL-first parity claim or joint-9 request.
+- not automatable: check both themes, long HTML with pictures and internal/URI links in multiple
+  viewers, very tall output and Run again — app/test execution forbidden.
+- Grade: f7 a8 p8, partial. LIGNES : max 4 (long-page information) · cases > 6 : aucune.
+
+### Pass 3 static follow-up — C-optimize-014
+
+- Source API inspection found lopdf's `get_page_content` appends a stream separator newline;
+  corrected the unselected-page test's expected bytes to include it. Hairline page streams now
+  decode explicitly with a 32 MB total page bound rather than the image helper's silent empty
+  fallback on decode errors; corrupt content cannot masquerade as a fully inspected page.
+  The existing atomic-edit refusal test covers rollback; no test was executed.
+
+### Pass 3 static follow-up — C-convert-005
+
+- Long-page UserUnit also scales link border widths/radii/dashes, including the implicit default
+  border, so very tall output does not thicken link outlines. The very-long-page Rust test now
+  checks the physical border width as well as the physical page size. Written, not executed.
+
+### Pass 3 test follow-up — C-optimize-014
+
+- `unreadable_page_streams_cannot_be_silently_skipped_by_hairline_repair` explicitly covers a
+  corrupt Flate stream after a repairable stroke: the edit must fail without changing the
+  working snapshot. Written, not run; no external program or optional-runtime skip.
+
+## Polaroid — pass 3 handoff (current)
+
+- Project Sheaf, batch sol-convert, branch `par/sol-convert`, status **partial / ready for
+  orchestrator integration**. All six reviewed components received changes and per-component
+  commits pushed immediately. No component is claimed closed or at joint 9.
+- Closed subgaps: PDF/A's regressed default; native spreadsheet data pages without LibreOffice
+  with sheet selection; nested Form hairlines; press-resource inventory and report-to-fixups
+  navigation; PDF/X document-thread blocking and weak ICC/transparency checks; local printed
+  HTML long-page stacking. These are source implementations with written tests, not runtime proof.
+- Remaining deciding gaps: faithful Office runtime/bundling and full fidelity; network URL capture
+  (explicitly excluded), browser screen/continuous layout; extra PDF/A levels and real downgrade;
+  PDF/X/E engines/levels, ICC distribution and ISO validation; actual output preview/ink coverage,
+  fixup profiles/audit history; pattern/Type 3/annotation hairlines, richer marks/traps/flattening.
+- No cargo, rustc, clippy, test suite, app, Chrome, Xvfb or codex executed. Verification performed:
+  pinned Rust API/source inspection, all known changed constructors/callbacks searched,
+  `git diff 4d5e12b..HEAD --check`, Impeccable static detector `[]`, clean worktree and actual
+  `git ls-remote` head equality after feature pushes. These do not prove compilation or behaviour.
+- No new package/version or lockfile change. Existing pure-Rust `calamine` is now a regular core
+  dependency (formerly dev-only). New public `spreadsheet::to_pdf`, `press::Snapshot::capture`
+  and `Snapshot::export`; new `Job::Office.data_sheets`, `html::Options.long_page`,
+  `ToolOptions.html_long_page`, and `Reply::PdfXStarted`. No Prefs field or reader menu index added.
+- Integrator: reconcile small shared-file blocks, build Slint/Rust, run full suite and all named
+  tests; then manually check both themes, absent-LibreOffice native mode, saved options,
+  PDF/X editing during export, and long-page links/UserUnit in actual viewers. Real LO/GS/ICC
+  tests still require those runtimes; their skips are not passes. Validate whether Ghostscript
+  preserves the chosen ICC bytes exactly on all supported versions; mismatch must publish nothing.
+- Next authorized action is the orchestrator's merge/build/test and independent Opus re-review.
+  Author grades below remain provisional and source-only, replacing earlier pass grades.
+
+### Pass 3 complete changed-file list
+
+- `crates/sheaf-app/src/jobs.rs`
+- `crates/sheaf-app/src/reader_doc/mod.rs`
+- `crates/sheaf-app/src/reader_ui/mod.rs`
+- `crates/sheaf-app/src/reader_ui/prepress.rs`
+- `crates/sheaf-app/src/run.rs`
+- `crates/sheaf-app/src/saved_options.rs`
+- `crates/sheaf-app/tests/jobs.rs`
+- `crates/sheaf-app/ui/flow-types.slint`
+- `crates/sheaf-app/ui/screens/options.slint`
+- `crates/sheaf-app/ui/screens/reader-prepress.slint`
+- `crates/sheaf-app/ui/screens/reader-production.slint`
+- `crates/sheaf-core/Cargo.toml`
+- `crates/sheaf-core/src/html.rs`
+- `crates/sheaf-core/src/html_long_page.rs`
+- `crates/sheaf-core/src/lib.rs`
+- `crates/sheaf-core/src/preflight.rs`
+- `crates/sheaf-core/src/press.rs`
+- `crates/sheaf-core/src/spreadsheet.rs`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `crates/sheaf-core/tests/office.rs`
+- `crates/sheaf-core/tests/preflight.rs`
+- `dev/par-notes-sol-convert.md`
+- `third_party/pdfcraft-edit/src/prepress.rs`
+- `third_party/pdfcraft-engine/src/print_resources.rs`
+- `third_party/pdfcraft-engine/src/printcheck.rs`
+
+### Pass 3 author grades — not joint closure
+
+C-convert-002: f8 a8 p8 — `native_data_report_selects_sheets_preserves_cells_and_needs_no_office_runtime`,
+`crates/sheaf-core/src/spreadsheet.rs:100`: visible/explicit sheets, addresses, values and source kept;
+faithful Office import/runtime gap stays open.
+
+C-convert-005: f7 a8 p8 — `long_local_output_keeps_vector_content_link_rectangles_and_internal_destinations`,
+`crates/sheaf-core/src/html_long_page.rs:202`: preserved vector forms and link/destination geometry;
+URL/browser-continuous rendering stays absent.
+
+C-convert-018: f7 a8 p8 — `archival_history_keeps_the_old_copy_and_issues_default_but_honours_strict`,
+`crates/sheaf-app/src/saved_options.rs:64`, UI `screens/options.slint:331`: default/history regression
+repaired while strict opt-in survives; extra conformance levels stay absent.
+
+C-convert-019: f4 a7 p7 — `press_snapshot_keeps_unsaved_changes_separate_from_later_edits`,
+`crates/sheaf-core/src/press.rs:224`, plus `written_press_checks_reject_substituted_icc_and_transparency_without_ghostscript:241`:
+independent snapshot and stronger local checks; conversion still external and only X-3.
+
+C-optimize-012: f6 a7 p7 — `preflight_inventories_nested_press_resources_without_claiming_ink_simulation`,
+`crates/sheaf-core/tests/preflight.rs:62`: page-scoped declarations, preset labels, unchanged source;
+output/separations simulation and audit/fixup-profile gaps stay open.
+
+C-optimize-014: f6 a7 p7 — `grouped_hairlines_use_private_forms_per_scale_and_leave_unselected_pages_unchanged`,
+`crates/sheaf-core/tests/engine_patches.rs:183`: private scaled nested Forms, unselected content and
+undo; cyclic/corrupt refusal tests at 239/259. Patterns/marks/trapping/flattening gaps stay open.
+
+All cited tests are WRITTEN, NOT RUN. No aesthetic render or performance benchmark was performed.
+LIGNES : max 5 (preflight finding / data-report information) · cases > 6 : aucune.

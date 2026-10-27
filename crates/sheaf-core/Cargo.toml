@@ -22,6 +22,7 @@ pdfcraft-export.workspace = true
 rust_xlsxwriter.workspace = true
 unicode-normalization.workspace = true
 encoding_rs.workspace = true
+calamine.workspace = true
 skrifa.workspace = true
 spellbook.workspace = true
 
@@ -30,4 +31,3 @@ tempfile.workspace = true
 pdfium-render.workspace = true
 lopdf.workspace = true
 image.workspace = true
-calamine.workspace = true

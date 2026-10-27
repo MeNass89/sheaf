@@ -793,7 +793,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     // The copies' and the loupe's answers give back the count `send` took (they left it raised:
     // Undo greyed, and closing asked to save a document untouched).
-    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_) | Reply::DocumentScripts(_)) {
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_) | Reply::DocumentScripts(_) | Reply::PdfXStarted) {
         update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
     }
     match reply {
@@ -939,6 +939,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Upright(turns) => pages::upright(ui, id, turns),
         Reply::Accessibility(report) => accessibility::checked(id, report),
         Reply::PrintPreflight(report) => prepress::checked(ui, id, report),
+        Reply::PdfXStarted => {}
         Reply::PdfXExported(result) => prepress::press_exported(ui, id, result),
         Reply::OcrReviewed(rows) => ocr_review::reviewed(ui, id, rows),
         Reply::JavaScript { output, changed, requests } => javascript::finished(ui, id, output, changed, requests),

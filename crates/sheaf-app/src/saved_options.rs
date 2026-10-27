@@ -19,7 +19,7 @@ macro_rules! kept {
 
         /// Options read back from [`to_json`]; a key missing or of another type keeps its default.
         pub fn from_json(m: &Map<String, Value>) -> ToolOptions {
-            let mut o = ToolOptions::default();
+            let mut o = ToolOptions { pdfa_allow_incomplete: true, ..Default::default() };
             $(if let Some(v) = m.get(stringify!($i)).and_then(Value::as_i64) { o.$i = v as i32; })*
             $(if let Some(v) = m.get(stringify!($b)).and_then(Value::as_bool) { o.$b = v; })*
             $(if let Some(v) = m.get(stringify!($s)).and_then(Value::as_str) { o.$s = v.into(); })*
@@ -40,7 +40,7 @@ kept! {
         wm_transparency, wm_rotation, crop_mode, pdfa_level, excel_layout, text_format, compare_mode,
         adjust_brightness, adjust_contrast, adjust_saturation;
     bools:
-        pdfa_allow_incomplete,
+        pdfa_allow_incomplete, html_long_page,
         redact_repeat, discard_thumbs, discard_tags, discard_meta, compress_gray, unembed_fonts, adjust_invert,
         hf_replace,
         allow_printing, allow_copying, allow_editing, allow_commenting, allow_filling_forms, remove_blank,
@@ -61,8 +61,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn archival_history_keeps_the_old_copy_and_issues_default_but_honours_strict() {
+        let mut old = Map::new();
+        assert!(from_json(&old).pdfa_allow_incomplete);
+        old.insert("pdfa_allow_incomplete".into(), false.into());
+        assert!(!from_json(&old).pdfa_allow_incomplete);
+        let strict = from_json(&old);
+        assert!(!from_json(&to_json(&strict)).pdfa_allow_incomplete);
+    }
+
+    #[test]
     fn options_come_back_as_they_were_without_their_passwords() {
-        let o = ToolOptions { pdfa_allow_incomplete: true, ocr_local_engine: true, level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
+        let o = ToolOptions { html_long_page: true, pdfa_allow_incomplete: true, ocr_local_engine: true, level: 2, degrees: 270, pages: "2-4".into(), remove_blank: true, wm_text: "DRAFT".into(), password: "secret".into(), owner: "boss".into(), sign_p12_password: "pin".into(), ..Default::default() };
         let json = to_json(&o);
         let text = serde_json::to_string(&json).unwrap();
         assert!(!text.contains("secret") && !text.contains("boss") && !text.contains("pin"), "{text}");

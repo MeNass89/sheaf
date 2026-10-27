@@ -1,4 +1,4 @@
-//! Print-production exports from the reader's current document, on its document thread.
+//! Print-production snapshots from the reader; slow press conversion runs in the background.
 
 use super::*;
 
@@ -181,20 +181,20 @@ pub fn press_export(ui: &AppWindow, tab_id: i32, condition: &str) {
     let options = sheaf_core::press::Options { profile, condition: condition.to_string() };
     if options.condition.trim().is_empty() { crate::flow::toast(ui, "Name the press output condition"); return; }
     let d = crate::dialog::new(ui).set_title("Save PDF/X-3 copy").set_directory(&dir).set_file_name(format!("{stem} - PDFX-3.pdf")).add_filter("PDF", &["pdf"]);
-    crate::dialog::save_file(ui, d, move |_, to| {
+    crate::dialog::save_file(ui, d, move |ui, to| {
         update(tab_id, |r, _| {
             if r.prepress.press_busy { return; }
             r.prepress.press_busy = true;
             r.prepress.production_open = false;
             r.send(Op::ExportPdfX { to, options });
         });
+        crate::flow::toast(ui, "Exporting a PDF/X snapshot in the background; you can keep editing");
     });
 }
 
 pub(super) fn press_exported(ui: &AppWindow, tab_id: i32, result: Result<PathBuf, String>) {
     update(tab_id, |r, _| {
         r.prepress.press_busy = false;
-        r.in_flight = r.in_flight.saturating_sub(1);
     });
     match result {
         Ok(path) => crate::flow::toast(ui, &format!("PDF/X-3 copy saved as {}; full ISO validation was not performed", file_name(&path))),

@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 
 #[path = "html_source.rs"]
 mod source;
+#[path = "html_long_page.rs"]
+mod long_page;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Paper {
@@ -18,6 +20,8 @@ pub struct Options {
     pub landscape: bool,
     /// White space inside the paper, in points.
     pub margin: f64,
+    /// Stack printed paper pages; this preserves print breaks, not browser screen layout.
+    pub long_page: bool,
 }
 
 /// Print a local HTML file using an explicit paper layout. The caller must bypass any cached
@@ -35,7 +39,12 @@ pub fn to_pdf(input: &Path, options: Options, out: &Path) -> Result<PathBuf> {
     let dir = tempfile::tempdir()?;
     let prepared = dir.path().join("print.html");
     std::fs::write(&prepared, html)?;
-    office::office_to_pdf(&prepared, out)
+    if options.long_page {
+        let printed = office::office_to_pdf(&prepared, &dir.path().join("paper.pdf"))?;
+        long_page::stack(&printed, out)
+    } else {
+        office::office_to_pdf(&prepared, out)
+    }
 }
 
 fn print_html(source: &str, base: &str, options: Options) -> Result<String> {
@@ -112,7 +121,7 @@ mod tests {
     #[test]
     fn html_print_settings_keep_resources_and_override_the_page_rule() {
         let source = "<!DOCTYPE html><html><HEAD><link href=\"style.css\"><style>@page { margin: 99pt }</style></HEAD><body><img src=\"plot.png\">Text</body></html>";
-        let out = print_html(source, "file:///a%20b/", Options { paper: Paper::Letter, landscape: true, margin: 18.0 }).unwrap();
+        let out = print_html(source, "file:///a%20b/", Options { paper: Paper::Letter, landscape: true, margin: 18.0, long_page: false }).unwrap();
         assert!(out.starts_with("<!DOCTYPE html>"));
         assert!(out.find("<base").unwrap() < out.find("<link").unwrap());
         assert!(out.contains("size: 792.0000pt 612.0000pt; margin: 18.0000pt"));
@@ -123,14 +132,14 @@ mod tests {
     #[test]
     fn html_print_settings_reject_invalid_margins() {
         for margin in [f64::NAN, f64::INFINITY, -1.0, 145.0] {
-            assert!(print_html("body", "file:///", Options { paper: Paper::A4, landscape: false, margin }).is_err());
+            assert!(print_html("body", "file:///", Options { paper: Paper::A4, landscape: false, margin, long_page: false }).is_err());
         }
     }
 
     #[test]
     fn html_layout_finds_tags_instead_of_comments_scripts_or_headers() {
         let source = "<!-- <head> --><html><script>let example = '<head><base>';</script><header>Title</header><p>Text</p></html>";
-        let out = print_html(source, "file:///local/", Options { paper: Paper::A4, landscape: false, margin: 0.0 }).unwrap();
+        let out = print_html(source, "file:///local/", Options { paper: Paper::A4, landscape: false, margin: 0.0, long_page: false }).unwrap();
         assert!(out.contains("<html><head><meta charset=\"utf-8\"><base"));
         assert!(out.ends_with("<header>Title</header><p>Text</p></html>"));
         assert_eq!(opening_tag("<head title='a > b'>", "head"), Some(20));
@@ -141,7 +150,7 @@ mod tests {
         let t = tempfile::tempdir().unwrap();
         let input = t.path().join("legacy.html");
         std::fs::write(&input, [0xff, 0xfe, 0x00]).unwrap();
-        let options = Options { paper: Paper::Letter, landscape: true, margin: 18.0 };
+        let options = Options { paper: Paper::Letter, landscape: true, margin: 18.0, long_page: false };
         let out = t.path().join("out.pdf");
         for source in [input, t.path().join("page.ps")] {
             let error = to_pdf(&source, options, &out).unwrap_err();

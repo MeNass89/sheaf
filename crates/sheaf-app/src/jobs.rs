@@ -78,7 +78,7 @@ pub enum Job {
     /// `extract`: the pictures in the pages instead of the pages (iLovePDF's Extract images).
     PdfToJpg { inputs: Vec<Input>, dpi: u32, quality: Option<u8>, extract: bool, out_dir: PathBuf },
     /// Word / PowerPoint / Excel / HTML → PDF through LibreOffice.
-    Office { items: Vec<(PathBuf, PathBuf)>, html: Option<sheaf_core::html::Options>, whole_sheets: bool },
+    Office { items: Vec<(PathBuf, PathBuf)>, html: Option<sheaf_core::html::Options>, whole_sheets: bool, data_sheets: Option<String> },
     /// JPG to PDF with "Merge all images" off: a PDF for each image.
     ImagesEach { items: Vec<(PathBuf, PathBuf)>, layout: PageLayout },
     PageNumbers { items: Vec<(Input, PathBuf)>, options: NumberOptions },
@@ -388,9 +388,10 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
         Job::ImagesEach { items, layout } => {
             batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(images::images_to_pdf(std::slice::from_ref(i), *layout, o))))?
         }
-        Job::Office { items, html, whole_sheets } => {
+        Job::Office { items, html, whole_sheets, data_sheets } => {
             batch(each(items, cancel, progress, |(i, _)| i.as_path(), |(i, o)| one(match html {
                 Some(options) => sheaf_core::html::to_pdf(i, *options, o),
+                None if data_sheets.is_some() => sheaf_core::spreadsheet::to_pdf(i, data_sheets.as_deref().unwrap_or_default(), o),
                 None if *whole_sheets => sheaf_core::office::spreadsheet_to_pdf(i, o),
                 None => crate::files::office_to_pdf(i, o),
             })))?

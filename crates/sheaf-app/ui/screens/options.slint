@@ -21,7 +21,7 @@ export component OptionsPanel inherits VerticalLayout {
     in property <bool> has-preview;
     in property <float> preview-w;
     in property <float> preview-h;
-    out property <bool> valid: !root.office-missing && (
+    out property <bool> valid: (!root.office-missing || (root.tool == "excel_to_pdf" && root.layout == 2)) && (
         root.tool == "protect" ? (root.require-open ? root.password != "" && root.password == root.confirm : root.owner != "")
         : root.tool == "remove_pages" ? root.pages != "" || root.remove-blank
         : root.tool == "extract_pages" ? root.pages != ""
@@ -75,6 +75,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.degrees = o.degrees;
         root.layout = o.layout;
         root.landscape = o.landscape;
+        root.html-long-page = o.html-long-page;
         root.merge-images = !o.one-per-image;
         root.margin = o.margin;
         root.quality = o.quality;
@@ -170,7 +171,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
         pages: root.pages, remove-blank: root.remove-blank, blank-level: root.blank-level, rotate-parity: root.rotate-parity, rotate-orientation: root.rotate-orientation, protect-sanitize: root.protect-sanitize, compare-old-pages: root.compare-old-pages, compare-new-pages: root.compare-new-pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size, split-cols: root.split-cols, split-rows: root.split-rows, organize-order: root.organize-order,
-        degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
+        html-long-page: root.html-long-page, degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
         num-position: root.num-position, num-double: root.num-double, num-cover: root.num-cover,
@@ -269,6 +270,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> degrees: 90;
     in-out property <int> layout: 0;
     in-out property <bool> landscape: false;
+    in-out property <bool> html-long-page: false;
     in-out property <bool> merge-images: true;
     in-out property <int> margin: 0;
     in-out property <int> quality: 0;
@@ -327,7 +329,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> crop-left: "10";
     in-out property <string> crop-right: "10";
     in-out property <int> pdfa-level: 0;
-    in-out property <bool> pdfa-allow-incomplete: false;
+    in-out property <bool> pdfa-allow-incomplete: true;
     in-out property <string> ocr-languages: "," + OcrInfo.default-language + ",";
     in-out property <bool> ocr-local-engine;
     in-out property <bool> ocr-all-pages;
@@ -644,7 +646,7 @@ export component OptionsPanel inherits VerticalLayout {
         RadioCard {
             title: "Saved print layout";
             description: "Use the workbook's paper and print areas";
-            selected: root.layout != 1;
+            selected: root.layout == 0;
             clicked => { root.layout = 0; }
         }
         RadioCard {
@@ -654,6 +656,18 @@ export component OptionsPanel inherits VerticalLayout {
             clicked => { root.layout = 1; }
         }
         if root.layout == 1: InfoBox { text: "Includes hidden sheets. Saved paper sizes and print areas are ignored."; }
+        RadioCard {
+            title: "Built-in data report";
+            description: "Cell addresses and saved values; no LibreOffice";
+            selected: root.layout == 2;
+            clicked => { root.layout = 2; }
+        }
+        if root.layout == 2: VerticalLayout {
+            spacing: 10px;
+            TextField { label: "Sheet numbers (blank = visible sheets)"; placeholder: "For example, 1,3-5"; text <=> root.pages; }
+            InfoBox { text: "XLS, XLSX, XLSB and ODS; values only.\nNo styles, charts or formula recalculation.\nWestern European text; raw date values.\nHidden sheets need an explicit number."; }
+        }
+
     }
 
     if root.tool == "jpg_to_pdf" || root.tool == "html_to_pdf": VerticalLayout {
@@ -684,6 +698,12 @@ export component OptionsPanel inherits VerticalLayout {
             padding-top: 6px;
             Check { text: "Merge all images into one PDF file"; checked <=> root.merge-images; }
         }
+    }
+
+    if root.tool == "html_to_pdf" && root.layout != 0: VerticalLayout {
+        spacing: 10px;
+        Check { text: "Stack pages into one long page"; checked <=> root.html-long-page; }
+        if root.html-long-page: InfoBox { text: "Keeps text, pictures and links.\nPaper page breaks and margins remain.\nThis is not a browser screen layout."; }
     }
 
     if root.tool == "html_to_pdf": InfoBox {
@@ -1228,7 +1248,7 @@ export component OptionsPanel inherits VerticalLayout {
     }
 
     if !root.office-missing && (root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf"
-            || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): InfoBox {
+            || (root.tool == "excel_to_pdf" && root.layout != 2) || root.tool == "html_to_pdf"): InfoBox {
         text: "Converted with LibreOffice on this computer. Nothing is uploaded.";
     }
     // Every tool runs here, offline (iLovePDF Desktop's offline tools): said at the foot of the
@@ -1249,11 +1269,12 @@ export component OptionsPanel inherits VerticalLayout {
         }
     }
 
-    if root.office-missing: VerticalLayout {
+    if root.tool == "excel_to_pdf" && root.layout == 2: InfoBox { text: "Created in Sheaf. Nothing is uploaded."; }
+    if root.office-missing && !(root.tool == "excel_to_pdf" && root.layout == 2): VerticalLayout {
         spacing: 10px;
         InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");
-            text: "Install LibreOffice to enable this tool. Sheaf uses it to read Office and HTML files.";
+            text: root.tool == "excel_to_pdf" ? "Choose Built-in data report, or install LibreOffice for the workbook’s print layout." : "Install LibreOffice to enable this tool. Sheaf uses it to read Office and HTML files.";
         }
         Segment {
             text: "Get LibreOffice";

@@ -17,6 +17,7 @@ pub mod html;
 pub mod info;
 pub mod layers;
 pub mod office;
+pub mod spreadsheet;
 pub mod office_runtime;
 pub mod numbers;
 pub mod ocr;

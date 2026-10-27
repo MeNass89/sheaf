@@ -69,6 +69,7 @@ export component PreflightSheet inherits Rectangle {
             }
             HorizontalLayout {
                 spacing: 8px;
+                SmallButton { text: "Fix hairlines / boxes…"; clicked => { ReaderBridge.preflight-close(root.id); ReaderBridge.fix-page-hairlines(root.id); } }
                 SmallButton { text: "Save report…"; opacity: root.tab.reader.preflight-ready ? 1 : 0.5; clicked => { if root.tab.reader.preflight-ready { ReaderBridge.preflight-save(root.id); } } }
                 Rectangle { horizontal-stretch: 1; }
                 SmallButton { text: "Close"; clicked => { ReaderBridge.preflight-close(root.id); root.focus-pages(); } }

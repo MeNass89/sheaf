@@ -350,9 +350,10 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             let html = (tool == ToolId::HtmlToPdf && opts.layout != 0).then_some(sheaf_core::html::Options {
                 paper: if opts.layout == 2 { sheaf_core::html::Paper::Letter } else { sheaf_core::html::Paper::A4 },
                 landscape: opts.landscape,
+                long_page: opts.html_long_page,
                 margin: [0.0, 18.0, 36.0][opts.margin.clamp(0, 2) as usize],
             });
-            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), html, whole_sheets: tool == ToolId::ExcelToPdf && opts.layout == 1 }
+            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), html, whole_sheets: tool == ToolId::ExcelToPdf && opts.layout == 1, data_sheets: (tool == ToolId::ExcelToPdf && opts.layout == 2).then(|| opts.pages.to_string()) }
         }
         ToolId::PageNumbers => {
             let options = number_options(opts, inputs.len() > 1)?;
@@ -1148,7 +1149,7 @@ mod tests {
     use std::path::Path;
 
     fn opts() -> ToolOptions {
-        ToolOptions { level: 1, every: 1, degrees: 90, ..Default::default() }
+        ToolOptions { pdfa_allow_incomplete: true, level: 1, every: 1, degrees: 90, ..Default::default() }
     }
 
     #[test]
@@ -1254,12 +1255,12 @@ mod tests {
         let two = vec![Input::new("/a/x.pdf"), Input::new("/a/y.pdf")];
         let Job::PdfA { items, level, allow_incomplete } = build_job(ToolId::PdfToPdfA, two, vec![], &o, Dest::Folder("/o".into())).unwrap() else { panic!() };
         assert_eq!((level, items[1].1.clone()), (PdfALevel::A2b, PathBuf::from("/o/y-pdfa.pdf")));
-        assert!(!allow_incomplete);
-        o.pdfa_allow_incomplete = true;
+        assert!(allow_incomplete);
+        o.pdfa_allow_incomplete = false;
         o.pdfa_level = 1;
         let Job::PdfA { level, allow_incomplete, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
         assert_eq!(level, PdfALevel::A3b);
-        assert!(allow_incomplete);
+        assert!(!allow_incomplete);
     }
 
     #[test]
@@ -1359,10 +1360,11 @@ mod tests {
         o.layout = 2;
         o.landscape = true;
         o.margin = 1;
+        o.html_long_page = true;
         let input = || vec![Input::new("/a/page.html")];
         let job = build_job(ToolId::HtmlToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
         let Job::Office { html, .. } = job else { panic!("an HTML conversion job") };
-        assert_eq!(html, Some(sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0 }));
+        assert_eq!(html, Some(sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0, long_page: true }));
         let job = build_job(ToolId::WordToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
         assert!(matches!(job, Job::Office { html: None, .. }));
         o.layout = 0;
@@ -1377,6 +1379,19 @@ mod tests {
         for (tool, expected) in [(ToolId::ExcelToPdf, true), (ToolId::WordToPdf, false), (ToolId::PowerPointToPdf, false)] {
             let job = build_job(tool, vec![Input::new("/a/book.xlsx")], vec![], &o, Dest::NextToEach).unwrap();
             assert!(matches!(job, Job::Office { whole_sheets, html: None, .. } if whole_sheets == expected));
+        }
+    }
+
+    #[test]
+    fn native_spreadsheet_choice_keeps_sheet_selection_and_bypasses_the_office_cache() {
+        let mut o = opts();
+        o.layout = 2;
+        o.pages = "3,1-2".into();
+        for tool in [ToolId::ExcelToPdf, ToolId::WordToPdf, ToolId::PowerPointToPdf] {
+            let job = build_job(tool, vec![Input::new("/a/book.xlsx")], vec![], &o, Dest::NextToEach).unwrap();
+            let Job::Office { data_sheets, whole_sheets, .. } = job else { panic!() };
+            assert!(!whole_sheets);
+            assert_eq!(data_sheets.as_deref(), (tool == ToolId::ExcelToPdf).then_some("3,1-2"));
         }
     }
 
