@@ -117,6 +117,9 @@ impl Models {
         if let Some(exe) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
             dirs.extend(Self::dirs_beside_exe(&exe));
         }
+        // The source tree's models, for development builds only: a release must not carry the
+        // builder's paths (bundle-macos.sh checks the binaries for them).
+        #[cfg(debug_assertions)]
         dirs.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/models"));
         dirs
     }

@@ -342,7 +342,7 @@ pub fn render_bytes(bytes: &[u8], password: Option<&str>, page: usize, width: u3
 /// grey; the result is opaque.
 fn over_grid(rgba: &mut [u8], width: u32) {
     let width = width.max(1) as usize;
-    for (i, p) in rgba.chunks_exact_mut(4).enumerate() {
+    for (i, p) in rgba.as_chunks_mut::<4>().0.iter_mut().enumerate() {
         let (x, y) = (i % width, i / width);
         let back = if (x / 8 + y / 8) % 2 == 0 { 255u16 } else { 204 };
         let a = u16::from(p[3]);
