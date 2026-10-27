@@ -433,3 +433,65 @@ fn unreadable_page_streams_cannot_be_silently_skipped_by_hairline_repair() {
     assert!(doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: 0.25 }).is_err());
     assert_eq!(doc.full_bytes().unwrap().as_slice(), before.as_slice());
 }
+
+#[test]
+fn wizard_native_options_validate_and_number_pages_before_compression() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{Action, Step, number_settings, run_on}};
+    for value in ["6|1|8|<<1>>", "4|0|8|<<1>>", "4|1|NaN|<<1>>", "4|1|3|<<1>>", "bad"] {
+        assert!(number_settings(value).is_err(), "{value}");
+        assert!(Step::from_id("page_numbers", value).is_none());
+    }
+    assert!(Step::from_id("compress", "unknown").is_none());
+    assert!(Step::from_id("pdfa", "1a").is_none());
+    let settings = number_settings("5|12|14|Page <<1>> of <<n>>").unwrap();
+    assert_eq!(settings.start_number, 12);
+    assert_eq!(settings.font_size, 14.0);
+    assert_eq!(settings.text[5], "Page <<1>> of <<n>>");
+    let bytes = Session::new().create_from_text("Original", "Keep text").unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    for level in ["low", "recommended", "extreme", "lossless"] {
+        let action = Action { name: "Native".into(), description: String::new(), builtin: false,
+            steps: vec![Step::PageNumbers("4|7|12|Page <<1>>".into()), Step::Compress(level.into())] };
+        let out = run_on(&action, "input.pdf", bytes.clone(), |_, _| {}).unwrap();
+        let path = dir.path().join(format!("{level}.pdf"));
+        std::fs::write(&path, out.bytes.as_slice()).unwrap();
+        assert!(common::shown_texts(&path)[0].contains("Page 7"));
+        let mut check = Session::new();
+        let id = check.open("out.pdf", None, out.bytes, None).unwrap();
+        assert_eq!(check.get(id).unwrap().info.pages.len(), 1);
+        assert_eq!(out.log.len(), 2);
+    }
+}
+
+#[test]
+fn custom_tool_commands_edit_the_current_document_and_undo() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{Step, command_edit}};
+    let mut s = Session::new();
+    let bytes = s.create_from_text("Unsaved title", "Keep").unwrap();
+    let id = s.open("current.pdf", None, bytes, None).unwrap();
+    s.apply(id, Edit::SetInfo { key: "Author".into(), value: "Already editing".into() }).unwrap();
+    s.apply(id, command_edit(&Step::SetTitle("Custom command".into()), 1).unwrap()).unwrap();
+    assert_eq!(s.get(id).unwrap().info.title.as_deref(), Some("Custom command"));
+    s.undo(id).unwrap();
+    assert_eq!(s.get(id).unwrap().info.title.as_deref(), Some("Unsaved title"));
+    assert_eq!(s.get(id).unwrap().info.author.as_deref(), Some("Already editing"));
+    assert!(command_edit(&Step::Compress("recommended".into()), 1).is_err());
+}
+
+#[test]
+fn console_manager_lists_and_edits_document_and_field_scripts_with_undo() {
+    use sheaf_core::pdfcraft::engine::{Session, NewField};
+    let mut s = Session::new();
+    let bytes = s.create_from_text("Scripts", "Keep").unwrap();
+    let id = s.open("scripts.pdf", None, bytes, None).unwrap();
+    s.apply(id, Edit::AddField { page: 0, rect: [72.0, 600.0, 210.0, 625.0], kind: NewField::Text { multiline: false }, name: Some("Amount".into()) }).unwrap();
+    s.apply(id, Edit::SetDocumentScript { name: "Helpers".into(), script: Some("function twice(x) { return x * 2; }".into()) }).unwrap();
+    s.apply(id, Edit::SetFieldScript { name: "Amount".into(), event: "keystroke".into(), script: Some("console.println('field');".into()) }).unwrap();
+    let scripts = s.get(id).unwrap().console_scripts();
+    assert!(scripts.iter().any(|s| s.name == "Helpers" && s.event.is_none()));
+    assert!(scripts.iter().any(|s| s.name == "Amount" && s.event.as_deref() == Some("keystroke") && s.source.contains("field")));
+    s.apply(id, Edit::SetFieldScript { name: "Amount".into(), event: "keystroke".into(), script: None }).unwrap();
+    assert!(!s.get(id).unwrap().console_scripts().iter().any(|s| s.name == "Amount"));
+    s.undo(id).unwrap();
+    assert!(s.get(id).unwrap().console_scripts().iter().any(|s| s.name == "Amount"));
+}

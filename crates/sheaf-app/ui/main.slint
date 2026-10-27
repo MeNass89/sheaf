@@ -1,4 +1,4 @@
-import { PortfolioPanel, PortfolioBridge, PortfolioRow } from "screens/portfolio.slint";
+import { PortfolioPanel, PortfolioBrowser, PortfolioBridge, PortfolioRow } from "screens/portfolio.slint";
 import { JavaScriptConsole, JavaScriptBridge, DocumentScriptRow } from "screens/javascript.slint";
 import { LibraryScreen, LibraryDeletePrompt, LibraryBridge, LibraryRow, LibraryVersionRow } from "screens/library.slint";
 import { ActionsScreen, ActionPrompt, ActionDiscardPrompt, CustomToolsPanel, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow } from "screens/actions.slint";
@@ -624,7 +624,8 @@ export component AppWindow inherits Window {
     if ActionBridge.prompt != "": ActionPrompt { }
     if ActionBridge.discard-visible: ActionDiscardPrompt { }
     if JavaScriptBridge.visible: JavaScriptConsole { }
-    if PortfolioBridge.visible: PortfolioPanel { }
+    if PortfolioBridge.visible && !PortfolioBridge.browsing: PortfolioPanel { }
+    if PortfolioBridge.visible && PortfolioBridge.browsing: PortfolioBrowser { }
     if LibraryBridge.delete-id != "": LibraryDeletePrompt { }
 
 }

@@ -118,7 +118,7 @@ export component ToolsScreen inherits Rectangle {
 
         HorizontalLayout {
             padding-left: Theme.content-padding; padding-right: Theme.content-padding; spacing: 8px;
-            Button { text: "Guided actions…"; clicked => { ActionBridge.open-page("actions"); } }
+            Button { text: "Actions…"; clicked => { ActionBridge.open-page("actions"); } }
             Button { text: "Create portfolio…"; clicked => { PortfolioBridge.open(); } }
             Button { text: "Library…"; clicked => { ActionBridge.open-page("library"); } }
             Button { text: "Custom tools…"; clicked => { ActionBridge.command("custom-tools", 0); } }

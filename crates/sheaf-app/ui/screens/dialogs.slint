@@ -4,22 +4,37 @@ import { TextField } from "../widgets/text-field.slint";
 
 export component SecondaryButton inherits Rectangle {
     in property <string> text;
+    in property <bool> enabled: true;
     callback clicked();
     height: Theme.button-height;
     min-width: label.preferred-width + 32px;
     border-radius: Theme.radius-button;
     border-width: 1px;
-    border-color: Theme.input-border;
-    background: touch.has-hover ? Theme.popup-hover : Theme.card;
+    border-color: focus.has-focus && root.enabled ? Theme.text-secondary : Theme.input-border;
+    background: touch.has-hover && root.enabled ? Theme.popup-hover : Theme.card;
+    opacity: root.enabled ? 1 : 0.45;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    focus := FocusScope {
+        key-pressed(e) => {
+            if root.enabled && (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; }
+            reject
+        }
+    }
     label := Text {
         text: root.text;
         font-size: Theme.fs-button;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
     }
     touch := TouchArea {
+        enabled: root.enabled;
         mouse-cursor: pointer;
-        clicked => { root.clicked(); }
+        clicked => { focus.focus(); root.clicked(); }
     }
 }
 

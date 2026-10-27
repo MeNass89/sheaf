@@ -5,21 +5,28 @@
 - Worktree `/tmp/f5/w-sol-batch`, branch `par/sol-batch`; only this batch's files.
 - Brief rule 1: no cargo, rustc, clippy, tests, app, browser or codex execution. The orchestrator
   owns compilation, the suite and visual verification. No score of 9 is claimed here.
-- Inputs have no DISAGREE entry: all nine are phase-4 zero baselines. Their definitions are the targets.
+- Pass 3 input: `/tmp/f5/par/review-sol-batch.txt`, Opus DISAGREE for all nine. Close evidenced gaps without claiming unrun parity.
 
 ## Polaroid
 
-Sheaf sol-batch pass 2, 27/10, hand-off active on `par/sol-batch` in this worktree.
-All nine components have a second implementation pass, one pushed commit per component and
-follow-up fixes. The app has Tools/reader entry points for all of this batch's features; no
-feature was added to the CLI alone. No network service was added.
-Static whitespace and shell-syntax checks are the only executed verification. Compilation,
-unit/integration/smoke execution, rendering, performance measurement and counterpart review are
-still pending with the orchestrator under brief rule 1. Do not infer a joint 9 from this report.
-Next: merge, refresh the first-pass app `zip` lock dependency if needed, compile, run the single
-suite, check the new panels at minimum size/light/dark, then let opus-platform review read-only.
-Send any compile errors or DISAGREE proof back to this worker. Pass-1 descriptions below are a
-historical baseline; the Pass 2 entries supersede their corresponding Left notes.
+Sheaf sol-batch pass 3, 27/10/2026, active hand-off on `par/sol-batch` in
+`/tmp/f5/w-sol-batch`. Mandate: close Opus's evidenced gaps in
+`/tmp/f5/par/review-sol-batch.txt`, valuable native work first, one pushed commit per component.
+All nine now have a third implementation pass and pushed component commits, plus narrowly scoped
+static follow-ups. None is untouched; none is declared at joint parity. The Pass 3 entries and
+final grades below supersede earlier baselines and Left notes for the same behavior.
+
+Tatouages remain: no cargo/rustc/clippy/test/app/browser/codex execution; no network features;
+no outside conversion processes added. Pure Rust tools and explicit limitations are used.
+Observed proof is source inspection, git diff --check, bash -n and the static UI detector only.
+Tests are written, not executed; layouts are unrendered; runtime/performance remain unverified.
+The app zip dependency's missing lock entry is now corrected manually against already locked
+zip 4.6.1 packages; no new dependency was added in this pass.
+
+Next action belongs to the orchestrator: merge, compile, run the suite and new tests, render the
+four surfaces at minimum size/light/dark, then request opus-platform's read-only rereview.
+Send compile errors or remaining DISAGREE evidence back here; no component closes until joint 9
+on the green merged tree. Code committed/pushed is the hand-off result, not proof that it runs.
 
 ## Components
 
@@ -338,3 +345,240 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
 - `dev/scripts/smoke/3-flows.sh`
 - `third_party/pdfcraft-engine/src/actions.rs`
 - `third_party/pdfcraft-engine/src/js.rs`
+
+## Pass 3 · active
+
+- C-batch-002: Acrobat Action Wizard now offers native Rust compression presets (low,
+  recommended, extreme, lossless), configured page numbers (six positions, starting number,
+  size and token format), and PDF/A-2b/3b conversion. PDF/A refuses publication when the native
+  verifier still finds issues, with their first cause; it never claims Ghostscript-level repair.
+  Dedicated controls replace the free-text setting for those tools. The list filter's string-to-int
+  Slint error is fixed. Drafts checkpoint every two seconds and recover after restart, including
+  incomplete new actions. Tests `wizard_native_options_validate_and_number_pages_before_compression`,
+  `partial_action_drafts_recover_without_becoming_saved_actions` (written, not run).
+  Left: Protect, Split, Word/image export and arbitrary toolbox settings; last two seconds of
+  typing may be lost on immediate process death. Output controls follow in C-batch-003.
+  not automatable: choose each native option, restart and recover draft; compile/render is
+  forbidden by brief rule 1. No new dependency, network or external executable.
+
+- C-batch-003: Acrobat output options now persist with an action: each input's folder or a
+  chosen folder, prefix/suffix, unique copies by default, explicit atomic replacement when
+  requested. Run on a folder adds all direct PDFs in sorted order without following symlinks.
+  Optional per-input masked password prompts replace the single shared password; secrets are
+  never serialized or checkpointed. Test
+  `output_options_keep_originals_unless_explicitly_overwritten_and_accept_folder_inputs`
+  (written, not run). No new dependency.
+  Left: non-PDF output formats, recursive batch input and running a full sequence across all
+  open unsaved documents. Password retry is a new run after the per-file failure.
+  not automatable: same-folder run, overwrite toggle, two differently encrypted inputs and
+  Cancel at password prompt — GUI execution forbidden by brief rule 1.
+
+- C-batch-004: Stirling Automate/Folder Scanning import now also translates compression quality,
+  header/footer page numbering and English skip-text OCR. Order, page position/start/size/text
+  and unsupported-setting refusal have written coverage in
+  `stirling_native_import_keeps_order_and_discloses_conversion_limits`. Import notes persist in
+  the description and appear in status: native compression/OCR differ from Ghostscript/Tesseract,
+  numbering uses Sheaf margins/Helvetica. Linearization, target size, image cleanup, middle-page
+  numbering, padding, selected pages and unknown tokens are refused. Export refuses output settings
+  it cannot preserve. References: Stirling useCompressOperation/useOCROperation/
+  useAddPageNumbersParameters and CompressController. No external programs or network added.
+  Left: Acrobat .sequ, split/convert/watermark and metadata replacement; these require parsers or
+  tool settings beyond the currently supported native equivalents. Import is deliberately explicit
+  about approximations rather than claiming lossless interoperability. Tests written, not run.
+
+- C-batch-005: Acrobat's Archive Documents now has native, verification-gated PDF/A-2b and
+  PDF/A-3b presets; Prepare a Form detects fields; Optimize for Sharing uses the native image
+  compression preset. Nine offline suggestions now explain their concrete limits before copying.
+  Test `suggested_archive_form_and_sharing_actions_are_native_editable_copies` and the existing
+  suggestion independence test (written, not run). No dependency or external program.
+  Left: Make Accessible needs real tag/reading-order remediation; Optimize for Web needs genuine
+  linearization. Neither is advertised under a misleading name. Online discovery remains excluded.
+
+- C-batch-006: custom commands now apply to the open unsaved PDF through the reader's existing
+  undoable edit path (metadata, rotations, watermark/header/footer/numbering, flattening, removal
+  and sanitization). The palette enables Apply to open PDF only for supported commands and a
+  live reader tab; export/recognition/PDF-A and prompted jobs retain their batch flow, visibly
+  explained in the panel. Commands can have custom labels and separators, saved/imported with
+  their set. Naming is consistently Actions, including the palette help.
+  Tests `custom_tool_commands_edit_the_current_document_and_undo` (engine via core tests),
+  `suggested_copies_and_custom_tools_are_independent` (label/separator round-trip), written not run.
+  Public engine helper `actions::command_edit`. New reader_ui/custom_tools.rs, no dependency.
+  Left: arbitrary toolbox tools, icons and dedicated named panels on Tools; running multiple
+  commands together on the unsaved document. Current-document OCR/compression need their existing
+  progress jobs, so they are not applied as if they were ordinary reader edits.
+  not automatable: edit a document, apply custom metadata/rotation and Undo without losing earlier
+  edits — app launch forbidden by brief rule 1.
+
+- C-batch-008: saved folder watches now resume on launch; up to two independent inboxes run
+  concurrently without locking the Actions editor. Stop folder watches is separate from Stop
+  batch. Each inbox has an independent checkpoint, naming pattern ({name}, {title}, {counter})
+  and optional successful-input archiving under output/Processed inputs; failed inputs remain.
+  Directory scans yield every 512 entries and poll completed inbox snapshots every three seconds,
+  avoiding a 100000-file traversal every second. The watcher stages privately even if the saved
+  action asks to overwrite or use the input folder. New test
+  `watches_keep_independent_patterns_archive_inputs_and_scan_incrementally` covers naming,
+  original-byte archiving, separate saved configs and bounded scan snapshots (written, not run).
+  Left: watches still require the Sheaf process (no OS service/daemon); at most two simultaneous
+  watches on this memory-constrained app; polling, not OS file notifications. A crash between
+  output publication and checkpoint can duplicate an output; collisions remain unique copies.
+  not automatable: restart into two configured watches, edit another action, stop watches,
+  verify successful inputs moved and failed ones retained — app execution forbidden.
+  No new dependency or network service.
+
+- C-files-008: Library now displays a responsive thumbnail grid, with first-page native PDF
+  previews queued on the existing bounded probe pool (256 cached revisions), folder navigation
+  including intermediate ZIP folders, multi-selection, Export selected and confirmed Delete
+  selected. Both batch operations report partial errors and preserve original files; export
+  collisions keep separate copies. Typing/filtering and selecting use the in-memory catalogue;
+  Refresh/reader Save/mutations reload metadata. Test
+  `cached_library_filter_tree_and_batch_actions_keep_versions_and_collisions` covers filtering
+  while metadata is offline, folder hierarchy, deduplicated selections and colliding exports
+  (written, not run). No dependency, LibreOffice process or network.
+  Left: thumbnails for non-PDF/encrypted files (file icon fallback), drag-to-folder organization,
+  virtualized very-large grids and sorting controls. Folder paths show the full hierarchy instead
+  of a collapsible tree. All render/performance grades remain provisional.
+  not automatable: add mixed PDFs/ZIPs, browse folders, filter, multi-select across filters,
+  export/delete and verify thumbnails at minimum size — app launch forbidden by brief rule 1.
+
+- C-organize-024: a portfolio now opens directly in a full document browser rather than only
+  its cover/attachment modal. Name, Description and Size are distinct columns sourced from
+  embedded-file metadata; folders present in item names can be filtered. Preview renders the
+  first PDF page, bounded images or the first 64 KiB of text entirely locally; unsupported Office
+  and other formats explain Open/Save copy without spawning LibreOffice. View cover returns to
+  the reader. Decoded previews cap files at 32 MB and image allocation at 64 MB.
+  Test `portfolio_browser_uses_embedded_description_size_and_native_text_preview` proves metadata
+  and original text preview (written, not run), alongside the existing core portfolio tests.
+  Left: editing arbitrary collection-schema fields, real PDF Collection folder creation, sorting,
+  multi-page previews and themes. Existing generated file order and original-byte preservation
+  remain covered by core tests. No dependency, external conversion program or network.
+  not automatable: open a portfolio, preview PDF/image/text/Office, check description/size columns,
+  Save copy and View cover — app launch/render forbidden by brief rule 1.
+
+- C-platform-005: console adds Run selection and Ctrl/Cmd+Enter (selection if present, whole
+  script otherwise), with UTF-8 byte-boundary validation. Its script manager now lists/edits/
+  deletes document scripts and custom field keystroke/format/validate/calculate/mouse-up scripts
+  through existing undoable edits. New engine `js::ConsoleScript`, `Document::console_scripts`,
+  document-thread EditableScripts request/reply. Network LaunchUrl/Submit are explicitly explained
+  by the UI dispatcher, without execution; multiple dialog requests also explain the skipped one.
+  Console output survives reopening on the same document.
+  Tests `run_selection_keeps_unicode_boundaries_reverse_ranges_and_visible_network_refusals`,
+  `console_manager_lists_and_edits_document_and_field_scripts_with_undo` (written, not run).
+  Left: debugger/breakpoints (the engine exposes no debugger), page/link action editing and the
+  complete Edit All JavaScripts inventory. The manager explicitly says these are absent instead
+  of presenting the subset as Acrobat's complete tool. No new dependency; network stays excluded.
+  not automatable: select multiline/Unicode code, Ctrl+Enter, save/delete a field script and Undo,
+  issue LaunchUrl/Submit plus two dialog requests — app execution forbidden by brief rule 1.
+
+## Pass 3 · shared visual correction
+
+- All four batch surfaces now use Sheaf PrimaryButton/SecondaryButton and Check controls rather
+  than std-widgets buttons/check boxes. Added the missing enabled state, keyboard activation and
+  accessibility semantics to SecondaryButton and Check, keeping their incumbent tokens/geometry.
+  Shorter control rows separate JS execution from output controls and custom-command labels from
+  their two targets. Tools now says Actions, matching the sidebar. Native ComboBox/TextEdit remain
+  for their existing text/menu behavior. No new visual system or assets.
+- not automatable: keyboard traversal, disabled controls, minimum-size layouts and light/dark
+  comparison against Tools/reader — this worker must not launch or render the app under brief
+  rule 1. The shared SecondaryButton/Check changes need merge care and orchestrator UI checks.
+
+- C-batch-004 static follow-up: malformed parameter objects/types now fail instead of becoming
+  default page numbering. Stirling export also refuses command labels/separators it cannot keep.
+  These cases extend `stirling_native_import_keeps_order_and_discloses_conversion_limits`.
+  Backend PageNumbersController confirms {n}/{total}; native font/margin differences stay disclosed.
+
+- C-batch-008 static follow-up: recheck revisions after a completed scan, before publication and
+  after the archival copy. An input changed during processing remains in the inbox for its next
+  stable revision; it is not deleted as if it were the processed revision. Test
+  `a_watch_never_archives_or_publishes_an_input_changed_during_its_run` (written, not run).
+  Revision identity remains size/mtime; same-size rewrites preserving timestamps are not detected.
+
+- C-files-008 static follow-up: catalogue initialization and saves while Library is hidden no
+  longer enqueue its thumbnails; first visible opening does. The existing bounded probe pool
+  remains the only thumbnail worker path. not automatable: start on Home and open Library to
+  verify deferred previews — app execution forbidden.
+
+- C-organize-024 static follow-up: the full portfolio browser catches clicks on blank areas,
+  keeping them from reaching the covered reader. not automatable: click browser margins while
+  the reader has an active drawing tool — app execution forbidden.
+
+- C-batch-002 proof refinement: the native-options regression also extracts the produced page's
+  text and asserts Page 7 survives every compression preset, rather than checking only page count
+  and configuration parsing. Test written, not run.
+
+- C-files-008 lock correction: static inspection confirmed the older app zip dependency was
+  still missing from Cargo.lock's sheaf-app package list. Added the existing resolved `zip 4.6.1`
+  entry there manually; its version/checksum/transitive packages were already locked. No cargo,
+  dependency resolution, install or test was run. This supersedes the prior lock-refresh warning.
+
+- C-platform-005 static follow-up: the EditableScripts document-thread request replaces the old
+  document-only request instead of leaving a production-unused variant. The existing
+  `javascript_console_returns_local_viewer_requests_and_named_document_scripts` regression now
+  exercises that request. Engine Document::document_scripts remains unchanged and compatible.
+
+## Pass 3 · final hand-off
+
+- Completed implementation work: all nine components. Parity status: all remain partial; the
+  specific missing behavior and its reason are listed in their Pass 3 entries. No untouched or
+  abandoned component. No network features or OS daemon. No Ghostscript/LibreOffice process.
+- Verification executed: git diff --check across the pass; bash -n dev/scripts/smoke/3-flows.sh;
+  Impeccable static detector returned []. This is not compilation, test execution, visual proof
+  or performance measurement. Existing smoke 250–253 was syntax-checked, not run or expanded;
+  new GUI flows have explicit not-automatable hand-off steps above.
+- New engine public items: Step::Compress, Step::ConvertPdfA, Step::PageNumbers,
+  actions::number_settings, actions::command_edit, js::ConsoleScript,
+  Document::console_scripts. The existing engine methods remain compatible. Internal reader
+  EditableScripts request/reply replaces its former document-only inventory request.
+- App model additions: OutputOptions and draft persistence; cached filter/folders and BatchReport;
+  per-inbox watch configs, pattern/archive options and incremental traversal; selection/request
+  helpers. New modules javascript_console.rs and reader_ui/custom_tools.rs.
+- Merge seams: small blocks in app lib.rs, reader_doc/mod.rs, reader_ui/mod.rs, ui/main.slint,
+  shared SecondaryButton/Check, Tools naming, reader_doc/tests/forms_and_files.rs, core
+  tests/engine_patches.rs and Cargo.lock's app package dependency list. No Cargo manifest changed.
+- Remaining watcher boundary: identity is size/mtime, and a writer can still race the last
+  revision check. Archiving does not provide a cross-process file lock; same-size timestamp-
+  preserving rewrites cannot be detected by this poller. Native preview uses existing pdfium
+  rendering for PDFs, Rust image decoding/text previews, and no Office subprocess.
+
+Files touched in pass 3:
+
+- `Cargo.lock`
+- `crates/sheaf-app/src/action_import.rs`
+- `crates/sheaf-app/src/actions.rs`
+- `crates/sheaf-app/src/actions_ui.rs`
+- `crates/sheaf-app/src/javascript_console.rs`
+- `crates/sheaf-app/src/lib.rs`
+- `crates/sheaf-app/src/library.rs`
+- `crates/sheaf-app/src/library_ui.rs`
+- `crates/sheaf-app/src/portfolio_ui.rs`
+- `crates/sheaf-app/src/reader_doc/mod.rs`
+- `crates/sheaf-app/src/reader_doc/tests/forms_and_files.rs`
+- `crates/sheaf-app/src/reader_ui/custom_tools.rs`
+- `crates/sheaf-app/src/reader_ui/javascript.rs`
+- `crates/sheaf-app/src/reader_ui/mod.rs`
+- `crates/sheaf-app/src/reader_ui/portfolio.rs`
+- `crates/sheaf-app/src/watch_folder.rs`
+- `crates/sheaf-app/ui/main.slint`
+- `crates/sheaf-app/ui/screens/actions.slint`
+- `crates/sheaf-app/ui/screens/dialogs.slint`
+- `crates/sheaf-app/ui/screens/javascript.slint`
+- `crates/sheaf-app/ui/screens/library.slint`
+- `crates/sheaf-app/ui/screens/portfolio.slint`
+- `crates/sheaf-app/ui/screens/tools.slint`
+- `crates/sheaf-app/ui/widgets/check.slint`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `dev/par-notes-sol-batch.md`
+- `third_party/pdfcraft-engine/src/actions.rs`
+- `third_party/pdfcraft-engine/src/js.rs`
+
+Grades below are author estimates from source, with unrun tests as specified by brief rule 1.
+Aesthetics and performance require the orchestrator's actual render/measurement. No joint 9.
+
+- C-batch-002: f7 a7 p8 — engine_patches.rs:113 `wizard_native_options_validate_and_number_pages_before_compression` verifies number settings/text with all native compression presets; actions.rs:415 `partial_action_drafts_recover_without_becoming_saved_actions` covers restart recovery. Protect/Split/export remain absent.
+- C-batch-003: f8 a7 p8 — actions.rs:427 `output_options_keep_originals_unless_explicitly_overwritten_and_accept_folder_inputs` covers naming, same-folder, unique/replace paths and folder intake. Non-PDF output/all open unsaved documents remain absent.
+- C-batch-004: f6 a7 p8 — action_import.rs:165 `stirling_native_import_keeps_order_and_discloses_conversion_limits` covers extra translations, visible limits and malformed-setting refusal. .sequ and many Stirling tools remain unsupported.
+- C-batch-005: f8 a7 p8 — actions.rs:448 `suggested_archive_form_and_sharing_actions_are_native_editable_copies` covers the four added templates and copy independence. Full accessibility remediation/linearization remain absent.
+- C-batch-006: f7 a7 p8 — engine_patches.rs:142 `custom_tool_commands_edit_the_current_document_and_undo` preserves earlier unsaved edits through command Undo; label/separator serialization extends the existing custom-copy regression. Arbitrary tools/icons/dedicated panels remain absent.
+- C-batch-008: f8 a7 p7 — watch_folder.rs:341 `watches_keep_independent_patterns_archive_inputs_and_scan_incrementally` covers multiple configs, rename/archive and bounded snapshots; :376 `a_watch_never_archives_or_publishes_an_input_changed_during_its_run` covers detected revision changes. No OS daemon; two watches maximum.
+- C-files-008: f8 a7 p7 — library.rs:363 `cached_library_filter_tree_and_batch_actions_keep_versions_and_collisions` covers offline metadata filtering, folders, multi-file export/delete and collisions. Non-PDF previews and grid virtualization remain absent.
+- C-organize-024: f8 a7 p8 — reader_ui/portfolio.rs:87 `portfolio_browser_uses_embedded_description_size_and_native_text_preview` covers metadata and text preview; existing core portfolio tests cover originals/order. Real collection folders/arbitrary schema editing remain absent.
+- C-platform-005: f8 a7 p8 — javascript_console.rs:24 `run_selection_keeps_unicode_boundaries_reverse_ranges_and_visible_network_refusals`; engine_patches.rs:157 `console_manager_lists_and_edits_document_and_field_scripts_with_undo`. No debugger or page/link script editor.

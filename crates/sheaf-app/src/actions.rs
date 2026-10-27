@@ -17,16 +17,68 @@ pub struct ActionStep {
     pub instruction: String,
     #[serde(default)]
     pub prompt: bool,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub separator: bool,
 }
 
 impl ActionStep {
     pub fn from_engine(step: &Step) -> Self {
-        Self { tool: step.id().into(), argument: step.arg().unwrap_or_default().into(), instruction: String::new(), prompt: false }
+        Self { tool: step.id().into(), argument: step.arg().unwrap_or_default().into(), instruction: String::new(), prompt: false, label: String::new(), separator: false }
     }
 
     pub fn engine(&self) -> Result<Step> {
         Step::from_id(&self.tool, &self.argument).ok_or_else(|| invalid(format!("Unknown action tool: {}", self.tool)))
     }
+}
+
+/// Acrobat's output options travel with the action, without storing a machine-specific folder.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct OutputOptions {
+    pub same_folder: bool,
+    pub prefix: String,
+    pub suffix: String,
+    pub overwrite: bool,
+}
+
+impl Default for OutputOptions {
+    fn default() -> Self { Self { same_folder: false, prefix: String::new(), suffix: " - processed".into(), overwrite: false } }
+}
+
+impl OutputOptions {
+    fn validate(&self) -> Result<()> {
+        for part in [&self.prefix, &self.suffix] {
+            if part.len() > 100 || part.chars().any(|c| c.is_control() || "<>:\"/\\|?*".contains(c)) {
+                return Err(invalid("Output prefix and suffix need up to 100 bytes without path characters"));
+            }
+        }
+        Ok(())
+    }
+
+    fn path(&self, input: &Path, out: &Path) -> Result<PathBuf> {
+        self.validate()?;
+        let dir = if self.same_folder { input.parent().unwrap_or(Path::new(".")) } else { out };
+        let stem = input.file_stem().unwrap_or_default().to_string_lossy();
+        let name = crate::watch_folder::safe_name(&format!("{}{stem}{}", self.prefix, self.suffix));
+        Ok(dir.join(format!("{name}.pdf")))
+    }
+}
+
+/// Folder inputs are bounded and never follow symbolic links, as Folder Scanning does.
+pub fn folder_inputs(folder: &Path) -> Result<Vec<PathBuf>> {
+    let mut paths = Vec::new();
+    for entry in std::fs::read_dir(folder)? {
+        let entry = entry?;
+        if entry.file_type()?.is_file() && entry.path().extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
+            paths.push(entry.path());
+        }
+        if paths.len() > 100_000 { return Err(invalid("Choose a folder with at most 100000 PDFs")); }
+    }
+    paths.sort();
+    if paths.is_empty() { return Err(invalid("This folder has no PDF files")); }
+    Ok(paths)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -40,22 +92,25 @@ pub struct SavedAction {
     #[serde(default)]
     pub custom_tool: bool,
     pub steps: Vec<ActionStep>,
+    #[serde(default)]
+    pub output: OutputOptions,
 }
 
 fn invalid(message: impl Into<String>) -> OpdfError { OpdfError::Unsupported(message.into()) }
 
 impl SavedAction {
     pub fn empty() -> Self {
-        Self { version: 1, name: "Untitled action".into(), description: String::new(), custom_tool: false, steps: vec![] }
+        Self { version: 1, name: "Untitled action".into(), description: String::new(), custom_tool: false, output: OutputOptions::default(), steps: vec![] }
     }
 
     pub fn validate(&self) -> Result<()> {
         if self.version != 1 { return Err(invalid("This action needs a different version of Sheaf")); }
         if self.name.trim().is_empty() || self.name.len() > 256 { return Err(invalid("Give the action a name (up to 256 bytes)")); }
         if self.steps.is_empty() || self.steps.len() > 100 { return Err(invalid("An action needs 1–100 steps")); }
+        self.output.validate()?;
         for step in &self.steps {
             step.engine()?;
-            if step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
+            if step.label.len() > 256 || step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
         }
         Ok(())
     }
@@ -88,7 +143,7 @@ impl SavedAction {
 /// Offline suggested actions: copying creates an editable, independent action.
 pub fn suggested() -> Vec<SavedAction> {
     actions::builtin().into_iter().map(|a| SavedAction {
-        version: 1, name: a.name, description: a.description, custom_tool: false,
+        version: 1, name: a.name, description: a.description, custom_tool: false, output: OutputOptions::default(),
         steps: a.steps.iter().map(ActionStep::from_engine).collect(),
     }).collect()
 }
@@ -111,6 +166,26 @@ pub fn save(dir: &Path, all: &[SavedAction]) -> Result<()> {
     for action in all { action.validate()?; }
     let bytes = serde_json::to_vec_pretty(all).map_err(|e| invalid(e.to_string()))?;
     crate::store_file::replace(&dir.join("actions.json"), &bytes)?;
+    Ok(())
+}
+
+/// Recover partial drafts, including a new action with no steps yet.
+pub fn load_draft(dir: &Path) -> Result<Option<SavedAction>> {
+    match std::fs::read(dir.join("action-draft.json")) {
+        Ok(bytes) if bytes.len() <= 10 * 1024 * 1024 => serde_json::from_slice(&bytes).map(Some).map_err(|e| invalid(e.to_string())),
+        Ok(_) => Err(invalid("The saved draft exceeds 10 MB")),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None), Err(e) => Err(e.into()),
+    }
+}
+
+pub fn save_draft(dir: &Path, draft: Option<&SavedAction>) -> Result<()> {
+    let path = dir.join("action-draft.json");
+    if let Some(draft) = draft {
+        let bytes = serde_json::to_vec(draft).map_err(|e| invalid(e.to_string()))?;
+        crate::store_file::replace(&path, &bytes)?;
+    } else {
+        match std::fs::remove_file(path) { Ok(()) => {}, Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}, Err(e) => return Err(e.into()) }
+    }
     Ok(())
 }
 
@@ -154,9 +229,19 @@ pub fn run_file_configured(
     if cancelled { return Err(OpdfError::Cancelled); }
     let bytes = result.map_err(OpdfError::Engine)?.bytes;
     if !publish() { return Err(OpdfError::Cancelled); }
-    std::fs::create_dir_all(out_dir)?;
-    let stem = input.file_stem().unwrap_or_default().to_string_lossy();
-    sheaf_core::paths::atomic_write(&out_dir.join(format!("{stem} - processed.pdf")), |part| {
+    let target = action.output.path(input, out_dir)?;
+    std::fs::create_dir_all(target.parent().unwrap_or(Path::new(".")))?;
+    if action.output.overwrite {
+        // NamedTempFile uses an exclusive temporary name and atomic replacement on each OS.
+        use std::io::Write;
+        let mut temp = tempfile::NamedTempFile::new_in(target.parent().unwrap_or(Path::new(".")))?;
+        temp.write_all(bytes.as_slice())?;
+        temp.as_file().sync_all()?;
+        if let Ok(meta) = std::fs::metadata(&target) { temp.as_file().set_permissions(meta.permissions())?; }
+        temp.persist(&target).map_err(|e| e.error)?;
+        return Ok(target);
+    }
+    sheaf_core::paths::atomic_write(&target, |part| {
         std::fs::write(part, bytes.as_slice())?;
         Ok(())
     })
@@ -194,7 +279,7 @@ mod tests {
     #[test]
     fn suggested_actions_are_valid_offline_templates_and_survive_copy_edits() {
         let mut presets = suggested();
-        assert_eq!(presets.len(), 5);
+        assert_eq!(presets.len(), 9);
         for preset in &presets { preset.validate().unwrap(); }
         let original = presets[0].clone();
         let mut copy = presets.remove(0);
@@ -210,6 +295,8 @@ mod tests {
         let mut copy = original[0].clone();
         copy.name = unused_name(&copy.name, &original);
         copy.custom_tool = true;
+        copy.steps[0].label = "Prepare recipient copy".into();
+        copy.steps[0].separator = true;
         copy.steps.reverse();
         assert_ne!(copy.steps, original[0].steps);
         assert_eq!(copy.name, "Prepare for Distribution (2)");
@@ -324,4 +411,53 @@ mod tests {
         assert!(!out.exists());
         assert_eq!(std::fs::read(input).unwrap(), *bytes);
     }
+    #[test]
+    fn partial_action_drafts_recover_without_becoming_saved_actions() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut draft = SavedAction::empty();
+        draft.name = "Still writing".into();
+        save_draft(dir.path(), Some(&draft)).unwrap();
+        assert_eq!(load_draft(dir.path()).unwrap(), Some(draft));
+        assert!(load(dir.path()).unwrap().is_empty());
+        save_draft(dir.path(), None).unwrap();
+        assert_eq!(load_draft(dir.path()).unwrap(), None);
+    }
+
+    #[test]
+    fn output_options_keep_originals_unless_explicitly_overwritten_and_accept_folder_inputs() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("input.PDF");
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Keep").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
+        std::fs::write(dir.path().join("skip.txt"), b"skip").unwrap();
+        assert_eq!(folder_inputs(dir.path()).unwrap(), [input.clone()]);
+        let mut a = suggested().remove(3);
+        a.output = OutputOptions { same_folder: true, prefix: "review-".into(), suffix: "-done".into(), overwrite: false };
+        let out = run_file(&a, &input, &dir.path().join("unused"), &mut |_, _| true).unwrap();
+        assert_eq!(out, dir.path().join("review-input-done.pdf"));
+        assert_eq!(std::fs::read(&input).unwrap(), *bytes);
+        assert_ne!(run_file(&a, &input, dir.path(), &mut |_, _| true).unwrap(), out);
+        a.output.overwrite = true;
+        assert_eq!(run_file(&a, &input, dir.path(), &mut |_, _| true).unwrap(), out);
+        assert_eq!(SavedAction::import(&a.json().unwrap()).unwrap(), a);
+        a.output.prefix = "../".into();
+        assert!(a.validate().is_err());
+    }
+
+    #[test]
+    fn suggested_archive_form_and_sharing_actions_are_native_editable_copies() {
+        let all = suggested();
+        for (name, tool) in [("Archive Documents (PDF/A-2b)", "pdfa"), ("Archive Documents (PDF/A-3b)", "pdfa"), ("Prepare a Form", "detect_form_fields"), ("Optimize for Sharing", "compress")] {
+            let template = all.iter().find(|a| a.name == name).unwrap();
+            assert_eq!(template.steps[0].tool, tool);
+            assert_eq!(SavedAction::import(&template.json().unwrap()).unwrap(), *template);
+            let mut copy = template.clone();
+            copy.steps[0].instruction = "Review output".into();
+            copy.steps[0].prompt = true;
+            assert_ne!(copy, *template);
+            assert!(suggested().contains(template));
+        }
+        assert!(!all.iter().any(|a| a.name == "Make Accessible"));
+    }
+
 }

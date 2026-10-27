@@ -793,7 +793,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     // The copies' and the loupe's answers give back the count `send` took (they left it raised:
     // Undo greyed, and closing asked to save a document untouched).
-    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_) | Reply::DocumentScripts(_) | Reply::PdfXStarted) {
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::PrintPreflight(_) | Reply::OcrReviewed(_) | Reply::DocumentScripts(_) | Reply::PdfXStarted | Reply::EditableScripts(_)) {
         update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
     }
     match reply {
@@ -943,7 +943,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::PdfXExported(result) => prepress::press_exported(ui, id, result),
         Reply::OcrReviewed(rows) => ocr_review::reviewed(ui, id, rows),
         Reply::JavaScript { output, changed, requests } => javascript::finished(ui, id, output, changed, requests),
-        Reply::DocumentScripts(scripts) => javascript::scripts(ui, id, scripts),
+        Reply::EditableScripts(scripts) => javascript::scripts(ui, id, scripts),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
@@ -1157,7 +1157,7 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
     if ok {
         crate::viewer_ui::request(ui, id);
         if update(id, |r, _| r.snap.portfolio && !r.snap.attachments.is_empty()) == Some(true) {
-            crate::flow::toast(ui, "A PDF Portfolio: its files are listed in Files, a click opens one");
+            portfolio::browse(ui, id);
         }
         let ask = update(id, |r, _| r.window_ask.take().map(|a| (a, r.snap.boxes.first().map_or((612.0, 792.0), |b| b.view_size())))).flatten();
         if let Some(((fit, centre), page)) = ask {
@@ -1302,6 +1302,7 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
 // ---- the parts -------------------------------------------------------------------------------
 
 pub mod portfolio;
+pub mod custom_tools;
 mod pointer;
 mod forms;
 mod sign;

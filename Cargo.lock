@@ -6702,6 +6702,7 @@ dependencies = [
  "slint-build",
  "sys-locale",
  "tempfile",
+ "zip 4.6.1",
 ]
 
 [[package]]
