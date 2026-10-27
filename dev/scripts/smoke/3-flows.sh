@@ -123,8 +123,8 @@ quit
 echo hello > "$OUT/notes.txt"; echo b > "$OUT/budget.txt"; echo c > "$OUT/contract.txt"; cp "$OUT/text.pdf" "$OUT/annex.pdf"
 qpdf "$OUT/text.pdf" --add-attachment "$OUT/annex.pdf" -- --add-attachment "$OUT/notes.txt" -- --add-attachment "$OUT/budget.txt" -- --add-attachment "$OUT/contract.txt" -- "$OUT/withatt.pdf"
 launch "$OUT/withatt.pdf"; click 211 106 1
-click 160 150 0.5; shot 25a; xdotool type --delay 30 "c"; sleep 0.5; shot 25b; xdotool type "o"; sleep 0.5; shot 25c; xdotool type "n"; sleep 0.5; shot 25d; sleep 0.6; xdotool mousemove 100 400; sleep 0.3; AF=$(ocr 240x140+0+165)
-xdotool key ctrl+a; sleep 0.5; shot 25e; xdotool key BackSpace; sleep 0.5; shot 25-list; click 100 185 2; shot 25-after; TB=$(ocr 700x30+0+8)
+click 160 150 0.5; xdotool type --delay 30 "con"; sleep 0.6; xdotool mousemove 100 400; sleep 0.3; AF=$(ocr 240x140+0+165)
+xdotool key ctrl+a BackSpace; sleep 0.5; click 100 185 2; TB=$(ocr 700x30+0+8)
 check "attachments are found by name and open, a PDF in its own tab ($AF; tabs: $TB)" "echo \"$AF\" | grep -q contract && ! echo \"$AF\" | grep -q budget && echo \"$TB\" | grep -q 'annex.pdf'"
 quit
 
@@ -356,22 +356,22 @@ quit
 # 41. Shapes (R) ▸ Cloud: three clicks and a double-click on the page draw a cloud (Acrobat's Cloud tool); saved,
 # the file has a /Polygon with the cloudy border's intent.
 cp "$OUT/text.pdf" "$OUT/cloud.pdf"; launch "$OUT/cloud.pdf"; sleep 1; key r; sleep 0.5
-CL=$(at Cloud 1280x40+0+90); [ -n "$CL" ] && click $CL 0.5
+CL=$(at Cloud 1280x75+0+90); [ -n "$CL" ] && click $CL 0.5
 click 500 300 0.3; click 700 320 0.3; click 650 480 0.3; xdotool mousemove 520 470 click --repeat 2 --delay 120 1; sleep 1.2; key ctrl+s; sleep 1.5
 QC=$(qpdf --qdf --object-streams=disable "$OUT/cloud.pdf" - 2>/dev/null)
 check "Shapes ▸ Cloud draws a cloud from clicked vertices (${CL:-no Cloud button})" "echo \"\$QC\" | grep -aq '/Subtype /Polygon' && echo \"\$QC\" | grep -aq '/PolygonCloud'"
 quit
 
-# 42. Shapes (R) ▸ Distance: two clicks measure the line between them (Acrobat's Measuring tool); saved, the
+# 42. Shapes (R) ▸ Distance (the options bar's second row, with Cloud): two clicks measure the line between them (Acrobat's Measuring tool); saved, the
 # file has a measuring line (/Measure) labelled in cm.
-cp "$OUT/text.pdf" "$OUT/measure.pdf"; launch "$OUT/measure.pdf"; sleep 1; key r; sleep 0.5; shot 42-r
-DS=$(at Distance 1280x40+0+90); [ -n "$DS" ] && click $DS 0.5
+cp "$OUT/text.pdf" "$OUT/measure.pdf"; launch "$OUT/measure.pdf"; sleep 1; key r; sleep 0.5
+DS=$(at Distance 1280x75+0+90); [ -n "$DS" ] && click $DS 0.5
 click 400 600 0.4; click 700 600 1.2; key ctrl+s; sleep 1.5
 QM=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)
 check "Shapes ▸ Distance measures between two clicks (${DS:-no Distance button})" "echo \"\$QM\" | grep -aq '/Measure' && echo \"\$QM\" | grep -aq ' cm'"
 # Calibrate (Acrobat's, Bluebeam's): a 300 px line said to be 3 m; a line half as long then reads 1.50 m (both from
 # x 560: on the page at Fit page too, where it starts at 504).
-CB=$(at Calibrate 1280x40+0+90); [ -n "$CB" ] && click $CB 0.5
+CB=$(at Calibrate 1280x75+0+90); [ -n "$CB" ] && click $CB 0.5
 click 560 650 0.4; click 860 650 1.2; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "3 m"; key Return; sleep 0.8
 click 560 700 0.4; click 710 700 1.2; key ctrl+s; sleep 1.5
 QC=$(qpdf --qdf --object-streams=disable "$OUT/measure.pdf" - 2>/dev/null)
@@ -539,8 +539,8 @@ quit
 # 60. Text box ▸ Callout (Acrobat's Callout tool): a click at 700,420 (on the page) then "Look here" typed: saved as a callout,
 # a FreeText whose line (/CL) ends at the click, the box up and right of it.
 cp "$OUT/text.pdf" "$OUT/callout.pdf"; launch "$OUT/callout.pdf"; sleep 1
-# Callout ends the format row, 357 px right of Mono (OCR misses it on its grey).
-key t; sleep 0.6; MO=$(at Mono 1280x40+0+90); CO=${MO:+$(set -- $MO; echo $(( $1 + 357 )) $2)}; [ -n "$CO" ] && click $CO 0.5
+# Callout ends the format row, 115 px right of More (More fonts…; OCR misses Callout on its grey).
+key t; sleep 0.6; MO=$(at More 1280x40+0+90); CO=${MO:+$(set -- $MO; echo $(( $1 + 115 )) $2)}; [ -n "$CO" ] && click $CO 0.5
 click 700 420 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Look here"; key ctrl+Return; sleep 1.2
 key v; key ctrl+s; sleep 1.5; shot 60-callout
 CQ=$(qpdf --qdf --object-streams=disable "$OUT/callout.pdf" - 2>/dev/null)
@@ -585,9 +585,10 @@ CT=$(xclip -selection clipboard -t TARGETS -o 2>/dev/null | tr '\n' ' ')
 check "Copy an area puts a picture on the clipboard ($CT)" "echo \"$CT\" | grep -q 'image/png'"
 quit
 
-# 64. More (1127,61) ▸ Scroll automatically (17th item, 1008,547; Acrobat's): "quick" climbs by itself; Escape stops it.
+# 64. More (1127,61) ▸ Scroll automatically (17th item, 1008,547; Acrobat's): "quick" climbs by itself (60 px a
+# second: read after 1.5 s, before it leaves the view); Escape stops it.
 cp "$OUT/text.pdf" "$OUT/autoscroll.pdf"; launch "$OUT/autoscroll.pdf"; sleep 1
-read _ AY0 <<< "$(at quick 1020x700+255+90)"; click 1127 61 0.8; click 1008 547 2.5
+read _ AY0 <<< "$(at quick 1020x700+255+90)"; click 1127 61 0.8; click 1008 547 1.5
 read _ AY1 <<< "$(at quick 1020x700+255+90)"; key Escape; sleep 0.5; read _ AY2 <<< "$(at quick 1020x700+255+90)"; sleep 1; read _ AY3 <<< "$(at quick 1020x700+255+90)"
 check "Scroll automatically moves the pages up until Escape (quick at ${AY0:-?}, ${AY1:-?}, then ${AY2:-?} = ${AY3:-?})" "[ -n \"$AY1\" ] && [ \"$AY1\" -lt \$(( ${AY0:-0} - 40 )) ] && [ \"$AY2\" = \"$AY3\" ]"
 quit
@@ -771,7 +772,10 @@ quit
 # The same, Grid (2 × 2 to start, Stirling's sections): sixteen quarter pages.
 cp "$OUT/text.pdf" "$OUT/poster.pdf"; launch "$OUT/poster.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "split"; key Return; sleep 3
-CT=$(at Cut 280x700+1000+40); [ -n "$CT" ] && click $CT 0.6; GR=$(at Grid 280x700+1000+40); [ -n "$GR" ] && click $GR 0.6; click 1140 755 4
+CT=$(at Cut 280x700+1000+40); [ -n "$CT" ] && click $CT 0.6; GR=$(at Grid 280x700+1000+40)
+# Grid's box hugs its word, which OCR may read with the border ("‘Grid"): then 37 px right of "bottom" (Top / bottom).
+[ -z "$GR" ] && read _ BR BY <<< "$(span bottom 280x700+1000+40)" && [ -n "$BY" ] && GR="$(( BR + 37 )) $BY"
+[ -n "$GR" ] && click $GR 0.6; click 1140 755 4
 GV=$(ls -t $OUT/poster-cut*.pdf 2>/dev/null | head -1)
 check "Cut each page into a grid makes sixteen quarter pages (${GR:-no Grid}; ${GV:-no file})" "[ -n \"$GV\" ] && pdfinfo \"$GV\" | grep -q 'Pages: *16'"
 quit

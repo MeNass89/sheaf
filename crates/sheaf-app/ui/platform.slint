@@ -114,6 +114,9 @@ export global PlatformBridge {
     callback check-close();
     // Edit ▸ Cut, Copy, Paste, Select All: ⌘ and this key sent to what has the keyboard.
     callback edit-key(key: string, shift: bool);
+    // Whether ⇧ is held now: View ▸ Zoom In's keys (Ctrl and +, ⇧ or not) with ⇧ turn the view, as
+    // the reader's own ⇧⌘+ does (the menu bar takes the keys first).
+    callback shift-held() -> bool;
     // File ▸ Quit: closes the window as its close button does (unsaved documents asked about).
     callback quit();
 }

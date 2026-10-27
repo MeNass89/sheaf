@@ -682,7 +682,7 @@ fn main() -> Result<(), slint::PlatformError> {
         // The modifiers held, for Edit ▸ Undo and the like sending their keys on (platform_ui).
         winit::event::WindowEvent::ModifiersChanged(m) => {
             let s = m.state();
-            platform_ui::modifiers_changed(s.shift_key(), s.alt_key(), s.super_key());
+            platform_ui::modifiers_changed(s.shift_key(), s.alt_key(), s.super_key(), s.control_key());
             EventResult::Propagate
         }
         winit::event::WindowEvent::HoveredFile(path) => {

@@ -378,13 +378,15 @@ fn record(ui: &AppWindow, i: i32, text: &str, control: bool, alt: bool, shift: b
 /// typed — a text field undoes, cuts, copies, pastes or selects in its own text; the reader's pages
 /// act on the PDF (its history, selection, picked objects or comment; reader.slint's ⌘Z ⌘C ⌘X ⌘V
 /// ⌘A). Sent once a menu opened by the mouse has closed and given the keyboard back, with the menu
-/// bar's shortcuts off meanwhile so these keys go past it. The right-hand Ctrl and Shift are the
-/// ones pressed and let go: a left Ctrl the user is holding stays held.
+/// bar's shortcuts off meanwhile so these keys go past it. From the keys themselves (Ctrl or ⌘
+/// held: no menu open) they are sent without the wait, so the keys typed next come after them (a
+/// letter typed right after ⌘A was replaced by the selection made after it, 27/10). The right-hand Ctrl and Shift
+/// are the ones pressed and let go: a left Ctrl the user is holding stays held.
 fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
     use slint::platform::{Key, WindowEvent};
     let weak = ui.as_weak();
     let key = SharedString::from(key);
-    slint::Timer::single_shot(Duration::from_millis(30), move || {
+    let send = move || {
         let Some(ui) = weak.upgrade() else { return };
         menu_keys_off(&ui);
         let ctrl = SharedString::from(Key::ControlR);
@@ -420,18 +422,23 @@ fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
             let _ = ui.window().dispatch_event_with_result(ev);
         }
         push_keys(&ui);
-    });
+    };
+    // Not from inside the menu bar's own key handling (Slint's menu is borrowed there): on the next
+    // turn of the event loop, before keys typed even a few milliseconds later.
+    let wait = if HELD.load(Ordering::Relaxed) & (HELD_CTRL | HELD_META) != 0 { 0 } else { 30 };
+    slint::Timer::single_shot(Duration::from_millis(wait), send);
 }
 
-/// The modifiers the user holds now (from the window's own events, main.rs): Shift, Alt, Super.
+/// The modifiers the user holds now (from the window's own events, main.rs): Shift, Alt, Super, Ctrl.
 static HELD: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 const HELD_SHIFT: u8 = 1;
 const HELD_ALT: u8 = 2;
 const HELD_META: u8 = 4;
+const HELD_CTRL: u8 = 8;
 
 /// The window's modifiers changed (winit's ModifiersChanged).
-pub fn modifiers_changed(shift: bool, alt: bool, meta: bool) {
-    HELD.store(u8::from(shift) * HELD_SHIFT | u8::from(alt) * HELD_ALT | u8::from(meta) * HELD_META, Ordering::Relaxed);
+pub fn modifiers_changed(shift: bool, alt: bool, meta: bool, ctrl: bool) {
+    HELD.store(u8::from(shift) * HELD_SHIFT | u8::from(alt) * HELD_ALT | u8::from(meta) * HELD_META | u8::from(ctrl) * HELD_CTRL, Ordering::Relaxed);
 }
 
 /// Edit ▸ Check Spelling… on a document: its texts (comments, replies, form fields), what the
@@ -741,6 +748,7 @@ pub fn install(ui: &AppWindow) {
     });
     on!(on_set_direction, |ui, d| update(&ui, |p| p.direction = d.clamp(0, 2) as u8));
     on!(on_edit_key, |ui, key, shift| edit_key(&ui, &key, shift));
+    g.on_shift_held(|| HELD.load(Ordering::Relaxed) & HELD_SHIFT != 0);
     on!(on_check_start, |ui, tab| check_start(&ui, tab));
     on!(on_check_change, |ui, to| check_change(&ui, &to));
     on!(on_check_next, |ui| check_step(&ui, sheaf_core::spell::CheckPass::skip));

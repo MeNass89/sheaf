@@ -492,7 +492,7 @@ MB=$(ocr 700x34+0+0)
 FX=$(at File 400x34+0+0); [ -n "$FX" ] && click $FX 0.8
 FM=$(ocr 420x420+0+24); key Escape; sleep 0.4
 read WX _ <<< "$(at Window 700x34+0+0)"
-[ -n "$WX" ] && click $WX 14 0.8; shot 220-window
+[ -n "$WX" ] && click $WX 14 0.8
 HM=$(at Home 320x160+$(( ${WX:-20} - 20 ))+24); [ -n "$HM" ] && click $HM 1.2
 HR=$(at Recents 400x400+0+40)
 check "the menu bar shows File to Help, File lists Save with Ctrl+S, Window ▸ Home goes Home ($MB; $(echo "$FM" | grep -o 'Ctrl+S' | head -1); ${HM:-no Home item}; ${HR:-no Recents})" "echo \"$MB\" | grep -q 'File' && echo \"$MB\" | grep -q 'Help' && echo \"$FM\" | grep -q 'Ctrl+S' && [ -n \"$HR\" ]"
@@ -622,6 +622,12 @@ assert not any(k in p for k in ("signature_name", "signature_strokes", "signatur
 PYMARKS
 }
 has_secure_marks() { secure_marks | python3 -c 'import json,sys; p=json.load(sys.stdin); assert p.get("signatures") or p.get("initials")'; }
+# A signature kept in this part (the shard starts with none): S, a click, drawn on the pad, Use (as step 2b).
+cp "$OUT/text.pdf" "$OUT/marks.pdf"; launch "$OUT/marks.pdf"; sleep 1
+key Escape; key s; click 700 500 1
+xdotool mousemove 520 420 mousedown 1; for i in $(seq 0 20); do xdotool mousemove $((520 + i * 12)) $((420 + (i % 3) * 8)); done; xdotool mouseup 1; sleep 0.3
+click 818 555 1.2; key ctrl+s; sleep 1.5
+quit
 check "signatures and initials are absent from plaintext preferences" "no_plain_marks"
 check "kept marks exist in the system credential store" "has_secure_marks"
 # 250. Acrobat's JavaScript Console: Ctrl+J opens it for the active document. Run's output must
@@ -661,12 +667,13 @@ quit
 # original PDF stays intact, the unique output gets a Collection and its original embedded file.
 cp "$OUT/text.pdf" "$OUT/portfolio-source.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC 1
 answer "$PWD/$OUT/portfolio-source.pdf"
-PC=$(at Create 1050x260+220+35); [ -n "$PC" ] && click $PC
-PA=$(at Add 740x180+270+440); [ -n "$PA" ] && click $PA
-PW=$(at Save 740x180+270+440); [ -n "$PW" ] && click $PW 3
-check "Create portfolio bundles the original instead of merging (${PC:-no Create})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
+PC=$(at Create 1050x260+220+35); [ -n "$PC" ] && click $PC 1
+# The dialog's bottom row (OCR reads its buttons on that strip only).
+PA=$(at Add 700x44+295+504); [ -n "$PA" ] && click $PA 1.5
+PW=$(at Save 700x44+295+504); [ -n "$PW" ] && click $PW 3
+check "Create portfolio bundles the original instead of merging (${PC:-no Create}; ${PA:-no Add}; ${PW:-no Save})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
 quit
 check "kept marks exist in authenticated local storage" "has_secure_marks"
 
@@ -684,10 +691,12 @@ for line in sys.stdin:
     r, g, b = (int(m[2][k:k + 2], 16) for k in (0, 2, 4)) if m else (0, 0, 0)
     if m and not (r > 150 and g < 100 and b < 100):
         print(int(m[1])); break'; }
-E0=$(redend)
-xdotool mousemove 768 500 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 768 - i * 30 )) 500; sleep 0.05; done; xdotool mouseup 1; sleep 1.5
-E1=$(redend)
-check "Sync scroll and zoom zooms both panes; the divider moves (${SY:-no button}; $ZA0 $ZB0 → $ZA1 $ZB1; red row ends at ${E0:-?} → ${E1:-?})" "python3 -c 'import sys; a0, b0, a1, b1, e0, e1 = map(float, sys.argv[1:]); sys.exit(0 if a1 > a0 + 0.03 and b1 > b0 + 0.03 and e1 < e0 - 100 else 1)' ${ZA0:-1} ${ZB0:-1} ${ZA1:-0} ${ZB1:-0} ${E0:-0} ${E1:-0}"
+# The divider is that first pixel that is not red (its 1 px line, the grip 3 px either side): pressed there.
+E0=$(redend); DV=$(( 300 + ${E0:-468} ))
+xdotool mousemove $DV 500 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( DV - i * 30 )) 500; sleep 0.05; done; xdotool mouseup 1; sleep 1.5
+# The pointer off the divider: hovered, its line takes the accent red and the red row would not end there.
+xdotool mousemove 1000 650; sleep 0.5; E1=$(redend)
+check "Sync scroll and zoom zooms both panes; the divider moves (${SY:-no button}; $ZA0 $ZB0 → $ZA1 $ZB1; red row ends at ${E0:-?} → ${E1:-?})" "python3 -c 'import sys; a0, b0, a1, b1, e0, e1 = map(float, sys.argv[1:]); sys.exit(0 if a1 > a0 + 0.03 and b1 > b0 + 0.03 and e1 < e0 - 100 else 1)' ${ZA0:-1} ${ZB0:-1} ${ZA1:-0} ${ZB1:-0} ${E0:-0} ${E1:-9999}"
 quit
 # 228. Edit ▸ Undo from the menu bar (C-platform-014) acts on what has the keyboard: in Preferences ▸ Your name,
 # "Ada" typed then Edit ▸ Undo leaves the field empty (the menu is enabled there); on a document's pages, a note
