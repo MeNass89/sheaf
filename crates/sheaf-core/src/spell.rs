@@ -224,6 +224,12 @@ impl Speller {
         })
     }
 
+    /// Whether the dictionary is English (a plain word list is taken as English): the grammar's
+    /// English rules apply.
+    pub fn is_english(&self) -> bool {
+        self.lang.is_empty() || self.lang.to_ascii_lowercase().starts_with("en")
+    }
+
     /// The dictionary's language as a reader would say it ("English (United States)"), or the
     /// word list's file.
     pub fn describe(&self) -> String {
@@ -339,8 +345,9 @@ fn vowel_sound(word: &str) -> bool {
 /// twice ("the the"), a sentence that starts small after a full stop, question or exclamation mark
 /// ("done. then"; not after "e.g." or "Dr."), two spaces or more between words, and "a" / "an"
 /// against the next word's sound ("a apple", "an car"; "an hour", "a unit" are right). English
-/// rules: other languages only get the repeated words and spaces.
-pub fn grammar(text: &str) -> Vec<GrammarIssue> {
+/// rules, applied only when `english` (the dictionary's language): other languages get only the
+/// repeated words and spaces (French, say, has no "a"/"an" and other abbreviations).
+pub fn grammar(text: &str, english: bool) -> Vec<GrammarIssue> {
     let mut out = Vec::new();
     // Two spaces or more between two non-spaces on one line.
     let bytes = text.as_bytes();
@@ -368,7 +375,7 @@ pub fn grammar(text: &str) -> Vec<GrammarIssue> {
         // "a" / "an" against the sound of the next word (not before an acronym, a number or a letter).
         let lower = w1.to_lowercase();
         let next_plain = w2.chars().count() > 1 && w2.chars().all(char::is_alphabetic) && !w2.chars().all(char::is_uppercase);
-        if only_space && next_plain && (lower == "a" || lower == "an") {
+        if english && only_space && next_plain && (lower == "a" || lower == "an") {
             let want_an = vowel_sound(w2);
             if want_an != (lower == "an") {
                 let fix = match (want_an, w1.starts_with(char::is_uppercase)) {
@@ -384,7 +391,7 @@ pub fn grammar(text: &str) -> Vec<GrammarIssue> {
         let tail = between.trim_end_matches([' ', '\t']);
         let ends = tail.ends_with(['.', '!', '?']) && !tail.ends_with("..") && between.len() > tail.len() && !tail.contains('\n');
         let abbreviation = tail.ends_with('.') && (w1.chars().count() == 1 || ABBREVIATIONS.contains(&lower.as_str()) || text[..s1].ends_with('.'));
-        if ends && !abbreviation && w2.starts_with(char::is_lowercase) && !w2.chars().any(|c| c.is_numeric()) {
+        if english && ends && !abbreviation && w2.starts_with(char::is_lowercase) && !w2.chars().any(|c| c.is_numeric()) {
             let mut c = w2.chars();
             let fixed: String = c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default();
             out.push(GrammarIssue { start: s2, text: w2.to_string(), note: "Capital at the start of a sentence", fix: fixed });
@@ -423,7 +430,7 @@ impl CheckPass {
         for (k, text) in texts.iter().enumerate() {
             let mut here: Vec<Finding> = speller.misspelt(text, false).into_iter().map(|i| Finding { text: k, start: i.start, word: i.word, note: None, fix: None }).collect();
             if grammar_too {
-                here.extend(grammar(text).into_iter().map(|g| Finding { text: k, start: g.start, word: g.text, note: Some(g.note), fix: Some(g.fix) }));
+                here.extend(grammar(text, speller.is_english()).into_iter().map(|g| Finding { text: k, start: g.start, word: g.text, note: Some(g.note), fix: Some(g.fix) }));
                 here.sort_by_key(|f| f.start);
             }
             found.extend(here);
@@ -652,7 +659,7 @@ mod tests {
 
     #[test]
     fn the_light_grammar_pass() {
-        let g = |t: &str| grammar(t).into_iter().map(|g| (g.start, g.text, g.fix)).collect::<Vec<_>>();
+        let g = |t: &str| grammar(t, true).into_iter().map(|g| (g.start, g.text, g.fix)).collect::<Vec<_>>();
         assert_eq!(g("We saw the the cat."), [(7, "the the".into(), "the".into())]);
         assert_eq!(g("It is done. then we go."), [(12, "then".into(), "Then".into())]);
         // Not after an abbreviation, an initial or an ellipsis; nor across lines or inside numbers.
@@ -665,6 +672,9 @@ mod tests {
         assert_eq!(g("A owl"), [(0, "A".into(), "An".into())]);
         // "had had" can be right.
         assert!(g("She had had enough.").is_empty());
+        // Another language: repeated words and spaces only ("Il a une idée", "Fini. ensuite").
+        assert!(grammar("Il a une idée. ensuite on part.", false).is_empty());
+        assert_eq!(grammar("Il a a  une idée", false).into_iter().map(|g| g.note).collect::<Vec<_>>(), ["Repeated word", "More than one space"]);
         // Replacing a grammar finding at its offset.
         assert_eq!(replace_word("Two  spaces", 3, "  ", " "), "Two spaces");
         assert_eq!(replace_word("We saw the the cat.", 7, "the the", "the"), "We saw the cat.");
