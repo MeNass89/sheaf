@@ -14389,10 +14389,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -14419,6 +14419,17 @@
      "overall": 7
     },
     "proof": "Sol b28b-round23 26/10: Les réglages avancés n’offrent ni audit d’espace, ni désincorporation des polices, ni aplatissement des transparences : crates/sheaf-app/ui/screens/options.slint:548."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b30b-round25 27/10: L’audit et les polices sont traités, mais l’aplatissement des transparences et la linéarisation restent absents : crates/sheaf-app/ui/screens/options.slint:594."
    }
   ]
  },
@@ -15092,6 +15103,17 @@
      "overall": 8
     },
     "proof": "Sol b29a-round24 27/10: Les JPEG CMYK restent en couleur après Convert to grayscale ; le signalement ajouté ne réalise pas leur conversion : crates/sheaf-core/src/grayscale.rs:326."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b30b-round25 27/10: Les JPEG CMYK avec /Decode [1 0 1 0 1 0 1 0] restent en couleur ; le nouveau test omet ce cas : crates/sheaf-core/src/compress.rs:379."
    }
   ]
  },
@@ -15719,10 +15741,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 9,
    "aesthetics": 9,
-   "performance": 9,
-   "overall": 7
+   "performance": 8,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -15749,6 +15771,17 @@
      "overall": 7
     },
     "proof": "Sol b27b-round22 26/10: Les scans sans couche texte restent de travers : l’orientation est déterminée uniquement depuis les objets texte, sans reconnaissance de l’image : third_party/pdfcraft-engine/src/upright.rs:13."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol b30b-round25 27/10: Tous les scans sont rasterisés et conservés en RAM avant l’OCR, accumulant plusieurs Go sur les gros dossiers : crates/sheaf-core/src/enhance.rs:87."
    }
   ]
  },
@@ -17759,14 +17792,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17800,6 +17833,17 @@
      "overall": 8
     },
     "proof": "Sol b29a-round24 27/10: Les effets choisis ne sont pas respectés : Push/Cover/Uncover deviennent le même rideau, Dissolve/Glitter un Fade : crates/sheaf-app/src/reader_ui/model.rs:497."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 25) and Sol AGREE 9 (re-review b30b-round25, 27/10)"
    }
   ]
  },
@@ -18719,6 +18763,17 @@
      "overall": 8
     },
     "proof": "Sol b28c-round23 26/10: Aucun aperçu du résultat imprimé ou aplati : les choix de disposition et de commentaires passent directement à Print : crates/sheaf-app/ui/screens/reader-sheets.slint:232."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b30b-round25 27/10: Le mode « 16 par feuille » affiche une seule page dans l’aperçu, alors que l’impression en place seize : crates/sheaf-app/src/print.rs:141."
    }
   ]
  },
@@ -18779,10 +18834,10 @@
    210
   ],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -18798,6 +18853,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [210]"
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b30b-round25 27/10: Le smoke 110 contourne le presse-papiers par une écriture de fichier ; il ne prouve pas le partage annoncé : crates/sheaf-app/src/run.rs:625."
    }
   ]
  },
@@ -19390,10 +19456,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 6,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 6
   },
   "status": "open",
   "feature": null,
@@ -19409,6 +19475,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 6
+    },
+    "proof": "Sol b30b-round25 27/10: L’aide se limite aux raccourcis du lecteur ; aucun parcours de découverte ni guide d’utilisation n’est proposé : crates/sheaf-app/ui/main.slint:400."
    }
   ]
  },
@@ -20628,10 +20705,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 6,
+   "function": 8,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 6
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -20658,6 +20735,17 @@
      "overall": 6
     },
     "proof": "Sol b28c-round23 26/10: Seuls les trois lissages sont réglables ; accélération GPU et gestion des couleurs restent absentes : crates/sheaf-app/ui/screens/preferences.slint:202."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b30b-round25 27/10: Le choix GPU est ajouté, mais aucun réglage de gestion des couleurs ou de profil d’affichage n’existe : crates/sheaf-app/ui/screens/preferences.slint:246."
    }
   ]
  },
@@ -20727,10 +20815,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -20746,6 +20834,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol b30b-round25 27/10: Les boîtes et la numérotation sont réglables, mais la grille de transparence demandée reste absente : crates/sheaf-app/ui/screens/preferences.slint:243."
    }
   ]
  },
@@ -20780,14 +20879,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20810,6 +20909,17 @@
      "overall": 8
     },
     "proof": "Sol b29b-round24 27/10: Seules les unités des règles sont configurables ; aucun réglage des guides, dont la couleur reste imposée : crates/sheaf-app/ui/screens/preferences.slint:327 ; crates/sheaf-app/ui/screens/reader.slint:293."
+   },
+   {
+    "date": "2026-10-27",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 25) and Sol AGREE 9 (re-review b30b-round25, 27/10)"
    }
   ]
  },
