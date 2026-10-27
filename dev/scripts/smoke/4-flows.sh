@@ -806,10 +806,14 @@ launch; key ctrl+comma; sleep 0.8
 read CX CY <<< "$(pref_find Create)"; [ -n "$CY" ] && click $CX $CY 0.8
 # The Name field is under its label, just below the button and the line about the file.
 [ -n "$CY" ] && { click 700 $(( CY + 89 )) 0.4; xdotool type --delay 20 "Smoke Signer"; }
-read _ PY <<< "$(pref_find Password)"; [ -n "$PY" ] && { click 700 $(( PY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
-read _ QY <<< "$(pref_find Confirm)"; [ -n "$QY" ] && { click 700 $(( QY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
+# The form's labels start at x 234, left of pref_find's crop: the same scroll and find, from x 226.
+form_find() { local f=""; for _ in $(seq 1 10); do f=$(at "$1" 1040x700+226+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
+read _ PY <<< "$(form_find Password)"; [ -n "$PY" ] && { click 700 $(( PY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
+read _ QY <<< "$(form_find Confirm)"; [ -n "$QY" ] && { click 700 $(( QY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
 shot 321-form
-answer "$PWD/$OUT/smoke-id.p12"; read SX SY <<< "$(at Create 1020x$(( 790 - ${QY:-400} ))+250+${QY:-400})"; [ -n "$SY" ] && click $SX $SY 0.5
+# Create and save… sits under the "Use it for certificate encryption too" box.
+xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.4
+answer "$PWD/$OUT/smoke-id.p12"; read _ SY <<< "$(form_find Use)"; [ -n "$SY" ] && click 310 $(( SY + 34 )) 0.5
 for _ in $(seq 1 30); do [ -f "$OUT/smoke-id.cer" ] && break; sleep 0.5; done; sleep 0.5; answer ""
 IDS=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("digital_ids"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 SUBJ=$(openssl pkcs12 -in "$OUT/smoke-id.p12" -passin pass:smokepw1 -nokeys 2>/dev/null | openssl x509 -noout -subject -ext keyUsage 2>/dev/null | tr '\n' ' ')
