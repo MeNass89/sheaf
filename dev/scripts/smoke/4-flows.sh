@@ -484,18 +484,26 @@ unset SHEAF_TEST_MENU_BAR
 
 # Preferences scrolled until a word shows in the page (the platform sections are below Signatures).
 pref_find() { local f=""; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
+# Preferences ▸ Keyboard shortcuts' search field (its grey placeholder does not OCR): 93 px above Reset all,
+# the section's last row; then what is typed is searched.
+shortcut_search() { local r; read _ r <<< "$(pref_find Reset)"; [ -n "$r" ] && click 500 $(( r - 93 )) 0.5; xdotool type --delay 20 "$1"; sleep 0.8; }
+# A row of the shortcuts list found by a word of its name: its keys box (right-aligned, x 1157) clicked.
+keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5; echo "${y:-no $1 row}"; }
+# The preferences file, written even when no earlier step made it.
+prefs_set() { python3 -c 'import json, os, sys; f = sys.argv[1]; p = json.load(open(f)) if os.path.exists(f) else {}; exec(sys.argv[2]); os.makedirs(os.path.dirname(f), exist_ok=True); json.dump(p, open(f, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1"; }
 # The steps below change the platform preferences: put back as they were.
 platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.pop("platform", None); json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
 
 # 221. Preferences ▸ Keyboard shortcuts (C-preferences-013, Stirling's Hotkeys): "find" searched, Find's Ctrl+F
 # clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
 launch; key ctrl+comma; sleep 0.8
-SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "find"; sleep 0.8
-KF=$(at Ctrl+F 1020x700+250+90); [ -n "$KF" ] && click $KF 0.5; key ctrl+alt+f; sleep 0.8
-KG=$(at Ctrl+G 1020x700+250+90); [ -n "$KG" ] && click $KG 0.5; key ctrl+s; sleep 0.8
+shortcut_search "find"
+KF=$(keybox Find); key ctrl+alt+f; sleep 0.8
+# Find Next's row is the next one, 42 px lower.
+KG=$(( ${KF:-0} + 42 )); [ "$KG" -gt 42 ] && click 1157 $KG 0.5; key ctrl+s; sleep 0.8; shot 221-shortcuts
 KE=$(ocr 1020x700+250+90)
 KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
-check "a shortcut recorded in Preferences is kept, one already used is refused (${SQ:-no search}; ${KF:-no Ctrl+F}; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
+check "a shortcut recorded in Preferences is kept, one already used is refused (rows at $KF, $KG; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
 quit; platform_reset
 
 # 222. Check spelling while typing (C-edit-013, C-reader-060; Acrobat's and Preview's): a note typed with two
@@ -525,7 +533,7 @@ quit; platform_reset
 # about the panel's width from where they were left to right.
 cp "$OUT/text.pdf" "$OUT/mirrored.pdf"; launch "$OUT/mirrored.pdf"; sleep 1
 read QL _ <<< "$(at quick 1280x700+0+90)"; quit
-python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.setdefault("platform", {})["direction"] = 2; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+prefs_set 'p.setdefault("platform", {})["direction"] = 2'
 launch "$OUT/mirrored.pdf"; sleep 1
 read HX _ <<< "$(at Home 1280x40+0+0)"; read DX _ <<< "$(at mirrored 1280x40+0+0)"; read QR _ <<< "$(at quick 1280x700+0+90)"
 check "right to left mirrors the tab bar and puts the side panel right of the pages (Home at x ${HX:-?}, the document at ${DX:-?}; 'quick' at ${QL:-?} then ${QR:-?})" "[ \"${HX:-0}\" -gt 1100 ] && [ -n \"$DX\" ] && [ \"$DX\" -lt \"$HX\" ] && [ -n \"$QL\" ] && [ \"${QR:-9999}\" -lt \"$(( QL - 150 ))\" ]"
@@ -534,15 +542,15 @@ quit; platform_reset
 # 225. A reader tool's letter changed (C-preferences-013): Preferences ▸ Keyboard shortcuts, "highlight" searched,
 # its H clicked and Q pressed; in a document Q then picks Highlight (a drag over the words highlights them, saved).
 launch; key ctrl+comma; sleep 0.8
-SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "highlight"; sleep 0.8
+shortcut_search "highlight"
 # The key's box holds "H" alone (at() matches the start of a word, and "Highlight" starts with H).
 at_word() { import -window root -crop 1020x700+250+90 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '$12 == w { printf "%d %d\n", 250 + ($7 + $9 / 2) / 2, 90 + ($8 + $10 / 2) / 2; exit }'; }
-KH=$(at_word H); [ -n "$KH" ] && click $KH 0.5; key q; sleep 0.8
+KH=$(keybox Highlight); key q; sleep 0.8
 TK=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("tool_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 quit
 cp "$OUT/text.pdf" "$OUT/toolkey.pdf"; launch "$OUT/toolkey.pdf"; sleep 1
 key q; read QX QY <<< "$(at quick 1020x700+255+90)"; [ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1 mousemove $(( QX + 60 )) $QY mouseup 1; sleep 1; }; key v; key ctrl+s; sleep 1.5
-check "a tool's letter changed in Preferences picks it on the pages ($TK)" "echo \"$TK\" | grep -q \"'highlight', 'q'\" && qpdf --qdf --object-streams=disable \"$OUT/toolkey.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
+check "a tool's letter changed in Preferences picks it on the pages (row at $KH; $TK)" "echo \"$TK\" | grep -q \"'highlight', 'q'\" && qpdf --qdf --object-streams=disable \"$OUT/toolkey.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
 quit; platform_reset
 
 # 226. Edit ▸ Copy, Select All and Paste from the menu bar (C-platform-014): on the reader's pages, Select All then
@@ -555,7 +563,8 @@ echo -n | xclip -selection clipboard >/dev/null 2>&1
 E1=$(menu Edit Select); E2=$(menu Edit Copy); sleep 0.4
 CP=$(xclip -o -selection clipboard 2>/dev/null | head -1)
 key ctrl+comma; sleep 0.8
-YN=$(pref_find Your); read YX YY <<< "$YN"; [ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.5; xdotool type --delay 20 "Ada"; sleep 0.3
+# Identity's field, 32 px under its label "Your name" ("Your" is read with the label's bold); emptied first.
+read _ YY <<< "$(pref_find name)"; [ -n "$YY" ] && click 500 $(( YY + 32 )) 0.5; key ctrl+a; key BackSpace; xdotool type --delay 20 "Ada"; sleep 0.3
 E3=$(menu Edit Select); E4=$(menu Edit Copy); key End; E5=$(menu Edit Paste); sleep 0.6
 AU=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("author"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 check "Edit ▸ Select All, Copy, Paste act on the pages and on a text field ($E1 $E2 $E5; clipboard '$(echo "$CP" | cut -c1-20)'; author $AU)" "echo \"$CP\" | grep -q 'quick brown fox' && [ \"$AU\" = AdaAda ]"
@@ -569,14 +578,18 @@ python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["author"] = No
 cp "$OUT/text.pdf" "$OUT/checkpass.pdf"; launch "$OUT/checkpass.pdf"; sleep 1
 key n; click 640 400 0.8; xdotool type --delay 15 "teh cat sat"; key ctrl+Return; sleep 0.8; key v
 key F7; sleep 1.2
-CW=$(ocr 1020x700+250+90)
+# The texts are scanned on a worker: the first word may take a moment to show (its red note and the
+# underlined word do not OCR; the comment it is in and Change to do).
+for _ in 1 2 3 4 5 6; do CW=$(ocr 1020x700+250+90); echo "$CW" | grep -q 'Change' && break; sleep 0.5; done; shot 227-dialog
 TH=$(at_word the); [ -n "$TH" ] && click $TH 0.4
-CH=$(at Change 1020x700+250+90); [ -n "$CH" ] && click $CH 1.2
+# The Change button (white on red, which OCR does not read): 185 px right of Learn, on its row.
+read IX IY <<< "$(at Learn 1020x700+250+90)"; CH="$(( ${IX:-0} + 185 )) ${IY:-0}"
+[ -n "$IX" ] && click $CH 1.2; shot 227-after-change
 CD=$(ocr 1020x700+250+90)
 DN=$(at Done 1020x700+250+90); [ -n "$DN" ] && click $DN 0.6
 key ctrl+s; sleep 1.5
 CN=$(qpdf --qdf --object-streams=disable "$OUT/checkpass.pdf" - 2>/dev/null | grep -ao '/Contents ([^)]*)' | tail -1)
-check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $CN)" "echo \"$CW\" | grep -q 'teh' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat'"
+check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $(echo "$CW" | grep -o 'Comment on page [0-9]*' | head -1); $(echo "$CD" | grep -o 'check complete' | head -1); $CN)" "echo \"$CW\" | grep -q 'Comment on page 1' && echo \"$CW\" | grep -q 'Change to' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat'"
 quit
 
 # 240. Kept signatures and initials belong to authenticated local storage, never prefs.json.
@@ -681,18 +694,18 @@ unset SHEAF_TEST_MENU_BAR
 # 229. A Tools page tool given keys that open it (C-preferences-013, Stirling's tool hotkeys): Preferences ▸ Keyboard
 # shortcuts, "merge" searched, Merge PDF's None clicked and Ctrl+Alt+M pressed; on Home, Ctrl+Alt+M opens Merge PDF.
 launch; key ctrl+comma; sleep 0.8
-SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "merge pdf"; sleep 0.8
-KM=$(at_word None); [ -n "$KM" ] && click $KM 0.5; key ctrl+alt+m; sleep 0.8
+shortcut_search "merge pdf"
+KM=$(keybox Merge); key ctrl+alt+m; sleep 0.8
 LK=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("launch_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 key Escape; key ctrl+alt+m; sleep 1.2
 MT=$(ocr 1280x80+0+0)
-check "keys given to a Tools page tool open it ($LK; tab bar: $(echo "$MT" | cut -c1-60))" "echo \"$LK\" | grep -q \"'merge', 'Control+Alt+M'\" && echo \"$MT\" | grep -q 'Merge'"
+check "keys given to a Tools page tool open it (row at $KM; $LK; tab bar: $(echo "$MT" | cut -c1-60))" "echo \"$LK\" | grep -q \"'merge', 'Control+Alt+M'\" && echo \"$MT\" | grep -q 'Merge'"
 quit; platform_reset
 
 # 230. Right to left beyond Home and the reader's bars (C-platform-004): Preferences' rows read from the right
 # (Rulers measure in: Centimetres left of Inches), and the reader's tool options bar sits at the top right of the
 # pages with its options reversed (Shapes: Fill on the right of the bar's left half, the bar past the middle).
-python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.setdefault("platform", {})["direction"] = 2; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+prefs_set 'p.setdefault("platform", {})["direction"] = 2'
 launch; key ctrl+comma; sleep 0.8
 CM=$(pref_find Centimetres); read CX _ <<< "$CM"; read IX _ <<< "$(at Inches 1280x710+0+90)"
 quit
