@@ -97,3 +97,13 @@ fn custom_commands_round_trip_and_apply_rotation_and_metadata() {
     assert_eq!(session.get(id).unwrap().info.author.as_deref(), Some("A. Writer"));
     assert_eq!(out.log.len(), 5);
 }
+
+#[test]
+fn console_page_context_matches_the_reader_and_clamps_out_of_range_pages() {
+    use sheaf_core::pdfcraft::engine::Session;
+    let bytes = Session::new().create_from_text("Original", "Keep").unwrap();
+    let mut session = Session::new(); let id = session.open("in.pdf", None, bytes, None).unwrap();
+    let out = session.run_javascript_at(id, "console.println(this.pageNum); this.pageNum = 0;", None, 999).unwrap();
+    assert_eq!(out.console, ["0"]);
+    assert!(out.requests.contains(&sheaf_core::pdfcraft::engine::js::Request::GoToPage(0)));
+}

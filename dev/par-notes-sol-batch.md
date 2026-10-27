@@ -198,3 +198,15 @@ errors back to this worker; do not grade parity from this implementation report 
   Left: embedded previews, folders and portfolio layout themes. The browser reuses the attachment
   safeguards for non-PDF launch. not automatable: compose mixed files, reorder, name the cover,
   create, browse and open/save the originals — app execution forbidden by rule 1.
+
+- C-platform-005: console `this.pageNum` now starts at the visible reader page; local page/focus,
+  Print and Save As requests reach the reader (dialogs open for user choices; no silent print).
+  Console ▸ Document scripts lists/adds/edits/deletes named scripts through undoable engine edits.
+  Network URL/Submit requests remain listed without execution per brief rule 3. Beep is a toast.
+  Tests `javascript_console_returns_local_viewer_requests_and_named_document_scripts`,
+  `console_page_context_matches_the_reader_and_clamps_out_of_range_pages` (written, not run).
+  New public engine `Session::run_javascript_at`; old method remains a compatible wrapper.
+  Left: debugging/breakpoints, a sound for Beep, simultaneous dialog requests (first one opens),
+  field focus on checkbox/radio (text and choice fields supported).
+  not automatable: execute page navigation/focus, Print, Save As; manage a document script and Undo
+  — UI launch forbidden by brief rule 1.

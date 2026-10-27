@@ -42,7 +42,8 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
   ZIP imports. The reader Save hook checkpoints library working files after each save.
 
 - `crates/sheaf-app/src/reader_ui/javascript.rs` and `ui/screens/javascript.slint`: active
-  document JavaScript console; `reader_doc` executes scripts and returns output/form changes.
+  document JavaScript console and named document scripts; `reader_doc` executes at the visible
+  page and returns output, form changes and local viewer requests for navigation/focus/print/Save As.
 
 ## Entry points
 

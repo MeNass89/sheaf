@@ -1,5 +1,5 @@
 import { PortfolioPanel, PortfolioBridge, PortfolioRow } from "screens/portfolio.slint";
-import { JavaScriptConsole, JavaScriptBridge } from "screens/javascript.slint";
+import { JavaScriptConsole, JavaScriptBridge, DocumentScriptRow } from "screens/javascript.slint";
 import { LibraryScreen, LibraryDeletePrompt, LibraryBridge, LibraryRow, LibraryVersionRow } from "screens/library.slint";
 import { ActionsScreen, ActionPrompt, CustomToolsPanel, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow } from "screens/actions.slint";
 import { Theme } from "theme.slint";
@@ -17,7 +17,7 @@ import { ReaderScreen } from "screens/reader.slint";
 import { ResultScreen } from "screens/result.slint";
 import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, Toast } from "screens/dialogs.slint";
 
-export { PortfolioBridge, PortfolioRow, JavaScriptBridge, LibraryBridge, LibraryRow, LibraryVersionRow, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
+export { PortfolioBridge, PortfolioRow, JavaScriptBridge, DocumentScriptRow, LibraryBridge, LibraryRow, LibraryVersionRow, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
 export enum Page { recents, tools, history, preferences, actions, library }
 

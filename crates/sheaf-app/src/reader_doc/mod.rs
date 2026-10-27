@@ -531,7 +531,8 @@ pub enum Op {
     /// Accessibility check: the full check's report.
     AccessibilityCheck,
     /// Acrobat's console, evaluated against the reader's current unsaved document.
-    RunJavaScript { source: String },
+    RunJavaScript { source: String, page: usize },
+    DocumentScripts,
     /// The file was renamed to `to` (a tab's Rename…): the next save writes there. No reply.
     Renamed { to: PathBuf },
     /// The loupe's area `rect` (user space) of `page`, as pixels (More ▸ Loupe).
@@ -603,7 +604,8 @@ pub enum Reply {
     /// Pages to turn upright: (page, clockwise degrees).
     Upright(Vec<(usize, i64)>),
     Accessibility(Option<sheaf_core::pdfcraft::engine::a11y::Report>),
-    JavaScript { output: String, changed: bool },
+    JavaScript { output: String, changed: bool, requests: Vec<sheaf_core::pdfcraft::engine::js::Request> },
+    DocumentScripts(Vec<(String, String)>),
     /// The loupe's area: (width, height, RGBA pixels), or why not.
     Loupe(Result<(u32, u32, Vec<u8>), String>),
     /// A flattened copy written (`FlatCopy`), or why not.
@@ -770,26 +772,29 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         reply(Reply::Upright(turns));
                     }
                     Op::AccessibilityCheck => reply(Reply::Accessibility(doc.document().accessibility_check(&Default::default()))),
-                    Op::RunJavaScript { source } => {
+                    Op::DocumentScripts => reply(Reply::DocumentScripts(doc.document().document_scripts())),
+                    Op::RunJavaScript { source, page } => {
                         let id = doc.id();
                         let before = doc.document().bytes.clone();
-                        let result = doc.session_mut().run_javascript(id, &source, None);
+                        let result = doc.session_mut().run_javascript_at(id, &source, None, page);
                         let changed = !Arc::ptr_eq(&before, &doc.document().bytes);
-                        let (output, error) = match result {
+                        let (output, error, requests) = match result {
                             Ok(outcome) => {
                                 let mut lines = outcome.console;
                                 lines.extend(outcome.alerts.into_iter().map(|s| format!("Alert: {s}")));
                                 lines.extend(outcome.result);
                                 lines.extend(outcome.error.into_iter().map(|s| format!("Error: {s}")));
-                                // External/viewer requests are shown, never silently executed.
-                                lines.extend(outcome.requests.iter().map(|r| format!("Viewer request (not executed): {r:?}")));
+                                // Network requests remain outside the local console's scope.
+                                lines.extend(outcome.requests.iter().filter(|r| matches!(r,
+                                    sheaf_core::pdfcraft::engine::js::Request::LaunchUrl(_) | sheaf_core::pdfcraft::engine::js::Request::Submit(_)
+                                )).map(|r| format!("Network request (not executed): {r:?}")));
                                 if lines.is_empty() { lines.push("undefined".into()); }
-                                (lines.join("\n"), None)
+                                (lines.join("\n"), None, outcome.requests)
                             }
-                            Err(e) => { let e = e.to_string(); (format!("Error: {e}"), Some(e)) }
+                            Err(e) => { let e = e.to_string(); (format!("Error: {e}"), Some(e), vec![]) }
                         };
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: None, error, applied: false, note: None, preview: false });
-                        reply(Reply::JavaScript { output, changed });
+                        reply(Reply::JavaScript { output, changed, requests });
                     }
 
                     // Sol, 26/10: the next save wrote the old name again.

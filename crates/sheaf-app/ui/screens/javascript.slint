@@ -1,7 +1,9 @@
-import { Button, TextEdit } from "std-widgets.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Button, ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Modal } from "dialogs.slint";
 
+export struct DocumentScriptRow { name: string, source: string }
 export global JavaScriptBridge {
     in-out property <bool> visible;
     in-out property <bool> busy;
@@ -11,21 +13,46 @@ export global JavaScriptBridge {
     in-out property <string> output;
     callback open(int);
     callback run();
+    in-out property <bool> scripts-open;
+    in-out property <[DocumentScriptRow]> scripts;
+    in-out property <string> script-name;
+    in-out property <string> script-source;
+    callback script-command(string, int);
 }
 
 export component JavaScriptConsole inherits Modal {
     card-width: min(680px, self.width - 32px);
     Text { text: "JavaScript console"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
     Text { text: JavaScriptBridge.document; color: Theme.text-secondary; font-size: Theme.fs-body; overflow: elide; }
-    TextEdit { height: 190px; text <=> JavaScriptBridge.source; enabled: !JavaScriptBridge.busy; font-family: Theme.mono-family; }
+    if !JavaScriptBridge.scripts-open: TextEdit { height: 190px; text <=> JavaScriptBridge.source; enabled: !JavaScriptBridge.busy; font-family: Theme.mono-family; }
+    if JavaScriptBridge.scripts-open: VerticalLayout {
+        spacing: 8px;
+        ScrollView {
+            height: min(90px, max(34px, JavaScriptBridge.scripts.length * 34px));
+            VerticalLayout {
+                spacing: 4px; alignment: start;
+                if JavaScriptBridge.scripts.length == 0: Text { text: "No document scripts. Add one below."; color: Theme.text-secondary; font-size: Theme.fs-caption; }
+                for script[i] in JavaScriptBridge.scripts: Button { text: script.name; clicked => { JavaScriptBridge.script-command("select", i); } }
+            }
+        }
+        TextField { label: "Document script name"; text <=> JavaScriptBridge.script-name; enabled: !JavaScriptBridge.busy; }
+        TextEdit { height: 130px; text <=> JavaScriptBridge.script-source; enabled: !JavaScriptBridge.busy; font-family: Theme.mono-family; }
+        HorizontalLayout {
+            spacing: 8px;
+            Button { text: "New"; clicked => { JavaScriptBridge.script-command("new", 0); } }
+            Button { text: "Save script"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.script-command("save", 0); } }
+            Button { text: "Delete script"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.script-command("delete", 0); } }
+        }
+    }
     HorizontalLayout {
         spacing: 8px;
-        Button { text: JavaScriptBridge.busy ? "Running…" : "Run"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.run(); } }
+        Button { text: JavaScriptBridge.busy ? "Running…" : "Run"; enabled: !JavaScriptBridge.busy && !JavaScriptBridge.scripts-open; clicked => { JavaScriptBridge.run(); } }
+        Button { text: JavaScriptBridge.scripts-open ? "Console" : "Document scripts"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.scripts-open = !JavaScriptBridge.scripts-open; if JavaScriptBridge.scripts-open { JavaScriptBridge.script-command("list", 0); } } }
         Button { text: "Clear output"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.output = ""; } }
         Rectangle { horizontal-stretch: 1; }
         Button { text: "Close"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.visible = false; } }
     }
     Text { text: "Output"; color: Theme.text; font-size: Theme.fs-label; }
-    TextEdit { height: 150px; text: JavaScriptBridge.output; read-only: true; font-family: Theme.mono-family; }
+    TextEdit { height: JavaScriptBridge.scripts-open ? 70px : 150px; text: JavaScriptBridge.output; read-only: true; font-family: Theme.mono-family; }
     Text { text: "Field changes can be undone. Save the document to keep them."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
 }

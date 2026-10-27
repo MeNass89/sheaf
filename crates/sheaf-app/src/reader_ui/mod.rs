@@ -762,7 +762,7 @@ pub fn open(ui: &AppWindow, path: PathBuf, password: Option<String>) {
 fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
     // The copies' and the loupe's answers give back the count `send` took (they left it raised:
     // Undo greyed, and closing asked to save a document untouched).
-    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_)) {
+    if matches!(reply, Reply::ImageCopied(_) | Reply::PagesCopied(_) | Reply::Copied(..) | Reply::ObjectsCopied(_) | Reply::FlatCopied { .. } | Reply::Loupe(_) | Reply::Upright(_) | Reply::Accessibility(_) | Reply::DocumentScripts(_)) {
         update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
     }
     match reply {
@@ -905,7 +905,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Loupe(made) => loupe::shown(id, made),
         Reply::Upright(turns) => pages::upright(ui, id, turns),
         Reply::Accessibility(report) => accessibility::checked(id, report),
-        Reply::JavaScript { output, changed } => javascript::finished(ui, id, output, changed),
+        Reply::JavaScript { output, changed, requests } => javascript::finished(ui, id, output, changed, requests),
+        Reply::DocumentScripts(scripts) => javascript::scripts(ui, id, scripts),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
