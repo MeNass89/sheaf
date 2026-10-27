@@ -311,6 +311,8 @@ export struct ReaderState {
     text-italic: bool,
     text-underline: bool,
     text-bullets: bool,
+    // Edit text: the computer's font the open paragraph is to be set in ("": the family buttons').
+    text-font: string,
     text-align: int,
     // The selected annotation is a text box: the text format row restyles it.
     selected-text-box: bool,
@@ -401,6 +403,12 @@ export struct ReaderState {
     horizontal: bool,
     // Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled; opacity of shapes and pen (%).
     shape-kind: int,
+    // Shapes: 1 Preview's Loupe, 2 its Mask, 3 Acrobat's Article box, 0 none (shape-option 30–32;
+    // 33 ends the article, 34 deletes it).
+    shape-special: int,
+    // Shapes ▸ Loupe: the magnification of new loupes ("2×"); a loupe is the selected comment.
+    loupe-magnify: string,
+    selected-loupe: bool,
     shape-fill: bool,
     // Shapes ▸ Arrow: its head's name and whether both ends carry it.
     arrow-head: string,
@@ -824,6 +832,9 @@ export global ReaderBridge {
     in-out property <length> panel-width: 248px;
     // The thumbnails' width, set once the edge is let go (their heights come with it).
     in property <length> thumb-width: 150px;
+    // The computer's fonts a paragraph can be set in (Acrobat's Edit PDF font list), read when the
+    // list is first opened (text-format 9).
+    in property <[string]> system-fonts;
     callback panel-resized(length);
     // Print: open the sheet; print with printer, copies, pages (0 all, 1 current, 2 range),
     // the range typed, fit to paper, two-sided, paper (0 the printer's, 1 A4, 2 Letter, 3 Legal),
@@ -954,7 +965,8 @@ export global ReaderBridge {
     callback field-copies(int, int, int);
     // Fields selected together: align, match size or space them (reader::arrange); the arrow keys move them.
     callback fields-arrange(int, int);
-    // Edit tool, several objects picked ▸ Align or Distribute (codes as fields-arrange's, no sizes).
+    // Edit tool, several objects picked ▸ Align or Distribute (codes as fields-arrange's, no sizes);
+    // one or more ▸ Arrange: 20 to front, 21 forward, 22 backward, 23 to back.
     callback objects-arrange(int, int);
     // Comments selected together ▸ Align or Distribute (codes as fields-arrange's).
     callback annots-arrange(int, int);

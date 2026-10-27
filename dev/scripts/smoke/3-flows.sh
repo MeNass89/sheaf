@@ -1198,4 +1198,78 @@ D0=$(colour_at 1020); N0=$(ocr 500x60+770+90)
 click 1020 420 1.5
 D1=$(colour_at 1020); L1=$(colour_at 510); N1=$(ocr 500x60+260+90)
 check "split with another document, then its tab forward with this one beside it ($WI; $D0 '$(echo "$N0" | cut -c1-20)' → $L1 $D1 '$(echo "$N1" | cut -c1-20)')" "reddish '${D0:-#000000}' && echo \"$N0\" | grep -q 'split3' && reddish '${D1:-#000000}' && ! reddish '${L1:-#FF0000}' && echo \"$N1\" | grep -q 'split4'"
+
+# 210. Edit ▸ one object picked ▸ Order ▸ To front (Acrobat's Arrange ▸ Bring to Front): a red square under a blue
+# one (their overlap at 150–200 pt) is picked by a press on its own corner (fit width: 612 pt shown 1000 px wide
+# from x 264, y 100) and brought to the front; saved, the overlap is red. The card's button is found by OCR.
+python3 - "$OUT/order.pdf" <<'PY'
+import sys
+objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [4 0 R] /Count 1 >>"]
+c = "1 0 0 rg 100 500 100 100 re f 0 0 1 rg 150 450 100 100 re f"
+objs.append(f"<< /Length {len(c)} >>\nstream\n{c}\nendstream")
+objs.append("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 3 0 R >>")
+b = b"%PDF-1.7\n"; offs = []
+for i, o in enumerate(objs, 1):
+    offs.append(len(b)); b += f"{i} 0 obj\n{o}\nendobj\n".encode()
+x = len(b)
+b += f"xref\n0 {len(objs)+1}\n0000000000 65535 f \n".encode() + b"".join(f"{n:010d} 00000 n \n".encode() for n in offs)
+b += f"trailer\n<< /Size {len(objs)+1} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n".encode()
+open(sys.argv[1], "wb").write(b)
+PY
+# The colour (r g b) at page point $2,$3 of $1 drawn at 72 dpi.
+pixel() { pdftoppm -r 72 -f 1 -l 1 "$1" 2>/dev/null | python3 -c "
+import sys
+d = sys.stdin.buffer.read(); parts = d.split(maxsplit=4); w, h = int(parts[1]), int(parts[2]); px = parts[4]
+x, y = $2, 792 - $3; i = (y * w + x) * 3; print(px[i], px[i + 1], px[i + 2])"; }
+O0=$(pixel "$OUT/order.pdf" 175 525)
+launch "$OUT/order.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
+click $(( 264 + 120 * 1000 / 612 )) $(( 100 + (792 - 580) * 1000 / 612 )) 1
+TF=$(at front 1280x400+600+90); [ -n "$TF" ] && click $TF 1.5; key ctrl+s; sleep 1.5
+O1=$(pixel "$OUT/order.pdf" 175 525)
+check "Order ▸ To front brings the picked square over the other (${TF:-no To front button}; overlap $O0 → $O1)" "[ \"$O0\" = '0 0 255' ] && [ \"$O1\" = '255 0 0' ]"
+quit
+
+# 211. Edit ▸ a paragraph open ▸ U and • (Acrobat's Underline and Bulleted list) apply to it, not only to new text:
+# applied (⌘↩) and saved, the page draws a line under it and the paragraph starts with a bullet. U and • follow
+# Mono in the row (U 113, • 147 px right of Mono, as step 2c's places).
+# Lines (… l, then S) the file draws: counted before and after.
+strokes() { qpdf --qdf --object-streams=disable "$1" - 2>/dev/null | grep -acE '[0-9.-]+ [0-9.-]+ l( S)?$'; }
+cp "$OUT/text.pdf" "$OUT/underline.pdf"; UL0=$(strokes "$OUT/underline.pdf"); launch "$OUT/underline.pdf"; key ctrl+9; sleep 1
+key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
+MX=$(at Mono 1280x40+0+90 | cut -d' ' -f1); MX=${MX:-421}
+click $(( MX + 113 )) 110 0.4; click $(( MX + 147 )) 110 0.4; key ctrl+Return; sleep 1.5; key Escape; key v; key ctrl+s; sleep 1.5
+UL=$(strokes "$OUT/underline.pdf")
+UB=$(pdftotext -f 1 -l 1 "$OUT/underline.pdf" - 2>/dev/null | grep -c '•')
+check "U and • underline and bullet the paragraph open (${QK:-no paragraph}; $UL0 → $UL lines, $UB bullets)" "[ \"$UL\" -gt \"$UL0\" ] && [ \"$UB\" -ge 1 ]"
+quit
+
+# 212. Edit ▸ a paragraph open ▸ More fonts… (Acrobat's font list): the computer's open fonts listed (DejaVu,
+# Liberation… on this system); the first (its row 40 px under the button) picked, applied and saved, the page
+# embeds it (a Type0 font).
+cp "$OUT/text.pdf" "$OUT/morefonts.pdf"; launch "$OUT/morefonts.pdf"; key ctrl+9; sleep 1
+key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
+MF=$(at More 1280x40+0+90); [ -n "$MF" ] && { click $MF 4; set -- $MF; click $(( $1 - 20 )) $(( $2 + 40 )) 1; }
+key ctrl+Return; sleep 2; key Escape; key v; key ctrl+s; sleep 1.5
+FT=$(pdffonts -f 1 -l 1 "$OUT/morefonts.pdf" 2>/dev/null | tail -n +3 | awk '{print $1}' | tr '\n' ' ')
+check "More fonts… sets the paragraph in a font of the computer's, embedded (${MF:-no More fonts button}; $FT)" "pdffonts -f 1 -l 1 \"$OUT/morefonts.pdf\" 2>/dev/null | grep -q 'CID TrueType\|Type 0\|CID Type 0C'"
+quit
+
+# 213. Shapes (R) ▸ Loupe and Mask (Preview's): an oval dragged with Loupe on becomes a loupe, a rectangle dragged
+# with Mask on a mask; saved, the file holds both (PdfCraft's /PCLoupe and /PCMask comments).
+cp "$OUT/text.pdf" "$OUT/loupe.pdf"; launch "$OUT/loupe.pdf"; sleep 1; key r; sleep 0.5
+LP=$(at Loupe 1280x40+0+90); [ -n "$LP" ] && click $LP 0.5; drag 500 300 120 120
+MK=$(at Mask 1280x40+0+90); [ -n "$MK" ] && click $MK 0.5; drag 450 500 200 100
+key ctrl+s; sleep 1.5
+QL=$(qpdf --qdf --object-streams=disable "$OUT/loupe.pdf" - 2>/dev/null)
+check "Shapes ▸ Loupe and Mask add a loupe and a mask (${LP:-no Loupe button}; ${MK:-no Mask button})" "echo \"\$QL\" | grep -aq '/PCLoupe ' && echo \"\$QL\" | grep -aq '/PCMask '"
+quit
+
+# 214. Shapes (R) ▸ Article (Acrobat's Article tool): two boxes dragged make one article; the second box clicked is
+# picked and Delete takes it alone; saved, the catalog's /Threads holds the article with one box (a bead).
+cp "$OUT/text.pdf" "$OUT/article.pdf"; launch "$OUT/article.pdf"; sleep 1; key r; sleep 0.5
+AR=$(at Article 1280x40+0+90); [ -n "$AR" ] && click $AR 0.5
+drag 350 250 250 150; drag 650 250 250 150; click 760 320 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
+QA=$(qpdf --qdf --object-streams=disable "$OUT/article.pdf" - 2>/dev/null)
+NB=$(echo "$QA" | grep -ac '/Type /Bead')
+check "Shapes ▸ Article chains boxes into an article; a box picked is deleted alone (${AR:-no Article button}; $NB bead)" "echo \"\$QA\" | grep -aq '/Threads' && [ \"$NB\" = 1 ]"
 quit

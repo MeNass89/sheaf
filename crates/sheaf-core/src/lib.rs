@@ -28,6 +28,7 @@ pub mod script;
 pub mod rotate;
 pub mod security;
 pub mod sign;
+pub mod system_fonts;
 pub mod text;
 pub mod textdocs;
 pub mod tools;

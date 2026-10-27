@@ -45,10 +45,12 @@ fn by_index(edit: &Edit) -> bool {
         | Edit::SetAnnotationStatus { .. }
         | Edit::ReplyToAnnotation { .. }
         | Edit::EditTextBlock { .. }
+        | Edit::EditTextBlockInFont { .. }
         | Edit::SetLink { .. }
         | Edit::DeleteLink { .. }
         | Edit::MoveObjects { .. }
         | Edit::ArrangeObjects { .. }
+        | Edit::RestackObjects { .. }
         | Edit::DeleteObjects { .. }
         | Edit::EditPageImage { .. }
         | Edit::RenameBookmark { .. }
@@ -222,13 +224,35 @@ pub(super) fn add_ink(ui: &AppWindow, tab_id: i32, page: usize, pts: Vec<(f64, f
 }
 
 /// A rectangle, oval, line or arrow dragged from `a` to `b` (view points of `page`), in the pen's
-/// colour, width and opacity.
+/// colour, width and opacity; a loupe or a mask when one is chosen.
 pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64), b: (f64, f64)) {
     let edit = update(tab_id, |r, v| {
         let bx = &v.viewer.boxes[page];
         let size = bx.view_size();
         let (pa, pb) = (viewer::view_to_pdf(bx, size, a.0, a.1), viewer::view_to_pdf(bx, size, b.0, b.1));
         let rect = [pa.0.min(pb.0), pa.1.min(pb.1), pa.0.max(pb.0), pa.1.max(pb.1)];
+        let colour = ink_at(r.ink_colour);
+        let prov = Provisional { page, rects: Vec::new(), stroke: reader::shape_outline(r.shape_kind, a, b), colour, kind: PEN };
+        // Preview's Loupe: the circle in the oval dragged, the page magnified in it; its Mask:
+        // the page dimmed outside the rectangle or oval dragged.
+        match r.shape_special {
+            1 => {
+                let centre = [(rect[0] + rect[2]) / 2.0, (rect[1] + rect[3]) / 2.0];
+                let radius = ((rect[2] - rect[0]).min(rect[3] - rect[1]) / 2.0).max(12.0);
+                return (Edit::AddLoupe { page, centre, radius, magnify: r.loupe_magnify, color: colour, author: author() }, prov);
+            }
+            2 => return (Edit::AddMask { page, hole: rect, oval: r.shape_kind == 1, author: author() }, prov),
+            // Acrobat's Article tool: the box after the article's last one, or a new article's first.
+            3 => {
+                let thread = r.article_thread;
+                let title = format!("Article {}", r.snap.articles.len() + 1);
+                if thread.is_none() {
+                    r.article_thread = Some(r.snap.articles.len());
+                }
+                return (Edit::AddArticleBox { thread, title, page, rect }, prov);
+            }
+            _ => {}
+        }
         let shape = match r.shape_kind {
             0 => Shape::Rectangle { rect },
             1 => Shape::Oval { rect },
@@ -238,11 +262,9 @@ pub(super) fn add_shape(ui: &AppWindow, tab_id: i32, page: usize, a: (f64, f64),
                 Shape::Line { from: [pa.0, pa.1], to: [pb.0, pb.1], start: if r.arrow_both { head } else { LineEnding::None }, end: head }
             }
         };
-        let colour = ink_at(r.ink_colour);
         // Its own fill colour (a highlight colour or the sixth), else a tint of the stroke.
         let fill = (r.shape_fill && r.shape_kind < 2).then(|| r.fill_colour.map_or_else(|| reader::fill_tint(colour), light_at));
         let style = Style { color: colour, opacity: super::tools::opacity_of(r), width: pen_points(r.pen_width), fill };
-        let prov = Provisional { page, rects: Vec::new(), stroke: reader::shape_outline(r.shape_kind, a, b), colour, kind: PEN };
         (maybe_dashed(r, page, Edit::AddAnnotation(NewAnnotation { page, shape, style, contents: String::new(), author: author() })), prov)
     });
     if let Some((e, prov)) = edit {
@@ -599,9 +621,8 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
             let rect = [x0, size.1 - (d.at.1 + h), x0 + w + pt, size.1 - d.at.1];
             return Some((
                 d.page,
-                Edit::AddText {
-                    page: d.page,
-                    text: AddedText {
+                {
+                    let added = AddedText {
                         rect,
                         text: if r.text_bullets { reader::bulleted(&text) } else { text.clone() },
                         size: pt,
@@ -611,7 +632,12 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
                         italic: r.text_italic,
                         align: TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize],
                         underline: r.text_underline,
-                    },
+                    };
+                    // In a font of the computer's when one is chosen (More fonts…).
+                    match r.text_font.as_ref() {
+                        Some((_, font)) => Edit::AddTextInFont { page: d.page, text: added, font: font.clone() },
+                        None => Edit::AddText { page: d.page, text: added },
+                    }
                 },
             ));
         }
@@ -643,7 +669,16 @@ pub fn note_commit(ui: &AppWindow, tab_id: i32, text: &str) {
         let callout = matches!(shape, Shape::Callout { .. });
         let annotation = NewAnnotation { page: d.page, shape, style: style(colour, if d.kind == 0 || callout { 1.0 } else { 0.0 }), contents: text, author: author() };
         // A text box in the font of the format row; a callout in PdfCraft's own (Helvetica).
-        Some((d.page, if d.kind == 0 || callout { Edit::AddAnnotation(annotation) } else { Edit::AddTextBox { annotation, font: super::tools::text_font(r).into(), align: r.text_align as u8 } }))
+        let align = r.text_align as u8;
+        Some((
+            d.page,
+            match r.text_font.as_ref() {
+                _ if d.kind == 0 || callout => Edit::AddAnnotation(annotation),
+                // A font of the computer's chosen (More fonts…).
+                Some((_, font)) => Edit::AddTextBoxInFont { annotation, align, font: font.clone() },
+                None => Edit::AddTextBox { annotation, font: super::tools::text_font(r).into(), align },
+            },
+        ))
     })
     .flatten();
     if let Some((page, e)) = edit {
@@ -673,6 +708,7 @@ pub fn nudge(ui: &AppWindow, tab_id: i32, dx: f32, dy: f32) {
 
 /// Edit tool, several objects picked ▸ Align or Distribute (`how` as [`reader::arrange`]; Acrobat's
 /// Align Objects): lined up on the selection's outer edge or centre, or spaced evenly; one step.
+/// `how` 20–23, one object or more: Bring to front, Bring forward, Send backward, Send to back.
 pub fn objects_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
     let edit = update(tab_id, |r, _| {
         if r.edits_in_flight > 0 || r.repick.is_some() {
@@ -680,6 +716,13 @@ pub fn objects_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
         }
         let (page, list) = r.picked.as_ref()?;
         let rects: Vec<[f64; 4]> = list.iter().map(|o| o.1).collect();
+        // 20–23: the stacking order (Acrobat's Arrange); the objects stay where they are, picked.
+        if (20..=23).contains(&how) {
+            use sheaf_core::pdfcraft::edit::Restack;
+            let order = [Restack::Front, Restack::Forward, Restack::Backward, Restack::Back][(how - 20) as usize];
+            r.repick = Some((*page, rects));
+            return Some((*page, Edit::RestackObjects { page: *page, objects: list.iter().map(|o| o.0).collect(), how: order }));
+        }
         let arranged = if how == 9 || how == 10 {
             reader::arrange(&rects, how)
         } else {
@@ -759,9 +802,19 @@ fn paragraph_edit(r: &ReaderUi, d: &Draft, text: &str) -> Option<(usize, Edit)> 
         size: (f & 2 != 0).then_some(r.text_pt),
         family: (f & 4 != 0).then_some((family, r.text_bold, r.text_italic)),
         align: (f & 8 != 0).then(|| TEXT_ALIGNS[r.text_align.clamp(0, 2) as usize]),
+        underline: (f & 16 != 0).then_some(r.text_underline),
         ..Default::default()
     };
-    Some((d.page, Edit::EditTextBlock { page: d.page, block: *block, text: text.to_string(), style }))
+    // Bullets: each line of the paragraph starts with one, or none does (Acrobat's Bulleted list).
+    let text = match (f & 32 != 0, r.text_bullets) {
+        (true, true) => reader::bulleted(text),
+        (true, false) => reader::unbulleted(text),
+        _ => text.to_string(),
+    };
+    if let Some((_, font)) = r.text_font.as_ref().filter(|_| f & 64 != 0) {
+        return Some((d.page, Edit::EditTextBlockInFont { page: d.page, block: *block, text, style, font: font.clone() }));
+    }
+    Some((d.page, Edit::EditTextBlock { page: d.page, block: *block, text, style }))
 }
 
 /// How long typing pauses before the paragraph is shown on its page as typed.
@@ -821,6 +874,10 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     // The page grid: Delete takes the selected pages out.
     if update(tab_id, |r, _| r.grid_prev.is_some() && !r.page_sel.is_empty()) == Some(true) {
         return super::pages::page_op(ui, tab_id, 2);
+    }
+    // Shapes ▸ Article: the box picked (Acrobat's Delete on an article box).
+    if let Some((thread, bead)) = update(tab_id, |r, _| r.article_box.take().filter(|_| r.tool == SHAPE && r.shape_special == 3)).flatten() {
+        return apply(ui, tab_id, Edit::DeleteArticleBox { thread, bead }, &[], None);
     }
     // Objects picked with the Edit tool (drawings, paragraphs, images): deleted in one step.
     if let Some((page, objects)) = update(tab_id, |r, _| r.picked.take().map(|(p, l)| (p, l.iter().map(|o| o.0).collect::<Vec<_>>()))).flatten() {

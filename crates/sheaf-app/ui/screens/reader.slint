@@ -382,10 +382,11 @@ export component ReaderScreen inherits Rectangle {
                         width: m.w;
                         height: m.h;
                         border-radius: m.kind == 6 || m.kind == 7 ? 2px : 1px;
-                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : m.kind == 11 ? Theme.info : transparent;
-                        border-width: m.kind == 12 ? 3px : m.kind == 6 ? 1.5px : m.kind == 5 || m.kind == 7 || m.kind >= 13 ? 1px : 0px;
+                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : m.kind == 11 ? Theme.info : m.kind == 16 ? #7C3AED14 : m.kind == 17 || m.kind == 18 ? #7C3AED2E : transparent;
+                        border-width: m.kind == 12 ? 3px : m.kind == 6 || m.kind == 18 ? 1.5px : m.kind == 5 || m.kind == 7 || m.kind >= 13 ? 1px : 0px;
                         // 13 art (green), 14 trim (blue), 15 bleed (red): Preferences ▸ Show art, trim and bleed boxes.
-                        border-color: m.kind == 12 ? Theme.accent : m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : m.kind == 13 ? #22A045 : m.kind == 14 ? #2563EB : m.kind == 15 ? #DC2626 : #FF9F0A;
+                        // 16 an article's box, 17 one of the article being drawn, 18 the box picked (Shapes ▸ Article).
+                        border-color: m.kind == 12 ? Theme.accent : m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : m.kind == 13 ? #22A045 : m.kind == 14 ? #2563EB : m.kind == 15 ? #DC2626 : m.kind >= 16 && m.kind <= 18 ? #7C3AED : #FF9F0A;
                     }
                     // Prepare form's grid (Grid on): lines every 9 pt, a stronger one every inch.
                     for g in root.tab.reader.form-grids: Rectangle {
@@ -642,7 +643,7 @@ export component ReaderScreen inherits Rectangle {
                             }
                         }
                     }
-                    // Edit tool, objects picked together: Align and Distribute, in the view's top-right corner.
+                    // Edit tool, objects picked: Align and Distribute (several), Arrange, in the view's top-right corner.
                     if root.tab.reader.tool == 0 && root.tab.reader.annots-group > 1: ObjectsArrangeCard {
                         x: -sv.content-x + sv.visible-width - self.width - 12px;
                         y: -sv.content-y + 12px;
@@ -651,7 +652,7 @@ export component ReaderScreen inherits Rectangle {
                         id: root.id;
                         focus-pages => { keys.focus(); }
                     }
-                    if root.tab.reader.tool == 7 && root.tab.reader.picked-count > 1: ObjectsArrangeCard {
+                    if root.tab.reader.tool == 7 && root.tab.reader.picked-count > 0: ObjectsArrangeCard {
                         x: -sv.content-x + sv.visible-width - self.width - 12px;
                         y: -sv.content-y + 12px;
                         count: root.tab.reader.picked-count;

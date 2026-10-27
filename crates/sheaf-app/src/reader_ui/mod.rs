@@ -224,6 +224,16 @@ pub struct ReaderUi {
     pen_width: i32,
     /// Shapes tool: 0 rectangle, 1 oval, 2 line, 3 arrow; filled (rectangle, oval); where the drag is.
     shape_kind: i32,
+    /// Shapes: 1 Preview's Loupe, 2 its Mask (dragged as an oval, or a rectangle or oval), 3
+    /// Acrobat's Article box, 0 none of them.
+    shape_special: u8,
+    /// Shapes ▸ Article: the article the next box goes at the end of (`Snap::articles`); `None`: a
+    /// new one.
+    article_thread: Option<usize>,
+    /// Shapes ▸ Article: the box picked by a click (article, box), moved, resized or deleted.
+    article_box: Option<(usize, usize)>,
+    /// Shapes ▸ Loupe: how much larger a new loupe shows the page (one of `MAGNIFICATIONS`).
+    loupe_magnify: f64,
     shape_fill: bool,
     /// Shapes' fill: a highlight colour (index, the sixth too), or None a tint of the stroke.
     fill_colour: Option<usize>,
@@ -265,6 +275,9 @@ pub struct ReaderUi {
     /// Bulleted list).
     text_underline: bool,
     text_bullets: bool,
+    /// Edit text: a font of the computer's chosen for the open paragraph (its name and program;
+    /// Acrobat's Edit PDF font list), in place of the family buttons'.
+    text_font: Option<(String, std::sync::Arc<Vec<u8>>)>,
     text_italic: bool,
     text_align: i32,
     /// Pages selected in the Pages panel (empty: the current page is meant).
@@ -331,7 +344,8 @@ pub struct ReaderUi {
     measure_custom: Option<(f64, &'static str)>,
     calibration_len: f64,
     /// Edit text: what of the format row was changed while a paragraph is open (1 colour, 2 size,
-    /// 4 font, 8 alignment): those apply to it, the rest of its style stays its own.
+    /// 4 font, 8 alignment, 16 underline, 32 bullets, 64 a font of the computer's): those apply
+    /// to it, the rest of its style stays its own.
     para_format: u8,
     form_sel: Option<(usize, [f64; 4])>,
     /// Other fields selected with it (⇧-click), on its page: their rects.
@@ -505,6 +519,10 @@ impl ReaderUi {
             note_seq: 0,
             pen_width: 1,
             shape_kind: 0,
+            shape_special: 0,
+            article_thread: None,
+            article_box: None,
+            loupe_magnify: 2.0,
             shape_fill: false,
             fill_colour: None,
             shape_end: None,
@@ -527,6 +545,7 @@ impl ReaderUi {
             text_bold: false,
             text_underline: false,
             text_bullets: false,
+            text_font: None,
             text_italic: false,
             text_align: 0,
             annot_candidate: None,
@@ -1243,6 +1262,7 @@ fn annot_at(r: &ReaderUi, v: &Viewer, page: usize, p: (f64, f64)) -> Option<usiz
     }
     let size = v.boxes[page].view_size();
     r.annots().iter().enumerate().rev().find_map(|(i, a)| {
+        // A mask (Preview's) covers its page: its hit box is its opening (see `reader_doc::snap`).
         if a.page != page {
             return None;
         }
@@ -1276,6 +1296,7 @@ mod look_up;
 mod folder_search;
 mod pages;
 mod tools;
+mod article_boxes;
 mod search;
 mod model;
 pub use pointer::*;

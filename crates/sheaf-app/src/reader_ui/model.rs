@@ -91,6 +91,21 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             });
         }
     }
+    // Shapes ▸ Article (Acrobat's Article tool): the articles' boxes, the one being drawn brighter.
+    if r.tool == SHAPE && r.shape_special == 3 {
+        for (t, a) in r.snap.articles.iter().enumerate() {
+            for (k, (page, rect)) in a.beads.iter().enumerate().filter(|(_, b)| wanted.contains(&b.0)) {
+                let kind = if r.article_box == Some((t, k)) {
+                    18
+                } else if r.article_thread == Some(t) {
+                    17
+                } else {
+                    16
+                };
+                marks.push(overlay(v.viewer.overlay(*page, *rect), kind));
+            }
+        }
+    }
     if r.show_links || r.tool == LINK {
         for l in r.snap.links.iter().filter(|l| wanted.contains(&l.page)) {
             marks.push(overlay(v.viewer.overlay(l.page, l.rect.map(f64::from)), 10));
@@ -477,6 +492,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         horizontal: v.viewer.horizontal(),
         pen_width: r.pen_width,
         shape_kind: r.shape_kind,
+        shape_special: r.shape_special as i32,
+        loupe_magnify: format!("{}×", r.loupe_magnify).into(),
+        selected_loupe: r.selected_annot.and_then(|i| r.annots().get(i)).is_some_and(super::tools::is_loupe),
         shape_fill: r.shape_fill,
         arrow_head: reader::ARROW_HEADS[r.arrow_head.min(reader::ARROW_HEADS.len() - 1)].1.into(),
         arrow_both: r.arrow_both,
@@ -616,6 +634,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         text_bold: r.text_bold,
         text_underline: r.text_underline,
         text_bullets: r.text_bullets,
+        text_font: r.text_font.as_ref().map(|f| f.0.as_str()).unwrap_or_default().into(),
         text_italic: r.text_italic,
         text_align: r.text_align,
         selected_image: r.selected_image.is_some(),

@@ -207,6 +207,8 @@ pub struct Snap {
     pub page_boxes: Arc<Vec<[[f64; 4]; 5]>>,
     /// A PDF Portfolio: it opens on its files.
     pub portfolio: bool,
+    /// Article threads (Acrobat's Article tool): each one's title and boxes in reading order.
+    pub articles: Arc<Vec<sheaf_core::pdfcraft::engine::articles::Article>>,
 }
 
 /// A certificate name's attribute by its usual short name (RFC 4514's, and E for the e-mail);
@@ -336,6 +338,8 @@ fn snap(doc: &Doc) -> Snap {
     let fonts: std::collections::HashMap<(usize, usize), (&'static str, f64, u8)> =
         if pages.is_empty() { Default::default() } else { doc.session().text_box_fonts(doc.id(), &pages).into_iter().collect() };
     let d = doc.document();
+    // A mask (Preview's) is picked by a click in its opening: the opening is its hit box.
+    let holes: std::collections::HashMap<(usize, usize), [f64; 4]> = d.mask_holes().into_iter().collect();
     // Replies and status replies point at their comment's name (/IRT → /NM).
     let mut replies: std::collections::HashMap<&str, Vec<(String, usize, usize)>> = std::collections::HashMap::new();
     let mut status: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
@@ -366,7 +370,10 @@ fn snap(doc: &Doc) -> Snap {
             color: a.color,
             contents: a.contents.clone().unwrap_or_default(),
             rect: a.rect.map(f64::from),
-            quads: a.quads.iter().map(|q| q.map(f64::from)).collect(),
+            quads: match holes.get(&(a.page, a.index)) {
+                Some(h) => vec![[h[0], h[3], h[2], h[3], h[0], h[1], h[2], h[1]]],
+                None => a.quads.iter().map(|q| q.map(f64::from)).collect(),
+            },
             fill_sign: a.fill_sign,
             author: a.author.clone().unwrap_or_default(),
             modified: a.modified.clone().unwrap_or_default(),
@@ -405,6 +412,7 @@ fn snap(doc: &Doc) -> Snap {
         transitions: Arc::new(d.page_transitions()),
         page_boxes: Arc::new(d.page_boxes()),
         portfolio: d.is_portfolio(),
+        articles: Arc::new(d.articles()),
     }
 }
 

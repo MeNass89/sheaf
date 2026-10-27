@@ -268,15 +268,17 @@ export component FieldsArrangeCard inherits Rectangle {
     }
 }
 
-// Edit tool, several objects picked (Acrobat's Align Objects): lined up on the selection's outer
-// edge or middle, or spaced evenly; each button is one undo step.
+// Edit tool, objects picked (Acrobat's Align Objects and Arrange): several lined up on the
+// selection's outer edge or middle, or spaced evenly; one or more brought to the front, forward,
+// backward or sent to the back; each button is one undo step.
 export component ObjectsArrangeCard inherits Rectangle {
     in property <int> count;
     in property <int> id;
     // Comments selected together instead of objects.
     in property <bool> comments;
     callback focus-pages();
-    width: 300px;
+    // Wide enough for the four Order buttons in one row.
+    width: 340px;
     height: col.preferred-height;
     border-radius: Theme.radius-item;
     background: Theme.card;
@@ -288,23 +290,38 @@ export component ObjectsArrangeCard inherits Rectangle {
         padding: 12px;
         spacing: 8px;
         Text {
-            text: root.count + (root.comments ? " comments selected" : " objects selected");
+            text: root.count + (root.comments ? " comments selected" : root.count == 1 ? " object selected" : " objects selected");
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: Theme.text-heading;
         }
-        // Codes as reader::arrange.
-        for row in [
-            { label: "Align", items: [{ t: "Left", k: 0 }, { t: "Centre", k: 1 }, { t: "Right", k: 2 }] },
-            { label: "", items: [{ t: "Top", k: 3 }, { t: "Middle", k: 4 }, { t: "Bottom", k: 5 }] },
-            { label: "Space", items: [{ t: "Evenly across", k: 9 }, { t: "Evenly down", k: 10 }] },
-        ]: HorizontalLayout {
+        // Codes as reader::arrange (several only).
+        if root.count > 1: VerticalLayout {
+            spacing: 8px;
+            for row in [
+                { label: "Align", items: [{ t: "Left", k: 0 }, { t: "Centre", k: 1 }, { t: "Right", k: 2 }] },
+                { label: "", items: [{ t: "Top", k: 3 }, { t: "Middle", k: 4 }, { t: "Bottom", k: 5 }] },
+                { label: "Space", items: [{ t: "Evenly across", k: 9 }, { t: "Evenly down", k: 10 }] },
+            ]: HorizontalLayout {
+                spacing: 4px;
+                Text { width: 44px; text: row.label; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                for b in row.items: SmallButton {
+                    text: b.t;
+                    clicked => {
+                        if root.comments { ReaderBridge.annots-arrange(root.id, b.k); } else { ReaderBridge.objects-arrange(root.id, b.k); }
+                        root.focus-pages();
+                    }
+                }
+            }
+        }
+        // Stacking order (Acrobat's Arrange), codes 20–23 as reader_ui::objects_arrange.
+        if !root.comments: HorizontalLayout {
             spacing: 4px;
-            Text { width: 44px; text: row.label; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-            for b in row.items: SmallButton {
+            Text { width: 44px; text: "Order"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            for b in [{ t: "To front", k: 20 }, { t: "Forward", k: 21 }, { t: "Backward", k: 22 }, { t: "To back", k: 23 }]: SmallButton {
                 text: b.t;
                 clicked => {
-                    if root.comments { ReaderBridge.annots-arrange(root.id, b.k); } else { ReaderBridge.objects-arrange(root.id, b.k); }
+                    ReaderBridge.objects-arrange(root.id, b.k);
                     root.focus-pages();
                 }
             }

@@ -180,6 +180,19 @@ pub fn bulleted(text: &str) -> String {
     text.lines().map(|l| if l.trim().is_empty() || l.starts_with("• ") { l.to_string() } else { format!("• {l}") }).collect::<Vec<_>>().join("\n")
 }
 
+/// Sheaf: `text` with the bullet [`bulleted`] puts at the start of each line taken away (a
+/// paragraph's list turned off).
+pub fn unbulleted(text: &str) -> String {
+    text.lines().map(|l| l.strip_prefix("• ").or_else(|| l.strip_prefix('•')).unwrap_or(l)).collect::<Vec<_>>().join("\n")
+}
+
+/// Sheaf: whether every line of `text` with words starts with a bullet (the format row's • lit
+/// for a bulleted paragraph opened).
+pub fn is_bulleted(text: &str) -> bool {
+    let mut lines = text.lines().filter(|l| !l.trim().is_empty()).peekable();
+    lines.peek().is_some() && lines.all(|l| l.trim_start().starts_with('•'))
+}
+
 /// A point of a page shown `size` (`w`, `h`; view space, y down), where it lies once the page is
 /// turned `quarters` quarter turns clockwise (Rotate view).
 pub fn turned_point(p: [f32; 2], size: (f32, f32), quarters: u16) -> [f32; 2] {
@@ -1044,6 +1057,15 @@ mod tests {
     #[test]
     fn lines_become_a_bulleted_list_once() {
         assert_eq!(bulleted("Milk\n\nEggs\n• Bread"), "• Milk\n\n• Eggs\n• Bread");
+    }
+
+    /// An existing paragraph's list turned off, and told from plain text when opened.
+    #[test]
+    fn a_bulleted_list_is_undone_and_told() {
+        assert_eq!(unbulleted("• Milk\n\n• Eggs\n•Bread"), "Milk\n\nEggs\nBread");
+        assert_eq!(unbulleted(&bulleted("Milk\nEggs")), "Milk\nEggs");
+        assert!(is_bulleted("• Milk\n\n  • Eggs"));
+        assert!(!is_bulleted("• Milk\nEggs") && !is_bulleted(""));
     }
 
     #[test]

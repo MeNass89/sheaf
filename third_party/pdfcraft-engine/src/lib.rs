@@ -23,6 +23,11 @@ pub mod commands;
 pub mod compare;
 pub mod copy_image;
 pub mod arrange_objects;
+/// Sheaf: article threads (Acrobat's Article tool).
+pub mod articles;
+/// Sheaf: Preview's Loupe and Mask, as the reader reads them.
+mod loupes;
+pub use loupes::loupe_magnifications;
 pub mod clear_signature;
 pub mod sfn;
 pub mod transitions;
@@ -221,12 +226,17 @@ fn scope_of(edit: &Edit) -> Scope {
         Edit::AddMeasurement(_)
         | Edit::AddAnnotation(_)
         | Edit::AddTextBox { .. }
+        | Edit::AddLoupe { .. }
+        | Edit::AddMask { .. }
+        | Edit::AddTextBoxInFont { .. }
+        | Edit::SetTextBoxFontProgram { .. }
         | Edit::AddCustomStamp { .. }
         | Edit::DeleteAnnotation { .. }
         | Edit::SetAnnotationContents { .. }
         | Edit::ReplyToAnnotation { .. }
         | Edit::SetAnnotationStatus { .. }
         | Edit::MarkAnnotation { .. }
+        | Edit::SetLoupeMagnify { .. }
         | Edit::LockAnnotation { .. }
         | Edit::ReplaceText { .. }
         | Edit::EraseInk { .. }
@@ -243,12 +253,15 @@ fn scope_of(edit: &Edit) -> Scope {
         // fields, links and document metadata are untouched (see `refresh_content`).
         Edit::MoveObjects { .. }
         | Edit::ArrangeObjects { .. }
+        | Edit::RestackObjects { .. }
         | Edit::DeleteObjects { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
+        | Edit::EditTextBlockInFont { .. }
         | Edit::EditPageImage { .. }
         | Edit::RemoveImages { .. }
         | Edit::AddText { .. }
+        | Edit::AddTextInFont { .. }
         | Edit::AddImage { .. }
         | Edit::AddArtwork { .. }
         | Edit::OverlayPdf { .. }
@@ -1370,6 +1383,71 @@ pub enum Edit {
         index: usize,
         quarters: i64,
     },
+    /// Sheaf: a box on `page` at the end of article `thread` (an index of `Document::articles`), or
+    /// the first of a new article titled `title` (`None`): Acrobat's Article tool (`articles.rs`).
+    AddArticleBox {
+        thread: Option<usize>,
+        title: String,
+        page: usize,
+        rect: [f64; 4],
+    },
+    /// Sheaf: article `thread` deleted, its boxes with it.
+    DeleteArticle {
+        thread: usize,
+    },
+    /// Sheaf: box `bead` of article `thread` moved or resized to `rect` (same page).
+    SetArticleBox {
+        thread: usize,
+        bead: usize,
+        rect: [f64; 4],
+    },
+    /// Sheaf: box `bead` of article `thread` deleted, the article joined around it.
+    DeleteArticleBox {
+        thread: usize,
+        bead: usize,
+    },
+    /// Sheaf: new text written in a font of the computer's (an open-licensed full font program,
+    /// embedded first; pdfcraft-edit's `add_text_in_font`): page content, not an added item.
+    AddTextInFont {
+        page: usize,
+        text: AddedText,
+        font: Arc<Vec<u8>>,
+    },
+    /// Sheaf: a text box added (`annotation`, a `Shape::TextBox`) in a font of the computer's.
+    AddTextBoxInFont {
+        annotation: NewAnnotation,
+        align: u8,
+        font: Arc<Vec<u8>>,
+    },
+    /// Sheaf: text box `index` on `page` set in a font of the computer's (`text_box_font.rs`).
+    SetTextBoxFontProgram {
+        page: usize,
+        index: usize,
+        font: Arc<Vec<u8>>,
+    },
+    /// Sheaf: Preview's Loupe: a circle of `radius` about `centre` (user space) showing the page
+    /// under it `magnify` times as large, ringed in `color` (`pdfcraft_annot::loupe_mask`).
+    AddLoupe {
+        page: usize,
+        centre: [f64; 2],
+        radius: f64,
+        magnify: f64,
+        color: Rgb,
+        author: String,
+    },
+    /// Sheaf: loupe `index` on `page` shows the page `magnify` times as large.
+    SetLoupeMagnify {
+        page: usize,
+        index: usize,
+        magnify: f64,
+    },
+    /// Sheaf: Preview's Mask: the page dimmed outside `hole` (user space; an oval in it when `oval`).
+    AddMask {
+        page: usize,
+        hole: [f64; 4],
+        oval: bool,
+        author: String,
+    },
     /// Sheaf: a text box (`annotation`, a `Shape::TextBox`) added in `font` (a resource name of
     /// `pdfcraft_annot::appearance::TEXT_FONTS`), as one step.
     AddTextBox {
@@ -1542,6 +1620,13 @@ pub enum Edit {
         page: usize,
         moves: Vec<(ObjectTarget, [f64; 2])>,
     },
+    /// Sheaf: the objects picked with the Edit tool brought to the front, forward, backward or
+    /// sent to the back (Acrobat's Arrange; pdfcraft-edit's `restack.rs`), one step.
+    RestackObjects {
+        page: usize,
+        objects: Vec<ObjectTarget>,
+        how: pdfcraft_edit::Restack,
+    },
     /// Sheaf: delete the objects picked with the Edit tool (drawings, paragraphs, images, added
     /// items) in one step.
     DeleteObjects {
@@ -1556,6 +1641,15 @@ pub enum Edit {
         text: String,
         /// Formatting changes (font, size, colour, alignment); default keeps the paragraph's.
         style: pdfcraft_edit::BlockStyle,
+    },
+    /// Sheaf: [`Edit::EditTextBlock`] in a font of the computer's (an open-licensed full font
+    /// program, embedded first; Acrobat's Edit PDF font list), one step.
+    EditTextBlockInFont {
+        page: usize,
+        block: usize,
+        text: String,
+        style: pdfcraft_edit::BlockStyle,
+        font: Arc<Vec<u8>>,
     },
     /// An explicit open-licensed full font program, completing subsets or selected by a user.
     RegisterTextFont {
@@ -1944,6 +2038,11 @@ impl Edit {
             Edit::BookmarksFromStructure => Label::of("New bookmarks from structure"),
             Edit::NumberPages { .. } => Label::of("Number pages"),
             Edit::SetTransition { .. } => Label::of("Set page transitions"),
+            Edit::AddArticleBox { thread: None, .. } => Label::of("Add article"),
+            Edit::AddArticleBox { .. } => Label::of("Add article box"),
+            Edit::DeleteArticle { .. } => Label::of("Delete article"),
+            Edit::SetArticleBox { .. } => Label::of("Move article box"),
+            Edit::DeleteArticleBox { .. } => Label::of("Delete article box"),
             // What was measured is part of the wording too, for the same reason.
             Edit::AddMeasurement(m) => Label::of(match m.kind {
                 pdfcraft_measure::Kind::Distance => "Measure distance",
@@ -1953,6 +2052,12 @@ impl Edit {
             Edit::SetMeasurementScale { .. } => Label::of("Set measurement scale"),
             Edit::AddAnnotation(a) => Label::of(add_annotation(&a.shape)),
             Edit::AddTextBox { .. } => Label::of("Add text box"),
+            Edit::AddLoupe { .. } => Label::of("Add loupe"),
+            Edit::SetLoupeMagnify { .. } => Label::of("Change loupe"),
+            Edit::AddTextInFont { .. } => Label::of("Add text"),
+            Edit::AddTextBoxInFont { .. } => Label::of("Add text box"),
+            Edit::SetTextBoxFontProgram { .. } => Label::of("Change font"),
+            Edit::AddMask { .. } => Label::of("Add mask"),
             Edit::AddCustomStamp { .. } => Label::of("Add stamp"),
             Edit::DeleteAnnotation { .. } => Label::of("Delete comment"),
             Edit::SetAnnotationContents { .. } => Label::of("Edit comment"),
@@ -2002,10 +2107,16 @@ impl Edit {
             Edit::SetFieldScript { name, .. } => Label::with("Edit script of {name}", name.as_str()),
             Edit::SetDocumentScript { script: None, .. } => Label::of("Delete document JavaScript"),
             Edit::SetDocumentScript { .. } => Label::of("Edit document JavaScript"),
-            Edit::EditTextLine { .. } | Edit::EditTextBlock { .. } => Label::of("Edit text"),
+            Edit::EditTextLine { .. } | Edit::EditTextBlock { .. } | Edit::EditTextBlockInFont { .. } => Label::of("Edit text"),
             Edit::RegisterTextFont { .. } => Label::of("Load document font"),
             Edit::MoveObjects { objects, .. } => plural("Move object", "Move objects", objects.len()),
             Edit::ArrangeObjects { .. } => Label::of("Arrange objects"),
+            Edit::RestackObjects { how, .. } => Label::of(match how {
+                pdfcraft_edit::Restack::Front => "Bring to front",
+                pdfcraft_edit::Restack::Forward => "Bring forward",
+                pdfcraft_edit::Restack::Backward => "Send backward",
+                pdfcraft_edit::Restack::Back => "Send to back",
+            }),
             Edit::DeleteObjects { objects, .. } => plural("Delete object", "Delete objects", objects.len()),
             Edit::EditPageImage { change, .. } => Label::of(match change {
                 ImageEdit::Move(_) => "Move image",
@@ -2114,7 +2225,11 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetBookmarkStyle { .. }
         | Edit::BookmarksFromStructure
         | Edit::NumberPages { .. }
-        | Edit::SetTransition { .. } => {
+        | Edit::SetTransition { .. }
+        | Edit::AddArticleBox { .. }
+        | Edit::DeleteArticle { .. }
+        | Edit::SetArticleBox { .. }
+        | Edit::DeleteArticleBox { .. } => {
             if p.assemble() {
                 Ok(())
             } else {
@@ -2124,12 +2239,17 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         Edit::AddMeasurement(_)
         | Edit::AddAnnotation(_)
         | Edit::AddTextBox { .. }
+        | Edit::AddLoupe { .. }
+        | Edit::AddMask { .. }
+        | Edit::AddTextBoxInFont { .. }
+        | Edit::SetTextBoxFontProgram { .. }
         | Edit::AddCustomStamp { .. }
         | Edit::DeleteAnnotation { .. }
         | Edit::SetAnnotationContents { .. }
         | Edit::ReplyToAnnotation { .. }
         | Edit::SetAnnotationStatus { .. }
         | Edit::MarkAnnotation { .. }
+        | Edit::SetLoupeMagnify { .. }
         | Edit::ReplaceText { .. }
         | Edit::EraseInk { .. }
         | Edit::LockAnnotation { .. }
@@ -2171,12 +2291,14 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::AddField { .. }
         | Edit::ApplyRedactions { .. }
         | Edit::AddText { .. }
+        | Edit::AddTextInFont { .. }
         | Edit::AddImage { .. }
         | Edit::AddArtwork { .. }
         | Edit::OverlayPdf { .. }
         | Edit::UpdateContent { .. }
         | Edit::MoveObjects { .. }
         | Edit::ArrangeObjects { .. }
+        | Edit::RestackObjects { .. }
         | Edit::DeleteObjects { .. }
         | Edit::DeleteContent { .. }
         | Edit::ReplaceImage { .. }
@@ -2208,6 +2330,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::ConvertPdfA { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
+        | Edit::EditTextBlockInFont { .. }
         | Edit::RegisterTextFont { .. }
         | Edit::EditPageImage { .. }
         | Edit::RemoveImages { .. }
@@ -2378,12 +2501,30 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::NumberPages { from, to, style, prefix, first } => pdfcraft_organize::number_pages(doc, *from, *to, *style, prefix, *first)?,
         Edit::SetTransition { pages, style, seconds, advance } => transitions::set_transition(doc, pages, style.as_deref(), *seconds, *advance)?,
+        Edit::AddArticleBox { thread, title, page, rect } => articles::add_article_box(doc, *thread, title, *page, *rect)?,
+        Edit::DeleteArticle { thread } => articles::delete_article(doc, *thread)?,
+        Edit::SetArticleBox { thread, bead, rect } => articles::set_article_box(doc, *thread, *bead, *rect)?,
+        Edit::DeleteArticleBox { thread, bead } => articles::delete_article_box(doc, *thread, *bead)?,
         Edit::AddMeasurement(m) => {
             measure::add(doc, m, &cx.meta())?;
         }
         Edit::SetMeasurementScale { page, bbox, name, scale } => measure::set_scale(doc, *page, *bbox, name, scale)?,
         Edit::AddAnnotation(a) => {
             pdfcraft_annot::add_annotation(doc, a, &cx.meta())?;
+        }
+        Edit::AddTextInFont { page, text, font } => pdfcraft_edit::add_text_in_font(doc, *page, text, font)?,
+        Edit::AddTextBoxInFont { annotation, align, font } => {
+            let index = pdfcraft_annot::add_annotation(doc, annotation, &cx.meta())?;
+            pdfcraft_annot::set_text_font(doc, annotation.page, index, "Helv", None, Some(*align), &cx.meta())?;
+            pdfcraft_annot::text_box_font::set_text_box_font_program(doc, annotation.page, index, font, &cx.meta())?;
+        }
+        Edit::SetTextBoxFontProgram { page, index, font } => pdfcraft_annot::text_box_font::set_text_box_font_program(doc, *page, *index, font, &cx.meta())?,
+        Edit::SetLoupeMagnify { page, index, magnify } => pdfcraft_annot::loupe_mask::set_loupe_magnify(doc, *page, *index, *magnify, &cx.meta())?,
+        Edit::AddLoupe { page, centre, radius, magnify, color, author } => {
+            pdfcraft_annot::loupe_mask::add_loupe(doc, *page, (*centre, *radius), *magnify, *color, author, &cx.meta())?;
+        }
+        Edit::AddMask { page, hole, oval, author } => {
+            pdfcraft_annot::loupe_mask::add_mask(doc, *page, *hole, *oval, author, &cx.meta())?;
         }
         Edit::AddTextBox { annotation, font, align } => {
             let index = pdfcraft_annot::add_annotation(doc, annotation, &cx.meta())?;
@@ -2605,12 +2746,20 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         }
         Edit::MoveObjects { page, objects, offset } => pdfcraft_edit::move_objects(doc, *page, objects, *offset)?,
         Edit::ArrangeObjects { page, moves } => arrange_objects::arrange_objects(doc, *page, moves)?,
+        Edit::RestackObjects { page, objects, how } => pdfcraft_edit::restack_objects(doc, *page, objects, *how)?,
         Edit::DeleteObjects { page, objects } => pdfcraft_edit::delete_objects(doc, *page, objects)?,
         Edit::EditTextBlock { page, block, text, style } => {
             cx.substituted = pdfcraft_edit::rewrite_block(doc, *page, *block, Some(text), style)?.substituted;
         }
         Edit::RegisterTextFont { page, bytes } => {
             pdfcraft_edit::text::register_text_font(doc, *page, bytes)?;
+        }
+        Edit::EditTextBlockInFont { page, block, text, style, font } => {
+            // The font goes into the page's resources, then the paragraph is set in it (a family,
+            // bold or italic asked for gives way to it).
+            let resource = pdfcraft_edit::text::register_text_font(doc, *page, font)?;
+            let style = pdfcraft_edit::BlockStyle { resource: Some(resource), family: None, bold: None, ..style.clone() };
+            cx.substituted = pdfcraft_edit::rewrite_block(doc, *page, *block, Some(text), &style)?.substituted;
         }
         Edit::MarkDecorative { figure } => {
             let r = pdfcraft_cos::ObjRef::new(*figure, doc.generation(*figure));
@@ -3733,6 +3882,10 @@ impl Session {
         // `next` is a copy: if the edit fails or crashes, the document is unchanged.
         guard(|| run_edit(&mut next, &edit, &mut cx))
             .unwrap_or_else(|m| Err(EditError::Invalid(format!("{} failed unexpectedly ({m}); the document was not changed", edit.label()))))?;
+        // Sheaf: a loupe shows its page as it is now (the page's content changed under it).
+        if matches!(scope_of(&edit), Scope::Content | Scope::Full) {
+            pdfcraft_annot::loupe_mask::refresh_loupes(&mut next);
+        }
         // Redaction removed what its own interpreter places under the marks. The marks were drawn
         // over the page as the renderer shows it, so the renderer has the last word.
         if let Edit::ApplyRedactions { pages } = &edit {
@@ -4038,7 +4191,7 @@ impl Session {
             matches!(
                 e,
                 Edit::AddText { .. } | Edit::AddImage { .. } | Edit::AddArtwork { .. } | Edit::OverlayPdf { .. } | Edit::UpdateContent { .. } | Edit::DeleteContent { .. } | Edit::ReplaceImage { .. }
-            ) || matches!(e, Edit::MoveObjects { objects, .. } | Edit::DeleteObjects { objects, .. } if objects.iter().any(|o| o.kind == ObjectKind::Added))
+            ) || matches!(e, Edit::MoveObjects { objects, .. } | Edit::DeleteObjects { objects, .. } | Edit::RestackObjects { objects, .. } if objects.iter().any(|o| o.kind == ObjectKind::Added))
                 || matches!(e, Edit::ArrangeObjects { moves, .. } if moves.iter().any(|(o, _)| o.kind == ObjectKind::Added))
         });
         let touches_marks = edit.is_none_or(|e| {

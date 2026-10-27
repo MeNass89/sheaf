@@ -77,6 +77,21 @@ impl TextLine {
     pub fn wrap_leading(&self) -> f64 {
         if self.origin.state.leading > 0.0 { self.origin.state.leading * self.origin.k } else { self.size * 1.2 }
     }
+
+    /// Sheaf: the line's operators (indices into the page's streams parsed joined), for Arrange
+    /// (`restack.rs`).
+    pub(crate) fn op_indexes(&self) -> &[usize] {
+        &self.ops
+    }
+
+    /// Sheaf: the text line matrix and the text matrix where the line's first run is shown.
+    pub(crate) fn line_matrix(&self) -> Matrix {
+        Matrix(self.origin.tlm)
+    }
+
+    pub(crate) fn text_matrix(&self) -> Matrix {
+        Matrix(self.origin.tm)
+    }
 }
 
 /// An embedded sfnt source face, read only for the inline editor. Bytes stay in memory and
