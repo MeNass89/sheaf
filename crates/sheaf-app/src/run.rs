@@ -422,7 +422,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             };
             Job::Edit { input: one(inputs)?, items, out: single()? }
         }
-        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: match opts.pdfa_level { 1 => PdfALevel::A3b, 2 => PdfALevel::A1b, _ => PdfALevel::A2b }, allow_incomplete: opts.pdfa_allow_incomplete },
+        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: match opts.pdfa_level { 1 => PdfALevel::A3b, 2 => PdfALevel::A1b, 3 => PdfALevel::A2u, 4 => PdfALevel::A3u, 5 => PdfALevel::A1a, 6 => PdfALevel::A2a, 7 => PdfALevel::A3a, _ => PdfALevel::A2b }, allow_incomplete: opts.pdfa_allow_incomplete },
     })
 }
 
@@ -915,7 +915,7 @@ pub fn clipboard_to_pdf(c: &ClipPages, path: &std::path::Path) -> sheaf_core::Re
 }
 
 /// A page scanned (Acrobat's Create PDF ▸ Scanner) to `to` as PNG; blocks until it is done: the
-/// Windows scan dialog (WIA), SANE's scanimage elsewhere. Debug builds copy the image
+/// Windows scan dialog (WIA), SANE's scanimage on Linux and macOS. Debug builds copy the image
 /// `SHEAF_TEST_SCAN` names instead (gui-smoke). Err: what went wrong, said to the user.
 pub fn scan_page(to: &std::path::Path) -> std::result::Result<(), String> {
     if cfg!(debug_assertions)
@@ -923,30 +923,7 @@ pub fn scan_page(to: &std::path::Path) -> std::result::Result<(), String> {
     {
         return std::fs::copy(image, to).map(|_| ()).map_err(|e| e.to_string());
     }
-    #[cfg(target_os = "macos")]
-    {
-        let _ = to;
-        Err("Scan with Image Capture, then open the file here: macOS gives other apps no scanner".into())
-    }
-    #[cfg(windows)]
-    {
-        let path = to.to_string_lossy().replace('\'', "''");
-        let script = format!(
-            "$d = New-Object -ComObject WIA.CommonDialog; $i = $d.ShowAcquireImage(1, 1, 0, '{{B96B3CAF-0728-11D3-9D7B-0000F81EF32E}}'); \
-             if ($i) {{ $i.SaveFile('{path}'); exit 0 }}; exit 1"
-        );
-        let done = std::process::Command::new("powershell").args(["-NoProfile", "-STA", "-Command", &script]).status().is_ok_and(|s| s.success());
-        if done && to.is_file() { Ok(()) } else { Err("No page was scanned".into()) }
-    }
-    #[cfg(not(any(target_os = "macos", windows)))]
-    {
-        let out = std::process::Command::new("scanimage").args(["--format=png", "--resolution", "300", "-o"]).arg(to).output();
-        match out {
-            Ok(o) if o.status.success() && to.is_file() => Ok(()),
-            Ok(o) => Err(String::from_utf8_lossy(&o.stderr).lines().last().unwrap_or("No scanner was found").trim().to_string()),
-            Err(_) => Err("No scanner software: install SANE (sane-utils)".into()),
-        }
-    }
+    sheaf_core::scanner::scan_to_png(to).map_err(|e| e.to_string())
 }
 
 /// Preferences ▸ Open PDFs with Sheaf by default: Sheaf made the system's PDF handler (macOS's
@@ -1272,6 +1249,12 @@ mod tests {
         o.pdfa_level = 2;
         let Job::PdfA { level, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
         assert_eq!(level, PdfALevel::A1b);
+        for (index, expected) in [(3, PdfALevel::A2u), (4, PdfALevel::A3u), (5, PdfALevel::A1a), (6, PdfALevel::A2a), (7, PdfALevel::A3a)] {
+            o.pdfa_level = index;
+            let Job::PdfA { level, allow_incomplete, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
+            assert_eq!(level, expected);
+            assert!(!allow_incomplete);
+        }
     }
 
     #[test]

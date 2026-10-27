@@ -69,7 +69,7 @@ pub fn print_ok(outputs: &[PathBuf], not_conforming: bool) {
     }
     if not_conforming {
         v["code"] = json!("not_conforming");
-        v["error"] = json!("the output was written but does not fully conform to the PDF/A level (see notes)");
+        v["error"] = json!("the output was written but did not pass all built-in PDF/A checks (see notes)");
     }
     println!("{v}");
 }

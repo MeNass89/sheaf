@@ -877,17 +877,17 @@ mod tests {
     fn pdfa_result_shows_the_summary_and_the_rules_left() {
         let o = JobOutcome {
             outputs: vec![PathBuf::from("/x/a-pdfa.pdf")],
-            summary: "1 file does not fully conform to PDF/A-2b".into(),
+            summary: "1 file did not pass PDF/A-2b checks".into(),
             notes: vec!["6.2.11.4: The font Helvetica isn't embedded".into()],
             ..Default::default()
         };
         let tab = done_tab(ToolId::PdfToPdfA, o);
-        assert_eq!(tab.result_sub, "1 file does not fully conform to PDF/A-2b");
+        assert_eq!(tab.result_sub, "1 file did not pass PDF/A-2b checks");
         assert_eq!(tab.notes.row_data(0).unwrap(), "6.2.11.4: The font Helvetica isn't embedded");
         assert!(tab.notes_title.starts_with("Not fixed"));
-        let ok = JobOutcome { outputs: vec![PathBuf::from("/x/a-pdfa.pdf")], summary: "Conforms to PDF/A-2b".into(), ..Default::default() };
+        let ok = JobOutcome { outputs: vec![PathBuf::from("/x/a-pdfa.pdf")], summary: "Checks passed for PDF/A-2b".into(), ..Default::default() };
         let tab = done_tab(ToolId::PdfToPdfA, ok);
-        assert_eq!((tab.result_sub.as_str(), tab.notes_title.as_str()), ("Conforms to PDF/A-2b", ""));
+        assert_eq!((tab.result_sub.as_str(), tab.notes_title.as_str()), ("Checks passed for PDF/A-2b", ""));
     }
 
     #[test]

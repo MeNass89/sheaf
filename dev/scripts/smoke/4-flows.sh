@@ -1264,4 +1264,66 @@ RF=$(at Run 740x80+500+640); [ -n "$RF" ] && click $RF 2
 for _ in $(seq 1 20); do [ -f "$OUT/356-input/nested/second-356.pdf" ] && break; sleep 0.5; done
 shot 356-folder-results
 check "356 recursive folder intake processes both PDFs into new copies (${IN:-no Include}; ${RF:-no Run})" "pdfinfo \"$OUT/356-input/first-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && pdfinfo \"$OUT/356-input/nested/second-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/first.pdf\" && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/nested/second.pdf\""
+# 330. Acrobat's Create PDF from Scanner through the real process adapter: the fake SANE driver
+# returns pixels, not SHEAF_TEST_SCAN's image-copy seam. Also used by the macOS SANE fallback.
+scanner_driver() {
+    SCANNER_APP=$APP; SCANNER_PATH=$PATH
+    mkdir -p "$OUT/scanner-bin"
+    convert -size 80x40 xc:'#2a9d4b' "$OUT/scanner-source.png"
+    printf '#!/bin/sh\nprintf "%%s\\n" "$@" > "%s/scanner-args"\ncp "%s/scanner-source.png" "$5"\n' "$PWD/$OUT" "$PWD/$OUT" > "$OUT/scanner-bin/scanimage"
+    printf '#!/bin/sh\nunset SHEAF_TEST_SCAN\nexec "%s" "$@"\n' "$APP" > "$OUT/scanner-app"
+    chmod +x "$OUT/scanner-bin/scanimage" "$OUT/scanner-app"
+    export PATH="$PWD/$OUT/scanner-bin:$PATH"; APP="$PWD/$OUT/scanner-app"
+}
+scanner_restore() { APP=$SCANNER_APP; export PATH=$SCANNER_PATH; }
+scanner_driver
+launch; answer "$PWD/$OUT/driver-scan.pdf"; FN=$(at scanner 1000x120+250+80); [ -n "$FN" ] && click $FN 1
+for _ in $(seq 1 20); do [ -f "$OUT/driver-scan.pdf" ] && break; sleep 0.5; done; answer ""
+SN=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/driver-scan.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
+shot 330-scanner-driver
+check "330 From scanner invokes SANE at 300 dpi and opens the scanned pixels ($SN)" "[ \"\$(npages $OUT/driver-scan.pdf 2>/dev/null)\" = 1 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && grep -qx -- '--format=png' $OUT/scanner-args && grep -qx '300' $OUT/scanner-args && [ \"\$(ntabs)\" = 1 ]"
+quit; scanner_restore
+
+# 331. Preview's Insert from Scanner through the same process adapter: after page 1, one Undo,
+# Redo restores it and the remaining original pages retain their order.
+scanner_driver
+cp "$OUT/text.pdf" "$OUT/driver-insert.pdf"; launch "$OUT/driver-insert.pdf"; sleep 1
+xdotool mousemove 120 230 click 3; sleep 0.8; IS=$(at scanner 300x420+20+200); [ -n "$IS" ] && click $IS 2
+key ctrl+s; sleep 1.5; N1=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
+SN=$(pdftoppm -r 20 -f 2 -l 2 -png "$OUT/driver-insert.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
+key ctrl+z; sleep 0.8; key ctrl+s; sleep 1; N2=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
+key ctrl+shift+z; sleep 0.8; key ctrl+s; sleep 1; N3=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
+shot 331-scanner-insert
+check "331 Insert from scanner preserves pixels, page order and Undo/Redo ($N1/$N2/$N3; $SN)" "[ \"$N1/$N2/$N3\" = 5/4/5 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(first_text $OUT/driver-insert.pdf 1)\" = 'Page 1' ] && [ \"\$(first_text $OUT/driver-insert.pdf 3)\" = 'Page 2' ] && [ \"\$(first_text $OUT/driver-insert.pdf 5)\" = 'Page 4' ]"
+quit; scanner_restore
+
+# 335. iLovePDF's complete PDF/A selector: a Unicode profile produces the selected identifier,
+# not a b-level file with the wrong success label. Pictures contain no unmapped text.
+convert -size 120x80 xc:'#2a9d4b' "$OUT/unicode-archive.pdf"
+launch "$OUT/unicode-archive.pdf"; sleep 1
+click $WRENCH_X 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+CB=$(at PDF/A- 1000x700+250+90); [ -n "$CB" ] && click $CB 0.5
+shot 335-pdfa-levels
+xdotool key --clearmodifiers --delay 150 Up Up Up Up Up Up Up Up Down Down Down Return; sleep 0.8
+shot 335-pdfa-unicode-options
+click 1140 755 2
+for _ in $(seq 1 20); do [ -f "$OUT/unicode-archive-pdfa.pdf" ] && break; sleep 0.5; done
+UQ=$(qpdf --qdf --object-streams=disable "$OUT/unicode-archive-pdfa.pdf" - 2>/dev/null)
+shot 335-pdfa-unicode-result
+check "335 PDF/A-2u selection writes the actual U/2 identifier" "echo \"\$UQ\" | grep -aq 'pdfaid:conformance>U<' && echo \"\$UQ\" | grep -aq 'pdfaid:part>2<' && [ \"\$(npages $OUT/unicode-archive-pdfa.pdf 2>/dev/null)\" = 1 ]"
+quit
+
+# 336. An a-level needs tags. With Keep a copy unchecked, an untagged input is refused and no
+# falsely conforming output appears; the source stays readable.
+convert -size 120x80 xc:'#2a9d4b' "$OUT/untagged-archive.pdf"
+launch "$OUT/untagged-archive.pdf"; sleep 1
+click $WRENCH_X 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+CB=$(at PDF/A- 1000x700+250+90); [ -n "$CB" ] && click $CB 0.5
+xdotool key --clearmodifiers --delay 150 Up Up Up Up Up Up Up Up Down Down Down Down Return; sleep 0.8
+KC=$(at Keep 1000x700+250+90); [ -n "$KC" ] && click $KC 0.6
+STRICT=$(ocr 1000x700+250+90)
+shot 336-pdfa-strict-options
+click 1140 755 3
+AR=$(ocr 1280x800+0+0); shot 336-pdfa-strict-result
+check "336 strict PDF/A-2a refuses untagged content without saving a false archive" "[ -n \"$KC\" ] && echo \"\$STRICT\" | grep -qi 'PDF/A-2a' && echo \"\$STRICT\" | grep -qi 'no output' && [ ! -e $OUT/untagged-archive-pdfa.pdf ] && [ \"\$(npages $OUT/untagged-archive.pdf 2>/dev/null)\" = 1 ] && echo \"\$AR\" | grep -qi 'did not pass'"
 quit

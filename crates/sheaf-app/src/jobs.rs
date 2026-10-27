@@ -157,7 +157,7 @@ pub struct JobOutcome {
     pub grew: bool,
     /// Batch tools: inputs that failed, with the error, while the others were written.
     pub failures: Vec<(PathBuf, String)>,
-    /// One line about the result, shown under the title ("Conforms to PDF/A-2b").
+    /// One line about the result, shown under the title ("Checks passed for PDF/A-2b").
     pub summary: String,
     /// Things the user should know about the outputs, one per line (PDF/A rules still broken).
     pub notes: Vec<String>,

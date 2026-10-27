@@ -158,3 +158,84 @@ fn native_pdfa1_writes_pdf14_and_checks_transparency_before_publication() {
     // No downgrade or removal of artwork is silently substituted for the requested level.
     assert!(declares_part(&failed, 1));
 }
+
+/// iLovePDF offers all eight identifiers, including a/u. Missing tags are findings, not a
+/// silent downgrade to b; strict publication refuses them without replacing existing files.
+#[test]
+fn every_archival_level_keeps_its_identifier_and_strict_a_levels_require_tags() {
+    use sheaf_core::pdfa::to_pdfa_with_policy;
+    let t = tempfile::tempdir().unwrap();
+    let source = picture_pdf(t.path());
+    for level in PdfALevel::ALL {
+        let path = t.path().join(format!("{}.pdf", level.label().replace('/', "")));
+        let report = to_pdfa_with_policy(&Input::new(&source), level, true, &path).unwrap();
+        let doc = sheaf_core::pdfcraft::Doc::open(&Input::new(&path)).unwrap();
+        assert_eq!(doc.document().standards().pdfa, Some((level.part(), level.conformance().into())));
+        assert_eq!(lopdf::Document::load(&path).unwrap().get_pages().len(), 2);
+        if level.conformance() == "A" {
+            assert!(report.issues.iter().any(|i| i.clause.starts_with("PDF/A-a")), "{:?}", report.issues);
+            let strict = path.with_file_name(format!("strict-{}.pdf", level.part()));
+            assert!(to_pdfa_with_policy(&Input::new(&source), level, false, &strict).is_err());
+            assert!(!strict.exists());
+        } else { assert!(report.issues.is_empty(), "{}: {:?}", level.label(), report.issues); }
+        qpdf_clean(&path);
+    }
+}
+
+/// A proper text-only tag tree and Unicode survive conversion to each a-level; it is not
+/// enough just to reject untagged input. Use Sheaf's Markdown producer and native tagging.
+#[test]
+fn tagged_unicode_text_can_be_archived_at_all_a_levels_without_losing_tags() {
+    use sheaf_core::{office, pdfa::to_pdfa_with_policy, pdfcraft::{Doc, engine::Edit}};
+    if office::find_soffice().is_none() { eprintln!("skip: no LibreOffice"); return; }
+    let t = tempfile::tempdir().unwrap();
+    let md = t.path().join("source.md");
+    std::fs::write(&md, "# Archival title\n\nCafé and Unicode text.\n").unwrap();
+    let input = office::office_to_pdf(&md, &t.path().join("source.pdf")).unwrap();
+    let mut doc = Doc::open(&Input::new(&input)).unwrap();
+    if doc.document().tags().is_empty() { doc.apply(Edit::AutoTagText).unwrap(); }
+    let mut view = doc.document().initial_view();
+    view.language = Some("en-US".into());
+    doc.apply(Edit::SetInitialView(Box::new(view))).unwrap();
+    let tagged = doc.save(&t.path().join("tagged.pdf")).unwrap();
+    let before = doc.document().tags().len();
+    assert!(before > 0);
+    for level in [PdfALevel::A1a, PdfALevel::A2a, PdfALevel::A3a] {
+        let path = t.path().join(format!("ready-{}.pdf", level.part()));
+        let report = to_pdfa_with_policy(&Input::new(&tagged), level, false, &path).unwrap();
+        assert!(report.issues.is_empty());
+        let reopened = Doc::open(&Input::new(&path)).unwrap();
+        assert_eq!(reopened.document().tags().len(), before);
+        assert_eq!(reopened.document().initial_view().language.as_deref(), Some("en-US"));
+        assert!(page_texts(&path).join(" ").contains("Café and Unicode text."));
+        qpdf_clean(&path);
+    }
+}
+
+#[test]
+fn unicode_archive_refuses_symbolic_subset_fonts_without_maps_even_when_b_checks_pass() {
+    use sheaf_core::{office, pdfa::to_pdfa_with_policy};
+    if office::find_soffice().is_none() { eprintln!("skip: no LibreOffice"); return; }
+    let t = tempfile::tempdir().unwrap();
+    let md = t.path().join("source.md");
+    std::fs::write(&md, "# Unicode archive\n\nCafé and several text codes.\n").unwrap();
+    let input = office::office_to_pdf(&md, &t.path().join("source.pdf")).unwrap();
+    let mut pdf = lopdf::Document::load(&input).unwrap();
+    let mut removed = 0;
+    for object in pdf.objects.values_mut() {
+        if let Ok(font) = object.as_dict_mut()
+            && font.get(b"Subtype").and_then(lopdf::Object::as_name).ok() == Some(b"TrueType")
+            && font.remove(b"ToUnicode").is_some()
+        { removed += 1; }
+    }
+    assert!(removed > 0, "LibreOffice's canonical producer emitted mapped TrueType subsets");
+    let without_maps = t.path().join("without-maps.pdf");
+    pdf.save(&without_maps).unwrap();
+    to_pdfa_with_policy(&Input::new(&without_maps), PdfALevel::A2b, false, &t.path().join("basic.pdf")).unwrap();
+    let strict = t.path().join("unicode.pdf");
+    assert!(to_pdfa_with_policy(&Input::new(&without_maps), PdfALevel::A2u, false, &strict).is_err());
+    assert!(!strict.exists());
+    let report = to_pdfa_with_policy(&Input::new(&without_maps), PdfALevel::A2u, true, &strict).unwrap();
+    assert!(report.issues.iter().any(|i| i.clause == "PDF/A Unicode mapping"), "{:?}", report.issues);
+    assert_eq!(sheaf_core::pdfcraft::Doc::open(&Input::new(&strict)).unwrap().document().standards().pdfa, Some((2, "U".into())));
+}

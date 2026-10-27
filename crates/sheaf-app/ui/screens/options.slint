@@ -1,5 +1,5 @@
 import { PlatformBridge } from "../platform.slint";
-import { Slider, ScrollView } from "std-widgets.slint";
+import { Slider, ScrollView, ComboBox } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolOptions, Parse, OcrInfo, SignBridge, Picked } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
@@ -337,6 +337,11 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> crop-left: "10";
     in-out property <string> crop-right: "10";
     in-out property <int> pdfa-level: 0;
+    // This self-inverse order map keeps saved ids 0/1/2 while listing ISO versions in order.
+    property <[int]> pdfa-index-map: [2, 5, 0, 3, 6, 1, 4, 7];
+    property <int> pdfa-choice: 2;
+    changed pdfa-level => { root.pdfa-choice = root.pdfa-level >= 0 && root.pdfa-level < 8 ? root.pdfa-index-map[root.pdfa-level] : 2; }
+    changed pdfa-choice => { root.pdfa-level = root.pdfa-choice >= 0 && root.pdfa-choice < 8 ? root.pdfa-index-map[root.pdfa-choice] : 0; }
     in-out property <bool> pdfa-allow-incomplete: true;
     in-out property <string> ocr-languages: "," + OcrInfo.default-language + ",";
     in-out property <bool> ocr-local-engine;
@@ -1246,25 +1251,13 @@ export component OptionsPanel inherits VerticalLayout {
     if root.tool == "pdf_to_pdfa": VerticalLayout {
         spacing: 10px;
         SectionLabel { text: "Set the PDF/A conformance level"; }
-        RadioCard {
-            title: "PDF/A-2b (recommended)";
-            description: "For long-term archiving";
-            selected: root.pdfa-level == 0;
-            clicked => { root.pdfa-level = 0; }
+        // iLovePDF's version-ordered list; stored option indices 0/1/2 retain their meaning.
+        ComboBox {
+            model: ["PDF/A-1b", "PDF/A-1a", "PDF/A-2b (recommended)", "PDF/A-2u", "PDF/A-2a", "PDF/A-3b", "PDF/A-3u", "PDF/A-3a"];
+            current-index <=> root.pdfa-choice;
         }
-        RadioCard {
-            title: "PDF/A-3b";
-            description: "Archiving, attachments allowed";
-            selected: root.pdfa-level == 1;
-            clicked => { root.pdfa-level = 1; }
-        }
-        RadioCard {
-            title: "PDF/A-1b";
-            description: "Older archives; no transparency or attachments";
-            selected: root.pdfa-level == 2;
-            clicked => { root.pdfa-level = 2; }
-        }
-        if root.pdfa-level == 2: InfoBox { text: "Created in Sheaf, without another program.\nTransparency and layers are reported.\nChoose 2b to keep those features.\nAccessible a/u levels are not available."; }
+        if root.pdfa-level == 2 || root.pdfa-level == 5: InfoBox { text: "PDF 1.4, without layers or transparency.\nThose features are reported.\nChoose 2b to preserve them."; }
+        if root.pdfa-level >= 3: InfoBox { text: "Checks Unicode for every text code.\nLevel a requires existing tags.\nReview reading order before archiving."; }
         Check { text: "Keep a copy even if checks fail"; checked <=> root.pdfa-allow-incomplete; }
         InfoBox { text: "The written PDF is checked before saving.\nUnfixed issues appear in the results.\nChecks cover structure, not full ISO validation."; }
         if !root.pdfa-allow-incomplete: InfoBox { text: "If a check fails, no output is saved.\nThe source file is kept."; }

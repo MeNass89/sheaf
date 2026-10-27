@@ -7,6 +7,10 @@ use std::path::{Path, PathBuf};
 
 #[path = "pdfa1.rs"]
 mod part1;
+#[path = "pdfa_unicode.rs"]
+mod unicode;
+#[path = "pdfa_profiles.rs"]
+mod profiles;
 
 /// The PDF/A conformance levels offered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -18,33 +22,55 @@ pub enum PdfALevel {
     A2b,
     /// PDF/A-3b: like 2b, and allows attachments of any type.
     A3b,
+    /// PDF/A-2u: 2b plus Unicode mapping for every text code.
+    A2u,
+    /// PDF/A-3u: 3b plus Unicode mapping for every text code.
+    A3u,
+    /// PDF/A-1a: 1b plus Unicode and an existing logical tag structure.
+    A1a,
+    /// PDF/A-2a: 2b plus Unicode and an existing logical tag structure.
+    A2a,
+    /// PDF/A-3a: 3b plus Unicode and an existing logical tag structure.
+    A3a,
 }
 
 impl PdfALevel {
+    /// iLovePDF's complete conformance-level inventory, in its version order.
+    pub const ALL: [Self; 8] = [Self::A1b, Self::A1a, Self::A2b, Self::A2u, Self::A2a, Self::A3b, Self::A3u, Self::A3a];
+
     fn engine(self) -> pdfa::Level {
+        if self.part() == 3 { pdfa::Level::A3b } else { pdfa::Level::A2b }
+    }
+
+    pub fn part(self) -> u8 {
+        match self { Self::A1b | Self::A1a => 1, Self::A3b | Self::A3u | Self::A3a => 3, _ => 2 }
+    }
+
+    pub fn conformance(self) -> &'static str {
+        match self { Self::A1a | Self::A2a | Self::A3a => "A", Self::A2u | Self::A3u => "U", _ => "B" }
+    }
+
+    /// The requested archival identifier; no level is silently downgraded.
+    pub fn label(self) -> &'static str {
         match self {
-            PdfALevel::A1b | PdfALevel::A2b => pdfa::Level::A2b,
-            PdfALevel::A3b => pdfa::Level::A3b,
+            Self::A1b => "PDF/A-1b", Self::A1a => "PDF/A-1a",
+            Self::A2b => "PDF/A-2b", Self::A2u => "PDF/A-2u", Self::A2a => "PDF/A-2a",
+            Self::A3b => "PDF/A-3b", Self::A3u => "PDF/A-3u", Self::A3a => "PDF/A-3a",
         }
     }
+}
 
-    /// The requested archival identifier.
-    pub fn label(self) -> &'static str {
-        match self { Self::A1b => "PDF/A-1b", _ => self.engine().label() }
+/// The same check result in the CLI and app. An unsupported check is not proof that the
+/// file violates ISO, and passing our structural checks is not a full ISO certificate.
+pub fn summary(level: PdfALevel, not_passed: usize) -> String {
+    match not_passed {
+        0 => format!("Checks passed for {}", level.label()),
+        1 => format!("1 file did not pass {} checks", level.label()),
+        n => format!("{n} files did not pass {} checks", level.label()),
     }
 }
 
-/// The result line for a batch at `level` where `not_conforming` outputs still break rules, in
-/// Sheaf's CLI and app alike.
-pub fn summary(level: PdfALevel, not_conforming: usize) -> String {
-    match not_conforming {
-        0 => format!("Conforms to {}", level.label()),
-        1 => format!("1 file does not fully conform to {}", level.label()),
-        n => format!("{n} files do not fully conform to {}", level.label()),
-    }
-}
-
-/// A rule of the standard the output still breaks.
+/// A failed or unsupported built-in archival check.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PdfAIssue {
     /// The ISO 19005 clause, e.g. "6.2.11.4".
@@ -58,7 +84,7 @@ pub struct PdfAReport {
     pub path: PathBuf,
     /// The input was password-protected (the output never is).
     pub was_encrypted: bool,
-    /// What the check of the written file found; empty = conforms.
+    /// What the check of the written file found; empty = built-in checks passed.
     pub issues: Vec<PdfAIssue>,
 }
 
@@ -82,7 +108,8 @@ fn to_pdfa_checked(input: &Input, level: PdfALevel, allow_incomplete: bool, out:
     doc.apply(Edit::ConvertPdfA { level: level.engine() })?;
     let (bytes, _) = doc.unprotected_bytes()?;
     drop(doc);
-    let bytes = if level == PdfALevel::A1b { std::sync::Arc::new(part1::rewrite(bytes.as_slice())?) } else { bytes };
+    let bytes = if level.part() == 1 { std::sync::Arc::new(part1::rewrite(bytes.as_slice())?) } else { bytes };
+    let bytes = if level.conformance() != "B" { std::sync::Arc::new(profiles::rewrite(bytes.as_slice(), level.conformance())?) } else { bytes };
     let mut issues = Vec::new();
     let path = atomic_write(out, |part| {
         std::fs::write(part, bytes.as_slice())?;
@@ -99,13 +126,18 @@ fn to_pdfa_checked(input: &Input, level: PdfALevel, allow_incomplete: bool, out:
 /// The rules of `level` that `input` breaks, as PdfCraft's preflight sees them.
 pub fn verify(input: &Input, level: PdfALevel) -> Result<Vec<PdfAIssue>> {
     let doc = Doc::open(input)?;
+    let extended = level.part() == 1 || level.conformance() != "B";
     let mut issues: Vec<_> = doc.document().pdfa_verify(level.engine()).into_iter()
-        // Part 1 has its own identifier check below; all other baseline checks still apply.
-        .filter(|i| level != PdfALevel::A1b || i.pattern != "The metadata doesn't identify the file as {}")
+        // The baseline b-level checker still checks every visual/archive rule. Identification
+        // is checked against the actual selected part/conformance below for a/u and part 1.
+        .filter(|i| !extended || i.pattern != "The metadata doesn't identify the file as {}")
         .map(|i| PdfAIssue { clause: i.clause.to_string(), message: i.message }).collect();
-    if level == PdfALevel::A1b {
-        let identified = doc.document().standards().pdfa.is_some_and(|(part, conformance)| part == 1 && conformance == "B");
-        issues.extend(part1::issues(&lopdf::Document::load(&input.path)?, identified)?);
+    if extended {
+        let pdf = lopdf::Document::load(&input.path)?;
+        let identified = doc.document().standards().pdfa.is_some_and(|(part, conformance)| part == level.part() && conformance == level.conformance());
+        if !identified { issues.push(PdfAIssue { clause: "PDF/A identification".into(), message: format!("The metadata does not identify {}", level.label()) }); }
+        if level.part() == 1 { issues.extend(part1::issues(&pdf, true)?); }
+        if level.conformance() != "B" { issues.extend(profiles::issues(&doc, &pdf, level.conformance() == "A")); }
     }
     Ok(issues)
 }

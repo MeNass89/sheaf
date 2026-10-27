@@ -23,7 +23,7 @@ pub fn to_pdf(input: &Path, out: &Path, html_to_pdf: impl FnOnce(&Path, &Path) -
         Some("postscript") => postscript(input, out),
         Some(k) => {
             let bytes = std::fs::read(input)?;
-            let (html, attachments) = if k == "mail" { mail_to_html(&bytes) } else { (markdown_to_html(&crate::pdfcraft::engine::decode_text(&bytes)), Vec::new()) };
+            let (html, attachments) = if k == "mail" { mail_to_html(&bytes) } else { (markdown_file_html(input, &crate::pdfcraft::engine::decode_text(&bytes))?, Vec::new()) };
             let page = dir.path().join(format!("{}.html", input.file_stem().unwrap_or_default().to_string_lossy()));
             std::fs::write(&page, html)?;
             let made = html_to_pdf(&page, out)?;
@@ -52,119 +52,35 @@ fn escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
-/// Bold, italic, code and links within a line (already escaped).
-fn inline(s: &str) -> String {
-    let mut out = String::new();
-    let mut rest = s;
-    while let Some(c) = rest.chars().next() {
-        let pair = |open: &str, close: &str, tag: &str, rest: &str| -> Option<(String, usize)> {
-            let body = rest.strip_prefix(open)?;
-            let end = body.find(close).filter(|&e| e > 0)?;
-            Some((format!("<{tag}>{}</{tag}>", if tag == "code" { body[..end].to_string() } else { inline(&body[..end]) }), open.len() + end + close.len()))
-        };
-        let link = || -> Option<(String, usize)> {
-            let body = rest.strip_prefix('[')?;
-            let t = body.find("](")?;
-            let u = body[t + 2..].find(')')?;
-            Some((format!("<a href=\"{}\">{}</a>", &body[t + 2..t + 2 + u], inline(&body[..t])), 1 + t + 2 + u + 1))
-        };
-        let found = match c {
-            '`' => pair("`", "`", "code", rest),
-            '*' => pair("**", "**", "b", rest).or_else(|| pair("*", "*", "i", rest)),
-            '_' => pair("__", "__", "b", rest).or_else(|| pair("_", "_", "i", rest)),
-            '[' => link(),
-            _ => None,
-        };
-        match found {
-            Some((html, used)) => {
-                out.push_str(&html);
-                rest = &rest[used..];
-            }
-            None => {
-                out.push(c);
-                rest = &rest[c.len_utf8()..];
-            }
-        }
-    }
-    out
+/// Stirling uses CommonMark for image destinations, references and nested inline content.
+/// Raw HTML stays literal, as in Sheaf's former Markdown importer; it cannot add remote resources.
+pub fn markdown_to_html(md: &str) -> String {
+    use pulldown_cmark::{Event, Options, Parser};
+    let events = Parser::new_ext(md, Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH).map(|event| match event {
+        Event::Html(text) | Event::InlineHtml(text) => Event::Text(text),
+        event => event,
+    });
+    let mut body = String::new();
+    pulldown_cmark::html::push_html(&mut body, events);
+    format!("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>body{{font-family:sans-serif;line-height:1.4}}img{{max-width:100%;height:auto}}pre{{background:#f4f4f4;padding:8px}}code{{font-family:monospace}}table{{border-collapse:collapse}}td,th{{border:1px solid #999;padding:3px 6px}}blockquote{{border-left:3px solid #ccc;margin-left:0;padding-left:10px;color:#555}}</style></head><body>\n{body}</body></html>")
 }
 
-/// Markdown (CommonMark's usual parts: headings, paragraphs, lists, quotes, code, rules, tables,
-/// bold, italic, code and links) as a web page.
-pub fn markdown_to_html(md: &str) -> String {
-    let mut out = String::from("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>body{font-family:sans-serif;line-height:1.4}pre{background:#f4f4f4;padding:8px}code{font-family:monospace}table{border-collapse:collapse}td,th{border:1px solid #999;padding:3px 6px}blockquote{border-left:3px solid #ccc;margin-left:0;padding-left:10px;color:#555}</style></head><body>\n");
-    let mut para: Vec<String> = Vec::new();
-    let mut list: Option<&str> = None;
-    let mut lines = md.lines().peekable();
-    let flush = |out: &mut String, para: &mut Vec<String>| {
-        if !para.is_empty() {
-            out.push_str(&format!("<p>{}</p>\n", inline(&escape(&para.join(" ")))));
-            para.clear();
-        }
-    };
-    while let Some(line) = lines.next() {
-        let t = line.trim();
-        let item = t.strip_prefix("- ").or_else(|| t.strip_prefix("* ")).or_else(|| t.strip_prefix("+ ")).map(|s| ("ul", s)).or_else(|| {
-            let (n, s) = t.split_once(". ")?;
-            (!n.is_empty() && n.chars().all(|c| c.is_ascii_digit())).then_some(("ol", s))
-        });
-        if list.is_some() && item.map(|i| i.0) != list {
-            out.push_str(&format!("</{}>\n", list.take().unwrap_or("ul")));
-        }
-        if let Some((kind, text)) = item {
-            flush(&mut out, &mut para);
-            if list.is_none() {
-                out.push_str(&format!("<{kind}>\n"));
-                list = Some(kind);
+fn markdown_file_html(input: &Path, md: &str) -> Result<String> {
+    use pulldown_cmark::{Event, Parser, Tag};
+    for event in Parser::new(md) {
+        if let Event::Start(Tag::Image { dest_url, .. }) = event {
+            let first = dest_url.split('/').next().unwrap_or_default();
+            let scheme = first.contains(':');
+            if dest_url.starts_with("//") || (scheme && !dest_url.starts_with("file:///") && !dest_url.starts_with("data:image/")) {
+                return Err(OpdfError::Unsupported("Markdown pictures must be local files or embedded images; remote pictures are not downloaded".into()));
             }
-            out.push_str(&format!("<li>{}</li>\n", inline(&escape(text))));
-            continue;
-        }
-        if t.is_empty() {
-            flush(&mut out, &mut para);
-        } else if t.starts_with("```") {
-            flush(&mut out, &mut para);
-            let mut code = Vec::new();
-            for l in lines.by_ref() {
-                if l.trim_start().starts_with("```") {
-                    break;
-                }
-                code.push(escape(l));
-            }
-            out.push_str(&format!("<pre><code>{}</code></pre>\n", code.join("\n")));
-        } else if let Some(level) = (1..=6).rev().find(|&n| t.starts_with(&format!("{} ", "#".repeat(n)))) {
-            flush(&mut out, &mut para);
-            out.push_str(&format!("<h{level}>{}</h{level}>\n", inline(&escape(t[level + 1..].trim().trim_end_matches('#').trim()))));
-        } else if t.len() >= 3 && (t.chars().all(|c| c == '-') || t.chars().all(|c| c == '*') || t.chars().all(|c| c == '_')) {
-            flush(&mut out, &mut para);
-            out.push_str("<hr>\n");
-        } else if let Some(q) = t.strip_prefix('>') {
-            flush(&mut out, &mut para);
-            out.push_str(&format!("<blockquote>{}</blockquote>\n", inline(&escape(q.trim()))));
-        } else if t.starts_with('|') && lines.peek().is_some_and(|n| n.trim().starts_with('|') && n.contains("---")) {
-            flush(&mut out, &mut para);
-            let cells = |l: &str| l.trim().trim_matches('|').split('|').map(|c| inline(&escape(c.trim()))).collect::<Vec<_>>();
-            out.push_str("<table><tr>");
-            cells(t).iter().for_each(|c| out.push_str(&format!("<th>{c}</th>")));
-            out.push_str("</tr>\n");
-            lines.next();
-            while let Some(row) = lines.peek().filter(|l| l.trim().starts_with('|')) {
-                out.push_str("<tr>");
-                cells(row).iter().for_each(|c| out.push_str(&format!("<td>{c}</td>")));
-                out.push_str("</tr>\n");
-                lines.next();
-            }
-            out.push_str("</table>\n");
-        } else {
-            para.push(t.to_string());
         }
     }
-    flush(&mut out, &mut para);
-    if let Some(kind) = list {
-        out.push_str(&format!("</{kind}>\n"));
-    }
-    out.push_str("</body></html>\n");
-    out
+    let original = if cfg!(windows) { std::path::absolute(input)? } else { std::fs::canonicalize(input)? };
+    let base = escape(&crate::office::file_url(&original));
+    // The conversion HTML lives in a temporary folder. Its base must remain the Markdown file,
+    // for both Original layout and the chosen paper/browser layout.
+    Ok(markdown_to_html(md).replacen("<head>", &format!("<head><base href=\"{base}\">"), 1))
 }
 
 /// A MIME part: its headers (names lower case, values unfolded) and its body.
@@ -439,7 +355,7 @@ mod tests {
     #[test]
     fn markdown_becomes_headings_lists_tables_and_inline_styles() {
         let html = markdown_to_html("# Title\n\nSome **bold** and *it* with `x<y`.\n\n- one\n- two\n\n1. first\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n```\ncode <here>\n```\n> quoted\n---\n[link](https://e.x)");
-        for want in ["<h1>Title</h1>", "<b>bold</b>", "<i>it</i>", "<code>x&lt;y</code>", "<ul>\n<li>one</li>\n<li>two</li>\n</ul>", "<ol>\n<li>first</li>", "<th>A</th><th>B</th>", "<td>1</td><td>2</td>", "<pre><code>code &lt;here&gt;</code></pre>", "<blockquote>quoted</blockquote>", "<hr>", "<a href=\"https://e.x\">link</a>"] {
+        for want in ["<h1>Title</h1>", "<strong>bold</strong>", "<em>it</em>", "<code>x&lt;y</code>", "<ul>\n<li>one</li>\n<li>two</li>\n</ul>", "<ol>\n<li>first</li>", "<th>A</th><th>B</th>", "<td>1</td><td>2</td>", "<pre><code>code &lt;here&gt;\n</code></pre>", "<blockquote>", "<p>quoted</p>", "<hr />", "<a href=\"https://e.x\">link</a>"] {
             assert!(html.contains(want), "{want} missing in {html}");
         }
     }
@@ -465,4 +381,34 @@ mod tests {
         assert!(files.is_empty() && !html.contains("Plain only"), "{html}");
         assert!(html.contains("src=\"data:image/png;base64,iVBORw0KGgo=\""), "{html}");
     }
+    #[test]
+    fn markdown_images_are_images_with_escaped_alt_and_nested_destinations() {
+        let html = markdown_to_html("![logo & \"mark\"](images/logo.png) and [![linked](<plot (1).png>)](https://example.test)\n\n`![code](literal.png)`");
+        assert!(html.contains("<img src=\"images/logo.png\" alt=\"logo &amp; &quot;mark&quot;\""), "{html}");
+        assert!(html.contains("<a href=\"https://example.test\"><img src=\"plot%20(1).png\" alt=\"linked\""), "{html}");
+        assert!(html.contains("<code>![code](literal.png)</code>"));
+        assert!(!html.contains("!<a"));
+    }
+
+    #[test]
+    fn markdown_conversion_keeps_source_base_and_refuses_remote_pictures() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("notes with spaces.md");
+        let out = dir.path().join("notes.pdf");
+        std::fs::write(&source, "![local][logo]\n\n[logo]: <pictures/logo (1).png> \"Caption\"").unwrap();
+        to_pdf(&source, &out, |html, out| {
+            let text = std::fs::read_to_string(html)?;
+            assert!(text.contains(&format!("<base href=\"{}\">", crate::office::file_url(&std::fs::canonicalize(&source)?))));
+            assert!(text.contains("src=\"pictures/logo%20(1).png\""), "{text}");
+            assert!(text.contains("title=\"Caption\""));
+            Ok(out.to_path_buf())
+        }).unwrap();
+        for url in ["https://example.test/p.png", "//example.test/p.png", "ftp://example.test/p.png"] {
+            std::fs::write(&source, format!("![remote]({url})")).unwrap();
+            let error = to_pdf(&source, &out, |_, _| panic!("remote resources must be refused before the converter starts")).unwrap_err();
+            assert!(error.to_string().contains("not downloaded"));
+            assert!(!out.exists());
+        }
+    }
+
 }

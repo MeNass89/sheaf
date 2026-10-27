@@ -1,0 +1,17 @@
+[package]
+name = "sheaf-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Generated Slint interface types, isolated to keep desktop builds small"
+
+# This crate contains only generated bindings; app tests exercise the public interface.
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+slint.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true

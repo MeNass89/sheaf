@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/sheaf-core", "crates/sheaf-cli", "crates/sheaf-app"]
+members = ["crates/sheaf-core", "crates/sheaf-cli", "crates/sheaf-app", "crates/sheaf-ui"]
 # Patched third-party code, built as a dependency only (not linted or tested as ours).
-exclude = ["third_party/pdfcraft-annot", "third_party/pdfcraft-cos", "third_party/pdfcraft-edit", "third_party/pdfcraft-engine", "third_party/pdfcraft-export"]
+exclude = ["third_party/pdfcraft-annot", "third_party/pdfcraft-cos", "third_party/pdfcraft-edit", "third_party/pdfcraft-engine", "third_party/pdfcraft-export", "third_party/pdfcraft-preflight"]
 
 [workspace.package]
 version = "0.2.1"
@@ -38,6 +38,8 @@ unicode-normalization = "0.1"
 # Offline Snowball stemming for Acrobat-style catalog searches.
 rust-stemmers = "1.2"
 encoding_rs = "0.8"
+# Stirling-compatible CommonMark parsing; pure Rust, no network or executable.
+pulldown-cmark = { version = "0.13.4", default-features = false, features = ["html"] }
 rust_xlsxwriter = { version = "0.99", default-features = false }
 calamine = { version = "0.31", default-features = false }
 # Check spelling (sheaf-core/src/spell.rs): a pure-Rust Hunspell, reading the system's dictionaries.
@@ -62,6 +64,11 @@ hayro-syntax = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5
 hayro-jbig2 = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 lopdf = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 
+# Generated Slint code is isolated from the PDF/application graph to fit worker memory caps.
+[profile.dev.package.sheaf-ui]
+debug = false
+opt-level = 1
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
@@ -69,6 +76,7 @@ strip = true
 
 # PdfCraft patched for speed on large files and for text box fonts (third_party/README.md).
 [patch."https://github.com/storytold/pdfcraft"]
+pdfcraft-preflight = { path = "third_party/pdfcraft-preflight" }
 pdfcraft-annot = { path = "third_party/pdfcraft-annot" }
 pdfcraft-cos = { path = "third_party/pdfcraft-cos" }
 pdfcraft-edit = { path = "third_party/pdfcraft-edit" }

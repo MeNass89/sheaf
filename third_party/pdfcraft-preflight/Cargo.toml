@@ -1,0 +1,12 @@
+# PdfCraft d3a91c5, MIT OR Apache-2.0; Sheaf's device-colour stream classification fix.
+[package]
+name = "pdfcraft-preflight"
+version = "0.8.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "PDF/A verification and conversion"
+
+[dependencies]
+pdfcraft-cos = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-model = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
+pdfcraft-content = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }

@@ -21,6 +21,17 @@ Password fields can opt into the reveal control in `ui/widgets/text-field.slint`
 Recents exclusions are saved separately from task history by `history.rs` (`hidden-recents.json`).
 The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 
+Scanner acquisition is shared in `crates/sheaf-core/src/scanner.rs`: local SANE on Linux/macOS
+(including Finder's missing Homebrew PATH), WIA on Windows, decoded pixels before accepting a scan.
+`run::scan_page` supplies the GUI test seam; Home and the reader's Insert from Scanner use this adapter.
+
+`crates/sheaf-core/src/textdocs.rs` renders CommonMark with local image resources, keeping the original
+Markdown file URL as the base for the temporary HTML passed to either PDF layout converter.
+
+Archival profiles live in core `pdfa.rs`: `pdfa1.rs` checks PDF 1.4 restrictions,
+`pdfa_profiles.rs` preserves a/u metadata and checks existing tags, and `pdfa_unicode.rs`
+follows actual text codes through page/Form/annotation resources, with bounded CMap validation.
+
 ## Guided actions
 
 - `crates/sheaf-app/src/action_import.rs`: supported Stirling Automate/Folder Scanning translation with explicit native-conversion limits.
@@ -158,3 +169,6 @@ Tesseract explicitly, with the same option in the OCR panel and CLI `--local-eng
 `sheaf-core/tests/ocr_scripts.rs` uses the small `tests/fixtures/ocr-{chinese,japanese,korean}.png` scans to verify installed script packs and invisible Unicode text layers. Portable Tesseract packs are found beside the executable (`tessdata/`), in macOS Resources, Linux `share/sheaf/tessdata`, or the explicit `SHEAF_TESSDATA` folder; debug builds also read ignored `vendor/tessdata/`.
 
 `sheaf-core/src/separations.rs` renders a bounded current-page snapshot into real process/spot plates using local Ghostscript. `flattener_preview.rs` compares a page with a real PDF 1.3 conversion without changing its source. The reader's `reader_ui/output_preview.rs` owns the background job/cancellation; `ui/screens/reader-ink-preview.slint` displays individual plate or before/after images.
+`crates/sheaf-ui` compiles the canonical Slint files in `sheaf-app/ui` and exports the generated
+bindings. `sheaf-app` re-exports them, preserving callers. Isolating generated code keeps the PDF
+engine and application modules out of the same rustc invocation; existing app tests still run.

@@ -236,8 +236,29 @@ fn a_heading_over_one_row_is_a_table() {
     let r = excel::to_excel(&Input::new(&n), SheetLayout::OneSheet, &ExportOptions::default(), &t.path().join("n.xlsx"), &mut |_| true).unwrap();
     assert_eq!(r.tables, 1);
     assert_eq!(read(&r.path)[0].1[1], vec![s("Ada"), s("London"), s("Engines")]);
+    // This wide aligned geometry is a 2×2 table regardless of the words' case. Its old
+    // zero-table expectation depended on the capital-letter heuristic being removed.
     let words = vec![(72.0, 700.0, "Dear"), (220.0, 700.0, "client"), (72.0, 678.0, "Kind"), (220.0, 678.0, "regards")];
     let b = placed_pdf(t.path(), "words.pdf", &[words]);
     let r = excel::to_excel(&Input::new(&b), SheetLayout::OneSheet, &ExportOptions::default(), &t.path().join("w.xlsx"), &mut |_| true).unwrap();
+    assert_eq!(r.tables, 1);
+    assert_eq!(read(&r.path)[0].1, vec![vec![s("Dear"), s("client")], vec![s("Kind"), s("regards")]]);
+    // The same words with a prose-sized gap remain text; no salutation dictionary is used.
+    let prose = vec![(72.0, 700.0, "Dear"), (110.0, 700.0, "client"), (72.0, 678.0, "Kind"), (110.0, 678.0, "regards")];
+    let b = placed_pdf(t.path(), "prose.pdf", &[prose]);
+    let r = excel::to_excel(&Input::new(&b), SheetLayout::OneSheet, &ExportOptions::default(), &t.path().join("prose.xlsx"), &mut |_| true).unwrap();
     assert_eq!(r.tables, 0);
+}
+
+/// iLovePDF preserves table columns irrespective of the case used by the author.
+#[test]
+fn two_lowercase_text_rows_are_exported_as_four_separate_cells() {
+    let t = tempfile::tempdir().unwrap();
+    let source = placed_pdf(t.path(), "lowercase.pdf", &[vec![(72.0, 700.0, "name"), (260.0, 700.0, "role"), (72.0, 678.0, "ada lovelace"), (260.0, 678.0, "engineer")]]);
+    for layout in [SheetLayout::OneSheet, SheetLayout::SheetPerTable] {
+        let output = t.path().join(format!("{layout:?}.xlsx"));
+        let report = excel::to_excel(&Input::new(&source), layout, &ExportOptions::default(), &output, &mut |_| true).unwrap();
+        assert_eq!(report.tables, 1);
+        assert_eq!(read(&output)[0].1, vec![vec![s("name"), s("role")], vec![s("ada lovelace"), s("engineer")]]);
+    }
 }

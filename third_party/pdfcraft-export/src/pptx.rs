@@ -36,10 +36,15 @@ fn height_emu(pt: f64) -> i64 {
     }
 }
 
+/// DrawingML's font range, also used when budgeting a table row's text height.
+fn drawingml_font_size(size: f64) -> i64 {
+    if size.is_finite() { (size * 100.0).round().clamp(100.0, 400000.0) as i64 } else { 1200 }
+}
+
 /// A formatted DrawingML text run (`<a:r>`).
 fn run_drawingml(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3]) -> String {
     let mut rpr = String::new();
-    let sz = if size.is_finite() { (size * 100.0).round().clamp(100.0, 400000.0) as i64 } else { 1200 };
+    let sz = drawingml_font_size(size);
     rpr.push_str(&format!(" sz=\"{sz}\""));
     if bold {
         rpr.push_str(" b=\"1\"");
@@ -53,7 +58,7 @@ fn run_drawingml(text: &str, size: f64, bold: bool, italic: bool, color: [f64; 3
 
 /// Generates a DrawingML table inside a `<p:graphicFrame>` with explicit cell borders.
 /// `content_h`: the height the table has on the page (Sol, 26/10: rows were 24 pt each whatever
-/// the source, so dense tables ran off the slide); its rows share it, none smaller than its text.
+/// the source, so dense tables ran off the slide); its rows share it and scale their text/padding.
 fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64, content_h: i64) -> (String, i64) {
     let mut edges = t.cols.clone();
     edges.push(t.rect[2]);
@@ -62,48 +67,52 @@ fn pptx_table(shape_id: usize, t: &Table, x: i64, y: i64, content_w: i64, conten
     let scale = if total_pt > 0.0 { (content_w as f64 / (total_pt * 12700.0)).min(1.0) } else { 1.0 };
     let widths: Vec<i64> = widths_pt.iter().map(|w| (w * scale * 12700.0).round().max(127000.0) as i64).collect();
     let table_w: i64 = widths.iter().fold(0i64, |sum, w| sum.saturating_add(*w));
-    // The rows share the table's height on the page; each at least its largest text and a margin.
+    // The rows share the source height; their largest text plus margin determines the scale.
     let n = i64::try_from(t.rows.len().max(1)).unwrap_or(1);
-    let text_h = t.rows.iter().flatten().map(|c| c.size).filter(|s| s.is_finite()).fold(0.0f64, f64::max).max(6.0) * 1.2 + 4.0;
-    // Too many rows for the height (Sol, 27/10: 60 rows of 8 pt grew 600 pt into 816): the text
-    // smaller, down to half its size, so they fit.
-    let need = height_emu(text_h.min(24.0)).saturating_mul(n);
-    let k = if content_h > 0 && need > content_h { (content_h as f64 / need as f64).max(0.5) } else { 1.0 };
-    let row_h: i64 = (content_h / n).max((height_emu(text_h.min(24.0)) as f64 * k).round() as i64);
-    let table_h: i64 = i64::try_from(t.rows.len()).unwrap_or(i64::MAX).saturating_mul(row_h).min(MAX_ITEM_EMU);
+    let text_h = t.rows.iter().flatten().map(|c| drawingml_font_size(c.size)).max().unwrap_or(1200) as f64 / 100.0 * 1.2;
+    // iLovePDF keeps the source table rectangle. No half-size floor: 100 rows at 5 pt
+    // overflowed 500 pt even at that floor. Tighten padding before reducing legible type.
+    let line_h = height_emu(text_h).max(1);
+    let row_h = if content_h > 0 { content_h / n } else { height_emu(text_h + 4.0) };
+    let k = (row_h as f64 / line_h as f64).min(1.0);
+    let table_h = n.saturating_mul(row_h).min(MAX_ITEM_EMU);
 
     let mut grid_cols = String::new();
     for w in &widths {
         grid_cols.push_str(&format!("<a:gridCol w=\"{w}\"/>"));
     }
 
-    // Inner margins of 2 pt above and below (the margin `text_h` counts; PowerPoint's own 3.6 pt
-    // would grow every row).
-    const TC_PR: &str = "<a:tcPr marT=\"25400\" marB=\"25400\">\
+    // DrawingML's minimum font is 1 pt. Normal tables retain 2 pt cell margins; reduced
+    // tables reduce those margins too, so PowerPoint does not expand every row on opening.
+    let margin = ((row_h as f64 - line_h as f64 * k) / 2.0).floor().clamp(0.0, 25400.0) as i64;
+    let tc_pr = format!("<a:tcPr marT=\"{margin}\" marB=\"{margin}\">\
 <a:lnL w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnL>\
 <a:lnR w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnR>\
 <a:lnT w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnT>\
 <a:lnB w=\"12700\" cmpd=\"s\"><a:solidFill><a:srgbClr val=\"999999\"/></a:solidFill></a:lnB>\
-</a:tcPr>";
+</a:tcPr>");
 
     let mut rows_xml = String::new();
     for row in &t.rows {
         rows_xml.push_str(&format!("<a:tr h=\"{row_h}\">"));
         for c in row {
             let span = c.span.max(1);
-            let run = run_drawingml(&c.text, c.size * k, c.bold, c.italic, c.color);
+            // Round a reduced font down: rounding it up can make text + padding taller
+            // than the exact row (especially sub-3 pt rows).
+            let size = (drawingml_font_size(c.size) as f64 * k).floor() / 100.0;
+            let run = run_drawingml(&c.text, size, c.bold, c.italic, c.color);
             if span > 1 {
-                rows_xml.push_str(&format!("<a:tc gridSpan=\"{span}\"><a:txBody><a:bodyPr/><a:lstStyle/><a:p>{run}</a:p></a:txBody>{TC_PR}</a:tc>"));
+                rows_xml.push_str(&format!("<a:tc gridSpan=\"{span}\"><a:txBody><a:bodyPr/><a:lstStyle/><a:p>{run}</a:p></a:txBody>{tc_pr}</a:tc>"));
                 for _ in 1..span {
-                    rows_xml.push_str(&format!("<a:tc hMerge=\"1\"><a:txBody><a:bodyPr/><a:lstStyle/><a:p/></a:txBody>{TC_PR}</a:tc>"));
+                    rows_xml.push_str(&format!("<a:tc hMerge=\"1\"><a:txBody><a:bodyPr/><a:lstStyle/><a:p/></a:txBody>{tc_pr}</a:tc>"));
                 }
             } else {
-                rows_xml.push_str(&format!("<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p>{run}</a:p></a:txBody>{TC_PR}</a:tc>"));
+                rows_xml.push_str(&format!("<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p>{run}</a:p></a:txBody>{tc_pr}</a:tc>"));
             }
         }
         let used: usize = row.iter().map(|c| c.span).sum();
         for _ in used..t.cols.len() {
-            rows_xml.push_str(&format!("<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p/></a:txBody>{TC_PR}</a:tc>"));
+            rows_xml.push_str(&format!("<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p/></a:txBody>{tc_pr}</a:tc>"));
         }
         rows_xml.push_str("</a:tr>");
     }
@@ -476,12 +485,13 @@ mod tests {
         let (xml, _) = super::pptx_table(2, &t, 0, 0, 300 * 12700, 200 * 12700);
         assert_eq!(xml.matches("<a:tr h=\"254000\">").count(), 10, "ten rows of 20 pt: {}", &xml[..xml.len().min(400)]);
         let (xml, _) = super::pptx_table(2, &t, 0, 0, 300 * 12700, 20 * 12700);
-        assert!(!xml.contains("<a:tr h=\"25400\">"), "a row never smaller than its text");
-        // Sixty rows of 8 pt in 600 pt: they keep the 600 pt, their text made smaller to fit.
+        assert_eq!(xml.matches("<a:tr h=\"25400\">").count(), 10, "even a 20 pt source table keeps its height; text and padding shrink together");
+        // Sixty rows of 8 pt in 600 pt: preserve the font by tightening the cell padding first.
         let t = Table { rect: [72.0, 100.0, 372.0, 700.0], cols: vec![72.0, 222.0], rows: (0..60).map(|k| vec![cell(&format!("r{k}")), cell("v")]).collect(), ruled: false };
         let (xml, h) = super::pptx_table(2, &t, 0, 0, 300 * 12700, 600 * 12700);
         assert!(h <= 600 * 12700, "{} pt", h / 12700);
-        assert!(xml.contains("sz=\"588\""), "8 pt made 5.88 pt: {}", &xml[..xml.len().min(600)]);
+        assert!(xml.contains("sz=\"800\""), "8 pt remains 8 pt when only padding needs to shrink: {}", &xml[..xml.len().min(600)]);
+        assert!(xml.contains("marT=\"2540\" marB=\"2540\""), "0.2 pt padding around 9.6 pt of text fits each 10 pt row");
     }
 
     #[test]
@@ -749,7 +759,8 @@ mod tests {
         // The table must contain both the cell and explicit borders
         assert!(slide_xml.contains("<a:tbl>"));
         assert!(slide_xml.contains("+99%"));
-        assert!(slide_xml.contains("<a:tcPr marT=\"25400\" marB=\"25400\"><a:lnL w=\"12700\" cmpd=\"s\">"));
+        // The 36 pt cell needs the padding tightened before its font can fit the original rows.
+        assert!(slide_xml.contains("<a:tcPr marT=\"0\" marB=\"0\"><a:lnL w=\"12700\" cmpd=\"s\">"));
     }
 
     #[test]
@@ -777,4 +788,21 @@ mod tests {
         }
         let _ = std::fs::remove_dir_all(&dir);
     }
+    /// iLovePDF keeps dense tables within their original slide rectangle, including padding.
+    #[test]
+    fn pptx_dense_small_type_table_has_no_half_scale_floor_or_fixed_margins() {
+        let t = Table {
+            rect: [0.0, 0.0, 300.0, 500.0], cols: vec![0.0, 150.0], ruled: false,
+            rows: (0..100).map(|i| vec![crate::Cell { text: format!("row {i}"), size: 5.0, span: 1, ..Default::default() }; 2]).collect(),
+        };
+        let (xml, h) = super::pptx_table(2, &t, 0, 0, 300 * 12700, 500 * 12700);
+        assert!(h <= 500 * 12700, "100 rows must fit in 500 pt, got {} pt", h / 12700);
+        let size = xml.split("sz=\"").nth(1).unwrap().split('"').next().unwrap().parse::<f64>().unwrap() / 100.0;
+        let margin = xml.split("marT=\"").nth(1).unwrap().split('"').next().unwrap().parse::<f64>().unwrap() / 12700.0;
+        assert!(size >= 4.0, "tightening padding retains a readable font instead of halving it");
+        assert!(size * 1.2 + 2.0 * margin <= h as f64 / 12700.0 / 100.0 + 0.02, "text plus padding fits each row");
+        assert_eq!(xml.matches("<a:tr ").count(), 100);
+        assert!(xml.contains("row 99"), "every row stays editable");
+    }
+
 }

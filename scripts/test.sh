@@ -43,6 +43,9 @@ elif [ -z "${CI:-}" ] && [ -f dev/scripts/cargo.sh ]; then
     jobs=$(( $(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo) / 2500 )); [ "$jobs" -lt 1 ] && jobs=1; [ "$jobs" -gt "$(nproc)" ] && jobs=$(nproc)
     # A constrained runner may have less memory than the host: keep its explicit job budget.
     export JOBS="${JOBS:-$jobs}" CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target/sheaf}"
+    # Respect a worker's tighter job budget: the host's free RAM is not its cgroup cap.
+    if [[ "${JOBS:-}" =~ ^[1-9][0-9]*$ ]] && [ "$JOBS" -lt "$jobs" ]; then jobs=$JOBS; fi
+    export JOBS="$jobs" CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/cargo-target/sheaf}"
     # The GUI layer runs its own copy of the app built, so another worktree's build can share the dir.
     cargo_() { sh dev/scripts/cargo.sh "$@" || return; [ "$1" != build ] || { mkdir -p dev/.tmp && cp "$CARGO_TARGET_DIR/debug/sheaf-app" dev/.tmp/sheaf-app-under-test; }; }
     export SHEAF_APP="$PWD/dev/.tmp/sheaf-app-under-test"

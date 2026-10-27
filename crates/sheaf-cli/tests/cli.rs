@@ -204,17 +204,35 @@ fn pdfa_subcommand_reports_conformance() {
     std::fs::write(&png, include_bytes!("fixtures/8x8.png")).unwrap();
     let a = t.path().join("a.pdf");
     assert!(bin().arg("from-images").arg(&png).arg("-o").arg(&a).status().unwrap().success());
-    for (level, label, part) in [("2b", "PDF/A-2b", "2"), ("3b", "PDF/A-3b", "3")] {
+    // The existing PNG has transparency, which 1b must reject rather than silently flatten.
+    let opaque = t.path().join("opaque.png");
+    image::RgbImage::from_pixel(8, 8, image::Rgb([42, 157, 75])).save(&opaque).unwrap();
+    let plain = t.path().join("opaque.pdf");
+    assert!(bin().arg("from-images").arg(&opaque).arg("-o").arg(&plain).status().unwrap().success());
+    for (level, label, part) in [("1b", "PDF/A-1b", "1"), ("2b", "PDF/A-2b", "2"), ("2u", "PDF/A-2u", "2"), ("3b", "PDF/A-3b", "3"), ("3u", "PDF/A-3u", "3")] {
         let out = t.path().join(format!("a-{level}.pdf"));
-        let r = bin().arg("pdfa").arg(&a).args(["--level", level, "-o"]).arg(&out).output().unwrap();
+        let source = if level == "1b" { &plain } else { &a };
+        let r = bin().arg("pdfa").arg(source).args(["--level", level, "-o"]).arg(&out).output().unwrap();
         let err = String::from_utf8_lossy(&r.stderr);
         assert!(r.status.success(), "{err}");
         assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
-        assert!(err.contains(&format!("Conforms to {label}")), "{err}");
+        assert!(err.contains(&format!("Checks passed for {label}")), "{err}");
         let bytes = std::fs::read(&out).unwrap();
         assert!(String::from_utf8_lossy(&bytes).contains(&format!("pdfaid:part>{part}<")));
     }
-    assert_eq!(bin().arg("pdfa").arg(&a).args(["--level", "1a", "-o"]).arg(t.path().join("x.pdf")).status().unwrap().code(), Some(1));
+    let incomplete = t.path().join("transparent-1b.pdf");
+    let rejected = bin().arg("pdfa").arg(&a).args(["--level", "1b", "-o"]).arg(&incomplete).output().unwrap();
+    assert_eq!(rejected.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("Transparency is not allowed"));
+    assert!(incomplete.exists(), "CLI keeps an incomplete copy and reports failure");
+    for level in ["1a", "2a", "3a"] {
+        let out = t.path().join(format!("a-{level}.pdf"));
+        let r = bin().arg("pdfa").arg(&a).args(["--level", level, "-o"]).arg(&out).output().unwrap();
+        assert_eq!(r.status.code(), Some(1), "untagged image cannot pass level a");
+        assert!(String::from_utf8_lossy(&r.stderr).contains("did not pass all built-in"));
+        let bytes = std::fs::read(&out).unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains("pdfaid:conformance>A<"));
+    }
 }
 
 #[test]
@@ -228,7 +246,7 @@ fn pdfa_exits_1_when_rules_are_still_broken_but_writes_the_file() {
     let r = bin().arg("pdfa").arg(&a).arg("-o").arg(&out).output().unwrap();
     let err = String::from_utf8_lossy(&r.stderr);
     assert_eq!(r.status.code(), Some(1), "{err}");
-    assert!(err.contains("warning: PDF/A-2b (6.2.11.4)") && err.contains("does not fully conform"), "{err}");
+    assert!(err.contains("warning: PDF/A-2b (6.2.11.4)") && err.contains("did not pass all built-in PDF/A-2b checks"), "{err}");
     assert_eq!(String::from_utf8_lossy(&r.stdout).trim(), out.display().to_string());
     assert!(out.exists());
     let help = bin().args(["pdfa", "--help"]).output().unwrap();

@@ -142,8 +142,8 @@ fn aligned(xs: &[f64]) -> usize {
 
 /// The table made of `run` (lines), if it is one.
 fn table(run: &[Vec<Segment>]) -> Option<Table> {
-    // Two rows make a table only as a heading over one row with a number in it, every cell filled
-    // (an invoice with one item; Sol, 26/10: two-row tables went to column A).
+    // Two-row tables require aligned, populated cells. Text-only two-column tables also need
+    // a wide gutter, so adjacent fragments of prose do not become spreadsheet columns.
     let two = run.len() == 2;
     if run.len() < 2 {
         return None;
@@ -203,11 +203,10 @@ fn table(run: &[Vec<Segment>]) -> Option<Table> {
         let short = rows.iter().flatten().all(|c| c.split_whitespace().count() <= 3);
         let text_h = run.iter().flatten().map(|s| s.rect[3] - s.rect[1]).fold(0.0, f64::max);
         let apart = cols.windows(2).all(|w| w[1].0 - w[0].1 >= 3.0 * text_h);
-        // Two columns: their cells start with a capital or a figure, as table cells do ("Dear
-        // client / Kind regards" are a letter's words).
-        let capitals = rows.iter().flatten().all(|c| c.chars().next().is_some_and(|ch| ch.is_uppercase() || ch.is_ascii_digit()));
-        let words = short && (cols.len() >= 3 || (apart && capitals));
-        return (line_up.iter().all(|n| *n >= 2) && full && heading && (figure || words)).then_some(Table { rect, rows });
+        // iLovePDF's text tables follow alignment and gutters, irrespective of case or script.
+        // A case test excluded lowercase names and every script without uppercase letters.
+        let words = short && (cols.len() >= 3 || apart);
+        return (line_up.iter().all(|n| *n >= 2) && full && ((heading && figure) || words)).then_some(Table { rect, rows });
     }
     let lined_up = line_up.iter().any(|n| *n >= MIN_ROWS) && line_up.iter().all(|n| *n >= 2);
     // Some column holds short cells (three words at most, or numbers) in two rows out of three:
@@ -645,4 +644,15 @@ mod tests {
         }
         assert_eq!(reading_order(&rects, 11.0), vec![0, 1, 2, 3, 4, 5, 6]);
     }
+    /// iLovePDF's table extraction depends on geometry, not the language's letter case.
+    #[test]
+    fn two_row_text_tables_accept_lowercase_and_uncased_cells() {
+        for (name, role) in [("ada lovelace", "engineer"), ("علي", "طبيب"), ("alice", "développeuse")] {
+            let w = words(&[(72.0, 700.0, "name"), (250.0, 700.0, "role"), (72.0, 680.0, name), (250.0, 680.0, role)]);
+            let t = tables(&lines(&w));
+            assert_eq!(t.len(), 1, "aligned table containing {name} / {role}");
+            assert_eq!(t[0].rows, vec![vec!["name", "role"], vec![name, role]]);
+        }
+    }
+
 }

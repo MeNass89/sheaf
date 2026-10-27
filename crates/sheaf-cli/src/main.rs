@@ -488,6 +488,11 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 CliPdfA::A1b => PdfALevel::A1b,
                 CliPdfA::A2b => PdfALevel::A2b,
                 CliPdfA::A3b => PdfALevel::A3b,
+                CliPdfA::A1a => PdfALevel::A1a,
+                CliPdfA::A2u => PdfALevel::A2u,
+                CliPdfA::A3u => PdfALevel::A3u,
+                CliPdfA::A2a => PdfALevel::A2a,
+                CliPdfA::A3a => PdfALevel::A3a,
             };
             let r = pdfa::to_pdfa(&input(i), level, &out)?;
             if r.issues.is_empty() {
@@ -497,7 +502,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 note!("warning: {} ({}): {}", level.label(), issue.clause, issue.message);
             }
             if !r.issues.is_empty() {
-                note!("error: the output does not fully conform to {}", level.label());
+                note!("error: the output did not pass all built-in {} checks", level.label());
                 NOT_CONFORMING.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             warned(Ok((r.path, r.was_encrypted)))
