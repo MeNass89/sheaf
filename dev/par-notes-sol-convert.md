@@ -296,3 +296,80 @@
   package/version/checksum. No cargo invocation, dependency resolver or compiler was run.
 - not automatable: preflight and PDF/X on a previously clean document must leave it clean after
   completion, with Undo/close state restored — runtime execution forbidden by rule 1.
+
+## Polaroid — pass 2 handoff, current
+
+- Status: source implementation delivered for all six components; all six remain **partial**.
+  Six component commits were pushed individually, then the request-count/dependency correction.
+  No component was closed or board-graded. No counterpart review has happened; it belongs after
+  the orchestrator merges, builds and runs the full suite green.
+- Done: Slint preflight with custom profiles and page links; print-production sheet with stroke,
+  scope and page-box controls; whole-sheet Excel option; HTML encoding/base preservation;
+  strict/permissive archival publication choice; ICC-guided offline PDF/X-3 export.
+- Not done: LibreOffice distribution and fidelity corpus; browser/URL/long-page HTML; extra PDF/A
+  levels and full ISO validation; PDF/E and other PDF/X versions; separations, output simulation,
+  full fixup/audit profiles, nested artwork hairlines, trapping and flattening preview.
+- Runtime dependencies: existing LibreOffice; optional Ghostscript for PDF/X-3. Core adds the small
+  pure-Rust encoding_rs direct dependency already present in the lock. No network service added.
+- Verification actually performed: live source/API inspection, all relevant Office/PDF-A job
+  constructors searched, static send/reply count audit, git diff --check, final Impeccable static
+  detector `[]`, local and remote branch heads compared. No cargo, rustc, clippy, tests, app,
+  Chrome, Xvfb or codex executed. No render was visually judged.
+- New tests and amended tests are named under each component above. The orchestrator must execute
+  them; LibreOffice, Ghostscript, the real press ICC and the existing PDFium/poppler/qpdf setup
+  are needed for their corresponding integration checks. Optional-runtime skips are not passes
+  proving conversion parity.
+- First action: integrate this branch, reconcile reader menu indices 20–22 with other workers,
+  compile Slint/Rust and run the real suite. Then inspect both sheets and options in both themes,
+  source cleanliness after inspections, unsaved-document export, permissions and cancellation.
+  New callbacks are wired in main.rs; no extra menu index beyond pass 1 was allocated.
+- Integration fields: Job::Office.whole_sheets; Job::PdfA.allow_incomplete;
+  ToolOptions.pdfa_allow_incomplete (including restore and saved history); ReaderState's
+  production/preflight/press fields. No new Prefs field. New engine API printcheck::Profile and
+  Document::print_readiness_with. Core press exports and the renamed PrintPreflight operation
+  are described above.
+- Control: mandate **partial**, with independent source work delivered on all six; evidence **yes**
+  for code/static checks, **not yet** for runtime; dependencies **yes**, named above, while the
+  omitted standards/advanced engines are unfinished work rather than a claimed external block;
+  independent work **yes within this pass**, with all remaining feature gaps retained explicitly.
+
+## Pass 2 changed files (complete)
+
+- Cargo.toml, Cargo.lock; crates/sheaf-core/Cargo.toml.
+- crates/sheaf-app/src/jobs.rs, main.rs, run.rs, saved_options.rs, reader_doc/mod.rs,
+  reader_ui/mod.rs, reader_ui/model.rs, reader_ui/prepress.rs.
+- crates/sheaf-app/tests/jobs.rs.
+- crates/sheaf-app/ui/flow-types.slint, screens/options.slint, screens/reader-toolbar.slint,
+  screens/reader.slint, screens/reader-prepress.slint, screens/reader-production.slint.
+- crates/sheaf-core/src/lib.rs, html.rs, html_source.rs, office.rs, pdfa.rs, preflight.rs, press.rs.
+- crates/sheaf-core/tests/engine_patches.rs, office.rs, pdfa.rs, preflight.rs, press.rs.
+- third_party/pdfcraft-engine/src/printcheck.rs; dev/par-notes-sol-convert.md.
+
+## Author grades — provisional, source-only
+
+C-convert-002: f8 a8 p8 — whole_sheet_export_keeps_outside_print_area_and_hidden_sheet_content,
+crates/sheaf-core/tests/office.rs:276; saved print areas vs whole/hidden sheets, source preserved;
+UI crates/sheaf-app/ui/screens/options.slint:641. Bundling/fidelity/sheet selection still missing.
+
+C-convert-005: f7 a8 p8 — legacy_html_with_its_own_relative_base_keeps_its_text_and_local_picture,
+crates/sheaf-core/tests/office.rs:312; legacy text and a real relative local picture under custom
+paper settings. Screen media/URL/long page remain absent.
+
+C-convert-018: f8 a8 p8 — strict_archival_output_keeps_existing_files_and_publishes_no_failed_copy,
+crates/sheaf-core/tests/pdfa.rs:99; failed structural checks prevent publication unless opted in;
+UI crates/sheaf-app/ui/screens/options.slint:1099. Extra levels and full validation still missing.
+
+C-convert-019: f4 a7 p6 — pdfx3_uses_the_chosen_press_profile_and_preserves_the_working_document,
+crates/sheaf-core/tests/press.rs:8; ICC-guided PDF/X-3 conversion, marker/font checks and source kept;
+UI crates/sheaf-app/ui/screens/reader-production.slint:75. PDF/E and full validation not delivered.
+
+C-optimize-012: f6 a7 p7 — print_preflight_reports_low_resolution_and_keeps_the_document_unchanged,
+crates/sheaf-core/tests/preflight.rs:5; changing real profile thresholds changes findings without
+editing; UI crates/sheaf-app/ui/screens/reader-prepress.slint:8. No separations or automatic fixes.
+
+C-optimize-014: f5 a7 p7 — print_box_margins_use_each_media_origin_and_failed_changes_leave_it_intact,
+crates/sheaf-core/tests/engine_patches.rs:117; media-relative boxes, failure atomicity and undo;
+UI crates/sheaf-app/ui/screens/reader-production.slint:8. Advanced print-production gaps above.
+
+All cited tests are WRITTEN, NOT RUN. These numbers are not joint grades or closure requests.
+LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
