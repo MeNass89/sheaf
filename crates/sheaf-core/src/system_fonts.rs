@@ -7,11 +7,15 @@
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-/// One installed face: its name as shown ("DejaVu Serif Bold") and its file.
+/// One installed face: its name as shown ("DejaVu Serif Bold"), its file, its family ("DejaVu
+/// Serif") and whether it is bold or italic.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SystemFont {
     pub name: String,
     pub path: PathBuf,
+    pub family: String,
+    pub bold: bool,
+    pub italic: bool,
 }
 
 /// The folders fonts are installed in on this system (those that exist).
@@ -47,7 +51,15 @@ pub fn list_fonts(dirs: &[PathBuf]) -> Vec<SystemFont> {
         font_files(d, 0, &mut files);
     }
     files.sort();
-    let mut out: Vec<SystemFont> = files.into_iter().take(MAX_FILES).filter_map(|path| Some(SystemFont { name: embeddable_name(&path)?, path })).collect();
+    let mut out: Vec<SystemFont> = files
+        .into_iter()
+        .take(MAX_FILES)
+        .filter_map(|path| {
+            let (name, family) = embeddable_name(&path)?;
+            let (bold, italic) = style_of(&name);
+            Some(SystemFont { name, path, family, bold, italic })
+        })
+        .collect();
     out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.path.cmp(&b.path)));
     out.dedup_by(|a, b| a.name == b.name);
     out
@@ -76,16 +88,42 @@ fn font_files(dir: &Path, depth: usize, out: &mut Vec<PathBuf>) {
 }
 
 /// A font file's name as shown, when PdfCraft may embed it: its family, and its style when not
-/// the regular one, from its PostScript name ("DejaVuSerif-BoldItalic" → "DejaVu Serif Bold Italic").
-fn embeddable_name(path: &Path) -> Option<String> {
+/// the regular one, from its PostScript name ("DejaVuSerif-BoldItalic" → "DejaVu Serif Bold
+/// Italic"); and its family.
+fn embeddable_name(path: &Path) -> Option<(String, String)> {
     let bytes = std::fs::read(path).ok()?;
     pdfcraft_fonts::embedding::validate_document_input(&bytes).ok()?;
     let (family, postscript) = pdfcraft_fonts::embedding::names(&bytes).ok()?;
     let style = postscript.rsplit_once('-').map(|(_, s)| s).filter(|s| !s.is_empty() && !s.eq_ignore_ascii_case("regular") && !s.eq_ignore_ascii_case("roman"));
     Some(match style {
-        Some(s) => format!("{family} {}", spaced(s)),
-        None => family,
+        Some(s) => (format!("{family} {}", spaced(s)), family),
+        None => (family.clone(), family),
     })
+}
+
+/// Whether a font's name says bold and italic ("DejaVuSerif-BoldItalic", "Arial,Bold",
+/// "ABCDEF+NotoSans-SemiBoldOblique").
+pub fn style_of(name: &str) -> (bool, bool) {
+    let l = name.to_ascii_lowercase();
+    let bold = ["bold", "black", "heavy"].iter().any(|w| l.contains(w));
+    (bold, l.contains("italic") || l.contains("oblique"))
+}
+
+/// Letters and digits of a font name, lower case: "DejaVu Serif" and "DejaVuSerif" alike.
+fn key(name: &str) -> String {
+    name.chars().filter(char::is_ascii_alphanumeric).flat_map(|c| c.to_lowercase()).collect()
+}
+
+/// The installed face of the font `base_font` is drawn in (a `/BaseFont`, "ABCDEF+DejaVuSerif-Bold":
+/// its family is what comes before the style) that is `bold` and `italic`: what the format row's
+/// B and I give a text box in a font of the computer's or the file's own, as PDF Expert's
+/// typeface menu does.
+pub fn variant<'a>(fonts: &'a [SystemFont], base_font: &str, bold: bool, italic: bool) -> Option<&'a SystemFont> {
+    let plain = base_font.rsplit('+').next().unwrap_or(base_font);
+    let family = key(plain.split(['-', ',']).next().unwrap_or(plain));
+    // "ArialMT" is Arial's family as PostScript names it.
+    let family = family.strip_suffix("mt").filter(|f| !f.is_empty()).map_or(family.clone(), str::to_string);
+    fonts.iter().filter(|f| f.bold == bold && f.italic == italic).find(|f| key(&f.family) == family)
 }
 
 /// "BoldItalic" → "Bold Italic".
@@ -105,6 +143,21 @@ fn spaced(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Bold and italic pick the same family's faces (Sol, 27/10: a standard family came instead).
+    #[test]
+    fn bold_and_italic_pick_the_fonts_own_faces() {
+        let face = |name: &str, family: &str| {
+            let (bold, italic) = style_of(name);
+            SystemFont { name: name.into(), path: PathBuf::from(format!("{name}.ttf")), family: family.into(), bold, italic }
+        };
+        let fonts = [face("DejaVu Serif", "DejaVu Serif"), face("DejaVu Serif Bold", "DejaVu Serif"), face("DejaVu Serif Italic", "DejaVu Serif"), face("DejaVu Sans Bold", "DejaVu Sans")];
+        assert_eq!(variant(&fonts, "ABCDEF+DejaVuSerif", true, false).map(|f| f.name.as_str()), Some("DejaVu Serif Bold"));
+        assert_eq!(variant(&fonts, "DejaVuSerif-Bold", false, true).map(|f| f.name.as_str()), Some("DejaVu Serif Italic"));
+        assert_eq!(variant(&fonts, "DejaVuSerif-Bold", false, false).map(|f| f.name.as_str()), Some("DejaVu Serif"));
+        assert!(variant(&fonts, "DejaVuSerif", true, true).is_none(), "no bold italic face installed");
+        assert_eq!(style_of("ABCDEF+NotoSans-SemiBoldOblique"), (true, true));
+    }
 
     #[test]
     fn styles_are_spaced_out() {

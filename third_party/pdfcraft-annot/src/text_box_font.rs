@@ -51,3 +51,31 @@ pub fn set_text_box_font_program(doc: &mut Document, page: usize, index: usize, 
     })?;
     redraw_or_restore(doc, r, before)
 }
+
+/// Sheaf: the font each text box is drawn in, by its `/BaseFont` (subset tag kept), when its
+/// appearance holds the font `/DA` names: ((page, index in its `/Annots`), base font), so the
+/// format row's bold and italic can pick that font's own faces.
+pub fn base_fonts(doc: &Document) -> Vec<((usize, usize), String)> {
+    let Ok(pages) = crate::page_refs(doc) else { return Vec::new() };
+    let mut out = Vec::new();
+    for (i, p) in pages.iter().enumerate() {
+        for (k, entry) in crate::annots(doc, *p).iter().enumerate() {
+            let annot = doc.resolve(entry);
+            let Some(d) = annot.as_dict().filter(|d| d.name(b"Subtype") == Some(b"FreeText")) else { continue };
+            let Some(name) = appearance::da_font_name(d) else { continue };
+            let base = || -> Option<String> {
+                let ap = doc.resolve(d.get(b"AP")?);
+                let normal = doc.resolve(ap.as_dict()?.get(b"N")?);
+                let Object::Stream(normal) = normal.as_ref() else { return None };
+                let res = doc.resolve(normal.dict.get(b"Resources")?);
+                let fonts = doc.resolve(res.as_dict()?.get(b"Font")?);
+                let font = doc.resolve(fonts.as_dict()?.get(name.as_bytes())?);
+                font.as_dict()?.name(b"BaseFont").map(|b| String::from_utf8_lossy(b).into_owned())
+            };
+            if let Some(b) = base() {
+                out.push(((i, k), b));
+            }
+        }
+    }
+    out
+}

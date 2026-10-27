@@ -129,6 +129,36 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
     if what == 9 {
         return list_system_fonts(ui);
     }
+    // Bold or italic on a text box in a font that is not a standard one: the same font's bold or
+    // italic face installed on the computer, as PDF Expert's typeface menu (Sol, 27/10: a
+    // standard family replaced it).
+    if matches!(what, 2 | 3)
+        && let Some((page, index, base)) = update(tab_id, |r, _| {
+            let a = r.selected_annot.and_then(|i| r.annots().get(i)).filter(|a| a.subtype == "FreeText" && !a.fill_sign && !a.font_name.is_empty())?;
+            let standard = FONTS.iter().flatten().any(|f| a.font.is_some_and(|(n, _, _)| n == *f));
+            (!standard).then(|| (a.page, a.index, a.font_name.clone()))
+        })
+        .flatten()
+    {
+        use sheaf_core::system_fonts::{installed, style_of, variant};
+        let (bold, italic) = style_of(&base);
+        let (bold, italic) = if what == 2 { (!bold, italic) } else { (bold, !italic) };
+        let family = base.rsplit('+').next().unwrap_or(&base).split(['-', ',']).next().unwrap_or_default().to_string();
+        let Some(face) = variant(installed(), &base, bold, italic) else {
+            let style = match (bold, italic) {
+                (true, true) => "bold italic",
+                (true, false) => "bold",
+                (false, true) => "italic",
+                (false, false) => "regular",
+            };
+            return crate::flow::toast(ui, &format!("No {style} face of {family} is installed on this computer"));
+        };
+        match std::fs::read(&face.path) {
+            Ok(bytes) => apply(ui, tab_id, Edit::SetTextBoxFontProgram { page, index, font: std::sync::Arc::new(bytes) }, &[page], None),
+            Err(e) => crate::flow::toast(ui, &format!("{} can't be read: {e}", face.name)),
+        }
+        return;
+    }
     // A font of the computer's (`v` in the list), for the open paragraph: its program read now.
     let picked = if what == 8 {
         let Some(f) = sheaf_core::system_fonts::installed().get(v.max(0) as usize) else { return };
