@@ -386,3 +386,26 @@ LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
 - No dependency. not automatable: fresh PDF/A screen has Keep a copy checked; Run again restores
   an explicitly unchecked strict choice — worker cannot launch the application.
 - Grade: f7 a8 p8, partial; fixes the regression, does not close standard-level parity.
+
+## Pass 3 — C-convert-002
+
+- C-convert-002: Excel to PDF has an explicit Built-in data report, entirely Rust (no runtime
+  discovery, child process or network). XLS/XLSX/XLSB/ODS data pages keep cell addresses, stored
+  values and accents; long values wrap and paginate. Visible sheets by default, numbered sheet
+  ranges select hidden sheets deliberately and preserve order. Existing outputs and sources
+  stay intact. The app permits this mode without LibreOffice and bypasses the preview cache.
+- Tests `native_data_report_selects_sheets_preserves_cells_and_needs_no_office_runtime`,
+  `native_data_report_wraps_long_values_and_refuses_missing_glyphs_atomically`,
+  `native_spreadsheet_choice_keeps_sheet_selection_and_bypasses_the_office_cache`. None skips
+  for missing LibreOffice; written, not run. Uses lopdf assertions without external PDF tools.
+- Dependency: existing pure-Rust `calamine` moved from dev to regular core dependencies; already
+  workspace-declared and locked, no new package/version or lock change. New public module
+  `sheaf_core::spreadsheet`; `Job::Office.data_sheets: Option<String>` added and constructors
+  updated. No preference field.
+- Left: faithful Office import still requires LibreOffice (unbundled); Word/PowerPoint options,
+  sheet selection in the faithful converter, charts/styles/formula recalculation in the native
+  report. Native mode reports raw dates and supports Western European text only; other glyphs
+  fail clearly with Saved print layout guidance, without publishing a damaged PDF. Not parity.
+- not automatable: without LibreOffice select data report, choose sheets, Run, inspect both themes
+  and confirm Run again restores layout/ranges — app execution forbidden.
+- Grade: f8 a8 p8 (partial). LIGNES : max 5 (data-report information) · cases > 6 : aucune.

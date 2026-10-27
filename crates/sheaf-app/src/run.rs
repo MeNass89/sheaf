@@ -351,7 +351,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 landscape: opts.landscape,
                 margin: [0.0, 18.0, 36.0][opts.margin.clamp(0, 2) as usize],
             });
-            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), html, whole_sheets: tool == ToolId::ExcelToPdf && opts.layout == 1 }
+            Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), html, whole_sheets: tool == ToolId::ExcelToPdf && opts.layout == 1, data_sheets: (tool == ToolId::ExcelToPdf && opts.layout == 2).then(|| opts.pages.to_string()) }
         }
         ToolId::PageNumbers => {
             let options = number_options(opts, inputs.len() > 1)?;
@@ -1374,6 +1374,19 @@ mod tests {
         for (tool, expected) in [(ToolId::ExcelToPdf, true), (ToolId::WordToPdf, false), (ToolId::PowerPointToPdf, false)] {
             let job = build_job(tool, vec![Input::new("/a/book.xlsx")], vec![], &o, Dest::NextToEach).unwrap();
             assert!(matches!(job, Job::Office { whole_sheets, html: None, .. } if whole_sheets == expected));
+        }
+    }
+
+    #[test]
+    fn native_spreadsheet_choice_keeps_sheet_selection_and_bypasses_the_office_cache() {
+        let mut o = opts();
+        o.layout = 2;
+        o.pages = "3,1-2".into();
+        for tool in [ToolId::ExcelToPdf, ToolId::WordToPdf, ToolId::PowerPointToPdf] {
+            let job = build_job(tool, vec![Input::new("/a/book.xlsx")], vec![], &o, Dest::NextToEach).unwrap();
+            let Job::Office { data_sheets, whole_sheets, .. } = job else { panic!() };
+            assert!(!whole_sheets);
+            assert_eq!(data_sheets.as_deref(), (tool == ToolId::ExcelToPdf).then_some("3,1-2"));
         }
     }
 

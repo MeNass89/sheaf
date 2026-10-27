@@ -279,7 +279,7 @@ fn office_batch_keeps_the_first_pdf_when_the_second_fails() {
     std::fs::write(&html, "<html><body><p>Hello</p></body></html>").unwrap();
     let missing = dir.path().join("missing.docx");
     let items = vec![(html, dir.path().join("a.pdf")), (missing.clone(), dir.path().join("b.pdf"))];
-    let out = run(&Job::Office { items, html: None, whole_sheets: false }, &AtomicBool::new(false), &|_| {}).unwrap();
+    let out = run(&Job::Office { items, html: None, whole_sheets: false, data_sheets: None }, &AtomicBool::new(false), &|_| {}).unwrap();
     assert_eq!(out.outputs, vec![dir.path().join("a.pdf")]);
     assert_eq!(out.failures.iter().map(|f| f.0.clone()).collect::<Vec<_>>(), vec![missing]);
 }
