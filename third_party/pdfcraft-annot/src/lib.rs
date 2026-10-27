@@ -22,6 +22,8 @@ pub mod links;
 pub mod loupe_mask;
 /// Sheaf: a text box in a font of the computer's.
 pub mod text_box_font;
+/// Sheaf: a text box's drawn text recoloured in place.
+mod recolour;
 
 #[cfg(test)]
 mod tests;
@@ -2262,8 +2264,18 @@ pub fn set_style(
             return Err(AnnotError::Invalid("this comment has no line endings to change".into()));
         }
     }
-    refuse_foreign_text(doc, &d)?;
     let free_text = subtype == "FreeText";
+    // Sheaf: rich text with runs of its own (a bold word, a larger one) only recoloured: its
+    // appearance is kept, its text's fill colour changed in place (Sol, 27/10: it was redrawn
+    // from its plain text in one font and size).
+    let mixed = free_text && d.get(b"RC").and_then(Object::as_string).is_some_and(|rc| rc.to_text().contains("<span"));
+    let in_place = match (mixed, color) {
+        (true, Some(c)) if opacity.is_none() && width.is_none() && endings.is_none() => recoloured_appearance(doc, &d, c.map(|x| x.clamp(0.0, 1.0))),
+        _ => None,
+    };
+    if in_place.is_none() {
+        refuse_foreign_text(doc, &d)?;
+    }
     let before = d;
     doc.update_dict(r, |d| {
         if let Some(c) = color {
@@ -2308,7 +2320,31 @@ pub fn set_style(
         ensure_ending_room(d);
         touch(d, meta);
     })?;
+    if let Some(stream) = in_place {
+        // The appearance another program drew, recoloured: its characters are its own (no mark).
+        let ap = doc.add(Object::Stream(stream));
+        let mut apd = annot_dict(doc, r).get(b"AP").map(|a| doc.resolve(a)).and_then(|a| a.as_dict().cloned()).unwrap_or_default();
+        apd.remove(b"D");
+        apd.remove(b"R");
+        apd.set(b"N".to_vec(), Object::Ref(ap));
+        doc.update_dict(r, |d| d.set(b"AP".to_vec(), Object::Dict(apd)))?;
+        return Ok(());
+    }
     redraw_or_restore(doc, r, before)
+}
+
+/// Sheaf: a copy of the annotation's normal appearance with its text filled in `c`
+/// ([`recolour::recolour_text`]); `None` when it has none or shows no text.
+fn recoloured_appearance(doc: &Document, d: &Dict, c: Rgb) -> Option<Stream> {
+    let ap = doc.resolve(d.get(b"AP")?);
+    let normal = doc.resolve(ap.as_dict()?.get(b"N")?);
+    let Object::Stream(normal) = normal.as_ref() else { return None };
+    let content = recolour::recolour_text(&normal.decoded().ok()?, c)?;
+    let mut dict = normal.dict.clone();
+    for key in [&b"Length"[..], b"Filter", b"DecodeParms"] {
+        dict.remove(key);
+    }
+    Some(Stream::flate(dict, &content))
 }
 
 /// Sheaf: the format of every text box on `pages` (0-based), read without changing anything:
