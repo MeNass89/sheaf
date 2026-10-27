@@ -72,3 +72,27 @@ Next: finish each batch component, write its proof names and remaining parity ga
   after reader saves; working-copy cleanup/recovery and a delete confirmation remain to polish.
   New dependency: workspace/app `zip = 4.6.1`, default features off, `deflate` only (pure Rust,
   version already present in Cargo.lock). Orchestrator must update the lockfile's app dependency list.
+- C-platform-005: reader ▸ More ▸ More tools ▸ JavaScript console… edits and runs scripts against
+  the current unsaved document (Acrobat's JavaScript Console). Console output, completion values,
+  alerts and errors appear; field changes refresh the reader and undo as one step. Execution is
+  on the document thread with the engine's existing loop/recursion bounds. Test
+  `reader_doc::tests::forms_and_files::javascript_console_prints_errors_and_changes_fields_as_one_undo_step`.
+  Left: viewer requests (print, navigate, Save As, focus, external URL/submit) are listed in the
+  console rather than dispatched; document-script management is not added. The ⌘J shortcut opens the console.
+
+## GUI checks for the orchestrator
+
+- Smoke 250: active-document JavaScript console opens with Ctrl+J and runs into its output pane.
+- Smoke 251: a suggestion exports, then imports as an independent named action (canonical JSON
+  produced by the UI's serializer, no invented fixture).
+- Smoke 252: Library adds a private copy and exports it.
+- Smoke 253: Create portfolio keeps the original and writes a PDF Collection.
+- These steps are written, not run. The orchestrator must check their coordinates/OCR against
+  the compiled app; all new screens inherit Sheaf's existing theme and native widget controls.
+- not automatable: watched-folder chooser flow with the existing debug dialog hook — it supplies
+  the same answer synchronously to both folder panels; watching requires two distinct folders.
+  The polling rules have deterministic unit coverage; manually choose separate folders, drop a
+  PDF, confirm one output, change the input, confirm a second output, then Stop.
+- not automatable: dark/light appearance, keyboard traversal, resizing and pause-dialog focus —
+  this worker is explicitly forbidden to run/render the GUI; orchestrator visual verification
+  remains required, rather than a claimed visual pass.

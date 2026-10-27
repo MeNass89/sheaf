@@ -1,0 +1,31 @@
+import { Button, TextEdit } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Modal } from "dialogs.slint";
+
+export global JavaScriptBridge {
+    in-out property <bool> visible;
+    in-out property <bool> busy;
+    in-out property <int> tab: -1;
+    in-out property <string> document;
+    in-out property <string> source: "console.println(this.numPages);";
+    in-out property <string> output;
+    callback open(int);
+    callback run();
+}
+
+export component JavaScriptConsole inherits Modal {
+    card-width: min(680px, self.width - 32px);
+    Text { text: "JavaScript console"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
+    Text { text: JavaScriptBridge.document; color: Theme.text-secondary; font-size: Theme.fs-body; overflow: elide; }
+    TextEdit { height: 190px; text <=> JavaScriptBridge.source; enabled: !JavaScriptBridge.busy; font-family: Theme.mono-family; }
+    HorizontalLayout {
+        spacing: 8px;
+        Button { text: JavaScriptBridge.busy ? "Running…" : "Run"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.run(); } }
+        Button { text: "Clear output"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.output = ""; } }
+        Rectangle { horizontal-stretch: 1; }
+        Button { text: "Close"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.visible = false; } }
+    }
+    Text { text: "Output"; color: Theme.text; font-size: Theme.fs-label; }
+    TextEdit { height: 150px; text: JavaScriptBridge.output; read-only: true; font-family: Theme.mono-family; }
+    Text { text: "Field changes can be undone. Save the document to keep them."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+}

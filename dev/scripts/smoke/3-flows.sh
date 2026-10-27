@@ -1136,3 +1136,46 @@ G1=$(guide)
 G2=$(guide)
 check "a click on the top ruler makes a guide, a second takes it away (${RU:-no item}; ruler at ${RB:-none}; guide $G0 → $G1 → $G2)" "[ \"$G0\" = 0 ] && [ \"$G1\" = 1 ] && [ \"$G2\" = 0 ]"
 quit
+
+# 250. Acrobat's JavaScript Console: Ctrl+J opens it for the active document. Run's output must
+# appear in the output pane, not only in the source editor. No document mutation for this check.
+cp "$OUT/text.pdf" "$OUT/js-console.pdf"; launch "$OUT/js-console.pdf"; key ctrl+j
+JS_SOURCE_X=500; JS_SOURCE_Y=230
+click "$JS_SOURCE_X" "$JS_SOURCE_Y"; key ctrl+a
+xdotool type --clearmodifiers --delay 4 "console.println('JSCONSOLEPASS');"
+JR=$(at Run 700x500+290+100); [ -n "$JR" ] && click $JR 2
+JO=$(ocr 680x200+300+425)
+check "JavaScript console runs against the active PDF and shows its output (${JR:-no Run})" "echo \"$JO\" | grep -q JSCONSOLEPASS"
+quit
+
+# 251. Suggested actions export through the same serializer import accepts (no handwritten JSON
+# fixture). Importing the exported suggestion creates a distinct saved action.
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+CA=$(at Confidential 230x600+235+150); [ -n "$CA" ] && click $CA
+answer "$PWD/$OUT/action-export.json"
+EX=$(at Export 1000x140+220+35); [ -n "$EX" ] && click $EX
+IM=$(at Import 1000x140+220+35); [ -n "$IM" ] && click $IM
+check "suggested action exports and imports as an independent saved action (${CA:-no suggestion})" "python3 -c 'import json; a=json.load(open(\"$OUT/action-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"steps\"][0][\"tool\"] == \"add_watermark\"; assert a[\"steps\"][0][\"argument\"] == \"CONFIDENTIAL\"; assert any(x[\"name\"] != a[\"name\"] and x[\"steps\"] == a[\"steps\"] for x in b)'"
+quit
+
+# 252. Stirling's local file library: Add copies the input, then Save a copy exports the stored
+# version. The library must own different bytes on disk, not only remember the source path.
+launch
+LI=$(at Library 210x400+0+30); [ -n "$LI" ] && click $LI
+answer "$PWD/$OUT/text.pdf"
+LA=$(at Add 1000x160+220+35); [ -n "$LA" ] && click $LA 2
+answer "$PWD/$OUT/library-export.pdf"
+LE=$(at Save 600x180+650+100); [ -n "$LE" ] && click $LE
+check "Library keeps a private copy and exports it (${LA:-no Add}; ${LE:-no Save copy})" "cmp -s \"$OUT/text.pdf\" \"$OUT/library-export.pdf\" && python3 -c 'import pathlib,json; root=pathlib.Path(\"$OUT/profile/data/Sheaf/library\"); items=[json.loads(p.read_text()) for p in root.glob(\"*/entry.json\")]; assert any(e[\"name\"] == \"text.pdf\" and len(e[\"versions\"]) == 1 for e in items)'"
+quit
+
+# 253. Acrobat's Create PDF Portfolio: both native dialogs may use the same debug answer. The
+# original PDF stays intact, the unique output gets a Collection and its original embedded file.
+cp "$OUT/text.pdf" "$OUT/portfolio-source.pdf"
+launch
+AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+answer "$PWD/$OUT/portfolio-source.pdf"
+PC=$(at Create 1050x160+220+35); [ -n "$PC" ] && click $PC 3
+check "Create portfolio bundles the original instead of merging (${PC:-no Create})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
+quit

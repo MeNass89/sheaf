@@ -384,6 +384,7 @@ fn main() -> Result<(), slint::PlatformError> {
     home::install(&ui, forced);
     actions_ui::install(&ui);
     library_ui::install(&ui);
+    reader_ui::javascript::install(&ui);
     install_catalogue(&ui);
     state::install_tabs_model(&ui);
 

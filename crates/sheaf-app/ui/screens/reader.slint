@@ -5,6 +5,7 @@
 // zoom are the tab's viewer (ViewerBridge); everything else is ReaderBridge. Coordinates given to
 // Rust are content coordinates of the page scroll.
 import { ScrollView, TextEdit } from "std-widgets.slint";
+import { JavaScriptBridge } from "javascript.slint";
 import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
 import { ReaderPanel } from "reader-panel.slint";
@@ -940,6 +941,7 @@ export component ReaderScreen inherits Rectangle {
                 if (e.text == "g" || e.text == "©") && e.modifiers.alt { toolbar.focus-page-field(); return accept; }
                 if (e.text == "[" || e.text == "{") && e.modifiers.shift { root.switch-tab(-1); return accept; }
                 if (e.text == "]" || e.text == "}") && e.modifiers.shift { root.switch-tab(1); return accept; }
+                if e.text == "j" { JavaScriptBridge.open(root.id); return accept; }
                 if e.text == "f" { toolbar.focus-search(); return accept; }
                 if e.text == "g" || e.text == "G" { ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1); return accept; }
                 if e.text == "c" && root.tab.reader.has-selection {

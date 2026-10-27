@@ -199,3 +199,32 @@ fn attachments_kept_in_a_nested_name_tree_are_renamed_and_kept() {
     names.sort_unstable();
     assert_eq!(names, ["a.txt", "renamed.txt"], "the other attachment kept");
 }
+
+#[test]
+fn javascript_console_prints_errors_and_changes_fields_as_one_undo_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = fixture(dir.path(), 1);
+    let (ops, rx, _) = started(&path);
+    ops.send(Op::Apply { edit: Box::new(Edit::AddField {
+        page: 0, rect: [72.0, 600.0, 222.0, 622.0], kind: NewField::Text { multiline: false }, name: Some("Total".into()),
+    }), pages: vec![0] }).unwrap();
+    next(&rx);
+    ops.send(Op::RunJavaScript { source: "console.println('pages=' + this.numPages); this.getField('Total').value = '42';".into() }).unwrap();
+    match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+        Reply::JavaScript { output, changed } => { assert!(output.contains("pages=1"), "{output}"); assert!(changed); }
+        _ => panic!("console output expected"),
+    }
+    let (snap, error) = next(&rx);
+    assert!(error.is_none());
+    assert_eq!(snap.fields[0].value, ["42"]);
+    ops.send(Op::Undo { pages: None }).unwrap();
+    let (snap, error) = next(&rx);
+    assert!(error.is_none());
+    assert!(snap.fields[0].value.is_empty() || snap.fields[0].value == [""]);
+    ops.send(Op::RunJavaScript { source: "throw new Error('console failure');".into() }).unwrap();
+    match rx.recv_timeout(Duration::from_secs(30)).unwrap() {
+        Reply::JavaScript { output, changed } => { assert!(output.contains("console failure"), "{output}"); assert!(!changed); }
+        _ => panic!("console error expected"),
+    }
+    next(&rx);
+}

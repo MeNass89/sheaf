@@ -636,7 +636,7 @@ impl ReaderUi {
 
     fn send(&mut self, op: Op) {
         // A preview is not counted: it never names something another edit is waiting on.
-        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields);
+        let edit = matches!(op, Op::Apply { .. } | Op::LinkUrls { .. } | Op::Undo { .. } | Op::Redo { .. } | Op::ReplaceAll { .. } | Op::ReplaceOne { .. } | Op::Revert | Op::DetectFields | Op::RunJavaScript { .. });
         if self.ops.send(op).is_ok() {
             self.in_flight += 1;
             self.edits_in_flight += usize::from(edit);
@@ -903,6 +903,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
         Reply::Loupe(made) => loupe::shown(id, made),
         Reply::Upright(turns) => pages::upright(ui, id, turns),
         Reply::Accessibility(report) => accessibility::checked(id, report),
+        Reply::JavaScript { output, changed } => javascript::finished(ui, id, output, changed),
         Reply::ImageCopied(made) => {
             let copied = made.and_then(|(width, height, rgba)| {
                 let image = arboard::ImageData { width: width as usize, height: height as usize, bytes: rgba.into() };
@@ -1269,6 +1270,7 @@ mod saving;
 mod speech;
 mod loupe;
 mod accessibility;
+pub(crate) mod javascript;
 mod layers;
 mod look_up;
 mod folder_search;
