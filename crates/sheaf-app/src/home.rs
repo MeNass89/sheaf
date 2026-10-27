@@ -799,6 +799,22 @@ pub fn open_recent(ui: &AppWindow, i: i32) {
     }
 }
 
+/// The user guide (`guide/sheaf-guide.md`, made into a PDF by `dev/scripts/make-guide.sh`).
+const GUIDE: &[u8] = include_bytes!("../guide/Sheaf Guide.pdf");
+
+/// Help ▸ Sheaf Guide: the guide written to the data folder (again when this version's differs)
+/// and opened in a tab, as PDF Expert opens its Welcome document.
+pub fn open_guide(ui: &AppWindow) {
+    let p = crate::store_file::data_dir().join("Sheaf Guide.pdf");
+    if std::fs::read(&p).ok().as_deref() != Some(GUIDE)
+        && let Err(e) = crate::store_file::replace(&p, GUIDE)
+    {
+        crate::flow::toast(ui, &format!("The guide could not be opened ({e})"));
+        return;
+    }
+    crate::reader_ui::open(ui, p, None);
+}
+
 pub fn remove_recent(ui: &AppWindow, i: i32) {
     if let Some(p) = recent(i) {
         let result = with(|h| h.store.remove_recent(&p));
@@ -888,6 +904,25 @@ pub fn keep_stamp(name: &str, bytes: &[u8]) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+
+    /// The guide's PDF is made from its Markdown: every section of the Markdown is in it, so a
+    /// guide edited without `dev/scripts/make-guide.sh` fails here.
+    #[test]
+    fn the_guide_pdf_holds_every_section_of_its_markdown() {
+        let dir = tempfile::tempdir().unwrap();
+        let pdf = dir.path().join("guide.pdf");
+        std::fs::write(&pdf, GUIDE).unwrap();
+        let text = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&pdf), &[]).unwrap().join("\n");
+        let squash = |s: &str| s.split_whitespace().collect::<String>();
+        let text = squash(&text);
+        let md = include_str!("../guide/sheaf-guide.md");
+        let heads: Vec<&str> = md.lines().filter_map(|l| l.strip_prefix("## ")).collect();
+        assert!(heads.len() >= 9, "{heads:?}");
+        for h in heads.iter().chain(md.lines().filter(|l| l.starts_with("- **")).map(|l| l.trim_start_matches("- **").split("**").next().unwrap()).collect::<Vec<_>>().iter()) {
+            assert!(text.contains(&squash(h)), "{h} is not in the guide's PDF");
+        }
+    }
+
     use super::*;
 
     #[test]
