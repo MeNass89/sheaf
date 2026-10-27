@@ -140,3 +140,5 @@ OCR options retain every selected language; `OcrOptions::use_local_engine` selec
 Tesseract explicitly, with the same option in the OCR panel and CLI `--local-engine`.
 
 `sheaf-core/src/optimizer_post.rs` runs the explicit offline Ghostscript transparency pass and qpdf Fast Web View after compression, verifies them, and honours cancellation before publication.
+
+`sheaf-core/tests/ocr_scripts.rs` uses the small `tests/fixtures/ocr-{chinese,japanese,korean}.png` scans to verify installed script packs and invisible Unicode text layers. Portable Tesseract packs are found beside the executable (`tessdata/`), in macOS Resources, Linux `share/sheaf/tessdata`, or the explicit `SHEAF_TESSDATA` folder; debug builds also read ignored `vendor/tessdata/`.
