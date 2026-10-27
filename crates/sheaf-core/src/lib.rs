@@ -1,5 +1,6 @@
 pub mod compare;
 pub mod adjust;
+pub mod bookmarks;
 pub mod compress;
 pub mod edit;
 pub mod engine;
@@ -29,6 +30,7 @@ pub mod rotate;
 pub mod security;
 pub mod sign;
 pub mod system_fonts;
+pub mod spell;
 pub mod text;
 pub mod textdocs;
 pub mod tools;

@@ -1,0 +1,88 @@
+// Check spelling while typing (Acrobat's Check Spelling, Preview's Spelling and Grammar): a card
+// under the comment, text box or form field being typed, with the text and its misspelt words
+// underlined in red, then each word with its corrections, Ignore and Learn. Slint's text field
+// cannot underline part of its own text, so the underline is shown here, right under it.
+import { Theme } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
+
+// One choice of the card: a correction (bold), Ignore or Learn.
+component SpellChip inherits Rectangle {
+    in property <string> text;
+    in property <bool> strong;
+    callback clicked();
+    height: 22px;
+    width: min(lbl.preferred-width + 14px, 150px);
+    border-radius: Theme.radius-small;
+    background: t.has-hover ? Theme.popup-hover : Theme.pill-bg;
+    lbl := Text {
+        x: 7px;
+        width: parent.width - 14px;
+        text: root.text;
+        font-size: Theme.fs-caption;
+        font-weight: root.strong ? Theme.weight-demibold : 400;
+        color: Theme.text;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    t := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component SpellStrip inherits Rectangle {
+    // A correction picked: the word at `start` (a byte offset of the text checked) becomes
+    // `correction`.
+    callback replace(start: int, word: string, correction: string);
+    visible: PlatformBridge.spell-on && PlatformBridge.spell-issues.length > 0;
+    height: self.visible ? lay.preferred-height : 0px;
+    border-radius: Theme.radius-item;
+    background: Theme.card;
+    drop-shadow-blur: 12px;
+    drop-shadow-color: #00000044;
+    drop-shadow-offset-y: 2px;
+    // A click on the card stays on it (under an in-place text box, a click on the page commits).
+    TouchArea {}
+    lay := VerticalLayout {
+        padding: 8px;
+        spacing: 6px;
+        StyledText {
+            text: PlatformBridge.spell-marked;
+            max-lines: 3;
+            default-color: Theme.text-secondary;
+            default-font-size: Theme.fs-caption;
+        }
+        for issue in PlatformBridge.spell-issues: HorizontalLayout {
+            spacing: 4px;
+            alignment: start;
+            Text {
+                text: issue.word;
+                max-width: 110px;
+                font-size: Theme.fs-caption;
+                font-weight: Theme.weight-demibold;
+                color: Theme.danger;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            if issue.suggestions.length == 0: Text {
+                text: "No suggestions";
+                font-size: Theme.fs-caption;
+                color: Theme.text-muted;
+                vertical-alignment: center;
+            }
+            for s in issue.suggestions: SpellChip {
+                text: s;
+                strong: true;
+                clicked => { root.replace(issue.start, issue.word, s); }
+            }
+            SpellChip {
+                text: "Ignore";
+                clicked => { PlatformBridge.spell-ignore(issue.word); }
+            }
+            SpellChip {
+                text: "Learn";
+                clicked => { PlatformBridge.spell-learn(issue.word); }
+            }
+        }
+    }
+}

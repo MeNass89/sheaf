@@ -1,0 +1,186 @@
+// Preferences' platform sections (the PlatformBridge global, src/platform_ui.rs): Spelling,
+// Keyboard shortcuts (Stirling's Hotkeys: search the commands, change or reset a shortcut), the
+// tools shown and the interface's direction.
+import { Theme } from "../theme.slint";
+import { Segment } from "../widgets/radio-card.slint";
+import { SecondaryButton } from "dialogs.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { PlatformBridge } from "../platform.slint";
+
+// A white card with a title, as the page's other sections.
+component Card inherits Rectangle {
+    in property <string> title;
+    border-radius: Theme.radius-card;
+    background: Theme.card;
+    height: lay.preferred-height;
+    lay := VerticalLayout {
+        padding: 18px;
+        spacing: 12px;
+        Text {
+            text: root.title;
+            font-size: Theme.fs-body-large;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text;
+        }
+        @children
+    }
+}
+
+// Acrobat's Preferences ▸ Spelling: check while typing, the dictionary used, the words learned.
+export component SpellingSection inherits Card {
+    title: "Spelling";
+    HorizontalLayout {
+        alignment: start;
+        spacing: 8px;
+        Segment { width: 214px; text: "Check spelling while typing"; selected: PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(true); } }
+        Segment { width: 214px; text: "Don't check spelling"; selected: !PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(false); } }
+    }
+    Text {
+        text: PlatformBridge.spell-dictionary == "" ? "Looking for a dictionary…" : PlatformBridge.spell-dictionary;
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+        wrap: word-wrap;
+    }
+    if PlatformBridge.learned.length > 0: HorizontalLayout {
+        spacing: 8px;
+        Text {
+            text: PlatformBridge.learned.length == 1 ? "1 word learned (Learn in the spelling card)" : "\{PlatformBridge.learned.length} words learned (Learn in the spelling card)";
+            font-size: Theme.fs-body;
+            color: Theme.text;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        SecondaryButton { text: "Forget them"; clicked => { PlatformBridge.forget-learned(); } }
+    }
+}
+
+// Stirling's Hotkeys: every menu command with its shortcut; a click records new keys.
+export component KeyboardSection inherits Card {
+    title: "Keyboard shortcuts";
+    // The command whose keys are being recorded (its index; -1 none).
+    property <int> recording: -1;
+    // Every command listed, or only those found by the search (the list is long).
+    property <bool> all;
+    property <string> query;
+    function start(i: int) {
+        root.recording = i;
+        // The menu bar lets the keys through while they are recorded.
+        PlatformBridge.recording(true);
+        recorder.focus();
+    }
+    function stop() {
+        root.recording = -1;
+        PlatformBridge.recording(false);
+    }
+    TextField {
+        placeholder: "Search commands or keys";
+        changed text => {
+            root.query = self.text;
+            PlatformBridge.shortcut-query(self.text);
+        }
+    }
+    if PlatformBridge.shortcut-error != "": Text {
+        text: PlatformBridge.shortcut-error;
+        font-size: Theme.fs-caption;
+        color: Theme.danger;
+        wrap: word-wrap;
+    }
+    if !root.all && root.query == "": HorizontalLayout {
+        alignment: start;
+        SecondaryButton { text: "Show all \{PlatformBridge.shortcut-rows.length} shortcuts"; clicked => { root.all = true; } }
+    }
+    if root.query != "" && PlatformBridge.shortcut-rows.length == 0: Text {
+        text: "No command or keys match.";
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+    }
+    if root.all || root.query != "": VerticalLayout {
+        spacing: 12px;
+        for row in PlatformBridge.shortcut-rows: HorizontalLayout {
+            spacing: 8px;
+            height: 30px;
+            Text {
+                text: row.name;
+                font-size: Theme.fs-body;
+                color: Theme.text;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Rectangle {
+                width: 170px;
+                border-radius: Theme.radius-button;
+                border-width: root.recording == row.index ? 2px : 0;
+                border-color: Theme.accent;
+                background: keys-touch.has-hover ? Theme.popup-hover : Theme.pill-bg;
+                Text {
+                    text: root.recording == row.index ? "Press the keys…" : row.keys == "" ? "None" : row.keys;
+                    font-size: Theme.fs-label;
+                    font-weight: row.custom ? Theme.weight-demibold : 400;
+                    color: row.keys == "" && root.recording != row.index ? Theme.text-muted : Theme.text;
+                }
+                keys-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.start(row.index); }
+                }
+            }
+            if row.custom: SecondaryButton { text: "Reset"; clicked => { root.stop(); PlatformBridge.reset-shortcut(row.index); } }
+        }
+    }
+    HorizontalLayout {
+        alignment: start;
+        spacing: 12px;
+        SecondaryButton { text: "Reset all"; clicked => { root.stop(); PlatformBridge.reset-shortcuts(); } }
+        Text {
+            text: "Click a shortcut, then press the new keys. Esc cancels, Backspace removes it.";
+            font-size: Theme.fs-caption;
+            color: Theme.text-muted;
+            vertical-alignment: center;
+        }
+    }
+    // Takes the keys pressed while one is recorded.
+    recorder := FocusScope {
+        width: 0;
+        height: 0;
+        key-pressed(e) => {
+            if root.recording < 0 { return reject; }
+            if PlatformBridge.record-shortcut(root.recording, e.text, e.modifiers.control, e.modifiers.alt, e.modifiers.shift, e.modifiers.meta) {
+                root.stop();
+            }
+            accept
+        }
+        changed has-focus => {
+            if !self.has-focus && root.recording >= 0 { root.stop(); }
+        }
+    }
+}
+
+// The Tools page without the tools that cannot run here (Stirling's), and iLovePDF's
+// right-to-left interface.
+export component InterfaceSection inherits Card {
+    title: "Interface";
+    Text { text: "Tools page"; font-size: Theme.fs-body; color: Theme.text; }
+    HorizontalLayout {
+        alignment: start;
+        spacing: 8px;
+        Segment { width: 214px; text: "Show every tool"; selected: !PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(false); } }
+        Segment { width: 254px; text: "Hide tools that can't run here"; selected: PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(true); } }
+    }
+    Text {
+        text: PlatformBridge.unavailable-tools == "" ? "Every tool can run on this computer." : "Can't run here: " + PlatformBridge.unavailable-tools + ".";
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+        wrap: word-wrap;
+    }
+    Text { text: "Direction"; font-size: Theme.fs-body; color: Theme.text; }
+    HorizontalLayout {
+        alignment: start;
+        spacing: 8px;
+        for label[i] in ["As the system's language", "Left to right", "Right to left"]: Segment {
+            width: 190px;
+            text: label;
+            selected: PlatformBridge.direction == i;
+            clicked => { PlatformBridge.set-direction(i); }
+        }
+    }
+}

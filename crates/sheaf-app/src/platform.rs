@@ -1,0 +1,593 @@
+//! The app's platform side, the parts that can be tested without a window: the menu bar's
+//! commands and their keyboard shortcuts (and the user's own, Stirling's Hotkeys), which tools are
+//! hidden when they cannot run here, the interface's reading direction (iLovePDF's right-to-left
+//! interface), and the misspelt words of a text marked for the editor's spelling line.
+
+use serde::{Deserialize, Serialize};
+use sheaf_core::tools::ToolId;
+
+/// What Preferences keeps for these (one field of `Prefs`, `platform`).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct PlatformPrefs {
+    /// Check Spelling While Typing turned off (Edit menu, Preferences ▸ Spelling).
+    pub no_spell_check: bool,
+    /// Words taught with Learn Spelling, kept between sessions.
+    pub learned_words: Vec<String>,
+    /// Shortcuts changed by the user: command id ([`COMMANDS`]) and its keys as parts joined
+    /// with "+" ("Control+Shift+K"); "" means the command has none.
+    pub shortcuts: Vec<(String, String)>,
+    /// Tools that cannot run on this machine (no LibreOffice, no OCR models) are left off the
+    /// Tools page (Stirling's hide unavailable tools).
+    pub hide_unavailable_tools: bool,
+    /// The interface's direction: 0 as the system's language, 1 left to right, 2 right to left.
+    pub direction: u8,
+    /// The reader's tool letters changed by the user: tool id ([`TOOLS`]) and its key, a lower-case
+    /// letter or digit ("" none).
+    pub tool_keys: Vec<(String, String)>,
+}
+
+/// A command of the menu bar: its stable id, menu, title and default keys (parts joined by "+",
+/// as `slint::Keys::from_parts` reads them; "" none).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Command {
+    pub id: &'static str,
+    pub menu: &'static str,
+    pub title: &'static str,
+    pub keys: &'static str,
+}
+
+const fn cmd(id: &'static str, menu: &'static str, title: &'static str, keys: &'static str) -> Command {
+    Command { id, menu, title, keys }
+}
+
+/// Full screen: ⌃⌘F on a Mac (PDF Expert's, Preview's), F11 elsewhere (every Linux and Windows
+/// viewer's).
+const FULL_SCREEN: &str = if cfg!(target_os = "macos") { "Control+Meta+F" } else { "F11" };
+
+/// The menu bar's commands, in menu order. `ui/main.slint` reads each one's shortcut as
+/// `PlatformBridge.keys[<index here>]`: an entry is only ever added at the end (the test
+/// `the_menu_bar_reads_each_command_at_its_index` holds the two together).
+///
+/// Undo, Redo and Select All have no default keys here: the menu bar takes its shortcuts before
+/// any field does, and ⌘Z, ⌘A must stay the text field's while one is typed in (the reader's
+/// own ⌘Z and ⌘A still work on the pages).
+pub const COMMANDS: &[Command] = &[
+    cmd("new", "File", "New Blank PDF…", "Control+N"),
+    cmd("open", "File", "Open…", "Control+O"),
+    cmd("save", "File", "Save", "Control+S"),
+    cmd("save-as", "File", "Save As…", "Control+Shift+S"),
+    cmd("print", "File", "Print…", "Control+P"),
+    cmd("properties", "File", "Document Properties…", "Control+D"),
+    cmd("close", "File", "Close Tab", "Control+W"),
+    cmd("quit", "File", "Quit Sheaf", "Control+Q"),
+    cmd("undo", "Edit", "Undo", ""),
+    cmd("redo", "Edit", "Redo", ""),
+    cmd("select-all", "Edit", "Select All", ""),
+    cmd("find", "Edit", "Find…", "Control+F"),
+    cmd("find-next", "Edit", "Find Next", "Control+G"),
+    cmd("find-previous", "Edit", "Find Previous", "Control+Shift+G"),
+    cmd("spelling", "Edit", "Check Spelling While Typing", ""),
+    cmd("preferences", "Edit", "Preferences…", "Control+Comma"),
+    cmd("zoom-in", "View", "Zoom In", "Control+Plus"),
+    cmd("zoom-out", "View", "Zoom Out", "Control+HyphenMinus"),
+    cmd("actual-size", "View", "Actual Size", "Control+Digit0"),
+    cmd("fit-page", "View", "Zoom to Fit Page", "Control+Digit8"),
+    cmd("fit-width", "View", "Zoom to Fit Width", "Control+Digit9"),
+    cmd("panel", "View", "Show or Hide Side Panel", "Control+Alt+Digit0"),
+    cmd("two-pages", "View", "Next Page Layout", "Control+Alt+Digit2"),
+    cmd("rotate-right", "View", "Rotate View Clockwise", ""),
+    cmd("rotate-left", "View", "Rotate View Counterclockwise", ""),
+    cmd("full-screen", "View", "Full Screen", FULL_SCREEN),
+    cmd("present", "View", "Present", "Control+Shift+P"),
+    cmd("previous-page", "Go", "Previous Page", ""),
+    cmd("next-page", "Go", "Next Page", ""),
+    cmd("first-page", "Go", "First Page", ""),
+    cmd("last-page", "Go", "Last Page", ""),
+    cmd("go-to-page", "Go", "Go to Page…", "Control+Alt+G"),
+    cmd("back", "Go", "Back", "Control+OpenBracket"),
+    cmd("forward", "Go", "Forward", "Control+CloseBracket"),
+    cmd("all-tools", "Tools", "All Tools", ""),
+    cmd("next-tab", "Window", "Next Tab", "Control+Tab"),
+    cmd("previous-tab", "Window", "Previous Tab", "Control+Shift+Tab"),
+    cmd("home", "Window", "Home", ""),
+    cmd("shortcuts", "Help", "Keyboard Shortcuts", "Control+Slash"),
+    cmd("customize", "Help", "Customize Shortcuts…", ""),
+    // Edit ▸ Cut, Copy, Paste: ⌘X ⌘C ⌘V sent to what has the keyboard (see `EDIT_KEYS`).
+    cmd("cut", "Edit", "Cut", ""),
+    cmd("copy", "Edit", "Copy", ""),
+    cmd("paste", "Edit", "Paste", ""),
+    // Acrobat's Edit ▸ Check Spelling ▸ In Comments, Fields, & Editable Text (F7, as Acrobat and Word).
+    cmd("check-spelling", "Edit", "Check Spelling…", "F7"),
+];
+
+/// Commands that act by sending their usual keys (⌘X ⌘C ⌘V ⌘A) to whatever has the keyboard: a
+/// text field edits its own text, the reader's pages their selection, objects or comments. Those
+/// keys keep working whatever the user gives the command (a text field answers them itself, which
+/// Slint cannot turn off), and cannot be given to another command.
+pub const EDIT_KEYS: &[(&str, &str)] = &[("cut", "x"), ("copy", "c"), ("paste", "v"), ("select-all", "a")];
+
+/// The index of a command by id.
+pub fn command_index(id: &str) -> Option<usize> {
+    COMMANDS.iter().position(|c| c.id == id)
+}
+
+/// A command's keys now: the user's, else the default.
+pub fn effective(p: &PlatformPrefs, i: usize) -> String {
+    let Some(c) = COMMANDS.get(i) else { return String::new() };
+    p.shortcuts.iter().find(|(id, _)| id == c.id).map(|(_, k)| k.clone()).unwrap_or_else(|| c.keys.to_string())
+}
+
+/// Keys as Slint matches them (none when the parts do not read).
+pub fn keys(parts: &str) -> slint::Keys {
+    if parts.is_empty() {
+        return slint::Keys::default();
+    }
+    slint::Keys::from_parts(parts.split('+')).unwrap_or_default()
+}
+
+/// Keys as the system writes them ("Ctrl+Shift+S", "⇧⌘S").
+pub fn display(parts: &str) -> String {
+    keys(parts).to_string()
+}
+
+/// The parts of a key pressed while a shortcut is recorded, "" when it is a modifier alone
+/// (the recording waits for the real key). Letters keep ⇧; digits and punctuation are named
+/// without it, since ⇧ changes them with the keyboard's layout (Slint matches them so).
+pub fn parts_of_event(text: &str, control: bool, alt: bool, shift: bool, meta: bool) -> String {
+    let mut chars = text.chars();
+    let (Some(c), None) = (chars.next(), chars.next()) else { return String::new() };
+    let named: Option<(&str, bool)> = match c {
+        '\u{10}'..='\u{18}' => return String::new(),
+        '\t' | '\u{19}' => Some(("Tab", true)),
+        '\n' | '\r' => Some(("Return", true)),
+        ' ' => Some(("Space", true)),
+        '\u{8}' => Some(("Backspace", true)),
+        '\u{7f}' => Some(("Delete", true)),
+        '\u{1b}' => Some(("Escape", true)),
+        '\u{F700}' => Some(("UpArrow", true)),
+        '\u{F701}' => Some(("DownArrow", true)),
+        '\u{F702}' => Some(("LeftArrow", true)),
+        '\u{F703}' => Some(("RightArrow", true)),
+        '\u{F729}' => Some(("Home", true)),
+        '\u{F72B}' => Some(("End", true)),
+        '\u{F72C}' => Some(("PageUp", true)),
+        '\u{F72D}' => Some(("PageDown", true)),
+        '0'..='9' => None,
+        ',' | '<' => Some(("Comma", false)),
+        '.' | '>' => Some(("Period", false)),
+        '/' | '?' => Some(("Slash", false)),
+        '[' | '{' => Some(("OpenBracket", false)),
+        ']' | '}' => Some(("CloseBracket", false)),
+        '-' | '_' => Some(("HyphenMinus", false)),
+        '=' => Some(("Equals", false)),
+        '+' => Some(("Plus", false)),
+        ';' | ':' => Some(("Semicolon", false)),
+        '\'' | '"' => Some(("Quote", false)),
+        '`' | '~' => Some(("BackQuote", false)),
+        '\\' | '|' => Some(("BackSlash", false)),
+        _ => None,
+    };
+    let fkey = ('\u{F704}'..='\u{F71B}').contains(&c).then(|| format!("F{}", c as u32 - 0xF704 + 1));
+    let (key, keep_shift) = match (named, fkey) {
+        (_, Some(f)) => (f, true),
+        (Some((n, s)), None) => (n.to_string(), s),
+        (None, None) if c.is_ascii_digit() => (format!("Digit{c}"), false),
+        (None, None) if c.is_ascii_alphabetic() => (c.to_ascii_uppercase().to_string(), true),
+        (None, None) => (c.to_lowercase().collect(), true),
+    };
+    let mut parts: Vec<&str> = Vec::new();
+    if control {
+        parts.push("Control");
+    }
+    if alt {
+        parts.push("Alt");
+    }
+    if shift && keep_shift {
+        parts.push("Shift");
+    }
+    if meta {
+        parts.push("Meta");
+    }
+    parts.push(&key);
+    parts.join("+")
+}
+
+/// Whether keys can be a menu shortcut: a modifier other than ⇧ (a function key alone is
+/// fine), not one of the keys text fields use, and readable by Slint. The menu bar takes its
+/// keys before any field, so a bare letter or ⌘C would stop typing and copying.
+pub fn check_shortcut(parts: &str) -> Result<(), String> {
+    if parts.is_empty() {
+        return Ok(());
+    }
+    let p: Vec<&str> = parts.split('+').collect();
+    let key = p.last().copied().unwrap_or("");
+    let has = |m: &str| p.contains(&m);
+    let function_key = key.len() >= 2 && key.starts_with('F') && key[1..].chars().all(|c| c.is_ascii_digit());
+    if !(has("Control") || has("Alt") || has("Meta") || function_key) {
+        return Err("Add ⌘/Ctrl or Alt: a key alone would stop typing".into());
+    }
+    let text_keys = ["A", "C", "V", "X", "Z", "Y", "Backspace", "Delete", "LeftArrow", "RightArrow", "UpArrow", "DownArrow", "Home", "End"];
+    if has("Control") && !has("Alt") && text_keys.contains(&key) {
+        return Err(format!("{} is kept for editing text", display(parts)));
+    }
+    slint::Keys::from_parts(p.iter().copied()).map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Gives command `id` the keys `parts` ("" removes its shortcut). Refused when the keys cannot
+/// be a shortcut or another command has them (Stirling's conflict warning): the reason.
+pub fn assign(p: &mut PlatformPrefs, id: &str, parts: &str) -> Result<(), String> {
+    let Some(i) = command_index(id) else { return Err(format!("No command {id}")) };
+    check_shortcut(parts)?;
+    if !parts.is_empty() {
+        let wanted = keys(parts);
+        if let Some(other) = (0..COMMANDS.len()).filter(|&k| k != i).find(|&k| keys(&effective(p, k)) == wanted) {
+            let c = COMMANDS[other];
+            return Err(format!("{} is already {} ▸ {}", display(parts), c.menu, c.title.trim_end_matches('…')));
+        }
+    }
+    p.shortcuts.retain(|(c, _)| c != id);
+    if parts != COMMANDS[i].keys {
+        p.shortcuts.push((id.to_string(), parts.to_string()));
+    }
+    Ok(())
+}
+
+/// Back to the default keys: one command, or all of them (`None`).
+pub fn reset(p: &mut PlatformPrefs, id: Option<&str>) {
+    match id {
+        Some(id) => p.shortcuts.retain(|(c, _)| c != id),
+        None => p.shortcuts.clear(),
+    }
+}
+
+/// Whether the user gave command `i` keys of its own: then the keys the reader and Home answer
+/// besides the menu bar's (⌘= for Zoom In, ⇧⌘] for Next Tab, ⌘Z on the pages for Undo) stop
+/// (`PlatformBridge.rebound[i]` in reader.slint and main.slint).
+pub fn rebound(p: &PlatformPrefs, i: usize) -> bool {
+    COMMANDS.get(i).is_some_and(|c| p.shortcuts.iter().any(|(id, _)| id == c.id))
+}
+
+/// The keys the reader answers itself on its pages for a command that has none in the menu bar
+/// (they would stop typing there): shown in Preferences while the command keeps them.
+fn page_keys(id: &str) -> Option<(&'static str, &'static str)> {
+    match id {
+        "undo" => Some(("Control+Z", " on the pages")),
+        "redo" => Some(("Control+Shift+Z", " on the pages")),
+        "cut" => Some(("Control+X", "")),
+        "copy" => Some(("Control+C", "")),
+        "paste" => Some(("Control+V", "")),
+        "select-all" => Some(("Control+A", "")),
+        _ => None,
+    }
+}
+
+/// A command's keys as Preferences and the help sheet write them ("" none). Cut, Copy, Paste and
+/// Select All keep their usual keys besides any the user gives them.
+pub fn label(p: &PlatformPrefs, i: usize) -> String {
+    let k = effective(p, i);
+    let Some((pk, where_)) = COMMANDS.get(i).and_then(|c| page_keys(c.id)) else { return display(&k) };
+    let always = where_.is_empty();
+    match (k.is_empty(), rebound(p, i)) {
+        (true, false) => format!("{}{where_}", display(pk)),
+        (false, _) if always => format!("{}, {}", display(&k), display(pk)),
+        _ => display(&k),
+    }
+}
+
+/// The reader's tools by their number (`ReaderBridge.set-tool`), with Acrobat's and PDF Expert's
+/// one-letter keys; the last, Marquee Zoom, is not a tool but has its letter too. Pressed on the
+/// pages only (in a field they are typed).
+pub const TOOLS: &[(&str, &str, &str)] = &[
+    ("select", "Select Text", "v"),
+    ("highlight", "Highlight", "h"),
+    ("underline", "Underline", "u"),
+    ("strikethrough", "Strikethrough", "k"),
+    ("note", "Note", "n"),
+    ("pen", "Pen", "p"),
+    ("text-box", "Text Box", "t"),
+    ("edit", "Edit Text and Objects", "e"),
+    ("image", "Add Image", "i"),
+    ("sign", "Sign", "s"),
+    ("shapes", "Shapes", "r"),
+    ("eraser", "Eraser", "x"),
+    ("stamp", "Stamp", "m"),
+    ("link", "Link", "l"),
+    ("form", "Prepare Form", "f"),
+    ("zoom-area", "Marquee Zoom", "z"),
+];
+
+/// Tool `k`'s key now ("" none).
+pub fn tool_key(p: &PlatformPrefs, k: usize) -> String {
+    let Some(t) = TOOLS.get(k) else { return String::new() };
+    p.tool_keys.iter().find(|(id, _)| id == t.0).map(|(_, key)| key.clone()).unwrap_or_else(|| t.2.to_string())
+}
+
+/// The tool a key pressed on the pages picks (its number), if any. Case counts: ⇧ with a letter is
+/// another command (⇧T hides the toolbar).
+pub fn tool_for_key(p: &PlatformPrefs, text: &str) -> Option<usize> {
+    if text.is_empty() {
+        return None;
+    }
+    (0..TOOLS.len()).find(|&k| tool_key(p, k) == text)
+}
+
+/// Gives tool `k` the key `key` (a letter or digit alone, as typed; "" none). Refused when another
+/// tool has it, with the reason.
+pub fn assign_tool(p: &mut PlatformPrefs, k: usize, key: &str) -> Result<(), String> {
+    let Some(t) = TOOLS.get(k) else { return Err(format!("No tool {k}")) };
+    let key = key.to_lowercase();
+    let mut chars = key.chars();
+    let one = matches!((chars.next(), chars.next()), (Some(c), None) if c.is_alphanumeric());
+    if !key.is_empty() && !one {
+        return Err("A tool's key is one letter or digit, without ⌘/Ctrl, Alt or ⇧".into());
+    }
+    if let Some(other) = (0..TOOLS.len()).find(|&o| o != k && !key.is_empty() && tool_key(p, o) == key) {
+        return Err(format!("{} is already Tools ▸ {}", key.to_uppercase(), TOOLS[other].1));
+    }
+    p.tool_keys.retain(|(id, _)| id != t.0);
+    if key != t.2 {
+        p.tool_keys.push((t.0.to_string(), key));
+    }
+    Ok(())
+}
+
+/// A row of Preferences ▸ Keyboard: its index (a command's, then `COMMANDS.len()` + a tool's),
+/// "Menu ▸ Title", keys shown, changed.
+pub type ShortcutRow = (usize, String, String, bool);
+
+/// The rows whose menu, title or keys contain `query` (Stirling's Search tools), all of them
+/// when it is empty: the menu bar's commands, then the reader's tool letters.
+pub fn shortcut_rows(p: &PlatformPrefs, query: &str) -> Vec<ShortcutRow> {
+    let q = query.trim().to_lowercase();
+    let commands = COMMANDS.iter().enumerate().map(|(i, c)| (i, format!("{} ▸ {}", c.menu, c.title), label(p, i), rebound(p, i)));
+    let tools = TOOLS.iter().enumerate().map(|(k, t)| {
+        let key = tool_key(p, k);
+        (COMMANDS.len() + k, format!("Tools ▸ {} (on the pages)", t.1), key.to_uppercase(), key != t.2)
+    });
+    commands
+        .chain(tools)
+        .filter(|(_, name, k, _)| q.is_empty() || name.to_lowercase().contains(&q) || k.to_lowercase().contains(&q))
+        .collect()
+}
+
+/// Why a tool cannot run here, if it cannot: the Office conversions need LibreOffice, OCR its
+/// models.
+pub fn unavailable(tool: ToolId, has_office: bool, has_ocr: bool) -> Option<&'static str> {
+    match tool {
+        ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf if !has_office => Some("needs LibreOffice"),
+        ToolId::Ocr if !has_ocr => Some("needs the OCR models"),
+        _ => None,
+    }
+}
+
+/// Languages written right to left (Arabic, Hebrew, Persian, Urdu, Yiddish, Pashto, Sindhi,
+/// Uyghur, Dhivehi, Kurdish Sorani), by the locale's language ("ar-EG", "he_IL.UTF-8").
+pub fn is_rtl_language(locale: &str) -> bool {
+    let lang = locale.split(['-', '_', '.', '@']).next().unwrap_or("").to_ascii_lowercase();
+    matches!(lang.as_str(), "ar" | "he" | "iw" | "fa" | "ur" | "yi" | "ps" | "sd" | "ug" | "dv" | "ckb")
+}
+
+/// Whether the interface reads right to left: as chosen, else as the system's language.
+pub fn right_to_left(p: &PlatformPrefs, locale: Option<&str>) -> bool {
+    match p.direction {
+        1 => false,
+        2 => true,
+        _ => locale.is_some_and(is_rtl_language),
+    }
+}
+
+/// Markdown escaped so every character shows as typed (Slint's StyledText reads CommonMark).
+fn escape_markdown(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        if c.is_ascii_punctuation() {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// The text as Slint's StyledText markdown, each misspelt word (byte offset, word) underlined
+/// in `colour` ("#e5322d"): the spelling line under the editor (Acrobat and Preview underline in
+/// red). Lines become paragraphs; their leading spaces go (four would make a code block).
+pub fn marked_markdown(text: &str, issues: &[(usize, &str)], colour: &str) -> String {
+    let mut out = String::new();
+    let mut at = 0;
+    let mut sorted: Vec<(usize, &str)> = issues.iter().copied().filter(|(s, w)| text.get(*s..s + w.len()) == Some(*w)).collect();
+    sorted.sort_by_key(|(s, _)| *s);
+    let plain = |s: &str, out: &mut String| {
+        let mut first = true;
+        for line in s.split('\n') {
+            if !first {
+                out.push_str("\n\n");
+            }
+            let line = if first { line } else { line.trim_start() };
+            out.push_str(&escape_markdown(line));
+            first = false;
+        }
+    };
+    for (s, w) in sorted {
+        if s < at {
+            continue;
+        }
+        plain(&text[at..s], &mut out);
+        out.push_str(&format!("<u><font color=\"{colour}\">{}</font></u>", escape_markdown(w)));
+        at = s + w.len();
+    }
+    plain(&text[at..], &mut out);
+    out.trim_start().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_menu_bar_reads_each_command_at_its_index() {
+        // Each command's MenuItem in main.slint has its title and `PlatformBridge.keys[i]`.
+        let ui = include_str!("../ui/main.slint");
+        for (i, c) in COMMANDS.iter().enumerate() {
+            let at = format!("shortcut: PlatformBridge.keys[{i}];");
+            let line = ui.lines().find(|l| l.contains(&at)).unwrap_or_else(|| panic!("no menu item reads keys[{i}] ({})", c.id));
+            assert!(line.contains(&format!("\"{}\"", c.title)) || line.contains("PlatformBridge.spell-on"), "keys[{i}] is not {}: {line}", c.title);
+        }
+        // Every default reads as Slint keys and is a valid shortcut; no two are the same.
+        for (i, c) in COMMANDS.iter().enumerate() {
+            assert_eq!(check_shortcut(c.keys), Ok(()), "{}", c.id);
+            if !c.keys.is_empty() {
+                assert_ne!(keys(c.keys), slint::Keys::default(), "{}", c.id);
+                assert!(COMMANDS[..i].iter().all(|o| o.keys != c.keys), "{} twice", c.keys);
+            }
+        }
+    }
+
+    #[test]
+    fn a_pressed_key_becomes_shortcut_parts() {
+        assert_eq!(parts_of_event("s", true, false, false, false), "Control+S");
+        assert_eq!(parts_of_event("S", true, false, true, false), "Control+Shift+S");
+        // ⇧ with a digit or a sign: named without it, the layout decides what ⇧ makes.
+        assert_eq!(parts_of_event("+", true, false, true, false), "Control+Plus");
+        assert_eq!(parts_of_event("1", true, true, false, false), "Control+Alt+Digit1");
+        assert_eq!(parts_of_event("\u{F70E}", false, false, false, false), "F11");
+        assert_eq!(parts_of_event("\u{F704}", false, false, true, false), "Shift+F1");
+        assert_eq!(parts_of_event("é", true, false, false, false), "Control+é");
+        // A modifier alone: still waiting for the key.
+        assert_eq!(parts_of_event("\u{11}", true, false, false, false), "");
+        assert_eq!(parts_of_event("", true, false, false, false), "");
+        for p in ["Control+S", "Control+Shift+S", "Control+Plus", "Control+Alt+Digit1", "F11", "Shift+F1", "Control+é"] {
+            assert_ne!(keys(p), slint::Keys::default(), "{p}");
+        }
+    }
+
+    #[test]
+    fn shortcuts_that_would_stop_typing_are_refused() {
+        assert!(check_shortcut("K").is_err());
+        assert!(check_shortcut("Shift+K").is_err());
+        assert!(check_shortcut("Control+C").is_err());
+        assert!(check_shortcut("Control+Shift+Z").is_err());
+        assert!(check_shortcut("Control+Backspace").is_err());
+        assert_eq!(check_shortcut("F5"), Ok(()));
+        assert_eq!(check_shortcut("Control+Alt+C"), Ok(()));
+        assert_eq!(check_shortcut("Alt+K"), Ok(()));
+        assert_eq!(check_shortcut(""), Ok(()));
+    }
+
+    #[test]
+    fn shortcuts_change_conflict_and_reset() {
+        let mut p = PlatformPrefs::default();
+        let find = command_index("find").unwrap();
+        assert_eq!(effective(&p, find), "Control+F");
+        // Taken by Save: refused, with who has it.
+        let e = assign(&mut p, "find", "Control+S").unwrap_err();
+        assert!(e.contains("File ▸ Save"), "{e}");
+        assign(&mut p, "find", "Control+Alt+F").unwrap();
+        assert_eq!(effective(&p, find), "Control+Alt+F");
+        // Its old keys are free now.
+        assign(&mut p, "go-to-page", "Control+F").unwrap();
+        // Removed, then back to the default.
+        assign(&mut p, "save", "").unwrap();
+        assert_eq!(effective(&p, command_index("save").unwrap()), "");
+        reset(&mut p, Some("save"));
+        assert_eq!(effective(&p, command_index("save").unwrap()), "Control+S");
+        // Set back to its default: nothing kept.
+        reset(&mut p, None);
+        assign(&mut p, "print", "Control+P").unwrap();
+        assert!(p.shortcuts.is_empty());
+        assert!(assign(&mut p, "nothing", "F5").is_err());
+    }
+
+    #[test]
+    fn shortcut_rows_are_searched() {
+        let mut p = PlatformPrefs::default();
+        assign(&mut p, "find", "Control+Alt+F").unwrap();
+        let rows = shortcut_rows(&p, "find");
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0].1, "Edit ▸ Find…");
+        assert!(rows[0].3 && !rows[1].3);
+        assert_eq!(shortcut_rows(&p, "").len(), COMMANDS.len() + TOOLS.len());
+        // Undo has no menu keys (they would stop typing) but the pages answer ⌘Z: shown so.
+        let undo = shortcut_rows(&p, "undo");
+        assert!(undo[0].2.ends_with("on the pages"), "{}", undo[0].2);
+        assert_eq!(shortcut_rows(&p, "highlight")[0].2, "H");
+        assert!(shortcut_rows(&p, "zzz").is_empty());
+    }
+
+    #[test]
+    fn tools_that_cannot_run_here() {
+        assert_eq!(unavailable(ToolId::WordToPdf, false, true), Some("needs LibreOffice"));
+        assert_eq!(unavailable(ToolId::WordToPdf, true, true), None);
+        assert_eq!(unavailable(ToolId::Ocr, true, false), Some("needs the OCR models"));
+        assert_eq!(unavailable(ToolId::Merge, false, false), None);
+    }
+
+    #[test]
+    fn right_to_left_follows_the_language_unless_chosen() {
+        assert!(is_rtl_language("ar-EG") && is_rtl_language("he_IL.UTF-8") && is_rtl_language("fa"));
+        assert!(!is_rtl_language("fr-FR") && !is_rtl_language("") && !is_rtl_language("arn"));
+        let mut p = PlatformPrefs::default();
+        assert!(right_to_left(&p, Some("ar")) && !right_to_left(&p, Some("en-US")) && !right_to_left(&p, None));
+        p.direction = 2;
+        assert!(right_to_left(&p, Some("en-US")));
+        p.direction = 1;
+        assert!(!right_to_left(&p, Some("ar")));
+    }
+
+    #[test]
+    fn misspelt_words_are_underlined_and_the_rest_shown_as_typed() {
+        let text = "I recieve *two* <b>\n    teh notes";
+        let md = marked_markdown(text, &[(2, "recieve"), (24, "teh"), (99, "gone")], "#e5322d");
+        assert_eq!(md, "I <u><font color=\"#e5322d\">recieve</font></u> \\*two\\* \\<b\\>\n\n<u><font color=\"#e5322d\">teh</font></u> notes");
+        // Slint reads it without an error.
+        assert!(slint::StyledText::from_markdown(&md).is_ok());
+        assert!(slint::StyledText::from_markdown(&marked_markdown("1. a # b", &[], "#e5322d")).is_ok());
+    }
+
+    #[test]
+    fn tool_letters_change_and_conflict() {
+        let mut p = PlatformPrefs::default();
+        assert_eq!(tool_for_key(&p, "h"), Some(1));
+        assert_eq!(tool_for_key(&p, "H"), None);
+        assert_eq!(tool_for_key(&p, "z"), Some(TOOLS.len() - 1));
+        // Highlight's H given to Note: refused, Highlight has it.
+        assert!(assign_tool(&mut p, 4, "H").unwrap_err().contains("Highlight"));
+        assert!(assign_tool(&mut p, 4, "ctrl").is_err());
+        assign_tool(&mut p, 4, "Q").unwrap();
+        assert_eq!((tool_for_key(&p, "q"), tool_for_key(&p, "n")), (Some(4), None));
+        // N is free now; none at all is allowed; back to its own: nothing kept.
+        assign_tool(&mut p, 1, "n").unwrap();
+        assign_tool(&mut p, 2, "").unwrap();
+        assert_eq!(tool_for_key(&p, "u"), None);
+        assign_tool(&mut p, 4, "n").unwrap_err();
+        assign_tool(&mut p, 1, "h").unwrap();
+        assign_tool(&mut p, 4, "n").unwrap();
+        assign_tool(&mut p, 2, "u").unwrap();
+        assert!(p.tool_keys.is_empty());
+    }
+
+    #[test]
+    fn rebound_commands_stop_their_other_keys() {
+        // reader.slint and main.slint guard each such key with `!PlatformBridge.rebound[i] /* id */`:
+        // the index must be that command's.
+        for ui in [include_str!("../ui/screens/reader.slint"), include_str!("../ui/main.slint")] {
+            for part in ui.split("PlatformBridge.rebound[").skip(1) {
+                let (i, rest) = part.split_once("] /* ").expect("rebound[i] /* id */");
+                let id = rest.split(" */").next().unwrap();
+                assert_eq!(COMMANDS[i.parse::<usize>().unwrap()].id, id);
+            }
+        }
+        let mut p = PlatformPrefs::default();
+        let zoom = command_index("zoom-in").unwrap();
+        assert!(!rebound(&p, zoom));
+        assign(&mut p, "zoom-in", "Control+Alt+Plus").unwrap();
+        assert!(rebound(&p, zoom));
+        // Undo given keys of its own: ⌘Z on the pages stops, and the row shows the new keys.
+        assign(&mut p, "undo", "Control+Alt+U").unwrap();
+        assert!(!label(&p, command_index("undo").unwrap()).contains("pages"));
+        // Copy keeps ⌘C besides its new keys (fields answer it themselves).
+        assign(&mut p, "copy", "F6").unwrap();
+        assert!(label(&p, command_index("copy").unwrap()).ends_with(&display("Control+C")));
+        assert!(EDIT_KEYS.iter().all(|(id, _)| command_index(id).is_some()));
+    }
+}

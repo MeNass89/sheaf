@@ -1,6 +1,7 @@
 import { Theme } from "theme.slint";
 import { ToolCard } from "widgets/tool-card.slint";
-import { MenuItem } from "widgets/menu-item.slint";
+// The sidebar's entries, renamed: `MenuItem` is the menu bar's own element in this file.
+import { MenuItem as SideMenuItem } from "widgets/menu-item.slint";
 import { TabBar } from "widgets/tab-bar.slint";
 import { RecentsScreen } from "screens/recents.slint";
 import { HistoryScreen, ClearHistoryDialog } from "screens/history.slint";
@@ -12,8 +13,12 @@ import { ToolFlowScreen } from "screens/tool-flow.slint";
 import { ReaderScreen } from "screens/reader.slint";
 import { ResultScreen } from "screens/result.slint";
 import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, Toast } from "screens/dialogs.slint";
+import { PlatformBridge, SpellIssue, ShortcutRow } from "platform.slint";
+import { SpellingDialog } from "screens/spelling-dialog.slint";
 
 export { Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
+
+export { PlatformBridge, SpellIssue, ShortcutRow }
 
 export enum Page { recents, tools, history, preferences }
 
@@ -29,28 +34,28 @@ component Sidebar inherits Rectangle {
         padding-top: 16px;
         spacing: 2px;
         alignment: start;
-        MenuItem {
+        SideMenuItem {
             icon: @image-url("icons/clock.svg");
             text: "Recents";
             collapsed: root.collapsed;
             selected: root.page == Page.recents;
             clicked => { root.page = Page.recents; }
         }
-        MenuItem {
+        SideMenuItem {
             icon: @image-url("icons/wrench.svg");
             text: "Tools";
             collapsed: root.collapsed;
             selected: root.page == Page.tools;
             clicked => { root.page = Page.tools; }
         }
-        MenuItem {
+        SideMenuItem {
             icon: @image-url("icons/clipboard-list.svg");
             text: "Tasks History";
             collapsed: root.collapsed;
             selected: root.page == Page.history;
             clicked => { root.page = Page.history; }
         }
-        MenuItem {
+        SideMenuItem {
             icon: @image-url("icons/settings.svg");
             text: "Preferences";
             collapsed: root.collapsed;
@@ -60,7 +65,8 @@ component Sidebar inherits Rectangle {
     }
 
     Rectangle {
-        x: parent.width - 1px;
+        // Right to left the sidebar is on the right: its border on its left.
+        x: PlatformBridge.rtl ? 0 : parent.width - 1px;
         width: 1px;
         background: Theme.sidebar-border;
     }
@@ -242,17 +248,142 @@ export component AppWindow inherits Window {
     background: Theme.bg;
     default-font-size: Theme.fs-body;
 
+    // The menu bar (Linux and Windows draw it in the window; macOS puts it at the top of the
+    // screen), as Acrobat's and Preview's menus: every command with its shortcut. The shortcuts
+    // are the user's (Preferences ▸ Keyboard): `PlatformBridge.keys[i]` is src/platform.rs
+    // COMMANDS[i]. A command that does not apply where the user is stays disabled, so its keys
+    // go on to the field or page that has the keyboard.
+    property <bool> reader-on: root.active-tab >= 0 && root.active-tab < root.tabs.length && root.tabs[root.active-tab].is-reader;
+    property <int> reader-id: root.reader-on ? root.tabs[root.active-tab].id : -1;
+    // A command run by the reader tab shown itself (Find, Go to Page, Present).
+    property <int> menu-seq;
+    property <string> menu-command;
+    function reader-command(c: string) {
+        root.menu-command = c;
+        root.menu-seq += 1;
+    }
+    MenuBar {
+        visible: PlatformBridge.menu-bar && !root.full-screen;
+        Menu {
+            title: "File";
+            MenuItem { title: "New Blank PDF…"; shortcut: PlatformBridge.keys[0]; activated => { root.new-blank(); } }
+            MenuItem { title: "Open…"; shortcut: PlatformBridge.keys[1]; activated => { root.open-file(); } }
+            Menu {
+                title: "Open Recent";
+                enabled: root.recents.length > 0;
+                for r[i] in root.recents: MenuItem {
+                    title: r.name;
+                    activated => { root.open-recent(i); }
+                }
+            }
+            MenuSeparator {}
+            MenuItem { title: "Save"; shortcut: PlatformBridge.keys[2]; enabled: root.reader-on; activated => { ReaderBridge.save(root.reader-id); } }
+            MenuItem { title: "Save As…"; shortcut: PlatformBridge.keys[3]; enabled: root.reader-on; activated => { ReaderBridge.save-as(root.reader-id); } }
+            MenuItem { title: "Print…"; shortcut: PlatformBridge.keys[4]; enabled: root.reader-on; activated => { ReaderBridge.print-open(root.reader-id); } }
+            MenuItem { title: "Document Properties…"; shortcut: PlatformBridge.keys[5]; enabled: root.reader-on; activated => { ReaderBridge.props-open(root.reader-id); } }
+            MenuSeparator {}
+            MenuItem { title: "Close Tab"; shortcut: PlatformBridge.keys[6]; enabled: root.active-tab >= 0; activated => { if root.reader-on { ReaderBridge.close(root.reader-id); } else { root.close-active-tab(); } } }
+            MenuItem { title: "Quit Sheaf"; shortcut: PlatformBridge.keys[7]; activated => { PlatformBridge.quit(); } }
+        }
+        Menu {
+            title: "Edit";
+            MenuItem { title: "Undo"; shortcut: PlatformBridge.keys[8]; enabled: root.reader-on; activated => { ReaderBridge.undo(root.reader-id); } }
+            MenuItem { title: "Redo"; shortcut: PlatformBridge.keys[9]; enabled: root.reader-on; activated => { ReaderBridge.redo(root.reader-id); } }
+            MenuSeparator {}
+            // Sent as their keys to what has the keyboard: a text field, or the reader's pages (src/platform.rs EDIT_KEYS).
+            MenuItem { title: "Cut"; shortcut: PlatformBridge.keys[40]; activated => { PlatformBridge.edit-key("x"); } }
+            MenuItem { title: "Copy"; shortcut: PlatformBridge.keys[41]; activated => { PlatformBridge.edit-key("c"); } }
+            MenuItem { title: "Paste"; shortcut: PlatformBridge.keys[42]; activated => { PlatformBridge.edit-key("v"); } }
+            MenuItem { title: "Select All"; shortcut: PlatformBridge.keys[10]; activated => { PlatformBridge.edit-key("a"); } }
+            MenuSeparator {}
+            MenuItem { title: "Find…"; shortcut: PlatformBridge.keys[11]; enabled: root.reader-on || (root.active-tab == -1 && root.page == Page.tools); activated => { if root.reader-on { root.reader-command("find"); } else { root.search-seq += 1; } } }
+            MenuItem { title: "Find Next"; shortcut: PlatformBridge.keys[12]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, 1); } }
+            MenuItem { title: "Find Previous"; shortcut: PlatformBridge.keys[13]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, -1); } }
+            MenuSeparator {}
+            MenuItem { title: "Check Spelling…"; shortcut: PlatformBridge.keys[43]; enabled: root.reader-on; activated => { PlatformBridge.check-start(root.reader-id); } }
+            MenuItem { title: PlatformBridge.spell-on ? "Stop Checking Spelling While Typing" : "Check Spelling While Typing"; shortcut: PlatformBridge.keys[14]; activated => { PlatformBridge.set-spell-on(!PlatformBridge.spell-on); } }
+            MenuSeparator {}
+            MenuItem { title: "Preferences…"; shortcut: PlatformBridge.keys[15]; activated => { root.show-preferences(); } }
+        }
+        Menu {
+            title: "View";
+            MenuItem { title: "Zoom In"; shortcut: PlatformBridge.keys[16]; enabled: root.reader-on; activated => { ViewerBridge.zoom-step(root.reader-id, 1); } }
+            MenuItem { title: "Zoom Out"; shortcut: PlatformBridge.keys[17]; enabled: root.reader-on; activated => { ViewerBridge.zoom-step(root.reader-id, -1); } }
+            MenuItem { title: "Actual Size"; shortcut: PlatformBridge.keys[18]; enabled: root.reader-on; activated => { ReaderBridge.zoom-fit(root.reader-id, 2); } }
+            MenuItem { title: "Zoom to Fit Page"; shortcut: PlatformBridge.keys[19]; enabled: root.reader-on; activated => { ReaderBridge.zoom-fit(root.reader-id, 1); } }
+            MenuItem { title: "Zoom to Fit Width"; shortcut: PlatformBridge.keys[20]; enabled: root.reader-on; activated => { ReaderBridge.zoom-fit(root.reader-id, 0); } }
+            MenuSeparator {}
+            MenuItem { title: "Show or Hide Side Panel"; shortcut: PlatformBridge.keys[21]; enabled: root.reader-on; activated => { ReaderBridge.toggle-panel(root.reader-id); } }
+            MenuItem { title: "Next Page Layout"; shortcut: PlatformBridge.keys[22]; enabled: root.reader-on; activated => { ReaderBridge.cycle-spread(root.reader-id); } }
+            MenuItem { title: "Rotate View Clockwise"; shortcut: PlatformBridge.keys[23]; enabled: root.reader-on; activated => { ReaderBridge.rotate-view(root.reader-id, 1); } }
+            MenuItem { title: "Rotate View Counterclockwise"; shortcut: PlatformBridge.keys[24]; enabled: root.reader-on; activated => { ReaderBridge.rotate-view(root.reader-id, -1); } }
+            MenuSeparator {}
+            MenuItem { title: "Full Screen"; shortcut: PlatformBridge.keys[25]; activated => { root.full-screen = !root.full-screen; } }
+            MenuItem { title: "Present"; shortcut: PlatformBridge.keys[26]; enabled: root.reader-on; activated => { root.reader-command("present"); } }
+        }
+        Menu {
+            title: "Go";
+            MenuItem { title: "Previous Page"; shortcut: PlatformBridge.keys[27]; enabled: root.reader-on; activated => { ReaderBridge.page-step(root.reader-id, -1); } }
+            MenuItem { title: "Next Page"; shortcut: PlatformBridge.keys[28]; enabled: root.reader-on; activated => { ReaderBridge.page-step(root.reader-id, 1); } }
+            MenuItem { title: "First Page"; shortcut: PlatformBridge.keys[29]; enabled: root.reader-on; activated => { ReaderBridge.page-step(root.reader-id, -10); } }
+            MenuItem { title: "Last Page"; shortcut: PlatformBridge.keys[30]; enabled: root.reader-on; activated => { ReaderBridge.page-step(root.reader-id, 10); } }
+            MenuItem { title: "Go to Page…"; shortcut: PlatformBridge.keys[31]; enabled: root.reader-on; activated => { root.reader-command("go-to-page"); } }
+            MenuSeparator {}
+            MenuItem { title: "Back"; shortcut: PlatformBridge.keys[32]; enabled: root.reader-on; activated => { ReaderBridge.history(root.reader-id, -1); } }
+            MenuItem { title: "Forward"; shortcut: PlatformBridge.keys[33]; enabled: root.reader-on; activated => { ReaderBridge.history(root.reader-id, 1); } }
+        }
+        Menu {
+            title: "Tools";
+            MenuItem { title: "All Tools"; shortcut: PlatformBridge.keys[34]; activated => { root.active-tab = -1; root.page = Page.tools; } }
+            // The reader's tools (their letters work on the pages; not here, so typing keeps them).
+            Menu {
+                title: "Annotate";
+                enabled: root.reader-on;
+                for t in [{ n: "Select Text", k: 0 }, { n: "Highlight", k: 1 }, { n: "Underline", k: 2 }, { n: "Strikethrough", k: 3 }, { n: "Note", k: 4 }, { n: "Pen", k: 5 }, { n: "Shapes", k: 10 }, { n: "Eraser", k: 11 }, { n: "Stamp", k: 12 }, { n: "Text Box", k: 6 }]: MenuItem {
+                    title: t.n;
+                    activated => { ReaderBridge.set-tool(root.reader-id, t.k); }
+                }
+            }
+            Menu {
+                title: "Edit PDF";
+                enabled: root.reader-on;
+                for t in [{ n: "Edit Text and Images", k: 7 }, { n: "Add Image", k: 8 }, { n: "Link", k: 13 }, { n: "Sign", k: 9 }, { n: "Prepare Form", k: 14 }]: MenuItem {
+                    title: t.n;
+                    activated => { ReaderBridge.set-tool(root.reader-id, t.k); }
+                }
+            }
+            MenuSeparator {}
+            // Starred tools (Home ▸ Tools' favourites).
+            for t in root.favourite-tools: MenuItem {
+                title: t.name;
+                activated => { root.open-tool(t.id); }
+            }
+        }
+        Menu {
+            title: "Window";
+            MenuItem { title: "Next Tab"; shortcut: PlatformBridge.keys[35]; enabled: root.tabs.length > 0; activated => { root.step-tab(1); } }
+            MenuItem { title: "Previous Tab"; shortcut: PlatformBridge.keys[36]; enabled: root.tabs.length > 0; activated => { root.step-tab(-1); } }
+            MenuItem { title: "Home"; shortcut: PlatformBridge.keys[37]; activated => { root.active-tab = -1; } }
+        }
+        Menu {
+            title: "Help";
+            MenuItem { title: "Keyboard Shortcuts"; shortcut: PlatformBridge.keys[38]; enabled: root.reader-on; activated => { ReaderBridge.show-help(root.reader-id, true); } }
+            MenuItem { title: "Customize Shortcuts…"; shortcut: PlatformBridge.keys[39]; activated => { root.show-preferences(); } }
+        }
+    }
+
     // App-wide keys (macOS conventions), reached from anywhere a focused control does not take them:
     // ⌘, Preferences, ⌘O Open, ⌘W close the tab shown, ⌃Tab and ⌃⇧Tab the next and previous tab, as
     // browsers and PDF Expert do (⌘8 and ⌘9 stay the reader's zooms).
     app-keys := FocusScope {
         key-pressed(e) => {
-            if e.modifiers.control && e.text == "," { root.show-preferences(); return accept; }
-            if e.modifiers.control && (e.text == "o" || e.text == "O") { root.open-file(); return accept; }
-            if e.modifiers.control && (e.text == "w" || e.text == "W") && root.active-tab >= 0 { root.close-active-tab(); return accept; }
-            if e.text == Key.Tab && e.modifiers.control { root.step-tab(e.modifiers.shift ? -1 : 1); return accept; }
+            // Menu commands too: only while they keep their own keys (see reader.slint).
+            if e.modifiers.control && e.text == "," && !PlatformBridge.rebound[15] /* preferences */ { root.show-preferences(); return accept; }
+            if e.modifiers.control && (e.text == "o" || e.text == "O") && !PlatformBridge.rebound[1] /* open */ { root.open-file(); return accept; }
+            if e.modifiers.control && (e.text == "w" || e.text == "W") && root.active-tab >= 0 && !PlatformBridge.rebound[6] /* close */ { root.close-active-tab(); return accept; }
+            if e.text == Key.Tab && e.modifiers.control && (e.modifiers.shift ? !PlatformBridge.rebound[36] /* previous-tab */ : !PlatformBridge.rebound[35] /* next-tab */) { root.step-tab(e.modifiers.shift ? -1 : 1); return accept; }
             // ⌘F on the Tools page: its search.
-            if e.modifiers.control && e.text == "f" && root.active-tab == -1 && root.page == Page.tools { root.search-seq += 1; return accept; }
+            if e.modifiers.control && e.text == "f" && root.active-tab == -1 && root.page == Page.tools && !PlatformBridge.rebound[11] /* find */ { root.search-seq += 1; return accept; }
             reject
         }
         VerticalLayout {
@@ -276,13 +407,14 @@ export component AppWindow inherits Window {
                 Rectangle {
                     visible: root.active-tab == -1;
                     sidebar := Sidebar {
-                        x: 0;
+                        // Right to left (Preferences ▸ Direction, iLovePDF's): on the right.
+                        x: PlatformBridge.rtl ? parent.width - self.width : 0;
                         height: parent.height;
                         page <=> root.page;
                         collapsed: root.width < Theme.sidebar-collapse-below;
                     }
                     Rectangle {
-                        x: sidebar.width;
+                        x: PlatformBridge.rtl ? 0 : sidebar.width;
                         width: parent.width - sidebar.width;
                         height: parent.height;
                         if root.page == Page.recents: RecentsScreen {
@@ -370,6 +502,8 @@ export component AppWindow inherits Window {
                         is-full-screen: root.full-screen;
                     end-presenting: root.end-presenting;
                     take-keys: root.reader-keys;
+                        menu-seq: root.menu-seq;
+                        menu-command: root.menu-command;
                         full-screen(on) => { root.full-screen = on; }
                         open-preferences => { root.show-preferences(); }
                         switch-tab(d) => { root.step-tab(d); }
@@ -460,6 +594,8 @@ export component AppWindow inherits Window {
         name: root.launch-name;
         answer(yes) => { root.launch-answer(yes); }
     }
+    // Edit ▸ Check Spelling… over the document's comments and fields.
+    if PlatformBridge.check-open: SpellingDialog {}
     if root.confirm-visible: ConfirmCloseDialog {
         cancel-job => { root.confirm-cancel-job(); }
         keep => { root.confirm-keep(); }

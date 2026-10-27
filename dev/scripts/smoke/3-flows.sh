@@ -1272,4 +1272,115 @@ drag 350 250 250 150; drag 650 250 250 150; click 760 320 0.8; key Delete; sleep
 QA=$(qpdf --qdf --object-streams=disable "$OUT/article.pdf" - 2>/dev/null)
 NB=$(echo "$QA" | grep -ac '/Type /Bead')
 check "Shapes ▸ Article chains boxes into an article; a box picked is deleted alone (${AR:-no Article button}; $NB bead)" "echo \"\$QA\" | grep -aq '/Threads' && [ \"$NB\" = 1 ]"
+# 220. The menu bar (C-platform-014; Acrobat's and Preview's menus), shown on request (the steps above click where
+# a window without it puts things): File to Help along the top; File lists Save with its shortcut; Window ▸ Home
+# from a reader tab shows Home.
+export SHEAF_TEST_MENU_BAR=1
+cp "$OUT/text.pdf" "$OUT/menubar.pdf"; launch "$OUT/menubar.pdf"; sleep 1
+MB=$(ocr 700x34+0+0)
+FX=$(at File 400x34+0+0); [ -n "$FX" ] && click $FX 0.8
+FM=$(ocr 420x420+0+24); key Escape; sleep 0.4
+read WX _ <<< "$(at Window 700x34+0+0)"
+[ -n "$WX" ] && click $WX 14 0.8
+HM=$(at Home 320x160+$(( ${WX:-20} - 20 ))+24); [ -n "$HM" ] && click $HM 1.2
+HR=$(at Recents 400x400+0+40)
+check "the menu bar shows File to Help, File lists Save with Ctrl+S, Window ▸ Home goes Home ($MB; $(echo "$FM" | grep -o 'Ctrl+S' | head -1); ${HM:-no Home item}; ${HR:-no Recents})" "echo \"$MB\" | grep -q 'File' && echo \"$MB\" | grep -q 'Help' && echo \"$FM\" | grep -q 'Ctrl+S' && [ -n \"$HR\" ]"
+quit
+unset SHEAF_TEST_MENU_BAR
+
+# Preferences scrolled until a word shows in the page (the platform sections are below Signatures).
+pref_find() { local f=""; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
+# The steps below change the platform preferences: put back as they were.
+platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.pop("platform", None); json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
+
+# 221. Preferences ▸ Keyboard shortcuts (C-preferences-013, Stirling's Hotkeys): "find" searched, Find's Ctrl+F
+# clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
+launch; key ctrl+comma; sleep 0.8
+SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "find"; sleep 0.8
+KF=$(at Ctrl+F 1020x700+250+90); [ -n "$KF" ] && click $KF 0.5; key ctrl+alt+f; sleep 0.8
+KG=$(at Ctrl+G 1020x700+250+90); [ -n "$KG" ] && click $KG 0.5; key ctrl+s; sleep 0.8
+KE=$(ocr 1020x700+250+90)
+KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+check "a shortcut recorded in Preferences is kept, one already used is refused (${SQ:-no search}; ${KF:-no Ctrl+F}; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
+quit; platform_reset
+
+# 222. Check spelling while typing (C-edit-013, C-reader-060; Acrobat's and Preview's): a note typed with two
+# misspelt words shows them under the card with corrections, Ignore and Learn; the correction clicked goes in
+# the note (saved). Needs a Hunspell English dictionary (hunspell-en-us) or /usr/share/dict/words.
+cp "$OUT/text.pdf" "$OUT/spelling.pdf"; launch "$OUT/spelling.pdf"; sleep 1
+key n; click 640 400 0.8; xdotool type --delay 15 "A mispelt sentnce here "; sleep 1.5
+SP=$(ocr 1280x710+0+90)
+SC=$(at sentence 1280x710+0+90); [ -n "$SC" ] && click $SC 0.8
+key ctrl+Return; sleep 0.6; key ctrl+s; sleep 1.5
+SN=$(qpdf --qdf --object-streams=disable "$OUT/spelling.pdf" - 2>/dev/null | grep -ao '/Contents ([^)]*)' | tail -1)
+check "misspelt words show under the note with corrections, and one clicked goes in the note (${SC:-no sentence chip}; $SN)" "echo \"$SP\" | grep -q 'Ignore' && echo \"$SP\" | grep -q 'Learn' && echo \"$SN\" | grep -q 'sentence here'"
+quit
+
+# 223. Preferences ▸ Interface ▸ Right to left (C-platform-004, iLovePDF's right-to-left interface): Home's
+# sidebar moves to the window's right edge, back on the left with Left to right.
+launch; key ctrl+comma; sleep 0.8
+RL=$(pref_find Right); [ -n "$RL" ] && click $RL 0.8
+read RX _ <<< "$(at Recents 1280x300+0+40)"
+LR=$(at Left 1280x710+0+90); [ -n "$LR" ] && click $LR 0.8
+read LX _ <<< "$(at Recents 1280x300+0+40)"
+check "right to left puts Home's sidebar on the right, left to right back on the left (Recents at x ${RX:-?}, then ${LX:-?})" "[ \"${RX:-0}\" -gt 1050 ] && [ \"${LX:-9999}\" -lt 250 ]"
+quit; platform_reset
+
+# 224. A document right to left (C-platform-004): the tab bar starts on the right (Home at the right edge, the
+# document's tab to its left), and the side panel goes to the right of the pages: the page's words move left by
+# about the panel's width from where they were left to right.
+cp "$OUT/text.pdf" "$OUT/mirrored.pdf"; launch "$OUT/mirrored.pdf"; sleep 1
+read QL _ <<< "$(at quick 1280x700+0+90)"; quit
+python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.setdefault("platform", {})["direction"] = 2; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+launch "$OUT/mirrored.pdf"; sleep 1
+read HX _ <<< "$(at Home 1280x40+0+0)"; read DX _ <<< "$(at mirrored 1280x40+0+0)"; read QR _ <<< "$(at quick 1280x700+0+90)"
+check "right to left mirrors the tab bar and puts the side panel right of the pages (Home at x ${HX:-?}, the document at ${DX:-?}; 'quick' at ${QL:-?} then ${QR:-?})" "[ \"${HX:-0}\" -gt 1100 ] && [ -n \"$DX\" ] && [ \"$DX\" -lt \"$HX\" ] && [ -n \"$QL\" ] && [ \"${QR:-9999}\" -lt \"$(( QL - 150 ))\" ]"
+quit; platform_reset
+
+# 225. A reader tool's letter changed (C-preferences-013): Preferences ▸ Keyboard shortcuts, "highlight" searched,
+# its H clicked and Q pressed; in a document Q then picks Highlight (a drag over the words highlights them, saved).
+launch; key ctrl+comma; sleep 0.8
+SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "highlight"; sleep 0.8
+# The key's box holds "H" alone (at() matches the start of a word, and "Highlight" starts with H).
+at_word() { import -window root -crop 1020x700+250+90 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '$12 == w { printf "%d %d\n", 250 + ($7 + $9 / 2) / 2, 90 + ($8 + $10 / 2) / 2; exit }'; }
+KH=$(at_word H); [ -n "$KH" ] && click $KH 0.5; key q; sleep 0.8
+TK=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("tool_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+quit
+cp "$OUT/text.pdf" "$OUT/toolkey.pdf"; launch "$OUT/toolkey.pdf"; sleep 1
+key q; read QX QY <<< "$(at quick 1020x700+255+90)"; [ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1 mousemove $(( QX + 60 )) $QY mouseup 1; sleep 1; }; key v; key ctrl+s; sleep 1.5
+check "a tool's letter changed in Preferences picks it on the pages ($TK)" "echo \"$TK\" | grep -q \"'highlight', 'q'\" && qpdf --qdf --object-streams=disable \"$OUT/toolkey.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
+quit; platform_reset
+
+# 226. Edit ▸ Copy, Select All and Paste from the menu bar (C-platform-014): on the reader's pages, Select All then
+# Copy puts the page's text on the clipboard; in a text field (Preferences ▸ Identity ▸ Your name, "Ada"), Select
+# All, Copy, then Paste at its end makes "AdaAda" (kept as the author's name).
+menu() { local m; read m _ <<< "$(at "$1" 700x34+0+0)"; [ -n "$m" ] && click $m 14 0.8; local it; it=$(at "$2" 320x520+$(( ${m:-20} - 20 ))+24); [ -n "$it" ] && click $it 0.8; echo "${it:-no $2}"; }
+export SHEAF_TEST_MENU_BAR=1
+cp "$OUT/text.pdf" "$OUT/editmenu.pdf"; launch "$OUT/editmenu.pdf"; sleep 1
+echo -n | xclip -selection clipboard >/dev/null 2>&1
+E1=$(menu Edit Select); E2=$(menu Edit Copy); sleep 0.4
+CP=$(xclip -o -selection clipboard 2>/dev/null | head -1)
+key ctrl+comma; sleep 0.8
+YN=$(pref_find Your); read YX YY <<< "$YN"; [ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.5; xdotool type --delay 20 "Ada"; sleep 0.3
+E3=$(menu Edit Select); E4=$(menu Edit Copy); key End; E5=$(menu Edit Paste); sleep 0.6
+AU=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("author"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+check "Edit ▸ Select All, Copy, Paste act on the pages and on a text field ($E1 $E2 $E5; clipboard '$(echo "$CP" | cut -c1-20)'; author $AU)" "echo \"$CP\" | grep -q 'quick brown fox' && [ \"$AU\" = AdaAda ]"
+quit
+unset SHEAF_TEST_MENU_BAR
+python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["author"] = None; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
+
+# 227. Edit ▸ Check Spelling… (F7; C-edit-013, Acrobat's Check Spelling in comments and form fields): a note "teh cat
+# sat" left on the page; the pass shows "teh" with its corrections, "the" clicked and Change: the pass ends (nothing
+# else misspelt) and the note, saved, reads "the cat sat".
+cp "$OUT/text.pdf" "$OUT/checkpass.pdf"; launch "$OUT/checkpass.pdf"; sleep 1
+key n; click 640 400 0.8; xdotool type --delay 15 "teh cat sat"; key ctrl+Return; sleep 0.8; key v
+key F7; sleep 1.2
+CW=$(ocr 1020x700+250+90)
+TH=$(at_word the); [ -n "$TH" ] && click $TH 0.4
+CH=$(at Change 1020x700+250+90); [ -n "$CH" ] && click $CH 1.2
+CD=$(ocr 1020x700+250+90)
+DN=$(at Done 1020x700+250+90); [ -n "$DN" ] && click $DN 0.6
+key ctrl+s; sleep 1.5
+CN=$(qpdf --qdf --object-streams=disable "$OUT/checkpass.pdf" - 2>/dev/null | grep -ao '/Contents ([^)]*)' | tail -1)
+check "Check Spelling goes to a misspelt word in a comment and Change corrects it (${TH:-no 'the'}; ${CH:-no Change}; $CN)" "echo \"$CW\" | grep -q 'teh' && echo \"$CD\" | grep -q 'complete' && echo \"$CN\" | grep -q 'the cat sat'"
 quit

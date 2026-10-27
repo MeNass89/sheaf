@@ -30,6 +30,8 @@ parking_lot = "0.12"
 unicode-normalization = "0.1"
 rust_xlsxwriter = { version = "0.99", default-features = false }
 calamine = { version = "0.31", default-features = false }
+# Check spelling (sheaf-core/src/spell.rs): a pure-Rust Hunspell, reading the system's dictionaries.
+spellbook = "0.3"
 pdfcraft-engine = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-edit = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-fonts = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }

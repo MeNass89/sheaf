@@ -3,6 +3,7 @@ import { Theme } from "../theme.slint";
 import { Segment } from "../widgets/radio-card.slint";
 import { SecondaryButton } from "dialogs.slint";
 import { TextField } from "../widgets/text-field.slint";
+import { SpellingSection, KeyboardSection, InterfaceSection } from "preferences-platform.slint";
 
 // White card with a section title.
 // A round colour to pick, ringed when chosen.
@@ -253,6 +254,10 @@ export component PreferencesScreen inherits Rectangle {
                 }
                 HorizontalLayout { alignment: start; SecondaryButton { text: "Trust a certificate…"; clicked => { root.signature-prefs(2, 0); } } }
             }
+            // Spelling, keyboard shortcuts, tools shown, direction (preferences-platform.slint).
+            InterfaceSection {}
+            SpellingSection {}
+            KeyboardSection {}
             Section {
                 title: "Identity";
                 TextField {

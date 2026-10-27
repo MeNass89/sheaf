@@ -7,7 +7,7 @@ commit as any file added, moved, renamed or deleted.
 
 | Folder | Responsibility |
 |---|---|
-| `crates/sheaf-core` | The engine, no UI: one module per tool (`compress.rs`, `redact/`, `sign.rs`, `watermark.rs`…), plus `pdfcraft.rs` (bridge to the PdfCraft engine), `engine.rs` (pdfium), `paths.rs` (safe output paths), `script.rs` (typed-signature handwriting fonts, bundled in `assets/fonts` with their licences), `facts.rs` (what Document Properties reads: restrictions, PDF/A, dates, page boxes), `form_scan.rs` (Detect fields on a scanned form: its lines and boxes found in the pixels), `info.rs` (the Author written on the PDFs Sheaf makes), `layers.rs` (a copy with layers hidden, for the screen), `grayscale.rs` (Compress ▸ Convert to grayscale), `textdocs.rs` (Markdown, e-mail and PostScript to PDF), `adjust.rs` (Adjust colours), `system_fonts.rs` (the computer's open-licensed fonts a paragraph edited with Edit can be set in). Every write goes through a temp file. |
+| `crates/sheaf-core` | The engine, no UI: one module per tool (`compress.rs`, `redact/`, `sign.rs`, `watermark.rs`…), plus `pdfcraft.rs` (bridge to the PdfCraft engine), `engine.rs` (pdfium), `paths.rs` (safe output paths), `script.rs` (typed-signature handwriting fonts, bundled in `assets/fonts` with their licences), `facts.rs` (what Document Properties reads: restrictions, PDF/A, dates, page boxes), `form_scan.rs` (Detect fields on a scanned form: its lines and boxes found in the pixels), `info.rs` (the Author written on the PDFs Sheaf makes), `layers.rs` (a copy with layers hidden, for the screen), `grayscale.rs` (Compress ▸ Convert to grayscale), `textdocs.rs` (Markdown, e-mail and PostScript to PDF), `adjust.rs` (Adjust colours), `system_fonts.rs` (the computer's open-licensed fonts a paragraph edited with Edit can be set in), `spell.rs` (check spelling: the system's Hunspell dictionaries read by `spellbook`, else a word list), `bookmarks.rs` (`sheaf bookmark`). Every write goes through a temp file. |
 | `crates/sheaf-cli` | The `sheaf` command (`main.rs` dispatch, `args.rs` the clap arguments), its `--json` output (`agent.rs`) and the MCP server (`mcp.rs`). |
 | `crates/sheaf-app` | The Slint GUI: Rust in `src/`, the interface in `ui/` (`main.slint` root, `screens/`, `widgets/`, `icons/` Lucide, `theme.slint`). |
 | `scripts/` | `test.sh` (the one test suite), packaging (`bundle-macos.sh`, `package-linux.sh`, `package-windows.sh`, `make-dmg.sh`), downloads (`fetch-pdfium.sh`, `fetch-models.sh`), `smoke.sh` (a packaged CLI, release only). |
@@ -64,6 +64,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | `edit_ui.rs`, `sign_ui.rs`, `sign_preview.rs` | The Edit and Sign tool panels. |
 | `wm_preview.rs` | Add watermark's live preview: page 1 marked with the panel's options, redrawn as they change. |
 | `dialog.rs`, `password.rs`, `open_with.rs`, `icons.rs` | File dialogs, password prompt, files opened from outside, icons. |
+| `platform.rs`, `platform_ui.rs` | The menu bar's commands and their shortcuts (the user's, Preferences ▸ Keyboard shortcuts), check spelling while typing (the card under an editor), tools hidden when they cannot run here, the right-to-left interface; the `PlatformBridge` global (`ui/platform.slint`). |
 
 ## Where to change what
 
@@ -73,7 +74,10 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | A reader tool, shortcut or panel | `ui/screens/reader.slint` (composition, pages, keys), `reader-toolbar.slint` (top bar: tools, page field, zoom, search, More menu), `reader-options.slint` (the tool's options bar over the pages), `reader-sheets.slint` (signature pad, print, properties), `reader-form.slint` (Prepare form's field boxes and card), `reader-panel.slint` (side panel), `reader-parts.slint` (small controls) + `src/reader_ui/<part>.rs` (behaviour); state fields in `ui/flow-types.slint` (`ReaderState`, `ReaderBridge`) |
 | An edit to the open document | `Op` in `reader_doc/mod.rs`, sent from `reader_ui/edits.rs` |
 | Colours, sizes, fonts | `ui/theme.slint` |
-| A preference | `prefs.rs` + `ui/screens/preferences.slint` |
+| A preference | `prefs.rs` + `ui/screens/preferences.slint` (spelling, keyboard, interface: `prefs.rs` `platform` + `preferences-platform.slint`) |
+| A menu bar command | `src/platform.rs` `COMMANDS` (at the end) + its `MenuItem` in `ui/main.slint`'s `MenuBar`, reading `PlatformBridge.keys[<its index>]` |
+| A reader tool's letter | `src/platform.rs` `TOOLS` (by tool number; reader.slint asks `PlatformBridge.tool-for-key`) |
+| Right to left for a row | a `FlexboxLayout` with `flex-direction: PlatformBridge.rtl ? row-reverse : row` (Slint's HorizontalLayout has no direction) |
 | A test | a layer already exists for it in `scripts/test.sh`: unit tests next to the code or in `crates/*/tests/`, GUI checks in `dev/scripts/smoke/*.sh` (the steps, in order; `dev/scripts/gui-smoke.sh` holds the setup and helpers and runs them) |
 | PDF to Word quality | `dev/scripts/word-corpus.py`: Word originals → PDF → Sheaf's export, measured against the original (words in order, tables, no text boxes, pages); not in the suite (needs LibreOffice and python-docx) |
 

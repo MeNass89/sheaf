@@ -335,6 +335,11 @@ fn update_prefs(ui: &AppWindow, f: impl FnOnce(&mut Prefs)) {
     push_prefs(ui);
 }
 
+/// Spelling, shortcuts, tools shown and direction changed and saved (src/platform_ui.rs).
+pub fn update_platform(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::platform::PlatformPrefs)) {
+    update_prefs(ui, |p| f(&mut p.platform));
+}
+
 fn push_prefs(ui: &AppWindow) {
     let p = prefs();
     ui.set_theme_pref(p.theme.mode());

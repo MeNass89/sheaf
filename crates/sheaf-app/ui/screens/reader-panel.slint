@@ -4,6 +4,7 @@
 import { ScrollView, ListView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolTab, ReaderBridge, Parse } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
 import { ToolButton, PanelTab, SmallButton, PanelField } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
 import { Check } from "../widgets/check.slint";
@@ -917,20 +918,22 @@ export component ReaderPanel inherits Rectangle {
                 }
             }
         }
+        // The edge next to the pages: the panel's right, its left right to left.
         Rectangle {
-            x: parent.width - 1px;
+            x: PlatformBridge.rtl ? 0 : parent.width - 1px;
             width: 1px;
             background: edge.has-hover || edge.pressed ? Theme.accent : Theme.sidebar-border;
         }
         // The edge drags to resize the panel (PDF Expert's sidebar), 200–480 px; the thumbnails
         // take the new width once it is let go.
         edge := TouchArea {
-            x: parent.width - 4px;
+            x: PlatformBridge.rtl ? -3px : parent.width - 4px;
             width: 7px;
             mouse-cursor: ew-resize;
             moved => {
                 if self.pressed {
-                    ReaderBridge.panel-width = clamp(self.absolute-position.x + self.mouse-x - root.absolute-position.x, 200px, 480px);
+                    // Right to left the panel's right edge stays put (the window's) and its left one is dragged.
+                    ReaderBridge.panel-width = clamp(PlatformBridge.rtl ? root.absolute-position.x + root.width - (self.absolute-position.x + self.mouse-x) : self.absolute-position.x + self.mouse-x - root.absolute-position.x, 200px, 480px);
                 }
             }
             pointer-event(e) => {
