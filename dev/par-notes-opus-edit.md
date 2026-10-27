@@ -42,27 +42,48 @@ Not built or run here (brief rule 1): the orchestrator compiles and runs the sui
   mode is on (the one being drawn brighter); End article starts the next, Delete article removes
   it (pdfcraft-engine `articles.rs`; test `boxes_are_chained_into_an_article_across_columns_and_pages`).
 
+## Second pass (27/10)
+
+- C-edit-024: with Article on, a click on a box picks it (outlined stronger; new boxes then
+  continue its article), a drag from it moves it, a drag from its bottom-right corner resizes it,
+  Delete removes that box alone and joins the boxes before and after it (its article's last box
+  removes the article) (Acrobat's Article tool; `reader_ui/article_boxes.rs`, engine
+  `set_article_box`, `delete_article_box`; test `an_article_box_is_moved_resized_and_deleted_alone`).
+- C-edit-004: More fonts… (now last in the format row, so the buttons before it keep their
+  places) applies to new text (written as page content in the embedded font, aligned and
+  underlined as asked: pdfcraft-edit `text_in_font.rs`) and to text boxes, new or selected (the
+  font embedded into the box's appearance, `/DA` naming it, kept through size and colour:
+  pdfcraft-annot `text_box_font.rs`) (test `new_text_and_text_boxes_take_a_font_of_the_computers`).
+- C-annotate-015: a loupe's magnification is chosen (1.5×, 2×, 3×, 4×: a click on the row's
+  button goes to the next, for new loupes and the loupe selected); after any edit of the page's
+  content, a loupe whose page changed takes a new copy of it and is redrawn (`refresh_loupes`,
+  run by the engine after content edits); a mask is picked by a click in its opening or on its
+  border (its opening is its hit box) (tests `a_loupe_follows_its_magnification_and_its_page`,
+  `a_masks_opening_is_known`).
+- Smoke 210–214 (`3-flows.sh`): Order ▸ To front (by pixel colour), U and • on a paragraph,
+  More fonts… on a paragraph (a Type0 font embedded), Shapes ▸ Loupe and Mask, Shapes ▸ Article
+  with a box deleted alone. Buttons found by OCR (`at`); 211 clicks U and • by their offset from
+  Mono, as step 2c does; 212 clicks the list's first row 40 px under the button.
+
 ## Left, and why
 
-- C-edit-004: added text (new text on the page) and text boxes still offer the three standard
-  families only: PdfCraft's added text (`AddedText.family`) and text box appearances take a
-  standard font; an embedded font there is engine work of its own. Acrobat lists every system
-  font; Sheaf lists the openly licensed ones (PdfCraft's asset policy refuses others).
+- C-edit-004: Acrobat lists every system font; Sheaf lists the openly licensed ones (PdfCraft's
+  asset policy refuses others). New text in a computer's font is page content (a paragraph the
+  Edit tool changes afterwards), not an added item re-editable as typed; each typed line is one
+  line (not rewrapped to the box).
 - C-edit-009: inline images (`BI … EI`) and content inside form XObjects are not objects of the
   Edit tool, so they are not arranged. Keyboard shortcuts were not added (⌘[ ⌘] and ⌘⇧[ ⌘⇧] are
   taken by history and tabs).
-- C-annotate-015: a loupe shows the page as it was when the loupe was placed (its content copied
-  into a form); Preview's magnification can be changed afterwards, Sheaf's is 2× at placing.
-- C-edit-024: boxes are not resized or moved after drawing (Acrobat's handles), and a box is not
-  picked by clicking it: End/Delete act on the article being drawn, else the last one.
+- C-annotate-015: a loupe's page copy follows content edits, not resource-only changes; its
+  circle is resized as other circles are (no handle of its own).
+- C-edit-024: a box is moved within its page (not dragged to another page); no live handles are
+  drawn on the picked box (its corner works without one); a box is not inserted between two.
 
 ## Smoke
 
-- not automatable here: the Order row, More fonts…, Loupe / Mask / Article buttons — their screen
-  places are unknown without running the app (rule 1); the engine behaviour each drives is tested
-  above. Suggested smoke steps 210–214 for the orchestrator: Edit ▸ pick a drawing ▸ To front;
-  open a paragraph ▸ U and • ▸ ⌘↩; Shapes ▸ Loupe ▸ drag; Shapes ▸ Mask ▸ drag; Shapes ▸ Article ▸
-  drag twice.
+- Steps 210–214 written, never run (rule 1): the orchestrator's first run may need an offset
+  fixed. The Objects card now shows for one picked object too (top-right of the view): earlier
+  steps that pick one object and then click near that corner should be watched.
 
 ## For the orchestrator
 
@@ -71,10 +92,19 @@ Not built or run here (brief rule 1): the orchestrator compiles and runs the sui
   (`add_loupe`, `add_mask`), `encoded_text_font`, `appearance::build_encoded`, `appearance::own_width`;
   pdfcraft-engine `articles` (`Article`, `articles`, `add_article_box`, `delete_article`,
   `Document::articles`), `Edit::RestackObjects`, `Edit::EditTextBlockInFont`, `Edit::AddLoupe`,
-  `Edit::AddMask`, `Edit::AddArticleBox`, `Edit::DeleteArticle`; sheaf-core `system_fonts`
+  `Edit::AddMask`, `Edit::AddArticleBox`, `Edit::DeleteArticle`, `Edit::SetArticleBox`,
+  `Edit::DeleteArticleBox`, `Edit::AddTextInFont`, `Edit::AddTextBoxInFont`,
+  `Edit::SetTextBoxFontProgram`, `Edit::SetLoupeMagnify`, `Document::mask_holes`,
+  `loupe_magnifications`; pdfcraft-edit `add_text_in_font`; pdfcraft-annot
+  `text_box_font::set_text_box_font_program`, `loupe_mask::{set_loupe_magnify, refresh_loupes,
+  mask_holes, MAGNIFICATIONS}`; sheaf-core `system_fonts`
   (`SystemFont`, `font_dirs`, `list_fonts`, `installed`).
-- New fields: `ReaderUi.text_font`, `shape_special`, `article_thread`; `Snap.articles`;
-  `ReaderState.text-font`, `shape-special`; `ReaderBridge.system-fonts`. No `Prefs` field.
+- New fields: `ReaderUi.text_font`, `shape_special`, `article_thread`, `article_box`,
+  `loupe_magnify`; `Snap.articles`; `ReaderState.text-font`, `shape-special`, `loupe-magnify`,
+  `selected-loupe`; `ReaderBridge.system-fonts`. No `Prefs` field. A mask's `AnnotEntry.quads`
+  is its opening (`reader_doc::snap`).
+- The engine now runs `refresh_loupes` after every content-scope edit (`Session` apply, after
+  `run_edit`): it returns at once when the document has no loupe.
 - Shared files touched (small blocks): `ui/flow-types.slint`, `ui/screens/reader.slint` (the
   marks' colours for kinds 16/17, the card's condition), `reader_ui/mod.rs`,
   `third_party/pdfcraft-engine/src/lib.rs`, `crates/sheaf-core/tests/engine_patches.rs` (appended).
