@@ -531,3 +531,25 @@ fn console_manager_lists_and_edits_document_and_field_scripts_with_undo() {
     s.undo(id).unwrap();
     assert!(s.get(id).unwrap().console_scripts().iter().any(|s| s.name == "Amount"));
 }
+
+#[test]
+fn wizard_page_ranges_and_mark_settings_edit_only_selected_pages() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::actions::{self, Step}}};
+    let dir = tempfile::tempdir().unwrap();
+    let input = common::fixture_pdf(dir.path(), "pages.pdf", 3);
+    let mut doc = Doc::open(&Input::new(&input)).unwrap();
+    let step = Step::from_id("watermark_options", "24|0.25|0|10|-20|Courier|2|REVIEW").unwrap();
+    doc.apply(actions::command_edit(&step, 3).unwrap()).unwrap();
+    let output = doc.save(&dir.path().join("marked.pdf")).unwrap();
+    let text = common::page_texts(&output);
+    assert!(!text[0].contains("REVIEW")); assert!(text[1].contains("REVIEW")); assert!(!text[2].contains("REVIEW"));
+    doc.apply(actions::command_edit(&Step::KeepPages("1,3".into()), 3).unwrap()).unwrap();
+    let output = doc.save(&dir.path().join("kept.pdf")).unwrap();
+    let text = common::page_texts(&output);
+    assert_eq!(text.len(), 2); assert!(text[0].contains("Page 1")); assert!(text[1].contains("Page 3"));
+    assert!(actions::command_edit(&Step::DeletePages("all".into()), 2).is_err());
+    for bad in ["0", "4", "2-1", "1,", ""] { assert!(actions::page_selection(bad, 3).is_err()); }
+    assert!(Step::from_id("watermark_options", "24|NaN|0|0|0|Courier|all|Bad").is_none());
+    let header = Step::HeaderFooterOptions("0|12|Times-Roman|1|Header".into());
+    assert!(matches!(actions::command_edit(&header, 3).unwrap(), Edit::AddHeaderFooter { pages, settings, .. } if pages == [0] && settings.text[0] == "Header" && settings.font_size == 12.0));
+}

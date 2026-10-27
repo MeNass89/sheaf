@@ -582,3 +582,23 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
 - C-files-008: f8 a7 p7 — library.rs:363 `cached_library_filter_tree_and_batch_actions_keep_versions_and_collisions` covers offline metadata filtering, folders, multi-file export/delete and collisions. Non-PDF previews and grid virtualization remain absent.
 - C-organize-024: f8 a7 p8 — reader_ui/portfolio.rs:87 `portfolio_browser_uses_embedded_description_size_and_native_text_preview` covers metadata and text preview; existing core portfolio tests cover originals/order. Real collection folders/arbitrary schema editing remain absent.
 - C-platform-005: f8 a7 p8 — javascript_console.rs:24 `run_selection_keeps_unicode_boundaries_reverse_ranges_and_visible_network_refusals`; engine_patches.rs:157 `console_manager_lists_and_edits_document_and_field_scripts_with_undo`. No debugger or page/link script editor.
+
+## Pass 4 · 27 October · author fixes after Opus review 2
+
+### Tatouages
+- Scope: sol-batch only, par/sol-batch. Brief rule 1 forbids compilation, tests, app and codex.
+- No network features. Native Rust first; no Ghostscript or LibreOffice invocation.
+
+### Polaroid
+- Active fourth pass. Each component is committed and pushed independently. Static review only;
+  the orchestrator owns compilation, runtime, visual checks and the joint grade.
+
+- C-batch-002: Action Wizard now offers Keep/Delete selected pages and configurable watermark /
+  header-footer steps: font, size, page ranges, watermark opacity, angle and offsets, six header
+  positions. Existing plain-text steps stay compatible. Test
+  `wizard_page_ranges_and_mark_settings_edit_only_selected_pages` (written, not run).
+  Left: encrypt, insert, split and export as intermediate tools; direct controls rather than the
+  compact settings text are still needed. This closes the mark-settings engine gap, not all tools.
+  not automatable: add these four steps, edit settings, save/reopen and run on mixed page counts —
+  execution forbidden by the brief. No new dependency. Public: Step's four new variants,
+  actions::page_selection. Native font dependency was already present.
