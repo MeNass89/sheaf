@@ -590,7 +590,8 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
 - No network features. Native Rust first; no Ghostscript or LibreOffice invocation.
 
 ### Polaroid
-- Active fourth pass. Each component is committed and pushed independently. Static review only;
+- Fourth-pass implementation complete; awaiting the orchestrator suite and Opus review. Each
+  component is committed and pushed independently. Static review only;
   the orchestrator owns compilation, runtime, visual checks and the joint grade.
 
 - C-batch-002: Action Wizard now offers Keep/Delete selected pages and configurable watermark /
@@ -734,3 +735,67 @@ Aesthetics and performance require the orchestrator's actual render/measurement.
 - C-batch-008 static follow-up: recheck the input revision after native format conversion and
   immediately before publication. `watched_exports_recheck_inputs_after_native_conversion`
   covers a writer changing the input during that new export phase (written, not run).
+
+## Pass 4 · final hand-off
+
+- All nine components received implementation changes; none was left untouched. The changes are
+  ready for orchestration, not certified as running. All nine remain partial against full main-
+  competitor parity; the specific remaining gaps and reasons are recorded above. No joint 9.
+- Rule 1 respected: no cargo/rustc/clippy/test suite/app/Chrome/Xvfb/codex execution. New tests
+  are written only. GUI cases have not-automatable entries above, with the execution prohibition.
+- Static verification: full-pass `git diff --check` clean; Impeccable's mechanical detector clean
+  on the modified Slint surfaces. No visual, performance or end-to-end validation was possible
+  within this worker's mandate; those grades below are estimates for the counterpart to assess.
+- No network features, service/daemon, Ghostscript or LibreOffice process added. Native Rust
+  export, compression, encryption, tagging, image decode and PDF rendering are used. Office
+  exports disclose approximate layout; unsupported semantics refuse instead of silently changing.
+- No dependency, manifest or Cargo.lock change in this pass. All used libraries were already
+  present. No dependency fetch is needed for these changes.
+- Public engine additions: Step::{KeepPages, DeletePages, WatermarkOptions, HeaderFooterOptions,
+  SetMetadata, RemoveMetadata, PrepareAccessibility, OpenTool, Protect}; actions::page_selection;
+  js::ActionScriptTarget; ConsoleScript::target; Edit::SetActionScript. New private engine module
+  action_scripts.rs is registered in lib.rs and mapped in ARCHITECTURE.md.
+- Public app additions: ActionInput, actions::run_bytes_configured, actions::folder_inputs_recursive,
+  OutputOptions::format; library::{sort_entries,raster_thumbnail}, Library::move_to_folder.
+  Slint models carry command icons/interactive kind, output format/toolbox choices, library sort/
+  pages, portfolio source indices/sort/preview pages and JavaScript page/link event targets.
+- Merge seams: small engine lib.rs enum/label/permission/dispatch blocks and expanded Step enum;
+  reader_ui/JavaScriptBridge/PortfolioRow models and core engine_patches.rs integration tests.
+  App snapshots use Snap::bytes (working file), not Snap::display (display-only appearances).
+
+Files touched in this pass:
+
+- `ARCHITECTURE.md`
+- `crates/sheaf-app/src/action_import.rs`
+- `crates/sheaf-app/src/actions.rs`
+- `crates/sheaf-app/src/actions_ui.rs`
+- `crates/sheaf-app/src/library.rs`
+- `crates/sheaf-app/src/library_ui.rs`
+- `crates/sheaf-app/src/portfolio_ui.rs`
+- `crates/sheaf-app/src/reader_ui/custom_tools.rs`
+- `crates/sheaf-app/src/reader_ui/javascript.rs`
+- `crates/sheaf-app/src/reader_ui/portfolio.rs`
+- `crates/sheaf-app/src/watch_folder.rs`
+- `crates/sheaf-app/ui/screens/actions.slint`
+- `crates/sheaf-app/ui/screens/javascript.slint`
+- `crates/sheaf-app/ui/screens/library.slint`
+- `crates/sheaf-app/ui/screens/portfolio.slint`
+- `crates/sheaf-app/ui/screens/tools.slint`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `dev/par-notes-sol-batch.md`
+- `third_party/pdfcraft-engine/src/action_scripts.rs`
+- `third_party/pdfcraft-engine/src/actions.rs`
+- `third_party/pdfcraft-engine/src/js.rs`
+- `third_party/pdfcraft-engine/src/lib.rs`
+
+Author grades (source estimates; all named tests are written, not run):
+
+- C-batch-002: f8 a7 p8 — `crates/sheaf-core/tests/engine_patches.rs:536` `wizard_page_ranges_and_mark_settings_edit_only_selected_pages`: selected pages/mark settings; wizard_protection_encrypts_the_final_output_with_only_the_prompted_password covers native encryption.
+- C-batch-003: f8 a7 p8 — `crates/sheaf-app/src/actions.rs:576` `actions_on_open_documents_use_unsaved_working_bytes_and_keep_disk_originals`: working bytes rather than disk; action_save_to_formats_use_native_writers_and_recursive_inputs_skip_symlinks covers formats/recursive inputs.
+- C-batch-004: f7 a7 p8 — `crates/sheaf-app/src/action_import.rs:237` `stirling_page_metadata_and_terminal_conversions_preserve_or_refuse_settings`: page/metadata translation, terminal conversion and explicit refusals.
+- C-batch-005: f8 a7 p8 — `crates/sheaf-core/tests/engine_patches.rs:575` `accessibility_suggestion_tags_text_and_preserves_existing_tags_by_refusal`: text-only tagging, real language, displayed title and existing-tag refusal.
+- C-batch-006: f8 a7 p8 — `crates/sheaf-app/src/actions.rs:557` `custom_toolbox_shortcuts_validate_real_tools_and_never_run_as_batch_edits`: all current catalogue tools round-trip as interactive shortcuts.
+- C-batch-008: f8 a7 p7 — `crates/sheaf-app/src/watch_folder.rs:442` `watch_detects_same_size_rewrites_with_restored_modification_time`: same-size/time rewrite detection and checkpoint persistence; watched_exports_recheck_inputs_after_native_conversion guards late changes.
+- C-files-008: f8 a7 p8 — `crates/sheaf-app/src/library.rs:417` `library_sort_move_and_raster_thumbnail_keep_file_versions`: sort orders, native image thumbnail, folder move retains immutable versions.
+- C-organize-024: f8 a7 p8 — `crates/sheaf-app/src/reader_ui/portfolio.rs:142` `portfolio_sort_keeps_attachment_identity_and_previews_every_pdf_page`: numeric sort and stable attachment IDs, second-page preview and bounds.
+- C-platform-005: f8 a7 p8 — `crates/sheaf-core/tests/engine_patches.rs:590` `console_edits_page_and_link_scripts_preserving_other_events_chains_and_undo`: page/link source edits preserve other events, chains and Undo.
