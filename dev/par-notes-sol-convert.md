@@ -724,3 +724,8 @@ verification. No network features; no compiler, test, app or Codex invocation. N
   object/xref containers and trailer offsets. Verification inspects the actual written input bytes,
   not a fresh engine serialization. The native 1b regression also asserts the xref-table type.
   Still source-only: no compiler or test was run.
+
+- C-convert-018 final static audit: xref type uses pattern matching (upstream enum has no
+  PartialEq); part-1 identification reuses the engine's RDF parser, including attribute-form XMP,
+  now covered in the native 1b regression. Indirect filter names and a newer catalog version are
+  checked too. These are source/API checks, not executed test results.

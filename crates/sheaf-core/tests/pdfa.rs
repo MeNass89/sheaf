@@ -131,6 +131,17 @@ fn native_pdfa1_writes_pdf14_and_checks_transparency_before_publication() {
     assert!(matches!(pdf.reference_table.cross_reference_type, lopdf::xref::XrefType::CrossReferenceTable));
     assert_eq!(pdf.get_pages().len(), 2);
     assert!(verify(&Input::new(&out), PdfALevel::A1b).unwrap().is_empty());
+    // Identification may be in RDF attributes, not only the converter's element form.
+    let metadata = pdf.catalog().unwrap().get(b"Metadata").unwrap().as_reference().unwrap();
+    let stream = pdf.get_object(metadata).unwrap().as_stream().unwrap();
+    let text = String::from_utf8(stream.get_plain_content().unwrap()).unwrap()
+        .replace("<pdfaid:part>1</pdfaid:part>", "")
+        .replace("<pdfaid:conformance>B</pdfaid:conformance>", "")
+        .replace("rdf:about=\"\"", "rdf:about=\"\" pdfaid:part=\"1\" pdfaid:conformance=\"B\"");
+    let mut dict = stream.dict.clone(); dict.remove(b"Filter"); dict.remove(b"DecodeParms");
+    pdf.objects.insert(metadata, lopdf::Object::Stream(lopdf::Stream::new(dict, text.into_bytes())));
+    pdf.save(&out).unwrap();
+    assert!(verify(&Input::new(&out), PdfALevel::A1b).unwrap().is_empty());
     let alpha = pdf.add_object(lopdf::Object::Real(0.5));
     let page = *pdf.get_pages().get(&1).unwrap();
     pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("Resources", lopdf::dictionary! {

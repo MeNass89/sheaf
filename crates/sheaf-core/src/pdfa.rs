@@ -104,7 +104,8 @@ pub fn verify(input: &Input, level: PdfALevel) -> Result<Vec<PdfAIssue>> {
         .filter(|i| level != PdfALevel::A1b || i.pattern != "The metadata doesn't identify the file as {}")
         .map(|i| PdfAIssue { clause: i.clause.to_string(), message: i.message }).collect();
     if level == PdfALevel::A1b {
-        issues.extend(part1::issues(&lopdf::Document::load(&input.path)?)?);
+        let identified = doc.document().standards().pdfa.is_some_and(|(part, conformance)| part == 1 && conformance == "B");
+        issues.extend(part1::issues(&lopdf::Document::load(&input.path)?, identified)?);
     }
     Ok(issues)
 }

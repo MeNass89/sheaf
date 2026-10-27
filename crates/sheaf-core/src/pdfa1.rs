@@ -27,18 +27,17 @@ pub(super) fn rewrite(bytes: &[u8]) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-pub(super) fn issues(pdf: &Document) -> Result<Vec<PdfAIssue>> {
+pub(super) fn issues(pdf: &Document, identified: bool) -> Result<Vec<PdfAIssue>> {
     let mut problems = std::collections::BTreeSet::new();
     if pdf.version != "1.4" { problems.insert("The PDF/A-1 file must use PDF 1.4".to_string()); }
     if !matches!(pdf.reference_table.cross_reference_type, lopdf::xref::XrefType::CrossReferenceTable) {
         problems.insert("Cross-reference streams are not allowed in PDF/A-1".into());
     }
     let cat = pdf.catalog()?;
-    let metadata = cat.get(b"Metadata").and_then(Object::as_reference).and_then(|id| pdf.get_object(id)).and_then(Object::as_stream).ok()
-        .and_then(|s| s.get_plain_content().ok()).and_then(|b| String::from_utf8(b).ok()).unwrap_or_default();
-    if !metadata.contains("<pdfaid:part>1</pdfaid:part>") || !metadata.contains("<pdfaid:conformance>B</pdfaid:conformance>") {
-        problems.insert("The metadata does not identify PDF/A-1b".into());
+    if cat.get(b"Version").is_ok_and(|v| v.as_name().is_ok_and(|v| v > b"1.4".as_slice())) {
+        problems.insert("The catalog declares a newer PDF version than PDF/A-1 permits".into());
     }
+    if !identified { problems.insert("The metadata does not identify PDF/A-1b".into()); }
     for object in pdf.objects.values() { inspect(pdf, object, 0, &mut problems); }
     Ok(problems.into_iter().map(|message| PdfAIssue { clause: "PDF/A-1 additional restrictions".into(), message }).collect())
 }
@@ -69,7 +68,7 @@ fn inspect(pdf: &Document, object: &Object, depth: usize, problems: &mut std::co
         problems.insert("A PDF 1.5+ image or font feature cannot be preserved in PDF/A-1".into());
     }
     if let Some(filters) = value(b"Filter") {
-        let forbidden = |v: &Object| v.as_name().is_ok_and(|n| matches!(n, b"JPXDecode" | b"JBIG2Decode" | b"Crypt"));
+        let forbidden = |v: &Object| pdf.dereference(v).is_ok_and(|(_, v)| v.as_name().is_ok_and(|n| matches!(n, b"JPXDecode" | b"JBIG2Decode" | b"Crypt")));
         if forbidden(filters) || filters.as_array().is_ok_and(|a| a.iter().any(forbidden)) {
             problems.insert("An image or stream uses compression unsupported by this PDF/A-1 converter".into());
         }
