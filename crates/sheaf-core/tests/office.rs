@@ -307,3 +307,21 @@ fn whole_sheet_export_does_not_apply_calc_settings_to_a_word_file() {
     assert!(matches!(spreadsheet_to_pdf(&t.path().join("file.docx"), &out), Err(OpdfError::Unsupported(_))));
     assert!(!out.exists());
 }
+
+#[test]
+fn legacy_html_with_its_own_relative_base_keeps_its_text_and_local_picture() {
+    if find_soffice().is_none() { return; }
+    let t = tempfile::tempdir().unwrap();
+    let pages = t.path().join("pages");
+    let assets = t.path().join("assets");
+    std::fs::create_dir(&pages).unwrap();
+    std::fs::create_dir(&assets).unwrap();
+    image::RgbImage::from_pixel(40, 40, image::Rgb([0, 0, 0])).save(assets.join("picture.png")).unwrap();
+    let source = pages.join("legacy.html");
+    std::fs::write(&source, b"<html><head><meta charset=windows-1252><base href='../assets/'></head><body><p>caf\xe9 \x80</p><img src='picture.png'></body></html>").unwrap();
+    let out = sheaf_core::html::to_pdf(&source, sheaf_core::html::Options { paper: sheaf_core::html::Paper::A4, landscape: false, margin: 18.0 }, &t.path().join("legacy.pdf")).unwrap();
+    assert!(common::page_texts(&out).join(" ").contains("café €"));
+    let pdf = lopdf::Document::load(&out).unwrap();
+    assert!(pdf.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Subtype").is_ok_and(|s| s.as_name().is_ok_and(|n| n == b"Image")))));
+    common::qpdf_clean(&out);
+}

@@ -3,6 +3,9 @@
 use crate::{office, OpdfError, Result};
 use std::path::{Path, PathBuf};
 
+#[path = "html_source.rs"]
+mod source;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Paper {
     A4,
@@ -25,17 +28,10 @@ pub fn to_pdf(input: &Path, options: Options, out: &Path) -> Result<PathBuf> {
         Some(_) => return crate::textdocs::to_pdf(input, out, |html, out| to_pdf(html, options, out)),
         None => {}
     }
-    let source = std::fs::read_to_string(input).map_err(|e| {
-        if e.kind() == std::io::ErrorKind::InvalidData {
-            OpdfError::Unsupported("Custom HTML layout requires UTF-8 text. Choose Original layout to use the file's encoding".into())
-        } else {
-            e.into()
-        }
-    })?;
-    // As in Office conversion, Windows extended paths (\\?\) aren't file URLs.
+    let source = source::decode(&std::fs::read(input)?)?;
+    // The original document URL also preserves fragment and query references, not only images.
     let absolute = if cfg!(windows) { std::path::absolute(input)? } else { std::fs::canonicalize(input)? };
-    let base = office::file_url(absolute.parent().ok_or_else(|| OpdfError::Unsupported("The HTML file has no parent folder".into()))?);
-    let html = print_html(&source, &format!("{base}/"), options)?;
+    let html = print_html(&source, &office::file_url(&absolute), options)?;
     let dir = tempfile::tempdir()?;
     let prepared = dir.path().join("print.html");
     std::fs::write(&prepared, html)?;
@@ -51,19 +47,16 @@ fn print_html(source: &str, base: &str, options: Options) -> Result<String> {
         Paper::Letter => (612.0, 792.0),
     };
     let (w, h) = if options.landscape { (h, w) } else { (w, h) };
+    let prepared = source::prepare(source, base)?;
+    let source = prepared.as_str();
     let lower = source.to_ascii_lowercase();
-    // An explicit base may be relative to the original document; copying it elsewhere would
-    // silently change what its pictures and links refer to. Keep that case explicit.
-    if opening_tag(&lower, "base").is_some() {
-        return Err(OpdfError::Unsupported("This HTML file defines its own base address. Choose Original layout to preserve it".into()));
-    }
     let base = base.replace('&', "&amp;").replace('"', "&quot;").replace('<', "&lt;");
-    let base = format!("<base href=\"{base}\">");
+    let base = if source::has_base(source) { String::new() } else { format!("<base href=\"{base}\">") };
     let style = format!("<style>@page {{ size: {w:.4}pt {h:.4}pt; margin: {:.4}pt; }}</style>", options.margin);
     // Put the base before existing relative resources; the page rule after existing styles.
     if let Some(head) = opening_tag(&lower, "head") {
-        let end = opening_tag(&lower[head..], "/head").and_then(|end| lower[..head + end].rfind('<')).unwrap_or(head);
-        return Ok(format!("{}{}{}{}{}", &source[..head], base, &source[head..end], style, &source[end..]));
+        let end = tag_span(&lower[head..], "/head").map(|span| head + span.start).unwrap_or(head);
+        return Ok(format!("{}<meta charset=\"utf-8\">{}{}{}{}", &source[..head], base, &source[head..end], style, &source[end..]));
     }
     let head = format!("<head><meta charset=\"utf-8\">{base}{style}</head>");
     // A fragment gets a document; an existing doctype stays at the start of the document.
@@ -76,6 +69,10 @@ fn print_html(source: &str, base: &str, options: Options) -> Result<String> {
 /// The end of a real opening tag, skipping comments and raw script/style text. A `<header>` or
 /// a string in JavaScript isn't the document's `<head>`.
 fn opening_tag(lower: &str, name: &str) -> Option<usize> {
+    tag_span(lower, name).map(|span| span.end)
+}
+
+fn tag_span(lower: &str, name: &str) -> Option<std::ops::Range<usize>> {
     let bytes = lower.as_bytes();
     let mut from = 0;
     while let Some(start) = lower[from..].find('<').map(|p| p + from) {
@@ -97,7 +94,7 @@ fn opening_tag(lower: &str, name: &str) -> Option<usize> {
         if end == bytes.len() { return None; }
         let tag = &lower[start + 1..end];
         let is = |key: &str| tag.strip_prefix(key).is_some_and(|rest| rest.is_empty() || rest.starts_with(|c: char| c.is_ascii_whitespace() || c == '/'));
-        if is(name) { return Some(end + 1); }
+        if is(name) { return Some(start..end + 1); }
         if is("script") || is("style") {
             let close = if is("script") { "</script" } else { "</style" };
             from = lower[end + 1..].find(close).map(|p| end + 1 + p)?;
@@ -124,11 +121,10 @@ mod tests {
     }
 
     #[test]
-    fn html_print_settings_reject_invalid_margins_and_existing_bases() {
+    fn html_print_settings_reject_invalid_margins() {
         for margin in [f64::NAN, f64::INFINITY, -1.0, 145.0] {
             assert!(print_html("body", "file:///", Options { paper: Paper::A4, landscape: false, margin }).is_err());
         }
-        assert!(print_html("<head><BASE href='../assets/'></head>", "file:///", Options { paper: Paper::A4, landscape: false, margin: 0.0 }).is_err());
     }
 
     #[test]

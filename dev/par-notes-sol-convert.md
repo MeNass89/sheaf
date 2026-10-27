@@ -198,3 +198,32 @@
   output — app execution forbidden by rule 1.
 - LIGNES : max 3 (whole-sheet layout radio card and its information) · cases > 6 : aucune.
 - Provisional author grade: f8 a8 p8; unexecuted source and tests, no parity claim.
+
+## Pass 2 — C-convert-005
+
+- C-convert-005: the existing HTML-to-PDF app controls now also work on legacy encodings and
+  ordinary explicit base addresses (iLovePDF's local HTML page settings). UTF BOMs take priority;
+  declared HTML encodings are decoded without replacement, with Windows-1252 as the legacy
+  fallback. The temporary copy declares UTF-8, including when no original declaration existed.
+  Relative bases resolve against the source file; their target and escaped queries are kept.
+  Original layout still uses the original converter/cache. The app explains local-only support.
+- Source scanner ignores comments and script/style content; the attribute parser handles quoted
+  and unquoted values. Numeric HTML entities in a base address still ask for Original layout;
+  they are not silently resolved to a different resource. Malformed/unsupported encodings also
+  give an actionable Original layout error.
+- Tests `html_encodings_keep_accents_and_normalize_the_declaration`,
+  `html_base_uses_the_original_file_and_keeps_target_and_escaped_queries`, and real-LO
+  `legacy_html_with_its_own_relative_base_keeps_its_text_and_local_picture`; existing paper tests
+  remain, and `html_print_settings_reject_invalid_margins_and_existing_bases` was renamed to
+  `html_print_settings_reject_invalid_margins` because ordinary bases now work. All unexecuted.
+- New direct dependency: `encoding_rs = "0.8"` in workspace and core manifests. Pure Rust, already
+  present transitively in Cargo.lock and the worker's registry. The orchestrator must refresh the
+  lock's sheaf-core dependency list (no cargo or lock generator executed by this worker).
+- Left: browser viewport/screen media, JavaScript rendering and one-long-page mode. Network URL
+  capture remains deliberately out of scope. Inspected iLovePDF's actual archive member
+  `code/rcc/iLovePDF/tools/HtmlToPdfTool.qml` (screen size and One long page controls) and the
+  installed encoding_rs API. LibreOffice is not a browser rendering engine.
+- not automatable: inspect local-only copy and custom paper output with accented text, a relative
+  base and pictures in both themes — app/test execution forbidden by rule 1.
+- LIGNES : max 3 (local-files information) · cases > 6 : aucune.
+- Provisional author grade: f7 a8 p8; source-only, no full browser parity claim.

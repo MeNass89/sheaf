@@ -681,6 +681,10 @@ export component OptionsPanel inherits VerticalLayout {
         }
     }
 
+    if root.tool == "html_to_pdf": InfoBox {
+        text: "Local HTML, Markdown or email.\nPictures use the source base address.\nNo URL capture or browser screen mode.";
+    }
+
     if root.tool == "pdf_to_jpg": VerticalLayout {
         spacing: 10px;
         HorizontalLayout {
