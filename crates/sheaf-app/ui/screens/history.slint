@@ -1,4 +1,3 @@
-import { PlatformBridge } from "../platform.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { IconButton } from "../widgets/button.slint";
@@ -13,15 +12,12 @@ component HistoryRowView inherits Rectangle {
     height: 56px;
     border-radius: Theme.radius-item;
     background: Theme.card;
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.stretch;
+    HorizontalLayout {
         padding-left: 12px;
         padding-right: 10px;
         spacing: 12px;
         Rectangle {
-            cross-axis-self-alignment: CrossAxisAlignment.center;
+            y: (parent.height - self.height) / 2;
             width: 32px;
             height: 32px;
             border-radius: 7px;
@@ -38,7 +34,6 @@ component HistoryRowView inherits Rectangle {
             alignment: center;
             spacing: 2px;
             Text {
-                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: root.item.tool-name;
                 font-size: Theme.fs-body;
                 font-weight: Theme.weight-demibold;
@@ -46,7 +41,6 @@ component HistoryRowView inherits Rectangle {
                 overflow: elide;
             }
             Text {
-                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: root.item.files;
                 font-size: Theme.fs-caption;
                 color: Theme.text-muted;
@@ -54,14 +48,12 @@ component HistoryRowView inherits Rectangle {
             }
         }
         Text {
-            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: root.item.when;
             font-size: Theme.fs-label;
             color: Theme.text-muted;
             vertical-alignment: center;
         }
         if root.item.can-rerun: Text {
-            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: "Run again";
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
@@ -73,7 +65,7 @@ component HistoryRowView inherits Rectangle {
             }
         }
         IconButton {
-            cross-axis-self-alignment: CrossAxisAlignment.center;
+            y: (parent.height - self.height) / 2;
             icon: @image-url("../icons/folder-open.svg");
             enabled: root.item.can-reveal;
             clicked => { root.reveal(); }
@@ -86,21 +78,17 @@ export component ClearHistoryDialog inherits Modal {
     callback clear();
     callback cancel();
     Text {
-        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: "Clear the whole history?";
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
     }
     Text {
-        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: "Your files are not deleted.";
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
     }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
+    HorizontalLayout {
         alignment: end;
         spacing: 10px;
         SecondaryButton {
@@ -126,15 +114,11 @@ export component HistoryScreen inherits Rectangle {
     VerticalLayout {
         padding-top: Theme.content-padding;
         spacing: 12px;
-        FlexboxLayout {
-            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-            flex-wrap: FlexboxLayoutWrap.no-wrap;
-            alignment: LayoutAlignment.stretch;
+        HorizontalLayout {
             padding-left: Theme.content-padding;
             padding-right: Theme.content-padding;
             height: 36px;
             Text {
-                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: "Tasks History";
                 font-size: Theme.fs-page-title;
                 font-weight: Theme.weight-bold;
@@ -143,7 +127,6 @@ export component HistoryScreen inherits Rectangle {
                 horizontal-stretch: 1;
             }
             if root.rows.length > 0: Text {
-                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: "Clear all";
                 font-size: Theme.fs-button;
                 font-weight: Theme.weight-demibold;
@@ -156,8 +139,7 @@ export component HistoryScreen inherits Rectangle {
             }
         }
         if root.rows.length == 0: Text {
-            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            x: PlatformBridge.rtl ? parent.width - (Theme.content-padding) - self.width : Theme.content-padding;
+            x: Theme.content-padding;
             text: "Finished tasks will appear here";
             font-size: Theme.fs-button;
             color: Theme.text-muted;
