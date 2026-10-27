@@ -189,7 +189,7 @@ read OX OY <<< "$(at Other 1280x300+0+0)"; xdotool mousemove "${OX:-0}" "${OY:-0
 PQ=$(ocr 700x300+290+250)
 DS=$(at "Don" 700x300+290+250); [ -n "$DS" ] && click $DS 1
 # The tab goes once the prompt is answered: up to 5 s under load.
-for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; shot 29-after
 check "Close Other Tabs asks about unsaved edits, Don't Save closes it ($(echo $PQ | cut -c1-60); $(ntabs) tab)" "echo \"$PQ\" | grep -q cb.pdf && [ \"\$(ntabs)\" = 1 ]"
 quit
 
