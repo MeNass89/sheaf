@@ -159,6 +159,9 @@ pub struct ReaderUi {
     /// them again in the page read again.
     picked: Option<(usize, Vec<PageObject>)>,
     repick: Option<(usize, Vec<[f64; 4]>)>,
+    /// The objects being picked again were sent backward or to the back: a twin at the same
+    /// place is told by being drawn first.
+    repick_earliest: bool,
     /// A drag of the picked objects (view points, from and to), and a marquee being drawn.
     picked_drag: Option<((f64, f64), (f64, f64))>,
     marquee: Option<PageDrag>,
@@ -486,6 +489,7 @@ impl ReaderUi {
             objects: HashMap::new(),
             picked: None,
             repick: None,
+            repick_earliest: false,
             picked_drag: None,
             marquee: None,
             para_resize: None,
@@ -1046,7 +1050,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 // Objects just moved: picked again where they went.
                 if let Some((p, moved)) = r.repick.take_if(|(p, _)| *p == page) {
                     let rects: Vec<[f64; 4]> = objects.iter().map(|o| o.1).collect();
-                    let again: Vec<_> = reader::picked_again(&moved, &rects).into_iter().map(|i| objects[i]).collect();
+                    let earliest = std::mem::take(&mut r.repick_earliest);
+                    let again: Vec<_> = reader::picked_again_from(&moved, &rects, earliest).into_iter().map(|i| objects[i]).collect();
                     r.picked = (!again.is_empty()).then_some((p, again));
                 }
                 r.objects.insert(page, Arc::new(objects));

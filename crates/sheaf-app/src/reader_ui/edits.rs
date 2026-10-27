@@ -728,6 +728,7 @@ pub fn objects_arrange(ui: &AppWindow, tab_id: i32, how: i32) {
             use sheaf_core::pdfcraft::edit::Restack;
             let order = [Restack::Front, Restack::Forward, Restack::Backward, Restack::Back][(how - 20) as usize];
             r.repick = Some((*page, rects));
+            r.repick_earliest = matches!(order, Restack::Backward | Restack::Back);
             return Some((*page, Edit::RestackObjects { page: *page, objects: list.iter().map(|o| o.0).collect(), how: order }));
         }
         let arranged = if how == 9 || how == 10 {

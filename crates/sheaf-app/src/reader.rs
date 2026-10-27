@@ -331,13 +331,24 @@ pub fn objects_in(rects: &[[f64; 4]], m: [f64; 4]) -> Vec<usize> {
 /// After a move, the objects now where the picked ones went: for each of `moved` (their boxes
 /// moved by the offset), the one of `rects` (the page read again) overlapping it most, if by half.
 pub fn picked_again(moved: &[[f64; 4]], rects: &[[f64; 4]]) -> Vec<usize> {
+    picked_again_from(moved, rects, false)
+}
+
+/// [`picked_again`], an object overlapping as much as another (a twin at the same place) taken
+/// the first in drawing order when `earliest` (after Send backward or to back, the object picked
+/// is now drawn before its twin), else the last (Sol, 27/10: the twin was picked instead).
+pub fn picked_again_from(moved: &[[f64; 4]], rects: &[[f64; 4]], earliest: bool) -> Vec<usize> {
     let overlap = |a: &[f64; 4], b: &[f64; 4]| {
         let (w, h) = (a[2].min(b[2]) - a[0].max(b[0]), a[3].min(b[3]) - a[1].max(b[1]));
         if w <= 0.0 || h <= 0.0 { 0.0 } else { w * h / ((a[2] - a[0]) * (a[3] - a[1])).max((b[2] - b[0]) * (b[3] - b[1])).max(1e-9) }
     };
     moved
         .iter()
-        .filter_map(|m| rects.iter().enumerate().map(|(i, r)| (i, overlap(m, r))).filter(|(_, o)| *o >= 0.5).max_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, _)| i))
+        .filter_map(|m| {
+            let found = rects.iter().enumerate().map(|(i, r)| (i, overlap(m, r))).filter(|(_, o)| *o >= 0.5);
+            // `max_by` keeps the last of equals; the first is kept by comparing the other way.
+            if earliest { found.min_by(|a, b| b.1.total_cmp(&a.1)) } else { found.max_by(|a, b| a.1.total_cmp(&b.1)) }.map(|(i, _)| i)
+        })
         .collect()
 }
 
@@ -1092,6 +1103,15 @@ mod tests {
     #[test]
     fn lines_become_a_bulleted_list_once() {
         assert_eq!(bulleted("Milk\n\nEggs\n• Bread"), "• Milk\n\n• Eggs\n• Bread");
+    }
+
+    /// Twins at the same place: the first or the last in drawing order, as the restack left them.
+    #[test]
+    fn twins_are_picked_again_in_the_order_the_restack_left_them() {
+        let r = [10.0, 10.0, 50.0, 50.0];
+        assert_eq!(picked_again_from(&[r], &[r, r], false), [1]);
+        assert_eq!(picked_again_from(&[r], &[r, r], true), [0]);
+        assert_eq!(picked_again(&[r], &[[0.0, 0.0, 5.0, 5.0], r]), [1]);
     }
 
     /// A numbered list (Acrobat's), renumbered when made again, undone and told (Sol, 27/10: only
