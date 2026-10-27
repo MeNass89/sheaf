@@ -328,3 +328,7 @@
 - OCR review hides its old highlight while refreshing and bounds-checks page navigation, so
   deleting/reordering pages cannot render an obsolete review target. GUI handoff includes
   removing the reviewed page while the panel is open and confirming the refresh is safe.
+
+- Signature preview slots now preserve the saved list's cardinality even for an unreadable
+  legacy mark; Edit/Delete cannot shift onto the following entry because its thumbnail failed.
+  Test written: `unrenderable_saved_signatures_keep_their_library_positions`.
