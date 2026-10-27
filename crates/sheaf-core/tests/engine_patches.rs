@@ -178,3 +178,79 @@ fn a_groups_picture_goes_and_its_text_stays() {
     assert_eq!(picture(&out), 0, "its picture went");
     assert!(common::shown_texts(&out)[0].contains("Kept text"), "its text stayed");
 }
+
+#[test]
+fn grouped_hairlines_use_private_forms_per_scale_and_leave_unselected_pages_unchanged() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"q 0.5 0 0 0.5 0 0 cm /Shared Do Q q 2 0 0 2 100 0 cm /Shared Do Q"]);
+    let mut pdf = lopdf::Document::load(&path).unwrap();
+    let bounds = || -> Vec<Object> { vec![0.into(), 0.into(), 100.into(), 100.into()] };
+    let leaf = pdf.add_object(Stream::new(dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => bounds() }, b"0 w 0 0 m 100 0 l S".to_vec()));
+    let shared = pdf.add_object(Stream::new(dictionary! {
+        "Type" => "XObject", "Subtype" => "Form", "BBox" => bounds(),
+        "Matrix" => vec![0.5.into(), 0.into(), 0.into(), 0.5.into(), 0.into(), 0.into()],
+        "Resources" => dictionary! { "XObject" => dictionary! { "Leaf" => leaf } }
+    }, b"/Leaf Do".to_vec()));
+    let page = pdf.get_pages()[&1];
+    let parent = pdf.get_dictionary(page).unwrap().get(b"Parent").unwrap().as_reference().unwrap();
+    let resources = dictionary! { "XObject" => dictionary! { "Shared" => shared } };
+    pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("Resources", resources.clone());
+    let original_contents = pdf.get_dictionary(page).unwrap().get(b"Contents").unwrap().clone();
+    let unselected = pdf.add_object(dictionary! { "Type" => "Page", "Parent" => parent, "Resources" => resources, "Contents" => original_contents });
+    let pages = pdf.get_object_mut(parent).unwrap().as_dict_mut().unwrap();
+    pages.set("Kids", vec![page.into(), unselected.into()]);
+    pages.set("Count", 2);
+    pdf.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: 0.25 }).unwrap();
+    let out = doc.save(&t.path().join("forms.pdf")).unwrap();
+    let pdf = lopdf::Document::load(&out).unwrap();
+    fn forms(resource: &lopdf::Dictionary, data: &[u8]) -> Vec<lopdf::ObjectId> {
+        let x = resource.get(b"XObject").unwrap().as_dict().unwrap();
+        lopdf::content::Content::decode(data).unwrap().operations.iter().filter(|o| o.operator == "Do")
+            .map(|o| x.get(o.operands[0].as_name().unwrap()).unwrap().as_reference().unwrap()).collect()
+    }
+    let fixed_page = pdf.get_dictionary(pdf.get_pages()[&1]).unwrap();
+    let resources = fixed_page.get(b"Resources").unwrap().as_dict().unwrap();
+    let copies = forms(resources, &pdf.get_page_content(pdf.get_pages()[&1]));
+    assert_eq!(copies.len(), 2);
+    assert_ne!(copies[0], copies[1]);
+    for (id, expected) in copies.into_iter().zip([1.0, 0.25]) {
+        let group = pdf.get_object(id).unwrap().as_stream().unwrap();
+        let leaf = forms(group.dict.get(b"Resources").unwrap().as_dict().unwrap(), &group.get_plain_content().unwrap())[0];
+        let leaf = pdf.get_object(leaf).unwrap().as_stream().unwrap();
+        let ops = lopdf::content::Content::decode(&leaf.get_plain_content().unwrap()).unwrap().operations;
+        let paint = ops.iter().position(|o| o.operator == "S").unwrap();
+        assert!((ops[paint - 1].operands[0].as_float().unwrap() - expected).abs() < 1e-6);
+    }
+    assert_eq!(pdf.get_object(leaf).unwrap().as_stream().unwrap().get_plain_content().unwrap(), b"0 w 0 0 m 100 0 l S");
+    assert_eq!(pdf.get_object(shared).unwrap().as_stream().unwrap().get_plain_content().unwrap(), b"/Leaf Do");
+    assert_eq!(pdf.get_page_content(pdf.get_pages()[&2]), b"q 0.5 0 0 0.5 0 0 cm /Shared Do Q q 2 0 0 2 100 0 cm /Shared Do Q");
+    let id = doc.id();
+    doc.session_mut().undo(id).unwrap();
+    let undone = doc.save(&t.path().join("undone-forms.pdf")).unwrap();
+    let original = lopdf::Document::load(path).unwrap();
+    let undone = lopdf::Document::load(undone).unwrap();
+    assert_eq!(undone.get_page_content(undone.get_pages()[&1]), original.get_page_content(original.get_pages()[&1]));
+}
+
+#[test]
+fn cyclic_grouped_artwork_fails_without_publishing_partial_hairline_repairs() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 w 30 50 m 100 50 l S /Loop Do"]);
+    let mut pdf = lopdf::Document::load(&path).unwrap();
+    let form = pdf.new_object_id();
+    pdf.objects.insert(form, Stream::new(dictionary! {
+        "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 100.into(), 100.into()],
+        "Resources" => dictionary! { "XObject" => dictionary! { "Loop" => form } }
+    }, b"/Loop Do".to_vec()).into());
+    let page = pdf.get_pages()[&1];
+    pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("Resources", dictionary! { "XObject" => dictionary! { "Loop" => form } });
+    pdf.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    let before = doc.full_bytes().unwrap();
+    assert!(doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: 0.25 }).unwrap_err().to_string().contains("cyclic"));
+    assert_eq!(doc.full_bytes().unwrap().as_slice(), before.as_slice());
+}

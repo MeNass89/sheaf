@@ -409,3 +409,23 @@ LIGNES : max 5 (preflight finding: title + four lines) · cases > 6 : aucune.
 - not automatable: without LibreOffice select data report, choose sheets, Run, inspect both themes
   and confirm Run again restores layout/ranges — app execution forbidden.
 - Grade: f8 a8 p8 (partial). LIGNES : max 5 (data-report information) · cases > 6 : aucune.
+
+## Pass 3 — C-optimize-014
+
+- C-optimize-014: Fix Hairlines now descends into nested Form XObjects (Acrobat's grouped
+  artwork). Each repaired placement receives a private Form/resource copy, accounting for
+  inherited line width, each Form Matrix, placement transforms and UserUnit. Shared Forms on
+  unselected pages stay intact. Width is restored after painting, preserving inherited state.
+  Cycles/depth >16, unreadable operators and excessive work fail through the existing atomic
+  engine edit path; the document and undo history are not partially changed.
+- Tests `grouped_hairlines_use_private_forms_per_scale_and_leave_unselected_pages_unchanged`
+  checks two scales, nested Forms, untouched originals/unselected content and undo;
+  `cyclic_grouped_artwork_fails_without_publishing_partial_hairline_repairs` checks atomic
+  refusal. Existing page-stroke tests continue to cover ExtGState, UserUnit and saved state.
+  All written, not executed. No dependency or new public API.
+- Left: hairlines in tiling patterns, Type 3 glyphs, text and annotation appearances; configurable
+  registration/colour/page marks, trapping, flattening preview. Crop marks remain fixed black
+  0.25 pt. These are not implemented, and this partial pass does not claim Acrobat parity.
+- not automatable: both-theme production sheet, grouped-art repair on a selected page and undo —
+  rule 1 forbids app execution. Grade: f6 a7 p7, provisional source evidence only.
+- LIGNES : max 3 (hairline description, title + two lines) · cases > 6 : aucune.

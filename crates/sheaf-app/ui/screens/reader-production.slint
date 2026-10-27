@@ -41,7 +41,7 @@ export component ProductionSheet inherits Rectangle {
                 VerticalLayout {
                     spacing: 12px;
                     Text { text: "Fix page hairlines"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                    Text { text: "Raises thin strokes in page content.\nGrouped art, text and comments stay as they are."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Text { text: "Raises page and grouped Form strokes.\nPatterns, text and comments stay as they are."; font-size: Theme.fs-caption; color: Theme.text-muted; }
                     minimum := TextField { label: "Minimum stroke (points)"; text: "0.25"; }
                     HorizontalLayout {
                         SmallButton { text: "Fix hairlines"; clicked => { ReaderBridge.production-hairlines(root.id, minimum.text, root.all); root.focus-pages(); } }
