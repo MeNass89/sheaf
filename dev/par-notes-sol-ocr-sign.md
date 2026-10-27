@@ -614,3 +614,9 @@
   added. This is a substantial unimplemented native Rust feature, not a network dependency.
   No new API, dependency, test or certificate-encryption UI claimed.
 - Proposed grade: C-security-007: f0 a0 p0 — no implementation. The original gap stays open.
+
+- C-sign-009 follow-up: independent mark storage is also loaded when prefs.json is absent or
+  corrupt; resetting unrelated preferences cannot hide saved signatures. Added unrun tests
+  `kept_marks_load_even_when_unrelated_preferences_are_missing` and
+  `changing_ciphertext_is_detected_before_replacing_any_kept_marks` (AEAD tamper refusal,
+  no empty-library overwrite). Grade remains f8 a8 p8 until platform/runtime checks.

@@ -278,4 +278,29 @@ mod tests {
         assert!(load(dir.path()).is_err());
     }
 
+    #[test]
+    fn kept_marks_load_even_when_unrelated_preferences_are_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let prefs = Prefs { signature_name: Some("Persisted separately".into()), ..Default::default() };
+        prefs.save(dir.path()).unwrap();
+        std::fs::remove_file(dir.path().join("prefs.json")).unwrap();
+        LOADED.lock().unwrap().remove(dir.path());
+        assert_eq!(Marks::from_prefs(&Prefs::load(dir.path())), Marks::from_prefs(&prefs));
+    }
+
+    #[test]
+    fn changing_ciphertext_is_detected_before_replacing_any_kept_marks() {
+        let dir = tempfile::tempdir().unwrap();
+        let marks = Marks::from_prefs(&Prefs { signature_name: Some("Kept".into()), ..Default::default() });
+        save(dir.path(), &marks).unwrap();
+        LOADED.lock().unwrap().remove(dir.path());
+        let path = dir.path().join("signatures.secure");
+        let mut bytes = std::fs::read(&path).unwrap();
+        *bytes.last_mut().unwrap() ^= 1;
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(load(dir.path()).is_err());
+        assert!(save(dir.path(), &Marks::default()).is_err());
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+    }
+
 }
