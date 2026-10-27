@@ -29,6 +29,54 @@ impl ActionStep {
     }
 }
 
+/// Acrobat's output options travel with the action, without storing a machine-specific folder.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(default, deny_unknown_fields)]
+pub struct OutputOptions {
+    pub same_folder: bool,
+    pub prefix: String,
+    pub suffix: String,
+    pub overwrite: bool,
+}
+
+impl Default for OutputOptions {
+    fn default() -> Self { Self { same_folder: false, prefix: String::new(), suffix: " - processed".into(), overwrite: false } }
+}
+
+impl OutputOptions {
+    fn validate(&self) -> Result<()> {
+        for part in [&self.prefix, &self.suffix] {
+            if part.len() > 100 || part.chars().any(|c| c.is_control() || "<>:\"/\\|?*".contains(c)) {
+                return Err(invalid("Output prefix and suffix need up to 100 bytes without path characters"));
+            }
+        }
+        Ok(())
+    }
+
+    fn path(&self, input: &Path, out: &Path) -> Result<PathBuf> {
+        self.validate()?;
+        let dir = if self.same_folder { input.parent().unwrap_or(Path::new(".")) } else { out };
+        let stem = input.file_stem().unwrap_or_default().to_string_lossy();
+        let name = crate::watch_folder::safe_name(&format!("{}{stem}{}", self.prefix, self.suffix));
+        Ok(dir.join(format!("{name}.pdf")))
+    }
+}
+
+/// Folder inputs are bounded and never follow symbolic links, as Folder Scanning does.
+pub fn folder_inputs(folder: &Path) -> Result<Vec<PathBuf>> {
+    let mut paths = Vec::new();
+    for entry in std::fs::read_dir(folder)? {
+        let entry = entry?;
+        if entry.file_type()?.is_file() && entry.path().extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
+            paths.push(entry.path());
+        }
+        if paths.len() > 100_000 { return Err(invalid("Choose a folder with at most 100000 PDFs")); }
+    }
+    paths.sort();
+    if paths.is_empty() { return Err(invalid("This folder has no PDF files")); }
+    Ok(paths)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct SavedAction {
@@ -40,19 +88,22 @@ pub struct SavedAction {
     #[serde(default)]
     pub custom_tool: bool,
     pub steps: Vec<ActionStep>,
+    #[serde(default)]
+    pub output: OutputOptions,
 }
 
 fn invalid(message: impl Into<String>) -> OpdfError { OpdfError::Unsupported(message.into()) }
 
 impl SavedAction {
     pub fn empty() -> Self {
-        Self { version: 1, name: "Untitled action".into(), description: String::new(), custom_tool: false, steps: vec![] }
+        Self { version: 1, name: "Untitled action".into(), description: String::new(), custom_tool: false, output: OutputOptions::default(), steps: vec![] }
     }
 
     pub fn validate(&self) -> Result<()> {
         if self.version != 1 { return Err(invalid("This action needs a different version of Sheaf")); }
         if self.name.trim().is_empty() || self.name.len() > 256 { return Err(invalid("Give the action a name (up to 256 bytes)")); }
         if self.steps.is_empty() || self.steps.len() > 100 { return Err(invalid("An action needs 1–100 steps")); }
+        self.output.validate()?;
         for step in &self.steps {
             step.engine()?;
             if step.argument.len() > 1_000_000 || step.instruction.len() > 16_384 { return Err(invalid("A step's text is too long")); }
@@ -88,7 +139,7 @@ impl SavedAction {
 /// Offline suggested actions: copying creates an editable, independent action.
 pub fn suggested() -> Vec<SavedAction> {
     actions::builtin().into_iter().map(|a| SavedAction {
-        version: 1, name: a.name, description: a.description, custom_tool: false,
+        version: 1, name: a.name, description: a.description, custom_tool: false, output: OutputOptions::default(),
         steps: a.steps.iter().map(ActionStep::from_engine).collect(),
     }).collect()
 }
@@ -174,9 +225,19 @@ pub fn run_file_configured(
     if cancelled { return Err(OpdfError::Cancelled); }
     let bytes = result.map_err(OpdfError::Engine)?.bytes;
     if !publish() { return Err(OpdfError::Cancelled); }
-    std::fs::create_dir_all(out_dir)?;
-    let stem = input.file_stem().unwrap_or_default().to_string_lossy();
-    sheaf_core::paths::atomic_write(&out_dir.join(format!("{stem} - processed.pdf")), |part| {
+    let target = action.output.path(input, out_dir)?;
+    std::fs::create_dir_all(target.parent().unwrap_or(Path::new(".")))?;
+    if action.output.overwrite {
+        // NamedTempFile uses an exclusive temporary name and atomic replacement on each OS.
+        use std::io::Write;
+        let mut temp = tempfile::NamedTempFile::new_in(target.parent().unwrap_or(Path::new(".")))?;
+        temp.write_all(bytes.as_slice())?;
+        temp.as_file().sync_all()?;
+        if let Ok(meta) = std::fs::metadata(&target) { temp.as_file().set_permissions(meta.permissions())?; }
+        temp.persist(&target).map_err(|e| e.error)?;
+        return Ok(target);
+    }
+    sheaf_core::paths::atomic_write(&target, |part| {
         std::fs::write(part, bytes.as_slice())?;
         Ok(())
     })
@@ -354,6 +415,27 @@ mod tests {
         assert!(load(dir.path()).unwrap().is_empty());
         save_draft(dir.path(), None).unwrap();
         assert_eq!(load_draft(dir.path()).unwrap(), None);
+    }
+
+    #[test]
+    fn output_options_keep_originals_unless_explicitly_overwritten_and_accept_folder_inputs() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("input.PDF");
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Keep").unwrap();
+        std::fs::write(&input, bytes.as_slice()).unwrap();
+        std::fs::write(dir.path().join("skip.txt"), b"skip").unwrap();
+        assert_eq!(folder_inputs(dir.path()).unwrap(), [input.clone()]);
+        let mut a = suggested().remove(3);
+        a.output = OutputOptions { same_folder: true, prefix: "review-".into(), suffix: "-done".into(), overwrite: false };
+        let out = run_file(&a, &input, &dir.path().join("unused"), &mut |_, _| true).unwrap();
+        assert_eq!(out, dir.path().join("review-input-done.pdf"));
+        assert_eq!(std::fs::read(&input).unwrap(), *bytes);
+        assert_ne!(run_file(&a, &input, dir.path(), &mut |_, _| true).unwrap(), out);
+        a.output.overwrite = true;
+        assert_eq!(run_file(&a, &input, dir.path(), &mut |_, _| true).unwrap(), out);
+        assert_eq!(SavedAction::import(&a.json().unwrap()).unwrap(), a);
+        a.output.prefix = "../".into();
+        assert!(a.validate().is_err());
     }
 
 }

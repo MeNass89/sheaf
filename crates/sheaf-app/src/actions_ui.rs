@@ -81,6 +81,10 @@ fn draft(ui: &AppWindow) {
         b.set_name(s.draft.name.as_str().into());
         b.set_description(s.draft.description.as_str().into());
         b.set_custom(s.draft.custom_tool);
+        b.set_same_folder(s.draft.output.same_folder);
+        b.set_output_prefix(s.draft.output.prefix.as_str().into());
+        b.set_output_suffix(s.draft.output.suffix.as_str().into());
+        b.set_overwrite(s.draft.output.overwrite);
         b.set_step(s.step);
         b.set_steps(ModelRc::new(VecModel::from(s.draft.steps.iter().map(|step| ActionStepRow {
             label: step.engine().map(|s| s.label()).unwrap_or("Unknown tool").into(),
@@ -109,6 +113,7 @@ fn flush(ui: &AppWindow) {
         s.draft.name = b.get_name().to_string();
         s.draft.description = b.get_description().to_string();
         s.draft.custom_tool = b.get_custom();
+        s.draft.output = actions::OutputOptions { same_folder: b.get_same_folder(), prefix: b.get_output_prefix().to_string(), suffix: b.get_output_suffix().to_string(), overwrite: b.get_overwrite() };
         let index = s.step;
         if let Some(step) = usize::try_from(index).ok().and_then(|i| s.draft.steps.get_mut(i)) {
             step.argument = if step.tool == "page_numbers" {
@@ -166,7 +171,7 @@ pub fn install(ui: &AppWindow) {
     let weak = ui.as_weak();
     ui.global::<ActionBridge>().on_answer(move |yes| {
         STATE.with(|s| { if let Some(tx) = s.borrow_mut().answer.take() { let argument = weak.upgrade().map(|ui| ui.global::<ActionBridge>().get_prompt_argument().to_string()).unwrap_or_default(); let _ = tx.send(yes.then_some(argument)); } });
-        if let Some(ui) = weak.upgrade() { ui.global::<ActionBridge>().set_prompt("".into()); }
+        if let Some(ui) = weak.upgrade() { let b = ui.global::<ActionBridge>(); b.set_prompt("".into()); if b.get_prompt_password() { b.set_prompt_argument("".into()); } }
     });
 }
 
@@ -245,6 +250,15 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         }
         "import" => return import(ui),
         "export" | "export-stirling" => return export(ui, what == "export-stirling"),
+        "run-folder" => {
+            let action = STATE.with(|s| s.borrow().draft.clone());
+            if let Err(e) = action.validate() { return status(ui, e.to_string()); }
+            let d = crate::dialog::new(ui).set_title("Choose the input PDF folder");
+            crate::dialog::pick_folder(ui, d, move |ui, folder| match actions::folder_inputs(&folder) {
+                Ok(files) => pick_output(ui, action, files), Err(e) => status(ui, e.to_string()),
+            });
+            return;
+        }
         "run" | "run-step" => {
             let mut action = STATE.with(|s| s.borrow().draft.clone());
             if what == "run-step" {
@@ -367,13 +381,19 @@ fn pick_run(ui: &AppWindow, action: SavedAction) {
     if let Err(e) = action.validate() { return status(ui, e.to_string()); }
     let d = crate::dialog::new(ui).add_filter("PDF", &["pdf"]);
     crate::dialog::pick_files(ui, d, move |ui, files| {
-        let d = crate::dialog::new(ui).set_title("Choose the output folder");
-        crate::dialog::pick_folder(ui, d, move |ui, out| start(ui, action, files, out));
+        pick_output(ui, action, files);
     });
+}
+
+fn pick_output(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>) {
+    if action.output.same_folder { return start(ui, action, files, PathBuf::new()); }
+    let d = crate::dialog::new(ui).set_title("Choose the output folder");
+    crate::dialog::pick_folder(ui, d, move |ui, out| start(ui, action, files, out));
 }
 
 fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf) {
     let password = ui.global::<ActionBridge>().get_password().to_string();
+    let per_file_password = ui.global::<ActionBridge>().get_per_file_password();
     ui.global::<ActionBridge>().set_password("".into());
     ui.global::<ActionBridge>().set_outputs(ModelRc::new(VecModel::default()));
     let cancel = Arc::new(AtomicBool::new(false));
@@ -385,7 +405,19 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
         let mut errors = Vec::new();
         for (file_index, file) in files.iter().enumerate() {
             if cancel.load(Ordering::Relaxed) { break; }
-            let r = actions::run_file_configured(&action, file, &out, (!password.is_empty()).then_some(password.as_str()), &mut |i, step| {
+            let file_password = if per_file_password {
+                let (tx, rx) = mpsc::channel();
+                let prompt = format!("Password for {} (leave blank for an unprotected PDF)", file.display());
+                if weak.upgrade_in_event_loop(move |ui| {
+                    STATE.with(|s| s.borrow_mut().answer = Some(tx));
+                    let b = ui.global::<ActionBridge>();
+                    b.set_prompt_password(true); b.set_prompt_has_argument(true);
+                    b.set_prompt_argument("".into()); b.set_prompt(prompt.into());
+                }).is_err() { break; }
+                let Some(answer) = wait_answer(&rx, &cancel) else { cancel.store(true, Ordering::Relaxed); break };
+                answer
+            } else { password.clone() };
+            let r = actions::run_file_configured(&action, file, &out, (!file_password.is_empty()).then_some(file_password.as_str()), &mut |i, step| {
                 if cancel.load(Ordering::Relaxed) { return false; }
                 let message = format!("File {}/{} · Step {}/{} · {}", file_index + 1, files.len(), i + 1, action.steps.len(), step.engine().map(|s| s.label()).unwrap_or("Step"));
                 let prompt = if step.prompt { format!("{message}\n{}", step.instruction) } else { String::new() };
@@ -398,6 +430,7 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
                     status(&ui, &message);
                     if pause {
                         STATE.with(|s| s.borrow_mut().answer = Some(tx));
+                        ui.global::<ActionBridge>().set_prompt_password(false);
                         ui.global::<ActionBridge>().set_prompt_argument(argument.into());
                         ui.global::<ActionBridge>().set_prompt_has_argument(has_argument);
                         ui.global::<ActionBridge>().set_prompt(prompt.into());
@@ -427,9 +460,20 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
                 Err(e) => errors.push(format!("{}: {e}", file.display())),
             }
         }
-        let message = format!("{}{} file(s) written to {}. {}", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, out.display(), errors.join(" · "));
+        let message = format!("{}{} file(s) written to {}. {}", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, if action.output.same_folder { "the input folders".to_string() } else { out.display().to_string() }, errors.join(" · "));
         let _ = weak.upgrade_in_event_loop(move |ui| { ui.global::<ActionBridge>().set_busy(false); ui.global::<ActionBridge>().set_prompt("".into()); status(&ui, message); });
     });
+}
+
+fn wait_answer(rx: &mpsc::Receiver<Option<String>>, cancel: &AtomicBool) -> Option<String> {
+    loop {
+        match rx.recv_timeout(std::time::Duration::from_millis(200)) {
+            Ok(answer) if !cancel.load(Ordering::Relaxed) => return answer,
+            Ok(_) | Err(mpsc::RecvTimeoutError::Disconnected) => return None,
+            Err(mpsc::RecvTimeoutError::Timeout) if cancel.load(Ordering::Relaxed) => return None,
+            Err(_) => {},
+        }
+    }
 }
 
 fn watch(ui: &AppWindow) {

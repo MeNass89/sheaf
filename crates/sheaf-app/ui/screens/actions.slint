@@ -37,7 +37,13 @@ export global ActionBridge {
     in-out property <string> prompt;
     in-out property <string> prompt-argument;
     in-out property <bool> prompt-has-argument;
+    in-out property <bool> prompt-password;
+    in-out property <bool> per-file-password;
     in-out property <string> password;
+    in-out property <bool> same-folder;
+    in-out property <bool> overwrite;
+    in-out property <string> output-prefix;
+    in-out property <string> output-suffix: " - processed";
     in-out property <[string]> outputs;
     in-out property <string> import-text;
     callback open-page(string);
@@ -52,7 +58,7 @@ export component ActionsScreen inherits Rectangle {
     VerticalLayout {
         padding: 24px; spacing: 16px;
         Text { text: "Actions"; color: Theme.text; font-size: Theme.fs-title; font-weight: 600; }
-        Text { text: "Save a sequence, then run it on PDFs. Originals stay untouched."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+        Text { text: "Save a sequence, then run it on PDFs. Output settings control names and replacement."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
         HorizontalLayout {
             spacing: 8px;
             Button { text: "New action"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new", 0); } }
@@ -161,7 +167,13 @@ export component ActionsScreen inherits Rectangle {
                             Button { text: "Remove step"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("remove", 0); } }
                         }
                     }
+                    Text { text: "Save to"; color: Theme.text; font-size: Theme.fs-subtitle; }
+                    CheckBox { text: "Use each input file's folder"; checked <=> ActionBridge.same-folder; enabled: !ActionBridge.busy; }
+                    TextField { label: "Output name prefix"; text <=> ActionBridge.output-prefix; enabled: !ActionBridge.busy; }
+                    TextField { label: "Output name suffix"; text <=> ActionBridge.output-suffix; enabled: !ActionBridge.busy; }
+                    CheckBox { text: "Replace matching output names (including originals)"; checked <=> ActionBridge.overwrite; enabled: !ActionBridge.busy; }
                     TextField { label: "Password for this run (optional, never saved)"; password: true; allow-reveal: true; text <=> ActionBridge.password; enabled: !ActionBridge.busy; }
+                    CheckBox { text: "Ask for a separate password for each input"; checked <=> ActionBridge.per-file-password; enabled: !ActionBridge.busy; }
                     CheckBox { text: "Name watched outputs from the document title"; checked <=> ActionBridge.title-names; enabled: !ActionBridge.busy; }
                     CheckBox { text: "Include subfolders in the watch"; checked <=> ActionBridge.recursive; enabled: !ActionBridge.busy; }
                     if ActionBridge.saved-watch != "": VerticalLayout {
@@ -173,6 +185,7 @@ export component ActionsScreen inherits Rectangle {
                             Button { text: "Forget watch"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("forget-watch", 0); } }
                         }
                     }
+                    Button { text: "Run on a folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run-folder", 0); } }
                     HorizontalLayout {
                         spacing: 8px;
                         Button { text: "Watch folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("watch", 0); } }
@@ -206,7 +219,8 @@ export component ActionPrompt inherits Modal {
     VerticalLayout {
         spacing: 16px;
         Text { text: ActionBridge.prompt; color: Theme.text; font-size: Theme.fs-body; wrap: word-wrap; }
-        if ActionBridge.prompt-has-argument: VerticalLayout {
+        if ActionBridge.prompt-password: TextField { label: "Password (never saved)"; password: true; allow-reveal: true; text <=> ActionBridge.prompt-argument; }
+        if ActionBridge.prompt-has-argument && !ActionBridge.prompt-password: VerticalLayout {
             spacing: 6px;
             Text { text: "Settings for this file only"; color: Theme.text; font-size: Theme.fs-label; }
             TextEdit { height: 110px; text <=> ActionBridge.prompt-argument; }

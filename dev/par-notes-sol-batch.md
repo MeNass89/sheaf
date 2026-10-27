@@ -353,3 +353,15 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   typing may be lost on immediate process death. Output controls follow in C-batch-003.
   not automatable: choose each native option, restart and recover draft; compile/render is
   forbidden by brief rule 1. No new dependency, network or external executable.
+
+- C-batch-003: Acrobat output options now persist with an action: each input's folder or a
+  chosen folder, prefix/suffix, unique copies by default, explicit atomic replacement when
+  requested. Run on a folder adds all direct PDFs in sorted order without following symlinks.
+  Optional per-input masked password prompts replace the single shared password; secrets are
+  never serialized or checkpointed. Test
+  `output_options_keep_originals_unless_explicitly_overwritten_and_accept_folder_inputs`
+  (written, not run). No new dependency.
+  Left: non-PDF output formats, recursive batch input and running a full sequence across all
+  open unsaved documents. Password retry is a new run after the per-file failure.
+  not automatable: same-folder run, overwrite toggle, two differently encrypted inputs and
+  Cancel at password prompt — GUI execution forbidden by brief rule 1.
