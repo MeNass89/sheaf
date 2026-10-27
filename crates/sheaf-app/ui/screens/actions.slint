@@ -4,10 +4,13 @@ import { TextField } from "../widgets/text-field.slint";
 import { Modal } from "dialogs.slint";
 
 export struct ActionRow { name: string, description: string, builtin: bool, custom: bool }
+export struct ActionCommandRow { label: string, action: int, step: int }
 export struct ActionStepRow { label: string, detail: string }
 
 export global ActionBridge {
     in-out property <[ActionRow]> rows;
+    in-out property <[ActionCommandRow]> commands;
+    in-out property <bool> tools-visible;
     in-out property <[ActionStepRow]> steps;
     in-out property <[string]> tools;
     in-out property <int> selected: -1;
@@ -167,5 +170,30 @@ export component ActionPrompt inherits Modal {
             Button { text: "Cancel action"; clicked => { ActionBridge.answer(false); } }
             Button { text: "Continue"; clicked => { ActionBridge.answer(true); } }
         }
+    }
+}
+
+// Acrobat's custom command palette, reachable directly from the reader toolbar.
+export component CustomToolsPanel inherits Modal {
+    card-width: min(620px, self.width - 32px);
+    Text { text: "Custom tools"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
+    Text { text: "Run a saved command on chosen PDFs. Originals stay untouched."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+    ScrollView {
+        height: min(350px, max(70px, ActionBridge.commands.length * 44px));
+        VerticalLayout {
+            spacing: 8px; alignment: start;
+            if ActionBridge.commands.length == 0: Text { text: "Create a custom tool set in Guided actions to add commands here."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
+            for row[i] in ActionBridge.commands: HorizontalLayout {
+                spacing: 8px;
+                Text { text: row.label; color: Theme.text; font-size: Theme.fs-body; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("custom-command", i); } }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        Button { text: "Manage custom tools"; clicked => { ActionBridge.tools-visible = false; ActionBridge.open-page("actions"); } }
+        Rectangle { horizontal-stretch: 1; }
+        Button { text: "Close"; clicked => { ActionBridge.tools-visible = false; } }
     }
 }

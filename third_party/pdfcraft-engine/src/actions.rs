@@ -26,6 +26,14 @@ pub enum Step {
     AddHeader(String),
     /// Set the document title.
     SetTitle(String),
+    SetAuthor(String),
+    SetSubject(String),
+    SetKeywords(String),
+    RotateClockwise,
+    RotateCounterclockwise,
+    RotateHalfTurn,
+    RemoveImages,
+    RemoveLinks,
     /// Prepare a form: detect fields.
     DetectFormFields,
     /// Run a JavaScript (console context).
@@ -46,6 +54,14 @@ impl Step {
             Step::AddHeader(String::new()),
             Step::AddFooter(String::new()),
             Step::SetTitle(String::new()),
+            Step::SetAuthor(String::new()),
+            Step::SetSubject(String::new()),
+            Step::SetKeywords(String::new()),
+            Step::RotateClockwise,
+            Step::RotateCounterclockwise,
+            Step::RotateHalfTurn,
+            Step::RemoveImages,
+            Step::RemoveLinks,
             Step::DetectFormFields,
             Step::RunJavaScript(String::new()),
         ]
@@ -64,6 +80,14 @@ impl Step {
             Step::AddHeader(_) => "add_header",
             Step::AddFooter(_) => "add_footer",
             Step::SetTitle(_) => "set_title",
+            Step::SetAuthor(_) => "set_author",
+            Step::SetSubject(_) => "set_subject",
+            Step::SetKeywords(_) => "set_keywords",
+            Step::RotateClockwise => "rotate_clockwise",
+            Step::RotateCounterclockwise => "rotate_counterclockwise",
+            Step::RotateHalfTurn => "rotate_half_turn",
+            Step::RemoveImages => "remove_images",
+            Step::RemoveLinks => "remove_links",
             Step::DetectFormFields => "detect_form_fields",
             Step::RunJavaScript(_) => "run_javascript",
         }
@@ -81,6 +105,14 @@ impl Step {
             Step::AddHeader(_) => "Add header",
             Step::AddFooter(_) => "Add footer",
             Step::SetTitle(_) => "Set document title",
+            Step::SetAuthor(_) => "Set document author",
+            Step::SetSubject(_) => "Set document subject",
+            Step::SetKeywords(_) => "Set document keywords",
+            Step::RotateClockwise => "Rotate pages clockwise",
+            Step::RotateCounterclockwise => "Rotate pages counterclockwise",
+            Step::RotateHalfTurn => "Turn pages upside down",
+            Step::RemoveImages => "Remove all images",
+            Step::RemoveLinks => "Remove all links",
             Step::DetectFormFields => "Detect form fields",
             Step::RunJavaScript(_) => "Run a JavaScript",
         }
@@ -89,14 +121,14 @@ impl Step {
     /// The step's text argument, if it takes one.
     pub fn arg(&self) -> Option<&str> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::RunJavaScript(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) => Some(s),
             _ => None,
         }
     }
 
     pub fn arg_mut(&mut self) -> Option<&mut String> {
         match self {
-            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::RunJavaScript(s) => Some(s),
+            Step::AddWatermark(s) | Step::AddHeader(s) | Step::AddFooter(s) | Step::SetTitle(s) | Step::SetAuthor(s) | Step::SetSubject(s) | Step::SetKeywords(s) | Step::RunJavaScript(s) => Some(s),
             _ => None,
         }
     }
@@ -178,6 +210,14 @@ fn apply_step(s: &mut Session, id: DocId, step: &Step, log: &mut Vec<String>) ->
             Edit::AddHeaderFooter { pages: all, settings, replace: false }
         }
         Step::SetTitle(t) => Edit::SetInfo { key: "Title".into(), value: t.clone() },
+        Step::SetAuthor(t) => Edit::SetInfo { key: "Author".into(), value: t.clone() },
+        Step::SetSubject(t) => Edit::SetInfo { key: "Subject".into(), value: t.clone() },
+        Step::SetKeywords(t) => Edit::SetInfo { key: "Keywords".into(), value: t.clone() },
+        Step::RotateClockwise => Edit::RotatePages { pages: all, degrees: 90 },
+        Step::RotateCounterclockwise => Edit::RotatePages { pages: all, degrees: 270 },
+        Step::RotateHalfTurn => Edit::RotatePages { pages: all, degrees: 180 },
+        Step::RemoveImages => Edit::RemoveImages { pages: all },
+        Step::RemoveLinks => Edit::RemoveLinks { pages: None },
         Step::DetectFormFields => {
             let n = s.auto_detect_fields(id, &[])?.len();
             log.push(format!("Detect form fields: {n}"));

@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}, mpsc::{self, Sender}};
 use slint::{ComponentHandle, ModelRc, VecModel};
-use sheaf_app::{ActionBridge, ActionRow, ActionStepRow, AppWindow, actions::{self, ActionStep, SavedAction}, store_file};
+use sheaf_app::{ActionBridge, ActionRow, ActionStepRow, ActionCommandRow, AppWindow, actions::{self, ActionStep, SavedAction}, store_file};
 use sheaf_core::pdfcraft::engine::actions::Step;
 
 struct State {
@@ -35,6 +35,15 @@ fn rows(ui: &AppWindow) {
             .map(|(a, builtin)| ActionRow { name: a.name.as_str().into(), description: a.description.as_str().into(), builtin, custom: a.custom_tool }).collect::<Vec<_>>()
     });
     ui.global::<ActionBridge>().set_rows(ModelRc::new(VecModel::from(rows)));
+    let commands = STATE.with(|state| {
+        state.borrow().saved.iter().enumerate().filter(|(_, a)| a.custom_tool).flat_map(|(i, a)| {
+            a.steps.iter().enumerate().map(move |(j, step)| ActionCommandRow {
+                label: format!("{} · {}", a.name, step.engine().map(|s| s.label()).unwrap_or("Step")).into(),
+                action: i as i32, step: j as i32,
+            })
+        }).collect::<Vec<_>>()
+    });
+    ui.global::<ActionBridge>().set_commands(ModelRc::new(VecModel::from(commands)));
 }
 
 fn draft(ui: &AppWindow) {
@@ -101,6 +110,28 @@ pub fn install(ui: &AppWindow) {
 }
 
 fn command(ui: &AppWindow, what: &str, index: i32) {
+    if what == "custom-tools" {
+        rows(ui);
+        ui.global::<ActionBridge>().set_tools_visible(true);
+        return;
+    }
+    if what == "custom-command" && !ui.global::<ActionBridge>().get_busy() {
+        use slint::Model;
+        if let Some(row) = ui.global::<ActionBridge>().get_commands().row_data(index as usize) {
+            let action = STATE.with(|state| {
+                let s = state.borrow();
+                let mut action = s.saved.get(row.action as usize)?.clone();
+                action.steps = vec![action.steps.get(row.step as usize)?.clone()];
+                Some(action)
+            });
+            if let Some(action) = action {
+                ui.global::<ActionBridge>().set_tools_visible(false);
+                ui.set_active_tab(-1); ui.set_page(sheaf_app::Page::Actions);
+                pick_run(ui, action);
+            }
+        }
+        return;
+    }
     if what == "stop" {
         STATE.with(|s| {
             let mut s = s.borrow_mut();

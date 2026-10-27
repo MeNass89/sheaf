@@ -49,6 +49,7 @@ export component ReaderToolbar inherits Rectangle {
             alignment: start;
             padding-top: 8px;
             padding-bottom: 8px;
+            if ActionBridge.commands.length > 0: ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: "Custom tools"; clicked => { ActionBridge.command("custom-tools", 0); } }
             ToolButton { icon: @image-url("../icons/panel-left.svg"); tip: "Side panel"; active: root.tab.reader.panel-open; clicked => { ReaderBridge.toggle-panel(root.id); } }
             Rectangle { width: 6px; }
             Divider { y: 5px; }

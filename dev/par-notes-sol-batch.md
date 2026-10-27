@@ -147,3 +147,12 @@ errors back to this worker; do not grade parity from this implementation report 
   Left: different passwords for individual inputs require separate runs; cancellation remains
   between steps. not automatable: enter a password, edit the prompted watermark text, open each
   completed output — app launch prohibited by brief rule 1.
+
+- C-batch-006: the reader toolbar and Tools page now open a custom command palette, showing every
+  saved custom set's commands with Run on PDFs and Manage custom tools. The picker expands from
+  12 to 20 commands: clockwise/counterclockwise/half-turn rotation, remove images/links, and
+  Author/Subject/Keywords join Title. Test `custom_commands_round_trip_and_apply_rotation_and_metadata`
+  in core engine_patches exercises all command IDs plus an executed multi-command set (not run).
+  Left: commands act on chosen files and publish copies; applying a set to the current unsaved
+  reader state and arbitrary toolbox tools are still absent. not automatable: create two custom
+  sets and launch one command from the reader's palette — app execution prohibited by rule 1.

@@ -81,3 +81,19 @@ fn a_guided_action_opens_encrypted_input_and_keeps_its_protection() {
     let id = check.open("out.pdf", None, out.bytes, Some("secret")).unwrap();
     assert_eq!(check.get(id).unwrap().info.title.as_deref(), Some("Saved"));
 }
+
+#[test]
+fn custom_commands_round_trip_and_apply_rotation_and_metadata() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{Action, Step, run_on}};
+    for step in Step::all() {
+        assert_eq!(Step::from_id(step.id(), step.arg().unwrap_or_default()), Some(step));
+    }
+    let bytes = Session::new().create_from_text("Original", "Keep").unwrap();
+    let action = Action { name: "Custom".into(), description: String::new(), builtin: false,
+        steps: vec![Step::RotateClockwise, Step::SetAuthor("A. Writer".into()), Step::SetSubject("Review".into()), Step::SetKeywords("local".into()), Step::RemoveLinks] };
+    let out = run_on(&action, "in.pdf", bytes, |_, _| {}).unwrap();
+    let mut session = Session::new();
+    let id = session.open("out.pdf", None, out.bytes, None).unwrap();
+    assert_eq!(session.get(id).unwrap().info.author.as_deref(), Some("A. Writer"));
+    assert_eq!(out.log.len(), 5);
+}

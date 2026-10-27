@@ -1,6 +1,6 @@
 import { JavaScriptConsole, JavaScriptBridge } from "screens/javascript.slint";
 import { LibraryScreen, LibraryDeletePrompt, LibraryBridge, LibraryRow, LibraryVersionRow } from "screens/library.slint";
-import { ActionsScreen, ActionPrompt, ActionBridge, ActionRow, ActionStepRow } from "screens/actions.slint";
+import { ActionsScreen, ActionPrompt, CustomToolsPanel, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow } from "screens/actions.slint";
 import { Theme } from "theme.slint";
 import { ToolCard } from "widgets/tool-card.slint";
 import { MenuItem } from "widgets/menu-item.slint";
@@ -16,7 +16,7 @@ import { ReaderScreen } from "screens/reader.slint";
 import { ResultScreen } from "screens/result.slint";
 import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, Toast } from "screens/dialogs.slint";
 
-export { JavaScriptBridge, LibraryBridge, LibraryRow, LibraryVersionRow, ActionBridge, ActionRow, ActionStepRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
+export { JavaScriptBridge, LibraryBridge, LibraryRow, LibraryVersionRow, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
 export enum Page { recents, tools, history, preferences, actions, library }
 
@@ -483,6 +483,7 @@ export component AppWindow inherits Window {
         cancel-job => { root.confirm-cancel-job(); }
         keep => { root.confirm-keep(); }
     }
+    if ActionBridge.tools-visible: CustomToolsPanel { }
     if ActionBridge.prompt != "": ActionPrompt { }
     if JavaScriptBridge.visible: JavaScriptConsole { }
     if LibraryBridge.delete-id != "": LibraryDeletePrompt { }
