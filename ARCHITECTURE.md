@@ -94,3 +94,13 @@ Core `search_index.rs` builds/searches versioned catalogs (`sheaf index` / `sear
 Core `security_policy.rs` imports/exports reusable AES-256 settings, applied by `security::protect_with_settings` (`save-security-policy` / `apply-security-policy` in the CLI).
 
 Core `ocr_review.rs` lists hidden runs and corrects/removes their searchable text without repainting the scan (`review-ocr` / `correct-ocr`).
+
+The reader's More → More tools menu also opens `reader_ui/ocr_review.rs`, `catalog.rs`,
+`security_policy.rs` and `signature_manager.rs`; their Slint surfaces are in `ui/screens/`
+(`ocr-review.slint`, `catalog.slint`, `security-policy.slint`, `signature-manager.slint`).
+Callbacks and state travel through `ReaderBridge`/`ReaderState` in `ui/flow-types.slint`.
+OCR review uses document-thread operations, so corrections participate in Undo/Redo/Save.
+Catalog parsing/search and policy application run off the UI thread. `security_policies.rs`
+keeps password-free named policy files under the application data folder's `security-policies/`.
+OCR options retain every selected language; `OcrOptions::use_local_engine` selects local
+Tesseract explicitly, with the same option in the OCR panel and CLI `--local-engine`.

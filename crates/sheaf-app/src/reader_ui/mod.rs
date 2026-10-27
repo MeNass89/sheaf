@@ -358,10 +358,11 @@ pub struct ReaderUi {
     /// copies asked for, so only the latest one is shown.
     layers_off: Option<Vec<(u32, u16)>>,
     layers_made: u64,
-    /// More tools ▸ Accessibility check: its sheet, a check running, the last report.
+    /// More tools' reusable security settings, search catalogs and live OCR correction.
     policy_panel: Option<security_policy::PolicyPanel>,
     catalog_panel: Option<catalog::CatalogPanel>,
     ocr_review: Option<ocr_review::Review>,
+    /// More tools ▸ Accessibility check: its sheet, a check running, the last report.
     a11y_open: bool,
     a11y_busy: bool,
     a11y: Option<sheaf_core::pdfcraft::engine::a11y::Report>,

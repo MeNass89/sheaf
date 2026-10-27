@@ -374,3 +374,97 @@
 
 - The OCR review controls scroll at short window heights; Close and correction actions cannot
   be stranded below the 600px app minimum. This remains a written GUI smoke check, not a render.
+
+## Second-pass handoff / Polaroid — 27/10/2026
+
+- Project: Sheaf, batch sol-ocr-sign, second pass. Branch `par/sol-ocr-sign`; base `10bfcf6`.
+  Status: implementation handoff active; compilation/runtime and counterpart review pending.
+- Six components advanced: C-optimize-006/007/009/015, C-sign-009, C-security-008. Four dedicated
+  GUI surfaces now expose the previously CLI-only workflows plus signature management. They are
+  reached from the reader's More → More tools. Every component's remaining gap is stated above.
+- C-sign-012: inspected again, no second-pass implementation; network TSA is explicitly excluded.
+  C-security-007: inspected again, no certificate-encryption implementation. Its missing reader,
+  envelope and private-key contracts remain work, not a claimed external blocker or impossibility.
+- Checks performed: repeated `git diff --check` on each component and the complete second-pass
+  diff; static source/API inspection. Impeccable's static detector returned `[]` for the Slint
+  paths; that does not establish rendered layout or accessibility. No tests or runtime executed.
+  No cargo, rustc, clippy, app, Chrome, Xvfb or codex invocation in this pass.
+- Every component commit was pushed immediately. Final documentation follows `9c7ec96`.
+  No new dependency in this pass. Pass 1's existing serde/serde_json direct edges in sheaf-core
+  still require the orchestrator's Cargo.lock integration if not already done elsewhere.
+- Public API changes in this pass: core `ocr_review::{review_document,correction_edit}`,
+  `Catalog::sources`, `OcrOptions::use_local_engine`; app `security_policies` module.
+  No Prefs field added, so no additional history Prefs literal update is needed.
+- Runtime requirements remain optional local Tesseract + selected packs, Linux Secret Service
+  and secret-tool for saved signatures, macOS security/Keychain, Windows PowerShell/DPAPI.
+- Next action: merge, build/lint, run unit/integration + the GUI checks specified per component;
+  benchmark OCR in release on the MICI baseline; send failures back. Only after the full suite is
+  green does counterpart opus-edit review read-only for the joint grades. No board grade changed.
+- Mandate control: six independent implementable components advanced, every CLI addition has an
+  app control, no forbidden execution/network feature added; proofs name source and written tests;
+  unimplemented/untested work stays explicit. The two remaining gaps are retained, not relabelled
+  as finished. This pass is ready for integration, not a claim of end-to-end parity.
+
+## Second-pass proposed grades (all tests are written, not run)
+
+- C-optimize-006: f9 a8 p8 — `crates/sheaf-core/src/ocr.rs:278`,
+  `local_ocr_is_explicit_for_latin_and_automatic_for_extra_scripts`: deliberate engine selection;
+  release speed still needs the recorded benchmark.
+- C-optimize-007: f8 a8 p8 — `crates/sheaf-core/src/ocr_local.rs:131`,
+  `every_installed_language_pack_is_offered_but_orientation_data_is_not` and
+  `mixed_scripts_use_all_selected_packs_and_refuse_missing_or_conflicting_packs`: pack coverage
+  and all selected scripts; installation/accuracy remain unverified.
+- C-optimize-009: f8 a7 p7 — `crates/sheaf-core/tests/ocr_review.rs:40`,
+  `live_ocr_review_sees_unsaved_corrections_and_undo_and_refuses_missing_pages`: working-document
+  edits and undo; reader panel/filter exist, rendering and large-document speed unverified.
+- C-optimize-015: f8 a7 p7 — `crates/sheaf-core/tests/search_index.rs:29`,
+  `catalog_manager_can_reopen_sources_and_rebuild_after_a_removal`: source management and
+  nondestructive rebuild; GUI and large-catalog timings still need execution.
+- C-sign-009: f8 a8 p8 — `crates/sheaf-app/src/reader_ui/signature_manager.rs:98`,
+  `signature_edits_preserve_position_and_reject_a_stale_selection`: edits/order and stale guards;
+  credential adapters and manager rendering still need live platform checks.
+- C-sign-012: f8 a8 p8 — `crates/sheaf-core/tests/sign.rs:473`,
+  `a_local_authority_timestamps_visible_and_invisible_certificate_signatures`: local adapter;
+  server remains absent by instruction, so no closure.
+- C-security-007: f0 a0 p0 — locked PdfCraft `crates/crypt/src/lib.rs:148` at d3a91c5 and
+  `third_party/pdfcraft-cos/src/security.rs:50`: Standard-only reader, no recipient envelopes;
+  no implementation or test claimed.
+- C-security-008: f7 a7 p8 — `crates/sheaf-app/src/security_policies.rs:52`,
+  `a_policy_library_survives_edits_import_export_and_deletion_without_passwords`: reusable
+  settings and exchange; Acrobat security-settings/certificate-policy parity still absent.
+
+## Second-pass touched files
+
+- `ARCHITECTURE.md`
+- `crates/sheaf-app/src/home.rs`
+- `crates/sheaf-app/src/lib.rs`
+- `crates/sheaf-app/src/main.rs`
+- `crates/sheaf-app/src/reader_doc/mod.rs`
+- `crates/sheaf-app/src/reader_ui/catalog.rs`
+- `crates/sheaf-app/src/reader_ui/mod.rs`
+- `crates/sheaf-app/src/reader_ui/model.rs`
+- `crates/sheaf-app/src/reader_ui/ocr_review.rs`
+- `crates/sheaf-app/src/reader_ui/security_policy.rs`
+- `crates/sheaf-app/src/reader_ui/sign.rs`
+- `crates/sheaf-app/src/reader_ui/signature_manager.rs`
+- `crates/sheaf-app/src/run.rs`
+- `crates/sheaf-app/src/saved_options.rs`
+- `crates/sheaf-app/src/security_policies.rs`
+- `crates/sheaf-app/ui/flow-types.slint`
+- `crates/sheaf-app/ui/screens/catalog.slint`
+- `crates/sheaf-app/ui/screens/ocr-review.slint`
+- `crates/sheaf-app/ui/screens/options.slint`
+- `crates/sheaf-app/ui/screens/reader-toolbar.slint`
+- `crates/sheaf-app/ui/screens/reader.slint`
+- `crates/sheaf-app/ui/screens/security-policy.slint`
+- `crates/sheaf-app/ui/screens/signature-manager.slint`
+- `crates/sheaf-app/ui/widgets/panel-button.slint`
+- `crates/sheaf-cli/src/args.rs`
+- `crates/sheaf-cli/src/main.rs`
+- `crates/sheaf-core/src/ocr.rs`
+- `crates/sheaf-core/src/ocr_local.rs`
+- `crates/sheaf-core/src/ocr_review.rs`
+- `crates/sheaf-core/src/search_index.rs`
+- `crates/sheaf-core/tests/ocr_review.rs`
+- `crates/sheaf-core/tests/search_index.rs`
+- `dev/par-notes-sol-ocr-sign.md`
