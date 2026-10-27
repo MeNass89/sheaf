@@ -1,5 +1,7 @@
-import { Button, CheckBox, ScrollView } from "std-widgets.slint";
-import { Modal } from "dialogs.slint";
+import { PrimaryButton } from "../widgets/button.slint";
+import { Check as CheckBox } from "../widgets/check.slint";
+import { ScrollView } from "std-widgets.slint";
+import { Modal, SecondaryButton as Button } from "dialogs.slint";
 import { Thumb } from "../widgets/file-card.slint";
 import { Theme } from "../theme.slint";
 
@@ -32,7 +34,7 @@ export component LibraryScreen inherits Rectangle {
         Text { text: "Private file copies. Each save in Sheaf keeps a new version."; color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
         HorizontalLayout {
             spacing: 8px;
-            Button { text: "Add files…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("add", 0); } }
+            PrimaryButton { text: "Add files…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("add", 0); } }
             Button { text: "Refresh"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("refresh", 0); } }
             Rectangle { horizontal-stretch: 1; }
         }
@@ -88,7 +90,7 @@ export component LibraryScreen inherits Rectangle {
                             padding: 8px; spacing: 5px;
                             HorizontalLayout {
                                 alignment: start;
-                                CheckBox { checked: row.marked; enabled: !LibraryBridge.busy; toggled => { LibraryBridge.command("mark", i); } }
+                                CheckBox { width: 24px; checked: row.marked; accessible-label: "Select " + row.name; enabled: !LibraryBridge.busy; toggled => { LibraryBridge.command("mark", i); } }
                                 Text { text: row.name; color: Theme.text; font-size: Theme.fs-body; font-weight: 600; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
                             }
                             Rectangle {
@@ -110,10 +112,11 @@ export component LibraryScreen inherits Rectangle {
                         spacing: 8px;
                         Button { text: "Open"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("open", 0); } }
                         Button { text: "Save a copy…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("export", 0); } }
-                        Button { text: "Unzip"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("unzip", 0); } }
+
                     }
                     HorizontalLayout {
                         spacing: 8px;
+                        Button { text: "Unzip"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("unzip", 0); } }
                         Button { text: "New version…"; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("update", 0); } }
                     }
                     HorizontalLayout {

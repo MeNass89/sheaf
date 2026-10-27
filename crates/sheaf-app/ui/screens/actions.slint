@@ -1,7 +1,9 @@
-import { Button, CheckBox, ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
+import { PrimaryButton } from "../widgets/button.slint";
+import { Check as CheckBox } from "../widgets/check.slint";
+import { ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { TextField } from "../widgets/text-field.slint";
-import { Modal } from "dialogs.slint";
+import { Modal, SecondaryButton as Button } from "dialogs.slint";
 
 export struct ActionRow { name: string, description: string, builtin: bool, custom: bool, source: int }
 export struct ActionCommandRow { label: string, action: int, step: int, separator: bool, current: bool }
@@ -204,7 +206,7 @@ export component ActionsScreen inherits Rectangle {
                     HorizontalLayout {
                         spacing: 8px;
                         Button { text: "Watch folder…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("watch", 0); } }
-                Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
+                        PrimaryButton { text: "Run on PDFs…"; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
                     }
                 }
             }
@@ -261,11 +263,12 @@ export component CustomToolsPanel inherits Modal {
             for row[i] in ActionBridge.commands: VerticalLayout {
                 spacing: 6px;
                 if row.separator: Rectangle { height: 1px; background: Theme.input-border; }
+                Text { text: row.label; color: Theme.text; font-size: Theme.fs-body; overflow: elide; }
                 HorizontalLayout {
-                spacing: 8px;
-                Text { text: row.label; color: Theme.text; font-size: Theme.fs-body; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
-                Button { text: "Apply to open PDF"; enabled: !ActionBridge.busy && ActionBridge.current-tab >= 0 && row.current; clicked => { ActionBridge.command("custom-current", i); } }
-                Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("custom-command", i); } }
+                    spacing: 8px;
+                    Button { text: "Apply to open PDF"; enabled: !ActionBridge.busy && ActionBridge.current-tab >= 0 && row.current; clicked => { ActionBridge.command("custom-current", i); } }
+                    Button { text: "Run on PDFs…"; enabled: !ActionBridge.busy; clicked => { ActionBridge.command("custom-command", i); } }
+                    Rectangle { horizontal-stretch: 1; }
                 }
             }
         }

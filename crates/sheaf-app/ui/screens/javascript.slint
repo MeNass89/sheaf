@@ -1,7 +1,9 @@
+import { PrimaryButton } from "../widgets/button.slint";
+import { Check as CheckBox } from "../widgets/check.slint";
 import { TextField } from "../widgets/text-field.slint";
-import { Button, CheckBox, ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
+import { ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { Modal } from "dialogs.slint";
+import { Modal, SecondaryButton as Button } from "dialogs.slint";
 
 export struct DocumentScriptRow { name: string, source: string, label: string, field: bool, event: string }
 export global JavaScriptBridge {
@@ -68,9 +70,13 @@ export component JavaScriptConsole inherits Modal {
     }
     HorizontalLayout {
         spacing: 8px;
-        Button { text: JavaScriptBridge.busy ? "Running…" : "Run"; enabled: !JavaScriptBridge.busy && !JavaScriptBridge.scripts-open; clicked => { JavaScriptBridge.run(false); } }
+        PrimaryButton { text: JavaScriptBridge.busy ? "Running…" : "Run"; enabled: !JavaScriptBridge.busy && !JavaScriptBridge.scripts-open; clicked => { JavaScriptBridge.run(false); } }
         Button { text: "Run selection"; enabled: !JavaScriptBridge.busy && !JavaScriptBridge.scripts-open && JavaScriptBridge.selection-anchor != JavaScriptBridge.selection-cursor; clicked => { JavaScriptBridge.run(true); } }
         Button { text: JavaScriptBridge.scripts-open ? "Console" : "Scripts"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.scripts-open = !JavaScriptBridge.scripts-open; if JavaScriptBridge.scripts-open { JavaScriptBridge.script-command("list", 0); } } }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    HorizontalLayout {
+        spacing: 8px;
         Button { text: "Clear output"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.output = ""; } }
         Rectangle { horizontal-stretch: 1; }
         Button { text: "Close"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.visible = false; } }

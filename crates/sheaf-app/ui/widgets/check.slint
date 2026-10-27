@@ -3,9 +3,23 @@ import { Theme } from "../theme.slint";
 // Square tick box with a label ("First page is cover page").
 export component Check inherits Rectangle {
     in property <string> text;
+    in property <bool> enabled: true;
     in-out property <bool> checked;
     callback toggled();
     height: 24px;
+    opacity: root.enabled ? 1 : 0.45;
+    accessible-role: checkbox;
+    accessible-checkable: true;
+    accessible-label: root.text;
+    accessible-checked: root.checked;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.checked = !root.checked; root.toggled(); } }
+    focus := FocusScope {
+        key-pressed(e) => {
+            if root.enabled && (e.text == Key.Return || e.text == " ") { root.checked = !root.checked; root.toggled(); return accept; }
+            reject
+        }
+    }
     HorizontalLayout {
         spacing: 8px;
         Rectangle {
@@ -14,7 +28,7 @@ export component Check inherits Rectangle {
             height: 16px;
             border-radius: Theme.radius-small;
             border-width: root.checked ? 0 : 1.5px;
-            border-color: Theme.option-border;
+            border-color: focus.has-focus ? Theme.text-secondary : Theme.option-border;
             background: root.checked ? Theme.success-strong : Theme.panel-bg;
             if root.checked: Image {
                 width: 12px;
@@ -31,8 +45,10 @@ export component Check inherits Rectangle {
         }
     }
     TouchArea {
+        enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => {
+            focus.focus();
             root.checked = !root.checked;
             root.toggled();
         }

@@ -461,3 +461,15 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   of presenting the subset as Acrobat's complete tool. No new dependency; network stays excluded.
   not automatable: select multiline/Unicode code, Ctrl+Enter, save/delete a field script and Undo,
   issue LaunchUrl/Submit plus two dialog requests — app execution forbidden by brief rule 1.
+
+## Pass 3 · shared visual correction
+
+- All four batch surfaces now use Sheaf PrimaryButton/SecondaryButton and Check controls rather
+  than std-widgets buttons/check boxes. Added the missing enabled state, keyboard activation and
+  accessibility semantics to SecondaryButton and Check, keeping their incumbent tokens/geometry.
+  Shorter control rows separate JS execution from output controls and custom-command labels from
+  their two targets. Tools now says Actions, matching the sidebar. Native ComboBox/TextEdit remain
+  for their existing text/menu behavior. No new visual system or assets.
+- not automatable: keyboard traversal, disabled controls, minimum-size layouts and light/dark
+  comparison against Tools/reader — this worker must not launch or render the app under brief
+  rule 1. The shared SecondaryButton/Check changes need merge care and orchestrator UI checks.
