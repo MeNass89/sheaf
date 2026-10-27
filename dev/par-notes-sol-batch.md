@@ -9,17 +9,24 @@
 
 ## Polaroid
 
-Sheaf sol-batch pass 2, 27/10, hand-off active on `par/sol-batch` in this worktree.
-All nine components have a second implementation pass, one pushed commit per component and
-follow-up fixes. The app has Tools/reader entry points for all of this batch's features; no
-feature was added to the CLI alone. No network service was added.
-Static whitespace and shell-syntax checks are the only executed verification. Compilation,
-unit/integration/smoke execution, rendering, performance measurement and counterpart review are
-still pending with the orchestrator under brief rule 1. Do not infer a joint 9 from this report.
-Next: merge, refresh the first-pass app `zip` lock dependency if needed, compile, run the single
-suite, check the new panels at minimum size/light/dark, then let opus-platform review read-only.
-Send any compile errors or DISAGREE proof back to this worker. Pass-1 descriptions below are a
-historical baseline; the Pass 2 entries supersede their corresponding Left notes.
+Sheaf sol-batch pass 3, 27/10/2026, active hand-off on `par/sol-batch` in
+`/tmp/f5/w-sol-batch`. Mandate: close Opus's evidenced gaps in
+`/tmp/f5/par/review-sol-batch.txt`, valuable native work first, one pushed commit per component.
+All nine now have a third implementation pass and pushed component commits, plus narrowly scoped
+static follow-ups. None is untouched; none is declared at joint parity. The Pass 3 entries and
+final grades below supersede earlier baselines and Left notes for the same behavior.
+
+Tatouages remain: no cargo/rustc/clippy/test/app/browser/codex execution; no network features;
+no outside conversion processes added. Pure Rust tools and explicit limitations are used.
+Observed proof is source inspection, git diff --check, bash -n and the static UI detector only.
+Tests are written, not executed; layouts are unrendered; runtime/performance remain unverified.
+The app zip dependency's missing lock entry is now corrected manually against already locked
+zip 4.6.1 packages; no new dependency was added in this pass.
+
+Next action belongs to the orchestrator: merge, compile, run the suite and new tests, render the
+four surfaces at minimum size/light/dark, then request opus-platform's read-only rereview.
+Send compile errors or remaining DISAGREE evidence back here; no component closes until joint 9
+on the green merged tree. Code committed/pushed is the hand-off result, not proof that it runs.
 
 ## Components
 
@@ -507,3 +514,71 @@ all performance scores need measurement. No 9 is proposed; no joint closure is r
   document-only request instead of leaving a production-unused variant. The existing
   `javascript_console_returns_local_viewer_requests_and_named_document_scripts` regression now
   exercises that request. Engine Document::document_scripts remains unchanged and compatible.
+
+## Pass 3 · final hand-off
+
+- Completed implementation work: all nine components. Parity status: all remain partial; the
+  specific missing behavior and its reason are listed in their Pass 3 entries. No untouched or
+  abandoned component. No network features or OS daemon. No Ghostscript/LibreOffice process.
+- Verification executed: git diff --check across the pass; bash -n dev/scripts/smoke/3-flows.sh;
+  Impeccable static detector returned []. This is not compilation, test execution, visual proof
+  or performance measurement. Existing smoke 250–253 was syntax-checked, not run or expanded;
+  new GUI flows have explicit not-automatable hand-off steps above.
+- New engine public items: Step::Compress, Step::ConvertPdfA, Step::PageNumbers,
+  actions::number_settings, actions::command_edit, js::ConsoleScript,
+  Document::console_scripts. The existing engine methods remain compatible. Internal reader
+  EditableScripts request/reply replaces its former document-only inventory request.
+- App model additions: OutputOptions and draft persistence; cached filter/folders and BatchReport;
+  per-inbox watch configs, pattern/archive options and incremental traversal; selection/request
+  helpers. New modules javascript_console.rs and reader_ui/custom_tools.rs.
+- Merge seams: small blocks in app lib.rs, reader_doc/mod.rs, reader_ui/mod.rs, ui/main.slint,
+  shared SecondaryButton/Check, Tools naming, reader_doc/tests/forms_and_files.rs, core
+  tests/engine_patches.rs and Cargo.lock's app package dependency list. No Cargo manifest changed.
+- Remaining watcher boundary: identity is size/mtime, and a writer can still race the last
+  revision check. Archiving does not provide a cross-process file lock; same-size timestamp-
+  preserving rewrites cannot be detected by this poller. Native preview uses existing pdfium
+  rendering for PDFs, Rust image decoding/text previews, and no Office subprocess.
+
+Files touched in pass 3:
+
+- `Cargo.lock`
+- `crates/sheaf-app/src/action_import.rs`
+- `crates/sheaf-app/src/actions.rs`
+- `crates/sheaf-app/src/actions_ui.rs`
+- `crates/sheaf-app/src/javascript_console.rs`
+- `crates/sheaf-app/src/lib.rs`
+- `crates/sheaf-app/src/library.rs`
+- `crates/sheaf-app/src/library_ui.rs`
+- `crates/sheaf-app/src/portfolio_ui.rs`
+- `crates/sheaf-app/src/reader_doc/mod.rs`
+- `crates/sheaf-app/src/reader_doc/tests/forms_and_files.rs`
+- `crates/sheaf-app/src/reader_ui/custom_tools.rs`
+- `crates/sheaf-app/src/reader_ui/javascript.rs`
+- `crates/sheaf-app/src/reader_ui/mod.rs`
+- `crates/sheaf-app/src/reader_ui/portfolio.rs`
+- `crates/sheaf-app/src/watch_folder.rs`
+- `crates/sheaf-app/ui/main.slint`
+- `crates/sheaf-app/ui/screens/actions.slint`
+- `crates/sheaf-app/ui/screens/dialogs.slint`
+- `crates/sheaf-app/ui/screens/javascript.slint`
+- `crates/sheaf-app/ui/screens/library.slint`
+- `crates/sheaf-app/ui/screens/portfolio.slint`
+- `crates/sheaf-app/ui/screens/tools.slint`
+- `crates/sheaf-app/ui/widgets/check.slint`
+- `crates/sheaf-core/tests/engine_patches.rs`
+- `dev/par-notes-sol-batch.md`
+- `third_party/pdfcraft-engine/src/actions.rs`
+- `third_party/pdfcraft-engine/src/js.rs`
+
+Grades below are author estimates from source, with unrun tests as specified by brief rule 1.
+Aesthetics and performance require the orchestrator's actual render/measurement. No joint 9.
+
+- C-batch-002: f7 a7 p8 — engine_patches.rs:113 `wizard_native_options_validate_and_number_pages_before_compression` verifies number settings/text with all native compression presets; actions.rs:415 `partial_action_drafts_recover_without_becoming_saved_actions` covers restart recovery. Protect/Split/export remain absent.
+- C-batch-003: f8 a7 p8 — actions.rs:427 `output_options_keep_originals_unless_explicitly_overwritten_and_accept_folder_inputs` covers naming, same-folder, unique/replace paths and folder intake. Non-PDF output/all open unsaved documents remain absent.
+- C-batch-004: f6 a7 p8 — action_import.rs:165 `stirling_native_import_keeps_order_and_discloses_conversion_limits` covers extra translations, visible limits and malformed-setting refusal. .sequ and many Stirling tools remain unsupported.
+- C-batch-005: f8 a7 p8 — actions.rs:448 `suggested_archive_form_and_sharing_actions_are_native_editable_copies` covers the four added templates and copy independence. Full accessibility remediation/linearization remain absent.
+- C-batch-006: f7 a7 p8 — engine_patches.rs:142 `custom_tool_commands_edit_the_current_document_and_undo` preserves earlier unsaved edits through command Undo; label/separator serialization extends the existing custom-copy regression. Arbitrary tools/icons/dedicated panels remain absent.
+- C-batch-008: f8 a7 p7 — watch_folder.rs:341 `watches_keep_independent_patterns_archive_inputs_and_scan_incrementally` covers multiple configs, rename/archive and bounded snapshots; :376 `a_watch_never_archives_or_publishes_an_input_changed_during_its_run` covers detected revision changes. No OS daemon; two watches maximum.
+- C-files-008: f8 a7 p7 — library.rs:363 `cached_library_filter_tree_and_batch_actions_keep_versions_and_collisions` covers offline metadata filtering, folders, multi-file export/delete and collisions. Non-PDF previews and grid virtualization remain absent.
+- C-organize-024: f8 a7 p8 — reader_ui/portfolio.rs:87 `portfolio_browser_uses_embedded_description_size_and_native_text_preview` covers metadata and text preview; existing core portfolio tests cover originals/order. Real collection folders/arbitrary schema editing remain absent.
+- C-platform-005: f8 a7 p8 — javascript_console.rs:24 `run_selection_keeps_unicode_boundaries_reverse_ranges_and_visible_network_refusals`; engine_patches.rs:157 `console_manager_lists_and_edits_document_and_field_scripts_with_undo`. No debugger or page/link script editor.
