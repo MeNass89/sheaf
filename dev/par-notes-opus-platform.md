@@ -135,14 +135,19 @@
   each other); popups, centred, mouse- or drag-placed items are left as they are (scripts
   /tmp/f5/opus-scripts/mirror.py, mirror_x.py, flexify.py).
 - C-platform-004, what Slint 1.18 blocks or what is left: (1) Slint has no window-wide layout direction, so
-  each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, side panel position, tool
-  options bar, Preferences, the dialogs; left: the side panel's own rows, the reader's sheets (print,
-  properties, signature), the tool-flow pages and the Home pages other than Preferences).
+  each row is mirrored by hand (done: Home sidebar, tab bar, reader toolbar, side panel with its tabs and
+  rows, tool options bar, tool pages, result page, Preferences, the dialogs; left: the reader's sheets
+  (print, properties, signature), Home's Recents, Tools and History pages).
   (2) Text alignment: `Text`'s default `horizontal-alignment` is `start`, which follows each string's own
-  script (an Arabic string sits right, an English one left); Sheaf has no translations, so its English labels
-  stay left-aligned except where set to `right` here (sidebar, tabs). (3) The `MenuBar` element has no
-  direction: its menus stay File … Help from the left. (4) Icons are not flipped (the Side panel icon still
-  points left): Slint has no mirrored image drawing short of a second icon file.
+  script (an Arabic string sits right, an English one left); Sheaf has no translations, so labels are set
+  to `right` explicitly where mirrored. (3) The `MenuBar` element has no direction: Slint draws it with its
+  own MenuBarImpl (std-widgets common/menus.slint), a row of entries from the left with no direction or
+  alignment property, so the menus cannot start at the right; reversing their order alone would need
+  every Menu written twice behind `if PlatformBridge.rtl` and would still be left-aligned (on macOS the
+  system menu bar follows the system's language). (4) Icons are not flipped (the Side panel icon still
+  points left): Slint has no mirrored image drawing short of a second icon file. (5) A tool page's file
+  cards keep their left-to-right order: their drag-and-drop slots are computed from the pointer in
+  left-to-right columns (tool-flow.slint `drop-col`).
 - C-platform-007: Shortcuts / AppleScript actions need macOS (App Intents, a Mac build): not done, as the
   brief says. Linux and Windows have no system automation of that kind; the CLI and the MCP server are it.
 
