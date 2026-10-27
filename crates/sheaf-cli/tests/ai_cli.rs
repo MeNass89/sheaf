@@ -34,8 +34,11 @@ fn pdf(path: &std::path::Path, texts: &[&str]) {
     doc.save(path).unwrap();
 }
 
-/// A mock OpenAI-compatible server: answers `answer`, keeps (authorization header, body) of each request.
-fn mock(answer: &'static str) -> (String, Arc<Mutex<Vec<(String, serde_json::Value)>>>) {
+/// (authorization header, body) of each request the mock got.
+type Seen = Arc<Mutex<Vec<(String, serde_json::Value)>>>;
+
+/// A mock OpenAI-compatible server: answers `answer`, keeps what each request carried.
+fn mock(answer: &'static str) -> (String, Seen) {
     let l = TcpListener::bind("127.0.0.1:0").unwrap();
     let base = format!("http://{}/v1", l.local_addr().unwrap());
     let seen = Arc::new(Mutex::new(Vec::new()));
