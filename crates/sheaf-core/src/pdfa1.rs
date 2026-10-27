@@ -30,7 +30,7 @@ pub(super) fn rewrite(bytes: &[u8]) -> Result<Vec<u8>> {
 pub(super) fn issues(pdf: &Document) -> Result<Vec<PdfAIssue>> {
     let mut problems = std::collections::BTreeSet::new();
     if pdf.version != "1.4" { problems.insert("The PDF/A-1 file must use PDF 1.4".to_string()); }
-    if pdf.reference_table.cross_reference_type != lopdf::xref::XrefType::CrossReferenceTable {
+    if !matches!(pdf.reference_table.cross_reference_type, lopdf::xref::XrefType::CrossReferenceTable) {
         problems.insert("Cross-reference streams are not allowed in PDF/A-1".into());
     }
     let cat = pdf.catalog()?;

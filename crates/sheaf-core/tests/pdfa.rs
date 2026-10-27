@@ -128,7 +128,7 @@ fn native_pdfa1_writes_pdf14_and_checks_transparency_before_publication() {
     assert!(declares_part(&out, 1));
     let mut pdf = lopdf::Document::load(&out).unwrap();
     assert_eq!(pdf.version, "1.4");
-    assert_eq!(pdf.reference_table.cross_reference_type, lopdf::xref::XrefType::CrossReferenceTable);
+    assert!(matches!(pdf.reference_table.cross_reference_type, lopdf::xref::XrefType::CrossReferenceTable));
     assert_eq!(pdf.get_pages().len(), 2);
     assert!(verify(&Input::new(&out), PdfALevel::A1b).unwrap().is_empty());
     let alpha = pdf.add_object(lopdf::Object::Real(0.5));
