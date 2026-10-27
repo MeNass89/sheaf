@@ -96,6 +96,18 @@ export component ReaderScreen inherits Rectangle {
     property <PointerEventButton> pan-button;
     // Pinch: the zoom when the gesture began.
     property <float> pinch-zoom0;
+    // The pane the pinch began over: its place in the pages area (the fingers' centre is the area's);
+    // over another document's pane, the pinch is left to nothing.
+    property <length> pinch-ox;
+    property <length> pinch-oy;
+    property <bool> pinch-skip;
+    // A drag with the hand, Space or the middle button in the other pane moves that pane.
+    property <bool> pane-panning;
+    property <PointerEventButton> pan2-button;
+    property <length> pan2-vx0;
+    property <length> pan2-vy0;
+    property <length> pan2-cx0;
+    property <length> pan2-cy0;
     // ⌘ + wheel: where the pointer is in the window, taken from the first wheel event and kept until
     // the pointer really moves. In the window, not on the pages: the pages move under the still
     // pointer as they zoom, and Slint then sends moves of its own, some before the new scroll is in.
@@ -379,9 +391,22 @@ export component ReaderScreen inherits Rectangle {
                 clip: true;
                 // Trackpad pinch (macOS) and touch screens zoom around the fingers. Under the pages:
                 // everything else passes through to them.
+                // Split view: the pane under the fingers zooms (the other one becomes the active one, as a
+                // press makes it), around the fingers as that pane sees them (Sol, 27/10: the active pane
+                // zoomed, and on the right or below it was anchored by its offset).
                 ScaleRotateGestureHandler {
-                    started => { root.pinch-zoom0 = root.tab.viewer-zoom; }
-                    updated => { root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x, self.center.y); }
+                    started => {
+                        let over-other = root.split > 0 && self.center.x >= sv2.x && self.center.x < sv2.x + sv2.width
+                            && self.center.y >= sv2.y && self.center.y < sv2.y + sv2.height;
+                        root.pinch-skip = over-other && root.tab.split-title != "";
+                        root.pinch-ox = over-other ? sv2.x : sv.x;
+                        root.pinch-oy = over-other ? sv2.y : sv.y;
+                        if over-other && !root.pinch-skip { ReaderBridge.split-focus(root.id); }
+                        root.pinch-zoom0 = root.tab.viewer-zoom;
+                    }
+                    updated => {
+                        if !root.pinch-skip { root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x - root.pinch-ox, self.center.y - root.pinch-oy); }
+                    }
                 }
                 sv := ScrollView {
                     // Split view: half the area, the second pane in the other half (same size).
@@ -951,8 +976,53 @@ export component ReaderScreen inherits Rectangle {
                     TouchArea {
                         width: max(root.tab.split-width, sv2.visible-width);
                         height: root.tab.split-height;
-                        mouse-cursor: root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
                         pointer-event(e) => {
+                            // The hand tool's ⌥ zoom begun here (this pane is the active one by then).
+                            if root.dyn-zooming {
+                                if e.kind == PointerEventKind.move && !self.pressed {
+                                    root.dyn-zooming = false;
+                                } else if e.kind == PointerEventKind.move {
+                                    root.zoom-around(root.dyn-zoom0 * pow(1.01, (root.dyn-wy0 - (self.absolute-position.y + self.mouse-y)) / 1px), root.dyn-ax, root.dyn-ay);
+                                } else if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                                    root.dyn-zooming = false;
+                                }
+                                return;
+                            }
+                            // A drag with the middle button, Space held or the hand tool moves this pane, as it
+                            // does the other one (Sol, 27/10: it selected or ran the tool).
+                            if root.pane-panning {
+                                if e.kind == PointerEventKind.move {
+                                    sv2.content-x = clamp(root.pan2-cx0 + (self.mouse-x + sv2.content-x - root.pan2-vx0), min(0px, sv2.visible-width - sv2.content-width), 0px);
+                                    sv2.content-y = clamp(root.pan2-cy0 + (self.mouse-y + sv2.content-y - root.pan2-vy0), min(0px, sv2.visible-height - sv2.content-height), 0px);
+                                    if root.space-held { root.panned = true; }
+                                } else if e.kind == PointerEventKind.up && e.button == root.pan2-button {
+                                    root.pane-panning = false;
+                                }
+                                return;
+                            }
+                            // The hand with ⌥: this pane becomes the active one and zooms around the press
+                            // (Acrobat's Dynamic Zoom), as in the other pane.
+                            if e.kind == PointerEventKind.down && root.hand && e.modifiers.alt && e.button == PointerEventButton.left && root.tab.split-title == "" {
+                                let ax = self.absolute-position.x + self.mouse-x - sv2.absolute-position.x;
+                                let ay = self.absolute-position.y + self.mouse-y - sv2.absolute-position.y;
+                                ReaderBridge.split-focus(root.id);
+                                keys.focus();
+                                root.dyn-zooming = true;
+                                root.dyn-wy0 = self.absolute-position.y + self.mouse-y;
+                                root.dyn-zoom0 = root.tab.viewer-zoom;
+                                root.dyn-ax = ax;
+                                root.dyn-ay = ay;
+                                return;
+                            }
+                            if e.kind == PointerEventKind.down && (e.button == PointerEventButton.middle || ((root.space-held || root.hand) && e.button == PointerEventButton.left)) {
+                                root.pane-panning = true;
+                                root.pan2-button = e.button;
+                                root.pan2-vx0 = self.mouse-x + sv2.content-x;
+                                root.pan2-vy0 = self.mouse-y + sv2.content-y;
+                                root.pan2-cx0 = sv2.content-x;
+                                root.pan2-cy0 = sv2.content-y;
+                                return;
+                            }
                             // Another document: its tab comes to the front, this one in its other pane, and
                             // the click goes on to it there, at the same point (a link, a comment, a note
                             // placed; Sol, 27/10: it was lost). That tab's view then takes the pointer.
@@ -983,6 +1053,20 @@ export component ReaderScreen inherits Rectangle {
                         moved => {
                             if root.pane-press { ReaderBridge.moved(root.id, root.main-x(self.absolute-position.x + self.mouse-x), root.main-y(self.absolute-position.y + self.mouse-y)); }
                         }
+                        // ⌘ / Ctrl + wheel zooms this pane around the pointer: it becomes the active one
+                        // (Sol, 27/10: it scrolled); the wheel alone scrolls it as it is.
+                        scroll-event(e) => {
+                            if e.modifiers.control && e.delta-y != 0 && root.tab.split-title == "" {
+                                let ax = self.absolute-position.x + self.mouse-x - sv2.absolute-position.x;
+                                let ay = self.absolute-position.y + self.mouse-y - sv2.absolute-position.y;
+                                let sx = -sv2.content-x;
+                                ReaderBridge.split-focus(root.id);
+                                ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), ax / 1px, ay / 1px, sx / 1px);
+                                return accept;
+                            }
+                            reject
+                        }
+                        mouse-cursor: root.pane-panning || root.dyn-zooming ? grabbing : root.space-held || root.hand ? grab : root.tab.reader.tool == 0 || root.markup-tool || root.tab.reader.tool == 7 ? text : crosshair;
                     }
                 }
                 // The divider, dragged (PDF Expert's): a grip wider than its line, over both panes'
@@ -1273,7 +1357,7 @@ export component ReaderScreen inherits Rectangle {
         // A Space let go while the keyboard was elsewhere never arrives: no hand left stuck.
         changed has-focus => {
             // The same for a drag with the hand tool's ⌥ zoom: no zoom left following a button not held.
-            if !self.has-focus { root.space-held = false; root.panned = false; root.panning = false; root.dyn-zooming = false; }
+            if !self.has-focus { root.space-held = false; root.panned = false; root.panning = false; root.dyn-zooming = false; root.pane-panning = false; }
         }
         // Space: held, a drag pans; let go without a drag, it turns the page (see key-pressed).
         key-released(e) => {
