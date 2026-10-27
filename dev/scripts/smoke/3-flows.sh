@@ -1464,3 +1464,14 @@ UN=$(qpdf --qdf --object-streams=disable "$OUT/undomenu.pdf" - 2>/dev/null | gre
 check "Edit ▸ Undo undoes the focused field's typing and, on the pages, the PDF's last edit ($U1 $U2; author '$AU'; notes $UN; menu: $(echo "$UM" | grep -o 'Undo Ctrl+Z' | head -1))" "[ -z \"$AU\" ] && [ \"$UN\" = 0 ] && echo \"$UM\" | grep -q 'Ctrl+Z'"
 quit
 unset SHEAF_TEST_MENU_BAR
+
+# 229. A Tools page tool given keys that open it (C-preferences-013, Stirling's tool hotkeys): Preferences ▸ Keyboard
+# shortcuts, "merge" searched, Merge PDF's None clicked and Ctrl+Alt+M pressed; on Home, Ctrl+Alt+M opens Merge PDF.
+launch; key ctrl+comma; sleep 0.8
+SQ=$(pref_find Search); [ -n "$SQ" ] && click $SQ 0.5; xdotool type --delay 20 "merge pdf"; sleep 0.8
+KM=$(at_word None); [ -n "$KM" ] && click $KM 0.5; key ctrl+alt+m; sleep 0.8
+LK=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("launch_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+key Escape; key ctrl+alt+m; sleep 1.2
+MT=$(ocr 1280x80+0+0)
+check "keys given to a Tools page tool open it ($LK; tab bar: $(echo "$MT" | cut -c1-60))" "echo \"$LK\" | grep -q \"'merge', 'Control+Alt+M'\" && echo \"$MT\" | grep -q 'Merge'"
+quit; platform_reset

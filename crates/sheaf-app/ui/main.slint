@@ -17,12 +17,12 @@ import { ToolFlowScreen } from "screens/tool-flow.slint";
 import { ReaderScreen } from "screens/reader.slint";
 import { ResultScreen } from "screens/result.slint";
 import { PasswordDialog, ConfirmCloseDialog, UnsavedDialog, LaunchFileDialog, Toast } from "screens/dialogs.slint";
-import { PlatformBridge, SpellIssue, ShortcutRow } from "platform.slint";
+import { PlatformBridge, SpellIssue, ShortcutRow, Launcher } from "platform.slint";
 import { SpellingDialog } from "screens/spelling-dialog.slint";
 
 export { PortfolioBridge, PortfolioRow, JavaScriptBridge, DocumentScriptRow, LibraryBridge, LibraryRow, LibraryVersionRow, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow, Theme, ToolCard, ToolSection, ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, RecentFile, HistoryRow, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay }
 
-export { PlatformBridge, SpellIssue, ShortcutRow }
+export { PlatformBridge, SpellIssue, ShortcutRow, Launcher }
 
 export enum Page { recents, tools, history, preferences, actions, library }
 
@@ -356,6 +356,16 @@ export component AppWindow inherits Window {
         Menu {
             title: "Tools";
             MenuItem { title: "All Tools"; shortcut: PlatformBridge.keys[34]; activated => { root.active-tab = -1; root.page = Page.tools; } }
+            // Every tool of the Tools page, with the keys the user gave it (Preferences ▸ Keyboard
+            // shortcuts, Stirling's tool hotkeys).
+            Menu {
+                title: "Open Tool";
+                for t in PlatformBridge.launchers: MenuItem {
+                    title: t.name;
+                    shortcut: t.keys;
+                    activated => { root.open-tool(t.id); }
+                }
+            }
             // The reader's tools (their letters work on the pages; not here, so typing keeps them).
             Menu {
                 title: "Annotate";

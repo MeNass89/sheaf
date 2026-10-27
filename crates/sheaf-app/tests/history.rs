@@ -128,6 +128,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             hide_unavailable_tools: true,
             direction: 2,
             tool_keys: vec![("note".into(), "q".into())],
+            launch_keys: vec![("merge".into(), "Control+Alt+M".into())],
         },
     };
     p.save(dir.path()).unwrap();

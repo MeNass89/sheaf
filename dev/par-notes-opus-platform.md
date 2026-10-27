@@ -82,6 +82,12 @@
   is its command's); smoke step 225) (tests `platform::tests::a_pressed_key_becomes_shortcut_parts`,
   `shortcuts_that_would_stop_typing_are_refused`, `shortcuts_change_conflict_and_reset`,
   `shortcut_rows_are_searched`, `tools_that_cannot_run_here`; `history.rs` prefs literal; smoke step 221)
+- C-preferences-013 (third pass, Sol's review): every tool of the Tools page (Merge PDF, Split PDF,
+  Compress… all of `sheaf_core::tools::catalogue`) can be given keys that open it, as Stirling's tool
+  hotkeys: rows "Tools page ▸ Merge PDF" in Preferences ▸ Keyboard shortcuts, the same recording, rules
+  and conflict check as the commands (both ways: a command cannot take a tool's keys, nor a tool a
+  command's), Reset removes them. Tools ▸ Open Tool lists every tool shown on the Tools page with its keys.
+  (tests `every_tool_can_get_keys_that_open_it`, `shortcut_rows_are_searched`; history.rs literal; smoke 229)
 - C-platform-004: Preferences ▸ Interface ▸ Direction (iLovePDF's right-to-left interface): as the system's
   language (Arabic, Hebrew, Persian, Urdu… right to left), Left to right, Right to left. Right to left:
   Home's sidebar goes to the window's right edge, its entries mirrored (icon right, text against it,

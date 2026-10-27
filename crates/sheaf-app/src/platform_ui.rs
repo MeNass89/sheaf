@@ -14,10 +14,10 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use sheaf_app::platform::{self, PlatformPrefs, COMMANDS, TOOLS};
-use sheaf_app::{AppWindow, PlatformBridge, ShortcutRow, SpellIssue};
+use sheaf_app::{AppWindow, Launcher, PlatformBridge, ShortcutRow, SpellIssue};
 use sheaf_core::spell::Speller;
 use sheaf_core::tools::ToolId;
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
 use crate::home;
 
@@ -225,8 +225,26 @@ fn unavailable_text() -> String {
     groups.iter().map(|(why, names)| format!("{} ({why})", names.join(", "))).collect::<Vec<_>>().join("; ")
 }
 
+/// The menu bar's shortcuts, the tool launchers' included, off: a shortcut being recorded, or keys
+/// sent on by Edit ▸ Copy and the like, go past it. [`push_keys`] puts them back.
+fn menu_keys_off(ui: &AppWindow) {
+    let g = ui.global::<PlatformBridge>();
+    g.set_keys(ModelRc::new(VecModel::from(vec![slint::Keys::default(); COMMANDS.len()])));
+    let launchers: Vec<Launcher> = g.get_launchers().iter().map(|l| Launcher { keys: slint::Keys::default(), ..l }).collect();
+    g.set_launchers(ModelRc::new(VecModel::from(launchers)));
+}
+
 fn push_keys(ui: &AppWindow) {
     let p = home::prefs().platform;
+    // Tools ▸ Open Tool: every tool shown on the Tools page, with the keys that open it.
+    let hidden = hidden_tools();
+    let launchers: Vec<Launcher> = platform::launchers()
+        .into_iter()
+        .enumerate()
+        .filter(|(_, (id, _))| !hidden.iter().any(|h| h.as_str() == *id))
+        .map(|(k, (id, name))| Launcher { id: id.into(), name: name.into(), keys: platform::keys(&platform::launch_key(&p, k)) })
+        .collect();
+    ui.global::<PlatformBridge>().set_launchers(ModelRc::new(VecModel::from(launchers)));
     let keys: Vec<slint::Keys> = (0..COMMANDS.len()).map(|i| platform::keys(&platform::effective(&p, i))).collect();
     let g = ui.global::<PlatformBridge>();
     g.set_keys(ModelRc::new(VecModel::from(keys)));
@@ -275,6 +293,32 @@ fn load_dictionary(ui: &AppWindow) {
 fn record(ui: &AppWindow, i: i32, text: &str, control: bool, alt: bool, shift: bool, meta: bool) -> bool {
     let g = ui.global::<PlatformBridge>();
     let bare = !(control || alt || shift || meta);
+    // A tool launcher (rows after the tool letters): keys as a command's.
+    if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len() + TOOLS.len()) {
+        let parts = match text {
+            "\u{1b}" if bare => {
+                g.set_shortcut_error("".into());
+                return true;
+            }
+            "\u{8}" | "\u{7f}" if bare => String::new(),
+            _ => {
+                let p = platform::parts_of_event(text, control, alt, shift, meta);
+                if p.is_empty() {
+                    return false;
+                }
+                p
+            }
+        };
+        let mut prefs = home::prefs().platform;
+        match platform::assign_launch(&mut prefs, k, &parts) {
+            Ok(()) => {
+                g.set_shortcut_error("".into());
+                update(ui, |p| *p = prefs);
+            }
+            Err(e) => g.set_shortcut_error(e.into()),
+        }
+        return true;
+    }
     // A tool's letter (rows after the commands): one key alone, as typed on the pages.
     if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len()) {
         let key = match text {
@@ -340,8 +384,7 @@ fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
     let key = SharedString::from(key);
     slint::Timer::single_shot(Duration::from_millis(30), move || {
         let Some(ui) = weak.upgrade() else { return };
-        let none: Vec<slint::Keys> = vec![slint::Keys::default(); COMMANDS.len()];
-        ui.global::<PlatformBridge>().set_keys(ModelRc::new(VecModel::from(none)));
+        menu_keys_off(&ui);
         let ctrl = SharedString::from(Key::ControlR);
         let shift_key = SharedString::from(Key::ShiftR);
         let mut events = vec![WindowEvent::KeyPressed { text: ctrl.clone() }];
@@ -591,8 +634,7 @@ pub fn install(ui: &AppWindow) {
     // While a shortcut is recorded the menu bar has none, so the keys reach the recorder.
     on!(on_recording, |ui, on| {
         if on {
-            let none: Vec<slint::Keys> = vec![slint::Keys::default(); COMMANDS.len()];
-            ui.global::<PlatformBridge>().set_keys(ModelRc::new(VecModel::from(none)));
+            menu_keys_off(&ui);
         } else {
             push_keys(&ui);
         }
@@ -601,6 +643,13 @@ pub fn install(ui: &AppWindow) {
     g.on_record_shortcut(move |i, text, control, alt, shift, meta| weak.upgrade().is_none_or(|ui| record(&ui, i, &text, control, alt, shift, meta)));
     g.on_tool_for_key(|text| TOOL_KEYS.with(|t| platform::tool_for_key(&t.borrow(), &text).map_or(-1, |k| k as i32)));
     on!(on_clear_shortcut, |ui, i| {
+        if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len() + TOOLS.len()) {
+            let mut prefs = home::prefs().platform;
+            if platform::assign_launch(&mut prefs, k, "").is_ok() {
+                update(&ui, |p| *p = prefs);
+            }
+            return;
+        }
         if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len()) {
             let mut prefs = home::prefs().platform;
             if platform::assign_tool(&mut prefs, k, "").is_ok() {
@@ -615,6 +664,14 @@ pub fn install(ui: &AppWindow) {
         }
     });
     on!(on_reset_shortcut, |ui, i| {
+        // A launcher has no keys of its own to go back to: Reset removes them.
+        if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len() + TOOLS.len()) {
+            let mut prefs = home::prefs().platform;
+            if platform::assign_launch(&mut prefs, k, "").is_ok() {
+                update(&ui, |p| *p = prefs);
+            }
+            return;
+        }
         if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len()) {
             let mut prefs = home::prefs().platform;
             let own = TOOLS.get(k).map_or("", |t| t.2);
@@ -646,6 +703,7 @@ pub fn install(ui: &AppWindow) {
         update(&ui, |p| {
             platform::reset(p, None);
             p.tool_keys.clear();
+            p.launch_keys.clear();
         });
     });
     ui.global::<PlatformBridge>().set_unavailable_tools(unavailable_text().into());

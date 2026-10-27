@@ -27,6 +27,9 @@ pub struct PlatformPrefs {
     /// The reader's tool letters changed by the user: tool id ([`TOOLS`]) and its key, a lower-case
     /// letter or digit ("" none).
     pub tool_keys: Vec<(String, String)>,
+    /// Keys that open a tool of the Tools page (Stirling's tool hotkeys): its `ToolId::as_str` and
+    /// the keys as parts ("Control+Alt+M"). None by default.
+    pub launch_keys: Vec<(String, String)>,
 }
 
 /// A command of the menu bar: its stable id, menu, title and default keys (parts joined by "+",
@@ -232,16 +235,52 @@ pub fn assign(p: &mut PlatformPrefs, id: &str, parts: &str) -> Result<(), String
     if parts != COMMANDS[i].keys {
         check_shortcut(parts)?;
     }
-    if !parts.is_empty() {
-        let wanted = keys(parts);
-        if let Some(other) = (0..COMMANDS.len()).filter(|&k| k != i).find(|&k| keys(&effective(p, k)) == wanted) {
-            let c = COMMANDS[other];
-            return Err(format!("{} is already {} ▸ {}", display(parts), c.menu, c.title.trim_end_matches('…')));
-        }
+    if let Some(who) = taken_by(p, parts, Some(i), None) {
+        return Err(format!("{} is already {who}", display(parts)));
     }
     p.shortcuts.retain(|(c, _)| c != id);
     if parts != COMMANDS[i].keys {
         p.shortcuts.push((id.to_string(), parts.to_string()));
+    }
+    Ok(())
+}
+
+/// Who has `parts` already, a command or a tool launcher (leaving out command `command` and launcher
+/// `launcher`, the one being given them): "File ▸ Save", "Tools page ▸ Merge PDF".
+fn taken_by(p: &PlatformPrefs, parts: &str, command: Option<usize>, launcher: Option<usize>) -> Option<String> {
+    if parts.is_empty() {
+        return None;
+    }
+    let wanted = keys(parts);
+    if let Some(c) = (0..COMMANDS.len()).filter(|&k| Some(k) != command).find(|&k| keys(&effective(p, k)) == wanted).map(|k| COMMANDS[k]) {
+        return Some(format!("{} ▸ {}", c.menu, c.title.trim_end_matches('…')));
+    }
+    let tools = launchers();
+    (0..tools.len()).filter(|&k| Some(k) != launcher).find(|&k| keys(&launch_key(p, k)) == wanted).map(|k| format!("Tools page ▸ {}", tools[k].1))
+}
+
+/// The Tools page's tools, each of which can be given keys that open it (Stirling's): id, name.
+pub fn launchers() -> Vec<(&'static str, &'static str)> {
+    sheaf_core::tools::catalogue().iter().map(|t| (t.id.as_str(), t.name)).collect()
+}
+
+/// Launcher `k`'s keys ("" none).
+pub fn launch_key(p: &PlatformPrefs, k: usize) -> String {
+    let Some((id, _)) = launchers().get(k).copied() else { return String::new() };
+    p.launch_keys.iter().find(|(t, _)| t == id).map(|(_, keys)| keys.clone()).unwrap_or_default()
+}
+
+/// Gives launcher `k` the keys `parts` ("" none), with the same rules as a command's (a modifier,
+/// not a text field's keys, not already someone's).
+pub fn assign_launch(p: &mut PlatformPrefs, k: usize, parts: &str) -> Result<(), String> {
+    let Some((id, _)) = launchers().get(k).copied() else { return Err(format!("No tool {k}")) };
+    check_shortcut(parts)?;
+    if let Some(who) = taken_by(p, parts, None, Some(k)) {
+        return Err(format!("{} is already {who}", display(parts)));
+    }
+    p.launch_keys.retain(|(t, _)| t != id);
+    if !parts.is_empty() {
+        p.launch_keys.push((id.to_string(), parts.to_string()));
     }
     Ok(())
 }
@@ -342,8 +381,13 @@ pub fn shortcut_rows(p: &PlatformPrefs, query: &str) -> Vec<ShortcutRow> {
         let key = tool_key(p, k);
         (COMMANDS.len() + k, format!("Tools ▸ {} (on the pages)", t.1), key.to_uppercase(), key != t.2)
     });
+    let launch = launchers().into_iter().enumerate().map(|(k, (_, name))| {
+        let key = launch_key(p, k);
+        (COMMANDS.len() + TOOLS.len() + k, format!("Tools page ▸ {name}"), display(&key), !key.is_empty())
+    });
     commands
         .chain(tools)
+        .chain(launch)
         .filter(|(_, name, k, _)| q.is_empty() || name.to_lowercase().contains(&q) || k.to_lowercase().contains(&q))
         .collect()
 }
@@ -503,7 +547,7 @@ mod tests {
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[0].1, "Edit ▸ Find…");
         assert!(rows[0].3 && !rows[1].3);
-        assert_eq!(shortcut_rows(&p, "").len(), COMMANDS.len() + TOOLS.len());
+        assert_eq!(shortcut_rows(&p, "").len(), COMMANDS.len() + TOOLS.len() + launchers().len());
         // Undo shows its usual ⌘Z (the menu bar sends it on to the field or the pages).
         let undo = shortcut_rows(&p, "undo");
         assert_eq!(undo[0].2, display("Control+Z"));
@@ -589,5 +633,27 @@ mod tests {
         // Its own ⌘C back: allowed, though no other command may take it.
         assign(&mut p, "copy", "Control+C").unwrap();
         assert!(assign(&mut p, "find", "Control+C").is_err());
+    }
+
+    #[test]
+    fn every_tool_can_get_keys_that_open_it() {
+        let mut p = PlatformPrefs::default();
+        let merge = launchers().iter().position(|(id, _)| *id == "merge").unwrap();
+        let split = launchers().iter().position(|(id, _)| *id == "split").unwrap();
+        assert_eq!(launchers().len(), sheaf_core::tools::catalogue().len());
+        assert_eq!(launch_key(&p, merge), "");
+        assign_launch(&mut p, merge, "Control+Alt+M").unwrap();
+        assert_eq!(launch_key(&p, merge), "Control+Alt+M");
+        // Taken by Merge: refused for Split and for a command; a command's keys refused here.
+        assert!(assign_launch(&mut p, split, "Control+Alt+M").unwrap_err().contains("Tools page ▸ Merge PDF"));
+        assert!(assign(&mut p, "find", "Control+Alt+M").unwrap_err().contains("Merge PDF"));
+        assert!(assign_launch(&mut p, split, "Control+S").unwrap_err().contains("File ▸ Save"));
+        assert!(assign_launch(&mut p, split, "M").is_err());
+        let rows = shortcut_rows(&p, "merge pdf");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, COMMANDS.len() + TOOLS.len() + merge);
+        assert!(rows[0].3);
+        assign_launch(&mut p, merge, "").unwrap();
+        assert!(p.launch_keys.is_empty());
     }
 }

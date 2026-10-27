@@ -21,6 +21,13 @@ export struct ShortcutRow {
     custom: bool,
 }
 
+// Tools ▸ Open Tool: a tool of the Tools page and the keys that open it (Stirling's tool hotkeys).
+export struct Launcher {
+    id: string,
+    name: string,
+    keys: keys,
+}
+
 export global PlatformBridge {
     // Check Spelling While Typing (Edit menu, Preferences ▸ Spelling).
     in property <bool> spell-on: true;
@@ -49,6 +56,8 @@ export global PlatformBridge {
     // The menu bar's shortcuts, by command (src/platform.rs COMMANDS); emptied while a new one
     // is recorded so the keys reach the recorder.
     in property <[keys]> keys;
+    // Tools ▸ Open Tool, every tool on the Tools page with its keys (none unless given).
+    in property <[Launcher]> launchers;
     // By command: given keys of its own by the user (the reader's and Home's other keys for it
     // stop), and its keys as written in the help sheet.
     in property <[bool]> rebound;
