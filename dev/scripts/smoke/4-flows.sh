@@ -799,6 +799,9 @@ FS=$(at folder 300x30+0+160); [ -n "$FS" ] && click $FS 4
 FT=$(ocr 800x560+240+100)
 shot 311-folder-search
 check "In a folder… reads all 601 PDFs (link at ${FS:-?}; sheet: $(echo "$FT" | grep -o '[0-9]* page[s]* found in [0-9]* PDFs' | head -1))" "echo \"$FT\" | grep -q 'found in 601 PDFs' && echo \"$FT\" | grep -q 'z-last'"
+# The app quit and the dialog answer cleared: left running, its window took the next steps' keys (round 30's
+# 320–363 failed so), and later file dialogs all answered this folder.
+answer ""; quit
 # 320. More ▸ More tools ▸ Encrypt with certificates… (C-security-007, Acrobat's Encrypt with Certificate): my digital
 # ID added with its password (full rights) and a colleague's certificate (read only by default), saved as an
 # encrypted copy (Adobe.PubSec, one envelope per permission set). Opened again, the copy asks for the digital ID it
@@ -1327,3 +1330,24 @@ click 1140 755 3
 AR=$(ocr 1280x800+0+0); shot 336-pdfa-strict-result
 check "336 strict PDF/A-2a refuses untagged content without saving a false archive" "[ -n \"$KC\" ] && echo \"\$STRICT\" | grep -qi 'PDF/A-2a' && echo \"\$STRICT\" | grep -qi 'no output' && [ ! -e $OUT/untagged-archive-pdfa.pdf ] && [ \"\$(npages $OUT/untagged-archive.pdf 2>/dev/null)\" = 1 ] && echo \"\$AR\" | grep -qi 'did not pass'"
 quit
+
+# 305. Right to left on tick boxes (C-platform-004; iLovePDF's mirrored interface): in Report an Issue, the ticked
+# box of "Include this computer's details" sits right of its label, left of it left to right.
+# The x of the green (ticked) pixels in the 300 px either side of a word's centre, their mean.
+green_x() { import -window root -crop "600x1+$(( $1 - 300 ))+$2" -depth 8 txt:- 2>/dev/null | python3 -c '
+import re, sys
+xs = [int(m.group(1)) for m in re.finditer(r"^(\d+),\d+: \(\s*(\d+),\s*(\d+),\s*(\d+)", sys.stdin.read(), re.M) if int(m.group(3)) > 120 and int(m.group(2)) < 90 and int(m.group(4)) < 120]
+print(sum(xs) // len(xs) + int(sys.argv[1]) - 300 if xs else "")' "$1"; }
+export SHEAF_TEST_MENU_BAR=1
+for dir in 1 2; do
+    prefs_set "p.setdefault('platform', {})['direction'] = $dir"
+    launch; sleep 0.5
+    HX=$(at Help 1280x34+0+0); [ -n "$HX" ] && click $HX 0.8
+    RI=$(at Report 1280x300+0+24); [ -n "$RI" ] && click $RI 1
+    read IX IY <<< "$(at Include 1280x800+0+0)"; GX=; [ -n "$IX" ] && GX=$(green_x $IX $IY)
+    [ $dir = 1 ] && { LX=$IX; LG=$GX; shot 305a-check-ltr; } || { RX=$IX; RG=$GX; shot 305b-check-rtl; }
+    quit
+done
+unset SHEAF_TEST_MENU_BAR
+check "tick boxes mirror right to left (left to right: box ${LG:-?} < label ${LX:-?}; right to left: box ${RG:-?} > label ${RX:-?})" "[ -n \"$LG\" ] && [ -n \"$RG\" ] && [ \"$LG\" -lt \"$LX\" ] && [ \"$RG\" -gt \"$RX\" ]"
+platform_reset

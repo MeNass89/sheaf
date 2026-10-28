@@ -862,10 +862,18 @@ mod tests {
             ("screens/result", include_str!("../ui/screens/result.slint")),
             ("screens/spelling-dialog", include_str!("../ui/screens/spelling-dialog.slint")),
             ("screens/reader-toolbar", include_str!("../ui/screens/reader-toolbar.slint")),
+            // The tick boxes, radio cards, segments and information boxes every screen above uses.
+            ("widgets/check", include_str!("../ui/widgets/check.slint")),
+            ("widgets/radio-card", include_str!("../ui/widgets/radio-card.slint")),
         ] {
             assert!(rows_outside_popups(ui).is_empty(), "{name} has a HorizontalLayout outside a popup");
             assert!(ui.contains("PlatformBridge.rtl"), "{name} does not follow the direction");
         }
+        // The tick box and the radio circle move to the label's right right to left.
+        let check = include_str!("../ui/widgets/check.slint");
+        assert!(check.contains("x: PlatformBridge.rtl ? parent.width - self.width : 0;"), "the tick box does not mirror");
+        let radio = include_str!("../ui/widgets/radio-card.slint");
+        assert!(radio.contains("x: PlatformBridge.rtl ? parent.width - self.width - 12px : 12px;"), "the radio circle does not mirror");
         assert_eq!(rows_outside_popups("Rectangle { HorizontalLayout { } }").len(), 1);
         assert!(rows_outside_popups("menu := PopupWindow { VerticalLayout { HorizontalLayout { } } }").is_empty());
     }
