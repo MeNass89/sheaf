@@ -20,11 +20,17 @@ use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 use crate::reader_ui;
 
+#[derive(Default)]
 struct Msg {
     mine: bool,
     text: String,
     error: bool,
     saved: Option<PathBuf>,
+    /// The request to send again (Try again under a network, rate-limit or provider error, or
+    /// after Stop).
+    retry: Option<Request>,
+    /// The error is fixed in Preferences ▸ AI (no provider, no key, key refused, AI off).
+    settings: bool,
 }
 
 #[derive(Default)]
@@ -35,6 +41,8 @@ struct Panel {
     busy: bool,
     status: String,
     cancel: Arc<AtomicBool>,
+    /// The answer as it is being written (streamed), shown as the last message until it ends.
+    live: Option<String>,
 }
 
 /// A request from the panel: what, its text, the scope (0 whole, 1 selection, 2 pages), the pages.
@@ -59,6 +67,8 @@ struct State {
     notice: Option<String>,
     /// A request held until the note is read.
     pending: Option<(i32, Request)>,
+    /// A provider answers (false: the panel shows how to set one up).
+    configured: bool,
 }
 
 thread_local! {
@@ -147,10 +157,12 @@ fn resolve(ui: &AppWindow) {
         let _ = weak.upgrade_in_event_loop(move |ui| {
             with(|s| match &r {
                 Ok(c) => {
+                    s.configured = true;
                     s.provider = c.label();
                     s.notice = (!prefs.notice_seen.iter().any(|p| p == c.provider.id())).then(|| notice(c));
                 }
                 Err(e) => {
+                    s.configured = false;
                     s.provider = e.to_string();
                     s.notice = None;
                 }
@@ -178,6 +190,7 @@ fn push(ui: &AppWindow) {
         g.set_show_notice(s.notice.is_some());
         g.set_notice(s.notice.clone().unwrap_or_default().into());
         g.set_off(p.off);
+        g.set_configured(s.configured || s.provider.is_empty());
         let lang = p.language.as_deref().and_then(|l| tasks::LANGUAGES.iter().position(|x| *x == l)).unwrap_or(0);
         g.set_language(lang as i32);
         let names: Vec<SharedString> = std::iter::once("This document".into()).chain(s.spaces.iter().map(|sp| SharedString::from(format!("Space: {} ({} PDFs)", sp.name, sp.files.len())))).collect();
@@ -188,7 +201,13 @@ fn push(ui: &AppWindow) {
         g.set_space_files(ModelRc::new(VecModel::from(files)));
         let panel = s.open.and_then(|t| s.panels.get(&t));
         let msgs: Vec<AiMessage> = panel
-            .map(|p| p.messages.iter().map(|m| AiMessage { mine: m.mine, text: m.text.as_str().into(), error: m.error, saved: m.saved.as_ref().map(|p| p.display().to_string()).unwrap_or_default().into() }).collect())
+            .map(|p| {
+                let mut v: Vec<AiMessage> = p.messages.iter().map(|m| AiMessage { mine: m.mine, text: m.text.as_str().into(), error: m.error, saved: m.saved.as_ref().map(|p| p.display().to_string()).unwrap_or_default().into(), live: false, retry: m.retry.is_some(), settings: m.settings }).collect();
+                if let Some(t) = p.live.as_ref().filter(|t| !t.is_empty()) {
+                    v.push(AiMessage { mine: false, text: format!("{t}▍").into(), error: false, saved: SharedString::new(), live: true, retry: false, settings: false });
+                }
+                v
+            })
             .unwrap_or_default();
         g.set_messages(ModelRc::new(VecModel::from(msgs)));
         g.set_busy(panel.is_some_and(|p| p.busy));
@@ -233,7 +252,7 @@ fn panel<R>(tab: i32, f: impl FnOnce(&mut Panel) -> R) -> R {
 }
 
 fn say(ui: &AppWindow, tab: i32, mine: bool, text: String, error: bool) {
-    panel(tab, |p| p.messages.push(Msg { mine, text, error, saved: None }));
+    panel(tab, |p| p.messages.push(Msg { mine, text, error, ..Default::default() }));
     push(ui);
 }
 
@@ -291,6 +310,18 @@ fn act(ui: &AppWindow, tab: i32, req: Request) {
             return push(ui);
         }
         "copy" | "save" | "open" => return message_act(ui, tab, &req),
+        "retry" => {
+            let again = req.arg.parse::<usize>().ok().and_then(|k| panel(tab, |p| p.messages.get(k).and_then(|m| m.retry.clone())));
+            if let Some(again) = again {
+                act(ui, tab, again);
+            }
+            return;
+        }
+        "settings" => {
+            ui.set_active_tab(-1);
+            ui.set_page(sheaf_app::Page::Preferences);
+            return;
+        }
         _ => {}
     }
     if panel(tab, |p| p.busy) {
@@ -353,7 +384,7 @@ fn start(ui: &AppWindow, tab: i32, req: Request, picked: Option<Vec<PathBuf>>) {
     }
     let files = picked.or_else(|| if req.action == "classify" { space.as_ref().map(|s| s.files.clone()) } else { None });
     panel(tab, |p| {
-        p.messages.push(Msg { mine: true, text: asked(&req, space.as_ref()), error: false, saved: None });
+        p.messages.push(Msg { mine: true, text: asked(&req, space.as_ref()), ..Default::default() });
         p.busy = true;
         p.status = "Reading the text…".into();
         p.cancel = Arc::new(AtomicBool::new(false));
@@ -372,7 +403,27 @@ fn start(ui: &AppWindow, tab: i32, req: Request, picked: Option<Vec<PathBuf>>) {
                 push(&ui);
             });
         };
-        let result = (|| -> Result<String, AiError> {
+        // Answers stream into the panel as the provider writes them (PDF Expert's and Acrobat's
+        // answers appear word by word), at most about 12 updates a second.
+        let sink = {
+            let weak = weak.clone();
+            let cancel = cancel.clone();
+            let pending = Arc::new(std::sync::Mutex::new(String::new()));
+            let last = std::cell::Cell::new(std::time::Instant::now() - std::time::Duration::from_secs(1));
+            move |d: &str| {
+                pending.lock().unwrap_or_else(|e| e.into_inner()).push_str(d);
+                if last.get().elapsed() >= std::time::Duration::from_millis(80) {
+                    last.set(std::time::Instant::now());
+                    let text = std::mem::take(&mut *pending.lock().unwrap_or_else(|e| e.into_inner()));
+                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                        panel(tab, |p| if p.busy { p.live.get_or_insert_with(String::new).push_str(&text) });
+                        push(&ui);
+                    });
+                }
+                !cancel.load(Ordering::Relaxed)
+            }
+        };
+        let result = tasks::streaming(sink, || (|| -> Result<String, AiError> {
             let cfg = prefs.config(&keys, ai::detect_local)?;
             let stop = || cancel.load(Ordering::Relaxed);
             let mut progress = |i: usize, n: usize| {
@@ -421,15 +472,16 @@ fn start(ui: &AppWindow, tab: i32, req: Request, picked: Option<Vec<PathBuf>>) {
                 _ => tasks::slides(&cfg, &sources, &mut progress)?,
             };
             Ok(if notes.is_empty() { answer } else { format!("{answer}\n\nNot read: {}", notes.join("; ")) })
-        })();
+        })());
         let _ = weak.upgrade_in_event_loop(move |ui| finish(&ui, tab, req, result, title));
     });
 }
 
 fn finish(ui: &AppWindow, tab: i32, req: Request, result: Result<String, AiError>, title: String) {
-    panel(tab, |p| {
+    let live = panel(tab, |p| {
         p.busy = false;
         p.status.clear();
+        p.live.take()
     });
     match result {
         Ok(text) => {
@@ -441,7 +493,18 @@ fn finish(ui: &AppWindow, tab: i32, req: Request, result: Result<String, AiError
                 save_deck(ui, tab, &title, &text, req.action == "slides-pptx");
             }
         }
-        Err(e) => say(ui, tab, false, e.to_string(), true),
+        Err(e) => {
+            // Stop keeps what was already written; every error says what to do next.
+            let settings = matches!(e, AiError::NotConfigured | AiError::MissingKey(_) | AiError::MissingBase | AiError::BadKey(..) | AiError::Off);
+            let retry = matches!(e, AiError::Network(..) | AiError::RateLimited(..) | AiError::Provider(..) | AiError::BadResponse(_) | AiError::Cancelled).then(|| req.clone());
+            let text = match (&e, live) {
+                (AiError::Cancelled, Some(t)) if !t.is_empty() => format!("{t}\n\n(Stopped.)"),
+                _ => e.to_string(),
+            };
+            let error = !matches!(e, AiError::Cancelled);
+            panel(tab, |p| p.messages.push(Msg { text, error, retry, settings, ..Default::default() }));
+            push(ui);
+        }
     }
 }
 
@@ -468,8 +531,8 @@ fn save_deck(ui: &AppWindow, tab: i32, title: &str, outline: &str, pptx: bool) {
                     p.busy = false;
                     p.status.clear();
                     match r {
-                        Ok(path) => p.messages.push(Msg { mine: false, text: format!("{} slides saved: {}", slides.len(), path.display()), error: false, saved: Some(path) }),
-                        Err(e) => p.messages.push(Msg { mine: false, text: format!("The slides could not be saved: {e}"), error: true, saved: None }),
+                        Ok(path) => p.messages.push(Msg { text: format!("{} slides saved: {}", slides.len(), path.display()), saved: Some(path), ..Default::default() }),
+                        Err(e) => p.messages.push(Msg { text: format!("The slides could not be saved: {e}"), error: true, ..Default::default() }),
                     }
                 });
                 push(&ui);
@@ -542,6 +605,13 @@ fn space_act(ui: &AppWindow, action: &str, k: i32) {
                 save_spaces(ui);
                 push(ui);
             });
+        }
+        "open" => {
+            // A space's file opens in its own tab (Acrobat opens a space's sources).
+            if let Some(f) = with(|s| s.space.checked_sub(1).and_then(|i| s.spaces.get(i)).and_then(|sp| sp.files.get(k).cloned())) {
+                crate::deliver(vec![f]);
+            }
+            return;
         }
         "remove" => {
             with(|s| {

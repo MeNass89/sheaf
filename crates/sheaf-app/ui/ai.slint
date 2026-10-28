@@ -8,6 +8,12 @@ export struct AiMessage {
     text: string,
     error: bool,
     saved: string,
+    // Still being written (streamed).
+    live: bool,
+    // Try again is offered (network, rate limit, provider error, stopped).
+    retry: bool,
+    // The fix is in Preferences ▸ AI.
+    settings: bool,
 }
 
 export global AiBridge {
@@ -19,6 +25,8 @@ export global AiBridge {
     // The first time a provider is used: "Only the document's text is sent to …" (OK / Turn off).
     in property <bool> show-notice;
     in property <string> notice;
+    // A provider answers (false: no provider, so the panel says how to set one up).
+    in property <bool> configured: true;
     // Sending is turned off (Preferences ▸ AI, or the note's Turn off).
     in property <bool> off;
     in property <[AiMessage]> messages;
@@ -36,7 +44,7 @@ export global AiBridge {
     callback toggle(int);
     // A request: action ("ask", "summarize", "points", "translate", "podcast", "slides-pptx",
     // "slides-pdf", "classify", "cancel", "clear", "notice-ok", "notice-off", "turn-on", "copy",
-    // "save", "open"), its text (a question, a language, categories, a message's index), the
+    // "save", "open", "retry", "settings"), its text (a question, a language, categories, a message's index), the
     // scope (0 whole document, 1 selection, 2 pages) and the pages typed.
     callback act(int, string, string, int, string);
     // Spaces: "select" (index), "new", "add", "remove" (a file's index), "delete".

@@ -877,10 +877,14 @@ quit
 ai_mock() { ai_stop; rm -f "$OUT/ai-port" "$OUT/ai-requests.jsonl"; touch "$OUT/ai-requests.jsonl"; python3 dev/scripts/smoke/ai-mock.py "$OUT/ai-port" "$OUT/ai-requests.jsonl" >/dev/null 2>&1 & AI_MOCK=$!; for _ in $(seq 1 20); do [ -s "$OUT/ai-port" ] && break; sleep 0.2; done; prefs_set "p['ai'] = {'provider': 'compatible', 'base_urls': {'compatible': 'http://127.0.0.1:$(cat "$OUT/ai-port")/v1'}, 'notice_seen': ['compatible'] if '${1:-}' == 'seen' else []}"; }
 ai_stop() { [ -n "${AI_MOCK:-}" ] && kill "$AI_MOCK" 2>/dev/null; AI_MOCK=; prefs_set "p.pop('ai', None)"; }
 # ✦ AI Assistant, left of the wrench in the reader's toolbar.
-ai_open() { click 1204 61 1.5; }
+# (the pointer then leaves the button, so its tooltip does not cover the panel)
+ai_open() { click 1204 61 0.3; xdotool mousemove 600 450; sleep 1.2; }
 ai_text() { ocr 380x700+900+100; }
 ai_wait() { for _ in $(seq 1 30); do ai_text | grep -q "$1" && break; sleep 0.5; done; }
-ai_chip() { local c; c=$(at "$1" 380x700+900+100); [ -n "$c" ] && click $c 0.5; echo "${c:-no $1}"; }
+# Clicks the first word of $1 seen in the panel, else its other words ("Main points": Main, then points).
+ai_chip() { local c w; for w in $1; do c=$(at "$w" 380x700+900+100); [ -n "$c" ] && break; done; [ -n "$c" ] && click $c 0.5; echo "${c:-no $1}"; }
+# The last word starting with $1 in the panel (a message's button, under its text).
+ai_last() { import -window root -crop 380x700+900+100 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" 'index($12, w) == 1 { p = sprintf("%d %d", 900 + ($7 + $9 / 2) / 2, 100 + ($8 + $10 / 2) / 2) } END { print p }'; }
 ai_requests() { wc -l < "$OUT/ai-requests.jsonl" 2>/dev/null || echo 0; }
 
 # 360. The AI panel (C-ai-001, C-ai-002; PDF Expert's AI Copilot, Acrobat's AI Assistant): ✦ in the toolbar opens it
@@ -889,7 +893,8 @@ ai_requests() { wc -l < "$OUT/ai-requests.jsonl" 2>/dev/null || echo 0; }
 ai_mock
 cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
 ai_open; T1=$(ai_text)
-QF=$(at Ask 380x120+900+680); read QX QY <<< "$QF"; [ -n "$QY" ] && click $(( QX + 60 )) $QY 0.4
+# The question field: the panel's bottom row, left of Ask (the panel is anchored to the window's bottom right).
+click 1040 768 0.4
 xdotool type --delay 15 "Who jumps?"; key Return; sleep 1
 N0=$(ai_requests)
 # OK sits left of Turn off AI (white on red, which OCR does not read).
@@ -897,15 +902,15 @@ read TX TY <<< "$(at Turn 380x500+900+100)"; [ -n "$TY" ] && click $(( TX - 60 )
 ai_wait Mockanswer; T2=$(ai_text); shot ai-360
 SEEN=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["ai"]["notice_seen"])' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 tail -1 "$OUT/ai-requests.jsonl" > "$OUT/ai-last.json" 2>/dev/null
-check "the AI panel names the provider, holds the first request for the note, then answers from the pages (note: $(echo "$T1" | grep -o 'never the file' | head -1); held: $N0 requests; seen $SEEN; answer: $(echo "$T2" | grep -o 'Mockanswer[a-z ]*' | head -1))" \
-    "echo \"$T1\" | grep -q 'Assistant' && echo \"$T1\" | grep -q 'never the file' && [ \"$N0\" = 0 ] && echo \"$SEEN\" | grep -q compatible && echo \"$T2\" | grep -q Mockanswer && grep -q 'Who jumps' $OUT/ai-last.json && grep -q 'p. 1' $OUT/ai-last.json && grep -q 'quick brown fox' $OUT/ai-last.json"
+check "the AI panel names the provider, holds the first request for the note, then answers from the pages, streamed (note: $(echo "$T1" | grep -o 'never the file' | head -1); held: $N0 requests; seen $SEEN; answer: $(echo "$T2" | grep -o 'Mockanswer[a-z ]*' | head -1))" \
+    "echo \"$T1\" | grep -q 'Assistant' && echo \"$T1\" | grep -q 'never the file' && [ \"$N0\" = 0 ] && echo \"$SEEN\" | grep -q compatible && echo \"$T2\" | grep -q Mockanswer && grep -q 'Who jumps' $OUT/ai-last.json && grep -q 'p. 1' $OUT/ai-last.json && grep -q 'quick brown fox' $OUT/ai-last.json && grep -q '\"stream\": true' $OUT/ai-last.json"
 quit; ai_stop
 
 # 361. Summarize and translate (C-ai-003, C-ai-004; PDF Expert's): the Main points chip and Translate (French) each
 # send the pages' text with their own request, and their answers show in the panel.
 ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
 ai_open; N1=$(ai_requests)
-P1=$(ai_chip Main); ai_wait Mockpoint
+P1=$(ai_chip "Main points"); ai_wait Mockpoint
 P2=$(ai_chip Translate); ai_wait renard; T3=$(ai_text); shot ai-361
 RQ=$(tail -2 "$OUT/ai-requests.jsonl" 2>/dev/null | tr -d "'")
 check "Main points and Translate ask the provider and show the answers (chips $P1 / $P2; requests $N1 → $(ai_requests); $(echo "$T3" | grep -o 'Mockpoint\|renard' | tr '\n' ' '))" \
@@ -927,9 +932,8 @@ quit; rm -f "$OUT/dialog-answer"; ai_stop
 # is kept in ai-spaces.json with its two files.
 ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; cp "$OUT/text.pdf" "$OUT/ai-two.pdf"; echo "$PWD/$OUT/ai-two.pdf" > "$OUT/dialog-answer"
 launch "$OUT/ai.pdf"; sleep 1
-# New space sits at the right of the spaces list ("This document"), Add PDFs… left of Delete space.
-ai_open; read _ NS <<< "$(at This 380x300+900+100)"; [ -n "$NS" ] && click 1214 $NS 0.8
-read _ A1 <<< "$(at Delete 380x400+900+100)"; [ -n "$A1" ] && click 955 $A1 1
+# New space, right of the spaces list; then Add PDFs… (the space's row, under it).
+ai_open; NS=$(ai_chip New); sleep 0.8; A1=$(ai_chip Add); sleep 1; shot ai-363a
 CF=$(at Categories 380x700+900+100); read CX CY <<< "$CF"; [ -n "$CY" ] && click $CX $CY 0.4; xdotool type --delay 15 "Animals, Invoices"
 N2=$(ai_requests); C1=$(ai_chip Classify); ai_wait 'Animals:'; T4=$(ai_text); shot ai-363
 SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(s[0]["name"], len(s[0]["files"]))' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
@@ -1351,3 +1355,21 @@ done
 unset SHEAF_TEST_MENU_BAR
 check "tick boxes mirror right to left (left to right: box ${LG:-?} < label ${LX:-?}; right to left: box ${RG:-?} > label ${RX:-?})" "[ -n \"$LG\" ] && [ -n \"$RG\" ] && [ \"$LG\" -lt \"$LX\" ] && [ \"$RG\" -gt \"$RX\" ]"
 platform_reset
+# 364. The AI panel's error and empty states (C-ai-001, C-ai-002): a provider limiting requests is said plainly with
+# Try again (which asks again); a cloud provider with no key is told where to add it, with Open AI settings…; the
+# panel then still opens and the app answers (no freeze).
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; click 1040 768 0.4; xdotool type --delay 15 "Rate me"; key Return
+ai_wait limiting; E1=$(ai_text); N3=$(ai_requests)
+read RX RY <<< "$(ai_last Try)"; [ -n "$RY" ] && click $RX $RY 1.5
+N4=$(ai_requests); shot ai-364a
+quit; ai_stop
+prefs_set "p['ai'] = {'provider': 'openai', 'notice_seen': ['openai']}"
+launch "$OUT/ai.pdf"; sleep 1
+ai_open; click 1040 768 0.4; xdotool type --delay 15 "Hello"; key Return
+ai_wait 'API key'; E2=$(ai_text); shot ai-364b
+read SX SY <<< "$(ai_last Open)"; [ -n "$SY" ] && click $SX $SY 1.2
+PG=$(ocr 1280x120+0+40); shot ai-364c
+check "errors are said plainly with what to do (429: $(echo "$E1" | grep -o 'limiting requests[^.]*' | head -1); Try again $N3 → $N4 requests; no key: $(echo "$E2" | grep -o 'API key in Preferences' | head -1); settings: $(echo "$PG" | grep -o Preferences | head -1))" \
+    "echo \"$E1\" | grep -q 'limiting requests' && [ \"$N4\" = \$(( N3 + 1 )) ] && echo \"$E2\" | grep -q 'API key in Preferences' && echo \"$PG\" | grep -q Preferences"
+quit; ai_stop
