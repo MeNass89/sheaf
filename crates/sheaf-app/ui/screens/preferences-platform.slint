@@ -30,14 +30,14 @@ component Card inherits Rectangle {
 
 // Acrobat's Preferences ▸ Spelling: check while typing, the dictionary used, the words learned.
 export component SpellingSection inherits Card {
-    title: "Spelling";
+    title: @tr("Spelling");
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: 214px; text: "Check spelling while typing"; selected: PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(true); } }
-        Segment { width: 214px; text: "Don't check spelling"; selected: !PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(false); } }
+        Segment { width: 214px; text: @tr("Check spelling while typing"); selected: PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(true); } }
+        Segment { width: 214px; text: @tr("Don't check spelling"); selected: !PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(false); } }
     }
     // Preview's Check Grammar With Spelling: repeated words, a capital after a full stop, double
     // spaces, "a" or "an".
@@ -46,19 +46,19 @@ export component SpellingSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: 214px; text: "Check grammar too"; selected: PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(true); } }
-        Segment { width: 214px; text: "Spelling only"; selected: !PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(false); } }
+        Segment { width: 214px; text: @tr("Check grammar too"); selected: PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(true); } }
+        Segment { width: 214px; text: @tr("Spelling only"); selected: !PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(false); } }
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "Grammar, every language: a word written twice, two spaces, a space before a comma or full stop, none after a comma. English only: a capital after a full stop, “a” or “an”, a space before ; : ! ?, “i” for “I”, “could of”. Not checked: agreement, tense, word order.";
+        text: @tr("Grammar, every language: a word written twice, two spaces, a space before a comma or full stop, none after a comma. English only: a capital after a full stop, “a” or “an”, a space before ; : ! ?, “i” for “I”, “could of”. Not checked: agreement, tense, word order.");
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
         wrap: word-wrap;
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: PlatformBridge.spell-dictionary == "" ? "Looking for a dictionary…" : PlatformBridge.spell-dictionary;
+        text: PlatformBridge.spell-dictionary == "" ? @tr("Looking for a dictionary…") : PlatformBridge.spell-dictionary;
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
         wrap: word-wrap;
@@ -67,7 +67,7 @@ export component SpellingSection inherits Card {
     // right); none ticked, the system's language.
     if PlatformBridge.dictionaries.length > 1: Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "Dictionaries (ticked ones are used, in this order; none: your system's language)";
+        text: @tr("Dictionaries (ticked ones are used, in this order; none: your system's language)");
         font-size: Theme.fs-body;
         color: Theme.text;
         wrap: word-wrap;
@@ -86,8 +86,8 @@ export component SpellingSection inherits Card {
                 checked: d.chosen;
                 toggled => { PlatformBridge.dictionary-change(d.lang, 0); }
             }
-            if d.chosen: SecondaryButton { text: "Up"; clicked => { PlatformBridge.dictionary-change(d.lang, -1); } }
-            if d.chosen: SecondaryButton { text: "Down"; clicked => { PlatformBridge.dictionary-change(d.lang, 1); } }
+            if d.chosen: SecondaryButton { text: @tr("Up"); clicked => { PlatformBridge.dictionary-change(d.lang, -1); } }
+            if d.chosen: SecondaryButton { text: @tr("Down"); clicked => { PlatformBridge.dictionary-change(d.lang, 1); } }
         }
     }
     if PlatformBridge.learned.length > 0: FlexboxLayout {
@@ -97,19 +97,19 @@ export component SpellingSection inherits Card {
         spacing: 8px;
         Text {
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            text: PlatformBridge.learned.length == 1 ? "1 word learned (Learn in the spelling card)" : "\{PlatformBridge.learned.length} words learned (Learn in the spelling card)";
+            text: PlatformBridge.learned.length == 1 ? @tr("1 word learned (Learn in the spelling card)") : @tr("{} words learned (Learn in the spelling card)", PlatformBridge.learned.length);
             font-size: Theme.fs-body;
             color: Theme.text;
             vertical-alignment: center;
             horizontal-stretch: 1;
         }
-        SecondaryButton { text: "Forget them"; clicked => { PlatformBridge.forget-learned(); } }
+        SecondaryButton { text: @tr("Forget them"); clicked => { PlatformBridge.forget-learned(); } }
     }
 }
 
 // Stirling's Hotkeys: every menu command with its shortcut; a click records new keys.
 export component KeyboardSection inherits Card {
-    title: "Keyboard shortcuts";
+    title: @tr("Keyboard shortcuts");
     // The command whose keys are being recorded (its index; -1 none).
     property <int> recording: -1;
     // Every command listed, or only those found by the search (the list is long).
@@ -126,7 +126,7 @@ export component KeyboardSection inherits Card {
         PlatformBridge.recording(false);
     }
     TextField {
-        placeholder: "Search commands or keys";
+        placeholder: @tr("Search commands or keys");
         changed text => {
             root.query = self.text;
             PlatformBridge.shortcut-query(self.text);
@@ -143,11 +143,11 @@ export component KeyboardSection inherits Card {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
-        SecondaryButton { text: "Show all \{PlatformBridge.shortcut-rows.length} shortcuts"; clicked => { root.all = true; } }
+        SecondaryButton { text: @tr("Show all {} shortcuts", PlatformBridge.shortcut-rows.length); clicked => { root.all = true; } }
     }
     if root.query != "" && PlatformBridge.shortcut-rows.length == 0: Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "No command or keys match.";
+        text: @tr("No command or keys match.");
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }
@@ -176,7 +176,7 @@ export component KeyboardSection inherits Card {
                 background: keys-touch.has-hover ? Theme.popup-hover : Theme.pill-bg;
                 Text {
                     horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                    text: root.recording == row.index ? "Press the keys…" : row.keys == "" ? "None" : row.keys;
+                    text: root.recording == row.index ? @tr("Press the keys…") : row.keys == "" ? @tr("None") : row.keys;
                     font-size: Theme.fs-label;
                     font-weight: row.custom ? Theme.weight-demibold : 400;
                     color: row.keys == "" && root.recording != row.index ? Theme.text-muted : Theme.text;
@@ -186,7 +186,7 @@ export component KeyboardSection inherits Card {
                     clicked => { root.start(row.index); }
                 }
             }
-            if row.custom: SecondaryButton { text: "Reset"; clicked => { root.stop(); PlatformBridge.reset-shortcut(row.index); } }
+            if row.custom: SecondaryButton { text: @tr("Reset"); clicked => { root.stop(); PlatformBridge.reset-shortcut(row.index); } }
         }
     }
     FlexboxLayout {
@@ -194,10 +194,10 @@ export component KeyboardSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 12px;
-        SecondaryButton { text: "Reset all"; clicked => { root.stop(); PlatformBridge.reset-shortcuts(); } }
+        SecondaryButton { text: @tr("Reset all"); clicked => { root.stop(); PlatformBridge.reset-shortcuts(); } }
         Text {
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            text: "Click a shortcut, then press the new keys. Esc cancels, Backspace removes it.";
+            text: @tr("Click a shortcut, then press the new keys. Esc cancels, Backspace removes it.");
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
             vertical-alignment: center;
@@ -223,34 +223,47 @@ export component KeyboardSection inherits Card {
 // The Tools page without the tools that cannot run here (Stirling's), and iLovePDF's
 // right-to-left interface.
 export component InterfaceSection inherits Card {
-    title: "Interface";
-    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Tools page"; font-size: Theme.fs-body; color: Theme.text; }
+    title: @tr("Interface");
+    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Tools page"); font-size: Theme.fs-body; color: Theme.text; }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: 214px; text: "Show every tool"; selected: !PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(false); } }
-        Segment { width: 254px; text: "Hide tools that can't run here"; selected: PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(true); } }
+        Segment { width: 214px; text: @tr("Show every tool"); selected: !PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(false); } }
+        Segment { width: 254px; text: @tr("Hide tools that can't run here"); selected: PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(true); } }
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: PlatformBridge.unavailable-tools == "" ? "Every tool can run on this computer." : "Can't run here: " + PlatformBridge.unavailable-tools + ".";
+        text: PlatformBridge.unavailable-tools == "" ? @tr("Every tool can run on this computer.") : @tr("Can't run here: {}.", PlatformBridge.unavailable-tools);
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
         wrap: word-wrap;
     }
-    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Direction"; font-size: Theme.fs-body; color: Theme.text; }
+    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Direction"); font-size: Theme.fs-body; color: Theme.text; }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        for label[i] in ["As the system's language", "Left to right", "Right to left"]: Segment {
+        for label[i] in [@tr("As the system's language"), @tr("Left to right"), @tr("Right to left")]: Segment {
             width: 190px;
             text: label;
             selected: PlatformBridge.direction == i;
             clicked => { PlatformBridge.set-direction(i); }
         }
+    }
+    // iLovePDF's Language and Acrobat's "Same as the operating system": the interface in French or
+    // English, at once.
+    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Language"); font-size: Theme.fs-body; color: Theme.text; }
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.start;
+        spacing: 8px;
+        // Each language named in itself, as iLovePDF lists them.
+        Segment { width: 190px; text: @tr("As the system's language"); selected: PlatformBridge.language == 0; clicked => { PlatformBridge.set-language(0); } }
+        Segment { width: 190px; text: "English"; selected: PlatformBridge.language == 1; clicked => { PlatformBridge.set-language(1); } }
+        Segment { width: 190px; text: "Français"; selected: PlatformBridge.language == 2; clicked => { PlatformBridge.set-language(2); } }
     }
 }

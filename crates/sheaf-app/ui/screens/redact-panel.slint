@@ -63,16 +63,16 @@ export component RedactPanel inherits VerticalLayout {
     alignment: start;
 
     Text {
-        text: "Select text or pages to mark for redaction. Use search to quickly find sensitive content.";
+        text: @tr("Select text or pages to mark for redaction. Use search to quickly find sensitive content.");
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
         wrap: word-wrap;
         line-height-factor: Theme.line-height;
     }
 
-    SectionLabel { text: "Search"; }
+    SectionLabel { text: @tr("Search"); }
     TextField {
-        placeholder: "Text to find";
+        placeholder: @tr("Text to find");
         text <=> root.query;
         accepted => { ViewerBridge.search(root.tab.id, root.query, root.patterns); }
     }
@@ -80,23 +80,23 @@ export component RedactPanel inherits VerticalLayout {
     HorizontalLayout {
         spacing: 6px;
         alignment: start;
-        for c in [{ code: "case", name: "Match case" }, { code: "word", name: "Whole words" }]: Chip {
+        for c in [{ code: "case", name: @tr("Match case") }, { code: "word", name: @tr("Whole words") }]: Chip {
             text: c.name;
             selected: Parse.has-code(root.patterns, c.code);
             clicked => { root.patterns = Parse.toggle-code(root.patterns, c.code); }
         }
     }
     // Patterns: the original's three, then the two more PdfCraft finds.
-    SectionLabel { text: "Patterns"; }
+    SectionLabel { text: @tr("Patterns"); }
     FlexboxLayout {
         flex-wrap: wrap;
         spacing: 6px;
         for c in [
-            { code: "email", name: "Email" },
-            { code: "phone", name: "Phone number" },
-            { code: "card", name: "Credit card" },
-            { code: "date", name: "Date" },
-            { code: "ssn", name: "SSN" },
+            { code: "email", name: @tr("Email") },
+            { code: "phone", name: @tr("Phone number") },
+            { code: "card", name: @tr("Credit card") },
+            { code: "date", name: @tr("Date") },
+            { code: "ssn", name: @tr("SSN") },
         ]: Chip {
             text: c.name;
             selected: Parse.has-code(root.patterns, c.code);
@@ -104,7 +104,7 @@ export component RedactPanel inherits VerticalLayout {
         }
     }
     Segment {
-        text: root.tab.redact-busy ? "Searching…" : "Search";
+        text: root.tab.redact-busy ? @tr("Searching…") : @tr("Search");
         clicked => {
             if root.enabled && !root.tab.redact-busy {
                 ViewerBridge.search(root.tab.id, root.query, root.patterns);
@@ -170,7 +170,7 @@ export component RedactPanel inherits VerticalLayout {
     Rectangle { height: 1px; background: Theme.separator; }
 
     Text {
-        text: "Drag over text to mark it, or elsewhere on a page to mark an area.";
+        text: @tr("Drag over text to mark it, or elsewhere on a page to mark an area.");
         wrap: word-wrap;
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
@@ -179,7 +179,7 @@ export component RedactPanel inherits VerticalLayout {
     HorizontalLayout {
         spacing: 6px;
         Segment {
-            text: page-range.text == "" ? "Mark whole page " + (root.tab.viewer-current + 1) : "Mark pages";
+            text: page-range.text == "" ? @tr("Mark whole page {}", (root.tab.viewer-current + 1)) : @tr("Mark pages");
             clicked => {
                 if root.enabled {
                     ViewerBridge.mark-page(root.tab.id, page-range.text);
@@ -188,7 +188,7 @@ export component RedactPanel inherits VerticalLayout {
         }
         page-range := TextField {
             width: 110px;
-            placeholder: "Pages: 2-4, 7";
+            placeholder: @tr("Pages: 2-4, 7");
             accepted => {
                 if root.enabled {
                     ViewerBridge.mark-page(root.tab.id, self.text);
@@ -200,10 +200,10 @@ export component RedactPanel inherits VerticalLayout {
     HorizontalLayout {
         SectionLabel {
             horizontal-stretch: 1;
-            text: "Marked for redaction";
+            text: @tr("Marked for redaction");
         }
         if root.tab.redact-marks.length > 0: Text {
-            text: "Clear all";
+            text: @tr("Clear all");
             font-size: Theme.fs-label;
             color: Theme.accent;
             TouchArea {
@@ -213,7 +213,7 @@ export component RedactPanel inherits VerticalLayout {
         }
     }
     if root.tab.redact-marks.length == 0: Text {
-        text: "Nothing marked yet";
+        text: @tr("Nothing marked yet");
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }
@@ -277,5 +277,5 @@ export component RedactPanel inherits VerticalLayout {
         }
     }
 
-    InfoBox { text: "Remember to review the results of your document before sending private information."; }
+    InfoBox { text: @tr("Remember to review the results of your document before sending private information."); }
 }

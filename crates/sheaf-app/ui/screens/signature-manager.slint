@@ -31,28 +31,28 @@ export component SignatureManagerSheet inherits Rectangle {
         VerticalLayout {
             padding: 18px;
             spacing: 12px;
-            Text { text: "Manage signatures"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: @tr("Manage signatures"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
             HorizontalLayout {
                 spacing: 16px;
                 ScrollView {
                     width: 260px;
                     VerticalLayout {
                         spacing: 12px;
-                        if root.tab.reader.signatures.length == 0: Text { text: "No saved signatures. Draw or type one."; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
+                        if root.tab.reader.signatures.length == 0: Text { text: @tr("No saved signatures. Draw or type one."); font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
                         for signature[k] in root.tab.reader.signatures: VerticalLayout {
                             spacing: 6px;
-                            Text { text: k == 0 ? "Active signature" : "Saved signature " + (k + 1); font-size: Theme.fs-caption; color: Theme.text-secondary; }
+                            Text { text: k == 0 ? @tr("Active signature") : @tr("Saved signature {}", (k + 1)); font-size: Theme.fs-caption; color: Theme.text-secondary; }
                             Image { height: 44px; source: signature; image-fit: contain; }
                             HorizontalLayout {
                                 spacing: 6px;
-                                PanelButton { text: "Edit"; clicked => { ReaderBridge.signature-manager-action(root.tab.id, 1, k); } }
-                                PanelButton { text: "Use"; clicked => { ReaderBridge.signature-manager-action(root.tab.id, 5, k); } }
+                                PanelButton { text: @tr("Edit"); clicked => { ReaderBridge.signature-manager-action(root.tab.id, 1, k); } }
+                                PanelButton { text: @tr("Use"); clicked => { ReaderBridge.signature-manager-action(root.tab.id, 5, k); } }
                             }
                             HorizontalLayout {
                                 spacing: 6px;
-                                PanelButton { text: "Up"; enabled: k > 0; clicked => { ReaderBridge.signature-manager-action(root.tab.id, 2, k); } }
-                                PanelButton { text: "Down"; enabled: k + 1 < root.tab.reader.signatures.length; clicked => { ReaderBridge.signature-manager-action(root.tab.id, 3, k); } }
-                                PanelButton { text: "Delete"; clicked => { ReaderBridge.signature-manager-action(root.tab.id, 4, k); } }
+                                PanelButton { text: @tr("Up"); enabled: k > 0; clicked => { ReaderBridge.signature-manager-action(root.tab.id, 2, k); } }
+                                PanelButton { text: @tr("Down"); enabled: k + 1 < root.tab.reader.signatures.length; clicked => { ReaderBridge.signature-manager-action(root.tab.id, 3, k); } }
+                                PanelButton { text: @tr("Delete"); clicked => { ReaderBridge.signature-manager-action(root.tab.id, 4, k); } }
                             }
                         }
                     }
@@ -61,37 +61,37 @@ export component SignatureManagerSheet inherits Rectangle {
                     horizontal-stretch: 1;
                     VerticalLayout {
                         spacing: 10px;
-                        PanelButton { text: "New signature"; clicked => { ReaderBridge.signature-manager-action(root.tab.id, 6, 0); } }
-                        typed := TextField { label: "Typed signature"; text: root.tab.reader.signature-manager-name; }
+                        PanelButton { text: @tr("New signature"); clicked => { ReaderBridge.signature-manager-action(root.tab.id, 6, 0); } }
+                        typed := TextField { label: @tr("Typed signature"); text: root.tab.reader.signature-manager-name; }
                         for row in [[0, 1], [2, 3]]: HorizontalLayout {
                             spacing: 6px;
                             for f in row: Segment {
-                                text: ["Dancing Script", "Great Vibes", "Satisfy", "Caveat"][f];
+                                text: [@tr("Dancing Script"), @tr("Great Vibes"), @tr("Satisfy"), @tr("Caveat")][f];
                                 selected: root.font-index == f;
                                 clicked => { root.font-index = f; }
                             }
                         }
                         Image { height: 52px; source: ReaderBridge.signature-preview(typed.text, root.font-index); image-fit: contain; }
-                        Text { text: "Drawing (clear it to use the typed name)"; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                        Text { text: @tr("Drawing (clear it to use the typed name)"); font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
                         pad := Pad { width: 320px; height: 120px; commands: root.tab.reader.signature-manager-commands; ink: [#1A1A1F, #1A52D9, #0D2673][root.ink-index]; pen: [1.5px, 2.5px, 4px][root.pen-index]; }
-                        PanelButton { text: "Clear drawing"; clicked => { pad.commands = ""; } }
+                        PanelButton { text: @tr("Clear drawing"); clicked => { pad.commands = ""; } }
                         HorizontalLayout {
                             spacing: 6px;
-                            for label[k] in ["Black", "Blue", "Navy"]: Segment { text: label; selected: root.ink-index == k; clicked => { root.ink-index = k; } }
+                            for label[k] in [@tr("Black"), @tr("Blue"), @tr("Navy")]: Segment { text: label; selected: root.ink-index == k; clicked => { root.ink-index = k; } }
                         }
                         HorizontalLayout {
                             spacing: 6px;
-                            for label[k] in ["Fine", "Medium", "Bold"]: Segment { text: label; selected: root.pen-index == k; clicked => { root.pen-index = k; } }
+                            for label[k] in [@tr("Fine"), @tr("Medium"), @tr("Bold")]: Segment { text: label; selected: root.pen-index == k; clicked => { root.pen-index = k; } }
                         }
-                        PanelButton { text: "Save signature"; primary: true; clicked => { ReaderBridge.signature-manager-save(root.tab.id, pad.commands, typed.text, root.font-index, root.ink-index, root.pen-index); } }
-                        Text { text: "For one-time use, create a signature in Fill & Sign and turn off Keep for next time."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+                        PanelButton { text: @tr("Save signature"); primary: true; clicked => { ReaderBridge.signature-manager-save(root.tab.id, pad.commands, typed.text, root.font-index, root.ink-index, root.pen-index); } }
+                        Text { text: @tr("For one-time use, create a signature in Fill & Sign and turn off Keep for next time."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
                     }
                 }
             }
             Text { text: root.tab.reader.signature-manager-status; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; max-height: 54px; overflow: elide; }
             HorizontalLayout {
                 alignment: end;
-                PanelButton { text: "Close"; clicked => { ReaderBridge.signature-manager-action(root.tab.id, 0, 0); root.focus-pages(); } }
+                PanelButton { text: @tr("Close"); clicked => { ReaderBridge.signature-manager-action(root.tab.id, 0, 0); root.focus-pages(); } }
             }
         }
     }

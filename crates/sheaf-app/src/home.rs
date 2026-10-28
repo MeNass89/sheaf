@@ -370,6 +370,12 @@ pub fn update_ai(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::ai_store::AiPref
     update_prefs(ui, |p| f(&mut p.ai));
 }
 
+/// The interface's language changed: the texts made in Rust (tool names, sections) built again.
+pub fn language_changed(ui: &AppWindow) {
+    crate::install_catalogue(ui);
+    refresh(ui);
+}
+
 /// Print defaults, Security and Startup changed and saved (src/settings_ui.rs).
 pub fn update_settings(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::settings::SettingsPrefs)) {
     update_prefs(ui, |p| f(&mut p.settings));

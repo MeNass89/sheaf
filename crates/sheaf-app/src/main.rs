@@ -94,7 +94,7 @@ fn category_index(c: Category) -> i32 {
 pub(crate) fn tool_card(t: &ToolInfo) -> ToolCard {
     ToolCard {
         id: t.id.as_str().into(),
-        name: t.name.into(),
+        name: sheaf_app::i18n::tr(t.name).into(),
         category: category_index(t.category),
         icon: icon_image(t.icon),
         tile: tile_colour(t.id),
@@ -112,7 +112,7 @@ pub(crate) fn install_catalogue(ui: &AppWindow) {
     let sections: Vec<ToolSection> = Category::ALL
         .iter()
         .map(|c| ToolSection {
-            title: c.label().into(),
+            title: sheaf_app::i18n::tr(c.label()).into(),
             collapsed: false,
             tools: ModelRc::new(VecModel::from(
                 catalogue.iter().copied().filter(|t| t.category == *c).map(tool_card).collect::<Vec<_>>(),
@@ -539,7 +539,14 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_tool_query(move |q| {
         if let Some(ui) = weak.upgrade() {
             let hidden = platform_ui::hidden_tools();
-            let found: Vec<ToolCard> = tools::search(&q).into_iter().filter(|t| !hidden.contains(&t.id)).map(tool_card).collect();
+            // Names as shown match too ("fusion" finds Fusionner des PDF in French), after the English ones.
+            let mut hits = tools::search(&q);
+            for t in sheaf_app::i18n::matching(tools::catalogue(), &q, |t| t.name) {
+                if !hits.iter().any(|h| h.id == t.id) {
+                    hits.push(t);
+                }
+            }
+            let found: Vec<ToolCard> = hits.into_iter().filter(|t| !hidden.contains(&t.id)).map(tool_card).collect();
             ui.set_tool_results(ModelRc::new(VecModel::from(found)));
         }
         q.trim().into()

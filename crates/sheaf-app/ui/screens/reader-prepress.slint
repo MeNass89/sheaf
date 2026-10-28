@@ -30,36 +30,36 @@ export component PreflightSheet inherits Rectangle {
         VerticalLayout {
             padding: 18px;
             spacing: 10px;
-            Text { text: "Print preflight"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-            Text { text: "Inspect the current document"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            Text { text: @tr("Print preflight"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: @tr("Inspect the current document"); font-size: Theme.fs-caption; color: Theme.text-muted; }
             HorizontalLayout {
                 spacing: 8px;
-                SmallButton { text: "Close-up print"; primary: root.preset == 0; clicked => { root.preset = 0; fail.text = "150"; target.text = "300"; bleed.text = "2"; } }
-                SmallButton { text: "Large format"; primary: root.preset == 1; clicked => { root.preset = 1; fail.text = "72"; target.text = "150"; bleed.text = "3"; } }
+                SmallButton { text: @tr("Close-up print"); primary: root.preset == 0; clicked => { root.preset = 0; fail.text = "150"; target.text = "300"; bleed.text = "2"; } }
+                SmallButton { text: @tr("Large format"); primary: root.preset == 1; clicked => { root.preset = 1; fail.text = "72"; target.text = "150"; bleed.text = "3"; } }
             }
             HorizontalLayout {
                 spacing: 8px;
-                for name[k] in ["Digital press", "PDF/X-1a", "PDF/X-4"]: SmallButton {
+                for name[k] in [@tr("Digital press"), @tr("PDF/X-1a"), @tr("PDF/X-4")]: SmallButton {
                     text: name; primary: root.preset == k + 2;
                     clicked => { root.preset = k + 2; fail.text = "150"; target.text = "300"; bleed.text = "3"; }
                 }
             }
-            if root.preset >= 2: Text { text: "Also checks fonts, trim and press ICC.\nX-1a flags transparency and colour spaces.\nThreshold changes keep these target rules."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            if root.preset >= 2: Text { text: @tr("Also checks fonts, trim and press ICC.\nX-1a flags transparency and colour spaces.\nThreshold changes keep these target rules."); font-size: Theme.fs-caption; color: Theme.text-muted; }
             HorizontalLayout {
                 spacing: 10px;
-                fail := TextField { label: "Fail below (ppi)"; text: "150"; }
-                target := TextField { label: "Target (ppi)"; text: "300"; }
-                bleed := TextField { label: "Minimum bleed (mm)"; text: "2"; }
+                fail := TextField { label: @tr("Fail below (ppi)"); text: "150"; }
+                target := TextField { label: @tr("Target (ppi)"); text: "300"; }
+                bleed := TextField { label: @tr("Minimum bleed (mm)"); text: "2"; }
             }
             HorizontalLayout {
                 spacing: 8px;
                 SmallButton {
-                    text: root.tab.reader.preflight-busy ? "Checking…" : "Run preflight";
+                    text: root.tab.reader.preflight-busy ? @tr("Checking…") : @tr("Run preflight");
                     opacity: root.tab.reader.preflight-busy ? 0.5 : 1;
                     primary: true;
                     clicked => { if !root.tab.reader.preflight-busy { ReaderBridge.preflight-check(root.id, fail.text, target.text, bleed.text, root.preset); } }
                 }
-                Text { text: "Results keep the thresholds checked"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                Text { text: @tr("Results keep the thresholds checked"); font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
             }
             Rectangle { height: 1px; background: Theme.separator; }
             ScrollView {
@@ -71,7 +71,7 @@ export component PreflightSheet inherits Rectangle {
                         HorizontalLayout {
                             Text { text: row.title; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
                             Rectangle { horizontal-stretch: 1; }
-                            if row.page > 0: SmallButton { text: "Page " + row.page; clicked => { ReaderBridge.preflight-page(root.id, row.page); root.focus-pages(); } }
+                            if row.page > 0: SmallButton { text: @tr("Page {}", row.page); clicked => { ReaderBridge.preflight-page(root.id, row.page); root.focus-pages(); } }
                         }
                         Text { text: row.detail; font-size: Theme.fs-caption; color: Theme.text-secondary; }
                     }
@@ -79,11 +79,11 @@ export component PreflightSheet inherits Rectangle {
             }
             HorizontalLayout {
                 spacing: 8px;
-                SmallButton { text: "Ink plates…"; clicked => { PrintPreviewBridge.open(root.id, 0); } }
-                SmallButton { text: "Fix hairlines / boxes…"; clicked => { ReaderBridge.preflight-close(root.id); ReaderBridge.fix-page-hairlines(root.id); } }
-                SmallButton { text: "Save report…"; opacity: root.tab.reader.preflight-ready ? 1 : 0.5; clicked => { if root.tab.reader.preflight-ready { ReaderBridge.preflight-save(root.id); } } }
+                SmallButton { text: @tr("Ink plates…"); clicked => { PrintPreviewBridge.open(root.id, 0); } }
+                SmallButton { text: @tr("Fix hairlines / boxes…"); clicked => { ReaderBridge.preflight-close(root.id); ReaderBridge.fix-page-hairlines(root.id); } }
+                SmallButton { text: @tr("Save report…"); opacity: root.tab.reader.preflight-ready ? 1 : 0.5; clicked => { if root.tab.reader.preflight-ready { ReaderBridge.preflight-save(root.id); } } }
                 Rectangle { horizontal-stretch: 1; }
-                SmallButton { text: "Close"; clicked => { ReaderBridge.preflight-close(root.id); root.focus-pages(); } }
+                SmallButton { text: @tr("Close"); clicked => { ReaderBridge.preflight-close(root.id); root.focus-pages(); } }
             }
         }
     }

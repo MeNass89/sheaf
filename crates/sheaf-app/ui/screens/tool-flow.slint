@@ -97,14 +97,14 @@ component CompareSlot inherits Rectangle {
                         flex-wrap: FlexboxLayoutWrap.no-wrap;
                         alignment: center;
                         PrimaryButton {
-                            text: "Open file";
+                            text: @tr("Open file");
                             width: 96px;
                             height: 32px;
                             clicked => { root.open(); }
                         }
                     }
                     Text {
-                        text: "or drop it here";
+                        text: @tr("or drop it here");
                         font-size: Theme.fs-caption;
                         color: Theme.text-muted;
                         horizontal-alignment: center;
@@ -119,7 +119,7 @@ component CompareSlot inherits Rectangle {
             alignment: center;
             Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                text: "Replace…";
+                text: @tr("Replace…");
                 font-size: Theme.fs-caption;
                 color: Theme.text-secondary;
                 opacity: root.filled && root.interactive ? 1 : 0;
@@ -152,7 +152,7 @@ component CompareSlot inherits Rectangle {
                     height: 32px;
                     border-radius: 3px;
                     background: pc.has-hover ? Theme.popup-hover : transparent;
-                    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: 8px; text: "From your computer…"; font-size: Theme.fs-button; color: Theme.text; vertical-alignment: center; }
+                    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: 8px; text: @tr("From your computer…"); font-size: Theme.fs-button; color: Theme.text; vertical-alignment: center; }
                     pc := TouchArea { mouse-cursor: pointer; clicked => { root.computer(); } }
                 }
                 for name[i] in root.docs: Rectangle {
@@ -311,7 +311,7 @@ export component ToolFlowScreen inherits Rectangle {
                 alignment: center;
                 spacing: 28px;
                 orig-slot := CompareSlot {
-                    label: "Original";
+                    label: @tr("Original");
                     filled: root.has-original;
                     file: root.tab.files[0];
                     tile: root.tab.tile;
@@ -343,14 +343,14 @@ export component ToolFlowScreen inherits Rectangle {
                         }
                     }
                     Text {
-                        text: "Swap";
+                        text: @tr("Swap");
                         font-size: Theme.fs-caption;
                         color: Theme.text-muted;
                         horizontal-alignment: center;
                     }
                 }
                 changed-slot := CompareSlot {
-                    label: "Changed";
+                    label: @tr("Changed");
                     filled: root.has-changed;
                     file: root.tab.files[root.tab.files.length - 1];
                     tile: root.tab.tile;
@@ -508,7 +508,7 @@ export component ToolFlowScreen inherits Rectangle {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 x: PlatformBridge.rtl ? parent.width - (20px) - self.width : 20px;
                 y: parent.height - self.height - 14px;
-                text: "⚠ Page previews unavailable";
+                text: @tr("⚠ Page previews unavailable");
                 font-size: Theme.fs-caption;
                 color: Theme.warning;
             }
@@ -569,7 +569,7 @@ export component ToolFlowScreen inherits Rectangle {
                     background: Theme.filearea-bg;
                     border-radius: Theme.radius-small;
                     if !root.tab.has-preview: Text {
-                        text: root.tab.preview-note != "" ? root.tab.preview-note : root.tab.files.length > 0 ? "Preview…" : "Add a file to see the watermark";
+                        text: root.tab.preview-note != "" ? root.tab.preview-note : root.tab.files.length > 0 ? @tr("Preview…") : @tr("Add a file to see the watermark");
                         width: parent.width - 24px;
                         horizontal-alignment: center;
                         wrap: word-wrap;

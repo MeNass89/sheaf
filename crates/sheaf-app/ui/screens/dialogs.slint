@@ -85,7 +85,7 @@ export component PasswordDialog inherits Modal {
 
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: root.certificate ? root.file-name + " is encrypted for certificates" : root.file-name + " is password protected";
+        text: root.certificate ? @tr("{} is encrypted for certificates", root.file-name) : @tr("{} is password protected", root.file-name);
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
@@ -97,7 +97,7 @@ export component PasswordDialog inherits Modal {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         spacing: 10px;
         Text {
-            text: root.id-name == "" ? "Choose the digital ID it was sent to" : "Digital ID: " + root.id-name;
+            text: root.id-name == "" ? @tr("Choose the digital ID it was sent to") : @tr("Digital ID: {}", root.id-name);
             font-size: Theme.fs-label;
             color: Theme.text-secondary;
             overflow: elide;
@@ -105,7 +105,7 @@ export component PasswordDialog inherits Modal {
             horizontal-stretch: 1;
         }
         SecondaryButton {
-            text: "Choose…";
+            text: @tr("Choose…");
             clicked => { root.choose-id(); }
         }
     }
@@ -117,9 +117,9 @@ export component PasswordDialog inherits Modal {
         VerticalLayout {
             field := TextField {
                 password: true;
-                placeholder: root.certificate ? "Digital ID password" : "Password";
+                placeholder: root.certificate ? @tr("Digital ID password") : @tr("Password");
                 text <=> root.pw;
-                error: root.error-text != "" ? root.error-text : root.wrong ? "Wrong password" : "";
+                error: root.error-text != "" ? root.error-text : root.wrong ? @tr("Wrong password") : "";
                 accepted => { root.unlock(root.pw); }
             }
         }
@@ -130,11 +130,11 @@ export component PasswordDialog inherits Modal {
         alignment: end;
         spacing: 10px;
         SecondaryButton {
-            text: "Skip";
+            text: @tr("Skip");
             clicked => { root.skip(); }
         }
         PrimaryButton {
-            text: root.certificate ? "Open" : "Unlock";
+            text: root.certificate ? @tr("Open") : @tr("Unlock");
             enabled: root.pw != "" || root.certificate;
             clicked => { root.unlock(root.pw); }
         }
@@ -148,14 +148,14 @@ export component ConfirmCloseDialog inherits Modal {
     callback keep();
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "A task is still running";
+        text: @tr("A task is still running");
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "Closing this tab cancels it. Files already written are kept.";
+        text: @tr("Closing this tab cancels it. Files already written are kept.");
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
         wrap: word-wrap;
@@ -166,11 +166,11 @@ export component ConfirmCloseDialog inherits Modal {
         alignment: end;
         spacing: 10px;
         SecondaryButton {
-            text: "Keep";
+            text: @tr("Keep");
             clicked => { root.keep(); }
         }
         PrimaryButton {
-            text: "Cancel job";
+            text: @tr("Cancel job");
             clicked => { root.cancel-job(); }
         }
     }
@@ -183,7 +183,7 @@ export component LaunchFileDialog inherits Modal {
     callback answer(bool);
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "Open “\{root.name}”?";
+        text: @tr("Open “{}”?", root.name);
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
@@ -191,7 +191,7 @@ export component LaunchFileDialog inherits Modal {
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "The document links to this file. It opens in the app your system uses for it; open it only if you trust the document.";
+        text: @tr("The document links to this file. It opens in the app your system uses for it; open it only if you trust the document.");
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
         wrap: word-wrap;
@@ -202,11 +202,11 @@ export component LaunchFileDialog inherits Modal {
         alignment: end;
         spacing: 10px;
         SecondaryButton {
-            text: "Cancel";
+            text: @tr("Cancel");
             clicked => { root.answer(false); }
         }
         PrimaryButton {
-            text: "Open";
+            text: @tr("Open");
             clicked => { root.answer(true); }
         }
     }
@@ -223,7 +223,7 @@ export component UnsavedDialog inherits Modal {
     callback cancel();
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: root.redact-marks > 0 ? "Close “" + root.file-name + "” without redacting?" : "Save changes to “" + root.file-name + "”?";
+        text: root.redact-marks > 0 ? @tr("Close “{}” without redacting?", root.file-name) : @tr("Save changes to “{}”?", root.file-name);
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
@@ -244,20 +244,20 @@ export component UnsavedDialog inherits Modal {
         alignment: LayoutAlignment.stretch;
         spacing: 10px;
         if root.redact-marks == 0: SecondaryButton {
-            text: "Don’t Save";
+            text: @tr("Don’t Save");
             clicked => { root.discard(); }
         }
         Rectangle { horizontal-stretch: 1; }
         SecondaryButton {
-            text: "Cancel";
+            text: @tr("Cancel");
             clicked => { root.cancel(); }
         }
         if root.redact-marks == 0: PrimaryButton {
-            text: "Save";
+            text: @tr("Save");
             clicked => { root.save(); }
         }
         if root.redact-marks > 0: PrimaryButton {
-            text: "Close";
+            text: @tr("Close");
             clicked => { root.discard(); }
         }
     }

@@ -57,11 +57,11 @@ export component ReaderPanel inherits Rectangle {
                 alignment: LayoutAlignment.stretch;
                 padding: 8px;
                 spacing: 2px;
-                PanelTab { text: "Pages"; icon: @image-url("../icons/layout-grid.svg"); selected: root.tab.reader.panel == 0; clicked => { ReaderBridge.set-panel(root.id, 0); } }
-                PanelTab { text: "Outline"; icon: @image-url("../icons/list-tree.svg"); selected: root.tab.reader.panel == 1; clicked => { ReaderBridge.set-panel(root.id, 1); } }
-                PanelTab { text: "Notes"; icon: @image-url("../icons/message-square.svg"); selected: root.tab.reader.panel == 2; clicked => { ReaderBridge.set-panel(root.id, 2); } }
-                PanelTab { text: "Files"; icon: @image-url("../icons/paperclip.svg"); selected: root.tab.reader.panel == 4; clicked => { ReaderBridge.set-panel(root.id, 4); } }
-                if root.tab.reader.layers.length > 0: PanelTab { text: "Layers"; icon: @image-url("../icons/layers.svg"); selected: root.tab.reader.panel == 5; clicked => { ReaderBridge.set-panel(root.id, 5); } }
+                PanelTab { text: @tr("Pages"); icon: @image-url("../icons/layout-grid.svg"); selected: root.tab.reader.panel == 0; clicked => { ReaderBridge.set-panel(root.id, 0); } }
+                PanelTab { text: @tr("Outline"); icon: @image-url("../icons/list-tree.svg"); selected: root.tab.reader.panel == 1; clicked => { ReaderBridge.set-panel(root.id, 1); } }
+                PanelTab { text: @tr("Notes"); icon: @image-url("../icons/message-square.svg"); selected: root.tab.reader.panel == 2; clicked => { ReaderBridge.set-panel(root.id, 2); } }
+                PanelTab { text: @tr("Files"); icon: @image-url("../icons/paperclip.svg"); selected: root.tab.reader.panel == 4; clicked => { ReaderBridge.set-panel(root.id, 4); } }
+                if root.tab.reader.layers.length > 0: PanelTab { text: @tr("Layers"); icon: @image-url("../icons/layers.svg"); selected: root.tab.reader.panel == 5; clicked => { ReaderBridge.set-panel(root.id, 5); } }
             }
             Rectangle { height: 1px; background: Theme.sidebar-border; }
             Rectangle {
@@ -76,12 +76,12 @@ export component ReaderPanel inherits Rectangle {
                         padding-bottom: 4px;
                         spacing: 6px;
                         SmallButton {
-                            text: "Aa";
+                            text: @tr("Aa");
                             primary: root.tab.reader.case-sensitive;
                             clicked => { ReaderBridge.search-options(root.id, !root.tab.reader.case-sensitive, root.tab.reader.whole-words, root.search-text); }
                         }
                         SmallButton {
-                            text: "Whole words";
+                            text: @tr("Whole words");
                             primary: root.tab.reader.whole-words;
                             clicked => { ReaderBridge.search-options(root.id, root.tab.reader.case-sensitive, !root.tab.reader.whole-words, root.search-text); }
                         }
@@ -89,7 +89,7 @@ export component ReaderPanel inherits Rectangle {
                         if root.tab.reader.search-history.length > 1: ToolButton {
                             cross-axis-self-alignment: CrossAxisAlignment.center;
                             icon: @image-url("../icons/history.svg");
-                            tip: "Recent searches";
+                            tip: @tr("Recent searches");
                             clicked => { recent.show(); }
                         }
                     }
@@ -113,7 +113,7 @@ export component ReaderPanel inherits Rectangle {
                         // Acrobat's Advanced Search ▸ All PDF documents in a folder: the same words there.
                         Text {
                             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                            text: "In a folder…";
+                            text: @tr("In a folder…");
                             font-size: Theme.fs-caption;
                             color: Theme.accent;
                             TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.folder-search(root.id, root.search-text); } }
@@ -126,15 +126,15 @@ export component ReaderPanel inherits Rectangle {
                         padding-right: 10px;
                         padding-bottom: 6px;
                         spacing: 6px;
-                        replace-in := PanelField { placeholder: "Replace with"; }
+                        replace-in := PanelField { placeholder: @tr("Replace with"); }
                         FlexboxLayout {
                             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                             flex-wrap: FlexboxLayoutWrap.no-wrap;
                             spacing: 6px;
                             alignment: start;
                             // Acrobat's Replace: the match in view only.
-                            SmallButton { text: "Replace"; clicked => { ReaderBridge.replace-one(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
-                            SmallButton { text: "Replace all"; clicked => { ReaderBridge.replace-all(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
+                            SmallButton { text: @tr("Replace"); clicked => { ReaderBridge.replace-one(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
+                            SmallButton { text: @tr("Replace all"); clicked => { ReaderBridge.replace-all(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
                         }
                     }
                     recent := PopupWindow {
@@ -152,7 +152,7 @@ export component ReaderPanel inherits Rectangle {
                                 padding: 4px;
                                 Text {
                                     horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                    text: "Recent searches";
+                                    text: @tr("Recent searches");
                                     font-size: Theme.fs-caption;
                                     color: Theme.text-muted;
                                     height: 22px;
@@ -228,7 +228,7 @@ export component ReaderPanel inherits Rectangle {
                     x: PlatformBridge.rtl ? parent.width - (16px) - self.width : 16px;
                     y: 50px;
                     width: parent.width - 32px;
-                    text: "No bookmarks yet: + Bookmark adds the page in view.";
+                    text: @tr("No bookmarks yet: + Bookmark adds the page in view.");
                     font-size: Theme.fs-label;
                     color: Theme.text-muted;
                     wrap: word-wrap;
@@ -240,7 +240,7 @@ export component ReaderPanel inherits Rectangle {
                         padding: 8px;
                         padding-bottom: 0px;
                         alignment: start;
-                        SmallButton { text: "+ Bookmark"; clicked => { ReaderBridge.outline-op(root.id, -1, 0, ""); root.focus-pages(); } }
+                        SmallButton { text: @tr("+ Bookmark"); clicked => { ReaderBridge.outline-op(root.id, -1, 0, ""); root.focus-pages(); } }
                     }
                 ScrollView {
                     VerticalLayout {
@@ -288,9 +288,9 @@ export component ReaderPanel inherits Rectangle {
                                     alignment: LayoutAlignment.stretch;
                                     x: PlatformBridge.rtl ? parent.width - (parent.width - 34px - 90px) - self.width : parent.width - 34px - 90px;
                                     width: 90px;
-                                    ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Rename"; clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); } }
-                                    ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete bookmark"; clicked => { ReaderBridge.outline-op(root.id, i, 4, ""); root.focus-pages(); } }
-                                    ToolButton { icon: @image-url("../icons/ellipsis.svg"); tip: "More"; clicked => { root.mark-row = i; root.mark-menu-y = self.absolute-position.y - root.absolute-position.y + 30px; mark-menu.show(); } }
+                                    ToolButton { icon: @image-url("../icons/pencil.svg"); tip: @tr("Rename"); clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); } }
+                                    ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete bookmark"); clicked => { ReaderBridge.outline-op(root.id, i, 4, ""); root.focus-pages(); } }
+                                    ToolButton { icon: @image-url("../icons/ellipsis.svg"); tip: @tr("More"); clicked => { root.mark-row = i; root.mark-menu-y = self.absolute-position.y - root.absolute-position.y + 30px; mark-menu.show(); } }
                                 }
                             }
                             if r.has-children: Rectangle {
@@ -373,14 +373,14 @@ export component ReaderPanel inherits Rectangle {
                         flex-wrap: FlexboxLayoutWrap.no-wrap;
                         alignment: LayoutAlignment.stretch;
                         spacing: 6px;
-                        SmallButton { text: "Show all"; clicked => { ReaderBridge.layers-all(root.id, 0); } }
-                        SmallButton { text: "Hide all"; clicked => { ReaderBridge.layers-all(root.id, 1); } }
-                        if root.tab.reader.layers-changed: SmallButton { text: "Reset"; clicked => { ReaderBridge.layers-all(root.id, 2); } }
+                        SmallButton { text: @tr("Show all"); clicked => { ReaderBridge.layers-all(root.id, 0); } }
+                        SmallButton { text: @tr("Hide all"); clicked => { ReaderBridge.layers-all(root.id, 1); } }
+                        if root.tab.reader.layers-changed: SmallButton { text: @tr("Reset"); clicked => { ReaderBridge.layers-all(root.id, 2); } }
                         Rectangle { horizontal-stretch: 1; }
                     }
                     if root.tab.reader.layers.length == 0: Text {
                         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                        text: "No layers.";
+                        text: @tr("No layers.");
                         font-size: Theme.fs-label;
                         color: Theme.text-muted;
                     }
@@ -419,17 +419,17 @@ export component ReaderPanel inherits Rectangle {
                         flex-wrap: FlexboxLayoutWrap.no-wrap;
                         alignment: LayoutAlignment.stretch;
                         spacing: 6px;
-                        SmallButton { text: "Attach…"; clicked => { ReaderBridge.attachment-add(root.id); } }
+                        SmallButton { text: @tr("Attach…"); clicked => { ReaderBridge.attachment-add(root.id); } }
                         if root.tab.reader.attachments.length <= 3: Rectangle { horizontal-stretch: 1; }
                         if root.tab.reader.attachments.length > 3: PanelField {
                             horizontal-stretch: 1;
-                            placeholder: "Find";
+                            placeholder: @tr("Find");
                             edited(t) => { root.att-filter = t; }
                         }
                     }
                     if root.tab.reader.attachments.length == 0: Text {
                         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                        text: "No attached files.";
+                        text: @tr("No attached files.");
                         font-size: Theme.fs-label;
                         color: Theme.text-muted;
                     }
@@ -462,9 +462,9 @@ export component ReaderPanel inherits Rectangle {
                                 x: PlatformBridge.rtl ? parent.width - (parent.width - 92px) - self.width : parent.width - 92px;
                                 y: 2px;
                                 width: 90px;
-                                ToolButton { icon: @image-url("../icons/download.svg"); tip: "Save a copy…"; clicked => { ReaderBridge.attachment-save(root.id, i); } }
-                                ToolButton { icon: @image-url("../icons/pencil.svg"); tip: "Rename"; clicked => { root.att-renaming = i; } }
-                                ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete attachment"; clicked => { ReaderBridge.attachment-change(root.id, i, ""); } }
+                                ToolButton { icon: @image-url("../icons/download.svg"); tip: @tr("Save a copy…"); clicked => { ReaderBridge.attachment-save(root.id, i); } }
+                                ToolButton { icon: @image-url("../icons/pencil.svg"); tip: @tr("Rename"); clicked => { root.att-renaming = i; } }
+                                ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete attachment"); clicked => { ReaderBridge.attachment-change(root.id, i, ""); } }
                             }
                         }
                         if root.att-renaming == i: Rectangle {
@@ -502,7 +502,7 @@ export component ReaderPanel inherits Rectangle {
                     x: PlatformBridge.rtl ? parent.width - (16px) - self.width : 16px;
                     y: 86px;
                     width: parent.width - 32px;
-                    text: "No annotations yet. Select text and pick Highlight, or choose a tool above.";
+                    text: @tr("No annotations yet. Select text and pick Highlight, or choose a tool above.");
                     font-size: Theme.fs-label;
                     color: Theme.text-muted;
                     wrap: word-wrap;
@@ -516,12 +516,12 @@ export component ReaderPanel inherits Rectangle {
                         padding: 8px;
                         padding-bottom: 0px;
                         spacing: 6px;
-                        SmallButton { text: root.tab.reader.comments-hidden ? "Show all" : "Hide all"; clicked => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
-                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-text.svg"); tip: "Summary of comments…"; clicked => { ReaderBridge.notes-action(root.id, 1); } }
-                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-output.svg"); tip: "Export comments (XFDF, FDF)…"; clicked => { ReaderBridge.notes-action(root.id, 3); } }
-                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-input.svg"); tip: "Import comments…"; clicked => { ReaderBridge.notes-action(root.id, 4); } }
+                        SmallButton { text: root.tab.reader.comments-hidden ? @tr("Show all") : @tr("Hide all"); clicked => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
+                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-text.svg"); tip: @tr("Summary of comments…"); clicked => { ReaderBridge.notes-action(root.id, 1); } }
+                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-output.svg"); tip: @tr("Export comments (XFDF, FDF)…"); clicked => { ReaderBridge.notes-action(root.id, 3); } }
+                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-input.svg"); tip: @tr("Import comments…"); clicked => { ReaderBridge.notes-action(root.id, 4); } }
                         Rectangle { horizontal-stretch: 1; }
-                        if root.tab.reader.annots.length > 0: ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/trash-2.svg"); tip: "Remove all comments"; clicked => { ReaderBridge.notes-action(root.id, 2); root.focus-pages(); } }
+                        if root.tab.reader.annots.length > 0: ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/trash-2.svg"); tip: @tr("Remove all comments"); clicked => { ReaderBridge.notes-action(root.id, 2); root.focus-pages(); } }
                     }
                     // Which comments, in which order (Acrobat's comment list filter and sort).
                     FlexboxLayout {
@@ -533,14 +533,14 @@ export component ReaderPanel inherits Rectangle {
                         spacing: 6px;
                         SortCombo {
                             width: 112px;
-                            options: ["All", "Markup", "Notes", "Drawings", "Stamps", "Accepted", "Rejected", "Cancelled", "Completed", "No status", "Checked"];
+                            options: [@tr("All"), @tr("Markup"), @tr("Notes"), @tr("Drawings"), @tr("Stamps"), @tr("Accepted"), @tr("Rejected"), @tr("Cancelled"), @tr("Completed"), @tr("No status"), @tr("Checked")];
                             current-index: root.tab.reader.notes-filter;
                             chevron: @image-url("../icons/chevron-down.svg");
                             selected(i) => { ReaderBridge.notes-view(root.id, 0, i); }
                         }
                         SortCombo {
                             width: 112px;
-                            options: ["By page", "Newest", "By author", "By type"];
+                            options: [@tr("By page"), @tr("Newest"), @tr("By author"), @tr("By type")];
                             current-index: root.tab.reader.notes-sort;
                             chevron: @image-url("../icons/chevron-down.svg");
                             selected(i) => { ReaderBridge.notes-view(root.id, 1, i); }
@@ -649,11 +649,11 @@ export component ReaderPanel inherits Rectangle {
                                         flex-wrap: FlexboxLayoutWrap.no-wrap;
                                         alignment: start;
                                         spacing: 6px;
-                                        SmallButton { text: "Reply"; clicked => { ReaderBridge.annot-reply(root.id, a.index); } }
+                                        SmallButton { text: @tr("Reply"); clicked => { ReaderBridge.annot-reply(root.id, a.index); } }
                                         // Acrobat's Set Status.
                                         SortCombo {
                                             width: 120px;
-                                            options: ["No status", "Accepted", "Rejected", "Cancelled", "Completed"];
+                                            options: [@tr("No status"), @tr("Accepted"), @tr("Rejected"), @tr("Cancelled"), @tr("Completed")];
                                             current-index: a.status == "Accepted" ? 1 : a.status == "Rejected" ? 2 : a.status == "Cancelled" ? 3 : a.status == "Completed" ? 4 : 0;
                                             chevron: @image-url("../icons/chevron-down.svg");
                                             selected(i) => { ReaderBridge.annot-status(root.id, a.index, i); }
@@ -739,11 +739,11 @@ export component ReaderPanel inherits Rectangle {
                             VerticalLayout {
                                 padding: 4px;
                                 // Codes as reader_ui::page_op.
-                                for o in [{ t: "Rotate left", k: 0 }, { t: "Rotate right", k: 1 }, { t: "Insert blank page after", k: 5 }, { t: "Duplicate", k: 3 },
-                                          { t: "Insert pages from file…", k: 6 }, { t: "Insert a file's pages before…", k: 9 }, { t: "Insert from clipboard", k: 10 }, { t: "Insert from scanner…", k: 11 },
-                                          { t: "Replace with a file's pages…", k: 7 }, { t: "Reverse page order", k: 8 },
+                                for o in [{ t: @tr("Rotate left"), k: 0 }, { t: @tr("Rotate right"), k: 1 }, { t: @tr("Insert blank page after"), k: 5 }, { t: @tr("Duplicate"), k: 3 },
+                                          { t: @tr("Insert pages from file…"), k: 6 }, { t: @tr("Insert a file's pages before…"), k: 9 }, { t: @tr("Insert from clipboard"), k: 10 }, { t: @tr("Insert from scanner…"), k: 11 },
+                                          { t: @tr("Replace with a file's pages…"), k: 7 }, { t: @tr("Reverse page order"), k: 8 },
                                           // Acrobat's Page Transitions (in its page thumbnail menu).
-                                          { t: "Transitions…", k: -1 }, { t: "Delete", k: 2 }]: Rectangle {
+                                          { t: @tr("Transitions…"), k: -1 }, { t: @tr("Delete"), k: 2 }]: Rectangle {
                                     height: 30px;
                                     background: pm.has-hover ? Theme.popup-hover : transparent;
                                     Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }
@@ -827,7 +827,7 @@ export component ReaderPanel inherits Rectangle {
                         drop-shadow-color: #00000033;
                         ghost := Text {
                             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                            text: root.tab.reader.pages-selected <= 1 ? "1 page" : root.tab.reader.pages-selected + " pages";
+                            text: root.tab.reader.pages-selected <= 1 ? @tr("1 page") : @tr("{} pages", root.tab.reader.pages-selected);
                             font-size: Theme.fs-caption;
                             font-weight: Theme.weight-demibold;
                             color: white;
@@ -854,13 +854,13 @@ export component ReaderPanel inherits Rectangle {
                         padding: 7px;
                         spacing: 2px;
                         alignment: center;
-                        ToolButton { icon: @image-url("../icons/rotate-ccw.svg"); tip: "Rotate left"; clicked => { ReaderBridge.page-op(root.id, 0); } }
-                        ToolButton { icon: @image-url("../icons/rotate-cw.svg"); tip: "Rotate right"; clicked => { ReaderBridge.page-op(root.id, 1); } }
-                        ToolButton { icon: @image-url("../icons/plus.svg"); tip: "Insert blank page after"; clicked => { ReaderBridge.page-op(root.id, 5); } }
-                        ToolButton { icon: @image-url("../icons/copy.svg"); tip: "Duplicate"; clicked => { ReaderBridge.page-op(root.id, 3); } }
-                        ToolButton { icon: @image-url("../icons/file-output.svg"); tip: "Extract…"; clicked => { root.extract-open = !root.extract-open; root.number-open = false; root.transition-open = false; } }
-                        ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: "Number pages…"; clicked => { root.number-open = !root.number-open; root.extract-open = false; root.transition-open = false; } }
-                        ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete"; clicked => { ReaderBridge.page-op(root.id, 2); } }
+                        ToolButton { icon: @image-url("../icons/rotate-ccw.svg"); tip: @tr("Rotate left"); clicked => { ReaderBridge.page-op(root.id, 0); } }
+                        ToolButton { icon: @image-url("../icons/rotate-cw.svg"); tip: @tr("Rotate right"); clicked => { ReaderBridge.page-op(root.id, 1); } }
+                        ToolButton { icon: @image-url("../icons/plus.svg"); tip: @tr("Insert blank page after"); clicked => { ReaderBridge.page-op(root.id, 5); } }
+                        ToolButton { icon: @image-url("../icons/copy.svg"); tip: @tr("Duplicate"); clicked => { ReaderBridge.page-op(root.id, 3); } }
+                        ToolButton { icon: @image-url("../icons/file-output.svg"); tip: @tr("Extract…"); clicked => { root.extract-open = !root.extract-open; root.number-open = false; root.transition-open = false; } }
+                        ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: @tr("Number pages…"); clicked => { root.number-open = !root.number-open; root.extract-open = false; root.transition-open = false; } }
+                        ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete"); clicked => { ReaderBridge.page-op(root.id, 2); } }
                     }
                 }
                 if root.tab.reader.panel == 0 && root.number-open: Rectangle {
@@ -873,12 +873,12 @@ export component ReaderPanel inherits Rectangle {
                         spacing: 6px;
                         Text {
                             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                            text: "Number " + (root.tab.reader.pages-selected <= 1 ? "this page" : "the " + root.tab.reader.pages-selected + " pages") + (root.number-through != "" ? " through page " + root.number-through : root.tab.reader.pages-selected <= 1 ? " and the next ones" : "");
+                            text: @tr("Number ") + (root.tab.reader.pages-selected <= 1 ? @tr("this page") : @tr("the {} pages", root.tab.reader.pages-selected)) + (root.number-through != "" ? @tr(" through page {}", root.number-through) : root.tab.reader.pages-selected <= 1 ? @tr(" and the next ones") : "");
                             font-size: Theme.fs-caption;
                             color: Theme.text-secondary;
                         }
                         SortCombo {
-                            options: ["1, 2, 3", "i, ii, iii", "I, II, III", "a, b, c", "A, B, C", "No number"];
+                            options: ["1, 2, 3", @tr("i, ii, iii"), @tr("I, II, III"), @tr("a, b, c"), @tr("A, B, C"), @tr("No number")];
                             current-index <=> root.number-style;
                             chevron: @image-url("../icons/chevron-down.svg");
                         }
@@ -887,19 +887,19 @@ export component ReaderPanel inherits Rectangle {
                             flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: LayoutAlignment.stretch;
                             spacing: 6px;
-                            PanelField { placeholder: "Prefix"; text <=> root.number-prefix; }
-                            PanelField { width: 70px; placeholder: "Start: 1"; text <=> root.number-start; }
+                            PanelField { placeholder: @tr("Prefix"); text <=> root.number-prefix; }
+                            PanelField { width: 70px; placeholder: @tr("Start: 1"); text <=> root.number-start; }
                             // Acrobat's Pages from … to …: the last page numbered so (empty: as selected).
-                            PanelField { width: 86px; placeholder: "Through: end"; text <=> root.number-through; }
+                            PanelField { width: 86px; placeholder: @tr("Through: end"); text <=> root.number-through; }
                         }
                         FlexboxLayout {
                             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                             flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: end;
                             spacing: 6px;
-                            SmallButton { text: "Cancel"; clicked => { root.number-open = false; } }
+                            SmallButton { text: @tr("Cancel"); clicked => { root.number-open = false; } }
                             SmallButton {
-                                text: "Number";
+                                text: @tr("Number");
                                 primary: true;
                                 clicked => {
                                     root.number-open = false;
@@ -919,24 +919,24 @@ export component ReaderPanel inherits Rectangle {
                         spacing: 6px;
                         Text {
                             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                            text: "In full screen, " + (root.tab.reader.pages-selected <= 1 ? "this page comes" : "the " + root.tab.reader.pages-selected + " pages come") + " in with";
+                            text: @tr("In full screen, ") + (root.tab.reader.pages-selected <= 1 ? @tr("this page comes") : @tr("the {} pages come", root.tab.reader.pages-selected)) + @tr(" in with");
                             font-size: Theme.fs-caption;
                             color: Theme.text-secondary;
                         }
                         SortCombo {
-                            options: ["No effect", "Fade", "Dissolve", "Wipe", "Push", "Cover", "Uncover", "Split", "Blinds", "Box", "Glitter", "Fly"];
+                            options: [@tr("No effect"), @tr("Fade"), @tr("Dissolve"), @tr("Wipe"), @tr("Push"), @tr("Cover"), @tr("Uncover"), @tr("Split"), @tr("Blinds"), @tr("Box"), @tr("Glitter"), @tr("Fly")];
                             current-index <=> root.transition-style;
                             chevron: @image-url("../icons/chevron-down.svg");
                         }
-                        PanelField { placeholder: "Next page after (seconds): when turned"; text <=> root.transition-advance; }
+                        PanelField { placeholder: @tr("Next page after (seconds): when turned"); text <=> root.transition-advance; }
                         FlexboxLayout {
                             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                             flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: end;
                             spacing: 6px;
-                            SmallButton { text: "Cancel"; clicked => { root.transition-open = false; } }
+                            SmallButton { text: @tr("Cancel"); clicked => { root.transition-open = false; } }
                             SmallButton {
-                                text: "Set";
+                                text: @tr("Set");
                                 primary: true;
                                 clicked => {
                                     root.transition-open = false;
@@ -962,8 +962,8 @@ export component ReaderPanel inherits Rectangle {
                             alignment: LayoutAlignment.stretch;
                             spacing: 6px;
                             from-in := PanelField { placeholder: "1"; }
-                            SmallButton { text: "Cancel"; clicked => { ReaderBridge.replace-from(root.id, ""); root.focus-pages(); } }
-                            SmallButton { text: "Replace"; primary: true; clicked => { ReaderBridge.replace-from(root.id, from-in.text == "" ? "1" : from-in.text); root.focus-pages(); } }
+                            SmallButton { text: @tr("Cancel"); clicked => { ReaderBridge.replace-from(root.id, ""); root.focus-pages(); } }
+                            SmallButton { text: @tr("Replace"); primary: true; clicked => { ReaderBridge.replace-from(root.id, from-in.text == "" ? "1" : from-in.text); root.focus-pages(); } }
                         }
                     }
                 }
@@ -975,16 +975,16 @@ export component ReaderPanel inherits Rectangle {
                     VerticalLayout {
                         padding: 10px;
                         spacing: 6px;
-                        Check { text: "One file per page"; checked <=> root.extract-each; }
-                        Check { text: "Delete pages after extracting"; checked <=> root.extract-delete; }
+                        Check { text: @tr("One file per page"); checked <=> root.extract-each; }
+                        Check { text: @tr("Delete pages after extracting"); checked <=> root.extract-delete; }
                         FlexboxLayout {
                             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                             flex-wrap: FlexboxLayoutWrap.no-wrap;
                             alignment: end;
                             spacing: 6px;
-                            SmallButton { text: "Cancel"; clicked => { root.extract-open = false; } }
+                            SmallButton { text: @tr("Cancel"); clicked => { root.extract-open = false; } }
                             SmallButton {
-                                text: "Extract";
+                                text: @tr("Extract");
                                 primary: true;
                                 clicked => {
                                     root.extract-open = false;
@@ -1044,16 +1044,16 @@ export component ReaderPanel inherits Rectangle {
             VerticalLayout {
                 padding: 4px;
                 for item in [
-                    { text: "Move up", op: 6 },
-                    { text: "Move down", op: 7 },
-                    { text: "Indent", op: 8 },
-                    { text: "Outdent", op: 9 },
-                    { text: "Set destination to this view", op: 5 },
+                    { text: @tr("Move up"), op: 6 },
+                    { text: @tr("Move down"), op: 7 },
+                    { text: @tr("Indent"), op: 8 },
+                    { text: @tr("Outdent"), op: 9 },
+                    { text: @tr("Set destination to this view"), op: 5 },
                     // Acrobat's bookmark Appearance: style and colour.
-                    { text: "Bold", op: 10 },
-                    { text: "Italic", op: 11 },
-                    { text: "In the pen's colour", op: 12 },
-                    { text: "In the usual colour", op: 13 },
+                    { text: @tr("Bold"), op: 10 },
+                    { text: @tr("Italic"), op: 11 },
+                    { text: @tr("In the pen's colour"), op: 12 },
+                    { text: @tr("In the usual colour"), op: 13 },
                 ]: Rectangle {
                     height: 30px;
                     border-radius: Theme.radius-small;

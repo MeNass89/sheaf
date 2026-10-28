@@ -254,7 +254,7 @@ export component ResultScreen inherits Rectangle {
                     spacing: 8px;
                     Text {
                         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                        text: "Continue to…";
+                        text: @tr("Continue to…");
                         font-size: Theme.fs-body-large;
                         font-weight: Theme.weight-demibold;
                         color: Theme.text;
@@ -413,7 +413,7 @@ export component ResultScreen inherits Rectangle {
                     cross-axis-self-alignment: CrossAxisAlignment.center;
                     width: 120px;
                     height: 38px;
-                    text: "Open folder";
+                    text: @tr("Open folder");
                     clicked => { root.open-folder(); }
                 }
             }

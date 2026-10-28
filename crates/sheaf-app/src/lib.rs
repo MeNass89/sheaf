@@ -18,6 +18,7 @@ pub mod jobs;
 pub mod open_with;
 pub mod platform;
 pub mod settings;
+pub mod i18n;
 pub mod feedback;
 pub mod pool;
 pub mod quick_actions;
