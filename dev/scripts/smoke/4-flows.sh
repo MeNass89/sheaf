@@ -1148,13 +1148,14 @@ PY352
 cp "$OUT/text.pdf" "$OUT/352-custom.pdf"
 launch "$OUT/352-custom.pdf"
 click 24 62 0.8
-AP=$(at Apply 620x440+330+180); [ -n "$AP" ] && click $AP 1.5
+AP=$(at Apply 220x55+345+380); [ -n "$AP" ] && click $AP 1.5
 shot 352-custom-pages
 key ctrl+s; sleep 1.5
 P2=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
 T2=$(first_text "$OUT/352-custom.pdf" 1); T3=$(first_text "$OUT/352-custom.pdf" 2)
 key ctrl+z; sleep 1; key ctrl+s; sleep 1.5
 P4=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
+shot 352-custom-undone
 check "352 custom page-range command applies to the open PDF and undoes (${AP:-no Apply}; pages ${P2:-?} then ${P4:-?})" "[ \"$P2\" = 2 ] && [ \"$P4\" = 4 ] && [ \"$T2\" = \"Page 2\" ] && [ \"$T3\" = \"Page 3\" ]"
 quit
 
