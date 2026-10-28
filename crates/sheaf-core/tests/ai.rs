@@ -364,3 +364,85 @@ fn answers_are_streamed_in_each_providers_format() {
     assert_eq!(r.unwrap(), "A summary.");
     assert_eq!(*got.lock().unwrap(), "A summary.");
 }
+
+/// A voice that writes `n` samples of the voice's number (1 or 2) per word, 16-bit mono 22050 Hz.
+struct FakeVoice(Mutex<Vec<(String, Option<String>)>>);
+
+impl sheaf_core::ai::audio::Synth for FakeVoice {
+    fn to_wav(&self, text: &str, voice: Option<&str>, out: &std::path::Path) -> sheaf_core::Result<()> {
+        self.0.lock().unwrap().push((text.into(), voice.map(str::to_string)));
+        let v: i16 = if voice == Some("m") { 1 } else { 2 };
+        let data: Vec<u8> = (0..text.split_whitespace().count() * 10).flat_map(|_| v.to_le_bytes()).collect();
+        let fmt: Vec<u8> = [1u16.to_le_bytes(), 1u16.to_le_bytes()].concat().into_iter().chain(22050u32.to_le_bytes()).chain(44100u32.to_le_bytes()).chain(2u16.to_le_bytes()).chain(16u16.to_le_bytes()).collect();
+        let mut b = b"RIFF".to_vec();
+        b.extend(((36 + data.len()) as u32).to_le_bytes());
+        b.extend(b"WAVEfmt ");
+        b.extend(16u32.to_le_bytes());
+        b.extend(&fmt);
+        b.extend(b"LIST\x04\x00\x00\x00INFO");
+        b.extend(b"data");
+        b.extend((data.len() as u32).to_le_bytes());
+        b.extend(data);
+        std::fs::write(out, b).unwrap();
+        Ok(())
+    }
+}
+
+#[test]
+fn a_podcast_script_is_spoken_by_two_voices_into_one_wav() {
+    use sheaf_core::ai::audio;
+    let d = tempfile::tempdir().unwrap();
+    let voice = FakeVoice(Mutex::new(Vec::new()));
+    let out = audio::podcast_wav("Alex: one two\nSam: three\nAlex: four", &voice, &[Some("m".into()), Some("f".into())], &d.path().join("p.wav"), &mut |_, _| true).unwrap();
+    let said = voice.0.lock().unwrap().clone();
+    assert_eq!(said.iter().map(|(t, v)| (t.as_str(), v.as_deref().unwrap())).collect::<Vec<_>>(), [("one two", "m"), ("three", "f"), ("four", "m")]);
+    let b = std::fs::read(out).unwrap();
+    assert_eq!(&b[..4], b"RIFF");
+    assert_eq!(&b[8..16], b"WAVEfmt ");
+    let data_len = u32::from_le_bytes(b[40..44].try_into().unwrap()) as usize;
+    // 20 + 10 + 10 samples of speech and two 0.4 s pauses (8820 samples each), 2 bytes a sample.
+    assert_eq!(data_len, (40 + 2 * 8820) * 2);
+    assert_eq!(b.len(), 44 + data_len);
+    assert_eq!(i16::from_le_bytes([b[44], b[45]]), 1);
+    assert_eq!(i16::from_le_bytes([b[44 + 2 * (20 + 8820)], b[45 + 2 * (20 + 8820)]]), 2);
+    // Stopped: nothing written.
+    assert!(audio::podcast_wav("Alex: hi", &voice, &[None, None], &d.path().join("q.wav"), &mut |_, _| false).is_err());
+    assert!(!d.path().join("q.wav").exists());
+}
+
+/// eSpeak NG, when installed (it is on Sheaf's Linux test machines): real speech, two variants.
+#[test]
+fn espeak_speaks_a_podcast_when_installed() {
+    if cfg!(any(target_os = "macos", windows)) || std::process::Command::new("espeak-ng").arg("--version").output().is_err() {
+        eprintln!("skipped: no espeak-ng");
+        return;
+    }
+    let d = tempfile::tempdir().unwrap();
+    let voices = sheaf_core::ai::audio::host_voices(None, &[]);
+    let out = sheaf_core::ai::audio::podcast_wav("Alex: Hello there.\nSam: Hi Alex.", &sheaf_core::ai::audio::SystemSynth, &voices, &d.path().join("p.wav"), &mut |_, _| true).unwrap();
+    let b = std::fs::read(out).unwrap();
+    assert!(b.len() > 22050, "{} bytes", b.len());
+}
+
+#[test]
+fn a_translation_in_any_script_is_saved_as_a_searchable_pdf() {
+    let d = tempfile::tempdir().unwrap();
+    // Cyrillic, Greek and Japanese: Helvetica draws none of them.
+    let text = "Привет, мир.\nΓειά σου κόσμε.\n東京は日本の首都です。";
+    // A computer with no font for one of these scripts is told so (the test machines have them).
+    let out = match sheaf_core::ai::write_text("Перевод", text, &d.path().join("t.pdf")) {
+        Ok(p) => p,
+        Err(e) if e.to_string().contains("no font on this computer") && std::env::var_os("CI").is_some() => return eprintln!("skipped: {e}"),
+        Err(e) => panic!("{e}"),
+    };
+    let got = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&out), &[]).unwrap().join("\n");
+    for w in ["Привет", "κόσμε", "東京"] {
+        assert!(got.contains(w), "{w} not in {got:?}");
+    }
+    // Western text still goes through Helvetica: no font embedded, so a small file.
+    let p = sheaf_core::ai::write_text("T", "Café crème", &d.path().join("w.pdf")).unwrap();
+    assert!(std::fs::metadata(&p).unwrap().len() < 20_000);
+    assert!(sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&p), &[]).unwrap()[0].contains("Café crème"));
+    // The Unicode one embeds its faces.
+    assert!(std::fs::metadata(&out).unwrap().len() > 20_000);
+}
