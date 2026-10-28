@@ -157,6 +157,8 @@ pub fn focus(ui: &AppWindow, tab_id: i32) {
     });
     match went {
         Some((j, b)) => {
+            // A second click soon after, at the same point, is a double-click on that tab.
+            crate::reader_ui::handed_over(b);
             ui.set_active_tab(j as i32);
             viewer_ui::request(ui, b);
         }

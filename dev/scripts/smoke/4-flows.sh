@@ -734,6 +734,19 @@ read QA QB QY <<< "$(span quick 510x700+770+90)"
 read RA RB RY <<< "$(span quick 510x700+770+90)"
 check "⌘ + wheel over another document's pane zooms that document (quick ${QA:-?}–${QB:-?} → ${RA:-?}–${RB:-?})" "[ -n \"$QB\" ] && [ -n \"$RB\" ] && [ \$(( RB - RA )) -gt \$(( (QB - QA) * 11 / 10 )) ]"
 quit
+
+# 207b. … ▸ Split with another document, a double-click on a word of the other pane (C-reader-045): its tab comes
+# forward at the first click's release, and the second makes it a double-click there: the word alone is selected,
+# ⌘C copies "quick" (the tab change split the pair; the second was a plain click).
+launch "$OUT/split6t.pdf" "$OUT/split6a.pdf"; sleep 3
+layout_item with >/dev/null; sleep 1.5
+read QX QY <<< "$(at quick 510x700+770+90)"
+echo -n | xclip -selection clipboard >/dev/null 2>&1
+[ -n "$QY" ] && { xdotool mousemove $QX $QY click --repeat 2 --delay 120 1; sleep 0.8; key ctrl+c; }
+SC7=$(xclip -o -selection clipboard 2>/dev/null | head -1)
+shot 207b-double-click
+check "a double-click on another document's pane selects the word there (quick at ${QX:-?} ${QY:-?}; copied '$SC7')" "echo \"$SC7\" | grep -qx ' *quick *'"
+quit
 # 228. Edit ▸ Undo from the menu bar (C-platform-014) acts on what has the keyboard: in Preferences ▸ Your name,
 # "Ada" typed then Edit ▸ Undo leaves the field empty (the menu is enabled there); on a document's pages, a note
 # added then Edit ▸ Undo takes the note away (saved: no note). The menu shows Undo's Ctrl+Z.
@@ -788,17 +801,18 @@ check "a .txt opens in the reader (tab: $(echo "$TB" | grep -o 'notes[^ ]*' | he
 quit
 
 # 311. Search ▸ In a folder… (C-reader-037, Acrobat's Advanced Search ▸ All PDF documents in a folder) reads every
-# PDF of the folder: "quick" is found in the copy of text.pdf that sorts after 600 other PDFs, and the sheet says
-# how many PDFs it read.
+# PDF of the folder: "quick" is found in the copy of text.pdf that sorts after 600 damaged PDFs and one locked by a
+# password; the sheet counts only the PDF read, and lists the 601 not searched with why, as Acrobat lists the
+# documents it skipped (the locked one, 0-locked.pdf, first).
 mkdir -p "$OUT/many"; for i in $(seq -w 1 600); do printf '%%PDF-1.4 empty\n' > "$OUT/many/a$i.pdf"; done
-cp "$OUT/text.pdf" "$OUT/many/z-last.pdf"
+cp "$OUT/text.pdf" "$OUT/many/z-last.pdf"; qpdf --encrypt pw pw 256 -- "$OUT/text.pdf" "$OUT/many/0-locked.pdf"
 launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
 answer "$PWD/$OUT/many"
 FS=$(at folder 300x30+0+160); [ -n "$FS" ] && click $FS 4
-FT=$(ocr 800x560+240+100)
+FT=$(ocr 800x560+240+100 | tr '\n' ' ' | tr -s ' ')
 shot 311-folder-search
-check "In a folder… reads all 601 PDFs (link at ${FS:-?}; sheet: $(echo "$FT" | grep -o '[0-9]* page[s]* found in [0-9]* PDFs' | head -1))" "echo \"$FT\" | grep -q 'found in 601 PDFs' && echo \"$FT\" | grep -q 'z-last'"
+check "In a folder… counts the PDF read and lists the 601 not searched with why (link at ${FS:-?}; sheet: $(echo "$FT" | cut -c1-220))" "echo \"$FT\" | grep -q 'found in 1 PDF\. 601 PDFs could not be searched' && echo \"$FT\" | grep -q 'z-last' && echo \"$FT\" | grep -q '0-locked.pdf Protected by a password' && echo \"$FT\" | grep -q 'Damaged or not a PDF'"
 # The app quit and the dialog answer cleared: left running, its window took the next steps' keys (round 30's
 # 320–363 failed so), and later file dialogs all answered this folder.
 answer ""; quit
