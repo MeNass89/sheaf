@@ -67,7 +67,6 @@ lopdf = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd
 # Generated Slint code is isolated from the PDF/application graph to fit worker memory caps.
 [profile.dev.package.sheaf-ui]
 debug = false
-opt-level = 1
 
 [profile.release]
 lto = "thin"
