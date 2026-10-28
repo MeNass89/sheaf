@@ -107,12 +107,25 @@ export component ResultScreen inherits Rectangle {
                             padding: 14px;
                             padding-bottom: 0px;
                             spacing: 4px;
-                            Text {
-                                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                text: root.tab.notes-title;
-                                font-size: Theme.fs-label;
-                                font-weight: Theme.weight-demibold;
-                                color: Theme.warning;
+                            // A warning triangle with the orange: the colour alone does not say it.
+                            FlexboxLayout {
+                                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                spacing: 6px;
+                                Image {
+                                    cross-axis-self-alignment: CrossAxisAlignment.center;
+                                    width: 13px;
+                                    height: 13px;
+                                    source: @image-url("../icons/triangle-alert.svg");
+                                    colorize: Theme.warning;
+                                }
+                                Text {
+                                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                                    text: root.tab.notes-title;
+                                    font-size: Theme.fs-label;
+                                    font-weight: Theme.weight-demibold;
+                                    color: Theme.warning;
+                                }
                             }
                             for n in root.tab.notes: Text {
                                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
@@ -367,12 +380,24 @@ export component ResultScreen inherits Rectangle {
                         font-weight: Theme.weight-demibold;
                         color: Theme.success-strong;
                     }
-                    if root.tab.warning != "": Text {
-                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                        text: root.tab.warning;
-                        font-size: Theme.fs-caption;
-                        font-weight: Theme.weight-demibold;
-                        color: Theme.warning;
+                    if root.tab.warning != "": FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        spacing: 5px;
+                        Image {
+                            cross-axis-self-alignment: CrossAxisAlignment.center;
+                            width: 12px;
+                            height: 12px;
+                            source: @image-url("../icons/triangle-alert.svg");
+                            colorize: Theme.warning;
+                        }
+                        Text {
+                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                            text: root.tab.warning;
+                            font-size: Theme.fs-caption;
+                            font-weight: Theme.weight-demibold;
+                            color: Theme.warning;
+                        }
                     }
                 }
                 if root.tab.size-before != "": FlexboxLayout {

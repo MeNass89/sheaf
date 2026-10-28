@@ -18,10 +18,12 @@ export component CertificateEncryptSheet inherits Rectangle {
     TouchArea { }
     Rectangle {
         width: min(760px, root.width - 32px);
-        height: min(680px, root.height - 32px);
+        // macOS: as tall as its content (an empty band under few recipients otherwise). Elsewhere
+        // 680 px: the GUI smoke clicks the sheet's buttons at fixed places.
+        height: Theme.mac ? min(sheet.preferred-height, 680px, root.height - 32px) : min(680px, root.height - 32px);
         border-radius: Theme.radius-card;
         background: Theme.card;
-        VerticalLayout {
+        sheet := VerticalLayout {
             padding: 18px;
             spacing: 12px;
             Text { text: @tr("Encrypt with certificates"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
@@ -37,7 +39,8 @@ export component CertificateEncryptSheet inherits Rectangle {
             if root.tab.reader.cert-recipients.length == 0: Text { text: @tr("No recipient yet. Add their certificate (.cer, .crt, .pem, .der)."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
             ScrollView {
                 vertical-stretch: 1;
-                VerticalLayout {
+                preferred-height: recipients.preferred-height;
+                recipients := VerticalLayout {
                     spacing: 10px;
                     for recipient[k] in root.tab.reader.cert-recipients: VerticalLayout {
                         spacing: 4px;

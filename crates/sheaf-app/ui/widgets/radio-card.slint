@@ -23,12 +23,12 @@ export component RadioCard inherits Rectangle {
         border-radius: 8px;
         border-width: root.selected ? 0 : 1.5px;
         border-color: Theme.option-border;
-        background: root.selected ? Theme.success-strong : transparent;
+        background: root.selected ? Theme.accent : transparent;
         if root.selected: Rectangle {
             width: 6px;
             height: 6px;
             border-radius: 3px;
-            background: Theme.on-success;
+            background: Theme.on-accent;
         }
     }
     lines := VerticalLayout {
@@ -68,12 +68,18 @@ export component Segment inherits Rectangle {
     in property <bool> label-italic;
     in property <bool> label-underline;
     callback clicked();
+    // Its label's width with padding: rows that size segments to their labels (macOS) use it.
+    out property <length> fit-width: max(seg-label.preferred-width + 24px, 44px);
 
-    height: 32px;
+    height: Theme.segment-height;
+    // Never narrower than its label (a translation longer than the English one is not clipped);
+    // elsewhere than macOS only a label that would be clipped widens it (smoke coordinates).
+    min-width: seg-label.preferred-width + (Theme.mac ? 24px : 8px);
     border-radius: Theme.radius-button;
     border-width: root.selected ? 0 : 1px;
     border-color: touch.has-hover ? Theme.text-secondary : Theme.option-border;
-    background: root.selected ? Theme.option-selected-bg : Theme.panel-bg;
+    // Unselected: the field colour, which stands out from the panel in dark mode too.
+    background: root.selected ? Theme.option-selected-bg : Theme.input-bg;
     seg-label := Text {
         text: root.text;
         font-size: Theme.fs-label;
@@ -95,11 +101,12 @@ export component Segment inherits Rectangle {
     }
 }
 
-// Blue information box under the options.
+// Blue information box under the options; amber with a warning triangle for a warning.
 export component InfoBox inherits Rectangle {
     in property <string> text;
-    in property <image> icon: @image-url("../icons/info.svg");
-    background: Theme.info-bg;
+    in property <bool> warning;
+    in property <image> icon: root.warning ? @image-url("../icons/triangle-alert.svg") : @image-url("../icons/info.svg");
+    background: root.warning ? Theme.warning-bg : Theme.info-bg;
     border-radius: Theme.radius-small;
     // Icon and text placed by hand (the icon on the right right to left): a wrapped text's height
     // follows its width, which a FlexboxLayout row cannot ask (Slint 1.18 binding loop).
@@ -110,7 +117,7 @@ export component InfoBox inherits Rectangle {
             width: 16px;
             height: 16px;
             source: root.icon;
-            colorize: Theme.info;
+            colorize: root.warning ? Theme.warning : Theme.info;
     }
     info-text := Text {
             x: PlatformBridge.rtl ? 12px : 38px;

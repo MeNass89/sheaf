@@ -295,7 +295,12 @@ export component ActionsScreen inherits Rectangle {
             height: min(130px, ActionBridge.failures.length * 54px);
             VerticalLayout {
                 alignment: start; spacing: 8px;
-                for failure in ActionBridge.failures: Text { text: failure; color: Theme.danger; font-size: Theme.fs-caption; wrap: word-wrap; }
+                // A mark with the red: the colour alone does not say it failed.
+                for failure in ActionBridge.failures: HorizontalLayout {
+                    spacing: 6px;
+                    VerticalLayout { alignment: start; padding-top: 1px; Image { width: 12px; height: 12px; source: @image-url("../icons/triangle-alert.svg"); colorize: Theme.danger; } }
+                    Text { text: failure; color: Theme.danger; font-size: Theme.fs-caption; wrap: word-wrap; horizontal-stretch: 1; }
+                }
             }
         }
         HorizontalLayout {

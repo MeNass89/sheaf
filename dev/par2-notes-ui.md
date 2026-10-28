@@ -147,3 +147,50 @@ main.slint then shows Preferences); Zoom takes the window from 1280 × 832 to 18
 1280 × 832 window off the screen and a 120 × 118 tile shows at the Dock's edge (AXMinimized reads another of the
 app's windows, the menu bar's, hence false). Preferences itself is not seen (Slint's text is not in the AX tree and
 screen capture is refused over ssh).
+
+## BAMA pass: theme and widgets (28/10/2026, Opus)
+
+Toward Apple's macOS design rules. `Theme.mac` (set in src/platform_ui.rs from `cfg!(target_os = "macos")`; debug
+builds can force it with `SHEAF_TEST_MAC_THEME=1` to check the Mac metrics in a snapshot elsewhere) and
+`Theme.system-accent` (macOS only, `+[NSColor controlAccentColor]` in sRGB, read once at start; not compiled here).
+Anything that moves or resizes controls is macOS-only: the GUI smoke clicks at fixed places.
+
+All platforms (colours, states, bugs):
+- Accent: `accent-pressed` is a shade of the accent (darker 20 % light, brighter 20 % dark) instead of black/white.
+  On macOS with the default accent choice, the accent is the system accent with hover, pressed, menu and option
+  selection derived from it, white text on it; elsewhere Sheaf red unchanged.
+- Tab bar: Home tab and "+" take the full tab height (Home sat higher and clipped); a tab's name stops before the
+  unsaved dot as before the ×.
+- Check boxes, radio cards and the position grid take the accent (were green beside a red accent). Smoke 305
+  (`tick_x`, was `green_x`) now looks for the accent red.
+- Focus ring of check boxes and secondary buttons only for keyboard focus (Tab); a click still focuses them.
+- Buttons: labels weight 500; a disabled primary is grey on grey (pill-bg, text-disabled), not white on grey.
+- Sidebar menu: the selected row is the tint and the accent icon; plain weight and text colour; no 4 px bar
+  (`Theme.menu-bar` removed with it).
+- Tool card hover: soft border (option-border) instead of black/white.
+- InfoBox `warning`: amber box (`warning-bg`, new) with the warning triangle in `Theme.warning`; the four warning
+  notes of options.slint use it ("This PDF looks scanned", OCR unavailable ×2, LibreOffice missing).
+- Status colour not alone: result notes title and the result warning get a warning triangle; actions' failure
+  lines a red triangle.
+- Option footer "Runs on this computer…" wraps (placed by hand as InfoBox's; a flexbox row cannot follow a
+  wrapped height).
+- Segments: unselected background is the field colour (stands out in dark mode); `option-selected-bg` is a tint of
+  the chosen accent (was always red-tinted, even with a blue accent) and in dark mode with Sheaf red #4A2A27,
+  further from the card colour. A segment is never narrower than its label + 8 px (+ 24 px on macOS).
+
+macOS only:
+- Metrics: fs-body/fs-button/fs-menu/fs-tab 13 px, fs-card 13 px, fs-section 15 px, fs-page-title 22 px;
+  button, field, combo and segment heights 28 px; menu-item 30 px; action 36 px; grid-spacing 20 px;
+  card-tile-top 12 px; menu-gap 12 px; preferences Section padding 20 px.
+- Check box labels too long for the panel end in an ellipsis instead of widening the row past its edge.
+  Wrapping (asked) is not possible as the widget stands: Check sits in FlexboxLayout rows (dictionaries list,
+  reader sheets) and Slint 1.18 reports a binding loop for a height that follows the width there. Kept
+  macOS-only because the smoke clicks option panels' boxes at fixed places (2-documents-and-tools.sh:88).
+- Preferences ▸ Accent colour: the first swatch shows the system accent.
+- Preferences segments sized to their labels (`Segment.fit-width`) instead of fixed 90–254 px widths: many smoke
+  steps click preference rows by coordinates, not only through `pref_find`.
+- Encrypt with certificates sheet as tall as its content (the smoke clicks its buttons at fixed places in the
+  760 × 680 sheet, 4-flows.sh:320).
+
+Skipped: Versions dialog emphasis (in reader files, not this pass's). Seen, not changed: in dark mode on macOS the
+selected segment's blue label on its blue tint reads weakly; Linux option labels wider than the panel still clip.

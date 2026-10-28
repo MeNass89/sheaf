@@ -30,19 +30,11 @@ export component MenuItem inherits Rectangle {
         visible: !root.collapsed;
         text: root.text;
         font-size: Theme.fs-menu;
-        font-weight: root.selected ? Theme.weight-demibold : 400;
-        color: root.selected ? Theme.accent : Theme.menu-text;
+        // Selected: the tint and the accent icon mark it (macOS sidebar); the text stays plain.
+        font-weight: 400;
+        color: root.selected ? Theme.text : Theme.menu-text;
         vertical-alignment: center;
         overflow: elide;
-    }
-
-    // Selection bar flush with the item's right edge (its left one, right to left).
-    if root.selected: Rectangle {
-        x: root.rtl ? 0 : root.width - self.width;
-        width: 4px;
-        height: 18px;
-        border-radius: 2px;
-        background: Theme.menu-bar;
     }
 
     touch := TouchArea {
