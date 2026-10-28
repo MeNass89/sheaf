@@ -1370,7 +1370,10 @@ quit; scanner_restore
 scanner_driver
 cp "$OUT/text.pdf" "$OUT/driver-insert.pdf"; launch "$OUT/driver-insert.pdf"; sleep 1
 xdotool mousemove 120 230 click 3; sleep 0.8; IS=$(at scanner 300x420+20+200); [ -n "$IS" ] && click $IS 2
-key ctrl+s; sleep 1.5; N1=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
+# The keys go to the pages: after the thumbnail's menu the keyboard stayed with the panel, and in the
+# full suite ⌘S saved nothing (4/4/4 with five pages shown, 28/10). The save is waited for.
+click 760 500 0.4
+key ctrl+s; for _ in $(seq 1 10); do N1=$(npages "$OUT/driver-insert.pdf" 2>/dev/null); [ "$N1" = 5 ] && break; sleep 0.5; done
 SN=$(pdftoppm -r 20 -f 2 -l 2 -png "$OUT/driver-insert.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
 key ctrl+z; sleep 0.8; key ctrl+s; sleep 1; N2=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
 key ctrl+shift+z; sleep 0.8; key ctrl+s; sleep 1; N3=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)

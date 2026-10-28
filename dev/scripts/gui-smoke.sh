@@ -118,6 +118,10 @@ launch() {
     # profile (it did until 21/10: smoke runs wrote into ~/.local/share/Sheaf).
     # Its own temp folder too: the app is killed, so its temp copies are not removed on exit.
     local p="$PWD/$OUT/profile"; mkdir -p "$p/tmp"
+    # No app left over on this display: a step that launched twice left one running, the next launch handed
+    # its file to it (the window registry) and every later step drove the wrong window (28/10).
+    for q in $(pgrep -x sheaf-app-under); do tr '\0' '\n' < /proc/$q/environ 2>/dev/null | grep -qx "DISPLAY=:$D" && kill "$q" 2>/dev/null; done
+    rm -rf "$p/data/Sheaf/windows"
     TMPDIR="$p/tmp" XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" SHEAF_READER_DEBUG=1 SHEAF_TEST_DIALOG="$PWD/$OUT/dialog-answer" SHEAF_TEST_MAIL="$PWD/$OUT/mail-sent" SHEAF_TEST_SCREENSHOT="$PWD/$OUT/stamp.png" SHEAF_TEST_SCAN="$PWD/$OUT/stamp.png" SHEAF_TEST_NOTIFY="$PWD/$OUT/notified" SHEAF_TEST_SPEECH="$PWD/$OUT/spoken" SHEAF_TEST_DEFAULT="$PWD/$OUT/made-default" "$APP" "$@" >>"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done
