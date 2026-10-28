@@ -80,7 +80,7 @@ export component PositionGrid inherits Rectangle {
         border-radius: Theme.radius-small;
         border-width: root.selected == i && root.enabled ? 0 : 1px;
         border-color: t.has-hover ? Theme.text-secondary : Theme.option-border;
-        background: root.selected == i && root.enabled ? Theme.success-strong : Theme.input-bg;
+        background: root.selected == i && root.enabled ? Theme.accent : Theme.input-bg;
         t := TouchArea {
             enabled: root.enabled;
             mouse-cursor: pointer;

@@ -686,6 +686,31 @@ fn check_start(ui: &AppWindow, tab: i32) {
     });
 }
 
+/// macOS's accent colour (System Settings ▸ Appearance ▸ Accent colour) in sRGB, read once at start.
+#[cfg(target_os = "macos")]
+fn system_accent() -> Option<slint::Color> {
+    use objc2::msg_send;
+    use objc2::rc::Retained;
+    use objc2::runtime::{AnyClass, AnyObject};
+    let ns_color = AnyClass::get(c"NSColor")?;
+    let ns_color_space = AnyClass::get(c"NSColorSpace")?;
+    let (mut r, mut g, mut b, mut a) = (0f64, 0f64, 0f64, 0f64);
+    // SAFETY: AppKit's documented API with the types it declares: +[NSColor controlAccentColor]
+    // (macOS 10.14), +[NSColorSpace sRGBColorSpace], -[NSColor colorUsingColorSpace:] (nil when the
+    // colour cannot be converted), then -[NSColor getRed:green:blue:alpha:] writing four CGFloats
+    // (f64 on 64-bit macOS) through the pointers given.
+    unsafe {
+        let accent: Option<Retained<AnyObject>> = msg_send![ns_color, controlAccentColor];
+        let srgb_space: Option<Retained<AnyObject>> = msg_send![ns_color_space, sRGBColorSpace];
+        let (accent, srgb_space) = (accent?, srgb_space?);
+        let srgb: Option<Retained<AnyObject>> = msg_send![&*accent, colorUsingColorSpace: &*srgb_space];
+        let srgb = srgb?;
+        let _: () = msg_send![&*srgb, getRed: &mut r as *mut f64, green: &mut g as *mut f64, blue: &mut b as *mut f64, alpha: &mut a as *mut f64];
+    }
+    let byte = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    Some(slint::Color::from_rgb_u8(byte(r), byte(g), byte(b)))
+}
+
 /// Wires the global and fills it.
 pub fn install(ui: &AppWindow) {
     // The grammar rules load while the window opens, not on the first word typed.
@@ -699,6 +724,14 @@ pub fn install(ui: &AppWindow) {
     load_dictionary(ui);
     let g = ui.global::<PlatformBridge>();
     g.set_mac(cfg!(target_os = "macos"));
+    // Mac metrics and the system accent (ui/theme.slint). Debug builds show the Mac metrics on
+    // another system with SHEAF_TEST_MAC_THEME=1, to check them in a snapshot.
+    let theme = ui.global::<sheaf_app::Theme>();
+    theme.set_mac(cfg!(target_os = "macos") || (cfg!(debug_assertions) && std::env::var_os("SHEAF_TEST_MAC_THEME").is_some()));
+    #[cfg(target_os = "macos")]
+    if let Some(accent) = system_accent() {
+        theme.set_system_accent(accent);
+    }
     let weak = ui.as_weak();
     g.on_minimize(move || if let Some(ui) = weak.upgrade() { ui.window().set_minimized(true) });
     let weak = ui.as_weak();

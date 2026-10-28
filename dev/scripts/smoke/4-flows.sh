@@ -1512,10 +1512,11 @@ if [ -f "$OUT/pdfa-actions-before.json" ]; then mv "$OUT/pdfa-actions-before.jso
 
 # 305. Right to left on tick boxes (C-platform-004; iLovePDF's mirrored interface): in Report an Issue, the ticked
 # box of "Include this computer's details" sits right of its label, left of it left to right.
-# The x of the green (ticked) pixels in the 300 px either side of a word's centre, their mean.
-green_x() { import -window root -crop "600x1+$(( $1 - 300 ))+$2" -depth 8 txt:- 2>/dev/null | python3 -c '
+# The x of the accent-red (ticked) pixels in the 300 px either side of a word's centre, their mean
+# (tick boxes take the accent colour since the BAMA pass, 28/10/2026).
+tick_x() { import -window root -crop "600x1+$(( $1 - 300 ))+$2" -depth 8 txt:- 2>/dev/null | python3 -c '
 import re, sys
-xs = [int(m.group(1)) for m in re.finditer(r"^(\d+),\d+: \(\s*(\d+),\s*(\d+),\s*(\d+)", sys.stdin.read(), re.M) if int(m.group(3)) > 120 and int(m.group(2)) < 90 and int(m.group(4)) < 120]
+xs = [int(m.group(1)) for m in re.finditer(r"^(\d+),\d+: \(\s*(\d+),\s*(\d+),\s*(\d+)", sys.stdin.read(), re.M) if int(m.group(2)) > 180 and int(m.group(3)) < 100 and int(m.group(4)) < 100]
 print(sum(xs) // len(xs) + int(sys.argv[1]) - 300 if xs else "")' "$1"; }
 export SHEAF_TEST_MENU_BAR=1
 for dir in 1 2; do
@@ -1523,7 +1524,7 @@ for dir in 1 2; do
     launch; sleep 0.5
     HX=$(at Help 1280x34+0+0); [ -n "$HX" ] && click $HX 0.8
     RI=$(at Report 1280x300+0+24); [ -n "$RI" ] && click $RI 1
-    read IX IY <<< "$(at Include 1280x800+0+0)"; GX=; [ -n "$IX" ] && GX=$(green_x $IX $IY)
+    read IX IY <<< "$(at Include 1280x800+0+0)"; GX=; [ -n "$IX" ] && GX=$(tick_x $IX $IY)
     [ $dir = 1 ] && { LX=$IX; LG=$GX; shot 305a-check-ltr; } || { RX=$IX; RG=$GX; shot 305b-check-rtl; }
     quit
 done

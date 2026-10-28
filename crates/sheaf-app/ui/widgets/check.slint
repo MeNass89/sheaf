@@ -15,7 +15,11 @@ export component Check inherits Rectangle {
     accessible-checked: root.checked;
     accessible-enabled: root.enabled;
     accessible-action-default => { if root.enabled { root.checked = !root.checked; root.toggled(); } }
+    // The ring marks keyboard focus only: a click still focuses the box (Return and Space keep
+    // working) but draws no ring, as on macOS.
+    property <bool> keyboard-focus;
     focus := FocusScope {
+        focus-gained(reason) => { root.keyboard-focus = reason == FocusReason.tab-navigation; }
         key-pressed(e) => {
             if root.enabled && (e.text == Key.Return || e.text == " ") { root.checked = !root.checked; root.toggled(); return accept; }
             reject
@@ -23,7 +27,10 @@ export component Check inherits Rectangle {
     }
     // Box and label placed by hand, the box on the right right to left (Preferences ▸ Interface ▸
     // Direction; iLovePDF's mirrored checkboxes).
-    min-width: label.preferred-width + 24px;
+    // macOS: a label too long for a narrow panel ends in an ellipsis instead of widening the row
+    // past it. (Wrapping it loops in Slint 1.18: a FlexboxLayout row cannot follow a height that
+    // follows the width.) Elsewhere the row keeps its label's width: the smoke clicks at fixed places.
+    min-width: Theme.mac ? 24px + min(label.preferred-width, 96px) : label.preferred-width + 24px;
     preferred-width: label.preferred-width + 24px;
     Rectangle {
             x: PlatformBridge.rtl ? parent.width - self.width : 0;
@@ -32,13 +39,13 @@ export component Check inherits Rectangle {
             height: 16px;
             border-radius: Theme.radius-small;
             border-width: root.checked ? 0 : 1.5px;
-            border-color: focus.has-focus ? Theme.text-secondary : Theme.option-border;
-            background: root.checked ? Theme.success-strong : Theme.panel-bg;
+            border-color: focus.has-focus && root.keyboard-focus ? Theme.text-secondary : Theme.option-border;
+            background: root.checked ? Theme.accent : Theme.panel-bg;
             if root.checked: Image {
                 width: 12px;
                 height: 12px;
                 source: @image-url("../icons/check.svg");
-                colorize: Theme.on-success;
+                colorize: Theme.on-accent;
             }
         }
     label := Text {
@@ -49,6 +56,7 @@ export component Check inherits Rectangle {
             font-size: Theme.fs-label;
             color: Theme.text;
             vertical-alignment: center;
+            overflow: Theme.mac ? TextOverflow.elide : TextOverflow.clip;
     }
     TouchArea {
         enabled: root.enabled;

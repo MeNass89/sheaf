@@ -1125,7 +1125,7 @@ export component OptionsPanel inherits VerticalLayout {
         Check { text: @tr("Straighten and clean scans first"); checked <=> root.ocr-enhance; }
         InfoBox { text: @tr("The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable. Pages that already contain text are left alone unless you tick the box above; then only words not already there are added. Straightened and cleaned, a scanned page is drawn again level, its paper white and its ink dark."); }
         if !OcrInfo.available: InfoBox {
-            icon: @image-url("../icons/triangle-alert.svg");
+            warning: true;
             text: @tr("No OCR models or local language packs were found. Reinstall Sheaf or install Tesseract and language packs locally, then restart Sheaf.");
         }
     }
@@ -1153,11 +1153,11 @@ export component OptionsPanel inherits VerticalLayout {
         }
         // iLovePDF converts a scan's pages as pictures unless OCR is chosen: say so when a file is one.
         if !root.export-ocr && root.any-scanned: InfoBox {
-            icon: @image-url("../icons/triangle-alert.svg");
+            warning: true;
             text: @tr("This PDF looks scanned: its text can't be selected. Choose OCR to get editable text.");
         }
         if root.export-ocr && !OcrInfo.available: InfoBox {
-            icon: @image-url("../icons/triangle-alert.svg");
+            warning: true;
             text: @tr("The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR.");
         }
         // Acrobat's Word settings: flowing text (editable paragraphs and tables) or the page layout.
@@ -1441,23 +1441,26 @@ export component OptionsPanel inherits VerticalLayout {
     }
     // Every tool runs here, offline (iLovePDF Desktop's offline tools): said at the foot of the
     // options; Office conversion says it above, with LibreOffice.
-    if !(root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf" || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.stretch;
-        spacing: 6px;
+    // Lock and text placed by hand, as InfoBox's: the text wraps (a longer translation was cut off)
+    // and a FlexboxLayout row cannot follow a wrapped text's height.
+    if !(root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf" || root.tool == "excel_to_pdf" || root.tool == "html_to_pdf"): Rectangle {
+        height: max(12px, local-note.preferred-height);
         Image {
-            cross-axis-self-alignment: CrossAxisAlignment.center;
+            x: PlatformBridge.rtl ? parent.width - self.width : 0;
+            y: max(0px, (min(local-note.preferred-height, 16px) - self.height) / 2);
             width: 12px;
             height: 12px;
             source: @image-url("../icons/lock.svg");
             colorize: Theme.text-muted;
         }
-        Text {
+        local-note := Text {
+            x: PlatformBridge.rtl ? 0 : 18px;
+            width: parent.width - 18px;
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: @tr("Runs on this computer. Nothing is uploaded.");
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
+            wrap: word-wrap;
         }
     }
 
@@ -1465,7 +1468,7 @@ export component OptionsPanel inherits VerticalLayout {
     if root.office-missing && !(root.tool == "excel_to_pdf" && root.layout == 2) && !(root.tool == "html_to_pdf" && root.layout != 0 && root.html-screen-width > 0): VerticalLayout {
         spacing: 10px;
         InfoBox {
-            icon: @image-url("../icons/triangle-alert.svg");
+            warning: true;
             text: root.tool == "excel_to_pdf" ? @tr("Choose Built-in data report, or install LibreOffice for the workbook’s print layout.") : @tr("Install LibreOffice to enable this tool. Sheaf uses it to read Office and HTML files.");
         }
         Segment {

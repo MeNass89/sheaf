@@ -11,14 +11,17 @@ export component SecondaryButton inherits Rectangle {
     min-width: label.preferred-width + 32px;
     border-radius: Theme.radius-button;
     border-width: 1px;
-    border-color: focus.has-focus && root.enabled ? Theme.text-secondary : Theme.input-border;
+    border-color: focus.has-focus && root.keyboard-focus && root.enabled ? Theme.text-secondary : Theme.input-border;
     background: touch.has-hover && root.enabled ? Theme.popup-hover : Theme.card;
     opacity: root.enabled ? 1 : 0.45;
     accessible-role: button;
     accessible-label: root.text;
     accessible-enabled: root.enabled;
     accessible-action-default => { if root.enabled { root.clicked(); } }
+    // The ring marks keyboard focus only: a click still focuses the button but draws no ring.
+    property <bool> keyboard-focus;
     focus := FocusScope {
+        focus-gained(reason) => { root.keyboard-focus = reason == FocusReason.tab-navigation; }
         key-pressed(e) => {
             if root.enabled && (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; }
             reject
@@ -27,7 +30,7 @@ export component SecondaryButton inherits Rectangle {
     label := Text {
         text: root.text;
         font-size: Theme.fs-button;
-        font-weight: Theme.weight-demibold;
+        font-weight: 500;
         color: Theme.text;
         horizontal-alignment: center;
         vertical-alignment: center;

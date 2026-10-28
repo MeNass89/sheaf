@@ -21,7 +21,8 @@ component TabItem inherits Rectangle {
     // Right to left (Preferences ▸ Interface ▸ Direction): icon on the right, × on the left.
     property <bool> rtl: PlatformBridge.rtl;
     property <length> name-start: 12px + Theme.tab-icon + 10px;
-    property <length> name-end: close.visible ? 30px : 8px;
+    // The unsaved dot sits where the × goes: the name stops before either.
+    property <length> name-end: (close.visible || root.unsaved) ? 30px : 8px;
     width: Theme.tool-tab-width;
     height: Theme.tab-height;
     background: root.active ? Theme.tab-bg : touch.has-hover ? Theme.menu-hover-bg : transparent;
@@ -191,8 +192,10 @@ export component TabBar inherits Rectangle {
         alignment: start;
         spacing: 2px;
         // "Home" tab
+        // Full tab height, as the tool tabs: unset, the flexbox gave it its content's height.
         Rectangle {
             width: Theme.tab-width;
+            height: Theme.tab-height;
             background: root.active == -1 ? Theme.tab-bg : home-touch.has-hover ? Theme.menu-hover-bg : transparent;
             border-top-left-radius: Theme.radius-small;
             border-top-right-radius: Theme.radius-small;
@@ -239,6 +242,7 @@ export component TabBar inherits Rectangle {
         }
         Rectangle {
             width: 34px;
+            height: Theme.tab-height;
             IconButton {
                 icon: @image-url("../icons/plus.svg");
                 clicked => { root.new-tab(); }

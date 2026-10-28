@@ -9,16 +9,17 @@ export component PrimaryButton inherits Rectangle {
     height: Theme.button-height;
     min-width: label.preferred-width + 32px;
     border-radius: Theme.radius-button;
-    background: !enabled ? Theme.text-disabled
+    background: !enabled ? Theme.pill-bg
         : touch.pressed ? Theme.accent-pressed
         : touch.has-hover ? Theme.accent-hover : Theme.accent;
     animate background { duration: 120ms; }
 
     label := Text {
         text: root.text;
-        color: Theme.on-accent;
+        // Disabled: grey on grey (white on text-disabled read at 2.2:1).
+        color: root.enabled ? Theme.on-accent : Theme.text-disabled;
         font-size: Theme.fs-button;
-        font-weight: Theme.weight-demibold;
+        font-weight: 500;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
