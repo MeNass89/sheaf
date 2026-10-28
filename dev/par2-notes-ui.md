@@ -141,6 +141,9 @@ Seen through System Events on the MBP: Slint's app menu had About, Services, Hid
 and Preferences… to Edit, and Window had no Minimize. Now on a Mac (PlatformBridge.mac): Settings… (⌘,) in the
 app menu after About (src/mac_menu.rs: Slint rebuilds the whole menu bar on every change, so the item is put
 back on NSMenuDidAddItemNotification), no Quit in File nor Preferences in Edit, Minimize (⌘M) and Zoom in Window.
-Checked on the MBP: the menus' items in that order, Settings… still there after the menu bar is rebuilt (a click
-on it), and the clicks reach the app. Not yet checked: Preferences shown after Settings…, the window minimized and
-zoomed (AXMinimized read false 1 s after Minimize; the MBP went offline before the recheck).
+Checked on the MBP (System Events clicks; probes in an instrumented copy there; CGWindowList): the menus' items in
+that order, Settings… still there after the menu bar is rebuilt; Settings… reaches the app (preferences-asked 1,
+main.slint then shows Preferences); Zoom takes the window from 1280 × 832 to 1800 × 1130; Minimize takes the
+1280 × 832 window off the screen and a 120 × 118 tile shows at the Dock's edge (AXMinimized reads another of the
+app's windows, the menu bar's, hence false). Preferences itself is not seen (Slint's text is not in the AX tree and
+screen capture is refused over ssh).

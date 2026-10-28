@@ -135,3 +135,13 @@ on flat colour).
   2.4 s at 1 pt / 2 pt; only pixels near an edge are scanned (chamfer distance), rows in parallel.
 - Aesthetics: the Trapping section matches the sheet's other sections (two- and three-up fields, preset buttons
   as the press presets); screenshots dev/.tmp only (smoke 346-trap-sheet, 346-traps).
+
+## C-optimize-006 OCR speed re-measured (28/10, Opus)
+
+The MICI scan rebuilt (the 4-page fiche at 200 dpi, grey, 1654 × 2339: /tmp/f5/mici/mici-scan.pdf from
+pdftoppm -r 200 -gray). This VM now: 8 vCPU = 4 physical cores (EPYC 7B12). Tesseract 5 `fra`, one page after
+another: 9.2 s for 4 pages (2.3 s/page; 1.95 s/page at OMP_THREAD_LIMIT=1); four at once: 29.9 s. Sheaf release
+benchmark (`release_ocr_mici_benchmark…`, prepacked): warm median 3.33 s/page, 1789 words; CPU 317 s user in 99 s
+(3.4 cores busy). Reading pages two to four at once (run_with on worker threads) gave 3.17 s/page: within noise,
+reverted. The gap is per-core model speed (Conv 72–75 % of model time, RTEN_TIMING), as on 24/10: 1.45× Tesseract.
+The lever is still a faster inference engine for the recognition model (onnxruntime, DECISIONS 24/10).

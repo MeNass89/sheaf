@@ -26,7 +26,8 @@ typing and Edit text).
 Verdict: ALL GREEN (bash scripts/test.sh, full run, round 36, 1375 s). macOS scanner (ImageKit panel, scan_mac.rs),
 local pictures through LibreOffice 26, craft fonts in every build (.cargo/config.toml); macOS unit layer green on
 the MBP (ssh nassimlecornet@mbpn, ~/sheaf-ci; tight disk: build with CARGO_PROFILE_DEV_DEBUG=0, delete test
-binaries after). Pinch checked on the MBP with synthetic magnify events (CGEvent type 29, round 37 notes).
+binaries after; its charger gives 68 W: a 12-job build drained the battery to shutdown on 28/10, so build with
+-j4 and only above 30 %). Pinch checked on the MBP with synthetic magnify events (CGEvent type 29, round 37 notes).
 Next: Sol reviews the scanner trio and C-reader-010; BAMA pass.
 Open: the `pages` test binary dies by SIGSEGV about one full run in five, never alone (100 runs under 4×16
 threads, 15 under 120–400 MB caps: none). dmesg: four crashes, threads a_page_changed_in_size…,
