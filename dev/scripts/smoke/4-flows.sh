@@ -1169,15 +1169,15 @@ json.dump({"version":1,"name":"Wizard settings","steps":[
 PY353
 cp "$OUT/text.pdf" "$OUT/353-source.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/353-wizard.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
 ED=$(at Edit 200x250+1040+450); [ -n "$ED" ] && click $ED
 # Labelled fields can be below the editor's fold; scroll only that editor until the label is visible.
 batch_label() {
     local point
     for _ in $(seq 1 30); do
-        point=$(at "$1" 740x440+500+290)
+        point=$(at "$1" 790x360+460+290)
         if [ -n "$point" ]; then echo "$point"; return; fi
         xdotool mousemove 1245 650 click 5; sleep 0.15
     done
@@ -1185,8 +1185,9 @@ batch_label() {
 batch_field() {
     local bx by
     read bx by <<< "$(batch_label "$1")"
-    [ -n "$by" ] && click "$bx" $(( by + 32 )) 0.2
-    key ctrl+a; xdotool type --clearmodifiers --delay 5 "$2"; sleep 0.3
+    [ -n "$by" ] || return 1
+    click "$bx" $(( by + 32 )) 0.2
+    key ctrl+a; xdotool type --clearmodifiers --delay 5 -- "$2"; sleep 0.3
 }
 batch_field Mark "After | review"
 batch_field Font "24"
@@ -1195,7 +1196,7 @@ batch_field Opacity "0.35"
 batch_field Rotation "-30"
 shot 353-labelled-settings
 xdotool mousemove 1245 450; for _ in $(seq 1 50); do xdotool click 4; done; sleep 0.6
-SA=$(at Save 600x180+485+380); [ -n "$SA" ] && click $SA 1
+SA=$(at Save 320x100+450+490); [ -n "$SA" ] && click $SA 1
 check "353 labelled mark controls preserve text, range, appearance, order and per-step instructions" "python3 -c 'import json; a=next(x for x in json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")) if x[\"name\"] == \"Wizard settings\"); assert a[\"steps\"][0][\"argument\"] == \"24|0.35|-30|0|0|Helvetica|2-3|After | review\"; assert a[\"steps\"][0][\"prompt\"] and a[\"steps\"][0][\"instruction\"] == \"Review each output\"; assert a[\"steps\"][1][\"tool\"] == \"set_title\"'"
 xdotool mousemove 1245 650; for _ in $(seq 1 65); do xdotool click 5; done; sleep 0.8
 answer "$PWD/$OUT/353-source.pdf"
