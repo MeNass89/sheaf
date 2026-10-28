@@ -41,6 +41,19 @@ map-reduce, ask, summarize, translate, podcast, slides, classify; `deck.rs` slid
   fits, or into categories the model names; results grouped by category; Stirling's Classify
   (`documents_are_classified_into_the_categories_given`, `answers_are_matched_to_the_categories`, smoke 363).
 
+## Round 31
+
+- Answers stream into the panel as the provider writes them (OpenAI-style and xAI/Mistral/compatible
+  server-sent events, Anthropic's content_block_delta events, Gemini's streamGenerateContent?alt=sse,
+  Ollama's JSON lines); a server that ignores `stream` is read whole. Stop keeps what was written.
+  Notes of a long document's parts are not streamed, only the final answer
+  (`answers_are_streamed_in_each_providers_format`, smoke 360 checks `"stream": true`).
+- Error and empty states: no provider → a "No AI provider yet" card with Set up AI…; key missing or
+  refused, AI off → Open AI settings…; network, rate limit, provider error, Stop → Try again; an empty
+  space says how to fill it (smoke 364).
+- Spaces: a space's file opens in its own tab when clicked; steps 360 and 363 recalibrated (the
+  question field and the narrower New space / Add PDFs… buttons).
+
 ## Left, and why
 
 - Audio for the podcast: Acrobat speaks it; Sheaf writes the script (a text-to-speech voice per host
@@ -49,8 +62,6 @@ map-reduce, ask, summarize, translate, podcast, slides, classify; `deck.rs` slid
   word to save as .txt, which keeps every language.
 - Default model names (gpt-5-mini, claude-sonnet-4-5, gemini-2.5-flash, mistral-small-latest, grok-4,
   llama3.2) are starting points; any model can be typed in Preferences ▸ AI.
-- Answers are not streamed: each request returns whole (the status line shows the part being read,
-  and Stop cancels between requests).
 
 ## New dependency
 

@@ -19,6 +19,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
             a = "Animals"
         else:
             a = "Mockanswer the fox jumps (p. 1)"
+        if "Rate me" in q:
+            out = b'{"error": {"message": "Rate limit reached"}}'
+            self.send_response(429)
+            self.send_header("retry-after", "3")
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+            return
+        if body.get("stream"):
+            # Server-sent events, a few words per event, as OpenAI streams.
+            words = a.split(" ")
+            out = "".join("data: " + json.dumps({"choices": [{"delta": {"content": w + (" " if i < len(words) - 1 else "")}}]}) + "\n\n" for i, w in enumerate(words)) + "data: [DONE]\n\n"
+            out = out.encode()
+            self.send_response(200)
+            self.send_header("content-type", "text/event-stream")
+            self.send_header("content-length", str(len(out)))
+            self.end_headers()
+            self.wfile.write(out)
+            return
         out = json.dumps({"choices": [{"message": {"role": "assistant", "content": a}}]}).encode()
         self.send_response(200)
         self.send_header("content-type", "application/json")

@@ -17,6 +17,42 @@ pub fn page_sources(pages: &[String]) -> Vec<Source> {
     pages.iter().enumerate().filter(|(_, t)| !t.trim().is_empty()).map(|(i, t)| Source { label: format!("p. {}", i + 1), text: t.trim().to_string() }).collect()
 }
 
+thread_local! {
+    static SINK: std::cell::RefCell<Option<Box<dyn FnMut(&str) -> bool>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Runs `f` with the text of its final answers handed to `sink` as it is written (the AI panel
+/// shows it growing); the notes of a long document's parts are not streamed, only what the user
+/// reads. `sink` returning `false` stops the answer.
+pub fn streaming<R>(sink: impl FnMut(&str) -> bool + 'static, f: impl FnOnce() -> R) -> R {
+    SINK.with(|s| *s.borrow_mut() = Some(Box::new(sink)));
+    let r = f();
+    SINK.with(|s| *s.borrow_mut() = None);
+    r
+}
+
+/// The text the user reads: streamed when a sink is set ([`streaming`]), else in one piece.
+fn answer(cfg: &Config, messages: &[Message]) -> Result<String, AiError> {
+    let sink = SINK.with(|s| s.borrow_mut().take());
+    match sink {
+        None => chat(cfg, messages),
+        Some(mut sink) => {
+            let r = super::chat_stream(cfg, messages, &mut |d| sink(d));
+            SINK.with(|s| *s.borrow_mut() = Some(sink));
+            r
+        }
+    }
+}
+
+/// Hands text to the sink, if any (between translated parts).
+fn emit(text: &str) {
+    SINK.with(|s| {
+        if let Some(sink) = s.borrow_mut().as_mut() {
+            sink(text);
+        }
+    });
+}
+
 /// Told before each request: (request about to be made, 1-based; requests in all). `false` stops.
 pub type Progress<'a> = &'a mut dyn FnMut(usize, usize) -> bool;
 
@@ -86,7 +122,7 @@ fn map_reduce(cfg: &Config, sources: &[Source], progress: Progress, single: impl
     let parts = chunks(sources, cfg.max_chars);
     if parts.len() == 1 {
         step(progress, 1, 1)?;
-        return chat(cfg, &single(&parts[0]));
+        return answer(cfg, &single(&parts[0]));
     }
     let total = parts.len() + 1;
     let mut notes = Vec::new();
@@ -111,7 +147,7 @@ fn map_reduce(cfg: &Config, sources: &[Source], progress: Progress, single: impl
         }
         joined = shorter.join("\n\n");
     }
-    chat(cfg, &reduce(&joined))
+    answer(cfg, &reduce(&joined))
 }
 
 /// A question about the document (`sources`), or about `selection` when there is one, with the
@@ -129,7 +165,7 @@ pub fn ask(cfg: &Config, sources: &[Source], selection: Option<&str>, question: 
     if let Some(sel) = selection.map(str::trim).filter(|s| !s.is_empty()) {
         step(progress, 1, 1)?;
         let sel: String = sel.chars().take(cfg.max_chars).collect();
-        return chat(cfg, &earlier(vec![Message::system(SYSTEM), Message::user(format!("The user selected this passage of the document:\n<<<\n{sel}\n>>>\n\n{question}"))]));
+        return answer(cfg, &earlier(vec![Message::system(SYSTEM), Message::user(format!("The user selected this passage of the document:\n<<<\n{sel}\n>>>\n\n{question}"))]));
     }
     map_reduce(
         cfg,
@@ -175,7 +211,10 @@ pub fn translate(cfg: &Config, sources: &[Source], language: &str, progress: Pro
     let mut out = Vec::new();
     for (i, part) in parts.iter().enumerate() {
         step(progress, i + 1, parts.len())?;
-        out.push(chat(cfg, &[Message::system("You translate documents faithfully. Keep paragraphs, line breaks, lists and the labels in square brackets such as [p. 3] exactly where they are. Reply with the translation only, no comments."), Message::user(format!("Translate into {language}:\n<<<\n{part}\n>>>"))])?.trim().to_string());
+        if i > 0 {
+            emit("\n\n");
+        }
+        out.push(answer(cfg, &[Message::system("You translate documents faithfully. Keep paragraphs, line breaks, lists and the labels in square brackets such as [p. 3] exactly where they are. Reply with the translation only, no comments."), Message::user(format!("Translate into {language}:\n<<<\n{part}\n>>>"))])?.trim().to_string());
     }
     Ok(out.join("\n\n"))
 }

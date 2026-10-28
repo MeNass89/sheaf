@@ -68,6 +68,19 @@ export component AiPanel inherits Rectangle {
                 }
             }
         }
+        // No provider answers yet: say what to do, with the way there (the panel stays usable once set).
+        if !AiBridge.configured && !AiBridge.off: Rectangle {
+            border-radius: Theme.radius-small;
+            background: Theme.popup-hover;
+            height: setup.preferred-height;
+            setup := VerticalLayout {
+                padding: 10px;
+                spacing: 8px;
+                Text { text: "No AI provider yet"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                Text { text: "Add an API key (OpenAI, Claude, Gemini, Mistral, xAI) or start Ollama or a llama.cpp server on this computer."; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                HorizontalLayout { alignment: start; PanelButton { text: "Set up AI…"; primary: true; clicked => { AiBridge.act(root.id, "settings", "", 0, ""); } } }
+            }
+        }
         if AiBridge.off: Rectangle {
             border-radius: Theme.radius-small;
             background: Theme.popup-hover;
@@ -83,7 +96,7 @@ export component AiPanel inherits Rectangle {
         HorizontalLayout {
             spacing: 6px;
             space-box := SortCombo {
-                horizontal-stretch: 1;
+                width: 220px;
                 options: AiBridge.spaces;
                 current-index: AiBridge.space;
                 chevron: @image-url("../icons/chevron-down.svg");
@@ -93,9 +106,10 @@ export component AiPanel inherits Rectangle {
         }
         if AiBridge.space > 0: VerticalLayout {
             spacing: 4px;
+            if AiBridge.space-files.length == 0: Text { text: "This space is empty: Add PDFs… puts files in it. Questions and summaries read every file."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
             for f[k] in AiBridge.space-files: HorizontalLayout {
                 spacing: 6px;
-                Text { text: f; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
+                Text { text: f; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; TouchArea { mouse-cursor: pointer; clicked => { AiBridge.space-act("open", k); } } }
                 PanelButton { text: "Remove"; enabled: !AiBridge.busy; clicked => { AiBridge.space-act("remove", k); } }
             }
             HorizontalLayout {
@@ -154,14 +168,23 @@ export component AiPanel inherits Rectangle {
                 }
                 for m[k] in AiBridge.messages: Rectangle {
                     border-radius: Theme.radius-small;
-                    background: m.error ? Theme.option-selected-bg : m.mine ? Theme.menu-selected-bg : Theme.content-bg;
+                    // An error is outlined in red on the card, never in the colour of the user's own messages.
+                    background: m.error ? Theme.card : m.mine ? Theme.menu-selected-bg : Theme.content-bg;
+                    border-width: m.error ? 1px : 0px;
+                    border-color: Theme.danger;
                     height: bubble.preferred-height;
                     bubble := VerticalLayout {
                         padding: 10px;
                         spacing: 6px;
-                        Text { text: m.mine ? "You" : m.error ? "Could not answer" : "AI"; font-size: Theme.fs-caption; font-weight: Theme.weight-demibold; color: m.error ? Theme.danger : Theme.text-secondary; }
+                        Text { text: m.mine ? "You" : m.error ? "Could not answer" : m.live ? "AI · writing…" : "AI"; font-size: Theme.fs-caption; font-weight: Theme.weight-demibold; color: m.error ? Theme.danger : Theme.text-secondary; }
                         Text { text: m.text; font-size: Theme.fs-label; color: Theme.text; wrap: word-wrap; }
-                        if !m.mine && !m.error: HorizontalLayout {
+                        if m.retry || m.settings: HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            if m.retry: PanelButton { text: "Try again"; enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "retry", "" + k, 0, ""); } }
+                            if m.settings: PanelButton { text: "Open AI settings…"; clicked => { AiBridge.act(root.id, "settings", "", 0, ""); } }
+                        }
+                        if !m.mine && !m.error && !m.live: HorizontalLayout {
                             spacing: 6px;
                             alignment: start;
                             PanelButton { text: "Copy"; clicked => { AiBridge.act(root.id, "copy", "" + k, 0, ""); } }

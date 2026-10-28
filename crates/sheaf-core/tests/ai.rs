@@ -292,3 +292,75 @@ fn a_space_reads_every_file_with_its_name() {
     assert!(src[1].text.contains("Second file text"));
     assert_eq!(failed.len(), 1);
 }
+
+/// A mock that answers with a raw `content_type` body (a stream), keeping the request.
+fn mock_raw(content_type: &'static str, body: String) -> (String, Arc<Mutex<Vec<Seen>>>) {
+    let l = TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!("http://{}", l.local_addr().unwrap());
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let log = seen.clone();
+    std::thread::spawn(move || {
+        for s in l.incoming().flatten() {
+            let mut s = s;
+            let mut r = BufReader::new(s.try_clone().unwrap());
+            let mut line = String::new();
+            r.read_line(&mut line).unwrap();
+            let path = line.split_whitespace().nth(1).unwrap_or("").to_string();
+            let mut n = 0usize;
+            loop {
+                let mut h = String::new();
+                r.read_line(&mut h).unwrap();
+                if h.trim().is_empty() {
+                    break;
+                }
+                if let Some((k, v)) = h.split_once(':')
+                    && k.eq_ignore_ascii_case("content-length")
+                {
+                    n = v.trim().parse().unwrap();
+                }
+            }
+            let mut b = vec![0; n];
+            r.read_exact(&mut b).unwrap();
+            log.lock().unwrap().push(Seen { method: "POST".into(), path, headers: HashMap::new(), body: serde_json::from_slice(&b).unwrap() });
+            let _ = s.write_all(format!("HTTP/1.1 200 OK\r\ncontent-type: {content_type}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len()).as_bytes());
+        }
+    });
+    (base, seen)
+}
+
+#[test]
+fn answers_are_streamed_in_each_providers_format() {
+    let cases: [(Provider, &str, String); 4] = [
+        (Provider::OpenAi, "text/event-stream", "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"lo.\"}}]}\n\ndata: [DONE]\n\n".into()),
+        (Provider::Anthropic, "text/event-stream", "event: message_start\ndata: {\"type\":\"message_start\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Hel\"}}\n\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"lo.\"}}\n\ndata: {\"type\":\"message_stop\"}\n\n".into()),
+        (Provider::Gemini, "text/event-stream", "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hel\"}]}}]}\n\ndata: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"lo.\"}]}}]}\n\n".into()),
+        (Provider::Ollama, "application/x-ndjson", "{\"message\":{\"content\":\"Hel\"},\"done\":false}\n{\"message\":{\"content\":\"lo.\"},\"done\":true}\n".into()),
+    ];
+    for (p, kind, body) in cases {
+        let (base, seen) = mock_raw(kind, body);
+        let mut pieces = Vec::new();
+        let all = sheaf_core::ai::chat_stream(&cfg(p, &base, Some("k"), "m"), &convo(), &mut |d| { pieces.push(d.to_string()); true }).unwrap();
+        assert_eq!((all.as_str(), pieces.len()), ("Hello.", 2), "{p:?}");
+        let s = seen.lock().unwrap()[0].clone();
+        if p == Provider::Gemini {
+            assert_eq!(s.path, "/v1beta/models/m:streamGenerateContent?alt=sse");
+        } else {
+            assert_eq!(s.body["stream"], true, "{p:?}");
+        }
+    }
+    // A server that ignores streaming answers whole: read whole, handed over once.
+    let (base, _) = mock(ok(json!({"choices": [{"message": {"content": "Whole."}}]})));
+    let mut n = 0;
+    assert_eq!(sheaf_core::ai::chat_stream(&cfg(Provider::Compatible, &base, None, "m"), &convo(), &mut |_| { n += 1; true }).unwrap(), "Whole.");
+    assert_eq!(n, 1);
+    // An error inside the stream is told, and the summary task streams its final answer.
+    let (base, _) = mock_raw("text/event-stream", "data: {\"type\":\"error\",\"error\":{\"message\":\"Overloaded\"}}\n\n".into());
+    assert_eq!(sheaf_core::ai::chat_stream(&cfg(Provider::Anthropic, &base, Some("k"), "m"), &convo(), &mut |_| true).unwrap_err().to_string(), "Anthropic (Claude) answered with an error (200): Overloaded");
+    let (base, _) = mock_raw("text/event-stream", "data: {\"choices\":[{\"delta\":{\"content\":\"A \"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"summary.\"}}]}\n\n".into());
+    let got = Arc::new(Mutex::new(String::new()));
+    let g = got.clone();
+    let c = cfg(Provider::Compatible, &base, None, "m");
+    let r = tasks::streaming(move |d| { g.lock().unwrap().push_str(d); true }, || tasks::summarize(&c, &tasks::page_sources(&["Text.".into()]), Summary::Paragraphs, &mut |_, _| true));
+    assert_eq!(r.unwrap(), "A summary.");
+    assert_eq!(*got.lock().unwrap(), "A summary.");
+}
