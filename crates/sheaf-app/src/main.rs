@@ -641,6 +641,8 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_default_zoom, |ui, z| home::set_default_zoom(&ui, z));
     wire!(ui, on_set_default_spread, |ui, s| home::set_default_spread(&ui, s));
     wire!(ui, on_set_open_first_page, |ui, f| home::set_open_first_page(&ui, f));
+    wire!(ui, on_choose_display_profile, |ui| home::choose_display_profile(&ui));
+    wire!(ui, on_reset_display_profile, |ui| home::reset_display_profile(&ui));
     wire!(ui, on_set_smoothing, |ui, k, on| home::set_smoothing(&ui, k, on));
     wire!(ui, on_set_stamp_date, |ui, f| home::set_stamp_date(&ui, f));
     wire!(ui, on_set_metric, |ui, m| home::set_metric(&ui, m));

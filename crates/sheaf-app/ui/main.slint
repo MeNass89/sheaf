@@ -180,6 +180,9 @@ export component AppWindow inherits Window {
     // Preferences ▸ Rendering: text, line art and images smoothed.
     in property <[bool]> smooth: [true, true, true];
     callback set-smoothing(int, bool);
+    in property <string> display-profile;
+    callback choose-display-profile();
+    callback reset-display-profile();
     in property <string> author-default;
     property <bool> confirm-clear;
 
@@ -546,6 +549,9 @@ export component AppWindow inherits Window {
                             open-first-page: root.open-first-page;
                             set-open-first-page(f) => { root.set-open-first-page(f); }
                             smooth: root.smooth;
+                            display-profile: root.display-profile;
+                            choose-display-profile => { root.choose-display-profile(); }
+                            reset-display-profile => { root.reset-display-profile(); }
                             set-smoothing(k, on) => { root.set-smoothing(k, on); }
                             backdrop-pref: root.backdrop-pref;
                             set-accent(i) => { root.set-accent(i); }

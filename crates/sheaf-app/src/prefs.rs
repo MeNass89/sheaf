@@ -121,6 +121,8 @@ pub struct Prefs {
     /// The window drawn by the processor, not the graphics card (Acrobat's Use 2D GPU
     /// acceleration off), from the next start.
     pub no_gpu: bool,
+    /// Acrobat's display colour management: an RGB monitor ICC, or the renderer's sRGB.
+    pub display_profile: Option<PathBuf>,
     /// The art (green), trim (blue) and bleed (red) boxes drawn on the pages (Acrobat's Show art,
     /// trim & bleed boxes).
     pub show_boxes: bool,
