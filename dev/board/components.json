@@ -21109,14 +21109,14 @@
    270
   ],
   "grade": {
-   "function": 2,
-   "aesthetics": 4,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 2
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "menu bar and shortcuts (File/Edit/View/Go/Tools)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -21128,6 +21128,17 @@
      "overall": 2
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [270]"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 38, 8f150fd: macOS menu conventions; MBP checks in dev/par2-notes-ui.md) and Sol AGREE 9 (rev38b, 28/10)"
    }
   ]
  },

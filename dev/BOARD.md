@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 314 · closed 314, open 17
+331 components · at parity (≥9): 315 · closed 315, open 16
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -11,19 +11,18 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 2 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |
 | 3 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
 | 4 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | light; release channel decision is Nassim's |
-| 5 | C-platform-014 | normal | Native menu bar and shortcuts | ours | 2 · 4 · 9 → **2** | menu bar and shortcuts (File/Edit/View/Go/Tools) |
-| 6 | C-sign-011 | normal | Request signatures from others | acrobat | 2 · 4 · 8 → **2** | out of local-first scope (cloud); light |
-| 7 | C-preferences-003 | normal | Choose interface language | ilovepdf | 8 · 8 · 8 → **8** | localisation (after core) |
-| 8 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
-| 9 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
-| 10 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
-| 11 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
-| 12 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
-| 13 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 14 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
-| 15 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
-| 16 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
-| 17 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
+| 5 | C-sign-011 | normal | Request signatures from others | acrobat | 2 · 4 · 8 → **2** | out of local-first scope (cloud); light |
+| 6 | C-preferences-003 | normal | Choose interface language | ilovepdf | 8 · 8 · 8 → **8** | localisation (after core) |
+| 7 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
+| 8 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
+| 9 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
+| 10 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
+| 11 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
+| 12 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 13 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
+| 14 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
+| 15 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
+| 16 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
@@ -39,7 +38,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | optimize | 15 | 8.9 | 14 |
 | organize | 27 | 9.0 | 27 |
 | output | 15 | 9.0 | 15 |
-| platform | 14 | 6.9 | 9 |
+| platform | 14 | 7.4 | 10 |
 | preferences | 14 | 8.9 | 13 |
 | reader | 64 | 9.0 | 64 |
 | security | 18 | 9.0 | 18 |
@@ -252,6 +251,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-platform-010 | MCP server for AI agents | 9 | Joint 9: Opus (round 6–7 and earlier, eca24df/70417de) and Sol AGREE 9 (re-review b13c-round6, 25/10) |
 | C-platform-011 | Open files from the system | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27c-round22, 26/10) |
 | C-platform-013 | Work offline without account | 9 | Stale-grade audit 22/10 (independent reviewer): no network library at run time (reqwest only a Windows build dep of winprint); outgoing URLs only opened by the user (main.rs, reader_ui/pointer.rs) |
+| C-platform-014 | Native menu bar and shortcuts | 9 | Joint 9: Opus (round 38, 8f150fd: macOS menu conventions; MBP checks in dev/par2-notes-ui.md) and Sol AGREE 9 (rev38b, 28/10) |
 | C-preferences-001 | Open preferences | 9 | ⌘, from anywhere (Home, tool tabs, documents, their fields) opens Preferences, leaving full screen and a presentation; Home sidebar entry. gui-smoke: from a tool tab and a document. Joint 9/10: independent Opus reviewer (interim for Sol, see DECISIONS) agreed in round 3 |
 | C-preferences-002 | Choose theme and colours | 9 | Joint 9: Opus (round 6, eca24df) and Sol AGREE 9 (re-review b13a-round6, 25/10) |
 | C-preferences-004 | Set default view on open | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29b-round24, 27/10) |
