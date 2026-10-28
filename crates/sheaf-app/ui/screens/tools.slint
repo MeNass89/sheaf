@@ -75,14 +75,14 @@ export component ToolsScreen inherits Rectangle {
             spacing: 12px;
             Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                text: "Tools";
+                text: @tr("Tools");
                 font-size: Theme.fs-page-title;
                 font-weight: Theme.weight-bold;
                 color: Theme.text;
                 vertical-alignment: center;
                 horizontal-stretch: 1;
             }
-            SecondaryButton { text: "Custom tools"; clicked => { ActionBridge.command("custom-tools", 0); } }
+            SecondaryButton { text: @tr("Custom tools"); clicked => { ActionBridge.command("custom-tools", 0); } }
             // Search tools (Stirling's tool search): a name, a word, or letters in order.
             Rectangle {
                 cross-axis-self-alignment: CrossAxisAlignment.center;
@@ -92,7 +92,7 @@ export component ToolsScreen inherits Rectangle {
                 border-width: 1px;
                 border-color: search.has-focus ? Theme.text-secondary : Theme.input-border;
                 background: Theme.input-bg;
-                if search.text == "": Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: PlatformBridge.rtl ? parent.width - (10px) - self.width : 10px; text: "Search tools"; font-size: Theme.fs-button; color: Theme.text-muted; vertical-alignment: center; }
+                if search.text == "": Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: PlatformBridge.rtl ? parent.width - (10px) - self.width : 10px; text: @tr("Search tools"); font-size: Theme.fs-button; color: Theme.text-muted; vertical-alignment: center; }
                 search := TextInput {
                     // Tools page tools' keys wait while a field has the keyboard.
                     changed has-focus => { PlatformBridge.typing = self.has-focus; }
@@ -114,14 +114,14 @@ export component ToolsScreen inherits Rectangle {
             }
             Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                text: "Sort";
+                text: @tr("Sort");
                 font-size: Theme.fs-button;
                 color: Theme.text-secondary;
                 vertical-alignment: center;
             }
             SortCombo {
                 cross-axis-self-alignment: CrossAxisAlignment.center;
-                options: ["Categories", "All"];
+                options: [@tr("Categories"), @tr("All")];
                 current-index <=> root.sort;
                 chevron: root.chevron;
             }
@@ -147,7 +147,7 @@ export component ToolsScreen inherits Rectangle {
                     if root.results.length == 0: Text {
                         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                         height: 60px;
-                        text: "No tool matches \"" + root.typed + "\".";
+                        text: @tr("No tool matches \"{}\".", root.typed);
                         font-size: Theme.fs-body;
                         color: Theme.text-muted;
                         vertical-alignment: center;
@@ -182,7 +182,7 @@ export component ToolsScreen inherits Rectangle {
                     Text {
                         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                         height: Theme.section-header-height;
-                        text: "Favourites";
+                        text: @tr("Favourites");
                         font-size: Theme.fs-section;
                         font-weight: Theme.weight-demibold;
                         color: Theme.text-heading;

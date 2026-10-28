@@ -11,7 +11,7 @@ export component SpellingDialog inherits Modal {
     card-width: 540px;
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "Check spelling";
+        text: @tr("Check spelling");
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
@@ -46,13 +46,13 @@ export component SpellingDialog inherits Modal {
         }
         Text {
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            text: PlatformBridge.check-note + ": “\{PlatformBridge.check-word}”";
+            text: PlatformBridge.check-note + @tr(": “{}”", PlatformBridge.check-word);
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: Theme.danger;
         }
         to := TextField {
-            label: "Change to";
+            label: @tr("Change to");
             placeholder: PlatformBridge.check-word;
             accepted => { PlatformBridge.check-change(self.text); }
         }
@@ -71,7 +71,7 @@ export component SpellingDialog inherits Modal {
                     x: 8px;
                     width: parent.width - 16px;
                     // A grammar fix of a single space reads as words.
-                    text: s == " " ? "One space" : s;
+                    text: s == " " ? @tr("One space") : s;
                     font-size: Theme.fs-label;
                     color: Theme.text;
                     vertical-alignment: center;
@@ -85,7 +85,7 @@ export component SpellingDialog inherits Modal {
         }
         if PlatformBridge.check-suggestions.length == 0: Text {
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            text: "No suggestions: type the word as it should be.";
+            text: @tr("No suggestions: type the word as it should be.");
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
         }
@@ -94,12 +94,12 @@ export component SpellingDialog inherits Modal {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 8px;
             alignment: end;
-            SecondaryButton { text: "Next"; clicked => { PlatformBridge.check-next(); } }
-            SecondaryButton { text: "Learn"; clicked => { PlatformBridge.check-learn(); } }
-            SecondaryButton { text: "Ignore"; clicked => { PlatformBridge.check-ignore(); } }
+            SecondaryButton { text: @tr("Next"); clicked => { PlatformBridge.check-next(); } }
+            SecondaryButton { text: @tr("Learn"); clicked => { PlatformBridge.check-learn(); } }
+            SecondaryButton { text: @tr("Ignore"); clicked => { PlatformBridge.check-ignore(); } }
             // Acrobat's Change All: here and wherever the word comes in what is left to check.
-            SecondaryButton { text: "Change All"; clicked => { PlatformBridge.check-change-all(to.text); } }
-            PrimaryButton { text: "Change"; clicked => { PlatformBridge.check-change(to.text); } }
+            SecondaryButton { text: @tr("Change All"); clicked => { PlatformBridge.check-change-all(to.text); } }
+            PrimaryButton { text: @tr("Change"); clicked => { PlatformBridge.check-change(to.text); } }
         }
     }
     // Every comment and field checked (or none to check, or no dictionary): what was done.
@@ -114,6 +114,6 @@ export component SpellingDialog inherits Modal {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: end;
-        SecondaryButton { text: PlatformBridge.check-word == "" ? "Done" : "Stop"; clicked => { PlatformBridge.check-close(); } }
+        SecondaryButton { text: PlatformBridge.check-word == "" ? @tr("Done") : @tr("Stop"); clicked => { PlatformBridge.check-close(); } }
     }
 }

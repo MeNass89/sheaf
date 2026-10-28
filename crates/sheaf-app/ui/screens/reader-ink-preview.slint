@@ -57,9 +57,9 @@ export component InkPreviewSheet inherits Rectangle {
         VerticalLayout {
             padding: 18px;
             spacing: 10px;
-            Text { text: PrintPreviewBridge.title + " · page " + PrintPreviewBridge.page; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: @tr("{} · page {}", PrintPreviewBridge.title, PrintPreviewBridge.page); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
             Text { text: PrintPreviewBridge.detail; font-size: Theme.fs-caption; color: Theme.text-muted; }
-            if PrintPreviewBridge.busy: Text { text: "Rendering preview…"; color: Theme.text-secondary; font-size: Theme.fs-body; }
+            if PrintPreviewBridge.busy: Text { text: @tr("Rendering preview…"); color: Theme.text-secondary; font-size: Theme.fs-body; }
             if PrintPreviewBridge.error != "": Text { text: PrintPreviewBridge.error; wrap: word-wrap; color: Theme.danger; font-size: Theme.fs-body; }
             if PrintPreviewBridge.plates.length > 0: Text { text: PrintPreviewBridge.plates[PrintPreviewBridge.selected].name; wrap: word-wrap; color: Theme.text-secondary; font-size: Theme.fs-caption; }
             HorizontalLayout {
@@ -85,7 +85,7 @@ export component InkPreviewSheet inherits Rectangle {
             }
             HorizontalLayout {
                 Rectangle { horizontal-stretch: 1; }
-                SmallButton { text: "Close"; clicked => { PrintPreviewBridge.close(); root.focus-pages(); } }
+                SmallButton { text: @tr("Close"); clicked => { PrintPreviewBridge.close(); root.focus-pages(); } }
             }
         }
     }

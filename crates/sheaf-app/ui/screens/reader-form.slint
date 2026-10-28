@@ -98,16 +98,16 @@ export component FieldPropsCard inherits Rectangle {
         padding: 12px;
         spacing: 8px;
         Text {
-            text: ["Text field", "Check box", "Radio button", "Dropdown", "List box", "Button", "Signature field"][root.props.exact];
+            text: [@tr("Text field"), @tr("Check box"), @tr("Radio button"), @tr("Dropdown"), @tr("List box"), @tr("Button"), @tr("Signature field")][root.props.exact];
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: Theme.text-heading;
         }
-        name-field := PanelField { placeholder: "Name"; }
-        tip-field := PanelField { placeholder: "Tooltip (what to fill in)"; }
+        name-field := PanelField { placeholder: @tr("Name"); }
+        tip-field := PanelField { placeholder: @tr("Tooltip (what to fill in)"); }
         if root.props.exact == 3 || root.props.exact == 4: VerticalLayout {
             spacing: 4px;
-            Text { text: "Items, one per line"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            Text { text: @tr("Items, one per line"); font-size: Theme.fs-caption; color: Theme.text-muted; }
             items-edit := TextEdit {
                 // Tools page tools' keys wait while a field has the keyboard.
                 changed has-focus => { PlatformBridge.typing = self.has-focus; }
@@ -119,10 +119,10 @@ export component FieldPropsCard inherits Rectangle {
         // Text, dropdown and list: the text's size and alignment (Acrobat's Appearance ▸ Font size, Options ▸ Alignment).
         if root.props.exact == 0 || root.props.exact == 3 || root.props.exact == 4: HorizontalLayout {
             spacing: 6px;
-            Text { text: "Size"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-            PanelField { width: 64px; placeholder: "Auto"; text <=> size-text.text; }
+            Text { text: @tr("Size"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            PanelField { width: 64px; placeholder: @tr("Auto"); text <=> size-text.text; }
             Rectangle { width: 8px; }
-            for a[i] in ["Left", "Centre", "Right"]: SmallButton { text: a; primary: root.align == i; clicked => { root.align = i; } }
+            for a[i] in [@tr("Left"), @tr("Centre"), @tr("Right")]: SmallButton { text: a; primary: root.align == i; clicked => { root.align = i; } }
         }
         // Its text's font (Acrobat's Appearance ▸ Font).
         if root.props.exact == 0 || (root.props.exact >= 3 && root.props.exact <= 5): HorizontalLayout {
@@ -132,12 +132,12 @@ export component FieldPropsCard inherits Rectangle {
         // A button: what a click does (Acrobat's Actions ▸ Mouse Up).
         if root.props.exact == 5: VerticalLayout {
             spacing: 6px;
-            Text { text: "When clicked"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            Text { text: @tr("When clicked"); font-size: Theme.fs-caption; color: Theme.text-muted; }
             HorizontalLayout {
                 spacing: 4px;
-                for a[i] in ["Nothing", "Clear", "Print", "Open address", "Submit"]: SmallButton { text: a; primary: root.action == i; clicked => { root.action = i; } }
+                for a[i] in [@tr("Nothing"), @tr("Clear"), @tr("Print"), @tr("Open address"), @tr("Submit")]: SmallButton { text: a; primary: root.action == i; clicked => { root.action = i; } }
             }
-            if root.action >= 3: PanelField { placeholder: root.action == 4 ? "The address the form is sent to" : "https://…"; text <=> url-text.text; }
+            if root.action >= 3: PanelField { placeholder: root.action == 4 ? @tr("The address the form is sent to") : "https://…"; text <=> url-text.text; }
         }
         // A text field: Acrobat's Format, Validate (a range) and Calculate (simplified field notation).
         if root.props.exact == 0: VerticalLayout {
@@ -145,36 +145,36 @@ export component FieldPropsCard inherits Rectangle {
             HorizontalLayout {
                 spacing: 4px;
                 alignment: start;
-                Text { text: "Format"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
-                for f[i] in ["None", "Number", "%", "Date", "Phone", "Zip"]: SmallButton { text: f; primary: root.format == i; clicked => { root.format = i; } }
+                Text { text: @tr("Format"); font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                for f[i] in [@tr("None"), @tr("Number"), "%", @tr("Date"), @tr("Phone"), @tr("Zip")]: SmallButton { text: f; primary: root.format == i; clicked => { root.format = i; } }
             }
             HorizontalLayout {
                 spacing: 6px;
                 alignment: start;
-                Text { text: "Between"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                Text { text: @tr("Between"); font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
                 PanelField { width: 70px; placeholder: "min"; text <=> min-text.text; }
                 Text { text: "and"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
                 PanelField { width: 70px; placeholder: "max"; text <=> max-text.text; }
             }
-            PanelField { placeholder: "Calculated: Price * Quantity"; text <=> calc-text.text; }
+            PanelField { placeholder: @tr("Calculated: Price * Quantity"); text <=> calc-text.text; }
         }
         HorizontalLayout {
             spacing: 14px;
-            Check { text: "Required"; checked <=> root.required; }
-            Check { text: "Read-only"; checked <=> root.read-only; }
-            if root.props.exact == 0: Check { text: "Several lines"; checked <=> root.multiline; }
+            Check { text: @tr("Required"); checked <=> root.required; }
+            Check { text: @tr("Read-only"); checked <=> root.read-only; }
+            if root.props.exact == 0: Check { text: @tr("Several lines"); checked <=> root.multiline; }
         }
         // Copies in a grid, the field the top-left one (Acrobat's Create Multiple Copies: down, across).
         HorizontalLayout {
             spacing: 6px;
             alignment: start;
-            Text { text: "Copies"; vertical-alignment: center; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            Text { text: @tr("Copies"); vertical-alignment: center; font-size: Theme.fs-caption; color: Theme.text-muted; }
             down := PanelField { width: 44px; placeholder: "1"; }
-            Text { text: "down ×"; vertical-alignment: center; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            Text { text: @tr("down ×"); vertical-alignment: center; font-size: Theme.fs-caption; color: Theme.text-muted; }
             across := PanelField { width: 44px; placeholder: "1"; }
             Text { text: "across"; vertical-alignment: center; font-size: Theme.fs-caption; color: Theme.text-muted; }
             SmallButton {
-                text: "Make";
+                text: @tr("Make");
                 clicked => {
                     ReaderBridge.field-copies(root.id, down.text == "" ? 1 : down.text.to-float(), across.text == "" ? 1 : across.text.to-float());
                     root.focus-pages();
@@ -183,10 +183,10 @@ export component FieldPropsCard inherits Rectangle {
         }
         HorizontalLayout {
             spacing: 6px;
-            SmallButton { text: "Delete"; clicked => { ReaderBridge.field-delete(root.id); root.focus-pages(); } }
-            if root.props.other-pages: SmallButton { text: "On every page"; clicked => { ReaderBridge.field-everywhere(root.id); root.focus-pages(); } }
+            SmallButton { text: @tr("Delete"); clicked => { ReaderBridge.field-delete(root.id); root.focus-pages(); } }
+            if root.props.other-pages: SmallButton { text: @tr("On every page"); clicked => { ReaderBridge.field-everywhere(root.id); root.focus-pages(); } }
             Rectangle { horizontal-stretch: 1; }
-            SmallButton { text: "Done"; primary: true; clicked => { root.apply(); } }
+            SmallButton { text: @tr("Done"); primary: true; clicked => { root.apply(); } }
         }
     }
     // The texts of the rows shown for some fields only, kept here when the row is hidden.
@@ -245,18 +245,18 @@ export component FieldsArrangeCard inherits Rectangle {
         padding: 12px;
         spacing: 8px;
         Text {
-            text: root.count + " fields selected";
+            text: @tr("{} fields selected", root.count);
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: Theme.text-heading;
         }
-        Text { text: "Arranged after the first one picked; the arrow keys move them."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+        Text { text: @tr("Arranged after the first one picked; the arrow keys move them."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
         // Codes as reader::arrange.
         for row in [
-            { label: "Align", items: [{ t: "Left", k: 0 }, { t: "Centre", k: 1 }, { t: "Right", k: 2 }] },
-            { label: "", items: [{ t: "Top", k: 3 }, { t: "Middle", k: 4 }, { t: "Bottom", k: 5 }] },
-            { label: "Size", items: [{ t: "Same width", k: 6 }, { t: "Same height", k: 7 }, { t: "Both", k: 8 }] },
-            { label: "Space", items: [{ t: "Evenly across", k: 9 }, { t: "Evenly down", k: 10 }] },
+            { label: @tr("Align"), items: [{ t: @tr("Left"), k: 0 }, { t: @tr("Centre"), k: 1 }, { t: @tr("Right"), k: 2 }] },
+            { label: "", items: [{ t: @tr("Top"), k: 3 }, { t: @tr("Middle"), k: 4 }, { t: @tr("Bottom"), k: 5 }] },
+            { label: @tr("Size"), items: [{ t: @tr("Same width"), k: 6 }, { t: @tr("Same height"), k: 7 }, { t: @tr("Both"), k: 8 }] },
+            { label: @tr("Space"), items: [{ t: @tr("Evenly across"), k: 9 }, { t: @tr("Evenly down"), k: 10 }] },
         ]: HorizontalLayout {
             spacing: 4px;
             Text { width: 44px; text: row.label; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
@@ -264,9 +264,9 @@ export component FieldsArrangeCard inherits Rectangle {
         }
         HorizontalLayout {
             spacing: 6px;
-            SmallButton { text: "Delete"; clicked => { ReaderBridge.field-delete(root.id); root.focus-pages(); } }
+            SmallButton { text: @tr("Delete"); clicked => { ReaderBridge.field-delete(root.id); root.focus-pages(); } }
             Rectangle { horizontal-stretch: 1; }
-            SmallButton { text: "Done"; primary: true; clicked => { ReaderBridge.escape(root.id); root.focus-pages(); } }
+            SmallButton { text: @tr("Done"); primary: true; clicked => { ReaderBridge.escape(root.id); root.focus-pages(); } }
         }
     }
 }
@@ -293,7 +293,7 @@ export component ObjectsArrangeCard inherits Rectangle {
         padding: 12px;
         spacing: 8px;
         Text {
-            text: root.count + (root.comments ? " comments selected" : root.count == 1 ? " object selected" : " objects selected");
+            text: root.count + (root.comments ? @tr(" comments selected") : root.count == 1 ? @tr(" object selected") : @tr(" objects selected"));
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: Theme.text-heading;
@@ -302,9 +302,9 @@ export component ObjectsArrangeCard inherits Rectangle {
         if root.count > 1: VerticalLayout {
             spacing: 8px;
             for row in [
-                { label: "Align", items: [{ t: "Left", k: 0 }, { t: "Centre", k: 1 }, { t: "Right", k: 2 }] },
-                { label: "", items: [{ t: "Top", k: 3 }, { t: "Middle", k: 4 }, { t: "Bottom", k: 5 }] },
-                { label: "Space", items: [{ t: "Evenly across", k: 9 }, { t: "Evenly down", k: 10 }] },
+                { label: @tr("Align"), items: [{ t: @tr("Left"), k: 0 }, { t: @tr("Centre"), k: 1 }, { t: @tr("Right"), k: 2 }] },
+                { label: "", items: [{ t: @tr("Top"), k: 3 }, { t: @tr("Middle"), k: 4 }, { t: @tr("Bottom"), k: 5 }] },
+                { label: @tr("Space"), items: [{ t: @tr("Evenly across"), k: 9 }, { t: @tr("Evenly down"), k: 10 }] },
             ]: HorizontalLayout {
                 spacing: 4px;
                 Text { width: 44px; text: row.label; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
@@ -320,8 +320,8 @@ export component ObjectsArrangeCard inherits Rectangle {
         // Stacking order (Acrobat's Arrange), codes 20–23 as reader_ui::objects_arrange.
         if !root.comments: HorizontalLayout {
             spacing: 4px;
-            Text { width: 44px; text: "Order"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-            for b in [{ t: "To front", k: 20 }, { t: "Forward", k: 21 }, { t: "Backward", k: 22 }, { t: "To back", k: 23 }]: SmallButton {
+            Text { width: 44px; text: @tr("Order"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            for b in [{ t: @tr("To front"), k: 20 }, { t: @tr("Forward"), k: 21 }, { t: @tr("Backward"), k: 22 }, { t: @tr("To back"), k: 23 }]: SmallButton {
                 text: b.t;
                 clicked => {
                     ReaderBridge.objects-arrange(root.id, b.k);

@@ -131,6 +131,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             tool_keys: vec![("note".into(), "q".into())],
             launch_keys: vec![("merge".into(), "Control+Alt+M".into())],
             dictionaries: vec!["fr_FR".into(), "en_US".into()],
+            language: 2,
         },
         ai: sheaf_app::ai_store::AiPrefs {
             provider: Some("mistral".into()),

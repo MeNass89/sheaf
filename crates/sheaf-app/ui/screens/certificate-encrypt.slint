@@ -24,17 +24,17 @@ export component CertificateEncryptSheet inherits Rectangle {
         VerticalLayout {
             padding: 18px;
             spacing: 12px;
-            Text { text: "Encrypt with certificates"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-            Text { text: "Only the recipients below can open the copy, each with their own digital ID and permissions. Add your own ID to open it again."; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
+            Text { text: @tr("Encrypt with certificates"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: @tr("Only the recipients below can open the copy, each with their own digital ID and permissions. Add your own ID to open it again."); font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
             HorizontalLayout {
                 spacing: 8px;
                 alignment: start;
-                PanelButton { text: "Add certificate…"; enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 1, 0, ""); } }
-                PanelButton { text: "Add my digital ID…"; enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 2, 0, id-password.text); } }
-                id-password := TextField { width: 220px; placeholder: "Digital ID password"; password: true; }
+                PanelButton { text: @tr("Add certificate…"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 1, 0, ""); } }
+                PanelButton { text: @tr("Add my digital ID…"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 2, 0, id-password.text); } }
+                id-password := TextField { width: 220px; placeholder: @tr("Digital ID password"); password: true; }
             }
-            Text { text: "Recipients and what each may do"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-            if root.tab.reader.cert-recipients.length == 0: Text { text: "No recipient yet. Add their certificate (.cer, .crt, .pem, .der)."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+            Text { text: @tr("Recipients and what each may do"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+            if root.tab.reader.cert-recipients.length == 0: Text { text: @tr("No recipient yet. Add their certificate (.cer, .crt, .pem, .der)."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
             ScrollView {
                 vertical-stretch: 1;
                 VerticalLayout {
@@ -48,11 +48,11 @@ export component CertificateEncryptSheet inherits Rectangle {
                                 Text { text: recipient.name; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; overflow: elide; }
                                 Text { text: recipient.detail; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
                             }
-                            PanelButton { text: "Remove"; enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 3, k, ""); } }
+                            PanelButton { text: @tr("Remove"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 3, k, ""); } }
                         }
                         HorizontalLayout {
                             spacing: 14px;
-                            for flag[f] in ["Print", "Copy", "Edit", "Comment", "Fill forms", "Change security"]: Check {
+                            for flag[f] in [@tr("Print"), @tr("Copy"), @tr("Edit"), @tr("Comment"), @tr("Fill forms"), @tr("Change security")]: Check {
                                 text: flag;
                                 checked: recipient.flags[f];
                                 enabled: !root.tab.reader.cert-busy && (f == 5 || !recipient.flags[5]);
@@ -65,25 +65,25 @@ export component CertificateEncryptSheet inherits Rectangle {
             HorizontalLayout {
                 spacing: 10px;
                 alignment: start;
-                Text { text: "Encrypt"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                scope := SortCombo { width: 300px; options: ["All document contents", "All contents except metadata", "Only file attachments"]; chevron: @image-url("../icons/chevron-down.svg"); }
+                Text { text: @tr("Encrypt"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                scope := SortCombo { width: 300px; options: [@tr("All document contents"), @tr("All contents except metadata"), @tr("Only file attachments")]; chevron: @image-url("../icons/chevron-down.svg"); }
             }
-            Text { text: "Certificate security policies"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: @tr("Certificate security policies"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
             HorizontalLayout {
                 spacing: 8px;
                 alignment: start;
-                policy-name := TextField { width: 220px; placeholder: "Policy name"; }
-                PanelButton { text: "Save as policy"; enabled: !root.tab.reader.cert-busy && root.tab.reader.cert-recipients.length > 0; clicked => { ReaderBridge.cert-action(root.tab.id, 5, scope.current-index, policy-name.text); } }
-                PanelButton { text: "Export…"; enabled: !root.tab.reader.cert-busy && root.tab.reader.cert-recipients.length > 0; clicked => { ReaderBridge.cert-action(root.tab.id, 9, scope.current-index, policy-name.text); } }
-                PanelButton { text: "Import…"; enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 8, 0, ""); } }
+                policy-name := TextField { width: 220px; placeholder: @tr("Policy name"); }
+                PanelButton { text: @tr("Save as policy"); enabled: !root.tab.reader.cert-busy && root.tab.reader.cert-recipients.length > 0; clicked => { ReaderBridge.cert-action(root.tab.id, 5, scope.current-index, policy-name.text); } }
+                PanelButton { text: @tr("Export…"); enabled: !root.tab.reader.cert-busy && root.tab.reader.cert-recipients.length > 0; clicked => { ReaderBridge.cert-action(root.tab.id, 9, scope.current-index, policy-name.text); } }
+                PanelButton { text: @tr("Import…"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 8, 0, ""); } }
             }
             HorizontalLayout {
                 spacing: 8px;
                 alignment: start;
-                if root.tab.reader.cert-policies.length == 0: Text { text: "No saved policy yet."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                if root.tab.reader.cert-policies.length == 0: Text { text: @tr("No saved policy yet."); font-size: Theme.fs-caption; color: Theme.text-muted; }
                 for policy[k] in root.tab.reader.cert-policies: HorizontalLayout {
                     spacing: 4px;
-                    PanelButton { text: "Use " + policy; enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 6, k, ""); } }
+                    PanelButton { text: @tr("Use {}", policy); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 6, k, ""); } }
                     PanelButton { text: "×"; enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 7, k, ""); } }
                 }
             }
@@ -91,9 +91,9 @@ export component CertificateEncryptSheet inherits Rectangle {
             HorizontalLayout {
                 alignment: end;
                 spacing: 8px;
-                PanelButton { text: "Close"; enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 0, 0, ""); root.focus-pages(); } }
+                PanelButton { text: @tr("Close"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 0, 0, ""); root.focus-pages(); } }
                 PanelButton {
-                    text: "Save encrypted copy…";
+                    text: @tr("Save encrypted copy…");
                     primary: true;
                     enabled: !root.tab.reader.cert-busy && root.tab.reader.cert-recipients.length > 0;
                     clicked => { ReaderBridge.cert-action(root.tab.id, 4, scope.current-index, ""); }

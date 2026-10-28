@@ -94,7 +94,7 @@ fn category_index(c: Category) -> i32 {
 pub(crate) fn tool_card(t: &ToolInfo) -> ToolCard {
     ToolCard {
         id: t.id.as_str().into(),
-        name: t.name.into(),
+        name: sheaf_app::i18n::tr(t.name).into(),
         category: category_index(t.category),
         icon: icon_image(t.icon),
         tile: tile_colour(t.id),
@@ -112,7 +112,7 @@ pub(crate) fn install_catalogue(ui: &AppWindow) {
     let sections: Vec<ToolSection> = Category::ALL
         .iter()
         .map(|c| ToolSection {
-            title: c.label().into(),
+            title: sheaf_app::i18n::tr(c.label()).into(),
             collapsed: false,
             tools: ModelRc::new(VecModel::from(
                 catalogue.iter().copied().filter(|t| t.category == *c).map(tool_card).collect::<Vec<_>>(),

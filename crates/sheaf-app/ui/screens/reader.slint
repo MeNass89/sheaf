@@ -714,24 +714,24 @@ export component ReaderScreen inherits Rectangle {
                         bar := HorizontalLayout {
                             padding: 2px;
                             spacing: 0px;
-                            ToolButton { icon: @image-url("../icons/copy.svg"); tip: "Copy (⌘C)"; clicked => { clip.text = root.tab.reader.selected-text; clip.select-all(); clip.copy(); keys.focus(); } }
+                            ToolButton { icon: @image-url("../icons/copy.svg"); tip: @tr("Copy (⌘C)"); clicked => { clip.text = root.tab.reader.selected-text; clip.select-all(); clip.copy(); keys.focus(); } }
                             // PDF Expert's "Search": the selected words in the search field, results listed.
                             ToolButton {
                                 icon: @image-url("../icons/search.svg");
-                                tip: "Search for this (⇧⌘E)";
+                                tip: @tr("Search for this (⇧⌘E)");
                                 clicked => { root.bare = false; toolbar.search-for(root.tab.reader.selected-text); keys.focus(); }
                             }
-                            ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight"; clicked => { ReaderBridge.markup(root.id, 1); } }
-                            ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline"; clicked => { ReaderBridge.markup(root.id, 2); } }
-                            ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough"; clicked => { ReaderBridge.markup(root.id, 3); } }
+                            ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: @tr("Highlight"); clicked => { ReaderBridge.markup(root.id, 1); } }
+                            ToolButton { icon: @image-url("../icons/underline.svg"); tip: @tr("Underline"); clicked => { ReaderBridge.markup(root.id, 2); } }
+                            ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: @tr("Strikethrough"); clicked => { ReaderBridge.markup(root.id, 3); } }
                             // Acrobat's and PDF Expert's link from selected text.
-                            ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link… (⌘K)"; clicked => { ReaderBridge.link-selection(root.id); } }
+                            ToolButton { icon: @image-url("../icons/link.svg"); tip: @tr("Link… (⌘K)"); clicked => { ReaderBridge.link-selection(root.id); } }
                             // Acrobat's Replace Text: struck out, the new words in a caret note.
-                            ToolButton { icon: @image-url("../icons/replace.svg"); tip: "Replace text…"; clicked => { ReaderBridge.replace-selection(root.id); } }
+                            ToolButton { icon: @image-url("../icons/replace.svg"); tip: @tr("Replace text…"); clicked => { ReaderBridge.replace-selection(root.id); } }
                             // Acrobat's Insert Text: words proposed after the selection, nothing struck out.
-                            ToolButton { icon: @image-url("../icons/plus.svg"); tip: "Insert text after…"; clicked => { ReaderBridge.insert-after-selection(root.id); } }
+                            ToolButton { icon: @image-url("../icons/plus.svg"); tip: @tr("Insert text after…"); clicked => { ReaderBridge.insert-after-selection(root.id); } }
                             // PDF Expert's and Preview's Look Up: the words in the system's dictionary.
-                            ToolButton { icon: @image-url("../icons/book-open.svg"); tip: "Look up"; clicked => { ReaderBridge.look-up(root.tab.reader.selected-text); keys.focus(); } }
+                            ToolButton { icon: @image-url("../icons/book-open.svg"); tip: @tr("Look up"); clicked => { ReaderBridge.look-up(root.tab.reader.selected-text); keys.focus(); } }
                             Divider { y: 7px; }
                             // Highlight in one of the five colours straight from the selection.
                             for c[k] in root.light-colours: ColourDot {
@@ -884,7 +884,7 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : root.tab.reader.note.kind == 8 ? "Link to — a page number or a web address" : root.tab.reader.note.kind == 9 ? "Link — change where it goes, or remove it" : root.tab.reader.note.kind == 10 ? "Replace with — ↩ to propose" : root.tab.reader.note.kind == 11 ? "Insert after — ↩ to propose" : root.tab.reader.note.kind == 12 ? "Its real length — such as 4.5 m" : "Add text";
+                                text: root.tab.reader.note.kind == 0 ? @tr("Note") : root.tab.reader.note.kind == 1 ? @tr("Text box") : root.tab.reader.note.kind == 2 ? @tr("Edit text — ⌘↩ to apply") : root.tab.reader.note.kind == 4 ? @tr("↩ done · Tab next field") : root.tab.reader.note.kind == 5 ? @tr("Choose") : root.tab.reader.note.kind == 6 ? @tr("Comment") : root.tab.reader.note.kind == 7 ? @tr("Reply — ↩ to send") : root.tab.reader.note.kind == 8 ? @tr("Link to — a page number or a web address") : root.tab.reader.note.kind == 9 ? @tr("Link — change where it goes, or remove it") : root.tab.reader.note.kind == 10 ? @tr("Replace with — ↩ to propose") : root.tab.reader.note.kind == 11 ? @tr("Insert after — ↩ to propose") : root.tab.reader.note.kind == 12 ? @tr("Its real length — such as 4.5 m") : @tr("Add text");
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;
@@ -968,9 +968,9 @@ export component ReaderScreen inherits Rectangle {
                                 spacing: 6px;
                                 alignment: end;
                                 // An existing link: remove it (as Acrobat's Delete on a selected link).
-                                if root.tab.reader.note.kind == 9: SmallButton { text: "Remove link"; clicked => { ReaderBridge.note-commit(root.id, ""); keys.focus(); } }
-                                SmallButton { text: "Cancel"; clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }
-                                SmallButton { text: "Done"; primary: true; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
+                                if root.tab.reader.note.kind == 9: SmallButton { text: @tr("Remove link"); clicked => { ReaderBridge.note-commit(root.id, ""); keys.focus(); } }
+                                SmallButton { text: @tr("Cancel"); clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }
+                                SmallButton { text: @tr("Done"); primary: true; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
                             }
                         }
                     }
@@ -1156,8 +1156,8 @@ export component ReaderScreen inherits Rectangle {
                     height: 26px;
                     split-bar := HorizontalLayout {
                         spacing: 4px;
-                        SmallButton { text: root.tab.split-sync ? "✓ Sync scroll and zoom" : "Sync scroll and zoom"; clicked => { ReaderBridge.split-sync(root.id); keys.focus(); } }
-                        SmallButton { text: "Close"; clicked => { ReaderBridge.split-view(root.id, 0); keys.focus(); } }
+                        SmallButton { text: root.tab.split-sync ? @tr("✓ Sync scroll and zoom") : @tr("Sync scroll and zoom"); clicked => { ReaderBridge.split-sync(root.id); keys.focus(); } }
+                        SmallButton { text: @tr("Close"); clicked => { ReaderBridge.split-view(root.id, 0); keys.focus(); } }
                     }
                 }
                 // The hand tool in use, and how to leave it.
@@ -1169,7 +1169,7 @@ export component ReaderScreen inherits Rectangle {
                     border-radius: 14px;
                     background: Theme.info-bg;
                     hand-tip := Text {
-                        text: "Hand tool: drag to move, ⌥ drag to zoom · ⇧H or Escape to leave";
+                        text: @tr("Hand tool: drag to move, ⌥ drag to zoom · ⇧H or Escape to leave");
                         font-size: Theme.fs-caption;
                         color: Theme.info;
                     }
@@ -1241,19 +1241,19 @@ export component ReaderScreen inherits Rectangle {
                         spacing: 10px;
                         HorizontalLayout {
                             spacing: 6px;
-                            Text { text: "Reflow · page " + (root.tab.viewer-current + 1); font-size: Theme.fs-label; color: Theme.text-muted; vertical-alignment: center; }
+                            Text { text: @tr("Reflow · page {}", (root.tab.viewer-current + 1)); font-size: Theme.fs-label; color: Theme.text-muted; vertical-alignment: center; }
                             Rectangle { horizontal-stretch: 1; }
                             SmallButton { text: "‹"; clicked => { ReaderBridge.page-step(root.id, -1); } }
                             SmallButton { text: "›"; clicked => { ReaderBridge.page-step(root.id, 1); } }
-                            SmallButton { text: "A−"; clicked => { ReaderBridge.reflow(root.id, -1); } }
-                            SmallButton { text: "A+"; clicked => { ReaderBridge.reflow(root.id, 1); } }
-                            SmallButton { text: "Close"; clicked => { ReaderBridge.reflow(root.id, 0); keys.focus(); } }
+                            SmallButton { text: @tr("A−"); clicked => { ReaderBridge.reflow(root.id, -1); } }
+                            SmallButton { text: @tr("A+"); clicked => { ReaderBridge.reflow(root.id, 1); } }
+                            SmallButton { text: @tr("Close"); clicked => { ReaderBridge.reflow(root.id, 0); keys.focus(); } }
                         }
                         ScrollView {
                             VerticalLayout {
                                 alignment: start;
                                 Text {
-                                    text: root.tab.reader.reflow-text == "" ? "No text on this page (a scan: OCR reads it)." : root.tab.reader.reflow-text;
+                                    text: root.tab.reader.reflow-text == "" ? @tr("No text on this page (a scan: OCR reads it).") : root.tab.reader.reflow-text;
                                     wrap: word-wrap;
                                     font-size: root.tab.reader.reflow-size * 1px * 4 / 3;
                                     color: Theme.text;

@@ -1351,3 +1351,18 @@ done
 unset SHEAF_TEST_MENU_BAR
 check "tick boxes mirror right to left (left to right: box ${LG:-?} < label ${LX:-?}; right to left: box ${RG:-?} > label ${RX:-?})" "[ -n \"$LG\" ] && [ -n \"$RG\" ] && [ \"$LG\" -lt \"$LX\" ] && [ \"$RG\" -gt \"$RX\" ]"
 platform_reset
+
+# 306. Preferences ▸ Interface ▸ Language (C-preferences-003, iLovePDF's Language): French chosen, Home reads
+# Outils and Préférences in its sidebar and the Tools page Fusionner des PDF (a name made in Rust); Language ▸
+# English switches back at once, without restarting.
+prefs_set "p.setdefault('platform', {})['language'] = 2"
+launch; sleep 0.5
+SB=$(ocr 250x300+0+40)
+OT=$(at Outils 250x300+0+40); [ -n "$OT" ] && click $OT 0.8
+TP=$(ocr 1080x700+0+90); shot 306a-french
+key ctrl+comma; sleep 0.8
+EN=$(pref_find English); [ -n "$EN" ] && click $EN 0.8
+SB2=$(ocr 250x300+0+40); shot 306b-english
+LG=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["platform"]["language"])' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+check "the interface switches to French and back (sidebar: $(echo $SB | cut -c1-60); Tools page: $(echo "$TP" | grep -o 'Fusionner[^ ]*' | head -1); then $(echo $SB2 | cut -c1-50); language $LG)" "echo \"$SB\" | grep -q 'Outils' && echo \"$SB\" | grep -q 'Préférences' && echo \"$TP\" | grep -q 'Fusionner' && echo \"$SB2\" | grep -q 'Tools' && echo \"$SB2\" | grep -q 'Preferences' && [ \"$LG\" = 1 ]"
+quit; platform_reset

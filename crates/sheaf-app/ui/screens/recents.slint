@@ -78,32 +78,32 @@ export component RecentsScreen inherits Rectangle {
                     alignment: center;
                     spacing: 8px;
                     PrimaryButton {
-                        text: "Open file";
+                        text: @tr("Open file");
                         width: 92px;
                         clicked => { root.open-file(); }
                     }
                     SecondaryButton {
-                        text: "New blank PDF";
+                        text: @tr("New blank PDF");
                         clicked => { root.new-blank(); }
                     }
                     // Acrobat's Create PDF from Clipboard, Preview's New from Clipboard.
                     SecondaryButton {
-                        text: "From clipboard";
+                        text: @tr("From clipboard");
                         clicked => { root.new-from-clipboard(); }
                     }
                     // Acrobat's Create PDF ▸ Screen capture.
                     SecondaryButton {
-                        text: "From screenshot";
+                        text: @tr("From screenshot");
                         clicked => { root.new-from-screenshot(); }
                     }
                     // Acrobat's Create PDF ▸ Scanner.
                     SecondaryButton {
-                        text: "From scanner";
+                        text: @tr("From scanner");
                         clicked => { root.new-from-scanner(); }
                     }
                 }
                 Text {
-                    text: "PDFs, images or documents, or drag & drop anywhere";
+                    text: @tr("PDFs, images or documents, or drag & drop anywhere");
                     font-size: Theme.fs-button;
                     color: Theme.text-muted;
                     horizontal-alignment: center;
@@ -117,7 +117,7 @@ export component RecentsScreen inherits Rectangle {
             Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 height: Theme.button-height;
-                text: "Recent tools";
+                text: @tr("Recent tools");
                 font-size: Theme.fs-subtitle;
                 font-weight: Theme.weight-demibold;
                 color: Theme.text-heading;
@@ -148,7 +148,7 @@ export component RecentsScreen inherits Rectangle {
                 spacing: 10px;
                 Text {
                     horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                    text: "Recent files";
+                    text: @tr("Recent files");
                     font-size: Theme.fs-subtitle;
                     font-weight: Theme.weight-demibold;
                     color: Theme.text-heading;
@@ -158,19 +158,19 @@ export component RecentsScreen inherits Rectangle {
                 // Finder's search and sort, as PDF Expert's file browser has them.
                 TextField {
                     width: 200px;
-                    placeholder: "Search recent files";
+                    placeholder: @tr("Search recent files");
                     text <=> root.query;
                 }
                 SortCombo {
-                    options: ["Newest", "Name", "Size"];
+                    options: [@tr("Newest"), @tr("Name"), @tr("Size")];
                     current-index <=> root.order;
                     chevron: @image-url("../icons/chevron-down.svg");
                     selected(i) => { root.filter-recents(root.query, i); }
                 }
                 SecondaryButton {
-                    text: "Clear recents";
+                    text: @tr("Clear recents");
                     accessible-role: button;
-                    accessible-label: "Clear recents";
+                    accessible-label: @tr("Clear recents");
                     accessible-action-default => { root.clear-recents(); }
                     border-color: clear-focus.has-focus ? Theme.text-secondary : Theme.input-border;
                     clicked => { root.clear-recents(); }
@@ -227,7 +227,7 @@ export component RecentsScreen inherits Rectangle {
 
         if root.recents.length == 0: Rectangle { height: 16px; }
         if root.recents.length == 0: Text {
-            text: "Your recent files will appear here";
+            text: @tr("Your recent files will appear here");
             font-size: Theme.fs-button;
             color: Theme.text-muted;
             horizontal-alignment: center;
