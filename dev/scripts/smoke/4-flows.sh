@@ -1206,6 +1206,13 @@ P4=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
 shot 352-custom-undone
 check "352 custom page-range command applies to the open PDF and undoes (${AP:-no Apply}; pages ${P2:-?} then ${P4:-?})" "[ \"$P2\" = 2 ] && [ \"$P4\" = 4 ] && [ \"$T2\" = \"Page 2\" ] && [ \"$T3\" = \"Page 3\" ]"
 quit
+# The custom command goes again: while one exists the reader's toolbar gains Custom tools at its
+# left, which moves every later step's toolbar clicks 32 px (AI steps 364–367 failed so, 28/10).
+python3 - "$OUT/profile/data/Sheaf/actions.json" <<'PY352B'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+if p.exists(): p.write_text(json.dumps([a for a in json.loads(p.read_text()) if not a.get("custom_tool")]))
+PY352B
 
 # 353. Acrobat's Specify Settings: edit labelled watermark fields, preserve the next step and
 # its prompt, save, run, and inspect real output. The serialized text includes a literal pipe.
