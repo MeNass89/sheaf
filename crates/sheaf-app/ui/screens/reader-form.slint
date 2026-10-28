@@ -122,12 +122,12 @@ export component FieldPropsCard inherits Rectangle {
             Text { text: @tr("Size"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             PanelField { width: 64px; placeholder: @tr("Auto"); text <=> size-text.text; }
             Rectangle { width: 8px; }
-            for a[i] in [@tr("Left"), @tr("Centre"), @tr("Right")]: SmallButton { text: a; primary: root.align == i; clicked => { root.align = i; } }
+            for a[i] in [@tr("Left"), @tr("Centre"), @tr("Right")]: SmallButton { text: a; on: root.align == i; clicked => { root.align = i; } }
         }
         // Its text's font (Acrobat's Appearance ▸ Font).
         if root.props.exact == 0 || (root.props.exact >= 3 && root.props.exact <= 5): HorizontalLayout {
             spacing: 4px;
-            for f[i] in ["Helvetica", "Times", "Courier"]: SmallButton { text: f; primary: root.font == i; clicked => { root.font = i; } }
+            for f[i] in ["Helvetica", "Times", "Courier"]: SmallButton { text: f; on: root.font == i; clicked => { root.font = i; } }
         }
         // A button: what a click does (Acrobat's Actions ▸ Mouse Up).
         if root.props.exact == 5: VerticalLayout {
@@ -135,7 +135,7 @@ export component FieldPropsCard inherits Rectangle {
             Text { text: @tr("When clicked"); font-size: Theme.fs-caption; color: Theme.text-muted; }
             HorizontalLayout {
                 spacing: 4px;
-                for a[i] in [@tr("Nothing"), @tr("Clear"), @tr("Print"), @tr("Open address"), @tr("Submit")]: SmallButton { text: a; primary: root.action == i; clicked => { root.action = i; } }
+                for a[i] in [@tr("Nothing"), @tr("Clear"), @tr("Print"), @tr("Open address"), @tr("Submit")]: SmallButton { text: a; on: root.action == i; clicked => { root.action = i; } }
             }
             if root.action >= 3: PanelField { placeholder: root.action == 4 ? @tr("The address the form is sent to") : "https://…"; text <=> url-text.text; }
         }
@@ -146,7 +146,7 @@ export component FieldPropsCard inherits Rectangle {
                 spacing: 4px;
                 alignment: start;
                 Text { text: @tr("Format"); font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
-                for f[i] in [@tr("None"), @tr("Number"), "%", @tr("Date"), @tr("Phone"), @tr("Zip")]: SmallButton { text: f; primary: root.format == i; clicked => { root.format = i; } }
+                for f[i] in [@tr("None"), @tr("Number"), "%", @tr("Date"), @tr("Phone"), @tr("Zip")]: SmallButton { text: f; on: root.format == i; clicked => { root.format = i; } }
             }
             HorizontalLayout {
                 spacing: 6px;

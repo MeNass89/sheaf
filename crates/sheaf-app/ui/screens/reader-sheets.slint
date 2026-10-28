@@ -3,7 +3,7 @@ import { SettingsBridge } from "../settings.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Pad } from "sign-panel.slint";
-import { SmallButton, ColourDot } from "reader-parts.slint";
+import { SmallButton, ColourDot, StrokeWidth } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Check } from "../widgets/check.slint";
@@ -39,7 +39,7 @@ export component SignatureSheet inherits Rectangle {
     // The keyboard back to the pages once the sheet closes.
     callback focus-pages();
 
-    background: #00000044;
+    background: Theme.scrim;
     TouchArea { }
     Rectangle {
         width: 440px;
@@ -62,14 +62,13 @@ export component SignatureSheet inherits Rectangle {
                 spacing: 6px;
                 for c[k] in [#1A1A1F, #1A52D9, #0D2673]: ColourDot { cross-axis-self-alignment: CrossAxisAlignment.center; colour: c; selected: ink == k; clicked => { ink = k; } }
                 Rectangle { width: 10px; }
-                for w[k] in [2px, 4px, 6px]: Rectangle {
+                for w[k] in [2px, 4px, 6px]: StrokeWidth {
+                    cross-axis-self-alignment: CrossAxisAlignment.center;
                     width: 24px;
                     height: 24px;
-                    border-radius: 12px;
-                    border-width: pen == k ? 2px : 0px;
-                    border-color: Theme.text;
-                    Rectangle { width: w; height: w; border-radius: w / 2; background: Theme.text-secondary; }
-                    TouchArea { mouse-cursor: pointer; clicked => { pen = k; } }
+                    thickness: w;
+                    selected: pen == k;
+                    clicked => { pen = k; }
                 }
                 Rectangle { horizontal-stretch: 1; }
             }
@@ -134,7 +133,7 @@ export component PrintSheet inherits Rectangle {
     changed layout => { preview(); }
     changed gray => { preview(); }
     changed comments => { preview(); }
-    background: #00000044;
+    background: Theme.scrim;
     TouchArea { }
     // Return prints, Escape cancels (the sheet takes the keyboard when it opens).
     sheet-keys := FocusScope {
@@ -154,9 +153,12 @@ export component PrintSheet inherits Rectangle {
         drop-shadow-color: #00000055;
         // The options and the preview side by side, placed by hand (right to left, the preview on
         // the left): in a FlexboxLayout the card's height, asked of the options, loops.
+        // macOS: the column spans the card, so its last row (Make default, Cancel, Print) runs the
+        // full width under the preview, the buttons at the card's trailing corner (a Mac sheet's);
+        // the rows above stay narrow by their content.
         pl := VerticalLayout {
-            x: PlatformBridge.rtl ? 300px : 0;
-            width: 420px;
+            x: PlatformBridge.rtl && !PlatformBridge.mac ? 300px : 0;
+            width: PlatformBridge.mac ? 720px : 420px;
             padding: 18px;
             spacing: 12px;
             Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Print"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
@@ -164,8 +166,8 @@ export component PrintSheet inherits Rectangle {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
-                spacing: 10px;
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Printer"); width: 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                spacing: PlatformBridge.mac ? 6px : 10px;
+                Text { horizontal-alignment: PlatformBridge.rtl != PlatformBridge.mac ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Printer"); width: PlatformBridge.mac ? 74px : 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                 if ready: SortCombo {
                     width: 250px;
                     options: root.tab.reader.printers;
@@ -180,7 +182,7 @@ export component PrintSheet inherits Rectangle {
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 6px;
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Copies"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                Text { horizontal-alignment: PlatformBridge.rtl != PlatformBridge.mac ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Copies"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                 SmallButton { text: "−"; clicked => { copies = max(1, copies - 1); } }
                 Text { text: copies; width: 30px; horizontal-alignment: center; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
                 SmallButton { text: "+"; clicked => { copies = min(999, copies + 1); } }
@@ -191,10 +193,10 @@ export component PrintSheet inherits Rectangle {
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 6px;
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Pages"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                SmallButton { text: @tr("All"); primary: pages == 0; clicked => { pages = 0; } }
-                SmallButton { text: @tr("Current"); primary: pages == 1; clicked => { pages = 1; } }
-                SmallButton { text: @tr("Range"); primary: pages == 2; clicked => { pages = 2; } }
+                Text { horizontal-alignment: PlatformBridge.rtl != PlatformBridge.mac ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Pages"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                SmallButton { text: @tr("All"); on: pages == 0; clicked => { pages = 0; } }
+                SmallButton { text: @tr("Current"); on: pages == 1; clicked => { pages = 1; } }
+                SmallButton { text: @tr("Range"); on: pages == 2; clicked => { pages = 2; } }
                 Rectangle {
                     width: 110px;
                     height: 26px;
@@ -223,17 +225,17 @@ export component PrintSheet inherits Rectangle {
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 6px;
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Scale"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                SmallButton { text: @tr("Fit to paper"); primary: fit; clicked => { fit = true; } }
-                SmallButton { text: @tr("Actual size"); primary: !fit; clicked => { fit = false; } }
+                Text { horizontal-alignment: PlatformBridge.rtl != PlatformBridge.mac ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Scale"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                SmallButton { text: @tr("Fit to paper"); on: fit; clicked => { fit = true; } }
+                SmallButton { text: @tr("Actual size"); on: !fit; clicked => { fit = false; } }
                 Rectangle { horizontal-stretch: 1; }
             }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
-                spacing: 10px;
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Paper"); width: 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                spacing: PlatformBridge.mac ? 6px : 10px;
+                Text { horizontal-alignment: PlatformBridge.rtl != PlatformBridge.mac ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Paper"); width: PlatformBridge.mac ? 74px : 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                 SortCombo {
                     width: 150px;
                     options: [@tr("Printer's default"), @tr("A4"), @tr("Letter"), @tr("Legal")];
@@ -247,10 +249,10 @@ export component PrintSheet inherits Rectangle {
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 6px;
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Orientation"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                SmallButton { text: @tr("Auto"); primary: orientation == 0; clicked => { orientation = 0; } }
-                SmallButton { text: @tr("Portrait"); primary: orientation == 1; clicked => { orientation = 1; } }
-                SmallButton { text: @tr("Landscape"); primary: orientation == 2; clicked => { orientation = 2; } }
+                Text { horizontal-alignment: PlatformBridge.rtl != PlatformBridge.mac ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Orientation"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                SmallButton { text: @tr("Auto"); on: orientation == 0; clicked => { orientation = 0; } }
+                SmallButton { text: @tr("Portrait"); on: orientation == 1; clicked => { orientation = 1; } }
+                SmallButton { text: @tr("Landscape"); on: orientation == 2; clicked => { orientation = 2; } }
                 Rectangle { horizontal-stretch: 1; }
             }
             FlexboxLayout {
@@ -258,9 +260,9 @@ export component PrintSheet inherits Rectangle {
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 6px;
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Two-sided"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                SmallButton { text: @tr("Off"); primary: !two-sided && layout != 6; clicked => { two-sided = false; } }
-                SmallButton { text: @tr("On"); primary: two-sided || layout == 6; clicked => { two-sided = true; } }
+                Text { horizontal-alignment: PlatformBridge.rtl != PlatformBridge.mac ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Two-sided"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                SmallButton { text: @tr("Off"); on: !two-sided && layout != 6; clicked => { two-sided = false; } }
+                SmallButton { text: @tr("On"); on: two-sided || layout == 6; clicked => { two-sided = true; } }
                 Rectangle { horizontal-stretch: 1; }
             }
             // Preview's Pages per Sheet and Acrobat's Booklet (both sides, folded in the middle).
@@ -268,8 +270,8 @@ export component PrintSheet inherits Rectangle {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
-                spacing: 10px;
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Layout"); width: 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                spacing: PlatformBridge.mac ? 6px : 10px;
+                Text { horizontal-alignment: PlatformBridge.rtl != PlatformBridge.mac ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Layout"); width: PlatformBridge.mac ? 74px : 70px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                 SortCombo {
                     width: 150px;
                     options: [@tr("1 page per sheet"), @tr("2 per sheet"), @tr("4 per sheet"), @tr("6 per sheet"), @tr("9 per sheet"), @tr("16 per sheet"), @tr("Booklet")];
@@ -284,10 +286,10 @@ export component PrintSheet inherits Rectangle {
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 6px;
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Print"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                SmallButton { text: @tr("Colour"); primary: !gray; clicked => { gray = false; } }
-                SmallButton { text: @tr("Grey"); primary: gray; clicked => { gray = true; } }
-                SmallButton { text: comments ? @tr("With comments") : @tr("Without comments"); primary: comments; clicked => { comments = !comments; } }
+                Text { horizontal-alignment: PlatformBridge.rtl != PlatformBridge.mac ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Print"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                SmallButton { text: @tr("Colour"); on: !gray; clicked => { gray = false; } }
+                SmallButton { text: @tr("Grey"); on: gray; clicked => { gray = true; } }
+                SmallButton { text: comments ? @tr("With comments") : @tr("Without comments"); on: comments; clicked => { comments = !comments; } }
                 Rectangle { horizontal-stretch: 1; }
             }
             FlexboxLayout {
@@ -301,7 +303,8 @@ export component PrintSheet inherits Rectangle {
                 SmallButton { text: @tr("Cancel"); clicked => { ReaderBridge.print-cancel(root.id); root.focus-pages(); } }
                 ok := SmallButton {
                     text: @tr("Print");
-                    primary: ready;
+                    primary: true;
+                    enabled: ready;
                     clicked => {
                         if ready {
                             ReaderBridge.print(root.id, printer, copies, pages, range.text, fit, two-sided, paper, orientation, layout, gray, comments);
@@ -315,13 +318,25 @@ export component PrintSheet inherits Rectangle {
         Rectangle {
             x: PlatformBridge.rtl ? 0 : 420px;
             width: 300px;
+            // A white sheet with its shadow on a grey canvas (Preview's print panel), not the
+            // image floating on the card.
             Rectangle {
                 y: 18px;
                 width: 264px;
                 height: 340px;
-                background: Theme.panel-bg;
+                background: Theme.content-bg;
                 border-radius: Theme.radius-small;
-                if root.tab.reader.has-print-preview: Image { width: parent.width - 16px; height: parent.height - 16px; source: root.tab.reader.print-preview; image-fit: contain; }
+                if root.tab.reader.has-print-preview: Rectangle {
+                    property <image> sheet: root.tab.reader.print-preview;
+                    property <float> fit: min((parent.width - 24px) / 1px / max(1, self.sheet.width), (parent.height - 24px) / 1px / max(1, self.sheet.height));
+                    width: max(1, self.sheet.width) * self.fit * 1px;
+                    height: max(1, self.sheet.height) * self.fit * 1px;
+                    background: white;
+                    drop-shadow-blur: 6px;
+                    drop-shadow-color: #00000040;
+                    drop-shadow-offset-y: 1px;
+                    Image { width: parent.width; height: parent.height; source: parent.sheet; image-fit: contain; }
+                }
                 if !root.tab.reader.has-print-preview: Text { text: @tr("Preparing the preview…"); font-size: Theme.fs-caption; color: Theme.text-muted; horizontal-alignment: center; vertical-alignment: center; }
             }
         }
@@ -343,7 +358,7 @@ export component PropertiesSheet inherits Rectangle {
     // The keyboard back to the pages once the sheet closes.
     callback focus-pages();
 
-    background: #00000044;
+    background: Theme.scrim;
     TouchArea { }
     // Escape from any field cancels (keys bubble up from the fields inside).
     FocusScope {
@@ -396,7 +411,7 @@ export component PropertiesSheet inherits Rectangle {
                             spacing: 6px;
                             alignment: start;
                             Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: @tr("Layout"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                            for l[i] in [@tr("Any"), @tr("One page"), @tr("Two pages"), @tr("Cover first")]: SmallButton { text: l; primary: root.open-layout == i; clicked => { root.open-layout = i; } }
+                            for l[i] in [@tr("Any"), @tr("One page"), @tr("Two pages"), @tr("Cover first")]: SmallButton { text: l; on: root.open-layout == i; clicked => { root.open-layout = i; } }
                         }
                         FlexboxLayout {
                             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
@@ -404,7 +419,7 @@ export component PropertiesSheet inherits Rectangle {
                             spacing: 6px;
                             alignment: start;
                             Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: @tr("Zoom"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                            for z[i] in [@tr("Any"), @tr("Fit page"), @tr("Fit width"), @tr("Actual size")]: SmallButton { text: z; primary: root.open-zoom == i; clicked => { root.open-zoom = i; } }
+                            for z[i] in [@tr("Any"), @tr("Fit page"), @tr("Fit width"), @tr("Actual size")]: SmallButton { text: z; on: root.open-zoom == i; clicked => { root.open-zoom = i; } }
                         }
                         FlexboxLayout {
                             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
@@ -412,7 +427,7 @@ export component PropertiesSheet inherits Rectangle {
                             spacing: 6px;
                             alignment: start;
                             Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: @tr("Panel"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                            for n[i] in [@tr("None"), @tr("Bookmarks"), @tr("Pages")]: SmallButton { text: n; primary: root.open-panel == i; clicked => { root.open-panel = i; } }
+                            for n[i] in [@tr("None"), @tr("Bookmarks"), @tr("Pages")]: SmallButton { text: n; on: root.open-panel == i; clicked => { root.open-panel = i; } }
                         }
                         // Acrobat's Window and User interface options: toggled, each a bit of open-window.
                         FlexboxLayout {
@@ -423,7 +438,7 @@ export component PropertiesSheet inherits Rectangle {
                             Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: @tr("Window"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                             for w[i] in [{ t: @tr("Full screen"), b: 1 }, { t: @tr("Title"), b: 2 }, { t: @tr("Fit"), b: 4 }, { t: @tr("Centre"), b: 8 }, { t: @tr("No bar"), b: 16 }]: SmallButton {
                                 text: w.t;
-                                primary: Math.mod(Math.floor(root.open-window / w.b), 2) == 1;
+                                on: Math.mod(Math.floor(root.open-window / w.b), 2) == 1;
                                 clicked => { root.open-window += Math.mod(Math.floor(root.open-window / w.b), 2) == 1 ? -w.b : w.b; }
                             }
                         }
@@ -492,7 +507,7 @@ export component BackgroundSheet inherits Rectangle {
     // Colours as reader_ui::BACKGROUNDS; strength (opacity) as BACKGROUND_OPACITY.
     property <int> colour: 0;
     property <int> strength: 0;
-    background: #00000044;
+    background: Theme.scrim;
     TouchArea { }
     FocusScope {
         init => { self.focus(); }
@@ -529,7 +544,7 @@ export component BackgroundSheet inherits Rectangle {
                 alignment: LayoutAlignment.stretch;
                 spacing: 6px;
                 Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Opacity"); width: 74px; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-                for o[i] in ["100 %", "75 %", "50 %"]: SmallButton { text: o; primary: root.strength == i; clicked => { root.strength = i; } }
+                for o[i] in ["100 %", "75 %", "50 %"]: SmallButton { text: o; on: root.strength == i; clicked => { root.strength = i; } }
                 Rectangle { horizontal-stretch: 1; }
             }
             FlexboxLayout {
@@ -553,7 +568,7 @@ export component VersionsSheet inherits Rectangle {
     in property <ToolTab> tab;
     in property <int> id;
     callback focus-pages();
-    background: #00000044;
+    background: Theme.scrim;
     TouchArea { }
     FocusScope {
         init => { self.focus(); }
@@ -609,7 +624,7 @@ export component FolderSearchSheet inherits Rectangle {
     in property <ToolTab> tab;
     in property <int> id;
     callback focus-pages();
-    background: #00000044;
+    background: Theme.scrim;
     TouchArea { }
     FocusScope {
         init => { self.focus(); }
@@ -691,7 +706,7 @@ export component AccessibilitySheet inherits Rectangle {
     in property <ToolTab> tab;
     in property <int> id;
     callback focus-pages();
-    background: #00000044;
+    background: Theme.scrim;
     TouchArea { }
     FocusScope {
         init => { self.focus(); }
@@ -767,7 +782,7 @@ export component VoicesSheet inherits Rectangle {
     in property <ToolTab> tab;
     in property <int> id;
     callback focus-pages();
-    background: #00000044;
+    background: Theme.scrim;
     TouchArea { }
     FocusScope {
         init => { self.focus(); }
@@ -822,7 +837,7 @@ export component VoicesSheet inherits Rectangle {
 export component HelpSheet inherits Rectangle {
     in property <int> id;
     callback focus-pages();
-    background: #00000044;
+    background: Theme.scrim;
     TouchArea { clicked => { ReaderBridge.show-help(root.id, false); root.focus-pages(); } }
     FocusScope {
         init => { self.focus(); }

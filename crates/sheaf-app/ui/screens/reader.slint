@@ -7,7 +7,7 @@
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { JavaScriptBridge } from "javascript.slint";
 import { Theme } from "../theme.slint";
-import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
+import { ToolButton, SmallButton, Divider, ColourDot, PopoverFrame } from "reader-parts.slint";
 import { SignatureManagerSheet } from "signature-manager.slint";
 import { SecurityPolicySheet } from "security-policy.slint";
 import { CertificateEncryptSheet } from "certificate-encrypt.slint";
@@ -404,7 +404,9 @@ export component ReaderScreen inherits Rectangle {
                 property <length> first-w: round((self.width - 1px) * self.frac / 1px) * 1px;
                 property <length> first-h: round((self.height - 1px) * self.frac / 1px) * 1px;
                 horizontal-stretch: 1;
-                background: root.tab.reader.backdrop;
+                // macOS: no backdrop chosen, the pages sit on a grey canvas (Preview's), not on the
+                // window's own white, so their edges read.
+                background: PlatformBridge.mac && root.tab.reader.backdrop.alpha == 0 ? (Theme.dark ? #1C1C21 : #E6E6EB) : root.tab.reader.backdrop;
                 clip: true;
                 // Trackpad pinch (macOS) and touch screens zoom around the fingers. Under the pages:
                 // everything else passes through to them.
@@ -462,8 +464,8 @@ export component ReaderScreen inherits Rectangle {
                         background: root.tab.reader.theme == 1 ? #1E1E20 : root.tab.reader.theme == 2 ? #F4ECD8 : white;
                         // No shadow on a page wider than the window: the software renderer blurs the
                         // whole page's size for it (seconds a frame at 400 %), and its edges are out of view.
-                        drop-shadow-blur: p.w > 1600px ? 0px : 8px;
-                        drop-shadow-color: p.w > 1600px ? transparent : Theme.thumb-shadow;
+                        drop-shadow-blur: p.w > 1600px ? 0px : PlatformBridge.mac ? 6px : 8px;
+                        drop-shadow-color: p.w > 1600px ? transparent : PlatformBridge.mac ? #00000040 : Theme.thumb-shadow;
                         drop-shadow-offset-y: 1px;
                         if p.ready: Image {
                             width: parent.width;
@@ -484,12 +486,17 @@ export component ReaderScreen inherits Rectangle {
                         y: m.y;
                         width: m.w;
                         height: m.h;
-                        border-radius: m.kind == 6 || m.kind == 7 ? 2px : 1px;
-                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : m.kind == 11 ? Theme.info : m.kind == 16 ? #7C3AED14 : m.kind == 17 || m.kind == 18 ? #7C3AED2E : transparent;
-                        border-width: m.kind == 12 ? 3px : m.kind == 6 || m.kind == 18 ? 1.5px : m.kind == 5 || m.kind == 7 || m.kind >= 13 ? 1px : 0px;
+                        // 6 a selection (2 px accent), 19 the object under the pointer (1 px, fainter),
+                        // 11 a handle to pull: white, round, accent rim, a little shadow (Keynote's, Preview's).
+                        border-radius: m.kind == 11 ? m.w / 2 : m.kind == 6 || m.kind == 7 || m.kind == 19 ? 2px : 1px;
+                        background: m.kind == 3 ? #3B82F655 : m.kind == 4 ? #FFD60A66 : m.kind == 5 ? #FF9F0A99 : m.kind == 10 ? #5AA0FF26 : m.kind == 11 ? white : m.kind == 16 ? #7C3AED14 : m.kind == 17 || m.kind == 18 ? #7C3AED2E : transparent;
+                        border-width: m.kind == 12 ? 3px : m.kind == 6 ? 2px : m.kind == 18 ? 1.5px : m.kind == 5 || m.kind == 7 || m.kind == 11 || m.kind >= 13 ? 1px : 0px;
+                        drop-shadow-blur: m.kind == 11 ? 2px : 0px;
+                        drop-shadow-color: m.kind == 11 ? #00000040 : transparent;
+                        drop-shadow-offset-y: m.kind == 11 ? 0.5px : 0px;
                         // 13 art (green), 14 trim (blue), 15 bleed (red): Preferences ▸ Show art, trim and bleed boxes.
                         // 16 an article's box, 17 one of the article being drawn, 18 the box picked (Shapes ▸ Article).
-                        border-color: m.kind == 12 ? Theme.accent : m.kind == 6 ? Theme.info : m.kind == 7 ? #3B82F699 : m.kind == 13 ? #22A045 : m.kind == 14 ? #2563EB : m.kind == 15 ? #DC2626 : m.kind >= 16 && m.kind <= 18 ? #7C3AED : #FF9F0A;
+                        border-color: m.kind == 12 || m.kind == 6 || m.kind == 11 ? Theme.accent : m.kind == 19 ? Theme.accent.transparentize(60%) : m.kind == 7 ? #3B82F699 : m.kind == 13 ? #22A045 : m.kind == 14 ? #2563EB : m.kind == 15 ? #DC2626 : m.kind >= 16 && m.kind <= 18 ? #7C3AED : #FF9F0A;
                     }
                     // Prepare form's grid (Grid on): lines every 9 pt, a stronger one every inch.
                     for g in root.tab.reader.form-grids: Rectangle {
@@ -706,17 +713,12 @@ export component ReaderScreen inherits Rectangle {
                         }
                     }
                     // Floating bar over a text selection: Copy, Highlight, Underline, Strikethrough.
-                    if root.tab.reader.has-selection && root.tab.reader.tool == 0 && !root.pressing && root.tab.reader.marks.length > 0: Rectangle {
+                    if root.tab.reader.has-selection && root.tab.reader.tool == 0 && !root.pressing && root.tab.reader.marks.length > 0: PopoverFrame {
                         // Kept inside the visible part of the pages, whatever the zoom and the scroll.
                         x: max(-sv.content-x + 4px, min(root.tab.reader.marks[0].x, -sv.content-x + sv.visible-width - self.width - 4px));
                         y: max(-sv.content-y + 4px, root.tab.reader.marks[0].y - self.height - 8px);
                         width: bar.preferred-width;
                         height: 34px;
-                        border-radius: Theme.radius-item;
-                        background: Theme.card;
-                        drop-shadow-blur: 10px;
-                        drop-shadow-color: #00000040;
-                        drop-shadow-offset-y: 2px;
                         bar := HorizontalLayout {
                             padding: 2px;
                             spacing: 0px;
@@ -890,7 +892,7 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? @tr("Note") : root.tab.reader.note.kind == 1 ? @tr("Text box") : root.tab.reader.note.kind == 2 ? @tr("Edit text — ⌘↩ to apply") : root.tab.reader.note.kind == 4 ? @tr("↩ done · Tab next field") : root.tab.reader.note.kind == 5 ? @tr("Choose") : root.tab.reader.note.kind == 6 ? @tr("Comment") : root.tab.reader.note.kind == 7 ? @tr("Reply — ↩ to send") : root.tab.reader.note.kind == 8 ? @tr("Link to — a page number or a web address") : root.tab.reader.note.kind == 9 ? @tr("Link — change where it goes, or remove it") : root.tab.reader.note.kind == 10 ? @tr("Replace with — ↩ to propose") : root.tab.reader.note.kind == 11 ? @tr("Insert after — ↩ to propose") : root.tab.reader.note.kind == 12 ? @tr("Its real length — such as 4.5 m") : @tr("Add text");
+                                text: root.tab.reader.note.kind == 0 ? @tr("Note") : root.tab.reader.note.kind == 1 ? @tr("Text box") : root.tab.reader.note.kind == 2 ? @tr("Edit text") : root.tab.reader.note.kind == 4 ? @tr("↩ done · Tab next field") : root.tab.reader.note.kind == 5 ? @tr("Choose") : root.tab.reader.note.kind == 6 ? @tr("Comment") : root.tab.reader.note.kind == 7 ? @tr("Reply — ↩ to send") : root.tab.reader.note.kind == 8 ? @tr("Link to — a page number or a web address") : root.tab.reader.note.kind == 9 ? @tr("Link") : root.tab.reader.note.kind == 10 ? @tr("Replace with") : root.tab.reader.note.kind == 11 ? @tr("Insert after — ↩ to propose") : root.tab.reader.note.kind == 12 ? @tr("Its real length — such as 4.5 m") : @tr("Add text");
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;
@@ -976,7 +978,8 @@ export component ReaderScreen inherits Rectangle {
                                 // An existing link: remove it (as Acrobat's Delete on a selected link).
                                 if root.tab.reader.note.kind == 9: SmallButton { text: @tr("Remove link"); clicked => { ReaderBridge.note-commit(root.id, ""); keys.focus(); } }
                                 SmallButton { text: @tr("Cancel"); clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }
-                                SmallButton { text: @tr("Done"); primary: true; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
+                                // The card's title is a plain noun; the key that applies it is the Done button's tip.
+                                SmallButton { text: @tr("Done"); primary: true; tip: PlatformBridge.mac ? "⌘↩" : "Ctrl+Enter"; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
                             }
                         }
                     }
@@ -996,8 +999,8 @@ export component ReaderScreen inherits Rectangle {
                         width: p.w;
                         height: p.h;
                         background: root.tab.reader.theme == 1 ? #1E1E20 : root.tab.reader.theme == 2 ? #F4ECD8 : white;
-                        drop-shadow-blur: p.w > 1600px ? 0px : 8px;
-                        drop-shadow-color: p.w > 1600px ? transparent : Theme.thumb-shadow;
+                        drop-shadow-blur: p.w > 1600px ? 0px : PlatformBridge.mac ? 6px : 8px;
+                        drop-shadow-color: p.w > 1600px ? transparent : PlatformBridge.mac ? #00000040 : Theme.thumb-shadow;
                         drop-shadow-offset-y: 1px;
                         if p.ready: Image {
                             width: parent.width;

@@ -5,7 +5,7 @@ import { ActionBridge } from "actions.slint";
 import { ScrollView } from "std-widgets.slint";
 import { JavaScriptBridge } from "javascript.slint";
 import { Theme } from "../theme.slint";
-import { ToolButton, Divider } from "reader-parts.slint";
+import { ToolButton, Divider, PopoverFrame } from "reader-parts.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
 import { AiBridge } from "../ai.slint";
@@ -19,7 +19,8 @@ export component ReaderToolbar inherits Rectangle {
     in property <length> view-height: 600px;
     // Too narrow for every tool: the edit group folds into one button (900 px, the window's least,
     // up to where it all fits).
-    property <bool> fold-edit: root.width < 1180px;
+    // macOS folds earlier: its wider title-bar text cut Save off at 1280 px (BAMA pass 28/10).
+    property <bool> fold-edit: root.width < (PlatformBridge.mac ? 1320px : 1180px);
     in-out property <bool> bare;
     // What the search field holds (the side panel lists its results).
     out property <string> search-text: search-in.text;
@@ -70,7 +71,7 @@ export component ReaderToolbar inherits Rectangle {
             padding-top: 8px;
             padding-bottom: 8px;
             if ActionBridge.commands.length > 0: ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: @tr("Custom tools"); clicked => { ActionBridge.command("custom-tools", 0); } }
-            ToolButton { icon: @image-url("../icons/panel-left.svg"); tip: @tr("Side panel"); active: root.tab.reader.panel-open; clicked => { ReaderBridge.toggle-panel(root.id); } }
+            ToolButton { icon: @image-url("../icons/panel-left.svg"); tip: @tr("Side panel"); clicked => { ReaderBridge.toggle-panel(root.id); } }
             Rectangle { width: 6px; }
             Divider { }
             Rectangle { width: 6px; }
@@ -107,13 +108,7 @@ export component ReaderToolbar inherits Rectangle {
                     y: 34px;
                     width: 220px;
                     height: 5 * 30px + 8px;
-                    Rectangle {
-                        background: Theme.input-bg;
-                        border-radius: Theme.radius-small;
-                        border-width: 1px;
-                        border-color: Theme.input-border;
-                        drop-shadow-blur: 8px;
-                        drop-shadow-color: #00000033;
+                    PopoverFrame {
                         VerticalLayout {
                             padding: 4px;
                             for item[k] in [
@@ -227,13 +222,7 @@ export component ReaderToolbar inherits Rectangle {
                     x: 0;
                     y: parent.height + 4px;
                     width: 120px;
-                    Rectangle {
-                        background: Theme.card;
-                        border-radius: Theme.radius-small;
-                        border-width: 1px;
-                        border-color: Theme.input-border;
-                        drop-shadow-blur: 8px;
-                        drop-shadow-color: #00000033;
+                    PopoverFrame {
                         VerticalLayout {
                             padding: 4px;
                             for z in ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%"]: Rectangle {
@@ -274,11 +263,11 @@ export component ReaderToolbar inherits Rectangle {
             alignment: end;
             padding-top: 8px;
             padding-bottom: 8px;
-            if !root.narrow: ToolButton { icon: @image-url("../icons/sun.svg"); tip: @tr("Day"); active: root.tab.reader.theme == 0; clicked => { ReaderBridge.set-theme(root.id, 0); } }
-            if !root.narrow: ToolButton { icon: @image-url("../icons/book-open.svg"); tip: @tr("Sepia"); active: root.tab.reader.theme == 2; clicked => { ReaderBridge.set-theme(root.id, 2); } }
-            if !root.narrow: ToolButton { icon: @image-url("../icons/moon.svg"); tip: @tr("Night"); active: root.tab.reader.theme == 1; clicked => { ReaderBridge.set-theme(root.id, 1); } }
-            // Day → Sepia → Night → Day.
-            if root.narrow: ToolButton {
+            if !root.narrow && !PlatformBridge.mac: ToolButton { icon: @image-url("../icons/sun.svg"); tip: @tr("Day"); active: root.tab.reader.theme == 0; clicked => { ReaderBridge.set-theme(root.id, 0); } }
+            if !root.narrow && !PlatformBridge.mac: ToolButton { icon: @image-url("../icons/book-open.svg"); tip: @tr("Sepia"); active: root.tab.reader.theme == 2; clicked => { ReaderBridge.set-theme(root.id, 2); } }
+            if !root.narrow && !PlatformBridge.mac: ToolButton { icon: @image-url("../icons/moon.svg"); tip: @tr("Night"); active: root.tab.reader.theme == 1; clicked => { ReaderBridge.set-theme(root.id, 1); } }
+            // Day → Sepia → Night → Day (always one button on macOS: the three cost the toolbar its room).
+            if root.narrow || PlatformBridge.mac: ToolButton {
                 icon: root.tab.reader.theme == 0 ? @image-url("../icons/sun.svg") : root.tab.reader.theme == 2 ? @image-url("../icons/book-open.svg") : @image-url("../icons/moon.svg");
                 tip: @tr("Page theme");
                 clicked => { ReaderBridge.set-theme(root.id, root.tab.reader.theme == 0 ? 2 : root.tab.reader.theme == 2 ? 1 : 0); }
@@ -370,13 +359,7 @@ export component ReaderToolbar inherits Rectangle {
                     y: parent.height + 6px;
                     width: 240px;
                     height: min(680px, max(200px, root.view-height - 100px));
-                    Rectangle {
-                        background: Theme.card;
-                        border-radius: Theme.radius-small;
-                        border-width: 1px;
-                        border-color: Theme.input-border;
-                        drop-shadow-blur: 8px;
-                        drop-shadow-color: #00000033;
+                    PopoverFrame {
                         ScrollView {
                         VerticalLayout {
                             padding: 4px;
@@ -484,13 +467,7 @@ export component ReaderToolbar inherits Rectangle {
                     x: parent.width - 260px;
                     y: parent.height + 6px;
                     width: 260px;
-                    Rectangle {
-                        background: Theme.card;
-                        border-radius: Theme.radius-small;
-                        border-width: 1px;
-                        border-color: Theme.input-border;
-                        drop-shadow-blur: 8px;
-                        drop-shadow-color: #00000033;
+                    PopoverFrame {
                         VerticalLayout {
                             padding: 4px;
                             for item[k] in [
@@ -541,13 +518,7 @@ export component ReaderToolbar inherits Rectangle {
                     x: parent.width - 240px;
                     y: parent.height + 6px;
                     width: 240px;
-                    Rectangle {
-                        background: Theme.card;
-                        border-radius: Theme.radius-small;
-                        border-width: 1px;
-                        border-color: Theme.input-border;
-                        drop-shadow-blur: 8px;
-                        drop-shadow-color: #00000033;
+                    PopoverFrame {
                         VerticalLayout {
                             padding: 4px;
                             for item[k] in [
