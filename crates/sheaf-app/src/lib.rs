@@ -7,6 +7,8 @@ pub mod actions;
 pub mod ai_store;
 pub mod action_settings;
 pub mod library;
+#[cfg(target_os = "macos")]
+pub mod mac_menu;
 pub mod javascript_console;
 pub mod watch_folder;
 pub mod display_color;

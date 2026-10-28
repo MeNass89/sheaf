@@ -698,6 +698,22 @@ pub fn install(ui: &AppWindow) {
     push(ui);
     load_dictionary(ui);
     let g = ui.global::<PlatformBridge>();
+    g.set_mac(cfg!(target_os = "macos"));
+    let weak = ui.as_weak();
+    g.on_minimize(move || if let Some(ui) = weak.upgrade() { ui.window().set_minimized(true) });
+    let weak = ui.as_weak();
+    g.on_zoom(move || if let Some(ui) = weak.upgrade() { ui.window().set_maximized(!ui.window().is_maximized()) });
+    // A Mac's app menu: Settings… (⌘,) after About, put back each time Slint rebuilds the menu bar.
+    #[cfg(target_os = "macos")]
+    {
+        let weak = ui.as_weak();
+        sheaf_app::mac_menu::install(&sheaf_app::i18n::tr("Settings…"), move || {
+            if let Some(ui) = weak.upgrade() {
+                let g = ui.global::<PlatformBridge>();
+                g.set_preferences_asked(g.get_preferences_asked() + 1);
+            }
+        });
+    }
     // The GUI smoke (debug builds, SHEAF_READER_DEBUG) clicks at places measured without the menu
     // bar: hidden there unless a step asks for it (SHEAF_TEST_MENU_BAR=1). Its shortcuts work.
     if cfg!(debug_assertions) && std::env::var_os("SHEAF_READER_DEBUG").is_some() && std::env::var("SHEAF_TEST_MENU_BAR").as_deref() != Ok("1") {

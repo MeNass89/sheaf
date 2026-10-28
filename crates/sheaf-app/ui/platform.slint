@@ -38,6 +38,13 @@ export struct DictionaryRow {
 }
 
 export global PlatformBridge {
+    // A Mac: its menu conventions (Quit and Settings… in the app menu, src/mac_menu.rs; Minimize and
+    // Zoom in Window).
+    in property <bool> mac;
+    // Bumped by the app menu's Settings… (src/mac_menu.rs): main.slint shows Preferences.
+    in-out property <int> preferences-asked;
+    callback minimize();
+    callback zoom();
     // Check Spelling While Typing (Edit menu, Preferences ▸ Spelling).
     in property <bool> spell-on: true;
     // The misspelt words of the text last checked (at most four) and that text with them

@@ -134,3 +134,13 @@
   Up opens Wiktionary); Sheaf makes no request itself. Drop the button if that counts as a network
   feature.
 - No new dependencies.
+
+## C-platform-014 macOS menu conventions (28/10, Opus, MBP)
+
+Seen through System Events on the MBP: Slint's app menu had About, Services, Hide, Quit; ours added Quit to File
+and Preferences… to Edit, and Window had no Minimize. Now on a Mac (PlatformBridge.mac): Settings… (⌘,) in the
+app menu after About (src/mac_menu.rs: Slint rebuilds the whole menu bar on every change, so the item is put
+back on NSMenuDidAddItemNotification), no Quit in File nor Preferences in Edit, Minimize (⌘M) and Zoom in Window.
+Checked on the MBP: the menus' items in that order, Settings… still there after the menu bar is rebuilt (a click
+on it), and the clicks reach the app. Not yet checked: Preferences shown after Settings…, the window minimized and
+zoomed (AXMinimized read false 1 s after Minimize; the MBP went offline before the recheck).

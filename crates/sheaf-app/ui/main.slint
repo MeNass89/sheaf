@@ -274,6 +274,8 @@ export component AppWindow inherits Window {
     property <int> search-seq;
     // Bumped to end any presentation (⌘, leaves it as Escape would).
     property <int> end-presenting;
+    property <int> preferences-asked: PlatformBridge.preferences-asked;
+    changed preferences-asked => { root.show-preferences(); }
     function show-preferences() {
         root.end-presenting += 1;
         root.full-screen = false;
@@ -329,7 +331,8 @@ export component AppWindow inherits Window {
             MenuItem { title: @tr("Document Properties…"); shortcut: PlatformBridge.keys[5]; enabled: root.reader-on; activated => { ReaderBridge.props-open(root.reader-id); } }
             MenuSeparator {}
             MenuItem { title: @tr("Close Tab"); shortcut: PlatformBridge.keys[6]; enabled: root.active-tab >= 0; activated => { if root.reader-on { ReaderBridge.close(root.reader-id); } else { root.close-active-tab(); } } }
-            MenuItem { title: @tr("Quit Sheaf"); shortcut: PlatformBridge.keys[7]; activated => { PlatformBridge.quit(); } }
+            // A Mac's Quit is the app menu's.
+            if !PlatformBridge.mac: MenuItem { title: @tr("Quit Sheaf"); shortcut: PlatformBridge.keys[7]; activated => { PlatformBridge.quit(); } }
         }
         Menu {
             title: @tr("Edit");
@@ -351,8 +354,9 @@ export component AppWindow inherits Window {
             MenuItem { title: @tr("Check Spelling…"); shortcut: PlatformBridge.keys[43]; enabled: root.reader-on; activated => { PlatformBridge.check-start(root.reader-id); } }
             MenuItem { title: PlatformBridge.grammar-on ? @tr("Stop Checking Grammar With Spelling") : @tr("Check Grammar With Spelling"); shortcut: PlatformBridge.keys[44]; activated => { PlatformBridge.set-grammar-on(!PlatformBridge.grammar-on); } }
             MenuItem { title: PlatformBridge.spell-on ? @tr("Stop Checking Spelling While Typing") : @tr("Check Spelling While Typing"); shortcut: PlatformBridge.keys[14]; activated => { PlatformBridge.set-spell-on(!PlatformBridge.spell-on); } }
-            MenuSeparator {}
-            MenuItem { title: @tr("Preferences…"); shortcut: PlatformBridge.keys[15]; activated => { root.show-preferences(); } }
+            // A Mac's is Settings… in the app menu (src/mac_menu.rs).
+            if !PlatformBridge.mac: MenuSeparator {}
+            if !PlatformBridge.mac: MenuItem { title: @tr("Preferences…"); shortcut: PlatformBridge.keys[15]; activated => { root.show-preferences(); } }
         }
         Menu {
             title: @tr("View");
@@ -421,6 +425,9 @@ export component AppWindow inherits Window {
         }
         Menu {
             title: @tr("Window");
+            if PlatformBridge.mac: MenuItem { title: @tr("Minimize"); shortcut: @keys(Control + "m"); activated => { PlatformBridge.minimize(); } }
+            if PlatformBridge.mac: MenuItem { title: @tr("Zoom"); activated => { PlatformBridge.zoom(); } }
+            if PlatformBridge.mac: MenuSeparator {}
             MenuItem { title: @tr("Next Tab"); shortcut: PlatformBridge.keys[35]; enabled: root.tabs.length > 0; activated => { root.step-tab(1); } }
             MenuItem { title: @tr("Previous Tab"); shortcut: PlatformBridge.keys[36]; enabled: root.tabs.length > 0; activated => { root.step-tab(-1); } }
             MenuItem { title: @tr("Home"); shortcut: PlatformBridge.keys[37]; activated => { root.active-tab = -1; } }

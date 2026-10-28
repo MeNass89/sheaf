@@ -6975,3 +6975,11 @@ msgstr "Numérisation annulée"
 #: src/run.rs
 msgid "No scanner yet: turn on a scanner connected to this Mac or on its network."
 msgstr "Aucun scanner pour l’instant : allumez un scanner relié à ce Mac ou sur son réseau."
+
+#: src/platform_ui.rs
+msgid "Settings…"
+msgstr "Réglages…"
+
+#: ui/main.slint
+msgid "Minimize"
+msgstr "Réduire"
