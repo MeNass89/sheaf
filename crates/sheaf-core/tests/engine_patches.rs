@@ -1153,3 +1153,62 @@ fn a_pasted_paragraph_mixing_fonts_keeps_each_runs_font() {
     assert!(!pay.1 && !pay.0.contains("Bold") && !inv.1, "the regular runs stay regular: {pay:?} {inv:?}");
     assert!((pay.2 - days.2).abs() < 2.0 && pay.2 - inv.2 > 10.0, "the runs keep their lines: {pay:?} {days:?} {inv:?}");
 }
+
+/// A paragraph in one font with a red word and a larger word ("Please pay" black, "250 euros" red,
+/// "today." black; "Note:" 12 pt, "IMPORTANT" 18 pt, "terms apply." 12 pt), copied and pasted on
+/// another page: the red word stays red and the larger word larger (Sol, 28/10: runs split only on
+/// font, bold and italic, so colour and size were lost).
+#[test]
+fn a_pasted_paragraph_keeps_each_runs_colour_and_size() {
+    use sheaf_core::pages::Input;
+    use sheaf_core::pdfcraft::engine::ObjectKind;
+    use sheaf_core::pdfcraft::Doc;
+    let dir = tempfile::tempdir().unwrap();
+    let mut pdf = lopdf::Document::with_version("1.7");
+    let f1 = pdf.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding" });
+    let content = b"BT /F1 12 Tf 72 700 Td (Please pay ) Tj 1 0 0 rg (250 euros) Tj 0 g ( today.) Tj 0 -16 Td (Note: ) Tj /F1 18 Tf (IMPORTANT) Tj /F1 12 Tf ( terms apply.) Tj ET".to_vec();
+    let c = pdf.add_object(Stream::new(dictionary! {}, content));
+    let pages = pdf.new_object_id();
+    let res = dictionary! { "Font" => dictionary! { "F1" => f1 } };
+    let p1 = pdf.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()], "Contents" => c, "Resources" => res.clone() });
+    let p2 = pdf.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()], "Resources" => res });
+    pdf.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![p1.into(), p2.into()], "Count" => 2 }));
+    let cat = pdf.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    pdf.trailer.set("Root", cat);
+    let src = dir.path().join("styled.pdf");
+    pdf.save(&src).unwrap();
+
+    let mut doc = Doc::open(&Input::new(&src)).unwrap();
+    let d = doc.document();
+    let objects = d.editable_objects(0).unwrap();
+    let para: Vec<_> = objects.iter().filter(|o| o.target.kind == ObjectKind::Text && o.text.as_deref().is_some_and(|t| t.contains("Please"))).collect();
+    assert_eq!(para.len(), 1, "{:?}", objects.iter().map(|o| &o.text).collect::<Vec<_>>());
+    assert!(para[0].text.as_deref().is_some_and(|t| t.contains("IMPORTANT")), "both lines in it: {:?}", para[0].text);
+    let targets = [para[0].target];
+    let runs = d.objects_text_runs(0, &targets)[0].clone().expect("a paragraph with a red and a larger word comes as runs");
+    let red: Vec<_> = runs.iter().filter(|(t, _)| t.color[0] > 0.9 && t.color[1] < 0.1).map(|(t, _)| t.text.trim()).collect();
+    assert_eq!(red, ["250 euros"], "{runs:?}");
+    let big: Vec<_> = runs.iter().filter(|(t, _)| t.size > 15.0).map(|(t, _)| t.text.trim()).collect();
+    assert_eq!(big, ["IMPORTANT"], "{runs:?}");
+    let copied = std::sync::Arc::new(d.objects_pdf(0, &targets, para[0].rect).unwrap());
+    let edits = runs
+        .into_iter()
+        .map(|(mut text, font)| {
+            text.rect = [text.rect[0], text.rect[1] - 400.0, text.rect[2] + 0.04 * (text.rect[2] - text.rect[0]) + 2.0, text.rect[3] - 400.0];
+            match font {
+                Some(font) => Edit::AddTextInCopiedFont { page: 1, text, pdf: copied.clone(), font },
+                None => Edit::AddText { page: 1, text },
+            }
+        })
+        .collect();
+    doc.apply(Edit::Batch { label: "Paste objects".into(), edits }).unwrap();
+    let out = doc.save(&dir.path().join("pasted.pdf")).unwrap();
+    common::qpdf_clean(&out);
+    let again = Doc::open(&Input::new(&out)).unwrap();
+    let lines = again.document().text_lines(1);
+    let of = |w: &str| lines.iter().find(|l| l.text.contains(w)).map(|l| (l.color, l.size)).unwrap_or_else(|| panic!("{w} in {:?}", lines.iter().map(|l| &l.text).collect::<Vec<_>>()));
+    let (pay, euros, important, terms) = (of("Please"), of("250"), of("IMPORTANT"), of("terms"));
+    assert!(euros.0[0] > 0.9 && euros.0[1] < 0.1 && euros.0[2] < 0.1, "the red word stays red: {euros:?}");
+    assert!(pay.0.iter().all(|c| *c < 0.1), "the rest black: {pay:?}");
+    assert!((important.1 - 18.0).abs() < 0.5 && (terms.1 - 12.0).abs() < 0.5, "the larger word stays larger: {important:?} {terms:?}");
+}

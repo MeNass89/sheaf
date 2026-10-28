@@ -191,7 +191,7 @@ pub enum Summary {
 pub fn summarize(cfg: &Config, sources: &[Source], form: Summary, progress: Progress) -> Result<String, AiError> {
     let ask = match form {
         Summary::Paragraphs => "Summarize this text in a few short paragraphs: what it is, its key content and its conclusions. Cite pages.",
-        Summary::MainPoints => "List the main points of this text, one per line starting with \"- \", most important first, each followed by its page in parentheses. Then stop.",
+        Summary::MainPoints => "List the main points of this text, one per line starting with \"- \", most important first. After each point write its page in parentheses, then \" | \" and the sentence of the text that states it, copied exactly between double quotes, for example: - Sales rose (p. 3) | \"Sales rose by 12% in 2025.\" Then stop.",
     };
     map_reduce(
         cfg,
@@ -201,6 +201,94 @@ pub fn summarize(cfg: &Config, sources: &[Source], form: Summary, progress: Prog
         |i, n, part| vec![Message::system(SYSTEM), Message::user(format!("This is part {i} of {n} of a long document. Note its key facts and points as short lines, with page labels:\n<<<\n{part}\n>>>"))],
         |notes| vec![Message::system(SYSTEM), Message::user(format!("These are notes on every part of a long document, in order:\n<<<\n{notes}\n>>>\n\n{ask}"))],
     )
+}
+
+/// A cited place of an answer: the file named ("report.pdf", for a space) and the page, 1-based.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Cite {
+    pub file: Option<String>,
+    pub page: usize,
+}
+
+/// The pages an answer cites, in order, each once (at most 12): "(p. 3)", "p. 3, 5", "pp. 3-4"
+/// (each page), and in a space's answers "report.pdf, p. 3".
+pub fn citations(answer: &str) -> Vec<Cite> {
+    let mut out: Vec<Cite> = Vec::new();
+    let mut push = |c: Cite| {
+        if !out.contains(&c) && out.len() < 12 {
+            out.push(c);
+        }
+    };
+    let b = answer.as_bytes();
+    let mut i = 0;
+    while i + 2 < b.len() {
+        let pp = b[i..].starts_with(b"pp. ");
+        if !(pp || b[i..].starts_with(b"p. ")) || (i > 0 && b[i - 1].is_ascii_alphanumeric()) {
+            i += 1;
+            continue;
+        }
+        // A file named just before: "name.pdf, p. 3".
+        let before = answer[..i].trim_end().trim_end_matches(',');
+        let file = before.rsplit(['(', '[', ';', '\n']).next().map(str::trim).filter(|f| f.to_lowercase().ends_with(".pdf")).map(str::to_string);
+        let mut j = i + if pp { 4 } else { 3 };
+        // Numbers, ranges and lists: 3 | 3-4 | 3, 5
+        loop {
+            let start = j;
+            while j < b.len() && b[j].is_ascii_digit() {
+                j += 1;
+            }
+            let Ok(a) = answer[start..j].parse::<usize>() else { break };
+            let mut z = a;
+            if j < b.len() && (b[j] == b'-' || answer[j..].starts_with('–')) {
+                let k = j + if b[j] == b'-' { 1 } else { '–'.len_utf8() };
+                let mut e = k;
+                while e < b.len() && b[e].is_ascii_digit() {
+                    e += 1;
+                }
+                if let Ok(t) = answer[k..e].parse::<usize>() {
+                    z = t.min(a + 20);
+                    j = e;
+                }
+            }
+            for p in a..=z.max(a) {
+                if p > 0 {
+                    push(Cite { file: file.clone(), page: p });
+                }
+            }
+            if answer[j..].starts_with(", ") && b.get(j + 2).is_some_and(u8::is_ascii_digit) {
+                j += 2;
+            } else {
+                break;
+            }
+        }
+        i = j.max(i + 1);
+    }
+    out
+}
+
+/// A main point as Acrobat's highlight main points uses it: the point, its page (1-based), and
+/// the sentence of the document stating it, to highlight there.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Point {
+    pub text: String,
+    pub page: Option<usize>,
+    pub quote: Option<String>,
+}
+
+/// The points of a Main points answer (`- point (p. 3) | "sentence"` lines).
+pub fn points(answer: &str) -> Vec<Point> {
+    answer
+        .lines()
+        .map(str::trim)
+        .filter_map(|l| l.strip_prefix("- ").or_else(|| l.strip_prefix("• ")).or_else(|| l.strip_prefix("* ")))
+        .map(|l| {
+            let (point, quote) = match l.split_once(" | ") {
+                Some((p, q)) => (p.trim(), Some(q.trim().trim_matches(|c| c == '"' || c == '“' || c == '”').trim().to_string()).filter(|q| !q.is_empty())),
+                None => (l, None),
+            };
+            Point { text: point.to_string(), page: citations(point).first().map(|c| c.page), quote }
+        })
+        .collect()
 }
 
 /// The languages offered for translation (any other can be typed on the command line).
@@ -323,6 +411,25 @@ mod tests {
     fn a_short_text_is_one_chunk_and_an_empty_one_has_none() {
         assert_eq!(chunks(&page_sources(&["Hello".into(), " ".into(), "World".into()]), 24_000), vec!["[p. 1]\nHello\n\n[p. 3]\nWorld\n".to_string()]);
         assert!(chunks(&page_sources(&["  ".into()]), 1000).is_empty());
+    }
+
+    #[test]
+    fn cited_pages_are_found_in_an_answer() {
+        let c = citations("The budget (p. 7) and costs (pp. 3-4; report.pdf, p. 2), see also p. 7, 9. Not app. 5");
+        assert_eq!(c, vec![
+            Cite { file: None, page: 7 },
+            Cite { file: None, page: 3 },
+            Cite { file: None, page: 4 },
+            Cite { file: Some("report.pdf".into()), page: 2 },
+            Cite { file: None, page: 9 },
+        ]);
+    }
+
+    #[test]
+    fn main_points_carry_their_page_and_sentence() {
+        let p = points("Here:\n- Sales rose (p. 3) | \"Sales rose by 12% in 2025.\"\n- Costs fell (p. 5)\n");
+        assert_eq!(p[0], Point { text: "Sales rose (p. 3)".into(), page: Some(3), quote: Some("Sales rose by 12% in 2025.".into()) });
+        assert_eq!((p[1].page, p[1].quote.as_deref()), (Some(5), None));
     }
 
     #[test]

@@ -178,7 +178,8 @@ impl Document {
             .collect()
     }
 
-    /// Sheaf: per target, a paragraph that mixes fonts or styles (a bold word, two faces) as its
+    /// Sheaf: per target, a paragraph that mixes fonts or styles (a bold word, two faces, a word in
+    /// red or larger) as its
     /// runs, each run of one font as text in its box on the page (user space): its own font
     /// resource when that font writes its text again, else `None` and the nearest standard family
     /// in its weight and slant. PDF Expert's formatted paste keeps each run's font (Sol, 28/10: a
@@ -197,7 +198,9 @@ impl Document {
                 let b = blocks.get(t.index).filter(|b| b.rotation.abs() < 0.5 && !b.invisible)?;
                 let runs: Vec<&pdfcraft_edit::TextLine> = b.lines.iter().filter_map(|&i| lines.get(i)).filter(|l| !l.text.trim().is_empty()).collect();
                 let first = runs.first()?;
-                let style = |l: &pdfcraft_edit::TextLine| (l.font.clone(), l.bold, l.italic);
+                // A run differs by its font, weight, slant, size or colour (Sol, 28/10: a red or a
+                // larger word in the paragraph's own font lost its colour or size).
+                let style = |l: &pdfcraft_edit::TextLine| (l.font.clone(), l.bold, l.italic, (l.size * 100.0).round() as i64, l.color.map(|c| (c * 255.0).round() as i64));
                 if runs.iter().all(|l| style(l) == style(first)) {
                     return None;
                 }

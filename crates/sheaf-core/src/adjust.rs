@@ -125,6 +125,21 @@ pub fn adjust_doc(doc: &mut Document, a: &Adjust) -> usize {
     }
     let ids: Vec<ObjectId> = doc.objects.keys().copied().collect();
     for id in ids {
+        // A palette picture (/Indexed, a black-and-white scan with a two-colour palette included):
+        // its palette changed, written into a colour space of its own (a shared one is left to the
+        // others; Sol, 28/10: palette pictures were skipped without a word).
+        let indexed = doc.get_object(id).ok().and_then(|o| o.as_stream().ok()).filter(|s| s.dict.get(b"Subtype").and_then(Object::as_name).is_ok_and(|n| n == b"Image")).and_then(|s| {
+            let cs = s.dict.get(b"ColorSpace").ok()?;
+            let arr = doc.dereference(cs).ok()?.1.as_array().ok()?;
+            (doc.dereference(arr.first()?).ok()?.1.as_name().ok()? == b"Indexed").then(|| indexed_palette(doc, arr, a))
+        });
+        if let Some(palette) = indexed {
+            match (palette, doc.get_object_mut(id).and_then(Object::as_stream_mut)) {
+                (Some(cs), Ok(s)) => s.dict.set("ColorSpace", cs),
+                _ => kept += 1,
+            }
+            continue;
+        }
         let Some(Ok(n)) = doc.get_object(id).ok().and_then(|o| o.as_stream().ok()).filter(|s| s.dict.get(b"Subtype").and_then(Object::as_name).is_ok_and(|n| n == b"Image")).map(|s| {
             if s.dict.get(b"ImageMask").and_then(Object::as_bool).unwrap_or(false) { return Err(()) }
             s.dict.get(b"ColorSpace").ok().and_then(|c| components(doc, c)).ok_or(())
@@ -137,6 +152,29 @@ pub fn adjust_doc(doc: &mut Document, a: &Adjust) -> usize {
         }
     }
     kept
+}
+
+/// An /Indexed colour space (`[/Indexed base hival lookup]`) with its palette's colours changed:
+/// grey and RGB palettes in their space, CMYK ones written in RGB; `None` for another base.
+fn indexed_palette(doc: &Document, cs: &[Object], a: &Adjust) -> Option<Object> {
+    let [_, base, hival, lookup] = cs else { return None };
+    let n = components(doc, base)? as usize;
+    let entries = usize::try_from(doc.dereference(hival).ok()?.1.as_i64().ok()?).ok()? + 1;
+    let bytes = match doc.dereference(lookup).ok()?.1 {
+        Object::String(b, _) => b.clone(),
+        Object::Stream(st) => st.decompressed_content().ok().unwrap_or_else(|| st.content.clone()),
+        _ => return None,
+    };
+    let table = bytes.get(..entries * n)?;
+    let f = |b: u8| b as f32 / 255.0;
+    let out: Vec<u8> = match n {
+        1 => table.iter().map(|&g| a.gray(f(g))).map(|c| (c * 255.0).round() as u8).collect(),
+        3 => table.chunks(3).flat_map(|p| a.rgb([f(p[0]), f(p[1]), f(p[2])])).map(|c| (c * 255.0).round() as u8).collect(),
+        4 => table.chunks(4).flat_map(|p| a.rgb(cmyk_rgb(f(p[0]), f(p[1]), f(p[2]), f(p[3])))).map(|c| (c * 255.0).round() as u8).collect(),
+        _ => return None,
+    };
+    let base = if n == 4 { Object::Name(b"DeviceRGB".to_vec()) } else { base.clone() };
+    Some(Object::Array(vec![Object::Name(b"Indexed".to_vec()), base, Object::Integer(entries as i64 - 1), Object::String(out, lopdf::StringFormat::Hexadecimal)]))
 }
 
 /// The content's colours changed; whether any were, and how many settings were left.

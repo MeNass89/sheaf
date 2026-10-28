@@ -21,14 +21,12 @@ The second session stopped mid-way; its branch `dev/annot-gaps` (C-annotate-001/
 attachments, craft-fonts) was rebased onto round 7 and is being finished here (its suite was red on in-place
 typing and Edit text).
 
-## Last landing (28/10/2026, rounds 28–32)
+## Last landing (28/10/2026, round 33)
 
-Verdict: lint and unit GREEN (bash scripts/test.sh, round 32 at 25c8a9f, 05:00 UTC), GUI GREEN (scripts/test.sh gui,
-round 32 at 114fc11, 1357 s; only the smoke script changed between the two runs). Board 253/331 at 9: round 30's
-new components carry their authors' grades until Sol cross-reviews them (Sol's round-30 review: 0/6 agree, gaps
-in the board history). Next: Sol cross-review of rounds 31–32 (AI, reader, edit, sign, ui), then the 8s by Sol's
-gaps; macOS unit failures (5 sheaf-core targets on GitHub's macos-14) to read on the MBP (ssh nassimlecornet@mbpn,
-~/sheaf-ci).
+Verdict: lint and unit GREEN (bash scripts/test.sh, round 33 at 9074a00, 07:00 UTC), GUI GREEN (scripts/test.sh gui,
+round 33 at 0862ff8, 1409 s; only the smoke script changed between the runs). Open: sheaf-core's `pages` tests
+crashed once in PDFium (SIGSEGV) under a loaded machine and passed 8 runs alone; find its cause. Next: Sol's
+remaining gaps (board history), macOS unit failures on the MBP (ssh nassimlecornet@mbpn, ~/sheaf-ci).
 
 ## Where things are
 

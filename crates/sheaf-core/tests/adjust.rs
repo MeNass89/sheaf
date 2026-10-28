@@ -90,3 +90,44 @@ fn a_ccitt_scan_is_inverted() {
     assert!(at(&before, 1) < 50 && at(&before, 3) > 200, "black left, white right: {} {}", at(&before, 1), at(&before, 3));
     assert!(at(&after, 1) > 200 && at(&after, 3) < 50, "white left, black right: {} {}", at(&after, 1), at(&after, 3));
 }
+
+/// Invert on palette pictures (/Indexed): a black-and-white scan with a two-colour palette (1 bit
+/// per pixel, black and white) and an RGB palette of red and white, its table in a stream: each
+/// shows the opposite colours, as Stirling's Invert of the rendered page (Sol, 28/10: palette
+/// pictures were left as they were).
+#[test]
+fn indexed_pictures_are_inverted() {
+    use lopdf::{dictionary, Object, Stream, StringFormat};
+    let t = tempfile::tempdir().unwrap();
+    let mut doc = lopdf::Document::with_version("1.7");
+    // 16 × 16, 1 bit: the left half index 0 (black), the right half index 1 (white).
+    let bw = Object::Array(vec!["Indexed".into(), "DeviceGray".into(), 1.into(), Object::String(vec![0, 255], StringFormat::Hexadecimal)]);
+    let scan = doc.add_object(Stream::new(dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 16, "Height" => 16, "ColorSpace" => bw, "BitsPerComponent" => 1 }, [0x00_u8, 0xFF].repeat(16)));
+    // 16 × 16, 8 bits: left index 0 (red), right index 1 (white); the palette a stream.
+    let table = doc.add_object(Stream::new(dictionary! {}, vec![255, 0, 0, 255, 255, 255]));
+    let rgb = Object::Array(vec!["Indexed".into(), "DeviceRGB".into(), 1.into(), Object::Reference(table)]);
+    let px: Vec<u8> = (0..16).flat_map(|_| (0..16).map(|x| u8::from(x >= 8))).collect();
+    let colour = doc.add_object(Stream::new(dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 16, "Height" => 16, "ColorSpace" => rgb, "BitsPerComponent" => 8 }, px));
+    let content = doc.add_object(Stream::new(dictionary! {}, b"q 100 0 0 100 0 100 cm /A Do Q q 100 0 0 100 0 0 cm /B Do Q".to_vec()));
+    let pages = doc.new_object_id();
+    let page = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 100.into(), 200.into()], "Contents" => content,
+        "Resources" => dictionary! { "XObject" => dictionary! { "A" => scan, "B" => colour } } });
+    doc.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
+    let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    doc.trailer.set("Root", catalog);
+    let src = t.path().join("indexed.pdf");
+    doc.save(&src).unwrap();
+    let out = t.path().join("inv.pdf");
+    let (out, kept) = adjust_colours(&Input::new(&src), &Adjust { invert: true, ..Default::default() }, &out).unwrap();
+    assert_eq!(kept, 0, "nothing left as it was");
+    let (w, _, before) = common::render(&src, 0);
+    let (_, _, after) = common::render(&out, 0);
+    // The scan above (y 0–100 of the rendering), the red picture below; left and right quarters.
+    let at = |px: &[u8], x: usize, y: usize| { let i = (y * w as usize + x) * 4; [px[i], px[i + 1], px[i + 2]] };
+    let (q1, q3) = (w as usize / 4, w as usize * 3 / 4);
+    let (top, low) = (w as usize / 2, w as usize * 3 / 2);
+    assert_eq!((at(&before, q1, top), at(&before, q3, top)), ([0, 0, 0], [255, 255, 255]), "the scan: black then white");
+    assert_eq!((at(&after, q1, top), at(&after, q3, top)), ([255, 255, 255], [0, 0, 0]), "the scan inverted");
+    assert_eq!((at(&before, q1, low), at(&before, q3, low)), ([255, 0, 0], [255, 255, 255]), "red then white");
+    assert_eq!((at(&after, q1, low), at(&after, q3, low)), ([0, 255, 255], [0, 0, 0]), "cyan then black");
+}

@@ -45,6 +45,13 @@ pub fn preview_pdf(p: &Path) -> Result<PathBuf, String> {
     Ok(out)
 }
 
+/// The file a preview PDF was made from ("notes.txt" for its `notes.txt.pdf`), or `None` for any
+/// other PDF: previews are the PDFs under this app's own previews folder.
+pub fn previewed_name(pdf: &Path) -> Option<String> {
+    let root = std::env::temp_dir().join("sheaf-previews");
+    pdf.starts_with(&root).then(|| pdf.file_stem().map(|s| s.to_string_lossy().into_owned())).flatten()
+}
+
 /// A number no other preview of this run has.
 fn unique() -> u64 {
     static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -84,6 +91,17 @@ fn drawable(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Only the previews folder's PDFs are previews, named for the file they show.
+    #[test]
+    fn a_preview_is_known_by_its_folder_and_named_for_its_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let txt = dir.path().join("notes.txt");
+        std::fs::write(&txt, "Shopping list").unwrap();
+        let pdf = preview_pdf(&txt).unwrap();
+        assert_eq!(previewed_name(&pdf).as_deref(), Some("notes.txt"));
+        assert_eq!(previewed_name(&dir.path().join("notes.pdf")), None);
+    }
 
     fn texts(pdf: &Path) -> String {
         let d = lopdf::Document::load(pdf).unwrap();

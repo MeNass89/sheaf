@@ -537,6 +537,8 @@ export struct ReaderState {
     folder-results: [FolderHit],
     // PDFs of the folder that could not be read: name, and why (a password, damaged).
     folder-skipped: [FolderHit],
+    // A text file or picture shown as a preview PDF: its own name ("" a PDF of its own).
+    preview-of: string,
     versions: int,
     undo-label: string,
     redo-label: string,

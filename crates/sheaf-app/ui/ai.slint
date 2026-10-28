@@ -16,6 +16,10 @@ export struct AiMessage {
     settings: bool,
     // A podcast script: Save audio… is offered.
     audio: bool,
+    // Main points that can be highlighted in the document.
+    highlight: bool,
+    // The pages cited ("p. 3", "report.pdf · p. 3"), each a button.
+    cites: [string],
 }
 
 export global AiBridge {
@@ -43,14 +47,18 @@ export global AiBridge {
     in property <int> space;
     in property <[string]> space-files;
     in property <string> space-name;
+    // The categories written in the space's PDFs ("All categories" first) and the one shown.
+    in property <[string]> space-labels;
+    in property <int> space-filter;
     // Open or close the panel on a tab.
     callback toggle(int);
     // A request: action ("ask", "summarize", "points", "translate", "podcast", "slides-pptx",
     // "slides-pdf", "classify", "cancel", "clear", "notice-ok", "notice-off", "turn-on", "copy",
-    // "save", "open", "retry", "settings", "audio"), its text (a question, a language, categories, a message's index), the
+    // "save", "open", "retry", "settings", "audio", "highlight", "goto" ("message:cite")), its text (a question, a language, categories, a message's index), the
     // scope (0 whole document, 1 selection, 2 pages) and the pages typed.
     callback act(int, string, string, int, string);
-    // Spaces: "select" (index), "new", "add", "remove" (a file's index), "open" (a file's index), "delete".
+    // Spaces: "select" (index), "new", "add", "remove" (a file's index), "open" (a file's index), "delete",
+    // "filter" (index in space-labels), "export", "import".
     callback space-act(string, int);
     // Rename the space in use (Acrobat's Rename space).
     callback space-rename(string);

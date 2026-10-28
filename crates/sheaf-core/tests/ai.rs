@@ -446,3 +446,57 @@ fn a_translation_in_any_script_is_saved_as_a_searchable_pdf() {
     // The Unicode one embeds its faces.
     assert!(std::fs::metadata(&out).unwrap().len() > 20_000);
 }
+
+/// Sol, round 31: a Japanese or Arabic deck had "?" for its text. Both the PDF and the PowerPoint
+/// made from it keep the script.
+#[test]
+fn a_deck_in_any_script_keeps_its_text_in_pdf_and_powerpoint() {
+    let d = tempfile::tempdir().unwrap();
+    let slides = deck::parse("# 年次報告\n- 売上は12%増加\n# Продажи\n- Рост на 12%");
+    let pdf = deck::write("年次報告", &slides, &d.path().join("deck.pdf")).unwrap();
+    let texts = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&pdf), &[]).unwrap();
+    assert!(texts[0].contains("年次報告") && texts[1].contains("Продажи") && texts[1].contains("Рост"), "{texts:?}");
+    assert!(!texts.concat().contains('?'));
+    let pptx = deck::write("年次報告", &slides, &d.path().join("deck.pptx")).unwrap();
+    let mut zip = zip::ZipArchive::new(std::fs::File::open(pptx).unwrap()).unwrap();
+    let mut xml = String::new();
+    for i in 0..zip.len() {
+        let mut f = zip.by_index(i).unwrap();
+        if f.name().starts_with("ppt/slides/slide") {
+            std::io::Read::read_to_string(&mut f, &mut xml).unwrap();
+        }
+    }
+    assert!(xml.contains("年次報告") && xml.contains("Продажи"), "slides: {}", xml.chars().take(400).collect::<String>());
+}
+
+/// Sol, round 31: an Arabic line's "12.50" came out as 50.12. Drawn right to left, the number's
+/// glyphs stay in reading order, left to right (the text read back keeps 12.50).
+#[test]
+fn a_number_in_an_arabic_line_keeps_its_value() {
+    let d = tempfile::tempdir().unwrap();
+    let out = sheaf_core::ai::write_text("t", "السعر 12.50 دولار", &d.path().join("ar.pdf")).unwrap();
+    let got = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&out), &[]).unwrap().concat();
+    assert!(got.contains("12.50"), "{got:?}");
+    assert!(!got.contains("50.12"), "{got:?}");
+}
+
+/// Stirling keeps a document's class in the PDF: written in place as an incremental update (the
+/// original bytes untouched), read back after reopening, replaced rather than stacked.
+#[test]
+fn a_category_is_kept_in_the_pdf_itself() {
+    use sheaf_core::ai::labels;
+    let d = tempfile::tempdir().unwrap();
+    let f = d.path().join("bill.pdf");
+    let original = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Bill", "Invoice no. 12").unwrap();
+    std::fs::write(&f, original.as_slice()).unwrap();
+    assert_eq!(labels::read(&f), None);
+    labels::write(&f, "Invoice").unwrap();
+    let after = std::fs::read(&f).unwrap();
+    assert!(after.starts_with(original.as_slice()) && after.len() > original.len(), "not an incremental update");
+    assert_eq!(labels::read(&f).as_deref(), Some("Invoice"));
+    labels::write(&f, "Reçu").unwrap();
+    assert_eq!(labels::read(&f).as_deref(), Some("Reçu"));
+    let kw = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input::new(&f)).unwrap().document().info.keywords.clone().unwrap();
+    assert_eq!(kw, "Category: Reçu");
+    assert_eq!(std::fs::read_dir(d.path()).unwrap().count(), 1, "no temporary file left");
+}

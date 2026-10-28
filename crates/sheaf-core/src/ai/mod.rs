@@ -8,6 +8,7 @@ pub mod deck;
 pub mod spaces;
 pub mod tasks;
 pub mod audio;
+pub mod labels;
 pub mod unicode_pdf;
 
 use serde_json::{json, Value};
