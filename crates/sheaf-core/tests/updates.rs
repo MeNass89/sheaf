@@ -53,7 +53,7 @@ fn a_newer_release_is_found_with_this_computers_download() {
     // GitHub's API asks for a User-Agent and its media type.
     let head = seen.recv().unwrap();
     assert_eq!(head[0], "GET /repos/MeNass89/sheaf/releases/latest HTTP/1.1");
-    let has = |h: &str| head.iter().any(|l| l.to_ascii_lowercase() == h.to_ascii_lowercase());
+    let has = |h: &str| head.iter().any(|l| l.eq_ignore_ascii_case(h));
     assert!(has("user-agent: Sheaf/0.2.1"), "{head:?}");
     assert!(has("accept: application/vnd.github+json"), "{head:?}");
 }
