@@ -4,6 +4,8 @@ pub use sheaf_ui::*;
 
 mod action_import;
 pub mod actions;
+#[cfg(target_os = "macos")]
+pub mod capture_mac;
 pub mod ai_store;
 pub mod action_settings;
 pub mod library;
@@ -31,6 +33,9 @@ pub mod reader;
 pub mod saved_options;
 #[cfg(target_os = "macos")]
 pub mod scan_mac;
+pub mod scripting;
+#[cfg(target_os = "macos")]
+pub mod scripting_mac;
 pub mod security_policies;
 pub mod store_file;
 pub mod sign_preview;

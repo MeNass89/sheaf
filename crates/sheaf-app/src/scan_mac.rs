@@ -129,7 +129,7 @@ fn scan(out: &Path, title: &str, empty: &str) -> Result<bool, String> {
             let until: Retained<AnyObject> = msg_send![AnyClass::get(c"NSDate").unwrap(), dateWithTimeIntervalSinceNow: 4.0f64];
             let run_loop: Retained<AnyObject> = msg_send![AnyClass::get(c"NSRunLoop").unwrap(), currentRunLoop];
             let _: () = msg_send![&*run_loop, runUntilDate: &*until];
-            return draw_window(&content, Path::new(&shot)).map(|()| false);
+            return draw_view(&content, Path::new(&shot)).map(|()| false);
         }
         app.runModalForWindow(&window);
         let done = STATE.with_borrow_mut(|s| s.done.take());
@@ -214,7 +214,7 @@ unsafe fn error_text(error: *mut AnyObject) -> Option<String> {
 
 /// # Safety
 /// `view` is an NSView on screen.
-unsafe fn draw_window(view: &AnyObject, to: &Path) -> Result<(), String> {
+pub(crate) unsafe fn draw_view(view: &AnyObject, to: &Path) -> Result<(), String> {
     let bounds: NSRect = unsafe { msg_send![view, bounds] };
     let rep: Option<Retained<AnyObject>> = unsafe { msg_send![view, bitmapImageRepForCachingDisplayInRect: bounds] };
     let rep = rep.ok_or("The panel could not be drawn")?;

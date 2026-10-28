@@ -6983,3 +6983,63 @@ msgstr "Réglages…"
 #: ui/main.slint
 msgid "Minimize"
 msgstr "Réduire"
+
+#: ui/main.slint
+msgid "Import from iPhone or iPad…"
+msgstr "Importer depuis l’iPhone ou l’iPad…"
+
+#: ui/main.slint
+msgid "Import from Scanner…"
+msgstr "Importer depuis le scanner…"
+
+#: ui/screens/recents.slint
+msgid "From iPhone or iPad"
+msgstr "Depuis l’iPhone ou l’iPad"
+
+#: ui/screens/reader-panel.slint
+msgid "Insert from iPhone or iPad…"
+msgstr "Insérer depuis l’iPhone ou l’iPad…"
+
+#: ui/screens/sign-panel.slint
+msgid "Camera"
+msgstr "Caméra"
+
+#: ui/screens/sign-panel.slint
+msgid "iPhone or iPad"
+msgstr "iPhone ou iPad"
+
+#: ui/screens/sign-panel.slint
+msgid "PNG or JPEG, or a photo of your signature on white paper"
+msgstr "PNG ou JPEG, ou une photo de votre signature sur papier blanc"
+
+#: src/run.rs
+msgid "Import from iPhone or iPad"
+msgstr "Importer depuis l’iPhone ou l’iPad"
+
+#: src/run.rs
+msgid "Choose your iPhone or iPad, then Take Photo or Scan Documents: the pages come here."
+msgstr "Choisissez votre iPhone ou iPad, puis Prendre une photo ou Numériser des documents : les pages arrivent ici."
+
+#: src/run.rs
+msgid "Choose your iPhone or iPad, then Take Photo of your signature on white paper."
+msgstr "Choisissez votre iPhone ou iPad, puis Prendre une photo de votre signature sur papier blanc."
+
+#: src/run.rs
+msgid "Nothing was imported"
+msgstr "Rien n’a été importé"
+
+#: src/run.rs
+msgid "Importing from an iPhone or iPad needs a Mac"
+msgstr "L’import depuis un iPhone ou un iPad demande un Mac"
+
+#: src/run.rs
+msgid "Signature from the camera"
+msgstr "Signature par la caméra"
+
+#: src/run.rs
+msgid "No picture was taken"
+msgstr "Aucune photo n’a été prise"
+
+#: src/run.rs
+msgid "The camera panel needs a Mac"
+msgstr "La caméra demande un Mac"

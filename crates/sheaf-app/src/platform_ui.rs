@@ -713,6 +713,8 @@ pub fn install(ui: &AppWindow) {
                 g.set_preferences_asked(g.get_preferences_asked() + 1);
             }
         });
+        // AppleScript and Shortcuts (Run AppleScript): the dictionary's commands (macos/Sheaf.sdef).
+        sheaf_app::scripting_mac::install();
     }
     // Checks on a Mac (debug builds): screen capture is refused over ssh, so the window draws itself.
     // A name written to $SHEAF_TEST_SNAPSHOT/request becomes $SHEAF_TEST_SNAPSHOT/<name>.png.

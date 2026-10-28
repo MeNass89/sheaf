@@ -91,3 +91,24 @@
 
 - Opening a certificate-encrypted PDF with a smart card (decrypting on the token) is refused with a clear message;
   the card signs only.
+
+## C-sign-004 Signature from the camera or an iPhone (28/10, Opus, on the MBP)
+
+- Gap: no camera capture (Preview: Signatures ▸ Camera / iPhone). Image upload with background removal existed.
+- Change: Sign panel, Image mode, Mac only: Camera and iPhone or iPad. Camera runs ImageKit's IKPictureTaker
+  (camera, files; wide 3:1 crop, 1500×500 at most) in a helper (`sheaf-app --camera-to <png> <title>`,
+  src/capture_mac.rs); iPhone runs the Continuity Camera helper in `photo` mode (Take Photo, Add Sketch; a scanned
+  page comes as a picture). The picture then goes through the upload path: sign::aspect check, then
+  sign::clear_background (sign_ui::capture_image, off the UI thread). Info.plist: NSCameraUsageDescription.
+  Hint text on a Mac: "PNG or JPEG, or a photo of your signature on white paper". French in sheaf-ui.po.
+- Mac evidence (MBP, debug build):
+  - `SHEAF_TEST_CAMERA_SHOT=/tmp/sheafcap/camera-panel.png sheaf-app --camera-to …` → the panel shown, titled
+    "Signature from the camera", its content an NSRemoteView (macOS 27's picture taker is drawn by another process,
+    so the PNG holds only the frame; `panel visible: true`).
+  - `SHEAF_TEST_CAMERA_IMAGE=signature-photo.jpg sheaf-app --camera-to c.png` → PNG 1600×1000 (the saving path).
+  - iPhone helper in `photo` mode: JPEG → r-sign.png 1600×1000; menu filled as in C-files-018.
+- Needs a phone / a person: the live camera picture (the remote panel is not drawable over ssh; camera permission
+  is asked on first use in the bundle) and the phone's Take Photo. The Sign panel's two buttons were not clicked on
+  the Mac (layout checked by Slint compile only; same code path as Upload image after the helper).
+- Self-grade F 9 · A 8 · P 8 (A: IKPictureTaker is ImageKit's generic picture panel, not Preview's dedicated
+  signature camera with its guide line).

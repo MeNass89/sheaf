@@ -45,6 +45,7 @@ export component RecentsScreen inherits Rectangle {
     callback new-from-clipboard();
     callback new-from-screenshot();
     callback new-from-scanner();
+    callback new-from-iphone();
     callback open-recent(int);
     callback reveal-recent(int);
     callback remove-recent(int);
@@ -100,6 +101,11 @@ export component RecentsScreen inherits Rectangle {
                     SecondaryButton {
                         text: @tr("From scanner");
                         clicked => { root.new-from-scanner(); }
+                    }
+                    // Preview's Import from iPhone or iPad (Continuity Camera): Mac only.
+                    if PlatformBridge.mac: SecondaryButton {
+                        text: @tr("From iPhone or iPad");
+                        clicked => { root.new-from-iphone(); }
                     }
                 }
                 Text {

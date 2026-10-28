@@ -147,3 +147,33 @@ annotation and its U3D stream come through, the file checks clean, no held subty
   .dmg and CI built without them. `.cargo/config.toml` sets CRAFT_FONTS_DIR; release scripts require it.
 - macOS unit layer green on the MBP (cargo test --workspace + pdfcraft libs). Test-only fixes: canonical paths
   (/private/var), a fixture page without /Resources (qpdf 12 warns), lopdf's text of LibreOffice 26 PDFs.
+
+## C-files-018 Import from iPhone or iPad (28/10, Opus, on the MBP)
+
+- Gap: no scan from a phone (Preview: File ▸ Import from iPhone or iPad ▸ Take Photo / Scan Documents,
+  Continuity Camera). Scanner and screenshot already worked.
+- Change: `src/capture_mac.rs`, helper `sheaf-app --iphone-to <out> pdf|photo …` (scan_mac's pattern). A small
+  window whose content view is an NSServicesMenuRequestor (validRequestorForSendType:returnType: takes images
+  and, for `pdf`, com.adobe.pdf; readSelectionFromPasteboard: writes the result) and whose button opens a menu
+  holding an item marked NSMenuItemImportFromDeviceIdentifier. AppKit fills that item only in the main menu, so
+  the helper's main menu holds it and the button pops that same menu up. Scan Documents' PDF is kept as is
+  (several pages); a photo or sketch goes on a page (images_to_pdf, FitImage). Entries, Mac only: Home ▸ From
+  iPhone or iPad, File ▸ Import from iPhone or iPad… (and File ▸ Import from Scanner…, Preview's), reader page
+  menu ▸ Insert from iPhone or iPad… (one undo step, after the selected page). Linux/Windows: hidden; run.rs says
+  it needs a Mac. French in sheaf-ui.po.
+- Mac evidence (MBP, macOS 27.2, debug build, ssh):
+  - `SHEAF_TEST_IPHONE_SHOT=… sheaf-app --iphone-to /tmp/sheafcap/out.pdf pdf …` → the window drawn
+    (/tmp/sheafcap/iphone-window.png: hint and "Import from iPhone or iPad…" button) and the menu as AppKit
+    filled it: `menu: Import from iPhone` / `<the phone's name> (disabled)` / `Take Photo` / `Scan Documents` /
+    `Add Sketch`; AppKit asked the view `return public.jpeg, public.png, com.adobe.pdf` (taken) and found it
+    first responder of the key window.
+  - Result path without a phone (SHEAF_TEST_IPHONE_PASTE hands a sample through an NSPasteboard to the view's
+    readSelectionFromPasteboard:): 2-page PDF → r-scan.pdf, 2 pages; JPEG → r-photo.pdf, 1 page; JPEG in `photo`
+    mode → 1600×1000 PNG.
+  - In the app: File ▸ Import from iPhone or iPad… clicked through System Events (with SHEAF_TEST_DIALOG for the
+    save sheet) → /tmp/sheafcap/fromphone.pdf (2 pages) opened in the reader, snapshot
+    /tmp/sheafcap/snap/after.png; Home shows From iPhone or iPad (/tmp/sheafcap/snap/home.png).
+- Needs a phone: the actual Take Photo / Scan Documents on the iPhone and its hand-off; not pressed (it would
+  open the camera on the owner's phone). The reader's Insert from iPhone was not clicked on the Mac (same helper and
+  insert path as Insert from scanner).
+- Self-grade F 9 · A 9 · P 8 (P: the phone round trip itself is unobserved).

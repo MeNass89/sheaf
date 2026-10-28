@@ -127,6 +127,28 @@ pub fn pick_image(ui: &AppWindow, tab_id: i32) {
     });
 }
 
+/// A Mac's Signatures ▸ Camera (`phone` false: the Mac's camera) or iPhone (Continuity Camera's
+/// Take Photo): the photo of a signature on paper, its background taken out as for an image
+/// uploaded. The helper is waited for off the UI thread.
+pub fn capture_image(ui: &AppWindow, tab_id: i32, phone: bool) {
+    use slint::ComponentHandle;
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let to = std::env::temp_dir().join(format!("sheaf-signature-{}-{tab_id}-{}.png", std::process::id(), if phone { "iphone" } else { "camera" }));
+        let taken = if phone { crate::run::from_phone(&to, false) } else { crate::run::from_camera(&to) };
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            if let Err(e) = taken {
+                return crate::flow::toast(&ui, &e);
+            }
+            if let Err(e) = sign::aspect(&Graphic::Image(to.clone())) {
+                return crate::flow::toast(&ui, &e.to_string());
+            }
+            let p = sign::clear_background(&to).unwrap_or(to);
+            edit(tab_id, |s| s.image = Some(p));
+        });
+    });
+}
+
 /// The certificate to sign with, when the panel asks for one.
 pub fn digital(opts: &ToolOptions) -> Result<Option<DigitalSpec>> {
     if !opts.sign_cert {

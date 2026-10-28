@@ -3,6 +3,7 @@
 // options panel below. Events go to the Rust side through SignBridge.
 import { Theme } from "../theme.slint";
 import { ToolTab, SignBridge } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Segment } from "../widgets/radio-card.slint";
 
@@ -164,8 +165,29 @@ export component SignPanel inherits VerticalLayout {
                 }
             }
         }
+        // Preview's Signatures ▸ Camera and iPhone: a signature on white paper held up to the
+        // Mac's camera, or photographed with a phone near the Mac (Continuity Camera).
+        if PlatformBridge.mac: HorizontalLayout {
+            spacing: 6px;
+            Segment {
+                text: @tr("Camera");
+                clicked => {
+                    if root.enabled {
+                        SignBridge.capture-image(root.tab.id, 0);
+                    }
+                }
+            }
+            Segment {
+                text: @tr("iPhone or iPad");
+                clicked => {
+                    if root.enabled {
+                        SignBridge.capture-image(root.tab.id, 1);
+                    }
+                }
+            }
+        }
         Text {
-            text: root.tab.sign-image-name == "" ? @tr("PNG or JPEG, on a white or transparent background") : root.tab.sign-image-name;
+            text: root.tab.sign-image-name != "" ? root.tab.sign-image-name : PlatformBridge.mac ? @tr("PNG or JPEG, or a photo of your signature on white paper") : @tr("PNG or JPEG, on a white or transparent background");
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
             overflow: elide;

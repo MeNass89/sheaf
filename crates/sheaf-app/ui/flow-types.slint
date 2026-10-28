@@ -1272,6 +1272,8 @@ export global SignBridge {
     // The pad's strokes as "M x y L x y … M …" in pad pixels, and the pad's width and height.
     callback drawn(int, string, length, length);
     callback pick-image(int);
+    // A Mac's Signatures ▸ Camera (0: the Mac's camera) or iPhone (1: Continuity Camera).
+    callback capture-image(int, int);
     // 0 small, 1 medium, 2 large.
     callback size(int, int);
 }
