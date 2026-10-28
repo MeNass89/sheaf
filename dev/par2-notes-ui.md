@@ -50,6 +50,26 @@
   too). 311 now ends with `answer ""; quit`.
 - Report an Issue is 580 px wide so its four buttons fit on one row.
 
+## Round 31, interface language
+
+- C-preferences-003: Preferences ▸ Interface ▸ Language (iLovePDF's Language, Acrobat's "Same as the
+  operating system"): As the system's language, English or Français, applied at once. Every text of
+  ui/ (1,422 messages: Home, Tools, Preferences, reader toolbar, menus, sheets, panels, tool
+  options, dialogs) is wrapped in `@tr` and its French bundled at build time from
+  `crates/sheaf-app/translations/fr/LC_MESSAGES/sheaf-ui.po` (slint-build's bundled translations, no
+  runtime dependency, nothing read from disk). The Tools page's names and sections, made in Rust, go
+  through `sheaf_app::i18n::tr` (the same catalogue, compiled in); Tools search also matches the
+  French names. `dev/scripts/po-update.py crates/sheaf-app` keeps the catalogue in step. Tests:
+  `i18n::tests::every_interface_text_has_its_french` (every @tr, every `i18n::tr("…")`, every tool
+  name and section; placeholders kept), `i18n::tests::languages_follow_the_choice_or_the_system_and_texts_fall_back_to_english`,
+  smoke 306.
+- Left: texts made in Rust other than the Tools page (toasts, status lines, reader messages, tool
+  option summaries) stay English; only French besides English. The French was drafted by five
+  agents from a shared glossary and spot-checked, not read line by line.
+- Smoke helpers recalibrated for the taller Preferences (Language row): `shortcut_search` finds the
+  field from the section's title and cancels a first recording click that scrolls the page; 301
+  finds A4 from Letter (A4 alone does not OCR).
+
 ## Not automatable
 
 - Quit warning: quitting with a task running shows "A task is still running" and Keep stops the

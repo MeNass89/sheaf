@@ -49,6 +49,17 @@ pub fn tr(s: &str) -> String {
     }
 }
 
+/// The items whose name, as shown in the interface's language, holds every word of `query` (any
+/// case and accents); none in English, where the names are the source.
+pub fn matching<'a, T>(items: &'a [T], query: &str, name: impl Fn(&T) -> &str) -> Vec<&'a T> {
+    let fold = |s: &str| s.to_lowercase().chars().map(|c| match c { 'à' | 'â' => 'a', 'é' | 'è' | 'ê' | 'ë' => 'e', 'î' | 'ï' => 'i', 'ô' => 'o', 'ù' | 'û' => 'u', 'ç' => 'c', o => o }).collect::<String>();
+    let words: Vec<String> = fold(query).split_whitespace().map(String::from).collect();
+    if current().is_empty() || words.is_empty() {
+        return Vec::new();
+    }
+    items.iter().filter(|t| { let n = fold(&tr(name(t))); words.iter().all(|w| n.contains(w.as_str())) }).collect()
+}
+
 /// The msgid → msgstr pairs of a .po text (single forms, no contexts: Sheaf's catalogue has none).
 pub fn parse_po(po: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
@@ -204,7 +215,12 @@ mod tests {
         set("fr");
         assert_eq!(tr("Tools"), french().get("Tools").cloned().unwrap_or_else(|| "Tools".into()));
         assert_eq!(tr("No such text here"), "No such text here");
+        let items = ["Merge PDF", "Split PDF", "Compress PDF"];
+        let found: Vec<&&str> = matching(&items, "FUSION", |s| s);
+        assert_eq!(found, [&"Merge PDF"], "searched in French, accents and case folded");
+        assert_eq!(matching(&items, "réparer", |s| s).len(), 0);
         set("");
+        assert!(matching(&items, "fusion", |s| s).is_empty(), "English searches the source names only");
         assert_eq!(tr("Tools"), "Tools");
     }
 }

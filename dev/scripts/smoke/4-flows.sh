@@ -509,11 +509,18 @@ unset SHEAF_TEST_MENU_BAR
 # Once found, read again until the place holds: the scroll is still easing when the word first shows
 # (rows came out 42 px low on 27/10).
 pref_find() { local f="" g; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; for _ in 1 2 3 4 5; do [ -n "$f" ] || break; sleep 0.4; g=$(at "$1" 1020x700+250+90); [ "$g" = "$f" ] && break; f=$g; done; echo "$f"; }
-# Preferences ▸ Keyboard shortcuts' search field (its grey placeholder does not OCR): 93 px above Reset all,
-# the section's last row; then what is typed is searched.
 # SR keeps Reset all's place before the search: the rows found then start 45 px below the field,
 # 42 px apart (row 1 at SR - 48, row 2 at SR - 6).
-shortcut_search() { local r; read _ r <<< "$(pref_find Reset)"; SR=${r:-0}; [ -n "$r" ] && click 500 $(( r - 93 )) 0.5; xdotool type --delay 20 "$1"; sleep 0.8; }
+# Preferences ▸ Keyboard shortcuts' search field, found from the section's title ("shortcuts"; its "Keyboard" starts
+# left of the OCR's crop): the field 40 px below it, then what is typed is searched. SR is 133 px below the title,
+# the rows counted from it (Reset all's place moved when Preferences ▸ Interface gained its Language row). The
+# wheel's scroll eases out after the word shows: measured again once still.
+shortcut_search() { local t f; read _ t <<< "$(pref_find shortcuts)"; sleep 1; read _ f <<< "$(at shortcuts 1020x700+250+90)"; t=${f:-$t}
+    SR=0; [ -n "$t" ] && click 500 $(( t + 40 )) 0.5; xdotool type --delay 20 "$1"; sleep 0.8
+    # The first click on a keys box scrolls the page (69 px) as it starts recording: done once and cancelled
+    # (Escape), so the rows are measured where they stay.
+    [ -n "$t" ] && { click 1157 $(( t + 85 )) 0.5; key Escape; sleep 0.8; }
+    read _ f <<< "$(at shortcuts 1020x700+250+90)"; t=${f:-$t}; [ -n "$t" ] && SR=$(( t + 133 )); }
 # A row of the shortcuts list found by a word of its name: its keys box (right-aligned, x 1157) clicked.
 keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5; echo "${y:-no $1 row}"; }
 # The preferences file, written even when no earlier step made it.
@@ -961,7 +968,8 @@ red_at() { import -window root -crop "40x10+$(( $1 - 30 ))+$(( $2 - 5 ))" -depth
 launch; key ctrl+comma; sleep 0.8
 G=$(pref_find Grey); [ -n "$G" ] && click $G 0.6
 T=$(at Two-sided 1020x700+250+90); [ -n "$T" ] && click $T 0.6
-A=$(at A4 1020x700+250+90); [ -n "$A" ] && click $A 0.6
+# "A4" alone does not OCR: the segment left of Letter (their centres 98 px apart).
+read LX LY <<< "$(at Letter 1020x700+250+90)"; A=; [ -n "$LX" ] && A="$(( LX - 98 )) $LY" && click $A 0.6
 P1=$(settings_val 'p["settings"]["print"]')
 quit
 cp "$OUT/text.pdf" "$OUT/printdef.pdf"; launch "$OUT/printdef.pdf"; sleep 1

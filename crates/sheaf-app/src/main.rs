@@ -538,7 +538,14 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_tool_query(move |q| {
         if let Some(ui) = weak.upgrade() {
             let hidden = platform_ui::hidden_tools();
-            let found: Vec<ToolCard> = tools::search(&q).into_iter().filter(|t| !hidden.contains(&t.id)).map(tool_card).collect();
+            // Names as shown match too ("fusion" finds Fusionner des PDF in French), after the English ones.
+            let mut hits = tools::search(&q);
+            for t in sheaf_app::i18n::matching(tools::catalogue(), &q, |t| t.name) {
+                if !hits.iter().any(|h| h.id == t.id) {
+                    hits.push(t);
+                }
+            }
+            let found: Vec<ToolCard> = hits.into_iter().filter(|t| !hidden.contains(&t.id)).map(tool_card).collect();
             ui.set_tool_results(ModelRc::new(VecModel::from(found)));
         }
         q.trim().into()
