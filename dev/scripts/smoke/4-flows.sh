@@ -527,6 +527,9 @@ keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && cl
 prefs_set() { python3 -c 'import json, os, sys; f = sys.argv[1]; p = json.load(open(f)) if os.path.exists(f) else {}; exec(sys.argv[2]); os.makedirs(os.path.dirname(f), exist_ok=True); json.dump(p, open(f, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1"; }
 # The steps below change the platform preferences: put back as they were.
 platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.pop("platform", None); json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
+# Saved actions left by the batch steps (35x) put "Custom tools" in the reader's toolbar and on the Tools page,
+# which moves every later click there: the steps that click those bars start without any (28/10).
+actions_reset() { rm -f "$PWD/$OUT/profile/data/Sheaf/actions.json"; }
 
 # 221. Preferences ▸ Keyboard shortcuts (C-preferences-013, Stirling's Hotkeys): "find" searched, Find's Ctrl+F
 # clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
@@ -912,6 +915,7 @@ ai_chip() { local c w; for w in $1; do c=$(at "$w" 380x700+900+100); [ -n "$c" ]
 ai_last() { import -window root -crop 380x700+900+100 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" 'index($12, w) == 1 { p = sprintf("%d %d", 900 + ($7 + $9 / 2) / 2, 100 + ($8 + $10 / 2) / 2) } END { print p }'; }
 ai_requests() { wc -l < "$OUT/ai-requests.jsonl" 2>/dev/null || echo 0; }
 
+actions_reset
 # 360. The AI panel (C-ai-001, C-ai-002; PDF Expert's AI Copilot, Acrobat's AI Assistant): ✦ in the toolbar opens it
 # beside the pages, naming the provider; the first request waits on the note that only the text is sent (OK
 # sends it); a question typed is answered from the pages: the request carries page 1's text and the question.
@@ -1340,6 +1344,7 @@ RF=$(at Run 740x80+500+640); [ -n "$RF" ] && click $RF 2
 for _ in $(seq 1 20); do [ -f "$OUT/356-input/nested/second-356.pdf" ] && break; sleep 0.5; done
 shot 356-folder-results
 check "356 recursive folder intake processes both PDFs into new copies (${IN:-no Include}; ${RF:-no Run})" "pdfinfo \"$OUT/356-input/first-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && pdfinfo \"$OUT/356-input/nested/second-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/first.pdf\" && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/nested/second.pdf\""
+actions_reset
 # 330. Acrobat's Create PDF from Scanner through the real process adapter: the fake SANE driver
 # returns pixels, not SHEAF_TEST_SCAN's image-copy seam. Also used by the macOS SANE fallback.
 scanner_driver() {

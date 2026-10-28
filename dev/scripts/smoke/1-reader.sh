@@ -377,12 +377,15 @@ check "searching the selected text finds its page ($SE)" "[ \"$SE\" = 'Page 4' ]
 key End; sleep 0.8; key ctrl+a; shifted t; sleep 0.5; key ctrl+shift+e; sleep 1.5; BE=$(bar)
 check "searching the selection with the toolbar hidden shows it again ($BE)" "python3 -c 'import sys; sys.exit(0 if abs($BE - $B0) < 0.03 else 1)'"
 key Escape
-# 6g. The zoom field (ZOOM_X,61): 200 typed and ↩ covers the view's left edge with the page; Fit page
-# from its list (ZOOM_MENU_X,61 ▸ 41 px left of it, 330) shows the background there again.
-leftedge() { import -window root -crop 6x200+300+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
-click $ZOOM_X 61 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "200"; key Return; sleep 2; Z1=$(leftedge)
-click $ZOOM_MENU_X 61 0.6; click $((ZOOM_MENU_X - 41)) 330 2; Z2=$(leftedge)
-check "zoom typed (200 %) and Fit page from the list ($Z1 → $Z2)" "python3 -c 'import sys; sys.exit(0 if $Z1 - $Z2 > 0.02 else 1)'"
+# 6g. The zoom field (ZOOM_X,61): 200 typed and ↩ sets 200 %; Fit page from its list (ZOOM_MENU_X,61 ▸ 41 px
+# left of it, 330) sets a smaller zoom that shows the whole page. The figure is read from the field: with the
+# side panel open the page already covers the view's left edge at 163 %, so the edge said nothing (28/10).
+zoomread() { import -window root -crop 80x26+668+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
+click $ZOOM_X 61 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "200"; key Return; sleep 2; Z1=$(zoomread)
+# The arrow takes its click once the pointer has rested on it (a click arriving with the move did nothing
+# after the field had been typed in, 28/10).
+xdotool mousemove $ZOOM_MENU_X 61; sleep 0.5; xdotool click 1; sleep 1; xdotool mousemove $((ZOOM_MENU_X - 16)) 329; sleep 0.5; xdotool click 1; sleep 2; Z2=$(zoomread)
+check "zoom typed (200 %) and Fit page from the list (${Z1:-?} → ${Z2:-?} %)" "[ \"$Z1\" = 200 ] && [ -n \"$Z2\" ] && [ \"$Z2\" -lt 200 ] && [ \"$Z2\" -gt 20 ]"
 key ctrl+9; sleep 1
 # 6h. By hand: ⌘ + wheel zooms in around the pointer (the zoom field at ZOOM_X grows); a middle-button drag,
 # then a drag with Space held, move the pages (from the top of page 1, where the text is); Space let go
