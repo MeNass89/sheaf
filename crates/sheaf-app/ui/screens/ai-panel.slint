@@ -35,7 +35,9 @@ export component AiPanel inherits Rectangle {
     property <int> scope: AiBridge.space > 0 ? 0 : root.scope-index;
     // A space made or deleted from Rust moves the list's choice too.
     property <int> space-now: AiBridge.space;
-    changed space-now => { space-box.current-index = AiBridge.space; }
+    changed space-now => { space-box.current-index = AiBridge.space; root.renaming = false; }
+    // Rename shows the space's name in a field.
+    property <bool> renaming;
     background: Theme.card;
     border-width: 1px;
     border-color: Theme.input-border;
@@ -112,12 +114,25 @@ export component AiPanel inherits Rectangle {
                 Text { text: f; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; TouchArea { mouse-cursor: pointer; clicked => { AiBridge.space-act("open", k); } } }
                 PanelButton { text: "Remove"; enabled: !AiBridge.busy; clicked => { AiBridge.space-act("remove", k); } }
             }
+            if root.renaming: HorizontalLayout {
+                spacing: 6px;
+                name-field := TextField {
+                    horizontal-stretch: 1;
+                    text: AiBridge.space-name;
+                    // The cursor in the name at once, as a rename in Finder or Acrobat.
+                    init => { self.focus-input(); }
+                    accepted => { AiBridge.space-rename(self.text); root.renaming = false; }
+                }
+                PanelButton { width: 64px; text: "Done"; clicked => { AiBridge.space-rename(name-field.text); root.renaming = false; } }
+            }
             HorizontalLayout {
                 spacing: 6px;
                 alignment: start;
                 PanelButton { text: "Add PDFs…"; enabled: !AiBridge.busy; clicked => { AiBridge.space-act("add", 0); } }
+                PanelButton { text: "Rename"; enabled: !AiBridge.busy; clicked => { root.renaming = true; } }
                 PanelButton { text: "Delete space"; enabled: !AiBridge.busy; clicked => { AiBridge.space-act("delete", 0); } }
             }
+            Text { text: "Drop PDFs on the document to add them to this space."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
         }
         // What the requests read: the whole document (or space), the selection, or some pages.
         if AiBridge.space == 0: HorizontalLayout {
@@ -190,6 +205,7 @@ export component AiPanel inherits Rectangle {
                             PanelButton { text: "Copy"; clicked => { AiBridge.act(root.id, "copy", "" + k, 0, ""); } }
                             PanelButton { text: "Save…"; clicked => { AiBridge.act(root.id, "save", "" + k, 0, ""); } }
                             if m.saved != "": PanelButton { text: "Open"; clicked => { AiBridge.act(root.id, "open", "" + k, 0, ""); } }
+                            if m.audio: PanelButton { text: "Save audio…"; enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "audio", "" + k, 0, ""); } }
                         }
                     }
                 }

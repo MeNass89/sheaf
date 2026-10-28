@@ -31,6 +31,8 @@ struct Msg {
     retry: Option<Request>,
     /// The error is fixed in Preferences ▸ AI (no provider, no key, key refused, AI off).
     settings: bool,
+    /// A podcast script: Save audio… speaks it.
+    podcast: bool,
 }
 
 #[derive(Default)]
@@ -69,6 +71,8 @@ struct State {
     pending: Option<(i32, Request)>,
     /// A provider answers (false: the panel shows how to set one up).
     configured: bool,
+    /// The new name typed for the space in use (Rename), until applied.
+    renaming: Option<String>,
 }
 
 thread_local! {
@@ -111,6 +115,13 @@ pub fn install(ui: &AppWindow) {
     g.on_space_act(move |action, k| {
         if let Some(ui) = weak.upgrade() {
             space_act(&ui, &action, k);
+        }
+    });
+    let weak = ui.as_weak();
+    g.on_space_rename(move |name| {
+        if let Some(ui) = weak.upgrade() {
+            with(|s| s.renaming = Some(name.to_string()));
+            space_act(&ui, "rename", 0);
         }
     });
     let weak = ui.as_weak();
@@ -193,18 +204,19 @@ fn push(ui: &AppWindow) {
         g.set_configured(s.configured || s.provider.is_empty());
         let lang = p.language.as_deref().and_then(|l| tasks::LANGUAGES.iter().position(|x| *x == l)).unwrap_or(0);
         g.set_language(lang as i32);
-        let names: Vec<SharedString> = std::iter::once("This document".into()).chain(s.spaces.iter().map(|sp| SharedString::from(format!("Space: {} ({} PDFs)", sp.name, sp.files.len())))).collect();
+        let names: Vec<SharedString> = std::iter::once("This document".into()).chain(s.spaces.iter().map(|sp| SharedString::from(format!("Space: {} ({} PDF{})", sp.name, sp.files.len(), if sp.files.len() == 1 { "" } else { "s" })))).collect();
         g.set_spaces(ModelRc::new(VecModel::from(names)));
         s.space = s.space.min(s.spaces.len());
         g.set_space(s.space as i32);
         let files: Vec<SharedString> = s.space.checked_sub(1).and_then(|k| s.spaces.get(k)).map(|sp| sp.files.iter().map(|f| SharedString::from(f.file_name().unwrap_or_default().to_string_lossy().as_ref())).collect()).unwrap_or_default();
         g.set_space_files(ModelRc::new(VecModel::from(files)));
+        g.set_space_name(s.space.checked_sub(1).and_then(|k| s.spaces.get(k)).map(|sp| sp.name.as_str()).unwrap_or_default().into());
         let panel = s.open.and_then(|t| s.panels.get(&t));
         let msgs: Vec<AiMessage> = panel
             .map(|p| {
-                let mut v: Vec<AiMessage> = p.messages.iter().map(|m| AiMessage { mine: m.mine, text: m.text.as_str().into(), error: m.error, saved: m.saved.as_ref().map(|p| p.display().to_string()).unwrap_or_default().into(), live: false, retry: m.retry.is_some(), settings: m.settings }).collect();
+                let mut v: Vec<AiMessage> = p.messages.iter().map(|m| AiMessage { mine: m.mine, text: m.text.as_str().into(), error: m.error, saved: m.saved.as_ref().map(|p| p.display().to_string()).unwrap_or_default().into(), live: false, retry: m.retry.is_some(), settings: m.settings, audio: m.podcast }).collect();
                 if let Some(t) = p.live.as_ref().filter(|t| !t.is_empty()) {
-                    v.push(AiMessage { mine: false, text: format!("{t}▍").into(), error: false, saved: SharedString::new(), live: true, retry: false, settings: false });
+                    v.push(AiMessage { mine: false, text: format!("{t}▍").into(), error: false, saved: SharedString::new(), live: true, retry: false, settings: false, audio: false });
                 }
                 v
             })
@@ -310,6 +322,7 @@ fn act(ui: &AppWindow, tab: i32, req: Request) {
             return push(ui);
         }
         "copy" | "save" | "open" => return message_act(ui, tab, &req),
+        "audio" => return save_audio(ui, tab, &req.arg),
         "retry" => {
             let again = req.arg.parse::<usize>().ok().and_then(|k| panel(tab, |p| p.messages.get(k).and_then(|m| m.retry.clone())));
             if let Some(again) = again {
@@ -488,7 +501,9 @@ fn finish(ui: &AppWindow, tab: i32, req: Request, result: Result<String, AiError
             if req.action == "ask" {
                 panel(tab, |p| p.history.push((req.arg.clone(), text.clone())));
             }
-            say(ui, tab, false, text.clone(), false);
+            let podcast = req.action == "podcast";
+            panel(tab, |p| p.messages.push(Msg { text: text.clone(), podcast, ..Default::default() }));
+            push(ui);
             if req.action.starts_with("slides") {
                 save_deck(ui, tab, &title, &text, req.action == "slides-pptx");
             }
@@ -541,6 +556,51 @@ fn save_deck(ui: &AppWindow, tab: i32, title: &str, outline: &str, pptx: bool) {
     });
 }
 
+/// Acrobat's podcast, spoken: the script read by the computer's voices, one per host, into a
+/// WAV file the user names; then opened from its message.
+fn save_audio(ui: &AppWindow, tab: i32, k: &str) {
+    let Ok(k) = k.parse::<usize>() else { return };
+    let Some(script) = panel(tab, |p| p.messages.get(k).map(|m| m.text.clone())) else { return };
+    if panel(tab, |p| p.busy) {
+        return;
+    }
+    let title = reader_ui::ai_doc(tab).map(|d| d.path.file_stem().unwrap_or_default().to_string_lossy().to_string()).unwrap_or_else(|| "Podcast".into());
+    let d = crate::dialog::new(ui).set_title("Save the podcast audio").set_file_name(format!("{title} podcast.wav")).add_filter("WAV audio", &["wav"]);
+    crate::dialog::save_file(ui, d, move |ui, out| {
+        let cancel = Arc::new(AtomicBool::new(false));
+        panel(tab, |p| {
+            p.busy = true;
+            p.status = "Recording the podcast…".into();
+            p.cancel = cancel.clone();
+        });
+        push(ui);
+        let voice = crate::home::prefs().reading_voice;
+        let weak = ui.as_weak();
+        std::thread::spawn(move || {
+            let voices = ai::audio::host_voices(voice.as_deref(), &crate::run::voices());
+            let status = weak.clone();
+            let r = ai::audio::podcast_wav(&script, &ai::audio::SystemSynth, &voices, &out, &mut |i, n| {
+                let _ = status.upgrade_in_event_loop(move |ui| {
+                    panel(tab, |p| if p.busy { p.status = format!("Recording the podcast · turn {i} of {n}…") });
+                    push(&ui);
+                });
+                !cancel.load(Ordering::Relaxed)
+            });
+            let _ = weak.upgrade_in_event_loop(move |ui| {
+                panel(tab, |p| {
+                    p.busy = false;
+                    p.status.clear();
+                    p.messages.push(match r {
+                        Ok(path) => Msg { text: format!("Podcast audio saved: {}", path.display()), saved: Some(path), ..Default::default() },
+                        Err(e) => Msg { text: format!("The podcast could not be recorded: {e}"), error: true, ..Default::default() },
+                    });
+                });
+                push(&ui);
+            });
+        });
+    });
+}
+
 fn message_act(ui: &AppWindow, tab: i32, req: &Request) {
     let Ok(k) = req.arg.parse::<usize>() else { return };
     let Some((text, saved)) = panel(tab, |p| p.messages.get(k).map(|m| (m.text.clone(), m.saved.clone()))) else { return };
@@ -571,6 +631,35 @@ fn message_act(ui: &AppWindow, tab: i32, req: &Request) {
             });
         }
     }
+}
+
+/// The name of the AI space a file dropped on reader tab `tab` goes into: the panel is open there
+/// on a space (Acrobat adds files dropped on a space). None: the drop does what it always does.
+pub fn drop_space(tab: i32) -> Option<String> {
+    with(|s| {
+        if s.open != Some(tab) {
+            return None;
+        }
+        s.space.checked_sub(1).and_then(|i| s.spaces.get(i)).map(|sp| sp.name.clone())
+    })
+}
+
+/// A file dropped while [`drop_space`]: a PDF joins the space, anything else is refused.
+pub fn drop_into_space(ui: &AppWindow, path: PathBuf) {
+    if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
+        return crate::flow::toast(ui, "Only PDFs go in an AI space");
+    }
+    let name = with(|s| {
+        let i = s.space.checked_sub(1)?;
+        let sp = s.spaces.get_mut(i)?;
+        spaces::add(sp, [path]);
+        Some(sp.name.clone())
+    });
+    if let Some(name) = name {
+        save_spaces(ui);
+        crate::flow::toast(ui, &format!("Added to the space “{name}”"));
+    }
+    push(ui);
 }
 
 fn save_spaces(ui: &AppWindow) {
@@ -612,6 +701,20 @@ fn space_act(ui: &AppWindow, action: &str, k: i32) {
                 crate::deliver(vec![f]);
             }
             return;
+        }
+        "rename" => {
+            // Acrobat's Rename space: the name typed, trimmed, unique among the spaces.
+            let name = with(|s| s.renaming.take()).unwrap_or_default();
+            with(|s| {
+                if let Some(i) = s.space.checked_sub(1).filter(|i| *i < s.spaces.len()) {
+                    let others: Vec<Space> = s.spaces.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, sp)| sp.clone()).collect();
+                    let n = name.trim();
+                    if !n.is_empty() && n != s.spaces[i].name {
+                        s.spaces[i].name = spaces::fresh_name(&others, n);
+                    }
+                }
+            });
+            save_spaces(ui);
         }
         "remove" => {
             with(|s| {
@@ -713,4 +816,29 @@ fn pref(ui: &AppWindow, field: &str, value: &str) {
     }
     push_prefs(ui);
     resolve(ui);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A file dropped on a document goes into the AI space only while the panel shows a space on
+    /// that very tab; otherwise the drop opens it as before.
+    #[test]
+    fn drops_go_into_the_space_shown_on_that_tab() {
+        with(|s| {
+            s.open = Some(3);
+            s.spaces = vec![Space { name: "Contracts".into(), files: Vec::new() }];
+            s.space = 1;
+        });
+        assert_eq!(drop_space(3).as_deref(), Some("Contracts"));
+        assert_eq!(drop_space(4), None);
+        with(|s| s.space = 0);
+        assert_eq!(drop_space(3), None);
+        with(|s| {
+            s.space = 1;
+            s.open = None;
+        });
+        assert_eq!(drop_space(3), None);
+    }
 }
