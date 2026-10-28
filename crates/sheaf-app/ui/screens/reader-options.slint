@@ -3,11 +3,19 @@
 import { PlatformBridge } from "../platform.slint";
 import { Slider, ListView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { ToolButton, SmallButton, ColourDot, PanelField } from "reader-parts.slint";
+import { ToolButton, SmallButton, ColourDot, PanelField, PopoverFrame, Divider, StrokeWidth } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
 import { ToolTab, ReaderBridge, Parse } from "../flow-types.slint";
 
-export component ReaderOptionsBar inherits Rectangle {
+// macOS: a hairline between the text format's groups (font | B I U | lists | alignment | size |
+// more fonts), as Pages's format bar groups them.
+component GroupGap inherits Rectangle {
+    width: 17px;
+    height: 20px;
+    Divider { x: 8px; }
+}
+
+export component ReaderOptionsBar inherits PopoverFrame {
     property <bool> confirm-clear;
     in property <ToolTab> tab;
     in property <int> id;
@@ -21,11 +29,6 @@ export component ReaderOptionsBar inherits Rectangle {
     callback focus-pages();
 
     height: root.tab.reader.tool == 10 ? 69px : 36px;
-    border-radius: Theme.radius-item;
-    background: Theme.card;
-    drop-shadow-blur: 10px;
-    drop-shadow-color: #00000030;
-    drop-shadow-offset-y: 2px;
     // Flexboxes, not HorizontalLayouts, so that right to left (Preferences ▸ Interface ▸ Direction)
     // reverses the options; an item centred across replaces the small `y` nudge a row allowed.
     optbar := FlexboxLayout {
@@ -60,18 +63,18 @@ export component ReaderOptionsBar inherits Rectangle {
             ToolButton { icon: @image-url("../icons/circle.svg"); tip: @tr("Oval"); active: root.tab.reader.shape-kind == 1; clicked => { ReaderBridge.shape-option(root.id, 0, 1); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/slash.svg"); tip: @tr("Line"); active: root.tab.reader.shape-kind == 2; clicked => { ReaderBridge.shape-option(root.id, 0, 2); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/move-up-right.svg"); tip: @tr("Arrow"); active: root.tab.reader.shape-kind == 3; clicked => { ReaderBridge.shape-option(root.id, 0, 3); root.focus-pages(); } }
-            if root.tab.reader.shape-kind < 2 || root.tab.reader.shape-kind == 4 || root.tab.reader.shape-kind == 5: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Fill"); primary: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 2 || root.tab.reader.shape-kind == 4 || root.tab.reader.shape-kind == 5: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Fill"); on: root.tab.reader.shape-fill; clicked => { ReaderBridge.shape-option(root.id, 1, 0); root.focus-pages(); } }
             // The arrow's head (a click goes to the next) and both ends (Acrobat's Line Ends).
             if root.tab.reader.shape-kind == 3: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: root.tab.reader.arrow-head; clicked => { ReaderBridge.shape-option(root.id, 8, 0); root.focus-pages(); } }
-            if root.tab.reader.shape-kind == 3: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Both ends"); primary: root.tab.reader.arrow-both; clicked => { ReaderBridge.shape-option(root.id, 9, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind == 3: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Both ends"); on: root.tab.reader.arrow-both; clicked => { ReaderBridge.shape-option(root.id, 9, 0); root.focus-pages(); } }
             // Preview's Loupe (the page magnified in a circle dragged) and Mask (the page dimmed
             // outside the rectangle or oval dragged).
-            if root.tab.reader.shape-kind < 2: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Loupe"); primary: root.tab.reader.shape-special == 1; clicked => { ReaderBridge.shape-option(root.id, 30, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 2: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Loupe"); on: root.tab.reader.shape-special == 1; clicked => { ReaderBridge.shape-option(root.id, 30, 0); root.focus-pages(); } }
             if root.tab.reader.shape-special == 1: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: root.tab.reader.loupe-magnify; clicked => { ReaderBridge.shape-option(root.id, 35, 0); root.focus-pages(); } }
-            if root.tab.reader.shape-kind < 2: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Mask"); primary: root.tab.reader.shape-special == 2; clicked => { ReaderBridge.shape-option(root.id, 31, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 2: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Mask"); on: root.tab.reader.shape-special == 2; clicked => { ReaderBridge.shape-option(root.id, 31, 0); root.focus-pages(); } }
             // Acrobat's Article tool: boxes dragged one after the other make an article's reading
             // order, across columns and pages; End starts the next article; Delete removes one.
-            if root.tab.reader.shape-kind < 2: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Article"); primary: root.tab.reader.shape-special == 3; clicked => { ReaderBridge.shape-option(root.id, 32, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 2: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Article"); on: root.tab.reader.shape-special == 3; clicked => { ReaderBridge.shape-option(root.id, 32, 0); root.focus-pages(); } }
             if root.tab.reader.shape-special == 3: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("End article"); clicked => { ReaderBridge.shape-option(root.id, 33, 0); root.focus-pages(); } }
             if root.tab.reader.shape-special == 3: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Delete article"); clicked => { ReaderBridge.shape-option(root.id, 34, 0); root.focus-pages(); } }
         }
@@ -96,7 +99,7 @@ export component ReaderOptionsBar inherits Rectangle {
             for k[i] in [@tr("Text"), @tr("Check box"), @tr("Radio"), @tr("Dropdown"), @tr("List"), @tr("Date"), @tr("Button"), @tr("Signature"), @tr("Image"), @tr("Barcode")]: SmallButton {
                 cross-axis-self-alignment: CrossAxisAlignment.center;
                 text: k;
-                primary: root.tab.reader.field-kind == i;
+                on: root.tab.reader.field-kind == i;
                 clicked => { ReaderBridge.field-kind(root.id, i); root.focus-pages(); }
             }
             // Acrobat's barcode field: a QR Code of the form's data; its error correction, Low to High.
@@ -104,17 +107,13 @@ export component ReaderOptionsBar inherits Rectangle {
             Rectangle { width: 8px; }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Detect fields"); clicked => { ReaderBridge.detect-fields(root.id); root.focus-pages(); } }
             // Acrobat's View ▸ Grid with Snap to Grid: lines every 9 pt; fields placed or moved land on them.
-            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Grid"); primary: root.tab.reader.form-grid; clicked => { ReaderBridge.form-grid(root.id); root.focus-pages(); } }
+            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Grid"); on: root.tab.reader.form-grid; clicked => { ReaderBridge.form-grid(root.id); root.focus-pages(); } }
             // Acrobat's Tab Order: the order Tab goes through the fields of each page.
             tab-menu := PopupWindow {
                 y: 34px;
                 width: 160px;
                 height: 3 * 28px + 8px;
-                Rectangle {
-                    background: Theme.card;
-                    border-radius: Theme.radius-small;
-                    border-width: 1px;
-                    border-color: Theme.input-border;
+                PopoverFrame {
                     VerticalLayout {
                         padding: 4px;
                         for o[k] in [@tr("By rows"), @tr("By columns"), @tr("By structure")]: Rectangle {
@@ -135,8 +134,8 @@ export component ReaderOptionsBar inherits Rectangle {
             spacing: 4px;
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Link web addresses"); clicked => { ReaderBridge.link-urls(root.id); root.focus-pages(); } }
             Rectangle { width: 6px; }
-            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Border"); primary: root.tab.reader.link-visible; clicked => { ReaderBridge.shape-option(root.id, 4, 0); root.focus-pages(); } }
-            if root.tab.reader.link-visible: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Dashed"); primary: root.tab.reader.link-dashed; clicked => { ReaderBridge.shape-option(root.id, 5, 0); root.focus-pages(); } }
+            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Border"); on: root.tab.reader.link-visible; clicked => { ReaderBridge.shape-option(root.id, 4, 0); root.focus-pages(); } }
+            if root.tab.reader.link-visible: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Dashed"); on: root.tab.reader.link-dashed; clicked => { ReaderBridge.shape-option(root.id, 5, 0); root.focus-pages(); } }
         }
         if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.tool == 11 || (root.tab.reader.tool == 13 && root.tab.reader.link-visible) || root.tab.reader.selected-stroke: FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
@@ -144,26 +143,14 @@ export component ReaderOptionsBar inherits Rectangle {
             alignment: LayoutAlignment.stretch;
             spacing: 2px;
             padding-left: 6px;
-            for w[k] in [2px, 4px, 7px, 10px]: Rectangle {
+            for w[k] in [2px, 4px, 7px, 10px]: StrokeWidth {
                 cross-axis-self-alignment: CrossAxisAlignment.center;
-                width: 22px;
-                height: 22px;
-                border-radius: 11px;
-                border-width: root.tab.reader.pen-width == k ? 2px : 0px;
-                border-color: Theme.text;
-                Rectangle {
-                    width: w;
-                    height: w;
-                    border-radius: w / 2;
-                    background: Theme.text-secondary;
-                }
-                TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => { ReaderBridge.set-pen-width(root.id, k); root.focus-pages(); }
-                }
+                thickness: w;
+                selected: root.tab.reader.pen-width == k;
+                clicked => { ReaderBridge.set-pen-width(root.id, k); root.focus-pages(); }
             }
             // Acrobat's line style: solid or dashed (pen and shapes, or the one selected).
-            if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.selected-stroke: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "- -"; primary: root.tab.reader.dashed; clicked => { ReaderBridge.shape-option(root.id, 17, 0); root.focus-pages(); } }
+            if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.selected-stroke: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "- -"; on: root.tab.reader.dashed; clicked => { ReaderBridge.shape-option(root.id, 17, 0); root.focus-pages(); } }
         }
         // Opacity: any value on a slider, four quick ones (Acrobat's Properties bar, PDF Expert's slider).
         if root.tab.reader.tool == 5 || root.tab.reader.tool == 10 || root.tab.reader.selected-stroke: Rectangle {
@@ -178,13 +165,7 @@ export component ReaderOptionsBar inherits Rectangle {
                 y: 34px;
                 width: 220px;
                 height: 72px;
-                Rectangle {
-                    background: Theme.input-bg;
-                    border-radius: Theme.radius-small;
-                    border-width: 1px;
-                    border-color: Theme.input-border;
-                    drop-shadow-blur: 8px;
-                    drop-shadow-color: #00000022;
+                PopoverFrame {
                     VerticalLayout {
                         padding: 8px;
                         spacing: 6px;
@@ -198,7 +179,7 @@ export component ReaderOptionsBar inherits Rectangle {
                             spacing: 4px;
                             for p in [100, 75, 50, 25]: SmallButton {
                                 text: p + " %";
-                                primary: root.tab.reader.opacity == p;
+                                on: root.tab.reader.opacity == p;
                                 clicked => { ReaderBridge.shape-option(root.id, 2, p); op-menu.close(); root.focus-pages(); }
                             }
                         }
@@ -250,22 +231,26 @@ export component ReaderOptionsBar inherits Rectangle {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 4px;
-            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Sans"); primary: root.tab.reader.text-family == 0 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
-            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Serif"); primary: root.tab.reader.text-family == 1 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
-            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Mono"); primary: root.tab.reader.text-family == 2 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
-            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("B"); primary: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
-            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("I"); primary: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
+            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Sans"); on: root.tab.reader.text-family == 0 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
+            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Serif"); on: root.tab.reader.text-family == 1 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
+            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Mono"); on: root.tab.reader.text-family == 2 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
+            if PlatformBridge.mac: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
+            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("B"); on: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
+            SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("I"); on: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
             // Text added on the page, or the paragraph open: underlined, a bulleted list (Acrobat's Edit
             // PDF format panel).
-            if root.tab.reader.tool == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("U"); primary: root.tab.reader.text-underline; clicked => { ReaderBridge.text-format(root.id, 6, 0); } }
-            if root.tab.reader.tool == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "•"; primary: root.tab.reader.text-bullets; clicked => { ReaderBridge.text-format(root.id, 7, 0); } }
-            if root.tab.reader.tool == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "1."; primary: root.tab.reader.text-numbers; clicked => { ReaderBridge.text-format(root.id, 10, 0); } }
+            if root.tab.reader.tool == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("U"); on: root.tab.reader.text-underline; clicked => { ReaderBridge.text-format(root.id, 6, 0); } }
+            if PlatformBridge.mac && root.tab.reader.tool == 7: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
+            if root.tab.reader.tool == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "•"; on: root.tab.reader.text-bullets; clicked => { ReaderBridge.text-format(root.id, 7, 0); } }
+            if root.tab.reader.tool == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "1."; on: root.tab.reader.text-numbers; clicked => { ReaderBridge.text-format(root.id, 10, 0); } }
+            if PlatformBridge.mac: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
             for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {
                 icon: icon;
                 tip: [@tr("Align left"), @tr("Centre"), @tr("Align right")][k];
                 active: root.tab.reader.text-align == k;
                 clicked => { ReaderBridge.text-format(root.id, 4, k); }
             }
+            if PlatformBridge.mac: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
             // The size: − and + step through the presets; any size can be typed (↩).
             Rectangle {
@@ -296,28 +281,26 @@ export component ReaderOptionsBar inherits Rectangle {
                 }
             }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
+            if PlatformBridge.mac: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
             // Last in the row, so the buttons before it keep their places.
             // One of the computer's fonts, for the paragraph open, new text or a text box
             // (Acrobat's font list).
             Rectangle {
-                width: font-button.preferred-width;
+                // Its own width on macOS (the preferred width read short and the next control
+                // overlapped it); Linux keeps the old one, so the colours after it stay where the
+                // smoke steps click.
+                width: PlatformBridge.mac ? font-button.width : font-button.preferred-width;
                 font-button := SmallButton {
                     y: 2px;
                     text: root.tab.reader.text-font == "" ? @tr("More fonts…") : root.tab.reader.text-font;
-                    primary: root.tab.reader.text-font != "";
+                    on: root.tab.reader.text-font != "";
                     clicked => { ReaderBridge.text-format(root.id, 9, 0); font-menu.show(); }
                 }
                 font-menu := PopupWindow {
                     y: 34px;
                     width: 260px;
                     height: 320px;
-                    Rectangle {
-                        background: Theme.card;
-                        border-radius: Theme.radius-small;
-                        border-width: 1px;
-                        border-color: Theme.input-border;
-                        drop-shadow-blur: 8px;
-                        drop-shadow-color: #00000022;
+                    PopoverFrame {
                         if ReaderBridge.system-fonts.length == 0: Text {
                             text: @tr("Finding the computer's fonts…");
                             font-size: Theme.fs-label;
@@ -344,7 +327,7 @@ export component ReaderOptionsBar inherits Rectangle {
                 }
             }
             // Acrobat's Callout: the text box points at where the click was, by a line with an arrow.
-            if root.tab.reader.tool == 6 && !root.tab.reader.selected-text-box: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Callout"); primary: root.tab.reader.callout; clicked => { ReaderBridge.shape-option(root.id, 11, 0); root.focus-pages(); } }
+            if root.tab.reader.tool == 6 && !root.tab.reader.selected-text-box: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Callout"); on: root.tab.reader.callout; clicked => { ReaderBridge.shape-option(root.id, 11, 0); root.focus-pages(); } }
         }
         if root.tab.reader.has-signature: FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
@@ -378,12 +361,12 @@ export component ReaderOptionsBar inherits Rectangle {
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("New signature"); clicked => { ReaderBridge.signature-reset(root.id); } }
         }
         // Acrobat's Fill & Sign ▸ Add Initials: kept apart from the signatures, placed smaller.
-        if root.tab.reader.tool == 9: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Initials"); primary: root.tab.reader.initials; clicked => { ReaderBridge.shape-option(root.id, 13, 0); root.focus-pages(); } }
+        if root.tab.reader.tool == 9: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Initials"); on: root.tab.reader.initials; clicked => { ReaderBridge.shape-option(root.id, 13, 0); root.focus-pages(); } }
         if root.tab.reader.tool == 9 && root.tab.reader.initials: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("New initials"); clicked => { ReaderBridge.shape-option(root.id, 14, 0); root.focus-pages(); } }
         // A stamp, picture or signature selected (Acrobat's Rotate on a stamp): a quarter turn clockwise.
         if root.tab.reader.selected-turnable: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Turn ↻"); clicked => { ReaderBridge.shape-option(root.id, 16, 0); root.focus-pages(); } }
         // The same place on every page, one click (initials down a contract's pages).
-        if root.tab.reader.tool == 9: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Every page"); primary: root.tab.reader.sign-every-page; clicked => { ReaderBridge.shape-option(root.id, 15, 0); root.focus-pages(); } }
+        if root.tab.reader.tool == 9: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Every page"); on: root.tab.reader.sign-every-page; clicked => { ReaderBridge.shape-option(root.id, 15, 0); root.focus-pages(); } }
         // Which pages (Acrobat's Place on multiple pages: a range, odd, even): empty, all of them.
         if root.tab.reader.tool == 9 && root.tab.reader.sign-every-page: PanelField {
             cross-axis-self-alignment: CrossAxisAlignment.center;
@@ -405,21 +388,35 @@ export component ReaderOptionsBar inherits Rectangle {
             }
             // The sixth: any colour, from a palette or typed (Acrobat's Other color, PDF Expert's
             // colour picker); it stays in the row once picked.
-            Rectangle {
+            custom-cell := Rectangle {
                 width: 22px;
+                property <color> custom: root.light-tool ? root.tab.reader.custom-light : root.tab.reader.custom-ink;
                 ColourDot {
                     y: 4px;
-                    colour: root.light-tool ? root.tab.reader.custom-light : root.tab.reader.custom-ink;
+                    colour: custom-cell.custom;
                     selected: root.tab.reader.selected-annot ? root.tab.reader.annot-colour == 5 : root.tab.reader.colour == 5;
                     clicked => { palette.show(); }
                 }
-                Text {
-                    x: 15px;
-                    y: 1px;
-                    text: "+";
-                    font-size: 10px;
-                    font-weight: Theme.weight-bold;
-                    color: Theme.text-secondary;
+                // None picked yet: an empty ring with a plus, the size of the other dots (the
+                // stray "+" beside the dot read as a typo).
+                if custom-cell.custom.alpha == 0: Rectangle {
+                    y: 4px;
+                    width: 22px;
+                    height: 22px;
+                    Rectangle {
+                        width: 14px;
+                        height: 14px;
+                        border-radius: 7px;
+                        border-width: 1.5px;
+                        border-color: Theme.text-muted;
+                        background: Theme.card;
+                    }
+                    Image {
+                        width: 10px;
+                        height: 10px;
+                        source: @image-url("../icons/plus.svg");
+                        colorize: Theme.text-muted;
+                    }
                 }
                 palette := PopupWindow {
                     x: -80px;
@@ -427,13 +424,7 @@ export component ReaderOptionsBar inherits Rectangle {
                     width: 196px;
                     height: 128px;
                     close-policy: close-on-click-outside;
-                    Rectangle {
-                        background: Theme.input-bg;
-                        border-radius: Theme.radius-small;
-                        border-width: 1px;
-                        border-color: Theme.input-border;
-                        drop-shadow-blur: 8px;
-                        drop-shadow-color: #00000022;
+                    PopoverFrame {
                         VerticalLayout {
                             padding: 8px;
                             spacing: 6px;
@@ -496,7 +487,7 @@ export component ReaderOptionsBar inherits Rectangle {
         if root.tab.reader.tool == 12: SmallButton {
             cross-axis-self-alignment: CrossAxisAlignment.center;
             text: root.tab.reader.stamp-image == "" ? @tr("Image…") : root.tab.reader.stamp-image;
-            primary: root.tab.reader.stamp-image != "";
+            on: root.tab.reader.stamp-image != "";
             clicked => { ReaderBridge.stamp-image(root.id); root.focus-pages(); }
         }
         Rectangle { horizontal-stretch: 1; }
@@ -553,18 +544,18 @@ export component ReaderOptionsBar inherits Rectangle {
             padding-left: 6px;
             // Clicked out vertex by vertex, a double-click to end (Acrobat's Polygon, Cloud, Polygonal Line);
             // hidden while measuring, so the scale and Calibrate fit (a shape icon brings them back).
-            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Polygon"); primary: root.tab.reader.shape-kind == 4; clicked => { ReaderBridge.shape-option(root.id, 0, 4); root.focus-pages(); } }
-            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Cloud"); primary: root.tab.reader.shape-kind == 5; clicked => { ReaderBridge.shape-option(root.id, 0, 5); root.focus-pages(); } }
-            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Polyline"); primary: root.tab.reader.shape-kind == 6; clicked => { ReaderBridge.shape-option(root.id, 0, 6); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Polygon"); on: root.tab.reader.shape-kind == 4; clicked => { ReaderBridge.shape-option(root.id, 0, 4); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Cloud"); on: root.tab.reader.shape-kind == 5; clicked => { ReaderBridge.shape-option(root.id, 0, 5); root.focus-pages(); } }
+            if root.tab.reader.shape-kind < 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Polyline"); on: root.tab.reader.shape-kind == 6; clicked => { ReaderBridge.shape-option(root.id, 0, 6); root.focus-pages(); } }
             // Acrobat's Measuring tools, in true size or at a scale.
             Rectangle { width: 6px; }
-            for m[k] in [@tr("Distance"), @tr("Perimeter"), @tr("Area")]: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: m; primary: root.tab.reader.shape-kind == 7 + k; clicked => { ReaderBridge.shape-option(root.id, 0, 7 + k); root.focus-pages(); } }
+            for m[k] in [@tr("Distance"), @tr("Perimeter"), @tr("Area")]: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: m; on: root.tab.reader.shape-kind == 7 + k; clicked => { ReaderBridge.shape-option(root.id, 0, 7 + k); root.focus-pages(); } }
             // The scale they measure at (Acrobat's Scale Ratio): a click goes to the next.
             if root.tab.reader.shape-kind >= 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: root.tab.reader.measure-scale; clicked => { ReaderBridge.shape-option(root.id, 10, 0); root.focus-pages(); } }
             // Acrobat's Precision: the decimals the measures are written with.
             if root.tab.reader.shape-kind >= 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: root.tab.reader.measure-decimals == 0 ? "1" : root.tab.reader.measure-decimals == 1 ? "0.1" : root.tab.reader.measure-decimals == 2 ? "0.01" : "0.001"; clicked => { ReaderBridge.shape-option(root.id, 18, 0); root.focus-pages(); } }
             // Acrobat's and Bluebeam's Calibrate: measure a length you know, type it.
-            if root.tab.reader.shape-kind == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Calibrate"); primary: root.tab.reader.calibrating; clicked => { ReaderBridge.shape-option(root.id, 12, 0); root.focus-pages(); } }
+            if root.tab.reader.shape-kind == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Calibrate"); on: root.tab.reader.calibrating; clicked => { ReaderBridge.shape-option(root.id, 12, 0); root.focus-pages(); } }
         }
     }
 }

@@ -17,7 +17,8 @@ export component ToolButton inherits Rectangle {
         width: 17px;
         height: 17px;
         source: root.icon;
-        colorize: !root.enabled ? Theme.text-disabled : root.active ? Theme.accent : Theme.text-secondary;
+        // The pill behind shows the state; an accent icon on it read as a second, louder signal.
+        colorize: !root.enabled ? Theme.text-disabled : root.active ? Theme.text : Theme.text-secondary;
     }
     ta := TouchArea {
         enabled: root.enabled;
@@ -37,6 +38,18 @@ export component ToolButton inherits Rectangle {
             color: Theme.on-toast;
         }
     }
+}
+
+// The one look of everything that floats over the reader (menus, the palette, the options and
+// selection bars): an 8 px radius, a hairline, a soft shadow deeper in the dark (macOS popovers).
+export component PopoverFrame inherits Rectangle {
+    background: Theme.card;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: Theme.separator;
+    drop-shadow-blur: 12px;
+    drop-shadow-offset-y: 3px;
+    drop-shadow-color: Theme.dark ? #00000080 : #00000030;
 }
 
 export component Divider inherits Rectangle {
@@ -63,6 +76,28 @@ export component ColourDot inherits Rectangle {
         border-color: #00000022;
     }
     TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// A pen width to pick: a short line as thick as the stroke (Preview's Shape Style), the one in use
+// on a pill (no ring: a ring around a dot read as a colour).
+export component StrokeWidth inherits Rectangle {
+    in property <length> thickness;
+    in property <bool> selected;
+    callback clicked();
+    width: 22px;
+    height: 22px;
+    border-radius: Theme.radius-button;
+    background: root.selected ? Theme.pill-bg : sw.has-hover ? Theme.popup-hover : transparent;
+    Rectangle {
+        width: parent.width - 8px;
+        height: root.thickness;
+        border-radius: root.thickness / 2;
+        background: root.selected ? Theme.text : Theme.text-secondary;
+    }
+    sw := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
@@ -110,23 +145,56 @@ export component PanelTab inherits Rectangle {
     }
 }
 
+// `primary` is a committing button (Use, Print, Done, Apply): solid accent. `on` is a toggle or a
+// segment chosen (Sans, B, Grey, Every page): an accent tint and accent text, never a solid fill,
+// so a bar of choices does not read as a row of default buttons (Apple's HIG, BAMA pass 28/10).
 export component SmallButton inherits Rectangle {
     in property <string> text;
     in property <bool> primary;
+    in property <bool> on;
+    in property <bool> enabled: true;
+    // Shown under the button on hover (a shortcut, as a menu item shows its keys).
+    in property <string> tip;
     callback clicked();
+    property <bool> solid: root.primary && root.enabled;
     height: 26px;
-    width: lbl.preferred-width + 20px;
+    // Measured in the demibold face whatever the weight drawn, so the Linux layout (smoke steps
+    // click at fixed points) keeps its widths; macOS takes the label's own width.
+    width: (PlatformBridge.mac ? lbl.preferred-width : measure.preferred-width) + 20px;
     border-radius: Theme.radius-button;
-    background: root.primary ? (t.has-hover ? Theme.accent-hover : Theme.accent) : (t.has-hover ? Theme.popup-hover : Theme.pill-bg);
-    lbl := Text {
+    // Hover and press only ever darken the rest colour, never lighten it.
+    background: root.solid ? (t.pressed ? Theme.accent-hover.darker(10%) : t.has-hover ? Theme.accent-hover : Theme.accent)
+        : root.on ? Theme.accent.transparentize(t.pressed ? 70% : t.has-hover ? 78% : 85%)
+        : (t.pressed ? Theme.pill-bg.darker(12%) : t.has-hover && root.enabled ? Theme.pill-bg.darker(5%) : Theme.pill-bg);
+    measure := Text {
+        visible: false;
         text: root.text;
         font-size: Theme.fs-label;
         font-weight: Theme.weight-demibold;
-        color: root.primary ? Theme.on-accent : Theme.text;
+    }
+    lbl := Text {
+        text: root.text;
+        font-size: Theme.fs-label;
+        font-weight: root.primary ? Theme.weight-demibold : 400;
+        color: !root.enabled ? Theme.text-disabled : root.solid ? Theme.on-accent : root.on ? Theme.accent : Theme.text;
     }
     t := TouchArea {
+        enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
+    }
+    if t.has-hover && root.tip != "": Rectangle {
+        y: parent.height + 6px;
+        x: (parent.width - self.width) / 2;
+        width: tipt.preferred-width + 14px;
+        height: 22px;
+        border-radius: Theme.radius-small;
+        background: Theme.toast-bg;
+        tipt := Text {
+            text: root.tip;
+            font-size: Theme.fs-caption;
+            color: Theme.on-toast;
+        }
     }
 }
 

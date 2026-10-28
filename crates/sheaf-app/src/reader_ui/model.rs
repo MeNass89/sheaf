@@ -15,6 +15,17 @@ pub(super) fn colour_of(c: [f64; 3]) -> Color {
     Color::from_rgb_u8((c[0] * 255.0) as u8, (c[1] * 255.0) as u8, (c[2] * 255.0) as u8)
 }
 
+/// The custom colour's dot: transparent until one is picked (the row then draws an empty ring
+/// with a plus, not the grey it falls back to).
+fn custom_dot(light: bool) -> Color {
+    let p = crate::home::prefs();
+    if if light { p.custom_light.is_some() } else { p.custom_ink.is_some() } {
+        colour_of(custom_colour(light))
+    } else {
+        Color::from_argb_u8(0, 0, 0, 0)
+    }
+}
+
 pub(super) fn overlay(r: [f64; 4], kind: i32) -> ViewerOverlay {
     ViewerOverlay { x: r[0] as f32, y: r[1] as f32, w: r[2] as f32, h: r[3] as f32, kind }
 }
@@ -122,9 +133,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         && let Some((page, q)) = r.hover
         && !r.picked.as_ref().is_some_and(|(_, l)| l.iter().any(|o| o.1 == q))
     {
-        // Just outside it, to show on a filled shape too.
+        // Just outside it, to show on a filled shape too; thinner and fainter than a selection
+        // (kind 19), so pointing never reads as picking.
         let c = v.viewer.overlay(page, q);
-        marks.push(overlay([c[0] - 3.0, c[1] - 3.0, c[2] + 6.0, c[3] + 6.0], 6));
+        marks.push(overlay([c[0] - 3.0, c[1] - 3.0, c[2] + 6.0, c[3] + 6.0], 19));
     }
     // Edit tool: the objects picked together, moved as the page shows them (the offset of the
     // last preview sent); several in one box; one paragraph with corners to pull.
@@ -473,8 +485,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         annots,
         tool: r.tool,
         colour: if uses_light(r.tool) { r.light as i32 } else { r.ink_colour as i32 },
-        custom_ink: colour_of(custom_colour(false)),
-        custom_light: colour_of(custom_colour(true)),
+        custom_ink: custom_dot(false),
+        custom_light: custom_dot(true),
         theme: r.theme.index(),
         backdrop: reader::backdrop(r.theme).or_else(crate::home::backdrop).map(|c| Color::from_rgb_u8(c[0], c[1], c[2])).unwrap_or_default(),
         marks: ModelRc::new(VecModel::from(marks)),

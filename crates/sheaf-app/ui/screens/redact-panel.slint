@@ -3,6 +3,7 @@
 // make the "Marked for redaction" list. Events go to the Rust side through ViewerBridge.
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
 import { ToolTab, ViewerBridge, Parse } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Segment, InfoBox } from "../widgets/radio-card.slint";
@@ -55,6 +56,11 @@ component Tick inherits Rectangle {
 
 export component RedactPanel inherits VerticalLayout {
     in property <ToolTab> tab;
+    function mark-pages() {
+        if root.enabled {
+            ViewerBridge.mark-page(root.tab.id, root.page-range);
+        }
+    }
     in property <bool> enabled: true;
     in-out property <string> query;
     in-out property <string> patterns: ",";
@@ -175,25 +181,33 @@ export component RedactPanel inherits VerticalLayout {
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }
-    // Whole pages: the one shown, or a range typed (Acrobat's Redact Pages).
-    HorizontalLayout {
+    // Whole pages: the one shown, or a range typed (Acrobat's Redact Pages). On macOS the button
+    // has its own row, the field under it (side by side, the button's words were squeezed); Linux
+    // keeps one row, where the smoke steps read the list below.
+    property <string> page-range;
+    if !PlatformBridge.mac: HorizontalLayout {
         spacing: 6px;
         Segment {
-            text: page-range.text == "" ? @tr("Mark whole page {}", (root.tab.viewer-current + 1)) : @tr("Mark pages");
-            clicked => {
-                if root.enabled {
-                    ViewerBridge.mark-page(root.tab.id, page-range.text);
-                }
-            }
+            text: root.page-range == "" ? @tr("Mark whole page {}", (root.tab.viewer-current + 1)) : @tr("Mark pages");
+            clicked => { root.mark-pages(); }
         }
-        page-range := TextField {
+        TextField {
             width: 110px;
+            text <=> root.page-range;
             placeholder: @tr("Pages: 2-4, 7");
-            accepted => {
-                if root.enabled {
-                    ViewerBridge.mark-page(root.tab.id, self.text);
-                }
-            }
+            accepted => { root.mark-pages(); }
+        }
+    }
+    if PlatformBridge.mac: VerticalLayout {
+        spacing: 6px;
+        Segment {
+            text: root.page-range == "" ? @tr("Mark whole page {}", (root.tab.viewer-current + 1)) : @tr("Mark pages");
+            clicked => { root.mark-pages(); }
+        }
+        TextField {
+            text <=> root.page-range;
+            placeholder: @tr("Pages: 2-4, 7");
+            accepted => { root.mark-pages(); }
         }
     }
 

@@ -568,6 +568,12 @@ fn released_one(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
         // back by it, or by hand when there is none, as a pull of under 2 points).
         if r.image_resize.is_some() || r.edit_press.as_ref().is_some_and(|e| e.dragging) {
             let edit = pull_edit(r, v);
+            // An image moved or resized: its outlines are not drawn at the old place and size
+            // while the edit is on its way (the page already shows the new one); the list is read
+            // again once the edit lands (`after_change`), not before (still kept as asked).
+            if let Some((page, Edit::EditPageImage { .. })) = &edit {
+                r.images.remove(page);
+            }
             r.image_resize = None;
             r.edit_press = None;
             end_live(r, edit.is_some());

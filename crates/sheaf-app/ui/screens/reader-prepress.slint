@@ -34,13 +34,13 @@ export component PreflightSheet inherits Rectangle {
             Text { text: @tr("Inspect the current document"); font-size: Theme.fs-caption; color: Theme.text-muted; }
             HorizontalLayout {
                 spacing: 8px;
-                SmallButton { text: @tr("Close-up print"); primary: root.preset == 0; clicked => { root.preset = 0; fail.text = "150"; target.text = "300"; bleed.text = "2"; } }
-                SmallButton { text: @tr("Large format"); primary: root.preset == 1; clicked => { root.preset = 1; fail.text = "72"; target.text = "150"; bleed.text = "3"; } }
+                SmallButton { text: @tr("Close-up print"); on: root.preset == 0; clicked => { root.preset = 0; fail.text = "150"; target.text = "300"; bleed.text = "2"; } }
+                SmallButton { text: @tr("Large format"); on: root.preset == 1; clicked => { root.preset = 1; fail.text = "72"; target.text = "150"; bleed.text = "3"; } }
             }
             HorizontalLayout {
                 spacing: 8px;
                 for name[k] in [@tr("Digital press"), @tr("PDF/X-1a"), @tr("PDF/X-4")]: SmallButton {
-                    text: name; primary: root.preset == k + 2;
+                    text: name; on: root.preset == k + 2;
                     clicked => { root.preset = k + 2; fail.text = "150"; target.text = "300"; bleed.text = "3"; }
                 }
             }

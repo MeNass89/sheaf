@@ -51,3 +51,51 @@ the trackpad's path: NSEvent magnify → winit PinchGesture → Slint ScaleRotat
 fingers past 800 % then closing waited until the scale came back (1738 % asked, nothing shown). Fixed in
 reader.slint (the gesture's start follows it past 10–800 %); test pinching_back_past_the_largest_zoom_shrinks_at_once;
 on the MBP, the first step back now goes 800 → 720 %.
+
+## BAMA pass: reader (28/10/2026, Opus)
+
+Apple's macOS design rules applied to the reader screens. Anything that moves or resizes a control is macOS only
+(`PlatformBridge.mac`): ~350 smoke steps click at fixed points on Linux. Colours, states and bugs: everywhere.
+
+- SmallButton (reader-parts.slint): `on` for toggles and segments (accent tint 85 %, accent text, never a solid
+  fill), `primary` kept for committing buttons (Use, Print, Done, Apply, Save, Close, Clear, Replace); hover and
+  press only darken; labels weight 400 except primary (600); `enabled` (Print with no printer: grey, dimmed text);
+  `tip` (a shortcut under the button). Every toggle/segment of the options bar, sheets, panel, form, prepress and
+  production moved from `primary:` to `on:`. Widths are measured in the demibold face on Linux, so nothing moves
+  there; macOS takes the label's own width. **All platforms** (widths: macOS only).
+- Toolbar: folds the edit group below 1320 px and shows one page-theme button instead of Day/Sepia/Night (Save was
+  cut at 1280 px). **macOS only**; Linux unchanged (1180 px, three buttons).
+- Toolbar icons: an active tool's icon in the text colour on its pill (it was accent, a second signal); the side
+  panel button no longer shows a pill. **All platforms**.
+- Page selection (model.rs, reader.slint marks): the object under the pointer is its own kind (19: 1 px, accent at
+  60 % transparency); a selection 2 px accent; handles white 9×9, 1 px accent rim, round, a small shadow.
+  **All platforms**. Not done: four handles on any single picked object — only paragraphs, images and comments
+  can be pulled; handles on objects that cannot would promise a resize that does nothing.
+- Bug (pointer.rs): after an image was pulled or dragged, its outline and selection came back at the old place
+  and size until the edit landed (the image list is read again only then). The page's image list is now dropped
+  at release and read again when the edit lands. **All platforms**.
+- Custom colour dot: the stray "+" beside it is gone; until a colour is picked the dot is an empty ring
+  (1.5 px, muted) with a plus icon, same size as the others (model.rs sends a transparent colour then).
+  **All platforms**.
+- Thumbnails: no red frame or red number; a rounded ground behind the page in view (pill grey) and the selected
+  pages (accent 80 % transparent), number in the text colour. Sizes unchanged. **All platforms**.
+- Popovers: one PopoverFrame (radius 8, hairline border, shadow 12 px, #00000030 light / #00000080 dark) for the
+  edit, zoom, More, layout, view, page, tab order, opacity, font, recent searches and mark menus, the palette,
+  the options bar and the selection bar; sheets use Theme.scrim. **All platforms** (no move).
+- Search panel: the header rows keep their height (vertical-stretch 0), the results follow the options with no
+  empty band. **All platforms** (a real bug).
+- Page canvas: grey behind the pages when no backdrop is chosen (#E6E6EB light, #1C1C21 dark), page shadow 6 px
+  #00000040. **macOS only**.
+- Text format bar: hairlines between font | B I U | lists | alignment | size | more fonts. The font chip's width
+  (`preferred-width` read short) is fixed on macOS only: on Linux it would move the colours after it.
+  **macOS only**.
+- Pen widths (options bar, signature sheet): a short line as thick as the stroke, the one in use on a pill
+  (StrokeWidth). Same tile sizes. **All platforms**.
+- Note/edit card titles: "Edit text", "Link", "Replace with" (existing translated strings); the shortcut is the
+  Done button's tip (⌘↩ on macOS, Ctrl+Enter elsewhere). Titles that are the only cue for a key (reply, form
+  field, insert) or an instruction (link target, real length) kept. **All platforms**.
+- Print sheet: the preview is a white sheet with a shadow on a grey canvas (**all platforms**); the buttons' row
+  runs the card's full width at its bottom and the labels are trailing-aligned at one width (**macOS only**).
+- Outline rows: selection and hover inset 6 px, rounded. Comment cards: the colour strip inset and rounded inside
+  the card's corners. **All platforms**. Redact panel: "Mark whole page" on its own row, the pages field under
+  it (**macOS only**; Linux keeps one row, where smoke 18 reads the list below).

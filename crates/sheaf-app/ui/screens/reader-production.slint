@@ -44,8 +44,8 @@ export component ProductionSheet inherits Rectangle {
             Text { text: @tr("Print production"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
             HorizontalLayout {
                 spacing: 8px;
-                SmallButton { text: @tr("Selected / current page"); primary: !root.all; clicked => { root.all = false; } }
-                SmallButton { text: @tr("All pages"); primary: root.all; clicked => { root.all = true; } }
+                SmallButton { text: @tr("Selected / current page"); on: !root.all; clicked => { root.all = false; } }
+                SmallButton { text: @tr("All pages"); on: root.all; clicked => { root.all = true; } }
             }
             ScrollView {
                 vertical-stretch: 1;
@@ -62,7 +62,7 @@ export component ProductionSheet inherits Rectangle {
                     Text { text: @tr("Margins inward from each media box.\nPDF units, before rotation. Artwork stays put.\nSet boxes before adding crop marks."); font-size: Theme.fs-caption; color: Theme.text-muted; }
                     HorizontalLayout {
                         spacing: 8px;
-                        for name[k] in [@tr("Crop"), @tr("Trim"), @tr("Bleed"), @tr("Art")]: SmallButton { text: name; primary: root.box == k; clicked => { root.box = k; } }
+                        for name[k] in [@tr("Crop"), @tr("Trim"), @tr("Bleed"), @tr("Art")]: SmallButton { text: name; on: root.box == k; clicked => { root.box = k; } }
                     }
                     HorizontalLayout {
                         spacing: 10px;
@@ -81,7 +81,7 @@ export component ProductionSheet inherits Rectangle {
                     Text { text: @tr("Marks stay outside the existing bleed.\nThe sheet grows; hidden art stays clipped.\nRegistration targets print on every plate."); font-size: Theme.fs-caption; color: Theme.text-muted; }
                     HorizontalLayout {
                         spacing: 8px;
-                        for name[k] in [@tr("Crop"), @tr("All"), @tr("Register"), @tr("Bars"), @tr("Page info")]: SmallButton { text: name; primary: root.mark-style == k; clicked => { root.mark-style = k; } }
+                        for name[k] in [@tr("Crop"), @tr("All"), @tr("Register"), @tr("Bars"), @tr("Page info")]: SmallButton { text: name; on: root.mark-style == k; clicked => { root.mark-style = k; } }
                     }
                     mark-width := TextField { label: @tr("Mark width (points)"); text: "0.25"; }
                     HorizontalLayout {
@@ -97,7 +97,7 @@ export component ProductionSheet inherits Rectangle {
                         spacing: 8px;
                         for p in ReaderBridge.trap-presets: SmallButton {
                             text: p.name;
-                            primary: trap-name.text == p.name;
+                            on: trap-name.text == p.name;
                             clicked => { root.fill-trap(p); }
                         }
                         Rectangle { horizontal-stretch: 1; }
@@ -133,7 +133,7 @@ export component ProductionSheet inherits Rectangle {
                     Text { text: @tr("Whole document; no password protection.\nNeeds a local Ghostscript installation.\nUse the press's CMYK or Gray ICC profile."); font-size: Theme.fs-caption; color: Theme.text-muted; }
                     HorizontalLayout {
                         spacing: 8px;
-                        for name[k] in [@tr("X-3:2002"), @tr("X-1a:2001"), @tr("X-4")]: SmallButton { text: name; primary: root.press-level == k; clicked => { root.press-level = k; } }
+                        for name[k] in [@tr("X-3:2002"), @tr("X-1a:2001"), @tr("X-4")]: SmallButton { text: name; on: root.press-level == k; clicked => { root.press-level = k; } }
                     }
                     Text { text: @tr("Installed press profiles"); font-size: Theme.fs-caption; color: Theme.text-secondary; }
                     HorizontalLayout {

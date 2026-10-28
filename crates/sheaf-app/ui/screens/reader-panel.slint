@@ -5,7 +5,7 @@ import { ScrollView, ListView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolTab, ReaderBridge, Parse } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
-import { ToolButton, PanelTab, SmallButton, PanelField } from "reader-parts.slint";
+import { ToolButton, PanelTab, SmallButton, PanelField, PopoverFrame } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
 import { Check } from "../widgets/check.slint";
 
@@ -67,8 +67,10 @@ export component ReaderPanel inherits Rectangle {
             Rectangle {
                 vertical-stretch: 1;
                 if root.tab.reader.panel == 3: VerticalLayout {
-                    // The search options on one row, how many results and where on the next.
+                    // The search options on one row, how many results and where on the next. The rows
+                    // keep their height (stretch 0): the results follow them, no empty band between.
                     FlexboxLayout {
+                        vertical-stretch: 0;
                         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                         flex-wrap: FlexboxLayoutWrap.no-wrap;
                         alignment: LayoutAlignment.stretch;
@@ -77,12 +79,12 @@ export component ReaderPanel inherits Rectangle {
                         spacing: 6px;
                         SmallButton {
                             text: @tr("Aa");
-                            primary: root.tab.reader.case-sensitive;
+                            on: root.tab.reader.case-sensitive;
                             clicked => { ReaderBridge.search-options(root.id, !root.tab.reader.case-sensitive, root.tab.reader.whole-words, root.search-text); }
                         }
                         SmallButton {
                             text: @tr("Whole words");
-                            primary: root.tab.reader.whole-words;
+                            on: root.tab.reader.whole-words;
                             clicked => { ReaderBridge.search-options(root.id, root.tab.reader.case-sensitive, !root.tab.reader.whole-words, root.search-text); }
                         }
                         Rectangle { horizontal-stretch: 1; }
@@ -94,6 +96,7 @@ export component ReaderPanel inherits Rectangle {
                         }
                     }
                     FlexboxLayout {
+                        vertical-stretch: 0;
                         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                         flex-wrap: FlexboxLayoutWrap.no-wrap;
                         alignment: LayoutAlignment.stretch;
@@ -122,6 +125,7 @@ export component ReaderPanel inherits Rectangle {
                     // Acrobat's Find and Replace: the words found rewritten in the pages' text. The field
                     // has the row to itself (beside two buttons it was too narrow to read).
                     VerticalLayout {
+                        vertical-stretch: 0;
                         padding-left: 10px;
                         padding-right: 10px;
                         padding-bottom: 6px;
@@ -141,13 +145,7 @@ export component ReaderPanel inherits Rectangle {
                         x: 10px;
                         y: 40px;
                         width: root.panel-width - 20px;
-                        Rectangle {
-                            background: Theme.input-bg;
-                            border-radius: Theme.radius-small;
-                            border-width: 1px;
-                            border-color: Theme.input-border;
-                            drop-shadow-blur: 8px;
-                            drop-shadow-color: #00000022;
+                        PopoverFrame {
                             VerticalLayout {
                                 padding: 4px;
                                 Text {
@@ -248,7 +246,13 @@ export component ReaderPanel inherits Rectangle {
                         padding-bottom: 8px;
                         for r[i] in root.tab.reader.outline: Rectangle {
                             height: 30px;
-                            background: r.current ? Theme.menu-selected-bg : ot.has-hover ? Theme.popup-hover : transparent;
+                            // Inset and rounded, as the search results and a Mac sidebar's rows.
+                            Rectangle {
+                                x: 6px;
+                                width: parent.width - 12px;
+                                border-radius: Theme.radius-button;
+                                background: r.current ? Theme.menu-selected-bg : ot.has-hover ? Theme.popup-hover : transparent;
+                            }
                             // Where a dragged bookmark would land: a line above this row, or the row ringed.
                             if root.drag-mark >= 0 && root.drop-row == i: Rectangle {
                                 y: root.drop-inside ? 0px : -1px;
@@ -560,10 +564,14 @@ export component ReaderPanel inherits Rectangle {
                                     mouse-cursor: pointer;
                                     clicked => { ReaderBridge.annot-clicked(root.id, a.index); root.focus-pages(); }
                                 }
+                                // The comment's colour: a rounded strip inside the card's corners
+                                // (at its very edge it was cut square by them).
                                 Rectangle {
-                                    x: PlatformBridge.rtl ? parent.width - (0) - self.width : 0;
-                                    width: 4px;
-                                    border-radius: 2px;
+                                    x: PlatformBridge.rtl ? parent.width - (5px) - self.width : 5px;
+                                    y: 8px;
+                                    width: 3px;
+                                    height: parent.height - 16px;
+                                    border-radius: 1.5px;
                                     background: a.colour;
                                 }
                                 al := VerticalLayout {
@@ -692,12 +700,21 @@ export component ReaderPanel inherits Rectangle {
                         y: t.y;
                         width: ReaderBridge.thumb-width;
                         height: t.h + 18px;
+                        // One selection language (Preview's sidebar): a rounded ground behind the page
+                        // and its number, grey for the page in view, an accent tint for those selected;
+                        // the page itself keeps its edges (no coloured frame).
+                        Rectangle {
+                            x: -5px;
+                            y: -5px;
+                            width: parent.width + 10px;
+                            height: parent.height + 7px;
+                            border-radius: Theme.radius-item;
+                            background: t.selected ? Theme.accent.transparentize(80%) : t.page == root.tab.viewer-current ? Theme.pill-bg : transparent;
+                        }
                         Rectangle {
                             height: t.h;
                             y: 0;
                             background: Theme.thumb-placeholder;
-                            border-width: t.selected || t.page == root.tab.viewer-current ? 2px : 0px;
-                            border-color: t.selected ? Theme.info : Theme.accent;
                             drop-shadow-blur: 5px;
                             drop-shadow-color: Theme.thumb-shadow;
                             drop-shadow-offset-y: 1px;
@@ -709,16 +726,13 @@ export component ReaderPanel inherits Rectangle {
                                 source: t.image;
                                 image-fit: fill;
                             }
-                            if t.selected: Rectangle {
-                                background: Theme.info.with-alpha(0.12);
-                            }
                         }
                         Text {
                             y: t.h + 3px;
                             width: parent.width;
                             text: t.page + 1;
                             font-size: Theme.fs-caption;
-                            color: t.page == root.tab.viewer-current ? Theme.accent : Theme.text-muted;
+                            color: t.page == root.tab.viewer-current || t.selected ? Theme.text : Theme.text-muted;
                             horizontal-alignment: center;
                         }
                     }
@@ -729,13 +743,7 @@ export component ReaderPanel inherits Rectangle {
                         y: root.menu-y;
                         width: 220px;
                         height: 12 * 30px + 8px;
-                        Rectangle {
-                            background: Theme.card;
-                            border-radius: Theme.radius-small;
-                            border-width: 1px;
-                            border-color: Theme.input-border;
-                            drop-shadow-blur: 8px;
-                            drop-shadow-color: #00000040;
+                        PopoverFrame {
                             VerticalLayout {
                                 padding: 4px;
                                 // Codes as reader_ui::page_op.
@@ -1036,13 +1044,7 @@ export component ReaderPanel inherits Rectangle {
         y: root.mark-menu-y;
         width: 210px;
         height: 9 * 30px + 8px;
-        Rectangle {
-            background: Theme.input-bg;
-            border-radius: Theme.radius-small;
-            border-width: 1px;
-            border-color: Theme.input-border;
-            drop-shadow-blur: 8px;
-            drop-shadow-color: #00000033;
+        PopoverFrame {
             VerticalLayout {
                 padding: 4px;
                 for item in [
