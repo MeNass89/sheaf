@@ -858,12 +858,16 @@ quit
 rm -f "$OUT/smoke-id.p12" "$OUT/smoke-id.cer"
 launch; key ctrl+comma; sleep 0.8
 read CX CY <<< "$(pref_find Create)"; [ -n "$CY" ] && click $CX $CY 0.8
-# The Name field is under its label, just below the button and the line about the file.
-[ -n "$CY" ] && { click 700 $(( CY + 89 )) 0.4; xdotool type --delay 20 "Smoke Signer"; }
-# The form's labels start at x 234, left of pref_find's crop: the same scroll and find, from x 226.
+# The form's labels start at x 234, left of pref_find's crop: the same scroll and find, from x 226. Each
+# field is found from its own label once the form has opened and the page has stopped moving (the Name
+# field was clicked at a place computed from the button, before the form had settled: left empty, 28/10).
 form_find() { local f=""; for _ in $(seq 1 10); do f=$(at "$1" 1040x700+226+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
-read _ PY <<< "$(form_find Password)"; [ -n "$PY" ] && { click 700 $(( PY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
-read _ QY <<< "$(form_find Confirm)"; [ -n "$QY" ] && { click 700 $(( QY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
+sleep 0.8
+# "Name" alone also starts other words on the page: the Name field is the one just above the
+# Organizational unit label.
+read _ NY <<< "$(form_find Organizational)"; [ -n "$NY" ] && { click 700 $(( NY - 31 )) 0.6; xdotool type --delay 30 "Smoke Signer"; }
+read _ PY <<< "$(form_find Password)"; [ -n "$PY" ] && { click 700 $(( PY + 30 )) 0.6; xdotool type --delay 30 smokepw1; }
+read _ QY <<< "$(form_find Confirm)"; [ -n "$QY" ] && { click 700 $(( QY + 30 )) 0.6; xdotool type --delay 30 smokepw1; }
 shot 321-form
 # Create and save… sits under the "Use it for certificate encryption too" box.
 xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.4
